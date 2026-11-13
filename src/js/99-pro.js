@@ -130,7 +130,7 @@ var SBPRO = null;
   }
   const arrow = d => d === "up" ? "↑" : d === "down" ? "↓" : "→";
   const gradeTxt = tr => tr ? `${tr.letter || Math.round(tr.cur) + "%"} ${arrow(tr.dir)}` : "";
-  function insightsBody(I){
+  function insightsBody(I, preview){
     const empty = `<p class="mini">Not enough to go on yet. Insights fill in as you use Focus sessions, finish tasks and get grades back.</p>`;
     const sec = (title, body) => `<section class="pro-card"><h3>${esc(title)}</h3>${body}</section>`;
     const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(x.min / I.maxMin * 100))}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
@@ -141,24 +141,37 @@ var SBPRO = null;
       : `<p class="mini">Make an exam prep plan (open an exam, then Plan My Prep) to see how it's going here.</p>`;
     const early = I.early ? `<div class="pro-early"><b>${esc(SBI18N.fmtN(Math.round(Math.abs(I.early.avg) * 10) / 10))}</b><span>${esc(I.early.avg >= 0 ? "days early, on average, when you finish an assignment." : "days late, on average, when you finish an assignment.")}${I.early.late ? esc(` ${plural(I.early.late, "was", "were")} late.`) : ""}</span></div>`
       : `<p class="mini">Shows up once you've finished a few assignments with due dates.</p>`;
+    if (preview) {
+      // free plan: the first card is real, from the student's own planner; the others say what they'd show, with nothing made up
+      const lockSec = (title, what) => `<section class="pro-card pro-lockcard"><h3>${esc(title)} ${PRO_BADGE}</h3><p class="mini">${esc(what)}</p></section>`;
+      return sec("Study Time and Grades", study)
+        + lockSec("When You Focus Best", "Which part of the day your Focus sessions last longest, day by day.")
+        + lockSec("Exam Prep Follow-Through", "How many of your exam prep sessions you've done so far, and the topics still marked shaky.")
+        + lockSec("Finishing Early", "How many days before the due date you usually finish, and anything that slipped past it.")
+        + `<button type="button" class="btn pro-ins-go" data-act="pro-ins-pro">See Every Insight With Pro</button>`;
+    }
     return sec("Study Time and Grades", study) + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
   }
   let INS = {kind: "week"};
+  const INS_WHY = "Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades.";
   function openInsights(kind){
-    if (locked()) { proSheet("Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades."); return; }
+    // free plan: a preview built from the student's own planner (the first card), the rest with Pro
+    const preview = locked();
     INS.kind = kind === "term" ? "term" : INS.kind || "week";
     const draw = () => {
       const I = compute(INS.kind), b = dlg.querySelector(".pro-ins-body"); if (!b) return;
-      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
+      b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I, preview)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
     };
     if (!(dlg.open && dlg.querySelector(".pro-ins-body"))) openSheet(`<div class="sheet pro-sheet">${head("Insights")}<div class="sheet-body pro-ins-body"></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     draw();
   }
   function reviewHtml(){
     if (!allTasks().length) return "";
-    if (locked()) return `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     let line = "";
     try { line = headline(compute("week")); } catch (e) { line = ""; }
+    // free plan: this week's one-line insight is free too; the full breakdown is a preview with the rest on Pro
+    if (locked()) return line ? `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight</h3><p style="margin:0">${esc(line)}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`
+      : `<section class="wkr-sec"><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>Insights</span>${PRO_BADGE}<span class="spacer"></span>${NEXT}</button></section>`;
     return `<section class="wkr-sec pro-ins-card"><h3>This Week's Insight${tagPro() ? " " + PRO_BADGE : ""}</h3><p style="margin:0">${esc(line || "Not much to go on this week yet. Insights fill in as you focus, finish tasks and get grades back.")}</p><button type="button" class="pro-linkrow" data-act="pro-ins-open"><span>See All Insights</span><span class="spacer"></span>${NEXT}</button></section>`;
   }
 
@@ -258,12 +271,14 @@ var SBPRO = null;
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
   addFeature({id: "sbai", name: "Studyboard AI", where: "Settings, AI", act: "ai-setup", free: "Your Own Key", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
   const early = () => isPro() && !!S().early;
   // What each Pro feature does, in a line, for Show All Pro Features (where it lives is in f.where)
   const DESC = {
     sbai: "AI built in, no key needed: flashcards, quizzes, summaries and more.",
+    forecast: "For each exam: how ready you'll be on the day at your pace, what finishing your prep plan gets you, and the topic to work on next.",
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
@@ -285,7 +300,7 @@ var SBPRO = null;
     email: "Forward school emails and Studyboard finds the deadlines in them."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
-  const TOP = ["sbai", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
+  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
     const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
     const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
@@ -298,9 +313,10 @@ var SBPRO = null;
   const compareRows = () => FEATURES.filter(f => f.compare !== false && TOP.includes(f.id)).sort((a, b) => TOP.indexOf(a.id) - TOP.indexOf(b.id)).map(f => [f.name, f.free || "—", f.pro || "Included"]);
   // The same features as buttons on the tabs they belong to
   function tabBtns(where){
-    if (locked() || !isPro()) return "";
-    const b = (act, id, label, icon, tip) => `<button type="button" class="btn small pro-tab-btn" data-act="${act}"${id ? ` data-id="${id}"` : ""} title="${esc(tip)}" aria-label="${esc(label)}">${ico(icon)}<span>${esc(label)}</span></button>`;
+    const b = (act, id, label, icon, tip, tag) => `<button type="button" class="btn small pro-tab-btn" data-act="${act}"${id ? ` data-id="${id}"` : ""} title="${esc(tip)}" aria-label="${esc(label)}">${ico(icon)}<span>${esc(label)}</span>${tag ? PRO_BADGE : ""}</button>`;
     const f = id => (FEATURES.find(x => x.id === id) || {}).icon || "";
+    // free plan: Insights still shows, tagged PRO, and opens as a preview (the rest of these stay Pro only)
+    if (locked() || !isPro()) return where === "courses" || where === "grades" ? b("pro-ins-open", "", "Insights", f("insights"), "A preview of Insights: study time against grades, with the rest in Studyboard Pro", true) : "";
     const print = FEATURES.some(x => x.id === "print");
     const recap = !!(recapTerm() || (S().recapLast && S().recapLast.from));
     switch (where) {
@@ -316,6 +332,7 @@ var SBPRO = null;
     switch (act) {
       case "pro-ins-open": if (dlg.open && !dlg.querySelector(".pro-ins-body")) dlg.close(); openInsights(); return true;
       case "pro-ins-kind": INS.kind = id === "term" ? "term" : "week"; openInsights(INS.kind); return true;
+      case "pro-ins-pro": proSheet(INS_WHY); return true;
       case "pro-recap-open": if (dlg.open) dlg.close(); openRecap(); return true;
       case "pro-recap-hide": { const T = recapTerm(); if (T) markSeen(T.key); scheduleRender(); toast("Hidden. Your recap stays in Settings, Studyboard Pro."); return true; }
       case "pro-recap-step": if (RC) { const n = RC.i + (Number(id) || 1); RC.i = n >= RC.slides.length ? 0 : Math.max(0, n); drawRecap(); } return true;
@@ -331,6 +348,9 @@ var SBPRO = null;
   css.textContent = `
 .pro-card{background:var(--surface);border:1px solid var(--line);border-radius:4px 12px 12px 12px;box-shadow:var(--shadow);padding:12px 14px;margin:0;display:grid;gap:8px}
 .pro-card h3{margin:0;font:600 1rem var(--display)}
+.pro-lockcard{box-shadow:none;border-style:dashed;background:color-mix(in srgb,var(--ink) 3%,var(--surface))}
+.pro-lockcard p{margin:0}
+.pro-ins-go{justify-self:stretch;width:100%;min-height:44px}
 .pro-say{margin:0;line-height:1.45}
 .pro-cr{display:grid;grid-template-columns:minmax(0,7.5em) minmax(0,1fr) auto auto;gap:10px;align-items:center;font-size:.92rem}
 .pro-cn{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -409,7 +429,8 @@ var SBPRO = null;
   const all = () => ROUT.concat(custom());
   // One routine of your own is free; Pro saves up to 6
   const FREE_OWN = 1;
-  const usable = r => r.free || !P.locked() || custom().findIndex(x => x.id === r.id) < FREE_OWN;
+  // every routine someone already saved keeps working on the free plan; only saving more than one is Pro
+  const usable = r => !!r;
   const canAdd = () => !P.locked() || custom().length < FREE_OWN;
   const same = (r, c) => +c.focus === r.focus && +c.short === r.short && +c.long === r.long && +c.every === r.every;
   function current(){ const c = pomoCfg(); return all().find(r => r.id === S().routine && same(r, c)) || all().find(r => same(r, c)) || null; }
@@ -612,36 +633,51 @@ var SBPRO = null;
       const acc = ((c.right || 0) + 1) / ((c.seen || 0) + 2);
       return {s: BOXS[Math.max(0, Math.min(5, c.box | 0))], d: clampD(9 - acc * 6)};
     }
+    // FSRS-5's short-term weights: a second look the same day nudges stability by the grade
+    const W17 = 0.5425, W18 = 0.0912;
+    // elapsed: days since the last review (null when unknown: treated as on time)
     function next(fs, rating, elapsed){
       const g = G[rating] || 3;
       if (!fs) return {s: W[g - 1], d: clampD(W[4] - (g - 3) * W[5])};
-      const r = R(Math.max(0, elapsed), fs.s);
       const d = clampD(W[7] * W[4] + (1 - W[7]) * (fs.d - W[6] * (g - 3)));
+      if (elapsed === 0) return {s: Math.max(0.1, Math.round(fs.s * Math.exp(W17 * (g - 3 + W18)) * 1000) / 1000), d: Math.round(d * 1000) / 1000};
+      const r = R(elapsed == null ? fs.s : Math.max(0, elapsed), fs.s);
       const s = g === 1 ? Math.min(fs.s, W[11] * Math.pow(fs.d, -W[12]) * (Math.pow(fs.s + 1, W[13]) - 1) * Math.exp(W[14] * (1 - r)))
         : fs.s * (1 + Math.exp(W[8]) * (11 - fs.d) * Math.pow(fs.s, -W[9]) * (Math.exp(W[10] * (1 - r)) - 1) * (g === 2 ? W[15] : 1) * (g === 4 ? W[16] : 1));
       return {s: Math.max(0.1, Math.round(s * 1000) / 1000), d: Math.round(d * 1000) / 1000};
     }
     const days = (fs, rating, retention) => rating === "again" ? 0 : interval(fs.s, retention);
+    // Days for each rating from one state, kept Hard < Good < Easy so the choice always matters
+    function spread(prev, elapsed, retention){
+      const n = k => days(next(prev, k, elapsed), k, retention);
+      const good0 = n("good"), hard = Math.min(n("hard"), good0), good = Math.max(good0, hard + 1);
+      return {again: 0, hard, good, easy: Math.max(n("easy"), good + 1)};
+    }
     const boxFor = n => n <= 0 ? 0 : n <= 1 ? 1 : n <= 3 ? 2 : n <= 8 ? 3 : n <= 20 ? 4 : 5;
-    return {W, R, interval, seed, next, days, boxFor};
+    return {W, R, interval, seed, next, days, spread, boxFor};
   })();
   /*FSRS-END*/
   const smart = d => !!d && d.sched !== "classic";
   const target = d => [0.85, 0.9, 0.95].includes(Number(d && d.retention)) ? Number(d.retention) : 0.9;
-  const elapsedOf = c => c.last && isDate(c.last) ? Math.max(0, dayDiff(c.last, todayISO())) : 0;
+  // Days since the card's last review; with no date (older cards), estimated from its due date less its box's interval
+  const elapsedOf = c => {
+    if (c.last && isDate(c.last)) return Math.max(0, dayDiff(c.last, todayISO()));
+    if (c.due && isDate(c.due)) return Math.max(0, dayDiff(addDays(c.due, -(BOX_DAYS[Math.max(0, Math.min(5, c.box | 0))] || 0)), todayISO()));
+    return null;
+  };
   function cardRated(d, c, rating){
     const day = todayISO(), rv = Object.assign({}, d.rv || {});
     rv[day] = (Number(rv[day]) || 0) + 1;
     Object.keys(rv).sort().slice(0, Math.max(0, Object.keys(rv).length - 120)).forEach(k => delete rv[k]);
     d.rv = rv;
     if (!smart(d)) return null;
-    const fs = FSRS.next(FSRS.seed(c), rating, elapsedOf(c)), n = FSRS.days(fs, rating, target(d));
+    const prev = FSRS.seed(c), el = elapsedOf(c), fs = FSRS.next(prev, rating, el), n = FSRS.spread(prev, el, target(d))[rating] || 0;
     c.fs = fs;
     return {due: addDays(day, n), box: FSRS.boxFor(n)};
   }
   function cardPreview(d, c, rating){
     if (!smart(d)) return "";
-    return addDays(todayISO(), FSRS.days(FSRS.next(FSRS.seed(c), rating, elapsedOf(c)), rating, target(d)));
+    return addDays(todayISO(), FSRS.spread(FSRS.seed(c), elapsedOf(c), target(d))[rating] || 0);
   }
 
   /* Deck stats */
@@ -1080,7 +1116,8 @@ var SBPRO = null;
   let OC = null;
   const TOOLS = [["rect", "Box"], ["oval", "Oval"], ["free", "Freehand"], ["pan", "Pan"]];
   function openEditor(deckId, queue){
-    if (P.locked()) { proWhy("Picture cards are part of Studyboard Pro."); return; }
+    // free plan: picture cards someone already made can still be edited; making cards from new pictures is Pro
+    if (P.locked() && !(queue.length && queue.every(it => it.edit))) { proWhy("Picture cards are part of Studyboard Pro."); return; }
     if (!queue.length) { toast("No pictures to make cards from."); return; }
     OC = {deckId, queue, i: 0, sel: [], mode: queue[0].mode || "one", tool: "rect", multi: false, zoom: {s: 1, x: 0, y: 0}, made: 0, saved: 0};
     openSheet(`<div class="sheet pro-sheet oc-sheet">${head(queue[0].edit ? "Edit Picture Cards" : "Picture Cards")}<div class="sheet-body oc-body"></div><div class="sheet-foot"><button type="button" class="btn" data-act="pro-oc-skip" id="ocSkip">Skip Picture</button><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-oc-keep" id="ocKeep">Keep Cards</button></div></div>`);
@@ -1376,8 +1413,14 @@ var SBPRO = null;
   /* Cards from your files */
   let CF = null;
   function filesSheet(deckId){
-    if (P.locked()) { proWhy("Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro."); return; }
     const d = state.decks[deckId]; if (!d) return;
+    if (P.locked()) {
+      // free plan: the picture cards someone already made stay editable; making more from pictures and PDFs is Pro
+      const sets = setsOf(d), why = "Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro.";
+      if (!sets.length) { proWhy(why); return; }
+      openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body"><h3 class="ic-h">Pictures in This Deck</h3><p class="mini" style="margin:0">Your picture cards stay yours: edit a picture's boxes and answers any time.</p>${setRows(d, sets, true)}<p class="mini" style="margin:0">Making cards from new pictures and PDFs is part of Pro. <button type="button" class="link-btn" data-act="pro-cf-pro">See Pro</button></p></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+      return;
+    }
     CF = {deckId, picked: new Set(), busy: false, msg: "", found: null};
     openSheet(`<div class="sheet pro-sheet">${head("Picture Cards")}<div class="sheet-body cf-body"></div><div class="sheet-foot"><label class="btn" style="position:relative;overflow:hidden">From a Picture<input type="file" accept="image/*" data-cf-pick style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><span class="spacer"></span><button type="button" class="btn primary" data-act="pro-cf-scan" id="cfGo">Find Diagrams</button></div></div>`);
     drawFiles();
@@ -1474,11 +1517,11 @@ var SBPRO = null;
       case "pro-oc-pick": if (OC) { const js = groupOf(OC.queue[OC.i], Number(id)); OC.sel = OC.multi ? [...new Set(OC.sel.concat(js))] : js; drawEditor(); const t = dlg.querySelector(`[data-act="pro-oc-pick"][data-id="${js[0]}"]`); if (t) t.focus(); } return true;
       case "pro-oc-zoom": if (OC) { zoomBy(OC.zoom, id); const st = dlg.querySelector("[data-oc-stage]"); if (st) { st.querySelector(".oc-zoom").style.transform = zoomT(OC.zoom); st.classList.toggle("zoomed", OC.zoom.s > 1); } } return true;
       case "pro-ic-peek": case "pro-ic-type": case "pro-ic-zoom": studyAct(act, id); return true;
+      case "pro-cf-pro": proWhy("Picture cards, made from the pictures and PDFs you upload, are part of Studyboard Pro."); return true;
       case "pro-ic-edit": case "pro-dp-open": {
         const s = String(id || ""), k = s.indexOf("|"), deckId = k >= 0 ? s.slice(0, k) : s, key = k >= 0 ? s.slice(k + 1) : "", d = state.decks[deckId];
         if (!d) return true;
         if (act === "pro-dp-open") { if (dlg.open && !key) dlg.close(); practiceOpen(deckId, key); return true; }
-        if (P.locked()) { proWhy("Picture cards are part of Studyboard Pro."); return true; }
         const set = setsOf(d).find(x => x.key === key); if (!set) { toast("That picture's cards are gone."); return true; }
         openEditor(deckId, [itemFrom(set.cards, {edit: true})]); return true;
       }
@@ -1780,17 +1823,17 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .pr-scale.a4{width:794px}
 .pr-scale .pp-page{min-height:1000px}
 #sbPrint{display:none}
-.pp-page,.pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
+.pp-page,.pp-page .pp-day,.pp-gc,.pp-pd,.pp-box{background:#fff}
 .pp-page{font:13px/1.35 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;color:#0F1F3D;padding:40px 44px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
 .pp-page h1{font:700 26px/1.15 Lexend,system-ui,sans-serif;margin:0}
 .pp-page h2{font:600 16px Lexend,system-ui,sans-serif;margin:0}
 .pp-page em{font-style:normal;color:#4A576E}
-.pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
-.pp-head p{margin:4px 0 0;color:#4A576E}
+.pp-page .pp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.pp-page .pp-head p{margin:4px 0 0;color:#4A576E}
 .pp-box{border:1.5px solid #0F1F3D;border-radius:8px;padding:8px 12px;font-size:12px;max-width:45%}
 .pp-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(150px,auto);gap:10px;flex:1}
-.pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
-.pp-notes{border-style:dashed}
+.pp-page .pp-day{border:1.5px solid #0F1F3D;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:5px;break-inside:avoid}
+.pp-page .pp-notes{border-style:dashed}
 .pp-dh{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #C6CEDB;padding-bottom:4px}
 .pp-dh b{font:600 15px Lexend,system-ui,sans-serif}
 .pp-dh span{color:#4A576E;font-size:12px}
@@ -2119,7 +2162,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const r = curRev(f), u = URLS.get(r.assetId), n = state.notes[id];
     openSheet(`<div class="sheet np-sheet">${head(f.name)}
       <div class="sheet-body"><div class="np-big">${u && u !== "!" ? `<img src="${esc(u)}" alt="${esc(f.name)}">` : `<img alt="${esc(f.name)}" data-np-asset="${esc(r.assetId)}" data-np-type="${esc(r.type || "image/jpeg")}">`}</div></div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="np-file" data-file="${esc(fid)}">File Details</button><span class="spacer"></span>${n && !locked() ? `<button type="button" class="btn" data-act="np-remove" data-id="${esc(id)}" data-file="${esc(fid)}">Remove from Note</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="np-file" data-file="${esc(fid)}">File Details</button><span class="spacer"></span>${n ? `<button type="button" class="btn" data-act="np-remove" data-id="${esc(id)}" data-file="${esc(fid)}">Remove from Note</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button></div>
     </div>`);
     fill();
   }
@@ -2220,6 +2263,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const P = SBPRO;
   const proWhy = why => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(why); };
   const KEY = "studyboard:listen";
+  // free plan: Listen plays this many cards as a preview, then offers Pro
+  const FREE_N = 3, WHY = "Listen is part of Studyboard Pro: your deck read aloud, so you can review on a walk or a commute.";
   const prefs = () => { let o = {}; try { o = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) {} return Object.assign({set: "due", order: "front", gap: 4, rate: 1, voice: "", loop: false}, o); };
   const setPrefs = patch => { try { localStorage.setItem(KEY, JSON.stringify(Object.assign(prefs(), patch))); } catch (e) {} };
   const TTS = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance === "function" ? window.speechSynthesis : null;
@@ -2300,8 +2345,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     while (L && L.run === run && L.playing) {
       const c = cardAt(L.i);
       if (!c) {
-        if (prefs().loop && L.ids.length) { L.i = 0; L.side = "a"; draw(); continue; }
-        L.playing = false; L.i = Math.max(0, L.ids.length - 1); L.side = "b"; draw(); toast("That's every card in the list."); break;
+        if (prefs().loop && L.ids.length && !L.preview) { L.i = 0; L.side = "a"; draw(); continue; }
+        L.playing = false; L.i = Math.max(0, L.ids.length - 1); L.side = "b"; L.end = true; draw(); toast(L.preview ? "That's the free preview. Listen to every card with Studyboard Pro." : "That's every card in the list."); break;
       }
       const first = prefs().order === "back" ? c.back : c.front, second = prefs().order === "back" ? c.front : c.back;
       if (L.side === "a") {
@@ -2316,7 +2361,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     }
   }
   function stopSpeech(){ const t = TTS(); if (t && (t.speaking || t.pending || t.paused)) try { t.cancel(); } catch (e) {} if (L) { clearTimeout(L.timer); L.run++; L.u = null; } }
-  function play(){ if (!L || !L.ids.length) return; L.playing = true; if (L.i >= L.ids.length) { L.i = 0; L.side = "a"; } stopSpeech(); loop(); draw(); }
+  function play(){ if (!L || !L.ids.length) return; L.playing = true; L.end = false; if (L.i >= L.ids.length) { L.i = 0; L.side = "a"; } stopSpeech(); loop(); draw(); }
   function pause(){ if (!L) return; L.playing = false; stopSpeech(); draw(); }
   function step(n){ if (!L || !L.ids.length) return; const was = L.playing; stopSpeech(); L.i = Math.max(0, Math.min(L.ids.length - 1, L.i + n)); L.side = "a"; if (was) { L.playing = true; loop(); } draw(); }
   function meta(c){
@@ -2342,15 +2387,14 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const LISTEN_ICON = '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>';
   function rebuild(){
     const d = deckOf(); if (!d) return;
-    L.ids = pickCards(d.cards, prefs().set, todayISO()).map(c => c.id);
-    L.i = 0; L.side = "a";
+    L.ids = pickCards(d.cards, prefs().set, todayISO()).map(c => c.id).slice(0, L.preview ? FREE_N : Infinity);
+    L.i = 0; L.side = "a"; L.end = false;
   }
   function open(deckId){
     const d = state.decks[deckId]; if (!d) return;
-    if (P.locked()) { proWhy("Listen is part of Studyboard Pro: your deck read aloud, so you can review on a walk or a commute."); return; }
     if (!TTS()) { toast("This device can't read text aloud."); return; }
     if (L) release();
-    L = {deckId, ids: [], i: 0, side: "a", playing: false, timer: 0, run: 0};
+    L = {deckId, ids: [], i: 0, side: "a", playing: false, timer: 0, run: 0, preview: P.locked()};
     rebuild();
     openSheet(`<div class="sheet ls-sheet">${head("Listen")}<div class="sheet-body ls-body"></div><div class="sheet-foot"><span class="mini ls-foot">Listening doesn't count as a review. Study the deck to rate cards.</span><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     draw();
@@ -2369,7 +2413,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       : /Windows/.test(ua) ? "For a more natural voice, open Studyboard in Microsoft Edge (it has Natural voices), or add voices in Settings, Time and Language, Speech."
       : /Android/.test(ua) ? "For a more natural voice, update Speech Services by Google and download a voice in its settings, then choose it here."
       : "Only basic voices are installed on this device. Chrome and Edge come with more natural voices.";
-    b.innerHTML = `<p class="ls-deck"><b>${esc(d ? d.name : "")}</b><span class="mini">${n ? `Card ${Math.min(n, L.i + 1)} of ${n}` : ""}</span></p>
+    const pro = L.preview ? `<div class="ls-pro${L.end ? " on" : ""}"><span>${L.end ? "That's the free preview." : `A free preview: the first ${FREE_N} cards.`} Listen to the whole deck with Studyboard Pro.</span><button type="button" class="btn small primary" data-act="ls-pro">Unlock with Pro</button></div>` : "";
+    b.innerHTML = `${pro}<p class="ls-deck"><b>${esc(d ? d.name : "")}</b><span class="mini">${n ? `Card ${Math.min(n, L.i + 1)} of ${n}` : ""}</span></p>
       ${n ? `<div class="ls-card" aria-live="polite"><span class="ls-side">${L.side === "a" ? (p.order === "back" ? "Back" : "Front") : (p.order === "back" ? "Front" : "Back")}</span>
           <p class="ls-a${L.side === "a" ? " on" : ""}">${esc(first)}</p>${L.side === "b" ? `<p class="ls-b on">${esc(second)}</p>` : `<p class="ls-b ls-hidden" aria-hidden="true">${L.playing ? "Answer in your head…" : "The answer is read after the pause."}</p>`}</div>
         <div class="ls-ctl"><button type="button" class="icon-btn ls-step" data-act="ls-step" data-id="-1" aria-label="Previous card" ${L.i ? "" : "disabled"}>${ICO.prev}</button>
@@ -2385,7 +2430,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <label class="f">Speed<select data-ls="rate">${[[0.8, "Slower"], [1, "Normal"], [1.2, "Faster"], [1.5, "Fastest"]].map(([v, l]) => `<option value="${v}"${Number(p.rate) === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
         </div>
         <label class="f">Voice<select data-ls="voice"><option value="">Automatic${auto ? ` (${esc(auto.name)})` : ""}</option>${mine.map(vOpt).join("")}${others.length ? `<optgroup label="Other languages">${others.map(vOpt).join("")}</optgroup>` : ""}</select></label>${tip ? `<p class="mini ls-vtip">${esc(tip)}</p>` : ""}
-        <label class="ls-loop"><input type="checkbox" data-ls="loop"${p.loop ? " checked" : ""}> Start again at the end</label>
+        ${L.preview ? "" : `<label class="ls-loop"><input type="checkbox" data-ls="loop"${p.loop ? " checked" : ""}> Start again at the end</label>`}
       </div>`;
     b.querySelectorAll("[data-ls]").forEach(el => el.addEventListener("change", () => {
       const k = el.dataset.ls, v = k === "loop" ? el.checked : k === "voice" ? el.value : Number(el.value);
@@ -2419,7 +2464,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const prevToday = P.todayHtml;
   P.todayHtml = () => { let a = ""; try { a = prevToday(); } catch (e) {} let b = ""; try { b = commuteHtml(); } catch (e) {} return a + b; };
   const prevDeck = P.deckBtns;
-  P.deckBtns = d => { const a = prevDeck ? prevDeck(d) : ""; return P.locked() || !TTS() ? a : a + `<button class="btn" data-act="ls-open" data-id="${esc(d.id)}">Listen</button>`; };
+  P.deckBtns = d => { const a = prevDeck ? prevDeck(d) : ""; return !TTS() ? a : a + `<button class="btn" data-act="ls-open" data-id="${esc(d.id)}">Listen${P.locked() ? " " + PRO_BADGE : ""}</button>`; };
 
   hook("act", (act, el, id) => {
     switch (act) {
@@ -2427,6 +2472,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "ls-play": if (L) (L.playing ? pause() : play()); return true;
       case "ls-step": step(Number(id) || 1); return true;
       case "ls-set": { if (!L) return true; const k = el.dataset.k; setPrefs({[k]: id}); if (k === "set") { const was = L.playing; pause(); rebuild(); if (was) play(); } else if (L.playing) { stopSpeech(); L.side = "a"; loop(); } draw(); return true; }
+      case "ls-pro": if (dlg.open) dlg.close(); proWhy(WHY); return true;
       case "ls-hide": try { localStorage.setItem("studyboard:listenHide", todayISO()); } catch (e) {} scheduleRender(); return true;
     }
     return false;
@@ -2439,6 +2485,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   css.textContent = `
 .ls-body{display:grid;gap:14px}
 .ls-deck{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin:0}
+.ls-pro{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px dashed var(--line);border-radius:12px;padding:8px 12px;font-size:.88rem}
+.ls-pro span{flex:1;min-width:12em}
+.ls-pro.on{border-style:solid;border-color:#FFB443;background:color-mix(in srgb,#FFB443 12%,var(--surface))}
 .ls-card{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:4px 14px 14px 14px;box-shadow:var(--shadow);padding:16px 18px;min-height:150px;align-content:start}
 .ls-side{font:700 .72rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .ls-card p{margin:0;font:600 1.15rem/1.4 var(--display);white-space:pre-wrap;overflow-wrap:anywhere}
@@ -2514,6 +2563,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   let R = null;
   const fileOf = () => R && state.files[R.fid];
   const hlOf = f => (Array.isArray(f && f.hl) ? f.hl : []).filter(h => h && h.id && Array.isArray(h.r));
+  const READ_WHY = "The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards.";
+  // what a free plan can't do in the reader: make highlights, comments, notes or cards (proWhy opens the Pro sheet instead)
+  const PDR_MAKE = new Set(["pdr-sel-paper", "pdr-paper", "pdr-paper-to", "pdr-hl-add", "pdr-mk-add", "pdr-sel-cm", "pdr-cm-mode", "pdr-sel-note", "pdr-sel-card", "pdr-hl-note", "pdr-hl-card", "pdr-all-note", "pdr-card-ai", "pdr-card-save"]);
   const mine = () => { const f = fileOf(); return hlOf(f).filter(h => h.a === R.rev); };
   function saveHl(list, label){
     const f = fileOf(); if (!f) return;
@@ -2536,24 +2588,27 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* Opening */
   async function open(fid, page){
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards."); return; }
+    // Free plan: a file that already has highlights or comments opens to view them (what someone made never gets locked away);
+    // highlighting, the AI tools, editing and making notes or cards stay Pro
+    const view = P.locked();
+    if (view && !((isPdf(f) || isOffice(f)) && hlOf(f).length)) { proWhy(READ_WHY); return; }
     if (!isPdf(f) && !isOffice(f)) { fileSheet(f); return; }
     close();
     const rev = curRev(f), ofc = isOffice(f), PDE = ofc ? null : window.SBPDE;
-    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow"};
-    openSheet(`<div class="sheet pdr-sheet" data-mode="read">${head(f.name)}
+    R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow", view};
+    openSheet(`<div class="sheet pdr-sheet" data-mode="read"${view ? ` data-view="1"` : ""}>${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
           <label class="pdr-pg"><span class="sr">Page</span><input type="text" inputmode="numeric" id="pdrPg" value="${R.cur}" aria-label="Page"></label><span class="mini" id="pdrOf">of …</span>
           <button type="button" class="icon-btn" data-act="pdr-go" data-id="1" aria-label="Next page">${ico('<path d="M9 6l6 6-6 6"/>')}</button></span>
         <span class="pdr-zoom" role="group" aria-label="Zoom"><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="-1" aria-label="Zoom out" title="Zoom Out (-)">${ico('<path d="M5 12h14"/>')}</button><button type="button" class="icon-btn" data-act="pdr-zoom" data-id="1" aria-label="Zoom in" title="Zoom In (+)">${ico('<path d="M12 5v14M5 12h14"/>')}</button><button type="button" class="btn small pdr-fit" data-act="pdr-fit" id="pdrFit" aria-pressed="${R.fitMode === "page"}" title="Fit the whole page on screen">Fit<span class="pdr-fit-p"> Page</span></button></span>
         <span class="spacer"></span>
-        <span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>
+        ${view ? "" : `<span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>`}
         <span class="spacer"></span>
-        ${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>
+        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
-        <span class="pdr-g-read">${PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
+        <span class="pdr-g-read">${view ? `<span class="mini pdr-viewnote">Your highlights and comments stay yours to read. Highlighting more is part of Pro.</span><button type="button" class="btn small" data-act="pdr-pro">See Pro</button>` : PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text, then pick a color to highlight it</span></span>
         <span class="spacer"></span>
@@ -2744,11 +2799,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const colorBtns = (act, cur) => COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="${act}" data-id="${k}" style="--h:${hex}" aria-label="${name}"${cur ? ` aria-pressed="${cur === k}"` : ""}></button>`).join("");
   let PEND = null;
   function onSelectEnd(){
-    if (!R || !R.doc || (window.SBPDE && SBPDE.active())) return;
+    if (!R || !R.doc || R.view || (window.SBPDE && SBPDE.active())) return;
     const s = selection();
     if (!s) return;
     PEND = s;
-    showPop(`${colorBtns("pdr-hl-add")}<button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="u" aria-label="Underline" title="Underline"><span style="text-decoration:underline;text-decoration-color:${MARKS.u[1]};text-decoration-thickness:2px">U</span></button><button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="s" aria-label="Strike-through" title="Strike-Through"><span style="text-decoration:line-through;text-decoration-color:${MARKS.s[1]};text-decoration-thickness:2px">S</span></button><span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-sel-cm">Comment</button><button type="button" class="btn small" data-act="pdr-sel-note">Note</button><button type="button" class="btn small" data-act="pdr-sel-card">Card</button>`, s.end);
+    showPop(`${colorBtns("pdr-hl-add")}<button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="u" aria-label="Underline" title="Underline"><span style="text-decoration:underline;text-decoration-color:${MARKS.u[1]};text-decoration-thickness:2px">U</span></button><button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="s" aria-label="Strike-through" title="Strike-Through"><span style="text-decoration:line-through;text-decoration-color:${MARKS.s[1]};text-decoration-thickness:2px">S</span></button><span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-sel-cm">Comment</button><button type="button" class="btn small" data-act="pdr-sel-note">Note</button><button type="button" class="btn small" data-act="pdr-sel-card">Card</button>${window.SBWRITE ? SBWRITE.readerBtn(R.fid, null) : ""}`, s.end);
   }
   // a change to your highlights can be undone: Undo on its message, or Ctrl+Z (the app's own undo is off while the reader is open)
   function hlDone(before, label){
@@ -2792,7 +2847,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!h) { hidePop(); return; }
     if (h.m === "n") { cmEdit(h.id); return; }
     const r = h.r[h.r.length - 1], at = {left: b.left + r[0] * b.width, width: r[2] * b.width, top: b.top + r[1] * b.height, bottom: b.top + (r[1] + r[3]) * b.height};
-    showPop(`${h.m ? `<span class="mini">${MARKS[h.m][0]}</span>` : colorBtns("pdr-hl-color", h.c).replace(/data-id=/g, `data-h="${esc(h.id)}" data-id=`)}<span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-cm" data-id="${esc(h.id)}">${h.cm ? "Edit Comment" : "Comment"}</button><button type="button" class="btn small" data-act="pdr-hl-note" data-id="${esc(h.id)}">${h.n && state.notes[h.n] ? "Open Note" : "Note"}</button><button type="button" class="btn small" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button><button type="button" class="icon-btn pdr-del" data-act="pdr-hl-del" data-id="${esc(h.id)}" aria-label="Remove highlight">${ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`, at);
+    showPop(`${h.m ? `<span class="mini">${MARKS[h.m][0]}</span>` : colorBtns("pdr-hl-color", h.c).replace(/data-id=/g, `data-h="${esc(h.id)}" data-id=`)}<span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-cm" data-id="${esc(h.id)}">${h.cm ? "Edit Comment" : "Comment"}</button><button type="button" class="btn small" data-act="pdr-hl-note" data-id="${esc(h.id)}">${h.n && state.notes[h.n] ? "Open Note" : "Note"}</button><button type="button" class="btn small" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button>${!h.m && window.SBWRITE ? SBWRITE.readerBtn(R.fid, h) : ""}<button type="button" class="icon-btn pdr-del" data-act="pdr-hl-del" data-id="${esc(h.id)}" aria-label="Remove highlight">${ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`, at);
   }
 
   /* Comments: on a highlight, underline or strike-through, or a sticky note on its own */
@@ -2831,6 +2886,22 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const sug = f ? boardFor(f.courseId) : "", ids = [sug].concat(["", ...bs.map(b => b.id)].filter(x => x !== sug));
     R.boardGo = go;
     showPop(`<span class="mini pdr-pop-lbl">Add the note to</span>${ids.map(id => { const b = bs.find(x => x.id === id); return `<button type="button" class="btn small pdr-nb" data-act="pdr-note-to" data-id="${esc(id)}"${id === sug ? ' aria-describedby="pdrNbSug"' : ""}><span class="dot" style="--c:${esc(b ? nbColor(b) : "var(--muted)")}" aria-hidden="true"></span>${esc(nbName(id))}</button>`; }).join("")}<span class="sr" id="pdrNbSug">Suggested: this course's board</span>`, at);
+  }
+  // the open PDF's first pages, for Writing Studio to find the DOI in (it fills in the new source's details)
+  async function firstText(){
+    const doc = R && R.doc; if (!doc || doc.office || typeof doc.getPage !== "function") return "";
+    let out = "";
+    for (let i = 1; i <= Math.min(2, doc.numPages || 1); i++) { try { const c = await (await doc.getPage(i)).getTextContent(); out += c.items.map(x => x.str).join(" ") + "\n"; } catch (e) {} }
+    return out;
+  }
+  function toPaper(h, at){
+    if (!h || !window.SBWRITE) return;
+    const inT = SBWRITE.quotedIn(R.fid, h.id);
+    if (inT) { hidePop(); toast(`Already a quote in ${inT.title}`, null, {label: "Open", fn: () => { if (dlg.open) dlg.close(); SBWRITE.open(inT.id, "quotes"); }}); return; }
+    const ps = SBWRITE.papersFor(R.fid);
+    if (!ps.length) { hidePop(); toast("No open paper or essay for this course yet."); return; }
+    if (ps.length === 1) { hidePop(); SBWRITE.addQuote(ps[0].id, R.fid, h, {text: firstText}); return; }
+    showPop(`<span class="mini pdr-pop-lbl">Add the quote to</span>${ps.map(t => `<button type="button" class="btn small pdr-nb" data-act="pdr-paper-to" data-id="${esc(h.id)}" data-t="${esc(t.id)}"><span class="dot" style="--c:${esc(t.courseId ? colorOf(t.courseId) : "var(--muted)")}" aria-hidden="true"></span>${esc(String(t.title).length > 34 ? String(t.title).slice(0, 33) + "…" : t.title)}</button>`).join("")}`, at);
   }
   function hlNote(h, to){
     const f = fileOf(); if (!f || !h) return;
@@ -2998,6 +3069,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!act.startsWith("pdr-")) return false;
     if (act === "pdr-open") { if (dlg.open) dlg.close(); setTimeout(() => open(id, Number(el.dataset.page) || 0), 0); return true; }
     if (!R) return true;
+    // viewing on the free plan: reading, moving around, the list, recolouring and removing stay; anything that makes something new is Pro
+    if (R.view && (act === "pdr-pro" || PDR_MAKE.has(act) || (act === "pdr-mode" && el.dataset.id !== "read"))) { hidePop(); proWhy(READ_WHY); return true; }
     const byId = x => mine().find(h => h.id === x);
     switch (act) {
       case "pdr-go": goTo(R.cur + (Number(id) || 1)); break;
@@ -3024,6 +3097,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-hl-note": R.popAt = el.getBoundingClientRect(); hlNote(byId(id)); break;
       case "pdr-note-to": { const go = R.boardGo; R.boardGo = null; hidePop(); if (go) go(id || ""); break; }
       case "pdr-hl-card": hidePop(); cardForm(byId(id)); break;
+      // Writing Studio: a highlight becomes a quote in a paper (straight in when there's one paper, else pick it)
+      case "pdr-sel-paper": { const h = addFromSel(R.color); if (h) toPaper(h, R.popAt); break; }
+      case "pdr-paper": toPaper(byId(id), el.getBoundingClientRect()); break;
+      case "pdr-paper-to": { const h = byId(id); hidePop(); if (h && window.SBWRITE) SBWRITE.addQuote(el.dataset.t, R.fid, h, {text: firstText}); break; }
       case "pdr-hl-del": { const h = byId(id); if (!h) break; const before = mine(); saveHl(before.filter(x => x.id !== id)); hidePop(); paint(h.p); counts(); if (R.side) side(); hlDone(before, "Highlight removed"); break; }
       case "pdr-side": R.side = !R.side; R.card = null; side(); break;
       case "pdr-go-h": { const h = byId(id); if (h) goTo(h.p); break; }
@@ -3036,8 +3113,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     return true;
   });
 
-  P.canRead = f => !P.locked() && (isPdf(f) || isOffice(f));
-  P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">Read${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
+  P.canRead = f => (isPdf(f) || isOffice(f)) && (!P.locked() || hlOf(f).length > 0);
+  P.fileBtns = f => P.canRead(f) ? `<button type="button" class="btn" data-act="pdr-open" data-id="${esc(f.id)}">${P.locked() ? "View Highlights" : "Read"}${hlOf(f).length ? ` <span class="pdr-badge">${hlOf(f).length}</span>` : ""}</button>` : "";
   P.addFeature({id: "reader", name: "PDF Editor", where: "Open a PDF, Word, PowerPoint or Excel file in Files, then Read: highlight, make notes and cards, or Edit a PDF's text", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5z"/><path d="M8 8h6M8 12h4"/><path d="M15 16l2 2 4-4"/>'});
   Object.assign(P, {openReader: open, reader: () => R, readerBytes: () => R ? bytesOf(R.rev) : Promise.reject(new Error("closed")), readerGo: n => goTo(n)});
   Object.assign(window.__sbProStudy || {}, {reader: () => R, readerRects: rectsOn, readerHit: hitAt, idbSet, idbGet});
@@ -3052,6 +3129,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .pdr-g-read,.pdr-g-mark{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pdr-sheet:not([data-mode="mark"]) .pdr-g-mark,.pdr-sheet[data-mode="mark"] .pdr-g-read{display:none}
 .pdr-sheet[data-mode="edit"] .pdr-bar2{display:none}
+.pdr-sheet[data-view] .pdr-modes,.pdr-sheet[data-view] [data-act="pdr-hl-note"],.pdr-sheet[data-view] [data-act="pdr-hl-card"],.pdr-sheet[data-view] [data-act="pdr-all-note"]{display:none}
+.pdr-viewnote{color:var(--muted)}
 .pdr-markhint{color:var(--muted)}
 .pdr-pop .pdr-pop-lbl{padding:0 6px;white-space:nowrap}
 .pdr-pop .pdr-nb{display:inline-flex;align-items:center;gap:6px}
@@ -3232,7 +3311,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     parts: id => dTx(["parts"], "readonly", t => { const out = []; const r = t.objectStore("parts").openCursor(range(id)); r.onsuccess = () => { const c = r.result; if (!c) return; out.push([String(c.key).slice(id.length + 1), c.value]); c.continue(); }; D._p = out; }).then(() => D._p || []),
     del: id => dTx(["meta", "parts"], "readwrite", t => { t.objectStore("meta").delete(id); t.objectStore("parts").delete(range(id)); }).catch(() => {})
   };
-  const draftMeta = R => ({id: R.draftId, cid: R.cid || "", title: R.title || "", at: R.t0 || Date.now(), dur: R.dur || elapsed(), mime: R.mime || "", text: R.text != null ? R.text : joinTranscript(R.pieces, R.marks), by: R.by || "", marks: R.marks || [], state: R.view === "rec" ? "recording" : "review", updated: Date.now()});
+  const draftMeta = R => ({id: R.draftId, cid: R.cid || "", title: R.title || "", at: R.t0 || Date.now(), dur: R.dur || elapsed(), mime: R.mime || "", text: R.text != null ? R.text : joinTranscript(R.pieces, R.marks), by: R.by || "", marks: R.marks || [], typed: R.typed || [], segAt: R.segAt || [], tp: (R.tp || R.pieces || []).map(p => ({t: p.t, s: String(p.s || "").slice(0, 120)})), tpLive: R.tp ? !!R.tpLive : !R.aiCaps, state: R.view === "rec" ? "recording" : "review", updated: Date.now()});
   let draftT = 0;
   const draftSoon = () => { clearTimeout(draftT); draftT = setTimeout(() => { if (REC && REC.draftId) D.meta(draftMeta(REC)).then(loadDrafts); }, 600); };
   const loadDrafts = () => D.list().then(l => { DRAFTS = l.filter(d => !(REC && REC.draftId === d.id)).sort((a, b) => b.at - a.at); if (ui.tab === "courses" && ui.courseId) render(); });
@@ -3245,7 +3324,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (!chunks.length) { toast("This draft's audio isn't on this device any more."); return; }
     const blob = new Blob(chunks, {type: m.mime || (chunks[0] && chunks[0].type) || "audio/webm"});
     REC = {view: "review", draftId: id, cid: m.cid, fixed: !!courseOf(m.cid), title: m.title || titleFor(m.cid), blob, url: URL.createObjectURL(blob), dur: m.dur || 0, mime: m.mime, t0: m.at,
-      segs: segs.length ? segs : blob.size < 18e6 ? [blob] : [], text: m.text || "", by: m.by || "", marks: m.marks || [], pieces: [], chunks: [], keep: !!caps.assets || sbActive() || !!DESK};
+      segs: segs.length ? segs : blob.size < 18e6 ? [blob] : [], text: m.text || "", by: m.by || "", marks: m.marks || [], typed: Array.isArray(m.typed) ? m.typed : [], segAt: Array.isArray(m.segAt) ? m.segAt : [], tp: Array.isArray(m.tp) ? m.tp : [], tpLive: !!m.tpLive, pieces: [], chunks: [], keep: !!caps.assets || sbActive() || !!DESK};
     DRAFTS = DRAFTS.filter(d => d.id !== id);
     if (dlg.open) dlg.close();
     sheet();
@@ -3267,7 +3346,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (REC && REC.view !== "setup") { sheet(); return; }
     if (!canRecord()) { toast("This browser can't record audio."); return; }
     const fixed = !!(cidIn && courseOf(cidIn)), cid = fixed ? cidIn : courseNow();
-    REC = {view: "setup", cid, fixed, title: titleFor(cid), captions: !!capsKind(), pieces: [], interim: "", marks: [], segs: [], chunks: []};
+    REC = {view: "setup", cid, fixed, title: titleFor(cid), captions: !!capsKind(), pieces: [], interim: "", marks: [], segs: [], chunks: [], typed: []};
     sheet();
   }
   function sheet(){
@@ -3296,11 +3375,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       draw(); return;
     }
     const mime = pickMime(m => MediaRecorder.isTypeSupported(m));
-    Object.assign(REC, {stream, mime, err: "", view: "rec", t0: Date.now(), pausedMs: 0, pauseAt: 0, chunks: [], segs: [], pieces: [], marks: []});
+    Object.assign(REC, {stream, mime, err: "", view: "rec", t0: Date.now(), pausedMs: 0, pauseAt: 0, chunks: [], segs: [], pieces: [], marks: [], typed: [], segAt: []});
     const mk = () => new MediaRecorder(stream, mime ? {mimeType: mime, audioBitsPerSecond: 32000} : {audioBitsPerSecond: 32000});
     REC.draftId = "ld" + uid(); REC.nc = 0; REC.ns = 0; D.meta(draftMeta(REC));
     REC.mr = mk(); REC.mr.ondataavailable = e => { if (e.data && e.data.size && REC) { REC.chunks.push(e.data); D.part(REC.draftId, "c" + pad(REC.nc++), e.data); D.meta(draftMeta(REC)); } }; REC.mr.start(10000);
-    const seg = () => { if (!REC || !REC.stream) return; const r = mk(), parts = []; r.ondataavailable = e => { if (e.data && e.data.size) parts.push(e.data); }; r.onstop = () => { if (parts.length && REC) { const b = new Blob(parts, {type: r.mimeType || mime}); REC.segs.push(b); D.part(REC.draftId, "s" + pad(REC.ns++), b); } }; try { r.start(); REC.seg = r; } catch (e) { REC.seg = null; REC.noSeg = true; } };
+    const seg = () => { if (!REC || !REC.stream) return; const r = mk(), parts = []; r.ondataavailable = e => { if (e.data && e.data.size) parts.push(e.data); }; r.onstop = () => { if (parts.length && REC) { const b = new Blob(parts, {type: r.mimeType || mime}); REC.segs.push(b); D.part(REC.draftId, "s" + pad(REC.ns++), b); } }; try { r.start(); REC.seg = r; REC.segAt.push(elapsed()); } catch (e) { REC.seg = null; REC.noSeg = true; } };
     seg();
     REC.segTimer = setInterval(() => { if (!REC || REC.view !== "rec" || REC.pauseAt || REC.noSeg) return; try { REC.seg.stop(); } catch (e) {} seg(); }, SEG_MS);
     meter(); captionsOn();
@@ -3398,6 +3477,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     REC.dur = REC.tEnd - REC.t0 - REC.pausedMs;
     if (!REC.segs.length && REC.blob.size && REC.blob.size < 18e6) REC.segs = [REC.blob];
     REC.text = joinTranscript(REC.pieces, REC.marks); REC.by = REC.text ? (REC.aiCaps && !REC.capMiss && !REC.capPend ? "ai" : "live") : "";
+    REC.tp = REC.pieces.map(p => ({t: p.t, s: p.s})); REC.tpLive = !REC.aiCaps;
     if (REC.aiCaps && REC.capMiss) toast("A few seconds of captions were missed. Transcribe with AI to fill them in.");
     REC.view = "review"; D.meta(draftMeta(REC)); REC.keep = !!caps.assets || sbActive() || !!DESK;
     pill(); sheet();
@@ -3473,7 +3553,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const failed = res.filter(x => !x.ok), got = res.map(x => x.ok ? x.v : "").filter(Boolean);
     if (failed.length === n) { R.view = "review"; R.err = `${(failed[0].e && failed[0].e.message) || "Couldn't transcribe the recording."} Your recording is safe: try again, or save it without a transcript.`; draw(); return; }
     const marks = R.marks.length ? "\n\n" + R.marks.map(t => `★ ${clock(t)}`).join("\n") : "";
-    R.text = res.map((x, i) => x.ok ? x.v : `[Part ${i + 1} couldn't be transcribed]`).filter(Boolean).join("\n\n") + marks; R.by = "ai";
+    // where each part starts in the recording: kept while recording, every 5 minutes for an uploaded recording split here
+    const partAt = i => R.segAt && R.segAt.length === n ? R.segAt[i] : i * SEG_MS;
+    const parts = res.map((x, i) => [x.ok ? x.v : `[Part ${i + 1} couldn't be transcribed]`, partAt(i)]);
+    R.text = parts.map(p => p[0]).filter(Boolean).join("\n\n") + marks; R.by = "ai";
+    R.tp = parts.filter(p => String(p[0] || "").trim()).map(p => ({t: p[1], s: p[0]})); R.tpLive = false;
     R.view = "review"; R.err = failed.length ? `${failed.length} of ${n} parts couldn't be transcribed in time. Transcribe Again to retry, or fix the gaps by hand.` : ""; draw(); draftSoon();
     void got;
   }
@@ -3561,11 +3645,13 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       try { sum = await limit(summarize(raw, R.title, courseLabel(c)), 150000); } catch (e) { console.warn("lecture: summary", e); }
       if (!org || !sum) toast("The AI couldn't finish everything. You can try again from the lecture.");
     }
-    const f = normFile({id: uid(), name: R.title, courseId: R.cid, folderId: "lectures", kind: "file", created: Date.now(), updated: Date.now(), desc: `Recorded ${fmtShort(todayISO())}, ${clock(R.dur)} long.`,
-      revs: rev ? [rev] : [], dur: Math.round(R.dur / 1000), ...(R.localCopy && !rev && !cloudRec ? {desc: `Recorded ${fmtShort(todayISO())}, ${clock(R.dur)} long. The recording was saved to the device it was made on.`} : {}), ...(cloudRec ? {cloud: cloudRec, url: cloudRec.url} : {}), tr: raw ? {text: raw.slice(0, 200000), by: R.by || "typed", at: Date.now()} : null,
-      lec: {org: org.slice(0, 200000), sum: sum.slice(0, 20000), at: Date.now()}});
+    const RP = window.SBREPLAY, fid = uid(), tAt = RP ? RP.anchors(raw, R.tp, R.tpLive) : [];
+    const typedNote = RP ? RP.typedNote(R, fid, R.cid) : null;
+    const f = normFile({id: fid, name: R.title, courseId: R.cid, folderId: "lectures", kind: "file", created: Date.now(), updated: Date.now(), desc: `Recorded ${fmtShort(todayISO())}, ${clock(R.dur)} long.`,
+      revs: rev ? [rev] : [], dur: Math.round(R.dur / 1000), ...(R.localCopy && !rev && !cloudRec ? {desc: `Recorded ${fmtShort(todayISO())}, ${clock(R.dur)} long. The recording was saved to the device it was made on.`} : {}), ...(cloudRec ? {cloud: cloudRec, url: cloudRec.url} : {}), tr: raw ? Object.assign({text: raw.slice(0, 200000), by: R.by || "typed", at: Date.now()}, tAt.length ? {tAt} : {}) : null,
+      lec: Object.assign({org: org.slice(0, 200000), sum: sum.slice(0, 20000), at: Date.now()}, R.marks && R.marks.length ? {marks: R.marks.slice(0, 200).map(Math.round)} : {}, typedNote ? {att: [{k: "note", id: typedNote.id}]} : {})});
     ui.courseTab = "lectures"; ui.courseTabFor = R.cid;
-    applyChanges([{kind: "file", id: f.id, after: f}], `Saved “${R.title}” to Lectures`);
+    applyChanges([{kind: "file", id: f.id, after: f}].concat(typedNote ? [{kind: "note", id: typedNote.id, after: typedNote}] : []), `Saved “${R.title}” to Lectures`);
     if (R.url) URL.revokeObjectURL(R.url);
     if (R.draftId) draftDrop(R.draftId);
     if (REC === R) { REC = {view: "done", fileId: f.id, cid: R.cid}; pill(); draw(); }
@@ -3597,8 +3683,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       return;
     }
     if (REC.view === "rec") {
+      const ta0 = document.getElementById("rpRecNotes"), keepCaret = ta0 && document.activeElement === ta0 ? [ta0.selectionStart, ta0.selectionEnd, ta0.scrollTop] : null;
       b.innerHTML = `<div class="lec-live${REC.pauseAt ? " paused" : ""}"><span class="lec-state"><i class="lec-dot" aria-hidden="true"></i>${REC.pauseAt ? "Paused" : "Recording"}</span><b class="lec-time" aria-live="off">${clock(elapsed())}</b><span class="lec-lvl" aria-hidden="true"><i></i></span><span class="mini">${esc(REC.title)}</span></div>
-        <div class="lec-caps" aria-live="off"></div>`;
+        <div class="lec-caps" aria-live="off"></div>${window.SBREPLAY ? SBREPLAY.recNotesHtml(REC) : ""}`;
+      if (window.SBREPLAY) { SBREPLAY.recNotesWire(REC, elapsed, draftSoon); const ta = document.getElementById("rpRecNotes"); if (ta && keepCaret) { ta.focus(); ta.setSelectionRange(keepCaret[0], keepCaret[1]); ta.scrollTop = keepCaret[2]; } }
       f.innerHTML = `<button type="button" class="btn danger" data-act="lec-discard">Discard</button><span class="spacer"></span><button type="button" class="btn" data-act="lec-mark">★ Mark This Moment</button><button type="button" class="btn" data-act="lec-pause">${REC.pauseAt ? "Resume" : "Pause"}</button><button type="button" class="btn primary" data-act="lec-stop">Stop</button>`;
       paintCaps(); return;
     }
@@ -3618,12 +3706,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         <div class="lec-sum"><span class="mini">${clock(REC.dur)} · ${mb.toFixed(1)} MB${REC.marks.length ? ` · ${REC.marks.length} mark${REC.marks.length === 1 ? "" : "s"}` : ""}</span></div>
         <audio controls preload="metadata" src="${esc(REC.url)}" class="lec-audio"></audio>
         <label class="f"><span class="lh">Transcript${REC.by === "ai" ? " (by AI)" : REC.by === "live" ? " (live captions)" : ""}</span><textarea id="lecText" rows="8" maxlength="200000" placeholder="No transcript yet. Type notes here, or transcribe the recording.">${esc(REC.text || "")}</textarea></label>
+        ${window.SBREPLAY ? SBREPLAY.recNotesHtml(REC, true) : ""}
         ${REC.segs.length ? (canHear() ? `<div class="row-actions"><button type="button" class="btn small ai-btn" data-act="lec-ai">${AI_ICON} ${REC.by === "ai" ? "Transcribe Again" : "Transcribe with AI"}</button><span class="mini">The audio goes to ${esc(hearWho())}${REC.segs.length > 1 ? ` in ${REC.segs.length} parts` : ""}.</span></div>` : `<p class="mini">With a Gemini or OpenAI key (Settings, AI Features), the recording can be transcribed by AI.</p>`) : ""}
         <label class="lec-tg"><input type="checkbox" id="lecKeep"${REC.keep && store ? " checked" : ""}${store ? "" : " disabled"}><span><b>Keep the recording</b><span class="mini">${!store ? "Sign in to keep recordings in your file storage." : where !== "studyboard" ? `With the lecture, to listen back. ${mb.toFixed(1)} MB in your ${esc(CLOUD_NAMES[where])}, not your Studyboard storage.` : `With the lecture, to listen back. Uses ${mb.toFixed(1)} MB of your file storage.`}</span></span></label>
         ${clouds.length ? `<label class="f lec-where"><span class="lh">Keep It In</span><select id="lecWhere">${[["studyboard", "Studyboard"]].concat(clouds.map(p => [p, CLOUD_NAMES[p]])).map(([v, n]) => `<option value="${v}"${v === where ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>` : ""}
         <p class="mini">${aiReady() ? `Save puts it in the course's Lectures, where ${esc(aiWho("AI"))} tidies the transcript and writes a summary.` : "Save puts it in the course's Lectures. Set up AI (Settings, AI Features) for a tidied transcript and summary too."}</p>`;
       f.innerHTML = `<button type="button" class="btn danger" data-act="lec-discard">Discard</button><span class="spacer"></span><button type="button" class="btn primary" data-act="lec-save">Save Lecture</button>`;
       { const ws = $("#lecWhere"), kb = $("#lecKeep"); if (ws) ws.addEventListener("change", () => { REC.where = ws.value; if (kb && !kb.checked) kb.checked = true; const t = $("#lecText"); if (t) REC.text = t.value; REC.keep = true; draw(); }); if (kb) kb.addEventListener("change", () => { REC.keep = kb.checked; }); }
+      if (window.SBREPLAY) SBREPLAY.recNotesWire(REC, elapsed, draftSoon);
       const tx = $("#lecText"); if (tx) tx.addEventListener("input", () => { REC.text = tx.value; draftSoon(); if (REC.by !== "typed") REC.by = REC.by ? REC.by + "+typed" : "typed"; });
       const nm = $("#lecName"); if (nm) nm.addEventListener("input", () => { REC.title = nm.value; });
       const cs = $("#lecCourse"); if (cs) cs.addEventListener("change", () => { REC.cid = cs.value; });
@@ -3698,10 +3788,13 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     flush(); endUl(); return h;
   }
   let lecUrl = "";
-  async function lectureSheet(fid){
+  async function lectureSheet(fid, then){
     const f = state.files[fid]; if (!f) return;
-    openSheet(`<div class="sheet lec-sheet">${head(f.name)}<div class="sheet-body lec-body lec-view"></div><div class="sheet-foot lec-vfoot"></div></div>`);
+    const RP = window.SBREPLAY;
+    openSheet(`<div class="sheet lec-sheet">${head(f.name)}<div class="sheet-body lec-body lec-view"></div>${RP ? `<div class="rp-slot">${RP.dockHtml(fid)}</div>` : ""}<div class="sheet-foot lec-vfoot"></div></div>`);
     drawLecture(fid, "");
+    if (typeof then === "function") then();
+    if (RP) { RP.prime(fid); RP.paint(); return; }
     if (f.revs.length || f.cloud) {
       let url = ""; try { const bytes = await fileBytes(f); url = URL.createObjectURL(new Blob([bytes], {type: fileTypeOf(f) || "audio/webm"})); } catch (e) { url = ""; }
       if (!url && f.cloud) { const a = dlg.querySelector(".lec-audio-slot"); if (a) a.innerHTML = `<p class="mini">Couldn't load the recording here. <a href="${esc(fileHref(f))}" target="_blank" rel="noopener noreferrer">Play it in ${esc(CLOUD_NAMES[f.cloud.p])}</a></p>`; }
@@ -3714,11 +3807,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const NOTE_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/></svg>';
   const noteName = n => (String(n.text || "").split("\n").map(l => l.trim()).find(Boolean) || "Note").slice(0, 80);
   function attHtml(f){
-    const at = lecAtt(f);
+    const RP = window.SBREPLAY, at = lecAtt(f), more = RP ? RP.extraItems(f) : [];
     const row = a => { const isN = a.k === "note", x = isN ? state.notes[a.id] : state.files[a.id], nm = isN ? noteName(x) : x.name;
-      return `<li>${isN ? NOTE_SVG : PAPER_SVG}${isN ? `<button type="button" class="link-btn lec-att-n" data-act="lec-att-note" data-id="${esc(a.id)}">${esc(nm)}</button>` : `<a class="lec-att-n" href="${esc(fileHref(x))}" ${fileAttr(x)} target="_blank" rel="noopener noreferrer">${esc(nm)}</a>`}<button type="button" class="x-btn" data-act="lec-att-rm" data-id="${esc(f.id)}" data-k="${a.k}" data-a="${esc(a.id)}" aria-label="Remove ${esc(nm)} from this lecture">${CLOSE}</button></li>`; };
+      return `<li>${isN ? NOTE_SVG : PAPER_SVG}${isN ? `<button type="button" class="link-btn lec-att-n" data-act="lec-att-note" data-id="${esc(a.id)}">${esc(nm)}</button>` : `<a class="lec-att-n" href="${esc(fileHref(x))}" ${fileAttr(x)} target="_blank" rel="noopener noreferrer">${esc(nm)}</a>`}${RP ? RP.rowBtn(f, a) : ""}${a.why ? `<span class="mini lec-att-why">${a.why === "typed" ? "Typed while recording" : a.why === "study" ? "Study notes" : "On the class page"}</span>` : `<button type="button" class="x-btn" data-act="lec-att-rm" data-id="${esc(f.id)}" data-k="${a.k}" data-a="${esc(a.id)}" aria-label="Remove ${esc(nm)} from this lecture">${CLOSE}</button>`}</li>`; };
     return `<section class="lec-att"><div class="lec-att-h"><b>Slides and Notes</b><span class="mini">${at.length ? "Used by the AI for this lecture's summary and in Ask" : "Add the slides or your notes so the summary gets the terms right, and keep everything for this class together"}</span></div>
-      ${at.length ? `<ul class="lec-att-list">${at.map(row).join("")}</ul>` : ""}
+      ${at.length + more.length ? `<ul class="lec-att-list">${at.concat(more).map(row).join("")}</ul>` : ""}
       <div class="row-actions"><button type="button" class="btn small" data-act="lec-att-up" data-id="${esc(f.id)}">Upload Files</button><button type="button" class="btn small" data-act="lec-att-pick" data-id="${esc(f.id)}">From Studyboard</button></div></section>`;
   }
   function setAtt(fid, att, msg){
@@ -3758,23 +3851,25 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   function drawLecture(fid, doc){
     const f = state.files[fid], b = dlg.querySelector(".lec-view"), ft = dlg.querySelector(".lec-vfoot"); if (!f || !b || !ft) return;
     const L = f.lec || {}, raw = f.tr && f.tr.text || "", d = new Date(f.created || Date.now()).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric", year: "numeric"});
-    b.dataset.id = fid;
+    b.dataset.id = fid; delete b.dataset.rpItem;
+    if (String(doc).startsWith("rp:") && window.SBREPLAY) { const [, k, ...a] = String(doc).split(":"); SBREPLAY.drawItem(fid, k, a.join(":")); return; }
     if (!doc) {
       b.innerHTML = `<p class="mini lec-meta">${esc([d, f.dur ? clock(f.dur * 1000) + " long" : ""].filter(Boolean).join(" · "))}</p>
         <div class="lec-files">
           <button type="button" class="lec-fopt" data-act="lec-doc" data-id="${esc(fid)}" data-doc="org">${DOC_SVG}<b>Transcript</b><span class="mini">${L.org ? "Everything that was said, organized into paragraphs and sections" : raw ? "Everything that was said" : "No transcript was saved"}</span></button>
           <button type="button" class="lec-fopt" data-act="lec-doc" data-id="${esc(fid)}" data-doc="sum">${SUM_SVG}<b>Summary</b><span class="mini">${L.sum ? "The main ideas, key terms and takeaways" : "Not written yet"}</span></button>
         </div>
+        ${window.SBREPLAY ? SBREPLAY.mainHtml(f) : ""}
         ${window.SBLC ? SBLC.lectureHtml(fid) : ""}
         ${attHtml(f)}
-        ${f.revs.length || f.cloud ? `<div class="lec-audio-slot">${lecUrl ? `<audio controls preload="metadata" src="${esc(lecUrl)}" class="lec-audio"></audio>` : `<p class="mini">Loading the recording…</p>`}</div>` : ""}`;
+        ${(f.revs.length || f.cloud) && !window.SBREPLAY ? `<div class="lec-audio-slot">${lecUrl ? `<audio controls preload="metadata" src="${esc(lecUrl)}" class="lec-audio"></audio>` : `<p class="mini">Loading the recording…</p>`}</div>` : ""}`;
       ft.innerHTML = `<button type="button" class="btn danger" data-act="lec-del" data-id="${esc(fid)}">Delete</button><span class="spacer"></span><button type="button" class="btn" data-act="lec-bk" data-id="${esc(fid)}">Back Up</button><button type="button" class="btn" data-act="lec-ren" data-id="${esc(fid)}">Rename</button><button type="button" class="btn primary" data-act="close">Done</button>`;
       return;
     }
     const text = doc === "sum" ? L.sum : (L.org || raw), name = doc === "sum" ? "Summary" : "Transcript";
     const src = raw || L.org || "", canMake = src.trim().length > 80;
     b.innerHTML = `<div class="lec-doc-head"><button type="button" class="link-btn" data-act="lec-doc" data-id="${esc(fid)}" data-doc="">‹ ${esc(f.name)}</button><h3>${name}</h3></div>
-      ${text ? `<div class="lec-docv">${docHtml(text)}</div>` : `<div class="empty"><strong>No ${name} Yet</strong>${canMake ? (aiReady() ? `${esc(aiWho("AI"))} can write it from the transcript.` : "Set up AI (Settings, AI Features), then Write It Now.") : src ? "The transcript is too short to summarize." : "This lecture was saved without a transcript."}</div>`}`;
+      ${text ? `<div class="lec-docv">${(window.SBREPLAY && SBREPLAY.docHtml(f, doc, text)) || docHtml(text)}</div>` : `<div class="empty"><strong>No ${name} Yet</strong>${canMake ? (aiReady() ? `${esc(aiWho("AI"))} can write it from the transcript.` : "Set up AI (Settings, AI Features), then Write It Now.") : src ? "The transcript is too short to summarize." : "This lecture was saved without a transcript."}</div>`}`;
     ft.innerHTML = `<span class="spacer"></span>${canMake && (doc === "sum" || !L.org) ? `<button type="button" class="btn ai-btn" data-act="lec-make" data-id="${esc(fid)}" data-doc="${doc}">${AI_ICON} ${text ? "Write It Again" : "Write It Now"}</button>` : ""}${text ? `<button type="button" class="btn" data-act="lec-copy" data-id="${esc(fid)}" data-doc="${doc}">Copy</button>` : ""}<button type="button" class="btn primary" data-act="close">Done</button>`;
   }
   async function remake(fid, doc){
@@ -3791,7 +3886,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     drawLecture(fid, doc);
   }
   window.SBLEC = {btn: courseBtn, listHtml, isLecture, canAdd: () => !inPreview() && (canRecord() || typeof window.AudioContext === "function"),
-    ctx: lecContext, noteText: studyNoteText, clock, redraw: fid => { if (dlg.open && dlg.querySelector(".lec-view")) drawLecture(fid, ""); }};
+    ctx: lecContext, noteText: studyNoteText, clock, open: (fid, then) => { if (dlg.open) dlg.close(); setTimeout(() => lectureSheet(fid, then), 0); }, redraw: fid => { if (dlg.open && dlg.querySelector(".lec-view")) drawLecture(fid, ""); }};
 
   /* Add Lecture > Upload a Recording An audio file made elsewhere */
   const AUDIO_EXT = {mp3: "audio/mpeg", m4a: "audio/mp4", mp4: "audio/mp4", aac: "audio/aac", wav: "audio/wav", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/ogg", webm: "audio/webm", flac: "audio/flac", amr: "audio/amr", "3gp": "audio/3gpp", wma: "audio/x-ms-wma", aiff: "audio/aiff", aif: "audio/aiff", caf: "audio/x-caf"};
@@ -3857,8 +3952,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /* A recording in Files */
   const isAudio = f => !!f && f.kind === "file" && f.revs.length && (/^audio\//.test(curRev(f).type || "") || /\.(webm|m4a|ogg|mp3|wav)$/i.test(curRev(f).name || f.name)) && (f.tr || f.dur);
   async function transcriptSheet(fid){
+    // free plan too: a recording someone made, and its transcript, always open (recording and transcribing new ones is Pro)
     const f = state.files[fid]; if (!f) return;
-    if (P.locked()) { proWhy("Lecture recordings and transcripts are part of Studyboard Pro."); return; }
     const tr = f.tr && f.tr.text ? f.tr.text : "";
     openSheet(`<div class="sheet lec-sheet">${head(f.name)}<div class="sheet-body lec-body"><p class="lec-busy"><span class="ai-spin" aria-hidden="true"></span> Loading the recording…</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button>${tr ? `<button type="button" class="btn primary" data-act="lec-file-note" data-id="${esc(f.id)}">Make a Note</button>` : ""}</div></div>`);
@@ -3894,13 +3989,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const bkWhen = t => new Date(t).toLocaleDateString(undefined, {month: "short", day: "numeric"});
   function bkSheet(fid){
     const f = state.files[fid]; if (!f) return;
-    const bk = bkInfo(f), CL = window.SBCLOUD, conn = CL ? CL.connected() : [], locked = P.locked();
+    // backing up a lecture someone already has is free on every plan (it's a copy of their own work)
+    const bk = bkInfo(f), CL = window.SBCLOUD, conn = CL ? CL.connected() : [];
     const inFiles = (bk.files || []).filter(id => state.files[id]);
     const opt = (where, icon, title, sub, done) => `<button type="button" class="lec-fopt lec-bk-o${done ? " done" : ""}" data-act="lec-bk-go" data-id="${esc(fid)}" data-where="${where}"${bkBusy[fid + where] ? " disabled" : ""}>${icon}<b>${title}</b><span class="mini">${bkBusy[fid + where] ? `<span class="ai-spin" aria-hidden="true"></span> Backing up…` : sub}</span></button>`;
     const cloudOpt = p => {
       const nm = CLOUD_NAMES[p], ic = CL && CL.icons ? `<span class="lec-bk-ic">${CL.icons[p]}</span>` : CLOUD_SVG, b = bk[p];
       const here = f.cloud && f.cloud.p === p;
-      const sub = locked ? "Part of Studyboard Pro" : !conn.includes(p) ? `Connect ${nm} first` : b ? `Backed up ${bkWhen(b.at)}. Tap to back up again.` : here ? "The recording is already here. Adds the transcript and summary." : "The recording, transcript and summary, in Studyboard › Lectures";
+      const sub = !conn.includes(p) ? `Connect ${nm} first` : b ? `Backed up ${bkWhen(b.at)}. Tap to back up again.` : here ? "The recording is already here. Adds the transcript and summary." : "The recording, transcript and summary, in Studyboard › Lectures";
       return opt(p, ic, nm, sub, !!b);
     };
     openSheet(`<div class="sheet lec-sheet">${head("Back Up " + f.name)}<div class="sheet-body">
@@ -4005,7 +4101,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   });
 
   const prevFile = P.fileBtns;
-  P.fileBtns = f => (prevFile ? prevFile(f) : "") + (!P.locked() && isAudio(f) ? `<button type="button" class="btn" data-act="lec-file" data-id="${esc(f.id)}">Transcript</button>` : "");
+  P.fileBtns = f => (prevFile ? prevFile(f) : "") + (isAudio(f) ? `<button type="button" class="btn" data-act="lec-file" data-id="${esc(f.id)}">Transcript</button>` : "");
   const MIC = '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>';
   P.addFeature({id: "lecture", name: "Record a Lecture", where: "In a course: record a class, then get a tidy transcript and a summary in its Lectures", act: "lec-open", icon: MIC});
   Object.assign(P, {openRecorder: open});
@@ -4735,7 +4831,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
      why: "full" (storage used up), "big" (over the size limit), "type" (a type this storage can't keep), "none" (no storage here) */
   const FULL = {files: [], opts: {}, pend: null};
   function storageFull(files, opts, why){
-    why = why || "full";
+    why = why || "full"; reviewQuiet(3);
     FULL.files = (files || []).slice(); FULL.opts = Object.assign({}, opts, {cloud: true});
     const PL = window.StudyboardPlan, cap = PL && PL.limits ? PL.limits().fileMB : null;
     const offerPro = why === "full" && !!(PL && PL.paywall() && !PL.limitsPro());

@@ -1111,24 +1111,26 @@ const QUIZ_SCHEMA = {type: "OBJECT", properties: {
     topic: {type: "STRING"},
     source: {type: "STRING"}}, required: ["type", "stem", "rationale"]}}},
   required: ["questions"]};
-function aiCleanQuestions(list){
+// tidy: how each piece of text is cleaned (questions made from your own cards keep their text, math included)
+function aiCleanQuestions(list, tidy){
+  if (typeof tidy !== "function") tidy = aiTidyText;
   const out = [];
   (Array.isArray(list) ? list : []).forEach(q => {
     const type = ["single", "multiple", "order", "truefalse", "short"].includes(q.type) ? q.type : "single";
-    const stem = aiTidyText(q.stem); if (!stem) return;
-    let options = (Array.isArray(q.options) ? q.options : []).map(o => aiTidyText(o)).filter(Boolean);
+    const stem = tidy(q.stem); if (!stem) return;
+    let options = (Array.isArray(q.options) ? q.options : []).map(o => tidy(o)).filter(Boolean);
     if (type === "truefalse") options = ["True", "False"];
     let correct = (Array.isArray(q.correct) ? q.correct : []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < options.length);
     if (type === "truefalse" && !correct.length && q.answer) correct = [/^t/i.test(q.answer) ? 0 : 1];
-    const answer = aiTidyText(q.answer);
+    const answer = tidy(q.answer);
     if (type === "short") { if (!answer && !(correct.length && options[correct[0]])) return; }
     else if (options.length < 2) return;
     if ((type === "single" || type === "truefalse") && correct.length !== 1) return;
     if (type === "multiple" && !correct.length) return;
     if (type === "order" && (correct.length !== options.length || new Set(correct).size !== options.length)) return;
-    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => aiTidyText(s)) : [];
+    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => tidy(s)) : [];
     out.push({id: uid(), type, stem, options: type === "short" ? [] : options, correct: type === "short" ? [] : (type === "multiple" ? [...new Set(correct)].sort((a, b) => a - b) : correct),
-      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: aiTidyText(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
+      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
   });
   return out;
 }
@@ -1646,6 +1648,7 @@ function aiSetupSheet(fromFeature, opts){
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+      ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">

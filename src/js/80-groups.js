@@ -971,7 +971,7 @@
         ? `${stale ? `<button class="btn small primary" data-act="grp-item-push" data-id="${esc(it.id)}">Update</button>` : ""}<button class="btn small" data-act="grp-item-view" data-id="${esc(it.id)}">View</button>`
         : copy ? `${upd ? `<button class="btn small primary" data-act="grp-item-update" data-id="${esc(it.id)}">Get Update</button>` : ""}<button class="btn small" data-act="grp-item-open" data-id="${esc(it.id)}">Open</button>`
         : `<button class="btn small primary" data-act="grp-item-study" data-id="${esc(it.id)}">Study Now</button><button class="btn small" data-act="grp-item-add" data-id="${esc(it.id)}">Add Copy</button>`;
-      const mtBtn = window.SBMATCH && window.SBMATCH.usable(p.cards) >= 3 ? `<button class="btn small" data-act="grp-match" data-id="${esc(it.id)}" aria-label="Match: ${esc(it.title)}">Match</button>` : "";
+      const mtBtn = window.SBMATCH && window.SBMATCH.usable(p.cards) >= window.SBMATCH.MATCH.MIN ? `<button class="btn small" data-act="grp-match" data-id="${esc(it.id)}" aria-label="Match: ${esc(it.title)}">Match</button>` : "";
       return `<li class="grp-item${upd ? " is-upd" : ""}"><button class="grp-item-main" data-act="grp-item-view" data-id="${esc(it.id)}"><b>${esc(it.title)}</b>
           <span class="mini">${plural(nc, "card")}${nq ? `, ${plural(nq, "practice quiz", "practice quizzes")}` : ""} · ${mine ? "Shared by you" : "Shared by " + esc(it.author_name || "a member")}${copy && !upd ? " · In your Flashcards" : ""}</span>
           ${upd ? `<span class="grp-chg">Updated ${esc(ago(it.updated_at, 1))}. Get the new cards and keep your progress.</span>` : stale ? `<span class="grp-chg">You changed this deck. Update the group's copy?</span>` : ""}</button>

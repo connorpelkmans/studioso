@@ -231,7 +231,8 @@ const BREAKDOWN = (() => {
     });
     idx[n - 1] = m - 1;
     for (let i = n - 2; i >= 0; i--) { const hi = strict ? idx[i + 1] - 1 : idx[i + 1]; if (idx[i] > hi) idx[i] = hi; }
-    const score = (d, h) => (load[d] || 0) + (free[d] != null && free[d] < h ? 0.5 : 0);
+    // how full a day would be with this milestone on it: the same measure the sheet's Heavy day / Crunch day warning uses
+    const score = (d, h) => (load[d] || 0) + h / cap + (free[d] != null && free[d] < h ? 0.5 : 0);
     const res = [];
     for (let i = 0; i < n; i++) {
       const h = hrs * (items[i].h / (total || 1)), d0 = list[idx[i]]; let best = idx[i], s0 = score(d0, h), bs = s0;
@@ -534,6 +535,23 @@ function stripHtml(S){
   return `<div class="bd-strip" role="img" aria-label="Timeline from ${esc(fmtShort(from))} to ${esc(fmtShort(due))}, due date last. Milestone dates, ${esc(sum)}. Darker days are busier.">${cells.join("")}</div>
     <div class="bd-strip-l mini" aria-hidden="true"><span>${esc(fmtShort(from))}</span><span>Darker days are busier. Numbers are milestones; the last cell is the due date.</span><span>${esc(fmtShort(due))}</span></div>`;
 }
+// A fresh plan does what Move to Lighter Day would: a milestone on a heavy or crunch day steps to a lighter day nearby, keeping the order
+function autoLighter(S){
+  try {
+    flagHeavy(S);
+    const open = S.ms.filter(x => !x.locked), lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
+    open.forEach((m, k) => {
+      if (!m.heavy) return;
+      const prev = open[k - 1], next = open[k + 1], per = {};
+      open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
+      const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
+      const lo = prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi = next ? BD.addD(next.due, -1) : lastOk;
+      // anywhere between its neighbours, not only the 3 days either side the button looks at
+      const d = BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo, hi, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: Math.max(3, Math.min(21, BD.diff(lo, hi)))});
+      if (d) { m.due = d; flagHeavy(S); }
+    });
+  } catch (e) { console.warn("breakdown lighter days", e); }
+}
 function flagHeavy(S){
   const per = {}; S.ms.forEach(m => { if (!m.locked) per[m.due] = (per[m.due] || 0) + (Number(m.hours) || 0); });
   S.ms.forEach(m => { if (m.locked) return; const sc = (S.ctx.load[m.due] || 0) + (per[m.due] || 0) / (S.ctx.cap || 3); m.heavy = sc >= BD.HEAVY; m.level = lvOf(sc); });
@@ -587,6 +605,7 @@ function rebuild(opts){
     S.kind = p.kind;
     S.ms = (p.milestones || []).map(m => ({key: "k" + Math.random().toString(36).slice(2, 7), id: "", title: m.title, hours: m.hours, due: m.due, steps: m.steps, done: m.done, kind: m.kind, optional: m.optional, unsupported: m.unsupported}));
   }
+  autoLighter(S);
   S.plan = p; S.dirty = false;
   const ks = $("#bdKind"); if (ks) ks.value = S.kind || "generic";
   draw();
@@ -892,10 +911,15 @@ function formHtml(t, isNew){
       <ul class="bd-kids">${kids.map(k => `<li class="${k.status === "done" ? "is-done" : ""}"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(k.id)}">${esc(k.step || "")} ${esc(k.title)}</button><span class="mini">${esc(fmtShort(k.due))}${k.status === "done" ? " · done" : k.due < today ? " · overdue" : ""}</span></li>`).join("")}</ul></div>`;
   }
   if (!bigBtnTypes[t.type] || t.status === "done" || t.prepFor) return "";
+  return offerHtml(t) || bdLink(t.id);
+}
+// "This looks big" with Break It Down: in the edit form and in the task view
+function offerHtml(t){
+  if (!t || !bigBtnTypes[t.type] || t.status === "done" || t.prepFor || t.breakdownOf || (t.breakdownParent && kidsOfTask(t.id).length)) return "";
   // already split into steps or under way: just the small link, not the banner
   const started = (t.checklist || []).length >= 2 || t.status === "doing" || Number(t.focusMin) > 0 || Number(t.pct) > 0;
   return BD.isBig(t) && !bdNo(t.id) && !started ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
-    : bdLink(t.id);
+    : "";
 }
 const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It into Milestones</button></p>`;
 // Tasks whose Break It Down suggestion was waved off
@@ -1053,7 +1077,7 @@ hook("act", (act, el, id) => {
 }
 // A small hook for tests/breakdown.e2e.js
 window.__sbBreakdown = {state: () => state, ui, render, applyChanges, clone, importSheet, lmsOf, newTask, allTasks, remainingOf, TB, plan: () => window.__sbPlan && window.__sbPlan()};
-window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, deleteHook, expandNew, big: x => BD.isBig(Object.assign({status: "todo"}, x)), engine: BD, state: () => CUR};
+window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, trayItem, deleteHook, expandNew, big: x => BD.isBig(Object.assign({status: "todo"}, x)), engine: BD, state: () => CUR};
 
 })();
 

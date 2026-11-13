@@ -37,7 +37,7 @@ function viewBars(){
   for (let i = 0; i < days; i++) {
     const k = addDays(min, i), d = parse(k), wd = d.getDay();
     if (wd === 0 || wd === 6) bg += `<i class="we" style="left:${i*dw}px;width:${dw}px"></i>`;
-    if (i === 0 || d.getDate() === 1) { const nx = mStarts[mStarts.indexOf(i) + 1], span = ((nx == null ? days : nx) - i) * dw; months += `<span class="tl-m" style="left:${i*dw}px;width:${span}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 && span >= 120 ? "long" : "short"}))}${(i === 0 || d.getMonth() === 0) && span >= 130 ? `<small>${d.getFullYear()}</small>` : ""}</span>`; }
+    if (i === 0 || d.getDate() === 1) { const nx = mStarts[mStarts.indexOf(i) + 1], span = ((nx == null ? days : nx) - i) * dw; months += `<span class="tl-m" style="left:${i*dw}px;width:${span}px"><span class="tl-mt" style="left:${LW + 8}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 && span >= 120 ? "long" : "short"}))}${(i === 0 || d.getMonth() === 0) && span >= 130 ? `<small>${d.getFullYear()}</small>` : ""}</span></span>`; }
     if (dw >= 20) dayh += `<span class="tl-d ${k === today ? "is-today" : ""}" style="left:${i*dw}px;width:${dw}px"><b>${d.getDate()}</b></span>`;
     else if (wd === 1) dayh += `<span class="tl-d" style="left:${i*dw}px;width:${dw*7}px;justify-content:flex-start;padding-left:4px">${d.getDate()}</span>`;
   }
@@ -53,9 +53,10 @@ function viewBars(){
       const range = s === t.due ? fmtShort(t.due) : `${fmtShort(s)} to ${fmtShort(t.due)}`;
       const ms = MILESTONE(t.type);
       const icon = `<button class="ms tl-ic ${late ? "late" : ""}" style="left:${x(t.due) + dw / 2 - 13}px" data-act="edit-task" data-id="${esc(t.id)}" data-dueonly="${ms ? "" : 1}" title="${esc(t.type)}: ${esc(t.title)}, due ${esc(fmtShort(t.due))}" aria-label="${esc(t.title)}, ${esc(t.type)}, due ${esc(fmtShort(t.due))}${late ? ", past due" : ""}">${typeIcon(t.type)}</button>`;
-      rows += `<div class="tl-row" style="--c:${esc(col)}">
+      // the due date's spot in the track; an edge hint points to it while it's scrolled out of view (tlEdges)
+      rows += `<div class="tl-row" style="--c:${esc(col)}" data-x="${x(t.due) + dw / 2}">
         <button class="tl-label" style="width:${LW}px" data-act="edit-task" data-id="${esc(t.id)}"><span class="tt">${esc(t.title)}</span><small>${esc([t.type, isNum(t.hours) && !MILESTONE(t.type) ? fmtH(Number(t.hours)) : ""].filter(Boolean).join(" · "))}</small></button>
-        <div class="tl-track" style="width:${W}px">${icon}<span class="tl-dl${late ? " late" : ""}" style="left:${x(t.due) + dw / 2 + 17}px">${esc(fmtShort(t.due))}${ms ? `<em>${esc(t.type)}</em>` : ""}</span></div>
+        <div class="tl-track" style="width:${W}px">${icon}<span class="tl-dl${late ? " late" : ""}" style="left:${x(t.due) + dw / 2 + 17}px">${esc(fmtShort(t.due))}${ms ? `<em>${esc(t.type)}</em>` : ""}</span><button class="tl-edge" data-act="tl-edge" data-d="${esc(fmtShort(t.due))}" hidden></button></div>
       </div>`;
     });
   });
@@ -70,8 +71,22 @@ function viewBars(){
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${dayh}</div></div>
         ${rows}
       </div></div>
-    <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}<span><i class="dep-key"></i>Depends On</span><span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
+    <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}${ts.some(t => (t.dependsOn || []).some(id => ts.some(o => o.id === id))) ? `<span><i class="dep-key"></i>Depends On</span>` : ""}<span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
     <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · ${noDue} undated not shown` : ""}</p>`;
+}
+// Rows whose due date is scrolled out of view get a small "← Oct 30" / "→ Dec 10" at that edge; clicking it scrolls there
+function tlEdges(sc){
+  const tl = sc.querySelector(".tl"); if (!tl) return;
+  const lw = Number(tl.dataset.lw || 0), lo = sc.scrollLeft, hi = lo + sc.clientWidth - lw;
+  sc.querySelectorAll(".tl-row[data-x]").forEach(r => {
+    const b = r.querySelector(".tl-edge"); if (!b) return;
+    const x = Number(r.dataset.x), side = x < lo + 8 ? "l" : x > hi - 8 ? "r" : "";
+    b.hidden = !side; if (!side) return;
+    b.textContent = side === "l" ? "← " + b.dataset.d : b.dataset.d + " →";
+    b.className = "tl-edge " + side;
+    b.style.left = (side === "l" ? lo + 6 : hi - 6) + "px";
+    b.setAttribute("aria-label", "Scroll to " + b.dataset.d);
+  });
 }
 function viewCalendar(){
   const today = todayISO();
@@ -95,17 +110,25 @@ function viewCalendar(){
       S.norm(sc).off.forEach(o => { for (let x = o.from > lo ? o.from : lo; x <= o.to && x <= hi; x = addDays(x, 1)) { const l = hol[x] = hol[x] || []; if (!l.some(y => y.name === o.name)) l.push({name: o.name || "Day off", off: true}); } });
     }
   } catch (e) { console.warn("calendar: holidays", e); }
+  // Events (study groups, shifts, appointments) on their days too; classes stay on the Schedule
+  const evBy = {};
+  try {
+    const endD = new Date(start); endD.setDate(start.getDate() + weeks * 7 - 1);
+    schOccurrences(iso(start), iso(endD)).forEach(o => { if (o.type !== "event" || o.skipped || o.ovn === "tail") return; (evBy[o.date] = evBy[o.date] || []).push(o); });
+    Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
+  } catch (e) { console.warn("calendar: events", e); }
+  const evTime = o => o.allDay ? "" : fmtTime(o.ds || o.start).replace(/:00(?= ?[AP]M)/, "").replace(/ ?([AP])M/, (x, a) => a.toLowerCase());
   for (let i = 0; i < weeks * 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const k = iso(d);
-    const ts = (byDay[k] || []).slice().sort(sortTasks);
+    const ts = (byDay[k] || []).slice().sort(sortTasks), evs = evBy[k] || [];
     const out = d.getMonth() !== m.getMonth();
     const late = ts.filter(t => t.status !== "done" && k < today).length;
     const hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
     const dots = ts.slice(0, 3).map(t => `<span class="ci-row${t.status !== "done" && k < today ? " late" : ""}${t.status === "done" ? " done" : /^(Exam|Quiz)$/.test(t.type) ? " big" : ""}" style="--c:${esc(colorOf(t.courseId))}"><i class="ci" title="${esc(t.type)}: ${esc(t.title)}${t.status !== "done" && k < today ? ", overdue" : ""}" style="--c:${esc(colorOf(t.courseId))};${t.status === "done" ? "opacity:.35" : ""}">${typeIcon(t.type)}</i><span class="ci-t${t.status === "done" ? " done" : ""}">${esc(t.title)}</span></span>`).join("") + (ts.length > 3 ? `<b class="ci-more">+${ts.length - 3}<span class="ci-mw"> more</span></b>` : "");
-    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}${holTxt ? ", " + esc(holTxt) + (hl.some(h => h.off) ? ", no classes" : "") : ""}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}${hl.some(h => h.off) ? " (no classes)" : ""}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots">${dots}</span></button>`;
+    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}${holTxt ? ", " + esc(holTxt) + (hl.some(h => h.off) ? ", no classes" : "") : ""}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}${evs.length ? `, ${evs.length} event${evs.length === 1 ? "" : "s"}` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}${hl.some(h => h.off) ? " (no classes)" : ""}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots">${dots}</span>${evs.length ? `<span class="cal-evs" aria-hidden="true">${evs.slice(0, 2).map(o => `<span class="cal-ev" style="--c:${esc(o.color)}">${o.allDay ? "" : `<b>${esc(evTime(o))}</b> `}${esc(o.title)}</span>`).join("")}${evs.length > 2 ? `<span class="cal-ev more">+${evs.length - 2}</span>` : ""}</span>` : ""}</button>`;
   }
-  const dayTasks = (byDay[ui.calDay] || []).slice().sort(sortTasks);
+  const dayTasks = (byDay[ui.calDay] || []).slice().sort(sortTasks), dayEvs = evBy[ui.calDay] || [];
   const dayLabel = parse(ui.calDay).toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"});
   return `${tlPhone() ? chipsHtml() : `<div class="tl-controls tl-tools">${coursePickHtml()}${tlModeSeg()}</div>`}${searchNote()}
     <div class="cal-head">
@@ -119,7 +142,8 @@ function viewCalendar(){
     ${dayTasks.length ? taskList(dayTasks) : !allTasks().some(t => t.due)
       // No due dates anywhere yet: the same welcome as the timeline view
       ? `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${firstStepBtns()}</div>`
-      : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}`;
+      : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}
+    ${dayEvs.length ? `<h2 class="sec"><span class="t">Events</span><span class="n">${dayEvs.length}</span></h2><div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(o.title)}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : ""}</button>`).join("")}</div>` : ""}`;
 }
 
 /* Courses */
@@ -412,7 +436,7 @@ hook("act", (act, el) => {
   }
   if (act === "cd-old") { ui.cdOld = ui.cdOld === ui.courseId ? null : ui.courseId; render(); return true; }
   if (act === "ci-ai") {
-    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("ai-icons")}); return true; }
+    if (typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro()) { toast("Making your own icons with AI is part of Studyboard Pro", null, {label: "See Pro", fn: () => PLAN.openSheet("Making your own course icons with AI is part of Studyboard Pro.")}); return true; }
     if (!aiReady()) { toast("Set up AI to make your own icons", null, {label: "Set Up AI", fn: () => aiSetupSheet(true)}); return true; }
     const box = $("#ciAi"); if (box) { box.hidden = !box.hidden; if (!box.hidden) { const q = $("#ciAiQ"); if (q) q.focus(); } }
     return true;
@@ -543,6 +567,7 @@ function viewCourseDetail(c){
     ${courseFilesHtml(c)}
     ${courseDecksHtml(c)}
     ${courseNotesHtml(c)}
+    ${window.SBCMAP ? SBCMAP.courseCard(c) : ""}
     ${links ? c2Box("links", "Links", "", `<dl class="facts">${links}</dl>`) : ""}
     </aside></div>`;
 }
@@ -954,7 +979,8 @@ const AVAIL = (() => {
   function parseQuick(text){
     let s = " " + String(text || "").trim().replace(/\s+/g, " ") + " ";
     if (s.length > 170) return null;
-    const lead = s.match(/^\s*(?:add\s+|new\s+)?(work|job|shift|shifts|placement|clinical|practicum|class|lecture|commute|travel|appointment|practice|training|meeting|lunch|dinner|sleep)\b/i);
+    // Regular activities ("gym every mon wed 7-8am") are blocks too, as an "other" commitment
+    const lead = s.match(/^\s*(?:add\s+|new\s+)?(work|job|shift|shifts|placement|clinical|practicum|class|lecture|commute|travel|appointment|practice|training|meeting|lunch|dinner|sleep|gym|workout|exercise|rehearsal|club)\b/i);
     if (!lead) return null;
     const w = lead[1].toLowerCase();
     const type = /^(work|job)$/.test(w) ? "work" : /^(shift|shifts|placement|clinical|practicum)$/.test(w) ? "shift" : /^(class|lecture)$/.test(w) ? "class" : /^(commute|travel)$/.test(w) ? "travel" : /^(lunch|dinner|sleep)$/.test(w) ? "protected" : "other";
@@ -1099,6 +1125,12 @@ function availExtMap(from, to){
   schOccurrences(from, to).forEach(o => {
     if (o.type === "avail" || o.skipped || (o.type === "meet" && o.m && o.m.kind === "Office Hours")) return;
     (m[o.date] = m[o.date] || []).push({start: o.start, end: o.end, allDay: !!o.allDay, title: o.title, label: o.label});
+  });
+  // A timed exam or quiz you sit in person is busy time too, so nothing is planned on top of it
+  tasksArr().forEach(t => {
+    if ((t.type !== "Exam" && t.type !== "Quiz") || t.status === "done" || t.prepFor || t.remote === "yes" || !t.due || t.due < from || t.due > to || !/^\d\d:\d\d$/.test(t.time || "")) return;
+    const a = tToMin(t.time), e = Math.min(24 * 60 - 1, a + (t.type === "Exam" ? 120 : 60)), hm = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
+    (m[t.due] = m[t.due] || []).push({start: t.time, end: hm(e), allDay: false, title: t.title, label: t.type});
   });
   return m;
 }

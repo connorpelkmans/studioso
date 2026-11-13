@@ -1280,6 +1280,10 @@ function dlgKbFit(){
   // (a short dip, such as Safari's toolbars sliding, isn't the keyboard: it has to be clearly taller than them)
   const up = innerHeight - vv.height > 150;
   clearTimeout(dlgKbFit.t);
-  if (up) d.classList.add("kb-open"); else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
+  if (up) {
+    d.classList.add("kb-open");
+    // the sheet shrank above the keyboard: bring the box being typed in back into view
+    requestAnimationFrame(() => { const a = document.activeElement; if (a && a.closest && a.closest("dialog[open]") && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { try { a.scrollIntoView({block: "nearest"}); } catch (e) {} } });
+  } else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }

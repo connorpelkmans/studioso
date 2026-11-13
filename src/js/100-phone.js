@@ -4,6 +4,12 @@
   const ls = window.localStorage;
   const rawSet = Storage.prototype.setItem, rawRm = Storage.prototype.removeItem, rawGet = Storage.prototype.getItem;
 
+  // the top bar's height, for things pinned just under it (the Schedule's day pills); it changes with text size and safe areas
+  (() => {
+    const hd = document.querySelector("header.top"); if (!hd || !window.ResizeObserver) return;
+    new ResizeObserver(() => { if (hd.offsetHeight) document.documentElement.style.setProperty("--top-bar-h", hd.offsetHeight + "px"); }).observe(hd);
+  })();
+
   /* Swipe between days on the Schedule (phone layout): the day follows your finger with the next one sliding in beside it,
      like a calendar app's day view. While swiping, a clipped window over the day's cell holds still copies of the two days
      side by side and only that strip moves; the real schedule underneath isn't touched until the swipe settles, so nothing

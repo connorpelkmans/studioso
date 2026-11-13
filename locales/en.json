@@ -223,7 +223,7 @@
   "ia.w.notecap": "Only the first {n} pages are brought in at once.",
   "ia.w.picLost": "{n} image occlusion card's picture wasn't in the file, so it was left out.|{n} image occlusion cards' pictures weren't in the file, so they were left out.",
   "ia.w.pics": "{n} picture wasn't brought in.|{n} pictures weren't brought in.",
-  "ia.w.picsFree": "Image occlusion notes come in as Picture Cards, with their masks and history. You can study them now; editing their boxes and Diagram Practice are part of Studyboard Pro.",
+  "ia.w.picsFree": "Image occlusion notes come in as Picture Cards, with their masks and history. You can study them and edit their boxes now; Diagram Practice is part of Studyboard Pro.",
   "ia.w.picsIn": "Image occlusion notes come in as Picture Cards, with their masks and history.",
   "ia.w.skip": "{n} card had nothing but pictures or sound on one side and was left out.|{n} cards had nothing but pictures or sound on one side and were left out.",
   "ia.w.sounds": "{n} sound wasn't brought in.|{n} sounds weren't brought in.",

@@ -37,7 +37,8 @@ const doneIds = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursewor
   for (const o of [{vp: {width: 1280, height: 900}, name: "desktop"}, {vp: {width: 390, height: 844}, name: "phone", touch: false}]) {
     const {ctx, p, errs} = await open(browser, o);
     await p.waitForSelector('.col[data-status="todo"] .card-check', {timeout: 10000});
-    const b = await p.locator('.col[data-status="todo"] .card-check').first().boundingBox();
+    // the board can redraw once just after loading; measure the checkbox once it's settled
+    let b = null; for (let i = 0; i < 20 && !b; i++) { await p.waitForTimeout(100); b = await p.locator('.col[data-status="todo"] .card-check').first().boundingBox().catch(() => null); }
     await p.mouse.dblclick(b.x + b.width / 2, b.y + b.height / 2);
     await p.waitForTimeout(1500);
     let d = await doneIds(p);

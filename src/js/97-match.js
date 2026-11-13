@@ -3,7 +3,7 @@
 (() => {
   /*MATCH-START: pure code, no DOM or app state */
   const MATCH = (() => {
-    const N = 6, PENALTY = 1000, KEEP = 5, MIN = 3;
+    const N = 6, PENALTY = 1000, KEEP = 5, MIN = 2;
     const norm = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
     // Cards that can be tiles
     const usable = cards => (Array.isArray(cards) ? cards : []).filter(c => c && !c.draft && !c.img && norm(c.front) && norm(c.back));
@@ -59,7 +59,7 @@
     const cards = MATCH.pick(src && src.cards);
     if (cards.length < MATCH.MIN) {
       const n = MATCH.usable(src && src.cards).length;
-      toast(n >= MATCH.MIN ? "Match needs at least 3 cards with different text. Add a few more cards first." : `Match needs at least 3 cards with text on both sides${n ? `. This deck has ${n}` : ""}. Add a few more cards first.`);
+      toast(n >= MATCH.MIN ? `Match needs at least ${MATCH.MIN} cards with different text. Add a few more cards first.` : `Match needs at least ${MATCH.MIN} cards with text on both sides${n ? `. This deck has ${n}` : ""}. Add a few more cards first.`);
       return false;
     }
     stop();
@@ -163,8 +163,9 @@
   });
   // The Match button on a deck page (Flashcards), next to Study and Make a Quiz
   function deckBtn(d){
-    const best = MATCH.bestOf(d && d.match);
-    return `<button class="btn" data-act="mt-start" data-id="${esc(d.id)}" ${d.cards.length ? "" : "disabled"} title="${best ? `Match the terms and definitions against the clock. Your best: ${MATCH.clock(best)} s` : "Match the terms and definitions against the clock"}">Match</button>`;
+    const best = MATCH.bestOf(d && d.match), few = MATCH.usable(d.cards).length < MATCH.MIN;
+    // Too few cards: the button is off and its tooltip says why
+    return `<button class="btn" data-act="mt-start" data-id="${esc(d.id)}" ${few ? "disabled" : ""} title="${few ? `Match needs at least ${MATCH.MIN} cards with text on both sides` : best ? `Match the terms and definitions against the clock. Your best: ${MATCH.clock(best)} s` : "Match the terms and definitions against the clock"}">Match</button>`;
   }
   window.SBMATCH = {start, deckBtn, MATCH, clock: MATCH.clock, best: d => MATCH.bestOf(d && d.match), usable: c => MATCH.usable(c).length};
   // test handle, like __sbNotecards

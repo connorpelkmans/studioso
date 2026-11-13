@@ -76,6 +76,10 @@
 /* Settings as one grouped list */
 @media (max-width:719px){
   dialog#dlg > .us-sheet{position:relative;border-radius:24px 24px 0 0}
+  /* one steady height, so moving between Settings categories doesn't make the sheet jump */
+  dialog#dlg:has(> .us-sheet){height:calc(100vh - 84px);height:calc(100dvh - 84px)}
+  dialog#dlg > .us-sheet{height:100%;display:flex;flex-direction:column}
+  dialog#dlg > .us-sheet > .sheet-body{flex:1;min-height:0;overflow-y:auto}
   dialog#dlg > .us-sheet::before{content:"";position:absolute;top:7px;left:50%;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:color-mix(in srgb,var(--ink) 22%,transparent);z-index:3;pointer-events:none}
   .us-sheet .sheet-head{border-bottom:0;padding-top:22px;touch-action:none}
   .us-sheet .sheet-head h2{font:800 1.6rem/1.15 var(--display)}
@@ -146,6 +150,9 @@
   #view .grp-offline.sb-es + .grp-file p{font-size:.88rem;color:var(--muted)}
   #view .grp-offline.sb-es + .grp-file .btn{min-height:42px;border-radius:12px;font-size:.9rem}
   #view .nb-empty.sb-es .es-art{display:block;width:150px;height:105px;margin:0 auto 6px}
+  /* the empty board's message is guidance, not something on the board: it keeps its size at any board zoom
+     (phones open the board at 0.8, shown as 100%) */
+  #view .nb-empty.sb-es{transform:translateX(-50%) scale(calc(1 / var(--nbz, 1)));transform-origin:50% 0}
 }
 .nb-empty .es-card{fill:#fff;stroke:#DCCFB8}
 .nb-empty .es-line{fill:#ECE4D6}
@@ -205,6 +212,7 @@
 .sb-welc li i{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--surface);color:var(--accent)}
 .sb-welc li svg{width:18px;height:18px}
 .sb-welc .sb-welc-go{width:100%;min-height:52px;border-radius:14px;font-size:1.05rem}
+.sb-welc .sb-welc-skip{width:100%;min-height:48px;margin-top:8px;border-radius:14px;font-size:1rem}
 .sb-welc .sb-welc-alt{display:block;margin:6px auto 0;min-height:44px;padding:0 12px;font-weight:700;font-size:.95rem}
 .sb-welc .sb-welc-crash{margin:8px 0 0;font-size:.8rem;line-height:1.45;color:var(--muted)}
 @media (max-width:639px){#view .c2-card .c2-files{gap:3px}}
@@ -263,6 +271,15 @@
   #dlg .sheet-foot:not(.tv-foot) > .spacer{display:none}
   #dlg .sheet-foot:not(.tv-foot) > .btn{flex:1 1 auto;justify-content:center;text-align:center;white-space:nowrap}
   #dlg .sheet-foot:not(.tv-foot) > .btn.danger{order:3;flex-basis:100%}
+  /* Editing a task: one row, Delete on the left, Focus in the middle, Save on the right (the sheet's × closes it, so no
+     Cancel); an extra action such as Plan My Prep gets its own row above */
+  #dlg .sheet-foot.tf-foot{flex-wrap:wrap}
+  #dlg .sheet-foot.tf-foot > [data-act="close"]{display:none}
+  #dlg .sheet-foot.tf-foot > .btn{order:1;flex:1 1 0;min-width:0}
+  #dlg .sheet-foot.tf-foot > .btn.danger{order:2;flex-basis:0}
+  #dlg .sheet-foot.tf-foot > .btn.focus-btn{order:3}
+  #dlg .sheet-foot.tf-foot > .btn.primary,#dlg .sheet-foot.tf-foot > [data-submit]{order:4}
+  #dlg .sheet-foot.tf-foot > .btn:not(.danger):not(.focus-btn):not(.primary):not([data-submit]):not([data-act="close"]){order:0;flex-basis:100%}
 }
 
 /* Desktop: a task's sheet footer like every other sheet: tools on the left, Mark Done and Edit on the right, one row */
@@ -284,6 +301,8 @@
 :root :is(details.adv,details.pp-group) > summary::before{content:none}
 :root :is(.bs-diag,.sd-more) summary::after,:root .sd-more summary > span:first-child::after{content:none}
 :root .bs-diag > summary::after{content:""}
+/* a "⋯" more-options button is just its three dots, no chevron */
+:root details > summary.g2-dots.g2-dots::after{content:none}
 @media (prefers-reduced-motion:reduce){:root details > summary::after{transition:none}}
 :root select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px 14px;padding-right:34px}
 

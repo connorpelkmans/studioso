@@ -5,7 +5,8 @@ let suppressClick = false;
 // A quick second click on a complete circle lands on whatever slid under the pointer once the done card left the list.
 // A second pointer click in the same spot within 450ms is taken as part of the first one and ignored.
 let lastToggle = null;
-function toggleTask(id, el){
+// extra: a toast button to offer once the task is done (e.g. Add Mark after "Did you take X?")
+function toggleTask(id, el, extra){
   const t = state.tasks[id]; if (!t) return;
   const ev = window.event, ptr = ev && ev.type === "click" && ev.detail > 0 && el && el !== document.body, now = Date.now();
   if (ptr) {
@@ -17,10 +18,34 @@ function toggleTask(id, el){
   if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
-  applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
+  applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, n.status === "done" ? extra : undefined, n.status === "done" ? {done: true} : undefined);
   if (n.status === "done") { const cleared = todayCleared(); sbHaptic(cleared ? "success" : "tap"); if (cleared) fire("good-moment", "plan"); }
 }
-// Nothing left on Today's Plan: no planned work still to do today, nothing due today or overdue
+// "Did you take X?" → Move Date: a small picker (tomorrow, the course's next class, or any date) instead of the whole edit sheet
+function moveDateSheet(id){
+  const t = state.tasks[id]; if (!t) return;
+  const today = todayISO(), tmr = addDays(today, 1);
+  let next = "";
+  try { const o = schOccurrences(tmr, addDays(today, 28)).filter(o => o.type === "meet" && o.id === t.courseId && !o.skipped && o.m.kind !== "Office Hours").sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)[0]; next = o ? o.date : ""; } catch (e) {}
+  const day = d => parse(d).toLocaleDateString(undefined, {weekday: "long", month: "short", day: "numeric"});
+  const opt = (d, label) => `<button type="button" data-md="${d}"><span class="fm-t"><b>${label}</b><span class="sub">${esc(day(d))}</span></span></button>`;
+  const move = d => {
+    const x = state.tasks[id]; if (!isDate(d) || !x) return;
+    const n = clone(x); n.due = d; if (n.start && n.start > d) n.start = d;
+    if (dlg.open) dlg.close();
+    applyChanges([{kind: "task", id, after: n}], `Moved ${t.title} to ${fmtShort(d)}`);
+  };
+  openSheet(`<form class="sheet md-sheet">${head("Move " + t.title)}<div class="sheet-body">
+      <div class="menu-list md-list">${opt(tmr, next === tmr ? "Tomorrow (next class)" : "Tomorrow")}${next && next !== tmr ? opt(next, "Next Class") : ""}</div>
+      <label class="f"><span class="lh">Or Pick a Date</span><input type="date" name="due" min="${today}"></label></div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Move</button></div></form>`, fd => {
+    const d = String(fd.get("due") || "");
+    if (!isDate(d)) { toast("Pick a date first"); const i = dlg.querySelector("input[name=due]"); if (i) i.focus(); return false; }
+    move(d); return false;
+  });
+  dlg.querySelectorAll("[data-md]").forEach(b => b.addEventListener("click", () => move(b.dataset.md)));
+}
+// Today's Plan has nothing left to do: no planned work still open, nothing due today or earlier still open (99-review-ask.js)
 function todayCleared(){
   try {
     const today = todayISO(), F = computeFocus();
@@ -80,7 +105,7 @@ document.addEventListener("click", e => {
   if (ui.tab === "notes" && !e.target.closest("dialog") && !e.target.closest(".rb-bar,.rb-eq")) {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
-    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
+    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); return; }   // the note opens with its options; typing starts with a tap in its text (no keyboard straight away on a phone)
     if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
       if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
       saveNoteText();
@@ -129,7 +154,7 @@ document.addEventListener("click", e => {
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
     case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
-    case "move-date": { const t = state.tasks[id]; if (!t) break; taskForm(t); const d = dlg.querySelector("input[name=due]"); if (d) { d.focus(); try { d.showPicker(); } catch (err) {} } break; }
+    case "move-date": moveDateSheet(id); break;
     case "plan-sec": { const k = id === "how" ? "planHow" : "planMore"; ui[k] = !ui[k]; const p = document.getElementById("plan-" + id); if (p) p.hidden = !ui[k]; el.setAttribute("aria-expanded", String(ui[k])); break; }
     case "plan-why": { ui.planWhy = ui.planWhy || {}; const on = !ui.planWhy[id]; if (on) ui.planWhy[id] = 1; else delete ui.planWhy[id]; const p = document.getElementById("pw-" + id); if (p) p.hidden = !on; el.setAttribute("aria-expanded", String(on)); const li = el.closest(".plan-row"); if (li) li.classList.toggle("why-open", on); break; }
     case "show-old": ui.showOldDone = true; render(); break;
@@ -139,7 +164,8 @@ document.addEventListener("click", e => {
         due: el.dataset.due || (ui.tab === "timeline" && ui.tlMode === "calendar" ? ui.calDay : ""), status: el.dataset.status});
       break;
     case "edit-task": { const t = state.tasks[id]; if (t) (el.dataset.edit ? taskForm : taskView)(t); break; }
-    case "toggle": toggleTask(id, el); break;
+    // "Did you take X?" → Mark Done offers to add the score right away
+    case "toggle": toggleTask(id, el, el.dataset.mark && window.SBGRADES && SBGRADES.offerMark ? SBGRADES.offerMark(id) : undefined); break;
     case "delete-task": deleteTask(id); break;
     case "archive-open": ui.tab = "archive"; dlg.open && dlg.close(); render(); window.scrollTo(0, 0); break;
     case "archive-back": ui.tab = "board"; render(); window.scrollTo(0, 0); break;
@@ -180,7 +206,7 @@ document.addEventListener("click", e => {
     case "tl-mode": ui.tlMode = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlmode", id); } catch(err) {} render(); break;
     case "note-new": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "board-max": boardMax(!boardMaxOn()); break;
-    case "nb-zoom": if (id === "reset") nbZoomTo(1); else nbZoomStep(id === "in" ? 1 : -1); break;
+    case "nb-zoom": if (id === "reset") nbZoomTo(nbHome()); else nbZoomStep(id === "in" ? 1 : -1); break;
     case "nb-pick": if (noteEditing) saveNoteText(); ui.noteBoard = el.dataset.id || ""; try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {} render(); break;
     case "nb-new": if (noteEditing) saveNoteText(); noteBoardSheet(""); break;
     case "nb-edit": noteBoardSheet(el.dataset.id); break;
@@ -225,11 +251,13 @@ document.addEventListener("click", e => {
     case "f-folder-edit": { const fo = foldersOf(ui.fCourse === "all" ? "" : ui.fCourse).find(x => x.id === ui.fFolder); if (fo) folderSheet(fo); break; }
     case "f-sort": ui.fSort = id; render(); break;
     case "tl-zoom": ui.tlZoom = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlzoom", id); } catch(err) {} render(); break;
+    case "tl-edge": { const sc = el.closest(".tl-scroll"), r = el.closest(".tl-row"), lw = sc ? Number((sc.querySelector(".tl") || {dataset: {}}).dataset.lw || 0) : 0;
+      if (sc && r) sc.scrollTo({left: Math.max(0, Number(r.dataset.x) - (sc.clientWidth - lw) / 2), behavior: "smooth"}); break; }
     case "tl-today": ui.tlJump = "smooth"; if (ui.tlMode !== "bars") ui.tlMode = "bars"; render(); break;
     case "pick-day": ui.calDay = id; if (id.slice(0, 7) !== ui.calMonth.slice(0, 7)) ui.calMonth = id.slice(0, 7) + "-01"; render(); break;
     case "cal-prev": case "cal-next": {
       const m = parse(ui.calMonth); m.setMonth(m.getMonth() + (act === "cal-prev" ? -1 : 1));
-      ui.calMonth = iso(m); render(); break;
+      ui.calMonth = iso(m); { const t0 = todayISO(); ui.calDay = t0.slice(0, 7) === ui.calMonth.slice(0, 7) ? t0 : ui.calMonth; } render(); break;
     }
     case "cal-today": ui.calDay = todayISO(); ui.calMonth = ui.calDay.slice(0, 7) + "-01"; render(); requestAnimationFrame(() => { const d = document.querySelector("#view .cal .today, #view .cal [aria-current]"); if (d && d.scrollIntoView) d.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
     case "import-syllabus": importSheet(el.dataset.course || (ui.tab === "courses" ? ui.courseId : "") || ""); break;
@@ -406,10 +434,14 @@ function startDrag(){
     drag.start0 = startOf(t); drag.due0 = t.due; drag.start = drag.start0; drag.due = drag.due0;
     drag.left0 = parseFloat(drag.el.style.left); drag.w0 = parseFloat(drag.el.style.width);
     drag.el.classList.add("dragging");
+    // the marker's old date label would sit on top of it while it moves
+    if (drag.el.parentElement) drag.el.parentElement.classList.add("tl-dragging");
     const tip = document.createElement("div"); tip.className = "tl-tip"; document.body.appendChild(tip); drag.tip = tip;
   }
   drag.raf = requestAnimationFrame(tick);
 }
+// A dragged bar or marker says what changes: only the due date ("Due Nov 17"), only the start ("Start Nov 9"), or both
+const barWords = (mode, s, d, f) => mode === "end" ? "Due " + f(d) : mode === "start" ? "Start " + f(s) : s === d ? f(d) : fmtShort(s) + " to " + fmtShort(d);
 function tick(){
   if (!drag || !drag.started) return;
   if (drag.kind === "rot") {
@@ -487,7 +519,7 @@ function tick(){
     drag.start = s; drag.due = d;
     const shiftL = (drag.isMs ? dayDiff(drag.due0, d) : dayDiff(drag.start0, s)) * drag.dw, w = (dayDiff(s, d) + 1) * drag.dw;
     drag.el.style.left = (drag.left0 + shiftL) + "px"; if (!drag.isMs) drag.el.style.width = w + "px";
-    drag.tip.textContent = (s === d ? fmtDate(d) : fmtShort(s) + " to " + fmtShort(d));
+    drag.tip.textContent = barWords(drag.mode, s, d, fmtDate);
     drag.tip.style.left = Math.min(window.innerWidth - 170, Math.max(8, drag.x - 60)) + "px";
     drag.tip.style.top = Math.max(8, drag.y - 52) + "px";
   }
@@ -673,10 +705,10 @@ function endDrag(ok){
   }
   const t = state.tasks[d.id];
   if (d.kind === "bar") {
-    d.tip.remove(); d.el.classList.remove("dragging");
+    d.tip.remove(); d.el.classList.remove("dragging"); if (d.el.parentElement) d.el.parentElement.classList.remove("tl-dragging");
     if (!ok || !t || (d.start === d.start0 && d.due === d.due0)) { render(); return; }
     const n = Object.assign(clone(t), {start: d.start, due: d.due});
-    const label = `${t.title}: ${d.start === d.due ? fmtShort(d.due) : fmtShort(d.start) + " to " + fmtShort(d.due)}`;
+    const label = `${t.title}: ${barWords(d.start !== d.start0 && d.due !== d.due0 ? "move" : d.due !== d.due0 ? "end" : "start", d.start, d.due, fmtShort)}`;
     const inv = applyChanges([{kind:"task", id: t.id, after: n}], "");
     const redo = () => { applyChanges(inv, null); toast("Undone"); };
     toast(label, redo, shiftOffer(t.id));

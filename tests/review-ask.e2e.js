@@ -81,6 +81,14 @@ const waitAsk = async (p, ms) => { const end = Date.now() + ms; while (Date.now(
       ok((await why(p)) === "a bug report this month", "not within a month of sending a bug report");
       await p.evaluate(() => localStorage.removeItem("studyboard:bugsent"));
       ok((await why(p)) === "", "and fine again once both are long past");
+      // a free-plan limit, a run of free AI checks used up, or the free weeks ending: quiet for a few days
+      await p.evaluate(() => { window.__sbPlanObj().limitNote("test-limit-" + Date.now(), "This is one device more than the free plan syncs on (2).", {reason: "x"}); });
+      const q = await p.evaluate(() => Number(localStorage.getItem("studyboard:reviewQuietUntil")) - Date.now());
+      ok(q > 2.9 * 864e5 && q <= 3 * 864e5, "a free-plan limit note keeps the review prompt away for 3 days");
+      ok(/lately/.test(await why(p)), "and says so");
+      ok(await p.evaluate(() => [...document.querySelectorAll("#toast button")].some(b => !b.hidden && b.textContent === "Tell Us")), "the limit note offers Tell Us");
+      await p.evaluate(() => localStorage.removeItem("studyboard:reviewQuietUntil"));
+      ok((await why(p)) === "", "fine again once the quiet days are past");
       await ctx.close();
     }
     { // after an error message

@@ -259,8 +259,15 @@ function bestDeckFor(id){
   const e = madeFrom()[id]; if (!e) return "";
   return Object.keys(e.decks).filter(k => state.decks[k] && !state.decks[k].archived).sort((a, b) => e.decks[b] - e.decks[a])[0] || "";
 }
+// A deck the note links to, as [[Deck name]] (the first one that names a deck)
+function linkedDeck(text){
+  const key = x => String(x || "").toLowerCase().replace(/\s+/g, " ").trim(), re = /\[\[([^[\]\n|#]{1,200})(?:[#|][^[\]\n]*)?\]\]/g; let m;
+  while ((m = re.exec(String(text || "")))) { const k = key(m[1]), d = decksArr().find(x => key(x.name) === k); if (d) return d.id; }
+  return "";
+}
 function defaultDeck(n, text){
   const prev = bestDeckFor(n.id); if (prev) return prev;
+  const link = linkedDeck(text != null ? text : n.text); if (link) return link;
   const nm = suggestName(n, text), same = decksArr().find(d => d.name === nm && (d.courseId || "") === (n.courseId || ""));
   return same ? same.id : "new";
 }

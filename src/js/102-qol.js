@@ -151,7 +151,7 @@
     const sec = (h, rows) => `<h3 class="kb-h">${esc(h)}</h3><table class="kb-t"><tbody>${rows.join("")}</tbody></table>`;
     openSheet(`<div class="sheet kb-sheet">${head("Keyboard Shortcuts")}<div class="sheet-body">
       <p class="mini" style="margin:0">These work when you're not typing in a box.</p>
-      ${sec("Anywhere", [row(["N"], "New task"), row(["C"], "Quick Capture"), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
+      ${sec("Anywhere", [row(["N"], "New task"), ...(typeof CAPTURE_OFF !== "undefined" && CAPTURE_OFF ? [] : [row(["C"], "Quick Capture")]), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
       ${sec("Go To", VIEWS_KEYS.map(([t], i) => row(appWin() ? [String(i + 1), MOD + "+" + (i + 1)] : [String(i + 1)], viewName(t))))}
       ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz")])}
       ${sec("Notes", [row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}

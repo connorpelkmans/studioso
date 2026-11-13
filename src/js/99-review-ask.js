@@ -10,9 +10,11 @@
    Rarely: at most once per launch and once per app version, 120 days after the first ask, a year after the second, and never more
    than 3 times in all (Apple's own limit is 3 a year; this stays well under it, since nothing says whether a review was left).
    Never on a bad or stressful day: within 10 minutes of an error message or a crash, 2 minutes of an Undo, a month of a bug report or
-   feedback, a day of a Pro sheet; in Exam Mode, with overdue work, offline or during a Focus. */
+   feedback, a day of a Pro sheet, a few days of a free-plan limit, a week of the free weeks ending; in Exam Mode, with overdue work, offline or during a Focus. */
 (() => {
-  const KEY = "studyboard:reviewAsk", PRO_KEY = "studyboard:proShownAt", BUG_KEY = "studyboard:bugsent";
+  // QUIET_KEY: until when to stay quiet, set by reviewQuiet() (01-helpers.js) after a free-plan limit (3 days), a Pro sheet (1 day),
+  // the free weeks ending tomorrow (3 days) or ended (7 days), or the storage being full
+  const KEY = "studyboard:reviewAsk", PRO_KEY = "studyboard:proShownAt", BUG_KEY = "studyboard:bugsent", QUIET_KEY = "studyboard:reviewQuietUntil";
   const DAY = 864e5, MIN_AGE = 7 * DAY, MIN_DAYS = 5, MIN_DONE = 10, GAP = [120 * DAY, 365 * DAY], EVER_MAX = 3, BUG_QUIET = 30 * DAY, PRO_QUIET = DAY,
     ERR_QUIET = 10 * 60000, UNDO_QUIET = 2 * 60000, IDLE = 3000;
   const version = () => { try { return typeof APP_VERSION === "string" ? APP_VERSION : ""; } catch (e) { return ""; } };
@@ -80,6 +82,7 @@
     if (undoAt && now - undoAt < UNDO_QUIET) return "an Undo just now";
     if (now - num(BUG_KEY) < BUG_QUIET) return "a bug report this month";
     if (now - num(PRO_KEY) < PRO_QUIET) return "a Pro sheet today";
+    if (now < num(QUIET_KEY)) return "a limit, the paywall or the end of the free weeks lately";
     if (typeof navigator !== "undefined" && navigator.onLine === false) return "offline";
     try { if (window.SBEXAM && SBEXAM.current && SBEXAM.current()) return "Exam Mode"; } catch (e) {}
     const today = todayISO();

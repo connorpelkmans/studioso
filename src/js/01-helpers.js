@@ -440,7 +440,21 @@ function syncPill(on){
   if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
   else el.classList.remove("show");
 }
+/* Unhappy moments: an error message, or a free-plan limit, offers "Tell Us" (the feedback form, with the message filled in), so a
+   student who's stuck reaches the person who makes the app, and the App Store review prompt stays quiet for a while (99-review-ask.js) */
+function tellUs(about, cat){
+  const go = () => { try { if (window.SBFEEDBACK) SBFEEDBACK.open({cat: cat || "bug", msg: about ? `About “${String(about).slice(0, 300)}”: ` : ""}); } catch (e) {} };
+  try { if (dlg.open) { dlg.close(); setTimeout(go, 40); return; } } catch (e) {}
+  go();
+}
+const tellUsBtn = (about, cat) => ({label: "Tell Us", fn: () => tellUs(about, cat)});
+// keep the review prompt away for a few days after a limit, a paywall or the end of the free weeks
+function reviewQuiet(days){
+  try { const k = "studyboard:reviewQuietUntil", until = Date.now() + days * 864e5; if (until > (Number(localStorage.getItem(k)) || 0)) localStorage.setItem(k, String(until)); } catch (e) {}
+}
 function toast(msg, undoFn, extra, opts){
+  // an error message with a free button slot offers Tell Us (not the feedback form's own messages, and not offline errors)
+  if (opts && opts.error && !opts.noTell && [].concat(extra || []).filter(Boolean).length < 2 && window.SBFEEDBACK && !(typeof navigator !== "undefined" && navigator.onLine === false)) extra = [].concat(extra || []).filter(Boolean).concat([tellUsBtn(msg, "bug")]);
   const t = toastEl(), b = toastPart("toastUndo"), x = toastPart("toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = toastPart("toastX");
   if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", toastHide); }

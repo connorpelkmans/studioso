@@ -63,14 +63,20 @@ var SBCLS = null;
   function termOf(c){
     const cd = c.classDates || {}, today = todayISO();
     let from = isDate(cd.from) ? cd.from : "", until = isDate(cd.until) ? cd.until : "";
+    // Courses usually share one term: dates set on another course are the best guess for this one
     if (!from || !until) {
-      const seen = [];
-      allTasks().forEach(t => { if (t.courseId === c.id) { if (isDate(t.due)) seen.push(t.due); if (isDate(t.start)) seen.push(t.start); } });
-      Object.values(state.files || {}).forEach(f => { if (f.courseId === c.id && isLec(f)) seen.push(dOf(f.created)); });
-      Object.values(state.notes || {}).forEach(n => { if (n.courseId === c.id && n.cls) seen.push(keyParts(n.cls).date); });
-      eventsArr().forEach(e => { if (e.courseId === c.id && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
+      const other = coursesArr().map(x => x.classDates || {}).filter(d => isDate(d.from) && isDate(d.until) && d.until >= d.from);
+      if (other.length) { if (!from) from = other[0].from; if (!until) until = other[0].until; }
+    }
+    if (!from || !until) {
+      // ...otherwise the term is guessed from every course's dates, so all courses agree on Week 1
+      const seen = [], mine = new Set(coursesArr().map(x => x.id));
+      allTasks().forEach(t => { if (mine.has(t.courseId)) { if (isDate(t.due)) seen.push(t.due); if (isDate(t.start)) seen.push(t.start); } });
+      Object.values(state.files || {}).forEach(f => { if (mine.has(f.courseId) && isLec(f)) seen.push(dOf(f.created)); });
+      Object.values(state.notes || {}).forEach(n => { if (mine.has(n.courseId) && n.cls) seen.push(keyParts(n.cls).date); });
+      eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
       const early = seen.filter(isDate).sort()[0], late = seen.filter(isDate).sort().pop();
-      if (!from) { from = [c.created ? dOf(c.created) : today, early || today].sort()[0]; if (from < addDays(today, -150)) from = addDays(today, -150); }
+      if (!from) { from = [...coursesArr().map(x => x.created ? dOf(x.created) : today), early || today].filter(isDate).sort()[0] || today; if (from < addDays(today, -150)) from = addDays(today, -150); }
       if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180); }
     }
     if (until < from) until = from;
@@ -167,11 +173,13 @@ var SBCLS = null;
     openSheet(`<form class="sheet">${head("Term Dates")}<div class="sheet-body">
       <p class="mini" style="margin:0 0 10px">When ${esc(courseLabel(c))}'s classes run. Every class between these dates gets its own page in Lectures.</p>
       <div class="two"><label class="f">First Class<input type="date" name="from" value="${esc(T.from)}" required></label><label class="f">Last Class<input type="date" name="until" value="${esc(T.until)}" required></label></div>
+      ${coursesArr().length > 1 ? `<label class="mi-check" style="margin-top:6px"><input type="checkbox" name="all" checked> Use these dates for all my courses</label>` : ""}
       </div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button class="btn primary" data-submit>Save</button></div></form>`, fd => {
       const from = String(fd.get("from") || ""), until = String(fd.get("until") || "");
       if (!isDate(from) || !isDate(until) || until < from) { toast("The last class needs to be on or after the first."); return false; }
       const cur = state.courses[cid]; if (!cur) return;
-      applyChanges([{kind: "course", id: cid, after: Object.assign(clone(cur), {classDates: {from, until}})}], "Term dates saved");
+      const ids = fd.get("all") ? coursesArr().map(x => x.id) : [cid];
+      applyChanges(ids.filter(id => state.courses[id]).map(id => ({kind: "course", id, after: Object.assign(clone(state.courses[id]), {classDates: {from, until}})})), ids.length > 1 ? `Term dates saved for ${ids.length} courses` : "Term dates saved");
     });
   }
 
@@ -196,7 +204,7 @@ var SBCLS = null;
         <p class="cls-kick">${esc(x.title)}${x.n && x.of ? ` <span class="mini">of ${x.of}</span>` : ""}</p>
         <h2 class="occv-title">${esc(day(x.date, {weekday: "long", month: "long", day: "numeric"}))}</h2>
         ${x.name ? `<p class="cls-name">${esc(x.name)}</p>` : ""}
-        <p class="mini cls-when">${esc([x.start ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
+        <p class="mini cls-when">${esc([x.start ? (x.end ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : fmtTime(x.start)) : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
         <div class="cls-navs">${nav(prev, "p")}${nav(next, "n")}</div>
 
         <section class="cls-sec"><h3><span>${esc(x.kind || "Class")} Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
@@ -205,7 +213,7 @@ var SBCLS = null;
         </section>
 
         <section class="cls-sec"><h3><span>Recording</span></h3>
-          ${I.recs.length ? `<ul class="cls-items">${I.recs.map(recLi).join("")}</ul>` : `<p class="mini cls-empty">${recOk ? (nowish ? "This class is on now. Record it for a transcript and a summary." : "Record the class, or upload a recording, for a transcript and a summary.") : "No recording for this class."}</p>`}
+          ${I.recs.length ? `<ul class="cls-items">${I.recs.map(recLi).join("")}</ul>${(r => r ? window.SBREPLAY.dockHtml(r.id, {compact: true}) : "")(window.SBREPLAY && I.recs.find(SBREPLAY.hasAudio))}` : `<p class="mini cls-empty">${recOk ? (nowish ? "This class is on now. Record it for a transcript and a summary." : "Record the class, or upload a recording, for a transcript and a summary.") : "No recording for this class."}</p>`}
           ${recOk && !I.recs.length ? `<div class="cls-acts">${nowish || x.date === todayISO() ? `<button type="button" class="btn small primary" data-act="cls-rec">${IC.mic(16)}Record This Class</button>` : ""}<button type="button" class="btn small" data-act="cls-rec-up">${IC.up(16)}Upload a Recording</button></div>` : ""}
         </section>
 
