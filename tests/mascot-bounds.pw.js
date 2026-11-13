@@ -27,11 +27,13 @@ const MEASURE = () => {
     vp: (() => {
       const a = {l: vv ? vv.offsetLeft : 0, t: vv ? vv.offsetTop : 0, r: Math.min(de.clientWidth, vv ? vv.offsetLeft + vv.width : 1e9), b: Math.min(de.clientHeight, vv ? vv.offsetTop + vv.height : 1e9)};
       return a.r - a.l >= 100 && a.b - a.t >= 100 ? a : {l: 0, t: 0, r: de.clientWidth, b: de.clientHeight}; })(),
-    ins: ["top", "right", "bottom", "left"].map(k => parseFloat(de.style.getPropertyValue("--sb-sai-" + k)) || 0), op: +getComputedStyle(box).opacity, hit: box.querySelector(".cp-hit").className, scale: getComputedStyle(box).scale};
+    ins: ["top", "right", "bottom", "left"].map(k => parseFloat(de.style.getPropertyValue("--sb-sai-" + k)) || 0),
+    // wider than a phone, the companion may stand as low as the Add button inside the home bar's space, so the two line up (as the app's guard allows)
+    fabRoom: (() => { if (innerWidth < 640) return null; const f = document.getElementById("fab"), r = f && f.getClientRects().length ? f.getBoundingClientRect() : null; return r && r.height ? Math.max(0, (de.clientHeight || innerHeight) - r.bottom - 20) : null; })(), op: +getComputedStyle(box).opacity, hit: box.querySelector(".cp-hit").className, scale: getComputedStyle(box).scale};
 };
 function problem(m, what) {
   if (!m) return "companion is missing";
-  const [it, ir, ib, il] = m.ins, l = Math.max(m.vp.l, il) + MARGIN - TOL, t = Math.max(m.vp.t, it) + MARGIN - TOL, r = Math.min(m.vp.r, m.vp.r - 0 - ir) - MARGIN + TOL, b = Math.min(m.vp.b, m.vp.b - ib) - MARGIN + TOL;
+  const [it, ir, ib0, il] = m.ins, ib = m.fabRoom == null ? ib0 : Math.min(ib0, m.fabRoom), l = Math.max(m.vp.l, il) + MARGIN - TOL, t = Math.max(m.vp.t, it) + MARGIN - TOL, r = Math.min(m.vp.r, m.vp.r - 0 - ir) - MARGIN + TOL, b = Math.min(m.vp.b, m.vp.b - ib) - MARGIN + TOL;
   const bad = [];
   for (const [n, q] of [["companion", m.v], ["bubble", m.b]]) { if (!q) continue;
     if (q.L < l) bad.push(`${n} left ${q.L.toFixed(1)} < ${l.toFixed(1)}`); if (q.R > r) bad.push(`${n} right ${q.R.toFixed(1)} > ${r.toFixed(1)}`);

@@ -1054,7 +1054,7 @@ let deviceWiping = false;
 let saveWarnAt = 0;
 function saveWarn(e){
   if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { sbHaptic("error", {force: true}); toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
 }
 /* The big copy: localStorage holds only about 5 MB, which a few whiteboards and a lot of notes can fill.
    Once the saved copy is over SPILL_AT characters, or localStorage refuses it, it moves to IndexedDB (far more
@@ -2766,6 +2766,14 @@ document.addEventListener("click", e => {
   if (/^local:/.test(a.dataset.asset)) { e.preventDefault(); e.stopPropagation(); toast("This file is still on the computer it was added from. It uploads the next time Studyboard opens there."); return; }
   if (!sb) return;
   e.preventDefault(); e.stopPropagation();
+  // phones and tablets: inside the app (a new browser window can't show it there, see fileViewer in 01-notes.js)
+  if (typeof fvPhone === "function" && fvPhone()) {
+    const id = a.dataset.asset, f = Object.values(state.files).find(x => x.kind === "file" && (x.revs || []).some(r => r && r.assetId === id));
+    const r = f && f.revs.find(x => x.assetId === id), latest = f && curRev(f) === r;
+    if (f && latest && !a.closest(".fv-sheet, .ofv-sheet")) { fileViewer(f.id); return; }
+    if (f && r) { downloadFile(f, f.revs.indexOf(r)); return; }
+    if (nativeShell()) { sbDownload(id).then(b => saveBlob(String(id).split("/").pop().replace(/^[\w]+-/, "") || "file", b)).catch(() => toast("Couldn't open the file. Check your connection and try again.")); return; }
+  }
   sbOpenAsset(a.dataset.asset);
 }, true);
 function assetHref(id){ return inPreview() ? "/_blob/" + id : "#"; }
@@ -3279,6 +3287,7 @@ function applyChanges(changes, label, extra, opts){
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
   let binned = [];
   if (label !== null) { try { binned = trashCapture(changes, label); } catch(e) { console.warn("Recently Deleted", e); } }
+  if (binned.length) sbHaptic("warning");
   // An exam or quiz marked done keeps how ready you were right then (how ready you felt, and what your results said), so the
   // reflection after the mark compares the mark with the readiness before the exam, on every device
   if (label !== null && typeof examReadiness === "function") changes.forEach(c => {
@@ -5869,6 +5878,7 @@ function qaAdd(){
   });
   ui.qa = null; ui.qaText = "";
   const one = changes.length === 1 ? changes[0].after : null, ex1 = one && MILESTONE(one.type) && one.due > todayISO() ? one : null;
+  if (changes.length) sbHaptic("tap");
   if (changes.length) applyChanges(changes, one ? `Added ${one.title}` : `Added ${changes.length} tasks`, one ? [ex1 && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(ex1.id)} : null, {label: "Edit", fn: () => { if (state.tasks[one.id]) taskForm(state.tasks[one.id]); }}] : undefined); else render();
   const ask = changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);
   if (ask) { remoteAsk(ask.id); return; }
@@ -10528,9 +10538,52 @@ function toastTimer(ms){
   clearTimeout(toastT);
   toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
+/* Haptics: one small vocabulary for the whole app, on phones and tablets only.
+   tap (light: a task checked off, a card graded) · tick (a selection snaps: a day, a column) · lift (a drag picks up, a long press)
+   drop (something lands) · success (a Focus finished, a plan cleared, a new best) · warning (something deleted) · error (a wrong pair, a failed save)
+   The iPhone and Android apps use Apple's and Android's own generators through @capacitor/haptics (iOS's System Haptics switch applies).
+   A browser on an Android phone gets a short vibration; Safari on iPhone and computers have nothing to feel, so they stay silent.
+   At most one every 120 ms, and only within 1.5 s of the student touching the screen (opts.force for the end of a Focus or a streak day).
+   Settings > Haptic Feedback turns it off on this device. */
+const HAPTIC_KEY = "studyboard:haptics", HAPTIC_GAP = 120, HAPTIC_INPUT_MS = 1500;
+const HAPTIC_WEB = {tap: 10, tick: 6, lift: 18, drop: 10, success: [12, 70, 22], warning: [22, 70, 12], error: [12, 45, 12, 45, 12]};
+let hapticAt = 0, hapticInputAt = 0, hapticSel = false;
+["pointerdown", "touchstart", "keydown"].forEach(t => document.addEventListener(t, e => { if (e.isTrusted !== false) hapticInputAt = Date.now(); }, {capture: true, passive: true}));
+function hapticNative(){
+  try {
+    const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
+    if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return null;
+    return (C.Plugins && C.Plugins.Haptics) || null;
+  } catch (e) { return null; }
+}
+// a phone or tablet: the iPhone or Android app, or a browser on a touch screen with no mouse
+function hapticDevice(){
+  try { if (hapticNative()) return true; return !!(window.matchMedia && matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches); } catch (e) { return false; }
+}
+const hapticOn = () => { try { return localStorage.getItem(HAPTIC_KEY) !== "off"; } catch (e) { return true; } };
+function sbHaptic(kind, opts){
+  try {
+    if (!HAPTIC_WEB[kind] || !hapticOn() || document.hidden || !hapticDevice()) return false;
+    const now = Date.now();
+    if (now - hapticAt < HAPTIC_GAP) return false;
+    if (!(opts && opts.force) && now - hapticInputAt > HAPTIC_INPUT_MS) return false;
+    hapticAt = now;
+    const H = hapticNative();
+    if (H) {
+      const done = p => { if (p && p.catch) p.catch(() => {}); };
+      if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
+      else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
+      else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
+      return true;
+    }
+    if (navigator.vibrate) { navigator.vibrate(HAPTIC_WEB[kind]); return true; }
+  } catch (e) {}
+  return false;
+}
+window.sbHaptic = sbHaptic;
 document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
 hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
-toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) f(); });
+toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) { sbHaptic("tap"); f(); } });
 toastPart("toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; toastEl().classList.remove("show"); if (f) f(); });
 // Pointing at a toast with a button, or tabbing into it, holds it open
 { const t = TOAST_EL, acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = e => { if (acts() && (e.type === "focusin" || Date.now() - toastAt > 700)) clearTimeout(toastT); }, go = () => { if (acts() && !toastErr) toastTimer(Math.max(3000, toastMs / 2)); };
@@ -13306,7 +13359,7 @@ let schDragEnd = 0;
     b.classList.add("dragging"); document.body.classList.add("sch-dragging");
     b.style.left = "2px"; b.style.width = "calc(100% - 4px)";
     if (!b.querySelector(".sch-dt")) b.insertAdjacentHTML("beforeend", `<em class="sch-dt"></em>`);
-    try { navigator.vibrate && navigator.vibrate(8); } catch(e) {}
+    sbHaptic("lift");
   };
   document.addEventListener("pointerdown", e => {
     const b = e.target.closest && e.target.closest(".sch-b[data-drag]"); if (!b || e.button > 0) return;
@@ -16914,9 +16967,10 @@ async function downloadFile(f, revIndex){
   if (revIndex != null && revIndex !== f.revs.length - 1) name = name.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(revIndex)})$1`);
   if (DESK) { try { saveBlob(name, new Blob([await assetBytes(r.assetId)], {type: r.type || "application/octet-stream"})); } catch(e) { toast(navigator.onLine === false ? "You're offline and this file isn't on this computer yet" : "Couldn't get the file. Try again."); } return; }
   if (!inPreview()) {
-    if (!sbActive()) { toast("Sign in to download stored files"); return; }
-    let data = null; try { data = await sbDownload(r.assetId); } catch (e) {}
-    if (!data) { toast("Couldn't download the file. Check your connection."); return; }
+    // a copy already on this device is used first (no sign-in or connection needed for it)
+    let data = null, why = "";
+    try { data = new Blob([await assetBytes(r.assetId)], {type: r.type || "application/octet-stream"}); } catch (e) { why = String((e && e.message) || ""); }
+    if (!data) { toast(/only on the computer/.test(why) ? "This file is still on the computer it was added from. It uploads the next time Studyboard is open there and signed in." : /not signed in/.test(why) ? "Sign in to download stored files" : "Couldn't download the file. Check your connection."); return; }
     saveBlob(name, data); return;
   }
   const dl = caps.downloads || await useCap("downloads");
@@ -17023,7 +17077,7 @@ function fileSheet(f){
   const isLink = f.kind === "link" || f.kind === "cloud", isCloud = f.kind === "cloud";
   // What you can do with the file, in one row under its name (Read and Edit for PDFs, Summarize, Open)
   const pdf = !isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
-  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a></div>`;
+  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && !DESK && fvPhone() && fvKind(f) ? `${fvKind(f) !== "office" && !pdf ? `<button type="button" class="btn primary" data-act="f-view" data-id="${esc(f.id)}">Open</button>` : ""}<button type="button" class="btn" data-act="f-save" data-id="${esc(f.id)}">${nativeShell() ? "Share or Open In…" : "Download"}</button>` : `<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a>`}</div>`;
   openSheet(`<form class="sheet">${head(isCloud ? CLOUD_NAMES[f.cloud.p] + " File" : isLink ? "Link" : "File")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="200" value="${esc(f.name)}"></label>
@@ -17118,6 +17172,78 @@ async function officePreview(fid){
     const box = $("#ofvBody"), m = String((e && e.message) || "");
     if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : /not a zip|damaged|corrupt/i.test(m) ? "This file looks damaged, so it can't be shown here. Try opening it in its own app." : m && m.length < 160 ? m : "Couldn't show this file here. Try opening it in its own app.")}</p>`;
   }
+}
+/* Phones and tablets: a stored file opens inside Studyboard. Opening it in a new browser window (sbOpenAsset) doesn't work there:
+   in the iPhone and Android apps there's no new window to open, and the Home Screen web app on iPhone opens one that can't see the
+   downloaded file, so the tap did nothing or showed a blank page. PDFs are drawn page by page (pdf.js, only the pages near the
+   screen, so long ones don't run the phone out of memory); pictures, text, audio and video show as they are; Word, PowerPoint and
+   Excel use the Office preview; anything else goes to Share or Open In… (the phone's share sheet) or a download. */
+const fvPhone = () => { try { return nativeShell() || !!navigator.standalone || (matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches); } catch (e) { return false; } };
+function fvKind(f){
+  if (!f || f.kind !== "file" || !f.revs || !f.revs.length) return "";
+  if (canPreview(f)) return "office";
+  const r = curRev(f), t = String((r && r.type) || "").toLowerCase(), n = String(fileNameOf(f) || "").toLowerCase();
+  if (t === "application/pdf" || /\.pdf$/.test(n)) return "pdf";
+  if (/^image\/(png|jpe?g|gif|webp|bmp|heic|heif|avif|svg\+xml)$/.test(t) || /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif|svg)$/.test(n)) return "image";
+  if (/^audio\//.test(t) || /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac)$/.test(n)) return "audio";
+  if (/^video\//.test(t) || /\.(mp4|m4v|mov|webm)$/.test(n)) return "video";
+  if (/^text\//.test(t) || /^application\/(json|xml)$/.test(t) || /\.(txt|md|markdown|json|xml|tex|log|py|js|java|c|cpp|h|cs|html?|css|r|m|sql|ya?ml|ini|srt|vtt)$/.test(n)) return "text";
+  return "other";
+}
+let FVW = null;
+function fvClose(){ const v = FVW; FVW = null; if (!v) return; if (v.io) v.io.disconnect(); v.urls.forEach(u => URL.revokeObjectURL(u)); if (v.doc) try { v.doc.destroy(); } catch (e) {} }
+dlg.addEventListener("close", () => { if (!dlg.open) fvClose(); });
+async function fileViewer(fid){
+  const f = state.files[fid]; if (!f || f.kind !== "file") return;
+  const kind = fvKind(f);
+  if (kind === "office") { officePreview(fid); return; }
+  if (kind === "pdf" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f) && SBPRO.openReader) { SBPRO.openReader(fid); return; }
+  fvClose();
+  const my = FVW = {fid, urls: [], io: null, doc: null};
+  const saveLabel = nativeShell() ? "Share or Open In…" : "Download";
+  openSheet(`<div class="sheet ofv-sheet fv-sheet">${head(f.name)}<div class="sheet-body ofv-body fv-body" id="fvBody" tabindex="0" aria-label="${esc(f.name)}"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening…</p></div>
+    <div class="sheet-foot"><button type="button" class="btn" data-act="f-open" data-id="${esc(f.id)}">Details</button><span class="spacer"></span><button type="button" class="btn primary" data-act="f-save" data-id="${esc(f.id)}">${saveLabel}</button></div></div>`);
+  const box = () => FVW === my ? $("#fvBody") : null;
+  try {
+    const bytes = await fileBytes(f);
+    const b = box(); if (!b) return;
+    const type = (curRev(f) || {}).type || "";
+    const url = mime => { const u = URL.createObjectURL(new Blob([bytes], {type: mime || type || "application/octet-stream"})); my.urls.push(u); return u; };
+    if (kind === "pdf") await fvPdf(b, bytes, my);
+    else if (kind === "image") b.innerHTML = `<img class="fv-img" alt="${esc(f.name)}" src="${url(/svg/.test(type) || /\.svg$/i.test(fileNameOf(f)) ? "image/svg+xml" : "")}">`;
+    else if (kind === "audio") b.innerHTML = `<audio class="fv-media" controls preload="metadata" src="${url()}"></audio>`;
+    else if (kind === "video") b.innerHTML = `<video class="fv-media" controls playsinline preload="metadata" src="${url()}"></video>`;
+    else if (kind === "text") { const cut = bytes.length > 2e6; b.innerHTML = `<pre class="fv-text">${esc(new TextDecoder().decode(cut ? bytes.slice(0, 2e6) : bytes))}</pre>${cut ? `<p class="mini">Only the first 2 MB is shown. ${esc(saveLabel)} for the rest.</p>` : ""}`; }
+    else b.innerHTML = `<p class="pdr-wait">Studyboard can't show this kind of file. ${nativeShell() ? "Tap Share or Open In… to open it in another app, or save it to Files." : "Download it to open it."}</p>`;
+  } catch (e) {
+    const b = box(); if (!b) return;
+    const m = String((e && e.message) || "");
+    b.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is still on the computer it was added from. It uploads the next time Studyboard is open there and signed in." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : /not signed in/.test(m) ? "Sign in to open your stored files." : "Couldn't open the file. Check your connection and try again.")}</p>`;
+  }
+}
+// The pages are drawn when they come near the screen and let go of once far from it
+async function fvPdf(box, bytes, my){
+  await loadPdfJs();
+  const doc = my.doc = await window.pdfjsLib.getDocument({data: bytes, ...PDF_OPTS}).promise;
+  if (FVW !== my) { try { doc.destroy(); } catch (e) {} return; }
+  const room = Math.max(200, box.clientWidth - 28), first = await doc.getPage(1), v1 = first.getViewport({scale: 1});
+  const n = doc.numPages, w = Math.round(Math.min(room, v1.width * 2));
+  box.innerHTML = Array.from({length: n}, (_, i) => `<div class="fv-page" data-p="${i + 1}" role="img" aria-label="Page ${i + 1} of ${n}" style="width:${w}px;height:${Math.round(w * v1.height / v1.width)}px"></div>`).join("");
+  const draw = async el => {
+    if (el.dataset.on) return; el.dataset.on = "1";
+    try {
+      const page = await doc.getPage(Number(el.dataset.p)), v = page.getViewport({scale: 1}), k = w / v.width, dpr = Math.min(2, window.devicePixelRatio || 1);
+      const vp = page.getViewport({scale: k * dpr}), c = document.createElement("canvas");
+      c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+      el.style.height = Math.round(v.height * k) + "px";
+      await page.render({canvasContext: c.getContext("2d"), viewport: vp}).promise;
+      if (FVW !== my || !el.dataset.on) return;
+      el.replaceChildren(c);
+    } catch (e) { delete el.dataset.on; }
+  };
+  const drop = el => { if (!el.dataset.on) return; delete el.dataset.on; const c = el.querySelector("canvas"); if (c) { c.width = 0; c.height = 0; } el.replaceChildren(); };
+  my.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(e.target); else if (Math.abs(e.boundingClientRect.top - e.rootBounds.top) > 4000) drop(e.target); }), {root: box, rootMargin: "1200px 0px"});
+  box.querySelectorAll(".fv-page").forEach(el => my.io.observe(el));
 }
 // Each page keeps its own size and is scaled down to fit the sheet, so text wraps exactly as in the file
 function officeDraw(){
@@ -18334,7 +18460,7 @@ function rvStart(){
   if (!el.isConnected) { rvDrag = null; return; }
   const r = el.getBoundingClientRect();
   d.started = true; renderBlocked = true;
-  if (d.touch && navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+  if (d.touch) sbHaptic("lift");
   try { getSelection().removeAllRanges(); } catch (x) {}
   d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
   const g = el.cloneNode(true);
@@ -18590,6 +18716,7 @@ function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.sett
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
 function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
+  sbHaptic("tap");
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
@@ -19173,6 +19300,7 @@ function pomoStart(){
   nativeAlarm();
   if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) pomo.len = modeMs(pomo.mode);
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
+  if (pomo.mode === "focus") sbHaptic("lift");
   pomoSave(); pomoSchedule(); pomoUI(true);
   try {
     const t = pomo.mode === "focus" && pomo.taskId && state.tasks[pomo.taskId];
@@ -19255,7 +19383,7 @@ function pomoAlarm(done, next, auto, missed){
   const body = done === "focus" ? `Nice work. ${auto ? "Your" : "Time for a"} ${next === "long" ? `${cfg.long}-minute long break` : `${cfg.short}-minute break`}${auto ? " has started" : ""}.` : `${auto ? "Your next focus session has started." : "Ready for the next focus session?"}`;
   if (!missed) {
     if (!ISLAND.ring) playAlarm(cfg.sound, Number(cfg.volume), 5);   // in the iPhone app, iOS rings it (see nativeAlarm)
-    if (navigator.vibrate) { try { navigator.vibrate([400, 180, 400, 180, 700]); } catch(e) {} }
+    sbHaptic("success", {force: true});
     if (cfg.notify && notifySupported() && Notification.permission === "granted") {
       try { const n = new Notification(title, {body, icon: FAVICON, tag: "studioso-pomo", renotify: true, requireInteraction: true}); n.onclick = () => { try { window.focus(); } catch(e) {} n.close(); stopAlarm(); }; } catch(e) {}
     }
@@ -19308,7 +19436,10 @@ function renderPomoBits(){
   nav.setAttribute("aria-label", btn.getAttribute("aria-label"));
   nav.innerHTML = `${TOMATO}<span class="nf-l" ${active ? "data-pomo-time" : ""}>${active ? fmtClock(pomoLeft()) : "Focus"}</span>${active ? `<span class="nf-m">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : ", paused"}</span>` : ""}`;
   try { islandSync(); } catch (e) {}
+  // the timer started, paused, stopped or changed task (not every tick): the Home Screen widgets show it (70-widgets.js)
+  try { const sig = [pomo.running, pomo.mode, pomo.endAt, pomo.left, pomo.taskId].join("|"); if (sig !== focusSig) { focusSig = sig; fire("focus-state"); } } catch (e) {}
 }
+let focusSig = "";
 // iPhone app: while the timer runs, it shows in the Dynamic Island and on the Lock Screen
 const ISLAND = {sig: "", on: false, ring: false};
 function islandSync(){
@@ -19936,24 +20067,36 @@ const deskAssets = {
   delete: async id => { if (!/^local:/.test(id) && sbActive()) { try { await sbAssets.delete(id); } catch(e) {} } return {deleted: true}; }
 };
 let deskPromoting = false;
+let deskUpWarnAt = 0;
 async function deskPromote(){
   if (!DESK || deskPromoting || !sbActive() || !cloud.on || navigator.onLine === false) return;
   deskPromoting = true;
+  // Each file on its own: one that can't upload (too big, storage full, a type that can't be stored) no longer stops the others,
+  // and the student is told, since until it uploads it can't be opened on their phone or another computer
+  let n = 0;
+  const failed = [];
   try {
-    let n = 0;
     for (const f of Object.values(state.files)) {
       if (f.kind !== "file" || !(f.revs || []).some(r => /^local:/.test(r.assetId) && r.localRel)) continue;
       const nf = clone(f); let changed = false;
       for (const r of nf.revs) {
         if (!/^local:/.test(r.assetId) || !r.localRel) continue;
+        if (navigator.onLine === false) break;
         const bytes = await DESK.read(r.localRel); if (!bytes) continue;
-        try { const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"}); deskMarkDone(up.id); r.assetId = up.id; changed = true; n++; }
-        catch(e) { throw e; }
+        try {
+          const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"});
+          deskMarkDone(up.id); r.assetId = up.id; changed = true; n++;
+        } catch (e) { failed.push({name: f.name, why: String((e && e.message) || e || "")}); }
       }
       if (changed) applyChanges([{kind: "file", id: f.id, after: nf}], "");
     }
-    if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"} added while offline`);
-  } catch(e) { }
+  } catch (e) { console.warn("upload local files", e); }
+  if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"}, so ${n === 1 ? "it opens" : "they open"} on your other devices too`);
+  if (failed.length && Date.now() - deskUpWarnAt > 6 * 3600e3) {
+    deskUpWarnAt = Date.now();
+    const why = failed[0].why, full = /quota|storage|exceed|limit|too large|payload|413/i.test(why);
+    toast(`${failed.length === 1 ? `“${failed[0].name}” couldn't` : `${failed.length} files couldn't`} upload to your account${full ? " (a storage or size limit)" : ""}, so ${failed.length === 1 ? "it only opens" : "they only open"} on this computer.`, null, null, {error: true});
+  }
   deskPromoting = false;
 }
 async function deskOpenAsset(id){
@@ -21919,7 +22062,7 @@ function toggleTask(id, el, extra){
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
   applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, n.status === "done" ? extra : undefined, n.status === "done" ? {done: true} : undefined);
-  if (n.status === "done" && todayCleared()) fire("good-moment", "plan");
+  if (n.status === "done") { const cleared = todayCleared(); sbHaptic(cleared ? "success" : "tap"); if (cleared) fire("good-moment", "plan"); }
 }
 // "Did you take X?" → Move Date: a small picker (tomorrow, the course's next class, or any date) instead of the whole edit sheet
 function moveDateSheet(id){
@@ -21953,6 +22096,7 @@ function todayCleared(){
     return !tasksArr().some(t => t.status !== "done" && t.due && t.due <= today && !t.deleted && !t.archived);
   } catch (e) { return false; }
 }
+if (window.__SB_TEST) window.__sbHaptic = {device: () => hapticDevice(), cleared: () => todayCleared(), del: id => deleteTask(id), task: id => clone(state.tasks[id] || null), today: () => todayISO(), apply: ch => applyChanges(ch, null)};
 // Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
 // page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
 // 99-smooth.js skips its own page fade while this runs.
@@ -22124,6 +22268,8 @@ document.addEventListener("click", e => {
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-preview": officePreview(id); break;
+    case "f-view": fileViewer(id); break;
+    case "f-save": { const f = state.files[id]; if (f) downloadFile(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ...(inPreview() ? [] : [["f-sync", "Sync Drive", "Choose the Drive or OneDrive folders Studyboard uses. AI only reads files you've added", "sync"]]), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
@@ -22186,7 +22332,7 @@ document.addEventListener("pointerdown", e => {
   nbHold = {x0, y0, id: e.pointerId, t: setTimeout(() => {
     if (!nbHold || !board.isConnected) return;
     nbHold = null;
-    if (navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+    sbHaptic("lift");
     nbHoldDone = Date.now();
     const r = board.getBoundingClientRect();
     newNoteAt((x0 - r.left) / nbZ() - NOTE_W() / 2, (y0 - r.top) / nbZ() - 20);
@@ -22296,7 +22442,7 @@ window.addEventListener("keydown", e => { if (e.key === "Escape" && drag && drag
 
 function startDrag(){
   drag.started = true; renderBlocked = true;
-  if (navigator.vibrate) { try { navigator.vibrate(12); } catch(e){} }
+  sbHaptic("lift");
   if (drag.kind === "rot") {
     const n = state.notes[drag.id];
     if (!n) { drag.started = false; renderBlocked = false; drag = null; return; }
@@ -22560,6 +22706,8 @@ function placeAt(x, y){
   const col = under && under.closest(".col");
   $$(".col.over").forEach(c => { if (c !== col) c.classList.remove("over"); });
   if (!col) return;
+  if (drag.hCol && drag.hCol !== col) sbHaptic("tick");
+  drag.hCol = col;
   col.classList.add("over");
   const shown = el => el.checkVisibility ? el.checkVisibility() : !!el.getClientRects().length;
   const lists = [...col.querySelectorAll(".col-list")].filter(shown);
@@ -22576,6 +22724,7 @@ function placeAt(x, y){
 function endDrag(ok){
   cancelAnimationFrame(drag.raf);
   const d = drag; drag = null; renderBlocked = false;
+  if (ok && d.started) sbHaptic(d.kind === "note" && d.target === "trash" ? "warning" : "drop", {force: true});
   suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
   if (d.kind === "rot") {
     d.el.classList.remove("rotating");
@@ -33178,11 +33327,14 @@ hook("boot", boot);
     };
   }
 
+  if (window.__SB_TEST) window.__sbPhoneWidgets = {data: () => phoneData(widgetData()), drain: () => drainPhone(), push: () => { phoneSent = ""; push(); }};
   /* Sending it to the widgets */
   let lastSent = "", pushT = null;
   function push(){
     clearTimeout(pushT); pushT = null;
     let d; try { d = widgetData(); } catch(e) { console.warn("widget data", e); return; }
+    // the phone widgets also show a running Focus, Exam Mode and the week ahead, so they keep their own check for changes
+    pushPhone(d);
     const sig = JSON.stringify(d);
     if (sig === lastSent) return;
     lastSent = sig;
@@ -33190,6 +33342,77 @@ hook("boot", boot);
     pushWindows(d);
   }
   const pushSoon = () => { if (!pushT) pushT = setTimeout(push, 500); };
+
+  /* iPhone and iPad Home Screen and Lock Screen widgets (ios-wrapper/native/HomeWidgets): the same day as the desktop widget,
+     plus what the widget needs to stay right without the app open: the time each task is due, the week ahead (for the iPad's
+     Extra Large size and for after midnight), Exam Mode, a Day Off and a running Focus. Written to the App Group on each change. */
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const hex = (c, d) => { c = String(c || "").trim(); if (/^#[0-9a-f]{3}$/i.test(c)) c = "#" + c.slice(1).split("").map(x => x + x).join(""); return HEX.test(c) ? c.toUpperCase() : d; };
+  const cut = (v, n) => String(v == null ? "" : v).slice(0, n);
+  const phoneNative = () => { const n = window.StudyboardNative; return n && n.homeWidgets && typeof n.homeWidgets.save === "function" ? n.homeWidgets : null; };
+  function phoneData(d){
+    const today = todayISO(), byId = id => state.tasks[id];
+    const item = t => { const x = byId(t.id) || {}; return {id: cut(t.id, 80), title: cut(t.title, 90), course: cut(t.course, 24), color: hex(t.color, "#8A94A6"), meta: cut(t.meta, 48),
+      done: !!t.done, late: !!t.late, due: x.due || "", time: x.time || "", exam: MILESTONE(x.type || "")}; };
+    const tasks = d.tasks.map(item);
+    let exam = null;
+    try {
+      const em = window.SBEXAM && SBEXAM.current && SBEXAM.current();
+      if (em && em.exam) { const t = em.exam, xr = typeof examReadiness === "function" ? examReadiness(t) : null, r = xr ? (xr.measured != null ? xr.measured : xr.self) : null;
+        exam = {id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24), color: hex(colorOf(t.courseId), "#8A94A6"),
+          due: t.due || "", time: t.time || "", days: Math.max(0, Number(em.days) || 0), ready: r == null ? null : Math.max(0, Math.min(100, Math.round(r)))}; }
+    } catch (e) {}
+    // the next six days: what's due each day (exams first), for the week view and for showing tomorrow after midnight
+    const days = [];
+    for (let i = 1; i <= 6; i++) {
+      const day = addDays(today, i), due = tasksArr().filter(t => t.status !== "done" && t.due === day && !t.prepFor)
+        .sort((a, b) => (MILESTONE(b.type) ? 1 : 0) - (MILESTONE(a.type) ? 1 : 0) || (a.time || "99").localeCompare(b.time || "99"));
+      days.push({date: day, off: dayIsOff(day), items: due.slice(0, 4).map(t => ({id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24),
+        color: hex(colorOf(t.courseId), "#8A94A6"), time: t.time || "", exam: MILESTONE(t.type)})), more: Math.max(0, due.length - 4)});
+    }
+    let focus = null;
+    try { if (typeof pomo !== "undefined" && pomo && (pomo.running || pomo.left > 0)) {
+      const t = pomo.taskId && byId(pomo.taskId);
+      focus = {mode: pomo.mode === "focus" ? "focus" : "break", running: !!pomo.running, endsAt: pomo.running ? Number(pomo.endAt) || 0 : 0,
+        left: pomo.running ? 0 : Math.round((Number(pomo.left) || 0) / 1000), task: t ? cut(t.title, 60) : ""};
+    } } catch (e) {}
+    const th = d.theme || {};
+    return {v: 1, day: today, at: Date.now(), dateLabel: cut(d.dateLabel, 40),
+      next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.max(5, Math.min(180, Number(d.next.mins) || 25)),
+        due: (byId(d.next.id) || {}).due || "", time: (byId(d.next.id) || {}).time || ""} : null,
+      tasks, more: d.more, cards: d.cards, dayOff: dayIsOff(today), exam, focus, days,
+      theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}};
+  }
+  let phoneSent = "";
+  function pushPhone(d){
+    const N = phoneNative(); if (!N) return;
+    let j; try { j = phoneData(d); } catch (e) { console.warn("phone widget data", e); return; }
+    const sig = JSON.stringify(Object.assign({}, j, {at: 0}));
+    if (sig === phoneSent) return;
+    phoneSent = sig;
+    Promise.resolve().then(() => N.save(j)).catch(() => {});
+  }
+  // Signing out: nothing of the student's stays on the Home Screen (the next save after sign-in fills it again)
+  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'), N = phoneNative(); if (b && N && N.clear) { phoneSent = ""; N.clear(); } }, true);
+  // Tasks checked off on a widget while the app was closed or in the background: done here (with the time they were ticked), then
+  // acknowledged so the widget's queue empties. A task that is already done, or gone, is just acknowledged.
+  let draining = false;
+  function drainPhone(){
+    const N = phoneNative(); if (!N || typeof N.drain !== "function" || draining) return;
+    draining = true;
+    Promise.resolve().then(() => N.drain()).then(list => {
+      const ids = [];
+      (Array.isArray(list) ? list : []).forEach(a => {
+        ids.push(a.id);
+        const t = a.kind === "done" && state.tasks[a.task];
+        if (!t || t.status === "done") return;
+        const n = clone(t); n.status = "done"; n.doneAt = Number(a.at) > 0 && a.at <= Date.now() ? Number(a.at) : Date.now(); if (!MILESTONE(t.type)) n.pct = 100;
+        n.order = nextOrder("done");
+        applyChanges([{kind: "task", id: t.id, after: n}], `Completed ${t.title} (from the widget)`);
+      });
+      if (ids.length && typeof N.ack === "function") return N.ack(ids);
+    }).catch(() => {}).then(() => { draining = false; });
+  }
 
   // Windows 11 Widgets board (the installed web app from Edge)
   function cardData(d){
@@ -33250,6 +33473,7 @@ hook("boot", boot);
     if (!a && !task) return;
     try { history.replaceState(null, "", location.pathname + (WV ? "?widget=today" : "") + location.hash); } catch(e) {}
     if (a === "done" && task) doAction("done", task);
+    else if (a === "focus" && task) doAction("focus-task", task);
     else if (task) doAction("task", task);
     else if (ACTIONS.includes(a)) doAction(a);
   }
@@ -33368,6 +33592,7 @@ hook("boot", boot);
   });
   hook("render", pushSoon);
   hook("changed", pushSoon);
+  hook("focus-state", pushSoon);
   hook("boot", () => {
     if (DESK_OK) {
       if (DESK.onAction) DESK.onAction((a, arg) => doAction(a, arg));
@@ -33382,6 +33607,8 @@ hook("boot", boot);
     setInterval(push, 5 * 60000);
     handleUrl();
     push();
+    drainPhone();
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) { drainPhone(); pushSoon(); } });
     // The phone apps' native-bridge.js hands deep links and reminder taps here once the app is running, so open quizzes and unsaved text survive.
     // Returns false for anything it can't open in place (the bridge then reloads with the link, as on a cold start).
     window.SBOPEN = q => {
@@ -33393,6 +33620,7 @@ hook("boot", boot);
           localStorage.setItem("sb:grpPending", JSON.stringify({kind: dk ? "deck" : "group", code, at: Date.now()}));   // 80-groups.js picks this up within seconds
           return true;
         }
+        if (a === "focus" && task) { doAction("focus-task", task); return true; }
         if (task) { doAction("task", task); return true; }
         if (ACTIONS.includes(a) && a !== "done") { doAction(a); return true; }
       } catch (e) {}
@@ -35743,7 +35971,7 @@ hook("boot", boot);
     if (!d.el.isConnected) { const again = d.id && $(`#grpPT .kb-card[data-id="${CSS.escape(d.id)}"]`); if (again) d.el = again; }
     if (!d.el.isConnected || d.el.getBoundingClientRect().width < 20) { clearTimeout(d.timer); kbDrag = null; return; }
     d.started = true;
-    if (navigator.vibrate) { try { navigator.vibrate(12); } catch(e) {} }
+    sbHaptic("lift");
     const r = d.el.getBoundingClientRect(), gh = d.el.cloneNode(true);
     d.dx = d.x - r.left; d.dy = d.y - r.top;
     gh.className += " kb-ghost"; gh.removeAttribute("data-id"); gh.setAttribute("aria-hidden", "true"); gh.style.width = r.width + "px"; gh.style.minWidth = r.width + "px"; gh.style.boxSizing = "border-box"; gh.style.left = r.left + "px"; gh.style.top = r.top + "px";
@@ -65119,12 +65347,17 @@ var COMP_EXTRA = [];
     };
   }
   // Phones: while a sheet is open or the keyboard is up, the companion stays exactly where it is, whatever circle it is in
-  let fullH = 0, fullW = 0;
+  let fullH = 0, fullW = 0, fullLayoutH = 0;
   function dockFrozen(){
     if (!phone() || !box || !box.dataset.x) return false;
-    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
+    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; fullLayoutH = 0; }
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
+    if (innerHeight > fullLayoutH) fullLayoutH = innerHeight;
+    // the whole page got shorter (the Android app's keyboard resizes the page, and the tab bar rides up above it):
+    // where it stood is now under the keyboard or off the screen, so it moves with the tab bar instead of staying put
+    // (on the Companion tab its circle has its own keyboard animation, so there it stays put)
+    if (innerHeight < fullLayoutH - 100 && spotKind !== "slot") return false;
     // a sheet is open, or one just closed and the keyboard is still sliding away
     // or the keyboard is up (typing on the whiteboard or in a note)
     const vv = window.visualViewport;
@@ -77243,7 +77476,7 @@ function decorateDeck(){
     st.ghost = st.item.cloneNode(true); st.ghost.classList.add("sort-ghost");
     Object.assign(st.ghost.style, {width: r.width + "px", height: r.height + "px", left: r.left + "px", top: r.top + "px"});
     (document.getElementById("view") || document.body).appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
-    if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+    sbHaptic("lift");
   };
   const move = (x, y) => {
     st.ghost.style.left = (x - st.dx) + "px"; st.ghost.style.top = (y - st.dy) + "px";
@@ -78553,6 +78786,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     setTimeout(() => els.forEach(e => e.classList.add("gone")), still() ? 0 : 320);
     const left = $("#mtLeft"); if (left) left.textContent = `${pl(R.left, "pair")} to go`;
     if (!R.left) { finish(); return; }
+    sbHaptic("tap");
     sayIt(`Match. ${pl(R.left, "pair")} to go.`);
     if (had) { const nx = R.tiles.findIndex((x, k) => !x.gone && k > b); const k = nx >= 0 ? nx : R.tiles.findIndex(x => !x.gone); const e = tileEl(k); if (e) e.focus(); }
   }
@@ -78560,6 +78794,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     R.pen += MATCH.PENALTY; R.miss++;
     [tileEl(a), tileEl(b)].filter(Boolean).forEach(e => { e.classList.remove("miss"); void e.offsetWidth; e.classList.add("miss"); setTimeout(() => e.classList.remove("miss"), 480); });
     const p = $("#mtPen"); if (p) { p.classList.remove("show"); void p.offsetWidth; p.classList.add("show"); setTimeout(() => p.classList.remove("show"), 900); }
+    sbHaptic("error");
     sayIt("Not a match. Plus 1 second.");
     tick();
   }
@@ -78570,6 +78805,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     if (d) { const nd = clone(d); rec = MATCH.record(nd.match, R.ms); nd.match = rec.match; saveDeck(nd, null); }
     else { rec = MATCH.record(R.opts.prev || null, R.ms); R.opts.prev = rec.match; }
     R.rec = rec;
+    sbHaptic(rec.better ? "success" : "tap", {force: true});
     if (rec.better && !rec.first) fire("good-moment", "match");
     setTimeout(() => { if (R && R.done && dlg.open && dlg.querySelector("[data-mt-play]")) result(); }, still() ? 0 : 360);
   }
@@ -79796,6 +80032,7 @@ function tryCelebrate(){
     const line = C._speech.choose(lines(c), "streak");
     if (!line) return;
     if (C.cheer) C.cheer("task");
+    if (c.kind !== "welcome") sbHaptic("success", {force: true});
     C.say(line, {cheer: true, name: false, again: false, cat: "streak"});
     if (C.bubble && C.bubble() === line) {
       const s = saidRead(); s.m = s.m || {};
@@ -93684,7 +93921,7 @@ var SBWB = null;
       if (D !== d) return;
       clearTimeout(d.snapT); D = {kind: "move", id: d.id, a: w, s, held: true};
       select(new Set([k])); SEL.drag = true; itemsDraw(); dirty();
-      try { navigator.vibrate && navigator.vibrate(10); } catch (x) {}
+      sbHaptic("lift");
     }, 450);
   }
   function begin(e, s, w){
@@ -93713,7 +93950,7 @@ var SBWB = null;
     }
   }
   // Hold still for a moment at the end of a stroke
-  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} dirty(true); } }, 600); }
+  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; sbHaptic("tick", {force: true}); dirty(true); } }, 600); }
   function drag(e, s){
     const w = toW(s);
     // a finger only moves the board once it really moves (a hand settling on the screen doesn't nudge it)
@@ -102741,7 +102978,7 @@ const AUTOPILOT = (() => {
         if (go) {
           // the new day is drawn underneath first, then the window lifts off: no frame without a day in it
           const commit = S.nb.commit, win = S.win, h0 = S.hh;
-          S.win = null; cleanup(); commit(); render();
+          S.win = null; cleanup(); commit(); render(); sbHaptic("tick");
           if (win) { requestAnimationFrame(() => win.remove()); }
           // the new day's header can be taller or shorter (more due items): the hours below ease into place instead of jumping
           const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? Math.round(nh.getBoundingClientRect().height - h0) : 0;
@@ -103794,11 +104031,13 @@ const AUTOPILOT = (() => {
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
+    ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll.</span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
+    if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
     if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
     if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }
     if (act === "tz-shift") { ls(HOME_KEY, deviceZone()); ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); try { toast("School sites will use " + city(deviceZone()) + " time from the next sync."); } catch (e) {} return true; }

@@ -480,9 +480,52 @@ function toastTimer(ms){
   clearTimeout(toastT);
   toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
+/* Haptics: one small vocabulary for the whole app, on phones and tablets only.
+   tap (light: a task checked off, a card graded) · tick (a selection snaps: a day, a column) · lift (a drag picks up, a long press)
+   drop (something lands) · success (a Focus finished, a plan cleared, a new best) · warning (something deleted) · error (a wrong pair, a failed save)
+   The iPhone and Android apps use Apple's and Android's own generators through @capacitor/haptics (iOS's System Haptics switch applies).
+   A browser on an Android phone gets a short vibration; Safari on iPhone and computers have nothing to feel, so they stay silent.
+   At most one every 120 ms, and only within 1.5 s of the student touching the screen (opts.force for the end of a Focus or a streak day).
+   Settings > Haptic Feedback turns it off on this device. */
+const HAPTIC_KEY = "studyboard:haptics", HAPTIC_GAP = 120, HAPTIC_INPUT_MS = 1500;
+const HAPTIC_WEB = {tap: 10, tick: 6, lift: 18, drop: 10, success: [12, 70, 22], warning: [22, 70, 12], error: [12, 45, 12, 45, 12]};
+let hapticAt = 0, hapticInputAt = 0, hapticSel = false;
+["pointerdown", "touchstart", "keydown"].forEach(t => document.addEventListener(t, e => { if (e.isTrusted !== false) hapticInputAt = Date.now(); }, {capture: true, passive: true}));
+function hapticNative(){
+  try {
+    const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
+    if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return null;
+    return (C.Plugins && C.Plugins.Haptics) || null;
+  } catch (e) { return null; }
+}
+// a phone or tablet: the iPhone or Android app, or a browser on a touch screen with no mouse
+function hapticDevice(){
+  try { if (hapticNative()) return true; return !!(window.matchMedia && matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches); } catch (e) { return false; }
+}
+const hapticOn = () => { try { return localStorage.getItem(HAPTIC_KEY) !== "off"; } catch (e) { return true; } };
+function sbHaptic(kind, opts){
+  try {
+    if (!HAPTIC_WEB[kind] || !hapticOn() || document.hidden || !hapticDevice()) return false;
+    const now = Date.now();
+    if (now - hapticAt < HAPTIC_GAP) return false;
+    if (!(opts && opts.force) && now - hapticInputAt > HAPTIC_INPUT_MS) return false;
+    hapticAt = now;
+    const H = hapticNative();
+    if (H) {
+      const done = p => { if (p && p.catch) p.catch(() => {}); };
+      if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
+      else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
+      else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
+      return true;
+    }
+    if (navigator.vibrate) { navigator.vibrate(HAPTIC_WEB[kind]); return true; }
+  } catch (e) {}
+  return false;
+}
+window.sbHaptic = sbHaptic;
 document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
 hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
-toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) f(); });
+toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) { sbHaptic("tap"); f(); } });
 toastPart("toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; toastEl().classList.remove("show"); if (f) f(); });
 // Pointing at a toast with a button, or tabbing into it, holds it open
 { const t = TOAST_EL, acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = e => { if (acts() && (e.type === "focusin" || Date.now() - toastAt > 700)) clearTimeout(toastT); }, go = () => { if (acts() && !toastErr) toastTimer(Math.max(3000, toastMs / 2)); };
