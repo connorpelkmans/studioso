@@ -525,15 +525,16 @@ function stripHtml(S){
   const ms = S.ms.filter(m => !m.locked), start = S.start, due = S.due;
   let from = start; if (BD.diff(from, due) > 59) from = BD.addD(due, -59);
   const cells = [], by = {}; ms.forEach((m, i) => { (by[m.due] = by[m.due] || []).push(i + 1); });
-  const nDays = BD.diff(from, due) + 1;
+  // milestone numbers show in their cells, smaller on a long strip; on a very long one the cells are too thin, and the caption says so
+  const nDays = BD.diff(from, due) + 1, showN = nDays <= 45;
   for (let d = from, k = 0; d <= due && k < 90; d = BD.addD(d, 1), k++) {
     const mine = ms.filter(m => m.due === d).reduce((s, m) => s + (Number(m.hours) || 0), 0) / (S.ctx.cap || 3);
     const lv = lvOf((S.ctx.load[d] || 0) + mine), isDue = d === due, nums = by[d] || [];
-    cells.push(`<span class="bd-c lv${lv}${nums.length ? " has" : ""}${isDue ? " due" : ""}" title="${esc(fmtDate(d))}: ${LVN[lv]}${nums.length ? ", milestone " + nums.join(", ") : ""}${isDue ? ", due" : ""}">${nums.length && nDays <= 24 ? `<b>${nums[0]}</b>` : isDue && nDays <= 24 ? `<b>!</b>` : ""}</span>`);
+    cells.push(`<span class="bd-c lv${lv}${nums.length ? " has" : ""}${isDue ? " due" : ""}" title="${esc(fmtDate(d))}: ${LVN[lv]}${nums.length ? ", milestone " + nums.join(", ") : ""}${isDue ? ", due" : ""}">${nums.length && showN ? `<b>${nums[0]}</b>` : isDue && nDays <= 24 ? `<b>!</b>` : ""}</span>`);
   }
   const sum = ms.map((m, i) => `${i + 1}: ${fmtShort(m.due)}`).join(", ");
-  return `<div class="bd-strip" role="img" aria-label="Timeline from ${esc(fmtShort(from))} to ${esc(fmtShort(due))}, due date last. Milestone dates, ${esc(sum)}. Darker days are busier.">${cells.join("")}</div>
-    <div class="bd-strip-l mini" aria-hidden="true"><span>${esc(fmtShort(from))}</span><span>Darker days are busier. Numbers are milestones; the last cell is the due date.</span><span>${esc(fmtShort(due))}</span></div>`;
+  return `<div class="bd-strip${nDays > 24 ? " long" : ""}" role="img" aria-label="Timeline from ${esc(fmtShort(from))} to ${esc(fmtShort(due))}, due date last. Milestone dates, ${esc(sum)}. Darker days are busier.">${cells.join("")}</div>
+    <div class="bd-strip-l mini" aria-hidden="true"><span>${esc(fmtShort(from))}</span><span>Darker days are busier. ${showN ? "Numbers are milestones" : "Outlined days are milestones"}; the last cell is the due date.</span><span>${esc(fmtShort(due))}</span></div>`;
 }
 // A fresh plan does what Move to Lighter Day would: a milestone on a heavy or crunch day steps to a lighter day nearby, keeping the order
 function autoLighter(S){
@@ -585,7 +586,7 @@ function draw(){
   $("#bdTotal").innerHTML = S.mode === "replan" ? `${open.length} open milestone${open.length === 1 ? "" : "s"}, ${esc(hm(tot))} of work left.` : `Milestones add up to <b>${esc(hm(tot))}</b>${Math.abs(tot - est) > Math.max(0.5, est * 0.1) ? ` (your estimate is ${esc(hm(est))})` : ""}.`;
   $("#bdTotal").className = "mini bd-total" + (Math.abs(tot - est) > Math.max(1, est * 0.25) && S.mode !== "replan" ? " warn" : "");
   const go = $("#bdGo"), n = open.length;
-  go.textContent = S.mode === "replan" ? `Update ${n} milestone${n === 1 ? "" : "s"}` : `Create ${n} milestone${n === 1 ? "" : "s"}`;
+  go.textContent = S.mode === "replan" ? `Update ${n} Milestone${n === 1 ? "" : "s"}` : `Create ${n} Milestone${n === 1 ? "" : "s"}`;
   go.disabled = !n;
   const t = $("#bdTight"); if (t) t.hidden = true;
 }
@@ -893,7 +894,7 @@ function wireNew(S){
 /* Where it shows up */
 const bigBtnTypes = {Project: 1, Assignment: 1, Lab: 1};
 function formHtml(t, isNew){
-  if (isNew) return `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-new">Big Assignment? Break It into Milestones Instead</button></p>`;
+  if (isNew) return `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-new">Big Assignment? Break It Down Instead</button></p>`;
   if (!t || t.status === "done" && !t.breakdownParent) return "";
   const today = todayISO();
   if (t.breakdownOf) {
@@ -921,7 +922,7 @@ function offerHtml(t){
   return BD.isBig(t) && !bdNo(t.id) && !started ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
     : "";
 }
-const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It into Milestones</button></p>`;
+const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It Down</button></p>`;
 // Tasks whose Break It Down suggestion was waved off
 const bdNo = id => !!((bdMem().no || {})[id]);
 function bdNoSet(id){
@@ -1039,7 +1040,7 @@ hook("act", (act, el, id) => {
 .bd-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;margin:10px 0 2px}
 .bd-c{height:28px;border-radius:4px;background:var(--cr0,#A9CFF6);border:1px solid var(--line);display:grid;place-items:center;font-size:.7rem;line-height:1;min-width:0;overflow:hidden}
 .bd-c.lv1{background:var(--cr1,#9DDBA8)}.bd-c.lv2{background:var(--cr2,#F7DA63)}.bd-c.lv3{background:var(--cr3,#F29A4A);color:var(--cr-t3,#1C2433)}.bd-c.lv4{background:var(--cr4,#D3352A);color:var(--cr-t4,#fff)}
-.bd-c.has{outline:2px solid var(--ink);outline-offset:-2px}.bd-c.due{border-color:var(--ink);border-style:dashed}.bd-c b{font-weight:800}
+.bd-strip.long .bd-c{font-size:.6rem;letter-spacing:-.02em}.bd-c.has{outline:2px solid var(--ink);outline-offset:-2px}.bd-c.due{border-color:var(--ink);border-style:dashed}.bd-c b{font-weight:800}
 .bd-strip-l{display:flex;justify-content:space-between;gap:8px}.bd-strip-l span:nth-child(2){flex:1;text-align:center;opacity:.85}
 .bd-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .bd-m{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}

@@ -83,6 +83,38 @@ var SBCLS = null;
     return {from, until, set: isDate(cd.from) && isDate(cd.until)};
   }
 
+  /* When a course's term is over: Crunch and Today's Plan stop counting its past-due work then. The Last Class date when it's
+     set (this course's or, as termOf does, another course's); otherwise a guess from the last date any course has (a deadline
+     or the end of a class series), the same dates termOf guesses from. A guessed end waits two weeks, so a course whose next
+     deadlines aren't entered yet isn't taken as over. */
+  let LAST = null;
+  function endOf(c){
+    const cd = (c && c.classDates) || {};
+    if (isDate(cd.until)) return {until: cd.until, set: true};
+    const other = coursesArr().map(x => x.classDates || {}).filter(d => isDate(d.from) && isDate(d.until) && d.until >= d.from);
+    if (other.length) return {until: other[0].until, set: true};
+    if (!LAST || LAST.st !== state || LAST.at !== state.updated) {
+      const mine = new Set(coursesArr().map(x => x.id)); let late = "";
+      const see = d => { if (isDate(d) && d > late) late = d; };
+      allTasks().forEach(t => { if (mine.has(t.courseId)) { see(t.due); see(t.start); } });
+      eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { see(e.date); if (e.repeat) see(e.repeat.until); } });
+      LAST = {st: state, at: state.updated, late};
+    }
+    return {until: LAST.late, set: false};
+  }
+  const ended = (c, today) => { const e = endOf(c); return !!e.until && (today || todayISO()) > (e.set ? e.until : addDays(e.until, 14)); };
+  // Which open work no longer counts today: past due, in a course whose term is over (work with no course once every course is)
+  function overOf(today){
+    today = today || todayISO();
+    const cs = coursesArr(); if (!cs.length) return null;
+    const by = {}; cs.forEach(c => { by[c.id] = ended(c, today); });
+    const all = cs.every(c => by[c.id]);
+    if (!all && !cs.some(c => by[c.id])) return null;
+    const f = t => !!t && isDate(t.due) && t.due < today && (courseOf(t.courseId) ? !!by[t.courseId] : all);
+    f.all = all; f.ended = cs.filter(c => by[c.id]);
+    return f;
+  }
+
   /* Every class of a course in its term, numbered per kind (Lecture 7, Lab 3); skipped classes stay listed but aren't counted */
   let CACHE = null;
   function classesOf(c){
@@ -420,5 +452,5 @@ var SBCLS = null;
     return true;
   });
 
-  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
+  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();

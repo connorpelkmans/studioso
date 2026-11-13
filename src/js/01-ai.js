@@ -1383,6 +1383,8 @@ function aiAnswer(given, pre){
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial};
   render();
+  // Keyboard goes to Next Question so Enter moves on, even after a mouse-picked answer (the click left focus on Quit)
+  setTimeout(() => { const n = $("#aiNext"); if (n) n.focus(); }, 30);
 }
 function aiFinish(){
   const f = ui.fc; f.done = true;

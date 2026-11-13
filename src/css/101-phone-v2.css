@@ -407,7 +407,8 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 .ui-col .ui-col-act{justify-content:center;text-align:center}
 
 /* Course dropdowns: our own menu, with small flat dots */
-html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px);background-repeat:no-repeat}
+/* the dot and the dropdown chevron together: the plain select rule (103-phone-design.css) would otherwise replace the dot */
+:root select.cs-custom.has-dot:not([multiple]):not([size]){padding-left:34px;background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:0 0,right 12px center;background-size:auto,14px 14px}
 .cs-back{position:fixed;inset:0;z-index:9998;background:rgba(10,20,30,.22)}
 .cs-menu{position:fixed;z-index:9999;display:grid;gap:2px;align-content:start;overflow:auto;padding:6px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.28)}
 .cs-menu.cs-sheet{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:60vh;border-radius:18px}

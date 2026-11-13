@@ -24,7 +24,7 @@ function fabConfig(){
   if (ui.tab === "courses") return ui.courseId || ui.courseTab === "grades" ? null : {act: "fab-course", label: "Add Course"};
   if (ui.tab === "files") return {act: "fab-file", label: "Add File"};
   if (ui.tab === "schedule") return {act: "sch-add", label: "Add Event"};
-  if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "Add Board"} : {act: "fab-note", label: "Add Note"};
+  if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "New Whiteboard"} : {act: "fab-note", label: "Add Note"};
   if (ui.tab === "flashcards") { const dk = $("#view [data-fc-deck]"); return dk ? {act: "fc-add", label: "Add Card", id: dk.dataset.fcDeck} : $("#view [data-fc-list]") ? {act: "fab-deck", label: "Add Deck"} : $("#view [data-qz-list]") ? {act: "qz-add", label: "Add Quiz"} : null; }
   if (ui.tab === "groups") return $("#view [data-grp-list]") ? {act: "fab-group", label: "Add Group"} : (window.SBGRPFAB && window.SBGRPFAB()) || null;
   return {act: "new-task", label: "Add Task"};

@@ -828,6 +828,17 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .plan-past .pp-q .mini{display:block;font-weight:500}
 .plan-past .pp-acts{display:flex;gap:6px;flex-wrap:wrap}
 .plan-past > .mini{margin:8px 0 0}
+/* After the term: one calm card instead of weeks-old work */
+.plan-term{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:12px 0 0;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.plan-term .pt-q{flex:1 1 260px;min-width:0}
+.plan-term .pt-q .mini{display:block;margin-top:2px}
+.plan-term .pp-acts{display:flex;gap:6px;flex-wrap:wrap}
+/* No Date Yet: open tasks the Timeline and Today's Plan can't place */
+.und-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.und-list li{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:6px 0 6px 10px;border-left:4px solid var(--c)}
+.und-list .und-t{font-weight:600;text-align:left;padding:0}
+.und-list .mini{flex:1 1 120px;min-width:0}
+.plan-undated{margin-top:12px}
 .nu-skipped{margin:10px 0 0}
 .nu-why{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:5px}
 .nu-sep{display:none}

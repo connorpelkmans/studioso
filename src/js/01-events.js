@@ -33,9 +33,9 @@ function moveDateSheet(id){
     const x = state.tasks[id]; if (!isDate(d) || !x) return;
     const n = clone(x); n.due = d; if (n.start && n.start > d) n.start = d;
     if (dlg.open) dlg.close();
-    applyChanges([{kind: "task", id, after: n}], `Moved ${t.title} to ${fmtShort(d)}`);
+    applyChanges([{kind: "task", id, after: n}], `${t.due ? "Moved" : "Dated"} ${t.title} to ${fmtShort(d)}`);
   };
-  openSheet(`<form class="sheet md-sheet">${head("Move " + t.title)}<div class="sheet-body">
+  openSheet(`<form class="sheet md-sheet">${head((t.due ? "Move " : "Add a Date: ") + t.title)}<div class="sheet-body">
       <div class="menu-list md-list">${opt(tmr, next === tmr ? "Tomorrow (next class)" : "Tomorrow")}${next && next !== tmr ? opt(next, "Next Class") : ""}</div>
       <label class="f"><span class="lh">Or Pick a Date</span><input type="date" name="due" min="${today}"></label></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Move</button></div></form>`, fd => {
@@ -154,6 +154,7 @@ document.addEventListener("click", e => {
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
     case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
     case "move-date": moveDateSheet(id); break;
+    case "undated-open": undatedSheet(); break;
     case "plan-sec": { const k = id === "how" ? "planHow" : "planMore"; ui[k] = !ui[k]; const p = document.getElementById("plan-" + id); if (p) p.hidden = !ui[k]; el.setAttribute("aria-expanded", String(ui[k])); break; }
     case "plan-why": { ui.planWhy = ui.planWhy || {}; const on = !ui.planWhy[id]; if (on) ui.planWhy[id] = 1; else delete ui.planWhy[id]; const p = document.getElementById("pw-" + id); if (p) p.hidden = !on; el.setAttribute("aria-expanded", String(on)); const li = el.closest(".plan-row"); if (li) li.classList.toggle("why-open", on); break; }
     case "show-old": ui.showOldDone = true; render(); break;

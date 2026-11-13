@@ -253,7 +253,8 @@ function reviewHeroHtml(){
   let title, sub;
   if (ready) {
     const mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
-    title = `${ready} card${ready === 1 ? "" : "s"} ready to review`;
+    // due and new cards are counted apart, so the number due matches the Review tab's badge (which counts due cards only)
+    title = n.due && n.fresh ? `${n.due} card${n.due === 1 ? "" : "s"} due + ${n.fresh} new` : n.fresh ? `${n.fresh} new card${n.fresh === 1 ? "" : "s"} to learn` : `${ready} card${ready === 1 ? "" : "s"} ready to review`;
     sub = [`About ${mins} minute${mins === 1 ? "" : "s"}`, deckWords, exWords];
   } else {
     const next = inC.reduce((m, d) => d.cards.reduce((mm, c) => !c.draft && c.seen > 0 && c.due && c.due > todayISO() && (!mm || c.due < mm) ? c.due : mm, m), "");
@@ -798,7 +799,8 @@ async function quizFromCardsAi(decks, n, types, dir, title){
 // Without AI: the questions are made from the cards here, in the same form
 function quizFromCardsLocal(decks, n, types, dir, title){
   const qs = aiCleanQuestions(buildQuiz(decks, n, types, dir).map(q => q.type === "mc" ? {type: "single", stem: q.prompt, options: q.options, correct: [q.options.indexOf(q.answer)]}
-    : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt}\nAnswer: ${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
+    // A true/false question reads as a statement, the term and the claimed answer on two lines
+    : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt} ${q.fwd ? "means" : "is called"}:\n${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
     : {type: "short", stem: q.prompt, answer: q.answer}), v => String(v == null ? "" : v).trim());
   if (!qs.length) { toast("Couldn't make questions from these cards"); return; }
   const d = clone(state.decks[decks[0]]); if (!d) return;
@@ -823,6 +825,8 @@ function answerQuiz(given, pre){
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
   render();
+  // Keyboard goes to Next Question so Enter moves on, even after a mouse-picked answer (the click left focus on Quit)
+  setTimeout(() => { const n = $("#qNext"); if (n) n.focus(); }, 30);
 }
 function finishQuiz(){
   const f = ui.fc; f.done = true;

@@ -1785,7 +1785,7 @@ function envelopeHtml(){
   const cur = STICKER_PACKS.find(p => p.id === ui.stkPack) || STICKER_PACKS[0], p = stkParts(), q = ui.stkQ || "";
   const open = ui.envOpen !== false;
   return `<aside class="env ${open ? "" : "closed"} ${q.trim() ? "searching" : ""}" aria-label="Sticker envelope">
-    <button type="button" class="env-head" data-act="env-toggle" aria-expanded="${open}"><span class="env-title">Stickers</span><span class="env-caret" aria-hidden="true">${open ? "▾" : "▸"}</span></button>
+    <button type="button" class="env-head" data-act="env-toggle" aria-expanded="${open}"${open ? "" : ' title="Stickers"'}><span class="env-title">Stickers</span><span class="env-caret" aria-hidden="true">${open ? "▾" : "▸"}</span><svg class="env-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 16.6l-5.3 2.9 1.1-5.9-4.4-4.1 6-.8z" fill="#F6C343" stroke="#4A3014" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
     <div class="env-body">
       <div class="env-search" role="search"><input type="search" class="env-q" placeholder="Search stickers" aria-label="Search all sticker packs" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="40" value="${esc(q)}"><button type="button" class="env-qx" data-act="stk-qclear" aria-label="Clear search" ${q ? "" : "hidden"}>×</button></div>
       <div class="env-packs" role="group" aria-label="Sticker packs">${STICKER_PACKS.map(p => `<button type="button" data-act="stk-pack" data-id="${p.id}" class="${p === cur ? "on" : ""}" title="${esc(p.name)}${p.tier === "pro" ? " (Pro)" : ""}" aria-label="${esc(p.name)}" aria-pressed="${p === cur}">${stickerSvg(Object.keys(p.items)[0])}${owns("sticker", p.id) ? "" : `<i class="lock">🔒</i>`}</button>`).join("")}</div>
@@ -1957,10 +1957,13 @@ const STYLE_ACTS = {
   "motion-toggle": el => { saveStyle({motion: !!el.checked}); artSig = ""; renderSkinArt(); },
   "anim-toggle": el => { saveStyle({[el.dataset.key]: !!el.checked}); artSig = ""; renderSkinArt(); },
   "kit-follow": el => { saveStyle({[el.dataset.kind + "Auto"]: true}); render(); styleShop(); },
-  // On a phone the sticker drawer rises and fades in when it opens, and sinks away before it closes
+  // On a phone the sticker drawer rises and fades in when it opens, and sinks away before it closes.
+  // Beside the board (wider screens) it folds into a round button at the board's top right, and unfolds back (envMorph)
   "env-toggle": () => {
     const opening = ui.envOpen === false, env = document.querySelector(".env");
-    const r = document.documentElement, glide = env && env.animate && matchMedia("(max-width:639px)").matches && r.dataset.motion !== "static" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const r = document.documentElement, still = r.dataset.motion === "static" || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (env && env.animate && !still && matchMedia("(min-width:701px)").matches) { envMorph(opening); return; }
+    const glide = env && env.animate && matchMedia("(max-width:639px)").matches && !still;
     const ease = "cubic-bezier(.32,.72,0,1)";
     const flip = () => {
       ui.envOpen = opening; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render();
@@ -1971,6 +1974,46 @@ const STYLE_ACTS = {
     flip();
   }
 };
+/* Closing beside the board: the envelope's flap folds shut, the board's round buttons (Archive, Trash, Expand) step left to make
+   room, the envelope shrinks into a round button in that spot, then the board grows into the space the envelope used. Opening
+   plays the same steps backward. It is all played on the open layout (the board's width held, then let out), so the closed
+   layout drawn afterwards is exactly where it ends. */
+const ENV_MS = 450;
+function envMorph(opening){
+  const save = () => { ui.envOpen = opening; try { localStorage.setItem("studyboard:env", opening ? "1" : "0"); } catch(e) {} };
+  if (opening) { save(); render(); }
+  const env = document.querySelector(".nb-wrap > .env:not(.closed)"), wrap = env && env.parentElement, main = wrap && wrap.querySelector(":scope > .nb-main"), head = env && env.querySelector(".env-head");
+  if (!env || !main || !head) { if (!opening) { save(); render(); } return; }
+  const er = env.getBoundingClientRect(), mr = main.getBoundingClientRect(), hh = head.getBoundingClientRect().height;
+  const gap = er.left - mr.right, mw = parseFloat(getComputedStyle(main).width), grow = er.width + gap;
+  // the round button takes the spot Expand has now (Expand and the others step left for it), the size of the board's other buttons
+  const mx = main.querySelector(":scope > .nb-max"), xr = mx ? mx.getBoundingClientRect() : {left: mr.right - 51, top: mr.top + 15, width: 36};
+  const C = xr.width, tx = xr.left - er.left, ty = xr.top - er.top;
+  // the inline height nbFill sets is !important, which an animation can't override; the same height without it can be
+  // (nbFill leaves its height alone while it folds: data-morph)
+  const H = er.height; env.dataset.morph = "1"; env.style.setProperty("height", H + "px"); env.style.setProperty("max-height", "none"); env.style.setProperty("min-height", "0");
+  // the steps are timed by the keyframe offsets, so the easing goes on each step rather than on the whole
+  const o = {duration: ENV_MS, easing: "linear", fill: "both", direction: opening ? "reverse" : "normal"};
+  const flap = "polygon(0 0,100% 0,100% 55%,50% 100%,0 55%)", flat = "polygon(0 0,100% 0,100% 100%,50% 100%,0 100%)";
+  const keep = (k, x) => Object.assign({offset: k, easing: "cubic-bezier(.4,0,.2,1)"}, x);
+  const envOpen = {width: er.width + "px", height: H + "px", transform: "translate(0,0)", borderRadius: "14px"}, envShut = Object.assign({}, envOpen, {height: hh + "px"}), envBtn = {width: C + "px", height: C + "px", transform: `translate(${tx}px,${ty}px)`, borderRadius: C / 2 + "px"};
+  const runs = [
+    env.animate([keep(0, envOpen), keep(.3, envShut), keep(.45, envShut), keep(.7, envBtn), keep(1, envBtn)], o),
+    head.animate([keep(0, {height: hh + "px", clipPath: flap}), keep(.45, {height: hh + "px", clipPath: flap}), keep(.7, {height: C + "px", clipPath: flat}), keep(1, {height: C + "px", clipPath: flat})], o),
+    // the board keeps its width until the envelope is a button, then grows into the space
+    main.animate([keep(0, {minWidth: mw + "px", maxWidth: mw + "px"}), keep(.7, {minWidth: mw + "px", maxWidth: mw + "px"}), keep(1, {minWidth: mw + grow + "px", maxWidth: mw + grow + "px"})], o)
+  ];
+  const fade = (el, a, b) => { if (el) runs.push(el.animate([keep(0, {opacity: 1}), keep(a, {opacity: 1}), keep(b, {opacity: 0}), keep(1, {opacity: 0})], o)); };
+  env.querySelectorAll(":scope > .env-body, :scope > .env-pocket").forEach(el => fade(el, 0, .25));
+  head.querySelectorAll(".env-title, .env-caret").forEach(el => fade(el, .4, .55));
+  const ic = head.querySelector(".env-ic"); if (ic) runs.push(ic.animate([keep(0, {opacity: 0}), keep(.5, {opacity: 0}), keep(.7, {opacity: 1}), keep(1, {opacity: 1})], o));
+  try { runs.push(head.animate([keep(0, {opacity: 1}), keep(.35, {opacity: 1}), keep(.5, {opacity: 0}), keep(1, {opacity: 0})], Object.assign({pseudoElement: "::after"}, o))); } catch (e) {}
+  main.querySelectorAll(":scope > .nb-max, :scope > .nb-targets").forEach(el => runs.push(el.animate([keep(0, {transform: "translateX(0)"}), keep(.3, {transform: "translateX(0)"}), keep(.45, {transform: "translateX(-44px)"}), keep(1, {transform: "translateX(-44px)"})], o)));
+  Promise.all(runs.map(a => a.finished)).then(() => {
+    if (!opening) { save(); render(); return; }
+    runs.forEach(a => a.cancel()); delete env.dataset.morph; env.style.removeProperty("min-height"); nbFill();
+  }, () => { if (!opening) { save(); render(); } });
+}
 // The sticker envelope starts closed; once you open it, it stays the way you left it
 try { const v = localStorage.getItem("studyboard:env"); ui.envOpen = v ? v === "1" : false; } catch(e) { ui.envOpen = false; }
 document.addEventListener("change", e => {

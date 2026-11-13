@@ -5086,6 +5086,8 @@ function aiAnswer(given, pre){
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial};
   render();
+  // Keyboard goes to Next Question so Enter moves on, even after a mouse-picked answer (the click left focus on Quit)
+  setTimeout(() => { const n = $("#aiNext"); if (n) n.focus(); }, 30);
 }
 function aiFinish(){
   const f = ui.fc; f.done = true;
@@ -9827,7 +9829,7 @@ function envelopeHtml(){
   const cur = STICKER_PACKS.find(p => p.id === ui.stkPack) || STICKER_PACKS[0], p = stkParts(), q = ui.stkQ || "";
   const open = ui.envOpen !== false;
   return `<aside class="env ${open ? "" : "closed"} ${q.trim() ? "searching" : ""}" aria-label="Sticker envelope">
-    <button type="button" class="env-head" data-act="env-toggle" aria-expanded="${open}"><span class="env-title">Stickers</span><span class="env-caret" aria-hidden="true">${open ? "▾" : "▸"}</span></button>
+    <button type="button" class="env-head" data-act="env-toggle" aria-expanded="${open}"${open ? "" : ' title="Stickers"'}><span class="env-title">Stickers</span><span class="env-caret" aria-hidden="true">${open ? "▾" : "▸"}</span><svg class="env-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 16.6l-5.3 2.9 1.1-5.9-4.4-4.1 6-.8z" fill="#F6C343" stroke="#4A3014" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
     <div class="env-body">
       <div class="env-search" role="search"><input type="search" class="env-q" placeholder="Search stickers" aria-label="Search all sticker packs" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="40" value="${esc(q)}"><button type="button" class="env-qx" data-act="stk-qclear" aria-label="Clear search" ${q ? "" : "hidden"}>×</button></div>
       <div class="env-packs" role="group" aria-label="Sticker packs">${STICKER_PACKS.map(p => `<button type="button" data-act="stk-pack" data-id="${p.id}" class="${p === cur ? "on" : ""}" title="${esc(p.name)}${p.tier === "pro" ? " (Pro)" : ""}" aria-label="${esc(p.name)}" aria-pressed="${p === cur}">${stickerSvg(Object.keys(p.items)[0])}${owns("sticker", p.id) ? "" : `<i class="lock">🔒</i>`}</button>`).join("")}</div>
@@ -9999,10 +10001,13 @@ const STYLE_ACTS = {
   "motion-toggle": el => { saveStyle({motion: !!el.checked}); artSig = ""; renderSkinArt(); },
   "anim-toggle": el => { saveStyle({[el.dataset.key]: !!el.checked}); artSig = ""; renderSkinArt(); },
   "kit-follow": el => { saveStyle({[el.dataset.kind + "Auto"]: true}); render(); styleShop(); },
-  // On a phone the sticker drawer rises and fades in when it opens, and sinks away before it closes
+  // On a phone the sticker drawer rises and fades in when it opens, and sinks away before it closes.
+  // Beside the board (wider screens) it folds into a round button at the board's top right, and unfolds back (envMorph)
   "env-toggle": () => {
     const opening = ui.envOpen === false, env = document.querySelector(".env");
-    const r = document.documentElement, glide = env && env.animate && matchMedia("(max-width:639px)").matches && r.dataset.motion !== "static" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const r = document.documentElement, still = r.dataset.motion === "static" || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (env && env.animate && !still && matchMedia("(min-width:701px)").matches) { envMorph(opening); return; }
+    const glide = env && env.animate && matchMedia("(max-width:639px)").matches && !still;
     const ease = "cubic-bezier(.32,.72,0,1)";
     const flip = () => {
       ui.envOpen = opening; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render();
@@ -10013,6 +10018,46 @@ const STYLE_ACTS = {
     flip();
   }
 };
+/* Closing beside the board: the envelope's flap folds shut, the board's round buttons (Archive, Trash, Expand) step left to make
+   room, the envelope shrinks into a round button in that spot, then the board grows into the space the envelope used. Opening
+   plays the same steps backward. It is all played on the open layout (the board's width held, then let out), so the closed
+   layout drawn afterwards is exactly where it ends. */
+const ENV_MS = 450;
+function envMorph(opening){
+  const save = () => { ui.envOpen = opening; try { localStorage.setItem("studyboard:env", opening ? "1" : "0"); } catch(e) {} };
+  if (opening) { save(); render(); }
+  const env = document.querySelector(".nb-wrap > .env:not(.closed)"), wrap = env && env.parentElement, main = wrap && wrap.querySelector(":scope > .nb-main"), head = env && env.querySelector(".env-head");
+  if (!env || !main || !head) { if (!opening) { save(); render(); } return; }
+  const er = env.getBoundingClientRect(), mr = main.getBoundingClientRect(), hh = head.getBoundingClientRect().height;
+  const gap = er.left - mr.right, mw = parseFloat(getComputedStyle(main).width), grow = er.width + gap;
+  // the round button takes the spot Expand has now (Expand and the others step left for it), the size of the board's other buttons
+  const mx = main.querySelector(":scope > .nb-max"), xr = mx ? mx.getBoundingClientRect() : {left: mr.right - 51, top: mr.top + 15, width: 36};
+  const C = xr.width, tx = xr.left - er.left, ty = xr.top - er.top;
+  // the inline height nbFill sets is !important, which an animation can't override; the same height without it can be
+  // (nbFill leaves its height alone while it folds: data-morph)
+  const H = er.height; env.dataset.morph = "1"; env.style.setProperty("height", H + "px"); env.style.setProperty("max-height", "none"); env.style.setProperty("min-height", "0");
+  // the steps are timed by the keyframe offsets, so the easing goes on each step rather than on the whole
+  const o = {duration: ENV_MS, easing: "linear", fill: "both", direction: opening ? "reverse" : "normal"};
+  const flap = "polygon(0 0,100% 0,100% 55%,50% 100%,0 55%)", flat = "polygon(0 0,100% 0,100% 100%,50% 100%,0 100%)";
+  const keep = (k, x) => Object.assign({offset: k, easing: "cubic-bezier(.4,0,.2,1)"}, x);
+  const envOpen = {width: er.width + "px", height: H + "px", transform: "translate(0,0)", borderRadius: "14px"}, envShut = Object.assign({}, envOpen, {height: hh + "px"}), envBtn = {width: C + "px", height: C + "px", transform: `translate(${tx}px,${ty}px)`, borderRadius: C / 2 + "px"};
+  const runs = [
+    env.animate([keep(0, envOpen), keep(.3, envShut), keep(.45, envShut), keep(.7, envBtn), keep(1, envBtn)], o),
+    head.animate([keep(0, {height: hh + "px", clipPath: flap}), keep(.45, {height: hh + "px", clipPath: flap}), keep(.7, {height: C + "px", clipPath: flat}), keep(1, {height: C + "px", clipPath: flat})], o),
+    // the board keeps its width until the envelope is a button, then grows into the space
+    main.animate([keep(0, {minWidth: mw + "px", maxWidth: mw + "px"}), keep(.7, {minWidth: mw + "px", maxWidth: mw + "px"}), keep(1, {minWidth: mw + grow + "px", maxWidth: mw + grow + "px"})], o)
+  ];
+  const fade = (el, a, b) => { if (el) runs.push(el.animate([keep(0, {opacity: 1}), keep(a, {opacity: 1}), keep(b, {opacity: 0}), keep(1, {opacity: 0})], o)); };
+  env.querySelectorAll(":scope > .env-body, :scope > .env-pocket").forEach(el => fade(el, 0, .25));
+  head.querySelectorAll(".env-title, .env-caret").forEach(el => fade(el, .4, .55));
+  const ic = head.querySelector(".env-ic"); if (ic) runs.push(ic.animate([keep(0, {opacity: 0}), keep(.5, {opacity: 0}), keep(.7, {opacity: 1}), keep(1, {opacity: 1})], o));
+  try { runs.push(head.animate([keep(0, {opacity: 1}), keep(.35, {opacity: 1}), keep(.5, {opacity: 0}), keep(1, {opacity: 0})], Object.assign({pseudoElement: "::after"}, o))); } catch (e) {}
+  main.querySelectorAll(":scope > .nb-max, :scope > .nb-targets").forEach(el => runs.push(el.animate([keep(0, {transform: "translateX(0)"}), keep(.3, {transform: "translateX(0)"}), keep(.45, {transform: "translateX(-44px)"}), keep(1, {transform: "translateX(-44px)"})], o)));
+  Promise.all(runs.map(a => a.finished)).then(() => {
+    if (!opening) { save(); render(); return; }
+    runs.forEach(a => a.cancel()); delete env.dataset.morph; env.style.removeProperty("min-height"); nbFill();
+  }, () => { if (!opening) { save(); render(); } });
+}
 // The sticker envelope starts closed; once you open it, it stays the way you left it
 try { const v = localStorage.getItem("studyboard:env"); ui.envOpen = v ? v === "1" : false; } catch(e) { ui.envOpen = false; }
 document.addEventListener("change", e => {
@@ -11098,7 +11143,10 @@ function computeFocus(){
   let av = null; try { av = availToday(now); } catch(e) {}
   const th = dayIsOff(today) ? 0 : av && av.active ? Math.min(th0, av.res.total / 60) : th0;
   PTS_W = pointsWeights();
-  const open = tasksArr().filter(t => t.status !== "done" && t.due).concat(groupPlanTasks(), examStudyTasks(today));
+  // Past-due work from a course whose term is over isn't planned (or counted by Crunch): the term-over card says so instead
+  let overF = null; try { overF = typeof SBCLS !== "undefined" && SBCLS && SBCLS.overOf ? SBCLS.overOf(today) : null; } catch(e) { overF = null; }
+  const over = [];
+  const open = tasksArr().filter(t => { if (t.status === "done" || !t.due) return false; if (overF && overF(t)) { over.push(t); return false; } return true; }).concat(groupPlanTasks(), examStudyTasks(today));
   prereqDue(open, today, dh);
   const info = {};
   const horizon = Math.min(90, Math.max(14, open.reduce((m, t) => Math.max(m, dayDiff(today, t.due)), 0) + 1));
@@ -11334,7 +11382,7 @@ function computeFocus(){
   });
   let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({ranked, info})); } catch(e) { console.warn(e); } }
   const lateCap = thSet - doneToday > leftH + 0.01;
-  FOCUS = {sd, info, ranked, blocked, later, today, th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
+  FOCUS = {sd, info, ranked, blocked, later, today, over, overAll: !!(overF && overF.all), overEnded: overF ? overF.ended : [], th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
   FOCUS.gapWhy = planGapWhy(FOCUS);
   return FOCUS;
 }
@@ -11575,13 +11623,18 @@ function focusHtml(){
   if (todayList.length) sum.push(`<b>${fmtHM(todayList.reduce((s, x) => s + x.alloc, 0))}</b> planned across ${todayList.length} task${todayList.length === 1 ? "" : "s"}`);
   if (overdue) sum.push(`<span class="late"><b>${overdue}</b> overdue</span>`);
   const pastHtml = pastFixed.length && (!pick || pick === "late") ? `<div class="plan-past" role="region" aria-label="Past exams and quizzes"><ul>${pastFixed.slice(0, 3).map(x => { const t = x.t, c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="pp-q">Did you take <button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>?<span class="mini">${x.dl === -1 ? "Yesterday" : esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}</span></span><span class="pp-acts"><button class="btn small primary" data-act="toggle" data-mark="1" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="move-date" data-id="${esc(t.id)}">Move Date</button></span></li>`; }).join("")}</ul>${pastFixed.length > 3 ? `<p class="mini">${pastFixed.length - 3} more past ${pastFixed.length - 3 === 1 ? "exam or quiz is" : "exams or quizzes are"} on the Task Board.</p>` : ""}</div>` : "";
+  // After a term ends: one calm card in place of weeks-old work (CO4), with the way to wrap the term up
+  const overN = (F.over || []).filter(t => inFilter(t) && matchesQ(t)).length, endC = F.overEnded || [];
+  const termHtml = overN && !pick ? `<div class="plan-term" role="region" aria-label="Term over"><span class="pt-q"><b>${F.overAll ? "Looks like your term ended." : esc(endC.length === 1 ? `${courseLabel(endC[0])} has ended.` : `${endC.length} of your courses have ended.`)}</b><span class="mini">${overN} past-due item${overN === 1 ? "" : "s"} from ${F.overAll ? "it" : endC.length === 1 ? "it" : "them"} ${overN === 1 ? "is" : "are"} left out of your plan. ${F.overAll ? "Wrap it up to archive the old work and save the term's grades." : "They're still on the Task Board."}</span></span><span class="pp-acts">${F.overAll ? `<button class="btn small primary" data-act="new-term">Wrap Up This Term</button>` : ""}${endC[0] ? `<button class="btn small" data-act="cls-dates" data-cid="${esc(endC[0].id)}">Change Term Dates</button>` : ""}</span></div>` : "";
   const fixedEv = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 0 && x.dl <= 7).sort((a, b) => dueDate(a.t) - dueDate(b.t)).slice(0, 3);
   const fixedHtml = fixedEv.length ? `<div class="plan-fixed" role="region" aria-label="Exams and quizzes on the calendar"><h3 class="plan-sub">On the Calendar</h3><ul>${fixedEv.map(x => { const t = x.t, e = remoteOf(t); return `<li style="--c:${esc(colorOf(t.courseId))}"><button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span></button><span class="pf-when">${x.dl === 0 ? "Today" : x.dl === 1 ? "Tomorrow" : esc(fmtShort(t.due))}${t.time ? " " + esc(fmtTime(t.time)) : ""}</span><span class="rx-chip${e.v ? "" : " unk"}" title="${esc(e.v === "no" ? "Taken in person, so it is not suggested as something to do now." : "Not confirmed as take-home, so it is not suggested as something to do now. Open it to say where it is taken.")}">${e.v === "no" ? "In person" : "Not sure"}</span></li>`; }).join("")}</ul></div>` : "";
   if (queued) sum.push(`${queued} more lined up for the coming days`);
   const dropT = dropTxt(F);
   const warn = F.crunch && inView(F.crunch) ? `${"From now to " + (d => d === todayISO() ? "the end of today" : d === addDays(todayISO(), 1) ? "tomorrow" : esc(fmtDate(d)))(F.crunch.t.due)}, ${Math.abs((F.thSet == null ? F.dh : F.thSet) - F.dh) < 0.01 ? `at ${fmtHM(F.dh)} a day` : `with ${fmtHM(F.thSet)} today and ${fmtHM(F.dh)} a day after`}, you're about <b>${fmtHM(F.crunch.behind)}</b> short for what's due by then. ${dropT || "Add study time, start sooner, or talk to your instructor early."}` : "";
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
-  const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater;
+  // Open tasks with no due date can't be ranked; Full Ranking ends with a line that lists them
+  const nUndated = tasksArr().filter(t => t.status !== "done" && !t.due && inFilter(t) && matchesQ(t)).length;
+  const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater || nUndated;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
   let spare = ""; if (ui.focusOpen && !offToday && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
   const skipped = !heroId && ui.skipNext && ui.skipNext.day === todayISO() && ui.skipNext.ids.length ? `<p class="nu-skipped mini">You skipped every suggestion for now. <button class="link-btn" data-act="nu-back">Go Back</button></p>` : "";
@@ -11600,10 +11653,10 @@ function focusHtml(){
   const planTile = `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
-    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? ((F.gapWhy.chips || []).length === F.gapWhy.length ? `<span class="pt-sr">${F.gapWhy.map(esc).join(" ")}</span>` : `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>`) : ""}</div>
+    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : F.overAll && overN ? "Nothing left to plan this term." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? ((F.gapWhy.chips || []).length === F.gapWhy.length ? `<span class="pt-sr">${F.gapWhy.map(esc).join(" ")}</span>` : `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>`) : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(`<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
-    ${ui.focusOpen ? `${window.SBAUTOPILOT ? SBAUTOPILOT.lineHtml() : ""}${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${pastHtml}${availStripHtml(F)}
-      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
+    ${ui.focusOpen ? `${window.SBAUTOPILOT ? SBAUTOPILOT.lineHtml() : ""}${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${termHtml}${pastHtml}${availStripHtml(F)}
+      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday || termHtml ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
       <div class="plan-foot"><div class="pf-toggles">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}</div>${window.SBAUTOPILOT ? SBAUTOPILOT.offBtn() : ""}</div>
@@ -11612,6 +11665,7 @@ function focusHtml(){
         <ol class="plan-list">${ranked.map((x, i) => planRow(x, i, true)).join("")}</ol>
         ${nBlk ? `<h3 class="fsec">Waiting on Another Task</h3><ul class="plan-list">${F.blocked.filter(inView).map((x, i) => planRow(x, i, true, true)).join("")}</ul>` : ""}
         ${nLater ? `<h3 class="fsec">Not Started Yet</h3><ul class="plan-list">${F.later.filter(inView).map((x, i) => planRow(x, i, true, true)).join("")}</ul>` : ""}
+        ${nUndated ? `<p class="plan-cap plan-undated"><button type="button" class="link-btn" data-act="undated-open">No Date Yet (${nUndated})</button> These aren't ranked until they have a due date.</p>` : ""}
       </div>` : ""}
       <div class="plan-how" id="plan-how" role="region" aria-label="How This Is Ranked"${howOpen ? "" : " hidden"}>
         <ul class="plan-how-list">
@@ -11698,7 +11752,7 @@ function viewBars(){
       const icon = `<button class="ms tl-ic ${late ? "late" : ""}" style="left:${x(t.due) + dw / 2 - 13}px" data-act="edit-task" data-id="${esc(t.id)}" data-dueonly="${ms ? "" : 1}" title="${esc(t.type)}: ${esc(t.title)}, due ${esc(fmtShort(t.due))}" aria-label="${esc(t.title)}, ${esc(t.type)}, due ${esc(fmtShort(t.due))}${late ? ", past due" : ""}">${typeIcon(t.type)}</button>`;
       // the due date's spot in the track; an edge hint points to it while it's scrolled out of view (tlEdges)
       rows += `<div class="tl-row" style="--c:${esc(col)}" data-x="${x(t.due) + dw / 2}">
-        <button class="tl-label" style="width:${LW}px" data-act="edit-task" data-id="${esc(t.id)}"><span class="tt">${esc(t.title)}</span><small>${esc([t.type, isNum(t.hours) && !MILESTONE(t.type) ? fmtH(Number(t.hours)) : ""].filter(Boolean).join(" · "))}</small></button>
+        <button class="tl-label" style="width:${LW}px" data-act="edit-task" data-id="${esc(t.id)}"><span class="tt">${esc(t.title)}</span><small>${esc([t.type, isNum(t.hours) && !MILESTONE(t.type) ? fmtHM(Number(t.hours)) : ""].filter(Boolean).join(" · "))}</small></button>
         <div class="tl-track" style="width:${W}px">${icon}<span class="tl-dl${late ? " late" : ""}" style="left:${x(t.due) + dw / 2 + 17}px">${esc(fmtShort(t.due))}${ms ? `<em>${esc(t.type)}</em>` : ""}</span><button class="tl-edge" data-act="tl-edge" data-d="${esc(fmtShort(t.due))}" hidden></button></div>
       </div>`;
     });
@@ -11706,7 +11760,7 @@ function viewBars(){
 
   const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
   const head = `<div class="tl-controls tl-tools">${coursePickHtml()}${tlModeSeg()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
-  if (!ts.length) return head + searchNote() + `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}${firstStepBtns()}</div>`;
+  if (!ts.length) return head + searchNote() + `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br><button type="button" class="link-btn" data-act="undated-open">${noDue} task${noDue === 1 ? " has" : "s have"} no due date</button>` : ""}${firstStepBtns()}</div>`;
   return head + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
         <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div><div class="tl-bg tl-bg-top" style="left:${LW}px;width:${W}px"><i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i></div>
@@ -11715,7 +11769,16 @@ function viewBars(){
         ${rows}
       </div></div>
     <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}${ts.some(t => (t.dependsOn || []).some(id => ts.some(o => o.id === id))) ? `<span><i class="dep-key"></i>Depends On</span>` : ""}<span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
-    <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · ${noDue} undated not shown` : ""}</p>`;
+    <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · <button type="button" class="link-btn" data-act="undated-open">${noDue} with no date</button>` : ""}</p>`;
+}
+// Open tasks with no due date: the Timeline and Today's Plan can't place them, so they're listed here, each with a way to date it
+function undatedSheet(){
+  const ts = visibleTasks().filter(t => t.status !== "done" && !t.due).sort(sortTasks);
+  if (!ts.length) { if (dlg.open) dlg.close(); toast("Every open task has a due date"); return; }
+  openSheet(`<div class="sheet">${head("No Date Yet")}<div class="sheet-body">
+      <p class="mini" style="margin:0 0 8px">These aren't on the Timeline or in Today's Plan until they have a due date.</p>
+      <ul class="und-list">${ts.map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><button type="button" class="link-btn und-t" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title || "Untitled")}</button><span class="mini">${esc([c ? courseLabel(c) : "", t.type, isNum(t.hours) && Number(t.hours) > 0 ? fmtHM(Number(t.hours)) : ""].filter(Boolean).join(" · "))}</span><button type="button" class="btn small" data-act="move-date" data-id="${esc(t.id)}">Add a Date</button></li>`; }).join("")}</ul>
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
 }
 // Rows whose due date is scrolled out of view get a small "← Oct 30" / "→ Dec 10" at that edge; clicking it scrolls there
 function tlEdges(sc){
@@ -11831,8 +11894,8 @@ function courseNextHtml(open, today){
   const dated = open.filter(t => t.due).sort((a, b) => (a.due + (a.time || "99")).localeCompare(b.due + (b.time || "99")));
   const late = dated.filter(t => t.due < today).length, next = dated.find(t => t.due >= today);
   if (!late && !next) return "";
-  const lateHtml = late ? `<span class="late">${late} late</span>` : "";
-  return next ? `<div class="next">Next: <b>${esc(next.title)}</b> · ${esc(fmtShort(next.due))}</div>` : late ? `<div class="next">${lateHtml}</div>` : "";
+  // late work is counted once, by the pill in the card's footer (courseStatusPill), so the line says nothing is coming up
+  return next ? `<div class="next">Next: <b>${esc(next.title)}</b> · ${esc(fmtShort(next.due))}</div>` : `<div class="next">Nothing coming up</div>`;
 }
 // 30 study-topic icons a course can wear in its ring (Edit Course > Icon)
 const COURSE_ICONS = {
@@ -14326,7 +14389,7 @@ function fabConfig(){
   if (ui.tab === "courses") return ui.courseId || ui.courseTab === "grades" ? null : {act: "fab-course", label: "Add Course"};
   if (ui.tab === "files") return {act: "fab-file", label: "Add File"};
   if (ui.tab === "schedule") return {act: "sch-add", label: "Add Event"};
-  if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "Add Board"} : {act: "fab-note", label: "Add Note"};
+  if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "New Whiteboard"} : {act: "fab-note", label: "Add Note"};
   if (ui.tab === "flashcards") { const dk = $("#view [data-fc-deck]"); return dk ? {act: "fc-add", label: "Add Card", id: dk.dataset.fcDeck} : $("#view [data-fc-list]") ? {act: "fab-deck", label: "Add Deck"} : $("#view [data-qz-list]") ? {act: "qz-add", label: "Add Quiz"} : null; }
   if (ui.tab === "groups") return $("#view [data-grp-list]") ? {act: "fab-group", label: "Add Group"} : (window.SBGRPFAB && window.SBGRPFAB()) || null;
   return {act: "new-task", label: "Add Task"};
@@ -17456,7 +17519,8 @@ function nbFill(){
   const h = Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - navH - 16 - pad));
   el.style.setProperty("height", h + "px", "important");
   // beside the board it is as tall as the board; on narrower screens it is a tray along the bottom and keeps its own size
-  if (env) { if (getComputedStyle(env).position === "fixed") env.style.removeProperty("height"); else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
+  // closed beside the board it's a small round button (or the strip under it), and keeps its own size too
+  if (env && !env.dataset.morph) { if (env.classList.contains("closed") || getComputedStyle(env).position === "fixed") { env.style.removeProperty("height"); env.style.removeProperty("max-height"); } else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
 }
 addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
 hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
@@ -17485,9 +17549,9 @@ function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
   const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>${id && id === cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}`;
-  return `<div class="nb-boards" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Board</button></div>`
+  return `<div class="nb-boards" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-      <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
+      <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Note Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
 const DOTS_H = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>';
 function noteBoardSheet(id){
@@ -18236,7 +18300,8 @@ function reviewHeroHtml(){
   let title, sub;
   if (ready) {
     const mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
-    title = `${ready} card${ready === 1 ? "" : "s"} ready to review`;
+    // due and new cards are counted apart, so the number due matches the Review tab's badge (which counts due cards only)
+    title = n.due && n.fresh ? `${n.due} card${n.due === 1 ? "" : "s"} due + ${n.fresh} new` : n.fresh ? `${n.fresh} new card${n.fresh === 1 ? "" : "s"} to learn` : `${ready} card${ready === 1 ? "" : "s"} ready to review`;
     sub = [`About ${mins} minute${mins === 1 ? "" : "s"}`, deckWords, exWords];
   } else {
     const next = inC.reduce((m, d) => d.cards.reduce((mm, c) => !c.draft && c.seen > 0 && c.due && c.due > todayISO() && (!mm || c.due < mm) ? c.due : mm, m), "");
@@ -18781,7 +18846,8 @@ async function quizFromCardsAi(decks, n, types, dir, title){
 // Without AI: the questions are made from the cards here, in the same form
 function quizFromCardsLocal(decks, n, types, dir, title){
   const qs = aiCleanQuestions(buildQuiz(decks, n, types, dir).map(q => q.type === "mc" ? {type: "single", stem: q.prompt, options: q.options, correct: [q.options.indexOf(q.answer)]}
-    : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt}\nAnswer: ${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
+    // A true/false question reads as a statement, the term and the claimed answer on two lines
+    : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt} ${q.fwd ? "means" : "is called"}:\n${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
     : {type: "short", stem: q.prompt, answer: q.answer}), v => String(v == null ? "" : v).trim());
   if (!qs.length) { toast("Couldn't make questions from these cards"); return; }
   const d = clone(state.decks[decks[0]]); if (!d) return;
@@ -18806,6 +18872,8 @@ function answerQuiz(given, pre){
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
   render();
+  // Keyboard goes to Next Question so Enter moves on, even after a mouse-picked answer (the click left focus on Quit)
+  setTimeout(() => { const n = $("#qNext"); if (n) n.focus(); }, 30);
 }
 function finishQuiz(){
   const f = ui.fc; f.done = true;
@@ -19251,7 +19319,7 @@ function pomoFinish(missed){
 }
 function pomoAlarm(done, next, auto, missed){
   const cfg = pomoCfg();
-  const title = done === "focus" ? "Focus session complete" : "Break's over";
+  const title = done === "focus" ? "Focus Session Complete" : "Break's Over";
   const body = done === "focus" ? `Nice work. ${auto ? "Your" : "Time for a"} ${next === "long" ? `${cfg.long}-minute long break` : `${cfg.short}-minute break`}${auto ? " has started" : ""}.` : `${auto ? "Your next focus session has started." : "Ready for the next focus session?"}`;
   if (!missed) {
     if (!ISLAND.ring) playAlarm(cfg.sound, Number(cfg.volume), 5);   // in the iPhone app, iOS rings it (see nativeAlarm)
@@ -21933,9 +22001,9 @@ function moveDateSheet(id){
     const x = state.tasks[id]; if (!isDate(d) || !x) return;
     const n = clone(x); n.due = d; if (n.start && n.start > d) n.start = d;
     if (dlg.open) dlg.close();
-    applyChanges([{kind: "task", id, after: n}], `Moved ${t.title} to ${fmtShort(d)}`);
+    applyChanges([{kind: "task", id, after: n}], `${t.due ? "Moved" : "Dated"} ${t.title} to ${fmtShort(d)}`);
   };
-  openSheet(`<form class="sheet md-sheet">${head("Move " + t.title)}<div class="sheet-body">
+  openSheet(`<form class="sheet md-sheet">${head((t.due ? "Move " : "Add a Date: ") + t.title)}<div class="sheet-body">
       <div class="menu-list md-list">${opt(tmr, next === tmr ? "Tomorrow (next class)" : "Tomorrow")}${next && next !== tmr ? opt(next, "Next Class") : ""}</div>
       <label class="f"><span class="lh">Or Pick a Date</span><input type="date" name="due" min="${today}"></label></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Move</button></div></form>`, fd => {
@@ -22054,6 +22122,7 @@ document.addEventListener("click", e => {
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
     case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
     case "move-date": moveDateSheet(id); break;
+    case "undated-open": undatedSheet(); break;
     case "plan-sec": { const k = id === "how" ? "planHow" : "planMore"; ui[k] = !ui[k]; const p = document.getElementById("plan-" + id); if (p) p.hidden = !ui[k]; el.setAttribute("aria-expanded", String(ui[k])); break; }
     case "plan-why": { ui.planWhy = ui.planWhy || {}; const on = !ui.planWhy[id]; if (on) ui.planWhy[id] = 1; else delete ui.planWhy[id]; const p = document.getElementById("pw-" + id); if (p) p.hidden = !on; el.setAttribute("aria-expanded", String(on)); const li = el.closest(".plan-row"); if (li) li.classList.toggle("why-open", on); break; }
     case "show-old": ui.showOldDone = true; render(); break;
@@ -39003,7 +39072,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (gr.done || !open.length) return "";
     const vals = (ui.gWhatIf && ui.gWhatIf[gr.c.id]) || {};
     return `<div class="gr-sub gr-wi" data-wi-course="${esc(gr.c.id)}"><h4>What If?</h4>
-      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter></li>`).join("")}</ul>
+      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter aria-describedby="wio-${esc(t.id)}"><span class="mini gr-wi-over" id="wio-${esc(t.id)}"${vals[t.id] > 100 ? "" : " hidden"}>That's over 100%. Bonus marks?</span></li>`).join("")}</ul>
       <p class="gr-wi-out" role="status" aria-live="polite">${whatIfOut(gr, vals)}</p>
       <button type="button" class="link-btn" data-act="wi-clear" data-id="${esc(gr.c.id)}" style="justify-self:start"${Object.keys(vals).length ? "" : " hidden"}>Clear What-Ifs</button></div>`;
   }
@@ -39499,6 +39568,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const pm = parseMark(i.value);
     if (pm && Number(pm.outOf) > 0) { m[i.dataset.wi] = pm.got / pm.outOf * 100; m[i.dataset.wi + ":raw"] = i.value; i.removeAttribute("aria-invalid"); }
     else { delete m[i.dataset.wi]; delete m[i.dataset.wi + ":raw"]; if (pm === undefined) i.setAttribute("aria-invalid", "true"); else i.removeAttribute("aria-invalid"); }
+    // a mark over 100% is allowed (bonus marks), but said, so a typo like 150 for 50 doesn't pass unnoticed
+    const over = document.getElementById("wio-" + i.dataset.wi); if (over) over.hidden = !(m[i.dataset.wi] > 100);
     const clean = {}; Object.keys(m).forEach(k => { if (k.indexOf(":raw") < 0) clean[k] = m[k]; });
     const out = box.querySelector(".gr-wi-out"); if (out) out.innerHTML = whatIfOut(courseGrade(c), clean);
     const clr = box.querySelector('[data-act="wi-clear"]'); if (clr) clr.hidden = !Object.keys(clean).length && ![...box.querySelectorAll("[data-wi]")].some(x => x.value.trim());
@@ -73578,7 +73649,9 @@ function offCaps(today, cap){
 // Before Today's Plan is ready: the tasks as they are
 function inputLegacy(){
   const today = todayISO(), stamp = nowStamp();
-  const tasks = tasksArr().filter(t => t.status !== "done" && t.due).map(t => {
+  // Past-due work from a course whose term is over isn't counted (as in Today's Plan)
+  let overF = null; try { overF = typeof SBCLS !== "undefined" && SBCLS && SBCLS.overOf ? SBCLS.overOf(today) : null; } catch (e) { overF = null; }
+  const tasks = tasksArr().filter(t => t.status !== "done" && t.due && !(overF && overF(t))).map(t => {
     const lp = lateOf(t), lu = lateUntilOf(t);
     const dead = dayDiff(today, t.due) < 0 && (lp === "none" || (lu && lu < stamp));
     return {id: t.id, title: t.title, type: t.type, due: t.due, time: t.time || "", start: t.start || "", status: t.status, rem: remainingOf(t), weight: weightOf(t), pct: t.pct,
@@ -75912,7 +75985,7 @@ function drawPlan(){
     <p class="status-msg" id="ppStatus" style="margin:0" aria-live="polite"></p>`;
   const n = out && !out.err ? out.sessions.length : 0;
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${have.length && !S.replan ? `<button type="button" class="btn" data-pp="view">Back to Plan</button>` : ""}<button type="button" class="btn primary" id="ppCreate" data-pp="create" ${n ? "" : "disabled"}>${have.length ? `Re-plan ${n} Session${n === 1 ? "" : "s"}` : `Create Plan (${n} Session${n === 1 ? "" : "s"})`}</button>`;
-  const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan My Prep" : "Plan My Prep";
+  const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan Exam Prep" : "Exam Prep";
 }
 /* What the last reflection changed, one line each, each with its own Undo */
 const LATE = {night: "last time you started the night before", short: "last time you started 1 or 2 days before", cram: "last time it came down to one long session the night before"};
@@ -75944,7 +76017,7 @@ function drawView(){
       <div class="pp-bar" role="img" aria-label="${esc(t.name)}: ${b.cov}% of its sessions done"><i style="width:${b.cov}%"></i></div>
       <div class="mini pp-links">${ls.length ? ls.map(l => esc(linkIcon(l.k) + ": " + l.title)).join(" · ") : "No linked material. "}${ls.length ? "" : `<button type="button" class="link-btn" data-pp="gen">Make Flashcards from Your Notes</button>`}${window.SBTEACH ? SBTEACH.btn(ex, t) : ""}</div></li>`; }).join("");
   const agenda = Object.keys(byDate).sort().map(d => `<li class="pp-day${d === today ? " is-today" : ""}${d < today ? " is-past" : ""}" ${d === today ? 'aria-current="date"' : ""}><div class="ep-day-head"><b>${esc(fmtDate(d))}</b>${d === today ? `<span class="pp-badge">Today</span>` : ""}<span class="mini">${fmtHM(byDate[d].reduce((a, x) => a + minOf(x), 0) / 60)}</span></div>
-      <ul>${byDate[d].map(s => `<li class="pp-sess${s.status === "done" ? " is-done" : ""}${s.status !== "done" && d < today ? " is-missed" : ""}">
+      <ul>${byDate[d].map(s => `<li class="pp-sess${s.status === "done" ? " is-done" : ""}${s.status !== "done" && d < today ? " is-missed" : ""}" style="--c:${esc(colorOf(ex.courseId))}">
         <div class="pp-sess-top"><button type="button" class="check pp-check" data-act="prep-done" data-id="${esc(s.id)}" aria-label="${s.status === "done" ? "Mark not done" : "Mark done"}: ${esc(s.title)}">${CHECK}</button>
           <span class="pp-sess-t"><b>${esc(s.kind === "past" || s.kind === "light" ? EXAMPREP.KIND_LABEL[s.kind] : (s.topic || "Topic") + ": " + (KLOW[s.kind] || s.kind))}</b><span class="mini">${minOf(s)} min${s.slot ? " · " + esc(fmtTime(s.slot)) : ""}${s.status !== "done" && d < today ? " · missed" : ""}</span></span>${matBtn(s)}<button type="button" class="btn small" data-act="edit-task" data-edit="1" data-id="${esc(s.id)}">Edit</button></div>
         <p class="pp-sess-x">${esc(s.notes || "")}</p></li>`).join("")}</ul></li>`).join("");
@@ -75963,7 +76036,7 @@ function drawView(){
 }
 function draw(){ if (!S) return; if (S.step === "view") drawView(); else drawPlan(); }
 function sheet(){
-  openSheet(`<form class="sheet ai-sheet ep pp"><div class="sheet-head"><h2 id="ppTitle">Plan My Prep</h2><button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div><div class="sheet-body" id="ppBody"></div><div class="sheet-foot" id="ppFoot"></div></form>`);
+  openSheet(`<form class="sheet ai-sheet ep pp"><div class="sheet-head"><h2 id="ppTitle">Exam Prep</h2><button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div><div class="sheet-body" id="ppBody"></div><div class="sheet-foot" id="ppFoot"></div></form>`);
   const form = dlg.querySelector("form");
   form.addEventListener("click", onClick); form.addEventListener("change", onChange);
   form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "ppAdd" && !e.shiftKey) { e.preventDefault(); onClick({target: {closest: () => ({dataset: {pp: "add"}})}}); } });
@@ -75973,7 +76046,7 @@ function sheet(){
   const arm = () => dlg.addEventListener("close", () => { S = null; }, {once: true});
   arm();
   let held = null;
-  sheetKeep("prep:" + S.exId, {name: "Plan My Prep", dirty: () => { held = S; return !!S && S.step === "plan" && !!S.touched; }, busy: () => { held = held || S; return !!(S && S.busy); },
+  sheetKeep("prep:" + S.exId, {name: "Exam Prep", dirty: () => { held = S; return !!S && S.step === "plan" && !!S.touched; }, busy: () => { held = held || S; return !!(S && S.busy); },
     drop: () => { const h = held || S; if (h) h.dropped = true; }, resume: () => { if (held) S = held; arm(); draw(); }});
 }
 function onChange(e){
@@ -76135,7 +76208,7 @@ function todayHtml(){
 function formHtml(t){
   if (!t || !MILESTONE(t.type)) return t && window.SBTEACH ? SBTEACH.taskHtml(t) : "";
   const sm = summaryOf(t), today = todayISO(), over = t.due && t.due < today;
-  if (!sm) return t.status === "done" || over ? "" : `<div class="pp-form"><div><b>Exam prep</b><span class="mini"> Spread review sessions across the days before, with your decks and notes.</span></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>`;
+  if (!sm) return t.status === "done" || over ? "" : `<div class="pp-form"><div><b>Exam Prep</b><span class="mini"> Spread review sessions across the days before, with your decks and notes.</span></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>`;
   return `<div class="pp-form"><div><b>Prep plan</b><span class="mini"> ${esc(sm.line)}${sm.missed ? ` · ${sm.missed} slipped` : ""}${sm.moved ? " · date changed" : ""}</span><div class="pp-bar" role="img" aria-label="${sm.pct == null ? sm.done + " of " + sm.total + " sessions done" : "Readiness " + sm.pct + " percent"}"><i style="width:${sm.pct == null ? Math.round(sm.done / sm.total * 100) : sm.pct}%"></i></div></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Open Prep Plan</button></div>`;
 }
 function rowBtn(t){
@@ -77897,15 +77970,16 @@ function stripHtml(S){
   const ms = S.ms.filter(m => !m.locked), start = S.start, due = S.due;
   let from = start; if (BD.diff(from, due) > 59) from = BD.addD(due, -59);
   const cells = [], by = {}; ms.forEach((m, i) => { (by[m.due] = by[m.due] || []).push(i + 1); });
-  const nDays = BD.diff(from, due) + 1;
+  // milestone numbers show in their cells, smaller on a long strip; on a very long one the cells are too thin, and the caption says so
+  const nDays = BD.diff(from, due) + 1, showN = nDays <= 45;
   for (let d = from, k = 0; d <= due && k < 90; d = BD.addD(d, 1), k++) {
     const mine = ms.filter(m => m.due === d).reduce((s, m) => s + (Number(m.hours) || 0), 0) / (S.ctx.cap || 3);
     const lv = lvOf((S.ctx.load[d] || 0) + mine), isDue = d === due, nums = by[d] || [];
-    cells.push(`<span class="bd-c lv${lv}${nums.length ? " has" : ""}${isDue ? " due" : ""}" title="${esc(fmtDate(d))}: ${LVN[lv]}${nums.length ? ", milestone " + nums.join(", ") : ""}${isDue ? ", due" : ""}">${nums.length && nDays <= 24 ? `<b>${nums[0]}</b>` : isDue && nDays <= 24 ? `<b>!</b>` : ""}</span>`);
+    cells.push(`<span class="bd-c lv${lv}${nums.length ? " has" : ""}${isDue ? " due" : ""}" title="${esc(fmtDate(d))}: ${LVN[lv]}${nums.length ? ", milestone " + nums.join(", ") : ""}${isDue ? ", due" : ""}">${nums.length && showN ? `<b>${nums[0]}</b>` : isDue && nDays <= 24 ? `<b>!</b>` : ""}</span>`);
   }
   const sum = ms.map((m, i) => `${i + 1}: ${fmtShort(m.due)}`).join(", ");
-  return `<div class="bd-strip" role="img" aria-label="Timeline from ${esc(fmtShort(from))} to ${esc(fmtShort(due))}, due date last. Milestone dates, ${esc(sum)}. Darker days are busier.">${cells.join("")}</div>
-    <div class="bd-strip-l mini" aria-hidden="true"><span>${esc(fmtShort(from))}</span><span>Darker days are busier. Numbers are milestones; the last cell is the due date.</span><span>${esc(fmtShort(due))}</span></div>`;
+  return `<div class="bd-strip${nDays > 24 ? " long" : ""}" role="img" aria-label="Timeline from ${esc(fmtShort(from))} to ${esc(fmtShort(due))}, due date last. Milestone dates, ${esc(sum)}. Darker days are busier.">${cells.join("")}</div>
+    <div class="bd-strip-l mini" aria-hidden="true"><span>${esc(fmtShort(from))}</span><span>Darker days are busier. ${showN ? "Numbers are milestones" : "Outlined days are milestones"}; the last cell is the due date.</span><span>${esc(fmtShort(due))}</span></div>`;
 }
 // A fresh plan does what Move to Lighter Day would: a milestone on a heavy or crunch day steps to a lighter day nearby, keeping the order
 function autoLighter(S){
@@ -77957,7 +78031,7 @@ function draw(){
   $("#bdTotal").innerHTML = S.mode === "replan" ? `${open.length} open milestone${open.length === 1 ? "" : "s"}, ${esc(hm(tot))} of work left.` : `Milestones add up to <b>${esc(hm(tot))}</b>${Math.abs(tot - est) > Math.max(0.5, est * 0.1) ? ` (your estimate is ${esc(hm(est))})` : ""}.`;
   $("#bdTotal").className = "mini bd-total" + (Math.abs(tot - est) > Math.max(1, est * 0.25) && S.mode !== "replan" ? " warn" : "");
   const go = $("#bdGo"), n = open.length;
-  go.textContent = S.mode === "replan" ? `Update ${n} milestone${n === 1 ? "" : "s"}` : `Create ${n} milestone${n === 1 ? "" : "s"}`;
+  go.textContent = S.mode === "replan" ? `Update ${n} Milestone${n === 1 ? "" : "s"}` : `Create ${n} Milestone${n === 1 ? "" : "s"}`;
   go.disabled = !n;
   const t = $("#bdTight"); if (t) t.hidden = true;
 }
@@ -78265,7 +78339,7 @@ function wireNew(S){
 /* Where it shows up */
 const bigBtnTypes = {Project: 1, Assignment: 1, Lab: 1};
 function formHtml(t, isNew){
-  if (isNew) return `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-new">Big Assignment? Break It into Milestones Instead</button></p>`;
+  if (isNew) return `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-new">Big Assignment? Break It Down Instead</button></p>`;
   if (!t || t.status === "done" && !t.breakdownParent) return "";
   const today = todayISO();
   if (t.breakdownOf) {
@@ -78293,7 +78367,7 @@ function offerHtml(t){
   return BD.isBig(t) && !bdNo(t.id) && !started ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
     : "";
 }
-const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It into Milestones</button></p>`;
+const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It Down</button></p>`;
 // Tasks whose Break It Down suggestion was waved off
 const bdNo = id => !!((bdMem().no || {})[id]);
 function bdNoSet(id){
@@ -78411,7 +78485,7 @@ hook("act", (act, el, id) => {
 .bd-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;margin:10px 0 2px}
 .bd-c{height:28px;border-radius:4px;background:var(--cr0,#A9CFF6);border:1px solid var(--line);display:grid;place-items:center;font-size:.7rem;line-height:1;min-width:0;overflow:hidden}
 .bd-c.lv1{background:var(--cr1,#9DDBA8)}.bd-c.lv2{background:var(--cr2,#F7DA63)}.bd-c.lv3{background:var(--cr3,#F29A4A);color:var(--cr-t3,#1C2433)}.bd-c.lv4{background:var(--cr4,#D3352A);color:var(--cr-t4,#fff)}
-.bd-c.has{outline:2px solid var(--ink);outline-offset:-2px}.bd-c.due{border-color:var(--ink);border-style:dashed}.bd-c b{font-weight:800}
+.bd-strip.long .bd-c{font-size:.6rem;letter-spacing:-.02em}.bd-c.has{outline:2px solid var(--ink);outline-offset:-2px}.bd-c.due{border-color:var(--ink);border-style:dashed}.bd-c b{font-weight:800}
 .bd-strip-l{display:flex;justify-content:space-between;gap:8px}.bd-strip-l span:nth-child(2){flex:1;text-align:center;opacity:.85}
 .bd-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .bd-m{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
@@ -94060,11 +94134,11 @@ var SBWB = null;
     const list = boards(), cur = curId();
     const extra = fire("wb-head", cur).filter(Boolean).join("");
     const DOTS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>';
-    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>${on ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Board options" title="Board options">${DOTS}</button>` : ""}`; };
+    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>${on ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options">${DOTS}</button>` : ""}`; };
     const strip = list.length ? `<div class="nb-boards wb-boards" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>` : "";
-    const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all">All Boards</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Board options" title="Board options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
+    const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all">All Whiteboards</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
     if (!list.length) return headHtml + `<div class="wb-empty"><div class="wb-empty-in"><h3>Start a Whiteboard</h3><p>Sketch, write and plan with markers on a big board you can zoom around.</p>
-      <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Board</b><span class="mini">Start from a clean white board</span></span></button>
+      <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Whiteboard</b><span class="mini">Start from a clean white board</span></span></button>
       <h4 class="wb-or">Or Start From a Template</h4><div class="wb-tiles">${tiles("", "", true, true)}</div></div></div>`;
     return headHtml + `<div class="wb-host" id="wbHost"></div>`;
   }
@@ -94075,7 +94149,7 @@ var SBWB = null;
     openSheet(`<form class="sheet wb-sheet">${bandHead("New Whiteboard", SH_IC.board, "var(--accent-band,var(--accent))")}<div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="60" value="${esc(nextName())}"></label>
       <fieldset class="wb-tplset"><legend>Start With</legend>
-        <div class="segb wb-start" role="radiogroup" aria-label="Start with"><label><input type="radio" name="start" value="blank"${!tpl || tpl === "blank" ? " checked" : ""}> Blank Board</label><label><input type="radio" name="start" value="tpl"${tpl && tpl !== "blank" ? " checked" : ""}> A Template</label></div>
+        <div class="segb wb-start" role="radiogroup" aria-label="Start with"><label><input type="radio" name="start" value="blank"${!tpl || tpl === "blank" ? " checked" : ""}> Blank Whiteboard</label><label><input type="radio" name="start" value="tpl"${tpl && tpl !== "blank" ? " checked" : ""}> A Template</label></div>
         <div class="wb-tiles wb-tpl-pick"${!tpl || tpl === "blank" ? " hidden" : ""}>${tiles("tpl", tpl && tpl !== "blank" ? tpl : "grid", false, true)}</div></fieldset>
       <label class="f">Course<select name="courseId">${courseOpts("")}</select></label></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Create Whiteboard</button></div></form>`, fd => {
@@ -96475,6 +96549,38 @@ var SBCLS = null;
     return {from, until, set: isDate(cd.from) && isDate(cd.until)};
   }
 
+  /* When a course's term is over: Crunch and Today's Plan stop counting its past-due work then. The Last Class date when it's
+     set (this course's or, as termOf does, another course's); otherwise a guess from the last date any course has (a deadline
+     or the end of a class series), the same dates termOf guesses from. A guessed end waits two weeks, so a course whose next
+     deadlines aren't entered yet isn't taken as over. */
+  let LAST = null;
+  function endOf(c){
+    const cd = (c && c.classDates) || {};
+    if (isDate(cd.until)) return {until: cd.until, set: true};
+    const other = coursesArr().map(x => x.classDates || {}).filter(d => isDate(d.from) && isDate(d.until) && d.until >= d.from);
+    if (other.length) return {until: other[0].until, set: true};
+    if (!LAST || LAST.st !== state || LAST.at !== state.updated) {
+      const mine = new Set(coursesArr().map(x => x.id)); let late = "";
+      const see = d => { if (isDate(d) && d > late) late = d; };
+      allTasks().forEach(t => { if (mine.has(t.courseId)) { see(t.due); see(t.start); } });
+      eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { see(e.date); if (e.repeat) see(e.repeat.until); } });
+      LAST = {st: state, at: state.updated, late};
+    }
+    return {until: LAST.late, set: false};
+  }
+  const ended = (c, today) => { const e = endOf(c); return !!e.until && (today || todayISO()) > (e.set ? e.until : addDays(e.until, 14)); };
+  // Which open work no longer counts today: past due, in a course whose term is over (work with no course once every course is)
+  function overOf(today){
+    today = today || todayISO();
+    const cs = coursesArr(); if (!cs.length) return null;
+    const by = {}; cs.forEach(c => { by[c.id] = ended(c, today); });
+    const all = cs.every(c => by[c.id]);
+    if (!all && !cs.some(c => by[c.id])) return null;
+    const f = t => !!t && isDate(t.due) && t.due < today && (courseOf(t.courseId) ? !!by[t.courseId] : all);
+    f.all = all; f.ended = cs.filter(c => by[c.id]);
+    return f;
+  }
+
   /* Every class of a course in its term, numbered per kind (Lecture 7, Lab 3); skipped classes stay listed but aren't counted */
   let CACHE = null;
   function classesOf(c){
@@ -96812,7 +96918,7 @@ var SBCLS = null;
     return true;
   });
 
-  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
+  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();
 /* ===== module: 99-replay.js: Lecture Replay, notes and transcript linked to the recording ===== */
 /* Lecture Replay (Pro, like Record a Lecture). A saved lecture's recording plays from any moment: tap a transcript paragraph, a ★ mark,
@@ -103390,9 +103496,11 @@ const AUTOPILOT = (() => {
     if (open && !sheetOpen) { sheetOpen = true; put(cur, true, true); }
     else if (!open && sheetOpen) { sheetOpen = false; op(() => { skip++; idx = Math.max(0, idx - 1); H.back(); }); }
   }
+  // A menu button's page name, without the count badge or dot drawn inside it ("Review", not "Review3")
+  const navText = b => [...b.childNodes].filter(n => !(n.nodeType === 1 && (n.matches(".fc-navdue,.grp-dot,.nm-dot,.pe-dot,.badge,.nb-n,[class*='-dot'],[class*='badge']")))).map(n => n.textContent || "").join(" ").replace(/\s+/g, " ").trim();
   function title(){
     const navCur = document.querySelector('nav.tabs .in [aria-current="page"]');
-    let t = ui.tab === "archive" ? "Archive" : navCur ? (navCur.textContent || "").replace(/\s+/g, " ").trim() : "";
+    let t = ui.tab === "archive" ? "Archive" : navCur ? navText(navCur) : "";
     try {
       if (ui.tab === "courses" && ui.courseId && state.courses[ui.courseId]) t = state.courses[ui.courseId].name || t;
       else if (ui.tab === "flashcards" && ui.deckId && state.decks && state.decks[ui.deckId]) t = state.decks[ui.deckId].name || t;
@@ -103481,7 +103589,7 @@ const AUTOPILOT = (() => {
   const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
   const MOD = MAC ? "⌘" : "Ctrl";
   const VIEWS_KEYS = [["board", "Board"], ["plan", "Calendar"], ["flashcards", "Review"], ["notes", "Notes"], ["courses", "Courses"], ["companion", "Companion"], ["groups", "Groups"]];
-  const viewName = t => { const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`); const s = b && (b.textContent || "").replace(/\s+/g, " ").trim(); return s || (VIEWS_KEYS.find(v => v[0] === t) || [t, t])[1]; };
+  const viewName = t => { const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`); const s = b && navText(b); return s || (VIEWS_KEYS.find(v => v[0] === t) || [t, t])[1]; };
   function goView(t){
     if (dlg.open) dlg.close();
     const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`);

@@ -96,7 +96,7 @@ const topicConf = async (page, tid) => (await F.exam(page)).prep.topics.find(t =
       await openTopic(page, "t3");
       ok(/Nothing is linked to this topic yet/.test(await dlgText(page)) && await page.locator('[data-tb="check"][disabled]').count() === 1, "it asks to link material first; Check is off");
       await page.click('[data-tb="link"]'); await page.waitForTimeout(400);
-      ok(/Plan My Prep/i.test(await page.locator("#ppTitle").textContent()) && await page.locator('[data-pn="t3"]').count() === 1, "Link Material opens the topic editor");
+      ok(/Exam Prep/i.test(await page.locator("#ppTitle").textContent()) && await page.locator('[data-pn="t3"]').count() === 1, "Link Material opens the topic editor");
       await F.act(page, "close"); await page.waitForTimeout(200);
       await openTopic(page, "t3");
       await page.check('[data-tb="general"]'); await page.waitForTimeout(100);

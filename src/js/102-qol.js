@@ -43,9 +43,11 @@
     if (open && !sheetOpen) { sheetOpen = true; put(cur, true, true); }
     else if (!open && sheetOpen) { sheetOpen = false; op(() => { skip++; idx = Math.max(0, idx - 1); H.back(); }); }
   }
+  // A menu button's page name, without the count badge or dot drawn inside it ("Review", not "Review3")
+  const navText = b => [...b.childNodes].filter(n => !(n.nodeType === 1 && (n.matches(".fc-navdue,.grp-dot,.nm-dot,.pe-dot,.badge,.nb-n,[class*='-dot'],[class*='badge']")))).map(n => n.textContent || "").join(" ").replace(/\s+/g, " ").trim();
   function title(){
     const navCur = document.querySelector('nav.tabs .in [aria-current="page"]');
-    let t = ui.tab === "archive" ? "Archive" : navCur ? (navCur.textContent || "").replace(/\s+/g, " ").trim() : "";
+    let t = ui.tab === "archive" ? "Archive" : navCur ? navText(navCur) : "";
     try {
       if (ui.tab === "courses" && ui.courseId && state.courses[ui.courseId]) t = state.courses[ui.courseId].name || t;
       else if (ui.tab === "flashcards" && ui.deckId && state.decks && state.decks[ui.deckId]) t = state.decks[ui.deckId].name || t;
@@ -134,7 +136,7 @@
   const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
   const MOD = MAC ? "⌘" : "Ctrl";
   const VIEWS_KEYS = [["board", "Board"], ["plan", "Calendar"], ["flashcards", "Review"], ["notes", "Notes"], ["courses", "Courses"], ["companion", "Companion"], ["groups", "Groups"]];
-  const viewName = t => { const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`); const s = b && (b.textContent || "").replace(/\s+/g, " ").trim(); return s || (VIEWS_KEYS.find(v => v[0] === t) || [t, t])[1]; };
+  const viewName = t => { const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`); const s = b && navText(b); return s || (VIEWS_KEYS.find(v => v[0] === t) || [t, t])[1]; };
   function goView(t){
     if (dlg.open) dlg.close();
     const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`);
