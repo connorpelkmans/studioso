@@ -911,10 +911,15 @@ function formHtml(t, isNew){
       <ul class="bd-kids">${kids.map(k => `<li class="${k.status === "done" ? "is-done" : ""}"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(k.id)}">${esc(k.step || "")} ${esc(k.title)}</button><span class="mini">${esc(fmtShort(k.due))}${k.status === "done" ? " · done" : k.due < today ? " · overdue" : ""}</span></li>`).join("")}</ul></div>`;
   }
   if (!bigBtnTypes[t.type] || t.status === "done" || t.prepFor) return "";
+  return offerHtml(t) || bdLink(t.id);
+}
+// "This looks big" with Break It Down: in the edit form and in the task view
+function offerHtml(t){
+  if (!t || !bigBtnTypes[t.type] || t.status === "done" || t.prepFor || t.breakdownOf || (t.breakdownParent && kidsOfTask(t.id).length)) return "";
   // already split into steps or under way: just the small link, not the banner
   const started = (t.checklist || []).length >= 2 || t.status === "doing" || Number(t.focusMin) > 0 || Number(t.pct) > 0;
   return BD.isBig(t) && !bdNo(t.id) && !started ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
-    : bdLink(t.id);
+    : "";
 }
 const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It into Milestones</button></p>`;
 // Tasks whose Break It Down suggestion was waved off
@@ -1072,7 +1077,7 @@ hook("act", (act, el, id) => {
 }
 // A small hook for tests/breakdown.e2e.js
 window.__sbBreakdown = {state: () => state, ui, render, applyChanges, clone, importSheet, lmsOf, newTask, allTasks, remainingOf, TB, plan: () => window.__sbPlan && window.__sbPlan()};
-window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, deleteHook, expandNew, big: x => BD.isBig(Object.assign({status: "todo"}, x)), engine: BD, state: () => CUR};
+window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, trayItem, deleteHook, expandNew, big: x => BD.isBig(Object.assign({status: "todo"}, x)), engine: BD, state: () => CUR};
 
 })();
 

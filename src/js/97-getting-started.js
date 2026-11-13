@@ -77,9 +77,10 @@
       </button></li>`).join("");
     return `<section class="gs-card${open ? "" : " shut"}" aria-labelledby="gsT">
       <div class="gs-head">
-        <button type="button" class="gs-toggle" data-act="gs-toggle" aria-expanded="${open}" aria-controls="gsList">
+        <button type="button" class="gs-toggle" data-act="gs-toggle" aria-expanded="${open}" aria-controls="gsList" title="${open ? "Hide the list" : "Show the list"}">
           <span class="gs-ring" style="--p:${pct}" aria-hidden="true"><span>${n}/${L.length}</span></span>
           <span class="gs-ht"><b id="gsT">Getting Started</b><span class="mini">${n} of ${L.length} done${open ? "" : ` · Next: ${esc(L[next].t.toLowerCase())}`}</span></span>
+          <span class="gs-fold" aria-hidden="true">${CHEV}</span>
         </button>
         <button type="button" class="icon-btn gs-x" data-act="gs-hide" aria-label="Hide Getting Started">${CLOSE}</button>
       </div>

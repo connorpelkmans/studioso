@@ -162,6 +162,7 @@ const CRUNCH = (() => {
       W.demand = r2(dem); W.capacity = r2(cap); W.peak = r2(peak); W.peakDay = peakDay;
       W.score = r2(live.length ? 0.5 * peak + 0.5 * mean : 0);
       let lv = levelOf(W.score);
+      W.hoursLevel = W.past ? 0 : lv;   // the level from the hours alone, before big deadlines raise it (the week sheet says why)
       W.major = Object.keys(W.counts).reduce((s, c) => s + isMajor(c) * W.counts[c], 0);
       if (W.major >= 4) lv = Math.max(lv, 4); else if (W.major >= 3) lv = Math.max(lv, 3);
       W.levelIdx = W.past ? 0 : lv; W.level = LEVELS[W.levelIdx];
@@ -614,10 +615,12 @@ function itemHtml(it, ws, mv, today){
   const left = it.hours > 0 ? `about ${fmtHM(it.hours)} of work${it.est ? "" : " (typical estimate)"}` : "";
   const bits = [c ? courseLabel(c) : "", `due ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, hasWeight(t) ? `${Number(t.weight)}% of grade` : "", t.status === "doing" ? "in progress" : ""].filter(Boolean);
   const canStart = dl >= 0 && canDoNow(t);
+  // an upcoming exam or quiz: open its Exam Prep planner from here (like the task sheet's button)
+  const prepBtn = MILESTONE(t.type) && dl > 0 && t.status !== "done" ? (ps => `<button type="button" class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : "";
   return `<li style="--c:${esc(colorOf(t.courseId))}"><div class="ttl"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button><span class="cr-chip">${esc(typeName(it.cls))}</span>${prep ? `<span class="cr-chip">Prep</span>` : ""}${it.synced ? `<span class="cr-chip">School sync</span>` : ""}</div>
     <div class="mini">${esc(bits.join(" · "))}</div>
     ${mv ? `<div class="mini"><b>Suggested:</b> ${esc(moveText(mv))}.</div>` : ""}
-    <div class="cr-acts">${mv ? `<button type="button" class="btn small primary" data-act="cr-move" data-id="${esc(t.id)}" data-ws="${ws}">Move Earlier</button><button type="button" class="btn small" data-act="cr-preview" data-id="${esc(t.id)}" data-ws="${ws}">Preview</button>` : ""}${canStart ? `<button type="button" class="btn small${mv ? "" : " primary"}" data-act="pomo-task" data-id="${esc(t.id)}">Start Now</button>` : ""}</div></li>`;
+    <div class="cr-acts">${mv ? `<button type="button" class="btn small primary" data-act="cr-move" data-id="${esc(t.id)}" data-ws="${ws}">Move Earlier</button><button type="button" class="btn small" data-act="cr-preview" data-id="${esc(t.id)}" data-ws="${ws}">Preview</button>` : ""}${canStart ? `<button type="button" class="btn small${mv ? "" : " primary"}" data-act="pomo-task" data-id="${esc(t.id)}">Start Now</button>` : ""}${prepBtn}</div></li>`;
 }
 function showSheet(){
   if (!SH) return;
@@ -648,10 +651,17 @@ function showSheet(){
   const days7 = W.days.map(d => m.days.find(y => y.date === d)).filter(Boolean), dMax = Math.max(1, ...days7.map(x => Math.max(x.demand, x.capacity)));
   const strip = isDay ? "" : `<div class="cr3-days" role="group" aria-label="Days of this week">${days7.map(x => `<button type="button" class="cr3-day lv${x.levelIdx}${x.past ? " is-past" : ""}" data-act="cr-day" data-id="${x.date}" ${x.past ? "disabled" : ""} aria-label="${esc(`${dayWord(x.date)}: ${fmtHM(x.demand) || "nothing"} of work, ${LV_WORD[x.levelIdx]}`)}"><span class="cr3-bar"><i style="height:${Math.round(Math.min(1, x.demand / dMax) * 100)}%"></i><em style="bottom:${Math.round(Math.min(1, x.capacity / dMax) * 100)}%"></em></span><b>${esc(parse(x.date).toLocaleDateString(undefined, {weekday: "short"}))}</b><span>${x.demand >= 0.25 ? esc(fmtHM(x.demand)) : "–"}</span>${x.due.length ? `<span class="cr3-due">${x.due.length} due</span>` : ""}</button>`).join("")}</div>`;
   const dayEx = isDay ? `<p class="mini" style="margin:0">${dayIsOff(D.date) ? "" : D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
+  // the level can come from big deadlines rather than hours (W.major in build): say so, so "Heavy" next to "fits" makes sense
+  const whyHtml = (() => {
+    if (isDay || W.past || !(W.levelIdx > W.hoursLevel)) return "";
+    const big = {}; Object.keys(W.counts).forEach(c => { if ((C.PROF[c] || {}).major) big[c] = W.counts[c]; });
+    const what = C.phrase(big), n = Object.keys(big).reduce((s, c) => s + big[c], 0);
+    return `<p class="cr3-why">${LV_WORD[W.levelIdx]} because ${esc(what)} ${n === 1 ? "lands" : "land"} this week${W.demand <= W.capacity + 0.25 ? ", even though the hours fit" : `, more than the hours alone (${LV_WORD[W.hoursLevel]}) suggest`}.</p>`;
+  })();
   const LV_COL = ["#4C9BE8", "#3FA866", "#D9A21B", "#E8833A", "#D3352A"], dem = isDay ? D.demand : W.demand, cap = isDay ? D.capacity : W.capacity;
   const html = `<form class="sheet cr-sheet cr3">${bandHead(title, crIcon(lvIdx), LV_COL[lvIdx] || "#4C9BE8", `${LV_WORD[lvIdx]} · ${esc(reasons)}`)}<div class="sheet-body">
     <div class="cr3-sum"><div><b>${fmtHM(dem) || "0h"}</b><span>of work</span></div><div><b>${fmtHM(cap) || "0h"}</b><span>of study time</span></div><div><b class="${dem > cap + 0.25 ? "over" : ""}">${cap > 0 ? (dem / cap).toFixed(1) + "×" : "–"}</b><span>${dem > cap + 0.25 ? fmtHM(dem - cap) + " over" : "fits"}</span></div></div>
-    ${dayEx}${isDay && window.SBAUTOPILOT ? SBAUTOPILOT.dayRow(D.date) : ""}${strip}${box}
+    ${dayEx}${whyHtml}${isDay && window.SBAUTOPILOT ? SBAUTOPILOT.dayRow(D.date) : ""}${strip}${box}
     <h3 class="cr3-h">${isDay ? "On This Day" : "What's Driving This Week"}</h3>
     ${order.length ? `<ul class="cr-items">${order.map(x => itemHtml(x, ws, byId[x.id], today)).join("")}</ul>` : `<p class="mini" style="margin:0">Nothing due or building up here.</p>`}
     ${m.noEstimate ? `<p class="cr-note">Tasks without a time estimate use typical hours for their type.</p>` : ""}

@@ -294,6 +294,7 @@ h2.sec .pill{align-self:center}
 .gr-target-in input[aria-invalid="true"]{border-color:var(--danger,#c0392b)}
 .gr-target-n{flex-basis:100%;max-width:36em}
 .gr-target-n.short{color:var(--text)}
+.gr-target-n.err{color:var(--danger,#c0392b);font-weight:600}
 /* GPA, credits, past terms and Ask AI on the Grades page */
 .gp-gpa{display:flex;flex-wrap:wrap;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
 .gp-g{display:grid;gap:1px;flex:1 1 150px;min-width:0;padding:8px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}

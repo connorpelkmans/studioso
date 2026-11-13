@@ -699,21 +699,33 @@
       <div class="gr-sub"><h4>Still to Mark <span class="n">${unmarked.length}</span></h4>${unmarked.length ? `<ul class="gr-work">${gradeRows(unmarked, sw && sw.t.id)}</ul>` : `<p class="mini" style="margin:0">Every graded item has a mark. Weights add up to ${fmtW(gr.wAll)}.</p>`}</div>
     </section>`;
   }
-  // The Target Grade field on a course page (blank clears it)
+  // One target grade per course (grading.goal), set from the course page, the Grades tab or Grade Settings: one check and one message for all
+  function goalCheck(raw){
+    raw = String(raw == null ? "" : raw).trim(); if (raw === "") return {v: null};
+    const v = Number(raw);
+    if (!isFinite(v)) return {err: "Enter the target as a number, like 85"};
+    if (v > 100) return {err: "A target can be at most 100%"};
+    if (v <= 0) return {err: "A target has to be more than 0%"};
+    return {v};
+  }
+  // The Target Grade field on a course page and its Grades tab (blank clears it). A rejected entry stays in the box with
+  // the reason under it (ui.goalErr) until it's fixed, so a redraw can't make it look accepted or silently dropped
   function goalField(c, gr){
+    const bad = ui.goalErr && ui.goalErr.cid === c.id ? ui.goalErr : null;
     gr = gr || courseGrade(c); const g = gr.g, gs = goalShort(gr), gg = goalGap(gr), ng = g.goal != null && !gr.done && gr.current != null ? gr.need(g.goal) : null;
     const note = g.goal == null ? "What you're aiming for. Today's Plan gives more time to courses falling short."
       : gs ? `${gs.under > 0.05 ? `${r1(gs.under)} pts under it now` : "You need better than your average so far"}, so Today's Plan gives this course more time.`
       : ng != null && ng > 100 ? "Out of reach now, even with full marks on the rest."
       : gg ? (gg.gap >= 0 ? `On track: ${gg.text}.` : gg.text + ".") : "Shows how you're doing once there's a mark.";
-    return `<div class="gr-target"><label class="gr-target-l" for="goalIn-${esc(c.id)}">Target Grade</label><span class="gr-target-in"><input type="number" id="goalIn-${esc(c.id)}" data-goal-in="${esc(c.id)}" min="1" max="100" step="0.5" inputmode="decimal" placeholder="None" value="${g.goal != null ? esc(r1(g.goal)) : ""}" aria-describedby="goalNote-${esc(c.id)}"><span aria-hidden="true">%</span></span><span class="mini gr-target-n${gs ? " short" : ""}" id="goalNote-${esc(c.id)}">${esc(note)}</span></div>`;
+    return `<div class="gr-target"><label class="gr-target-l" for="goalIn-${esc(c.id)}">Target Grade</label><span class="gr-target-in"><input type="number" id="goalIn-${esc(c.id)}" data-goal-in="${esc(c.id)}" min="1" max="100" step="0.5" inputmode="decimal" placeholder="None" value="${bad ? esc(bad.raw) : g.goal != null ? esc(r1(g.goal)) : ""}" aria-describedby="goalNote-${esc(c.id)}"${bad ? ' aria-invalid="true"' : ""}><span aria-hidden="true">%</span></span><span class="mini gr-target-n${bad ? " err" : gs ? " short" : ""}" id="goalNote-${esc(c.id)}"${bad ? ' role="alert"' : ""}>${esc(bad ? bad.err + (g.goal != null ? `. Your target is still ${fmtP(g.goal)}.` : ".") : note)}</span></div>`;
   }
   document.addEventListener("change", e => {
     const el = e.target; if (!el || !el.matches || !el.matches("[data-goal-in]")) return;
     const c = courseOf(el.dataset.goalIn); if (!c) return;
-    const raw = String(el.value || "").trim(), v = raw === "" ? null : Number(raw);
-    if (v != null && (!isFinite(v) || v <= 0 || v > 100)) { el.setAttribute("aria-invalid", "true"); toast("Enter a target between 1 and 100, or leave it blank"); return; }
-    el.removeAttribute("aria-invalid");
+    // a number box holding text reports "" but flags badInput: that's a mistake, not clearing the target
+    const raw = el.validity && el.validity.badInput ? "?" : String(el.value || "").trim(), chk = goalCheck(raw), v = chk.v;
+    if (chk.err) { ui.goalErr = {cid: c.id, raw: raw === "?" ? "" : raw, err: chk.err}; toast(chk.err); render(); return; }
+    if (ui.goalErr && ui.goalErr.cid === c.id) { ui.goalErr = null; render(); }
     const cur = gradingOf(c).goal; if ((cur == null && v == null) || (cur != null && v != null && r1(cur) === r1(v))) return;
     const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: v == null ? null : r1(v)});
     applyChanges([{kind: "course", id: c.id, after: n}], v == null ? "Target grade cleared" : `Target grade set to ${fmtP(v)}`);
@@ -731,7 +743,7 @@
       <span class="chips">${picks.map(x => `<button type="button" class="chip" data-act="g-goal" data-cid="${esc(c.id)}" data-id="${esc(Number(x[1]))}">${esc(x[0])} ${esc(r1(Number(x[1])))}%</button>`).join("")}<button type="button" class="chip" data-act="g-course-set" data-id="${esc(c.id)}">Other</button><button type="button" class="link-btn" data-act="g-goal-no" data-id="${esc(c.id)}">Not Now</button></span></div>`;
   }
   hook("act", (act, el, id) => {
-    if (act === "g-goal") { const c = courseOf(el.dataset.cid); if (!c) return true; const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: r1(Number(id))}); applyChanges([{kind: "course", id: c.id, after: n}], `Goal set to ${fmtP(Number(id))}`); return true; }
+    if (act === "g-goal") { const c = courseOf(el.dataset.cid); if (!c) return true; if (ui.goalErr && ui.goalErr.cid === c.id) ui.goalErr = null; const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: r1(Number(id))}); applyChanges([{kind: "course", id: c.id, after: n}], `Goal set to ${fmtP(Number(id))}`); return true; }
     if (act === "g-goal-no") { try { localStorage.setItem(GOAL_NO, JSON.stringify(goalNo().concat(id).slice(-100))); } catch (e) {} render(); return true; }
     return false;
   });
@@ -1358,7 +1370,7 @@
           <p class="mini" style="margin:0">${(c.grading || {}).passSrc === "school" && (c.grading || {}).passFrom ? `Filled in from ${esc(c.grading.passFrom)}. Change it if your course outline says otherwise; a sync won't change it back.` : (c.grading || {}).passSrc === "user" ? "You set this, so syncing with your school site won't change it." : "Many courses need a minimum grade to pass, and some need a pass on each part (like the exams). Check your course outline and set it here."}</p>
           <label class="mi-check"><input type="checkbox" name="passAll"> Use This Pass Mark for All My Courses</label>
         </div>
-        <label class="f"><span class="lh">Your Goal <span class="hint">optional, the final grade you're aiming for</span></span><input type="number" name="goal" min="0" max="100" step="0.5" inputmode="decimal" value="${g.goal != null ? esc(r1(g.goal)) : ""}" placeholder="e.g. 80"></label>
+        <label class="f"><span class="lh">Target Grade <span class="hint">optional, the final grade you're aiming for, the same one shown on the course page</span></span><input type="number" name="goal" min="0" max="100" step="0.5" inputmode="decimal" value="${g.goal != null ? esc(r1(g.goal)) : ""}" placeholder="e.g. 80" aria-describedby="gsGoalErr"><span class="mini gr-target-n err" id="gsGoalErr" role="alert" hidden></span></label>
         <label class="f"><span class="lh">Credits <span class="hint">optional, for your GPA and a weighted average. 0 leaves this course out</span></span><input type="number" name="credits" min="0" max="30" step="0.25" inputmode="decimal" value="${isNum(c.credits) ? esc(c.credits) : ""}" placeholder="e.g. 3"></label>
         ${rulesFields(c)}
         <div class="gr-scale">
@@ -1376,9 +1388,11 @@
         </div>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
-      const pass = Number(fd.get("pass")), goalS = String(fd.get("goal") || "").trim();
+      const pass = Number(fd.get("pass")), gIn = dlg.querySelector('input[name="goal"]'), gChk = goalCheck(gIn && gIn.validity.badInput ? "?" : fd.get("goal")), goalS = gChk.v == null ? "" : String(gChk.v);
       if (!isNum(pass) || pass < 0 || pass > 100) { toast("Enter a pass mark between 0 and 100"); return false; }
-      if (goalS && (!isNum(goalS) || Number(goalS) <= 0 || Number(goalS) > 100)) { toast("Enter a goal between 1 and 100, or leave it blank"); return false; }
+      const gErr = $("#gsGoalErr"); if (gErr) gErr.hidden = !gChk.err;
+      if (gChk.err) { if (gErr) gErr.textContent = gChk.err + "."; if (gIn) { gIn.setAttribute("aria-invalid", "true"); gIn.focus(); } toast(gChk.err); return false; }
+      if (ui.goalErr && ui.goalErr.cid === c.id) ui.goalErr = null;
       const crS = String(fd.get("credits") || "").trim();
       if (crS && (!isNum(crS) || Number(crS) < 0 || Number(crS) > 30)) { toast("Enter credits between 0 and 30, or leave it blank"); return false; }
       const rules = readRules(fd, c); if (rules === false) return false;
@@ -1793,6 +1807,8 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
 
   // For tests and other modules
   window.SBGRADES.math = {courseGrade, letterOf, markPct, fmtP, gradingOf};
+  // An "Add Mark" toast button for an exam or quiz just marked done; the later "Got a Mark Back?" prompt is skipped for it
+  window.SBGRADES.offerMark = id => { const t = state.tasks[id]; if (!t || t.mark || t.prepFor) return undefined; setAsked(id); return {label: "Add Mark", fn: () => markSheet(id)}; };
   window.__sbGrades = {parseMark, parseScale, cleanScale, vetSchool, schoolHosts, courseGrade: id => courseGrade(courseOf(id)), rwPlan, showPrompt,
     addTask: f => { const t = newTask(f); applyChanges([{kind: "task", id: t.id, after: t}], null); return t.id; },
     setCourse: (id, patch) => applyChanges([{kind: "course", id, after: Object.assign(clone(state.courses[id]), patch)}], null),

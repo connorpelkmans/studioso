@@ -183,7 +183,7 @@
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
-    <div class="cap-row sb-wide" data-group="app"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
+    <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
@@ -260,14 +260,22 @@
   const S = {q: "", kind: ""};
   const kindsHere = list => TB.KINDS.filter(k => list.some(e => e.kind === k));
   const hay = e => (e.label + " " + e.detail + " " + e.items.slice(0, 60).map(i => TB.labelFor(i.kind, i.data) + " " + String(i.data.back || "") + " " + String(i.data.text || "").slice(0, 400) + " " + String(i.data.notes || "").slice(0, 200) + " " + (i.data.cards || []).slice(0, 300).map(c => c.front + " " + c.back).join(" ")).join(" ")).toLowerCase();
-  function trashSheet(kind){
-    if (kind !== undefined) { S.kind = TB.isSub(kind) ? kind : kind || ""; S.q = ""; }
+  function trashSheet(kind, fromSettings){
+    if (kind !== undefined) { S.kind = TB.isSub(kind) ? kind : kind || ""; S.q = ""; S.back = !!fromSettings; }
     openSheet(`<div class="sheet">${head("Recently Deleted")}<div class="sheet-body">
       <p class="status-msg" id="trSum" style="margin:0"></p>
       <input type="search" id="trQ" placeholder="Search deleted items" aria-label="Search deleted items" data-noenter value="${esc(S.q)}">
       <div class="tr-chips" id="trChips"></div>
       <div id="trList" class="tr-list"></div></div>
-      <div class="sheet-foot"><span id="trEmpty"></span><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
+      <div class="sheet-foot">${S.back ? `<button type="button" class="btn" id="trBack">‹ Settings</button>` : ""}<span id="trEmpty"></span><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
+    // Opened from Settings: go back to its Cleanup tab rather than closing everything
+    if ($("#trBack")) $("#trBack").addEventListener("click", () => {
+      menuSheet();
+      const tab = dlg.querySelector('.us-cat[data-us="data"]'); if (tab) tab.click();
+      const row = dlg.querySelector('.us-pane[data-us="data"] [data-act="trash-open"]'), list = row && row.closest(".us-sub");
+      const sub = list && dlg.querySelector(`.us-pane[data-us="data"] .us-sub-tab[data-sub="${list.dataset.sub}"]`); if (sub) sub.click();
+      if (row) row.focus({preventScroll: true});
+    });
     $("#trQ").addEventListener("input", e => { S.q = e.target.value.trim().toLowerCase(); drawTrash(); });
     $("#trChips").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) { S.kind = b.dataset.k; drawTrash(); } });
     $("#trList").addEventListener("click", trashClick);
@@ -314,7 +322,7 @@
   window.trashReadd = function(entries){ (entries || []).forEach(e => { state.trash[e.id] = e; if (!e.local) queueWrite("trash", e.id, e); }); trashSaveLocal(); const d = $("#trList"); if (d) drawTrash(); };
   window.trashSheet = trashSheet;
   hook("act", (a, el) => {
-    if (a === "trash-open") { trashSheet(el.dataset.kind || ""); return true; }
+    if (a === "trash-open") { trashSheet(el.dataset.kind || "", !!(el.closest && el.closest(".us"))); return true; }
     if (a === "export-data") { exportSheet(); return true; }
     return false;
   });
@@ -415,6 +423,12 @@
     if (!ws || !t || ws > addDays(todayISO(), 7)) return;
     const txt = rw.querySelector(".rw-txt"), acts = rw.querySelector(".rw-acts"), hide = rw.querySelector('[data-act="rw-hide"]');
     if (!txt || !acts || !hide) return;
+    // The banner's hours cover the next 7 days, so the merged header names that range too, not the forecast's Mon-Sun week
+    const b = t.querySelector("b"), today = todayISO();
+    if (b && /next 7 days/.test(txt.textContent)) {
+      b.textContent = b.textContent.replace(/:.*$/, `: ${fmtShort(today)} to ${fmtShort(addDays(today, 6))}`);
+      const away = b.nextSibling; if (away && away.nodeType === 3) away.textContent = " (the next 7 days)";
+    }
     txt.prepend(t);
     acts.insertBefore(go, hide);
     hide.dataset.crWeek = ws;
@@ -453,15 +467,10 @@
     raf = 0;
     const b = document.body; if (!b) return;
     let y = false;
-    const fab = document.getElementById("fab"), qa = PHONE.matches && fab && document.querySelector("#view .qa-bar");
+    const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
     if (qa && fab.style.display !== "none") {
       const f = fab.getBoundingClientRect(), q = qa.getBoundingClientRect();
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
-    }
-    // ...and, at any size, when it would sit on top of a button you can press (its taps would open New Task instead)
-    if (!y && fab && fab.style.display !== "none" && fab.getClientRects().length) {
-      const f = fab.getBoundingClientRect(), pts = [[f.left + 6, f.top + 6], [f.right - 6, f.top + 6], [f.left + 6, f.bottom - 6], [f.right - 6, f.bottom - 6], [f.left + f.width / 2, f.top + f.height / 2]];
-      y = pts.some(([x, yy]) => document.elementsFromPoint(x, yy).some(e => e !== fab && !fab.contains(e) && e.closest && e.closest("#view :is(.btn, .check, .stepper button, input, select, textarea)")));
     }
     b.classList.toggle("fab-yield", !!y);
   }

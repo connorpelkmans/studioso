@@ -82,8 +82,32 @@ const SBI18N = (() => {
   dloc = dateLoc();
   // A date formatted with no language given uses the page's (above), not the browser's
   try {
-    const wrap = f => function(l, o){ return f.call(this, l === undefined && dloc ? dloc : l, o); }, D = Date.prototype;
-    D.toLocaleDateString = wrap(D.toLocaleDateString); D.toLocaleTimeString = wrap(D.toLocaleTimeString); D.toLocaleString = wrap(D.toLocaleString);
+    // Each formatter is made once and kept: a page draws about a hundred dates and times, and the browser builds a new
+    // formatter for every toLocale…String call (about 19 ms a redraw, far more on a slow phone). Same output: the browser's
+    // own defaults are filled in the same way (a date alone gets year, month and day; a time alone hour, minute and second).
+    const DTF0 = Intl.DateTimeFormat, FMT = new Map();
+    const DATE_F = ["weekday", "year", "month", "day"], TIME_F = ["dayPeriod", "hour", "minute", "second", "fractionalSecondDigits"];
+    const withDefaults = (kind, o) => {
+      o = o == null ? {} : Object.assign({}, o);
+      if (o.dateStyle !== undefined || o.timeStyle !== undefined) return (kind === "date" && o.timeStyle !== undefined) || (kind === "time" && o.dateStyle !== undefined) ? null : o;
+      const hasD = DATE_F.some(k => o[k] !== undefined), hasT = TIME_F.some(k => o[k] !== undefined);
+      if ((kind === "date" || kind === "any") && !hasD && !(kind === "any" && hasT)) Object.assign(o, {year: "numeric", month: "numeric", day: "numeric"});
+      if ((kind === "time" || kind === "any") && !hasT && !(kind === "any" && hasD)) Object.assign(o, {hour: "numeric", minute: "numeric", second: "numeric"});
+      return o;
+    };
+    const wrap = (f, kind) => function(l, o){
+      const loc = l === undefined && dloc ? dloc : l;
+      try {
+        if (this instanceof Date && !isNaN(this.getTime()) && (o === undefined || (o !== null && typeof o === "object"))) {
+          const key = kind + "|" + (Array.isArray(loc) ? loc.join(",") : String(loc)) + "|" + (o == null ? "" : JSON.stringify(o));
+          let fm = FMT.get(key);
+          if (fm === undefined) { const oo = withDefaults(kind, o); fm = oo ? new DTF0(loc, oo) : null; if (FMT.size > 300) FMT.clear(); FMT.set(key, fm); }
+          if (fm) return fm.format(this);
+        }
+      } catch (e) {}
+      return f.call(this, loc, o);
+    }, D = Date.prototype;
+    D.toLocaleDateString = wrap(D.toLocaleDateString, "date"); D.toLocaleTimeString = wrap(D.toLocaleTimeString, "time"); D.toLocaleString = wrap(D.toLocaleString, "any");
     const DTF = Intl.DateTimeFormat, P = function(l, o){ return new DTF(l === undefined && dloc ? dloc : l, o); };
     P.prototype = DTF.prototype; P.supportedLocalesOf = DTF.supportedLocalesOf.bind(DTF); Intl.DateTimeFormat = P;
   } catch (e) {}

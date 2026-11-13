@@ -79,7 +79,8 @@ function renderNow(){
     }
     else sc.scrollLeft = ui.tlScroll;
     ui.tlScroll = sc.scrollLeft;
-    sc.addEventListener("scroll", () => { ui.tlScroll = sc.scrollLeft; }, {passive: true});
+    let edgeRaf = 0; tlEdges(sc);
+    sc.addEventListener("scroll", () => { ui.tlScroll = sc.scrollLeft; if (!edgeRaf) edgeRaf = requestAnimationFrame(() => { edgeRaf = 0; tlEdges(sc); }); }, {passive: true});
   }
   drawDeps();
   if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
@@ -130,10 +131,12 @@ function fitNoteBoard(){
 }
 /* -- Note board zoom */
 const NBZ_KEY = "studyboard:noteZoom", NBZ_MIN = 0.4, NBZ_MAX = 2;
-let NBZ = 1; try { NBZ = Math.min(NBZ_MAX, Math.max(NBZ_MIN, Number(localStorage.getItem(NBZ_KEY)) || 1)); } catch (e) {}
+// A phone's board starts a little smaller, so more notes fit; that size is its "100%" and the steps and labels count from it
+const nbHome = () => window.innerWidth < 640 ? 0.8 : 1;
+let NBZ = nbHome(); try { NBZ = Math.min(NBZ_MAX, Math.max(NBZ_MIN, Number(localStorage.getItem(NBZ_KEY)) || nbHome())); } catch (e) {}
 const nbZ = () => NBZ;
 function nbZoomCtl(){
-  const pct = Math.round(NBZ * 100);
+  const pct = Math.round(NBZ / nbHome() * 100);
   return `<div class="nb-zoom" role="group" aria-label="Board zoom"><button type="button" class="nbz-b" data-act="nb-zoom" data-id="out" aria-label="Zoom out"${NBZ <= NBZ_MIN + 0.001 ? " disabled" : ""}>−</button><button type="button" class="nbz-pct${pct === 100 ? "" : " on"}" data-act="nb-zoom" data-id="reset" aria-label="${pct === 100 ? "Zoom 100%" : `Zoom ${pct}%. Back to 100%`}" title="Back to 100%">${pct === 100 ? "100%" : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>${pct}%`}</button><button type="button" class="nbz-b" data-act="nb-zoom" data-id="in" aria-label="Zoom in"${NBZ >= NBZ_MAX - 0.001 ? " disabled" : ""}>+</button></div>`;
 }
 // Re-fit when the board's view changes size (window resized, a side panel opens), so a zoomed-out board still fills it
@@ -189,9 +192,9 @@ function nbFocusNote(id){
   const run = ++nbFocusRun, calm = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const {sc: sc0, el: el0} = first;
   const nx = el0.offsetLeft + el0.offsetWidth / 2, ny = el0.offsetTop + el0.offsetHeight / 2;
-  // big enough that the note fills about half the view, never smaller than now's zoom or 100%
+  // big enough that the note fills about half the view, never smaller than now's zoom or 100% (the phone's own 100%)
   const fit = Math.min(sc0.clientWidth * 0.55 / el0.offsetWidth, sc0.clientHeight * 0.55 / el0.offsetHeight);
-  const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, 1, Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
+  const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, nbHome(), Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
   const cx0 = (sc0.scrollLeft + sc0.clientWidth / 2) / z0, cy0 = (sc0.scrollTop + sc0.clientHeight / 2) / z0;
   const place = (z, cx, cy) => { const {sc} = q(); if (!sc) return false; NBZ = z; nbZoomApply(); sc.scrollLeft = cx * z - sc.clientWidth / 2; sc.scrollTop = cy * z - sc.clientHeight / 2; return true; };
   const done = () => {
@@ -217,7 +220,7 @@ function nbFocusNote(id){
   requestAnimationFrame(step);
   return true;
 }
-function nbZoomStep(dir){ const z = dir > 0 ? NBZ_STEPS.find(v => v > NBZ + 0.001) : [...NBZ_STEPS].reverse().find(v => v < NBZ - 0.001); if (z) nbZoomTo(z); }
+function nbZoomStep(dir){ const h = nbHome(), r = NBZ / h, z = dir > 0 ? NBZ_STEPS.find(v => v > r + 0.001) : [...NBZ_STEPS].reverse().find(v => v < r - 0.001); nbZoomTo(z ? z * h : dir > 0 ? NBZ_MAX : NBZ_MIN); }
 // Trackpad pinch (Chrome, Edge, Firefox send it as Ctrl + wheel) and Ctrl/⌘ + mouse wheel
 document.addEventListener("wheel", e => {
   if (!(e.ctrlKey || e.metaKey) || ui.tab !== "notes" || !e.target.closest || !e.target.closest("#nbScroll")) return;
@@ -527,6 +530,7 @@ function taskView(t0){
         <h2 class="occv-title">${esc(t.title)}</h2>
         <div class="occv-tags">${tags}</div>
         <ul class="occv-rows">${rows.map(([i, a, b]) => `<li><span class="occv-ri">${i}</span><div><b>${a}</b>${b ? `<span>${b}</span>` : ""}</div></li>`).join("")}</ul>
+        ${window.SBBREAK && SBBREAK.offerHtml ? SBBREAK.offerHtml(t) : ""}
         ${cl}
         ${prog}
       </div>
@@ -601,6 +605,8 @@ function taskForm(t, preset = {}){
         <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
         ${canRepeat ? `<label class="f" id="repeatWrap">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="1">Every day</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="m">Every month</option></select></label>` : ""}
       </div>
+      <div class="two"><label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label></div>
+      ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
       ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
       <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
       <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From home"], ["no", "In person"], ["", "Not sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
@@ -625,10 +631,8 @@ function taskForm(t, preset = {}){
           <label class="f" data-fld="link"><span class="lh"><span class="lbl">Link</span>${t.link && safeUrl(t.link) ? `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(safeUrl(t.link))}">Open in ${esc(lmsSite(t) || "browser")}</button>` : ""}</span><input type="url" name="link" maxlength="500" value="${esc(t.link)}" placeholder="https://…"></label>
           <fieldset class="plan-fs"><legend>Planning Details <span class="hint">used to rank Today's Plan</span></legend>
             <div class="two">
-              <label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
-            ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
             <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
@@ -650,7 +654,7 @@ function taskForm(t, preset = {}){
       ${!isNew && t.history.length ? `<details class="hist"><summary>History (${t.history.length})</summary><ul>${t.history.slice().reverse().map(h => `<li><span>${esc(h.text)}</span><time>${esc(new Date(h.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</time></li>`).join("")}</ul></details>` : ""}
       ${isNew && window.SBBREAK ? SBBREAK.formHtml(null, true) : ""}
     </div>
-    <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-task" data-id="${esc(t.id)}">Delete</button>${canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Focus</button>` : ""}${MILESTONE(t.type) && t.due > todayISO() && t.status !== "done" ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : ""}${t.type === "Study" && (t.studyDecks || []).some(id => state.decks[id]) ? `<button type="button" class="btn" data-act="${t.studyKind === "practice" ? "fc-practice-plan" : "fc-study-plan"}" data-id="${esc(t.id)}">${t.studyKind === "practice" ? "Practice Quiz" : "Study Cards"}</button>` : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button>${isNew ? `<button type="button" class="btn" id="tfPlanPrep" hidden>Add &amp; Plan Prep</button>` : ""}<button type="button" class="btn primary" data-submit>${isNew ? "Add Task" : "Save Task"}</button></div>
+    <div class="sheet-foot tf-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-task" data-id="${esc(t.id)}">Delete</button>${canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Focus</button>` : ""}${MILESTONE(t.type) && t.due > todayISO() && t.status !== "done" ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : ""}${t.type === "Study" && (t.studyDecks || []).some(id => state.decks[id]) ? `<button type="button" class="btn" data-act="${t.studyKind === "practice" ? "fc-practice-plan" : "fc-study-plan"}" data-id="${esc(t.id)}">${t.studyKind === "practice" ? "Practice Quiz" : "Study Cards"}</button>` : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button>${isNew ? `<button type="button" class="btn" id="tfPlanPrep" hidden>Add &amp; Plan Prep</button>` : ""}<button type="button" class="btn primary" data-submit>${isNew ? "Add Task" : "Save Task"}</button></div>
   </form>`, fd => {
     const title = String(fd.get("title") || "").trim();
     if (!title) return false;
@@ -697,7 +701,9 @@ function taskForm(t, preset = {}){
       const base = newTask(Object.assign({}, data, {id: t.id, doneAt: data.status === "done" ? Date.now() : null}));
       if (every) base.seriesId = uid();
       const changes = [{kind:"task", id: base.id, after: base}].concat(every ? repeatCopies(base, every, until) : []);
-      applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : "Task added");
+      // The toast names what was added and when it's due, so a wrong date is caught right away
+      const dueTxt = base.due ? ` · due ${parse(base.due).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}` : "";
+      applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : `Added ${base.title}${dueTxt}`);
       if (planAfter && MILESTONE(base.type) && base.due) setTimeout(() => { if (window.SBPREP) SBPREP.open(base.id); }, 80);
       else if (MILESTONE(base.type) && base.due && base.due >= todayISO() && base.status !== "done") setTimeout(() => { if (!dlg.open) remoteAsk(base.id); }, 80);
     } else {
@@ -724,15 +730,12 @@ function taskForm(t, preset = {}){
     if (v("location")) bits.push(v("location"));
     if (v("team")) bits.push("team");
     if (v("link")) bits.push("link");
-    const wIn = f.elements.weight, est = !!(wIn && wIn.classList.contains("w-est-in") && v("weight"));
-    if (v("weight")) bits.push(est ? `~${v("weight")}% of grade (estimated)` : v("weight") + "% of grade");
     const diff = (f.querySelector("input[name=difficulty]:checked") || {}).value; if (diff && diff !== "med") bits.push(DIFF_LABEL[diff].toLowerCase());
     { const nn = (typeof noteSet !== "undefined" ? noteSet.size : 0) + (typeof newNotes !== "undefined" ? newNotes.length : 0); if (nn) bits.push(nn + " sticky note" + (nn === 1 ? "" : "s")); }
     if (items.length) bits.push(`checklist ${items.filter(i => i.done).length}/${items.length}`);
     if (deps.length) bits.push(`${deps.length} dependenc${deps.length === 1 ? "y" : "ies"}`);
     if (attached.size) bits.push(`${attached.size} file${attached.size === 1 ? "" : "s"}`);
     $("#advSum").textContent = bits.length ? bits.join(", ") : "Hours, checklist, files and more";
-    $("#advSum").classList.toggle("w-est", est);
   };
   const drawCl = () => {
     const pw = $("#pctWrap"); if (pw) pw.hidden = isNew || (items.length > 0 && !MILESTONE(curType()));
@@ -1107,7 +1110,7 @@ function menuSheet(){
       <button data-act="export-json"><span>Export Data Only<span class="sub">A smaller file without your uploaded files</span></span></button>`
         : `<button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>`; })()}
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
-      <button data-act="restore"><span>Restore a Backup</span></button>
+      <button data-act="restore"><span>Restore a Device Copy<span class="sub">Go back to a copy saved on this device, or an automatic backup</span></span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
       <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Knowt, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
@@ -1127,7 +1130,7 @@ function menuSheet(){
 }
 
 async function restoreSheet(){
-  openSheet(`<div class="sheet">${head("Restore a Backup")}<div class="sheet-body"><p class="status-msg">Loading backups…</p></div></div>`);
+  openSheet(`<div class="sheet">${head("Restore a Device Copy")}<div class="sheet-body"><p class="status-msg">Loading backups…</p></div></div>`);
   let list = [];
   try { list = await listBackups(); } catch(e) {}
   if (!dlg.open) return;
