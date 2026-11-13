@@ -290,6 +290,10 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tlbar.st-doing{background:var(--c);color:#fff}
 .tlbar.st-done{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--c) 22%,var(--surface)) 0 5px,var(--surface) 5px 10px);color:var(--muted);text-decoration:line-through;border-style:dashed}
 .tlbar.late{box-shadow:inset -5px 0 0 var(--late)}
+/* a row's due date is off to one side: a small pointer at that edge (placed by tlEdges) */
+.tl-edge{position:absolute;top:50%;z-index:2;translate:0 -50%;border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));background:color-mix(in srgb,var(--c) 10%,var(--surface));color:var(--ink);font:700 .72rem var(--display);padding:3px 9px;border-radius:999px;white-space:nowrap;cursor:pointer}
+.tl-edge.r{translate:-100% -50%}
+.tl-edge:hover{background:color-mix(in srgb,var(--c) 20%,var(--surface))}
 .tl-legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:.82rem;color:var(--muted);margin-top:10px;align-items:center}
 .tl-legend .tlbar{position:static;display:inline-block;width:34px;height:14px;padding:0;vertical-align:middle;margin-right:6px;--c:var(--muted)}
 
@@ -3958,6 +3962,7 @@ h2.sec .pill{align-self:center}
 .gr-target-in input[aria-invalid="true"]{border-color:var(--danger,#c0392b)}
 .gr-target-n{flex-basis:100%;max-width:36em}
 .gr-target-n.short{color:var(--text)}
+.gr-target-n.err{color:var(--danger,#c0392b);font-weight:600}
 /* GPA, credits, past terms and Ask AI on the Grades page */
 .gp-gpa{display:flex;flex-wrap:wrap;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
 .gp-g{display:grid;gap:1px;flex:1 1 150px;min-width:0;padding:8px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
@@ -6532,6 +6537,7 @@ h2.sec.c2-bh{align-items:center}
 .cr3-sum b{font:800 1.35rem/1.1 var(--display)}
 .cr3-sum b.over{color:var(--late)}
 .cr3-sum span{font-size:.8rem;color:var(--muted)}
+.cr3-why{margin:0;padding:8px 12px;border-radius:12px;background:color-mix(in srgb,#E8833A 10%,var(--surface));border-left:4px solid #E8833A;font-size:.86rem;font-weight:600}
 .cr3-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .cr3-day{--dc:#4C9BE8;display:grid;justify-items:center;gap:3px;padding:8px 2px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:600 .74rem var(--display);cursor:pointer}
 .cr3-day.lv1{--dc:#3FA866}.cr3-day.lv2{--dc:#D9A21B}.cr3-day.lv3{--dc:#E8833A}.cr3-day.lv4{--dc:#D3352A}
@@ -6636,6 +6642,14 @@ h2.sec.c2-bh{align-items:center}
 .sch-b.k-other,.sch-b.k-event{background:color-mix(in srgb,var(--c) 12%,var(--surface))!important}
 .sch-b.sch-exam{background:color-mix(in srgb,var(--late) 10%,var(--surface))!important;border-left-color:var(--late)!important}
 .sch-b.sch-exam b{color:var(--late)}
+/* phone: a deadline with a time (not an exam) is a slim marker at that time, in its course colour */
+.sch-b.sch-mk{display:flex!important;align-items:center;padding:0 8px!important;border-radius:6px!important;background:color-mix(in srgb,var(--c) 10%,var(--surface))!important;border:1px dashed color-mix(in srgb,var(--c) 60%,var(--line))!important;border-left:4px solid var(--c)!important;box-shadow:none!important;z-index:1}
+.sch-b.sch-mk span{display:block!important;color:var(--ink)!important;font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sch-b.sch-mk b{font:800 .74rem var(--display)!important;color:color-mix(in srgb,var(--c) 72%,var(--ink))}
+/* phone: the day pills stay pinned under the top bar, so you always know which day you're looking at after scrolling */
+@media (max-width:700px){
+  .sch-pills{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--top-bar-h,64px));z-index:5;margin-inline:-16px;padding:6px 16px;background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+}
 /* short classes */
 @container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
 @container (max-height:24px){.sch-b span{display:none}}

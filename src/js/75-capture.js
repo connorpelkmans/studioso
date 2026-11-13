@@ -84,7 +84,13 @@ const CAP = (() => {
       else if (!/^0/.test(m[1]) && h >= 7 && h <= 12) { out.flags.push("ampm"); if (h === 11 && m[2] === "59") h = 23; }
       out.time = pad2(h) + ":" + m[2];
     }) ||
-      take(/\b(?:at\s*|by\s*)?noon\b/i, () => { out.time = "12:00"; }) || take(/\b(?:at\s*|by\s*)?(midnight|end of (?:the )?day|eod)\b/i, () => { out.time = "23:59"; });
+      take(/\b(?:at\s*|by\s*)?noon\b/i, () => { out.time = "12:00"; }) || take(/\b(?:at\s*|by\s*)?(midnight|end of (?:the )?day|eod)\b/i, () => { out.time = "23:59"; }) ||
+      // "at 9" with no minutes: read like a bare h:mm above (1-6 afternoon, 7-12 flagged "ampm", 13-23 as 24-hour)
+      take(/\b(?:at|@)\s*(\d{1,2})\b(?!\s*[\/:%.-]\d)/i, m => {
+        let h = Number(m[1]); if (h < 1 || h > 23) return false;
+        if (h <= 6) h += 12; else if (h <= 12) out.flags.push("ampm");
+        out.time = pad2(h) + ":00";
+      });
     if (!out.time && /\b(?:at|@)\s*\d{1,2}\b(?!\s*[\/:%.-]\d)/i.test(s)) out.flags.push("time");
     const wd = new RegExp(`\\b(?:(next|this|coming)\\s+)?(${WDRE})\\b\\.?`, "i");
     take(/\b(20\d\d)-(\d{1,2})-(\d{1,2})\b/, m => { const d = isoOf(+m[1], +m[2], +m[3]); if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d; }) ||
@@ -157,7 +163,9 @@ const CAP = (() => {
   }
 
   /* one sentence -> one draft */
-  const TYPE_WORDS = [[/\b(study|studying|revise|revising|cram|cramming|prep(?:are|aring)?\s+for)\b|\breview(?:ing)?\s+(?:for\s+)?(?:the\s+|my\s+)?(?:midterm|final|exam|test|quiz)/i, "Study"], [/\b(midterm|final exam|finals?|exam|test)\b/i, "Exam"], [/\bquiz(?:zes)?\b/i, "Quiz"], [/\blab\b/i, "Lab"], [/\b(project|presentation)\b/i, "Project"],
+  // "email prof ...", "call the registrar": a quick message, not an assignment
+  const MSG_RE = /^\s*(?:e-?mail|text|call|message)\b/i;
+  const TYPE_WORDS = [[MSG_RE, "Other"], [/\b(study|studying|revise|revising|cram|cramming|prep(?:are|aring)?\s+for)\b|\breview(?:ing)?\s+(?:for\s+)?(?:the\s+|my\s+)?(?:midterm|final|exam|test|quiz)/i, "Study"], [/\b(midterm|final exam|finals?|exam|test)\b/i, "Exam"], [/\bquiz(?:zes)?\b/i, "Quiz"], [/\blab\b/i, "Lab"], [/\b(project|presentation)\b/i, "Project"],
     [/\b(read|reading|chapters?|ch\.?\s*\d)/i, "Reading"], [/\b(hw|homework|assignment|essay|paper|report|problem set|pset|worksheet|discussion post)\b/i, "Assignment"], [/\b(study|review)\b/i, "Study"]];
   const guessType = s => { const h = TYPE_WORDS.find(([re]) => re.test(s)); return h ? h[1] : ""; };
   // Words left in the title that still look like a date or a second task
@@ -180,6 +188,7 @@ const CAP = (() => {
     d.due = w.due; d.time = w.time; d.hours = w.hours; d.weight = w.weight; d.priority = w.priority; w.flags.forEach(f => d.flags.push(f));
     s = " " + w.rest + " ";
     const ty = guessType(s); if (ty) { d.type = ty; d.typeGuess = true; }
+    if (MSG_RE.test(s) && d.hours == null) d.hours = 0.25;
     const cm = matchCourse(s, ctx.courses);
     if (cm) {
       if (cm.ambiguous) d.flags.push("course");
@@ -234,8 +243,17 @@ const CAP = (() => {
       }
       drafts.push(d);
     });
-    drafts.forEach(d => { d.kind = o.kind || (drafts.length > 1 ? "multi" : "text"); d.source = o.source || d.kind; });
+    drafts.forEach(d => { bareTime(d, ctx); d.kind = o.kind || (drafts.length > 1 ? "multi" : "text"); d.source = o.source || d.kind; });
     return {drafts, multi: drafts.length > 1, confident: drafts.length > 0 && drafts.every(d => d.confident)};
+  }
+  // A time with no date ("bio lab due 3pm") means today if that time is still ahead, else tomorrow. Needs ctx.nowMin (the app's clock).
+  // The day is a guess, so the draft is never added without the check
+  function bareTime(d, ctx){
+    if (d.due || !d.time || !ctx || typeof ctx.nowMin !== "number" || !validISO(ctx.today)) return d;
+    const [h, m] = d.time.split(":").map(Number);
+    d.due = h * 60 + m > ctx.nowMin ? ctx.today : addDays(ctx.today, 1);
+    score(d); d.confident = false;
+    return d;
   }
   // What the share sheet gives
   function fromShare(sh, ctx, o){
@@ -435,7 +453,7 @@ const CAP = (() => {
     return {items: dd.drafts.slice(0, max), rawText, dropped, bad: false, low: dd.drafts.filter(d => !d.checked).length};
   }
 
-  return {TYPES, validISO, addDays, dow, diff, lastOfMonth, WEEKDAY_RULE, weekdayDate, clean, safeLink, lmsInfo, readWhen, matchCourse, parseLine, score, splitLines, fromText, fromShare, normTitle, dupKey, dedupe, sanitizeDraft,
+  return {TYPES, validISO, addDays, dow, diff, lastOfMonth, WEEKDAY_RULE, weekdayDate, clean, safeLink, lmsInfo, readWhen, matchCourse, parseLine, bareTime, score, splitLines, fromText, fromShare, normTitle, dupKey, dedupe, sanitizeDraft,
     parseUrl, rateLimiter, queuePush, SOURCES, TRUSTED_SOURCES, NATIVE_SOURCES, VISION_SCHEMA, SHOT_SCHEMA, SHOT_KINDS, visionSystem, shotSystem, visionUser, gateVision, datesIn, guessType};
 })();
 /* CAPTURE-END */
@@ -447,7 +465,7 @@ const lsWrite = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } 
 const prefs = () => { const p = lsRead(PREF_LS, {}) || {}; return {auto: p.auto !== false, keep: p.keep === true, ai: p.ai !== false}; };
 const setPref = (k, v) => lsWrite(PREF_LS, Object.assign(lsRead(PREF_LS, {}) || {}, {[k]: !!v}));
 const isNative = () => { try { const C = window.Capacitor; return !!(DESK || window.studyboardNative || window.StudyboardNative || (C && (typeof C.isNativePlatform === "function" ? C.isNativePlatform() : true))); } catch (e) { return false; } };
-const ctx = () => ({today: todayISO(), courses: coursesArr().map(c => ({id: c.id, code: c.code || "", name: c.name || "", aliases: [].concat(c.aliases || c.alias || []).map(String)})),
+const ctx = () => ({today: todayISO(), nowMin: (n => n.getHours() * 60 + n.getMinutes())(new Date()), courses: coursesArr().map(c => ({id: c.id, code: c.code || "", name: c.name || "", aliases: [].concat(c.aliases || c.alias || []).map(String)})),
   existing: allTasks().map(t => ({title: t.title, due: t.due || ""}))});
 const limiter = CAP.rateLimiter(10, 60000);
 const dueLabel = (due, time) => {
@@ -1039,7 +1057,7 @@ function boot(){
   window.addEventListener("online", () => { queueNudge(); pullInbox(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pullInbox(); });
 }
-const api = {ingest, registerInbox, pullInbox, handleUrl, settingsExtra, open: openCapture, photo: () => { ensureDom(); camInput.click(); }, photoFiles, fast, commit, parse: (t, c) => CAP.fromText(t, c || ctx()), line: t => CAP.parseLine(t, ctx()), preview: t => previewLine(t),
+const api = {ingest, registerInbox, pullInbox, handleUrl, settingsExtra, open: openCapture, photo: () => { ensureDom(); camInput.click(); }, photoFiles, fast, commit, parse: (t, c) => CAP.fromText(t, c || ctx()), line: t => { const c = ctx(); return CAP.bareTime(CAP.parseLine(t, c), c); }, preview: t => previewLine(t),
   prefs, core: CAP, queueCount: async () => { try { return (await qList()).length; } catch (e) { return 0; } }};
 window.SBCAPTURE = api;
 hook("boot", boot);

@@ -1102,22 +1102,26 @@ function viewSchedule(){
   const lastDay = days[days.length - 1].iso;
   const weekTasks = tasksArr().filter(t => t.due && t.due >= mon && t.due <= lastDay && t.status !== "done");
   const onGrid = t => MILESTONE(t.type) && t.time;
+  // phone (one day at a time): other deadlines with a time also get a small marker at that time, not only a chip in the day's header
+  const phoneDay = !!(window.matchMedia && matchMedia("(max-width:700px)").matches), onMark = t => phoneDay && t.time && !onGrid(t);
   const shown = new Set(days.map(d => d.iso)), timed = occ.filter(o => !o.allDay && shown.has(o.date));
-  let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time)), 9 * 60);
-  let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), 17 * 60);
+  let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(t => onGrid(t) || onMark(t)).map(t => tToMin(t.time)), 9 * 60);
+  let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), ...weekTasks.filter(onMark).map(t => tToMin(t.time) + 30), 17 * 60);
   const h0 = Math.max(0, Math.floor(lo / 60)), h1 = Math.min(24, Math.ceil(hi / 60));
   const PPH = 56, top = m => (m - h0 * 60) / 60 * PPH, H = (h1 - h0) * PPH;
   const sel = ui.schDay === -1 ? days.length - 1 : ui.schDay != null && days[ui.schDay] ? ui.schDay : Math.max(0, days.findIndex(d => d.iso === today));
   let classMin = 0, availMinSum = 0;
   const cols = days.map(d => {
     const items = timed.filter(o => o.date === d.iso).map(o => ({s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o}))
-      .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t}))).sort((a, b) => a.s - b.s || b.e - a.e);
+      .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t})))
+      .concat(weekTasks.filter(t => t.due === d.iso && onMark(t)).map(t => ({s: tToMin(t.time), e: Math.min(24 * 60, tToMin(t.time) + 30), t, mk: true}))).sort((a, b) => a.s - b.s || b.e - a.e);
     let group = [], groupEnd = -1;
     const flush = () => { const lanes = []; group.forEach(it => { let l = lanes.findIndex(end => end <= it.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); group.forEach(it => it.lanes = lanes.length); group = []; };
     items.forEach(it => { if (it.s >= groupEnd) { flush(); groupEnd = it.e; } else groupEnd = Math.max(groupEnd, it.e); group.push(it); });
     flush();
     const blocks = items.map(it => {
       const pos = `top:${top(it.s)}px;height:${Math.max(22, top(it.e) - top(it.s) - 2)}px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px)`;
+      if (it.mk) return `<button class="sch-b sch-exam sch-mk" style="top:${Math.min(top(it.s), H - 24)}px;height:22px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px);--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" title="${esc(it.t.title)}, due ${esc(fmtTime(it.t.time))}"><span><b>${esc(fmtTime(it.t.time))}</b> Due: ${esc(it.t.title)}</span></button>`;
       if (it.t) { const c = courseOf(it.t.courseId); return `<button class="sch-b sch-exam" style="${pos};--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" data-drag="1" data-type="task" data-dur="60"><b>${esc(it.t.title)}</b><span>${esc(fmtTime(it.t.time))}${c ? " · " + esc(courseLabel(c)) : ""}${it.t.location ? " · " + esc(it.t.location) : ""}</span></button>`; }
       const o = it.o;
       if (o.type === "meet" && o.label !== "Office Hours" && !o.skipped) classMin += it.e - it.s;

@@ -719,7 +719,8 @@ function trashCapture(changes, label){
   trashEnforce(); trashSaveLocal();
   return entries.map(e => e.id).filter(id => state.trash[id]);
 }
-const trashBtn = kind => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && TB.isSub(e.kind))).length; return n ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted (${n})" title="Recently Deleted (${n})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>${n}</span></button>` : ""; };
+// always: shown even with nothing deleted, so Recently Deleted stays easy to find (the Task Board)
+const trashBtn = (kind, always) => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && TB.isSub(e.kind))).length; return n || always ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted${n ? ` (${n})` : ""}" title="Recently Deleted${n ? ` (${n})` : ""}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>${n ? `<span>${n}</span>` : ""}</button>` : ""; };
 const plural0 = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const trashExists = (kind, id, parent) => {
   if (kind === "card") { const d = state.decks[parent && parent.id]; return !!(d && d.cards.some(c => c.id === id)); }

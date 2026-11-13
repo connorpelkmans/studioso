@@ -53,9 +53,10 @@ function viewBars(){
       const range = s === t.due ? fmtShort(t.due) : `${fmtShort(s)} to ${fmtShort(t.due)}`;
       const ms = MILESTONE(t.type);
       const icon = `<button class="ms tl-ic ${late ? "late" : ""}" style="left:${x(t.due) + dw / 2 - 13}px" data-act="edit-task" data-id="${esc(t.id)}" data-dueonly="${ms ? "" : 1}" title="${esc(t.type)}: ${esc(t.title)}, due ${esc(fmtShort(t.due))}" aria-label="${esc(t.title)}, ${esc(t.type)}, due ${esc(fmtShort(t.due))}${late ? ", past due" : ""}">${typeIcon(t.type)}</button>`;
-      rows += `<div class="tl-row" style="--c:${esc(col)}">
+      // the due date's spot in the track; an edge hint points to it while it's scrolled out of view (tlEdges)
+      rows += `<div class="tl-row" style="--c:${esc(col)}" data-x="${x(t.due) + dw / 2}">
         <button class="tl-label" style="width:${LW}px" data-act="edit-task" data-id="${esc(t.id)}"><span class="tt">${esc(t.title)}</span><small>${esc([t.type, isNum(t.hours) && !MILESTONE(t.type) ? fmtH(Number(t.hours)) : ""].filter(Boolean).join(" · "))}</small></button>
-        <div class="tl-track" style="width:${W}px">${icon}<span class="tl-dl${late ? " late" : ""}" style="left:${x(t.due) + dw / 2 + 17}px">${esc(fmtShort(t.due))}${ms ? `<em>${esc(t.type)}</em>` : ""}</span></div>
+        <div class="tl-track" style="width:${W}px">${icon}<span class="tl-dl${late ? " late" : ""}" style="left:${x(t.due) + dw / 2 + 17}px">${esc(fmtShort(t.due))}${ms ? `<em>${esc(t.type)}</em>` : ""}</span><button class="tl-edge" data-act="tl-edge" data-d="${esc(fmtShort(t.due))}" hidden></button></div>
       </div>`;
     });
   });
@@ -70,8 +71,22 @@ function viewBars(){
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${dayh}</div></div>
         ${rows}
       </div></div>
-    <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}<span><i class="dep-key"></i>Depends On</span><span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
+    <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}${ts.some(t => (t.dependsOn || []).some(id => ts.some(o => o.id === id))) ? `<span><i class="dep-key"></i>Depends On</span>` : ""}<span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
     <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · ${noDue} undated not shown` : ""}</p>`;
+}
+// Rows whose due date is scrolled out of view get a small "← Oct 30" / "→ Dec 10" at that edge; clicking it scrolls there
+function tlEdges(sc){
+  const tl = sc.querySelector(".tl"); if (!tl) return;
+  const lw = Number(tl.dataset.lw || 0), lo = sc.scrollLeft, hi = lo + sc.clientWidth - lw;
+  sc.querySelectorAll(".tl-row[data-x]").forEach(r => {
+    const b = r.querySelector(".tl-edge"); if (!b) return;
+    const x = Number(r.dataset.x), side = x < lo + 8 ? "l" : x > hi - 8 ? "r" : "";
+    b.hidden = !side; if (!side) return;
+    b.textContent = side === "l" ? "← " + b.dataset.d : b.dataset.d + " →";
+    b.className = "tl-edge " + side;
+    b.style.left = (side === "l" ? lo + 6 : hi - 6) + "px";
+    b.setAttribute("aria-label", "Scroll to " + b.dataset.d);
+  });
 }
 function viewCalendar(){
   const today = todayISO();
@@ -963,7 +978,8 @@ const AVAIL = (() => {
   function parseQuick(text){
     let s = " " + String(text || "").trim().replace(/\s+/g, " ") + " ";
     if (s.length > 170) return null;
-    const lead = s.match(/^\s*(?:add\s+|new\s+)?(work|job|shift|shifts|placement|clinical|practicum|class|lecture|commute|travel|appointment|practice|training|meeting|lunch|dinner|sleep)\b/i);
+    // Regular activities ("gym every mon wed 7-8am") are blocks too, as an "other" commitment
+    const lead = s.match(/^\s*(?:add\s+|new\s+)?(work|job|shift|shifts|placement|clinical|practicum|class|lecture|commute|travel|appointment|practice|training|meeting|lunch|dinner|sleep|gym|workout|exercise|rehearsal|club)\b/i);
     if (!lead) return null;
     const w = lead[1].toLowerCase();
     const type = /^(work|job)$/.test(w) ? "work" : /^(shift|shifts|placement|clinical|practicum)$/.test(w) ? "shift" : /^(class|lecture)$/.test(w) ? "class" : /^(commute|travel)$/.test(w) ? "travel" : /^(lunch|dinner|sleep)$/.test(w) ? "protected" : "other";

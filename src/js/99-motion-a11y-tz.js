@@ -415,6 +415,12 @@
     if (!ws || !t || ws > addDays(todayISO(), 7)) return;
     const txt = rw.querySelector(".rw-txt"), acts = rw.querySelector(".rw-acts"), hide = rw.querySelector('[data-act="rw-hide"]');
     if (!txt || !acts || !hide) return;
+    // The banner's hours cover the next 7 days, so the merged header names that range too, not the forecast's Mon-Sun week
+    const b = t.querySelector("b"), today = todayISO();
+    if (b && /next 7 days/.test(txt.textContent)) {
+      b.textContent = b.textContent.replace(/:.*$/, `: ${fmtShort(today)} to ${fmtShort(addDays(today, 6))}`);
+      const away = b.nextSibling; if (away && away.nodeType === 3) away.textContent = " (the next 7 days)";
+    }
     txt.prepend(t);
     acts.insertBefore(go, hide);
     hide.dataset.crWeek = ws;

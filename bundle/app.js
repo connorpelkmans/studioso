@@ -1289,7 +1289,8 @@ function trashCapture(changes, label){
   trashEnforce(); trashSaveLocal();
   return entries.map(e => e.id).filter(id => state.trash[id]);
 }
-const trashBtn = kind => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && TB.isSub(e.kind))).length; return n ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted (${n})" title="Recently Deleted (${n})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>${n}</span></button>` : ""; };
+// always: shown even with nothing deleted, so Recently Deleted stays easy to find (the Task Board)
+const trashBtn = (kind, always) => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && TB.isSub(e.kind))).length; return n || always ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted${n ? ` (${n})` : ""}" title="Recently Deleted${n ? ` (${n})` : ""}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>${n ? `<span>${n}</span>` : ""}</button>` : ""; };
 const plural0 = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const trashExists = (kind, id, parent) => {
   if (kind === "card") { const d = state.decks[parent && parent.id]; return !!(d && d.cards.some(c => c.id === id)); }
@@ -10774,7 +10775,7 @@ function viewBoard(){
       ${nArch ? `<button class="arch-link" data-act="archive-open">${ARCHIVE_SM}${nArch} finished more than 2 weeks ago ${nArch === 1 ? "is" : "are"} in the Archive</button>` : ""}
     </section>`;
   }).join("");
-  const groupCtl = `<div class="board-ctl"><span class="mini">Group By</span><div class="segb" role="group" aria-label="Group board"><button data-act="group" data-id="none" aria-pressed="${ui.groupBy !== "course"}">None</button><button data-act="group" data-id="course" aria-pressed="${ui.groupBy === "course"}">Course</button></div></div>`;
+  const groupCtl = `<div class="board-ctl"><span class="mini">Group By</span><div class="segb" role="group" aria-label="Group board"><button data-act="group" data-id="none" aria-pressed="${ui.groupBy !== "course"}">None</button><button data-act="group" data-id="course" aria-pressed="${ui.groupBy === "course"}">Course</button></div>${trashBtn("task", true)}</div>`;
   let boardHtml;
   if (ui.groupBy === "course") {
     const lanes = [...coursesArr().filter(c => inFilterCourse(c.id)).map(c => ({id: c.id, name: c.name, code: c.code, color: c.color})), {id: "", name: "No Course", color: "#8A94A6"}];
@@ -11569,7 +11570,7 @@ function focusHtml(){
   const sum = [];
   if (todayList.length) sum.push(`<b>${fmtHM(todayList.reduce((s, x) => s + x.alloc, 0))}</b> planned across ${todayList.length} task${todayList.length === 1 ? "" : "s"}`);
   if (overdue) sum.push(`<span class="late"><b>${overdue}</b> overdue</span>`);
-  const pastHtml = pastFixed.length && (!pick || pick === "late") ? `<div class="plan-past" role="region" aria-label="Past exams and quizzes"><ul>${pastFixed.slice(0, 3).map(x => { const t = x.t, c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="pp-q">Did you take <button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>?<span class="mini">${x.dl === -1 ? "Yesterday" : esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}</span></span><span class="pp-acts"><button class="btn small primary" data-act="toggle" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="move-date" data-id="${esc(t.id)}">Move Date</button></span></li>`; }).join("")}</ul>${pastFixed.length > 3 ? `<p class="mini">${pastFixed.length - 3} more past ${pastFixed.length - 3 === 1 ? "exam or quiz is" : "exams or quizzes are"} on the Task Board.</p>` : ""}</div>` : "";
+  const pastHtml = pastFixed.length && (!pick || pick === "late") ? `<div class="plan-past" role="region" aria-label="Past exams and quizzes"><ul>${pastFixed.slice(0, 3).map(x => { const t = x.t, c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="pp-q">Did you take <button class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>?<span class="mini">${x.dl === -1 ? "Yesterday" : esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}</span></span><span class="pp-acts"><button class="btn small primary" data-act="toggle" data-mark="1" data-id="${esc(t.id)}">Mark Done</button><button class="btn small" data-act="move-date" data-id="${esc(t.id)}">Move Date</button></span></li>`; }).join("")}</ul>${pastFixed.length > 3 ? `<p class="mini">${pastFixed.length - 3} more past ${pastFixed.length - 3 === 1 ? "exam or quiz is" : "exams or quizzes are"} on the Task Board.</p>` : ""}</div>` : "";
   const fixedEv = Object.values(F.info).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 0 && x.dl <= 7).sort((a, b) => dueDate(a.t) - dueDate(b.t)).slice(0, 3);
   const fixedHtml = fixedEv.length ? `<div class="plan-fixed" role="region" aria-label="Exams and quizzes on the calendar"><h3 class="plan-sub">On the Calendar</h3><ul>${fixedEv.map(x => { const t = x.t, e = remoteOf(t); return `<li style="--c:${esc(colorOf(t.courseId))}"><button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span></button><span class="pf-when">${x.dl === 0 ? "Today" : x.dl === 1 ? "Tomorrow" : esc(fmtShort(t.due))}${t.time ? " " + esc(fmtTime(t.time)) : ""}</span><span class="rx-chip${e.v ? "" : " unk"}" title="${esc(e.v === "no" ? "Taken in person, so it is not suggested as something to do now." : "Not confirmed as take-home, so it is not suggested as something to do now. Open it to say where it is taken.")}">${e.v === "no" ? "In person" : "Not sure"}</span></li>`; }).join("")}</ul></div>` : "";
   if (queued) sum.push(`${queued} more lined up for the coming days`);
@@ -11691,9 +11692,10 @@ function viewBars(){
       const range = s === t.due ? fmtShort(t.due) : `${fmtShort(s)} to ${fmtShort(t.due)}`;
       const ms = MILESTONE(t.type);
       const icon = `<button class="ms tl-ic ${late ? "late" : ""}" style="left:${x(t.due) + dw / 2 - 13}px" data-act="edit-task" data-id="${esc(t.id)}" data-dueonly="${ms ? "" : 1}" title="${esc(t.type)}: ${esc(t.title)}, due ${esc(fmtShort(t.due))}" aria-label="${esc(t.title)}, ${esc(t.type)}, due ${esc(fmtShort(t.due))}${late ? ", past due" : ""}">${typeIcon(t.type)}</button>`;
-      rows += `<div class="tl-row" style="--c:${esc(col)}">
+      // the due date's spot in the track; an edge hint points to it while it's scrolled out of view (tlEdges)
+      rows += `<div class="tl-row" style="--c:${esc(col)}" data-x="${x(t.due) + dw / 2}">
         <button class="tl-label" style="width:${LW}px" data-act="edit-task" data-id="${esc(t.id)}"><span class="tt">${esc(t.title)}</span><small>${esc([t.type, isNum(t.hours) && !MILESTONE(t.type) ? fmtH(Number(t.hours)) : ""].filter(Boolean).join(" · "))}</small></button>
-        <div class="tl-track" style="width:${W}px">${icon}<span class="tl-dl${late ? " late" : ""}" style="left:${x(t.due) + dw / 2 + 17}px">${esc(fmtShort(t.due))}${ms ? `<em>${esc(t.type)}</em>` : ""}</span></div>
+        <div class="tl-track" style="width:${W}px">${icon}<span class="tl-dl${late ? " late" : ""}" style="left:${x(t.due) + dw / 2 + 17}px">${esc(fmtShort(t.due))}${ms ? `<em>${esc(t.type)}</em>` : ""}</span><button class="tl-edge" data-act="tl-edge" data-d="${esc(fmtShort(t.due))}" hidden></button></div>
       </div>`;
     });
   });
@@ -11708,8 +11710,22 @@ function viewBars(){
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${dayh}</div></div>
         ${rows}
       </div></div>
-    <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}<span><i class="dep-key"></i>Depends On</span><span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
+    <div class="tl-legend">${TYPES.filter(k => ts.some(t => t.type === k)).map(k => `<span><i class="tl-ic key">${typeIcon(k)}</i>${esc(k)}</span>`).join("")}${ts.some(t => (t.dependsOn || []).some(id => ts.some(o => o.id === id))) ? `<span><i class="dep-key"></i>Depends On</span>` : ""}<span><i class="tl-ic key late">${typeIcon("Other")}</i>Past Due</span></div>
     <p class="hint-line tip-everyday">Drag to change a due date${noDue ? ` · ${noDue} undated not shown` : ""}</p>`;
+}
+// Rows whose due date is scrolled out of view get a small "← Oct 30" / "→ Dec 10" at that edge; clicking it scrolls there
+function tlEdges(sc){
+  const tl = sc.querySelector(".tl"); if (!tl) return;
+  const lw = Number(tl.dataset.lw || 0), lo = sc.scrollLeft, hi = lo + sc.clientWidth - lw;
+  sc.querySelectorAll(".tl-row[data-x]").forEach(r => {
+    const b = r.querySelector(".tl-edge"); if (!b) return;
+    const x = Number(r.dataset.x), side = x < lo + 8 ? "l" : x > hi - 8 ? "r" : "";
+    b.hidden = !side; if (!side) return;
+    b.textContent = side === "l" ? "← " + b.dataset.d : b.dataset.d + " →";
+    b.className = "tl-edge " + side;
+    b.style.left = (side === "l" ? lo + 6 : hi - 6) + "px";
+    b.setAttribute("aria-label", "Scroll to " + b.dataset.d);
+  });
 }
 function viewCalendar(){
   const today = todayISO();
@@ -12601,7 +12617,8 @@ const AVAIL = (() => {
   function parseQuick(text){
     let s = " " + String(text || "").trim().replace(/\s+/g, " ") + " ";
     if (s.length > 170) return null;
-    const lead = s.match(/^\s*(?:add\s+|new\s+)?(work|job|shift|shifts|placement|clinical|practicum|class|lecture|commute|travel|appointment|practice|training|meeting|lunch|dinner|sleep)\b/i);
+    // Regular activities ("gym every mon wed 7-8am") are blocks too, as an "other" commitment
+    const lead = s.match(/^\s*(?:add\s+|new\s+)?(work|job|shift|shifts|placement|clinical|practicum|class|lecture|commute|travel|appointment|practice|training|meeting|lunch|dinner|sleep|gym|workout|exercise|rehearsal|club)\b/i);
     if (!lead) return null;
     const w = lead[1].toLowerCase();
     const type = /^(work|job)$/.test(w) ? "work" : /^(shift|shifts|placement|clinical|practicum)$/.test(w) ? "shift" : /^(class|lecture)$/.test(w) ? "class" : /^(commute|travel)$/.test(w) ? "travel" : /^(lunch|dinner|sleep)$/.test(w) ? "protected" : "other";
@@ -14146,22 +14163,26 @@ function viewSchedule(){
   const lastDay = days[days.length - 1].iso;
   const weekTasks = tasksArr().filter(t => t.due && t.due >= mon && t.due <= lastDay && t.status !== "done");
   const onGrid = t => MILESTONE(t.type) && t.time;
+  // phone (one day at a time): other deadlines with a time also get a small marker at that time, not only a chip in the day's header
+  const phoneDay = !!(window.matchMedia && matchMedia("(max-width:700px)").matches), onMark = t => phoneDay && t.time && !onGrid(t);
   const shown = new Set(days.map(d => d.iso)), timed = occ.filter(o => !o.allDay && shown.has(o.date));
-  let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time)), 9 * 60);
-  let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), 17 * 60);
+  let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(t => onGrid(t) || onMark(t)).map(t => tToMin(t.time)), 9 * 60);
+  let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), ...weekTasks.filter(onMark).map(t => tToMin(t.time) + 30), 17 * 60);
   const h0 = Math.max(0, Math.floor(lo / 60)), h1 = Math.min(24, Math.ceil(hi / 60));
   const PPH = 56, top = m => (m - h0 * 60) / 60 * PPH, H = (h1 - h0) * PPH;
   const sel = ui.schDay === -1 ? days.length - 1 : ui.schDay != null && days[ui.schDay] ? ui.schDay : Math.max(0, days.findIndex(d => d.iso === today));
   let classMin = 0, availMinSum = 0;
   const cols = days.map(d => {
     const items = timed.filter(o => o.date === d.iso).map(o => ({s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o}))
-      .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t}))).sort((a, b) => a.s - b.s || b.e - a.e);
+      .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t})))
+      .concat(weekTasks.filter(t => t.due === d.iso && onMark(t)).map(t => ({s: tToMin(t.time), e: Math.min(24 * 60, tToMin(t.time) + 30), t, mk: true}))).sort((a, b) => a.s - b.s || b.e - a.e);
     let group = [], groupEnd = -1;
     const flush = () => { const lanes = []; group.forEach(it => { let l = lanes.findIndex(end => end <= it.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); group.forEach(it => it.lanes = lanes.length); group = []; };
     items.forEach(it => { if (it.s >= groupEnd) { flush(); groupEnd = it.e; } else groupEnd = Math.max(groupEnd, it.e); group.push(it); });
     flush();
     const blocks = items.map(it => {
       const pos = `top:${top(it.s)}px;height:${Math.max(22, top(it.e) - top(it.s) - 2)}px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px)`;
+      if (it.mk) return `<button class="sch-b sch-exam sch-mk" style="top:${Math.min(top(it.s), H - 24)}px;height:22px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px);--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" title="${esc(it.t.title)}, due ${esc(fmtTime(it.t.time))}"><span><b>${esc(fmtTime(it.t.time))}</b> Due: ${esc(it.t.title)}</span></button>`;
       if (it.t) { const c = courseOf(it.t.courseId); return `<button class="sch-b sch-exam" style="${pos};--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" data-drag="1" data-type="task" data-dur="60"><b>${esc(it.t.title)}</b><span>${esc(fmtTime(it.t.time))}${c ? " · " + esc(courseLabel(c)) : ""}${it.t.location ? " · " + esc(it.t.location) : ""}</span></button>`; }
       const o = it.o;
       if (o.type === "meet" && o.label !== "Office Hours" && !o.skipped) classMin += it.e - it.s;
@@ -14355,7 +14376,8 @@ function renderNow(){
     }
     else sc.scrollLeft = ui.tlScroll;
     ui.tlScroll = sc.scrollLeft;
-    sc.addEventListener("scroll", () => { ui.tlScroll = sc.scrollLeft; }, {passive: true});
+    let edgeRaf = 0; tlEdges(sc);
+    sc.addEventListener("scroll", () => { ui.tlScroll = sc.scrollLeft; if (!edgeRaf) edgeRaf = requestAnimationFrame(() => { edgeRaf = 0; tlEdges(sc); }); }, {passive: true});
   }
   drawDeps();
   if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
@@ -14803,6 +14825,7 @@ function taskView(t0){
         <h2 class="occv-title">${esc(t.title)}</h2>
         <div class="occv-tags">${tags}</div>
         <ul class="occv-rows">${rows.map(([i, a, b]) => `<li><span class="occv-ri">${i}</span><div><b>${a}</b>${b ? `<span>${b}</span>` : ""}</div></li>`).join("")}</ul>
+        ${window.SBBREAK && SBBREAK.offerHtml ? SBBREAK.offerHtml(t) : ""}
         ${cl}
         ${prog}
       </div>
@@ -14877,6 +14900,8 @@ function taskForm(t, preset = {}){
         <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
         ${canRepeat ? `<label class="f" id="repeatWrap">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="1">Every day</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="m">Every month</option></select></label>` : ""}
       </div>
+      <div class="two"><label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label></div>
+      ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
       ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
       <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
       <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From home"], ["no", "In person"], ["", "Not sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
@@ -14901,10 +14926,8 @@ function taskForm(t, preset = {}){
           <label class="f" data-fld="link"><span class="lh"><span class="lbl">Link</span>${t.link && safeUrl(t.link) ? `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(safeUrl(t.link))}">Open in ${esc(lmsSite(t) || "browser")}</button>` : ""}</span><input type="url" name="link" maxlength="500" value="${esc(t.link)}" placeholder="https://…"></label>
           <fieldset class="plan-fs"><legend>Planning Details <span class="hint">used to rank Today's Plan</span></legend>
             <div class="two">
-              <label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
-            ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
             <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
@@ -14973,7 +14996,9 @@ function taskForm(t, preset = {}){
       const base = newTask(Object.assign({}, data, {id: t.id, doneAt: data.status === "done" ? Date.now() : null}));
       if (every) base.seriesId = uid();
       const changes = [{kind:"task", id: base.id, after: base}].concat(every ? repeatCopies(base, every, until) : []);
-      applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : "Task added");
+      // The toast names what was added and when it's due, so a wrong date is caught right away
+      const dueTxt = base.due ? ` · due ${parse(base.due).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}` : "";
+      applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : `Added ${base.title}${dueTxt}`);
       if (planAfter && MILESTONE(base.type) && base.due) setTimeout(() => { if (window.SBPREP) SBPREP.open(base.id); }, 80);
       else if (MILESTONE(base.type) && base.due && base.due >= todayISO() && base.status !== "done") setTimeout(() => { if (!dlg.open) remoteAsk(base.id); }, 80);
     } else {
@@ -15000,15 +15025,12 @@ function taskForm(t, preset = {}){
     if (v("location")) bits.push(v("location"));
     if (v("team")) bits.push("team");
     if (v("link")) bits.push("link");
-    const wIn = f.elements.weight, est = !!(wIn && wIn.classList.contains("w-est-in") && v("weight"));
-    if (v("weight")) bits.push(est ? `~${v("weight")}% of grade (estimated)` : v("weight") + "% of grade");
     const diff = (f.querySelector("input[name=difficulty]:checked") || {}).value; if (diff && diff !== "med") bits.push(DIFF_LABEL[diff].toLowerCase());
     { const nn = (typeof noteSet !== "undefined" ? noteSet.size : 0) + (typeof newNotes !== "undefined" ? newNotes.length : 0); if (nn) bits.push(nn + " sticky note" + (nn === 1 ? "" : "s")); }
     if (items.length) bits.push(`checklist ${items.filter(i => i.done).length}/${items.length}`);
     if (deps.length) bits.push(`${deps.length} dependenc${deps.length === 1 ? "y" : "ies"}`);
     if (attached.size) bits.push(`${attached.size} file${attached.size === 1 ? "" : "s"}`);
     $("#advSum").textContent = bits.length ? bits.join(", ") : "Hours, checklist, files and more";
-    $("#advSum").classList.toggle("w-est", est);
   };
   const drawCl = () => {
     const pw = $("#pctWrap"); if (pw) pw.hidden = isNew || (items.length > 0 && !MILESTONE(curType()));
@@ -21862,7 +21884,8 @@ let suppressClick = false;
 // A quick second click on a complete circle lands on whatever slid under the pointer once the done card left the list.
 // A second pointer click in the same spot within 450ms is taken as part of the first one and ignored.
 let lastToggle = null;
-function toggleTask(id, el){
+// extra: a toast button to offer once the task is done (e.g. Add Mark after "Did you take X?")
+function toggleTask(id, el, extra){
   const t = state.tasks[id]; if (!t) return;
   const ev = window.event, ptr = ev && ev.type === "click" && ev.detail > 0 && el && el !== document.body, now = Date.now();
   if (ptr) {
@@ -21874,8 +21897,32 @@ function toggleTask(id, el){
   if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
-  applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
+  applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, n.status === "done" ? extra : undefined, n.status === "done" ? {done: true} : undefined);
   if (n.status === "done" && todayCleared()) fire("good-moment", "plan");
+}
+// "Did you take X?" → Move Date: a small picker (tomorrow, the course's next class, or any date) instead of the whole edit sheet
+function moveDateSheet(id){
+  const t = state.tasks[id]; if (!t) return;
+  const today = todayISO(), tmr = addDays(today, 1);
+  let next = "";
+  try { const o = schOccurrences(tmr, addDays(today, 28)).filter(o => o.type === "meet" && o.id === t.courseId && !o.skipped && o.m.kind !== "Office Hours").sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)[0]; next = o ? o.date : ""; } catch (e) {}
+  const day = d => parse(d).toLocaleDateString(undefined, {weekday: "long", month: "short", day: "numeric"});
+  const opt = (d, label) => `<button type="button" data-md="${d}"><span class="fm-t"><b>${label}</b><span class="sub">${esc(day(d))}</span></span></button>`;
+  const move = d => {
+    const x = state.tasks[id]; if (!isDate(d) || !x) return;
+    const n = clone(x); n.due = d; if (n.start && n.start > d) n.start = d;
+    if (dlg.open) dlg.close();
+    applyChanges([{kind: "task", id, after: n}], `Moved ${t.title} to ${fmtShort(d)}`);
+  };
+  openSheet(`<form class="sheet md-sheet">${head("Move " + t.title)}<div class="sheet-body">
+      <div class="menu-list md-list">${opt(tmr, next === tmr ? "Tomorrow (next class)" : "Tomorrow")}${next && next !== tmr ? opt(next, "Next Class") : ""}</div>
+      <label class="f"><span class="lh">Or Pick a Date</span><input type="date" name="due" min="${today}"></label></div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Move</button></div></form>`, fd => {
+    const d = String(fd.get("due") || "");
+    if (!isDate(d)) { toast("Pick a date first"); const i = dlg.querySelector("input[name=due]"); if (i) i.focus(); return false; }
+    move(d); return false;
+  });
+  dlg.querySelectorAll("[data-md]").forEach(b => b.addEventListener("click", () => move(b.dataset.md)));
 }
 // Today's Plan has nothing left to do: no planned work still open, nothing due today or earlier still open (99-review-ask.js)
 function todayCleared(){
@@ -21985,7 +22032,7 @@ document.addEventListener("click", e => {
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
     case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
-    case "move-date": { const t = state.tasks[id]; if (!t) break; taskForm(t); const d = dlg.querySelector("input[name=due]"); if (d) { d.focus(); try { d.showPicker(); } catch (err) {} } break; }
+    case "move-date": moveDateSheet(id); break;
     case "plan-sec": { const k = id === "how" ? "planHow" : "planMore"; ui[k] = !ui[k]; const p = document.getElementById("plan-" + id); if (p) p.hidden = !ui[k]; el.setAttribute("aria-expanded", String(ui[k])); break; }
     case "plan-why": { ui.planWhy = ui.planWhy || {}; const on = !ui.planWhy[id]; if (on) ui.planWhy[id] = 1; else delete ui.planWhy[id]; const p = document.getElementById("pw-" + id); if (p) p.hidden = !on; el.setAttribute("aria-expanded", String(on)); const li = el.closest(".plan-row"); if (li) li.classList.toggle("why-open", on); break; }
     case "show-old": ui.showOldDone = true; render(); break;
@@ -21995,7 +22042,8 @@ document.addEventListener("click", e => {
         due: el.dataset.due || (ui.tab === "timeline" && ui.tlMode === "calendar" ? ui.calDay : ""), status: el.dataset.status});
       break;
     case "edit-task": { const t = state.tasks[id]; if (t) (el.dataset.edit ? taskForm : taskView)(t); break; }
-    case "toggle": toggleTask(id, el); break;
+    // "Did you take X?" → Mark Done offers to add the score right away
+    case "toggle": toggleTask(id, el, el.dataset.mark && window.SBGRADES && SBGRADES.offerMark ? SBGRADES.offerMark(id) : undefined); break;
     case "delete-task": deleteTask(id); break;
     case "archive-open": ui.tab = "archive"; dlg.open && dlg.close(); render(); window.scrollTo(0, 0); break;
     case "archive-back": ui.tab = "board"; render(); window.scrollTo(0, 0); break;
@@ -22079,6 +22127,8 @@ document.addEventListener("click", e => {
     case "f-folder-edit": { const fo = foldersOf(ui.fCourse === "all" ? "" : ui.fCourse).find(x => x.id === ui.fFolder); if (fo) folderSheet(fo); break; }
     case "f-sort": ui.fSort = id; render(); break;
     case "tl-zoom": ui.tlZoom = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlzoom", id); } catch(err) {} render(); break;
+    case "tl-edge": { const sc = el.closest(".tl-scroll"), r = el.closest(".tl-row"), lw = sc ? Number((sc.querySelector(".tl") || {dataset: {}}).dataset.lw || 0) : 0;
+      if (sc && r) sc.scrollTo({left: Math.max(0, Number(r.dataset.x) - (sc.clientWidth - lw) / 2), behavior: "smooth"}); break; }
     case "tl-today": ui.tlJump = "smooth"; if (ui.tlMode !== "bars") ui.tlMode = "bars"; render(); break;
     case "pick-day": ui.calDay = id; if (id.slice(0, 7) !== ui.calMonth.slice(0, 7)) ui.calMonth = id.slice(0, 7) + "-01"; render(); break;
     case "cal-prev": case "cal-next": {
@@ -32080,7 +32130,13 @@ const CAP = (() => {
       else if (!/^0/.test(m[1]) && h >= 7 && h <= 12) { out.flags.push("ampm"); if (h === 11 && m[2] === "59") h = 23; }
       out.time = pad2(h) + ":" + m[2];
     }) ||
-      take(/\b(?:at\s*|by\s*)?noon\b/i, () => { out.time = "12:00"; }) || take(/\b(?:at\s*|by\s*)?(midnight|end of (?:the )?day|eod)\b/i, () => { out.time = "23:59"; });
+      take(/\b(?:at\s*|by\s*)?noon\b/i, () => { out.time = "12:00"; }) || take(/\b(?:at\s*|by\s*)?(midnight|end of (?:the )?day|eod)\b/i, () => { out.time = "23:59"; }) ||
+      // "at 9" with no minutes: read like a bare h:mm above (1-6 afternoon, 7-12 flagged "ampm", 13-23 as 24-hour)
+      take(/\b(?:at|@)\s*(\d{1,2})\b(?!\s*[\/:%.-]\d)/i, m => {
+        let h = Number(m[1]); if (h < 1 || h > 23) return false;
+        if (h <= 6) h += 12; else if (h <= 12) out.flags.push("ampm");
+        out.time = pad2(h) + ":00";
+      });
     if (!out.time && /\b(?:at|@)\s*\d{1,2}\b(?!\s*[\/:%.-]\d)/i.test(s)) out.flags.push("time");
     const wd = new RegExp(`\\b(?:(next|this|coming)\\s+)?(${WDRE})\\b\\.?`, "i");
     take(/\b(20\d\d)-(\d{1,2})-(\d{1,2})\b/, m => { const d = isoOf(+m[1], +m[2], +m[3]); if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d; }) ||
@@ -32153,7 +32209,9 @@ const CAP = (() => {
   }
 
   /* one sentence -> one draft */
-  const TYPE_WORDS = [[/\b(study|studying|revise|revising|cram|cramming|prep(?:are|aring)?\s+for)\b|\breview(?:ing)?\s+(?:for\s+)?(?:the\s+|my\s+)?(?:midterm|final|exam|test|quiz)/i, "Study"], [/\b(midterm|final exam|finals?|exam|test)\b/i, "Exam"], [/\bquiz(?:zes)?\b/i, "Quiz"], [/\blab\b/i, "Lab"], [/\b(project|presentation)\b/i, "Project"],
+  // "email prof ...", "call the registrar": a quick message, not an assignment
+  const MSG_RE = /^\s*(?:e-?mail|text|call|message)\b/i;
+  const TYPE_WORDS = [[MSG_RE, "Other"], [/\b(study|studying|revise|revising|cram|cramming|prep(?:are|aring)?\s+for)\b|\breview(?:ing)?\s+(?:for\s+)?(?:the\s+|my\s+)?(?:midterm|final|exam|test|quiz)/i, "Study"], [/\b(midterm|final exam|finals?|exam|test)\b/i, "Exam"], [/\bquiz(?:zes)?\b/i, "Quiz"], [/\blab\b/i, "Lab"], [/\b(project|presentation)\b/i, "Project"],
     [/\b(read|reading|chapters?|ch\.?\s*\d)/i, "Reading"], [/\b(hw|homework|assignment|essay|paper|report|problem set|pset|worksheet|discussion post)\b/i, "Assignment"], [/\b(study|review)\b/i, "Study"]];
   const guessType = s => { const h = TYPE_WORDS.find(([re]) => re.test(s)); return h ? h[1] : ""; };
   // Words left in the title that still look like a date or a second task
@@ -32176,6 +32234,7 @@ const CAP = (() => {
     d.due = w.due; d.time = w.time; d.hours = w.hours; d.weight = w.weight; d.priority = w.priority; w.flags.forEach(f => d.flags.push(f));
     s = " " + w.rest + " ";
     const ty = guessType(s); if (ty) { d.type = ty; d.typeGuess = true; }
+    if (MSG_RE.test(s) && d.hours == null) d.hours = 0.25;
     const cm = matchCourse(s, ctx.courses);
     if (cm) {
       if (cm.ambiguous) d.flags.push("course");
@@ -32230,8 +32289,17 @@ const CAP = (() => {
       }
       drafts.push(d);
     });
-    drafts.forEach(d => { d.kind = o.kind || (drafts.length > 1 ? "multi" : "text"); d.source = o.source || d.kind; });
+    drafts.forEach(d => { bareTime(d, ctx); d.kind = o.kind || (drafts.length > 1 ? "multi" : "text"); d.source = o.source || d.kind; });
     return {drafts, multi: drafts.length > 1, confident: drafts.length > 0 && drafts.every(d => d.confident)};
+  }
+  // A time with no date ("bio lab due 3pm") means today if that time is still ahead, else tomorrow. Needs ctx.nowMin (the app's clock).
+  // The day is a guess, so the draft is never added without the check
+  function bareTime(d, ctx){
+    if (d.due || !d.time || !ctx || typeof ctx.nowMin !== "number" || !validISO(ctx.today)) return d;
+    const [h, m] = d.time.split(":").map(Number);
+    d.due = h * 60 + m > ctx.nowMin ? ctx.today : addDays(ctx.today, 1);
+    score(d); d.confident = false;
+    return d;
   }
   // What the share sheet gives
   function fromShare(sh, ctx, o){
@@ -32431,7 +32499,7 @@ const CAP = (() => {
     return {items: dd.drafts.slice(0, max), rawText, dropped, bad: false, low: dd.drafts.filter(d => !d.checked).length};
   }
 
-  return {TYPES, validISO, addDays, dow, diff, lastOfMonth, WEEKDAY_RULE, weekdayDate, clean, safeLink, lmsInfo, readWhen, matchCourse, parseLine, score, splitLines, fromText, fromShare, normTitle, dupKey, dedupe, sanitizeDraft,
+  return {TYPES, validISO, addDays, dow, diff, lastOfMonth, WEEKDAY_RULE, weekdayDate, clean, safeLink, lmsInfo, readWhen, matchCourse, parseLine, bareTime, score, splitLines, fromText, fromShare, normTitle, dupKey, dedupe, sanitizeDraft,
     parseUrl, rateLimiter, queuePush, SOURCES, TRUSTED_SOURCES, NATIVE_SOURCES, VISION_SCHEMA, SHOT_SCHEMA, SHOT_KINDS, visionSystem, shotSystem, visionUser, gateVision, datesIn, guessType};
 })();
 /* CAPTURE-END */
@@ -32443,7 +32511,7 @@ const lsWrite = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } 
 const prefs = () => { const p = lsRead(PREF_LS, {}) || {}; return {auto: p.auto !== false, keep: p.keep === true, ai: p.ai !== false}; };
 const setPref = (k, v) => lsWrite(PREF_LS, Object.assign(lsRead(PREF_LS, {}) || {}, {[k]: !!v}));
 const isNative = () => { try { const C = window.Capacitor; return !!(DESK || window.studyboardNative || window.StudyboardNative || (C && (typeof C.isNativePlatform === "function" ? C.isNativePlatform() : true))); } catch (e) { return false; } };
-const ctx = () => ({today: todayISO(), courses: coursesArr().map(c => ({id: c.id, code: c.code || "", name: c.name || "", aliases: [].concat(c.aliases || c.alias || []).map(String)})),
+const ctx = () => ({today: todayISO(), nowMin: (n => n.getHours() * 60 + n.getMinutes())(new Date()), courses: coursesArr().map(c => ({id: c.id, code: c.code || "", name: c.name || "", aliases: [].concat(c.aliases || c.alias || []).map(String)})),
   existing: allTasks().map(t => ({title: t.title, due: t.due || ""}))});
 const limiter = CAP.rateLimiter(10, 60000);
 const dueLabel = (due, time) => {
@@ -33035,7 +33103,7 @@ function boot(){
   window.addEventListener("online", () => { queueNudge(); pullInbox(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pullInbox(); });
 }
-const api = {ingest, registerInbox, pullInbox, handleUrl, settingsExtra, open: openCapture, photo: () => { ensureDom(); camInput.click(); }, photoFiles, fast, commit, parse: (t, c) => CAP.fromText(t, c || ctx()), line: t => CAP.parseLine(t, ctx()), preview: t => previewLine(t),
+const api = {ingest, registerInbox, pullInbox, handleUrl, settingsExtra, open: openCapture, photo: () => { ensureDom(); camInput.click(); }, photoFiles, fast, commit, parse: (t, c) => CAP.fromText(t, c || ctx()), line: t => { const c = ctx(); return CAP.bareTime(CAP.parseLine(t, c), c); }, preview: t => previewLine(t),
   prefs, core: CAP, queueCount: async () => { try { return (await qList()).length; } catch (e) { return 0; } }};
 window.SBCAPTURE = api;
 hook("boot", boot);
@@ -39048,21 +39116,33 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <div class="gr-sub"><h4>Still to Mark <span class="n">${unmarked.length}</span></h4>${unmarked.length ? `<ul class="gr-work">${gradeRows(unmarked, sw && sw.t.id)}</ul>` : `<p class="mini" style="margin:0">Every graded item has a mark. Weights add up to ${fmtW(gr.wAll)}.</p>`}</div>
     </section>`;
   }
-  // The Target Grade field on a course page (blank clears it)
+  // One target grade per course (grading.goal), set from the course page, the Grades tab or Grade Settings: one check and one message for all
+  function goalCheck(raw){
+    raw = String(raw == null ? "" : raw).trim(); if (raw === "") return {v: null};
+    const v = Number(raw);
+    if (!isFinite(v)) return {err: "Enter the target as a number, like 85"};
+    if (v > 100) return {err: "A target can be at most 100%"};
+    if (v <= 0) return {err: "A target has to be more than 0%"};
+    return {v};
+  }
+  // The Target Grade field on a course page and its Grades tab (blank clears it). A rejected entry stays in the box with
+  // the reason under it (ui.goalErr) until it's fixed, so a redraw can't make it look accepted or silently dropped
   function goalField(c, gr){
+    const bad = ui.goalErr && ui.goalErr.cid === c.id ? ui.goalErr : null;
     gr = gr || courseGrade(c); const g = gr.g, gs = goalShort(gr), gg = goalGap(gr), ng = g.goal != null && !gr.done && gr.current != null ? gr.need(g.goal) : null;
     const note = g.goal == null ? "What you're aiming for. Today's Plan gives more time to courses falling short."
       : gs ? `${gs.under > 0.05 ? `${r1(gs.under)} pts under it now` : "You need better than your average so far"}, so Today's Plan gives this course more time.`
       : ng != null && ng > 100 ? "Out of reach now, even with full marks on the rest."
       : gg ? (gg.gap >= 0 ? `On track: ${gg.text}.` : gg.text + ".") : "Shows how you're doing once there's a mark.";
-    return `<div class="gr-target"><label class="gr-target-l" for="goalIn-${esc(c.id)}">Target Grade</label><span class="gr-target-in"><input type="number" id="goalIn-${esc(c.id)}" data-goal-in="${esc(c.id)}" min="1" max="100" step="0.5" inputmode="decimal" placeholder="None" value="${g.goal != null ? esc(r1(g.goal)) : ""}" aria-describedby="goalNote-${esc(c.id)}"><span aria-hidden="true">%</span></span><span class="mini gr-target-n${gs ? " short" : ""}" id="goalNote-${esc(c.id)}">${esc(note)}</span></div>`;
+    return `<div class="gr-target"><label class="gr-target-l" for="goalIn-${esc(c.id)}">Target Grade</label><span class="gr-target-in"><input type="number" id="goalIn-${esc(c.id)}" data-goal-in="${esc(c.id)}" min="1" max="100" step="0.5" inputmode="decimal" placeholder="None" value="${bad ? esc(bad.raw) : g.goal != null ? esc(r1(g.goal)) : ""}" aria-describedby="goalNote-${esc(c.id)}"${bad ? ' aria-invalid="true"' : ""}><span aria-hidden="true">%</span></span><span class="mini gr-target-n${bad ? " err" : gs ? " short" : ""}" id="goalNote-${esc(c.id)}"${bad ? ' role="alert"' : ""}>${esc(bad ? bad.err + (g.goal != null ? `. Your target is still ${fmtP(g.goal)}.` : ".") : note)}</span></div>`;
   }
   document.addEventListener("change", e => {
     const el = e.target; if (!el || !el.matches || !el.matches("[data-goal-in]")) return;
     const c = courseOf(el.dataset.goalIn); if (!c) return;
-    const raw = String(el.value || "").trim(), v = raw === "" ? null : Number(raw);
-    if (v != null && (!isFinite(v) || v <= 0 || v > 100)) { el.setAttribute("aria-invalid", "true"); toast("Enter a target between 1 and 100, or leave it blank"); return; }
-    el.removeAttribute("aria-invalid");
+    // a number box holding text reports "" but flags badInput: that's a mistake, not clearing the target
+    const raw = el.validity && el.validity.badInput ? "?" : String(el.value || "").trim(), chk = goalCheck(raw), v = chk.v;
+    if (chk.err) { ui.goalErr = {cid: c.id, raw: raw === "?" ? "" : raw, err: chk.err}; toast(chk.err); render(); return; }
+    if (ui.goalErr && ui.goalErr.cid === c.id) { ui.goalErr = null; render(); }
     const cur = gradingOf(c).goal; if ((cur == null && v == null) || (cur != null && v != null && r1(cur) === r1(v))) return;
     const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: v == null ? null : r1(v)});
     applyChanges([{kind: "course", id: c.id, after: n}], v == null ? "Target grade cleared" : `Target grade set to ${fmtP(v)}`);
@@ -39080,7 +39160,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <span class="chips">${picks.map(x => `<button type="button" class="chip" data-act="g-goal" data-cid="${esc(c.id)}" data-id="${esc(Number(x[1]))}">${esc(x[0])} ${esc(r1(Number(x[1])))}%</button>`).join("")}<button type="button" class="chip" data-act="g-course-set" data-id="${esc(c.id)}">Other</button><button type="button" class="link-btn" data-act="g-goal-no" data-id="${esc(c.id)}">Not Now</button></span></div>`;
   }
   hook("act", (act, el, id) => {
-    if (act === "g-goal") { const c = courseOf(el.dataset.cid); if (!c) return true; const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: r1(Number(id))}); applyChanges([{kind: "course", id: c.id, after: n}], `Goal set to ${fmtP(Number(id))}`); return true; }
+    if (act === "g-goal") { const c = courseOf(el.dataset.cid); if (!c) return true; if (ui.goalErr && ui.goalErr.cid === c.id) ui.goalErr = null; const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: r1(Number(id))}); applyChanges([{kind: "course", id: c.id, after: n}], `Goal set to ${fmtP(Number(id))}`); return true; }
     if (act === "g-goal-no") { try { localStorage.setItem(GOAL_NO, JSON.stringify(goalNo().concat(id).slice(-100))); } catch (e) {} render(); return true; }
     return false;
   });
@@ -39707,7 +39787,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
           <p class="mini" style="margin:0">${(c.grading || {}).passSrc === "school" && (c.grading || {}).passFrom ? `Filled in from ${esc(c.grading.passFrom)}. Change it if your course outline says otherwise; a sync won't change it back.` : (c.grading || {}).passSrc === "user" ? "You set this, so syncing with your school site won't change it." : "Many courses need a minimum grade to pass, and some need a pass on each part (like the exams). Check your course outline and set it here."}</p>
           <label class="mi-check"><input type="checkbox" name="passAll"> Use This Pass Mark for All My Courses</label>
         </div>
-        <label class="f"><span class="lh">Your Goal <span class="hint">optional, the final grade you're aiming for</span></span><input type="number" name="goal" min="0" max="100" step="0.5" inputmode="decimal" value="${g.goal != null ? esc(r1(g.goal)) : ""}" placeholder="e.g. 80"></label>
+        <label class="f"><span class="lh">Target Grade <span class="hint">optional, the final grade you're aiming for, the same one shown on the course page</span></span><input type="number" name="goal" min="0" max="100" step="0.5" inputmode="decimal" value="${g.goal != null ? esc(r1(g.goal)) : ""}" placeholder="e.g. 80" aria-describedby="gsGoalErr"><span class="mini gr-target-n err" id="gsGoalErr" role="alert" hidden></span></label>
         <label class="f"><span class="lh">Credits <span class="hint">optional, for your GPA and a weighted average. 0 leaves this course out</span></span><input type="number" name="credits" min="0" max="30" step="0.25" inputmode="decimal" value="${isNum(c.credits) ? esc(c.credits) : ""}" placeholder="e.g. 3"></label>
         ${rulesFields(c)}
         <div class="gr-scale">
@@ -39725,9 +39805,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         </div>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
-      const pass = Number(fd.get("pass")), goalS = String(fd.get("goal") || "").trim();
+      const pass = Number(fd.get("pass")), gIn = dlg.querySelector('input[name="goal"]'), gChk = goalCheck(gIn && gIn.validity.badInput ? "?" : fd.get("goal")), goalS = gChk.v == null ? "" : String(gChk.v);
       if (!isNum(pass) || pass < 0 || pass > 100) { toast("Enter a pass mark between 0 and 100"); return false; }
-      if (goalS && (!isNum(goalS) || Number(goalS) <= 0 || Number(goalS) > 100)) { toast("Enter a goal between 1 and 100, or leave it blank"); return false; }
+      const gErr = $("#gsGoalErr"); if (gErr) gErr.hidden = !gChk.err;
+      if (gChk.err) { if (gErr) gErr.textContent = gChk.err + "."; if (gIn) { gIn.setAttribute("aria-invalid", "true"); gIn.focus(); } toast(gChk.err); return false; }
+      if (ui.goalErr && ui.goalErr.cid === c.id) ui.goalErr = null;
       const crS = String(fd.get("credits") || "").trim();
       if (crS && (!isNum(crS) || Number(crS) < 0 || Number(crS) > 30)) { toast("Enter credits between 0 and 30, or leave it blank"); return false; }
       const rules = readRules(fd, c); if (rules === false) return false;
@@ -40142,6 +40224,8 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
 
   // For tests and other modules
   window.SBGRADES.math = {courseGrade, letterOf, markPct, fmtP, gradingOf};
+  // An "Add Mark" toast button for an exam or quiz just marked done; the later "Got a Mark Back?" prompt is skipped for it
+  window.SBGRADES.offerMark = id => { const t = state.tasks[id]; if (!t || t.mark || t.prepFor) return undefined; setAsked(id); return {label: "Add Mark", fn: () => markSheet(id)}; };
   window.__sbGrades = {parseMark, parseScale, cleanScale, vetSchool, schoolHosts, courseGrade: id => courseGrade(courseOf(id)), rwPlan, showPrompt,
     addTask: f => { const t = newTask(f); applyChanges([{kind: "task", id: t.id, after: t}], null); return t.id; },
     setCourse: (id, patch) => applyChanges([{kind: "course", id, after: Object.assign(clone(state.courses[id]), patch)}], null),
@@ -73202,6 +73286,7 @@ const CRUNCH = (() => {
       W.demand = r2(dem); W.capacity = r2(cap); W.peak = r2(peak); W.peakDay = peakDay;
       W.score = r2(live.length ? 0.5 * peak + 0.5 * mean : 0);
       let lv = levelOf(W.score);
+      W.hoursLevel = W.past ? 0 : lv;   // the level from the hours alone, before big deadlines raise it (the week sheet says why)
       W.major = Object.keys(W.counts).reduce((s, c) => s + isMajor(c) * W.counts[c], 0);
       if (W.major >= 4) lv = Math.max(lv, 4); else if (W.major >= 3) lv = Math.max(lv, 3);
       W.levelIdx = W.past ? 0 : lv; W.level = LEVELS[W.levelIdx];
@@ -73654,10 +73739,12 @@ function itemHtml(it, ws, mv, today){
   const left = it.hours > 0 ? `about ${fmtHM(it.hours)} of work${it.est ? "" : " (typical estimate)"}` : "";
   const bits = [c ? courseLabel(c) : "", `due ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, hasWeight(t) ? `${Number(t.weight)}% of grade` : "", t.status === "doing" ? "in progress" : ""].filter(Boolean);
   const canStart = dl >= 0 && canDoNow(t);
+  // an upcoming exam or quiz: open its Exam Prep planner from here (like the task sheet's button)
+  const prepBtn = MILESTONE(t.type) && dl > 0 && t.status !== "done" ? (ps => `<button type="button" class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : "";
   return `<li style="--c:${esc(colorOf(t.courseId))}"><div class="ttl"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button><span class="cr-chip">${esc(typeName(it.cls))}</span>${prep ? `<span class="cr-chip">Prep</span>` : ""}${it.synced ? `<span class="cr-chip">School sync</span>` : ""}</div>
     <div class="mini">${esc(bits.join(" · "))}</div>
     ${mv ? `<div class="mini"><b>Suggested:</b> ${esc(moveText(mv))}.</div>` : ""}
-    <div class="cr-acts">${mv ? `<button type="button" class="btn small primary" data-act="cr-move" data-id="${esc(t.id)}" data-ws="${ws}">Move Earlier</button><button type="button" class="btn small" data-act="cr-preview" data-id="${esc(t.id)}" data-ws="${ws}">Preview</button>` : ""}${canStart ? `<button type="button" class="btn small${mv ? "" : " primary"}" data-act="pomo-task" data-id="${esc(t.id)}">Start Now</button>` : ""}</div></li>`;
+    <div class="cr-acts">${mv ? `<button type="button" class="btn small primary" data-act="cr-move" data-id="${esc(t.id)}" data-ws="${ws}">Move Earlier</button><button type="button" class="btn small" data-act="cr-preview" data-id="${esc(t.id)}" data-ws="${ws}">Preview</button>` : ""}${canStart ? `<button type="button" class="btn small${mv ? "" : " primary"}" data-act="pomo-task" data-id="${esc(t.id)}">Start Now</button>` : ""}${prepBtn}</div></li>`;
 }
 function showSheet(){
   if (!SH) return;
@@ -73688,10 +73775,17 @@ function showSheet(){
   const days7 = W.days.map(d => m.days.find(y => y.date === d)).filter(Boolean), dMax = Math.max(1, ...days7.map(x => Math.max(x.demand, x.capacity)));
   const strip = isDay ? "" : `<div class="cr3-days" role="group" aria-label="Days of this week">${days7.map(x => `<button type="button" class="cr3-day lv${x.levelIdx}${x.past ? " is-past" : ""}" data-act="cr-day" data-id="${x.date}" ${x.past ? "disabled" : ""} aria-label="${esc(`${dayWord(x.date)}: ${fmtHM(x.demand) || "nothing"} of work, ${LV_WORD[x.levelIdx]}`)}"><span class="cr3-bar"><i style="height:${Math.round(Math.min(1, x.demand / dMax) * 100)}%"></i><em style="bottom:${Math.round(Math.min(1, x.capacity / dMax) * 100)}%"></em></span><b>${esc(parse(x.date).toLocaleDateString(undefined, {weekday: "short"}))}</b><span>${x.demand >= 0.25 ? esc(fmtHM(x.demand)) : "–"}</span>${x.due.length ? `<span class="cr3-due">${x.due.length} due</span>` : ""}</button>`).join("")}</div>`;
   const dayEx = isDay ? `<p class="mini" style="margin:0">${dayIsOff(D.date) ? "" : D.capacity < (D.cap0 != null ? D.cap0 : dailyHours()) - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
+  // the level can come from big deadlines rather than hours (W.major in build): say so, so "Heavy" next to "fits" makes sense
+  const whyHtml = (() => {
+    if (isDay || W.past || !(W.levelIdx > W.hoursLevel)) return "";
+    const big = {}; Object.keys(W.counts).forEach(c => { if ((C.PROF[c] || {}).major) big[c] = W.counts[c]; });
+    const what = C.phrase(big), n = Object.keys(big).reduce((s, c) => s + big[c], 0);
+    return `<p class="cr3-why">${LV_WORD[W.levelIdx]} because ${esc(what)} ${n === 1 ? "lands" : "land"} this week${W.demand <= W.capacity + 0.25 ? ", even though the hours fit" : `, more than the hours alone (${LV_WORD[W.hoursLevel]}) suggest`}.</p>`;
+  })();
   const LV_COL = ["#4C9BE8", "#3FA866", "#D9A21B", "#E8833A", "#D3352A"], dem = isDay ? D.demand : W.demand, cap = isDay ? D.capacity : W.capacity;
   const html = `<form class="sheet cr-sheet cr3">${bandHead(title, crIcon(lvIdx), LV_COL[lvIdx] || "#4C9BE8", `${LV_WORD[lvIdx]} · ${esc(reasons)}`)}<div class="sheet-body">
     <div class="cr3-sum"><div><b>${fmtHM(dem) || "0h"}</b><span>of work</span></div><div><b>${fmtHM(cap) || "0h"}</b><span>of study time</span></div><div><b class="${dem > cap + 0.25 ? "over" : ""}">${cap > 0 ? (dem / cap).toFixed(1) + "×" : "–"}</b><span>${dem > cap + 0.25 ? fmtHM(dem - cap) + " over" : "fits"}</span></div></div>
-    ${dayEx}${isDay && window.SBAUTOPILOT ? SBAUTOPILOT.dayRow(D.date) : ""}${strip}${box}
+    ${dayEx}${whyHtml}${isDay && window.SBAUTOPILOT ? SBAUTOPILOT.dayRow(D.date) : ""}${strip}${box}
     <h3 class="cr3-h">${isDay ? "On This Day" : "What's Driving This Week"}</h3>
     ${order.length ? `<ul class="cr-items">${order.map(x => itemHtml(x, ws, byId[x.id], today)).join("")}</ul>` : `<p class="mini" style="margin:0">Nothing due or building up here.</p>`}
     ${m.noEstimate ? `<p class="cr-note">Tasks without a time estimate use typical hours for their type.</p>` : ""}
@@ -78152,10 +78246,15 @@ function formHtml(t, isNew){
       <ul class="bd-kids">${kids.map(k => `<li class="${k.status === "done" ? "is-done" : ""}"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(k.id)}">${esc(k.step || "")} ${esc(k.title)}</button><span class="mini">${esc(fmtShort(k.due))}${k.status === "done" ? " · done" : k.due < today ? " · overdue" : ""}</span></li>`).join("")}</ul></div>`;
   }
   if (!bigBtnTypes[t.type] || t.status === "done" || t.prepFor) return "";
+  return offerHtml(t) || bdLink(t.id);
+}
+// "This looks big" with Break It Down: in the edit form and in the task view
+function offerHtml(t){
+  if (!t || !bigBtnTypes[t.type] || t.status === "done" || t.prepFor || t.breakdownOf || (t.breakdownParent && kidsOfTask(t.id).length)) return "";
   // already split into steps or under way: just the small link, not the banner
   const started = (t.checklist || []).length >= 2 || t.status === "doing" || Number(t.focusMin) > 0 || Number(t.pct) > 0;
   return BD.isBig(t) && !bdNo(t.id) && !started ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button><button type="button" class="icon-btn sm bd-x" data-act="bd-no" data-id="${esc(t.id)}" aria-label="Don't suggest this for ${esc(t.title)}" title="Don't suggest this again">${CLOSE}</button></div>`
-    : bdLink(t.id);
+    : "";
 }
 const bdLink = id => `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(id)}">Break It into Milestones</button></p>`;
 // Tasks whose Break It Down suggestion was waved off
@@ -78313,7 +78412,7 @@ hook("act", (act, el, id) => {
 }
 // A small hook for tests/breakdown.e2e.js
 window.__sbBreakdown = {state: () => state, ui, render, applyChanges, clone, importSheet, lmsOf, newTask, allTasks, remainingOf, TB, plan: () => window.__sbPlan && window.__sbPlan()};
-window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, deleteHook, expandNew, big: x => BD.isBig(Object.assign({status: "todo"}, x)), engine: BD, state: () => CUR};
+window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, trayItem, deleteHook, expandNew, big: x => BD.isBig(Object.assign({status: "todo"}, x)), engine: BD, state: () => CUR};
 
 })();
 
@@ -102424,6 +102523,12 @@ const AUTOPILOT = (() => {
   const ls = window.localStorage;
   const rawSet = Storage.prototype.setItem, rawRm = Storage.prototype.removeItem, rawGet = Storage.prototype.getItem;
 
+  // the top bar's height, for things pinned just under it (the Schedule's day pills); it changes with text size and safe areas
+  (() => {
+    const hd = document.querySelector("header.top"); if (!hd || !window.ResizeObserver) return;
+    new ResizeObserver(() => { if (hd.offsetHeight) document.documentElement.style.setProperty("--top-bar-h", hd.offsetHeight + "px"); }).observe(hd);
+  })();
+
   /* Swipe between days on the Schedule (phone layout): the day follows your finger with the next one sliding in beside it,
      like a calendar app's day view. While swiping, a clipped window over the day's cell holds still copies of the two days
      side by side and only that strip moves; the real schedule underneath isn't touched until the swipe settles, so nothing
@@ -103822,6 +103927,12 @@ const AUTOPILOT = (() => {
     if (!ws || !t || ws > addDays(todayISO(), 7)) return;
     const txt = rw.querySelector(".rw-txt"), acts = rw.querySelector(".rw-acts"), hide = rw.querySelector('[data-act="rw-hide"]');
     if (!txt || !acts || !hide) return;
+    // The banner's hours cover the next 7 days, so the merged header names that range too, not the forecast's Mon-Sun week
+    const b = t.querySelector("b"), today = todayISO();
+    if (b && /next 7 days/.test(txt.textContent)) {
+      b.textContent = b.textContent.replace(/:.*$/, `: ${fmtShort(today)} to ${fmtShort(addDays(today, 6))}`);
+      const away = b.nextSibling; if (away && away.nodeType === 3) away.textContent = " (the next 7 days)";
+    }
     txt.prepend(t);
     acts.insertBefore(go, hide);
     hide.dataset.crWeek = ws;

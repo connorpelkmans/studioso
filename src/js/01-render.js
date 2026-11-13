@@ -79,7 +79,8 @@ function renderNow(){
     }
     else sc.scrollLeft = ui.tlScroll;
     ui.tlScroll = sc.scrollLeft;
-    sc.addEventListener("scroll", () => { ui.tlScroll = sc.scrollLeft; }, {passive: true});
+    let edgeRaf = 0; tlEdges(sc);
+    sc.addEventListener("scroll", () => { ui.tlScroll = sc.scrollLeft; if (!edgeRaf) edgeRaf = requestAnimationFrame(() => { edgeRaf = 0; tlEdges(sc); }); }, {passive: true});
   }
   drawDeps();
   if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
@@ -527,6 +528,7 @@ function taskView(t0){
         <h2 class="occv-title">${esc(t.title)}</h2>
         <div class="occv-tags">${tags}</div>
         <ul class="occv-rows">${rows.map(([i, a, b]) => `<li><span class="occv-ri">${i}</span><div><b>${a}</b>${b ? `<span>${b}</span>` : ""}</div></li>`).join("")}</ul>
+        ${window.SBBREAK && SBBREAK.offerHtml ? SBBREAK.offerHtml(t) : ""}
         ${cl}
         ${prog}
       </div>
@@ -601,6 +603,8 @@ function taskForm(t, preset = {}){
         <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
         ${canRepeat ? `<label class="f" id="repeatWrap">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="1">Every day</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="m">Every month</option></select></label>` : ""}
       </div>
+      <div class="two"><label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label></div>
+      ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
       ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
       <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
       <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From home"], ["no", "In person"], ["", "Not sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
@@ -625,10 +629,8 @@ function taskForm(t, preset = {}){
           <label class="f" data-fld="link"><span class="lh"><span class="lbl">Link</span>${t.link && safeUrl(t.link) ? `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(safeUrl(t.link))}">Open in ${esc(lmsSite(t) || "browser")}</button>` : ""}</span><input type="url" name="link" maxlength="500" value="${esc(t.link)}" placeholder="https://…"></label>
           <fieldset class="plan-fs"><legend>Planning Details <span class="hint">used to rank Today's Plan</span></legend>
             <div class="two">
-              <label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
-            ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
             <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
@@ -697,7 +699,9 @@ function taskForm(t, preset = {}){
       const base = newTask(Object.assign({}, data, {id: t.id, doneAt: data.status === "done" ? Date.now() : null}));
       if (every) base.seriesId = uid();
       const changes = [{kind:"task", id: base.id, after: base}].concat(every ? repeatCopies(base, every, until) : []);
-      applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : "Task added");
+      // The toast names what was added and when it's due, so a wrong date is caught right away
+      const dueTxt = base.due ? ` · due ${parse(base.due).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}` : "";
+      applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : `Added ${base.title}${dueTxt}`);
       if (planAfter && MILESTONE(base.type) && base.due) setTimeout(() => { if (window.SBPREP) SBPREP.open(base.id); }, 80);
       else if (MILESTONE(base.type) && base.due && base.due >= todayISO() && base.status !== "done") setTimeout(() => { if (!dlg.open) remoteAsk(base.id); }, 80);
     } else {
@@ -724,15 +728,12 @@ function taskForm(t, preset = {}){
     if (v("location")) bits.push(v("location"));
     if (v("team")) bits.push("team");
     if (v("link")) bits.push("link");
-    const wIn = f.elements.weight, est = !!(wIn && wIn.classList.contains("w-est-in") && v("weight"));
-    if (v("weight")) bits.push(est ? `~${v("weight")}% of grade (estimated)` : v("weight") + "% of grade");
     const diff = (f.querySelector("input[name=difficulty]:checked") || {}).value; if (diff && diff !== "med") bits.push(DIFF_LABEL[diff].toLowerCase());
     { const nn = (typeof noteSet !== "undefined" ? noteSet.size : 0) + (typeof newNotes !== "undefined" ? newNotes.length : 0); if (nn) bits.push(nn + " sticky note" + (nn === 1 ? "" : "s")); }
     if (items.length) bits.push(`checklist ${items.filter(i => i.done).length}/${items.length}`);
     if (deps.length) bits.push(`${deps.length} dependenc${deps.length === 1 ? "y" : "ies"}`);
     if (attached.size) bits.push(`${attached.size} file${attached.size === 1 ? "" : "s"}`);
     $("#advSum").textContent = bits.length ? bits.join(", ") : "Hours, checklist, files and more";
-    $("#advSum").classList.toggle("w-est", est);
   };
   const drawCl = () => {
     const pw = $("#pctWrap"); if (pw) pw.hidden = isNew || (items.length > 0 && !MILESTONE(curType()));
