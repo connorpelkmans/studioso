@@ -202,7 +202,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await page.keyboard.press("Escape"); await page.waitForTimeout(300);
 
   /* ---------- Concept Maps, Pro ---------- */
-  ok(/data-act="cm-open"/.test(await page.evaluate(() => SBCMAP.courseBtn(window.__sbProStudy.state().courses.c1))) && /data-act="cm-open"/.test(await page.evaluate(() => SBCMAP.examBtn(window.__sbProStudy.state().tasks.x1))), "Concept Map buttons for a course and an exam");
+  ok(/data-act="cm-open"/.test(await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c1))) && /data-act="cm-open"/.test(await page.evaluate(() => SBCMAP.examBtn(window.__sbProStudy.state().tasks.x1))), "Concept Map buttons for a course and an exam");
   ok(await page.evaluate(() => SBCMAP.examBtn(window.__sbProStudy.state().tasks.t2)) === "", "no button on an exam without topics");
   await act(page, "cm-open", "c1", {kind: "course"}); await page.waitForSelector(".cm-node");
   const ids = await page.$$eval(".cm-node", x => x.map(e => e.dataset.n));

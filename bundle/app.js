@@ -12146,7 +12146,7 @@ function viewCourseDetail(c){
   return `<button class="back" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Courses</button>
     <div class="detail-head c2-head" style="--c:${esc(c.color)}">
       <div class="g2-band"><span class="g2-kick">${esc(kick)}</span>
-        <div class="row-actions">${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inPreview() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-sx-ask="1" data-id="${esc(c.id)}">${AI_ICON} Ask About This Course</button>`}${window.SBLEC ? SBLEC.btn(c) : ""}${window.SBCMAP ? SBCMAP.courseBtn(c) : ""}<button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import Syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button></div></div>
+        <div class="row-actions">${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inPreview() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-sx-ask="1" data-id="${esc(c.id)}">${AI_ICON} Ask About This Course</button>`}${window.SBLEC ? SBLEC.btn(c) : ""}<button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import Syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${courseRingHtml(c)}</span>
         <div class="g2-txt"><h2>${esc(c.name)}</h2><div class="g2-meta"><span>${esc(courseMetaLine(c))}</span></div></div></div>
       <!--cd-tabs--></div><!--cd-body-->
@@ -12166,6 +12166,7 @@ function viewCourseDetail(c){
     ${courseFilesHtml(c)}
     ${courseDecksHtml(c)}
     ${courseNotesHtml(c)}
+    ${window.SBCMAP ? SBCMAP.courseCard(c) : ""}
     ${links ? c2Box("links", "Links", "", `<dl class="facts">${links}</dl>`) : ""}
     </aside></div>`;
 }
@@ -100920,6 +100921,15 @@ function courseBtn(c){
   if (!c || inPreview() || !window.SBPRO) return "";
   return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">${ICON} Concept Map${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
+// A course's map lives in a small card in the course page's side column (the button row is kept to five), once there's something to map
+if (typeof C2_ICONS === "object" && C2_ICONS && !C2_ICONS.cmap) C2_ICONS.cmap = '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>';
+function courseCard(c){
+  if (!c || inPreview() || !window.SBPRO || typeof c2Box !== "function") return "";
+  let g = null; try { const src = gather({kind: "course", id: c.id}); if (src) { src.loose = false; g = CMAP.graph(src); } } catch (e) { g = null; }
+  if (!g || g.edges.length < 2) return "";
+  const items = g.nodes.length - 1, pro = SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
+  return c2Box("cmap", "Concept Map", "", `<div class="facts c2-none cm-card"><span class="mini">${items} item${items === 1 ? "" : "s"}, ${g.edges.length} connections</span><button type="button" class="btn small" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">Open Map${pro}</button></div>`);
+}
 function examBtn(ex){
   if (!ex || inPreview() || !window.SBPRO || !topicsOf(ex).length) return "";
   return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="exam" data-id="${esc(ex.id)}">${ICON} Concept Map${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
@@ -101253,7 +101263,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 `;
 document.head.appendChild(css);
 
-window.SBCMAP = {courseBtn, examBtn, open, CMAP, state: () => M};
+window.SBCMAP = {courseBtn, courseCard, examBtn, open, CMAP, state: () => M};
 })();
 /* ===== module: 99-exam-sheet.js ===== */
 /* Formula and Diagram Sheet (Pro, no AI): for one exam, every formula, definition and picture card linked to it (through its Exam Prep
