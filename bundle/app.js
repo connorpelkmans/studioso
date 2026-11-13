@@ -2025,6 +2025,7 @@ function sbWords(error, fallback){
   if (/expired|invalid.*(token|otp|code)|token.*(invalid|expired)/i.test(m)) return "That code didn't work or has expired. Check it, or send a new one.";
   if (/password.*(at least|short|weak|characters)|weak password/i.test(m)) return "Choose a stronger password: at least 8 characters, not easy to guess.";
   if (/invalid.*email|email.*invalid|unable to validate email/i.test(m)) return "That email address doesn't look right.";
+  if (/SB_UNDER13/.test(m)) return "Sorry, you can't make a Studyboard account. You can keep using Studyboard on this device without one.";
   if (/signups? not allowed|signup.*disabled/i.test(m)) return "New accounts can't be made right now. Please try again later.";
   if (/fetch|network|timed? ?out|Load failed/i.test(m)) return "Couldn't reach Studyboard. Check your internet connection and try again.";
   return fallback || "Something went wrong. Please try again.";
@@ -2967,7 +2968,7 @@ function sbSignInSheet(mode, email, note){
   const body = {
     hello: sbWelcomeHtml(),
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${sbOAuthHtml()}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
+    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
@@ -3020,12 +3021,13 @@ function sbSignInSheet(mode, email, note){
           const bday = askAge ? SBUNAME.bdayOf(fd) : "";
           if (askAge) {
             if (!bday) { say("Enter your birthday."); return; }
-            if (SBUNAME.yearsOld(bday) < 13 && !fd.get("parentok")) { say("A parent or guardian makes the account for students under 13. Tick the box to agree."); return; }
+            // Accounts are for people 13 and older. Under 13: no account, and this device remembers (see 96-usernames.js)
+            if (SBUNAME.refused() || SBUNAME.yearsOld(bday) < 13) { SBUNAME.refuse(); sbNoAccount(); return; }
           }
           say("Creating your account…");
           const nm = String(fd.get("name") || "").replace(/\s+/g, " ").trim().slice(0, 40);
           if (nm) try { localStorage.setItem("studyboard:comp:uname", nm); } catch(e) {}
-          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, bday ? {birth_date: bday} : {}, bday && SBUNAME.yearsOld(bday) < 13 ? {parent_consent: new Date().toISOString()} : {});
+          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, bday ? {birth_date: bday} : {});
           sbLinkAsked(); const {data, error} = await sb.auth.signUp({email: em, password: pw, options: Object.assign(redirect ? {} : {emailRedirectTo: back}, Object.keys(meta).length ? {data: meta} : {})});
           if (error) throw error;
           if (data && data.session) { done("Welcome to Studyboard!"); return; }
@@ -3067,11 +3069,12 @@ function sbSignInSheet(mode, email, note){
     finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
   }));
   sbPwWire(dlg);
-  if (mode === "signup" && window.SBUNAME && dlg.querySelector(".sb-acct .bday")) {
-    const form = dlg.querySelector("form.sb-acct"), em = form && form.querySelector("input[name=email]"), lab = em && em.closest("label") && em.closest("label").querySelector(".lh");
-    const upd = () => { const iso = SBUNAME.bdayOf(new FormData(form)), young = !!iso && SBUNAME.yearsOld(iso) < 13; $("#u13").hidden = !young; $("#u13ok").required = young; if (lab) lab.firstChild.textContent = young ? "Parent or Guardian's Email " : "Email "; };
-    form.querySelectorAll(".bday input").forEach(x => { x.addEventListener("change", upd); x.addEventListener("input", upd); });
+  // A device that refused an account (a birthday under 13): no new account from here
+  function sbNoAccount(){
+    say(SBUNAME.NO_ACCOUNT);
+    dlg.querySelectorAll('form.sb-acct[data-mode=signup] [data-submit], form.sb-acct[data-mode=signup] [data-oauth], form.sb-acct[data-mode=signup] input').forEach(x => { x.disabled = true; });
   }
+  if (mode === "signup" && window.SBUNAME && SBUNAME.refused()) sbNoAccount();
   const later = $("#sbLater");
   if (later) later.addEventListener("click", () => { dlg.close(); sbUseLater(first); });
   const rs = $("#sbResend");
@@ -37597,11 +37600,17 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const run = wireCheck($("#unIn"), $("#unMsg")); if ((cur || o.suggest) && !cur) run();
     setTimeout(() => { const i = $("#unIn"); if (i) i.focus(); }, 60);
   }
-  /* Birthday */
+  /* Birthday: accounts are for people 13 and older */
   const AKEY = uid => "studyboard:age:" + uid;
   const ageCached = () => { try { const u = who(); return u ? localStorage.getItem(AKEY(u.id)) || "" : ""; } catch (e) { return ""; } };
   const ageKeep = v => { try { const u = who(); if (u) localStorage.setItem(AKEY(u.id), v); } catch (e) {} };
   const yearsOld = iso => { const b = new Date(iso + "T12:00:00"), n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--; return a; };
+  // Once someone gives a birthday under 13, this device makes no account and takes no birthday again (giving an older
+  // one after being refused doesn't get around it). Kept through sign-out and the wipe after deleting an account.
+  const GATE = "studyboard:agegate";
+  const refused = () => { try { return !!localStorage.getItem(GATE); } catch (e) { return false; } };
+  const refuse = () => { try { localStorage.setItem(GATE, String(Date.now())); } catch (e) {} };
+  const NO_ACCOUNT = "Sorry, you can't make a Studyboard account. You can keep using Studyboard on this device without one.";
   // One date box; bdayOf returns YYYY-MM-DD, or "" when it isn't a real date
   const bdayField = why => {
     const t = new Date(), iso = d => d.toISOString().slice(0, 10);
@@ -37614,27 +37623,88 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (dt.getUTCDate() !== Number(m[3]) || dt > new Date() || Number(m[1]) < new Date().getFullYear() - 120) return "";
     return v;
   };
-  function youngSheet(){
-    openSheet(`<div class="sheet">${head("Not Available Yet")}<div class="sheet-body"><p style="margin:0">Publishing and sharing with a link are for students 13 and older. Everything else in Studyboard works as usual, and you can still share with your study groups.</p></div>
+  // my_age: a number of years, null when no birthday is saved, undefined when it couldn't be asked (offline, or a server
+  // without supabase-usernames.sql): then nothing is decided now
+  async function ageNow(){ try { const a = await call("my_age"); return typeof a === "number" ? a : a === null ? null : undefined; } catch (e) { return undefined; } }
+  const isUnder13 = e => /SB_UNDER13/.test(String((e && (e.message || e.details)) || e || ""));
+  const PENDING = "studyboard:agegate:pending";   // accounts refused here whose deletion hasn't finished yet
+  const pending = () => { try { return JSON.parse(localStorage.getItem(PENDING) || "[]"); } catch (e) { return []; } };
+  const setPending = (id, on) => { try { const l = pending().filter(x => x !== id); if (on) l.push(id); if (l.length) localStorage.setItem(PENDING, JSON.stringify(l.slice(-10))); else localStorage.removeItem(PENDING); } catch (e) {} };
+  function refusedSheet(note){
+    openSheet(`<div class="sheet" id="ageNo">${head("No Account")}<div class="sheet-body"><p style="margin:0" role="status">${esc(NO_ACCOUNT)}</p>${note ? `<p class="mini" style="margin:0">${esc(note)}</p>` : ""}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">OK</button></div></div>`);
   }
-  // Publishing needs a birthday on the account and an age of 13 or older
-  async function ensureAge(then){
-    const c = ageCached();
-    if (c === "ok") { then(); return; }
-    if (c === "young") { youngSheet(); return; }
-    let a = null;
-    try { a = await call("my_age"); } catch (e) { then(); return; }
-    if (a != null) { ageKeep(a >= 13 ? "ok" : "young"); if (a >= 13) then(); else youngSheet(); return; }
-    openSheet(`<form class="sheet">${head("When's Your Birthday?")}<div class="sheet-body">${bdayField()}<p class="mini" style="margin:0">It can't be changed later, and nobody else sees it.</p><p class="mini un-msg bad" id="bdMsg" aria-live="polite"></p></div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
+  // Under 13: no account. It is deleted (with what it synced), and this device signs out and remembers
+  let closing = false;
+  async function closeUnderage(){
+    if (closing) return; closing = true;
+    refuse();
+    const u = who(), id = u && u.id;
+    if (id) setPending(id, true);
+    let gone = false;
+    try { gone = !!(window.SBDEL && await SBDEL.underage()); } catch (e) {}
+    if (gone) { setPending(id, false); try { localStorage.removeItem(AKEY(id)); } catch (e) {} }
+    if (dlg.open) dlg.close();
+    setTimeout(() => {
+      refusedSheet(gone ? "" : "Studyboard couldn't finish closing the account just now. It tries again the next time Studyboard opens while you're online.");
+      if (gone) dlg.addEventListener("close", () => location.reload(), {once: true});
+      closing = false;
+    }, 0);
+  }
+  // A signed-in account with no birthday: asked once, and it can't be skipped (Not Now signs out)
+  function askBirthday(then){
+    let answered = false;
+    openSheet(`<form class="sheet" id="ageAsk">${head("When's Your Birthday?")}<div class="sheet-body"><p style="margin:0">We ask everyone once when they use an account. Nobody else sees it, and it can't be changed later.</p>${bdayField()}<p class="mini un-msg bad" id="bdMsg" aria-live="polite"></p></div>
+      <div class="sheet-foot"><button type="button" class="btn" id="bdLater">Sign Out</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
       const iso = bdayOf(fd); if (!iso) { $("#bdMsg").textContent = "Enter your birthday."; return false; }
+      answered = true;
+      if (refused() || yearsOld(iso) < 13) { closeUnderage(); return false; }
       const b = $("#bdSave"); if (b) b.disabled = true;
-      call("set_birthdate", {p_date: iso}).then(age => { const ok2 = Number(age) >= 13; ageKeep(ok2 ? "ok" : "young"); if (dlg.open) dlg.close(); setTimeout(() => ok2 ? then() : youngSheet(), 0); })
-        .catch(e => { if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
+      call("set_birthdate", {p_date: iso}).then(age => { ageKeep("ok"); if (dlg.open) dlg.close(); if (then) setTimeout(() => then(Number(age)), 0); })
+        .catch(e => { if (isUnder13(e)) { closeUnderage(); return; } answered = false; if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
       return false;
     });
+    const form = dlg.querySelector("#ageAsk");
+    const later = $("#bdLater"); if (later) later.addEventListener("click", () => { answered = true; leave(); });
+    // closed any other way without an answer: signed out too
+    // (if another sheet took its place, it is asked again next time instead)
+    dlg.addEventListener("close", function onClose(){ dlg.removeEventListener("close", onClose); if (!answered && form && dlg.contains(form)) leave(); });
   }
+  // Signing out quietly, after unsent changes are given a few seconds to reach the account
+  async function leave(){
+    try { if (typeof flushOutbox === "function") await Promise.race([flushOutbox(), new Promise(r => setTimeout(r, 6000))]); } catch (e) {}
+    try { sbLeave(); } catch (e) {}
+    try { await sb.auth.signOut(); } catch (e) {}
+    try { await wipeDeviceData(); } catch (e) {}
+    location.reload();
+  }
+  // Every signed-in account: a birthday on file and 13 or older, else no account. done(true) once it's known to be fine
+  async function gate(done){
+    const fin = v => { if (done) done(v); };
+    if (ageCached() === "ok") { fin(true); return; }
+    const u = who(), id = u && u.id;
+    if (!id) { fin(false); return; }
+    const a = await ageNow();
+    if (a === undefined) { fin(true); return; }   // can't tell now; asked again next time
+    if (typeof a === "number") { if (a >= 13) { ageKeep("ok"); setPending(id, false); fin(true); } else { fin(false); closeUnderage(); } return; }
+    // No birthday saved yet
+    const newAcct = Date.now() - Date.parse(u.created_at || 0) < 30 * 60 * 1000;
+    if (refused()) {
+      // refused on this device: an account made just now (or one already being closed) is closed; an older one signs out
+      fin(false);
+      if (newAcct || pending().includes(id)) closeUnderage();
+      else { refusedSheet("If this is your account and you're 13 or older, contact Studyboard support."); dlg.addEventListener("close", () => leave(), {once: true}); }
+      return;
+    }
+    const bd = String(((u.user_metadata || {}).birth_date) || "");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(bd)) {   // given on the sign-up form
+      try { await call("set_birthdate", {p_date: bd}); ageKeep("ok"); fin(true); return; }
+      catch (e) { if (isUnder13(e)) { fin(false); closeUnderage(); return; } }
+    }
+    askBirthday(age => fin(age >= 13));
+  }
+  // Publishing needs it too (an account that hasn't been asked yet, say it was offline when it signed in)
+  function ensureAge(then){ gate(ok => { if (ok) then(); }); }
 
   // Something needs a username (publishing)
   async function ensure(then){
@@ -37651,9 +37721,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (!live() || asked === who().id) return;
     if (dlg.open || document.querySelector("dialog[open]")) { setTimeout(afterSignIn, 4000); return; }
     asked = who().id;
-    const bd = String(((who().user_metadata || {}).birth_date) || "");
-    if (/^\d{4}-\d{2}-\d{2}$/.test(bd) && !ageCached()) { try { const a = await call("my_age"); if (a == null) { const got = await call("set_birthdate", {p_date: bd}); ageKeep(Number(got) >= 13 ? "ok" : "young"); } else ageKeep(a >= 13 ? "ok" : "young"); } catch (e) {} }
-    if (cached()) return;
+    const fine = await new Promise(r => gate(r));
+    if (!fine || cached()) return;
     let n = "";
     try { n = await call("my_username"); } catch (e) { return; }
     if (n) { keep(n); return; }
@@ -37680,7 +37749,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
 .u13{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
 `;
   document.head.appendChild(css);
-  window.SBUNAME = {problem: UNAME.problem, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, T: {UNAME}};
+  window.SBUNAME = {problem: UNAME.problem, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, refused, refuse, NO_ACCOUNT, T: {UNAME}};
 })();
 
 /* ===== module: 97-sharing.js ===== */
@@ -79932,7 +80001,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
   const VERSION = "1.15.6";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "November 11, 2026", TERMS_UPDATED = "November 11, 2026";
+  const UPDATED = "November 13, 2026", TERMS_UPDATED = "November 13, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -79958,7 +80027,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>When Studyboard hits an error (a crash, a failed sync or a broken screen), it can send a short report so we can fix the bug. A report holds the kind of error and where in the code it happened, the app version, the platform (website, installed app, desktop or iPhone/iPad app), whether you have a free or paid plan, the theme in use, and the last few actions of the app itself (such as which tab was open). It never contains your tasks, notes, courses, files, email address, account id, AI keys or anything you typed, and it is not linked to you: it carries a random number made on your device that is not your account (deleted when you switch reports off) and a one-way scrambled form of your network address, scrambled with a secret only our server holds together with the date, so it can't be traced back or matched from one day to the next, kept with the report only to stop one device from flooding us with reports. We do not use reports for advertising or tracking and never share them. They are kept for about 30 days. This is on by default (off if your browser sends Do Not Track or Global Privacy Control). Turn it off any time in Settings, Send Anonymous Crash Reports. On iPhone and iPad, Apple may also give us crash logs through App Store Connect if you chose to share app analytics with developers in your device's settings. Reports go to our own Supabase project, and, if we turn it on, to Sentry (Functional Software, Inc.), an error-tracking service that receives the same anonymous report and keeps it for no more than 30 days.</p>
 
 <h3>Your account and synced data</h3>
-<p>If you create an account, we store your email address. Your password is never stored or seen by anyone, including us: our hosting provider, Supabase (Supabase Auth), keeps only a salted hash of it (a one-way code), which can check a password you type but can't be turned back into it. No one can look up your password, so if you forget it you reset it by email. If you sign in with Apple, Google or Microsoft instead, you have no Studyboard password: that company confirms who you are and gives us your email address (with Apple you can choose to share a private relay address that forwards to you) and, if you allow it, your name. We don't receive your password for that account or anything else from it. Your planner then syncs between your devices (what you made before signing up comes along), so your courses, tasks, notes, flashcards, settings and file records are stored on our Supabase project, in your account. With Studyboard Pro, a weekly backup copy of your planner is also kept in your account for 30 days, so you can restore an earlier version. Each account can only read its own rows (what you post in a study group is the one exception: the group's members can see it, as described below). We also keep the name and type of each device signed in to your account, how much storage your account uses (for the plan limits), and your plan status. Your AI keys stay on the device unless you turn on AI Keys on All My Devices in Settings (or use Add AI to Another Device, described under AI below): then they are locked on your device with a passphrase only you know, and only the scrambled copy is stored, so we cannot read them. They are always left out of the backup files you export. School calendar links and Canvas access tokens are never synced. Your newest companion chats are also synced to your account. When you make an account we also ask for your birthday, once, to apply age rules: it is never shown to anyone. Students under 13 need a parent or guardian to create the account with the parent's own email and agree on the child's behalf; those accounts can't publish or share with a public link.</p>
+<p>If you create an account, we store your email address. Your password is never stored or seen by anyone, including us: our hosting provider, Supabase (Supabase Auth), keeps only a salted hash of it (a one-way code), which can check a password you type but can't be turned back into it. No one can look up your password, so if you forget it you reset it by email. If you sign in with Apple, Google or Microsoft instead, you have no Studyboard password: that company confirms who you are and gives us your email address (with Apple you can choose to share a private relay address that forwards to you) and, if you allow it, your name. We don't receive your password for that account or anything else from it. Your planner then syncs between your devices (what you made before signing up comes along), so your courses, tasks, notes, flashcards, settings and file records are stored on our Supabase project, in your account. With Studyboard Pro, a weekly backup copy of your planner is also kept in your account for 30 days, so you can restore an earlier version. Each account can only read its own rows (what you post in a study group is the one exception: the group's members can see it, as described below). We also keep the name and type of each device signed in to your account, how much storage your account uses (for the plan limits), and your plan status. Your AI keys stay on the device unless you turn on AI Keys on All My Devices in Settings (or use Add AI to Another Device, described under AI below): then they are locked on your device with a passphrase only you know, and only the scrambled copy is stored, so we cannot read them. They are always left out of the backup files you export. School calendar links and Canvas access tokens are never synced. Your newest companion chats are also synced to your account. When you make an account, or the first time you use one, we ask for your birthday once to check that you are 13 or older: it is never shown to anyone. If the birthday is under 13, no account is made (or the account is deleted with everything stored for it), the birthday is not kept, and the device remembers the refusal so it can't make an account afterwards.</p>
 <p>Like any online service, the people who run the server can technically reach what is stored on it. We only look at it to keep the service working, fix a problem you ask us to look into, or comply with the law.</p>
 
 <h3>Uploaded files</h3>
@@ -80029,7 +80098,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Our servers are in the United States (US West). Supabase, Cloudflare, Stripe, RevenueCat, Sentry, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
 
 <h3>Children</h3>
-<p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. If you are younger than 13, please do not create an account. If you think a child has given us personal data, contact us and we will delete it.</p>
+<p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. Studyboard accounts are not available to anyone under 13, and a parent or guardian can't make one for them: when the birthday given is under 13, Studyboard refuses the account. Someone younger can still use Studyboard on their own device without an account. If you think a child under 13 has given us personal data, contact us and we will delete it.</p>
 
 <h3>Security</h3>
 <p>Connections are encrypted (HTTPS). Each account can only read its own rows, and plans can only be changed by our payment system, never from your device (apart from starting a free trial once, when one is offered). No system is perfectly safe; if something affecting you goes wrong we will tell you.</p>
@@ -80043,10 +80112,10 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <p>These terms are the agreement between you and Connor Pelkmans, who publishes Studyboard ("we"), for using Studyboard: the app and its website. By using Studyboard you agree to them. If you do not agree, please do not use it. Questions: ${contact()}.</p>
 
     <h3>Using Studyboard</h3>
-    <p>Studyboard is a planner that helps you keep track of your courses and work. You can use it for free on your own device, with or without an account; a free account keeps your planner online and in sync on your devices. You must be at least 13 years old. Use it lawfully, and do not try to break it, attack or overload it, get around plan limits or payments, use someone else's account, get into other people's data, or use it to harass anyone.</p>
+    <p>Studyboard is a planner that helps you keep track of your courses and work. You can use it for free on your own device, with or without an account; a free account keeps your planner online and in sync on your devices. You must be 13 or older to make or use an account. Use it lawfully, and do not try to break it, attack or overload it, get around plan limits or payments, use someone else's account, get into other people's data, or use it to harass anyone.</p>
 
     <h3>Your account and your content</h3>
-    <p>Keep your password private; you are responsible for what happens under your account. Everything you put into Studyboard is yours. You give us a worldwide, non-exclusive, royalty-free permission to store, copy, process, sync and show it so Studyboard can work: back to you, to the people you share it with and, when you publish something, to anyone. We use it for nothing else. The permission ends when you delete it, except for copies other people already saved and backups we keep for a short time. You can export it or delete it at any time (see the Privacy Policy). Keep your own backups of anything important. You must be 13 or older to make an account yourself; a parent or guardian can make one for a younger student and agrees to these Terms for them. Accounts for students under 13 can't publish or share with a link. Only publish sets you made or have the right to share, and never answers to graded work; we remove what is reported.</p>
+    <p>Keep your password private; you are responsible for what happens under your account. Everything you put into Studyboard is yours. You give us a worldwide, non-exclusive, royalty-free permission to store, copy, process, sync and show it so Studyboard can work: back to you, to the people you share it with and, when you publish something, to anyone. We use it for nothing else. The permission ends when you delete it, except for copies other people already saved and backups we keep for a short time. You can export it or delete it at any time (see the Privacy Policy). Keep your own backups of anything important. Accounts are only for people 13 and older, and nobody may make one for someone younger, a parent or guardian included. We delete an account when we learn it belongs to someone under 13. Only publish sets you made or have the right to share, and never answers to graded work; we remove what is reported.</p>
 
     <h3>Course materials and copyright</h3>
     <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may upload them to Studyboard to study from them yourself, as your school allows. Course files you upload, such as lecture slides, stay private to your account: no one else can open them, and Studyboard never shares or publishes them or lets you share them with a group. Pictures, files and text copied word for word from a file can't be shared anywhere in Studyboard: not in a group, with another person or on a public page. You can share what you write or draw yourself, and what AI writes for you in its own words; pictures on a whiteboard stay on your own copy. You alone are responsible for having the right to upload them. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a message or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. You confirm this each time you share or publish, and we keep a record of when you agreed and to which version of these terms. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
@@ -80187,7 +80256,10 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     } catch (e) { }
   }
   async function wipeDevice(){
+    // the device's refusal of an under-13 account outlives everything else (see 96-usernames.js)
+    let gate = null; try { gate = localStorage.getItem("studyboard:agegate"); } catch (e) {}
     try { localStorage.clear(); } catch (e) {}
+    try { if (gate) localStorage.setItem("studyboard:agegate", gate); } catch (e) {}
     try { sessionStorage.clear(); } catch (e) {}
     try {
       const names = indexedDB.databases ? (await indexedDB.databases()).map(d => d.name).filter(Boolean) : ["studyboard-sync", "studioso-fs", "studyboard-ui-cache", "studyboard-photos"];
@@ -80225,6 +80297,23 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     if (!status) return unreachable(err);
     return {kind: "http", status, body: body || {}, error: err};
   }
+  // Under 13: the account is deleted (no password asked, see delete-account) and this device signs out. The planner on the
+  // device is kept: Studyboard still works without an account. Resolves true once the account is gone.
+  async function underageDelete(){
+    if (!sb || typeof sbUser === "undefined" || !sbUser) return false;
+    const uid = sbUser.id;
+    let r = await callDelete({confirm: "DELETE", underage: true, ack_store_subscription: true});
+    if (r.kind === "missing") {   // a server without the Edge Function: its own fallback
+      try { await removeFiles(uid); const {error} = await sb.rpc("studyboard_delete_my_account"); if (!error) r = {kind: "ok"}; } catch (e) {}
+    }
+    if (r.kind !== "ok") return false;
+    sbLeaving = true;
+    try { await sb.auth.signOut({scope: "local"}); } catch (e) {}
+    try { localStorage.removeItem(OUTBOX); } catch (e) {}
+    try { aiWipeLocal(); } catch (e) {}
+    return true;
+  }
+  window.SBDEL = {underage: underageDelete};
   const deletedList = (data, wiped) => {
     const d = (data && data.deleted) || {}, rows = [];
     rows.push("Your account and sign-in, on every device");

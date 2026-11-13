@@ -28,6 +28,7 @@ function sbWords(error, fallback){
   if (/expired|invalid.*(token|otp|code)|token.*(invalid|expired)/i.test(m)) return "That code didn't work or has expired. Check it, or send a new one.";
   if (/password.*(at least|short|weak|characters)|weak password/i.test(m)) return "Choose a stronger password: at least 8 characters, not easy to guess.";
   if (/invalid.*email|email.*invalid|unable to validate email/i.test(m)) return "That email address doesn't look right.";
+  if (/SB_UNDER13/.test(m)) return "Sorry, you can't make a Studyboard account. You can keep using Studyboard on this device without one.";
   if (/signups? not allowed|signup.*disabled/i.test(m)) return "New accounts can't be made right now. Please try again later.";
   if (/fetch|network|timed? ?out|Load failed/i.test(m)) return "Couldn't reach Studyboard. Check your internet connection and try again.";
   return fallback || "Something went wrong. Please try again.";
@@ -970,7 +971,7 @@ function sbSignInSheet(mode, email, note){
   const body = {
     hello: sbWelcomeHtml(),
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${sbOAuthHtml()}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
+    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
@@ -1023,12 +1024,13 @@ function sbSignInSheet(mode, email, note){
           const bday = askAge ? SBUNAME.bdayOf(fd) : "";
           if (askAge) {
             if (!bday) { say("Enter your birthday."); return; }
-            if (SBUNAME.yearsOld(bday) < 13 && !fd.get("parentok")) { say("A parent or guardian makes the account for students under 13. Tick the box to agree."); return; }
+            // Accounts are for people 13 and older. Under 13: no account, and this device remembers (see 96-usernames.js)
+            if (SBUNAME.refused() || SBUNAME.yearsOld(bday) < 13) { SBUNAME.refuse(); sbNoAccount(); return; }
           }
           say("Creating your account…");
           const nm = String(fd.get("name") || "").replace(/\s+/g, " ").trim().slice(0, 40);
           if (nm) try { localStorage.setItem("studyboard:comp:uname", nm); } catch(e) {}
-          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, bday ? {birth_date: bday} : {}, bday && SBUNAME.yearsOld(bday) < 13 ? {parent_consent: new Date().toISOString()} : {});
+          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, bday ? {birth_date: bday} : {});
           sbLinkAsked(); const {data, error} = await sb.auth.signUp({email: em, password: pw, options: Object.assign(redirect ? {} : {emailRedirectTo: back}, Object.keys(meta).length ? {data: meta} : {})});
           if (error) throw error;
           if (data && data.session) { done("Welcome to Studyboard!"); return; }
@@ -1070,11 +1072,12 @@ function sbSignInSheet(mode, email, note){
     finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
   }));
   sbPwWire(dlg);
-  if (mode === "signup" && window.SBUNAME && dlg.querySelector(".sb-acct .bday")) {
-    const form = dlg.querySelector("form.sb-acct"), em = form && form.querySelector("input[name=email]"), lab = em && em.closest("label") && em.closest("label").querySelector(".lh");
-    const upd = () => { const iso = SBUNAME.bdayOf(new FormData(form)), young = !!iso && SBUNAME.yearsOld(iso) < 13; $("#u13").hidden = !young; $("#u13ok").required = young; if (lab) lab.firstChild.textContent = young ? "Parent or Guardian's Email " : "Email "; };
-    form.querySelectorAll(".bday input").forEach(x => { x.addEventListener("change", upd); x.addEventListener("input", upd); });
+  // A device that refused an account (a birthday under 13): no new account from here
+  function sbNoAccount(){
+    say(SBUNAME.NO_ACCOUNT);
+    dlg.querySelectorAll('form.sb-acct[data-mode=signup] [data-submit], form.sb-acct[data-mode=signup] [data-oauth], form.sb-acct[data-mode=signup] input').forEach(x => { x.disabled = true; });
   }
+  if (mode === "signup" && window.SBUNAME && SBUNAME.refused()) sbNoAccount();
   const later = $("#sbLater");
   if (later) later.addEventListener("click", () => { dlg.close(); sbUseLater(first); });
   const rs = $("#sbResend");

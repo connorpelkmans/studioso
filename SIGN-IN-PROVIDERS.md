@@ -161,7 +161,7 @@ The Mac App Store build needs the `com.apple.security.network.server` entitlemen
      - `APPLE_SIGNIN_PRIVATE_KEY`: the whole text of that `.p8` file
      - `APPLE_BUNDLE_ID` = `com.studyboardapp.studyboard`
   4. Test it: sign in with Apple on your iPhone, then delete the account. Settings → [your name] → Sign-In & Security → Sign in with Apple should no longer list Studyboard.
-- **Birthday check:** accounts made with Apple, Google or Microsoft skip the birthday question and the under-13 parent check on the email sign-up form. If that check matters for your launch, ask for it to be added after a first sign-in with one of them.
+- **Birthday check:** accounts made with Apple, Google or Microsoft (and any older account with no birthday) are asked for a birthday right after signing in, and can't skip it (Sign Out is the only other choice). Under 13, the account is deleted and the device remembers the refusal, the same as on the email sign-up form. See `supabase-usernames.sql` and `src/js/96-usernames.js`.
 - **Test each combination once:**
   - Apple and Google on the web
   - Apple and Google on iPhone
