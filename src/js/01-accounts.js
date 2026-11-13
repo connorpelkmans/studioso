@@ -775,6 +775,14 @@ document.addEventListener("click", e => {
   if (/^local:/.test(a.dataset.asset)) { e.preventDefault(); e.stopPropagation(); toast("This file is still on the computer it was added from. It uploads the next time Studyboard opens there."); return; }
   if (!sb) return;
   e.preventDefault(); e.stopPropagation();
+  // phones and tablets: inside the app (a new browser window can't show it there, see fileViewer in 01-notes.js)
+  if (typeof fvPhone === "function" && fvPhone()) {
+    const id = a.dataset.asset, f = Object.values(state.files).find(x => x.kind === "file" && (x.revs || []).some(r => r && r.assetId === id));
+    const r = f && f.revs.find(x => x.assetId === id), latest = f && curRev(f) === r;
+    if (f && latest && !a.closest(".fv-sheet, .ofv-sheet")) { fileViewer(f.id); return; }
+    if (f && r) { downloadFile(f, f.revs.indexOf(r)); return; }
+    if (nativeShell()) { sbDownload(id).then(b => saveBlob(String(id).split("/").pop().replace(/^[\w]+-/, "") || "file", b)).catch(() => toast("Couldn't open the file. Check your connection and try again.")); return; }
+  }
   sbOpenAsset(a.dataset.asset);
 }, true);
 function assetHref(id){ return inPreview() ? "/_blob/" + id : "#"; }

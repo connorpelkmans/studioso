@@ -123,7 +123,7 @@
         if (go) {
           // the new day is drawn underneath first, then the window lifts off: no frame without a day in it
           const commit = S.nb.commit, win = S.win, h0 = S.hh;
-          S.win = null; cleanup(); commit(); render();
+          S.win = null; cleanup(); commit(); render(); sbHaptic("tick");
           if (win) { requestAnimationFrame(() => win.remove()); }
           // the new day's header can be taller or shorter (more due items): the hours below ease into place instead of jumping
           const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? Math.round(nh.getBoundingClientRect().height - h0) : 0;

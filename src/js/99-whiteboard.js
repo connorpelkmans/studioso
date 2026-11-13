@@ -880,7 +880,7 @@ var SBWB = null;
       if (D !== d) return;
       clearTimeout(d.snapT); D = {kind: "move", id: d.id, a: w, s, held: true};
       select(new Set([k])); SEL.drag = true; itemsDraw(); dirty();
-      try { navigator.vibrate && navigator.vibrate(10); } catch (x) {}
+      sbHaptic("lift");
     }, 450);
   }
   function begin(e, s, w){
@@ -909,7 +909,7 @@ var SBWB = null;
     }
   }
   // Hold still for a moment at the end of a stroke
-  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} dirty(true); } }, 600); }
+  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; sbHaptic("tick", {force: true}); dirty(true); } }, 600); }
   function drag(e, s){
     const w = toW(s);
     // a finger only moves the board once it really moves (a hand settling on the screen doesn't nudge it)
