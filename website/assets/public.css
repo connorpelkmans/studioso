@@ -50,6 +50,11 @@
 .pub-cta div{display:flex;flex-direction:column;gap:4px}
 .pub-cta b{font:700 1.05rem var(--display);color:var(--ink)}
 .pub-cta span{color:var(--muted)}
+.pub-cta .btn{flex:none;white-space:nowrap}
+/* math in cards and questions: readable text until KaTeX draws it */
+.pm{font-style:normal}
+.pm.pm-d{display:block;margin:4px 0}
+.pm .katex{font-size:1.05em}
 .pub-also,.pub-report{color:var(--muted);font-size:.92rem}
 .pub-also a,.pub-report a,.pub-sec p a{color:var(--accent)}
 .pub-foot{border-top:1px solid var(--line);padding:22px 0 30px;color:var(--muted);font-size:.9rem}
@@ -82,10 +87,11 @@
 .pdeck-ic svg .sa,.pdeck-ic svg .sb,.pdeck-ic svg .ws{stroke:#fff}
 .pdeck-kick{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 .74rem/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 2px rgba(0,0,0,.25)}
 .pdeck-n{flex:none;min-width:26px;height:26px;padding:0 8px;box-sizing:border-box;display:inline-grid;place-items:center;border-radius:999px;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.55);font:700 .82rem/1 var(--display);font-variant-numeric:tabular-nums}
-.pdeck-body{display:grid;gap:6px;align-content:start;padding:10px 16px 14px;flex:1;min-height:0;overflow:hidden}
-.pdeck-name{font:700 1.12rem/1.25 var(--display);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.pdeck-meta{font-size:.84rem;line-height:1.35;color:#4A5875;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pdeck-prev{font-size:.84rem;line-height:1.35;color:#5A6A86;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+/* each line of text sits on one of the card's ruled lines (28px apart, starting under the 40px band) */
+.pdeck-body{display:grid;gap:0;align-content:start;padding:0 16px;flex:1;min-height:0;overflow:hidden}
+.pdeck-name{font:700 1.12rem/28px var(--display);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pdeck-meta{font-size:.84rem;line-height:28px;color:#4A5875;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pdeck-prev{font-size:.84rem;line-height:28px;color:#5A6A86;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .pc0{--c:#DC2626}.pc1{--c:#9F1239}.pc2{--c:#D6386F}.pc3{--c:#7A1F6E}.pc4{--c:#9A4FD1}.pc5{--c:#1E3A8A}.pc6{--c:#3B6FE0}.pc7{--c:#1D9BB8}.pc8{--c:#0F766E}.pc9{--c:#1E9E74}.pc10{--c:#65A30D}.pc11{--c:#CDB022}.pc12{--c:#B7860B}.pc13{--c:#E0673B}.pc14{--c:#5E6B7E}
 @media (max-width:560px){.pdecks{grid-template-columns:minmax(0,1fr);gap:26px}}
 @media (prefers-reduced-motion:reduce){.pdeck{transition:none}.pdeck:hover{transform:none}}

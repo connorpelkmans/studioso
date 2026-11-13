@@ -146,8 +146,11 @@
   hook("render", () => { const u = who() && who().id; if (!u || u === seen) return; seen = u; setTimeout(afterSignIn, 1500); });
 
   // Settings > Account
-  hook("menu", () => live() ? `<button data-act="un-edit" data-group="account"><span>Username<span class="sub">${cached() ? "@" + esc(cached()) : "Not picked yet"}</span></span></button>` : "");
-  hook("act", act => { if (act !== "un-edit") return false; if (dlg.open) dlg.close(); setTimeout(() => sheet(null), 0); return true; });
+  // One Profile row: the display name groups see and the @username on published pages are changed together (80-groups.js nameSheet)
+  const gName = () => { try { return localStorage.getItem("sb:grpName:" + who().id) || ""; } catch (e) { return ""; } };
+  const prof = () => window.SBGROUPS && SBGROUPS.share && SBGROUPS.share.profile;
+  hook("menu", () => live() ? `<button data-act="un-edit" data-group="account"><span>${prof() ? "Profile" : "Username"}<span class="sub">${prof() ? esc([gName() || "No display name yet", cached() ? "@" + cached() : "no username yet"].join(" \u00b7 ")) : cached() ? "@" + esc(cached()) : "Not picked yet"}</span></span></button>` : "");
+  hook("act", act => { if (act !== "un-edit") return false; if (dlg.open) dlg.close(); setTimeout(() => prof() ? prof()() : sheet(null), 0); return true; });
 
   const css = document.createElement("style");
   css.textContent = `
@@ -161,6 +164,7 @@
 .u13{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
 `;
   document.head.appendChild(css);
-  window.SBUNAME = {problem: UNAME.problem, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, T: {UNAME}};
+  const save = v => call("set_username", {p_name: v}).then(n => { keep(String(n || v)); return String(n || v); }, e => { throw new Error(rpcErr(e)); });
+  window.SBUNAME = {problem: UNAME.problem, live, save, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, T: {UNAME}};
 })();
 

@@ -40,6 +40,8 @@
 .room-av.more{background:var(--soft);color:var(--muted)}
 .room-av.is-comp{background:color-mix(in srgb,var(--accent) 12%,var(--surface));border:1px solid var(--line)}
 .room-av.is-comp{position:relative;overflow:hidden}
+/* a companion picture keeps the person's group colour as a ring, as on the group page */
+.room-av.is-comp[style*="--c"]{box-shadow:0 0 0 2px var(--c)}
 .room-av.is-comp > svg{position:absolute;left:4%;top:12%;width:92%;height:92%;display:block;overflow:visible;filter:none}
 .room-people.big{flex-direction:column;flex-wrap:nowrap;gap:6px}
 .room-people.big .room-person{border-radius:14px;padding:5px 12px 5px 5px}
@@ -106,7 +108,8 @@
 
 .room-lens .is-locked span{opacity:.6}
 .room-lens .is-locked .pro-badge{margin-left:3px;vertical-align:1px}
-.room-lens label span{display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
+/* each length fills its slot (the picked one included), like other segmented pickers */
+.room-lens label span{display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
 .room-lens .is-locked .pro-badge{margin-left:0;vertical-align:0}
 
 @media (max-width:600px){
@@ -121,3 +124,9 @@
 }
 
 
+/* The side bar's Groups button grows a little while it shows the room's time, so its icon isn't pushed against the top edge
+   (the side bar buttons otherwise have a fixed height, 100-phone.css) */
+@media (min-width:980px){
+  nav.tabs .in button.nav-groups:not(.nav-focus):has(.room-navtime){height:auto!important;min-height:0!important;padding:6px 4px 5px!important;gap:2px!important}
+  nav.tabs .in .nav-groups .room-navtime{line-height:12px;font-size:.66rem}
+}

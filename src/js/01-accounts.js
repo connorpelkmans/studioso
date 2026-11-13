@@ -188,7 +188,8 @@ async function initSupabase(ask){
       if (event === "PASSWORD_RECOVERY") setTimeout(() => sbNewPasswordSheet(), 300);
       const u = session && session.user;
       if (u && sbLocalOnly()) { try { localStorage.removeItem(SB_CFG); } catch(e) {} }
-      if (u && (!sbUser || sbUser.id !== u.id)) { sbUser = u; setTimeout(startSupabaseSync, 0); setTimeout(() => { if (typeof aiProRefresh === "function") aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} }); }, 1200); }
+      // a new user redraws at once, so what depends on who's signed in (the plan and Pro, the sync status) sees them
+      if (u && (!sbUser || sbUser.id !== u.id)) { sbUser = u; setTimeout(startSupabaseSync, 0); setTimeout(() => { try { scheduleRender(); } catch(e) {} }, 0); setTimeout(() => { if (typeof aiProRefresh === "function") aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} }); }, 1200); }
       else if (!u && sbUser && event === "SIGNED_OUT") { SBC.del("rows", sbUser.id); ["brightspace", "canvas", "blackboard", "moodle", "schoology"].forEach(k => SBC.del("rows", "feed:" + k)); if (sbBackend.cur) sbBackend.cur(); sbUser = null; cloud.on = false; caps.assets = DESK ? deskAssets : null; syncLabel(); scheduleRender(); setTimeout(() => { if (!sbUser && !sbLeaving) sbSignInSheet(); }, 200); }
     });
   }
@@ -206,7 +207,16 @@ async function initSupabase(ask){
   else {
     // nobody signed in, and no saved sign-in at all (an expired or offline one doesn't count): the plan forgets the account from last time
     (async () => { let raw = null; try { const st = authStorage(); raw = st ? await st.getItem("studioso-auth") : localStorage.getItem("studioso-auth"); } catch (e) { raw = "?"; } if (!raw && !sbUser) fire("auth-none"); })();
-    syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || (ask ? undefined : "hello")); sbNextMode = ""; }, ask ? 0 : 400); }
+    syncLabel(); setTimeout(() => { if (!ask && sbShareFirst()) { sbHelloAfterShare(0); return; } if ((ask || !dlg.open) && !sbUser) sbSignInSheet(sbNextMode || (ask ? undefined : "hello")); sbNextMode = ""; }, ask ? 0 : 400); }
+}
+// Opened from a share link: the shared deck, note or quiz shows first, and the welcome sheet once it's closed
+const sbShareFirst = () => { try { return !!(window.SBGROUPS && SBGROUPS.sharePending && SBGROUPS.sharePending()); } catch (e) { return false; } };
+function sbHelloAfterShare(n){
+  if (sbUser || n > 900) return;
+  try { if (localStorage.getItem("studioso:welcomed")) return; } catch (e) { return; }
+  // (and not in the middle of studying what was shared)
+  if (dlg.open || sbShareFirst() || (typeof ui !== "undefined" && ui.fc)) { setTimeout(() => sbHelloAfterShare(n + 1), 800); return; }
+  setTimeout(() => { if (!dlg.open && !sbUser && !(typeof ui !== "undefined" && ui.fc)) sbSignInSheet("hello"); else sbHelloAfterShare(n + 1); }, 600);
 }
 // Settings, sharing, reminders and so on call this to let someone sign in or make an account
 function sbAsk(){ if (sb) sbSignInSheet(); else if (sbConfig() || SB_HOSTED) { toast("Connecting…"); initSupabase(true); } else sbSetupSheet(); }
@@ -956,6 +966,8 @@ async function sbOAuth(provider, say, back){
   say(`Opening ${name}…`);
   return false;
 }
+// The device says it's offline (going to Google, Apple or Microsoft then would leave the app for the browser's error page)
+const sbOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
 // Sign in, create an account, confirm your email with a code, and reset a forgotten password
 const SB_RESEND = {}, SB_RESEND_MS = 30000;
 function sbSignInSheet(mode, email, note){
@@ -1065,7 +1077,9 @@ function sbSignInSheet(mode, email, note){
   dlg.querySelectorAll("[data-oauth]").forEach(b => b.addEventListener("click", async () => {
     if (busy) return; busy = true;
     dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = true; });
-    try { if (await sbOAuth(b.dataset.oauth, say, back)) done("Signed in"); }
+    // Offline, going to Google, Apple or Microsoft would leave the app for the browser's "no internet" page: say so here
+    // instead, like email sign-in does
+    try { if (sbOffline()) { say(sbWords({message: "Failed to fetch"})); return; } if (await sbOAuth(b.dataset.oauth, say, back)) done("Signed in"); }
     catch (e) { say(e && e.oauth || /not enabled|unsupported provider/i.test(String(e && e.message || "")) ? sbOAuthWords(e && e.message, b.dataset.oauth) : sbWords(e)); }
     finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
   }));

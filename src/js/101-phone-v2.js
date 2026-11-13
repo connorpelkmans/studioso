@@ -30,7 +30,8 @@
       el.querySelector(".ph-k").textContent = k.trim();
       el.querySelector(".ph-k").hidden = !k.trim();
       const view = document.getElementById("view"); if (!view) return;
-      if (isPhone() && (tab === "notes" || tab === "groups") && !view.querySelector(":scope > .pview-tabs")) {
+      // (not on a group's own page: its header already names it, and the title would push the group down)
+      if (isPhone() && (tab === "notes" || (tab === "groups" && !ui.grp)) && !view.querySelector(":scope > .pview-tabs")) {
         const pill = document.createElement("div"); pill.className = "pview-tabs ph-solo"; pill.setAttribute("role", "heading"); pill.setAttribute("aria-level", "2");
         pill.innerHTML = `<span class="ph-solo-t"></span>`; pill.firstChild.textContent = t;
         view.insertBefore(pill, view.firstChild);
