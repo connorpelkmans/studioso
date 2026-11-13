@@ -8131,6 +8131,21 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
 
 /* Tooltips for icon-only controls (mouse and trackpad) */
 .sb-tip{position:fixed;z-index:2147480000;max-width:min(280px,calc(100vw - 12px));padding:5px 9px;border-radius:7px;background:var(--navy,#0E2A56);color:#fff;font:600 .78rem/1.3 var(--display,inherit);pointer-events:none;box-shadow:0 4px 14px rgba(8,20,50,.28);white-space:normal}
+.sb-tip.sb-why{max-width:min(320px,calc(100vw - 12px));padding:9px 12px 10px;border-radius:10px;font:500 .8rem/1.4 var(--body,inherit)}
+.sb-why .sw-h{font:700 .68rem/1 var(--display,inherit);letter-spacing:.06em;text-transform:uppercase;opacity:.7;margin-bottom:6px}
+.sb-why .sw-notes{margin:0 0 7px;padding:0;list-style:none;display:grid;gap:4px}
+.sb-why .sw-notes li{position:relative;padding-left:12px}
+.sb-why .sw-notes li::before{content:"";position:absolute;left:1px;top:.55em;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.6}
+.sb-why .sw-notes:last-child{margin-bottom:0}
+.sb-why .sw-facts{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 12px;padding-top:7px;border-top:1px solid rgba(255,255,255,.18)}
+.sb-why .sw-notes + .sw-facts{margin-top:0}
+.sb-why .sw-h + .sw-facts{border-top:0;padding-top:0}
+.sb-why dt{font-weight:600;opacity:.7}
+.sb-why dd{margin:0;font-weight:600}
+.sb-why .sw-late{color:#FFB4AB}
+:root[data-theme="dark"] .sb-why .sw-facts{border-top-color:rgba(10,20,40,.16)}
+:root[data-theme="dark"] .sb-why .sw-late{color:#B3261E}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-why .sw-facts{border-top-color:rgba(10,20,40,.16)}:root:not([data-theme="light"]) .sb-why .sw-late{color:#B3261E}}
 @media (prefers-reduced-motion:no-preference){.sb-tip{animation:sbTipIn .12s ease-out}@keyframes sbTipIn{from{opacity:0}to{opacity:1}}}
 :root[data-theme="dark"] .sb-tip{background:#E7EEFA;color:#0A1428}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sb-tip{background:#E7EEFA;color:#0A1428}}

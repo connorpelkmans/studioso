@@ -11693,6 +11693,24 @@ hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { con
 // The rail fades softly at an edge that has more cards past it, so the card cut off there reads as "scroll for more"
 function dtlEdges(r){ const max = r.scrollWidth - r.clientWidth; r.classList.toggle("dtl-more-l", max > 1 && r.scrollLeft > 1); r.classList.toggle("dtl-more-r", max > 1 && r.scrollLeft < max - 1); }
 addEventListener("resize", () => document.querySelectorAll(".dtl-rail").forEach(dtlEdges));
+// The hover card on a plan row's title: the reasons sorted into what they are. Notes (why it's placed here now) come first, then
+// the plain facts on their own labelled lines: when it's due, what it's worth, how much is left. Read by the tooltip in 102-qol.js.
+function planWhyData(rs){
+  const notes = [], facts = [];
+  (rs || []).forEach(r => {
+    let m;
+    if ((m = r.match(/^Due (today|tomorrow)$/))) facts.push(["Due", m[1] === "today" ? "Today" : "Tomorrow", "soon"]);
+    else if ((m = r.match(/^Due at (.+) today$/))) facts.push(["Due", "Today at " + m[1], "soon"]);
+    else if ((m = r.match(/^Due in (.+)$/))) facts.push(["Due", "In " + m[1], ""]);
+    else if (/^(Overdue|Past due|Was due)/.test(r)) facts.push(["Due", r, "late"]);
+    else if ((m = r.match(/^((?:About )?[\d.]+%) of your grade(.*)$/))) facts.push(["Worth", m[1] + " of your grade" + m[2], ""]);
+    else if ((m = r.match(/^(.+) of work left(.*)$/))) facts.push(["Left", m[1].replace(/^About /, "about ") .replace(/^./, c => c.toUpperCase()) + " of work" + m[2], ""]);
+    else if ((m = r.match(/^(\d+)% prepared, about (.+) of study left$/))) facts.push(["Left", "About " + m[2] + " of study (" + m[1] + "% prepared)", ""]);
+    else if ((m = r.match(/^About (.+) of study left$/))) facts.push(["Left", "About " + m[1] + " of study", ""]);
+    else notes.push(r);
+  });
+  return {notes, facts};
+}
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
   // a short reason shows on the row; a long one would be cut off, so the row says "Why" and the reasons open below
@@ -11702,7 +11720,7 @@ function planRow(x, i, showScore, noRank){
     : x.alloc > 0 ? `<span class="alloc" title="Time Today's Plan suggests for this today">${fmtHM(x.alloc)}<small class="alloc-l"> today</small></span>` : `<span class="alloc idle">Later</span>`;
   return `<li class="plan-row${open ? " why-open" : ""}" style="--c:${esc(colorOf(t.courseId))}">
     ${t.gt || t.xs ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
-    <button class="plan-main" ${gtOpenAttrs(t)} title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
+    <button class="plan-main" ${gtOpenAttrs(t)}${rs.length ? ` data-why="${esc(JSON.stringify(planWhyData(rs)))}"` : ""}><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
     ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${short ? esc(lead) + ". " : ""}Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span>${short ? `<span class="pr-n" aria-hidden="true">+${rest.length} more</span>` : `<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`}</button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
     <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" ${focusAttrs(t)} aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}${showScore || t.gt ? "" : `<button class="focus-go lt-go" data-act="log-time" data-id="${esc(planTaskId(t))}" aria-label="Log time on ${esc(t.title)}" title="Log time you worked on this">${CLOCK_IC}</button>`}</span>
     ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}
@@ -105065,18 +105083,33 @@ const AUTOPILOT = (() => {
   const hover = mm("(hover: hover) and (pointer: fine)");
   let tip = null, tipFor = null, tipT = 0;
   const tipText = el => {
+    if (el.dataset && el.dataset.why) return {why: el.dataset.why};
     if (el.dataset && el.dataset.tip) return el.dataset.tip;
     // icon-only: no visible letters or digits (an icon, or a sign like − or ×)
     if (!el.matches("button,a[href],[role=button],[role=tab]") || /[\p{L}\p{N}]/u.test(el.innerText || "")) return "";
     return (el.getAttribute("aria-label") || "").trim();
   };
+  // Today's Plan rows: why a task is placed where it is, as a short card (a heading, the notes, then labelled facts)
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  function whyCard(tip, json){
+    let d; try { d = JSON.parse(json); } catch (e) { d = {notes: [], facts: []}; }
+    tip.classList.add("sb-why");
+    tip.appendChild(mk("div", "sw-h", "Why it's here"));
+    if (d.notes && d.notes.length) { const ul = mk("ul", "sw-notes"); d.notes.forEach(n => ul.appendChild(mk("li", "", n))); tip.appendChild(ul); }
+    if (d.facts && d.facts.length) {
+      const dl = mk("dl", "sw-facts");
+      d.facts.forEach(([k, v, c]) => { dl.appendChild(mk("dt", "", k)); dl.appendChild(mk("dd", c ? "sw-" + c : "", v)); });
+      tip.appendChild(dl);
+    }
+  }
   function hideTip(){ clearTimeout(tipT); tipT = 0; tipFor = null; if (tip) { tip.remove(); tip = null; } }
   function showTip(el, text){
     if (!el.isConnected || !el.getClientRects().length) return;
     const host = el.closest("dialog[open]") || document.body;
-    tip = document.createElement("div"); tip.className = "sb-tip"; tip.setAttribute("aria-hidden", "true"); tip.textContent = text;
+    tip = document.createElement("div"); tip.className = "sb-tip"; tip.setAttribute("aria-hidden", "true");
+    if (typeof text === "string") tip.textContent = text; else whyCard(tip, text.why);
     host.appendChild(tip);
-    const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 8;
+    const r = (el.dataset.why && el.querySelector(".task-title") || el).getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 8;
     let top = r.top - h - gap; if (top < 6) top = r.bottom + gap;
     // a tooltip for something on the page stays off the side menu
     const nav = !el.closest("nav.tabs, dialog") && document.querySelector("nav.tabs"), nr = nav && nav.getBoundingClientRect();
@@ -105091,7 +105124,7 @@ const AUTOPILOT = (() => {
   };
   document.addEventListener("pointerover", e => {
     if (e.pointerType && e.pointerType !== "mouse") return;
-    const el = e.target.closest && e.target.closest("[data-tip],button,a[href],[role=button],[role=tab]");
+    const el = e.target.closest && e.target.closest("[data-why],[data-tip],button,a[href],[role=button],[role=tab]");
     if (!el || el === tipFor) return;
     if (tipFor) hideTip();
     want(el, 500);
