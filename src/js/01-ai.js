@@ -1111,24 +1111,26 @@ const QUIZ_SCHEMA = {type: "OBJECT", properties: {
     topic: {type: "STRING"},
     source: {type: "STRING"}}, required: ["type", "stem", "rationale"]}}},
   required: ["questions"]};
-function aiCleanQuestions(list){
+// tidy: how each piece of text is cleaned (questions made from your own cards keep their text, math included)
+function aiCleanQuestions(list, tidy){
+  if (typeof tidy !== "function") tidy = aiTidyText;
   const out = [];
   (Array.isArray(list) ? list : []).forEach(q => {
     const type = ["single", "multiple", "order", "truefalse", "short"].includes(q.type) ? q.type : "single";
-    const stem = aiTidyText(q.stem); if (!stem) return;
-    let options = (Array.isArray(q.options) ? q.options : []).map(o => aiTidyText(o)).filter(Boolean);
+    const stem = tidy(q.stem); if (!stem) return;
+    let options = (Array.isArray(q.options) ? q.options : []).map(o => tidy(o)).filter(Boolean);
     if (type === "truefalse") options = ["True", "False"];
     let correct = (Array.isArray(q.correct) ? q.correct : []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < options.length);
     if (type === "truefalse" && !correct.length && q.answer) correct = [/^t/i.test(q.answer) ? 0 : 1];
-    const answer = aiTidyText(q.answer);
+    const answer = tidy(q.answer);
     if (type === "short") { if (!answer && !(correct.length && options[correct[0]])) return; }
     else if (options.length < 2) return;
     if ((type === "single" || type === "truefalse") && correct.length !== 1) return;
     if (type === "multiple" && !correct.length) return;
     if (type === "order" && (correct.length !== options.length || new Set(correct).size !== options.length)) return;
-    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => aiTidyText(s)) : [];
+    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => tidy(s)) : [];
     out.push({id: uid(), type, stem, options: type === "short" ? [] : options, correct: type === "short" ? [] : (type === "multiple" ? [...new Set(correct)].sort((a, b) => a - b) : correct),
-      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: aiTidyText(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
+      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
   });
   return out;
 }

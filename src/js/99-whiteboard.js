@@ -436,7 +436,6 @@ var SBWB = null;
     clampCam(); dirty(); camSave();
   }
   // The − and + buttons move along an even ladder (10% steps to 100%, then 25%, then 50%), and glide to the new zoom
-  const STEPS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4];
   let zoomRaf = 0, zoomTarget = 0;
   function zoomGlide(z){
     cancelAnimationFrame(zoomRaf);
@@ -447,9 +446,16 @@ var SBWB = null;
     const step = now => { const k = Math.min(1, (now - t0) / ms); zoomAt(z0 * Math.pow(z / z0, ease(k))); if (k < 1) zoomRaf = requestAnimationFrame(step); else zoomTarget = 0; };
     zoomRaf = requestAnimationFrame(step);
   }
+  // "100%" is the board's home view: the whole page on screen (a blank board's page, or a template's page). The zoom
+  // shown and the zoom steps count from there, so a new board opens at 100% instead of a tiny-sounding 21%.
+  const home = () => {
+    if (fixedPage() && fw > 0 && fh > 0) { const R = pageRect(noteOf().wb.pa); return Math.max(zMin(), Math.min(fw / R[2], fh / R[3])); }
+    return zMin();
+  };
+  const REL = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 12, 16];
   const zoomStep = d => {
-    const z = zoomTarget || cam.z, lo = zMin();
-    const next = d > 0 ? (STEPS.find(s => s > z + 0.004) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.004) || lo);
+    const z = zoomTarget || cam.z, lo = zMin(), h = home(), steps = REL.map(r => r * h).filter(s => s >= lo - 1e-6 && s <= ZMAX);
+    const next = d > 0 ? (steps.find(s => s > z * 1.004) || ZMAX) : ([...steps].reverse().find(s => s < z / 1.004) || lo);
     zoomGlide(Math.max(next, d < 0 ? Math.min(lo, z) : next));
   };
   function contentBB(){
@@ -544,7 +550,7 @@ var SBWB = null;
     const tf = `translate(${cam.x}px,${cam.y - LV}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
     if (all) { all = false; paintInk(); }
     paintLive(); selbarPlace();
-    if (zoomEl) { zoomEl.textContent = Math.round(cam.z * 100) + "%"; const t = PHONE() ? "Fit to screen" : "Zoom to 100%"; if (zoomEl.getAttribute("aria-label") !== t) { zoomEl.setAttribute("aria-label", t); zoomEl.title = PHONE() ? "Fit to Screen" : ""; } }
+    if (zoomEl) { zoomEl.textContent = Math.round(cam.z / home() * 100) + "%"; const t = PHONE() ? "Fit to screen" : "Zoom to 100%"; if (zoomEl.getAttribute("aria-label") !== t) { zoomEl.setAttribute("aria-label", t); zoomEl.title = PHONE() ? "Fit to Screen" : ""; } }
   }
   const SELHIDE = () => SEL && SEL.drag ? SEL.ids : null;
   // A stroke, with the spots the eraser rubbed
@@ -1029,7 +1035,7 @@ var SBWB = null;
       else if (k === " ") { spaceDown = true; frame.classList.add("pan-ready"); }
       else if (!mod && !e.altKey && (k === "+" || k === "=")) zoomStep(1);
       else if (!mod && !e.altKey && k === "-") zoomStep(-1);
-      else if (!mod && !e.altKey && k === "0") zoomAt(1);
+      else if (!mod && !e.altKey && k === "0") zoomAt(home());
       else if (!mod && !e.altKey && TOOLS.some(t => t[2].toLowerCase() === k)) setTool(TOOLS.find(t => t[2].toLowerCase() === k)[0]);
       else done = false;
       if (done) { e.preventDefault(); e.stopPropagation(); }
@@ -1183,7 +1189,7 @@ var SBWB = null;
       case "zoom-in": zoomStep(1); break;
       case "zoom-out": zoomStep(-1); break;
       // phones pinch to zoom, so the % fits the board to the screen instead
-      case "zoom-reset": if (PHONE()) { if (fixedPage()) zoomAt(ZMIN); else fit(); } else zoomAt(1); break;
+      case "zoom-reset": if (PHONE()) { if (fixedPage()) zoomAt(ZMIN); else fit(); } else zoomAt(home()); break;
       case "fit": fit(); break;
       case "theme": setBoardTheme(DK ? "light" : "dark"); themeBtn(); break;
       default: fire("wb-act", a, el, id); return;
@@ -1422,7 +1428,7 @@ var SBWB = null;
       if (ED && ch.some(c => c.t === "i" && c.id === ED.it.id && !c.v)) { ED.ta.remove(); ED = null; }
       later(); itemsDraw(); dirty(); selbarDraw(); return true;
     },
-    onLive: fn => { LIVE = fn; }, cam: () => Object.assign({}, cam), toWorld: (cx, cy) => { const r = frame.getBoundingClientRect(); return toW([cx - r.left, cy - r.top]); },
+    onLive: fn => { LIVE = fn; }, cam: () => Object.assign({}, cam), zoomTo: z => { zoomAt(z); }, toWorld: (cx, cy) => { const r = frame.getBoundingClientRect(); return toW([cx - r.left, cy - r.top]); },
     select: ids => select(new Set(ids)), undo, redo, penHex,
     // handwriting to text
     selInk: () => {

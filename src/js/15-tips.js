@@ -29,7 +29,7 @@
   hook("menu", () => {
     const n = Number(use().n) || 0, on = mode() === "always";
     const sub = on ? "Always showing how-to tips on each page." : n >= SEASON_DAYS ? "Hidden now that you know your way around. Turn on to see them again." : `Each page's tips show for the first ${PAGE_DAYS} days you use it (and at most your first ${SEASON_DAYS} days), then they tidy away.`;
-    return `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Always Show Page Tips<span class="sub">${esc(sub)}</span></span><label class="anim-tog"><input type="checkbox" data-act="tips-set" ${on ? "checked" : ""}> On</label></div>`;
+    return `<div class="cap-row" data-group="app"><span style="flex:1;font-weight:600">Always Show Page Tips<span class="sub">${esc(sub)}</span></span><label class="anim-tog"><input type="checkbox" data-act="tips-set" ${on ? "checked" : ""}> On</label></div>`;
   });
   hook("act", (a, el) => {
     if (a !== "tips-set") return false;

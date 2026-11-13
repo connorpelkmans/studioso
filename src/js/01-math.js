@@ -113,6 +113,14 @@ function drawMath(el){
   }
   if (!html) { el.classList.add("mth-bad"); return; }
   el.innerHTML = html; el.classList.add("mth-ok");
+  mathFit(el);
+}
+// A formula wider than its sticky note shrinks to fit (down to 60%) instead of being cut off at the edge
+function mathFit(el){
+  const box = el.closest(".note-body"); if (!box) return;
+  el.style.fontSize = "";
+  const cs = getComputedStyle(box), room = box.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0), w = el.offsetWidth;
+  if (room > 0 && w > room) el.style.fontSize = Math.max(0.6, Math.floor(room / w * 100) / 100) + "em";
 }
 function mathPending(root){ (root || document).querySelectorAll(".mth:not(.mth-ok):not(.mth-bad)").forEach(drawMath); }
 // Plain text to a fragment with math and formatting, or null when there's nothing to draw
@@ -137,7 +145,7 @@ function richNode(el){
 // Where text is shown with its math and formatting: notes, card faces and lists, quizzes, whiteboard text, the reader's
 // comments, picture card answers, Match tiles, and anything marked class="rt"
 const RT_SCOPES = [".note-body", ".face-text", ".fc-front", ".fc-back", ".q-prompt", ".q-card .mc", ".q-card .tf-pair", ".q-card .written", ".miss-list",
-  "button.opt", ".opt-note", ".q-card .rationale", ".q-card .ans", ".q-card .ai-fb", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".ar-cards", ".rt", "[data-rt]"];
+  "button.opt", ".opt-note", ".q-card .rationale", ".q-card .ans", ".q-card .ai-fb", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".ar-cards", ".face-hint", ".sx-t", ".sx-s", ".rt", "[data-rt]"];
 let rtQueued = false;
 function rtRun(){
   rtQueued = false;
@@ -145,6 +153,7 @@ function rtRun(){
     const t = el.textContent;
     if (el.__rt === t) return;
     richNode(el); el.__rt = el.textContent;
+    if (el.classList.contains("note-body")) el.querySelectorAll(".mth.mth-ok").forEach(mathFit);
   });
   if (katexOk) mathPending(document);
 }
@@ -226,7 +235,8 @@ function rbPlace(el, f, below){
   let top = below ? r.bottom + 6 : r.top - h - 6;
   if (!below && top < vTop + 6) top = r.bottom + 6;
   if (top + h > vTop + vH - 4) top = Math.max(vTop + 6, vTop + vH - h - 4);
-  const left = Math.max(6, Math.min(vw - w - 6, r.left));
+  // The toolbar sits at the field's right edge, clear of its label on the left; the equation box below starts at its left
+  const left = Math.max(6, Math.min(vw - w - 6, below ? r.left : r.right - w));
   el.style.left = (left - off.left) + "px"; el.style.top = (top - off.top) + "px";
 }
 function rbShow(f){

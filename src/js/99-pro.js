@@ -313,9 +313,10 @@ var SBPRO = null;
   const compareRows = () => FEATURES.filter(f => f.compare !== false && TOP.includes(f.id)).sort((a, b) => TOP.indexOf(a.id) - TOP.indexOf(b.id)).map(f => [f.name, f.free || "—", f.pro || "Included"]);
   // The same features as buttons on the tabs they belong to
   function tabBtns(where){
-    if (locked() || !isPro()) return "";
-    const b = (act, id, label, icon, tip) => `<button type="button" class="btn small pro-tab-btn" data-act="${act}"${id ? ` data-id="${id}"` : ""} title="${esc(tip)}" aria-label="${esc(label)}">${ico(icon)}<span>${esc(label)}</span></button>`;
+    const b = (act, id, label, icon, tip, tag) => `<button type="button" class="btn small pro-tab-btn" data-act="${act}"${id ? ` data-id="${id}"` : ""} title="${esc(tip)}" aria-label="${esc(label)}">${ico(icon)}<span>${esc(label)}</span>${tag ? PRO_BADGE : ""}</button>`;
     const f = id => (FEATURES.find(x => x.id === id) || {}).icon || "";
+    // free plan: Insights still shows, tagged PRO, and opens as a preview (the rest of these stay Pro only)
+    if (locked() || !isPro()) return where === "courses" || where === "grades" ? b("pro-ins-open", "", "Insights", f("insights"), "A preview of Insights: study time against grades, with the rest in Studyboard Pro", true) : "";
     const print = FEATURES.some(x => x.id === "print");
     const recap = !!(recapTerm() || (S().recapLast && S().recapLast.from));
     switch (where) {
@@ -632,36 +633,51 @@ var SBPRO = null;
       const acc = ((c.right || 0) + 1) / ((c.seen || 0) + 2);
       return {s: BOXS[Math.max(0, Math.min(5, c.box | 0))], d: clampD(9 - acc * 6)};
     }
+    // FSRS-5's short-term weights: a second look the same day nudges stability by the grade
+    const W17 = 0.5425, W18 = 0.0912;
+    // elapsed: days since the last review (null when unknown: treated as on time)
     function next(fs, rating, elapsed){
       const g = G[rating] || 3;
       if (!fs) return {s: W[g - 1], d: clampD(W[4] - (g - 3) * W[5])};
-      const r = R(Math.max(0, elapsed), fs.s);
       const d = clampD(W[7] * W[4] + (1 - W[7]) * (fs.d - W[6] * (g - 3)));
+      if (elapsed === 0) return {s: Math.max(0.1, Math.round(fs.s * Math.exp(W17 * (g - 3 + W18)) * 1000) / 1000), d: Math.round(d * 1000) / 1000};
+      const r = R(elapsed == null ? fs.s : Math.max(0, elapsed), fs.s);
       const s = g === 1 ? Math.min(fs.s, W[11] * Math.pow(fs.d, -W[12]) * (Math.pow(fs.s + 1, W[13]) - 1) * Math.exp(W[14] * (1 - r)))
         : fs.s * (1 + Math.exp(W[8]) * (11 - fs.d) * Math.pow(fs.s, -W[9]) * (Math.exp(W[10] * (1 - r)) - 1) * (g === 2 ? W[15] : 1) * (g === 4 ? W[16] : 1));
       return {s: Math.max(0.1, Math.round(s * 1000) / 1000), d: Math.round(d * 1000) / 1000};
     }
     const days = (fs, rating, retention) => rating === "again" ? 0 : interval(fs.s, retention);
+    // Days for each rating from one state, kept Hard < Good < Easy so the choice always matters
+    function spread(prev, elapsed, retention){
+      const n = k => days(next(prev, k, elapsed), k, retention);
+      const good0 = n("good"), hard = Math.min(n("hard"), good0), good = Math.max(good0, hard + 1);
+      return {again: 0, hard, good, easy: Math.max(n("easy"), good + 1)};
+    }
     const boxFor = n => n <= 0 ? 0 : n <= 1 ? 1 : n <= 3 ? 2 : n <= 8 ? 3 : n <= 20 ? 4 : 5;
-    return {W, R, interval, seed, next, days, boxFor};
+    return {W, R, interval, seed, next, days, spread, boxFor};
   })();
   /*FSRS-END*/
   const smart = d => !!d && d.sched !== "classic";
   const target = d => [0.85, 0.9, 0.95].includes(Number(d && d.retention)) ? Number(d.retention) : 0.9;
-  const elapsedOf = c => c.last && isDate(c.last) ? Math.max(0, dayDiff(c.last, todayISO())) : 0;
+  // Days since the card's last review; with no date (older cards), estimated from its due date less its box's interval
+  const elapsedOf = c => {
+    if (c.last && isDate(c.last)) return Math.max(0, dayDiff(c.last, todayISO()));
+    if (c.due && isDate(c.due)) return Math.max(0, dayDiff(addDays(c.due, -(BOX_DAYS[Math.max(0, Math.min(5, c.box | 0))] || 0)), todayISO()));
+    return null;
+  };
   function cardRated(d, c, rating){
     const day = todayISO(), rv = Object.assign({}, d.rv || {});
     rv[day] = (Number(rv[day]) || 0) + 1;
     Object.keys(rv).sort().slice(0, Math.max(0, Object.keys(rv).length - 120)).forEach(k => delete rv[k]);
     d.rv = rv;
     if (!smart(d)) return null;
-    const fs = FSRS.next(FSRS.seed(c), rating, elapsedOf(c)), n = FSRS.days(fs, rating, target(d));
+    const prev = FSRS.seed(c), el = elapsedOf(c), fs = FSRS.next(prev, rating, el), n = FSRS.spread(prev, el, target(d))[rating] || 0;
     c.fs = fs;
     return {due: addDays(day, n), box: FSRS.boxFor(n)};
   }
   function cardPreview(d, c, rating){
     if (!smart(d)) return "";
-    return addDays(todayISO(), FSRS.days(FSRS.next(FSRS.seed(c), rating, elapsedOf(c)), rating, target(d)));
+    return addDays(todayISO(), FSRS.spread(FSRS.seed(c), elapsedOf(c), target(d))[rating] || 0);
   }
 
   /* Deck stats */
@@ -2247,6 +2263,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const P = SBPRO;
   const proWhy = why => { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(why); };
   const KEY = "studyboard:listen";
+  // free plan: Listen plays this many cards as a preview, then offers Pro
+  const FREE_N = 3, WHY = "Listen is part of Studyboard Pro: your deck read aloud, so you can review on a walk or a commute.";
   const prefs = () => { let o = {}; try { o = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) {} return Object.assign({set: "due", order: "front", gap: 4, rate: 1, voice: "", loop: false}, o); };
   const setPrefs = patch => { try { localStorage.setItem(KEY, JSON.stringify(Object.assign(prefs(), patch))); } catch (e) {} };
   const TTS = () => typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance === "function" ? window.speechSynthesis : null;
@@ -2327,8 +2345,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     while (L && L.run === run && L.playing) {
       const c = cardAt(L.i);
       if (!c) {
-        if (prefs().loop && L.ids.length) { L.i = 0; L.side = "a"; draw(); continue; }
-        L.playing = false; L.i = Math.max(0, L.ids.length - 1); L.side = "b"; draw(); toast("That's every card in the list."); break;
+        if (prefs().loop && L.ids.length && !L.preview) { L.i = 0; L.side = "a"; draw(); continue; }
+        L.playing = false; L.i = Math.max(0, L.ids.length - 1); L.side = "b"; L.end = true; draw(); toast(L.preview ? "That's the free preview. Listen to every card with Studyboard Pro." : "That's every card in the list."); break;
       }
       const first = prefs().order === "back" ? c.back : c.front, second = prefs().order === "back" ? c.front : c.back;
       if (L.side === "a") {
@@ -2343,7 +2361,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     }
   }
   function stopSpeech(){ const t = TTS(); if (t && (t.speaking || t.pending || t.paused)) try { t.cancel(); } catch (e) {} if (L) { clearTimeout(L.timer); L.run++; L.u = null; } }
-  function play(){ if (!L || !L.ids.length) return; L.playing = true; if (L.i >= L.ids.length) { L.i = 0; L.side = "a"; } stopSpeech(); loop(); draw(); }
+  function play(){ if (!L || !L.ids.length) return; L.playing = true; L.end = false; if (L.i >= L.ids.length) { L.i = 0; L.side = "a"; } stopSpeech(); loop(); draw(); }
   function pause(){ if (!L) return; L.playing = false; stopSpeech(); draw(); }
   function step(n){ if (!L || !L.ids.length) return; const was = L.playing; stopSpeech(); L.i = Math.max(0, Math.min(L.ids.length - 1, L.i + n)); L.side = "a"; if (was) { L.playing = true; loop(); } draw(); }
   function meta(c){
@@ -2369,15 +2387,14 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const LISTEN_ICON = '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>';
   function rebuild(){
     const d = deckOf(); if (!d) return;
-    L.ids = pickCards(d.cards, prefs().set, todayISO()).map(c => c.id);
-    L.i = 0; L.side = "a";
+    L.ids = pickCards(d.cards, prefs().set, todayISO()).map(c => c.id).slice(0, L.preview ? FREE_N : Infinity);
+    L.i = 0; L.side = "a"; L.end = false;
   }
   function open(deckId){
     const d = state.decks[deckId]; if (!d) return;
-    if (P.locked()) { proWhy("Listen is part of Studyboard Pro: your deck read aloud, so you can review on a walk or a commute."); return; }
     if (!TTS()) { toast("This device can't read text aloud."); return; }
     if (L) release();
-    L = {deckId, ids: [], i: 0, side: "a", playing: false, timer: 0, run: 0};
+    L = {deckId, ids: [], i: 0, side: "a", playing: false, timer: 0, run: 0, preview: P.locked()};
     rebuild();
     openSheet(`<div class="sheet ls-sheet">${head("Listen")}<div class="sheet-body ls-body"></div><div class="sheet-foot"><span class="mini ls-foot">Listening doesn't count as a review. Study the deck to rate cards.</span><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     draw();
@@ -2396,7 +2413,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       : /Windows/.test(ua) ? "For a more natural voice, open Studyboard in Microsoft Edge (it has Natural voices), or add voices in Settings, Time and Language, Speech."
       : /Android/.test(ua) ? "For a more natural voice, update Speech Services by Google and download a voice in its settings, then choose it here."
       : "Only basic voices are installed on this device. Chrome and Edge come with more natural voices.";
-    b.innerHTML = `<p class="ls-deck"><b>${esc(d ? d.name : "")}</b><span class="mini">${n ? `Card ${Math.min(n, L.i + 1)} of ${n}` : ""}</span></p>
+    const pro = L.preview ? `<div class="ls-pro${L.end ? " on" : ""}"><span>${L.end ? "That's the free preview." : `A free preview: the first ${FREE_N} cards.`} Listen to the whole deck with Studyboard Pro.</span><button type="button" class="btn small primary" data-act="ls-pro">Unlock with Pro</button></div>` : "";
+    b.innerHTML = `${pro}<p class="ls-deck"><b>${esc(d ? d.name : "")}</b><span class="mini">${n ? `Card ${Math.min(n, L.i + 1)} of ${n}` : ""}</span></p>
       ${n ? `<div class="ls-card" aria-live="polite"><span class="ls-side">${L.side === "a" ? (p.order === "back" ? "Back" : "Front") : (p.order === "back" ? "Front" : "Back")}</span>
           <p class="ls-a${L.side === "a" ? " on" : ""}">${esc(first)}</p>${L.side === "b" ? `<p class="ls-b on">${esc(second)}</p>` : `<p class="ls-b ls-hidden" aria-hidden="true">${L.playing ? "Answer in your head…" : "The answer is read after the pause."}</p>`}</div>
         <div class="ls-ctl"><button type="button" class="icon-btn ls-step" data-act="ls-step" data-id="-1" aria-label="Previous card" ${L.i ? "" : "disabled"}>${ICO.prev}</button>
@@ -2412,7 +2430,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
           <label class="f">Speed<select data-ls="rate">${[[0.8, "Slower"], [1, "Normal"], [1.2, "Faster"], [1.5, "Fastest"]].map(([v, l]) => `<option value="${v}"${Number(p.rate) === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
         </div>
         <label class="f">Voice<select data-ls="voice"><option value="">Automatic${auto ? ` (${esc(auto.name)})` : ""}</option>${mine.map(vOpt).join("")}${others.length ? `<optgroup label="Other languages">${others.map(vOpt).join("")}</optgroup>` : ""}</select></label>${tip ? `<p class="mini ls-vtip">${esc(tip)}</p>` : ""}
-        <label class="ls-loop"><input type="checkbox" data-ls="loop"${p.loop ? " checked" : ""}> Start again at the end</label>
+        ${L.preview ? "" : `<label class="ls-loop"><input type="checkbox" data-ls="loop"${p.loop ? " checked" : ""}> Start again at the end</label>`}
       </div>`;
     b.querySelectorAll("[data-ls]").forEach(el => el.addEventListener("change", () => {
       const k = el.dataset.ls, v = k === "loop" ? el.checked : k === "voice" ? el.value : Number(el.value);
@@ -2446,7 +2464,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const prevToday = P.todayHtml;
   P.todayHtml = () => { let a = ""; try { a = prevToday(); } catch (e) {} let b = ""; try { b = commuteHtml(); } catch (e) {} return a + b; };
   const prevDeck = P.deckBtns;
-  P.deckBtns = d => { const a = prevDeck ? prevDeck(d) : ""; return P.locked() || !TTS() ? a : a + `<button class="btn" data-act="ls-open" data-id="${esc(d.id)}">Listen</button>`; };
+  P.deckBtns = d => { const a = prevDeck ? prevDeck(d) : ""; return !TTS() ? a : a + `<button class="btn" data-act="ls-open" data-id="${esc(d.id)}">Listen${P.locked() ? " " + PRO_BADGE : ""}</button>`; };
 
   hook("act", (act, el, id) => {
     switch (act) {
@@ -2454,6 +2472,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "ls-play": if (L) (L.playing ? pause() : play()); return true;
       case "ls-step": step(Number(id) || 1); return true;
       case "ls-set": { if (!L) return true; const k = el.dataset.k; setPrefs({[k]: id}); if (k === "set") { const was = L.playing; pause(); rebuild(); if (was) play(); } else if (L.playing) { stopSpeech(); L.side = "a"; loop(); } draw(); return true; }
+      case "ls-pro": if (dlg.open) dlg.close(); proWhy(WHY); return true;
       case "ls-hide": try { localStorage.setItem("studyboard:listenHide", todayISO()); } catch (e) {} scheduleRender(); return true;
     }
     return false;
@@ -2466,6 +2485,9 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   css.textContent = `
 .ls-body{display:grid;gap:14px}
 .ls-deck{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin:0}
+.ls-pro{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px dashed var(--line);border-radius:12px;padding:8px 12px;font-size:.88rem}
+.ls-pro span{flex:1;min-width:12em}
+.ls-pro.on{border-style:solid;border-color:#FFB443;background:color-mix(in srgb,#FFB443 12%,var(--surface))}
 .ls-card{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:4px 14px 14px 14px;box-shadow:var(--shadow);padding:16px 18px;min-height:150px;align-content:start}
 .ls-side{font:700 .72rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .ls-card p{margin:0;font:600 1.15rem/1.4 var(--display);white-space:pre-wrap;overflow-wrap:anywhere}
@@ -2543,7 +2565,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   const hlOf = f => (Array.isArray(f && f.hl) ? f.hl : []).filter(h => h && h.id && Array.isArray(h.r));
   const READ_WHY = "The reader with highlights is part of Studyboard Pro: highlight a reading, slides or a document, and turn what matters into notes and flashcards.";
   // what a free plan can't do in the reader: make highlights, comments, notes or cards (proWhy opens the Pro sheet instead)
-  const PDR_MAKE = new Set(["pdr-hl-add", "pdr-mk-add", "pdr-sel-cm", "pdr-cm-mode", "pdr-sel-note", "pdr-sel-card", "pdr-hl-note", "pdr-hl-card", "pdr-all-note", "pdr-card-ai", "pdr-card-save"]);
+  const PDR_MAKE = new Set(["pdr-sel-paper", "pdr-paper", "pdr-paper-to", "pdr-hl-add", "pdr-mk-add", "pdr-sel-cm", "pdr-cm-mode", "pdr-sel-note", "pdr-sel-card", "pdr-hl-note", "pdr-hl-card", "pdr-all-note", "pdr-card-ai", "pdr-card-save"]);
   const mine = () => { const f = fileOf(); return hlOf(f).filter(h => h.a === R.rev); };
   function saveHl(list, label){
     const f = fileOf(); if (!f) return;
@@ -2781,7 +2803,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const s = selection();
     if (!s) return;
     PEND = s;
-    showPop(`${colorBtns("pdr-hl-add")}<button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="u" aria-label="Underline" title="Underline"><span style="text-decoration:underline;text-decoration-color:${MARKS.u[1]};text-decoration-thickness:2px">U</span></button><button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="s" aria-label="Strike-through" title="Strike-Through"><span style="text-decoration:line-through;text-decoration-color:${MARKS.s[1]};text-decoration-thickness:2px">S</span></button><span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-sel-cm">Comment</button><button type="button" class="btn small" data-act="pdr-sel-note">Note</button><button type="button" class="btn small" data-act="pdr-sel-card">Card</button>`, s.end);
+    showPop(`${colorBtns("pdr-hl-add")}<button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="u" aria-label="Underline" title="Underline"><span style="text-decoration:underline;text-decoration-color:${MARKS.u[1]};text-decoration-thickness:2px">U</span></button><button type="button" class="icon-btn pdr-mk" data-act="pdr-mk-add" data-id="s" aria-label="Strike-through" title="Strike-Through"><span style="text-decoration:line-through;text-decoration-color:${MARKS.s[1]};text-decoration-thickness:2px">S</span></button><span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-sel-cm">Comment</button><button type="button" class="btn small" data-act="pdr-sel-note">Note</button><button type="button" class="btn small" data-act="pdr-sel-card">Card</button>${window.SBWRITE ? SBWRITE.readerBtn(R.fid, null) : ""}`, s.end);
   }
   // a change to your highlights can be undone: Undo on its message, or Ctrl+Z (the app's own undo is off while the reader is open)
   function hlDone(before, label){
@@ -2825,7 +2847,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (!h) { hidePop(); return; }
     if (h.m === "n") { cmEdit(h.id); return; }
     const r = h.r[h.r.length - 1], at = {left: b.left + r[0] * b.width, width: r[2] * b.width, top: b.top + r[1] * b.height, bottom: b.top + (r[1] + r[3]) * b.height};
-    showPop(`${h.m ? `<span class="mini">${MARKS[h.m][0]}</span>` : colorBtns("pdr-hl-color", h.c).replace(/data-id=/g, `data-h="${esc(h.id)}" data-id=`)}<span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-cm" data-id="${esc(h.id)}">${h.cm ? "Edit Comment" : "Comment"}</button><button type="button" class="btn small" data-act="pdr-hl-note" data-id="${esc(h.id)}">${h.n && state.notes[h.n] ? "Open Note" : "Note"}</button><button type="button" class="btn small" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button><button type="button" class="icon-btn pdr-del" data-act="pdr-hl-del" data-id="${esc(h.id)}" aria-label="Remove highlight">${ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`, at);
+    showPop(`${h.m ? `<span class="mini">${MARKS[h.m][0]}</span>` : colorBtns("pdr-hl-color", h.c).replace(/data-id=/g, `data-h="${esc(h.id)}" data-id=`)}<span class="pdr-sep"></span><button type="button" class="btn small" data-act="pdr-cm" data-id="${esc(h.id)}">${h.cm ? "Edit Comment" : "Comment"}</button><button type="button" class="btn small" data-act="pdr-hl-note" data-id="${esc(h.id)}">${h.n && state.notes[h.n] ? "Open Note" : "Note"}</button><button type="button" class="btn small" data-act="pdr-hl-card" data-id="${esc(h.id)}">Card</button>${!h.m && window.SBWRITE ? SBWRITE.readerBtn(R.fid, h) : ""}<button type="button" class="icon-btn pdr-del" data-act="pdr-hl-del" data-id="${esc(h.id)}" aria-label="Remove highlight">${ico('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`, at);
   }
 
   /* Comments: on a highlight, underline or strike-through, or a sticky note on its own */
@@ -2864,6 +2886,22 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const sug = f ? boardFor(f.courseId) : "", ids = [sug].concat(["", ...bs.map(b => b.id)].filter(x => x !== sug));
     R.boardGo = go;
     showPop(`<span class="mini pdr-pop-lbl">Add the note to</span>${ids.map(id => { const b = bs.find(x => x.id === id); return `<button type="button" class="btn small pdr-nb" data-act="pdr-note-to" data-id="${esc(id)}"${id === sug ? ' aria-describedby="pdrNbSug"' : ""}><span class="dot" style="--c:${esc(b ? nbColor(b) : "var(--muted)")}" aria-hidden="true"></span>${esc(nbName(id))}</button>`; }).join("")}<span class="sr" id="pdrNbSug">Suggested: this course's board</span>`, at);
+  }
+  // the open PDF's first pages, for Writing Studio to find the DOI in (it fills in the new source's details)
+  async function firstText(){
+    const doc = R && R.doc; if (!doc || doc.office || typeof doc.getPage !== "function") return "";
+    let out = "";
+    for (let i = 1; i <= Math.min(2, doc.numPages || 1); i++) { try { const c = await (await doc.getPage(i)).getTextContent(); out += c.items.map(x => x.str).join(" ") + "\n"; } catch (e) {} }
+    return out;
+  }
+  function toPaper(h, at){
+    if (!h || !window.SBWRITE) return;
+    const inT = SBWRITE.quotedIn(R.fid, h.id);
+    if (inT) { hidePop(); toast(`Already a quote in ${inT.title}`, null, {label: "Open", fn: () => { if (dlg.open) dlg.close(); SBWRITE.open(inT.id, "quotes"); }}); return; }
+    const ps = SBWRITE.papersFor(R.fid);
+    if (!ps.length) { hidePop(); toast("No open paper or essay for this course yet."); return; }
+    if (ps.length === 1) { hidePop(); SBWRITE.addQuote(ps[0].id, R.fid, h, {text: firstText}); return; }
+    showPop(`<span class="mini pdr-pop-lbl">Add the quote to</span>${ps.map(t => `<button type="button" class="btn small pdr-nb" data-act="pdr-paper-to" data-id="${esc(h.id)}" data-t="${esc(t.id)}"><span class="dot" style="--c:${esc(t.courseId ? colorOf(t.courseId) : "var(--muted)")}" aria-hidden="true"></span>${esc(String(t.title).length > 34 ? String(t.title).slice(0, 33) + "…" : t.title)}</button>`).join("")}`, at);
   }
   function hlNote(h, to){
     const f = fileOf(); if (!f || !h) return;
@@ -3059,6 +3097,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-hl-note": R.popAt = el.getBoundingClientRect(); hlNote(byId(id)); break;
       case "pdr-note-to": { const go = R.boardGo; R.boardGo = null; hidePop(); if (go) go(id || ""); break; }
       case "pdr-hl-card": hidePop(); cardForm(byId(id)); break;
+      // Writing Studio: a highlight becomes a quote in a paper (straight in when there's one paper, else pick it)
+      case "pdr-sel-paper": { const h = addFromSel(R.color); if (h) toPaper(h, R.popAt); break; }
+      case "pdr-paper": toPaper(byId(id), el.getBoundingClientRect()); break;
+      case "pdr-paper-to": { const h = byId(id); hidePop(); if (h && window.SBWRITE) SBWRITE.addQuote(el.dataset.t, R.fid, h, {text: firstText}); break; }
       case "pdr-hl-del": { const h = byId(id); if (!h) break; const before = mine(); saveHl(before.filter(x => x.id !== id)); hidePop(); paint(h.p); counts(); if (R.side) side(); hlDone(before, "Highlight removed"); break; }
       case "pdr-side": R.side = !R.side; R.card = null; side(); break;
       case "pdr-go-h": { const h = byId(id); if (h) goTo(h.p); break; }

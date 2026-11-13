@@ -1099,6 +1099,7 @@ function sbSignInSheet(mode, email, note){
 // The first thing a new student sees: Mochi says hi, then Sign Up or sign in. Closing it uses Studyboard on this device
 function sbWelcomeHtml(){
   let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch(e) {}
+  // "No account needed" gets its own button: it closes the welcome like ×, which works on this device and starts the setup
   const ic = d => `<i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></i>`;
   return `<div class="sb-welc">
     <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
@@ -1110,6 +1111,7 @@ function sbWelcomeHtml(){
       <li>${ic('<path d="M12 20v-7"/><path d="M12 13c0-3.5-2.5-6-6.5-6 0 3.6 2.6 6 6.5 6zM12 11c0-3 2.2-5.5 6.5-5.5 0 3.2-2.4 5.5-6.5 5.5z"/>')}Works offline, no account needed</li>
     </ul>
     <button type="button" class="btn primary sb-welc-go" id="sbSignUp" data-sbm="signup">Sign Up</button>
+    <button type="button" class="btn sb-welc-skip" data-act="close">Continue Without an Account</button>
     <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
     <p class="mini sb-welc-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
   </div>`;

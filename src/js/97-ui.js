@@ -42,21 +42,22 @@
   const CAT = Object.fromEntries(CATS.map(c => [c.k, c]));
   // Where each row goes, by its data-act (or input id)
   const ORDER = {
-    account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open"],
-    appearance: ["theme-set", "shop", "anim-mode", "text-size", "lang-set", "a11y-contrast", "anim-toggle", "daily-quote", "scene-moment", "comp-set"],
-    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "ai-setup", "sx-settings"],
+    account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open", "plan-restore"],
+    appearance: ["theme-set", "shop", "scene-moment", "anim-toggle", "daily-quote", "comp-open", "comp-set", "anim-mode", "text-size", "a11y-contrast", "lang-set", "spell-set"],
+    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "sbk-open", "snd-settings", "ai-setup", "aivault-open", "sx-settings", "calc-open", "pro-pr-open"],
     capture: ["cap-try"],
-    school: ["sem-open", "lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
-    app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
-    data: ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
+    school: ["sem-open", "lms-open", "cal-export", "cal-sync", "school-open", "import-syllabus", "grp-page"],
+    app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "tips-set", "kbd-help", "bug-open", "errrep-toggle", "legal-about", "legal-privacy", "legal-terms"],
+    data: ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "storage-protect", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
   };
-  // Sub-tabs inside a category with many rows
+  // Sub-tabs inside a category with many rows. Every row's key belongs here: an unlisted row goes to the first sub-tab, with a warning
   const SUBS = {
-    appearance: [["Look", ["theme-set", "shop", "scene-moment", "daily-quote", "comp-set"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode", "anim-toggle"]]],
-    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
-    school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync"]], ["Groups", ["grp-page"]]],
-    app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
-    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "restore"]], ["Import and Export", ["import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
+    appearance: [["Look", ["theme-set", "shop", "scene-moment", "anim-toggle", "daily-quote", "comp-open", "comp-set"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode"]], ["Language", ["lang-set", "spell-set"]]],
+    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]], ["Tools and AI", ["ai-setup", "aivault-open", "sx-settings", "calc-open", "pro-pr-open"]]],
+    school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync", "school-open"]], ["Groups", ["grp-page", "room-notices"]]],
+    app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "tips-set", "kbd-help", "bug-open", "errrep-toggle", "legal-about", "legal-privacy", "legal-terms"]]],
+    // Both ways to restore (a backup file, a copy kept on this device) sit together under Import and Export
+    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "storage-protect"]], ["Import and Export", ["restore", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
   };
   const SUB_MIN = 5;
   // Extra words people might search for, per row
@@ -82,6 +83,7 @@
     const inp = r.querySelector("input[id]");
     const t = (r.textContent || "").toLowerCase();
     const keys = acts.slice();
+    if (r.dataset.usKey) keys.push(r.dataset.usKey);   // rows whose button comes and goes (Time Zone) name their place
     if (inp) keys.push(inp.id);
     if (!acts.length) {
       if (/automatic backups|studyboard folder/.test(t)) keys.push("folder");
@@ -145,7 +147,11 @@
       const spec = SUBS[c.k];
       if (spec && sorted.length >= SUB_MIN) {
         const groups = spec.map(([name, keys]) => ({name, keys, rows: []}));
-        sorted.forEach(({r}) => { const ks = rowKey(r), g = groups.find(x => ks.some(k => x.keys.includes(k))) || groups[groups.length - 1]; g.rows.push(r); });
+        sorted.forEach(({r}) => {
+          const ks = rowKey(r); let g = groups.find(x => ks.some(k => x.keys.includes(k)));
+          if (!g) { g = groups[0]; console.warn("Settings row not in SUBS." + c.k + ", shown under " + g.name + ":", ks.join(",") || (r.textContent || "").trim().slice(0, 40)); }
+          g.rows.push(r);
+        });
         const live = groups.filter(g => g.rows.length);
         if (live.length > 1) {
           sec.classList.add("has-subs");

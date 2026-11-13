@@ -18,7 +18,8 @@
 const RBC = (() => {
   const STATUSES = ["Strong", "OK", "Weak", "Missing"];
   const WRITING = /\b(essay|paper|report|presentation|thesis|dissertation|draft|write[- ]?up|reflection|proposal|review|portfolio|speech|article|memo|brief)\b/i;
-  const eligible = t => !!t && t.status !== "done" && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))));
+  // a broken-down paper's own steps get it only where there's a draft to check (draft, revise, final)
+  const eligible = t => !!t && t.status !== "done" && (!t.breakdownOf || /\b(draft|revis|proofread|final|submit|polish)/i.test(String(t.title || ""))) && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))));
   const ptsOf = s => { const m = /\b(\d{1,3}(?:\.\d+)?)\s*(points?|pts|marks?|%)/i.exec(String(s || "")); return m ? Number(m[1]) : null; };
   // Criteria from a pasted rubric, with points (lines: the group Rubric Checklist's rule)
   function criteria(text, lines){

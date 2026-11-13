@@ -11,6 +11,8 @@
   // On a phone no sheet raises the keyboard by itself: the person taps the box they want to type in
   const phoneW = () => matchMedia("(max-width:639px)").matches;
   const quiet = d => {
+    // Search is opened to type in, so its box keeps the focus (and the keyboard comes up)
+    if (d && d.id === "sxDlg") return;
     try {
       const a = document.activeElement;
       // A heading the sheet focused on purpose stays focused, so screen readers start there

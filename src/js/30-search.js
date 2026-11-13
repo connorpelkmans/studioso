@@ -125,7 +125,7 @@
     const out = new Map(), put = (t, q) => { if ((out.get(t) || 0) < q) out.set(t, q); };
     if (known(term)) put(term, 1);
     const L = term.length, num = /^\d+$/.test(term);
-    if (L >= 2 && (prefix || L >= 4)) {
+    if (L >= 2 && (prefix || L >= 3)) {
       const cand = [];
       for (let i = lowerBound(V.sorted, term); i < V.sorted.length && V.sorted[i].startsWith(term); i++) if (V.sorted[i] !== term) cand.push(V.sorted[i]);
       cand.sort((a, b) => df(b) - df(a)).slice(0, 60).forEach(t => put(t, prefix ? 0.9 - Math.min(0.25, (t.length - L) * 0.02) : 0.6));
@@ -234,7 +234,7 @@
     add("Archive", "Finished tasks and past terms", act("archive-open"), "old");
     add("Calendar Sync", "Add your deadlines and classes to Apple, Google or Outlook Calendar", act("cal-export"), "export ics calendar subscribe feed");
     add("Save a Copy on This Device", "Kept in this browser, which also saves a copy each day", act("backup-now"), "save backup");
-    add("Restore a Backup", "Go back to an earlier backup", act("restore"), "");
+    add("Restore a Device Copy", "Go back to an earlier copy or automatic backup", act("restore"), "");
     add("Export a Backup File", hasStoredFiles() ? "Your data and uploaded files in one ZIP" : "Download your data as a file", act("export"), "download zip");
     add("Import from a Backup File", "Replace your data with a backup file", act("import"), "upload");
     if (window.SBONENOTE && !inPreview()) add("OneNote", "Bring OneNote sections in as notes, and Save to OneNote", act("on-open"), "onenote microsoft notebook section page notes save import sync");
@@ -248,7 +248,7 @@
     try {
       const box = document.createElement("div"); box.innerHTML = fire("menu").filter(x => typeof x === "string").join("");
       $$("[data-act]", box).forEach(el => {
-        const a = el.dataset.act; if (!a || a === "sx-settings" || el.tagName === "INPUT") return;
+        const a = el.dataset.act; if (!a || a === "sx-settings" || el.tagName === "INPUT" || el.closest(".segb,[role=group],[role=radiogroup]")) return;
         const sub = el.querySelector(".sub"), subT = sub ? sub.textContent.trim() : "";
         const title = (el.textContent || "").replace(subT, "").trim().replace(/\s+/g, " ");
         if (!title || title.length > 80 || seen.has(title)) return;
@@ -749,7 +749,7 @@
     }
     const b = Math.min(text.length, a + len);
     let html = "", p = a;
-    for (const [s, e] of ms) { if (e <= p || s >= b) continue; html += esc(text.slice(p, Math.max(p, s))) + "<mark>" + esc(text.slice(Math.max(s, p), Math.min(e, b))) + "</mark>"; p = Math.min(e, b); }
+    for (const [s, e] of (/[$\\]/.test(text) ? [] : ms)) { if (e <= p || s >= b) continue; html += esc(text.slice(p, Math.max(p, s))) + "<mark>" + esc(text.slice(Math.max(s, p), Math.min(e, b))) + "</mark>"; p = Math.min(e, b); }
     html += esc(text.slice(p, b));
     return (a > 0 ? "…" : "") + html + (b < text.length ? "…" : "");
   }
@@ -762,7 +762,7 @@
     const n = P.terms.length;
     const inFiles = sxCfg().files;
     let hits = scoreIx(IX.items, P, n), ch = inFiles ? scoreIx(IX.chunks, P, n) : [];
-    if (hits.length + ch.length < 3 && n > 1) { const need = Math.max(1, Math.ceil(n * 0.6)); hits = scoreIx(IX.items, P, need); ch = inFiles ? scoreIx(IX.chunks, P, need) : []; }
+    if (hits.length + ch.length < 3 && n > 1) { const need = Math.max(1, n - 1); hits = scoreIx(IX.items, P, need); ch = inFiles ? scoreIx(IX.chunks, P, need) : []; }
     const fq = fold(q).trim();
     hits.forEach(h => {
       const t = h.doc.ft || (h.doc.ft = fold(h.doc.title));
@@ -1619,7 +1619,7 @@ Return JSON only.`;
     const bits = [];
     const readable = Object.values(state.files).some(f => extKind(f));
     if (FT.busy && FT.total) bits.push(`Reading your files: ${Math.min(FT.done, FT.total)} of ${FT.total}${FT.cur ? ` (${esc(FT.cur.length > 28 ? FT.cur.slice(0, 26) + "…" : FT.cur)})` : ""}`);
-    else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this computer.");
+    else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this device.");
     else if (FT.loading && !FT.loaded) bits.push("Loading the text from your files…");
     if (semOn()) {
       if (SEM.err && !SEM.running) bits.push(esc(SEM.err));

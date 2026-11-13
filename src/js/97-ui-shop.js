@@ -115,7 +115,10 @@
       const all = Object.keys(STICKERS);
       const cur = (window.SBTP && SBTP.rec && SBTP.rec(styleCfg().skin)) || null;
       const first = cur && cur.pack ? Object.keys((STICKER_PACKS.find(p => p.id === cur.pack) || {items: {}}).items) : [];
-      load().then(() => want(first.concat(all)));
+      // On a phone only the current theme's pack is made ahead: making all ~800 took minutes of background work on a
+      // mid-range phone the first time and made taps feel slow. The shop still makes the rest as its cells come into view.
+      const phone = window.matchMedia && matchMedia("(max-width:639px)").matches;
+      load().then(() => want(phone ? first : first.concat(all)));
     };
     if (window.requestIdleCallback) requestIdleCallback(warm, {timeout: 20000}); else warm();
   }, 6000));
