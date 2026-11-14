@@ -101,7 +101,7 @@ const checkOff = async (p, id) => {
       await p.evaluate(() => { const m = document.querySelector('[data-act="menu"]'); if (m) m.click(); }); await p.waitForTimeout(600);
       await p.evaluate(() => dlg.querySelector('[data-act="haptic-try"]').click()); await p.waitForTimeout(300);
       const t = await p.evaluate(() => document.getElementById("toastMsg").textContent);
-      ok(/can't reach the iPhone's haptics/.test(t) && /plugin listed: no/.test(t) && /newest build/.test(t), `Try It in a build without the haptics plugin says so, and what it can see ("${t}")`);
+      ok(/isn't built into this copy of the app/.test(t) && /plugin listed: no/.test(t) && /ios:stage/.test(t), `Try It in a build without the haptics plugin says so, and what it can see ("${t}")`);
       ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
       await ctx.close();
     }

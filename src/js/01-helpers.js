@@ -558,6 +558,7 @@ async function hapticTry(){
     if (!H) {
       // what the app can see, for working out why: the plugin listed by the app, and its JavaScript side
       let seen = ""; try { seen = ` (plugin listed: ${C.isPluginAvailable ? (C.isPluginAvailable("Haptics") ? "yes" : "no") : "?"}, can register: ${typeof C.registerPlugin === "function" ? "yes" : "no"})`; } catch (e) {}
+      if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return "The haptics plugin isn't built into this copy of the app" + seen + ". On the Mac, npm run ios:stage says what's missing; then build the app again.";
       return "This copy of the app can't reach the iPhone's haptics" + seen + ". Install the newest build (TestFlight, or run it from Xcode) and try again.";
     }
     // a strong one, then the success pattern, so there's no mistaking it

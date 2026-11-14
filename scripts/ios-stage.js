@@ -282,16 +282,37 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
       if (add.length) { j.packageClassList = list.concat(add); fs.writeFileSync(cfg, JSON.stringify(j, null, "\t") + "\n"); console.log("ios-stage: connected " + add.join(", ")); }
     }
   } catch (e) { console.log("ios-stage: couldn't add Studyboard's plugins to the plugin list: " + e.message); }
-  // Haptics (sbHaptic, src/js/01-helpers.js) need @capacitor/haptics in the app: say plainly whether it made it in
-  try {
-    const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json");
-    const list = fs.existsSync(cfg) ? (JSON.parse(fs.readFileSync(cfg, "utf8")).packageClassList || []) : [];
-    if (list.includes("HapticsPlugin")) console.log("ios-stage: haptics are connected (taps, check-offs, drags and Focus end are felt on the iPhone)");
-    else {
-      let major = ""; try { major = String(JSON.parse(fs.readFileSync(path.join(wrap, "node_modules", "@capacitor", "core", "package.json"), "utf8")).version || "").split(".")[0]; } catch (x) {}
-      console.log("ios-stage: HAPTICS AREN'T CONNECTED YET. Run this, then npm run ios:stage again:\n  cd ios-wrapper && npm i @capacitor/haptics" + (/^\d+$/.test(major) ? "@^" + major : "") + " && cd ..");
-    }
-  } catch (e) {}
+  // Haptics (sbHaptic, src/js/01-helpers.js) need @capacitor/haptics' native code built into the app. Being named in the plugin
+  // list isn't enough (a build said "connected" here and still had no haptics): the plugin also has to be in the project's native
+  // dependencies, the Podfile (CocoaPods) or CapApp-SPM/Package.swift (Swift packages), and installed. Checked, and fixed where it can be
+  try { hapticsCheck(); } catch (e) { console.log("ios-stage: couldn't check haptics: " + e.message); }
   console.log("ios-stage: synced into the Xcode project. Open it with: cd ios-wrapper && npx cap open ios");
 } else console.log("ios-stage: no Xcode project yet (ios-wrapper/ios/) or Capacitor not installed there: see TESTING-MAC-IPHONE.md, iPhone step 2.");
 
+
+function hapticsCheck(){
+  const app = path.join(wrap, "ios", "App"), ver = m => { try { return String(JSON.parse(fs.readFileSync(path.join(wrap, "node_modules", ...m.split("/"), "package.json"), "utf8")).version || ""); } catch (e) { return ""; } };
+  const major = v => v.split(".")[0], hv = ver("@capacitor/haptics"), iv = ver("@capacitor/ios") || ver("@capacitor/core");
+  const fixInstall = `cd ios-wrapper && npm i @capacitor/haptics@^${major(iv) || "7"} && cd .. && npm run ios:stage`;
+  const say = m => console.log("ios-stage: " + m);
+  if (!hv) { say("HAPTICS AREN'T IN THE APP: @capacitor/haptics isn't installed. Run:\n  " + fixInstall); return; }
+  if (iv && major(hv) !== major(iv)) { say(`HAPTICS AREN'T IN THE APP: @capacitor/haptics ${hv} doesn't match Capacitor ${iv}. Run:\n  ` + fixInstall); return; }
+  const podfile = path.join(app, "Podfile"), lock = path.join(app, "Podfile.lock"), spm = path.join(app, "CapApp-SPM", "Package.swift");
+  const has = f => fs.existsSync(f) && /CapacitorHaptics/.test(fs.readFileSync(f, "utf8"));
+  if (fs.existsSync(podfile)) {
+    if (!has(podfile)) { say("HAPTICS AREN'T IN THE APP: the Podfile doesn't list CapacitorHaptics (Capacitor's sync didn't add it). Run:\n  cd ios-wrapper && npx cap sync ios && cd ..\n  then npm run ios:stage again, and send what it prints if this message stays."); return; }
+    if (!has(lock)) {
+      say("the haptics pod is listed but not installed: running pod install");
+      try { execFileSync("pod", ["install"], {cwd: app, stdio: "inherit"}); } catch (e) { say("pod install didn't finish. Run it yourself and send what it prints:\n  cd ios-wrapper/ios/App && pod install && cd ../../.."); return; }
+      if (!has(lock)) { say("HAPTICS AREN'T IN THE APP: pod install ran but CapacitorHaptics still isn't installed. Send what pod install printed."); return; }
+    }
+    say(`haptics are built into the app (CapacitorHaptics ${hv}, CocoaPods). Build from the workspace: npm run ios:upload does`);
+    return;
+  }
+  if (fs.existsSync(spm)) {
+    if (!has(spm)) { say("HAPTICS AREN'T IN THE APP: CapApp-SPM/Package.swift doesn't list CapacitorHaptics (Capacitor's sync didn't add it). Run:\n  cd ios-wrapper && npx cap sync ios && cd ..\n  then npm run ios:stage again, and send what it prints if this message stays."); return; }
+    say(`haptics are built into the app (CapacitorHaptics ${hv}, Swift packages)`);
+    return;
+  }
+  say("couldn't find the project's Podfile or CapApp-SPM/Package.swift to check haptics");
+}
