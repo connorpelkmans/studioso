@@ -38,7 +38,18 @@
   const keep = n => { try { const u = who(); if (u) localStorage.setItem(KEY(u.id), n); } catch (e) {} };
   const live = () => !inPreview() && (!!window.__sbShareStub || !!sb) && !!who() && !who().is_anonymous;
   const rpcErr = e => { const m = String((e && (e.message || e.details)) || e || ""); return /Could not find the function|schema cache|does not exist/i.test(m) ? srvSetup("Usernames", "supabase-usernames.sql") : m.replace(/^SB_[A-Z_]+:\s*/, ""); };
-  async function call(fn, args){ if (window.__sbShareStub) return window.__sbShareStub(fn, args || {}); const {data, error} = await sb.rpc(fn, args || {}); if (error) throw error; return data; }
+  // Every function here but username_check is for signed-in accounts only (anon can't run them). With no live session (it
+  // expired and couldn't refresh, or was signed out in another tab) the request would go out as anon and be refused by the
+  // database ("permission denied for function"), so it isn't sent.
+  async function call(fn, args){
+    if (window.__sbShareStub) return window.__sbShareStub(fn, args || {});
+    if (fn !== "username_check") {
+      let tok = "";
+      try { const {data} = await sb.auth.getSession(); tok = (data && data.session && data.session.access_token) || ""; } catch (e) {}
+      if (!tok) throw new Error("Sign in again to continue.");
+    }
+    const {data, error} = await sb.rpc(fn, args || {}); if (error) throw error; return data;
+  }
 
   // Live check under a username box
   function wireCheck(input, msg){
