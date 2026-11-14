@@ -282,6 +282,16 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
       if (add.length) { j.packageClassList = list.concat(add); fs.writeFileSync(cfg, JSON.stringify(j, null, "\t") + "\n"); console.log("ios-stage: connected " + add.join(", ")); }
     }
   } catch (e) { console.log("ios-stage: couldn't add Studyboard's plugins to the plugin list: " + e.message); }
+  // Haptics (sbHaptic, src/js/01-helpers.js) need @capacitor/haptics in the app: say plainly whether it made it in
+  try {
+    const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json");
+    const list = fs.existsSync(cfg) ? (JSON.parse(fs.readFileSync(cfg, "utf8")).packageClassList || []) : [];
+    if (list.includes("HapticsPlugin")) console.log("ios-stage: haptics are connected (taps, check-offs, drags and Focus end are felt on the iPhone)");
+    else {
+      let major = ""; try { major = String(JSON.parse(fs.readFileSync(path.join(wrap, "node_modules", "@capacitor", "core", "package.json"), "utf8")).version || "").split(".")[0]; } catch (x) {}
+      console.log("ios-stage: HAPTICS AREN'T CONNECTED YET. Run this, then npm run ios:stage again:\n  cd ios-wrapper && npm i @capacitor/haptics" + (/^\d+$/.test(major) ? "@^" + major : "") + " && cd ..");
+    }
+  } catch (e) {}
   console.log("ios-stage: synced into the Xcode project. Open it with: cd ios-wrapper && npx cap open ios");
 } else console.log("ios-stage: no Xcode project yet (ios-wrapper/ios/) or Capacitor not installed there: see TESTING-MAC-IPHONE.md, iPhone step 2.");
 
