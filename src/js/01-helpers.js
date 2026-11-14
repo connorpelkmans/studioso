@@ -541,6 +541,21 @@ function sbHaptic(kind, opts){
   return false;
 }
 window.sbHaptic = sbHaptic;
+// Settings > Haptic Feedback > Try It: sends one at once and says what happened, so "I feel nothing" can be told apart from a copy
+// of the app built without haptics, Safari on an iPhone (no haptics for web pages), or the iPhone's own setting
+async function hapticTry(){
+  const C = window.Capacitor, app = !!(C && C.isNativePlatform && C.isNativePlatform());
+  if (!hapticOn()) return "Haptic Feedback is off. Turn it on above, then try again.";
+  if (app) {
+    const H = hapticNative();
+    if (!H) return "This copy of the app was built without haptics. Install the newest build (TestFlight, or the App Store once it's out) and try again.";
+    try { await H.notification({type: "SUCCESS"}); } catch (e) { return "The iPhone didn't take the tap (" + String((e && e.message) || e).slice(0, 80) + ")."; }
+    return "Sent a tap. If you felt nothing, turn on System Haptics in your iPhone's Settings > Sounds & Haptics (Low Power Mode also turns haptics down).";
+  }
+  if (!navigator.vibrate) return "This browser can't make haptics (Safari on iPhone and iPad can't). The Studyboard app can.";
+  navigator.vibrate(HAPTIC_WEB.success);
+  return "Sent a tap. If you felt nothing, check your phone's vibration settings.";
+}
 document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
 hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
 toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) { sbHaptic("tap"); f(); } });

@@ -10984,6 +10984,21 @@ function sbHaptic(kind, opts){
   return false;
 }
 window.sbHaptic = sbHaptic;
+// Settings > Haptic Feedback > Try It: sends one at once and says what happened, so "I feel nothing" can be told apart from a copy
+// of the app built without haptics, Safari on an iPhone (no haptics for web pages), or the iPhone's own setting
+async function hapticTry(){
+  const C = window.Capacitor, app = !!(C && C.isNativePlatform && C.isNativePlatform());
+  if (!hapticOn()) return "Haptic Feedback is off. Turn it on above, then try again.";
+  if (app) {
+    const H = hapticNative();
+    if (!H) return "This copy of the app was built without haptics. Install the newest build (TestFlight, or the App Store once it's out) and try again.";
+    try { await H.notification({type: "SUCCESS"}); } catch (e) { return "The iPhone didn't take the tap (" + String((e && e.message) || e).slice(0, 80) + ")."; }
+    return "Sent a tap. If you felt nothing, turn on System Haptics in your iPhone's Settings > Sounds & Haptics (Low Power Mode also turns haptics down).";
+  }
+  if (!navigator.vibrate) return "This browser can't make haptics (Safari on iPhone and iPad can't). The Studyboard app can.";
+  navigator.vibrate(HAPTIC_WEB.success);
+  return "Sent a tap. If you felt nothing, check your phone's vibration settings.";
+}
 document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
 hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
 toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) { sbHaptic("tap"); f(); } });
@@ -106227,12 +106242,13 @@ const AUTOPILOT = (() => {
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], effPref(), "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
-    ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll.</span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
+    ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll. <button type="button" class="link-btn" data-act="haptic-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
+    if (act === "haptic-try") { hapticInputAt = Date.now(); hapticTry().then(m => toast(m)); return true; }
     if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
     if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
     if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }

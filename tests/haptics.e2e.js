@@ -11,9 +11,9 @@ const seed = () => ({v: 2, courses: [{id: "c1", name: "Biology 101", code: "BIO1
   files: [], notes: [], decks: [], events: [], settings: {capacity: 15}, updated: 1});
 
 // native: a stand-in for the Capacitor bridge and its Haptics plugin that records each call
-async function open(b, {phone, native, off}) {
+async function open(b, {phone, native, off, noPlugin}) {
   const ctx = await b.newContext(phone ? {viewport: {width: 390, height: 844}, deviceScaleFactor: 2, isMobile: true, hasTouch: true} : {viewport: {width: 1280, height: 800}});
-  await ctx.addInitScript(([s, native, off]) => {
+  await ctx.addInitScript(([s, native, off, noPlugin]) => {
     window.__SB_TEST = true; localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local"));
     if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify(s));
     if (off) localStorage.setItem("studyboard:haptics", "off");
@@ -21,10 +21,10 @@ async function open(b, {phone, native, off}) {
     Object.defineProperty(navigator, "vibrate", {configurable: true, value: p => { window.__h.push(["vibrate", JSON.stringify(p)]); return true; }});
     if (native) {
       const rec = k => o => { window.__h.push([k, o ? (o.style || o.type || "") : ""]); return Promise.resolve(); };
-      window.Capacitor = {isNativePlatform: () => true, isPluginAvailable: n => n === "Haptics", getPlatform: () => "ios",
+      window.Capacitor = {isNativePlatform: () => true, isPluginAvailable: n => n === "Haptics" && !noPlugin, getPlatform: () => "ios",
         Plugins: {Haptics: {impact: rec("impact"), notification: rec("notification"), selectionStart: rec("selectionStart"), selectionChanged: rec("selectionChanged")}}};
     }
-  }, [seed(), !!native, !!off]);
+  }, [seed(), !!native, !!off, !!noPlugin]);
   const p = await ctx.newPage(); p.errs = []; p.on("pageerror", e => p.errs.push(e.message));
   await p.goto(F); await p.waitForTimeout(2000);
   await p.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
@@ -83,10 +83,23 @@ const checkOff = async (p, id) => {
       // Settings
       await p.evaluate(() => { const m = document.querySelector('[data-act="menu"]'); if (m) m.click(); }); await p.waitForTimeout(600);
       ok(await p.evaluate(() => !!dlg.querySelector('input[data-act="haptics"]')), "Settings has a Haptic Feedback row on a phone");
+      // Try It: sends a tap at once and says it went to the iPhone
+      await calls(p); await p.evaluate(() => dlg.querySelector('[data-act="haptic-try"]').click()); await p.waitForTimeout(300);
+      { const h = await calls(p), t = await p.evaluate(() => document.getElementById("toastMsg").textContent);
+        ok(h.length === 1 && h[0][0] === "notification" && /Sent a tap/.test(t) && /System Haptics/.test(t), `Try It sends a tap and says where to look if nothing is felt (${JSON.stringify(h)}; "${t}")`); }
       await p.evaluate(() => { const i = dlg.querySelector('input[data-act="haptics"]'); i.click(); }); await p.waitForTimeout(200);
       ok(await p.evaluate(() => localStorage.getItem("studyboard:haptics")) === "off", "turning it off is remembered on this device");
       await p.waitForTimeout(150); await touch(p);
       ok(await p.evaluate(() => window.sbHaptic("tap")) === false, "and then nothing fires");
+      ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
+      await ctx.close();
+    }
+    { // the iPhone app, from a build made without @capacitor/haptics
+      const {ctx, p} = await open(b, {phone: true, native: true, noPlugin: true});
+      await p.evaluate(() => { const m = document.querySelector('[data-act="menu"]'); if (m) m.click(); }); await p.waitForTimeout(600);
+      await p.evaluate(() => dlg.querySelector('[data-act="haptic-try"]').click()); await p.waitForTimeout(300);
+      const t = await p.evaluate(() => document.getElementById("toastMsg").textContent);
+      ok(/built without haptics/.test(t) && /newest build/.test(t), `Try It in a build without the haptics plugin says so ("${t}")`);
       ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
       await ctx.close();
     }
