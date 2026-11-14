@@ -525,16 +525,22 @@
 
   /* Closing a sheet puts keyboard focus back where it was */
   const was = new WeakMap();
-  const sigOf = el => el && el.nodeType === 1 && el !== document.body ? {el, act: el.dataset && el.dataset.act, id: el.dataset && el.dataset.id, tab: el.dataset && el.dataset.tab} : null;
+  // The opener is often redrawn while its sheet is open (saving re-renders the page), so the same task can match in several
+  // places (the Today strip, Do This Next, Also Today). The opener's own kind of control in its own list wins over the first
+  // match, and it's scrolled into view so focus never lands somewhere off screen.
+  const LIST = "ul,ol,[role=list],[role=listbox],[role=grid],section,.board,.col";
+  const boxOf = el => { const b = el.closest && el.closest(LIST); return b ? b.tagName + "." + b.className : ""; };
+  const sigOf = el => el && el.nodeType === 1 && el !== document.body ? {el, act: el.dataset && el.dataset.act, id: el.dataset && el.dataset.id, tab: el.dataset && el.dataset.tab, cls: String(el.className || ""), box: boxOf(el)} : null;
   const visible = el => !!el && el.isConnected && el.getClientRects().length > 0 && !el.disabled;
+  const best = (list, sig) => { let t = null, top = -1; list.filter(visible).forEach(x => { const s = (String(x.className || "") === sig.cls ? 2 : 0) + (boxOf(x) === sig.box ? 1 : 0); if (s > top) { top = s; t = x; } }); return t; };
   function refocus(sig){
     if (!sig) return;
     const a = document.activeElement;
     if (a && a !== document.body && a.isConnected && !a.closest("dialog:not([open])")) return;
     let t = visible(sig.el) ? sig.el : null;
-    if (!t && sig.act) t = [...document.querySelectorAll(`[data-act="${CSS.escape(sig.act)}"]${sig.id ? `[data-id="${CSS.escape(sig.id)}"]` : ""}`)].find(visible) || null;
-    if (!t && sig.tab) t = [...document.querySelectorAll(`[data-tab="${CSS.escape(sig.tab)}"]`)].find(visible) || null;
-    if (t) { try { t.focus({preventScroll: true}); } catch (e) {} }
+    if (!t && sig.act) t = best([...document.querySelectorAll(`[data-act="${CSS.escape(sig.act)}"]${sig.id ? `[data-id="${CSS.escape(sig.id)}"]` : ""}`)], sig);
+    if (!t && sig.tab) t = best([...document.querySelectorAll(`[data-tab="${CSS.escape(sig.tab)}"]`)], sig);
+    if (t) { try { t.focus({preventScroll: true}); t.scrollIntoView({block: "nearest", inline: "nearest"}); } catch (e) {} }
   }
   /* Top-level sheets are exclusive */
   const TOP = ["dlg", "pomoDlg", "sxDlg", "capDlg"];

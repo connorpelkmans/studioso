@@ -28,7 +28,7 @@ function refFor(kind, id){
 function syncLabel(){
   const el = $("#sync");
   { const g = !!(window.SBGUEST && window.SBGUEST.is()); ["#guestBadge", "#guestBadgeSide"].forEach(q => { const b = $(q); if (b) b.hidden = !g; }); }
-  setTimeout(() => { el.dataset.state = /^(Saved|Saved on this device)$/.test(el.textContent) ? "ok" : /Saving|Connecting/.test(el.textContent) ? "busy" : "warn"; }, 0);
+  setTimeout(() => { const t = SBI18N.orig(el); el.dataset.state = /^(Saved|Saved on this device)$/.test(t) ? "ok" : /Saving|Connecting/.test(t) ? "busy" : "warn"; }, 0);
   if (!cloud.on && typeof sbConfig === "function" && !inPreview() && sbConfig() && !sbLocalOnly()) {
     const n = Object.keys(outboxGet()).length;
     el.textContent = !sb ? (n ? "Offline, changes will sync" : "Offline") : !sbUser ? (n ? "Not signed in, changes kept here" : "Not signed in") : n ? "Offline, changes will sync" : "Connecting…";

@@ -33,7 +33,7 @@ nav.tabs .nav-groups{position:relative}
 .gi-grid svg{width:100%;height:100%}
 .grp-card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:4px 14px 14px 14px;box-shadow:var(--shadow);border-top:3px solid var(--c)}
 .grp-card .deck-tab{top:-21px;left:-1px}
-.grp-main{display:grid;gap:14px;width:100%;border:0;background:none;text-align:left;padding:18px 18px 16px;color:inherit;border-radius:inherit;min-height:44px}
+.grp-main{display:grid;gap:14px;width:100%;border:0;background:none;text-align:start;padding:18px 18px 16px;color:inherit;border-radius:inherit;min-height:44px}
 .gc-top{display:flex;align-items:flex-start;gap:14px;justify-content:space-between}
 .gc-info{display:grid;gap:10px;min-width:0}
 .gc-chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -122,7 +122,7 @@ nav.tabs .nav-groups{position:relative}
 .grp-list{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .grp-item{display:flex;align-items:center;gap:10px;padding:10px 8px 10px 14px;border-top:1px solid var(--line)}
 .grp-item:first-child{border-top:0}
-.grp-item-main{flex:1;min-width:0;display:grid;gap:2px;text-align:left;border:0;background:none;padding:0;color:inherit}
+.grp-item-main{flex:1;min-width:0;display:grid;gap:2px;text-align:start;border:0;background:none;padding:0;color:inherit}
 button.grp-item-main{cursor:pointer;min-height:44px}
 .grp-item-main b{font-weight:700;overflow-wrap:anywhere}
 .grp-item-btns{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
@@ -304,7 +304,7 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .pt-check:hover .pt-box,.pt-check:focus-visible .pt-box{border-color:var(--accent)}
 .pt-check[aria-checked="true"] .pt-box,.pt-task.is-done .pt-box{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .pt-body{flex:1;min-width:0;display:grid;gap:2px;padding-top:2px}
-.pt-title{border:0;background:none;padding:8px 0 2px;text-align:left;color:inherit;font:600 .98rem/1.3 var(--body);overflow-wrap:anywhere;cursor:pointer;min-height:40px}
+.pt-title{border:0;background:none;padding:8px 0 2px;text-align:start;color:inherit;font:600 .98rem/1.3 var(--body);overflow-wrap:anywhere;cursor:pointer;min-height:40px}
 .pt-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding-bottom:6px;min-width:0}
 .pt-who{display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;min-width:0}
 .pt-who .grp-av{width:22px;height:22px;font-size:.62rem}
@@ -324,7 +324,7 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .grp-mine{margin-top:16px}
 .gm-sum{margin:0 0 8px}
 .gm-sum .link-btn{min-height:40px}
-.gm-main{flex:1;min-width:0;display:grid;gap:2px;text-align:left;border:0;background:none;padding:8px 0 4px;color:inherit;cursor:pointer;min-height:44px}
+.gm-main{flex:1;min-width:0;display:grid;gap:2px;text-align:start;border:0;background:none;padding:8px 0 4px;color:inherit;cursor:pointer;min-height:44px}
 .gm-title{font-weight:600;overflow-wrap:anywhere}
 .gm-badge{font-size:.74rem;font-weight:700;padding:2px 9px;border-radius:999px;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent);overflow-wrap:anywhere;max-width:100%}
 .gm-row.is-late .gm-title{color:var(--ink)}
@@ -473,7 +473,7 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .grp-crown{display:inline-block;vertical-align:-2px;margin-left:5px;flex:none}
 /* Share or Import: one header button opens these three */
 .sm-list{display:grid;gap:8px}
-.sm-opt{display:grid;gap:2px;text-align:left;min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.sm-opt{display:grid;gap:2px;text-align:start;min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
 .sm-opt:hover,.sm-opt:focus-visible{border-color:var(--accent)}
 .sm-btn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .sm-btn svg{width:16px;height:16px;flex:none}
@@ -495,7 +495,7 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 /* "Start From a Plan" says it's an AI feature (its icon can be a companion in some looks) */
 .ai-lbl{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font:700 .64rem/1.4 var(--display);letter-spacing:.04em;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);vertical-align:1px}
 /* Signed out: what a free account gets you in groups */
-.grp-perks{list-style:none;margin:10px auto 0;padding:0;display:grid;gap:6px;max-width:420px;text-align:left}
+.grp-perks{list-style:none;margin:10px auto 0;padding:0;display:grid;gap:6px;max-width:420px;text-align:start}
 .grp-perks li{position:relative;padding-left:22px;line-height:1.4}
 .grp-perks li::before{content:"";position:absolute;left:4px;top:.45em;width:8px;height:8px;border-radius:50%;background:var(--accent)}
 /* Offline: what you last saw, read-only, and Add Group dimmed */
@@ -503,30 +503,19 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .grp-offline-line svg{flex:none;color:var(--muted)}
 #grpDetail .grp-offline-line{margin:12px 0}
 .fab.is-off{opacity:.45;filter:saturate(.3)}
-/* Dark mode: the round icon on group, course, deck and folder headers (and cards) was a solid white disc, the brightest
-   thing on the page. A line icon (a group's people or cube, a folder) sits on a dim tint of the colour and lights up in
-   it; a drawn icon (course icons, stickers, which have dark outlines) keeps a soft light tint instead of white.
-   The project progress track gets a visible tint too. */
+/* Dark mode: the round icons on group, course, deck and folder headers and cards, and the small course and search icon discs,
+   stay white circles with the icon in its colour, as in light mode, but a dimmer white (--ic-disc) so they don't glare on a
+   dark page. The project progress track gets a visible tint too. */
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .g2-ring{background:color-mix(in srgb,var(--c) 26%,#c6cedb)!important}
-  :root:not([data-theme="light"]) :is(.g2-ring:has(> .g2-sym),.fhead .g2-ring:has(> svg:not(.ci-svg))){background:color-mix(in srgb,var(--c) 24%,var(--surface))!important;color:color-mix(in srgb,var(--c) 55%,#fff)}
-  :root:not([data-theme="light"]) .g2-ring > .g2-sym{color:color-mix(in srgb,var(--c) 55%,#fff)}
+  :root:not([data-theme="light"]){--ic-disc:#D3D9E2}
   :root:not([data-theme="light"]) .gk-hero-prog .score-bar{background:color-mix(in srgb,var(--gk,var(--accent)) 22%,rgba(255,255,255,.12))}
+  :root:not([data-theme="light"]) .g2-ring{background:var(--ic-disc)!important}
+  :root:not([data-theme="light"]) :is(.tl-gic,.fn-ring,.occv-ic,.sr-ic){background:var(--ic-disc)}
 }
-:root[data-theme="dark"] .g2-ring{background:color-mix(in srgb,var(--c) 26%,#c6cedb)!important}
-:root[data-theme="dark"] :is(.g2-ring:has(> .g2-sym),.fhead .g2-ring:has(> svg:not(.ci-svg))){background:color-mix(in srgb,var(--c) 24%,var(--surface))!important;color:color-mix(in srgb,var(--c) 55%,#fff)}
-:root[data-theme="dark"] .g2-ring > .g2-sym{color:color-mix(in srgb,var(--c) 55%,#fff)}
+:root[data-theme="dark"]{--ic-disc:#D3D9E2}
 :root[data-theme="dark"] .gk-hero-prog .score-bar{background:color-mix(in srgb,var(--gk,var(--accent)) 22%,rgba(255,255,255,.12))}
-/* The same for the small icon discs elsewhere (course icons in the Files list, the day timeline and the class view;
-   search results' line icons), which were white circles in dark mode */
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) :is(.tl-gic,.fn-ring,.occv-ic){background:color-mix(in srgb,var(--c,var(--accent)) 26%,#c6cedb)}
-  :root:not([data-theme="light"]) .fn-ring:has(> svg:not(.ci-svg)){background:color-mix(in srgb,var(--c,var(--accent)) 24%,var(--surface));color:color-mix(in srgb,var(--c,var(--accent)) 55%,#fff)}
-  :root:not([data-theme="light"]) .sr-ic{background:color-mix(in srgb,var(--accent-band,var(--accent)) 22%,var(--surface));color:color-mix(in srgb,var(--accent-band,var(--accent)) 50%,#fff)}
-}
-:root[data-theme="dark"] :is(.tl-gic,.fn-ring,.occv-ic){background:color-mix(in srgb,var(--c,var(--accent)) 26%,#c6cedb)}
-:root[data-theme="dark"] .fn-ring:has(> svg:not(.ci-svg)){background:color-mix(in srgb,var(--c,var(--accent)) 24%,var(--surface));color:color-mix(in srgb,var(--c,var(--accent)) 55%,#fff)}
-:root[data-theme="dark"] .sr-ic{background:color-mix(in srgb,var(--accent-band,var(--accent)) 22%,var(--surface));color:color-mix(in srgb,var(--accent-band,var(--accent)) 50%,#fff)}
+:root[data-theme="dark"] .g2-ring{background:var(--ic-disc)!important}
+:root[data-theme="dark"] :is(.tl-gic,.fn-ring,.occv-ic,.sr-ic){background:var(--ic-disc)}
 /* Report or Block in a small "..." menu on shared rows and messages; a quiet link in the share viewer */
 .grp-rep{flex:none}
 .grp-list:has(details.grp-rep[open]),.grp-msgs:has(details.grp-rep[open]),.grp-list li:has(details.grp-rep[open]){overflow:visible}
@@ -535,3 +524,18 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .grp-msg-top .grp-rep{margin-left:auto}
 .grp-msg-top .grp-rep summary.g2-dots{width:26px;height:26px;border:0;background:none}
 .sheet-foot .sh-rep{font-size:.85rem;color:var(--muted);padding:6px 2px}
+/* Offline changes waiting to be sent (and the ones that couldn't be) */
+.grp-out-line{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:9px 12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px dashed color-mix(in srgb,var(--accent) 45%,var(--line));color:var(--ink);font-size:.86rem}
+#grpDetail .grp-out-line{margin:12px 0}
+.grp-out-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.grp-out-fail{margin:0 0 14px;padding:10px 12px;border-radius:14px;background:var(--surface);border:1px solid color-mix(in srgb,var(--danger,#C0392B) 45%,var(--line))}
+#grpDetail .grp-out-fail{margin:12px 0}
+.grp-out-fail .fsec{margin:0 0 6px}
+.grp-out-fail ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.grp-out-fail li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.grp-out-fail li > div:first-child{display:grid;gap:2px;min-width:0;flex:1 1 220px;overflow-wrap:anywhere}
+.grp-out-fail .row-actions{display:flex;flex-wrap:wrap;gap:6px}
+.grp-msg.is-pending{border-style:dashed;border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.pt-task.is-pending,.kb-card.is-pending{outline:1px dashed color-mix(in srgb,var(--accent) 50%,var(--line));outline-offset:-1px}
+.grp-pend{color:var(--accent);font-weight:600}
+.grp-react.is-pending,.btn.is-pending{outline:2px dashed color-mix(in srgb,var(--accent) 60%,transparent);outline-offset:1px}

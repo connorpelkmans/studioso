@@ -541,6 +541,9 @@ const NOTE_COLORS = [["yellow","#FFE680"],["pink","#FFB8CC"],["blue","#AED6FF"],
 const NOTE_COLORS_SHOWN = NOTE_COLORS.map((c, i, a) => a[i === 0 ? 2 : i === 2 ? 0 : i]);
 // A note keeps the colour you picked on every theme
 const noteColor = k => NOTE_COLORS[Math.max(0, NOTE_COLORS.findIndex(c => c[0] === k))][1];
+// a course tag's text on a note: the course colour toward ink (as .note-tag draws it), deepened further only if its tint on
+// that paper needs it to read
+const noteTagInk = (c, paper) => { const tint = hexBlend(hexBlend(paper, "#FFFFFF", 0.6), c, 0.22); return courseInk(hexBlend(c, "#1A1A1A", 0.3), [tint]); };
 // One width on every screen
 const NOTE_W = () => 200;
 const TRASH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6"/></svg>';
@@ -622,6 +625,16 @@ function noteTaskOpts(n){
     + grp(n.courseId && courseOf(n.courseId) ? courseLabel(courseOf(n.courseId)) : "Open tasks", cands.filter(t => !n.courseId || t.courseId === n.courseId))
     + (n.courseId ? grp("Other courses", cands.filter(t => t.courseId !== n.courseId)) : "");
 }
+// A note as one line of plain text, for lists that can only show text (a dropdown): math as characters ("d/(dx)xⁿ"),
+// no [[link]] brackets or ** marks, its lines joined with " · ", cut with "…"
+function notePlain(text, max){
+  let t = String(text || "").trim(); if (!t) return "";
+  try { if (typeof mathPlain === "function") t = mathPlain(t); } catch (e) {}
+  t = t.replace(/\[\[([^\]]*)\]\]/g, "$1").split(/\n+/).map(l => l.replace(/^\s*[-*•]\s+/, "").trim()).filter(Boolean).join(" · ").replace(/\s+/g, " ");
+  return max && t.length > max ? t.slice(0, max - 1).trimEnd() + "…" : t;
+}
+// A note's name for screen readers: its words as read, not its formatting or math code
+const noteLabelText = n => { const t = String(n.text || "").trim(); if (!t) return "Empty note"; const s = typeof mathSpeech === "function" ? mathSpeech(t) : t; return s.replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\s+/g, " ").slice(0, 80); };
 function noteHtml(n){
   const c = courseOf(n.courseId), w = NOTE_W(), tk = n.taskId ? state.tasks[n.taskId] : null;
   const editing = noteEditing === n.id;
@@ -638,12 +651,12 @@ function noteHtml(n){
          <div class="note-btns">${window.SBONENOTE ? SBONENOTE.noteBtn(n) : ""}<button type="button" class="nb" data-act="note-archive" data-id="${esc(n.id)}" title="Archive" aria-label="Archive note">${ARCHIVE}</button><button type="button" class="nb" data-act="note-trash" data-id="${esc(n.id)}" title="Delete" aria-label="Delete note">${TRASH}</button><button type="button" class="btn small" data-act="note-done">Done</button></div>
        </div>`
     : `<div class="note-body">${n.text.trim() ? (window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
-  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="${editing ? "group" : "button"}" aria-label="${editing ? "Editing note" : "Note: " + esc(n.text.slice(0, 60) || "empty") + ". Press Enter to edit."}"
+  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="group" aria-roledescription="note" aria-label="${editing ? "Note options. Press Enter to type in the note, Escape to close it." : esc(noteLabelText(n)) + ". Press Enter for its options."}"
     style="left:${n.x}px;top:${n.y}px;z-index:${editing ? 9000 : n.z};width:${w}px;--nc:${noteColor(n.color)};--rot:${editing ? 0 : n.rot}deg">
     ${pinHtml(notePinOf(n))}
     ${editing ? "" : `<span class="note-rot" data-rot="${esc(n.id)}" title="Drag to rotate" aria-hidden="true">${ROT_ICON}</span>`}
     ${noteStickersHtml(n, editing)}
-    ${c ? `<span class="note-tag" style="--c:${esc(c.color)}">${esc(courseLabel(c))}</span>` : ""}
+    ${c ? `<span class="note-tag" style="--c:${esc(c.color)};--ci:${esc(noteTagInk(c.color, noteColor(n.color)))}">${esc(courseLabel(c))}</span>` : ""}
     ${n.conflict ? `<button type="button" class="note-conflict" data-act="note-resolve" data-id="${esc(n.id)}">Edited on two devices. Tap to review.</button>` : ""}
     ${tk ? `<button type="button" class="note-task-tag" data-act="edit-task" data-id="${esc(tk.id)}" title="Open ${esc(tk.title)}">${CLIP}${esc(tk.title)}</button>` : ""}
     ${body}
@@ -776,7 +789,8 @@ function nbFill(){
   if (env && !env.dataset.morph) { if (env.classList.contains("closed") || getComputedStyle(env).position === "fixed") { env.style.removeProperty("height"); env.style.removeProperty("max-height"); } else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
 }
 addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
-hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
+// the board is sized in the same frame it's drawn (and again once notes' text has settled), so it never shows a moment at the wrong size
+hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); fitNoteBoard(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
 document.addEventListener("input", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 document.addEventListener("focusin", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 ["pointerdown", "mousedown", "touchstart"].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest(".note-more")) e.stopPropagation(); }, {capture: true, passive: true}));
@@ -801,8 +815,11 @@ const nbColor = b => { const c = b && b.courseId && courseOf(b.courseId); return
 function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
-  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>${id && id === cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}`;
-  return `<div class="nb-boards" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
+  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
+  // Only the tabs are in the tab list; the board's options and New Note Board come just after it (a list of tabs holding other
+  // buttons reads as broken tabs). The list is display:contents, so the row looks the same.
+  const opts = cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : "";
+  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Note Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
@@ -893,6 +910,13 @@ function viewNotes(){
   if (window.SBWB && SBWB.on()) return notesSwitchHtml() + SBWB.view();
   return notesSwitchHtml() + viewNoteBoard();
 }
+// The notes in the order they're read on the board, for Tab and screen readers: rows top to bottom (notes whose tops are
+// within 80px share a row), each row left to right. Which note is drawn on top is their z-index, not this order.
+function noteReadOrder(list){
+  const out = [], byY = list.slice().sort((a, b) => a.y - b.y || a.x - b.x);
+  for (let i = 0; i < byY.length;) { const top = byY[i].y; let j = i; while (j < byY.length && byY[j].y - top < 80) j++; out.push(...byY.slice(i, j).sort((a, b) => a.x - b.x)); i = j; }
+  return out;
+}
 function viewNoteBoard(){
   repairNoteBoards();
   const curBoard = noteBoardId();
@@ -904,16 +928,17 @@ function viewNoteBoard(){
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">
-      <div class="nb-scroll" id="nbScroll">
-        <div class="nb-sizer" id="nbSizer"><div class="nb-board" id="nbBoard" style="width:${W}px;height:${H}px">
-          ${onBoard.sort((a, b) => a.z - b.z).map(noteHtml).join("")}
-          ${!onBoard.length ? `<div class="nb-empty sb-es">${emptyArt("notes")}<strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
-        </div></div>
-      </div>
-      ${boardMaxBtn("nb-max")}${nbZoomCtl()}
+      ${nbZoomCtl()}
       <div class="nb-targets">
         <div class="nb-target" data-drop-note="archive" role="button" tabindex="0" data-act="note-archive-open" title="Archive" aria-label="Archive, ${archived} notes">${ARCHIVE}<span>Archive</span></div>
         <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" title="Trash" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
+      </div>
+      ${boardMaxBtn("nb-max")}
+      <div class="nb-scroll" id="nbScroll">
+        <div class="nb-sizer" id="nbSizer"><div class="nb-board" id="nbBoard" style="width:${W}px;height:${H}px">
+          ${noteReadOrder(onBoard).map(noteHtml).join("")}
+          ${!onBoard.length ? `<div class="nb-empty sb-es">${emptyArt("notes")}<strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
+        </div></div>
       </div>
     </div>${envelopeHtml()}</div>
     <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag to move · drop on a tab, the archive or the trash · tap to edit</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
@@ -946,6 +971,11 @@ function newNoteAt(x, y){
   { const t = $("#noteText"); if (t) try { t.focus({preventScroll: true}); } catch (e) {} }
   setTimeout(() => { const t = $("#noteText"); if (t && document.activeElement !== t) t.focus({preventScroll: true}); }, 60);
 }
+// A note opened with a tap, click or Enter shows its options first; keyboard focus waits on the note itself (no keyboard pops
+// up on a phone), so keys go to the note, not to the app's one-key shortcuts
+function noteHold(){ const el = $(".note.editing"); if (el && !el.contains(document.activeElement)) try { el.focus({preventScroll: true}); } catch (e) {} }
+// The second step: the cursor goes to the end of the text (inside the tap, so a phone raises its keyboard)
+function noteType(){ const t = $("#noteText"); if (!t) return; try { t.focus({preventScroll: true}); t.setSelectionRange(t.value.length, t.value.length); } catch (e) {} }
 function saveNoteText(){
   const t = $("#noteText"); const id = noteEditing;
   noteEditing = null; noteDraftClear();

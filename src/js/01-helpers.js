@@ -110,6 +110,18 @@ const allCourses = () => Object.values(state.courses).sort((a, b) => (courseOrd(
 const coursesArr = () => allCourses().filter(c => !c.archived);
 const courseOf = id => id ? state.courses[id] : null;
 const colorOf = id => { const c = courseOf(id); return c ? c.color : "#8A94A6"; };
+/* Course colours in small labels: the course's own hue, deepened (or lifted, on dark) only as far as it takes to read at
+   4.5:1 (ensureContrast, 01-style-shop.js), so most colours are left exactly as they are. courseSolid is a fill for white text */
+const courseInk = (hex, bgs) => { try { return ensureContrast(hex, bgs, 4.6); } catch (e) { return hex; } };
+const courseSolid = hex => courseInk(hex, ["#FFFFFF"]);
+const hexBlend = (a, b, f) => { try { return mixHex(a, b, f); } catch (e) { return a; } };
+// the theme's own colours as drawn (hex), for working out what a label sits on; read at most once a second
+let themeHexAt = 0, themeHexMemo = {};
+const themeHex = (k, dflt) => {
+  const now = Date.now(); if (now - themeHexAt > 1000) { themeHexAt = now; themeHexMemo = {}; }
+  if (!(k in themeHexMemo)) { let v = ""; try { v = getComputedStyle(document.documentElement).getPropertyValue("--" + k).trim(); } catch (e) {} themeHexMemo[k] = /^#[0-9a-f]{6}$/i.test(v) ? v : dflt; }
+  return themeHexMemo[k];
+};
 const courseLabel = c => c.code || c.name || "Untitled Course";
 // A course code from a school site
 const COURSE_CODE_RX = /\b([A-Za-z]{2,6})[\s_-]?(\d{2,4}[A-Za-z]?)\b/;

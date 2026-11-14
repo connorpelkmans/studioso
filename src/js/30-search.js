@@ -681,6 +681,7 @@
     if (SEM.running) { SEM.again = true; return; }
     if (!semOn()) return;
     SEM.again = false;
+    const err0 = SEM.err;
     SEM.running = true; SEM.err = "";
     try {
       await semLoad(); ensureItems();
@@ -701,7 +702,7 @@
     } catch(e) {
       SEM.err = e && e.message || "Search by meaning isn't working right now.";
       if (e && (e.code === "limit" || e.code === "busy" || e.code === "offline")) { clearTimeout(SEM.timer); SEM.timer = 0; semKick(e.code === "limit" ? Math.max(75000, (embState().cool || 0) - Date.now() + 2000) : 120000); }
-    } finally { SEM.running = false; drawFoot(); if (SEM.again && !SEM.err) { SEM.again = false; semKick(1500); } }
+    } finally { SEM.running = false; drawFoot(); if (SEM.err !== err0 && S.open && S.mode === "ask") draw(); if (SEM.again && !SEM.err) { SEM.again = false; semKick(1500); } }
   }
   function semGc(){
     const m = embModel(), used = new Set(semList().map(p => m + ":" + p.h)), drop = [];
@@ -1134,7 +1135,7 @@ Return JSON only.`;
     if (semOn()) {
       try {
         await semLoad();
-        if (!SEM.vecs.size) note = "Search by meaning is still getting ready, so these are word matches for now.";
+        if (!SEM.vecs.size) note = navigator.onLine === false ? "Search by meaning needs internet, so these are word matches for now." : "Search by meaning is still getting ready, so these are word matches for now.";
         else { const got = await semQuery(q, pass), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
         if (SEM.left > 0 && SEM.vecs.size) note = "Search by meaning is still reading some of your things, so a few may be missing.";
       } catch(e) { note = `Couldn't search by meaning right now. ${e.message || ""} Showing word matches instead.`; }
@@ -1266,7 +1267,7 @@ Return JSON only.`;
       const qs = r.questions.filter(q => ["single", "truefalse", "short"].includes(q.type)).slice(0, 5);
       if (!qs.length) throw aiErr("empty", "Couldn't write questions from this material. Try asking about something your notes cover in more detail.");
       Object.assign(tu, {state: "ready", qs});
-      if (proLocked() && typeof PLAN !== "undefined" && PLAN && PLAN.useRun) PLAN.useRun("quiz");
+      if (proLocked() && typeof PLAN !== "undefined" && PLAN && PLAN.useRun) { PLAN.useRun("quiz", true); tu.free = true; } // counted now, said on the Finished screen: a toast here would land on question 1
     } catch(e) { if (S.tutor !== tu) return; Object.assign(tu, {state: "error", err: e.message || "Couldn't write questions right now. Try again."}); }
     draw();
   }
@@ -1396,6 +1397,12 @@ Return JSON only.`;
   const icon = (g, color) => `<span class="sx-ic k-${g}" style="--c:${esc(color || "var(--accent)")}" aria-hidden="true">${g === "study" || g === "ask" ? AI_ICON : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[g] || ICONS.actions}</svg>`}</span>`;
   function recent(){ try { return JSON.parse(localStorage.getItem(LS_RECENT) || "[]").filter(x => typeof x === "string").slice(0, 6); } catch(e) { return []; } }
   function pushRecent(q){ q = q.trim(); if (q.length < 2) return; const r = [q].concat(recent().filter(x => x.toLowerCase() !== q.toLowerCase())).slice(0, 6); try { localStorage.setItem(LS_RECENT, JSON.stringify(r)); } catch(e) {} }
+  // a course tag's text: the course colour toward ink (as .sx-tag draws it), deepened (lifted on dark) only if its tint on the
+  // row, plain or highlighted, needs it to read
+  function tagInk(c){
+    const sf = themeHex("surface", "#F7F9FC"), on = hexBlend(sf, themeHex("accent", "#1A60D0"), 0.11);
+    return courseInk(hexBlend(c, themeHex("ink", "#0F1F3D"), 0.25), [hexBlend(sf, c, 0.13), hexBlend(on, c, 0.13)]);
+  }
   function metaFor(doc, extra){
     const c = doc.type === "chunk" ? courseOf((state.files[doc.fid] || {}).courseId) : courseOf(doc.cid);
     const bits = [];
@@ -1406,7 +1413,7 @@ Return JSON only.`;
     if (doc.type === "question") { const d = state.decks[doc.pid], qz = d && (d.aiQuizzes || []).find(x => x.id === doc.qid); if (qz) bits.push(esc(qz.title)); }
     if (doc.type === "chunk" && doc.label && doc.page) bits.push(`${esc(doc.label)} ${doc.page}`);
     if (doc.type === "file" && extra && extra.length) { const d = extra[0].doc; if (d.label && d.page) bits.push(`${esc(d.label)} ${d.page}`); if (extra.length > 1) bits.push(`${extra.length} matches`); }
-    return (c ? `<span class="sx-tag" style="--c:${esc(c.color || "#8A94A6")}">${esc(courseLabel(c))}</span>` : "") + bits.map(b => `<span>${b}</span>`).join("");
+    return (c ? `<span class="sx-tag" style="--c:${esc(c.color || "#8A94A6")};--ci:${esc(tagInk(c.color || "#8A94A6"))}">${esc(courseLabel(c))}</span>` : "") + bits.map(b => `<span>${b}</span>`).join("");
   }
   function colorFor(doc){
     if (doc.type === "chunk") return colorOf((state.files[doc.fid] || {}).courseId);
@@ -1419,40 +1426,46 @@ Return JSON only.`;
       <span class="sx-main"><span class="sx-t">${title}</span>${snip ? `<span class="sx-s">${snip}</span>` : ""}</span>
       ${meta ? `<span class="sx-meta">${meta}</span>` : ""}</div>`;
   }
+  // Each section of results is a named group inside the list ("Flashcards, 7 results"), so a screen reader hears the
+  // sections as sections rather than as stray items among the results. The visible header is for the eye; its Show All
+  // does what the Flashcards (or other) chip above does, so it's left to the mouse and the chips serve the keyboard.
+  const grpHtml = (label, n, head, body) => `<div role="group" aria-label="${esc(label + (n ? `, ${n} result${n === 1 ? "" : "s"}` : ""))}"><div class="sx-gh" aria-hidden="true">${head}</div>${body}</div>`;
   function drawFind(){
     const q = S.q.trim(), rows = [], html = [];
+    S.count = null;
     const push = (run, h) => { rows.push(run); return h(rows.length - 1); };
     if (!q) {
       if (S.type !== "all") {
         ensureItems();
         const list = IX.items.docs.filter(d => pass(d) && !d.arch).sort((a, b) => (b.boost - a.boost) || String(a.date || "9").localeCompare(String(b.date || "9")) || String(a.title).localeCompare(String(b.title))).slice(0, 80);
-        if (list.length) html.push(`<div class="sx-gh"><span>${esc(GLABEL[S.type])}</span></div>` + list.map(d => push(() => openDoc(d), i => rowHtml(i, d.g, esc(d.title), d.text ? esc(String(d.text).slice(0, 140)) : "", metaFor(d), colorFor(d)))).join(""));
+        if (list.length) html.push(grpHtml(GLABEL[S.type], 0, `<span>${esc(GLABEL[S.type])}</span>`, list.map(d => push(() => openDoc(d), i => rowHtml(i, d.g, esc(d.title), d.text ? esc(String(d.text).slice(0, 140)) : "", metaFor(d), colorFor(d)))).join("")));
         else html.push(`<div class="sx-empty"><strong>Nothing Here Yet</strong>There's nothing of this kind${S.course ? " in this course" : ""}.</div>`);
       } else {
         const rec = recent();
-        if (rec.length) html.push(`<div class="sx-gh"><span>Recent Searches</span></div>` + rec.map(r => push(() => { setQuery(r); }, i => rowHtml(i, "recent", esc(r), "", "", "var(--muted)"))).join(""));
+        if (rec.length) html.push(grpHtml("Recent Searches", 0, `<span>Recent Searches</span>`, rec.map(r => push(() => { setQuery(r); }, i => rowHtml(i, "recent", esc(r), "", "", "var(--muted)"))).join("")));
         ensureItems();
         const sug = ["Add a Task", "Import a Syllabus", "Review Due Flashcards", "Upload Files", "Create Flashcards with AI", "Add an Event"];
         const acts = IX.items.docs.filter(d => d.type === "action" && sug.includes(d.title)).sort((a, b) => sug.indexOf(a.title) - sug.indexOf(b.title));
-        html.push(`<div class="sx-gh"><span>Suggested Actions</span></div>` + acts.map(d => push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--accent)"))).join(""));
+        html.push(grpHtml("Suggested Actions", 0, `<span>Suggested Actions</span>`, acts.map(d => push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--accent)"))).join("")));
         html.push(`<p class="sx-tip">Search finds tasks, courses, flashcards, notes, events, practice quizzes, settings and the text inside your PDFs, Word and PowerPoint files.</p>`);
       }
     } else {
       const r = find(q); S.P = r.P;
+      S.count = r.groups.reduce((s, G) => s + G.list.filter(x => x.doc.type !== "filter" && x.doc.type !== "ask").length, 0);
       // only "Ask about…" or filter rows came back: say plainly that nothing matched
       if (r.groups.length && !r.groups.some(G => G.list.some(x => x.doc.type !== "filter" && x.doc.type !== "ask"))) html.push(`<p class="sx-none">No matches for “${esc(q)}”. Try other words, or ask below.</p>`);
       if (!r.groups.length) html.push(`<div class="sx-empty"><strong>No Matches</strong>Try fewer or different words${S.type !== "all" || S.course ? ", or show everything" : ""}.${S.type !== "all" || S.course ? ` <button type="button" class="link-btn" data-sx="reset">Show Everything</button>` : ""}</div>`);
       r.groups.forEach(G => {
         const cap = S.type === "all" ? (G.g === "actions" ? 4 : G.g === "files" || G.g === "tasks" ? 5 : 4) : 120;
         const shown = G.list.slice(0, cap), realCount = G.list.filter(x => x.doc.type !== "filter" && x.doc.type !== "ask").length;
-        html.push(`<div class="sx-gh"><span>${esc(GLABEL[G.g])}</span>${realCount ? `<span class="n">${realCount}</span>` : ""}${G.list.length > cap ? `<button type="button" class="link-btn" data-sx="type" data-id="${G.g}">Show All</button>` : ""}</div>`
-          + shown.map(x => {
+        html.push(grpHtml(GLABEL[G.g], realCount, `<span>${esc(GLABEL[G.g])}</span>${realCount ? `<span class="n">${realCount}</span>` : ""}${G.list.length > cap ? `<button type="button" class="link-btn" data-sx="type" data-id="${G.g}" tabindex="-1">Show All</button>` : ""}`,
+          shown.map(x => {
             const d = x.doc;
             if (d.type === "ask") return push(() => runAsk(), i => rowHtml(i, "ask", esc(d.title), esc(d.text), `<kbd class="sx-kbd">${MAC ? "⌥" : "Alt"}+Enter</kbd>`, "#8B5CF6"));
             if (d.type === "filter") return push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--muted)"));
             const snip = x.chunks && x.chunks.length ? snippet(x.chunks[0].doc.text, r.P.hl, 170) : d.text ? snippet(d.text, r.P.hl, 150) : "";
             return push(() => openDoc(d, x.byText ? x.chunks : null), i => rowHtml(i, d.g, hlTitle(d.title, r.P.hl), snip, metaFor(d, x.chunks), colorFor(d)));
-          }).join(""));
+          }).join("")));
       });
     }
     return {rows, html: html.join("")};
@@ -1479,6 +1492,12 @@ Return JSON only.`;
   function turnHtml(T, ti){
     const an = T.answer;
     return `<div class="sx-turn"><p class="sx-q"><span class="sr">You asked: </span>${esc(T.q)}</p>${an && an.state === "done" ? ansBox(T, an, ti, true) : ""}${genBox(T, ti)}</div>`;
+  }
+  // Why search by meaning isn't working, in full, one line under Ask About (the footer only has room for the key hints)
+  function semLine(){
+    if (!semOn()) return "";
+    const t = navigator.onLine === false ? "Search by meaning needs internet. Until you're back online, Ask With AI matches your words." : SEM.err && !SEM.running ? SEM.err : "";
+    return t ? `<p class="sx-hint sx-semerr" role="status">${esc(t)}</p>` : "";
   }
   function scopeBar(){
     const cs = coursesArr(), cur = S.course; if (!cs.length) return "";
@@ -1517,8 +1536,8 @@ Return JSON only.`;
     if (tu.state === "error") return `<div class="sx-ans sx-tutor miss">${top("")}<p>${esc(tu.err)}</p><div class="sx-ans-btns"><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Try Again</button></div></div>`;
     const n = tu.qs.length;
     if (tu.i >= n) {
-      const right = tu.ans.filter(a => a && a.correct).length;
-      return `<div class="sx-ans sx-tutor">${top("Finished")}<p class="sx-tscore"><b>You got ${right} of ${n} right.</b> ${right === n ? "Nicely done." : "Quiz Me Again for new questions, or save these to practice later."}</p><div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="tq-save">Save as Practice Quiz</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Quiz Me Again</button><button type="button" class="btn small" data-sx="tutor-end">Back to the Answer</button></div></div>`;
+      const right = tu.ans.filter(a => a && a.correct).length, left = tu.free ? quizLeft() : Infinity;
+      return `<div class="sx-ans sx-tutor">${top("Finished")}<p class="sx-tscore"><b>You got ${right} of ${n} right.</b> ${right === n ? "Nicely done." : "Quiz Me Again for new questions, or save these to practice later."}</p>${left === Infinity ? "" : `<p class="mini sx-tfree">${left ? `${left} free Quiz Me session${left === 1 ? "" : "s"} left this week.` : "That was your last free Quiz Me this week. More on Monday."}</p>`}<div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="tq-save">Save as Practice Quiz</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Quiz Me Again</button><button type="button" class="btn small" data-sx="tutor-end">Back to the Answer</button></div></div>`;
     }
     const q = tu.qs[tu.i], a = tu.ans[tu.i], done = a && !a.checking;
     const opts = q.type === "short" ? "" : `<div class="sx-topts" role="group" aria-label="Answers">${q.options.map((o, k) => `<button type="button" class="sx-topt${done ? (q.correct[0] === k ? " ok" : a.given === k ? " no" : "") : ""}" data-sx="tq-opt" data-id="${k}"${a ? " disabled" : ""}>${esc(o)}</button>`).join("")}</div>`;
@@ -1540,7 +1559,7 @@ Return JSON only.`;
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI (free with a Gemini key) to search by meaning and get answers from your notes.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
-      h += scopeBar();
+      h += scopeBar() + semLine();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
     }
     if (live) {
@@ -1548,7 +1567,8 @@ Return JSON only.`;
       if (S.thread.length > 1 || !fresh) h += `<p class="sx-q"><span class="sr">You asked: </span>${esc(A.q)}</p>`;
       if (A.state === "search") h += (A.answer && A.answer.det ? ansBox(A, A.answer, ti) : "") + `<div class="sx-ans busy">${dots}Looking through your things…</div>`;
       else {
-        if (A.note) h += `<p class="sx-hint">${esc(A.note)}</p>`;
+        // the line under Ask About already says why search by meaning isn't working: no second "not ready" line under it
+        if (A.note && !(semLine() && /^Search by meaning (is still getting ready|needs internet)/.test(A.note))) h += `<p class="sx-hint">${esc(A.note)}</p>`;
         // synced files (OneDrive, Google Drive) are only read when AI may read that cloud's files: say so, with a way to allow it
         { const shut = cloudShut(); if (shut.length && window.SBCLOUD && SBCLOUD.setPrefs) { const names = [...new Set(shut.map(f => (typeof CLOUD_NAMES === "object" && CLOUD_NAMES[f.cloud.p]) || "the cloud"))].join(" and ");
           h += `<p class="sx-hint sx-cloud-shut">${shut.length} file${shut.length === 1 ? "" : "s"} synced from ${esc(names)} ${shut.length === 1 ? "isn't" : "aren't"} searched, because AI isn't allowed to read ${esc(names)} files. <button type="button" class="link-btn" data-sx="cloud-ai">Let AI Read Them</button></p>`; } }
@@ -1602,8 +1622,19 @@ Return JSON only.`;
     list.innerHTML = r.html;
     const inp = $("#sxQ");
     if (S.rows.length) inp.setAttribute("aria-activedescendant", "sxo-" + S.active); else inp.removeAttribute("aria-activedescendant");
-    drawChips(); drawFoot();
+    drawChips(); drawFoot(); sayCount(askDone);
     S.ms = Math.round(now() - t0);
+  }
+  // How many results, said once typing pauses ("12 results", "No matches"), in a status line that stays put between redraws
+  let sayT = 0, said = "";
+  function sayCount(askDone){
+    let el = $("#sxCount");
+    if (!el) { el = document.createElement("p"); el.id = "sxCount"; el.className = "sr"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); $("#sxBody").insertBefore(el, $("#sxList")); }
+    clearTimeout(sayT);
+    const n = askDone || !S.q.trim() || S.count == null ? null : S.count, msg = n == null ? "" : n ? `${n} result${n === 1 ? "" : "s"}` : "No matches";
+    if (!msg) { said = ""; el.textContent = ""; return; }
+    const key = S.q.trim() + "|" + msg;
+    sayT = setTimeout(() => { if (!S.open || key === said) return; said = key; el.textContent = msg; }, 700);
   }
   let drawT = 0;
   function drawSoon(){ if (!S.open) return; clearTimeout(drawT); drawT = setTimeout(() => { const y = $("#sxBody").scrollTop; draw(); $("#sxBody").scrollTop = y; }, 350); }
@@ -1621,9 +1652,9 @@ Return JSON only.`;
     if (FT.busy && FT.total) bits.push(`Reading your files: ${Math.min(FT.done, FT.total)} of ${FT.total}${FT.cur ? ` (${esc(FT.cur.length > 28 ? FT.cur.slice(0, 26) + "…" : FT.cur)})` : ""}`);
     else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this device.");
     else if (FT.loading && !FT.loaded) bits.push("Loading the text from your files…");
+    // why search by meaning isn't working is said in full under Ask About (semLine), not squeezed in here
     if (semOn()) {
-      if (SEM.err && !SEM.running) bits.push(esc(SEM.err));
-      else if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
+      if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
     }
     return bits;
   }
@@ -1860,7 +1891,8 @@ Return JSON only.`;
   };
   setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
-  window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });
+  window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } if (S.open && S.mode === "ask") draw(); });
+  window.addEventListener("offline", () => { if (S.open && S.mode === "ask") draw(); });
 })();
 
 

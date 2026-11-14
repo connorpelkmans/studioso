@@ -59,7 +59,9 @@ const SPELL = (() => {
   const KEY = "studyboard:spelling";
   const GBR = /^(GB|UK|IE|AU|NZ|ZA|IN|SG|HK|MY|PK|NG|KE|GH|JM|MT|CY|BD|LK)$/;
   function region(){
-    let pick = ""; try { pick = localStorage.getItem(KEY) || ""; } catch (e) {}
+    let pick = "", lang = ""; try { pick = localStorage.getItem(KEY) || ""; lang = localStorage.getItem("studyboard:lang") || ""; } catch (e) {}
+    // English spelling only: the text catalog of another language (01-i18n.js) is keyed by the American English the code writes
+    if (lang && lang !== "auto" && !/^en\b/i.test(lang)) return "";
     if (pick === "us") return ""; if (pick === "ca" || pick === "gb") return pick;
     const L = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").replace("_", "-");
     if (!/^en\b/i.test(L)) return "";

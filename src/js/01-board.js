@@ -761,7 +761,7 @@ function dayTimelineHtml(F, todayList, heroId){
     if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}" style="--m:${x.e - x.s}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
     if (x.k === "ev") return `<div class="${cls.trim()} ev" style="--c:${esc(x.color)};--m:${x.e - x.s}"${at}><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
     const hero = x.t.id === heroId;
-    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))};--m:${x.e - x.s}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.t.title)}</b><span class="dtl-m"><span>${esc(len)}</span>${on ? `<span class="dtl-badge">Now</span>` : hero ? `<span class="dtl-badge">Next</span>` : ""}</span></button>`;
+    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))};--cb:${esc(courseSolid(colorOf(x.t.courseId)))};--m:${x.e - x.s}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.t.title)}</b><span class="dtl-m"><span>${esc(len)}</span>${on ? `<span class="dtl-badge">Now</span>` : hero ? `<span class="dtl-badge">Next</span>` : ""}</span></button>`;
   }).join("");
   return `<div class="dtl" role="group" aria-label="Today's schedule"><div class="dtl-rail">${cards}</div></div>`;
 }
@@ -770,6 +770,24 @@ hook("render", () => { document.querySelectorAll(".dtl-rail").forEach(r => { con
 // The rail fades softly at an edge that has more cards past it, so the card cut off there reads as "scroll for more"
 function dtlEdges(r){ const max = r.scrollWidth - r.clientWidth; r.classList.toggle("dtl-more-l", max > 1 && r.scrollLeft > 1); r.classList.toggle("dtl-more-r", max > 1 && r.scrollLeft < max - 1); }
 addEventListener("resize", () => document.querySelectorAll(".dtl-rail").forEach(dtlEdges));
+// The hover card on a plan row's title: the reasons sorted into what they are. Notes (why it's placed here now) come first, then
+// the plain facts on their own labelled lines: when it's due, what it's worth, how much is left. Read by the tooltip in 102-qol.js.
+function planWhyData(rs){
+  const notes = [], facts = [];
+  (rs || []).forEach(r => {
+    let m;
+    if ((m = r.match(/^Due (today|tomorrow)$/))) facts.push(["Due", m[1] === "today" ? "Today" : "Tomorrow", "soon"]);
+    else if ((m = r.match(/^Due at (.+) today$/))) facts.push(["Due", "Today at " + m[1], "soon"]);
+    else if ((m = r.match(/^Due in (.+)$/))) facts.push(["Due", "In " + m[1], ""]);
+    else if (/^(Overdue|Past due|Was due)/.test(r)) facts.push(["Due", r, "late"]);
+    else if ((m = r.match(/^((?:About )?[\d.]+%) of your grade(.*)$/))) facts.push(["Worth", m[1] + " of your grade" + m[2], ""]);
+    else if ((m = r.match(/^(.+) of work left(.*)$/))) facts.push(["Left", m[1].replace(/^About /, "about ") .replace(/^./, c => c.toUpperCase()) + " of work" + m[2], ""]);
+    else if ((m = r.match(/^(\d+)% prepared, about (.+) of study left$/))) facts.push(["Left", "About " + m[2] + " of study (" + m[1] + "% prepared)", ""]);
+    else if ((m = r.match(/^About (.+) of study left$/))) facts.push(["Left", "About " + m[1] + " of study", ""]);
+    else notes.push(r);
+  });
+  return {notes, facts};
+}
 function planRow(x, i, showScore, noRank){
   const t = x.t, c = courseOf(t.courseId);
   // a short reason shows on the row; a long one would be cut off, so the row says "Why" and the reasons open below
@@ -779,7 +797,7 @@ function planRow(x, i, showScore, noRank){
     : x.alloc > 0 ? `<span class="alloc" title="Time Today's Plan suggests for this today">${fmtHM(x.alloc)}<small class="alloc-l"> today</small></span>` : `<span class="alloc idle">Later</span>`;
   return `<li class="plan-row${open ? " why-open" : ""}" style="--c:${esc(colorOf(t.courseId))}">
     ${t.gt || t.xs ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
-    <button class="plan-main" ${gtOpenAttrs(t)} title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
+    <button class="plan-main" ${gtOpenAttrs(t)}${rs.length ? ` data-why="${esc(JSON.stringify(planWhyData(rs)))}"` : ""}><span class="task-title">${esc(t.title)}</span>${t.gt ? `<span class="pr-chip gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="pr-chip pr-chip-out">${esc(courseLabel(c))}</span>` : ""}
     ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${short ? esc(lead) + ". " : ""}Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span>${short ? `<span class="pr-n" aria-hidden="true">+${rest.length} more</span>` : `<svg class="pf-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`}</button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
     <span class="plan-side">${lmsGoBtn(t)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${side}${showScore || !canDoNow(t) ? "" : `<button class="focus-go" data-act="pomo-task" ${focusAttrs(t)} aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}${showScore || t.gt ? "" : `<button class="focus-go lt-go" data-act="log-time" data-id="${esc(planTaskId(t))}" aria-label="Log time on ${esc(t.title)}" title="Log time you worked on this">${CLOCK_IC}</button>`}</span>
     ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}

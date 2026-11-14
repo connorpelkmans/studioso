@@ -155,13 +155,15 @@
       <p class="mini" style="margin:0">These work when you're not typing in a box.</p>
       ${sec("Anywhere", [row(["N"], "New task"), ...(typeof CAPTURE_OFF !== "undefined" && CAPTURE_OFF ? [] : [row(["C"], "Quick Capture")]), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
       ${sec("Go To", VIEWS_KEYS.map(([t], i) => row(appWin() ? [String(i + 1), MOD + "+" + (i + 1)] : [String(i + 1)], viewName(t))))}
-      ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz")])}
-      ${sec("Notes", [row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
+      ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz"), row(["Esc"], "End the study session or quiz")])}
+      ${sec("Notes", [row(["Enter"], "Open the selected note's options, then again to type in it"), row(["Esc"], "Close the open note"), row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
   }
   document.addEventListener("keydown", e => {
     if (e.defaultPrevented || e.isComposing || e.repeat) return;
     if (typing(e.target) || modals().length) return;
+    // A note open on the board is being worked on, even before its text box has the cursor: keys belong to it
+    if (typeof noteEditing !== "undefined" && noteEditing && ui.tab === "notes") return;
     const mod = e.ctrlKey || e.metaKey, m = /^Digit([1-7])$/.exec(e.code || "");
     if (mod && !e.altKey && !e.shiftKey && e.key === ",") { e.preventDefault(); settings(); return; }
     if (mod && !e.altKey && !e.shiftKey && m) { e.preventDefault(); goView(VIEWS_KEYS[Number(m[1]) - 1][0]); return; }
@@ -225,18 +227,33 @@
   const hover = mm("(hover: hover) and (pointer: fine)");
   let tip = null, tipFor = null, tipT = 0;
   const tipText = el => {
+    if (el.dataset && el.dataset.why) return {why: el.dataset.why};
     if (el.dataset && el.dataset.tip) return el.dataset.tip;
     // icon-only: no visible letters or digits (an icon, or a sign like − or ×)
     if (!el.matches("button,a[href],[role=button],[role=tab]") || /[\p{L}\p{N}]/u.test(el.innerText || "")) return "";
     return (el.getAttribute("aria-label") || "").trim();
   };
+  // Today's Plan rows: why a task is placed where it is, as a short card (a heading, the notes, then labelled facts)
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  function whyCard(tip, json){
+    let d; try { d = JSON.parse(json); } catch (e) { d = {notes: [], facts: []}; }
+    tip.classList.add("sb-why");
+    tip.appendChild(mk("div", "sw-h", "Why it's here"));
+    if (d.notes && d.notes.length) { const ul = mk("ul", "sw-notes"); d.notes.forEach(n => ul.appendChild(mk("li", "", n))); tip.appendChild(ul); }
+    if (d.facts && d.facts.length) {
+      const dl = mk("dl", "sw-facts");
+      d.facts.forEach(([k, v, c]) => { dl.appendChild(mk("dt", "", k)); dl.appendChild(mk("dd", c ? "sw-" + c : "", v)); });
+      tip.appendChild(dl);
+    }
+  }
   function hideTip(){ clearTimeout(tipT); tipT = 0; tipFor = null; if (tip) { tip.remove(); tip = null; } }
   function showTip(el, text){
     if (!el.isConnected || !el.getClientRects().length) return;
     const host = el.closest("dialog[open]") || document.body;
-    tip = document.createElement("div"); tip.className = "sb-tip"; tip.setAttribute("aria-hidden", "true"); tip.textContent = text;
+    tip = document.createElement("div"); tip.className = "sb-tip"; tip.setAttribute("aria-hidden", "true");
+    if (typeof text === "string") tip.textContent = text; else whyCard(tip, text.why);
     host.appendChild(tip);
-    const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 8;
+    const r = (el.dataset.why && el.querySelector(".task-title") || el).getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 8;
     let top = r.top - h - gap; if (top < 6) top = r.bottom + gap;
     // a tooltip for something on the page stays off the side menu
     const nav = !el.closest("nav.tabs, dialog") && document.querySelector("nav.tabs"), nr = nav && nav.getBoundingClientRect();
@@ -251,7 +268,7 @@
   };
   document.addEventListener("pointerover", e => {
     if (e.pointerType && e.pointerType !== "mouse") return;
-    const el = e.target.closest && e.target.closest("[data-tip],button,a[href],[role=button],[role=tab]");
+    const el = e.target.closest && e.target.closest("[data-why],[data-tip],button,a[href],[role=button],[role=tab]");
     if (!el || el === tipFor) return;
     if (tipFor) hideTip();
     want(el, 500);

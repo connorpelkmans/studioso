@@ -101,6 +101,7 @@
     ptDelList: id => q(cli().rpc("delete_task_list", {p_list: id})),
     ptAdd: (list, title, who, due, notes, prio) => q(cli().rpc("add_group_task", {p_list: list, p_title: title, p_assignee: who, p_due: due, p_notes: notes, p_priority: prio})),
     ptUpd: (id, patch) => q(cli().rpc("update_group_task", {p_task: id, p_patch: patch})),
+    ptTask: id => q(cli().from("group_tasks").select("*").eq("id", id).maybeSingle()),
     ptMove: (id, dir) => q(cli().rpc("move_group_task", {p_task: id, p_dir: dir})),
     ptDel: id => q(cli().rpc("delete_group_task", {p_task: id})),
     // 1.15 contribution check-in
@@ -638,6 +639,8 @@
   async function ensureName(then){
     if (!S.name) { try { S.name = localStorage.getItem(NAMEK()) || S.name; } catch(e) {} }
     if (S.name) return then();
+    // offline the change waits on this device and the server puts the name on it when it's sent
+    if (offNow()) return then();
     try { const r = await api.profile(); S.name = (r && r.display_name) || null; }
     catch(e) { toast(e.message); return; }
     if (S.name) { try { localStorage.setItem(NAMEK(), S.name); } catch(e) {} return then(); }
@@ -693,6 +696,8 @@
       const members = {}; ids.forEach(id => { members[id] = []; }); ms.forEach(m => { (members[m.group_id] = members[m.group_id] || []).push(m); });
       try { const rows = ids.length ? await api.icons(ids) || [] : []; S.icons = {}; rows.forEach(x => { if (x.data && STICKERS[x.data.icon]) S.icons[x.group_id] = {id: x.id, key: x.data.icon}; }); } catch(e) {}
       S.groups = gs; S.members = members; S.err = ""; S.setup = false; S.offline = 0; S.seenAt = Date.now();
+      outAll().forEach(o => { const g = gs.find(x => x.id === o.gid); if (g) o.gname = g.name; }); outSave();
+      if (outAll().some(o => !o.err)) setTimeout(outFlush, 0);
       if (S.name === undefined) { try { const r = await api.profile(); S.name = (r && r.display_name) || null; if (S.name) localStorage.setItem(NAMEK(), S.name); } catch(e) {} }
       if (ids.length) { try { markChanges(await api.stamps(ids) || []); } catch(e) {} }
       try { S.binned = await api.deletedGroups() || []; } catch(e) { S.binned = []; }
@@ -713,8 +718,11 @@
     snapT = setTimeout(() => {
       if (!myId() || !Array.isArray(S.groups) || S.offline) return;
       const gids = S.groups.slice(0, 12).map(g => g.id), pick = (o, n) => { const r = {}; gids.forEach(g => { if (o[g]) r[g] = n ? o[g].slice(0, n) : o[g]; }); return r; };
-      const pt = {}; gids.forEach(g => { const x = ptX(g); if (x) pt[g] = {lists: x.lists, tasks: x.tasks.filter(t => !t._tmp)}; });
-      const snap = {at: S.seenAt || Date.now(), groups: S.groups.slice(0, 12), members: pick(S.members), items: pick(S.items, 120), msgs: pick(S.msgs, 60), pt};
+      const pt = {}; gids.forEach(g => { const x = ptX(g); if (x) pt[g] = {lists: x.lists, tasks: x.tasks.filter(t => !t._tmp && !t._out)}; });
+      // reactions, RSVPs and check-ins, so they show (and can be changed) offline
+      const ext = {}; gids.forEach(g => { const x = extOf(g); if (x) ext[g] = {scores: x.scores, rsvps: x.rsvps, stats: x.stats, checkins: x.checkins, reactions: x.reactions}; });
+      const msgs = {}; gids.forEach(g => { if (S.msgs[g]) msgs[g] = S.msgs[g].filter(m => !m._out).slice(0, 60); });
+      const snap = {at: S.seenAt || Date.now(), groups: S.groups.slice(0, 12), members: pick(S.members), items: pick(S.items, 120), msgs, pt, ext};
       let j = JSON.stringify(snap);
       if (j.length > 1500000) { snap.items = {}; j = JSON.stringify(snap); }
       try { localStorage.setItem(SNAPK(), j); } catch(e) {}
@@ -730,36 +738,169 @@
       if (!S.items[id] && sn.items && sn.items[id]) S.items[id] = sn.items[id];
       if (!S.msgs[id] && sn.msgs && sn.msgs[id]) S.msgs[id] = sn.msgs[id];
       if (!ptX(id) && sn.pt && sn.pt[id]) { const x = ptInit(id); Object.assign(x, {ok: true, lists: sn.pt[id].lists || [], tasks: sn.pt[id].tasks || []}); x.list = GTL.nextListId(x.lists, x.list, x.arch); }
+      if (!extOf(id) && sn.ext && sn.ext[id]) S.ext[id] = Object.assign({ok: true, scores: [], rsvps: [], stats: [], checkins: [], reactions: []}, sn.ext[id]);
+      outApply(id);
     });
     S.seenAt = S.seenAt || sn.at;
     return true;
   }
   function goOffline(){ if (!S.offline) S.offline = S.seenAt || Date.now(); }
-  const offlineLine = () => S.offline ? `<p class="grp-offline-line" role="status">${ICON_OFF}<span>Offline. Showing what you saw at ${esc(fmtTime(new Date(S.offline).toTimeString().slice(0, 5)))}${new Date(S.offline).toDateString() === new Date().toDateString() ? "" : " on " + esc(fmtShort(GTL.localISO(new Date(S.offline))))}. Changes need the internet.</span></p>` : "";
+  const offlineLine = () => S.offline ? `<p class="grp-offline-line" role="status">${ICON_OFF}<span>Offline. Showing what you saw at ${esc(fmtTime(new Date(S.offline).toTimeString().slice(0, 5)))}${new Date(S.offline).toDateString() === new Date().toDateString() ? "" : " on " + esc(fmtShort(GTL.localISO(new Date(S.offline))))}. Messages, reactions, RSVPs, check-ins and group tasks you change are sent when you're back online.</span></p>` : "";
   const ICON_OFF = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 4.2-2.6M10.7 5.1A15 15 0 0 1 22 8.8M5 12.5a10 10 0 0 1 3.6-2.2M16.8 10.9A10 10 0 0 1 19 12.5M8.5 16a5 5 0 0 1 7 0M12 20h.01M3 3l18 18"/></svg>';
   // Read-only while offline: looking around works, anything that would change the group says it needs the internet
-  const OFF_OK = new Set(["grp-tab", "grp-back", "grp-open", "grp-page", "grp-retry", "grp-pt-view", "grp-pt-filter", "grp-pt-list", "grp-pt-arch", "grp-q-open", "grp-item-view", "grp-to-decks", "grp-import", "close"]);
+  // (and the changes that wait on this device: see "Offline changes" below)
+  const OFF_OK = new Set(["grp-tab", "grp-back", "grp-open", "grp-page", "grp-retry", "grp-pt-view", "grp-pt-filter", "grp-pt-list", "grp-pt-arch", "grp-q-open", "grp-item-view", "grp-to-decks", "grp-import", "close",
+    "grp-react-open", "grp-react", "grp-rsvp", "grp-check-done", "grp-pin", "grp-msg-del", "grp-pt-status", "grp-pt-done", "grp-pt-claim", "grp-pt-claim-sheet", "grp-pt-claim-one", "grp-pt-edit", "grp-pt-del", "grp-pt-new", "grp-pt-bfilter", "grp-pt-open",
+    "grp-out-retry", "grp-out-drop", "grp-out-copy"]);
   const NEEDS_NET = new Set(["fab-group", "grp-new", "grp-code"]);
   const offBlock = el => { const a = el && el.dataset && el.dataset.act; if (!a || ui.tab !== "groups" || !el.closest("#view, #fab")) return false;
     return (!!S.offline && !OFF_OK.has(a)) || (NEEDS_NET.has(a) && navigator.onLine === false); };
   // Add Group is dimmed while the device is offline (it can only fail)
-  const dimFab = () => { const f = $("#fab"); if (f) { const off = ui.tab === "groups" && navigator.onLine === false; f.classList.toggle("is-off", off); if (off) f.setAttribute("aria-disabled", "true"); else f.removeAttribute("aria-disabled"); } };
+  const dimFab = () => { const f = $("#fab"); if (f) { const off = ui.tab === "groups" && navigator.onLine === false && !OFF_OK.has(f.dataset.act || ""); f.classList.toggle("is-off", off); if (off) f.setAttribute("aria-disabled", "true"); else f.removeAttribute("aria-disabled"); } };
   hook("render", () => setTimeout(dimFab, 0));
   window.addEventListener("offline", dimFab);
-  const offToast = () => toast(S.offline ? "You're offline, so this group is read-only for now. It updates when you're back online." : "You're offline. This needs the internet.");
+  const offToast = () => toast(S.offline ? "You're offline. This one needs the internet. Messages, reactions, RSVPs and group tasks still work and are sent when you're back." : "You're offline. This needs the internet.");
   document.addEventListener("click", e => { const el = e.target.closest && e.target.closest("[data-act]"); if (offBlock(el)) { e.preventDefault(); e.stopPropagation(); offToast(); } }, true);
-  document.addEventListener("submit", e => { if (S.offline && e.target && e.target.id === "grpPost") { e.preventDefault(); e.stopPropagation(); offToast(); } }, true);
   window.addEventListener("offline", () => { if (Array.isArray(S.groups) && online()) { goOffline(); if (ui.tab === "groups") render(); } });
   // Back online: reload by itself (no Try Again needed)
   // (a moment after the event, once the connection is really up; the saved copy stays until the fresh one loads)
   function backOnline(n){
     if (!online()) return;
-    if (S.busy || (ui.grp && S.loadingG[ui.grp])) { if (n < 10) setTimeout(() => backOnline(n + 1), 600); return; }
-    if (!S.offline && !S.err && !Object.keys(S.errG).length) { if (ui.tab === "groups") render(); return; }
-    S.err = ""; S.errG = {}; loadGroups(true); if (ui.grp) loadGroup(ui.grp);
-    if (ui.tab === "groups") render();
+    if (S.busy || S.outBusy || (ui.grp && S.loadingG[ui.grp])) { if (n < 10) setTimeout(() => backOnline(n + 1), 600); return; }
+    outFlush().then(sent => {
+      if (!S.offline && !S.err && !Object.keys(S.errG).length && !sent) { if (ui.tab === "groups") render(); return; }
+      S.err = ""; S.errG = {}; loadGroups(true); if (ui.grp) loadGroup(ui.grp);
+      if (ui.tab === "groups") render();
+    });
   }
   window.addEventListener("online", () => { dimFab(); setTimeout(() => backOnline(0), 500); });
+  // A connection that dropped without the device going offline: try again now and then while something waits
+  setInterval(() => { if (online() && navigator.onLine !== false && (S.offline || outAll().some(o => !o.err))) backOnline(0); }, 30000);
+  /* Offline changes: a message, reaction, RSVP, check-in, pin or group task change made offline (or when the connection drops
+     on the way) waits on this device, shows as "Sending when you're back online", and is sent in order once you're back. One
+     that can't be sent then (you left the group, the task was deleted, someone changed the same thing) stays listed with why,
+     with Try Again, Copy Text and Discard, so nothing typed is lost. Changing a waiting change merges into it. */
+  const OUTK = () => "sb:grpOut:" + myId(), OUT_PEND = "Sending when you're back online";
+  let outC = [], outFor = null;
+  const outAll = () => { const k = OUTK(); if (outFor !== k) { outFor = k; try { outC = JSON.parse(localStorage.getItem(k) || "[]"); } catch(e) { outC = []; } if (!Array.isArray(outC)) outC = []; } return outC; };
+  const outSave = () => { try { if (outC.length) localStorage.setItem(outFor, JSON.stringify(outC)); else localStorage.removeItem(outFor); } catch(e) {} };
+  const outOf = gid => outAll().filter(o => o.gid === gid);
+  const offNow = () => !!S.offline || (typeof navigator !== "undefined" && navigator.onLine === false);
+  const isTmp = id => /^tmp-/.test(String(id || ""));
+  // a task or message that only exists here so far takes its changes into the queue too
+  const outWaits = id => isTmp(id) && outAll().some(o => (o.k === "ptAdd" || o.k === "post") && o.tmp === id && !o.err);
+  const outPend = (gid, test) => outOf(gid).some(o => !o.err && test(o));
+  function outAdd(o){
+    const q = outAll(); o = Object.assign({id: "o" + uid(), at: Date.now()}, o);
+    const live = z => !z.err && z.gid === o.gid;
+    const drop = test => { for (let i = q.length - 1; i >= 0; i--) if (live(q[i]) && test(q[i])) q.splice(i, 1); };
+    if (o.k === "react") { const i = q.findIndex(z => live(z) && z.k === "react" && z.msg === o.msg && z.kind === o.kind); if (i >= 0) { q.splice(i, 1); o = null; } }
+    else if (o.k === "rsvp") drop(z => z.k === "rsvp" && z.item === o.item);
+    else if (o.k === "checkin") drop(z => z.k === "checkin" && z.day === o.day);
+    else if (o.k === "pin") drop(z => z.k === "pin" && z.msg === o.msg);
+    else if (o.k === "unpost" && isTmp(o.msg)) { drop(z => z.tmp === o.msg || z.msg === o.msg); o = null; }
+    else if (o.k === "ptDel") { if (isTmp(o.task)) { drop(z => z.tmp === o.task || z.task === o.task); o = null; } else drop(z => z.k === "ptUpd" && z.task === o.task); }
+    else if (o.k === "ptUpd") { const z = q.find(z => live(z) && z.k === "ptUpd" && z.task === o.task);
+      if (z) { Object.keys(o.patch).forEach(k => { if (!(k in z.base)) z.base[k] = o.base[k]; }); Object.assign(z.patch, o.patch); o = null; } }
+    if (o) q.push(o);
+    outSave(); outLine();
+  }
+  // What waits is put back on what was last loaded (a reload brings back the server's copy)
+  function outApply(gid){
+    const ops = outOf(gid).filter(o => !o.err); if (!ops.length) return;
+    const ms = S.msgs[gid], x = S.ext[gid] && S.ext[gid].ok ? S.ext[gid] : null, p = ptX(gid), me2 = myId(), iso = new Date().toISOString();
+    ops.forEach(o => {
+      if (o.k === "post" && ms && !ms.some(m => m.id === o.tmp)) ms.unshift({id: o.tmp, group_id: gid, user_id: me2, author_name: S.name || "You", body: o.body, created_at: new Date(o.at).toISOString(), _out: true});
+      else if (o.k === "unpost" && ms) S.msgs[gid] = S.msgs[gid].filter(m => m.id !== o.msg);
+      else if (o.k === "pin" && ms) { const m = ms.find(m => m.id === o.msg); if (m) m.pinned = o.on; }
+      else if (o.k === "react" && x) { const i = x.reactions.findIndex(r => r.message_id === o.msg && r.user_id === me2 && r.kind === o.kind); if (o.on && i < 0) x.reactions.push({message_id: o.msg, user_id: me2, kind: o.kind}); else if (!o.on && i >= 0) x.reactions.splice(i, 1); }
+      else if (o.k === "rsvp" && x) { x.rsvps = x.rsvps.filter(r => !(r.item_id === o.item && r.user_id === me2)); if (o.status) x.rsvps.push({item_id: o.item, group_id: gid, user_id: me2, status: o.status}); }
+      else if (o.k === "checkin" && x) { const c = x.checkins.find(c => c.user_id === me2 && c.day === o.day); if (c) Object.assign(c, {plan: o.plan, done: o.done}); else x.checkins.push({group_id: gid, user_id: me2, day: o.day, plan: o.plan, done: o.done, updated_at: iso}); }
+      else if (o.k === "ptAdd" && p && !p.tasks.some(t => t.id === o.tmp)) p.tasks.push(Object.assign({}, o.row, {_out: true}));
+      else if (o.k === "ptUpd" && p) { const i = p.tasks.findIndex(t => t.id === o.task); if (i >= 0) p.tasks[i] = Object.assign(GTL.applyPatch(p.tasks[i], o.patch, me2, iso), p.tasks[i]._out ? {_out: true} : {}); }
+      else if (o.k === "ptDel" && p) p.tasks = p.tasks.filter(t => t.id !== o.task);
+    });
+    if (p) deriveMineFor(gid);
+  }
+  // Sends now; offline (or if the connection drops on the way) it waits instead. fail gets any other error.
+  function outSend(o, send, fail){
+    if (offNow() || outWaits(o.task || o.msg)) { outAdd(o); return Promise.resolve(false); }
+    return send().then(() => true, e => { if (netErr(e)) { goOffline(); outAdd(o); if (ui.tab === "groups") render(); } else if (fail) fail(e); return false; });
+  }
+  const outNorm = v => v == null ? "" : String(v);
+  const OUT_SEND = {
+    async post(o){ const row = await api.post(o.gid, o.body); const ms = S.msgs[o.gid]; if (ms) { const i = ms.findIndex(m => m.id === o.tmp); if (row && !ms.some(m => m.id === row.id)) { if (i >= 0) ms[i] = row; else ms.unshift(row); } else if (i >= 0) ms.splice(i, 1); } },
+    unpost: o => api.unpost(o.msg),
+    pin: o => api.pin(o.msg, o.on),
+    react: o => api.react(o.msg, o.kind),
+    rsvp: o => api.rsvp(o.item, o.status),
+    checkin: o => api.checkin(o.gid, o.day, o.plan, o.done),
+    async ptAdd(o){
+      const r = o.row, row = await api.ptAdd(r.list_id, r.title, r.assignee_id || null, r.due_at || null, r.notes || "", r.priority || null);
+      if (!row) return;
+      outAll().forEach(z => { if (z.task === o.tmp) z.task = row.id; });
+      const p = ptX(o.gid); if (p) { const i = p.tasks.findIndex(t => t.id === o.tmp); if (i >= 0) p.tasks[i] = row; }
+    },
+    // A field someone else changed while you were offline isn't overwritten: that edit waits for you to choose
+    async ptUpd(o){
+      const cur = await api.ptTask(o.task);
+      if (!cur || cur.deleted) throw Object.assign(new Error("gone"), {gone: true});
+      if (!o.force) { const clash = Object.keys(o.patch).filter(k => k in o.base && outNorm(cur[k]) !== outNorm(o.base[k]) && outNorm(cur[k]) !== outNorm(o.patch[k]));
+        if (clash.length) throw Object.assign(new Error("conflict"), {conflict: true, by: cur.updated_by}); }
+      await api.ptUpd(o.task, o.patch);
+    },
+    async ptDel(o){ try { await api.ptDel(o.task); } catch(e) { if (!/isn't in one of your groups|isn't there/i.test(e.message)) throw e; } }
+  };
+  function outWhy(o, e){
+    const m = String((e && e.message) || ""), g = groupOf(o.gid);
+    if (e && e.conflict) return `${e.by && e.by !== myId() ? mName(o.gid, e.by) : "Someone"} changed this task while you were offline, so your edit wasn't applied and theirs is kept.`;
+    if (/not in (that|this) group|not a member|permission|row-level/i.test(m) || (S.groups && !g)) return "You're not in this group anymore, so this wasn't sent.";
+    if ((e && e.gone) || /isn't in one of your groups|isn't there/i.test(m)) return o.k === "ptAdd" ? "That task list was deleted while you were offline." : o.k.startsWith("pt") ? "That task was deleted while you were offline." : "That isn't in the group anymore.";
+    return m || "Something went wrong.";
+  }
+  // Everything that waited, in the order it was done; resolves to how many were sent
+  async function outFlush(){
+    if (S.outBusy || !online() || (typeof navigator !== "undefined" && navigator.onLine === false)) return 0;
+    const todo = outAll().filter(o => !o.err); if (!todo.length) return 0;
+    S.outBusy = true; let sent = 0, bad = 0; const gids = new Set();
+    for (const o of todo) {
+      if (!outAll().includes(o) || o.err) continue;
+      try { await OUT_SEND[o.k](o); outC = outAll().filter(z => z !== o); sent++; gids.add(o.gid); }
+      catch(e) {
+        if (netErr(e)) break;
+        o.err = outWhy(o, e); o.why = e && e.conflict ? "conflict" : ""; bad++; gids.add(o.gid);
+        if (o.k === "ptAdd") outAll().forEach(z => { if (z !== o && z.task === o.tmp && !z.err) z.err = "The task it changes couldn't be added."; });
+        if (o.k === "ptAdd") { const p = ptX(o.gid); if (p) p.tasks = p.tasks.filter(t => t.id !== o.tmp); }
+      }
+      outSave();
+    }
+    S.outBusy = false; outLine();
+    if (sent && !bad) toast(sent === 1 ? "Sent the change you made offline." : `Sent the ${sent} changes you made offline.`);
+    else if (bad) toast(bad === 1 ? "One change you made offline couldn't be sent. Your group shows why." : `${bad} changes you made offline couldn't be sent. Your group shows why.`);
+    gids.forEach(gid => { if (S.ext[gid]) loadExtras(gid); if (S.pt[gid]) loadPT(gid); });
+    if (ui.tab === "groups") { if (ui.grp && gids.has(ui.grp)) patch(ui.grp); else render(); }
+    return sent + bad;
+  }
+  // The waiting count, and what couldn't be sent, at the top of the group (or of Groups, for a group you've left)
+  const outWhat = o => o.k === "post" ? `Message: “${esc(str(o.body, 90))}”` : o.k === "ptAdd" ? `New task: ${esc(str(o.row.title, 80))}` : o.k === "ptUpd" ? `Change to ${esc(str(o.title || "a task", 80))}${o.patch.status === "done" ? " (marked done)" : ""}`
+    : o.k === "ptDel" ? `Deleting ${esc(str(o.title || "a task", 80))}` : o.k === "rsvp" ? `RSVP: ${esc(o.status || "none")}` : o.k === "react" ? "Reaction" : o.k === "pin" ? (o.on ? "Pin" : "Unpin") : o.k === "unpost" ? "Deleting a message" : "Check-in";
+  function outHtml(gid){
+    const ops = gid ? outOf(gid) : outAll().filter(o => !(S.groups || []).some(g => g.id === o.gid)), wait = ops.filter(o => !o.err).length, bad = ops.filter(o => o.err);
+    if (!wait && !bad.length) return `<div id="grpOut"></div>`;
+    return `<div id="grpOut">${wait ? `<p class="grp-out-line" role="status"><span class="grp-out-dot" aria-hidden="true"></span>${wait === 1 ? "1 change" : wait + " changes"} waiting. ${OUT_PEND}.</p>` : ""}
+      ${bad.length ? `<section class="grp-out-fail" aria-label="Changes not sent"><h3 class="fsec">Not Sent<span class="n">${bad.length}</span></h3><ul>${bad.map(o => `<li><div><b>${outWhat(o)}</b>${gid ? "" : `<span class="mini">${esc(o.gname || "A group")}</span>`}<span class="mini">${esc(o.err)}</span></div>
+        <div class="row-actions">${o.k === "post" ? `<button type="button" class="btn small" data-act="grp-out-copy" data-id="${esc(o.id)}">Copy Text</button>` : ""}${gid && !/not in this group|couldn't be added|deleted/.test(o.err) ? `<button type="button" class="btn small" data-act="grp-out-retry" data-id="${esc(o.id)}">${o.why === "conflict" ? "Use Mine Anyway" : "Try Again"}</button>` : ""}<button type="button" class="btn small" data-act="grp-out-drop" data-id="${esc(o.id)}">Discard</button></div></li>`).join("")}</ul></section>` : ""}</div>`;
+  }
+  function outLine(){ if (ui.tab !== "groups") return; const el = $("#grpOut"); if (el) el.outerHTML = outHtml(ui.grp || ""); }
+  hook("act", (act, el, id) => {
+    if (!act.startsWith("grp-out-")) return false;
+    const o = outAll().find(z => z.id === id); if (!o) return true;
+    if (act === "grp-out-copy") { try { navigator.clipboard.writeText(o.body).then(() => toast("Copied the message"), () => toast("Couldn't copy. Select the text and copy it.")); } catch(e) { toast("Couldn't copy."); } return true; }
+    if (act === "grp-out-drop") { outC = outAll().filter(z => z !== o); outSave(); outLine(); toast("Discarded"); return true; }
+    if (act === "grp-out-retry") { delete o.err; if (o.why === "conflict") o.force = true; o.why = ""; outSave(); outLine(); if (!offNow()) outFlush(); else toast(OUT_PEND + "."); return true; }
+    return true;
+  });
+
   // Count shared items that changed since you copied them, per group
   function markChanges(stamps){
     const ch = {};
@@ -780,7 +921,7 @@
       else {
         const k = (S.groups || []).findIndex(x => x.id === gid); if (k >= 0) S.groups[k] = g; else S.groups = (S.groups || []).concat(g);
         S.items[gid] = (items || []).filter(x => !S.blocked.has(x.user_id)); S.msgs[gid] = (msgs || []).filter(x => !S.blocked.has(x.user_id)); S.members[gid] = ms || [];
-        indexItems(gid, S.items[gid]); delete S.errG[gid]; calSync(gid);
+        indexItems(gid, S.items[gid]); delete S.errG[gid]; calSync(gid); outApply(gid);
         const n = (S.items[gid] || []).filter(it => { const c = it.kind === "task" ? copyOfTask(it.id) : copyOfItem(it.id), ref = c && (c.groupRef || c.sharedFrom); return ref && it.user_id !== myId() && ts(it.updated_at) > ts(ref.v) + 1000; }).length;
         if (n) S.changed[gid] = n; else delete S.changed[gid];
         updateNavBadge(); newsAt = 0; setTimeout(() => newsFetch(true), 0);
@@ -933,6 +1074,7 @@
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
     return `<div class="view-head" data-grp-list><h2>Groups</h2></div>
       ${S.err ? errBox(S.err, S.setup) : offlineLine()}
+      ${outHtml("")}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
         : gs.length ? `<div class="grp-grid" data-sortable="groups">${cards}</div>`
         : `<div class="empty sb-es">${emptyArt("groups")}<strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new"${navigator.onLine === false ? ` disabled title="Needs the internet"` : ""}>New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
@@ -966,6 +1108,7 @@
       <button class="back" data-act="grp-back">${BACK}All Groups</button>
       ${headHtml(g)}
       ${S.errG[gid] ? errBox(S.errG[gid]) : offlineLine()}
+      ${outHtml(gid)}
       ${setupNote(g)}
       ${panesHtml(g)}</div>`;
   }
@@ -1130,8 +1273,9 @@
     try {
       const [scores, rsvps, stats, checkins, reactions] = await Promise.all([api.scores(gid), api.rsvps(gid), api.stats(gid, addDays(wkStart(), -7)), api.checkins(gid, addDays(todayISO(), -60)), api.reactions(gid)]);
       S.ext[gid] = {ok: true, scores: scores || [], rsvps: rsvps || [], stats: stats || [], checkins: checkins || [], reactions: reactions || []};
+      outApply(gid);
       if (ui.grp === gid) subscribeExtras(gid);
-    } catch(e) { S.ext[gid] = {ok: false, setup: !!e.setup}; }
+    } catch(e) { if (netErr(e) && prev && prev.ok) { prev.busy = false; goOffline(); } else S.ext[gid] = {ok: false, setup: !!e.setup}; }
     if (S.ext[gid].ok) reportStats();
     if (ui.tab === "groups" && ui.grp === gid && $("#grpDetail")) patch(gid);
   }
@@ -1366,7 +1510,8 @@
       const d = new Date(at(it)), rs = ext.rsvps.filter(r => r.item_id === it.id), my = rs.find(r => r.user_id === myId()), mine = it.user_id === myId(), wk = !!(it.data.repeat && it.data.repeat.weekly);
       const names = st => rs.filter(r => r.status === st).map(r => r.user_id === myId() ? "You" : mName(g.id, r.user_id));
       const yes = names("yes"), maybe = names("maybe");
-      const btn = (s, label) => `<button class="btn small${my && my.status === s ? " primary" : ""}" data-act="grp-rsvp" data-id="${esc(it.id)}" data-s="${s}" aria-pressed="${!!(my && my.status === s)}">${label}</button>`;
+      const rp = outPend(g.id, o => o.k === "rsvp" && o.item === it.id);
+      const btn = (s, label) => `<button class="btn small${my && my.status === s ? " primary" : ""}${rp && my && my.status === s ? " is-pending" : ""}" data-act="grp-rsvp" data-id="${esc(it.id)}" data-s="${s}" aria-pressed="${!!(my && my.status === s)}"${rp && my && my.status === s ? ` title="${OUT_PEND}"` : ""}>${label}</button>`;
       return `<li class="grp-item grp-task${isPast ? " is-past" : ""}">
         <span class="grp-date" style="--c:var(--accent)"><small>${esc(d.toLocaleDateString(undefined, {month: "short"}))}</small><b>${d.getDate()}</b></span>
         <div class="grp-item-main"><b>${esc(it.title)}</b>
@@ -1766,10 +1911,11 @@
     const cols = GK.board(tasks), ms = S.members[g.id] || [];
     const card = t => { const late = t.status !== "done" && GTL.due(t.due_at, today).late;
       const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "", nm = who ? (who === myId() ? "You" : mName(g.id, who)) : "Unassigned";
-      return `<li class="kb-card${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${who ? "" : " is-free"}" data-id="${esc(t.id)}" data-kb="${esc(t.status)}" style="--kc:${esc(who ? memberHue(g.id, who) : "#8A94A6")}">
+      const pend = t._out || outPend(g.id, o => o.task === t.id);
+      return `<li class="kb-card${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${who ? "" : " is-free"}${pend ? " is-pending" : ""}" data-id="${esc(t.id)}" data-kb="${esc(t.status)}" style="--kc:${esc(who ? memberHue(g.id, who) : "#8A94A6")}">
         <div class="kb-band">${who ? av(mName(g.id, who), who) : `<span class="kb-free" aria-hidden="true"></span>`}<span>${esc(nm)}</span></div>
         <div class="kb-main"><button type="button" class="pt-check" role="checkbox" aria-checked="${t.status === "done"}" data-act="grp-pt-done" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Mark not done" : "Mark done"}: ${esc(str(t.title, 80))}"><span class="pt-box">${CHECK}</span></button><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}">${esc(t.title)}</button></div>
-        <div class="pt-meta">${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${typeof gxReviewBtns === "function" ? gxReviewBtns(g, t) : ""}</div>
+        <div class="pt-meta">${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${typeof gxReviewBtns === "function" ? gxReviewBtns(g, t) : ""}${pend ? `<span class="mini grp-pend">${OUT_PEND}</span>` : ""}</div>
         ${t.status !== "done" && !who ? `<button type="button" class="btn small kb-claim" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : ""}
         ${t.status === "todo" && who && !t._tmp ? `<button type="button" class="btn small kb-start" data-act="grp-pt-status" data-s="doing" data-id="${esc(t.id)}" aria-label="Start: ${esc(str(t.title, 80))} (move to In Progress)">Start →</button>` : ""}
 </li>`; };
@@ -2019,10 +2165,11 @@
     const chip = who ? `<span class="pt-who">${av(mName(g.id, who), who)}<span>${esc(who === me ? "You" : mName(g.id, who))}</span></span>` : `<span class="pt-who none">Unassigned</span>`;
     const mini = done ? `Done${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
     const btns = (!done && !who ? `<button type="button" class="btn small" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : "");
-    return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
+    const pend = t._out || outPend(g.id, o => o.task === t.id);
+    return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${pend ? " is-pending" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
       <button type="button" class="pt-check" role="checkbox" aria-checked="${done}" data-act="grp-pt-done" data-id="${esc(t.id)}" aria-label="${done ? "Mark not done" : "Mark done"}: ${esc(str(t.title, 80))}"><span class="pt-box">${CHECK}</span></button>
       <div class="pt-body"><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}" aria-label="Edit task: ${esc(str(t.title, 80))}">${esc(t.title)}</button>
-        <div class="pt-meta">${chip}${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${t.status === "doing" ? `<span class="pt-prio doing">In progress</span>` : ""}${t.status === "review" && typeof gxReviewBtns === "function" ? gxReviewBtns(g, t) : ""}${mini ? `<span class="mini">${mini}</span>` : ""}${t.notes ? `<span class="mini pt-notes" title="${esc(str(t.notes, 300))}">${esc(str(t.notes, 70))}${t.notes.length > 70 ? "…" : ""}</span>` : ""}</div></div>
+        <div class="pt-meta">${chip}${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${t.status === "doing" ? `<span class="pt-prio doing">In progress</span>` : ""}${t.status === "review" && typeof gxReviewBtns === "function" ? gxReviewBtns(g, t) : ""}${mini ? `<span class="mini">${mini}</span>` : ""}${pend ? `<span class="mini grp-pend">${OUT_PEND}</span>` : ""}${t.notes ? `<span class="mini pt-notes" title="${esc(str(t.notes, 300))}">${esc(str(t.notes, 70))}${t.notes.length > 70 ? "…" : ""}</span>` : ""}</div></div>
       ${btns ? `<div class="pt-act">${btns}</div>` : ""}</li>`;
   }
   function ptHtml(g){
@@ -2174,6 +2321,7 @@
     if (x && x.tasks.some(t => t.id === id)) return ptMutate(r.gid, id, {status});
     const rows = S.mine[r.gid] || [];
     S.mine[r.gid] = rows.map(k => k.id === id ? Object.assign({}, k, {status}) : k); persistMine(); decorateBoard(); boardRefresh();
+    if (offNow()) { outAdd({k: "ptUpd", gid: r.gid, task: id, patch: {status}, base: {status: r.status || "todo"}, title: r.title}); return Promise.resolve(); }
     return api.ptUpd(id, {status}).then(() => { if (status === "done") toast(`Done: ${str(r.title, 50)}`); if (S.pt[r.gid]) loadPT(r.gid); })
       .catch(e => { S.mine[r.gid] = rows; persistMine(); decorateBoard(); boardRefresh(); toast(e.message); });
   }
@@ -2231,13 +2379,13 @@
       const lists = (ls || []).filter(l => !l.created_by || !S.blocked.has(l.created_by)), ids = new Set(lists.map(l => l.id));
       const tasks = (ts2 || []).filter(t => ids.has(t.list_id) && (!t.created_by || !S.blocked.has(t.created_by)));
       const prev = x.tasks, wasOk = x.ok;
-      x.tasks = GTL.reconcile(prev, tasks, S.ptPend); x.lists = lists; x.ok = true; x.setup = false; x.err = "";
-      x.list = GTL.nextListId(lists, x.list, x.arch);
+      x.tasks = GTL.reconcile(prev, tasks, S.ptPend).filter(t => !t._out); x.lists = lists; x.ok = true; x.setup = false; x.err = "";
+      x.list = GTL.nextListId(lists, x.list, x.arch); outApply(gid);
       if (wasOk) { const seen = readSeen() || new Set(), fresh = GTL.newlyAssigned(prev, x.tasks, myId(), seen); if (fresh.length) announceAssigned(fresh.map(t => ({id: t.id, gid, listId: t.list_id, title: t.title, by: t.updated_by}))); }
       else markSeen(x.tasks.filter(t => t.assignee_id === myId()).map(t => t.id));
       deriveMineFor(gid);
       if (ui.grp === gid) subscribePT(gid);
-    } catch(e) { if (e.setup) { x.ok = false; x.setup = true; } else x.err = e.message; }
+    } catch(e) { if (e.setup) { x.ok = false; x.setup = true; } else if (netErr(e) && x.ok) goOffline(); else x.err = e.message; }
     x.busy = false;
     if (x.again) { x.again = false; loadPT(gid); return; }
     ptRefresh(gid);
@@ -2253,7 +2401,11 @@
   function ptMutate(gid, id, patch){
     const x = ptX(gid), i = x ? x.tasks.findIndex(t => t.id === id) : -1; if (i < 0) return Promise.resolve();
     const snap = x.tasks[i], was = snap.status;
-    x.tasks[i] = GTL.applyPatch(snap, patch, myId(), new Date().toISOString());
+    x.tasks[i] = Object.assign(GTL.applyPatch(snap, patch, myId(), new Date().toISOString()), snap._out ? {_out: true} : {});
+    const wait = () => { const base = {}; Object.keys(patch).forEach(k => { base[k] = snap[k] == null ? null : snap[k]; });
+      outAdd({k: "ptUpd", gid, task: id, patch: Object.assign({}, patch), base, title: snap.title}); deriveMineFor(gid); ptRefresh(gid);
+      if (patch.status === "done" && was !== "done") toast(`Done: ${str(snap.title, 50)}. ${OUT_PEND}.`); };
+    if (offNow() || outWaits(id)) { wait(); return Promise.resolve(); }
     ptPendAdd(id); deriveMineFor(gid); ptRefresh(gid);
     return api.ptUpd(id, patch).then(row => {
       ptPendDone(id);
@@ -2263,6 +2415,7 @@
       if (patch.status === "done" && was !== "done") ptCelebrate(gid, id, was);
     }).catch(e => {
       ptPendDone(id);
+      if (netErr(e)) { goOffline(); wait(); if (ui.tab === "groups") render(); return; }
       const j = x.tasks.findIndex(t => t.id === id);
       if (j >= 0) x.tasks[j] = snap;
       deriveMineFor(gid); ptRefresh(gid); toast(e.message);
@@ -2285,6 +2438,9 @@
     notes = String(notes || "").trim().slice(0, GTL.LIM.notes); prio = PT_PRIO.some(p => p[0] && p[0] === prio) ? prio : null;
     const now = new Date().toISOString(), tmp = {id: "tmp-" + uid(), list_id: listId, group_id: gid, title, notes, status: "todo", assignee_id: who || null, due_at: GTL.isDay(due) ? due : null, priority: prio,
       position: Math.max(0, ...x.tasks.filter(t => t.list_id === listId).map(t => t.position || 0)) + 1, created_by: myId(), created_at: now, updated_by: myId(), updated_at: now, completed_at: null, completed_by: null, deleted: false, _tmp: true};
+    const wait = () => { tmp._tmp = false; tmp._out = true; const row = Object.assign({}, tmp); delete row._out; delete row._tmp;
+      outAdd({k: "ptAdd", gid, tmp: tmp.id, row}); deriveMineFor(gid); ptRefresh(gid); return true; };
+    if (offNow()) { x.tasks.push(tmp); x.draft = {title: "", who: "", due: ""}; return wait(); }
     x.tasks.push(tmp); ptPendAdd(tmp.id); x.draft = {title: "", who: "", due: ""}; ptRefresh(gid);
     try {
       const row = await api.ptAdd(listId, title, who || null, tmp.due_at, notes, prio);
@@ -2295,7 +2451,9 @@
       if (who && who !== myId()) toast(`Added for ${mName(gid, who)}`);
       return true;
     } catch(e) {
-      ptPendDone(tmp.id); x.tasks = x.tasks.filter(t => t.id !== tmp.id);
+      ptPendDone(tmp.id);
+      if (netErr(e)) { goOffline(); wait(); if (ui.tab === "groups") render(); return true; }
+      x.tasks = x.tasks.filter(t => t.id !== tmp.id);
       x.draft = {title, who: who || "", due: due || ""}; ptRefresh(gid); toast(e.message); return false;
     }
   }
@@ -2312,6 +2470,7 @@
     if (t) { if (t._tmp) return; return ptMutate(gid, id, {status: t.status === "done" ? "todo" : "done"}); }
     const rows = S.mine[gid] || [], r = rows.find(k => k.id === id); if (!r) return;
     S.mine[gid] = rows.map(k => k.id === id ? Object.assign({}, k, {status: "done"}) : k); persistMine(); decorateBoard(); boardRefresh();
+    if (offNow()) { outAdd({k: "ptUpd", gid, task: id, patch: {status: "done"}, base: {status: r.status || "todo"}, title: r.title}); toast(`Done: ${str(r.title, 50)}. ${OUT_PEND}.`); return; }
     const undo = async () => {
       S.mine[gid] = (S.mine[gid] || []).map(k => k.id === id ? Object.assign({}, k, {status: r.status || "todo"}) : k); persistMine(); decorateBoard(); boardRefresh();
       try { await api.ptUpd(id, {status: r.status && r.status !== "done" ? r.status : "todo"}); if (S.pt[gid]) loadPT(gid); } catch(e) { toast(e.message); }
@@ -2420,7 +2579,8 @@
         confirmSheet("Delete This Task?", `${t.title} is removed for the whole group.`, "Delete", async () => {
           const xx = ptX(t.group_id); if (!xx) return; const i = xx.tasks.findIndex(k => k.id === id), snap = xx.tasks[i];
           xx.tasks.splice(i, 1); deriveMineFor(t.group_id); ptRefresh(t.group_id);
-          try { await api.ptDel(id); toast("Task deleted"); } catch(e) { xx.tasks.splice(Math.min(i, xx.tasks.length), 0, snap); deriveMineFor(t.group_id); ptRefresh(t.group_id); toast(e.message); } });
+          if (offNow() || outWaits(id)) { outAdd({k: "ptDel", gid: t.group_id, task: id, title: t.title}); ptRefresh(t.group_id); toast(isTmp(id) ? "Task deleted" : `Task deleted. ${OUT_PEND}.`); return; }
+          try { await api.ptDel(id); toast("Task deleted"); } catch(e) { if (netErr(e)) { goOffline(); outAdd({k: "ptDel", gid: t.group_id, task: id, title: t.title}); if (ui.tab === "groups") render(); return; } xx.tasks.splice(Math.min(i, xx.tasks.length), 0, snap); deriveMineFor(t.group_id); ptRefresh(t.group_id); toast(e.message); } });
         return true; }
       case "grp-pt-open": { const r = mineRows().find(k => k.id === id) || {gid: el.dataset.g, listId: el.dataset.l}; if (r.gid) openGroupTask(r); return true; }
     }
@@ -2444,7 +2604,7 @@
   const kbSuppress = e => { if (kbDrag && kbDrag.justDragged) { e.stopPropagation(); e.preventDefault(); } };
   document.addEventListener("click", kbSuppress, true);
   document.addEventListener("pointerdown", e => {
-    if (kbDrag || S.offline || (e.pointerType === "mouse" && e.button !== 0)) return;
+    if (kbDrag || (e.pointerType === "mouse" && e.button !== 0)) return;
     const c = e.target.closest && e.target.closest("#grpPT .kb-card"); if (!c || c.classList.contains("is-saving")) return;
     kbDrag = {el: c, id: c.dataset.id, from: c.dataset.kb, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, pid: e.pointerId, touch: e.pointerType !== "mouse", started: false};
     if (kbDrag.touch) kbDrag.timer = setTimeout(() => { if (kbDrag && !kbDrag.started) kbStart(); }, 320);
@@ -2604,12 +2764,12 @@
     if (!list) return loadingLine(g.id);
     if (!list.length) return `<p class="grp-none">No messages yet. Say hi, or plan your next ${isProj(g) ? "meeting" : "study session"}.</p>`;
     const by = {}; if (ext) ext.reactions.forEach(r => { (by[r.message_id] = by[r.message_id] || []).push(r); });
-    return list.map(m => { const mine = m.user_id === myId(), rs = by[m.id] || [];
-      const chips = REACTS.map(([k, e, label]) => { const who = rs.filter(r => r.kind === k); if (!who.length) return ""; const on = who.some(r => r.user_id === myId());
-        return `<button class="grp-react${on ? " on" : ""}" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-pressed="${on}" title="${esc(label + ": " + who.map(r => r.user_id === myId() ? "You" : mName(g.id, r.user_id)).join(", "))}"><span aria-hidden="true">${e}</span>${who.length}</button>`; }).join("");
+    return list.map(m => { const mine = m.user_id === myId(), rs = by[m.id] || [], out = !!m._out;
+      const chips = REACTS.map(([k, e, label]) => { const who = rs.filter(r => r.kind === k); if (!who.length) return ""; const on = who.some(r => r.user_id === myId()), pend = outPend(g.id, o => o.k === "react" && o.msg === m.id && o.kind === k);
+        return `<button class="grp-react${on ? " on" : ""}${pend ? " is-pending" : ""}" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-pressed="${on}" title="${esc(label + ": " + who.map(r => r.user_id === myId() ? "You" : mName(g.id, r.user_id)).join(", ") + (pend ? ". " + OUT_PEND : ""))}"><span aria-hidden="true">${e}</span>${who.length}</button>`; }).join("");
       const picker = ext && S.pick === m.id ? `<span class="grp-picker">${REACTS.map(([k, e, label]) => `<button type="button" class="grp-react" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-label="${esc(label)}">${e}</button>`).join("")}</span>` : "";
-      return `<li class="grp-msg${mine ? " mine" : ""}${m.pinned ? " pinned" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b><span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span>${m.pinned ? `<span class="pill">Pinned</span>` : ""}${mine ? "" : repMenu("message", m.id, "message from " + (m.author_name || "member"))}</div><p>${esc(m.body)}</p>
-        ${ext ? `<div class="grp-msg-acts">${chips}${picker || `<button class="grp-react add" data-act="grp-react-open" data-id="${esc(m.id)}" aria-label="Add a reaction">+</button>`}${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">${m.pinned ? "Unpin" : "Pin"}</button>` : ""}</div>` : ""}</div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
+      return `<li class="grp-msg${mine ? " mine" : ""}${m.pinned ? " pinned" : ""}${out ? " is-pending" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b>${out ? `<span class="mini grp-pend">${OUT_PEND}</span>` : `<span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span>`}${m.pinned ? `<span class="pill">Pinned</span>` : ""}${mine ? "" : repMenu("message", m.id, "message from " + (m.author_name || "member"))}</div><p>${esc(m.body)}</p>
+        ${ext && !out ? `<div class="grp-msg-acts">${chips}${picker || `<button class="grp-react add" data-act="grp-react-open" data-id="${esc(m.id)}" aria-label="Add a reaction">+</button>`}${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">${m.pinned ? "Unpin" : "Pin"}</button>` : ""}</div>` : ""}</div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
   }
   // A group's member cap and message history follow the GROUP's Pro status (plans_group_is_pro on the server), not your plan.
   // For the owner: "" (no note), "assign" (you can make it a Pro group), "full" (all your Pro groups used) or "upgrade" (Go Pro)
@@ -2701,7 +2861,7 @@
     swapEl("grpHead", headHtml(g)); keepTabFocus(); stickTabs();
     if (isProj(g)) { swapEl("grpOverview", overviewHtml(g)); swapEl("grpFiles", linksHtml(g)); swapEl("grpMinutes", minutesHtml(g)); }
     else { swapEl("grpChallenge", challengeHtml(g)); swapEl("grpBattle", battleHtml(g)); swapEl("grpDecks", decksHtml(g)); swapEl("grpQuizzes", quizzesHtml(g)); swapEl("grpWeak", weakHtml(g)); swapEl("grpQA", qaHtml(g)); swapEl("grpCheckin", checkinHtml(g)); }
-    swapEl("grpSessions", sessionsHtml(g)); swapEl("grpTasks", tasksHtml(g)); swapPT(g); swapEl("grpMembers", membersHtml(g)); swapEl("grpPins", pinsHtml(g)); drawThread();
+    swapEl("grpOut", outHtml(gid)); swapEl("grpSessions", sessionsHtml(g)); swapEl("grpTasks", tasksHtml(g)); swapPT(g); swapEl("grpMembers", membersHtml(g)); swapEl("grpPins", pinsHtml(g)); drawThread();
     const ml = $("#grpMsgList"); if (ml) ml.innerHTML = msgsHtml(g);
     const eb = $(".grp-err", root); if (eb && !S.errG[gid]) eb.remove();
     refreshFab();
@@ -3281,7 +3441,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-unblock": unblockUser(id); return true;
       case "grp-color": { const gg = groupOf(id); if (gg) colorSheet(gg, false); return true; }
       case "grp-msg-del": { const m = g && (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return true;
+        if (m._out) { outAdd({k: "unpost", gid: g.id, msg: m.id}); S.msgs[g.id] = (S.msgs[g.id] || []).filter(x => x.id !== m.id); patch(g.id); toast("Message not sent"); return true; }
         confirmSheet("Delete Message?", "It's removed for everyone in the group.", "Delete", async () => {
+          if (offNow()) { outAdd({k: "unpost", gid: g.id, msg: m.id}); S.msgs[g.id] = (S.msgs[g.id] || []).filter(x => x.id !== m.id); patch(g.id); return; }
           try { await api.unpost(m.id); S.msgs[g.id] = (S.msgs[g.id] || []).filter(x => x.id !== m.id); patch(g.id); } catch(e) { toast(e.message); } });
         return true; }
       case "grp-share-quiz": if (g) shareQuizSheet(g); return true;
@@ -3312,24 +3474,25 @@ ${kindPreview("study")}${kindPreview("project")}`;
         if (next) x.rsvps.push({item_id: id, group_id: g.id, user_id: myId(), status: next});
         if (next === "yes") calAdd(g, it, `You're in. ${it.title} is on your calendar.`); else if (cur && cur.status === "yes") calDrop(it);
         patch(g.id);
-        api.rsvp(id, next).catch(e => { toast(e.message); loadExtras(g.id); });
+        outSend({k: "rsvp", gid: g.id, item: id, status: next}, () => api.rsvp(id, next), e => { toast(e.message); loadExtras(g.id); }).then(() => patch(g.id));
         return true; }
       case "grp-tab": showTab(g, el.dataset.t); return true;
       case "grp-lb": if (g) { S.lb[g.id] = el.dataset.m === "quiz" ? "quiz" : "focus"; patch(g.id); } return true;
       case "grp-check-done": { const x = g && extOf(g.id), mine = x && x.checkins.find(c => c.user_id === myId() && c.day === todayISO()); if (!mine) return true;
         mine.done = !mine.done; patch(g.id);
-        api.checkin(g.id, mine.day, mine.plan, mine.done).then(() => { if (mine.done) toast("Nice work. Marked as done."); }).catch(e => { toast(e.message); loadExtras(g.id); });
+        outSend({k: "checkin", gid: g.id, day: mine.day, plan: mine.plan, done: mine.done}, () => api.checkin(g.id, mine.day, mine.plan, mine.done), e => { toast(e.message); loadExtras(g.id); })
+          .then(ok => { if (mine.done) toast(ok ? "Nice work. Marked as done." : `Marked as done. ${OUT_PEND}.`); patch(g.id); });
         return true; }
       case "grp-react-open": S.pick = S.pick === id ? "" : id; if (g) patch(g.id); return true;
       case "grp-react": { const x = g && extOf(g.id); if (!x) return true; const kind = el.dataset.k;
         const i = x.reactions.findIndex(r => r.message_id === id && r.user_id === myId() && r.kind === kind);
         if (i >= 0) x.reactions.splice(i, 1); else x.reactions.push({message_id: id, user_id: myId(), kind});
         S.pick = ""; patch(g.id);
-        api.react(id, kind).catch(e => { toast(e.message); loadExtras(g.id); });
+        outSend({k: "react", gid: g.id, msg: id, kind, on: i < 0}, () => api.react(id, kind), e => { toast(e.message); loadExtras(g.id); }).then(() => patch(g.id));
         return true; }
       case "grp-pin": { const m = g && (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return true;
         const on = !m.pinned; m.pinned = on; patch(g.id);
-        api.pin(id, on).catch(e => { m.pinned = !on; toast(e.message); patch(g.id); });
+        outSend({k: "pin", gid: g.id, msg: id, on}, () => api.pin(id, on), e => { m.pinned = !on; toast(e.message); patch(g.id); });
         return true; }
       case "grp-upgrade": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(el.dataset.r || ""); return true;
       case "grp-link-update": { const d = state.decks[id]; if (!d || !d.sharedFrom || !d.sharedFrom.code) return true;
@@ -3355,12 +3518,16 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const btn = $("button[type=submit]", e.target); busyBtn(btn, true);
     ensureName(async () => {
       S.posting = true;
-      try {
+      const clear = () => { S.drafts[gid] = ""; const t2 = $("#grpMsgIn"); if (t2) t2.value = ""; };
+      // offline it waits on this device and shows in the list as sending
+      const wait = () => { outAdd({k: "post", gid, tmp: "tmp-m" + uid(), body: body.slice(0, 2000)}); clear(); outApply(gid); patch(gid); };
+      if (offNow()) wait();
+      else try {
         const row = await api.post(gid, body.slice(0, 2000));
-        S.drafts[gid] = ""; const t2 = $("#grpMsgIn"); if (t2) t2.value = "";
+        clear();
         if (row && S.msgs[gid] && !S.msgs[gid].some(x => x.id === row.id)) S.msgs[gid].unshift(row);
         patch(gid);
-      } catch(err) { toast(err.message); }
+      } catch(err) { if (netErr(err)) { goOffline(); wait(); if (ui.tab === "groups") render(); } else toast(err.message); }
       S.posting = false;
       busyBtn($("#grpPost button[type=submit]"), false);
     });
@@ -3374,11 +3541,11 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const btn = $("button[type=submit]", e.target); busyBtn(btn, true);
     ensureName(async () => {
       const cur = x.checkins.find(c => c.user_id === myId() && c.day === day), done = cur ? cur.done : false;
-      try {
-        await api.checkin(gid, day, plan, done);
-        if (cur) { cur.plan = plan; cur.updated_at = new Date().toISOString(); } else { x.checkins.push({group_id: gid, user_id: myId(), day, plan, done, updated_at: new Date().toISOString()}); toast("Checked in. Have a good session."); }
+      const ok = await outSend({k: "checkin", gid, day, plan, done}, () => api.checkin(gid, day, plan, done), err => toast(err.message));
+      if (ok || outPend(gid, o => o.k === "checkin" && o.day === day)) {
+        if (cur) { cur.plan = plan; cur.updated_at = new Date().toISOString(); } else { x.checkins.push({group_id: gid, user_id: myId(), day, plan, done, updated_at: new Date().toISOString()}); toast(ok ? "Checked in. Have a good session." : `Checked in. ${OUT_PEND}.`); }
         patch(gid);
-      } catch(err) { toast(err.message); }
+      }
       busyBtn($("#grpCheck button[type=submit]"), false);
     });
   });
@@ -3473,7 +3640,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
   (() => {
     const inn = $("nav.tabs .in"); if (!inn || $('[data-tab="groups"]', inn)) return;
     const b = document.createElement("button");
-    b.dataset.tab = "groups"; b.className = "nav-groups"; b.innerHTML = ICON_GROUP + "Groups";
+    b.dataset.tab = "groups"; b.className = "nav-groups"; b.innerHTML = ICON_GROUP + esc(tr("nav.groups", "Groups"));
+    // translated with the rest of the menu when the language changes (the English stays in data-i18n-en)
+    b.setAttribute("data-i18n", "nav.groups"); b.setAttribute("data-i18n-en", "Groups");
     b.addEventListener("click", () => { if (ui.tab === "groups") { ui.grp = null; unsubscribe(); } }, true);
     inn.insertBefore(b, $("#navPomo", inn) || null);
   })();

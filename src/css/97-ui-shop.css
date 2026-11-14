@@ -15,7 +15,7 @@
 .ui-sec{display:grid;gap:10px}
 .ui-sec[hidden]{display:none}
 .ui-sec > h3.shop-sec{margin:0}
-.ui-sec-btn{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:8px 4px;color:var(--ink);font:inherit;text-align:left;cursor:pointer;border-radius:10px;min-height:40px}
+.ui-sec-btn{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:8px 4px;color:var(--ink);font:inherit;text-align:start;cursor:pointer;border-radius:10px;min-height:40px}
 .ui-sec-btn:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}
 .ui-sec-t{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
 .ui-n{font:600 .74rem var(--display);color:var(--muted);background:var(--field,var(--bg));border:1px solid var(--line);border-radius:99px;padding:1px 9px;min-width:26px;text-align:center}
@@ -100,7 +100,7 @@
   .ui-shop .shop-mode .motion-tog{margin-left:0;font-size:.82rem;font-weight:600;color:var(--muted)}
   .ui-shop .shop-mode .sc-moment{min-height:34px;padding:4px 12px;font-size:.82rem}
   .ui-shop .ph-intro{display:none}
-  .ui-shop .ph-grid .ph-add{grid-column:1/-1;min-height:0;display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:12px!important;padding:8px 12px}
+  .ui-shop .ph-grid .ph-add{grid-column:1/-1;min-height:0;display:flex;align-items:center;justify-content:flex-start;text-align:start;gap:12px!important;padding:8px 12px}
   .ui-shop .ph-grid .ph-add .ph-add-ic{width:36px;height:36px;flex:none}
   .ui-shop .ph-grid .ph-add .ph-add-ic svg{width:20px;height:20px}
   .ui-shop .ph-grid .ph-add .mini{display:none}

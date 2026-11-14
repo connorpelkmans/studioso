@@ -885,11 +885,11 @@ function taskForm(t, preset = {}){
   const tfNotes = $("#tfNotes"), tfNoteAttach = $("#tfNoteAttach");
   const drawNotes = () => {
     const ns = [...noteSet].map(id => state.notes[id]).filter(Boolean);
-    tfNotes.innerHTML = ns.map(n => `<div class="tf-note" style="--nc:${noteColor(n.color)}"><span>${esc(n.text.slice(0, 140)) || "<i>Empty note</i>"}</span><button type="button" class="x-btn" data-n-rm="${esc(n.id)}" aria-label="Detach note">${CLOSE}</button></div>`).join("")
+    tfNotes.innerHTML = ns.map(n => `<div class="tf-note" style="--nc:${noteColor(n.color)}"><span>${esc(notePlain(n.text, 140)) || "<i>Empty note</i>"}</span><button type="button" class="x-btn" data-n-rm="${esc(n.id)}" aria-label="Detach note">${CLOSE}</button></div>`).join("")
       + newNotes.map((txt, i) => `<div class="tf-note" style="--nc:${noteColor("yellow")}"><span>${esc(txt.slice(0, 140))}</span><button type="button" class="x-btn" data-n-new="${i}" aria-label="Remove new note">${CLOSE}</button></div>`).join("")
       || `<span class="mini">No sticky notes. Write one here, or attach one from the Notes board.</span>`;
     const cands = notesArr().filter(n => !noteSet.has(n.id) && !n.archived).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
-    tfNoteAttach.innerHTML = `<option value="">Attach a note from the board…</option>` + cands.map(n => `<option value="${esc(n.id)}">${esc((n.text.trim() || "Empty note").slice(0, 60))}${n.taskId && state.tasks[n.taskId] ? " (on " + esc(state.tasks[n.taskId].title) + ")" : ""}</option>`).join("");
+    tfNoteAttach.innerHTML = `<option value="">Attach a note from the board…</option>` + cands.map(n => `<option value="${esc(n.id)}">${esc(notePlain(n.text, 60) || "Empty note")}${n.taskId && state.tasks[n.taskId] ? " (on " + esc(state.tasks[n.taskId].title) + ")" : ""}</option>`).join("");
     tfNoteAttach.hidden = !cands.length;
     if (typeof advSummary === "function") advSummary();
   };
@@ -1109,7 +1109,8 @@ function askBox(o){
     d.onclick = e => { if (e.target === d) nope(); };
     d.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); nope(); } };
     try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
-    setTimeout(() => { const f = d.querySelector(o.input ? "#askIn" : "#askYes"); if (f) { f.focus(); if (o.input) f.select(); } }, 30);
+    // A destructive choice (Discard, Delete) is never the one Enter picks by default: the safe one has the focus
+    setTimeout(() => { const f = d.querySelector(o.input ? "#askIn" : o.danger ? "#askNo" : "#askYes"); if (f) { f.focus(); if (o.input) f.select(); } }, 30);
   });
 }
 function confirmSheet(title, text, label, onYes){

@@ -217,19 +217,21 @@ function renderPomoBits(){
   const active = pomo.running || pomo.left > 0;
   const btn = $("#pomoBtn");
   btn.className = `pomo-btn ${active ? "active" : ""} ${pomo.running ? "run" : ""} m-${pomo.mode}`;
-  btn.setAttribute("aria-label", active ? `${MODE_LABEL[pomo.mode]} timer, ${pomo.running ? "running" : "paused"}. Open focus timer` : "Open focus timer");
+  btn.setAttribute("aria-label", active ? `${MODE_LABEL[pomo.mode]} timer, ${pomo.running ? "running" : "paused"}. Open focus timer` : tr("nav.focus.aria", "Open focus timer"));
   $("#pomoBtnTime").hidden = !active;
   // the header button (the phone's Focus button) wears the same tomato as everywhere else
   const ic = btn.querySelector("svg"); if (ic && !ic.classList.contains("tomato-ic")) ic.outerHTML = TOMATO;
   const nav = $("#navPomo");
   nav.className = `nav-focus m-${pomo.mode} ${active ? "active" : ""} ${pomo.running ? "run" : ""}`;
   nav.setAttribute("aria-label", btn.getAttribute("aria-label"));
-  nav.innerHTML = `${TOMATO}<span class="nf-l" ${active ? "data-pomo-time" : ""}>${active ? fmtClock(pomoLeft()) : "Focus"}</span>${active ? `<span class="nf-m">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : ", paused"}</span>` : ""}`;
+  nav.innerHTML = `${TOMATO}<span class="nf-l" ${active ? "data-pomo-time" : ""}>${active ? fmtClock(pomoLeft()) : esc(tr("nav.focus", "Focus"))}</span>${active ? `<span class="nf-m">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : ", paused"}</span>` : ""}`;
   try { islandSync(); } catch (e) {}
   // the timer started, paused, stopped or changed task (not every tick): the Home Screen widgets show it (70-widgets.js)
   try { const sig = [pomo.running, pomo.mode, pomo.endAt, pomo.left, pomo.taskId].join("|"); if (sig !== focusSig) { focusSig = sig; fire("focus-state"); } } catch (e) {}
 }
 let focusSig = "";
+// the menu's Focus button is redrawn in a newly picked language like the rest of the menu
+hook("lang", () => { try { renderPomoBits(); } catch (e) {} });
 // iPhone app: while the timer runs, it shows in the Dynamic Island and on the Lock Screen
 const ISLAND = {sig: "", on: false, ring: false};
 function islandSync(){
@@ -356,7 +358,9 @@ function renderPomo(){
   const every = Number(cfg.every) || 4, inCycle = pomo.cycle % every;
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
-  const notifyNote = !notifySupported() ? "Desktop notifications aren't available here, so the alarm sound and on-screen alert are used." : Notification.permission === "denied" ? "Notifications are blocked for this site in your browser settings." : Notification.permission === "default" ? "Your browser will ask to allow notifications when you start the timer." : "Notifications are allowed.";
+  // a phone has no desktop and (in the installed app) no tabs: the help text says what happens there
+  const phoneNow = !!(window.matchMedia && matchMedia("(max-width:639px)").matches) || !!window.StudyboardNative;
+  const notifyNote = !notifySupported() ? "Notifications aren't available here, so the alarm sound and on-screen alert are used." : Notification.permission === "denied" ? "Notifications are blocked for this site in your browser settings." : Notification.permission === "default" ? "Your browser will ask to allow notifications when you start the timer." : "Notifications are allowed.";
   d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO.replace('viewBox="0 0 24 24"', 'viewBox="2.14 2.4 19.72 19.72"'), pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
     <div class="sheet-body">
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
@@ -388,8 +392,8 @@ function renderPomo(){
             <label class="f">Volume<input type="range" id="psVol" min="0.1" max="1" step="0.1" value="${esc(cfg.volume)}"></label>
           </div>
           <button type="button" class="btn small" data-act="pomo-test">Play Test Sound</button>
-          <label class="mi-check"><input type="checkbox" id="psNotify" ${cfg.notify ? "checked" : ""} ${notifySupported() ? "" : "disabled"}> Show a desktop notification</label>
-          <p class="mini" style="margin:0">${notifyNote} Keep Studyboard open in a tab so the alarm can ring. On phones, the browser pauses pages when the screen turns off.</p>
+          <label class="mi-check"><input type="checkbox" id="psNotify" ${cfg.notify ? "checked" : ""} ${notifySupported() ? "" : "disabled"}> Show a notification</label>
+          <p class="mini" style="margin:0">${notifyNote} ${phoneNow ? "Keep Studyboard open so the alarm can ring; the phone pauses it when the screen turns off." : "Keep Studyboard open in a tab so the alarm can ring. On phones, the browser pauses pages when the screen turns off."}</p>
         </div>
       </details>
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>

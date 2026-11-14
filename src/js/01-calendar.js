@@ -1216,6 +1216,10 @@ function pageHeadUp(v){
   }
   (tabs.matches(".bview-row") ? tabs.querySelector(".bview-tabs") : tabs).classList.add("pg-tabs");
   v.insertBefore(pg, tabs);
+  // The page's buttons sit level with the tabs, at the right: they come after the tabs for the keyboard too (Tab reaches the
+  // page's own Notes / Whiteboard or Flashcards / Quizzes switch first, as it's read left to right)
+  const r = !phone && !tabs.matches(".bview-row") && pg.querySelector(":scope > .pg-right");
+  if (r) { const w = document.createElement("div"); w.className = "pg-rwrap"; w.appendChild(r); tabs.after(w); }
 }
 // Pages without tabs: the same big title, then the content
 function soloHeadUp(v, phone){
@@ -1242,7 +1246,7 @@ function planHeadHtml(){
 }
 function planSwitchHtml(){
   const t = ui.tab;
-  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Due Dates</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
+  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${esc(tr("cal.tab.due", "Due Dates"))}</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">${esc(tr("cal.tab.schedule", "Schedule"))}</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">${esc(tr("cal.tab.crunch", "Crunch"))}</button></div>`;
 }
 
 /* Courses and Files share one nav tab */

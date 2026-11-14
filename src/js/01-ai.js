@@ -470,6 +470,8 @@ function aiModelName(provider, model){
   const m = P.models.find(x => x[0] === model);
   return m ? m[1].replace(/ \(.*$/, "").replace(/, Auto$/, "") : model;
 }
+// Who is working, in progress lines: "Gemini", not a picker label like "Gemini Auto"
+const aiBrandName = () => { const c = aiCfg(), p = c.provider; return p === "studyboard" || (p === "anthropic" && aiProUser()) ? "Studyboard AI" : (AI_WHO[p] || {}).product || aiModelName(p, c.model); };
 // One model's label in a picker: a Claude key runs as Studyboard AI does, so for Pro students it's just "Studyboard AI"
 const aiOptLabel = (p, m, l) => p === "anthropic" && m === "studyboard" && aiProUser() ? "Studyboard AI" : l;
 /* The model choices for the keys given, grouped by company. For Pro students the Claude key's choice stands on its own as
@@ -1316,6 +1318,9 @@ function aiStudySheet(deckId, mode){
     if (f && r[Number(f.dataset.forget)]) { aiForgetStyle(r[Number(f.dataset.forget)]); drawRecent(); }
   });
   if (deck && deck.aiStyle) $("#aiStyle").value = deck.aiStyle;
+  // Cancel while it's still making the set throws that work away: ask first (✕ or a tap outside sets it aside and it keeps going)
+  { const cx = dlg.querySelector('.ai-sheet .sheet-foot [data-act="close"]'); if (cx) cx.addEventListener("click", e => { if (!job.busy) return; e.stopPropagation(); e.preventDefault();
+    askBox({title: "Stop Creating?", text: "It's still being made. Stop now and it's thrown away, or keep it going: tap outside this window and it finishes in the background.", yes: "Stop and Discard", no: "Keep Going", danger: true}).then(ok => { if (ok && dlg.open && dlg.contains(cx)) dlg.close(); }); }); }
   $("#aiGo").addEventListener("click", async () => {
     if (job.busy) return;
     const pasted = $("#aiPaste").value.trim();
@@ -1329,10 +1334,15 @@ function aiStudySheet(deckId, mode){
     const custom = $("#aiStyle").value.trim(), picks = $$(".ai-style-sel", dlg).map(s => s.value).filter(v => v !== "").map(Number);
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
-    job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
+    job.busy = true; const go = $("#aiGo"), goWas = go.innerHTML; go.disabled = true; go.classList.add("busy", "ai-going");
+    // the button itself says it's working, with a clock, so a long wait never looks like nothing happened
+    const t0 = Date.now(), goClock = () => { const sec = Math.floor((Date.now() - t0) / 1000); go.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Creating… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`; };
+    goClock(); const goTick = setInterval(() => { if (!job.busy || !go.isConnected) clearInterval(goTick); else goClock(); }, 1000);
+    const goBack = () => { clearInterval(goTick); go.innerHTML = goWas; go.classList.remove("ai-going"); };
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
-    status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
+    const brand = aiBrandName();
+    status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(brand)} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     aiShowStatus(status);
     try {
       const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
@@ -1346,7 +1356,7 @@ function aiStudySheet(deckId, mode){
       if (e && e.code === "cancelled") return;
       console.warn(e); status.innerHTML = esc(e.code ? e.message : "Something went wrong. Try again.") + aiDetailHtml(e);
       aiJobFailed(); aiShowStatus(status);
-      job.busy = false; go.disabled = false; go.classList.remove("busy");
+      job.busy = false; go.disabled = false; go.classList.remove("busy"); goBack();
       if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
     }
   });
@@ -1651,7 +1661,7 @@ Return JSON only.`});
 // What Studyboard AI says about the last 7 days, for Settings
 function aiProLine(){
   const t = aiProGet() || {}, when = aiProResets();
-  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% used over the last 7 days` : ""}${when ? `, more back ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
+  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% used over the last 7 days` : ""}${when && t.usedPct >= 100 ? `, more back ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
 }
 /* The AI menu's usage card: the last 7 days as a percentage, and today's share, with no amounts or costs. The chip in its header
    always says where things stand; amber once everyday answers get shorter, orange when the allowance or the day is used up. */
@@ -1672,8 +1682,9 @@ function aiUseCard(){
   const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "the last 7 days"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
   const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "soon"}. Until then, AI keeps working with your backup key below.`
     : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
-    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` More usage comes back <b>${esc(when)}</b>.` : ""}`
-    : `Included with Pro.${when ? ` More usage comes back <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
+    // the allowance is the last 7 days, rolling: what was used a week ago comes back day by day, so there's no single date to wait for
+    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual. Use from over a week ago keeps coming back each day.`
+    : `Included with Pro. Counts the last 7 days, so use from over a week ago comes back each day${d != null && dayEnds ? `; today's share resets at ${esc(dayEnds)}.` : "."}`;
   return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
     <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
     <div class="sbai-num">${m}%<small>used, last 7 days</small></div>
@@ -1785,6 +1796,18 @@ function aiSetupSheet(fromFeature, opts){
   $$("[data-test]", dlg).forEach(b => b.addEventListener("click", async () => {
     const p = b.dataset.test, key = keysNow()[p], msg = dlg.querySelector(`[data-msg="${p}"]`);
     if (!key) { msg.textContent = "Paste the key first."; return; }
+    // the same format check Save makes, before anything is sent (or consent asked): a key in the wrong box can move to the right one
+    const kind = aiKeyKind(key), into = kind && kind !== p ? dlg.querySelector(`[data-key="${kind}"]`) : null, nm = x => x === "anthropic" ? "Claude" : x === "openai" ? "OpenAI" : "Gemini";
+    const bad = kind && kind !== p ? `That's ${kind === "openai" ? "an" : "a"} ${nm(kind)} key, not ${p === "openai" ? "an" : "a"} ${nm(p)} key.`
+      : p === "gemini" ? (!/^[\w.-]{30,}$/.test(key) || /^(sk-|sb_)/.test(key) ? "That doesn't look like a Gemini key. Gemini keys come from Google AI Studio." : "")
+      : p === "anthropic" ? (/^sk-ant-/.test(key) ? "" : "Claude API keys start with sk-ant-.") : (/^sk-/.test(key) ? "" : "OpenAI keys start with sk-.");
+    if (bad) {
+      msg.textContent = bad + (into ? " " : "");
+      if (into) { const mv = document.createElement("button"); mv.type = "button"; mv.className = "link-btn"; mv.textContent = `Move It to the ${nm(kind)} Box`; msg.appendChild(mv);
+        mv.addEventListener("click", () => { const from = dlg.querySelector(`[data-key="${p}"]`), det = into.closest("details"); if (det) det.open = true; into.value = key; from.value = ""; [into, from].forEach(i => i.dispatchEvent(new Event("change")));
+          msg.textContent = ""; const m2 = dlg.querySelector(`[data-msg="${kind}"]`); if (m2) m2.textContent = `Moved here. Press Test to check it.`; into.focus(); }); }
+      return;
+    }
     msg.textContent = "Testing…"; b.disabled = true;
     const r = await testKey(p, key);
     msg.textContent = r.ok ? `It works. Connected to ${r.model}.` : r.err; b.disabled = false;

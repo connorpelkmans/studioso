@@ -219,7 +219,7 @@ const LINKCARDS = (() => {
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
-    const who = esc(aiModelName(aiCfg().provider, aiCfg().model));
+    const who = esc(aiBrandName());
     // which step it's on and how long it's been, so a long video never looks stuck
     const t0 = Date.now(); let step = "";
     const clock = () => { const s = Math.floor((Date.now() - t0) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -263,10 +263,14 @@ const LINKCARDS = (() => {
         if ((e && (e.code === "big" || e.code === "long")) || /token|too long|exceed|duration|maximum/i.test(m)) msg = failMsg("too_long", L);
         else if ((e && e.code === "http") || /private|unavailable|not (?:be )?found|invalid.*(?:video|url|uri|argument)|file_?uri|unsupported|cannot (?:access|fetch)|permission/i.test(m)) msg = failMsg("unreachable", L);
       }
-      // Gemini can't open most YouTube videos from the last few weeks (a known problem on Google's side, the Gemini app too): say so, and how to get the transcript
-      if (L.kind === "youtube" && !pasted && e && e.link && /^(?:empty|unreachable|novideo|choke)$/.test(e.st || String(e.code || "").replace(/^link-/, ""))) msg += " If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.";
+      // Gemini can't open most YouTube videos from the last few weeks (a known problem on Google's side, the Gemini app too).
+      // A video Gemini couldn't watch gets one short line and the paste button; the causes and what came back sit behind Why?, so a phone isn't filled with text
+      const noWatch = L.kind === "youtube" && !pasted && e && e.link && /^(?:empty|unreachable|novideo|choke)$/.test(e.st || String(e.code || "").replace(/^link-/, ""));
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
-      say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), (offerPaste ? PASTE : "") + (e && e.diag && e.diag.length ? `<details class="cl-diag"><summary>Details</summary><ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : ""));
+      const diag = e && e.diag && e.diag.length ? `<ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+      const pasteBtn = offerPaste ? (L.kind === "youtube" ? PASTE.replace("Paste the Text Instead", "Paste the Transcript Instead") : PASTE) : "";
+      if (noWatch) say("Gemini couldn't watch this video. New or blocked videos often fail.", pasteBtn + `<details class="cl-diag"><summary>Why?</summary><p>${esc(msg)}</p><p>If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.</p>${diag}</details>`);
+      else say(msg + (offerPaste && e && e.link ? " Paste the text instead, and the AI can work from that." : ""), pasteBtn + (diag ? `<details class="cl-diag"><summary>Details</summary>${diag}</details>` : ""));
       aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     } finally { clearInterval(tick); }
@@ -284,6 +288,7 @@ const LINKCARDS = (() => {
 .cl-diag{margin-top:6px;font-size:.82rem;color:var(--muted)}
 .cl-diag summary{cursor:pointer;font-weight:600}
 .cl-diag ul{margin:4px 0 0;padding-left:18px}
+.cl-diag p{margin:6px 0 0}
 .cl-hint.cl-bad{color:var(--danger,#c0392b)}
 .cl-hint.cl-warn{color:var(--ink);background:color-mix(in srgb,#F5A524 16%,var(--surface));border:1px solid color-mix(in srgb,#F5A524 45%,transparent);border-radius:10px;padding:8px 10px}
 #aiStatus .btn.small{margin:6px 6px 0 0}

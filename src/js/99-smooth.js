@@ -3,7 +3,7 @@
 (function(){
   const root = document.documentElement;
   const on = () => root.dataset.motion !== "static" && styleCfg().motion !== false && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  let lastKey = null, userAt = 0;
+  let userAt = 0;
   // (the page is laid out again to restart the animation only when it is still running from last time; a fresh one just starts)
   const play = (el, cls) => { if (!el || !on()) return; if (el.classList.contains(cls)) { el.classList.remove(cls); void el.offsetWidth; } el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
 
@@ -25,6 +25,15 @@
       }
     } catch (e) {}
   };
+  // Tab from that heading goes on from the top of the sheet: a sheet whose title sits under a colour band reaches the band's
+  // Close (X) first, as it's seen, rather than last after the whole sheet
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Tab" || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
+    const h = e.target, d = h && h.classList && h.classList.contains("sm-focus-h") ? h.closest("dialog[open]") : null; if (!d) return;
+    const first = [...d.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')]
+      .find(x => x.getClientRects().length && !x.closest("[inert],[hidden]") && (x.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING));
+    if (first) { e.preventDefault(); first.focus(); }
+  }, true);
   // the dialog itself would focus an [autofocus] box as it opens, which on a phone pops the keyboard up for a moment
   // (the sheet shrinks above it, then stretches back down as it drops), so on a phone nothing is marked to take focus
   const noAuto = d => { try { if (phoneW()) d.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus")); } catch (e) {} };
@@ -82,12 +91,7 @@
     d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
   });
 
-  // A tab (or course / plan view) changed: the new page eases in. Re-draws from edits stay still.
-  hook("render", tab => {
-    const key = tab + "|" + (typeof ui !== "undefined" && ui.courseId || "");
-    const changed = lastKey !== null && key !== lastKey; lastKey = key;
-    if (changed && !root.classList.contains("vt-tab")) play(document.getElementById("view"), "sm-view");
-  });
+  // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped
 
   // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn
   document.addEventListener("pointerup", e => {

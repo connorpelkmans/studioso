@@ -309,12 +309,13 @@ window.__sbPlanObj = () => PLAN;
     if (!paywall() || isPro()) return Infinity;
     return Math.max(0, FREE_RUNS - (Number(runsState()[kind]) || 0));
   }
-  // count one finished run; says how many are left once it's counted
-  function useRun(kind){
+  // count one finished run; says how many are left once it's counted (quiet: the caller says it itself, e.g. at the end of a quiz counted at its start)
+  function useRun(kind, quiet){
     if (!paywall() || isPro() || !RUN_NAMES[kind]) return;
     const r = Object.assign({}, runsState()); r[kind] = (Number(r[kind]) || 0) + 1;
     state.settings = Object.assign({}, state.settings, {freeRuns: r}); saveSettings();
     const left = runsLeft(kind), [name, one, many] = RUN_NAMES[kind];
+    if (quiet) return;
     setTimeout(() => toast(left ? `${left} free ${name} ${left === 1 ? one : many} left this week` : `That was this week's last free ${name} ${one}. More on Monday.`, null, {label: "See Pro", fn: () => proSheet(`${name} is unlimited with Studyboard Pro.`)}), 600);
   }
   // the Pro sheet when this week's free runs are used up

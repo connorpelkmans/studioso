@@ -88,7 +88,7 @@
 .sbk-qod{display:inline-flex;align-items:center;gap:6px}
 .sbk-n{font:800 .7rem var(--display);background:var(--accent);color:var(--accent-ink,#fff);border-radius:10px;padding:1px 7px}
 .sbk-arch{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
-.sbk-acard{display:flex;flex-direction:column;gap:8px;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font:inherit}
+.sbk-acard{display:flex;flex-direction:column;gap:8px;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:start;font:inherit}
 .sbk-acard:hover{border-color:var(--accent)}
 .sbk-athumb{position:relative;display:block;aspect-ratio:5/4;border-radius:8px;background-size:cover;background-position:top;overflow:hidden;box-shadow:0 2px 6px rgba(40,25,5,.15)}
 .sbk-athumb img{position:absolute;width:32%;top:14%;left:2%;transform:rotate(-6deg)}

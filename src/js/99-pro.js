@@ -505,7 +505,12 @@ var SBPRO = null;
     }
     return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
+  // Routines open from the Focus timer: closing the sheet (after Add, Remove or Close) goes back to the timer, so the setup isn't lost
+  let rtBack = false;
+  dlg.addEventListener("close", () => { if (rtBack) setTimeout(() => { if (!rtBack || dlg.open) return; rtBack = false; const pd = $("#pomoDlg"); renderPomo(); if (!pd.open) pd.showModal();
+    const on = pd.querySelector(".pr-chip.on"); if (on) try { on.scrollIntoView({block: "nearest", inline: "nearest"}); } catch (e) {} }, 0); });
   function routineSheet(){
+    const pd = $("#pomoDlg"); if (pd && pd.open) { pd.close(); rtBack = true; }
     const mine = custom(), more = !canAdd();
     openSheet(`<form class="sheet">${head("Your Routines")}<div class="sheet-body">
       ${mine.length ? `<ul class="pro-feats">${mine.map(r => `<li><span class="pf-t"><b>${esc(r.name)}</b><span class="mini">${r.focus} min focus, ${r.short} min breaks, a ${r.long} min break after ${r.every}</span></span><button type="button" class="btn small" data-act="pro-rt-del" data-id="${esc(r.id)}">Remove</button></li>`).join("")}</ul>` : ""}
@@ -2603,6 +2608,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow", view};
     // Word, PowerPoint and Excel files have no PDF tools, so Highlights and Download sit in the top row and the second row is left out
     const hlBtn = `<button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>`, ofcTop = ofc && !view;
+    // on a phone the bottom row is the mode switch, its tools and Ask and Study, so Highlights joins Download in the top row
+    const hlTop = !view && !ofc && !!(window.matchMedia && matchMedia("(max-width:760px)").matches);
     openSheet(`<div class="sheet pdr-sheet" data-mode="read"${view ? ` data-view="1"` : ""}${ofc ? ` data-office="1"` : ""}>${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
@@ -2612,14 +2619,14 @@ button.oc-n{border:0;padding:0;cursor:pointer}
         <span class="spacer"></span>
         ${view ? "" : `<span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>`}
         <span class="spacer"></span>
-        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}${ofcTop ? `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${ico('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>')}Download</a>${hlBtn}` : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
+        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}${ofcTop ? `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${ico('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>')}Download</a>${hlBtn}` : hlTop ? hlBtn : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
         <span class="pdr-g-read">${view ? `<span class="mini pdr-viewnote">Your highlights and comments stay yours to read. Highlighting more is part of Pro.</span><button type="button" class="btn small" data-act="pdr-pro">See Pro</button>` : PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text, then pick a color to highlight it</span></span>
         <span class="spacer"></span>
-        ${ofcTop ? "" : hlBtn}
+        ${ofcTop || hlTop ? "" : hlBtn}
       </div>
       <div class="pdr-main"><div class="pdr-pages" id="pdrPages" tabindex="0" aria-label="Pages"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(f.name)}…</p></div><aside class="pdr-side" id="pdrSide" hidden></aside></div>
     </div>`);
@@ -2686,6 +2693,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     // Spreadsheets keep a readable size and scroll sideways rather than shrinking to fit
     if (O && /^(xlsx|csv)$/.test(O.kind)) R.fit = Math.max(0.6, Math.min(1.5, (box.clientWidth - 28) / Math.max(...O.pages.map(p => p.w))));
     if (R.fitMode === "page") R.fit = Math.max(0.2, Math.min(R.fit, (box.clientHeight - 28) / base.height));
+    // Phones: the page opens as wide as its text rather than its paper, so the words come out as big as the screen allows (a
+    // letter-size page fitted whole drew body text at 6 or 7px); the margins sit just off the sides, a swipe away
+    const tx = !O && R.fitMode !== "page" && matchMedia("(max-width:760px)").matches ? await textSpan(first, base) : null;
+    if (!R || !R.doc) return;
+    if (tx) R.fit = Math.min(2.5, (box.clientWidth - 28) / (tx.w + 16));
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
     const size = i => O ? `width:${Math.round(O.pages[i].w * s)}px;height:${Math.round(O.pages[i].h * s)}px` : `width:${w}px;height:${h}px`;
     const label = i => O && O.pages[i].label ? O.pages[i].label : `Page ${i + 1}`;
@@ -2697,7 +2709,25 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});
     R.pages.forEach(p => R.io.observe(p.el));
+    if (tx) box.scrollLeft = Math.max(0, (tx.l - 8) * s);
     goTo(target, true);
+  }
+  // How far across the first page its text reaches (in its own units), when it leaves real margins; worked out once a file
+  async function textSpan(pg, vp){
+    if (R.tx !== undefined) return R.tx;
+    let out = null;
+    try {
+      const tc = await pg.getTextContent(); let l = 1e9, r = -1e9, n = 0;
+      for (const it of tc.items) {
+        if (!it.str || !it.str.trim() || !it.transform) continue;
+        const a = vp.convertToViewportPoint(it.transform[4], it.transform[5]), b = vp.convertToViewportPoint(it.transform[4] + (it.width || 0), it.transform[5]);
+        l = Math.min(l, a[0], b[0]); r = Math.max(r, a[0], b[0]); n++;
+      }
+      l = Math.max(0, l); r = Math.min(vp.width, r);
+      if (n >= 3 && r - l > vp.width * 0.3 && r - l < vp.width * 0.9) out = {l, w: r - l};
+    } catch (e) {}
+    if (R) R.tx = out;
+    return out;
   }
   async function draw(n){
     if (!R || !R.doc) return;
@@ -3050,7 +3080,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   function fitBar(){
     const bar = dlg.querySelector(".pdr-sheet .pdr-bar"); if (!bar || !bar.offsetWidth) return;
     bar.classList.remove("c1", "c2", "c3", "c4", "c5");
-    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer")); return (!k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8)) && bar.scrollWidth <= bar.clientWidth + 1; };
+    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer") && getComputedStyle(x).position !== "absolute"); return (!k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8)) && bar.scrollWidth <= bar.clientWidth + 1; };
     for (const c of ["c1", "c2", "c3", "c4", "c5"]) { if (one()) break; bar.classList.add(c); }
   }
   P.fitBar = fitBar;
@@ -3286,6 +3316,49 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-sheet[data-mode="mark"] .pdr-col{width:24px;height:24px}
   .pdr-bar .pdr-out .icon-btn{width:40px;height:40px}
   .pdr-fit{min-height:40px}
+}
+/* Phones: one compact row at the top (page, zoom, Download, Highlights and Save) and one at the bottom, by the thumb: the Read /
+   Mark Up / Edit switch, that mode's tools and, in Read, Ask and Study. The switch and Ask/Study stay in the top bar's markup and
+   are placed over the two ends of the bottom row, which keeps that room free (--pdr-dl, --pdr-dr); the page gets the rest.
+   Edit keeps to that one line too: the tools that fit beside the switch, and More for the rest (99-pdf-edit.js) */
+@media (max-width:760px){
+  .pdr-sheet{--pdr-dl:112px;--pdr-dr:0px;--pdr-dock:60px}
+  .pdr-sheet[data-mode="read"]{--pdr-dr:96px}
+  .pdr-sheet > .sheet-head{padding-top:10px;padding-bottom:10px}
+  .pdr-sheet > .sheet-head h2{min-width:0;font-size:1.1rem;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pdr-bar,.pdr-bar.c5{flex-wrap:nowrap;gap:6px;padding:6px 10px}
+  .pdr-bar::after{display:none}
+  .pdr-bar > .pdr-nav{order:1}
+  .pdr-bar > .pdr-zoom{order:2}
+  .pdr-bar > .pdr-out{order:3;margin-left:auto}
+  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:3;bottom:calc((var(--pdr-dock) - 44px) / 2)}
+  .pdr-bar > .pdr-modes{left:10px}
+  .pdr-bar > .pdr-ai{right:10px;margin:0}
+  .pdr-sheet:not([data-mode="read"]) .pdr-bar > .pdr-ai{display:none}
+  .pdr-sheet .pdr-bar .pdr-fit{display:none}
+  .pdr-sheet .pdr-bar :is(.pdr-nav,.pdr-zoom) .icon-btn{width:36px;height:36px;min-width:36px}
+  .pdr-sheet .pdr-bar .pdr-pg input{width:36px}
+  /* the switch: just its icons, the one in use still marked */
+  .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode),.pdr-bar.c4 .pdr-modes > :is(.pdr-mode,.pde-mode){font-size:0;gap:0;padding:0 9px;min-height:40px;height:40px}
+  .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode) svg{width:18px;height:18px}
+  .pdr-sheet .pdr-bar .pdr-modes .pdr-badge{font-size:.72rem}
+  /* the bottom row */
+  .pdr-sheet > .pdr-main{order:1}
+  .pdr-sheet > :is(.pdr-bar2,.pde-bar){order:2;border-bottom:0;border-top:1px solid var(--line)}
+  .pdr-sheet > .pdr-bar2,.pdr-sheet[data-mode="mark"] > .pdr-bar2{min-height:var(--pdr-dock);flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:8px calc(var(--pdr-dr) + 14px) 8px calc(var(--pdr-dl) + 16px)}
+  .pdr-sheet > .pdr-bar2 > *{flex-shrink:0}
+  .pdr-sheet > .pdr-bar2 :is(.pdr-g-read,.pdr-g-mark){flex-wrap:nowrap;gap:4px}
+  .pdr-sheet > .pdr-bar2 .pdr-markhint,.pdr-sheet[data-mode="mark"] > .pdr-bar2 #pdeTocBtn{display:none}
+  /* Highlights: its count, with a marker for the word */
+  .pdr-sheet .pdr-out #pdrSideBtn{font-size:0;gap:4px;min-width:44px;min-height:40px;padding:0 10px}
+  .pdr-sheet .pdr-out #pdrSideBtn::before{content:"";flex:none;width:18px;height:18px;background:currentColor;-webkit-mask:var(--pdr-hl-ico) center/contain no-repeat;mask:var(--pdr-hl-ico) center/contain no-repeat}
+  .pdr-sheet .pdr-out #pdrSideBtn b{font-size:.85rem}
+  .pdr-sheet[data-mode="edit"] .pdr-out #pdrSideBtn{display:none}   /* Save takes its place while editing */
+  .pdr-sheet .pdr-out > a.btn{font-size:0;gap:0;min-width:40px;min-height:40px;padding:0 10px}   /* a Word or PowerPoint file's Download: its icon */
+  .pdr-sheet{--pdr-hl-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 11l-6 6v3h9l3-3'/%3E%3Cpath d='M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4'/%3E%3C/svg%3E")}
+  /* a Word, PowerPoint or Excel file in Read has no tools row: the switch gets a row of its own */
+  .pdr-sheet[data-office]:not([data-view])[data-mode="read"]::after{content:"";order:3;flex:none;height:var(--pdr-dock);border-top:1px solid var(--line);background:color-mix(in srgb,var(--ink) 3%,var(--surface))}
+  html .pde-saybar{bottom:calc(var(--pdr-dock,60px) + 10px)}
 }
 `;
   document.head.appendChild(css);
