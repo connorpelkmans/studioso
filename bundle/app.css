@@ -1066,6 +1066,10 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .deck-fc.cs-ticket .deck-main,.deck-fc.cs-ticket .deck-actions{padding-left:36px;padding-right:36px}
 .deck-fc.cs-polaroid .deck-main{padding-top:8px}
 .deck-actions .deck-arch{margin-left:auto;background:none;border-color:transparent;color:var(--muted)}
+/* Themed card faces have pictures at their foot (a grid, a skyline, a field): the secondary actions there (Share, archive, drag)
+   sit on a soft chip in the card's own face colour, so they always read clearly over the picture */
+.deck.deck-fc:is(.cs-theme,[class*="cs-tp-"]) .deck-face .deck-actions > :is(.btn:not(.primary),.rv-grip){background:color-mix(in srgb,var(--tc-bg,#fff) 88%,transparent)!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid color-mix(in srgb,var(--tc-ink,#15213A) 18%,transparent)!important;color:var(--tc-ink,#15213A)!important;opacity:1!important}
+.deck.deck-fc:is(.cs-theme,[class*="cs-tp-"]) .deck-face .deck-actions > .rv-grip{border-radius:999px;min-width:34px;min-height:34px;display:inline-grid;place-items:center}
 .deck-actions .deck-arch:hover{color:var(--ink);border-color:var(--line)}
 .deck-archived{margin-top:28px}
 .sheet .deck-archived{margin-top:0}
