@@ -18846,6 +18846,15 @@ function studyCounts(deckIds){
   return {due, fresh};
 }
 // The Review tab shows how many cards are due
+// A deck's face is cut to its rounded shape in one piece (100-phone.css): its own corner radius, which differs by card style,
+// is read once before that rule turns the painted corners square
+function deckFaceClip(){
+  document.querySelectorAll("#view .deck.deck-fc:not(.fr-on)").forEach(d => {
+    const f = d.querySelector(":scope > .deck-face"); if (!f) return;
+    d.style.setProperty("--fr", getComputedStyle(f).borderTopLeftRadius || "8px"); d.classList.add("fr-on");
+  });
+}
+hook("render", () => { if (ui.tab === "flashcards") deckFaceClip(); });
 hook("render", () => {
   const b = document.querySelector('nav.tabs [data-tab="flashcards"]'); if (!b) return;
   const n = allDueCount(); let dot = b.querySelector(".fc-navdue");

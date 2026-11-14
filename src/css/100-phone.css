@@ -699,6 +699,11 @@ h2.sec.c2-bh{align-items:center}
 /* Deck previews (Review > Flashcards) */
 .deck .face,.deck .deck-lay .face{border:0!important;outline:0!important;box-shadow:0 0 0 1px var(--line),0 12px 30px rgba(14,42,86,.14)!important}
 .deck .deck-lay .face{box-shadow:0 0 0 1px var(--line)!important}
+/* A flashcard deck's face and its course band are clipped as one piece: with a rounded background clipping the band, the
+   face's cream showed as a thin light line round the band's top corners. The face is painted square and cut to its rounded
+   shape once (--fr is its own radius, read in 01-flashcards.js), and the ring and shadow sit on the card around it */
+.deck.deck-fc.fr-on > .deck-face{border-radius:0!important;clip-path:inset(0 round var(--fr,8px));box-shadow:none!important}
+.deck.deck-fc.fr-on{border-radius:var(--fr,8px)!important;box-shadow:0 0 0 1px var(--line),0 12px 30px rgba(14,42,86,.14)!important}
 .deck .deck-lay{border:0!important;outline:0!important;box-shadow:none!important;background:none!important}
 /* The cards behind sit 6px lower and right, less than the 8px corner */
 .deck.deck-fc .fc-band{padding-top:7px!important;padding-bottom:7px!important}
