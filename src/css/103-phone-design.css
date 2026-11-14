@@ -432,7 +432,17 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 .next-up .nu-meta > .nu-more{margin-left:auto;font-size:.72rem;font-weight:700;gap:3px;padding:4px 0 4px 8px;color:var(--muted)}
 .next-up .nu-meta > .nu-more svg{width:12px;height:12px}
 /* on wider screens Details isn't shown, so a line with nothing else on it takes no room */
-@media (min-width:640px){.next-up .nu-meta:not(:has(.nu-tag-out,.nu-rx-out)){display:none}}
+/* Computers and iPads: the course and Take-home sit on the title's own line, as the same pills as on phones (the line under the
+   title, which only phones need for Details, isn't shown) */
+.next-up .nu-title .nu-rx-in{display:none}
+@media (min-width:640px){
+  .next-up .nu-meta{display:none}
+  .next-up .nu-title .tag:is(.nu-ctag,.nu-rx-in){display:inline-flex;align-items:center;gap:5px;box-sizing:border-box;height:22px;margin-left:8px;padding:0 9px 0 8px;border-radius:999px;vertical-align:middle;position:relative;top:-2px;font:700 .68rem/1 var(--body);letter-spacing:.03em;white-space:nowrap}
+  .next-up .nu-title .tag.nu-ctag{color:color-mix(in srgb,var(--c) 55%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border:0}
+  .next-up .nu-title .tag.nu-ctag::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
+  .next-up .nu-title .tag.nu-rx-in{margin-left:6px;color:var(--muted);background:transparent;border:1px solid color-mix(in srgb,var(--ink) 16%,transparent)}
+  .next-up .nu-title .tag.nu-rx-in svg{flex:none}
+}
 
 /* Flashcards' review card (01-flashcards.js reviewHeroHtml) on phones: slimmer. The card stack stays as a small icon beside the
    title; the time and decks keep to one line, with the week as seven small squares at its end; Start Review shares its line

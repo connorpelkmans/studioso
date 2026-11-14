@@ -6541,7 +6541,9 @@ const nuBackBtn = () => ui.skipNext && ui.skipNext.day === todayISO() && ui.skip
 // On phones the reasons and next step sit behind a Details toggle so the card stays short
 const NU_CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 const nuOpenCls = () => ui.nuMore ? " nu-open" : "";
-// Under the title: the course, a take-home exam's tag and Details, side by side on one line
+const NU_HOME = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>';
+// Under the title: the course, a take-home exam's tag and Details, side by side on one line (phones; on wider screens the course
+// and Take-home sit on the title's own line, nu-ctag and nu-rx-in)
 const nuMeta = (c, extra) => `<span class="nu-meta">${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}${extra || ""}${nuMoreBtn()}</span>`;
 const nuMoreBtn = () => `<button type="button" class="nu-more" data-act="nu-more" aria-expanded="${!!ui.nuMore}">Details${NU_CHEV}</button>`;
 // While the timer is on this very task, its button says so (and opens the timer) instead of offering to start another session
@@ -6562,7 +6564,7 @@ function nextUpHtml(F, pre){
     <div class="nu-top"><span class="nu-label">Do This Next</span>${n.xs && n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested study time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.x.dl === 1 || n.x.lightEve ? "The day before: light review only. Skim your summary or a few flashcards, then stop early and sleep." : n.hasPlan ? "Test yourself on your weakest topics: flashcards or practice questions, not rereading." : "Test yourself (flashcards or practice questions), or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
@@ -6574,7 +6576,7 @@ function nextUpHtml(F, pre){
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
-        <button class="nu-title" ${gtOpenAttrs(t)}>${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c, MILESTONE(t.type) ? `<span class="tag rx-tag nu-rx-out" title="${esc(remoteOf(t).why || "Can be taken from home")}"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Take-home</span>` : "")}
+        <button class="nu-title" ${gtOpenAttrs(t)}>${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag nu-rx-in" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : ""}</button>${nuMeta(c, MILESTONE(t.type) ? `<span class="tag rx-tag nu-rx-out" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : "")}
         <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
@@ -6594,7 +6596,7 @@ function nextUpSpare(F, inView){
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
         <span class="nu-step">Plan My Prep spreads short review sessions over the days before it, and they show up here.</span>
       </div>
@@ -6612,7 +6614,7 @@ function nextUpSpare(F, inView){
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
