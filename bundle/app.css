@@ -646,6 +646,9 @@ html.env-morph .nb-scroll{overflow-x:hidden}
 .tr-row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:6px}
 .tr-main{display:grid;gap:2px;min-width:0;flex:1 1 200px}.tr-label{overflow-wrap:anywhere}.tr-acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .tr-chips{display:flex;gap:6px;flex-wrap:wrap}.tr-chips:empty{display:none}
+/* Phones: the Recently Deleted filters are a little narrower, so the usual few (All, Tasks, Events, Bulk Deletions) fit on one
+   line; on a very narrow phone they still wrap */
+@media (max-width:639px){#dlg .tr-chips{gap:4px}#dlg .tr-chips .chip{padding-left:9px;padding-right:9px;white-space:nowrap}}
 .xp-set{border:0;margin:0;padding:0;display:grid;gap:6px}.xp-set legend{padding:0;margin-bottom:4px}
 .ar-list{display:grid;gap:10px}
 .ar-note{background:var(--nc);color:#2A2418;border-radius:6px;padding:12px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
