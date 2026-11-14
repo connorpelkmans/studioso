@@ -66074,6 +66074,12 @@ var COMP_EXTRA = [];
   const patsNow = () => { if (!pro()) return {}; const p = cfg().pat || {}, o = {}; PAT_PROPS.forEach(k => { if (PATS.some(x => x[0] === p[k])) o[k] = p[k]; }); return o; };
   // a prop's art with its fabric patterned: the fill that follows the prop's colour becomes the pattern
   const withPat = (art, id, kind, col) => { if (!kind || !col) return art; const pid = `cpp-${id}-${kind}-${col.replace("#", "")}`; return `<defs>${patDef(pid, kind, col)}</defs>` + String(art).split(WEAR).join(`style="fill:url(#${pid})"`); };
+  // A prop's picture on its own, centred (the wardrobe's tiles and the new-prop reveal)
+  function propIcon(a, tints){
+    tints = tints || tintsNow();
+    const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
+    return `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
+  }
   const tintsNow = () => { const t = cfg().tint || {}; if (pro()) return t; const o = {}; Object.keys(t).forEach(k => { if (inPalette(t[k])) o[k] = t[k]; }); return o; };
   const paywall = () => { try { return !!(typeof PLAN !== "undefined" && PLAN && PLAN.paywall()); } catch (e) { return false; } };
   const skinId = () => document.documentElement.dataset.skin || effSkinId() || "classic";
@@ -67490,17 +67496,71 @@ var COMP_EXTRA = [];
     const fresh = earnedNow.filter(a => !got[a.id]);
     if (!fresh.length) return;
     setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
-    // a new prop earned: the success pattern (checked a moment after the studying that earned it, so not tied to a touch)
-    sbHaptic("success", {force: true});
-    if (!act || !cur) return;
-    const wearable = fresh.filter(canWear), a = wearable[wearable.length - 1] || fresh[fresh.length - 1];
-    if (a && canWear(a) && !wearOf(cur).length) setCfg({wear: {[cur.id]: [a.id]}});
-    build();
-    hold(2200);
-    act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
-    if (talkOn()) say(fresh.length > 1 ? `Ooh, ${fresh.length} new props: ${fresh.map(x => x.name).join(", ")}! Look in my wardrobe!` : `Ooh, a new prop: the ${a.name}! Thanks for working so hard!`);
-    later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
     try { refreshPicker(); } catch (e) {}
+    // each new prop is shown big in the middle of the screen (revealProp), one after another; the companion celebrates as each closes
+    fresh.forEach(a => { if (!revealQ.some(x => x.id === a.id)) revealQ.push(a); });
+    revealSoon();
+  }
+
+  /* A new prop: shown in the middle of the screen in a burst of light, with Put It On and Later. It waits for a calm moment
+     (nothing being typed, dragged or held, no sheet open), shows even when the companion is hidden, and comes one at a time */
+  const revealQ = [];
+  let revealOn = false, revealT = 0, pressing = false;
+  document.addEventListener("pointerdown", () => { pressing = true; }, true);
+  ["pointerup", "pointercancel"].forEach(t => document.addEventListener(t, () => { pressing = false; }, true));
+  const revealBusy = () => { const ae = document.activeElement;
+    return document.hidden || pressing || !!document.querySelector("dialog[open]") || !!(ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))
+      || !!document.querySelector(".dragging, .sort-ghost, .rv-ghost, .stk-ghost, .note.editing") || /\b(sorting|rv-dragging|sch-dragging|stk-dragging|dragging-note)\b/.test(document.body.className); };
+  function revealSoon(){
+    clearTimeout(revealT);
+    if (!revealQ.length || revealOn) return;
+    if (revealBusy()) { revealT = setTimeout(revealSoon, 1500); return; }
+    revealProp(revealQ.shift());
+  }
+  const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/></svg>';
+  function revealProp(a){
+    revealOn = true;
+    const c = current(), wearNow = !!c && canWear(a), done = propProg(a).find(x => x.p >= 1);
+    const tints = tintsNow(), col = hexOk(tints[a.id]) ? tints[a.id] : ACC_DEF[a.id] || (c ? wearColor(c) : "");
+    const o = document.createElement("div");
+    o.className = "cpu" + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpuName"); o.setAttribute("aria-describedby", "cpuHow");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
+    const how = !c ? "Pick a companion to wear it." : wearNow ? "Your companion can wear it now." : owns("prop", a.id) ? "It's in your companion's wardrobe." : "It comes with Studyboard Pro.";
+    o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
+      <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
+        ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
+        <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
+      <span class="cpu-kick">New Prop Unlocked!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>
+      <p class="cpu-how" id="cpuHow">${done ? `<span class="cpu-did">${esc(done.ask)}</span> ` : ""}${esc(how)}</p>
+      <div class="cpu-acts">${wearNow ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">Got It</button>`}</div></div>`;
+    document.body.appendChild(o);
+    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    sbHaptic("success", {force: true});
+    const back = document.activeElement;
+    setTimeout(() => { const b = o.querySelector('[data-cpu="wear"]') || o.querySelector("[data-cpu]"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    let closed = false;
+    const close = wear => {
+      if (closed) return; closed = true;
+      o.classList.add("cpu-out");
+      setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); }, still() ? 0 : 260);
+      try { if (back && back.isConnected && back.focus) back.focus({preventScroll: true}); } catch (e) {}
+      const cc = current();
+      if (wear && cc && canWear(a)) { const now = wearOf(cc); setCfg({wear: {[cc.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {} }
+      // the companion celebrates too
+      if (act && cur) {
+        hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
+        if (talkOn()) say(wear ? `How do I look in the ${a.name}? Thanks for working so hard!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
+        later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
+      }
+      revealOn = false;
+      revealT = setTimeout(revealSoon, 900);
+    };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpu]"); if (b) close(b.dataset.cpu === "wear"); });
+    o.addEventListener("keydown", e => {
+      if (e.key === "Escape") { e.preventDefault(); close(false); return; }
+      if (e.key === "Tab") { const bs = [...o.querySelectorAll("[data-cpu]")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); }
+    });
   }
   // Checked as you go (not only at the daily hello)
   hook("render", () => { if (Date.now() - lastUnlockChk > 20000 && !document.hidden) setTimeout(checkUnlocks, 1500); });
@@ -68293,8 +68353,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
       const got = isEarned(a), can = canWear(a), on = wear.includes(a.id);
-      const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
-      const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
+      const icon = propIcon(a, tints);
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
         <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
@@ -68765,6 +68824,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // Every companion, for the Your Photo theme editor's "Companions" picker
     all: () => Object.keys(REG).flatMap(k => REG[k].list.map(c => ({id: c.id, name: c.name, kind: c.kind || "", theme: k, owned: canComp(c)}))),
     current: () => current() && current().id, mood: () => mood, el: () => box, open: openPicker,
+    // the new-prop reveal, for tests and previews
+    reveal: id => { const a = ACC.find(x => x.id === id); if (a && !revealQ.some(x => x.id === a.id)) { revealQ.push(a); revealSoon(); } return !!a; },
     tap: () => react(), cheer: k => { lastCheer = 0; cheer(k || "task"); }, greet: () => { try { sessionStorage.removeItem(GREET_KEY); } catch (e) {} greet(); },
     say: (t, o) => say(t, Object.assign({again: true}, o)),
     // A trip to a corner or any point (clamped into the allowed range), in a chosen style
