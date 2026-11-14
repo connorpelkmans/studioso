@@ -46,7 +46,7 @@ function viewBars(){
   let rows = "";
   groups.filter(g => g.list.length).forEach(g => {
     const col = g.c ? g.c.color : "#8A94A6";
-    rows += `<div class="tl-row tl-group" style="--c:${esc(col)}"><div class="tl-label" style="width:${LW}px"><span class="tl-gic" aria-hidden="true">${g.c ? courseRingHtml(g.c) : GENERAL_ICON}</span><span class="tt"${g.c && g.c.code && g.c.name ? ` title="${esc(g.c.name)}"` : ""}>${esc(g.c ? courseLabel(g.c) : "No Course")}</span></div><div class="tl-track" style="width:${W}px"><span class="tl-gname">${esc(g.c && g.c.code && g.c.name !== courseLabel(g.c) ? g.c.name : "")}</span><span class="tl-gn">${g.list.length} open</span></div></div>`;
+    rows += `<div class="tl-row tl-group" style="--c:${esc(col)};--ba:${esc(courseSolid(hexBlend(col, "#000000", 0.2)))};--bb:${esc(courseSolid(col))}"><div class="tl-label" style="width:${LW}px"><span class="tl-gic" aria-hidden="true">${g.c ? courseRingHtml(g.c) : GENERAL_ICON}</span><span class="tt"${g.c && g.c.code && g.c.name ? ` title="${esc(g.c.name)}"` : ""}>${esc(g.c ? courseLabel(g.c) : "No Course")}</span></div><div class="tl-track" style="width:${W}px"><span class="tl-gname">${esc(g.c && g.c.code && g.c.name !== courseLabel(g.c) ? g.c.name : "")}</span><span class="tl-gn">${g.list.length} open</span></div></div>`;
     g.list.slice().sort((a, b) => (startOf(a) < startOf(b) ? -1 : startOf(a) > startOf(b) ? 1 : sortTasks(a, b))).forEach(t => {
       const s = startOf(t);
       const late = t.due < today;
@@ -62,7 +62,7 @@ function viewBars(){
   });
 
   const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
-  const head = `<div class="tl-controls tl-tools">${coursePickHtml()}${tlModeSeg()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
+  const head = `<div class="tl-controls tl-tools">${coursePickHtml()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div>${tlModeSeg()}<button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
   if (!ts.length) return head + searchNote() + `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br><button type="button" class="link-btn" data-act="undated-open">${noDue} task${noDue === 1 ? " has" : "s have"} no due date</button>` : ""}${firstStepBtns()}</div>`;
   return head + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
@@ -109,6 +109,8 @@ function viewCalendar(){
   const dows = [];
   for (let i = 0; i < 7; i++) { const d = new Date(2023, 0, 1 + i); dows.push(`<div class="dow${i === 0 || i === 6 ? " wkend" : ""}" aria-hidden="true"><span class="dw-n">${d.toLocaleDateString(undefined, {weekday:"narrow"})}</span><span class="dw-s">${d.toLocaleDateString(undefined, {weekday:"short"})}</span><span class="dw-l">${d.toLocaleDateString(undefined, {weekday:"long"})}</span></div>`); }
   let cells = "";
+  // The month is one Tab stop: the chosen day (or the 1st) takes Tab, the arrow keys move between days (see calKey)
+  const tabDay = ui.calDay.slice(0, 7) === ui.calMonth.slice(0, 7) ? ui.calDay : ui.calMonth;
   const weeks = Math.ceil((first.getDay() + new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate()) / 7);
   // Holidays and School Days off, named beside the day's number
   const hol = {};
@@ -135,7 +137,7 @@ function viewCalendar(){
     const late = ts.filter(t => t.status !== "done" && k < today).length;
     const hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
     const dots = ts.slice(0, 3).map(t => `<span class="ci-row${t.status !== "done" && k < today ? " late" : ""}${t.status === "done" ? " done" : /^(Exam|Quiz)$/.test(t.type) ? " big" : ""}" style="--c:${esc(colorOf(t.courseId))}"><i class="ci" title="${esc(t.type)}: ${esc(t.title)}${t.status !== "done" && k < today ? ", overdue" : ""}" style="--c:${esc(colorOf(t.courseId))};${t.status === "done" ? "opacity:.35" : ""}">${typeIcon(t.type)}</i><span class="ci-t${t.status === "done" ? " done" : ""}">${esc(t.title)}</span></span>`).join("") + (ts.length > 3 ? `<b class="ci-more">+${ts.length - 3}<span class="ci-mw"> more</span></b>` : "");
-    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}${holTxt ? ", " + esc(holTxt) + (hl.some(h => h.off) ? ", no classes" : "") : ""}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}${evs.length ? `, ${evs.length} event${evs.length === 1 ? "" : "s"}` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}${hl.some(h => h.off) ? " (no classes)" : ""}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots">${dots}</span>${evs.length ? `<span class="cal-evs" aria-hidden="true">${evs.slice(0, 2).map(o => `<span class="cal-ev" style="--c:${esc(o.color)}">${o.allDay ? "" : `<b>${esc(evTime(o))}</b> `}${esc(o.title)}</span>`).join("")}${evs.length > 2 ? `<span class="cal-ev more">+${evs.length - 2}</span>` : ""}</span>` : ""}</button>`;
+    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" tabindex="${k === tabDay ? 0 : -1}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}${holTxt ? ", " + esc(holTxt) + (hl.some(h => h.off) ? ", no classes" : "") : ""}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}${evs.length ? `, ${evs.length} event${evs.length === 1 ? "" : "s"}` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}${hl.some(h => h.off) ? " (no classes)" : ""}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots">${dots}</span>${evs.length ? `<span class="cal-evs" aria-hidden="true">${evs.slice(0, 2).map(o => `<span class="cal-ev" style="--c:${esc(o.color)}">${o.allDay ? "" : `<b>${esc(evTime(o))}</b> `}${esc(o.title)}</span>`).join("")}${evs.length > 2 ? `<span class="cal-ev more">+${evs.length - 2}</span>` : ""}</span>` : ""}</button>`;
   }
   const dayTasks = (byDay[ui.calDay] || []).slice().sort(sortTasks), dayEvs = evBy[ui.calDay] || [];
   const dayLabel = parse(ui.calDay).toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"});
@@ -146,7 +148,7 @@ function viewCalendar(){
       <button class="btn small" data-act="cal-today" ${ui.calMonth.slice(0, 7) === today.slice(0, 7) && (!ui.calDay || ui.calDay === today) ? 'disabled aria-pressed="true" title="You are viewing today"' : 'aria-pressed="false"'}>Today</button>
       <button class="icon-btn" data-act="cal-next" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
-    <div class="cal">${dows.join("")}${cells}</div>
+    <div class="cal" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month:"long", year:"numeric"}))}. Arrow keys move between days, Page Up and Page Down between months.">${dows.join("")}${cells}</div>
     <h2 class="sec ${ui.calDay === today ? "hl" : ""}"><span class="t">Due ${esc(dayLabel)}</span><span class="n">${dayTasks.length || ""}</span></h2>
     ${dayTasks.length ? taskList(dayTasks) : !allTasks().some(t => t.due)
       // No due dates anywhere yet: the same welcome as the timeline view

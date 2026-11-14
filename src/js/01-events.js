@@ -59,9 +59,10 @@ function tabSwap(changed, go){ go(); }
 // Where a press on the screen began: a tap that starts inside the note being edited is a tap in the note, even when the note
 // moves under the finger before it lifts (on a phone, tapping back in the text box hides the note's options at once, so the
 // sheet shrinks and the end of the tap lands on the dimmed page behind it; that used to close the note)
-let noteDownIn = 0;
+let noteDownIn = 0, noteWasTyping = false;
 ["pointerdown", "touchstart", "mousedown"].forEach(t => document.addEventListener(t, e => {
   noteDownIn = e.target && e.target.closest && e.target.closest(".note.editing") ? Date.now() : 0;
+  noteWasTyping = !!document.activeElement && document.activeElement.id === "noteText";
 }, {capture: true, passive: true}));
 document.addEventListener("click", e => {
   const downIn = noteDownIn && Date.now() - noteDownIn < 1500; noteDownIn = 0;
@@ -81,7 +82,10 @@ document.addEventListener("click", e => {
   if (ui.tab === "notes" && !e.target.closest("dialog") && !e.target.closest(".rb-bar,.rb-eq")) {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
-    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); return; }   // the note opens with its options; typing starts with a tap in its text (no keyboard straight away on a phone)
+    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); noteHold(); return; }   // the note opens with its options; typing starts with a second tap or Enter (no keyboard straight away on a phone)
+    // A second tap or click on the open note, anywhere but one of its controls, puts the cursor in its text (a tap there while
+    // typing does the opposite: it puts the keyboard away and shows the options)
+    if (nEl && nEl.classList.contains("editing") && !noteWasTyping && !e.target.closest("button,a,select,summary,details,input,textarea,label,[data-act],[contenteditable],.stk,.np-photos")) { noteType(); return; }
     if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
       if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
       saveNoteText();
@@ -300,7 +304,17 @@ document.addEventListener("change", e => {
 });
 document.addEventListener("keydown", e => {
   if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
-  const nf = e.target.matches && e.target.matches('.note[role="button"]') ? state.notes[e.target.dataset.note] : null;
+  // The open note, before its text has the cursor: Enter or Space (or simply typing) starts typing, Esc closes it. Esc also
+  // closes it from its colour, task and other controls.
+  if (noteEditing && ui.tab === "notes" && !e.defaultPrevented && !e.isComposing && !document.querySelector("dialog[open]")) {
+    const open = e.target.closest && e.target.closest(".note.editing"), lost = e.target === document.body || e.target === document.documentElement;
+    if (e.key === "Escape" && (open || lost || (e.target.closest && e.target.closest("#nbBoard")))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
+    if (open === e.target || lost) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); noteType(); return; }
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { noteType(); return; }   // (not prevented: the letter lands in the text)
+    }
+  }
+  const nf = e.target.matches && e.target.matches('.note[data-note]:not(.editing)') ? state.notes[e.target.dataset.note] : null;
   if (nf && (e.key === "[" || e.key === "]")) {
     e.preventDefault();
     const r = Math.round(((Number(nf.rot) || 0) + (e.key === "]" ? 5 : -5) + 540) % 360 - 180);
@@ -314,6 +328,20 @@ document.addEventListener("keydown", e => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.target.click(); return; }
   }
   if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('.card[role="button"]')) { e.preventDefault(); e.target.click(); }
+});
+// Month view: arrow keys move a day or a week, Home and End go to the week's start and end, Page Up and Page Down a month
+// (as in a date picker); the day moved to is chosen, so its tasks show below
+document.addEventListener("keydown", e => {
+  const b = e.target.closest && e.target.closest('.cal .day[data-act="pick-day"]'); if (!b || e.altKey || e.ctrlKey || e.metaKey) return;
+  const d = parse(b.dataset.id), k = e.key;
+  if (k === "ArrowLeft" || k === "ArrowRight") d.setDate(d.getDate() + (k === "ArrowLeft" ? -1 : 1));
+  else if (k === "ArrowUp" || k === "ArrowDown") d.setDate(d.getDate() + (k === "ArrowUp" ? -7 : 7));
+  else if (k === "Home" || k === "End") d.setDate(d.getDate() + (k === "Home" ? -d.getDay() : 6 - d.getDay()));
+  else if (k === "PageUp" || k === "PageDown") { const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (k === "PageUp" ? -1 : 1)); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); }
+  else return;
+  e.preventDefault();
+  const id = iso(d); ui.calDay = id; ui.calMonth = id.slice(0, 7) + "-01"; render();
+  const n = $(`.cal .day[data-id="${id}"]`); if (n) try { n.focus({preventScroll: true}); n.scrollIntoView({block: "nearest"}); } catch (x) {}
 });
 function toggleSearch(open){
   const row = $("#searchRow");

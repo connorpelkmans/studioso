@@ -441,6 +441,10 @@
   let phoneNow = innerWidth < 640;
   if (PHONE_MQ) { const f = () => { phoneNow = PHONE_MQ.matches; }; f(); if (PHONE_MQ.addEventListener) PHONE_MQ.addEventListener("change", f); else if (PHONE_MQ.addListener) PHONE_MQ.addListener(f); }
   const phone = () => phoneNow;
+  // a short window with the tab bar along the bottom (a laptop zoomed to 200%, a phone on its side): it takes its seat in the
+  // tab bar as on a phone, instead of standing over the few lines of page there is room for
+  const SHORT_MQ = window.matchMedia ? matchMedia("(max-width: 979.98px) and (max-height: 600px)") : null;
+  const docks = () => phoneNow || !!(SHORT_MQ && SHORT_MQ.matches);
   const sizePx = c => { const s = c ? c.size : 1; return Math.round((phone() ? Math.max(62, Math.min(72, 66 * s)) : Math.max(86, Math.min(108, 96 * s))) * shrink); };
   const GAP = 26;
 
@@ -808,9 +812,9 @@
     px = Math.max(px, Math.round(Math.min(r.width, r.height) * 1.02));
     return {left: Math.round(r.left + (r.width - px) / 2), top: Math.round(r.top + (r.height - px) / 2 - seatLift(cur, px)), kind: "slot", px};
   }
-  // Phones: its seat in the middle of the bottom tab bar
+  // Phones (and short windows): its seat in the bottom tab bar
   function dockSpot(px){
-    if (!phone() || (typeof ui !== "undefined" && ui.tab === "companion")) return null;
+    if (!docks() || (typeof ui !== "undefined" && ui.tab === "companion")) return null;
     const el = document.querySelector('nav.tabs .in [data-tab="companion"]'); if (!el) return null;
     const r = el.getBoundingClientRect(); if (r.width < 20 || r.height < 20) return null;
     const seat = 56, cx = r.left + r.width / 2, seatTop = r.top - 16, sz = Math.round(seat * 0.86);

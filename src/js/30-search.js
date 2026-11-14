@@ -1397,6 +1397,12 @@ Return JSON only.`;
   const icon = (g, color) => `<span class="sx-ic k-${g}" style="--c:${esc(color || "var(--accent)")}" aria-hidden="true">${g === "study" || g === "ask" ? AI_ICON : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[g] || ICONS.actions}</svg>`}</span>`;
   function recent(){ try { return JSON.parse(localStorage.getItem(LS_RECENT) || "[]").filter(x => typeof x === "string").slice(0, 6); } catch(e) { return []; } }
   function pushRecent(q){ q = q.trim(); if (q.length < 2) return; const r = [q].concat(recent().filter(x => x.toLowerCase() !== q.toLowerCase())).slice(0, 6); try { localStorage.setItem(LS_RECENT, JSON.stringify(r)); } catch(e) {} }
+  // a course tag's text: the course colour toward ink (as .sx-tag draws it), deepened (lifted on dark) only if its tint on the
+  // row, plain or highlighted, needs it to read
+  function tagInk(c){
+    const sf = themeHex("surface", "#F7F9FC"), on = hexBlend(sf, themeHex("accent", "#1A60D0"), 0.11);
+    return courseInk(hexBlend(c, themeHex("ink", "#0F1F3D"), 0.25), [hexBlend(sf, c, 0.13), hexBlend(on, c, 0.13)]);
+  }
   function metaFor(doc, extra){
     const c = doc.type === "chunk" ? courseOf((state.files[doc.fid] || {}).courseId) : courseOf(doc.cid);
     const bits = [];
@@ -1407,7 +1413,7 @@ Return JSON only.`;
     if (doc.type === "question") { const d = state.decks[doc.pid], qz = d && (d.aiQuizzes || []).find(x => x.id === doc.qid); if (qz) bits.push(esc(qz.title)); }
     if (doc.type === "chunk" && doc.label && doc.page) bits.push(`${esc(doc.label)} ${doc.page}`);
     if (doc.type === "file" && extra && extra.length) { const d = extra[0].doc; if (d.label && d.page) bits.push(`${esc(d.label)} ${d.page}`); if (extra.length > 1) bits.push(`${extra.length} matches`); }
-    return (c ? `<span class="sx-tag" style="--c:${esc(c.color || "#8A94A6")}">${esc(courseLabel(c))}</span>` : "") + bits.map(b => `<span>${b}</span>`).join("");
+    return (c ? `<span class="sx-tag" style="--c:${esc(c.color || "#8A94A6")};--ci:${esc(tagInk(c.color || "#8A94A6"))}">${esc(courseLabel(c))}</span>` : "") + bits.map(b => `<span>${b}</span>`).join("");
   }
   function colorFor(doc){
     if (doc.type === "chunk") return colorOf((state.files[doc.fid] || {}).courseId);
@@ -1420,40 +1426,46 @@ Return JSON only.`;
       <span class="sx-main"><span class="sx-t">${title}</span>${snip ? `<span class="sx-s">${snip}</span>` : ""}</span>
       ${meta ? `<span class="sx-meta">${meta}</span>` : ""}</div>`;
   }
+  // Each section of results is a named group inside the list ("Flashcards, 7 results"), so a screen reader hears the
+  // sections as sections rather than as stray items among the results. The visible header is for the eye; its Show All
+  // does what the Flashcards (or other) chip above does, so it's left to the mouse and the chips serve the keyboard.
+  const grpHtml = (label, n, head, body) => `<div role="group" aria-label="${esc(label + (n ? `, ${n} result${n === 1 ? "" : "s"}` : ""))}"><div class="sx-gh" aria-hidden="true">${head}</div>${body}</div>`;
   function drawFind(){
     const q = S.q.trim(), rows = [], html = [];
+    S.count = null;
     const push = (run, h) => { rows.push(run); return h(rows.length - 1); };
     if (!q) {
       if (S.type !== "all") {
         ensureItems();
         const list = IX.items.docs.filter(d => pass(d) && !d.arch).sort((a, b) => (b.boost - a.boost) || String(a.date || "9").localeCompare(String(b.date || "9")) || String(a.title).localeCompare(String(b.title))).slice(0, 80);
-        if (list.length) html.push(`<div class="sx-gh"><span>${esc(GLABEL[S.type])}</span></div>` + list.map(d => push(() => openDoc(d), i => rowHtml(i, d.g, esc(d.title), d.text ? esc(String(d.text).slice(0, 140)) : "", metaFor(d), colorFor(d)))).join(""));
+        if (list.length) html.push(grpHtml(GLABEL[S.type], 0, `<span>${esc(GLABEL[S.type])}</span>`, list.map(d => push(() => openDoc(d), i => rowHtml(i, d.g, esc(d.title), d.text ? esc(String(d.text).slice(0, 140)) : "", metaFor(d), colorFor(d)))).join("")));
         else html.push(`<div class="sx-empty"><strong>Nothing Here Yet</strong>There's nothing of this kind${S.course ? " in this course" : ""}.</div>`);
       } else {
         const rec = recent();
-        if (rec.length) html.push(`<div class="sx-gh"><span>Recent Searches</span></div>` + rec.map(r => push(() => { setQuery(r); }, i => rowHtml(i, "recent", esc(r), "", "", "var(--muted)"))).join(""));
+        if (rec.length) html.push(grpHtml("Recent Searches", 0, `<span>Recent Searches</span>`, rec.map(r => push(() => { setQuery(r); }, i => rowHtml(i, "recent", esc(r), "", "", "var(--muted)"))).join("")));
         ensureItems();
         const sug = ["Add a Task", "Import a Syllabus", "Review Due Flashcards", "Upload Files", "Create Flashcards with AI", "Add an Event"];
         const acts = IX.items.docs.filter(d => d.type === "action" && sug.includes(d.title)).sort((a, b) => sug.indexOf(a.title) - sug.indexOf(b.title));
-        html.push(`<div class="sx-gh"><span>Suggested Actions</span></div>` + acts.map(d => push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--accent)"))).join(""));
+        html.push(grpHtml("Suggested Actions", 0, `<span>Suggested Actions</span>`, acts.map(d => push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--accent)"))).join("")));
         html.push(`<p class="sx-tip">Search finds tasks, courses, flashcards, notes, events, practice quizzes, settings and the text inside your PDFs, Word and PowerPoint files.</p>`);
       }
     } else {
       const r = find(q); S.P = r.P;
+      S.count = r.groups.reduce((s, G) => s + G.list.filter(x => x.doc.type !== "filter" && x.doc.type !== "ask").length, 0);
       // only "Ask about…" or filter rows came back: say plainly that nothing matched
       if (r.groups.length && !r.groups.some(G => G.list.some(x => x.doc.type !== "filter" && x.doc.type !== "ask"))) html.push(`<p class="sx-none">No matches for “${esc(q)}”. Try other words, or ask below.</p>`);
       if (!r.groups.length) html.push(`<div class="sx-empty"><strong>No Matches</strong>Try fewer or different words${S.type !== "all" || S.course ? ", or show everything" : ""}.${S.type !== "all" || S.course ? ` <button type="button" class="link-btn" data-sx="reset">Show Everything</button>` : ""}</div>`);
       r.groups.forEach(G => {
         const cap = S.type === "all" ? (G.g === "actions" ? 4 : G.g === "files" || G.g === "tasks" ? 5 : 4) : 120;
         const shown = G.list.slice(0, cap), realCount = G.list.filter(x => x.doc.type !== "filter" && x.doc.type !== "ask").length;
-        html.push(`<div class="sx-gh"><span>${esc(GLABEL[G.g])}</span>${realCount ? `<span class="n">${realCount}</span>` : ""}${G.list.length > cap ? `<button type="button" class="link-btn" data-sx="type" data-id="${G.g}">Show All</button>` : ""}</div>`
-          + shown.map(x => {
+        html.push(grpHtml(GLABEL[G.g], realCount, `<span>${esc(GLABEL[G.g])}</span>${realCount ? `<span class="n">${realCount}</span>` : ""}${G.list.length > cap ? `<button type="button" class="link-btn" data-sx="type" data-id="${G.g}" tabindex="-1">Show All</button>` : ""}`,
+          shown.map(x => {
             const d = x.doc;
             if (d.type === "ask") return push(() => runAsk(), i => rowHtml(i, "ask", esc(d.title), esc(d.text), `<kbd class="sx-kbd">${MAC ? "⌥" : "Alt"}+Enter</kbd>`, "#8B5CF6"));
             if (d.type === "filter") return push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--muted)"));
             const snip = x.chunks && x.chunks.length ? snippet(x.chunks[0].doc.text, r.P.hl, 170) : d.text ? snippet(d.text, r.P.hl, 150) : "";
             return push(() => openDoc(d, x.byText ? x.chunks : null), i => rowHtml(i, d.g, hlTitle(d.title, r.P.hl), snip, metaFor(d, x.chunks), colorFor(d)));
-          }).join(""));
+          }).join("")));
       });
     }
     return {rows, html: html.join("")};
@@ -1610,8 +1622,19 @@ Return JSON only.`;
     list.innerHTML = r.html;
     const inp = $("#sxQ");
     if (S.rows.length) inp.setAttribute("aria-activedescendant", "sxo-" + S.active); else inp.removeAttribute("aria-activedescendant");
-    drawChips(); drawFoot();
+    drawChips(); drawFoot(); sayCount(askDone);
     S.ms = Math.round(now() - t0);
+  }
+  // How many results, said once typing pauses ("12 results", "No matches"), in a status line that stays put between redraws
+  let sayT = 0, said = "";
+  function sayCount(askDone){
+    let el = $("#sxCount");
+    if (!el) { el = document.createElement("p"); el.id = "sxCount"; el.className = "sr"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); $("#sxBody").insertBefore(el, $("#sxList")); }
+    clearTimeout(sayT);
+    const n = askDone || !S.q.trim() || S.count == null ? null : S.count, msg = n == null ? "" : n ? `${n} result${n === 1 ? "" : "s"}` : "No matches";
+    if (!msg) { said = ""; el.textContent = ""; return; }
+    const key = S.q.trim() + "|" + msg;
+    sayT = setTimeout(() => { if (!S.open || key === said) return; said = key; el.textContent = msg; }, 700);
   }
   let drawT = 0;
   function drawSoon(){ if (!S.open) return; clearTimeout(drawT); drawT = setTimeout(() => { const y = $("#sxBody").scrollTop; draw(); $("#sxBody").scrollTop = y; }, 350); }

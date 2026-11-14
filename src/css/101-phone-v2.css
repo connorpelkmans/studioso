@@ -82,6 +82,9 @@
   #view > .pview-tabs:has(> button:nth-of-type(4)) button,#view > .bview-row .bview-tabs:has(> button:nth-of-type(4)) button{font-size:1.1rem;padding:8px 4px;flex:1 1 auto;min-width:0}
   /* the smallest phones: three page names still fit (Due Dates, Schedule, Crunch) */
   @media (max-width:359px){#view > .pview-tabs button,#view > .bview-row .bview-tabs button{font-size:1.02rem;padding:8px 2px;flex:1 1 auto;min-width:0}}
+  /* Large and Extra Large text: the names grow only as far as the screen has room, so the last one isn't pushed off the edge */
+  html:is([data-ts="l"],[data-ts="xl"]) #view > :is(.pview-tabs,.bview-row .bview-tabs) button{font-size:min(1.2rem,5.2vw);flex:1 1 auto;min-width:0}
+  html:is([data-ts="l"],[data-ts="xl"]) #view > :is(.pview-tabs,.bview-row .bview-tabs):has(> button:nth-of-type(4)) button{font-size:min(1.1rem,4.2vw)}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
@@ -263,6 +266,10 @@
 @media (min-width:640px){
   #view > .pg-head:not(.pg-solo){position:relative}
   #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 58px);transform:translateY(-100%);align-items:flex-end;flex-wrap:nowrap;z-index:2}
+  /* (placed after the tabs, so Tab order follows the screen: a zero-height holder whose top is 16px under the tabs) */
+  #view > .pg-rwrap{position:relative;height:0;margin:0!important;padding:0}
+  #view > .pg-rwrap > .pg-right{position:absolute;right:0;bottom:calc(100% + 16px);align-items:flex-end;flex-wrap:nowrap;z-index:2}
+  #view > .pg-rwrap + *{margin-top:0!important}
 }
 #view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-left:auto}
 /* Task Board: the tab line runs the full width, Group By sits on it like the other page buttons */
@@ -341,7 +348,8 @@ html[data-plan-top="week"] .dtl{display:none}
   .dtl-c.now,.dtl-c.next{box-shadow:0 0 0 2px var(--c,var(--accent))}
   .dtl-t{white-space:nowrap}
   .dtl-m{display:flex;align-items:center;justify-content:space-between;gap:6px;font:700 .68rem/1.1 var(--display);color:color-mix(in srgb,var(--c) 50%,var(--ink))}
-  .dtl-badge{font:800 .56rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
+  /* Now / Next: white on a small pill of the course colour (deepened where white wouldn't read on it, --cb from 01-board.js) */
+  .dtl-badge{flex:none;font:800 .7rem/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--cb,var(--c));padding:3px 6px 2px;border-radius:999px}
 /* a design switch: <html data-plan-top="week"> brings back the two-week ribbon beside a Planned Today tile instead */
 
 /* Today's plan rows: the check circle is centred against the title only */

@@ -333,7 +333,8 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   .ph-sch .sch-range{white-space:normal;line-height:1.15;font-size:.88rem}
 }
 
-/* Due Dates row: course, Days / Weeks / Term, Timeline / Month, Today, then Print at the right end */
+/* Due Dates row: course, Days / Weeks / Term, Timeline / Month, Today, then Print at the right end (the page builds them in
+   this order too, so Tab goes along the row as it's seen) */
 #view .tl-tools > .segb[aria-label="Zoom"]{order:1}
 #view .tl-tools > .segb[aria-label="View"]{order:2}
 #view .tl-tools > [data-act="tl-today"]{order:3}

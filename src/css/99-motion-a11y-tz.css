@@ -31,7 +31,17 @@ html[data-motion="calm"] *,html[data-motion="calm"] *::before,html[data-motion="
 /* High contrast and calm backgrounds */
 html[data-hc="1"] #sceneArt{filter:blur(6px) saturate(.55);opacity:.4}
 html[data-hc="1"] body{background-image:none!important}
-html[data-hc="1"]{--muted:color-mix(in srgb,var(--ink) 82%,var(--bg));--line:color-mix(in srgb,var(--ink) 38%,var(--bg))}
+/* (!important: a theme's own colours are set on :root[data-skin] and the dark-mode rules, which outrank this selector, so without
+   it High Contrast quietly lost to every theme) Secondary text at full ink, borders firm */
+html[data-hc="1"]{--muted:var(--ink)!important;--line:color-mix(in srgb,var(--ink) 48%,var(--surface))!important}
+html[data-hc="1"] :focus-visible{outline:3px solid var(--ink)!important;outline-offset:2px!important}
+/* Tinted labels become solid ones: the card colour, ink text and a firm outline, whatever the course or status colour */
+html[data-hc="1"] :is(.nu-chip,.nu-tag,.pr-chip,.pt-chip,.fh-chip,.sch-chip,.g2-pill,.rp-pill,.dep-chip,.exm-tag,.sx-tag,.c2-letter,.tl-edge,.tl-dl em,.pill){background:var(--surface)!important;color:var(--ink)!important;border:1.5px solid color-mix(in srgb,var(--ink) 70%,var(--surface))!important;box-shadow:none!important}
+html[data-hc="1"] :is(.nu-chip.late,.g2-pill.late,.tl-dl em){color:var(--late-ink)!important;border-color:currentColor!important}
+html[data-hc="1"] .note-tag{background:#fff;color:#1a1a1a;border:1.5px solid #1a1a1a;border-left:4px solid var(--c)}
+/* Today's strip: plain cards with ink text; the course colour stays in the outline */
+html[data-hc="1"] .dtl-c.tk{background:var(--surface)}
+html[data-hc="1"] .dtl-c :is(.dtl-t,.dtl-m,.dtl-s){color:var(--ink)!important}
 html[data-hc="1"] .card,html[data-hc="1"] .task,html[data-hc="1"] header.top,html[data-hc="1"] nav.tabs,html[data-hc="1"] .sheet{background-color:var(--surface)!important;opacity:1}
 /* Text that sits straight on theme artwork gets a soft plate in the page colour */
 html.sc-on :is(.board-sec-head > h2,.board-ctl .mini,.hint-line,.tl-controls > h2,.view-head > h2,.fcrumb,.sec > .t,.sec > .n,.term-bar,.nudge,header.top .today){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
@@ -52,3 +62,17 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 .pview-tabs button{padding-top:10.8px;padding-bottom:9.2px}
 .fab{padding-top:14.8px;padding-bottom:13.2px}
 .plan-sheet .sheet-foot .btn{padding-top:10.8px;padding-bottom:9.2px}
+/* Short windows (a laptop zoomed to 200% is 683x450, a phone on its side): the bars that stay put would cover nearly half the
+   screen, so the header scrolls away with the page, the Add button is just its round "+", and below 980px wide the companion
+   takes its seat in the tab bar (98-companion.js, docks) as it does on a phone */
+@media (max-height:600px){
+  html header.top{position:relative}
+  html .sch-pills{top:env(safe-area-inset-top,0px)}
+  html .fab{width:52px;height:52px;padding:0!important;border-radius:50%!important;justify-content:center}
+  html .fab span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  html .fab svg{width:24px;height:24px}
+}
+@media (max-width:979px) and (max-height:600px){
+  body.cp-docked nav.tabs .in [data-tab="companion"]{font-size:0!important}
+  body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
+}

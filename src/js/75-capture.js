@@ -958,7 +958,7 @@ function fast(text){
 document.addEventListener("keydown", e => {
   if (CAPTURE_OFF || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.key !== "c") return;
   const t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
-  if (anyDialogOpen() || (ui.tab === "flashcards" && ui.fc)) return;
+  if (anyDialogOpen() || (ui.tab === "flashcards" && ui.fc) || (typeof noteEditing !== "undefined" && noteEditing && ui.tab === "notes")) return;
   e.preventDefault(); openCapture({shortcut: true});
 });
 document.addEventListener("paste", e => {

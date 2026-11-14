@@ -33,7 +33,7 @@ dialog.sx-dlg[open]{display:flex}
 .sx-s{font-size:.85rem;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .sx-meta{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:.76rem;color:var(--muted);max-width:34%;text-align:right}
 .sx-meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.sx-tag{font-weight:700;color:color-mix(in srgb,var(--c) 75%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border-radius:6px;padding:1px 6px}
+.sx-tag{font-weight:700;color:var(--ci,color-mix(in srgb,var(--c) 75%,var(--ink)));background:color-mix(in srgb,var(--c) 13%,transparent);border-radius:6px;padding:1px 6px}
 .sx-row mark,.sx-pl mark,.sx-ans mark{background:color-mix(in srgb,var(--mark) 75%,transparent);color:inherit;border-radius:3px;padding:0 1px}
 .sx-empty{margin:18px 8px;background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted)}
 .sx-none{margin:12px 14px 2px;color:var(--muted);font-size:.92rem}

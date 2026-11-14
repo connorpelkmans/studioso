@@ -155,13 +155,15 @@
       <p class="mini" style="margin:0">These work when you're not typing in a box.</p>
       ${sec("Anywhere", [row(["N"], "New task"), ...(typeof CAPTURE_OFF !== "undefined" && CAPTURE_OFF ? [] : [row(["C"], "Quick Capture")]), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
       ${sec("Go To", VIEWS_KEYS.map(([t], i) => row(appWin() ? [String(i + 1), MOD + "+" + (i + 1)] : [String(i + 1)], viewName(t))))}
-      ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz")])}
-      ${sec("Notes", [row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
+      ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz"), row(["Esc"], "End the study session or quiz")])}
+      ${sec("Notes", [row(["Enter"], "Open the selected note's options, then again to type in it"), row(["Esc"], "Close the open note"), row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
   }
   document.addEventListener("keydown", e => {
     if (e.defaultPrevented || e.isComposing || e.repeat) return;
     if (typing(e.target) || modals().length) return;
+    // A note open on the board is being worked on, even before its text box has the cursor: keys belong to it
+    if (typeof noteEditing !== "undefined" && noteEditing && ui.tab === "notes") return;
     const mod = e.ctrlKey || e.metaKey, m = /^Digit([1-7])$/.exec(e.code || "");
     if (mod && !e.altKey && !e.shiftKey && e.key === ",") { e.preventDefault(); settings(); return; }
     if (mod && !e.altKey && !e.shiftKey && m) { e.preventDefault(); goView(VIEWS_KEYS[Number(m[1]) - 1][0]); return; }

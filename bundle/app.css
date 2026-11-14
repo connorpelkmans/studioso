@@ -571,7 +571,7 @@ html.env-morph .nb-scroll{overflow-x:hidden}
 .pin{position:absolute;top:6px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FF8A80,#C62828 60%,#7F0000);box-shadow:0 2px 3px rgba(0,0,0,.35)}
 .note-body{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:hidden}
 .note-empty{color:rgba(42,36,24,.55);font-style:italic}
-.note-tag{display:inline-block;font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:5px;background:color-mix(in srgb,var(--c) 22%,rgba(255,255,255,.6));color:color-mix(in srgb,var(--c) 70%,#1a1a1a);margin-bottom:6px;border-left:3px solid var(--c)}
+.note-tag{display:inline-block;font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:5px;background:color-mix(in srgb,var(--c) 22%,rgba(255,255,255,.6));color:var(--ci,color-mix(in srgb,var(--c) 70%,#1a1a1a));margin-bottom:6px;border-left:3px solid var(--c)}
 .note-text{width:100%;min-height:120px;border:0;background:rgba(255,255,255,.45);border-radius:6px;padding:8px;font:inherit;color:#2A2418;resize:vertical}
 .note-text:focus-visible{outline:2px solid rgba(42,36,24,.4)}
 .note-conflict{display:block;width:100%;margin:0 0 6px;border:1px dashed rgba(42,36,24,.55);background:rgba(255,255,255,.55);color:#2A2418;border-radius:8px;padding:5px 8px;font:600 .74rem var(--body);text-align:left;cursor:pointer}
@@ -625,6 +625,7 @@ html.env-morph .nb-scroll{overflow-x:hidden}
 .nb-target{pointer-events:auto;width:84px;height:84px;border-radius:18px;background:color-mix(in srgb,var(--surface) 92%,transparent);border:2px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:.75rem;font-weight:700;color:var(--ink);box-shadow:0 6px 16px rgba(0,0,0,.18);transition:transform .15s,background .15s,border-color .15s;cursor:pointer}
 .nb-target.trash{cursor:pointer}
 .nb-boards{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:10px 0 12px}
+.nb-tlist{display:contents}
 .nb-tab{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 13px;font:600 .88rem var(--display);min-height:40px;cursor:pointer;max-width:220px}
 .nb-tab .sd{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .nb-tab .nb-tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -923,7 +924,7 @@ details.adv[open] > summary::before{transform:rotate(45deg)}
 .adv-sum{color:var(--muted);font-size:.84rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
 .adv-body{display:grid;gap:14px;padding:4px 14px 16px}
 .three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.focus-btn{display:inline-flex;align-items:center;gap:6px;color:var(--tomato)}
+.focus-btn{display:inline-flex;align-items:center;gap:6px;color:color-mix(in srgb,var(--tomato) 74%,var(--ink))}
 .focus-btn svg{width:16px;height:16px}
 /* Lists: course color lives on the checkbox, not on a side bar */
 li.task::before,.plan-row::before{display:none}
@@ -2812,7 +2813,7 @@ dialog.sx-dlg[open]{display:flex}
 .sx-s{font-size:.85rem;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .sx-meta{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:.76rem;color:var(--muted);max-width:34%;text-align:right}
 .sx-meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.sx-tag{font-weight:700;color:color-mix(in srgb,var(--c) 75%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border-radius:6px;padding:1px 6px}
+.sx-tag{font-weight:700;color:var(--ci,color-mix(in srgb,var(--c) 75%,var(--ink)));background:color-mix(in srgb,var(--c) 13%,transparent);border-radius:6px;padding:1px 6px}
 .sx-row mark,.sx-pl mark,.sx-ans mark{background:color-mix(in srgb,var(--mark) 75%,transparent);color:inherit;border-radius:3px;padding:0 1px}
 .sx-empty{margin:18px 8px;background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted)}
 .sx-none{margin:12px 14px 2px;color:var(--muted);font-size:.92rem}
@@ -6026,7 +6027,17 @@ html[data-motion="calm"] *,html[data-motion="calm"] *::before,html[data-motion="
 /* High contrast and calm backgrounds */
 html[data-hc="1"] #sceneArt{filter:blur(6px) saturate(.55);opacity:.4}
 html[data-hc="1"] body{background-image:none!important}
-html[data-hc="1"]{--muted:color-mix(in srgb,var(--ink) 82%,var(--bg));--line:color-mix(in srgb,var(--ink) 38%,var(--bg))}
+/* (!important: a theme's own colours are set on :root[data-skin] and the dark-mode rules, which outrank this selector, so without
+   it High Contrast quietly lost to every theme) Secondary text at full ink, borders firm */
+html[data-hc="1"]{--muted:var(--ink)!important;--line:color-mix(in srgb,var(--ink) 48%,var(--surface))!important}
+html[data-hc="1"] :focus-visible{outline:3px solid var(--ink)!important;outline-offset:2px!important}
+/* Tinted labels become solid ones: the card colour, ink text and a firm outline, whatever the course or status colour */
+html[data-hc="1"] :is(.nu-chip,.nu-tag,.pr-chip,.pt-chip,.fh-chip,.sch-chip,.g2-pill,.rp-pill,.dep-chip,.exm-tag,.sx-tag,.c2-letter,.tl-edge,.tl-dl em,.pill){background:var(--surface)!important;color:var(--ink)!important;border:1.5px solid color-mix(in srgb,var(--ink) 70%,var(--surface))!important;box-shadow:none!important}
+html[data-hc="1"] :is(.nu-chip.late,.g2-pill.late,.tl-dl em){color:var(--late-ink)!important;border-color:currentColor!important}
+html[data-hc="1"] .note-tag{background:#fff;color:#1a1a1a;border:1.5px solid #1a1a1a;border-left:4px solid var(--c)}
+/* Today's strip: plain cards with ink text; the course colour stays in the outline */
+html[data-hc="1"] .dtl-c.tk{background:var(--surface)}
+html[data-hc="1"] .dtl-c :is(.dtl-t,.dtl-m,.dtl-s){color:var(--ink)!important}
 html[data-hc="1"] .card,html[data-hc="1"] .task,html[data-hc="1"] header.top,html[data-hc="1"] nav.tabs,html[data-hc="1"] .sheet{background-color:var(--surface)!important;opacity:1}
 /* Text that sits straight on theme artwork gets a soft plate in the page colour */
 html.sc-on :is(.board-sec-head > h2,.board-ctl .mini,.hint-line,.tl-controls > h2,.view-head > h2,.fcrumb,.sec > .t,.sec > .n,.term-bar,.nudge,header.top .today){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
@@ -6047,6 +6058,20 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 .pview-tabs button{padding-top:10.8px;padding-bottom:9.2px}
 .fab{padding-top:14.8px;padding-bottom:13.2px}
 .plan-sheet .sheet-foot .btn{padding-top:10.8px;padding-bottom:9.2px}
+/* Short windows (a laptop zoomed to 200% is 683x450, a phone on its side): the bars that stay put would cover nearly half the
+   screen, so the header scrolls away with the page, the Add button is just its round "+", and below 980px wide the companion
+   takes its seat in the tab bar (98-companion.js, docks) as it does on a phone */
+@media (max-height:600px){
+  html header.top{position:relative}
+  html .sch-pills{top:env(safe-area-inset-top,0px)}
+  html .fab{width:52px;height:52px;padding:0!important;border-radius:50%!important;justify-content:center}
+  html .fab span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  html .fab svg{width:24px;height:24px}
+}
+@media (max-width:979px) and (max-height:600px){
+  body.cp-docked nav.tabs .in [data-tab="companion"]{font-size:0!important}
+  body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
+}
 /* ===== module: 99-smooth.css ===== */
 /* Smooth reveals: only opacity and transform, 160 to 260 ms, so they feel instant and still ease */
 :root{--sm-ease:cubic-bezier(.2,.8,.2,1)}
@@ -6901,19 +6926,19 @@ svg.ci-svg{overflow:visible!important}
 .g2-sheet-head{background-size:100% 62px!important;background-repeat:no-repeat!important;background-position:top!important}
 .gp-hero-band{--c:var(--accent-band)!important}
 .gp-cap{color:var(--accent-band)!important}
-/* Side bar icons */
+/* Side bar icons (labels and their rows in rem, so they follow Text Size like the rest of the page) */
 nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:non-scaling-stroke}
 @media (min-width:980px){
   nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .in button svg,nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-foot button svg{width:24px!important;height:24px!important}
-  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .in button:not(.nav-focus){font-size:12px!important;line-height:14px!important;padding:0 4px!important;height:52px;min-height:0!important;flex:none!important;gap:4px!important}
-  nav.tabs:is([data-fit="1"],[data-fit="2"]) .in button:not(.nav-focus){height:46px}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .in button:not(.nav-focus){font-size:.75rem!important;line-height:.875rem!important;padding:0 4px!important;height:calc(38px + .875rem);min-height:0!important;flex:none!important;gap:4px!important}
+  nav.tabs:is([data-fit="1"],[data-fit="2"]) .in button:not(.nav-focus){height:calc(32px + .875rem)}
   nav.tabs:is([data-fit="1"],[data-fit="2"]) .nav-brand img{height:64px;width:94px!important}
   nav.tabs[data-fit="1"] .nav-foot .nav-tool{height:44px!important;padding:1px 4px!important}
   nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .in{gap:2px!important}
   nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .nav-brand img{height:72px;width:106px!important}
   nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .nav-date{line-height:16px!important;height:16px}
-  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-foot .nav-tool{line-height:14px!important;gap:4px!important;padding:3px 4px!important;height:48px;flex:none}
-  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-foot .nav-tool > span{line-height:14px!important;height:14px}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-foot .nav-tool{line-height:.875rem!important;gap:4px!important;padding:3px 4px!important;height:calc(34px + .875rem);flex:none}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-foot .nav-tool > span{line-height:.875rem!important;height:.875rem}
   nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-sync{height:28px;line-height:14px!important;box-sizing:border-box;padding-top:1px!important;padding-bottom:3px!important}
   nav.tabs[data-fit="2"] .nav-foot .nav-tool svg{width:22px!important;height:22px!important}
   nav.tabs[data-fit="2"] .nav-foot .nav-tool{height:38px;min-height:0!important;padding:8px 2px!important}
@@ -6989,6 +7014,8 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .plan-past ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .plan-past li{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding-left:10px;border-left:4px solid var(--c)}
 .plan-past .pp-q{flex:1 1 220px;min-width:0;font-weight:600}
+/* the page's own text is a fixed 16px; this card's question follows Text Size like the rest of the plan */
+html[data-ts] .plan-past .pp-q{font-size:1rem}
 .plan-past .pp-q .link-btn{font:inherit;padding:0}
 .plan-past .pp-q .mini{display:block;font-weight:500}
 .plan-past .pp-acts{display:flex;gap:6px;flex-wrap:wrap}
@@ -7438,6 +7465,9 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
   #view > .pview-tabs:has(> button:nth-of-type(4)) button,#view > .bview-row .bview-tabs:has(> button:nth-of-type(4)) button{font-size:1.1rem;padding:8px 4px;flex:1 1 auto;min-width:0}
   /* the smallest phones: three page names still fit (Due Dates, Schedule, Crunch) */
   @media (max-width:359px){#view > .pview-tabs button,#view > .bview-row .bview-tabs button{font-size:1.02rem;padding:8px 2px;flex:1 1 auto;min-width:0}}
+  /* Large and Extra Large text: the names grow only as far as the screen has room, so the last one isn't pushed off the edge */
+  html:is([data-ts="l"],[data-ts="xl"]) #view > :is(.pview-tabs,.bview-row .bview-tabs) button{font-size:min(1.2rem,5.2vw);flex:1 1 auto;min-width:0}
+  html:is([data-ts="l"],[data-ts="xl"]) #view > :is(.pview-tabs,.bview-row .bview-tabs):has(> button:nth-of-type(4)) button{font-size:min(1.1rem,4.2vw)}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
@@ -7619,6 +7649,10 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
 @media (min-width:640px){
   #view > .pg-head:not(.pg-solo){position:relative}
   #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 58px);transform:translateY(-100%);align-items:flex-end;flex-wrap:nowrap;z-index:2}
+  /* (placed after the tabs, so Tab order follows the screen: a zero-height holder whose top is 16px under the tabs) */
+  #view > .pg-rwrap{position:relative;height:0;margin:0!important;padding:0}
+  #view > .pg-rwrap > .pg-right{position:absolute;right:0;bottom:calc(100% + 16px);align-items:flex-end;flex-wrap:nowrap;z-index:2}
+  #view > .pg-rwrap + *{margin-top:0!important}
 }
 #view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-left:auto}
 /* Task Board: the tab line runs the full width, Group By sits on it like the other page buttons */
@@ -7697,7 +7731,8 @@ html[data-plan-top="week"] .dtl{display:none}
   .dtl-c.now,.dtl-c.next{box-shadow:0 0 0 2px var(--c,var(--accent))}
   .dtl-t{white-space:nowrap}
   .dtl-m{display:flex;align-items:center;justify-content:space-between;gap:6px;font:700 .68rem/1.1 var(--display);color:color-mix(in srgb,var(--c) 50%,var(--ink))}
-  .dtl-badge{font:800 .56rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
+  /* Now / Next: white on a small pill of the course colour (deepened where white wouldn't read on it, --cb from 01-board.js) */
+  .dtl-badge{flex:none;font:800 .7rem/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--cb,var(--c));padding:3px 6px 2px;border-radius:999px}
 /* a design switch: <html data-plan-top="week"> brings back the two-week ribbon beside a Planned Today tile instead */
 
 /* Today's plan rows: the check circle is centred against the title only */
@@ -8665,7 +8700,8 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   .ph-sch .sch-range{white-space:normal;line-height:1.15;font-size:.88rem}
 }
 
-/* Due Dates row: course, Days / Weeks / Term, Timeline / Month, Today, then Print at the right end */
+/* Due Dates row: course, Days / Weeks / Term, Timeline / Month, Today, then Print at the right end (the page builds them in
+   this order too, so Tab goes along the row as it's seen) */
 #view .tl-tools > .segb[aria-label="Zoom"]{order:1}
 #view .tl-tools > .segb[aria-label="View"]{order:2}
 #view .tl-tools > [data-act="tl-today"]{order:3}

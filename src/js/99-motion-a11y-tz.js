@@ -11,8 +11,10 @@
   const mqReduce = mm("(prefers-reduced-motion: reduce)"), mqData = mm("(prefers-reduced-data: reduce)"), mqPhone = mm("(max-width:719px)"), mqContrast = mm("(prefers-contrast: more)");
   const MODES = ["full", "off"], RANK = {full: 0, static: 1}, KEY = "studyboard:anim";
   const worse = (a, b) => RANK[a] >= RANK[b] ? a : b;
-  // Animations are on (full) or off. Nothing lowers them by itself, and an older Auto or Reduced choice becomes On.
-  let pref = ls(KEY); if (pref !== "off") { if (pref) ls(KEY, null); pref = "full"; }
+  // Animations are on (full) or off. With no choice stored they follow the device: Off when it asks for Reduce Motion (people
+  // turn that on because motion makes them dizzy), On otherwise. A student who picks On keeps it on (stored as "full");
+  // an older Auto or Reduced choice becomes "no choice".
+  let pref = ls(KEY); if (pref !== "off" && pref !== "full") { if (pref) ls(KEY, null); pref = ""; }
   let battery = null, saveData = false, desk = {onBattery: false, thermal: "unknown", locked: false};
   let blurred = false, idle = false, covered = false, lastInput = Date.now(), lastSig = "";
   // Nothing lowers the picture on its own any more: Auto is full motion except on a low battery
@@ -24,7 +26,8 @@
   const batCritical = () => !!(battery && battery.charging === false && battery.level < 0.08);
   // Reduced motion in Auto: only for a low battery (under 20% and not charging, or the phone's Low Power Mode)
   const lowPower = () => batLow() || nativeLow;
-  function level(){ return pref === "off" ? "static" : "full"; }
+  const effPref = () => pref || (reduceSys() ? "off" : "full");
+  function level(){ return effPref() === "off" ? "static" : "full"; }
   const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
   // Scenes draw on every screen refresh: 60 on most phones, 120 on ProMotion iPhones and high-refresh Android (the 4 ms floor only ignores duplicate callbacks).
   const frameMs = () => 4;
@@ -40,19 +43,21 @@
   }
   function statusText(){
     const lv = level(), p = pauseWhy();
-    let s = pref === "off" ? "Off: scenes are still, with no confetti." : "On: scenes always play.";
+    let s = effPref() === "off" ? (!pref ? "Off because your device's Reduce Motion is on: Mochi stays put, scenes are still, with no confetti. Choose On to play them anyway." : "Off: scenes are still, with no confetti.")
+      : pref === "full" && reduceSys() ? "On: scenes play even though your device's Reduce Motion is on." : "On: scenes always play.";
     if (p && lv !== "static") s += ` Paused for now because ${p}.`;
     return s;
   }
   function emit(force){
-    const lv = level(), sig = [lv, live(), frameMs(), dprScale(), pref, gov].join("|");
+    const lv = level(), sig = [lv, live(), frameMs(), dprScale(), effPref(), gov].join("|");
     root.dataset.motion = lv;
     if (sig === lastSig && !force) return;
     lastSig = sig;
     document.querySelectorAll("[data-anim-status]").forEach(el => { el.textContent = statusText(); });
-    try { window.dispatchEvent(new CustomEvent("sb-motion", {detail: {level: lv, live: live(), pref, gov}})); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent("sb-motion", {detail: {level: lv, live: live(), pref: effPref(), gov}})); } catch (e) {}
   }
-  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "full" ? null : p); emit(true); };
+  // Picking what the device already asks for goes back to following the device
+  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p === (reduceSys() ? "off" : "full") ? "" : p; ls(KEY, pref || null); emit(true); };
 
   // (No automatic quality lowering: the picture stays as it is. These stay so the scenes can still report their frames.)
   function warm(){}
@@ -105,7 +110,7 @@
     const cs = Object.values(state.courses).filter(c => c && c.color).slice(0, 6); if (!cs.length) return "";
     return "conic-gradient(" + cs.map((c, i, a) => c.color + " " + Math.round(i / a.length * 100) + "% " + Math.round((i + 1) / a.length * 100) + "%").join(",") + ")";
   };
-  window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
+  window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: effPref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
   emit(true);
 
   /* ================= Text size and contrast ================= */
@@ -180,7 +185,7 @@
   const seg = (act, items, cur, label) => `<div class="segb" role="group" aria-label="${esc(label)}">${items.map(([k, l]) => `<button type="button" data-act="${act}" data-id="${k}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div>`;
   hook("menu", () => {
     const tzr = homeZone(), cur = deviceZone(), differs = SBTZ_CORE.zoneChanged(tzr, cur);
-    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
+    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], effPref(), "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
     ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll.</span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
@@ -246,8 +251,22 @@
         if (i.labels && i.labels.length) return;
         const t = i.getAttribute("title") || i.getAttribute("placeholder"); if (t && t.trim()) i.setAttribute("aria-label", t.trim());
       });
+      r.querySelectorAll("label.anim-tog").forEach(togName);
     } catch (e) { console.warn("a11y pass", e); }
   }
+  // Settings switches read "On" (their visible word) whatever they control: each is named after its row's title instead
+  // ("Daily Quote, checkbox, checked") and the On word is only for the eye
+  function togName(l){
+    const i = l.querySelector('input[type="checkbox"]'); if (!i || l.dataset.named) return;
+    const own = [...l.childNodes].filter(n => n.nodeType === 3 && n.nodeValue.trim());
+    const head = l.closest(".cap-row") && l.closest(".cap-row").firstElementChild;
+    const title = head && head !== l && !head.contains(l) ? [...head.childNodes].filter(n => n.nodeType === 3).map(n => n.nodeValue).join(" ").replace(/^[^\p{L}\p{N}]+/u, "").replace(/\s+/g, " ").trim() : "";
+    if (!title || !own.length) return;
+    l.dataset.named = "1";
+    if (!i.getAttribute("aria-label")) i.setAttribute("aria-label", title);
+    own.forEach(n => { const s = document.createElement("span"); s.setAttribute("aria-hidden", "true"); s.textContent = n.nodeValue; n.replaceWith(s); });
+  }
+  document.addEventListener("focusin", e => { const l = e.target && e.target.closest && e.target.closest("label.anim-tog"); if (l) try { togName(l); } catch (x) {} }, true);
   // One page title for screen readers when the visible header
   const mqSide = mm("(min-width:980px)");
   function pageTitle(){

@@ -2255,8 +2255,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   let fitT = 0; window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { if (E) E.fitW = null; measureFit(); }, 120); });
   const touchy = () => { try { return matchMedia("(pointer: coarse)").matches; } catch (e) { return false; } };
+  // the opening hint ("Tap any text to change it") is needed once: after a first edit it stays away, which on a phone gives its
+  // line back to the page
+  const K_HINT = "studyboard:pdeHinted";
   function barMsg(){
     const e = selected(), n = mine().length, pr = e && (e.k === "t" || e.k === "p") ? probeOf(e) : null, typing = !!(e && E.ed && E.ed.e.id === e.id), tap = touchy();
+    const hinted = !!lsGet(K_HINT); if (n && !hinted) lsSet(K_HINT, 1);
     const T = tapWord(), drag = E.tool === "mark" && !e && SHAPES.find(x => x[0] === E.shape && !["check", "cross", "dot"].includes(x[0]));
     // how to finish typing where Enter makes a new line, and what a picked text box can do
     const finish = typing && e.k !== "t" ? (tap ? "Tap away from it to finish" : "Ctrl+Enter or click away to finish") : "";
@@ -2280,7 +2284,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       : e && e.k === "i" ? "Drag to move, the corner to resize"
       : drag ? `Drag on the page to draw ${drag[1] === "Arrow" ? "an arrow" : "a " + drag[1].toLowerCase()}`
       : E.tool === "mark" && !e ? `${T} to add a ✓, ✗ or dot; drag for a box, circle, line or arrow`
-      : !n && E.tool === "text" ? `${T} any text to change it` : "";
+      : !n && E.tool === "text" && !hinted ? `${T} any text to change it` : "";
   }
   function barHtml(){
     const e = selected(), txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
@@ -2625,7 +2629,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-save": saveVersion(); break;
       case "pde-panel-close":
         // planned page changes aren't thrown away without asking
-        if (S.panel && S.panel.querySelector("#pdeGrid") && S.pp && pagesPlanned()) { askBox({title: "Discard the Page Changes?", text: "The pages you moved, turned, added or took out go back to how they were.", yes: "Discard", no: "Keep Editing"}).then(y => { if (y) closePanel(); }); break; }
+        if (S.panel && S.panel.querySelector("#pdeGrid") && S.pp && pagesPlanned()) { askBox({title: "Discard the Page Changes?", text: "The pages you moved, turned, added or took out go back to how they were.", yes: "Discard", no: "Keep Editing", danger: true}).then(y => { if (y) closePanel(); }); break; }
         closePanel(); break;
       case "pde-font-local": localFonts(); break;
       case "pde-font-pick": { const f = S.localFonts && S.localFonts[Number(id)]; if (f) f.blob().then(b => b.arrayBuffer()).then(buf => addFont(new Uint8Array(buf))).then(fid => { if (fid) { useFont(fid); fontsPanel(); } }); break; }
@@ -4056,6 +4060,11 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   .pde-save{margin-left:auto}
   /* while a panel is open its tool's options aren't needed: the panel gets the room */
   .pde-bar.paneled .pde-sub{display:none}
+  /* the bar sits at the bottom (99-pro.js): the tools are its last line, and the line above holds the Read / Mark Up / Edit
+     switch with the chosen tool's options and notes beside it */
+  .pdr-sheet > .pde-bar{padding:4px 10px 8px;row-gap:4px}
+  .pdr-sheet > .pde-bar > .pde-sub{order:-1;height:46px;padding-left:calc(var(--pdr-dl,0px) + 6px)}
+  .pdr-sheet > .pde-bar > .pde-tools{min-height:44px}
 }
 /* iPhone: Save is just its icon (no count), so Save and Download stay on the page row; and the Read / Mark Up / Edit switch is a
    little narrower, so Ask This PDF and Study sit on its row */

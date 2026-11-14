@@ -10414,6 +10414,18 @@ const allCourses = () => Object.values(state.courses).sort((a, b) => (courseOrd(
 const coursesArr = () => allCourses().filter(c => !c.archived);
 const courseOf = id => id ? state.courses[id] : null;
 const colorOf = id => { const c = courseOf(id); return c ? c.color : "#8A94A6"; };
+/* Course colours in small labels: the course's own hue, deepened (or lifted, on dark) only as far as it takes to read at
+   4.5:1 (ensureContrast, 01-style-shop.js), so most colours are left exactly as they are. courseSolid is a fill for white text */
+const courseInk = (hex, bgs) => { try { return ensureContrast(hex, bgs, 4.6); } catch (e) { return hex; } };
+const courseSolid = hex => courseInk(hex, ["#FFFFFF"]);
+const hexBlend = (a, b, f) => { try { return mixHex(a, b, f); } catch (e) { return a; } };
+// the theme's own colours as drawn (hex), for working out what a label sits on; read at most once a second
+let themeHexAt = 0, themeHexMemo = {};
+const themeHex = (k, dflt) => {
+  const now = Date.now(); if (now - themeHexAt > 1000) { themeHexAt = now; themeHexMemo = {}; }
+  if (!(k in themeHexMemo)) { let v = ""; try { v = getComputedStyle(document.documentElement).getPropertyValue("--" + k).trim(); } catch (e) {} themeHexMemo[k] = /^#[0-9a-f]{6}$/i.test(v) ? v : dflt; }
+  return themeHexMemo[k];
+};
 const courseLabel = c => c.code || c.name || "Untitled Course";
 // A course code from a school site
 const COURSE_CODE_RX = /\b([A-Za-z]{2,6})[\s_-]?(\d{2,4}[A-Za-z]?)\b/;
@@ -11752,7 +11764,7 @@ function dayTimelineHtml(F, todayList, heroId){
     if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}" style="--m:${x.e - x.s}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
     if (x.k === "ev") return `<div class="${cls.trim()} ev" style="--c:${esc(x.color)};--m:${x.e - x.s}"${at}><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
     const hero = x.t.id === heroId;
-    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))};--m:${x.e - x.s}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.t.title)}</b><span class="dtl-m"><span>${esc(len)}</span>${on ? `<span class="dtl-badge">Now</span>` : hero ? `<span class="dtl-badge">Next</span>` : ""}</span></button>`;
+    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))};--cb:${esc(courseSolid(colorOf(x.t.courseId)))};--m:${x.e - x.s}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.t.title)}</b><span class="dtl-m"><span>${esc(len)}</span>${on ? `<span class="dtl-badge">Now</span>` : hero ? `<span class="dtl-badge">Next</span>` : ""}</span></button>`;
   }).join("");
   return `<div class="dtl" role="group" aria-label="Today's schedule"><div class="dtl-rail">${cards}</div></div>`;
 }
@@ -12037,7 +12049,7 @@ function viewBars(){
   let rows = "";
   groups.filter(g => g.list.length).forEach(g => {
     const col = g.c ? g.c.color : "#8A94A6";
-    rows += `<div class="tl-row tl-group" style="--c:${esc(col)}"><div class="tl-label" style="width:${LW}px"><span class="tl-gic" aria-hidden="true">${g.c ? courseRingHtml(g.c) : GENERAL_ICON}</span><span class="tt"${g.c && g.c.code && g.c.name ? ` title="${esc(g.c.name)}"` : ""}>${esc(g.c ? courseLabel(g.c) : "No Course")}</span></div><div class="tl-track" style="width:${W}px"><span class="tl-gname">${esc(g.c && g.c.code && g.c.name !== courseLabel(g.c) ? g.c.name : "")}</span><span class="tl-gn">${g.list.length} open</span></div></div>`;
+    rows += `<div class="tl-row tl-group" style="--c:${esc(col)};--ba:${esc(courseSolid(hexBlend(col, "#000000", 0.2)))};--bb:${esc(courseSolid(col))}"><div class="tl-label" style="width:${LW}px"><span class="tl-gic" aria-hidden="true">${g.c ? courseRingHtml(g.c) : GENERAL_ICON}</span><span class="tt"${g.c && g.c.code && g.c.name ? ` title="${esc(g.c.name)}"` : ""}>${esc(g.c ? courseLabel(g.c) : "No Course")}</span></div><div class="tl-track" style="width:${W}px"><span class="tl-gname">${esc(g.c && g.c.code && g.c.name !== courseLabel(g.c) ? g.c.name : "")}</span><span class="tl-gn">${g.list.length} open</span></div></div>`;
     g.list.slice().sort((a, b) => (startOf(a) < startOf(b) ? -1 : startOf(a) > startOf(b) ? 1 : sortTasks(a, b))).forEach(t => {
       const s = startOf(t);
       const late = t.due < today;
@@ -12053,7 +12065,7 @@ function viewBars(){
   });
 
   const zoom = [["week","Days"],["month","Weeks"],["term","Term"]].map(([k, l]) => `<button data-act="tl-zoom" data-id="${k}" aria-pressed="${ui.tlZoom === k}">${l}</button>`).join("");
-  const head = `<div class="tl-controls tl-tools">${coursePickHtml()}${tlModeSeg()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div><button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
+  const head = `<div class="tl-controls tl-tools">${coursePickHtml()}<div class="segb" role="group" aria-label="Zoom">${zoom}</div>${tlModeSeg()}<button class="btn small" data-act="tl-today">Today</button>${proBtns("timeline")}</div>`;
   if (!ts.length) return head + searchNote() + `<div class="empty sb-es" style="margin-top:14px">${emptyArt("duedates")}<strong>Nothing to Show Yet</strong>Tasks show up here as an icon on their due date.${noDue ? `<br><button type="button" class="link-btn" data-act="undated-open">${noDue} task${noDue === 1 ? " has" : "s have"} no due date</button>` : ""}${firstStepBtns()}</div>`;
   return head + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
@@ -12100,6 +12112,8 @@ function viewCalendar(){
   const dows = [];
   for (let i = 0; i < 7; i++) { const d = new Date(2023, 0, 1 + i); dows.push(`<div class="dow${i === 0 || i === 6 ? " wkend" : ""}" aria-hidden="true"><span class="dw-n">${d.toLocaleDateString(undefined, {weekday:"narrow"})}</span><span class="dw-s">${d.toLocaleDateString(undefined, {weekday:"short"})}</span><span class="dw-l">${d.toLocaleDateString(undefined, {weekday:"long"})}</span></div>`); }
   let cells = "";
+  // The month is one Tab stop: the chosen day (or the 1st) takes Tab, the arrow keys move between days (see calKey)
+  const tabDay = ui.calDay.slice(0, 7) === ui.calMonth.slice(0, 7) ? ui.calDay : ui.calMonth;
   const weeks = Math.ceil((first.getDay() + new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate()) / 7);
   // Holidays and School Days off, named beside the day's number
   const hol = {};
@@ -12126,7 +12140,7 @@ function viewCalendar(){
     const late = ts.filter(t => t.status !== "done" && k < today).length;
     const hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
     const dots = ts.slice(0, 3).map(t => `<span class="ci-row${t.status !== "done" && k < today ? " late" : ""}${t.status === "done" ? " done" : /^(Exam|Quiz)$/.test(t.type) ? " big" : ""}" style="--c:${esc(colorOf(t.courseId))}"><i class="ci" title="${esc(t.type)}: ${esc(t.title)}${t.status !== "done" && k < today ? ", overdue" : ""}" style="--c:${esc(colorOf(t.courseId))};${t.status === "done" ? "opacity:.35" : ""}">${typeIcon(t.type)}</i><span class="ci-t${t.status === "done" ? " done" : ""}">${esc(t.title)}</span></span>`).join("") + (ts.length > 3 ? `<b class="ci-more">+${ts.length - 3}<span class="ci-mw"> more</span></b>` : "");
-    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}${holTxt ? ", " + esc(holTxt) + (hl.some(h => h.off) ? ", no classes" : "") : ""}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}${evs.length ? `, ${evs.length} event${evs.length === 1 ? "" : "s"}` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}${hl.some(h => h.off) ? " (no classes)" : ""}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots">${dots}</span>${evs.length ? `<span class="cal-evs" aria-hidden="true">${evs.slice(0, 2).map(o => `<span class="cal-ev" style="--c:${esc(o.color)}">${o.allDay ? "" : `<b>${esc(evTime(o))}</b> `}${esc(o.title)}</span>`).join("")}${evs.length > 2 ? `<span class="cal-ev more">+${evs.length - 2}</span>` : ""}</span>` : ""}</button>`;
+    cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}${late ? " has-late" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="pick-day" data-id="${k}" tabindex="${k === tabDay ? 0 : -1}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}${holTxt ? ", " + esc(holTxt) + (hl.some(h => h.off) ? ", no classes" : "") : ""}, ${ts.length} task${ts.length === 1 ? "" : "s"} due${late ? `, ${late} overdue` : ""}${evs.length ? `, ${evs.length} event${evs.length === 1 ? "" : "s"}` : ""}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}${hl.some(h => h.off) ? " (no classes)" : ""}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots">${dots}</span>${evs.length ? `<span class="cal-evs" aria-hidden="true">${evs.slice(0, 2).map(o => `<span class="cal-ev" style="--c:${esc(o.color)}">${o.allDay ? "" : `<b>${esc(evTime(o))}</b> `}${esc(o.title)}</span>`).join("")}${evs.length > 2 ? `<span class="cal-ev more">+${evs.length - 2}</span>` : ""}</span>` : ""}</button>`;
   }
   const dayTasks = (byDay[ui.calDay] || []).slice().sort(sortTasks), dayEvs = evBy[ui.calDay] || [];
   const dayLabel = parse(ui.calDay).toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"});
@@ -12137,7 +12151,7 @@ function viewCalendar(){
       <button class="btn small" data-act="cal-today" ${ui.calMonth.slice(0, 7) === today.slice(0, 7) && (!ui.calDay || ui.calDay === today) ? 'disabled aria-pressed="true" title="You are viewing today"' : 'aria-pressed="false"'}>Today</button>
       <button class="icon-btn" data-act="cal-next" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     </div>
-    <div class="cal">${dows.join("")}${cells}</div>
+    <div class="cal" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month:"long", year:"numeric"}))}. Arrow keys move between days, Page Up and Page Down between months.">${dows.join("")}${cells}</div>
     <h2 class="sec ${ui.calDay === today ? "hl" : ""}"><span class="t">Due ${esc(dayLabel)}</span><span class="n">${dayTasks.length || ""}</span></h2>
     ${dayTasks.length ? taskList(dayTasks) : !allTasks().some(t => t.due)
       // No due dates anywhere yet: the same welcome as the timeline view
@@ -14640,6 +14654,10 @@ function pageHeadUp(v){
   }
   (tabs.matches(".bview-row") ? tabs.querySelector(".bview-tabs") : tabs).classList.add("pg-tabs");
   v.insertBefore(pg, tabs);
+  // The page's buttons sit level with the tabs, at the right: they come after the tabs for the keyboard too (Tab reaches the
+  // page's own Notes / Whiteboard or Flashcards / Quizzes switch first, as it's read left to right)
+  const r = !phone && !tabs.matches(".bview-row") && pg.querySelector(":scope > .pg-right");
+  if (r) { const w = document.createElement("div"); w.className = "pg-rwrap"; w.appendChild(r); tabs.after(w); }
 }
 // Pages without tabs: the same big title, then the content
 function soloHeadUp(v, phone){
@@ -15563,11 +15581,11 @@ function taskForm(t, preset = {}){
   const tfNotes = $("#tfNotes"), tfNoteAttach = $("#tfNoteAttach");
   const drawNotes = () => {
     const ns = [...noteSet].map(id => state.notes[id]).filter(Boolean);
-    tfNotes.innerHTML = ns.map(n => `<div class="tf-note" style="--nc:${noteColor(n.color)}"><span>${esc(n.text.slice(0, 140)) || "<i>Empty note</i>"}</span><button type="button" class="x-btn" data-n-rm="${esc(n.id)}" aria-label="Detach note">${CLOSE}</button></div>`).join("")
+    tfNotes.innerHTML = ns.map(n => `<div class="tf-note" style="--nc:${noteColor(n.color)}"><span>${esc(notePlain(n.text, 140)) || "<i>Empty note</i>"}</span><button type="button" class="x-btn" data-n-rm="${esc(n.id)}" aria-label="Detach note">${CLOSE}</button></div>`).join("")
       + newNotes.map((txt, i) => `<div class="tf-note" style="--nc:${noteColor("yellow")}"><span>${esc(txt.slice(0, 140))}</span><button type="button" class="x-btn" data-n-new="${i}" aria-label="Remove new note">${CLOSE}</button></div>`).join("")
       || `<span class="mini">No sticky notes. Write one here, or attach one from the Notes board.</span>`;
     const cands = notesArr().filter(n => !noteSet.has(n.id) && !n.archived).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
-    tfNoteAttach.innerHTML = `<option value="">Attach a note from the board…</option>` + cands.map(n => `<option value="${esc(n.id)}">${esc((n.text.trim() || "Empty note").slice(0, 60))}${n.taskId && state.tasks[n.taskId] ? " (on " + esc(state.tasks[n.taskId].title) + ")" : ""}</option>`).join("");
+    tfNoteAttach.innerHTML = `<option value="">Attach a note from the board…</option>` + cands.map(n => `<option value="${esc(n.id)}">${esc(notePlain(n.text, 60) || "Empty note")}${n.taskId && state.tasks[n.taskId] ? " (on " + esc(state.tasks[n.taskId].title) + ")" : ""}</option>`).join("");
     tfNoteAttach.hidden = !cands.length;
     if (typeof advSummary === "function") advSummary();
   };
@@ -15787,7 +15805,8 @@ function askBox(o){
     d.onclick = e => { if (e.target === d) nope(); };
     d.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); nope(); } };
     try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
-    setTimeout(() => { const f = d.querySelector(o.input ? "#askIn" : "#askYes"); if (f) { f.focus(); if (o.input) f.select(); } }, 30);
+    // A destructive choice (Discard, Delete) is never the one Enter picks by default: the safe one has the focus
+    setTimeout(() => { const f = d.querySelector(o.input ? "#askIn" : o.danger ? "#askNo" : "#askYes"); if (f) { f.focus(); if (o.input) f.select(); } }, 30);
   });
 }
 function confirmSheet(title, text, label, onYes){
@@ -17776,6 +17795,9 @@ const NOTE_COLORS = [["yellow","#FFE680"],["pink","#FFB8CC"],["blue","#AED6FF"],
 const NOTE_COLORS_SHOWN = NOTE_COLORS.map((c, i, a) => a[i === 0 ? 2 : i === 2 ? 0 : i]);
 // A note keeps the colour you picked on every theme
 const noteColor = k => NOTE_COLORS[Math.max(0, NOTE_COLORS.findIndex(c => c[0] === k))][1];
+// a course tag's text on a note: the course colour toward ink (as .note-tag draws it), deepened further only if its tint on
+// that paper needs it to read
+const noteTagInk = (c, paper) => { const tint = hexBlend(hexBlend(paper, "#FFFFFF", 0.6), c, 0.22); return courseInk(hexBlend(c, "#1A1A1A", 0.3), [tint]); };
 // One width on every screen
 const NOTE_W = () => 200;
 const TRASH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6"/></svg>';
@@ -17857,6 +17879,16 @@ function noteTaskOpts(n){
     + grp(n.courseId && courseOf(n.courseId) ? courseLabel(courseOf(n.courseId)) : "Open tasks", cands.filter(t => !n.courseId || t.courseId === n.courseId))
     + (n.courseId ? grp("Other courses", cands.filter(t => t.courseId !== n.courseId)) : "");
 }
+// A note as one line of plain text, for lists that can only show text (a dropdown): math as characters ("d/(dx)xⁿ"),
+// no [[link]] brackets or ** marks, its lines joined with " · ", cut with "…"
+function notePlain(text, max){
+  let t = String(text || "").trim(); if (!t) return "";
+  try { if (typeof mathPlain === "function") t = mathPlain(t); } catch (e) {}
+  t = t.replace(/\[\[([^\]]*)\]\]/g, "$1").split(/\n+/).map(l => l.replace(/^\s*[-*•]\s+/, "").trim()).filter(Boolean).join(" · ").replace(/\s+/g, " ");
+  return max && t.length > max ? t.slice(0, max - 1).trimEnd() + "…" : t;
+}
+// A note's name for screen readers: its words as read, not its formatting or math code
+const noteLabelText = n => { const t = String(n.text || "").trim(); if (!t) return "Empty note"; const s = typeof mathSpeech === "function" ? mathSpeech(t) : t; return s.replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\s+/g, " ").slice(0, 80); };
 function noteHtml(n){
   const c = courseOf(n.courseId), w = NOTE_W(), tk = n.taskId ? state.tasks[n.taskId] : null;
   const editing = noteEditing === n.id;
@@ -17873,12 +17905,12 @@ function noteHtml(n){
          <div class="note-btns">${window.SBONENOTE ? SBONENOTE.noteBtn(n) : ""}<button type="button" class="nb" data-act="note-archive" data-id="${esc(n.id)}" title="Archive" aria-label="Archive note">${ARCHIVE}</button><button type="button" class="nb" data-act="note-trash" data-id="${esc(n.id)}" title="Delete" aria-label="Delete note">${TRASH}</button><button type="button" class="btn small" data-act="note-done">Done</button></div>
        </div>`
     : `<div class="note-body">${n.text.trim() ? (window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
-  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="${editing ? "group" : "button"}" aria-label="${editing ? "Editing note" : "Note: " + esc(n.text.slice(0, 60) || "empty") + ". Press Enter to edit."}"
+  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="group" aria-roledescription="note" aria-label="${editing ? "Note options. Press Enter to type in the note, Escape to close it." : esc(noteLabelText(n)) + ". Press Enter for its options."}"
     style="left:${n.x}px;top:${n.y}px;z-index:${editing ? 9000 : n.z};width:${w}px;--nc:${noteColor(n.color)};--rot:${editing ? 0 : n.rot}deg">
     ${pinHtml(notePinOf(n))}
     ${editing ? "" : `<span class="note-rot" data-rot="${esc(n.id)}" title="Drag to rotate" aria-hidden="true">${ROT_ICON}</span>`}
     ${noteStickersHtml(n, editing)}
-    ${c ? `<span class="note-tag" style="--c:${esc(c.color)}">${esc(courseLabel(c))}</span>` : ""}
+    ${c ? `<span class="note-tag" style="--c:${esc(c.color)};--ci:${esc(noteTagInk(c.color, noteColor(n.color)))}">${esc(courseLabel(c))}</span>` : ""}
     ${n.conflict ? `<button type="button" class="note-conflict" data-act="note-resolve" data-id="${esc(n.id)}">Edited on two devices. Tap to review.</button>` : ""}
     ${tk ? `<button type="button" class="note-task-tag" data-act="edit-task" data-id="${esc(tk.id)}" title="Open ${esc(tk.title)}">${CLIP}${esc(tk.title)}</button>` : ""}
     ${body}
@@ -18037,8 +18069,11 @@ const nbColor = b => { const c = b && b.courseId && courseOf(b.courseId); return
 function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
-  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>${id && id === cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}`;
-  return `<div class="nb-boards" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
+  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
+  // Only the tabs are in the tab list; the board's options and New Note Board come just after it (a list of tabs holding other
+  // buttons reads as broken tabs). The list is display:contents, so the row looks the same.
+  const opts = cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : "";
+  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Note Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
@@ -18129,6 +18164,13 @@ function viewNotes(){
   if (window.SBWB && SBWB.on()) return notesSwitchHtml() + SBWB.view();
   return notesSwitchHtml() + viewNoteBoard();
 }
+// The notes in the order they're read on the board, for Tab and screen readers: rows top to bottom (notes whose tops are
+// within 80px share a row), each row left to right. Which note is drawn on top is their z-index, not this order.
+function noteReadOrder(list){
+  const out = [], byY = list.slice().sort((a, b) => a.y - b.y || a.x - b.x);
+  for (let i = 0; i < byY.length;) { const top = byY[i].y; let j = i; while (j < byY.length && byY[j].y - top < 80) j++; out.push(...byY.slice(i, j).sort((a, b) => a.x - b.x)); i = j; }
+  return out;
+}
 function viewNoteBoard(){
   repairNoteBoards();
   const curBoard = noteBoardId();
@@ -18140,16 +18182,17 @@ function viewNoteBoard(){
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">
-      <div class="nb-scroll" id="nbScroll">
-        <div class="nb-sizer" id="nbSizer"><div class="nb-board" id="nbBoard" style="width:${W}px;height:${H}px">
-          ${onBoard.sort((a, b) => a.z - b.z).map(noteHtml).join("")}
-          ${!onBoard.length ? `<div class="nb-empty sb-es">${emptyArt("notes")}<strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
-        </div></div>
-      </div>
-      ${boardMaxBtn("nb-max")}${nbZoomCtl()}
+      ${nbZoomCtl()}
       <div class="nb-targets">
         <div class="nb-target" data-drop-note="archive" role="button" tabindex="0" data-act="note-archive-open" title="Archive" aria-label="Archive, ${archived} notes">${ARCHIVE}<span>Archive</span></div>
         <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" title="Trash" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
+      </div>
+      ${boardMaxBtn("nb-max")}
+      <div class="nb-scroll" id="nbScroll">
+        <div class="nb-sizer" id="nbSizer"><div class="nb-board" id="nbBoard" style="width:${W}px;height:${H}px">
+          ${noteReadOrder(onBoard).map(noteHtml).join("")}
+          ${!onBoard.length ? `<div class="nb-empty sb-es">${emptyArt("notes")}<strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
+        </div></div>
       </div>
     </div>${envelopeHtml()}</div>
     <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag to move · drop on a tab, the archive or the trash · tap to edit</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
@@ -18182,6 +18225,11 @@ function newNoteAt(x, y){
   { const t = $("#noteText"); if (t) try { t.focus({preventScroll: true}); } catch (e) {} }
   setTimeout(() => { const t = $("#noteText"); if (t && document.activeElement !== t) t.focus({preventScroll: true}); }, 60);
 }
+// A note opened with a tap, click or Enter shows its options first; keyboard focus waits on the note itself (no keyboard pops
+// up on a phone), so keys go to the note, not to the app's one-key shortcuts
+function noteHold(){ const el = $(".note.editing"); if (el && !el.contains(document.activeElement)) try { el.focus({preventScroll: true}); } catch (e) {} }
+// The second step: the cursor goes to the end of the text (inside the tap, so a phone raises its keyboard)
+function noteType(){ const t = $("#noteText"); if (!t) return; try { t.focus({preventScroll: true}); t.setSelectionRange(t.value.length, t.value.length); } catch (e) {} }
 function saveNoteText(){
   const t = $("#noteText"); const id = noteEditing;
   noteEditing = null; noteDraftClear();
@@ -19228,10 +19276,10 @@ function viewStudy(){
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
-    ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-live="polite" aria-label="${f.flipped ? "Answer shown. " : ""}Flip card">
+    ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-label="${f.flipped ? "Flip card back to the front" : "Flip card"}" aria-describedby="fcFaceNow">
       <span class="flip-inner">
-        <span class="face front"><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
-        <span class="face back"><span class="face-label">Back</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint">${esc(c.front)}</span>`}</span>
+        <span class="face front"${f.flipped ? ` aria-hidden="true"` : ` id="fcFaceNow"`}><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint" aria-hidden="true">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
+        <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">Back</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">
@@ -19239,7 +19287,7 @@ function viewStudy(){
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -19434,15 +19482,31 @@ function viewQuiz(){
       ${body}${fb}
     </section>`;
 }
+// The back stays out of a screen reader's way until the card turns over (hearing the answer first defeats the recall), and
+// turning it says the side that's now up. The live region stays put across redraws, so the words are announced.
+function fcSay(text){
+  let l = document.getElementById("fcLive");
+  if (!l) { l = document.createElement("div"); l.id = "fcLive"; l.className = "sr"; l.setAttribute("aria-live", "polite"); l.setAttribute("aria-atomic", "true"); document.body.appendChild(l); }
+  l.textContent = ""; setTimeout(() => { l.textContent = text; }, 40);
+}
+function fcFlip(){
+  const f = ui.fc; if (!f) return;
+  f.flipped = !f.flipped; render();
+  const it = f.q && f.q[f.i], d = it && state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
+  const say = s => typeof mathSpeech === "function" ? mathSpeech(String(s || "")) : String(s || "");
+  if (c) fcSay(f.flipped ? "Answer: " + say(c.back) + ". Rate it with 1 to 4." : "Front: " + say(c.front));
+}
 function fcKey(e){
   if (ui.tab !== "flashcards" || !ui.fc || dlg.open || e.target.closest("input,textarea,select")) return false;
   const f = ui.fc;
   if (f.mode === "study" && (e.key === "z" || e.key === "Z" || e.key === "Backspace") && !e.altKey && f.hist && f.hist.length) { e.preventDefault(); undoRate(); return true; }
   // Ctrl, Cmd and Alt shortcuts belong to the browser; Enter and Space on a focused button press that button
   if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  // Esc ends a study session or quiz, as End Session does (a quiz half answered still asks first)
+  if (e.key === "Escape" && !e.defaultPrevented && !e.repeat && !document.querySelector("dialog[open]")) { e.preventDefault(); fcAction("fc-exit", {dataset: {}}); return true; }
   if ((e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest("button,a,[role=button],summary") && !e.target.closest('[data-act="fc-flip"],[data-act="fc-next"]')) return false;
   if (f.mode === "study" && f.q[f.i]) {
-    if (e.key === " " || e.key === "Enter") { if (!f.flipped) { e.preventDefault(); f.flipped = true; render(); return true; } }
+    if (e.key === " " || e.key === "Enter") { if (!f.flipped) { e.preventDefault(); fcFlip(); return true; } }
     if (f.flipped && ["1", "2", "3", "4"].includes(e.key)) { e.preventDefault(); rateCard(["again", "hard", "good", "easy"][Number(e.key) - 1]); return true; }
   }
   if (f.mode === "quiz" && f.qs[f.i]) {
@@ -19473,7 +19537,7 @@ function fcAction(act, el){
     case "fc-study-course": { if (el.closest("dialog")) dlg.close(); const ids = deckListArr().filter(x => x.courseId === el.dataset.course && x.cards.some(c => !c.draft)).map(x => x.id); if (ids.length) startStudy(ids); else toast("This course has no flashcards yet"); return true; }
     case "fc-review-start": startStudy(readyDecks(el.dataset.course)); return true;
     case "fc-quiz": quizSheet([id]); return true;
-    case "fc-flip": if (ui.fc) { ui.fc.flipped = !ui.fc.flipped; render(); } return true;
+    case "fc-flip": fcFlip(); return true;
     case "fc-rate": rateCard(id); return true;
     case "fc-undo": undoRate(); return true;
     case "fc-answer": answerQuiz(el.dataset.val); return true;
@@ -22559,9 +22623,10 @@ function tabSwap(changed, go){ go(); }
 // Where a press on the screen began: a tap that starts inside the note being edited is a tap in the note, even when the note
 // moves under the finger before it lifts (on a phone, tapping back in the text box hides the note's options at once, so the
 // sheet shrinks and the end of the tap lands on the dimmed page behind it; that used to close the note)
-let noteDownIn = 0;
+let noteDownIn = 0, noteWasTyping = false;
 ["pointerdown", "touchstart", "mousedown"].forEach(t => document.addEventListener(t, e => {
   noteDownIn = e.target && e.target.closest && e.target.closest(".note.editing") ? Date.now() : 0;
+  noteWasTyping = !!document.activeElement && document.activeElement.id === "noteText";
 }, {capture: true, passive: true}));
 document.addEventListener("click", e => {
   const downIn = noteDownIn && Date.now() - noteDownIn < 1500; noteDownIn = 0;
@@ -22581,7 +22646,10 @@ document.addEventListener("click", e => {
   if (ui.tab === "notes" && !e.target.closest("dialog") && !e.target.closest(".rb-bar,.rb-eq")) {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
-    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); return; }   // the note opens with its options; typing starts with a tap in its text (no keyboard straight away on a phone)
+    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); noteHold(); return; }   // the note opens with its options; typing starts with a second tap or Enter (no keyboard straight away on a phone)
+    // A second tap or click on the open note, anywhere but one of its controls, puts the cursor in its text (a tap there while
+    // typing does the opposite: it puts the keyboard away and shows the options)
+    if (nEl && nEl.classList.contains("editing") && !noteWasTyping && !e.target.closest("button,a,select,summary,details,input,textarea,label,[data-act],[contenteditable],.stk,.np-photos")) { noteType(); return; }
     if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
       if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
       saveNoteText();
@@ -22800,7 +22868,17 @@ document.addEventListener("change", e => {
 });
 document.addEventListener("keydown", e => {
   if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
-  const nf = e.target.matches && e.target.matches('.note[role="button"]') ? state.notes[e.target.dataset.note] : null;
+  // The open note, before its text has the cursor: Enter or Space (or simply typing) starts typing, Esc closes it. Esc also
+  // closes it from its colour, task and other controls.
+  if (noteEditing && ui.tab === "notes" && !e.defaultPrevented && !e.isComposing && !document.querySelector("dialog[open]")) {
+    const open = e.target.closest && e.target.closest(".note.editing"), lost = e.target === document.body || e.target === document.documentElement;
+    if (e.key === "Escape" && (open || lost || (e.target.closest && e.target.closest("#nbBoard")))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
+    if (open === e.target || lost) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); noteType(); return; }
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { noteType(); return; }   // (not prevented: the letter lands in the text)
+    }
+  }
+  const nf = e.target.matches && e.target.matches('.note[data-note]:not(.editing)') ? state.notes[e.target.dataset.note] : null;
   if (nf && (e.key === "[" || e.key === "]")) {
     e.preventDefault();
     const r = Math.round(((Number(nf.rot) || 0) + (e.key === "]" ? 5 : -5) + 540) % 360 - 180);
@@ -22814,6 +22892,20 @@ document.addEventListener("keydown", e => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.target.click(); return; }
   }
   if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('.card[role="button"]')) { e.preventDefault(); e.target.click(); }
+});
+// Month view: arrow keys move a day or a week, Home and End go to the week's start and end, Page Up and Page Down a month
+// (as in a date picker); the day moved to is chosen, so its tasks show below
+document.addEventListener("keydown", e => {
+  const b = e.target.closest && e.target.closest('.cal .day[data-act="pick-day"]'); if (!b || e.altKey || e.ctrlKey || e.metaKey) return;
+  const d = parse(b.dataset.id), k = e.key;
+  if (k === "ArrowLeft" || k === "ArrowRight") d.setDate(d.getDate() + (k === "ArrowLeft" ? -1 : 1));
+  else if (k === "ArrowUp" || k === "ArrowDown") d.setDate(d.getDate() + (k === "ArrowUp" ? -7 : 7));
+  else if (k === "Home" || k === "End") d.setDate(d.getDate() + (k === "Home" ? -d.getDay() : 6 - d.getDay()));
+  else if (k === "PageUp" || k === "PageDown") { const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (k === "PageUp" ? -1 : 1)); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); }
+  else return;
+  e.preventDefault();
+  const id = iso(d); ui.calDay = id; ui.calMonth = id.slice(0, 7) + "-01"; render();
+  const n = $(`.cal .day[data-id="${id}"]`); if (n) try { n.focus({preventScroll: true}); n.scrollIntoView({block: "nearest"}); } catch (x) {}
 });
 function toggleSearch(open){
   const row = $("#searchRow");
@@ -29141,6 +29233,12 @@ Return JSON only.`;
   const icon = (g, color) => `<span class="sx-ic k-${g}" style="--c:${esc(color || "var(--accent)")}" aria-hidden="true">${g === "study" || g === "ask" ? AI_ICON : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[g] || ICONS.actions}</svg>`}</span>`;
   function recent(){ try { return JSON.parse(localStorage.getItem(LS_RECENT) || "[]").filter(x => typeof x === "string").slice(0, 6); } catch(e) { return []; } }
   function pushRecent(q){ q = q.trim(); if (q.length < 2) return; const r = [q].concat(recent().filter(x => x.toLowerCase() !== q.toLowerCase())).slice(0, 6); try { localStorage.setItem(LS_RECENT, JSON.stringify(r)); } catch(e) {} }
+  // a course tag's text: the course colour toward ink (as .sx-tag draws it), deepened (lifted on dark) only if its tint on the
+  // row, plain or highlighted, needs it to read
+  function tagInk(c){
+    const sf = themeHex("surface", "#F7F9FC"), on = hexBlend(sf, themeHex("accent", "#1A60D0"), 0.11);
+    return courseInk(hexBlend(c, themeHex("ink", "#0F1F3D"), 0.25), [hexBlend(sf, c, 0.13), hexBlend(on, c, 0.13)]);
+  }
   function metaFor(doc, extra){
     const c = doc.type === "chunk" ? courseOf((state.files[doc.fid] || {}).courseId) : courseOf(doc.cid);
     const bits = [];
@@ -29151,7 +29249,7 @@ Return JSON only.`;
     if (doc.type === "question") { const d = state.decks[doc.pid], qz = d && (d.aiQuizzes || []).find(x => x.id === doc.qid); if (qz) bits.push(esc(qz.title)); }
     if (doc.type === "chunk" && doc.label && doc.page) bits.push(`${esc(doc.label)} ${doc.page}`);
     if (doc.type === "file" && extra && extra.length) { const d = extra[0].doc; if (d.label && d.page) bits.push(`${esc(d.label)} ${d.page}`); if (extra.length > 1) bits.push(`${extra.length} matches`); }
-    return (c ? `<span class="sx-tag" style="--c:${esc(c.color || "#8A94A6")}">${esc(courseLabel(c))}</span>` : "") + bits.map(b => `<span>${b}</span>`).join("");
+    return (c ? `<span class="sx-tag" style="--c:${esc(c.color || "#8A94A6")};--ci:${esc(tagInk(c.color || "#8A94A6"))}">${esc(courseLabel(c))}</span>` : "") + bits.map(b => `<span>${b}</span>`).join("");
   }
   function colorFor(doc){
     if (doc.type === "chunk") return colorOf((state.files[doc.fid] || {}).courseId);
@@ -29164,40 +29262,46 @@ Return JSON only.`;
       <span class="sx-main"><span class="sx-t">${title}</span>${snip ? `<span class="sx-s">${snip}</span>` : ""}</span>
       ${meta ? `<span class="sx-meta">${meta}</span>` : ""}</div>`;
   }
+  // Each section of results is a named group inside the list ("Flashcards, 7 results"), so a screen reader hears the
+  // sections as sections rather than as stray items among the results. The visible header is for the eye; its Show All
+  // does what the Flashcards (or other) chip above does, so it's left to the mouse and the chips serve the keyboard.
+  const grpHtml = (label, n, head, body) => `<div role="group" aria-label="${esc(label + (n ? `, ${n} result${n === 1 ? "" : "s"}` : ""))}"><div class="sx-gh" aria-hidden="true">${head}</div>${body}</div>`;
   function drawFind(){
     const q = S.q.trim(), rows = [], html = [];
+    S.count = null;
     const push = (run, h) => { rows.push(run); return h(rows.length - 1); };
     if (!q) {
       if (S.type !== "all") {
         ensureItems();
         const list = IX.items.docs.filter(d => pass(d) && !d.arch).sort((a, b) => (b.boost - a.boost) || String(a.date || "9").localeCompare(String(b.date || "9")) || String(a.title).localeCompare(String(b.title))).slice(0, 80);
-        if (list.length) html.push(`<div class="sx-gh"><span>${esc(GLABEL[S.type])}</span></div>` + list.map(d => push(() => openDoc(d), i => rowHtml(i, d.g, esc(d.title), d.text ? esc(String(d.text).slice(0, 140)) : "", metaFor(d), colorFor(d)))).join(""));
+        if (list.length) html.push(grpHtml(GLABEL[S.type], 0, `<span>${esc(GLABEL[S.type])}</span>`, list.map(d => push(() => openDoc(d), i => rowHtml(i, d.g, esc(d.title), d.text ? esc(String(d.text).slice(0, 140)) : "", metaFor(d), colorFor(d)))).join("")));
         else html.push(`<div class="sx-empty"><strong>Nothing Here Yet</strong>There's nothing of this kind${S.course ? " in this course" : ""}.</div>`);
       } else {
         const rec = recent();
-        if (rec.length) html.push(`<div class="sx-gh"><span>Recent Searches</span></div>` + rec.map(r => push(() => { setQuery(r); }, i => rowHtml(i, "recent", esc(r), "", "", "var(--muted)"))).join(""));
+        if (rec.length) html.push(grpHtml("Recent Searches", 0, `<span>Recent Searches</span>`, rec.map(r => push(() => { setQuery(r); }, i => rowHtml(i, "recent", esc(r), "", "", "var(--muted)"))).join("")));
         ensureItems();
         const sug = ["Add a Task", "Import a Syllabus", "Review Due Flashcards", "Upload Files", "Create Flashcards with AI", "Add an Event"];
         const acts = IX.items.docs.filter(d => d.type === "action" && sug.includes(d.title)).sort((a, b) => sug.indexOf(a.title) - sug.indexOf(b.title));
-        html.push(`<div class="sx-gh"><span>Suggested Actions</span></div>` + acts.map(d => push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--accent)"))).join(""));
+        html.push(grpHtml("Suggested Actions", 0, `<span>Suggested Actions</span>`, acts.map(d => push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--accent)"))).join("")));
         html.push(`<p class="sx-tip">Search finds tasks, courses, flashcards, notes, events, practice quizzes, settings and the text inside your PDFs, Word and PowerPoint files.</p>`);
       }
     } else {
       const r = find(q); S.P = r.P;
+      S.count = r.groups.reduce((s, G) => s + G.list.filter(x => x.doc.type !== "filter" && x.doc.type !== "ask").length, 0);
       // only "Ask about…" or filter rows came back: say plainly that nothing matched
       if (r.groups.length && !r.groups.some(G => G.list.some(x => x.doc.type !== "filter" && x.doc.type !== "ask"))) html.push(`<p class="sx-none">No matches for “${esc(q)}”. Try other words, or ask below.</p>`);
       if (!r.groups.length) html.push(`<div class="sx-empty"><strong>No Matches</strong>Try fewer or different words${S.type !== "all" || S.course ? ", or show everything" : ""}.${S.type !== "all" || S.course ? ` <button type="button" class="link-btn" data-sx="reset">Show Everything</button>` : ""}</div>`);
       r.groups.forEach(G => {
         const cap = S.type === "all" ? (G.g === "actions" ? 4 : G.g === "files" || G.g === "tasks" ? 5 : 4) : 120;
         const shown = G.list.slice(0, cap), realCount = G.list.filter(x => x.doc.type !== "filter" && x.doc.type !== "ask").length;
-        html.push(`<div class="sx-gh"><span>${esc(GLABEL[G.g])}</span>${realCount ? `<span class="n">${realCount}</span>` : ""}${G.list.length > cap ? `<button type="button" class="link-btn" data-sx="type" data-id="${G.g}">Show All</button>` : ""}</div>`
-          + shown.map(x => {
+        html.push(grpHtml(GLABEL[G.g], realCount, `<span>${esc(GLABEL[G.g])}</span>${realCount ? `<span class="n">${realCount}</span>` : ""}${G.list.length > cap ? `<button type="button" class="link-btn" data-sx="type" data-id="${G.g}" tabindex="-1">Show All</button>` : ""}`,
+          shown.map(x => {
             const d = x.doc;
             if (d.type === "ask") return push(() => runAsk(), i => rowHtml(i, "ask", esc(d.title), esc(d.text), `<kbd class="sx-kbd">${MAC ? "⌥" : "Alt"}+Enter</kbd>`, "#8B5CF6"));
             if (d.type === "filter") return push(() => openDoc(d), i => rowHtml(i, "actions", esc(d.title), esc(d.text), "", "var(--muted)"));
             const snip = x.chunks && x.chunks.length ? snippet(x.chunks[0].doc.text, r.P.hl, 170) : d.text ? snippet(d.text, r.P.hl, 150) : "";
             return push(() => openDoc(d, x.byText ? x.chunks : null), i => rowHtml(i, d.g, hlTitle(d.title, r.P.hl), snip, metaFor(d, x.chunks), colorFor(d)));
-          }).join(""));
+          }).join("")));
       });
     }
     return {rows, html: html.join("")};
@@ -29354,8 +29458,19 @@ Return JSON only.`;
     list.innerHTML = r.html;
     const inp = $("#sxQ");
     if (S.rows.length) inp.setAttribute("aria-activedescendant", "sxo-" + S.active); else inp.removeAttribute("aria-activedescendant");
-    drawChips(); drawFoot();
+    drawChips(); drawFoot(); sayCount(askDone);
     S.ms = Math.round(now() - t0);
+  }
+  // How many results, said once typing pauses ("12 results", "No matches"), in a status line that stays put between redraws
+  let sayT = 0, said = "";
+  function sayCount(askDone){
+    let el = $("#sxCount");
+    if (!el) { el = document.createElement("p"); el.id = "sxCount"; el.className = "sr"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); $("#sxBody").insertBefore(el, $("#sxList")); }
+    clearTimeout(sayT);
+    const n = askDone || !S.q.trim() || S.count == null ? null : S.count, msg = n == null ? "" : n ? `${n} result${n === 1 ? "" : "s"}` : "No matches";
+    if (!msg) { said = ""; el.textContent = ""; return; }
+    const key = S.q.trim() + "|" + msg;
+    sayT = setTimeout(() => { if (!S.open || key === said) return; said = key; el.textContent = msg; }, 700);
   }
   let drawT = 0;
   function drawSoon(){ if (!S.open) return; clearTimeout(drawT); drawT = setTimeout(() => { const y = $("#sxBody").scrollTop; draw(); $("#sxBody").scrollTop = y; }, 350); }
@@ -33631,7 +33746,7 @@ function fast(text){
 document.addEventListener("keydown", e => {
   if (CAPTURE_OFF || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.key !== "c") return;
   const t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
-  if (anyDialogOpen() || (ui.tab === "flashcards" && ui.fc)) return;
+  if (anyDialogOpen() || (ui.tab === "flashcards" && ui.fc) || (typeof noteEditing !== "undefined" && noteEditing && ui.tab === "notes")) return;
   e.preventDefault(); openCapture({shortcut: true});
 });
 document.addEventListener("paste", e => {
@@ -65562,6 +65677,10 @@ var COMP_EXTRA = [];
   let phoneNow = innerWidth < 640;
   if (PHONE_MQ) { const f = () => { phoneNow = PHONE_MQ.matches; }; f(); if (PHONE_MQ.addEventListener) PHONE_MQ.addEventListener("change", f); else if (PHONE_MQ.addListener) PHONE_MQ.addListener(f); }
   const phone = () => phoneNow;
+  // a short window with the tab bar along the bottom (a laptop zoomed to 200%, a phone on its side): it takes its seat in the
+  // tab bar as on a phone, instead of standing over the few lines of page there is room for
+  const SHORT_MQ = window.matchMedia ? matchMedia("(max-width: 979.98px) and (max-height: 600px)") : null;
+  const docks = () => phoneNow || !!(SHORT_MQ && SHORT_MQ.matches);
   const sizePx = c => { const s = c ? c.size : 1; return Math.round((phone() ? Math.max(62, Math.min(72, 66 * s)) : Math.max(86, Math.min(108, 96 * s))) * shrink); };
   const GAP = 26;
 
@@ -65929,9 +66048,9 @@ var COMP_EXTRA = [];
     px = Math.max(px, Math.round(Math.min(r.width, r.height) * 1.02));
     return {left: Math.round(r.left + (r.width - px) / 2), top: Math.round(r.top + (r.height - px) / 2 - seatLift(cur, px)), kind: "slot", px};
   }
-  // Phones: its seat in the middle of the bottom tab bar
+  // Phones (and short windows): its seat in the bottom tab bar
   function dockSpot(px){
-    if (!phone() || (typeof ui !== "undefined" && ui.tab === "companion")) return null;
+    if (!docks() || (typeof ui !== "undefined" && ui.tab === "companion")) return null;
     const el = document.querySelector('nav.tabs .in [data-tab="companion"]'); if (!el) return null;
     const r = el.getBoundingClientRect(); if (r.width < 20 || r.height < 20) return null;
     const seat = 56, cx = r.left + r.width / 2, seatTop = r.top - 16, sz = Math.round(seat * 0.86);
@@ -81582,16 +81701,22 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 
   /* Closing a sheet puts keyboard focus back where it was */
   const was = new WeakMap();
-  const sigOf = el => el && el.nodeType === 1 && el !== document.body ? {el, act: el.dataset && el.dataset.act, id: el.dataset && el.dataset.id, tab: el.dataset && el.dataset.tab} : null;
+  // The opener is often redrawn while its sheet is open (saving re-renders the page), so the same task can match in several
+  // places (the Today strip, Do This Next, Also Today). The opener's own kind of control in its own list wins over the first
+  // match, and it's scrolled into view so focus never lands somewhere off screen.
+  const LIST = "ul,ol,[role=list],[role=listbox],[role=grid],section,.board,.col";
+  const boxOf = el => { const b = el.closest && el.closest(LIST); return b ? b.tagName + "." + b.className : ""; };
+  const sigOf = el => el && el.nodeType === 1 && el !== document.body ? {el, act: el.dataset && el.dataset.act, id: el.dataset && el.dataset.id, tab: el.dataset && el.dataset.tab, cls: String(el.className || ""), box: boxOf(el)} : null;
   const visible = el => !!el && el.isConnected && el.getClientRects().length > 0 && !el.disabled;
+  const best = (list, sig) => { let t = null, top = -1; list.filter(visible).forEach(x => { const s = (String(x.className || "") === sig.cls ? 2 : 0) + (boxOf(x) === sig.box ? 1 : 0); if (s > top) { top = s; t = x; } }); return t; };
   function refocus(sig){
     if (!sig) return;
     const a = document.activeElement;
     if (a && a !== document.body && a.isConnected && !a.closest("dialog:not([open])")) return;
     let t = visible(sig.el) ? sig.el : null;
-    if (!t && sig.act) t = [...document.querySelectorAll(`[data-act="${CSS.escape(sig.act)}"]${sig.id ? `[data-id="${CSS.escape(sig.id)}"]` : ""}`)].find(visible) || null;
-    if (!t && sig.tab) t = [...document.querySelectorAll(`[data-tab="${CSS.escape(sig.tab)}"]`)].find(visible) || null;
-    if (t) { try { t.focus({preventScroll: true}); } catch (e) {} }
+    if (!t && sig.act) t = best([...document.querySelectorAll(`[data-act="${CSS.escape(sig.act)}"]${sig.id ? `[data-id="${CSS.escape(sig.id)}"]` : ""}`)], sig);
+    if (!t && sig.tab) t = best([...document.querySelectorAll(`[data-tab="${CSS.escape(sig.tab)}"]`)], sig);
+    if (t) { try { t.focus({preventScroll: true}); t.scrollIntoView({block: "nearest", inline: "nearest"}); } catch (e) {} }
   }
   /* Top-level sheets are exclusive */
   const TOP = ["dlg", "pomoDlg", "sxDlg", "capDlg"];
@@ -85089,6 +85214,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     R = {fid, rev: rev.assetId, doc: null, pages: [], zoom: 1, fit: 1, fitMode: fitPref(), io: null, cur: Math.max(1, page || lastPage(rev.assetId) || 1), side: false, pop: null, card: null, color: (state.settings && state.settings.hlColor) || "yellow", view};
     // Word, PowerPoint and Excel files have no PDF tools, so Highlights and Download sit in the top row and the second row is left out
     const hlBtn = `<button type="button" class="btn small" data-act="pdr-side" aria-expanded="false" id="pdrSideBtn">Highlights <b id="pdrN">0</b></button>`, ofcTop = ofc && !view;
+    // on a phone the bottom row is the mode switch, its tools and Ask and Study, so Highlights joins Download in the top row
+    const hlTop = !view && !ofc && !!(window.matchMedia && matchMedia("(max-width:760px)").matches);
     openSheet(`<div class="sheet pdr-sheet" data-mode="read"${view ? ` data-view="1"` : ""}${ofc ? ` data-office="1"` : ""}>${head(f.name)}
       <div class="pdr-bar" role="toolbar" aria-label="Reader">
         <span class="pdr-nav"><button type="button" class="icon-btn" data-act="pdr-go" data-id="-1" aria-label="Previous page">${ico('<path d="M15 6l-6 6 6 6"/>')}</button>
@@ -85098,14 +85225,14 @@ button.oc-n{border:0;padding:0;cursor:pointer}
         <span class="spacer"></span>
         ${view ? "" : `<span class="pdr-modes" role="group" aria-label="Mode"><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="read" aria-pressed="true">${ico('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}Read</button><button type="button" class="pdr-mode" data-act="pdr-mode" data-id="mark" aria-pressed="false">${ico('<path d="M5 19h6M14 4l6 6-8 8H8v-4z"/>')}Mark Up</button>${PDE ? PDE.readerBtn() : ""}</span>`}
         <span class="spacer"></span>
-        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}${ofcTop ? `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${ico('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>')}Download</a>${hlBtn}` : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
+        ${view ? "" : `${PDE && PDE.readerAi ? PDE.readerAi() : ""}<span class="pdr-out">${PDE && PDE.dlBtns ? PDE.dlBtns() : ""}${ofcTop ? `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${ico('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>')}Download</a>${hlBtn}` : hlTop ? hlBtn : ""}<span id="pdrSaveSlot" class="pdr-saveslot"></span></span>`}
       </div>
       <div class="pdr-bar2" role="toolbar" aria-label="Tools">
         <span class="pdr-g-read">${view ? `<span class="mini pdr-viewnote">Your highlights and comments stay yours to read. Highlighting more is part of Pro.</span><button type="button" class="btn small" data-act="pdr-pro">See Pro</button>` : PDE && PDE.readerTools ? PDE.readerTools() : ""}</span>
         <span class="pdr-g-mark"><span class="pdr-cols" role="group" aria-label="Highlight color">${COLORS.map(([k, name, hex]) => `<button type="button" class="pdr-col" data-act="pdr-color" data-id="${k}" style="--h:${hex}" aria-label="${name}" aria-pressed="${R.color === k}"></button>`).join("")}</span>
         <button type="button" class="icon-btn pdr-cmbtn" data-act="pdr-cm-mode" id="pdrCmBtn" aria-pressed="false" aria-label="Add a comment" title="Add a Comment">${NOTE_ICO}</button>${window.SBINK ? SBINK.readerBtn() : ""}<span class="mini pdr-markhint">Select text, then pick a color to highlight it</span></span>
         <span class="spacer"></span>
-        ${ofcTop ? "" : hlBtn}
+        ${ofcTop || hlTop ? "" : hlBtn}
       </div>
       <div class="pdr-main"><div class="pdr-pages" id="pdrPages" tabindex="0" aria-label="Pages"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(f.name)}…</p></div><aside class="pdr-side" id="pdrSide" hidden></aside></div>
     </div>`);
@@ -85172,6 +85299,11 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     // Spreadsheets keep a readable size and scroll sideways rather than shrinking to fit
     if (O && /^(xlsx|csv)$/.test(O.kind)) R.fit = Math.max(0.6, Math.min(1.5, (box.clientWidth - 28) / Math.max(...O.pages.map(p => p.w))));
     if (R.fitMode === "page") R.fit = Math.max(0.2, Math.min(R.fit, (box.clientHeight - 28) / base.height));
+    // Phones: the page opens as wide as its text rather than its paper, so the words come out as big as the screen allows (a
+    // letter-size page fitted whole drew body text at 6 or 7px); the margins sit just off the sides, a swipe away
+    const tx = !O && R.fitMode !== "page" && matchMedia("(max-width:760px)").matches ? await textSpan(first, base) : null;
+    if (!R || !R.doc) return;
+    if (tx) R.fit = Math.min(2.5, (box.clientWidth - 28) / (tx.w + 16));
     const s = R.fit * R.zoom, w = Math.round(base.width * s), h = Math.round(base.height * s);
     const size = i => O ? `width:${Math.round(O.pages[i].w * s)}px;height:${Math.round(O.pages[i].h * s)}px` : `width:${w}px;height:${h}px`;
     const label = i => O && O.pages[i].label ? O.pages[i].label : `Page ${i + 1}`;
@@ -85183,7 +85315,25 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const of = $("#pdrOf"); if (of) of.textContent = `of ${R.doc.numPages}`; fitBar();
     R.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(Number(e.target.dataset.p)); }), {root: box, rootMargin: "900px 0px"});
     R.pages.forEach(p => R.io.observe(p.el));
+    if (tx) box.scrollLeft = Math.max(0, (tx.l - 8) * s);
     goTo(target, true);
+  }
+  // How far across the first page its text reaches (in its own units), when it leaves real margins; worked out once a file
+  async function textSpan(pg, vp){
+    if (R.tx !== undefined) return R.tx;
+    let out = null;
+    try {
+      const tc = await pg.getTextContent(); let l = 1e9, r = -1e9, n = 0;
+      for (const it of tc.items) {
+        if (!it.str || !it.str.trim() || !it.transform) continue;
+        const a = vp.convertToViewportPoint(it.transform[4], it.transform[5]), b = vp.convertToViewportPoint(it.transform[4] + (it.width || 0), it.transform[5]);
+        l = Math.min(l, a[0], b[0]); r = Math.max(r, a[0], b[0]); n++;
+      }
+      l = Math.max(0, l); r = Math.min(vp.width, r);
+      if (n >= 3 && r - l > vp.width * 0.3 && r - l < vp.width * 0.9) out = {l, w: r - l};
+    } catch (e) {}
+    if (R) R.tx = out;
+    return out;
   }
   async function draw(n){
     if (!R || !R.doc) return;
@@ -85536,7 +85686,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   function fitBar(){
     const bar = dlg.querySelector(".pdr-sheet .pdr-bar"); if (!bar || !bar.offsetWidth) return;
     bar.classList.remove("c1", "c2", "c3", "c4", "c5");
-    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer")); return (!k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8)) && bar.scrollWidth <= bar.clientWidth + 1; };
+    const one = () => { const k = [...bar.children].filter(x => x.offsetWidth && !x.classList.contains("spacer") && getComputedStyle(x).position !== "absolute"); return (!k.length || k.every(x => Math.abs(x.offsetTop - k[0].offsetTop) < 8)) && bar.scrollWidth <= bar.clientWidth + 1; };
     for (const c of ["c1", "c2", "c3", "c4", "c5"]) { if (one()) break; bar.classList.add(c); }
   }
   P.fitBar = fitBar;
@@ -85772,6 +85922,50 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-sheet[data-mode="mark"] .pdr-col{width:24px;height:24px}
   .pdr-bar .pdr-out .icon-btn{width:40px;height:40px}
   .pdr-fit{min-height:40px}
+}
+/* Phones: one compact row at the top (page, zoom, Download, Highlights and Save) and one at the bottom, by the thumb: the Read /
+   Mark Up / Edit switch, that mode's tools and, in Read, Ask and Study. The switch and Ask/Study stay in the top bar's markup and
+   are placed over the two ends of the bottom row, which keeps that room free (--pdr-dl, --pdr-dr); the page gets the rest.
+   Edit has more tools than fit beside the switch, so there the switch sits on the line above them, with the tool's options */
+@media (max-width:760px){
+  .pdr-sheet{--pdr-dl:112px;--pdr-dr:0px;--pdr-dock:60px}
+  .pdr-sheet[data-mode="read"]{--pdr-dr:96px}
+  .pdr-sheet > .sheet-head{padding-top:10px;padding-bottom:10px}
+  .pdr-sheet > .sheet-head h2{min-width:0;font-size:1.1rem;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pdr-bar,.pdr-bar.c5{flex-wrap:nowrap;gap:6px;padding:6px 10px}
+  .pdr-bar::after{display:none}
+  .pdr-bar > .pdr-nav{order:1}
+  .pdr-bar > .pdr-zoom{order:2}
+  .pdr-bar > .pdr-out{order:3;margin-left:auto}
+  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:3;bottom:calc((var(--pdr-dock) - 44px) / 2)}
+  .pdr-bar > .pdr-modes{left:10px}
+  .pdr-bar > .pdr-ai{right:10px;margin:0}
+  .pdr-sheet:not([data-mode="read"]) .pdr-bar > .pdr-ai{display:none}
+  .pdr-sheet[data-mode="edit"] .pdr-bar > .pdr-modes{bottom:57px}
+  .pdr-sheet .pdr-bar .pdr-fit{display:none}
+  .pdr-sheet .pdr-bar :is(.pdr-nav,.pdr-zoom) .icon-btn{width:36px;height:36px;min-width:36px}
+  .pdr-sheet .pdr-bar .pdr-pg input{width:36px}
+  /* the switch: just its icons, the one in use still marked */
+  .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode),.pdr-bar.c4 .pdr-modes > :is(.pdr-mode,.pde-mode){font-size:0;gap:0;padding:0 9px;min-height:40px;height:40px}
+  .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode) svg{width:18px;height:18px}
+  .pdr-sheet .pdr-bar .pdr-modes .pdr-badge{font-size:.72rem}
+  /* the bottom row */
+  .pdr-sheet > .pdr-main{order:1}
+  .pdr-sheet > :is(.pdr-bar2,.pde-bar){order:2;border-bottom:0;border-top:1px solid var(--line)}
+  .pdr-sheet > .pdr-bar2,.pdr-sheet[data-mode="mark"] > .pdr-bar2{min-height:var(--pdr-dock);flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:8px calc(var(--pdr-dr) + 14px) 8px calc(var(--pdr-dl) + 16px)}
+  .pdr-sheet > .pdr-bar2 > *{flex-shrink:0}
+  .pdr-sheet > .pdr-bar2 :is(.pdr-g-read,.pdr-g-mark){flex-wrap:nowrap;gap:4px}
+  .pdr-sheet > .pdr-bar2 .pdr-markhint,.pdr-sheet[data-mode="mark"] > .pdr-bar2 #pdeTocBtn{display:none}
+  /* Highlights: its count, with a marker for the word */
+  .pdr-sheet .pdr-out #pdrSideBtn{font-size:0;gap:4px;min-width:44px;min-height:40px;padding:0 10px}
+  .pdr-sheet .pdr-out #pdrSideBtn::before{content:"";flex:none;width:18px;height:18px;background:currentColor;-webkit-mask:var(--pdr-hl-ico) center/contain no-repeat;mask:var(--pdr-hl-ico) center/contain no-repeat}
+  .pdr-sheet .pdr-out #pdrSideBtn b{font-size:.85rem}
+  .pdr-sheet[data-mode="edit"] .pdr-out #pdrSideBtn{display:none}   /* Save takes its place while editing */
+  .pdr-sheet .pdr-out > a.btn{font-size:0;gap:0;min-width:40px;min-height:40px;padding:0 10px}   /* a Word or PowerPoint file's Download: its icon */
+  .pdr-sheet{--pdr-hl-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 11l-6 6v3h9l3-3'/%3E%3Cpath d='M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4'/%3E%3C/svg%3E")}
+  /* a Word, PowerPoint or Excel file in Read has no tools row: the switch gets a row of its own */
+  .pdr-sheet[data-office]:not([data-view])[data-mode="read"]::after{content:"";order:3;flex:none;height:var(--pdr-dock);border-top:1px solid var(--line);background:color-mix(in srgb,var(--ink) 3%,var(--surface))}
+  html .pde-saybar{bottom:calc(var(--pdr-dock,60px) + 10px)}
 }
 `;
   document.head.appendChild(css);
@@ -91759,8 +91953,12 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   }
   let fitT = 0; window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { if (E) E.fitW = null; measureFit(); }, 120); });
   const touchy = () => { try { return matchMedia("(pointer: coarse)").matches; } catch (e) { return false; } };
+  // the opening hint ("Tap any text to change it") is needed once: after a first edit it stays away, which on a phone gives its
+  // line back to the page
+  const K_HINT = "studyboard:pdeHinted";
   function barMsg(){
     const e = selected(), n = mine().length, pr = e && (e.k === "t" || e.k === "p") ? probeOf(e) : null, typing = !!(e && E.ed && E.ed.e.id === e.id), tap = touchy();
+    const hinted = !!lsGet(K_HINT); if (n && !hinted) lsSet(K_HINT, 1);
     const T = tapWord(), drag = E.tool === "mark" && !e && SHAPES.find(x => x[0] === E.shape && !["check", "cross", "dot"].includes(x[0]));
     // how to finish typing where Enter makes a new line, and what a picked text box can do
     const finish = typing && e.k !== "t" ? (tap ? "Tap away from it to finish" : "Ctrl+Enter or click away to finish") : "";
@@ -91784,7 +91982,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       : e && e.k === "i" ? "Drag to move, the corner to resize"
       : drag ? `Drag on the page to draw ${drag[1] === "Arrow" ? "an arrow" : "a " + drag[1].toLowerCase()}`
       : E.tool === "mark" && !e ? `${T} to add a ✓, ✗ or dot; drag for a box, circle, line or arrow`
-      : !n && E.tool === "text" ? `${T} any text to change it` : "";
+      : !n && E.tool === "text" && !hinted ? `${T} any text to change it` : "";
   }
   function barHtml(){
     const e = selected(), txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
@@ -92129,7 +92327,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       case "pde-save": saveVersion(); break;
       case "pde-panel-close":
         // planned page changes aren't thrown away without asking
-        if (S.panel && S.panel.querySelector("#pdeGrid") && S.pp && pagesPlanned()) { askBox({title: "Discard the Page Changes?", text: "The pages you moved, turned, added or took out go back to how they were.", yes: "Discard", no: "Keep Editing"}).then(y => { if (y) closePanel(); }); break; }
+        if (S.panel && S.panel.querySelector("#pdeGrid") && S.pp && pagesPlanned()) { askBox({title: "Discard the Page Changes?", text: "The pages you moved, turned, added or took out go back to how they were.", yes: "Discard", no: "Keep Editing", danger: true}).then(y => { if (y) closePanel(); }); break; }
         closePanel(); break;
       case "pde-font-local": localFonts(); break;
       case "pde-font-pick": { const f = S.localFonts && S.localFonts[Number(id)]; if (f) f.blob().then(b => b.arrayBuffer()).then(buf => addFont(new Uint8Array(buf))).then(fid => { if (fid) { useFont(fid); fontsPanel(); } }); break; }
@@ -93560,6 +93758,11 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   .pde-save{margin-left:auto}
   /* while a panel is open its tool's options aren't needed: the panel gets the room */
   .pde-bar.paneled .pde-sub{display:none}
+  /* the bar sits at the bottom (99-pro.js): the tools are its last line, and the line above holds the Read / Mark Up / Edit
+     switch with the chosen tool's options and notes beside it */
+  .pdr-sheet > .pde-bar{padding:4px 10px 8px;row-gap:4px}
+  .pdr-sheet > .pde-bar > .pde-sub{order:-1;height:46px;padding-left:calc(var(--pdr-dl,0px) + 6px)}
+  .pdr-sheet > .pde-bar > .pde-tools{min-height:44px}
 }
 /* iPhone: Save is just its icon (no count), so Save and Download stay on the page row; and the Read / Mark Up / Edit switch is a
    little narrower, so Ask This PDF and Study sit on its row */
@@ -95442,8 +95645,10 @@ var SBWB = null;
     const list = boards(), cur = curId();
     const extra = fire("wb-head", cur).filter(Boolean).join("");
     const DOTS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>';
-    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>${on ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options">${DOTS}</button>` : ""}`; };
-    const strip = list.length ? `<div class="nb-boards wb-boards" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>` : "";
+    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>`; };
+    // (the options button follows the tab list rather than sitting inside it among the tabs)
+    const opts = list.some(b => b.id === cur) ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options">${DOTS}</button>` : "";
+    const strip = list.length ? `<div class="nb-boards wb-boards"><div class="nb-tlist" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>${opts}</div>` : "";
     const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all">All Whiteboards</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
     if (!list.length) return headHtml + `<div class="wb-empty"><div class="wb-empty-in"><h3>Start a Whiteboard</h3><p>Sketch, write and plan with markers on a big board you can zoom around.</p>
       <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Whiteboard</b><span class="mini">Start from a clean white board</span></span></button>
@@ -105090,13 +105295,15 @@ const AUTOPILOT = (() => {
       <p class="mini" style="margin:0">These work when you're not typing in a box.</p>
       ${sec("Anywhere", [row(["N"], "New task"), ...(typeof CAPTURE_OFF !== "undefined" && CAPTURE_OFF ? [] : [row(["C"], "Quick Capture")]), row([MOD + "+K"], "Search everything"), row([MOD + "+,"], "Settings"), row([MOD + "+Z"], "Undo the last delete"), row(["?"], "Show this list"), row(["Esc"], "Close a sheet")])}
       ${sec("Go To", VIEWS_KEYS.map(([t], i) => row(appWin() ? [String(i + 1), MOD + "+" + (i + 1)] : [String(i + 1)], viewName(t))))}
-      ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz")])}
-      ${sec("Notes", [row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
+      ${sec("Flashcards", [row(["Space"], "Flip the card"), `<tr><th scope="row">${kbd("1")} to ${kbd("4")}</th><td>Again, Hard, Good or Easy (after flipping)</td></tr>`, row(["Enter"], "Next question in a quiz"), row(["Esc"], "End the study session or quiz")])}
+      ${sec("Notes", [row(["Enter"], "Open the selected note's options, then again to type in it"), row(["Esc"], "Close the open note"), row(["Arrow keys"], "Move the selected note"), row(["[", "]"], "Turn the selected note"), row([MOD + "+Enter"], "Finish editing a note")])}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
   }
   document.addEventListener("keydown", e => {
     if (e.defaultPrevented || e.isComposing || e.repeat) return;
     if (typing(e.target) || modals().length) return;
+    // A note open on the board is being worked on, even before its text box has the cursor: keys belong to it
+    if (typeof noteEditing !== "undefined" && noteEditing && ui.tab === "notes") return;
     const mod = e.ctrlKey || e.metaKey, m = /^Digit([1-7])$/.exec(e.code || "");
     if (mod && !e.altKey && !e.shiftKey && e.key === ",") { e.preventDefault(); settings(); return; }
     if (mod && !e.altKey && !e.shiftKey && m) { e.preventDefault(); goView(VIEWS_KEYS[Number(m[1]) - 1][0]); return; }
@@ -105227,8 +105434,10 @@ const AUTOPILOT = (() => {
   const mqReduce = mm("(prefers-reduced-motion: reduce)"), mqData = mm("(prefers-reduced-data: reduce)"), mqPhone = mm("(max-width:719px)"), mqContrast = mm("(prefers-contrast: more)");
   const MODES = ["full", "off"], RANK = {full: 0, static: 1}, KEY = "studyboard:anim";
   const worse = (a, b) => RANK[a] >= RANK[b] ? a : b;
-  // Animations are on (full) or off. Nothing lowers them by itself, and an older Auto or Reduced choice becomes On.
-  let pref = ls(KEY); if (pref !== "off") { if (pref) ls(KEY, null); pref = "full"; }
+  // Animations are on (full) or off. With no choice stored they follow the device: Off when it asks for Reduce Motion (people
+  // turn that on because motion makes them dizzy), On otherwise. A student who picks On keeps it on (stored as "full");
+  // an older Auto or Reduced choice becomes "no choice".
+  let pref = ls(KEY); if (pref !== "off" && pref !== "full") { if (pref) ls(KEY, null); pref = ""; }
   let battery = null, saveData = false, desk = {onBattery: false, thermal: "unknown", locked: false};
   let blurred = false, idle = false, covered = false, lastInput = Date.now(), lastSig = "";
   // Nothing lowers the picture on its own any more: Auto is full motion except on a low battery
@@ -105240,7 +105449,8 @@ const AUTOPILOT = (() => {
   const batCritical = () => !!(battery && battery.charging === false && battery.level < 0.08);
   // Reduced motion in Auto: only for a low battery (under 20% and not charging, or the phone's Low Power Mode)
   const lowPower = () => batLow() || nativeLow;
-  function level(){ return pref === "off" ? "static" : "full"; }
+  const effPref = () => pref || (reduceSys() ? "off" : "full");
+  function level(){ return effPref() === "off" ? "static" : "full"; }
   const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
   // Scenes draw on every screen refresh: 60 on most phones, 120 on ProMotion iPhones and high-refresh Android (the 4 ms floor only ignores duplicate callbacks).
   const frameMs = () => 4;
@@ -105256,19 +105466,21 @@ const AUTOPILOT = (() => {
   }
   function statusText(){
     const lv = level(), p = pauseWhy();
-    let s = pref === "off" ? "Off: scenes are still, with no confetti." : "On: scenes always play.";
+    let s = effPref() === "off" ? (!pref ? "Off because your device's Reduce Motion is on: Mochi stays put, scenes are still, with no confetti. Choose On to play them anyway." : "Off: scenes are still, with no confetti.")
+      : pref === "full" && reduceSys() ? "On: scenes play even though your device's Reduce Motion is on." : "On: scenes always play.";
     if (p && lv !== "static") s += ` Paused for now because ${p}.`;
     return s;
   }
   function emit(force){
-    const lv = level(), sig = [lv, live(), frameMs(), dprScale(), pref, gov].join("|");
+    const lv = level(), sig = [lv, live(), frameMs(), dprScale(), effPref(), gov].join("|");
     root.dataset.motion = lv;
     if (sig === lastSig && !force) return;
     lastSig = sig;
     document.querySelectorAll("[data-anim-status]").forEach(el => { el.textContent = statusText(); });
-    try { window.dispatchEvent(new CustomEvent("sb-motion", {detail: {level: lv, live: live(), pref, gov}})); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent("sb-motion", {detail: {level: lv, live: live(), pref: effPref(), gov}})); } catch (e) {}
   }
-  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "full" ? null : p); emit(true); };
+  // Picking what the device already asks for goes back to following the device
+  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p === (reduceSys() ? "off" : "full") ? "" : p; ls(KEY, pref || null); emit(true); };
 
   // (No automatic quality lowering: the picture stays as it is. These stay so the scenes can still report their frames.)
   function warm(){}
@@ -105321,7 +105533,7 @@ const AUTOPILOT = (() => {
     const cs = Object.values(state.courses).filter(c => c && c.color).slice(0, 6); if (!cs.length) return "";
     return "conic-gradient(" + cs.map((c, i, a) => c.color + " " + Math.round(i / a.length * 100) + "% " + Math.round((i + 1) / a.length * 100) + "%").join(",") + ")";
   };
-  window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
+  window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: effPref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
   emit(true);
 
   /* ================= Text size and contrast ================= */
@@ -105396,7 +105608,7 @@ const AUTOPILOT = (() => {
   const seg = (act, items, cur, label) => `<div class="segb" role="group" aria-label="${esc(label)}">${items.map(([k, l]) => `<button type="button" data-act="${act}" data-id="${k}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div>`;
   hook("menu", () => {
     const tzr = homeZone(), cur = deviceZone(), differs = SBTZ_CORE.zoneChanged(tzr, cur);
-    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], pref, "Animations")}</div>
+    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], effPref(), "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
     ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll.</span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
@@ -105462,8 +105674,22 @@ const AUTOPILOT = (() => {
         if (i.labels && i.labels.length) return;
         const t = i.getAttribute("title") || i.getAttribute("placeholder"); if (t && t.trim()) i.setAttribute("aria-label", t.trim());
       });
+      r.querySelectorAll("label.anim-tog").forEach(togName);
     } catch (e) { console.warn("a11y pass", e); }
   }
+  // Settings switches read "On" (their visible word) whatever they control: each is named after its row's title instead
+  // ("Daily Quote, checkbox, checked") and the On word is only for the eye
+  function togName(l){
+    const i = l.querySelector('input[type="checkbox"]'); if (!i || l.dataset.named) return;
+    const own = [...l.childNodes].filter(n => n.nodeType === 3 && n.nodeValue.trim());
+    const head = l.closest(".cap-row") && l.closest(".cap-row").firstElementChild;
+    const title = head && head !== l && !head.contains(l) ? [...head.childNodes].filter(n => n.nodeType === 3).map(n => n.nodeValue).join(" ").replace(/^[^\p{L}\p{N}]+/u, "").replace(/\s+/g, " ").trim() : "";
+    if (!title || !own.length) return;
+    l.dataset.named = "1";
+    if (!i.getAttribute("aria-label")) i.setAttribute("aria-label", title);
+    own.forEach(n => { const s = document.createElement("span"); s.setAttribute("aria-hidden", "true"); s.textContent = n.nodeValue; n.replaceWith(s); });
+  }
+  document.addEventListener("focusin", e => { const l = e.target && e.target.closest && e.target.closest("label.anim-tog"); if (l) try { togName(l); } catch (x) {} }, true);
   // One page title for screen readers when the visible header
   const mqSide = mm("(min-width:980px)");
   function pageTitle(){
@@ -105921,6 +106147,15 @@ ui._day = todayISO();
       }
     } catch (e) {}
   };
+  // Tab from that heading goes on from the top of the sheet: a sheet whose title sits under a colour band reaches the band's
+  // Close (X) first, as it's seen, rather than last after the whole sheet
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Tab" || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
+    const h = e.target, d = h && h.classList && h.classList.contains("sm-focus-h") ? h.closest("dialog[open]") : null; if (!d) return;
+    const first = [...d.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')]
+      .find(x => x.getClientRects().length && !x.closest("[inert],[hidden]") && (x.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING));
+    if (first) { e.preventDefault(); first.focus(); }
+  }, true);
   // the dialog itself would focus an [autofocus] box as it opens, which on a phone pops the keyboard up for a moment
   // (the sheet shrinks above it, then stretches back down as it drops), so on a phone nothing is marked to take focus
   const noAuto = d => { try { if (phoneW()) d.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus")); } catch (e) {} };

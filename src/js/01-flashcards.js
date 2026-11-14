@@ -692,10 +692,10 @@ function viewStudy(){
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
-    ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-live="polite" aria-label="${f.flipped ? "Answer shown. " : ""}Flip card">
+    ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-label="${f.flipped ? "Flip card back to the front" : "Flip card"}" aria-describedby="fcFaceNow">
       <span class="flip-inner">
-        <span class="face front"><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
-        <span class="face back"><span class="face-label">Back</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint">${esc(c.front)}</span>`}</span>
+        <span class="face front"${f.flipped ? ` aria-hidden="true"` : ` id="fcFaceNow"`}><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint" aria-hidden="true">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
+        <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">Back</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">
@@ -703,7 +703,7 @@ function viewStudy(){
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -898,15 +898,31 @@ function viewQuiz(){
       ${body}${fb}
     </section>`;
 }
+// The back stays out of a screen reader's way until the card turns over (hearing the answer first defeats the recall), and
+// turning it says the side that's now up. The live region stays put across redraws, so the words are announced.
+function fcSay(text){
+  let l = document.getElementById("fcLive");
+  if (!l) { l = document.createElement("div"); l.id = "fcLive"; l.className = "sr"; l.setAttribute("aria-live", "polite"); l.setAttribute("aria-atomic", "true"); document.body.appendChild(l); }
+  l.textContent = ""; setTimeout(() => { l.textContent = text; }, 40);
+}
+function fcFlip(){
+  const f = ui.fc; if (!f) return;
+  f.flipped = !f.flipped; render();
+  const it = f.q && f.q[f.i], d = it && state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
+  const say = s => typeof mathSpeech === "function" ? mathSpeech(String(s || "")) : String(s || "");
+  if (c) fcSay(f.flipped ? "Answer: " + say(c.back) + ". Rate it with 1 to 4." : "Front: " + say(c.front));
+}
 function fcKey(e){
   if (ui.tab !== "flashcards" || !ui.fc || dlg.open || e.target.closest("input,textarea,select")) return false;
   const f = ui.fc;
   if (f.mode === "study" && (e.key === "z" || e.key === "Z" || e.key === "Backspace") && !e.altKey && f.hist && f.hist.length) { e.preventDefault(); undoRate(); return true; }
   // Ctrl, Cmd and Alt shortcuts belong to the browser; Enter and Space on a focused button press that button
   if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  // Esc ends a study session or quiz, as End Session does (a quiz half answered still asks first)
+  if (e.key === "Escape" && !e.defaultPrevented && !e.repeat && !document.querySelector("dialog[open]")) { e.preventDefault(); fcAction("fc-exit", {dataset: {}}); return true; }
   if ((e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest("button,a,[role=button],summary") && !e.target.closest('[data-act="fc-flip"],[data-act="fc-next"]')) return false;
   if (f.mode === "study" && f.q[f.i]) {
-    if (e.key === " " || e.key === "Enter") { if (!f.flipped) { e.preventDefault(); f.flipped = true; render(); return true; } }
+    if (e.key === " " || e.key === "Enter") { if (!f.flipped) { e.preventDefault(); fcFlip(); return true; } }
     if (f.flipped && ["1", "2", "3", "4"].includes(e.key)) { e.preventDefault(); rateCard(["again", "hard", "good", "easy"][Number(e.key) - 1]); return true; }
   }
   if (f.mode === "quiz" && f.qs[f.i]) {
@@ -937,7 +953,7 @@ function fcAction(act, el){
     case "fc-study-course": { if (el.closest("dialog")) dlg.close(); const ids = deckListArr().filter(x => x.courseId === el.dataset.course && x.cards.some(c => !c.draft)).map(x => x.id); if (ids.length) startStudy(ids); else toast("This course has no flashcards yet"); return true; }
     case "fc-review-start": startStudy(readyDecks(el.dataset.course)); return true;
     case "fc-quiz": quizSheet([id]); return true;
-    case "fc-flip": if (ui.fc) { ui.fc.flipped = !ui.fc.flipped; render(); } return true;
+    case "fc-flip": fcFlip(); return true;
     case "fc-rate": rateCard(id); return true;
     case "fc-undo": undoRate(); return true;
     case "fc-answer": answerQuiz(el.dataset.val); return true;

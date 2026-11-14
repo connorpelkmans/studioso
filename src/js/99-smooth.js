@@ -25,6 +25,15 @@
       }
     } catch (e) {}
   };
+  // Tab from that heading goes on from the top of the sheet: a sheet whose title sits under a colour band reaches the band's
+  // Close (X) first, as it's seen, rather than last after the whole sheet
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Tab" || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
+    const h = e.target, d = h && h.classList && h.classList.contains("sm-focus-h") ? h.closest("dialog[open]") : null; if (!d) return;
+    const first = [...d.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')]
+      .find(x => x.getClientRects().length && !x.closest("[inert],[hidden]") && (x.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING));
+    if (first) { e.preventDefault(); first.focus(); }
+  }, true);
   // the dialog itself would focus an [autofocus] box as it opens, which on a phone pops the keyboard up for a moment
   // (the sheet shrinks above it, then stretches back down as it drops), so on a phone nothing is marked to take focus
   const noAuto = d => { try { if (phoneW()) d.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus")); } catch (e) {} };
