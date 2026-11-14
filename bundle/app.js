@@ -105383,8 +105383,10 @@ const AUTOPILOT = (() => {
       const view = document.getElementById("view"); if (!view) return;
       // (not on a group's own page: its header already names it, and the title would push the group down)
       if (isPhone() && (tab === "notes" || (tab === "groups" && !ui.grp)) && !view.querySelector(":scope > .pview-tabs")) {
-        const pill = document.createElement("div"); pill.className = "pview-tabs ph-solo"; pill.setAttribute("role", "heading"); pill.setAttribute("aria-level", "2");
-        pill.innerHTML = `<span class="ph-solo-t"></span>`; pill.firstChild.textContent = t;
+        // drawn as the other tabs' switch with its one choice picked (a real tab button, so every theme styles it the same way);
+        // to screen readers it's just the page's heading
+        const pill = document.createElement("div"); pill.className = "pview-tabs pg-tabs ph-solo"; pill.setAttribute("role", "heading"); pill.setAttribute("aria-level", "2"); pill.setAttribute("aria-label", t);
+        pill.innerHTML = `<button type="button" class="ph-solo-t" aria-selected="true" aria-hidden="true" tabindex="-1"></button>`; pill.firstChild.textContent = t;
         view.insertBefore(pill, view.firstChild);
       }
       const sel = view.querySelector(":scope > .pview-tabs [aria-selected=true], :scope > .pview-tabs.ph-solo > .ph-solo-t");

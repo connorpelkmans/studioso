@@ -62,9 +62,11 @@ const sheet = p => p.evaluate(() => { const d = document.createElement("dialog")
       ok(await p.evaluate(() => !document.getElementById("toast").classList.contains("show")), "a toast made for one page goes away on another page");
       await p.evaluate(() => __ui.toast("Kept")); await tab(p, "board");
       ok(await p.evaluate(() => document.getElementById("toast").classList.contains("show")), "other toasts stay across pages");
-      // B18: Groups and Notes have a plain title, not a one-choice switch
+      // Groups' title sits in the same pill as the other tabs' switches, its one choice picked (B18 had made it plain; changed on
+      // request), and is still the page's heading to screen readers, not a button
       await tab(p, "groups");
-      ok(await p.evaluate(() => { const s = document.querySelector("#view > .ph-solo"), t = s.querySelector(".ph-solo-t"), bg = x => getComputedStyle(x).backgroundColor; return s.getAttribute("role") === "heading" && /rgba\(0, 0, 0, 0\)|transparent/.test(bg(s)) && /rgba\(0, 0, 0, 0\)|transparent/.test(bg(t)) && getComputedStyle(t).boxShadow === "none"; }), "phone Groups: a plain heading, not a pill switch");
+      ok(await p.evaluate(() => { const s = document.querySelector("#view > .ph-solo"), t = s.querySelector(".ph-solo-t"), bg = x => getComputedStyle(x).backgroundColor, clear = c => /rgba\(0, 0, 0, 0\)|transparent/.test(c);
+        return s.getAttribute("role") === "heading" && s.getAttribute("aria-label") === "Groups" && t.getAttribute("aria-hidden") === "true" && t.tabIndex === -1 && !clear(bg(s)) && !clear(bg(t)) && bg(s) !== bg(t); }), "phone Groups: its title in a pill like the other tabs' switches, picked, and still a heading");
       await tab(p, "board");
       // U11: the phone's course picker by keyboard / VoiceOver
       await p.evaluate(() => document.querySelector("#fab, .fab").click()); await wait(700);

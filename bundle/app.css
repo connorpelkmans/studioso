@@ -7657,9 +7657,8 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
   @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
   /* the starter questions always stack (the chat scrolls if there's no room) */
   /* Notes / Groups */
-  /* a page with one view gets a plain title, not a switch with a single choice */
-  #view > .pview-tabs.ph-solo{justify-content:flex-start;padding:0 4px;background:none;border:0;box-shadow:none}
-  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;display:flex;align-items:center;min-width:0;min-height:42px;padding:0;color:var(--ink);font:800 1.55rem var(--display);letter-spacing:-.01em}
+  /* a page with one view: its title in the same full-width pill as the other tabs' switches, its one choice picked */
+  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;pointer-events:none;cursor:default}
   :is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small{min-height:40px;margin:0!important}
   /* Task Board: Group By as a small control */
   .bview-row .board-ctl .segb button{min-height:34px;padding-block:4px;font-size:.84rem}
