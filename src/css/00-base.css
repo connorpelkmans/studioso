@@ -917,6 +917,13 @@ dialog{border-radius:18px;background:var(--surface);color:var(--ink);box-shadow:
 dialog::backdrop{background:rgba(6,15,36,.55)}
 #askDlg{width:min(420px,calc(100% - 32px));margin:auto}
 #askDlg .sheet-foot{display:flex;gap:8px}
+/* Phones: a question with three answers stacks them full width, the main answer on top, then the other choice, then Cancel
+   (three side by side don't fit, and wrapped they put the main answer alone on a second line) */
+@media (max-width:639px){
+  #askDlg .sheet-foot:has(#askAlt){flex-direction:column-reverse;align-items:stretch;gap:8px}
+  #askDlg .sheet-foot:has(#askAlt) > .spacer{display:none}
+  #askDlg .sheet-foot:has(#askAlt) > .btn{width:100%;margin:0;justify-content:center;white-space:normal}
+}
 .sheet-head{border-bottom:1px solid var(--line);padding-bottom:12px}
 .sheet-body{padding-top:14px}
 /* Advanced settings drawer */
