@@ -8604,6 +8604,9 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   .seg span{display:grid;place-items:center;min-height:34px;padding-block:0;border-radius:9px;background:transparent;color:color-mix(in srgb,var(--muted) 70%,var(--ink));font-weight:700;box-shadow:none}
   .seg input:checked + span{background:var(--seg-on);color:var(--ink);box-shadow:0 1px 3px rgba(14,42,86,.18),0 0 0 .5px rgba(14,42,86,.08)}
   :is(.segb > button[aria-pressed="true"],.us-subs > .us-sub-tab[aria-selected="true"],.pt-bar > .pt-tab[aria-selected="true"]):not(.ep-topic button){color:var(--ink)!important}
+  /* sheets with a coloured head (the Focus timer) used to tint the whole chosen button too (100-phone.css), which showed as a
+     second, taller shape around the pill: here the pill alone marks the choice */
+  .sheet:has(.g2-sheet-head) .segb > button[aria-pressed="true"]:not(.ep-topic button){background:transparent!important;color:var(--ink)!important}
   :is(.segb > button[aria-pressed="true"],.us-subs > .us-sub-tab[aria-selected="true"],.pt-bar > .pt-tab[aria-selected="true"]):not(.ep-topic button)::before{background:var(--seg-on);box-shadow:0 1px 3px rgba(14,42,86,.18),0 0 0 .5px rgba(14,42,86,.08)}
   .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
   .cf-pick:not(.on){background:var(--surface)!important;color:var(--ink)!important;border:1px solid var(--line);min-height:40px;font-size:.88rem}
