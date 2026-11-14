@@ -2,7 +2,7 @@
 /* Focus Sounds (98-sounds) */
 .snd-card{border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--soft) 45%,transparent);padding:4px 6px 4px 4px}
 .snd-top{display:flex;align-items:center;gap:4px}
-.snd-head{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 6px;border:0;border-radius:10px;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.snd-head{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 6px;border:0;border-radius:10px;background:none;color:var(--ink);font:inherit;text-align:start;cursor:pointer}
 div.snd-head{cursor:default}
 button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 .snd-ic{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 13%,var(--surface));color:var(--accent);transition:background .25s,color .25s}

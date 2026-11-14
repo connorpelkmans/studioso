@@ -2,7 +2,7 @@
 /* ===== Word, PowerPoint and Excel pages (01-office.js) ===== */
 /* A page looks like the document whatever the app's theme: dark text on the document's own background,
    with the app's styles reset inside it. Sizes and colours from the file come in as inline styles. */
-.ofc-page{position:relative;overflow:hidden;box-sizing:border-box;background:#fff;color:#000;color-scheme:light;font:400 14.67px/1.17 Calibri,Carlito,'Segoe UI',Arial,'Helvetica Neue',Helvetica,sans-serif;text-align:left;letter-spacing:normal;word-spacing:normal;text-transform:none;text-shadow:none;text-indent:0;white-space:normal;direction:ltr;-webkit-user-select:text;user-select:text;cursor:text;forced-color-adjust:none;-webkit-text-size-adjust:none;text-size-adjust:none;-webkit-font-smoothing:auto;filter:none}
+.ofc-page{position:relative;overflow:hidden;box-sizing:border-box;background:#fff;color:#000;color-scheme:light;font:400 14.67px/1.17 Calibri,Carlito,'Segoe UI',Arial,'Helvetica Neue',Helvetica,sans-serif;text-align:start;letter-spacing:normal;word-spacing:normal;text-transform:none;text-shadow:none;text-indent:0;white-space:normal;direction:ltr;-webkit-user-select:text;user-select:text;cursor:text;forced-color-adjust:none;-webkit-text-size-adjust:none;text-size-adjust:none;-webkit-font-smoothing:auto;filter:none}
 .ofc-page.ofc-page :where(:not(svg *)){all:revert;box-sizing:border-box;-webkit-user-select:text;user-select:text;forced-color-adjust:none}
 .ofc-page .ofc-p{display:flow-root;margin:0;white-space:pre-wrap;overflow-wrap:break-word;tab-size:48px;-moz-tab-size:48px}
 .ofc-page :is(h1,h2,h3,h4,h5,h6).ofc-p{font-size:inherit;font-weight:inherit;margin:0}
@@ -20,7 +20,7 @@
 .ofc-docx .ofc-body{position:absolute}
 .ofc-docx .ofc-tw{display:flow-root}
 .ofc-page table.ofc-tbl{border-collapse:collapse;border-spacing:0;table-layout:fixed;font:inherit;color:inherit}
-.ofc-page .ofc-tbl td{vertical-align:top;overflow-wrap:break-word;text-align:left}
+.ofc-page .ofc-tbl td{vertical-align:top;overflow-wrap:break-word;text-align:start}
 .ofc-page .ofc-hd0{font-size:37.33px;font-family:'Calibri Light',Calibri,Carlito,Arial,sans-serif;padding-bottom:4px}
 .ofc-page .ofc-hd1{font-size:21.33px;font-weight:700;padding-top:16px}
 .ofc-page .ofc-hd2{font-size:17.33px;font-weight:700;padding-top:8px}
@@ -34,12 +34,12 @@
 .ofc-pptx .ofc-p{line-height:inherit}
 .ofc-pptx .ofc-tc{display:block;line-height:1.2}
 .ofc-page table.ofc-ptbl{border-collapse:collapse;border-spacing:0;table-layout:fixed;font:inherit;color:#000}
-.ofc-page .ofc-ptbl td{overflow-wrap:break-word;text-align:left}
+.ofc-page .ofc-ptbl td{overflow-wrap:break-word;text-align:start}
 .ofc-page .ofc-ptbl td.ofc-th{font-weight:700}
 .ofc-pptx img.ofc-img{display:block;max-width:none}
 /* Excel and CSV */
 .ofc-page table.ofc-xt{border-collapse:collapse;border-spacing:0;table-layout:fixed;font:400 14.67px/1.2 Calibri,Carlito,'Segoe UI',Arial,sans-serif;color:#000;background:#fff}
-.ofc-page .ofc-xt :is(td,th){border:1px solid #e1e1e1;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:clip;vertical-align:bottom;text-align:left;font-weight:400}
+.ofc-page .ofc-xt :is(td,th){border:1px solid #e1e1e1;padding:0 3px;white-space:nowrap;overflow:hidden;text-overflow:clip;vertical-align:bottom;text-align:start;font-weight:400}
 .ofc-page .ofc-xt th{background:#f3f3f3;border-color:#d0d0d0;color:#5f6368;font:400 12px/1.2 system-ui,-apple-system,'Segoe UI',Arial,sans-serif;text-align:center;vertical-align:middle;position:static}
 .ofc-page .ofc-xt th.ofc-xc{background:#e8e8e8}
 .ofc-page .ofc-xt.ofc-nogrid td{border-color:transparent}

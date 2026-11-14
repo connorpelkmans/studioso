@@ -253,7 +253,7 @@ function reviewDays(){
 function reviewWeekHtml(){
   const today = todayISO(), wd = (parse(today).getDay() + 6) % 7, mon = addDays(today, -wd), done = reviewDays();
   let n = 0;
-  const cells = ["M", "T", "W", "T", "F", "S", "S"].map((l, i) => {
+  const cells = tr("dow.narrow", "M|T|W|T|F|S|S").split("|").map((l, i) => {
     const d = addDays(mon, i), on = done.has(d); if (on && d <= today) n++;
     return `<span class="rv-wd${d === today ? " now" : ""}${on ? " on" : ""}${d > today ? " later" : ""}"><i>${on ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ""}</i>${l}</span>`;
   }).join("");
@@ -695,7 +695,7 @@ function viewStudy(){
     ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-label="${f.flipped ? "Flip card back to the front" : "Flip card"}" aria-describedby="fcFaceNow">
       <span class="flip-inner">
         <span class="face front"${f.flipped ? ` aria-hidden="true"` : ` id="fcFaceNow"`}><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint" aria-hidden="true">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
-        <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">Back</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
+        <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">${esc(tr("fc.side.back", "Back"))}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">

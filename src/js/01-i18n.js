@@ -14,7 +14,7 @@ const SBI18N = (() => {
   // sentences. Add a language here once its screens read right in it. Until then it's a preview: someone who sets it on purpose
   // (a translator) still gets it, but the page stays marked English (so screen readers keep an English voice), dates stay English,
   // and only the translated bits are marked with their language.
-  const DONE = ["en"];
+  const DONE = ["en", "es"];
   let lang = "en", rules = null, dloc;
   const norm = l => String(l || "").toLowerCase().replace("_", "-");
   const base = l => norm(l).split("-")[0];
@@ -52,7 +52,7 @@ const SBI18N = (() => {
   }
   const fmtN = (n, o) => { try { return new Intl.NumberFormat(pageLang(), o).format(n); } catch (e) { return String(n); } };
   const fmtD = (d, o) => { try { return new Intl.DateTimeFormat(dloc, o || {month: "short", day: "numeric"}).format(d instanceof Date ? d : new Date(d)); } catch (e) { return String(d); } };
-  function register(l, cat){ l = norm(l); CATS[l] = Object.assign(CATS[l] || {}, cat || {}); if (SOURCES.indexOf(l) < 0) SOURCES.push(l); if (l === lang || l === base(lang)) applyDom(); return CATS[l]; }
+  function register(l, cat){ l = norm(l); CATS[l] = Object.assign(CATS[l] || {}, cat || {}); if (SOURCES.indexOf(l) < 0) SOURCES.push(l); if (l === lang || l === base(lang)) { applyDom(); if (typeof watch === "function" && document.body) watch(); } return CATS[l]; }
   function applyDom(root){
     const r = root || document, pl = pageLang(), mark = (el, hit) => { if (hit && pl !== lang) { el.setAttribute("lang", lang); el.setAttribute("data-i18n-l", ""); } else if (el.hasAttribute("data-i18n-l")) { el.removeAttribute("lang"); el.removeAttribute("data-i18n-l"); } };
     r.querySelectorAll("[data-i18n]").forEach(el => {
@@ -80,8 +80,10 @@ const SBI18N = (() => {
   }
   function use(l){
     lang = norm(l) || "en"; setRules(); const pl = pageLang(); dloc = dateLoc();
-    try { document.documentElement.setAttribute("lang", pl); document.documentElement.setAttribute("dir", /^(ar|he|fa|ur)/.test(base(pl)) ? "rtl" : "ltr"); } catch (e) {}
-    applyDom();
+    // (no right-to-left language ships yet: localStorage studyboard:dir = "rtl" lays the app out right to left for testing)
+    const dir = store("studyboard:dir");
+    try { document.documentElement.setAttribute("lang", pl); document.documentElement.setAttribute("dir", dir === "rtl" || dir === "ltr" ? dir : /^(ar|he|fa|ur)/.test(base(pl)) ? "rtl" : "ltr"); } catch (e) {}
+    applyDom(); watch();
     try { fire("lang", lang); } catch (e) {}
   }
   // The sidebar's tool buttons are plain HTML (index.html): tag them for translation here, while the page is still English
@@ -105,8 +107,125 @@ const SBI18N = (() => {
     const c = nav.querySelector('[data-act="calc-open"]'); if (c) c.removeAttribute("title");
   }
   tagNav();
+  // The page's own text. Most screens write their English straight into the page (thousands of strings in templates), so a
+  // catalog also carries "@text" {English: translation} for whole pieces of text and "@pat" {"Due in {n}h": "Vence en {n} h"}
+  // for text with numbers or names in it, and the text, placeholders and labels on the page are swapped as they're drawn.
+  // In a pattern {n} is a number, {d} a length of time ("2h 30m") and any other {name} is anything (translated too when it's in the catalog, e.g. "tomorrow").
+  // What people wrote (titles, notes, cards, course names) is marked translate="no" and never touched, nor anything typed.
+  // English pages never run this: the text the tests and an English reader see is exactly what the code writes.
+  let TX = null, PATS = null;
+  const ORIG = new WeakMap(), ATTRS = ["placeholder", "aria-label", "title", "alt", "aria-description", "data-tip"];
+  const SKIP = "script,style,textarea,code,pre,[translate=no],[contenteditable=true],[contenteditable=''],.katex";
+  function tables(){
+    const c = CATS[norm(lang)] || CATS[base(lang)], t = c && c["@text"];
+    TX = t && typeof t === "object" && Object.keys(t).length ? t : null; PATS = null; if (!TX) return;
+    const ph = /\{(\w+)\}/g, rx = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    PATS = Object.entries(c["@pat"] || {}).map(([k, v]) => {
+      // "=" in front: a list-like pattern ("{a} and {b}") that only applies when every part is translated too
+      // "@" in front: only in labels and placeholders, for wording that wraps a name ("Study {a}") and would misread a title
+      const attr = k[0] === "@"; if (attr) k = k.slice(1);
+      const strict = k[0] === "="; if (strict) k = k.slice(1);
+      const names = [], lits = k.split(ph).filter((x, i) => i % 2 === 0);
+      const re = new RegExp("^" + k.split(ph).map((x, i) => i % 2 ? (names.push(x), /^n\d?$/.test(x) ? "([-−]?[\\d.,]+)" : /^d\d?$/.test(x) ? "(\\d+h(?: \\d+m)?|\\d+m)" : "(.+?)") : rx(x)).join("") + "$");
+      // the longest fixed part is a cheap test before the regular expression
+      return {re, names, v, strict, attr, key: lits.reduce((a, b) => b.length > a.length ? b : a, ""), w: lits.join("").length};
+    }).sort((a, b) => b.w - a.w);
+  }
+  // What people named things, so a task called "Study Group" or a deck called "Review" is never read as the app's own words
+  // (cheaper and surer than marking every place a title is drawn; kept until the data changes)
+  let USER = new Set(), userAt = -1;
+  const UKEYS = {title: 1, name: 1, code: 1, text: 1, front: 1, back: 1, instructor: 1, where: 1, location: 1, label: 1, notes: 1};
+  function userSet(){
+    let st = null; try { st = typeof state !== "undefined" ? state : null; } catch (e) {}
+    const n = o => o && typeof o === "object" ? Object.keys(o).length : 0;
+    const at = st ? [st.updated, n(st.tasks), n(st.courses), n(st.decks), n(st.notes), n(st.events)].join() : "";
+    if (!st || at === userAt) return USER;
+    userAt = at; USER = new Set();
+    const walk = (o, d) => { if (!o || typeof o !== "object" || d > 4) return; for (const k in o) { const v = o[k]; if (typeof v === "string") { if (UKEYS[k] && v) { USER.add(v.trim()); if (v.indexOf("\n") >= 0) v.split("\n").forEach(l => l.trim() && USER.add(l.trim())); } } else if (v && typeof v === "object") walk(v, d + 1); } };
+    ["courses", "tasks", "notes", "decks", "events"].forEach(k => walk(st[k], 0));
+    return USER;
+  }
+  let budget = 0;
+  function txt(s, depth, inAttr){
+    if (!TX || !s) return null;
+    if (userSet().has(s)) return null;
+    const hit = TX[s]; if (hit != null) return hit;
+    if (!depth) budget = 600;
+    if ((depth || 0) > 12 || !/[A-Za-z]/.test(s)) return null;
+    next: for (const p of PATS) {
+      if (p.key && s.indexOf(p.key) < 0 || p.attr && !inAttr) continue;
+      // (long lists split many ways: give up rather than stall a redraw)
+      if (--budget < 0) return null;
+      const m = p.re.exec(s); if (!m) continue;
+      const vals = {};
+      for (let i = 0; i < p.names.length; i++) {
+        const n = p.names[i], x = m[i + 1], t = /^[nd]\d?$/.test(n) ? x : txt(x, (depth || 0) + 1, inAttr);
+        if (t == null && p.strict && /[A-Za-z]/.test(x)) continue next;
+        vals[n] = t == null ? x : t;
+      }
+      return fill(p.v, vals);
+    }
+    return null;
+  }
+  // translate one string, keeping the spaces around it ("  Due today " stays spaced the same)
+  function txtPad(v, inAttr){ const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(v), t = m[2] && txt(m[2].replace(/\s+/g, " "), 0, inAttr); return t == null ? null : m[1] + t + m[3]; }
+  const skipEl = el => !el || !!el.closest(SKIP);
+  function xNode(n){
+    const v = n.nodeValue; if (!v || v.length > 600 || skipEl(n.parentElement)) return;
+    const t = txtPad(v); if (t == null || t === v) return;
+    // an option with no value of its own is worth its text: keep the English the code reads back
+    const op = n.parentElement; if (op.tagName === "OPTION" && !op.hasAttribute("value")) op.setAttribute("value", op.text.replace(/\s+/g, " ").trim());
+    ORIG.set(n, [v, t]); n.nodeValue = t;
+  }
+  function xAttrs(el){
+    if (skipEl(el) && !el.matches("[contenteditable=true],textarea")) return;
+    for (const a of ATTRS) {
+      const v = el.getAttribute(a); if (!v) continue;
+      const t = txtPad(v, true); if (t == null || t === v) continue;
+      let o = ORIG.get(el); if (!o) ORIG.set(el, o = {}); o[a] = [v, t]; el.setAttribute(a, t);
+    }
+    if (el.tagName === "INPUT" && /^(button|submit)$/.test(el.type) && el.value) { const t = txtPad(el.value); if (t != null) el.value = t; }
+  }
+  function xlate(root){
+    if (!TX || !root) return;
+    if (root.nodeType === 3) { xNode(root); return; }
+    if (root.nodeType !== 1 && root.nodeType !== 9) return;
+    const el = root.nodeType === 9 ? root.documentElement : root;
+    if (skipEl(el)) return;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) xNode(n);
+    if (el.nodeType === 1 && el.hasAttribute && ATTRS.some(a => el.hasAttribute(a))) xAttrs(el);
+    el.querySelectorAll("[" + ATTRS.join("],[") + "],input[type=button],input[type=submit]").forEach(xAttrs);
+  }
+  // back to the English the code wrote, when the language is switched back without a reload
+  function untranslate(){
+    const w = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) { const o = ORIG.get(n); if (o && n.nodeValue === o[1]) n.nodeValue = o[0]; }
+    document.querySelectorAll("[" + ATTRS.join("],[") + "]").forEach(el => { const o = ORIG.get(el); if (o) for (const a in o) if (el.getAttribute(a) === o[a][1]) el.setAttribute(a, o[a][0]); });
+  }
+  // the English the code wrote into an element, for code that reads its own text back
+  function orig(el){ if (!el) return ""; if (!TX) return el.textContent; let out = ""; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n; (n = w.nextNode());) { const o = ORIG.get(n); out += o && n.nodeValue === o[1] ? o[0] : n.nodeValue; } return out; }
+  let MO = null;
+  function watch(){
+    tables();
+    // the On/Off beside a switch is drawn by CSS (00-base.css .anim-tog::after)
+    try { const de = document.documentElement.style; if (TX) { de.setProperty("--t-on", JSON.stringify(tr("toggle.on", "On"))); de.setProperty("--t-off", JSON.stringify(tr("toggle.off", "Off"))); } else { de.removeProperty("--t-on"); de.removeProperty("--t-off"); } } catch (e) {}
+    if (!TX) { if (MO) { MO.disconnect(); MO = null; untranslate(); } return; }
+    xlate(document);
+    if (MO || typeof MutationObserver === "undefined") return;
+    // runs before the browser paints, so the English never shows
+    MO = new MutationObserver(recs => {
+      for (const r of recs) {
+        if (r.type === "childList") r.addedNodes.forEach(xlate);
+        else if (r.type === "characterData") xNode(r.target);
+        else if (r.type === "attributes" && r.target.nodeType === 1) xAttrs(r.target);
+      }
+    });
+    MO.observe(document.documentElement, {childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS});
+  }
   async function set(l){ store(LS, l || "auto"); const want = l && l !== "auto" ? l : pick(); await load(want); use(want); }
   lang = pick(); setRules();
+  try { if (store("studyboard:dir") === "rtl") document.documentElement.setAttribute("dir", "rtl"); } catch (e) {}
   dloc = dateLoc();
   // A date formatted with no language given uses the page's (above), not the browser's
   try {
@@ -142,7 +261,7 @@ const SBI18N = (() => {
   // English pages stay untouched
   // (what was drawn before the catalog arrived is redrawn in it)
   if (base(lang) !== "en") load(lang).then(() => { if (have(lang)) { use(lang); try { render(); } catch (e) {} } else { lang = "en"; setRules(); } });
-  return {tr, trn, fmtN, fmtD, register, applyDom, load, set, use, have, done, get lang(){ return lang; }, get page(){ return pageLang(); }, get dates(){ return dloc; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
+  return {tr, trn, fmtN, fmtD, text: s => txt(s) || s, orig, register, applyDom, load, set, use, have, done, get lang(){ return lang; }, get page(){ return pageLang(); }, get dates(){ return dloc; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
 })();
 const tr = SBI18N.tr, trn = SBI18N.trn;
 // Settings: a language picker with every finished language that ships with the app, plus a preview language while it's the one
@@ -154,6 +273,7 @@ hook("menu", () => {
 });
 // Spelling: Automatic (by where you are), or fixed to American, British or Canadian
 hook("menu", () => {
+  if (!/^en\b/.test(SBI18N.page)) return "";
   let cur = "auto"; try { cur = localStorage.getItem(SPELL.KEY) || "auto"; } catch (e) {}
   const opts = [["auto", "Automatic"], ["us", "American"], ["gb", "British"], ["ca", "Canadian"]];
   return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Spelling<span class="sub">Automatic follows where you are.</span></span><div class="segb" role="group" aria-label="Spelling">${opts.map(([k, l]) => `<button type="button" data-act="spell-set" data-id="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;

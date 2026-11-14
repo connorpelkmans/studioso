@@ -30,9 +30,9 @@
 .nc-sheet select,.nc-sheet input[type=text]{min-height:44px}
 .nc-float{position:fixed;z-index:9500;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer}
 .nc-float[hidden]{display:none}
-.nc-btn{display:inline-flex;align-items:center;gap:6px;max-width:100%;white-space:normal;text-align:left;line-height:1.25}
+.nc-btn{display:inline-flex;align-items:center;gap:6px;max-width:100%;white-space:normal;text-align:start;line-height:1.25}
 .note-hbtns .nc-btn,.note-xbtns .nc-btn{flex:1 1 100%}
-.nc-made{display:block;text-align:left}
+.nc-made{display:block;text-align:start}
 .nc-chip,.nc-from{display:inline-flex;align-items:center;gap:5px;border:0;background:none;color:var(--accent);font-weight:600;font-size:.78rem;padding:2px 4px;border-radius:8px;cursor:pointer}
 .nc-chip{margin-top:6px}
 .nc-from{flex:0 0 auto;font-size:.8rem}

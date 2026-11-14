@@ -71,14 +71,14 @@ dialog.sx-dlg[open]{display:flex}
 .sx-gen-row{align-items:center}
 .sx-fu,.sx-study{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px}
 .sx-study{gap:8px}
-.sx-fu .chip{min-height:34px;max-width:100%;white-space:normal;text-align:left}
+.sx-fu .chip{min-height:34px;max-width:100%;white-space:normal;text-align:start}
 .sx-err{color:color-mix(in srgb,#DC2626 75%,var(--ink))}
 .sx-ans-h .spacer{flex:1}
 .sx-tutor .sx-ans-h{flex-wrap:wrap}
 .sx-tsub{font-family:var(--body)}
 .sx-tq{font-weight:600;font-size:1rem;overflow-wrap:anywhere}
 .sx-topts{display:grid;gap:6px;margin:8px 0}
-.sx-topt{text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:inherit;font:inherit;min-height:44px;cursor:pointer;overflow-wrap:anywhere}
+.sx-topt{text-align:start;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:inherit;font:inherit;min-height:44px;cursor:pointer;overflow-wrap:anywhere}
 .sx-topt:not(:disabled):hover{border-color:#8B5CF6}
 .sx-topt:disabled{cursor:default}
 .sx-topt.ok{border-color:#16A34A;background:color-mix(in srgb,#16A34A 13%,var(--surface))}
@@ -119,7 +119,7 @@ dialog.sx-dlg[open]{display:flex}
   .sx-bar select{max-width:150px}
   .sx-types{padding:2px 12px 8px}
   .sx-meta{max-width:30%}
-  .sx-st{text-align:left}
+  .sx-st{text-align:start}
 }
 body.desk dialog.sx-dlg{max-height:calc(100vh - var(--tb, 0px) - 60px);max-height:calc(100dvh - var(--tb, 0px) - 60px)}
 @media (max-width:600px){.sx-t{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}

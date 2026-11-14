@@ -454,8 +454,9 @@ const awayText = (today, ws) => { const n = C.weeksAway(today, ws); return n ===
 const dayWord = d => parse(d).toLocaleDateString(undefined, {weekday: "long", month: "short", day: "numeric"}).replace(",", "");
 const ratioText = r => `${(Math.round(r * 10) / 10).toFixed(1)}×`;
 function dayLabel(D){
-  if (D.past) return `${dayWord(D.date)}: past`;
-  return `${dayWord(D.date)}: ${D.level}${D.due.length ? ", " + C.phrase(D.counts) + " due" : D.demand > 0.05 ? ", prep and study load " + ratioText(D.ratio) + " of your time" : ""}`;
+  // (the date is already in the page's language; the words after it go through the text catalog)
+  if (D.past) return `${dayWord(D.date)}: ${SBI18N.text("past")}`;
+  return `${dayWord(D.date)}: ${SBI18N.text(`${D.level}${D.due.length ? ", " + C.phrase(D.counts) + " due" : D.demand > 0.05 ? ", prep and study load " + ratioText(D.ratio) + " of your time" : ""}`)}`;
 }
 function weekLabel(W){ return `Week of ${fmtShort(W.start)} to ${fmtShort(W.end)}: ${W.level}${W.reasons ? ", " + W.reasons : ""}`; }
 const cap1 = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;

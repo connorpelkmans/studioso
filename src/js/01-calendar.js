@@ -1246,7 +1246,7 @@ function planHeadHtml(){
 }
 function planSwitchHtml(){
   const t = ui.tab;
-  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Due Dates</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
+  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${esc(tr("cal.tab.due", "Due Dates"))}</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">${esc(tr("cal.tab.schedule", "Schedule"))}</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">${esc(tr("cal.tab.crunch", "Crunch"))}</button></div>`;
 }
 
 /* Courses and Files share one nav tab */

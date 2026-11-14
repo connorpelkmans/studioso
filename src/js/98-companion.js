@@ -448,12 +448,15 @@
   const sizePx = c => { const s = c ? c.size : 1; return Math.round((phone() ? Math.max(62, Math.min(72, 66 * s)) : Math.max(86, Math.min(108, 96 * s))) * shrink); };
   const GAP = 26;
 
+  // Right to left (Arabic, Hebrew): the side menu is on the right, the Add button bottom left, and everything below mirrors
+  const rtl = () => document.documentElement.dir === "rtl";
   function geometry(){
-    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
-    const sideNav = !!(r && r.width && r.left < 4 && r.height > innerHeight * 0.6);
+    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect(), rl = rtl();
+    const sideNav = !!(r && r.width && (rl ? r.right > (document.documentElement.clientWidth || innerWidth) - 4 : r.left < 4) && r.height > innerHeight * 0.6);
     // (the page keeps a gap beside the side menu wide enough for the companion: 103-phone-design.css, body.cp-on .wrap)
-    const side = sideNav ? Math.round(r.right) : 0;
-    return {nav, r, sideNav, side};
+    // side: where the menu ends on the left (0 without one); sideR: where it starts on the right (Infinity without one)
+    const side = sideNav && !rl ? Math.round(r.right) : 0, sideR = sideNav && rl ? Math.round(r.left) : Infinity;
+    return {nav, r, sideNav, side, sideR, rtl: rl};
   }
 
 
@@ -515,7 +518,7 @@
   // The box positions (left/top) whose art, with room for its own motions
   function range(px, fresh){
     const S = safeRect(fresh), g = geometry(), e = vext || measureArt() || DEF_ART;
-    return {L: Math.max(S.l, g.side - 7) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
+    return {L: Math.max(S.l, g.side - 7) - e.l * px + AN_SIDE, R: Math.min(S.r, g.sideR + 7) - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
   // It stays in the lower part of the screen
@@ -667,7 +670,9 @@
     const f = document.getElementById("fab"), key = phone() ? "p" : "d";
     const r = f && f.getBoundingClientRect(), shown = f && r.width > 0 && getComputedStyle(f).display !== "none" && getComputedStyle(f).visibility !== "hidden";
     if (shown) { fabMem[key] = {right: innerWidth - r.right, bottom: innerHeight - r.bottom, w: r.width, h: r.height}; return {left: r.left, top: r.top, right: r.right, bottom: r.bottom, w: r.width, h: r.height, shown: true}; }
-    const m = fabMem[key] || (phone() ? {right: 16, bottom: 92, w: 140, h: 52} : {right: 32, bottom: 28, w: 144, h: 48});
+    let m = fabMem[key] || (phone() ? {right: 16, bottom: 92, w: 140, h: 52} : {right: 32, bottom: 28, w: 144, h: 48});
+    // (never seen yet, right to left: the button's place is bottom left)
+    if (!fabMem[key] && rtl()) m = Object.assign({}, m, {right: innerWidth - m.right - m.w});
     const right = innerWidth - m.right, bottom = innerHeight - m.bottom;
     return {left: right - m.w, top: bottom - m.h, right, bottom, w: m.w, h: m.h, shown: false};
   }
@@ -759,14 +764,22 @@
   function candidates(px, f, fresh){
     const rg = range(px), feet = px * (112 / 120), ground = Math.round(Math.min(f.bottom - feet, rg.B)), L = rg.L, R = Math.max(rg.L, rg.R), out = [];
     const want = L + (R - L) * wantX(fresh), span = Math.max(1, R - L);
-    const home = {left: Math.round(f.left - GAP - px), top: ground, kind: "home"};
+    const home = {left: Math.round(rtl() ? f.right + GAP : f.left - GAP - px), top: ground, kind: "home"};
     home.score = Math.abs(home.left - want) / span * 220 - 12;
     out.push(home);
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
     // the gap between the side menu and the page, if it fits there: the spot right in its middle
     try {
       const g = geometry(), v = document.getElementById("view"), e = vext || measureArt() || DEF_ART;
-      if (g.sideNav && v) {
+      if (g.sideNav && v && g.rtl) {
+        // mirrored: the gap between the page's right edge and the menu
+        const vr = v.getBoundingClientRect().right, artW = px * (e.r - e.l), mid = (vr + g.sideR) / 2;
+        if (g.sideR - vr >= artW + 8) {
+          const x = Math.round(mid - px * (e.l + e.r) / 2);
+          for (let i = out.length - 1; i >= 0; i--) if (out[i].kind === "ground" && out[i].left + px * e.r > vr && out[i].left + px * e.l >= vr - 2) out.splice(i, 1);
+          if (x >= L && x <= R + 0.5) out.push({left: x, top: ground, kind: "ground", score: Math.abs(x - want) / span * 220 - 1});
+        }
+      } else if (g.sideNav && v) {
         const vl = v.getBoundingClientRect().left, artW = px * (e.r - e.l), mid = (g.side + vl) / 2;
         if (vl - g.side >= artW + 8) {
           const x = Math.round(mid - px * (e.l + e.r) / 2);
@@ -777,7 +790,7 @@
       }
     } catch (err) {}
     const lowT = lowTop(rg);
-    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
+    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(rtl() ? L + 2 : R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
     for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T, lowT); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
     return out;
@@ -828,10 +841,10 @@
     // Mochi's home, the place it always stood beside that button, rather than wandering onto the page
     if (!phone() && window.matchMedia && matchMedia("(max-height:600px)").matches) { const rg = range(px); return {left: Math.round(Math.max(rg.L, rg.R)), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
     // Desktop, "Companion Stays Put": always the bottom-left corner (the Companion page still seats it in its ring, above)
-    if (staysPut()) { const rg = range(px); return {left: Math.round(rg.L), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
+    if (staysPut()) { const rg = range(px); return {left: Math.round(rtl() ? Math.max(rg.L, rg.R) : rg.L), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
     if (spotKind === "slot") fresh = true;
     if (phone()) {
-      const rg = range(px), feet = px * (112 / 120), left = Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, f.shown ? f.left - 4 - px : f.right - px)));
+      const rg = range(px), feet = px * (112 / 120), left = Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, rtl() ? (f.shown ? f.right + 4 : f.left) : f.shown ? f.left - 4 - px : f.right - px)));
       const top = Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, f.bottom - feet)));
       return {left, top, kind: "pin", px, fab: f};
     }
@@ -1193,7 +1206,7 @@
   function placeBubble(b){
     const r = box.getBoundingClientRect(), g = geometry(), S = safeRect(), cx = r.left + r.width / 2;
     let PL = 4, PR = 14, PT = 14, PB = 8;
-    const maxW = Math.max(120, Math.min(phone() ? 300 : 280, S.r - PR - Math.max(S.l, g.side + MARGIN) - PL - 8));
+    const maxW = Math.max(120, Math.min(phone() ? 300 : 280, Math.min(S.r, g.sideR - MARGIN) - PR - Math.max(S.l, g.side + MARGIN) - PL - 8));
     if (b.dataset.mw !== String(maxW)) { b.style.maxWidth = maxW + "px"; b.dataset.mw = maxW; }
     b.style.width = ""; b.style.left = "0px";
     const w = b.offsetWidth + 1; b.style.width = w + "px";
@@ -1202,7 +1215,7 @@
     b.style.overflowY = b.scrollHeight > mh + 1 ? "auto" : "";
     const h = b.offsetHeight;
     const tx = Math.ceil(h / 2 * 0.06), ty = Math.ceil(w / 2 * 0.06); PL += tx; PR += tx; PT += ty; PB += ty;
-    const lo = Math.max(S.l, g.side + MARGIN) + PL, hi = S.r - PR;
+    const lo = Math.max(S.l, g.side + MARGIN) + PL, hi = Math.min(S.r, g.sideR - MARGIN) - PR;
     const left = Math.max(lo, Math.min(hi - w, cx - w / 2));
     const minT = S.t + PT, maxT = S.b - PB - h;
     let top = r.top + r.height * 0.06 - h;
@@ -1265,6 +1278,9 @@
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
     b.querySelector(".cp-b-t").textContent = text;
+    // The companion's lines are written in English only: on a page in another language a line the catalog doesn't cover is
+    // marked English, so a screen reader reads it with an English voice
+    if (!/^en\b/.test(SBI18N.page) && SBI18N.text(text) === text) b.querySelector(".cp-b-t").setAttribute("lang", "en");
     // Ask is offered on the bubble that answers a click on the companion (react, loved), not on lines it says by itself
     const idea = opts.idea || null, ask = !!opts.ask && !askOnTab();
     bubbleIdea = idea; bubbleAsk = ask;

@@ -2,7 +2,7 @@
 .gs-card{margin:0 0 14px;padding:14px 14px 10px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:18px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
 .gs-card.shut{padding-bottom:12px}
 .gs-head{display:flex;align-items:center;gap:10px}
-.gs-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.gs-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:start;cursor:pointer}
 .gs-ht{display:flex;flex-direction:column;min-width:0}
 .gs-ht b{font:800 1.05rem/1.25 var(--display);color:var(--ink)}
 .gs-ht .mini{color:var(--muted)}
@@ -17,7 +17,7 @@
 @media (prefers-reduced-motion:no-preference){.gs-fold{transition:transform .2s}}
 .gs-bar{display:none}
 .gs-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
-.gs-btn{width:100%;display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 8px;border:0;border-radius:12px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.gs-btn{width:100%;display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 8px;border:0;border-radius:12px;background:none;color:inherit;font:inherit;text-align:start;cursor:pointer}
 .gs-btn:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
 .gs-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .gs-row.ok .gs-btn{cursor:default;background:none}

@@ -61,7 +61,9 @@ const SPELL = (() => {
   const KEY = "studyboard:spelling";
   const GBR = /^(GB|UK|IE|AU|NZ|ZA|IN|SG|HK|MY|PK|NG|KE|GH|JM|MT|CY|BD|LK)$/;
   function region(){
-    let pick = ""; try { pick = localStorage.getItem(KEY) || ""; } catch (e) {}
+    let pick = "", lang = ""; try { pick = localStorage.getItem(KEY) || ""; lang = localStorage.getItem("studyboard:lang") || ""; } catch (e) {}
+    // English spelling only: the text catalog of another language (01-i18n.js) is keyed by the American English the code writes
+    if (lang && lang !== "auto" && !/^en\b/i.test(lang)) return "";
     if (pick === "us") return ""; if (pick === "ca" || pick === "gb") return pick;
     const L = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").replace("_", "-");
     if (!/^en\b/i.test(L)) return "";
@@ -212,7 +214,7 @@ const SBI18N = (() => {
   // sentences. Add a language here once its screens read right in it. Until then it's a preview: someone who sets it on purpose
   // (a translator) still gets it, but the page stays marked English (so screen readers keep an English voice), dates stay English,
   // and only the translated bits are marked with their language.
-  const DONE = ["en"];
+  const DONE = ["en", "es"];
   let lang = "en", rules = null, dloc;
   const norm = l => String(l || "").toLowerCase().replace("_", "-");
   const base = l => norm(l).split("-")[0];
@@ -250,7 +252,7 @@ const SBI18N = (() => {
   }
   const fmtN = (n, o) => { try { return new Intl.NumberFormat(pageLang(), o).format(n); } catch (e) { return String(n); } };
   const fmtD = (d, o) => { try { return new Intl.DateTimeFormat(dloc, o || {month: "short", day: "numeric"}).format(d instanceof Date ? d : new Date(d)); } catch (e) { return String(d); } };
-  function register(l, cat){ l = norm(l); CATS[l] = Object.assign(CATS[l] || {}, cat || {}); if (SOURCES.indexOf(l) < 0) SOURCES.push(l); if (l === lang || l === base(lang)) applyDom(); return CATS[l]; }
+  function register(l, cat){ l = norm(l); CATS[l] = Object.assign(CATS[l] || {}, cat || {}); if (SOURCES.indexOf(l) < 0) SOURCES.push(l); if (l === lang || l === base(lang)) { applyDom(); if (typeof watch === "function" && document.body) watch(); } return CATS[l]; }
   function applyDom(root){
     const r = root || document, pl = pageLang(), mark = (el, hit) => { if (hit && pl !== lang) { el.setAttribute("lang", lang); el.setAttribute("data-i18n-l", ""); } else if (el.hasAttribute("data-i18n-l")) { el.removeAttribute("lang"); el.removeAttribute("data-i18n-l"); } };
     r.querySelectorAll("[data-i18n]").forEach(el => {
@@ -278,8 +280,10 @@ const SBI18N = (() => {
   }
   function use(l){
     lang = norm(l) || "en"; setRules(); const pl = pageLang(); dloc = dateLoc();
-    try { document.documentElement.setAttribute("lang", pl); document.documentElement.setAttribute("dir", /^(ar|he|fa|ur)/.test(base(pl)) ? "rtl" : "ltr"); } catch (e) {}
-    applyDom();
+    // (no right-to-left language ships yet: localStorage studyboard:dir = "rtl" lays the app out right to left for testing)
+    const dir = store("studyboard:dir");
+    try { document.documentElement.setAttribute("lang", pl); document.documentElement.setAttribute("dir", dir === "rtl" || dir === "ltr" ? dir : /^(ar|he|fa|ur)/.test(base(pl)) ? "rtl" : "ltr"); } catch (e) {}
+    applyDom(); watch();
     try { fire("lang", lang); } catch (e) {}
   }
   // The sidebar's tool buttons are plain HTML (index.html): tag them for translation here, while the page is still English
@@ -303,8 +307,125 @@ const SBI18N = (() => {
     const c = nav.querySelector('[data-act="calc-open"]'); if (c) c.removeAttribute("title");
   }
   tagNav();
+  // The page's own text. Most screens write their English straight into the page (thousands of strings in templates), so a
+  // catalog also carries "@text" {English: translation} for whole pieces of text and "@pat" {"Due in {n}h": "Vence en {n} h"}
+  // for text with numbers or names in it, and the text, placeholders and labels on the page are swapped as they're drawn.
+  // In a pattern {n} is a number, {d} a length of time ("2h 30m") and any other {name} is anything (translated too when it's in the catalog, e.g. "tomorrow").
+  // What people wrote (titles, notes, cards, course names) is marked translate="no" and never touched, nor anything typed.
+  // English pages never run this: the text the tests and an English reader see is exactly what the code writes.
+  let TX = null, PATS = null;
+  const ORIG = new WeakMap(), ATTRS = ["placeholder", "aria-label", "title", "alt", "aria-description", "data-tip"];
+  const SKIP = "script,style,textarea,code,pre,[translate=no],[contenteditable=true],[contenteditable=''],.katex";
+  function tables(){
+    const c = CATS[norm(lang)] || CATS[base(lang)], t = c && c["@text"];
+    TX = t && typeof t === "object" && Object.keys(t).length ? t : null; PATS = null; if (!TX) return;
+    const ph = /\{(\w+)\}/g, rx = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    PATS = Object.entries(c["@pat"] || {}).map(([k, v]) => {
+      // "=" in front: a list-like pattern ("{a} and {b}") that only applies when every part is translated too
+      // "@" in front: only in labels and placeholders, for wording that wraps a name ("Study {a}") and would misread a title
+      const attr = k[0] === "@"; if (attr) k = k.slice(1);
+      const strict = k[0] === "="; if (strict) k = k.slice(1);
+      const names = [], lits = k.split(ph).filter((x, i) => i % 2 === 0);
+      const re = new RegExp("^" + k.split(ph).map((x, i) => i % 2 ? (names.push(x), /^n\d?$/.test(x) ? "([-−]?[\\d.,]+)" : /^d\d?$/.test(x) ? "(\\d+h(?: \\d+m)?|\\d+m)" : "(.+?)") : rx(x)).join("") + "$");
+      // the longest fixed part is a cheap test before the regular expression
+      return {re, names, v, strict, attr, key: lits.reduce((a, b) => b.length > a.length ? b : a, ""), w: lits.join("").length};
+    }).sort((a, b) => b.w - a.w);
+  }
+  // What people named things, so a task called "Study Group" or a deck called "Review" is never read as the app's own words
+  // (cheaper and surer than marking every place a title is drawn; kept until the data changes)
+  let USER = new Set(), userAt = -1;
+  const UKEYS = {title: 1, name: 1, code: 1, text: 1, front: 1, back: 1, instructor: 1, where: 1, location: 1, label: 1, notes: 1};
+  function userSet(){
+    let st = null; try { st = typeof state !== "undefined" ? state : null; } catch (e) {}
+    const n = o => o && typeof o === "object" ? Object.keys(o).length : 0;
+    const at = st ? [st.updated, n(st.tasks), n(st.courses), n(st.decks), n(st.notes), n(st.events)].join() : "";
+    if (!st || at === userAt) return USER;
+    userAt = at; USER = new Set();
+    const walk = (o, d) => { if (!o || typeof o !== "object" || d > 4) return; for (const k in o) { const v = o[k]; if (typeof v === "string") { if (UKEYS[k] && v) { USER.add(v.trim()); if (v.indexOf("\n") >= 0) v.split("\n").forEach(l => l.trim() && USER.add(l.trim())); } } else if (v && typeof v === "object") walk(v, d + 1); } };
+    ["courses", "tasks", "notes", "decks", "events"].forEach(k => walk(st[k], 0));
+    return USER;
+  }
+  let budget = 0;
+  function txt(s, depth, inAttr){
+    if (!TX || !s) return null;
+    if (userSet().has(s)) return null;
+    const hit = TX[s]; if (hit != null) return hit;
+    if (!depth) budget = 600;
+    if ((depth || 0) > 12 || !/[A-Za-z]/.test(s)) return null;
+    next: for (const p of PATS) {
+      if (p.key && s.indexOf(p.key) < 0 || p.attr && !inAttr) continue;
+      // (long lists split many ways: give up rather than stall a redraw)
+      if (--budget < 0) return null;
+      const m = p.re.exec(s); if (!m) continue;
+      const vals = {};
+      for (let i = 0; i < p.names.length; i++) {
+        const n = p.names[i], x = m[i + 1], t = /^[nd]\d?$/.test(n) ? x : txt(x, (depth || 0) + 1, inAttr);
+        if (t == null && p.strict && /[A-Za-z]/.test(x)) continue next;
+        vals[n] = t == null ? x : t;
+      }
+      return fill(p.v, vals);
+    }
+    return null;
+  }
+  // translate one string, keeping the spaces around it ("  Due today " stays spaced the same)
+  function txtPad(v, inAttr){ const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(v), t = m[2] && txt(m[2].replace(/\s+/g, " "), 0, inAttr); return t == null ? null : m[1] + t + m[3]; }
+  const skipEl = el => !el || !!el.closest(SKIP);
+  function xNode(n){
+    const v = n.nodeValue; if (!v || v.length > 600 || skipEl(n.parentElement)) return;
+    const t = txtPad(v); if (t == null || t === v) return;
+    // an option with no value of its own is worth its text: keep the English the code reads back
+    const op = n.parentElement; if (op.tagName === "OPTION" && !op.hasAttribute("value")) op.setAttribute("value", op.text.replace(/\s+/g, " ").trim());
+    ORIG.set(n, [v, t]); n.nodeValue = t;
+  }
+  function xAttrs(el){
+    if (skipEl(el) && !el.matches("[contenteditable=true],textarea")) return;
+    for (const a of ATTRS) {
+      const v = el.getAttribute(a); if (!v) continue;
+      const t = txtPad(v, true); if (t == null || t === v) continue;
+      let o = ORIG.get(el); if (!o) ORIG.set(el, o = {}); o[a] = [v, t]; el.setAttribute(a, t);
+    }
+    if (el.tagName === "INPUT" && /^(button|submit)$/.test(el.type) && el.value) { const t = txtPad(el.value); if (t != null) el.value = t; }
+  }
+  function xlate(root){
+    if (!TX || !root) return;
+    if (root.nodeType === 3) { xNode(root); return; }
+    if (root.nodeType !== 1 && root.nodeType !== 9) return;
+    const el = root.nodeType === 9 ? root.documentElement : root;
+    if (skipEl(el)) return;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) xNode(n);
+    if (el.nodeType === 1 && el.hasAttribute && ATTRS.some(a => el.hasAttribute(a))) xAttrs(el);
+    el.querySelectorAll("[" + ATTRS.join("],[") + "],input[type=button],input[type=submit]").forEach(xAttrs);
+  }
+  // back to the English the code wrote, when the language is switched back without a reload
+  function untranslate(){
+    const w = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) { const o = ORIG.get(n); if (o && n.nodeValue === o[1]) n.nodeValue = o[0]; }
+    document.querySelectorAll("[" + ATTRS.join("],[") + "]").forEach(el => { const o = ORIG.get(el); if (o) for (const a in o) if (el.getAttribute(a) === o[a][1]) el.setAttribute(a, o[a][0]); });
+  }
+  // the English the code wrote into an element, for code that reads its own text back
+  function orig(el){ if (!el) return ""; if (!TX) return el.textContent; let out = ""; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n; (n = w.nextNode());) { const o = ORIG.get(n); out += o && n.nodeValue === o[1] ? o[0] : n.nodeValue; } return out; }
+  let MO = null;
+  function watch(){
+    tables();
+    // the On/Off beside a switch is drawn by CSS (00-base.css .anim-tog::after)
+    try { const de = document.documentElement.style; if (TX) { de.setProperty("--t-on", JSON.stringify(tr("toggle.on", "On"))); de.setProperty("--t-off", JSON.stringify(tr("toggle.off", "Off"))); } else { de.removeProperty("--t-on"); de.removeProperty("--t-off"); } } catch (e) {}
+    if (!TX) { if (MO) { MO.disconnect(); MO = null; untranslate(); } return; }
+    xlate(document);
+    if (MO || typeof MutationObserver === "undefined") return;
+    // runs before the browser paints, so the English never shows
+    MO = new MutationObserver(recs => {
+      for (const r of recs) {
+        if (r.type === "childList") r.addedNodes.forEach(xlate);
+        else if (r.type === "characterData") xNode(r.target);
+        else if (r.type === "attributes" && r.target.nodeType === 1) xAttrs(r.target);
+      }
+    });
+    MO.observe(document.documentElement, {childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS});
+  }
   async function set(l){ store(LS, l || "auto"); const want = l && l !== "auto" ? l : pick(); await load(want); use(want); }
   lang = pick(); setRules();
+  try { if (store("studyboard:dir") === "rtl") document.documentElement.setAttribute("dir", "rtl"); } catch (e) {}
   dloc = dateLoc();
   // A date formatted with no language given uses the page's (above), not the browser's
   try {
@@ -340,7 +461,7 @@ const SBI18N = (() => {
   // English pages stay untouched
   // (what was drawn before the catalog arrived is redrawn in it)
   if (base(lang) !== "en") load(lang).then(() => { if (have(lang)) { use(lang); try { render(); } catch (e) {} } else { lang = "en"; setRules(); } });
-  return {tr, trn, fmtN, fmtD, register, applyDom, load, set, use, have, done, get lang(){ return lang; }, get page(){ return pageLang(); }, get dates(){ return dloc; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
+  return {tr, trn, fmtN, fmtD, text: s => txt(s) || s, orig, register, applyDom, load, set, use, have, done, get lang(){ return lang; }, get page(){ return pageLang(); }, get dates(){ return dloc; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
 })();
 const tr = SBI18N.tr, trn = SBI18N.trn;
 // Settings: a language picker with every finished language that ships with the app, plus a preview language while it's the one
@@ -352,6 +473,7 @@ hook("menu", () => {
 });
 // Spelling: Automatic (by where you are), or fixed to American, British or Canadian
 hook("menu", () => {
+  if (!/^en\b/.test(SBI18N.page)) return "";
   let cur = "auto"; try { cur = localStorage.getItem(SPELL.KEY) || "auto"; } catch (e) {}
   const opts = [["auto", "Automatic"], ["us", "American"], ["gb", "British"], ["ca", "Canadian"]];
   return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Spelling<span class="sub">Automatic follows where you are.</span></span><div class="segb" role="group" aria-label="Spelling">${opts.map(([k, l]) => `<button type="button" data-act="spell-set" data-id="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div></div>`;
@@ -1654,7 +1776,7 @@ function refFor(kind, id){
 function syncLabel(){
   const el = $("#sync");
   { const g = !!(window.SBGUEST && window.SBGUEST.is()); ["#guestBadge", "#guestBadgeSide"].forEach(q => { const b = $(q); if (b) b.hidden = !g; }); }
-  setTimeout(() => { el.dataset.state = /^(Saved|Saved on this device)$/.test(el.textContent) ? "ok" : /Saving|Connecting/.test(el.textContent) ? "busy" : "warn"; }, 0);
+  setTimeout(() => { const t = SBI18N.orig(el); el.dataset.state = /^(Saved|Saved on this device)$/.test(t) ? "ok" : /Saving|Connecting/.test(t) ? "busy" : "warn"; }, 0);
   if (!cloud.on && typeof sbConfig === "function" && !inPreview() && sbConfig() && !sbLocalOnly()) {
     const n = Object.keys(outboxGet()).length;
     el.textContent = !sb ? (n ? "Offline, changes will sync" : "Offline") : !sbUser ? (n ? "Not signed in, changes kept here" : "Not signed in") : n ? "Offline, changes will sync" : "Connecting…";
@@ -14684,7 +14806,7 @@ function planHeadHtml(){
 }
 function planSwitchHtml(){
   const t = ui.tab;
-  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Due Dates</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
+  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${esc(tr("cal.tab.due", "Due Dates"))}</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">${esc(tr("cal.tab.schedule", "Schedule"))}</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">${esc(tr("cal.tab.crunch", "Crunch"))}</button></div>`;
 }
 
 /* Courses and Files share one nav tab */
@@ -18837,7 +18959,7 @@ function reviewDays(){
 function reviewWeekHtml(){
   const today = todayISO(), wd = (parse(today).getDay() + 6) % 7, mon = addDays(today, -wd), done = reviewDays();
   let n = 0;
-  const cells = ["M", "T", "W", "T", "F", "S", "S"].map((l, i) => {
+  const cells = tr("dow.narrow", "M|T|W|T|F|S|S").split("|").map((l, i) => {
     const d = addDays(mon, i), on = done.has(d); if (on && d <= today) n++;
     return `<span class="rv-wd${d === today ? " now" : ""}${on ? " on" : ""}${d > today ? " later" : ""}"><i>${on ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ""}</i>${l}</span>`;
   }).join("");
@@ -19279,7 +19401,7 @@ function viewStudy(){
     ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-label="${f.flipped ? "Flip card back to the front" : "Flip card"}" aria-describedby="fcFaceNow">
       <span class="flip-inner">
         <span class="face front"${f.flipped ? ` aria-hidden="true"` : ` id="fcFaceNow"`}><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint" aria-hidden="true">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
-        <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">Back</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
+        <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">${esc(tr("fc.side.back", "Back"))}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">
@@ -65977,12 +66099,15 @@ var COMP_EXTRA = [];
   const sizePx = c => { const s = c ? c.size : 1; return Math.round((phone() ? Math.max(62, Math.min(72, 66 * s)) : Math.max(86, Math.min(108, 96 * s))) * shrink); };
   const GAP = 26;
 
+  // Right to left (Arabic, Hebrew): the side menu is on the right, the Add button bottom left, and everything below mirrors
+  const rtl = () => document.documentElement.dir === "rtl";
   function geometry(){
-    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
-    const sideNav = !!(r && r.width && r.left < 4 && r.height > innerHeight * 0.6);
+    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect(), rl = rtl();
+    const sideNav = !!(r && r.width && (rl ? r.right > (document.documentElement.clientWidth || innerWidth) - 4 : r.left < 4) && r.height > innerHeight * 0.6);
     // (the page keeps a gap beside the side menu wide enough for the companion: 103-phone-design.css, body.cp-on .wrap)
-    const side = sideNav ? Math.round(r.right) : 0;
-    return {nav, r, sideNav, side};
+    // side: where the menu ends on the left (0 without one); sideR: where it starts on the right (Infinity without one)
+    const side = sideNav && !rl ? Math.round(r.right) : 0, sideR = sideNav && rl ? Math.round(r.left) : Infinity;
+    return {nav, r, sideNav, side, sideR, rtl: rl};
   }
 
 
@@ -66044,7 +66169,7 @@ var COMP_EXTRA = [];
   // The box positions (left/top) whose art, with room for its own motions
   function range(px, fresh){
     const S = safeRect(fresh), g = geometry(), e = vext || measureArt() || DEF_ART;
-    return {L: Math.max(S.l, g.side - 7) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
+    return {L: Math.max(S.l, g.side - 7) - e.l * px + AN_SIDE, R: Math.min(S.r, g.sideR + 7) - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
   // It stays in the lower part of the screen
@@ -66196,7 +66321,9 @@ var COMP_EXTRA = [];
     const f = document.getElementById("fab"), key = phone() ? "p" : "d";
     const r = f && f.getBoundingClientRect(), shown = f && r.width > 0 && getComputedStyle(f).display !== "none" && getComputedStyle(f).visibility !== "hidden";
     if (shown) { fabMem[key] = {right: innerWidth - r.right, bottom: innerHeight - r.bottom, w: r.width, h: r.height}; return {left: r.left, top: r.top, right: r.right, bottom: r.bottom, w: r.width, h: r.height, shown: true}; }
-    const m = fabMem[key] || (phone() ? {right: 16, bottom: 92, w: 140, h: 52} : {right: 32, bottom: 28, w: 144, h: 48});
+    let m = fabMem[key] || (phone() ? {right: 16, bottom: 92, w: 140, h: 52} : {right: 32, bottom: 28, w: 144, h: 48});
+    // (never seen yet, right to left: the button's place is bottom left)
+    if (!fabMem[key] && rtl()) m = Object.assign({}, m, {right: innerWidth - m.right - m.w});
     const right = innerWidth - m.right, bottom = innerHeight - m.bottom;
     return {left: right - m.w, top: bottom - m.h, right, bottom, w: m.w, h: m.h, shown: false};
   }
@@ -66288,14 +66415,22 @@ var COMP_EXTRA = [];
   function candidates(px, f, fresh){
     const rg = range(px), feet = px * (112 / 120), ground = Math.round(Math.min(f.bottom - feet, rg.B)), L = rg.L, R = Math.max(rg.L, rg.R), out = [];
     const want = L + (R - L) * wantX(fresh), span = Math.max(1, R - L);
-    const home = {left: Math.round(f.left - GAP - px), top: ground, kind: "home"};
+    const home = {left: Math.round(rtl() ? f.right + GAP : f.left - GAP - px), top: ground, kind: "home"};
     home.score = Math.abs(home.left - want) / span * 220 - 12;
     out.push(home);
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
     // the gap between the side menu and the page, if it fits there: the spot right in its middle
     try {
       const g = geometry(), v = document.getElementById("view"), e = vext || measureArt() || DEF_ART;
-      if (g.sideNav && v) {
+      if (g.sideNav && v && g.rtl) {
+        // mirrored: the gap between the page's right edge and the menu
+        const vr = v.getBoundingClientRect().right, artW = px * (e.r - e.l), mid = (vr + g.sideR) / 2;
+        if (g.sideR - vr >= artW + 8) {
+          const x = Math.round(mid - px * (e.l + e.r) / 2);
+          for (let i = out.length - 1; i >= 0; i--) if (out[i].kind === "ground" && out[i].left + px * e.r > vr && out[i].left + px * e.l >= vr - 2) out.splice(i, 1);
+          if (x >= L && x <= R + 0.5) out.push({left: x, top: ground, kind: "ground", score: Math.abs(x - want) / span * 220 - 1});
+        }
+      } else if (g.sideNav && v) {
         const vl = v.getBoundingClientRect().left, artW = px * (e.r - e.l), mid = (g.side + vl) / 2;
         if (vl - g.side >= artW + 8) {
           const x = Math.round(mid - px * (e.l + e.r) / 2);
@@ -66306,7 +66441,7 @@ var COMP_EXTRA = [];
       }
     } catch (err) {}
     const lowT = lowTop(rg);
-    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
+    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(rtl() ? L + 2 : R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
     for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T, lowT); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
     return out;
@@ -66357,10 +66492,10 @@ var COMP_EXTRA = [];
     // Mochi's home, the place it always stood beside that button, rather than wandering onto the page
     if (!phone() && window.matchMedia && matchMedia("(max-height:600px)").matches) { const rg = range(px); return {left: Math.round(Math.max(rg.L, rg.R)), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
     // Desktop, "Companion Stays Put": always the bottom-left corner (the Companion page still seats it in its ring, above)
-    if (staysPut()) { const rg = range(px); return {left: Math.round(rg.L), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
+    if (staysPut()) { const rg = range(px); return {left: Math.round(rtl() ? Math.max(rg.L, rg.R) : rg.L), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
     if (spotKind === "slot") fresh = true;
     if (phone()) {
-      const rg = range(px), feet = px * (112 / 120), left = Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, f.shown ? f.left - 4 - px : f.right - px)));
+      const rg = range(px), feet = px * (112 / 120), left = Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, rtl() ? (f.shown ? f.right + 4 : f.left) : f.shown ? f.left - 4 - px : f.right - px)));
       const top = Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, f.bottom - feet)));
       return {left, top, kind: "pin", px, fab: f};
     }
@@ -66722,7 +66857,7 @@ var COMP_EXTRA = [];
   function placeBubble(b){
     const r = box.getBoundingClientRect(), g = geometry(), S = safeRect(), cx = r.left + r.width / 2;
     let PL = 4, PR = 14, PT = 14, PB = 8;
-    const maxW = Math.max(120, Math.min(phone() ? 300 : 280, S.r - PR - Math.max(S.l, g.side + MARGIN) - PL - 8));
+    const maxW = Math.max(120, Math.min(phone() ? 300 : 280, Math.min(S.r, g.sideR - MARGIN) - PR - Math.max(S.l, g.side + MARGIN) - PL - 8));
     if (b.dataset.mw !== String(maxW)) { b.style.maxWidth = maxW + "px"; b.dataset.mw = maxW; }
     b.style.width = ""; b.style.left = "0px";
     const w = b.offsetWidth + 1; b.style.width = w + "px";
@@ -66731,7 +66866,7 @@ var COMP_EXTRA = [];
     b.style.overflowY = b.scrollHeight > mh + 1 ? "auto" : "";
     const h = b.offsetHeight;
     const tx = Math.ceil(h / 2 * 0.06), ty = Math.ceil(w / 2 * 0.06); PL += tx; PR += tx; PT += ty; PB += ty;
-    const lo = Math.max(S.l, g.side + MARGIN) + PL, hi = S.r - PR;
+    const lo = Math.max(S.l, g.side + MARGIN) + PL, hi = Math.min(S.r, g.sideR - MARGIN) - PR;
     const left = Math.max(lo, Math.min(hi - w, cx - w / 2));
     const minT = S.t + PT, maxT = S.b - PB - h;
     let top = r.top + r.height * 0.06 - h;
@@ -66794,6 +66929,9 @@ var COMP_EXTRA = [];
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
     b.querySelector(".cp-b-t").textContent = text;
+    // The companion's lines are written in English only: on a page in another language a line the catalog doesn't cover is
+    // marked English, so a screen reader reads it with an English voice
+    if (!/^en\b/.test(SBI18N.page) && SBI18N.text(text) === text) b.querySelector(".cp-b-t").setAttribute("lang", "en");
     // Ask is offered on the bubble that answers a click on the companion (react, loved), not on lines it says by itself
     const idea = opts.idea || null, ask = !!opts.ask && !askOnTab();
     bubbleIdea = idea; bubbleAsk = ask;
@@ -75107,8 +75245,9 @@ const awayText = (today, ws) => { const n = C.weeksAway(today, ws); return n ===
 const dayWord = d => parse(d).toLocaleDateString(undefined, {weekday: "long", month: "short", day: "numeric"}).replace(",", "");
 const ratioText = r => `${(Math.round(r * 10) / 10).toFixed(1)}×`;
 function dayLabel(D){
-  if (D.past) return `${dayWord(D.date)}: past`;
-  return `${dayWord(D.date)}: ${D.level}${D.due.length ? ", " + C.phrase(D.counts) + " due" : D.demand > 0.05 ? ", prep and study load " + ratioText(D.ratio) + " of your time" : ""}`;
+  // (the date is already in the page's language; the words after it go through the text catalog)
+  if (D.past) return `${dayWord(D.date)}: ${SBI18N.text("past")}`;
+  return `${dayWord(D.date)}: ${SBI18N.text(`${D.level}${D.due.length ? ", " + C.phrase(D.counts) + " due" : D.demand > 0.05 ? ", prep and study load " + ratioText(D.ratio) + " of your time" : ""}`)}`;
 }
 function weekLabel(W){ return `Week of ${fmtShort(W.start)} to ${fmtShort(W.end)}: ${W.level}${W.reasons ? ", " + W.reasons : ""}`; }
 const cap1 = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;

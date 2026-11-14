@@ -97,7 +97,7 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 .cr-head{margin:0}
 .gp-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .gp-head h2{margin:0;font:700 1.25rem var(--display)}
-.gp-need{display:grid;gap:2px;width:100%;text-align:left;margin:0 0 12px;padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-left:6px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface));color:var(--ink);cursor:pointer;font:inherit}
+.gp-need{display:grid;gap:2px;width:100%;text-align:start;margin:0 0 12px;padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-left:6px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--surface));color:var(--ink);cursor:pointer;font:inherit}
 .gp-need-t{font-size:1.02rem;line-height:1.4}
 .gr-swing{margin-left:6px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--ink)}
 .gr-ok{color:var(--leaf)}
@@ -113,7 +113,7 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 .gp-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
 .gp-course{display:flex;align-items:stretch;gap:4px;background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:14px;padding:4px 6px 4px 0}
 .gp-course.gr-risk,.gp-course.gr-out{border-color:color-mix(in srgb,var(--late) 40%,var(--line));border-left-color:var(--c)}
-.gp-main{flex:1;min-width:0;border:0;background:none;color:var(--ink);text-align:left;display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 10px 10px 12px;cursor:pointer;align-items:center}
+.gp-main{flex:1;min-width:0;border:0;background:none;color:var(--ink);text-align:start;display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 10px 10px 12px;cursor:pointer;align-items:center}
 .gp-name{font:700 .98rem var(--display);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gp-grade{display:flex;align-items:baseline;gap:6px}
 .gp-grade b{font:800 1.3rem var(--display)}
@@ -155,7 +155,7 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 .gr-list summary{cursor:pointer;font-weight:600;font-size:.9rem;padding:6px 0;min-height:32px}
 .gr-list ul{list-style:none;margin:4px 0 0;padding:0}
 .gr-list li{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:6px 0}
-.gr-row-main{flex:1;min-width:0;border:0;background:none;text-align:left;padding:4px 0;display:flex;flex-direction:column;min-height:44px;justify-content:center;color:inherit}
+.gr-row-main{flex:1;min-width:0;border:0;background:none;text-align:start;padding:4px 0;display:flex;flex-direction:column;min-height:44px;justify-content:center;color:inherit}
 .gr-row-t{font-weight:600;overflow-wrap:anywhere}
 .gr-mk{border:1px solid var(--line);background:var(--surface);border-radius:10px;min-width:64px;min-height:44px;padding:4px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink)}
 .gr-mk b{font:700 .95rem var(--display)}
@@ -202,7 +202,7 @@ h2.sec .pill{align-self:center}
 .gs-list,.gs-wait,.rw-list,.rw-days{list-style:none;margin:0;padding:0}
 .gs-row{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding:4px 0 4px 10px;position:relative}
 .gs-row::before,.gs-wait li::before,.rw-row .rw-dot{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:3px;background:var(--c)}
-.gs-main{flex:1;min-width:0;border:0;background:none;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 0;min-height:44px;color:inherit}
+.gs-main{flex:1;min-width:0;border:0;background:none;text-align:start;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 0;min-height:44px;color:inherit}
 .gs-name{font-weight:600;display:flex;flex-direction:column}
 .gs-name .mini{font-weight:400}
 .gs-row .gs-name{display:block}
@@ -309,7 +309,7 @@ h2.sec .pill{align-self:center}
 .gp-terms{list-style:none;margin:0;padding:0}
 .gp-terms li{border-bottom:1px solid var(--line)}
 .gp-terms li:last-child{border-bottom:0}
-.gp-term{display:flex;align-items:center;gap:12px;width:100%;padding:8px 2px;border:0;background:none;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.gp-term{display:flex;align-items:center;gap:12px;width:100%;padding:8px 2px;border:0;background:none;color:var(--ink);text-align:start;font:inherit;cursor:pointer}
 .gp-term-n{display:grid;gap:1px;flex:1;min-width:0}
 .gp-term-g{display:grid;justify-items:end}
 .gp-term-g b{font:800 1.2rem var(--display)}

@@ -85,6 +85,9 @@
   /* Large and Extra Large text: the names grow only as far as the screen has room, so the last one isn't pushed off the edge */
   html:is([data-ts="l"],[data-ts="xl"]) #view > :is(.pview-tabs,.bview-row .bview-tabs) button{font-size:min(1.2rem,5.2vw);flex:1 1 auto;min-width:0}
   html:is([data-ts="l"],[data-ts="xl"]) #view > :is(.pview-tabs,.bview-row .bview-tabs):has(> button:nth-of-type(4)) button{font-size:min(1.1rem,4.2vw)}
+  /* Other languages: page names run longer than the English ones (Plan de hoy, Tablero de tareas), so they share the row
+     evenly and wrap to a second line instead of pushing the last one off the edge */
+  html:not([lang|="en"]) #view > :is(.pview-tabs,.bview-row .bview-tabs) button{flex:1 1 0;min-width:0;white-space:normal;line-height:1.1;font-size:min(1.1rem,4.4vw);text-wrap:balance;overflow-wrap:anywhere}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
@@ -143,8 +146,8 @@
   .ph-more > summary::-webkit-details-marker{display:none}
   .ph-more > summary svg{width:14px;height:14px;transition:transform .15s}
   .ph-more[open] > summary svg{transform:rotate(180deg)}
-  .ph-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:8;display:grid;gap:4px;min-width:200px;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--ph-surf,var(--surface));box-shadow:0 12px 28px rgba(8,20,50,.22)}
-  .ph-menu .btn{justify-content:flex-start;width:100%;min-height:44px;border:0;box-shadow:none;background:transparent;border-radius:10px;text-align:left}
+  .ph-menu{position:absolute;inset-inline-end:0;top:calc(100% + 6px);z-index:8;display:grid;gap:4px;min-width:200px;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--ph-surf,var(--surface));box-shadow:0 12px 28px rgba(8,20,50,.22)}
+  .ph-menu .btn{justify-content:flex-start;width:100%;min-height:44px;border:0;box-shadow:none;background:transparent;border-radius:10px;text-align:start}
   .ph-menu .btn:hover,.ph-menu .btn:focus-visible{background:var(--soft)}
   /* Companion page */
   .cpt-head.cpt3{padding-bottom:10px}
@@ -265,18 +268,18 @@
 /* Page buttons sit level with the tabs, not the title: their bottoms line up with the tabs' bottom (12px margin + 46px tabs) */
 @media (min-width:640px){
   #view > .pg-head:not(.pg-solo){position:relative}
-  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 58px);transform:translateY(-100%);align-items:flex-end;flex-wrap:nowrap;z-index:2}
+  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;inset-inline-end:0;top:calc(100% + 58px);transform:translateY(-100%);align-items:flex-end;flex-wrap:nowrap;z-index:2}
   /* (placed after the tabs, so Tab order follows the screen: a zero-height holder whose top is 16px under the tabs) */
   #view > .pg-rwrap{position:relative;height:0;margin:0!important;padding:0}
-  #view > .pg-rwrap > .pg-right{position:absolute;right:0;bottom:calc(100% + 16px);align-items:flex-end;flex-wrap:nowrap;z-index:2}
+  #view > .pg-rwrap > .pg-right{position:absolute;inset-inline-end:0;bottom:calc(100% + 16px);align-items:flex-end;flex-wrap:nowrap;z-index:2}
   #view > .pg-rwrap + *{margin-top:0!important}
 }
-#view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-left:auto}
+#view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-inline-start:auto}
 /* Task Board: the tab line runs the full width, Group By sits on it like the other page buttons */
 @media (min-width:640px){
   #view > .bview-row:has(> .pg-tabs){position:relative;display:block}
   #view > .bview-row > .pg-tabs{width:100%}
-  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:0;margin:0;display:flex;align-items:center;gap:8px}
+  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;inset-inline-end:0;bottom:0;margin:0;display:flex;align-items:center;gap:8px}
 }
 /* Review's due count grows leftwards, clear of the companion's seat next to it */
 @media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue,nav.tabs .in [data-tab="courses"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
@@ -333,7 +336,7 @@ html[data-plan-top="week"] .dtl{display:none}
   .dtl{display:block;margin:0 0 12px}
   .dtl-rail{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scroll-padding-inline:8px;scrollbar-width:none;padding:4px 8px 6px;margin:0 -8px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   .dtl-rail::-webkit-scrollbar{display:none}
-  .dtl-c{position:relative;flex:none;width:138px;display:grid;align-content:start;gap:4px;padding:8px 10px 9px;border-radius:12px;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;scroll-snap-align:start}
+  .dtl-c{position:relative;flex:none;width:138px;display:grid;align-content:start;gap:4px;padding:8px 10px 9px;border-radius:12px;text-align:start;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;scroll-snap-align:start}
   button.dtl-c{cursor:pointer}
   .dtl-t{font:700 .68rem/1.1 var(--display);letter-spacing:.02em;color:var(--muted)}
   .dtl-n{font:700 .82rem/1.2 var(--display);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
@@ -381,8 +384,8 @@ html[data-plan-top="week"] .dtl{display:none}
 
 /* Date and time boxes: iOS gives them a wide built-in size that spills over their neighbours; keep them in their column */
 @media (max-width:639px){
-  input[type=date],input[type=time],input[type=datetime-local]{display:block;width:100%;min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:44px;text-align:left}
-  input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:left;min-width:0}
+  input[type=date],input[type=time],input[type=datetime-local]{display:block;width:100%;min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:44px;text-align:start}
+  input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:start;min-width:0}
   .two>*{min-width:0}
 }
 
@@ -435,7 +438,7 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 .cs-back{position:fixed;inset:0;z-index:9998;background:rgba(10,20,30,.22)}
 .cs-menu{position:fixed;z-index:9999;display:grid;gap:2px;align-content:start;overflow:auto;padding:6px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.28)}
 .cs-menu.cs-sheet{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:60vh;border-radius:18px}
-.cs-menu button{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 12px;border:0;border-radius:10px;background:none;color:inherit;font:600 .95rem var(--display);text-align:left;cursor:pointer}
+.cs-menu button{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 12px;border:0;border-radius:10px;background:none;color:inherit;font:600 .95rem var(--display);text-align:start;cursor:pointer}
 .cs-menu button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
 .cs-menu button[aria-selected="true"]{background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .cs-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
@@ -644,7 +647,7 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 /* Crunch: the Next 6 Weeks / Whole Term switch sits beside the view tabs; the content starts the same distance below the tabs as Due Dates */
 @media (min-width:760px){
   #view > .pview-tabs + .cr{position:relative}
-  #view > .pview-tabs + .cr > .cr-head{position:absolute;right:0;top:-59px;margin:0!important;padding:0;min-height:0}
+  #view > .pview-tabs + .cr > .cr-head{position:absolute;inset-inline-end:0;top:-59px;margin:0!important;padding:0;min-height:0}
   #view > .pview-tabs + .cr > .cr-head > .cr2-range{margin:0!important}
   #view > .pview-tabs + .cr > .cr2-top{margin-top:2px}
 }
