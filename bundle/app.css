@@ -3745,12 +3745,12 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
    stay white circles with the icon in its colour, as in light mode, but a dimmer white (--ic-disc) so they don't glare on a
    dark page. The project progress track gets a visible tint too. */
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){--ic-disc:#EEF1F5}
+  :root:not([data-theme="light"]){--ic-disc:#F6F8FA}
   :root:not([data-theme="light"]) .gk-hero-prog .score-bar{background:color-mix(in srgb,var(--gk,var(--accent)) 22%,rgba(255,255,255,.12))}
   :root:not([data-theme="light"]) .g2-ring{background:var(--ic-disc)!important}
   :root:not([data-theme="light"]) :is(.tl-gic,.fn-ring,.occv-ic,.sr-ic){background:var(--ic-disc)}
 }
-:root[data-theme="dark"]{--ic-disc:#EEF1F5}
+:root[data-theme="dark"]{--ic-disc:#F6F8FA}
 :root[data-theme="dark"] .gk-hero-prog .score-bar{background:color-mix(in srgb,var(--gk,var(--accent)) 22%,rgba(255,255,255,.12))}
 :root[data-theme="dark"] .g2-ring{background:var(--ic-disc)!important}
 :root[data-theme="dark"] :is(.tl-gic,.fn-ring,.occv-ic,.sr-ic){background:var(--ic-disc)}
