@@ -3182,6 +3182,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (k < 1) { const cv = document.createElement("canvas"); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k); cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height); bmp = await createImageBitmap(cv); }
       const p = {bmp, q: findCorners(bmp), rot: 0}; SCAN.pages.push(p); await scanRender(p);
       scanDraw();
+      // a tap as each page lands, like a camera's shutter (the photo comes back from the camera well after the tap that took it)
+      sbHaptic("tap", {force: true});
     }
     if (msg) msg.textContent = "";
   }

@@ -1452,6 +1452,8 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial};
+  // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
+  sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
   // Keyboard goes to Next Question so Enter moves on, even after a mouse-picked answer (the click left focus on Quit)
   setTimeout(() => { const n = $("#aiNext"); if (n) n.focus(); }, 30);
@@ -1468,6 +1470,7 @@ function aiFinish(){
   d.quizzes = d.quizzes.concat({at: Date.now(), score: right, total, ai: true}).slice(-20);
   saveDeck(d, null);
   if (total > 0 && right / total >= 0.8) { try { celebrate("check"); } catch (e) {} }
+  sbHaptic(total > 0 && right / total >= 0.8 ? "success" : "tap");
   if (quizPasses(right, total) && !(!qz || f.qs.length !== qz.questions.length)) earnBump("q");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
 }

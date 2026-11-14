@@ -1678,6 +1678,8 @@
     const fresh = earnedNow.filter(a => !got[a.id]);
     if (!fresh.length) return;
     setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
+    // a new prop earned: the success pattern (checked a moment after the studying that earned it, so not tied to a touch)
+    sbHaptic("success", {force: true});
     if (!act || !cur) return;
     const wearable = fresh.filter(canWear), a = wearable[wearable.length - 1] || fresh[fresh.length - 1];
     if (a && canWear(a) && !wearOf(cur).length) setCfg({wear: {[cur.id]: [a.id]}});
