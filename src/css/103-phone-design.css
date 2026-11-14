@@ -424,3 +424,35 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 .next-up .nu-rx-out{display:inline-flex;align-items:center;margin:0;padding:3px 8px;border-radius:999px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:var(--muted);background:color-mix(in srgb,var(--ink) 9%,transparent)}
 /* on wider screens Details isn't shown, so a line with nothing else on it takes no room */
 @media (min-width:640px){.next-up .nu-meta:not(:has(.nu-tag-out,.nu-rx-out)){display:none}}
+
+/* Flashcards' review card (01-flashcards.js reviewHeroHtml) on phones: slimmer. The card stack stays as a small icon beside the
+   title; the time and decks keep to one line, with the week as seven small squares at its end; Start Review shares its line
+   with a round Review Options button */
+.rv-min-s,.rv-more-ic{display:none}
+@media (max-width:639px){
+  #view .rv-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"s h h" "s p w" "a a a";align-items:center;gap:2px 16px;padding:14px 12px 12px 18px;margin:4px 0 12px}
+  #view .rv-hero .rv-stack{grid-area:s;width:42px;height:32px;margin:0 2px 0 8px}
+  #view .rv-hero .rv-stack i{border-radius:6px}
+  /* the title gets the whole width; the time and decks share the next line with the week */
+  #view .rv-hero .rv-t{display:contents}
+  #view .rv-hero .rv-t h3{grid-area:h;min-width:0;font-size:1.08rem;line-height:1.2;align-self:end}
+  #view .rv-hero .rv-t p{grid-area:p;min-width:0;margin:0;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:start}
+  #view .rv-hero .rv-min-l{display:none}
+  #view .rv-hero .rv-min-s{display:inline}
+  #view .rv-hero .rv-week{grid-area:w;align-self:center;gap:3px}
+  #view .rv-hero .rv-wd{font-size:0;gap:0}
+  #view .rv-hero .rv-wd i{width:9px;height:9px;border-radius:3px}
+  #view .rv-hero .rv-wd i svg{display:none}
+  #view .rv-hero .rv-wd.now:not(.on) i{box-shadow:inset 0 0 0 1.5px var(--accent)}
+  #view .rv-hero .rv-wd.now.on i{box-shadow:0 0 0 1px var(--surface),0 0 0 2.5px var(--accent)}
+  #view .rv-hero .rv-acts{grid-area:a;display:flex;flex-direction:row;gap:8px;margin-top:10px}
+  #view .rv-hero .rv-go{flex:1 1 auto;min-height:44px;font-size:.95rem}
+  #view .rv-hero .rv-more{flex:none;width:44px;min-height:44px;padding:0;display:grid;place-items:center}
+  #view .rv-hero .rv-more-ic{display:block}
+  #view .rv-hero .rv-more-t{display:none}
+  /* all caught up: no Start Review, so Review Options keeps its words */
+  #view .rv-hero .rv-acts > .rv-more:only-child{width:auto;flex:1 1 auto;padding:0 16px}
+  #view .rv-hero .rv-acts > .rv-more:only-child .rv-more-ic{display:none}
+  #view .rv-hero .rv-acts > .rv-more:only-child .rv-more-t{display:inline}
+  #view .rv-hero .rv-acts:empty{display:none}
+}

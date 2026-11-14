@@ -267,9 +267,9 @@ function reviewHeroHtml(){
   const cids = new Set(inC.map(d => d.courseId).filter(Boolean)), isEx = t => window.SBEXAM ? SBEXAM.EXAMMODE.isExam(t) : /^(Exam|Quiz)$/.test(t.type);
   const ex = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= todayISO() && cids.has(t.courseId) && isEx(t) && dayDiff(todayISO(), t.due) <= 21).sort((a, b) => a.due.localeCompare(b.due))[0];
   const exD = ex ? dayDiff(todayISO(), ex.due) : 0, exWords = ex ? `${ex.title} is ${exD === 0 ? "today" : exD === 1 ? "tomorrow" : `in ${exD} days`}` : "";
-  let title, sub;
+  let title, sub, mins = 0;
   if (ready) {
-    const mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
+    mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
     // due and new cards are counted apart, so the number due matches the Review tab's badge (which counts due cards only)
     title = n.due && n.fresh ? `${n.due} card${n.due === 1 ? "" : "s"} due + ${n.fresh} new` : n.fresh ? `${n.fresh} new card${n.fresh === 1 ? "" : "s"} to learn` : `${ready} card${ready === 1 ? "" : "s"} ready to review`;
     sub = [`About ${mins} minute${mins === 1 ? "" : "s"}`, deckWords, exWords];
@@ -279,10 +279,13 @@ function reviewHeroHtml(){
     title = "All caught up";
     sub = [next ? `Next review ${nd === 1 ? "tomorrow" : nd < 7 ? parse(next).toLocaleDateString(undefined, {weekday: "long"}) : fmtShort(next)}` : "Nothing is due", exWords];
   }
-  const more = n.due || w.n ? `<button class="btn rv-more" data-act="fc-review-menu">Review Options</button>` : "";
+  // on a phone the button is a round icon (the words stay its name), so Start Review can share its line
+  const more = n.due || w.n ? `<button class="btn rv-more" data-act="fc-review-menu" aria-label="Review Options" title="Review Options"><svg class="rv-more-ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="rv-more-t">Review Options</span></button>` : "";
+  // the time reads "About 7 minutes", or "~7 min" where a phone keeps it to one line
+  const subHtml = sub.filter(Boolean).map((x, i) => i === 0 && mins ? `<span class="rv-min-l">${esc(x)}</span><span class="rv-min-s">~${mins} min</span>` : esc(x)).join(" · ");
   return `<section class="rv-hero${ready ? "" : " done"}" aria-label="Review">
     <span class="rv-stack" aria-hidden="true"><i></i><i></i><i></i></span>
-    <div class="rv-t"><h3>${esc(title)}</h3><p>${sub.filter(Boolean).map(esc).join(" · ")}</p></div>
+    <div class="rv-t"><h3>${esc(title)}</h3><p>${subHtml}</p></div>
     ${reviewWeekHtml()}
     <div class="rv-acts">${ready ? `<button class="btn primary rv-go" data-act="fc-review-start" data-course="${esc(course)}">Start Review</button>` : ""}${more}</div>
   </section>`;
