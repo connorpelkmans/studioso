@@ -34304,13 +34304,17 @@ hook("boot", boot);
   // the phone apps' Siri and Shortcuts data has its own feed (96-siri.js), so neither depends on this.
   const winBoard = () => !DESK && !inPreview() && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost");
   const WIN_OK = /Windows/.test(navigator.userAgent || "") && !/Android|iPhone|iPad|iPod/.test(navigator.userAgent || "");
-  const feedOk = () => DESK_OK || (WIN_OK && winBoard());
+  // (the iPhone and iPad app's Home Screen and Lock Screen widgets take it too, through StudyboardNative.homeWidgets: they were
+  // left out here, so the app never sent them the day and they stayed on "Open Studyboard to start")
+  const deskFeed = () => DESK_OK || (WIN_OK && winBoard());
+  const feedOk = () => deskFeed() || !!phoneNative();
   function push(){
     clearTimeout(pushT); pushT = null;
     if (!feedOk()) return;
     let d; try { d = widgetData(); } catch(e) { console.warn("widget data", e); return; }
     // the phone widgets also show a running Focus, Exam Mode and the week ahead, so they keep their own check for changes
     pushPhone(d);
+    if (!deskFeed()) return;
     const sig = JSON.stringify(d);
     if (sig === lastSent) return;
     lastSent = sig;
@@ -34336,14 +34340,14 @@ hook("boot", boot);
       const em = window.SBEXAM && SBEXAM.current && SBEXAM.current();
       if (em && em.exam) { const t = em.exam, xr = typeof examReadiness === "function" ? examReadiness(t) : null, r = xr ? (xr.measured != null ? xr.measured : xr.self) : null;
         exam = {id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24), color: hex(colorOf(t.courseId), "#8A94A6"),
-          due: t.due || "", time: t.time || "", days: Math.max(0, Number(em.days) || 0), ready: r == null ? null : Math.max(0, Math.min(100, Math.round(r)))}; }
+          due: t.due || "", time: t.time || "", days: Math.round(Math.max(0, Number(em.days) || 0)), ready: r == null ? null : Math.max(0, Math.min(100, Math.round(r)))}; }
     } catch (e) {}
     // the next six days: what's due each day (exams first), for the week view and for showing tomorrow after midnight
     const days = [];
     for (let i = 1; i <= 6; i++) {
       const day = addDays(today, i), due = tasksArr().filter(t => t.status !== "done" && t.due === day && !t.prepFor)
         .sort((a, b) => (MILESTONE(b.type) ? 1 : 0) - (MILESTONE(a.type) ? 1 : 0) || (a.time || "99").localeCompare(b.time || "99"));
-      days.push({date: day, off: dayIsOff(day), items: due.slice(0, 4).map(t => ({id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24),
+      days.push({date: day, off: !!dayIsOff(day), items: due.slice(0, 4).map(t => ({id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24),
         color: hex(colorOf(t.courseId), "#8A94A6"), time: t.time || "", exam: MILESTONE(t.type)})), more: Math.max(0, due.length - 4)});
     }
     let focus = null;
@@ -34354,9 +34358,10 @@ hook("boot", boot);
     } } catch (e) {}
     const th = d.theme || {};
     return {v: 1, day: today, at: Date.now(), dateLabel: cut(d.dateLabel, 40),
-      next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.max(5, Math.min(180, Number(d.next.mins) || 25)),
+      next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.round(Math.max(5, Math.min(180, Number(d.next.mins) || 25))),
         due: (byId(d.next.id) || {}).due || "", time: (byId(d.next.id) || {}).time || ""} : null,
-      tasks, more: d.more, cards: d.cards, dayOff: dayIsOff(today), exam, focus, days,
+      // (whole numbers: the widget reads these as Int, and a fraction would make it refuse the whole day)
+      tasks, more: Math.max(0, Math.round(Number(d.more) || 0)), cards: Math.max(0, Math.round(Number(d.cards) || 0)), dayOff: !!dayIsOff(today), exam, focus, days,
       theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}};
   }
   let phoneSent = "";
