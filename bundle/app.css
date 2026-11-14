@@ -8833,9 +8833,15 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 }
 
 /* Do This Next: under the title, one line with the course, a take-home exam's tag and Details (01-next-up.js nuMeta) */
-.next-up .nu-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;min-width:0}
-.next-up .nu-meta > .nu-tag-out{margin:0}
-.next-up .nu-rx-out{display:inline-flex;align-items:center;margin:0;padding:3px 8px;border-radius:999px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:var(--muted);background:color-mix(in srgb,var(--ink) 9%,transparent)}
+.next-up .nu-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+/* the course and Take-home pills match: one height, one size of text */
+.next-up .nu-meta > :is(.nu-tag-out,.nu-rx-out){box-sizing:border-box;height:22px;margin:0;padding:0 9px 0 8px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;font:700 .68rem/1 var(--body);letter-spacing:.03em;white-space:nowrap}
+/* Take-home: a little house and a light outline, so it reads as a note about the exam, not another course */
+.next-up .nu-rx-out{color:var(--muted);background:transparent;border:1px solid color-mix(in srgb,var(--ink) 16%,transparent)}
+.next-up .nu-rx-out svg{flex:none}
+/* Details: a quiet control at the end of the line */
+.next-up .nu-meta > .nu-more{margin-left:auto;font-size:.72rem;font-weight:700;gap:3px;padding:4px 0 4px 8px;color:var(--muted)}
+.next-up .nu-meta > .nu-more svg{width:12px;height:12px}
 /* on wider screens Details isn't shown, so a line with nothing else on it takes no room */
 @media (min-width:640px){.next-up .nu-meta:not(:has(.nu-tag-out,.nu-rx-out)){display:none}}
 
