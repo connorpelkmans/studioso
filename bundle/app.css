@@ -901,7 +901,8 @@ h2.sec,.col-head,.tl-controls h2,.view-head h2,.cal-head h2,.fcrumb,.sheet-head 
 .tl-controls h2{font-size:1.45rem;line-height:1.2}
 /* Controls */
 .btn{border-radius:11px;border-color:var(--line);font-weight:700;box-shadow:0 1px 0 rgba(14,42,86,.05)}
-.btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+/* (a mouse or trackpad only: a phone keeps the last tapped button "hovered", so its border stayed lit after a tap) */
+@media (hover:hover){.btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.primary:hover{background:color-mix(in srgb,var(--accent) 88%,#000)}
 .btn:disabled{opacity:.5;cursor:not-allowed}

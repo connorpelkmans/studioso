@@ -105887,6 +105887,14 @@ const AUTOPILOT = (() => {
   document.addEventListener("click", e => {
     document.querySelectorAll("details.ph-more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".ph-menu .btn")) d.open = false; });
   });
+  // once a menu closes, its ⋯ button doesn't stay highlighted (it kept the focus from the tap); someone moving with a keyboard
+  // keeps their place
+  document.addEventListener("toggle", e => {
+    const d = e.target; if (!(d instanceof HTMLDetailsElement) || d.open || !d.classList.contains("ph-more")) return;
+    const s = d.querySelector(":scope > summary"), a = document.activeElement; if (!s || !(a === s || d.contains(a))) return;
+    let kb = false; try { kb = s.matches(":focus-visible"); } catch (x) {}
+    if (!kb) a.blur();
+  }, true);
   // The phone course filter (see chipsHtml)
   document.addEventListener("change", e => { const s = e.target; if (!s || !s.matches || !s.matches("select[data-course-filter]")) return; ui.filter = s.value || "all"; render(); });
   // The phone note board dropdown
