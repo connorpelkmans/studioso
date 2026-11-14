@@ -1126,7 +1126,8 @@ html .fhead.g2-head .g2-txt{padding-top:0;flex:1 1 12em}
 .fnode.sub{padding-left:42px}
 .flist{border-radius:16px!important;overflow:hidden}
 .frow{transition:background .15s}
-.frow:hover{background:color-mix(in srgb,var(--soft) 50%,var(--surface))}
+/* (a mouse or trackpad only: on a phone a tap leaves a row "hovered", painting it solid over a see-through list) */
+@media (hover:hover){.frow:hover{background:color-mix(in srgb,var(--soft) 50%,var(--surface))}}
 .frow > a.btn{text-decoration:none!important;border-radius:999px;padding-inline:14px}
 .frow > .f-sum{border-radius:999px;padding-inline:12px;gap:6px;display:inline-flex;align-items:center}
 .frow > .f-sum svg{width:14px;height:14px}
