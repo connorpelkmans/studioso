@@ -472,5 +472,41 @@ var SBCLS = null;
     requestAnimationFrame(() => { try { const top = w.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo(0, Math.max(0, top)); } catch (e) {} });
   });
 
+  // Back to top: once the class list is scrolled well down, a round arrow sits just above the add button (or in its corner
+  // when there is none); a tap glides back to the top of the page
+  {
+    let btn = null, raf = 0;
+    const check = () => {
+      raf = 0;
+      const tab = document.querySelector(".cls-tab"), R = document.documentElement;
+      const on = !!tab && !R.classList.contains("kb-open") && !R.classList.contains("board-max") && !(document.getElementById("dlg") || {}).open && window.scrollY > Math.max(480, innerHeight * 0.75);
+      if (on && !btn) {
+        btn = document.createElement("button"); btn.type = "button"; btn.className = "cls-totop";
+        btn.setAttribute("aria-label", "Back to top"); btn.title = "Back to top";
+        btn.innerHTML = SV('<path d="M12 19V5M5 12l7-7 7 7"/>', 22);
+        btn.addEventListener("click", () => {
+          const still = R.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+          window.scrollTo({top: 0, behavior: still ? "auto" : "smooth"});
+          // keyboard users land on the list's heading, not lost at the bottom of the page
+          const h = document.querySelector(".cls-tab .cls-top h2, .cls-tab .cls-top"); if (h && document.activeElement === btn) { h.tabIndex = -1; try { h.focus({preventScroll: true}); } catch (e) {} }
+        });
+        document.body.appendChild(btn);
+      }
+      if (!btn) return;
+      if (on) {
+        // lined up with the add button, just above it
+        const fab = document.querySelector(".fab"), fr = fab && getComputedStyle(fab).display !== "none" && getComputedStyle(fab).visibility !== "hidden" ? fab.getBoundingClientRect() : null;
+        if (fr && fr.width && fr.top < innerHeight) {
+          btn.style.setProperty("left", Math.round(fr.left + fr.width / 2 - 22) + "px");
+          btn.style.setProperty("bottom", Math.round(innerHeight - fr.top + 12) + "px");
+        } else { btn.style.removeProperty("left"); btn.style.removeProperty("bottom"); }
+      }
+      btn.classList.toggle("on", on); btn.tabIndex = on ? 0 : -1; btn.setAttribute("aria-hidden", on ? "false" : "true");
+    };
+    const soon = () => { if (!raf) raf = requestAnimationFrame(check); };
+    addEventListener("scroll", soon, {passive: true}); addEventListener("resize", soon);
+    hook("render", soon);
+  }
+
   SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();

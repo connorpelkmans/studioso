@@ -192,6 +192,9 @@
   .seg span{display:grid;place-items:center;min-height:34px;padding-block:0;border-radius:9px;background:transparent;color:color-mix(in srgb,var(--muted) 70%,var(--ink));font-weight:700;box-shadow:none}
   .seg input:checked + span{background:var(--seg-on);color:var(--ink);box-shadow:0 1px 3px rgba(14,42,86,.18),0 0 0 .5px rgba(14,42,86,.08)}
   :is(.segb > button[aria-pressed="true"],.us-subs > .us-sub-tab[aria-selected="true"],.pt-bar > .pt-tab[aria-selected="true"]):not(.ep-topic button){color:var(--ink)!important}
+  /* sheets with a coloured head (the Focus timer) used to tint the whole chosen button too (100-phone.css), which showed as a
+     second, taller shape around the pill: here the pill alone marks the choice */
+  .sheet:has(.g2-sheet-head) .segb > button[aria-pressed="true"]:not(.ep-topic button){background:transparent!important;color:var(--ink)!important}
   :is(.segb > button[aria-pressed="true"],.us-subs > .us-sub-tab[aria-selected="true"],.pt-bar > .pt-tab[aria-selected="true"]):not(.ep-topic button)::before{background:var(--seg-on);box-shadow:0 1px 3px rgba(14,42,86,.18),0 0 0 .5px rgba(14,42,86,.08)}
   .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
   .cf-pick:not(.on){background:var(--surface)!important;color:var(--ink)!important;border:1px solid var(--line);min-height:40px;font-size:.88rem}
@@ -374,8 +377,6 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #view .next-up .nu-row{grid-template-columns:26px auto minmax(0,1fr)}
   #view .next-up .nu-title{grid-column:2 / -1;padding-right:0}
   #view .next-up .nu-body > :not(.nu-title){grid-column:2 / -1}
-  #view .next-up .nu-body > .nu-tag-out{grid-column:2;grid-row:2;align-self:center}
-  #view .next-up .nu-body > .nu-tag-out ~ .nu-more{grid-column:3;grid-row:2;align-self:center}
   #view .next-up .nu-acts{grid-column:1 / -1}
 }
 
@@ -418,4 +419,88 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
 @media (max-width:639px){
   body:has(#toast.show) .acc-chip:not([hidden]){left:12px;right:12px;width:auto;bottom:calc(var(--sb-snack-b) + var(--toast-h,52px));border-radius:18px 18px 0 0}
   body:has(.acc-chip:not([hidden])) #toast.show{width:auto;border-radius:0 0 16px 16px}
+}
+
+/* Do This Next: under the title, one line with the course, a take-home exam's tag and Details (01-next-up.js nuMeta) */
+.next-up .nu-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+/* the course and Take-home pills match: one height, one size of text */
+.next-up .nu-meta > :is(.nu-tag-out,.nu-rx-out){box-sizing:border-box;height:22px;margin:0;padding:0 9px 0 8px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;font:700 .68rem/1 var(--body);letter-spacing:.03em;white-space:nowrap}
+/* Take-home: a little house and a light outline, so it reads as a note about the exam, not another course */
+.next-up .nu-rx-out{color:var(--muted);background:transparent;border:1px solid color-mix(in srgb,var(--ink) 16%,transparent)}
+.next-up .nu-rx-out svg{flex:none}
+/* Details: a quiet control at the end of the line */
+.next-up .nu-meta > .nu-more{margin-left:auto;font-size:.72rem;font-weight:700;gap:3px;padding:4px 0 4px 8px;color:var(--muted)}
+.next-up .nu-meta > .nu-more svg{width:12px;height:12px}
+/* on wider screens Details isn't shown, so a line with nothing else on it takes no room */
+/* Computers and iPads: the course and Take-home sit on the title's own line, as the same pills as on phones (the line under the
+   title, which only phones need for Details, isn't shown) */
+.next-up .nu-title .nu-rx-in{display:none}
+@media (min-width:640px){
+  .next-up .nu-meta{display:none}
+  .next-up .nu-title .tag:is(.nu-ctag,.nu-rx-in){display:inline-flex;align-items:center;gap:5px;box-sizing:border-box;height:22px;margin-left:8px;padding:0 9px 0 8px;border-radius:999px;vertical-align:middle;position:relative;top:-2px;font:700 .68rem/1 var(--body);letter-spacing:.03em;white-space:nowrap}
+  .next-up .nu-title .tag.nu-ctag{color:color-mix(in srgb,var(--c) 55%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border:0}
+  .next-up .nu-title .tag.nu-ctag::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
+  .next-up .nu-title .tag.nu-rx-in{margin-left:6px;color:var(--muted);background:transparent;border:1px solid color-mix(in srgb,var(--ink) 16%,transparent)}
+  .next-up .nu-title .tag.nu-rx-in svg{flex:none}
+}
+
+/* Flashcards' review card (01-flashcards.js reviewHeroHtml) on phones: slimmer. The card stack stays as a small icon beside the
+   title; the time and decks keep to one line, with the week as seven small squares at its end; Start Review shares its line
+   with a round Review Options button */
+.rv-min-s,.rv-more-ic{display:none}
+@media (max-width:639px){
+  #view .rv-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"s h h" "s p w" "a a a";align-items:center;gap:2px 16px;padding:14px 12px 12px 18px;margin:4px 0 12px}
+  #view .rv-hero .rv-stack{grid-area:s;width:42px;height:32px;margin:0 2px 0 8px}
+  #view .rv-hero .rv-stack i{border-radius:6px}
+  /* the title gets the whole width; the time and decks share the next line with the week */
+  #view .rv-hero .rv-t{display:contents}
+  #view .rv-hero .rv-t h3{grid-area:h;min-width:0;font-size:1.08rem;line-height:1.2;align-self:end}
+  #view .rv-hero .rv-t p{grid-area:p;min-width:0;margin:0;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:start}
+  #view .rv-hero .rv-min-l{display:none}
+  #view .rv-hero .rv-min-s{display:inline}
+  #view .rv-hero .rv-week{grid-area:w;align-self:center;gap:3px}
+  #view .rv-hero .rv-wd{font-size:0;gap:0}
+  #view .rv-hero .rv-wd i{width:9px;height:9px;border-radius:3px}
+  #view .rv-hero .rv-wd i svg{display:none}
+  #view .rv-hero .rv-wd.now:not(.on) i{box-shadow:inset 0 0 0 1.5px var(--accent)}
+  #view .rv-hero .rv-wd.now.on i{box-shadow:0 0 0 1px var(--surface),0 0 0 2.5px var(--accent)}
+  #view .rv-hero .rv-acts{grid-area:a;display:flex;flex-direction:row;gap:8px;margin-top:10px}
+  #view .rv-hero .rv-go{flex:1 1 auto;min-height:44px;font-size:.95rem}
+  #view .rv-hero .rv-more{flex:none;width:44px;min-height:44px;padding:0;display:grid;place-items:center}
+  #view .rv-hero .rv-more-ic{display:block}
+  #view .rv-hero .rv-more-t{display:none}
+  /* all caught up: no Start Review, so Review Options keeps its words */
+  #view .rv-hero .rv-acts > .rv-more:only-child{width:auto;flex:1 1 auto;padding:0 16px}
+  #view .rv-hero .rv-acts > .rv-more:only-child .rv-more-ic{display:none}
+  #view .rv-hero .rv-acts > .rv-more:only-child .rv-more-t{display:inline}
+  #view .rv-hero .rv-acts:empty{display:none}
+}
+
+/* Grades' summary on phones (90-grades.js gradesPage): slimmer. A smaller cap beside the average, a one-line summary under it,
+   three compact tiles with short labels; the GPA tiles show the number and its scale only; the credits note shares a line with
+   its button */
+.gp-s,.gp-of{display:none}
+@media (max-width:639px){
+  #view .gp-hero-band{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:16px 20px;padding:20px 18px 16px 22px}
+  #view .gp-hero-band .gp-cap{width:56px;height:56px;margin-left:3px;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+  #view .gp-hero-t{min-width:0;gap:0}
+  #view .gp-hero-t .g2-kick{font-size:.66rem}
+  #view .gp-avg{font-size:1.9rem;line-height:1.05}
+  #view .gp-hero-sub{font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #view .gp-l{display:none}
+  #view .gp-s{display:inline}
+  #view .gp-hero .gp-sum{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  #view .gp-hero .gp-tile{min-width:0;padding:7px 10px;border-radius:12px;display:grid;gap:1px}
+  #view .gp-hero .gp-tile .gr-v{font-size:1.15rem;line-height:1.1}
+  #view .gp-hero .gp-tile .gr-k{font-size:.7rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #view .gp-gpa{gap:8px;padding:10px 14px}
+  #view .gp-g{flex:1 1 0;padding:7px 12px;border-radius:12px}
+  #view .gp-g .gr-k{font-size:.72rem}
+  #view .gp-g .gr-v{font-size:1.2rem;line-height:1.15}
+  #view .gp-g .mini{display:none}
+  #view .gp-of{display:inline;font-size:.75rem;font-weight:600;color:var(--muted)}
+  #view .gp-gpa-foot{flex-wrap:nowrap;gap:10px}
+  #view .gp-gpa-foot .mini{font-size:.74rem;line-height:1.3;flex:1 1 auto;min-width:0}
+  #view .gp-gpa-foot .spacer{display:none}
+  #view .gp-gpa-foot .btn{flex:none}
 }

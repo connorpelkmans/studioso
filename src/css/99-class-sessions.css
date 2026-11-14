@@ -83,3 +83,10 @@
 .lf-empty{margin-top:12px}
 .lf-loose{margin-top:22px}
 .lf-hint{margin:0 0 6px}
+/* Back to top on the Lectures tab (99-class-sessions.js): placed just above the add button by the script; this corner otherwise */
+.cls-totop{position:fixed;z-index:6;right:max(18px,calc(50% - 362px));bottom:calc(150px + env(safe-area-inset-bottom,0px));width:44px;height:44px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--ink);display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 14px rgba(14,22,40,.18);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(8px) scale(.9);transition:opacity .18s ease-out,transform .18s ease-out,visibility 0s linear .18s}
+.cls-totop.on{opacity:1;visibility:visible;pointer-events:auto;transform:none;transition:opacity .18s ease-out,transform .18s ease-out,visibility 0s}
+.cls-totop:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.cls-totop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cls-totop:active{transform:scale(.94)}
+@media (prefers-reduced-motion:reduce){.cls-totop,.cls-totop.on{transition:none;transform:none}}

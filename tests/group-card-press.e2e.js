@@ -61,6 +61,8 @@ const measure = (page, sel) => page.evaluate(sel => {
     await cdp.send("CSS.forcePseudoState", {nodeId, forcedPseudoClasses: ["active"]});
     for (const t of [60, 150, 250]) {
       await page.waitForTimeout(t === 60 ? 60 : 90);
+      // (on a slow run the hold can finish before the last look: the card has then lifted, checked below)
+      if (await page.evaluate(() => document.body.classList.contains("sorting"))) break;
       const m = await measure(page, sel); ok(m.active, "card is in its pressed state"); same(m, "pressed " + t + "ms");
     }
     await page.waitForTimeout(300); // past the 380ms hold: the card lifts
@@ -70,11 +72,15 @@ const measure = (page, sel) => page.evaluate(sel => {
     const ghost = await measure(page, "#view .sort-ghost");
     same(ghost, "lifted copy");
     ok(ghost.overflow === "hidden", "lifted copy clips its content to the rounded corners");
-    const hole = await measure(page, sel);
-    ok(hole.radius === base.radius && hole.mainTransform === "none", "card left behind keeps its shape: " + hole.radius + " " + hole.mainTransform);
+    // where it will land: a dashed outline the card's size and shape (as on Flashcards and Quizzes); the card itself waits hidden
+    const ph = await page.evaluate(() => { const p = document.querySelector("#view .grp-grid > .sort-ph"); if (!p) return null; const cs = getComputedStyle(p), r = p.getBoundingClientRect(), g = document.querySelector("#view .sort-ghost").getBoundingClientRect();
+      return {style: cs.borderTopStyle, radius: cs.borderTopRightRadius, w: Math.round(r.width), h: Math.round(r.height), gw: Math.round(g.width), gh: Math.round(g.height), cardShown: [...document.querySelectorAll("#view .grp-grid > .grp-card")].filter(c => getComputedStyle(c).display !== "none").length}; });
+    ok(ph && ph.style === "dashed" && ph.radius === base.radius, "a dashed outline with the card's corners marks its spot: " + JSON.stringify(ph));
+    ok(ph && Math.abs(ph.w - box.width) <= 1 && Math.abs(ph.h - box.height) <= 1, `the outline is the card's size at rest (${ph && ph.w}x${ph && ph.h} vs ${Math.round(box.width)}x${Math.round(box.height)})`);
     await cdp.send("CSS.forcePseudoState", {nodeId, forcedPseudoClasses: []});
     await touch("touchEnd"); await page.waitForTimeout(150);
     ok(!(await page.$("#view .sort-ghost")), "lifted copy goes away on release");
+    ok(!(await page.$("#view .sort-ph")) && await page.locator(sel).isVisible(), "on release the outline goes and the card is back");
     ok(!errs.length, "no errors: " + errs.join(" | "));
     await ctx.close();
   } finally { await browser.close(); }

@@ -240,6 +240,19 @@ const WIDGET_ONLY = ["StudyboardWidgets.swift", "StudyboardHomeWidgets.swift"], 
   } catch (e) {}
 }
 
+// The widget extension shows the Home Screen and Lock Screen widgets only when their files are in the Xcode project
+// (StudyboardWidgets.swift lists them under #if STUDYBOARD_HOME_WIDGETS), so a project without them still archives
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    if (fs.existsSync(pbx)) {
+      const txt = fs.readFileSync(pbx, "utf8"), on = /path = "?StudyboardHomeWidgets\.swift"?;/.test(txt);
+      const r = require("./pbx-flag").setSwiftFlag(txt, "StudyboardWidgets", "STUDYBOARD_HOME_WIDGETS", on);
+      if (r.changed) { fs.writeFileSync(pbx, r.text); console.log("ios-stage: Home Screen and Lock Screen widgets " + (on ? "on" : "left out (their files aren't in the Xcode project)") + " in the widget extension"); }
+    }
+  } catch (e) { console.log("ios-stage: couldn't set the widget extension's build flag: " + (e && e.message)); }
+}
+
 // The app's name as people see it (Home Screen, permission and sign-in prompts): Studyboard, not Capacitor's starting "App"
 {
   const plist = path.join(wrap, "ios", "App", "App", "Info.plist");
@@ -261,7 +274,7 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   try {
     const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json"), pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardHomeWidgetsPlugin.swift", "StudyboardHomeWidgetsPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["StudyboardPlugins.swift", "StudyboardSiriDataPlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"]]
+    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardHomeWidgetsPlugin.swift", "StudyboardHomeWidgetsPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["StudyboardPlugins.swift", "StudyboardSiriDataPlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"], ["MainViewController.swift", "StudyboardHapticsPlugin"]]
       .filter(([f]) => txt.includes(f)).map(([, c]) => c);
     if (ours.length && fs.existsSync(cfg)) {
       const j = JSON.parse(fs.readFileSync(cfg, "utf8")); const list = Array.isArray(j.packageClassList) ? j.packageClassList : [];
@@ -269,6 +282,44 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
       if (add.length) { j.packageClassList = list.concat(add); fs.writeFileSync(cfg, JSON.stringify(j, null, "\t") + "\n"); console.log("ios-stage: connected " + add.join(", ")); }
     }
   } catch (e) { console.log("ios-stage: couldn't add Studyboard's plugins to the plugin list: " + e.message); }
+  // Haptics (sbHaptic, src/js/01-helpers.js) need @capacitor/haptics' native code built into the app. Being named in the plugin
+  // list isn't enough (a build said "connected" here and still had no haptics): the plugin also has to be in the project's native
+  // dependencies, the Podfile (CocoaPods) or CapApp-SPM/Package.swift (Swift packages), and installed. Checked, and fixed where it can be
+  try { hapticsCheck(); } catch (e) { console.log("ios-stage: couldn't check haptics: " + e.message); }
   console.log("ios-stage: synced into the Xcode project. Open it with: cd ios-wrapper && npx cap open ios");
 } else console.log("ios-stage: no Xcode project yet (ios-wrapper/ios/) or Capacitor not installed there: see TESTING-MAC-IPHONE.md, iPhone step 2.");
 
+
+function hapticsCheck(){
+  // Studyboard's own haptics plugin (MainViewController.swift) is what makes haptics work whatever happens to @capacitor/haptics
+  try {
+    const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json");
+    const list = fs.existsSync(cfg) ? (JSON.parse(fs.readFileSync(cfg, "utf8")).packageClassList || []) : [];
+    if (list.includes("StudyboardHapticsPlugin")) console.log("ios-stage: haptics: Studyboard's own haptics plugin is connected (MainViewController.swift)");
+    else console.log("ios-stage: HAPTICS: Studyboard's own haptics plugin isn't connected: MainViewController.swift isn't in the Xcode project. Add it (File > Add Files to \"App\", ios-wrapper/native/MainViewController.swift, target App), then npm run ios:stage again.");
+  } catch (e) {}
+  const app = path.join(wrap, "ios", "App"), ver = m => { try { return String(JSON.parse(fs.readFileSync(path.join(wrap, "node_modules", ...m.split("/"), "package.json"), "utf8")).version || ""); } catch (e) { return ""; } };
+  const major = v => v.split(".")[0], hv = ver("@capacitor/haptics"), iv = ver("@capacitor/ios") || ver("@capacitor/core");
+  const fixInstall = `cd ios-wrapper && npm i @capacitor/haptics@^${major(iv) || "7"} && cd .. && npm run ios:stage`;
+  const say = m => console.log("ios-stage: " + m);
+  if (!hv) { say("@capacitor/haptics isn't built in (Studyboard's own plugin covers haptics): @capacitor/haptics isn't installed. Run:\n  " + fixInstall); return; }
+  if (iv && major(hv) !== major(iv)) { say(`@capacitor/haptics isn't built in (Studyboard's own plugin covers haptics): @capacitor/haptics ${hv} doesn't match Capacitor ${iv}. Run:\n  ` + fixInstall); return; }
+  const podfile = path.join(app, "Podfile"), lock = path.join(app, "Podfile.lock"), spm = path.join(app, "CapApp-SPM", "Package.swift");
+  const has = f => fs.existsSync(f) && /CapacitorHaptics/.test(fs.readFileSync(f, "utf8"));
+  if (fs.existsSync(podfile)) {
+    if (!has(podfile)) { say("@capacitor/haptics isn't built in (Studyboard's own plugin covers haptics): the Podfile doesn't list CapacitorHaptics (Capacitor's sync didn't add it). Run:\n  cd ios-wrapper && npx cap sync ios && cd ..\n  then npm run ios:stage again, and send what it prints if this message stays."); return; }
+    if (!has(lock)) {
+      say("the haptics pod is listed but not installed: running pod install");
+      try { execFileSync("pod", ["install"], {cwd: app, stdio: "inherit"}); } catch (e) { say("pod install didn't finish. Run it yourself and send what it prints:\n  cd ios-wrapper/ios/App && pod install && cd ../../.."); return; }
+      if (!has(lock)) { say("@capacitor/haptics isn't built in (Studyboard's own plugin covers haptics): pod install ran but CapacitorHaptics still isn't installed. Send what pod install printed."); return; }
+    }
+    say(`haptics are built into the app (CapacitorHaptics ${hv}, CocoaPods). Build from the workspace: npm run ios:upload does`);
+    return;
+  }
+  if (fs.existsSync(spm)) {
+    if (!has(spm)) { say("@capacitor/haptics isn't built in (Studyboard's own plugin covers haptics): CapApp-SPM/Package.swift doesn't list CapacitorHaptics (Capacitor's sync didn't add it). Run:\n  cd ios-wrapper && npx cap sync ios && cd ..\n  then npm run ios:stage again, and send what it prints if this message stays."); return; }
+    say(`haptics are built into the app (CapacitorHaptics ${hv}, Swift packages)`);
+    return;
+  }
+  say("couldn't find the project's Podfile or CapApp-SPM/Package.swift to check haptics");
+}
