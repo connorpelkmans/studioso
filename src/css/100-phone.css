@@ -1133,7 +1133,7 @@ html .fhead.g2-head .g2-txt{padding-top:0;flex:1 1 12em}
 /* The lifted copy has no frosted backdrop: Safari paints it square-cornered for a moment before the rounded clip catches up */
 .sort-ghost,.sort-ghost *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 .sort-ghost.grp-card{background:var(--surface)!important;border-radius:18px!important;overflow:hidden;will-change:transform}
-.sort-hole{opacity:.25;outline:2px dashed var(--line);outline-offset:4px;border-radius:18px}
+.sort-ph{box-sizing:border-box;min-height:60px}
 body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
 /* A long press reorders: the browser's own long-press preview, text selection and drag of a link or picture must not start first */
 [data-sortable] > [data-sort-id],[data-sortable] > [data-sort-id] *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}
