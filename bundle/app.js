@@ -18089,7 +18089,41 @@ function noteSheetUp(){
     if (had && document.activeElement !== t) try { t.focus({preventScroll: true}); } catch (e) {}
     noteToastUp(true);
   }
-  noteKbFit(); noteSheetKeep(el);
+  noteKbFit(); noteSheetKeep(el); noteGlideWatch();
+}
+// The open editor never jumps: whenever the spot it rests in changes (the keyboard coming or going, its options folding away
+// as typing starts, the text growing a line), it glides there from where it was, on the keyboard's own curve. Where it rests is
+// offsetTop, which leaves out its own slide-in and glides; checked once a frame while it's open, before the frame is drawn, so
+// the jump itself never shows. A redraw while editing puts in a fresh copy: a glide under way carries on on it
+let noteGlideRaf = 0, noteGlideAt = null;   // noteGlideAt: {id, top, runs: [{d, t0}]}
+const NOTE_GLIDE_MS = 340;
+function noteGlideRun(el, d, t0){
+  try {
+    const a = el.animate([{translate: `0 ${d}px`}, {translate: "0 0"}], {duration: NOTE_GLIDE_MS, easing: "cubic-bezier(.32,.72,0,1)", composite: "add"});
+    a.currentTime = Math.max(0, performance.now() - t0);
+  } catch (e) {}
+}
+function noteGlideWatch(){
+  if (noteGlideRaf) return;
+  const tick = () => {
+    noteGlideRaf = 0;
+    const el = $(".note.editing.n-sheet");
+    if (!el || !el.isConnected) { noteGlideAt = null; return; }
+    const id = el.dataset.note, top = el.offsetTop, now = performance.now();
+    if (!noteGlideAt || noteGlideAt.id !== id) noteGlideAt = {id, top, runs: [], el};   // just opened: its own slide-in shows it
+    else {
+      const G = noteGlideAt;
+      G.runs = G.runs.filter(r => now - r.t0 < NOTE_GLIDE_MS);
+      if (G.el !== el) { G.el = el; G.runs.forEach(r => noteGlideRun(el, r.d, r.t0)); }   // a redrawn copy picks up the glide
+      if (Math.abs(top - G.top) > 1) {
+        const still = document.documentElement.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+        if (!still) { const r = {d: G.top - top, t0: now}; G.runs.push(r); noteGlideRun(el, r.d, r.t0); }
+        G.top = top;
+      }
+    }
+    noteGlideRaf = requestAnimationFrame(tick);
+  };
+  noteGlideRaf = requestAnimationFrame(tick);
 }
 // Closing a note on a phone: the editor slides back down like the other sheets, instead of vanishing (a still copy does the
 // sliding; the note itself is already saved and closed)
