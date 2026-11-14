@@ -4031,8 +4031,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-diff del{background:#fde2e2;color:#8a1c1c;text-decoration:line-through}
 .pde-diff ins{background:#dcf5e3;color:#14532d;text-decoration:none}
 .pde-scan{width:min(820px,calc(100% - 24px))}
-.pde-scan-btn{display:inline-flex;align-items:center;gap:7px}
-.pde-scan-btn svg{flex:none;width:16px;height:16px}
+.pde-scan-btn,[data-act="pdt-convert"]{display:inline-flex;align-items:center;gap:7px}
+.pde-scan-btn svg,[data-act="pdt-convert"] svg{flex:none;width:16px;height:16px}
 .pde-scan-sheet .sheet-body{display:grid;gap:12px}
 .pde-scanlist .pde-cardbar{display:flex;flex-wrap:nowrap;justify-content:center;gap:4px}
 .pde-scanlist .pde-cardbar .icon-btn{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:inline-grid;place-items:center;flex:none}

@@ -94241,8 +94241,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-diff del{background:#fde2e2;color:#8a1c1c;text-decoration:line-through}
 .pde-diff ins{background:#dcf5e3;color:#14532d;text-decoration:none}
 .pde-scan{width:min(820px,calc(100% - 24px))}
-.pde-scan-btn{display:inline-flex;align-items:center;gap:7px}
-.pde-scan-btn svg{flex:none;width:16px;height:16px}
+.pde-scan-btn,[data-act="pdt-convert"]{display:inline-flex;align-items:center;gap:7px}
+.pde-scan-btn svg,[data-act="pdt-convert"] svg{flex:none;width:16px;height:16px}
 .pde-scan-sheet .sheet-body{display:grid;gap:12px}
 .pde-scanlist .pde-cardbar{display:flex;flex-wrap:nowrap;justify-content:center;gap:4px}
 .pde-scanlist .pde-cardbar .icon-btn{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:inline-grid;place-items:center;flex:none}
@@ -94911,7 +94911,7 @@ function reviewMemoryStore(){
     return true;
   });
   SBPDFT = window.SBPDFT = {
-    filesBtns: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small" data-act="pdt-convert">Convert</button>${PDT_BATCH ? `<button type="button" class="btn small" data-act="pdt-batch">PDF Batch</button>` : ""}`,
+    filesBtns: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small" data-act="pdt-convert"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3.9M4 13a8 8 0 0 0 14.9 3.9"/><path d="M4 4v4h4M20 20v-4h-4"/></svg>Convert</button>${PDT_BATCH ? `<button type="button" class="btn small" data-act="pdt-batch">PDF Batch</button>` : ""}`,
     review: {on: REVIEW_ON, norm: reviewNorm, merge: reviewMerge, can: reviewCan, key: reviewKey, memoryStore: reviewMemoryStore}
   };
   const css = document.createElement("style");
