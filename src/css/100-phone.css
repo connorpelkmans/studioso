@@ -413,7 +413,7 @@ h2.sec.c2-bh{align-items:center}
 .us-cat[aria-selected="true"]{box-shadow:0 0 0 1px color-mix(in srgb,var(--uc,var(--accent)) 35%,var(--line)),0 4px 14px color-mix(in srgb,var(--uc,var(--accent)) 18%,transparent)!important}
 @media (min-width:720px){
   .us-main{padding-top:0!important}
-  .us-pane > .us-title{position:relative;display:block;margin:0 -20px 14px;padding:76px 20px 4px;padding-inline-start:118px;min-height:122px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent-band,var(--accent)) 88%,#000),color-mix(in srgb,var(--accent-band,var(--accent)) 74%,var(--surface))) top/100% 64px no-repeat}
+  .us-pane > .us-title{position:relative;display:block;margin:0 -20px 14px;padding:76px 20px 4px;padding-inline-start:118px;min-height:122px;background:linear-gradient(120deg,color-mix(in srgb,var(--uc,var(--accent)) 90%,#000),color-mix(in srgb,var(--uc,var(--accent)) 60%,var(--surface))) top/100% 64px no-repeat}
   .us-pane > .us-title .us-ic{position:absolute;inset-inline-start:22px;top:24px;width:80px;height:80px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--uc,var(--accent));box-shadow:0 0 0 4px var(--surface),0 0 0 6px var(--uc,var(--accent)),0 4px 10px rgba(0,0,0,.16)}
   .us-pane > .us-title .us-ic svg{width:38px;height:38px}
   .us-pane > .us-title h3{font:800 1.3rem var(--display)}
