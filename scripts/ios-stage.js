@@ -240,6 +240,19 @@ const WIDGET_ONLY = ["StudyboardWidgets.swift", "StudyboardHomeWidgets.swift"], 
   } catch (e) {}
 }
 
+// The widget extension shows the Home Screen and Lock Screen widgets only when their files are in the Xcode project
+// (StudyboardWidgets.swift lists them under #if STUDYBOARD_HOME_WIDGETS), so a project without them still archives
+{
+  const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
+  try {
+    if (fs.existsSync(pbx)) {
+      const txt = fs.readFileSync(pbx, "utf8"), on = /path = "?StudyboardHomeWidgets\.swift"?;/.test(txt);
+      const r = require("./pbx-flag").setSwiftFlag(txt, "StudyboardWidgets", "STUDYBOARD_HOME_WIDGETS", on);
+      if (r.changed) { fs.writeFileSync(pbx, r.text); console.log("ios-stage: Home Screen and Lock Screen widgets " + (on ? "on" : "left out (their files aren't in the Xcode project)") + " in the widget extension"); }
+    }
+  } catch (e) { console.log("ios-stage: couldn't set the widget extension's build flag: " + (e && e.message)); }
+}
+
 // The app's name as people see it (Home Screen, permission and sign-in prompts): Studyboard, not Capacitor's starting "App"
 {
   const plist = path.join(wrap, "ios", "App", "App", "Info.plist");
