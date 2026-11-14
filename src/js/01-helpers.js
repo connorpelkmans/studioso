@@ -509,11 +509,22 @@ const HAPTIC_KEY = "studyboard:haptics", HAPTIC_GAP = 120, HAPTIC_INPUT_MS = 150
 const HAPTIC_WEB = {tap: 10, tick: 6, lift: 18, drop: 10, success: [12, 70, 22], warning: [22, 70, 12], error: [12, 45, 12, 45, 12]};
 let hapticAt = 0, hapticInputAt = 0, hapticSel = false;
 ["pointerdown", "touchstart", "keydown"].forEach(t => document.addEventListener(t, e => { if (e.isTrusted !== false) hapticInputAt = Date.now(); }, {capture: true, passive: true}));
+// Capacitor only lists a plugin in Capacitor.Plugins once something registers it, and this page doesn't load the plugin's own
+// script, so it's registered here by name (as native-bridge.js does for the app's other plugins). Looking only in Plugins found
+// nothing in the real app, and every haptic was silently skipped
+// The app has two ways to reach the iPhone's haptics: @capacitor/haptics ("Haptics") and Studyboard's own plugin in
+// MainViewController.swift ("StudyboardHaptics", the same calls), which is always built in. Whichever is there is used.
+let hapticReg = {};
 function hapticNative(){
   try {
     const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
-    if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return null;
-    return (C.Plugins && C.Plugins.Haptics) || null;
+    for (const name of ["Haptics", "StudyboardHaptics"]) {
+      if (C.isPluginAvailable && !C.isPluginAvailable(name)) continue;
+      if (C.Plugins && C.Plugins[name]) return C.Plugins[name];
+      if (!hapticReg[name] && typeof C.registerPlugin === "function") hapticReg[name] = C.registerPlugin(name);
+      if (hapticReg[name]) return hapticReg[name];
+    }
+    return null;
   } catch (e) { return null; }
 }
 // a phone or tablet: the iPhone or Android app, or a browser on a touch screen with no mouse
@@ -533,6 +544,7 @@ function sbHaptic(kind, opts){
       const done = p => { if (p && p.catch) p.catch(() => {}); };
       if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
       else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
+      // a tap or a drop is Apple's LIGHT impact, picking something up MEDIUM
       else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
       return true;
     }
@@ -541,6 +553,28 @@ function sbHaptic(kind, opts){
   return false;
 }
 window.sbHaptic = sbHaptic;
+// Settings > Haptic Feedback > Try It: sends one at once and says what happened, so "I feel nothing" can be told apart from a copy
+// of the app built without haptics, Safari on an iPhone (no haptics for web pages), or the iPhone's own setting
+async function hapticTry(){
+  const C = window.Capacitor, app = !!(C && C.isNativePlatform && C.isNativePlatform());
+  if (!hapticOn()) return "Haptic Feedback is off. Turn it on above, then try again.";
+  if (app) {
+    const H = hapticNative();
+    if (!H) {
+      // what the app can see, for working out why: the plugin listed by the app, and its JavaScript side
+      let seen = ""; try { const has = n => C.isPluginAvailable ? (C.isPluginAvailable(n) ? "yes" : "no") : "?"; seen = ` (Haptics: ${has("Haptics")}, StudyboardHaptics: ${has("StudyboardHaptics")}, can register: ${typeof C.registerPlugin === "function" ? "yes" : "no"})`; } catch (e) {}
+      if (C.isPluginAvailable && !C.isPluginAvailable("Haptics") && !C.isPluginAvailable("StudyboardHaptics")) return "Neither haptics plugin is built into this copy of the app" + seen + ". On the Mac, run npm run ios:stage and build the app again (MainViewController.swift has Studyboard's own).";
+      return "This copy of the app can't reach the iPhone's haptics" + seen + ". Install the newest build (TestFlight, or run it from Xcode) and try again.";
+    }
+    // a strong one, then the success pattern, so there's no mistaking it
+    try { await H.impact({style: "HEAVY"}); await new Promise(r => setTimeout(r, 350)); await H.notification({type: "SUCCESS"}); }
+    catch (e) { return "The iPhone didn't take the tap: " + String((e && e.message) || e).slice(0, 120); }
+    return "Sent two taps. If you felt nothing, turn on System Haptics in your iPhone's Settings > Sounds & Haptics (Low Power Mode also turns haptics down).";
+  }
+  if (!navigator.vibrate) return "This browser can't make haptics (Safari on iPhone and iPad can't). The Studyboard app can.";
+  navigator.vibrate(HAPTIC_WEB.success);
+  return "Sent a tap. If you felt nothing, check your phone's vibration settings.";
+}
 document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
 hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
 toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) { sbHaptic("tap"); f(); } });

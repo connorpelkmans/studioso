@@ -175,6 +175,21 @@ function filesVisible(){
     return true;
   }).sort((a, b) => ui.fSort === "name" ? a.name.localeCompare(b.name) : ((b.updated || b.created || 0) - (a.updated || a.created || 0)));
 }
+// Phones: a file's actions (Summary, Read, Edit, Preview or Open) sit in one ⋯ menu at the end of its row, so the name has the room
+// (101-phone-v2.css shows it there and hides the row's own buttons; computers keep the buttons)
+const FR_IC = {sum: AI_ICON, read: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>',
+  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'};
+function fileRowMore(f, read, pv){
+  const it = [];
+  if (f.summary && !inPreview()) it.push(`<button type="button" class="btn" role="menuitem" data-act="f-summarize" data-id="${esc(f.id)}">${FR_IC.sum}Summary</button>`);
+  if (read) {
+    it.push(`<button type="button" class="btn" role="menuitem" data-act="pdr-open" data-id="${esc(f.id)}">${FR_IC.read}Read</button>`);
+    if (fileKind(f) === "pdf") it.push(`<button type="button" class="btn" role="menuitem" data-act="pde-edit" data-id="${esc(f.id)}">${FR_IC.edit}Edit</button>`);
+  } else if (pv) it.push(`<button type="button" class="btn" role="menuitem" data-act="f-preview" data-id="${esc(f.id)}">${FR_IC.read}Preview</button>`);
+  else it.push(`<a class="btn" role="menuitem" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${FR_IC.open}Open</a>`);
+  return `<details class="ph-more fr-more"><summary class="btn small" aria-label="Actions for ${esc(f.name)}" title="More"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary><div class="ph-menu" role="menu">${it.join("")}</div></details>`;
+}
 function fileRow(f){
   const r = curRev(f), c = courseOf(f.courseId);
   const tasks = f.taskIds.map(id => state.tasks[id]).filter(Boolean);
@@ -191,7 +206,7 @@ function fileRow(f){
     ${fileIcon(f)}
     <button class="fmain" data-act="f-open" data-id="${esc(f.id)}" aria-label="Details of ${esc(f.name)}" title="Name, course, folder, tasks and versions"><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
       ${tasks.length ? `<span class="ftasks">${tasks.slice(0, 3).map(t => `<span class="dep-chip" style="--c:${esc(colorOf(t.courseId))}">${CLIP}${esc(t.title)}</span>`).join("")}${tasks.length > 3 ? `<span class="mini">+${tasks.length - 3}</span>` : ""}</span>` : ""}</button>
-    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
+    <span class="f-acts">${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}</span>${fileRowMore(f, read, pv)}
   </li>`;
 }
 // A course's Lecture Notes folder, grouped by class, with each class's typed notes and recording too (99-class-sessions.js)
@@ -705,7 +720,7 @@ function noteSheetUp(){
   // the note's own colour also fills the strip behind the keyboard (see .n-sheet-bg.on::after)
   try { document.documentElement.style.setProperty("--n-sheet-c", getComputedStyle(el).getPropertyValue("--nc").trim() || getComputedStyle(el).backgroundColor); } catch (e) {}
   // slides up once when a note opens, not again on every redraw while it's being edited
-  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } if (window.SBSMOOTH) { SBSMOOTH.hold(el); SBSMOOTH.hold(bg); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
@@ -713,7 +728,41 @@ function noteSheetUp(){
     if (had && document.activeElement !== t) try { t.focus({preventScroll: true}); } catch (e) {}
     noteToastUp(true);
   }
-  noteKbFit(); noteSheetKeep(el);
+  noteKbFit(); noteSheetKeep(el); noteGlideWatch();
+}
+// The open editor never jumps: whenever the spot it rests in changes (the keyboard coming or going, its options folding away
+// as typing starts, the text growing a line), it glides there from where it was, on the keyboard's own curve. Where it rests is
+// offsetTop, which leaves out its own slide-in and glides; checked once a frame while it's open, before the frame is drawn, so
+// the jump itself never shows. A redraw while editing puts in a fresh copy: a glide under way carries on on it
+let noteGlideRaf = 0, noteGlideAt = null;   // noteGlideAt: {id, top, runs: [{d, t0}]}
+const NOTE_GLIDE_MS = 340;
+function noteGlideRun(el, d, t0){
+  try {
+    const a = el.animate([{translate: `0 ${d}px`}, {translate: "0 0"}], {duration: NOTE_GLIDE_MS, easing: "cubic-bezier(.32,.72,0,1)", composite: "add"});
+    a.currentTime = Math.max(0, performance.now() - t0);
+  } catch (e) {}
+}
+function noteGlideWatch(){
+  if (noteGlideRaf) return;
+  const tick = () => {
+    noteGlideRaf = 0;
+    const el = $(".note.editing.n-sheet");
+    if (!el || !el.isConnected) { noteGlideAt = null; return; }
+    const id = el.dataset.note, top = el.offsetTop, now = performance.now();
+    if (!noteGlideAt || noteGlideAt.id !== id) noteGlideAt = {id, top, runs: [], el};   // just opened: its own slide-in shows it
+    else {
+      const G = noteGlideAt;
+      G.runs = G.runs.filter(r => now - r.t0 < NOTE_GLIDE_MS);
+      if (G.el !== el) { G.el = el; G.runs.forEach(r => noteGlideRun(el, r.d, r.t0)); }   // a redrawn copy picks up the glide
+      if (Math.abs(top - G.top) > 1) {
+        const still = document.documentElement.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+        if (!still) { const r = {d: G.top - top, t0: now}; G.runs.push(r); noteGlideRun(el, r.d, r.t0); }
+        G.top = top;
+      }
+    }
+    noteGlideRaf = requestAnimationFrame(tick);
+  };
+  noteGlideRaf = requestAnimationFrame(tick);
 }
 // Closing a note on a phone: the editor slides back down like the other sheets, instead of vanishing (a still copy does the
 // sliding; the note itself is already saved and closed)

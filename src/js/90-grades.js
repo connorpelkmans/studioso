@@ -834,7 +834,8 @@
   function gpaStrip(S){
     if (!S.marked.length && S.pastGpa == null) return "";
     const of = S.max === 4.3 ? "4.3" : "4.0";
-    const tile = (k, v, sub) => `<div class="gp-g"><span class="gr-k">${k}</span><span class="gr-v">${v}</span>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`;
+    // on phones the line under the number is left out (it stays the tile's tooltip) and the scale sits beside the number
+    const tile = (k, v, sub) => `<div class="gp-g"${sub ? ` title="${esc(sub)}"` : ""}><span class="gr-k">${k}</span><span class="gr-v">${v}<span class="gp-of"> / ${of}</span></span>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`;
     const tiles = (S.n ? tile("Term GPA", fmtG(S.gpaNow), `out of ${of}, from your grades now`) + tile("Projected Term GPA", fmtG(S.gpaProj), "if you keep this up") : "")
       + (S.cum != null && S.max ? tile("Cumulative GPA", fmtG(S.cum), `with this term · past terms ${fmtG(S.pastGpa)}`) : "");
     const k = S.noCr.length;
@@ -994,11 +995,12 @@
     const withMarks = all.filter(gr => gr.current != null), atRisk = all.filter(gr => gr.risk).length;
     const toCome = all.reduce((n, gr) => n + gr.open.length, 0) - waiting.length;
     const S = termStats(all), avg = S.avg;
-    const stat = (n, k, bad) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${k}</span></div>`;
+    // (a shorter label shows on phones, where the three tiles share one narrow row)
+    const stat = (n, k, bad, short) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${short ? `<span class="gp-l">${k}</span><span class="gp-s">${short}</span>` : k}</span></div>`;
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
-        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track to pass"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
-        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div>` : ""}</div>`;
+        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"}<span class="gp-l"> with marks</span> · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : `all on track<span class="gp-l"> to pass</span>`}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;

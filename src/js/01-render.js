@@ -60,7 +60,8 @@ function renderNow(){
   // the date, and what today is at school (Day 3, B Day, or a day off)
   const sdT = (() => { try { return schoolDayText(todayISO()); } catch (e) { return ""; } })();
   { const nd = new Date(); $("#navDate").innerHTML = esc(nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"})) + (sdT ? `<span class="nd-sd">${esc(sdT)}</span>` : ""); }
-  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> <span class="md">${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}</span>${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  todayFit();
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
@@ -1193,3 +1194,27 @@ async function restoreSheet(){
   }));
 }
 
+
+// The date under the logo always fits its space: "Saturday November 14", or if that's too wide "Saturday Nov 14", then "Sat Nov 14"
+// (instead of being cut off as "Saturday November ...")
+// It's fitted again whenever its room changes (a running Focus timer's pill appears beside the logo, the phone turns), but not
+// for its own change of width when a shorter form is put in, which would only make it try the long form again
+let todayFitW = -1;
+function todayFit(){
+  const el = document.getElementById("todayLabel"), wd = el && el.querySelector(".wd"), md = el && el.querySelector(".md");
+  if (!wd || !md || !el.clientWidth) return;
+  const d = new Date(), f = (o) => d.toLocaleDateString(undefined, o);
+  const forms = [[{weekday: "long"}, {month: "long", day: "numeric"}], [{weekday: "long"}, {month: "short", day: "numeric"}], [{weekday: "short"}, {month: "short", day: "numeric"}]];
+  for (const [a, b] of forms) { wd.textContent = f(a); md.textContent = f(b); if (el.scrollWidth <= el.clientWidth + 1) break; }
+  todayFitW = el.clientWidth;
+  todayWatch(el);
+}
+function todayWatch(el){
+  if (todayWatch.on === el || !window.ResizeObserver) return;
+  if (todayWatch.ro) todayWatch.ro.disconnect();
+  todayWatch.on = el;
+  todayWatch.ro = new ResizeObserver(() => { if (Math.abs(el.clientWidth - todayFitW) >= 1) requestAnimationFrame(todayFit); });
+  todayWatch.ro.observe(el);
+}
+addEventListener("resize", () => requestAnimationFrame(todayFit));
+try { document.fonts && document.fonts.ready.then(todayFit); } catch (e) {}

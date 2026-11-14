@@ -371,7 +371,7 @@ function renderPomo(){
       <div class="pomo-cycle" aria-label="${inCycle} of ${every} focus sessions done before a long break">${Array.from({length: every}, (_, i) => `<i class="${i < inCycle ? "on" : ""}"></i>`).join("")}<span>${inCycle} of ${every} before a long break</span></div>
       <div class="pomo-ctl">
         <button class="btn" data-act="pomo-reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>Reset</button>
-        <button class="btn primary big" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : `Start ${esc(MODE_LABEL[pomo.mode])}`}</button>
+        <button class="btn primary big" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : pomo.mode === "focus" ? `Start ${esc(MODE_LABEL[pomo.mode])}` : esc(MODE_LABEL[pomo.mode])}</button>
         <button class="btn" data-act="pomo-skip">Skip</button>
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}

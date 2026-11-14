@@ -140,6 +140,15 @@ function studyCounts(deckIds){
   return {due, fresh};
 }
 // The Review tab shows how many cards are due
+// A deck's face is cut to its rounded shape in one piece (100-phone.css): its own corner radius, which differs by card style,
+// is read once before that rule turns the painted corners square
+function deckFaceClip(){
+  document.querySelectorAll("#view .deck.deck-fc:not(.fr-on)").forEach(d => {
+    const f = d.querySelector(":scope > .deck-face"); if (!f) return;
+    d.style.setProperty("--fr", getComputedStyle(f).borderTopLeftRadius || "8px"); d.classList.add("fr-on");
+  });
+}
+hook("render", () => { if (ui.tab === "flashcards") deckFaceClip(); });
 hook("render", () => {
   const b = document.querySelector('nav.tabs [data-tab="flashcards"]'); if (!b) return;
   const n = allDueCount(); let dot = b.querySelector(".fc-navdue");
@@ -267,9 +276,9 @@ function reviewHeroHtml(){
   const cids = new Set(inC.map(d => d.courseId).filter(Boolean)), isEx = t => window.SBEXAM ? SBEXAM.EXAMMODE.isExam(t) : /^(Exam|Quiz)$/.test(t.type);
   const ex = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= todayISO() && cids.has(t.courseId) && isEx(t) && dayDiff(todayISO(), t.due) <= 21).sort((a, b) => a.due.localeCompare(b.due))[0];
   const exD = ex ? dayDiff(todayISO(), ex.due) : 0, exWords = ex ? `${ex.title} is ${exD === 0 ? "today" : exD === 1 ? "tomorrow" : `in ${exD} days`}` : "";
-  let title, sub;
+  let title, sub, mins = 0;
   if (ready) {
-    const mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
+    mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
     // due and new cards are counted apart, so the number due matches the Review tab's badge (which counts due cards only)
     title = n.due && n.fresh ? `${n.due} card${n.due === 1 ? "" : "s"} due + ${n.fresh} new` : n.fresh ? `${n.fresh} new card${n.fresh === 1 ? "" : "s"} to learn` : `${ready} card${ready === 1 ? "" : "s"} ready to review`;
     sub = [`About ${mins} minute${mins === 1 ? "" : "s"}`, deckWords, exWords];
@@ -279,10 +288,13 @@ function reviewHeroHtml(){
     title = "All caught up";
     sub = [next ? `Next review ${nd === 1 ? "tomorrow" : nd < 7 ? parse(next).toLocaleDateString(undefined, {weekday: "long"}) : fmtShort(next)}` : "Nothing is due", exWords];
   }
-  const more = n.due || w.n ? `<button class="btn rv-more" data-act="fc-review-menu">Review Options</button>` : "";
+  // on a phone the button is a round icon (the words stay its name), so Start Review can share its line
+  const more = n.due || w.n ? `<button class="btn rv-more" data-act="fc-review-menu" aria-label="Review Options" title="Review Options"><svg class="rv-more-ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="rv-more-t">Review Options</span></button>` : "";
+  // the time reads "About 7 minutes", or "~7 min" where a phone keeps it to one line
+  const subHtml = sub.filter(Boolean).map((x, i) => i === 0 && mins ? `<span class="rv-min-l">${esc(x)}</span><span class="rv-min-s">~${mins} min</span>` : esc(x)).join(" · ");
   return `<section class="rv-hero${ready ? "" : " done"}" aria-label="Review">
     <span class="rv-stack" aria-hidden="true"><i></i><i></i><i></i></span>
-    <div class="rv-t"><h3>${esc(title)}</h3><p>${sub.filter(Boolean).map(esc).join(" · ")}</p></div>
+    <div class="rv-t"><h3>${esc(title)}</h3><p>${subHtml}</p></div>
     ${reviewWeekHtml()}
     <div class="rv-acts">${ready ? `<button class="btn primary rv-go" data-act="fc-review-start" data-course="${esc(course)}">Start Review</button>` : ""}${more}</div>
   </section>`;
@@ -625,7 +637,6 @@ function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.sett
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
 function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
-  sbHaptic("tap");
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
@@ -648,6 +659,8 @@ function rateCard(rating){
   if (rating === "again" && (f.repeats[it.cardId] || 0) < 2) { f.repeats[it.cardId] = (f.repeats[it.cardId] || 0) + 1; f.q.push(it); step.pushed = true; }
   f.hist = (f.hist || []).concat(step).slice(-50);
   f.i++; f.flipped = false;
+  // a tap for each card, and the success pattern for the last one: the session is done
+  sbHaptic(f.q[f.i] ? "tap" : "success");
   // the card on screen changes at once; the redraw the save queued has nothing more to show
   renderOnce();
 }
@@ -845,6 +858,7 @@ function answerQuiz(given, pre){
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r;
+  sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
   render();
@@ -859,6 +873,7 @@ function finishQuiz(){
   applyChanges(changes, null);
   const sc = Object.values(byDeck).reduce((a, r) => a + r.score, 0), tot = Object.values(byDeck).reduce((a, r) => a + r.total, 0);
   if (tot > 0 && sc / tot >= 0.8) { try { celebrate("check"); } catch (e) {} }
+  sbHaptic(tot > 0 && sc / tot >= 0.8 ? "success" : "tap");
   if (quizPasses(sc, tot)) earnBump("q");
 }
 function viewQuiz(){

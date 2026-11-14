@@ -1822,6 +1822,16 @@ function syncBigWarn(key, data){
   let name = ""; try { name = SyncMerge.titleOf(key.slice(0, key.indexOf(":")), data) || ""; } catch(e) {}
   toast(`${name ? `"${String(name).slice(0, 60)}"` : "One item"} is too big to sync (over 10 MB), so it's only saved on this device. Make it smaller, for example by moving pictures into Files.`, null, null, {error: true});
 }
+// This device's own settings saves, kept for a minute. The server tells every device about each save, this one included, and
+// the echo of an earlier save can arrive after a newer one (two quick taps on a switch, such as the whiteboard's light / dark):
+// applying it would switch the setting back for a moment, then on again when the newer echo arrives
+const metaSent = [];
+function noteMetaSent(data){
+  if (!data || !data.settings) return;
+  const now = Date.now(); metaSent.push({at: now, s: clone(data.settings)});
+  while (metaSent.length && (metaSent.length > 12 || now - metaSent[0].at > 60000)) metaSent.shift();
+}
+const ownMetaEcho = s => { const now = Date.now(); try { return metaSent.some(x => now - x.at <= 60000 && SyncMerge.eq(x.s, s)); } catch(e) { return false; } };
 async function runQueue(key, e){
   e.running = true;
   let tries = 0;
@@ -1829,6 +1839,7 @@ async function runQueue(key, e){
   while (e.next) {
     const job = e.next; e.next = null;
     try {
+      if (key === "meta:meta") noteMetaSent(job.data);
       const res = job.data === null ? await e.ref.delete() : await e.ref.set(job.data);
       tries = 0; syncLater.delete(key); syncError = syncLater.size > 0;
       outboxDone(key, job.data);
@@ -1999,7 +2010,7 @@ async function flushOutbox(){
     const i = k.indexOf(":"), kind = k.slice(0, i), id = k.slice(i + 1);
     if (queue.has(k)) continue;
     if (!outboxOwn.has(k)) continue;
-    if (kind === "meta") o[k] = {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)};
+    if (kind === "meta") { o[k] = {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)}; noteMetaSent(o[k]); }
     try {
       const r = refFor(kind, id), res = o[k] === null ? await r.delete({outbox: true}) : await r.set(o[k], {outbox: true});
       const sentData = o[k]; sentBy[k] = sentData; delete o[k]; sent++;
@@ -2101,6 +2112,8 @@ function applyRemoteSettings(md){
     }
     remoteMetaTries = 0;
     if (SyncMerge.eq(syncSettings(state.settings), md.settings)) return;
+    // an echo of something this device saved earlier, since changed again here: not news, and applying it would undo the change
+    if (ownMetaEcho(md.settings)) return;
     adoptSettings(md.settings); saveLocal(); scheduleRender();
     if (!SyncMerge.eq(syncSettings(state.settings), md.settings)) queueWrite("meta", "meta", {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)});
   } catch(e) { console.warn(e); }
@@ -2167,7 +2180,7 @@ hook("act", (act, el, id) => {
 hook("menu", () => { try { const n = inPreview() ? 0 : syncConflicts().length; return n ? `<button data-act="sb-issues" data-group="account"><span>Sync Issues<span class="sub">${n} ${n === 1 ? "item was" : "items were"} edited on two devices. Choose what to keep.</span></span></button>` : ""; } catch(e) { return ""; } });
 
 // Test handle (only when a test page sets window.__SB_TEST)
-if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, SY, useClient: c => { sb = c; }, claimDevice, wipeDeviceData, devKeys: {LS2, OUTBOX, OWNER}, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, trashVisible, trashRestore, trashForever, trashList, backupBefore, saveDeviceBackup, backupSnap, refresh: () => cloud.refresh && cloud.refresh(), ui, render, scheduleRender, menuSheet, dlg, setKeys: k => aiKeysSetLocal(k), aiReviewSheet: (r, c) => aiReviewSheet(r, c), aiCall: o => aiCall(o), sbDownload: (p, c) => sbDownload(p, c), FCACHE, wipeDeviceData2: () => wipeDeviceData(), get keys(){ return aiLocalKeys; }}; }, 0);
+if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, applyRemoteSettings, noteMetaSent, syncSettings, SY, useClient: c => { sb = c; }, claimDevice, wipeDeviceData, devKeys: {LS2, OUTBOX, OWNER}, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, trashVisible, trashRestore, trashForever, trashList, backupBefore, saveDeviceBackup, backupSnap, refresh: () => cloud.refresh && cloud.refresh(), ui, render, scheduleRender, menuSheet, dlg, setKeys: k => aiKeysSetLocal(k), aiReviewSheet: (r, c) => aiReviewSheet(r, c), aiCall: o => aiCall(o), sbDownload: (p, c) => sbDownload(p, c), FCACHE, wipeDeviceData2: () => wipeDeviceData(), get keys(){ return aiLocalKeys; }}; }, 0);
 
 /* ===== module: 01-accounts.js: the app's core, accounts, using the app without one, and lean sync ===== */
 const SB_DEFAULT = {"url": "https://pivcmrqcjseycjkbocmc.supabase.co", "key": "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd"};
@@ -5360,6 +5373,8 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial};
+  // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
+  sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
   // Keyboard goes to Next Question so Enter moves on, even after a mouse-picked answer (the click left focus on Quit)
   setTimeout(() => { const n = $("#aiNext"); if (n) n.focus(); }, 30);
@@ -5376,6 +5391,7 @@ function aiFinish(){
   d.quizzes = d.quizzes.concat({at: Date.now(), score: right, total, ai: true}).slice(-20);
   saveDeck(d, null);
   if (total > 0 && right / total >= 0.8) { try { celebrate("check"); } catch (e) {} }
+  sbHaptic(total > 0 && right / total >= 0.8 ? "success" : "tap");
   if (quizPasses(right, total) && !(!qz || f.qs.length !== qz.questions.length)) earnBump("q");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
 }
@@ -6528,6 +6544,10 @@ const nuBackBtn = () => ui.skipNext && ui.skipNext.day === todayISO() && ui.skip
 // On phones the reasons and next step sit behind a Details toggle so the card stays short
 const NU_CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 const nuOpenCls = () => ui.nuMore ? " nu-open" : "";
+const NU_HOME = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>';
+// Under the title: the course, a take-home exam's tag and Details, side by side on one line (phones; on wider screens the course
+// and Take-home sit on the title's own line, nu-ctag and nu-rx-in)
+const nuMeta = (c, extra) => `<span class="nu-meta">${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}${extra || ""}${nuMoreBtn()}</span>`;
 const nuMoreBtn = () => `<button type="button" class="nu-more" data-act="nu-more" aria-expanded="${!!ui.nuMore}">Details${NU_CHEV}</button>`;
 // While the timer is on this very task, its button says so (and opens the timer) instead of offering to start another session
 function nuFocusBtn(t, mins, label, study){
@@ -6547,8 +6567,8 @@ function nextUpHtml(F, pre){
     <div class="nu-top"><span class="nu-label">Do This Next</span>${n.xs && n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested study time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
-        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.x.dl === 1 || n.x.lightEve ? "The day before: light review only. Skim your summary or a few flashcards, then stop early and sleep." : n.hasPlan ? "Test yourself on your weakest topics: flashcards or practice questions, not rereading." : "Test yourself (flashcards or practice questions), or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
       <div class="nu-acts">${nuFocusBtn(t, n.mins, `Study for ${n.mins}m`, true)}${t.courseId && deckListArr().some(x => x.courseId === t.courseId && x.cards.some(c => !c.draft)) ? `<button class="btn small" data-act="fc-study-course" data-course="${esc(t.courseId)}">${FC_ICON}Test Yourself</button>` : ""}${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>
@@ -6559,8 +6579,8 @@ function nextUpHtml(F, pre){
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
-        <button class="nu-title" ${gtOpenAttrs(t)}>${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag" title="${esc(remoteOf(t).why || "Can be taken from home")}">Take-home</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
-        ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
+        <button class="nu-title" ${gtOpenAttrs(t)}>${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag nu-rx-in" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : ""}</button>${nuMeta(c, MILESTONE(t.type) ? `<span class="tag rx-tag nu-rx-out" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : "")}
+        <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
@@ -6579,8 +6599,8 @@ function nextUpSpare(F, inView){
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
-        ${nuMoreBtn()}<span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
         <span class="nu-step">Plan My Prep spreads short review sessions over the days before it, and they show up here.</span>
       </div>
       <div class="nu-acts"><button class="btn primary small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>
@@ -6597,8 +6617,8 @@ function nextUpSpare(F, inView){
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>${c ? `<span class="tag nu-tag-out">${esc(courseLabel(c))}</span>` : ""}
-        ${nuMoreBtn()}<span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
@@ -10243,9 +10263,9 @@ function stkEnd(ok, e){
   if (d.fromNote) {
     const src = state.notes[d.noteId]; if (!src) return;
     const m = clone(src); moved = m.stickers.splice(d.i, 1)[0]; if (!moved) return;
-    if (tid === d.noteId) { Object.assign(moved, noteLocalPoint(target, e.clientX, e.clientY)); delete moved.y; m.stickers.splice(d.i, 0, moved); applyChanges([{kind: "note", id: src.id, after: m}], ""); return; }
+    if (tid === d.noteId) { sbHaptic("drop"); Object.assign(moved, noteLocalPoint(target, e.clientX, e.clientY)); delete moved.y; m.stickers.splice(d.i, 0, moved); applyChanges([{kind: "note", id: src.id, after: m}], ""); return; }
     changes.push({kind: "note", id: src.id, after: m});
-    if (!tid) { applyChanges(changes, "Sticker removed"); return; }
+    if (!tid) { sbHaptic("drop"); applyChanges(changes, "Sticker removed"); return; }
   }
   if (!tid || !state.notes[tid]) { if (!d.fromNote) toast("Drop stickers onto a sticky note"); return; }
   const t = clone(state.notes[tid]);
@@ -10254,6 +10274,8 @@ function stkEnd(ok, e){
   changes.push({kind: "note", id: tid, after: t});
   // On a phone the envelope covers the board, so it stays tucked away once a sticker from it lands
   if (!d.fromNote && window.matchMedia && window.matchMedia("(max-width:700px)").matches) { ui.envOpen = false; try { localStorage.setItem("studyboard:env", "0"); } catch(err) {} }
+  // a tap as the sticker lands, as a note does when it's dropped
+  sbHaptic("drop");
   applyChanges(changes, "");
 }
 // Turning a sticker
@@ -10935,11 +10957,22 @@ const HAPTIC_KEY = "studyboard:haptics", HAPTIC_GAP = 120, HAPTIC_INPUT_MS = 150
 const HAPTIC_WEB = {tap: 10, tick: 6, lift: 18, drop: 10, success: [12, 70, 22], warning: [22, 70, 12], error: [12, 45, 12, 45, 12]};
 let hapticAt = 0, hapticInputAt = 0, hapticSel = false;
 ["pointerdown", "touchstart", "keydown"].forEach(t => document.addEventListener(t, e => { if (e.isTrusted !== false) hapticInputAt = Date.now(); }, {capture: true, passive: true}));
+// Capacitor only lists a plugin in Capacitor.Plugins once something registers it, and this page doesn't load the plugin's own
+// script, so it's registered here by name (as native-bridge.js does for the app's other plugins). Looking only in Plugins found
+// nothing in the real app, and every haptic was silently skipped
+// The app has two ways to reach the iPhone's haptics: @capacitor/haptics ("Haptics") and Studyboard's own plugin in
+// MainViewController.swift ("StudyboardHaptics", the same calls), which is always built in. Whichever is there is used.
+let hapticReg = {};
 function hapticNative(){
   try {
     const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
-    if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return null;
-    return (C.Plugins && C.Plugins.Haptics) || null;
+    for (const name of ["Haptics", "StudyboardHaptics"]) {
+      if (C.isPluginAvailable && !C.isPluginAvailable(name)) continue;
+      if (C.Plugins && C.Plugins[name]) return C.Plugins[name];
+      if (!hapticReg[name] && typeof C.registerPlugin === "function") hapticReg[name] = C.registerPlugin(name);
+      if (hapticReg[name]) return hapticReg[name];
+    }
+    return null;
   } catch (e) { return null; }
 }
 // a phone or tablet: the iPhone or Android app, or a browser on a touch screen with no mouse
@@ -10959,6 +10992,7 @@ function sbHaptic(kind, opts){
       const done = p => { if (p && p.catch) p.catch(() => {}); };
       if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
       else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
+      // a tap or a drop is Apple's LIGHT impact, picking something up MEDIUM
       else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
       return true;
     }
@@ -10967,6 +11001,28 @@ function sbHaptic(kind, opts){
   return false;
 }
 window.sbHaptic = sbHaptic;
+// Settings > Haptic Feedback > Try It: sends one at once and says what happened, so "I feel nothing" can be told apart from a copy
+// of the app built without haptics, Safari on an iPhone (no haptics for web pages), or the iPhone's own setting
+async function hapticTry(){
+  const C = window.Capacitor, app = !!(C && C.isNativePlatform && C.isNativePlatform());
+  if (!hapticOn()) return "Haptic Feedback is off. Turn it on above, then try again.";
+  if (app) {
+    const H = hapticNative();
+    if (!H) {
+      // what the app can see, for working out why: the plugin listed by the app, and its JavaScript side
+      let seen = ""; try { const has = n => C.isPluginAvailable ? (C.isPluginAvailable(n) ? "yes" : "no") : "?"; seen = ` (Haptics: ${has("Haptics")}, StudyboardHaptics: ${has("StudyboardHaptics")}, can register: ${typeof C.registerPlugin === "function" ? "yes" : "no"})`; } catch (e) {}
+      if (C.isPluginAvailable && !C.isPluginAvailable("Haptics") && !C.isPluginAvailable("StudyboardHaptics")) return "Neither haptics plugin is built into this copy of the app" + seen + ". On the Mac, run npm run ios:stage and build the app again (MainViewController.swift has Studyboard's own).";
+      return "This copy of the app can't reach the iPhone's haptics" + seen + ". Install the newest build (TestFlight, or run it from Xcode) and try again.";
+    }
+    // a strong one, then the success pattern, so there's no mistaking it
+    try { await H.impact({style: "HEAVY"}); await new Promise(r => setTimeout(r, 350)); await H.notification({type: "SUCCESS"}); }
+    catch (e) { return "The iPhone didn't take the tap: " + String((e && e.message) || e).slice(0, 120); }
+    return "Sent two taps. If you felt nothing, turn on System Haptics in your iPhone's Settings > Sounds & Haptics (Low Power Mode also turns haptics down).";
+  }
+  if (!navigator.vibrate) return "This browser can't make haptics (Safari on iPhone and iPad can't). The Studyboard app can.";
+  navigator.vibrate(HAPTIC_WEB.success);
+  return "Sent a tap. If you felt nothing, check your phone's vibration settings.";
+}
 document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
 hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
 toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) { sbHaptic("tap"); f(); } });
@@ -11131,9 +11187,8 @@ function card(t){
   const late = t.status !== "done" && t.due && t.due < todayISO();
   const p = progress(t);
   return `<div class="card ${c ? "has-tab" : ""} ${t.status === "done" ? "is-done" : ""}" role="button" tabindex="0" data-act="edit-task" data-id="${esc(t.id)}" style="--c:${esc(colorOf(t.courseId))}">
-    <span class="card-grip" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     ${c ? `<div class="card-course"><span class="cc-ic" aria-hidden="true">${courseRingHtml(c)}</span>${esc(courseLabel(c))}</div>` : ""}
-    <div class="card-title"><button type="button" class="check card-check" data-act="toggle" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Mark not done" : "Mark complete"}: ${esc(t.title)}" aria-pressed="${t.status === "done"}">${CHECK}</button><span>${esc(t.title)}</span></div>
+    <div class="card-title"><button type="button" class="check card-check" data-act="toggle" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Mark not done" : "Mark complete"}: ${esc(t.title)}" aria-pressed="${t.status === "done"}">${CHECK}</button><span>${esc(t.title)}</span><span class="card-grip" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span></div>
     ${(t.reading && t.type === "Reading") || (t.location && (MILESTONE(t.type) || t.type === "Lab")) ? `<div class="card-sub">${esc(t.type === "Reading" ? t.reading : t.location)}</div>` : ""}
     <div class="card-foot">${t.priority && t.priority !== "med" ? prioBadge(t.priority) : ""}${(() => { if (!t.due) return ""; if (late) return `<span class="soon late">${esc(relDue(t))}</span>`; const sb = soonBadge(t); return sb ? sb + (t.time && !/Due in \d+h/.test(sb) ? `<span>${esc(fmtTime(t.time))}</span>` : "") : ""; })()}${statusBadges(t)}<span>${esc(t.type || "Task")}</span>${MILESTONE(t.type) && t.status !== "done" && !remoteOf(t).v ? `<button type="button" class="rx-q" data-act="edit-task" data-edit="1" data-id="${esc(t.id)}" title="Not sure if this can be taken from home. Open it to say where it is taken." aria-label="Not sure where ${esc(t.title)} is taken. Open it to set that">?</button>` : ""}${t.due && !late && !soonBadge(t) ? `<span>${esc(relDue(t).replace(/^Due /, ""))}</span>` : ""}${isNum(t.hours) && !MILESTONE(t.type) ? `<span>${fmtHM(Number(t.hours))}</span>` : ""}${t.seriesId ? `<span title="Repeats">${REPEAT}</span>` : ""}${nf ? `<span title="${nf} attached file${nf === 1 ? "" : "s"}">${CLIP}${nf}</span>` : ""}${(nn => nn ? `<span class="note-count" title="${nn} sticky note${nn === 1 ? "" : "s"}">${NOTE_ICON}${nn}</span>` : "")(notesOfTask(t.id).length)}${t.pomos ? `<span class="pomo-count" title="${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtMins(t.focusMin)}">${TOMATO}${t.pomos}</span>` : ""}${lmsGoBtn(t)}</div>
     ${t.breakdownOf && window.SBBREAK ? `<div class="card-sub">${SBBREAK.rowMeta(t)}</div>` : ""}
@@ -11218,7 +11273,7 @@ function viewBoard(){
       ${nArch ? `<button class="arch-link" data-act="archive-open">${ARCHIVE_SM}${nArch} finished more than 2 weeks ago ${nArch === 1 ? "is" : "are"} in the Archive</button>` : ""}
     </section>`;
   }).join("");
-  const groupCtl = `<div class="board-ctl"><span class="mini">Group By</span><div class="segb" role="group" aria-label="Group board"><button data-act="group" data-id="none" aria-pressed="${ui.groupBy !== "course"}">None</button><button data-act="group" data-id="course" aria-pressed="${ui.groupBy === "course"}">Course</button></div>${trashBtn("task", true)}</div>`;
+  const groupCtl = `<div class="board-ctl"><span class="mini">Group By</span><div class="segb" role="group" aria-label="Group board"><button data-act="group" data-id="none" aria-pressed="${ui.groupBy !== "course"}">None</button><button data-act="group" data-id="course" aria-pressed="${ui.groupBy === "course"}">Course</button></div></div>`;   // (no Recently Deleted button here: it's in Settings and the other pages)
   let boardHtml;
   if (ui.groupBy === "course") {
     const lanes = [...coursesArr().filter(c => inFilterCourse(c.id)).map(c => ({id: c.id, name: c.name, code: c.code, color: c.color})), {id: "", name: "No Course", color: "#8A94A6"}];
@@ -12003,7 +12058,7 @@ function planNotes(F, inView, crunchMain){
   // A mark came in for an exam you haven't reflected on yet
   (window.SBWRAP && SBWRAP.pending ? SBWRAP.pending() : []).filter(t => inView({t})).slice(0, 2).forEach(t => {
     const m = SBWRAP.markOf(t);
-    rows.push({k: "wrap", main: `<b>How did ${esc(t.title)} go?</b> You got ${m}%. A minute comparing that with how ready you were makes the next one easier to prepare for.`,
+    rows.push({k: "wrap", main: `<b>How did ${esc(t.title)} go?</b> You got ${m}%. A quick look back helps next time.`,
       acts: `<button class="btn small primary" data-act="ewr-open" data-id="${esc(t.id)}">Reflect</button><button class="btn small" data-act="ewr-skip" data-id="${esc(t.id)}">Skip</button>`});
   });
   const seen = lsObj(CLOSED_LS), closed = Object.values(F.info).filter(x => x.dead && !x.fixed && !x.t.gt && inView(x) && x.t.status !== "done" && !seen[x.t.id]).sort((a, z) => z.dueMs - a.dueMs);
@@ -14878,7 +14933,8 @@ function renderNow(){
   // the date, and what today is at school (Day 3, B Day, or a day off)
   const sdT = (() => { try { return schoolDayText(todayISO()); } catch (e) { return ""; } })();
   { const nd = new Date(); $("#navDate").innerHTML = esc(nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"})) + (sdT ? `<span class="nd-sd">${esc(sdT)}</span>` : ""); }
-  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> <span class="md">${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}</span>${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  todayFit();
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
@@ -16011,6 +16067,30 @@ async function restoreSheet(){
   }));
 }
 
+
+// The date under the logo always fits its space: "Saturday November 14", or if that's too wide "Saturday Nov 14", then "Sat Nov 14"
+// (instead of being cut off as "Saturday November ...")
+// It's fitted again whenever its room changes (a running Focus timer's pill appears beside the logo, the phone turns), but not
+// for its own change of width when a shorter form is put in, which would only make it try the long form again
+let todayFitW = -1;
+function todayFit(){
+  const el = document.getElementById("todayLabel"), wd = el && el.querySelector(".wd"), md = el && el.querySelector(".md");
+  if (!wd || !md || !el.clientWidth) return;
+  const d = new Date(), f = (o) => d.toLocaleDateString(undefined, o);
+  const forms = [[{weekday: "long"}, {month: "long", day: "numeric"}], [{weekday: "long"}, {month: "short", day: "numeric"}], [{weekday: "short"}, {month: "short", day: "numeric"}]];
+  for (const [a, b] of forms) { wd.textContent = f(a); md.textContent = f(b); if (el.scrollWidth <= el.clientWidth + 1) break; }
+  todayFitW = el.clientWidth;
+  todayWatch(el);
+}
+function todayWatch(el){
+  if (todayWatch.on === el || !window.ResizeObserver) return;
+  if (todayWatch.ro) todayWatch.ro.disconnect();
+  todayWatch.on = el;
+  todayWatch.ro = new ResizeObserver(() => { if (Math.abs(el.clientWidth - todayFitW) >= 1) requestAnimationFrame(todayFit); });
+  todayWatch.ro.observe(el);
+}
+addEventListener("resize", () => requestAnimationFrame(todayFit));
+try { document.fonts && document.fonts.ready.then(todayFit); } catch (e) {}
 /* ===== module: 01-math.js: math, chemistry and light formatting in notes, cards, quizzes, whiteboards and the reader ===== */
 /* Text keeps plain marks, so it syncs, searches, exports and shares as it is:
      $x^2$ or \(x^2\) inline, $$...$$ or \[...\] on a line of its own, \ce{H2O} (or $\ce{...}$) for chemistry,
@@ -17551,6 +17631,21 @@ function filesVisible(){
     return true;
   }).sort((a, b) => ui.fSort === "name" ? a.name.localeCompare(b.name) : ((b.updated || b.created || 0) - (a.updated || a.created || 0)));
 }
+// Phones: a file's actions (Summary, Read, Edit, Preview or Open) sit in one ⋯ menu at the end of its row, so the name has the room
+// (101-phone-v2.css shows it there and hides the row's own buttons; computers keep the buttons)
+const FR_IC = {sum: AI_ICON, read: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>',
+  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'};
+function fileRowMore(f, read, pv){
+  const it = [];
+  if (f.summary && !inPreview()) it.push(`<button type="button" class="btn" role="menuitem" data-act="f-summarize" data-id="${esc(f.id)}">${FR_IC.sum}Summary</button>`);
+  if (read) {
+    it.push(`<button type="button" class="btn" role="menuitem" data-act="pdr-open" data-id="${esc(f.id)}">${FR_IC.read}Read</button>`);
+    if (fileKind(f) === "pdf") it.push(`<button type="button" class="btn" role="menuitem" data-act="pde-edit" data-id="${esc(f.id)}">${FR_IC.edit}Edit</button>`);
+  } else if (pv) it.push(`<button type="button" class="btn" role="menuitem" data-act="f-preview" data-id="${esc(f.id)}">${FR_IC.read}Preview</button>`);
+  else it.push(`<a class="btn" role="menuitem" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${FR_IC.open}Open</a>`);
+  return `<details class="ph-more fr-more"><summary class="btn small" aria-label="Actions for ${esc(f.name)}" title="More"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary><div class="ph-menu" role="menu">${it.join("")}</div></details>`;
+}
 function fileRow(f){
   const r = curRev(f), c = courseOf(f.courseId);
   const tasks = f.taskIds.map(id => state.tasks[id]).filter(Boolean);
@@ -17567,7 +17662,7 @@ function fileRow(f){
     ${fileIcon(f)}
     <button class="fmain" data-act="f-open" data-id="${esc(f.id)}" aria-label="Details of ${esc(f.name)}" title="Name, course, folder, tasks and versions"><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
       ${tasks.length ? `<span class="ftasks">${tasks.slice(0, 3).map(t => `<span class="dep-chip" style="--c:${esc(colorOf(t.courseId))}">${CLIP}${esc(t.title)}</span>`).join("")}${tasks.length > 3 ? `<span class="mini">+${tasks.length - 3}</span>` : ""}</span>` : ""}</button>
-    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
+    <span class="f-acts">${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}</span>${fileRowMore(f, read, pv)}
   </li>`;
 }
 // A course's Lecture Notes folder, grouped by class, with each class's typed notes and recording too (99-class-sessions.js)
@@ -18081,7 +18176,7 @@ function noteSheetUp(){
   // the note's own colour also fills the strip behind the keyboard (see .n-sheet-bg.on::after)
   try { document.documentElement.style.setProperty("--n-sheet-c", getComputedStyle(el).getPropertyValue("--nc").trim() || getComputedStyle(el).backgroundColor); } catch (e) {}
   // slides up once when a note opens, not again on every redraw while it's being edited
-  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } if (window.SBSMOOTH) { SBSMOOTH.hold(el); SBSMOOTH.hold(bg); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
@@ -18089,7 +18184,41 @@ function noteSheetUp(){
     if (had && document.activeElement !== t) try { t.focus({preventScroll: true}); } catch (e) {}
     noteToastUp(true);
   }
-  noteKbFit(); noteSheetKeep(el);
+  noteKbFit(); noteSheetKeep(el); noteGlideWatch();
+}
+// The open editor never jumps: whenever the spot it rests in changes (the keyboard coming or going, its options folding away
+// as typing starts, the text growing a line), it glides there from where it was, on the keyboard's own curve. Where it rests is
+// offsetTop, which leaves out its own slide-in and glides; checked once a frame while it's open, before the frame is drawn, so
+// the jump itself never shows. A redraw while editing puts in a fresh copy: a glide under way carries on on it
+let noteGlideRaf = 0, noteGlideAt = null;   // noteGlideAt: {id, top, runs: [{d, t0}]}
+const NOTE_GLIDE_MS = 340;
+function noteGlideRun(el, d, t0){
+  try {
+    const a = el.animate([{translate: `0 ${d}px`}, {translate: "0 0"}], {duration: NOTE_GLIDE_MS, easing: "cubic-bezier(.32,.72,0,1)", composite: "add"});
+    a.currentTime = Math.max(0, performance.now() - t0);
+  } catch (e) {}
+}
+function noteGlideWatch(){
+  if (noteGlideRaf) return;
+  const tick = () => {
+    noteGlideRaf = 0;
+    const el = $(".note.editing.n-sheet");
+    if (!el || !el.isConnected) { noteGlideAt = null; return; }
+    const id = el.dataset.note, top = el.offsetTop, now = performance.now();
+    if (!noteGlideAt || noteGlideAt.id !== id) noteGlideAt = {id, top, runs: [], el};   // just opened: its own slide-in shows it
+    else {
+      const G = noteGlideAt;
+      G.runs = G.runs.filter(r => now - r.t0 < NOTE_GLIDE_MS);
+      if (G.el !== el) { G.el = el; G.runs.forEach(r => noteGlideRun(el, r.d, r.t0)); }   // a redrawn copy picks up the glide
+      if (Math.abs(top - G.top) > 1) {
+        const still = document.documentElement.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+        if (!still) { const r = {d: G.top - top, t0: now}; G.runs.push(r); noteGlideRun(el, r.d, r.t0); }
+        G.top = top;
+      }
+    }
+    noteGlideRaf = requestAnimationFrame(tick);
+  };
+  noteGlideRaf = requestAnimationFrame(tick);
 }
 // Closing a note on a phone: the editor slides back down like the other sheets, instead of vanishing (a still copy does the
 // sliding; the note itself is already saved and closed)
@@ -18846,6 +18975,15 @@ function studyCounts(deckIds){
   return {due, fresh};
 }
 // The Review tab shows how many cards are due
+// A deck's face is cut to its rounded shape in one piece (100-phone.css): its own corner radius, which differs by card style,
+// is read once before that rule turns the painted corners square
+function deckFaceClip(){
+  document.querySelectorAll("#view .deck.deck-fc:not(.fr-on)").forEach(d => {
+    const f = d.querySelector(":scope > .deck-face"); if (!f) return;
+    d.style.setProperty("--fr", getComputedStyle(f).borderTopLeftRadius || "8px"); d.classList.add("fr-on");
+  });
+}
+hook("render", () => { if (ui.tab === "flashcards") deckFaceClip(); });
 hook("render", () => {
   const b = document.querySelector('nav.tabs [data-tab="flashcards"]'); if (!b) return;
   const n = allDueCount(); let dot = b.querySelector(".fc-navdue");
@@ -18973,9 +19111,9 @@ function reviewHeroHtml(){
   const cids = new Set(inC.map(d => d.courseId).filter(Boolean)), isEx = t => window.SBEXAM ? SBEXAM.EXAMMODE.isExam(t) : /^(Exam|Quiz)$/.test(t.type);
   const ex = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= todayISO() && cids.has(t.courseId) && isEx(t) && dayDiff(todayISO(), t.due) <= 21).sort((a, b) => a.due.localeCompare(b.due))[0];
   const exD = ex ? dayDiff(todayISO(), ex.due) : 0, exWords = ex ? `${ex.title} is ${exD === 0 ? "today" : exD === 1 ? "tomorrow" : `in ${exD} days`}` : "";
-  let title, sub;
+  let title, sub, mins = 0;
   if (ready) {
-    const mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
+    mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
     // due and new cards are counted apart, so the number due matches the Review tab's badge (which counts due cards only)
     title = n.due && n.fresh ? `${n.due} card${n.due === 1 ? "" : "s"} due + ${n.fresh} new` : n.fresh ? `${n.fresh} new card${n.fresh === 1 ? "" : "s"} to learn` : `${ready} card${ready === 1 ? "" : "s"} ready to review`;
     sub = [`About ${mins} minute${mins === 1 ? "" : "s"}`, deckWords, exWords];
@@ -18985,10 +19123,13 @@ function reviewHeroHtml(){
     title = "All caught up";
     sub = [next ? `Next review ${nd === 1 ? "tomorrow" : nd < 7 ? parse(next).toLocaleDateString(undefined, {weekday: "long"}) : fmtShort(next)}` : "Nothing is due", exWords];
   }
-  const more = n.due || w.n ? `<button class="btn rv-more" data-act="fc-review-menu">Review Options</button>` : "";
+  // on a phone the button is a round icon (the words stay its name), so Start Review can share its line
+  const more = n.due || w.n ? `<button class="btn rv-more" data-act="fc-review-menu" aria-label="Review Options" title="Review Options"><svg class="rv-more-ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="rv-more-t">Review Options</span></button>` : "";
+  // the time reads "About 7 minutes", or "~7 min" where a phone keeps it to one line
+  const subHtml = sub.filter(Boolean).map((x, i) => i === 0 && mins ? `<span class="rv-min-l">${esc(x)}</span><span class="rv-min-s">~${mins} min</span>` : esc(x)).join(" · ");
   return `<section class="rv-hero${ready ? "" : " done"}" aria-label="Review">
     <span class="rv-stack" aria-hidden="true"><i></i><i></i><i></i></span>
-    <div class="rv-t"><h3>${esc(title)}</h3><p>${sub.filter(Boolean).map(esc).join(" · ")}</p></div>
+    <div class="rv-t"><h3>${esc(title)}</h3><p>${subHtml}</p></div>
     ${reviewWeekHtml()}
     <div class="rv-acts">${ready ? `<button class="btn primary rv-go" data-act="fc-review-start" data-course="${esc(course)}">Start Review</button>` : ""}${more}</div>
   </section>`;
@@ -19331,7 +19472,6 @@ function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.sett
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
 function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
-  sbHaptic("tap");
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
@@ -19354,6 +19494,8 @@ function rateCard(rating){
   if (rating === "again" && (f.repeats[it.cardId] || 0) < 2) { f.repeats[it.cardId] = (f.repeats[it.cardId] || 0) + 1; f.q.push(it); step.pushed = true; }
   f.hist = (f.hist || []).concat(step).slice(-50);
   f.i++; f.flipped = false;
+  // a tap for each card, and the success pattern for the last one: the session is done
+  sbHaptic(f.q[f.i] ? "tap" : "success");
   // the card on screen changes at once; the redraw the save queued has nothing more to show
   renderOnce();
 }
@@ -19551,6 +19693,7 @@ function answerQuiz(given, pre){
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r;
+  sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
   render();
@@ -19565,6 +19708,7 @@ function finishQuiz(){
   applyChanges(changes, null);
   const sc = Object.values(byDeck).reduce((a, r) => a + r.score, 0), tot = Object.values(byDeck).reduce((a, r) => a + r.total, 0);
   if (tot > 0 && sc / tot >= 0.8) { try { celebrate("check"); } catch (e) {} }
+  sbHaptic(tot > 0 && sc / tot >= 0.8 ? "success" : "tap");
   if (quizPasses(sc, tot)) earnBump("q");
 }
 function viewQuiz(){
@@ -20220,7 +20364,7 @@ function renderPomo(){
       <div class="pomo-cycle" aria-label="${inCycle} of ${every} focus sessions done before a long break">${Array.from({length: every}, (_, i) => `<i class="${i < inCycle ? "on" : ""}"></i>`).join("")}<span>${inCycle} of ${every} before a long break</span></div>
       <div class="pomo-ctl">
         <button class="btn" data-act="pomo-reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>Reset</button>
-        <button class="btn primary big" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : `Start ${esc(MODE_LABEL[pomo.mode])}`}</button>
+        <button class="btn primary big" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : pomo.mode === "focus" ? `Start ${esc(MODE_LABEL[pomo.mode])}` : esc(MODE_LABEL[pomo.mode])}</button>
         <button class="btn" data-act="pomo-skip">Skip</button>
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
@@ -36339,14 +36483,13 @@ hook("boot", boot);
     };
   }
 
-  // Without AI: say what the AI plan needs (and offer to set it up), with a ready-made plan to use right away
+  // Without AI: a ready-made plan to use right away (no AI notice: it works as it is)
   function basicPlanSheet(g, x){
     const today = todayISO(), dated = GK.planFromDue(g.project_due, today).length > 0;
     // with no due date (or one that's passed) the same steps come without dates
     const steps = dated ? GK.planFromDue(g.project_due, today) : GK.planFromDue(GTL.addDays(today, 28), today).map(t => ({title: t.title, due: ""}));
     openSheet(`<form class="sheet">${head("Start From a Plan")}<div class="sheet-body">
-      <p style="margin:0"><b>This uses AI.</b> Describe the project and AI suggests the tasks for your team. <button type="button" class="link-btn" data-act="grp-pt-plan-ai">Set it up (about 1 minute)</button></p>
-      ${steps.length ? `<fieldset><legend>Or Use a Ready-Made Plan</legend><p class="mini" style="margin:0 0 6px">The usual steps of a group project${dated ? `, spaced out before the due date (${esc(fmtShort(g.project_due))})` : ""}. Untick any you don't want.</p>
+      ${steps.length ? `<fieldset><legend>A Ready-Made Plan</legend><p class="mini" style="margin:0 0 6px">The usual steps of a group project${dated ? `, spaced out before the due date (${esc(fmtShort(g.project_due))})` : ""}. Untick any you don't want.</p>
         ${steps.map((t, i) => `<label class="mi-check"><input type="checkbox" data-bp="${i}" checked> ${esc(t.title)}${t.due ? ` <span class="mini">${esc(fmtShort(t.due))}</span>` : ""}</label>`).join("")}</fieldset>` : ""}
       <p class="status-msg" id="bpStatus" style="margin:0" aria-live="polite"></p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${steps.length ? `<button type="button" class="btn primary" id="bpAdd">Add Tasks</button>` : `<button type="button" class="btn primary" data-act="grp-pt-plan-ai">Set Up AI</button>`}</div></form>`);
@@ -36651,7 +36794,7 @@ hook("boot", boot);
     const err = x.err ? `<div class="grp-err" role="alert"><span>${esc(x.err)}</span><button type="button" class="btn small" data-act="grp-pt-retry">Try Again</button></div>` : "";
     const top = `${head2}<span class="n">${openAll} open</span><span class="spacer"></span></h3>`;
     if (proj) return ptProjHtml(g, x, top, err, activeIds);
-    if (!lists.length) return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}<p class="grp-none">Split up the work: make a list for a project, like “BIOL 201 Poster”, then add the first task.</p>${proj && GTL.isDay(g.project_due) ? `<div class="row-actions"><button type="button" class="btn small ai-btn" data-act="grp-pt-plan">${AI_ICON} Start From a Plan<span class="ai-lbl">AI</span></button></div>` : ""}</section>`;
+    if (!lists.length) return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}<p class="grp-none">Split up the work: make a list for a project, like “BIOL 201 Poster”, then add the first task.</p>${proj && GTL.isDay(g.project_due) ? `<div class="row-actions"><button type="button" class="btn small" data-act="grp-pt-plan">Start From a Plan</button></div>` : ""}</section>`;
     const chips = lists.filter(l => !l.archived || x.arch).map(l => {
       const n = x.tasks.filter(t => t.list_id === l.id && t.status !== "done" && !t.deleted).length;
       return `<button type="button" class="pt-chip${l.id === curId ? " on" : ""}${l.archived ? " arch" : ""}" data-act="grp-pt-list" data-id="${esc(l.id)}" aria-pressed="${l.id === curId}"><span>${esc(l.title)}</span><small>${l.archived ? "archived" : n + " open"}</small></button>`;
@@ -36676,7 +36819,7 @@ hook("boot", boot);
       : !shown.length ? `<p class="grp-none">${{mine: "Nothing assigned to you here.", unassigned: "Every open task has an owner.", overdue: "Nothing is overdue.", done: "Nothing is done yet."}[x.filter] || "No tasks."}</p>` : "";
     return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}
       <div class="pt-lists" role="group" aria-label="Task lists">${chips}</div>
-      <div class="pt-listbar"><span class="pt-lname"><b>${esc(cur.title)}</b>${cur.course_code ? ` <span class="pill">${esc(cur.course_code)}</span>` : ""}</span>${proj ? `<span class="pt-view" role="group" aria-label="View">${[["list", "List"], ["board", "Board"]].map(([v, l]) => `<button type="button" class="pt-f${(x.view || "list") === v ? " on" : ""}" data-act="grp-pt-view" data-v="${v}" aria-pressed="${(x.view || "list") === v}">${l}</button>`).join("")}</span>` : ""}${proj && canAdd && GTL.isDay(g.project_due) ? `<button type="button" class="btn small ai-btn" data-act="grp-pt-plan">${AI_ICON} Start From a Plan<span class="ai-lbl">AI</span></button>` : ""}${archBtn}<button type="button" class="btn small" data-act="grp-pt-list-edit" data-id="${esc(cur.id)}">List Options</button></div>
+      <div class="pt-listbar"><span class="pt-lname"><b>${esc(cur.title)}</b>${cur.course_code ? ` <span class="pill">${esc(cur.course_code)}</span>` : ""}</span>${proj ? `<span class="pt-view" role="group" aria-label="View">${[["list", "List"], ["board", "Board"]].map(([v, l]) => `<button type="button" class="pt-f${(x.view || "list") === v ? " on" : ""}" data-act="grp-pt-view" data-v="${v}" aria-pressed="${(x.view || "list") === v}">${l}</button>`).join("")}</span>` : ""}${proj && canAdd && GTL.isDay(g.project_due) ? `<button type="button" class="btn small" data-act="grp-pt-plan">Start From a Plan</button>` : ""}${archBtn}<button type="button" class="btn small" data-act="grp-pt-list-edit" data-id="${esc(cur.id)}">List Options</button></div>
       <div class="pt-prog"><div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pr.pct}" aria-label="Progress on ${esc(cur.title)}"><i style="width:${pr.pct}%"></i></div><span class="mini">${pr.done} of ${pr.total} done</span></div>
       ${wlHtml}${add}
       ${proj && (x.view || "list") === "board" ? ptBoard(g, tasks, today) : `<div class="pt-filters" role="group" aria-label="Filter tasks">${PT_FILTERS.map(([k, l]) => `<button type="button" class="pt-f${x.filter === k ? " on" : ""}" data-act="grp-pt-filter" data-f="${k}" aria-pressed="${x.filter === k}">${l}${k === "all" ? "" : ` <small>${cnt[k]}</small>`}</button>`).join("")}</div>
@@ -36691,7 +36834,7 @@ hook("boot", boot);
     const bf = PT_BFILTERS.some(f => f[0] === x.bf) ? x.bf : "all", pick = f => f === "mine" ? tasks.filter(t => t.assignee_id === me) : f === "unassigned" ? tasks.filter(t => !t.assignee_id && t.status !== "done") : tasks;
     const filters = tasks.length ? `<div class="pt-filters" role="group" aria-label="Show tasks">${PT_BFILTERS.map(([k, l]) => `<button type="button" class="pt-f${bf === k ? " on" : ""}" data-act="grp-pt-bfilter" data-f="${k}" aria-pressed="${bf === k}">${l}${k === "all" ? "" : ` <small>${pick(k).filter(t => t.status !== "done").length}</small>`}</button>`).join("")}</div>` : "";
     return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}
-      <div class="pt-listbar"><button type="button" class="btn small ai-btn" data-act="grp-pt-plan">${AI_ICON} Start From a Plan<span class="ai-lbl">AI</span></button></div>
+      <div class="pt-listbar"><button type="button" class="btn small" data-act="grp-pt-plan">Start From a Plan</button></div>
       <div class="pt-prog"><div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pr.pct}" aria-label="Project progress"><i style="width:${pr.pct}%"></i></div><span class="mini">${pr.done} of ${pr.total} done</span></div>
       ${wlHtml}${tasks.length ? "" : empty}${filters}
       ${ptBoard(g, pick(bf), today)}</section>`;
@@ -40730,7 +40873,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   function gpaStrip(S){
     if (!S.marked.length && S.pastGpa == null) return "";
     const of = S.max === 4.3 ? "4.3" : "4.0";
-    const tile = (k, v, sub) => `<div class="gp-g"><span class="gr-k">${k}</span><span class="gr-v">${v}</span>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`;
+    // on phones the line under the number is left out (it stays the tile's tooltip) and the scale sits beside the number
+    const tile = (k, v, sub) => `<div class="gp-g"${sub ? ` title="${esc(sub)}"` : ""}><span class="gr-k">${k}</span><span class="gr-v">${v}<span class="gp-of"> / ${of}</span></span>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`;
     const tiles = (S.n ? tile("Term GPA", fmtG(S.gpaNow), `out of ${of}, from your grades now`) + tile("Projected Term GPA", fmtG(S.gpaProj), "if you keep this up") : "")
       + (S.cum != null && S.max ? tile("Cumulative GPA", fmtG(S.cum), `with this term · past terms ${fmtG(S.pastGpa)}`) : "");
     const k = S.noCr.length;
@@ -40890,11 +41034,12 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const withMarks = all.filter(gr => gr.current != null), atRisk = all.filter(gr => gr.risk).length;
     const toCome = all.reduce((n, gr) => n + gr.open.length, 0) - waiting.length;
     const S = termStats(all), avg = S.avg;
-    const stat = (n, k, bad) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${k}</span></div>`;
+    // (a shorter label shows on phones, where the three tiles share one narrow row)
+    const stat = (n, k, bad, short) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${short ? `<span class="gp-l">${k}</span><span class="gp-s">${short}</span>` : k}</span></div>`;
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
-        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track to pass"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
-        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div>` : ""}</div>`;
+        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"}<span class="gp-l"> with marks</span> · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : `all on track<span class="gp-l"> to pass</span>`}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
@@ -65928,6 +66073,12 @@ var COMP_EXTRA = [];
   const patsNow = () => { if (!pro()) return {}; const p = cfg().pat || {}, o = {}; PAT_PROPS.forEach(k => { if (PATS.some(x => x[0] === p[k])) o[k] = p[k]; }); return o; };
   // a prop's art with its fabric patterned: the fill that follows the prop's colour becomes the pattern
   const withPat = (art, id, kind, col) => { if (!kind || !col) return art; const pid = `cpp-${id}-${kind}-${col.replace("#", "")}`; return `<defs>${patDef(pid, kind, col)}</defs>` + String(art).split(WEAR).join(`style="fill:url(#${pid})"`); };
+  // A prop's picture on its own, centred (the wardrobe's tiles and the new-prop reveal)
+  function propIcon(a, tints){
+    tints = tints || tintsNow();
+    const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
+    return `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
+  }
   const tintsNow = () => { const t = cfg().tint || {}; if (pro()) return t; const o = {}; Object.keys(t).forEach(k => { if (inPalette(t[k])) o[k] = t[k]; }); return o; };
   const paywall = () => { try { return !!(typeof PLAN !== "undefined" && PLAN && PLAN.paywall()); } catch (e) { return false; } };
   const skinId = () => document.documentElement.dataset.skin || effSkinId() || "classic";
@@ -65973,7 +66124,7 @@ var COMP_EXTRA = [];
   const hours = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() / 60 : 0; } catch (e) { return 0; } };
   /* Earning props */
   const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
-    notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "study group or room", focusWeeks: "weeks with 4+ focus days", festive: "winter holiday visit"};
+    notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "Study Group or Room", focusWeeks: "weeks with 4+ focus days", festive: "Winter Holiday Visit"};
   const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
     streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n === 1 ? "a practice quiz" : n + " practice quizzes"} (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
@@ -67344,15 +67495,71 @@ var COMP_EXTRA = [];
     const fresh = earnedNow.filter(a => !got[a.id]);
     if (!fresh.length) return;
     setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
-    if (!act || !cur) return;
-    const wearable = fresh.filter(canWear), a = wearable[wearable.length - 1] || fresh[fresh.length - 1];
-    if (a && canWear(a) && !wearOf(cur).length) setCfg({wear: {[cur.id]: [a.id]}});
-    build();
-    hold(2200);
-    act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
-    if (talkOn()) say(fresh.length > 1 ? `Ooh, ${fresh.length} new props: ${fresh.map(x => x.name).join(", ")}! Look in my wardrobe!` : `Ooh, a new prop: the ${a.name}! Thanks for working so hard!`);
-    later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
     try { refreshPicker(); } catch (e) {}
+    // each new prop is shown big in the middle of the screen (revealProp), one after another; the companion celebrates as each closes
+    fresh.forEach(a => { if (!revealQ.some(x => x.id === a.id)) revealQ.push(a); });
+    revealSoon();
+  }
+
+  /* A new prop: shown in the middle of the screen in a burst of light, with Put It On and Later. It waits for a calm moment
+     (nothing being typed, dragged or held, no sheet open), shows even when the companion is hidden, and comes one at a time */
+  const revealQ = [];
+  let revealOn = false, revealT = 0, pressing = false;
+  document.addEventListener("pointerdown", () => { pressing = true; }, true);
+  ["pointerup", "pointercancel"].forEach(t => document.addEventListener(t, () => { pressing = false; }, true));
+  const revealBusy = () => { const ae = document.activeElement;
+    return document.hidden || pressing || !!document.querySelector("dialog[open]") || !!(ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))
+      || !!document.querySelector(".dragging, .sort-ghost, .rv-ghost, .stk-ghost, .note.editing") || /\b(sorting|rv-dragging|sch-dragging|stk-dragging|dragging-note)\b/.test(document.body.className); };
+  function revealSoon(){
+    clearTimeout(revealT);
+    if (!revealQ.length || revealOn) return;
+    if (revealBusy()) { revealT = setTimeout(revealSoon, 1500); return; }
+    revealProp(revealQ.shift());
+  }
+  const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/></svg>';
+  function revealProp(a){
+    revealOn = true;
+    const c = current(), wearNow = !!c && canWear(a), done = propProg(a).find(x => x.p >= 1);
+    const tints = tintsNow(), col = hexOk(tints[a.id]) ? tints[a.id] : ACC_DEF[a.id] || (c ? wearColor(c) : "");
+    const o = document.createElement("div");
+    o.className = "cpu" + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpuName"); o.setAttribute("aria-describedby", "cpuHow");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
+    const how = !c ? "Pick a companion to wear it." : wearNow ? "Your companion can wear it now." : owns("prop", a.id) ? "It's in your companion's wardrobe." : "It comes with Studyboard Pro.";
+    o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
+      <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
+        ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
+        <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
+      <span class="cpu-kick">New Prop Unlocked!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>
+      <p class="cpu-how" id="cpuHow">${done ? `<span class="cpu-did">${esc(done.ask)}</span> ` : ""}${esc(how)}</p>
+      <div class="cpu-acts">${wearNow ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">Got It</button>`}</div></div>`;
+    document.body.appendChild(o);
+    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    sbHaptic("success", {force: true});
+    const back = document.activeElement;
+    setTimeout(() => { const b = o.querySelector('[data-cpu="wear"]') || o.querySelector("[data-cpu]"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    let closed = false;
+    const close = wear => {
+      if (closed) return; closed = true;
+      o.classList.add("cpu-out");
+      setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); }, still() ? 0 : 260);
+      try { if (back && back.isConnected && back.focus) back.focus({preventScroll: true}); } catch (e) {}
+      const cc = current();
+      if (wear && cc && canWear(a)) { const now = wearOf(cc); setCfg({wear: {[cc.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {} }
+      // the companion celebrates too
+      if (act && cur) {
+        hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
+        if (talkOn()) say(wear ? `How do I look in the ${a.name}? Thanks for working so hard!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
+        later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
+      }
+      revealOn = false;
+      revealT = setTimeout(revealSoon, 900);
+    };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpu]"); if (b) close(b.dataset.cpu === "wear"); });
+    o.addEventListener("keydown", e => {
+      if (e.key === "Escape") { e.preventDefault(); close(false); return; }
+      if (e.key === "Tab") { const bs = [...o.querySelectorAll("[data-cpu]")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); }
+    });
   }
   // Checked as you go (not only at the daily hello)
   hook("render", () => { if (Date.now() - lastUnlockChk > 20000 && !document.hidden) setTimeout(checkUnlocks, 1500); });
@@ -68145,8 +68352,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
       const got = isEarned(a), can = canWear(a), on = wear.includes(a.id);
-      const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
-      const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
+      const icon = propIcon(a, tints);
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
         <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
@@ -68617,6 +68823,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // Every companion, for the Your Photo theme editor's "Companions" picker
     all: () => Object.keys(REG).flatMap(k => REG[k].list.map(c => ({id: c.id, name: c.name, kind: c.kind || "", theme: k, owned: canComp(c)}))),
     current: () => current() && current().id, mood: () => mood, el: () => box, open: openPicker,
+    // the new-prop reveal, for tests and previews
+    reveal: id => { const a = ACC.find(x => x.id === id); if (a && !revealQ.some(x => x.id === a.id)) { revealQ.push(a); revealSoon(); } return !!a; },
     tap: () => react(), cheer: k => { lastCheer = 0; cheer(k || "task"); }, greet: () => { try { sessionStorage.removeItem(GREET_KEY); } catch (e) {} greet(); },
     say: (t, o) => say(t, Object.assign({again: true}, o)),
     // A trip to a corner or any point (clamped into the allowed range), in a chosen style
@@ -78907,7 +79115,15 @@ function decorateDeck(){
     // The lifted copy lives inside #view so it keeps the card styles that are scoped to it
     st.ghost = st.item.cloneNode(true); st.ghost.classList.add("sort-ghost");
     Object.assign(st.ghost.style, {width: r.width + "px", height: r.height + "px", left: r.left + "px", top: r.top + "px"});
-    (document.getElementById("view") || document.body).appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
+    (document.getElementById("view") || document.body).appendChild(st.ghost);
+    // Where it will land: a dashed outline the card's size, as on Flashcards and Quizzes (the card itself waits, hidden, until the drop)
+    const ph = document.createElement("div"); ph.className = "placeholder sort-ph"; ph.dataset.sortId = st.item.dataset.sortId;
+    ph.style.height = r.height + "px";
+    // the card's corners (a course's wrapper has none of its own: the card inside it is the rounded one)
+    const kid = st.item.firstElementChild, rad = getComputedStyle(st.item).borderTopLeftRadius;
+    ph.style.borderRadius = parseFloat(rad) || !kid ? rad : getComputedStyle(kid).borderTopLeftRadius;
+    st.real = st.item; st.real.after(ph); st.real.style.display = "none"; st.real.removeAttribute("data-sort-id"); st.item = ph;
+    document.body.classList.add("sorting");
     sbHaptic("lift");
   };
   const move = (x, y) => {
@@ -78921,8 +79137,12 @@ function decorateDeck(){
   const end = drop => {
     clearTimeout(st.hold);
     if (st.on) {
-      st.ghost.remove(); st.item.classList.remove("sort-hole"); document.body.classList.remove("sorting"); noClick = Date.now();
-      if (drop) save(st.box.dataset.sortable, [...st.box.querySelectorAll(":scope > [data-sort-id]")].map(e => e.dataset.sortId));
+      st.ghost.remove(); document.body.classList.remove("sorting"); noClick = Date.now();
+      const ids = [...st.box.querySelectorAll(":scope > [data-sort-id]")].map(e => e.dataset.sortId);
+      // dropped: the card takes the outline's place; let go elsewhere (cancelled): it stays where it was
+      st.real.dataset.sortId = st.item.dataset.sortId; st.real.style.display = "";
+      if (drop) st.item.replaceWith(st.real); else st.item.remove();
+      if (drop) save(st.box.dataset.sortable, ids);
     }
     st = null;
   };
@@ -86545,6 +86765,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   }
 
   async function start(){
+    // felt as it starts: iOS turns haptics off while the microphone is recording, so this comes before it opens
+    sbHaptic("lift");
     const c = $("#lecCourse"), cap = $("#lecCap");
     REC.cid = c ? c.value : REC.cid; REC.title = titleFor(REC.cid); REC.captions = !!(cap && cap.checked);
     let stream;
@@ -86656,6 +86878,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (REC.aiCaps) aiCapsStop(REC, true);
     await Promise.all([done(REC.mr), done(REC.seg)]);
     release();
+    // and as it stops, once the microphone has let go (haptics are back on)
+    setTimeout(() => sbHaptic("tap", {force: true}), 150);
     if (REC.aiCaps) {
       const R = REC; await new Promise(r => setTimeout(r, 300));
       if (R.capPend > 0) { R.view = "busy"; R.busy = "Finishing the transcript…"; sheet(); await new Promise(res => { R.capDone = res; setTimeout(res, 60000); }); }
@@ -93339,6 +93563,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (k < 1) { const cv = document.createElement("canvas"); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k); cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height); bmp = await createImageBitmap(cv); }
       const p = {bmp, q: findCorners(bmp), rot: 0}; SCAN.pages.push(p); await scanRender(p);
       scanDraw();
+      // a tap as each page lands, like a camera's shutter (the photo comes back from the camera well after the tap that took it)
+      sbHaptic("tap", {force: true});
     }
     if (msg) msg.textContent = "";
   }
@@ -93893,7 +94119,11 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   { let kbWas = false; new MutationObserver(() => {
       const kb = document.documentElement.classList.contains("kb-open"); if (kb === kbWas) return; kbWas = kb;
       if (!kb || !E || !E.on) return;
-      setTimeout(() => { const el = dlg.querySelector(".pde-e.editing"); if (el && el.scrollIntoView) el.scrollIntoView({block: "center", inline: "nearest"}); }, 120);
+      // the bars at the top fold away as the keyboard rises: they move up by their own height (and fade), so the page below
+      // slides up smoothly instead of jumping
+      { const sh = dlg.querySelector(".pdr-sheet"), head = sh && sh.querySelector(":scope > .sheet-head");
+        if (sh && head) { let h = 0, el = head; while (el && el.matches(".sheet-head, .pdr-bar, .pdr-bar2")) { h += el.getBoundingClientRect().height; el = el.nextElementSibling; } sh.style.setProperty("--pdr-fold", Math.round(h) + "px"); } }
+      setTimeout(() => { const el = dlg.querySelector(".pde-e.editing"); if (el && el.scrollIntoView) el.scrollIntoView({block: "center", inline: "nearest", behavior: "smooth"}); }, 120);
     }).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]}); }
   SBPDE = window.SBPDE = {
     readerBtn: () => `<button type="button" class="btn small pde-mode" data-act="pde-mode" aria-pressed="false" id="pdeBtn">${ico(IC.edit)}Edit<b class="pdr-badge" hidden></b></button>`,
@@ -94188,8 +94418,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-diff del{background:#fde2e2;color:#8a1c1c;text-decoration:line-through}
 .pde-diff ins{background:#dcf5e3;color:#14532d;text-decoration:none}
 .pde-scan{width:min(820px,calc(100% - 24px))}
-.pde-scan-btn{display:inline-flex;align-items:center;gap:7px}
-.pde-scan-btn svg{flex:none;width:16px;height:16px}
+.pde-scan-btn,[data-act="pdt-convert"]{display:inline-flex;align-items:center;gap:7px}
+.pde-scan-btn svg,[data-act="pdt-convert"] svg{flex:none;width:16px;height:16px}
 .pde-scan-sheet .sheet-body{display:grid;gap:12px}
 .pde-scanlist .pde-cardbar{display:flex;flex-wrap:nowrap;justify-content:center;gap:4px}
 .pde-scanlist .pde-cardbar .icon-btn{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;display:inline-grid;place-items:center;flex:none}
@@ -94216,11 +94446,17 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-corner{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:rgba(255,255,255,.9);border:3px solid #2457c5;cursor:grab;touch-action:none}
 .pde-corner:focus-visible{outline:3px solid var(--ink)}
 @media (max-width:760px){ .pde-rt .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)} .pde-saybar{bottom:8px} }
-/* Phones, typing into the page: the reader fills just the space above the keyboard, and only the text style row stays,
-   so the line being typed has room (the title, page and mode bars, tools and notes come back when the keyboard closes) */
+/* Phones, typing into the page: the reader keeps its full height and makes room for the keyboard at its bottom (in its own
+   colour, so the page behind never shows as the keyboard slides), moving with the keyboard on the keyboard's own curve; the
+   title, page and mode bars fold away at the top as it rises and unfold as it goes, so the line being typed has room. Only
+   the text style row stays (the tools and notes come back when the keyboard closes) */
 @media (max-width:760px){
-  html.kb-open dialog#dlg:has(.pdr-sheet .pde-e.editing){top:0;bottom:auto;margin:0;height:var(--vv-h,100dvh);max-height:var(--vv-h,100dvh);transition:none}
-  html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar2,
+  dialog#dlg .pdr-sheet{box-sizing:border-box;transition:padding-bottom .3s cubic-bezier(.32,.72,0,1)}
+  html.kb-open dialog#dlg .pdr-sheet:has(.pde-e.editing){padding-bottom:var(--kb-h,0px)}
+  dialog#dlg .pdr-sheet > .sheet-head{transition:margin-top .3s cubic-bezier(.32,.72,0,1),opacity .2s ease}
+  dialog#dlg .pdr-sheet :is(.pdr-bar,.pdr-bar2){transition:opacity .2s ease}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head{margin-top:calc(-1 * var(--pdr-fold,0px));opacity:0;pointer-events:none}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) :is(.pdr-bar,.pdr-bar2){opacity:0;pointer-events:none}
   html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-tools,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-note,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar > .spacer{display:none!important}
   html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar{padding-top:6px;padding-bottom:6px}
 }
@@ -94249,6 +94485,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 @media (max-width:480px){
   .pdr-sheet .pdr-save .pdr-badge{display:none}
   .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode){padding:0 7px;gap:4px}
+  /* the count of edits waiting to be saved sits on the Edit icon's corner, so the switch keeps its width and never runs over
+     the buttons beside it */
+  .pdr-sheet .pdr-bar .pdr-modes > .pde-mode{position:relative}
+  .pdr-sheet .pdr-bar .pdr-modes > .pde-mode .pdr-badge{position:absolute;top:1px;inset-inline-end:-2px;margin:0;min-width:17px;height:17px;padding:0 4px;font-size:.66rem;line-height:1;box-shadow:0 0 0 2px var(--surface);pointer-events:none}
 }
 /* the narrowest phones: a slimmer switch, so four tools and More still fit beside it in Edit */
 @media (max-width:380px){
@@ -94858,7 +95098,7 @@ function reviewMemoryStore(){
     return true;
   });
   SBPDFT = window.SBPDFT = {
-    filesBtns: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small" data-act="pdt-convert">Convert</button>${PDT_BATCH ? `<button type="button" class="btn small" data-act="pdt-batch">PDF Batch</button>` : ""}`,
+    filesBtns: () => P.locked() || inPreview() ? "" : `<button type="button" class="btn small" data-act="pdt-convert"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3.9M4 13a8 8 0 0 0 14.9 3.9"/><path d="M4 4v4h4M20 20v-4h-4"/></svg>Convert</button>${PDT_BATCH ? `<button type="button" class="btn small" data-act="pdt-batch">PDF Batch</button>` : ""}`,
     review: {on: REVIEW_ON, norm: reviewNorm, merge: reviewMerge, can: reviewCan, key: reviewKey, memoryStore: reviewMemoryStore}
   };
   const css = document.createElement("style");
@@ -96134,7 +96374,7 @@ var SBWB = null;
     // (the options button follows the tab list rather than sitting inside it among the tabs)
     const opts = list.some(b => b.id === cur) ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options">${DOTS}</button>` : "";
     const strip = list.length ? `<div class="nb-boards wb-boards"><div class="nb-tlist" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>${opts}</div>` : "";
-    const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all">All Whiteboards</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
+    const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all" aria-label="All Whiteboards" title="All Whiteboards">All</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
     if (!list.length) return headHtml + `<div class="wb-empty"><div class="wb-empty-in"><h3>Start a Whiteboard</h3><p>Sketch, write and plan with markers on a big board you can zoom around.</p>
       <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Whiteboard</b><span class="mini">Start from a clean white board</span></span></button>
       <h4 class="wb-or">Or Start From a Template</h4><div class="wb-tiles">${tiles("", "", true, true)}</div></div></div>`;
@@ -98946,6 +99186,42 @@ var SBCLS = null;
     const w = tab.querySelector(".cls-week.is-now"); if (!w || w === tab.querySelector(".cls-week")) return;
     requestAnimationFrame(() => { try { const top = w.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo(0, Math.max(0, top)); } catch (e) {} });
   });
+
+  // Back to top: once the class list is scrolled well down, a round arrow sits just above the add button (or in its corner
+  // when there is none); a tap glides back to the top of the page
+  {
+    let btn = null, raf = 0;
+    const check = () => {
+      raf = 0;
+      const tab = document.querySelector(".cls-tab"), R = document.documentElement;
+      const on = !!tab && !R.classList.contains("kb-open") && !R.classList.contains("board-max") && !(document.getElementById("dlg") || {}).open && window.scrollY > Math.max(480, innerHeight * 0.75);
+      if (on && !btn) {
+        btn = document.createElement("button"); btn.type = "button"; btn.className = "cls-totop";
+        btn.setAttribute("aria-label", "Back to top"); btn.title = "Back to top";
+        btn.innerHTML = SV('<path d="M12 19V5M5 12l7-7 7 7"/>', 22);
+        btn.addEventListener("click", () => {
+          const still = R.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+          window.scrollTo({top: 0, behavior: still ? "auto" : "smooth"});
+          // keyboard users land on the list's heading, not lost at the bottom of the page
+          const h = document.querySelector(".cls-tab .cls-top h2, .cls-tab .cls-top"); if (h && document.activeElement === btn) { h.tabIndex = -1; try { h.focus({preventScroll: true}); } catch (e) {} }
+        });
+        document.body.appendChild(btn);
+      }
+      if (!btn) return;
+      if (on) {
+        // lined up with the add button, just above it
+        const fab = document.querySelector(".fab"), fr = fab && getComputedStyle(fab).display !== "none" && getComputedStyle(fab).visibility !== "hidden" ? fab.getBoundingClientRect() : null;
+        if (fr && fr.width && fr.top < innerHeight) {
+          btn.style.setProperty("left", Math.round(fr.left + fr.width / 2 - 22) + "px");
+          btn.style.setProperty("bottom", Math.round(innerHeight - fr.top + 12) + "px");
+        } else { btn.style.removeProperty("left"); btn.style.removeProperty("bottom"); }
+      }
+      btn.classList.toggle("on", on); btn.tabIndex = on ? 0 : -1; btn.setAttribute("aria-hidden", on ? "false" : "true");
+    };
+    const soon = () => { if (!raf) raf = requestAnimationFrame(check); };
+    addEventListener("scroll", soon, {passive: true}); addEventListener("resize", soon);
+    hook("render", soon);
+  }
 
   SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();
@@ -103024,6 +103300,8 @@ if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", where
 const css = document.createElement("style");
 css.textContent = `
 dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
+/* phones: a full-width sheet like every other (the 24px left for margins sat all on the right, so it looked pushed left) */
+@media (max-width:639px){dialog:has(.ws-sheet){width:100%}}
 /* the tabs change the body's height: keep the window's top edge still (anchored near the top; a full-height sheet on phones) so the tabs don't slide away from the pointer */
 @media (min-width:601px){dialog:has(.ws-sheet){margin:4vh auto auto}}
 @media (max-width:600px){dialog:has(.ws-sheet){height:90vh;height:90dvh}dialog:has(.ws-sheet) > .ws-sheet{height:100%}.ws-sheet > .ws-body{flex:1 1 auto}}
@@ -105294,8 +105572,10 @@ const AUTOPILOT = (() => {
       const view = document.getElementById("view"); if (!view) return;
       // (not on a group's own page: its header already names it, and the title would push the group down)
       if (isPhone() && (tab === "notes" || (tab === "groups" && !ui.grp)) && !view.querySelector(":scope > .pview-tabs")) {
-        const pill = document.createElement("div"); pill.className = "pview-tabs ph-solo"; pill.setAttribute("role", "heading"); pill.setAttribute("aria-level", "2");
-        pill.innerHTML = `<span class="ph-solo-t"></span>`; pill.firstChild.textContent = t;
+        // drawn as the other tabs' switch with its one choice picked (a real tab button, so every theme styles it the same way);
+        // to screen readers it's just the page's heading
+        const pill = document.createElement("div"); pill.className = "pview-tabs pg-tabs ph-solo"; pill.setAttribute("role", "heading"); pill.setAttribute("aria-level", "2"); pill.setAttribute("aria-label", t);
+        pill.innerHTML = `<button type="button" class="ph-solo-t" aria-selected="true" aria-hidden="true" tabindex="-1"></button>`; pill.firstChild.textContent = t;
         view.insertBefore(pill, view.firstChild);
       }
       const sel = view.querySelector(":scope > .pview-tabs [aria-selected=true], :scope > .pview-tabs.ph-solo > .ph-solo-t");
@@ -105608,6 +105888,14 @@ const AUTOPILOT = (() => {
   document.addEventListener("click", e => {
     document.querySelectorAll("details.ph-more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".ph-menu .btn")) d.open = false; });
   });
+  // once a menu closes, its ⋯ button doesn't stay highlighted (it kept the focus from the tap); someone moving with a keyboard
+  // keeps their place
+  document.addEventListener("toggle", e => {
+    const d = e.target; if (!(d instanceof HTMLDetailsElement) || d.open || !d.classList.contains("ph-more")) return;
+    const s = d.querySelector(":scope > summary"), a = document.activeElement; if (!s || !(a === s || d.contains(a))) return;
+    let kb = false; try { kb = s.matches(":focus-visible"); } catch (x) {}
+    if (!kb) a.blur();
+  }, true);
   // The phone course filter (see chipsHtml)
   document.addEventListener("change", e => { const s = e.target; if (!s || !s.matches || !s.matches("select[data-course-filter]")) return; ui.filter = s.value || "all"; render(); });
   // The phone note board dropdown
@@ -106096,12 +106384,13 @@ const AUTOPILOT = (() => {
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], effPref(), "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
-    ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll.</span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
+    ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll. <button type="button" class="link-btn" data-act="haptic-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
+    if (act === "haptic-try") { hapticInputAt = Date.now(); hapticTry().then(m => toast(m)); return true; }
     if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
     if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
     if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }
@@ -106673,9 +106962,17 @@ ui._day = todayISO();
   // the dialog itself would focus an [autofocus] box as it opens, which on a phone pops the keyboard up for a moment
   // (the sheet shrinks above it, then stretches back down as it drops), so on a phone nothing is marked to take focus
   const noAuto = d => { try { if (phoneW()) d.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus")); } catch (e) {} };
+  // A pop-up's entrance waits for its first drawn frame. Opening one also builds it and redraws the page behind, which can take a
+  // few hundred milliseconds on a phone; the slide-up's clock used to run through that, so by the first frame anyone saw it was
+  // nearly over and the sheet seemed to pop into place. It's held at its start (still off the bottom, or see-through) until the
+  // sheet has been drawn once, then plays in full.
+  // (phones only: on computers pop-ups open as they always have)
+  const hold = el => { if (!el || !on() || !phoneW()) return; el.classList.add("sm-hold"); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("sm-hold"))); };
+  window.SBSMOOTH = Object.assign(window.SBSMOOTH || {}, {hold});
   HTMLDialogElement.prototype.showModal = function(){
     noAuto(this);
     const r = showModal0.apply(this, arguments);
+    hold(this);
     quiet(this); requestAnimationFrame(() => quiet(this));
     return r;
   };
@@ -106706,25 +107003,35 @@ ui._day = todayISO();
       return () => {
         document.body.appendChild(host); try { host.showPopover(); } catch (e) {}
         if (sc2) sc2.scrollTop = st;   // where it was scrolled to
-        // quick but smooth: it gets going at once and eases off as it leaves (was 260ms, slow to start)
-        const ease = {duration: 180, easing: "cubic-bezier(.3,0,.7,.4)", fill: "forwards"};
-        const a = c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease);
-        host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
-        const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 450);
+        // it starts moving on the next frame, once the page's own work after closing (saving, redrawing the list) is done, so the
+        // whole slide is seen rather than its last few frames (phones only: pop-ups on computers close as they always have)
+        const done = () => host.remove(); setTimeout(done, 900);
+        requestAnimationFrame(() => {
+          const ease = {duration: 300, easing: "cubic-bezier(.4,0,.6,1)", fill: "forwards"};
+          const a = c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease);
+          host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
+          a.finished.then(done, done);
+        });
       };
     } catch (e) { return null; }
   }
+  let escGhost = null;
   HTMLDialogElement.prototype.close = function(){
+    escGhost = null;
     const ghost = sheetGhost(this);
     const r = close0.apply(this, arguments);
     if (ghost) ghost();
     return r;
   };
+  // Esc closes a pop-up through the browser, not close(): a stand-in is made as Esc is pressed and plays only if the pop-up
+  // really closes (a sheet that asks "Discard changes?" first stops the Esc, and then nothing plays)
+  document.addEventListener("cancel", e => { const d = e.target; escGhost = d instanceof HTMLDialogElement ? {d, run: sheetGhost(d)} : null; }, true);
+  document.addEventListener("close", e => { const g = escGhost; escGhost = null; if (g && g.d === e.target && g.run && !e.target.open) g.run(); }, true);
   // The main sheets carry their own showModal (99-release.js), so wrap those too
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
     const f = d.showModal;
-    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
   });
 
   // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped

@@ -30,7 +30,7 @@
   .env.closed{left:14px;right:auto}
   .env:not(.closed){max-height:min(380px,48dvh)}
   .env:not(.closed) .env-body{overflow:hidden auto}
-  .nb-wrap:has(.env:not(.closed)) .nb-main{padding-bottom:min(380px,48dvh)}
+  .nb-wrap:has(.env:not(.closed)) .nb-main{margin-bottom:min(380px,48dvh)}
   .env{transition:opacity .15s}
   body.stk-dragging .env{opacity:0;pointer-events:none}
 }
@@ -699,6 +699,11 @@ h2.sec.c2-bh{align-items:center}
 /* Deck previews (Review > Flashcards) */
 .deck .face,.deck .deck-lay .face{border:0!important;outline:0!important;box-shadow:0 0 0 1px var(--line),0 12px 30px rgba(14,42,86,.14)!important}
 .deck .deck-lay .face{box-shadow:0 0 0 1px var(--line)!important}
+/* A flashcard deck's face and its course band are clipped as one piece: with a rounded background clipping the band, the
+   face's cream showed as a thin light line round the band's top corners. The face is painted square and cut to its rounded
+   shape once (--fr is its own radius, read in 01-flashcards.js), and the ring and shadow sit on the card around it */
+.deck.deck-fc.fr-on > .deck-face{border-radius:0!important;clip-path:inset(0 round var(--fr,8px));box-shadow:none!important}
+.deck.deck-fc.fr-on{border-radius:var(--fr,8px)!important;box-shadow:0 0 0 1px var(--line),0 12px 30px rgba(14,42,86,.14)!important}
 .deck .deck-lay{border:0!important;outline:0!important;box-shadow:none!important;background:none!important}
 /* The cards behind sit 6px lower and right, less than the 8px corner */
 .deck.deck-fc .fc-band{padding-top:7px!important;padding-bottom:7px!important}
@@ -1121,7 +1126,8 @@ html .fhead.g2-head .g2-txt{padding-top:0;flex:1 1 12em}
 .fnode.sub{padding-left:42px}
 .flist{border-radius:16px!important;overflow:hidden}
 .frow{transition:background .15s}
-.frow:hover{background:color-mix(in srgb,var(--soft) 50%,var(--surface))}
+/* (a mouse or trackpad only: on a phone a tap leaves a row "hovered", painting it solid over a see-through list) */
+@media (hover:hover){.frow:hover{background:color-mix(in srgb,var(--soft) 50%,var(--surface))}}
 .frow > a.btn{text-decoration:none!important;border-radius:999px;padding-inline:14px}
 .frow > .f-sum{border-radius:999px;padding-inline:12px;gap:6px;display:inline-flex;align-items:center}
 .frow > .f-sum svg{width:14px;height:14px}
@@ -1133,7 +1139,7 @@ html .fhead.g2-head .g2-txt{padding-top:0;flex:1 1 12em}
 /* The lifted copy has no frosted backdrop: Safari paints it square-cornered for a moment before the rounded clip catches up */
 .sort-ghost,.sort-ghost *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 .sort-ghost.grp-card{background:var(--surface)!important;border-radius:18px!important;overflow:hidden;will-change:transform}
-.sort-hole{opacity:.25;outline:2px dashed var(--line);outline-offset:4px;border-radius:18px}
+.sort-ph{box-sizing:border-box;min-height:60px}
 body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
 /* A long press reorders: the browser's own long-press preview, text selection and drag of a link or picture must not start first */
 [data-sortable] > [data-sort-id],[data-sortable] > [data-sort-id] *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none}

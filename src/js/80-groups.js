@@ -1875,14 +1875,13 @@
     };
   }
 
-  // Without AI: say what the AI plan needs (and offer to set it up), with a ready-made plan to use right away
+  // Without AI: a ready-made plan to use right away (no AI notice: it works as it is)
   function basicPlanSheet(g, x){
     const today = todayISO(), dated = GK.planFromDue(g.project_due, today).length > 0;
     // with no due date (or one that's passed) the same steps come without dates
     const steps = dated ? GK.planFromDue(g.project_due, today) : GK.planFromDue(GTL.addDays(today, 28), today).map(t => ({title: t.title, due: ""}));
     openSheet(`<form class="sheet">${head("Start From a Plan")}<div class="sheet-body">
-      <p style="margin:0"><b>This uses AI.</b> Describe the project and AI suggests the tasks for your team. <button type="button" class="link-btn" data-act="grp-pt-plan-ai">Set it up (about 1 minute)</button></p>
-      ${steps.length ? `<fieldset><legend>Or Use a Ready-Made Plan</legend><p class="mini" style="margin:0 0 6px">The usual steps of a group project${dated ? `, spaced out before the due date (${esc(fmtShort(g.project_due))})` : ""}. Untick any you don't want.</p>
+      ${steps.length ? `<fieldset><legend>A Ready-Made Plan</legend><p class="mini" style="margin:0 0 6px">The usual steps of a group project${dated ? `, spaced out before the due date (${esc(fmtShort(g.project_due))})` : ""}. Untick any you don't want.</p>
         ${steps.map((t, i) => `<label class="mi-check"><input type="checkbox" data-bp="${i}" checked> ${esc(t.title)}${t.due ? ` <span class="mini">${esc(fmtShort(t.due))}</span>` : ""}</label>`).join("")}</fieldset>` : ""}
       <p class="status-msg" id="bpStatus" style="margin:0" aria-live="polite"></p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${steps.length ? `<button type="button" class="btn primary" id="bpAdd">Add Tasks</button>` : `<button type="button" class="btn primary" data-act="grp-pt-plan-ai">Set Up AI</button>`}</div></form>`);
@@ -2187,7 +2186,7 @@
     const err = x.err ? `<div class="grp-err" role="alert"><span>${esc(x.err)}</span><button type="button" class="btn small" data-act="grp-pt-retry">Try Again</button></div>` : "";
     const top = `${head2}<span class="n">${openAll} open</span><span class="spacer"></span></h3>`;
     if (proj) return ptProjHtml(g, x, top, err, activeIds);
-    if (!lists.length) return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}<p class="grp-none">Split up the work: make a list for a project, like “BIOL 201 Poster”, then add the first task.</p>${proj && GTL.isDay(g.project_due) ? `<div class="row-actions"><button type="button" class="btn small ai-btn" data-act="grp-pt-plan">${AI_ICON} Start From a Plan<span class="ai-lbl">AI</span></button></div>` : ""}</section>`;
+    if (!lists.length) return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}<p class="grp-none">Split up the work: make a list for a project, like “BIOL 201 Poster”, then add the first task.</p>${proj && GTL.isDay(g.project_due) ? `<div class="row-actions"><button type="button" class="btn small" data-act="grp-pt-plan">Start From a Plan</button></div>` : ""}</section>`;
     const chips = lists.filter(l => !l.archived || x.arch).map(l => {
       const n = x.tasks.filter(t => t.list_id === l.id && t.status !== "done" && !t.deleted).length;
       return `<button type="button" class="pt-chip${l.id === curId ? " on" : ""}${l.archived ? " arch" : ""}" data-act="grp-pt-list" data-id="${esc(l.id)}" aria-pressed="${l.id === curId}"><span>${esc(l.title)}</span><small>${l.archived ? "archived" : n + " open"}</small></button>`;
@@ -2212,7 +2211,7 @@
       : !shown.length ? `<p class="grp-none">${{mine: "Nothing assigned to you here.", unassigned: "Every open task has an owner.", overdue: "Nothing is overdue.", done: "Nothing is done yet."}[x.filter] || "No tasks."}</p>` : "";
     return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}
       <div class="pt-lists" role="group" aria-label="Task lists">${chips}</div>
-      <div class="pt-listbar"><span class="pt-lname"><b>${esc(cur.title)}</b>${cur.course_code ? ` <span class="pill">${esc(cur.course_code)}</span>` : ""}</span>${proj ? `<span class="pt-view" role="group" aria-label="View">${[["list", "List"], ["board", "Board"]].map(([v, l]) => `<button type="button" class="pt-f${(x.view || "list") === v ? " on" : ""}" data-act="grp-pt-view" data-v="${v}" aria-pressed="${(x.view || "list") === v}">${l}</button>`).join("")}</span>` : ""}${proj && canAdd && GTL.isDay(g.project_due) ? `<button type="button" class="btn small ai-btn" data-act="grp-pt-plan">${AI_ICON} Start From a Plan<span class="ai-lbl">AI</span></button>` : ""}${archBtn}<button type="button" class="btn small" data-act="grp-pt-list-edit" data-id="${esc(cur.id)}">List Options</button></div>
+      <div class="pt-listbar"><span class="pt-lname"><b>${esc(cur.title)}</b>${cur.course_code ? ` <span class="pill">${esc(cur.course_code)}</span>` : ""}</span>${proj ? `<span class="pt-view" role="group" aria-label="View">${[["list", "List"], ["board", "Board"]].map(([v, l]) => `<button type="button" class="pt-f${(x.view || "list") === v ? " on" : ""}" data-act="grp-pt-view" data-v="${v}" aria-pressed="${(x.view || "list") === v}">${l}</button>`).join("")}</span>` : ""}${proj && canAdd && GTL.isDay(g.project_due) ? `<button type="button" class="btn small" data-act="grp-pt-plan">Start From a Plan</button>` : ""}${archBtn}<button type="button" class="btn small" data-act="grp-pt-list-edit" data-id="${esc(cur.id)}">List Options</button></div>
       <div class="pt-prog"><div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pr.pct}" aria-label="Progress on ${esc(cur.title)}"><i style="width:${pr.pct}%"></i></div><span class="mini">${pr.done} of ${pr.total} done</span></div>
       ${wlHtml}${add}
       ${proj && (x.view || "list") === "board" ? ptBoard(g, tasks, today) : `<div class="pt-filters" role="group" aria-label="Filter tasks">${PT_FILTERS.map(([k, l]) => `<button type="button" class="pt-f${x.filter === k ? " on" : ""}" data-act="grp-pt-filter" data-f="${k}" aria-pressed="${x.filter === k}">${l}${k === "all" ? "" : ` <small>${cnt[k]}</small>`}</button>`).join("")}</div>
@@ -2227,7 +2226,7 @@
     const bf = PT_BFILTERS.some(f => f[0] === x.bf) ? x.bf : "all", pick = f => f === "mine" ? tasks.filter(t => t.assignee_id === me) : f === "unassigned" ? tasks.filter(t => !t.assignee_id && t.status !== "done") : tasks;
     const filters = tasks.length ? `<div class="pt-filters" role="group" aria-label="Show tasks">${PT_BFILTERS.map(([k, l]) => `<button type="button" class="pt-f${bf === k ? " on" : ""}" data-act="grp-pt-bfilter" data-f="${k}" aria-pressed="${bf === k}">${l}${k === "all" ? "" : ` <small>${pick(k).filter(t => t.status !== "done").length}</small>`}</button>`).join("")}</div>` : "";
     return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}
-      <div class="pt-listbar"><button type="button" class="btn small ai-btn" data-act="grp-pt-plan">${AI_ICON} Start From a Plan<span class="ai-lbl">AI</span></button></div>
+      <div class="pt-listbar"><button type="button" class="btn small" data-act="grp-pt-plan">Start From a Plan</button></div>
       <div class="pt-prog"><div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pr.pct}" aria-label="Project progress"><i style="width:${pr.pct}%"></i></div><span class="mini">${pr.done} of ${pr.total} done</span></div>
       ${wlHtml}${tasks.length ? "" : empty}${filters}
       ${ptBoard(g, pick(bf), today)}</section>`;
