@@ -107,7 +107,8 @@ async function assetBytes(id){
   if (!inPreview() && FCACHE.ok(id)) { const hit = await FCACHE.get(id); if (hit) { FCACHE.hits++; return new Uint8Array(await hit.arrayBuffer()); } }
   if (inPreview()) { const r = await fetch("/_blob/" + id); if (!r.ok) throw new Error("fetch " + r.status); return new Uint8Array(await r.arrayBuffer()); }
   if (!sbActive()) throw new Error("not signed in");
-  const data = await sbDownload(id).catch(e => { throw new Error((e && e.message) || "download failed"); });
+  // missing: the account has no such file (storage answers 400 "Object not found"), so asking again won't help
+  const data = await sbDownload(id).catch(e => { throw Object.assign(new Error((e && e.message) || "download failed"), {missing: !!e && (String(e.statusCode) === "404" || e.status === 404 || /object not found|not_found/i.test(String(e.message || "")))}); });
   return new Uint8Array(await data.arrayBuffer());
 }
 const hasStoredFiles = () => Object.values(state.files).some(f => f.kind === "file" && (f.revs || []).some(r => r && r.assetId));
