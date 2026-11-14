@@ -512,14 +512,19 @@ let hapticAt = 0, hapticInputAt = 0, hapticSel = false;
 // Capacitor only lists a plugin in Capacitor.Plugins once something registers it, and this page doesn't load the plugin's own
 // script, so it's registered here by name (as native-bridge.js does for the app's other plugins). Looking only in Plugins found
 // nothing in the real app, and every haptic was silently skipped
-let hapticReg = null;
+// The app has two ways to reach the iPhone's haptics: @capacitor/haptics ("Haptics") and Studyboard's own plugin in
+// MainViewController.swift ("StudyboardHaptics", the same calls), which is always built in. Whichever is there is used.
+let hapticReg = {};
 function hapticNative(){
   try {
     const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
-    if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return null;
-    if (C.Plugins && C.Plugins.Haptics) return C.Plugins.Haptics;
-    if (!hapticReg && typeof C.registerPlugin === "function") hapticReg = C.registerPlugin("Haptics");
-    return hapticReg || null;
+    for (const name of ["Haptics", "StudyboardHaptics"]) {
+      if (C.isPluginAvailable && !C.isPluginAvailable(name)) continue;
+      if (C.Plugins && C.Plugins[name]) return C.Plugins[name];
+      if (!hapticReg[name] && typeof C.registerPlugin === "function") hapticReg[name] = C.registerPlugin(name);
+      if (hapticReg[name]) return hapticReg[name];
+    }
+    return null;
   } catch (e) { return null; }
 }
 // a phone or tablet: the iPhone or Android app, or a browser on a touch screen with no mouse
@@ -557,8 +562,8 @@ async function hapticTry(){
     const H = hapticNative();
     if (!H) {
       // what the app can see, for working out why: the plugin listed by the app, and its JavaScript side
-      let seen = ""; try { seen = ` (plugin listed: ${C.isPluginAvailable ? (C.isPluginAvailable("Haptics") ? "yes" : "no") : "?"}, can register: ${typeof C.registerPlugin === "function" ? "yes" : "no"})`; } catch (e) {}
-      if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return "The haptics plugin isn't built into this copy of the app" + seen + ". On the Mac, npm run ios:stage says what's missing; then build the app again.";
+      let seen = ""; try { const has = n => C.isPluginAvailable ? (C.isPluginAvailable(n) ? "yes" : "no") : "?"; seen = ` (Haptics: ${has("Haptics")}, StudyboardHaptics: ${has("StudyboardHaptics")}, can register: ${typeof C.registerPlugin === "function" ? "yes" : "no"})`; } catch (e) {}
+      if (C.isPluginAvailable && !C.isPluginAvailable("Haptics") && !C.isPluginAvailable("StudyboardHaptics")) return "Neither haptics plugin is built into this copy of the app" + seen + ". On the Mac, run npm run ios:stage and build the app again (MainViewController.swift has Studyboard's own).";
       return "This copy of the app can't reach the iPhone's haptics" + seen + ". Install the newest build (TestFlight, or run it from Xcode) and try again.";
     }
     // a strong one, then the success pattern, so there's no mistaking it

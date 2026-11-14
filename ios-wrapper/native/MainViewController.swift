@@ -12,7 +12,7 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     override func capacitorDidLoad() {
         // Studyboard's own plugins, each only if its file is in the project (so this file builds whatever you've added)
-        for name in ["StudyboardFocusActivityPlugin", "StudyboardHomeWidgetsPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardSiriDataPlugin", "StudyboardLmsPlugin", "StudyboardSignInPlugin", "StudyboardStorePlugin"] {
+        for name in ["StudyboardFocusActivityPlugin", "StudyboardHomeWidgetsPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardSiriDataPlugin", "StudyboardLmsPlugin", "StudyboardSignInPlugin", "StudyboardStorePlugin", "StudyboardHapticsPlugin"] {
             // (ios:stage also lists them for Capacitor, which then connects them itself; never twice)
             if let type = NSClassFromString(name) as? CAPPlugin.Type, let plugin = (type as NSObject.Type).init() as? CAPPlugin,
                bridge?.plugin(withName: (plugin as? CAPBridgedPlugin)?.jsName ?? "") == nil {
@@ -209,3 +209,66 @@ public class StudyboardStorePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 }
 
+
+// Haptics, from this file rather than the @capacitor/haptics package: this file is always built into the app, so haptics don't
+// depend on that package's native code making it in through CocoaPods or Swift packages (a TestFlight build showed it hadn't).
+// The same four calls as @capacitor/haptics, so the page uses whichever is there (sbHaptic in src/js/01-helpers.js).
+@objc(StudyboardHapticsPlugin)
+public class StudyboardHapticsPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "StudyboardHapticsPlugin"
+    public let jsName = "StudyboardHaptics"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "impact", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "notification", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "selectionStart", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "selectionChanged", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "selectionEnd", returnType: CAPPluginReturnPromise)
+    ]
+    private var selection: UISelectionFeedbackGenerator?
+
+    @objc func impact(_ call: CAPPluginCall) {
+        let s = (call.getString("style") ?? "MEDIUM").uppercased()
+        let style: UIImpactFeedbackGenerator.FeedbackStyle = s == "HEAVY" ? .heavy : s == "LIGHT" ? .light : .medium
+        DispatchQueue.main.async {
+            let g = UIImpactFeedbackGenerator(style: style)
+            g.prepare()
+            g.impactOccurred()
+            call.resolve()
+        }
+    }
+
+    @objc func notification(_ call: CAPPluginCall) {
+        let t = (call.getString("type") ?? "SUCCESS").uppercased()
+        let type: UINotificationFeedbackGenerator.FeedbackType = t == "WARNING" ? .warning : t == "ERROR" ? .error : .success
+        DispatchQueue.main.async {
+            let g = UINotificationFeedbackGenerator()
+            g.prepare()
+            g.notificationOccurred(type)
+            call.resolve()
+        }
+    }
+
+    @objc func selectionStart(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.selection = UISelectionFeedbackGenerator()
+            self.selection?.prepare()
+            call.resolve()
+        }
+    }
+
+    @objc func selectionChanged(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let g = self.selection ?? UISelectionFeedbackGenerator()
+            g.selectionChanged()
+            g.prepare()
+            call.resolve()
+        }
+    }
+
+    @objc func selectionEnd(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.selection = nil
+            call.resolve()
+        }
+    }
+}

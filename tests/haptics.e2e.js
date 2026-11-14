@@ -11,9 +11,9 @@ const seed = () => ({v: 2, courses: [{id: "c1", name: "Biology 101", code: "BIO1
   files: [], notes: [], decks: [], events: [], settings: {capacity: 15}, updated: 1});
 
 // native: a stand-in for the Capacitor bridge and its Haptics plugin that records each call
-async function open(b, {phone, native, off, noPlugin}) {
+async function open(b, {phone, native, off, noPlugin, own}) {
   const ctx = await b.newContext(phone ? {viewport: {width: 390, height: 844}, deviceScaleFactor: 2, isMobile: true, hasTouch: true} : {viewport: {width: 1280, height: 800}});
-  await ctx.addInitScript(([s, native, off, noPlugin]) => {
+  await ctx.addInitScript(([s, native, off, noPlugin, own]) => {
     window.__SB_TEST = true; localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local"));
     if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify(s));
     if (off) localStorage.setItem("studyboard:haptics", "off");
@@ -23,10 +23,13 @@ async function open(b, {phone, native, off, noPlugin}) {
       const rec = k => o => { window.__h.push([k, o ? (o.style || o.type || "") : ""]); return Promise.resolve(); };
       // as in the real app: Capacitor.Plugins starts empty, and a plugin whose own script isn't loaded is reached by registering it
       const H = {impact: rec("impact"), notification: rec("notification"), selectionStart: rec("selectionStart"), selectionChanged: rec("selectionChanged")};
-      window.Capacitor = {isNativePlatform: () => true, isPluginAvailable: n => n === "Haptics" && !noPlugin, getPlatform: () => "ios", Plugins: {},
-        registerPlugin: n => { window.__h.push(["register", n]); return n === "Haptics" ? H : {}; }};
+      // own: a build where @capacitor/haptics' native code didn't make it in, and only Studyboard's own plugin (MainViewController.swift)
+      // is there; it's listed in Capacitor.Plugins by the app, and this page has no registerPlugin (as a TestFlight build showed)
+      window.Capacitor = own ? {isNativePlatform: () => true, isPluginAvailable: n => n === "StudyboardHaptics", getPlatform: () => "ios", Plugins: {StudyboardHaptics: H}}
+        : {isNativePlatform: () => true, isPluginAvailable: n => n === "Haptics" && !noPlugin, getPlatform: () => "ios", Plugins: {},
+          registerPlugin: n => { window.__h.push(["register", n]); return n === "Haptics" ? H : {}; }};
     }
-  }, [seed(), !!native, !!off, !!noPlugin]);
+  }, [seed(), !!native, !!off, !!noPlugin, !!own]);
   const p = await ctx.newPage(); p.errs = []; p.on("pageerror", e => p.errs.push(e.message));
   await p.goto(F); await p.waitForTimeout(2000);
   await p.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
@@ -101,7 +104,18 @@ const checkOff = async (p, id) => {
       await p.evaluate(() => { const m = document.querySelector('[data-act="menu"]'); if (m) m.click(); }); await p.waitForTimeout(600);
       await p.evaluate(() => dlg.querySelector('[data-act="haptic-try"]').click()); await p.waitForTimeout(300);
       const t = await p.evaluate(() => document.getElementById("toastMsg").textContent);
-      ok(/isn't built into this copy of the app/.test(t) && /plugin listed: no/.test(t) && /ios:stage/.test(t), `Try It in a build without the haptics plugin says so, and what it can see ("${t}")`);
+      ok(/Neither haptics plugin is built into this copy of the app/.test(t) && /Haptics: no, StudyboardHaptics: no/.test(t) && /ios:stage/.test(t), `Try It in a build without the haptics plugin says so, and what it can see ("${t}")`);
+      ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
+      await ctx.close();
+    }
+    { // the iPhone app with only Studyboard's own haptics plugin built in
+      const {ctx, p} = await open(b, {phone: true, native: true, own: true});
+      const h = await checkOff(p, "t0");
+      ok(h.length === 1 && h[0][0] === "impact" && h[0][1] === "MEDIUM", `with only Studyboard's own plugin, checking off a task is still a firm tap (${JSON.stringify(h)})`);
+      await p.evaluate(() => { const m = document.querySelector('[data-act="menu"]'); if (m) m.click(); }); await p.waitForTimeout(600);
+      await calls(p); await p.evaluate(() => dlg.querySelector('[data-act="haptic-try"]').click()); await p.waitForTimeout(900);
+      const t = await p.evaluate(() => document.getElementById("toastMsg").textContent), h2 = await calls(p);
+      ok(h2.length === 2 && /Sent two taps/.test(t), `and Try It goes through it (${JSON.stringify(h2)}; "${t}")`);
       ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
       await ctx.close();
     }
