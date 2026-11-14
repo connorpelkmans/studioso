@@ -1178,6 +1178,7 @@ html[data-motion="static"] .rv-ghost{transform:none}
 .pomo-cycle i.on{background:var(--tomato)}
 .pomo-cycle span{margin-left:6px}
 .pomo-ctl{display:flex;justify-content:center;align-items:center;gap:10px}
+.pomo-ctl > .btn{white-space:nowrap}   /* one line, so the buttons keep their size whichever timer is chosen */
 .btn.big{padding:14px 26px;font:700 1.08rem var(--display);border-radius:14px}
 .pomo-today{margin:0;text-align:center;color:var(--muted);font-size:.92rem}
 .pomo-today b{color:var(--ink)}
