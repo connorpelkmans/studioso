@@ -374,8 +374,6 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #view .next-up .nu-row{grid-template-columns:26px auto minmax(0,1fr)}
   #view .next-up .nu-title{grid-column:2 / -1;padding-right:0}
   #view .next-up .nu-body > :not(.nu-title){grid-column:2 / -1}
-  #view .next-up .nu-body > .nu-tag-out{grid-column:2;grid-row:2;align-self:center}
-  #view .next-up .nu-body > .nu-tag-out ~ .nu-more{grid-column:3;grid-row:2;align-self:center}
   #view .next-up .nu-acts{grid-column:1 / -1}
 }
 
@@ -419,3 +417,10 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   body:has(#toast.show) .acc-chip:not([hidden]){left:12px;right:12px;width:auto;bottom:calc(var(--sb-snack-b) + var(--toast-h,52px));border-radius:18px 18px 0 0}
   body:has(.acc-chip:not([hidden])) #toast.show{width:auto;border-radius:0 0 16px 16px}
 }
+
+/* Do This Next: under the title, one line with the course, a take-home exam's tag and Details (01-next-up.js nuMeta) */
+.next-up .nu-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;min-width:0}
+.next-up .nu-meta > .nu-tag-out{margin:0}
+.next-up .nu-rx-out{display:inline-flex;align-items:center;margin:0;padding:3px 8px;border-radius:999px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:var(--muted);background:color-mix(in srgb,var(--ink) 9%,transparent)}
+/* on wider screens Details isn't shown, so a line with nothing else on it takes no room */
+@media (min-width:640px){.next-up .nu-meta:not(:has(.nu-tag-out,.nu-rx-out)){display:none}}
