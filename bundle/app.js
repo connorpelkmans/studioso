@@ -94059,7 +94059,11 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   { let kbWas = false; new MutationObserver(() => {
       const kb = document.documentElement.classList.contains("kb-open"); if (kb === kbWas) return; kbWas = kb;
       if (!kb || !E || !E.on) return;
-      setTimeout(() => { const el = dlg.querySelector(".pde-e.editing"); if (el && el.scrollIntoView) el.scrollIntoView({block: "center", inline: "nearest"}); }, 120);
+      // the bars at the top fold away as the keyboard rises: they move up by their own height (and fade), so the page below
+      // slides up smoothly instead of jumping
+      { const sh = dlg.querySelector(".pdr-sheet"), head = sh && sh.querySelector(":scope > .sheet-head");
+        if (sh && head) { let h = 0, el = head; while (el && el.matches(".sheet-head, .pdr-bar, .pdr-bar2")) { h += el.getBoundingClientRect().height; el = el.nextElementSibling; } sh.style.setProperty("--pdr-fold", Math.round(h) + "px"); } }
+      setTimeout(() => { const el = dlg.querySelector(".pde-e.editing"); if (el && el.scrollIntoView) el.scrollIntoView({block: "center", inline: "nearest", behavior: "smooth"}); }, 120);
     }).observe(document.documentElement, {attributes: true, attributeFilter: ["class"]}); }
   SBPDE = window.SBPDE = {
     readerBtn: () => `<button type="button" class="btn small pde-mode" data-act="pde-mode" aria-pressed="false" id="pdeBtn">${ico(IC.edit)}Edit<b class="pdr-badge" hidden></b></button>`,
@@ -94382,11 +94386,17 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 .pde-corner{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:rgba(255,255,255,.9);border:3px solid #2457c5;cursor:grab;touch-action:none}
 .pde-corner:focus-visible{outline:3px solid var(--ink)}
 @media (max-width:760px){ .pde-rt .pde-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)} .pde-saybar{bottom:8px} }
-/* Phones, typing into the page: the reader fills just the space above the keyboard, and only the text style row stays,
-   so the line being typed has room (the title, page and mode bars, tools and notes come back when the keyboard closes) */
+/* Phones, typing into the page: the reader keeps its full height and makes room for the keyboard at its bottom (in its own
+   colour, so the page behind never shows as the keyboard slides), moving with the keyboard on the keyboard's own curve; the
+   title, page and mode bars fold away at the top as it rises and unfold as it goes, so the line being typed has room. Only
+   the text style row stays (the tools and notes come back when the keyboard closes) */
 @media (max-width:760px){
-  html.kb-open dialog#dlg:has(.pdr-sheet .pde-e.editing){top:0;bottom:auto;margin:0;height:var(--vv-h,100dvh);max-height:var(--vv-h,100dvh);transition:none}
-  html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar,html.kb-open .pdr-sheet:has(.pde-e.editing) .pdr-bar2,
+  dialog#dlg .pdr-sheet{box-sizing:border-box;transition:padding-bottom .3s cubic-bezier(.32,.72,0,1)}
+  html.kb-open dialog#dlg .pdr-sheet:has(.pde-e.editing){padding-bottom:var(--kb-h,0px)}
+  dialog#dlg .pdr-sheet > .sheet-head{transition:margin-top .3s cubic-bezier(.32,.72,0,1),opacity .2s ease}
+  dialog#dlg .pdr-sheet :is(.pdr-bar,.pdr-bar2){transition:opacity .2s ease}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head{margin-top:calc(-1 * var(--pdr-fold,0px));opacity:0;pointer-events:none}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) :is(.pdr-bar,.pdr-bar2){opacity:0;pointer-events:none}
   html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-tools,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar .pde-note,html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar > .spacer{display:none!important}
   html.kb-open .pdr-sheet:has(.pde-e.editing) .pde-bar{padding-top:6px;padding-bottom:6px}
 }
