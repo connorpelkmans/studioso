@@ -3320,7 +3320,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 /* Phones: one compact row at the top (page, zoom, Download, Highlights and Save) and one at the bottom, by the thumb: the Read /
    Mark Up / Edit switch, that mode's tools and, in Read, Ask and Study. The switch and Ask/Study stay in the top bar's markup and
    are placed over the two ends of the bottom row, which keeps that room free (--pdr-dl, --pdr-dr); the page gets the rest.
-   Edit has more tools than fit beside the switch, so there the switch sits on the line above them, with the tool's options */
+   Edit keeps to that one line too: the tools that fit beside the switch, and More for the rest (99-pdf-edit.js) */
 @media (max-width:760px){
   .pdr-sheet{--pdr-dl:112px;--pdr-dr:0px;--pdr-dock:60px}
   .pdr-sheet[data-mode="read"]{--pdr-dr:96px}
@@ -3335,7 +3335,6 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-bar > .pdr-modes{left:10px}
   .pdr-bar > .pdr-ai{right:10px;margin:0}
   .pdr-sheet:not([data-mode="read"]) .pdr-bar > .pdr-ai{display:none}
-  .pdr-sheet[data-mode="edit"] .pdr-bar > .pdr-modes{bottom:57px}
   .pdr-sheet .pdr-bar .pdr-fit{display:none}
   .pdr-sheet .pdr-bar :is(.pdr-nav,.pdr-zoom) .icon-btn{width:36px;height:36px;min-width:36px}
   .pdr-sheet .pdr-bar .pdr-pg input{width:36px}

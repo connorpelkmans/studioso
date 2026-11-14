@@ -24447,7 +24447,7 @@ const SCN20 = (() => {
     });
     return wait;
   }
-  return {SCENES, ENGINES, ready: () => !!sync(), load,
+  return {SCENES, ENGINES, url, ready: () => !!sync(), load,
     buildScene: function () { return need().buildScene.apply(null, arguments); },
     buildSceneAt: function () { return need().buildSceneAt.apply(null, arguments); },
     setAnim: a => { const L = sync(); if (L) L.setAnim(a); },
@@ -24724,9 +24724,110 @@ const SCN20 = (() => {
   const MO = () => window.SBMotion || null;
   const liveOK = () => styleCfg().motion !== false && (!MO() || MO().live());
 
+  /* The animation draws in a worker. The engines' drawing (and, with no GPU, copying each finished canvas frame to the screen)
+     took most of the main thread's time with a living scene on, so scrolling, typing and switching tabs stuttered. Each canvas
+     hands its drawing to an OffscreenCanvas in a worker that runs the same engine on the same scene data (A and v are copied
+     over), at the same frame rate, so nothing on screen changes; the page only tells it when to run, rest or play a moment.
+     Browsers without OffscreenCanvas or a worker frame clock keep drawing here, as before. */
+  function sceneWorker(){
+    const F_BAL = {s: 1, a: 1};
+    let L = null, cur = null, raf = 0, rafT = 0, last = 0, T = 0, live = false, hidden = false, finUntil = 0, gap = 4, cost2 = 0, hold60 = 0;
+    // the library makes its sprite canvases with document.createElement and reads window.devicePixelRatio
+    self.window = self; self.document = {createElement: () => new OffscreenCanvas(1, 1)};
+    const stop = () => { if (raf > 0) cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
+    const gapNow = () => (performance.now() < hold60 ? 14 : gap);
+    const running = () => !hidden && (live || performance.now() < finUntil);
+    const next = () => { const g = gapNow(), wait = last ? g - (performance.now() - last) + 1 : 0; if (g > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
+    function draw(){
+      const c = cur; if (!c) return;
+      if (c.drawn && c.eng.idle && c.eng.idle(T)) return;
+      const uses = typeof c.eng.uses === "string" ? c.eng.uses : "ab";
+      c.ctx.forEach((x, i) => { if (uses.indexOf(i ? "b" : "a") < 0) return; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, x.canvas.width, x.canvas.height); x.setTransform(c.s, 0, 0, c.s, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; });
+      c.eng.draw(c.ctx[0], c.ctx[1], T, F_BAL); c.drawn = true;
+    }
+    // an engine that throws is dropped; the page redraws the theme as a still scene
+    function safe(fn){ try { fn(); return true; } catch (e) { const g = cur && cur.gen; stop(); cur = null; postMessage({t: "broken", gen: g, err: String(e && e.stack || e)}); return false; } }
+    function tick(ts){
+      raf = 0;
+      const c = cur; if (!c || !running()) { last = 0; return; }
+      if (last && ts - last < gapNow()) { raf = next(); return; }
+      const dt = last ? Math.min(0.1, (ts - last) / 1000) : 1 / 30; last = ts; T += dt;
+      const t0 = performance.now();
+      safe(() => { c.eng.step(dt, T, F_BAL); draw(); });
+      { const cost = performance.now() - t0; cost2 = cost2 * 0.9 + cost * 0.1; if (cost2 > 5 && ts > hold60) hold60 = ts + 15000; }
+      if (!raf && cur === c) raf = next();
+    }
+    const sync = () => { if (cur && !raf && running()) { last = 0; raf = requestAnimationFrame(tick); } else if (raf && !running()) { stop(); last = 0; } };
+    const on = {
+      init(m){
+        self.devicePixelRatio = m.dpr;
+        try { importScripts(m.url); L = self.SCN20_LIB; } catch (e) { L = null; }
+        postMessage({t: "init", ok: !!(L && L.ENGINES && typeof OffscreenCanvas === "function"), raf: typeof requestAnimationFrame === "function"});
+      },
+      build(m){
+        stop(); cur = null; last = 0; T = 0;
+        let eng;
+        try { eng = L.ENGINES[m.sc](m.A, m.v, m.dk); } catch (e) { postMessage({t: "broken", gen: m.gen, err: String(e && e.stack || e)}); return; }
+        const dpr = Math.min(m.base, eng.maxDpr || 9) * m.scale, [a, st, b] = m.cv;
+        [a, b].forEach(c => { c.width = Math.round(m.W * dpr); c.height = Math.round(m.H * dpr); });
+        if (eng.stat) { st.width = eng.stat.width; st.height = eng.stat.height; st.getContext("2d").drawImage(eng.stat, 0, 0); eng.hosted = true; } else { st.width = 1; st.height = 1; }
+        cur = {gen: m.gen, eng, s: m.k * dpr, ctx: [a.getContext("2d"), b.getContext("2d")]};
+        if (!safe(() => { eng.step(1 / 30, 0, F_BAL); T = 1 / 30; draw(); })) return;
+        postMessage({t: "ready", gen: m.gen, pointer: !!eng.pointer});
+        sync();
+      },
+      drop(){ stop(); cur = null; },
+      run(m){ live = m.on; hidden = m.hidden; gap = m.gap; sync(); },
+      finish(){ if (!cur) return; if (safe(() => cur.eng.finish(T))) { finUntil = Math.max(finUntil, performance.now() + 6000); stop(); last = 0; sync(); } },
+      ptr(m){ if (cur && cur.eng.pointer && raf) safe(() => cur.eng.pointer(m.p)); }
+    };
+    onmessage = e => { const m = e.data, f = m && on[m.t]; if (f) f(m); };
+  }
+  const WK = (() => {
+    let w = null, dead = false, gen = 0;
+    const can = () => !dead && !window.__SB_SCENE_MAIN && typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof structuredClone === "function"
+      && !!(window.HTMLCanvasElement && HTMLCanvasElement.prototype.transferControlToOffscreen);
+    // the worker couldn't start, load the library or keep frame time: every scene draws here again
+    function fail(){ if (dead) return; dead = true; try { w && w.terminate(); } catch (e) {} w = null; if (cur && cur.wk) { const id = cur.id; cur = null; build(id); } }
+    function onMsg(e){
+      const m = e.data || {};
+      if (m.t === "init") { if (!m.ok || !m.raf) fail(); return; }
+      const c = cur; if (!c || !c.wk || m.gen !== c.gen) return;
+      if (m.t === "ready") { c.has.pointer = m.pointer; shown(c); }
+      else if (m.t === "broken") { console.warn("scene engine " + c.sc, m.err); broken.add(c.sc); const id = c.id; cur = null; build(id); }
+    }
+    function start(){
+      if (w || !can()) return w;
+      try {
+        const u = URL.createObjectURL(new Blob(["(" + sceneWorker + ")()"], {type: "text/javascript"}));
+        w = new Worker(u); setTimeout(() => URL.revokeObjectURL(u), 60e3);
+        w.onmessage = onMsg; w.onerror = e => { if (e && e.preventDefault) e.preventDefault(); fail(); };
+        w.postMessage({t: "init", url: new URL(L.url, document.baseURI).href, dpr: window.devicePixelRatio || 1});
+      } catch (e) { w = null; dead = true; }
+      return w;
+    }
+    const post = (m, tr) => { if (w) w.postMessage(m, tr || []); };
+    return {can, start, post, next: () => ++gen};
+  })();
+  // A new scene drawn by the worker shows once its first frame is in, over the old one until then (no blank moment on a
+  // resize or a dark-mode switch)
+  function shown(c){
+    if (c.shown) return; c.shown = true; clearTimeout(c.showT);
+    c.el.style.visibility = "";
+    requestAnimationFrame(() => requestAnimationFrame(() => { document.querySelectorAll("#sceneArt").forEach(x => { if (x !== c.el && (!cur || x !== cur.el)) x.remove(); }); }));
+  }
+  let wkRun = "";
+  function wkSync(){
+    const c = cur; if (!c || !c.wk) return;
+    const on = liveOK() && !popup && !document.hidden, gap = gapNow(), sig = [c.gen, on, document.hidden, gap].join("|");
+    c.on = on;
+    if (sig === wkRun) return; wkRun = sig;
+    WK.post({t: "run", on, hidden: document.hidden, gap});
+  }
+
   /* The scene on screen */
   let cur = null, raf = 0, rafT = 0, last = 0, T = 0, finUntil = 0, rebuildTimer = 0;
-  const stopLoop = () => { cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
+  const stopLoop = () => { if (cur && cur.wk) return; cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
   // Sleep between frames
   let cost2 = 0, hold60 = 0;
   const gapNow = () => (performance.now() < hold60 ? 14 : (MO() ? MO().frameMs() : FRAME_MS));
@@ -24771,6 +24872,11 @@ const SCN20 = (() => {
     if (!L.ready()) return null;
     const sc = sceneOf(id), wantEng = !!L.ENGINES[sc] && !broken.has(sc);
     let A = null, v = null, eng = null;
+    if (wantEng && WK.start()) {
+      // the worker builds the engine from a copy of the same scene data; data that can't be copied keeps it here
+      try { A = {}; L.setAnim(A); v = L.buildSceneAt(sc, dk, g.bw, g.bh, g.desk); L.setAnim(null); structuredClone([A, v]); return {v, eng: {remote: true}, sc, A}; }
+      catch (e) { L.setAnim(null); v = null; }
+    }
     if (wantEng) {
       try { A = {}; L.setAnim(A); v = L.buildSceneAt(sc, dk, g.bw, g.bh, g.desk); L.setAnim(null); eng = L.ENGINES[sc](A, v, dk); }
       catch (e) { L.setAnim(null); console.warn("scene engine " + sc, e); broken.add(sc); v = null; eng = null; }
@@ -24783,14 +24889,32 @@ const SCN20 = (() => {
     clearTimeout(rebuildTimer);
     const dk = isDarkNow(), g = geometry(), made = makeScene(id, dk, g);
     if (!made) return false;
-    const {v, eng, sc} = made, k = g.k;
+    const {v, eng, sc} = made, k = g.k, wk = !!(eng && eng.remote);
     let el = document.getElementById("sceneArt");
+    // the scene on screen stays until the worker's new one has its first frame
+    const old = el && (wk || (cur && cur.wk)) ? el : null, wasWk = !!(cur && cur.wk);
+    if (old) { el = null; document.querySelectorAll("#sceneArt").forEach(x => { if (x !== old) x.remove(); }); }
     if (!el) { el = document.createElement("div"); el.id = "sceneArt"; el.setAttribute("aria-hidden", "true"); document.body.prepend(el); }
-    el.style.cssText = `left:${g.side}px;top:0;width:${g.W}px;height:${g.H}px;background:${v.sky}`;
+    el.style.cssText = `left:${g.side}px;top:0;width:${g.W}px;height:${g.H}px;background:${v.sky}` + (wk ? ";visibility:hidden" : "");
     const band = v.band.h ? `<div class="sc-band" style="top:${v.band.top * k}px;height:${v.band.h * k}px;background:${v.band.bg}"></div>` : "";
     el.innerHTML = band + layerHtml(v.far, true, v, k) + layerHtml(v.refl, true, v, k) + layerHtml(v.mid, true, v, k)
-      + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng && eng.stat ? `<canvas class="sc-cv sc-s"></canvas>` : "") + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
-    const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
+      + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng && (eng.stat || wk) ? `<canvas class="sc-cv sc-s"></canvas>` : "") + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
+    // a scene drawn here replaces a worker's one at once
+    if (!wk && old) { old.remove(); if (wasWk) WK.post({t: "drop"}); }
+    const base = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, window.devicePixelRatio || 1), scale = MO() ? MO().dprScale() : 1;
+    if (wk) {
+      const cvs = [".sc-a", ".sc-s", ".sc-b"].map(q => el.querySelector(q)); cvs.forEach(c => { c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
+      const gen = WK.next(), off = cvs.map(c => c.transferControlToOffscreen());
+      stopLoop(); last = 0; T = 0; wkRun = "";
+      document.documentElement.classList.add("sc-on");
+      cur = {id, sc, dk, sig: sigOf(id, dk, g), g, v, eng, s: k * base, el, dprK: scale, wk: true, gen, has: {}, ctx: []};
+      WK.post({t: "build", gen, sc, dk, A: made.A, v, cv: off, W: g.W, H: g.H, k, base, scale}, off);
+      // never left blank if the first frame is slow to come
+      const c = cur; c.showT = setTimeout(() => shown(c), 1500);
+      syncRun();
+      return true;
+    }
+    const dpr = Math.min(base, eng && eng.maxDpr || 9) * scale, s = k * dpr;
     const cvs = eng ? [el.querySelector(".sc-a"), el.querySelector(".sc-b")] : [];
     cvs.forEach(c => { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
     const sCv = eng && eng.stat ? el.querySelector(".sc-s") : null;
@@ -24804,9 +24928,9 @@ const SCN20 = (() => {
   }
 
   function teardown(){
-    clearTimeout(rebuildTimer); stopLoop(); cur = null;
+    clearTimeout(rebuildTimer); stopLoop(); if (cur && cur.wk) WK.post({t: "drop"}); cur = null;
     document.documentElement.classList.remove("sc-on");
-    const el = document.getElementById("sceneArt"); if (el) el.remove();
+    document.querySelectorAll("#sceneArt").forEach(el => el.remove());
   }
 
   const feel = () => F_BAL;
@@ -24838,6 +24962,7 @@ const SCN20 = (() => {
     if (!raf && cur === c) raf = nextFrame();
   }
   function syncRun(){
+    if (cur && cur.wk) { wkSync(); return; }
     if (!cur || !cur.eng || raf || document.hidden) return;
     if ((liveOK() && !popup) || performance.now() < finUntil) { last = 0; raf = requestAnimationFrame(tick); }
   }
@@ -24845,7 +24970,7 @@ const SCN20 = (() => {
   let popup = false;
   const origPause = ambientPause;
   ambientPause = function (on) { origPause.apply(this, arguments); popup = !!on; if (!on) syncRun(); };
-  document.addEventListener("visibilitychange", () => { if (document.hidden) { stopLoop(); } else syncRun(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { stopLoop(); wkSync(); } else syncRun(); });
   // The Animations governor changed something (mode, power, focus, idle, quality step)
   window.addEventListener("sb-motion", () => {
     stopLoop(); last = 0;
@@ -24857,7 +24982,7 @@ const SCN20 = (() => {
   hook("skinart", () => {
     const id = document.documentElement.dataset.skin;
     if (!isScene(id)) { teardown(); return false; }
-    if (!L.ready()) { L.load().then(ok => { if (ok && document.documentElement.dataset.skin === id) renderSkinArt(); }); teardown(); return false; }
+    if (!L.ready()) { L.load().then(ok => { if (ok && document.documentElement.dataset.skin === id) { if (L.ENGINES[sceneOf(id)]) WK.start(); renderSkinArt(); } }); teardown(); return false; }
     const dk = isDarkNow(), g = geometry(), sig = sigOf(id, dk, g);
     if (!cur || cur.id !== id) return build(id) || (teardown(), false);
     if (cur.sig !== sig) {
@@ -24875,7 +25000,8 @@ const SCN20 = (() => {
     if (!hasMoment() || document.hidden || (MO() && MO().level() === "static")) return false;
     const cfg = styleCfg();
     if (!byUser && (cfg.celebrate === false || cfg.motion === false)) return false;
-    if (!safe(() => cur.eng.finish(T))) return false;
+    if (cur.wk) WK.post({t: "finish"});
+    else if (!safe(() => cur.eng.finish(T))) return false;
     finUntil = Math.max(finUntil, performance.now() + 6000);
     stopLoop(); syncRun();
     return true;
@@ -24926,12 +25052,12 @@ const SCN20 = (() => {
   // Pointer positions for engines that react to them
   let lastPtr = 0;
   document.addEventListener("pointermove", e => {
-    const c = cur; if (!c || !c.eng || !c.eng.pointer || e.pointerType === "touch" || !raf) return;
+    const c = cur; if (!c || !c.eng || e.pointerType === "touch" || (c.wk ? !c.has.pointer || !(c.on || performance.now() < finUntil) : !c.eng.pointer || !raf)) return;
     if (e.timeStamp - lastPtr < 30) return; lastPtr = e.timeStamp;
-    const x = (e.clientX - c.g.side) / c.g.k, y = e.clientY / c.g.k;
-    safe(() => c.eng.pointer(x >= 0 && y >= 0 && x <= c.v.bw && y <= c.v.bh ? {x, y} : null));
+    const x = (e.clientX - c.g.side) / c.g.k, y = e.clientY / c.g.k, p = x >= 0 && y >= 0 && x <= c.v.bw && y <= c.v.bh ? {x, y} : null;
+    if (c.wk) WK.post({t: "ptr", p}); else safe(() => c.eng.pointer(p));
   }, {passive: true});
-  document.documentElement.addEventListener("pointerleave", () => { const c = cur; if (c && c.eng && c.eng.pointer) safe(() => c.eng.pointer(null)); });
+  document.documentElement.addEventListener("pointerleave", () => { const c = cur; if (!c || !c.eng) return; if (c.wk) { if (c.has.pointer) WK.post({t: "ptr", p: null}); } else if (c.eng.pointer) safe(() => c.eng.pointer(null)); });
 
   /* Style Shop previews */
   const TH_W = 640, TH_H = 400, thumbs = new Map();
@@ -34313,6 +34439,7 @@ hook("boot", boot);
     ptDelList: id => q(cli().rpc("delete_task_list", {p_list: id})),
     ptAdd: (list, title, who, due, notes, prio) => q(cli().rpc("add_group_task", {p_list: list, p_title: title, p_assignee: who, p_due: due, p_notes: notes, p_priority: prio})),
     ptUpd: (id, patch) => q(cli().rpc("update_group_task", {p_task: id, p_patch: patch})),
+    ptTask: id => q(cli().from("group_tasks").select("*").eq("id", id).maybeSingle()),
     ptMove: (id, dir) => q(cli().rpc("move_group_task", {p_task: id, p_dir: dir})),
     ptDel: id => q(cli().rpc("delete_group_task", {p_task: id})),
     // 1.15 contribution check-in
@@ -34850,6 +34977,8 @@ hook("boot", boot);
   async function ensureName(then){
     if (!S.name) { try { S.name = localStorage.getItem(NAMEK()) || S.name; } catch(e) {} }
     if (S.name) return then();
+    // offline the change waits on this device and the server puts the name on it when it's sent
+    if (offNow()) return then();
     try { const r = await api.profile(); S.name = (r && r.display_name) || null; }
     catch(e) { toast(e.message); return; }
     if (S.name) { try { localStorage.setItem(NAMEK(), S.name); } catch(e) {} return then(); }
@@ -34905,6 +35034,8 @@ hook("boot", boot);
       const members = {}; ids.forEach(id => { members[id] = []; }); ms.forEach(m => { (members[m.group_id] = members[m.group_id] || []).push(m); });
       try { const rows = ids.length ? await api.icons(ids) || [] : []; S.icons = {}; rows.forEach(x => { if (x.data && STICKERS[x.data.icon]) S.icons[x.group_id] = {id: x.id, key: x.data.icon}; }); } catch(e) {}
       S.groups = gs; S.members = members; S.err = ""; S.setup = false; S.offline = 0; S.seenAt = Date.now();
+      outAll().forEach(o => { const g = gs.find(x => x.id === o.gid); if (g) o.gname = g.name; }); outSave();
+      if (outAll().some(o => !o.err)) setTimeout(outFlush, 0);
       if (S.name === undefined) { try { const r = await api.profile(); S.name = (r && r.display_name) || null; if (S.name) localStorage.setItem(NAMEK(), S.name); } catch(e) {} }
       if (ids.length) { try { markChanges(await api.stamps(ids) || []); } catch(e) {} }
       try { S.binned = await api.deletedGroups() || []; } catch(e) { S.binned = []; }
@@ -34925,8 +35056,11 @@ hook("boot", boot);
     snapT = setTimeout(() => {
       if (!myId() || !Array.isArray(S.groups) || S.offline) return;
       const gids = S.groups.slice(0, 12).map(g => g.id), pick = (o, n) => { const r = {}; gids.forEach(g => { if (o[g]) r[g] = n ? o[g].slice(0, n) : o[g]; }); return r; };
-      const pt = {}; gids.forEach(g => { const x = ptX(g); if (x) pt[g] = {lists: x.lists, tasks: x.tasks.filter(t => !t._tmp)}; });
-      const snap = {at: S.seenAt || Date.now(), groups: S.groups.slice(0, 12), members: pick(S.members), items: pick(S.items, 120), msgs: pick(S.msgs, 60), pt};
+      const pt = {}; gids.forEach(g => { const x = ptX(g); if (x) pt[g] = {lists: x.lists, tasks: x.tasks.filter(t => !t._tmp && !t._out)}; });
+      // reactions, RSVPs and check-ins, so they show (and can be changed) offline
+      const ext = {}; gids.forEach(g => { const x = extOf(g); if (x) ext[g] = {scores: x.scores, rsvps: x.rsvps, stats: x.stats, checkins: x.checkins, reactions: x.reactions}; });
+      const msgs = {}; gids.forEach(g => { if (S.msgs[g]) msgs[g] = S.msgs[g].filter(m => !m._out).slice(0, 60); });
+      const snap = {at: S.seenAt || Date.now(), groups: S.groups.slice(0, 12), members: pick(S.members), items: pick(S.items, 120), msgs, pt, ext};
       let j = JSON.stringify(snap);
       if (j.length > 1500000) { snap.items = {}; j = JSON.stringify(snap); }
       try { localStorage.setItem(SNAPK(), j); } catch(e) {}
@@ -34942,36 +35076,169 @@ hook("boot", boot);
       if (!S.items[id] && sn.items && sn.items[id]) S.items[id] = sn.items[id];
       if (!S.msgs[id] && sn.msgs && sn.msgs[id]) S.msgs[id] = sn.msgs[id];
       if (!ptX(id) && sn.pt && sn.pt[id]) { const x = ptInit(id); Object.assign(x, {ok: true, lists: sn.pt[id].lists || [], tasks: sn.pt[id].tasks || []}); x.list = GTL.nextListId(x.lists, x.list, x.arch); }
+      if (!extOf(id) && sn.ext && sn.ext[id]) S.ext[id] = Object.assign({ok: true, scores: [], rsvps: [], stats: [], checkins: [], reactions: []}, sn.ext[id]);
+      outApply(id);
     });
     S.seenAt = S.seenAt || sn.at;
     return true;
   }
   function goOffline(){ if (!S.offline) S.offline = S.seenAt || Date.now(); }
-  const offlineLine = () => S.offline ? `<p class="grp-offline-line" role="status">${ICON_OFF}<span>Offline. Showing what you saw at ${esc(fmtTime(new Date(S.offline).toTimeString().slice(0, 5)))}${new Date(S.offline).toDateString() === new Date().toDateString() ? "" : " on " + esc(fmtShort(GTL.localISO(new Date(S.offline))))}. Changes need the internet.</span></p>` : "";
+  const offlineLine = () => S.offline ? `<p class="grp-offline-line" role="status">${ICON_OFF}<span>Offline. Showing what you saw at ${esc(fmtTime(new Date(S.offline).toTimeString().slice(0, 5)))}${new Date(S.offline).toDateString() === new Date().toDateString() ? "" : " on " + esc(fmtShort(GTL.localISO(new Date(S.offline))))}. Messages, reactions, RSVPs, check-ins and group tasks you change are sent when you're back online.</span></p>` : "";
   const ICON_OFF = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 4.2-2.6M10.7 5.1A15 15 0 0 1 22 8.8M5 12.5a10 10 0 0 1 3.6-2.2M16.8 10.9A10 10 0 0 1 19 12.5M8.5 16a5 5 0 0 1 7 0M12 20h.01M3 3l18 18"/></svg>';
   // Read-only while offline: looking around works, anything that would change the group says it needs the internet
-  const OFF_OK = new Set(["grp-tab", "grp-back", "grp-open", "grp-page", "grp-retry", "grp-pt-view", "grp-pt-filter", "grp-pt-list", "grp-pt-arch", "grp-q-open", "grp-item-view", "grp-to-decks", "grp-import", "close"]);
+  // (and the changes that wait on this device: see "Offline changes" below)
+  const OFF_OK = new Set(["grp-tab", "grp-back", "grp-open", "grp-page", "grp-retry", "grp-pt-view", "grp-pt-filter", "grp-pt-list", "grp-pt-arch", "grp-q-open", "grp-item-view", "grp-to-decks", "grp-import", "close",
+    "grp-react-open", "grp-react", "grp-rsvp", "grp-check-done", "grp-pin", "grp-msg-del", "grp-pt-status", "grp-pt-done", "grp-pt-claim", "grp-pt-claim-sheet", "grp-pt-claim-one", "grp-pt-edit", "grp-pt-del", "grp-pt-new", "grp-pt-bfilter", "grp-pt-open",
+    "grp-out-retry", "grp-out-drop", "grp-out-copy"]);
   const NEEDS_NET = new Set(["fab-group", "grp-new", "grp-code"]);
   const offBlock = el => { const a = el && el.dataset && el.dataset.act; if (!a || ui.tab !== "groups" || !el.closest("#view, #fab")) return false;
     return (!!S.offline && !OFF_OK.has(a)) || (NEEDS_NET.has(a) && navigator.onLine === false); };
   // Add Group is dimmed while the device is offline (it can only fail)
-  const dimFab = () => { const f = $("#fab"); if (f) { const off = ui.tab === "groups" && navigator.onLine === false; f.classList.toggle("is-off", off); if (off) f.setAttribute("aria-disabled", "true"); else f.removeAttribute("aria-disabled"); } };
+  const dimFab = () => { const f = $("#fab"); if (f) { const off = ui.tab === "groups" && navigator.onLine === false && !OFF_OK.has(f.dataset.act || ""); f.classList.toggle("is-off", off); if (off) f.setAttribute("aria-disabled", "true"); else f.removeAttribute("aria-disabled"); } };
   hook("render", () => setTimeout(dimFab, 0));
   window.addEventListener("offline", dimFab);
-  const offToast = () => toast(S.offline ? "You're offline, so this group is read-only for now. It updates when you're back online." : "You're offline. This needs the internet.");
+  const offToast = () => toast(S.offline ? "You're offline. This one needs the internet. Messages, reactions, RSVPs and group tasks still work and are sent when you're back." : "You're offline. This needs the internet.");
   document.addEventListener("click", e => { const el = e.target.closest && e.target.closest("[data-act]"); if (offBlock(el)) { e.preventDefault(); e.stopPropagation(); offToast(); } }, true);
-  document.addEventListener("submit", e => { if (S.offline && e.target && e.target.id === "grpPost") { e.preventDefault(); e.stopPropagation(); offToast(); } }, true);
   window.addEventListener("offline", () => { if (Array.isArray(S.groups) && online()) { goOffline(); if (ui.tab === "groups") render(); } });
   // Back online: reload by itself (no Try Again needed)
   // (a moment after the event, once the connection is really up; the saved copy stays until the fresh one loads)
   function backOnline(n){
     if (!online()) return;
-    if (S.busy || (ui.grp && S.loadingG[ui.grp])) { if (n < 10) setTimeout(() => backOnline(n + 1), 600); return; }
-    if (!S.offline && !S.err && !Object.keys(S.errG).length) { if (ui.tab === "groups") render(); return; }
-    S.err = ""; S.errG = {}; loadGroups(true); if (ui.grp) loadGroup(ui.grp);
-    if (ui.tab === "groups") render();
+    if (S.busy || S.outBusy || (ui.grp && S.loadingG[ui.grp])) { if (n < 10) setTimeout(() => backOnline(n + 1), 600); return; }
+    outFlush().then(sent => {
+      if (!S.offline && !S.err && !Object.keys(S.errG).length && !sent) { if (ui.tab === "groups") render(); return; }
+      S.err = ""; S.errG = {}; loadGroups(true); if (ui.grp) loadGroup(ui.grp);
+      if (ui.tab === "groups") render();
+    });
   }
   window.addEventListener("online", () => { dimFab(); setTimeout(() => backOnline(0), 500); });
+  // A connection that dropped without the device going offline: try again now and then while something waits
+  setInterval(() => { if (online() && navigator.onLine !== false && (S.offline || outAll().some(o => !o.err))) backOnline(0); }, 30000);
+  /* Offline changes: a message, reaction, RSVP, check-in, pin or group task change made offline (or when the connection drops
+     on the way) waits on this device, shows as "Sending when you're back online", and is sent in order once you're back. One
+     that can't be sent then (you left the group, the task was deleted, someone changed the same thing) stays listed with why,
+     with Try Again, Copy Text and Discard, so nothing typed is lost. Changing a waiting change merges into it. */
+  const OUTK = () => "sb:grpOut:" + myId(), OUT_PEND = "Sending when you're back online";
+  let outC = [], outFor = null;
+  const outAll = () => { const k = OUTK(); if (outFor !== k) { outFor = k; try { outC = JSON.parse(localStorage.getItem(k) || "[]"); } catch(e) { outC = []; } if (!Array.isArray(outC)) outC = []; } return outC; };
+  const outSave = () => { try { if (outC.length) localStorage.setItem(outFor, JSON.stringify(outC)); else localStorage.removeItem(outFor); } catch(e) {} };
+  const outOf = gid => outAll().filter(o => o.gid === gid);
+  const offNow = () => !!S.offline || (typeof navigator !== "undefined" && navigator.onLine === false);
+  const isTmp = id => /^tmp-/.test(String(id || ""));
+  // a task or message that only exists here so far takes its changes into the queue too
+  const outWaits = id => isTmp(id) && outAll().some(o => (o.k === "ptAdd" || o.k === "post") && o.tmp === id && !o.err);
+  const outPend = (gid, test) => outOf(gid).some(o => !o.err && test(o));
+  function outAdd(o){
+    const q = outAll(); o = Object.assign({id: "o" + uid(), at: Date.now()}, o);
+    const live = z => !z.err && z.gid === o.gid;
+    const drop = test => { for (let i = q.length - 1; i >= 0; i--) if (live(q[i]) && test(q[i])) q.splice(i, 1); };
+    if (o.k === "react") { const i = q.findIndex(z => live(z) && z.k === "react" && z.msg === o.msg && z.kind === o.kind); if (i >= 0) { q.splice(i, 1); o = null; } }
+    else if (o.k === "rsvp") drop(z => z.k === "rsvp" && z.item === o.item);
+    else if (o.k === "checkin") drop(z => z.k === "checkin" && z.day === o.day);
+    else if (o.k === "pin") drop(z => z.k === "pin" && z.msg === o.msg);
+    else if (o.k === "unpost" && isTmp(o.msg)) { drop(z => z.tmp === o.msg || z.msg === o.msg); o = null; }
+    else if (o.k === "ptDel") { if (isTmp(o.task)) { drop(z => z.tmp === o.task || z.task === o.task); o = null; } else drop(z => z.k === "ptUpd" && z.task === o.task); }
+    else if (o.k === "ptUpd") { const z = q.find(z => live(z) && z.k === "ptUpd" && z.task === o.task);
+      if (z) { Object.keys(o.patch).forEach(k => { if (!(k in z.base)) z.base[k] = o.base[k]; }); Object.assign(z.patch, o.patch); o = null; } }
+    if (o) q.push(o);
+    outSave(); outLine();
+  }
+  // What waits is put back on what was last loaded (a reload brings back the server's copy)
+  function outApply(gid){
+    const ops = outOf(gid).filter(o => !o.err); if (!ops.length) return;
+    const ms = S.msgs[gid], x = S.ext[gid] && S.ext[gid].ok ? S.ext[gid] : null, p = ptX(gid), me2 = myId(), iso = new Date().toISOString();
+    ops.forEach(o => {
+      if (o.k === "post" && ms && !ms.some(m => m.id === o.tmp)) ms.unshift({id: o.tmp, group_id: gid, user_id: me2, author_name: S.name || "You", body: o.body, created_at: new Date(o.at).toISOString(), _out: true});
+      else if (o.k === "unpost" && ms) S.msgs[gid] = S.msgs[gid].filter(m => m.id !== o.msg);
+      else if (o.k === "pin" && ms) { const m = ms.find(m => m.id === o.msg); if (m) m.pinned = o.on; }
+      else if (o.k === "react" && x) { const i = x.reactions.findIndex(r => r.message_id === o.msg && r.user_id === me2 && r.kind === o.kind); if (o.on && i < 0) x.reactions.push({message_id: o.msg, user_id: me2, kind: o.kind}); else if (!o.on && i >= 0) x.reactions.splice(i, 1); }
+      else if (o.k === "rsvp" && x) { x.rsvps = x.rsvps.filter(r => !(r.item_id === o.item && r.user_id === me2)); if (o.status) x.rsvps.push({item_id: o.item, group_id: gid, user_id: me2, status: o.status}); }
+      else if (o.k === "checkin" && x) { const c = x.checkins.find(c => c.user_id === me2 && c.day === o.day); if (c) Object.assign(c, {plan: o.plan, done: o.done}); else x.checkins.push({group_id: gid, user_id: me2, day: o.day, plan: o.plan, done: o.done, updated_at: iso}); }
+      else if (o.k === "ptAdd" && p && !p.tasks.some(t => t.id === o.tmp)) p.tasks.push(Object.assign({}, o.row, {_out: true}));
+      else if (o.k === "ptUpd" && p) { const i = p.tasks.findIndex(t => t.id === o.task); if (i >= 0) p.tasks[i] = Object.assign(GTL.applyPatch(p.tasks[i], o.patch, me2, iso), p.tasks[i]._out ? {_out: true} : {}); }
+      else if (o.k === "ptDel" && p) p.tasks = p.tasks.filter(t => t.id !== o.task);
+    });
+    if (p) deriveMineFor(gid);
+  }
+  // Sends now; offline (or if the connection drops on the way) it waits instead. fail gets any other error.
+  function outSend(o, send, fail){
+    if (offNow() || outWaits(o.task || o.msg)) { outAdd(o); return Promise.resolve(false); }
+    return send().then(() => true, e => { if (netErr(e)) { goOffline(); outAdd(o); if (ui.tab === "groups") render(); } else if (fail) fail(e); return false; });
+  }
+  const outNorm = v => v == null ? "" : String(v);
+  const OUT_SEND = {
+    async post(o){ const row = await api.post(o.gid, o.body); const ms = S.msgs[o.gid]; if (ms) { const i = ms.findIndex(m => m.id === o.tmp); if (row && !ms.some(m => m.id === row.id)) { if (i >= 0) ms[i] = row; else ms.unshift(row); } else if (i >= 0) ms.splice(i, 1); } },
+    unpost: o => api.unpost(o.msg),
+    pin: o => api.pin(o.msg, o.on),
+    react: o => api.react(o.msg, o.kind),
+    rsvp: o => api.rsvp(o.item, o.status),
+    checkin: o => api.checkin(o.gid, o.day, o.plan, o.done),
+    async ptAdd(o){
+      const r = o.row, row = await api.ptAdd(r.list_id, r.title, r.assignee_id || null, r.due_at || null, r.notes || "", r.priority || null);
+      if (!row) return;
+      outAll().forEach(z => { if (z.task === o.tmp) z.task = row.id; });
+      const p = ptX(o.gid); if (p) { const i = p.tasks.findIndex(t => t.id === o.tmp); if (i >= 0) p.tasks[i] = row; }
+    },
+    // A field someone else changed while you were offline isn't overwritten: that edit waits for you to choose
+    async ptUpd(o){
+      const cur = await api.ptTask(o.task);
+      if (!cur || cur.deleted) throw Object.assign(new Error("gone"), {gone: true});
+      if (!o.force) { const clash = Object.keys(o.patch).filter(k => k in o.base && outNorm(cur[k]) !== outNorm(o.base[k]) && outNorm(cur[k]) !== outNorm(o.patch[k]));
+        if (clash.length) throw Object.assign(new Error("conflict"), {conflict: true, by: cur.updated_by}); }
+      await api.ptUpd(o.task, o.patch);
+    },
+    async ptDel(o){ try { await api.ptDel(o.task); } catch(e) { if (!/isn't in one of your groups|isn't there/i.test(e.message)) throw e; } }
+  };
+  function outWhy(o, e){
+    const m = String((e && e.message) || ""), g = groupOf(o.gid);
+    if (e && e.conflict) return `${e.by && e.by !== myId() ? mName(o.gid, e.by) : "Someone"} changed this task while you were offline, so your edit wasn't applied and theirs is kept.`;
+    if (/not in (that|this) group|not a member|permission|row-level/i.test(m) || (S.groups && !g)) return "You're not in this group anymore, so this wasn't sent.";
+    if ((e && e.gone) || /isn't in one of your groups|isn't there/i.test(m)) return o.k === "ptAdd" ? "That task list was deleted while you were offline." : o.k.startsWith("pt") ? "That task was deleted while you were offline." : "That isn't in the group anymore.";
+    return m || "Something went wrong.";
+  }
+  // Everything that waited, in the order it was done; resolves to how many were sent
+  async function outFlush(){
+    if (S.outBusy || !online() || (typeof navigator !== "undefined" && navigator.onLine === false)) return 0;
+    const todo = outAll().filter(o => !o.err); if (!todo.length) return 0;
+    S.outBusy = true; let sent = 0, bad = 0; const gids = new Set();
+    for (const o of todo) {
+      if (!outAll().includes(o) || o.err) continue;
+      try { await OUT_SEND[o.k](o); outC = outAll().filter(z => z !== o); sent++; gids.add(o.gid); }
+      catch(e) {
+        if (netErr(e)) break;
+        o.err = outWhy(o, e); o.why = e && e.conflict ? "conflict" : ""; bad++; gids.add(o.gid);
+        if (o.k === "ptAdd") outAll().forEach(z => { if (z !== o && z.task === o.tmp && !z.err) z.err = "The task it changes couldn't be added."; });
+        if (o.k === "ptAdd") { const p = ptX(o.gid); if (p) p.tasks = p.tasks.filter(t => t.id !== o.tmp); }
+      }
+      outSave();
+    }
+    S.outBusy = false; outLine();
+    if (sent && !bad) toast(sent === 1 ? "Sent the change you made offline." : `Sent the ${sent} changes you made offline.`);
+    else if (bad) toast(bad === 1 ? "One change you made offline couldn't be sent. Your group shows why." : `${bad} changes you made offline couldn't be sent. Your group shows why.`);
+    gids.forEach(gid => { if (S.ext[gid]) loadExtras(gid); if (S.pt[gid]) loadPT(gid); });
+    if (ui.tab === "groups") { if (ui.grp && gids.has(ui.grp)) patch(ui.grp); else render(); }
+    return sent + bad;
+  }
+  // The waiting count, and what couldn't be sent, at the top of the group (or of Groups, for a group you've left)
+  const outWhat = o => o.k === "post" ? `Message: “${esc(str(o.body, 90))}”` : o.k === "ptAdd" ? `New task: ${esc(str(o.row.title, 80))}` : o.k === "ptUpd" ? `Change to ${esc(str(o.title || "a task", 80))}${o.patch.status === "done" ? " (marked done)" : ""}`
+    : o.k === "ptDel" ? `Deleting ${esc(str(o.title || "a task", 80))}` : o.k === "rsvp" ? `RSVP: ${esc(o.status || "none")}` : o.k === "react" ? "Reaction" : o.k === "pin" ? (o.on ? "Pin" : "Unpin") : o.k === "unpost" ? "Deleting a message" : "Check-in";
+  function outHtml(gid){
+    const ops = gid ? outOf(gid) : outAll().filter(o => !(S.groups || []).some(g => g.id === o.gid)), wait = ops.filter(o => !o.err).length, bad = ops.filter(o => o.err);
+    if (!wait && !bad.length) return `<div id="grpOut"></div>`;
+    return `<div id="grpOut">${wait ? `<p class="grp-out-line" role="status"><span class="grp-out-dot" aria-hidden="true"></span>${wait === 1 ? "1 change" : wait + " changes"} waiting. ${OUT_PEND}.</p>` : ""}
+      ${bad.length ? `<section class="grp-out-fail" aria-label="Changes not sent"><h3 class="fsec">Not Sent<span class="n">${bad.length}</span></h3><ul>${bad.map(o => `<li><div><b>${outWhat(o)}</b>${gid ? "" : `<span class="mini">${esc(o.gname || "A group")}</span>`}<span class="mini">${esc(o.err)}</span></div>
+        <div class="row-actions">${o.k === "post" ? `<button type="button" class="btn small" data-act="grp-out-copy" data-id="${esc(o.id)}">Copy Text</button>` : ""}${gid && !/not in this group|couldn't be added|deleted/.test(o.err) ? `<button type="button" class="btn small" data-act="grp-out-retry" data-id="${esc(o.id)}">${o.why === "conflict" ? "Use Mine Anyway" : "Try Again"}</button>` : ""}<button type="button" class="btn small" data-act="grp-out-drop" data-id="${esc(o.id)}">Discard</button></div></li>`).join("")}</ul></section>` : ""}</div>`;
+  }
+  function outLine(){ if (ui.tab !== "groups") return; const el = $("#grpOut"); if (el) el.outerHTML = outHtml(ui.grp || ""); }
+  hook("act", (act, el, id) => {
+    if (!act.startsWith("grp-out-")) return false;
+    const o = outAll().find(z => z.id === id); if (!o) return true;
+    if (act === "grp-out-copy") { try { navigator.clipboard.writeText(o.body).then(() => toast("Copied the message"), () => toast("Couldn't copy. Select the text and copy it.")); } catch(e) { toast("Couldn't copy."); } return true; }
+    if (act === "grp-out-drop") { outC = outAll().filter(z => z !== o); outSave(); outLine(); toast("Discarded"); return true; }
+    if (act === "grp-out-retry") { delete o.err; if (o.why === "conflict") o.force = true; o.why = ""; outSave(); outLine(); if (!offNow()) outFlush(); else toast(OUT_PEND + "."); return true; }
+    return true;
+  });
+
   // Count shared items that changed since you copied them, per group
   function markChanges(stamps){
     const ch = {};
@@ -34992,7 +35259,7 @@ hook("boot", boot);
       else {
         const k = (S.groups || []).findIndex(x => x.id === gid); if (k >= 0) S.groups[k] = g; else S.groups = (S.groups || []).concat(g);
         S.items[gid] = (items || []).filter(x => !S.blocked.has(x.user_id)); S.msgs[gid] = (msgs || []).filter(x => !S.blocked.has(x.user_id)); S.members[gid] = ms || [];
-        indexItems(gid, S.items[gid]); delete S.errG[gid]; calSync(gid);
+        indexItems(gid, S.items[gid]); delete S.errG[gid]; calSync(gid); outApply(gid);
         const n = (S.items[gid] || []).filter(it => { const c = it.kind === "task" ? copyOfTask(it.id) : copyOfItem(it.id), ref = c && (c.groupRef || c.sharedFrom); return ref && it.user_id !== myId() && ts(it.updated_at) > ts(ref.v) + 1000; }).length;
         if (n) S.changed[gid] = n; else delete S.changed[gid];
         updateNavBadge(); newsAt = 0; setTimeout(() => newsFetch(true), 0);
@@ -35145,6 +35412,7 @@ hook("boot", boot);
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
     return `<div class="view-head" data-grp-list><h2>Groups</h2></div>
       ${S.err ? errBox(S.err, S.setup) : offlineLine()}
+      ${outHtml("")}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
         : gs.length ? `<div class="grp-grid" data-sortable="groups">${cards}</div>`
         : `<div class="empty sb-es">${emptyArt("groups")}<strong>No Groups Yet</strong>Start a study group or a group project, then send the invite code. Have a code? Enter it to join.<div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="grp-new"${navigator.onLine === false ? ` disabled title="Needs the internet"` : ""}>New Group</button><button class="btn" data-act="grp-code">Enter a Code</button></div></div>`}
@@ -35178,6 +35446,7 @@ hook("boot", boot);
       <button class="back" data-act="grp-back">${BACK}All Groups</button>
       ${headHtml(g)}
       ${S.errG[gid] ? errBox(S.errG[gid]) : offlineLine()}
+      ${outHtml(gid)}
       ${setupNote(g)}
       ${panesHtml(g)}</div>`;
   }
@@ -35342,8 +35611,9 @@ hook("boot", boot);
     try {
       const [scores, rsvps, stats, checkins, reactions] = await Promise.all([api.scores(gid), api.rsvps(gid), api.stats(gid, addDays(wkStart(), -7)), api.checkins(gid, addDays(todayISO(), -60)), api.reactions(gid)]);
       S.ext[gid] = {ok: true, scores: scores || [], rsvps: rsvps || [], stats: stats || [], checkins: checkins || [], reactions: reactions || []};
+      outApply(gid);
       if (ui.grp === gid) subscribeExtras(gid);
-    } catch(e) { S.ext[gid] = {ok: false, setup: !!e.setup}; }
+    } catch(e) { if (netErr(e) && prev && prev.ok) { prev.busy = false; goOffline(); } else S.ext[gid] = {ok: false, setup: !!e.setup}; }
     if (S.ext[gid].ok) reportStats();
     if (ui.tab === "groups" && ui.grp === gid && $("#grpDetail")) patch(gid);
   }
@@ -35578,7 +35848,8 @@ hook("boot", boot);
       const d = new Date(at(it)), rs = ext.rsvps.filter(r => r.item_id === it.id), my = rs.find(r => r.user_id === myId()), mine = it.user_id === myId(), wk = !!(it.data.repeat && it.data.repeat.weekly);
       const names = st => rs.filter(r => r.status === st).map(r => r.user_id === myId() ? "You" : mName(g.id, r.user_id));
       const yes = names("yes"), maybe = names("maybe");
-      const btn = (s, label) => `<button class="btn small${my && my.status === s ? " primary" : ""}" data-act="grp-rsvp" data-id="${esc(it.id)}" data-s="${s}" aria-pressed="${!!(my && my.status === s)}">${label}</button>`;
+      const rp = outPend(g.id, o => o.k === "rsvp" && o.item === it.id);
+      const btn = (s, label) => `<button class="btn small${my && my.status === s ? " primary" : ""}${rp && my && my.status === s ? " is-pending" : ""}" data-act="grp-rsvp" data-id="${esc(it.id)}" data-s="${s}" aria-pressed="${!!(my && my.status === s)}"${rp && my && my.status === s ? ` title="${OUT_PEND}"` : ""}>${label}</button>`;
       return `<li class="grp-item grp-task${isPast ? " is-past" : ""}">
         <span class="grp-date" style="--c:var(--accent)"><small>${esc(d.toLocaleDateString(undefined, {month: "short"}))}</small><b>${d.getDate()}</b></span>
         <div class="grp-item-main"><b>${esc(it.title)}</b>
@@ -35978,10 +36249,11 @@ hook("boot", boot);
     const cols = GK.board(tasks), ms = S.members[g.id] || [];
     const card = t => { const late = t.status !== "done" && GTL.due(t.due_at, today).late;
       const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "", nm = who ? (who === myId() ? "You" : mName(g.id, who)) : "Unassigned";
-      return `<li class="kb-card${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${who ? "" : " is-free"}" data-id="${esc(t.id)}" data-kb="${esc(t.status)}" style="--kc:${esc(who ? memberHue(g.id, who) : "#8A94A6")}">
+      const pend = t._out || outPend(g.id, o => o.task === t.id);
+      return `<li class="kb-card${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${who ? "" : " is-free"}${pend ? " is-pending" : ""}" data-id="${esc(t.id)}" data-kb="${esc(t.status)}" style="--kc:${esc(who ? memberHue(g.id, who) : "#8A94A6")}">
         <div class="kb-band">${who ? av(mName(g.id, who), who) : `<span class="kb-free" aria-hidden="true"></span>`}<span>${esc(nm)}</span></div>
         <div class="kb-main"><button type="button" class="pt-check" role="checkbox" aria-checked="${t.status === "done"}" data-act="grp-pt-done" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Mark not done" : "Mark done"}: ${esc(str(t.title, 80))}"><span class="pt-box">${CHECK}</span></button><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}">${esc(t.title)}</button></div>
-        <div class="pt-meta">${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${typeof gxReviewBtns === "function" ? gxReviewBtns(g, t) : ""}</div>
+        <div class="pt-meta">${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${typeof gxReviewBtns === "function" ? gxReviewBtns(g, t) : ""}${pend ? `<span class="mini grp-pend">${OUT_PEND}</span>` : ""}</div>
         ${t.status !== "done" && !who ? `<button type="button" class="btn small kb-claim" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : ""}
         ${t.status === "todo" && who && !t._tmp ? `<button type="button" class="btn small kb-start" data-act="grp-pt-status" data-s="doing" data-id="${esc(t.id)}" aria-label="Start: ${esc(str(t.title, 80))} (move to In Progress)">Start →</button>` : ""}
 </li>`; };
@@ -36231,10 +36503,11 @@ hook("boot", boot);
     const chip = who ? `<span class="pt-who">${av(mName(g.id, who), who)}<span>${esc(who === me ? "You" : mName(g.id, who))}</span></span>` : `<span class="pt-who none">Unassigned</span>`;
     const mini = done ? `Done${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
     const btns = (!done && !who ? `<button type="button" class="btn small" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : "");
-    return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
+    const pend = t._out || outPend(g.id, o => o.task === t.id);
+    return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${pend ? " is-pending" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
       <button type="button" class="pt-check" role="checkbox" aria-checked="${done}" data-act="grp-pt-done" data-id="${esc(t.id)}" aria-label="${done ? "Mark not done" : "Mark done"}: ${esc(str(t.title, 80))}"><span class="pt-box">${CHECK}</span></button>
       <div class="pt-body"><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}" aria-label="Edit task: ${esc(str(t.title, 80))}">${esc(t.title)}</button>
-        <div class="pt-meta">${chip}${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${t.status === "doing" ? `<span class="pt-prio doing">In progress</span>` : ""}${t.status === "review" && typeof gxReviewBtns === "function" ? gxReviewBtns(g, t) : ""}${mini ? `<span class="mini">${mini}</span>` : ""}${t.notes ? `<span class="mini pt-notes" title="${esc(str(t.notes, 300))}">${esc(str(t.notes, 70))}${t.notes.length > 70 ? "…" : ""}</span>` : ""}</div></div>
+        <div class="pt-meta">${chip}${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${t.status === "doing" ? `<span class="pt-prio doing">In progress</span>` : ""}${t.status === "review" && typeof gxReviewBtns === "function" ? gxReviewBtns(g, t) : ""}${mini ? `<span class="mini">${mini}</span>` : ""}${pend ? `<span class="mini grp-pend">${OUT_PEND}</span>` : ""}${t.notes ? `<span class="mini pt-notes" title="${esc(str(t.notes, 300))}">${esc(str(t.notes, 70))}${t.notes.length > 70 ? "…" : ""}</span>` : ""}</div></div>
       ${btns ? `<div class="pt-act">${btns}</div>` : ""}</li>`;
   }
   function ptHtml(g){
@@ -36386,6 +36659,7 @@ hook("boot", boot);
     if (x && x.tasks.some(t => t.id === id)) return ptMutate(r.gid, id, {status});
     const rows = S.mine[r.gid] || [];
     S.mine[r.gid] = rows.map(k => k.id === id ? Object.assign({}, k, {status}) : k); persistMine(); decorateBoard(); boardRefresh();
+    if (offNow()) { outAdd({k: "ptUpd", gid: r.gid, task: id, patch: {status}, base: {status: r.status || "todo"}, title: r.title}); return Promise.resolve(); }
     return api.ptUpd(id, {status}).then(() => { if (status === "done") toast(`Done: ${str(r.title, 50)}`); if (S.pt[r.gid]) loadPT(r.gid); })
       .catch(e => { S.mine[r.gid] = rows; persistMine(); decorateBoard(); boardRefresh(); toast(e.message); });
   }
@@ -36443,13 +36717,13 @@ hook("boot", boot);
       const lists = (ls || []).filter(l => !l.created_by || !S.blocked.has(l.created_by)), ids = new Set(lists.map(l => l.id));
       const tasks = (ts2 || []).filter(t => ids.has(t.list_id) && (!t.created_by || !S.blocked.has(t.created_by)));
       const prev = x.tasks, wasOk = x.ok;
-      x.tasks = GTL.reconcile(prev, tasks, S.ptPend); x.lists = lists; x.ok = true; x.setup = false; x.err = "";
-      x.list = GTL.nextListId(lists, x.list, x.arch);
+      x.tasks = GTL.reconcile(prev, tasks, S.ptPend).filter(t => !t._out); x.lists = lists; x.ok = true; x.setup = false; x.err = "";
+      x.list = GTL.nextListId(lists, x.list, x.arch); outApply(gid);
       if (wasOk) { const seen = readSeen() || new Set(), fresh = GTL.newlyAssigned(prev, x.tasks, myId(), seen); if (fresh.length) announceAssigned(fresh.map(t => ({id: t.id, gid, listId: t.list_id, title: t.title, by: t.updated_by}))); }
       else markSeen(x.tasks.filter(t => t.assignee_id === myId()).map(t => t.id));
       deriveMineFor(gid);
       if (ui.grp === gid) subscribePT(gid);
-    } catch(e) { if (e.setup) { x.ok = false; x.setup = true; } else x.err = e.message; }
+    } catch(e) { if (e.setup) { x.ok = false; x.setup = true; } else if (netErr(e) && x.ok) goOffline(); else x.err = e.message; }
     x.busy = false;
     if (x.again) { x.again = false; loadPT(gid); return; }
     ptRefresh(gid);
@@ -36465,7 +36739,11 @@ hook("boot", boot);
   function ptMutate(gid, id, patch){
     const x = ptX(gid), i = x ? x.tasks.findIndex(t => t.id === id) : -1; if (i < 0) return Promise.resolve();
     const snap = x.tasks[i], was = snap.status;
-    x.tasks[i] = GTL.applyPatch(snap, patch, myId(), new Date().toISOString());
+    x.tasks[i] = Object.assign(GTL.applyPatch(snap, patch, myId(), new Date().toISOString()), snap._out ? {_out: true} : {});
+    const wait = () => { const base = {}; Object.keys(patch).forEach(k => { base[k] = snap[k] == null ? null : snap[k]; });
+      outAdd({k: "ptUpd", gid, task: id, patch: Object.assign({}, patch), base, title: snap.title}); deriveMineFor(gid); ptRefresh(gid);
+      if (patch.status === "done" && was !== "done") toast(`Done: ${str(snap.title, 50)}. ${OUT_PEND}.`); };
+    if (offNow() || outWaits(id)) { wait(); return Promise.resolve(); }
     ptPendAdd(id); deriveMineFor(gid); ptRefresh(gid);
     return api.ptUpd(id, patch).then(row => {
       ptPendDone(id);
@@ -36475,6 +36753,7 @@ hook("boot", boot);
       if (patch.status === "done" && was !== "done") ptCelebrate(gid, id, was);
     }).catch(e => {
       ptPendDone(id);
+      if (netErr(e)) { goOffline(); wait(); if (ui.tab === "groups") render(); return; }
       const j = x.tasks.findIndex(t => t.id === id);
       if (j >= 0) x.tasks[j] = snap;
       deriveMineFor(gid); ptRefresh(gid); toast(e.message);
@@ -36497,6 +36776,9 @@ hook("boot", boot);
     notes = String(notes || "").trim().slice(0, GTL.LIM.notes); prio = PT_PRIO.some(p => p[0] && p[0] === prio) ? prio : null;
     const now = new Date().toISOString(), tmp = {id: "tmp-" + uid(), list_id: listId, group_id: gid, title, notes, status: "todo", assignee_id: who || null, due_at: GTL.isDay(due) ? due : null, priority: prio,
       position: Math.max(0, ...x.tasks.filter(t => t.list_id === listId).map(t => t.position || 0)) + 1, created_by: myId(), created_at: now, updated_by: myId(), updated_at: now, completed_at: null, completed_by: null, deleted: false, _tmp: true};
+    const wait = () => { tmp._tmp = false; tmp._out = true; const row = Object.assign({}, tmp); delete row._out; delete row._tmp;
+      outAdd({k: "ptAdd", gid, tmp: tmp.id, row}); deriveMineFor(gid); ptRefresh(gid); return true; };
+    if (offNow()) { x.tasks.push(tmp); x.draft = {title: "", who: "", due: ""}; return wait(); }
     x.tasks.push(tmp); ptPendAdd(tmp.id); x.draft = {title: "", who: "", due: ""}; ptRefresh(gid);
     try {
       const row = await api.ptAdd(listId, title, who || null, tmp.due_at, notes, prio);
@@ -36507,7 +36789,9 @@ hook("boot", boot);
       if (who && who !== myId()) toast(`Added for ${mName(gid, who)}`);
       return true;
     } catch(e) {
-      ptPendDone(tmp.id); x.tasks = x.tasks.filter(t => t.id !== tmp.id);
+      ptPendDone(tmp.id);
+      if (netErr(e)) { goOffline(); wait(); if (ui.tab === "groups") render(); return true; }
+      x.tasks = x.tasks.filter(t => t.id !== tmp.id);
       x.draft = {title, who: who || "", due: due || ""}; ptRefresh(gid); toast(e.message); return false;
     }
   }
@@ -36524,6 +36808,7 @@ hook("boot", boot);
     if (t) { if (t._tmp) return; return ptMutate(gid, id, {status: t.status === "done" ? "todo" : "done"}); }
     const rows = S.mine[gid] || [], r = rows.find(k => k.id === id); if (!r) return;
     S.mine[gid] = rows.map(k => k.id === id ? Object.assign({}, k, {status: "done"}) : k); persistMine(); decorateBoard(); boardRefresh();
+    if (offNow()) { outAdd({k: "ptUpd", gid, task: id, patch: {status: "done"}, base: {status: r.status || "todo"}, title: r.title}); toast(`Done: ${str(r.title, 50)}. ${OUT_PEND}.`); return; }
     const undo = async () => {
       S.mine[gid] = (S.mine[gid] || []).map(k => k.id === id ? Object.assign({}, k, {status: r.status || "todo"}) : k); persistMine(); decorateBoard(); boardRefresh();
       try { await api.ptUpd(id, {status: r.status && r.status !== "done" ? r.status : "todo"}); if (S.pt[gid]) loadPT(gid); } catch(e) { toast(e.message); }
@@ -36632,7 +36917,8 @@ hook("boot", boot);
         confirmSheet("Delete This Task?", `${t.title} is removed for the whole group.`, "Delete", async () => {
           const xx = ptX(t.group_id); if (!xx) return; const i = xx.tasks.findIndex(k => k.id === id), snap = xx.tasks[i];
           xx.tasks.splice(i, 1); deriveMineFor(t.group_id); ptRefresh(t.group_id);
-          try { await api.ptDel(id); toast("Task deleted"); } catch(e) { xx.tasks.splice(Math.min(i, xx.tasks.length), 0, snap); deriveMineFor(t.group_id); ptRefresh(t.group_id); toast(e.message); } });
+          if (offNow() || outWaits(id)) { outAdd({k: "ptDel", gid: t.group_id, task: id, title: t.title}); ptRefresh(t.group_id); toast(isTmp(id) ? "Task deleted" : `Task deleted. ${OUT_PEND}.`); return; }
+          try { await api.ptDel(id); toast("Task deleted"); } catch(e) { if (netErr(e)) { goOffline(); outAdd({k: "ptDel", gid: t.group_id, task: id, title: t.title}); if (ui.tab === "groups") render(); return; } xx.tasks.splice(Math.min(i, xx.tasks.length), 0, snap); deriveMineFor(t.group_id); ptRefresh(t.group_id); toast(e.message); } });
         return true; }
       case "grp-pt-open": { const r = mineRows().find(k => k.id === id) || {gid: el.dataset.g, listId: el.dataset.l}; if (r.gid) openGroupTask(r); return true; }
     }
@@ -36656,7 +36942,7 @@ hook("boot", boot);
   const kbSuppress = e => { if (kbDrag && kbDrag.justDragged) { e.stopPropagation(); e.preventDefault(); } };
   document.addEventListener("click", kbSuppress, true);
   document.addEventListener("pointerdown", e => {
-    if (kbDrag || S.offline || (e.pointerType === "mouse" && e.button !== 0)) return;
+    if (kbDrag || (e.pointerType === "mouse" && e.button !== 0)) return;
     const c = e.target.closest && e.target.closest("#grpPT .kb-card"); if (!c || c.classList.contains("is-saving")) return;
     kbDrag = {el: c, id: c.dataset.id, from: c.dataset.kb, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, pid: e.pointerId, touch: e.pointerType !== "mouse", started: false};
     if (kbDrag.touch) kbDrag.timer = setTimeout(() => { if (kbDrag && !kbDrag.started) kbStart(); }, 320);
@@ -36816,12 +37102,12 @@ hook("boot", boot);
     if (!list) return loadingLine(g.id);
     if (!list.length) return `<p class="grp-none">No messages yet. Say hi, or plan your next ${isProj(g) ? "meeting" : "study session"}.</p>`;
     const by = {}; if (ext) ext.reactions.forEach(r => { (by[r.message_id] = by[r.message_id] || []).push(r); });
-    return list.map(m => { const mine = m.user_id === myId(), rs = by[m.id] || [];
-      const chips = REACTS.map(([k, e, label]) => { const who = rs.filter(r => r.kind === k); if (!who.length) return ""; const on = who.some(r => r.user_id === myId());
-        return `<button class="grp-react${on ? " on" : ""}" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-pressed="${on}" title="${esc(label + ": " + who.map(r => r.user_id === myId() ? "You" : mName(g.id, r.user_id)).join(", "))}"><span aria-hidden="true">${e}</span>${who.length}</button>`; }).join("");
+    return list.map(m => { const mine = m.user_id === myId(), rs = by[m.id] || [], out = !!m._out;
+      const chips = REACTS.map(([k, e, label]) => { const who = rs.filter(r => r.kind === k); if (!who.length) return ""; const on = who.some(r => r.user_id === myId()), pend = outPend(g.id, o => o.k === "react" && o.msg === m.id && o.kind === k);
+        return `<button class="grp-react${on ? " on" : ""}${pend ? " is-pending" : ""}" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-pressed="${on}" title="${esc(label + ": " + who.map(r => r.user_id === myId() ? "You" : mName(g.id, r.user_id)).join(", ") + (pend ? ". " + OUT_PEND : ""))}"><span aria-hidden="true">${e}</span>${who.length}</button>`; }).join("");
       const picker = ext && S.pick === m.id ? `<span class="grp-picker">${REACTS.map(([k, e, label]) => `<button type="button" class="grp-react" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-label="${esc(label)}">${e}</button>`).join("")}</span>` : "";
-      return `<li class="grp-msg${mine ? " mine" : ""}${m.pinned ? " pinned" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b><span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span>${m.pinned ? `<span class="pill">Pinned</span>` : ""}${mine ? "" : repMenu("message", m.id, "message from " + (m.author_name || "member"))}</div><p>${esc(m.body)}</p>
-        ${ext ? `<div class="grp-msg-acts">${chips}${picker || `<button class="grp-react add" data-act="grp-react-open" data-id="${esc(m.id)}" aria-label="Add a reaction">+</button>`}${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">${m.pinned ? "Unpin" : "Pin"}</button>` : ""}</div>` : ""}</div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
+      return `<li class="grp-msg${mine ? " mine" : ""}${m.pinned ? " pinned" : ""}${out ? " is-pending" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b>${out ? `<span class="mini grp-pend">${OUT_PEND}</span>` : `<span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span>`}${m.pinned ? `<span class="pill">Pinned</span>` : ""}${mine ? "" : repMenu("message", m.id, "message from " + (m.author_name || "member"))}</div><p>${esc(m.body)}</p>
+        ${ext && !out ? `<div class="grp-msg-acts">${chips}${picker || `<button class="grp-react add" data-act="grp-react-open" data-id="${esc(m.id)}" aria-label="Add a reaction">+</button>`}${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">${m.pinned ? "Unpin" : "Pin"}</button>` : ""}</div>` : ""}</div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
   }
   // A group's member cap and message history follow the GROUP's Pro status (plans_group_is_pro on the server), not your plan.
   // For the owner: "" (no note), "assign" (you can make it a Pro group), "full" (all your Pro groups used) or "upgrade" (Go Pro)
@@ -36913,7 +37199,7 @@ hook("boot", boot);
     swapEl("grpHead", headHtml(g)); keepTabFocus(); stickTabs();
     if (isProj(g)) { swapEl("grpOverview", overviewHtml(g)); swapEl("grpFiles", linksHtml(g)); swapEl("grpMinutes", minutesHtml(g)); }
     else { swapEl("grpChallenge", challengeHtml(g)); swapEl("grpBattle", battleHtml(g)); swapEl("grpDecks", decksHtml(g)); swapEl("grpQuizzes", quizzesHtml(g)); swapEl("grpWeak", weakHtml(g)); swapEl("grpQA", qaHtml(g)); swapEl("grpCheckin", checkinHtml(g)); }
-    swapEl("grpSessions", sessionsHtml(g)); swapEl("grpTasks", tasksHtml(g)); swapPT(g); swapEl("grpMembers", membersHtml(g)); swapEl("grpPins", pinsHtml(g)); drawThread();
+    swapEl("grpOut", outHtml(gid)); swapEl("grpSessions", sessionsHtml(g)); swapEl("grpTasks", tasksHtml(g)); swapPT(g); swapEl("grpMembers", membersHtml(g)); swapEl("grpPins", pinsHtml(g)); drawThread();
     const ml = $("#grpMsgList"); if (ml) ml.innerHTML = msgsHtml(g);
     const eb = $(".grp-err", root); if (eb && !S.errG[gid]) eb.remove();
     refreshFab();
@@ -37493,7 +37779,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-unblock": unblockUser(id); return true;
       case "grp-color": { const gg = groupOf(id); if (gg) colorSheet(gg, false); return true; }
       case "grp-msg-del": { const m = g && (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return true;
+        if (m._out) { outAdd({k: "unpost", gid: g.id, msg: m.id}); S.msgs[g.id] = (S.msgs[g.id] || []).filter(x => x.id !== m.id); patch(g.id); toast("Message not sent"); return true; }
         confirmSheet("Delete Message?", "It's removed for everyone in the group.", "Delete", async () => {
+          if (offNow()) { outAdd({k: "unpost", gid: g.id, msg: m.id}); S.msgs[g.id] = (S.msgs[g.id] || []).filter(x => x.id !== m.id); patch(g.id); return; }
           try { await api.unpost(m.id); S.msgs[g.id] = (S.msgs[g.id] || []).filter(x => x.id !== m.id); patch(g.id); } catch(e) { toast(e.message); } });
         return true; }
       case "grp-share-quiz": if (g) shareQuizSheet(g); return true;
@@ -37524,24 +37812,25 @@ ${kindPreview("study")}${kindPreview("project")}`;
         if (next) x.rsvps.push({item_id: id, group_id: g.id, user_id: myId(), status: next});
         if (next === "yes") calAdd(g, it, `You're in. ${it.title} is on your calendar.`); else if (cur && cur.status === "yes") calDrop(it);
         patch(g.id);
-        api.rsvp(id, next).catch(e => { toast(e.message); loadExtras(g.id); });
+        outSend({k: "rsvp", gid: g.id, item: id, status: next}, () => api.rsvp(id, next), e => { toast(e.message); loadExtras(g.id); }).then(() => patch(g.id));
         return true; }
       case "grp-tab": showTab(g, el.dataset.t); return true;
       case "grp-lb": if (g) { S.lb[g.id] = el.dataset.m === "quiz" ? "quiz" : "focus"; patch(g.id); } return true;
       case "grp-check-done": { const x = g && extOf(g.id), mine = x && x.checkins.find(c => c.user_id === myId() && c.day === todayISO()); if (!mine) return true;
         mine.done = !mine.done; patch(g.id);
-        api.checkin(g.id, mine.day, mine.plan, mine.done).then(() => { if (mine.done) toast("Nice work. Marked as done."); }).catch(e => { toast(e.message); loadExtras(g.id); });
+        outSend({k: "checkin", gid: g.id, day: mine.day, plan: mine.plan, done: mine.done}, () => api.checkin(g.id, mine.day, mine.plan, mine.done), e => { toast(e.message); loadExtras(g.id); })
+          .then(ok => { if (mine.done) toast(ok ? "Nice work. Marked as done." : `Marked as done. ${OUT_PEND}.`); patch(g.id); });
         return true; }
       case "grp-react-open": S.pick = S.pick === id ? "" : id; if (g) patch(g.id); return true;
       case "grp-react": { const x = g && extOf(g.id); if (!x) return true; const kind = el.dataset.k;
         const i = x.reactions.findIndex(r => r.message_id === id && r.user_id === myId() && r.kind === kind);
         if (i >= 0) x.reactions.splice(i, 1); else x.reactions.push({message_id: id, user_id: myId(), kind});
         S.pick = ""; patch(g.id);
-        api.react(id, kind).catch(e => { toast(e.message); loadExtras(g.id); });
+        outSend({k: "react", gid: g.id, msg: id, kind, on: i < 0}, () => api.react(id, kind), e => { toast(e.message); loadExtras(g.id); }).then(() => patch(g.id));
         return true; }
       case "grp-pin": { const m = g && (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return true;
         const on = !m.pinned; m.pinned = on; patch(g.id);
-        api.pin(id, on).catch(e => { m.pinned = !on; toast(e.message); patch(g.id); });
+        outSend({k: "pin", gid: g.id, msg: id, on}, () => api.pin(id, on), e => { m.pinned = !on; toast(e.message); patch(g.id); });
         return true; }
       case "grp-upgrade": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(el.dataset.r || ""); return true;
       case "grp-link-update": { const d = state.decks[id]; if (!d || !d.sharedFrom || !d.sharedFrom.code) return true;
@@ -37567,12 +37856,16 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const btn = $("button[type=submit]", e.target); busyBtn(btn, true);
     ensureName(async () => {
       S.posting = true;
-      try {
+      const clear = () => { S.drafts[gid] = ""; const t2 = $("#grpMsgIn"); if (t2) t2.value = ""; };
+      // offline it waits on this device and shows in the list as sending
+      const wait = () => { outAdd({k: "post", gid, tmp: "tmp-m" + uid(), body: body.slice(0, 2000)}); clear(); outApply(gid); patch(gid); };
+      if (offNow()) wait();
+      else try {
         const row = await api.post(gid, body.slice(0, 2000));
-        S.drafts[gid] = ""; const t2 = $("#grpMsgIn"); if (t2) t2.value = "";
+        clear();
         if (row && S.msgs[gid] && !S.msgs[gid].some(x => x.id === row.id)) S.msgs[gid].unshift(row);
         patch(gid);
-      } catch(err) { toast(err.message); }
+      } catch(err) { if (netErr(err)) { goOffline(); wait(); if (ui.tab === "groups") render(); } else toast(err.message); }
       S.posting = false;
       busyBtn($("#grpPost button[type=submit]"), false);
     });
@@ -37586,11 +37879,11 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const btn = $("button[type=submit]", e.target); busyBtn(btn, true);
     ensureName(async () => {
       const cur = x.checkins.find(c => c.user_id === myId() && c.day === day), done = cur ? cur.done : false;
-      try {
-        await api.checkin(gid, day, plan, done);
-        if (cur) { cur.plan = plan; cur.updated_at = new Date().toISOString(); } else { x.checkins.push({group_id: gid, user_id: myId(), day, plan, done, updated_at: new Date().toISOString()}); toast("Checked in. Have a good session."); }
+      const ok = await outSend({k: "checkin", gid, day, plan, done}, () => api.checkin(gid, day, plan, done), err => toast(err.message));
+      if (ok || outPend(gid, o => o.k === "checkin" && o.day === day)) {
+        if (cur) { cur.plan = plan; cur.updated_at = new Date().toISOString(); } else { x.checkins.push({group_id: gid, user_id: myId(), day, plan, done, updated_at: new Date().toISOString()}); toast(ok ? "Checked in. Have a good session." : `Checked in. ${OUT_PEND}.`); }
         patch(gid);
-      } catch(err) { toast(err.message); }
+      }
       busyBtn($("#grpCheck button[type=submit]"), false);
     });
   });
@@ -85926,7 +86219,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 /* Phones: one compact row at the top (page, zoom, Download, Highlights and Save) and one at the bottom, by the thumb: the Read /
    Mark Up / Edit switch, that mode's tools and, in Read, Ask and Study. The switch and Ask/Study stay in the top bar's markup and
    are placed over the two ends of the bottom row, which keeps that room free (--pdr-dl, --pdr-dr); the page gets the rest.
-   Edit has more tools than fit beside the switch, so there the switch sits on the line above them, with the tool's options */
+   Edit keeps to that one line too: the tools that fit beside the switch, and More for the rest (99-pdf-edit.js) */
 @media (max-width:760px){
   .pdr-sheet{--pdr-dl:112px;--pdr-dr:0px;--pdr-dock:60px}
   .pdr-sheet[data-mode="read"]{--pdr-dr:96px}
@@ -85941,7 +86234,6 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-bar > .pdr-modes{left:10px}
   .pdr-bar > .pdr-ai{right:10px;margin:0}
   .pdr-sheet:not([data-mode="read"]) .pdr-bar > .pdr-ai{display:none}
-  .pdr-sheet[data-mode="edit"] .pdr-bar > .pdr-modes{bottom:57px}
   .pdr-sheet .pdr-bar .pdr-fit{display:none}
   .pdr-sheet .pdr-bar :is(.pdr-nav,.pdr-zoom) .icon-btn{width:36px;height:36px;min-width:36px}
   .pdr-sheet .pdr-bar .pdr-pg input{width:36px}
@@ -91923,6 +92215,16 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
   const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
   const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.place ? k === "eq" && !!E.place.eq : E.tool === k && !E.ptool || E.ptool === k}" title="${esc(label)}">${k === "ocr" ? `<span class="pde-ocr-ai">${AI_ICON}</span>${ico(icon).replace("<svg ", '<svg class="pde-ocr-ic" ')}` : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  // The six main tools, in the order they sit. On a phone the row shares its line with the Read / Mark Up / Edit switch, so when
+  // they don't all fit the ones further down CORE_KEEP move to the top of More (Edit Text and Add Text are the last to go)
+  const CORE = [["text", "Edit Text", IC.text, "Change the words already there"], ["add", "Add Text", IC.add, "Type new words anywhere"], ["white", "White-Out", IC.white, "Cover part of the page"],
+    ["mark", "Marks", IC.mark, "Ticks, crosses, boxes and arrows"], ["pic", "Picture", IC.image, "Put a photo or image on the page"], ["sign", "Sign", IC.sign, "Your signature or initials"]];
+  const CORE_KEEP = ["text", "add", "mark", "white", "sign", "pic"];
+  const coreRow = () => { const keep = new Set(CORE_KEEP.slice(0, E.core == null ? CORE.length : E.core)); return CORE.filter(c => keep.has(c[0])); };
+  const coreMenu = () => { const on = new Set(coreRow().map(c => c[0])); return CORE.filter(c => !on.has(c[0])); };
+  const corePressed = k => k === "pic" ? !!(E.place && !E.place.sig && !E.place.eq && E.place.text == null) : E.place ? k === "sign" && !!E.place.sig : E.tool === k && !E.ptool || E.ptool === k;
+  const coreTool = ([k, label, icon]) => k === "pic" ? `<label class="btn small pde-tool" aria-pressed="${corePressed(k)}" title="Picture">${ico(icon)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>`
+    : `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${corePressed(k)}" title="${label}">${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
   // Undo and Redo at the right end of the edit row (the same history as Ctrl+Z and History)
   const MACK = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl";
   // On narrow phones the row has no room for them, so they head the More menu instead
@@ -91934,22 +92236,27 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   function measureFit(){
     const b = E && E.on && dlg.querySelector(".pde-bar"), row = b && b.querySelector(".pde-tools"); if (!row || !row.offsetWidth) return;
     const gap = parseFloat(getComputedStyle(row).columnGap) || 6, cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+    // a phone's bottom row: one line, beside the mode switch (99-pro.js)
+    const dock = !!b.closest(".pdr-sheet") && !!(window.matchMedia && matchMedia("(max-width:760px)").matches);
     if (!E.fitW || E.fitW.k !== b.clientWidth + ":" + window.devicePixelRatio) {
-      // every tool's width, with its label and as an icon only (More with its longest label)
-      const core = [...row.children].filter(c => !c.dataset.fit && !c.classList.contains("pde-more-wrap")), m = document.createElement("div");
+      // every tool's width, with its label and as an icon only (More with its longest label): the six main tools, Undo and Redo, the extras, More
+      const m = document.createElement("div");
       m.className = "pde-bar"; m.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;padding:0;border:0;width:auto";
-      m.innerHTML = `<span class="pde-tools" style="display:flex">${core.map(c => c.outerHTML).join("")}${ROW_ORDER.map(k => fitTool(MORE.find(x => x[0] === k))).join("")}<button type="button" class="btn small pde-tool"><svg width="16" height="16"></svg><span class="pde-lbl">Recognize Text</span></button></span>`;
+      m.innerHTML = `<span class="pde-tools" style="display:flex">${CORE.map(coreTool).join("")}${histBtns()}${ROW_ORDER.map(k => fitTool(MORE.find(x => x[0] === k))).join("")}<button type="button" class="btn small pde-tool"><svg width="16" height="16"></svg><span class="pde-lbl">Recognize Text</span></button></span>`;
       m.querySelectorAll("[id]").forEach(x => x.removeAttribute("id"));
       b.parentNode.appendChild(m); const widths = () => [...m.firstChild.children].map(c => c.offsetWidth);
       const wl = widths(); m.classList.add("compact"); const wc = widths(); m.remove();
-      E.fitW = {k: b.clientWidth + ":" + window.devicePixelRatio, n: core.length, wl, wc};
+      E.fitW = {k: b.clientWidth + ":" + window.devicePixelRatio, wl, wc};
     }
-    // labels give way to icons only when the six main tools and More don't fit with them; then as many extra tools as fit join the row
-    const F = E.fitW, more = F.wl.length - 1, sum = (w, a, z) => w.slice(a, z).reduce((t, x) => t + x + gap, 0);
-    const fits = (w, k) => sum(w, 0, F.n) + sum(w, F.n, F.n + k) + (k < ROW_ORDER.length ? w[more] : 0) <= avail;
-    const compact = !fits(F.wl, 0), w = compact ? F.wc : F.wl; let k = 0;
-    while (k < ROW_ORDER.length && fits(w, k + 1)) k++;
-    if (k !== (E.fit || 0) || compact !== !!E.compact) { E.fit = k; E.compact = compact; E.more = false; bar(); }
+    // labels give way to icons only when the six main tools and More don't fit with them; then as many extra tools as fit join the
+    // row. On a phone, main tools give way to More too, so the row stays one line
+    const F = E.fitW, N = CORE.length, more = F.wl.length - 1, sum = (w, a, z) => w.slice(a, z).reduce((t, x) => t + x + gap, 0);
+    const main = (w, c) => CORE_KEEP.slice(0, c).reduce((t, k) => t + w[CORE.findIndex(x => x[0] === k)] + gap, 0) + (w[N] ? w[N] + gap : 0);
+    const fits = (w, c, k) => main(w, c) + sum(w, N + 1, N + 1 + k) + (c < N || k < ROW_ORDER.length ? w[more] : 0) <= avail;
+    const compact = !fits(F.wl, N, 0), w = compact ? F.wc : F.wl; let c = N, k = 0;
+    if (dock) while (c > 1 && !fits(w, c, 0)) c--;
+    if (c === N) while (k < ROW_ORDER.length && fits(w, c, k + 1)) k++;
+    if (k !== (E.fit || 0) || compact !== !!E.compact || c !== (E.core == null ? N : E.core)) { E.fit = k; E.compact = compact; E.core = c; E.more = false; bar(); }
   }
   let fitT = 0; window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { if (E) E.fitW = null; measureFit(); }, 120); });
   const touchy = () => { try { return matchMedia("(pointer: coarse)").matches; } catch (e) { return false; } };
@@ -91987,7 +92294,6 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   function barHtml(){
     const e = selected(), txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
     const fam = e ? (e.ff ? "ff:" + e.ff : (e.k === "t" || e.k === "p") && e.keep !== false ? "o" : e.f || "h") : "";
-    const tool = (k, label, icon, extra) => `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${E.place ? k === "sign" && !!E.place.sig : E.tool === k && !E.ptool || E.ptool === k}" title="${label}"${extra || ""}>${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
     const fonts = myFonts(), markish = E.tool === "mark" || (e && e.k === "s"), msg = barMsg();
     const marks = markish ? `<span class="pde-marks" role="group" aria-label="Marks">${SHAPES.map(([k, name, d]) => `<button type="button" class="icon-btn pde-shape-btn" data-act="pde-shape" data-id="${k}" aria-label="${name}" title="${name}" aria-pressed="${E.tool === "mark" && E.shape === k}">${ico(d)}</button>`).join("")}</span>
       <span class="pde-cols">${COLORS.map(([hex, name]) => `<button type="button" class="pde-col" data-act="pde-scolor" data-id="${hex}" style="--c:${hex}" aria-label="${name}" aria-pressed="${((e && e.k === "s" ? e.c : E.sc) || "").toLowerCase() === hex}"></button>`).join("")}</span>
@@ -91996,7 +92302,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="${!!(E.place && !E.place.sig && !E.place.eq && E.place.text == null)}" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === (E.ptool || E.tool))}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === (E.ptool || E.tool)) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${histMenu()}${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}${histBtns()}</span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${coreRow().map(coreTool).join("")}${coreMenu().some(c => c[0] === "pic") ? `<input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr" tabindex="-1" aria-hidden="true">` : ""}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length || coreMenu().length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === (E.ptool || E.tool)) || coreMenu().some(c => corePressed(c[0]))}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === (E.ptool || E.tool)) || coreMenu().find(c => corePressed(c[0])) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${histMenu()}${coreMenu().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi" data-act="pde-tool" data-id="${k}">${ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}${histBtns()}</span>
       <span class="spacer"></span>
 
       <div class="pde-sub">
@@ -92251,6 +92557,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         if (S.ed) commit(); S.place = null; if (S.more) { S.more = false; bar(); }
         // a tool that opens a panel: back to Edit Text with nothing picked, and the tool shows as pressed while its panel is open
         if (PANEL_TOOLS.includes(id)) { S.sel = null; S.multi = null; S.picSel = null; S.lineOnly = false; S.tool = "text"; S.ptoolNext = {id, at: Date.now()}; repaint(); }
+        // Picture from More (a phone row with no room for it): the file picker of the hidden input the row keeps for it
+        if (id === "pic") { const f = $("#pdeImgFile"); if (f) f.click(); break; }
         if (id === "toc") { contentsPanel(); break; }
         if (id === "sign") { signPanel(); break; }
         if (id === "eq") { eqPlace(el); break; }
@@ -93758,17 +94066,27 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   .pde-save{margin-left:auto}
   /* while a panel is open its tool's options aren't needed: the panel gets the room */
   .pde-bar.paneled .pde-sub{display:none}
-  /* the bar sits at the bottom (99-pro.js): the tools are its last line, and the line above holds the Read / Mark Up / Edit
-     switch with the chosen tool's options and notes beside it */
-  .pdr-sheet > .pde-bar{padding:4px 10px 8px;row-gap:4px}
-  .pdr-sheet > .pde-bar > .pde-sub{order:-1;height:46px;padding-left:calc(var(--pdr-dl,0px) + 6px)}
-  .pdr-sheet > .pde-bar > .pde-tools{min-height:44px}
+  /* the bar sits at the bottom (99-pro.js) and is one line: the Read / Mark Up / Edit switch, then the tools that fit and More
+     (measureFit). The chosen tool's options and notes float just above it, only while there are any */
+  .pdr-sheet > .pde-bar{position:relative;z-index:2;flex-wrap:nowrap;min-height:var(--pdr-dock,60px);padding:8px 10px 8px calc(var(--pdr-dl,0px) + 22px)}
+  .pdr-sheet > .pde-bar > .spacer{display:none}
+  .pdr-sheet > .pde-bar > .pde-sub{position:absolute;left:8px;right:8px;bottom:calc(100% + 6px);height:auto;min-height:48px;box-sizing:border-box;padding:4px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 6px 20px rgba(0,0,0,.16)}
+  .pdr-sheet > .pde-bar > .pde-sub:not(:has(> :not([hidden],.pde-note:empty))){display:none}
+  .pdr-sheet > .pde-bar > .pde-sub > .pde-note{flex:1 1 auto;white-space:normal;line-height:1.3}
+  /* typing with the keyboard up: only the text style row is left, in the bar itself */
+  html.kb-open .pdr-sheet:has(.pde-e.editing) > .pde-bar{min-height:0;padding-left:10px}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) > .pde-bar > .pde-sub{position:static;border:0;box-shadow:none;background:none;padding:0;flex:1 1 100%}
 }
 /* iPhone: Save is just its icon (no count), so Save and Download stay on the page row; and the Read / Mark Up / Edit switch is a
    little narrower, so Ask This PDF and Study sit on its row */
 @media (max-width:480px){
   .pdr-sheet .pdr-save .pdr-badge{display:none}
   .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode){padding:0 7px;gap:4px}
+}
+/* the narrowest phones: a slimmer switch, so four tools and More still fit beside it in Edit */
+@media (max-width:380px){
+  dialog .pdr-sheet{--pdr-dl:100px}
+  .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode){padding:0 5px}
 }
 /* while a panel is open, toasts show at the top, clear of its buttons */
 body:has(dialog[open] .pde-panel) #toast.toast{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto}
@@ -105910,6 +106228,35 @@ const AUTOPILOT = (() => {
     if (act === "rw-hide" && el.dataset.crWeek && window.SBCRUNCH) { try { SBCRUNCH.dismiss(el.dataset.crWeek); } catch (e) {} scheduleRender(); }
     return false;
   });
+})();
+
+/* Short windows (a laptop zoomed to 200% is 683x450): a floating Add button would sit over the page's own buttons (a Heads Up
+   Skip, say), so there it doesn't float. A copy of it, with the same icon, label and action, sits in the header row instead: in
+   the top bar where there is one, otherwise in the page's title row. The floating one is hidden by CSS (99-motion-a11y-tz.css)
+   and stays the one the app updates; the copy follows it */
+(() => {
+  const SHORT = window.matchMedia ? matchMedia("(max-height:600px)") : {matches: false};
+  let btn = null;
+  function sync(){
+    const fab = document.getElementById("fab"); if (!fab) return;
+    if (!btn) { btn = document.createElement("button"); btn.type = "button"; btn.className = "btn primary top-add"; }
+    if (btn.innerHTML !== fab.innerHTML) btn.innerHTML = fab.innerHTML;
+    btn.dataset.act = fab.dataset.act || ""; if (fab.dataset.id) btn.dataset.id = fab.dataset.id; else delete btn.dataset.id;
+    btn.hidden = fab.style.display === "none";
+    btn.classList.toggle("is-off", fab.classList.contains("is-off"));
+    if (fab.hasAttribute("aria-disabled")) btn.setAttribute("aria-disabled", fab.getAttribute("aria-disabled")); else btn.removeAttribute("aria-disabled");
+    if (!SHORT.matches) { if (btn.isConnected) btn.remove(); return; }
+    // where it goes: the top bar's buttons when the top bar shows, else the page's title row, else the top of the page
+    const head = document.querySelector("header.top"), acts = head && head.offsetWidth ? head.querySelector(".head-actions") : null;
+    const row = acts || [...document.querySelectorAll("#view .pg-head")].find(x => x.offsetWidth);
+    if (row) { if (btn.parentElement !== row || (acts && btn !== row.firstElementChild)) acts ? row.prepend(btn) : row.append(btn); }
+    else { const v = document.getElementById("view"); if (v && btn.parentElement !== v) v.prepend(btn); }
+  }
+  hook("render", () => requestAnimationFrame(sync));
+  if (SHORT.addEventListener) SHORT.addEventListener("change", sync);
+  window.addEventListener("resize", () => requestAnimationFrame(sync));
+  const watch = () => { const f = document.getElementById("fab"); if (f) new MutationObserver(sync).observe(f, {attributes: true, childList: true, subtree: true, characterData: true}); else setTimeout(watch, 300); };
+  watch();
 })();
 
 /* Phones: the add button steps aside when it would cover the quick-add bar (the header looks the same at any scroll) */

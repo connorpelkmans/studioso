@@ -489,6 +489,35 @@
   });
 })();
 
+/* Short windows (a laptop zoomed to 200% is 683x450): a floating Add button would sit over the page's own buttons (a Heads Up
+   Skip, say), so there it doesn't float. A copy of it, with the same icon, label and action, sits in the header row instead: in
+   the top bar where there is one, otherwise in the page's title row. The floating one is hidden by CSS (99-motion-a11y-tz.css)
+   and stays the one the app updates; the copy follows it */
+(() => {
+  const SHORT = window.matchMedia ? matchMedia("(max-height:600px)") : {matches: false};
+  let btn = null;
+  function sync(){
+    const fab = document.getElementById("fab"); if (!fab) return;
+    if (!btn) { btn = document.createElement("button"); btn.type = "button"; btn.className = "btn primary top-add"; }
+    if (btn.innerHTML !== fab.innerHTML) btn.innerHTML = fab.innerHTML;
+    btn.dataset.act = fab.dataset.act || ""; if (fab.dataset.id) btn.dataset.id = fab.dataset.id; else delete btn.dataset.id;
+    btn.hidden = fab.style.display === "none";
+    btn.classList.toggle("is-off", fab.classList.contains("is-off"));
+    if (fab.hasAttribute("aria-disabled")) btn.setAttribute("aria-disabled", fab.getAttribute("aria-disabled")); else btn.removeAttribute("aria-disabled");
+    if (!SHORT.matches) { if (btn.isConnected) btn.remove(); return; }
+    // where it goes: the top bar's buttons when the top bar shows, else the page's title row, else the top of the page
+    const head = document.querySelector("header.top"), acts = head && head.offsetWidth ? head.querySelector(".head-actions") : null;
+    const row = acts || [...document.querySelectorAll("#view .pg-head")].find(x => x.offsetWidth);
+    if (row) { if (btn.parentElement !== row || (acts && btn !== row.firstElementChild)) acts ? row.prepend(btn) : row.append(btn); }
+    else { const v = document.getElementById("view"); if (v && btn.parentElement !== v) v.prepend(btn); }
+  }
+  hook("render", () => requestAnimationFrame(sync));
+  if (SHORT.addEventListener) SHORT.addEventListener("change", sync);
+  window.addEventListener("resize", () => requestAnimationFrame(sync));
+  const watch = () => { const f = document.getElementById("fab"); if (f) new MutationObserver(sync).observe(f, {attributes: true, childList: true, subtree: true, characterData: true}); else setTimeout(watch, 300); };
+  watch();
+})();
+
 /* Phones: the add button steps aside when it would cover the quick-add bar (the header looks the same at any scroll) */
 (() => {
   const PHONE = window.matchMedia ? matchMedia("(max-width:639px)") : {matches: false};

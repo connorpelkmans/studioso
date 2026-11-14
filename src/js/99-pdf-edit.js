@@ -2225,6 +2225,16 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   const rowExtra = () => ROW_ORDER.slice(0, E.fit || 0).map(k => MORE.find(m => m[0] === k)).filter(Boolean);
   const menuOnly = () => { const on = new Set(rowExtra().map(m => m[0])); return MORE.filter(m => !on.has(m[0])); };
   const fitTool = ([k, label, icon]) => `<button type="button" class="btn small pde-tool${k === "ocr" ? " ai-btn" : ""}" data-act="pde-tool" data-id="${k}" data-fit="1" aria-pressed="${E.place ? k === "eq" && !!E.place.eq : E.tool === k && !E.ptool || E.ptool === k}" title="${esc(label)}">${k === "ocr" ? `<span class="pde-ocr-ai">${AI_ICON}</span>${ico(icon).replace("<svg ", '<svg class="pde-ocr-ic" ')}` : ico(icon)}<span class="pde-lbl">${esc(label)}</span></button>`;
+  // The six main tools, in the order they sit. On a phone the row shares its line with the Read / Mark Up / Edit switch, so when
+  // they don't all fit the ones further down CORE_KEEP move to the top of More (Edit Text and Add Text are the last to go)
+  const CORE = [["text", "Edit Text", IC.text, "Change the words already there"], ["add", "Add Text", IC.add, "Type new words anywhere"], ["white", "White-Out", IC.white, "Cover part of the page"],
+    ["mark", "Marks", IC.mark, "Ticks, crosses, boxes and arrows"], ["pic", "Picture", IC.image, "Put a photo or image on the page"], ["sign", "Sign", IC.sign, "Your signature or initials"]];
+  const CORE_KEEP = ["text", "add", "mark", "white", "sign", "pic"];
+  const coreRow = () => { const keep = new Set(CORE_KEEP.slice(0, E.core == null ? CORE.length : E.core)); return CORE.filter(c => keep.has(c[0])); };
+  const coreMenu = () => { const on = new Set(coreRow().map(c => c[0])); return CORE.filter(c => !on.has(c[0])); };
+  const corePressed = k => k === "pic" ? !!(E.place && !E.place.sig && !E.place.eq && E.place.text == null) : E.place ? k === "sign" && !!E.place.sig : E.tool === k && !E.ptool || E.ptool === k;
+  const coreTool = ([k, label, icon]) => k === "pic" ? `<label class="btn small pde-tool" aria-pressed="${corePressed(k)}" title="Picture">${ico(icon)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>`
+    : `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${corePressed(k)}" title="${label}">${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
   // Undo and Redo at the right end of the edit row (the same history as Ctrl+Z and History)
   const MACK = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl";
   // On narrow phones the row has no room for them, so they head the More menu instead
@@ -2236,22 +2246,27 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   function measureFit(){
     const b = E && E.on && dlg.querySelector(".pde-bar"), row = b && b.querySelector(".pde-tools"); if (!row || !row.offsetWidth) return;
     const gap = parseFloat(getComputedStyle(row).columnGap) || 6, cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+    // a phone's bottom row: one line, beside the mode switch (99-pro.js)
+    const dock = !!b.closest(".pdr-sheet") && !!(window.matchMedia && matchMedia("(max-width:760px)").matches);
     if (!E.fitW || E.fitW.k !== b.clientWidth + ":" + window.devicePixelRatio) {
-      // every tool's width, with its label and as an icon only (More with its longest label)
-      const core = [...row.children].filter(c => !c.dataset.fit && !c.classList.contains("pde-more-wrap")), m = document.createElement("div");
+      // every tool's width, with its label and as an icon only (More with its longest label): the six main tools, Undo and Redo, the extras, More
+      const m = document.createElement("div");
       m.className = "pde-bar"; m.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;padding:0;border:0;width:auto";
-      m.innerHTML = `<span class="pde-tools" style="display:flex">${core.map(c => c.outerHTML).join("")}${ROW_ORDER.map(k => fitTool(MORE.find(x => x[0] === k))).join("")}<button type="button" class="btn small pde-tool"><svg width="16" height="16"></svg><span class="pde-lbl">Recognize Text</span></button></span>`;
+      m.innerHTML = `<span class="pde-tools" style="display:flex">${CORE.map(coreTool).join("")}${histBtns()}${ROW_ORDER.map(k => fitTool(MORE.find(x => x[0] === k))).join("")}<button type="button" class="btn small pde-tool"><svg width="16" height="16"></svg><span class="pde-lbl">Recognize Text</span></button></span>`;
       m.querySelectorAll("[id]").forEach(x => x.removeAttribute("id"));
       b.parentNode.appendChild(m); const widths = () => [...m.firstChild.children].map(c => c.offsetWidth);
       const wl = widths(); m.classList.add("compact"); const wc = widths(); m.remove();
-      E.fitW = {k: b.clientWidth + ":" + window.devicePixelRatio, n: core.length, wl, wc};
+      E.fitW = {k: b.clientWidth + ":" + window.devicePixelRatio, wl, wc};
     }
-    // labels give way to icons only when the six main tools and More don't fit with them; then as many extra tools as fit join the row
-    const F = E.fitW, more = F.wl.length - 1, sum = (w, a, z) => w.slice(a, z).reduce((t, x) => t + x + gap, 0);
-    const fits = (w, k) => sum(w, 0, F.n) + sum(w, F.n, F.n + k) + (k < ROW_ORDER.length ? w[more] : 0) <= avail;
-    const compact = !fits(F.wl, 0), w = compact ? F.wc : F.wl; let k = 0;
-    while (k < ROW_ORDER.length && fits(w, k + 1)) k++;
-    if (k !== (E.fit || 0) || compact !== !!E.compact) { E.fit = k; E.compact = compact; E.more = false; bar(); }
+    // labels give way to icons only when the six main tools and More don't fit with them; then as many extra tools as fit join the
+    // row. On a phone, main tools give way to More too, so the row stays one line
+    const F = E.fitW, N = CORE.length, more = F.wl.length - 1, sum = (w, a, z) => w.slice(a, z).reduce((t, x) => t + x + gap, 0);
+    const main = (w, c) => CORE_KEEP.slice(0, c).reduce((t, k) => t + w[CORE.findIndex(x => x[0] === k)] + gap, 0) + (w[N] ? w[N] + gap : 0);
+    const fits = (w, c, k) => main(w, c) + sum(w, N + 1, N + 1 + k) + (c < N || k < ROW_ORDER.length ? w[more] : 0) <= avail;
+    const compact = !fits(F.wl, N, 0), w = compact ? F.wc : F.wl; let c = N, k = 0;
+    if (dock) while (c > 1 && !fits(w, c, 0)) c--;
+    if (c === N) while (k < ROW_ORDER.length && fits(w, c, k + 1)) k++;
+    if (k !== (E.fit || 0) || compact !== !!E.compact || c !== (E.core == null ? N : E.core)) { E.fit = k; E.compact = compact; E.core = c; E.more = false; bar(); }
   }
   let fitT = 0; window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { if (E) E.fitW = null; measureFit(); }, 120); });
   const touchy = () => { try { return matchMedia("(pointer: coarse)").matches; } catch (e) { return false; } };
@@ -2289,7 +2304,6 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   function barHtml(){
     const e = selected(), txt = e && (e.k === "t" || e.k === "n" || e.k === "p");
     const fam = e ? (e.ff ? "ff:" + e.ff : (e.k === "t" || e.k === "p") && e.keep !== false ? "o" : e.f || "h") : "";
-    const tool = (k, label, icon, extra) => `<button type="button" class="btn small pde-tool" data-act="pde-tool" data-id="${k}" aria-pressed="${E.place ? k === "sign" && !!E.place.sig : E.tool === k && !E.ptool || E.ptool === k}" title="${label}"${extra || ""}>${ico(icon)}<span class="pde-lbl">${label}</span></button>`;
     const fonts = myFonts(), markish = E.tool === "mark" || (e && e.k === "s"), msg = barMsg();
     const marks = markish ? `<span class="pde-marks" role="group" aria-label="Marks">${SHAPES.map(([k, name, d]) => `<button type="button" class="icon-btn pde-shape-btn" data-act="pde-shape" data-id="${k}" aria-label="${name}" title="${name}" aria-pressed="${E.tool === "mark" && E.shape === k}">${ico(d)}</button>`).join("")}</span>
       <span class="pde-cols">${COLORS.map(([hex, name]) => `<button type="button" class="pde-col" data-act="pde-scolor" data-id="${hex}" style="--c:${hex}" aria-label="${name}" aria-pressed="${((e && e.k === "s" ? e.c : E.sc) || "").toLowerCase() === hex}"></button>`).join("")}</span>
@@ -2298,7 +2312,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <label class="pde-chk"><input type="checkbox" id="pdeFindMc"${E.find.mc ? " checked" : ""}> Match case</label><label class="pde-chk"><input type="checkbox" id="pdeFindWw"${E.find.ww ? " checked" : ""}> Whole words</label>
       <button type="button" class="icon-btn" data-act="pde-find-step" data-id="-1" aria-label="Previous match">${ico(IC.left)}</button><button type="button" class="icon-btn" data-act="pde-find-step" data-id="1" aria-label="Next match">${ico(IC.right)}</button>
       <span class="mini" id="pdeFindN" aria-live="polite"></span><button type="button" class="btn small" data-act="pde-find-all" disabled>Replace All</button></span>` : "";
-    return `<span class="pde-tools" role="group" aria-label="Edit tools">${tool("text", "Edit Text", IC.text)}${tool("add", "Add Text", IC.add)}${tool("white", "White-Out", IC.white)}${tool("mark", "Marks", IC.mark)}<label class="btn small pde-tool" aria-pressed="${!!(E.place && !E.place.sig && !E.place.eq && E.place.text == null)}" title="Picture">${ico(IC.image)}<span class="pde-lbl">Picture</span><input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr"></label>${tool("sign", "Sign", IC.sign)}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === (E.ptool || E.tool))}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === (E.ptool || E.tool)) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${histMenu()}${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}${histBtns()}</span>
+    return `<span class="pde-tools" role="group" aria-label="Edit tools">${coreRow().map(coreTool).join("")}${coreMenu().some(c => c[0] === "pic") ? `<input type="file" id="pdeImgFile" accept="image/png,image/jpeg,image/webp,image/gif" class="sr" tabindex="-1" aria-hidden="true">` : ""}${rowExtra().map(m => fitTool(m)).join("")}${rowExtra().length < MORE.length || coreMenu().length ? `<span class="pde-more-wrap"><button type="button" class="btn small pde-tool" data-act="pde-more" aria-haspopup="menu" aria-expanded="${!!E.more}" aria-pressed="${menuOnly().some(m => m[0] === (E.ptool || E.tool)) || coreMenu().some(c => corePressed(c[0]))}" title="More tools">${ico('<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>')}<span class="pde-lbl">${esc((menuOnly().find(m => m[0] === (E.ptool || E.tool)) || coreMenu().find(c => corePressed(c[0])) || [0, "More"])[1])}</span></button>${E.more ? `<div class="pde-menu" role="menu">${histMenu()}${coreMenu().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi" data-act="pde-tool" data-id="${k}">${ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}${menuOnly().map(([k, label, icon, sub]) => `<button type="button" role="menuitem" class="pde-mi${k === "ocr" ? " ai-mi" : ""}" data-act="pde-tool" data-id="${k}">${k === "ocr" ? AI_ICON : ico(icon)}<span><b>${label}</b><span class="mini">${sub}</span></span></button>`).join("")}</div>` : ""}</span>` : ""}${histBtns()}</span>
       <span class="spacer"></span>
 
       <div class="pde-sub">
@@ -2553,6 +2567,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
         if (S.ed) commit(); S.place = null; if (S.more) { S.more = false; bar(); }
         // a tool that opens a panel: back to Edit Text with nothing picked, and the tool shows as pressed while its panel is open
         if (PANEL_TOOLS.includes(id)) { S.sel = null; S.multi = null; S.picSel = null; S.lineOnly = false; S.tool = "text"; S.ptoolNext = {id, at: Date.now()}; repaint(); }
+        // Picture from More (a phone row with no room for it): the file picker of the hidden input the row keeps for it
+        if (id === "pic") { const f = $("#pdeImgFile"); if (f) f.click(); break; }
         if (id === "toc") { contentsPanel(); break; }
         if (id === "sign") { signPanel(); break; }
         if (id === "eq") { eqPlace(el); break; }
@@ -4060,17 +4076,27 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   .pde-save{margin-left:auto}
   /* while a panel is open its tool's options aren't needed: the panel gets the room */
   .pde-bar.paneled .pde-sub{display:none}
-  /* the bar sits at the bottom (99-pro.js): the tools are its last line, and the line above holds the Read / Mark Up / Edit
-     switch with the chosen tool's options and notes beside it */
-  .pdr-sheet > .pde-bar{padding:4px 10px 8px;row-gap:4px}
-  .pdr-sheet > .pde-bar > .pde-sub{order:-1;height:46px;padding-left:calc(var(--pdr-dl,0px) + 6px)}
-  .pdr-sheet > .pde-bar > .pde-tools{min-height:44px}
+  /* the bar sits at the bottom (99-pro.js) and is one line: the Read / Mark Up / Edit switch, then the tools that fit and More
+     (measureFit). The chosen tool's options and notes float just above it, only while there are any */
+  .pdr-sheet > .pde-bar{position:relative;z-index:2;flex-wrap:nowrap;min-height:var(--pdr-dock,60px);padding:8px 10px 8px calc(var(--pdr-dl,0px) + 22px)}
+  .pdr-sheet > .pde-bar > .spacer{display:none}
+  .pdr-sheet > .pde-bar > .pde-sub{position:absolute;left:8px;right:8px;bottom:calc(100% + 6px);height:auto;min-height:48px;box-sizing:border-box;padding:4px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 6px 20px rgba(0,0,0,.16)}
+  .pdr-sheet > .pde-bar > .pde-sub:not(:has(> :not([hidden],.pde-note:empty))){display:none}
+  .pdr-sheet > .pde-bar > .pde-sub > .pde-note{flex:1 1 auto;white-space:normal;line-height:1.3}
+  /* typing with the keyboard up: only the text style row is left, in the bar itself */
+  html.kb-open .pdr-sheet:has(.pde-e.editing) > .pde-bar{min-height:0;padding-left:10px}
+  html.kb-open .pdr-sheet:has(.pde-e.editing) > .pde-bar > .pde-sub{position:static;border:0;box-shadow:none;background:none;padding:0;flex:1 1 100%}
 }
 /* iPhone: Save is just its icon (no count), so Save and Download stay on the page row; and the Read / Mark Up / Edit switch is a
    little narrower, so Ask This PDF and Study sit on its row */
 @media (max-width:480px){
   .pdr-sheet .pdr-save .pdr-badge{display:none}
   .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode){padding:0 7px;gap:4px}
+}
+/* the narrowest phones: a slimmer switch, so four tools and More still fit beside it in Edit */
+@media (max-width:380px){
+  dialog .pdr-sheet{--pdr-dl:100px}
+  .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode){padding:0 5px}
 }
 /* while a panel is open, toasts show at the top, clear of its buttons */
 body:has(dialog[open] .pde-panel) #toast.toast{top:calc(12px + env(safe-area-inset-top,0px));bottom:auto}

@@ -5,6 +5,9 @@ html[data-ts="s"]{font-size:87.5%}
 html[data-ts="l"]{font-size:112.5%}
 html[data-ts="xl"]{font-size:125%}
 @supports (font:-apple-system-body) and (-webkit-touch-callout:none){html:not([data-ts]){font:-apple-system-body}}
+/* The page's own text (what isn't sized in rem: Heads Up sentences, plan notes, card bodies) is a fixed 16px at Default; once a
+   size is picked it follows the root too, so Large and Extra Large reach it (Default, iOS included, stays exactly as it was) */
+html[data-ts] body{font-size:1rem}
 .cap-row.sb-wide{flex-wrap:wrap;gap:8px}
 .cap-row.sb-wide .segb{flex-wrap:wrap}
 /* Animations: Off, and Auto when the device asks for less motion */
@@ -68,11 +71,24 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 @media (max-height:600px){
   html header.top{position:relative}
   html .sch-pills{top:env(safe-area-inset-top,0px)}
-  html .fab{width:52px;height:52px;padding:0!important;border-radius:50%!important;justify-content:center}
-  html .fab span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  html .fab svg{width:24px;height:24px}
+  /* the Add button doesn't float here: its copy sits in the header row (99-motion-a11y-tz.js) */
+  html .fab{display:none!important}
+  .top-add{flex:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .top-add[hidden]{display:none}
+  .top-add svg{width:18px;height:18px}
+  #view > .pg-head > .top-add{margin-left:auto}
+  #view > .top-add{display:flex;width:max-content;margin:12px 0 0 auto}
+  .top-add.is-off{opacity:.45;filter:saturate(.3)}
 }
+.head-actions > .top-add{order:-1}
+@media not all and (max-height:600px){ .top-add{display:none!important} }
 @media (max-width:979px) and (max-height:600px){
   body.cp-docked nav.tabs .in [data-tab="companion"]{font-size:0!important}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
+}
+/* Large and Extra Large text on a phone: paired buttons may take two lines rather than run past their edges, and a course
+   card's footer wraps its status pill under the grade instead of pushing it off the card */
+@media (max-width:639px){
+  html:is([data-ts="l"],[data-ts="xl"]) :is(#view .nu-acts,#dlg .cls-acts,#view .gn-acts) > .btn{white-space:normal;line-height:1.2;padding-inline:10px!important}
+  html:is([data-ts="l"],[data-ts="xl"]) #view .c2-card .c2-foot{flex-wrap:wrap;row-gap:4px}
 }

@@ -835,8 +835,6 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .plan-past ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .plan-past li{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding-left:10px;border-left:4px solid var(--c)}
 .plan-past .pp-q{flex:1 1 220px;min-width:0;font-weight:600}
-/* the page's own text is a fixed 16px; this card's question follows Text Size like the rest of the plan */
-html[data-ts] .plan-past .pp-q{font-size:1rem}
 .plan-past .pp-q .link-btn{font:inherit;padding:0}
 .plan-past .pp-q .mini{display:block;font-weight:500}
 .plan-past .pp-acts{display:flex;gap:6px;flex-wrap:wrap}

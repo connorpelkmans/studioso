@@ -86,10 +86,14 @@ async function scenario(browser, w){
   ok(/permission/.test(await txt(page, "#toast")), tag + " the error is explained");
   await page.evaluate(() => { window.__offline = true; });
   await page.fill("#ptTitle", "Offline thought"); await page.press("#ptTitle", "Enter"); await page.waitForTimeout(400);
-  eq(await page.$$eval(".pt-task", e => e.length), 4, tag + " offline add rolls back");
-  eq(await page.inputValue("#ptTitle"), "Offline thought", tag + " offline add restores what was typed");
-  ok(/reach Studyboard/.test(await txt(page, "#toast")), tag + " offline message");
-  await page.evaluate(() => { window.__offline = false; }); await page.fill("#ptTitle", "");
+  // a dropped connection keeps the task on this device and sends it when it's back (SO16)
+  eq(await page.$$eval(".pt-task", e => e.length), 5, tag + " offline add is kept");
+  ok(/Sending when you're back online/.test(await txt(page, '.pt-task.is-pending')), tag + " and shows as sending later");
+  await page.evaluate(() => { window.__offline = false; window.dispatchEvent(new Event("online")); }); await page.waitForTimeout(1800);
+  ok(await page.evaluate(() => window.__DB.group_tasks.some(t => t.title === "Offline thought")), tag + " sent once back online");
+  await page.evaluate(() => { window.__DB.group_tasks = window.__DB.group_tasks.filter(t => t.title !== "Offline thought"); window.__fire("group_tasks", "DELETE"); }); await page.waitForTimeout(900);
+  eq(await page.$$eval(".pt-task", e => e.length), 4, tag + " (removed again for the checks below)");
+  await page.fill("#ptTitle", "");
   await page.click('.pt-task:has-text("Write the abstract") [data-act="grp-pt-edit"]'); await page.waitForSelector("dialog[open] input[name=title]");
   await page.fill('dialog input[name="title"]', "Write the abstract (150 words)"); await page.fill('dialog textarea[name="notes"]', "Keep it under 150 words"); await page.selectOption('dialog select[name="priority"]', "high"); await page.selectOption('dialog select[name="who"]', "u1");
   await noOverflow(page, tag + " edit sheet");
