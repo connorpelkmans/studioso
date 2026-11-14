@@ -66353,6 +66353,9 @@ var COMP_EXTRA = [];
     const px = sizePx(cur), f = fabRect();
     { const sl = slotSpot(px); if (sl) return Object.assign({px}, sl, {fab: f}); }
     { const dk = dockSpot(px); if (dk) return Object.assign({px}, dk, {fab: f}); }
+    // Short desktop windows (200% zoom): the Add button sits in the header row there, so its corner at the bottom right stays
+    // Mochi's home, the place it always stood beside that button, rather than wandering onto the page
+    if (!phone() && window.matchMedia && matchMedia("(max-height:600px)").matches) { const rg = range(px); return {left: Math.round(Math.max(rg.L, rg.R)), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
     // Desktop, "Companion Stays Put": always the bottom-left corner (the Companion page still seats it in its ring, above)
     if (staysPut()) { const rg = range(px); return {left: Math.round(rg.L), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
     if (spotKind === "slot") fresh = true;
