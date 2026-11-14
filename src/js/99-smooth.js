@@ -41,7 +41,8 @@
   // few hundred milliseconds on a phone; the slide-up's clock used to run through that, so by the first frame anyone saw it was
   // nearly over and the sheet seemed to pop into place. It's held at its start (still off the bottom, or see-through) until the
   // sheet has been drawn once, then plays in full.
-  const hold = el => { if (!el || !on()) return; el.classList.add("sm-hold"); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("sm-hold"))); };
+  // (phones only: on computers pop-ups open as they always have)
+  const hold = el => { if (!el || !on() || !phoneW()) return; el.classList.add("sm-hold"); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("sm-hold"))); };
   window.SBSMOOTH = Object.assign(window.SBSMOOTH || {}, {hold});
   HTMLDialogElement.prototype.showModal = function(){
     noAuto(this);
@@ -56,7 +57,7 @@
   const reduced = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   function sheetGhost(d){
     try {
-      if (!d.open || !on() || reduced() || !d.matches(":modal") || d.classList.contains("tour") || !document.body.showPopover) return null;
+      if (!d.open || !phoneW() || !on() || reduced() || !d.matches(":modal") || d.classList.contains("tour") || !document.body.showPopover) return null;
       const r = d.getBoundingClientRect(); if (r.height < 40 || r.top >= innerHeight) return null;
       const dim = getComputedStyle(d, "::backdrop").backgroundColor;
       const host = document.createElement("div"); host.className = "sm-ghost sm-skip"; host.setAttribute("aria-hidden", "true"); host.inert = true; host.setAttribute("popover", "manual");
@@ -78,13 +79,11 @@
         document.body.appendChild(host); try { host.showPopover(); } catch (e) {}
         if (sc2) sc2.scrollTop = st;   // where it was scrolled to
         // it starts moving on the next frame, once the page's own work after closing (saving, redrawing the list) is done, so the
-        // whole slide is seen rather than its last few frames; a phone sheet glides down off the bottom, a pop-up on a computer
-        // eases back and fades
+        // whole slide is seen rather than its last few frames (phones only: pop-ups on computers close as they always have)
         const done = () => host.remove(); setTimeout(done, 900);
         requestAnimationFrame(() => {
-          const ph = phoneW(), ease = {duration: ph ? 300 : 190, easing: ph ? "cubic-bezier(.4,0,.6,1)" : "cubic-bezier(.4,0,1,1)", fill: "forwards"};
-          const a = ph ? c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease)
-                       : c.animate([{opacity: 1, transform: "none"}, {opacity: 0, transform: "translateY(10px) scale(.97)"}], ease);
+          const ease = {duration: 300, easing: "cubic-bezier(.4,0,.6,1)", fill: "forwards"};
+          const a = c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease);
           host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
           a.finished.then(done, done);
         });
