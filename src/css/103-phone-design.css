@@ -459,3 +459,32 @@ nav.tabs .in .nav-focus .tomato-ic{width:26px!important;height:26px!important;tr
   #view .rv-hero .rv-acts > .rv-more:only-child .rv-more-t{display:inline}
   #view .rv-hero .rv-acts:empty{display:none}
 }
+
+/* Grades' summary on phones (90-grades.js gradesPage): slimmer. A smaller cap beside the average, a one-line summary under it,
+   three compact tiles with short labels; the GPA tiles show the number and its scale only; the credits note shares a line with
+   its button */
+.gp-s,.gp-of{display:none}
+@media (max-width:639px){
+  #view .gp-hero-band{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:16px 20px;padding:20px 18px 16px 22px}
+  #view .gp-hero-band .gp-cap{width:56px;height:56px;margin-left:3px;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+  #view .gp-hero-t{min-width:0;gap:0}
+  #view .gp-hero-t .g2-kick{font-size:.66rem}
+  #view .gp-avg{font-size:1.9rem;line-height:1.05}
+  #view .gp-hero-sub{font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #view .gp-l{display:none}
+  #view .gp-s{display:inline}
+  #view .gp-hero .gp-sum{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  #view .gp-hero .gp-tile{min-width:0;padding:7px 10px;border-radius:12px;display:grid;gap:1px}
+  #view .gp-hero .gp-tile .gr-v{font-size:1.15rem;line-height:1.1}
+  #view .gp-hero .gp-tile .gr-k{font-size:.7rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #view .gp-gpa{gap:8px;padding:10px 14px}
+  #view .gp-g{flex:1 1 0;padding:7px 12px;border-radius:12px}
+  #view .gp-g .gr-k{font-size:.72rem}
+  #view .gp-g .gr-v{font-size:1.2rem;line-height:1.15}
+  #view .gp-g .mini{display:none}
+  #view .gp-of{display:inline;font-size:.75rem;font-weight:600;color:var(--muted)}
+  #view .gp-gpa-foot{flex-wrap:nowrap;gap:10px}
+  #view .gp-gpa-foot .mini{font-size:.74rem;line-height:1.3;flex:1 1 auto;min-width:0}
+  #view .gp-gpa-foot .spacer{display:none}
+  #view .gp-gpa-foot .btn{flex:none}
+}
