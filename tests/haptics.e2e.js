@@ -21,8 +21,10 @@ async function open(b, {phone, native, off, noPlugin}) {
     Object.defineProperty(navigator, "vibrate", {configurable: true, value: p => { window.__h.push(["vibrate", JSON.stringify(p)]); return true; }});
     if (native) {
       const rec = k => o => { window.__h.push([k, o ? (o.style || o.type || "") : ""]); return Promise.resolve(); };
-      window.Capacitor = {isNativePlatform: () => true, isPluginAvailable: n => n === "Haptics" && !noPlugin, getPlatform: () => "ios",
-        Plugins: {Haptics: {impact: rec("impact"), notification: rec("notification"), selectionStart: rec("selectionStart"), selectionChanged: rec("selectionChanged")}}};
+      // as in the real app: Capacitor.Plugins starts empty, and a plugin whose own script isn't loaded is reached by registering it
+      const H = {impact: rec("impact"), notification: rec("notification"), selectionStart: rec("selectionStart"), selectionChanged: rec("selectionChanged")};
+      window.Capacitor = {isNativePlatform: () => true, isPluginAvailable: n => n === "Haptics" && !noPlugin, getPlatform: () => "ios", Plugins: {},
+        registerPlugin: n => { window.__h.push(["register", n]); return n === "Haptics" ? H : {}; }};
     }
   }, [seed(), !!native, !!off, !!noPlugin]);
   const p = await ctx.newPage(); p.errs = []; p.on("pageerror", e => p.errs.push(e.message));
@@ -30,7 +32,7 @@ async function open(b, {phone, native, off, noPlugin}) {
   await p.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
   return {ctx, p};
 }
-const calls = p => p.evaluate(() => { const h = window.__h.slice(); window.__h.length = 0; return h; });
+const calls = p => p.evaluate(() => { const h = window.__h.filter(x => x[0] !== "register"); window.__h.length = 0; return h; });
 // the student's own touch (a trusted key press: it reaches the input listener without tapping anything on the page)
 const touch = p => p.keyboard.press("Shift");
 const checkOff = async (p, id) => {

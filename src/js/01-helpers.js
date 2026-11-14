@@ -509,11 +509,17 @@ const HAPTIC_KEY = "studyboard:haptics", HAPTIC_GAP = 120, HAPTIC_INPUT_MS = 150
 const HAPTIC_WEB = {tap: 10, tick: 6, lift: 18, drop: 10, success: [12, 70, 22], warning: [22, 70, 12], error: [12, 45, 12, 45, 12]};
 let hapticAt = 0, hapticInputAt = 0, hapticSel = false;
 ["pointerdown", "touchstart", "keydown"].forEach(t => document.addEventListener(t, e => { if (e.isTrusted !== false) hapticInputAt = Date.now(); }, {capture: true, passive: true}));
+// Capacitor only lists a plugin in Capacitor.Plugins once something registers it, and this page doesn't load the plugin's own
+// script, so it's registered here by name (as native-bridge.js does for the app's other plugins). Looking only in Plugins found
+// nothing in the real app, and every haptic was silently skipped
+let hapticReg = null;
 function hapticNative(){
   try {
     const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
     if (C.isPluginAvailable && !C.isPluginAvailable("Haptics")) return null;
-    return (C.Plugins && C.Plugins.Haptics) || null;
+    if (C.Plugins && C.Plugins.Haptics) return C.Plugins.Haptics;
+    if (!hapticReg && typeof C.registerPlugin === "function") hapticReg = C.registerPlugin("Haptics");
+    return hapticReg || null;
   } catch (e) { return null; }
 }
 // a phone or tablet: the iPhone or Android app, or a browser on a touch screen with no mouse
@@ -551,7 +557,7 @@ async function hapticTry(){
     const H = hapticNative();
     if (!H) {
       // what the app can see, for working out why: the plugin listed by the app, and its JavaScript side
-      let seen = ""; try { seen = ` (plugin listed: ${C.isPluginAvailable ? (C.isPluginAvailable("Haptics") ? "yes" : "no") : "?"}, reachable: ${C.Plugins && C.Plugins.Haptics ? "yes" : "no"})`; } catch (e) {}
+      let seen = ""; try { seen = ` (plugin listed: ${C.isPluginAvailable ? (C.isPluginAvailable("Haptics") ? "yes" : "no") : "?"}, can register: ${typeof C.registerPlugin === "function" ? "yes" : "no"})`; } catch (e) {}
       return "This copy of the app can't reach the iPhone's haptics" + seen + ". Install the newest build (TestFlight, or run it from Xcode) and try again.";
     }
     // a strong one, then the success pattern, so there's no mistaking it
