@@ -66124,7 +66124,7 @@ var COMP_EXTRA = [];
   const hours = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() / 60 : 0; } catch (e) { return 0; } };
   /* Earning props */
   const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
-    notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "study group or room", focusWeeks: "weeks with 4+ focus days", festive: "winter holiday visit"};
+    notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "Study Group or Room", focusWeeks: "weeks with 4+ focus days", festive: "Winter Holiday Visit"};
   const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
     streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n === 1 ? "a practice quiz" : n + " practice quizzes"} (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
