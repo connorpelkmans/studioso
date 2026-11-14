@@ -705,7 +705,7 @@ function noteSheetUp(){
   // the note's own colour also fills the strip behind the keyboard (see .n-sheet-bg.on::after)
   try { document.documentElement.style.setProperty("--n-sheet-c", getComputedStyle(el).getPropertyValue("--nc").trim() || getComputedStyle(el).backgroundColor); } catch (e) {}
   // slides up once when a note opens, not again on every redraw while it's being edited
-  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } if (window.SBSMOOTH) { SBSMOOTH.hold(el); SBSMOOTH.hold(bg); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
