@@ -399,7 +399,7 @@
   async function readFileText(f, given){
     const r = srcRev(f) || {name: fileNameOf(f), type: fileTypeOf(f)}, kind = given ? given.kind : extKind(f);
     let bytes = given ? given.bytes : null;
-    if (!given) { try { bytes = r.cloud ? new Uint8Array(await fileBytes(f)) : await getBytes(r); } catch(e) { throw Object.assign(new Error("fetch"), {retry: true}); } }
+    if (!given) { try { bytes = r.cloud ? new Uint8Array(await fileBytes(f)) : await getBytes(r); } catch(e) { throw Object.assign(new Error("fetch"), {retry: true, missing: !!(e && e.missing)}); } }
     if (!bytes || bytes.byteLength > MAX_FILE_BYTES) return {status: "bad", pages: []};
     let pages = [];
     if (kind === "pdf") {
@@ -520,7 +520,10 @@
           dbPut("text", r.assetId, rec);
           if (FT.loaded && rec.status === "ok" && state.files[fid]) { await addChunks(rec, state.files[fid]); semKick(2000); drawSoon(); }
         } catch(e) {
-          if (e && e.retry) FT.fails.set(r.assetId, Date.now());
+          // A file that isn't in the account (deleted, or its upload never finished) is put aside like an unreadable one, so it isn't
+          // downloaded again at every start; a new one gets a day first, in case it's still uploading from another device
+          const gone = e && e.missing && Date.now() - (r.at || 0) > 864e5;
+          if (e && e.retry && !gone) FT.fails.set(r.assetId, Date.now());
           else { FT.recs.set(r.assetId, {status: "bad", at: Date.now()}); dbPut("text", r.assetId, {v: 1, assetId: r.assetId, fid, name: f.name, at: Date.now(), status: "bad", pages: []}); }
         }
         await wait(150);

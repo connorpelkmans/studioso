@@ -488,5 +488,22 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
     H = harness(); for (let i = 0; i < L.perMinute - 5; i++) await H.meterOf().touch(L);
     eq((await J(await call(H, job({auto: true})))).s, 429, "background jobs stop 5 requests short of the per-minute limit");
     eq((await J(await call(H, job()))).s, 200, "leaving those for the student"); }
+  /* Sign-in check: only real-looking JWTs reach Supabase, and a refused one isn't asked about again right away */
+  {
+    const jwt = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ4In0." + "a".repeat(86), calls = [];
+    const fetchFn = async (url, init) => { calls.push(init.headers.Authorization); return new Response("{}", {status: 403}); };
+    for (const t of ["sb_publishable_abc", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.short", "not-a-token", "a.b.c", "x".repeat(200)])
+      eq(await P.verifyUser(t, ENV, fetchFn, 1), null, "a non-JWT is refused: " + t.slice(0, 20));
+    eq(calls.length, 0, "without asking Supabase (no bad_jwt 403s in its gateway logs)");
+    eq(await P.verifyUser(jwt, ENV, fetchFn, 1000), null, "a JWT Supabase refuses is refused");
+    eq(await P.verifyUser(jwt, ENV, fetchFn, 2000), null, "and again");
+    eq(calls.length, 1, "the refusal is remembered for a minute");
+    await P.verifyUser(jwt, ENV, fetchFn, 1000 + 61000);
+    eq(calls.length, 2, "then asked again");
+    const uid = "0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", good = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ5In0." + "b".repeat(86);
+    const v = await P.verifyUser(good, ENV, async () => new Response(JSON.stringify({id: uid, email_confirmed_at: "2026-01-01"}), {status: 200}), 1);
+    eq(v, {id: uid, confirmed: true, anonymous: false}, "a good JWT still signs in");
+  }
+
   console.log(`ai-pro: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

@@ -68,12 +68,18 @@ export function config(env) {
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Max-Age": "86400" };
 export const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const seen = new Map();
+// A Supabase access token is a signed JWT: header.payload.signature, base64url, header starting {" (eyJ), and an HS256/ES256/RS256
+// signature of at least 43 characters. Anything else (an empty or truncated token, an API key, a random probe) is refused here
+// rather than sent to Supabase, whose gateway logs each one as a 403 bad_jwt.
+export const looksLikeJwt = t => typeof t === "string" && /^eyJ[\w-]+\.eyJ[\w-]+\.[\w-]{43,}$/.test(t);
 export async function verifyUser(token, env, fetchFn = fetch, now = Date.now()) {
-  if (!token || token.length > 4096 || !env.SUPABASE_URL || !env.SUPABASE_KEY) return null;
+  if (!token || token.length > 4096 || !looksLikeJwt(token) || !env.SUPABASE_URL || !env.SUPABASE_KEY) return null;
   const hit = seen.get("u:" + token); if (hit && hit.until > now) return hit.v;
   let res;
   try { res = await fetchFn(String(env.SUPABASE_URL).replace(/\/+$/, "") + "/auth/v1/user", { headers: { apikey: env.SUPABASE_KEY, Authorization: "Bearer " + token } }); }
   catch (e) { return null; }
+  // A token Supabase refused (expired, revoked, bad signature) is remembered for a minute so a client retrying it doesn't ask again
+  if (res.status === 401 || res.status === 403) { if (seen.size > 4000) seen.clear(); seen.set("u:" + token, { v: null, until: now + 60000 }); return null; }
   if (!res.ok) return null;
   const u = await res.json().catch(() => null);
   if (!u || typeof u.id !== "string" || !/^[0-9a-f-]{36}$/i.test(u.id)) return null;
