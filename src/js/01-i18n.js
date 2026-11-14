@@ -5,24 +5,32 @@
    Placeholders are {name}; plurals are "one|other" pairs picked with Intl.PluralRules. tools/extract-i18n.js rebuilds locales/en.json from the code.
    Static HTML opts in with data-i18n="key" (text) and data-i18n-aria="key" (aria-label); English stays in data-i18n-en. */
 const SBI18N = (() => {
-  // the languages that ship with the app (locales/<lang>.json): always offered in Settings, loaded when picked
+  // the languages that ship with the app (locales/<lang>.json), loaded when picked
   const LS = "studyboard:lang", CATS = {en: {}}, SOURCES = ["en", "es"];
-  // A catalog with fewer strings than this (about half of locales/en.json) leaves most of the page in English: the page stays
-  // marked English (so screen readers keep an English voice) and only the translated bits are marked with their language
-  const FULL = 300;
+  // The languages whose translation covers the screens people actually use. Only these are offered in Settings, picked from the
+  // browser's language, and switch the page's language and its dates. A catalog's size can't tell: locales/en.json is mostly the
+  // rarer screens (grades, semester, review streaks) while the Board, Calendar, task sheet and Flashcards still write English
+  // straight into the page, so even a complete catalog leaves most of what you see in English, with German dates inside English
+  // sentences. Add a language here once its screens read right in it. Until then it's a preview: someone who sets it on purpose
+  // (a translator) still gets it, but the page stays marked English (so screen readers keep an English voice), dates stay English,
+  // and only the translated bits are marked with their language.
+  const DONE = ["en"];
   let lang = "en", rules = null, dloc;
   const norm = l => String(l || "").toLowerCase().replace("_", "-");
   const base = l => norm(l).split("-")[0];
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
+  function done(l){ return DONE.indexOf(base(l)) >= 0; }
+  function have(l){ return !!CATS[norm(l)] || !!CATS[base(l)]; }
   const pick = () => {
     const saved = norm(store(LS) || "");
     if (saved && saved !== "auto") return saved;
-    return norm((navigator.languages && navigator.languages[0]) || navigator.language || "en");
+    // Auto never lands on a preview: a Spanish browser gets the finished English app, not a page that's a tenth Spanish
+    const nav = norm((navigator.languages && navigator.languages[0]) || navigator.language || "en");
+    return done(nav) ? nav : "en";
   };
   function setRules(){ try { rules = new Intl.PluralRules(lang); } catch (e) { rules = null; } }
   function fill(str, vars){ return vars ? String(str).replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m) : String(str); }
-  const full = l => { const c = CATS[norm(l)] || CATS[base(l)]; return base(l) === "en" || !!c && Object.keys(c).length >= FULL; };
-  const pageLang = () => full(lang) ? lang : "en";
+  const pageLang = () => done(lang) && have(lang) ? lang : "en";
   // Dates and times follow the page's language: on an English page in a German browser, "Due Monday", not "Due Montag"
   // (the region's own date order and 24-hour clock are kept where English has them, e.g. en-DE)
   function dateLoc(){
@@ -76,8 +84,28 @@ const SBI18N = (() => {
     applyDom();
     try { fire("lang", lang); } catch (e) {}
   }
+  // The sidebar's tool buttons are plain HTML (index.html): tag them for translation here, while the page is still English
+  // (tr gives the English), so the whole sidebar and the phone's bottom bar change language together
+  function tagNav(){
+    const nav = document.querySelector("nav.tabs"); if (!nav) return;
+    const tag = (sel, key, en, akey, aen) => {
+      const b = nav.querySelector(sel); if (!b) return;
+      const s = b.querySelector("span") || b;
+      if (key && !s.hasAttribute("data-i18n")) { s.setAttribute("data-i18n", key); s.setAttribute("data-i18n-en", en); }
+      if (akey && !b.hasAttribute("data-i18n-aria")) { b.setAttribute("data-i18n-aria", akey); b.setAttribute("data-i18n-aria-en", aen); }
+    };
+    tag('[data-act="ann-open"]', "nav.announce", tr("nav.announce", "Announcements"), "nav.announce.aria", tr("nav.announce.aria", "Class announcements"));
+    tag('[data-act="search"]', "nav.search", tr("nav.search", "Search"), "nav.search", tr("nav.search", "Search"));
+    tag('[data-act="calc-open"]', "nav.calc", tr("nav.calc", "Calculator"), "nav.calc", tr("nav.calc", "Calculator"));
+    tag('[data-act="shop"]', "nav.style", tr("nav.style", "Style"), "nav.style.aria", tr("nav.style.aria", "Style Shop"));
+    tag('[data-act="menu"]', "nav.settings", tr("nav.settings", "Settings"), "nav.settings.aria", tr("nav.settings.aria", "Settings, backups and import"));
+    tag("#guestBadgeSide", "nav.guest", tr("nav.guest", "Save Your Planner"));
+    if (!nav.hasAttribute("data-i18n-aria")) { nav.setAttribute("data-i18n-aria", "nav.aria"); nav.setAttribute("data-i18n-aria-en", tr("nav.aria", "Views")); }
+    // the calculator's tooltip only repeats its label, which is now translated
+    const c = nav.querySelector('[data-act="calc-open"]'); if (c) c.removeAttribute("title");
+  }
+  tagNav();
   async function set(l){ store(LS, l || "auto"); const want = l && l !== "auto" ? l : pick(); await load(want); use(want); }
-  const have = l => !!CATS[norm(l)] || !!CATS[base(l)];
   lang = pick(); setRules();
   dloc = dateLoc();
   // A date formatted with no language given uses the page's (above), not the browser's
@@ -112,14 +140,16 @@ const SBI18N = (() => {
     P.prototype = DTF.prototype; P.supportedLocalesOf = DTF.supportedLocalesOf.bind(DTF); Intl.DateTimeFormat = P;
   } catch (e) {}
   // English pages stay untouched
-  if (base(lang) !== "en") load(lang).then(() => { if (have(lang)) use(lang); else { lang = "en"; setRules(); } });
-  return {tr, trn, fmtN, fmtD, register, applyDom, load, set, use, have, get lang(){ return lang; }, get page(){ return pageLang(); }, get dates(){ return dloc; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
+  // (what was drawn before the catalog arrived is redrawn in it)
+  if (base(lang) !== "en") load(lang).then(() => { if (have(lang)) { use(lang); try { render(); } catch (e) {} } else { lang = "en"; setRules(); } });
+  return {tr, trn, fmtN, fmtD, register, applyDom, load, set, use, have, done, get lang(){ return lang; }, get page(){ return pageLang(); }, get dates(){ return dloc; }, get saved(){ return store(LS) || "auto"; }, available: () => SOURCES.slice(), names: {en: "English", es: "Español"}};
 })();
 const tr = SBI18N.tr, trn = SBI18N.trn;
-// Settings: a language picker with every language that ships with the app (so English can always be switched back)
+// Settings: a language picker with every finished language that ships with the app, plus a preview language while it's the one
+// chosen (so it shows as picked and English can always be switched back). With English alone there is nothing to pick.
 hook("menu", () => {
-  const av = SBI18N.available(); if (av.length < 2) return "";
-  const cur = SBI18N.saved, items = [["auto", tr("lang.auto", "Auto")]].concat(av.map(l => [l, SBI18N.names[l] || l]));
+  const cur = SBI18N.saved, av = SBI18N.available().filter(l => SBI18N.done(l) || l === cur); if (av.length < 2) return "";
+  const items = [["auto", tr("lang.auto", "Auto")]].concat(av.map(l => [l, (SBI18N.names[l] || l) + (SBI18N.done(l) ? "" : " " + tr("lang.preview", "(preview)"))]));
   return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem" data-i18n="lang.title" data-i18n-en="Language">${esc(tr("lang.title", "Language"))}<span class="sub" data-i18n="lang.sub2" data-i18n-en="Anything not translated yet stays in English.">${esc(tr("lang.sub2", "Anything not translated yet stays in English."))}</span></span><div class="segb" role="group" aria-label="${esc(tr("lang.title", "Language"))}">${items.map(([k, l]) => `<button type="button" data-act="lang-set" data-id="${esc(k)}" aria-pressed="${cur === k}"${k === "auto" ? ' data-i18n="lang.auto" data-i18n-en="Auto"' : ""}>${esc(l)}</button>`).join("")}</div></div>`;
 });
 // Spelling: Automatic (by where you are), or fixed to American, British or Canadian

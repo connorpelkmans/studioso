@@ -3473,7 +3473,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
   (() => {
     const inn = $("nav.tabs .in"); if (!inn || $('[data-tab="groups"]', inn)) return;
     const b = document.createElement("button");
-    b.dataset.tab = "groups"; b.className = "nav-groups"; b.innerHTML = ICON_GROUP + "Groups";
+    b.dataset.tab = "groups"; b.className = "nav-groups"; b.innerHTML = ICON_GROUP + esc(tr("nav.groups", "Groups"));
+    // translated with the rest of the menu when the language changes (the English stays in data-i18n-en)
+    b.setAttribute("data-i18n", "nav.groups"); b.setAttribute("data-i18n-en", "Groups");
     b.addEventListener("click", () => { if (ui.tab === "groups") { ui.grp = null; unsubscribe(); } }, true);
     inn.insertBefore(b, $("#navPomo", inn) || null);
   })();

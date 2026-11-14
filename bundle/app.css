@@ -60,7 +60,7 @@ nav.tabs button svg{width:22px;height:22px}
 nav.tabs button[aria-current="page"]{color:var(--ink);font-weight:600}
 nav.tabs button[aria-current="page"] svg{color:var(--accent)}
 
-.fab{position:fixed;right:max(18px,calc(50% - 362px));bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:18px;background:var(--accent);color:var(--accent-ink);padding:14px 18px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(20,40,120,.25)}
+.fab{position:fixed;inset-inline-end:max(18px,calc(50% - 362px));bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:18px;background:var(--accent);color:var(--accent-ink);padding:14px 18px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(20,40,120,.25)}
 .fab svg{width:20px;height:20px}
 .fab span{position:relative;top:-1.5px}
 
@@ -845,7 +845,7 @@ nav.tabs .in button svg{width:22px;height:22px;flex:none}
 nav.tabs .in button[aria-current="page"]{color:#fff;background:var(--spine-hi);font-weight:700}
 nav.tabs .in button[aria-current="page"] svg{color:var(--accent-2)}
 .nav-brand,.nav-pomo{display:none}
-.fab{bottom:calc(92px + env(safe-area-inset-bottom,0px));right:16px;border-radius:16px;font:600 1rem var(--display);box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 40%,transparent)}
+.fab{bottom:calc(92px + env(safe-area-inset-bottom,0px));inset-inline-end:16px;border-radius:16px;font:600 1rem var(--display);box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 40%,transparent)}
 .toast{bottom:calc(158px + env(safe-area-inset-bottom,0px));background:var(--navy);color:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(8,20,50,.3)}
 .toast button{color:var(--mark)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .toast{background:#E7EEFA;color:#0A1428}:root:not([data-theme="light"]) .toast button{color:#1A5BC4}}
@@ -861,13 +861,13 @@ nav.tabs .in button[aria-current="page"] svg{color:var(--accent-2)}
 }
 /* Desktop: the navy notebook spine */
 @media (min-width:980px){
-  body{padding-left:236px}
-  nav.tabs{top:0;bottom:0;left:0;right:auto;width:236px;border-radius:0;padding:22px 14px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:18px;box-shadow:none;overflow-y:auto}
-  nav.tabs::after{content:"";position:absolute;top:0;bottom:0;right:7px;border-right:2px dashed rgba(255,255,255,.09);pointer-events:none}
+  body{padding-inline-start:236px}
+  nav.tabs{top:0;bottom:0;inset-inline:0 auto;width:236px;border-radius:0;padding:22px 14px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:18px;box-shadow:none;overflow-y:auto}
+  nav.tabs::after{content:"";position:absolute;top:0;bottom:0;inset-inline-end:7px;border-inline-end:2px dashed rgba(255,255,255,.09);pointer-events:none}
   .nav-brand{display:block;padding:2px 8px 10px}
   .nav-brand img{height:44px;width:auto;display:block}
   nav.tabs .in{display:flex!important;flex-direction:column;gap:3px;max-width:none}
-  nav.tabs .in button{flex-direction:row;justify-content:flex-start;gap:12px;padding:11px 12px;font:500 .98rem var(--display)!important;border-radius:12px;text-align:left}
+  nav.tabs .in button{flex-direction:row;justify-content:flex-start;gap:12px;padding:11px 12px;font:500 .98rem var(--display)!important;border-radius:12px;text-align:start}
   nav.tabs .in button:hover{background:rgba(255,255,255,.05);color:#fff}
   nav.tabs .in button[aria-current="page"]{box-shadow:inset 3px 0 0 var(--accent-2)}
   .nav-pomo{display:flex;align-items:center;gap:8px;margin-top:auto;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:10px 10px 10px 12px}
@@ -885,7 +885,7 @@ nav.tabs .in button[aria-current="page"] svg{color:var(--accent-2)}
   .wrap{padding-inline:32px;max-width:900px}
   body.wide .wrap{max-width:1240px}
   header.top{margin-inline:-32px;padding-inline:32px}
-  .fab{right:32px;bottom:28px}
+  .fab{inset-inline-end:32px;bottom:28px}
   .toast{left:calc(50% + 118px);bottom:32px}
 }
 /* Type */
@@ -1197,12 +1197,12 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
 @media (prefers-reduced-motion:reduce){.tl-bg .today-line.flash,.tl-d.is-today.flash{animation:none}}
 .nav-date,.nav-focus,.nav-foot,nav.tabs .in .nav-focus{display:none}
 @media (min-width:980px){
-  body{padding-left:112px}
+  body{padding-inline-start:112px}
   header.top{display:none}
   #toolbar{padding-top:18px}
   #toolbar:has(#searchRow[hidden]){padding-top:8px}
   nav.tabs{width:112px;padding:18px 10px calc(14px + env(safe-area-inset-bottom,0px));gap:14px;align-items:stretch}
-  nav.tabs::after{right:4px}
+  nav.tabs::after{inset-inline-end:4px}
   .nav-brand{display:flex;flex-direction:column;align-items:center;gap:14px;padding:0}
   .nav-brand img{width:88px;height:auto}
   .nav-date{display:flex;flex-direction:column;align-items:center;width:58px;border-radius:10px;overflow:hidden;background:#fff;color:var(--navy);box-shadow:0 3px 0 rgba(0,0,0,.18);line-height:1}
@@ -1213,7 +1213,7 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
   nav.tabs .in button{flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:10px 4px 9px;font:500 .74rem/1.1 var(--display)!important;text-align:center;border-radius:12px}
   nav.tabs .in button svg{width:23px;height:23px}
   nav.tabs .in button[aria-current="page"]{box-shadow:none}
-  nav.tabs .in button[aria-current="page"]::before{content:"";position:absolute;left:-10px;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--accent-2)}
+  nav.tabs .in button[aria-current="page"]::before{content:"";position:absolute;inset-inline-start:-10px;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--accent-2)}
   nav.tabs .in button{position:relative}
   nav.tabs .in .nav-focus{display:flex;margin-top:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff}
   nav.tabs .in .nav-focus svg{color:var(--tomato)}
@@ -1247,12 +1247,12 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
 .bk-ico .brand-lg{display:block;width:16px;height:auto}
 .bk-ico img.brand-lg{width:19px}
 @media (min-width:980px){
-  body{padding-left:136px}
+  body{padding-inline-start:136px}
   nav.tabs{width:136px;padding-inline:12px}
   .nav-brand{gap:6px}
   .nav-brand img{width:112px}
   .nav-date{display:block;width:auto;background:none;box-shadow:none;border-radius:0;color:var(--spine-ink);font:500 .78rem/1.2 var(--display);text-align:center;letter-spacing:.01em}
-  nav.tabs .in button[aria-current="page"]::before{left:-12px}
+  nav.tabs .in button[aria-current="page"]::before{inset-inline-start:-12px}
   .toast{left:calc(50% + 68px)}
 }
 
@@ -2569,6 +2569,13 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 html[data-motion="static"] .sp-dots i{animation:none;opacity:.8}
 /* with a message showing too, the notice moves up above it */
 html:has(#toast.show) .toast.sync-pill{transform:translateX(-50%) translateY(-56px)}
+/* Right-to-left pages (01-i18n.js sets dir="rtl" for a finished Arabic, Hebrew, Farsi or Urdu translation). The shell uses logical
+   sides (inset-inline, padding-inline-start), so the sidebar, the Add button and the Time Today control mirror with the page;
+   these are the few rules that can't be written that way */
+html[dir="rtl"] nav.tabs .in button[aria-current="page"]::before{border-radius:3px 0 0 3px}
+@media (min-width:980px){html[dir="rtl"] .toast{left:calc(50% - 68px)}}
+/* text that is still English (or a time like "12:50–1:20 PM") keeps its own direction, so its full stop stays at the end of the sentence */
+html[dir="rtl"] :is(p,li,label,td,th,span,b,strong,small,em){unicode-bidi:plaintext}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -7413,7 +7420,7 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
   nav.tabs .in [data-tab="companion"][aria-current="page"]::after{box-shadow:0 0 0 4px var(--accent-band,var(--accent)),0 0 0 7px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28)}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
   /* The Add button */
-  .fab{width:56px;height:56px;padding:0!important;border-radius:50%!important;justify-content:center;right:16px;bottom:calc(var(--ph-bar-b) + 74px)}
+  .fab{width:56px;height:56px;padding:0!important;border-radius:50%!important;justify-content:center;inset-inline-end:16px;bottom:calc(var(--ph-bar-b) + 74px)}
   .fab span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .fab svg{width:26px;height:26px}
   /* Page switchers */
@@ -7581,6 +7588,13 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
   .g2-sheet-head{padding-left:86px!important}
   /* A course's page */
   .c2-head .cd-tabs button{font-size:.84rem;padding-inline:4px;white-space:nowrap}
+}
+/* A label longer than its slot (German "Wiederholen", French "Calendrier") ends in an ellipsis inside its own tab instead of running
+   into the next one. The label is a bare text node, so the button itself becomes the block that clips it, with the icon on its own
+   line above. Letters sit a touch closer so Spanish "Calendario" still fits whole. (The companion's seat has no label and draws outside its button.) */
+@media (min-width:360px) and (max-width:639px){
+  nav.tabs .in button:not([data-tab="companion"]){display:block;overflow:hidden;text-overflow:ellipsis;text-align:center;letter-spacing:-.02em}
+  nav.tabs .in button:not([data-tab="companion"]) > svg{display:block;margin:0 auto 4px}
 }
 /* the narrowest phones */
 @media (max-width:359px){header.top .today{font-size:.68rem!important}}
@@ -7933,16 +7947,16 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
 /* the time wraps after its dash rather than being cut, so a narrow card still shows when it ends */
 .dtl-c .dtl-t{white-space:normal;text-overflow:clip;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 /* Time Today sits in the row with Today's Plan / Task Board */
-.bview-row > .bv-hours{flex:none;margin-left:auto;display:flex;align-items:center}
-.bv-hours .hours-ctl{display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 3px 2px 12px;min-height:40px;box-sizing:border-box}
-.bv-hours .hours-ctl .mini{margin-right:4px;font-size:.78rem;color:var(--muted);white-space:nowrap}
+.bview-row > .bv-hours{flex:none;margin-inline-start:auto;display:flex;align-items:center}
+.bv-hours .hours-ctl{display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 3px;padding-inline-start:12px;min-height:40px;box-sizing:border-box}
+.bv-hours .hours-ctl .mini{margin-inline-end:4px;font-size:.78rem;color:var(--muted);white-space:nowrap}
 .bv-hours .hours-ctl b{min-width:34px;text-align:center;font-size:.92rem}
 .bv-hours .hours-ctl .icon-btn.sm{width:30px;height:30px;border-radius:50%;border:0;background:transparent;color:var(--ink);box-shadow:none}
 .bv-hours .hours-ctl .icon-btn.sm:hover{background:var(--soft)}
 .hours-ctl .hc-row{display:flex;align-items:center}
 html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 @media (min-width:640px){
-  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;right:0;bottom:0;margin:0;z-index:2}
+  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;inset-inline-end:0;bottom:0;margin:0;z-index:2}
 }
 /* Phones keep Time Today in the plan box; wider screens have it in the tab row (and not in the box) */
 @media (max-width:639px){#view > .bview-row > .bv-hours{display:none}}
