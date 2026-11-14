@@ -94384,6 +94384,10 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 @media (max-width:480px){
   .pdr-sheet .pdr-save .pdr-badge{display:none}
   .pdr-sheet .pdr-bar .pdr-modes > :is(.pdr-mode,.pde-mode){padding:0 7px;gap:4px}
+  /* the count of edits waiting to be saved sits on the Edit icon's corner, so the switch keeps its width and never runs over
+     the buttons beside it */
+  .pdr-sheet .pdr-bar .pdr-modes > .pde-mode{position:relative}
+  .pdr-sheet .pdr-bar .pdr-modes > .pde-mode .pdr-badge{position:absolute;top:1px;inset-inline-end:-2px;margin:0;min-width:17px;height:17px;padding:0 4px;font-size:.66rem;line-height:1;box-shadow:0 0 0 2px var(--surface);pointer-events:none}
 }
 /* the narrowest phones: a slimmer switch, so four tools and More still fit beside it in Edit */
 @media (max-width:380px){
