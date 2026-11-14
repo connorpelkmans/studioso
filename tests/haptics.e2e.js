@@ -8,7 +8,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const dated = d => { const x = new Date(); x.setDate(x.getDate() + d); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); };
 const seed = () => ({v: 2, courses: [{id: "c1", name: "Biology 101", code: "BIO101", color: "#2a9d8f"}],
   tasks: [0, 1, 2].map(i => ({id: "t" + i, title: ["Lab report", "Read chapter 4", "Problem set 3"][i], courseId: "c1", type: "Assignment", due: dated(i + 3), start: dated(0), hours: 1, status: "todo", priority: "med", created: 1})),
-  files: [], notes: [], decks: [], events: [], settings: {capacity: 15}, updated: 1});
+  files: [], notes: [], decks: [{id: "d1", name: "Cells", courseId: "c1", created: 1, quizzes: [], cards: ["a", "b"].map(k => ({id: k, front: "Front " + k, back: "Back " + k, box: 0, due: "", seen: 0, right: 0, wrong: 0}))}],
+  events: [], settings: {capacity: 15}, updated: 1});
 
 // native: a stand-in for the Capacitor bridge and its Haptics plugin that records each call
 async function open(b, {phone, native, off, noPlugin, own}) {
@@ -56,7 +57,7 @@ const checkOff = async (p, id) => {
       const {ctx, p} = await open(b, {phone: true, native: true});
       ok(await p.evaluate(() => typeof sbHaptic === "function" && __sbHaptic.device()), "the app counts as a phone");
       let h = await checkOff(p, "t0");
-      ok(h.length === 1 && h[0][0] === "impact" && h[0][1] === "MEDIUM", `checking off a task is one firm tap (${JSON.stringify(h)})`);
+      ok(h.length === 1 && h[0][0] === "impact" && h[0][1] === "LIGHT", `checking off a task is one light tap (${JSON.stringify(h)})`);
       ok(!h.some(x => x[0] === "vibrate"), "the app never uses navigator.vibrate when the plugin is there");
       await touch(p); await p.waitForTimeout(150);
       const fired = await p.evaluate(() => [window.sbHaptic("tap"), window.sbHaptic("tap")]); await calls(p);
@@ -111,11 +112,21 @@ const checkOff = async (p, id) => {
     { // the iPhone app with only Studyboard's own haptics plugin built in
       const {ctx, p} = await open(b, {phone: true, native: true, own: true});
       const h = await checkOff(p, "t0");
-      ok(h.length === 1 && h[0][0] === "impact" && h[0][1] === "MEDIUM", `with only Studyboard's own plugin, checking off a task is still a firm tap (${JSON.stringify(h)})`);
+      ok(h.length === 1 && h[0][0] === "impact" && h[0][1] === "LIGHT", `with only Studyboard's own plugin, checking off a task is still a tap (${JSON.stringify(h)})`);
       await p.evaluate(() => { const m = document.querySelector('[data-act="menu"]'); if (m) m.click(); }); await p.waitForTimeout(600);
       await calls(p); await p.evaluate(() => dlg.querySelector('[data-act="haptic-try"]').click()); await p.waitForTimeout(900);
       const t = await p.evaluate(() => document.getElementById("toastMsg").textContent), h2 = await calls(p);
       ok(h2.length === 2 && /Sent two taps/.test(t), `and Try It goes through it (${JSON.stringify(h2)}; "${t}")`);
+      ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
+      await ctx.close();
+    }
+    { // a flashcard session: a tap for each card graded, the success pattern for the last one
+      const {ctx, p} = await open(b, {phone: true, native: true});
+      const act = (a, id) => p.evaluate(([a, id]) => { const x = document.createElement("button"); x.dataset.act = a; if (id) x.dataset.id = id; x.hidden = true; document.body.appendChild(x); x.click(); x.remove(); }, [a, id]);
+      await act("fc-study", "d1"); await p.waitForTimeout(400); await calls(p);
+      const got = [];
+      for (let i = 0; i < 2; i++) { await act("fc-flip"); await p.waitForTimeout(150); await touch(p); await act("fc-rate", "good"); await p.waitForTimeout(250); got.push(...await calls(p)); }
+      ok(got.length === 2 && got[0][0] === "impact" && got[0][1] === "LIGHT" && got[1][0] === "notification" && got[1][1] === "SUCCESS", `grading a card is a tap; grading the last card of the session is a success (${JSON.stringify(got)})`);
       ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
       await ctx.close();
     }

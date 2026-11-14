@@ -5373,6 +5373,8 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial};
+  // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
+  sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
   // Keyboard goes to Next Question so Enter moves on, even after a mouse-picked answer (the click left focus on Quit)
   setTimeout(() => { const n = $("#aiNext"); if (n) n.focus(); }, 30);
@@ -5389,6 +5391,7 @@ function aiFinish(){
   d.quizzes = d.quizzes.concat({at: Date.now(), score: right, total, ai: true}).slice(-20);
   saveDeck(d, null);
   if (total > 0 && right / total >= 0.8) { try { celebrate("check"); } catch (e) {} }
+  sbHaptic(total > 0 && right / total >= 0.8 ? "success" : "tap");
   if (quizPasses(right, total) && !(!qz || f.qs.length !== qz.questions.length)) earnBump("q");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
 }
@@ -10260,9 +10263,9 @@ function stkEnd(ok, e){
   if (d.fromNote) {
     const src = state.notes[d.noteId]; if (!src) return;
     const m = clone(src); moved = m.stickers.splice(d.i, 1)[0]; if (!moved) return;
-    if (tid === d.noteId) { Object.assign(moved, noteLocalPoint(target, e.clientX, e.clientY)); delete moved.y; m.stickers.splice(d.i, 0, moved); applyChanges([{kind: "note", id: src.id, after: m}], ""); return; }
+    if (tid === d.noteId) { sbHaptic("drop"); Object.assign(moved, noteLocalPoint(target, e.clientX, e.clientY)); delete moved.y; m.stickers.splice(d.i, 0, moved); applyChanges([{kind: "note", id: src.id, after: m}], ""); return; }
     changes.push({kind: "note", id: src.id, after: m});
-    if (!tid) { applyChanges(changes, "Sticker removed"); return; }
+    if (!tid) { sbHaptic("drop"); applyChanges(changes, "Sticker removed"); return; }
   }
   if (!tid || !state.notes[tid]) { if (!d.fromNote) toast("Drop stickers onto a sticky note"); return; }
   const t = clone(state.notes[tid]);
@@ -10271,6 +10274,8 @@ function stkEnd(ok, e){
   changes.push({kind: "note", id: tid, after: t});
   // On a phone the envelope covers the board, so it stays tucked away once a sticker from it lands
   if (!d.fromNote && window.matchMedia && window.matchMedia("(max-width:700px)").matches) { ui.envOpen = false; try { localStorage.setItem("studyboard:env", "0"); } catch(err) {} }
+  // a tap as the sticker lands, as a note does when it's dropped
+  sbHaptic("drop");
   applyChanges(changes, "");
 }
 // Turning a sticker
@@ -10987,8 +10992,8 @@ function sbHaptic(kind, opts){
       const done = p => { if (p && p.catch) p.catch(() => {}); };
       if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
       else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
-      // (Apple's LIGHT impact was too faint to notice in the hand: a tap or a drop is MEDIUM, picking something up is HEAVY)
-      else done(H.impact({style: kind === "lift" ? "HEAVY" : "MEDIUM"}));
+      // a tap or a drop is Apple's LIGHT impact, picking something up MEDIUM
+      else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
       return true;
     }
     if (navigator.vibrate) { navigator.vibrate(HAPTIC_WEB[kind]); return true; }
@@ -19452,7 +19457,6 @@ function earnBump(k, n){ try { const e = Object.assign({q: 0, c: 0}, (state.sett
 const quizPasses = (score, total) => total >= 5 && score / total >= 0.8;
 function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
-  sbHaptic("tap");
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
@@ -19475,6 +19479,8 @@ function rateCard(rating){
   if (rating === "again" && (f.repeats[it.cardId] || 0) < 2) { f.repeats[it.cardId] = (f.repeats[it.cardId] || 0) + 1; f.q.push(it); step.pushed = true; }
   f.hist = (f.hist || []).concat(step).slice(-50);
   f.i++; f.flipped = false;
+  // a tap for each card, and the success pattern for the last one: the session is done
+  sbHaptic(f.q[f.i] ? "tap" : "success");
   // the card on screen changes at once; the redraw the save queued has nothing more to show
   renderOnce();
 }
@@ -19672,6 +19678,7 @@ function answerQuiz(given, pre){
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r;
+  sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
   render();
@@ -19686,6 +19693,7 @@ function finishQuiz(){
   applyChanges(changes, null);
   const sc = Object.values(byDeck).reduce((a, r) => a + r.score, 0), tot = Object.values(byDeck).reduce((a, r) => a + r.total, 0);
   if (tot > 0 && sc / tot >= 0.8) { try { celebrate("check"); } catch (e) {} }
+  sbHaptic(tot > 0 && sc / tot >= 0.8 ? "success" : "tap");
   if (quizPasses(sc, tot)) earnBump("q");
 }
 function viewQuiz(){
@@ -67467,6 +67475,8 @@ var COMP_EXTRA = [];
     const fresh = earnedNow.filter(a => !got[a.id]);
     if (!fresh.length) return;
     setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
+    // a new prop earned: the success pattern (checked a moment after the studying that earned it, so not tied to a touch)
+    sbHaptic("success", {force: true});
     if (!act || !cur) return;
     const wearable = fresh.filter(canWear), a = wearable[wearable.length - 1] || fresh[fresh.length - 1];
     if (a && canWear(a) && !wearOf(cur).length) setCfg({wear: {[cur.id]: [a.id]}});
@@ -86680,6 +86690,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   }
 
   async function start(){
+    // felt as it starts: iOS turns haptics off while the microphone is recording, so this comes before it opens
+    sbHaptic("lift");
     const c = $("#lecCourse"), cap = $("#lecCap");
     REC.cid = c ? c.value : REC.cid; REC.title = titleFor(REC.cid); REC.captions = !!(cap && cap.checked);
     let stream;
@@ -86791,6 +86803,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (REC.aiCaps) aiCapsStop(REC, true);
     await Promise.all([done(REC.mr), done(REC.seg)]);
     release();
+    // and as it stops, once the microphone has let go (haptics are back on)
+    setTimeout(() => sbHaptic("tap", {force: true}), 150);
     if (REC.aiCaps) {
       const R = REC; await new Promise(r => setTimeout(r, 300));
       if (R.capPend > 0) { R.view = "busy"; R.busy = "Finishing the transcript…"; sheet(); await new Promise(res => { R.capDone = res; setTimeout(res, 60000); }); }
@@ -93474,6 +93488,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       if (k < 1) { const cv = document.createElement("canvas"); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k); cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height); bmp = await createImageBitmap(cv); }
       const p = {bmp, q: findCorners(bmp), rot: 0}; SCAN.pages.push(p); await scanRender(p);
       scanDraw();
+      // a tap as each page lands, like a camera's shutter (the photo comes back from the camera well after the tap that took it)
+      sbHaptic("tap", {force: true});
     }
     if (msg) msg.textContent = "";
   }

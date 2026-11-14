@@ -1873,9 +1873,9 @@ function stkEnd(ok, e){
   if (d.fromNote) {
     const src = state.notes[d.noteId]; if (!src) return;
     const m = clone(src); moved = m.stickers.splice(d.i, 1)[0]; if (!moved) return;
-    if (tid === d.noteId) { Object.assign(moved, noteLocalPoint(target, e.clientX, e.clientY)); delete moved.y; m.stickers.splice(d.i, 0, moved); applyChanges([{kind: "note", id: src.id, after: m}], ""); return; }
+    if (tid === d.noteId) { sbHaptic("drop"); Object.assign(moved, noteLocalPoint(target, e.clientX, e.clientY)); delete moved.y; m.stickers.splice(d.i, 0, moved); applyChanges([{kind: "note", id: src.id, after: m}], ""); return; }
     changes.push({kind: "note", id: src.id, after: m});
-    if (!tid) { applyChanges(changes, "Sticker removed"); return; }
+    if (!tid) { sbHaptic("drop"); applyChanges(changes, "Sticker removed"); return; }
   }
   if (!tid || !state.notes[tid]) { if (!d.fromNote) toast("Drop stickers onto a sticky note"); return; }
   const t = clone(state.notes[tid]);
@@ -1884,6 +1884,8 @@ function stkEnd(ok, e){
   changes.push({kind: "note", id: tid, after: t});
   // On a phone the envelope covers the board, so it stays tucked away once a sticker from it lands
   if (!d.fromNote && window.matchMedia && window.matchMedia("(max-width:700px)").matches) { ui.envOpen = false; try { localStorage.setItem("studyboard:env", "0"); } catch(err) {} }
+  // a tap as the sticker lands, as a note does when it's dropped
+  sbHaptic("drop");
   applyChanges(changes, "");
 }
 // Turning a sticker

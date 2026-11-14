@@ -544,8 +544,8 @@ function sbHaptic(kind, opts){
       const done = p => { if (p && p.catch) p.catch(() => {}); };
       if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
       else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
-      // (Apple's LIGHT impact was too faint to notice in the hand: a tap or a drop is MEDIUM, picking something up is HEAVY)
-      else done(H.impact({style: kind === "lift" ? "HEAVY" : "MEDIUM"}));
+      // a tap or a drop is Apple's LIGHT impact, picking something up MEDIUM
+      else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
       return true;
     }
     if (navigator.vibrate) { navigator.vibrate(HAPTIC_WEB[kind]); return true; }

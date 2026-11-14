@@ -3479,6 +3479,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   }
 
   async function start(){
+    // felt as it starts: iOS turns haptics off while the microphone is recording, so this comes before it opens
+    sbHaptic("lift");
     const c = $("#lecCourse"), cap = $("#lecCap");
     REC.cid = c ? c.value : REC.cid; REC.title = titleFor(REC.cid); REC.captions = !!(cap && cap.checked);
     let stream;
@@ -3590,6 +3592,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     if (REC.aiCaps) aiCapsStop(REC, true);
     await Promise.all([done(REC.mr), done(REC.seg)]);
     release();
+    // and as it stops, once the microphone has let go (haptics are back on)
+    setTimeout(() => sbHaptic("tap", {force: true}), 150);
     if (REC.aiCaps) {
       const R = REC; await new Promise(r => setTimeout(r, 300));
       if (R.capPend > 0) { R.view = "busy"; R.busy = "Finishing the transcript…"; sheet(); await new Promise(res => { R.capDone = res; setTimeout(res, 60000); }); }
