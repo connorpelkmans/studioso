@@ -4256,6 +4256,8 @@ function aiModelName(provider, model){
   const m = P.models.find(x => x[0] === model);
   return m ? m[1].replace(/ \(.*$/, "").replace(/, Auto$/, "") : model;
 }
+// Who is working, in progress lines: "Gemini", not a picker label like "Gemini Auto"
+const aiBrandName = () => { const c = aiCfg(), p = c.provider; return p === "studyboard" || (p === "anthropic" && aiProUser()) ? "Studyboard AI" : (AI_WHO[p] || {}).product || aiModelName(p, c.model); };
 // One model's label in a picker: a Claude key runs as Studyboard AI does, so for Pro students it's just "Studyboard AI"
 const aiOptLabel = (p, m, l) => p === "anthropic" && m === "studyboard" && aiProUser() ? "Studyboard AI" : l;
 /* The model choices for the keys given, grouped by company. For Pro students the Claude key's choice stands on its own as
@@ -5102,6 +5104,9 @@ function aiStudySheet(deckId, mode){
     if (f && r[Number(f.dataset.forget)]) { aiForgetStyle(r[Number(f.dataset.forget)]); drawRecent(); }
   });
   if (deck && deck.aiStyle) $("#aiStyle").value = deck.aiStyle;
+  // Cancel while it's still making the set throws that work away: ask first (✕ or a tap outside sets it aside and it keeps going)
+  { const cx = dlg.querySelector('.ai-sheet .sheet-foot [data-act="close"]'); if (cx) cx.addEventListener("click", e => { if (!job.busy) return; e.stopPropagation(); e.preventDefault();
+    askBox({title: "Stop Creating?", text: "It's still being made. Stop now and it's thrown away, or keep it going: tap outside this window and it finishes in the background.", yes: "Stop and Discard", no: "Keep Going", danger: true}).then(ok => { if (ok && dlg.open && dlg.contains(cx)) dlg.close(); }); }); }
   $("#aiGo").addEventListener("click", async () => {
     if (job.busy) return;
     const pasted = $("#aiPaste").value.trim();
@@ -5115,10 +5120,15 @@ function aiStudySheet(deckId, mode){
     const custom = $("#aiStyle").value.trim(), picks = $$(".ai-style-sel", dlg).map(s => s.value).filter(v => v !== "").map(Number);
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
-    job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
+    job.busy = true; const go = $("#aiGo"), goWas = go.innerHTML; go.disabled = true; go.classList.add("busy", "ai-going");
+    // the button itself says it's working, with a clock, so a long wait never looks like nothing happened
+    const t0 = Date.now(), goClock = () => { const sec = Math.floor((Date.now() - t0) / 1000); go.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Creating… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`; };
+    goClock(); const goTick = setInterval(() => { if (!job.busy || !go.isConnected) clearInterval(goTick); else goClock(); }, 1000);
+    const goBack = () => { clearInterval(goTick); go.innerHTML = goWas; go.classList.remove("ai-going"); };
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
-    status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
+    const brand = aiBrandName();
+    status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(brand)} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     aiShowStatus(status);
     try {
       const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
@@ -5132,7 +5142,7 @@ function aiStudySheet(deckId, mode){
       if (e && e.code === "cancelled") return;
       console.warn(e); status.innerHTML = esc(e.code ? e.message : "Something went wrong. Try again.") + aiDetailHtml(e);
       aiJobFailed(); aiShowStatus(status);
-      job.busy = false; go.disabled = false; go.classList.remove("busy");
+      job.busy = false; go.disabled = false; go.classList.remove("busy"); goBack();
       if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
     }
   });
@@ -5572,6 +5582,18 @@ function aiSetupSheet(fromFeature, opts){
   $$("[data-test]", dlg).forEach(b => b.addEventListener("click", async () => {
     const p = b.dataset.test, key = keysNow()[p], msg = dlg.querySelector(`[data-msg="${p}"]`);
     if (!key) { msg.textContent = "Paste the key first."; return; }
+    // the same format check Save makes, before anything is sent (or consent asked): a key in the wrong box can move to the right one
+    const kind = aiKeyKind(key), into = kind && kind !== p ? dlg.querySelector(`[data-key="${kind}"]`) : null, nm = x => x === "anthropic" ? "Claude" : x === "openai" ? "OpenAI" : "Gemini";
+    const bad = kind && kind !== p ? `That's ${kind === "openai" ? "an" : "a"} ${nm(kind)} key, not ${p === "openai" ? "an" : "a"} ${nm(p)} key.`
+      : p === "gemini" ? (!/^[\w.-]{30,}$/.test(key) || /^(sk-|sb_)/.test(key) ? "That doesn't look like a Gemini key. Gemini keys come from Google AI Studio." : "")
+      : p === "anthropic" ? (/^sk-ant-/.test(key) ? "" : "Claude API keys start with sk-ant-.") : (/^sk-/.test(key) ? "" : "OpenAI keys start with sk-.");
+    if (bad) {
+      msg.textContent = bad + (into ? " " : "");
+      if (into) { const mv = document.createElement("button"); mv.type = "button"; mv.className = "link-btn"; mv.textContent = `Move It to the ${nm(kind)} Box`; msg.appendChild(mv);
+        mv.addEventListener("click", () => { const from = dlg.querySelector(`[data-key="${p}"]`), det = into.closest("details"); if (det) det.open = true; into.value = key; from.value = ""; [into, from].forEach(i => i.dispatchEvent(new Event("change")));
+          msg.textContent = ""; const m2 = dlg.querySelector(`[data-msg="${kind}"]`); if (m2) m2.textContent = `Moved here. Press Test to check it.`; into.focus(); }); }
+      return;
+    }
     msg.textContent = "Testing…"; b.disabled = true;
     const r = await testKey(p, key);
     msg.textContent = r.ok ? `It works. Connected to ${r.model}.` : r.err; b.disabled = false;
@@ -6385,6 +6407,17 @@ const nuBackBtn = () => ui.skipNext && ui.skipNext.day === todayISO() && ui.skip
 const NU_CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 const nuOpenCls = () => ui.nuMore ? " nu-open" : "";
 const nuMoreBtn = () => `<button type="button" class="nu-more" data-act="nu-more" aria-expanded="${!!ui.nuMore}">Details${NU_CHEV}</button>`;
+// While the timer is on this very task, its button says so (and opens the timer) instead of offering to start another session
+function nuFocusBtn(t, mins, label, study){
+  if (pomo.taskId === t.id && (pomo.running || pomo.left > 0)) return `<button class="btn primary small nu-focusing" data-act="pomo-open">${TOMATO}${pomo.running ? (pomo.mode === "focus" ? "Focusing" : "On a Break") : "Paused"} · <span data-pomo-time>${fmtClock(pomoLeft())}</span></button>`;
+  return `<button class="btn primary small" data-act="pomo-task"${study ? ` data-study="1"` : ""} data-id="${esc(t.id)}" data-mins="${mins}">${TOMATO}${label}</button>`;
+}
+// the timer started, stopped or changed task: redraw Do This Next if it shows a focus button
+// (only when the button would change: which task the timer is on, and whether it's on at all; not at boot)
+let nuFocusSig = null;
+hook("focus-state", () => { const sig = (pomo.running || pomo.left > 0) ? pomo.taskId + "|" + pomo.running + "|" + pomo.mode : "";
+  const was = nuFocusSig; nuFocusSig = sig; if (was === null || was === sig) return;
+  if ($(".next-up [data-act=pomo-task], .next-up .nu-focusing")) render(); });
 function nextUpHtml(F, pre){
   const n = arguments.length > 1 ? pre : nextUp(F); if (!n) return "";
   const t0 = n.x.t, t = n.xs && t0.xs ? state.tasks[t0.xs.id] || t0 : t0, c = courseOf(t.courseId);
@@ -6396,7 +6429,7 @@ function nextUpHtml(F, pre){
         ${nuMoreBtn()}<span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.x.dl === 1 || n.x.lightEve ? "The day before: light review only. Skim your summary or a few flashcards, then stop early and sleep." : n.hasPlan ? "Test yourself on your weakest topics: flashcards or practice questions, not rereading." : "Test yourself (flashcards or practice questions), or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-study="1" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Study for ${n.mins}m</button>${t.courseId && deckListArr().some(x => x.courseId === t.courseId && x.cards.some(c => !c.draft)) ? `<button class="btn small" data-act="fc-study-course" data-course="${esc(t.courseId)}">${FC_ICON}Test Yourself</button>` : ""}${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts">${nuFocusBtn(t, n.mins, `Study for ${n.mins}m`, true)}${t.courseId && deckListArr().some(x => x.courseId === t.courseId && x.cards.some(c => !c.draft)) ? `<button class="btn small" data-act="fc-study-course" data-course="${esc(t.courseId)}">${FC_ICON}Test Yourself</button>` : ""}${n.hasPlan ? "" : `<button class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
   return `<div class="next-up${nuOpenCls()}" style="--c:${esc(colorOf(t.courseId))}">
@@ -6409,7 +6442,7 @@ function nextUpHtml(F, pre){
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${esc(t.id)}" data-mins="${n.mins}">${TOMATO}Start a ${n.mins}m Focus</button>${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
+      <div class="nu-acts">${nuFocusBtn(t, n.mins, `Start a ${n.mins}m Focus`)}${window.SBPREP ? SBPREP.matBtn(t) : ""}${t.type === "Study" && (t.studyDecks || []).length && !t.matKind ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${t.gt ? "" : `<button class="btn small" data-act="log-time" data-id="${esc(t.id)}" title="Type in time you worked on this">Log Time</button><button class="btn small" data-act="nu-enough" data-id="${esc(t.id)}" title="You have done enough on this today, so move on. It stays on your list.">Enough for Today</button>`}${nuBackBtn()}</div>
     </div>
   </div>`;
 }
@@ -6447,7 +6480,7 @@ function nextUpSpare(F, inView){
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
       ${lmsGoBtn(t)}
-      <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${esc(t.id)}" data-mins="${mins}">${TOMATO}Start a ${mins}m Focus</button></div>
+      <div class="nu-acts">${nuFocusBtn(t, mins, `Start a ${mins}m Focus`)}</div>
     </div>
   </div>`;
 }
@@ -19988,7 +20021,9 @@ function renderPomo(){
   const every = Number(cfg.every) || 4, inCycle = pomo.cycle % every;
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
-  const notifyNote = !notifySupported() ? "Desktop notifications aren't available here, so the alarm sound and on-screen alert are used." : Notification.permission === "denied" ? "Notifications are blocked for this site in your browser settings." : Notification.permission === "default" ? "Your browser will ask to allow notifications when you start the timer." : "Notifications are allowed.";
+  // a phone has no desktop and (in the installed app) no tabs: the help text says what happens there
+  const phoneNow = !!(window.matchMedia && matchMedia("(max-width:639px)").matches) || !!window.StudyboardNative;
+  const notifyNote = !notifySupported() ? "Notifications aren't available here, so the alarm sound and on-screen alert are used." : Notification.permission === "denied" ? "Notifications are blocked for this site in your browser settings." : Notification.permission === "default" ? "Your browser will ask to allow notifications when you start the timer." : "Notifications are allowed.";
   d.innerHTML = `<div class="sheet pomo-sheet">${bandHead("Focus Timer", TOMATO.replace('viewBox="0 0 24 24"', 'viewBox="2.14 2.4 19.72 19.72"'), pomo.mode === "focus" ? "#E5484D" : "#2F9E5F")}
     <div class="sheet-body">
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
@@ -20020,8 +20055,8 @@ function renderPomo(){
             <label class="f">Volume<input type="range" id="psVol" min="0.1" max="1" step="0.1" value="${esc(cfg.volume)}"></label>
           </div>
           <button type="button" class="btn small" data-act="pomo-test">Play Test Sound</button>
-          <label class="mi-check"><input type="checkbox" id="psNotify" ${cfg.notify ? "checked" : ""} ${notifySupported() ? "" : "disabled"}> Show a desktop notification</label>
-          <p class="mini" style="margin:0">${notifyNote} Keep Studyboard open in a tab so the alarm can ring. On phones, the browser pauses pages when the screen turns off.</p>
+          <label class="mi-check"><input type="checkbox" id="psNotify" ${cfg.notify ? "checked" : ""} ${notifySupported() ? "" : "disabled"}> Show a notification</label>
+          <p class="mini" style="margin:0">${notifyNote} ${phoneNow ? "Keep Studyboard open so the alarm can ring; the phone pauses it when the screen turns off." : "Keep Studyboard open in a tab so the alarm can ring. On phones, the browser pauses pages when the screen turns off."}</p>
         </div>
       </details>
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
@@ -23537,12 +23572,13 @@ window.__sbPlanObj = () => PLAN;
     if (!paywall() || isPro()) return Infinity;
     return Math.max(0, FREE_RUNS - (Number(runsState()[kind]) || 0));
   }
-  // count one finished run; says how many are left once it's counted
-  function useRun(kind){
+  // count one finished run; says how many are left once it's counted (quiet: the caller says it itself, e.g. at the end of a quiz counted at its start)
+  function useRun(kind, quiet){
     if (!paywall() || isPro() || !RUN_NAMES[kind]) return;
     const r = Object.assign({}, runsState()); r[kind] = (Number(r[kind]) || 0) + 1;
     state.settings = Object.assign({}, state.settings, {freeRuns: r}); saveSettings();
     const left = runsLeft(kind), [name, one, many] = RUN_NAMES[kind];
+    if (quiet) return;
     setTimeout(() => toast(left ? `${left} free ${name} ${left === 1 ? one : many} left this week` : `That was this week's last free ${name} ${one}. More on Monday.`, null, {label: "See Pro", fn: () => proSheet(`${name} is unlimited with Studyboard Pro.`)}), 600);
   }
   // the Pro sheet when this week's free runs are used up
@@ -28389,6 +28425,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     if (SEM.running) { SEM.again = true; return; }
     if (!semOn()) return;
     SEM.again = false;
+    const err0 = SEM.err;
     SEM.running = true; SEM.err = "";
     try {
       await semLoad(); ensureItems();
@@ -28409,7 +28446,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     } catch(e) {
       SEM.err = e && e.message || "Search by meaning isn't working right now.";
       if (e && (e.code === "limit" || e.code === "busy" || e.code === "offline")) { clearTimeout(SEM.timer); SEM.timer = 0; semKick(e.code === "limit" ? Math.max(75000, (embState().cool || 0) - Date.now() + 2000) : 120000); }
-    } finally { SEM.running = false; drawFoot(); if (SEM.again && !SEM.err) { SEM.again = false; semKick(1500); } }
+    } finally { SEM.running = false; drawFoot(); if (SEM.err !== err0 && S.open && S.mode === "ask") draw(); if (SEM.again && !SEM.err) { SEM.again = false; semKick(1500); } }
   }
   function semGc(){
     const m = embModel(), used = new Set(semList().map(p => m + ":" + p.h)), drop = [];
@@ -28842,7 +28879,7 @@ Return JSON only.`;
     if (semOn()) {
       try {
         await semLoad();
-        if (!SEM.vecs.size) note = "Search by meaning is still getting ready, so these are word matches for now.";
+        if (!SEM.vecs.size) note = navigator.onLine === false ? "Search by meaning needs internet, so these are word matches for now." : "Search by meaning is still getting ready, so these are word matches for now.";
         else { const got = await semQuery(q, pass), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
         if (SEM.left > 0 && SEM.vecs.size) note = "Search by meaning is still reading some of your things, so a few may be missing.";
       } catch(e) { note = `Couldn't search by meaning right now. ${e.message || ""} Showing word matches instead.`; }
@@ -28974,7 +29011,7 @@ Return JSON only.`;
       const qs = r.questions.filter(q => ["single", "truefalse", "short"].includes(q.type)).slice(0, 5);
       if (!qs.length) throw aiErr("empty", "Couldn't write questions from this material. Try asking about something your notes cover in more detail.");
       Object.assign(tu, {state: "ready", qs});
-      if (proLocked() && typeof PLAN !== "undefined" && PLAN && PLAN.useRun) PLAN.useRun("quiz");
+      if (proLocked() && typeof PLAN !== "undefined" && PLAN && PLAN.useRun) { PLAN.useRun("quiz", true); tu.free = true; } // counted now, said on the Finished screen: a toast here would land on question 1
     } catch(e) { if (S.tutor !== tu) return; Object.assign(tu, {state: "error", err: e.message || "Couldn't write questions right now. Try again."}); }
     draw();
   }
@@ -29188,6 +29225,12 @@ Return JSON only.`;
     const an = T.answer;
     return `<div class="sx-turn"><p class="sx-q"><span class="sr">You asked: </span>${esc(T.q)}</p>${an && an.state === "done" ? ansBox(T, an, ti, true) : ""}${genBox(T, ti)}</div>`;
   }
+  // Why search by meaning isn't working, in full, one line under Ask About (the footer only has room for the key hints)
+  function semLine(){
+    if (!semOn()) return "";
+    const t = navigator.onLine === false ? "Search by meaning needs internet. Until you're back online, Ask With AI matches your words." : SEM.err && !SEM.running ? SEM.err : "";
+    return t ? `<p class="sx-hint sx-semerr" role="status">${esc(t)}</p>` : "";
+  }
   function scopeBar(){
     const cs = coursesArr(), cur = S.course; if (!cs.length) return "";
     const chip = (id, label, color) => `<button type="button" class="chip" data-sx="scope" data-id="${esc(id)}" aria-pressed="${cur === id}"${color ? ` style="--c:${esc(color)}"` : ""}>${esc(label)}</button>`;
@@ -29225,8 +29268,8 @@ Return JSON only.`;
     if (tu.state === "error") return `<div class="sx-ans sx-tutor miss">${top("")}<p>${esc(tu.err)}</p><div class="sx-ans-btns"><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Try Again</button></div></div>`;
     const n = tu.qs.length;
     if (tu.i >= n) {
-      const right = tu.ans.filter(a => a && a.correct).length;
-      return `<div class="sx-ans sx-tutor">${top("Finished")}<p class="sx-tscore"><b>You got ${right} of ${n} right.</b> ${right === n ? "Nicely done." : "Quiz Me Again for new questions, or save these to practice later."}</p><div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="tq-save">Save as Practice Quiz</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Quiz Me Again</button><button type="button" class="btn small" data-sx="tutor-end">Back to the Answer</button></div></div>`;
+      const right = tu.ans.filter(a => a && a.correct).length, left = tu.free ? quizLeft() : Infinity;
+      return `<div class="sx-ans sx-tutor">${top("Finished")}<p class="sx-tscore"><b>You got ${right} of ${n} right.</b> ${right === n ? "Nicely done." : "Quiz Me Again for new questions, or save these to practice later."}</p>${left === Infinity ? "" : `<p class="mini sx-tfree">${left ? `${left} free Quiz Me session${left === 1 ? "" : "s"} left this week.` : "That was your last free Quiz Me this week. More on Monday."}</p>`}<div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="tq-save">Save as Practice Quiz</button><button type="button" class="btn small ai-btn" data-sx="quiz" data-turn="${tu.ti}">${AI_ICON} Quiz Me Again</button><button type="button" class="btn small" data-sx="tutor-end">Back to the Answer</button></div></div>`;
     }
     const q = tu.qs[tu.i], a = tu.ans[tu.i], done = a && !a.checking;
     const opts = q.type === "short" ? "" : `<div class="sx-topts" role="group" aria-label="Answers">${q.options.map((o, k) => `<button type="button" class="sx-topt${done ? (q.correct[0] === k ? " ok" : a.given === k ? " no" : "") : ""}" data-sx="tq-opt" data-id="${k}"${a ? " disabled" : ""}>${esc(o)}</button>`).join("")}</div>`;
@@ -29248,7 +29291,7 @@ Return JSON only.`;
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI (free with a Gemini key) to search by meaning and get answers from your notes.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
-      h += scopeBar();
+      h += scopeBar() + semLine();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
     }
     if (live) {
@@ -29256,7 +29299,8 @@ Return JSON only.`;
       if (S.thread.length > 1 || !fresh) h += `<p class="sx-q"><span class="sr">You asked: </span>${esc(A.q)}</p>`;
       if (A.state === "search") h += (A.answer && A.answer.det ? ansBox(A, A.answer, ti) : "") + `<div class="sx-ans busy">${dots}Looking through your things…</div>`;
       else {
-        if (A.note) h += `<p class="sx-hint">${esc(A.note)}</p>`;
+        // the line under Ask About already says why search by meaning isn't working: no second "not ready" line under it
+        if (A.note && !(semLine() && /^Search by meaning (is still getting ready|needs internet)/.test(A.note))) h += `<p class="sx-hint">${esc(A.note)}</p>`;
         // synced files (OneDrive, Google Drive) are only read when AI may read that cloud's files: say so, with a way to allow it
         { const shut = cloudShut(); if (shut.length && window.SBCLOUD && SBCLOUD.setPrefs) { const names = [...new Set(shut.map(f => (typeof CLOUD_NAMES === "object" && CLOUD_NAMES[f.cloud.p]) || "the cloud"))].join(" and ");
           h += `<p class="sx-hint sx-cloud-shut">${shut.length} file${shut.length === 1 ? "" : "s"} synced from ${esc(names)} ${shut.length === 1 ? "isn't" : "aren't"} searched, because AI isn't allowed to read ${esc(names)} files. <button type="button" class="link-btn" data-sx="cloud-ai">Let AI Read Them</button></p>`; } }
@@ -29329,9 +29373,9 @@ Return JSON only.`;
     if (FT.busy && FT.total) bits.push(`Reading your files: ${Math.min(FT.done, FT.total)} of ${FT.total}${FT.cur ? ` (${esc(FT.cur.length > 28 ? FT.cur.slice(0, 26) + "…" : FT.cur)})` : ""}`);
     else if (readable && sxCfg().files && !canFetch()) bits.push(sbConfig() ? "Sign in to search inside your files." : "Searching inside files works once your files are stored online or on this device.");
     else if (FT.loading && !FT.loaded) bits.push("Loading the text from your files…");
+    // why search by meaning isn't working is said in full under Ask About (semLine), not squeezed in here
     if (semOn()) {
-      if (SEM.err && !SEM.running) bits.push(esc(SEM.err));
-      else if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
+      if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
     }
     return bits;
   }
@@ -29568,7 +29612,8 @@ Return JSON only.`;
   };
   setTimeout(warmFiles, 15000);
   try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
-  window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } });
+  window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } if (S.open && S.mode === "ask") draw(); });
+  window.addEventListener("offline", () => { if (S.open && S.mode === "ask") draw(); });
 })();
 
 
@@ -32418,7 +32463,7 @@ const RM_CORE = (() => {
     const set = !!lsGet(LS_PUSH, null);
     const sub = !sbConfig() || sbLocalOnly() || !sbUser ? "Needs a Studyboard account. Without it, reminders come only while Studyboard is open, or from the desktop app."
       : set ? "On for this device. Reminders arrive even when Studyboard is closed." : "Get reminders on your phone or computer even when Studyboard is closed.";
-    return `<div class="menu-list rm-list"><button type="button" data-act="rm-phone"><span>Set Up ${notifName()}<span class="sub">${esc(sub)}</span></span></button></div>`;
+    return `<div class="menu-list rm-list"><button type="button" data-act="rm-phone"><span>Set Up ${notifName()}<span class="sub">${esc(sub)}</span></span><svg class="rm-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>`;
   }
   function comingHtml(){
     const now = Date.now(), up = LIST.filter(r => r.at > now).slice(0, 5);
@@ -32457,11 +32502,12 @@ const RM_CORE = (() => {
           <p class="mini" style="margin:0">For planned study sessions, like the ones from an exam study plan. Study sessions with a set time get a nudge 10 minutes before.</p>
         </fieldset>
         <fieldset><legend>Flashcards Due</legend>
-          <div class="rm-row">${cb("cards", c.cards, "Once a day when cards are due, at")}${tIn("cardsTime", c.cardsTime)}</div>
+          <div class="rm-row">${cb("cards", c.cards, "When cards are due, at")}${tIn("cardsTime", c.cardsTime)}</div>
+          <p class="mini" style="margin:0">Once a day, only on days with flashcards due.</p>
         </fieldset>
         <fieldset><legend>Quiet Hours</legend>
-          <div class="rm-row">${cb("quiet", c.quiet, "No reminders from")}${tIn("quietFrom", c.quietFrom)}<span>to</span>${tIn("quietTo", c.quietTo)}</div>
-          <p class="mini" style="margin:0">Reminders during quiet hours arrive when they end, or just before they start if that would be too late.${quietWarn ? " <b>One of your times above is inside quiet hours</b>, so it will move." : ""}</p>
+          <div class="rm-row">${cb("quiet", c.quiet, "From")}${tIn("quietFrom", c.quietFrom)}<span class="rm-to">to ${tIn("quietTo", c.quietTo)}</span></div>
+          <p class="mini" style="margin:0">No reminders in these hours. Reminders during quiet hours arrive when they end, or just before they start if that would be too late.${quietWarn ? " <b>One of your times above is inside quiet hours</b>, so it will move." : ""}</p>
         </fieldset>
         <fieldset><legend>Coming Up</legend><div id="rmComing">${comingHtml()}</div></fieldset>
       </div>
@@ -65387,10 +65433,11 @@ var COMP_EXTRA = [];
     streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n === 1 ? "a practice quiz" : n + " practice quizzes"} (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
     groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
-  let pStat = null, pStatAt = 0;
-  // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot)
+  let pStat = null, pStatAt = 0, pStatSc;
+  // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot); a scrapbook update counts again at once
   function propStats(){
-    const now = Date.now(); if (pStat && now - pStatAt < 4000) return pStat;
+    const now = Date.now(), sc0 = state.settings && state.settings.scrap; if (pStat && now - pStatAt < 4000 && sc0 === pStatSc) return pStat;
+    pStatSc = sc0;
     const s = {hours: 0, studydays: 0, spread: 0, streak: 0, cards: 0, quizzes: 0, notes: 0, stickers: 0, prep: 0, checkins: 0, groups: 0, focusWeeks: 0, festive: 0};
     const tr = f => { try { f(); } catch (e) {} };
     tr(() => { s.hours = hours(); });
@@ -65417,7 +65464,11 @@ var COMP_EXTRA = [];
   const propProg = a => { const s = propStats(); return pathsOf(a).map(([k, n]) => { const v = Math.min(Number(s[k]) || 0, n); return {k, n, v: k === "hours" ? Math.round(v * 10) / 10 : Math.floor(v), p: v / n, ask: PROP_ASK[k](n), unit: PROP_UNIT[k]}; }); };
   const isEarned = a => !!a && (wasEarned(a) || propProg(a).some(x => x.p >= 1));
   const unlocked = () => ACC.filter(isEarned);
-  const closestPath = a => propProg(a).sort((x, y) => y.p - x.p)[0];
+  // The goal a prop shows stays the same for the session: the scrapbook's sticker count only arrives a few seconds after load,
+  // and a "closest" path picked before it would flip under the student. So nothing is pinned until the scrapbook is ready.
+  const pinPath = {};
+  const closestPath = a => { const ps = propProg(a), pin = pinPath[a.id] && ps.find(x => x.k === pinPath[a.id]); if (pin) return pin;
+    const b = ps.sort((x, y) => y.p - x.p)[0]; if (b && (!window.__sbScrap || (state.settings && state.settings.scrap))) pinPath[a.id] = b.k; return b; };
   const pathShort = x => x.k === "festive" || x.k === "groups" ? x.unit : `${x.v} of ${x.n} ${x.unit}`;
   const canWear = a => !!a && isEarned(a) && owns("prop", a.id);
   // What it wears now
@@ -69120,7 +69171,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     return `<div class="cpt-q">${esc(m.q)}${m.files && m.files.length ? `<div class="cpt-qf">${m.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}</div>
       <div class="cpt-a">${m.err ? errHtml(m) : `${miniMd(m.a.answer)}
         ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${found}${chg}${acts}`}
-        ${m.a && !m.err ? `<div class="cpt-acts"><button type="button" class="link-btn" data-act="cpt-note" data-id="${esc(String(m.at))}">Save as Note</button><button type="button" class="link-btn" data-ai-report="companion-chat" data-ai-text="${esc(String(m.a.answer || "").slice(0, 1400))}">Report Response</button></div>` : ""}</div>`;
+        ${m.a && !m.err ? `<div class="cpt-acts"><button type="button" class="link-btn" data-act="cpt-note" data-id="${esc(String(m.at))}">Save This Reply</button><button type="button" class="link-btn" data-ai-report="companion-chat" data-ai-text="${esc(String(m.a.answer || "").slice(0, 1400))}">Report Response</button></div>` : ""}</div>`;
   }
   function logHtml(){
     const c = rd().find(x => x.id === T.id), msgs = c ? c.msgs : [], busy = T.busy && T.busy.id === T.id ? T.busy : (!c && T.busy ? T.busy : null);
@@ -82935,7 +82986,12 @@ var SBPRO = null;
     }
     return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
+  // Routines open from the Focus timer: closing the sheet (after Add, Remove or Close) goes back to the timer, so the setup isn't lost
+  let rtBack = false;
+  dlg.addEventListener("close", () => { if (rtBack) setTimeout(() => { if (!rtBack || dlg.open) return; rtBack = false; const pd = $("#pomoDlg"); renderPomo(); if (!pd.open) pd.showModal();
+    const on = pd.querySelector(".pr-chip.on"); if (on) try { on.scrollIntoView({block: "nearest", inline: "nearest"}); } catch (e) {} }, 0); });
   function routineSheet(){
+    const pd = $("#pomoDlg"); if (pd && pd.open) { pd.close(); rtBack = true; }
     const mine = custom(), more = !canAdd();
     openSheet(`<form class="sheet">${head("Your Routines")}<div class="sheet-body">
       ${mine.length ? `<ul class="pro-feats">${mine.map(r => `<li><span class="pf-t"><b>${esc(r.name)}</b><span class="mini">${r.focus} min focus, ${r.short} min breaks, a ${r.long} min break after ${r.every}</span></span><button type="button" class="btn small" data-act="pro-rt-del" data-id="${esc(r.id)}">Remove</button></li>`).join("")}</ul>` : ""}
@@ -103672,7 +103728,7 @@ const LINKCARDS = (() => {
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
-    const who = esc(aiModelName(aiCfg().provider, aiCfg().model));
+    const who = esc(aiBrandName());
     // which step it's on and how long it's been, so a long video never looks stuck
     const t0 = Date.now(); let step = "";
     const clock = () => { const s = Math.floor((Date.now() - t0) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -103716,10 +103772,14 @@ const LINKCARDS = (() => {
         if ((e && (e.code === "big" || e.code === "long")) || /token|too long|exceed|duration|maximum/i.test(m)) msg = failMsg("too_long", L);
         else if ((e && e.code === "http") || /private|unavailable|not (?:be )?found|invalid.*(?:video|url|uri|argument)|file_?uri|unsupported|cannot (?:access|fetch)|permission/i.test(m)) msg = failMsg("unreachable", L);
       }
-      // Gemini can't open most YouTube videos from the last few weeks (a known problem on Google's side, the Gemini app too): say so, and how to get the transcript
-      if (L.kind === "youtube" && !pasted && e && e.link && /^(?:empty|unreachable|novideo|choke)$/.test(e.st || String(e.code || "").replace(/^link-/, ""))) msg += " If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.";
+      // Gemini can't open most YouTube videos from the last few weeks (a known problem on Google's side, the Gemini app too).
+      // A video Gemini couldn't watch gets one short line and the paste button; the causes and what came back sit behind Why?, so a phone isn't filled with text
+      const noWatch = L.kind === "youtube" && !pasted && e && e.link && /^(?:empty|unreachable|novideo|choke)$/.test(e.st || String(e.code || "").replace(/^link-/, ""));
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
-      say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), (offerPaste ? PASTE : "") + (e && e.diag && e.diag.length ? `<details class="cl-diag"><summary>Details</summary><ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : ""));
+      const diag = e && e.diag && e.diag.length ? `<ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+      const pasteBtn = offerPaste ? (L.kind === "youtube" ? PASTE.replace("Paste the Text Instead", "Paste the Transcript Instead") : PASTE) : "";
+      if (noWatch) say("Gemini couldn't watch this video. New or blocked videos often fail.", pasteBtn + `<details class="cl-diag"><summary>Why?</summary><p>${esc(msg)}</p><p>If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.</p>${diag}</details>`);
+      else say(msg + (offerPaste && e && e.link ? " Paste the text instead, and the AI can work from that." : ""), pasteBtn + (diag ? `<details class="cl-diag"><summary>Details</summary>${diag}</details>` : ""));
       aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     } finally { clearInterval(tick); }
@@ -103737,6 +103797,7 @@ const LINKCARDS = (() => {
 .cl-diag{margin-top:6px;font-size:.82rem;color:var(--muted)}
 .cl-diag summary{cursor:pointer;font-weight:600}
 .cl-diag ul{margin:4px 0 0;padding-left:18px}
+.cl-diag p{margin:6px 0 0}
 .cl-hint.cl-bad{color:var(--danger,#c0392b)}
 .cl-hint.cl-warn{color:var(--ink);background:color-mix(in srgb,#F5A524 16%,var(--surface));border:1px solid color-mix(in srgb,#F5A524 45%,transparent);border-radius:10px;padding:8px 10px}
 #aiStatus .btn.small{margin:6px 6px 0 0}

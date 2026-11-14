@@ -95,7 +95,8 @@ dialog.sx-dlg[open]{display:flex}
 .sx-keys{display:flex;align-items:center;gap:4px;white-space:nowrap}
 .sx-keys kbd{margin-left:4px}
 .sx-keys kbd:first-child{margin-left:0}
-.sx-st{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+/* a longer status (reading files) wraps onto a second line rather than being cut off mid-word */
+.sx-st{flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;text-align:right}
 .sx-foot .link-btn{font-size:.8rem;white-space:nowrap;min-height:32px}
 .sx-pl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .sx-pl li{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--field,var(--bg))}

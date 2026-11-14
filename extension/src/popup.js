@@ -49,13 +49,26 @@ async function activeTab() {
   try { const [t] = await chrome.tabs.query({ active: true, currentWindow: true }); return (t && t.url) || ""; } catch (e) { return ""; }
 }
 
+// The background keeps a short internal reason ("no-result", "me 500", a raw network error); a student gets plain words or none
+function errWords(e) {
+  e = String(e || "");
+  if (!e) return "";
+  if (/timeout/i.test(e)) return "the school site took too long to answer";
+  if (/fetch|network|offline|ERR_|load failed/i.test(e)) return "the school site couldn't be reached";
+  if (/\b40[13]\b|unauthori[sz]ed|forbidden/i.test(e)) return "you may have been signed out";
+  if (/\b5\d\d\b/.test(e)) return "the school site had a problem";
+  if (/no-result|\b404\b/i.test(e)) return "the page didn't load";
+  if (/bad-result|unsupported|empty|too-large/i.test(e)) return "the page wasn't what Studyboard expected";
+  return "";
+}
+
 function statusLine(id, s, st) {
   if (!st || !st.state) return { text: "Waiting for the first sync…", tone: "" };
   if (syncingNow(st)) return { text: "Syncing now… This can take a minute.", tone: "busy" };
   if (st.state === "ok") return { text: `Synced ${ago(st.lastOk || st.at)} · ${plural(st.courses || 0, "course")}, ${plural(st.items || 0, "item")}, ${plural(st.grades || 0, "grade")}`, tone: "ok" };
   if (st.state === "login") return { text: `Sign in to ${host(s.origin)} in this browser. Studyboard syncs by itself once you're signed in.`, tone: "warn", login: true };
   if (st.state === "permission") return { text: `Studyboard isn't allowed to read ${host(s.origin)} any more. Allow it again to keep syncing.`, tone: "warn", allow: true };
-  return { text: `Couldn't read it last time${st.error ? ` (${st.error})` : ""}. It tries again by itself.${st.lastOk ? ` Last synced ${ago(st.lastOk)}.` : ""}`, tone: "warn" };
+  return { text: `Couldn't read it last time${errWords(st.error) ? `: ${errWords(st.error)}` : ""}. It tries again by itself.${st.lastOk ? ` Last synced ${ago(st.lastOk)}.` : ""}`, tone: "warn" };
 }
 
 // Asked in the popup itself

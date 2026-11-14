@@ -1075,6 +1075,9 @@ body.rv-dragging,body.rv-dragging *{cursor:grabbing!important;user-select:none;-
 @media (prefers-reduced-motion:reduce){.rv-ghost{transform:none}}
 html[data-motion="static"] .rv-ghost{transform:none}
 .rate + .hint-line{text-align:center}
+/* below the study card: the explain row/panel and key hint share the card's centred 680px column, so the explanation sits under the card it explains */
+.rate~.explain,.rate~.explain-row,.rate~.explain-wait,.rate~.hint-line{width:100%;max-width:680px;margin-inline:auto;box-sizing:border-box}
+.rate~.explain-row{justify-content:center}.rate~.hint-line{text-align:center}
 .deck-head{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:4px 16px 16px 16px;box-shadow:var(--shadow);padding:18px;margin-top:26px}
 .deck-head h2{margin:0 0 6px;font:700 1.6rem/1.2 var(--display)}
 .deck-stats{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--muted);font-size:.92rem;margin-bottom:10px}
@@ -1469,6 +1472,7 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .btn:where(:has(> .ai-ic):not([hidden])){display:inline-flex;align-items:center;justify-content:center;gap:.3em}
 .btn:where(:has(> .ai-ic)) > svg.ai-ic{vertical-align:0}
 .btn.busy{opacity:.6;pointer-events:none}
+.btn.busy.ai-going{opacity:1;font-variant-numeric:tabular-nums}
 .ai-spin{display:inline-block;width:14px;height:14px;border:2px solid color-mix(in srgb,#8B5CF6 30%,transparent);border-top-color:#8B5CF6;border-radius:50%;vertical-align:-2px;margin-right:6px;animation:aispin .8s linear infinite}
 @keyframes aispin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.ai-spin{animation-duration:2.4s}}

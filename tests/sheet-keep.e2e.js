@@ -81,6 +81,9 @@ const SEED = {v: 2, updated: 1, tasks: [], files: [], notes: [], settings: {}, c
     await page.click("#aiGo"); await page.waitForTimeout(300);
     await page.evaluate(() => { document.getElementById("toastMsg").textContent = ""; });
     await page.click('#dlg .sheet-foot [data-act="close"]');
+    // Cancel on a running job asks first (it throws the work away); Stop and Discard confirms
+    await page.waitForSelector("#askDlg[open]"); ok(/Stop Creating/.test(await page.textContent("#askDlg")), "Cancel while it works asks before throwing the work away");
+    await page.click("#askDlg #askYes");
     await page.waitForTimeout(delay + 800);
     ok(!/ready to review/.test(await toastText()) && !(await isOpen()), "Cancel stops the job: no ready toast, nothing opens");
     await openCreate(); await page.waitForSelector("#aiGo");
