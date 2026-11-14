@@ -10167,11 +10167,15 @@ const STYLE_ACTS = {
    plays the same steps backward. It is all played on the open layout (the board's width held, then let out), so the closed
    layout drawn afterwards is exactly where it ends. */
 const ENV_MS = 450;
+// While the envelope folds, the board changes width every frame; its scroll bar along the bottom stays hidden until the board has
+// settled at its new size, so it can't flash up for a moment
+const envMorphing = on => { const r = document.documentElement; if (on) { clearTimeout(envMorphing.t); r.classList.add("env-morph"); } else requestAnimationFrame(() => requestAnimationFrame(() => { envMorphing.t = setTimeout(() => r.classList.remove("env-morph"), 60); })); };
 function envMorph(opening){
   const save = () => { ui.envOpen = opening; try { localStorage.setItem("studyboard:env", opening ? "1" : "0"); } catch(e) {} };
+  envMorphing(true);
   if (opening) { save(); render(); }
   const env = document.querySelector(".nb-wrap > .env:not(.closed)"), wrap = env && env.parentElement, main = wrap && wrap.querySelector(":scope > .nb-main"), head = env && env.querySelector(".env-head");
-  if (!env || !main || !head) { if (!opening) { save(); render(); } return; }
+  if (!env || !main || !head) { if (!opening) { save(); render(); } envMorphing(false); return; }
   const er = env.getBoundingClientRect(), mr = main.getBoundingClientRect(), hh = head.getBoundingClientRect().height;
   const gap = er.left - mr.right, mw = parseFloat(getComputedStyle(main).width), grow = er.width + gap;
   // the round button takes the spot Expand has now (Expand and the others step left for it), the size of the board's other buttons
@@ -10198,9 +10202,9 @@ function envMorph(opening){
   try { runs.push(head.animate([keep(0, {opacity: 1}), keep(.35, {opacity: 1}), keep(.5, {opacity: 0}), keep(1, {opacity: 0})], Object.assign({pseudoElement: "::after"}, o))); } catch (e) {}
   main.querySelectorAll(":scope > .nb-max, :scope > .nb-targets").forEach(el => runs.push(el.animate([keep(0, {transform: "translateX(0)"}), keep(.3, {transform: "translateX(0)"}), keep(.45, {transform: "translateX(-44px)"}), keep(1, {transform: "translateX(-44px)"})], o)));
   Promise.all(runs.map(a => a.finished)).then(() => {
-    if (!opening) { save(); render(); return; }
-    runs.forEach(a => a.cancel()); delete env.dataset.morph; env.style.removeProperty("min-height"); nbFill();
-  }, () => { if (!opening) { save(); render(); } });
+    if (!opening) { save(); render(); envMorphing(false); return; }
+    runs.forEach(a => a.cancel()); delete env.dataset.morph; env.style.removeProperty("min-height"); nbFill(); envMorphing(false);
+  }, () => { if (!opening) { save(); render(); } envMorphing(false); });
 }
 // The sticker envelope starts closed; once you open it, it stays the way you left it
 try { const v = localStorage.getItem("studyboard:env"); ui.envOpen = v ? v === "1" : false; } catch(e) { ui.envOpen = false; }
@@ -17944,7 +17948,8 @@ function nbFill(){
   if (env && !env.dataset.morph) { if (env.classList.contains("closed") || getComputedStyle(env).position === "fixed") { env.style.removeProperty("height"); env.style.removeProperty("max-height"); } else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
 }
 addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
-hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
+// the board is sized in the same frame it's drawn (and again once notes' text has settled), so it never shows a moment at the wrong size
+hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); fitNoteBoard(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
 document.addEventListener("input", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 document.addEventListener("focusin", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 ["pointerdown", "mousedown", "touchstart"].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest(".note-more")) e.stopPropagation(); }, {capture: true, passive: true}));

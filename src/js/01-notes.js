@@ -776,7 +776,8 @@ function nbFill(){
   if (env && !env.dataset.morph) { if (env.classList.contains("closed") || getComputedStyle(env).position === "fixed") { env.style.removeProperty("height"); env.style.removeProperty("max-height"); } else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
 }
 addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
-hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
+// the board is sized in the same frame it's drawn (and again once notes' text has settled), so it never shows a moment at the wrong size
+hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); fitNoteBoard(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
 document.addEventListener("input", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 document.addEventListener("focusin", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 ["pointerdown", "mousedown", "touchstart"].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest(".note-more")) e.stopPropagation(); }, {capture: true, passive: true}));
