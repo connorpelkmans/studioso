@@ -17626,6 +17626,21 @@ function filesVisible(){
     return true;
   }).sort((a, b) => ui.fSort === "name" ? a.name.localeCompare(b.name) : ((b.updated || b.created || 0) - (a.updated || a.created || 0)));
 }
+// Phones: a file's actions (Summary, Read, Edit, Preview or Open) sit in one ⋯ menu at the end of its row, so the name has the room
+// (101-phone-v2.css shows it there and hides the row's own buttons; computers keep the buttons)
+const FR_IC = {sum: AI_ICON, read: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>',
+  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'};
+function fileRowMore(f, read, pv){
+  const it = [];
+  if (f.summary && !inPreview()) it.push(`<button type="button" class="btn" role="menuitem" data-act="f-summarize" data-id="${esc(f.id)}">${FR_IC.sum}Summary</button>`);
+  if (read) {
+    it.push(`<button type="button" class="btn" role="menuitem" data-act="pdr-open" data-id="${esc(f.id)}">${FR_IC.read}Read</button>`);
+    if (fileKind(f) === "pdf") it.push(`<button type="button" class="btn" role="menuitem" data-act="pde-edit" data-id="${esc(f.id)}">${FR_IC.edit}Edit</button>`);
+  } else if (pv) it.push(`<button type="button" class="btn" role="menuitem" data-act="f-preview" data-id="${esc(f.id)}">${FR_IC.read}Preview</button>`);
+  else it.push(`<a class="btn" role="menuitem" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${FR_IC.open}Open</a>`);
+  return `<details class="ph-more fr-more"><summary class="btn small" aria-label="Actions for ${esc(f.name)}" title="More"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary><div class="ph-menu" role="menu">${it.join("")}</div></details>`;
+}
 function fileRow(f){
   const r = curRev(f), c = courseOf(f.courseId);
   const tasks = f.taskIds.map(id => state.tasks[id]).filter(Boolean);
@@ -17642,7 +17657,7 @@ function fileRow(f){
     ${fileIcon(f)}
     <button class="fmain" data-act="f-open" data-id="${esc(f.id)}" aria-label="Details of ${esc(f.name)}" title="Name, course, folder, tasks and versions"><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
       ${tasks.length ? `<span class="ftasks">${tasks.slice(0, 3).map(t => `<span class="dep-chip" style="--c:${esc(colorOf(t.courseId))}">${CLIP}${esc(t.title)}</span>`).join("")}${tasks.length > 3 ? `<span class="mini">+${tasks.length - 3}</span>` : ""}</span>` : ""}</button>
-    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
+    <span class="f-acts">${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}</span>${fileRowMore(f, read, pv)}
   </li>`;
 }
 // A course's Lecture Notes folder, grouped by class, with each class's typed notes and recording too (99-class-sessions.js)

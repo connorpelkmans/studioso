@@ -1,4 +1,7 @@
 /* ===== module: 101-phone-v2.css ===== */
+/* a file row's ⋯ menu is for phones; computers keep the row's own buttons */
+.fr-more{display:none}
+.frow > .f-acts{display:contents}
 /* Saving is automatic, so the header says nothing about it unless there's a problem */
 #guestBadge,#guestBadgeSide{display:none!important}
 .sync:is([data-state="ok"],[data-state="busy"]){display:none!important}
@@ -187,6 +190,18 @@
   .f-row > .f-more{margin-left:auto}.f-row > .ph-ic + .f-more{margin-left:0}
   .f-more > summary.btn{width:40px;min-width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;justify-content:center}
   .f-more > summary svg,.f-more[open] > summary svg{width:20px;height:20px;transform:none}
+  /* a file's own actions: one ⋯ menu at the end of its row (01-notes.js fileRowMore) */
+  .frow > .f-acts{display:none!important}
+  .frow > .fr-more{display:block;margin-inline-start:auto;align-self:center}
+  .frow > .fr-more > summary{min-height:40px;min-width:40px;padding:0 10px;justify-content:center}
+  .frow > .fr-more > summary svg{width:16px;height:16px}
+  .frow > .fr-more[open] > summary svg{transform:none}
+  .fr-more .ph-menu{min-width:190px}
+  /* while it's open the menu reaches past the list's rounded box and sits above the rows below it */
+  .flist:has(.fr-more[open]){overflow:visible}
+  .frow > .fr-more[open]{z-index:60}
+  .fr-more .ph-menu .btn{display:flex;align-items:center;gap:10px}
+  .fr-more .ph-menu .btn svg,.fr-more .ph-menu .btn img{width:18px;height:18px;flex:none}
   .f-more .ph-menu{min-width:220px}
   .f-more .ph-menu .btn{display:flex;align-items:center;gap:10px}
   .f-more .ph-menu .btn svg{width:18px;height:18px;flex:none}

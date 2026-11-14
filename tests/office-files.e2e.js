@@ -53,8 +53,8 @@ const cachePut = (page, list) => page.evaluate(list => new Promise((res, rej) =>
     /* Free plan */
     const {ctx, page} = await open(free);
     ok(await page.locator('.frow[data-fid="fd"] .ficon.k-doc').count() === 1 && await page.locator('.frow[data-fid="fp"] .ficon.k-slides').count() === 1, "Word and PowerPoint files get their own icons");
-    ok(await page.locator('.frow[data-fid="fd"] [data-act="f-preview"]').count() === 1, "a Word file has Preview in its row");
-    await page.click('.frow[data-fid="fd"] [data-act="f-preview"]');
+    ok(await page.locator('.frow[data-fid="fd"] .f-acts [data-act="f-preview"]').count() === 1, "a Word file has Preview in its row");
+    await page.click('.frow[data-fid="fd"] .f-acts [data-act="f-preview"]');
     await page.waitForSelector("#ofvBody .ofv-page .ofc-page", {timeout: 15000});
     const pv = await page.evaluate(() => ({pages: document.querySelectorAll("#ofvBody .ofv-page").length, text: document.querySelector("#ofvBody").innerText, cap: document.querySelector("#ofvBody figcaption").textContent,
       fits: [...document.querySelectorAll("#ofvBody .ofv-frame")].every(f => f.getBoundingClientRect().width <= document.querySelector("#ofvBody").clientWidth)}));
@@ -65,7 +65,7 @@ const cachePut = (page, list) => page.evaluate(list => new Promise((res, rej) =>
     await page.click('.ofv-sheet [data-act="pdr-open"]'); await page.waitForTimeout(400);
     ok(await page.evaluate(() => !!document.querySelector("dialog .plan-sheet")), "on the free plan that opens the Pro sheet");
     await page.evaluate(() => document.querySelector("dialog").close()); await page.waitForTimeout(150);
-    await page.click('.frow[data-fid="fp"] [data-act="f-preview"]');
+    await page.click('.frow[data-fid="fp"] .f-acts [data-act="f-preview"]');
     await page.waitForSelector("#ofvBody .ofc-pptx", {timeout: 15000});
     ok(/Slide 1/.test(await page.locator("#ofvBody figcaption").first().textContent()), "slides are labelled as slides");
     await page.screenshot({path: path.join(shots, "preview-pptx.png")});
@@ -87,8 +87,8 @@ const cachePut = (page, list) => page.evaluate(list => new Promise((res, rej) =>
     const P = await open(pro);
     const pp = P.page;
     await pp.evaluate(async bytes => { await window.__sbProStudy.idbSet("pdf:u1/a-ppt.pptx", new Blob([new Uint8Array(bytes)])); }, pptx);
-    ok(await pp.locator('.frow[data-fid="fp"] [data-act="pdr-open"]').count() === 1 && await pp.locator('.frow[data-fid="fp"] [data-act="pde-edit"]').count() === 0, "Pro: a PowerPoint file has Read, and no PDF Edit");
-    await pp.click('.frow[data-fid="fp"] [data-act="pdr-open"]');
+    ok(await pp.locator('.frow[data-fid="fp"] .f-acts [data-act="pdr-open"]').count() === 1 && await pp.locator('.frow[data-fid="fp"] .f-acts [data-act="pde-edit"]').count() === 0, "Pro: a PowerPoint file has Read, and no PDF Edit");
+    await pp.click('.frow[data-fid="fp"] .f-acts [data-act="pdr-open"]');
     await pp.waitForSelector(".pdr-page .pdr-office .ofc-page", {timeout: 15000});
     const rd = await pp.evaluate(() => ({pages: document.querySelectorAll(".pdr-page").length, of: document.querySelector("#pdrOf").textContent, label: document.querySelector(".pdr-page").getAttribute("aria-label"),
       edit: !!document.querySelector("#pdeBtn"), dl: !!document.querySelector('[data-act="pde-dl"]')}));
@@ -113,10 +113,10 @@ const cachePut = (page, list) => page.evaluate(list => new Promise((res, rej) =>
     await pp.screenshot({path: path.join(shots, "reader-pptx.png")});
     // what the Office reader left out is said above the pages; a file it can't read gets a short, specific message
     await pp.evaluate(() => { const O = window.SBOFFICE, r0 = O.render; window.__r0 = r0; O.render = async (...a) => Object.assign(await r0(...a), {warnings: ["Only the first 40 slides are shown."]}); window.__sbProStudy.dlg().close(); });
-    await pp.click('.frow[data-fid="fp"] [data-act="pdr-open"]'); await pp.waitForSelector(".pdr-pages .pdr-warn", {timeout: 15000});
+    await pp.click('.frow[data-fid="fp"] .f-acts [data-act="pdr-open"]'); await pp.waitForSelector(".pdr-pages .pdr-warn", {timeout: 15000});
     ok(/first 40 slides/.test(await pp.textContent(".pdr-pages .pdr-warn")), "the Pro reader shows the Office reader's warnings");
     await pp.evaluate(() => { window.SBOFFICE.render = async () => { throw new Error("This file looks damaged (not a zip)"); }; window.__sbProStudy.dlg().close(); });
-    await pp.click('.frow[data-fid="fp"] [data-act="pdr-open"]'); await pp.waitForFunction(() => /looks damaged/.test((document.querySelector(".pdr-pages .pdr-wait") || {}).textContent || ""), null, {timeout: 15000});
+    await pp.click('.frow[data-fid="fp"] .f-acts [data-act="pdr-open"]'); await pp.waitForFunction(() => /looks damaged/.test((document.querySelector(".pdr-pages .pdr-wait") || {}).textContent || ""), null, {timeout: 15000});
     ok(true, "and a damaged file says so");
     await pp.evaluate(() => { window.SBOFFICE.render = window.__r0; });
     ok(!pp.errs.length, "Pro: no page errors: " + pp.errs.join(" | "));
