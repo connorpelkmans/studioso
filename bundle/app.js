@@ -10976,7 +10976,8 @@ function sbHaptic(kind, opts){
       const done = p => { if (p && p.catch) p.catch(() => {}); };
       if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
       else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
-      else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
+      // (Apple's LIGHT impact was too faint to notice in the hand: a tap or a drop is MEDIUM, picking something up is HEAVY)
+      else done(H.impact({style: kind === "lift" ? "HEAVY" : "MEDIUM"}));
       return true;
     }
     if (navigator.vibrate) { navigator.vibrate(HAPTIC_WEB[kind]); return true; }
@@ -10991,9 +10992,15 @@ async function hapticTry(){
   if (!hapticOn()) return "Haptic Feedback is off. Turn it on above, then try again.";
   if (app) {
     const H = hapticNative();
-    if (!H) return "This copy of the app was built without haptics. Install the newest build (TestFlight, or the App Store once it's out) and try again.";
-    try { await H.notification({type: "SUCCESS"}); } catch (e) { return "The iPhone didn't take the tap (" + String((e && e.message) || e).slice(0, 80) + ")."; }
-    return "Sent a tap. If you felt nothing, turn on System Haptics in your iPhone's Settings > Sounds & Haptics (Low Power Mode also turns haptics down).";
+    if (!H) {
+      // what the app can see, for working out why: the plugin listed by the app, and its JavaScript side
+      let seen = ""; try { seen = ` (plugin listed: ${C.isPluginAvailable ? (C.isPluginAvailable("Haptics") ? "yes" : "no") : "?"}, reachable: ${C.Plugins && C.Plugins.Haptics ? "yes" : "no"})`; } catch (e) {}
+      return "This copy of the app can't reach the iPhone's haptics" + seen + ". Install the newest build (TestFlight, or run it from Xcode) and try again.";
+    }
+    // a strong one, then the success pattern, so there's no mistaking it
+    try { await H.impact({style: "HEAVY"}); await new Promise(r => setTimeout(r, 350)); await H.notification({type: "SUCCESS"}); }
+    catch (e) { return "The iPhone didn't take the tap: " + String((e && e.message) || e).slice(0, 120); }
+    return "Sent two taps. If you felt nothing, turn on System Haptics in your iPhone's Settings > Sounds & Haptics (Low Power Mode also turns haptics down).";
   }
   if (!navigator.vibrate) return "This browser can't make haptics (Safari on iPhone and iPad can't). The Studyboard app can.";
   navigator.vibrate(HAPTIC_WEB.success);

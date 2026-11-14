@@ -51,7 +51,7 @@ const checkOff = async (p, id) => {
       const {ctx, p} = await open(b, {phone: true, native: true});
       ok(await p.evaluate(() => typeof sbHaptic === "function" && __sbHaptic.device()), "the app counts as a phone");
       let h = await checkOff(p, "t0");
-      ok(h.length === 1 && h[0][0] === "impact" && h[0][1] === "LIGHT", `checking off a task is one light tap (${JSON.stringify(h)})`);
+      ok(h.length === 1 && h[0][0] === "impact" && h[0][1] === "MEDIUM", `checking off a task is one firm tap (${JSON.stringify(h)})`);
       ok(!h.some(x => x[0] === "vibrate"), "the app never uses navigator.vibrate when the plugin is there");
       await touch(p); await p.waitForTimeout(150);
       const fired = await p.evaluate(() => [window.sbHaptic("tap"), window.sbHaptic("tap")]); await calls(p);
@@ -84,9 +84,9 @@ const checkOff = async (p, id) => {
       await p.evaluate(() => { const m = document.querySelector('[data-act="menu"]'); if (m) m.click(); }); await p.waitForTimeout(600);
       ok(await p.evaluate(() => !!dlg.querySelector('input[data-act="haptics"]')), "Settings has a Haptic Feedback row on a phone");
       // Try It: sends a tap at once and says it went to the iPhone
-      await calls(p); await p.evaluate(() => dlg.querySelector('[data-act="haptic-try"]').click()); await p.waitForTimeout(300);
+      await calls(p); await p.evaluate(() => dlg.querySelector('[data-act="haptic-try"]').click()); await p.waitForTimeout(900);
       { const h = await calls(p), t = await p.evaluate(() => document.getElementById("toastMsg").textContent);
-        ok(h.length === 1 && h[0][0] === "notification" && /Sent a tap/.test(t) && /System Haptics/.test(t), `Try It sends a tap and says where to look if nothing is felt (${JSON.stringify(h)}; "${t}")`); }
+        ok(h.length === 2 && h[0][0] === "impact" && h[0][1] === "HEAVY" && h[1][0] === "notification" && /Sent two taps/.test(t) && /System Haptics/.test(t), `Try It sends a strong tap and the success pattern, and says where to look if nothing is felt (${JSON.stringify(h)}; "${t}")`); }
       await p.evaluate(() => { const i = dlg.querySelector('input[data-act="haptics"]'); i.click(); }); await p.waitForTimeout(200);
       ok(await p.evaluate(() => localStorage.getItem("studyboard:haptics")) === "off", "turning it off is remembered on this device");
       await p.waitForTimeout(150); await touch(p);
@@ -99,7 +99,7 @@ const checkOff = async (p, id) => {
       await p.evaluate(() => { const m = document.querySelector('[data-act="menu"]'); if (m) m.click(); }); await p.waitForTimeout(600);
       await p.evaluate(() => dlg.querySelector('[data-act="haptic-try"]').click()); await p.waitForTimeout(300);
       const t = await p.evaluate(() => document.getElementById("toastMsg").textContent);
-      ok(/built without haptics/.test(t) && /newest build/.test(t), `Try It in a build without the haptics plugin says so ("${t}")`);
+      ok(/can't reach the iPhone's haptics/.test(t) && /plugin listed: no/.test(t) && /newest build/.test(t), `Try It in a build without the haptics plugin says so, and what it can see ("${t}")`);
       ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
       await ctx.close();
     }
