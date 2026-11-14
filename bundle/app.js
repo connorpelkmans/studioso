@@ -12003,7 +12003,7 @@ function planNotes(F, inView, crunchMain){
   // A mark came in for an exam you haven't reflected on yet
   (window.SBWRAP && SBWRAP.pending ? SBWRAP.pending() : []).filter(t => inView({t})).slice(0, 2).forEach(t => {
     const m = SBWRAP.markOf(t);
-    rows.push({k: "wrap", main: `<b>How did ${esc(t.title)} go?</b> You got ${m}%. A minute comparing that with how ready you were makes the next one easier to prepare for.`,
+    rows.push({k: "wrap", main: `<b>How did ${esc(t.title)} go?</b> You got ${m}%. A quick look back helps next time.`,
       acts: `<button class="btn small primary" data-act="ewr-open" data-id="${esc(t.id)}">Reflect</button><button class="btn small" data-act="ewr-skip" data-id="${esc(t.id)}">Skip</button>`});
   });
   const seen = lsObj(CLOSED_LS), closed = Object.values(F.info).filter(x => x.dead && !x.fixed && !x.t.gt && inView(x) && x.t.status !== "done" && !seen[x.t.id]).sort((a, z) => z.dueMs - a.dueMs);
