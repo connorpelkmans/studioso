@@ -66501,7 +66501,17 @@ var COMP_EXTRA = [];
     }
     const here = box && box.dataset.x ? {left: +box.dataset.x, top: +box.dataset.y} : null;
     RECTS = null;
-    if (!fresh && here && +box.dataset.px === px && spotKind) { const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f}); }
+    // it stays where it is while that spot is still clear, at its size on this page too (Courses draws it full size, the Board a
+    // little smaller), so opening a page doesn't send it walking across the screen
+    if (!fresh && here && spotKind) {
+      const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f});
+      // a spot that's only just too tight on this page (the gap beside Courses' cards is a few pixels narrower than the Board's)
+      // keeps it there a touch smaller, feet where they were, rather than sending it across the screen
+      for (const k of [0.94, 0.88]) {
+        const p2 = Math.round(px * k), c2 = {left: here.left, top: Math.round(here.top + (px - p2))};
+        if (!spotCheck(c2, p2, f).hard) return Object.assign(c2, {kind: spotKind, px: p2, fab: f});
+      }
+    }
     RECTS = null;
     // It stands level with the Add button, never higher up the page
     const list = candidates(px, f, fresh).filter(c => c.kind === "home" || c.kind === "ground").sort((a, b) => a.score - b.score);
