@@ -1822,6 +1822,16 @@ function syncBigWarn(key, data){
   let name = ""; try { name = SyncMerge.titleOf(key.slice(0, key.indexOf(":")), data) || ""; } catch(e) {}
   toast(`${name ? `"${String(name).slice(0, 60)}"` : "One item"} is too big to sync (over 10 MB), so it's only saved on this device. Make it smaller, for example by moving pictures into Files.`, null, null, {error: true});
 }
+// This device's own settings saves, kept for a minute. The server tells every device about each save, this one included, and
+// the echo of an earlier save can arrive after a newer one (two quick taps on a switch, such as the whiteboard's light / dark):
+// applying it would switch the setting back for a moment, then on again when the newer echo arrives
+const metaSent = [];
+function noteMetaSent(data){
+  if (!data || !data.settings) return;
+  const now = Date.now(); metaSent.push({at: now, s: clone(data.settings)});
+  while (metaSent.length && (metaSent.length > 12 || now - metaSent[0].at > 60000)) metaSent.shift();
+}
+const ownMetaEcho = s => { const now = Date.now(); try { return metaSent.some(x => now - x.at <= 60000 && SyncMerge.eq(x.s, s)); } catch(e) { return false; } };
 async function runQueue(key, e){
   e.running = true;
   let tries = 0;
@@ -1829,6 +1839,7 @@ async function runQueue(key, e){
   while (e.next) {
     const job = e.next; e.next = null;
     try {
+      if (key === "meta:meta") noteMetaSent(job.data);
       const res = job.data === null ? await e.ref.delete() : await e.ref.set(job.data);
       tries = 0; syncLater.delete(key); syncError = syncLater.size > 0;
       outboxDone(key, job.data);
@@ -1999,7 +2010,7 @@ async function flushOutbox(){
     const i = k.indexOf(":"), kind = k.slice(0, i), id = k.slice(i + 1);
     if (queue.has(k)) continue;
     if (!outboxOwn.has(k)) continue;
-    if (kind === "meta") o[k] = {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)};
+    if (kind === "meta") { o[k] = {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)}; noteMetaSent(o[k]); }
     try {
       const r = refFor(kind, id), res = o[k] === null ? await r.delete({outbox: true}) : await r.set(o[k], {outbox: true});
       const sentData = o[k]; sentBy[k] = sentData; delete o[k]; sent++;
@@ -2101,6 +2112,8 @@ function applyRemoteSettings(md){
     }
     remoteMetaTries = 0;
     if (SyncMerge.eq(syncSettings(state.settings), md.settings)) return;
+    // an echo of something this device saved earlier, since changed again here: not news, and applying it would undo the change
+    if (ownMetaEcho(md.settings)) return;
     adoptSettings(md.settings); saveLocal(); scheduleRender();
     if (!SyncMerge.eq(syncSettings(state.settings), md.settings)) queueWrite("meta", "meta", {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)});
   } catch(e) { console.warn(e); }
@@ -2167,7 +2180,7 @@ hook("act", (act, el, id) => {
 hook("menu", () => { try { const n = inPreview() ? 0 : syncConflicts().length; return n ? `<button data-act="sb-issues" data-group="account"><span>Sync Issues<span class="sub">${n} ${n === 1 ? "item was" : "items were"} edited on two devices. Choose what to keep.</span></span></button>` : ""; } catch(e) { return ""; } });
 
 // Test handle (only when a test page sets window.__SB_TEST)
-if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, SY, useClient: c => { sb = c; }, claimDevice, wipeDeviceData, devKeys: {LS2, OUTBOX, OWNER}, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, trashVisible, trashRestore, trashForever, trashList, backupBefore, saveDeviceBackup, backupSnap, refresh: () => cloud.refresh && cloud.refresh(), ui, render, scheduleRender, menuSheet, dlg, setKeys: k => aiKeysSetLocal(k), aiReviewSheet: (r, c) => aiReviewSheet(r, c), aiCall: o => aiCall(o), sbDownload: (p, c) => sbDownload(p, c), FCACHE, wipeDeviceData2: () => wipeDeviceData(), get keys(){ return aiLocalKeys; }}; }, 0);
+if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, applyRemoteSettings, noteMetaSent, syncSettings, SY, useClient: c => { sb = c; }, claimDevice, wipeDeviceData, devKeys: {LS2, OUTBOX, OWNER}, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, trashVisible, trashRestore, trashForever, trashList, backupBefore, saveDeviceBackup, backupSnap, refresh: () => cloud.refresh && cloud.refresh(), ui, render, scheduleRender, menuSheet, dlg, setKeys: k => aiKeysSetLocal(k), aiReviewSheet: (r, c) => aiReviewSheet(r, c), aiCall: o => aiCall(o), sbDownload: (p, c) => sbDownload(p, c), FCACHE, wipeDeviceData2: () => wipeDeviceData(), get keys(){ return aiLocalKeys; }}; }, 0);
 
 /* ===== module: 01-accounts.js: the app's core, accounts, using the app without one, and lean sync ===== */
 const SB_DEFAULT = {"url": "https://pivcmrqcjseycjkbocmc.supabase.co", "key": "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd"};
