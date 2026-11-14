@@ -6155,6 +6155,8 @@ html:not([data-motion="static"]) dialog[open]::backdrop{animation:sm-back .22s e
 @media (max-width:639px) and (prefers-reduced-motion:reduce){
   html:not([data-motion="static"]) dialog[open]:not(.tour):not(.sm-x){animation:sm-back .2s ease-out backwards}
 }
+/* A pop-up's entrance waits, held at its start, until the pop-up has been drawn once (99-smooth.js hold) */
+html dialog.sm-hold,html dialog.sm-hold::backdrop,html .note.n-sheet.sm-hold,html .n-sheet-bg.sm-hold{animation-play-state:paused!important}
 /* Menus and dropdowns */
 html:not([data-motion="static"]) .sb-dd,html:not([data-motion="static"]) .cs-menu{animation:sm-pop .16s var(--sm-ease) backwards;transform-origin:top center}
 /* Native disclosure sections */

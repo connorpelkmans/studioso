@@ -18156,7 +18156,7 @@ function noteSheetUp(){
   // the note's own colour also fills the strip behind the keyboard (see .n-sheet-bg.on::after)
   try { document.documentElement.style.setProperty("--n-sheet-c", getComputedStyle(el).getPropertyValue("--nc").trim() || getComputedStyle(el).backgroundColor); } catch (e) {}
   // slides up once when a note opens, not again on every redraw while it's being edited
-  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } if (window.SBSMOOTH) { SBSMOOTH.hold(el); SBSMOOTH.hold(bg); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
@@ -106847,9 +106847,16 @@ ui._day = todayISO();
   // the dialog itself would focus an [autofocus] box as it opens, which on a phone pops the keyboard up for a moment
   // (the sheet shrinks above it, then stretches back down as it drops), so on a phone nothing is marked to take focus
   const noAuto = d => { try { if (phoneW()) d.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus")); } catch (e) {} };
+  // A pop-up's entrance waits for its first drawn frame. Opening one also builds it and redraws the page behind, which can take a
+  // few hundred milliseconds on a phone; the slide-up's clock used to run through that, so by the first frame anyone saw it was
+  // nearly over and the sheet seemed to pop into place. It's held at its start (still off the bottom, or see-through) until the
+  // sheet has been drawn once, then plays in full.
+  const hold = el => { if (!el || !on()) return; el.classList.add("sm-hold"); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("sm-hold"))); };
+  window.SBSMOOTH = Object.assign(window.SBSMOOTH || {}, {hold});
   HTMLDialogElement.prototype.showModal = function(){
     noAuto(this);
     const r = showModal0.apply(this, arguments);
+    hold(this);
     quiet(this); requestAnimationFrame(() => quiet(this));
     return r;
   };
@@ -106859,7 +106866,7 @@ ui._day = todayISO();
   const reduced = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   function sheetGhost(d){
     try {
-      if (!d.open || !phoneW() || !on() || reduced() || !d.matches(":modal") || d.classList.contains("tour") || !document.body.showPopover) return null;
+      if (!d.open || !on() || reduced() || !d.matches(":modal") || d.classList.contains("tour") || !document.body.showPopover) return null;
       const r = d.getBoundingClientRect(); if (r.height < 40 || r.top >= innerHeight) return null;
       const dim = getComputedStyle(d, "::backdrop").backgroundColor;
       const host = document.createElement("div"); host.className = "sm-ghost sm-skip"; host.setAttribute("aria-hidden", "true"); host.inert = true; host.setAttribute("popover", "manual");
@@ -106880,25 +106887,37 @@ ui._day = todayISO();
       return () => {
         document.body.appendChild(host); try { host.showPopover(); } catch (e) {}
         if (sc2) sc2.scrollTop = st;   // where it was scrolled to
-        // quick but smooth: it gets going at once and eases off as it leaves (was 260ms, slow to start)
-        const ease = {duration: 180, easing: "cubic-bezier(.3,0,.7,.4)", fill: "forwards"};
-        const a = c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease);
-        host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
-        const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 450);
+        // it starts moving on the next frame, once the page's own work after closing (saving, redrawing the list) is done, so the
+        // whole slide is seen rather than its last few frames; a phone sheet glides down off the bottom, a pop-up on a computer
+        // eases back and fades
+        const done = () => host.remove(); setTimeout(done, 900);
+        requestAnimationFrame(() => {
+          const ph = phoneW(), ease = {duration: ph ? 300 : 190, easing: ph ? "cubic-bezier(.4,0,.6,1)" : "cubic-bezier(.4,0,1,1)", fill: "forwards"};
+          const a = ph ? c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease)
+                       : c.animate([{opacity: 1, transform: "none"}, {opacity: 0, transform: "translateY(10px) scale(.97)"}], ease);
+          host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
+          a.finished.then(done, done);
+        });
       };
     } catch (e) { return null; }
   }
+  let escGhost = null;
   HTMLDialogElement.prototype.close = function(){
+    escGhost = null;
     const ghost = sheetGhost(this);
     const r = close0.apply(this, arguments);
     if (ghost) ghost();
     return r;
   };
+  // Esc closes a pop-up through the browser, not close(): a stand-in is made as Esc is pressed and plays only if the pop-up
+  // really closes (a sheet that asks "Discard changes?" first stops the Esc, and then nothing plays)
+  document.addEventListener("cancel", e => { const d = e.target; escGhost = d instanceof HTMLDialogElement ? {d, run: sheetGhost(d)} : null; }, true);
+  document.addEventListener("close", e => { const g = escGhost; escGhost = null; if (g && g.d === e.target && g.run && !e.target.open) g.run(); }, true);
   // The main sheets carry their own showModal (99-release.js), so wrap those too
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
     const f = d.showModal;
-    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
   });
 
   // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped
