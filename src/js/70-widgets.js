@@ -43,6 +43,17 @@
     };
   }
 
+  // Background App Refresh (iPhone and iPad app: MainViewController.swift, StudyboardBackgroundRefresh): iOS wakes the app now and
+  // then while it's in the background; the app asks the page for what changed on other devices, then sends the widgets the day
+  // again, so a task added on a laptop reaches the Home Screen without opening Studyboard. Done within iOS's ~30 seconds.
+  window.__sbBgRefresh = async () => {
+    const wait = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, ms))]);
+    try { if (typeof cloud !== "undefined" && cloud.on && cloud.refresh) await wait(cloud.refresh(), 15000); } catch (e) {}
+    await new Promise(r => setTimeout(r, 300));   // what came in is applied before the day is worked out
+    phoneSent = ""; push();
+    try { localStorage.setItem("studyboard:bgRefreshAt", String(Date.now())); } catch (e) {}
+    return true;
+  };
   if (window.__SB_TEST) window.__sbPhoneWidgets = {data: () => phoneData(widgetData()), drain: () => drainPhone(), push: () => { phoneSent = ""; push(); }};
   /* Sending it to the widgets */
   let lastSent = "", pushT = null;
@@ -53,13 +64,17 @@
   // the phone apps' Siri and Shortcuts data has its own feed (96-siri.js), so neither depends on this.
   const winBoard = () => !DESK && !inPreview() && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost");
   const WIN_OK = /Windows/.test(navigator.userAgent || "") && !/Android|iPhone|iPad|iPod/.test(navigator.userAgent || "");
-  const feedOk = () => DESK_OK || (WIN_OK && winBoard());
+  // (the iPhone and iPad app's Home Screen and Lock Screen widgets take it too, through StudyboardNative.homeWidgets: they were
+  // left out here, so the app never sent them the day and they stayed on "Open Studyboard to start")
+  const deskFeed = () => DESK_OK || (WIN_OK && winBoard());
+  const feedOk = () => deskFeed() || !!phoneNative();
   function push(){
     clearTimeout(pushT); pushT = null;
     if (!feedOk()) return;
     let d; try { d = widgetData(); } catch(e) { console.warn("widget data", e); return; }
     // the phone widgets also show a running Focus, Exam Mode and the week ahead, so they keep their own check for changes
     pushPhone(d);
+    if (!deskFeed()) return;
     const sig = JSON.stringify(d);
     if (sig === lastSent) return;
     lastSent = sig;
@@ -75,6 +90,21 @@
   const hex = (c, d) => { c = String(c || "").trim(); if (/^#[0-9a-f]{3}$/i.test(c)) c = "#" + c.slice(1).split("").map(x => x + x).join(""); return HEX.test(c) ? c.toUpperCase() : d; };
   const cut = (v, n) => String(v == null ? "" : v).slice(0, n);
   const phoneNative = () => { const n = window.StudyboardNative; return n && n.homeWidgets && typeof n.homeWidgets.save === "function" ? n.homeWidgets : null; };
+  // The rest of today's plan as blocks with real times: the widget shows the one on now (or the next) and moves on by itself, so Do
+  // This Next stays right through the day without the app running. Back-to-back sessions of one task are one block.
+  function planSlots(){
+    let F = null, list = [];
+    try { const r = dayList(); F = r.F; list = r.list; } catch (e) { return []; }
+    const sd = (F && F.sd) || studyDay(), sb = (F && F.slotsBy) || {}, [y, mo, da] = String(sd.date || todayISO()).split("-").map(Number);
+    // minutes count from the plan day's midnight (past 1440 after midnight, for a late end of day)
+    const at = m => new Date(y, mo - 1, da, 0, Math.round(m)).getTime(), now = Date.now(), rows = [];
+    list.forEach(({t}) => { if (!t || t.status === "done") return; (sb[t.id] || []).forEach(sl => { if (sl && sl.e - sl.s >= 10) rows.push({s: sl.s, e: sl.e, t}); }); });
+    rows.sort((p, q) => p.s - q.s || p.e - q.e);
+    const merged = [];
+    rows.forEach(r => { const last = merged[merged.length - 1]; if (last && last.t.id === r.t.id && r.s - last.e <= 15) { last.e = Math.max(last.e, r.e); last.min += r.e - r.s; } else merged.push(Object.assign({min: r.e - r.s}, r)); });
+    return merged.map(r => { const c = courseOf(r.t.courseId); return {from: at(r.s), to: at(r.e), id: cut(r.t.id, 80), title: cut(r.t.title, 90), course: cut(c ? courseLabel(c) : "", 24), color: hex(colorOf(r.t.courseId), "#8A94A6"), mins: Math.max(1, Math.round(r.min))}; })
+      .filter(x => x.to > now).slice(0, 16);
+  }
   function phoneData(d){
     const today = todayISO(), byId = id => state.tasks[id];
     const item = t => { const x = byId(t.id) || {}; return {id: cut(t.id, 80), title: cut(t.title, 90), course: cut(t.course, 24), color: hex(t.color, "#8A94A6"), meta: cut(t.meta, 48),
@@ -85,14 +115,14 @@
       const em = window.SBEXAM && SBEXAM.current && SBEXAM.current();
       if (em && em.exam) { const t = em.exam, xr = typeof examReadiness === "function" ? examReadiness(t) : null, r = xr ? (xr.measured != null ? xr.measured : xr.self) : null;
         exam = {id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24), color: hex(colorOf(t.courseId), "#8A94A6"),
-          due: t.due || "", time: t.time || "", days: Math.max(0, Number(em.days) || 0), ready: r == null ? null : Math.max(0, Math.min(100, Math.round(r)))}; }
+          due: t.due || "", time: t.time || "", days: Math.round(Math.max(0, Number(em.days) || 0)), ready: r == null ? null : Math.max(0, Math.min(100, Math.round(r)))}; }
     } catch (e) {}
     // the next six days: what's due each day (exams first), for the week view and for showing tomorrow after midnight
     const days = [];
     for (let i = 1; i <= 6; i++) {
       const day = addDays(today, i), due = tasksArr().filter(t => t.status !== "done" && t.due === day && !t.prepFor)
         .sort((a, b) => (MILESTONE(b.type) ? 1 : 0) - (MILESTONE(a.type) ? 1 : 0) || (a.time || "99").localeCompare(b.time || "99"));
-      days.push({date: day, off: dayIsOff(day), items: due.slice(0, 4).map(t => ({id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24),
+      days.push({date: day, off: !!dayIsOff(day), items: due.slice(0, 4).map(t => ({id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24),
         color: hex(colorOf(t.courseId), "#8A94A6"), time: t.time || "", exam: MILESTONE(t.type)})), more: Math.max(0, due.length - 4)});
     }
     let focus = null;
@@ -103,10 +133,11 @@
     } } catch (e) {}
     const th = d.theme || {};
     return {v: 1, day: today, at: Date.now(), dateLabel: cut(d.dateLabel, 40),
-      next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.max(5, Math.min(180, Number(d.next.mins) || 25)),
+      next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.round(Math.max(5, Math.min(180, Number(d.next.mins) || 25))),
         due: (byId(d.next.id) || {}).due || "", time: (byId(d.next.id) || {}).time || ""} : null,
-      tasks, more: d.more, cards: d.cards, dayOff: dayIsOff(today), exam, focus, days,
-      theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}};
+      // (whole numbers: the widget reads these as Int, and a fraction would make it refuse the whole day)
+      tasks, more: Math.max(0, Math.round(Number(d.more) || 0)), cards: Math.max(0, Math.round(Number(d.cards) || 0)), dayOff: !!dayIsOff(today), exam, focus, days,
+      theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}, plan: planSlots()};
   }
   let phoneSent = "";
   function pushPhone(d){

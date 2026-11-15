@@ -2714,7 +2714,7 @@ function cleanFile(r) {
     if (!need.length || key === relogHidden) { if (el) el.remove(); if (!need.length) relogHidden = ""; return; }
     if (!el) { el = document.createElement("div"); el.id = "lmsRelog"; el.setAttribute("role", "status"); document.body.appendChild(el); }
     const L = need[0], more = need.length - 1;
-    const html = `<span class="lr-txt"><b>${esc(L.P.name)}</b> signed you out${more ? ` <span class="lr-more">(+${more} more)</span>` : ""}</span><button type="button" class="lr-go" data-relog="${esc(L.P.id)}">Sign In Again</button><button type="button" class="lr-x" data-relog-x aria-label="Hide for now" title="Hide for now">×</button>`;
+    const html = `<span class="lr-txt"><b>${esc(L.P.name)}</b> signed you out${more ? ` <span class="lr-more">(+${more} more)</span>` : ""}</span><button type="button" class="lr-go" data-relog="${esc(L.P.id)}">Sign In<span class="lr-again"> Again</span></button><button type="button" class="lr-x" data-relog-x aria-label="Hide for now" title="Hide for now">×</button>`;
     if (el.dataset.k !== key + "|" + more) { el.innerHTML = html; el.dataset.k = key + "|" + more; }
   }
   hook("render", drawRelog);
@@ -2734,6 +2734,20 @@ function cleanFile(r) {
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
 body:has(#dlg[open]) #lmsRelog{display:none}
+/* Phones: the message was cut to "Brightspace sign..." beside the button. The notice is a card the width of the screen, the message
+   can take two lines, and the button says just "Sign In" (the message already says you were signed out) */
+@media (max-width:600px){
+  #lmsRelog{left:12px;right:12px;bottom:var(--sb-snack-b,calc(84px + env(safe-area-inset-bottom,0px)));transform:none;max-width:none;border-radius:18px;padding:10px 6px 10px 16px;gap:8px;animation-name:lrInP}
+  /* above the tab bar, where the app's other notices sit, and above a message when one shows */
+  body:has(#toast.show) #lmsRelog{bottom:calc(var(--sb-snack-b,84px) + var(--toast-h,52px) + 8px)}
+  /* the Add button steps up above it, as it does for a message */
+  body:has(#lmsRelog) .fab{transform:translateY(-66px)}
+  body:has(#lmsRelog):has(#toast.show) .fab{transform:translateY(calc(-74px - var(--toast-h,52px)))}
+  #lmsRelog .lr-txt{flex:1 1 auto;white-space:normal;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+  #lmsRelog .lr-again{display:none}
+  #lmsRelog .lr-go{padding:9px 14px}
+}
+@keyframes lrInP{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 `; document.head.appendChild(st); }
   window.__sbRelog = {keepAlive, drawRelog, relogNeeded};
 

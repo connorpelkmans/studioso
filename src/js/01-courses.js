@@ -121,9 +121,10 @@ function viewCalendar(){
       S.norm(sc).off.forEach(o => { for (let x = o.from > lo ? o.from : lo; x <= o.to && x <= hi; x = addDays(x, 1)) { const l = hol[x] = hol[x] || []; if (!l.some(y => y.name === o.name)) l.push({name: o.name || "Day off", off: true}); } });
     }
   } catch (e) { console.warn("calendar: holidays", e); }
-  // Events (study groups, shifts, appointments) on their days too; classes stay on the Schedule
+  // Events (study groups, shifts, appointments) on their days too on wide screens; classes stay on the Schedule
   const evBy = {};
-  try {
+  // (on a phone, events are on the Schedule only: Due Dates is just what's due)
+  if (!tlPhone()) try {
     const endD = new Date(start); endD.setDate(start.getDate() + weeks * 7 - 1);
     schOccurrences(iso(start), iso(endD)).forEach(o => { if (o.type !== "event" || o.skipped || o.ovn === "tail") return; (evBy[o.date] = evBy[o.date] || []).push(o); });
     Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));

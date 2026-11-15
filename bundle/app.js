@@ -962,6 +962,7 @@ const TB = (() => {
 let state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
 const ui = {tab:"board", courseId:null, q:"", focusOpen:true, showOldDone:false,
   planView: (() => { try { const v = localStorage.getItem("studyboard:planview"); return v === "schedule" || v === "crunch" ? v : "timeline"; } catch(e) { return "timeline"; } })(),
+  schMode: (() => { try { return localStorage.getItem("studyboard:schmode") === "month" ? "month" : "week"; } catch(e) { return "week"; } })(),
   tlMode: (() => { try { return localStorage.getItem("studyboard:tlmode") === "calendar" ? "calendar" : "bars"; } catch(e) { return "bars"; } })(),
   tlZoom: (() => { try { const v = localStorage.getItem("studyboard:tlzoom"); return v === "week" || v === "term" ? v : "month"; } catch(e) { return "month"; } })(), tlScroll:null, tlJump:true, calMonth:null, calDay:null,
   groupBy: (() => { try { return localStorage.getItem("coursework:group") || "none"; } catch(e) { return "none"; } })(), fCourse:"all", fFolder:"", fSort:"date"};
@@ -12301,9 +12302,10 @@ function viewCalendar(){
       S.norm(sc).off.forEach(o => { for (let x = o.from > lo ? o.from : lo; x <= o.to && x <= hi; x = addDays(x, 1)) { const l = hol[x] = hol[x] || []; if (!l.some(y => y.name === o.name)) l.push({name: o.name || "Day off", off: true}); } });
     }
   } catch (e) { console.warn("calendar: holidays", e); }
-  // Events (study groups, shifts, appointments) on their days too; classes stay on the Schedule
+  // Events (study groups, shifts, appointments) on their days too on wide screens; classes stay on the Schedule
   const evBy = {};
-  try {
+  // (on a phone, events are on the Schedule only: Due Dates is just what's due)
+  if (!tlPhone()) try {
     const endD = new Date(start); endD.setDate(start.getDate() + weeks * 7 - 1);
     schOccurrences(iso(start), iso(endD)).forEach(o => { if (o.type !== "event" || o.skipped || o.ovn === "tail") return; (evBy[o.date] = evBy[o.date] || []).push(o); });
     Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
@@ -14686,14 +14688,107 @@ function courseTimesText(c){
 }
 const meetingsSummary = ms => ms.filter(m => m.kind !== "Office Hours").map(m => `${meetWhen(m)} ${fmtTime(m.start)}–${fmtTime(m.end)}`).join("; ");
 let schNoticeHtml = "";
+// Week / Month: a switch in the Schedule's toolbar on wide screens; on a phone, an item in Options just under This Week
+const schPhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
+const schModeCtl = month => schPhone()
+  ? `<button class="btn small" data-act="sch-mode" data-id="${month ? "week" : "month"}">${month ? "Week View" : "Month View"}</button>`
+  : `<div class="segb sch-mode" role="group" aria-label="View"><button data-act="sch-mode" data-id="week" aria-pressed="${!month}">Week</button><button data-act="sch-mode" data-id="month" aria-pressed="${month}">Month</button></div>`;
+const SCH_ARROW = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+// (each icon's drawing is centred in its 24 x 24 box, so it sits in the middle of its colour dot: tests/sch-month-keep.e2e.js)
+// What kind of thing an event or class is, for its icon in the Schedule's month (drawn like a task's icon on Due Dates):
+// a class by its meeting kind; an event by its label, a study group's meeting, or words in its title
+const EV_KINDS = {
+  lecture: ["Class", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M8 8.5h8M9.5 11.5h5"/>'],
+  lab: ["Lab", '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.4 15h9.2"/>'],
+  disc: ["Discussion or Tutorial", '<g transform="translate(0 1)"><path d="M4 5h11v8H8l-4 3z"/><path d="M15 9h5v8l-3-2h-6v-2"/></g>'],
+  office: ["Office Hours", '<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17M3 21h18"/><circle cx="15" cy="12" r="1"/>'],
+  exam: ["Exam or Quiz", '<g transform="translate(0 2)"><path d="M12 3l9 4-9 4-9-4z"/><path d="M7 9.5V14c0 1.5 2.2 3 5 3s5-1.5 5-3V9.5"/></g>'],
+  group: ["Study Group or Meeting", '<g transform="translate(.25 -.5)"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5M15.5 14.5c2.5 0 4.6 1.6 5 5"/></g>'],
+  work: ["Work or Shift", '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>'],
+  appt: ["Appointment", '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+  event: ["Event", '<rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>']
+};
+function evKind(o){
+  const lab = String((o.type === "meet" ? o.label : o.label) || "").toLowerCase(), t = String(o.title || "").toLowerCase();
+  if (o.type === "meet" || lab) {
+    if (/office/.test(lab)) return "office";
+    if (/lab|practical|clinical/.test(lab)) return "lab";
+    if (/discuss|tutorial|seminar|recitation|workshop/.test(lab)) return "disc";
+    if (/exam|quiz|test|midterm/.test(lab)) return "exam";
+    if (o.type === "meet" || /lecture|class/.test(lab)) return "lecture";
+  }
+  if (o.ev && o.ev.groupRef) return "group";
+  if (/\b(exam|midterm|final|quiz|test)\b/.test(t)) return "exam";
+  if (/\b(study group|group|project|team|meeting|meet up|meetup|study session|review session)\b/.test(t)) return "group";
+  if (/\boffice hours?\b/.test(t)) return "office";
+  if (/\b(lab|clinical|practicum)\b/.test(t)) return "lab";
+  if (/\b(tutorial|discussion|seminar|recitation|workshop)\b/.test(t)) return "disc";
+  if (/\b(lecture|class)\b/.test(t)) return "lecture";
+  if (/\b(work|shift|job|internship)\b/.test(t)) return "work";
+  if (/\b(appointment|appt|doctor|dentist|advisor|adviser|counsell?ing|therapy|interview|clinic)\b/.test(t)) return "appt";
+  return "event";
+}
+const evIcon = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(EV_KINDS[k] || EV_KINDS.event)[1]}</svg>`;
+// The month: each day's classes and events, each with an icon for its kind (as tasks have on Due Dates), plus holidays and days
+// off, so a month reads at a glance. A day picked lists everything on it underneath.
+function viewScheduleMonth(){
+  const today = todayISO();
+  if (!ui.schMonth) ui.schMonth = today.slice(0, 7) + "-01";
+  const m = parse(ui.schMonth), first = new Date(m.getFullYear(), m.getMonth(), 1), start = new Date(first); start.setDate(1 - first.getDay());
+  const weeks = Math.ceil((first.getDay() + new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate()) / 7);
+  const endD = new Date(start); endD.setDate(start.getDate() + weeks * 7 - 1);
+  const lo = iso(start), hi = iso(endD), monthKey = ui.schMonth.slice(0, 7);
+  const pick = ui.schPick && ui.schPick.slice(0, 7) === monthKey ? ui.schPick : today.slice(0, 7) === monthKey ? today : ui.schMonth;
+  const evBy = {};
+  try {
+    schOccurrences(lo, hi).forEach(o => { if ((o.type !== "event" && o.type !== "meet") || o.skipped || o.ovn === "tail") return; o.kind = evKind(o); (evBy[o.date] = evBy[o.date] || []).push(o); });
+    Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
+  } catch (e) { console.warn("schedule month: events", e); }
+  const hol = {};
+  try {
+    const sc = schoolCfg() || {}, S = window.SBSCHOOL;
+    if (S) {
+      S.holidays(sc, lo, hi).forEach(h => { (hol[h.date] = hol[h.date] || []).push({name: h.name, off: !!(h.sure ? S.norm(sc).pub : h.ans === "off")}); });
+      S.norm(sc).off.forEach(o => { for (let x = o.from > lo ? o.from : lo; x <= o.to && x <= hi; x = addDays(x, 1)) { const l = hol[x] = hol[x] || []; if (!l.some(y => y.name === o.name)) l.push({name: o.name || "Day off", off: true}); } });
+    }
+  } catch (e) {}
+  const evTime = o => o.allDay ? "" : fmtTime(o.ds || o.start).replace(/:00(?= ?[AP]M)/, "").replace(/ ?([AP])M/, (x, a) => a.toLowerCase());
+  const phone = schPhone(), per = phone ? 2 : 3;
+  const dows = []; for (let i = 0; i < 7; i++) { const d = new Date(2023, 0, 1 + i); dows.push(`<div class="dow${i === 0 || i === 6 ? " wkend" : ""}" aria-hidden="true"><span class="dw-n">${d.toLocaleDateString(undefined, {weekday: "narrow"})}</span><span class="dw-s">${d.toLocaleDateString(undefined, {weekday: "short"})}</span><span class="dw-l">${d.toLocaleDateString(undefined, {weekday: "long"})}</span></div>`); }
+  let cells = "", nMonth = 0; const kinds = new Set();
+  const evName = o => o.type === "meet" ? `${o.title} ${o.label}` : o.title;
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    // (office hours are listed under the day, not in the cell, so the month isn't full of them)
+    const k = iso(d), evs = evBy[k] || [], cellEvs = evs.filter(o => o.kind !== "office"), out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
+    if (!out) { nMonth += evs.length; evs.forEach(o => kinds.add(o.kind)); }
+    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots" aria-hidden="true">${cellEvs.slice(0, per).map(o => `<span class="ci-row${o.kind === "exam" ? " big" : ""}" style="--c:${esc(o.color)}"><i class="ci" data-kind="${o.kind}" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}: ${esc(evName(o))}" style="--c:${esc(o.color)}">${evIcon(o.kind)}</i><span class="ci-t">${o.allDay ? "" : `<b class="smc-tm">${esc(evTime(o))}</b> `}${esc(o.title)}</span></span>`).join("")}${cellEvs.length > per ? `<b class="ci-more">+${cellEvs.length - per}<span class="ci-mw"> more</span></b>` : ""}</span></button>`;
+  }
+  const dayEvs = evBy[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
+  const isNow = monthKey === today.slice(0, 7);
+  const nav = `<div class="view-head sch-top">
+    <div class="sch-nav"><button class="icon-btn" data-act="sch-mprev" aria-label="Previous month">${SCH_ARROW("M15 6l-6 6 6 6")}</button>
+    <span class="sch-range">${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}</span>
+    <button class="icon-btn" data-act="sch-mnext" aria-label="Next month">${SCH_ARROW("M9 6l6 6-6 6")}</button>
+    <button class="btn small" data-act="sch-mtoday" ${isNow ? 'disabled aria-pressed="true" title="You are viewing this month"' : 'aria-pressed="false"'}>This Month</button>${schModeCtl(true)}
+    <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
+</div></div>`;
+  return nav + `
+    <div class="cal sch-month" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}, ${nMonth} event${nMonth === 1 ? "" : "s"}. Arrow keys move between days.">${dows.join("")}${cells}</div>
+    ${kinds.size ? `<div class="tl-legend smc-legend">${Object.keys(EV_KINDS).filter(k => kinds.has(k)).map(k => `<span><i class="tl-ic key">${evIcon(k)}</i>${esc(EV_KINDS[k][0])}</span>`).join("")}</div>` : ""}
+    <h2 class="sec${pick === today ? " hl" : ""}"><span class="t">${esc(dayLabel)}</span><span class="n">${dayEvs.length || ""}</span><span class="spacer"></span><button type="button" class="btn small smc-week" data-act="sch-mweek" data-id="${pick}">See Week</button></h2>
+    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow smc-row" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><i class="smc-ic" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}">${evIcon(o.kind)}</i><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(evName(o))}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
+      : `<div class="empty">Nothing on this day. <button class="link-btn" data-act="sch-add" data-date="${pick}">Add an Event</button></div>`}`;
+}
 function viewSchedule(){
+  if (ui.schMode === "month") return viewScheduleMonth();
   const today = todayISO(), mon = ui.schWeek || mondayOf(today);
   const cs = coursesArr();
   const nav = `<div class="view-head sch-top">
     <div class="sch-nav"><button class="icon-btn" data-act="sch-prev" aria-label="Previous week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
     <span class="sch-range">${esc(fmtShort(mon))} – ${esc(fmtShort(addDays(mon, 6)))}</span>
     <button class="icon-btn" data-act="sch-next" aria-label="Next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
-    <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>
+    <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>${schModeCtl(false)}
     <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
 </div></div>`;
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
@@ -14861,7 +14956,7 @@ function planHeadHtml(){
 }
 function planSwitchHtml(){
   const t = ui.tab;
-  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${esc(tr("cal.tab.due", "Due Dates"))}</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">${esc(tr("cal.tab.schedule", "Schedule"))}</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">${esc(tr("cal.tab.crunch", "Crunch"))}</button></div>`;
+  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">${esc(tr("cal.tab.schedule", "Schedule"))}</button><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${esc(tr("cal.tab.due", "Due Dates"))}</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">${esc(tr("cal.tab.crunch", "Crunch"))}</button></div>`;
 }
 
 /* Courses and Files share one nav tab */
@@ -14937,6 +15032,9 @@ function renderNow(){
   todayFit();
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
+  // Schedule's Week / Month stays as the student last chose it; a week opened from the month (See Week) is just a look,
+  // so coming back to the Schedule from another page shows the month again
+  if (ui.tab !== ui.schSeenTab) { if (ui.tab === "schedule" && ui.schPeek) { ui.schPeek = false; ui.schMode = "month"; } ui.schSeenTab = ui.tab; }
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === navTab ? "page" : "false"));
   document.body.classList.add("wide");
@@ -20778,9 +20876,9 @@ function cloudBackupRow(){
   const p = B.provider(), st = B.state();
   if (B.on()) {
     const ago = st.last ? (() => { const m = Math.round((Date.now() - st.last) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; })() : "not yet";
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${st.busy ? "Backing up now…" : st.err ? esc(st.err) : `Saving to ${esc(B.name(p))} › Studyboard › Backups every hour, last saved ${ago}. The latest is in Files and in Restore a Backup.`}</span></span><button class="btn small" data-act="cbk-now"${st.busy ? " disabled" : ""}>Back Up Now</button><button class="btn small" data-act="cbk-stop">Stop</button></div>`;
+    return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">${st.busy ? "Backing up now…" : st.err ? esc(st.err) : `Saving to ${esc(B.name(p))} › Studyboard › Backups every hour, last saved ${ago}. The latest is in Files and in Restore a Backup.`}</span></span><span class="cbk-btns"><button class="btn small" data-act="cbk-now"${st.busy ? " disabled" : ""}>Back Up Now</button><button class="btn small" data-act="cbk-stop">Stop</button></span></div>`;
   }
-  if (B.pending()) return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">Waiting for ${esc(B.name(B.pending()))} to connect. Finish in the page that opened.</span></span><button class="btn small" data-act="cbk-stop">Cancel</button></div>`;
+  if (B.pending()) return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">Waiting for ${esc(B.name(B.pending()))} to connect. Finish in the page that opened.</span></span><button class="btn small" data-act="cbk-stop">Cancel</button></div>`;
   return "";
 }
 function folderBackupRow(){
@@ -20789,7 +20887,7 @@ function folderBackupRow(){
   // On the website, backups go to Google Drive or OneDrive. A folder backup someone already set up keeps its own row below
   if (!DESK && cloudBk() && FSB.status !== "on" && FSB.status !== "paused") {
     const B = cloudBk(); if (B.ready() && !B.loaded()) B.refresh();
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${B.ready() ? "Back up everything to your Google Drive or OneDrive every hour." : "Make a free account to back up everything to your Google Drive or OneDrive every hour."}</span></span><button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button><button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button></div>`;
+    return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">${B.ready() ? "Back up everything to your Google Drive or OneDrive every hour." : "Make a free account to back up everything to your Google Drive or OneDrive every hour."}</span></span><span class="cbk-btns"><button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button><button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button></span></div>`;
   }
   if (DESK) {
     const ago = FSB.last ? (() => { const m = Math.round((Date.now() - FSB.last) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; })() : "not yet";
@@ -20802,7 +20900,7 @@ function folderBackupRow(){
   const btns = FSB.status === "on" ? `<button class="btn small" data-act="fsb-choose">Change</button><button class="btn small" data-act="fsb-stop">Stop</button>`
     : FSB.status === "paused" ? `<button class="btn small primary" data-act="fsb-resume">Resume</button><button class="btn small" data-act="fsb-choose">Change</button>`
     : `<button class="btn small primary" data-act="fsb-choose">Set Up</button>`;
-  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${sub}</span></span>${btns}</div>`;
+  return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">${sub}</span></span>${btns}</div>`;
 }
 
 
@@ -22989,8 +23087,20 @@ document.addEventListener("click", e => {
     case "sch-notices": openSheet(`<div class="sheet">${head("Notices")}<div class="sheet-body sch-ntc-body">${schNoticeHtml}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`); break;
     case "sch-today": ui.schWeek = mondayOf(todayISO()); ui.schDay = null; render(); break;
     case "sch-day": ui.schDay = Number(id); render(); break;
+    case "sch-mode": {
+      ui.schMode = id === "month" ? "month" : "week"; ui.schPeek = false;
+      // the month opens on the week being looked at; the week opens on the day picked in the month
+      if (ui.schMode === "month") { const w = ui.schWeek || mondayOf(todayISO()), t0 = todayISO(), d = w === mondayOf(t0) ? t0 : w; ui.schMonth = d.slice(0, 7) + "-01"; ui.schPick = d; }
+      else if (ui.schPick) { ui.schWeek = mondayOf(ui.schPick); ui.schDay = (parse(ui.schPick).getDay() + 6) % 7; }
+      try { localStorage.setItem("studyboard:schmode", ui.schMode); } catch (e) {}
+      if (dlg.open) dlg.close(); render(); break;
+    }
+    case "sch-mprev": case "sch-mnext": { const m = parse(ui.schMonth || todayISO().slice(0, 7) + "-01"); m.setDate(1); m.setMonth(m.getMonth() + (act === "sch-mprev" ? -1 : 1)); ui.schMonth = iso(m); ui.schPick = null; render(); break; }
+    case "sch-mtoday": ui.schMonth = todayISO().slice(0, 7) + "-01"; ui.schPick = todayISO(); render(); break;
+    case "sch-mpick": ui.schPick = id; if (id.slice(0, 7) !== (ui.schMonth || "").slice(0, 7)) ui.schMonth = id.slice(0, 7) + "-01"; render(); break;
+    case "sch-mweek": ui.schMode = "week"; ui.schPeek = true; ui.schWeek = mondayOf(id); ui.schDay = (parse(id).getDay() + 6) % 7; render(); window.scrollTo(0, 0); break;
     case "sch-occ": occView(el.dataset.type, id, el.dataset.key); break;
-    case "sch-add": { const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
+    case "sch-add": { if (el.dataset.date) { eventForm(null, {date: el.dataset.date}); break; } if (ui.schMode === "month" && ui.schPick) { eventForm(null, {date: ui.schPick < todayISO() && ui.schPick.slice(0, 7) === todayISO().slice(0, 7) ? todayISO() : ui.schPick}); break; } const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
     case "avail-add": if (dlg.open) dlg.close(); setTimeout(() => availForm(null), 30); break;
     case "avail-open": if (dlg.open) dlg.close(); setTimeout(availManager, 30); break;
     case "avail-edit": { const b = availBlocks().find(x => x.id === id); if (b) { if (dlg.open) dlg.close(); setTimeout(() => availForm(b), 30); } break; }
@@ -23163,7 +23273,8 @@ document.addEventListener("keydown", e => {
 // Month view: arrow keys move a day or a week, Home and End go to the week's start and end, Page Up and Page Down a month
 // (as in a date picker); the day moved to is chosen, so its tasks show below
 document.addEventListener("keydown", e => {
-  const b = e.target.closest && e.target.closest('.cal .day[data-act="pick-day"]'); if (!b || e.altKey || e.ctrlKey || e.metaKey) return;
+  const b = e.target.closest && e.target.closest('.cal .day[data-act="pick-day"], .cal .day[data-act="sch-mpick"]'); if (!b || e.altKey || e.ctrlKey || e.metaKey) return;
+  const sch = b.dataset.act === "sch-mpick";
   const d = parse(b.dataset.id), k = e.key;
   if (k === "ArrowLeft" || k === "ArrowRight") d.setDate(d.getDate() + (k === "ArrowLeft" ? -1 : 1));
   else if (k === "ArrowUp" || k === "ArrowDown") d.setDate(d.getDate() + (k === "ArrowUp" ? -7 : 7));
@@ -23171,7 +23282,7 @@ document.addEventListener("keydown", e => {
   else if (k === "PageUp" || k === "PageDown") { const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (k === "PageUp" ? -1 : 1)); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); }
   else return;
   e.preventDefault();
-  const id = iso(d); ui.calDay = id; ui.calMonth = id.slice(0, 7) + "-01"; render();
+  const id = iso(d); if (sch) { ui.schPick = id; ui.schMonth = id.slice(0, 7) + "-01"; } else { ui.calDay = id; ui.calMonth = id.slice(0, 7) + "-01"; } render();
   const n = $(`.cal .day[data-id="${id}"]`); if (n) try { n.focus({preventScroll: true}); n.scrollIntoView({block: "nearest"}); } catch (x) {}
 });
 function toggleSearch(open){
@@ -30212,20 +30323,28 @@ var SBAREA = (() => {
   const chips = (sel, attr) => `<div class="area-grid" role="radiogroup" aria-label="Area of study">${AREAS.map(a => `<button type="button" class="area-chip${a.id === sel ? " on" : ""}" role="radio" aria-checked="${a.id === sel}" ${attr}="${a.id}"><b>${esc(a.name)}</b><span>${esc(a.blurb)}</span></button>`).join("")}</div>`;
   function sheet(){
     const a = get() || {id: "", text: ""};
+    // one or the other: a field picked from the list, or your own typed in (saved as Something Else, tuned by the AI). Picking a
+    // field empties the box; typing in the box unpicks the field (it used to keep both, and the picked field was ignored)
+    const typed = !!(a.text || "").trim();
     openSheet(`<form class="sheet">${head("Area of Study")}<div class="sheet-body">
       <p class="mini" style="margin:0">Studyboard uses this to tailor task types, example tasks, typical hours and its AI helpers to your field. Change it any time.</p>
-      ${chips(a.id, "data-area")}
+      ${chips(typed ? "" : a.id, "data-area")}
       <label class="f"><span class="lbl">Your Major or Program <span class="hint">optional</span></span><input type="text" id="areaText" maxlength="60" value="${esc(a.text || "")}" placeholder="e.g. Marine Biology" data-noenter></label>
       <p class="mini" style="margin:0">${aiReady() ? "Type your own field and the AI tunes task types, example tasks, typical hours and the theme to it, just like the fields above." : "Turn on AI Features in Settings and your own field is tuned the same way as the fields above."}</p>
       </div><div class="sheet-foot">${a.id ? `<button type="button" class="btn" data-area-clear>Clear</button>` : ""}<span class="spacer"></span><button type="button" class="btn primary" data-area-save ${a.id || a.text ? "" : "disabled"}>Save</button></div></form>`);
-    let sel = a.id;
-    const form = dlg.querySelector("form");
-    form.addEventListener("input", e => { if (e.target.id === "areaText") form.querySelector("[data-area-save]").disabled = !sel && !e.target.value.trim(); });
+    let sel = typed ? "" : a.id;
+    const form = dlg.querySelector("form"), box = form.querySelector("#areaText"), save = form.querySelector("[data-area-save]");
+    const mark = id => form.querySelectorAll(".area-chip").forEach(x => { const on = x.dataset.area === id; x.classList.toggle("on", on); x.setAttribute("aria-checked", String(on)); });
+    form.addEventListener("input", e => {
+      if (e.target.id !== "areaText") return;
+      if (e.target.value.trim() && sel) { sel = ""; mark(""); }
+      save.disabled = !sel && !e.target.value.trim();
+    });
     form.addEventListener("click", e => {
       const b = e.target.closest("[data-area]");
-      if (b) { sel = b.dataset.area; form.querySelectorAll(".area-chip").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", String(x === b)); }); form.querySelector("[data-area-save]").disabled = false; return; }
+      if (b) { sel = b.dataset.area; mark(sel); box.value = ""; save.disabled = false; return; }
       if (e.target.closest("[data-area-clear]")) { set(null); dlg.close(); toast("Area of study cleared"); return; }
-      if (e.target.closest("[data-area-save]")) { set(sel || "other", $("#areaText").value); dlg.close(); toast(`Area of study: ${label() || "Something else"}`); }
+      if (e.target.closest("[data-area-save]")) { const t = box.value.trim(); set(t ? "other" : sel, t); dlg.close(); toast(`Area of study: ${label() || "Something else"}`); }
     });
   }
   hook("menu", () => `<button data-act="area-open"><span>Area of Study<span class="sub">${esc(label() || "Not set. Tell Studyboard what you study so it can suit the app to your field.")}</span></span></button>`);
@@ -30359,7 +30478,7 @@ document.head.appendChild(AREA_CSS);
     return `${hero(IC.courses)}
       <h2 class="ob-h" id="obH" tabindex="-1">What Do You Study?</h2>
       <p class="ob-lead">Pick your area so Studyboard can tailor task types, example tasks, typical hours and its AI helpers to it. Change it any time in Settings.</p>
-      ${SBAREA.chips(a.id, "data-ob-area")}
+      ${SBAREA.chips((a.text || "").trim() ? "" : a.id, "data-ob-area")}
       <label class="f ob-area-text"><span class="lbl">Your Major or Program <span class="hint">optional</span></span><input type="text" id="obAreaText" maxlength="60" value="${esc(a.text || "")}" placeholder="e.g. Marine Biology" autocomplete="off" data-noenter></label>`;
   }
 
@@ -30659,12 +30778,17 @@ document.head.appendChild(AREA_CSS);
     form.addEventListener("change", e => {
       if (e.target.id === "obPdf") { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) queueFiles(fs); return; }
       if (e.target.id === "obIcs") { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; if (f.size > 8e6) { say("That calendar file is too big (over 8 MB)."); return; } f.text().then(t => leaveTo(() => icsImportSheet(t, f.name))).catch(() => say("Couldn't read that file.")); return; }
-      if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") { const a = SBAREA.get(), v = e.target.value; if (a) SBAREA.set(a.id, v); else if (v.trim()) SBAREA.set("other", v); } });
+      if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") {
+        // your own field, or one from the list, never both: typing unpicks the field; emptying the box leaves nothing picked
+        const a = SBAREA.get(), v = e.target.value;
+        if (v.trim()) { SBAREA.set("other", v); dlg.querySelectorAll("[data-ob-area]").forEach(x => { x.classList.remove("on"); x.setAttribute("aria-checked", "false"); }); }
+        else if (a && a.text) SBAREA.set(null);
+      } });
   }
 
   function onClick(e){
     const ab = e.target.closest("[data-ob-area]");
-    if (ab) { e.preventDefault(); e.stopPropagation(); SBAREA.set(ab.dataset.obArea, ($("#obAreaText") || {}).value); show(step); const t = dlg.querySelector(`[data-ob-area="${ab.dataset.obArea}"]`); if (t) t.focus({preventScroll: true}); return; }
+    if (ab) { e.preventDefault(); e.stopPropagation(); SBAREA.set(ab.dataset.obArea, ""); show(step); const t = dlg.querySelector(`[data-ob-area="${ab.dataset.obArea}"]`); if (t) t.focus({preventScroll: true}); return; }
     const b = e.target.closest("[data-ob]"); if (!b) return;
     const a = b.dataset.ob, id = b.dataset.id;
     e.preventDefault(); e.stopPropagation();
@@ -34294,6 +34418,17 @@ hook("boot", boot);
     };
   }
 
+  // Background App Refresh (iPhone and iPad app: MainViewController.swift, StudyboardBackgroundRefresh): iOS wakes the app now and
+  // then while it's in the background; the app asks the page for what changed on other devices, then sends the widgets the day
+  // again, so a task added on a laptop reaches the Home Screen without opening Studyboard. Done within iOS's ~30 seconds.
+  window.__sbBgRefresh = async () => {
+    const wait = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, ms))]);
+    try { if (typeof cloud !== "undefined" && cloud.on && cloud.refresh) await wait(cloud.refresh(), 15000); } catch (e) {}
+    await new Promise(r => setTimeout(r, 300));   // what came in is applied before the day is worked out
+    phoneSent = ""; push();
+    try { localStorage.setItem("studyboard:bgRefreshAt", String(Date.now())); } catch (e) {}
+    return true;
+  };
   if (window.__SB_TEST) window.__sbPhoneWidgets = {data: () => phoneData(widgetData()), drain: () => drainPhone(), push: () => { phoneSent = ""; push(); }};
   /* Sending it to the widgets */
   let lastSent = "", pushT = null;
@@ -34304,13 +34439,17 @@ hook("boot", boot);
   // the phone apps' Siri and Shortcuts data has its own feed (96-siri.js), so neither depends on this.
   const winBoard = () => !DESK && !inPreview() && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost");
   const WIN_OK = /Windows/.test(navigator.userAgent || "") && !/Android|iPhone|iPad|iPod/.test(navigator.userAgent || "");
-  const feedOk = () => DESK_OK || (WIN_OK && winBoard());
+  // (the iPhone and iPad app's Home Screen and Lock Screen widgets take it too, through StudyboardNative.homeWidgets: they were
+  // left out here, so the app never sent them the day and they stayed on "Open Studyboard to start")
+  const deskFeed = () => DESK_OK || (WIN_OK && winBoard());
+  const feedOk = () => deskFeed() || !!phoneNative();
   function push(){
     clearTimeout(pushT); pushT = null;
     if (!feedOk()) return;
     let d; try { d = widgetData(); } catch(e) { console.warn("widget data", e); return; }
     // the phone widgets also show a running Focus, Exam Mode and the week ahead, so they keep their own check for changes
     pushPhone(d);
+    if (!deskFeed()) return;
     const sig = JSON.stringify(d);
     if (sig === lastSent) return;
     lastSent = sig;
@@ -34326,6 +34465,21 @@ hook("boot", boot);
   const hex = (c, d) => { c = String(c || "").trim(); if (/^#[0-9a-f]{3}$/i.test(c)) c = "#" + c.slice(1).split("").map(x => x + x).join(""); return HEX.test(c) ? c.toUpperCase() : d; };
   const cut = (v, n) => String(v == null ? "" : v).slice(0, n);
   const phoneNative = () => { const n = window.StudyboardNative; return n && n.homeWidgets && typeof n.homeWidgets.save === "function" ? n.homeWidgets : null; };
+  // The rest of today's plan as blocks with real times: the widget shows the one on now (or the next) and moves on by itself, so Do
+  // This Next stays right through the day without the app running. Back-to-back sessions of one task are one block.
+  function planSlots(){
+    let F = null, list = [];
+    try { const r = dayList(); F = r.F; list = r.list; } catch (e) { return []; }
+    const sd = (F && F.sd) || studyDay(), sb = (F && F.slotsBy) || {}, [y, mo, da] = String(sd.date || todayISO()).split("-").map(Number);
+    // minutes count from the plan day's midnight (past 1440 after midnight, for a late end of day)
+    const at = m => new Date(y, mo - 1, da, 0, Math.round(m)).getTime(), now = Date.now(), rows = [];
+    list.forEach(({t}) => { if (!t || t.status === "done") return; (sb[t.id] || []).forEach(sl => { if (sl && sl.e - sl.s >= 10) rows.push({s: sl.s, e: sl.e, t}); }); });
+    rows.sort((p, q) => p.s - q.s || p.e - q.e);
+    const merged = [];
+    rows.forEach(r => { const last = merged[merged.length - 1]; if (last && last.t.id === r.t.id && r.s - last.e <= 15) { last.e = Math.max(last.e, r.e); last.min += r.e - r.s; } else merged.push(Object.assign({min: r.e - r.s}, r)); });
+    return merged.map(r => { const c = courseOf(r.t.courseId); return {from: at(r.s), to: at(r.e), id: cut(r.t.id, 80), title: cut(r.t.title, 90), course: cut(c ? courseLabel(c) : "", 24), color: hex(colorOf(r.t.courseId), "#8A94A6"), mins: Math.max(1, Math.round(r.min))}; })
+      .filter(x => x.to > now).slice(0, 16);
+  }
   function phoneData(d){
     const today = todayISO(), byId = id => state.tasks[id];
     const item = t => { const x = byId(t.id) || {}; return {id: cut(t.id, 80), title: cut(t.title, 90), course: cut(t.course, 24), color: hex(t.color, "#8A94A6"), meta: cut(t.meta, 48),
@@ -34336,14 +34490,14 @@ hook("boot", boot);
       const em = window.SBEXAM && SBEXAM.current && SBEXAM.current();
       if (em && em.exam) { const t = em.exam, xr = typeof examReadiness === "function" ? examReadiness(t) : null, r = xr ? (xr.measured != null ? xr.measured : xr.self) : null;
         exam = {id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24), color: hex(colorOf(t.courseId), "#8A94A6"),
-          due: t.due || "", time: t.time || "", days: Math.max(0, Number(em.days) || 0), ready: r == null ? null : Math.max(0, Math.min(100, Math.round(r)))}; }
+          due: t.due || "", time: t.time || "", days: Math.round(Math.max(0, Number(em.days) || 0)), ready: r == null ? null : Math.max(0, Math.min(100, Math.round(r)))}; }
     } catch (e) {}
     // the next six days: what's due each day (exams first), for the week view and for showing tomorrow after midnight
     const days = [];
     for (let i = 1; i <= 6; i++) {
       const day = addDays(today, i), due = tasksArr().filter(t => t.status !== "done" && t.due === day && !t.prepFor)
         .sort((a, b) => (MILESTONE(b.type) ? 1 : 0) - (MILESTONE(a.type) ? 1 : 0) || (a.time || "99").localeCompare(b.time || "99"));
-      days.push({date: day, off: dayIsOff(day), items: due.slice(0, 4).map(t => ({id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24),
+      days.push({date: day, off: !!dayIsOff(day), items: due.slice(0, 4).map(t => ({id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24),
         color: hex(colorOf(t.courseId), "#8A94A6"), time: t.time || "", exam: MILESTONE(t.type)})), more: Math.max(0, due.length - 4)});
     }
     let focus = null;
@@ -34354,10 +34508,11 @@ hook("boot", boot);
     } } catch (e) {}
     const th = d.theme || {};
     return {v: 1, day: today, at: Date.now(), dateLabel: cut(d.dateLabel, 40),
-      next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.max(5, Math.min(180, Number(d.next.mins) || 25)),
+      next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.round(Math.max(5, Math.min(180, Number(d.next.mins) || 25))),
         due: (byId(d.next.id) || {}).due || "", time: (byId(d.next.id) || {}).time || ""} : null,
-      tasks, more: d.more, cards: d.cards, dayOff: dayIsOff(today), exam, focus, days,
-      theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}};
+      // (whole numbers: the widget reads these as Int, and a fraction would make it refuse the whole day)
+      tasks, more: Math.max(0, Math.round(Number(d.more) || 0)), cards: Math.max(0, Math.round(Number(d.cards) || 0)), dayOff: !!dayIsOff(today), exam, focus, days,
+      theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}, plan: planSlots()};
   }
   let phoneSent = "";
   function pushPhone(d){
@@ -44898,7 +45053,7 @@ function cleanFile(r) {
     if (!need.length || key === relogHidden) { if (el) el.remove(); if (!need.length) relogHidden = ""; return; }
     if (!el) { el = document.createElement("div"); el.id = "lmsRelog"; el.setAttribute("role", "status"); document.body.appendChild(el); }
     const L = need[0], more = need.length - 1;
-    const html = `<span class="lr-txt"><b>${esc(L.P.name)}</b> signed you out${more ? ` <span class="lr-more">(+${more} more)</span>` : ""}</span><button type="button" class="lr-go" data-relog="${esc(L.P.id)}">Sign In Again</button><button type="button" class="lr-x" data-relog-x aria-label="Hide for now" title="Hide for now">×</button>`;
+    const html = `<span class="lr-txt"><b>${esc(L.P.name)}</b> signed you out${more ? ` <span class="lr-more">(+${more} more)</span>` : ""}</span><button type="button" class="lr-go" data-relog="${esc(L.P.id)}">Sign In<span class="lr-again"> Again</span></button><button type="button" class="lr-x" data-relog-x aria-label="Hide for now" title="Hide for now">×</button>`;
     if (el.dataset.k !== key + "|" + more) { el.innerHTML = html; el.dataset.k = key + "|" + more; }
   }
   hook("render", drawRelog);
@@ -44918,6 +45073,20 @@ function cleanFile(r) {
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
 body:has(#dlg[open]) #lmsRelog{display:none}
+/* Phones: the message was cut to "Brightspace sign..." beside the button. The notice is a card the width of the screen, the message
+   can take two lines, and the button says just "Sign In" (the message already says you were signed out) */
+@media (max-width:600px){
+  #lmsRelog{left:12px;right:12px;bottom:var(--sb-snack-b,calc(84px + env(safe-area-inset-bottom,0px)));transform:none;max-width:none;border-radius:18px;padding:10px 6px 10px 16px;gap:8px;animation-name:lrInP}
+  /* above the tab bar, where the app's other notices sit, and above a message when one shows */
+  body:has(#toast.show) #lmsRelog{bottom:calc(var(--sb-snack-b,84px) + var(--toast-h,52px) + 8px)}
+  /* the Add button steps up above it, as it does for a message */
+  body:has(#lmsRelog) .fab{transform:translateY(-66px)}
+  body:has(#lmsRelog):has(#toast.show) .fab{transform:translateY(calc(-74px - var(--toast-h,52px)))}
+  #lmsRelog .lr-txt{flex:1 1 auto;white-space:normal;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+  #lmsRelog .lr-again{display:none}
+  #lmsRelog .lr-go{padding:9px 14px}
+}
+@keyframes lrInP{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 `; document.head.appendChild(st); }
   window.__sbRelog = {keepAlive, drawRelog, relogNeeded};
 
@@ -66181,7 +66350,8 @@ var COMP_EXTRA = [];
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-  const CALM = 1.35;
+  // (moves were made 35% slower on Nov 12 and felt sluggish: now halfway between that and their earlier speed, the calmer style kept)
+  const CALM = 1.17;
   /* ---------- An actor: animations on one rendered rig ---------- */
   function actor(c, root, opts){
     opts = opts || {};
@@ -66189,7 +66359,7 @@ var COMP_EXTRA = [];
     const q = s => svg.querySelector(s);
     const part = n => q(".cp-" + n);
     const running = new Set();
-    // Every move plays a little slower than written, so the companion feels calm rather than hurried
+    // Every move plays at CALM times its written length (1: as written)
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
       ms = Math.round(ms * CALM);
@@ -66673,9 +66843,10 @@ var COMP_EXTRA = [];
       const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f});
       // a spot that's only just too tight on this page (the gap beside Courses' cards is a few pixels narrower than the Board's)
       // keeps it there a touch smaller, feet where they were, rather than sending it across the screen
+      // (on a computer it never shrinks: it stays there at full size, since the spot is only a few pixels short)
       for (const k of [0.94, 0.88]) {
         const p2 = Math.round(px * k), c2 = {left: here.left, top: Math.round(here.top + (px - p2))};
-        if (!spotCheck(c2, p2, f).hard) return Object.assign(c2, {kind: spotKind, px: p2, fab: f});
+        if (!spotCheck(c2, p2, f).hard) return phone() ? Object.assign(c2, {kind: spotKind, px: p2, fab: f}) : Object.assign(here, {kind: spotKind, px, fab: f});
       }
     }
     RECTS = null;
@@ -66697,6 +66868,9 @@ var COMP_EXTRA = [];
   }
   function choose(fresh){
     shrink = 1;
+    // On a computer it's always its full size, on every page: a busy page (Courses, Schedule) used to have it shrink to fit a
+    // gap. On a phone it may shrink a little to find room. (clamp() still shrinks it in a window too small to hold it at all.)
+    if (!phone()) return choose1(fresh);
     while (shrink > 0.55 && !feasible(range(sizePx(cur), true))) shrink = Math.round((shrink - 0.05) * 100) / 100;
     const fit = shrink;
     let s = choose1(fresh);
@@ -66806,11 +66980,11 @@ var COMP_EXTRA = [];
       T(0.9, 0, 0, " scale(1.16,.82)"); T(1, 0, 0, " scale(1)");
       later(() => puff(from.left + px / 2, from.top + px * (112 / 120)), dur * 0.12); later(() => puff(to.left + px / 2, feetY, true), dur * 0.84);
     } else if (style === "glide") {
-      dur = Math.min(1100, 700 + d * 1.6); easing = "cubic-bezier(.45,0,.25,1)";
+      dur = Math.min(950, 590 + d * 1.35); easing = "cubic-bezier(.45,0,.25,1)";
       for (let i = 0; i <= 8; i++) { const t = i / 8; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 6); }
     } else if (style === "hops") {
       const hops = Math.max(2, Math.min(5, Math.round(d / 150))), h = Math.min(26, 12 + d / hops * 0.08);
-      dur = Math.min(2300, 700 + hops * 360);
+      dur = Math.min(1900, 560 + hops * 295);
       T(0, dx, dy, " scale(1)");
       for (let k = 0; k < hops; k++) {
         const a = k / hops, bT = (k + 1) / hops, mid = (a + bT) / 2;
@@ -66831,7 +67005,7 @@ var COMP_EXTRA = [];
       easing = "ease-in-out";
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     } else {
-      dur = Math.min(2200, 1200 + d * 1.1);
+      dur = Math.min(1800, 1000 + d * 1);
       for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 22 + Math.sin(t * Math.PI * 2) * 5, ` rotate(${(Math.sin(t * Math.PI * 2) * dir * 4).toFixed(0)}deg)`); }
       easing = "ease-in-out";
     }
@@ -83873,7 +84047,8 @@ var SBPRO = null;
   css.textContent = `
 .pr-wrap{display:grid;gap:8px;margin:4px 0 2px}
 .pr-lbl{font-weight:700;font-size:.92rem}
-.pr-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.pr-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.pr-chips::-webkit-scrollbar{display:none}   /* it still scrolls by swiping; a bar under the chips only got in the way */
 .pr-chips .pr-chip{flex:none;min-height:44px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 12px;display:grid;gap:1px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
 .pr-chips .pr-chip b{font-size:.9rem;display:flex;align-items:center;gap:5px}
 .pr-chips .pr-chip span{font-size:.75rem;color:var(--muted)}

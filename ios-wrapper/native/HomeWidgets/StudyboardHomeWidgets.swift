@@ -35,7 +35,14 @@ struct SBWProvider: TimelineProvider {
         if let midnight = cal.nextDate(after: now, matching: DateComponents(hour: 0, minute: 0, second: 5), matchingPolicy: .nextTime) {
             dates.append(midnight)
         }
-        let entries = dates.sorted().map { SBWEntry(date: $0, data: data) }
+        // each block of today's plan starts and ends on time: Do This Next moves on by itself
+        let nowMs = now.timeIntervalSince1970 * 1000
+        for slot in data?.plan ?? [] {
+            for ms in [slot.from, slot.to] where ms > nowMs {
+                dates.append(Date(timeIntervalSince1970: ms / 1000 + 1))
+            }
+        }
+        let entries = Array(Set(dates)).sorted().prefix(48).map { SBWEntry(date: $0, data: data) }
         completion(Timeline(entries: entries, policy: .atEnd))
     }
 }
@@ -83,7 +90,21 @@ struct SBWModel {
     }
     var open: [SBWTask] { tasks.filter { $0.done != true } }
     var doneCount: Int { tasks.count - open.count }
+    // The block of today's plan on now (or, in a gap, the next one): what Do This Next shows as the day goes
+    var planned: SBWSlot? {
+        guard fresh, let plan = data?.plan else { return nil }
+        let t = now.timeIntervalSince1970 * 1000
+        let ids = Set(open.map { $0.id })
+        let left = plan.filter { ids.contains($0.id) && $0.to > t }.sorted { $0.from < $1.from }
+        return left.first(where: { $0.from <= t }) ?? left.first
+    }
     var next: SBWNext? {
+        if let s = planned {
+            let t = now.timeIntervalSince1970 * 1000
+            let task = open.first(where: { $0.id == s.id })
+            let why = s.from <= t ? "Until " + SBWFormat.clock(s.to) : "From " + SBWFormat.clock(s.from)
+            return SBWNext(id: s.id, title: s.title, course: s.course, color: s.color, why: why, mins: s.mins, due: task?.due, time: task?.time)
+        }
         guard fresh, let n = data?.next, open.contains(where: { $0.id == n.id }) else {
             return open.first.map { SBWNext(id: $0.id, title: $0.title, course: $0.course, color: $0.color, why: nil, mins: nil, due: $0.due, time: $0.time) }
         }
@@ -124,6 +145,12 @@ struct SBWModel {
 // MARK: - Formatting and colours
 
 enum SBWFormat {
+    // a time of day from ms since 1970, in the phone's own style ("5:20 PM", "17:20")
+    static func clock(_ ms: Double) -> String {
+        let f = DateFormatter()
+        f.locale = .current; f.timeZone = .current; f.dateStyle = .none; f.timeStyle = .short
+        return f.string(from: Date(timeIntervalSince1970: ms / 1000))
+    }
     static func date(_ s: String) -> Date? {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX"); f.calendar = Calendar(identifier: .gregorian); f.timeZone = .current

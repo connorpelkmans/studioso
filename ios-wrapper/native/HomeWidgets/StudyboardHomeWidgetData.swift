@@ -64,6 +64,18 @@ struct SBWDay: Codable, Hashable, Identifiable {
     var id: String { date }
 }
 
+// A block of today's plan: the task the plan gives that time to (src/js/70-widgets.js planSlots). Sent ahead for the rest of the
+// day, so Do This Next moves on by itself as the day goes, without the app running
+struct SBWSlot: Codable, Hashable {
+    var from: Double      // ms since 1970
+    var to: Double        // ms since 1970
+    var id: String
+    var title: String
+    var course: String?
+    var color: String?
+    var mins: Int?
+}
+
 struct SBWTheme: Codable, Hashable {
     var accent: String?
     var accentInk: String?
@@ -85,6 +97,7 @@ struct SBWData: Codable, Hashable {
     var focus: SBWFocus?
     var days: [SBWDay]?
     var theme: SBWTheme?
+    var plan: [SBWSlot]?
 }
 
 // A task checked off on a widget, waiting for the app to do it (StudyboardNative.homeWidgets.drain in the page)

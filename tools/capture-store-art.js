@@ -13,7 +13,7 @@ const SIZES = [
   {name: "search", w: 3840, h: 2560, safe: [836, 765, 2168, 1030]},
   {name: "universal", w: 5244, h: 2950, safe: [1921, 660, 1402, 962]}];
 // left, middle (in front), right
-const PHONES = ["03-due", "01-today", "05-grades"];
+const PHONES = ["08-schedule", "01-today", "05-grades"];
 for (const p of PHONES) if (!fs.existsSync(path.join(RAW, p + ".png"))) { console.error("missing " + p + ".png: run node tools/capture-ios-screens.js first"); process.exit(1); }
 fs.mkdirSync(OUT, {recursive: true});
 const server = http.createServer((q, r) => { const p = decodeURIComponent(new URL(q.url, "http://x").pathname), f = path.join(root, p);

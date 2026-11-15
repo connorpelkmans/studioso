@@ -16,10 +16,17 @@
   <key>NSCameraUsageDescription</key>
   <string>Studyboard uses the camera only when you choose to take a photo, to turn a picture of a page, a schedule or a board into tasks, notes or flashcards.</string>
 
-  <!-- Push reminders are real in the wrapper -->
+  <!-- Push reminders are real in the wrapper; fetch: Background App Refresh brings the widgets up to date (MainViewController.swift,
+       StudyboardBackgroundRefresh) -->
   <key>UIBackgroundModes</key>
   <array>
     <string>remote-notification</string>
+    <string>fetch</string>
+  </array>
+  <!-- The Background App Refresh task (StudyboardBackgroundRefresh.id) -->
+  <key>BGTaskSchedulerPermittedIdentifiers</key>
+  <array>
+    <string>com.studyboardapp.studyboard.refresh</string>
   </array>
 
   <!-- The microphone, for Record a Lecture (Pro) -->

@@ -5,6 +5,7 @@ import Capacitor
 import AuthenticationServices
 import CryptoKit
 import StoreKit
+import BackgroundTasks
 
 class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     private var offsetWatch: NSKeyValueObservation?
@@ -269,6 +270,70 @@ public class StudyboardHapticsPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             self.selection = nil
             call.resolve()
+        }
+    }
+}
+
+// Background App Refresh: iOS wakes the app now and then while it's in the background (how often is up to iOS: it learns when the
+// student opens Studyboard). The page fetches what changed on other devices and sends the widgets the day again
+// (window.__sbBgRefresh, src/js/70-widgets.js). register() runs from AppDelegate's didFinishLaunchingWithOptions (ios:stage adds
+// that line); the id is in Info.plist's BGTaskSchedulerPermittedIdentifiers and UIBackgroundModes has "fetch".
+enum StudyboardBackgroundRefresh {
+    static let id = "com.studyboardapp.studyboard.refresh"
+    private static var registered = false
+
+    static func register() {
+        guard !registered else { return }
+        registered = BGTaskScheduler.shared.register(forTaskWithIdentifier: id, using: nil) { task in
+            guard let task = task as? BGAppRefreshTask else { task.setTaskCompleted(success: false); return }
+            handle(task)
+        }
+        guard registered else { return }
+        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in schedule() }
+    }
+
+    static func schedule() {
+        let req = BGAppRefreshTaskRequest(identifier: id)
+        req.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60)
+        try? BGTaskScheduler.shared.submit(req)
+    }
+
+    private static func handle(_ task: BGAppRefreshTask) {
+        schedule()   // the next one
+        var finished = false
+        let finish: (Bool) -> Void = { ok in
+            DispatchQueue.main.async { if !finished { finished = true; task.setTaskCompleted(success: ok) } }
+        }
+        task.expirationHandler = { finish(false) }
+        DispatchQueue.main.async { run(tries: 0, finish) }
+    }
+
+    private static func webView() -> WKWebView? {
+        func find(_ vc: UIViewController?) -> CAPBridgeViewController? {
+            guard let vc = vc else { return nil }
+            if let b = vc as? CAPBridgeViewController { return b }
+            for c in vc.children { if let b = find(c) { return b } }
+            return find(vc.presentedViewController)
+        }
+        let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }
+        let roots = ((UIApplication.shared.delegate?.window ?? nil).map { [$0] } ?? []) + windows
+        for w in roots { if let b = find(w.rootViewController) { _ = b.view; return b.bridge?.webView } }
+        return nil
+    }
+
+    // The page may still be loading (iOS can start the app just for this): asked again each second, for up to 12 seconds
+    private static func run(tries: Int, _ finish: @escaping (Bool) -> Void) {
+        guard let web = webView() else {
+            if tries < 12 { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { run(tries: tries + 1, finish) } } else { finish(false) }
+            return
+        }
+        let js = "if (typeof window.__sbBgRefresh !== 'function') return 'loading'; return await window.__sbBgRefresh();"
+        web.callAsyncJavaScript(js, arguments: [:], in: nil, in: .page) { result in
+            if case .success(let v) = result, (v as? String) == "loading" {
+                if tries < 12 { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { run(tries: tries + 1, finish) } } else { finish(false) }
+                return
+            }
+            if case .success = result { finish(true) } else { finish(false) }
         }
     }
 }
