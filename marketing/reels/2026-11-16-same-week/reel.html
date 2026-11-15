@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studyboard problem-fix reel</title>
+<!--
+  The proven relatable structure, paced so every line can be read (18.0 s; music hits every 2.0 s from frame 0):
+    0-4     real student (footage), hook caption                    | hits at 0, 2
+    4-8     PROBLEM scene (beats at local 0, .5, 1, 1.5; drop 2.0; then 2 s to take it in) | hits at 4, 6
+    8-11    punchline footage (reaction ~0.9 s in, then time to feel it); turn caption from 8.7 | hits at 8, 10
+    11-16   FIX scene: Studyboard solving that exact problem (build ~1.5 s, then ~3.5 s to read); fix caption from 12.0 | lofi from 11
+    16-18   end card: app icon + "Studyboard" in Lexend (as in the app)
+  Every change is a 0.35 s cross-dissolve (no hard cuts or flashes) and captions fade between lines. Captions use sentence case.
+  Fill in the four marked blocks below (SCENE CSS, PROBLEM HTML, FIX HTML, SCENE JS). Footage comes from build_bg.py:
+  [hook clip 4.0s, {"color":"#0E2A56","dur":4.0}, punchline clip 3.0s (reaction ~0.9 s in), {"color":"#0E2A56","dur":7.0}].
+  Audio: mix_audio.py with --bed dramatic.wav@0:33.0:11.1:0.85 --bed lofi.wav@11.0:21.0:7.0:0.9 plus SFX on the scene's beats.
+  Captions: CAPS = caps(hook, turn, fix). Celebration: BURST = {t, x, y}.
+-->
+<style>
+@font-face{font-family:"Lexend";font-weight:500;src:url({{ROOT}}/website/assets/fonts/lexend-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:600;src:url({{ROOT}}/website/assets/fonts/lexend-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:700;src:url({{ROOT}}/website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url({{ROOT}}/website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+:root{--navy:#0E2A56;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#3988FE;--mark:#FFE45C;--tomato:#E4513B;--leaf:#1E9E74;--plum:#7A4FD6;--amber:#B86A00;
+  --display:"Lexend",system-ui,sans-serif;--shadow:0 2px 4px rgba(14,42,86,.06),0 30px 70px -14px rgba(14,42,86,.32)}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;color:#fff;-webkit-font-smoothing:antialiased}
+.navybg{background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
+.layer{position:absolute;inset:0;visibility:hidden}
+.cam{position:absolute;inset:0}
+#cap{position:absolute;left:130px;width:820px;top:1070px;text-align:center;z-index:10;
+  font:800 64px/1.18 "Inter","Atkinson",system-ui,sans-serif;letter-spacing:-.01em;color:#fff;
+  -webkit-text-stroke:9px #000;paint-order:stroke fill;text-shadow:0 4px 18px rgba(0,0,0,.35)}
+#cap b{color:var(--mark);font-weight:900}
+#tag{position:absolute;left:0;right:0;top:250px;text-align:center;opacity:0;z-index:6}
+#tag span{display:inline-block;font:700 32px var(--display);letter-spacing:.04em;color:var(--navy);background:var(--mark);padding:12px 24px;border-radius:14px}
+.card{background:#fff;color:var(--ink);border-radius:32px;box-shadow:var(--shadow)}
+.btn{text-align:center;font:700 38px var(--display);color:#fff;background:var(--accent);padding:24px;border-radius:22px;box-shadow:0 20px 50px -12px rgba(57,136,254,.6)}
+#end{z-index:8;text-align:center}
+#end .i{position:absolute;left:440px;top:430px;width:200px;height:200px}
+#end .i img{width:100%;height:100%;border-radius:46px;box-shadow:0 26px 60px rgba(0,0,0,.45)}
+#end .w{position:absolute;left:0;right:0;top:665px;font:800 116px/1 var(--display);letter-spacing:-.025em;color:#fff}
+#end .s{position:absolute;left:0;right:0;top:830px;font:600 40px var(--display);color:#C9D7F2}
+#end .u{position:absolute;left:0;right:0;top:920px}
+#end .cp{position:absolute;top:1100px;width:170px;height:170px}
+.comp svg{width:100%;height:100%;overflow:visible;display:block;filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 10px 18px rgba(30,20,50,.25))}
+.cp-svg .cp-p,.cp-svg .cp-headg,.cp-svg .cp-eye,.cp-svg .cp-page{transform-box:view-box}
+.cp-svg .cp-cheeks{opacity:.62}
+.cp-svg .cp-e-happy,.cp-svg .cp-e-sleepy,.cp-svg .cp-mouth>g,.cp-svg .cp-prop,.cp-svg .cp-zs{display:none}
+.cp-svg[data-m=neutral] .cp-m-neutral,.cp-svg[data-m=smile] .cp-m-smile,.cp-svg[data-m=open] .cp-m-open{display:inline}
+.cp-svg[data-e=happy] .cp-eye{display:none}
+.cp-svg[data-e=happy] .cp-e-happy{display:inline}
+#confetti{position:absolute;inset:0;pointer-events:none}
+#confetti i{position:absolute;left:0;top:0;width:16px;height:26px;border-radius:4px;opacity:0}
+#end .u span{display:inline-block;background:var(--accent);color:#fff;border-radius:26px;padding:24px 42px;font:700 44px var(--display)}
+/* ===== SCENE CSS ===== */
+.grid{position:absolute;left:66px;top:330px;width:798px}
+.dh{display:flex;gap:10px;margin:0 0 12px 150px;font:600 26px var(--display);color:rgba(255,255,255,.5)}
+.dh span{width:84px;text-align:center}
+.wk{display:flex;align-items:center;gap:10px;height:72px;margin-bottom:10px;position:relative}
+.wl{width:140px;font:600 28px var(--display);color:rgba(255,255,255,.65)}
+.c{width:84px;height:72px;border-radius:16px;background:rgba(207,235,221,.18);flex:none}
+.glow{position:absolute;left:140px;right:-14px;top:-10px;bottom:-10px;border-radius:24px;outline:5px solid #FF6B57;box-shadow:0 0 54px 10px rgba(228,81,59,.8);opacity:0}
+.chip{position:absolute;display:flex;align-items:center;gap:14px;background:#fff;color:#0F1F3D;border-radius:18px;padding:16px 24px;font:700 34px var(--display);box-shadow:0 18px 40px -10px rgba(0,0,0,.6);white-space:nowrap;opacity:0}
+.chip i{width:18px;height:18px;border-radius:50%}
+.chip em{font-style:normal;font-weight:600;color:var(--tomato);font-size:28px}
+#fbtn{position:absolute;left:230px;width:620px;top:900px}
+/* ===== /SCENE CSS ===== */
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="layer navybg" id="prob"><div class="cam" id="pcam">
+<!-- ===== PROBLEM HTML ===== -->
+<div class="grid" id="pg"></div><div id="chips"></div>
+<!-- ===== /PROBLEM HTML ===== -->
+  </div></div>
+  <div class="layer navybg" id="fixl"><div id="confetti"></div><div class="cam" id="fcam">
+<!-- ===== FIX HTML ===== -->
+<div class="grid" id="fg"></div>
+<div class="btn" id="fbtn">Pull work forward</div>
+<!-- ===== /FIX HTML ===== -->
+  </div></div>
+  <div id="tag"><span id="tagText"></span></div>
+  <div class="layer navybg" id="end"><div class="i"><img src="{{ROOT}}/icon-512.png" alt=""></div><div class="w">Studyboard</div><div class="s">Free · no account needed</div><div class="u"><span>studyboardapp.com</span></div>
+    <div class="cp comp" id="ec1" style="left:330px">{{mochi}}</div><div class="cp comp" id="ec2" style="left:580px">{{owl}}</div></div>
+  <div id="cap"></div>
+</div>
+<script>
+["500 100px Lexend","600 100px Lexend","700 100px Lexend","800 100px Lexend","800 100px Inter"].forEach(f => document.fonts.load(f));
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const oCubic = x => 1 - Math.pow(1 - x, 3);
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const oBack = x => { const c = 2.2, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const set = (el, tf, op) => { el.style.transform = tf; if (op != null) el.style.opacity = op; };
+const oBackS = x => { const c = 1.3, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const rise = (el, t, t0, d = .4, dist = 50) => { const k = oBackS(P(t, t0, t0 + d)); set(el, `translateY(${(1 - k) * dist}px)`, k); };
+const pop = (el, t, t0, d = .3, from = .5) => { const k = P(t, t0, t0 + d); set(el, `scale(${lerp(from, 1, oBack(k))})`, clamp(k * 3)); };
+const slam = (el, t, t0, dy = -280) => { const k = oCubic(P(t, t0 - .16, t0)); el.style.opacity = k > 0 ? 1 : 0; return `translateY(${(1 - k) * dy}px) scale(${1 + (1 - oBack(P(t, t0, t0 + .3))) * .3})`; };
+const press = (el, t, t0) => { const pr = P(t, t0 - .05, t0 + .05) - P(t, t0 + .05, t0 + .2); el.style.transform = `scale(${1 - pr * .06})`; };
+// One smooth nudge per beat (a half-wave over 0.3 s, ~9 frames). Fast oscillating shakes alias into flicker at 30 fps.
+const shakeAt = (t, times, amp = 8) => { let s = 0; times.forEach(h => { const k = P(t, h, h + .3); if (k > 0 && k < 1) s += Math.sin(k * Math.PI) * (1 - k) * amp; }); return s; };
+const STOPS = [[0, [207, 235, 221]], [.45, [255, 228, 92]], [.72, [255, 160, 70]], [1, [228, 81, 59]]];
+const heat = v => { v = clamp(v); for (let i = 1; i < STOPS.length; i++) if (v <= STOPS[i][0]) { const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], k = (v - a) / (b - a); return `rgb(${ca.map((c, j) => Math.round(c + (cb[j] - c) * k)).join(",")})`; } return "rgb(228,81,59)"; };
+
+const PROB_IN = 4.0, PROB_OUT = 8.0, FIX_IN = 11.0, FIX_OUT = 16.0, END = 18.0, COVER = 0.3, XF = .35;
+// Captions follow what's on screen: the hook stays through the problem; the turn arrives as the person reacts;
+// the Studyboard line arrives once the fix card has landed and started working.
+const caps = (hook, turn, fix) => [[0, PROB_OUT, hook], [PROB_OUT + .7, FIX_IN + .1, turn], [FIX_IN + 1.0, FIX_OUT, fix]];
+let CAPS = [], TAG = "";
+let PROB = (t, lt) => {}, FIX = (t, lt) => {};
+// Celebration at the payoff: BURST = {t: <seconds into FIX>, x, y}. Small and quick: a reward, not a party. Drawn behind the fix card so it never covers text.
+let BURST = null;
+const CONF = Array.from({length: 46}, (_, i) => ({a: -Math.PI / 2 + (Math.sin(i * 12.9898) * .5) * 2.2, v: 900 + 700 * Math.abs(Math.sin(i * 78.233)),
+  r: 360 * Math.sin(i * 3.7), c: ["#FFE45C", "#3988FE", "#1E9E74", "#FF8A65", "#B79CFF", "#ffffff"][i % 6], w: i % 3 ? 16 : 12}));
+const hopc = (el, t, t0, n = 2, H = 34) => {
+  const k = P(t, t0, t0 + .4); let y = 0, sx = 1, sy = 1; const start = t0 + .45, period = .7, air = .4;
+  if (t >= start && t < start + n * period) { const ph = (t - start) % period;
+    if (ph < air) { const x = ph / air; y = -H * 4 * x * (1 - x); } else { const g = Math.sin(((ph - air) / (period - air)) * Math.PI) * .07; sy = 1 - g; sx = 1 + g * .8; } }
+  const sc = lerp(.4, 1, oBack(k)); el.style.transformOrigin = "50% 92%"; set(el, `translateY(${y}px) scale(${sc * sx},${sc * sy})`, clamp(k * 3));
+};
+
+/* ===== SCENE JS ===== */
+const VARIANT = "a";
+const HOOK = {
+  a: "Every exam I have this semester somehow landed in <b>the exact same week</b>",
+  b: "Me realizing 3 exams, a lab report and an essay are all in Week 11, and <b>it's already Week 10</b>",
+  c: "Nobody warned me November has <b>four Week 11s</b> in a row",
+};
+CAPS = caps(HOOK[VARIANT],
+            "Plot twist: you can <b>see it coming</b>!",
+            "Studyboard flags your worst week <b>weeks early</b>!");
+BURST = {t: 1.5, x: 540, y: 700};
+TAG = "Crunch Forecast · free";
+const WEEKS = [7, 8, 9, 10, 11, 12], CR = 4;
+const RED = VARIANT === "c" ? [2, 3, 4, 5] : [CR];
+const HEAT = [.35, .9, 1, 1, .95, .55, .6], COOLED = [.2, .45, .5, .45, .4, .15, .15];
+const gridHTML = p => `<div class="dh"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>` +
+  WEEKS.map((w, r) => `<div class="wk"><span class="wl">Week ${w}</span>${[0,1,2,3,4,5,6].map(d => `<span class="c" id="${p}${r}_${d}"></span>`).join("")}${RED.includes(r) ? `<span class="glow" id="${p}g${r}"></span>` : ""}</div>`).join("");
+$("pg").innerHTML = gridHTML("p"); $("fg").innerHTML = gridHTML("f");
+const CHIPS = [["Bio midterm", "Tue", "#1E9E74", 150, -70, -8], ["Chem exam", "Wed", "#7A4FD6", 430, -96, 6], ["Calc exam", "Thu", "#E4513B", 290, -160, -4], ["Lab report", "Fri", "#1F6FEB", 470, -40, 4]];
+if (VARIANT !== "c") $("chips").innerHTML = CHIPS.map((c, i) => `<div class="chip" id="ch${i}"><i style="background:${c[2]}"></i>${c[0]}<em>${c[1]}</em></div>`).join("");
+const rowY = r => 330 + 50 + r * 82;
+PROB = (t, lt) => {
+  const s = shakeAt(lt, [0, .5, 1, 1.5, 2.0]), push = ioCubic(P(lt, 2.0, 2.35));
+  $("pcam").style.transformOrigin = `540px ${VARIANT === "c" ? rowY(3.5) : rowY(CR)}px`;
+  $("pcam").style.transform = `scale(${1 + push * .25}) translate(${s}px,${s * .4}px)`;
+  if (VARIANT !== "c") CHIPS.forEach((c, i) => { const el = $("ch" + i); el.style.left = (66 + c[3]) + "px"; el.style.top = (rowY(CR) + c[4]) + "px";
+    el.style.transform = slam(el, lt, i * .5, -280) + ` rotate(${c[5]}deg)`; });
+  WEEKS.forEach((_, r) => [0,1,2,3,4,5,6].forEach(d => { const idx = RED.indexOf(r), el = $(`p${r}_${d}`);
+    if (idx < 0) return; const h = VARIANT === "c" ? idx * .5 : 0, k = P(lt, h, h + (VARIANT === "c" ? .15 : 1.5));
+    el.style.background = k > 0 ? heat(.18 + (HEAT[d] - .18) * k) : ""; }));
+  RED.forEach(r => { $("pg" + r).style.opacity = P(lt, 1.95, 2.1) * (.65 + .35 * Math.abs(Math.sin(t * 3.4))); });
+};
+FIX = (t, lt) => {
+  const PR = .6, k = ioCubic(P(lt, .85, 1.5));
+  press($("fbtn"), lt, PR);
+  $("fbtn").style.background = lt > PR ? "#1E9E74" : "";
+  $("fbtn").textContent = lt > PR + .1 ? "✓ Moved 3 things earlier" : "Pull work forward";
+  WEEKS.forEach((_, r) => [0,1,2,3,4,5,6].forEach(d => { const el = $(`f${r}_${d}`), idx = RED.indexOf(r);
+    // The load Week 11 gives up (3.05) lands in Week 10 (1.8) then Week 9 (1.25); in version C the four red weeks share theirs with Weeks 7-8
+    const GIVE = VARIANT === "c" ? {0: [.5, .55, .6, .55, .5, .15, .15], 1: [.55, .6, .65, .6, .55, .2, .2]} : {3: [.35, .4, .4, .35, .3, 0, 0], 2: [.25, .3, .25, .25, .2, 0, 0]};
+    const DELAY = VARIANT === "c" ? {1: .25, 0: .5} : {3: .25, 2: .5};
+    const kc = idx >= 0 ? k : 0;
+    el.style.boxShadow = "";
+    if (idx >= 0) el.style.background = heat(HEAT[d] + ((VARIANT === "c" ? [.4, .6, .65, .6, .55, .3, .3][d] : COOLED[d]) - HEAT[d]) * kc);
+    else if (GIVE[r] && GIVE[r][d] > 0) {
+      const kr = ioCubic(P(lt, .85 + DELAY[r], 1.4 + DELAY[r]));
+      el.style.background = kr > 0 ? heat(GIVE[r][d] * kr) : "";
+      const ring = Math.sin(P(lt, .85 + DELAY[r], 1.55 + DELAY[r]) * Math.PI);
+      if (ring > 0) el.style.boxShadow = `0 0 0 ${Math.round(4 * ring)}px rgba(57,136,254,${.85 * ring})`;
+    }
+    else el.style.background = ""; }));
+  RED.forEach(r => { const g = $("fg" + r); g.style.opacity = 1;
+    g.style.outlineColor = k > .5 ? "#1E9E74" : ""; g.style.boxShadow = k > .5 ? "0 0 54px 10px rgba(30,158,116,.6)" : ""; });
+};
+/* ===== /SCENE JS ===== */
+
+$("tagText").textContent = TAG;
+$("confetti").innerHTML = CONF.map(() => "<i></i>").join("");
+const confEls = [...$("confetti").children];
+// A layer that cross-dissolves in over XF s ending at tin, and out over XF s starting at tout, settling from a 4% zoom
+const xfade = (el, t, tin, tout) => {
+  const a = ioCubic(P(t, tin - XF, tin)), b = tout == null ? 0 : ioCubic(P(t, tout, tout + XF)), o = Math.min(a, 1 - b);
+  el.style.visibility = o > 0 ? "visible" : "hidden"; el.style.opacity = o;
+  el.style.transform = `scale(${1 + .04 * (1 - a) + .03 * b})`;
+  return o > 0;
+};
+function render(t) {
+  // Captions fade out and in between lines
+  const c = CAPS.find(([a, b]) => t >= a && t < b);
+  $("cap").innerHTML = c ? c[2] : "";
+  $("cap").style.opacity = c ? Math.min(c[0] <= 0 ? 1 : P(t, c[0], c[0] + .2), c[1] >= END ? 1 : 1 - P(t, c[1] - .15, c[1])) : 0;
+  if (xfade($("prob"), t, PROB_IN, PROB_OUT)) PROB(t, t - PROB_IN);
+  if (xfade($("fixl"), t, FIX_IN, FIX_OUT + .2)) FIX(t, t - FIX_IN);
+  xfade($("end"), t, FIX_OUT + .2, null);
+  $("tag").style.opacity = TAG ? Math.min(P(t, FIX_IN, FIX_IN + .25), 1 - P(t, FIX_OUT, FIX_OUT + .2)) : 0;
+  // Confetti burst at the payoff
+  const bt = BURST ? t - (FIX_IN + BURST.t) : -1;
+  confEls.forEach((el, i) => { const c = CONF[i];
+    if (bt < 0 || bt > 1.4) { el.style.opacity = 0; return; }
+    const x = BURST.x + Math.cos(c.a) * c.v * bt, y = BURST.y + Math.sin(c.a) * c.v * bt + 1700 * bt * bt;
+    el.style.background = c.c; el.style.width = c.w + "px";
+    el.style.opacity = 1 - P(bt, .9, 1.4); el.style.transform = `translate(${x}px,${y}px) rotate(${c.r + bt * 540}deg)`; });
+  if (t >= FIX_OUT + .2 - XF) {
+    const els = [...$("end").children].filter(e => !e.classList.contains("cp"));
+    els.forEach((el, i) => { const k = P(t, FIX_OUT + .15 + .08 * i, FIX_OUT + .55 + .08 * i);
+      el.style.transform = i === 0 ? `scale(${lerp(.4, 1, oBack(k))})` : `translateY(${(1 - oBack(k)) * 34}px)`; el.style.opacity = clamp(k * 2); });
+    hopc($("ec1"), t, FIX_OUT + .55, 1); hopc($("ec2"), t, FIX_OUT + .67, 1);
+  }
+}
+window.render = render; window.END = END; window.COVER = COVER;
+render(0);
+</script>
+</body>
+</html>
