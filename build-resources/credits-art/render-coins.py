@@ -104,7 +104,9 @@ def gold_logo(img, M, Bm, base=0.62, depth=1.0, light=(-0.62, -0.78), on_gold=Tr
     img = over(img, np.array([60, 32, 2] if on_gold else [2, 10, 26], np.float32), np.clip(shadow * (1 - M), 0, 1))
     return over(img, col, M)
 
-def gold_face(cx, cy, r, img, alpha_mask=None, field_tone=0.52, rim=0.12, reeds=120, inner_ring=True):
+BLUE = [(0.0, (10, 36, 104)), (0.35, (26, 76, 182)), (0.65, (48, 108, 232)), (0.85, (104, 156, 255)), (1.0, (196, 220, 255))]
+
+def gold_face(cx, cy, r, img, alpha_mask=None, field_tone=0.52, rim=0.12, reeds=120, inner_ring=True, rim_blue=False):
     """A gold coin face: bevelled reeded rim, raised inner ring, slightly concave field"""
     a, d = disc(cx, cy, r)
     ang = np.arctan2(yy - cy, xx - cx)
@@ -120,7 +122,11 @@ def gold_face(cx, cy, r, img, alpha_mask=None, field_tone=0.52, rim=0.12, reeds=
     band = np.clip((rn - rim_in) / 0.012, 0, 1)
     rim_light = 0.5 + 0.42 * np.cos(ang + np.pi * 0.75) * (1 - 2 * (rn > (rim_in + 1) / 2))  # bevel: outer slope lit opposite to inner slope
     rim_t = 0.55 + 0.30 * np.cos(ang + np.pi * 0.75) * np.where(rn > (1 + rim_in) / 2, -1, 1) + 0.05 * np.sin(ang * reeds) * (rn > 0.965)
-    col = lerp(col, ramp(rim_t, GOLD), band)
+    col = lerp(col, ramp(rim_t, BLUE if rim_blue else GOLD), band)
+    if rim_blue:
+        # thin gold lips on both sides of the blue rim
+        lip_o = np.exp(-((rn - 0.988) / 0.006) ** 2); lip_i = np.exp(-((rn - rim_in) / 0.005) ** 2)
+        col = lerp(col, ramp(0.72 + 0.22 * np.cos(ang + np.pi * 0.75), GOLD), np.clip(lip_o + lip_i, 0, 1))
     if inner_ring:
         ring_r = rim_in - 0.05
         ring = np.exp(-((rn - ring_r) / 0.006) ** 2)
@@ -156,6 +162,14 @@ M, Bm = place_logo(1.12, C + 6, C + 4)
 img = gold_logo(img, M, Bm, base=0.76)
 img = sparkle(img, C + S * 0.24, C - S * 0.25, S * 0.05, 0.9)
 save(img, "concept-1-classic-gold")
+if "--blue-rim" in sys.argv:
+    img = background(glow=0.20, glow_r=0.36)
+    img = over(img, np.array([3, 10, 26], np.float32), cs)
+    img, coin = gold_face(C, C, S * 0.36, img, field_tone=0.40, rim_blue=True)
+    img = gold_logo(img, M, Bm, base=0.76)
+    img = sparkle(img, C + S * 0.24, C - S * 0.25, S * 0.05, 0.9)
+    save(img, "concept-1-classic-gold-blue-rim")
+    sys.exit(0)
 if "--blue-book" in sys.argv:
     img = background(glow=0.20, glow_r=0.36)
     img = over(img, np.array([3, 10, 26], np.float32), cs)
