@@ -81,6 +81,17 @@ Weak hooks: the app's name, "Introducing…", a logo, "Hey guys", a question wit
 - **Text-overlay hook + background track + app demo** is the simplest format that reportedly worked for a focus app; it's what motion-graphic reels from this skill are.
 - **Volume and testing**: the winners tested many formats and hooks across several accounts. One reel proves nothing; three hook variants of the same body teach you something.
 
+## Live outlier patterns
+
+Refresh these with vidIQ outlier search each batch (see `tools.md`).
+
+**2026-11-15** (Instagram and TikTok, North American students, last 30 days):
+- The biggest outliers in the student niche were **pure relatability, not demos**: one block of text over a static desk or laptop shot, dramatic or contrasting music, looped. @ale.guides got 1.6M views with 89 followers (587x their median); @rabiya_unfiltered_ got 4.3M with "Not a single weak subject (I'm cooked this semester)". Reach isn't gated by follower count.
+- **Our exact theme is validated**: @rufus.creates got 847K views (42x their median) with "How all of the midterm exams genuinely line up the EXACT SAME week", using an ominous trending audio and a fast montage, looped.
+- **November is its own theme**: "they k!ll college students in november", "POV: you open Canvas after Halloweekend", "trying to lock in during the last 4 weeks of the semester".
+- **Audio carries these**: music-only mixes; dramatic, operatic or ominous tracks contrasting with mundane visuals.
+- **App promos that worked** used a creator reaction or comparison hook ("now I understand why orgo students stopped using ChatGPT"), then a quick screen demo. "Comment X and I'll DM you the link" CTAs are common in big posts, but platforms say they demote engagement bait, so prefer genuine questions.
+
 ## Post caption template
 
 ```
