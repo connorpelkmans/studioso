@@ -704,6 +704,9 @@ h2.sec.c2-bh{align-items:center}
    shape once (--fr is its own radius, read in 01-flashcards.js), and the ring and shadow sit on the card around it */
 .deck.deck-fc.fr-on > .deck-face{border-radius:0!important;clip-path:inset(0 round var(--fr,8px));box-shadow:none!important}
 .deck.deck-fc.fr-on{border-radius:var(--fr,8px)!important;box-shadow:0 0 0 1px var(--line),0 12px 30px rgba(14,42,86,.14)!important}
+/* The front card's edge, drawn on top: the ring above sat under the cards stacked behind, so on the right and bottom, where
+   they show, the front card had no edge. This ring, the same as the cards behind have, lies outside the face, over them */
+.deck.deck-fc.fr-on::after{content:"";position:absolute;inset:0;border-radius:var(--fr,8px);pointer-events:none;box-shadow:0 0 0 1px var(--line)}
 .deck .deck-lay{border:0!important;outline:0!important;box-shadow:none!important;background:none!important}
 /* The cards behind sit 6px lower and right, less than the 8px corner */
 .deck.deck-fc .fc-band{padding-top:7px!important;padding-bottom:7px!important}
