@@ -1,4 +1,20 @@
-[{"clip": "../_broll/notebook.mp4", "in": 8.0, "dur": 2.6},
- {"color": "#0E2A56", "dur": 3.0},
- {"clip": "../_broll/shaking.mp4", "in": 5.2, "dur": 3.0},
- {"color": "#0E2A56", "dur": 3.4}]
+[
+ {
+  "clip": "../_broll/notebook.mp4",
+  "in": 8.0,
+  "dur": 4.0
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 4.0
+ },
+ {
+  "clip": "../_broll/shaking.mp4",
+  "in": 5.3,
+  "dur": 2.0
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 7.0
+ }
+]

@@ -14,6 +14,11 @@
 
 Use yellow sparingly: one highlighted phrase per beat. If everything is highlighted, nothing is.
 
+## Logo and writing rules
+
+- **Use the real logo, never the name typed out.** The wordmark is `{{ROOT}}/website/assets/logo-dark.webp` (white, for navy and dark footage) or `logo-light.webp` (navy, for light backgrounds), at 1086×240. The app icon is `{{ROOT}}/icon-512.png`. End cards always use the wordmark.
+- **Sentence case everywhere**, on screen and in captions: capitalise the first word, "I", months and days (November, Friday), "Week 11", course codes, and **Studyboard** and feature names (Crunch Forecast, Exam Prep Planner, Grade Tracker). The lowercase meme style is common on TikTok, but it reads as sloppy coming from a brand.
+
 ## Type
 
 - **Lexend** ExtraBold (800) for headlines, 600 for UI text. Headlines 96–120 px on a 1080-wide frame.

@@ -114,7 +114,7 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.03em;line-height:1.04
 
   <!-- End card -->
   <div class="layer navy" id="end">
-    <img id="eIcon" src="{{ROOT}}/icon-512.png" alt="" class="abs" style="left:390px;top:330px;width:200px;height:200px;border-radius:46px;box-shadow:0 26px 60px rgba(0,0,0,.4)">
+    <img id="eIcon" src="{{ROOT}}/website/assets/logo-dark.webp" alt="Studyboard" class="abs" style="left:200px;top:400px;width:580px;height:auto">
     <h1 class="abs" style="left:60px;width:860px;top:600px;text-align:center;font-size:104px;color:#fff">
       <span id="eA" style="display:block">See crunch week</span><span id="eB" class="y" style="display:block">coming.</span>
     </h1>
@@ -191,8 +191,8 @@ $("chips").innerHTML = CHIPS.map((c, i) => `<div class="chip" id="ch${i}"><i sty
 const words = beat => beat.map(l => l[0]).join(" ").split(/\s+/).length;
 const DUR = H.map(b => Math.max(1.2, .45 + .2 * words(b)));
 const O = DUR[0] + DUR[1] + DUR[2] - .1;  // when the paper opens
-const T = { b2: DUR[0], b3: DUR[0] + DUR[1], open: O, sweep: O + .25, tap: O + 1.45, sheet: O + 1.7, press: O + 3.25, fix: O + 3.45, end: O + 5.5 };
-const END = T.end + 2.5, COVER = 0.25;
+const T = { b2: DUR[0], b3: DUR[0] + DUR[1], open: O, sweep: O + .25, tap: O + 1.45, sheet: O + 1.7, press: O + 3.25, fix: O + 3.45, end: O + 6.6 };
+const END = T.end + 3.0, COVER = 0.25;
 
 function render(t) {
   if (!fitted && document.fonts.status === "loaded") fit();
@@ -275,7 +275,7 @@ function render(t) {
   // End card wipes up; its navy matches frame 0 so the loop is seamless
   const e = $("end"); e.style.visibility = t >= T.end ? "visible" : "hidden";
   e.style.clipPath = `inset(${(1 - ioCubic(P(t, T.end, T.end + .45))) * 100}% 0 0 0)`;
-  pop($("eIcon"), t, T.end + .3, .45, .3); rise($("eA"), t, T.end + .4); rise($("eB"), t, T.end + .52);
+  rise($("eIcon"), t, T.end + .3, .45, 30); rise($("eA"), t, T.end + .4); rise($("eB"), t, T.end + .52);
   rise($("eSub"), t, T.end + .8, .4, 30); pop($("eCta"), t, T.end + .95, .4, .7);
   rise($("eAsk"), t, T.end + 1.15, .4, 30); hop($("eC1"), t, T.end + 1.3, 1); hop($("eC2"), t, T.end + 1.42, 1);
   // Last 0.35 s: fade the end card's content so it cuts cleanly back into the hook

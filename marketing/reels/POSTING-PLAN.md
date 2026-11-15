@@ -21,31 +21,31 @@ Then check numbers on Nov 23–24 (Metricool analytics, or vidIQ insights once I
 ## Captions
 
 **#1 Same week (A)**
-> it's always the same week. every semester 😭
+> It's always the same week. Every semester. 😭
 >
-> tag the person who has all 3 exams with you 👇
+> Tag the person who has all 3 exams with you 👇
 >
 > #studytok #finalsweek #college #university #studentlife
 
 **#2 Crunch week (A):** see `2026-11-15-crunch-week/brief.md`.
 
 **#3 Same week (C)**
-> november really said "every week is week 11 now"
+> November really said "every week is Week 11 now"
 >
-> which week is your worst one? 👇
+> Which week is your worst one? 👇
 >
 > #studytok #november #finalsseason #college #studentlife
 
 **#4 Same week (B)**
-> "it's fine, week 11 is ages away" – me, in week 10
+> "It's fine, Week 11 is ages away" – me, in Week 10
 >
-> send this to your study group 📚
+> Send this to your study group 📚
 >
 > #studytok #finalsweek #college #university #procrastination
 
-**#5 Crunch week (C):** as in `brief.md`, with the first line "spot it a month early, not the night before 👀".
+**#5 Crunch week (C):** as in `brief.md`, with the first line "Spot it a month early, not the night before 👀".
 
-First comment on the relatable posts (soft brand, adds instead of selling): "we made a planner that shows your worst week weeks ahead 🫠 free, link in bio".
+First comment on the relatable posts (soft brand, adds instead of selling): "We made a planner that shows your worst week, weeks ahead 🫠 Free, link in bio."
 
 ---
 
@@ -62,28 +62,28 @@ Same Metricool pattern: weekday 10 AM peaks, one evening slot. Thanksgiving (Thu
 ## Captions
 
 **#6 What You Need**
-> the final is worth 35% and i have no idea what i need 😭
+> The final is worth 35% and I have no idea what I need 😭
 >
-> studyboard's grade tracker does the math: add your marks and it tells you what you need on the final to pass, or to hit your goal. free, no account needed. link in bio.
+> Studyboard's Grade Tracker does the math: add your marks and it tells you what you need on the final to pass, or to hit your goal. Free, no account needed. Link in bio.
 >
-> what do you need on your hardest final? 👇
+> What do you need on your hardest final? 👇
 >
 > #studytok #finalsweek #finals #college #studentplanner
 
 **#7 Exam Prep Planner**
 > 3 exams. 6 days. 0 plan. 📚
 >
-> add your exam and your topics, and studyboard spreads study sessions over the days you have left, with spaced review built in. free. link in bio.
+> Add your exam and your topics, and Studyboard spreads study sessions over the days you have left, with spaced review built in. Free. Link in bio.
 >
-> send this to whoever has the same finals as you 👇
+> Send this to whoever has the same finals as you 👇
 >
 > #studytok #finalsweek #studytips #college #examprep
 
 **#8 Assignment breakdown**
-> the 10 page paper. the friday deadline. the blank doc. 🫠
+> The 10-page paper. The Friday deadline. The blank doc. 🫠
 >
-> studyboard breaks a paper into small steps, scheduled backward from the due date on days you're actually free. free. link in bio.
+> Studyboard breaks a paper into small steps, scheduled backward from the due date on days you're actually free. Free. Link in bio.
 >
-> what's the longest paper you've left to the last minute? 👇
+> What's the longest paper you've left to the last minute? 👇
 >
 > #studytok #college #procrastination #finalsweek #studentlife
