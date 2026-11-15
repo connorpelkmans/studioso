@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studyboard reel</title>
+<!--
+  Starter reel: "The fix" format, 11 s. Hook (navy, chaos) -> payoff (paper, Quick Add + Today's Plan) -> end card that loops back.
+  Edit the copy, timings and scenes. Keep text inside x 60-920, y 250-1480 (render with --stills ... --guides to check).
+  Timeline: everything happens in render(t). Helpers: rise, pop, scene, wipe, typeText, highlight, hop, P (progress 0..1).
+-->
+<style>
+@font-face{font-family:"Lexend";font-weight:500;src:url({{ROOT}}/website/assets/fonts/lexend-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:600;src:url({{ROOT}}/website/assets/fonts/lexend-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:700;src:url({{ROOT}}/website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url({{ROOT}}/website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:400;src:url({{ROOT}}/website/assets/fonts/atkinson-hyperlegible-next-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:700;src:url({{ROOT}}/website/assets/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2) format("woff2")}
+
+:root{
+  --paper:#F2F5FA; --grid:rgba(57,136,254,.09); --surface:#FFFFFF; --ink:#0F1F3D; --navy:#0E2A56; --muted:#5A6A86;
+  --line:#D9E2EF; --accent:#1F6FEB; --accent-2:#3988FE; --mark:#FFE45C;
+  --tomato:#E4513B; --leaf:#1E9E74; --plum:#7A4FD6; --amber:#B86A00;
+  --display:"Lexend",system-ui,sans-serif; --body:"Atkinson",system-ui,sans-serif;
+  --shadow:0 2px 4px rgba(14,42,86,.06),0 30px 70px -14px rgba(14,42,86,.32);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased}
+.scene{position:absolute;inset:0;visibility:hidden}
+.paper{background-color:var(--paper);background-image:linear-gradient(var(--grid) 2px,transparent 2px),linear-gradient(90deg,var(--grid) 2px,transparent 2px);background-size:54px 54px}
+.navy{color:#fff;background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
+h1,h2{font-family:var(--display);margin:0;letter-spacing:-.025em;line-height:1.06;font-weight:800}
+.line{display:block}
+.abs{position:absolute}
+.center{text-align:center}
+.y{color:var(--mark)}
+.eyebrow{font:600 30px/1 var(--display);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+/* Highlighter swipe: set --mk from 0 to 1 with highlight() */
+.mk{position:relative;z-index:0;white-space:nowrap}
+.mk::before{content:"";position:absolute;left:-.05em;right:-.05em;top:.58em;height:.36em;background:var(--mark);z-index:-1;transform-origin:left;transform:scaleX(var(--mk,0))}
+
+/* Deadline chip */
+.chip{position:absolute;left:0;top:0;display:flex;align-items:center;gap:16px;background:#fff;color:var(--ink);border-radius:20px;padding:20px 28px;font:600 32px var(--display);box-shadow:0 18px 40px -10px rgba(0,0,0,.45);white-space:nowrap}
+.chip i{width:18px;height:18px;border-radius:50%;flex:none}
+.chip em{font-style:normal;font-weight:500;color:var(--tomato);font-size:26px}
+/* Cards and plan rows */
+.card{background:var(--surface);border-radius:32px;box-shadow:var(--shadow);border:2px solid #fff}
+.row{display:flex;align-items:center;gap:22px;padding:24px 28px;border-radius:22px;font:500 40px var(--display);position:relative}
+.row i{width:20px;height:20px;border-radius:50%;flex:none}
+.row .d{color:var(--muted)}
+.row .nx{position:absolute;inset:0;border-radius:22px;background:#EAF0F8;outline:4px solid var(--accent-2);z-index:-1;opacity:0}
+.next{background:var(--navy);color:#fff;font:600 26px var(--display);padding:8px 16px;border-radius:10px}
+.tag{font:600 28px var(--display);padding:8px 16px;border-radius:10px;background:#E3F4EC;color:#14724F}
+/* Companion and speech bubble */
+.comp{position:absolute}
+.comp svg{width:100%;height:100%;overflow:visible;display:block;filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 10px 18px rgba(30,20,50,.25))}
+.cp-svg .cp-p,.cp-svg .cp-headg,.cp-svg .cp-eye,.cp-svg .cp-page{transform-box:view-box}
+.cp-svg .cp-cheeks{opacity:.62}
+.cp-svg .cp-e-happy,.cp-svg .cp-e-sleepy,.cp-svg .cp-mouth>g,.cp-svg .cp-prop,.cp-svg .cp-zs{display:none}
+.cp-svg[data-m=neutral] .cp-m-neutral,.cp-svg[data-m=smile] .cp-m-smile,.cp-svg[data-m=open] .cp-m-open{display:inline}
+.cp-svg[data-e=happy] .cp-eye{display:none}
+.cp-svg[data-e=happy] .cp-e-happy{display:inline}
+.bubble{position:absolute;background:var(--surface);color:var(--ink);border-radius:34px;padding:28px 36px;font:600 40px/1.3 var(--display);box-shadow:var(--shadow);border:2px solid var(--line);transform-origin:50% 100%}
+.bubble::after{content:"";position:absolute;left:50%;margin-left:-15px;bottom:-17px;width:30px;height:30px;background:inherit;border-right:2px solid var(--line);border-bottom:2px solid var(--line);transform:rotate(45deg)}
+/* URL pill */
+.pill{display:inline-flex;align-items:center;background:var(--accent-2);color:#fff;border-radius:26px;padding:26px 44px;font:700 46px var(--display);box-shadow:0 20px 50px -12px rgba(57,136,254,.6)}
+/* Burned-in captions (for speech). Sits low in the safe area. */
+#cap{position:absolute;left:80px;right:180px;top:1330px;text-align:center;z-index:50;pointer-events:none}
+#cap span{display:inline-block;background:rgba(10,31,66,.88);color:#fff;font:700 50px/1.2 var(--display);padding:14px 26px;border-radius:18px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+#cap b{color:var(--mark);font-weight:800}
+/* Over the user's footage (render.js --footage): no backdrops, white text with a shadow so it reads on any video */
+.footage .scene.navy,.footage .scene.paper{background:none}
+.footage h1,.footage h2{color:#fff;text-shadow:0 4px 28px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.5)}
+.footage .eyebrow{color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.footage .mk::before{opacity:.9}
+.footage .mk{color:var(--ink);text-shadow:none}
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- 1. HOOK: fully visible at frame 0 -->
+  <section class="scene navy" id="s1">
+    <div id="chips"></div>
+    <h1 class="abs center" style="left:60px;right:160px;top:700px;font-size:104px">
+      <span class="line" id="h1a">It's 11:58 PM.</span>
+      <span class="line" id="h1b">What's due</span>
+      <span class="line y" id="h1c">tomorrow?</span>
+    </h1>
+  </section>
+
+  <!-- 2. PAYOFF: paper backdrop, Quick Add then Today's Plan -->
+  <section class="scene paper" id="s2">
+    <div class="abs" style="left:80px;right:180px;top:300px">
+      <div class="eyebrow line" id="s2e">Studyboard</div>
+      <h2 style="font-size:100px;margin-top:26px"><span class="line" id="s2a">Type it like</span><span class="line" id="s2b"><span class="mk" id="s2mk">you'd say it.</span></span></h2>
+    </div>
+    <div class="card abs" id="s2in" style="left:70px;right:170px;top:680px;padding:30px 36px;display:flex;align-items:center;gap:22px">
+      <span style="font:700 44px var(--display);color:var(--accent)">+</span>
+      <span style="font:500 50px var(--display);flex:1;white-space:nowrap"><span id="s2txt"></span><span id="s2caret" style="display:inline-block;width:5px;height:56px;background:var(--accent);vertical-align:-10px;margin-left:6px"></span></span>
+    </div>
+    <div class="card abs" id="s2plan" style="left:70px;right:170px;top:860px;padding:32px 24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:0 10px 18px">
+        <span style="font:700 46px var(--display)">Tonight</span><span class="tag" id="s2free">Free till 1 AM</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;position:relative;z-index:0">
+        <div class="row" id="r0"><span class="nx" id="s2nx"></span><i style="background:var(--leaf)"></i><span style="flex:1">Bio lab report</span><span class="d">45m</span><span class="next" id="s2next">Next</span></div>
+        <div class="row" id="r1"><i style="background:var(--tomato)"></i><span style="flex:1">Calc quiz review</span><span class="d">20m</span></div>
+        <div class="row" id="r2"><i style="background:var(--plum)"></i><span style="flex:1">Essay: tomorrow</span><span class="d">later</span></div>
+      </div>
+    </div>
+    <div class="comp" id="s2comp" style="width:180px;height:180px;left:80px;top:1270px">{{owl}}</div>
+    <div class="bubble" id="s2bub" style="left:290px;top:1290px">You've got this.</div>
+  </section>
+
+  <!-- 3. END: echoes the hook's navy so the loop back to frame 0 feels seamless -->
+  <section class="scene navy" id="s3">
+    <img id="s3icon" src="{{ROOT}}/icon-512.png" alt="" class="abs" style="left:390px;top:360px;width:200px;height:200px;border-radius:46px;box-shadow:0 26px 60px rgba(0,0,0,.4)">
+    <h1 class="abs center" style="left:60px;right:160px;top:640px;font-size:100px">
+      <span class="line" id="s3a">Every deadline.</span>
+      <span class="line y" id="s3b">One board.</span>
+    </h1>
+    <div class="abs center" id="s3sub" style="left:60px;right:160px;top:950px;font:500 40px var(--display);color:#C9D7F2">Free · any browser · no account</div>
+    <div class="abs center" id="s3cta" style="left:60px;right:160px;top:1060px"><span class="pill">studyboardapp.com</span></div>
+    <div class="comp" id="s3c1" style="width:180px;height:180px;left:300px;top:1220px">{{mochi}}</div>
+    <div class="comp" id="s3c2" style="width:180px;height:180px;left:500px;top:1210px">{{packy}}</div>
+  </section>
+
+  <div id="cap"></div>
+</div>
+
+<script>
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));            // progress of t through [a, b]
+const lerp = (a, b, k) => a + (b - a) * k;
+const oCubic = x => 1 - Math.pow(1 - x, 3);
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const oBack = x => { const c = 1.7, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const set = (el, tf, op) => { el.style.transform = tf; if (op != null) el.style.opacity = op; };
+const bob = (t, f = 1, a = 8) => Math.sin(t * Math.PI * 2 * f) * a;
+// Text or element rising into place
+const rise = (el, t, t0, d = .5, dist = 70) => { const k = oCubic(P(t, t0, t0 + d)); set(el, `translateY(${(1 - k) * dist}px)`, k); };
+// Pop in with overshoot
+const pop = (el, t, t0, d = .45, from = .6) => { const k = P(t, t0, t0 + d); set(el, `scale(${lerp(from, 1, oBack(k))})`, clamp(k * 2.5)); };
+// Scene visible between tin and tout, sliding up in and out (use d = 0 for a hard cut)
+const scene = (el, t, tin, tout, d = .4) => {
+  el.style.visibility = t < tin || t >= tout ? "hidden" : "visible";
+  if (!d) { set(el, "none", 1); return; }
+  const i = ioCubic(P(t, tin, tin + d)), o = ioCubic(P(t, tout - d, tout));
+  set(el, `translateY(${(1 - i) * 160 - o * 160}px)`, Math.min(tin <= 0 ? 1 : i, 1 - o));
+};
+// Scene wiping up from the bottom (clip), good for the end card
+const wipe = (el, t, tin, d = .5) => { el.style.visibility = t >= tin ? "visible" : "hidden"; el.style.clipPath = `inset(${(1 - ioCubic(P(t, tin, tin + d))) * 100}% 0 0 0)`; };
+// Typing with a caret
+const typeText = (el, caret, text, t, t0, t1) => { el.textContent = text.slice(0, Math.round(P(t, t0, t1) * text.length)); if (caret) caret.style.opacity = (t > t0 && t < t1 + .1) || Math.floor(t * 2.4) % 2 === 0 ? 1 : 0; };
+// Highlighter swipe on a .mk element
+const highlight = (el, t, t0, d = .4) => el.style.setProperty("--mk", oCubic(P(t, t0, t0 + d)));
+// Companion pops up from its feet, then hops n times
+const hop = (el, t, t0, n = 2, H = 34) => {
+  const k = P(t, t0, t0 + .45); let y = 0, sx = 1, sy = 1;
+  const start = t0 + .6, period = .8, air = .46;
+  if (t >= start && t < start + n * period) {
+    const ph = (t - start) % period;
+    if (ph < air) { const x = ph / air; y = -H * 4 * x * (1 - x); }
+    else { const g = Math.sin(((ph - air) / (period - air)) * Math.PI) * .07; sy = 1 - g; sx = 1 + g * .8; }
+  }
+  const sc = lerp(.4, 1, oBack(k)); el.style.transformOrigin = "50% 92%";
+  set(el, `translateY(${y}px) scale(${sc * sx},${sc * sy})`, clamp(k * 3));
+};
+
+if (window.FOOTAGE) document.documentElement.classList.add("footage");
+
+// ---------- content ----------
+// Burned-in captions: [start, end, "text with <b>yellow</b> words"]. Leave empty for a text-only reel.
+const CAPTIONS = [];
+const CHIPS = [ // label, when, colour, x, y, tilt
+  ["Lab report", "Tomorrow", "#1E9E74", 70, 280, -8], ["Calc quiz", "8 AM", "#E4513B", 560, 330, 6], ["Essay draft", "11:59 PM", "#7A4FD6", 110, 470, 4],
+  ["Reading ch. 7", "Tue", "#B86A00", 520, 520, -5], ["Problem set 5", "Due today", "#E4513B", 90, 1180, 5],
+  ["Group project", "Thu", "#7A4FD6", 500, 1250, -6], ["Flashcards", "40 due", "#1E9E74", 250, 1380, 3]
+];
+const TYPE = "bio lab report tmrw 9am";
+const END = 11;          // seconds
+const COVER = 0.4;       // cover.png is taken at this time (the hook)
+
+$("chips").innerHTML = CHIPS.map(c => `<div class="chip"><i style="background:${c[2]}"></i>${c[0]}<em>${c[1]}</em></div>`).join("");
+const chipEls = [...document.querySelectorAll(".chip")];
+
+function render(t) {
+  // 1. Hook, 0 to 3.0. Everything is already on screen at t = 0; only drift and a pulse on the question.
+  scene($("s1"), t, 0, 3.0, 0);
+  const gather = ioCubic(P(t, 2.2, 2.85));
+  chipEls.forEach((el, i) => {
+    const c = CHIPS[i], w = el.offsetWidth, h = el.offsetHeight;
+    const x = c[3] + bob(t + i * .37, .3, 16), y = c[4] + bob(t + i * .21, .25, 20);
+    el.style.transform = `translate(${lerp(x, 540 - w / 2, gather)}px,${lerp(y, 960 - h / 2, gather)}px) rotate(${c[5] * (1 - gather)}deg) scale(${1 - gather * .6})`;
+    el.style.opacity = 1 - P(t, 2.6, 2.9);
+  });
+  const pulse = Math.sin(P(t, .6, 1.2) * Math.PI) * .06; $("h1c").style.transformOrigin = "50% 60%"; $("h1c").style.transform = `scale(${1 + pulse})`;
+  ["h1a", "h1b", "h1c"].forEach(id => { $(id).style.opacity = 1 - P(t, 2.3, 2.7); });
+
+  // 2. Payoff, 2.8 to 8.6
+  scene($("s2"), t, 2.8, 8.6);
+  rise($("s2e"), t, 2.95); rise($("s2a"), t, 3.05); rise($("s2b"), t, 3.2); highlight($("s2mk"), t, 3.6);
+  rise($("s2in"), t, 3.3, .45, 60);
+  typeText($("s2txt"), $("s2caret"), TYPE, t, 3.8, 5.0);
+  rise($("s2plan"), t, 5.2, .5, 80); pop($("s2free"), t, 5.6, .4, .7);
+  [0, 1, 2].forEach(i => { const k = oCubic(P(t, 5.7 + i * .15, 6.1 + i * .15)); set($("r" + i), `translateX(${(1 - k) * 60}px)`, k); });
+  $("s2nx").style.opacity = P(t, 6.6, 6.9); pop($("s2next"), t, 6.7, .4, .3);
+  hop($("s2comp"), t, 7.0, 1); pop($("s2bub"), t, 7.3, .4, .7);
+
+  // 3. End, wipes up from 8.4 to the end
+  wipe($("s3"), t, 8.4);
+  pop($("s3icon"), t, 8.75, .5, .3); rise($("s3a"), t, 8.9); rise($("s3b"), t, 9.05);
+  rise($("s3sub"), t, 9.4, .45, 40); pop($("s3cta"), t, 9.6, .45, .7);
+  hop($("s3c1"), t, 9.8, 1); hop($("s3c2"), t, 9.95, 1);
+
+  // Captions
+  const c = CAPTIONS.find(([a, b]) => t >= a && t < b);
+  $("cap").innerHTML = c ? `<span>${c[2]}</span>` : "";
+}
+window.render = render; window.END = END; window.COVER = COVER;
+render(new URLSearchParams(location.search).has("t") ? +new URLSearchParams(location.search).get("t") : 0);
+</script>
+</body>
+</html>
