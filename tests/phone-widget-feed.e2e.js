@@ -14,7 +14,8 @@ const SEED = {v: 2, updated: 1, notes: [], files: [], events: [], decks: [], set
     {id: "t3", title: "Care plan", courseId: "c1", type: "Assignment", due: iso(1), hours: 2.25, status: "todo", priority: "med", created: 3}]};
 // SBWData, as the Swift structs declare it: [type, required]
 const T = {
-  data: {v: ["int", 1], day: ["string", 1], at: ["number", 1], dateLabel: ["string"], next: ["next"], tasks: [["task"], 1], more: ["int"], cards: ["int"], dayOff: ["bool"], exam: ["exam"], focus: ["focus"], days: [["day"]], theme: ["theme"]},
+  data: {v: ["int", 1], day: ["string", 1], at: ["number", 1], dateLabel: ["string"], next: ["next"], tasks: [["task"], 1], more: ["int"], cards: ["int"], dayOff: ["bool"], exam: ["exam"], focus: ["focus"], days: [["day"]], theme: ["theme"], plan: [["slot"]]},
+  slot: {from: ["number", 1], to: ["number", 1], id: ["string", 1], title: ["string", 1], course: ["string"], color: ["string"], mins: ["int"]},
   task: {id: ["string", 1], title: ["string", 1], course: ["string"], color: ["string"], meta: ["string"], done: ["bool"], late: ["bool"], due: ["string"], time: ["string"], exam: ["bool"]},
   next: {id: ["string", 1], title: ["string", 1], course: ["string"], color: ["string"], why: ["string"], mins: ["int"], due: ["string"], time: ["string"]},
   exam: {id: ["string", 1], title: ["string", 1], course: ["string"], color: ["string"], due: ["string"], time: ["string"], days: ["int"], ready: ["int"]},
@@ -50,6 +51,11 @@ function decodes(v, type, at, errs){
     ok(!bad.length, "what it sends decodes as the widget's SBWData" + (bad.length ? ": " + bad.join("; ") : ""));
     ok(d.v === 1 && d.day === iso(0), "it's version 1, for today (" + d.day + ")");
     ok(d.tasks.some(t => t.title === "Sim (CH2) Reflection") && d.next && d.next.title, `today's tasks and Do This Next are in it (next: ${d.next && d.next.title})`);
+    // today's plan, sent ahead: the widget moves Do This Next on by itself as each block starts
+    const plan = d.plan || [], now = Date.now(), endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+    ok(plan.length >= 1 && plan.every(x => x.to > now && x.to > x.from), `the rest of today's plan is sent as timed blocks (${plan.map(x => x.title + " " + new Date(x.from).toTimeString().slice(0, 5) + "-" + new Date(x.to).toTimeString().slice(0, 5)).join(", ")})`);
+    ok(plan.every((x, i) => i === 0 || x.from >= plan[i - 1].to), "the blocks are in order and don't overlap");
+    ok(plan.every(x => d.tasks.some(t => t.id === x.id) && Number.isInteger(x.mins)), "each block is one of today's tasks, with its minutes");
     ok(d.days.length === 6 && d.days.some(x => x.items.some(i => i.title === "Final Clinical Evaluation" && i.exam)), "and the week ahead, with the exam marked");
     // a change is sent again
     await page.evaluate(() => { window.__saved.length = 0; const S = window.__sbSync, t = JSON.parse(JSON.stringify(S.state.tasks.t1)); t.status = "done"; t.doneAt = Date.now(); S.applyChanges([{kind: "task", id: "t1", after: t}], ""); });

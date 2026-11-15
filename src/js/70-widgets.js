@@ -79,6 +79,21 @@
   const hex = (c, d) => { c = String(c || "").trim(); if (/^#[0-9a-f]{3}$/i.test(c)) c = "#" + c.slice(1).split("").map(x => x + x).join(""); return HEX.test(c) ? c.toUpperCase() : d; };
   const cut = (v, n) => String(v == null ? "" : v).slice(0, n);
   const phoneNative = () => { const n = window.StudyboardNative; return n && n.homeWidgets && typeof n.homeWidgets.save === "function" ? n.homeWidgets : null; };
+  // The rest of today's plan as blocks with real times: the widget shows the one on now (or the next) and moves on by itself, so Do
+  // This Next stays right through the day without the app running. Back-to-back sessions of one task are one block.
+  function planSlots(){
+    let F = null, list = [];
+    try { const r = dayList(); F = r.F; list = r.list; } catch (e) { return []; }
+    const sd = (F && F.sd) || studyDay(), sb = (F && F.slotsBy) || {}, [y, mo, da] = String(sd.date || todayISO()).split("-").map(Number);
+    // minutes count from the plan day's midnight (past 1440 after midnight, for a late end of day)
+    const at = m => new Date(y, mo - 1, da, 0, Math.round(m)).getTime(), now = Date.now(), rows = [];
+    list.forEach(({t}) => { if (!t || t.status === "done") return; (sb[t.id] || []).forEach(sl => { if (sl && sl.e - sl.s >= 10) rows.push({s: sl.s, e: sl.e, t}); }); });
+    rows.sort((p, q) => p.s - q.s || p.e - q.e);
+    const merged = [];
+    rows.forEach(r => { const last = merged[merged.length - 1]; if (last && last.t.id === r.t.id && r.s - last.e <= 15) { last.e = Math.max(last.e, r.e); last.min += r.e - r.s; } else merged.push(Object.assign({min: r.e - r.s}, r)); });
+    return merged.map(r => { const c = courseOf(r.t.courseId); return {from: at(r.s), to: at(r.e), id: cut(r.t.id, 80), title: cut(r.t.title, 90), course: cut(c ? courseLabel(c) : "", 24), color: hex(colorOf(r.t.courseId), "#8A94A6"), mins: Math.max(1, Math.round(r.min))}; })
+      .filter(x => x.to > now).slice(0, 16);
+  }
   function phoneData(d){
     const today = todayISO(), byId = id => state.tasks[id];
     const item = t => { const x = byId(t.id) || {}; return {id: cut(t.id, 80), title: cut(t.title, 90), course: cut(t.course, 24), color: hex(t.color, "#8A94A6"), meta: cut(t.meta, 48),
@@ -111,7 +126,7 @@
         due: (byId(d.next.id) || {}).due || "", time: (byId(d.next.id) || {}).time || ""} : null,
       // (whole numbers: the widget reads these as Int, and a fraction would make it refuse the whole day)
       tasks, more: Math.max(0, Math.round(Number(d.more) || 0)), cards: Math.max(0, Math.round(Number(d.cards) || 0)), dayOff: !!dayIsOff(today), exam, focus, days,
-      theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}};
+      theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}, plan: planSlots()};
   }
   let phoneSent = "";
   function pushPhone(d){
