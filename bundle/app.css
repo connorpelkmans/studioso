@@ -2622,6 +2622,8 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
   .sch-month .dots .ci-more{position:absolute;left:50%;bottom:1px;translate:-50% 0;padding:1px 5px;border-radius:999px;background:color-mix(in srgb,var(--ink) 9%,var(--surface));font:800 .56rem/1.15 var(--body);color:var(--muted)}
   .sch-month .day:has(.ci-more) .dots{margin-top:-3px}
 }
+/* a 15px dot with an 11px icon leaves 2px all round, a whole pixel, so the icon sits exactly in the middle (10px left 2.5px) */
+@media (max-width:600px){.sch-month .dots i.ci svg{width:11px;height:11px}}
 .cal-evrow.smc-row .cal-evt{grid-row:span 2}
 .cal-evrow.smc-row .mini{grid-column:3}
 .sch-month .ci-t .smc-tm{font-weight:800;opacity:.8}

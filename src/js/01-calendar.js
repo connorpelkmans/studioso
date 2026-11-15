@@ -1077,15 +1077,16 @@ const schModeCtl = month => schPhone()
   ? `<button class="btn small" data-act="sch-mode" data-id="${month ? "week" : "month"}">${month ? "Week View" : "Month View"}</button>`
   : `<div class="segb sch-mode" role="group" aria-label="View"><button data-act="sch-mode" data-id="week" aria-pressed="${!month}">Week</button><button data-act="sch-mode" data-id="month" aria-pressed="${month}">Month</button></div>`;
 const SCH_ARROW = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+// (each icon's drawing is centred in its 24 x 24 box, so it sits in the middle of its colour dot: tests/sch-month-keep.e2e.js)
 // What kind of thing an event or class is, for its icon in the Schedule's month (drawn like a task's icon on Due Dates):
 // a class by its meeting kind; an event by its label, a study group's meeting, or words in its title
 const EV_KINDS = {
-  lecture: ["Class", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M7 8h6M7 12h4"/>'],
+  lecture: ["Class", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M8 8.5h8M9.5 11.5h5"/>'],
   lab: ["Lab", '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.4 15h9.2"/>'],
-  disc: ["Discussion or Tutorial", '<path d="M4 5h11v8H8l-4 3z"/><path d="M15 9h5v8l-3-2h-6v-2"/>'],
+  disc: ["Discussion or Tutorial", '<g transform="translate(0 1)"><path d="M4 5h11v8H8l-4 3z"/><path d="M15 9h5v8l-3-2h-6v-2"/></g>'],
   office: ["Office Hours", '<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17M3 21h18"/><circle cx="15" cy="12" r="1"/>'],
-  exam: ["Exam or Quiz", '<g transform="translate(0 1.8)"><path d="M12 3l9 4-9 4-9-4z"/><path d="M7 9.5V14c0 1.5 2.2 3 5 3s5-1.5 5-3V9.5"/></g>'],
-  group: ["Study Group or Meeting", '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5M15.5 14.5c2.5 0 4.6 1.6 5 5"/>'],
+  exam: ["Exam or Quiz", '<g transform="translate(0 2)"><path d="M12 3l9 4-9 4-9-4z"/><path d="M7 9.5V14c0 1.5 2.2 3 5 3s5-1.5 5-3V9.5"/></g>'],
+  group: ["Study Group or Meeting", '<g transform="translate(.25 -.5)"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5M15.5 14.5c2.5 0 4.6 1.6 5 5"/></g>'],
   work: ["Work or Shift", '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>'],
   appt: ["Appointment", '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
   event: ["Event", '<rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>']
