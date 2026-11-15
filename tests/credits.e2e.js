@@ -72,7 +72,7 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.evaluate(th => window.SBCREDITS.unlock("skin", th), pick.th);
     await page.waitForSelector('.sbc-sheet [data-act="sbc-buy"]', {timeout: 10000});
     const sheet = await page.textContent(".sbc-sheet");
-    ok(/300 Credits/.test(sheet) && /Comes With/.test(sheet) && /sticker/i.test(sheet) && /pin/i.test(sheet) && /flashcard style/i.test(sheet), "the buy sheet lists the theme, stickers, pins and flashcard style");
+    ok(/300 credits/i.test(sheet) && /sticker/i.test(sheet) && /pin/i.test(sheet) && /flashcard style/i.test(sheet), "the buy sheet lists the theme, stickers, pins and flashcard style");
     await page.click('.sbc-sheet [data-act="sbc-buy"]');
     await page.waitForFunction(th => window.__sbCollPreview.owns("skin", th), pick.th, {timeout: 10000});
     const after = await page.evaluate(p => {
@@ -95,7 +95,7 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     // Not enough credits: the sheet offers credit packs instead
     await page.evaluate(th => { window.SBCREDITS.buySheet("skin", th); }, pick.otherTh);
     await page.waitForSelector(".sbc-sheet", {timeout: 5000});
-    ok(/You need 250 more/.test(await page.textContent(".sbc-sheet")) && !!(await page.$('.sbc-sheet [data-act="sbc-packs"]')), "short of credits, it says how many more and offers credit packs");
+    ok(/250 more needed/.test(await page.textContent(".sbc-sheet")) && !!(await page.$('.sbc-sheet [data-act="sbc-packs"]')), "short of credits, it says how many more and offers credit packs");
     await page.click('.sbc-sheet [data-act="sbc-packs"]');
     await page.waitForSelector(".sbc-pack", {timeout: 5000});
     const packs = await page.$$eval(".sbc-pack", els => els.map(e => e.textContent.replace(/\s+/g, " ").trim()));
@@ -103,10 +103,24 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     const sent = await page.evaluate(async () => { let body = null; const P = window.__sbPlanObj(); P.checkoutCall = async b => { body = b; return {message: "test"}; }; document.querySelector('.sbc-pack[data-id="credits_600"]').click(); await new Promise(r => setTimeout(r, 200)); return body; });
     ok(sent && sent.pack === "credits_600" && !("price" in sent) && !("credits" in sent), "buying a pack sends only the pack id (the server sets the price)");
 
+    // The real checkout call (not a stub): it sends the signed-in request and returns Stripe's address
+    const real = await page.evaluate(async () => {
+      const sent = [];
+      const client = {functions: {invoke: async (fn, opt) => { sent.push([fn, opt.body]); return {data: {url: "https://checkout.stripe.com/c/pay/test"}, error: null}; }}};
+      const user = {id: "11111111-2222-4333-8444-555555555555"};
+      const pack = await window.__sbCheckoutCall({pack: "credits_600"}, client, user);
+      const plan = await window.__sbCheckoutCall({plan: "monthly"}, client, user);
+      const guest = await window.__sbCheckoutCall({pack: "credits_600"}, client, {id: "x", is_anonymous: true});
+      return {pack, plan, guest, sent};
+    });
+    ok(real.pack && real.pack.url === "https://checkout.stripe.com/c/pay/test" && real.plan && real.plan.url, "the app's checkout call reaches the server and gets Stripe's checkout address");
+    ok(real.sent.length === 2 && real.sent[0][0] === "create-checkout" && real.sent[0][1].pack === "credits_600" && real.sent[0][1].src === "app" && real.sent[1][1].plan === "monthly", "it sends only the pack or plan (and that it came from the app)");
+    ok(real.guest === null, "a guest account isn't sent to checkout");
+
     // A single pin for 50 credits
     await page.evaluate(p => window.SBCREDITS.buySheet("pin", p.otherPin), pick);
     await page.waitForSelector('.sbc-sheet [data-act="sbc-buy"]', {timeout: 5000});
-    ok(/Theme Collection/.test(await page.textContent(".sbc-sheet")), "a collection's pin also points to its whole collection");
+    ok(/Get the whole .+ Collection/.test(await page.textContent(".sbc-sheet")), "a collection's pin also points to its whole collection");
     await page.click('.sbc-sheet [data-act="sbc-buy"]');
     await page.waitForFunction(p => window.__sbCollPreview.owns("pin", p.otherPin), pick, {timeout: 5000});
     await page.waitForTimeout(800);

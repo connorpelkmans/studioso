@@ -168,6 +168,15 @@ M, Bm = place_logo(1.12, C + 6, C + 4)
 img = gold_logo(img, M, Bm, base=0.76)
 img = sparkle(img, C + S * 0.24, C - S * 0.25, S * 0.05, 0.9)
 save(img, "concept-1-classic-gold")
+if "--coin-only" in sys.argv:
+    # just the coin (transparent around it) for the app's own credit icon: 256 px, cropped to the coin
+    img = np.zeros((S, S, 3), np.float32)
+    img, coin = gold_face(C, C, S * 0.36, img, field_tone=0.40)
+    img = gold_logo(img, M, Bm, base=0.76)
+    rgba = np.dstack([np.clip(img, 0, 255), np.clip(coin, 0, 1) * 255]).astype(np.uint8)
+    r0 = int(C - S * 0.36) - 4; r1 = int(C + S * 0.36) + 4
+    Image.fromarray(rgba[r0:r1, r0:r1], "RGBA").resize((256, 256), Image.LANCZOS).save(f"{DEST}/credits-coin-256.png", optimize=True)
+    sys.exit(0)
 if "--navy" in sys.argv:
     # all gold, on the app icon's own navy
     img = background(c_top=(23, 58, 112), c_mid=(18, 49, 98), c_bot=(14, 42, 86), glow=0.06, glow_r=0.34, vig=0.06)
