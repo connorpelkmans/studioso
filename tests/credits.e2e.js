@@ -72,7 +72,7 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.evaluate(th => window.SBCREDITS.unlock("skin", th), pick.th);
     await page.waitForSelector('.sbc-sheet [data-act="sbc-buy"]', {timeout: 10000});
     const sheet = await page.textContent(".sbc-sheet");
-    ok(/300 credits/i.test(sheet) && /sticker/i.test(sheet) && /pin/i.test(sheet) && /flashcard style/i.test(sheet), "the buy sheet lists the theme, stickers, pins and flashcard style");
+    ok(/300 credits/i.test(sheet) && /companions/i.test(sheet) && /stickers/i.test(sheet) && /pins/i.test(sheet) && /flashcard/i.test(sheet), "the buy sheet shows the theme, companions, stickers, pins and flashcard style");
     await page.click('.sbc-sheet [data-act="sbc-buy"]');
     await page.waitForFunction(th => window.__sbCollPreview.owns("skin", th), pick.th, {timeout: 10000});
     const after = await page.evaluate(p => {

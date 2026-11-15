@@ -4717,10 +4717,8 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .sbc-comps img{width:31px;height:31px;object-fit:contain}
 .sbc-in .sbc-stk{display:grid;grid-template-columns:repeat(4,21px);gap:2px}
 .sbc-in .sbc-stk .stk-cell{width:21px;height:21px}
-.sbc-in .cs-demo{width:88px;margin:0}
-.sbc-in .cs-demo .face{padding:12px 6px 6px}
-.sbc-in .cs-demo .face-label{font-size:.5rem}
-.sbc-in .cs-demo .face-text{font-size:.66rem!important}
+/* drawn at a real card's size, then scaled down whole, so it looks just like the card */
+.sbc-in .cs-demo{width:240px;margin:0;zoom:.36}
 .sbc-pins{display:flex;justify-content:center;zoom:.3}
 .sbc-pins .ns-demo{background:none;height:170px;width:150px}
 @media (max-width:560px){.sbc-in-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
