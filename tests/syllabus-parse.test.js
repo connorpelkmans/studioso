@@ -90,4 +90,18 @@ Object.entries(DAYS).forEach(([s, d]) => eq(SY.meetingDays(s), d, "class days of
   eq(r.items.map(i => [i.title, i.weight == null ? null : i.weight]), [["Quiz 7", 5], ["Research proposal", 10], ["Read Chapter 9", null], ["Final Exam", 35]], "inline weights, clean titles, a reading keeps its chapter");
   eq(r.course.room, "Hall C", "the room after the class times");
 }
+// A category with no count is split over the items found, and says so; a single breakdown line with no dated item becomes an undated one
+{
+  const r = SY.parse("PSYC 1010 Syllabus\nGrading Breakdown\nWeekly Quizzes 20%\nAssignments 30%\nMidterm Exam 20%\nFinal Exam 30%\n\nSchedule\nQuiz 1 - December 1\nQuiz 2 - December 8\nAssignment 1 due December 3\nFinal Exam December 15", "2026-11-12");
+  eq(r.splits.map(x => [x.label, x.pct, x.n, x.each]), [["Weekly Quizzes", 20, 2, 10], ["Assignments", 30, 1, 30]], "each split says how many it was split over");
+  const mid = find(r.items, "Midterm Exam");
+  ok(mid.ph && mid.due === "" && mid.weight === 20 && mid.type === "Exam", "the undated midterm keeps its 20%");
+  ok(!r.items.some(x => x.ph && x.title !== "Midterm Exam"), "no placeholder for categories that have items, or for plural categories");
+  const r2 = SY.parse("Grading\nQuizzes 20%\nExams 80%\nSchedule\nOct 12 Quiz 1", T);
+  ok(!r2.items.some(x => x.ph), "a plural category with nothing dated isn't made into one item");
+}
+// Every named line of a breakdown, for the school-site sync to match by name (not only the midterm and final)
+eq(SY.breakdown("BIOL 1210 Course Outline\nGrading\nLab Report 15%\nMidterm Exam: 35%\n- Term Essay 20%\nFinal Project 30%\nWeekly Quizzes 10%\nTotal 100%\nLate work loses 10% a day"),
+  [{t: "Lab Report", w: 15}, {t: "Midterm Exam", w: 35}, {t: "Term Essay", w: 20}, {t: "Final Project", w: 30}], "named breakdown lines, not categories, totals or rules");
+eq(SY.breakdown("Lab Report 15%, Term Essay 20%; Final Project 30%"), [{t: "Lab Report", w: 15}, {t: "Term Essay", w: 20}, {t: "Final Project", w: 30}], "a one-line breakdown is split into its parts");
 console.log(`syllabus-parse.test: ${n} checks passed`);

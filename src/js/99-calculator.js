@@ -399,7 +399,7 @@
   const KEYNAME = {shift: "Shift", hyp: "Hyperbolic", drg: "Degrees, radians or gradians", left: "Move left", right: "Move right", sd: "Fraction or decimal", inv: "Reciprocal", fact: "Factorial", ncr: "Combinations", npr: "Permutations", sqrt: "Square root", cbrt: "Cube root", sq: "Squared", cube: "Cubed", pow: "Power", root: "Root", log: "Log", tenx: "10 to the power", ln: "Natural log", ex: "e to the power", sin: "Sine", asin: "Inverse sine", cos: "Cosine", acos: "Inverse cosine", tan: "Tangent", atan: "Inverse tangent", lp: "Open bracket", rp: "Close bracket", neg: "Negative", abs: "Absolute value", pi: "Pi", e: "e", pct: "Percent", mplus: "Memory add", mminus: "Memory subtract", mr: "Memory recall", mc: "Memory clear", del: "Delete", ac: "All clear", mul: "Times", div: "Divide", add: "Plus", sub: "Minus", dot: "Point", exp: "Times ten to the power", ans: "Answer", eq: "Equals"};
   function frame(){
     return `<div class="cx-body">
-      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-snip" data-cx="snip" aria-label="Select an equation on screen" title="Select an equation on screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 8.5v7M8.5 12h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
+      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-snip" data-cx="snip" aria-label="Select an equation on screen" title="Select an equation on screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 8.5v7M8.5 12h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button type="button" class="cx-snip cx-src" data-cx="src" aria-haspopup="true" aria-expanded="false" aria-controls="cxSrc" aria-label="Bring in an equation from a picture or the screen" title="Bring in an equation from a picture or the screen"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.7" fill="currentColor"/><path d="M5 17.5l4.5-4.5 3 3 2.5-2.5 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button><div class="cx-menu" id="cxSrc" role="group" aria-label="Bring in an equation" hidden></div><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
       <div class="cx-lcd" role="group" aria-label="Display">
         <div class="cx-ind" aria-hidden="true"><span data-i="shift">S</span><span data-i="hyp">HYP</span><span data-i="m">M</span><span class="cx-sp"></span><span data-i="ang"></span></div>
         <div class="cx-expr" aria-label="Expression"></div>
@@ -436,11 +436,40 @@
   }
   async function act(a, alt){
     if (a === "close") { close(); return; }
-    if (a === "snip") { if (window.SBCALCSNIP) SBCALCSNIP.start(); return; }
+    if (a === "snip") { menu(false); if (window.SBCALCSNIP) SBCALCSNIP.start(); return; }
+    if (a === "src") { menu(); return; }
     if (a === "copy") { const r = W.querySelector(".cx-res").textContent; if (S.done && !S.err && S.txt) { try { await navigator.clipboard.writeText(S.txt.replace(/−/g, "-")); toast(`Copied ${r}`); } catch (e) {} return; } if (S.done && !S.err && S.result != null) { try { await navigator.clipboard.writeText(S.frac && asFraction(S.result) ? asFraction(S.result).replace("⁄", "/").replace("−", "-") : show(S.result).plain); toast(`Copied ${r}`); } catch (e) {} } return; }
     await press(S.shift && alt ? alt : a);
     paint();
   }
+  /* "Bring in an equation" (99-calc-snip.js): Picture, Paste Picture and, where there's a way, Capture from Screen */
+  const SRCICON = {file: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H8l1.5-2h5L16 6h1.5A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.3" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    paste: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5h6v3H9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 6H6.5A1.5 1.5 0 0 0 5 7.5v12A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-12A1.5 1.5 0 0 0 17.5 6H15" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 17.5l3-3 2 2 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    screen: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12.5" rx="1.8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 20.5h6M12 16.5v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 8.5V7.5h1.5M14.5 7.5H16v1M16 12v1h-1.5M9.5 13H8v-1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'};
+  const menuOpen = () => !!(W && !W.querySelector(".cx-menu").hidden);
+  function menu(on){
+    if (!W) return;
+    const m = W.querySelector(".cx-menu"), b = W.querySelector('[data-cx="src"]');
+    on = on === undefined ? m.hidden : !!on;
+    if (on === !m.hidden) return;
+    if (on) {
+      const list = window.SBCALCSNIP && SBCALCSNIP.sources ? SBCALCSNIP.sources() : [];
+      // Picture is a label over a real file input: a direct tap opens the phone's Take Photo / Photo Library sheet
+      m.innerHTML = list.map(x => { const inner = `<span class="cx-mi-ic">${SRCICON[x.id] || ""}</span><span class="cx-mi-t">${esc(x.label)}<span class="cx-mi-s">${esc(x.sub)}</span></span>`;
+        return x.id === "file" ? `<label class="cx-mi" data-cxsrc="file" title="${esc(x.sub)}">${inner}<input type="file" accept="image/*" class="cx-file" aria-label="${esc(x.label)}: ${esc(x.sub)}"></label>`
+          : `<button type="button" class="cx-mi" data-cxsrc="${x.id}" title="${esc(x.sub)}" aria-label="${esc(x.label)}: ${esc(x.sub)}">${inner}</button>`; }).join("");
+      const f = m.querySelector(".cx-file"); if (f) f.addEventListener("change", () => { menu(false); SBCALCSNIP.source("file", f); });
+      m.querySelectorAll("button[data-cxsrc]").forEach(x => x.addEventListener("click", e => { e.stopPropagation(); const id = x.dataset.cxsrc; menu(false); SBCALCSNIP.source(id); }));
+      m.hidden = false; b.setAttribute("aria-expanded", "true");
+      const first = m.querySelector("input,button"); if (first) first.focus({preventScroll: true});
+      document.addEventListener("pointerdown", away, true);   // the tap that opened it is already over (pointerdown comes before click)
+    } else {
+      m.hidden = true; b.setAttribute("aria-expanded", "false");
+      document.removeEventListener("pointerdown", away, true);
+      if (m.contains(document.activeElement)) b.focus({preventScroll: true});
+    }
+  }
+  function away(e){ if (!W) return; const m = W.querySelector(".cx-menu"); if (m.contains(e.target) || (e.target.closest && e.target.closest('[data-cx="src"]'))) return; menu(false); }
   function open(){
     if (W) { W.hidden = false; skin(); place(); W.querySelector('[data-cx="eq"]').focus({preventScroll: true}); return; }
     W = document.createElement("div"); W.className = "cx"; W.id = "calc"; W.setAttribute("role", "dialog"); W.setAttribute("aria-label", "Calculator");
@@ -495,7 +524,7 @@
     if (keep) { try { if (K === 1) localStorage.removeItem(SIZE_LS); else localStorage.setItem(SIZE_LS, String(K)); } catch (e) {} }
   }
   function skin(){ try { if (window.SBCALCSKIN) SBCALCSKIN.apply(W); } catch (e) { console.warn("calculator theme", e); } }
-  function close(){ if (!W) return; W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
+  function close(){ if (!W) return; menu(false); W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
   const KEYMAP = {"+": "add", "-": "sub", "*": "mul", "x": "mul", "/": "div", "^": "pow", "(": "lp", ")": "rp", ".": "dot", ",": "dot", "%": "pct", "!": "fact", "Enter": "eq", "=": "eq", "Backspace": "del", "Delete": "ac",
     "ArrowLeft": "left", "ArrowRight": "right", "ArrowUp": "up", "ArrowDown": "down", "p": "pi", "s": "sin", "c": "cos", "t": "tan", "l": "ln", "g": "log", "r": "sqrt", "e": "e", "a": "ans", "E": "exp"};
   // Typing a whole name (sqrt, sin, log, pi, ans...) puts in that function once, instead of one function per letter.
@@ -517,6 +546,7 @@
   }
   function onKey(e){
     if (e.target && e.target.closest && e.target.closest(".cx-grip")) return;
+    if (menuOpen()) { if (e.key === "Escape") { e.preventDefault(); menu(false); } return; }
     if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
     if (e.key === "Escape") { e.preventDefault(); if (S.tokens.length || S.done) act("ac"); else close(); return; }
     if (e.key === "Tab" || e.key === " ") return;
@@ -536,8 +566,10 @@
   const editable = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
   const modalOpen = () => [...document.querySelectorAll("dialog[open]")].some(d => { try { return d.matches(":modal"); } catch (e) { return true; } });
   window.addEventListener("keydown", e => {
-    if (!W || W.hidden || e.isComposing || document.querySelector(".cxs-veil")) return;   // selecting an equation on screen: Esc is the selector's
+    if (!W || W.hidden || e.isComposing || document.querySelector(".cxs-veil,.cxp")) return;   // selecting an equation on screen: Esc is the selector's
     const t = e.target, inside = !!(t && t.nodeType === 1 && W.contains(t));
+    // the "bring in an equation" menu: its own keys (Tab, Enter, Space), and Esc closes it
+    if (menuOpen()) { if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); menu(false); return; } else if (inside && t.closest(".cx-menu")) return; }
     if (!inside) {
       if (editable(t) || modalOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
       // keys that move around the page or press the focused button keep doing that
@@ -560,5 +592,5 @@
     // "select an equation on screen" (99-calc-snip.js)
     put: (text, angle) => { if (!W) open(); const ok = put(text, angle); paint(); return ok; },
     note: t => { S.note = t || ""; paint(); },
-    win: () => W, fromText, compute: (text, scope) => compute(fromText(text), scope || {Ans: 0, M: 0})};
+    win: () => W, menu, fromText, compute: (text, scope) => compute(fromText(text), scope || {Ans: 0, M: 0})};
 })();

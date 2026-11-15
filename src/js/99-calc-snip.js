@@ -194,7 +194,7 @@
 - an equation uses one =; the equations of a system are separated by ;
 - calculus: integrate(f, x, a, b) for a definite integral, deriv(f, x, a) for the derivative at x = a, sum(f, n, a, b) for a sum from n = a to b
 - a fraction a over b is (a)/(b); a mixed number like 2 1/2 is (2+1/2); percent: write 15% of 80 as 0.15*80`;
-  const SYSTEM = `You read math for a student's scientific calculator. The student dragged a box over part of their screen; you get the text found in the box and, when there is one, a picture of it (handwriting, a photo, a drawing or a screenshot).
+  const SYSTEM = `You read math for a student's scientific calculator. The student dragged a box over part of their screen, or took or chose a photo or screenshot; you get the text found in the box (if any) and, when there is one, a picture of it (handwriting, a photo, a drawing or a screenshot).
 Find the one equation or expression they most likely want calculated or solved, and write it exactly as shown (don't solve it, don't simplify it, don't change any number).
 If it's a word problem or an instruction like "solve for x", write the equation it gives. If there are several, take the first complete one; a system of equations is one answer.
 ${CALC_RULES}
@@ -223,8 +223,14 @@ If there's no math in it, set found to false.`;
       return;
     }
     if (!text && !tex.length && !pic) { say(""); toast("Nothing to read there"); return; }
+    await askAI({text, tex, pic});
+  }
+  /* 3. The AI reads a picture (and any text) and writes the equation in the calculator's syntax; it's checked, then typed in.
+     Shared by the box over the app and every picture from outside it (a photo, the clipboard, the screen). */
+  async function askAI({text, tex, pic}){
+    tex = tex || [];
     const parts = [];
-    if (pic) parts.push({inline_data: {mime_type: "image/jpeg", data: bytesToB64(new Uint8Array(await pic.arrayBuffer()))}});
+    if (pic) parts.push({inline_data: {mime_type: pic.type || "image/jpeg", data: bytesToB64(new Uint8Array(await pic.arrayBuffer()))}});
     parts.push({text: `TEXT IN THE BOX:\n"""${text || "(none)"}"""${tex.length ? `\nFORMULAS IN THE BOX (LaTeX):\n${tex.map(x => x.tex).join("\n")}` : ""}`});
     let res;
     try { res = await aiCall({task: "mathread", fast: true, temperature: 0, maxTokens: 1500, timeout: 45000, schema: SCHEMA, system: SYSTEM, parts}); }
@@ -235,11 +241,208 @@ If there's no math in it, set found to false.`;
     if (!SBCALC.put(calc, d.angle)) { say(""); toast("Couldn't read that equation"); return; }
     done();
   }
+  /* A picture from outside the app (data URL, canvas, image or blob): the AI reads it and the equation is typed in */
+  async function readPicture(src){
+    if (!window.SBCALC) return;
+    const W = calcWin(); if (!W || W.hidden) SBCALC.open();
+    say("Reading…");
+    if (!aiReady()) { say(""); toast("Turn on AI in Settings to read equations from pictures and handwriting"); return; }
+    let pic = null;
+    try { pic = await jpegOf(await toCanvas(src, MAXPX)); } catch (e) { console.warn("calculator picture", e); }
+    if (!pic) { say(""); toast("Couldn't open that picture"); return; }
+    await askAI({text: "", tex: [], pic});
+  }
   function done(){
     const W = calcWin(); if (!W) return;
     const ex = W.querySelector(".cx-expr"); if (ex) { ex.classList.remove("cx-in"); void ex.offsetWidth; ex.classList.add("cx-in"); }
     const eq = W.querySelector('[data-cx="eq"]'); if (eq) eq.focus({preventScroll: true});
   }
 
-  window.SBCALCSNIP = {start, read, tidy, justMath, mathRuns, texToCalc, textIn, texIn};
+  /* ===== Pictures from outside the app ===== */
+  /* Picture (a photo or a file), Paste Picture (the clipboard) and Capture from Screen (the browser's screen sharing, or on
+     the desktop app the system-wide screenshot overlay). Each one, except the desktop overlay where the box is drawn on the
+     screen itself, shows the picture with the same drag-a-box step, then hands the box to readPicture (step 3 above). */
+  const MAXPX = 2000, WORKPX = 4096;
+  // Any picture → a canvas no bigger than max on its longer side. Photos keep their EXIF orientation.
+  async function toCanvas(src, max){
+    let w, h, draw;
+    if (src && src.getContext) { w = src.width; h = src.height; draw = g => g.drawImage(src, 0, 0, w, h); }
+    else if (window.ImageBitmap && src instanceof ImageBitmap) { w = src.width; h = src.height; draw = g => g.drawImage(src, 0, 0, w, h); }
+    else {
+      let bmp = null;
+      if (src instanceof Blob && window.createImageBitmap) { try { bmp = await createImageBitmap(src, {imageOrientation: "from-image"}); } catch (e) { bmp = null; } }
+      if (bmp) { w = bmp.width; h = bmp.height; draw = g => { g.drawImage(bmp, 0, 0, w, h); try { bmp.close(); } catch (e) {} }; }
+      else {
+        // an <img> follows the EXIF orientation too (image-orientation: from-image is the default)
+        const url = typeof src === "string" ? src : URL.createObjectURL(src), im = new Image();
+        try { im.src = url; await im.decode(); } catch (e) { if (typeof src !== "string") URL.revokeObjectURL(url); throw e; }
+        w = im.naturalWidth; h = im.naturalHeight; draw = g => { g.drawImage(im, 0, 0, w, h); if (typeof src !== "string") URL.revokeObjectURL(url); };
+      }
+    }
+    if (!w || !h) throw new Error("empty picture");
+    const k = Math.min(1, (max || MAXPX) / Math.max(w, h)), c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.scale(c.width / w, c.height / h); draw(g);
+    return c;
+  }
+  const jpegOf = c => new Promise(res => c.toBlob(b => res(b), "image/jpeg", 0.9));
+
+  /* The drag-a-box step over a picture. Resolves with the boxed part (or the whole picture), or null when cancelled. */
+  let cropOn = null;
+  function crop(c, o){
+    o = o || {};
+    if (cropOn) cropOn(null);
+    const W = calcWin(); if (W) W.style.visibility = "hidden";
+    const back = document.activeElement;
+    const touch = !!(window.matchMedia && matchMedia("(hover: none) and (pointer: coarse)").matches);
+    const v = document.createElement("div"); v.className = "cxp" + (o.screen ? " is-screen" : ""); v.setAttribute("role", "dialog"); v.setAttribute("aria-modal", "true"); v.setAttribute("aria-label", "Choose the equation in the picture");
+    v.innerHTML = `<div class="cxp-bar"><span class="cxp-hint">${esc(o.hint || "Drag a box over the equation")}${touch ? "" : " <span>Esc to cancel</span>"}</span><span class="cxp-btns"><button type="button" class="cxp-all">Use Whole Picture</button><button type="button" class="cxp-x">Cancel</button></span></div><div class="cxp-stage"><div class="cxp-frame"><div class="cxp-box" hidden></div></div></div>`;
+    c.className = "cxp-pic"; c.setAttribute("aria-hidden", "true");
+    const frame = v.querySelector(".cxp-frame"), box = v.querySelector(".cxp-box"); frame.prepend(c);
+    document.body.appendChild(v);
+    v.querySelector(".cxp-all").focus({preventScroll: true});
+    return new Promise(resolve => {
+      const finish = out => {
+        if (cropOn !== finish) return; cropOn = null;
+        document.removeEventListener("keydown", key, true); v.remove();
+        const W2 = calcWin(); if (W2) W2.style.visibility = "";
+        if (!out && back && back.focus && document.contains(back)) back.focus({preventScroll: true});
+        resolve(out);
+      };
+      cropOn = finish;
+      const cut = r => {   // r in the picture's own pixels
+        const x = Math.max(0, Math.round(r.x)), y = Math.max(0, Math.round(r.y)), w = Math.max(1, Math.min(c.width - x, Math.round(r.w))), h = Math.max(1, Math.min(c.height - y, Math.round(r.h)));
+        const o2 = document.createElement("canvas"); o2.width = w; o2.height = h;
+        o2.getContext("2d").drawImage(c, x, y, w, h, 0, 0, w, h); return o2;
+      };
+      const key = e => {
+        if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); finish(null); }
+        else if (e.key === "Enter" && !(e.target && e.target.closest && e.target.closest(".cxp-x"))) { e.preventDefault(); e.stopImmediatePropagation(); finish(c); }
+      };
+      document.addEventListener("keydown", key, true);
+      v.querySelector(".cxp-all").addEventListener("click", () => finish(c));
+      v.querySelector(".cxp-x").addEventListener("click", () => finish(null));
+      let a = null;
+      const at = e => { const r = c.getBoundingClientRect(); return {x: Math.max(0, Math.min(r.width, e.clientX - r.left)), y: Math.max(0, Math.min(r.height, e.clientY - r.top)), r}; };
+      const paint = (p, q) => { Object.assign(box.style, {left: Math.min(p.x, q.x) + "px", top: Math.min(p.y, q.y) + "px", width: Math.abs(q.x - p.x) + "px", height: Math.abs(q.y - p.y) + "px"}); box.hidden = false; };
+      const stage = v.querySelector(".cxp-stage");
+      stage.addEventListener("pointerdown", e => { if (e.button > 0) return; e.preventDefault(); a = at(e); paint(a, a); try { stage.setPointerCapture(e.pointerId); } catch (err) {} v.classList.add("is-drag"); });
+      stage.addEventListener("pointermove", e => { if (a) paint(a, at(e)); });
+      stage.addEventListener("pointerup", e => {
+        if (!a) return; const b = at(e), p = a; a = null; v.classList.remove("is-drag");
+        const w = Math.abs(b.x - p.x), h = Math.abs(b.y - p.y);
+        if (w < 8 || h < 6) { box.hidden = true; return; }
+        const k = c.width / b.r.width;
+        finish(cut({x: Math.min(p.x, b.x) * k, y: Math.min(p.y, b.y) * k, w: w * k, h: h * k}));
+      });
+      stage.addEventListener("pointercancel", () => { a = null; box.hidden = true; v.classList.remove("is-drag"); });
+    });
+  }
+  // A picture (file, clipboard item, frame) → the box step → read
+  async function fromPicture(src, o){
+    let c;
+    try { c = await toCanvas(src, WORKPX); } catch (e) { console.warn("calculator picture", e); toast("Couldn't open that picture"); return; }
+    const part = await crop(c, o);
+    if (part) await readPicture(part).catch(e => { console.warn("calculator picture", e); say(""); toast("Couldn't read that"); });
+  }
+
+  /* 1. Picture: a photo or a file (no capture attribute, so phones offer the camera and the photo library) */
+  function pickFile(input){
+    const f = input && input.files && input.files[0]; if (input) input.value = "";
+    if (!f) return;
+    if (f.type && !/^image\//.test(f.type)) { toast("Choose a picture"); return; }
+    fromPicture(f);
+  }
+
+  /* 2. Paste Picture: the clipboard (the button), or Ctrl/Cmd+V while the calculator is open */
+  const MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "");
+  const NO_PIC = "No picture to paste. Copy a screenshot or picture first";
+  async function pastePicture(){
+    if (navigator.clipboard && navigator.clipboard.read) {
+      let items = null;
+      try { items = await navigator.clipboard.read(); }
+      catch (e) { if (!(e && e.name === "NotAllowedError")) { toast(NO_PIC); return; } }
+      if (items) {
+        for (const it of items) { const t = (it.types || []).find(x => /^image\//.test(x)); if (t) { fromPicture(await it.getType(t)); return; } }
+        toast(NO_PIC); return;
+      }
+    }
+    toast(`Press ${MAC ? "⌘V" : "Ctrl+V"} to paste a screenshot or picture you copied`);
+  }
+  const editable = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+  document.addEventListener("paste", e => {
+    const W = calcWin(); if (!W || W.hidden || veil || cropOn) return;
+    if (editable(e.target) && !W.contains(e.target)) return;
+    const cd = e.clipboardData; if (!cd) return;
+    let f = [...(cd.files || [])].find(x => /^image\//.test(x.type));
+    if (!f) { const it = [...(cd.items || [])].find(x => x.kind === "file" && /^image\//.test(x.type)); f = it && it.getAsFile(); }
+    if (!f) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    fromPicture(f);
+  }, true);
+
+  /* 3. Capture from Screen, in a browser on a computer: the browser asks which screen, window or tab to share; one frame is
+     taken and sharing stops at once */
+  const phoneOrTablet = () => !!(window.Capacitor || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "") || (/Macintosh/.test(navigator.userAgent || "") && navigator.maxTouchPoints > 1) || (window.matchMedia && matchMedia("(hover: none) and (pointer: coarse)").matches));
+  const canShareScreen = () => !DESK && !phoneOrTablet() && !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  async function frameOf(stream){
+    const vid = document.createElement("video"); vid.muted = true; vid.playsInline = true; vid.srcObject = stream;
+    await vid.play();
+    const t0 = Date.now();
+    while ((!vid.videoWidth || vid.readyState < 2) && Date.now() - t0 < 4000) await new Promise(r => setTimeout(r, 50));
+    // the first frame can be blank while the share starts
+    await Promise.race([new Promise(r => vid.requestVideoFrameCallback ? vid.requestVideoFrameCallback(() => r()) : r()), new Promise(r => setTimeout(r, 400))]);
+    await new Promise(r => setTimeout(r, 120));
+    if (!vid.videoWidth) throw new Error("no frame");
+    const c = document.createElement("canvas"); c.width = vid.videoWidth; c.height = vid.videoHeight; c.getContext("2d").drawImage(vid, 0, 0);
+    vid.pause(); vid.srcObject = null;
+    return c;
+  }
+  async function screenPicture(){
+    if (!canShareScreen()) { toast("Capture from Screen isn't available in this browser"); return; }
+    const W = calcWin(); if (W) W.style.visibility = "hidden";   // not in the picture if this tab is the one shared
+    let stream = null, c = null; const t0 = Date.now();
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 5}, audio: false});
+      c = await frameOf(stream);
+    } catch (e) {
+      // refused before anyone could have picked: the browser or the site blocks screen sharing, so say so (a real Cancel stays quiet)
+      if (e && e.name === "NotAllowedError" && !stream && Date.now() - t0 < 400) toast("Your browser blocked screen sharing. Allow it in the site's settings, or use Picture or Paste Picture.");
+      else if (!(e && (e.name === "NotAllowedError" || e.name === "AbortError"))) { console.warn("calculator screen", e); toast("Couldn't capture the screen"); }
+    } finally {
+      if (stream) stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+      if (W) W.style.visibility = "";
+    }
+    if (c) await fromPicture(c, {screen: true});
+  }
+
+  /* 4. Capture from Screen anywhere, in the desktop app: Studyboard steps aside and the screenshot overlay comes up (main.js);
+     the boxed part comes back here as a JPEG and is read */
+  const deskCalc = () => !!(DESK && typeof DESK.captureEquation === "function");
+  async function deskCapture(){
+    try { const r = await DESK.captureEquation(); if (r === false) toast("Couldn't start the screen capture"); }
+    catch (e) { toast("Couldn't start the screen capture"); }
+  }
+  if (DESK && typeof DESK.onEquationShot === "function") DESK.onEquationShot(bytes => {
+    readPicture(new Blob([bytes], {type: "image/jpeg"})).catch(e => { console.warn("calculator screen", e); say(""); toast("Couldn't read that"); });
+  });
+  let deskKey = "";
+  if (deskCalc() && typeof DESK.getDesktopSettings === "function") Promise.resolve().then(() => DESK.getDesktopSettings()).then(s => { deskKey = (s && s.calcShotKey) || ""; }).catch(() => {});
+  const keyName = k => MAC ? String(k || "").replace("CommandOrControl", "⌘").replace("Shift", "⇧").replace("Alt", "⌥").replace(/\+/g, "") : String(k || "").replace("CommandOrControl", "Ctrl");
+
+  /* What the calculator's "bring in an equation" menu offers here */
+  function sources(){
+    const out = [{id: "file", label: "Picture", sub: phoneOrTablet() ? "Take a photo or choose one" : "Choose a photo or screenshot"},
+      {id: "paste", label: "Paste Picture", sub: "A screenshot or picture you copied"}];
+    if (deskCalc()) out.push({id: "screen", label: "Capture from Screen", sub: `Box an equation anywhere on your screen${deskKey ? ` (${keyName(deskKey)})` : ""}`});
+    else if (canShareScreen()) out.push({id: "screen", label: "Capture from Screen", sub: "Your browser asks which screen or window to share"});
+    return out;
+  }
+  function source(id, input){
+    if (id === "file") return pickFile(input);
+    if (id === "paste") return pastePicture();
+    if (id === "screen") return deskCalc() ? deskCapture() : screenPicture();
+  }
+
+  window.SBCALCSNIP = {start, read, tidy, justMath, mathRuns, texToCalc, textIn, texIn, askAI, readPicture, fromPicture, toCanvas, crop, sources, source, pastePicture, screenPicture, busy: () => !!(veil || cropOn)};
 })();
