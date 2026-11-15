@@ -1068,8 +1068,7 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .deck-actions .deck-arch{margin-left:auto;background:none;border-color:transparent;color:var(--muted)}
 /* Themed card faces have pictures at their foot (a grid, a skyline, a field): the secondary actions there (Share, archive, drag)
    sit on a soft chip in the card's own face colour, so they always read clearly over the picture */
-.deck.deck-fc:is(.cs-theme,[class*="cs-tp-"]) .deck-face .deck-actions > :is(.btn:not(.primary),.rv-grip){background:color-mix(in srgb,var(--tc-bg,#fff) 88%,transparent)!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid color-mix(in srgb,var(--tc-ink,#15213A) 18%,transparent)!important;color:var(--tc-ink,#15213A)!important;opacity:1!important}
-.deck.deck-fc:is(.cs-theme,[class*="cs-tp-"]) .deck-face .deck-actions > .rv-grip{border-radius:999px;min-width:34px;min-height:34px;display:inline-grid;place-items:center}
+.deck.deck-fc:is(.cs-theme,[class*="cs-tp-"]) .deck-face .deck-actions > .btn:not(.primary){background:color-mix(in srgb,var(--tc-bg,#fff) 88%,transparent)!important;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid color-mix(in srgb,var(--tc-ink,#15213A) 18%,transparent)!important;color:var(--tc-ink,#15213A)!important;opacity:1!important}
 .deck-actions .deck-arch:hover{color:var(--ink);border-color:var(--line)}
 .deck-archived{margin-top:28px}
 .sheet .deck-archived{margin-top:0}
@@ -1081,13 +1080,6 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .da-name b{overflow-wrap:anywhere}
 .deck-grid + .hint-line{margin-top:30px}
 /* Decks and quizzes in your own order: the grip, the lifted tile and the gap it leaves */
-.rv-grip{position:relative;z-index:1;flex:none;display:inline-grid;place-items:center;width:2.25rem;height:2.25rem;padding:0;border:0;border-radius:10px;background:none;color:var(--muted);cursor:grab;touch-action:none}
-.rv-grip:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 8%,transparent)}
-.rv-grip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.rv-grip svg{display:block}
-.deck-fc .deck-face .rv-grip{color:inherit;opacity:.72}
-.deck-fc .deck-face .rv-grip:hover{opacity:1}
-.deck-actions .deck-arch + .rv-grip,.qz-acts .deck-arch + .rv-grip{margin-left:-6px}
 .deck-grid > .deck-fc,.qz-grid > .qz-card{-webkit-touch-callout:none}
 .rv-ph{box-sizing:border-box;border-radius:16px;min-height:120px}
 .rv-ghost{position:fixed!important;margin:0!important;z-index:9000;filter:drop-shadow(0 16px 22px rgba(0,0,0,.3))}
