@@ -34,6 +34,12 @@ html,body{margin:0;background:#000}
 .cp-svg[data-e=happy] .cp-eye,.cp-svg[data-e=sleepy] .cp-eye{display:none}
 .cp-svg[data-e=happy] .cp-e-happy,.cp-svg[data-e=sleepy] .cp-e-sleepy{display:inline}
 .cp-svg[data-z="1"] .cp-zs{display:inline}
+.cp-svg[data-e=none] .cp-eye{display:none}
+.mug{position:absolute;width:96px;height:96px}
+.mug .b{position:absolute;left:0;top:18px;width:78px;height:78px;border-radius:12px 12px 22px 22px;background:#fff;box-shadow:inset 0 -10px 0 #E6ECF5,0 10px 24px -8px rgba(0,0,0,.4)}
+.mug .b::after{content:"";position:absolute;right:-22px;top:16px;width:22px;height:34px;border:8px solid #fff;border-left:none;border-radius:0 18px 18px 0}
+.mug .band{position:absolute;left:0;right:0;top:30px;height:14px;background:#3988FE}
+.mug .st{position:absolute;top:-30px;width:8px;height:34px;border-radius:8px;background:rgba(255,255,255,.75)}
 /* props */
 .plan{width:330px;padding:24px}
 .plan .h{font:800 26px var(--display);margin-bottom:12px}
@@ -98,7 +104,8 @@ html,body{margin:0;background:#000}
       <div class="abs" style="left:380px;top:60px;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:-120px 40px 0 #fff,-40px 90px 0 rgba(255,255,255,.6),40px 120px 0 rgba(255,255,255,.7)"></div>
       <div class="abs clock" id="clk" style="right:30px;top:30px">4:07 AM</div>
     </div>
-    <div class="comp" id="c3" style="left:370px;top:510px;width:340px;height:340px">{{inky}}</div>
+    <div class="comp" id="c3" style="left:350px;top:500px;width:350px;height:350px">{{inky}}</div>
+    <div class="mug" id="mug" style="left:640px;top:700px"><div class="st" id="st1" style="left:18px"></div><div class="st" id="st2" style="left:42px"></div><div class="b"><div class="band"></div></div></div>
     <div class="abs ttl" style="left:90px;right:90px;top:920px">The 4 AM<br><span class="mk">library goblin</span></div>
     <div class="abs sub" style="left:110px;right:110px;top:1100px">Hasn't seen the sun<br>since Tuesday.</div>
   </div>
@@ -135,6 +142,64 @@ const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 const oBack = x => { const c = 1.6, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
 const svg = el => el.querySelector("svg");
 const face = (el, e, m, z) => { const s = svg(el); s.dataset.e = e; s.dataset.m = m; s.dataset.z = z ? "1" : "0"; };
+// ---- Expressions drawn on top of the real companion art (viewBox 0 0 120 120) ----
+const GEO = {owl: {L: [47, 60], R: [73, 60], r: 7, m: [60, 71], lid: "#F9EEDF"}, mochi: {L: [47, 75], R: [73, 75], r: 5.2, m: [60, 84], lid: "#FFF1E4"},
+  inky: {L: [50, 77], R: [70, 77], r: 6, m: [60, 90], lid: "#6F8FEB"}, packy: {L: [48, 62], R: [72, 62], r: 5.2, m: [60, 70], lid: "#FF8D7A"}};
+const NS = "http://www.w3.org/2000/svg", INK = "#2B2233";
+const add = (g, html) => { g.insertAdjacentHTML("beforeend", html); };
+const drop = (x, y) => `<path class="xsw" d="M${x} ${y} q4.2 6.4 0 9.6 q-4.2 -3.2 0 -9.6z" fill="#9CD3FF" stroke="#fff" stroke-width="1.2"/>`;
+function decorate(el, who, mood) {
+  const svgEl = svg(el), G = GEO[who];
+  let g = svgEl.querySelector(".xf"); if (g) g.remove();
+  g = document.createElementNS(NS, "g"); g.setAttribute("class", "xf"); svgEl.appendChild(g);
+  const [lx, ly] = G.L, [rx, ry] = G.R, r = G.r, [mx, my] = G.m;
+  if (mood === "proud") { // happy eyes, smile, sparkles
+    svgEl.dataset.e = "happy"; svgEl.dataset.m = "smile";
+    const star = (x, y, s, c) => `<path class="xsp" d="M${x} ${y - s} Q${x} ${y} ${x + s} ${y} Q${x} ${y} ${x} ${y + s} Q${x} ${y} ${x - s} ${y} Q${x} ${y} ${x} ${y - s}z" fill="${c}" style="transform-origin:${x}px ${y}px"/>`;
+    add(g, star(100, 30, 7, "#FFE45C") + star(18, 44, 5, "#FFE45C") + star(104, 54, 4, "#fff"));
+  }
+  if (mood === "shocked") { // wide eyes, pin pupils, worried brows, gaping mouth, sweat, shock lines
+    svgEl.dataset.e = "none"; svgEl.dataset.m = "none";
+    [[lx, ly], [rx, ry]].forEach(([x, y]) => add(g, `<circle cx="${x}" cy="${y}" r="${r + 2.6}" fill="#fff" stroke="${INK}" stroke-width="1.8"/><circle class="xpu" cx="${x}" cy="${y}" r="1.9" fill="${INK}"/>`));
+    add(g, `<path d="M${lx - 7} ${ly - r - 5} L${lx + 5} ${ly - r - 9}" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/><path d="M${rx + 7} ${ry - r - 5} L${rx - 5} ${ry - r - 9}" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>`);
+    add(g, `<g class="xmo" style="transform-origin:${mx}px ${my + 3}px"><ellipse cx="${mx}" cy="${my + 3}" rx="4.6" ry="6.2" fill="${INK}"/><ellipse cx="${mx}" cy="${my + 6.2}" rx="2.8" ry="1.8" fill="#FF8FA8"/></g>`);
+    add(g, drop(lx - 15, ly - 18));
+    add(g, `<g stroke="#5AA9F5" stroke-width="2" stroke-linecap="round"><path d="M26 48 l-6 -5"/><path d="M24 58 l-8 -1"/><path d="M94 48 l6 -5"/><path d="M96 58 l8 -1"/></g>`);
+  }
+  if (mood === "tired") { // awake but wrecked: half-closed eyes under heavy lids, bags, a wobbly mouth
+    svgEl.dataset.e = "none"; svgEl.dataset.m = "none"; svgEl.dataset.z = "0";
+    [[lx, ly, "L"], [rx, ry, "R"]].forEach(([x, y, k]) => add(g,
+      `<g class="xlid${k}" style="transform-box:view-box;transform-origin:${x}px ${y}px"><path d="M${x - r} ${y} A${r} ${r * 1.1} 0 0 0 ${x + r} ${y}Z" fill="${INK}"/><circle cx="${x + r * .35}" cy="${y + r * .45}" r="${r * .28}" fill="#fff"/></g>` +
+      `<path d="M${x - r - 1.5} ${y - .3} Q${x} ${y - 2.2} ${x + r + 1.5} ${y - .3}" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>` +
+      `<path d="M${x - r + .5} ${y + r + 3.5} Q${x} ${y + r + 6.5} ${x + r - .5} ${y + r + 3.5}" fill="none" stroke="#33489A" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>`));
+    add(g, `<path d="M${mx - 5} ${my} q1.7 -1.6 3.4 0 t3.3 0 t3.3 0" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`);
+  }
+  if (mood === "nervous") { // forced grin, eyes darting sideways, sweat sliding
+    svgEl.dataset.e = "open"; svgEl.dataset.m = "smile";
+    const sm = svgEl.querySelector(".cp-m-smile"); sm.style.transformBox = "view-box"; sm.style.transformOrigin = `${mx}px ${my}px`; sm.style.transform = "scale(1.55,1.3)";
+    add(g, drop(rx + 14, ry - 14));
+    add(g, `<path d="M${lx - 6} ${ly - r - 4} L${lx + 4} ${ly - r - 7}" stroke="${INK}" stroke-width="2" stroke-linecap="round"/><path d="M${rx + 6} ${ry - r - 4} L${rx - 4} ${ry - r - 7}" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`);
+  }
+  el.dataset.mood = mood;
+}
+// Per-frame life for each mood
+function animateFace(el, t, seed) {
+  const s = svg(el), mood = el.dataset.mood;
+  const sw = s.querySelector(".xsw"); if (sw) { const k = ((t + seed) % 1.6) / 1.6; sw.setAttribute("transform", `translate(0 ${k * 10})`); sw.style.opacity = k < .8 ? 1 : 1 - (k - .8) * 5; }
+  if (mood === "proud") s.querySelectorAll(".xsp").forEach((p, i) => { const k = .65 + .45 * Math.abs(Math.sin((t + seed) * 3 + i * 1.3)); p.style.transform = `scale(${k}) rotate(${(t * 40 + i * 30) % 360}deg)`; });
+  if (mood === "shocked") { const j = Math.sin((t + seed) * 31); s.querySelectorAll(".xpu").forEach(p => p.setAttribute("transform", `translate(${j * .6} ${Math.cos((t + seed) * 27) * .5})`));
+    const mo = s.querySelector(".xmo"); if (mo) mo.style.transform = `scale(${1 + .08 * Math.sin((t + seed) * 9)})`; }
+  if (mood === "tired") { // lids sag slowly; every ~2.4 s the left one droops almost shut, then jerks back open
+    const ph = ((t + seed) % 2.4), sag = ph > 1.8 ? Math.sin((ph - 1.8) / .6 * Math.PI) : 0;
+    ["L", "R"].forEach((k, i) => { const lid = s.querySelector(".xlid" + k); if (lid) lid.style.transform = `scaleY(${1 - (i === 0 ? sag * .75 : sag * .35) + Math.sin((t + seed) * 1.7) * .04})`; });
+  }
+  if (mood === "nervous") { // eyes dart left/right with a glance every ~1.2 s
+    const ph = (t + seed) % 1.2, dx = ph < .5 ? 2.6 : ph < .62 ? lerp(2.6, -2.2, (ph - .5) / .12) : -2.2;
+    s.querySelectorAll(".cp-look").forEach(l => { l.style.transform = `translate(${dx}px,-.6px)`; });
+    // a nervous blink now and then
+    s.dataset.e = ((t + seed) % 2.3) < .09 ? "sleepy" : "open";
+  }
+}
 // Idle life: a gentle bob and a blink every ~2 s (blink = sleepy eyes for 3 frames)
 const idle = (el, t, seed, e, m, z, amp = 8) => {
   const blink = e === "open" && ((t + seed) % 2.1) < .1;
@@ -143,6 +208,9 @@ const idle = (el, t, seed, e, m, z, amp = 8) => {
 };
 const hopY = (t, t0, H = 40) => { const k = P(t, t0, t0 + .42); return -H * 4 * k * (1 - k); };
 
+// Signature moods: the same face in the line-up, the scene and the finale
+const MOODS = [["owl", "proud"], ["mochi", "shocked"], ["inky", "tired"], ["packy", "nervous"]];
+[["c0a", "c0b", "c0c", "c0d"], ["c1", "c2", "c3", "c4"], ["e1", "e2", "e3", "e4"]].forEach(ids => ids.forEach((id, i) => decorate($(id), MOODS[i][0], MOODS[i][1])));
 // Timeline (s). Each type gets 2.9 s: enough to read a two-line title and a two-line joke.
 const T0 = 2.7, D = 2.9, END_IN = T0 + 4 * D, END = END_IN + 3.4, COVER = 0.4;
 const SL = .32; // slide time between pages
@@ -158,8 +226,8 @@ function render(t) {
   const s0 = $("s0"); s0.style.visibility = t < T0 ? "visible" : "hidden";
   s0.style.transform = `translateX(${-ioCubic(P(t, T0 - SL, T0)) * 1080}px)`;
   ["c0a", "c0b", "c0c", "c0d"].forEach((id, i) => {
-    const el = $(id), y = idle(el, t, i * .37, i === 2 ? "sleepy" : "open", ["smile", "open", "sleepy", "smile"][i], i === 2, 6) + hopY(t, .5 + i * .22, 46);
-    el.style.transform = `translateY(${y}px)`;
+    const el = $(id); animateFace(el, t, i * .37);
+    el.style.transform = `translateY(${Math.sin((t + i * .37) * 2.6) * 6 + hopY(t, .5 + i * .22, 46)}px)`;
   });
   // Types
   const ids = ["s1", "s2", "s3", "s4"];
@@ -167,33 +235,33 @@ function render(t) {
     const tin = T0 + i * D, tout = tin + D;
     if (!page($(id), t, tin, tout)) return;
     const lt = t - tin, c = $("c" + (i + 1));
-    if (i === 0) { // proud, happy planner; the plan card ticks itself
-      const y = idle(c, t, 0, lt > .5 ? "happy" : "open", "smile", false) + hopY(t, tin + .35, 50);
+    animateFace(c, t, i * .5);
+    if (i === 0) { // proud: happy eyes, sparkles, a little strut
+      const y = Math.sin(t * 2.6) * 8 + hopY(t, tin + .35, 50);
       c.style.transform = `translateY(${y}px) rotate(${Math.sin(t * 3) * 2}deg)`;
       $("p1").style.transform = `rotate(${5 + Math.sin(t * 2) * 1.5}deg) translateY(${Math.sin(t * 2.2) * 6}px)`;
     }
     if (i === 1) { // shock: open mouth, little tremble, the syllabus shakes into view
       const trem = lt > .35 ? Math.sin(t * 40) * 2.5 * (1 - P(lt, .35, 1.2)) : 0;
-      face(c, "open", lt > .3 ? "open" : "neutral", false);
       c.style.transform = `translate(${trem}px,${hopY(t, tin + .3, 30)}px) scale(${1 + .06 * Math.sin(P(lt, .3, .6) * Math.PI)})`;
       $("p2").style.transform = `rotate(${-5 + Math.sin(t * 2.4) * 2}deg)`;
     }
-    if (i === 2) { // asleep but upright; Zzz on; the clock ticks a minute later
-      face(c, "sleepy", "sleepy", true);
-      c.style.transform = `translateY(${Math.sin(t * 1.6) * 10}px) rotate(${Math.sin(t * 1.3) * 4}deg)`;
+    if (i === 2) { // awake at 4 AM: heavy lids, a slow sway, coffee steaming; the clock ticks a minute later
+      c.style.transform = `translateY(${Math.sin(t * 1.4) * 6}px) rotate(${Math.sin(t * 1.1) * 3}deg)`;
+      ["st1", "st2"].forEach((id2, j) => { const k = ((t + j * .45) % 1.1) / 1.1; $(id2).style.transform = `translate(${Math.sin(k * 6 + j) * 5}px,${-k * 26}px) scaleY(${1 - k * .3})`; $(id2).style.opacity = Math.sin(k * Math.PI) * .9; });
+      $("mug").style.transform = `rotate(${-6 + Math.sin(t * 1.4) * 2}deg)`;
       $("clk").textContent = lt > 1.6 ? "4:08 AM" : "4:07 AM";
     }
-    if (i === 3) { // unbothered: happy eyes, slow sway; the chips drop in on the beat
-      const y = idle(c, t, .4, "happy", "smile", false, 6);
-      c.style.transform = `translateY(${y}px) rotate(${Math.sin(t * 1.5) * 5}deg)`;
+    if (i === 3) { // "calm": forced grin, eyes darting, sweat sliding; a tiny nervous shuffle
+      c.style.transform = `translateY(${Math.sin(t * 2.2) * 5}px) rotate(${Math.sin(t * 7) * 1.2}deg)`;
       [["p4a", .35], ["p4b", .7]].forEach(([pid, at]) => { const k = P(lt, at, at + .3); $(pid).style.opacity = clamp(k * 2); $(pid).style.transform = `translateY(${(1 - oBack(k)) * -40}px)`; });
     }
   });
   // End: all four, hopping in a wave; then a quiet sign-off
   if (page($("s5"), t, END_IN, null)) {
     ["e1", "e2", "e3", "e4"].forEach((id, i) => {
-      const el = $(id), y = idle(el, t, i * .37, i === 2 ? "sleepy" : "happy", ["smile", "open", "sleepy", "smile"][i], i === 2, 5) + hopY(t, END_IN + .3 + i * .15, 50) + hopY(t, END_IN + 1.4 + i * .15, 30);
-      el.style.transform = `translateY(${y}px)`;
+      const el = $(id); animateFace(el, t, i * .37);
+      el.style.transform = `translateY(${Math.sin((t + i * .37) * 2.6) * 5 + hopY(t, END_IN + .3 + i * .15, 50) + hopY(t, END_IN + 1.4 + i * .15, 30)}px)`;
     });
   }
   const sg = P(t, END_IN + 1.6, END_IN + 2.0); $("sign").style.opacity = sg; $("sign").style.transform = `translateY(${(1 - sg) * 16}px)`;
