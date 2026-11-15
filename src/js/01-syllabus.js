@@ -901,6 +901,13 @@ function importSheet(courseId, file){
       const bonus = ob && mine(ob) && Number(ob.pts) > 0 ? ob : rules.bonus ? Object.assign({}, rules.bonus, {got: ob ? Number(ob.got) || 0 : 0}) : ob || null;
       g.rules = {drops, bonus};
     }
+    // The breakdown by type ("Quizzes 20%"), kept on the course for Grade Settings to offer as category weights
+    const sylCats = window.SBGRADES && SBGRADES.catsFrom ? SBGRADES.catsFrom(result.byType) : null;
+    if (sylCats && (state.courses[cid] || changes.some(x => x.kind === "course" && x.id === cid))) {
+      let ch = changes.find(x => x.kind === "course" && x.id === cid);
+      if (!ch) { ch = {kind: "course", id: cid, after: clone(state.courses[cid])}; changes.push(ch); }
+      ch.after.grading = Object.assign({}, ch.after.grading || {}, {sylCats});
+    }
     let order = nextOrder("todo");
     picked().forEach(i => {
       const title = String(i.title || "").trim(); if (!title) return;

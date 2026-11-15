@@ -280,10 +280,10 @@ function capacityUntil(t, today, dh, th, cum, day, now, freeBefore){
   if (cum && dl < cum.length) return cum[dl] + day[dl] * dueDayFrac(t);
   return th + dh * (dl - 1) + dh * dueDayFrac(t);
 }
-// Late work: your penalty per day (a share of the item), else a typical 10%
+// Late work: your penalty per day (a share of the item), else what late penalties in the course's marks have cost (Grades), else a typical 10%
 const LATE_PEN_DEF = 0.1;
 const hasLatePen = t => isNum(t.latePen) && Number(t.latePen) > 0;
-const latePenOf = t => hasLatePen(t) ? Math.min(1, Number(t.latePen) / 100) : LATE_PEN_DEF;
+const latePenOf = t => hasLatePen(t) ? Math.min(1, Number(t.latePen) / 100) : (window.SBGRADES && SBGRADES.latePenFor && SBGRADES.latePenFor(t.courseId)) || LATE_PEN_DEF;
 // "YYYY-MM-DD HH:MM" as a time
 const stampMs = s => { const d = parse(String(s).slice(0, 10)), [h, m] = (String(s).slice(11) || "23:59").split(":").map(Number); d.setHours(h || 0, m || 0, 0, 0); return d.getTime(); };
 // Most marks you can keep from a set of tasks with the hours you have (each task done in full or not at all).

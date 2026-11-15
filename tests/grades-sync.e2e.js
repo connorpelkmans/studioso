@@ -65,7 +65,7 @@ const G = (gid, name, num, den, wden) => ({type: 1, gid, name, num, den, wden});
   ok(byT("Bonus: Participation").weight == null && byT("Bonus: Participation").bs.bonus === true, "the bonus item has no weight of its own");
   ok(JSON.stringify(s1.courses.find(x => x.id === "bsc").grading.rules.bonus) === JSON.stringify({pts: 5, got: 3, src: "school"}), "and goes into the course's bonus: up to 5%, 3% earned");
   const gB = await pg.evaluate(() => window.__sbGrades.courseGrade("bsc"));
-  ok(Math.abs(gB.current - 75) < 0.05 && !gB.pts, "the course grade is the real 75%, not a points split: " + gB.current);
+  ok(Math.abs(gB.current - 78) < 0.05 && !gB.pts, "the course grade is the real 75% plus the 3% bonus earned (GR17), not a points split: " + gB.current);
 
   // GR11: every named line of a synced syllabus's breakdown reaches the task of that name
   const syl = "BIOL 1210 Course Outline\nGrading\nLab Report 15%\nMidterm Exam 35%\nTerm Essay 20%\nFinal Project 30%\n";

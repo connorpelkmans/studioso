@@ -385,3 +385,37 @@ input.w-est-in{color:var(--late,#d64545);font-weight:700;border-color:color-mix(
 .w-est-tip{display:flex;gap:8px;align-items:flex-start;margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--late,#d64545) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--late,#d64545) 35%,var(--line));font-size:.8rem;font-weight:500;line-height:1.4;color:var(--ink)}
 .w-est-tip svg{flex:none;margin-top:1px;color:var(--late,#d64545)}
 .w-est-pill{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font:700 .7rem/1.5 var(--display);vertical-align:1px;color:var(--late,#d64545);background:color-mix(in srgb,var(--late,#d64545) 14%,var(--surface))}
+/* Excused and missed work, other kinds of mark, late penalties */
+.pill.gr-exc{margin-left:6px;background:color-mix(in srgb,var(--leaf) 14%,transparent);color:var(--ink)}
+.pill.gr-missed{margin-left:6px;background:color-mix(in srgb,var(--late) 14%,transparent);color:var(--late)}
+.gr-mz-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.gr-mk-chips{margin-top:-4px}
+.gr-pen summary{cursor:pointer;font-weight:600;font-size:.9rem;color:var(--muted)}
+.gr-pen[open] summary{margin-bottom:6px}
+/* What If: group rows, Solve, pretend marks on work you have back */
+.gr-wi-grp label .gr-row-t{font-weight:700}
+.gr-wi-solve{margin:6px 0 0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));font-size:.92rem;line-height:1.45}
+.gr-wi-marked{margin-top:8px}
+.gr-wi-marked summary{cursor:pointer;font-weight:600;font-size:.9rem}
+.gr-wi-pre{display:block;color:var(--muted);font-style:italic}
+/* Category weights and must-pass parts in Grade Settings */
+.gr-cat-row{display:grid;grid-template-columns:minmax(0,1fr) 5.5rem minmax(0,1fr) auto;align-items:center;gap:8px}
+.gr-cat-row label{min-width:0}
+.gr-cat-row select,.gr-cat-row input{width:100%;min-width:0}
+.gr-cat-w,.gr-must-min{display:flex;align-items:center;gap:4px}
+.gr-must-row{grid-template-columns:auto minmax(0,1fr) auto auto}
+.gr-must-min input{width:4.5rem}
+@media (max-width:420px){.gr-cat-row{grid-template-columns:minmax(0,1fr) 5.5rem auto}.gr-cat-row label:nth-child(3){grid-column:1 / 3;grid-row:2}.gr-must-row{grid-template-columns:auto minmax(0,1fr) auto}.gr-must-row .gr-must-min{grid-column:1 / 3;grid-row:2}}
+/* Past courses on the Grades page */
+.gp-past{margin-top:16px;padding:12px 14px;background:var(--ph-surf,color-mix(in srgb,var(--surface) 90%,transparent));border:1px solid var(--line);border-radius:16px}
+.gp-past > summary{cursor:pointer;list-style:none}
+.gp-past > summary::-webkit-details-marker{display:none}
+.gp-past > summary .fsec{margin:0;display:inline}
+.gp-past > summary::after{content:" \25BE";color:var(--muted)}
+.gp-past[open] > summary::after{content:" \25B4"}
+.gp-past-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.gp-past-c{border-left:4px solid var(--c);padding-left:10px}
+.gp-past-c summary{display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0}
+.gp-past-n{display:grid;flex:1;min-width:0}
+.gp-past-g{display:flex;align-items:baseline;gap:6px}
+.gp-past-c .btn{margin-top:8px}
