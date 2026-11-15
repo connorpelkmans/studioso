@@ -267,7 +267,13 @@ function createWindow(hidden) {
   });
   if (st.maximized) { if (hidden) pendingMax = true; else win.maximize(); }
   win.once("ready-to-show", () => { if (!hidden) win.show(); });
-  win.webContents.on("did-start-loading", () => listening.clear());
+  // The page says again what it listens for after a reload or a new page, so the list starts over then. Only then: "did-start-loading"
+  // also fires for a frame inside the page (a sheet loading one), and clearing the list there left Settings… (and the other menu,
+  // Dock, tray and reminder actions) queued for a page that never asked again, so they did nothing
+  win.webContents.on("did-start-navigation", (e, url, isInPlace, isMainFrame) => {
+    const main = e && typeof e.isMainFrame === "boolean" ? e.isMainFrame : isMainFrame, same = e && typeof e.isSameDocument === "boolean" ? e.isSameDocument : isInPlace;
+    if (main && !same) listening.clear();
+  });
   win.loadURL("app://studioso/index.html");
   win.webContents.setWindowOpenHandler(({ url }) => { openExternalSafe(url); return { action: "deny" }; });
   win.webContents.on("will-navigate", (e, url) => { if (!isAppUrl(url, MAIN_ORIGIN)) { e.preventDefault(); openExternalSafe(url); } });
