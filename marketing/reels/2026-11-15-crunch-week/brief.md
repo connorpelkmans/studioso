@@ -17,6 +17,16 @@ All are 1080 × 1920, 30 fps, H.264, silent. Covers: `cover.png`, `reel-b-cover.
 - **Structure (Kallaway):** context lean-in (the pain, in 3–5 words) → interjection → snapback, then the payoff starts by about 4.5 s: the calendar fills with colour week by week, Week 11 is tapped, its exams are listed, *Pull work forward*, the red cools and Hoot hops. End card: "See crunch week coming." with the URL, then a fade to the same navy as frame 0 so it loops.
 - **Claims check:** everything shown is in the README (colours calm to crunch, tap a week for what's driving it, pull work forward with Undo, prep moves but exam dates don't, free). No invented numbers or testimonials.
 
+## Pre-flight: five lenses
+
+| Lens | Check | Result |
+|---|---|---|
+| Views | Frame 0 shows the problem, ≤ 7 words, motion, opens a loop? | Yes: red shaking week with stacked exams, "3 exams. 1 week.", then "Most people find out…" opens the loop. |
+| Likes | Pain specific to this moment of the term? Payoff satisfying? | Pain: yes (finals in 2–4 weeks). Payoff was too small (the cooling happened in the shrunken calendar). **Fixed:** Week 11 now gets a green "calm" outline and the calendar pushes in when the work moves. |
+| Comments | One easy personal question or mild debatable take, on screen and in the caption? | Was caption-only. **Fixed:** end card now asks "Which week is your Week 11? 👇", matching the caption. Pinned comment idea: "Mine's week 12: 2 exams and a lab report. Yours?" |
+| Shares | Who sends this to whom, and which line? | A student sends it to the study group or the classmate taking the same exams. "3 exams. 1 week." carries it; the caption says "Send this to your study group." |
+| Follows | Part of a series the profile promises more of? | Not yet. **Suggestion:** make this part 1 of a "Finals survival" series (next: Exam Prep Planner "3 days out", Exam Mode, Rough Week Rescue), pin it, and put "Finals survival series 📌" on the cover or a highlight. To check the profile itself, send Claude screenshots of the profile page, bio and highlights. |
+
 ## Storyboard (A; B and C shift by the hook's length)
 
 | Time | On screen |
@@ -27,7 +37,7 @@ All are 1080 × 1920, 30 fps, H.264, silent. Covers: `cover.png`, `reel-b-cover.
 | 4.45–5.9 s | Paper opens from Week 11. "Crunch Forecast · free / Every week, *calm to crunch.*" The calendar fills with colour, top to bottom. |
 | 5.9–7.7 s | A tap on Week 11. The calendar slides up, the Week 11 sheet rises (Bio midterm, Chem exam, Calc exam, History essay, Calc review). Hoot: "Week 11 looks rough." |
 | 7.7–9.9 s | *Pull work forward* is pressed. "Draft starts Week 9" and "Moved to Week 10" pop in, Crunch → Manageable, Week 11 cools from red to amber. Hoot hops: "Way better." |
-| 9.9–12.7 s | End card: app icon, **"See crunch week coming."**, "Free · any browser · no account", studyboardapp.com, Mochi and Hoot hop. Fades to navy (loops into frame 0). |
+| 9.9–12.7 s | End card: app icon, **"See crunch week coming."**, "Free · any browser · no account", studyboardapp.com, "Which week is your Week 11? 👇", Mochi and Hoot hop. Fades to navy (loops into frame 0). |
 
 ## Posting
 

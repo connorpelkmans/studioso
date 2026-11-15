@@ -12,3 +12,4 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 ## What we've learned
 
 - (Add one line each time the numbers show something, e.g. "POV hooks held 2x better than question hooks.")
+- Pre-flight (five lenses) on the crunch week reel caught two gaps before posting: no on-screen comment prompt, and a payoff too small to notice. Both fixed.

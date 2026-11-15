@@ -1,6 +1,6 @@
 ---
 name: studyboard-reels
-description: Plans, scripts and renders short-form vertical promo videos (Instagram Reels, TikTok, YouTube Shorts) for Studyboard, the student planner in this repo, built so students don't scroll past. Writes hooks, storyboards, on-screen captions and post captions in Studyboard's brand, then renders a 1080x1920 MP4 from HTML with Playwright and ffmpeg, or lays branded captions and app shots over footage the user filmed. Use this whenever the user wants a reel, TikTok, Short, promo video, video ad, hook ideas, a script for filming themselves, a caption or overlay for a video, a new version of an existing reel, or wants to learn from how earlier reels performed, even if they just say "make a video about Exam Prep" or "something for socials".
+description: Plans, scripts and renders short-form vertical promo videos (Instagram Reels, TikTok, YouTube Shorts) for Studyboard, the student planner in this repo, built so students don't scroll past. Writes hooks, storyboards, on-screen captions and post captions in Studyboard's brand, then renders a 1080x1920 MP4 from HTML with Playwright and ffmpeg, or lays branded captions and app shots over footage the user filmed. Use this whenever the user wants a reel, TikTok, Short, promo video, video ad, hook ideas, a script for filming themselves, a caption or overlay for a video, a new version of an existing reel, or wants to learn from how earlier reels performed or why a post got low views, likes, comments, shares or followers, even if they just say "make a video about Exam Prep" or "something for socials".
 ---
 
 # Studyboard reels
@@ -12,7 +12,8 @@ Short-form videos that make a student stop scrolling, watch to the end, and want
 1. `marketing/reels/LOG.md`, if it exists. It records every reel made with this skill and, when the user has shared them, the numbers (views, 3-second hold, average watch time, shares). Lean toward what held attention and away from what didn't, and say so when you do ("The POV hooks held better last time, so two of these are POV").
 2. `references/brand.md` for colours, fonts, companions, voice, and the rules on what Studyboard may claim.
 3. `references/retention.md` for hook formulas, pacing, and the formats that work for a student audience.
-4. `README.md` at the repo root if the reel is about a specific feature: it's the source of truth for what the app does and whether it's free or Pro. Never promise anything the README doesn't say. A promo that overclaims gets called out in the comments and costs trust.
+4. `references/diagnose.md`: five lenses (views, likes, comments, shares, follows), used as a pre-flight check on every storyboard and to diagnose a reel whose numbers came back weak.
+5. `README.md` at the repo root if the reel is about a specific feature: it's the source of truth for what the app does and whether it's free or Pro. Never promise anything the README doesn't say. A promo that overclaims gets called out in the comments and costs trust.
 
 ## The workflow
 
@@ -46,6 +47,10 @@ A table with time, what's on screen, the on-screen text, and the caption line. R
 - **≤ 7 words on screen per beat**, big. People read about 3–4 words a second while also watching.
 - **End so it loops.** The last frame leads back into the first (the same chips, the same question answered), so a replay feels seamless. Keep the CTA short: the URL on screen for about 1.5 s is enough.
 - **Captions burned in** for anything spoken. Most viewers watch muted.
+
+### 3b. Pre-flight: the five lenses
+
+Before building, run the checklist at the end of `references/diagnose.md` on the storyboard and caption: **views** (does frame 0 stop the scroll?), **likes** (is the pain specific to this moment of the term, and is the payoff satisfying?), **comments** (is there one easy, personal question or a mild debatable take?), **shares** (who sends this to whom, and which line makes them?), **follows** (is it part of a series the profile promises more of?). Fix every "no" in the storyboard now, since it's cheaper than after rendering. Put the filled-in table in `brief.md`.
 
 ### 4. Build
 
@@ -93,7 +98,11 @@ Write `brief.md` in the reel's folder:
 - **Alt text** and the **cover** choice.
 - For filmed formats, the **script and shot list** (see below).
 
-Then add a row to `marketing/reels/LOG.md` (create it from `references/log-template.md` if missing) with the date, folder, feature, hook, format and length, leaving the metric columns blank. When the user later shares numbers, fill them in and say what you take from them.
+Then add a row to `marketing/reels/LOG.md` (create it from `references/log-template.md` if missing) with the date, folder, feature, hook, format and length, leaving the metric columns blank.
+
+## When numbers come back
+
+When the user shares a reel's metrics (or screenshots of Insights or analytics), fill in its row in `LOG.md`. Compare against their own earlier reels, then find the **weakest** metric and run that lens from `references/diagnose.md` in depth: low views → 5 new hooks; low likes → 3–5 relevance fixes; no comments → 5 conversation tweaks; low shares → 3–5 "that's me" angles; few follows → profile review (ask for profile screenshots). Turn the result into the next reel's brief, add one line to "What we've learned" in `LOG.md`, and offer to re-render the reel with the fix (often a new hook variant is enough).
 
 Give the user the path to `reel.mp4`, show them the cover or a still, and say in one or two lines what the hook is and why you chose it.
 

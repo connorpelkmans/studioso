@@ -120,8 +120,9 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.03em;line-height:1.04
     </h1>
     <div class="abs" id="eSub" style="left:60px;width:860px;top:880px;text-align:center;font:500 40px var(--display);color:#C9D7F2">Free · any browser · no account</div>
     <div class="abs" id="eCta" style="left:60px;width:860px;top:990px;text-align:center"><span class="pill">studyboardapp.com</span></div>
-    <div class="comp" id="eC1" style="width:180px;height:180px;left:290px;top:1170px">{{mochi}}</div>
-    <div class="comp" id="eC2" style="width:180px;height:180px;left:510px;top:1160px">{{owl}}</div>
+    <div class="abs" id="eAsk" style="left:60px;width:860px;top:1130px;text-align:center;font:700 44px var(--display);color:var(--mark)">Which week is your Week 11? 👇</div>
+    <div class="comp" id="eC1" style="width:170px;height:170px;left:300px;top:1240px">{{mochi}}</div>
+    <div class="comp" id="eC2" style="width:170px;height:170px;left:510px;top:1230px">{{owl}}</div>
   </div>
 </div>
 
@@ -221,11 +222,15 @@ function render(t) {
   }));
   // Glow pulse: strong in the hook, fades once the week is fixed
   const pulse = .55 + .45 * Math.abs(Math.sin(t * 3.4));
-  $("glow").style.opacity = (t < T.fix ? pulse : (1 - fixK) * pulse);
+  const calm = P(t, T.fix + .5, T.fix + .8) * (1 - P(t, T.fix + 1.6, T.fix + 2.1));
+  $("glow").style.opacity = t < T.fix ? pulse : Math.max((1 - fixK) * pulse, calm);
+  $("glow").style.outlineColor = t > T.fix + .5 ? "#1E9E74" : "";
+  $("glow").style.boxShadow = t > T.fix + .5 ? "0 0 50px 8px rgba(30,158,116,.6)" : "";
   $("wk" + CR).style.transform = t < T.open ? `translateX(${Math.sin(t * 38) * 2.2}px)` : "none";
   // Grid moves up and shrinks when the week is tapped open
   const up = ioCubic(P(t, T.sheet - .1, T.sheet + .45));
-  g.style.transform = `translate(${lerp(0, 0, up)}px,${lerp(0, -420, up)}px) scale(${lerp(1, .56, up)})`;
+  const push = Math.sin(P(t, T.fix, T.fix + 1.2) * Math.PI) * .04;
+  g.style.transform = `translate(0px,${lerp(0, -420, up)}px) scale(${lerp(1, .56, up) + push})`;
   g.style.top = "700px";
 
   // Exam chips: stacked on the crunch week, shaking (stress); fly off as the paper opens
@@ -272,9 +277,9 @@ function render(t) {
   e.style.clipPath = `inset(${(1 - ioCubic(P(t, T.end, T.end + .45))) * 100}% 0 0 0)`;
   pop($("eIcon"), t, T.end + .3, .45, .3); rise($("eA"), t, T.end + .4); rise($("eB"), t, T.end + .52);
   rise($("eSub"), t, T.end + .8, .4, 30); pop($("eCta"), t, T.end + .95, .4, .7);
-  hop($("eC1"), t, T.end + 1.1, 1); hop($("eC2"), t, T.end + 1.22, 1);
+  rise($("eAsk"), t, T.end + 1.15, .4, 30); hop($("eC1"), t, T.end + 1.3, 1); hop($("eC2"), t, T.end + 1.42, 1);
   // Last 0.35 s: fade the end card's content so it cuts cleanly back into the hook
-  const lo = P(t, END - .35, END); ["eIcon", "eA", "eB", "eSub", "eCta", "eC1", "eC2"].forEach(id => { if (lo > 0) $(id).style.opacity = 1 - lo; });
+  const lo = P(t, END - .35, END); ["eIcon", "eA", "eB", "eSub", "eCta", "eAsk", "eC1", "eC2"].forEach(id => { if (lo > 0) $(id).style.opacity = 1 - lo; });
 }
 window.render = render; window.END = END; window.COVER = COVER;
 render(new URLSearchParams(location.search).has("t") ? +new URLSearchParams(location.search).get("t") : 0);
