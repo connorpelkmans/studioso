@@ -2714,7 +2714,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function allThemesHtml(){
     const names = id => { const s = SKINS.find(x => x.id === id); return s ? s.name : id === "plain" ? "Plain Colors" : id; };
     const keys = ["plain"].concat(SKINS.map(s => s.id).filter(id => REG[id]));
-    return keys.filter(k => REG[k]).map(k => `<div class="cp-row"><div class="cp-row-t">${esc(names(k))}${k === themeKey(skinId()) ? `<span class="tp-now">Your Theme</span>` : ""}</div><div class="cp-row-l">${REG[k].list.map((x, i) => `<span class="cp-mini" ${canComp(x) ? "" : `data-act="shop-unlock" data-kind="comp" data-id="${esc(x.id)}" role="button" tabindex="0"`} title="${esc(x.name + ", " + (x.kind || ""))}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}${compTier(x) === "pro" ? PRO_BADGE : ""}${canComp(x) ? "" : " 🔒"}</span></span>`).join("")}</div></div>`).join("");
+    return keys.filter(k => REG[k]).map(k => `<div class="cp-row"><div class="cp-row-t">${esc(names(k))}${k === themeKey(skinId()) ? `<span class="tp-now">Your Theme</span>` : ""}</div><div class="cp-row-l">${REG[k].list.map((x, i) => `<span class="cp-mini" ${canComp(x) ? "" : `data-act="shop-unlock" data-kind="comp" data-id="${esc(x.id)}" role="button" tabindex="0"`} title="${esc(x.name + ", " + (x.kind || ""))}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}${compTier(x) === "pro" ? PRO_BADGE : ""}</span></span>`).join("")}</div></div>`).join("");
   }
   function shopBody(){
     return `${pickerBody()}<button type="button" class="btn small cp-more" data-act="comp-more" aria-expanded="false">See Every Theme's Companions</button><div class="cp-all" hidden></div>`;
