@@ -74,7 +74,8 @@ Things the renderer does for you in `reel.html`:
 - With `--footage`, `window.FOOTAGE` is true and the page background is transparent, so only your overlays show on top of the video.
 
 Energy rules (from Connor's review: "more enthusiastic and expressive, but not over the top"):
-- Highlight the 2–4 key words of each caption in yellow (`<b>…</b>` in CAPS).
+- **One yellow highlight per caption, on the phrase that does the work**: in a hook, the gut punch or the joke ("and *it's already Week 10*", "so far *I've written my name*"), not the set-up; in the turn, the twist ("*it does the math for you*"); in the fix line, the benefit ("*weeks early*", "*exactly what you need*"). If you remove everything but the yellow, it should still tell the story.
+- **Exclamation marks on the turn, the payoff and the wins** ("Plot twist: …!", the Studyboard line, "Way better!", the end-card headline). Hooks state the problem plainly, and the app's own UI text (buttons, badges) keeps the app's wording.
 - Entrances overshoot slightly (the template's `rise` and `pop`); the payoff gets a **small confetti burst behind the card** (`BURST`) and a **ding** (`ding.wav`).
 - The companions hop on the end card. One celebration per reel: more than that is over the top.
 
