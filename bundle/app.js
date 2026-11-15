@@ -11323,7 +11323,7 @@ const weightGuessed = t => hasWeight(t) && ["bs", "cv", "bb", "md", "sg", "gc"].
 const WEIGHT_GUESS_TIP = "Your school site didn't show a weight for this, so Studyboard split the course by points. Check your syllabus and type in the real weight.";
 // The note above a list of marks when some weights are estimates
 const weightGuessNote = list => { const n = list.filter(weightGuessed).length; return n ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>${n === 1 ? "1 weight is an estimate" : n + " weights are estimates"}.</b> Your school site didn't show ${n === 1 ? "a weight for it" : "weights for them"}, so Studyboard split the course by points. Numbers in red may be wrong: check your syllabus and tap an item to type in the real weight.</span></div>` : ""; };
-const weightOf = t => hasWeight(t) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
+const weightOf = t => hasWeight(t) && !(weightGuessed(t) && PTS_W[t.id]) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
 
 /* What the planner knows beyond the task itself (1.11) - School sync */
 const lmsOf = t => (t && (t.bs || t.cv || t.bb || t.md || t.sg || t.gc)) || null;
@@ -11341,8 +11341,11 @@ const nowStamp = () => { const d = new Date(); return todayISO() + " " + pad(d.g
 let PTS_W = {};
 function pointsWeights(){
   const by = {}, out = {};
-  allTasks().forEach(t => { if (!t.courseId || t.prepFor) return; const b = by[t.courseId] || (by[t.courseId] = {weighted: 0, items: []}); if (hasWeight(t)) b.weighted++; const L = lmsOf(t), o = L && Number(L.outOf); if (o > 0) b.items.push([t.id, o]); });
-  Object.values(by).forEach(b => { if (b.weighted || b.items.length < 3) return; const sum = b.items.reduce((s, x) => s + x[1], 0); if (sum > 0) b.items.forEach(([id, o]) => { out[id] = Math.max(0.5, Math.min(60, o / sum * 100)); }); });
+  // weights that were themselves worked out from points (estimated) don't count as the course having weights: those were split over
+  // the school site's Grades page alone, so the course is shared out by all the points known here instead (as on Grades, 90-grades.js)
+  allTasks().forEach(t => { if (!t.courseId || t.prepFor) return; const b = by[t.courseId] || (by[t.courseId] = {weighted: 0, guessed: 0, items: []}); if (hasWeight(t)) { if (weightGuessed(t)) b.guessed++; else b.weighted++; }
+    const L = lmsOf(t), m = t.mark, o = L && Number(L.outOf) > 0 ? Number(L.outOf) : m && ["bs", "cv", "bb", "md", "sg", "gc"].includes(m.src) && Number(m.outOf) > 0 ? Number(m.outOf) : 0; if (o > 0) b.items.push([t.id, o]); });
+  Object.values(by).forEach(b => { if (b.weighted || (b.items.length < 3 && !b.guessed)) return; const sum = b.items.reduce((s, x) => s + x[1], 0); if (sum > 0) b.items.forEach(([id, o]) => { out[id] = Math.max(0.5, Math.min(60, o / sum * 100)); }); });
   return out;
 }
 // Hours already taken up each day by classes, labs, placements, work shifts and events
@@ -40372,18 +40375,41 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const end = classesEnd(c);
     return !!end && addDays(end, FINAL_AFTER) <= todayISO();
   }
+  /* A points course. When none of a course's weights came from the school or from you, and the only ones it has were worked out
+     from points (estimated), those were worked out from the school site's Grades page alone: marked work found elsewhere (a quiz's
+     submission page, an exam) had no share, and the rest split 100% among themselves (one assignment "worth 100%" beside a marked
+     exam). Such a course is graded by points instead: every item whose points are known shares the course by its points, marked
+     or not, so the marks counted are all the marks, and each share is labelled as worked out from points. */
+  const LMS_F = ["bs", "cv", "bb", "md", "sg", "gc"];
+  const ptsOf = t => { const L = lmsOf(t), o = L && Number(L.outOf); if (o > 0) return o; const m = t.mark; return m && LMS_F.includes(m.src) && Number(m.outOf) > 0 ? Number(m.outOf) : 0; };
+  let EFFW = new Map();   // task id -> its share (%) in a points course; filled by courseGrade
+  const inPts = t => EFFW.has(t.id);
+  const wOf = t => inPts(t) ? EFFW.get(t.id) : hasWeight(t) ? Number(t.weight) : null;
+  function pointsShares(c){
+    const all = allTasks().filter(t => t.courseId === c.id && !t.prepFor);
+    if (all.some(t => hasWeight(t) && !weightGuessed(t))) return null;
+    const pts = all.filter(t => ptsOf(t) > 0);
+    if (!pts.length || !(all.some(weightGuessed) || pts.length >= 3)) return null;
+    const sum = pts.reduce((s, t) => s + ptsOf(t), 0);
+    return sum > 0 ? new Map(pts.map(t => [t.id, Math.round(ptsOf(t) / sum * 10000) / 100])) : null;
+  }
+  // a points course says so once, above its marks, instead of counting "estimated weights"
+  const ptsNote = gr => gr.pts ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>Graded by points.</b> Your school site doesn't show weights for this course, so each item counts by its share of all the points (${gr.ts.length} ${gr.ts.length === 1 ? "item" : "items"} with points so far). If your syllabus gives weights, tap an item to type in the real one.</span></div>` : weightGuessNote(gr.ts);
   function courseGrade(c, asOf, pretend){
     const g = gradingOf(c), R = rulesOf(c);
-    const ts = allTasks().filter(t => t.courseId === c.id && hasWeight(t) && !t.prepFor);
+    const share = pointsShares(c);
+    allTasks().forEach(t => { if (t.courseId === c.id) EFFW.delete(t.id); });
+    if (share) share.forEach((w, id) => EFFW.set(id, w));
+    const ts = allTasks().filter(t => t.courseId === c.id && !t.prepFor && (share ? share.has(t.id) : hasWeight(t)));
     const pctOf = t => { const p = markPct(t); if (p == null && pretend && isNum(pretend[t.id])) return Number(pretend[t.id]); return p != null && (!(asOf instanceof Set) || asOf.has(t.id)) ? p : null; };
     const pm = new Map(ts.map(t => [t.id, pctOf(t)]));
     const marked = ts.filter(t => pm.get(t.id) != null), open = ts.filter(t => pm.get(t.id) == null);
-    const wMarked = marked.reduce((s, t) => s + Number(t.weight), 0);
-    const earned = marked.reduce((s, t) => s + Number(t.weight) * pm.get(t.id) / 100, 0);
-    const wAll = ts.reduce((s, t) => s + Number(t.weight), 0);
+    const wMarked = marked.reduce((s, t) => s + wOf(t), 0);
+    const earned = marked.reduce((s, t) => s + wOf(t) * pm.get(t.id) / 100, 0);
+    const wAll = ts.reduce((s, t) => s + wOf(t), 0);
     const D = Math.max(100, wAll);
     const remaining = Math.max(0, D - wMarked), unlisted = Math.max(0, 100 - wAll);
-    const items = ts.map(t => ({id: t.id, w: Number(t.weight), cat: t.type, fin: /\bfinal\b/i.test(t.title || ""), pct: pm.get(t.id)}));
+    const items = ts.map(t => ({id: t.id, w: wOf(t), cat: t.type, fin: /\bfinal\b/i.test(t.title || ""), pct: pm.get(t.id)}));
     if (unlisted > 0.001) items.push({id: "", w: unlisted, cat: "", fin: false, pct: null});
     const ruled = GRULES.active(items, R);
     let current, minFinal, maxFinal, need, dropped = new Set();
@@ -40398,8 +40424,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     }
     const remShown = remaining / D * 100;
     const projected = current == null ? null : remaining > 0.01 ? (ruled ? GRULES.finalWith(items, R, D, current) : current) : minFinal;
-    const loose = allTasks().filter(t => t.courseId === c.id && !hasWeight(t) && !t.prepFor && markPct(t) != null);
-    const gr = {c, g, R, ruled, dropped, ts, loose, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+    const loose = allTasks().filter(t => t.courseId === c.id && wOf(t) == null && !t.prepFor && markPct(t) != null);
+    const gr = {c, g, R, ruled, dropped, ts, loose, marked, open, pts: !!share, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
     // every listed item marked isn't a final grade: more can still be added until classes are over
     gr.final = gr.done && classesOver(c);
     gr.risk = riskOf(gr);
@@ -40562,7 +40588,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (v === null) return "";
     if (v === undefined) return `<span class="late">Type it like 43/50 or 86%.</span>`;
     const p = v.got / v.outOf * 100, L = letterOf(p, g.scale);
-    return `<b>${fmtP(p)}</b>${L ? ` (${esc(L)})` : ""}${hasWeight(t) ? `, which adds ${r1(Number(t.weight) * p / 100)} of the ${r1(Number(t.weight))} points this is worth` : ""}.`;
+    return `<b>${fmtP(p)}</b>${L ? ` (${esc(L)})` : ""}${wOf(t) != null ? `, which adds ${r1(wOf(t) * p / 100)} of the ${r1(wOf(t))} points this is worth` : ""}.`;
   }
 
   /* Task form: a compact Mark field */
@@ -40686,10 +40712,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   }
   // The unmarked graded item with the most weight
   function biggestSwing(gr){
-    const open = (gr.open || []).filter(t => Number(t.weight) > 0);
+    const open = (gr.open || []).filter(t => wOf(t) > 0);
     if (gr.done || open.length < 2) return null;
-    const t = open.slice().sort((a, b) => Number(b.weight) - Number(a.weight) || String(a.due || "9999").localeCompare(String(b.due || "9999")))[0];
-    const share = Number(t.weight) / gr.D * 100;
+    const t = open.slice().sort((a, b) => wOf(b) - wOf(a) || String(a.due || "9999").localeCompare(String(b.due || "9999")))[0];
+    const share = wOf(t) / gr.D * 100;
     return {t, share, per10: share / 10};
   }
   /* Where the grade comes from */
@@ -40699,15 +40725,15 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   // The marked work of each type, weighted, highest first. left: how much of the course is still to come in that type
   function byType(gr){
     const m = {}, key = t => t.type || "Other";
-    gr.marked.forEach(t => { const w = Number(t.weight), o = m[key(t)] || (m[key(t)] = {type: key(t), w: 0, e: 0, n: 0, left: 0}); o.w += w; o.e += w * markPct(t); o.n++; });
-    gr.open.forEach(t => { const o = m[key(t)]; if (o) o.left += Number(t.weight); });
+    gr.marked.forEach(t => { const w = wOf(t), o = m[key(t)] || (m[key(t)] = {type: key(t), w: 0, e: 0, n: 0, left: 0}); o.w += w; o.e += w * markPct(t); o.n++; });
+    gr.open.forEach(t => { const o = m[key(t)]; if (o) o.left += wOf(t); });
     return Object.values(m).filter(o => o.w > 0).map(o => Object.assign(o, {pct: o.e / o.w, share: o.w / gr.D * 100, left: o.left / gr.D * 100})).sort((a, b) => b.pct - a.pct);
   }
   // How much each mark lifts or lowers the current grade (the grade with it, minus the grade without it)
   function markImpact(gr){
     if (gr.current == null || gr.marked.length < 3) return null;
-    const W = gr.marked.reduce((s, t) => s + Number(t.weight), 0), E = gr.marked.reduce((s, t) => s + Number(t.weight) * markPct(t), 0);
-    const all = gr.marked.map(t => { const w = Number(t.weight); return W - w > 0 ? {t, d: gr.current - (E - w * markPct(t)) / (W - w)} : null; }).filter(Boolean).sort((a, b) => b.d - a.d);
+    const W = gr.marked.reduce((s, t) => s + wOf(t), 0), E = gr.marked.reduce((s, t) => s + wOf(t) * markPct(t), 0);
+    const all = gr.marked.map(t => { const w = wOf(t); return W - w > 0 ? {t, d: gr.current - (E - w * markPct(t)) / (W - w)} : null; }).filter(Boolean).sort((a, b) => b.d - a.d);
     const boost = all[0] && all[0].d >= 0.5 ? all[0] : null, drag = all.length && all[all.length - 1].d <= -0.5 ? all[all.length - 1] : null;
     return boost || drag ? {boost, drag} : null;
   }
@@ -40751,14 +40777,14 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   function comingUp(all, days){
     const today = todayISO(), end = addDays(today, days - 1);
     return all.map(gr => {
-      const its = gr.open.filter(t => t.status !== "done" && t.due && t.due >= today && t.due <= end && Number(t.weight) > 0).sort(sortTasks);
-      return {gr, its, share: its.reduce((s, t) => s + Number(t.weight), 0) / gr.D * 100};
+      const its = gr.open.filter(t => t.status !== "done" && t.due && t.due >= today && t.due <= end && wOf(t) > 0).sort(sortTasks);
+      return {gr, its, share: its.reduce((s, t) => s + wOf(t), 0) / gr.D * 100};
     }).filter(x => x.its.length).sort((a, b) => b.share - a.share);
   }
   function comingUpHtml(all){
     const list = comingUp(all, 14); if (!list.length) return "";
     return `<h3 class="fsec">${esc(tr("gb.soon", "Graded Work Coming Up"))}<span class="n">${esc(tr("gb.soon.when", "next 2 weeks"))}</span></h3><ul class="gs-wait gb-soon">${list.map(x => `<li style="--c:${esc(x.gr.c.color)}"><span class="gs-name"><span>${esc(tr("gb.soon.row", "{share} of {course} is due", {share: fmtW(x.share), course: courseLabel(x.gr.c)}))}</span>
-      <span class="mini">${x.its.slice(0, 4).map(t => esc(tr("gb.soon.item", "{title} ({w}, {due})", {title: t.title, w: fmtW(Number(t.weight)), due: fmtShort(t.due)}))).join(" · ")}${x.its.length > 4 ? " · " + esc(tr("gb.more", "+{n} more", {n: x.its.length - 4})) : ""}</span></span>
+      <span class="mini">${x.its.slice(0, 4).map(t => esc(tr("gb.soon.item", "{title} ({w}, {due})", {title: t.title, w: fmtW(wOf(t)), due: fmtShort(t.due)}))).join(" · ")}${x.its.length > 4 ? " · " + esc(tr("gb.more", "+{n} more", {n: x.its.length - 4})) : ""}</span></span>
       <button class="btn small" data-act="g-open-course" data-id="${esc(x.gr.c.id)}">${esc(tr("gb.open", "Open"))}</button></li>`).join("")}</ul>`;
   }
   // What a course would look like with pretend marks
@@ -40783,11 +40809,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     return out.join(" ");
   }
   function whatIfHtml(gr){
-    const open = (gr.open || []).filter(t => Number(t.weight) > 0).slice().sort(sortTasks).slice(0, 8);
+    const open = (gr.open || []).filter(t => wOf(t) > 0).slice().sort(sortTasks).slice(0, 8);
     if (gr.done || !open.length) return "";
     const vals = (ui.gWhatIf && ui.gWhatIf[gr.c.id]) || {};
     return `<div class="gr-sub gr-wi" data-wi-course="${esc(gr.c.id)}"><h4>What If?</h4>
-      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter aria-describedby="wio-${esc(t.id)}"><span class="mini gr-wi-over" id="wio-${esc(t.id)}"${vals[t.id] > 100 ? "" : " hidden"}>That's over 100%. Bonus marks?</span></li>`).join("")}</ul>
+      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(wOf(t))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter aria-describedby="wio-${esc(t.id)}"><span class="mini gr-wi-over" id="wio-${esc(t.id)}"${vals[t.id] > 100 ? "" : " hidden"}>That's over 100%. Bonus marks?</span></li>`).join("")}</ul>
       <p class="gr-wi-out" role="status" aria-live="polite">${whatIfOut(gr, vals)}</p>
       <button type="button" class="link-btn" data-act="wi-clear" data-id="${esc(gr.c.id)}" style="justify-self:start"${Object.keys(vals).length ? "" : " hidden"}>Clear What-Ifs</button></div>`;
   }
@@ -40829,8 +40855,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const p = markPct(t);
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
-      const nw = p != null && !hasWeight(t);
-      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est" title="${esc(WEIGHT_GUESS_TIP)}">worth ~${fmtW(Number(t.weight))} (estimated)</span>` : `worth ${fmtW(Number(t.weight))}`) : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
+      const nw = p != null && wOf(t) == null;
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${inPts(t) ? `<span class="w-est" title="This course has no weights, so it's graded by points: each item counts by its share of all the points.">worth ~${fmtW(wOf(t))} (by points)</span>` : hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est" title="${esc(WEIGHT_GUESS_TIP)}">worth ~${fmtW(Number(t.weight))} (estimated)</span>` : `worth ${fmtW(Number(t.weight))}`) : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -40915,7 +40941,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         <div class="gr-stat"><span class="gr-k">Projected Final</span>${gr.projected != null ? `<span class="gr-v">${fmtP(gr.projected)}${L(gr.projected) ? ` <span class="gr-l">${esc(L(gr.projected))}</span>` : ""}</span><span class="mini">${gr.done ? "all work marked" : `if you keep this up. Possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}`}</span>` : `<span class="gr-v gr-none">Not Yet</span><span class="mini">Needs a first mark</span>`}</div>
         <div class="gr-stat gr-pass"><span class="gr-k">Pass Mark</span><span class="gr-v">${fmtP(g.pass)}${L(g.pass) ? ` <span class="gr-l">${esc(L(g.pass))}</span>` : ""}</span><span class="mini">${g.goal != null && gg ? `<b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></div>
       </div>
-      ${weightGuessNote(gr.ts)}
+      ${ptsNote(gr)}
       ${goalAsk(gr) || goalField(c, gr)}
       ${gradeBar(gr)}
       ${need.length ? `<div class="gr-sub"><h4>What You Need</h4><ul class="gr-need">${need.map(x => `<li>${x}</li>`).join("")}</ul></div>` : ""}
@@ -41165,8 +41191,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const head = `COURSE ${courseLabel(c)}${c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : ""}${isNum(c.credits) ? ", " + fmtCr(c.credits) + " credits" : ""}: `
         + (gr.current != null ? `current ${fmtP(gr.current)}${Lt(gr.current)} on ${fmtW(gr.wMarked)} of the course marked; ${gr.final ? "final" : gr.done ? "everything listed so far is marked (not final: classes aren't over, more marks may come); so far" : "projected final"} ${fmtP(finalOf(gr))}${Lt(finalOf(gr))}; possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}` : "no marks yet")
         + `; pass mark ${fmtP(g.pass)}${g.goal != null ? "; goal " + fmtP(g.goal) : ""}${risk ? "; " + risk : ""}. ${gradeLine(gr)}${rulesText(gr.R) ? " Grading rules: " + rulesText(gr.R) + "." : ""}`;
-      const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
-      const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
+      const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(wOf(t))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
+      const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(wOf(t))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
       L.push(head + (zeroed(gr) ? "\n  LOOKS WRONG: every mark in this course is 0%, which almost always means the marks weren't entered or the school site sent ungraded work as 0. Don't treat it as a real failing grade." : "") + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
     });
     return L.join("\n");
@@ -41246,7 +41272,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         <div class="chips gp-calc-t" role="group" aria-label="Target">${tg.map(([k, v]) => `<button type="button" class="chip" data-act="gp-target" data-cid="${esc(c.id)}" data-id="${v}" aria-pressed="${Math.abs(v - want) < 0.01}">${esc(k)} ${r1(v)}%</button>`).join("")}</div>
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
-        ${weightGuessNote(gr.ts)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
+        ${ptsNote(gr)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
