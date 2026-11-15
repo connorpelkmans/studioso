@@ -210,4 +210,24 @@ t("ordinal-only dates and section numbers (T12)", () => {
   assert.ok(!P("Homework 2.5 fri").flags.includes("words")); assert.ok(P("Homework 2.5 fri").confident);
   assert.ok(P("hw 10.28").flags.includes("words"), "a dotted month.day still asks");
 });
+t("a weekday said with the date, spelled-out days, and more ways to say when (today is Sun 2026-11-15)", () => {
+  const c = {today: "2026-11-15", courses};
+  const Q = s => CAP.parseLine(s, c);
+  [["homework 2 due on friday oct 30", "2026-10-30", "Homework 2"], ["essay due friday nov 20", "2026-11-20", "Essay"], ["essay due fri, november 20th", "2026-11-20", "Essay"],
+   ["essay due friday the 20th", "2026-11-20", "Essay"], ["essay due mon 11/23", "2026-11-23", "Essay"], ["essay due 23/11", "2026-11-23", "Essay"], ["quiz on the first", "2026-12-01", "Quiz"],
+   ["quiz december first", "2026-12-01", "Quiz"], ["quiz the first of december", "2026-12-01", "Quiz"], ["report due nov thirtieth", "2026-11-30", "Report"],
+   ["lab day after tomorrow", "2026-11-17", "Lab"], ["paper 3 days from now", "2026-11-18", "Paper"], ["paper a week from today", "2026-11-22", "Paper"],
+   ["midterm wednesday december 2nd 2026 at 9am", "2026-12-02", "Midterm"], ["read the first chapter fri", "2026-11-20", "Read the first chapter"], ["second draft fri", "2026-11-20", "Second draft"]]
+    .forEach(([s, due, title]) => { const d = Q(s); assert.strictEqual(d.due, due, s); assert.strictEqual(d.title, title, s); });
+  assert.ok(Q("homework 2 due on friday oct 30").flags.includes("past"), "a date already gone by still asks");
+  assert.ok(Q("essay due thursday nov 20").flags.includes("date"), "a weekday that doesn't match the date asks");
+  assert.ok(!Q("essay due friday nov 20").flags.length, "a matching weekday and date is clear");
+});
+t("time estimates said many ways never stay in the title", () => {
+  const c = {today: "2026-11-15", courses};
+  [["homework 2 due on friday oct 30, 4 hrs long", 4, "Homework 2"], ["reading for 2 hours tomorrow", 2, "Reading"], ["project, takes about 1.5 hours of work, thu", 1.5, "Project"],
+   ["study half an hour tonight", 0.5, "Study"], ["essay an hour long fri", 1, "Essay"], ["a 3-hour lab report mon", 3, "Lab report"], ["hw 45 min long wed", 0.75, "Homework"], ["lab 2 hours fri", 2, "Lab"]]
+    .forEach(([s, h, title]) => { const d = CAP.parseLine(s, c); assert.strictEqual(d.hours, h, s); assert.strictEqual(d.title, title, s); });
+  assert.strictEqual(CAP.parseLine("office hours thu", c).hours, null, "office hours isn't a time estimate");
+});
 console.log(n + " capture tests passed");

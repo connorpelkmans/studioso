@@ -47,4 +47,11 @@
   for (var j = 0; j < app.length; j++) {
     try { var u = new URL(cfg.APP_URL); if (u.protocol === "https:" && !/YOUR-APP/.test(u.hostname)) app[j].setAttribute("href", u.href); } catch (e) { }
   }
+  // The thank-you page after buying Studyboard Credits (create-checkout adds kind=credits)
+  try {
+    if (new URLSearchParams(location.search).get("kind") === "credits" && document.getElementById("credits-done")) {
+      document.getElementById("credits-done").hidden = false;
+      var pd = document.getElementById("pro-done"); if (pd) pd.hidden = true;
+    }
+  } catch (e) { }
 })();

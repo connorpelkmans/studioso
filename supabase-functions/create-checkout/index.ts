@@ -1,11 +1,15 @@
-// Studyboard Pro
+// Studyboard Pro, Studyboard Plus and Studyboard Credits
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
 
 const RATE_MAX = 10, RATE_WINDOW = 3600;
-const PLANS = ["monthly", "semester", "yearly"] as const;
-const PRICE_ENV: Record<string, string> = { monthly: "STRIPE_PRICE_MONTHLY", semester: "STRIPE_PRICE_SEMESTER", yearly: "STRIPE_PRICE_YEARLY" };
+// "plus" is Studyboard Plus: Pro without Studyboard AI, $2.99 a month (its price id: the STRIPE_PRICE_PLUS secret, or
+// studyboard_config.stripe_prices.plus_monthly; shown once studyboard_config.plus_plan is true)
+const PLANS = ["monthly", "semester", "yearly", "plus"] as const;
+const PRICE_ENV: Record<string, string> = { monthly: "STRIPE_PRICE_MONTHLY", semester: "STRIPE_PRICE_SEMESTER", yearly: "STRIPE_PRICE_YEARLY", plus: "STRIPE_PRICE_PLUS" };
+const PACK_ID = /^[a-z0-9_]{1,40}$/;
+const PRICE_ID = /^price_[A-Za-z0-9]+$/;
 const APP_ORIGINS = ["app://studioso", "capacitor://localhost", "https://localhost"];
 type Plan = typeof PLANS[number];
 const PATH_OK = /^\/[A-Za-z0-9_./-]{0,120}$/;
@@ -115,44 +119,81 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const rl = await (await rest("rpc/studyboard_plan_rate_hit", { method: "POST", body: JSON.stringify({ p_key: `checkout:${uid}`, p_max: RATE_MAX, p_window: RATE_WINDOW }) })).json();
     if (rl !== true) return json({ error: "rate_limited", message: "Too many tries. Please wait a little and try again." }, 429, cors, { "Retry-After": "900" });
 
-    // Only "monthly", "semester" or "yearly" is taken from the browser
+    // Only a plan name ("monthly", "semester", "yearly" or "plus") or a credit pack id is taken from the browser; prices come from the server
     const text = await req.text();
     if (text.length > 4096) return json({ error: "bad request" }, 400, cors);
     const body = (() => { try { return JSON.parse(text || "{}"); } catch (_e) { return null; } })();
-    const plan: Plan | null = body && PLANS.includes(body.plan) ? body.plan : null;
-    if (!plan) return json({ error: "bad request", message: "Choose monthly, semester or yearly." }, 400, cors);
-    const price = d.env(PRICE_ENV[plan]);
-    if (plan === "semester" && !/^price_[A-Za-z0-9]+$/.test(price)) return json({ error: "plan_unavailable", message: "The semester plan isn't available yet. Choose monthly or yearly." }, 400, cors);
-    if (!/^price_[A-Za-z0-9]+$/.test(price) || !d.env("STRIPE_SECRET_KEY")) throw new Error("checkout is not configured");
+    const packId: string | null = body && typeof body.pack === "string" && PACK_ID.test(body.pack) ? body.pack : null;
+    const plan: Plan | null = !packId && body && PLANS.includes(body.plan) ? body.plan : null;
+    if (!plan && !packId) return json({ error: "bad request", message: "Choose monthly, semester or yearly." }, 400, cors);
+    if (!d.env("STRIPE_SECRET_KEY")) throw new Error("checkout is not configured");
 
-    // Allowed return sites
-    const cfg = await (await rest("studyboard_config?key=in.(site_url,prices)&select=key,value")).json() as { key: string; value: unknown }[];
-    const siteUrl = String(cfg.find(c => c.key === "site_url")?.value || "");
+    // Allowed return sites, and the switches and price ids kept in the database
+    const cfg = await (await rest("studyboard_config?key=in.(site_url,prices,stripe_prices,plus_plan,item_purchases)&select=key,value")).json() as { key: string; value: unknown }[];
+    const cfgVal = (k: string) => cfg.find(c => c.key === k)?.value;
+    let price = "";
+    if (plan) {
+      price = d.env(PRICE_ENV[plan]);
+      if (plan === "plus") {
+        if (!PRICE_ID.test(price)) price = String((cfgVal("stripe_prices") as any)?.plus_monthly || "");
+        if (cfgVal("plus_plan") !== true || !PRICE_ID.test(price)) return json({ error: "plan_unavailable", message: "Studyboard Plus isn't available yet. Choose a Pro plan." }, 400, cors);
+      }
+      if (plan === "semester" && !PRICE_ID.test(price)) return json({ error: "plan_unavailable", message: "The semester plan isn't available yet. Choose monthly or yearly." }, 400, cors);
+      if (!PRICE_ID.test(price)) throw new Error("checkout is not configured");
+    }
+    const siteUrl = String(cfgVal("site_url") || "");
     const origins = allowedOrigins(d.env, siteUrl);
     if (!origins.length) throw new Error("no allowed site origin is set (SITE_ORIGINS or studyboard_config site_url)");
     if (reqOrigin && (origins.includes(reqOrigin) || appOrigins.includes(reqOrigin))) cors["Access-Control-Allow-Origin"] = reqOrigin;
+    const src = body.src === "app" ? "&src=app" : "";
+    const managed = d.env("STRIPE_MANAGED_PAYMENTS") === "1";
+
+    // The Stripe customer for this account
+    const customerFor = async (): Promise<string> => {
+      let customer = ((await (await rest(`studyboard_billing_customers?user_id=eq.${uid}&select=stripe_customer_id`)).json()) as any[])[0]?.stripe_customer_id as string | undefined;
+      if (!customer) {
+        const created = await stripe(d, "customers", { email: user.email, metadata: { uid } }, `sb-customer-${uid}`);
+        customer = String(created.id);
+        await rest("studyboard_billing_customers?on_conflict=user_id", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify({ user_id: uid, stripe_customer_id: customer }) });
+        customer = ((await (await rest(`studyboard_billing_customers?user_id=eq.${uid}&select=stripe_customer_id`)).json()) as any[])[0]?.stripe_customer_id || customer;
+      }
+      return customer!;
+    };
+
+    // Credits: a one-time payment for a pack. The pack's credits and Stripe price come from studyboard_credit_packs
+    if (packId) {
+      if (cfgVal("item_purchases") !== true) return json({ error: "plan_unavailable", message: "Credits aren't available yet." }, 400, cors);
+      const pack = ((await (await rest(`studyboard_credit_packs?pack_id=eq.${packId}&active=eq.true&select=pack_id,credits,stripe_price_id`)).json()) as any[])[0];
+      if (!pack || !PRICE_ID.test(String(pack.stripe_price_id || ""))) return json({ error: "plan_unavailable", message: "That credit pack isn't available. Choose another one." }, 400, cors);
+      const meta = { uid, kind: "credits", pack: pack.pack_id };
+      const session = await stripe(d, "checkout/sessions", {
+        mode: "payment",
+        customer: await customerFor(),
+        client_reference_id: uid,
+        metadata: meta,
+        payment_intent_data: { metadata: meta, description: `Studyboard: ${pack.credits} credits` },
+        line_items: { 0: { price: pack.stripe_price_id, quantity: 1 } },
+        success_url: safeReturn(body.success_url, origins, "/success.html", local, `?session_id={CHECKOUT_SESSION_ID}&kind=credits${src}`),
+        cancel_url: safeReturn(body.cancel_url, origins, "/cancel.html", local, src ? "?src=app" : ""),
+        ...(managed ? { managed_payments: { enabled: "true" } } : {}),
+      }, undefined, managed ? MANAGED_PAYMENTS_VERSION : undefined);
+      if (typeof session.url !== "string" || !/^https:\/\/checkout\.stripe\.com\//.test(session.url)) throw new Error("no checkout url");
+      return json({ url: session.url }, 200, cors);
+    }
+
     // No card trial at checkout by default
-    const trialDays = Math.min(30, Math.max(0, Number((cfg.find(c => c.key === "prices")?.value as any)?.checkoutTrialDays ?? 0) || 0));
+    const trialDays = Math.min(30, Math.max(0, Number((cfgVal("prices") as any)?.checkoutTrialDays ?? 0) || 0));
 
     const ent = ((await (await rest(`studyboard_entitlements?user_id=eq.${uid}&select=plan,pro_until,trial_until,external_id,source,will_renew`)).json()) as any[])[0] || null;
     const live = ent && ent.plan === "pro" && (ent.pro_until === null || Date.parse(ent.pro_until) > d.now());
     if (live && ent.source === "stripe" && ent.will_renew) return json({ error: "already_subscribed", message: "You already have an active Studyboard Pro subscription. Use Manage billing to change it." }, 409, cors);
     if (ent && ent.plan === "lifetime") return json({ error: "already_subscribed", message: "You already have Studyboard Pro for good." }, 409, cors);
 
-    // The Stripe customer for this account
-    let customer = ((await (await rest(`studyboard_billing_customers?user_id=eq.${uid}&select=stripe_customer_id`)).json()) as any[])[0]?.stripe_customer_id as string | undefined;
-    if (!customer) {
-      const created = await stripe(d, "customers", { email: user.email, metadata: { uid } }, `sb-customer-${uid}`);
-      customer = String(created.id);
-      await rest("studyboard_billing_customers?on_conflict=user_id", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify({ user_id: uid, stripe_customer_id: customer }) });
-      customer = ((await (await rest(`studyboard_billing_customers?user_id=eq.${uid}&select=stripe_customer_id`)).json()) as any[])[0]?.stripe_customer_id || customer;
-    }
+    const customer = await customerFor();
 
     // A free trial only for accounts that never had one
     let hadTrial = !!(ent && (ent.trial_until || ent.external_id || ent.source === "stripe"));
     if (!hadTrial && trialDays > 0) hadTrial = await trialUsed(d, h, user.email);
-    const src = body.src === "app" ? "&src=app" : "";
-    const managed = d.env("STRIPE_MANAGED_PAYMENTS") === "1";
     const session = await stripe(d, "checkout/sessions", {
       mode: "subscription",
       customer,

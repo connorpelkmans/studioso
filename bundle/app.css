@@ -1874,7 +1874,8 @@ li.task .pp-row-btn:last-child{margin-right:12px}
 .nu-row>.check{margin:0;align-self:flex-start;margin-top:1px}
 .nu-body{flex:1 1 260px;min-width:0;display:grid;gap:3px}
 .nu-title{border:0;background:none;padding:0;text-align:start;font:700 1.08rem var(--display);color:var(--ink);cursor:pointer}
-.nu-title:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+/* hovering underlines the task's name only, not the course code or Take-home beside it (or the spaces between) */
+.nu-title:hover .nu-tt{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
 .nu-why{font-size:.86rem;color:var(--muted)}
 .nu-step{font-size:.86rem;font-weight:600}
 .nu-acts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
@@ -2815,6 +2816,10 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 /* Pro without Studyboard AI (a grant, a code, the free weeks): subscribing adds it */
 .plan-upai{display:grid;gap:4px;padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
 .plan-upai p{margin:0}
+/* Studyboard Plus: the quieter option under the Pro prices */
+.plan-plus{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 2px;padding:12px 14px;border:1px dashed var(--line);border-radius:14px;background:var(--soft)}
+.plan-plus-t{flex:1 1 220px;display:grid;gap:2px;min-width:0}
+.plan-plus .btn{flex:none}
 /* ===== module: 15-tips.css ===== */
 /* Everyday how-to tips hide after the first 14 days of use */
 html.tips-off .tip-everyday{display:none!important}
@@ -4611,6 +4616,29 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 }
 /* What you're using reads the same on every tab (and for companions): a soft "✓ In Use" badge, not a faded button */
 .btn.shop-inuse:disabled,.cp-chosen.shop-inuse{opacity:1;cursor:default;display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:color-mix(in srgb,var(--accent) 78%,var(--ink));font-weight:700;box-shadow:none}
+/* ===== module: 97-credits.css ===== */
+/* Studyboard Credits: the balance in the Style Shop, the buy sheet and the credit packs */
+.cr-coin{flex:none;color:var(--accent);vertical-align:-3px}
+.cr-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--soft)}
+.cr-bar-t{flex:1;display:grid;gap:1px;min-width:0}
+.cr-bar .btn{flex:none}
+.cr-sheet .cr-prev{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;padding:8px 0}
+.cr-sheet .cr-prev .skin-prev{width:min(100%,320px)}
+.cr-sheet .cr-stk .stk-cell{width:44px;height:44px}
+.cr-cost{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;margin:0;font-size:1.05rem}
+.cr-cost .mini{flex-basis:100%}
+.cr-has{padding:10px 12px;border-radius:12px;background:var(--soft)}
+.cr-has ul{margin:6px 0 0;padding-left:20px;display:grid;gap:2px}
+.cr-bal{margin:0}
+.cr-bal-big{display:flex;align-items:center;gap:8px;font-size:1.05rem}
+.cr-packs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;padding-top:6px}
+.cr-pack{position:relative;display:grid;gap:4px;justify-items:start;text-align:left;min-height:86px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);cursor:pointer;font:inherit}
+.cr-pack:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.cr-pack:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+.cr-pack.best{border-color:var(--accent)}
+.cr-pack-n{display:flex;align-items:center;gap:6px}
+.cr-pack-p{font-size:1.15rem;font-weight:700}
+.cr-pack .pp-flag{background:var(--accent);color:var(--accent-ink,#fff)}
 /* ===== module: 97-ui.css ===== */
 /* ===== 97-ui: Settings in categories ===== */
 .us-sheet .us-back{display:none}
@@ -8516,9 +8544,9 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 @keyframes sbPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
 .check.sb-pop{background:var(--c,var(--leaf));border-color:var(--c,var(--leaf));animation:sbPop .18s ease-out}
 .check.sb-pop svg{opacity:1}
-.sb-popped :is(.task-title,.nu-title,.card-title,.title){text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 45%,transparent);opacity:.55;transition:opacity .12s ease-out .14s}
+.sb-popped :is(.task-title,.nu-title .nu-tt,.card-title,.title){text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 45%,transparent);opacity:.55;transition:opacity .12s ease-out .14s}
 .acc-s{display:none}
-@media (prefers-reduced-motion:reduce){.check.sb-pop{animation:none}.sb-popped :is(.task-title,.nu-title,.card-title,.title){transition:none}}
+@media (prefers-reduced-motion:reduce){.check.sb-pop{animation:none}.sb-popped :is(.task-title,.nu-title .nu-tt,.card-title,.title){transition:none}}
 /* The toast looks the same at every size (a tick for something done, a boxed Undo); only where it sits changes */
 :root{--toast-bg:var(--spine);--toast-ink:#fff}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--toast-bg:color-mix(in srgb,var(--surface) 82%,#fff)}}
@@ -9492,6 +9520,43 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .cxs-veil.is-drag .cxs-hint{opacity:0;transition:opacity .15s}
 .cxs-box{position:fixed;border:2px solid #4f7cff;border-radius:4px;background:rgba(79,124,255,.12);box-shadow:0 0 0 9999px rgba(10,14,24,.22);pointer-events:none}
 @media (prefers-reduced-motion:reduce){.cx-expr.cx-in{animation:none}}
+
+/* "Bring in an equation": a small menu under its corner button (Picture, Paste Picture, Capture from Screen) */
+.cx-top{position:relative}
+.cx-src[aria-expanded=true]{filter:brightness(1.3);box-shadow:0 0 0 2px var(--brand2,#f0a33a)}
+.cx-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:5;width:min(290px,calc(100vw - 40px));padding:6px;border-radius:14px;background:var(--surface,#fff);color:var(--ink,#1c2433);border:1px solid var(--line,#dfe3ea);box-shadow:0 14px 34px rgba(0,0,0,.32),0 2px 6px rgba(0,0,0,.18);cursor:default;font-family:var(--font,system-ui),system-ui,sans-serif;-webkit-user-select:none;user-select:none}
+.cx-menu[hidden]{display:none}
+.cx-mi{position:relative;display:flex;align-items:center;gap:11px;width:100%;min-height:52px;padding:8px 10px;border:0;border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;overflow:hidden}
+.cx-mi:hover,.cx-mi:focus-within,.cx-mi:focus-visible{background:color-mix(in srgb,var(--accent,#4f7cff) 12%,transparent)}
+.cx-mi:focus-visible,.cx-mi:focus-within{outline:2px solid var(--accent,#4f7cff);outline-offset:-2px}
+.cx-mi-ic{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:color-mix(in srgb,var(--accent,#4f7cff) 14%,transparent);color:var(--accent,#4f7cff)}
+.cx-mi-ic svg{width:19px;height:19px}
+.cx-mi-t{display:flex;flex-direction:column;gap:2px;min-width:0;font-weight:650;font-size:.92rem;line-height:1.2}
+.cx-mi-s{font-weight:500;font-size:.78rem;color:var(--muted,#636e83)}
+/* the real file input lies over the Picture row, so a tap on it is a direct tap on the input (iPhone, iPad) */
+.cx-file{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+
+/* The drag-a-box step over a photo, a pasted picture or a frame of the screen */
+.cxp{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;background:rgba(8,10,16,.88);color:#fff;font:600 .9rem/1.25 var(--font,system-ui),system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.cxp-bar{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 16px}
+.cxp-hint{flex:1 1 200px;min-width:0}
+.cxp-hint span{margin-left:8px;opacity:.65;font-weight:500}
+.cxp-btns{display:flex;gap:8px;margin-left:auto}
+.cxp-btns button{min-height:38px;padding:8px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;font:inherit;cursor:pointer}
+.cxp-btns .cxp-all{background:#4f7cff;border-color:#4f7cff}
+.cxp-btns button:hover,.cxp-btns button:focus-visible{filter:brightness(1.15)}
+.cxp-btns button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.cxp-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:0 16px 16px;cursor:crosshair}
+.cxp-frame{position:relative;display:flex;max-width:100%;max-height:100%}
+.cxp-pic{display:block;max-width:100%;max-height:calc(100dvh - 90px);width:auto;height:auto;border-radius:6px;background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.cxp-box{position:absolute;border:2px solid #4f7cff;border-radius:4px;background:rgba(79,124,255,.14);box-shadow:0 0 0 9999px rgba(8,10,16,.4);pointer-events:none}
+/* a frame of the screen fills the screen, with the bar floating over it */
+.cxp.is-screen{background:#000}
+.cxp.is-screen .cxp-bar{position:absolute;z-index:2;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);border-radius:999px;background:rgba(18,22,32,.92);box-shadow:0 6px 20px rgba(0,0,0,.35);padding:6px 6px 6px 16px}
+.cxp.is-screen.is-drag .cxp-bar{opacity:0;transition:opacity .15s}
+.cxp.is-screen .cxp-stage{padding:0}
+.cxp.is-screen .cxp-pic{max-height:100dvh;border-radius:0;box-shadow:none}
+@media (max-width:639px){ .cxp-bar{padding:10px 12px} .cxp-btns{width:100%} .cxp-btns button{flex:1} }
 
 /* Size: the whole calculator scales evenly from its corner grip (computers; on phones it fills the bottom of the screen) */
 @media (min-width:640px){

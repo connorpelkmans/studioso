@@ -1,4 +1,4 @@
-// Studyboard 1.12
+// Studyboard 1.13: Pro, Plus (Pro without Studyboard AI) and Credits
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -9,6 +9,8 @@ type Apply = {
   will_renew?: boolean; external_id?: string; fresh?: boolean;
   // A real payment (money taken, not a trial), and how long the plan is: these decide the Founders and Early Supporters
   paid?: boolean; term?: Term;
+  // Whether the plan paid for includes Studyboard AI: false for Studyboard Plus
+  ai?: boolean;
 };
 type Term = "monthly" | "semester" | "yearly";
 
@@ -34,6 +36,35 @@ async function apply(d: Deps, row: Apply): Promise<string> {
   if (!r.ok) throw new Error(`apply failed: ${r.status}`);
   return String(await r.json());
 }
+
+// Another database function (service role); null when it isn't installed (404)
+async function rpc(d: Deps, fn: string, body: unknown): Promise<unknown> {
+  const key = serviceKey(d);
+  const r = await d.fetch(d.env("SUPABASE_URL").replace(/\/+$/, "") + "/rest/v1/rpc/" + fn, {
+    method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`${fn} failed: ${r.status}`);
+  return await r.json();
+}
+// Price ids kept in the database (studyboard_config.stripe_prices), read once per request
+async function dbPrices(d: Deps): Promise<Record<string, string>> {
+  try {
+    const key = serviceKey(d);
+    const r = await d.fetch(d.env("SUPABASE_URL").replace(/\/+$/, "") + "/rest/v1/studyboard_config?key=eq.stripe_prices&select=value", { headers: { apikey: key, Authorization: `Bearer ${key}` } });
+    if (!r.ok) return {};
+    const v = ((await r.json()) as any[])?.[0]?.value;
+    return v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === "string" && /^price_[A-Za-z0-9]+$/.test(x as string))) as Record<string, string> : {};
+  } catch (_e) { return {}; }
+}
+// Studyboard Plus prices: the STRIPE_PRICE_PLUS secret and studyboard_config.stripe_prices.plus_*
+export const plusPrices = (d: Deps, db: Record<string, string>): string[] =>
+  [d.env("STRIPE_PRICE_PLUS"), ...Object.entries(db).filter(([k]) => /^plus/.test(k)).map(([, v]) => v)].map(s => String(s || "").trim()).filter(Boolean);
+// Does this plan include Studyboard AI? Every plan does, except one paid with a Studyboard Plus price
+export const aiOf = (d: Deps, db: Record<string, string>, priceIds: string[]): boolean => {
+  const plus = plusPrices(d, db);
+  return !priceIds.some(id => plus.includes(id));
+};
 
 // Constant-time comparison
 const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
@@ -74,16 +105,16 @@ async function stripeGet(d: Deps, path: string): Promise<any | null> {
 }
 
 // The optional price allowlist (STRIPE_PRICE_IDS)
-export function priceAllowed(d: Deps, ids: string[]): boolean {
+export function priceAllowed(d: Deps, ids: string[], db: Record<string, string> = {}): boolean {
   const list = d.env("STRIPE_PRICE_IDS");
   if (!list.trim()) return true;
-  const allow = new Set([...list.split(","), d.env("STRIPE_PRICE_MONTHLY"), d.env("STRIPE_PRICE_SEMESTER"), d.env("STRIPE_PRICE_YEARLY")].map(s => s.trim()).filter(Boolean));
+  const allow = new Set([...list.split(","), d.env("STRIPE_PRICE_MONTHLY"), d.env("STRIPE_PRICE_SEMESTER"), d.env("STRIPE_PRICE_YEARLY"), ...plusPrices(d, db)].map(s => s.trim()).filter(Boolean));
   return ids.some(id => allow.has(id));
 }
 // How long a plan is: its price id first (STRIPE_PRICE_*), then the length of the period paid for
 export const termFromDays = (days: number): Term | undefined => !(days > 0) ? undefined : days >= 300 ? "yearly" : days >= 90 ? "semester" : "monthly";
 export function termOf(d: Deps, priceIds: string[], days: number): Term | undefined {
-  const named: [string, Term][] = [["STRIPE_PRICE_YEARLY", "yearly"], ["STRIPE_PRICE_SEMESTER", "semester"], ["STRIPE_PRICE_MONTHLY", "monthly"]];
+  const named: [string, Term][] = [["STRIPE_PRICE_YEARLY", "yearly"], ["STRIPE_PRICE_SEMESTER", "semester"], ["STRIPE_PRICE_MONTHLY", "monthly"], ["STRIPE_PRICE_PLUS", "monthly"]];
   for (const [k, t] of named) { const v = d.env(k).trim(); if (v && priceIds.includes(v)) return t; }
   return termFromDays(days);
 }
@@ -102,16 +133,17 @@ const subPrices = (sub: any): string[] => ((sub?.items?.data || []) as any[]).ma
 const linePrices = (inv: any): string[] => ((inv?.lines?.data || []) as any[]).map(l => idOf(l?.pricing?.price_details?.price || l?.price || l?.plan));
 
 // What a subscription object means for Pro
-function subscriptionState(sub: any, d: Deps): Pick<Apply, "state" | "pro_until" | "trial_until" | "will_renew"> | null {
+function subscriptionState(sub: any, d: Deps, db: Record<string, string> = {}): Pick<Apply, "state" | "pro_until" | "trial_until" | "will_renew" | "ai"> | null {
   const status = String(sub?.status || "");
   if (status === "trialing" || status === "active" || status === "past_due") {
-    if (!priceAllowed(d, subPrices(sub))) return null;
+    if (!priceAllowed(d, subPrices(sub), db)) return null;
     // past_due keeps Pro until the paid period (plus a few days) runs out
     const end = periodEnd(sub) * 1000;
     return {
       state: "active", pro_until: iso(end ? end + GRACE_MS : d.now() + 35 * 86400_000),
       trial_until: status === "trialing" && sub?.trial_end ? iso(Number(sub.trial_end) * 1000) : null,
       will_renew: !sub?.cancel_at_period_end && !sub?.cancel_at,
+      ai: aiOf(d, db, subPrices(sub)),
     };
   }
   if (status === "canceled" || status === "unpaid" || status === "incomplete_expired" || status === "paused") return { state: "ended" };
@@ -164,6 +196,23 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
   const at = iso((Number(ev.created) || Math.floor(d.now() / 1000)) * 1000)!;
   const base = { event_id: ev.id, family: "stripe" as const, source: "stripe", type: ev.type, event_at: at };
   const done = async (row: Apply) => json({ ok: await apply(d, row) });
+  const db = await dbPrices(d);
+
+  // Studyboard Credits: a paid one-time checkout for a credit pack (supabase-credits.sql)
+  if ((ev.type === "checkout.session.completed" || ev.type === "checkout.session.async_payment_succeeded") && o.mode === "payment") {
+    const uid = validUid(o.client_reference_id);
+    if (o.metadata?.kind !== "credits" || !uid || String(o.metadata?.uid || "").toLowerCase() !== uid) return json({ ignored: "not one of our credit checkouts" });
+    if (o.payment_status !== "paid") return json({ ignored: "not paid yet" });
+    if (typeof o.id !== "string") return json({ ignored: "no session" });
+    // The price actually paid, from Stripe (the database checks it is the pack's own price)
+    const items = await stripeGet(d, `checkout/sessions/${encodeURIComponent(o.id)}/line_items?limit=5`);
+    const prices = ((items?.data || []) as any[]).map(l => idOf(l?.price));
+    if (prices.length !== 1) { d.log("billing-webhook: credit checkout without exactly one price (is STRIPE_SECRET_KEY set?)", ev.id); throw new Error("credit line items unavailable"); }
+    const out = await rpc(d, "studyboard_credits_order", { p: { session: o.id, uid, pack: String(o.metadata?.pack || ""), price: prices[0],
+      payment_intent: idOf(o.payment_intent), amount: Number(o.amount_total) || 0, currency: String(o.currency || "") } });
+    if (out === null) throw new Error("studyboard_credits_order is missing: run supabase-credits.sql");
+    return json({ ok: String(out) });
+  }
 
   switch (ev.type) {
     case "checkout.session.completed": {
@@ -174,7 +223,7 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
       if (!customer) return json({ ignored: "no customer" });
       const sub = o.subscription ? await stripeGet(d, `subscriptions/${encodeURIComponent(idOf(o.subscription))}`) : null;
       if (sub && idOf(sub.customer) !== customer) return json({ ignored: "customer mismatch" });
-      const st = sub ? subscriptionState(sub, d) : { state: "active" as const, pro_until: iso(d.now() + 35 * 86400_000), trial_until: null, will_renew: true };
+      const st = sub ? subscriptionState(sub, d, db) : { state: "active" as const, pro_until: iso(d.now() + 35 * 86400_000), trial_until: null, will_renew: true, ai: o.metadata?.plan !== "plus" };
       if (!st || st.state !== "active") return json({ ignored: "subscription not active" });
       // Money was taken now (a checkout trial is not a payment)
       const paid = o.payment_status === "paid" && Number(o.amount_total) > 0 && (!sub || sub.status === "active");
@@ -185,7 +234,7 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
     case "customer.subscription.deleted": {
       const customer = idOf(o.customer);
       if (!customer) return json({ ignored: "no customer" });
-      const st = ev.type === "customer.subscription.deleted" ? { state: "ended" as const } : subscriptionState(o, d);
+      const st = ev.type === "customer.subscription.deleted" ? { state: "ended" as const } : subscriptionState(o, d, db);
       if (!st) return json({ ignored: "not active yet" });
       const uid = validUid(o.metadata?.uid);
       return done({ ...base, ...st, customer, external_id: customer, ...(uid ? { uid_hint: uid, trust_hint: true } : {}) });
@@ -196,23 +245,33 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
       if (!customer || !subId) return json({ ignored: "not a subscription invoice" });
       const end = Math.max(0, ...((o.lines?.data || []) as any[]).map(l => Number(l?.period?.end || 0))) * 1000;
       if (!end) return json({ ignored: "no period on invoice" });
-      if (!priceAllowed(d, linePrices(o))) return json({ ignored: "price not allowed" });
+      if (!priceAllowed(d, linePrices(o), db)) return json({ ignored: "price not allowed" });
       const lines = (o.lines?.data || []) as any[];
       const start = Math.min(...lines.map(l => Number(l?.period?.start || 0)).filter(Boolean)) || 0;
       const paid = Number(o.amount_paid) > 0;
       if (paid) await appleQueue(d, o, customer, subId, start, end);
-      return done({ ...base, state: "extend", customer, external_id: customer, pro_until: iso(end + GRACE_MS),
+      return done({ ...base, state: "extend", customer, external_id: customer, pro_until: iso(end + GRACE_MS), ai: aiOf(d, db, linePrices(o)),
         ...(paid ? { paid: true, term: termOf(d, linePrices(o), start && end / 1000 > start ? (end / 1000 - start) / DAY_S : 0) } : {}) });
     }
     case "charge.refunded": {
       const customer = idOf(o.customer);
-      if (!customer || o.refunded !== true) return json({ ignored: "partial refund or no customer" });
+      if (o.refunded !== true) return json({ ignored: "partial refund" });
+      // A refunded credit pack takes its credits back; it never touches Pro
+      const pi = idOf(o.payment_intent);
+      if (pi) { const c = await rpc(d, "studyboard_credits_reverse", { p_payment_intent: pi, p_ref: ev.id }); if (c !== null && c !== "not_credits") return json({ ok: String(c) }); }
+      if (!customer) return json({ ignored: "no customer" });
       return done({ ...base, state: "revoke", customer });
     }
     case "charge.dispute.created":
     case "charge.dispute.closed": {
       if (ev.type === "charge.dispute.closed" && o.status !== "won") return json({ ignored: "dispute not won" });
       const charge = o.charge ? await stripeGet(d, `charges/${encodeURIComponent(idOf(o.charge))}`) : null;
+      // A disputed credit pack: its credits are taken back, and given back if the dispute is won
+      const pi = idOf(o.payment_intent || charge?.payment_intent);
+      if (pi) {
+        const c = await rpc(d, ev.type === "charge.dispute.created" ? "studyboard_credits_reverse" : "studyboard_credits_restore", { p_payment_intent: pi, p_ref: ev.id });
+        if (c !== null && c !== "not_credits") return json({ ok: String(c) });
+      }
       const customer = idOf(charge?.customer);
       if (!customer) { d.log("billing-webhook: dispute without a known customer (is STRIPE_SECRET_KEY set?)", ev.id); return json({ ignored: "customer unknown" }); }
       return done({ ...base, state: ev.type === "charge.dispute.created" ? "revoke" : "unrevoke", customer });

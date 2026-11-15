@@ -262,7 +262,7 @@ function aiProAvail(){
   return !!(t && t.on);
 }
 // A Pro student: everything Studyboard AI runs (the built-in AI, or their own Claude key in its mode) is shown only as "Studyboard AI" (a paid plan only counts with the paywall on: with it off, PLAN.isPro() is true for everyone)
-function aiProUser(){ try { return aiProAvail() || (typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && PLAN.isPro()); } catch(e) { return false; } }
+function aiProUser(){ try { return aiProAvail() || (typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && PLAN.isPro() && !(PLAN.plusNow && PLAN.plusNow())); } catch(e) { return false; } }
 // What to call a Claude key's AI on screen: "Studyboard AI" for Pro students, "Claude" otherwise
 const aiClaudeName = () => aiProUser() ? "Studyboard AI" : "Claude";
 async function aiProRefresh(){

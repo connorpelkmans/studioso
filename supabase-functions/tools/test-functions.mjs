@@ -130,15 +130,17 @@ async function sign(body, t = S, secret = WH_SECRET) {
   return `t=${t},v1=${sig}`;
 }
 function whDeps(extra = {}) {
-  const applied = []; const stripeCalls = [];
+  const applied = []; const stripeCalls = []; const credits = [];
   const env = (k) => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "svc", STRIPE_WEBHOOK_SECRET: WH_SECRET, STRIPE_SECRET_KEY: "sk_test_x", REVENUECAT_WEBHOOK_AUTH: "rc-secret-rc-secret-rc", ...extra.env }[k] ?? "");
   const f = async (url, init = {}) => {
     url = String(url);
     if (url.includes("rpc/studyboard_apply_billing")) { applied.push(JSON.parse(init.body).p); return new Response(JSON.stringify("pro")); }
+    if (url.includes("rpc/studyboard_credits_")) { const fn = url.split("rpc/")[1]; credits.push([fn, JSON.parse(init.body)]); const out = extra.credits?.(fn, JSON.parse(init.body)); return out === 404 ? new Response("{}", { status: 404 }) : new Response(JSON.stringify(out ?? "not_credits")); }
+    if (url.includes("studyboard_config?key=eq.stripe_prices")) return new Response(JSON.stringify(extra.dbPrices ? [{ value: extra.dbPrices }] : []));
     if (url.startsWith("https://api.stripe.com/")) { stripeCalls.push(url); return new Response(JSON.stringify(extra.stripe?.(url) ?? {})); }
     return new Response("{}", { status: 500 });
   };
-  return { deps: { env, fetch: f, now: () => NOW, log }, applied, stripeCalls };
+  return { deps: { env, fetch: f, now: () => NOW, log }, applied, stripeCalls, credits };
 }
 const stripeReq = async (ev, opts = {}) => { const body = JSON.stringify(ev); return new Request("https://x/functions/v1/billing-webhook/stripe", { method: "POST", headers: { "stripe-signature": opts.header ?? await sign(body, opts.t) }, body }); };
 
@@ -340,6 +342,65 @@ await test("revenuecat: authorization is checked (constant time), sandbox ignore
   assert.deepEqual(applied.map(a => a.state), ["revoke", "renew_off", "ended"]);
 });
 
+
+// -- Studyboard Credits and Studyboard Plus (billing-webhook)
+const PLUS = "price_PLUS1";
+await test("credits: a paid credit checkout grants the pack once, with the price Stripe says was paid", async () => {
+  const sess = { id: "cs_live_1", mode: "payment", payment_status: "paid", client_reference_id: UID, metadata: { uid: UID, kind: "credits", pack: "credits_1300" }, payment_intent: "pi_1", amount_total: 999, currency: "usd", customer: "cus_1" };
+  const { deps, applied, credits, stripeCalls } = whDeps({ stripe: u => u.includes("/line_items") ? { data: [{ price: { id: "price_PACK1300" } }] } : {}, credits: () => "granted" });
+  const r = await wh.handle(await stripeReq({ id: "evt_cr", type: "checkout.session.completed", created: S, data: { object: sess } }), deps);
+  assert.equal(r.status, 200); assert.deepEqual(await r.json(), { ok: "granted" });
+  assert.equal(applied.length, 0, "a credit purchase never changes Pro");
+  assert.equal(credits[0][0], "studyboard_credits_order");
+  assert.deepEqual(credits[0][1].p, { session: "cs_live_1", uid: UID, pack: "credits_1300", price: "price_PACK1300", payment_intent: "pi_1", amount: 999, currency: "usd" });
+  assert.ok(stripeCalls[0].includes("checkout/sessions/cs_live_1/line_items"));
+});
+await test("credits: unpaid, someone else's, or not-ours checkouts give nothing; async payment success counts", async () => {
+  const base = { id: "cs_2", mode: "payment", payment_status: "paid", client_reference_id: UID, metadata: { uid: UID, kind: "credits", pack: "credits_100" }, payment_intent: "pi_2" };
+  for (const o of [{ payment_status: "unpaid" }, { metadata: { uid: OTHER, kind: "credits", pack: "credits_100" } }, { metadata: { uid: UID, pack: "credits_100" } }, { client_reference_id: "x" }]) {
+    const { deps, credits, applied } = whDeps({ stripe: () => ({ data: [{ price: { id: "price_X" } }] }) });
+    const r = await wh.handle(await stripeReq({ id: "evt_c2", type: "checkout.session.completed", created: S, data: { object: { ...base, ...o } } }), deps);
+    assert.equal(r.status, 200); assert.equal(credits.length, 0, JSON.stringify(o)); assert.equal(applied.length, 0);
+  }
+  const { deps, credits } = whDeps({ stripe: () => ({ data: [{ price: { id: "price_X" } }] }), credits: () => "granted" });
+  await wh.handle(await stripeReq({ id: "evt_c3", type: "checkout.session.async_payment_succeeded", created: S, data: { object: base } }), deps);
+  assert.equal(credits.length, 1);
+  // line items Stripe couldn't give: a 500, so Stripe tries again later
+  const none = whDeps({ stripe: () => ({}) });
+  assert.equal((await wh.handle(await stripeReq({ id: "evt_c4", type: "checkout.session.completed", created: S, data: { object: base } }), none.deps)).status, 500);
+});
+await test("credits: a refunded or disputed credit pack takes credits back and never revokes Pro; a Pro charge still does", async () => {
+  let { deps, applied, credits } = whDeps({ credits: (fn, b) => b.p_payment_intent === "pi_cr" ? "reversed" : "not_credits" });
+  await wh.handle(await stripeReq({ id: "evt_rf1", type: "charge.refunded", created: S, data: { object: { customer: "cus_1", refunded: true, payment_intent: "pi_cr" } } }), deps);
+  assert.equal(applied.length, 0); assert.deepEqual(credits[0], ["studyboard_credits_reverse", { p_payment_intent: "pi_cr", p_ref: "evt_rf1" }]);
+  await wh.handle(await stripeReq({ id: "evt_rf2", type: "charge.refunded", created: S, data: { object: { customer: "cus_1", refunded: true, payment_intent: "pi_pro" } } }), deps);
+  assert.deepEqual(applied.map(a => a.state), ["revoke"]);
+  ({ deps, applied, credits } = whDeps({ stripe: () => ({ customer: "cus_1", payment_intent: "pi_cr" }), credits: fn => fn === "studyboard_credits_reverse" ? "reversed" : "restored" }));
+  await wh.handle(await stripeReq({ id: "evt_dp1", type: "charge.dispute.created", created: S, data: { object: { charge: "ch_1" } } }), deps);
+  await wh.handle(await stripeReq({ id: "evt_dp2", type: "charge.dispute.closed", created: S, data: { object: { charge: "ch_1", status: "won", payment_intent: "pi_cr" } } }), deps);
+  assert.equal(applied.length, 0); assert.deepEqual(credits.map(c => c[0]), ["studyboard_credits_reverse", "studyboard_credits_restore"]);
+  // before supabase-credits.sql is run (404), refunds work as before
+  ({ deps, applied } = whDeps({ credits: () => 404 }));
+  await wh.handle(await stripeReq({ id: "evt_rf3", type: "charge.refunded", created: S, data: { object: { customer: "cus_1", refunded: true, payment_intent: "pi_9" } } }), deps);
+  assert.deepEqual(applied.map(a => a.state), ["revoke"]);
+});
+await test("plus: a Studyboard Plus price (secret or database) means no Studyboard AI; Pro prices keep it", async () => {
+  const subEv = (price, id) => ({ id, type: "customer.subscription.updated", created: S, data: { object: { customer: "cus_1", status: "active", current_period_end: S + 86400, items: { data: [{ price: { id: price } }] } } } });
+  let x = whDeps({ dbPrices: { plus_monthly: PLUS } });
+  await wh.handle(await stripeReq(subEv(PLUS, "evt_pl1")), x.deps);
+  await wh.handle(await stripeReq(subEv("price_MONTH1", "evt_pl2")), x.deps);
+  assert.deepEqual(x.applied.map(a => a.ai), [false, true]);
+  x = whDeps({ env: { STRIPE_PRICE_PLUS: PLUS } });
+  await wh.handle(await stripeReq(subEv(PLUS, "evt_pl3")), x.deps);
+  assert.equal(x.applied[0].ai, false);
+  // renewals carry it too, and the price allowlist lets Plus in
+  x = whDeps({ dbPrices: { plus_monthly: PLUS }, env: { STRIPE_PRICE_IDS: "price_MONTH1" } });
+  await wh.handle(await stripeReq({ id: "evt_pl4", type: "invoice.paid", created: S, data: { object: { customer: "cus_1", subscription: "sub_1", amount_paid: 299, lines: { data: [{ period: { start: S, end: S + 30 * 86400 }, price: { id: PLUS } }] } } } }), x.deps);
+  assert.equal(x.applied[0].state, "extend"); assert.equal(x.applied[0].ai, false); assert.equal(x.applied[0].term, "monthly");
+  await wh.handle(await stripeReq(subEv("price_OTHER", "evt_pl5")), x.deps);
+  assert.equal(x.applied.length, 1, "an unknown price is still refused when STRIPE_PRICE_IDS is set");
+});
+
 // -- create-checkout / create-portal-session
 const SITE = "https://studyboard.example";
 function coDeps(extra = {}) {
@@ -351,7 +412,8 @@ function coDeps(extra = {}) {
     if (url.endsWith("/auth/v1/user")) return new Response(JSON.stringify({ id: UID, email: "a@b.co", email_confirmed_at: extra.unconfirmed ? null : "2026-01-01" }));
     if (url.includes("rpc/studyboard_plan_rate_hit")) return new Response(JSON.stringify(extra.limited ? false : true));
     if (url.includes("rpc/studyboard_trial_used")) { rest.push(["TRIAL", url, init.body]); return extra.trialFn === "missing" ? new Response("{}", { status: 404 }) : extra.trialFn === "down" ? new Response("{}", { status: 503 }) : new Response(JSON.stringify(!!extra.trialUsed)); }
-    if (url.includes("studyboard_config")) return new Response(JSON.stringify([{ key: "site_url", value: extra.siteUrl ?? "" }, { key: "prices", value: extra.prices ?? { trialDays: 7, checkoutTrialDays: 7 } }]));
+    if (url.includes("studyboard_config")) return new Response(JSON.stringify([{ key: "site_url", value: extra.siteUrl ?? "" }, { key: "prices", value: extra.prices ?? { trialDays: 7, checkoutTrialDays: 7 } }, ...(extra.cfg || [])]));
+    if (url.includes("studyboard_credit_packs")) { rest.push(["PACK", url]); return new Response(JSON.stringify(/pack_id=eq\.credits_600&/.test(url) ? [{ pack_id: "credits_600", credits: 600, stripe_price_id: "price_PACK600" }] : [])); }
     if (url.includes("studyboard_entitlements")) return new Response(JSON.stringify(extra.ent ? [extra.ent] : []));
     if (url.includes("studyboard_billing_customers")) { rest.push([init.method || "GET", url]); return new Response(JSON.stringify(init.method === "POST" ? [] : extra.customer ? [{ stripe_customer_id: extra.customer }] : (rest.filter(r => r[0] === "POST").length ? [{ stripe_customer_id: "cus_new" }] : []))); }
     if (url === "https://api.stripe.com/v1/customers") { stripeBodies.push(["customers", init.body]); return new Response(JSON.stringify({ id: "cus_new" })); }
@@ -453,6 +515,33 @@ await test("checkout: the desktop and phone apps may call it (CORS), other origi
   assert.equal(s.success_url, SITE + "/success.html?session_id={CHECKOUT_SESSION_ID}&src=app"); assert.equal(s.cancel_url, SITE + "/cancel.html?src=app");
   const pre = await co.handle(new Request("https://x/", { method: "OPTIONS", headers: { origin: "app://studioso" } }), coDeps().deps);
   assert.equal(pre.headers.get("access-control-allow-origin"), "app://studioso");
+});
+await test("checkout: credit packs are one-time payments priced by the database, only while item purchases are on", async () => {
+  const on = [{ key: "item_purchases", value: true }];
+  const { deps, stripeBodies, rest } = coDeps({ cfg: on, ent: { plan: "pro", pro_until: null, source: "stripe", will_renew: true } });
+  const r = await co.handle(coReq({ pack: "credits_600", price: "price_EVIL", credits: 99999 }), deps);
+  assert.equal(r.status, 200, "a Pro subscriber can still buy credits");
+  const sx = parse(stripeBodies.find(b => b[0] === "session")[1]);
+  assert.equal(sx.mode, "payment"); assert.equal(sx["line_items[0][price]"], "price_PACK600");
+  assert.equal(sx["metadata[kind]"], "credits"); assert.equal(sx["metadata[pack]"], "credits_600"); assert.equal(sx["metadata[uid]"], UID);
+  assert.equal(sx["payment_intent_data[metadata][kind]"], "credits"); assert.equal(sx.client_reference_id, UID);
+  assert.ok(!("subscription_data[trial_period_days]" in sx) && !("allow_promotion_codes" in sx));
+  assert.match(sx.success_url, /kind=credits/); assert.ok(!JSON.stringify(sx).includes("EVIL"));
+  assert.ok(rest.some(x => x[0] === "PACK" && x[1].includes("active=eq.true")));
+  assert.equal((await co.handle(coReq({ pack: "credits_600" }), coDeps().deps)).status, 400, "off until item_purchases is true");
+  assert.equal((await co.handle(coReq({ pack: "credits_nope" }), coDeps({ cfg: on }).deps)).status, 400);
+  assert.equal((await co.handle(coReq({ pack: "../x" }), coDeps({ cfg: on }).deps)).status, 400);
+});
+await test("checkout: Studyboard Plus uses its database price, only while plus_plan is on", async () => {
+  const cfg = [{ key: "plus_plan", value: true }, { key: "stripe_prices", value: { plus_monthly: "price_PLUS1" } }];
+  const { deps, stripeBodies } = coDeps({ cfg });
+  assert.equal((await co.handle(coReq({ plan: "plus" }), deps)).status, 200);
+  const sx = parse(stripeBodies.find(b => b[0] === "session")[1]);
+  assert.equal(sx.mode, "subscription"); assert.equal(sx["line_items[0][price]"], "price_PLUS1"); assert.equal(sx["metadata[plan]"], "plus"); assert.equal(sx["subscription_data[metadata][plan]"], "plus");
+  const sec = coDeps({ cfg, env: { STRIPE_PRICE_PLUS: "price_PLUSENV" } }); await co.handle(coReq({ plan: "plus" }), sec.deps);
+  assert.equal(parse(sec.stripeBodies.find(b => b[0] === "session")[1])["line_items[0][price]"], "price_PLUSENV", "the secret wins when set");
+  assert.equal((await co.handle(coReq({ plan: "plus" }), coDeps({ cfg: [cfg[1]] }).deps)).status, 400, "hidden until plus_plan is true");
+  assert.equal((await co.handle(coReq({ plan: "plus" }), coDeps({ cfg: [cfg[0]] }).deps)).status, 400, "no price, no checkout");
 });
 await test("checkout: safeReturn blocks open redirects", () => {
   const o = [SITE];

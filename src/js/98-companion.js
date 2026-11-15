@@ -584,14 +584,21 @@
   let gT = 0;
   const guardSoon = (why, ms) => { if (gT) return; gT = setTimeout(() => { gT = 0; try { clamp(why); } catch (e) { console.warn("companion guard", e); } fitHitSoon(); }, ms == null ? 60 : ms); };
   // While any of its animations runs, look at it every frame
-  let mwEnd = 0, mwRaf = 0;
+  let mwEnd = 0, mwRaf = 0, mwLast = 0;
   function motionWatch(ms){
     if (still()) return;
     mwEnd = Math.max(mwEnd, performance.now() + (ms || 1000) + 100);
     if (mwRaf) return;
     // seated in the phone's tab bar it doesn't travel, so it is checked once its motion ends rather than every frame (each check
     // measured the page, and typing in the add bar changes the page on every key)
-    const step = () => { mwRaf = 0; if (!box || box.hidden || still()) return; const more = performance.now() < mwEnd; if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { try { clamp("anim"); } catch (e) {} } if (more) mwRaf = requestAnimationFrame(step); };
+    // Each check measures the companion and the page (a full style and layout pass), so while it moves it runs every 150ms, not
+    // every frame: every frame it took most of each frame's time on a laptop and made its moves stutter. Once more when it stops.
+    const step = () => {
+      mwRaf = 0; if (!box || box.hidden || still()) return;
+      const now = performance.now(), more = now < mwEnd;
+      if (!more || now - mwLast >= 150) { if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { mwLast = now; try { clamp("anim"); } catch (e) {} } }
+      if (more) mwRaf = requestAnimationFrame(step);
+    };
     mwRaf = requestAnimationFrame(step);
   }
   /* Controls (buttons, links, fields) under its tap area */

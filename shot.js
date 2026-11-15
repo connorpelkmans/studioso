@@ -12,7 +12,14 @@
     sel.style.left = r.x + "px"; sel.style.top = r.y + "px"; sel.style.width = r.w + "px"; sel.style.height = r.h + "px";
   };
   const send = r => window.studyboardShot.done(r ? { x: r.x / innerWidth, y: r.y / innerHeight, w: r.w / innerWidth, h: r.h / innerHeight } : { x: 0, y: 0, w: 1, h: 1 });
-  window.studyboardShot.onInit(url => { pic.src = url; ready = true; });
+  // The calculator's Capture from Screen: the box is an equation for the calculator to read
+  const CALC_TIP = "Drag over an equation to read it in the calculator. Esc cancels.";
+  window.studyboardShot.onInit((url, mode) => {
+    pic.src = url; ready = true;
+    const calc = mode === "calc", tip = document.getElementById("tip");
+    document.body.classList.toggle("is-calc", calc);
+    if (calc && tip) tip.textContent = CALC_TIP;
+  });
   addEventListener("mousedown", e => { if (!ready || e.button !== 0) return; a = { x: e.clientX, y: e.clientY }; b = a; paint(); });
   addEventListener("mousemove", e => { if (!a) return; b = { x: e.clientX, y: e.clientY }; paint(); });
   addEventListener("mouseup", e => {

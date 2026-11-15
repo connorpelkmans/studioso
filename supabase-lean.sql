@@ -221,7 +221,9 @@ declare
     ['studyboard_deletions','user_id'], ['studyboard_archive','user_id'], ['studyboard_devices','user_id'],
     ['studyboard_device_removals','user_id'], ['studyboard_usage','user_id'], ['studyboard_billing_customers','user_id'],
     ['group_suspended','user_id'], ['studyboard_founder_themes','user_id'], ['studyboard_early_codes','user_id'], ['studyboard_early_supporters','user_id'],
-    ['studyboard_apple_signin','user_id'], ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['studyboard_own_key_access','user_id'], ['bug_reports','user_id'], ['items','user_id']];
+    ['studyboard_apple_signin','user_id'], ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['studyboard_own_key_access','user_id'], ['bug_reports','user_id'], ['items','user_id'],
+    -- Studyboard Credits (supabase-credits.sql): the balance, its history and the items kept with it go with the account
+    ['studyboard_owned_items','user_id'], ['studyboard_credit_ledger','user_id'], ['studyboard_credit_balances','user_id']];
 begin
   if p_uid is null then raise exception 'SB_NO_USER' using errcode = '22023'; end if;
   if to_regclass('public.study_groups') is not null and to_regclass('public.group_members') is not null then
@@ -268,6 +270,11 @@ begin
   if to_regclass('public.studyboard_billing_events') is not null then
     update public.studyboard_billing_events set user_id = null where user_id = p_uid;
     get diagnostics n = row_count; res := res || jsonb_build_object('studyboard_billing_events_anonymized', n);
+  end if;
+  -- Paid credit orders stay without the account (a later refund or dispute must still find its payment)
+  if to_regclass('public.studyboard_credit_orders') is not null then
+    update public.studyboard_credit_orders set user_id = null where user_id = p_uid;
+    get diagnostics n = row_count; res := res || jsonb_build_object('studyboard_credit_orders_anonymized', n);
   end if;
   -- Apple's EU reporting (supabase-apple-external.sql): the sales and tokens stay, without the account, because Apple must still
   -- receive their reports; the record of their taps goes

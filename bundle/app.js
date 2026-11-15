@@ -4184,7 +4184,7 @@ function aiProAvail(){
   return !!(t && t.on);
 }
 // A Pro student: everything Studyboard AI runs (the built-in AI, or their own Claude key in its mode) is shown only as "Studyboard AI" (a paid plan only counts with the paywall on: with it off, PLAN.isPro() is true for everyone)
-function aiProUser(){ try { return aiProAvail() || (typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && PLAN.isPro()); } catch(e) { return false; } }
+function aiProUser(){ try { return aiProAvail() || (typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && PLAN.isPro() && !(PLAN.plusNow && PLAN.plusNow())); } catch(e) { return false; } }
 // What to call a Claude key's AI on screen: "Studyboard AI" for Pro students, "Claude" otherwise
 const aiClaudeName = () => aiProUser() ? "Studyboard AI" : "Claude";
 async function aiProRefresh(){
@@ -6568,7 +6568,7 @@ function nextUpHtml(F, pre){
     <div class="nu-top"><span class="nu-label">Do This Next</span>${n.xs && n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested study time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}"><span class="nu-tt">Study for ${esc(t.title)}</span>${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.x.dl === 1 || n.x.lightEve ? "The day before: light review only. Skim your summary or a few flashcards, then stop early and sleep." : n.hasPlan ? "Test yourself on your weakest topics: flashcards or practice questions, not rereading." : "Test yourself (flashcards or practice questions), or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
@@ -6580,7 +6580,7 @@ function nextUpHtml(F, pre){
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
-        <button class="nu-title" ${gtOpenAttrs(t)}>${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag nu-rx-in" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : ""}</button>${nuMeta(c, MILESTONE(t.type) ? `<span class="tag rx-tag nu-rx-out" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : "")}
+        <button class="nu-title" ${gtOpenAttrs(t)}><span class="nu-tt">${esc(t.title)}</span>${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag nu-rx-in" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : ""}</button>${nuMeta(c, MILESTONE(t.type) ? `<span class="tag rx-tag nu-rx-out" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : "")}
         <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
@@ -6600,7 +6600,7 @@ function nextUpSpare(F, inView){
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}"><span class="nu-tt">Study for ${esc(t.title)}</span>${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
         <span class="nu-step">Plan My Prep spreads short review sessions over the days before it, and they show up here.</span>
       </div>
@@ -6618,7 +6618,7 @@ function nextUpSpare(F, inView){
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}"><span class="nu-tt">${esc(t.title)}</span>${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
@@ -9908,6 +9908,8 @@ const owns = (kind, id) => {
   if (kind === "skin" && window.SBEARLY && SBEARLY.keeps(id)) return true;
   if (cpAllows(kind, id)) return true;
   if (kind === "comp") { const it = (STYLE_LISTS.comp || []).find(x => x.id === id); if (it && it.theme && cpAllows("skin", it.theme)) return true; }
+  // Kept for good with Studyboard Credits (97-credits.js): the item itself, or the Theme Collection it belongs to
+  if (window.SBCREDITS && SBCREDITS.owns(kind, id)) return true;
   return false;
 };
 /* The theme from last time is painted before any script runs (the snippet in <head>) */
@@ -11323,7 +11325,7 @@ const weightGuessed = t => hasWeight(t) && ["bs", "cv", "bb", "md", "sg", "gc"].
 const WEIGHT_GUESS_TIP = "Your school site didn't show a weight for this, so Studyboard split the course by points. Check your syllabus and type in the real weight.";
 // The note above a list of marks when some weights are estimates
 const weightGuessNote = list => { const n = list.filter(weightGuessed).length; return n ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>${n === 1 ? "1 weight is an estimate" : n + " weights are estimates"}.</b> Your school site didn't show ${n === 1 ? "a weight for it" : "weights for them"}, so Studyboard split the course by points. Numbers in red may be wrong: check your syllabus and tap an item to type in the real weight.</span></div>` : ""; };
-const weightOf = t => hasWeight(t) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
+const weightOf = t => hasWeight(t) && !(weightGuessed(t) && PTS_W[t.id]) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
 
 /* What the planner knows beyond the task itself (1.11) - School sync */
 const lmsOf = t => (t && (t.bs || t.cv || t.bb || t.md || t.sg || t.gc)) || null;
@@ -11341,8 +11343,11 @@ const nowStamp = () => { const d = new Date(); return todayISO() + " " + pad(d.g
 let PTS_W = {};
 function pointsWeights(){
   const by = {}, out = {};
-  allTasks().forEach(t => { if (!t.courseId || t.prepFor) return; const b = by[t.courseId] || (by[t.courseId] = {weighted: 0, items: []}); if (hasWeight(t)) b.weighted++; const L = lmsOf(t), o = L && Number(L.outOf); if (o > 0) b.items.push([t.id, o]); });
-  Object.values(by).forEach(b => { if (b.weighted || b.items.length < 3) return; const sum = b.items.reduce((s, x) => s + x[1], 0); if (sum > 0) b.items.forEach(([id, o]) => { out[id] = Math.max(0.5, Math.min(60, o / sum * 100)); }); });
+  // weights that were themselves worked out from points (estimated) don't count as the course having weights: those were split over
+  // the school site's Grades page alone, so the course is shared out by all the points known here instead (as on Grades, 90-grades.js)
+  allTasks().forEach(t => { if (!t.courseId || t.prepFor) return; const b = by[t.courseId] || (by[t.courseId] = {weighted: 0, guessed: 0, items: []}); if (hasWeight(t)) { if (weightGuessed(t)) b.guessed++; else b.weighted++; }
+    const L = lmsOf(t), m = t.mark, o = L && Number(L.outOf) > 0 ? Number(L.outOf) : m && ["bs", "cv", "bb", "md", "sg", "gc"].includes(m.src) && Number(m.outOf) > 0 ? Number(m.outOf) : 0; if (o > 0) b.items.push([t.id, o]); });
+  Object.values(by).forEach(b => { if (b.weighted || (b.items.length < 3 && !b.guessed)) return; const sum = b.items.reduce((s, x) => s + x[1], 0); if (sum > 0) b.items.forEach(([id, o]) => { out[id] = Math.max(0.5, Math.min(60, o / sum * 100)); }); });
   return out;
 }
 // Hours already taken up each day by classes, labs, placements, work shifts and events
@@ -23761,6 +23766,8 @@ window.__sbPlanObj = () => PLAN;
     checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
+    // Studyboard Plus: every Pro feature without Studyboard AI ($2.99 a month, website checkout only)
+    plus_plan: false,
     features: {insights: false, ai_credits: false},
     paywall: false
   };
@@ -23788,7 +23795,7 @@ window.__sbPlanObj = () => PLAN;
     });
     if (rows.prices && typeof rows.prices === "object") Object.assign(c.prices, rows.prices);
     ["checkout_url_monthly", "checkout_url_semester", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
-    ["app_trial", "item_purchases", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
+    ["app_trial", "item_purchases", "plus_plan", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
     if (rows.features && typeof rows.features === "object") Object.keys(c.features).forEach(k => { if (typeof rows.features[k] === "boolean") c.features[k] = rows.features[k]; });
     return c;
   }
@@ -23857,7 +23864,8 @@ window.__sbPlanObj = () => PLAN;
   // Pro that someone pays for, which is what includes Studyboard AI (the AI server's own rule, cloudflare/ai-pro tierOf). Pro from
   // a grant, a code or a promotion, and the free weeks, have every Pro feature but not Studyboard AI, so they can still subscribe
   const aiIncluded = () => { const e = ent(); if (!e || !paid()) return false; if (e.plan === "lifetime") return e.source !== "lifetime";
-    return e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()) && e.source !== "promo" && e.source !== "code" && !e.lite; };
+    // Studyboard Plus is paid Pro without Studyboard AI: the server marks it ai_included false from the price paid
+    return e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()) && e.source !== "promo" && e.source !== "code" && !e.lite && e.ai_included !== false; };
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
   // On the free weeks of Pro (not paying, not from a code or promotion): PRO tags stay on Pro features and items, as on the free
@@ -23866,6 +23874,8 @@ window.__sbPlanObj = () => PLAN;
   // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
   const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
   const groupsPro = () => limitsPro() || liteNow();
+  // Studyboard Plus: a paid plan whose price leaves out Studyboard AI (the server sets ai_included from the price paid)
+  const plusNow = () => { const e = ent(); return paywall() && paid() && !!e && e.plan === "pro" && e.ai_included === false; };
   const fileCapMB = () => cfg.limits[limitsPro() ? "pro" : "free"].fileMB;
   const mode = () => !paywall() ? "off" : !paid() ? "free" : P.mode === "signed" ? "signed" : P.mode === "unsigned-fallback" ? "unsigned-fallback" : "signed";
 
@@ -23965,7 +23975,8 @@ window.__sbPlanObj = () => PLAN;
     if (!sb || !sbUser) return null;
     const uid = sbUser.id;
     try {
-      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
+      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime,ai_included").eq("user_id", uid).maybeSingle();
+      if (res.error && /ai_included/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /grant_lite/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /promo_|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /grant_(until|lifetime)|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", uid).maybeSingle();
@@ -24343,10 +24354,12 @@ window.__sbPlanObj = () => PLAN;
       watchPurchase();
     } finally { P.buying = false; }
   }
-  async function directCheckout(period){
+  const directCheckout = period => checkoutCall({plan: period, src: "app"});
+  // body: {plan} for a subscription, or {pack} for Studyboard Credits. The server decides every price.
+  async function checkoutCall(body){
     if (!sb || !sbUser || sbUser.is_anonymous) return null;
     try {
-      const {data, error} = await sb.functions.invoke("create-checkout", {body: {plan: period, src: "app"}});
+      const {data, error} = await sb.functions.invoke("create-checkout", {body: Object.assign({src: "app"}, body)});
       if (!error && data && typeof data.url === "string" && /^https:\/\/checkout\.stripe\.com\//.test(data.url)) return {url: data.url};
       let body = null; try { body = error && error.context && typeof error.context.json === "function" ? await error.context.json() : null; } catch (e) {}
       const code = body && body.error, m = body && typeof body.message === "string" ? cleanMsg(body.message) : "";
@@ -24355,7 +24368,8 @@ window.__sbPlanObj = () => PLAN;
     } catch (e) { return null; }
   }
   function buy(period){
-    period = ["monthly", "semester", "yearly"].includes(period) ? period : "monthly";
+    period = ["monthly", "semester", "yearly", "plus"].includes(period) ? period : "monthly";
+    if (period === "plus" && !plusOn()) { toast("Studyboard Plus isn't available here. Choose a Pro plan."); return false; }
     if (!paid()) { track("buy", P.reason); write(K_ATTR, {r: P.reason || "", t: Date.now(), uid: curUid()}); }
     if (period === "semester" && !semesterOn()) period = "monthly";
     const userId = sbUser ? sbUser.id : null;
@@ -24478,7 +24492,7 @@ window.__sbPlanObj = () => PLAN;
       ["Themes", `${freeThemes} Plain Colors`, `All ${SKINS.length} Themes`],
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
       ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`]
-    ].concat(window.SBPRO ? SBPRO.compareRows() : []).sort((a, b) => (b[0] === "Studyboard AI") - (a[0] === "Studyboard AI"));
+    ].concat(window.SBPRO ? SBPRO.compareRows() : []).map(r => plusOn() && r[0] === "Studyboard AI" ? [r[0], r[1], r[2] + " (Not in Plus)"] : r).sort((a, b) => (b[0] === "Studyboard AI") - (a[0] === "Studyboard AI"));
   }
   function meter(label, used, max){
     const pct = max === Infinity || !max ? Math.min(100, used > 0 ? 2 : 0) : Math.min(100, used / max * 100);
@@ -24506,6 +24520,7 @@ window.__sbPlanObj = () => PLAN;
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
     if (e.source === "promo") return {title: THANKS, sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
+    if (plusNow()) return {title: "You're on Studyboard Plus. Thank you for supporting Studyboard!", sub: (e.will_renew === false ? `Plus ends ${dateStr(e.pro_until)}.` : `Renews ${dateStr(e.pro_until)}.`) + " Every Pro theme and feature, with AI from your own key. Switch to Pro in Manage Plan to add Studyboard AI."};
     return {title: THANKS, sub: e.will_renew === false ? `Pro ends ${dateStr(e.pro_until)}. You can turn renewal back on any time.` : `Renews ${dateStr(e.pro_until)}.`};
   }
   const APPLE_RENEW = "Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase. Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.";
@@ -24525,7 +24540,8 @@ window.__sbPlanObj = () => PLAN;
     const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() && !semOnce() ? `, ${semPrice()} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.${semesterOn() && semOnce() ? ` Semester: ${semPrice()} for 4 months of Pro, paid once. It doesn't renew and has no free trial.` : ""}`;
     // in the iPhone app for a United States account: the checkout is on the website, said before they tap
     const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
-    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
+    const plus = plusOn() ? ` Studyboard Plus is an auto-renewing subscription: ${plusPrice()} per month.` : "";
+    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head + plus)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
   }
   function priceButtons(){
     if (regionOff()) return `<p class="plan-fine mini">${esc(REGION_OFF_MSG)}</p>`;
@@ -24545,7 +24561,15 @@ window.__sbPlanObj = () => PLAN;
       </div>
       <button type="button" class="btn primary plan-go" data-act="plan-buy" data-id="${pick}">${trial ? "Start Free Trial" : "Get Pro"} · ${esc(NAME[pick])}, ${esc(AMT[pick])}</button>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
+      ${plusOfferHtml()}
       ${renewalText(pr, trial)}`;
+  }
+  // Studyboard Plus: offered under the Pro prices (Pro stays the main choice), on the website checkout only
+  const plusPrice = () => typeof cfg.prices.plusMonthly === "string" ? cfg.prices.plusMonthly : "";
+  const plusOn = () => !!cfg.plus_plan && !!plusPrice() && route() !== "store";
+  function plusOfferHtml(){
+    if (!plusOn()) return "";
+    return `<div class="plan-plus"><span class="plan-plus-t"><b>Don't Need Studyboard AI?</b><span class="mini">Studyboard Plus has every Pro theme and feature except the built-in Studyboard AI. AI with your own key still works. ${esc(plusPrice())} a month, cancel any time.</span></span><button type="button" class="btn" data-act="plan-buy" data-id="plus">Get Plus · ${esc(plusPrice())}/mo</button></div>`;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
@@ -24566,7 +24590,8 @@ window.__sbPlanObj = () => PLAN;
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
-        ${paywall() && pro && !aiIncluded() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
+        ${paywall() && pro && plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">You're on Studyboard Plus, which doesn't include Studyboard AI. Switch to a Pro plan in Manage Plan to add it; the change is prorated.</p><p><button type="button" class="btn small" data-act="plan-manage">Switch to Pro</button></p></div>` : ""}
+        ${paywall() && pro && !aiIncluded() && !plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
@@ -24631,7 +24656,8 @@ window.__sbPlanObj = () => PLAN;
     if (trialing(e) && e.source === "code") return e.codeForever ? "Pro (code)" : `Pro (code) until ${dateStr(e.trial_until)}`;
     if (trialing(e)) return `Pro trial until ${dateStr(e.trial_until)}`;
     if (e.source === "promo") return e.pro_until ? `Pro (granted) until ${dateStr(e.pro_until)}` : "Pro (granted)";
-    return e.pro_until ? `Pro until ${dateStr(e.pro_until)}` : "Pro";
+    const nm = plusNow() ? "Plus" : "Pro";
+    return e.pro_until ? `${nm} until ${dateStr(e.pro_until)}` : nm;
   }
   function rowSub(){
     if (!paywall()) return "Everything is unlocked right now";
@@ -24691,7 +24717,7 @@ window.__sbPlanObj = () => PLAN;
     // the semester plan when it's on sale here: its price, and whether it's paid once (App Store, Google Play) or renews (website)
     semester: () => { try { return semesterOn() ? {price: semPrice(), once: !!semOnce()} : null; } catch (e) { return null; } },
     devicesSheet: () => devicesSheet(false),
-    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, plusNow, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
@@ -33328,6 +33354,10 @@ const CAP = (() => {
   const MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   const MONRE = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
   const NUMW = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10};
+  // "first" to "thirty-first"
+  const ORDW = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth"];
+  const ORDRE = "(?:twenty|thirty)[-\\s]?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)|thirtieth|" + ORDW.slice().reverse().join("|");
+  const ORDN = w => { w = w.toLowerCase().replace(/[-\s]+/, " "); const m = /^(twenty|thirty)\s?(\w+)$/.exec(w); if (m && m[2] !== "") { const k = ORDW.indexOf(m[2]); if (k >= 0 && k < 9) return (m[1] === "twenty" ? 20 : 30) + k + 1; } if (w === "thirtieth") return 30; return ORDW.indexOf(w) + 1; };
   // Plain text only
   const clean = (s, max, keepLines) => {
     let t = String(s == null ? "" : s).replace(/<[^>]*>/g, " ").replace(/[<>]/g, "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F​-‏‪-‮⁦-⁩]/g, "");
@@ -33377,8 +33407,14 @@ const CAP = (() => {
     let s = " " + text + " ";
     const take = (re, fn) => { const m = s.match(re); if (m) { const r = fn(m); if (r !== false) { s = s.replace(m[0], " "); return true; } } return false; };
     take(/\b(?:worth\s*)?(\d{1,3}(?:\.\d+)?)\s*%(?:\s*of\s*(?:the\s*|my\s*)?(?:final\s*)?grade)?/i, m => { out.weight = Number(m[1]); });
-    take(/\b(?:takes?\s*|about\s*|~\s*)?(\d{1,2}(?:\.\d+)?)\s*(?:h|hr|hrs|hours?)\b/i, m => { out.hours = Number(m[1]); }) ||
-      take(/\b(?:takes?\s*|about\s*)?(\d{2,3})\s*(?:m|min|mins|minutes)\b/i, m => { out.hours = Math.round(Number(m[1]) / 60 * 4) / 4; });
+    // durations: "4 hrs", "4 hrs long", "for 2 hours", "a 3-hour", "takes about 1.5 hours of work", "an hour", "half an hour", "90 min"
+    const LONG = "(?:\\s*(?:long|of\\s+(?:work|studying|reading)|total|to\\s+do|to\\s+finish))?";
+    take(new RegExp(`\\b(?:it\\s+)?(?:takes?\\s*|about\\s*|around\\s*|roughly\\s*|for\\s*|~\\s*)*(?:a\\s+)?(\\d{1,2}(?:\\.\\d+)?)\\s*-?\\s*(?:h|hr|hrs|hours?)\\b${LONG}`, "i"), m => { out.hours = Number(m[1]); }) ||
+      take(new RegExp(`\\b(?:takes?\\s*|about\\s*|around\\s*|for\\s*)*(half\\s+an?|an?|one|two|three|four|five|six)\\s*-?\\s*(?:and\\s+a\\s+half\\s+)?hours?\\b${LONG}`, "i"), m => {
+        const w = m[1].toLowerCase().replace(/\s+/g, " "), n = w.startsWith("half") ? 0.5 : (NUMW[w] || 0); if (!n) return false;
+        out.hours = n + (/and\s+a\s+half/i.test(m[0]) ? 0.5 : 0);
+      }) ||
+      take(new RegExp(`\\b(?:takes?\\s*|about\\s*|around\\s*|for\\s*)*(\\d{2,3})\\s*-?\\s*(?:m|min|mins|minutes)\\b${LONG}`, "i"), m => { out.hours = Math.round(Number(m[1]) / 60 * 4) / 4; });
     take(/\b(urgent|asap)\b/i, () => { out.priority = "urgent"; }) || take(/\b(important|high priority)\b/i, () => { out.priority = "high"; });
     take(/\b(?:at\s*|@\s*|by\s*)?(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/i, m => {
       let h = Number(m[1]); if (h < 1 || h > 12) { out.flags.push("time"); return false; }
@@ -33400,9 +33436,25 @@ const CAP = (() => {
         out.time = pad2(h) + ":00";
       });
     if (!out.time && /\b(?:at|@)\s*\d{1,2}\b(?!\s*[\/:%.-]\d)/i.test(s)) out.flags.push("time");
+    // ("the first chapter" stays words: after "the", only when the phrase ends there or goes on with "of <month>", "at", "by")
+    s = s.replace(new RegExp(`\\b((?:${MONRE})\\.?\\s+(?:the\\s+)?)(${ORDRE})\\b`, "gi"), (all, pre, w) => pre + ORDN(w) + "th")
+      .replace(new RegExp(`\\b(the\\s+)(${ORDRE})\\b(?=\\s*(?:$|[,.;!?]|of\\s+(?:${MONRE})\\b|at\\b|@|by\\b))`, "gi"), (all, pre, w) => pre + ORDN(w) + "th");
+    // a weekday said with the date ("friday oct 30", "fri, 10/30", "friday the 30th"): the date decides, the weekday picks its year
+    const WDPRE = `(?:(${WDRE})\\.?,?\\s+(?:the\\s+)?)?`;
+    const wdOf = w => w ? WD.findIndex(a => a.includes(w.toLowerCase())) : -1;
+    const withDay = (mo, day, year, w) => {
+      const k = wdOf(w);
+      if (k >= 0 && !year) { const y0 = parts(today)[0]; for (const y of [y0, y0 + 1, y0 - 1]) { const d = isoOf(y, mo + 1, day); if (validISO(d) && dow(d) === k && diff(today, d) >= -45 && diff(today, d) <= 400) return d; } }
+      const d = monthDay(mo, day, today, year); if (d && k >= 0 && dow(d) !== k) out.flags.push("date");
+      return d;
+    };
     const wd = new RegExp(`\\b(?:(next|this|coming)\\s+)?(${WDRE})\\b\\.?`, "i");
     take(/\b(20\d\d)-(\d{1,2})-(\d{1,2})\b/, m => { const d = isoOf(+m[1], +m[2], +m[3]); if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d; }) ||
+    take(/\b(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|wks?)\s+from\s+(?:now|today)\b/i, m => {
+      const n = NUMW[m[1].toLowerCase()] || Number(m[1]); if (!n) return false; out.due = addDays(today, /^w/i.test(m[2]) ? n * 7 : n);
+    }) ||
     take(/\b(today|tonight)\b/i, m => { out.due = today; if (/tonight/i.test(m[1]) && !out.time) out.time = "23:59"; }) ||
+    take(/\b(?:the\s+)?day\s+after\s+(?:tomorrow|tmrw|tmr)\b/i, () => { out.due = addDays(today, 2); }) ||
     take(/\b(tomorrow|tmrw|tmr|tmw)\b/i, () => { out.due = addDays(today, 1); }) ||
     take(/\bin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|wks?)\b/i, m => {
       const n = NUMW[m[1].toLowerCase()] || Number(m[1]); if (!n) return false; out.due = addDays(today, /^w/i.test(m[2]) ? n * 7 : n);
@@ -33418,24 +33470,27 @@ const CAP = (() => {
       const mon = addDays(opts.termStart, -((dow(opts.termStart) + 6) % 7));
       out.due = addDays(mon, (n - 1) * 7 + 4); out.term = "week";
     }) ||
-    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
-    // An optional year may follow: "dec 5 2027", "January 10, 2027", "5 dec 2027"
-    take(new RegExp(`\\b(${MONRE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[1].slice(0, 3).toLowerCase()), Number(m[2]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    // An optional year may follow: "dec 5 2027", "January 10, 2027", "5 dec 2027"; an optional weekday may lead: "friday oct 30"
+    take(new RegExp(`\\b${WDPRE}(${MONRE})\\.?\\s+(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = withDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[3]), Number(m[4]) || 0, m[1]); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[1]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    take(new RegExp(`\\b${WDPRE}(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = withDay(MON.indexOf(m[3].slice(0, 3).toLowerCase()), Number(m[2]), Number(m[4]) || 0, m[1]); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    // "due the 15th": the next 15th, this month or next
-    take(/\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i, m => {
-      const n = Number(m[1]); let [y, mo] = parts(today), d = isoOf(y, mo, n);
-      if (!validISO(d) || d < today) { mo = mo % 12 + 1; if (mo === 1) y++; d = isoOf(y, mo, n); }
-      if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d;
+    // "10/30", "10/30/26", "fri 10/30"; "30/10" when the first number can't be a month
+    take(new RegExp(`\\b${WDPRE}(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?\\b`), m => {
+      const y = m[4] ? (m[4].length === 2 ? 2000 + Number(m[4]) : Number(m[4])) : 0;
+      let a = Number(m[2]), b = Number(m[3]); if (a > 12 && b <= 12) [a, b] = [b, a];
+      const d = withDay(a - 1, b, y, m[1]); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/, m => {
-      const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : 0;
-      const d = monthDay(Number(m[1]) - 1, Number(m[2]), today, y); if (!d) { out.flags.push("date"); return false; } out.due = d;
-    });
+    // "due the 15th", "friday the 30th": the next 15th, this month or next (with a weekday, the next one that falls on it)
+    take(new RegExp(`\\b(?:on\\s+)?(?:(${WDRE})\\.?,?\\s+)?the\\s+(\\d{1,2})(?:st|nd|rd|th)\\b`, "i"), m => {
+      const n = Number(m[2]), k = wdOf(m[1]); let [y, mo] = parts(today), d = "";
+      for (let i = 0; i < 14 && !d; i++) { const c = isoOf(y, mo, n); if (validISO(c) && c >= today && (k < 0 || dow(c) === k)) d = c; mo = mo % 12 + 1; if (mo === 1) y++; }
+      if (!d && k >= 0) { [y, mo] = parts(today); const c = isoOf(y, mo, n); d = validISO(c) && c >= today ? c : ""; if (!d) { mo = mo % 12 + 1; if (mo === 1) y++; const c2 = isoOf(y, mo, n); d = validISO(c2) ? c2 : ""; } if (d) out.flags.push("date"); }
+      if (!d) { out.flags.push("date"); return false; } out.due = d;
+    }) ||
+    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); });
     if (out.due && diff(today, out.due) > 800) { out.due = ""; out.flags.push("date"); }
     if (out.due && out.due < today) out.flags.push("past");
     out.rest = s.replace(/\s+/g, " ").trim();
@@ -40343,18 +40398,41 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const end = classesEnd(c);
     return !!end && addDays(end, FINAL_AFTER) <= todayISO();
   }
+  /* A points course. When none of a course's weights came from the school or from you, and the only ones it has were worked out
+     from points (estimated), those were worked out from the school site's Grades page alone: marked work found elsewhere (a quiz's
+     submission page, an exam) had no share, and the rest split 100% among themselves (one assignment "worth 100%" beside a marked
+     exam). Such a course is graded by points instead: every item whose points are known shares the course by its points, marked
+     or not, so the marks counted are all the marks, and each share is labelled as worked out from points. */
+  const LMS_F = ["bs", "cv", "bb", "md", "sg", "gc"];
+  const ptsOf = t => { const L = lmsOf(t), o = L && Number(L.outOf); if (o > 0) return o; const m = t.mark; return m && LMS_F.includes(m.src) && Number(m.outOf) > 0 ? Number(m.outOf) : 0; };
+  let EFFW = new Map();   // task id -> its share (%) in a points course; filled by courseGrade
+  const inPts = t => EFFW.has(t.id);
+  const wOf = t => inPts(t) ? EFFW.get(t.id) : hasWeight(t) ? Number(t.weight) : null;
+  function pointsShares(c){
+    const all = allTasks().filter(t => t.courseId === c.id && !t.prepFor);
+    if (all.some(t => hasWeight(t) && !weightGuessed(t))) return null;
+    const pts = all.filter(t => ptsOf(t) > 0);
+    if (!pts.length || !(all.some(weightGuessed) || pts.length >= 3)) return null;
+    const sum = pts.reduce((s, t) => s + ptsOf(t), 0);
+    return sum > 0 ? new Map(pts.map(t => [t.id, Math.round(ptsOf(t) / sum * 10000) / 100])) : null;
+  }
+  // a points course says so once, above its marks, instead of counting "estimated weights"
+  const ptsNote = gr => gr.pts ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>Graded by points.</b> Your school site doesn't show weights for this course, so each item counts by its share of all the points (${gr.ts.length} ${gr.ts.length === 1 ? "item" : "items"} with points so far). If your syllabus gives weights, tap an item to type in the real one.</span></div>` : weightGuessNote(gr.ts);
   function courseGrade(c, asOf, pretend){
     const g = gradingOf(c), R = rulesOf(c);
-    const ts = allTasks().filter(t => t.courseId === c.id && hasWeight(t) && !t.prepFor);
+    const share = pointsShares(c);
+    allTasks().forEach(t => { if (t.courseId === c.id) EFFW.delete(t.id); });
+    if (share) share.forEach((w, id) => EFFW.set(id, w));
+    const ts = allTasks().filter(t => t.courseId === c.id && !t.prepFor && (share ? share.has(t.id) : hasWeight(t)));
     const pctOf = t => { const p = markPct(t); if (p == null && pretend && isNum(pretend[t.id])) return Number(pretend[t.id]); return p != null && (!(asOf instanceof Set) || asOf.has(t.id)) ? p : null; };
     const pm = new Map(ts.map(t => [t.id, pctOf(t)]));
     const marked = ts.filter(t => pm.get(t.id) != null), open = ts.filter(t => pm.get(t.id) == null);
-    const wMarked = marked.reduce((s, t) => s + Number(t.weight), 0);
-    const earned = marked.reduce((s, t) => s + Number(t.weight) * pm.get(t.id) / 100, 0);
-    const wAll = ts.reduce((s, t) => s + Number(t.weight), 0);
+    const wMarked = marked.reduce((s, t) => s + wOf(t), 0);
+    const earned = marked.reduce((s, t) => s + wOf(t) * pm.get(t.id) / 100, 0);
+    const wAll = ts.reduce((s, t) => s + wOf(t), 0);
     const D = Math.max(100, wAll);
     const remaining = Math.max(0, D - wMarked), unlisted = Math.max(0, 100 - wAll);
-    const items = ts.map(t => ({id: t.id, w: Number(t.weight), cat: t.type, fin: /\bfinal\b/i.test(t.title || ""), pct: pm.get(t.id)}));
+    const items = ts.map(t => ({id: t.id, w: wOf(t), cat: t.type, fin: /\bfinal\b/i.test(t.title || ""), pct: pm.get(t.id)}));
     if (unlisted > 0.001) items.push({id: "", w: unlisted, cat: "", fin: false, pct: null});
     const ruled = GRULES.active(items, R);
     let current, minFinal, maxFinal, need, dropped = new Set();
@@ -40369,8 +40447,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     }
     const remShown = remaining / D * 100;
     const projected = current == null ? null : remaining > 0.01 ? (ruled ? GRULES.finalWith(items, R, D, current) : current) : minFinal;
-    const loose = allTasks().filter(t => t.courseId === c.id && !hasWeight(t) && !t.prepFor && markPct(t) != null);
-    const gr = {c, g, R, ruled, dropped, ts, loose, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+    const loose = allTasks().filter(t => t.courseId === c.id && wOf(t) == null && !t.prepFor && markPct(t) != null);
+    const gr = {c, g, R, ruled, dropped, ts, loose, marked, open, pts: !!share, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
     // every listed item marked isn't a final grade: more can still be added until classes are over
     gr.final = gr.done && classesOver(c);
     gr.risk = riskOf(gr);
@@ -40533,7 +40611,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (v === null) return "";
     if (v === undefined) return `<span class="late">Type it like 43/50 or 86%.</span>`;
     const p = v.got / v.outOf * 100, L = letterOf(p, g.scale);
-    return `<b>${fmtP(p)}</b>${L ? ` (${esc(L)})` : ""}${hasWeight(t) ? `, which adds ${r1(Number(t.weight) * p / 100)} of the ${r1(Number(t.weight))} points this is worth` : ""}.`;
+    return `<b>${fmtP(p)}</b>${L ? ` (${esc(L)})` : ""}${wOf(t) != null ? `, which adds ${r1(wOf(t) * p / 100)} of the ${r1(wOf(t))} points this is worth` : ""}.`;
   }
 
   /* Task form: a compact Mark field */
@@ -40657,10 +40735,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   }
   // The unmarked graded item with the most weight
   function biggestSwing(gr){
-    const open = (gr.open || []).filter(t => Number(t.weight) > 0);
+    const open = (gr.open || []).filter(t => wOf(t) > 0);
     if (gr.done || open.length < 2) return null;
-    const t = open.slice().sort((a, b) => Number(b.weight) - Number(a.weight) || String(a.due || "9999").localeCompare(String(b.due || "9999")))[0];
-    const share = Number(t.weight) / gr.D * 100;
+    const t = open.slice().sort((a, b) => wOf(b) - wOf(a) || String(a.due || "9999").localeCompare(String(b.due || "9999")))[0];
+    const share = wOf(t) / gr.D * 100;
     return {t, share, per10: share / 10};
   }
   /* Where the grade comes from */
@@ -40670,15 +40748,15 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   // The marked work of each type, weighted, highest first. left: how much of the course is still to come in that type
   function byType(gr){
     const m = {}, key = t => t.type || "Other";
-    gr.marked.forEach(t => { const w = Number(t.weight), o = m[key(t)] || (m[key(t)] = {type: key(t), w: 0, e: 0, n: 0, left: 0}); o.w += w; o.e += w * markPct(t); o.n++; });
-    gr.open.forEach(t => { const o = m[key(t)]; if (o) o.left += Number(t.weight); });
+    gr.marked.forEach(t => { const w = wOf(t), o = m[key(t)] || (m[key(t)] = {type: key(t), w: 0, e: 0, n: 0, left: 0}); o.w += w; o.e += w * markPct(t); o.n++; });
+    gr.open.forEach(t => { const o = m[key(t)]; if (o) o.left += wOf(t); });
     return Object.values(m).filter(o => o.w > 0).map(o => Object.assign(o, {pct: o.e / o.w, share: o.w / gr.D * 100, left: o.left / gr.D * 100})).sort((a, b) => b.pct - a.pct);
   }
   // How much each mark lifts or lowers the current grade (the grade with it, minus the grade without it)
   function markImpact(gr){
     if (gr.current == null || gr.marked.length < 3) return null;
-    const W = gr.marked.reduce((s, t) => s + Number(t.weight), 0), E = gr.marked.reduce((s, t) => s + Number(t.weight) * markPct(t), 0);
-    const all = gr.marked.map(t => { const w = Number(t.weight); return W - w > 0 ? {t, d: gr.current - (E - w * markPct(t)) / (W - w)} : null; }).filter(Boolean).sort((a, b) => b.d - a.d);
+    const W = gr.marked.reduce((s, t) => s + wOf(t), 0), E = gr.marked.reduce((s, t) => s + wOf(t) * markPct(t), 0);
+    const all = gr.marked.map(t => { const w = wOf(t); return W - w > 0 ? {t, d: gr.current - (E - w * markPct(t)) / (W - w)} : null; }).filter(Boolean).sort((a, b) => b.d - a.d);
     const boost = all[0] && all[0].d >= 0.5 ? all[0] : null, drag = all.length && all[all.length - 1].d <= -0.5 ? all[all.length - 1] : null;
     return boost || drag ? {boost, drag} : null;
   }
@@ -40722,14 +40800,14 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   function comingUp(all, days){
     const today = todayISO(), end = addDays(today, days - 1);
     return all.map(gr => {
-      const its = gr.open.filter(t => t.status !== "done" && t.due && t.due >= today && t.due <= end && Number(t.weight) > 0).sort(sortTasks);
-      return {gr, its, share: its.reduce((s, t) => s + Number(t.weight), 0) / gr.D * 100};
+      const its = gr.open.filter(t => t.status !== "done" && t.due && t.due >= today && t.due <= end && wOf(t) > 0).sort(sortTasks);
+      return {gr, its, share: its.reduce((s, t) => s + wOf(t), 0) / gr.D * 100};
     }).filter(x => x.its.length).sort((a, b) => b.share - a.share);
   }
   function comingUpHtml(all){
     const list = comingUp(all, 14); if (!list.length) return "";
     return `<h3 class="fsec">${esc(tr("gb.soon", "Graded Work Coming Up"))}<span class="n">${esc(tr("gb.soon.when", "next 2 weeks"))}</span></h3><ul class="gs-wait gb-soon">${list.map(x => `<li style="--c:${esc(x.gr.c.color)}"><span class="gs-name"><span>${esc(tr("gb.soon.row", "{share} of {course} is due", {share: fmtW(x.share), course: courseLabel(x.gr.c)}))}</span>
-      <span class="mini">${x.its.slice(0, 4).map(t => esc(tr("gb.soon.item", "{title} ({w}, {due})", {title: t.title, w: fmtW(Number(t.weight)), due: fmtShort(t.due)}))).join(" · ")}${x.its.length > 4 ? " · " + esc(tr("gb.more", "+{n} more", {n: x.its.length - 4})) : ""}</span></span>
+      <span class="mini">${x.its.slice(0, 4).map(t => esc(tr("gb.soon.item", "{title} ({w}, {due})", {title: t.title, w: fmtW(wOf(t)), due: fmtShort(t.due)}))).join(" · ")}${x.its.length > 4 ? " · " + esc(tr("gb.more", "+{n} more", {n: x.its.length - 4})) : ""}</span></span>
       <button class="btn small" data-act="g-open-course" data-id="${esc(x.gr.c.id)}">${esc(tr("gb.open", "Open"))}</button></li>`).join("")}</ul>`;
   }
   // What a course would look like with pretend marks
@@ -40754,11 +40832,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     return out.join(" ");
   }
   function whatIfHtml(gr){
-    const open = (gr.open || []).filter(t => Number(t.weight) > 0).slice().sort(sortTasks).slice(0, 8);
+    const open = (gr.open || []).filter(t => wOf(t) > 0).slice().sort(sortTasks).slice(0, 8);
     if (gr.done || !open.length) return "";
     const vals = (ui.gWhatIf && ui.gWhatIf[gr.c.id]) || {};
     return `<div class="gr-sub gr-wi" data-wi-course="${esc(gr.c.id)}"><h4>What If?</h4>
-      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter aria-describedby="wio-${esc(t.id)}"><span class="mini gr-wi-over" id="wio-${esc(t.id)}"${vals[t.id] > 100 ? "" : " hidden"}>That's over 100%. Bonus marks?</span></li>`).join("")}</ul>
+      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(wOf(t))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter aria-describedby="wio-${esc(t.id)}"><span class="mini gr-wi-over" id="wio-${esc(t.id)}"${vals[t.id] > 100 ? "" : " hidden"}>That's over 100%. Bonus marks?</span></li>`).join("")}</ul>
       <p class="gr-wi-out" role="status" aria-live="polite">${whatIfOut(gr, vals)}</p>
       <button type="button" class="link-btn" data-act="wi-clear" data-id="${esc(gr.c.id)}" style="justify-self:start"${Object.keys(vals).length ? "" : " hidden"}>Clear What-Ifs</button></div>`;
   }
@@ -40800,8 +40878,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const p = markPct(t);
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
-      const nw = p != null && !hasWeight(t);
-      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est" title="${esc(WEIGHT_GUESS_TIP)}">worth ~${fmtW(Number(t.weight))} (estimated)</span>` : `worth ${fmtW(Number(t.weight))}`) : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
+      const nw = p != null && wOf(t) == null;
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${inPts(t) ? `<span class="w-est" title="This course has no weights, so it's graded by points: each item counts by its share of all the points.">worth ~${fmtW(wOf(t))} (by points)</span>` : hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est" title="${esc(WEIGHT_GUESS_TIP)}">worth ~${fmtW(Number(t.weight))} (estimated)</span>` : `worth ${fmtW(Number(t.weight))}`) : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -40822,10 +40900,13 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   /* New marks from a sync: a red count on Courses, on the Grades switch, on each course with one (its card, its row on Grades,
      its own Grades tab), and a red dot on the mark itself. Seen once you've had that course's Grades tab (or its marks on Grades) open and moved on. */
   const newMarks = cid => tasksArr().filter(t => t && t.markNew && t.mark && t.mark.got != null && t.mark.got !== "" && (!cid || t.courseId === cid));
+  // the counts are put back on every redraw: they ease in only the first time they're seen, after that they're simply there (99-smooth
+  // eases in anything new after a tap, so each tap on Grades made them blink out and back)
+  const pipSeen = new Set();
   const pipOn = (el, n, cls, label) => {
     if (!el) return; let d = el.querySelector(":scope > ." + cls);
     if (!n) { if (d) d.remove(); return; }
-    if (!d) { d = document.createElement("span"); d.className = cls; d.setAttribute("aria-hidden", "true"); el.appendChild(d); }
+    if (!d) { d = document.createElement("span"); d.className = cls + (pipSeen.has(cls) ? " sm-skip" : ""); d.setAttribute("aria-hidden", "true"); el.appendChild(d); pipSeen.add(cls); }
     d.textContent = n > 9 ? "9+" : String(n);
     if (label) el.setAttribute("aria-label", label);
   };
@@ -40883,7 +40964,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         <div class="gr-stat"><span class="gr-k">Projected Final</span>${gr.projected != null ? `<span class="gr-v">${fmtP(gr.projected)}${L(gr.projected) ? ` <span class="gr-l">${esc(L(gr.projected))}</span>` : ""}</span><span class="mini">${gr.done ? "all work marked" : `if you keep this up. Possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}`}</span>` : `<span class="gr-v gr-none">Not Yet</span><span class="mini">Needs a first mark</span>`}</div>
         <div class="gr-stat gr-pass"><span class="gr-k">Pass Mark</span><span class="gr-v">${fmtP(g.pass)}${L(g.pass) ? ` <span class="gr-l">${esc(L(g.pass))}</span>` : ""}</span><span class="mini">${g.goal != null && gg ? `<b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></div>
       </div>
-      ${weightGuessNote(gr.ts)}
+      ${ptsNote(gr)}
       ${goalAsk(gr) || goalField(c, gr)}
       ${gradeBar(gr)}
       ${need.length ? `<div class="gr-sub"><h4>What You Need</h4><ul class="gr-need">${need.map(x => `<li>${x}</li>`).join("")}</ul></div>` : ""}
@@ -41133,8 +41214,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const head = `COURSE ${courseLabel(c)}${c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : ""}${isNum(c.credits) ? ", " + fmtCr(c.credits) + " credits" : ""}: `
         + (gr.current != null ? `current ${fmtP(gr.current)}${Lt(gr.current)} on ${fmtW(gr.wMarked)} of the course marked; ${gr.final ? "final" : gr.done ? "everything listed so far is marked (not final: classes aren't over, more marks may come); so far" : "projected final"} ${fmtP(finalOf(gr))}${Lt(finalOf(gr))}; possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}` : "no marks yet")
         + `; pass mark ${fmtP(g.pass)}${g.goal != null ? "; goal " + fmtP(g.goal) : ""}${risk ? "; " + risk : ""}. ${gradeLine(gr)}${rulesText(gr.R) ? " Grading rules: " + rulesText(gr.R) + "." : ""}`;
-      const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
-      const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
+      const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(wOf(t))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
+      const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(wOf(t))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
       L.push(head + (zeroed(gr) ? "\n  LOOKS WRONG: every mark in this course is 0%, which almost always means the marks weren't entered or the school site sent ungraded work as 0. Don't treat it as a real failing grade." : "") + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
     });
     return L.join("\n");
@@ -41214,7 +41295,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         <div class="chips gp-calc-t" role="group" aria-label="Target">${tg.map(([k, v]) => `<button type="button" class="chip" data-act="gp-target" data-cid="${esc(c.id)}" data-id="${v}" aria-pressed="${Math.abs(v - want) < 0.01}">${esc(k)} ${r1(v)}%</button>`).join("")}</div>
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
-        ${weightGuessNote(gr.ts)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
+        ${ptsNote(gr)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
@@ -66564,14 +66645,21 @@ var COMP_EXTRA = [];
   let gT = 0;
   const guardSoon = (why, ms) => { if (gT) return; gT = setTimeout(() => { gT = 0; try { clamp(why); } catch (e) { console.warn("companion guard", e); } fitHitSoon(); }, ms == null ? 60 : ms); };
   // While any of its animations runs, look at it every frame
-  let mwEnd = 0, mwRaf = 0;
+  let mwEnd = 0, mwRaf = 0, mwLast = 0;
   function motionWatch(ms){
     if (still()) return;
     mwEnd = Math.max(mwEnd, performance.now() + (ms || 1000) + 100);
     if (mwRaf) return;
     // seated in the phone's tab bar it doesn't travel, so it is checked once its motion ends rather than every frame (each check
     // measured the page, and typing in the add bar changes the page on every key)
-    const step = () => { mwRaf = 0; if (!box || box.hidden || still()) return; const more = performance.now() < mwEnd; if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { try { clamp("anim"); } catch (e) {} } if (more) mwRaf = requestAnimationFrame(step); };
+    // Each check measures the companion and the page (a full style and layout pass), so while it moves it runs every 150ms, not
+    // every frame: every frame it took most of each frame's time on a laptop and made its moves stutter. Once more when it stops.
+    const step = () => {
+      mwRaf = 0; if (!box || box.hidden || still()) return;
+      const now = performance.now(), more = now < mwEnd;
+      if (!more || now - mwLast >= 150) { if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { mwLast = now; try { clamp("anim"); } catch (e) {} } }
+      if (more) mwRaf = requestAnimationFrame(step);
+    };
     mwRaf = requestAnimationFrame(step);
   }
   /* Controls (buttons, links, fields) under its tap area */
@@ -71421,6 +71509,262 @@ You can also DO things in Studyboard, but only when the student asks or what the
 })();
 
 
+/* ===== module: 97-credits.js ===== */
+/* Studyboard Credits: buy credits on the website (Stripe), then keep shop items for good with them. A Theme Collection
+   (300) brings its theme, its companions, its sticker pack, its pins and its flashcard style; a sticker pack or a flashcard
+   style is 100, a pin 50. The server decides every price and the balance (supabase-credits.sql); this file only shows them,
+   asks for a purchase, and remembers what the account owns so owns() in 01-style-shop.js can say yes on this device.
+   Switched on with studyboard_config.item_purchases (see CREDITS-GUIDE.md). */
+(() => {
+  const K = "studyboard:credits";
+  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin"};
+  // Shown until the server has answered once; the server's own prices always win when buying
+  const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50};
+  const COIN = `<svg class="cr-coin" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6.8l1.5 3.2 3.5.4-2.6 2.4.7 3.4L12 14.5l-3.1 1.7.7-3.4L7 10.4l3.5-.4z" fill="currentColor"/></svg>`;
+
+  // Tests swap in their own server and account (window.__SB_TEST only)
+  let fake = null;
+  const cl = () => (fake ? fake.sb : typeof sb !== "undefined" ? sb : null);
+  const usr = () => (fake ? fake.user : typeof sbUser !== "undefined" ? sbUser : null);
+  let C = null;
+  try { C = JSON.parse(localStorage.getItem(K) || "null"); } catch (e) { C = null; }
+  let owned = new Set();
+  const mine = () => { const u = usr(); return C && u && C.uid === u.id ? C : null; };
+  function rebuild(){
+    const m = mine();
+    owned = new Set(m && Array.isArray(m.owned) ? m.owned.filter(x => Array.isArray(x) && x.length === 2).map(x => x[0] + ":" + x[1]) : []);
+  }
+  rebuild();
+  const save = () => { try { localStorage.setItem(K, JSON.stringify(C)); } catch (e) {} };
+  const balance = () => { const m = mine(); return m && Number.isFinite(+m.balance) ? +m.balance : 0; };
+  const prices = () => Object.assign({}, DEFAULT_PRICES, (mine() && mine().prices) || {});
+  const planOk = () => typeof PLAN !== "undefined" && !!PLAN;
+  // On when the paywall is on and studyboard_config.item_purchases is true
+  const enabled = () => { try { return STORE.paywall && planOk() && !!PLAN.config().item_purchases && !inPreview(); } catch (e) { return false; } };
+  const signedIn = () => { const u = usr(); return !!u && !u.is_anonymous; };
+  const storeApp = () => { try { return planOk() && PLAN.storeRoute(); } catch (e) { return false; } };
+
+  /* ---------- Ownership ---------- */
+  const has = (kind, id) => owned.has(kind + ":" + id);
+  // The item itself, or (for a companion, sticker pack, pin or flashcard style) the Theme Collection it comes with
+  function owns(kind, id){
+    if (!owned.size || !id) return false;
+    if (has(kind, id)) return true;
+    if (kind === "skin") return false;
+    const it = (STYLE_LISTS[kind] || []).find(x => x.id === id);
+    return !!(it && it.theme && has("skin", it.theme));
+  }
+  // What an item costs, or 0 when it can't be bought with credits (free items, note shapes, accessories)
+  function priceOf(kind, id){
+    const p = prices()[kind]; if (!p) return 0;
+    const list = kind === "skin" ? SKINS : STYLE_LISTS[kind] || [];
+    const it = list.find(x => x.id === id);
+    return it && it.tier === "pro" ? +p : 0;
+  }
+  const themeName = th => ((SKINS.find(x => x.id === th) || {}).name || th);
+  function nameOf(kind, id){
+    if (kind === "skin") return themeName(id) + " Collection";
+    const it = (kind === "sticker" ? STICKER_PACKS : STYLE_LISTS[kind] || []).find(x => x.id === id);
+    return it ? String(it.name).replace(/\s*\(Default\)\s*$/i, "") : id;
+  }
+  // Everything a Theme Collection brings
+  function contents(th){
+    const r = window.SBTP && SBTP.rec ? SBTP.rec(th) : null, out = [];
+    const comps = (STYLE_LISTS.comp || []).filter(c => c.theme === th);
+    out.push("The " + themeName(th) + " theme");
+    if (comps.length) out.push(comps.length === 1 ? `Its companion, ${comps[0].name}` : `Its ${comps.length} companions: ${comps.map(c => c.name).join(", ")}`);
+    if (r && r.pack) { const p = STICKER_PACKS.find(x => x.id === r.pack); if (p) out.push(`${p.name} (${Object.keys(p.items).length} stickers)`); }
+    if (r && r.pins && r.pins.length) out.push(r.pins.length === 1 ? "Its pin" : `Its ${r.pins.length} pins`);
+    if (r && r.card) out.push("Its flashcard style");
+    return out;
+  }
+
+  /* ---------- Talking to the server ---------- */
+  let loading = null;
+  async function load(){
+    if (!cl() || !signedIn() || inPreview()) return null;
+    if (loading) return loading;
+    loading = (async () => {
+      try {
+        const {data, error} = await cl().rpc("studyboard_credits_me");
+        if (error || !data || typeof data !== "object") return null;
+        const before = mine(), was = before ? JSON.stringify([before.balance, before.owned]) : "";
+        C = Object.assign({}, data, {uid: usr().id, at: Date.now()});
+        save(); rebuild();
+        if (was !== JSON.stringify([C.balance, C.owned])) {
+          if (before && C.balance > before.balance) toast(`${C.balance - before.balance} credits added. You have ${C.balance}.`);
+          try { applySkin(); } catch (e) {}
+          scheduleRender(); redrawOpen();
+        }
+        return C;
+      } catch (e) { return null; } finally { loading = null; }
+    })();
+    return loading;
+  }
+  // After a purchase on the website: check again for a few minutes, and whenever the app comes back
+  let watchUntil = 0, watchT = 0;
+  function watch(){
+    watchUntil = Date.now() + 4 * 60000; clearTimeout(watchT);
+    const tick = () => { if (Date.now() > watchUntil) return; load(); watchT = setTimeout(tick, 8000); };
+    watchT = setTimeout(tick, 5000);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() < watchUntil) load(); });
+
+  /* ---------- Sheets ---------- */
+  let backToShop = false;
+  const shopOpen = () => !!(dlg.open && dlg.querySelector(".sheet.shop, .sheet.ui-shop"));
+  function redrawOpen(){
+    try {
+      const s = dlg.open && dlg.querySelector(".cr-sheet");
+      if (s && s.dataset.kind) buySheet(s.dataset.kind, s.dataset.id);
+      else if (s) packsSheet();
+      else if (shopOpen()) styleShop();
+    } catch (e) {}
+  }
+  function preview(kind, id){
+    if (kind === "skin") { const s = SKINS.find(x => x.id === id); return s ? `<div class="cr-prev">${skinPreview(s, isDark())}</div>` : ""; }
+    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? `<div class="cr-prev cr-stk">${Object.keys(p.items).slice(0, 8).map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div>` : ""; }
+    if (kind === "card") return `<div class="cr-prev"><div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div></div>`;
+    if (kind === "pin") return `<div class="cr-prev">${noteDemo(noteShapeOf(null), id, 1)}</div>`;
+    return "";
+  }
+  function buySheet(kind, id, note){
+    if (!dlg.open || !dlg.querySelector(".cr-sheet")) backToShop = shopOpen();
+    const cost = priceOf(kind, id), bal = balance(), mineOk = signedIn(), enough = bal >= cost;
+    const it = kind === "skin" ? null : (kind === "sticker" ? STICKER_PACKS : STYLE_LISTS[kind] || []).find(x => x.id === id);
+    const th = it && it.theme && !has("skin", it.theme) ? it.theme : "";
+    const list = kind === "skin" ? contents(id) : [];
+    const go = !mineOk ? `<button type="button" class="btn primary" data-act="cr-signin">Sign In to Buy</button>`
+      : enough ? `<button type="button" class="btn primary" data-act="cr-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">${COIN} Keep It for ${cost} Credits</button>`
+      : storeApp() ? "" : `<button type="button" class="btn primary" data-act="cr-packs">Get Credits</button>`;
+    openSheet(`<div class="sheet cr-sheet" data-kind="${esc(kind)}" data-id="${esc(id)}">${head(nameOf(kind, id))}
+      <div class="sheet-body">
+        ${note ? `<p class="plan-reason" role="status"><span>${esc(note)}</span></p>` : ""}
+        ${preview(kind, id)}
+        <p class="cr-cost">${COIN}<b>${cost} Credits</b><span class="mini">${esc(KIND_NAME[kind] || "")} · Yours for good, with or without Pro</span></p>
+        ${list.length ? `<div class="cr-has"><b>Comes With</b><ul>${list.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+        ${th ? `<p class="mini cr-alt">This comes with the ${esc(themeName(th))} Theme Collection, which also brings the theme, its companions and the rest of its pieces for ${priceOf("skin", th)} credits. <button type="button" class="link-btn" data-act="cr-item" data-kind="skin" data-id="${esc(th)}">See the Collection</button></p>` : ""}
+        ${mineOk ? `<p class="cr-bal" role="status">You have <b>${bal}</b> credit${bal === 1 ? "" : "s"}.${enough ? "" : ` You need ${cost - bal} more.`}${!enough && storeApp() ? " Buying credits isn't available in this app." : ""}</p>` : `<p class="mini">Credits belong to your account, so sign in first.</p>`}
+        <p class="mini cr-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> to use every theme and style while you're subscribed.</p>
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="cr-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}</div></div>`);
+  }
+  const money = (cents, cur) => { try { return new Intl.NumberFormat(undefined, {style: "currency", currency: String(cur || "usd").toUpperCase()}).format(cents / 100); } catch (e) { return "$" + (cents / 100).toFixed(2); } };
+  function packsSheet(){
+    if (!dlg.open || !dlg.querySelector(".cr-sheet")) backToShop = shopOpen();
+    const m = mine(), packs = m && Array.isArray(m.packs) ? m.packs : null, base = packs && packs[0] ? packs[0].cents / packs[0].credits : 0;
+    const body = !signedIn() ? `<p style="margin:0">Credits belong to your account. Sign in or create a free account first.</p>`
+      : storeApp() ? `<p style="margin:0">Buying credits isn't available in this app. Credits you already have work here.</p>`
+      : !packs ? `<p class="mini" style="margin:0">Loading…</p>`
+      : `<div class="cr-packs">${packs.map(p => { const bonus = base ? Math.round((1 - p.cents / p.credits / base) * 100) : 0;
+          return `<button type="button" class="cr-pack${p.badge === "Best Value" ? " best" : ""}" data-act="cr-pack" data-id="${esc(p.id)}">${p.badge ? `<span class="pp-flag">${esc(p.badge)}</span>` : ""}<span class="cr-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="cr-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 5 && !p.badge ? `<span class="mini">${bonus}% more per dollar</span>` : ""}</button>`; }).join("")}</div>
+        <p class="mini" style="margin:0">A Theme Collection is ${prices().skin} credits (with its companions, stickers, pins and flashcard style), a sticker pack or flashcard style ${prices().sticker}, a pin ${prices().pin}. Credits don't expire, and what you keep stays yours even without Pro. You'll pay securely with Stripe on the Studyboard website.</p>`;
+    openSheet(`<div class="sheet cr-sheet">${head("Studyboard Credits")}
+      <div class="sheet-body">
+        ${signedIn() ? `<p class="cr-bal cr-bal-big" role="status">${COIN}<span>You have <b>${balance()}</b> credit${balance() === 1 ? "" : "s"}</span></p>` : ""}
+        ${body}
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="cr-back">${backToShop ? "Back to Shop" : "Close"}</button><span class="spacer"></span>${signedIn() ? "" : `<button type="button" class="btn primary" data-act="cr-signin">Sign In</button>`}</div></div>`);
+    if (!packs && signedIn()) load().then(() => { if (dlg.open && dlg.querySelector(".cr-sheet:not([data-kind])")) packsSheet(); });
+  }
+  let busy = false;
+  async function buy(kind, id, btn){
+    if (busy) return; busy = true;
+    if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+    let r = null;
+    try { const {data, error} = await cl().rpc("studyboard_buy_item", {p_kind: kind, p_item: id}); r = error ? {error: "network"} : data; } catch (e) { r = {error: "network"}; }
+    busy = false;
+    if (btn && btn.isConnected) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
+    const ERR = {off: "Buying with credits isn't available right now.", sign_in: "Sign in first, then try again.", bad_item: "That item can't be bought with credits.",
+      slow_down: "That's a lot of purchases. Wait a little, then try again.", network: "Couldn't reach Studyboard. Check your connection and try again."};
+    if (!r || !r.ok) {
+      if (r && r.error === "not_enough") { if (C && typeof r.balance === "number") { C.balance = r.balance; save(); } buySheet(kind, id); return; }
+      toast(ERR[r && r.error] || ERR.network); return;
+    }
+    C = Object.assign({}, mine() || {uid: usr().id, owned: []}, {balance: typeof r.balance === "number" ? r.balance : balance()});
+    C.owned = (C.owned || []).concat([[kind, id]]); save(); rebuild();
+    try { applySkin(); } catch (e) {}
+    const wasShop = backToShop;
+    if (dlg.open) dlg.close();
+    scheduleRender();
+    const left = `${C.balance} credit${C.balance === 1 ? "" : "s"} left.`;
+    if (kind === "skin") toast(`The ${themeName(id)} Collection is yours for good. ${left}`, null, {label: "Use It Now", fn: () => { saveStyle({skin: id}); applySkin(); render(); }});
+    else toast(`${nameOf(kind, id)} is yours for good. ${left}`);
+    if (wasShop) setTimeout(() => { try { styleShop(); } catch (e) {} }, 120);
+    load();
+  }
+  async function buyPack(id, btn){
+    if (!planOk() || !PLAN.checkoutCall) return;
+    if (btn) btn.disabled = true;
+    toast("Opening checkout…");
+    const r = await PLAN.checkoutCall({pack: id});
+    if (btn && btn.isConnected) btn.disabled = false;
+    if (r && r.url) { PLAN.openExternal(r.url); toast("Finish in the checkout page that just opened. Your credits show up here by themselves."); watch(); return; }
+    toast((r && r.message) || "Couldn't open checkout. Check your connection and try again.");
+  }
+
+  /* ---------- Hooks ---------- */
+  // 10-plan.js asks here first when a locked item is tapped (only while item_purchases is on)
+  hook("plan-buy-item", (kind, id) => {
+    if (!enabled()) return false;
+    if (kind === "comp") {
+      const c = (STYLE_LISTS.comp || []).find(x => x.id === id);
+      if (c && c.theme && priceOf("skin", c.theme)) { buySheet("skin", c.theme, `${c.name} comes with the ${themeName(c.theme)} Theme Collection.`); return true; }
+      return false;
+    }
+    if (!priceOf(kind, id)) return false;
+    buySheet(kind, id); return true;
+  });
+  hook("act", (act, el) => {
+    switch (act) {
+      case "cr-packs": packsSheet(); return true;
+      case "cr-item": buySheet(el.dataset.kind, el.dataset.id); return true;
+      case "cr-buy": buy(el.dataset.kind, el.dataset.id, el); return true;
+      case "cr-pack": buyPack(el.dataset.id, el); return true;
+      case "cr-signin": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp(); else if (typeof sbSignInSheet === "function") sbSignInSheet(); }, 120); return true;
+      case "cr-back": if (backToShop) styleShop(); else if (dlg.open) dlg.close(); return true;
+    }
+    return false;
+  });
+  hook("menu", () => enabled() && signedIn() ? `<button data-act="cr-packs" data-group="account"><span>Studyboard Credits<span class="sub">${balance()} credit${balance() === 1 ? "" : "s"} · Keep themes, stickers and more for good</span></span></button>` : "");
+  // Sign-in changes: load this account's credits
+  let seenUid = "";
+  hook("render", () => {
+    const u = signedIn() ? usr().id : "";
+    if (u === seenUid) return;
+    seenUid = u; rebuild();
+    if (u && STORE.paywall) load();
+  });
+
+  /* The Style Shop: the balance on top, and each locked item's price on its button */
+  const showBar = () => enabled() && (!PLAN.isPro() || balance() > 0 || owned.size > 0);
+  const origShop = styleShop;
+  styleShop = function(){
+    const r = origShop.apply(this, arguments);
+    try {
+      const body = showBar() && dlg.querySelector(".sheet.shop .sheet-body, .sheet.ui-shop .sheet-body");
+      if (body && !body.querySelector(".cr-bar")) body.insertAdjacentHTML("afterbegin", `<div class="cr-bar">${COIN}<span class="cr-bar-t">${signedIn() ? `<b>${balance()}</b> credit${balance() === 1 ? "" : "s"}` : "Studyboard Credits"}<span class="mini">Keep any Pro item for good, no subscription</span></span><button type="button" class="btn small" data-act="cr-packs">Get Credits</button></div>`);
+      label(dlg);
+    } catch (e) { console.warn("credits bar", e); }
+    return r;
+  };
+  function label(root){
+    if (!enabled() || PLAN.isPro()) return;
+    root.querySelectorAll('[data-act="shop-unlock"]:not([data-cr])').forEach(b => {
+      b.dataset.cr = "1";
+      const n = priceOf(b.dataset.kind, b.dataset.id); if (!n) return;
+      b.innerHTML = `🔒 ${n} Credits`;
+      b.setAttribute("aria-label", `Keep ${nameOf(b.dataset.kind, b.dataset.id)} for ${n} credits`);
+    });
+  }
+  // Rows the shop fills in later (collections, See All) get their prices too
+  try { new MutationObserver(() => { if (dlg.open && dlg.querySelector('[data-act="shop-unlock"]:not([data-cr])')) label(dlg); }).observe(dlg, {childList: true, subtree: true}); } catch (e) {}
+
+  window.SBCREDITS = {owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
+    // For tests: what this device remembers
+    state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
+  if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
+})();
 /* ===== module: 98-rooms.js ===== */
 /* Studyboard 1.11 */
 (() => {
@@ -100819,7 +101163,7 @@ var SBCALCSKIN = null;
   const KEYNAME = {shift: "Shift", hyp: "Hyperbolic", drg: "Degrees, radians or gradians", left: "Move left", right: "Move right", sd: "Fraction or decimal", inv: "Reciprocal", fact: "Factorial", ncr: "Combinations", npr: "Permutations", sqrt: "Square root", cbrt: "Cube root", sq: "Squared", cube: "Cubed", pow: "Power", root: "Root", log: "Log", tenx: "10 to the power", ln: "Natural log", ex: "e to the power", sin: "Sine", asin: "Inverse sine", cos: "Cosine", acos: "Inverse cosine", tan: "Tangent", atan: "Inverse tangent", lp: "Open bracket", rp: "Close bracket", neg: "Negative", abs: "Absolute value", pi: "Pi", e: "e", pct: "Percent", mplus: "Memory add", mminus: "Memory subtract", mr: "Memory recall", mc: "Memory clear", del: "Delete", ac: "All clear", mul: "Times", div: "Divide", add: "Plus", sub: "Minus", dot: "Point", exp: "Times ten to the power", ans: "Answer", eq: "Equals"};
   function frame(){
     return `<div class="cx-body">
-      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-snip" data-cx="snip" aria-label="Select an equation on screen" title="Select an equation on screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 8.5v7M8.5 12h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
+      <div class="cx-top" data-cx-drag><span class="cx-brand">STUDYBOARD <b>fx</b></span><span class="cx-solar" aria-hidden="true"><i></i><i></i><i></i><i></i></span><button type="button" class="cx-snip" data-cx="snip" aria-label="Select an equation on screen" title="Select an equation on screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 8.5v7M8.5 12h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button type="button" class="cx-snip cx-src" data-cx="src" aria-haspopup="true" aria-expanded="false" aria-controls="cxSrc" aria-label="Bring in an equation from a picture or the screen" title="Bring in an equation from a picture or the screen"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.7" fill="currentColor"/><path d="M5 17.5l4.5-4.5 3 3 2.5-2.5 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button><div class="cx-menu" id="cxSrc" role="group" aria-label="Bring in an equation" hidden></div><button type="button" class="cx-x" data-cx="close" aria-label="Close calculator">${CLOSE}</button></div>
       <div class="cx-lcd" role="group" aria-label="Display">
         <div class="cx-ind" aria-hidden="true"><span data-i="shift">S</span><span data-i="hyp">HYP</span><span data-i="m">M</span><span class="cx-sp"></span><span data-i="ang"></span></div>
         <div class="cx-expr" aria-label="Expression"></div>
@@ -100856,11 +101200,40 @@ var SBCALCSKIN = null;
   }
   async function act(a, alt){
     if (a === "close") { close(); return; }
-    if (a === "snip") { if (window.SBCALCSNIP) SBCALCSNIP.start(); return; }
+    if (a === "snip") { menu(false); if (window.SBCALCSNIP) SBCALCSNIP.start(); return; }
+    if (a === "src") { menu(); return; }
     if (a === "copy") { const r = W.querySelector(".cx-res").textContent; if (S.done && !S.err && S.txt) { try { await navigator.clipboard.writeText(S.txt.replace(/−/g, "-")); toast(`Copied ${r}`); } catch (e) {} return; } if (S.done && !S.err && S.result != null) { try { await navigator.clipboard.writeText(S.frac && asFraction(S.result) ? asFraction(S.result).replace("⁄", "/").replace("−", "-") : show(S.result).plain); toast(`Copied ${r}`); } catch (e) {} } return; }
     await press(S.shift && alt ? alt : a);
     paint();
   }
+  /* "Bring in an equation" (99-calc-snip.js): Picture, Paste Picture and, where there's a way, Capture from Screen */
+  const SRCICON = {file: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H8l1.5-2h5L16 6h1.5A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.3" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    paste: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5h6v3H9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 6H6.5A1.5 1.5 0 0 0 5 7.5v12A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-12A1.5 1.5 0 0 0 17.5 6H15" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 17.5l3-3 2 2 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    screen: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12.5" rx="1.8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 20.5h6M12 16.5v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 8.5V7.5h1.5M14.5 7.5H16v1M16 12v1h-1.5M9.5 13H8v-1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'};
+  const menuOpen = () => !!(W && !W.querySelector(".cx-menu").hidden);
+  function menu(on){
+    if (!W) return;
+    const m = W.querySelector(".cx-menu"), b = W.querySelector('[data-cx="src"]');
+    on = on === undefined ? m.hidden : !!on;
+    if (on === !m.hidden) return;
+    if (on) {
+      const list = window.SBCALCSNIP && SBCALCSNIP.sources ? SBCALCSNIP.sources() : [];
+      // Picture is a label over a real file input: a direct tap opens the phone's Take Photo / Photo Library sheet
+      m.innerHTML = list.map(x => { const inner = `<span class="cx-mi-ic">${SRCICON[x.id] || ""}</span><span class="cx-mi-t">${esc(x.label)}<span class="cx-mi-s">${esc(x.sub)}</span></span>`;
+        return x.id === "file" ? `<label class="cx-mi" data-cxsrc="file" title="${esc(x.sub)}">${inner}<input type="file" accept="image/*" class="cx-file" aria-label="${esc(x.label)}: ${esc(x.sub)}"></label>`
+          : `<button type="button" class="cx-mi" data-cxsrc="${x.id}" title="${esc(x.sub)}" aria-label="${esc(x.label)}: ${esc(x.sub)}">${inner}</button>`; }).join("");
+      const f = m.querySelector(".cx-file"); if (f) f.addEventListener("change", () => { menu(false); SBCALCSNIP.source("file", f); });
+      m.querySelectorAll("button[data-cxsrc]").forEach(x => x.addEventListener("click", e => { e.stopPropagation(); const id = x.dataset.cxsrc; menu(false); SBCALCSNIP.source(id); }));
+      m.hidden = false; b.setAttribute("aria-expanded", "true");
+      const first = m.querySelector("input,button"); if (first) first.focus({preventScroll: true});
+      document.addEventListener("pointerdown", away, true);   // the tap that opened it is already over (pointerdown comes before click)
+    } else {
+      m.hidden = true; b.setAttribute("aria-expanded", "false");
+      document.removeEventListener("pointerdown", away, true);
+      if (m.contains(document.activeElement)) b.focus({preventScroll: true});
+    }
+  }
+  function away(e){ if (!W) return; const m = W.querySelector(".cx-menu"); if (m.contains(e.target) || (e.target.closest && e.target.closest('[data-cx="src"]'))) return; menu(false); }
   function open(){
     if (W) { W.hidden = false; skin(); place(); W.querySelector('[data-cx="eq"]').focus({preventScroll: true}); return; }
     W = document.createElement("div"); W.className = "cx"; W.id = "calc"; W.setAttribute("role", "dialog"); W.setAttribute("aria-label", "Calculator");
@@ -100915,7 +101288,7 @@ var SBCALCSKIN = null;
     if (keep) { try { if (K === 1) localStorage.removeItem(SIZE_LS); else localStorage.setItem(SIZE_LS, String(K)); } catch (e) {} }
   }
   function skin(){ try { if (window.SBCALCSKIN) SBCALCSKIN.apply(W); } catch (e) { console.warn("calculator theme", e); } }
-  function close(){ if (!W) return; W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
+  function close(){ if (!W) return; menu(false); W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
   const KEYMAP = {"+": "add", "-": "sub", "*": "mul", "x": "mul", "/": "div", "^": "pow", "(": "lp", ")": "rp", ".": "dot", ",": "dot", "%": "pct", "!": "fact", "Enter": "eq", "=": "eq", "Backspace": "del", "Delete": "ac",
     "ArrowLeft": "left", "ArrowRight": "right", "ArrowUp": "up", "ArrowDown": "down", "p": "pi", "s": "sin", "c": "cos", "t": "tan", "l": "ln", "g": "log", "r": "sqrt", "e": "e", "a": "ans", "E": "exp"};
   // Typing a whole name (sqrt, sin, log, pi, ans...) puts in that function once, instead of one function per letter.
@@ -100937,6 +101310,7 @@ var SBCALCSKIN = null;
   }
   function onKey(e){
     if (e.target && e.target.closest && e.target.closest(".cx-grip")) return;
+    if (menuOpen()) { if (e.key === "Escape") { e.preventDefault(); menu(false); } return; }
     if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
     if (e.key === "Escape") { e.preventDefault(); if (S.tokens.length || S.done) act("ac"); else close(); return; }
     if (e.key === "Tab" || e.key === " ") return;
@@ -100956,8 +101330,10 @@ var SBCALCSKIN = null;
   const editable = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
   const modalOpen = () => [...document.querySelectorAll("dialog[open]")].some(d => { try { return d.matches(":modal"); } catch (e) { return true; } });
   window.addEventListener("keydown", e => {
-    if (!W || W.hidden || e.isComposing || document.querySelector(".cxs-veil")) return;   // selecting an equation on screen: Esc is the selector's
+    if (!W || W.hidden || e.isComposing || document.querySelector(".cxs-veil,.cxp")) return;   // selecting an equation on screen: Esc is the selector's
     const t = e.target, inside = !!(t && t.nodeType === 1 && W.contains(t));
+    // the "bring in an equation" menu: its own keys (Tab, Enter, Space), and Esc closes it
+    if (menuOpen()) { if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); menu(false); return; } else if (inside && t.closest(".cx-menu")) return; }
     if (!inside) {
       if (editable(t) || modalOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
       // keys that move around the page or press the focused button keep doing that
@@ -100980,7 +101356,7 @@ var SBCALCSKIN = null;
     // "select an equation on screen" (99-calc-snip.js)
     put: (text, angle) => { if (!W) open(); const ok = put(text, angle); paint(); return ok; },
     note: t => { S.note = t || ""; paint(); },
-    win: () => W, fromText, compute: (text, scope) => compute(fromText(text), scope || {Ans: 0, M: 0})};
+    win: () => W, menu, fromText, compute: (text, scope) => compute(fromText(text), scope || {Ans: 0, M: 0})};
 })();
 /* ===== module: 99-calc-snip.js: "select an equation on screen" for the calculator ===== */
 /* The calculator's corner button lays a sheet over the app; drag a box over an equation anywhere (a note, a card, a PDF, a
@@ -101178,7 +101554,7 @@ var SBCALCSKIN = null;
 - an equation uses one =; the equations of a system are separated by ;
 - calculus: integrate(f, x, a, b) for a definite integral, deriv(f, x, a) for the derivative at x = a, sum(f, n, a, b) for a sum from n = a to b
 - a fraction a over b is (a)/(b); a mixed number like 2 1/2 is (2+1/2); percent: write 15% of 80 as 0.15*80`;
-  const SYSTEM = `You read math for a student's scientific calculator. The student dragged a box over part of their screen; you get the text found in the box and, when there is one, a picture of it (handwriting, a photo, a drawing or a screenshot).
+  const SYSTEM = `You read math for a student's scientific calculator. The student dragged a box over part of their screen, or took or chose a photo or screenshot; you get the text found in the box (if any) and, when there is one, a picture of it (handwriting, a photo, a drawing or a screenshot).
 Find the one equation or expression they most likely want calculated or solved, and write it exactly as shown (don't solve it, don't simplify it, don't change any number).
 If it's a word problem or an instruction like "solve for x", write the equation it gives. If there are several, take the first complete one; a system of equations is one answer.
 ${CALC_RULES}
@@ -101207,8 +101583,14 @@ If there's no math in it, set found to false.`;
       return;
     }
     if (!text && !tex.length && !pic) { say(""); toast("Nothing to read there"); return; }
+    await askAI({text, tex, pic});
+  }
+  /* 3. The AI reads a picture (and any text) and writes the equation in the calculator's syntax; it's checked, then typed in.
+     Shared by the box over the app and every picture from outside it (a photo, the clipboard, the screen). */
+  async function askAI({text, tex, pic}){
+    tex = tex || [];
     const parts = [];
-    if (pic) parts.push({inline_data: {mime_type: "image/jpeg", data: bytesToB64(new Uint8Array(await pic.arrayBuffer()))}});
+    if (pic) parts.push({inline_data: {mime_type: pic.type || "image/jpeg", data: bytesToB64(new Uint8Array(await pic.arrayBuffer()))}});
     parts.push({text: `TEXT IN THE BOX:\n"""${text || "(none)"}"""${tex.length ? `\nFORMULAS IN THE BOX (LaTeX):\n${tex.map(x => x.tex).join("\n")}` : ""}`});
     let res;
     try { res = await aiCall({task: "mathread", fast: true, temperature: 0, maxTokens: 1500, timeout: 45000, schema: SCHEMA, system: SYSTEM, parts}); }
@@ -101219,13 +101601,208 @@ If there's no math in it, set found to false.`;
     if (!SBCALC.put(calc, d.angle)) { say(""); toast("Couldn't read that equation"); return; }
     done();
   }
+  /* A picture from outside the app (data URL, canvas, image or blob): the AI reads it and the equation is typed in */
+  async function readPicture(src){
+    if (!window.SBCALC) return;
+    const W = calcWin(); if (!W || W.hidden) SBCALC.open();
+    say("Reading…");
+    if (!aiReady()) { say(""); toast("Turn on AI in Settings to read equations from pictures and handwriting"); return; }
+    let pic = null;
+    try { pic = await jpegOf(await toCanvas(src, MAXPX)); } catch (e) { console.warn("calculator picture", e); }
+    if (!pic) { say(""); toast("Couldn't open that picture"); return; }
+    await askAI({text: "", tex: [], pic});
+  }
   function done(){
     const W = calcWin(); if (!W) return;
     const ex = W.querySelector(".cx-expr"); if (ex) { ex.classList.remove("cx-in"); void ex.offsetWidth; ex.classList.add("cx-in"); }
     const eq = W.querySelector('[data-cx="eq"]'); if (eq) eq.focus({preventScroll: true});
   }
 
-  window.SBCALCSNIP = {start, read, tidy, justMath, mathRuns, texToCalc, textIn, texIn};
+  /* ===== Pictures from outside the app ===== */
+  /* Picture (a photo or a file), Paste Picture (the clipboard) and Capture from Screen (the browser's screen sharing, or on
+     the desktop app the system-wide screenshot overlay). Each one, except the desktop overlay where the box is drawn on the
+     screen itself, shows the picture with the same drag-a-box step, then hands the box to readPicture (step 3 above). */
+  const MAXPX = 2000, WORKPX = 4096;
+  // Any picture → a canvas no bigger than max on its longer side. Photos keep their EXIF orientation.
+  async function toCanvas(src, max){
+    let w, h, draw;
+    if (src && src.getContext) { w = src.width; h = src.height; draw = g => g.drawImage(src, 0, 0, w, h); }
+    else if (window.ImageBitmap && src instanceof ImageBitmap) { w = src.width; h = src.height; draw = g => g.drawImage(src, 0, 0, w, h); }
+    else {
+      let bmp = null;
+      if (src instanceof Blob && window.createImageBitmap) { try { bmp = await createImageBitmap(src, {imageOrientation: "from-image"}); } catch (e) { bmp = null; } }
+      if (bmp) { w = bmp.width; h = bmp.height; draw = g => { g.drawImage(bmp, 0, 0, w, h); try { bmp.close(); } catch (e) {} }; }
+      else {
+        // an <img> follows the EXIF orientation too (image-orientation: from-image is the default)
+        const url = typeof src === "string" ? src : URL.createObjectURL(src), im = new Image();
+        try { im.src = url; await im.decode(); } catch (e) { if (typeof src !== "string") URL.revokeObjectURL(url); throw e; }
+        w = im.naturalWidth; h = im.naturalHeight; draw = g => { g.drawImage(im, 0, 0, w, h); if (typeof src !== "string") URL.revokeObjectURL(url); };
+      }
+    }
+    if (!w || !h) throw new Error("empty picture");
+    const k = Math.min(1, (max || MAXPX) / Math.max(w, h)), c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.scale(c.width / w, c.height / h); draw(g);
+    return c;
+  }
+  const jpegOf = c => new Promise(res => c.toBlob(b => res(b), "image/jpeg", 0.9));
+
+  /* The drag-a-box step over a picture. Resolves with the boxed part (or the whole picture), or null when cancelled. */
+  let cropOn = null;
+  function crop(c, o){
+    o = o || {};
+    if (cropOn) cropOn(null);
+    const W = calcWin(); if (W) W.style.visibility = "hidden";
+    const back = document.activeElement;
+    const touch = !!(window.matchMedia && matchMedia("(hover: none) and (pointer: coarse)").matches);
+    const v = document.createElement("div"); v.className = "cxp" + (o.screen ? " is-screen" : ""); v.setAttribute("role", "dialog"); v.setAttribute("aria-modal", "true"); v.setAttribute("aria-label", "Choose the equation in the picture");
+    v.innerHTML = `<div class="cxp-bar"><span class="cxp-hint">${esc(o.hint || "Drag a box over the equation")}${touch ? "" : " <span>Esc to cancel</span>"}</span><span class="cxp-btns"><button type="button" class="cxp-all">Use Whole Picture</button><button type="button" class="cxp-x">Cancel</button></span></div><div class="cxp-stage"><div class="cxp-frame"><div class="cxp-box" hidden></div></div></div>`;
+    c.className = "cxp-pic"; c.setAttribute("aria-hidden", "true");
+    const frame = v.querySelector(".cxp-frame"), box = v.querySelector(".cxp-box"); frame.prepend(c);
+    document.body.appendChild(v);
+    v.querySelector(".cxp-all").focus({preventScroll: true});
+    return new Promise(resolve => {
+      const finish = out => {
+        if (cropOn !== finish) return; cropOn = null;
+        document.removeEventListener("keydown", key, true); v.remove();
+        const W2 = calcWin(); if (W2) W2.style.visibility = "";
+        if (!out && back && back.focus && document.contains(back)) back.focus({preventScroll: true});
+        resolve(out);
+      };
+      cropOn = finish;
+      const cut = r => {   // r in the picture's own pixels
+        const x = Math.max(0, Math.round(r.x)), y = Math.max(0, Math.round(r.y)), w = Math.max(1, Math.min(c.width - x, Math.round(r.w))), h = Math.max(1, Math.min(c.height - y, Math.round(r.h)));
+        const o2 = document.createElement("canvas"); o2.width = w; o2.height = h;
+        o2.getContext("2d").drawImage(c, x, y, w, h, 0, 0, w, h); return o2;
+      };
+      const key = e => {
+        if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); finish(null); }
+        else if (e.key === "Enter" && !(e.target && e.target.closest && e.target.closest(".cxp-x"))) { e.preventDefault(); e.stopImmediatePropagation(); finish(c); }
+      };
+      document.addEventListener("keydown", key, true);
+      v.querySelector(".cxp-all").addEventListener("click", () => finish(c));
+      v.querySelector(".cxp-x").addEventListener("click", () => finish(null));
+      let a = null;
+      const at = e => { const r = c.getBoundingClientRect(); return {x: Math.max(0, Math.min(r.width, e.clientX - r.left)), y: Math.max(0, Math.min(r.height, e.clientY - r.top)), r}; };
+      const paint = (p, q) => { Object.assign(box.style, {left: Math.min(p.x, q.x) + "px", top: Math.min(p.y, q.y) + "px", width: Math.abs(q.x - p.x) + "px", height: Math.abs(q.y - p.y) + "px"}); box.hidden = false; };
+      const stage = v.querySelector(".cxp-stage");
+      stage.addEventListener("pointerdown", e => { if (e.button > 0) return; e.preventDefault(); a = at(e); paint(a, a); try { stage.setPointerCapture(e.pointerId); } catch (err) {} v.classList.add("is-drag"); });
+      stage.addEventListener("pointermove", e => { if (a) paint(a, at(e)); });
+      stage.addEventListener("pointerup", e => {
+        if (!a) return; const b = at(e), p = a; a = null; v.classList.remove("is-drag");
+        const w = Math.abs(b.x - p.x), h = Math.abs(b.y - p.y);
+        if (w < 8 || h < 6) { box.hidden = true; return; }
+        const k = c.width / b.r.width;
+        finish(cut({x: Math.min(p.x, b.x) * k, y: Math.min(p.y, b.y) * k, w: w * k, h: h * k}));
+      });
+      stage.addEventListener("pointercancel", () => { a = null; box.hidden = true; v.classList.remove("is-drag"); });
+    });
+  }
+  // A picture (file, clipboard item, frame) → the box step → read
+  async function fromPicture(src, o){
+    let c;
+    try { c = await toCanvas(src, WORKPX); } catch (e) { console.warn("calculator picture", e); toast("Couldn't open that picture"); return; }
+    const part = await crop(c, o);
+    if (part) await readPicture(part).catch(e => { console.warn("calculator picture", e); say(""); toast("Couldn't read that"); });
+  }
+
+  /* 1. Picture: a photo or a file (no capture attribute, so phones offer the camera and the photo library) */
+  function pickFile(input){
+    const f = input && input.files && input.files[0]; if (input) input.value = "";
+    if (!f) return;
+    if (f.type && !/^image\//.test(f.type)) { toast("Choose a picture"); return; }
+    fromPicture(f);
+  }
+
+  /* 2. Paste Picture: the clipboard (the button), or Ctrl/Cmd+V while the calculator is open */
+  const MAC = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "");
+  const NO_PIC = "No picture to paste. Copy a screenshot or picture first";
+  async function pastePicture(){
+    if (navigator.clipboard && navigator.clipboard.read) {
+      let items = null;
+      try { items = await navigator.clipboard.read(); }
+      catch (e) { if (!(e && e.name === "NotAllowedError")) { toast(NO_PIC); return; } }
+      if (items) {
+        for (const it of items) { const t = (it.types || []).find(x => /^image\//.test(x)); if (t) { fromPicture(await it.getType(t)); return; } }
+        toast(NO_PIC); return;
+      }
+    }
+    toast(`Press ${MAC ? "⌘V" : "Ctrl+V"} to paste a screenshot or picture you copied`);
+  }
+  const editable = t => !!t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+  document.addEventListener("paste", e => {
+    const W = calcWin(); if (!W || W.hidden || veil || cropOn) return;
+    if (editable(e.target) && !W.contains(e.target)) return;
+    const cd = e.clipboardData; if (!cd) return;
+    let f = [...(cd.files || [])].find(x => /^image\//.test(x.type));
+    if (!f) { const it = [...(cd.items || [])].find(x => x.kind === "file" && /^image\//.test(x.type)); f = it && it.getAsFile(); }
+    if (!f) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    fromPicture(f);
+  }, true);
+
+  /* 3. Capture from Screen, in a browser on a computer: the browser asks which screen, window or tab to share; one frame is
+     taken and sharing stops at once */
+  const phoneOrTablet = () => !!(window.Capacitor || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "") || (/Macintosh/.test(navigator.userAgent || "") && navigator.maxTouchPoints > 1) || (window.matchMedia && matchMedia("(hover: none) and (pointer: coarse)").matches));
+  const canShareScreen = () => !DESK && !phoneOrTablet() && !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  async function frameOf(stream){
+    const vid = document.createElement("video"); vid.muted = true; vid.playsInline = true; vid.srcObject = stream;
+    await vid.play();
+    const t0 = Date.now();
+    while ((!vid.videoWidth || vid.readyState < 2) && Date.now() - t0 < 4000) await new Promise(r => setTimeout(r, 50));
+    // the first frame can be blank while the share starts
+    await Promise.race([new Promise(r => vid.requestVideoFrameCallback ? vid.requestVideoFrameCallback(() => r()) : r()), new Promise(r => setTimeout(r, 400))]);
+    await new Promise(r => setTimeout(r, 120));
+    if (!vid.videoWidth) throw new Error("no frame");
+    const c = document.createElement("canvas"); c.width = vid.videoWidth; c.height = vid.videoHeight; c.getContext("2d").drawImage(vid, 0, 0);
+    vid.pause(); vid.srcObject = null;
+    return c;
+  }
+  async function screenPicture(){
+    if (!canShareScreen()) { toast("Capture from Screen isn't available in this browser"); return; }
+    const W = calcWin(); if (W) W.style.visibility = "hidden";   // not in the picture if this tab is the one shared
+    let stream = null, c = null;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 5}, audio: false});
+      c = await frameOf(stream);
+    } catch (e) {
+      if (!(e && (e.name === "NotAllowedError" || e.name === "AbortError"))) { console.warn("calculator screen", e); toast("Couldn't capture the screen"); }
+    } finally {
+      if (stream) stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+      if (W) W.style.visibility = "";
+    }
+    if (c) await fromPicture(c, {screen: true});
+  }
+
+  /* 4. Capture from Screen anywhere, in the desktop app: Studyboard steps aside and the screenshot overlay comes up (main.js);
+     the boxed part comes back here as a JPEG and is read */
+  const deskCalc = () => !!(DESK && typeof DESK.captureEquation === "function");
+  async function deskCapture(){
+    try { const r = await DESK.captureEquation(); if (r === false) toast("Couldn't start the screen capture"); }
+    catch (e) { toast("Couldn't start the screen capture"); }
+  }
+  if (DESK && typeof DESK.onEquationShot === "function") DESK.onEquationShot(bytes => {
+    readPicture(new Blob([bytes], {type: "image/jpeg"})).catch(e => { console.warn("calculator screen", e); say(""); toast("Couldn't read that"); });
+  });
+  let deskKey = "";
+  if (deskCalc() && typeof DESK.getDesktopSettings === "function") Promise.resolve().then(() => DESK.getDesktopSettings()).then(s => { deskKey = (s && s.calcShotKey) || ""; }).catch(() => {});
+  const keyName = k => MAC ? String(k || "").replace("CommandOrControl", "⌘").replace("Shift", "⇧").replace("Alt", "⌥").replace(/\+/g, "") : String(k || "").replace("CommandOrControl", "Ctrl");
+
+  /* What the calculator's "bring in an equation" menu offers here */
+  function sources(){
+    const out = [{id: "file", label: "Picture", sub: phoneOrTablet() ? "Take a photo or choose one" : "Choose a photo or screenshot"},
+      {id: "paste", label: "Paste Picture", sub: "A screenshot or picture you copied"}];
+    if (deskCalc()) out.push({id: "screen", label: "Capture from Screen", sub: `Box an equation anywhere on your screen${deskKey ? ` (${keyName(deskKey)})` : ""}`});
+    else if (canShareScreen()) out.push({id: "screen", label: "Capture from Screen", sub: "Your browser asks which screen or window to share"});
+    return out;
+  }
+  function source(id, input){
+    if (id === "file") return pickFile(input);
+    if (id === "paste") return pastePicture();
+    if (id === "screen") return deskCalc() ? deskCapture() : screenPicture();
+  }
+
+  window.SBCALCSNIP = {start, read, tidy, justMath, mathRuns, texToCalc, textIn, texIn, askAI, readPicture, fromPicture, toCanvas, crop, sources, source, pastePicture, screenPicture, busy: () => !!(veil || cropOn)};
 })();
 /* ===== module: 99-version-history.js ===== */
 /* Version History (Pro): earlier versions of notes and decks from the last 30 days, invisible until someone needs it.
@@ -104726,17 +105303,33 @@ const LINKCARDS = (() => {
     if (inPreview()) return "";
     return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
       <div class="cl-in"><label class="f"><span class="lh">Link</span><input type="url" id="aiLink" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="https://www.youtube.com/watch?v=… or an article's address" data-noenter></label>
-      <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key.</p></div></details>`;
+      <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key.</p>
+      <div class="cl-yt" id="aiYtWay" hidden><div class="seg" role="radiogroup" aria-label="How to read the video">
+        <label><input type="radio" name="aiYtWay" value="watch" checked><span>Watch with Gemini</span></label><label><input type="radio" name="aiYtWay" value="paste"><span>Paste Transcript</span></label></div>
+        <div id="aiYtTrBox" hidden><p class="mini" style="margin:6px 0">On YouTube, open the video's description and tap <b>Show transcript</b>, then copy it and paste it here.</p>
+        <textarea id="aiYtTr" rows="5" maxlength="150000" placeholder="Paste the video's transcript" data-noenter></textarea></div></div></div></details>`;
   }
   const claims = root => { const i = (root || document).querySelector("#aiLink"); return !!(i && i.value.trim()); };
   document.addEventListener("toggle", e => {
     const d = e.target; if (!d || d.id !== "aiLinkD" || !d.open || !locked()) return;
     d.open = false; proWhy();
   }, true);
-  document.addEventListener("input", e => {
-    if (!e.target || e.target.id !== "aiLink") return;
-    const h = document.getElementById("aiLinkHint"); if (!h) return;
-    const v = e.target.value.trim(), L = LINKCARDS.parse(v), prov = aiCfg().provider;
+  // A YouTube link: Gemini watches the video (speech and what's shown on screen), or the student pastes its transcript and their own
+  // AI (Studyboard AI, not Gemini) reads only that: far cheaper, but anything only shown on screen isn't in it
+  const ytPaste = () => { const r = document.querySelector('input[name="aiYtWay"]:checked'); return !!(r && r.value === "paste"); };
+  document.addEventListener("change", e => { if (e.target && e.target.name === "aiYtWay") { linkHint(); if (ytPaste()) { const t = document.getElementById("aiYtTr"); if (t) t.focus(); } } });
+  document.addEventListener("input", e => { if (e.target && e.target.id === "aiLink") linkHint(); });
+  function linkHint(){
+    const inp = document.getElementById("aiLink"), h = document.getElementById("aiLinkHint"); if (!h || !inp) return;
+    const v = inp.value.trim(), L = LINKCARDS.parse(v), prov = aiCfg().provider;
+    const yt = !!v && L.ok && L.kind === "youtube", way = document.getElementById("aiYtWay"), box = document.getElementById("aiYtTrBox");
+    if (way) way.hidden = !yt; if (box) box.hidden = !(yt && ytPaste());
+    if (yt && ytPaste()) {
+      const who = prov === "studyboard" ? "Studyboard AI" : aiWho("Your AI");
+      h.classList.remove("cl-bad", "cl-warn");
+      h.textContent = `${who} reads the transcript you paste instead of Gemini watching the video, so it uses much less${prov === "studyboard" ? " of your Studyboard AI" : ""}. It only knows what's said: slides, equations or anything only shown on screen won't be in your cards.`;
+      return;
+    }
     h.classList.toggle("cl-bad", !!v && !L.ok);
     // a video through Studyboard AI uses a big share of the week's AI: said up front, in warning colours
     const sbYt = !!v && L.ok && L.kind === "youtube" && prov === "studyboard" && aiProYoutube();
@@ -104745,7 +105338,7 @@ const LINKCARDS = (() => {
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
       : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? ytWarn() : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.`;
-  });
+  }
   // A video through Studyboard AI: how much of the 7-day allowance it can take, and what happens at the limit. One video can cost
   // up to about two-thirds of the allowance (its first 90 minutes); someone already past a third may hit the limit with it
   const ytWarn = () => {
@@ -104755,7 +105348,10 @@ const LINKCARDS = (() => {
   };
   document.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-cl]"); if (!b) return;
-    if (b.dataset.cl === "paste") { const d = document.getElementById("aiPasteD"), t = document.getElementById("aiPaste"); if (d) d.open = true; if (t) { t.focus(); t.scrollIntoView({block: "center"}); } }
+    if (b.dataset.cl === "paste") {
+      const r = document.querySelector('input[name="aiYtWay"][value="paste"]'), w = document.getElementById("aiYtWay");
+      if (r && w && !w.hidden) { r.checked = true; linkHint(); const t = document.getElementById("aiYtTr"); if (t) { t.focus(); t.scrollIntoView({block: "center"}); } return; }
+      const d = document.getElementById("aiPasteD"), t = document.getElementById("aiPaste"); if (d) d.open = true; if (t) { t.focus(); t.scrollIntoView({block: "center"}); } }
   });
 
   /* Reading the link */
@@ -104866,7 +105462,12 @@ const LINKCARDS = (() => {
     const PASTE = ` <button type="button" class="btn small" data-cl="paste">Paste the Text Instead</button>`;
     if (!L.ok) { say(L.msg, L.why === "local" ? PASTE : ""); inp.focus(); return; }
     if (locked()) { proWhy(); return; }
-    const pasted = String(o.pasted || "").trim(), prov = aiCfg().provider;
+    let pasted = String(o.pasted || "").trim(); const prov = aiCfg().provider;
+    if (L.kind === "youtube" && ytPaste()) {
+      const tr = String((document.getElementById("aiYtTr") || {}).value || "").trim();
+      if (tr.length < 40) { say("Paste the video's transcript first, or choose Watch with Gemini."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
+      pasted = tr;
+    }
     if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
@@ -104934,6 +105535,9 @@ const LINKCARDS = (() => {
   const css = document.createElement("style");
   css.textContent = `
 .cl-link summary{cursor:pointer}
+.cl-yt{display:grid;gap:6px;margin-top:8px}
+.cl-yt .seg{justify-self:start}
+.cl-yt textarea{width:100%;box-sizing:border-box;min-height:110px}
 .cl-in{display:grid;gap:6px;margin-top:8px}
 .cl-in input{width:100%;min-width:0}
 .cl-hint{margin:0;overflow-wrap:anywhere}

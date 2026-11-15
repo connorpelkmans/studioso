@@ -317,7 +317,7 @@ function backgroundTip() {
 }
 
 // Messages to the page
-const PAGE_CHANNELS = ["desk:action", "desk:open-task", "desk:capture", "desk:power", "desk:screenshot"];
+const PAGE_CHANNELS = ["desk:action", "desk:open-task", "desk:capture", "desk:power", "desk:screenshot", "desk:calc-shot"];
 const listening = new Set();
 let pendingMsgs = [];
 function toPage(channel, ...args) {
@@ -575,7 +575,7 @@ ipcMain.on("widget:hide", e => { if (fromWidget(e)) setWidgetShown(false); });
 const canLogin = () => (process.platform === "win32" && !IS_MSSTORE) || (process.platform === "darwin" && !IS_MAS);
 function loginOn() { try { return canLogin() && !!app.getLoginItemSettings(process.platform === "win32" ? { args: LOGIN_ARGS } : undefined).openAtLogin; } catch (e) { return false; } }
 function deskSettings() {
-  return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), startupSettings: IS_MSSTORE, widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported(), shot: cfg.shot !== false, shotKey: shotKey(), shotKeys: SHOT_KEYS, shotOn: !!shotRegistered, update: updateInfo() };
+  return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), startupSettings: IS_MSSTORE, widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported(), shot: cfg.shot !== false, shotKey: shotKey(), shotKeys: SHOT_KEYS, shotOn: !!shotRegistered, calcShotKey: calcShotRegistered, update: updateInfo() };
 }
 // Power state for the page's animation governor
 function powerState() {
@@ -626,25 +626,45 @@ const SHOT_KEYS = process.platform === "darwin"
   : ["CommandOrControl+Shift+Alt+C", "CommandOrControl+Shift+Alt+S", "CommandOrControl+Shift+Alt+X", "CommandOrControl+Shift+Alt+Q"];
 const shotKey = () => SHOT_KEYS.includes(cfg.shotKey) ? cfg.shotKey : SHOT_KEYS[0];
 let shotRegistered = "", shotWin = null, shotImg = null, shotBusy = false, shotPaused = false;
+// mode "calc": the calculator's Capture from Screen. Studyboard steps aside first so the screen behind it is in the picture,
+// and the boxed part goes to the calculator (desk:calc-shot) instead of Quick Capture. shotHid: Studyboard was hidden for it.
+let shotMode = "", shotHid = false;
 function registerShotKey() {
   try { if (shotRegistered) globalShortcut.unregister(shotRegistered); } catch (e) {}
   shotRegistered = "";
   if (cfg.shot === false || shotPaused) return;
   try { if (globalShortcut.register(shotKey(), () => startShot())) shotRegistered = shotKey(); } catch (e) {}
 }
+// The calculator's own shortcut, only when no other app has it
+const CALC_SHOT_KEY = "CommandOrControl+Shift+Alt+E";
+let calcShotRegistered = "";
+function registerCalcShotKey() {
+  try { if (calcShotRegistered) globalShortcut.unregister(calcShotRegistered); } catch (e) {}
+  calcShotRegistered = "";
+  if (cfg.calcShot === false || SHOT_KEYS.includes(CALC_SHOT_KEY)) return;
+  try { if (globalShortcut.register(CALC_SHOT_KEY, () => startShot("calc"))) calcShotRegistered = CALC_SHOT_KEY; } catch (e) {}
+}
 function shotNote(body) { showNote({ title: "Studyboard screenshot", body }); }
-async function startShot() {
+// Studyboard comes back after a calculator capture it stepped aside for (done, cancelled or failed)
+function shotBack() { const hid = shotHid; shotHid = false; if (hid) { try { showMain(); } catch (e) {} } }
+async function startShot(mode) {
   if (shotBusy || (shotWin && !shotWin.isDestroyed())) return;
-  shotBusy = true;
+  shotBusy = true; shotMode = mode === "calc" ? "calc" : ""; shotHid = false;
+  const fail = body => { shotBusy = false; shotNote(body); if (shotMode === "calc") shotBack(); shotMode = ""; };
   try {
     if (process.platform === "darwin") {
       let st = "granted"; try { st = systemPreferences.getMediaAccessStatus("screen"); } catch (e) {}
-      if (st === "denied" || st === "restricted") { shotNote("Allow Studyboard under System Settings > Privacy & Security > Screen Recording, then try again."); shotBusy = false; return; }
+      if (st === "denied" || st === "restricted") { fail("Allow Studyboard under System Settings > Privacy & Security > Screen Recording, then try again."); return; }
+    }
+    if (shotMode === "calc" && win && !win.isDestroyed() && win.isVisible() && !win.isMinimized()) {
+      shotHid = true;
+      if (process.platform === "darwin") win.hide(); else win.minimize();
+      await new Promise(r => setTimeout(r, 400));   // until the window has gone from the screen
     }
     const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()), sf = d.scaleFactor || 1;
     const sources = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: Math.round(d.size.width * sf), height: Math.round(d.size.height * sf) } });
     const src = sources.find(x => String(x.display_id) === String(d.id)) || sources[0];
-    if (!src || src.thumbnail.isEmpty()) { shotNote("Couldn't take a picture of the screen. Check that Studyboard is allowed to record the screen."); shotBusy = false; return; }
+    if (!src || src.thumbnail.isEmpty()) { fail("Couldn't take a picture of the screen. Check that Studyboard is allowed to record the screen."); return; }
     shotImg = src.thumbnail;
     shotWin = new BrowserWindow({
       ...d.bounds, frame: false, resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true,
@@ -658,18 +678,18 @@ async function startShot() {
     shotWin.webContents.on("will-redirect", e => e.preventDefault());
     shotWin.webContents.once("did-finish-load", () => {
       if (!shotWin || shotWin.isDestroyed()) return;
-      shotWin.webContents.send("shot:init", shotImg.toDataURL());
+      shotWin.webContents.send("shot:init", shotImg.toDataURL(), shotMode);
       shotWin.show(); shotWin.focus();
     });
-    shotWin.on("closed", () => { shotWin = null; shotImg = null; shotBusy = false; });
-  } catch (e) { shotBusy = false; shotNote("Couldn't take a picture of the screen."); }
+    shotWin.on("closed", () => { shotWin = null; shotImg = null; shotBusy = false; if (shotMode === "calc") shotBack(); shotMode = ""; });
+  } catch (e) { fail("Couldn't take a picture of the screen."); }
 }
 function closeShot() { try { if (shotWin && !shotWin.isDestroyed()) shotWin.close(); } catch (e) {} }
 const fromShot = e => !!(shotWin && !shotWin.isDestroyed() && e.sender === shotWin.webContents && topFrame(e) && isAppUrl(frameUrl(e), WIDGET_ORIGIN));
 ipcMain.on("shot:cancel", e => { if (fromShot(e)) closeShot(); });
 ipcMain.on("shot:done", (e, r) => {
   if (!fromShot(e)) return;
-  const img = shotImg; closeShot();
+  const img = shotImg, calc = shotMode === "calc"; closeShot();
   try {
     if (!img || !r || typeof r !== "object") return;
     const f = v => Math.max(0, Math.min(1, Number(v) || 0)), { width, height } = img.getSize();
@@ -678,7 +698,7 @@ ipcMain.on("shot:done", (e, r) => {
     if (w < 8 || h < 8) return;
     const out = (x === 0 && y === 0 && w === width && h === height ? img : img.crop({ x, y, width: w, height: h })).toJPEG(92);
     if (!out || !out.length || out.length > 40 * 1024 * 1024) return;
-    showMain(); toPage("desk:screenshot", out);
+    showMain(); toPage(calc ? "desk:calc-shot" : "desk:screenshot", out);
   } catch (err) { shotNote("Couldn't use that part of the screen."); }
 });
 // The Try it button on the settings page
@@ -784,6 +804,8 @@ ipcMain.handle("auth:open", (e, url) => {
 });
 
 ipcMain.handle("shot:now", e => { if (!fromMain(e)) return false; setTimeout(() => startShot(), 250); return true; });
+// The calculator's Capture from Screen: Studyboard steps aside, the same overlay comes up, the box goes back to the calculator
+ipcMain.handle("shot:calc", e => { if (!fromMain(e) || shotBusy || (shotWin && !shotWin.isDestroyed())) return false; setTimeout(() => startShot("calc"), 150); return true; });
 
 // Folder access for the page
 ipcMain.handle("dir:get", e => fromMain(e) ? dataRoot() : null);
@@ -1188,6 +1210,7 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   ]));
   createTray();
   registerShotKey();
+  registerCalcShotKey();
   loadReminders();
   widgetData = readJson(WIDGET_FILE, null);
   if (remindersPaused()) pauseTimer = setTimeout(resumeReminders, cfg.pauseUntil - Date.now()); else if (cfg.pauseUntil) resumeReminders();
