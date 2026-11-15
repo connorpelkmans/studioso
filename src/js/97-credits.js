@@ -9,7 +9,7 @@
   const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin"};
   // Shown until the server has answered once; the server's own prices always win when buying
   const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50};
-  const COIN = `<svg class="cr-coin" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6.8l1.5 3.2 3.5.4-2.6 2.4.7 3.4L12 14.5l-3.1 1.7.7-3.4L7 10.4l3.5-.4z" fill="currentColor"/></svg>`;
+  const COIN = `<svg class="sbc-coin" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6.8l1.5 3.2 3.5.4-2.6 2.4.7 3.4L12 14.5l-3.1 1.7.7-3.4L7 10.4l3.5-.4z" fill="currentColor"/></svg>`;
 
   // Tests swap in their own server and account (window.__SB_TEST only)
   let fake = null;
@@ -104,57 +104,57 @@
   const shopOpen = () => !!(dlg.open && dlg.querySelector(".sheet.shop, .sheet.ui-shop"));
   function redrawOpen(){
     try {
-      const s = dlg.open && dlg.querySelector(".cr-sheet");
+      const s = dlg.open && dlg.querySelector(".sbc-sheet");
       if (s && s.dataset.kind) buySheet(s.dataset.kind, s.dataset.id);
       else if (s) packsSheet();
       else if (shopOpen()) styleShop();
     } catch (e) {}
   }
   function preview(kind, id){
-    if (kind === "skin") { const s = SKINS.find(x => x.id === id); return s ? `<div class="cr-prev">${skinPreview(s, isDark())}</div>` : ""; }
-    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? `<div class="cr-prev cr-stk">${Object.keys(p.items).slice(0, 8).map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div>` : ""; }
-    if (kind === "card") return `<div class="cr-prev"><div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div></div>`;
-    if (kind === "pin") return `<div class="cr-prev">${noteDemo(noteShapeOf(null), id, 1)}</div>`;
+    if (kind === "skin") { const s = SKINS.find(x => x.id === id); return s ? `<div class="sbc-prev">${skinPreview(s, isDark())}</div>` : ""; }
+    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? `<div class="sbc-prev sbc-stk">${Object.keys(p.items).slice(0, 8).map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div>` : ""; }
+    if (kind === "card") return `<div class="sbc-prev"><div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div></div>`;
+    if (kind === "pin") return `<div class="sbc-prev">${noteDemo(noteShapeOf(null), id, 1)}</div>`;
     return "";
   }
   function buySheet(kind, id, note){
-    if (!dlg.open || !dlg.querySelector(".cr-sheet")) backToShop = shopOpen();
+    if (!dlg.open || !dlg.querySelector(".sbc-sheet")) backToShop = shopOpen();
     const cost = priceOf(kind, id), bal = balance(), mineOk = signedIn(), enough = bal >= cost;
     const it = kind === "skin" ? null : (kind === "sticker" ? STICKER_PACKS : STYLE_LISTS[kind] || []).find(x => x.id === id);
     const th = it && it.theme && !has("skin", it.theme) ? it.theme : "";
     const list = kind === "skin" ? contents(id) : [];
-    const go = !mineOk ? `<button type="button" class="btn primary" data-act="cr-signin">Sign In to Buy</button>`
-      : enough ? `<button type="button" class="btn primary" data-act="cr-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">${COIN} Keep It for ${cost} Credits</button>`
-      : storeApp() ? "" : `<button type="button" class="btn primary" data-act="cr-packs">Get Credits</button>`;
-    openSheet(`<div class="sheet cr-sheet" data-kind="${esc(kind)}" data-id="${esc(id)}">${head(nameOf(kind, id))}
+    const go = !mineOk ? `<button type="button" class="btn primary" data-act="sbc-signin">Sign In to Buy</button>`
+      : enough ? `<button type="button" class="btn primary" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">${COIN} Keep It for ${cost} Credits</button>`
+      : storeApp() ? "" : `<button type="button" class="btn primary" data-act="sbc-packs">Get Credits</button>`;
+    openSheet(`<div class="sheet sbc-sheet" data-kind="${esc(kind)}" data-id="${esc(id)}">${head(nameOf(kind, id))}
       <div class="sheet-body">
         ${note ? `<p class="plan-reason" role="status"><span>${esc(note)}</span></p>` : ""}
         ${preview(kind, id)}
-        <p class="cr-cost">${COIN}<b>${cost} Credits</b><span class="mini">${esc(KIND_NAME[kind] || "")} · Yours for good, with or without Pro</span></p>
-        ${list.length ? `<div class="cr-has"><b>Comes With</b><ul>${list.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
-        ${th ? `<p class="mini cr-alt">This comes with the ${esc(themeName(th))} Theme Collection, which also brings the theme, its companions and the rest of its pieces for ${priceOf("skin", th)} credits. <button type="button" class="link-btn" data-act="cr-item" data-kind="skin" data-id="${esc(th)}">See the Collection</button></p>` : ""}
-        ${mineOk ? `<p class="cr-bal" role="status">You have <b>${bal}</b> credit${bal === 1 ? "" : "s"}.${enough ? "" : ` You need ${cost - bal} more.`}${!enough && storeApp() ? " Buying credits isn't available in this app." : ""}</p>` : `<p class="mini">Credits belong to your account, so sign in first.</p>`}
-        <p class="mini cr-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> to use every theme and style while you're subscribed.</p>
+        <p class="sbc-cost">${COIN}<b>${cost} Credits</b><span class="mini">${esc(KIND_NAME[kind] || "")} · Yours for good, with or without Pro</span></p>
+        ${list.length ? `<div class="sbc-has"><b>Comes With</b><ul>${list.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+        ${th ? `<p class="mini sbc-alt">This comes with the ${esc(themeName(th))} Theme Collection, which also brings the theme, its companions and the rest of its pieces for ${priceOf("skin", th)} credits. <button type="button" class="link-btn" data-act="sbc-item" data-kind="skin" data-id="${esc(th)}">See the Collection</button></p>` : ""}
+        ${mineOk ? `<p class="sbc-bal" role="status">You have <b>${bal}</b> credit${bal === 1 ? "" : "s"}.${enough ? "" : ` You need ${cost - bal} more.`}${!enough && storeApp() ? " Buying credits isn't available in this app." : ""}</p>` : `<p class="mini">Credits belong to your account, so sign in first.</p>`}
+        <p class="mini sbc-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> to use every theme and style while you're subscribed.</p>
       </div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="cr-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}</div></div>`);
+      <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}</div></div>`);
   }
   const money = (cents, cur) => { try { return new Intl.NumberFormat(undefined, {style: "currency", currency: String(cur || "usd").toUpperCase()}).format(cents / 100); } catch (e) { return "$" + (cents / 100).toFixed(2); } };
   function packsSheet(){
-    if (!dlg.open || !dlg.querySelector(".cr-sheet")) backToShop = shopOpen();
+    if (!dlg.open || !dlg.querySelector(".sbc-sheet")) backToShop = shopOpen();
     const m = mine(), packs = m && Array.isArray(m.packs) ? m.packs : null, base = packs && packs[0] ? packs[0].cents / packs[0].credits : 0;
     const body = !signedIn() ? `<p style="margin:0">Credits belong to your account. Sign in or create a free account first.</p>`
       : storeApp() ? `<p style="margin:0">Buying credits isn't available in this app. Credits you already have work here.</p>`
       : !packs ? `<p class="mini" style="margin:0">Loading…</p>`
-      : `<div class="cr-packs">${packs.map(p => { const bonus = base ? Math.round((1 - p.cents / p.credits / base) * 100) : 0;
-          return `<button type="button" class="cr-pack${p.badge === "Best Value" ? " best" : ""}" data-act="cr-pack" data-id="${esc(p.id)}">${p.badge ? `<span class="pp-flag">${esc(p.badge)}</span>` : ""}<span class="cr-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="cr-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 5 && !p.badge ? `<span class="mini">${bonus}% more per dollar</span>` : ""}</button>`; }).join("")}</div>
+      : `<div class="sbc-packs">${packs.map(p => { const bonus = base ? Math.round((1 - p.cents / p.credits / base) * 100) : 0;
+          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${p.badge ? `<span class="pp-flag">${esc(p.badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 5 && !p.badge ? `<span class="mini">${bonus}% more per dollar</span>` : ""}</button>`; }).join("")}</div>
         <p class="mini" style="margin:0">A Theme Collection is ${prices().skin} credits (with its companions, stickers, pins and flashcard style), a sticker pack or flashcard style ${prices().sticker}, a pin ${prices().pin}. Credits don't expire, and what you keep stays yours even without Pro. You'll pay securely with Stripe on the Studyboard website.</p>`;
-    openSheet(`<div class="sheet cr-sheet">${head("Studyboard Credits")}
+    openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Credits")}
       <div class="sheet-body">
-        ${signedIn() ? `<p class="cr-bal cr-bal-big" role="status">${COIN}<span>You have <b>${balance()}</b> credit${balance() === 1 ? "" : "s"}</span></p>` : ""}
+        ${signedIn() ? `<p class="sbc-bal sbc-bal-big" role="status">${COIN}<span>You have <b>${balance()}</b> credit${balance() === 1 ? "" : "s"}</span></p>` : ""}
         ${body}
       </div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="cr-back">${backToShop ? "Back to Shop" : "Close"}</button><span class="spacer"></span>${signedIn() ? "" : `<button type="button" class="btn primary" data-act="cr-signin">Sign In</button>`}</div></div>`);
-    if (!packs && signedIn()) load().then(() => { if (dlg.open && dlg.querySelector(".cr-sheet:not([data-kind])")) packsSheet(); });
+      <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Close"}</button><span class="spacer"></span>${signedIn() ? "" : `<button type="button" class="btn primary" data-act="sbc-signin">Sign In</button>`}</div></div>`);
+    if (!packs && signedIn()) load().then(() => { if (dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])")) packsSheet(); });
   }
   let busy = false;
   async function buy(kind, id, btn){
@@ -206,16 +206,16 @@
   });
   hook("act", (act, el) => {
     switch (act) {
-      case "cr-packs": packsSheet(); return true;
-      case "cr-item": buySheet(el.dataset.kind, el.dataset.id); return true;
-      case "cr-buy": buy(el.dataset.kind, el.dataset.id, el); return true;
-      case "cr-pack": buyPack(el.dataset.id, el); return true;
-      case "cr-signin": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp(); else if (typeof sbSignInSheet === "function") sbSignInSheet(); }, 120); return true;
-      case "cr-back": if (backToShop) styleShop(); else if (dlg.open) dlg.close(); return true;
+      case "sbc-packs": packsSheet(); return true;
+      case "sbc-item": buySheet(el.dataset.kind, el.dataset.id); return true;
+      case "sbc-buy": buy(el.dataset.kind, el.dataset.id, el); return true;
+      case "sbc-pack": buyPack(el.dataset.id, el); return true;
+      case "sbc-signin": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp(); else if (typeof sbSignInSheet === "function") sbSignInSheet(); }, 120); return true;
+      case "sbc-back": if (backToShop) styleShop(); else if (dlg.open) dlg.close(); return true;
     }
     return false;
   });
-  hook("menu", () => enabled() && signedIn() ? `<button data-act="cr-packs" data-group="account"><span>Studyboard Credits<span class="sub">${balance()} credit${balance() === 1 ? "" : "s"} · Keep themes, stickers and more for good</span></span></button>` : "");
+  hook("menu", () => enabled() && signedIn() ? `<button data-act="sbc-packs" data-group="account"><span>Studyboard Credits<span class="sub">${balance()} credit${balance() === 1 ? "" : "s"} · Keep themes, stickers and more for good</span></span></button>` : "");
   // Sign-in changes: load this account's credits
   let seenUid = "";
   hook("render", () => {
@@ -225,16 +225,24 @@
     if (u && STORE.paywall) load();
   });
 
-  /* The Style Shop: the balance on top, and each locked item's price on its button */
-  const showBar = () => enabled() && (!PLAN.isPro() || balance() > 0 || owned.size > 0);
+  /* The Style Shop: the balance in its header (always in view while the list scrolls), and each locked item's price on its
+     button. Hidden from Pro subscribers, who have every item, unless they've bought credits or still have some. */
+  const bought = () => { const m = mine(); return !!(m && m.bought); };
+  const showBar = () => enabled() && (!PLAN.isPro() || bought() || balance() > 0);
   const origShop = styleShop;
   styleShop = function(){
     const r = origShop.apply(this, arguments);
     try {
-      const body = showBar() && dlg.querySelector(".sheet.shop .sheet-body, .sheet.ui-shop .sheet-body");
-      if (body && !body.querySelector(".cr-bar")) body.insertAdjacentHTML("afterbegin", `<div class="cr-bar">${COIN}<span class="cr-bar-t">${signedIn() ? `<b>${balance()}</b> credit${balance() === 1 ? "" : "s"}` : "Studyboard Credits"}<span class="mini">Keep any Pro item for good, no subscription</span></span><button type="button" class="btn small" data-act="cr-packs">Get Credits</button></div>`);
+      const hd = dlg.querySelector(".sheet.shop .sheet-head, .sheet.ui-shop .sheet-head");
+      if (hd && showBar() && !hd.querySelector(".sbc-pill")) {
+        const n = balance(), txt = signedIn() ? `<b>${n.toLocaleString()}</b><span class="sbc-pill-l">credit${n === 1 ? "" : "s"}</span>` : `<span class="sbc-pill-l">Credits</span>`;
+        const close = hd.querySelector('[data-act="close"]');
+        const pill = `<button type="button" class="sbc-pill" data-act="sbc-packs" title="Studyboard Credits: keep any Pro item for good" aria-label="${signedIn() ? `You have ${n} credits. Get more` : "Studyboard Credits"}">${COIN}${txt}</button>`;
+        if (close) close.insertAdjacentHTML("beforebegin", pill); else hd.insertAdjacentHTML("beforeend", pill);
+        hd.classList.add("has-cr");
+      }
       label(dlg);
-    } catch (e) { console.warn("credits bar", e); }
+    } catch (e) { console.warn("credits pill", e); }
     return r;
   };
   function label(root){

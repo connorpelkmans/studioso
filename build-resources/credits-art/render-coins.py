@@ -168,6 +168,15 @@ M, Bm = place_logo(1.12, C + 6, C + 4)
 img = gold_logo(img, M, Bm, base=0.76)
 img = sparkle(img, C + S * 0.24, C - S * 0.25, S * 0.05, 0.9)
 save(img, "concept-1-classic-gold")
+if "--navy" in sys.argv:
+    # all gold, on the app icon's own navy
+    img = background(c_top=(23, 58, 112), c_mid=(18, 49, 98), c_bot=(14, 42, 86), glow=0.06, glow_r=0.34, vig=0.06)
+    img = over(img, np.array([3, 10, 26], np.float32), cs)
+    img, coin = gold_face(C, C, S * 0.36, img, field_tone=0.40)
+    img = gold_logo(img, M, Bm, base=0.76)
+    img = sparkle(img, C + S * 0.24, C - S * 0.25, S * 0.05, 0.9)
+    save(img, "concept-1-classic-gold-navy")
+    sys.exit(0)
 if "--blue-rim" in sys.argv:
     # the app icon's own navy (icon-1024.png: #15366B at the top left to #0E2B57 at the bottom right)
     img = background(c_top=(23, 58, 112), c_mid=(18, 49, 98), c_bot=(14, 42, 86), glow=0.06, glow_r=0.34, vig=0.06)

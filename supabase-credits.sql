@@ -158,6 +158,8 @@ begin
   return jsonb_build_object(
     'on', coalesce(on_, false),
     'balance', coalesce((select balance from public.studyboard_credit_balances where user_id = me), 0),
+    -- Has this account ever paid for credits? (The Style Shop keeps showing the balance to someone who bought credits and went Pro later)
+    'bought', exists (select 1 from public.studyboard_credit_orders o where o.user_id = me),
     'owned', coalesce((select jsonb_agg(jsonb_build_array(o.kind, o.item_id) order by o.created_at) from public.studyboard_owned_items o where o.user_id = me), '[]'::jsonb),
     'prices', coalesce((select jsonb_object_agg(p.kind, p.credits) from public.studyboard_credit_item_prices p), '{}'::jsonb),
     'packs', coalesce((select jsonb_agg(jsonb_build_object('id', k.pack_id, 'credits', k.credits, 'cents', k.price_cents, 'currency', k.currency, 'label', k.label, 'badge', k.badge) order by k.sort, k.credits)

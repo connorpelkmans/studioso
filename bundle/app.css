@@ -4644,27 +4644,37 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .btn.shop-inuse:disabled,.cp-chosen.shop-inuse{opacity:1;cursor:default;display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:color-mix(in srgb,var(--accent) 78%,var(--ink));font-weight:700;box-shadow:none}
 /* ===== module: 97-credits.css ===== */
 /* Studyboard Credits: the balance in the Style Shop, the buy sheet and the credit packs */
-.cr-coin{flex:none;color:var(--accent);vertical-align:-3px}
-.cr-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--soft)}
-.cr-bar-t{flex:1;display:grid;gap:1px;min-width:0}
-.cr-bar .btn{flex:none}
-.cr-sheet .cr-prev{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;padding:8px 0}
-.cr-sheet .cr-prev .skin-prev{width:min(100%,320px)}
-.cr-sheet .cr-stk .stk-cell{width:44px;height:44px}
-.cr-cost{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;margin:0;font-size:1.05rem}
-.cr-cost .mini{flex-basis:100%}
-.cr-has{padding:10px 12px;border-radius:12px;background:var(--soft)}
-.cr-has ul{margin:6px 0 0;padding-left:20px;display:grid;gap:2px}
-.cr-bal{margin:0}
-.cr-bal-big{display:flex;align-items:center;gap:8px;font-size:1.05rem}
-.cr-packs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;padding-top:6px}
-.cr-pack{position:relative;display:grid;gap:4px;justify-items:start;text-align:left;min-height:86px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);cursor:pointer;font:inherit}
-.cr-pack:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
-.cr-pack:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
-.cr-pack.best{border-color:var(--accent)}
-.cr-pack-n{display:flex;align-items:center;gap:6px}
-.cr-pack-p{font-size:1.15rem;font-weight:700}
-.cr-pack .pp-flag{background:var(--accent);color:var(--accent-ink,#fff)}
+.sbc-coin{flex:none;color:var(--accent);vertical-align:-3px}
+/* The balance pill in the Style Shop's header, left of the close button */
+.sbc-pill{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:4px 14px 4px 8px;border-radius:999px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font:700 .9rem var(--display);cursor:pointer;white-space:nowrap;margin-left:auto}
+.sbc-pill .sbc-coin{width:24px;height:24px;color:#F2B230}
+.sbc-pill .sbc-pill-l{font-weight:600;opacity:.9}
+.sbc-pill:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.sheet.shop .sheet-head.shop-band.has-cr{padding-right:200px!important}
+.shop-band > .sbc-pill{position:absolute;right:70px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.5);color:#fff}
+.shop-band > .sbc-pill:hover{background:rgba(255,255,255,.28)}
+.shop-band > .sbc-pill .sbc-coin{color:#FFD45C;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
+@media (max-width:720px){
+  .sheet.shop .sheet-head.shop-band.has-cr{padding-right:60px!important}
+  .shop-band > .sbc-pill{position:static;transform:none;margin-top:8px;min-height:34px}
+}
+.sbc-sheet .sbc-prev{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;padding:8px 0}
+.sbc-sheet .sbc-prev .skin-prev{width:min(100%,320px)}
+.sbc-sheet .sbc-stk .stk-cell{width:44px;height:44px}
+.sbc-cost{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;margin:0;font-size:1.05rem}
+.sbc-cost .mini{flex-basis:100%}
+.sbc-has{padding:10px 12px;border-radius:12px;background:var(--soft)}
+.sbc-has ul{margin:6px 0 0;padding-left:20px;display:grid;gap:2px}
+.sbc-bal{margin:0}
+.sbc-bal-big{display:flex;align-items:center;gap:8px;font-size:1.05rem}
+.sbc-packs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;padding-top:6px}
+.sbc-pack{position:relative;display:grid;gap:4px;justify-items:start;text-align:left;min-height:86px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);cursor:pointer;font:inherit}
+.sbc-pack:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.sbc-pack:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+.sbc-pack.best{border-color:var(--accent)}
+.sbc-pack-n{display:flex;align-items:center;gap:6px}
+.sbc-pack-p{font-size:1.15rem;font-weight:700}
+.sbc-pack .pp-flag{background:var(--accent);color:var(--accent-ink,#fff)}
 /* ===== module: 97-ui.css ===== */
 /* ===== 97-ui: Settings in categories ===== */
 .us-sheet .us-back{display:none}
