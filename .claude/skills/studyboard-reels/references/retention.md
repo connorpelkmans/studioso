@@ -114,7 +114,7 @@ Free, works in any browser, no account needed. Link in bio.
 #studytok #studyhacks #<topic> #studentplanner #studyboard
 ```
 
-3–6 hashtags, relevant over popular. On TikTok, write the words students would search ("exam study plan", "finals week") in the caption, since search drives discovery.
+**Max 5 hashtags** (Instagram's cap since Dec 2025), specific over popular: hashtags help search and categorisation, not reach (Mosseri). Default set for student humour: #studytok #finalsweek (in season) #collegelife #studentlife #studentmemes; swap in the feature or topic tag when it fits. Put the search words (e.g. "finals week") in the caption's first line too, because Instagram search reads captions. On TikTok, write the words students would search ("exam study plan", "finals week") in the caption, since search drives discovery.
 
 ## What to measure (ask the user for these)
 

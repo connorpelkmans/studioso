@@ -1,6 +1,6 @@
 # Today: Sunday Nov 15, "Every friend group during finals week"
 
-✅ **Scheduled in Metricool** (post 429212300, auto-publish, first comment included). **Post at 5:50 PM PT** as a regular Reel (`2026-11-20-types-of-students/reel.mp4`), moved up from slot #9.
+✅ **Scheduled in Metricool** (post 429217674, auto-publish, first comment included). **Post at 5:50 PM PT** as a regular Reel (`2026-11-20-types-of-students/reel.mp4`), moved up from slot #9.
 
 **Why 5:50 PM:** it was 12:23 PM when this was planned. Metricool's Sunday curve (Instagram, America/Vancouver) peaks at 10 AM (2,582) and noon (2,410), drops through the afternoon (1,634–1,890), then holds a plateau at 6 PM (2,253) and 7 PM (2,232). A reel's first hour is when Instagram tests it on a small audience and decides whether to push it, so that hour should fall inside the strongest *remaining* window. Posting now would put it in the afternoon dip; 5:50 PM puts its first two hours on the evening plateau. Sunday evening is also when students plan the week and procrastinate on their phones, which suits this reel. (The account has no history in Metricool yet, since it was connected today, so this is the benchmark curve. Recheck once there's data.)
 
@@ -117,13 +117,13 @@ These aren't ads: they're the kind of post students share. Studyboard appears on
 ## Captions
 
 **#9 Types of students**
-> Every friend group has all four. Which one are you? 👇
+> Every friend group during finals week has all four. Which one are you? 👇
 >
 > Tag your study group (we know who the 4 AM goblin is).
 >
 > 🦉 Hoot, Mochi, Inky and Packy are the study companions in Studyboard, a free student planner. Link in bio.
 >
-> #studytok #finalsweek #college #studentlife #relatable
+> #studytok #finalsweek #collegelife #studentlife #studentmemes
 
 **#10 Plan vs. reality**
 > The playlist was really good though. 🎧
