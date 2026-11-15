@@ -127,20 +127,17 @@
     const tile = (label, sub, body, cls) => `<div class="sbc-in ${cls || ""}"><span class="sbc-in-l">${esc(label)}</span><div class="sbc-in-b">${body}</div>${sub ? `<span class="sbc-in-s">${esc(sub)}</span>` : ""}</div>`;
     const comps = (STYLE_LISTS.comp || []).filter(c => c.theme === th);
     if (comps.length) {
-      const pic = c => { let u = ""; try { u = window.SBCOMP && SBCOMP.stillUrl ? SBCOMP.stillUrl(c.id) : ""; } catch (e) {} return `<figure>${u ? `<img src="${esc(u)}" alt="" width="56" height="56">` : ""}<figcaption>${esc(c.name)}</figcaption></figure>`; };
-      tiles.push(tile(comps.length === 1 ? "Companion" : `${comps.length} Companions`, "", `<div class="sbc-comps">${comps.map(pic).join("")}</div>`, "wide"));
+      const pic = c => { let u = ""; try { const h = window.SBCOMP && SBCOMP.head ? SBCOMP.head(c.id) : ""; u = h ? "data:image/svg+xml," + encodeURIComponent(h.replace("<svg ", h.includes("xmlns=") ? "<svg " : '<svg xmlns="http://www.w3.org/2000/svg" ')) : window.SBCOMP && SBCOMP.stillUrl ? SBCOMP.stillUrl(c.id) : ""; } catch (e) {} return `<figure title="${esc(c.name)}">${u ? `<img src="${esc(u)}" alt="${esc(c.name)}" width="40" height="40">` : ""}</figure>`; };
+      tiles.push(tile(comps.length === 1 ? "Companion" : `${comps.length} Companions`, comps.map(c => c.name).join(", "), `<div class="sbc-comps">${comps.map(pic).join("")}</div>`));
     }
     const p = r && r.pack && STICKER_PACKS.find(x => x.id === r.pack);
-    if (p) { const keys = Object.keys(p.items); tiles.push(tile(`${keys.length} Stickers`, p.name, `<div class="sbc-stk">${keys.slice(0, 6).map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div>`)); }
+    if (p) { const keys = Object.keys(p.items); tiles.push(tile(`${keys.length} Stickers`, p.name, `<div class="sbc-stk">${keys.map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div>`)); }
     const cs = r && r.card && CARD_STYLES.find(x => x.id === r.card);
-    if (cs) tiles.push(tile("Flashcard Style", cs.name, `<div class="cs-demo cs-${esc(cs.id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`));
+    if (cs) tiles.push(tile("Flashcard", cs.name, `<div class="cs-demo cs-${esc(cs.id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`));
     if (r && r.pins && r.pins.length) {
       const names = r.pins.map(pid => ((PINS.find(x => x.id === pid) || {}).name || "")).filter(Boolean).join(" · ");
       tiles.push(tile(r.pins.length === 1 ? "Pin" : `${r.pins.length} Pins`, names, `<div class="sbc-pins">${r.pins.map((pid, i) => noteDemo(i ? "rounded" : "classic", pid, i + 2)).join("")}</div>`));
     }
-    // an odd one out under the full-width companions spans the row instead of leaving a gap
-    const small = tiles.filter(t => !t.includes('sbc-in wide'));
-    if (small.length % 2) { const last = small[small.length - 1]; tiles[tiles.indexOf(last)] = last.replace('class="sbc-in "', 'class="sbc-in wide"'); }
     return tiles.length ? `<div class="sbc-inside"><h3 class="sbc-h">What's Inside</h3><div class="sbc-in-grid">${tiles.join("")}</div></div>` : "";
   }
   function buySheet(kind, id, note){
@@ -164,7 +161,7 @@
         ${list.length ? `<ul class="sbc-list">${list.map(x => `<li>${TICK}<span>${esc(x)}</span></li>`).join("")}</ul>` : ""}
         ${wallet}
         ${th ? `<button type="button" class="sbc-upsell" data-act="sbc-item" data-kind="skin" data-id="${esc(th)}"><span class="sbc-upsell-t"><b>Get the whole ${esc(themeName(th))} Collection</b><span>The theme, its companions, stickers, pins and this style, for ${priceOf("skin", th)} credits</span></span>${CHEV}</button>` : ""}
-        <p class="sbc-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> for every theme and style while you're subscribed.</p>
+        <p class="sbc-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> for every collection while you're subscribed.</p>
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}</div></div>`);
   }
