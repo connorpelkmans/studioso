@@ -68,6 +68,10 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   onScreenshot: fn => { ipcRenderer.on("desk:screenshot", (e, bytes) => { try { fn(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)); } catch (err) {} }); ipcRenderer.send("desk:listen", "desk:screenshot"); },
   // Starts the same screenshot picker as the shortcut (the Try it button in Settings)
   captureScreen: () => ipcRenderer.invoke("shot:now"),
+  // The calculator's Capture from Screen: Studyboard steps aside and the same picker comes up; true when it started
+  captureEquation: () => ipcRenderer.invoke("shot:calc"),
+  // fn(bytes): the part of the screen boxed for the calculator (that button, or its shortcut), as a JPEG
+  onEquationShot: fn => { ipcRenderer.on("desk:calc-shot", (e, bytes) => { try { fn(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)); } catch (err) {} }); ipcRenderer.send("desk:listen", "desk:calc-shot"); },
   onAction: fn => { ipcRenderer.on("desk:action", (e, action, arg) => fn(String(action), String(arg || ""))); ipcRenderer.send("desk:listen", "desk:action"); },
   // {onBattery, thermal
   focusBlock: {
