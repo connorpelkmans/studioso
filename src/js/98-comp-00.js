@@ -149,7 +149,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 72, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 80, w: 3},
         cheeks: {lx: 47, rx: 73, y: 79.5, w: 3.6, h: 2.4},
-        anchors: {top: [60, 25, 0.85, 0], neck: [60, 89, 0.95, 0, 38, 41], chest: [70, 95, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
+        anchors: {top: [60, 25, 0.85, 0], neck: [60, 89, 0.95, 0, 38, 40, 35], chest: [70, 95, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
         lines: {tap: ["This part? Definitely important.", "I only light up the good stuff.", "You don't have to remember it all. Just the key bits.", "Hi! Ready to make things stand out?", "One clear line at a time.", "Bright idea incoming!"], pet: ["Hehe, careful, my cap pops off!", "Glowing extra bright now."], hello: ["You're back! Let's find the key ideas.", "Hi again! Cap's off, ready to go."], morning: ["Good morning! Today looks bright."], night: ["Cap on, lights low. Time to rest."], focus: ["Steady hand. You've got this.", "Marking the moment. Keep going."], done: ["Great session! That deserves a big bright line.", "Done! You really focused."], task: ["Done! Highlighted in gold.", "Yes! That one's marked finished.", "Another one done. Nice!"], break: ["Cap on for a minute. Stretch it out."]}
       },
       {
