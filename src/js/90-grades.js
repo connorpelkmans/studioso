@@ -628,10 +628,13 @@
   /* New marks from a sync: a red count on Courses, on the Grades switch, on each course with one (its card, its row on Grades,
      its own Grades tab), and a red dot on the mark itself. Seen once you've had that course's Grades tab (or its marks on Grades) open and moved on. */
   const newMarks = cid => tasksArr().filter(t => t && t.markNew && t.mark && t.mark.got != null && t.mark.got !== "" && (!cid || t.courseId === cid));
+  // the counts are put back on every redraw: they ease in only the first time they're seen, after that they're simply there (99-smooth
+  // eases in anything new after a tap, so each tap on Grades made them blink out and back)
+  const pipSeen = new Set();
   const pipOn = (el, n, cls, label) => {
     if (!el) return; let d = el.querySelector(":scope > ." + cls);
     if (!n) { if (d) d.remove(); return; }
-    if (!d) { d = document.createElement("span"); d.className = cls; d.setAttribute("aria-hidden", "true"); el.appendChild(d); }
+    if (!d) { d = document.createElement("span"); d.className = cls + (pipSeen.has(cls) ? " sm-skip" : ""); d.setAttribute("aria-hidden", "true"); el.appendChild(d); pipSeen.add(cls); }
     d.textContent = n > 9 ? "9+" : String(n);
     if (label) el.setAttribute("aria-label", label);
   };
