@@ -8017,7 +8017,9 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
   .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
   .wb-max{background:rgba(255,255,255,.76)!important}
   .wb-dk .wb-max{background:rgba(38,45,54,.78)!important}
-  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
+  /* (follows the board's own light / dark, not the app's: on a light board in a dark app it was a dark pill under dark icons) */
+  .wb-stage .wb-zoom{background:rgba(255,255,255,.76)!important;border-color:rgba(0,0,0,.08)!important}
+  .wb-dk.wb-stage .wb-zoom{background:rgba(38,45,54,.78)!important;border-color:rgba(255,255,255,.1)!important}
 }
 
 /* Do This Next band: "Do This Next, Pip's pick" stays on one line beside the time */
