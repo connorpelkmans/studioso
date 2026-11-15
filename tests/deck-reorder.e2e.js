@@ -75,8 +75,9 @@ async function open(ctx){
   // Keyboard, in a course filter: only the shown decks swap, Deck C keeps its place
   await show(p, "cards", "c1");
   ok(JSON.stringify(await decks(p)) === JSON.stringify(["Deck B", "Deck A"]), "the Biology filter shows its two decks");
-  await p.focus('[data-rv="dA"] .rv-grip');
-  ok(/Alt \+ Left or Right Arrow/.test(await p.getAttribute('[data-rv="dA"] .rv-grip', "aria-description")), "the grip tells you the keys");
+  ok(await p.evaluate(() => !document.querySelector(".rv-grip")), "no separate drag grip: the whole tile drags");
+  await p.focus('[data-rv="dA"] [data-act="fc-study"]');
+  ok(/Alt \+ Left or Right Arrow/.test(await p.getAttribute('[data-rv="dA"] [data-act="fc-study"]', "aria-description")), "the Study button tells you the keys");
   await p.keyboard.press("Alt+ArrowLeft"); await p.waitForTimeout(300);
   ok(JSON.stringify(await decks(p)) === JSON.stringify(["Deck A", "Deck B"]), "Alt + Left Arrow moves the deck back one place: " + (await decks(p)).join(" | "));
   ok(await p.evaluate(() => !!document.activeElement.closest('[data-rv="dA"]')), "focus stays on the moved deck");
@@ -95,7 +96,7 @@ async function open(ctx){
   ok(qo.q1 < qo.q3 && qo.q3 < qo.q2, "each quiz saves its order with its deck");
   await p.close(); p = await open(ctx); await show(p, "quizzes");
   ok(JSON.stringify(await quizzes(p)) === JSON.stringify(["Quiz One", "Quiz Three", "Quiz Two"]), "the quiz order holds after a reload");
-  await p.focus('[data-rv="dA:q2"] .rv-grip');
+  await p.focus('[data-rv="dA:q2"] [data-act="ai-quiz-start"]');
   await p.keyboard.press("Alt+ArrowLeft"); await p.waitForTimeout(300);
   ok(JSON.stringify(await quizzes(p)) === JSON.stringify(["Quiz One", "Quiz Two", "Quiz Three"]), "Alt + Left Arrow moves a quiz too");
   ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
