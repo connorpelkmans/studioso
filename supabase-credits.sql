@@ -23,14 +23,14 @@ create table if not exists public.studyboard_credit_packs (
   updated_at timestamptz not null default now()
 );
 create table if not exists public.studyboard_credit_item_prices (
-  kind text primary key check (kind in ('skin', 'sticker', 'card', 'pin')),
+  kind text primary key check (kind in ('skin', 'sticker', 'card', 'pin', 'note')),
   credits integer not null check (credits > 0 and credits <= 100000),
   updated_at timestamptz not null default now()
 );
 
--- Prices: a Theme Collection 300 ($3), a sticker pack 100 ($1), a flashcard style 100 ($1), a pin 50 ($0.50).
+-- Prices: a Theme Collection 300 ($3), a sticker pack 100 ($1), a flashcard style 100 ($1), a note shape 100 ($1), a pin 50 ($0.50).
 -- Only inserted when missing, so changes you make later in the SQL Editor are kept.
-insert into public.studyboard_credit_item_prices (kind, credits) values ('skin', 300), ('sticker', 100), ('card', 100), ('pin', 50)
+insert into public.studyboard_credit_item_prices (kind, credits) values ('skin', 300), ('sticker', 100), ('card', 100), ('pin', 50), ('note', 100)
 on conflict (kind) do nothing;
 -- Live Stripe prices (product "Studyboard Credits", prod_VdRSF2ExXrjwfx)
 insert into public.studyboard_credit_packs (pack_id, credits, price_cents, stripe_price_id, label, badge, sort) values
@@ -58,7 +58,7 @@ create table if not exists public.studyboard_credit_ledger (
 create index if not exists studyboard_credit_ledger_user on public.studyboard_credit_ledger (user_id, created_at desc);
 create table if not exists public.studyboard_owned_items (
   user_id uuid not null references auth.users(id) on delete cascade,
-  kind text not null check (kind in ('skin', 'sticker', 'card', 'pin')),
+  kind text not null check (kind in ('skin', 'sticker', 'card', 'pin', 'note')),
   item_id text not null check (item_id ~ '^[A-Za-z0-9_-]{1,64}$'),
   credits integer not null default 0,
   source text not null default 'credits',
@@ -78,6 +78,13 @@ create table if not exists public.studyboard_credit_orders (
   created_at timestamptz not null default now(),
   reversed_at timestamptz
 );
+
+-- Databases made before note shapes could be bought: widen the kind checks
+alter table public.studyboard_credit_item_prices drop constraint if exists studyboard_credit_item_prices_kind_check;
+alter table public.studyboard_credit_item_prices add constraint studyboard_credit_item_prices_kind_check check (kind in ('skin', 'sticker', 'card', 'pin', 'note'));
+alter table public.studyboard_owned_items drop constraint if exists studyboard_owned_items_kind_check;
+alter table public.studyboard_owned_items add constraint studyboard_owned_items_kind_check check (kind in ('skin', 'sticker', 'card', 'pin', 'note'));
+insert into public.studyboard_credit_item_prices (kind, credits) values ('note', 100) on conflict (kind) do nothing;
 
 alter table public.studyboard_credit_packs enable row level security;
 alter table public.studyboard_credit_item_prices enable row level security;

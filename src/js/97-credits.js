@@ -6,10 +6,12 @@
    Switched on with studyboard_config.item_purchases (see CREDITS-GUIDE.md). */
 (() => {
   const K = "studyboard:credits";
-  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin"};
+  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin", note: "Note Shape"};
   // Shown until the server has answered once; the server's own prices always win when buying
-  const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50};
-  const COIN = `<svg class="sbc-coin" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6.8l1.5 3.2 3.5.4-2.6 2.4.7 3.4L12 14.5l-3.1 1.7.7-3.4L7 10.4l3.5-.4z" fill="currentColor"/></svg>`;
+  const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50, note: 100};
+  // The Studyboard Credits coin (build-resources/credits-art: the gold coin, 96 px WebP)
+  const COIN_SRC = "data:image/webp;base64,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";
+  const COIN = `<img class="sbc-coin" src="${COIN_SRC}" width="20" height="20" alt="" aria-hidden="true">`;
 
   // Tests swap in their own server and account (window.__SB_TEST only)
   let fake = null;
@@ -32,6 +34,15 @@
   const enabled = () => { try { return STORE.paywall && planOk() && !!PLAN.config().item_purchases && !inPreview(); } catch (e) { return false; } };
   const signedIn = () => { const u = usr(); return !!u && !u.is_anonymous; };
   const storeApp = () => { try { return planOk() && PLAN.storeRoute(); } catch (e) { return false; } };
+
+  // A sticker drawn with its own gradient and clip names (the same sticker often sits on the page twice, and a copy that's
+  // hidden would otherwise lend its colours to the visible one, washing it out)
+  let stkN = 0;
+  function stkPic(k){
+    const svg = (STICKERS[k] || {}).svg || "", n = ++stkN;
+    const own = svg.replace(/\bid=(["'])([^"']+)\1/g, (m, q, i) => `id=${q}${i}-c${n}${q}`).replace(/url\(#([^)]+)\)/g, (m, i) => `url(#${i}-c${n})`).replace(/href=(["'])#([^"']+)\1/g, (m, q, i) => `href=${q}#${i}-c${n}${q}`);
+    return `<span class="stk-cell"><svg viewBox="0 0 64 64" aria-hidden="true">${own}</svg></span>`;
+  }
 
   /* ---------- Ownership ---------- */
   const has = (kind, id) => owned.has(kind + ":" + id);
@@ -81,7 +92,11 @@
         C = Object.assign({}, data, {uid: usr().id, at: Date.now()});
         save(); rebuild();
         if (was !== JSON.stringify([C.balance, C.owned])) {
-          if (before && C.balance > before.balance) toast(`${C.balance - before.balance} credits added. You have ${C.balance}.`);
+          if (before && C.balance > before.balance) {
+            const got = C.balance - before.balance;
+            if (pending) { added = {credits: got, balance: C.balance}; pending = null; }
+            if (!(dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])"))) toast(`${got} credits added. You have ${C.balance}.`);
+          }
           try { applySkin(); } catch (e) {}
           scheduleRender(); redrawOpen();
         }
@@ -111,36 +126,118 @@
     } catch (e) {}
   }
   function preview(kind, id){
-    if (kind === "skin") { const s = SKINS.find(x => x.id === id); return s ? `<div class="sbc-prev">${skinPreview(s, isDark())}</div>` : ""; }
-    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? `<div class="sbc-prev sbc-stk">${Object.keys(p.items).slice(0, 8).map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div>` : ""; }
-    if (kind === "card") return `<div class="sbc-prev"><div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div></div>`;
-    if (kind === "pin") return `<div class="sbc-prev">${noteDemo(noteShapeOf(null), id, 1)}</div>`;
+    if (kind === "skin") { const s = SKINS.find(x => x.id === id); return s ? skinPreview(s, isDark()) : ""; }
+    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? `<div class="sbc-stk">${Object.keys(p.items).map(k => stkPic(k)).join("")}</div>` : ""; }
+    if (kind === "card") return `<div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`;
+    if (kind === "pin") return noteDemo(noteShapeOf(null), id, 1);
+    if (kind === "note") return noteDemo(id, notePinOf(null), 1);
     return "";
   }
+  const CHEV = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const TICK = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  // Every piece of a Theme Collection, drawn as it looks in the app
+  function insideHtml(th){
+    const r = window.SBTP && SBTP.rec ? SBTP.rec(th) : null, tiles = [];
+    let what = "";
+    const tile = (label, sub, body, cls) => `<button type="button" class="sbc-in ${cls || ""}" data-act="sbc-zoom" data-what="${what}" data-th="${esc(th)}" aria-label="${esc(label)}: see bigger"><span class="sbc-in-l">${esc(label)}</span><span class="sbc-in-b">${body}</span>${sub ? `<span class="sbc-in-s">${esc(sub)}</span>` : ""}</button>`;
+    const comps = (STYLE_LISTS.comp || []).filter(c => c.theme === th);
+    if (comps.length) {
+      const pic = c => { let u = ""; try { const h = window.SBCOMP && SBCOMP.head ? SBCOMP.head(c.id) : ""; u = h ? "data:image/svg+xml," + encodeURIComponent(h.replace("<svg ", h.includes("xmlns=") ? "<svg " : '<svg xmlns="http://www.w3.org/2000/svg" ')) : window.SBCOMP && SBCOMP.stillUrl ? SBCOMP.stillUrl(c.id) : ""; } catch (e) {} return `<figure title="${esc(c.name)}">${u ? `<img src="${esc(u)}" alt="${esc(c.name)}" width="40" height="40">` : ""}</figure>`; };
+      what = "comps"; tiles.push(tile(comps.length === 1 ? "Companion" : `${comps.length} Companions`, comps.map(c => c.name).join(", "), `<div class="sbc-comps">${comps.map(pic).join("")}</div>`));
+    }
+    const p = r && r.pack && STICKER_PACKS.find(x => x.id === r.pack);
+    if (p) { const keys = Object.keys(p.items); what = "stk"; tiles.push(tile(`${keys.length} Stickers`, p.name, `<div class="sbc-stk">${keys.map(k => stkPic(k)).join("")}</div>`)); }
+    const cs = r && r.card && CARD_STYLES.find(x => x.id === r.card);
+    if (cs) what = "card";
+    if (cs) tiles.push(tile("Flashcard", cs.name, `<div class="cs-demo cs-${esc(cs.id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`));
+    if (r && r.pins && r.pins.length) {
+      what = "pins";
+      const names = r.pins.map(pid => ((PINS.find(x => x.id === pid) || {}).name || "")).filter(Boolean).join(" · ");
+      tiles.push(tile(r.pins.length === 1 ? "Pin" : `${r.pins.length} Pins`, names, `<div class="sbc-pins">${r.pins.map((pid, i) => noteDemo(i ? "rounded" : "classic", pid, i + 2)).join("")}</div>`));
+    }
+    return tiles.length ? `<div class="sbc-inside"><h3 class="sbc-h">What's Inside</h3><div class="sbc-in-grid">${tiles.join("")}</div></div>` : "";
+  }
+  // A bigger look at one piece of a collection, over the buy sheet (Back or Escape returns)
+  function zoomHtml(what, th){
+    const r = window.SBTP && SBTP.rec ? SBTP.rec(th) : null;
+    if (what === "comps") {
+      const comps = (STYLE_LISTS.comp || []).filter(c => c.theme === th);
+      return [comps.length === 1 ? "Companion" : `${comps.length} Companions`, `<div class="sbc-z-comps">${comps.map(c => { let u = ""; try { u = SBCOMP.stillUrl(c.id); } catch (e) {} return `<figure>${u ? `<img src="${esc(u)}" alt="">` : ""}<figcaption>${esc(c.name)}</figcaption></figure>`; }).join("")}</div><p class="sbc-note">They live on your board and cheer you on. Pick one in the Companion tab.</p>`];
+    }
+    if (what === "stk") {
+      const p = r && r.pack && STICKER_PACKS.find(x => x.id === r.pack); if (!p) return null;
+      return [`${p.name} · ${Object.keys(p.items).length} Stickers`, `<div class="sbc-z-stk">${Object.keys(p.items).map(k => stkPic(k)).join("")}</div><p class="sbc-note">Drag them onto your sticky notes from the envelope beside the Notes board.</p>`];
+    }
+    if (what === "card") {
+      const cs = r && r.card && CARD_STYLES.find(x => x.id === r.card); if (!cs) return null;
+      return [`Flashcard Style · ${cs.name}`, `<div class="sbc-z-card"><div class="cs-demo cs-${esc(cs.id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div></div><p class="sbc-note">How your flashcards look while you study. Use it for every deck, or give one deck its own.</p>`];
+    }
+    if (what === "pins" && r && r.pins && r.pins.length) {
+      return [r.pins.length === 1 ? "Pin" : `${r.pins.length} Pins`, `<div class="sbc-z-pins">${r.pins.map((pid, i) => `<figure>${noteDemo(i ? "rounded" : "classic", pid, i + 2)}<figcaption>${esc((PINS.find(x => x.id === pid) || {}).name || "")}</figcaption></figure>`).join("")}</div><p class="sbc-note">What holds your sticky notes to the board.</p>`];
+    }
+    return null;
+  }
+  function zoom(what, th){
+    const sheet = dlg.querySelector(".sbc-sheet"); if (!sheet) return;
+    const z = zoomHtml(what, th); if (!z) return;
+    const body = sheet.querySelector(".sheet-body"); if (!body) return;
+    let box = sheet.querySelector(".sbc-zoom");
+    if (!box) { box = document.createElement("div"); box.className = "sbc-zoom"; body.appendChild(box); }
+    sheet.dataset.scroll = body.scrollTop; body.scrollTop = 0;
+    box.setAttribute("role", "dialog"); box.setAttribute("aria-label", z[0]);
+    box.innerHTML = `<div class="sbc-zoom-h"><button type="button" class="btn small" data-act="sbc-zoom-x">Back</button><b>${esc(z[0])}</b></div><div class="sbc-zoom-b">${z[1]}</div>`;
+    sheet.classList.add("zoomed");
+    const back = box.querySelector('[data-act="sbc-zoom-x"]'); if (back) back.focus();
+  }
+  function unzoom(){
+    const sheet = dlg.querySelector(".sbc-sheet.zoomed"); if (!sheet) return false;
+    const box = sheet.querySelector(".sbc-zoom");
+    if (box) box.remove(); sheet.classList.remove("zoomed");
+    const body = sheet.querySelector(".sheet-body"); if (body) body.scrollTop = +sheet.dataset.scroll || 0;
+    const t = sheet.querySelector(".sbc-in"); if (t) t.focus();
+    return true;
+  }
+  // Escape closes the big view first, not the whole sheet
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && dlg.open && dlg.querySelector(".sbc-sheet.zoomed")) { e.preventDefault(); e.stopPropagation(); unzoom(); } }, true);
   function buySheet(kind, id, note){
     if (!dlg.open || !dlg.querySelector(".sbc-sheet")) backToShop = shopOpen();
     const cost = priceOf(kind, id), bal = balance(), mineOk = signedIn(), enough = bal >= cost;
     const it = kind === "skin" ? null : (kind === "sticker" ? STICKER_PACKS : STYLE_LISTS[kind] || []).find(x => x.id === id);
     const th = it && it.theme && !has("skin", it.theme) ? it.theme : "";
-    const list = kind === "skin" ? contents(id) : [];
+    const inside = kind === "skin" ? insideHtml(id) : "";
+    const list = kind === "skin" && !inside ? contents(id) : [];
     const go = !mineOk ? `<button type="button" class="btn primary" data-act="sbc-signin">Sign In to Buy</button>`
-      : enough ? `<button type="button" class="btn primary" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">${COIN} Keep It for ${cost} Credits</button>`
+      : enough ? `<button type="button" class="btn primary sbc-go" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">Keep It for ${COIN}${cost}</button>`
       : storeApp() ? "" : `<button type="button" class="btn primary" data-act="sbc-packs">Get Credits</button>`;
-    openSheet(`<div class="sheet sbc-sheet" data-kind="${esc(kind)}" data-id="${esc(id)}">${head(nameOf(kind, id))}
+    const wallet = !mineOk ? `<p class="sbc-note">Credits belong to your account, so sign in first.</p>`
+      : `<div class="sbc-wallet" role="status"><span class="sbc-wallet-l">Your balance</span><span class="sbc-wallet-n">${COIN}<b>${bal.toLocaleString()}</b></span>${enough ? `<span class="sbc-chip ok">${bal - cost} left after</span>` : `<span class="sbc-chip">${cost - bal} more needed</span>`}</div>${!enough && storeApp() ? `<p class="sbc-note">Buying credits isn't available in this app.</p>` : ""}`;
+    openSheet(`<div class="sheet sbc-sheet sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">${head(nameOf(kind, id))}
       <div class="sheet-body">
-        ${note ? `<p class="plan-reason" role="status"><span>${esc(note)}</span></p>` : ""}
-        ${preview(kind, id)}
-        <p class="sbc-cost">${COIN}<b>${cost} Credits</b><span class="mini">${esc(KIND_NAME[kind] || "")} · Yours for good, with or without Pro</span></p>
-        ${list.length ? `<div class="sbc-has"><b>Comes With</b><ul>${list.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
-        ${th ? `<p class="mini sbc-alt">This comes with the ${esc(themeName(th))} Theme Collection, which also brings the theme, its companions and the rest of its pieces for ${priceOf("skin", th)} credits. <button type="button" class="link-btn" data-act="sbc-item" data-kind="skin" data-id="${esc(th)}">See the Collection</button></p>` : ""}
-        ${mineOk ? `<p class="sbc-bal" role="status">You have <b>${bal}</b> credit${bal === 1 ? "" : "s"}.${enough ? "" : ` You need ${cost - bal} more.`}${!enough && storeApp() ? " Buying credits isn't available in this app." : ""}</p>` : `<p class="mini">Credits belong to your account, so sign in first.</p>`}
-        <p class="mini sbc-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> to use every theme and style while you're subscribed.</p>
+        ${note ? `<p class="sbc-note sbc-why">${esc(note)}</p>` : ""}
+        <div class="sbc-stage sbc-stage-${esc(kind)}" aria-hidden="true">${preview(kind, id)}${kind === "skin" ? `<span class="sbc-stage-l">Theme</span>` : ""}</div>
+        <div class="sbc-price"><img class="sbc-price-coin" src="${COIN_SRC}" width="44" height="44" alt=""><span class="sbc-price-t"><b>${cost} credits</b><span>${esc(KIND_NAME[kind] || "")} · yours to keep, with or without Pro</span></span></div>
+        ${inside}
+        ${list.length ? `<ul class="sbc-list">${list.map(x => `<li>${TICK}<span>${esc(x)}</span></li>`).join("")}</ul>` : ""}
+        ${wallet}
+        ${th ? `<button type="button" class="sbc-upsell" data-act="sbc-item" data-kind="skin" data-id="${esc(th)}"><span class="sbc-upsell-t"><b>Get the whole ${esc(themeName(th))} Collection</b><span>The theme, its companions, stickers, pins and this style, for ${priceOf("skin", th)} credits</span></span>${CHEV}</button>` : ""}
+        <p class="sbc-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> for every collection while you're subscribed.</p>
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}</div></div>`);
   }
   const money = (cents, cur) => { try { return new Intl.NumberFormat(undefined, {style: "currency", currency: String(cur || "usd").toUpperCase()}).format(cents / 100); } catch (e) { return "$" + (cents / 100).toFixed(2); } };
   function packsSheet(){
     if (!dlg.open || !dlg.querySelector(".sbc-sheet")) backToShop = shopOpen();
+    if (pending && Date.now() - pending.at > 30 * 60000) pending = null;
+    if (added || pending) {
+      const body = added
+        ? `<div class="sbc-done" role="status"><img class="sbc-done-coin" src="${COIN_SRC}" width="64" height="64" alt=""><b>${added.credits.toLocaleString()} credits added</b><span>You have ${added.balance.toLocaleString()} credits. Pick anything in the Style Shop to keep it for good.</span></div>`
+        : `<div class="sbc-wait" role="status"><span class="sbc-spin" aria-hidden="true"></span><b>Finish paying in the checkout tab</b><span>${pending.credits ? `Your ${pending.credits.toLocaleString()} credits` : "Your credits"} appear here as soon as Stripe confirms the payment. You can keep using Studyboard meanwhile.</span>
+            <div class="sbc-wait-acts"><button type="button" class="btn small" data-act="sbc-reopen">Open Checkout Again</button><button type="button" class="btn small" data-act="sbc-check">Check Now</button></div></div>`;
+      openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Credits")}
+        <div class="sheet-body">${body}</div>
+        <div class="sheet-foot">${added ? "" : `<button type="button" class="btn" data-act="sbc-cancel">Choose Another Pack</button>`}<span class="spacer"></span><button type="button" class="btn primary" data-act="sbc-back">${backToShop ? "Back to Shop" : "Done"}</button></div></div>`);
+      return;
+    }
     const m = mine(), packs = m && Array.isArray(m.packs) ? m.packs : null, base = packs && packs[0] ? packs[0].cents / packs[0].credits : 0;
     const body = !signedIn() ? `<p style="margin:0">Credits belong to your account. Sign in or create a free account first.</p>`
       : storeApp() ? `<p style="margin:0">Buying credits isn't available in this app. Credits you already have work here.</p>`
@@ -182,13 +279,22 @@
     if (wasShop) setTimeout(() => { try { styleShop(); } catch (e) {} }, 120);
     load();
   }
+  // A checkout that's open in another tab: {pack, credits, url, at, from}. The Credits sheet shows it until the credits arrive.
+  let pending = null, added = null;
   async function buyPack(id, btn){
     if (!planOk() || !PLAN.checkoutCall) return;
-    if (btn) btn.disabled = true;
-    toast("Opening checkout…");
+    const all = dlg.querySelectorAll(".sbc-pack"); all.forEach(b => { b.disabled = true; });
+    if (btn) btn.classList.add("busy");
     const r = await PLAN.checkoutCall({pack: id});
-    if (btn && btn.isConnected) btn.disabled = false;
-    if (r && r.url) { PLAN.openExternal(r.url); toast("Finish in the checkout page that just opened. Your credits show up here by themselves."); watch(); return; }
+    all.forEach(b => { if (b.isConnected) b.disabled = false; });
+    if (btn && btn.isConnected) btn.classList.remove("busy");
+    if (r && r.url) {
+      const pk = ((mine() || {}).packs || []).find(x => x.id === id) || {};
+      pending = {pack: id, credits: +pk.credits || 0, url: r.url, at: Date.now(), from: balance()}; added = null;
+      PLAN.openExternal(r.url); watch();
+      if (dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])")) packsSheet();
+      return;
+    }
     toast((r && r.message) || "Couldn't open checkout. Check your connection and try again.");
   }
 
@@ -210,8 +316,13 @@
       case "sbc-item": buySheet(el.dataset.kind, el.dataset.id); return true;
       case "sbc-buy": buy(el.dataset.kind, el.dataset.id, el); return true;
       case "sbc-pack": buyPack(el.dataset.id, el); return true;
+      case "sbc-reopen": if (pending) PLAN.openExternal(pending.url); return true;
+      case "sbc-check": load(); toast("Checking for your credits…"); return true;
+      case "sbc-cancel": pending = null; packsSheet(); return true;
+      case "sbc-zoom": zoom(el.dataset.what, el.dataset.th); return true;
+      case "sbc-zoom-x": unzoom(); return true;
       case "sbc-signin": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp(); else if (typeof sbSignInSheet === "function") sbSignInSheet(); }, 120); return true;
-      case "sbc-back": if (backToShop) styleShop(); else if (dlg.open) dlg.close(); return true;
+      case "sbc-back": added = null; if (backToShop) styleShop(); else if (dlg.open) dlg.close(); return true;
     }
     return false;
   });
@@ -260,5 +371,5 @@
   window.SBCREDITS = {owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
     // For tests: what this device remembers
     state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
-  if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
+  if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), pending: () => pending, added: () => added, comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
 })();
