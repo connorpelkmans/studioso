@@ -16410,7 +16410,9 @@ function rtNote(list){
     if (m.type === "childList") m.addedNodes.forEach(n => { if (n.nodeType === 1) rtAdd.add(n); });
     if (rtIn.size + rtAdd.size > 600) { rtAll = true; rtIn.clear(); rtAdd.clear(); break; }
   }
-  rtSoon();
+  // Drawn right away, before the next paint: waiting a frame left a freshly rebuilt note board showing for one frame
+  // without its math (when the rebuild itself ran in a frame callback, the next frame was after a paint)
+  rtRun();
 }
 if (typeof MutationObserver === "function") new MutationObserver(rtNote).observe(document.documentElement, {childList: true, subtree: true, characterData: true});
 rtSoon();
