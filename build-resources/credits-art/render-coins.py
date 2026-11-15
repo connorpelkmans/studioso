@@ -122,11 +122,17 @@ def gold_face(cx, cy, r, img, alpha_mask=None, field_tone=0.52, rim=0.12, reeds=
     band = np.clip((rn - rim_in) / 0.012, 0, 1)
     rim_light = 0.5 + 0.42 * np.cos(ang + np.pi * 0.75) * (1 - 2 * (rn > (rim_in + 1) / 2))  # bevel: outer slope lit opposite to inner slope
     rim_t = 0.55 + 0.30 * np.cos(ang + np.pi * 0.75) * np.where(rn > (1 + rim_in) / 2, -1, 1) + 0.05 * np.sin(ang * reeds) * (rn > 0.965)
-    col = lerp(col, ramp(rim_t, BLUE if rim_blue else GOLD), band)
+    col = lerp(col, ramp(rim_t, GOLD), band)
     if rim_blue:
-        # thin gold lips on both sides of the blue rim
-        lip_o = np.exp(-((rn - 0.988) / 0.006) ** 2); lip_i = np.exp(-((rn - rim_in) / 0.005) ** 2)
-        col = lerp(col, ramp(0.72 + 0.22 * np.cos(ang + np.pi * 0.75), GOLD), np.clip(lip_o + lip_i, 0, 1))
+        # the rim (not the ridged outer edge) in one even Studyboard blue, with a gentle highlight along its middle
+        edge_r = 0.955
+        rb = np.clip((rn - rim_in) / 0.006, 0, 1) * np.clip((edge_r - rn) / 0.006, 0, 1)
+        mid = (rim_in + edge_r) / 2
+        bt = 0.58 + 0.10 * np.exp(-((rn - mid) / ((edge_r - rim_in) * 0.3)) ** 2) + 0.03 * np.cos(ang + np.pi * 0.75)
+        col = lerp(col, ramp(bt, BLUE), rb)
+        # thin gold lips where the blue meets the face and the edge
+        lips = np.exp(-((rn - rim_in) / 0.004) ** 2) + np.exp(-((rn - edge_r) / 0.004) ** 2)
+        col = lerp(col, ramp(0.74 + 0.18 * np.cos(ang + np.pi * 0.75), GOLD), np.clip(lips, 0, 1))
     if inner_ring:
         ring_r = rim_in - 0.05
         ring = np.exp(-((rn - ring_r) / 0.006) ** 2)
