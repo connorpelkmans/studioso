@@ -2628,6 +2628,13 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .cal-evrow.smc-row .mini{grid-column:3}
 .sch-month .ci-t .smc-tm{font-weight:800;opacity:.8}
 .smc-legend{margin-top:10px}
+/* Settings > Backups, Automatic Backups (Google Drive / OneDrive, or Back Up Now / Stop): the words on their own line, then the
+   two buttons side by side at the same width (no wider than 360px on a wide screen) */
+.cap-row.cbk-row{flex-wrap:wrap;row-gap:12px}
+.cbk-row .cbk-t{flex:1 1 100%;min-width:0;font-weight:600}
+.cbk-row .cbk-btns{flex:1 1 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:360px}
+.cbk-row .cbk-btns .btn{width:100%;justify-content:center;margin:0;white-space:nowrap;border:1px solid var(--line)}
+.cbk-row .cbk-btns .btn:only-child{grid-column:1 / -1}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}

@@ -322,9 +322,9 @@ function cloudBackupRow(){
   const p = B.provider(), st = B.state();
   if (B.on()) {
     const ago = st.last ? (() => { const m = Math.round((Date.now() - st.last) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; })() : "not yet";
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${st.busy ? "Backing up now…" : st.err ? esc(st.err) : `Saving to ${esc(B.name(p))} › Studyboard › Backups every hour, last saved ${ago}. The latest is in Files and in Restore a Backup.`}</span></span><button class="btn small" data-act="cbk-now"${st.busy ? " disabled" : ""}>Back Up Now</button><button class="btn small" data-act="cbk-stop">Stop</button></div>`;
+    return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">${st.busy ? "Backing up now…" : st.err ? esc(st.err) : `Saving to ${esc(B.name(p))} › Studyboard › Backups every hour, last saved ${ago}. The latest is in Files and in Restore a Backup.`}</span></span><span class="cbk-btns"><button class="btn small" data-act="cbk-now"${st.busy ? " disabled" : ""}>Back Up Now</button><button class="btn small" data-act="cbk-stop">Stop</button></span></div>`;
   }
-  if (B.pending()) return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">Waiting for ${esc(B.name(B.pending()))} to connect. Finish in the page that opened.</span></span><button class="btn small" data-act="cbk-stop">Cancel</button></div>`;
+  if (B.pending()) return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">Waiting for ${esc(B.name(B.pending()))} to connect. Finish in the page that opened.</span></span><button class="btn small" data-act="cbk-stop">Cancel</button></div>`;
   return "";
 }
 function folderBackupRow(){
@@ -333,7 +333,7 @@ function folderBackupRow(){
   // On the website, backups go to Google Drive or OneDrive. A folder backup someone already set up keeps its own row below
   if (!DESK && cloudBk() && FSB.status !== "on" && FSB.status !== "paused") {
     const B = cloudBk(); if (B.ready() && !B.loaded()) B.refresh();
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${B.ready() ? "Back up everything to your Google Drive or OneDrive every hour." : "Make a free account to back up everything to your Google Drive or OneDrive every hour."}</span></span><button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button><button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button></div>`;
+    return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">${B.ready() ? "Back up everything to your Google Drive or OneDrive every hour." : "Make a free account to back up everything to your Google Drive or OneDrive every hour."}</span></span><span class="cbk-btns"><button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button><button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button></span></div>`;
   }
   if (DESK) {
     const ago = FSB.last ? (() => { const m = Math.round((Date.now() - FSB.last) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; })() : "not yet";
@@ -346,7 +346,7 @@ function folderBackupRow(){
   const btns = FSB.status === "on" ? `<button class="btn small" data-act="fsb-choose">Change</button><button class="btn small" data-act="fsb-stop">Stop</button>`
     : FSB.status === "paused" ? `<button class="btn small primary" data-act="fsb-resume">Resume</button><button class="btn small" data-act="fsb-choose">Change</button>`
     : `<button class="btn small primary" data-act="fsb-choose">Set Up</button>`;
-  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${sub}</span></span>${btns}</div>`;
+  return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">${sub}</span></span>${btns}</div>`;
 }
 
 
