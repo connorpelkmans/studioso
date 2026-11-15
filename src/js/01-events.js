@@ -159,7 +159,7 @@ document.addEventListener("click", e => {
     case "sch-today": ui.schWeek = mondayOf(todayISO()); ui.schDay = null; render(); break;
     case "sch-day": ui.schDay = Number(id); render(); break;
     case "sch-mode": {
-      ui.schMode = id === "month" ? "month" : "week";
+      ui.schMode = id === "month" ? "month" : "week"; ui.schPeek = false;
       // the month opens on the week being looked at; the week opens on the day picked in the month
       if (ui.schMode === "month") { const w = ui.schWeek || mondayOf(todayISO()), t0 = todayISO(), d = w === mondayOf(t0) ? t0 : w; ui.schMonth = d.slice(0, 7) + "-01"; ui.schPick = d; }
       else if (ui.schPick) { ui.schWeek = mondayOf(ui.schPick); ui.schDay = (parse(ui.schPick).getDay() + 6) % 7; }
@@ -169,7 +169,7 @@ document.addEventListener("click", e => {
     case "sch-mprev": case "sch-mnext": { const m = parse(ui.schMonth || todayISO().slice(0, 7) + "-01"); m.setDate(1); m.setMonth(m.getMonth() + (act === "sch-mprev" ? -1 : 1)); ui.schMonth = iso(m); ui.schPick = null; render(); break; }
     case "sch-mtoday": ui.schMonth = todayISO().slice(0, 7) + "-01"; ui.schPick = todayISO(); render(); break;
     case "sch-mpick": ui.schPick = id; if (id.slice(0, 7) !== (ui.schMonth || "").slice(0, 7)) ui.schMonth = id.slice(0, 7) + "-01"; render(); break;
-    case "sch-mweek": ui.schMode = "week"; ui.schWeek = mondayOf(id); ui.schDay = (parse(id).getDay() + 6) % 7; try { localStorage.setItem("studyboard:schmode", "week"); } catch (e) {} render(); window.scrollTo(0, 0); break;
+    case "sch-mweek": ui.schMode = "week"; ui.schPeek = true; ui.schWeek = mondayOf(id); ui.schDay = (parse(id).getDay() + 6) % 7; render(); window.scrollTo(0, 0); break;
     case "sch-occ": occView(el.dataset.type, id, el.dataset.key); break;
     case "sch-add": { if (el.dataset.date) { eventForm(null, {date: el.dataset.date}); break; } if (ui.schMode === "month" && ui.schPick) { eventForm(null, {date: ui.schPick < todayISO() && ui.schPick.slice(0, 7) === todayISO().slice(0, 7) ? todayISO() : ui.schPick}); break; } const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
     case "avail-add": if (dlg.open) dlg.close(); setTimeout(() => availForm(null), 30); break;

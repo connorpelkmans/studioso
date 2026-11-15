@@ -64,6 +64,9 @@ function renderNow(){
   todayFit();
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
+  // Schedule's Week / Month stays as the student last chose it; a week opened from the month (See Week) is just a look,
+  // so coming back to the Schedule from another page shows the month again
+  if (ui.tab !== ui.schSeenTab) { if (ui.tab === "schedule" && ui.schPeek) { ui.schPeek = false; ui.schMode = "month"; } ui.schSeenTab = ui.tab; }
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === navTab ? "page" : "false"));
   document.body.classList.add("wide");
