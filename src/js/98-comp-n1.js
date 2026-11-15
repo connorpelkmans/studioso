@@ -199,7 +199,7 @@
         },
         eyes: {lx: 49, rx: 71, y: 42, r: 4.6, style: "round", color: "#1A1820"},
         mouth: {x: 60, y: 66, w: 3},
-        mouths: {neutral: tbeak(false), smile: tbeak(false) + `<path d="M41.4 58.4q1.6 2.8 4.6 2.2M78.6 58.4q-1.6 2.8 -4.6 2.2" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, open: tbeak(true), sleepy: tbeak(false)},
+        mouths: {neutral: tbeak(false), smile: tbeak(false), open: tbeak(true), sleepy: tbeak(false)},
         cheeks: {lx: 40, rx: 80, y: 51, w: 3.6, h: 2.2, color: "#FF8FA8"},
         anchors: {top: [60, 23.5, 0.95, 0], neck: [60, 71, 0.95, 0, 40, 51], bow: [60, 81.5, 0.7], chest: [60, 77, 0.58], back: [84, 84, 0.8], hands: [60, 96, 0.85]},
         lines: {
@@ -331,7 +331,7 @@
         },
         eyes: {lx: 51, rx: 69, y: 50, r: 3.6, style: "dot", color: "#1A1820"},
         mouth: {x: 60, y: 62, w: 3},
-        mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false) + `<path d="M50 59q1.6 1.8 3.4 1M70 59q-1.6 1.8 -3.4 1" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`, open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
+        mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false), open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
         cheeks: {lx: 47, rx: 73, y: 59, w: 3.4, h: 2.2, color: "#FF8FA8"},
         anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 76.5, 1, 0, 44, 55], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
         lines: {

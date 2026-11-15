@@ -153,7 +153,7 @@
         eyes: {lx: 49.5, rx: 70.5, y: 56, r: 4.8, style: "dot"},
         mouths: {
           neutral: `<path d="M56.4 63Q60 61.6 63.6 63L60 67.4Z" fill="#F7A23A" ${OW(1.8)}/>`,
-          smile: `<path d="M56 62.8Q60 61.2 64 62.8L60 67.6Z" fill="#F9AE45" ${OW(1.8)}/><path d="M53.5 65.8q1.6 1.2 3.2 .3M66.5 65.8q-1.6 1.2 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M56 62.8Q60 61.2 64 62.8L60 67.6Z" fill="#F9AE45" ${OW(1.8)}/>`,
           open: `<path d="M56.8 64.6L63.2 64.6L60 68.6Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56.2 62.2Q60 61 63.8 62.2L60 65Z" fill="#F7A23A" ${OW(1.6)}/><path d="M57.2 66.6L62.8 66.6L60 70.4Z" fill="#F7A23A" ${OW(1.6)}/>`,
           sleepy: `<path d="M56.8 63.4Q60 62.4 63.2 63.4L60 67Z" fill="#E8962E" ${OW(1.8)}/>`
         },
@@ -293,7 +293,7 @@
         eyes: {lx: 50, rx: 70, y: 51, r: 4.6, style: "dot", color: "#2B1E18"},
         mouths: {
           neutral: `<path d="M55.6 57.6Q60 55.8 64.4 57.6Q64.6 61.6 60 64.6Q55.4 61.6 55.6 57.6Z" fill="#F5B942" ${OW(1.8)}/><path d="M58.4 62.2Q60 63.4 61.6 62.2" fill="none" stroke="#D08A1E" stroke-width="1.5" stroke-linecap="round"/>`,
-          smile: `<path d="M55.4 57.4Q60 55.6 64.6 57.4Q64.8 61.6 60 64.8Q55.2 61.6 55.4 57.4Z" fill="#F7C04E" ${OW(1.8)}/><path d="M52.6 60.6q1.6 1.3 3.2 .3M67.4 60.6q-1.6 1.3 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M55.4 57.4Q60 55.6 64.6 57.4Q64.8 61.6 60 64.8Q55.2 61.6 55.4 57.4Z" fill="#F7C04E" ${OW(1.8)}/><path d="M58.2 62.3Q60 63.7 61.8 62.3" fill="none" stroke="#D08A1E" stroke-width="1.5" stroke-linecap="round"/>`,
           open: `<path d="M56.6 60.8L63.4 60.8L60 64.8Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M55.6 57Q60 55.2 64.4 57Q63.8 60.2 60 61.6Q56.2 60.2 55.6 57Z" fill="#F5B942" ${OW(1.8)}/><path d="M57 63.2Q60 62.4 63 63.2L60 67Z" fill="#F5B942" ${OW(1.6)}/>`,
           sleepy: `<path d="M56 58Q60 56.4 64 58Q64 61.4 60 64Q56 61.4 56 58Z" fill="#E8A83A" ${OW(1.8)}/>`
         },
@@ -473,10 +473,10 @@
         },
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "dot", color: "#2B1A10"},
         mouths: {
-          neutral: `<path d="M59 73C55.5 73.5 54.5 78.5 55.5 82C57.5 83.5 59 80.5 58.6 77Z" fill="#E0463C" ${OW(1.6)}/><path d="M56.4 74Q60 72.6 63.6 74L60 78.6Z" fill="#F5B942" ${OW(1.8)}/>`,
-          smile: `<path d="M59 73C55.5 73.5 54.5 78.5 55.5 82C57.5 83.5 59 80.5 58.6 77Z" fill="#E0463C" ${OW(1.6)}/><path d="M56 73.8Q60 72.2 64 73.8L60 78.8Z" fill="#F7C04E" ${OW(1.8)}/><path d="M66.5 76.8q-1.6 1.2 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
-          open: `<path d="M59 73C55.5 73.5 54.5 78.5 55.5 82C57.5 83.5 59 80.5 58.6 77Z" fill="#E0463C" ${OW(1.6)}/><path d="M56.8 75.6L63.2 75.6L60 79.6Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56.2 73.2Q60 72 63.8 73.2L60 76Z" fill="#F5B942" ${OW(1.6)}/><path d="M57.2 77.6L62.8 77.6L60 81.4Z" fill="#F5B942" ${OW(1.6)}/>`,
-          sleepy: `<path d="M59 73C55.5 73.5 54.5 78.5 55.5 82C57.5 83.5 59 80.5 58.6 77Z" fill="#D63F36" ${OW(1.6)}/><path d="M56.8 74.4Q60 73.4 63.2 74.4L60 78.2Z" fill="#E8A83A" ${OW(1.8)}/>`
+          neutral: `<path d="M57.1 76.6C55.7 79.4 55.4 82.8 57 85C58.8 86.6 60.7 84.6 60.3 81.8C60.1 79.8 59.8 78.2 59.9 76.6Z" fill="#E0463C" ${OW(1.6)}/><path d="M56.4 74Q60 72.6 63.6 74L60 78.6Z" fill="#F5B942" ${OW(1.8)}/>`,
+          smile: `<path d="M57.1 76.8C55.7 79.6 55.4 83 57 85.2C58.8 86.8 60.7 84.8 60.3 82C60.1 80 59.8 78.4 59.9 76.8Z" fill="#E0463C" ${OW(1.6)}/><path d="M56 73.8Q60 72.2 64 73.8L60 78.8Z" fill="#F7C04E" ${OW(1.8)}/>`,
+          open: `<path d="M57.1 79.4C55.7 82.2 55.4 85.6 57 87.8C58.8 89.4 60.7 87.4 60.3 84.6C60.1 82.6 59.8 81 59.9 79.4Z" fill="#E0463C" ${OW(1.6)}/><path d="M56.8 75.6L63.2 75.6L60 79.6Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56.2 73.2Q60 72 63.8 73.2L60 76Z" fill="#F5B942" ${OW(1.6)}/><path d="M57.2 77.6L62.8 77.6L60 81.4Z" fill="#F5B942" ${OW(1.6)}/>`,
+          sleepy: `<path d="M57.1 76.2C55.7 79 55.4 82.4 57 84.6C58.8 86.2 60.7 84.2 60.3 81.4C60.1 79.4 59.8 77.8 59.9 76.2Z" fill="#D63F36" ${OW(1.6)}/><path d="M56.8 74.4Q60 73.4 63.2 74.4L60 78.2Z" fill="#E8A83A" ${OW(1.8)}/>`
         },
         mouth: {x: 60, y: 76, w: 3},
         cheeks: {lx: 42, rx: 78, y: 77, w: 4.4, h: 2.7, color: "#FF8F8F"},
