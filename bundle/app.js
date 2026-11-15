@@ -962,6 +962,7 @@ const TB = (() => {
 let state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
 const ui = {tab:"board", courseId:null, q:"", focusOpen:true, showOldDone:false,
   planView: (() => { try { const v = localStorage.getItem("studyboard:planview"); return v === "schedule" || v === "crunch" ? v : "timeline"; } catch(e) { return "timeline"; } })(),
+  schMode: (() => { try { return localStorage.getItem("studyboard:schmode") === "month" ? "month" : "week"; } catch(e) { return "week"; } })(),
   tlMode: (() => { try { return localStorage.getItem("studyboard:tlmode") === "calendar" ? "calendar" : "bars"; } catch(e) { return "bars"; } })(),
   tlZoom: (() => { try { const v = localStorage.getItem("studyboard:tlzoom"); return v === "week" || v === "term" ? v : "month"; } catch(e) { return "month"; } })(), tlScroll:null, tlJump:true, calMonth:null, calDay:null,
   groupBy: (() => { try { return localStorage.getItem("coursework:group") || "none"; } catch(e) { return "none"; } })(), fCourse:"all", fFolder:"", fSort:"date"};
@@ -12301,9 +12302,10 @@ function viewCalendar(){
       S.norm(sc).off.forEach(o => { for (let x = o.from > lo ? o.from : lo; x <= o.to && x <= hi; x = addDays(x, 1)) { const l = hol[x] = hol[x] || []; if (!l.some(y => y.name === o.name)) l.push({name: o.name || "Day off", off: true}); } });
     }
   } catch (e) { console.warn("calendar: holidays", e); }
-  // Events (study groups, shifts, appointments) on their days too; classes stay on the Schedule
+  // Events (study groups, shifts, appointments) on their days too on wide screens; classes stay on the Schedule
   const evBy = {};
-  try {
+  // (on a phone, events are on the Schedule only: Due Dates is just what's due)
+  if (!tlPhone()) try {
     const endD = new Date(start); endD.setDate(start.getDate() + weeks * 7 - 1);
     schOccurrences(iso(start), iso(endD)).forEach(o => { if (o.type !== "event" || o.skipped || o.ovn === "tail") return; (evBy[o.date] = evBy[o.date] || []).push(o); });
     Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
@@ -14686,14 +14688,69 @@ function courseTimesText(c){
 }
 const meetingsSummary = ms => ms.filter(m => m.kind !== "Office Hours").map(m => `${meetWhen(m)} ${fmtTime(m.start)}–${fmtTime(m.end)}`).join("; ");
 let schNoticeHtml = "";
+// Week / Month: a switch in the Schedule's toolbar on wide screens; on a phone, an item in Options just under This Week
+const schPhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
+const schModeCtl = month => schPhone()
+  ? `<button class="btn small" data-act="sch-mode" data-id="${month ? "week" : "month"}">${month ? "Week View" : "Month View"}</button>`
+  : `<div class="segb sch-mode" role="group" aria-label="View"><button data-act="sch-mode" data-id="week" aria-pressed="${!month}">Week</button><button data-act="sch-mode" data-id="month" aria-pressed="${month}">Month</button></div>`;
+const SCH_ARROW = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+// The month: each day's events (and all-day events, holidays and days off), so a month of events reads at a glance.
+// Classes stay on the week (they'd fill every day). A day picked shows its events underneath.
+function viewScheduleMonth(){
+  const today = todayISO();
+  if (!ui.schMonth) ui.schMonth = today.slice(0, 7) + "-01";
+  const m = parse(ui.schMonth), first = new Date(m.getFullYear(), m.getMonth(), 1), start = new Date(first); start.setDate(1 - first.getDay());
+  const weeks = Math.ceil((first.getDay() + new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate()) / 7);
+  const endD = new Date(start); endD.setDate(start.getDate() + weeks * 7 - 1);
+  const lo = iso(start), hi = iso(endD), monthKey = ui.schMonth.slice(0, 7);
+  const pick = ui.schPick && ui.schPick.slice(0, 7) === monthKey ? ui.schPick : today.slice(0, 7) === monthKey ? today : ui.schMonth;
+  const evBy = {};
+  try {
+    schOccurrences(lo, hi).forEach(o => { if (o.type !== "event" || o.skipped || o.ovn === "tail") return; (evBy[o.date] = evBy[o.date] || []).push(o); });
+    Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
+  } catch (e) { console.warn("schedule month: events", e); }
+  const hol = {};
+  try {
+    const sc = schoolCfg() || {}, S = window.SBSCHOOL;
+    if (S) {
+      S.holidays(sc, lo, hi).forEach(h => { (hol[h.date] = hol[h.date] || []).push({name: h.name, off: !!(h.sure ? S.norm(sc).pub : h.ans === "off")}); });
+      S.norm(sc).off.forEach(o => { for (let x = o.from > lo ? o.from : lo; x <= o.to && x <= hi; x = addDays(x, 1)) { const l = hol[x] = hol[x] || []; if (!l.some(y => y.name === o.name)) l.push({name: o.name || "Day off", off: true}); } });
+    }
+  } catch (e) {}
+  const evTime = o => o.allDay ? "" : fmtTime(o.ds || o.start).replace(/:00(?= ?[AP]M)/, "").replace(/ ?([AP])M/, (x, a) => a.toLowerCase());
+  const phone = schPhone(), per = phone ? 3 : 3;
+  const dows = []; for (let i = 0; i < 7; i++) { const d = new Date(2023, 0, 1 + i); dows.push(`<div class="dow${i === 0 || i === 6 ? " wkend" : ""}" aria-hidden="true"><span class="dw-n">${d.toLocaleDateString(undefined, {weekday: "narrow"})}</span><span class="dw-s">${d.toLocaleDateString(undefined, {weekday: "short"})}</span><span class="dw-l">${d.toLocaleDateString(undefined, {weekday: "long"})}</span></div>`); }
+  let cells = "", nMonth = 0;
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const k = iso(d), evs = evBy[k] || [], out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
+    if (!out) nMonth += evs.length;
+    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}${evs.length ? `<span class="cal-evs smc-evs" aria-hidden="true">${evs.slice(0, per).map(o => `<span class="cal-ev" style="--c:${esc(o.color)}">${o.allDay ? "" : `<b>${esc(evTime(o))}</b> `}${esc(o.title)}</span>`).join("")}${evs.length > per ? `<span class="cal-ev more">+${evs.length - per}</span>` : ""}</span>` : ""}</button>`;
+  }
+  const dayEvs = evBy[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
+  const isNow = monthKey === today.slice(0, 7);
+  const nav = `<div class="view-head sch-top">
+    <div class="sch-nav"><button class="icon-btn" data-act="sch-mprev" aria-label="Previous month">${SCH_ARROW("M15 6l-6 6 6 6")}</button>
+    <span class="sch-range">${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}</span>
+    <button class="icon-btn" data-act="sch-mnext" aria-label="Next month">${SCH_ARROW("M9 6l6 6-6 6")}</button>
+    <button class="btn small" data-act="sch-mtoday" ${isNow ? 'disabled aria-pressed="true" title="You are viewing this month"' : 'aria-pressed="false"'}>This Month</button>${schModeCtl(true)}
+    <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
+</div></div>`;
+  return nav + `
+    <div class="cal sch-month" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}, ${nMonth} event${nMonth === 1 ? "" : "s"}. Arrow keys move between days.">${dows.join("")}${cells}</div>
+    <h2 class="sec${pick === today ? " hl" : ""}"><span class="t">${esc(dayLabel)}</span><span class="n">${dayEvs.length || ""}</span><span class="spacer"></span><button type="button" class="btn small smc-week" data-act="sch-mweek" data-id="${pick}">See Week</button></h2>
+    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(o.title)}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
+      : `<div class="empty">No events. <button class="link-btn" data-act="sch-add" data-date="${pick}">Add an Event This Day</button></div>`}`;
+}
 function viewSchedule(){
+  if (ui.schMode === "month") return viewScheduleMonth();
   const today = todayISO(), mon = ui.schWeek || mondayOf(today);
   const cs = coursesArr();
   const nav = `<div class="view-head sch-top">
     <div class="sch-nav"><button class="icon-btn" data-act="sch-prev" aria-label="Previous week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
     <span class="sch-range">${esc(fmtShort(mon))} – ${esc(fmtShort(addDays(mon, 6)))}</span>
     <button class="icon-btn" data-act="sch-next" aria-label="Next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
-    <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>
+    <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>${schModeCtl(false)}
     <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
 </div></div>`;
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
@@ -14861,7 +14918,7 @@ function planHeadHtml(){
 }
 function planSwitchHtml(){
   const t = ui.tab;
-  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${esc(tr("cal.tab.due", "Due Dates"))}</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">${esc(tr("cal.tab.schedule", "Schedule"))}</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">${esc(tr("cal.tab.crunch", "Crunch"))}</button></div>`;
+  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">${esc(tr("cal.tab.schedule", "Schedule"))}</button><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${esc(tr("cal.tab.due", "Due Dates"))}</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">${esc(tr("cal.tab.crunch", "Crunch"))}</button></div>`;
 }
 
 /* Courses and Files share one nav tab */
@@ -22989,8 +23046,20 @@ document.addEventListener("click", e => {
     case "sch-notices": openSheet(`<div class="sheet">${head("Notices")}<div class="sheet-body sch-ntc-body">${schNoticeHtml}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`); break;
     case "sch-today": ui.schWeek = mondayOf(todayISO()); ui.schDay = null; render(); break;
     case "sch-day": ui.schDay = Number(id); render(); break;
+    case "sch-mode": {
+      ui.schMode = id === "month" ? "month" : "week";
+      // the month opens on the week being looked at; the week opens on the day picked in the month
+      if (ui.schMode === "month") { const w = ui.schWeek || mondayOf(todayISO()), t0 = todayISO(), d = w === mondayOf(t0) ? t0 : w; ui.schMonth = d.slice(0, 7) + "-01"; ui.schPick = d; }
+      else if (ui.schPick) { ui.schWeek = mondayOf(ui.schPick); ui.schDay = (parse(ui.schPick).getDay() + 6) % 7; }
+      try { localStorage.setItem("studyboard:schmode", ui.schMode); } catch (e) {}
+      if (dlg.open) dlg.close(); render(); break;
+    }
+    case "sch-mprev": case "sch-mnext": { const m = parse(ui.schMonth || todayISO().slice(0, 7) + "-01"); m.setDate(1); m.setMonth(m.getMonth() + (act === "sch-mprev" ? -1 : 1)); ui.schMonth = iso(m); ui.schPick = null; render(); break; }
+    case "sch-mtoday": ui.schMonth = todayISO().slice(0, 7) + "-01"; ui.schPick = todayISO(); render(); break;
+    case "sch-mpick": ui.schPick = id; if (id.slice(0, 7) !== (ui.schMonth || "").slice(0, 7)) ui.schMonth = id.slice(0, 7) + "-01"; render(); break;
+    case "sch-mweek": ui.schMode = "week"; ui.schWeek = mondayOf(id); ui.schDay = (parse(id).getDay() + 6) % 7; try { localStorage.setItem("studyboard:schmode", "week"); } catch (e) {} render(); window.scrollTo(0, 0); break;
     case "sch-occ": occView(el.dataset.type, id, el.dataset.key); break;
-    case "sch-add": { const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
+    case "sch-add": { if (el.dataset.date) { eventForm(null, {date: el.dataset.date}); break; } if (ui.schMode === "month" && ui.schPick) { eventForm(null, {date: ui.schPick < todayISO() && ui.schPick.slice(0, 7) === todayISO().slice(0, 7) ? todayISO() : ui.schPick}); break; } const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
     case "avail-add": if (dlg.open) dlg.close(); setTimeout(() => availForm(null), 30); break;
     case "avail-open": if (dlg.open) dlg.close(); setTimeout(availManager, 30); break;
     case "avail-edit": { const b = availBlocks().find(x => x.id === id); if (b) { if (dlg.open) dlg.close(); setTimeout(() => availForm(b), 30); } break; }
@@ -23163,7 +23232,8 @@ document.addEventListener("keydown", e => {
 // Month view: arrow keys move a day or a week, Home and End go to the week's start and end, Page Up and Page Down a month
 // (as in a date picker); the day moved to is chosen, so its tasks show below
 document.addEventListener("keydown", e => {
-  const b = e.target.closest && e.target.closest('.cal .day[data-act="pick-day"]'); if (!b || e.altKey || e.ctrlKey || e.metaKey) return;
+  const b = e.target.closest && e.target.closest('.cal .day[data-act="pick-day"], .cal .day[data-act="sch-mpick"]'); if (!b || e.altKey || e.ctrlKey || e.metaKey) return;
+  const sch = b.dataset.act === "sch-mpick";
   const d = parse(b.dataset.id), k = e.key;
   if (k === "ArrowLeft" || k === "ArrowRight") d.setDate(d.getDate() + (k === "ArrowLeft" ? -1 : 1));
   else if (k === "ArrowUp" || k === "ArrowDown") d.setDate(d.getDate() + (k === "ArrowUp" ? -7 : 7));
@@ -23171,7 +23241,7 @@ document.addEventListener("keydown", e => {
   else if (k === "PageUp" || k === "PageDown") { const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (k === "PageUp" ? -1 : 1)); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); }
   else return;
   e.preventDefault();
-  const id = iso(d); ui.calDay = id; ui.calMonth = id.slice(0, 7) + "-01"; render();
+  const id = iso(d); if (sch) { ui.schPick = id; ui.schMonth = id.slice(0, 7) + "-01"; } else { ui.calDay = id; ui.calMonth = id.slice(0, 7) + "-01"; } render();
   const n = $(`.cal .day[data-id="${id}"]`); if (n) try { n.focus({preventScroll: true}); n.scrollIntoView({block: "nearest"}); } catch (x) {}
 });
 function toggleSearch(open){

@@ -15,6 +15,7 @@ Studyboard 1.3 is a big one:
 • Haptics: feel check-offs, drags, flashcard grades, quiz answers, Focus starts and ends, and more.
 • Companion: earn new props with a celebration, dress them in patterns and colours, and ask them where your grades are.
 • Spanish, plus right-to-left support.
+• Schedule has a Month view, and comes first in Calendar.
 • Smoother on iPhone: notes glide with the keyboard, pop-ups open smoothly, slimmer Grades and Flashcards headers, and dozens of layout fixes.
 • Much faster with big terms: the app starts up to 9× faster and grading cards is far quicker.
 • Better accessibility: screen readers, keyboard, larger text and high contrast work across the app.
@@ -45,7 +46,9 @@ Thank you for studying with Studyboard!
 - **Instagram-ready exports** (sharp 2160×2700 JPEGs).
 - **Files open inside the app** on phones, in a viewer, instead of a new browser window.
 - **App Store review prompt**, at a good moment and never after a paywall.
-- **Events can run past midnight** (10 PM to 1 AM); the month view shows events on their days; events can be deleted from their view, with Undo.
+- **Schedule has a Month view** (Week / Month on a computer; Options > Month View on a phone): every event in the month at a glance, with the day you pick listed below and See Week.
+- **Schedule comes first** in Calendar, before Due Dates and Crunch.
+- **Events can run past midnight** (10 PM to 1 AM); events can be deleted from their view, with Undo.
 - **Take Today Off** warns what's due today and keeps it, with Undo.
 - **Task Board:** tasks with no date get their own list with Add a Date.
 - **Edit Task keeps a draft** across a reload and offers to restore it.
@@ -64,7 +67,7 @@ Thank you for studying with Studyboard!
 - **Task Board:** a task's details stay on one line (the drag handle moved into the title row).
 - **Courses and Groups:** dragging a card shows a dashed outline where it will land.
 - **Groups:** the page title is a full-width pill like the other tabs.
-- **Calendar:** a day's event bar sits below its task icons instead of across them.
+- **Calendar:** Due Dates shows just what's due; events live on the Schedule (and its new Month view).
 - **Focus timer:** the chosen mode (Focus / Short Break / Long Break) is one clean pill.
 - **Files:** Convert has an icon; a file's actions are in one ⋯ menu.
 - **Recently Deleted:** all the filters fit on one line.

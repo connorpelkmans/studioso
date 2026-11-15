@@ -158,8 +158,20 @@ document.addEventListener("click", e => {
     case "sch-notices": openSheet(`<div class="sheet">${head("Notices")}<div class="sheet-body sch-ntc-body">${schNoticeHtml}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`); break;
     case "sch-today": ui.schWeek = mondayOf(todayISO()); ui.schDay = null; render(); break;
     case "sch-day": ui.schDay = Number(id); render(); break;
+    case "sch-mode": {
+      ui.schMode = id === "month" ? "month" : "week";
+      // the month opens on the week being looked at; the week opens on the day picked in the month
+      if (ui.schMode === "month") { const w = ui.schWeek || mondayOf(todayISO()), t0 = todayISO(), d = w === mondayOf(t0) ? t0 : w; ui.schMonth = d.slice(0, 7) + "-01"; ui.schPick = d; }
+      else if (ui.schPick) { ui.schWeek = mondayOf(ui.schPick); ui.schDay = (parse(ui.schPick).getDay() + 6) % 7; }
+      try { localStorage.setItem("studyboard:schmode", ui.schMode); } catch (e) {}
+      if (dlg.open) dlg.close(); render(); break;
+    }
+    case "sch-mprev": case "sch-mnext": { const m = parse(ui.schMonth || todayISO().slice(0, 7) + "-01"); m.setDate(1); m.setMonth(m.getMonth() + (act === "sch-mprev" ? -1 : 1)); ui.schMonth = iso(m); ui.schPick = null; render(); break; }
+    case "sch-mtoday": ui.schMonth = todayISO().slice(0, 7) + "-01"; ui.schPick = todayISO(); render(); break;
+    case "sch-mpick": ui.schPick = id; if (id.slice(0, 7) !== (ui.schMonth || "").slice(0, 7)) ui.schMonth = id.slice(0, 7) + "-01"; render(); break;
+    case "sch-mweek": ui.schMode = "week"; ui.schWeek = mondayOf(id); ui.schDay = (parse(id).getDay() + 6) % 7; try { localStorage.setItem("studyboard:schmode", "week"); } catch (e) {} render(); window.scrollTo(0, 0); break;
     case "sch-occ": occView(el.dataset.type, id, el.dataset.key); break;
-    case "sch-add": { const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
+    case "sch-add": { if (el.dataset.date) { eventForm(null, {date: el.dataset.date}); break; } if (ui.schMode === "month" && ui.schPick) { eventForm(null, {date: ui.schPick < todayISO() && ui.schPick.slice(0, 7) === todayISO().slice(0, 7) ? todayISO() : ui.schPick}); break; } const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
     case "avail-add": if (dlg.open) dlg.close(); setTimeout(() => availForm(null), 30); break;
     case "avail-open": if (dlg.open) dlg.close(); setTimeout(availManager, 30); break;
     case "avail-edit": { const b = availBlocks().find(x => x.id === id); if (b) { if (dlg.open) dlg.close(); setTimeout(() => availForm(b), 30); } break; }
@@ -332,7 +344,8 @@ document.addEventListener("keydown", e => {
 // Month view: arrow keys move a day or a week, Home and End go to the week's start and end, Page Up and Page Down a month
 // (as in a date picker); the day moved to is chosen, so its tasks show below
 document.addEventListener("keydown", e => {
-  const b = e.target.closest && e.target.closest('.cal .day[data-act="pick-day"]'); if (!b || e.altKey || e.ctrlKey || e.metaKey) return;
+  const b = e.target.closest && e.target.closest('.cal .day[data-act="pick-day"], .cal .day[data-act="sch-mpick"]'); if (!b || e.altKey || e.ctrlKey || e.metaKey) return;
+  const sch = b.dataset.act === "sch-mpick";
   const d = parse(b.dataset.id), k = e.key;
   if (k === "ArrowLeft" || k === "ArrowRight") d.setDate(d.getDate() + (k === "ArrowLeft" ? -1 : 1));
   else if (k === "ArrowUp" || k === "ArrowDown") d.setDate(d.getDate() + (k === "ArrowUp" ? -7 : 7));
@@ -340,7 +353,7 @@ document.addEventListener("keydown", e => {
   else if (k === "PageUp" || k === "PageDown") { const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (k === "PageUp" ? -1 : 1)); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); }
   else return;
   e.preventDefault();
-  const id = iso(d); ui.calDay = id; ui.calMonth = id.slice(0, 7) + "-01"; render();
+  const id = iso(d); if (sch) { ui.schPick = id; ui.schMonth = id.slice(0, 7) + "-01"; } else { ui.calDay = id; ui.calMonth = id.slice(0, 7) + "-01"; } render();
   const n = $(`.cal .day[data-id="${id}"]`); if (n) try { n.focus({preventScroll: true}); n.scrollIntoView({block: "nearest"}); } catch (x) {}
 });
 function toggleSearch(open){

@@ -1,6 +1,6 @@
 // node tests/cal-day-bar.e2e.js
-// The calendar's month grid on a phone: a day's events show as one colour bar along the bottom of the cell. It sits below the
-// day's task icons with room to spare (and below an overdue task's red ring), never across them.
+// Calendar on a phone: Due Dates is just what's due (no events, no event bars: events are on the Schedule only); the Schedule's
+// Month view (Options > Month View) shows each day's events as colour bars inside the cell, and the picked day's events below.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -22,14 +22,23 @@ const SEED = {v: 2, updated: 1, courses: [{id: "c1", name: "Nursing", code: "BSN
       await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForTimeout(1200);
       await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
       await page.evaluate(() => { const S = window.__sbSync; S.ui.tab = "timeline"; S.ui.tlMode = "calendar"; S.ui.calMonth = "2026-11-01"; S.ui.calDay = "2026-11-20"; S.render(); }); await page.waitForTimeout(500);
-      const g = await page.evaluate(() => ["2026-11-19", "2026-11-10"].map(k => { const d = document.querySelector(`.day[data-id="${k}"]`), ics = [...d.querySelectorAll(".dots i.ci")], bar = d.querySelector(".cal-ev");
-        const r = d.getBoundingClientRect(), b = bar.getBoundingClientRect(), late = !!d.querySelector(".ci-row.late");
-        return {k, late, icons: Math.max(...ics.map(i => i.getBoundingClientRect().bottom)), bar: b.top, barEnd: b.bottom, cell: r.bottom, n: ics.length}; }));
-      for (const x of g) {
-        ok(x.n >= 1 && x.barEnd <= x.cell, `${w}px, ${x.k}: the bar is inside the cell`);
-        const need = x.late ? 3 : 2;   // an overdue icon wears a 3px ring
-        ok(x.bar >= x.icons + need - 0.1, `${w}px, ${x.k}: the bar is below the ${x.late ? "overdue " : ""}task icons (icons end ${x.icons.toFixed(1)}, bar starts ${x.bar.toFixed(1)})`);
-      }
+      const due = await page.evaluate(() => ({cells: document.querySelectorAll(".cal .day").length, icons: document.querySelectorAll('.day[data-id="2026-11-19"] .dots i.ci').length, ev: document.querySelectorAll("#view .cal-ev, #view .cal-evlist").length}));
+      ok(due.cells >= 28 && due.icons === 2 && due.ev === 0, `${w}px: Due Dates shows the day's tasks and no events (${due.ev} event marks)`);
+      await page.evaluate(() => { const S = window.__sbSync; S.ui.tab = "schedule"; S.ui.schMode = "week"; S.render(); }); await page.waitForTimeout(300);
+      await page.evaluate(() => { document.querySelector(".ph-more").open = true; });
+      const menu = await page.evaluate(() => [...document.querySelectorAll(".ph-more .ph-menu > *")].map(b => b.textContent.trim()));
+      ok(menu[0] === "This Week" && menu[1] === "Month View", `${w}px: Options has Month View just under This Week (${menu.slice(0, 3).join(", ")})`);
+      await page.click('.ph-menu [data-act="sch-mode"]'); await page.waitForTimeout(300);
+      const g = await page.evaluate(() => ["2026-11-19", "2026-11-10"].map(k => { const d = document.querySelector(`.sch-month .day[data-id="${k}"]`), bar = d && d.querySelector(".cal-ev");
+        if (!bar) return {k, none: true}; const r = d.getBoundingClientRect(), b = bar.getBoundingClientRect(); return {k, top: b.top, end: b.bottom, cellTop: r.top, cell: r.bottom}; }));
+      for (const x of g) ok(!x.none && x.end <= x.cell && x.top >= x.cellTop, `${w}px, ${x.k}: Schedule > Month shows the event's bar inside the cell`);
+      await page.click('.sch-month .day[data-id="2026-11-19"]'); await page.waitForTimeout(300);
+      const list = await page.evaluate(() => [...document.querySelectorAll(".cal-evrow b")].map(b => b.textContent));
+      ok(list.join() === "Shift", `${w}px: picking a day lists its events below (${list.join()})`);
+      await page.click(".smc-week"); await page.waitForTimeout(300);
+      ok(await page.evaluate(() => !!document.querySelector(".sch-grid") && document.querySelector('.sch-pills [aria-pressed="true"]').textContent.includes("19")), `${w}px: See Week opens that week on that day`);
+      const tabs = await page.evaluate(() => [...document.querySelectorAll(".pview-tabs [data-act=plan-view]")].map(b => b.dataset.id).join());
+      ok(tabs === "schedule,timeline,crunch", "Schedule comes before Due Dates in the tabs: " + tabs);
       await ctx.close();
     }
     ok(!errs.length, "no page errors" + (errs.length ? ": " + errs.join(" | ") : ""));
