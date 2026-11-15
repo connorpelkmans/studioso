@@ -81,7 +81,7 @@ def drop_shadow(alpha, dx, dy, r, k):
     sh = blur(np.roll(np.roll(alpha, dy, 0), dx, 1), r)
     return sh * k
 
-def gold_logo(img, M, Bm, base=0.62, depth=1.0, light=(-0.62, -0.78), on_gold=True):
+def gold_logo(img, M, Bm, base=0.62, depth=1.0, light=(-0.62, -0.78), on_gold=True, blue_book=False):
     """Raised gold logo: bevelled edges from a blurred height map, the book stripe a paler gold"""
     h = blur(M, 7) * 0.6 + blur(M, 2.5) * 0.4
     sh = shade(h * 60 * depth, light)
@@ -89,8 +89,13 @@ def gold_logo(img, M, Bm, base=0.62, depth=1.0, light=(-0.62, -0.78), on_gold=Tr
     ys = np.where(M > 0.05)[0]
     sheen = 1 - np.clip((yy - ys.min()) / max(ys.max() - ys.min(), 1), 0, 1)
     t = base + 0.18 * sheen - 0.08 + 0.42 * sh
-    t = t + 0.12 * Bm            # book stripe: lighter, champagne gold
+    if not blue_book: t = t + 0.12 * Bm            # book stripe: lighter, champagne gold
     col = ramp(t, GOLD)
+    if blue_book:
+        # the book stripe in Studyboard's own blue, glossy enamel lit like the gold around it
+        bt = np.clip(0.45 + 0.55 * sh + 0.15 * sheen, 0, 1)
+        blue = ramp(bt, [(0.0, (14, 52, 150)), (0.4, (37, 99, 226)), (0.7, (61, 123, 255)), (0.9, (128, 172, 255)), (1.0, (205, 225, 255))])
+        col = lerp(col, blue, np.clip(Bm * 1.15, 0, 1))
     # crisp bright edge on the lit side
     edge = np.clip(M - blur(M, 2), 0, 1) * np.clip(sh * 2, 0, 1)
     col = col + np.array([255, 245, 210], np.float32) * (edge * 0.6)[..., None]
@@ -151,6 +156,14 @@ M, Bm = place_logo(1.12, C + 6, C + 4)
 img = gold_logo(img, M, Bm, base=0.76)
 img = sparkle(img, C + S * 0.24, C - S * 0.25, S * 0.05, 0.9)
 save(img, "concept-1-classic-gold")
+if "--blue-book" in sys.argv:
+    img = background(glow=0.20, glow_r=0.36)
+    img = over(img, np.array([3, 10, 26], np.float32), cs)
+    img, coin = gold_face(C, C, S * 0.36, img, field_tone=0.40)
+    img = gold_logo(img, M, Bm, base=0.76, blue_book=True)
+    img = sparkle(img, C + S * 0.24, C - S * 0.25, S * 0.05, 0.9)
+    save(img, "concept-1-classic-gold-blue-book")
+    sys.exit(0)
 
 # ---------- Concept 2: Gold rim, Studyboard blue enamel centre ----------
 img = background(glow=0.10, glow_col=(90, 150, 255), glow_r=0.40)
