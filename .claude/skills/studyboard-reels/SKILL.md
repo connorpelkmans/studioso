@@ -28,7 +28,13 @@ Don't stall on questions. If the request is "make a reel about Quick Add", decid
 
 ### 2. Hooks first
 
-Write 6–10 hooks before anything else, using several formulas from `references/retention.md`. Pick the strongest (or let the user pick if they're engaged in the conversation) and keep two runners-up for A/B variants. The hook is the first frame's text and the first line spoken. It decides whether anyone sees the rest.
+Write 6–10 hooks before anything else, using several formulas from `references/retention.md`. Pick the strongest (or let the user pick if they're engaged in the conversation) and keep two runners-up for A/B variants. The hook decides whether anyone sees the rest, so it gets the most effort:
+- **Three layers in frame 0 saying one thing**: the problem made visible (visual), 3–5 big words (text), and "just enough" motion.
+- **Lean-in → "but" → snapback**: name the student pain, interject, flip it. Each line should make them need the next.
+- **Pain or benefit, never the feature name.** "3 exams. 1 week." beats "Meet Crunch Forecast".
+- **Sendable**: Instagram ranks on watch time, likes and sends. Ask "would a student forward this to their group chat?" If not, make it more relatable or more useful.
+
+Render the best two or three hooks as variants of the same body so the user can A/B them: only the hook should differ, or the test teaches nothing.
 
 ### 3. Storyboard
 
@@ -50,6 +56,10 @@ Things the renderer does for you in `reel.html`:
 - `{{owl}}`, `{{mochi}}`, `{{inky}}`, `{{packy}}` become the companion SVGs.
 - `window.render(t)` is called for every frame with `t` in seconds; `window.END` is the length.
 - With `--footage`, `window.FOOTAGE` is true and the page background is transparent, so only your overlays show on top of the video.
+
+Two lessons from earlier builds:
+- **Time text beats by word count**, not by feel: about 0.45 s + 0.2 s per word, at least 1.2 s. Derive later timings from the hook's length so hook variants stay in sync (see `marketing/reels/2026-11-15-crunch-week/reel.html`).
+- **Never leave 2 s with nothing new on screen**, especially right after the payoff: cut to the end card instead.
 
 Keep text inside the safe area: **x 60–920, y 250–1480**. Instagram's and TikTok's buttons sit on the right, and their captions cover the bottom ~420 px. The `--guides` flag shades the unsafe zones on stills so you can check.
 

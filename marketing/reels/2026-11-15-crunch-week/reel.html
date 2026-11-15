@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Crunch week reel</title>
+<style>
+@font-face{font-family:"Lexend";font-weight:500;src:url({{ROOT}}/website/assets/fonts/lexend-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:600;src:url({{ROOT}}/website/assets/fonts/lexend-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:700;src:url({{ROOT}}/website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url({{ROOT}}/website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:400;src:url({{ROOT}}/website/assets/fonts/atkinson-hyperlegible-next-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:700;src:url({{ROOT}}/website/assets/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2) format("woff2")}
+:root{
+  --paper:#F2F5FA; --grid:rgba(57,136,254,.09); --surface:#FFFFFF; --ink:#0F1F3D; --navy:#0E2A56; --muted:#5A6A86;
+  --line:#D9E2EF; --accent:#1F6FEB; --accent-2:#3988FE; --mark:#FFE45C;
+  --tomato:#E4513B; --leaf:#1E9E74; --plum:#7A4FD6; --amber:#B86A00;
+  --display:"Lexend",system-ui,sans-serif; --body:"Atkinson",system-ui,sans-serif;
+  --shadow:0 2px 4px rgba(14,42,86,.06),0 30px 70px -14px rgba(14,42,86,.32);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased}
+.layer{position:absolute;inset:0}
+.paper{background-color:var(--paper);background-image:linear-gradient(var(--grid) 2px,transparent 2px),linear-gradient(90deg,var(--grid) 2px,transparent 2px);background-size:54px 54px}
+.navy{color:#fff;background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
+.abs{position:absolute}
+h1,h2{font-family:var(--display);margin:0;letter-spacing:-.03em;line-height:1.04;font-weight:800}
+.hl{position:absolute;left:60px;width:860px;top:330px;text-align:center;color:#fff}
+.hl .ln{display:block;white-space:nowrap}
+.hl .ln span{display:inline-block}
+.y{color:var(--mark)}
+.eyebrow{font:700 30px/1 var(--display);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.mk{position:relative;z-index:0;white-space:nowrap}
+.mk::before{content:"";position:absolute;left:-.05em;right:-.05em;top:.58em;height:.36em;background:var(--mark);z-index:-1;transform-origin:left;transform:scaleX(var(--mk,0))}
+
+/* Term heatmap */
+#grid{position:absolute;left:70px;top:700px;width:798px;transform-origin:0 0}
+#grid .dh{display:flex;gap:10px;margin:0 0 14px 150px;font:600 26px var(--display);color:rgba(255,255,255,.55)}
+#grid .dh span{width:84px;text-align:center}
+#grid .wk{display:flex;align-items:center;gap:10px;height:84px;margin-bottom:10px;position:relative}
+#grid .wl{width:140px;font:600 30px var(--display);color:rgba(255,255,255,.7);white-space:nowrap}
+#grid .c{width:84px;height:84px;border-radius:18px;background:#CFEBDD;flex:none}
+#grid.light .dh,#grid.light .wl{color:var(--muted)}
+#glow{position:absolute;left:140px;right:-14px;top:-10px;bottom:-10px;border-radius:26px;outline:5px solid #FF6B57;box-shadow:0 0 50px 8px rgba(228,81,59,.75);pointer-events:none}
+
+/* Exam chips */
+.chip{position:absolute;display:flex;align-items:center;gap:14px;background:#fff;color:var(--ink);border-radius:18px;padding:16px 24px;font:700 32px var(--display);box-shadow:0 18px 40px -10px rgba(0,0,0,.55);white-space:nowrap}
+.chip i{width:18px;height:18px;border-radius:50%;flex:none}
+.chip em{font-style:normal;font-weight:600;color:var(--tomato);font-size:26px}
+
+/* Week sheet */
+.card{background:var(--surface);border-radius:34px;box-shadow:var(--shadow);border:2px solid #fff}
+#sheet{left:70px;width:850px;top:800px;padding:36px 36px 30px}
+#sheet .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+#sheet .hd b{font:800 50px var(--display);letter-spacing:-.02em}
+.badge{font:700 30px var(--display);padding:10px 20px;border-radius:14px;color:#fff;background:var(--tomato);white-space:nowrap}
+.it{display:flex;align-items:center;gap:20px;padding:16px 8px;font:600 38px var(--display);border-top:2px solid #EEF2F8;position:relative}
+.it i{width:20px;height:20px;border-radius:50%;flex:none}
+.it .d{margin-left:auto;color:var(--muted);font-weight:500;font-size:32px}
+.it .mv{position:absolute;right:8px;font:700 30px var(--display);color:var(--leaf);background:#E3F4EC;padding:8px 16px;border-radius:12px;opacity:0;white-space:nowrap}
+.btn{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:22px;background:var(--navy);color:#fff;font:700 38px var(--display);padding:26px;border-radius:22px}
+#undo{position:absolute;left:50%;top:1490px;transform:translateX(-50%);opacity:0}
+.toast{background:#0F1F3D;color:#fff;font:600 32px var(--display);padding:18px 28px;border-radius:18px;white-space:nowrap;box-shadow:0 16px 40px -10px rgba(0,0,0,.5)}
+.toast u{text-decoration:none;color:var(--mark);margin-left:18px}
+#tap{position:absolute;width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;background:rgba(255,255,255,.55);border:4px solid rgba(14,42,86,.5);opacity:0;pointer-events:none;z-index:20}
+
+/* Companion and bubble */
+.comp{position:absolute}
+.comp svg{width:100%;height:100%;overflow:visible;display:block;filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 10px 18px rgba(30,20,50,.25))}
+.cp-svg .cp-p,.cp-svg .cp-headg,.cp-svg .cp-eye,.cp-svg .cp-page{transform-box:view-box}
+.cp-svg .cp-cheeks{opacity:.62}
+.cp-svg .cp-e-happy,.cp-svg .cp-e-sleepy,.cp-svg .cp-mouth>g,.cp-svg .cp-prop,.cp-svg .cp-zs{display:none}
+.cp-svg[data-m=neutral] .cp-m-neutral,.cp-svg[data-m=smile] .cp-m-smile,.cp-svg[data-m=open] .cp-m-open{display:inline}
+.cp-svg[data-e=happy] .cp-eye{display:none}
+.cp-svg[data-e=happy] .cp-e-happy{display:inline}
+.bubble{position:absolute;background:var(--surface);color:var(--ink);border-radius:30px;padding:22px 30px;font:700 36px/1.25 var(--display);box-shadow:var(--shadow);border:2px solid var(--line);white-space:nowrap;transform-origin:30% 100%}
+.bubble::after{content:"";position:absolute;left:60px;bottom:-15px;width:26px;height:26px;background:inherit;border-right:2px solid var(--line);border-bottom:2px solid var(--line);transform:rotate(45deg)}
+.pill{display:inline-flex;align-items:center;background:var(--accent-2);color:#fff;border-radius:26px;padding:26px 44px;font:700 46px var(--display);box-shadow:0 20px 50px -12px rgba(57,136,254,.6)}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="layer navy" id="bgNavy"></div>
+  <div class="layer paper" id="bgPaper"></div>
+
+  <!-- Hook text beats (variant-specific copy is filled in by script) -->
+  <h1 class="hl" id="b1"></h1>
+  <h1 class="hl" id="b2"></h1>
+  <h1 class="hl" id="b3"></h1>
+
+  <!-- Payoff headline -->
+  <div class="abs" id="ph" style="left:70px;width:850px;top:290px">
+    <div class="eyebrow" id="phE">Crunch Forecast · free</div>
+    <h2 style="font-size:92px;margin-top:22px"><span id="phA" style="display:block">Every week,</span><span id="phB" style="display:block"><span class="mk" id="phMk">calm to crunch.</span></span></h2>
+  </div>
+
+  <div id="grid"><div class="dh"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></div>
+  <div id="chips"></div>
+
+  <div class="card abs" id="sheet">
+    <div class="hd"><b>Week 11</b><span class="badge" id="badge">Crunch</span></div>
+    <div class="it"><i style="background:var(--leaf)"></i>Bio midterm<span class="d">Tue</span></div>
+    <div class="it"><i style="background:var(--plum)"></i>Chem exam<span class="d">Wed</span></div>
+    <div class="it"><i style="background:var(--tomato)"></i>Calc exam<span class="d">Thu</span></div>
+    <div class="it" id="it3"><i style="background:var(--amber)"></i>History essay<span class="d" id="it3d">Fri</span><span class="mv" id="mv3">Draft starts Week 9</span></div>
+    <div class="it" id="it4"><i style="background:var(--accent)"></i>Calc review<span class="d" id="it4d">Wed</span><span class="mv" id="mv4">Moved to Week 10</span></div>
+    <div class="btn" id="btn">Pull work forward</div>
+  </div>
+    <div id="tap"></div>
+
+  <div class="comp" id="owl" style="width:170px;height:170px;left:720px;top:560px">{{owl}}</div>
+  <div class="bubble" id="bub1" style="left:470px;top:440px">Week 11 looks rough.</div>
+  <div class="bubble" id="bub2" style="left:520px;top:440px">Way better.</div>
+
+  <!-- End card -->
+  <div class="layer navy" id="end">
+    <img id="eIcon" src="{{ROOT}}/icon-512.png" alt="" class="abs" style="left:390px;top:330px;width:200px;height:200px;border-radius:46px;box-shadow:0 26px 60px rgba(0,0,0,.4)">
+    <h1 class="abs" style="left:60px;width:860px;top:600px;text-align:center;font-size:104px;color:#fff">
+      <span id="eA" style="display:block">See crunch week</span><span id="eB" class="y" style="display:block">coming.</span>
+    </h1>
+    <div class="abs" id="eSub" style="left:60px;width:860px;top:880px;text-align:center;font:500 40px var(--display);color:#C9D7F2">Free · any browser · no account</div>
+    <div class="abs" id="eCta" style="left:60px;width:860px;top:990px;text-align:center"><span class="pill">studyboardapp.com</span></div>
+    <div class="comp" id="eC1" style="width:180px;height:180px;left:290px;top:1170px">{{mochi}}</div>
+    <div class="comp" id="eC2" style="width:180px;height:180px;left:510px;top:1160px">{{owl}}</div>
+  </div>
+</div>
+
+<script>
+// Load every font weight now, so measurements and frame 0 never use a fallback font (render.js waits for this)
+["500 100px Lexend","600 100px Lexend","700 100px Lexend","800 100px Lexend","400 40px Atkinson","700 40px Atkinson"].forEach(f => document.fonts.load(f));
+
+// ---------- variant ----------
+const VARIANT = "a";
+// Each beat: lines of [text, isYellow]. Beats 1-3 are the hook: lean-in, interjection, snapback.
+const HOOKS = {
+  a: [ [["3 exams.",0],["1 week.",1]],
+       [["Most people find out",0],["the week before.",0]],
+       [["But you could",0],["see it coming.",1]] ],
+  b: [ [["Your worst week",0],["this term is",0],["already booked.",1]],
+       [["You just can't",0],["see it yet.",0]],
+       [["Here's how",0],["to find it.",1]] ],
+  c: [ [["POV: you spot",0],["hell week",1],["a month early.",0]],
+       [["3 exams.",0],["Same week.",0]],
+       [["And you're",0],["actually ready.",1]] ],
+};
+const SIZES = [150, 112, 120];
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const oCubic = x => 1 - Math.pow(1 - x, 3);
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const oBack = x => { const c = 1.7, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const set = (el, tf, op) => { el.style.transform = tf; if (op != null) el.style.opacity = op; };
+const rise = (el, t, t0, d = .45, dist = 60) => { const k = oCubic(P(t, t0, t0 + d)); set(el, `translateY(${(1 - k) * dist}px)`, k); };
+const pop = (el, t, t0, d = .4, from = .6) => { const k = P(t, t0, t0 + d); set(el, `scale(${lerp(from, 1, oBack(k))})`, clamp(k * 2.5)); };
+const hop = (el, t, t0, n = 1, H = 30) => {
+  const k = P(t, t0, t0 + .4); let y = 0, sx = 1, sy = 1;
+  const start = t0 + .45, period = .7, air = .4;
+  if (t >= start && t < start + n * period) { const ph = (t - start) % period;
+    if (ph < air) { const x = ph / air; y = -H * 4 * x * (1 - x); } else { const g = Math.sin(((ph - air) / (period - air)) * Math.PI) * .07; sy = 1 - g; sx = 1 + g * .8; } }
+  const sc = lerp(.4, 1, oBack(k)); el.style.transformOrigin = "50% 92%";
+  set(el, `translateY(${y}px) scale(${sc * sx},${sc * sy})`, clamp(k * 3));
+};
+// Colour scale: calm mint -> yellow -> orange -> red
+const STOPS = [[0, [207, 235, 221]], [.45, [255, 228, 92]], [.72, [255, 160, 70]], [1, [228, 81, 59]]];
+const heat = v => { v = clamp(v); for (let i = 1; i < STOPS.length; i++) if (v <= STOPS[i][0]) { const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], k = (v - a) / (b - a); return `rgb(${ca.map((c, j) => Math.round(lerp(c, cb[j], k))).join(",")})`; } return "rgb(228,81,59)"; };
+
+// ---------- build ----------
+const H = HOOKS[VARIANT];
+H.forEach((beat, i) => { $("b" + (i + 1)).innerHTML = beat.map(([s, y]) => `<span class="ln${y ? " y" : ""}"><span>${s}</span></span>`).join(""); $("b" + (i + 1)).style.fontSize = SIZES[i] + "px"; });
+// Fit each line to 860 px
+let fitted = false;
+const fit = () => { document.querySelectorAll(".hl").forEach(h => { let s = parseFloat(h.style.fontSize); const w = () => Math.max(...[...h.querySelectorAll(".ln>span")].map(x => x.offsetWidth)); while ((w() > 840 || h.offsetHeight > 330) && s > 60) { s -= 2; h.style.fontSize = s + "px"; } }); fitted = true; };
+
+// 8 weeks (Week 5 to Week 12), 7 days; Week 11 is the crunch
+const WEEKS = [5, 6, 7, 8, 9, 10, 11, 12], CR = 6;
+const BEFORE = [
+  [.15, .25, .2, .3, .2, .05, .05], [.2, .3, .25, .2, .3, .05, .1], [.3, .2, .35, .25, .2, .1, .05], [.25, .35, .3, .4, .3, .1, .1],
+  [.2, .3, .25, .3, .25, .05, .1], [.3, .35, .4, .35, .45, .2, .3], [.85, .95, 1, 1, .95, .6, .7], [.3, .25, .2, .3, .2, .05, .05]];
+const AFTER = BEFORE.map(r => r.slice());
+AFTER[4] = [.3, .4, .35, .45, .35, .1, .15]; AFTER[5] = [.45, .5, .55, .5, .5, .25, .35]; AFTER[6] = [.5, .62, .66, .62, .5, .25, .3];
+$("grid").insertAdjacentHTML("beforeend", WEEKS.map((w, r) => `<div class="wk" id="wk${r}"><span class="wl">Week ${w}</span>${BEFORE[r].map((_, d) => `<span class="c" id="c${r}_${d}"></span>`).join("")}${r === CR ? '<span id="glow"></span>' : ""}</div>`).join(""));
+const CHIPS = [["Bio midterm", "Tue", "#1E9E74", 160, -64, -7], ["Chem exam", "Wed", "#7A4FD6", 420, -88, 5], ["Calc exam", "Thu", "#E4513B", 300, -150, -3]];
+$("chips").innerHTML = CHIPS.map((c, i) => `<div class="chip" id="ch${i}"><i style="background:${c[2]}"></i>${c[0]}<em>${c[1]}</em></div>`).join("");
+
+// Timeline (s). Each hook beat stays up long enough to read: 0.45 s + 0.2 s per word (min 1.2 s).
+const words = beat => beat.map(l => l[0]).join(" ").split(/\s+/).length;
+const DUR = H.map(b => Math.max(1.2, .45 + .2 * words(b)));
+const O = DUR[0] + DUR[1] + DUR[2] - .1;  // when the paper opens
+const T = { b2: DUR[0], b3: DUR[0] + DUR[1], open: O, sweep: O + .25, tap: O + 1.45, sheet: O + 1.7, press: O + 3.25, fix: O + 3.45, end: O + 5.5 };
+const END = T.end + 2.5, COVER = 0.25;
+
+function render(t) {
+  if (!fitted && document.fonts.status === "loaded") fit();
+  // Backgrounds: paper opens from the tapped week's spot after the hook
+  $("bgPaper").style.clipPath = `circle(${ioCubic(P(t, T.open, T.open + .55)) * 2300}px at 540px 1320px)`;
+
+  // Hook beats: hard, punchy swaps. Beat 1 is fully on screen at t = 0.
+  const beat = (id, tin, tout) => {
+    const el = $(id); const kin = tin <= 0 ? 1 : P(t, tin, tin + .22), kout = P(t, tout - .12, tout);
+    el.style.visibility = t >= tin && t < tout ? "visible" : "hidden";
+    set(el, `scale(${lerp(1.12, 1, oCubic(kin)) * lerp(1, .96, kout)})`, Math.min(clamp(kin * 1.6), 1 - kout));
+  };
+  beat("b1", 0, T.b2); beat("b2", T.b2, T.b3); beat("b3", T.b3, T.open + .1);
+  // A tiny breathing push-in on beat 1 so frame 0 is alive
+  if (t < T.b2) $("b1").style.transform = `scale(${1 + Math.sin(t * 4.2) * .012})`;
+
+  // Grid: dim on navy with the crunch row glowing; then full colour on paper
+  const g = $("grid"); const light = t >= T.open + .2; g.classList.toggle("light", light);
+  const sweepK = r => P(t, T.sweep + r * .07, T.sweep + r * .07 + .35);
+  const fixK = ioCubic(P(t, T.fix, T.fix + .8));
+  WEEKS.forEach((_, r) => BEFORE[r].forEach((v, d) => {
+    const c = $(`c${r}_${d}`);
+    let val = lerp(v, AFTER[r][d], fixK), op;
+    if (!light) { op = r === CR ? 1 : .22; c.style.background = r === CR ? heat(val) : "#CFEBDD"; }
+    else { const k = sweepK(r); op = 1; c.style.background = r === CR ? heat(val) : heat(val * k); }
+    c.style.opacity = op;
+  }));
+  // Glow pulse: strong in the hook, fades once the week is fixed
+  const pulse = .55 + .45 * Math.abs(Math.sin(t * 3.4));
+  $("glow").style.opacity = (t < T.fix ? pulse : (1 - fixK) * pulse);
+  $("wk" + CR).style.transform = t < T.open ? `translateX(${Math.sin(t * 38) * 2.2}px)` : "none";
+  // Grid moves up and shrinks when the week is tapped open
+  const up = ioCubic(P(t, T.sheet - .1, T.sheet + .45));
+  g.style.transform = `translate(${lerp(0, 0, up)}px,${lerp(0, -420, up)}px) scale(${lerp(1, .56, up)})`;
+  g.style.top = "700px";
+
+  // Exam chips: stacked on the crunch week, shaking (stress); fly off as the paper opens
+  CHIPS.forEach((c, i) => {
+    const el = $("ch" + i), rowY = 700 + 52 + CR * 94;
+    const shake = Math.sin(t * 30 + i) * 3;
+    const out = ioCubic(P(t, T.open - .2, T.open + .25));
+    el.style.left = (70 + c[3]) + "px"; el.style.top = (rowY + c[4]) + "px";
+    set(el, `translate(${shake}px,${-out * 120}px) rotate(${c[5] + shake * .4}deg)`, 1 - out);
+  });
+
+  // Payoff headline
+  const ph = $("ph"); ph.style.visibility = t >= T.open && t < T.sheet + .3 ? "visible" : "hidden";
+  rise($("phE"), t, T.open + .2); rise($("phA"), t, T.open + .3); rise($("phB"), t, T.open + .42);
+  $("phMk").style.setProperty("--mk", oCubic(P(t, T.open + .75, T.open + 1.1)));
+  if (t > T.sheet - .15) ph.style.opacity = 1 - P(t, T.sheet - .15, T.sheet + .1);
+
+  // Tap on the crunch week
+  const tp = P(t, T.tap - .15, T.tap + .35), tap = $("tap");
+  tap.style.left = (70 + 150 + 3 * 94 + 42) + "px"; tap.style.top = (700 + 52 + CR * 94 + 42) + "px";
+  tap.style.opacity = tp > 0 && tp < 1 ? Math.sin(tp * Math.PI) : 0; tap.style.transform = `scale(${lerp(.6, 1.4, tp)})`;
+
+  // Sheet with what's driving the week
+  const sh = $("sheet"), ks = P(t, T.sheet, T.sheet + .5);
+  sh.style.visibility = t >= T.sheet ? "visible" : "hidden";
+  set(sh, `translateY(${(1 - oCubic(ks)) * 500}px)`, clamp(ks * 2));
+  [...sh.querySelectorAll(".it")].forEach((el, i) => { const k = oCubic(P(t, T.sheet + .25 + i * .1, T.sheet + .6 + i * .1)); set(el, `translateX(${(1 - k) * 50}px)`, k); });
+  const pr = P(t, T.press - .05, T.press + .05) - P(t, T.press + .05, T.press + .2);
+  $("btn").style.transform = `scale(${1 - pr * .06})`; $("btn").style.background = t > T.press ? "#1E9E74" : "";
+  $("btn").innerHTML = t > T.press + .1 ? "✓ Moved 2 things earlier<span style=\"opacity:.75;font-weight:600;margin-left:18px\">Undo</span>" : "Pull work forward";
+  [3, 4].forEach((n, i) => { const k = P(t, T.fix + .1 + i * .2, T.fix + .4 + i * .2); $("mv" + n).style.opacity = k; $("mv" + n).style.transform = `scale(${lerp(.7, 1, oBack(k))})`; $(`it${n}d`).style.opacity = 1 - k; });
+  const bk = P(t, T.fix + .4, T.fix + .7); $("badge").textContent = bk > .5 ? "Manageable" : "Crunch";
+  $("badge").style.background = bk > .5 ? "#E8A317" : ""; $("badge").style.transform = `scale(${1 + Math.sin(bk * Math.PI) * .15})`;
+
+  // Hoot: worried bubble when the sheet opens, happy bubble after the fix
+  const ow = $("owl"); ow.style.visibility = t >= T.sheet ? "visible" : "hidden";
+  hop(ow, t, T.sheet + .35, 0); if (t > T.fix + .3) hop(ow, t, T.fix + .3 - .45, 2);
+  const b1 = $("bub1"), b2 = $("bub2");
+  b1.style.visibility = t >= T.sheet + .6 && t < T.fix + .2 ? "visible" : "hidden"; pop(b1, t, T.sheet + .6, .35, .6);
+  b2.style.visibility = t >= T.fix + .35 ? "visible" : "hidden"; pop(b2, t, T.fix + .35, .35, .6);
+
+  // End card wipes up; its navy matches frame 0 so the loop is seamless
+  const e = $("end"); e.style.visibility = t >= T.end ? "visible" : "hidden";
+  e.style.clipPath = `inset(${(1 - ioCubic(P(t, T.end, T.end + .45))) * 100}% 0 0 0)`;
+  pop($("eIcon"), t, T.end + .3, .45, .3); rise($("eA"), t, T.end + .4); rise($("eB"), t, T.end + .52);
+  rise($("eSub"), t, T.end + .8, .4, 30); pop($("eCta"), t, T.end + .95, .4, .7);
+  hop($("eC1"), t, T.end + 1.1, 1); hop($("eC2"), t, T.end + 1.22, 1);
+  // Last 0.35 s: fade the end card's content so it cuts cleanly back into the hook
+  const lo = P(t, END - .35, END); ["eIcon", "eA", "eB", "eSub", "eCta", "eC1", "eC2"].forEach(id => { if (lo > 0) $(id).style.opacity = 1 - lo; });
+}
+window.render = render; window.END = END; window.COVER = COVER;
+render(new URLSearchParams(location.search).has("t") ? +new URLSearchParams(location.search).get("t") : 0);
+</script>
+</body>
+</html>

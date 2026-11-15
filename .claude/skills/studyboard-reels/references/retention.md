@@ -1,55 +1,85 @@
 # Retention playbook
 
-## Why people skip
+What's here comes from the platforms' own statements where they exist, and from creators with a track record where they don't. Sources are at the end. Treat third-party percentages as rough; compare your own reels against each other instead.
 
-The decision happens in about a second, on the first frame and the first words. They skip when nothing in that frame is about them, when it looks like an ad (logo first, polished feature tour), or when nothing changes for a couple of seconds. They stay when they recognise their own situation, when there's an open question they want answered, or when something is moving toward a payoff.
+## What the platforms reward
 
-## Hook formulas (the first frame and first line)
+- **Instagram** (Adam Mosseri, January 2025): the top three ranking signals are **watch time, likes and sends**. Creators should track **average watch time, likes per reach and sends per reach**. Sends matter slightly more for reaching people who don't follow you; likes slightly more for followers. Watch time counts both as a percentage and in seconds.
+- **TikTok** (its creative guidance, as quoted by ad platforms): put the hook and the point in the **first 3 seconds**, design for sound off with text on screen, shoot native 9:16.
+- **YouTube Shorts**: Studio shows **Viewed vs. Swiped Away** (did the first second work?) and **average percentage viewed** (did the rest hold?). A low "viewed" rate means fix the hook; a good "viewed" rate with a low percentage means fix the pacing or payoff.
 
-Write several, across different formulas, then pick. Adapt the wording to the feature.
+So every reel has two jobs: **don't get swiped in second one**, and **be worth sending to a friend**. For a student audience, "sendable" means "this is so us" (relatable pain) or "you need this" (useful before exams).
+
+## The hook: three layers firing at once
+
+In frame 0, three things should say the same thing (Kallaway: visuals are far stronger than speech alone, and the combination of text, motion and speech wins):
+1. **Visual**: the problem made visible. A calendar week glowing red. Forty chips flying. Not a logo, not a blank background.
+2. **Text**: 3–5 big words that distil the hook. Readable in under a second.
+3. **Motion**: "just enough". Something alive (a pulse, a shake, drifting chips), but not so much that the viewer can't tell what the video is about.
+
+(Plus a spoken line or sound when there is one: it should match the text, not add a different idea.)
+
+## The hook script: lean-in, interjection, snapback
+
+Kallaway's three-step structure builds a curiosity loop in which each line makes the viewer need the next:
+1. **Context lean-in** (line 1–2): make the topic obvious so the right people self-select in, and give them a reason to lean in: shared pain, a benefit, a surprising fact. Lead with the pain or benefit, never the jargon or the product name ("3 exams in 1 week", not "Crunch Forecast analyses your term").
+2. **Scroll-stop interjection**: a contrast word, usually "but" ("but get this", "except", "yet").
+3. **Contrarian snapback**: turn the expected direction around. The bigger the surprise, the stronger the snap. The video then has to pay it off, or viewers feel cheated and leave.
+
+Example for Studyboard: "3 exams. 1 week." → "Most people find out the week before." → "What if you saw it coming?" → payoff.
+
+### Desire hook (alternative)
+A relatable character + a dream outcome + **minimal conditions**. Any unfair advantage ("my $1,200 planner", "if you have 6 hours a day") makes people dismiss it. Constraint-removing phrases help: "free", "in 10 seconds", "without changing how you study".
+- About me: "I stopped pulling all-nighters by doing one thing in September." (Only for real creators telling their real story; Studyboard itself must not invent testimonials.)
+- Can you: "Can you plan exam week in 10 seconds?"
+- If I: "If I had 3 exams next week, here's what I'd do tonight."
+
+### Rules that come out of this
+- **Staccato.** The shortest sentences are in the hook; lines get longer later.
+- **Speed to value**: the first real "hit" (the fix, the satisfying moment) by about second 4. Don't save the best for the end: anything after people leave might as well be a black screen.
+- **No unfamiliar words in the hook.** People bounce when they feel lost. Name the student situation, not the feature.
+- **Anchor to what they know**: exam week, "hell week", Canvas, finals, 11:59 PM, the group chat.
+
+## Hook bank (adapt the wording)
 
 | Formula | Example |
 |---|---|
-| POV | "POV: it's week 9 and you have 3 exams and a lab report" |
+| Number shock | "3 exams. 1 week." |
+| Curiosity gap | "Your worst week this term is already on the calendar." |
+| POV | "POV: you spot hell week a month early" |
 | Callout | "If you have more than 4 classes, watch this" |
-| Confession | "I missed a quiz worth 10% because it was buried in Canvas" |
 | Stop doing X | "Stop planning your semester in 4 different apps" |
-| The number | "40 deadlines. 1 board." |
-| Question they can't skip | "What should you study first tonight?" |
-| Before / after | Messy desk + sticky notes → one calm board (first frame is the mess) |
-| Relatable chaos | Deadline chips flying everywhere, "my brain at 11:58 PM" |
-| Unexpected detail | "This planner's owl quizzes you on chapter 4" |
-| Challenge | "Plan your whole exam week in 10 seconds" |
+| Can you | "Can you plan exam week in 10 seconds?" |
+| If I | "If I had 3 exams next week, I'd do this tonight" |
+| Relatable chaos | Chips flying everywhere: "my brain at 11:58 PM" |
 | Tell a friend | "Send this to the friend who does everything the night before" |
+| Unexpected detail | "This planner's owl quizzes you on chapter 4" |
 
-Weak hooks: the app's name, "Introducing…", a logo, "Hey guys", a question with an obvious no ("Do you like being stressed?").
+Weak hooks: the app's name, "Introducing…", a logo, "Hey guys", a question with an obvious no ("Do you like being stressed?"), a feature name.
 
-## Structure for 7–15 s
+## Structure for 8–15 s
 
-1. **0–1.5 s Hook.** On screen at frame 0. A problem the viewer recognises.
-2. **1.5–4 s Tension.** Show the mess a bit more, or start the fix with a visible question (a cursor typing, a pile of chips).
-3. **4–10 s Payoff.** The feature fixing it, in 2–3 quick beats. Each beat ≤ 2 s, each with one highlighted phrase.
-4. **10–13 s Proof and CTA.** One concrete detail ("Free · no account needed"), the URL.
-5. **Loop.** The final frame should flow into frame 0: return to the same backdrop, or answer the hook's question with the same layout.
+1. **0–1.5 s Hook** (lean-in), already on screen at frame 0.
+2. **1.5–3.5 s Interjection + snapback**: one or two staccato text beats.
+3. **3.5–9 s Payoff**: the fix in 2–3 visible beats, each ≤ 2 s. The satisfying moment (the red week cooling, the chaos snapping into a plan) is the reward; make it the most beautiful motion in the reel.
+4. **9–12 s Proof and CTA**: one line, the URL, ~1.5 s.
+5. **Loop**: the last frame flows into frame 0 (same background, same colours), so a rewatch is seamless and raises % watched.
 
 ## Pacing and craft
 
-- Change something every 1.5–2 s: a cut, a line of text, an element entering, a camera-style zoom (scale 1 → 1.06 on a scene is enough).
-- Motion with weight: ease-out for entrances, slight overshoot (`pop`) for things landing. Linear motion looks cheap.
-- One idea per beat, ≤ 7 words, ≥ 80 px headline text.
-- Companions reacting (a hop, a bubble saying one short line) are good mid-reel pattern interrupts.
-- Captions for speech: 2–5 words at a time, timed to the words, in the lower-middle of the safe area (around y 1250–1450), white on a dark pill or navy on yellow.
-- Sound: reels are rendered silent. Trending or library audio is added in the app. A voiceover (the user's own voice) usually beats music for trust.
+- Something changes every 1.2–2 s: a new text beat, an element landing, a camera-style push-in.
+- Text beats: ≤ 7 words, ≥ 80 px. Give viewers ~0.3 s per word plus 0.5 s.
+- Ease-out for entrances, slight overshoot for things landing. Linear motion looks cheap.
+- Companions reacting (a hop, a one-line bubble) are good mid-reel pattern interrupts and give the brand a personality.
+- Captions for speech: 2–5 words at a time, timed to the words.
+- Sound: rendered silent; add trending or library audio in the app. A real voice usually beats music for trust.
 
-## Formats that suit Studyboard
+## What works on StudyTok specifically
 
-- **The fix** (default): chaos → Quick Add / Today's Plan → calm. 10–12 s.
-- **POV student moment**: text-only POV over a filmed desk shot, then the app scene. Hybrid.
-- **"Things I wish I knew in first year"**: a numbered list, one per 2 s, the last one being Studyboard. Natural and not ad-like.
-- **Exam season countdown**: "3 days until your exam. Here's the plan." Exam Prep Planner sessions drop in day by day. Timely in Oct–Nov and Mar–Apr.
-- **Companion skit**: Hoot or Mochi "reacting" to the student's to-do list. Playful, shareable.
-- **Talking head + overlay** (filmed): the user says the hook to camera in 2 s, then app overlays. Faces hold attention best.
-- **Satisfying sort**: 20 scattered chips snap into a clean ranked plan. Satisfying motion is rewatchable.
+- **Doesn't look like an ad.** The study apps that grew on TikTok (Jenni AI, Coconote, Knowunity, FocusTree, per agency breakdowns) mostly posted things that look like other StudyTok videos: a student helping students, POV pain points, "study with me", exam-comeback stories. Polished brand promos are the exception.
+- **Lead with student stress** (exams, deadlines, the night before) and use the community's tags: #studytok, #studyhacks, #finals, course-specific tags.
+- **Text-overlay hook + background track + app demo** is the simplest format that reportedly worked for a focus app; it's what motion-graphic reels from this skill are.
+- **Volume and testing**: the winners tested many formats and hooks across several accounts. One reel proves nothing; three hook variants of the same body teach you something.
 
 ## Post caption template
 
@@ -60,18 +90,27 @@ Weak hooks: the app's name, "Introducing…", a logo, "Hey guys", a question wit
 
 Free, works in any browser, no account needed. Link in bio.
 
-<One question that invites comments: "What's your worst week this term?">
+<A sends prompt or a comment question: "Send this to your study group" / "Which week is your hell week?">
 
-#studyboard #studytok #studentplanner #<topic> #<audience>
+#studytok #studyhacks #<topic> #studentplanner #studyboard
 ```
 
-3–6 hashtags, relevant over popular. On TikTok put the keywords students would search ("exam study plan", "college planner") in the caption text, since search drives a lot of discovery.
+3–6 hashtags, relevant over popular. On TikTok, write the words students would search ("exam study plan", "finals week") in the caption, since search drives discovery.
 
 ## What to measure (ask the user for these)
 
-- **3-second hold rate** (or "skip rate"): did the hook work?
-- **Average watch time vs length**: over ~70% is strong for a short reel; over 100% means people rewatch.
-- **Shares and saves**: the strongest signal that it's useful or relatable.
-- **Profile visits and link clicks**: did it bring people to Studyboard?
+- **Instagram:** average watch time, sends per reach, likes per reach (Mosseri's three), plus skip rate if shown.
+- **TikTok:** retention curve (where do people drop?), average watch time, shares.
+- **Shorts:** viewed vs. swiped away, average percentage viewed.
+- Profile visits and link clicks: did it bring people to Studyboard?
 
 Compare reels that differ in one thing (usually the hook) to learn anything.
+
+## Sources
+
+- Mosseri on Instagram ranking signals, as reported by Social Media Today: https://www.socialmediatoday.com/news/instagram-shares-algorithm-insights-2025/738034/ and SocialPilot: https://www.socialpilot.co/blog/instagram-reels-algorithm
+- TikTok's first-3-seconds guidance, as quoted by Stackmatix: https://stackmatix.com/blog/tiktok-creative-best-practices-2026
+- YouTube Shorts "Viewed vs. Swiped Away": https://contentstudio.io/blog/youtube-shorts-analytics-guide
+- Kallaway on hooks (transcripts): https://sozai.app/transcript/create-irresistible-hooks-blow-content/ and https://sozai.app/transcript/copy-hook-blow-up-social-media/ ; podcast summary: https://www.castmagic.io/podcast/rhythm-hooks-and-a-billion-views-kane-kallaways-short-form-video-content-secrets
+- MrBeast production guide (long-form, but the "the opening is when people leave most" point carries over): https://simonwillison.net/2024/Sep/15/how-to-succeed-in-mrbeast-production/
+- StudyTok app breakdowns: Jenni AI https://playkit.beehiiv.com/p/case-study-jenni-ai-tiktok-strategy , FocusTree https://playkit.beehiiv.com/p/study-focus-app , Knowunity https://viral.app/blog/insights/knowunity-studytok-grade-rescue , ed-tech UGC https://www.8x.social/en/blog/ed-tech-app-ugc-organic-gap

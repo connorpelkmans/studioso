@@ -130,6 +130,9 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.025em;line-height:1.0
 </div>
 
 <script>
+// Load every font weight now, so measurements and frame 0 never use a fallback font (render.js waits for this)
+["500 100px Lexend","600 100px Lexend","700 100px Lexend","800 100px Lexend","400 40px Atkinson","700 40px Atkinson"].forEach(f => document.fonts.load(f));
+
 // ---------- helpers ----------
 const $ = id => document.getElementById(id);
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
