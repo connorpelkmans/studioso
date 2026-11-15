@@ -16,7 +16,7 @@ That data replaced the default evening slots, and moved the Sunday post to Frida
 
 Then check numbers on Nov 23–24 (Metricool analytics, or vidIQ insights once Instagram is connected there) and plan the next batch from the weakest lens.
 
-**Audio:** attach a track from Instagram's library on each (Metricool can do this on Business accounts linked to a Facebook Page). Relatable reels: something dramatic or ominous that contrasts with the calm visuals, as the outliers did. Fix reels: a beat change around 4–5 s, when the calendar fills with colour. You choose the tracks: trending audio changes daily, and you can see what's trending in the app.
+**Audio:** every reel now has a built-in soundtrack: owned music cut on the hits, plus sound effects, mixed to platform loudness. Post with the original audio. Nothing can be muted, because we own it. If you also want a trending sound for reach, add it in the app and keep the reel's original audio at about 30–50% so the hits and effects still land. Don't attach library music through Metricool on top of ours.
 
 ## Captions
 

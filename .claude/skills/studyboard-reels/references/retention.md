@@ -92,6 +92,14 @@ Refresh these with vidIQ outlier search each batch (see `tools.md`).
 - **Audio carries these**: music-only mixes; dramatic, operatic or ominous tracks contrasting with mundane visuals.
 - **App promos that worked** used a creator reaction or comparison hook ("now I understand why orgo students stopped using ChatGPT"), then a quick screen demo. "Comment X and I'll DM you the link" CTAs are common in big posts, but platforms say they demote engagement bait, so prefer genuine questions.
 
+**Breakdown of the top same-week outlier** (@rufus.creates, 847K views, 42x median; `vidiq_watch_shortform_content`, 2026-11-15):
+- 7.2 s total. **Frame 0 is a real person** at a desk (front camera, messy room). No logo, no CTA, nothing branded.
+- **One caption for the whole video**: white bold sans with a black outline, centred in the lower-middle, never changing.
+- **First cut at ~1.9 s, 4 cuts total** (a shot every 1–2 s). The music builds, the beat starts on the first cut (~2 s), and **the heavy drop lands on a cut at ~4 s**.
+- Ends on the highest-energy shot and loops straight back to the calm opener. The contrast is what makes it rewatchable.
+
+How we apply it: `marketing/reels/2026-11-16-same-week/` (stock b-roll of a stressed student → the Studyboard calendar as the "proof" shot → a punchline shot, cut on owned music hits).
+
 ## Post caption template
 
 ```

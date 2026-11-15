@@ -31,7 +31,7 @@ Don't stall on questions. If the request is "make a reel about Quick Add", decid
 ### 1b. Pick the reel type
 
 Live research (Nov 2026) shows two kinds of reel work for this audience, and a healthy feed mixes them about 2:1:
-- **Relatable** (reach): one block of relatable text over a near-static visual (here, the planner UI), music only, built to loop. The brand stays small (logo in a corner, name in the caption). These get sent and are how a new account reaches people who don't follow it. Example: `marketing/reels/2026-11-16-same-week/`.
+- **Relatable** (reach): modelled on the top outlier. A real person at frame 0 (stock b-roll), one persistent native caption (white bold Inter, black outline), the Studyboard calendar as the "proof" shot cut on a music hit, a punchline shot, and a loop. No logo or CTA in the video: the calendar UI and the caption or first comment carry the brand. These get sent and are how a new account reaches people who don't follow it. Example: `marketing/reels/2026-11-16-same-week/`.
 - **The fix** (conversion): hook → payoff demo → URL. Example: `marketing/reels/2026-11-15-crunch-week/`.
 
 ### 2. Hooks first
@@ -74,6 +74,15 @@ Two lessons from earlier builds:
 - **Never leave 2 s with nothing new on screen**, especially right after the payoff: cut to the end card instead.
 
 Keep text inside the safe area: **x 60–920, y 250–1480**. Instagram's and TikTok's buttons sit on the right, and their captions cover the bottom ~420 px. The `--guides` flag shades the unsafe zones on stills so you can check.
+
+### 4b. Footage, music and sound (every reel ships with audio)
+
+Silent reels lose: every outlier in the research had music-driven pacing, and many viewers watch with sound on. The kit:
+- **Real people** (relatable reels, and optionally the hook of a fix reel): `vidiq_find_broll` (1 credit; Pexels, portrait) for stressed or tired student clips. Download each clip into `marketing/reels/_broll/` and record it in `CREDITS.md`. Check frame strips to find the moment of action, then cut with `scripts/build_bg.py shots.json bg.mp4` (footage segments plus `{"color": …}` placeholders where `reel.html` draws its own opaque scene) and render with `--footage bg.mp4`.
+- **Music**: owned tracks in `marketing/reels/_audio/` (see its README for where the hits land). Generate new ones with `vidiq_generate_music` (25 credits) only when a new mood is needed. Measure where the hits fall before editing, then **cut on the hits**.
+- **Sound effects**: `scripts/make_sfx.sh` (thud, whoosh, pop, tick). Thud on things landing, whoosh on cuts, pop on UI taps.
+- **Mix**: `scripts/mix_audio.py --video silent.mp4 --music … --sfx thud.wav@3.1 … --out reel.mp4`. Use `--bed FILE@AT:OFFSET:DUR:VOL` twice to switch tracks at the payoff (tense hook music into a calm beat). It normalises to about -14 LUFS.
+- If the user adds a trending sound in the Instagram app instead, keep our SFX by setting the original-audio volume to about 30–50% rather than muting it.
 
 ### 5. Check stills before rendering
 
