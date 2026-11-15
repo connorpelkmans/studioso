@@ -1874,7 +1874,8 @@ li.task .pp-row-btn:last-child{margin-right:12px}
 .nu-row>.check{margin:0;align-self:flex-start;margin-top:1px}
 .nu-body{flex:1 1 260px;min-width:0;display:grid;gap:3px}
 .nu-title{border:0;background:none;padding:0;text-align:start;font:700 1.08rem var(--display);color:var(--ink);cursor:pointer}
-.nu-title:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+/* hovering underlines the task's name only, not the course code or Take-home beside it (or the spaces between) */
+.nu-title:hover .nu-tt{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
 .nu-why{font-size:.86rem;color:var(--muted)}
 .nu-step{font-size:.86rem;font-weight:600}
 .nu-acts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
@@ -8516,9 +8517,9 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 @keyframes sbPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
 .check.sb-pop{background:var(--c,var(--leaf));border-color:var(--c,var(--leaf));animation:sbPop .18s ease-out}
 .check.sb-pop svg{opacity:1}
-.sb-popped :is(.task-title,.nu-title,.card-title,.title){text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 45%,transparent);opacity:.55;transition:opacity .12s ease-out .14s}
+.sb-popped :is(.task-title,.nu-title .nu-tt,.card-title,.title){text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 45%,transparent);opacity:.55;transition:opacity .12s ease-out .14s}
 .acc-s{display:none}
-@media (prefers-reduced-motion:reduce){.check.sb-pop{animation:none}.sb-popped :is(.task-title,.nu-title,.card-title,.title){transition:none}}
+@media (prefers-reduced-motion:reduce){.check.sb-pop{animation:none}.sb-popped :is(.task-title,.nu-title .nu-tt,.card-title,.title){transition:none}}
 /* The toast looks the same at every size (a tick for something done, a boxed Undo); only where it sits changes */
 :root{--toast-bg:var(--spine);--toast-ink:#fff}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--toast-bg:color-mix(in srgb,var(--surface) 82%,#fff)}}

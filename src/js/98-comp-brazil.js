@@ -26,11 +26,11 @@
   // Closed, smiling or open (the lower bill drops); its gradients live in the face part
   const BEAK_U = "M44 52C44 43.6 76 43.6 76 52C76 61 73 68 67.6 73C64.6 75.8 62 77.4 60 79.6C58 77.4 55.4 75.8 52.4 73C47 68 44 61 44 52Z";
   const BEAK_L = "M47 59C45 71 52 82.6 60 84.6C68 82.6 75 71 73 59C71 68 66 74.6 60 76.6C54 74.6 49 68 47 59Z";
-  const beak = (open, smile) => `${open ? `<path d="M46.6 60C46.6 72 53 84 60 86.6C67 84 73.4 72 73.4 60Z" fill="#B8243A" ${OW(2.2)}/><ellipse cx="60" cy="81.6" rx="6.4" ry="3.4" fill="#FF8FA8"/>` : ""}
+  const beak = open => `${open ? `<path d="M46.6 60C46.6 72 53 84 60 86.6C67 84 73.4 72 73.4 60Z" fill="#B8243A" ${OW(2.2)}/><ellipse cx="60" cy="81.6" rx="6.4" ry="3.4" fill="#FF8FA8"/>` : ""}
     <path d="${BEAK_L}" fill="url(#brazil-tuca-bl)" ${O}${open ? ` transform="translate(0 6)"` : ""}/>
     <path d="${BEAK_U}" fill="url(#brazil-tuca-bk)" ${O}/>
     <path d="M48.6 52C49.4 48.8 53 47.4 57 47.2" fill="none" stroke="#FFF6C4" stroke-width="2.6" stroke-linecap="round"/>
-    ${smile ? `<path d="M41.4 56Q42.4 61.6 47.4 62.8M78.6 56Q77.6 61.6 72.6 62.8" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/>` : ""}`;
+`;
   const TUCA_HEAD = "M60 19C77 19 88 31 88 45C88 60 76 70 60 70C44 70 32 60 32 45C32 31 43 19 60 19Z";
   const TUCA_BODY = "M60 62C76 62 86 76 86 88C86 99 76 104 60 104C44 104 34 99 34 88C34 76 44 62 60 62Z";
   // Mico's body and long curling tail
@@ -67,7 +67,7 @@
           top: {svg: `<path d="M47 31Q43 24 36 24Q39 31 47 31Z" fill="#4CB05A" ${OW(1.8)}/>${hibiscus(43, 24, 7.2)}`, pivot: [48, 30]}
         },
         eyes: {lx: 47, rx: 73, y: 40, r: 4.2, style: "sparkle", color: "#1A1820"},
-        mouths: {neutral: beak(false, false), smile: beak(false, true), open: beak(true, false), sleepy: beak(false, false)},
+        mouths: {neutral: beak(false), smile: beak(false), open: beak(true), sleepy: beak(false)},
         mouth: {x: 60, y: 76, w: 3, color: "#7A2A10"},
         cheeks: {lx: 38, rx: 82, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
         anchors: {top: [60, 20, 0.95, 0], neck: [60, 72.5, 0.95, 0, 42, 67.5], bow: [60, 90, 0.7], chest: [70, 85.5, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},

@@ -110,7 +110,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 60, r: 7, style: "round"},
         mouths: {
           neutral: `<path d="M55.5 68.5Q60 66.5 64.5 68.5L60 75.5Z" fill="#F2A33A" ${OW(2)}/>`,
-          smile: `<path d="M55 68Q60 65.8 65 68L60 74.8Z" fill="#F7B24A" ${OW(2)}/><path d="M52.5 71.5q2 1.6 4 .4M67.5 71.5q-2 1.6 -4 .4" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/>`,
+          smile: `<path d="M55 68Q60 65.8 65 68L60 74.8Z" fill="#F7B24A" ${OW(2)}/>`,
           open: `<path d="M55.5 70.6L64.5 70.6L60 75.5Z" fill="#FF8FA8" ${OW(1.8)}/><path d="M55 67.5Q60 65.5 65 67.5L60 71Z" fill="#F2A33A" ${OW(2)}/><path d="M56.5 73L63.5 73L60 78Z" fill="#F2A33A" ${OW(2)}/>`,
           sleepy: `<path d="M56 68.8Q60 67.2 64 68.8L60 74.5Z" fill="#E09A3C" ${OW(2)}/>`
         },
@@ -223,7 +223,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 55, r: 4.5, style: "dot"},
         mouths: {
           neutral: `<path d="M56.2 59.6Q60 58.4 63.8 59.6L60 64.2Z" fill="#3A3F55" ${OW(1.6)}/>`,
-          smile: `<path d="M55.8 59.4Q60 58 64.2 59.4L60 64.4Z" fill="#3A3F55" ${OW(1.6)}/><path d="M53.5 62.5q1.6 1.2 3.2 .3M66.5 62.5q-1.6 1.2 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M55.8 59.4Q60 58 64.2 59.4L60 64.4Z" fill="#3A3F55" ${OW(1.6)}/>`,
           open: `<path d="M56.6 61.2L63.4 61.2L60 65.2Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56 58.8Q60 57.6 64 58.8L60 61.6Z" fill="#3A3F55" ${OW(1.6)}/><path d="M57.2 63.2L62.8 63.2L60 67Z" fill="#3A3F55" ${OW(1.6)}/>`,
           sleepy: `<path d="M56.6 60Q60 59 63.4 60L60 63.8Z" fill="#3A3F55" ${OW(1.6)}/>`
         },

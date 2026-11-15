@@ -6568,7 +6568,7 @@ function nextUpHtml(F, pre){
     <div class="nu-top"><span class="nu-label">Do This Next</span>${n.xs && n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested study time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}"><span class="nu-tt">Study for ${esc(t.title)}</span>${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.x.dl === 1 || n.x.lightEve ? "The day before: light review only. Skim your summary or a few flashcards, then stop early and sleep." : n.hasPlan ? "Test yourself on your weakest topics: flashcards or practice questions, not rereading." : "Test yourself (flashcards or practice questions), or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
@@ -6580,7 +6580,7 @@ function nextUpHtml(F, pre){
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
-        <button class="nu-title" ${gtOpenAttrs(t)}>${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag nu-rx-in" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : ""}</button>${nuMeta(c, MILESTONE(t.type) ? `<span class="tag rx-tag nu-rx-out" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : "")}
+        <button class="nu-title" ${gtOpenAttrs(t)}><span class="nu-tt">${esc(t.title)}</span>${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag nu-rx-in" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : ""}</button>${nuMeta(c, MILESTONE(t.type) ? `<span class="tag rx-tag nu-rx-out" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : "")}
         <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
@@ -6600,7 +6600,7 @@ function nextUpSpare(F, inView){
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}"><span class="nu-tt">Study for ${esc(t.title)}</span>${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
         <span class="nu-step">Plan My Prep spreads short review sessions over the days before it, and they show up here.</span>
       </div>
@@ -6618,7 +6618,7 @@ function nextUpSpare(F, inView){
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}"><span class="nu-tt">${esc(t.title)}</span>${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
@@ -31032,7 +31032,7 @@ document.head.appendChild(AREA_CSS);
 /* ===== module: 49-feedback.js ===== */
 /* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.6";
+  const APP_VERSION = "1.15.7";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
   const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
@@ -31218,7 +31218,7 @@ document.head.appendChild(AREA_CSS);
 
 /* ===== module: 49-errreport.js ===== */
 /* Anonymous crash and error reports */
-const APP_VERSION = "1.15.6";
+const APP_VERSION = "1.15.7";
 const BUILD_ID = "dev";
 const ERROR_REPORTING = {
   dsn: "",
@@ -33328,6 +33328,10 @@ const CAP = (() => {
   const MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   const MONRE = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
   const NUMW = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10};
+  // "first" to "thirty-first"
+  const ORDW = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth"];
+  const ORDRE = "(?:twenty|thirty)[-\\s]?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)|thirtieth|" + ORDW.slice().reverse().join("|");
+  const ORDN = w => { w = w.toLowerCase().replace(/[-\s]+/, " "); const m = /^(twenty|thirty)\s?(\w+)$/.exec(w); if (m && m[2] !== "") { const k = ORDW.indexOf(m[2]); if (k >= 0 && k < 9) return (m[1] === "twenty" ? 20 : 30) + k + 1; } if (w === "thirtieth") return 30; return ORDW.indexOf(w) + 1; };
   // Plain text only
   const clean = (s, max, keepLines) => {
     let t = String(s == null ? "" : s).replace(/<[^>]*>/g, " ").replace(/[<>]/g, "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F​-‏‪-‮⁦-⁩]/g, "");
@@ -33377,8 +33381,14 @@ const CAP = (() => {
     let s = " " + text + " ";
     const take = (re, fn) => { const m = s.match(re); if (m) { const r = fn(m); if (r !== false) { s = s.replace(m[0], " "); return true; } } return false; };
     take(/\b(?:worth\s*)?(\d{1,3}(?:\.\d+)?)\s*%(?:\s*of\s*(?:the\s*|my\s*)?(?:final\s*)?grade)?/i, m => { out.weight = Number(m[1]); });
-    take(/\b(?:takes?\s*|about\s*|~\s*)?(\d{1,2}(?:\.\d+)?)\s*(?:h|hr|hrs|hours?)\b/i, m => { out.hours = Number(m[1]); }) ||
-      take(/\b(?:takes?\s*|about\s*)?(\d{2,3})\s*(?:m|min|mins|minutes)\b/i, m => { out.hours = Math.round(Number(m[1]) / 60 * 4) / 4; });
+    // durations: "4 hrs", "4 hrs long", "for 2 hours", "a 3-hour", "takes about 1.5 hours of work", "an hour", "half an hour", "90 min"
+    const LONG = "(?:\\s*(?:long|of\\s+(?:work|studying|reading)|total|to\\s+do|to\\s+finish))?";
+    take(new RegExp(`\\b(?:it\\s+)?(?:takes?\\s*|about\\s*|around\\s*|roughly\\s*|for\\s*|~\\s*)*(?:a\\s+)?(\\d{1,2}(?:\\.\\d+)?)\\s*-?\\s*(?:h|hr|hrs|hours?)\\b${LONG}`, "i"), m => { out.hours = Number(m[1]); }) ||
+      take(new RegExp(`\\b(?:takes?\\s*|about\\s*|around\\s*|for\\s*)*(half\\s+an?|an?|one|two|three|four|five|six)\\s*-?\\s*(?:and\\s+a\\s+half\\s+)?hours?\\b${LONG}`, "i"), m => {
+        const w = m[1].toLowerCase().replace(/\s+/g, " "), n = w.startsWith("half") ? 0.5 : (NUMW[w] || 0); if (!n) return false;
+        out.hours = n + (/and\s+a\s+half/i.test(m[0]) ? 0.5 : 0);
+      }) ||
+      take(new RegExp(`\\b(?:takes?\\s*|about\\s*|around\\s*|for\\s*)*(\\d{2,3})\\s*-?\\s*(?:m|min|mins|minutes)\\b${LONG}`, "i"), m => { out.hours = Math.round(Number(m[1]) / 60 * 4) / 4; });
     take(/\b(urgent|asap)\b/i, () => { out.priority = "urgent"; }) || take(/\b(important|high priority)\b/i, () => { out.priority = "high"; });
     take(/\b(?:at\s*|@\s*|by\s*)?(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/i, m => {
       let h = Number(m[1]); if (h < 1 || h > 12) { out.flags.push("time"); return false; }
@@ -33400,9 +33410,25 @@ const CAP = (() => {
         out.time = pad2(h) + ":00";
       });
     if (!out.time && /\b(?:at|@)\s*\d{1,2}\b(?!\s*[\/:%.-]\d)/i.test(s)) out.flags.push("time");
+    // ("the first chapter" stays words: after "the", only when the phrase ends there or goes on with "of <month>", "at", "by")
+    s = s.replace(new RegExp(`\\b((?:${MONRE})\\.?\\s+(?:the\\s+)?)(${ORDRE})\\b`, "gi"), (all, pre, w) => pre + ORDN(w) + "th")
+      .replace(new RegExp(`\\b(the\\s+)(${ORDRE})\\b(?=\\s*(?:$|[,.;!?]|of\\s+(?:${MONRE})\\b|at\\b|@|by\\b))`, "gi"), (all, pre, w) => pre + ORDN(w) + "th");
+    // a weekday said with the date ("friday oct 30", "fri, 10/30", "friday the 30th"): the date decides, the weekday picks its year
+    const WDPRE = `(?:(${WDRE})\\.?,?\\s+(?:the\\s+)?)?`;
+    const wdOf = w => w ? WD.findIndex(a => a.includes(w.toLowerCase())) : -1;
+    const withDay = (mo, day, year, w) => {
+      const k = wdOf(w);
+      if (k >= 0 && !year) { const y0 = parts(today)[0]; for (const y of [y0, y0 + 1, y0 - 1]) { const d = isoOf(y, mo + 1, day); if (validISO(d) && dow(d) === k && diff(today, d) >= -45 && diff(today, d) <= 400) return d; } }
+      const d = monthDay(mo, day, today, year); if (d && k >= 0 && dow(d) !== k) out.flags.push("date");
+      return d;
+    };
     const wd = new RegExp(`\\b(?:(next|this|coming)\\s+)?(${WDRE})\\b\\.?`, "i");
     take(/\b(20\d\d)-(\d{1,2})-(\d{1,2})\b/, m => { const d = isoOf(+m[1], +m[2], +m[3]); if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d; }) ||
+    take(/\b(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|wks?)\s+from\s+(?:now|today)\b/i, m => {
+      const n = NUMW[m[1].toLowerCase()] || Number(m[1]); if (!n) return false; out.due = addDays(today, /^w/i.test(m[2]) ? n * 7 : n);
+    }) ||
     take(/\b(today|tonight)\b/i, m => { out.due = today; if (/tonight/i.test(m[1]) && !out.time) out.time = "23:59"; }) ||
+    take(/\b(?:the\s+)?day\s+after\s+(?:tomorrow|tmrw|tmr)\b/i, () => { out.due = addDays(today, 2); }) ||
     take(/\b(tomorrow|tmrw|tmr|tmw)\b/i, () => { out.due = addDays(today, 1); }) ||
     take(/\bin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|wks?)\b/i, m => {
       const n = NUMW[m[1].toLowerCase()] || Number(m[1]); if (!n) return false; out.due = addDays(today, /^w/i.test(m[2]) ? n * 7 : n);
@@ -33418,24 +33444,27 @@ const CAP = (() => {
       const mon = addDays(opts.termStart, -((dow(opts.termStart) + 6) % 7));
       out.due = addDays(mon, (n - 1) * 7 + 4); out.term = "week";
     }) ||
-    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
-    // An optional year may follow: "dec 5 2027", "January 10, 2027", "5 dec 2027"
-    take(new RegExp(`\\b(${MONRE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[1].slice(0, 3).toLowerCase()), Number(m[2]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    // An optional year may follow: "dec 5 2027", "January 10, 2027", "5 dec 2027"; an optional weekday may lead: "friday oct 30"
+    take(new RegExp(`\\b${WDPRE}(${MONRE})\\.?\\s+(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = withDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[3]), Number(m[4]) || 0, m[1]); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[1]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    take(new RegExp(`\\b${WDPRE}(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = withDay(MON.indexOf(m[3].slice(0, 3).toLowerCase()), Number(m[2]), Number(m[4]) || 0, m[1]); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    // "due the 15th": the next 15th, this month or next
-    take(/\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i, m => {
-      const n = Number(m[1]); let [y, mo] = parts(today), d = isoOf(y, mo, n);
-      if (!validISO(d) || d < today) { mo = mo % 12 + 1; if (mo === 1) y++; d = isoOf(y, mo, n); }
-      if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d;
+    // "10/30", "10/30/26", "fri 10/30"; "30/10" when the first number can't be a month
+    take(new RegExp(`\\b${WDPRE}(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?\\b`), m => {
+      const y = m[4] ? (m[4].length === 2 ? 2000 + Number(m[4]) : Number(m[4])) : 0;
+      let a = Number(m[2]), b = Number(m[3]); if (a > 12 && b <= 12) [a, b] = [b, a];
+      const d = withDay(a - 1, b, y, m[1]); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/, m => {
-      const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : 0;
-      const d = monthDay(Number(m[1]) - 1, Number(m[2]), today, y); if (!d) { out.flags.push("date"); return false; } out.due = d;
-    });
+    // "due the 15th", "friday the 30th": the next 15th, this month or next (with a weekday, the next one that falls on it)
+    take(new RegExp(`\\b(?:on\\s+)?(?:(${WDRE})\\.?,?\\s+)?the\\s+(\\d{1,2})(?:st|nd|rd|th)\\b`, "i"), m => {
+      const n = Number(m[2]), k = wdOf(m[1]); let [y, mo] = parts(today), d = "";
+      for (let i = 0; i < 14 && !d; i++) { const c = isoOf(y, mo, n); if (validISO(c) && c >= today && (k < 0 || dow(c) === k)) d = c; mo = mo % 12 + 1; if (mo === 1) y++; }
+      if (!d && k >= 0) { [y, mo] = parts(today); const c = isoOf(y, mo, n); d = validISO(c) && c >= today ? c : ""; if (!d) { mo = mo % 12 + 1; if (mo === 1) y++; const c2 = isoOf(y, mo, n); d = validISO(c2) ? c2 : ""; } if (d) out.flags.push("date"); }
+      if (!d) { out.flags.push("date"); return false; } out.due = d;
+    }) ||
+    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); });
     if (out.due && diff(today, out.due) > 800) { out.due = ""; out.flags.push("date"); }
     if (out.due && out.due < today) out.flags.push("past");
     out.rest = s.replace(/\s+/g, " ").trim();
@@ -53891,7 +53920,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 60, r: 7, style: "round"},
         mouths: {
           neutral: `<path d="M55.5 68.5Q60 66.5 64.5 68.5L60 75.5Z" fill="#F2A33A" ${OW(2)}/>`,
-          smile: `<path d="M55 68Q60 65.8 65 68L60 74.8Z" fill="#F7B24A" ${OW(2)}/><path d="M52.5 71.5q2 1.6 4 .4M67.5 71.5q-2 1.6 -4 .4" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/>`,
+          smile: `<path d="M55 68Q60 65.8 65 68L60 74.8Z" fill="#F7B24A" ${OW(2)}/>`,
           open: `<path d="M55.5 70.6L64.5 70.6L60 75.5Z" fill="#FF8FA8" ${OW(1.8)}/><path d="M55 67.5Q60 65.5 65 67.5L60 71Z" fill="#F2A33A" ${OW(2)}/><path d="M56.5 73L63.5 73L60 78Z" fill="#F2A33A" ${OW(2)}/>`,
           sleepy: `<path d="M56 68.8Q60 67.2 64 68.8L60 74.5Z" fill="#E09A3C" ${OW(2)}/>`
         },
@@ -54004,7 +54033,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 55, r: 4.5, style: "dot"},
         mouths: {
           neutral: `<path d="M56.2 59.6Q60 58.4 63.8 59.6L60 64.2Z" fill="#3A3F55" ${OW(1.6)}/>`,
-          smile: `<path d="M55.8 59.4Q60 58 64.2 59.4L60 64.4Z" fill="#3A3F55" ${OW(1.6)}/><path d="M53.5 62.5q1.6 1.2 3.2 .3M66.5 62.5q-1.6 1.2 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M55.8 59.4Q60 58 64.2 59.4L60 64.4Z" fill="#3A3F55" ${OW(1.6)}/>`,
           open: `<path d="M56.6 61.2L63.4 61.2L60 65.2Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56 58.8Q60 57.6 64 58.8L60 61.6Z" fill="#3A3F55" ${OW(1.6)}/><path d="M57.2 63.2L62.8 63.2L60 67Z" fill="#3A3F55" ${OW(1.6)}/>`,
           sleepy: `<path d="M56.6 60Q60 59 63.4 60L60 63.8Z" fill="#3A3F55" ${OW(1.6)}/>`
         },
@@ -55213,7 +55242,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49, rx: 71, y: 56.5, r: 5, style: "dot", color: "#23302A"},
         mouths: {
           neutral: `<path d="M57.4 64.4Q60 63.4 62.6 64.4L60.5 76.4Q60 77.4 59.5 76.4Z" fill="#4A3C34" ${OW(1.6)}/>`,
-          smile: `<path d="M57.2 64.2Q60 63.2 62.8 64.2L60.5 76.4Q60 77.4 59.5 76.4Z" fill="#4A3C34" ${OW(1.6)}/><path d="M53.4 65.8q1.6 1.4 3.2 .3M66.6 65.8q-1.6 1.4 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"/>`,
+          smile: `<path d="M57.2 64.2Q60 63.2 62.8 64.2L60.5 76.4Q60 77.4 59.5 76.4Z" fill="#4A3C34" ${OW(1.6)}/>`,
           open: `<path d="M57.6 66.8L62.4 66.8L60 70.4Z" fill="#FF6F96" ${OW(1.3)}/><path d="M57.4 63.8Q60 62.8 62.6 63.8L60 67.4Z" fill="#4A3C34" ${OW(1.6)}/><path d="M58 69.4L62 69.4L60.5 77.2Q60 78.2 59.5 77.2Z" fill="#4A3C34" ${OW(1.6)}/>`,
           sleepy: `<path d="M57.6 64.6Q60 63.8 62.4 64.6L60.5 75.6Q60 76.6 59.5 75.6Z" fill="#4A3C34" ${OW(1.6)}/>`
         },
@@ -55456,7 +55485,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 60, r: 4.6, style: "dot", color: "#3A1A2A"},
         mouths: {
           neutral: `<path d="M55.5 66.5Q60 64.8 64.5 66.5L60 71.5Z" fill="#FFB45A" ${OW(2)}/>`,
-          smile: `<path d="M55 66.3Q60 64.4 65 66.3L60 71.6Z" fill="#FFC36B" ${OW(2)}/><path d="M52.6 69q1.8 1.4 3.6 .3M67.4 69q-1.8 1.4 -3.6 .3" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"/>`,
+          smile: `<path d="M55 66.3Q60 64.4 65 66.3L60 71.6Z" fill="#FFC36B" ${OW(2)}/>`,
           open: `<path d="M55.6 68.4L64.4 68.4L60 72.6Z" fill="#FF8FA8" ${OW(1.6)}/><path d="M55 65.4Q60 63.6 65 65.4L60 68.6Z" fill="#FFB45A" ${OW(2)}/><path d="M56.4 70.6L63.6 70.6L60 75Z" fill="#FFB45A" ${OW(2)}/>`,
           sleepy: `<path d="M56 66.8Q60 65.4 64 66.8L60 71Z" fill="#F2A24A" ${OW(2)}/>`
         },
@@ -56142,7 +56171,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 70, r: 4.6, style: "dot", color: "#231D4A"},
         mouths: {
           neutral: `<path d="M56 76.5Q60 75 64 76.5L60 81Z" fill="#F7B04A" ${OW(1.8)}/>`,
-          smile: `<path d="M55.6 76.2Q60 74.6 64.4 76.2L60 81.2Z" fill="#FFBF55" ${OW(1.8)}/><path d="M53 79.4q1.6 1.2 3.2 .3M67 79.4q-1.6 1.2 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M55.6 76.2Q60 74.6 64.4 76.2L60 81.2Z" fill="#FFBF55" ${OW(1.8)}/>`,
           open: `<path d="M56.4 78.4L63.6 78.4L60 82.4Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56 75.6Q60 74.2 64 75.6L60 78.6Z" fill="#F7B04A" ${OW(1.6)}/><path d="M57 80.4L63 80.4L60 84.2Z" fill="#F7B04A" ${OW(1.6)}/>`,
           sleepy: `<path d="M56.6 77Q60 76 63.4 77L60 80.8Z" fill="#E09A3C" ${OW(1.8)}/>`
         },
@@ -57310,7 +57339,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 69, r: 4.6, style: "dot", color: "#3A1020"},
         mouths: {
           neutral: `<path d="M56.5 75.5Q60 74 63.5 75.5L60 80.5Z" fill="#FFB35A" ${OW(1.8)}/>`,
-          smile: `<path d="M56.2 75.3Q60 73.8 63.8 75.3L60 80.8Z" fill="#FFC06E" ${OW(1.8)}/><path d="M53.5 78q1.8 1.4 3.6 .3M66.5 78q-1.8 1.4 -3.6 .3" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"/>`,
+          smile: `<path d="M56.2 75.3Q60 73.8 63.8 75.3L60 80.8Z" fill="#FFC06E" ${OW(1.8)}/>`,
           open: `<path d="M56.8 77.4H63.2L60 81.4Z" fill="#FF8FA8" ${OW(1.5)}/><path d="M56.2 74.6Q60 73.2 63.8 74.6L60 77.6Z" fill="#FFB35A" ${OW(1.8)}/><path d="M57.2 79.2H62.8L60 83.4Z" fill="#FFB35A" ${OW(1.8)}/>`,
           sleepy: `<path d="M57 75.8Q60 74.6 63 75.8L60 79.8Z" fill="#F2A248" ${OW(1.8)}/>`
         },
@@ -57489,7 +57518,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 49.5, rx: 70.5, y: 56, r: 4.8, style: "dot"},
         mouths: {
           neutral: `<path d="M56.4 63Q60 61.6 63.6 63L60 67.4Z" fill="#F7A23A" ${OW(1.8)}/>`,
-          smile: `<path d="M56 62.8Q60 61.2 64 62.8L60 67.6Z" fill="#F9AE45" ${OW(1.8)}/><path d="M53.5 65.8q1.6 1.2 3.2 .3M66.5 65.8q-1.6 1.2 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M56 62.8Q60 61.2 64 62.8L60 67.6Z" fill="#F9AE45" ${OW(1.8)}/>`,
           open: `<path d="M56.8 64.6L63.2 64.6L60 68.6Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56.2 62.2Q60 61 63.8 62.2L60 65Z" fill="#F7A23A" ${OW(1.6)}/><path d="M57.2 66.6L62.8 66.6L60 70.4Z" fill="#F7A23A" ${OW(1.6)}/>`,
           sleepy: `<path d="M56.8 63.4Q60 62.4 63.2 63.4L60 67Z" fill="#E8962E" ${OW(1.8)}/>`
         },
@@ -57629,7 +57658,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 51, r: 4.6, style: "dot", color: "#2B1E18"},
         mouths: {
           neutral: `<path d="M55.6 57.6Q60 55.8 64.4 57.6Q64.6 61.6 60 64.6Q55.4 61.6 55.6 57.6Z" fill="#F5B942" ${OW(1.8)}/><path d="M58.4 62.2Q60 63.4 61.6 62.2" fill="none" stroke="#D08A1E" stroke-width="1.5" stroke-linecap="round"/>`,
-          smile: `<path d="M55.4 57.4Q60 55.6 64.6 57.4Q64.8 61.6 60 64.8Q55.2 61.6 55.4 57.4Z" fill="#F7C04E" ${OW(1.8)}/><path d="M52.6 60.6q1.6 1.3 3.2 .3M67.4 60.6q-1.6 1.3 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M55.4 57.4Q60 55.6 64.6 57.4Q64.8 61.6 60 64.8Q55.2 61.6 55.4 57.4Z" fill="#F7C04E" ${OW(1.8)}/><path d="M58.2 62.3Q60 63.7 61.8 62.3" fill="none" stroke="#D08A1E" stroke-width="1.5" stroke-linecap="round"/>`,
           open: `<path d="M56.6 60.8L63.4 60.8L60 64.8Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M55.6 57Q60 55.2 64.4 57Q63.8 60.2 60 61.6Q56.2 60.2 55.6 57Z" fill="#F5B942" ${OW(1.8)}/><path d="M57 63.2Q60 62.4 63 63.2L60 67Z" fill="#F5B942" ${OW(1.6)}/>`,
           sleepy: `<path d="M56 58Q60 56.4 64 58Q64 61.4 60 64Q56 61.4 56 58Z" fill="#E8A83A" ${OW(1.8)}/>`
         },
@@ -57809,10 +57838,10 @@ var COMP_KIT = (() => {
         },
         eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "dot", color: "#2B1A10"},
         mouths: {
-          neutral: `<path d="M59 73C55.5 73.5 54.5 78.5 55.5 82C57.5 83.5 59 80.5 58.6 77Z" fill="#E0463C" ${OW(1.6)}/><path d="M56.4 74Q60 72.6 63.6 74L60 78.6Z" fill="#F5B942" ${OW(1.8)}/>`,
-          smile: `<path d="M59 73C55.5 73.5 54.5 78.5 55.5 82C57.5 83.5 59 80.5 58.6 77Z" fill="#E0463C" ${OW(1.6)}/><path d="M56 73.8Q60 72.2 64 73.8L60 78.8Z" fill="#F7C04E" ${OW(1.8)}/><path d="M66.5 76.8q-1.6 1.2 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
-          open: `<path d="M59 73C55.5 73.5 54.5 78.5 55.5 82C57.5 83.5 59 80.5 58.6 77Z" fill="#E0463C" ${OW(1.6)}/><path d="M56.8 75.6L63.2 75.6L60 79.6Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56.2 73.2Q60 72 63.8 73.2L60 76Z" fill="#F5B942" ${OW(1.6)}/><path d="M57.2 77.6L62.8 77.6L60 81.4Z" fill="#F5B942" ${OW(1.6)}/>`,
-          sleepy: `<path d="M59 73C55.5 73.5 54.5 78.5 55.5 82C57.5 83.5 59 80.5 58.6 77Z" fill="#D63F36" ${OW(1.6)}/><path d="M56.8 74.4Q60 73.4 63.2 74.4L60 78.2Z" fill="#E8A83A" ${OW(1.8)}/>`
+          neutral: `<path d="M57.1 76.6C55.7 79.4 55.4 82.8 57 85C58.8 86.6 60.7 84.6 60.3 81.8C60.1 79.8 59.8 78.2 59.9 76.6Z" fill="#E0463C" ${OW(1.6)}/><path d="M56.4 74Q60 72.6 63.6 74L60 78.6Z" fill="#F5B942" ${OW(1.8)}/>`,
+          smile: `<path d="M57.1 76.8C55.7 79.6 55.4 83 57 85.2C58.8 86.8 60.7 84.8 60.3 82C60.1 80 59.8 78.4 59.9 76.8Z" fill="#E0463C" ${OW(1.6)}/><path d="M56 73.8Q60 72.2 64 73.8L60 78.8Z" fill="#F7C04E" ${OW(1.8)}/>`,
+          open: `<path d="M57.1 79.4C55.7 82.2 55.4 85.6 57 87.8C58.8 89.4 60.7 87.4 60.3 84.6C60.1 82.6 59.8 81 59.9 79.4Z" fill="#E0463C" ${OW(1.6)}/><path d="M56.8 75.6L63.2 75.6L60 79.6Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56.2 73.2Q60 72 63.8 73.2L60 76Z" fill="#F5B942" ${OW(1.6)}/><path d="M57.2 77.6L62.8 77.6L60 81.4Z" fill="#F5B942" ${OW(1.6)}/>`,
+          sleepy: `<path d="M57.1 76.2C55.7 79 55.4 82.4 57 84.6C58.8 86.2 60.7 84.2 60.3 81.4C60.1 79.4 59.8 77.8 59.9 76.2Z" fill="#D63F36" ${OW(1.6)}/><path d="M56.8 74.4Q60 73.4 63.2 74.4L60 78.2Z" fill="#E8A83A" ${OW(1.8)}/>`
         },
         mouth: {x: 60, y: 76, w: 3},
         cheeks: {lx: 42, rx: 78, y: 77, w: 4.4, h: 2.7, color: "#FF8F8F"},
@@ -58074,7 +58103,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 59, r: 4.8, style: "dot", color: "#1E2A44"},
         mouths: {
           neutral: `<path d="M56.2 65.2Q60 64 63.8 65.2L60 70Z" fill="#F4B33E" ${OW(1.8)}/>`,
-          smile: `<path d="M55.8 65Q60 63.6 64.2 65L60 70.2Z" fill="#F7BE50" ${OW(1.8)}/><path d="M53.2 68.2q1.6 1.3 3.3 .3M66.8 68.2q-1.6 1.3 -3.3 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M55.8 65Q60 63.6 64.2 65L60 70.2Z" fill="#F7BE50" ${OW(1.8)}/>`,
           open: `<path d="M56.6 66.8L63.4 66.8L60 70.8Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56 64.4Q60 63.2 64 64.4L60 67.2Z" fill="#F4B33E" ${OW(1.8)}/><path d="M57.2 68.8L62.8 68.8L60 72.6Z" fill="#F4B33E" ${OW(1.8)}/>`,
           sleepy: `<path d="M56.6 65.6Q60 64.6 63.4 65.6L60 69.6Z" fill="#E0A23A" ${OW(1.8)}/>`
         },
@@ -59114,7 +59143,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50.5, rx: 69.5, y: 48.5, r: 4.5, style: "dot", color: "#3A2233"},
         mouths: {
           neutral: `<path d="M56.6 56.8Q60 55.8 63.4 56.8L60 61.2Z" fill="#6E6680" ${OW(1.6)}/>`,
-          smile: `<path d="M56.4 56.6Q60 55.4 63.6 56.6L60 61.4Z" fill="#6E6680" ${OW(1.6)}/><path d="M53.8 59.6q1.6 1.2 3.2 .3M66.2 59.6q-1.6 1.2 -3.2 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M56.4 56.6Q60 55.4 63.6 56.6L60 61.4Z" fill="#6E6680" ${OW(1.6)}/>`,
           open: `<path d="M56.8 58.4L63.2 58.4L60 62.2Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56.4 56.4Q60 55.4 63.6 56.4L60 58.8Z" fill="#6E6680" ${OW(1.6)}/><path d="M57.4 60.4L62.6 60.4L60 64Z" fill="#6E6680" ${OW(1.6)}/>`,
           sleepy: `<path d="M57 57Q60 56.2 63 57L60 60.6Z" fill="#6E6680" ${OW(1.6)}/>`
         },
@@ -60507,7 +60536,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48.5, rx: 71.5, y: 56, r: 6.6, style: "round", color: "#2B2233"},
         mouths: {
           neutral: `<path d="M55.2 65Q60 63 64.8 65L60 72.5Z" fill="#F4B860" ${OW(2)}/>`,
-          smile: `<path d="M54.8 64.6Q60 62.4 65.2 64.6L60 72Z" fill="#F7C673" ${OW(2)}/><path d="M52.2 68q2 1.6 4 .4M67.8 68q-2 1.6 -4 .4" fill="none" stroke="#FFE3B0" stroke-width="1.6" stroke-linecap="round"/>`,
+          smile: `<path d="M54.8 64.6Q60 62.4 65.2 64.6L60 72Z" fill="#F7C673" ${OW(2)}/>`,
           open: `<path d="M55.4 67.4L64.6 67.4L60 72.6Z" fill="#FF8FA8" ${OW(1.8)}/><path d="M54.8 64Q60 62 65.2 64L60 67.8Z" fill="#F4B860" ${OW(2)}/><path d="M56.4 70L63.6 70L60 75.2Z" fill="#F4B860" ${OW(2)}/>`,
           sleepy: `<path d="M55.8 65.4Q60 63.8 64.2 65.4L60 71.4Z" fill="#E0A04E" ${OW(2)}/>`
         },
@@ -61759,7 +61788,7 @@ var COMP_KIT = (() => {
         },
         eyes: {lx: 49, rx: 71, y: 42, r: 4.6, style: "round", color: "#1A1820"},
         mouth: {x: 60, y: 66, w: 3},
-        mouths: {neutral: tbeak(false), smile: tbeak(false) + `<path d="M41.4 58.4q1.6 2.8 4.6 2.2M78.6 58.4q-1.6 2.8 -4.6 2.2" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, open: tbeak(true), sleepy: tbeak(false)},
+        mouths: {neutral: tbeak(false), smile: tbeak(false), open: tbeak(true), sleepy: tbeak(false)},
         cheeks: {lx: 40, rx: 80, y: 51, w: 3.6, h: 2.2, color: "#FF8FA8"},
         anchors: {top: [60, 23.5, 0.95, 0], neck: [60, 71, 0.95, 0, 40, 51], bow: [60, 81.5, 0.7], chest: [60, 77, 0.58], back: [84, 84, 0.8], hands: [60, 96, 0.85]},
         lines: {
@@ -61891,7 +61920,7 @@ var COMP_KIT = (() => {
         },
         eyes: {lx: 51, rx: 69, y: 50, r: 3.6, style: "dot", color: "#1A1820"},
         mouth: {x: 60, y: 62, w: 3},
-        mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false) + `<path d="M50 59q1.6 1.8 3.4 1M70 59q-1.6 1.8 -3.4 1" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`, open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
+        mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false), open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
         cheeks: {lx: 47, rx: 73, y: 59, w: 3.4, h: 2.2, color: "#FF8FA8"},
         anchors: {top: [60, 26.5, 0.9, 0], neck: [60, 76.5, 1, 0, 44, 55], chest: [70, 80.5, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
         lines: {
@@ -65759,11 +65788,11 @@ var COMP_KIT = (() => {
   // Closed, smiling or open (the lower bill drops); its gradients live in the face part
   const BEAK_U = "M44 52C44 43.6 76 43.6 76 52C76 61 73 68 67.6 73C64.6 75.8 62 77.4 60 79.6C58 77.4 55.4 75.8 52.4 73C47 68 44 61 44 52Z";
   const BEAK_L = "M47 59C45 71 52 82.6 60 84.6C68 82.6 75 71 73 59C71 68 66 74.6 60 76.6C54 74.6 49 68 47 59Z";
-  const beak = (open, smile) => `${open ? `<path d="M46.6 60C46.6 72 53 84 60 86.6C67 84 73.4 72 73.4 60Z" fill="#B8243A" ${OW(2.2)}/><ellipse cx="60" cy="81.6" rx="6.4" ry="3.4" fill="#FF8FA8"/>` : ""}
+  const beak = open => `${open ? `<path d="M46.6 60C46.6 72 53 84 60 86.6C67 84 73.4 72 73.4 60Z" fill="#B8243A" ${OW(2.2)}/><ellipse cx="60" cy="81.6" rx="6.4" ry="3.4" fill="#FF8FA8"/>` : ""}
     <path d="${BEAK_L}" fill="url(#brazil-tuca-bl)" ${O}${open ? ` transform="translate(0 6)"` : ""}/>
     <path d="${BEAK_U}" fill="url(#brazil-tuca-bk)" ${O}/>
     <path d="M48.6 52C49.4 48.8 53 47.4 57 47.2" fill="none" stroke="#FFF6C4" stroke-width="2.6" stroke-linecap="round"/>
-    ${smile ? `<path d="M41.4 56Q42.4 61.6 47.4 62.8M78.6 56Q77.6 61.6 72.6 62.8" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/>` : ""}`;
+`;
   const TUCA_HEAD = "M60 19C77 19 88 31 88 45C88 60 76 70 60 70C44 70 32 60 32 45C32 31 43 19 60 19Z";
   const TUCA_BODY = "M60 62C76 62 86 76 86 88C86 99 76 104 60 104C44 104 34 99 34 88C34 76 44 62 60 62Z";
   // Mico's body and long curling tail
@@ -65800,7 +65829,7 @@ var COMP_KIT = (() => {
           top: {svg: `<path d="M47 31Q43 24 36 24Q39 31 47 31Z" fill="#4CB05A" ${OW(1.8)}/>${hibiscus(43, 24, 7.2)}`, pivot: [48, 30]}
         },
         eyes: {lx: 47, rx: 73, y: 40, r: 4.2, style: "sparkle", color: "#1A1820"},
-        mouths: {neutral: beak(false, false), smile: beak(false, true), open: beak(true, false), sleepy: beak(false, false)},
+        mouths: {neutral: beak(false), smile: beak(false), open: beak(true), sleepy: beak(false)},
         mouth: {x: 60, y: 76, w: 3, color: "#7A2A10"},
         cheeks: {lx: 38, rx: 82, y: 54, w: 4, h: 2.4, color: "#FF8A9A"},
         anchors: {top: [60, 20, 0.95, 0], neck: [60, 72.5, 0.95, 0, 42, 67.5], bow: [60, 90, 0.7], chest: [70, 85.5, 0.55], back: [84, 80, 0.8], hands: [60, 96, 0.86]},
@@ -66350,7 +66379,8 @@ var COMP_EXTRA = [];
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-  const CALM = 1.35;
+  // (moves were made 35% slower on Nov 12 and felt sluggish: now halfway between that and their earlier speed, the calmer style kept)
+  const CALM = 1.17;
   /* ---------- An actor: animations on one rendered rig ---------- */
   function actor(c, root, opts){
     opts = opts || {};
@@ -66358,7 +66388,7 @@ var COMP_EXTRA = [];
     const q = s => svg.querySelector(s);
     const part = n => q(".cp-" + n);
     const running = new Set();
-    // Every move plays a little slower than written, so the companion feels calm rather than hurried
+    // Every move plays at CALM times its written length (1: as written)
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
       ms = Math.round(ms * CALM);
@@ -66563,14 +66593,21 @@ var COMP_EXTRA = [];
   let gT = 0;
   const guardSoon = (why, ms) => { if (gT) return; gT = setTimeout(() => { gT = 0; try { clamp(why); } catch (e) { console.warn("companion guard", e); } fitHitSoon(); }, ms == null ? 60 : ms); };
   // While any of its animations runs, look at it every frame
-  let mwEnd = 0, mwRaf = 0;
+  let mwEnd = 0, mwRaf = 0, mwLast = 0;
   function motionWatch(ms){
     if (still()) return;
     mwEnd = Math.max(mwEnd, performance.now() + (ms || 1000) + 100);
     if (mwRaf) return;
     // seated in the phone's tab bar it doesn't travel, so it is checked once its motion ends rather than every frame (each check
     // measured the page, and typing in the add bar changes the page on every key)
-    const step = () => { mwRaf = 0; if (!box || box.hidden || still()) return; const more = performance.now() < mwEnd; if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { try { clamp("anim"); } catch (e) {} } if (more) mwRaf = requestAnimationFrame(step); };
+    // Each check measures the companion and the page (a full style and layout pass), so while it moves it runs every 150ms, not
+    // every frame: every frame it took most of each frame's time on a laptop and made its moves stutter. Once more when it stops.
+    const step = () => {
+      mwRaf = 0; if (!box || box.hidden || still()) return;
+      const now = performance.now(), more = now < mwEnd;
+      if (!more || now - mwLast >= 150) { if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { mwLast = now; try { clamp("anim"); } catch (e) {} } }
+      if (more) mwRaf = requestAnimationFrame(step);
+    };
     mwRaf = requestAnimationFrame(step);
   }
   /* Controls (buttons, links, fields) under its tap area */
@@ -66842,9 +66879,10 @@ var COMP_EXTRA = [];
       const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f});
       // a spot that's only just too tight on this page (the gap beside Courses' cards is a few pixels narrower than the Board's)
       // keeps it there a touch smaller, feet where they were, rather than sending it across the screen
+      // (on a computer it never shrinks: it stays there at full size, since the spot is only a few pixels short)
       for (const k of [0.94, 0.88]) {
         const p2 = Math.round(px * k), c2 = {left: here.left, top: Math.round(here.top + (px - p2))};
-        if (!spotCheck(c2, p2, f).hard) return Object.assign(c2, {kind: spotKind, px: p2, fab: f});
+        if (!spotCheck(c2, p2, f).hard) return phone() ? Object.assign(c2, {kind: spotKind, px: p2, fab: f}) : Object.assign(here, {kind: spotKind, px, fab: f});
       }
     }
     RECTS = null;
@@ -66866,6 +66904,9 @@ var COMP_EXTRA = [];
   }
   function choose(fresh){
     shrink = 1;
+    // On a computer it's always its full size, on every page: a busy page (Courses, Schedule) used to have it shrink to fit a
+    // gap. On a phone it may shrink a little to find room. (clamp() still shrinks it in a window too small to hold it at all.)
+    if (!phone()) return choose1(fresh);
     while (shrink > 0.55 && !feasible(range(sizePx(cur), true))) shrink = Math.round((shrink - 0.05) * 100) / 100;
     const fit = shrink;
     let s = choose1(fresh);
@@ -66975,11 +67016,11 @@ var COMP_EXTRA = [];
       T(0.9, 0, 0, " scale(1.16,.82)"); T(1, 0, 0, " scale(1)");
       later(() => puff(from.left + px / 2, from.top + px * (112 / 120)), dur * 0.12); later(() => puff(to.left + px / 2, feetY, true), dur * 0.84);
     } else if (style === "glide") {
-      dur = Math.min(1100, 700 + d * 1.6); easing = "cubic-bezier(.45,0,.25,1)";
+      dur = Math.min(950, 590 + d * 1.35); easing = "cubic-bezier(.45,0,.25,1)";
       for (let i = 0; i <= 8; i++) { const t = i / 8; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 6); }
     } else if (style === "hops") {
       const hops = Math.max(2, Math.min(5, Math.round(d / 150))), h = Math.min(26, 12 + d / hops * 0.08);
-      dur = Math.min(2300, 700 + hops * 360);
+      dur = Math.min(1900, 560 + hops * 295);
       T(0, dx, dy, " scale(1)");
       for (let k = 0; k < hops; k++) {
         const a = k / hops, bT = (k + 1) / hops, mid = (a + bT) / 2;
@@ -67000,7 +67041,7 @@ var COMP_EXTRA = [];
       easing = "ease-in-out";
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     } else {
-      dur = Math.min(2200, 1200 + d * 1.1);
+      dur = Math.min(1800, 1000 + d * 1);
       for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 22 + Math.sin(t * Math.PI * 2) * 5, ` rotate(${(Math.sin(t * Math.PI * 2) * dir * 4).toFixed(0)}deg)`); }
       easing = "ease-in-out";
     }
@@ -82026,7 +82067,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 /* ===== module: 99-release.js ===== */
 /* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.6";
+  const VERSION = "1.15.7";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "November 13, 2026", TERMS_UPDATED = "November 13, 2026";
