@@ -58,13 +58,13 @@ def shade(height, light=(-0.62, -0.78), strength=1.0):
     lx, ly = light
     return np.clip((-(gx * lx + gy * ly)) * strength, -1, 1)
 
-def background(c_top=(30, 72, 140), c_mid=(16, 46, 94), c_bot=(9, 28, 62), glow=0.0, glow_col=(255, 200, 90), glow_r=0.42):
+def background(c_top=(30, 72, 140), c_mid=(16, 46, 94), c_bot=(9, 28, 62), glow=0.0, glow_col=(255, 200, 90), glow_r=0.42, vig=0.28):
     t = np.clip((yy * 0.75 + xx * 0.25) / S, 0, 1)
     bg = np.where((t < 0.5)[..., None], lerp(np.array(c_top, np.float32) * np.ones((S, S, 1)), np.array(c_mid, np.float32) * np.ones((S, S, 1)), t * 2),
                   lerp(np.array(c_mid, np.float32) * np.ones((S, S, 1)), np.array(c_bot, np.float32) * np.ones((S, S, 1)), (t - 0.5) * 2))
     # soft vignette
     d = np.sqrt((xx - S / 2) ** 2 + (yy - S / 2) ** 2) / (S * 0.72)
-    bg *= (1 - 0.28 * np.clip(d, 0, 1) ** 2)[..., None]
+    bg *= (1 - vig * np.clip(d, 0, 1) ** 2)[..., None]
     if glow:
         g = np.exp(-(((xx - S / 2) ** 2 + (yy - S / 2) ** 2) / (2 * (S * glow_r) ** 2)))
         bg = bg + np.array(glow_col, np.float32) * (g * glow)[..., None]
@@ -128,7 +128,7 @@ def gold_face(cx, cy, r, img, alpha_mask=None, field_tone=0.52, rim=0.12, reeds=
         edge_r = 0.955
         rb = np.clip((rn - rim_in) / 0.006, 0, 1) * np.clip((edge_r - rn) / 0.006, 0, 1)
         mid = (rim_in + edge_r) / 2
-        bt = 0.58 + 0.10 * np.exp(-((rn - mid) / ((edge_r - rim_in) * 0.3)) ** 2) + 0.03 * np.cos(ang + np.pi * 0.75)
+        bt = 0.30 + 0.08 * np.exp(-((rn - mid) / ((edge_r - rim_in) * 0.3)) ** 2) + 0.03 * np.cos(ang + np.pi * 0.75)
         col = lerp(col, ramp(bt, BLUE), rb)
         # thin gold lips where the blue meets the face and the edge
         lips = np.exp(-((rn - rim_in) / 0.004) ** 2) + np.exp(-((rn - edge_r) / 0.004) ** 2)
@@ -169,7 +169,8 @@ img = gold_logo(img, M, Bm, base=0.76)
 img = sparkle(img, C + S * 0.24, C - S * 0.25, S * 0.05, 0.9)
 save(img, "concept-1-classic-gold")
 if "--blue-rim" in sys.argv:
-    img = background(glow=0.20, glow_r=0.36)
+    # the app icon's own navy (icon-1024.png: #15366B at the top left to #0E2B57 at the bottom right)
+    img = background(c_top=(23, 58, 112), c_mid=(18, 49, 98), c_bot=(14, 42, 86), glow=0.06, glow_r=0.34, vig=0.06)
     img = over(img, np.array([3, 10, 26], np.float32), cs)
     img, coin = gold_face(C, C, S * 0.36, img, field_tone=0.40, rim_blue=True)
     img = gold_logo(img, M, Bm, base=0.76)
