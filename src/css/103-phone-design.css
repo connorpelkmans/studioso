@@ -3,9 +3,9 @@
 @keyframes sbPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
 .check.sb-pop{background:var(--c,var(--leaf));border-color:var(--c,var(--leaf));animation:sbPop .18s ease-out}
 .check.sb-pop svg{opacity:1}
-.sb-popped :is(.task-title,.nu-title,.card-title,.title){text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 45%,transparent);opacity:.55;transition:opacity .12s ease-out .14s}
+.sb-popped :is(.task-title,.nu-title .nu-tt,.card-title,.title){text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 45%,transparent);opacity:.55;transition:opacity .12s ease-out .14s}
 .acc-s{display:none}
-@media (prefers-reduced-motion:reduce){.check.sb-pop{animation:none}.sb-popped :is(.task-title,.nu-title,.card-title,.title){transition:none}}
+@media (prefers-reduced-motion:reduce){.check.sb-pop{animation:none}.sb-popped :is(.task-title,.nu-title .nu-tt,.card-title,.title){transition:none}}
 /* The toast looks the same at every size (a tick for something done, a boxed Undo); only where it sits changes */
 :root{--toast-bg:var(--spine);--toast-ink:#fff}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--toast-bg:color-mix(in srgb,var(--surface) 82%,#fff)}}

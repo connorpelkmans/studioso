@@ -6568,7 +6568,7 @@ function nextUpHtml(F, pre){
     <div class="nu-top"><span class="nu-label">Do This Next</span>${n.xs && n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested study time today">${fmtHM(n.x.alloc)}<span class="nu-td"> today</span></span>` : ""}</div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}"><span class="nu-tt">Study for ${esc(t.title)}</span>${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/tomorrow/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}</span>
         <span class="nu-step">${n.x.dl === 1 || n.x.lightEve ? "The day before: light review only. Skim your summary or a few flashcards, then stop early and sleep." : n.hasPlan ? "Test yourself on your weakest topics: flashcards or practice questions, not rereading." : "Test yourself (flashcards or practice questions), or let Plan My Prep spread short sessions over the days before it."}</span>
       </div>
@@ -6580,7 +6580,7 @@ function nextUpHtml(F, pre){
     <div class="nu-row">
       ${t.gt ? `<span class="check gt-dot" aria-hidden="true"></span>` : `<button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>`}
       <div class="nu-body">
-        <button class="nu-title" ${gtOpenAttrs(t)}>${esc(t.title)}${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag nu-rx-in" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : ""}</button>${nuMeta(c, MILESTONE(t.type) ? `<span class="tag rx-tag nu-rx-out" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : "")}
+        <button class="nu-title" ${gtOpenAttrs(t)}><span class="nu-tt">${esc(t.title)}</span>${t.gt ? ` <span class="tag gt-chip">${esc(t.gt.name)}</span>` : ""}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}${MILESTONE(t.type) ? ` <span class="tag rx-tag nu-rx-in" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : ""}</button>${nuMeta(c, MILESTONE(t.type) ? `<span class="tag rx-tag nu-rx-out" title="${esc(remoteOf(t).why || "Can be taken from home")}">${NU_HOME}Take-home</span>` : "")}
         <span class="nu-why">${n.why.map(r => r.length <= 28 ? `<span class="nu-chip${/^Overdue/.test(r) ? " late" : /^Due (today|at)/.test(r) ? " soon" : ""}">${esc(r)}</span>` : `<span class="nu-note">${esc(r)}</span>`).join('<span class="nu-sep" aria-hidden="true"> · </span>')}${(sl => sl && sl.length ? `<span class="nu-chip nu-slot" title="${esc(availSlotText(sl))} in your free time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${sl.map(x => esc(availMin(x.s))).join(" · ")}<span class="pt-sr"> in your free time</span></span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
@@ -6600,7 +6600,7 @@ function nextUpSpare(F, inView){
     <div class="nu-top"><span class="nu-label">Do This Next</span></div>
     <div class="nu-row">
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">Study for ${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}"><span class="nu-tt">Study for ${esc(t.title)}</span>${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${esc(`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`)} · No study sessions planned yet</span>
         <span class="nu-step">Plan My Prep spreads short review sessions over the days before it, and they show up here.</span>
       </div>
@@ -6618,7 +6618,7 @@ function nextUpSpare(F, inView){
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
-        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
+        <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}"><span class="nu-tt">${esc(t.title)}</span>${c ? ` <span class="tag nu-ctag">${esc(courseLabel(c))}</span>` : ""}</button>${nuMeta(c)}
         <span class="nu-why">${t.status === "doing" ? "Already in progress · " : ""}Nothing has a due date yet, so this is a good place to start. Add a due date to plan it properly.</span>
         ${cl ? `<span class="nu-step">Next step: ${esc(cl.text)}</span>` : ""}
       </div>
@@ -66564,14 +66564,21 @@ var COMP_EXTRA = [];
   let gT = 0;
   const guardSoon = (why, ms) => { if (gT) return; gT = setTimeout(() => { gT = 0; try { clamp(why); } catch (e) { console.warn("companion guard", e); } fitHitSoon(); }, ms == null ? 60 : ms); };
   // While any of its animations runs, look at it every frame
-  let mwEnd = 0, mwRaf = 0;
+  let mwEnd = 0, mwRaf = 0, mwLast = 0;
   function motionWatch(ms){
     if (still()) return;
     mwEnd = Math.max(mwEnd, performance.now() + (ms || 1000) + 100);
     if (mwRaf) return;
     // seated in the phone's tab bar it doesn't travel, so it is checked once its motion ends rather than every frame (each check
     // measured the page, and typing in the add bar changes the page on every key)
-    const step = () => { mwRaf = 0; if (!box || box.hidden || still()) return; const more = performance.now() < mwEnd; if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { try { clamp("anim"); } catch (e) {} } if (more) mwRaf = requestAnimationFrame(step); };
+    // Each check measures the companion and the page (a full style and layout pass), so while it moves it runs every 150ms, not
+    // every frame: every frame it took most of each frame's time on a laptop and made its moves stutter. Once more when it stops.
+    const step = () => {
+      mwRaf = 0; if (!box || box.hidden || still()) return;
+      const now = performance.now(), more = now < mwEnd;
+      if (!more || now - mwLast >= 150) { if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { mwLast = now; try { clamp("anim"); } catch (e) {} } }
+      if (more) mwRaf = requestAnimationFrame(step);
+    };
     mwRaf = requestAnimationFrame(step);
   }
   /* Controls (buttons, links, fields) under its tap area */
