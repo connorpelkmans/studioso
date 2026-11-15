@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studyboard problem-fix reel</title>
+<!--
+  The proven relatable structure (see references/retention.md, "Breakdown of the top same-week outlier"), 12.0 s on a 2.0 s beat grid:
+    0-2.6   real student (footage), hook caption           | music hit at 0.6
+    2.6-5.6 PROBLEM scene (opaque, drawn here)             | hits at 2.6, 4.6 (beats at local 0, .5, 1, 1.5; drop at local 2.0)
+    5.6-8.6 punchline footage (reaction lands at 6.6)      | hit at 6.6; caption turns at 7.4
+    8.6-10.6 FIX scene: Studyboard solving that exact problem | music switches to lofi at 8.6
+    10.6-12 end card
+  Fill in the four marked blocks below (SCENE CSS, PROBLEM HTML, FIX HTML, SCENE JS). Footage comes from build_bg.py:
+  [hook clip 2.6s, {"color":"#0E2A56","dur":3.0}, punchline clip 3.0s, {"color":"#0E2A56","dur":3.4}].
+  Audio: mix_audio.py with --bed dramatic.wav@0:32.4:8.7:0.85 --bed lofi.wav@8.6:21.0:3.4:0.9 plus SFX on the scene's beats.
+-->
+<style>
+@font-face{font-family:"Lexend";font-weight:500;src:url({{ROOT}}/website/assets/fonts/lexend-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:600;src:url({{ROOT}}/website/assets/fonts/lexend-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:700;src:url({{ROOT}}/website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url({{ROOT}}/website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+:root{--navy:#0E2A56;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#3988FE;--mark:#FFE45C;--tomato:#E4513B;--leaf:#1E9E74;--plum:#7A4FD6;--amber:#B86A00;
+  --display:"Lexend",system-ui,sans-serif;--shadow:0 2px 4px rgba(14,42,86,.06),0 30px 70px -14px rgba(14,42,86,.32)}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;color:#fff;-webkit-font-smoothing:antialiased}
+.navybg{background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
+.layer{position:absolute;inset:0;visibility:hidden}
+.cam{position:absolute;inset:0}
+#cap{position:absolute;left:80px;width:840px;top:1070px;text-align:center;z-index:10;
+  font:800 64px/1.18 "Inter","Atkinson",system-ui,sans-serif;letter-spacing:-.01em;color:#fff;
+  -webkit-text-stroke:9px #000;paint-order:stroke fill;text-shadow:0 4px 18px rgba(0,0,0,.35)}
+#tag{position:absolute;left:0;right:0;top:250px;text-align:center;opacity:0;z-index:6}
+#tag span{display:inline-block;font:700 32px var(--display);letter-spacing:.04em;color:var(--navy);background:var(--mark);padding:12px 24px;border-radius:14px}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9}
+.card{background:#fff;color:var(--ink);border-radius:32px;box-shadow:var(--shadow)}
+.btn{text-align:center;font:700 38px var(--display);color:#fff;background:var(--accent);padding:24px;border-radius:22px;box-shadow:0 20px 50px -12px rgba(57,136,254,.6)}
+#end{z-index:8;text-align:center}
+#end img{position:absolute;left:400px;top:520px;width:200px;height:200px;border-radius:46px;box-shadow:0 26px 60px rgba(0,0,0,.4)}
+#end .w{position:absolute;left:60px;right:160px;top:770px;font:800 104px/1 var(--display);letter-spacing:-.03em}
+#end .s{position:absolute;left:60px;right:160px;top:910px;font:600 40px var(--display);color:#C9D7F2}
+#end .u{position:absolute;left:60px;right:160px;top:1010px}
+#end .u span{display:inline-block;background:var(--accent);color:#fff;border-radius:26px;padding:24px 42px;font:700 44px var(--display)}
+/* ===== SCENE CSS ===== */
+/* ===== /SCENE CSS ===== */
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="layer navybg" id="prob"><div class="cam" id="pcam">
+<!-- ===== PROBLEM HTML ===== -->
+<!-- ===== /PROBLEM HTML ===== -->
+  </div></div>
+  <div class="layer navybg" id="fixl"><div class="cam" id="fcam">
+<!-- ===== FIX HTML ===== -->
+<!-- ===== /FIX HTML ===== -->
+  </div></div>
+  <div id="tag"><span id="tagText"></span></div>
+  <div class="layer navybg" id="end"><img src="{{ROOT}}/icon-512.png" alt=""><div class="w">studyboard</div><div class="s">free · no account needed</div><div class="u"><span>studyboardapp.com</span></div></div>
+  <div id="flash"></div>
+  <div id="cap"></div>
+</div>
+<script>
+["500 100px Lexend","600 100px Lexend","700 100px Lexend","800 100px Lexend","800 100px Inter"].forEach(f => document.fonts.load(f));
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const oCubic = x => 1 - Math.pow(1 - x, 3);
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const oBack = x => { const c = 2.2, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const set = (el, tf, op) => { el.style.transform = tf; if (op != null) el.style.opacity = op; };
+const rise = (el, t, t0, d = .35, dist = 50) => { const k = oCubic(P(t, t0, t0 + d)); set(el, `translateY(${(1 - k) * dist}px)`, k); };
+const pop = (el, t, t0, d = .3, from = .5) => { const k = P(t, t0, t0 + d); set(el, `scale(${lerp(from, 1, oBack(k))})`, clamp(k * 3)); };
+const slam = (el, t, t0, dy = -280) => { const k = P(t, t0 - .1, t0); el.style.opacity = k > 0 ? 1 : 0; return `translateY(${(1 - k) * dy}px) scale(${1 + (1 - oBack(P(t, t0, t0 + .3))) * .3})`; };
+const press = (el, t, t0) => { const pr = P(t, t0 - .05, t0 + .05) - P(t, t0 + .05, t0 + .2); el.style.transform = `scale(${1 - pr * .06})`; };
+const shakeAt = (t, times, amp = 10) => { let s = 0; times.forEach(h => { const k = P(t, h, h + .25); if (k > 0 && k < 1) s += Math.sin(k * Math.PI * 6) * (1 - k) * amp; }); return s; };
+const STOPS = [[0, [207, 235, 221]], [.45, [255, 228, 92]], [.72, [255, 160, 70]], [1, [228, 81, 59]]];
+const heat = v => { v = clamp(v); for (let i = 1; i < STOPS.length; i++) if (v <= STOPS[i][0]) { const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], k = (v - a) / (b - a); return `rgb(${ca.map((c, j) => Math.round(c + (cb[j] - c) * k)).join(",")})`; } return "rgb(228,81,59)"; };
+
+const PROB_IN = 2.6, PROB_OUT = 5.6, FIX_IN = 8.6, FIX_OUT = 10.6, END = 12.0, COVER = 0.3;
+let CAPS = [], TAG = "";
+let PROB = (t, lt) => {}, FIX = (t, lt) => {};
+
+/* ===== SCENE JS ===== */
+/* ===== /SCENE JS ===== */
+
+$("tagText").textContent = TAG;
+function render(t) {
+  const c = CAPS.find(([a, b]) => t >= a && t < b);
+  $("cap").textContent = c ? c[2] : "";
+  const inP = t >= PROB_IN && t < PROB_OUT, inF = t >= FIX_IN && t < FIX_OUT;
+  $("prob").style.visibility = inP ? "visible" : "hidden";
+  $("fixl").style.visibility = inF ? "visible" : "hidden";
+  $("end").style.visibility = t >= FIX_OUT ? "visible" : "hidden";
+  $("flash").style.opacity = [PROB_IN, PROB_OUT, FIX_IN, FIX_OUT].some(x => t >= x && t < x + .07) ? .35 : 0;
+  $("tag").style.opacity = inF && TAG ? P(t, FIX_IN, FIX_IN + .2) : 0;
+  if (inP) PROB(t, t - PROB_IN);
+  if (inF) FIX(t, t - FIX_IN);
+  if (t >= FIX_OUT) [...$("end").children].forEach((el, i) => { const k = ioCubic(P(t, FIX_OUT + .05 * i, FIX_OUT + .3 + .05 * i)); el.style.transform = `translateY(${(1 - k) * 40}px)`; el.style.opacity = k; });
+}
+window.render = render; window.END = END; window.COVER = COVER;
+render(0);
+</script>
+</body>
+</html>

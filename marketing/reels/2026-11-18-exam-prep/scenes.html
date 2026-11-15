@@ -1,0 +1,63 @@
+<!-- SCENE CSS -->
+.days{position:absolute;left:80px;width:830px;display:flex;gap:12px}
+.day{flex:1;border-radius:22px;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.12);position:relative}
+.day .dl{position:absolute;left:0;right:0;top:16px;text-align:center;font:700 28px var(--display);color:rgba(255,255,255,.7)}
+.ex{position:absolute;left:6px;right:6px;bottom:12px;border-radius:16px;padding:22px 2px;text-align:center;font:800 30px/1.2 var(--display);color:#fff;opacity:0}
+#zero{position:absolute;left:0;right:100px;top:520px;text-align:center;opacity:0}
+#zero span{display:inline-block;transform:rotate(-6deg);border:8px solid var(--tomato);color:var(--tomato);background:rgba(10,31,66,.85);border-radius:24px;padding:18px 34px;font:800 56px/1.1 var(--display)}
+#ep{position:absolute;left:80px;width:830px;top:330px;padding:26px 26px 22px}
+#ep .h{display:flex;justify-content:space-between;align-items:center;font:800 40px var(--display)}
+#ep .h em{font-style:normal;font:700 28px var(--display);color:#fff;background:var(--tomato);padding:8px 16px;border-radius:12px}
+#ep .tp{display:flex;gap:12px;margin:18px 0 18px}
+#ep .tp span{font:600 26px var(--display);padding:10px 14px;border-radius:14px;opacity:0;white-space:nowrap}
+.sk{background:#FDE7E3;color:#B5321F}.ok{background:#FFF4CC;color:#8A6400}.st{background:#E3F4EC;color:#14724F}
+#ep .cols{display:flex;gap:8px;height:380px}
+#ep .col{flex:1;background:#F2F5FA;border-radius:18px;position:relative;padding:58px 6px 6px}
+#ep .col .dl{position:absolute;left:0;right:0;top:12px;text-align:center;font:700 26px var(--display);color:var(--muted)}
+.ss{border-radius:14px;padding:14px 4px;text-align:center;font:700 25px/1.2 var(--display);color:#fff;margin-bottom:8px;opacity:0}
+<!-- /SCENE CSS -->
+
+<!-- PROBLEM HTML -->
+<div class="days" style="top:330px;height:560px">
+  <div class="day"><span class="dl">Mon</span></div><div class="day"><span class="dl">Tue</span></div><div class="day"><span class="dl">Wed</span></div>
+  <div class="day"><span class="dl">Thu</span><div class="ex" id="e0" style="background:var(--leaf)">BIO<br>exam</div></div>
+  <div class="day"><span class="dl">Fri</span><div class="ex" id="e1" style="background:var(--plum)">CHEM<br>exam</div></div>
+  <div class="day"><span class="dl">Sat</span><div class="ex" id="e2" style="background:var(--tomato)">CALC<br>final</div></div>
+</div>
+<div id="zero"><span>0 study sessions<br>planned</span></div>
+<!-- /PROBLEM HTML -->
+
+<!-- FIX HTML -->
+<div class="card" id="ep">
+  <div class="h"><span>Calc final prep</span><em>Sat</em></div>
+  <div class="tp"><span class="sk" id="p0">Integrals: Shaky</span><span class="ok" id="p1">Limits: OK</span><span class="st" id="p2">Derivs: Strong</span></div>
+  <div class="cols">
+    <div class="col"><span class="dl">Mon</span><div class="ss" id="s0" style="background:var(--accent)">Learn<br>Integrals</div></div>
+    <div class="col"><span class="dl">Tue</span><div class="ss" id="s1" style="background:var(--plum)">Review<br>Integrals</div><div class="ss" id="s2" style="background:var(--accent)">Learn<br>Limits</div></div>
+    <div class="col"><span class="dl">Wed</span><div class="ss" id="s3" style="background:var(--amber)">Practice<br>test</div></div>
+    <div class="col"><span class="dl">Thu</span><div class="ss" id="s4" style="background:var(--plum)">Review<br>Integrals</div></div>
+    <div class="col"><span class="dl">Fri</span><div class="ss" id="s5" style="background:var(--leaf)">Light<br>review</div></div>
+    <div class="col" style="background:#FDE7E3"><span class="dl" style="color:#B5321F">Sat</span><div class="ss" style="background:var(--tomato);opacity:1">CALC<br>final</div></div>
+  </div>
+</div>
+<!-- /FIX HTML -->
+
+<!-- SCENE JS -->
+CAPS = [[0, 7.4, "3 exams in 6 days and i haven't started studying for any of them"],
+        [7.4, 8.6, "plot twist: it plans the studying for you"],
+        [8.6, 10.6, "studyboard spreads your studying across the days you have left"]];
+TAG = "Exam Prep Planner · free";
+PROB = (t, lt) => {
+  ["e0", "e1", "e2"].forEach((id, i) => { $(id).style.transform = slam($(id), lt, i * .5, -300); });
+  const k = P(lt, 1.9, 2.0); $("zero").style.opacity = k;
+  $("zero").firstElementChild.style.transform = `rotate(-6deg) scale(${lerp(1.8, 1, oBack(P(lt, 2.0, 2.3)))})`;
+  const push = ioCubic(P(lt, 2.0, 2.35)), s = shakeAt(lt, [0, .5, 1, 2.0]);
+  $("pcam").style.transformOrigin = "540px 600px";
+  $("pcam").style.transform = `scale(${1 + push * .1}) translate(${s}px,${s * .4}px)`;
+};
+FIX = (t, lt) => {
+  rise($("ep"), lt, 0, .3, 60);
+  ["p0", "p1", "p2"].forEach((id, i) => pop($(id), lt, .15 + i * .1, .25, .6));
+  ["s0", "s1", "s2", "s3", "s4", "s5"].forEach((id, i) => { $(id).style.transform = slam($(id), lt, .55 + i * .14, -80); });
+};
+<!-- /SCENE JS -->

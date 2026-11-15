@@ -28,6 +28,10 @@ Pin down, briefly, in your own reasoning or with the user if it's unclear:
 
 Don't stall on questions. If the request is "make a reel about Quick Add", decide the rest and state your choices.
 
+### 1a. Pick the feature
+
+`marketing/reels/CONTENT-PLAN.md` ranks Studyboard's features by impact (timely, pain, sendable, visual, free, evidence). Take the highest-ranked one not yet made unless the user asks for something specific, and re-rank when the season changes (finals, new term).
+
 ### 1b. Pick the reel type
 
 Live research (Nov 2026) shows two kinds of reel work for this audience, and a healthy feed mixes them about 2:1:
@@ -61,7 +65,7 @@ Before building, run the checklist at the end of `references/diagnose.md` on the
 
 ### 4. Build
 
-Make a folder `marketing/reels/<YYYY-MM-DD>-<slug>/` and copy `assets/template.html` into it as `reel.html`. The template has the brand styles, animation helpers (`rise`, `pop`, `scene`, `typeText`, `highlight`, `hop`), reusable pieces (deadline chips, task cards, plan rows, flashcard, speech bubble, URL pill), a burned-in caption track, and a three-scene skeleton (hook → payoff → loop-back end). Edit it; don't start from a blank page. `marketing/instagram/reel-1/src/reel.html` is a full worked example.
+For a **problem-fix reel** (the default), write only a `scenes.html` with the four blocks (scene CSS, problem HTML, fix HTML, scene JS) and run `scripts/make_reel.py scenes.html reel.html`: it fills `assets/problem-fix-template.html`, which already handles the timeline, captions, cuts, flashes, the feature label and the end card. Examples: `marketing/reels/2026-11-17-what-you-need/`, `2026-11-18-exam-prep/`, `2026-11-19-breakdown/`. Otherwise, make a folder `marketing/reels/<YYYY-MM-DD>-<slug>/` and copy `assets/template.html` into it as `reel.html`. The template has the brand styles, animation helpers (`rise`, `pop`, `scene`, `typeText`, `highlight`, `hop`), reusable pieces (deadline chips, task cards, plan rows, flashcard, speech bubble, URL pill), a burned-in caption track, and a three-scene skeleton (hook → payoff → loop-back end). Edit it; don't start from a blank page. `marketing/instagram/reel-1/src/reel.html` is a full worked example.
 
 Things the renderer does for you in `reel.html`:
 - `{{ROOT}}` becomes the repo root (fonts, `icon-512.png`, app screenshots).

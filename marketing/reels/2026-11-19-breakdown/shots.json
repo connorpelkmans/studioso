@@ -1,0 +1,21 @@
+[
+ {
+  "clip": "../_broll/phonebed2.mp4",
+  "in": 2.0,
+  "dur": 2.6
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 3.0
+ },
+ {
+  "clip": "../_broll/phonebed.mp4",
+  "in": 14.7,
+  "dur": 3.0,
+  "pre": "crop=iw/1.5:ih/1.5:(iw-iw/1.5)/2:(ih-ih/1.5)*0.72,eq=brightness=0.07:gamma=1.35:saturation=1.1"
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 3.4
+ }
+]

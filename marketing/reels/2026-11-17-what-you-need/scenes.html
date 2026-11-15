@@ -1,0 +1,66 @@
+<!-- SCENE CSS -->
+#paper{position:absolute;left:100px;top:320px;width:790px;height:620px;border-radius:18px;background:#FDFDF8;
+  background-image:linear-gradient(transparent 77px,rgba(57,136,254,.28) 78px,transparent 80px);background-size:100% 80px;background-position:0 40px;
+  box-shadow:0 30px 70px -14px rgba(0,0,0,.6);transform:rotate(-2deg)}
+#paper::before{content:"";position:absolute;left:96px;top:0;bottom:0;width:3px;background:rgba(228,81,59,.45)}
+.term{position:absolute;left:130px;font:600 64px var(--display);color:#1B2B4A;opacity:0;white-space:nowrap}
+#qm{position:absolute;left:620px;top:400px;font:800 180px var(--display);color:var(--tomato);opacity:0}
+#gc{position:absolute;left:80px;width:830px;top:330px;padding:0;overflow:hidden}
+#gc .band{background:linear-gradient(90deg,#1E9E74,#4DBF97);color:#fff;font:700 30px var(--display);letter-spacing:.08em;padding:18px 32px}
+#gc .rows{padding:12px 32px 4px}
+#gc .r{display:flex;justify-content:space-between;font:500 36px var(--display);padding:10px 0;border-bottom:2px solid #EEF2F8}
+#gc .r b{font-weight:700}
+#gc .r .w{color:var(--muted);font-weight:500;margin-left:10px;font-size:30px}
+#gc .so{display:flex;justify-content:space-between;align-items:baseline;padding:12px 32px 4px;font:700 38px var(--display)}
+#gc .so .n{font:800 58px var(--display);color:var(--leaf)}
+#gc .need{margin:8px 22px 22px;background:#FFF8D6;border-radius:20px;padding:16px 24px;font:600 33px/1.32 var(--display);opacity:0}
+#gc .need b{font-weight:800;color:var(--navy);font-size:42px}
+<!-- /SCENE CSS -->
+
+<!-- PROBLEM HTML -->
+<div id="paper">
+  <div class="term" id="t0" style="top:40px">0.2 × 80</div>
+  <div class="term" id="t1" style="top:120px">+ 0.3 × 64</div>
+  <div class="term" id="t2" style="top:200px">+ 0.15 × 78</div>
+  <div class="term" id="t3" style="top:280px">+ 0.35 × <span style="color:var(--tomato)">?</span></div>
+  <div class="term" id="t4" style="top:380px;font-size:80px">= 75 ???</div>
+</div>
+<div id="qm">?</div>
+<!-- /PROBLEM HTML -->
+
+<!-- FIX HTML -->
+<div class="card" id="gc">
+  <div class="band">BIO 101 · GRADES</div>
+  <div class="rows">
+    <div class="r"><span>Quizzes<span class="w">20%</span></span><b>80%</b></div>
+    <div class="r"><span>Midterm<span class="w">30%</span></span><b>64%</b></div>
+    <div class="r"><span>Labs<span class="w">15%</span></span><b>78%</b></div>
+    <div class="r"><span>Final exam<span class="w">35%</span></span><b style="color:var(--muted)">to come</b></div>
+  </div>
+  <div class="so"><span>So far</span><span class="n" id="so">0.0%</span></div>
+  <div class="need" id="need">To pass (50%), you need <b>9</b> on the final.<br>To reach your goal of 75%, you need about <b id="n80">80</b>.</div>
+</div>
+<!-- /FIX HTML -->
+
+<!-- SCENE JS -->
+CAPS = [[0, 7.4, "me doing the math on what i need on the final to not fail this class"],
+        [7.4, 8.6, "plot twist: it does the math for you"],
+        [8.6, 10.6, "studyboard tells you exactly what you need on the final"]];
+TAG = "Grade Tracker · free";
+PROB = (t, lt) => {
+  // Terms slam onto the page on the beats (local 0, .5, 1, 1.5); the drop at 2.0 brings the red "?" and a push-in
+  ["t0", "t1", "t2", "t3"].forEach((id, i) => { $(id).style.transform = slam($(id), lt, i * .5, -120); });
+  $("t4").style.transform = slam($("t4"), lt, 1.75, -120);
+  const k = P(lt, 2.0, 2.15); $("qm").style.opacity = k;
+  $("qm").style.transform = `scale(${lerp(2.2, 1, oBack(k)) * (1 + .06 * Math.sin(lt * 14) * (lt > 2.15))}) rotate(8deg)`;
+  const push = ioCubic(P(lt, 2.0, 2.35)), s = shakeAt(lt, [0, .5, 1, 1.5, 2.0]);
+  $("pcam").style.transformOrigin = "540px 620px";
+  $("pcam").style.transform = `scale(${1 + push * .1}) translate(${s}px,${s * .4}px)`;
+};
+FIX = (t, lt) => {
+  rise($("gc"), lt, 0, .3, 60);
+  const k = oCubic(P(lt, .3, .8)); $("so").textContent = (72.2 * k).toFixed(1) + "%";
+  pop($("need"), lt, .95, .3, .85);
+  $("n80").style.background = lt > 1.25 ? "#FFE45C" : ""; $("n80").style.padding = "0 8px"; $("n80").style.borderRadius = "8px";
+};
+<!-- /SCENE JS -->

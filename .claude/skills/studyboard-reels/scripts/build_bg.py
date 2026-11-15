@@ -4,7 +4,7 @@
   python3 build_bg.py shots.json bg.mp4
 
 shots.json is a list of segments, in order:
-  {"clip": "path/to/clip.mp4", "in": 3.4, "dur": 2.6, "speed": 1.0}   # footage (scaled + cropped to 9:16)
+  {"clip": "path/to/clip.mp4", "in": 3.4, "dur": 2.6, "speed": 1.0, "pre": "eq=brightness=0.05"}   # footage (scaled + cropped to 9:16; "pre" optional)
   {"color": "#0E2A56", "dur": 3.0}                                     # placeholder: reel.html draws its own scene here
 
 Paths are relative to the JSON file. Output is 1080x1920, 30 fps, H.264, no audio. Then render the overlay with
@@ -24,7 +24,8 @@ for i, s in enumerate(shots):
     d = float(s["dur"])
     if "clip" in s:
         speed = float(s.get("speed", 1.0))
-        vf = (f"setpts=PTS/{speed},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+        pre = (s["pre"] + ",") if s.get("pre") else ""   # optional ffmpeg filters first, e.g. a crop to punch in or eq= to brighten
+        vf = (f"{pre}setpts=PTS/{speed},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
               f"fps={FPS},setsar=1,trim=duration={d},setpts=PTS-STARTPTS")
         cmd = ["ffmpeg", "-loglevel", "error", "-y", "-ss", str(s.get("in", 0)), "-i", os.path.join(base, s["clip"]),
                "-an", "-vf", vf, "-t", str(d)]

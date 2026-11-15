@@ -46,3 +46,44 @@ Then check numbers on Nov 23–24 (Metricool analytics, or vidIQ insights once I
 **#5 Crunch week (C):** as in `brief.md`, with the first line "spot it a month early, not the night before 👀".
 
 First comment on the relatable posts (soft brand, adds instead of selling): "we made a planner that shows your worst week weeks ahead 🫠 free, link in bio".
+
+---
+
+# Week 2: Nov 23–25, the finals features (from CONTENT-PLAN.md, top 3 by impact)
+
+Same Metricool pattern: weekday 10 AM peaks, one evening slot. Thanksgiving (Thu Nov 26) and Black Friday are avoided, since US students are away from their phones and feeds are full of sales.
+
+| # | When (PT) | Reel | Feature |
+|---|---|---|---|
+| 6 | Mon Nov 23, 9:50 AM | `2026-11-17-what-you-need/reel.mp4` | Grade Tracker: What You Need |
+| 7 | Tue Nov 24, 5:50 PM | `2026-11-18-exam-prep/reel.mp4` | Exam Prep Planner |
+| 8 | Wed Nov 25, 9:50 AM | `2026-11-19-breakdown/reel.mp4` | Assignment breakdown |
+
+## Captions
+
+**#6 What You Need**
+> the final is worth 35% and i have no idea what i need 😭
+>
+> studyboard's grade tracker does the math: add your marks and it tells you what you need on the final to pass, or to hit your goal. free, no account needed. link in bio.
+>
+> what do you need on your hardest final? 👇
+>
+> #studytok #finalsweek #finals #college #studentplanner
+
+**#7 Exam Prep Planner**
+> 3 exams. 6 days. 0 plan. 📚
+>
+> add your exam and your topics, and studyboard spreads study sessions over the days you have left, with spaced review built in. free. link in bio.
+>
+> send this to whoever has the same finals as you 👇
+>
+> #studytok #finalsweek #studytips #college #examprep
+
+**#8 Assignment breakdown**
+> the 10 page paper. the friday deadline. the blank doc. 🫠
+>
+> studyboard breaks a paper into small steps, scheduled backward from the due date on days you're actually free. free. link in bio.
+>
+> what's the longest paper you've left to the last minute? 👇
+>
+> #studytok #college #procrastination #finalsweek #studentlife

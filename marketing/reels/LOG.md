@@ -11,6 +11,9 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-16 | marketing/reels/2026-11-16-same-week (A) | (brand only) | Relatable | "every exam i have this semester somehow landed in the exact same week" | 12.0 s | | | | | | | v3: b-roll face → calendar chaos → face-plant → Studyboard fix → end card; owned music, switches at the fix |
 | 2026-11-16 | marketing/reels/2026-11-16-same-week (B) | (brand only) | Relatable | "me realizing 3 exams, a lab report and an essay are all in week 11 and it's already week 10" | 12.0 s | | | | | | | Longer text |
 | 2026-11-16 | marketing/reels/2026-11-16-same-week (C) | (brand only) | Relatable | "nobody warned me november has 4 week elevens in a row" | 12.0 s | | | | | | | November angle; planned as Trial Reel |
+| 2026-11-17 | marketing/reels/2026-11-17-what-you-need | Grade Tracker (What You Need) | Problem-fix | "me doing the math on what i need on the final to not fail this class" | 12.0 s | | | | | | | Notebook equation → grade card |
+| 2026-11-18 | marketing/reels/2026-11-18-exam-prep | Exam Prep Planner | Problem-fix | "3 exams in 6 days and i haven't started studying for any of them" | 12.0 s | | | | | | | Empty week → sessions spread |
+| 2026-11-19 | marketing/reels/2026-11-19-breakdown | Assignment breakdown | Problem-fix | "my 10 page paper is due friday and so far i've written my name" | 12.0 s | | | | | | | Countdown → 5 milestones |
 
 ## What we've learned
 
