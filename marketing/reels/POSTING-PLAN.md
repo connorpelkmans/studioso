@@ -1,3 +1,17 @@
+# Today: Sunday Nov 15, "Every friend group during finals week"
+
+**Post at 5:50 PM PT** as a regular Reel (`2026-11-20-types-of-students/reel.mp4`), moved up from slot #9.
+
+**Why 5:50 PM:** it was 12:23 PM when this was planned. Metricool's Sunday curve (Instagram, America/Vancouver) peaks at 10 AM (2,582) and noon (2,410), drops through the afternoon (1,634–1,890), then holds a plateau at 6 PM (2,253) and 7 PM (2,232). A reel's first hour is when Instagram tests it on a small audience and decides whether to push it, so that hour should fall inside the strongest *remaining* window. Posting now would put it in the afternoon dip; 5:50 PM puts its first two hours on the evening plateau. Sunday evening is also when students plan the week and procrastinate on their phones, which suits this reel. (The account has no history in Metricool yet, since it was connected today, so this is the benchmark curve. Recheck once there's data.)
+
+- **Caption:** #9 below. **Cover:** the opening frame (title and the four companions). **Audio:** the built-in track.
+- **First comment (pin it):** "Okay but who's the 4 AM goblin in your group? 👇"
+- **First hour:** reply to every comment. Comments in the first hour are the strongest early signal.
+- **7:30 PM:** share the reel to Stories with a poll sticker ("Which one are you?" 1 / 2 / 3 / 4), which sends followers back to the reel.
+- **Check:** views, average watch time, shares and follows at 24 h and 72 h, then log them in `LOG.md`.
+
+---
+
 # Posting plan: finals season, week of Nov 16, 2026
 
 **Status:** times set from Metricool's best-time data (Instagram, America/Vancouver, Nov 16–22). Waiting on your approval to schedule.
