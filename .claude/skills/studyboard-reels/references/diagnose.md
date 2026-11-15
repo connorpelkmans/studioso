@@ -84,7 +84,10 @@ The reel worked, but the profile didn't convince them to follow.
 
 **Task:** the account isn't gaining followers, perhaps because the profile doesn't clearly show its value to [audience]. Niche: "a calm student planner: deadlines, exam prep, flashcards". Review the profile (**ask the user for screenshots** of the profile page, bio and highlights if you don't have them) and give **3–5 ways** to improve the bio, profile image, highlights, pinned posts and content positioning for clarity, credibility and follow-worthiness.
 
+**First, check the scale.** With tiny reach (under ~1,000 views a month), the profile isn't the bottleneck, because almost nobody is reaching it. Say so, and put distribution first: posting cadence, series, Trial Reels, and the brand engaging in the niche (useful comments on student creators and campus accounts). Then do the profile fixes so the visitors who do come convert. The first review is in `marketing/instagram/profile-review-2026-11.md`.
+
 **Look at:**
+- Is the search keyword in the name field? ("Studyboard · Student Planner": Instagram search matches the name, not just the username.)
 - Does the bio say who it's for and what they get, in one line? ("Plan your whole semester on one board. Free.")
 - Do the pinned reels and the first 9 grid posts show a consistent series a student would want more of ("Exam season survival" series, "Week 11" series)?
 - Is there a reason to follow, not just watch: a recurring format, a series name, "part 2" hooks?
