@@ -14,7 +14,7 @@ That data replaced the default evening slots, and moved the Sunday post to Frida
 | 4 | Thu Nov 19, 9:50 AM | `2026-11-16-same-week/reel-b.mp4`: "me realizing 3 exams, a lab report and an essay…" | Relatable, regular Reel | Thu 10 AM: 6,275 |
 | 5 | Fri Nov 20, 9:50 AM | `2026-11-15-crunch-week/reel-c.mp4` (C): "POV: you spot hell week a month early." | Fix, regular Reel | Fri 10 AM: 6,734 (best slot of the week) |
 
-Then check numbers on Nov 23–24 (Metricool analytics, or vidIQ insights once Instagram is connected there) (vidIQ insights) and plan the next batch from the weakest lens.
+Then check numbers on Nov 23–24 (Metricool analytics, or vidIQ insights once Instagram is connected there) and plan the next batch from the weakest lens.
 
 **Audio:** attach a track from Instagram's library on each (Metricool can do this on Business accounts linked to a Facebook Page). Relatable reels: something dramatic or ominous that contrasts with the calm visuals, as the outliers did. Fix reels: a beat change around 4–5 s, when the calendar fills with colour. You choose the tracks: trending audio changes daily, and you can see what's trending in the app.
 
