@@ -66350,7 +66350,8 @@ var COMP_EXTRA = [];
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-  const CALM = 1.35;
+  // (moves were made 35% slower on Nov 12 and felt sluggish: now halfway between that and their earlier speed, the calmer style kept)
+  const CALM = 1.17;
   /* ---------- An actor: animations on one rendered rig ---------- */
   function actor(c, root, opts){
     opts = opts || {};
@@ -66358,7 +66359,7 @@ var COMP_EXTRA = [];
     const q = s => svg.querySelector(s);
     const part = n => q(".cp-" + n);
     const running = new Set();
-    // Every move plays a little slower than written, so the companion feels calm rather than hurried
+    // Every move plays at CALM times its written length (1: as written)
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
       ms = Math.round(ms * CALM);
@@ -66842,9 +66843,10 @@ var COMP_EXTRA = [];
       const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f});
       // a spot that's only just too tight on this page (the gap beside Courses' cards is a few pixels narrower than the Board's)
       // keeps it there a touch smaller, feet where they were, rather than sending it across the screen
+      // (on a computer it never shrinks: it stays there at full size, since the spot is only a few pixels short)
       for (const k of [0.94, 0.88]) {
         const p2 = Math.round(px * k), c2 = {left: here.left, top: Math.round(here.top + (px - p2))};
-        if (!spotCheck(c2, p2, f).hard) return Object.assign(c2, {kind: spotKind, px: p2, fab: f});
+        if (!spotCheck(c2, p2, f).hard) return phone() ? Object.assign(c2, {kind: spotKind, px: p2, fab: f}) : Object.assign(here, {kind: spotKind, px, fab: f});
       }
     }
     RECTS = null;
@@ -66866,6 +66868,9 @@ var COMP_EXTRA = [];
   }
   function choose(fresh){
     shrink = 1;
+    // On a computer it's always its full size, on every page: a busy page (Courses, Schedule) used to have it shrink to fit a
+    // gap. On a phone it may shrink a little to find room. (clamp() still shrinks it in a window too small to hold it at all.)
+    if (!phone()) return choose1(fresh);
     while (shrink > 0.55 && !feasible(range(sizePx(cur), true))) shrink = Math.round((shrink - 0.05) * 100) / 100;
     const fit = shrink;
     let s = choose1(fresh);
@@ -66975,11 +66980,11 @@ var COMP_EXTRA = [];
       T(0.9, 0, 0, " scale(1.16,.82)"); T(1, 0, 0, " scale(1)");
       later(() => puff(from.left + px / 2, from.top + px * (112 / 120)), dur * 0.12); later(() => puff(to.left + px / 2, feetY, true), dur * 0.84);
     } else if (style === "glide") {
-      dur = Math.min(1100, 700 + d * 1.6); easing = "cubic-bezier(.45,0,.25,1)";
+      dur = Math.min(950, 590 + d * 1.35); easing = "cubic-bezier(.45,0,.25,1)";
       for (let i = 0; i <= 8; i++) { const t = i / 8; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 6); }
     } else if (style === "hops") {
       const hops = Math.max(2, Math.min(5, Math.round(d / 150))), h = Math.min(26, 12 + d / hops * 0.08);
-      dur = Math.min(2300, 700 + hops * 360);
+      dur = Math.min(1900, 560 + hops * 295);
       T(0, dx, dy, " scale(1)");
       for (let k = 0; k < hops; k++) {
         const a = k / hops, bT = (k + 1) / hops, mid = (a + bT) / 2;
@@ -67000,7 +67005,7 @@ var COMP_EXTRA = [];
       easing = "ease-in-out";
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     } else {
-      dur = Math.min(2200, 1200 + d * 1.1);
+      dur = Math.min(1800, 1000 + d * 1);
       for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 22 + Math.sin(t * Math.PI * 2) * 5, ` rotate(${(Math.sin(t * Math.PI * 2) * dir * 4).toFixed(0)}deg)`); }
       easing = "ease-in-out";
     }
