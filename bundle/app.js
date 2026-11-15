@@ -34294,6 +34294,17 @@ hook("boot", boot);
     };
   }
 
+  // Background App Refresh (iPhone and iPad app: MainViewController.swift, StudyboardBackgroundRefresh): iOS wakes the app now and
+  // then while it's in the background; the app asks the page for what changed on other devices, then sends the widgets the day
+  // again, so a task added on a laptop reaches the Home Screen without opening Studyboard. Done within iOS's ~30 seconds.
+  window.__sbBgRefresh = async () => {
+    const wait = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, ms))]);
+    try { if (typeof cloud !== "undefined" && cloud.on && cloud.refresh) await wait(cloud.refresh(), 15000); } catch (e) {}
+    await new Promise(r => setTimeout(r, 300));   // what came in is applied before the day is worked out
+    phoneSent = ""; push();
+    try { localStorage.setItem("studyboard:bgRefreshAt", String(Date.now())); } catch (e) {}
+    return true;
+  };
   if (window.__SB_TEST) window.__sbPhoneWidgets = {data: () => phoneData(widgetData()), drain: () => drainPhone(), push: () => { phoneSent = ""; push(); }};
   /* Sending it to the widgets */
   let lastSent = "", pushT = null;

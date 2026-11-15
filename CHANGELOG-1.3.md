@@ -32,7 +32,7 @@ Thank you for studying with Studyboard!
 - **Concept Maps (Pro, Beta).** Map how a course's ideas connect, with a quiz mode; a card on each course page.
 - **Lecture Replay.** Play a lecture from any line of its transcript, your typed notes or slides; replay notes as they were written; Hear It.
 - **Exam Day Forecast (Pro).** In each exam's Prep Plan: "Today 43% → Exam day ~72%", one line on why, one tip.
-- **Home Screen and Lock Screen widgets.** Today (small, medium, large, and extra large on iPad) and Up Next on the Lock Screen.
+- **Home Screen and Lock Screen widgets.** Today (small, medium, large, and extra large on iPad) and Up Next on the Lock Screen. Do This Next follows your plan through the day without opening the app, and changes made on other devices arrive in the background.
 - **Haptics.** You feel checking off a task (a success when it clears today's plan), picking up and dropping cards and notes, crossing columns, Schedule swipes, flashcard grades (a success for the last card of a session), quiz answers (right, wrong, and a success at 80%+), Match, starting and ending a Focus session, quick add, deletes and Undo, recording a lecture, each page of Scan to PDF, stickers landing, streak days and new companion props. Settings > Haptic Feedback turns them off, and Try It checks they work.
 - **New companion props are celebrated.** The prop appears in the middle of the screen in a burst of light, with Put It On and Later.
 - **Companion clothing patterns (Pro):** stripes, polka dots, plaid, stars, checks and zigzag; any colour (Pro) or the palette colours (free).

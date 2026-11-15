@@ -292,6 +292,8 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   // list isn't enough (a build said "connected" here and still had no haptics): the plugin also has to be in the project's native
   // dependencies, the Podfile (CocoaPods) or CapApp-SPM/Package.swift (Swift packages), and installed. Checked, and fixed where it can be
   try { hapticsCheck(); } catch (e) { console.log("ios-stage: couldn't check haptics: " + e.message); }
+  // Background App Refresh for the widgets: AppDelegate.swift registers the task at launch (scripts/ios-bgrefresh.js)
+  try { require("./ios-bgrefresh").setupBackgroundRefresh(wrap); } catch (e) { console.log("ios-stage: couldn't turn on Background App Refresh: " + e.message); }
   console.log("ios-stage: synced into the Xcode project. Open it with: cd ios-wrapper && npx cap open ios");
 } else console.log("ios-stage: no Xcode project yet (ios-wrapper/ios/) or Capacitor not installed there: see TESTING-MAC-IPHONE.md, iPhone step 2.");
 

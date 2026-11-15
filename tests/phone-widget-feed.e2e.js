@@ -63,6 +63,11 @@ function decodes(v, type, at, errs){
     saved = await page.evaluate(() => window.__saved);
     const last = saved[saved.length - 1];
     ok(saved.length >= 1 && !last.tasks.some(t => t.id === "t1" && !t.done), "checking off a task sends the day again, with it done (or off the list)");
+    // Background App Refresh: the app calls window.__sbBgRefresh while in the background; it sends the day again and says it finished
+    await page.evaluate(() => { window.__saved.length = 0; });
+    const bg = await page.evaluate(() => typeof window.__sbBgRefresh === "function" && window.__sbBgRefresh());
+    saved = await page.evaluate(() => window.__saved);
+    ok(bg === true && saved.length === 1 && saved[0].day === d.day, "Background App Refresh sends the widgets the day again, then finishes (" + saved.length + " save)");
     ok(!errs.length, "no page errors" + (errs.length ? ": " + errs.join(" | ") : ""));
     console.log("phone-widget-feed.e2e: " + n + " checks passed");
   } finally { await browser.close(); }
