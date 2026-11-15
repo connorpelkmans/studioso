@@ -2608,3 +2608,30 @@ html[dir="rtl"] :is(p,li,label,td,th,span,b,strong,small,em){unicode-bidi:plaint
 /* switches: the knob starts on the right and slides left when on */
 html[dir="rtl"] label.anim-tog > input[type=checkbox]{scale:-1 1}
 html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 7"],[d^="M15 5l-7 7"],[d^="M15 18l-6-6"],[d^="M9 18l6-6"],[d^="M5 12h14"],[d^="M19 12H5"])){scale:-1 1}
+
+/* Schedule > Month: the picked day's See Week sits at the right end of its heading */
+.cal.sch-month + .sec{display:flex;align-items:center;gap:8px}
+.cal.sch-month + .sec .smc-week{margin-left:auto}
+/* Schedule > Month: each class and event wears an icon for its kind, like a task on Due Dates */
+.cal-evrow.smc-row{grid-template-columns:auto auto 1fr;align-items:center}
+.cal-evrow.smc-row .smc-ic{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--c);color:#fff;margin:0}
+.cal-evrow.smc-row .smc-ic svg{width:15px;height:15px}
+/* phone: two icons fit a day; more shows as a small "+1" tag along the day's bottom edge, under the icons */
+@media (max-width:899.98px){
+  .sch-month .day{position:relative}
+  .sch-month .dots .ci-more{position:absolute;left:50%;bottom:1px;translate:-50% 0;padding:1px 5px;border-radius:999px;background:color-mix(in srgb,var(--ink) 9%,var(--surface));font:800 .56rem/1.15 var(--body);color:var(--muted)}
+  .sch-month .day:has(.ci-more) .dots{margin-top:-3px}
+}
+/* a 15px dot with an 11px icon leaves 2px all round, a whole pixel, so the icon sits exactly in the middle (10px left 2.5px) */
+@media (max-width:600px){.sch-month .dots i.ci svg{width:11px;height:11px}}
+.cal-evrow.smc-row .cal-evt{grid-row:span 2}
+.cal-evrow.smc-row .mini{grid-column:3}
+.sch-month .ci-t .smc-tm{font-weight:800;opacity:.8}
+.smc-legend{margin-top:10px}
+/* Settings > Backups, Automatic Backups (Google Drive / OneDrive, or Back Up Now / Stop): the words on their own line, then the
+   two buttons side by side at the same width (no wider than 360px on a wide screen) */
+.cap-row.cbk-row{flex-wrap:wrap;row-gap:12px}
+.cbk-row .cbk-t{flex:1 1 100%;min-width:0;font-weight:600}
+.cbk-row .cbk-btns{flex:1 1 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:360px}
+.cbk-row .cbk-btns .btn{width:100%;justify-content:center;margin:0;white-space:nowrap;border:1px solid var(--line)}
+.cbk-row .cbk-btns .btn:only-child{grid-column:1 / -1}

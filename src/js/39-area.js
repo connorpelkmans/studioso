@@ -82,20 +82,28 @@ var SBAREA = (() => {
   const chips = (sel, attr) => `<div class="area-grid" role="radiogroup" aria-label="Area of study">${AREAS.map(a => `<button type="button" class="area-chip${a.id === sel ? " on" : ""}" role="radio" aria-checked="${a.id === sel}" ${attr}="${a.id}"><b>${esc(a.name)}</b><span>${esc(a.blurb)}</span></button>`).join("")}</div>`;
   function sheet(){
     const a = get() || {id: "", text: ""};
+    // one or the other: a field picked from the list, or your own typed in (saved as Something Else, tuned by the AI). Picking a
+    // field empties the box; typing in the box unpicks the field (it used to keep both, and the picked field was ignored)
+    const typed = !!(a.text || "").trim();
     openSheet(`<form class="sheet">${head("Area of Study")}<div class="sheet-body">
       <p class="mini" style="margin:0">Studyboard uses this to tailor task types, example tasks, typical hours and its AI helpers to your field. Change it any time.</p>
-      ${chips(a.id, "data-area")}
+      ${chips(typed ? "" : a.id, "data-area")}
       <label class="f"><span class="lbl">Your Major or Program <span class="hint">optional</span></span><input type="text" id="areaText" maxlength="60" value="${esc(a.text || "")}" placeholder="e.g. Marine Biology" data-noenter></label>
       <p class="mini" style="margin:0">${aiReady() ? "Type your own field and the AI tunes task types, example tasks, typical hours and the theme to it, just like the fields above." : "Turn on AI Features in Settings and your own field is tuned the same way as the fields above."}</p>
       </div><div class="sheet-foot">${a.id ? `<button type="button" class="btn" data-area-clear>Clear</button>` : ""}<span class="spacer"></span><button type="button" class="btn primary" data-area-save ${a.id || a.text ? "" : "disabled"}>Save</button></div></form>`);
-    let sel = a.id;
-    const form = dlg.querySelector("form");
-    form.addEventListener("input", e => { if (e.target.id === "areaText") form.querySelector("[data-area-save]").disabled = !sel && !e.target.value.trim(); });
+    let sel = typed ? "" : a.id;
+    const form = dlg.querySelector("form"), box = form.querySelector("#areaText"), save = form.querySelector("[data-area-save]");
+    const mark = id => form.querySelectorAll(".area-chip").forEach(x => { const on = x.dataset.area === id; x.classList.toggle("on", on); x.setAttribute("aria-checked", String(on)); });
+    form.addEventListener("input", e => {
+      if (e.target.id !== "areaText") return;
+      if (e.target.value.trim() && sel) { sel = ""; mark(""); }
+      save.disabled = !sel && !e.target.value.trim();
+    });
     form.addEventListener("click", e => {
       const b = e.target.closest("[data-area]");
-      if (b) { sel = b.dataset.area; form.querySelectorAll(".area-chip").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", String(x === b)); }); form.querySelector("[data-area-save]").disabled = false; return; }
+      if (b) { sel = b.dataset.area; mark(sel); box.value = ""; save.disabled = false; return; }
       if (e.target.closest("[data-area-clear]")) { set(null); dlg.close(); toast("Area of study cleared"); return; }
-      if (e.target.closest("[data-area-save]")) { set(sel || "other", $("#areaText").value); dlg.close(); toast(`Area of study: ${label() || "Something else"}`); }
+      if (e.target.closest("[data-area-save]")) { const t = box.value.trim(); set(t ? "other" : sel, t); dlg.close(); toast(`Area of study: ${label() || "Something else"}`); }
     });
   }
   hook("menu", () => `<button data-act="area-open"><span>Area of Study<span class="sub">${esc(label() || "Not set. Tell Studyboard what you study so it can suit the app to your field.")}</span></span></button>`);

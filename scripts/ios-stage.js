@@ -224,6 +224,12 @@ const WIDGET_ONLY = ["StudyboardWidgets.swift", "StudyboardHomeWidgets.swift"], 
   } catch (e) {}
 }
 
+// The Home Screen and Lock Screen widgets: their files are put into the Xcode project's targets here, with the App Group
+// (scripts/ios-widgets.js), so they don't need adding by hand in Xcode
+let homeWidgets = {ok: false};
+try { if (fs.existsSync(path.join(wrap, "ios", "App", "App.xcodeproj"))) homeWidgets = require("./ios-widgets").setupHomeWidgets(wrap, m => console.log("ios-stage: widgets: " + m)); }
+catch (e) { console.log("ios-stage: widgets: couldn't add them to the Xcode project (" + e.message + "). They stay off; the rest of the app is unaffected."); }
+
 // Native parts that only work once their files are in the Xcode project (Xcode doesn't pick files up by itself): say which
 // are missing, so a feature isn't silently off (school site sign-in, the Lock Screen timer)
 {
@@ -231,7 +237,7 @@ const WIDGET_ONLY = ["StudyboardWidgets.swift", "StudyboardHomeWidgets.swift"], 
   try {
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
     const need = [["StudyboardHomeWidgets.swift", "Home Screen and Lock Screen widgets"], ["StudyboardHomeWidgetData.swift", "Home Screen and Lock Screen widgets"], ["StudyboardHomeWidgetsPlugin.swift", "Home Screen and Lock Screen widgets"], ["StudyboardLms.swift", "school site sign-in"], ["StudyboardLmsScripts.swift", "school site sign-in"], ["StudyboardPlugins.swift", "quick capture and the share sheet"], ["SBSiriData.swift", "asking Siri about your work"], ["StudyboardEntities.swift", "asking Siri about your work"], ["StudyboardAskIntents.swift", "asking Siri about your work"], ["StudyboardPlanIntents.swift", "Siri for today's plan, the focus timer and marking tasks done"], ["StudyboardReminders27.swift", "the new Siri on iOS 27 (tasks as reminders)"]]
-      .filter(([f]) => txt && !txt.includes(f));
+      .filter(([f]) => txt && !txt.includes(f) && !(homeWidgets.ok && /^StudyboardHomeWidget/.test(f)));
     if (need.length) {
       console.log("ios-stage: NOT IN THE XCODE PROJECT YET (so these are off in the app):");
       for (const [f, what] of need) console.log("  - ios-wrapper/native/" + f + " (" + what + ")");
@@ -246,7 +252,7 @@ const WIDGET_ONLY = ["StudyboardWidgets.swift", "StudyboardHomeWidgets.swift"], 
   const pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
   try {
     if (fs.existsSync(pbx)) {
-      const txt = fs.readFileSync(pbx, "utf8"), on = /path = "?StudyboardHomeWidgets\.swift"?;/.test(txt);
+      const txt = fs.readFileSync(pbx, "utf8"), on = homeWidgets.ok || /path = "?StudyboardHomeWidgets\.swift"?;/.test(txt);
       const r = require("./pbx-flag").setSwiftFlag(txt, "StudyboardWidgets", "STUDYBOARD_HOME_WIDGETS", on);
       if (r.changed) { fs.writeFileSync(pbx, r.text); console.log("ios-stage: Home Screen and Lock Screen widgets " + (on ? "on" : "left out (their files aren't in the Xcode project)") + " in the widget extension"); }
     }
@@ -286,6 +292,8 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   // list isn't enough (a build said "connected" here and still had no haptics): the plugin also has to be in the project's native
   // dependencies, the Podfile (CocoaPods) or CapApp-SPM/Package.swift (Swift packages), and installed. Checked, and fixed where it can be
   try { hapticsCheck(); } catch (e) { console.log("ios-stage: couldn't check haptics: " + e.message); }
+  // Background App Refresh for the widgets: AppDelegate.swift registers the task at launch (scripts/ios-bgrefresh.js)
+  try { require("./ios-bgrefresh").setupBackgroundRefresh(wrap); } catch (e) { console.log("ios-stage: couldn't turn on Background App Refresh: " + e.message); }
   console.log("ios-stage: synced into the Xcode project. Open it with: cd ios-wrapper && npx cap open ios");
 } else console.log("ios-stage: no Xcode project yet (ios-wrapper/ios/) or Capacitor not installed there: see TESTING-MAC-IPHONE.md, iPhone step 2.");
 

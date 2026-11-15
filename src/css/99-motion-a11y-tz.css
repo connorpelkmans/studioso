@@ -70,7 +70,6 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
    takes its seat in the tab bar (98-companion.js, docks) as it does on a phone */
 @media (max-height:600px){
   html header.top{position:relative}
-  html .sch-pills{top:env(safe-area-inset-top,0px)}
   /* the Add button doesn't float here: its copy sits in the header row (99-motion-a11y-tz.js) */
   html .fab{display:none!important}
   .top-add{flex:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}

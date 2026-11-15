@@ -70,9 +70,9 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
 
       await p.evaluate(() => document.querySelector('.us-cat[data-us="study"]').click()); await p.waitForTimeout(200);
       await p.click('[data-act="area-open"]'); await p.waitForTimeout(300);
-      await p.click('[data-area="cs"]'); await p.fill("#areaText", "Computer Engineering"); await p.click("[data-area-save]"); await p.waitForTimeout(300);
+      await p.click('[data-area="cs"]'); await p.click("[data-area-save]"); await p.waitForTimeout(300);
       const st = await stored(p);
-      ok(st.settings.area && st.settings.area.id === "cs" && st.settings.area.text === "Computer Engineering", "the area of study is saved in the settings");
+      ok(st.settings.area && st.settings.area.id === "cs" && !st.settings.area.text, "the area of study is saved in the settings (a picked field, no typed one)");
       await tab(p, "board");
       ok((await p.inputValue("#qaIn").then(() => p.getAttribute("#qaIn", "placeholder"))).includes("cs project"), "the quick-add example follows the area");
 

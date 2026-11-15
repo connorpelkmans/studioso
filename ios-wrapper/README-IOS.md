@@ -123,16 +123,12 @@ to the App Group (`widget-today.json`), and the widgets reload. A task ticked on
 other tap open the app with a `studyboard://` link. Just after midnight the widgets show the new day's due tasks from the week ahead
 until the app opens and plans it. Signing out clears both files.
 
-1. **Files:** File > Add Files to "App", choose all three in `ios-wrapper/native/HomeWidgets`, untick "Copy items if needed", then set
-   each file's targets in the File inspector:
-   * `StudyboardHomeWidgets.swift`: **StudyboardWidgets** only
-   * `StudyboardHomeWidgetData.swift`: **App** and **StudyboardWidgets**
-   * `StudyboardHomeWidgetsPlugin.swift`: **App** only
-
-   `StudyboardWidgets.swift` already lists the two widgets, so the extension doesn't build until the first two are in its target.
-2. **App Group on the widget:** select the StudyboardWidgets target > Signing & Capabilities > + Capability > **App Groups**, and tick
-   `group.com.studyboardapp.studyboard` (the same group as the App target; template: `native/HomeWidgets/StudyboardWidgets.entitlements`).
-   Without it the widgets can't see the app's file and stay on "Your day will show up here".
+1. **Files and App Group: automatic.** `npm run ios:stage` (`scripts/ios-widgets.js`) adds the three files to the right targets
+   (`StudyboardHomeWidgets.swift`: the widget extension; `StudyboardHomeWidgetData.swift`: both; `StudyboardHomeWidgetsPlugin.swift`:
+   the App), copying them into the project, and gives the App and the widget extension the App Group
+   `group.com.studyboardapp.studyboard`. A widget extension made with a recent Xcode keeps its files in a synchronised folder: there
+   the files are put in that folder instead, so nothing is built twice. It says what it did; nothing to do in Xcode.
+2. **The widget extension itself** has to exist (it's added once, in 3c). Without it, `ios:stage` says so and how to add it.
 3. **Plugin:** `npm run ios:stage` adds `StudyboardHomeWidgetsPlugin` to Capacitor's plugin list (and `MainViewController` registers
    it too), so there's nothing else to connect.
 

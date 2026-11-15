@@ -2608,6 +2608,33 @@ html[dir="rtl"] :is(p,li,label,td,th,span,b,strong,small,em){unicode-bidi:plaint
 /* switches: the knob starts on the right and slides left when on */
 html[dir="rtl"] label.anim-tog > input[type=checkbox]{scale:-1 1}
 html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 7"],[d^="M15 5l-7 7"],[d^="M15 18l-6-6"],[d^="M9 18l6-6"],[d^="M5 12h14"],[d^="M19 12H5"])){scale:-1 1}
+
+/* Schedule > Month: the picked day's See Week sits at the right end of its heading */
+.cal.sch-month + .sec{display:flex;align-items:center;gap:8px}
+.cal.sch-month + .sec .smc-week{margin-left:auto}
+/* Schedule > Month: each class and event wears an icon for its kind, like a task on Due Dates */
+.cal-evrow.smc-row{grid-template-columns:auto auto 1fr;align-items:center}
+.cal-evrow.smc-row .smc-ic{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--c);color:#fff;margin:0}
+.cal-evrow.smc-row .smc-ic svg{width:15px;height:15px}
+/* phone: two icons fit a day; more shows as a small "+1" tag along the day's bottom edge, under the icons */
+@media (max-width:899.98px){
+  .sch-month .day{position:relative}
+  .sch-month .dots .ci-more{position:absolute;left:50%;bottom:1px;translate:-50% 0;padding:1px 5px;border-radius:999px;background:color-mix(in srgb,var(--ink) 9%,var(--surface));font:800 .56rem/1.15 var(--body);color:var(--muted)}
+  .sch-month .day:has(.ci-more) .dots{margin-top:-3px}
+}
+/* a 15px dot with an 11px icon leaves 2px all round, a whole pixel, so the icon sits exactly in the middle (10px left 2.5px) */
+@media (max-width:600px){.sch-month .dots i.ci svg{width:11px;height:11px}}
+.cal-evrow.smc-row .cal-evt{grid-row:span 2}
+.cal-evrow.smc-row .mini{grid-column:3}
+.sch-month .ci-t .smc-tm{font-weight:800;opacity:.8}
+.smc-legend{margin-top:10px}
+/* Settings > Backups, Automatic Backups (Google Drive / OneDrive, or Back Up Now / Stop): the words on their own line, then the
+   two buttons side by side at the same width (no wider than 360px on a wide screen) */
+.cap-row.cbk-row{flex-wrap:wrap;row-gap:12px}
+.cbk-row .cbk-t{flex:1 1 100%;min-width:0;font-weight:600}
+.cbk-row .cbk-btns{flex:1 1 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:360px}
+.cbk-row .cbk-btns .btn{width:100%;justify-content:center;margin:0;white-space:nowrap;border:1px solid var(--line)}
+.cbk-row .cbk-btns .btn:only-child{grid-column:1 / -1}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -6143,7 +6170,6 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
    takes its seat in the tab bar (98-companion.js, docks) as it does on a phone */
 @media (max-height:600px){
   html header.top{position:relative}
-  html .sch-pills{top:env(safe-area-inset-top,0px)}
   /* the Add button doesn't float here: its copy sits in the header row (99-motion-a11y-tz.js) */
   html .fab{display:none!important}
   .top-add{flex:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
@@ -6912,9 +6938,9 @@ h2.sec.c2-bh{align-items:center}
 .sch-b.sch-mk{display:flex!important;align-items:center;padding:0 8px!important;border-radius:6px!important;background:color-mix(in srgb,var(--c) 10%,var(--surface))!important;border:1px dashed color-mix(in srgb,var(--c) 60%,var(--line))!important;border-left:4px solid var(--c)!important;box-shadow:none!important;z-index:1}
 .sch-b.sch-mk span{display:block!important;color:var(--ink)!important;font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sch-b.sch-mk b{font:800 .74rem var(--display)!important;color:color-mix(in srgb,var(--c) 72%,var(--ink))}
-/* phone: the day pills stay pinned under the top bar, so you always know which day you're looking at after scrolling */
+/* phone: the day pills scroll with the page (not pinned under the top bar), with no band behind them */
 @media (max-width:700px){
-  .sch-pills{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--top-bar-h,64px));z-index:5;margin-inline:-16px;padding:6px 16px;background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .sch-pills{position:static;background:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0;margin-inline:0}
 }
 /* short classes */
 @container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
@@ -7626,7 +7652,8 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
   .ph-sch .sch-nav{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;width:100%}
   .ph-sch .sch-range{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* its own layer above the schedule: while the fade-in animation runs, the menu would otherwise sit under the events */
-  .ph-more{position:relative;z-index:30;flex:none;margin-left:4px}
+  .ph-more{position:relative;z-index:1;flex:none;margin-left:4px}
+  .ph-more[open]{z-index:30}
   .ph-more > summary{list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;cursor:pointer}
   .ph-more > summary::-webkit-details-marker{display:none}
   .ph-more > summary svg{width:14px;height:14px;transition:transform .15s}
@@ -7990,7 +8017,9 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
   .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
   .wb-max{background:rgba(255,255,255,.76)!important}
   .wb-dk .wb-max{background:rgba(38,45,54,.78)!important}
-  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
+  /* (follows the board's own light / dark, not the app's: on a light board in a dark app it was a dark pill under dark icons) */
+  .wb-stage .wb-zoom{background:rgba(255,255,255,.76)!important;border-color:rgba(0,0,0,.08)!important}
+  .wb-dk.wb-stage .wb-zoom{background:rgba(38,45,54,.78)!important;border-color:rgba(255,255,255,.1)!important}
 }
 
 /* Do This Next band: "Do This Next, Pip's pick" stays on one line beside the time */

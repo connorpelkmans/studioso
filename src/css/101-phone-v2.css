@@ -144,7 +144,8 @@
   .ph-sch .sch-nav{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;width:100%}
   .ph-sch .sch-range{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* its own layer above the schedule: while the fade-in animation runs, the menu would otherwise sit under the events */
-  .ph-more{position:relative;z-index:30;flex:none;margin-left:4px}
+  .ph-more{position:relative;z-index:1;flex:none;margin-left:4px}
+  .ph-more[open]{z-index:30}
   .ph-more > summary{list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;cursor:pointer}
   .ph-more > summary::-webkit-details-marker{display:none}
   .ph-more > summary svg{width:14px;height:14px;transition:transform .15s}
@@ -508,7 +509,9 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
   .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
   .wb-max{background:rgba(255,255,255,.76)!important}
   .wb-dk .wb-max{background:rgba(38,45,54,.78)!important}
-  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
+  /* (follows the board's own light / dark, not the app's: on a light board in a dark app it was a dark pill under dark icons) */
+  .wb-stage .wb-zoom{background:rgba(255,255,255,.76)!important;border-color:rgba(0,0,0,.08)!important}
+  .wb-dk.wb-stage .wb-zoom{background:rgba(38,45,54,.78)!important;border-color:rgba(255,255,255,.1)!important}
 }
 
 /* Do This Next band: "Do This Next, Pip's pick" stays on one line beside the time */
