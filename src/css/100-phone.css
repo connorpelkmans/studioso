@@ -638,9 +638,9 @@ h2.sec.c2-bh{align-items:center}
 .sch-b.sch-mk{display:flex!important;align-items:center;padding:0 8px!important;border-radius:6px!important;background:color-mix(in srgb,var(--c) 10%,var(--surface))!important;border:1px dashed color-mix(in srgb,var(--c) 60%,var(--line))!important;border-left:4px solid var(--c)!important;box-shadow:none!important;z-index:1}
 .sch-b.sch-mk span{display:block!important;color:var(--ink)!important;font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sch-b.sch-mk b{font:800 .74rem var(--display)!important;color:color-mix(in srgb,var(--c) 72%,var(--ink))}
-/* phone: the day pills stay pinned under the top bar, so you always know which day you're looking at after scrolling */
+/* phone: the day pills scroll with the page (not pinned under the top bar), with no band behind them */
 @media (max-width:700px){
-  .sch-pills{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--top-bar-h,64px));z-index:5;margin-inline:-16px;padding:6px 16px;background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .sch-pills{position:static;background:none;-webkit-backdrop-filter:none;backdrop-filter:none;padding:0;margin-inline:0}
 }
 /* short classes */
 @container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
