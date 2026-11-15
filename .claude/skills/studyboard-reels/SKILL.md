@@ -35,7 +35,7 @@ Don't stall on questions. If the request is "make a reel about Quick Add", decid
 ### 1b. Pick the reel type
 
 Live research (Nov 2026) shows two kinds of reel work for this audience, and a healthy feed mixes them about 2:1:
-- **Relatable** (reach): modelled on the top outlier. A real person at frame 0 (stock b-roll), one persistent native caption (white bold Inter, black outline), the Studyboard calendar as the "proof" shot cut on a music hit, a punchline shot, and a loop. Then, unlike a creator's meme, **always a short payoff**: a turn line ("plot twist: you can see it coming"), about 2 s of Studyboard fixing the exact problem from the hook, and a 1.4 s end card (name, "free · no account needed", URL). A business reel that never shows the product gets views but no users. Keep the opening native: the brand appears only after the hook has earned attention. The template paces it at 17.0 s: 4 s hook, 4 s problem, 2 s punchline, 5 s fix, 2 s end card. These get sent and are how a new account reaches people who don't follow it. Example: `marketing/reels/2026-11-16-same-week/`.
+- **Relatable** (reach): modelled on the top outlier. A real person at frame 0 (stock b-roll), one persistent native caption (white bold Inter, black outline), the Studyboard calendar as the "proof" shot cut on a music hit, a punchline shot, and a loop. Then, unlike a creator's meme, **always a short payoff**: a turn line ("plot twist: you can see it coming"), about 2 s of Studyboard fixing the exact problem from the hook, and a 1.4 s end card (name, "free · no account needed", URL). A business reel that never shows the product gets views but no users. Keep the opening native: the brand appears only after the hook has earned attention. The template paces it at 18.0 s: 4 s hook, 4 s problem, 3 s punchline, 5 s fix, 2 s end card. These get sent and are how a new account reaches people who don't follow it. Example: `marketing/reels/2026-11-16-same-week/`.
 - **The fix** (conversion): hook → payoff demo → URL. Example: `marketing/reels/2026-11-15-crunch-week/`.
 
 ### 2. Hooks first
@@ -82,6 +82,9 @@ Pacing rules (from Connor's review: "everything cuts harshly and sometimes there
 - **Nothing on screen leaves before it can be read**: captions get at least 0.45 s + 0.3 s per word; a UI card that shows the payoff gets 3 s or more *after* it finishes building.
 - **No hard cuts or white flashes between scenes.** Use 0.3–0.4 s cross-dissolves with a slight settle-in zoom (built into the problem-fix template), and fade captions between lines.
 - Energy comes from the music hits and motion *inside* a scene, not from chopping between scenes.
+- **Captions follow the picture**: a line arrives when the thing it talks about is on screen (the turn line as the person reacts, the Studyboard line after the fix card has landed), never ahead of it.
+- **Give reactions room**: a punchline shot of a person runs about 3 s, so the reaction lands and then sinks in.
+- **Beat accents are a single smooth nudge**, never a fast shake: anything oscillating faster than about 5 Hz flickers at 30 fps.
 
 Two lessons from earlier builds:
 - **Time text beats by word count**, not by feel: about 0.45 s + 0.2 s per word, at least 1.2 s. Derive later timings from the hook's length so hook variants stay in sync (see `marketing/reels/2026-11-15-crunch-week/reel.html`).
@@ -115,6 +118,8 @@ node .claude/skills/studyboard-reels/scripts/render.js marketing/reels/<folder> 
 # With a voiceover or licensed track:
 node .claude/skills/studyboard-reels/scripts/render.js marketing/reels/<folder> --audio path/to/voice.m4a
 ```
+
+Then run `scripts/check_glitches.py` on every final MP4. The list must be empty: a glitch reads as cheap even when it's only one frame.
 
 Output: `reel.mp4` (1080×1920, 30 fps, H.264) and `cover.png` (the frame at `window.COVER` seconds, the hook frame by default). Look at 2–3 frames of the finished video with ffmpeg if anything was changed since the stills.
 

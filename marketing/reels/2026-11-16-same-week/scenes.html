@@ -28,7 +28,9 @@ const HOOK = {
   b: "Me realizing <b>3 exams, a lab report and an essay</b> are all in Week 11, and it's already Week 10",
   c: "Nobody warned me November has <b>four Week 11s</b> in a row",
 };
-CAPS = [[0, 8.0, HOOK[VARIANT]], [8.0, 10.0, "Plot twist: you can <b>see it coming</b>"], [10.0, 15.0, "Studyboard flags your worst week, <b>weeks early</b>"]];
+CAPS = caps(HOOK[VARIANT],
+            "Plot twist: you can <b>see it coming</b>",
+            "Studyboard flags your worst week, <b>weeks early</b>");
 BURST = {t: 1.5, x: 540, y: 700};
 TAG = "Crunch Forecast · free";
 const WEEKS = [7, 8, 9, 10, 11, 12], CR = 4;

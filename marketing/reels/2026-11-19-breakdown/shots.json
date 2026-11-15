@@ -11,7 +11,7 @@
  {
   "clip": "../_broll/phonebed.mp4",
   "in": 14.8,
-  "dur": 2.0,
+  "dur": 3.0,
   "pre": "crop=iw/1.5:ih/1.5:(iw-iw/1.5)/2:(ih-ih/1.5)*0.72,eq=brightness=0.07:gamma=1.35:saturation=1.1"
  },
  {
