@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Synthesises a small sound-effects kit with ffmpeg (no samples, nothing to license).
-# Usage: make_sfx.sh <out-dir>   -> thud.wav, whoosh.wav, pop.wav, tick.wav
+# Usage: make_sfx.sh <out-dir>   -> thud.wav, whoosh.wav, pop.wav, tick.wav, ding.wav
 set -euo pipefail
 OUT="${1:-.}"; mkdir -p "$OUT"
 A=(-loglevel error -y)
@@ -13,3 +13,6 @@ ffmpeg "${A[@]}" -f lavfi -i "aevalsrc='0.5*sin(2*PI*(880+600*t/0.08)*t)*exp(-40
 # Tick: a tiny click for typing.
 ffmpeg "${A[@]}" -f lavfi -i "aevalsrc='0.35*(random(0)*2-1)*exp(-400*t)':s=48000:d=0.03" -ac 2 "$OUT/tick.wav"
 echo "SFX in $OUT"
+# Ding: a bright two-note chime for the payoff moment (C6 then E6).
+ffmpeg "${A[@]}" -f lavfi -i "aevalsrc='0.35*sin(2*PI*1046.5*t)*exp(-5*t)+0.35*gt(t,0.09)*sin(2*PI*1318.5*(t-0.09))*exp(-5*(t-0.09))':s=48000:d=0.9" -ac 2 "$OUT/ding.wav"
+echo "+ ding.wav"

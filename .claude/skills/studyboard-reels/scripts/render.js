@@ -49,8 +49,8 @@ const GUIDES = `(() => { const d = document.createElement('div'); d.id = '__guid
   const z = (css, label) => { const e = document.createElement('div'); e.style.cssText = 'position:absolute;background:rgba(255,0,60,.28);outline:2px dashed rgba(255,0,60,.9);color:#fff;font:600 26px system-ui;padding:8px;' + css; e.textContent = label; d.appendChild(e); };
   z('left:0;right:0;top:0;height:250px', 'top bar');
   z('left:0;right:0;bottom:0;height:440px', 'caption + username');
-  z('right:0;top:250px;width:160px;bottom:440px', 'buttons');
-  z('left:0;top:250px;width:60px;bottom:440px', '');
+  z('right:0;top:1050px;width:140px;bottom:440px', 'buttons');
+  const c = document.createElement('div'); c.style.cssText = 'position:absolute;left:539px;top:0;bottom:0;width:2px;background:rgba(0,255,200,.8)'; d.appendChild(c);
   document.body.appendChild(d); })()`;
 
 const ffprobeHasAudio = f => {

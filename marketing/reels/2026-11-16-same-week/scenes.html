@@ -1,5 +1,5 @@
 <!-- SCENE CSS -->
-.grid{position:absolute;left:100px;top:330px;width:798px}
+.grid{position:absolute;left:66px;top:330px;width:798px}
 .dh{display:flex;gap:10px;margin:0 0 12px 150px;font:600 26px var(--display);color:rgba(255,255,255,.5)}
 .dh span{width:84px;text-align:center}
 .wk{display:flex;align-items:center;gap:10px;height:72px;margin-bottom:10px;position:relative}
@@ -24,11 +24,12 @@
 <!-- SCENE JS -->
 const VARIANT = "a";
 const HOOK = {
-  a: "Every exam I have this semester somehow landed in the exact same week",
-  b: "Me realizing 3 exams, a lab report and an essay are all in Week 11, and it's already Week 10",
-  c: "Nobody warned me November has four Week 11s in a row",
+  a: "Every exam I have this semester somehow landed in <b>the exact same week</b>",
+  b: "Me realizing <b>3 exams, a lab report and an essay</b> are all in Week 11, and it's already Week 10",
+  c: "Nobody warned me November has <b>four Week 11s</b> in a row",
 };
-CAPS = [[0, 8.0, HOOK[VARIANT]], [8.0, 10.0, "Plot twist: you can see it coming"], [10.0, 15.0, "Studyboard flags your worst week, weeks early"]];
+CAPS = [[0, 8.0, HOOK[VARIANT]], [8.0, 10.0, "Plot twist: you can <b>see it coming</b>"], [10.0, 15.0, "Studyboard flags your worst week, <b>weeks early</b>"]];
+BURST = {t: 1.5, x: 540, y: 700};
 TAG = "Crunch Forecast · free";
 const WEEKS = [7, 8, 9, 10, 11, 12], CR = 4;
 const RED = VARIANT === "c" ? [2, 3, 4, 5] : [CR];
@@ -43,7 +44,7 @@ PROB = (t, lt) => {
   const s = shakeAt(lt, [0, .5, 1, 1.5, 2.0]), push = ioCubic(P(lt, 2.0, 2.35));
   $("pcam").style.transformOrigin = `540px ${VARIANT === "c" ? rowY(3.5) : rowY(CR)}px`;
   $("pcam").style.transform = `scale(${1 + push * .25}) translate(${s}px,${s * .4}px)`;
-  if (VARIANT !== "c") CHIPS.forEach((c, i) => { const el = $("ch" + i); el.style.left = (100 + c[3]) + "px"; el.style.top = (rowY(CR) + c[4]) + "px";
+  if (VARIANT !== "c") CHIPS.forEach((c, i) => { const el = $("ch" + i); el.style.left = (66 + c[3]) + "px"; el.style.top = (rowY(CR) + c[4]) + "px";
     el.style.transform = slam(el, lt, i * .5, -280) + ` rotate(${c[5]}deg)`; });
   WEEKS.forEach((_, r) => [0,1,2,3,4,5,6].forEach(d => { const idx = RED.indexOf(r), el = $(`p${r}_${d}`);
     if (idx < 0) return; const h = VARIANT === "c" ? idx * .5 : 0, k = P(lt, h, h + (VARIANT === "c" ? .15 : 1.5));

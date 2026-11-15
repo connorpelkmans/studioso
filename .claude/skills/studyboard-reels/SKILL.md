@@ -73,6 +73,11 @@ Things the renderer does for you in `reel.html`:
 - `window.render(t)` is called for every frame with `t` in seconds; `window.END` is the length.
 - With `--footage`, `window.FOOTAGE` is true and the page background is transparent, so only your overlays show on top of the video.
 
+Energy rules (from Connor's review: "more enthusiastic and expressive, but not over the top"):
+- Highlight the 2–4 key words of each caption in yellow (`<b>…</b>` in CAPS).
+- Entrances overshoot slightly (the template's `rise` and `pop`); the payoff gets a **small confetti burst behind the card** (`BURST`) and a **ding** (`ding.wav`).
+- The companions hop on the end card. One celebration per reel: more than that is over the top.
+
 Pacing rules (from Connor's review: "everything cuts harshly and sometimes there's no time to read"):
 - **Nothing on screen leaves before it can be read**: captions get at least 0.45 s + 0.3 s per word; a UI card that shows the payoff gets 3 s or more *after* it finishes building.
 - **No hard cuts or white flashes between scenes.** Use 0.3–0.4 s cross-dissolves with a slight settle-in zoom (built into the problem-fix template), and fade captions between lines.
@@ -82,7 +87,7 @@ Two lessons from earlier builds:
 - **Time text beats by word count**, not by feel: about 0.45 s + 0.2 s per word, at least 1.2 s. Derive later timings from the hook's length so hook variants stay in sync (see `marketing/reels/2026-11-15-crunch-week/reel.html`).
 - **Never leave 2 s with nothing new on screen**, especially right after the payoff: cut to the end card instead.
 
-Keep text inside the safe area: **x 60–920, y 250–1480**. Instagram's and TikTok's buttons sit on the right, and their captions cover the bottom ~420 px. The `--guides` flag shades the unsafe zones on stills so you can check.
+Keep text inside **y 250–1480** (the top bar and the bottom caption cover the rest) and **centre everything on x = 540**. The platform buttons only cover the lower right (about x > 940, y 1050–1500), so captions there use a width of about 820 centred. The `--guides` flag shades those zones and draws the centre line.
 
 ### 4b. Footage, music and sound (every reel ships with audio)
 

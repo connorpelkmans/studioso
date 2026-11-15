@@ -25,7 +25,7 @@ html,body{margin:0;background:#000}
 .navy{color:#fff;background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
 .abs{position:absolute}
 h1,h2{font-family:var(--display);margin:0;letter-spacing:-.03em;line-height:1.04;font-weight:800}
-.hl{position:absolute;left:60px;width:860px;top:330px;text-align:center;color:#fff}
+.hl{position:absolute;left:110px;width:860px;top:330px;text-align:center;color:#fff}
 .hl .ln{display:block;white-space:nowrap}
 .hl .ln span{display:inline-block}
 .y{color:var(--mark)}
@@ -34,7 +34,7 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.03em;line-height:1.04
 .mk::before{content:"";position:absolute;left:-.05em;right:-.05em;top:.58em;height:.36em;background:var(--mark);z-index:-1;transform-origin:left;transform:scaleX(var(--mk,0))}
 
 /* Term heatmap */
-#grid{position:absolute;left:70px;top:700px;width:798px;transform-origin:0 0}
+#grid{position:absolute;left:66px;top:700px;width:798px;transform-origin:0 0}
 #grid .dh{display:flex;gap:10px;margin:0 0 14px 150px;font:600 26px var(--display);color:rgba(255,255,255,.55)}
 #grid .dh span{width:84px;text-align:center}
 #grid .wk{display:flex;align-items:center;gap:10px;height:84px;margin-bottom:10px;position:relative}
@@ -50,7 +50,7 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.03em;line-height:1.04
 
 /* Week sheet */
 .card{background:var(--surface);border-radius:34px;box-shadow:var(--shadow);border:2px solid #fff}
-#sheet{left:70px;width:850px;top:800px;padding:36px 36px 30px}
+#sheet{left:115px;width:850px;top:800px;padding:36px 36px 30px}
 #sheet .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 #sheet .hd b{font:800 50px var(--display);letter-spacing:-.02em}
 .badge{font:700 30px var(--display);padding:10px 20px;border-radius:14px;color:#fff;background:var(--tomato);white-space:nowrap}
@@ -74,7 +74,7 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.03em;line-height:1.04
 .cp-svg[data-e=happy] .cp-eye{display:none}
 .cp-svg[data-e=happy] .cp-e-happy{display:inline}
 .bubble{position:absolute;background:var(--surface);color:var(--ink);border-radius:30px;padding:22px 30px;font:700 36px/1.25 var(--display);box-shadow:var(--shadow);border:2px solid var(--line);white-space:nowrap;transform-origin:30% 100%}
-.bubble::after{content:"";position:absolute;left:60px;bottom:-15px;width:26px;height:26px;background:inherit;border-right:2px solid var(--line);border-bottom:2px solid var(--line);transform:rotate(45deg)}
+.bubble::after{content:"";position:absolute;right:70px;bottom:-15px;width:26px;height:26px;background:inherit;border-right:2px solid var(--line);border-bottom:2px solid var(--line);transform:rotate(45deg)}
 .pill{display:inline-flex;align-items:center;background:var(--accent-2);color:#fff;border-radius:26px;padding:26px 44px;font:700 46px var(--display);box-shadow:0 20px 50px -12px rgba(57,136,254,.6)}
 </style>
 </head>
@@ -89,7 +89,7 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.03em;line-height:1.04
   <h1 class="hl" id="b3"></h1>
 
   <!-- Payoff headline -->
-  <div class="abs" id="ph" style="left:70px;width:850px;top:290px">
+  <div class="abs" id="ph" style="left:115px;width:850px;top:290px">
     <div class="eyebrow" id="phE">Crunch Forecast · free</div>
     <h2 style="font-size:92px;margin-top:22px"><span id="phA" style="display:block">Every week,</span><span id="phB" style="display:block"><span class="mk" id="phMk">calm to crunch.</span></span></h2>
   </div>
@@ -108,21 +108,22 @@ h1,h2{font-family:var(--display);margin:0;letter-spacing:-.03em;line-height:1.04
   </div>
     <div id="tap"></div>
 
-  <div class="comp" id="owl" style="width:170px;height:170px;left:720px;top:560px">{{owl}}</div>
-  <div class="bubble" id="bub1" style="left:470px;top:440px">Week 11 looks rough.</div>
-  <div class="bubble" id="bub2" style="left:520px;top:440px">Way better.</div>
+  <div class="comp" id="owl" style="width:170px;height:170px;left:760px;top:560px">{{owl}}</div>
+  <div class="bubble" id="bub1" style="left:560px;top:420px">Week 11 looks rough.</div>
+  <div class="bubble" id="bub2" style="left:640px;top:420px">Way better.</div>
 
   <!-- End card -->
   <div class="layer navy" id="end">
-    <img id="eIcon" src="{{ROOT}}/website/assets/logo-dark.webp" alt="Studyboard" class="abs" style="left:200px;top:400px;width:580px;height:auto">
-    <h1 class="abs" style="left:60px;width:860px;top:600px;text-align:center;font-size:104px;color:#fff">
+    <img id="eMark" src="{{ROOT}}/icon-512.png" alt="" class="abs" style="left:465px;top:240px;width:150px;height:150px;border-radius:34px;box-shadow:0 20px 50px rgba(0,0,0,.45)">
+    <img id="eIcon" src="{{ROOT}}/website/assets/logo-dark.webp" alt="Studyboard" class="abs" style="left:260px;top:420px;width:560px;height:auto">
+    <h1 class="abs" style="left:110px;width:860px;top:610px;text-align:center;font-size:100px;color:#fff">
       <span id="eA" style="display:block">See crunch week</span><span id="eB" class="y" style="display:block">coming.</span>
     </h1>
-    <div class="abs" id="eSub" style="left:60px;width:860px;top:880px;text-align:center;font:500 40px var(--display);color:#C9D7F2">Free · any browser · no account</div>
-    <div class="abs" id="eCta" style="left:60px;width:860px;top:990px;text-align:center"><span class="pill">studyboardapp.com</span></div>
-    <div class="abs" id="eAsk" style="left:60px;width:860px;top:1130px;text-align:center;font:700 44px var(--display);color:var(--mark)">Which week is your Week 11? 👇</div>
-    <div class="comp" id="eC1" style="width:170px;height:170px;left:300px;top:1240px">{{mochi}}</div>
-    <div class="comp" id="eC2" style="width:170px;height:170px;left:510px;top:1230px">{{owl}}</div>
+    <div class="abs" id="eSub" style="left:110px;width:860px;top:860px;text-align:center;font:500 40px var(--display);color:#C9D7F2">Free · any browser · no account</div>
+    <div class="abs" id="eCta" style="left:110px;width:860px;top:950px;text-align:center"><span class="pill">studyboardapp.com</span></div>
+    <div class="abs" id="eAsk" style="left:110px;width:860px;top:1090px;text-align:center;font:700 44px var(--display);color:var(--mark)">Which week is your Week 11? 👇</div>
+    <div class="comp" id="eC1" style="width:170px;height:170px;left:330px;top:1190px">{{mochi}}</div>
+    <div class="comp" id="eC2" style="width:170px;height:170px;left:580px;top:1180px">{{owl}}</div>
   </div>
 </div>
 
@@ -230,7 +231,7 @@ function render(t) {
   // Grid moves up and shrinks when the week is tapped open
   const up = ioCubic(P(t, T.sheet - .1, T.sheet + .45));
   const push = Math.sin(P(t, T.fix, T.fix + 1.2) * Math.PI) * .04;
-  g.style.transform = `translate(0px,${lerp(0, -420, up)}px) scale(${lerp(1, .56, up) + push})`;
+  g.style.transform = `translate(${lerp(0, 60, up)}px,${lerp(0, -420, up)}px) scale(${lerp(1, .56, up) + push})`;
   g.style.top = "700px";
 
   // Exam chips: stacked on the crunch week, shaking (stress); fly off as the paper opens
@@ -238,7 +239,7 @@ function render(t) {
     const el = $("ch" + i), rowY = 700 + 52 + CR * 94;
     const shake = Math.sin(t * 30 + i) * 3;
     const out = ioCubic(P(t, T.open - .2, T.open + .25));
-    el.style.left = (70 + c[3]) + "px"; el.style.top = (rowY + c[4]) + "px";
+    el.style.left = (66 + c[3]) + "px"; el.style.top = (rowY + c[4]) + "px";
     set(el, `translate(${shake}px,${-out * 120}px) rotate(${c[5] + shake * .4}deg)`, 1 - out);
   });
 
@@ -250,7 +251,7 @@ function render(t) {
 
   // Tap on the crunch week
   const tp = P(t, T.tap - .15, T.tap + .35), tap = $("tap");
-  tap.style.left = (70 + 150 + 3 * 94 + 42) + "px"; tap.style.top = (700 + 52 + CR * 94 + 42) + "px";
+  tap.style.left = (66 + 150 + 3 * 94 + 42) + "px"; tap.style.top = (700 + 52 + CR * 94 + 42) + "px";
   tap.style.opacity = tp > 0 && tp < 1 ? Math.sin(tp * Math.PI) : 0; tap.style.transform = `scale(${lerp(.6, 1.4, tp)})`;
 
   // Sheet with what's driving the week
@@ -275,11 +276,11 @@ function render(t) {
   // End card wipes up; its navy matches frame 0 so the loop is seamless
   const e = $("end"); e.style.visibility = t >= T.end ? "visible" : "hidden";
   e.style.clipPath = `inset(${(1 - ioCubic(P(t, T.end, T.end + .45))) * 100}% 0 0 0)`;
-  rise($("eIcon"), t, T.end + .3, .45, 30); rise($("eA"), t, T.end + .4); rise($("eB"), t, T.end + .52);
+  pop($("eMark"), t, T.end + .25, .45, .4); rise($("eIcon"), t, T.end + .4, .45, 30); rise($("eA"), t, T.end + .4); rise($("eB"), t, T.end + .52);
   rise($("eSub"), t, T.end + .8, .4, 30); pop($("eCta"), t, T.end + .95, .4, .7);
   rise($("eAsk"), t, T.end + 1.15, .4, 30); hop($("eC1"), t, T.end + 1.3, 1); hop($("eC2"), t, T.end + 1.42, 1);
   // Last 0.35 s: fade the end card's content so it cuts cleanly back into the hook
-  const lo = P(t, END - .35, END); ["eIcon", "eA", "eB", "eSub", "eCta", "eAsk", "eC1", "eC2"].forEach(id => { if (lo > 0) $(id).style.opacity = 1 - lo; });
+  const lo = P(t, END - .35, END); ["eMark", "eIcon", "eA", "eB", "eSub", "eCta", "eAsk", "eC1", "eC2"].forEach(id => { if (lo > 0) $(id).style.opacity = 1 - lo; });
 }
 window.render = render; window.END = END; window.COVER = COVER;
 render(new URLSearchParams(location.search).has("t") ? +new URLSearchParams(location.search).get("t") : 0);

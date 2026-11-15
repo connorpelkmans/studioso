@@ -1,11 +1,11 @@
 <!-- SCENE CSS -->
-#paper{position:absolute;left:100px;top:320px;width:790px;height:620px;border-radius:18px;background:#FDFDF8;
+#paper{position:absolute;left:145px;top:320px;width:790px;height:620px;border-radius:18px;background:#FDFDF8;
   background-image:linear-gradient(transparent 77px,rgba(57,136,254,.28) 78px,transparent 80px);background-size:100% 80px;background-position:0 40px;
   box-shadow:0 30px 70px -14px rgba(0,0,0,.6);transform:rotate(-2deg)}
 #paper::before{content:"";position:absolute;left:96px;top:0;bottom:0;width:3px;background:rgba(228,81,59,.45)}
 .term{position:absolute;left:130px;font:600 64px var(--display);color:#1B2B4A;opacity:0;white-space:nowrap}
-#qm{position:absolute;left:620px;top:400px;font:800 180px var(--display);color:var(--tomato);opacity:0}
-#gc{position:absolute;left:80px;width:830px;top:330px;padding:0;overflow:hidden}
+#qm{position:absolute;left:665px;top:400px;font:800 180px var(--display);color:var(--tomato);opacity:0}
+#gc{position:absolute;left:125px;width:830px;top:330px;padding:0;overflow:hidden}
 #gc .band{background:linear-gradient(90deg,#1E9E74,#4DBF97);color:#fff;font:700 30px var(--display);letter-spacing:.08em;padding:18px 32px}
 #gc .rows{padding:12px 32px 4px}
 #gc .r{display:flex;justify-content:space-between;font:500 36px var(--display);padding:10px 0;border-bottom:2px solid #EEF2F8}
@@ -43,9 +43,10 @@
 <!-- /FIX HTML -->
 
 <!-- SCENE JS -->
-CAPS = [[0, 8.0, "Me doing the math on what I need on the final to not fail this class"],
-        [8.0, 10.0, "Plot twist: it does the math for you"],
-        [10.0, 15.0, "Studyboard tells you exactly what you need on the final"]];
+CAPS = [[0, 8.0, "Me doing the math on what I need on <b>the final</b> to not fail this class"],
+        [8.0, 10.0, "Plot twist: <b>it does the math for you</b>"],
+        [10.0, 15.0, "Studyboard tells you <b>exactly what you need</b> on the final"]];
+BURST = {t: 1.3, x: 540, y: 860};
 TAG = "Grade Tracker · free";
 PROB = (t, lt) => {
   // Terms slam onto the page on the beats (local 0, .5, 1, 1.5); the drop at 2.0 brings the red "?" and a push-in

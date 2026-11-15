@@ -1,5 +1,5 @@
 <!-- SCENE CSS -->
-#task{position:absolute;left:80px;width:830px;top:380px;padding:0;overflow:hidden}
+#task{position:absolute;left:125px;width:830px;top:380px;padding:0;overflow:hidden}
 #task .band{background:linear-gradient(90deg,#B86A00,#E09A3A);color:#fff;font:700 30px var(--display);letter-spacing:.08em;padding:18px 32px}
 #task .b{padding:26px 32px 30px}
 #task .t{font:800 56px var(--display);letter-spacing:-.02em}
@@ -7,7 +7,7 @@
 #task .bar{margin-top:26px;height:26px;border-radius:13px;background:#EEF2F8;overflow:hidden}
 #task .pc{margin-top:14px;display:flex;justify-content:space-between;font:700 32px var(--display)}
 #cd{position:absolute;left:0;right:0;top:860px;text-align:center;font:800 120px var(--display);color:var(--tomato);text-shadow:0 10px 40px rgba(228,81,59,.5)}
-#bk{position:absolute;left:80px;width:830px;top:330px;padding:24px 24px 18px}
+#bk{position:absolute;left:125px;width:830px;top:330px;padding:24px 24px 18px}
 #bk .h{display:flex;justify-content:space-between;align-items:center;font:800 40px var(--display);margin-bottom:14px}
 #bk .h em{font-style:normal;font:700 28px var(--display);color:#fff;background:var(--amber);padding:8px 16px;border-radius:12px}
 #bbtn{margin:0 0 16px}
@@ -39,9 +39,10 @@
 <!-- /FIX HTML -->
 
 <!-- SCENE JS -->
-CAPS = [[0, 8.0, "My 10-page paper is due Friday and so far I've written my name"],
-        [8.0, 10.0, "Plot twist: it breaks it down for you"],
-        [10.0, 15.0, "Studyboard turns one scary paper into small steps on your free days"]];
+CAPS = [[0, 8.0, "My <b>10-page paper</b> is due Friday and so far I've written my name"],
+        [8.0, 10.0, "Plot twist: <b>it breaks it down for you</b>"],
+        [10.0, 15.0, "Studyboard turns one scary paper into <b>small steps</b> on your free days"]];
+BURST = {t: 1.25, x: 540, y: 540};
 TAG = "Assignment breakdown · free";
 PROB = (t, lt) => {
   rise($("task"), lt, -.01, .01, 0);

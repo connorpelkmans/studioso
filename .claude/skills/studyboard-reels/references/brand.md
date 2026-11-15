@@ -16,7 +16,9 @@ Use yellow sparingly: one highlighted phrase per beat. If everything is highligh
 
 ## Logo and writing rules
 
-- **Use the real logo, never the name typed out.** The wordmark is `{{ROOT}}/website/assets/logo-dark.webp` (white, for navy and dark footage) or `logo-light.webp` (navy, for light backgrounds), at 1086×240. The app icon is `{{ROOT}}/icon-512.png`. End cards always use the wordmark.
+- **Use the real logo, never the name typed out.** The wordmark is `{{ROOT}}/website/assets/logo-dark.webp` (white, for navy and dark footage) or `logo-light.webp` (navy, for light backgrounds), at 1086×240. The app icon is `{{ROOT}}/icon-512.png`.
+- **End-card lockup:** the app icon (rounded square) centred above the white wordmark, then "Free · no account needed" and the URL pill, all centred on the frame (x = 540). The problem-fix template already does this.
+- **Centre on the frame, not the safe area.** Instagram's buttons only cover the lower right (about x > 940, y 1050–1500), so content above that uses symmetric margins. For a calendar, centre the day squares, not the squares plus their week labels. `--guides` draws the centre line.
 - **Sentence case everywhere**, on screen and in captions: capitalise the first word, "I", months and days (November, Friday), "Week 11", course codes, and **Studyboard** and feature names (Crunch Forecast, Exam Prep Planner, Grade Tracker). The lowercase meme style is common on TikTok, but it reads as sloppy coming from a brand.
 
 ## Type

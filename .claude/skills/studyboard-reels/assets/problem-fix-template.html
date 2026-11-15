@@ -28,18 +28,31 @@ html,body{margin:0;background:#000}
 .navybg{background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
 .layer{position:absolute;inset:0;visibility:hidden}
 .cam{position:absolute;inset:0}
-#cap{position:absolute;left:80px;width:840px;top:1070px;text-align:center;z-index:10;
+#cap{position:absolute;left:130px;width:820px;top:1070px;text-align:center;z-index:10;
   font:800 64px/1.18 "Inter","Atkinson",system-ui,sans-serif;letter-spacing:-.01em;color:#fff;
   -webkit-text-stroke:9px #000;paint-order:stroke fill;text-shadow:0 4px 18px rgba(0,0,0,.35)}
+#cap b{color:var(--mark);font-weight:900}
 #tag{position:absolute;left:0;right:0;top:250px;text-align:center;opacity:0;z-index:6}
 #tag span{display:inline-block;font:700 32px var(--display);letter-spacing:.04em;color:var(--navy);background:var(--mark);padding:12px 24px;border-radius:14px}
 .card{background:#fff;color:var(--ink);border-radius:32px;box-shadow:var(--shadow)}
 .btn{text-align:center;font:700 38px var(--display);color:#fff;background:var(--accent);padding:24px;border-radius:22px;box-shadow:0 20px 50px -12px rgba(57,136,254,.6)}
 #end{z-index:8;text-align:center}
-#end .w{position:absolute;left:130px;width:680px;top:640px}
+#end .i{position:absolute;left:440px;top:430px;width:200px;height:200px}
+#end .i img{width:100%;height:100%;border-radius:46px;box-shadow:0 26px 60px rgba(0,0,0,.45)}
+#end .w{position:absolute;left:220px;width:640px;top:680px}
 #end .w img{width:100%;display:block}
-#end .s{position:absolute;left:60px;right:160px;top:880px;font:600 40px var(--display);color:#C9D7F2}
-#end .u{position:absolute;left:60px;right:160px;top:980px}
+#end .s{position:absolute;left:0;right:0;top:860px;font:600 40px var(--display);color:#C9D7F2}
+#end .u{position:absolute;left:0;right:0;top:950px}
+#end .cp{position:absolute;top:1120px;width:170px;height:170px}
+.comp svg{width:100%;height:100%;overflow:visible;display:block;filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 10px 18px rgba(30,20,50,.25))}
+.cp-svg .cp-p,.cp-svg .cp-headg,.cp-svg .cp-eye,.cp-svg .cp-page{transform-box:view-box}
+.cp-svg .cp-cheeks{opacity:.62}
+.cp-svg .cp-e-happy,.cp-svg .cp-e-sleepy,.cp-svg .cp-mouth>g,.cp-svg .cp-prop,.cp-svg .cp-zs{display:none}
+.cp-svg[data-m=neutral] .cp-m-neutral,.cp-svg[data-m=smile] .cp-m-smile,.cp-svg[data-m=open] .cp-m-open{display:inline}
+.cp-svg[data-e=happy] .cp-eye{display:none}
+.cp-svg[data-e=happy] .cp-e-happy{display:inline}
+#confetti{position:absolute;inset:0;pointer-events:none}
+#confetti i{position:absolute;left:0;top:0;width:16px;height:26px;border-radius:4px;opacity:0}
 #end .u span{display:inline-block;background:var(--accent);color:#fff;border-radius:26px;padding:24px 42px;font:700 44px var(--display)}
 /* ===== SCENE CSS ===== */
 /* ===== /SCENE CSS ===== */
@@ -51,12 +64,13 @@ html,body{margin:0;background:#000}
 <!-- ===== PROBLEM HTML ===== -->
 <!-- ===== /PROBLEM HTML ===== -->
   </div></div>
-  <div class="layer navybg" id="fixl"><div class="cam" id="fcam">
+  <div class="layer navybg" id="fixl"><div id="confetti"></div><div class="cam" id="fcam">
 <!-- ===== FIX HTML ===== -->
 <!-- ===== /FIX HTML ===== -->
   </div></div>
   <div id="tag"><span id="tagText"></span></div>
-  <div class="layer navybg" id="end"><div class="w"><img src="{{ROOT}}/website/assets/logo-dark.webp" alt="Studyboard"></div><div class="s">Free · no account needed</div><div class="u"><span>studyboardapp.com</span></div></div>
+  <div class="layer navybg" id="end"><div class="i"><img src="{{ROOT}}/icon-512.png" alt=""></div><div class="w"><img src="{{ROOT}}/website/assets/logo-dark.webp" alt="Studyboard"></div><div class="s">Free · no account needed</div><div class="u"><span>studyboardapp.com</span></div>
+    <div class="cp comp" id="ec1" style="left:330px">{{mochi}}</div><div class="cp comp" id="ec2" style="left:580px">{{owl}}</div></div>
   <div id="cap"></div>
 </div>
 <script>
@@ -69,7 +83,8 @@ const oCubic = x => 1 - Math.pow(1 - x, 3);
 const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 const oBack = x => { const c = 2.2, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
 const set = (el, tf, op) => { el.style.transform = tf; if (op != null) el.style.opacity = op; };
-const rise = (el, t, t0, d = .35, dist = 50) => { const k = oCubic(P(t, t0, t0 + d)); set(el, `translateY(${(1 - k) * dist}px)`, k); };
+const oBackS = x => { const c = 1.3, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const rise = (el, t, t0, d = .4, dist = 50) => { const k = oBackS(P(t, t0, t0 + d)); set(el, `translateY(${(1 - k) * dist}px)`, k); };
 const pop = (el, t, t0, d = .3, from = .5) => { const k = P(t, t0, t0 + d); set(el, `scale(${lerp(from, 1, oBack(k))})`, clamp(k * 3)); };
 const slam = (el, t, t0, dy = -280) => { const k = P(t, t0 - .1, t0); el.style.opacity = k > 0 ? 1 : 0; return `translateY(${(1 - k) * dy}px) scale(${1 + (1 - oBack(P(t, t0, t0 + .3))) * .3})`; };
 const press = (el, t, t0) => { const pr = P(t, t0 - .05, t0 + .05) - P(t, t0 + .05, t0 + .2); el.style.transform = `scale(${1 - pr * .06})`; };
@@ -80,11 +95,23 @@ const heat = v => { v = clamp(v); for (let i = 1; i < STOPS.length; i++) if (v <
 const PROB_IN = 4.0, PROB_OUT = 8.0, FIX_IN = 10.0, FIX_OUT = 15.0, END = 17.0, COVER = 0.3, XF = .35;
 let CAPS = [], TAG = "";
 let PROB = (t, lt) => {}, FIX = (t, lt) => {};
+// Celebration at the payoff: BURST = {t: <seconds into FIX>, x, y}. Small and quick: a reward, not a party. Drawn behind the fix card so it never covers text.
+let BURST = null;
+const CONF = Array.from({length: 46}, (_, i) => ({a: -Math.PI / 2 + (Math.sin(i * 12.9898) * .5) * 2.2, v: 900 + 700 * Math.abs(Math.sin(i * 78.233)),
+  r: 360 * Math.sin(i * 3.7), c: ["#FFE45C", "#3988FE", "#1E9E74", "#FF8A65", "#B79CFF", "#ffffff"][i % 6], w: i % 3 ? 16 : 12}));
+const hopc = (el, t, t0, n = 2, H = 34) => {
+  const k = P(t, t0, t0 + .4); let y = 0, sx = 1, sy = 1; const start = t0 + .45, period = .7, air = .4;
+  if (t >= start && t < start + n * period) { const ph = (t - start) % period;
+    if (ph < air) { const x = ph / air; y = -H * 4 * x * (1 - x); } else { const g = Math.sin(((ph - air) / (period - air)) * Math.PI) * .07; sy = 1 - g; sx = 1 + g * .8; } }
+  const sc = lerp(.4, 1, oBack(k)); el.style.transformOrigin = "50% 92%"; set(el, `translateY(${y}px) scale(${sc * sx},${sc * sy})`, clamp(k * 3));
+};
 
 /* ===== SCENE JS ===== */
 /* ===== /SCENE JS ===== */
 
 $("tagText").textContent = TAG;
+$("confetti").innerHTML = CONF.map(() => "<i></i>").join("");
+const confEls = [...$("confetti").children];
 // A layer that cross-dissolves in over XF s ending at tin, and out over XF s starting at tout, settling from a 4% zoom
 const xfade = (el, t, tin, tout) => {
   const a = ioCubic(P(t, tin - XF, tin)), b = tout == null ? 0 : ioCubic(P(t, tout, tout + XF)), o = Math.min(a, 1 - b);
@@ -95,13 +122,25 @@ const xfade = (el, t, tin, tout) => {
 function render(t) {
   // Captions fade out and in between lines
   const c = CAPS.find(([a, b]) => t >= a && t < b);
-  $("cap").textContent = c ? c[2] : "";
+  $("cap").innerHTML = c ? c[2] : "";
   $("cap").style.opacity = c ? Math.min(c[0] <= 0 ? 1 : P(t, c[0], c[0] + .2), c[1] >= END ? 1 : 1 - P(t, c[1] - .15, c[1])) : 0;
   if (xfade($("prob"), t, PROB_IN, PROB_OUT)) PROB(t, t - PROB_IN);
   if (xfade($("fixl"), t, FIX_IN, FIX_OUT + .2)) FIX(t, t - FIX_IN);
   xfade($("end"), t, FIX_OUT + .2, null);
   $("tag").style.opacity = TAG ? Math.min(P(t, FIX_IN, FIX_IN + .25), 1 - P(t, FIX_OUT, FIX_OUT + .2)) : 0;
-  if (t >= FIX_OUT) [...$("end").children].forEach((el, i) => { const k = ioCubic(P(t, FIX_OUT + .15 + .08 * i, FIX_OUT + .55 + .08 * i)); el.style.transform = `translateY(${(1 - k) * 30}px)`; el.style.opacity = k; });
+  // Confetti burst at the payoff
+  const bt = BURST ? t - (FIX_IN + BURST.t) : -1;
+  confEls.forEach((el, i) => { const c = CONF[i];
+    if (bt < 0 || bt > 1.4) { el.style.opacity = 0; return; }
+    const x = BURST.x + Math.cos(c.a) * c.v * bt, y = BURST.y + Math.sin(c.a) * c.v * bt + 1700 * bt * bt;
+    el.style.background = c.c; el.style.width = c.w + "px";
+    el.style.opacity = 1 - P(bt, .9, 1.4); el.style.transform = `translate(${x}px,${y}px) rotate(${c.r + bt * 540}deg)`; });
+  if (t >= FIX_OUT) {
+    const els = [...$("end").children].filter(e => !e.classList.contains("cp"));
+    els.forEach((el, i) => { const k = P(t, FIX_OUT + .15 + .08 * i, FIX_OUT + .55 + .08 * i);
+      el.style.transform = i === 0 ? `scale(${lerp(.4, 1, oBack(k))})` : `translateY(${(1 - oBack(k)) * 34}px)`; el.style.opacity = clamp(k * 2); });
+    hopc($("ec1"), t, FIX_OUT + .55, 1); hopc($("ec2"), t, FIX_OUT + .67, 1);
+  }
 }
 window.render = render; window.END = END; window.COVER = COVER;
 render(0);
