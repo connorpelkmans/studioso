@@ -84042,7 +84042,8 @@ var SBPRO = null;
   css.textContent = `
 .pr-wrap{display:grid;gap:8px;margin:4px 0 2px}
 .pr-lbl{font-weight:700;font-size:.92rem}
-.pr-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.pr-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.pr-chips::-webkit-scrollbar{display:none}   /* it still scrolls by swiping; a bar under the chips only got in the way */
 .pr-chips .pr-chip{flex:none;min-height:44px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 12px;display:grid;gap:1px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
 .pr-chips .pr-chip b{font-size:.9rem;display:flex;align-items:center;gap:5px}
 .pr-chips .pr-chip span{font-size:.75rem;color:var(--muted)}
