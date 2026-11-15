@@ -101,3 +101,7 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 .plan-gift-ic{font-size:1.8rem;line-height:1}
 .plan-gift .btn{min-height:44px}
 @media (max-width:600px){.plan-gift .btn{flex:1 1 100%}}
+/* Studyboard Plus: the quieter option under the Pro prices */
+.plan-plus{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 2px;padding:12px 14px;border:1px dashed var(--line);border-radius:14px;background:var(--soft)}
+.plan-plus-t{flex:1 1 220px;display:grid;gap:2px;min-width:0}
+.plan-plus .btn{flex:none}

@@ -28,8 +28,13 @@ insert into public.studyboard_config (key, value) values
   ('site_url', '""'),
   ('app_trial', 'false'),
   ('item_purchases', 'false'),
-  ('features', '{"insights": false, "ai_credits": false}')
+  ('features', '{"insights": false, "ai_credits": false}'),
+  -- Studyboard Plus ($2.99 a month, Pro without Studyboard AI): shown in the app once plus_plan is true. The Stripe price
+  -- ids that aren't secrets live here (create-checkout and billing-webhook read them); see PRO-PLANS-GUIDE.md, Studyboard Plus
+  ('plus_plan', 'false'),
+  ('stripe_prices', '{"plus_monthly": ""}')
 on conflict (key) do nothing;
+update public.studyboard_config set value = value || '{"plusMonthly": "$2.99"}'::jsonb where key = 'prices' and not (value ? 'plusMonthly');
 -- Free cloud file storage went from 100 MB to 25 MB
 update public.studyboard_config set value = jsonb_set(value, '{free,fileMB}', '25')
   where key = 'limits' and value #> '{free,fileMB}' = '100'::jsonb;
@@ -77,6 +82,9 @@ alter table public.studyboard_entitlements add column if not exists grant_lite b
 -- Promo codes (see "Promo codes" below) live in their own columns too
 alter table public.studyboard_entitlements add column if not exists promo_until timestamptz;
 alter table public.studyboard_entitlements add column if not exists promo_lifetime boolean not null default false;
+-- Studyboard Plus: a paid plan with every Pro feature but without Studyboard AI (the built-in AI). Written only by
+-- studyboard_apply_billing from the price paid; the AI service (cloudflare/ai-pro) reads it. true for every other plan.
+alter table public.studyboard_entitlements add column if not exists ai_included boolean not null default true;
 -- Billing bookkeeping
 alter table public.studyboard_entitlements add column if not exists billing_event_at timestamptz;
 alter table public.studyboard_entitlements add column if not exists billing_revoked_at timestamptz;
@@ -691,6 +699,9 @@ declare
   v_renew boolean := coalesce((p ->> 'will_renew')::boolean, true);
   v_paid boolean := coalesce((p ->> 'paid')::boolean, false);   -- money was taken (not a trial): counts for Founders and Early Supporters
   v_term text := p ->> 'term';
+  -- Studyboard AI comes with the plan paid for: false for Studyboard Plus. Missing means a full Pro plan when it starts,
+  -- and no change when it renews
+  v_ai boolean := (p ->> 'ai')::boolean;
   v_uid uuid; v_mapped uuid; v_out text := 'ignored'; v_cur_family text; v_cur_live boolean; v_new_until timestamptz;
   r public.studyboard_entitlements;
 begin
@@ -752,7 +763,7 @@ begin
     if v_state = 'active' then
       if v_until is null then raise exception 'pro_until required'; end if;
       update public.studyboard_entitlements set plan = 'pro', pro_until = v_until, source = v_source, external_id = coalesce(v_ext, external_id),
-        will_renew = v_renew, trial_until = coalesce(trial_until, v_trial),
+        will_renew = v_renew, trial_until = coalesce(trial_until, v_trial), ai_included = coalesce(v_ai, true),
         billing_event_at = greatest(coalesce(billing_event_at, v_at), v_at),
         billing_revoked_at = case when v_fresh then null else billing_revoked_at end, updated_at = now() where user_id = v_uid;
       v_out := 'pro';
@@ -760,11 +771,11 @@ begin
       if v_until is null then raise exception 'pro_until required'; end if;
       v_new_until := greatest(coalesce(r.pro_until, '-infinity'::timestamptz), v_until);
       update public.studyboard_entitlements set plan = 'pro', pro_until = v_new_until, source = v_source, external_id = coalesce(v_ext, external_id),
-        billing_event_at = greatest(coalesce(billing_event_at, v_at), v_at), updated_at = now() where user_id = v_uid;
+        ai_included = coalesce(v_ai, ai_included), billing_event_at = greatest(coalesce(billing_event_at, v_at), v_at), updated_at = now() where user_id = v_uid;
       v_out := 'extended';
     elsif v_state = 'lifetime' then
       update public.studyboard_entitlements set plan = 'lifetime', pro_until = null, source = v_source, external_id = coalesce(v_ext, external_id),
-        will_renew = false, billing_event_at = greatest(coalesce(billing_event_at, v_at), v_at),
+        will_renew = false, ai_included = coalesce(v_ai, true), billing_event_at = greatest(coalesce(billing_event_at, v_at), v_at),
         billing_revoked_at = case when v_fresh then null else billing_revoked_at end, updated_at = now() where user_id = v_uid;
       v_out := 'lifetime';
     elsif v_state = 'ended' then

@@ -3921,7 +3921,7 @@ function aiProAvail(){
   return !!(t && t.on);
 }
 // A Pro student: everything Studyboard AI runs (the built-in AI, or their own Claude key in its mode) is shown only as "Studyboard AI" (a paid plan only counts with the paywall on: with it off, PLAN.isPro() is true for everyone)
-function aiProUser(){ try { return aiProAvail() || (typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && PLAN.isPro()); } catch(e) { return false; } }
+function aiProUser(){ try { return aiProAvail() || (typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && PLAN.isPro() && !(PLAN.plusNow && PLAN.plusNow())); } catch(e) { return false; } }
 // What to call a Claude key's AI on screen: "Studyboard AI" for Pro students, "Claude" otherwise
 const aiClaudeName = () => aiProUser() ? "Studyboard AI" : "Claude";
 async function aiProRefresh(){
@@ -9502,6 +9502,8 @@ const owns = (kind, id) => {
   if (kind === "skin" && window.SBEARLY && SBEARLY.keeps(id)) return true;
   if (cpAllows(kind, id)) return true;
   if (kind === "comp") { const it = (STYLE_LISTS.comp || []).find(x => x.id === id); if (it && it.theme && cpAllows("skin", it.theme)) return true; }
+  // Kept for good with Studyboard Credits (97-credits.js): the item itself, or the Theme Collection it belongs to
+  if (window.SBCREDITS && SBCREDITS.owns(kind, id)) return true;
   return false;
 };
 /* The theme from last time is painted before any script runs (the snippet in <head>) */
@@ -22472,6 +22474,8 @@ window.__sbPlanObj = () => PLAN;
     checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
+    // Studyboard Plus: every Pro feature without Studyboard AI ($2.99 a month, website checkout only)
+    plus_plan: false,
     features: {insights: false, ai_credits: false},
     paywall: false
   };
@@ -22499,7 +22503,7 @@ window.__sbPlanObj = () => PLAN;
     });
     if (rows.prices && typeof rows.prices === "object") Object.assign(c.prices, rows.prices);
     ["checkout_url_monthly", "checkout_url_semester", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
-    ["app_trial", "item_purchases", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
+    ["app_trial", "item_purchases", "plus_plan", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
     if (rows.features && typeof rows.features === "object") Object.keys(c.features).forEach(k => { if (typeof rows.features[k] === "boolean") c.features[k] = rows.features[k]; });
     return c;
   }
@@ -22570,6 +22574,9 @@ window.__sbPlanObj = () => PLAN;
   // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
   const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
   const groupsPro = () => limitsPro() || liteNow();
+  // Studyboard Plus: a paid plan whose price leaves out Studyboard AI (the server sets ai_included from the price paid)
+  const plusNow = () => { const e = ent(); return paywall() && paid() && !!e && e.plan === "pro" && e.ai_included === false; };
+  const aiIncluded = () => !plusNow();
   const fileCapMB = () => cfg.limits[limitsPro() ? "pro" : "free"].fileMB;
   const mode = () => !paywall() ? "off" : !paid() ? "free" : P.mode === "signed" ? "signed" : P.mode === "unsigned-fallback" ? "unsigned-fallback" : "signed";
 
@@ -22669,7 +22676,8 @@ window.__sbPlanObj = () => PLAN;
     if (!sb || !sbUser) return null;
     const uid = sbUser.id;
     try {
-      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
+      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime,ai_included").eq("user_id", uid).maybeSingle();
+      if (res.error && /ai_included/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /grant_lite/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /promo_|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /grant_(until|lifetime)|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", uid).maybeSingle();
@@ -23017,10 +23025,12 @@ window.__sbPlanObj = () => PLAN;
       watchPurchase();
     } finally { P.buying = false; }
   }
-  async function directCheckout(period){
+  const directCheckout = period => checkoutCall({plan: period, src: "app"});
+  // body: {plan} for a subscription, or {pack} for Studyboard Credits. The server decides every price.
+  async function checkoutCall(body){
     if (!sb || !sbUser || sbUser.is_anonymous) return null;
     try {
-      const {data, error} = await sb.functions.invoke("create-checkout", {body: {plan: period, src: "app"}});
+      const {data, error} = await sb.functions.invoke("create-checkout", {body: Object.assign({src: "app"}, body)});
       if (!error && data && typeof data.url === "string" && /^https:\/\/checkout\.stripe\.com\//.test(data.url)) return {url: data.url};
       let body = null; try { body = error && error.context && typeof error.context.json === "function" ? await error.context.json() : null; } catch (e) {}
       const code = body && body.error, m = body && typeof body.message === "string" ? cleanMsg(body.message) : "";
@@ -23029,7 +23039,8 @@ window.__sbPlanObj = () => PLAN;
     } catch (e) { return null; }
   }
   function buy(period){
-    period = ["monthly", "semester", "yearly"].includes(period) ? period : "monthly";
+    period = ["monthly", "semester", "yearly", "plus"].includes(period) ? period : "monthly";
+    if (period === "plus" && !plusOn()) { toast("Studyboard Plus isn't available here. Choose a Pro plan."); return false; }
     if (!paid()) { track("buy", P.reason); write(K_ATTR, {r: P.reason || "", t: Date.now(), uid: curUid()}); }
     if (period === "semester" && !semesterOn()) period = "monthly";
     const userId = sbUser ? sbUser.id : null;
@@ -23155,7 +23166,7 @@ window.__sbPlanObj = () => PLAN;
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
       ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`],
       ["Group Message History", f.groupMsgDays ? `Kept ${f.groupMsgDays} Days` : "Unlimited History", p.groupMsgDays ? `Kept ${p.groupMsgDays} Days` : "Unlimited History"]
-    ].concat(window.SBPRO ? SBPRO.compareRows() : []);
+    ].concat(plusOn() ? [["Studyboard AI (Built In)", "Your Own Key", "Included (Not in Plus)"]] : []).concat(window.SBPRO ? SBPRO.compareRows() : []);
   }
   function meter(label, used, max){
     const pct = max === Infinity || !max ? Math.min(100, used > 0 ? 2 : 0) : Math.min(100, used / max * 100);
@@ -23183,6 +23194,7 @@ window.__sbPlanObj = () => PLAN;
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
     if (e.source === "promo") return {title: THANKS, sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
+    if (plusNow()) return {title: "You're on Studyboard Plus. Thank you for supporting Studyboard!", sub: (e.will_renew === false ? `Plus ends ${dateStr(e.pro_until)}.` : `Renews ${dateStr(e.pro_until)}.`) + " Every Pro theme and feature, with AI from your own key. Switch to Pro in Manage Plan to add Studyboard AI."};
     return {title: THANKS, sub: e.will_renew === false ? `Pro ends ${dateStr(e.pro_until)}. You can turn renewal back on any time.` : `Renews ${dateStr(e.pro_until)}.`};
   }
   const APPLE_RENEW = "Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase. Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.";
@@ -23202,7 +23214,8 @@ window.__sbPlanObj = () => PLAN;
     const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() && !semOnce() ? `, ${semPrice()} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.${semesterOn() && semOnce() ? ` Semester: ${semPrice()} for 4 months of Pro, paid once. It doesn't renew and has no free trial.` : ""}`;
     // in the iPhone app for a United States account: the checkout is on the website, said before they tap
     const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
-    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
+    const plus = plusOn() ? ` Studyboard Plus is an auto-renewing subscription: ${plusPrice()} per month.` : "";
+    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head + plus)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
   }
   function priceButtons(){
     if (regionOff()) return `<p class="plan-fine mini">${esc(REGION_OFF_MSG)}</p>`;
@@ -23217,7 +23230,15 @@ window.__sbPlanObj = () => PLAN;
         <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
       </div>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
+      ${plusOfferHtml()}
       ${renewalText(pr, trial)}`;
+  }
+  // Studyboard Plus: offered under the Pro prices (Pro stays the main choice), on the website checkout only
+  const plusPrice = () => typeof cfg.prices.plusMonthly === "string" ? cfg.prices.plusMonthly : "";
+  const plusOn = () => !!cfg.plus_plan && !!plusPrice() && route() !== "store";
+  function plusOfferHtml(){
+    if (!plusOn()) return "";
+    return `<div class="plan-plus"><span class="plan-plus-t"><b>Don't Need Studyboard AI?</b><span class="mini">Studyboard Plus has every Pro theme and feature except the built-in Studyboard AI. AI with your own key still works. ${esc(plusPrice())} a month, cancel any time.</span></span><button type="button" class="btn" data-act="plan-buy" data-id="plus">Get Plus · ${esc(plusPrice())}/mo</button></div>`;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
@@ -23301,7 +23322,8 @@ window.__sbPlanObj = () => PLAN;
     if (trialing(e) && e.source === "code") return e.codeForever ? "Pro (code)" : `Pro (code) until ${dateStr(e.trial_until)}`;
     if (trialing(e)) return `Pro trial until ${dateStr(e.trial_until)}`;
     if (e.source === "promo") return e.pro_until ? `Pro (granted) until ${dateStr(e.pro_until)}` : "Pro (granted)";
-    return e.pro_until ? `Pro until ${dateStr(e.pro_until)}` : "Pro";
+    const nm = plusNow() ? "Plus" : "Pro";
+    return e.pro_until ? `${nm} until ${dateStr(e.pro_until)}` : nm;
   }
   function rowSub(){
     if (!paywall()) return "Everything is unlocked right now";
@@ -23348,7 +23370,7 @@ window.__sbPlanObj = () => PLAN;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, limitsPro, liteNow, groupsPro, plusNow, aiIncluded, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
@@ -68982,6 +69004,262 @@ You can also DO things in Studyboard, but only when the student asks or what the
 })();
 
 
+/* ===== module: 97-credits.js ===== */
+/* Studyboard Credits: buy credits on the website (Stripe), then keep shop items for good with them. A Theme Collection
+   (300) brings its theme, its companions, its sticker pack, its pins and its flashcard style; a sticker pack or a flashcard
+   style is 100, a pin 50. The server decides every price and the balance (supabase-credits.sql); this file only shows them,
+   asks for a purchase, and remembers what the account owns so owns() in 01-style-shop.js can say yes on this device.
+   Switched on with studyboard_config.item_purchases (see CREDITS-GUIDE.md). */
+(() => {
+  const K = "studyboard:credits";
+  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin"};
+  // Shown until the server has answered once; the server's own prices always win when buying
+  const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50};
+  const COIN = `<svg class="cr-coin" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6.8l1.5 3.2 3.5.4-2.6 2.4.7 3.4L12 14.5l-3.1 1.7.7-3.4L7 10.4l3.5-.4z" fill="currentColor"/></svg>`;
+
+  // Tests swap in their own server and account (window.__SB_TEST only)
+  let fake = null;
+  const cl = () => (fake ? fake.sb : typeof sb !== "undefined" ? sb : null);
+  const usr = () => (fake ? fake.user : typeof sbUser !== "undefined" ? sbUser : null);
+  let C = null;
+  try { C = JSON.parse(localStorage.getItem(K) || "null"); } catch (e) { C = null; }
+  let owned = new Set();
+  const mine = () => { const u = usr(); return C && u && C.uid === u.id ? C : null; };
+  function rebuild(){
+    const m = mine();
+    owned = new Set(m && Array.isArray(m.owned) ? m.owned.filter(x => Array.isArray(x) && x.length === 2).map(x => x[0] + ":" + x[1]) : []);
+  }
+  rebuild();
+  const save = () => { try { localStorage.setItem(K, JSON.stringify(C)); } catch (e) {} };
+  const balance = () => { const m = mine(); return m && Number.isFinite(+m.balance) ? +m.balance : 0; };
+  const prices = () => Object.assign({}, DEFAULT_PRICES, (mine() && mine().prices) || {});
+  const planOk = () => typeof PLAN !== "undefined" && !!PLAN;
+  // On when the paywall is on and studyboard_config.item_purchases is true
+  const enabled = () => { try { return STORE.paywall && planOk() && !!PLAN.config().item_purchases && !inPreview(); } catch (e) { return false; } };
+  const signedIn = () => { const u = usr(); return !!u && !u.is_anonymous; };
+  const storeApp = () => { try { return planOk() && PLAN.storeRoute(); } catch (e) { return false; } };
+
+  /* ---------- Ownership ---------- */
+  const has = (kind, id) => owned.has(kind + ":" + id);
+  // The item itself, or (for a companion, sticker pack, pin or flashcard style) the Theme Collection it comes with
+  function owns(kind, id){
+    if (!owned.size || !id) return false;
+    if (has(kind, id)) return true;
+    if (kind === "skin") return false;
+    const it = (STYLE_LISTS[kind] || []).find(x => x.id === id);
+    return !!(it && it.theme && has("skin", it.theme));
+  }
+  // What an item costs, or 0 when it can't be bought with credits (free items, note shapes, accessories)
+  function priceOf(kind, id){
+    const p = prices()[kind]; if (!p) return 0;
+    const list = kind === "skin" ? SKINS : STYLE_LISTS[kind] || [];
+    const it = list.find(x => x.id === id);
+    return it && it.tier === "pro" ? +p : 0;
+  }
+  const themeName = th => ((SKINS.find(x => x.id === th) || {}).name || th);
+  function nameOf(kind, id){
+    if (kind === "skin") return themeName(id) + " Collection";
+    const it = (kind === "sticker" ? STICKER_PACKS : STYLE_LISTS[kind] || []).find(x => x.id === id);
+    return it ? String(it.name).replace(/\s*\(Default\)\s*$/i, "") : id;
+  }
+  // Everything a Theme Collection brings
+  function contents(th){
+    const r = window.SBTP && SBTP.rec ? SBTP.rec(th) : null, out = [];
+    const comps = (STYLE_LISTS.comp || []).filter(c => c.theme === th);
+    out.push("The " + themeName(th) + " theme");
+    if (comps.length) out.push(comps.length === 1 ? `Its companion, ${comps[0].name}` : `Its ${comps.length} companions: ${comps.map(c => c.name).join(", ")}`);
+    if (r && r.pack) { const p = STICKER_PACKS.find(x => x.id === r.pack); if (p) out.push(`${p.name} (${Object.keys(p.items).length} stickers)`); }
+    if (r && r.pins && r.pins.length) out.push(r.pins.length === 1 ? "Its pin" : `Its ${r.pins.length} pins`);
+    if (r && r.card) out.push("Its flashcard style");
+    return out;
+  }
+
+  /* ---------- Talking to the server ---------- */
+  let loading = null;
+  async function load(){
+    if (!cl() || !signedIn() || inPreview()) return null;
+    if (loading) return loading;
+    loading = (async () => {
+      try {
+        const {data, error} = await cl().rpc("studyboard_credits_me");
+        if (error || !data || typeof data !== "object") return null;
+        const before = mine(), was = before ? JSON.stringify([before.balance, before.owned]) : "";
+        C = Object.assign({}, data, {uid: usr().id, at: Date.now()});
+        save(); rebuild();
+        if (was !== JSON.stringify([C.balance, C.owned])) {
+          if (before && C.balance > before.balance) toast(`${C.balance - before.balance} credits added. You have ${C.balance}.`);
+          try { applySkin(); } catch (e) {}
+          scheduleRender(); redrawOpen();
+        }
+        return C;
+      } catch (e) { return null; } finally { loading = null; }
+    })();
+    return loading;
+  }
+  // After a purchase on the website: check again for a few minutes, and whenever the app comes back
+  let watchUntil = 0, watchT = 0;
+  function watch(){
+    watchUntil = Date.now() + 4 * 60000; clearTimeout(watchT);
+    const tick = () => { if (Date.now() > watchUntil) return; load(); watchT = setTimeout(tick, 8000); };
+    watchT = setTimeout(tick, 5000);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() < watchUntil) load(); });
+
+  /* ---------- Sheets ---------- */
+  let backToShop = false;
+  const shopOpen = () => !!(dlg.open && dlg.querySelector(".sheet.shop, .sheet.ui-shop"));
+  function redrawOpen(){
+    try {
+      const s = dlg.open && dlg.querySelector(".cr-sheet");
+      if (s && s.dataset.kind) buySheet(s.dataset.kind, s.dataset.id);
+      else if (s) packsSheet();
+      else if (shopOpen()) styleShop();
+    } catch (e) {}
+  }
+  function preview(kind, id){
+    if (kind === "skin") { const s = SKINS.find(x => x.id === id); return s ? `<div class="cr-prev">${skinPreview(s, isDark())}</div>` : ""; }
+    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? `<div class="cr-prev cr-stk">${Object.keys(p.items).slice(0, 8).map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div>` : ""; }
+    if (kind === "card") return `<div class="cr-prev"><div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div></div>`;
+    if (kind === "pin") return `<div class="cr-prev">${noteDemo(noteShapeOf(null), id, 1)}</div>`;
+    return "";
+  }
+  function buySheet(kind, id, note){
+    if (!dlg.open || !dlg.querySelector(".cr-sheet")) backToShop = shopOpen();
+    const cost = priceOf(kind, id), bal = balance(), mineOk = signedIn(), enough = bal >= cost;
+    const it = kind === "skin" ? null : (kind === "sticker" ? STICKER_PACKS : STYLE_LISTS[kind] || []).find(x => x.id === id);
+    const th = it && it.theme && !has("skin", it.theme) ? it.theme : "";
+    const list = kind === "skin" ? contents(id) : [];
+    const go = !mineOk ? `<button type="button" class="btn primary" data-act="cr-signin">Sign In to Buy</button>`
+      : enough ? `<button type="button" class="btn primary" data-act="cr-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">${COIN} Keep It for ${cost} Credits</button>`
+      : storeApp() ? "" : `<button type="button" class="btn primary" data-act="cr-packs">Get Credits</button>`;
+    openSheet(`<div class="sheet cr-sheet" data-kind="${esc(kind)}" data-id="${esc(id)}">${head(nameOf(kind, id))}
+      <div class="sheet-body">
+        ${note ? `<p class="plan-reason" role="status"><span>${esc(note)}</span></p>` : ""}
+        ${preview(kind, id)}
+        <p class="cr-cost">${COIN}<b>${cost} Credits</b><span class="mini">${esc(KIND_NAME[kind] || "")} · Yours for good, with or without Pro</span></p>
+        ${list.length ? `<div class="cr-has"><b>Comes With</b><ul>${list.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+        ${th ? `<p class="mini cr-alt">This comes with the ${esc(themeName(th))} Theme Collection, which also brings the theme, its companions and the rest of its pieces for ${priceOf("skin", th)} credits. <button type="button" class="link-btn" data-act="cr-item" data-kind="skin" data-id="${esc(th)}">See the Collection</button></p>` : ""}
+        ${mineOk ? `<p class="cr-bal" role="status">You have <b>${bal}</b> credit${bal === 1 ? "" : "s"}.${enough ? "" : ` You need ${cost - bal} more.`}${!enough && storeApp() ? " Buying credits isn't available in this app." : ""}</p>` : `<p class="mini">Credits belong to your account, so sign in first.</p>`}
+        <p class="mini cr-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> to use every theme and style while you're subscribed.</p>
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="cr-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}</div></div>`);
+  }
+  const money = (cents, cur) => { try { return new Intl.NumberFormat(undefined, {style: "currency", currency: String(cur || "usd").toUpperCase()}).format(cents / 100); } catch (e) { return "$" + (cents / 100).toFixed(2); } };
+  function packsSheet(){
+    if (!dlg.open || !dlg.querySelector(".cr-sheet")) backToShop = shopOpen();
+    const m = mine(), packs = m && Array.isArray(m.packs) ? m.packs : null, base = packs && packs[0] ? packs[0].cents / packs[0].credits : 0;
+    const body = !signedIn() ? `<p style="margin:0">Credits belong to your account. Sign in or create a free account first.</p>`
+      : storeApp() ? `<p style="margin:0">Buying credits isn't available in this app. Credits you already have work here.</p>`
+      : !packs ? `<p class="mini" style="margin:0">Loading…</p>`
+      : `<div class="cr-packs">${packs.map(p => { const bonus = base ? Math.round((1 - p.cents / p.credits / base) * 100) : 0;
+          return `<button type="button" class="cr-pack${p.badge === "Best Value" ? " best" : ""}" data-act="cr-pack" data-id="${esc(p.id)}">${p.badge ? `<span class="pp-flag">${esc(p.badge)}</span>` : ""}<span class="cr-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="cr-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 5 && !p.badge ? `<span class="mini">${bonus}% more per dollar</span>` : ""}</button>`; }).join("")}</div>
+        <p class="mini" style="margin:0">A Theme Collection is ${prices().skin} credits (with its companions, stickers, pins and flashcard style), a sticker pack or flashcard style ${prices().sticker}, a pin ${prices().pin}. Credits don't expire, and what you keep stays yours even without Pro. You'll pay securely with Stripe on the Studyboard website.</p>`;
+    openSheet(`<div class="sheet cr-sheet">${head("Studyboard Credits")}
+      <div class="sheet-body">
+        ${signedIn() ? `<p class="cr-bal cr-bal-big" role="status">${COIN}<span>You have <b>${balance()}</b> credit${balance() === 1 ? "" : "s"}</span></p>` : ""}
+        ${body}
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="cr-back">${backToShop ? "Back to Shop" : "Close"}</button><span class="spacer"></span>${signedIn() ? "" : `<button type="button" class="btn primary" data-act="cr-signin">Sign In</button>`}</div></div>`);
+    if (!packs && signedIn()) load().then(() => { if (dlg.open && dlg.querySelector(".cr-sheet:not([data-kind])")) packsSheet(); });
+  }
+  let busy = false;
+  async function buy(kind, id, btn){
+    if (busy) return; busy = true;
+    if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+    let r = null;
+    try { const {data, error} = await cl().rpc("studyboard_buy_item", {p_kind: kind, p_item: id}); r = error ? {error: "network"} : data; } catch (e) { r = {error: "network"}; }
+    busy = false;
+    if (btn && btn.isConnected) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
+    const ERR = {off: "Buying with credits isn't available right now.", sign_in: "Sign in first, then try again.", bad_item: "That item can't be bought with credits.",
+      slow_down: "That's a lot of purchases. Wait a little, then try again.", network: "Couldn't reach Studyboard. Check your connection and try again."};
+    if (!r || !r.ok) {
+      if (r && r.error === "not_enough") { if (C && typeof r.balance === "number") { C.balance = r.balance; save(); } buySheet(kind, id); return; }
+      toast(ERR[r && r.error] || ERR.network); return;
+    }
+    C = Object.assign({}, mine() || {uid: usr().id, owned: []}, {balance: typeof r.balance === "number" ? r.balance : balance()});
+    C.owned = (C.owned || []).concat([[kind, id]]); save(); rebuild();
+    try { applySkin(); } catch (e) {}
+    const wasShop = backToShop;
+    if (dlg.open) dlg.close();
+    scheduleRender();
+    const left = `${C.balance} credit${C.balance === 1 ? "" : "s"} left.`;
+    if (kind === "skin") toast(`The ${themeName(id)} Collection is yours for good. ${left}`, null, {label: "Use It Now", fn: () => { saveStyle({skin: id}); applySkin(); render(); }});
+    else toast(`${nameOf(kind, id)} is yours for good. ${left}`);
+    if (wasShop) setTimeout(() => { try { styleShop(); } catch (e) {} }, 120);
+    load();
+  }
+  async function buyPack(id, btn){
+    if (!planOk() || !PLAN.checkoutCall) return;
+    if (btn) btn.disabled = true;
+    toast("Opening checkout…");
+    const r = await PLAN.checkoutCall({pack: id});
+    if (btn && btn.isConnected) btn.disabled = false;
+    if (r && r.url) { PLAN.openExternal(r.url); toast("Finish in the checkout page that just opened. Your credits show up here by themselves."); watch(); return; }
+    toast((r && r.message) || "Couldn't open checkout. Check your connection and try again.");
+  }
+
+  /* ---------- Hooks ---------- */
+  // 10-plan.js asks here first when a locked item is tapped (only while item_purchases is on)
+  hook("plan-buy-item", (kind, id) => {
+    if (!enabled()) return false;
+    if (kind === "comp") {
+      const c = (STYLE_LISTS.comp || []).find(x => x.id === id);
+      if (c && c.theme && priceOf("skin", c.theme)) { buySheet("skin", c.theme, `${c.name} comes with the ${themeName(c.theme)} Theme Collection.`); return true; }
+      return false;
+    }
+    if (!priceOf(kind, id)) return false;
+    buySheet(kind, id); return true;
+  });
+  hook("act", (act, el) => {
+    switch (act) {
+      case "cr-packs": packsSheet(); return true;
+      case "cr-item": buySheet(el.dataset.kind, el.dataset.id); return true;
+      case "cr-buy": buy(el.dataset.kind, el.dataset.id, el); return true;
+      case "cr-pack": buyPack(el.dataset.id, el); return true;
+      case "cr-signin": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp(); else if (typeof sbSignInSheet === "function") sbSignInSheet(); }, 120); return true;
+      case "cr-back": if (backToShop) styleShop(); else if (dlg.open) dlg.close(); return true;
+    }
+    return false;
+  });
+  hook("menu", () => enabled() && signedIn() ? `<button data-act="cr-packs" data-group="account"><span>Studyboard Credits<span class="sub">${balance()} credit${balance() === 1 ? "" : "s"} · Keep themes, stickers and more for good</span></span></button>` : "");
+  // Sign-in changes: load this account's credits
+  let seenUid = "";
+  hook("render", () => {
+    const u = signedIn() ? usr().id : "";
+    if (u === seenUid) return;
+    seenUid = u; rebuild();
+    if (u && STORE.paywall) load();
+  });
+
+  /* The Style Shop: the balance on top, and each locked item's price on its button */
+  const showBar = () => enabled() && (!PLAN.isPro() || balance() > 0 || owned.size > 0);
+  const origShop = styleShop;
+  styleShop = function(){
+    const r = origShop.apply(this, arguments);
+    try {
+      const body = showBar() && dlg.querySelector(".sheet.shop .sheet-body, .sheet.ui-shop .sheet-body");
+      if (body && !body.querySelector(".cr-bar")) body.insertAdjacentHTML("afterbegin", `<div class="cr-bar">${COIN}<span class="cr-bar-t">${signedIn() ? `<b>${balance()}</b> credit${balance() === 1 ? "" : "s"}` : "Studyboard Credits"}<span class="mini">Keep any Pro item for good, no subscription</span></span><button type="button" class="btn small" data-act="cr-packs">Get Credits</button></div>`);
+      label(dlg);
+    } catch (e) { console.warn("credits bar", e); }
+    return r;
+  };
+  function label(root){
+    if (!enabled() || PLAN.isPro()) return;
+    root.querySelectorAll('[data-act="shop-unlock"]:not([data-cr])').forEach(b => {
+      b.dataset.cr = "1";
+      const n = priceOf(b.dataset.kind, b.dataset.id); if (!n) return;
+      b.innerHTML = `🔒 ${n} Credits`;
+      b.setAttribute("aria-label", `Keep ${nameOf(b.dataset.kind, b.dataset.id)} for ${n} credits`);
+    });
+  }
+  // Rows the shop fills in later (collections, See All) get their prices too
+  try { new MutationObserver(() => { if (dlg.open && dlg.querySelector('[data-act="shop-unlock"]:not([data-cr])')) label(dlg); }).observe(dlg, {childList: true, subtree: true}); } catch (e) {}
+
+  window.SBCREDITS = {owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
+    // For tests: what this device remembers
+    state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
+  if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
+})();
 /* ===== module: 98-rooms.js ===== */
 /* Studyboard 1.11 */
 (() => {

@@ -1511,6 +1511,8 @@ const owns = (kind, id) => {
   if (kind === "skin" && window.SBEARLY && SBEARLY.keeps(id)) return true;
   if (cpAllows(kind, id)) return true;
   if (kind === "comp") { const it = (STYLE_LISTS.comp || []).find(x => x.id === id); if (it && it.theme && cpAllows("skin", it.theme)) return true; }
+  // Kept for good with Studyboard Credits (97-credits.js): the item itself, or the Theme Collection it belongs to
+  if (window.SBCREDITS && SBCREDITS.owns(kind, id)) return true;
   return false;
 };
 /* The theme from last time is painted before any script runs (the snippet in <head>) */

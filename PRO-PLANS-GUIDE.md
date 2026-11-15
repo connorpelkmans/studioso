@@ -75,6 +75,8 @@ You can do the setup below any time before launch (in any order). While the payw
 In the app, **Settings > Studyboard Pro** shows the plan, what Pro adds, how much storage you use, and **Your Devices**.
 
 
+**Studyboard Plus** ($2.99 a month, website only): everything above except the built-in Studyboard AI, which the server leaves out from the price paid (`ai_included`). **Studyboard Credits** keep single shop items for good without a plan. Both are set up and switched off; see CREDITS-GUIDE.md.
+
 ### Pro Groups
 
 A Pro member opens a group and taps **Make It a Pro Group** (up to 5 groups per Pro account). When that person's Pro ends, the group goes back to free on its own; nothing is deleted, the extras just hide again.

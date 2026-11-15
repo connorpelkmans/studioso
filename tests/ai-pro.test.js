@@ -38,6 +38,8 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(P.tierOf({plan: "free", promo_until: later, promo_lifetime: true}, now0), "none", "Pro from a promo code: no Studyboard AI");
   eq(P.tierOf({plan: "free", grant_lifetime: true, grant_until: later}, now0), "none", "Pro from a server grant: no Studyboard AI");
   eq(P.tierOf({plan: "free", trial_until: later}, now0), "none", "the free week: no Studyboard AI");
+  eq(P.tierOf({plan: "pro", pro_until: later, ai_included: false}, now0), "none", "Studyboard Plus (Pro without AI): no Studyboard AI");
+  eq(P.tierOf({plan: "pro", pro_until: later, ai_included: true}, now0), "paid", "paid Pro with ai_included: Studyboard AI");
   eq([P.tierOf(null), P.tierOf(undefined), P.tierOf({plan: "free"}), P.tierOf({plan: "pro", pro_until: "not a date"}, now0)], ["none", "none", "none", "none"], "no row, a free row, or a garbled date: nothing");
 
   /* The server picks the thinking level and the output cap */

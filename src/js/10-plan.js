@@ -28,6 +28,8 @@ window.__sbPlanObj = () => PLAN;
     checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
+    // Studyboard Plus: every Pro feature without Studyboard AI ($2.99 a month, website checkout only)
+    plus_plan: false,
     features: {insights: false, ai_credits: false},
     paywall: false
   };
@@ -55,7 +57,7 @@ window.__sbPlanObj = () => PLAN;
     });
     if (rows.prices && typeof rows.prices === "object") Object.assign(c.prices, rows.prices);
     ["checkout_url_monthly", "checkout_url_semester", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
-    ["app_trial", "item_purchases", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
+    ["app_trial", "item_purchases", "plus_plan", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
     if (rows.features && typeof rows.features === "object") Object.keys(c.features).forEach(k => { if (typeof rows.features[k] === "boolean") c.features[k] = rows.features[k]; });
     return c;
   }
@@ -126,6 +128,9 @@ window.__sbPlanObj = () => PLAN;
   // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
   const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
   const groupsPro = () => limitsPro() || liteNow();
+  // Studyboard Plus: a paid plan whose price leaves out Studyboard AI (the server sets ai_included from the price paid)
+  const plusNow = () => { const e = ent(); return paywall() && paid() && !!e && e.plan === "pro" && e.ai_included === false; };
+  const aiIncluded = () => !plusNow();
   const fileCapMB = () => cfg.limits[limitsPro() ? "pro" : "free"].fileMB;
   const mode = () => !paywall() ? "off" : !paid() ? "free" : P.mode === "signed" ? "signed" : P.mode === "unsigned-fallback" ? "unsigned-fallback" : "signed";
 
@@ -225,7 +230,8 @@ window.__sbPlanObj = () => PLAN;
     if (!sb || !sbUser) return null;
     const uid = sbUser.id;
     try {
-      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
+      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime,ai_included").eq("user_id", uid).maybeSingle();
+      if (res.error && /ai_included/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,grant_lite,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /grant_lite/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime,promo_until,promo_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /promo_|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime").eq("user_id", uid).maybeSingle();
       if (res.error && /grant_(until|lifetime)|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", uid).maybeSingle();
@@ -573,10 +579,12 @@ window.__sbPlanObj = () => PLAN;
       watchPurchase();
     } finally { P.buying = false; }
   }
-  async function directCheckout(period){
+  const directCheckout = period => checkoutCall({plan: period, src: "app"});
+  // body: {plan} for a subscription, or {pack} for Studyboard Credits. The server decides every price.
+  async function checkoutCall(body){
     if (!sb || !sbUser || sbUser.is_anonymous) return null;
     try {
-      const {data, error} = await sb.functions.invoke("create-checkout", {body: {plan: period, src: "app"}});
+      const {data, error} = await sb.functions.invoke("create-checkout", {body: Object.assign({src: "app"}, body)});
       if (!error && data && typeof data.url === "string" && /^https:\/\/checkout\.stripe\.com\//.test(data.url)) return {url: data.url};
       let body = null; try { body = error && error.context && typeof error.context.json === "function" ? await error.context.json() : null; } catch (e) {}
       const code = body && body.error, m = body && typeof body.message === "string" ? cleanMsg(body.message) : "";
@@ -585,7 +593,8 @@ window.__sbPlanObj = () => PLAN;
     } catch (e) { return null; }
   }
   function buy(period){
-    period = ["monthly", "semester", "yearly"].includes(period) ? period : "monthly";
+    period = ["monthly", "semester", "yearly", "plus"].includes(period) ? period : "monthly";
+    if (period === "plus" && !plusOn()) { toast("Studyboard Plus isn't available here. Choose a Pro plan."); return false; }
     if (!paid()) { track("buy", P.reason); write(K_ATTR, {r: P.reason || "", t: Date.now(), uid: curUid()}); }
     if (period === "semester" && !semesterOn()) period = "monthly";
     const userId = sbUser ? sbUser.id : null;
@@ -711,7 +720,7 @@ window.__sbPlanObj = () => PLAN;
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
       ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`],
       ["Group Message History", f.groupMsgDays ? `Kept ${f.groupMsgDays} Days` : "Unlimited History", p.groupMsgDays ? `Kept ${p.groupMsgDays} Days` : "Unlimited History"]
-    ].concat(window.SBPRO ? SBPRO.compareRows() : []);
+    ].concat(plusOn() ? [["Studyboard AI (Built In)", "Your Own Key", "Included (Not in Plus)"]] : []).concat(window.SBPRO ? SBPRO.compareRows() : []);
   }
   function meter(label, used, max){
     const pct = max === Infinity || !max ? Math.min(100, used > 0 ? 2 : 0) : Math.min(100, used / max * 100);
@@ -739,6 +748,7 @@ window.__sbPlanObj = () => PLAN;
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
     if (e.source === "promo") return {title: THANKS, sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
+    if (plusNow()) return {title: "You're on Studyboard Plus. Thank you for supporting Studyboard!", sub: (e.will_renew === false ? `Plus ends ${dateStr(e.pro_until)}.` : `Renews ${dateStr(e.pro_until)}.`) + " Every Pro theme and feature, with AI from your own key. Switch to Pro in Manage Plan to add Studyboard AI."};
     return {title: THANKS, sub: e.will_renew === false ? `Pro ends ${dateStr(e.pro_until)}. You can turn renewal back on any time.` : `Renews ${dateStr(e.pro_until)}.`};
   }
   const APPLE_RENEW = "Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase. Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.";
@@ -758,7 +768,8 @@ window.__sbPlanObj = () => PLAN;
     const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() && !semOnce() ? `, ${semPrice()} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.${semesterOn() && semOnce() ? ` Semester: ${semPrice()} for 4 months of Pro, paid once. It doesn't renew and has no free trial.` : ""}`;
     // in the iPhone app for a United States account: the checkout is on the website, said before they tap
     const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
-    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
+    const plus = plusOn() ? ` Studyboard Plus is an auto-renewing subscription: ${plusPrice()} per month.` : "";
+    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(outside + head + plus)} ${esc(store ? (onAndroid() ? GOOGLE_RENEW : APPLE_RENEW) : t ? WEB_RENEW : WEB_RENEW_NOTRIAL)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
   }
   function priceButtons(){
     if (regionOff()) return `<p class="plan-fine mini">${esc(REGION_OFF_MSG)}</p>`;
@@ -773,7 +784,15 @@ window.__sbPlanObj = () => PLAN;
         <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span></button>
       </div>
       <p class="plan-fine mini">${trial ? `Try Pro free for ${trialDaysShown()} days. Cancel any time before it ends and you won't be charged.` : "Cancel any time. You keep Pro until the end of the time you paid for."}${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
+      ${plusOfferHtml()}
       ${renewalText(pr, trial)}`;
+  }
+  // Studyboard Plus: offered under the Pro prices (Pro stays the main choice), on the website checkout only
+  const plusPrice = () => typeof cfg.prices.plusMonthly === "string" ? cfg.prices.plusMonthly : "";
+  const plusOn = () => !!cfg.plus_plan && !!plusPrice() && route() !== "store";
+  function plusOfferHtml(){
+    if (!plusOn()) return "";
+    return `<div class="plan-plus"><span class="plan-plus-t"><b>Don't Need Studyboard AI?</b><span class="mini">Studyboard Plus has every Pro theme and feature except the built-in Studyboard AI. AI with your own key still works. ${esc(plusPrice())} a month, cancel any time.</span></span><button type="button" class="btn" data-act="plan-buy" data-id="plus">Get Plus · ${esc(plusPrice())}/mo</button></div>`;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
@@ -857,7 +876,8 @@ window.__sbPlanObj = () => PLAN;
     if (trialing(e) && e.source === "code") return e.codeForever ? "Pro (code)" : `Pro (code) until ${dateStr(e.trial_until)}`;
     if (trialing(e)) return `Pro trial until ${dateStr(e.trial_until)}`;
     if (e.source === "promo") return e.pro_until ? `Pro (granted) until ${dateStr(e.pro_until)}` : "Pro (granted)";
-    return e.pro_until ? `Pro until ${dateStr(e.pro_until)}` : "Pro";
+    const nm = plusNow() ? "Plus" : "Pro";
+    return e.pro_until ? `${nm} until ${dateStr(e.pro_until)}` : nm;
   }
   function rowSub(){
     if (!paywall()) return "Everything is unlocked right now";
@@ -904,7 +924,7 @@ window.__sbPlanObj = () => PLAN;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    limitNote, limitsPro, liteNow, groupsPro, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, limitsPro, liteNow, groupsPro, plusNow, aiIncluded, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,

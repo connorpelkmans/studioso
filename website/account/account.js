@@ -31,7 +31,7 @@
 
   // What the link asked for (checked, never trusted)
   var qs = new URLSearchParams(location.search);
-  var PLANS = ["monthly", "semester", "yearly"];
+  var PLANS = ["monthly", "semester", "yearly", "plus"];
   var wantPlan = PLANS.indexOf(qs.get("plan")) >= 0 ? qs.get("plan") : null;
   var fromApp = qs.get("src") === "app";
   function allowedReturn(candidate) {
@@ -121,7 +121,7 @@
       state.busy = false; setBuyDisabled(false);
     }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
   }
-  function setBuyDisabled(d) { ["buy-monthly", "buy-semester", "buy-yearly", "btn-manage"].forEach(function (id) { if ($(id)) $(id).disabled = d; }); }
+  function setBuyDisabled(d) { ["buy-monthly", "buy-semester", "buy-yearly", "buy-plus", "btn-manage"].forEach(function (id) { if ($(id)) $(id).disabled = d; }); }
   function openPortal() {
     if (state.busy) return; state.busy = true; setBuyDisabled(true); msg($("acct-msg"), "Opening billing...", "");
     fn(functions.portal || "create-portal-session", { return_url: location.origin + location.pathname }).then(function (r) {
@@ -145,6 +145,7 @@
         $("plan-tag").textContent = d.tag; $("plan-tag").className = "tag" + (d.pro ? " pro" : "");
         $("plan-detail").textContent = d.detail;
         $("buy-panel").hidden = d.subscribed;
+        state.sb.from("studyboard_config").select("value").eq("key", "plus_plan").maybeSingle().then(function (c) { if ($("plus-card")) $("plus-card").hidden = !(c && c.data && c.data.value === true); }, function () {});
         $("manage-panel").hidden = !d.manage;
         maybeAutoCheckout(d);
       }, function () { $("plan-detail").textContent = "Couldn't load your plan right now."; maybeAutoCheckout({ subscribed: false }); });
@@ -228,6 +229,8 @@
     $("btn-signout").addEventListener("click", function () { state.sb.auth.signOut().then(function () { state.session = null; show("v-auth"); showForm("form-signin"); }); });
     $("buy-monthly").addEventListener("click", function () { startCheckout("monthly"); });
     $("buy-yearly").addEventListener("click", function () { startCheckout("yearly"); });
+    // Studyboard Plus (Pro without Studyboard AI): shown once studyboard_config.plus_plan is true
+    if ($("buy-plus")) $("buy-plus").addEventListener("click", function () { startCheckout("plus"); });
     if ($("buy-semester")) $("buy-semester").addEventListener("click", function () { startCheckout("semester"); });
     $("btn-manage").addEventListener("click", openPortal);
 
