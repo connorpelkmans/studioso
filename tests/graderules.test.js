@@ -67,6 +67,29 @@ const it = (id, w, cat, pct, fin) => ({id, w, cat, pct: pct == null ? null : pct
   ok(near(G.current(items, R).pct, 80), "bonus isn't added to the grade on marked work");
 }
 
+// Work that can't be handed in any more scores 0, and isn't work left to score on
+{
+  const R = G.norm(null), z = Object.assign(it("ps", 30, "Assignment"), {z: true});
+  const items = [it("a", 10, "Assignment", 80), z, it("f", 60, "Exam")];
+  ok(near(G.finalWith(items, R, 100, 100), 8 + 60), "missed work scores 0 even with full marks on the rest");
+  ok(near(G.current(items, R).pct, 80), "missed work isn't in the grade on marked work");
+  ok(G.need([it("a", 70, "Assignment", 80), z], R, 100, 60) === null, "only missed work left: nothing to need");
+}
+
+// The weight each kept mark carries under a drop rule
+{
+  const R = G.norm({drops: [{cat: "Quiz", n: 1}]});
+  const cu = G.current([it("q1", 5, "Quiz", 100), it("q2", 5, "Quiz", 90), it("q3", 5, "Quiz", 20), it("x", 85, "Exam", 80)], R);
+  ok(cu.out.has("q3") && near(cu.ew.q1, 7.5) && near(cu.ew.q2, 7.5) && cu.ew.q3 == null && near(cu.ew.x, 85), "kept quizzes share the dropped one's weight: " + JSON.stringify(cu.ew));
+}
+
+// Must-pass parts
+{
+  const R = G.norm({must: [{cat: "Exam", min: 50}, {cat: "Final", min: "60"}, {cat: "Exam", min: 70}, {cat: "Nope", min: 50}, {cat: "Lab", min: 0}]});
+  ok(R.must.length === 2 && R.must[0].cat === "Exam" && R.must[0].min === 50 && R.must[1].cat === "Final" && R.must[1].min === 60, "norm keeps one readable rule per part: " + JSON.stringify(R.must));
+  ok(Array.isArray(G.norm(null).must) && !G.norm(null).must.length, "no must-pass rules");
+}
+
 // GPA points
 {
   const P = (l, m) => G.points(l, m || 4);

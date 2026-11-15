@@ -401,12 +401,14 @@ If there's no math in it, set found to false.`;
   async function screenPicture(){
     if (!canShareScreen()) { toast("Capture from Screen isn't available in this browser"); return; }
     const W = calcWin(); if (W) W.style.visibility = "hidden";   // not in the picture if this tab is the one shared
-    let stream = null, c = null;
+    let stream = null, c = null; const t0 = Date.now();
     try {
       stream = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 5}, audio: false});
       c = await frameOf(stream);
     } catch (e) {
-      if (!(e && (e.name === "NotAllowedError" || e.name === "AbortError"))) { console.warn("calculator screen", e); toast("Couldn't capture the screen"); }
+      // refused before anyone could have picked: the browser or the site blocks screen sharing, so say so (a real Cancel stays quiet)
+      if (e && e.name === "NotAllowedError" && !stream && Date.now() - t0 < 400) toast("Your browser blocked screen sharing. Allow it in the site's settings, or use Picture or Paste Picture.");
+      else if (!(e && (e.name === "NotAllowedError" || e.name === "AbortError"))) { console.warn("calculator screen", e); toast("Couldn't capture the screen"); }
     } finally {
       if (stream) stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
       if (W) W.style.visibility = "";

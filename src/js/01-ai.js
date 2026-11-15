@@ -2046,6 +2046,8 @@ function aiNeeds(q, prev){
   return o;
 }
 const aiNeedsAny = n => !!n && !n.small && (n.grades || n.plan || n.tasks || n.schedule || n.cards || n.notes || n.files || n.course.length > 0);
+// Said with grades data that holds estimated weights, so advice built on one says it's an estimate
+const EST_W_NOTE = "NOTE ON WEIGHTS: a weight marked as estimated from points (or a course graded by points) is a guess, not a weight from the school or syllabus. When advice depends on one, say it's an estimate and suggest checking the syllabus.";
 function aiPlannerFacts(need){
   need = need || {grades: true, plan: true};
   const L = [];
@@ -2054,11 +2056,12 @@ function aiPlannerFacts(need){
     const lines = G ? G.lines() : []; if (lines.length) L.push("COURSE GRADES:\n" + lines.map(x => "- " + x).join("\n"));
     const it = G && G.items ? G.items() : [];
     if (it.length) {
-      const row = x => `- ${x.title} (${[x.course, x.type, x.weight != null ? "worth " + x.weight + "% of the course" : "", x.due ? "due " + x.due : ""].filter(Boolean).join(", ")}): ${x.mark}${/%$/.test(x.mark) ? "" : " = " + x.pct + "%"}${x.letter ? " (" + x.letter + ")" : ""}`;
+      const row = x => `- ${x.title} (${[x.course, x.type, x.weight != null ? (x.weightEst ? "worth about " + x.weight + "% of the course (estimated from points, not from the school)" : "worth " + x.weight + "% of the course") : "", x.due ? "due " + x.due : ""].filter(Boolean).join(", ")}): ${x.mark}${/%$/.test(x.mark) ? "" : " = " + x.pct + "%"}${x.letter ? " (" + x.letter + ")" : ""}`;
       L.push(`MARKED WORK (every item with a mark, ${it.length} in all, highest first):\n` + it.slice().sort((a, b) => b.pct - a.pct).slice(0, 80).map(row).join("\n"));
     } else if (lines.length) L.push("MARKED WORK: no marks have been entered for individual items yet.");
+    if (it.some(x => x.weightEst) || lines.some(x => /ESTIMATES|estimates from points/.test(x))) L.push(EST_W_NOTE);
     const w = G && G.waiting ? G.waiting() : [];
-    if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course ? " (" + x.course + ")" : ""}`).join("; "));
+    if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course || x.ago ? " (" + [x.course, x.ago].filter(Boolean).join(", ") + ")" : ""}`).join("; "));
   } catch (e) {}
   if (need.plan) try {
     // laid out exactly as Today's Plan shows it: Do This Next, the rest of today's planned work, then what comes after, in order

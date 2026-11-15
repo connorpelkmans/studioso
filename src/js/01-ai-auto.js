@@ -67,7 +67,7 @@ async function autoPlan(a){
     const c = courseOf(t.courseId), p = progress(t), ps = MILESTONE(t.type) ? planSessions(t.id) : [];
     const bits = [`${ref[t.id]} | ${t.title} | ${t.type} | ${c ? courseLabel(c) : "no course"} | due ${t.due}${t.time ? " " + t.time : ""} (${dayDiff(today, t.due) < 0 ? -dayDiff(today, t.due) + " days overdue" : dayDiff(today, t.due) === 0 ? "today" : dayDiff(today, t.due) + " days away"})`,
       MILESTONE(t.type) ? (canDoNow(t) ? "TAKE-HOME (can be done from home, so it may be chosen for next)" : "FIXED EVENT (taken in person or not confirmed as take-home: never choose it for next)") : "",
-      rankOf[t.id] && canDoNow(t) ? `rank ${rankOf[t.id]}` : "", `status ${t.status}`, hasWeight(t) ? `worth ${t.weight}%` : "", `priority ${t.priority}`, `difficulty ${t.difficulty}`,
+      rankOf[t.id] && canDoNow(t) ? `rank ${rankOf[t.id]}` : "", `status ${t.status}`, weightForAi(t), `priority ${t.priority}`, `difficulty ${t.difficulty}`,
       MILESTONE(t.type) ? "" : isNum(t.hours) && Number(t.hours) > 0 ? `estimate ${t.hours}h` : "no estimate",
       p.frac ? `progress ${Math.round(p.frac * 100)}%` : "", (t.checklist || []).length ? `checklist ${p.done}/${p.total}` : "",
       t.focusMin ? `focused ${t.focusMin}m so far` : "",
@@ -77,7 +77,6 @@ async function autoPlan(a){
       MILESTONE(t.type) && deckInfo(t.courseId) ? `flashcards: ${deckInfo(t.courseId)}` : "",
       F.info[t.id] && canDoNow(t) ? `planner score ${Math.round(F.info[t.id].score)}` : "", blockers(t).length ? "BLOCKED" : "",
       lateUntilOf(t) ? `late submissions accepted until ${lateUntilOf(t)}` : lateOf(t) === "none" ? "no late submissions" : "",
-      !hasWeight(t) && PTS_W[t.id] ? `about ${Math.round(PTS_W[t.id] * 10) / 10}% of grade (from points)` : "",
       lmsOf(t) && lmsOf(t).outOf ? `out of ${lmsOf(t).outOf} points` : "",
       lmsOf(t) && (lmsOf(t).files || []).length ? `${lmsOf(t).files.length} attached file${lmsOf(t).files.length === 1 ? "" : "s"}` : "",
       (!t.difficulty || t.difficulty === "med") && !MILESTONE(t.type) && !t.prepFor ? "difficulty not set" : "",

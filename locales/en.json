@@ -72,6 +72,7 @@
   "gb.lowLeft": "{type} still make up {left} of the course to come.",
   "gb.more": "+{n} more",
   "gb.n": "{n} marked|{n} marked",
+  "gb.nd": "{n} counted ({d} dropped)",
   "gb.open": "Open",
   "gb.opt": "Compare My Marks to the Class",
   "gb.opt.s": "For school-synced courses that share class averages",

@@ -617,11 +617,14 @@ window.__sbPlanObj = () => PLAN;
     } finally { P.buying = false; }
   }
   const directCheckout = period => checkoutCall({plan: period, src: "app"});
-  // body: {plan} for a subscription, or {pack} for Studyboard Credits. The server decides every price.
-  async function checkoutCall(body){
-    if (!sb || !sbUser || sbUser.is_anonymous) return null;
+  // Tests run the real call with their own server (window.__SB_TEST only)
+  if (window.__SB_TEST) window.__sbCheckoutCall = (what, client, user) => checkoutCall(what, client, user);
+  // what: {plan} for a subscription, or {pack} for Studyboard Credits. The server decides every price.
+  async function checkoutCall(what, client, user){
+    const c = client || sb, u = client ? user : sbUser;
+    if (!c || !u || u.is_anonymous) return null;
     try {
-      const {data, error} = await sb.functions.invoke("create-checkout", {body: Object.assign({src: "app"}, body)});
+      const {data, error} = await c.functions.invoke("create-checkout", {body: Object.assign({src: "app"}, what)});
       if (!error && data && typeof data.url === "string" && /^https:\/\/checkout\.stripe\.com\//.test(data.url)) return {url: data.url};
       let body = null; try { body = error && error.context && typeof error.context.json === "function" ? await error.context.json() : null; } catch (e) {}
       const code = body && body.error, m = body && typeof body.message === "string" ? cleanMsg(body.message) : "";
