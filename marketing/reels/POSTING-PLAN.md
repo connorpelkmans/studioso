@@ -1,20 +1,20 @@
 # Posting plan: finals season, week of Nov 16, 2026
 
-**Status:** draft, waiting on (1) Instagram (and TikTok) connected to Metricool, (2) Metricool's best-time check, and (3) your approval. Nothing is scheduled yet.
+**Status:** times set from Metricool's best-time data (Instagram, America/Vancouver, Nov 16–22). Waiting on your approval to schedule.
 
-Times are **Pacific (Vancouver)**, assumed from BCIT showing up in your suggestions; tell me if your audience is elsewhere. They are defaults from the research until Metricool's best-time data replaces them: Sun–Thu evenings, when students are out of class or on a study break, and Sunday evening for planning content.
+**What Metricool shows:** weekdays peak at **10 AM**, with a second, smaller peak around **6 PM**. Fri, Wed and Thu mornings are the strongest slots of the week (10 AM scores: Fri 6,734, Wed 6,506, Thu 6,275), and weekends are about half as strong (Sun 10 AM 2,582; Sun 6 PM 2,253). With 3 followers this is almost certainly Metricool's general Instagram benchmark rather than our own audience, so recheck it monthly as the account grows. Reels keep getting shown for days, so posting just before the peak lets each one ride the whole day.
 
-The mix follows the live research: relatable reels (reach, sends) around "the fix" reels (conversion), about 2:1.
+That data replaced the default evening slots, and moved the Sunday post to Friday. One fix reel stays at 6 PM to compare evening with morning.
 
-| # | When (PT) | Reel | Type | Why this slot |
+| # | When (PT) | Reel | Type | Slot score |
 |---|---|---|---|---|
-| 1 | Mon Nov 16, 7:40 PM | `2026-11-16-same-week/reel.mp4`: "every exam i have this semester somehow landed in the exact same week" | Relatable, regular Reel | Start of the week; Monday evening is peak exam dread |
-| 2 | Tue Nov 17, 7:40 PM | `2026-11-15-crunch-week/reel.mp4` (A): "3 exams. 1 week." | Fix, regular Reel | The day after #1: same pain, now the answer. Pin it |
-| 3 | Wed Nov 18, 8:10 PM | `2026-11-16-same-week/reel-c.mp4`: "nobody warned me november has 4 week elevens in a row" | Relatable, **Trial Reel** | Tests the November angle on non-followers only |
-| 4 | Thu Nov 19, 7:40 PM | `2026-11-16-same-week/reel-b.mp4`: "me realizing 3 exams, a lab report and an essay are all in week 11…" | Relatable, regular Reel | Variant B of the same format |
-| 5 | Sun Nov 22, 6:40 PM | `2026-11-15-crunch-week/reel-c.mp4` (C): "POV: you spot hell week a month early." | Fix, regular Reel | Sunday night = planning the week |
+| 1 | Mon Nov 16, 9:50 AM | `2026-11-16-same-week/reel.mp4`: "every exam i have this semester somehow landed in the exact same week" | Relatable, regular Reel | Mon 10 AM: 5,528 (Monday's peak) |
+| 2 | Tue Nov 17, 5:50 PM | `2026-11-15-crunch-week/reel.mp4` (A): "3 exams. 1 week." | Fix, regular Reel. Pin it | Tue 6 PM: 4,788 (Tuesday's evening is nearly as strong as its morning, 4,942) |
+| 3 | Wed Nov 18, 9:50 AM | `2026-11-16-same-week/reel-c.mp4`: "nobody warned me november has 4 week elevens in a row" | Relatable, **Trial Reel** | Wed 10 AM: 6,506 |
+| 4 | Thu Nov 19, 9:50 AM | `2026-11-16-same-week/reel-b.mp4`: "me realizing 3 exams, a lab report and an essay…" | Relatable, regular Reel | Thu 10 AM: 6,275 |
+| 5 | Fri Nov 20, 9:50 AM | `2026-11-15-crunch-week/reel-c.mp4` (C): "POV: you spot hell week a month early." | Fix, regular Reel | Fri 10 AM: 6,734 (best slot of the week) |
 
-Then check numbers on Nov 23–24 (vidIQ insights) and plan the next batch from the weakest lens.
+Then check numbers on Nov 23–24 (Metricool analytics, or vidIQ insights once Instagram is connected there) (vidIQ insights) and plan the next batch from the weakest lens.
 
 **Audio:** attach a track from Instagram's library on each (Metricool can do this on Business accounts linked to a Facebook Page). Relatable reels: something dramatic or ominous that contrasts with the calm visuals, as the outliers did. Fix reels: a beat change around 4–5 s, when the calendar fills with colour. You choose the tracks: trending audio changes daily, and you can see what's trending in the app.
 
