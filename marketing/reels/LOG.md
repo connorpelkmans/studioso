@@ -14,7 +14,7 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-17 | marketing/reels/2026-11-17-what-you-need | Grade Tracker (What You Need) | Problem-fix | "me doing the math on what i need on the final to not fail this class" | 18.0 s | | | | | | | Notebook equation → grade card |
 | 2026-11-18 | marketing/reels/2026-11-18-exam-prep | Exam Prep Planner | Problem-fix | "3 exams in 6 days and i haven't started studying for any of them" | 18.0 s | | | | | | | Empty week → sessions spread |
 | 2026-11-19 | marketing/reels/2026-11-19-breakdown | Assignment breakdown | Problem-fix | "my 10 page paper is due friday and so far i've written my name" | 18.0 s | | | | | | | Countdown → 5 milestones |
-| 2026-11-20 | marketing/reels/2026-11-20-types-of-students | (brand: companions) | Entertainment, animated | "Every friend group during finals week" | 17.7 s | | | | | | | Field guide, tag-your-friends; soft sign-off |
+| 2026-11-20 | marketing/reels/2026-11-20-types-of-students | (brand: companions) | Entertainment, animated | "Every friend group during finals week" | 17.7 s | Instagram, scheduled Sun Nov 15 5:50 PM PT (Metricool post 429212300) | | | | | | Field guide, tag-your-friends; soft sign-off |
 | 2026-11-21 | marketing/reels/2026-11-21-plan-vs-reality | (brand only) | Entertainment, animated | "My study plan vs. what actually happened" | 17.2 s | | | | | | | Expectation vs. reality planner |
 | 2026-11-22 | marketing/reels/2026-11-22-one-episode | (brand only) | Entertainment, live action | "Just one episode, then I'll study." | 19.4 s | | | | | | | Lock-screen timestamps; one actor through the night |
 
