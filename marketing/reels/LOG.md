@@ -14,6 +14,9 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-17 | marketing/reels/2026-11-17-what-you-need | Grade Tracker (What You Need) | Problem-fix | "me doing the math on what i need on the final to not fail this class" | 18.0 s | | | | | | | Notebook equation → grade card |
 | 2026-11-18 | marketing/reels/2026-11-18-exam-prep | Exam Prep Planner | Problem-fix | "3 exams in 6 days and i haven't started studying for any of them" | 18.0 s | | | | | | | Empty week → sessions spread |
 | 2026-11-19 | marketing/reels/2026-11-19-breakdown | Assignment breakdown | Problem-fix | "my 10 page paper is due friday and so far i've written my name" | 18.0 s | | | | | | | Countdown → 5 milestones |
+| 2026-11-20 | marketing/reels/2026-11-20-types-of-students | (brand: companions) | Entertainment, animated | "Every friend group during finals week" | 17.7 s | | | | | | | Field guide, tag-your-friends; soft sign-off |
+| 2026-11-21 | marketing/reels/2026-11-21-plan-vs-reality | (brand only) | Entertainment, animated | "My study plan vs. what actually happened" | 17.2 s | | | | | | | Expectation vs. reality planner |
+| 2026-11-22 | marketing/reels/2026-11-22-one-episode | (brand only) | Entertainment, live action | "Just one episode, then I'll study." | 19.4 s | | | | | | | Lock-screen timestamps; one actor through the night |
 
 ## What we've learned
 
@@ -27,3 +30,4 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 - Polish (Connor's review): fixed flicker (a 12 Hz shake aliasing at 30 fps) and the end-card logo flash; captions now arrive with what they describe; reaction shots get 3 s; logo lockup C (app icon + Studyboard in Lexend). `check_glitches.py` now runs on every render.
 - Calendar fixes now redistribute visibly (Connor's review): Week 11's load moves into Weeks 10 and 9 in sequence, conserving the total, with rings and pops as each week receives it.
 - Copy pass (Connor's review): one yellow highlight per caption on the punchline, twist or benefit; exclamation marks on turns, payoffs and wins ("Way better!").
+- Added an entertainment-first set (Connor: less like ads, genuinely relatable): no pitch in the video, a small sign-off, brand in the caption. Compare their shares and follows with the feature reels.

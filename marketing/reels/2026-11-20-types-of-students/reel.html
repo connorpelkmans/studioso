@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Types of students in finals week</title>
+<!-- Entertainment-first reel: a "field guide" to the friend group in finals week, cast with Studyboard's companions.
+     No pitch in the video; a small sign-off at the end. Music: quirky.wav from 0. -->
+<style>
+@font-face{font-family:"Lexend";font-weight:600;src:url({{ROOT}}/website/assets/fonts/lexend-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:700;src:url({{ROOT}}/website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url({{ROOT}}/website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:400;src:url({{ROOT}}/website/assets/fonts/atkinson-hyperlegible-next-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:700;src:url({{ROOT}}/website/assets/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2) format("woff2")}
+:root{--navy:#0E2A56;--ink:#0F1F3D;--muted:#5A6A86;--accent:#3988FE;--mark:#FFE45C;--tomato:#E4513B;--leaf:#1E9E74;--plum:#7A4FD6;--amber:#B86A00;--display:"Lexend",system-ui,sans-serif;--body:"Atkinson",system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;color:var(--ink);-webkit-font-smoothing:antialiased;
+  background-color:#F2F5FA;background-image:linear-gradient(rgba(57,136,254,.09) 2px,transparent 2px),linear-gradient(90deg,rgba(57,136,254,.09) 2px,transparent 2px);background-size:54px 54px}
+.abs{position:absolute}
+.scene{position:absolute;inset:0}
+.ttl{font:800 62px/1.12 var(--display);letter-spacing:-.02em;text-align:center;color:var(--ink)}
+.sub{font:500 40px/1.3 var(--body);text-align:center;color:var(--muted)}
+.mk{position:relative;z-index:0;white-space:nowrap}
+.mk::before{content:"";position:absolute;left:-.06em;right:-.06em;top:.56em;height:.38em;background:var(--mark);z-index:-1;border-radius:4px}
+.num{display:inline-block;font:700 30px var(--display);letter-spacing:.12em;color:var(--accent);background:#fff;border:3px solid #DCE6F5;border-radius:999px;padding:10px 26px}
+.card{background:#fff;border-radius:28px;box-shadow:0 2px 4px rgba(14,42,86,.06),0 24px 60px -14px rgba(14,42,86,.3)}
+/* companions */
+.comp{position:absolute}
+.comp svg{width:100%;height:100%;overflow:visible;display:block;filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 12px 22px rgba(30,20,50,.22))}
+.cp-svg .cp-p,.cp-svg .cp-headg,.cp-svg .cp-eye,.cp-svg .cp-page{transform-box:view-box}
+.cp-svg .cp-cheeks{opacity:.62}
+.cp-svg .cp-e-happy,.cp-svg .cp-e-sleepy,.cp-svg .cp-mouth>g,.cp-svg .cp-prop,.cp-svg .cp-zs{display:none}
+.cp-svg[data-m=neutral] .cp-m-neutral,.cp-svg[data-m=smile] .cp-m-smile,.cp-svg[data-m=open] .cp-m-open,.cp-svg[data-m=sleepy] .cp-m-sleepy{display:inline}
+.cp-svg[data-e=happy] .cp-eye,.cp-svg[data-e=sleepy] .cp-eye{display:none}
+.cp-svg[data-e=happy] .cp-e-happy,.cp-svg[data-e=sleepy] .cp-e-sleepy{display:inline}
+.cp-svg[data-z="1"] .cp-zs{display:inline}
+/* props */
+.plan{width:330px;padding:24px}
+.plan .h{font:800 26px var(--display);margin-bottom:12px}
+.plan .r{display:flex;align-items:center;gap:12px;margin:10px 0;font:600 25px var(--display)}
+.plan .r i{width:26px;height:26px;border-radius:7px;flex:none;display:grid;place-items:center;color:#fff;font:800 18px var(--display);font-style:normal}
+.syl{width:360px;padding:26px 28px;transform:rotate(-5deg)}
+.syl .h{font:800 28px var(--display);letter-spacing:.06em;color:var(--muted);margin-bottom:14px}
+.syl .l{height:12px;border-radius:6px;background:#E6ECF5;margin:12px 0}
+.syl .k{font:700 30px/1.3 var(--display);margin-top:14px}
+.syl .k span{background:var(--mark);padding:0 6px;border-radius:6px}
+.night{width:520px;height:440px;border-radius:40px;background:linear-gradient(160deg,#16386E,#0A1F42);box-shadow:0 24px 60px -14px rgba(14,42,86,.45)}
+.clock{font:800 44px var(--display);color:#fff;background:rgba(255,255,255,.12);border-radius:16px;padding:8px 20px}
+.chip{display:inline-flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:14px 22px;font:700 30px var(--display);box-shadow:0 16px 40px -12px rgba(14,42,86,.35)}
+#sign{position:absolute;left:0;right:0;top:1340px;display:flex;justify-content:center;align-items:center;gap:16px;font:800 40px var(--display);color:var(--navy);opacity:0}
+#sign img{width:60px;height:60px;border-radius:15px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <!-- Title -->
+  <div class="scene" id="s0">
+    <div class="abs" style="left:0;right:0;top:300px;text-align:center"><span class="num" style="letter-spacing:.18em">A FIELD GUIDE</span></div>
+    <div class="abs ttl" id="t0" style="left:60px;right:60px;top:440px;font-size:80px;line-height:1.08">Every friend group<br>during <span class="mk">finals week</span></div>
+    <div class="comp" id="c0a" style="left:90px;top:780px;width:210px;height:210px">{{owl}}</div>
+    <div class="comp" id="c0b" style="left:320px;top:780px;width:210px;height:210px">{{mochi}}</div>
+    <div class="comp" id="c0c" style="left:550px;top:780px;width:210px;height:210px">{{inky}}</div>
+    <div class="comp" id="c0d" style="left:780px;top:780px;width:210px;height:210px">{{packy}}</div>
+  </div>
+
+  <!-- 1: the planner -->
+  <div class="scene" id="s1" style="visibility:hidden">
+    <div class="abs" style="left:0;right:0;top:290px;text-align:center"><span class="num">1 OF 4</span></div>
+    <div class="card plan abs" id="p1" style="left:610px;top:450px;transform:rotate(5deg)">
+      <div class="h">Finals plan ✨</div>
+      <div class="r"><i style="background:var(--leaf)">✓</i>Bio · Ch 1–4</div>
+      <div class="r"><i style="background:var(--plum)">✓</i>Chem · Unit 3</div>
+      <div class="r"><i style="background:var(--tomato)">✓</i>Calc · Integrals</div>
+      <div class="r"><i style="background:var(--accent)"></i>Hist · Essay</div>
+    </div>
+    <div class="comp" id="c1" style="left:150px;top:420px;width:440px;height:440px">{{owl}}</div>
+    <div class="abs ttl" style="left:90px;right:90px;top:920px">The one with a<br><span class="mk">colour-coded</span> study plan</div>
+    <div class="abs sub" style="left:110px;right:110px;top:1100px">Started reviewing in Week 2.<br>Nobody knows how.</div>
+  </div>
+
+  <!-- 2: the late discovery -->
+  <div class="scene" id="s2" style="visibility:hidden">
+    <div class="abs" style="left:0;right:0;top:290px;text-align:center"><span class="num">2 OF 4</span></div>
+    <div class="card syl abs" id="p2" style="left:110px;top:470px">
+      <div class="h">SYLLABUS</div><div class="l"></div><div class="l" style="width:80%"></div><div class="l" style="width:90%"></div>
+      <div class="k">Final exam:<br><span>cumulative</span> (40%)</div>
+    </div>
+    <div class="comp" id="c2" style="left:540px;top:440px;width:420px;height:420px">{{mochi}}</div>
+    <div class="abs ttl" style="left:90px;right:90px;top:920px">The one who just learned<br>the final is <span class="mk">cumulative</span></div>
+    <div class="abs sub" style="left:110px;right:110px;top:1100px">Opened the syllabus for the<br>first time. In December.</div>
+  </div>
+
+  <!-- 3: the 4 AM library goblin -->
+  <div class="scene" id="s3" style="visibility:hidden">
+    <div class="abs" style="left:0;right:0;top:290px;text-align:center"><span class="num">3 OF 4</span></div>
+    <div class="night abs" style="left:280px;top:420px">
+      <div class="abs" style="left:56px;top:46px;width:70px;height:70px;border-radius:50%;box-shadow:18px -10px 0 0 #FFE45C"></div>
+      <div class="abs" style="left:380px;top:60px;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:-120px 40px 0 #fff,-40px 90px 0 rgba(255,255,255,.6),40px 120px 0 rgba(255,255,255,.7)"></div>
+      <div class="abs clock" id="clk" style="right:30px;top:30px">4:07 AM</div>
+    </div>
+    <div class="comp" id="c3" style="left:370px;top:510px;width:340px;height:340px">{{inky}}</div>
+    <div class="abs ttl" style="left:90px;right:90px;top:920px">The 4 AM<br><span class="mk">library goblin</span></div>
+    <div class="abs sub" style="left:110px;right:110px;top:1100px">Hasn't seen the sun<br>since Tuesday.</div>
+  </div>
+
+  <!-- 4: the pressure "expert" -->
+  <div class="scene" id="s4" style="visibility:hidden">
+    <div class="abs" style="left:0;right:0;top:290px;text-align:center"><span class="num">4 OF 4</span></div>
+    <div class="abs" id="p4a" style="left:600px;top:470px"><span class="chip"><span style="color:var(--tomato)">●</span>Paper due 9 AM</span></div>
+    <div class="abs" id="p4b" style="left:640px;top:580px"><span class="chip">Progress: <span style="color:var(--tomato)">0%</span></span></div>
+    <div class="comp" id="c4" style="left:150px;top:430px;width:430px;height:430px">{{packy}}</div>
+    <div class="abs ttl" style="left:90px;right:90px;top:920px">The "I work better<br>under <span class="mk">pressure</span>" one</div>
+    <div class="abs sub" style="left:110px;right:110px;top:1100px">Hasn't started. Is calm.<br>Is lying.</div>
+  </div>
+
+  <!-- End -->
+  <div class="scene" id="s5" style="visibility:hidden">
+    <div class="abs ttl" style="left:90px;right:90px;top:420px;font-size:96px">Which one<br>are <span class="mk">you</span>?</div>
+    <div class="abs sub" style="left:110px;right:110px;top:690px">Tag your study group 👇</div>
+    <div class="comp" id="e1" style="left:90px;top:880px;width:210px;height:210px">{{owl}}</div>
+    <div class="comp" id="e2" style="left:320px;top:880px;width:210px;height:210px">{{mochi}}</div>
+    <div class="comp" id="e3" style="left:550px;top:880px;width:210px;height:210px">{{inky}}</div>
+    <div class="comp" id="e4" style="left:780px;top:880px;width:210px;height:210px">{{packy}}</div>
+    <div class="abs" style="left:90px;width:900px;top:1110px;display:flex;justify-content:space-around;font:800 44px var(--display);color:var(--accent)"><span>1</span><span>2</span><span>3</span><span>4</span></div>
+  </div>
+  <div id="sign"><img src="{{ROOT}}/icon-512.png" alt="">Studyboard</div>
+</div>
+<script>
+["600 100px Lexend","700 100px Lexend","800 100px Lexend","400 40px Atkinson","700 40px Atkinson"].forEach(f => document.fonts.load(f));
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const oBack = x => { const c = 1.6, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const svg = el => el.querySelector("svg");
+const face = (el, e, m, z) => { const s = svg(el); s.dataset.e = e; s.dataset.m = m; s.dataset.z = z ? "1" : "0"; };
+// Idle life: a gentle bob and a blink every ~2 s (blink = sleepy eyes for 3 frames)
+const idle = (el, t, seed, e, m, z, amp = 8) => {
+  const blink = e === "open" && ((t + seed) % 2.1) < .1;
+  face(el, blink ? "sleepy" : e, m, z);
+  return Math.sin((t + seed) * 2.6) * amp;
+};
+const hopY = (t, t0, H = 40) => { const k = P(t, t0, t0 + .42); return -H * 4 * k * (1 - k); };
+
+// Timeline (s). Each type gets 2.9 s: enough to read a two-line title and a two-line joke.
+const T0 = 2.7, D = 2.9, END_IN = T0 + 4 * D, END = END_IN + 3.4, COVER = 0.4;
+const SL = .32; // slide time between pages
+function page(el, t, tin, tout) {
+  // slides in from the right, out to the left; smooth, like swiping a carousel
+  const a = ioCubic(P(t, tin - SL, tin)), b = tout == null ? 0 : ioCubic(P(t, tout - SL, tout));
+  const vis = a > 0 && b < 1; el.style.visibility = vis ? "visible" : "hidden";
+  el.style.transform = `translateX(${(1 - a) * 1080 - b * 1080}px)`;
+  return vis;
+}
+function render(t) {
+  // Title (visible at frame 0)
+  const s0 = $("s0"); s0.style.visibility = t < T0 ? "visible" : "hidden";
+  s0.style.transform = `translateX(${-ioCubic(P(t, T0 - SL, T0)) * 1080}px)`;
+  ["c0a", "c0b", "c0c", "c0d"].forEach((id, i) => {
+    const el = $(id), y = idle(el, t, i * .37, i === 2 ? "sleepy" : "open", ["smile", "open", "sleepy", "smile"][i], i === 2, 6) + hopY(t, .5 + i * .22, 46);
+    el.style.transform = `translateY(${y}px)`;
+  });
+  // Types
+  const ids = ["s1", "s2", "s3", "s4"];
+  ids.forEach((id, i) => {
+    const tin = T0 + i * D, tout = tin + D;
+    if (!page($(id), t, tin, tout)) return;
+    const lt = t - tin, c = $("c" + (i + 1));
+    if (i === 0) { // proud, happy planner; the plan card ticks itself
+      const y = idle(c, t, 0, lt > .5 ? "happy" : "open", "smile", false) + hopY(t, tin + .35, 50);
+      c.style.transform = `translateY(${y}px) rotate(${Math.sin(t * 3) * 2}deg)`;
+      $("p1").style.transform = `rotate(${5 + Math.sin(t * 2) * 1.5}deg) translateY(${Math.sin(t * 2.2) * 6}px)`;
+    }
+    if (i === 1) { // shock: open mouth, little tremble, the syllabus shakes into view
+      const trem = lt > .35 ? Math.sin(t * 40) * 2.5 * (1 - P(lt, .35, 1.2)) : 0;
+      face(c, "open", lt > .3 ? "open" : "neutral", false);
+      c.style.transform = `translate(${trem}px,${hopY(t, tin + .3, 30)}px) scale(${1 + .06 * Math.sin(P(lt, .3, .6) * Math.PI)})`;
+      $("p2").style.transform = `rotate(${-5 + Math.sin(t * 2.4) * 2}deg)`;
+    }
+    if (i === 2) { // asleep but upright; Zzz on; the clock ticks a minute later
+      face(c, "sleepy", "sleepy", true);
+      c.style.transform = `translateY(${Math.sin(t * 1.6) * 10}px) rotate(${Math.sin(t * 1.3) * 4}deg)`;
+      $("clk").textContent = lt > 1.6 ? "4:08 AM" : "4:07 AM";
+    }
+    if (i === 3) { // unbothered: happy eyes, slow sway; the chips drop in on the beat
+      const y = idle(c, t, .4, "happy", "smile", false, 6);
+      c.style.transform = `translateY(${y}px) rotate(${Math.sin(t * 1.5) * 5}deg)`;
+      [["p4a", .35], ["p4b", .7]].forEach(([pid, at]) => { const k = P(lt, at, at + .3); $(pid).style.opacity = clamp(k * 2); $(pid).style.transform = `translateY(${(1 - oBack(k)) * -40}px)`; });
+    }
+  });
+  // End: all four, hopping in a wave; then a quiet sign-off
+  if (page($("s5"), t, END_IN, null)) {
+    ["e1", "e2", "e3", "e4"].forEach((id, i) => {
+      const el = $(id), y = idle(el, t, i * .37, i === 2 ? "sleepy" : "happy", ["smile", "open", "sleepy", "smile"][i], i === 2, 5) + hopY(t, END_IN + .3 + i * .15, 50) + hopY(t, END_IN + 1.4 + i * .15, 30);
+      el.style.transform = `translateY(${y}px)`;
+    });
+  }
+  const sg = P(t, END_IN + 1.6, END_IN + 2.0); $("sign").style.opacity = sg; $("sign").style.transform = `translateY(${(1 - sg) * 16}px)`;
+}
+window.render = render; window.END = END; window.COVER = COVER;
+render(0);
+</script>
+</body>
+</html>

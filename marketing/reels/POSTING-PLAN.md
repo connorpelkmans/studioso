@@ -87,3 +87,44 @@ Same Metricool pattern: weekday 10 AM peaks, one evening slot. Thanksgiving (Thu
 > What's the longest paper you've left to the last minute? 👇
 >
 > #studytok #college #procrastination #finalsweek #studentlife
+
+---
+
+# Week 3: Nov 30 – Dec 4, entertainment-first reels
+
+These aren't ads: they're the kind of post students share. Studyboard appears only as a small sign-off, and the caption carries the brand. Posting them between the feature reels builds an audience the feature reels can then convert.
+
+| # | When (PT) | Reel | Format |
+|---|---|---|---|
+| 9 | Mon Nov 30, 9:50 AM | `2026-11-20-types-of-students/reel.mp4` | Animated "field guide", tag-your-friends |
+| 10 | Wed Dec 2, 9:50 AM | `2026-11-21-plan-vs-reality/reel.mp4` | Animated expectation vs. reality |
+| 11 | Fri Dec 4, 9:50 AM | `2026-11-22-one-episode/reel.mp4` | Live action with lock-screen timestamps |
+
+## Captions
+
+**#9 Types of students**
+> Every friend group has all four. Which one are you? 👇
+>
+> Tag your study group (we know who the 4 AM goblin is).
+>
+> 🦉 Hoot, Mochi, Inky and Packy are the study companions in Studyboard, a free student planner. Link in bio.
+>
+> #studytok #finalsweek #college #studentlife #relatable
+
+**#10 Plan vs. reality**
+> The playlist was really good though. 🎧
+>
+> Be honest: what time did you actually start yesterday? 👇
+>
+> Made by Studyboard, the planner that tries its best. Free, link in bio.
+>
+> #studytok #procrastination #studentlife #college #relatable
+
+**#11 Just one episode**
+> It's always "just one". 📺
+>
+> Send this to the friend who said "I'll study in the morning".
+>
+> We can't stop autoplay, but Studyboard can plan around it. Free, link in bio.
+>
+> #studytok #finalsweek #college #studentlife #procrastination

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Just one episode</title>
+<!-- Entertainment-first live-action reel: "just one episode" before studying, told with lock-screen timestamps.
+     Footage from build_bg.py (shots.json); dip-to-black between shots for the passage of time. Soft sign-off.
+     Audio: lofi.wav from 21.0 for the night, dramatic.wav hit (33.0) at the 10:52 AM reveal. -->
+<style>
+@font-face{font-family:"Lexend";font-weight:700;src:url({{ROOT}}/website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url({{ROOT}}/website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;color:#fff;-webkit-font-smoothing:antialiased}
+#vig{position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.55) 0,rgba(0,0,0,.35) 380px,transparent 640px),radial-gradient(120% 80% at 50% 45%,transparent 55%,rgba(0,0,0,.45) 100%);pointer-events:none}
+#clock{position:absolute;left:0;right:0;top:290px;text-align:center;font:200 150px/1 "Inter",system-ui,sans-serif;letter-spacing:-.02em;text-shadow:0 4px 30px rgba(0,0,0,.45)}
+#date{position:absolute;left:0;right:0;top:250px;text-align:center;font:600 36px "Inter",system-ui,sans-serif;opacity:.9;text-shadow:0 2px 14px rgba(0,0,0,.5)}
+#cap{position:absolute;left:130px;width:820px;top:1100px;text-align:center;font:800 62px/1.18 "Inter",system-ui,sans-serif;color:#fff;-webkit-text-stroke:9px #000;paint-order:stroke fill}
+#cap b{color:#FFE45C}
+#dip{position:absolute;inset:0;background:#000;opacity:0}
+#end{position:absolute;inset:0;visibility:hidden;text-align:center;
+  background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
+#end .q{position:absolute;left:90px;right:90px;top:640px;font:800 70px/1.15 "Lexend",system-ui,sans-serif;letter-spacing:-.02em}
+#end .q span{color:#FFE45C}
+#end .s{position:absolute;left:0;right:0;top:960px;display:flex;justify-content:center;align-items:center;gap:16px;font:800 40px "Lexend",system-ui,sans-serif}
+#end .s img{width:60px;height:60px;border-radius:15px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="vig"></div>
+  <div id="date">Sunday, December 7</div>
+  <div id="clock">9:02</div>
+  <div id="cap"></div>
+  <div id="dip"></div>
+  <div id="end"><div class="q">We can't stop autoplay.<br><span>We can plan around it.</span></div><div class="s"><img src="{{ROOT}}/icon-512.png" alt="">Studyboard</div></div>
+</div>
+<script>
+["700 100px Lexend","800 100px Lexend","800 100px Inter","200 100px Inter","600 100px Inter"].forEach(f => document.fonts.load(f));
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+// [start, time, date, caption]; cuts match shots.json
+const SHOTS = [
+  [0.0, "9:02", "Sunday, December 7", "\"Just one episode,<br>then I'll study.\""],
+  [3.2, "10:15", "Sunday, December 7", "\"It ended on a cliffhanger. <b>One more.</b>\""],
+  [6.2, "12:40", "Monday, December 8", "Autoplay started the next one. <b>Rude.</b>"],
+  [9.2, "2:13", "Monday, December 8", "\"I'll study in the morning. <b>Early.</b> Like 7.\""],
+  [12.0, "7:00", "Monday, December 8", "<b>Absolutely not.</b>"],
+  [14.6, "10:52", "Monday, December 8", "…the exam is at <b>11.</b>"],
+];
+const END_IN = 17.6, END = 19.4, COVER = 0.4, DIP = .18;
+function render(t) {
+  let i = SHOTS.length - 1; while (i > 0 && t < SHOTS[i][0]) i--;
+  const s = SHOTS[i];
+  $("clock").textContent = s[1]; $("date").textContent = s[2]; $("cap").innerHTML = s[3];
+  // Dip to black around each cut (time passing), and the text fades with it
+  const cuts = SHOTS.slice(1).map(x => x[0]).concat([END_IN]);
+  // Fade to black over 0.22 s, hold ~3 frames, fade back: a single-frame dip reads as a flicker
+  let d = 0; cuts.forEach(c => { const x = Math.abs(t - c); d = Math.max(d, x < .05 ? 1 : ioCubic(1 - P(x, .05, .27))); });
+  $("dip").style.opacity = clamp(d) * .92;
+  // Text eases in after each cut; the reveal line gets a punch
+  const lt = t - s[0], k = ioCubic(P(lt, .08, .4));
+  ["clock", "date", "cap"].forEach(id => { $(id).style.opacity = i === 0 && id !== "cap" ? 1 : (i === 0 ? P(t, .25, .55) : k); });
+  $("cap").style.transform = i === 5 ? `scale(${1 + .12 * (1 - ioCubic(P(lt, .3, .7)))})` : `translateY(${(1 - k) * 18}px)`;
+  if (i === 5) $("cap").style.opacity = P(lt, .3, .45);
+  const e = $("end"), ek = ioCubic(P(t, END_IN, END_IN + .3));
+  e.style.visibility = ek > 0 ? "visible" : "hidden"; e.style.opacity = ek;
+  ["vig", "clock", "date", "cap"].forEach(id => { if (t >= END_IN) $(id).style.opacity = 1 - ek; });
+  [...e.children].forEach((el, j) => { const kk = ioCubic(P(t, END_IN + .2 + j * .35, END_IN + .6 + j * .35)); el.style.opacity = kk; el.style.transform = `translateY(${(1 - kk) * 20}px)`; });
+}
+window.render = render; window.END = END; window.COVER = COVER;
+render(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Study plan vs reality</title>
+<!-- Entertainment-first reel: the plan (ticks itself off, then falls away) vs. what actually happened, one entry at a time.
+     No pitch in the video; a soft sign-off at the end. Music: quirky.wav from 24 s. -->
+<style>
+@font-face{font-family:"Lexend";font-weight:500;src:url({{ROOT}}/website/assets/fonts/lexend-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:600;src:url({{ROOT}}/website/assets/fonts/lexend-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:700;src:url({{ROOT}}/website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url({{ROOT}}/website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+:root{--navy:#0E2A56;--ink:#0F1F3D;--muted:#5A6A86;--accent:#3988FE;--mark:#FFE45C;--tomato:#E4513B;--leaf:#1E9E74;--display:"Lexend",system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;color:var(--ink);-webkit-font-smoothing:antialiased;
+  background-color:#F2F5FA;background-image:linear-gradient(rgba(57,136,254,.09) 2px,transparent 2px),linear-gradient(90deg,rgba(57,136,254,.09) 2px,transparent 2px);background-size:54px 54px}
+.abs{position:absolute}
+.mk{position:relative;z-index:0;white-space:nowrap}
+.mk::before{content:"";position:absolute;left:-.06em;right:-.06em;top:.56em;height:.38em;background:var(--mark);z-index:-1;border-radius:4px}
+#ttl{left:40px;right:40px;top:300px;text-align:center;font:800 68px/1.12 var(--display);letter-spacing:-.02em}
+.card{position:absolute;left:90px;width:900px;background:#fff;border-radius:30px;box-shadow:0 2px 4px rgba(14,42,86,.06),0 30px 70px -14px rgba(14,42,86,.32);overflow:hidden}
+.card .hd{display:flex;align-items:center;justify-content:space-between;padding:26px 34px;font:800 34px var(--display);letter-spacing:.06em;color:#fff}
+.row{display:flex;gap:22px;align-items:flex-start;padding:18px 34px;border-top:2px solid #EEF2F8}
+.row .tm{width:170px;flex:none;font:800 30px/1.35 var(--display);color:var(--muted)}
+.row .tx{flex:1;font:600 34px/1.3 var(--display)}
+.row .cb{width:40px;height:40px;border-radius:11px;border:4px solid #CCD7E8;flex:none;margin-top:2px;display:grid;place-items:center;color:#fff;font:800 26px var(--display)}
+#real .tm{color:var(--tomato)}
+.comp{position:absolute}
+.comp svg{width:100%;height:100%;overflow:visible;display:block;filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 12px 22px rgba(30,20,50,.22))}
+.cp-svg .cp-p,.cp-svg .cp-headg,.cp-svg .cp-eye,.cp-svg .cp-page{transform-box:view-box}
+.cp-svg .cp-cheeks{opacity:.62}
+.cp-svg .cp-e-happy,.cp-svg .cp-e-sleepy,.cp-svg .cp-mouth>g,.cp-svg .cp-prop,.cp-svg .cp-zs{display:none}
+.cp-svg[data-m=neutral] .cp-m-neutral,.cp-svg[data-m=smile] .cp-m-smile,.cp-svg[data-m=open] .cp-m-open,.cp-svg[data-m=sleepy] .cp-m-sleepy{display:inline}
+.cp-svg[data-e=happy] .cp-eye,.cp-svg[data-e=sleepy] .cp-eye{display:none}
+.cp-svg[data-e=happy] .cp-e-happy,.cp-svg[data-e=sleepy] .cp-e-sleepy{display:inline}
+.cp-svg[data-z="1"] .cp-zs{display:inline}
+#end{position:absolute;inset:0;visibility:hidden;background-color:#F2F5FA;background-image:linear-gradient(rgba(57,136,254,.09) 2px,transparent 2px),linear-gradient(90deg,rgba(57,136,254,.09) 2px,transparent 2px);background-size:54px 54px}
+#sign{position:absolute;left:0;right:0;top:1300px;display:flex;justify-content:center;align-items:center;gap:16px;font:800 40px var(--display);color:var(--navy)}
+#sign img{width:60px;height:60px;border-radius:15px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="abs" id="ttl">My study plan vs.<br><span class="mk">what actually happened</span></div>
+
+  <div class="card" id="plan" style="top:560px">
+    <div class="hd" style="background:linear-gradient(90deg,#1E9E74,#4DBF97)"><span>THE PLAN</span><span>✨</span></div>
+    <div id="planRows"></div>
+  </div>
+
+  <div class="card" id="real" style="top:520px;visibility:hidden">
+    <div class="hd" style="background:linear-gradient(90deg,#E4513B,#F07A55)"><span>WHAT ACTUALLY HAPPENED</span></div>
+    <div id="realRows"></div>
+  </div>
+
+  <div id="end">
+    <div class="comp" id="ink" style="left:380px;top:430px;width:320px;height:320px">{{inky}}</div>
+    <div class="abs" style="left:60px;right:60px;top:820px;text-align:center;font:800 84px/1.1 var(--display);letter-spacing:-.02em">We've <span class="mk">all</span><br>been there.</div>
+    <div class="abs" style="left:60px;right:60px;top:1060px;text-align:center;font:600 40px/1.3 var(--display);color:var(--muted)">Send this to your study buddy 👀</div>
+    <div id="sign"><img src="{{ROOT}}/icon-512.png" alt="">Studyboard</div>
+  </div>
+</div>
+<script>
+["500 100px Lexend","600 100px Lexend","700 100px Lexend","800 100px Lexend"].forEach(f => document.fonts.load(f));
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const oBack = x => { const c = 1.5, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+
+const PLAN = [["8:00 AM", "Wake up, go for a run"], ["9:00 AM", "Review Chapters 1–4"], ["12:00 PM", "Healthy lunch"], ["1:00 PM", "Full practice exam"], ["5:00 PM", "Done. Gym. Early night."]];
+const REAL = [["10:47 AM", "Wake up. The alarm was<br>more of a suggestion."], ["11:30 AM", "Clean my whole room \"to focus\""],
+  ["1:15 PM", "Build the perfect study playlist"], ["2:40 PM", "Watch a 40-minute video<br>on \"how to study\""],
+  ["4:05 PM", "<span style=\"background:#FFE45C;padding:0 6px;border-radius:6px;box-decoration-break:clone;-webkit-box-decoration-break:clone\">Highlight an entire page yellow</span>"],
+  ["7:30 PM", "Snack break #6"], ["11:58 PM", "<b style=\"font-weight:800\">Actually start studying</b>"]];
+$("planRows").innerHTML = PLAN.map((r, i) => `<div class="row"><span class="cb" id="cb${i}"></span><span class="tm">${r[0]}</span><span class="tx">${r[1]}</span></div>`).join("");
+$("realRows").innerHTML = REAL.map((r, i) => `<div class="row" id="rr${i}"><span class="tm">${r[0]}</span><span class="tx">${r[1]}</span></div>`).join("");
+
+// Timeline: plan ticks itself off (fantasy), then drops away at 3.2; reality entries every 1.35 s from 4.0;
+// the last one lands at 12.1 and gets 1.9 s to sink in; soft end card from 14.0.
+const DROP = 3.2, R0 = 4.0, RS = 1.35, END_IN = 14.0, END = 17.2, COVER = 0.5;
+function render(t) {
+  PLAN.forEach((_, i) => { const k = P(t, .7 + i * .32, .85 + i * .32), cb = $("cb" + i);
+    cb.style.background = k > 0 ? "#1E9E74" : ""; cb.style.borderColor = k > 0 ? "#1E9E74" : ""; cb.textContent = k > 0 ? "✓" : "";
+    cb.style.transform = `scale(${k > 0 ? lerp(1.35, 1, oBack(k)) : 1})`; });
+  // The plan tips over and falls off the bottom
+  const f = P(t, DROP, DROP + .7), plan = $("plan");
+  plan.style.transformOrigin = "15% 0%";
+  plan.style.transform = `rotate(${ioCubic(P(t, DROP, DROP + .3)) * -8 + f * f * 10}deg) translateY(${f * f * 1500}px)`;
+  plan.style.visibility = f < 1 ? "visible" : "hidden";
+  // Reality slides down from the top
+  const real = $("real"), k = ioCubic(P(t, DROP + .35, DROP + .8));
+  real.style.visibility = t >= DROP + .35 ? "visible" : "hidden";
+  real.style.transform = `translateY(${(1 - k) * -1300}px)`;
+  REAL.forEach((_, i) => { const el = $("rr" + i), kk = P(t, R0 + i * RS, R0 + i * RS + .35);
+    el.style.display = t >= R0 + i * RS - .01 ? "flex" : "none"; el.style.opacity = clamp(kk * 2);
+    el.style.transform = `translateX(${(1 - oBack(kk)) * -60}px)`; });
+  // Last entry gets a little nudge, like a laugh
+  const last = $("rr6"), lk = P(t, R0 + 6 * RS + .4, R0 + 6 * RS + .8);
+  if (t >= R0 + 6 * RS) last.style.background = `rgba(255,228,92,${.35 * lk})`;
+  // End card
+  const e = $("end"), ek = ioCubic(P(t, END_IN - .35, END_IN));
+  e.style.visibility = ek > 0 ? "visible" : "hidden"; e.style.opacity = ek;
+  const ink = $("ink").querySelector("svg"); ink.dataset.e = "sleepy"; ink.dataset.m = "sleepy"; ink.dataset.z = "1";
+  $("ink").style.transform = `translateY(${Math.sin(t * 1.6) * 10}px) rotate(${Math.sin(t * 1.3) * 4}deg) scale(${lerp(.6, 1, oBack(P(t, END_IN, END_IN + .45)))})`;
+  const sg = P(t, END_IN + 1.2, END_IN + 1.6); $("sign").style.opacity = sg; $("sign").style.transform = `translateY(${(1 - sg) * 16}px)`;
+}
+window.render = render; window.END = END; window.COVER = COVER;
+render(0);
+</script>
+</body>
+</html>
