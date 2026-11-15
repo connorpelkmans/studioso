@@ -69,7 +69,7 @@
         eyes: {lx: 50, rx: 70, y: 59, r: 4.8, style: "dot", color: "#1E2A44"},
         mouths: {
           neutral: `<path d="M56.2 65.2Q60 64 63.8 65.2L60 70Z" fill="#F4B33E" ${OW(1.8)}/>`,
-          smile: `<path d="M55.8 65Q60 63.6 64.2 65L60 70.2Z" fill="#F7BE50" ${OW(1.8)}/><path d="M53.2 68.2q1.6 1.3 3.3 .3M66.8 68.2q-1.6 1.3 -3.3 .3" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`,
+          smile: `<path d="M55.8 65Q60 63.6 64.2 65L60 70.2Z" fill="#F7BE50" ${OW(1.8)}/>`,
           open: `<path d="M56.6 66.8L63.4 66.8L60 70.8Z" fill="#FF8FA8" ${OW(1.4)}/><path d="M56 64.4Q60 63.2 64 64.4L60 67.2Z" fill="#F4B33E" ${OW(1.8)}/><path d="M57.2 68.8L62.8 68.8L60 72.6Z" fill="#F4B33E" ${OW(1.8)}/>`,
           sleepy: `<path d="M56.6 65.6Q60 64.6 63.4 65.6L60 69.6Z" fill="#E0A23A" ${OW(1.8)}/>`
         },
