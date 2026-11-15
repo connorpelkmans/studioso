@@ -2816,6 +2816,10 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 /* Pro without Studyboard AI (a grant, a code, the free weeks): subscribing adds it */
 .plan-upai{display:grid;gap:4px;padding:12px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
 .plan-upai p{margin:0}
+/* Studyboard Plus: the quieter option under the Pro prices */
+.plan-plus{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 2px;padding:12px 14px;border:1px dashed var(--line);border-radius:14px;background:var(--soft)}
+.plan-plus-t{flex:1 1 220px;display:grid;gap:2px;min-width:0}
+.plan-plus .btn{flex:none}
 /* ===== module: 15-tips.css ===== */
 /* Everyday how-to tips hide after the first 14 days of use */
 html.tips-off .tip-everyday{display:none!important}
@@ -4612,6 +4616,29 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 }
 /* What you're using reads the same on every tab (and for companions): a soft "✓ In Use" badge, not a faded button */
 .btn.shop-inuse:disabled,.cp-chosen.shop-inuse{opacity:1;cursor:default;display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:color-mix(in srgb,var(--accent) 78%,var(--ink));font-weight:700;box-shadow:none}
+/* ===== module: 97-credits.css ===== */
+/* Studyboard Credits: the balance in the Style Shop, the buy sheet and the credit packs */
+.cr-coin{flex:none;color:var(--accent);vertical-align:-3px}
+.cr-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--soft)}
+.cr-bar-t{flex:1;display:grid;gap:1px;min-width:0}
+.cr-bar .btn{flex:none}
+.cr-sheet .cr-prev{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;padding:8px 0}
+.cr-sheet .cr-prev .skin-prev{width:min(100%,320px)}
+.cr-sheet .cr-stk .stk-cell{width:44px;height:44px}
+.cr-cost{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;margin:0;font-size:1.05rem}
+.cr-cost .mini{flex-basis:100%}
+.cr-has{padding:10px 12px;border-radius:12px;background:var(--soft)}
+.cr-has ul{margin:6px 0 0;padding-left:20px;display:grid;gap:2px}
+.cr-bal{margin:0}
+.cr-bal-big{display:flex;align-items:center;gap:8px;font-size:1.05rem}
+.cr-packs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;padding-top:6px}
+.cr-pack{position:relative;display:grid;gap:4px;justify-items:start;text-align:left;min-height:86px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);cursor:pointer;font:inherit}
+.cr-pack:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.cr-pack:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+.cr-pack.best{border-color:var(--accent)}
+.cr-pack-n{display:flex;align-items:center;gap:6px}
+.cr-pack-p{font-size:1.15rem;font-weight:700}
+.cr-pack .pp-flag{background:var(--accent);color:var(--accent-ink,#fff)}
 /* ===== module: 97-ui.css ===== */
 /* ===== 97-ui: Settings in categories ===== */
 .us-sheet .us-back{display:none}

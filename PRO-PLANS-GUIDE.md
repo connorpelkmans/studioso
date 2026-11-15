@@ -85,6 +85,8 @@ Studyboard has a **Free** plan and a **Pro** plan built in. The paywall is **on*
 In the app, **Settings > Studyboard Pro** shows the plan, what Pro adds, how much storage you use, and **Your Devices**.
 
 
+**Studyboard Plus** ($2.99 a month, website only): everything above except the built-in Studyboard AI, which the server leaves out from the price paid (`ai_included`). **Studyboard Credits** keep single shop items for good without a plan. Both are set up and switched off; see CREDITS-GUIDE.md.
+
 ### Exam Day Forecast and the Free Plan's Offers
 
 - **Exam Day Forecast (Pro)**, in each exam's Prep Plan: "Today 43% → Exam day ~72%". The exam-day number is at the student's pace (today's readiness moved toward finishing the plan by the share of sessions done so far), or, before any session has come due, for doing every session. It uses the plan's own readiness math and never says more than 95%. One tip when finishing the plan would add 5 points or more, and the weakest topic with Teach It Back when one would still lag. Free accounts see a locked card that says what it shows (`src/js/97-examprep.js`, `forecastOf`).

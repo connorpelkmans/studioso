@@ -93,7 +93,7 @@ export async function planOf(token, uid, env, fetchFn = fetch, now = Date.now())
   const hit = seen.get("p:" + token); if (hit && hit.until > now) return hit.v;
   let res;
   try {
-    res = await fetchFn(String(env.SUPABASE_URL).replace(/\/+$/, "") + `/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until`,
+    res = await fetchFn(String(env.SUPABASE_URL).replace(/\/+$/, "") + `/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until,ai_included`,
       { headers: { apikey: env.SUPABASE_KEY, Authorization: "Bearer " + token, Accept: "application/json" } });
   } catch (e) { return null; }
   if (!res.ok) return null;
@@ -104,9 +104,11 @@ export async function planOf(token, uid, env, fetchFn = fetch, now = Date.now())
   return v;
 }
 // paid: a Pro plan someone pays for (or lifetime). Everything else gets no Studyboard AI: the free week, Pro from a grant or a
-// promo code, a lapsed plan, a free account. A grant or code sets its own columns (grant_*, promo_*), never plan and pro_until.
+// promo code, a lapsed plan, a free account, and Studyboard Plus (ai_included false: Pro without Studyboard AI). A grant or code sets
+// its own columns (grant_*, promo_*), never plan and pro_until; ai_included is written only by the billing webhook.
 export function tierOf(e, now = Date.now()) {
   if (!e || typeof e !== "object") return "none";
+  if (e.ai_included === false) return "none";
   if (e.plan === "lifetime" || (e.plan === "pro" && (e.pro_until == null || (Date.parse(e.pro_until) > now)))) return "paid";
   return "none";
 }
