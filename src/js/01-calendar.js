@@ -1077,8 +1077,42 @@ const schModeCtl = month => schPhone()
   ? `<button class="btn small" data-act="sch-mode" data-id="${month ? "week" : "month"}">${month ? "Week View" : "Month View"}</button>`
   : `<div class="segb sch-mode" role="group" aria-label="View"><button data-act="sch-mode" data-id="week" aria-pressed="${!month}">Week</button><button data-act="sch-mode" data-id="month" aria-pressed="${month}">Month</button></div>`;
 const SCH_ARROW = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
-// The month: each day's events (and all-day events, holidays and days off), so a month of events reads at a glance.
-// Classes stay on the week (they'd fill every day). A day picked shows its events underneath.
+// What kind of thing an event or class is, for its icon in the Schedule's month (drawn like a task's icon on Due Dates):
+// a class by its meeting kind; an event by its label, a study group's meeting, or words in its title
+const EV_KINDS = {
+  lecture: ["Class", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M7 8h6M7 12h4"/>'],
+  lab: ["Lab", '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.4 15h9.2"/>'],
+  disc: ["Discussion or Tutorial", '<path d="M4 5h11v8H8l-4 3z"/><path d="M15 9h5v8l-3-2h-6v-2"/>'],
+  office: ["Office Hours", '<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17M3 21h18"/><circle cx="15" cy="12" r="1"/>'],
+  exam: ["Exam or Quiz", '<g transform="translate(0 1.8)"><path d="M12 3l9 4-9 4-9-4z"/><path d="M7 9.5V14c0 1.5 2.2 3 5 3s5-1.5 5-3V9.5"/></g>'],
+  group: ["Study Group or Meeting", '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5M15.5 14.5c2.5 0 4.6 1.6 5 5"/>'],
+  work: ["Work or Shift", '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>'],
+  appt: ["Appointment", '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+  event: ["Event", '<rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>']
+};
+function evKind(o){
+  const lab = String((o.type === "meet" ? o.label : o.label) || "").toLowerCase(), t = String(o.title || "").toLowerCase();
+  if (o.type === "meet" || lab) {
+    if (/office/.test(lab)) return "office";
+    if (/lab|practical|clinical/.test(lab)) return "lab";
+    if (/discuss|tutorial|seminar|recitation|workshop/.test(lab)) return "disc";
+    if (/exam|quiz|test|midterm/.test(lab)) return "exam";
+    if (o.type === "meet" || /lecture|class/.test(lab)) return "lecture";
+  }
+  if (o.ev && o.ev.groupRef) return "group";
+  if (/\b(exam|midterm|final|quiz|test)\b/.test(t)) return "exam";
+  if (/\b(study group|group|project|team|meeting|meet up|meetup|study session|review session)\b/.test(t)) return "group";
+  if (/\boffice hours?\b/.test(t)) return "office";
+  if (/\b(lab|clinical|practicum)\b/.test(t)) return "lab";
+  if (/\b(tutorial|discussion|seminar|recitation|workshop)\b/.test(t)) return "disc";
+  if (/\b(lecture|class)\b/.test(t)) return "lecture";
+  if (/\b(work|shift|job|internship)\b/.test(t)) return "work";
+  if (/\b(appointment|appt|doctor|dentist|advisor|adviser|counsell?ing|therapy|interview|clinic)\b/.test(t)) return "appt";
+  return "event";
+}
+const evIcon = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(EV_KINDS[k] || EV_KINDS.event)[1]}</svg>`;
+// The month: each day's classes and events, each with an icon for its kind (as tasks have on Due Dates), plus holidays and days
+// off, so a month reads at a glance. A day picked lists everything on it underneath.
 function viewScheduleMonth(){
   const today = todayISO();
   if (!ui.schMonth) ui.schMonth = today.slice(0, 7) + "-01";
@@ -1089,7 +1123,7 @@ function viewScheduleMonth(){
   const pick = ui.schPick && ui.schPick.slice(0, 7) === monthKey ? ui.schPick : today.slice(0, 7) === monthKey ? today : ui.schMonth;
   const evBy = {};
   try {
-    schOccurrences(lo, hi).forEach(o => { if (o.type !== "event" || o.skipped || o.ovn === "tail") return; (evBy[o.date] = evBy[o.date] || []).push(o); });
+    schOccurrences(lo, hi).forEach(o => { if ((o.type !== "event" && o.type !== "meet") || o.skipped || o.ovn === "tail") return; o.kind = evKind(o); (evBy[o.date] = evBy[o.date] || []).push(o); });
     Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
   } catch (e) { console.warn("schedule month: events", e); }
   const hol = {};
@@ -1101,14 +1135,16 @@ function viewScheduleMonth(){
     }
   } catch (e) {}
   const evTime = o => o.allDay ? "" : fmtTime(o.ds || o.start).replace(/:00(?= ?[AP]M)/, "").replace(/ ?([AP])M/, (x, a) => a.toLowerCase());
-  const phone = schPhone(), per = phone ? 3 : 3;
+  const phone = schPhone(), per = phone ? 2 : 3;
   const dows = []; for (let i = 0; i < 7; i++) { const d = new Date(2023, 0, 1 + i); dows.push(`<div class="dow${i === 0 || i === 6 ? " wkend" : ""}" aria-hidden="true"><span class="dw-n">${d.toLocaleDateString(undefined, {weekday: "narrow"})}</span><span class="dw-s">${d.toLocaleDateString(undefined, {weekday: "short"})}</span><span class="dw-l">${d.toLocaleDateString(undefined, {weekday: "long"})}</span></div>`); }
-  let cells = "", nMonth = 0;
+  let cells = "", nMonth = 0; const kinds = new Set();
+  const evName = o => o.type === "meet" ? `${o.title} ${o.label}` : o.title;
   for (let i = 0; i < weeks * 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
-    const k = iso(d), evs = evBy[k] || [], out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
-    if (!out) nMonth += evs.length;
-    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}${evs.length ? `<span class="cal-evs smc-evs" aria-hidden="true">${evs.slice(0, per).map(o => `<span class="cal-ev" style="--c:${esc(o.color)}">${o.allDay ? "" : `<b>${esc(evTime(o))}</b> `}${esc(o.title)}</span>`).join("")}${evs.length > per ? `<span class="cal-ev more">+${evs.length - per}</span>` : ""}</span>` : ""}</button>`;
+    // (office hours are listed under the day, not in the cell, so the month isn't full of them)
+    const k = iso(d), evs = evBy[k] || [], cellEvs = evs.filter(o => o.kind !== "office"), out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
+    if (!out) { nMonth += evs.length; evs.forEach(o => kinds.add(o.kind)); }
+    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots" aria-hidden="true">${cellEvs.slice(0, per).map(o => `<span class="ci-row${o.kind === "exam" ? " big" : ""}" style="--c:${esc(o.color)}"><i class="ci" data-kind="${o.kind}" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}: ${esc(evName(o))}" style="--c:${esc(o.color)}">${evIcon(o.kind)}</i><span class="ci-t">${o.allDay ? "" : `<b class="smc-tm">${esc(evTime(o))}</b> `}${esc(o.title)}</span></span>`).join("")}${cellEvs.length > per ? `<b class="ci-more">+${cellEvs.length - per}<span class="ci-mw"> more</span></b>` : ""}</span></button>`;
   }
   const dayEvs = evBy[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const isNow = monthKey === today.slice(0, 7);
@@ -1121,9 +1157,10 @@ function viewScheduleMonth(){
 </div></div>`;
   return nav + `
     <div class="cal sch-month" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}, ${nMonth} event${nMonth === 1 ? "" : "s"}. Arrow keys move between days.">${dows.join("")}${cells}</div>
+    ${kinds.size ? `<div class="tl-legend smc-legend">${Object.keys(EV_KINDS).filter(k => kinds.has(k)).map(k => `<span><i class="tl-ic key">${evIcon(k)}</i>${esc(EV_KINDS[k][0])}</span>`).join("")}</div>` : ""}
     <h2 class="sec${pick === today ? " hl" : ""}"><span class="t">${esc(dayLabel)}</span><span class="n">${dayEvs.length || ""}</span><span class="spacer"></span><button type="button" class="btn small smc-week" data-act="sch-mweek" data-id="${pick}">See Week</button></h2>
-    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(o.title)}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
-      : `<div class="empty">No events. <button class="link-btn" data-act="sch-add" data-date="${pick}">Add an Event This Day</button></div>`}`;
+    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow smc-row" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><i class="smc-ic" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}">${evIcon(o.kind)}</i><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(evName(o))}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
+      : `<div class="empty">Nothing on this day. <button class="link-btn" data-act="sch-add" data-date="${pick}">Add an Event</button></div>`}`;
 }
 function viewSchedule(){
   if (ui.schMode === "month") return viewScheduleMonth();

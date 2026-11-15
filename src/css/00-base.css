@@ -2612,3 +2612,16 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 /* Schedule > Month: the picked day's See Week sits at the right end of its heading */
 .cal.sch-month + .sec{display:flex;align-items:center;gap:8px}
 .cal.sch-month + .sec .smc-week{margin-left:auto}
+/* Schedule > Month: each class and event wears an icon for its kind, like a task on Due Dates */
+.cal-evrow.smc-row{grid-template-columns:auto auto 1fr;align-items:center}
+.cal-evrow.smc-row .smc-ic{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--c);color:#fff;margin:0}
+.cal-evrow.smc-row .smc-ic svg{width:15px;height:15px}
+/* phone: two icons fit a day; more shows as "+1" in the day's corner */
+@media (max-width:899.98px){
+  .sch-month .day{position:relative}
+  .sch-month .dots .ci-more{position:absolute;top:4px;right:5px;font:800 .62rem/1 var(--body);color:var(--muted)}
+}
+.cal-evrow.smc-row .cal-evt{grid-row:span 2}
+.cal-evrow.smc-row .mini{grid-column:3}
+.sch-month .ci-t .smc-tm{font-weight:800;opacity:.8}
+.smc-legend{margin-top:10px}

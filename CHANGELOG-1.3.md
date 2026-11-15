@@ -46,7 +46,7 @@ Thank you for studying with Studyboard!
 - **Instagram-ready exports** (sharp 2160×2700 JPEGs).
 - **Files open inside the app** on phones, in a viewer, instead of a new browser window.
 - **App Store review prompt**, at a good moment and never after a paywall.
-- **Schedule has a Month view** (Week / Month on a computer; Options > Month View on a phone): every event in the month at a glance, with the day you pick listed below and See Week.
+- **Schedule has a Month view** (Week / Month on a computer; Options > Month View on a phone): every class and event in the month at a glance, each with an icon for its kind (class, lab, discussion, office hours, exam, study group, work, appointment), with the day you pick listed below and See Week.
 - **Schedule comes first** in Calendar, before Due Dates and Crunch.
 - **Events can run past midnight** (10 PM to 1 AM); events can be deleted from their view, with Undo.
 - **Take Today Off** warns what's due today and keeps it, with Undo.

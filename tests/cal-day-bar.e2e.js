@@ -29,9 +29,10 @@ const SEED = {v: 2, updated: 1, courses: [{id: "c1", name: "Nursing", code: "BSN
       const menu = await page.evaluate(() => [...document.querySelectorAll(".ph-more .ph-menu > *")].map(b => b.textContent.trim()));
       ok(menu[0] === "This Week" && menu[1] === "Month View", `${w}px: Options has Month View just under This Week (${menu.slice(0, 3).join(", ")})`);
       await page.click('.ph-menu [data-act="sch-mode"]'); await page.waitForTimeout(300);
-      const g = await page.evaluate(() => ["2026-11-19", "2026-11-10"].map(k => { const d = document.querySelector(`.sch-month .day[data-id="${k}"]`), bar = d && d.querySelector(".cal-ev");
-        if (!bar) return {k, none: true}; const r = d.getBoundingClientRect(), b = bar.getBoundingClientRect(); return {k, top: b.top, end: b.bottom, cellTop: r.top, cell: r.bottom}; }));
-      for (const x of g) ok(!x.none && x.end <= x.cell && x.top >= x.cellTop, `${w}px, ${x.k}: Schedule > Month shows the event's bar inside the cell`);
+      const g = await page.evaluate(() => ["2026-11-19", "2026-11-10"].map(k => { const d = document.querySelector(`.sch-month .day[data-id="${k}"]`), ic = d && d.querySelector(".dots i.ci svg");
+        if (!ic) return {k, none: true}; const r = d.getBoundingClientRect(), b = ic.parentNode.getBoundingClientRect(); return {k, top: b.top, end: b.bottom, cellTop: r.top, cell: r.bottom, l: b.left, rr: b.right, cl: r.left, cr: r.right, kind: ic.parentNode.dataset.kind}; }));
+      for (const x of g) ok(!x.none && x.end <= x.cell && x.top >= x.cellTop && x.l >= x.cl && x.rr <= x.cr, `${w}px, ${x.k}: Schedule > Month shows the event as an icon inside the cell (${x.kind})`);
+      ok(await page.evaluate(() => document.querySelector('.sch-month .day[data-id="2026-11-19"] i.ci').dataset.kind === "work" && !document.querySelector(".sch-month .cal-ev")), `${w}px: the icon is for the kind of event (a shift), with no colour bars`);
       await page.click('.sch-month .day[data-id="2026-11-19"]'); await page.waitForTimeout(300);
       const list = await page.evaluate(() => [...document.querySelectorAll(".cal-evrow b")].map(b => b.textContent));
       ok(list.join() === "Shift", `${w}px: picking a day lists its events below (${list.join()})`);
