@@ -30,7 +30,11 @@ const SHOTS = [
   ["04-focus", "A focus timer that keeps you going", "galaxy", "dark", "board", [async page => page.evaluate(() => { const b = document.getElementById("pomoBtn"); if (b) b.click(); })]],
   ["05-grades", "Know where your grades stand", "arcade", "dark", "courses", ["Grades"]],
   ["06-cards", "Flashcards that help it stick", "spring", "light", "flashcards", []],
-  ["07-companion", "A study buddy that cheers you on", "forest", "light", "companion", ["Wardrobe"]]];
+  ["07-companion", "A study buddy that cheers you on", "forest", "light", "companion", ["Wardrobe"]],
+  ["08-schedule", "Your whole month in one view", "lavender", "light", "plan", ["Schedule", async page => page.evaluate(() => {
+    // Schedule > Month, on the day of the study group (Thursday the 22nd), so its events show below
+    const b = document.querySelector('[data-act="sch-mode"][data-id="month"]'); if (b) b.click(); }), async page => page.evaluate(() => {
+    const d = document.querySelector('[data-act="sch-mpick"][data-id="2026-10-22"]'); if (d) d.click(); })]]];
 
 const dismiss = async page => {
   for (let i = 0; i < 4; i++) {
