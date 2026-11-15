@@ -26,6 +26,27 @@ Their viral posts are full of students venting about exam weeks, which is where 
 
 Skipped: @yusefdiabmd (medical, Arabic-speaking audience, comment counts suggest giveaways). The Canada/BC search returned general creators who aren't clearly student-focused, so instead **follow the BCIT Student Association** (Instagram already suggests it), plus UBC's, SFU's and Langara's student unions and their confessions/memes pages. Search those names in the app and check the handle is the official one.
 
+## PNW student unions and student life (checked 2026-11-15)
+
+**Confirmed:** these handles come from links on the organization's own website.
+
+| Account | Who | Where it was confirmed |
+|---|---|---|
+| @ubc_studentlife | UBC Student Services | students.ubc.ca |
+| @sfss_sfu | Simon Fraser Student Society | sfss.ca |
+| @simonfraseru | SFU (official) | sfu.ca |
+| @uvss | UVic Students' Society | uvss.ca |
+| @aswsu | Associated Students of Washington State | aswsu.wsu.edu |
+| @wwu_as | Associated Students, Western Washington | as.wwu.edu/communications |
+| @uofwa | University of Washington (official) | washington.edu |
+
+**Search by name in the app** (their sites didn't show a handle we could confirm). Check for the verified badge or a link back to the official site, because unofficial lookalike pages exist:
+BCIT Student Association, AMS of UBC, Langara Students' Union, Douglas Students' Union, Kwantlen Student Association, ASUW (UW), ASUO (Oregon), ASOSU (Oregon State), ASPSU (Portland State).
+
+**Also worth finding** (often more active and funnier than official accounts): each campus's student newspaper (The Ubyssey, The Peak at SFU, The Martlet at UVic, The Daily at UW) and its confessions or memes pages.
+
+These accounts post events and announcements, not memes. Comment like a helpful neighbour ("good luck on finals, everyone! 📚"). Studyboard is free, so student unions may also share it as a resource. That's worth a polite DM once the profile is polished.
+
 ## How to comment (so it helps rather than hurts)
 
 - **No links, no "check out our app".** Instagram hides or limits brand comments that look like promotion, and students scroll past them. The profile does the selling: a good comment makes people tap the name.
