@@ -43,6 +43,23 @@ Skipped: @yusefdiabmd (medical, Arabic-speaking audience, comment counts suggest
 **Search by name in the app** (their sites didn't show a handle we could confirm). Check for the verified badge or a link back to the official site, because unofficial lookalike pages exist:
 BCIT Student Association, AMS of UBC, Langara Students' Union, Douglas Students' Union, Kwantlen Student Association, ASUW (UW), ASUO (Oregon), ASOSU (Oregon State), ASPSU (Portland State).
 
+### US West Coast (California), checked 2026-11-15
+
+**Confirmed** from links on each organization's own website:
+
+| Account | Who |
+|---|---|
+| @theASUC | ASUC, UC Berkeley student government |
+| @ucberkeleylife | UC Berkeley Student Affairs ("Berkeley Life") |
+| @as_sdsu | Associated Students, San Diego State |
+| @calpolyasi | ASI, Cal Poly San Luis Obispo |
+| @csulbasi | ASI, Cal State Long Beach |
+| @asicsuf | ASI, Cal State Fullerton |
+| @as_sfstate | Associated Students, San Francisco State |
+| @ucla | UCLA (official, campus-wide) |
+
+**Search by name** (no handle we could confirm): USAC (UCLA), USC Undergraduate Student Government, ASSU (Stanford), AS UC San Diego, ASUCD (UC Davis), ASUCI (UC Irvine), Associated Students UCSB, Associated Students SJSU.
+
 **Also worth finding** (often more active and funnier than official accounts): each campus's student newspaper (The Ubyssey, The Peak at SFU, The Martlet at UVic, The Daily at UW) and its confessions or memes pages.
 
 These accounts post events and announcements, not memes. Comment like a helpful neighbour ("good luck on finals, everyone! 📚"). Studyboard is free, so student unions may also share it as a resource. That's worth a polite DM once the profile is polished.
