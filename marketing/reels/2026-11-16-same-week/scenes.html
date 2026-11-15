@@ -59,8 +59,18 @@ FIX = (t, lt) => {
   $("fbtn").style.background = lt > PR ? "#1E9E74" : "";
   $("fbtn").textContent = lt > PR + .1 ? "✓ Moved 3 things earlier" : "Pull work forward";
   WEEKS.forEach((_, r) => [0,1,2,3,4,5,6].forEach(d => { const el = $(`f${r}_${d}`), idx = RED.indexOf(r);
-    if (idx >= 0) el.style.background = heat(HEAT[d] + (COOLED[d] - HEAT[d]) * k);
-    else if (VARIANT !== "c" && (r === CR - 1 || r === CR - 2) && d < 5 && k > 0) el.style.background = heat(.3 * k);
+    // The load Week 11 gives up (3.05) lands in Week 10 (1.8) then Week 9 (1.25); in version C the four red weeks share theirs with Weeks 7-8
+    const GIVE = VARIANT === "c" ? {0: [.5, .55, .6, .55, .5, .15, .15], 1: [.55, .6, .65, .6, .55, .2, .2]} : {3: [.35, .4, .4, .35, .3, 0, 0], 2: [.25, .3, .25, .25, .2, 0, 0]};
+    const DELAY = VARIANT === "c" ? {1: .25, 0: .5} : {3: .25, 2: .5};
+    const kc = idx >= 0 ? k : 0;
+    el.style.boxShadow = "";
+    if (idx >= 0) el.style.background = heat(HEAT[d] + ((VARIANT === "c" ? [.4, .6, .65, .6, .55, .3, .3][d] : COOLED[d]) - HEAT[d]) * kc);
+    else if (GIVE[r] && GIVE[r][d] > 0) {
+      const kr = ioCubic(P(lt, .85 + DELAY[r], 1.4 + DELAY[r]));
+      el.style.background = kr > 0 ? heat(GIVE[r][d] * kr) : "";
+      const ring = Math.sin(P(lt, .85 + DELAY[r], 1.55 + DELAY[r]) * Math.PI);
+      if (ring > 0) el.style.boxShadow = `0 0 0 ${Math.round(4 * ring)}px rgba(57,136,254,${.85 * ring})`;
+    }
     else el.style.background = ""; }));
   RED.forEach(r => { const g = $("fg" + r); g.style.opacity = 1;
     g.style.outlineColor = k > .5 ? "#1E9E74" : ""; g.style.boxShadow = k > .5 ? "0 0 54px 10px rgba(30,158,116,.6)" : ""; });

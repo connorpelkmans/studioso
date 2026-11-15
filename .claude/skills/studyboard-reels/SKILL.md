@@ -84,6 +84,7 @@ Pacing rules (from Connor's review: "everything cuts harshly and sometimes there
 - Energy comes from the music hits and motion *inside* a scene, not from chopping between scenes.
 - **Captions follow the picture**: a line arrives when the thing it talks about is on screen (the turn line as the person reacts, the Studyboard line after the fix card has landed), never ahead of it.
 - **Give reactions room**: a punchline shot of a person runs about 3 s, so the reaction lands and then sinks in.
+- **Show the mechanism, not just the result**: when a feature moves work (Crunch Forecast, Autopilot, the breakdown), the load visibly leaves one place and lands in another, adding up to the same total, in sequence (giver first, then each receiver with a brief ring and a pop). A week that just changes colour on its own looks like a filter.
 - **Beat accents are a single smooth nudge**, never a fast shake: anything oscillating faster than about 5 Hz flickers at 30 fps.
 
 Two lessons from earlier builds:

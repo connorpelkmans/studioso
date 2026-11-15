@@ -183,7 +183,13 @@ const BEFORE = [
   [.15, .25, .2, .3, .2, .05, .05], [.2, .3, .25, .2, .3, .05, .1], [.3, .2, .35, .25, .2, .1, .05], [.25, .35, .3, .4, .3, .1, .1],
   [.2, .3, .25, .3, .25, .05, .1], [.3, .35, .4, .35, .45, .2, .3], [.85, .95, 1, 1, .95, .6, .7], [.3, .25, .2, .3, .2, .05, .05]];
 const AFTER = BEFORE.map(r => r.slice());
-AFTER[4] = [.3, .4, .35, .45, .35, .1, .15]; AFTER[5] = [.45, .5, .55, .5, .5, .25, .35]; AFTER[6] = [.5, .62, .66, .62, .5, .25, .3];
+// Pulling work forward moves load, it doesn't delete it: what leaves Week 11 (3.0) lands in Week 10 (+1.6) and Week 9 (+1.4),
+// matching the sheet's "Moved to Week 10" and "Draft starts Week 9".
+AFTER[6] = [.45, .55, .6, .55, .45, .2, .25];
+AFTER[5] = BEFORE[5].map((v, d) => v + [.35, .35, .35, .3, .25, 0, 0][d]);
+AFTER[4] = BEFORE[4].map((v, d) => v + [.3, .3, .3, .3, .2, 0, 0][d]);
+// Week 11 gives first, then Week 10 and Week 9 receive, one after the other
+const MOVE = {6: 0, 5: .25, 4: .5};
 $("grid").insertAdjacentHTML("beforeend", WEEKS.map((w, r) => `<div class="wk" id="wk${r}"><span class="wl">Week ${w}</span>${BEFORE[r].map((_, d) => `<span class="c" id="c${r}_${d}"></span>`).join("")}${r === CR ? '<span id="glow"></span>' : ""}</div>`).join(""));
 const CHIPS = [["Bio midterm", "Tue", "#1E9E74", 160, -64, -7], ["Chem exam", "Wed", "#7A4FD6", 420, -88, 5], ["Calc exam", "Thu", "#E4513B", 300, -150, -3]];
 $("chips").innerHTML = CHIPS.map((c, i) => `<div class="chip" id="ch${i}"><i style="background:${c[2]}"></i>${c[0]}<em>${c[1]}</em></div>`).join("");
@@ -216,7 +222,11 @@ function render(t) {
   const fixK = ioCubic(P(t, T.fix, T.fix + .8));
   WEEKS.forEach((_, r) => BEFORE[r].forEach((v, d) => {
     const c = $(`c${r}_${d}`);
-    let val = lerp(v, AFTER[r][d], fixK), op;
+    const m = MOVE[r], rk = m == null ? 0 : ioCubic(P(t, T.fix + m, T.fix + m + .55));
+    let val = lerp(v, AFTER[r][d], rk), op;
+    // A brief blue ring on each receiving week as the work lands
+    const ring = m && d < 5 ? Math.sin(P(t, T.fix + m, T.fix + m + .7) * Math.PI) : 0;
+    c.style.boxShadow = ring > 0 ? `0 0 0 ${Math.round(4 * ring)}px rgba(57,136,254,${.85 * ring})` : "";
     if (!light) { op = r === CR ? 1 : .22; c.style.background = r === CR ? heat(val) : "#CFEBDD"; }
     else { const k = sweepK(r); op = 1; c.style.background = r === CR ? heat(val) : heat(val * k); }
     c.style.opacity = op;
