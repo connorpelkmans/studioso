@@ -639,6 +639,8 @@ function cleanFile(r) {
   const sharedN = (a, b) => { const B = words(b); let n = 0; words(a).forEach(w => { if (w.length > 2 && !/^\d+$/.test(w) && !["assignment", "due", "with", "the", "and", "for"].includes(w) && B.has(w)) n++; }); return n; };
   const likeN = (a, b) => sharedN(a, b) + (titleKey(b).includes(titleKey(a)) || titleKey(a).includes(titleKey(b)) ? 2 : 0);
   const EXAMY = /\b(quiz|test|exam|midterm|final|assessment)\b/i;
+  // A grade item marked as bonus (Brightspace's IsBonus, when the read passes it on) or named as extra credit
+  const bonusGrade = g => !!g && (g.bonus === true || g.IsBonus === true || /\b(bonus|extra[\s-]?credit)\b/i.test(String(g.name || "")));
   function bsFromApi(h){
     const origin = h.origin || "", out = {src: "api", origin, name: (h.me && h.me.name) || "", courses: [], recs: [], evs: [], grades: [], finals: {}, news: [], synced: []};
     const subNotes = (h.courses || []).map(c => typeof c.subNote === "string" ? c.subNote.slice(0, 160) : "").filter(Boolean);
@@ -701,9 +703,14 @@ function cleanFile(r) {
         out.evs.push({ou: c.ou, key: c.ou + "|" + titleKey(ct.title) + "|" + s.date + (e.allDay ? "" : "|" + s.time), title: ct.title, date: s.date, allDay: !!e.allDay, start: e.allDay ? "" : s.time, end: e.allDay || !en ? "" : en.date === s.date ? en.time : "23:59",
           endDate: e.allDay && en && en.date > s.date ? addDays(en.date, -1) : "", where: e.where || "", notes: e.text || "", url: absUrl(origin, e.url)});
       });
-      const num = (c.grades || []).filter(g => (g.type === 1 || g.type === 3) && g.name);
+      const all = (c.grades || []).filter(g => (g.type === 1 || g.type === 3) && g.name);
+      // Bonus and extra-credit items sit on top of the 100%: they count only toward the course's bonus, so the real weights of
+      // the rest are kept even when everything adds up to more than 100%
+      const num = all.filter(g => !bonusGrade(g));
       const wsum = num.reduce((s, g) => s + (isNum(g.wden) ? Number(g.wden) : 0), 0);
       const weighted = wsum > 0 && wsum <= 100.5;
+      all.filter(bonusGrade).forEach(g => out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null,
+        weight: null, wPts: false, bonus: true, bw: weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : null, shown: g.shown || "", at: g.at || null, fb: g.fb || null}));
       // No weights to see: each item's share of the course's points. The grades list often holds only items with a mark, so graded work
       // missing from it (an assignment or quiz tied to a grade item) is counted too, and when its points aren't known no share is guessed.
       const inList = new Set((c.grades || []).map(g => String(g.gid || "")));
@@ -1271,13 +1278,28 @@ function cleanFile(r) {
       // a share worked out from points that no longer holds (more of the course turned up) is taken back, unless you changed it
       const untouched = lastW !== undefined && lastW !== null && Number(n.weight) === Number(lastW);
       if (g.weight == null && lastPts && untouched) { n.weight = null; changed = true; }
-      if (g.weight != null && (n.weight == null || n.weight === "" || untouched) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
+      if (g.weight != null && (n.weight == null || n.weight === "" || untouched) && Number(n.weight) !== g.weight && !(g.wPts && n[F] && n[F].last && n[F].last.sylW)) { n.weight = g.weight; changed = true; }
       const keepW = g.weight, wp = g.weight != null && !!g.wPts;
       if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: keepW, wPts: wp})}); }
       else { n[F] = {key: n.id.startsWith(F + "_") ? key : "", ou: g.ou, gid: g.gid, last: {weight: g.weight, wPts: wp}, gradeOnly: true}; changed = true; }
+      // a bonus item counts only toward the course's bonus (below), never as a weighted item or by its points
+      if (!!g.bonus !== !!n[F].bonus) { n[F] = Object.assign({}, n[F]); if (g.bonus) n[F].bonus = true; else delete n[F].bonus; changed = true; }
       if (g.fb && JSON.stringify(n[F].fb || null) !== JSON.stringify(g.fb)) { n[F] = Object.assign({}, n[F], {fb: g.fb}); changed = true; }
       if (changed || !cur("task", n.id)) put("task", normTask(n));
     });
+    // The school site's bonus items, as each course's bonus ("up to 5% bonus, 3% earned"). A bonus you set yourself stays.
+    if (o.grades) {
+      const bon = {};
+      data.grades.forEach(g => { if (!g.bonus || !(g.bw > 0)) return; const b = bon[g.ou] || (bon[g.ou] = {pts: 0, got: 0}); b.pts += g.bw; if (g.got != null && g.outOf > 0) b.got += Math.min(g.bw, g.got / g.outOf * g.bw); });
+      Object.keys(bon).forEach(ou => {
+        const cid = courseFor(ou), ex = cid && cur("course", cid); if (!ex) return;
+        const gd = ex.grading || {}, R = gd.rules || {}, ob = R.bonus || null, r2 = v => Math.round(Math.min(50, v) * 100) / 100;
+        if (ob && ob.src !== "school" && (Number(ob.pts) > 0 || Number(ob.got) > 0)) return;
+        const nb = {pts: r2(bon[ou].pts), got: r2(bon[ou].got), src: "school"};
+        if (ob && Number(ob.pts) === nb.pts && Number(ob.got) === nb.got && ob.src === "school") return;
+        const nc = clone(ex); nc.grading = Object.assign({}, gd, {rules: Object.assign({}, R, {bonus: nb})}); put("course", nc);
+      });
+    }
     if (data.src === "api") data.courses.forEach(bc => {
       const m = map[bc.ou]; if (!m || m === "skip") return;
       const cid = m === "new" ? (cur("course", F + "c_" + hid(bc.ou)) ? F + "c_" + hid(bc.ou) : null) : m;
@@ -1298,8 +1320,9 @@ function cleanFile(r) {
         b.syl[P.id + "|" + bc.ou] = {text: syl, url: bc.sylUrl || "", at: Date.now()}; saveBulk();
         meta.syl = {n: syl.length, url: bc.sylUrl || ""};
         const sig = hid(syl);
-        if (meta.sylSig !== sig || !Array.isArray(meta.sylWts)) {
-          meta.sylSig = sig;
+        // (sylV 2: every named line of the breakdown, not only the exams; read again once for syllabi read before)
+        if (meta.sylSig !== sig || !Array.isArray(meta.sylWts) || meta.sylV !== 2) {
+          meta.sylSig = sig; meta.sylV = 2;
           let r = null; try { r = SY.parse(syl, todayISO()); } catch(e) { r = null; }
           const sc = r && r.course;
           if (sc) {
@@ -1309,22 +1332,28 @@ function cleanFile(r) {
             if (!nc.schedule && sc.schedule && !(nc.meetings || []).length) nc.schedule = sc.schedule;
             if (!(nc.meetings || []).length) { const ms = parseMeetings(sc.schedule, "Lecture", nc.room || sc.room).concat(parseMeetings(sc.office, "Office Hours")); if (ms.length) { nc.meetings = ms; rep.meet = (rep.meet || 0) + 1; } }
           }
-          meta.sylWts = ((r && r.items) || []).filter(it => it.weight > 0 && it.title).slice(0, 60).map(it => ({t: String(it.title).slice(0, 160), w: Number(it.weight)}));
+          meta.sylWts = ((r && r.items) || []).filter(it => it.weight > 0 && it.title && !it.ph).slice(0, 60).map(it => ({t: String(it.title).slice(0, 160), w: Number(it.weight)}));
           // the breakdown's one midterm and one final ("Midterm Exam 30%", "Final Exam 40%") when no dated item carries them
           const bt = (r && r.byType) || {}, one = w => w && w.pct > 0 && w.pct <= 100 && (w.count == null || w.count <= 1) && w.each == null ? Number(w.pct) : null;
           if (one(bt.Exam) != null && !meta.sylWts.some(x => /midterm|mid-term/i.test(x.t))) meta.sylWts.push({t: "Midterm Exam", w: one(bt.Exam), kind: "mid"});
           if (one(bt.Final) != null && !meta.sylWts.some(x => /final/i.test(x.t))) meta.sylWts.push({t: "Final Exam", w: one(bt.Final), kind: "final"});
+          // every other named line of the breakdown ("Lab Report 15%", "Term Essay 20%"), matched to a task by name like the dated items
+          // (an exam line the course's only midterm or final already takes is left to that)
+          (SY.breakdown ? SY.breakdown(syl) : []).forEach(x => {
+            if (meta.sylWts.some(y => titleKey(y.t) === titleKey(x.t)) || (EXAMY.test(x.t) && meta.sylWts.some(y => y.kind && (y.kind === "final") === /\bfinal\b/i.test(x.t)))) return;
+            if (meta.sylWts.length < 80) meta.sylWts.push({t: x.t.slice(0, 160), w: x.w});
+          });
         }
         // The syllabus's weights, every sync, for tasks with none yet (each task once, so a weight you clear stays cleared).
         // "Midterm Exam" in the syllabus is the "Midterm Exam- Requires Respondus LockDown Browser" quiz.
         const doneW = new Set(meta.sylDone || []);
         (meta.sylWts || []).forEach(it => {
           const pool = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && x.after && !state.tasks[x.id]).map(x => x.after))
-            .filter(t => t && t.courseId === cid && (t.weight == null || t.weight === "") && !t.prepFor && !t.breakdownOf && !doneW.has(t.id));
+            .filter(t => t && t.courseId === cid && (t.weight == null || t.weight === "" || weightGuessed(t)) && !t.prepFor && !t.breakdownOf && !doneW.has(t.id));
           // a breakdown line, not a named item: the course's only exam of that kind
           if (it.kind) { const ex = pool.filter(t => t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title));
-            const all = allTasks().filter(t => t.courseId === cid && t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title) && !(t[F] && t[F].item === false));
-            if (ex.length === 1 && all.length === 1) { const n = clone(ex[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1; }
+            const all = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && x.after && !state.tasks[x.id]).map(x => x.after)).filter(t => t && t.courseId === cid && t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title) && !(t[F] && t[F].item === false));
+            if (ex.length === 1 && all.length === 1) { const n = clone(ex[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w, wPts: false, sylW: true})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1; }
             return; }
           const k = titleKey(it.t), ex = EXAMY.test(it.t);
           const exact = pool.filter(t => titleKey(t.title) === k);
@@ -1332,7 +1361,7 @@ function cleanFile(r) {
           // several fit (the exam, and its calendar copy): the school site's own item, the one with a mark, then the exact name
           [t => t[F] && t[F].item === true, t => !!t.mark, t => exact.includes(t)].forEach(f => { if (hit.length > 1 && hit.filter(f).length >= 1) hit = hit.filter(f); });
           if (hit.length !== 1) return;
-          const n = clone(hit[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1;
+          const n = clone(hit[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w, wPts: false, sylW: true})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1;
         });
         if (doneW.size) meta.sylDone = [...doneW].slice(-300);
       }

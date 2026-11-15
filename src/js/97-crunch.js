@@ -616,7 +616,7 @@ function itemHtml(it, ws, mv, today){
   const c = t.courseId && courseOf(t.courseId), dl = dayDiff(today, t.due);
   const prep = it.kind === "prep";
   const left = it.hours > 0 ? `about ${fmtHM(it.hours)} of work${it.est ? "" : " (typical estimate)"}` : "";
-  const bits = [c ? courseLabel(c) : "", `due ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, hasWeight(t) ? `${Number(t.weight)}% of grade` : "", t.status === "doing" ? "in progress" : ""].filter(Boolean);
+  const bits = [c ? courseLabel(c) : "", `due ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, (sw => sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of grade` : "")(shownWeight(t)), t.status === "doing" ? "in progress" : ""].filter(Boolean);
   const canStart = dl >= 0 && canDoNow(t);
   // an upcoming exam or quiz: open its Exam Prep planner from here (like the task sheet's button)
   const prepBtn = MILESTONE(t.type) && dl > 0 && t.status !== "done" ? (ps => `<button type="button" class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : "";

@@ -5968,6 +5968,8 @@ function aiNeeds(q, prev){
   return o;
 }
 const aiNeedsAny = n => !!n && !n.small && (n.grades || n.plan || n.tasks || n.schedule || n.cards || n.notes || n.files || n.course.length > 0);
+// Said with grades data that holds estimated weights, so advice built on one says it's an estimate
+const EST_W_NOTE = "NOTE ON WEIGHTS: a weight marked as estimated from points (or a course graded by points) is a guess, not a weight from the school or syllabus. When advice depends on one, say it's an estimate and suggest checking the syllabus.";
 function aiPlannerFacts(need){
   need = need || {grades: true, plan: true};
   const L = [];
@@ -5976,11 +5978,12 @@ function aiPlannerFacts(need){
     const lines = G ? G.lines() : []; if (lines.length) L.push("COURSE GRADES:\n" + lines.map(x => "- " + x).join("\n"));
     const it = G && G.items ? G.items() : [];
     if (it.length) {
-      const row = x => `- ${x.title} (${[x.course, x.type, x.weight != null ? "worth " + x.weight + "% of the course" : "", x.due ? "due " + x.due : ""].filter(Boolean).join(", ")}): ${x.mark}${/%$/.test(x.mark) ? "" : " = " + x.pct + "%"}${x.letter ? " (" + x.letter + ")" : ""}`;
+      const row = x => `- ${x.title} (${[x.course, x.type, x.weight != null ? (x.weightEst ? "worth about " + x.weight + "% of the course (estimated from points, not from the school)" : "worth " + x.weight + "% of the course") : "", x.due ? "due " + x.due : ""].filter(Boolean).join(", ")}): ${x.mark}${/%$/.test(x.mark) ? "" : " = " + x.pct + "%"}${x.letter ? " (" + x.letter + ")" : ""}`;
       L.push(`MARKED WORK (every item with a mark, ${it.length} in all, highest first):\n` + it.slice().sort((a, b) => b.pct - a.pct).slice(0, 80).map(row).join("\n"));
     } else if (lines.length) L.push("MARKED WORK: no marks have been entered for individual items yet.");
+    if (it.some(x => x.weightEst) || lines.some(x => /ESTIMATES|estimates from points/.test(x))) L.push(EST_W_NOTE);
     const w = G && G.waiting ? G.waiting() : [];
-    if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course ? " (" + x.course + ")" : ""}`).join("; "));
+    if (w.length) L.push("FINISHED, STILL WAITING FOR A MARK: " + w.slice(0, 20).map(x => `${x.title}${x.course || x.ago ? " (" + [x.course, x.ago].filter(Boolean).join(", ") + ")" : ""}`).join("; "));
   } catch (e) {}
   if (need.plan) try {
     // laid out exactly as Today's Plan shows it: Do This Next, the rest of today's planned work, then what comes after, in order
@@ -6259,7 +6262,7 @@ const EST_SCHEMA = {type: "OBJECT", properties: {hours: {type: "NUMBER"}, low: {
 async function aiEstimate(t){
   const L = learned(), c = courseOf(t.courseId);
   const hist = Object.entries(L.byType).map(([k, v]) => `${k}: ${v.length} done, typical ${fmtHM(median(v.map(x => x.h)))}`).join("; ") || "no history yet";
-  const r = await aiCall({task: "estimate", fast: true, maxTokens: 1500, temperature: 0.2, schema: EST_SCHEMA, parts: [{text: `Task: ${t.title}\nType: ${t.type}\nCourse: ${c ? c.name : "none"}\nDifficulty: ${DIFF_LABEL[t.difficulty] || "Medium"}\nGrade weight: ${t.weight || "unknown"}%\nNotes: ${t.notes || "none"}\nChecklist: ${(t.checklist || []).map(i => i.text).join("; ") || "none"}\nThis student's history (focused time actually spent): ${hist}. They take about ${L.ratio.toFixed(2)}x their own estimates.`}],
+  const r = await aiCall({task: "estimate", fast: true, maxTokens: 1500, temperature: 0.2, schema: EST_SCHEMA, parts: [{text: `Task: ${t.title}\nType: ${t.type}\nCourse: ${c ? c.name : "none"}\nDifficulty: ${DIFF_LABEL[t.difficulty] || "Medium"}\nGrade weight: ${weightForAi(t) || "unknown"}\nNotes: ${t.notes || "none"}\nChecklist: ${(t.checklist || []).map(i => i.text).join("; ") || "none"}\nThis student's history (focused time actually spent): ${hist}. They take about ${L.ratio.toFixed(2)}x their own estimates.`}],
     system: "Estimate how many hours of focused work this task will take this particular student. Use their history when it's relevant, otherwise typical times for a college student. Give a best guess plus a low-high range, a one-sentence reason, and a few concrete steps to do it. Return JSON only."});
   const h = Number(r.data.hours);
   if (!(h > 0)) throw aiErr("bad", "The AI couldn't estimate that. Try adding a few notes about the task.");
@@ -7207,7 +7210,7 @@ async function autoPlan(a){
     const c = courseOf(t.courseId), p = progress(t), ps = MILESTONE(t.type) ? planSessions(t.id) : [];
     const bits = [`${ref[t.id]} | ${t.title} | ${t.type} | ${c ? courseLabel(c) : "no course"} | due ${t.due}${t.time ? " " + t.time : ""} (${dayDiff(today, t.due) < 0 ? -dayDiff(today, t.due) + " days overdue" : dayDiff(today, t.due) === 0 ? "today" : dayDiff(today, t.due) + " days away"})`,
       MILESTONE(t.type) ? (canDoNow(t) ? "TAKE-HOME (can be done from home, so it may be chosen for next)" : "FIXED EVENT (taken in person or not confirmed as take-home: never choose it for next)") : "",
-      rankOf[t.id] && canDoNow(t) ? `rank ${rankOf[t.id]}` : "", `status ${t.status}`, hasWeight(t) ? `worth ${t.weight}%` : "", `priority ${t.priority}`, `difficulty ${t.difficulty}`,
+      rankOf[t.id] && canDoNow(t) ? `rank ${rankOf[t.id]}` : "", `status ${t.status}`, weightForAi(t), `priority ${t.priority}`, `difficulty ${t.difficulty}`,
       MILESTONE(t.type) ? "" : isNum(t.hours) && Number(t.hours) > 0 ? `estimate ${t.hours}h` : "no estimate",
       p.frac ? `progress ${Math.round(p.frac * 100)}%` : "", (t.checklist || []).length ? `checklist ${p.done}/${p.total}` : "",
       t.focusMin ? `focused ${t.focusMin}m so far` : "",
@@ -7217,7 +7220,6 @@ async function autoPlan(a){
       MILESTONE(t.type) && deckInfo(t.courseId) ? `flashcards: ${deckInfo(t.courseId)}` : "",
       F.info[t.id] && canDoNow(t) ? `planner score ${Math.round(F.info[t.id].score)}` : "", blockers(t).length ? "BLOCKED" : "",
       lateUntilOf(t) ? `late submissions accepted until ${lateUntilOf(t)}` : lateOf(t) === "none" ? "no late submissions" : "",
-      !hasWeight(t) && PTS_W[t.id] ? `about ${Math.round(PTS_W[t.id] * 10) / 10}% of grade (from points)` : "",
       lmsOf(t) && lmsOf(t).outOf ? `out of ${lmsOf(t).outOf} points` : "",
       lmsOf(t) && (lmsOf(t).files || []).length ? `${lmsOf(t).files.length} attached file${lmsOf(t).files.length === 1 ? "" : "s"}` : "",
       (!t.difficulty || t.difficulty === "med") && !MILESTONE(t.type) && !t.prepFor ? "difficulty not set" : "",
@@ -11325,10 +11327,24 @@ const weightGuessed = t => hasWeight(t) && ["bs", "cv", "bb", "md", "sg", "gc"].
 const WEIGHT_GUESS_TIP = "Your school site didn't show a weight for this, so Studyboard split the course by points. Check your syllabus and type in the real weight.";
 // The note above a list of marks when some weights are estimates
 const weightGuessNote = list => { const n = list.filter(weightGuessed).length; return n ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>${n === 1 ? "1 weight is an estimate" : n + " weights are estimates"}.</b> Your school site didn't show ${n === 1 ? "a weight for it" : "weights for them"}, so Studyboard split the course by points. Numbers in red may be wrong: check your syllabus and tap an item to type in the real weight.</span></div>` : ""; };
-const weightOf = t => hasWeight(t) && !(weightGuessed(t) && PTS_W[t.id]) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
+// An exam's study entry ranks by the exam's weight (rankW), but never shows it as its own: see shownWeight
+const weightOf = t => t.xs && isNum(t.rankW) ? Number(t.rankW) : hasWeight(t) && !(weightGuessed(t) && PTS_W[t.id]) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
+// The weight to tell the student: one typed in, from the syllabus or the school site, or split from the site's points (est).
+// Never the type defaults above, which only help rank work. A study session says its exam's weight. {w, est, pts} or null.
+function shownWeight(t){
+  if (!t) return null;
+  const ex = t.xs ? state.tasks[t.xs.id] : t.prepFor ? state.tasks[t.prepFor] : null;
+  if (t.xs || t.prepFor) return ex && ex !== t && !ex.prepFor ? shownWeight(ex) : null;
+  if (hasWeight(t)) return weightGuessed(t) && PTS_W[t.id] ? {w: PTS_W[t.id], est: true} : {w: Number(t.weight), est: weightGuessed(t)};
+  return PTS_W[t.id] ? {w: PTS_W[t.id], est: true, pts: true} : null;
+}
+// The same for the AI: "worth 20% of grade", "about 33% of grade (estimated from points, not from the school)", or ""
+const weightForAi = t => { const s = shownWeight(t); return !s ? "" : `${s.est ? "about " : "worth "}${Math.round(s.w * 10) / 10}% of grade${s.est ? " (estimated from points, not from the school)" : ""}${t.xs || t.prepFor ? " (the exam's weight)" : ""}`; };
 
 /* What the planner knows beyond the task itself (1.11) - School sync */
 const lmsOf = t => (t && (t.bs || t.cv || t.bb || t.md || t.sg || t.gc)) || null;
+// A school-site bonus item: it counts only toward the course's bonus, never as weighted work or by its points (95-lms.js)
+const bonusItem = t => !!(lmsOf(t) && lmsOf(t).bonus);
 // Difficulty: yours when you've set Easy or Hard
 const diffOf = t => t.difficulty && t.difficulty !== "med" ? t.difficulty : autoPlanOn() && t.aiDiff && autoFresh(t.aiDiff, 14) ? t.aiDiff.level : (t.difficulty || "med");
 // Late policy: yours if you set one, otherwise what the platform's submission window says
@@ -11345,7 +11361,7 @@ function pointsWeights(){
   const by = {}, out = {};
   // weights that were themselves worked out from points (estimated) don't count as the course having weights: those were split over
   // the school site's Grades page alone, so the course is shared out by all the points known here instead (as on Grades, 90-grades.js)
-  allTasks().forEach(t => { if (!t.courseId || t.prepFor) return; const b = by[t.courseId] || (by[t.courseId] = {weighted: 0, guessed: 0, items: []}); if (hasWeight(t)) { if (weightGuessed(t)) b.guessed++; else b.weighted++; }
+  allTasks().forEach(t => { if (!t.courseId || t.prepFor || bonusItem(t)) return; const b = by[t.courseId] || (by[t.courseId] = {weighted: 0, guessed: 0, items: []}); if (hasWeight(t)) { if (weightGuessed(t)) b.guessed++; else b.weighted++; }
     const L = lmsOf(t), m = t.mark, o = L && Number(L.outOf) > 0 ? Number(L.outOf) : m && ["bs", "cv", "bb", "md", "sg", "gc"].includes(m.src) && Number(m.outOf) > 0 ? Number(m.outOf) : 0; if (o > 0) b.items.push([t.id, o]); });
   Object.values(by).forEach(b => { if (b.weighted || (b.items.length < 3 && !b.guessed)) return; const sum = b.items.reduce((s, x) => s + x[1], 0); if (sum > 0) b.items.forEach(([id, o]) => { out[id] = Math.max(0.5, Math.min(60, o / sum * 100)); }); });
   return out;
@@ -11489,7 +11505,7 @@ function examStudyTasks(today){
     const h = eff * (1 - Math.max(L.p, Math.min(1, fm / Math.max(eff, 0.25))));
     if (!(h >= 0.25)) return;
     out.push({id: XS_ID + ex.id, title: "Study for " + ex.title, type: "Study", courseId: ex.courseId || "", due: ex.due, time: ex.time || "", start: addDays(ex.due, -L.days),
-      status: "todo", priority: ex.priority || "med", hours: Math.round(h * 4) / 4, weight: weightOf(ex), difficulty: ex.difficulty || "med", late: "unknown", notes: "",
+      status: "todo", priority: ex.priority || "med", hours: Math.round(h * 4) / 4, rankW: weightOf(ex), difficulty: ex.difficulty || "med", late: "unknown", notes: "",
       checklist: [], dependsOn: [], history: ex.history || [], focusMin: 0, pct: 0, prepFor: ex.id, xs: {id: ex.id, lead: L}});
   });
   return out;
@@ -11795,10 +11811,10 @@ function computeFocusNow(){
   const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && !x.past && !x.dead);
   const pct = n => Math.round(n * 10) / 10;
   Object.values(info).forEach(x => {
-    const t = x.t, r = [];
+    const t = x.t, r = [], sw = shownWeight(t), SW = sw && !(t.xs || t.prepFor) ? sw.w : 0;
     const luD = x.lateUntil ? x.lateUntil.slice(0, 10) : "", luT = x.lateUntil ? x.lateUntil.slice(11) : "";
     const pd = Math.round(latePenOf(t) * 100), typ = hasLatePen(t) ? "" : ` (at a typical ${pd}% a day)`;
-    const penTxt = hasLatePen(t) ? `Loses ${pd}% a day${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}` : x.W ? `Each day late costs about ${pct(x.W * latePenOf(t))}% of your grade${typ}` : `Late work loses about ${pd}% a day`;
+    const penTxt = hasLatePen(t) ? `Loses ${pd}% a day${SW ? `, about ${pct(SW * latePenOf(t))}% of your grade` : ""}` : SW ? `Each day late costs about ${pct(SW * latePenOf(t))}% of your grade${typ}` : `Late work loses about ${pd}% a day`;
     if (x.dead) r.push([100, `Past due, and late work isn't accepted. It isn't in today's plan: talk to your instructor if you still want to hand it in`]);
     else if (x.past && x.dl === 0 && t.time) r.push([100, `Was due at ${fmtTime(t.time)} today${x.late === "free" ? ", and late work is accepted" : ""}`]);
     else if (x.past) r.push([100, luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
@@ -11824,8 +11840,10 @@ function computeFocusNow(){
     { const xr = MILESTONE(t.type) ? examReadiness(t) : t.xs && state.tasks[t.xs.id] ? examReadiness(state.tasks[t.xs.id]) : null;
       if (xr && xr.gap) r.push([88, xr.gap > 0 ? `You feel ${xr.self}% ready, but your flashcards and quizzes say about ${xr.measured}%` : `Your flashcards and quizzes say about ${xr.measured}%, more than the ${xr.self}% you feel`]); }
     if (t.dueFor) { const d = state.tasks[t.dueFor] || info[t.dueFor] && info[t.dueFor].t; r.push([85, `No due date, but ${d ? d.title : "another task"} needs it first, so aim to finish by ${fmtDate(t.due)}`]); }
-    // a weight the school site didn't give (split from points or guessed) is said as "About"
-    if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) { const sure = hasWeight(t) && !weightGuessed(t); r.push([50 + x.W, `${sure ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]); }
+    // Only a real weight is said as "% of your grade" ("About" when split from points); the type defaults behind x.W only rank.
+    // Big work with no weight says so, so a student isn't led by a number the app made up.
+    if (sw) r.push([50 + x.W, `${sw.est ? "About " : ""}${Math.round(sw.w * 10) / 10}% of your grade${sw.pts ? " (from its points)" : ""}${t.xs || t.prepFor ? ", the exam this is for" : ""}`]);
+    else if (!t.xs && !t.prepFor && t.courseId && x.W >= 10) r.push([48, "No grade weight yet: open the task to add one"]);
     if (x.fullDay) r.push([72, `${dayDiff(today, x.fullDay) === 1 ? "Tomorrow" : parse(x.fullDay).toLocaleDateString(undefined, {weekday: "long"})} is a full day${(B.what[x.fullDay] || [])[0] ? ` (${B.what[x.fullDay][0]})` : ""}, so it helps to get ahead`]);
     if (x.early) r.push([68, "The instructions mention an earlier step (like a draft or pre-lab). Check for a sooner deadline"]);
     const pr = MILESTONE(t.type) ? progress(t) : null;
@@ -11967,6 +11985,7 @@ function planWhyData(rs){
     else if ((m = r.match(/^Due in (.+)$/))) facts.push(["Due", "In " + m[1], ""]);
     else if (/^(Overdue|Past due|Was due)/.test(r)) facts.push(["Due", r, "late"]);
     else if ((m = r.match(/^((?:About )?[\d.]+%) of your grade(.*)$/))) facts.push(["Worth", m[1] + " of your grade" + m[2], ""]);
+    else if (/^No grade weight yet/.test(r)) facts.push(["Worth", r, ""]);
     else if ((m = r.match(/^(.+) of work left(.*)$/))) facts.push(["Left", m[1].replace(/^About /, "about ") .replace(/^./, c => c.toUpperCase()) + " of work" + m[2], ""]);
     else if ((m = r.match(/^(\d+)% prepared, about (.+) of study left$/))) facts.push(["Left", "About " + m[2] + " of study (" + m[1] + "% prepared)", ""]);
     else if ((m = r.match(/^About (.+) of study left$/))) facts.push(["Left", "About " + m[1] + " of study", ""]);
@@ -12081,7 +12100,7 @@ function planNotesHtml(F, inView, crunchMain){
 // Short of time: which tasks give the fewest marks for the time
 function dropTxt(F){
   const d = F.drop; if (!d || !d.items.length) return "";
-  const its = d.items.slice(0, 2).map(x => `<b>${esc(x.t.title)}</b> (${Math.round(x.W * 10) / 10}% for about ${fmtHM(x.R)})`);
+  const its = d.items.slice(0, 2).map(x => { const sw = shownWeight(x.t); return `<b>${esc(x.t.title)}</b> (${sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of your grade` : "no grade weight yet"}, about ${fmtHM(x.R)} of work)`; });
   return `Fewest marks for the time: ${its.join(" and ")}. ${d.items.length === 1 ? "It's" : "They're"} planned last, so you could do a quick version, ask for an extension, or add study time.`;
 }
 // Time Today's control, for the row with Today's Plan / Task Board on wider screens (set by focusHtml; phones keep it in the plan box)
@@ -16978,8 +16997,10 @@ const SY = (() => {
       // "lowest two dropped" is a grading rule (gradeRules), not how many there are
       const cnt = rest.replace(/\b(?:\d{1,2}|one|two|three|four|five)\s+lowest\b|\b(?:lowest|drop(?:s|ped|ping)?)\b[^,;)]*/gi, " ").match(/\((\d{1,2})\)|\b(\d{1,2})\s*[x×]\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\b/i);
       const count = cnt ? Number(cnt[1] || cnt[2]) || WORDN[(cnt[3] || "").toLowerCase()] : 0;
-      if (each) { out[type] = {each: Number(each[1])}; return; }
-      if (pct) { out[type] = {pct: Number(pct[1]), count}; return; }
+      // the line's own name ("Weekly Quizzes"), to say where a weight came from
+      const label = t.replace(/[\s:=–—-]*[(\d].*$/, "").trim().slice(0, 60);
+      if (each) { out[type] = {each: Number(each[1]), label}; return; }
+      if (pct) { out[type] = {pct: Number(pct[1]), count, label}; return; }
       if (total) {
         const nums = (rest.match(/\b\d+(?:\.\d+)?\b/g) || []).map(Number);
         if (nums.length >= 3 && Math.abs(nums[0] * nums[1] - nums[2]) < 0.5) out[type] = {each: nums[1] / total * 100};
@@ -17165,6 +17186,8 @@ const SY = (() => {
     const ownOf = x => own.find(w => (w.type === x.type || (w.type === "Exam" && x.type === "Exam")) && new RegExp("(^|\\D)" + w.n + "(\\D|$)").test(x.title) && !(w.type !== "Final" && /final/i.test(x.title)));
     final.forEach(x => { const w = ownOf(x); if (x.iw > 0 && x.iw <= 100) { x.weight = x.iw; x.ownW = true; } else if (w && w.pct > 0 && w.pct <= 100) { x.weight = w.pct; x.ownW = true; } delete x.iw; });
     const countOf = type => final.filter(x => x.type === type && !x.ownW && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
+    // A category with no count ("Weekly Quizzes 20%") is split over the items found, which may be only some of them: said in the review
+    const splits = {};
     final.forEach(x => {
       if (x.ownW) { delete x.ownW; return; }
       const key = x.type === "Exam" && /final/i.test(x.title) && weights.Final ? "Final" : x.type;
@@ -17172,8 +17195,32 @@ const SY = (() => {
       if (!w) return;
       const v = w.each != null ? w.each : w.pct / Math.max(1, w.count || (key === "Final" ? 1 : countOf(x.type)));
       if (v > 0 && v <= 100) x.weight = Math.round(v * 10) / 10;
+      if (w.each == null && !w.count && key !== "Final" && x.weight != null) splits[key] = {label: w.label || x.type, pct: w.pct, n: countOf(x.type), each: x.weight};
     });
-    return {course, items: final, term, lineCount: lines.length, weightsFound: final.some(x => x.weight != null), byType: weights, rules: gradeRules(text)};
+    // A breakdown line for one item with nothing dated to carry it ("Midterm Exam 20%"): an undated item, so its weight isn't lost
+    Object.keys(weights).forEach(key => {
+      const w = weights[key], label = w && w.label;
+      if (!w || !(w.pct > 0 && w.pct <= 100) || w.each != null || !label) return;
+      const kind = key === "Final" ? "Exam" : key, fin = x => /final/i.test(x.title);
+      if (final.some(x => x.type === kind && (key === "Final" ? fin(x) : !(kind === "Exam" && weights.Final && fin(x))))) return;
+      if (!(w.count === 1 || (!w.count && !/s$/i.test(label)))) return;
+      final.push({title: label, type: kind, due: "", start: "", time: "", source: "breakdown", note: label + " " + w.pct + "%", weight: w.pct, ph: true});
+    });
+    return {course, items: final, term, lineCount: lines.length, weightsFound: final.some(x => x.weight != null), byType: weights, rules: gradeRules(text), splits: Object.values(splits)};
+  }
+  // Every "Name  NN%" line of a grading breakdown, by its name: [{t, w}] ("Lab Report 15%", "Term Essay: 20%"). Category lines
+  // ("Quizzes 20%") are left out: they're shared over several items, which gradeWeights does.
+  const PLURAL_CAT = /\b(quizzes|assignments|homeworks|labs|lab reports|exams|tests|midterms|projects|readings|essays|papers|reports|presentations|discussions|problem sets|worksheets|responses)\b/i;
+  function breakdown(text){
+    const out = [], seen = new Set();
+    String(text || "").split(/\r?\n/).flatMap(l => { const ps = l.split(/\s*[,;]\s*|\t|\s[|•·]\s/); return ps.filter(p => /\d\s*%/.test(p)).length >= 2 ? ps : [l]; }).forEach(l => {
+      const m = l.replace(/^[\s•\-*·]+/, "").trim().match(/^([A-Za-z][A-Za-z0-9&'’ /-]{1,60}?)\s*(?:[:=–—-]|\.{2,})?\s*(\d{1,3}(?:\.\d+)?)\s*%$/);
+      if (!m) return;
+      const t = m[1].trim(), w = Number(m[2]), k = t.toLowerCase();
+      if (!(w > 0 && w <= 100) || PLURAL_CAT.test(t) || /^(total|grand total|late|penalty|attendance|bonus|extra credit)\b/i.test(t) || seen.has(k)) return;
+      seen.add(k); out.push({t, w});
+    });
+    return out;
   }
   // "HW 3", "Homework #03" and "homework 3" are the same task
   const normTitle = t => String(t || "").toLowerCase().replace(/\b(?:hw|home\s*work)\s*#?\s*(?=\d)/g, "homework ").replace(/\b(?:ps|pset|problem\s+set)\s*#?\s*(?=\d)/g, "problemset ")
@@ -17186,7 +17233,7 @@ const SY = (() => {
       .map(i => Object.assign({}, i, {source: "cut"}));
     return {last, added};
   }
-  return {parse, findDates, termInfo, findTime, meetingDays, gradeRules, normTitle, fillCut};
+  return {parse, findDates, termInfo, findTime, meetingDays, gradeRules, normTitle, fillCut, breakdown};
 })();
 
 /* Syllabus import (PDF or text, parsed on this device) */
@@ -17398,16 +17445,17 @@ function importSheet(courseId, file){
     const nt = SY.normTitle;
     const existingKeys = new Set();
     tasksArr().forEach(t => { existingKeys.add(nt(t.title) + "|" + t.due + "|" + t.courseId); if (/\d/.test(t.title)) existingKeys.add(nt(t.title) + "|#|" + t.courseId); });
-    const isDup = (i, cid) => !!cid && cid !== "new" && (existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)));
+    // a breakdown line with no date is the course's item of that name, whatever its date
+    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)));
     const dated = r.items.filter(i => i.due).length;
     status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.gateNote ? r.gateNote + " " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? (wN => wN < r.items.length ? ` Grade weights were found for ${wN} of ${r.items.length} items.` : " Grade weights were taken from the grading breakdown.")(r.items.filter(i => i.weight != null).length) : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
     const c = r.course;
-    const flag = i => i.source === "cut" ? "Found on this device after the AI ran out of room, so check it" : i.source === "ai-low" ? (i.due ? "The AI worked out this date, so double-check it" : "No date found") : i.source === "week" ? "Date estimated from the week number" : i.source === "session" ? "Date estimated from the class number" : i.source === "context" ? "Date taken from the schedule entry above" : !i.due ? "No date found" : "";
+    const flag = i => i.ph ? "From the grading breakdown, with no date in the syllabus. Add the date when you know it" : i.source === "cut" ? "Found on this device after the AI ran out of room, so check it" : i.source === "ai-low" ? (i.due ? "The AI worked out this date, so double-check it" : "No date found") : i.source === "week" ? "Date estimated from the week number" : i.source === "session" ? "Date estimated from the class number" : i.source === "context" ? "Date taken from the schedule entry above" : !i.due ? "No date found" : "";
     const typeSel = (i, n) => `<select data-f="type" data-n="${n}" aria-label="Type">${TYPES.map(x => `<option ${x === i.type ? "selected" : ""}>${x}</option>`).join("")}</select>`;
     const today = todayISO(), past = i => !!i.due && i.due < today;
     const rowOf = (i, n, cid) => {
       const dup = isDup(i, cid);
-      const checked = i.due && !dup && !past(i);
+      const checked = (i.due || i.ph) && !dup && !past(i);
       const f = dup ? "Already in your planner" : flag(i);
       return `<li class="imp-row ${checked ? "" : "off"}"><input type="checkbox" data-n="${n}" ${checked ? "checked" : ""} aria-label="Include ${esc(i.title)}">
         <div class="imp-fields"><input type="text" data-f="title" data-n="${n}" value="${esc(i.title)}" aria-label="Title">
@@ -17418,7 +17466,7 @@ function importSheet(courseId, file){
     };
     const idx = r.items.map((it, n) => n);
     const undated = idx.filter(n => !r.items[n].due), gone = idx.filter(n => past(r.items[n]));
-    const rowsFor = cid => `<ul class="imp-list">${idx.filter(n => r.items[n].due && !past(r.items[n])).map(n => rowOf(r.items[n], n, cid)).join("")}</ul>` + (gone.length ? `<details class="imp-group"><summary>Already Past (${gone.length})</summary><p class="mini" style="margin:0 0 8px">These dates have passed, so they're left out. Tick any you want in your planner, for example to add a mark. They're added as done.</p><ul class="imp-list">${gone.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "") + (undated.length ? `<details class="imp-group"><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "");
+    const rowsFor = cid => `<ul class="imp-list">${idx.filter(n => r.items[n].due && !past(r.items[n])).map(n => rowOf(r.items[n], n, cid)).join("")}</ul>` + (gone.length ? `<details class="imp-group"><summary>Already Past (${gone.length})</summary><p class="mini" style="margin:0 0 8px">These dates have passed, so they're left out. Tick any you want in your planner, for example to add a mark. They're added as done.</p><ul class="imp-list">${gone.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "") + (undated.length ? `<details class="imp-group"${undated.some(n => r.items[n].ph) ? " open" : ""}><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "");
     const rows = rowsFor(match ? match.id : "new");
     $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", root).forEach(x => { x.hidden = true; });
     $("#impResult").innerHTML = `
@@ -17439,7 +17487,7 @@ function importSheet(courseId, file){
         ${srcFile && caps.assets ? `<label class="mi-check"><input type="checkbox" id="impSave" checked> Save the PDF in the course's Syllabus folder</label>` : ""}
         ${r.rules && window.SBGRADES && SBGRADES.rulesText ? `<label class="mi-check imp-rules"><input type="checkbox" id="impRules" checked><span><b>Grading rules found:</b> ${esc(SBGRADES.rulesText(r.rules))}. <span class="mini">Count them in this course's grade. You can change them later in Grade Settings.</span></span></label>` : ""}
       </fieldset>
-      ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p><div id="impLists">${rows}</div>` : ""}`;
+      ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p>${(r.splits || []).filter(x => x.n >= 1).map(x => `<p class="mini imp-split">${esc(`${x.label} ${x.pct}%: ${x.n} found, so each is set to ${x.each}%. If there are more, change the weights to match.`)}</p>`).join("")}<div id="impLists">${rows}</div>` : ""}`;
     $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", root).forEach(x => { x.hidden = false; }); if (from === "pasted text") { $("#impPaste").open = true; $("#impText").focus(); } });
 
     const target = $("#impTarget");
@@ -40312,7 +40360,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         .filter(d => CATS.includes(d.cat) && d.n >= 1 && d.n <= 20 && !seen.has(d.cat) && seen.add(d.cat));
       const b = r.bonus && typeof r.bonus === "object" ? r.bonus : {};
       const got = num(b.got) ? Math.max(0, Math.min(50, Number(b.got))) : 0, pts = Math.max(got, num(b.pts) ? Math.max(0, Math.min(50, Number(b.pts))) : 0);
-      return {drops, bonus: {pts, got, src: b.src === "syllabus" ? "syllabus" : "user"}};
+      return {drops, bonus: {pts, got, src: b.src === "syllabus" || b.src === "school" ? b.src : "user"}};
     }
     // items: [{id, w, cat, fin, pct (null when unmarked)}]. A rule applies when its type has more items than it drops.
     // A drop rule on exams never drops the final exam.
@@ -40411,7 +40459,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   function pointsShares(c){
     const all = allTasks().filter(t => t.courseId === c.id && !t.prepFor);
     if (all.some(t => hasWeight(t) && !weightGuessed(t))) return null;
-    const pts = all.filter(t => ptsOf(t) > 0);
+    const pts = all.filter(t => ptsOf(t) > 0 && !bonusItem(t));
     if (!pts.length || !(all.some(weightGuessed) || pts.length >= 3)) return null;
     const sum = pts.reduce((s, t) => s + ptsOf(t), 0);
     return sum > 0 ? new Map(pts.map(t => [t.id, Math.round(ptsOf(t) / sum * 10000) / 100])) : null;
@@ -40472,6 +40520,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     return null;
   }
   const grades = () => coursesArr().map(courseGrade);
+  // Handed in and still without a mark: every counted item of each course (as its grade counts it, so the counts match), oldest
+  // first, including work finished more than two weeks ago that the board has tidied away: that's the one most worth asking about
+  const waitingOf = all => all.flatMap(gr => gr.open.filter(t => t.status === "done" && !t.archivedTerm)).sort((a, b) => doneTime(a) - doneTime(b));
+  const waitAgo = t => { const d = Math.max(0, Math.floor((Date.now() - doneTime(t)) / 864e5)); return d === 0 ? "handed in today" : d === 1 ? "handed in yesterday" : `handed in ${d} days ago`; };
   // The letter a course has now, its lowest percent, and what the rest needs to keep it
   function holdOf(gr){
     if (gr.current == null) return null;
@@ -40525,6 +40577,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const del = $("#gmDel"); if (del) del.addEventListener("click", () => save(null));
   }
   /* Paste grades from the school's Grades page */
+  const CAT_ROW = /^(quizzes|assignments|homeworks?|labs|lab reports|exams|tests|midterms|projects|readings|discussions|essays|papers|presentations|problem sets|assessments|labs? (and|&) quizzes)(\s+(sub)?total)?$/i;
   function parseBsGrades(text){
     const lines = String(text || "").split(/\r?\n/).map(l => l.replace(/\u00a0/g, " ").trim());
     const PT = /(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)/g, n = x => Number(String(x).replace(",", "."));
@@ -40536,7 +40589,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       if (ms.length && l.length <= 160) {
         const name = (l.slice(0, ms[0].index).split(/\t| {2,}/)[0].trim() || prev).replace(/\s+/g, " ");
         const got = n(ms[0][1]), outOf = n(ms[0][2]);
-        if (name && !skip.test(name) && outOf > 0 && got <= outOf * 1.5) { const w = ms[1] ? n(ms[1][2]) : 0; out.push({name: name.slice(0, 120), got, outOf, weight: w > 0 && w <= 100 ? w : 0}); prev = ""; }
+        // a category's total row ("Quizzes   17.5 / 20"): named like a category, or with no points of its own (its only score is in
+        // the Weight Achieved column). It's shown unticked: adding it would count its items twice.
+        const cols = l.split("\t"), noPts = cols.length >= 3 && !cols[1].trim() && /\d\s*\/\s*\d/.test(cols[2]);
+        if (name && !skip.test(name) && outOf > 0 && got <= outOf * 1.5) { const w = ms[1] ? n(ms[1][2]) : 0, cat = noPts || CAT_ROW.test(name); out.push(Object.assign({name: name.slice(0, 120), got, outOf, weight: w > 0 && w <= 100 && !cat ? w : 0}, cat ? {cat: true} : {})); prev = ""; }
         return;
       }
       if (!skip.test(l) && !/^[\d.,]+\s*%$/.test(l) && l.length <= 120) prev = l;
@@ -40566,7 +40622,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         const w = weightOf(i), mark = {got: it.got, outOf: it.outOf, src: "paste"};
         const t = have.find(y => key(y.title) === key(it.name));
         if (t) { const nt = clone(t); nt.mark = mark; if (w > 0) nt.weight = w; if (nt.status !== "done") { nt.status = "done"; nt.doneAt = Date.now(); nt.pct = 100; } changes.push({kind: "task", id: nt.id, after: nt}); }
-        else { const nt = newTask(Object.assign({title: it.name, courseId: cid, type: guessTaskType(it.name) === "Exam" ? "Exam" : "Assignment", due: "", status: "done", pct: 100, mark}, w > 0 ? {weight: w} : {})); changes.push({kind: "task", id: nt.id, after: nt}); }
+        else { const nt = newTask(Object.assign({title: it.name, courseId: cid, type: guessTaskType(it.name), due: "", status: "done", pct: 100, mark}, w > 0 ? {weight: w} : {})); changes.push({kind: "task", id: nt.id, after: nt}); }
       });
       dlg.close();
       applyChanges(changes, `Added ${rows.length} ${rows.length === 1 ? "grade" : "grades"}`);
@@ -40585,7 +40641,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const sumLine = () => {
       const s0 = r1(total()), el = $("#pgSum"); if (!el) return;
       el.className = "mini pg-sum" + (s0 > 100.5 ? " pg-over" : "");
-      el.textContent = s0 > 100.5 ? `Weights in this course would add up to ${s0}%, more than 100%. Check them against your course outline.` : `Weights in this course would add up to ${s0}%.${items.some((it, i) => !weightOf(i)) ? " Grades without a weight are saved but don't count toward your course grade until you add one." : ""}`;
+      el.textContent = s0 > 100.5 ? `Weights in this course would add up to ${s0}%, more than 100%. Check them against your course outline.` : `Weights in this course would add up to ${s0}%.${items.some((it, i) => !it.cat && !weightOf(i)) ? " Grades without a weight are saved but don't count toward your course grade until you add one." : ""}`;
       const n = items.filter((it, i) => { const x = dlg.querySelector(`[data-pg-on="${i}"]`); return x && x.checked; }).length, go = $("#pgGo");
       if (go) { go.disabled = !n; go.textContent = n ? `Add ${n} ${n === 1 ? "Grade" : "Grades"}` : "Add Grades"; }
     };
@@ -40598,7 +40654,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       if (!items.length) { out.innerHTML = `<p class="mini" style="margin:0">No grades found yet. Each one should look like "Assignment name  8 / 10".</p>`; sumLine(); return; }
       out.innerHTML = `<p class="mini" style="margin:0 0 6px"><b>${items.length} found.</b> Untick any you don't want, and fill in a weight if you know it.</p>
         <ul class="pg-list">${items.map((it, i) => { const t = have.find(y => key(y.title) === key(it.name)), wv = edits[i] != null ? edits[i] : it.weight ? String(it.weight) : "";
-          return `<li><label class="pg-on"><input type="checkbox" data-pg-on="${i}" checked aria-label="Add ${esc(it.name)}"></label><span class="pg-t"><b>${esc(it.name)}</b><span class="mini">${esc(r1(it.got) + " / " + r1(it.outOf))} · ${t ? "updates your task" : "new"}</span></span>
+          return `<li${it.cat ? ` class="pg-cat"` : ""}><label class="pg-on"><input type="checkbox" data-pg-on="${i}"${it.cat ? "" : " checked"} aria-label="Add ${esc(it.name)}"></label><span class="pg-t"><b>${esc(it.name)}</b><span class="mini">${esc(r1(it.got) + " / " + r1(it.outOf))} · ${it.cat ? "category total, left out" : t ? "updates your task" : `new ${esc(guessTaskType(it.name).toLowerCase())}`}</span></span>
             <label class="pg-w"><span class="sr">Weight for ${esc(it.name)}</span><input type="text" inputmode="decimal" data-pg-w="${i}" value="${esc(wv)}" placeholder="${t && hasWeight(t) ? esc(r1(Number(t.weight))) : "Weight"}" maxlength="6" autocomplete="off" data-noenter><span aria-hidden="true">%</span></label></li>`; }).join("")}</ul>
         <p class="mini pg-sum" id="pgSum" role="status"></p>`;
       sumLine();
@@ -40626,7 +40682,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (!form || !st || $("#gMarkWrap")) return;
     const fs = st.closest("fieldset");
     const wrap = document.createElement("label");
-    wrap.className = "f gr-mark-f"; wrap.id = "gMarkWrap"; wrap.dataset.tid = t ? t.id : "";
+    wrap.className = "f gr-mark-f"; wrap.id = "gMarkWrap"; wrap.dataset.tid = t ? t.id : ""; wrap.dataset.orig = markInput(t && t.mark);
     wrap.innerHTML = `<span class="lh">Mark <span class="hint">a score like 43/50, or 86%. Leave blank until you get it back.</span></span><span class="gr-mark-row"><input type="text" id="gMarkIn" inputmode="decimal" autocomplete="off" maxlength="24" value="${esc(markInput(t && t.mark))}" placeholder="e.g. 43/50"><span class="gr-mark-out" id="gMarkOut" aria-live="polite"></span></span>`;
     fs.after(wrap);
     const sync = () => {
@@ -40643,6 +40699,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   const stageMark = e => {
     const wrap = $("#gMarkWrap"), inp = $("#gMarkIn");
     if (!wrap || !inp || !dlg.open) return;
+    // An untouched Mark box saves nothing: the box shows a rounded copy, and rewriting the mark from it
+    // would drop where it came from (a school-site mark would stop getting regrades) and its "new" dot
+    if (inp.value.trim() === (wrap.dataset.orig || "").trim()) { pendingMark = null; return; }
     const v = parseMark(inp.value);
     if (!wrap.hidden && v === undefined) { e.preventDefault(); e.stopPropagation(); toast("Enter the mark like 43/50 or 86%, or leave it blank"); inp.focus(); return; }
     pendingMark = {id: wrap.dataset.tid, mark: wrap.hidden ? undefined : v};
@@ -40878,8 +40937,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const p = markPct(t);
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
-      const nw = p != null && wOf(t) == null;
-      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${inPts(t) ? `<span class="w-est" title="This course has no weights, so it's graded by points: each item counts by its share of all the points.">worth ~${fmtW(wOf(t))} (by points)</span>` : hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est" title="${esc(WEIGHT_GUESS_TIP)}">worth ~${fmtW(Number(t.weight))} (estimated)</span>` : `worth ${fmtW(Number(t.weight))}`) : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
+      const nw = p != null && wOf(t) == null && !bonusItem(t), bon = p != null && wOf(t) == null && bonusItem(t);
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : bon ? ` <span class="pill gr-nw-pill" title="Bonus on top of 100%: it counts toward the course's bonus, not as a weighted item">Bonus</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${inPts(t) ? `<span class="w-est" title="This course has no weights, so it's graded by points: each item counts by its share of all the points.">worth ~${fmtW(wOf(t))} (by points)</span>` : hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est" title="${esc(WEIGHT_GUESS_TIP)}">worth ~${fmtW(Number(t.weight))} (estimated)</span>` : `worth ${fmtW(Number(t.weight))}`) : bon ? "counts toward the course's bonus" : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -40929,7 +40988,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   }
   hook("render", () => { try { newMarkBadges(); } catch (e) { console.warn("new marks", e); } });
   window.SBGRADES_NEW = {list: newMarks, badges: newMarkBadges};
-  window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}${zeroed(gr) ? " LOOKS WRONG: every mark in this course is 0%, which usually means the marks weren't entered or came from the school site as 0; check them before treating it as failing." : ""}`)};
+  // What an item is worth, for the AI: an estimated weight is said as one, so advice built on it says so too
+  const aiWorth = t => inPts(t) ? `worth about ${fmtW(wOf(t))} (graded by points: its share of the course's points, not a weight from the school)` : weightGuessed(t) ? `worth about ${fmtW(wOf(t))} (estimated from points, not from the school)` : `worth ${fmtW(wOf(t))}`;
+  const aiEstNote = gr => gr.pts ? " WEIGHTS ARE ESTIMATES: the school site shows no weights for this course, so each item counts by its share of the points." : gr.ts.some(weightGuessed) ? ` Some weights are estimates from points, not from the school (${gr.ts.filter(weightGuessed).length} of ${gr.ts.length}).` : "";
+  window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}${aiEstNote(gr)}${zeroed(gr) ? " LOOKS WRONG: every mark in this course is 0%, which usually means the marks weren't entered or came from the school site as 0; check them before treating it as failing." : ""}`)};
   // For the course cards and a course's header
   window.SBGRADES.schoolPass = list => {
     const u = [...new Set((list || []).filter(isNum).map(Number))];
@@ -40937,11 +40999,12 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     saveG({pass: r1(u[0]), passSrc: "school"}); scheduleRender();
   };
   // Every piece of work with a mark, for the AI: the same marks the Grade Tracker uses
-  window.SBGRADES.items = () => allTasks().filter(t => markPct(t) != null && !t.prepFor).map(t => {
-    const c = courseOf(t.courseId), pct = markPct(t);
-    return {id: t.id, title: t.title, type: t.type, course: c ? courseLabel(c) : "", due: t.due || "", weight: hasWeight(t) ? Number(t.weight) : null, pct: r1(pct), mark: fmtMark(t.mark), letter: c ? letterOf(pct, gradingOf(c).scale) : ""};
-  });
-  window.SBGRADES.waiting = () => tasksArr().filter(t => t.status === "done" && hasWeight(t) && markPct(t) == null && !t.prepFor).map(t => ({title: t.title, course: courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", weight: Number(t.weight)}));
+  // (weightEst: the weight is an estimate from points, not from the school or syllabus, so the AI says so)
+  window.SBGRADES.items = () => { try { grades(); } catch (e) {} return allTasks().filter(t => markPct(t) != null && !t.prepFor).map(t => {
+    const c = courseOf(t.courseId), pct = markPct(t), w = wOf(t);
+    return {id: t.id, title: t.title, type: t.type, course: c ? courseLabel(c) : "", due: t.due || "", weight: w != null ? r1(w) : null, weightEst: w != null && (inPts(t) || weightGuessed(t)), pct: r1(pct), mark: fmtMark(t.mark), letter: c ? letterOf(pct, gradingOf(c).scale) : ""};
+  }); };
+  window.SBGRADES.waiting = () => waitingOf(grades()).map(t => ({title: t.title, course: courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", weight: wOf(t), ago: waitAgo(t)}));
   window.SBGRADES.goalHtml = c => { try { const gr = courseGrade(c); return gr.ts.length ? goalField(c, gr) : ""; } catch (e) { return ""; } };
   window.SBGRADES.now = c => { try { const gr = courseGrade(c); if (!gr.ts.length) return null; return {pct: gr.current, letter: gr.current != null ? letterOf(gr.current, gr.g.scale) : "", marked: gr.wMarked, fmt: fmtP, line: gradeLine(gr), risk: gr.risk, done: gr.done}; } catch (e) { return null; } };
   // The Grades tab of one course
@@ -40949,8 +41012,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const gr = courseGrade(c), g = gr.g, L = p => letterOf(p, g.scale);
     const settingsBtn = `<button class="btn small" data-act="g-paste" data-id="${esc(c.id)}">Paste Grades</button> <button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Grade Settings</button>`;
     // marks on work with no grade weight yet (like a quiz mark that isn't on the school site's Grades page): listed, not counted
-    const loose = gr.loose;
-    const looseNote = loose.length ? `<p class="mini gr-nw-note" style="margin:6px 0 0">${loose.length === 1 ? "The mark" : `The ${loose.length} marks`} marked <b>No weight yet</b> ${loose.length === 1 ? "isn't" : "aren't"} counted in your course grade. ${loose.length === 1 ? "It counts" : "They count"} as soon as ${loose.length === 1 ? "it has" : "they have"} a weight: from your school site's Grades page when it's posted there, from the syllabus, or added by you (Advanced Settings).</p>` : "";
+    const loose = gr.loose, nwN = loose.filter(t => !bonusItem(t)).length;
+    const looseNote = nwN ? `<p class="mini gr-nw-note" style="margin:6px 0 0">${nwN === 1 ? "The mark" : `The ${nwN} marks`} marked <b>No weight yet</b> ${nwN === 1 ? "isn't" : "aren't"} counted in your course grade. ${nwN === 1 ? "It counts" : "They count"} as soon as ${nwN === 1 ? "it has" : "they have"} a weight: from your school site's Grades page when it's posted there, from the syllabus, or added by you (Advanced Settings).</p>` : "";
     if (!gr.ts.length && loose.length) return `<section class="gr-card" aria-label="Grades"><div class="gr-headrow"><h3>Your Marks</h3><span class="spacer"></span>${settingsBtn}</div><div class="gr-sub"><h4>Marked <span class="n">${loose.length}</span></h4><ul class="gr-work">${gradeRows(loose)}</ul>${looseNote}</div><p class="mini" style="margin:8px 0 0">Pass mark: <b>${fmtP(g.pass)}</b>.</p></section>`;
     if (!gr.ts.length) return `<section class="gr-card gr-empty" aria-label="Grades"><p style="margin:0">Add a <b>Grade Weight</b> to assignments, quizzes and exams (in Advanced Settings on each task) to track your grade and see what you need on the rest. Pass mark: <b>${fmtP(g.pass)}</b>.</p><div class="gr-acts">${settingsBtn}</div></section>`;
     const marked = gr.ts.filter(t => markPct(t) != null), unmarked = gr.ts.filter(t => markPct(t) == null);
@@ -41213,9 +41276,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const risk = {risk: "pass mark at risk", watch: "close to the pass mark", out: "pass mark out of reach"}[gr.risk];
       const head = `COURSE ${courseLabel(c)}${c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : ""}${isNum(c.credits) ? ", " + fmtCr(c.credits) + " credits" : ""}: `
         + (gr.current != null ? `current ${fmtP(gr.current)}${Lt(gr.current)} on ${fmtW(gr.wMarked)} of the course marked; ${gr.final ? "final" : gr.done ? "everything listed so far is marked (not final: classes aren't over, more marks may come); so far" : "projected final"} ${fmtP(finalOf(gr))}${Lt(finalOf(gr))}; possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}` : "no marks yet")
-        + `; pass mark ${fmtP(g.pass)}${g.goal != null ? "; goal " + fmtP(g.goal) : ""}${risk ? "; " + risk : ""}. ${gradeLine(gr)}${rulesText(gr.R) ? " Grading rules: " + rulesText(gr.R) + "." : ""}`;
-      const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(wOf(t))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
-      const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(wOf(t))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
+        + `; pass mark ${fmtP(g.pass)}${g.goal != null ? "; goal " + fmtP(g.goal) : ""}${risk ? "; " + risk : ""}. ${gradeLine(gr)}${rulesText(gr.R) ? " Grading rules: " + rulesText(gr.R) + "." : ""}${aiEstNote(gr)}`;
+      const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, ${aiWorth(t)}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
+      const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, ${aiWorth(t)}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
       L.push(head + (zeroed(gr) ? "\n  LOOKS WRONG: every mark in this course is 0%, which almost always means the marks weren't entered or the school site sent ungraded work as 0. Don't treat it as a real failing grade." : "") + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
     });
     return L.join("\n");
@@ -41227,7 +41290,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     ui.gpAi = {kind, busy: true}; render();
     try {
       const r = await aiCall({task: "coach", fast: true, maxTokens: 1600, temperature: 0.4, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
-        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Look at every course, including finished ones. If a course is marked LOOKS WRONG, or a mark is far out of line with the rest, say that first and suggest checking those marks, instead of skipping it or treating it as a real result. Remember a course whose grade says final can no longer change, so effort goes to courses with work still to come; a course with everything listed marked but not final may still get more marks. Use only the numbers, items and dates given, and never invent marks, dates or grading rules. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
+        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Look at every course, including finished ones. If a course is marked LOOKS WRONG, or a mark is far out of line with the rest, say that first and suggest checking those marks, instead of skipping it or treating it as a real result. Remember a course whose grade says final can no longer change, so effort goes to courses with work still to come; a course with everything listed marked but not final may still get more marks. Use only the numbers, items and dates given, and never invent marks, dates or grading rules. When advice depends on a weight marked as an estimate (or a course graded by points), say it's an estimate and suggest checking the syllabus. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
       const pts = ((r && r.data && r.data.points) || []).map(s => String(s || "").replace(/\s*[—–]\s*/g, ", ").replace(/^[\s•*-]+/, "").trim()).filter(Boolean).slice(0, 6);
       ui.gpAi = pts.length ? {kind, pts} : {kind, err: "The AI didn't send anything back. Try again."};
     } catch (e) { ui.gpAi = {kind, err: (e && e.message) || "Couldn't reach the AI right now. Try again in a moment."}; }
@@ -41266,7 +41329,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   const GP_CAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>';
   function gradesPage(){
     const all = grades(), s = gset();
-    const waiting = tasksArr().filter(t => t.status === "done" && hasWeight(t) && !t.mark && !t.prepFor).sort(sortTasks);
+    const waiting = waitingOf(all);
     const withMarks = all.filter(gr => gr.current != null), atRisk = all.filter(gr => gr.risk).length;
     const toCome = all.reduce((n, gr) => n + gr.open.length, 0) - waiting.length;
     const S = termStats(all), avg = S.avg;
@@ -41314,7 +41377,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         <button class="icon-btn gp-tog" data-act="gp-toggle" data-id="${esc(c.id)}" aria-expanded="${!!(ui.gpOpen && ui.gpOpen[c.id])}" aria-controls="gpd-${esc(c.id)}" aria-label="Marks and What Do I Need for ${esc(c.name)}" title="Marks and What Do I Need?"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
         <button class="icon-btn" data-act="g-course-set" data-id="${esc(c.id)}" aria-label="Grade settings for ${esc(c.name)}" title="Grade Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>${detailOf(gr)}</li>`;
     }).join("");
-    const wait = waiting.length ? `<h3 class="fsec">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 12).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${esc(fmtW(Number(t.weight)))}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">Add Mark</button></li>`; }).join("")}</ul>` : "";
+    const wait = waiting.length ? `<h3 class="fsec">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${esc(fmtW(wOf(t)))}, ${waitAgo(t)}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">Add Mark</button></li>`; }).join("")}</ul>` : "";
     return `<section class="gp" aria-label="Grades"><div class="view-head"><h2>Grades</h2>${proBtns("grades")}<button type="button" class="btn small pro-tab-btn" data-act="gp-opts" title="Default pass mark, GPA scale and other grade settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Options</span></button></div>
       <div class="gp-hero">${hero}${gpaStrip(S)}<ul class="gp-list">${rows}</ul></div>${low}${wait}${comingUpHtml(all)}${aiHtml(all)}${histHtml(S)}
       </section>`;
@@ -41744,7 +41807,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if ((bp && (!isNum(bp) || Number(bp) < 0 || Number(bp) > 50)) || (bg && (!isNum(bg) || Number(bg) < 0 || Number(bg) > 50))) { toast("Enter bonus points between 0 and 50"); return false; }
     const pts = bp ? Number(bp) : 0, got = bg ? Number(bg) : 0;
     if (got > pts && pts > 0) { toast("Bonus earned can't be more than the bonus available"); return false; }
-    const bonus = pts > 0 || got > 0 ? {pts: Math.max(pts, got), got, src: pts === old.bonus.pts && old.bonus.src === "syllabus" ? "syllabus" : "user"} : null;
+    const bonus = pts > 0 || got > 0 ? {pts: Math.max(pts, got), got, src: pts === old.bonus.pts && (old.bonus.src === "syllabus" || (old.bonus.src === "school" && got === old.bonus.got)) ? old.bonus.src : "user"} : null;
     return drops.length || bonus ? {drops, bonus} : null;
   }
   // The scale boxes
@@ -41783,7 +41846,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   /* Grades sheet (from Settings and the Courses page) */
   function gradesSheet(){
     const all = grades();
-    const waiting = tasksArr().filter(t => t.status === "done" && hasWeight(t) && !t.mark && !t.prepFor).sort(sortTasks);
+    const waiting = waitingOf(all);
     const s = gset();
     const rows = all.map(gr => {
       const c = gr.c, g = gr.g, L = p => letterOf(p, g.scale);
@@ -41797,7 +41860,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <div class="sheet-body">
         <p class="mini" style="margin:0">Your grade on the work marked so far, and what you need on the rest. Tap a course for the full picture.</p>
         ${all.length ? `<ul class="gs-list">${rows}</ul>` : `<div class="empty"><strong>No Courses Yet</strong>Add your courses first.</div>`}
-        ${waiting.length ? `<h3 class="fsec" style="margin:4px 0 0">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 12).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${fmtW(Number(t.weight))}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}" data-back="grades">Add Mark</button></li>`; }).join("")}</ul>` : ""}
+        ${waiting.length ? `<h3 class="fsec" style="margin:4px 0 0">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${esc(fmtW(wOf(t)))}, ${waitAgo(t)}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}" data-back="grades">Add Mark</button></li>`; }).join("")}</ul>` : ""}
         <h3 class="fsec" style="margin:4px 0 0">Options</h3>
         <div class="menu-list">
           <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>${gpaOpt()}
@@ -43059,6 +43122,8 @@ function cleanFile(r) {
   const sharedN = (a, b) => { const B = words(b); let n = 0; words(a).forEach(w => { if (w.length > 2 && !/^\d+$/.test(w) && !["assignment", "due", "with", "the", "and", "for"].includes(w) && B.has(w)) n++; }); return n; };
   const likeN = (a, b) => sharedN(a, b) + (titleKey(b).includes(titleKey(a)) || titleKey(a).includes(titleKey(b)) ? 2 : 0);
   const EXAMY = /\b(quiz|test|exam|midterm|final|assessment)\b/i;
+  // A grade item marked as bonus (Brightspace's IsBonus, when the read passes it on) or named as extra credit
+  const bonusGrade = g => !!g && (g.bonus === true || g.IsBonus === true || /\b(bonus|extra[\s-]?credit)\b/i.test(String(g.name || "")));
   function bsFromApi(h){
     const origin = h.origin || "", out = {src: "api", origin, name: (h.me && h.me.name) || "", courses: [], recs: [], evs: [], grades: [], finals: {}, news: [], synced: []};
     const subNotes = (h.courses || []).map(c => typeof c.subNote === "string" ? c.subNote.slice(0, 160) : "").filter(Boolean);
@@ -43121,9 +43186,14 @@ function cleanFile(r) {
         out.evs.push({ou: c.ou, key: c.ou + "|" + titleKey(ct.title) + "|" + s.date + (e.allDay ? "" : "|" + s.time), title: ct.title, date: s.date, allDay: !!e.allDay, start: e.allDay ? "" : s.time, end: e.allDay || !en ? "" : en.date === s.date ? en.time : "23:59",
           endDate: e.allDay && en && en.date > s.date ? addDays(en.date, -1) : "", where: e.where || "", notes: e.text || "", url: absUrl(origin, e.url)});
       });
-      const num = (c.grades || []).filter(g => (g.type === 1 || g.type === 3) && g.name);
+      const all = (c.grades || []).filter(g => (g.type === 1 || g.type === 3) && g.name);
+      // Bonus and extra-credit items sit on top of the 100%: they count only toward the course's bonus, so the real weights of
+      // the rest are kept even when everything adds up to more than 100%
+      const num = all.filter(g => !bonusGrade(g));
       const wsum = num.reduce((s, g) => s + (isNum(g.wden) ? Number(g.wden) : 0), 0);
       const weighted = wsum > 0 && wsum <= 100.5;
+      all.filter(bonusGrade).forEach(g => out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null,
+        weight: null, wPts: false, bonus: true, bw: weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : null, shown: g.shown || "", at: g.at || null, fb: g.fb || null}));
       // No weights to see: each item's share of the course's points. The grades list often holds only items with a mark, so graded work
       // missing from it (an assignment or quiz tied to a grade item) is counted too, and when its points aren't known no share is guessed.
       const inList = new Set((c.grades || []).map(g => String(g.gid || "")));
@@ -43691,13 +43761,28 @@ function cleanFile(r) {
       // a share worked out from points that no longer holds (more of the course turned up) is taken back, unless you changed it
       const untouched = lastW !== undefined && lastW !== null && Number(n.weight) === Number(lastW);
       if (g.weight == null && lastPts && untouched) { n.weight = null; changed = true; }
-      if (g.weight != null && (n.weight == null || n.weight === "" || untouched) && Number(n.weight) !== g.weight) { n.weight = g.weight; changed = true; }
+      if (g.weight != null && (n.weight == null || n.weight === "" || untouched) && Number(n.weight) !== g.weight && !(g.wPts && n[F] && n[F].last && n[F].last.sylW)) { n.weight = g.weight; changed = true; }
       const keepW = g.weight, wp = g.weight != null && !!g.wPts;
       if (n[F]) { n[F] = Object.assign({}, n[F], {gid: n[F].gid || g.gid, last: Object.assign({}, n[F].last || {}, {weight: keepW, wPts: wp})}); }
       else { n[F] = {key: n.id.startsWith(F + "_") ? key : "", ou: g.ou, gid: g.gid, last: {weight: g.weight, wPts: wp}, gradeOnly: true}; changed = true; }
+      // a bonus item counts only toward the course's bonus (below), never as a weighted item or by its points
+      if (!!g.bonus !== !!n[F].bonus) { n[F] = Object.assign({}, n[F]); if (g.bonus) n[F].bonus = true; else delete n[F].bonus; changed = true; }
       if (g.fb && JSON.stringify(n[F].fb || null) !== JSON.stringify(g.fb)) { n[F] = Object.assign({}, n[F], {fb: g.fb}); changed = true; }
       if (changed || !cur("task", n.id)) put("task", normTask(n));
     });
+    // The school site's bonus items, as each course's bonus ("up to 5% bonus, 3% earned"). A bonus you set yourself stays.
+    if (o.grades) {
+      const bon = {};
+      data.grades.forEach(g => { if (!g.bonus || !(g.bw > 0)) return; const b = bon[g.ou] || (bon[g.ou] = {pts: 0, got: 0}); b.pts += g.bw; if (g.got != null && g.outOf > 0) b.got += Math.min(g.bw, g.got / g.outOf * g.bw); });
+      Object.keys(bon).forEach(ou => {
+        const cid = courseFor(ou), ex = cid && cur("course", cid); if (!ex) return;
+        const gd = ex.grading || {}, R = gd.rules || {}, ob = R.bonus || null, r2 = v => Math.round(Math.min(50, v) * 100) / 100;
+        if (ob && ob.src !== "school" && (Number(ob.pts) > 0 || Number(ob.got) > 0)) return;
+        const nb = {pts: r2(bon[ou].pts), got: r2(bon[ou].got), src: "school"};
+        if (ob && Number(ob.pts) === nb.pts && Number(ob.got) === nb.got && ob.src === "school") return;
+        const nc = clone(ex); nc.grading = Object.assign({}, gd, {rules: Object.assign({}, R, {bonus: nb})}); put("course", nc);
+      });
+    }
     if (data.src === "api") data.courses.forEach(bc => {
       const m = map[bc.ou]; if (!m || m === "skip") return;
       const cid = m === "new" ? (cur("course", F + "c_" + hid(bc.ou)) ? F + "c_" + hid(bc.ou) : null) : m;
@@ -43718,8 +43803,9 @@ function cleanFile(r) {
         b.syl[P.id + "|" + bc.ou] = {text: syl, url: bc.sylUrl || "", at: Date.now()}; saveBulk();
         meta.syl = {n: syl.length, url: bc.sylUrl || ""};
         const sig = hid(syl);
-        if (meta.sylSig !== sig || !Array.isArray(meta.sylWts)) {
-          meta.sylSig = sig;
+        // (sylV 2: every named line of the breakdown, not only the exams; read again once for syllabi read before)
+        if (meta.sylSig !== sig || !Array.isArray(meta.sylWts) || meta.sylV !== 2) {
+          meta.sylSig = sig; meta.sylV = 2;
           let r = null; try { r = SY.parse(syl, todayISO()); } catch(e) { r = null; }
           const sc = r && r.course;
           if (sc) {
@@ -43729,22 +43815,28 @@ function cleanFile(r) {
             if (!nc.schedule && sc.schedule && !(nc.meetings || []).length) nc.schedule = sc.schedule;
             if (!(nc.meetings || []).length) { const ms = parseMeetings(sc.schedule, "Lecture", nc.room || sc.room).concat(parseMeetings(sc.office, "Office Hours")); if (ms.length) { nc.meetings = ms; rep.meet = (rep.meet || 0) + 1; } }
           }
-          meta.sylWts = ((r && r.items) || []).filter(it => it.weight > 0 && it.title).slice(0, 60).map(it => ({t: String(it.title).slice(0, 160), w: Number(it.weight)}));
+          meta.sylWts = ((r && r.items) || []).filter(it => it.weight > 0 && it.title && !it.ph).slice(0, 60).map(it => ({t: String(it.title).slice(0, 160), w: Number(it.weight)}));
           // the breakdown's one midterm and one final ("Midterm Exam 30%", "Final Exam 40%") when no dated item carries them
           const bt = (r && r.byType) || {}, one = w => w && w.pct > 0 && w.pct <= 100 && (w.count == null || w.count <= 1) && w.each == null ? Number(w.pct) : null;
           if (one(bt.Exam) != null && !meta.sylWts.some(x => /midterm|mid-term/i.test(x.t))) meta.sylWts.push({t: "Midterm Exam", w: one(bt.Exam), kind: "mid"});
           if (one(bt.Final) != null && !meta.sylWts.some(x => /final/i.test(x.t))) meta.sylWts.push({t: "Final Exam", w: one(bt.Final), kind: "final"});
+          // every other named line of the breakdown ("Lab Report 15%", "Term Essay 20%"), matched to a task by name like the dated items
+          // (an exam line the course's only midterm or final already takes is left to that)
+          (SY.breakdown ? SY.breakdown(syl) : []).forEach(x => {
+            if (meta.sylWts.some(y => titleKey(y.t) === titleKey(x.t)) || (EXAMY.test(x.t) && meta.sylWts.some(y => y.kind && (y.kind === "final") === /\bfinal\b/i.test(x.t)))) return;
+            if (meta.sylWts.length < 80) meta.sylWts.push({t: x.t.slice(0, 160), w: x.w});
+          });
         }
         // The syllabus's weights, every sync, for tasks with none yet (each task once, so a weight you clear stays cleared).
         // "Midterm Exam" in the syllabus is the "Midterm Exam- Requires Respondus LockDown Browser" quiz.
         const doneW = new Set(meta.sylDone || []);
         (meta.sylWts || []).forEach(it => {
           const pool = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && x.after && !state.tasks[x.id]).map(x => x.after))
-            .filter(t => t && t.courseId === cid && (t.weight == null || t.weight === "") && !t.prepFor && !t.breakdownOf && !doneW.has(t.id));
+            .filter(t => t && t.courseId === cid && (t.weight == null || t.weight === "" || weightGuessed(t)) && !t.prepFor && !t.breakdownOf && !doneW.has(t.id));
           // a breakdown line, not a named item: the course's only exam of that kind
           if (it.kind) { const ex = pool.filter(t => t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title));
-            const all = allTasks().filter(t => t.courseId === cid && t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title) && !(t[F] && t[F].item === false));
-            if (ex.length === 1 && all.length === 1) { const n = clone(ex[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1; }
+            const all = allTasks().map(t => cur("task", t.id) || t).concat(ch.filter(x => x.kind === "task" && x.after && !state.tasks[x.id]).map(x => x.after)).filter(t => t && t.courseId === cid && t.type === "Exam" && (it.kind === "final" ? /\bfinal\b/i.test(t.title) : !/\bfinal\b/i.test(t.title)) && !/practice|mock|review/i.test(t.title) && !(t[F] && t[F].item === false));
+            if (ex.length === 1 && all.length === 1) { const n = clone(ex[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w, wPts: false, sylW: true})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1; }
             return; }
           const k = titleKey(it.t), ex = EXAMY.test(it.t);
           const exact = pool.filter(t => titleKey(t.title) === k);
@@ -43752,7 +43844,7 @@ function cleanFile(r) {
           // several fit (the exam, and its calendar copy): the school site's own item, the one with a mark, then the exact name
           [t => t[F] && t[F].item === true, t => !!t.mark, t => exact.includes(t)].forEach(f => { if (hit.length > 1 && hit.filter(f).length >= 1) hit = hit.filter(f); });
           if (hit.length !== 1) return;
-          const n = clone(hit[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1;
+          const n = clone(hit[0]); n.weight = it.w; if (n[F]) n[F] = Object.assign({}, n[F], {last: Object.assign({}, n[F].last || {}, {weight: it.w, wPts: false, sylW: true})}); put("task", normTask(n)); doneW.add(n.id); rep.sylW = (rep.sylW || 0) + 1;
         });
         if (doneW.size) meta.sylDone = [...doneW].slice(-300);
       }
@@ -69344,7 +69436,8 @@ window.SBLOCALANS = (() => {
     try {
       const G = window.SBGRADES, gl = G && G.lines ? G.lines() : [], gi = G && G.items ? G.items() : [];
       if (gl.length) L.push("COURSE GRADES (the student's standing in each course):\n" + gl.map(x => "- " + x).join("\n"));
-      if (gi.length) L.push("GRADES, one per marked item (ref | item | course | type | mark | percent | worth):\n" + gi.slice(0, 300).map(x => `${ref("G", {kind: "grade", id: x.id})} | ${clip(x.title, 90)} | ${clip(x.course, 30)} | ${x.type} | ${x.mark} | ${x.pct}%${x.letter ? " (" + x.letter + ")" : ""} | ${x.weight != null ? "worth " + x.weight + "%" : "no weight"}`).join("\n"));
+      if (gi.length) L.push("GRADES, one per marked item (ref | item | course | type | mark | percent | worth):\n" + gi.slice(0, 300).map(x => `${ref("G", {kind: "grade", id: x.id})} | ${clip(x.title, 90)} | ${clip(x.course, 30)} | ${x.type} | ${x.mark} | ${x.pct}%${x.letter ? " (" + x.letter + ")" : ""} | ${x.weight != null ? (x.weightEst ? "about " + x.weight + "% (estimated from points, not from the school)" : "worth " + x.weight + "%") : "no weight"}`).join("\n"));
+      if (gi.some(x => x.weightEst) || gl.some(x => /ESTIMATES|estimates from points/.test(x))) L.push(EST_W_NOTE);
     } catch (e) { console.warn("assist grades", e); }
     // decks, quizzes, and the cards of the deck on screen
     const ds = decksArr();
@@ -76158,7 +76251,7 @@ function itemHtml(it, ws, mv, today){
   const c = t.courseId && courseOf(t.courseId), dl = dayDiff(today, t.due);
   const prep = it.kind === "prep";
   const left = it.hours > 0 ? `about ${fmtHM(it.hours)} of work${it.est ? "" : " (typical estimate)"}` : "";
-  const bits = [c ? courseLabel(c) : "", `due ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, hasWeight(t) ? `${Number(t.weight)}% of grade` : "", t.status === "doing" ? "in progress" : ""].filter(Boolean);
+  const bits = [c ? courseLabel(c) : "", `due ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, (sw => sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of grade` : "")(shownWeight(t)), t.status === "doing" ? "in progress" : ""].filter(Boolean);
   const canStart = dl >= 0 && canDoNow(t);
   // an upcoming exam or quiz: open its Exam Prep planner from here (like the task sheet's button)
   const prepBtn = MILESTONE(t.type) && dl > 0 && t.status !== "done" ? (ps => `<button type="button" class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : "";

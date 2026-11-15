@@ -86,7 +86,8 @@ window.SBLOCALANS = (() => {
     try {
       const G = window.SBGRADES, gl = G && G.lines ? G.lines() : [], gi = G && G.items ? G.items() : [];
       if (gl.length) L.push("COURSE GRADES (the student's standing in each course):\n" + gl.map(x => "- " + x).join("\n"));
-      if (gi.length) L.push("GRADES, one per marked item (ref | item | course | type | mark | percent | worth):\n" + gi.slice(0, 300).map(x => `${ref("G", {kind: "grade", id: x.id})} | ${clip(x.title, 90)} | ${clip(x.course, 30)} | ${x.type} | ${x.mark} | ${x.pct}%${x.letter ? " (" + x.letter + ")" : ""} | ${x.weight != null ? "worth " + x.weight + "%" : "no weight"}`).join("\n"));
+      if (gi.length) L.push("GRADES, one per marked item (ref | item | course | type | mark | percent | worth):\n" + gi.slice(0, 300).map(x => `${ref("G", {kind: "grade", id: x.id})} | ${clip(x.title, 90)} | ${clip(x.course, 30)} | ${x.type} | ${x.mark} | ${x.pct}%${x.letter ? " (" + x.letter + ")" : ""} | ${x.weight != null ? (x.weightEst ? "about " + x.weight + "% (estimated from points, not from the school)" : "worth " + x.weight + "%") : "no weight"}`).join("\n"));
+      if (gi.some(x => x.weightEst) || gl.some(x => /ESTIMATES|estimates from points/.test(x))) L.push(EST_W_NOTE);
     } catch (e) { console.warn("assist grades", e); }
     // decks, quizzes, and the cards of the deck on screen
     const ds = decksArr();

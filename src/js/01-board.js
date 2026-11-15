@@ -141,10 +141,24 @@ const weightGuessed = t => hasWeight(t) && ["bs", "cv", "bb", "md", "sg", "gc"].
 const WEIGHT_GUESS_TIP = "Your school site didn't show a weight for this, so Studyboard split the course by points. Check your syllabus and type in the real weight.";
 // The note above a list of marks when some weights are estimates
 const weightGuessNote = list => { const n = list.filter(weightGuessed).length; return n ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>${n === 1 ? "1 weight is an estimate" : n + " weights are estimates"}.</b> Your school site didn't show ${n === 1 ? "a weight for it" : "weights for them"}, so Studyboard split the course by points. Numbers in red may be wrong: check your syllabus and tap an item to type in the real weight.</span></div>` : ""; };
-const weightOf = t => hasWeight(t) && !(weightGuessed(t) && PTS_W[t.id]) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
+// An exam's study entry ranks by the exam's weight (rankW), but never shows it as its own: see shownWeight
+const weightOf = t => t.xs && isNum(t.rankW) ? Number(t.rankW) : hasWeight(t) && !(weightGuessed(t) && PTS_W[t.id]) ? Number(t.weight) : t.prepFor && state.tasks[t.prepFor] ? Math.max(typeDef(t).w, weightOf(state.tasks[t.prepFor]) * 0.5) : (PTS_W[t.id] || typeDef(t).w);
+// The weight to tell the student: one typed in, from the syllabus or the school site, or split from the site's points (est).
+// Never the type defaults above, which only help rank work. A study session says its exam's weight. {w, est, pts} or null.
+function shownWeight(t){
+  if (!t) return null;
+  const ex = t.xs ? state.tasks[t.xs.id] : t.prepFor ? state.tasks[t.prepFor] : null;
+  if (t.xs || t.prepFor) return ex && ex !== t && !ex.prepFor ? shownWeight(ex) : null;
+  if (hasWeight(t)) return weightGuessed(t) && PTS_W[t.id] ? {w: PTS_W[t.id], est: true} : {w: Number(t.weight), est: weightGuessed(t)};
+  return PTS_W[t.id] ? {w: PTS_W[t.id], est: true, pts: true} : null;
+}
+// The same for the AI: "worth 20% of grade", "about 33% of grade (estimated from points, not from the school)", or ""
+const weightForAi = t => { const s = shownWeight(t); return !s ? "" : `${s.est ? "about " : "worth "}${Math.round(s.w * 10) / 10}% of grade${s.est ? " (estimated from points, not from the school)" : ""}${t.xs || t.prepFor ? " (the exam's weight)" : ""}`; };
 
 /* What the planner knows beyond the task itself (1.11) - School sync */
 const lmsOf = t => (t && (t.bs || t.cv || t.bb || t.md || t.sg || t.gc)) || null;
+// A school-site bonus item: it counts only toward the course's bonus, never as weighted work or by its points (95-lms.js)
+const bonusItem = t => !!(lmsOf(t) && lmsOf(t).bonus);
 // Difficulty: yours when you've set Easy or Hard
 const diffOf = t => t.difficulty && t.difficulty !== "med" ? t.difficulty : autoPlanOn() && t.aiDiff && autoFresh(t.aiDiff, 14) ? t.aiDiff.level : (t.difficulty || "med");
 // Late policy: yours if you set one, otherwise what the platform's submission window says
@@ -161,7 +175,7 @@ function pointsWeights(){
   const by = {}, out = {};
   // weights that were themselves worked out from points (estimated) don't count as the course having weights: those were split over
   // the school site's Grades page alone, so the course is shared out by all the points known here instead (as on Grades, 90-grades.js)
-  allTasks().forEach(t => { if (!t.courseId || t.prepFor) return; const b = by[t.courseId] || (by[t.courseId] = {weighted: 0, guessed: 0, items: []}); if (hasWeight(t)) { if (weightGuessed(t)) b.guessed++; else b.weighted++; }
+  allTasks().forEach(t => { if (!t.courseId || t.prepFor || bonusItem(t)) return; const b = by[t.courseId] || (by[t.courseId] = {weighted: 0, guessed: 0, items: []}); if (hasWeight(t)) { if (weightGuessed(t)) b.guessed++; else b.weighted++; }
     const L = lmsOf(t), m = t.mark, o = L && Number(L.outOf) > 0 ? Number(L.outOf) : m && ["bs", "cv", "bb", "md", "sg", "gc"].includes(m.src) && Number(m.outOf) > 0 ? Number(m.outOf) : 0; if (o > 0) b.items.push([t.id, o]); });
   Object.values(by).forEach(b => { if (b.weighted || (b.items.length < 3 && !b.guessed)) return; const sum = b.items.reduce((s, x) => s + x[1], 0); if (sum > 0) b.items.forEach(([id, o]) => { out[id] = Math.max(0.5, Math.min(60, o / sum * 100)); }); });
   return out;
@@ -305,7 +319,7 @@ function examStudyTasks(today){
     const h = eff * (1 - Math.max(L.p, Math.min(1, fm / Math.max(eff, 0.25))));
     if (!(h >= 0.25)) return;
     out.push({id: XS_ID + ex.id, title: "Study for " + ex.title, type: "Study", courseId: ex.courseId || "", due: ex.due, time: ex.time || "", start: addDays(ex.due, -L.days),
-      status: "todo", priority: ex.priority || "med", hours: Math.round(h * 4) / 4, weight: weightOf(ex), difficulty: ex.difficulty || "med", late: "unknown", notes: "",
+      status: "todo", priority: ex.priority || "med", hours: Math.round(h * 4) / 4, rankW: weightOf(ex), difficulty: ex.difficulty || "med", late: "unknown", notes: "",
       checklist: [], dependsOn: [], history: ex.history || [], focusMin: 0, pct: 0, prepFor: ex.id, xs: {id: ex.id, lead: L}});
   });
   return out;
@@ -611,10 +625,10 @@ function computeFocusNow(){
   const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && !x.past && !x.dead);
   const pct = n => Math.round(n * 10) / 10;
   Object.values(info).forEach(x => {
-    const t = x.t, r = [];
+    const t = x.t, r = [], sw = shownWeight(t), SW = sw && !(t.xs || t.prepFor) ? sw.w : 0;
     const luD = x.lateUntil ? x.lateUntil.slice(0, 10) : "", luT = x.lateUntil ? x.lateUntil.slice(11) : "";
     const pd = Math.round(latePenOf(t) * 100), typ = hasLatePen(t) ? "" : ` (at a typical ${pd}% a day)`;
-    const penTxt = hasLatePen(t) ? `Loses ${pd}% a day${x.W ? `, about ${pct(x.W * latePenOf(t))}% of your grade` : ""}` : x.W ? `Each day late costs about ${pct(x.W * latePenOf(t))}% of your grade${typ}` : `Late work loses about ${pd}% a day`;
+    const penTxt = hasLatePen(t) ? `Loses ${pd}% a day${SW ? `, about ${pct(SW * latePenOf(t))}% of your grade` : ""}` : SW ? `Each day late costs about ${pct(SW * latePenOf(t))}% of your grade${typ}` : `Late work loses about ${pd}% a day`;
     if (x.dead) r.push([100, `Past due, and late work isn't accepted. It isn't in today's plan: talk to your instructor if you still want to hand it in`]);
     else if (x.past && x.dl === 0 && t.time) r.push([100, `Was due at ${fmtTime(t.time)} today${x.late === "free" ? ", and late work is accepted" : ""}`]);
     else if (x.past) r.push([100, luD ? `Overdue. Late submissions close ${fmtDate(luD)}${luT && luT !== "23:59" ? " at " + fmtTime(luT) : ""}` : `Overdue by ${-x.dl} day${x.dl === -1 ? "" : "s"}`]);
@@ -640,8 +654,10 @@ function computeFocusNow(){
     { const xr = MILESTONE(t.type) ? examReadiness(t) : t.xs && state.tasks[t.xs.id] ? examReadiness(state.tasks[t.xs.id]) : null;
       if (xr && xr.gap) r.push([88, xr.gap > 0 ? `You feel ${xr.self}% ready, but your flashcards and quizzes say about ${xr.measured}%` : `Your flashcards and quizzes say about ${xr.measured}%, more than the ${xr.self}% you feel`]); }
     if (t.dueFor) { const d = state.tasks[t.dueFor] || info[t.dueFor] && info[t.dueFor].t; r.push([85, `No due date, but ${d ? d.title : "another task"} needs it first, so aim to finish by ${fmtDate(t.due)}`]); }
-    // a weight the school site didn't give (split from points or guessed) is said as "About"
-    if (hasWeight(t) || x.W >= 10 || PTS_W[t.id]) { const sure = hasWeight(t) && !weightGuessed(t); r.push([50 + x.W, `${sure ? "" : "About "}${Math.round(x.W * 10) / 10}% of your grade${!hasWeight(t) && PTS_W[t.id] ? " (from its points)" : ""}`]); }
+    // Only a real weight is said as "% of your grade" ("About" when split from points); the type defaults behind x.W only rank.
+    // Big work with no weight says so, so a student isn't led by a number the app made up.
+    if (sw) r.push([50 + x.W, `${sw.est ? "About " : ""}${Math.round(sw.w * 10) / 10}% of your grade${sw.pts ? " (from its points)" : ""}${t.xs || t.prepFor ? ", the exam this is for" : ""}`]);
+    else if (!t.xs && !t.prepFor && t.courseId && x.W >= 10) r.push([48, "No grade weight yet: open the task to add one"]);
     if (x.fullDay) r.push([72, `${dayDiff(today, x.fullDay) === 1 ? "Tomorrow" : parse(x.fullDay).toLocaleDateString(undefined, {weekday: "long"})} is a full day${(B.what[x.fullDay] || [])[0] ? ` (${B.what[x.fullDay][0]})` : ""}, so it helps to get ahead`]);
     if (x.early) r.push([68, "The instructions mention an earlier step (like a draft or pre-lab). Check for a sooner deadline"]);
     const pr = MILESTONE(t.type) ? progress(t) : null;
@@ -783,6 +799,7 @@ function planWhyData(rs){
     else if ((m = r.match(/^Due in (.+)$/))) facts.push(["Due", "In " + m[1], ""]);
     else if (/^(Overdue|Past due|Was due)/.test(r)) facts.push(["Due", r, "late"]);
     else if ((m = r.match(/^((?:About )?[\d.]+%) of your grade(.*)$/))) facts.push(["Worth", m[1] + " of your grade" + m[2], ""]);
+    else if (/^No grade weight yet/.test(r)) facts.push(["Worth", r, ""]);
     else if ((m = r.match(/^(.+) of work left(.*)$/))) facts.push(["Left", m[1].replace(/^About /, "about ") .replace(/^./, c => c.toUpperCase()) + " of work" + m[2], ""]);
     else if ((m = r.match(/^(\d+)% prepared, about (.+) of study left$/))) facts.push(["Left", "About " + m[2] + " of study (" + m[1] + "% prepared)", ""]);
     else if ((m = r.match(/^About (.+) of study left$/))) facts.push(["Left", "About " + m[1] + " of study", ""]);
@@ -897,7 +914,7 @@ function planNotesHtml(F, inView, crunchMain){
 // Short of time: which tasks give the fewest marks for the time
 function dropTxt(F){
   const d = F.drop; if (!d || !d.items.length) return "";
-  const its = d.items.slice(0, 2).map(x => `<b>${esc(x.t.title)}</b> (${Math.round(x.W * 10) / 10}% for about ${fmtHM(x.R)})`);
+  const its = d.items.slice(0, 2).map(x => { const sw = shownWeight(x.t); return `<b>${esc(x.t.title)}</b> (${sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of your grade` : "no grade weight yet"}, about ${fmtHM(x.R)} of work)`; });
   return `Fewest marks for the time: ${its.join(" and ")}. ${d.items.length === 1 ? "It's" : "They're"} planned last, so you could do a quick version, ask for an extension, or add study time.`;
 }
 // Time Today's control, for the row with Today's Plan / Task Board on wider screens (set by focusHtml; phones keep it in the plan box)

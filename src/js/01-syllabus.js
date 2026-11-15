@@ -317,8 +317,10 @@ const SY = (() => {
       // "lowest two dropped" is a grading rule (gradeRules), not how many there are
       const cnt = rest.replace(/\b(?:\d{1,2}|one|two|three|four|five)\s+lowest\b|\b(?:lowest|drop(?:s|ped|ping)?)\b[^,;)]*/gi, " ").match(/\((\d{1,2})\)|\b(\d{1,2})\s*[x×]\b|\b(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\b/i);
       const count = cnt ? Number(cnt[1] || cnt[2]) || WORDN[(cnt[3] || "").toLowerCase()] : 0;
-      if (each) { out[type] = {each: Number(each[1])}; return; }
-      if (pct) { out[type] = {pct: Number(pct[1]), count}; return; }
+      // the line's own name ("Weekly Quizzes"), to say where a weight came from
+      const label = t.replace(/[\s:=–—-]*[(\d].*$/, "").trim().slice(0, 60);
+      if (each) { out[type] = {each: Number(each[1]), label}; return; }
+      if (pct) { out[type] = {pct: Number(pct[1]), count, label}; return; }
       if (total) {
         const nums = (rest.match(/\b\d+(?:\.\d+)?\b/g) || []).map(Number);
         if (nums.length >= 3 && Math.abs(nums[0] * nums[1] - nums[2]) < 0.5) out[type] = {each: nums[1] / total * 100};
@@ -504,6 +506,8 @@ const SY = (() => {
     const ownOf = x => own.find(w => (w.type === x.type || (w.type === "Exam" && x.type === "Exam")) && new RegExp("(^|\\D)" + w.n + "(\\D|$)").test(x.title) && !(w.type !== "Final" && /final/i.test(x.title)));
     final.forEach(x => { const w = ownOf(x); if (x.iw > 0 && x.iw <= 100) { x.weight = x.iw; x.ownW = true; } else if (w && w.pct > 0 && w.pct <= 100) { x.weight = w.pct; x.ownW = true; } delete x.iw; });
     const countOf = type => final.filter(x => x.type === type && !x.ownW && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
+    // A category with no count ("Weekly Quizzes 20%") is split over the items found, which may be only some of them: said in the review
+    const splits = {};
     final.forEach(x => {
       if (x.ownW) { delete x.ownW; return; }
       const key = x.type === "Exam" && /final/i.test(x.title) && weights.Final ? "Final" : x.type;
@@ -511,8 +515,32 @@ const SY = (() => {
       if (!w) return;
       const v = w.each != null ? w.each : w.pct / Math.max(1, w.count || (key === "Final" ? 1 : countOf(x.type)));
       if (v > 0 && v <= 100) x.weight = Math.round(v * 10) / 10;
+      if (w.each == null && !w.count && key !== "Final" && x.weight != null) splits[key] = {label: w.label || x.type, pct: w.pct, n: countOf(x.type), each: x.weight};
     });
-    return {course, items: final, term, lineCount: lines.length, weightsFound: final.some(x => x.weight != null), byType: weights, rules: gradeRules(text)};
+    // A breakdown line for one item with nothing dated to carry it ("Midterm Exam 20%"): an undated item, so its weight isn't lost
+    Object.keys(weights).forEach(key => {
+      const w = weights[key], label = w && w.label;
+      if (!w || !(w.pct > 0 && w.pct <= 100) || w.each != null || !label) return;
+      const kind = key === "Final" ? "Exam" : key, fin = x => /final/i.test(x.title);
+      if (final.some(x => x.type === kind && (key === "Final" ? fin(x) : !(kind === "Exam" && weights.Final && fin(x))))) return;
+      if (!(w.count === 1 || (!w.count && !/s$/i.test(label)))) return;
+      final.push({title: label, type: kind, due: "", start: "", time: "", source: "breakdown", note: label + " " + w.pct + "%", weight: w.pct, ph: true});
+    });
+    return {course, items: final, term, lineCount: lines.length, weightsFound: final.some(x => x.weight != null), byType: weights, rules: gradeRules(text), splits: Object.values(splits)};
+  }
+  // Every "Name  NN%" line of a grading breakdown, by its name: [{t, w}] ("Lab Report 15%", "Term Essay: 20%"). Category lines
+  // ("Quizzes 20%") are left out: they're shared over several items, which gradeWeights does.
+  const PLURAL_CAT = /\b(quizzes|assignments|homeworks|labs|lab reports|exams|tests|midterms|projects|readings|essays|papers|reports|presentations|discussions|problem sets|worksheets|responses)\b/i;
+  function breakdown(text){
+    const out = [], seen = new Set();
+    String(text || "").split(/\r?\n/).flatMap(l => { const ps = l.split(/\s*[,;]\s*|\t|\s[|•·]\s/); return ps.filter(p => /\d\s*%/.test(p)).length >= 2 ? ps : [l]; }).forEach(l => {
+      const m = l.replace(/^[\s•\-*·]+/, "").trim().match(/^([A-Za-z][A-Za-z0-9&'’ /-]{1,60}?)\s*(?:[:=–—-]|\.{2,})?\s*(\d{1,3}(?:\.\d+)?)\s*%$/);
+      if (!m) return;
+      const t = m[1].trim(), w = Number(m[2]), k = t.toLowerCase();
+      if (!(w > 0 && w <= 100) || PLURAL_CAT.test(t) || /^(total|grand total|late|penalty|attendance|bonus|extra credit)\b/i.test(t) || seen.has(k)) return;
+      seen.add(k); out.push({t, w});
+    });
+    return out;
   }
   // "HW 3", "Homework #03" and "homework 3" are the same task
   const normTitle = t => String(t || "").toLowerCase().replace(/\b(?:hw|home\s*work)\s*#?\s*(?=\d)/g, "homework ").replace(/\b(?:ps|pset|problem\s+set)\s*#?\s*(?=\d)/g, "problemset ")
@@ -525,7 +553,7 @@ const SY = (() => {
       .map(i => Object.assign({}, i, {source: "cut"}));
     return {last, added};
   }
-  return {parse, findDates, termInfo, findTime, meetingDays, gradeRules, normTitle, fillCut};
+  return {parse, findDates, termInfo, findTime, meetingDays, gradeRules, normTitle, fillCut, breakdown};
 })();
 
 /* Syllabus import (PDF or text, parsed on this device) */
@@ -737,16 +765,17 @@ function importSheet(courseId, file){
     const nt = SY.normTitle;
     const existingKeys = new Set();
     tasksArr().forEach(t => { existingKeys.add(nt(t.title) + "|" + t.due + "|" + t.courseId); if (/\d/.test(t.title)) existingKeys.add(nt(t.title) + "|#|" + t.courseId); });
-    const isDup = (i, cid) => !!cid && cid !== "new" && (existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)));
+    // a breakdown line with no date is the course's item of that name, whatever its date
+    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)));
     const dated = r.items.filter(i => i.due).length;
     status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.gateNote ? r.gateNote + " " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? (wN => wN < r.items.length ? ` Grade weights were found for ${wN} of ${r.items.length} items.` : " Grade weights were taken from the grading breakdown.")(r.items.filter(i => i.weight != null).length) : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
     const c = r.course;
-    const flag = i => i.source === "cut" ? "Found on this device after the AI ran out of room, so check it" : i.source === "ai-low" ? (i.due ? "The AI worked out this date, so double-check it" : "No date found") : i.source === "week" ? "Date estimated from the week number" : i.source === "session" ? "Date estimated from the class number" : i.source === "context" ? "Date taken from the schedule entry above" : !i.due ? "No date found" : "";
+    const flag = i => i.ph ? "From the grading breakdown, with no date in the syllabus. Add the date when you know it" : i.source === "cut" ? "Found on this device after the AI ran out of room, so check it" : i.source === "ai-low" ? (i.due ? "The AI worked out this date, so double-check it" : "No date found") : i.source === "week" ? "Date estimated from the week number" : i.source === "session" ? "Date estimated from the class number" : i.source === "context" ? "Date taken from the schedule entry above" : !i.due ? "No date found" : "";
     const typeSel = (i, n) => `<select data-f="type" data-n="${n}" aria-label="Type">${TYPES.map(x => `<option ${x === i.type ? "selected" : ""}>${x}</option>`).join("")}</select>`;
     const today = todayISO(), past = i => !!i.due && i.due < today;
     const rowOf = (i, n, cid) => {
       const dup = isDup(i, cid);
-      const checked = i.due && !dup && !past(i);
+      const checked = (i.due || i.ph) && !dup && !past(i);
       const f = dup ? "Already in your planner" : flag(i);
       return `<li class="imp-row ${checked ? "" : "off"}"><input type="checkbox" data-n="${n}" ${checked ? "checked" : ""} aria-label="Include ${esc(i.title)}">
         <div class="imp-fields"><input type="text" data-f="title" data-n="${n}" value="${esc(i.title)}" aria-label="Title">
@@ -757,7 +786,7 @@ function importSheet(courseId, file){
     };
     const idx = r.items.map((it, n) => n);
     const undated = idx.filter(n => !r.items[n].due), gone = idx.filter(n => past(r.items[n]));
-    const rowsFor = cid => `<ul class="imp-list">${idx.filter(n => r.items[n].due && !past(r.items[n])).map(n => rowOf(r.items[n], n, cid)).join("")}</ul>` + (gone.length ? `<details class="imp-group"><summary>Already Past (${gone.length})</summary><p class="mini" style="margin:0 0 8px">These dates have passed, so they're left out. Tick any you want in your planner, for example to add a mark. They're added as done.</p><ul class="imp-list">${gone.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "") + (undated.length ? `<details class="imp-group"><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "");
+    const rowsFor = cid => `<ul class="imp-list">${idx.filter(n => r.items[n].due && !past(r.items[n])).map(n => rowOf(r.items[n], n, cid)).join("")}</ul>` + (gone.length ? `<details class="imp-group"><summary>Already Past (${gone.length})</summary><p class="mini" style="margin:0 0 8px">These dates have passed, so they're left out. Tick any you want in your planner, for example to add a mark. They're added as done.</p><ul class="imp-list">${gone.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "") + (undated.length ? `<details class="imp-group"${undated.some(n => r.items[n].ph) ? " open" : ""}><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n, cid)).join("")}</ul></details>` : "");
     const rows = rowsFor(match ? match.id : "new");
     $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", root).forEach(x => { x.hidden = true; });
     $("#impResult").innerHTML = `
@@ -778,7 +807,7 @@ function importSheet(courseId, file){
         ${srcFile && caps.assets ? `<label class="mi-check"><input type="checkbox" id="impSave" checked> Save the PDF in the course's Syllabus folder</label>` : ""}
         ${r.rules && window.SBGRADES && SBGRADES.rulesText ? `<label class="mi-check imp-rules"><input type="checkbox" id="impRules" checked><span><b>Grading rules found:</b> ${esc(SBGRADES.rulesText(r.rules))}. <span class="mini">Count them in this course's grade. You can change them later in Grade Settings.</span></span></label>` : ""}
       </fieldset>
-      ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p><div id="impLists">${rows}</div>` : ""}`;
+      ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><p class="mini imp-wsum" id="impWSum" role="status"></p>${(r.splits || []).filter(x => x.n >= 1).map(x => `<p class="mini imp-split">${esc(`${x.label} ${x.pct}%: ${x.n} found, so each is set to ${x.each}%. If there are more, change the weights to match.`)}</p>`).join("")}<div id="impLists">${rows}</div>` : ""}`;
     $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", root).forEach(x => { x.hidden = false; }); if (from === "pasted text") { $("#impPaste").open = true; $("#impText").focus(); } });
 
     const target = $("#impTarget");
