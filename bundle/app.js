@@ -33328,6 +33328,10 @@ const CAP = (() => {
   const MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   const MONRE = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
   const NUMW = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10};
+  // "first" to "thirty-first"
+  const ORDW = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth"];
+  const ORDRE = "(?:twenty|thirty)[-\\s]?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)|thirtieth|" + ORDW.slice().reverse().join("|");
+  const ORDN = w => { w = w.toLowerCase().replace(/[-\s]+/, " "); const m = /^(twenty|thirty)\s?(\w+)$/.exec(w); if (m && m[2] !== "") { const k = ORDW.indexOf(m[2]); if (k >= 0 && k < 9) return (m[1] === "twenty" ? 20 : 30) + k + 1; } if (w === "thirtieth") return 30; return ORDW.indexOf(w) + 1; };
   // Plain text only
   const clean = (s, max, keepLines) => {
     let t = String(s == null ? "" : s).replace(/<[^>]*>/g, " ").replace(/[<>]/g, "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F​-‏‪-‮⁦-⁩]/g, "");
@@ -33377,8 +33381,14 @@ const CAP = (() => {
     let s = " " + text + " ";
     const take = (re, fn) => { const m = s.match(re); if (m) { const r = fn(m); if (r !== false) { s = s.replace(m[0], " "); return true; } } return false; };
     take(/\b(?:worth\s*)?(\d{1,3}(?:\.\d+)?)\s*%(?:\s*of\s*(?:the\s*|my\s*)?(?:final\s*)?grade)?/i, m => { out.weight = Number(m[1]); });
-    take(/\b(?:takes?\s*|about\s*|~\s*)?(\d{1,2}(?:\.\d+)?)\s*(?:h|hr|hrs|hours?)\b/i, m => { out.hours = Number(m[1]); }) ||
-      take(/\b(?:takes?\s*|about\s*)?(\d{2,3})\s*(?:m|min|mins|minutes)\b/i, m => { out.hours = Math.round(Number(m[1]) / 60 * 4) / 4; });
+    // durations: "4 hrs", "4 hrs long", "for 2 hours", "a 3-hour", "takes about 1.5 hours of work", "an hour", "half an hour", "90 min"
+    const LONG = "(?:\\s*(?:long|of\\s+(?:work|studying|reading)|total|to\\s+do|to\\s+finish))?";
+    take(new RegExp(`\\b(?:it\\s+)?(?:takes?\\s*|about\\s*|around\\s*|roughly\\s*|for\\s*|~\\s*)*(?:a\\s+)?(\\d{1,2}(?:\\.\\d+)?)\\s*-?\\s*(?:h|hr|hrs|hours?)\\b${LONG}`, "i"), m => { out.hours = Number(m[1]); }) ||
+      take(new RegExp(`\\b(?:takes?\\s*|about\\s*|around\\s*|for\\s*)*(half\\s+an?|an?|one|two|three|four|five|six)\\s*-?\\s*(?:and\\s+a\\s+half\\s+)?hours?\\b${LONG}`, "i"), m => {
+        const w = m[1].toLowerCase().replace(/\s+/g, " "), n = w.startsWith("half") ? 0.5 : (NUMW[w] || 0); if (!n) return false;
+        out.hours = n + (/and\s+a\s+half/i.test(m[0]) ? 0.5 : 0);
+      }) ||
+      take(new RegExp(`\\b(?:takes?\\s*|about\\s*|around\\s*|for\\s*)*(\\d{2,3})\\s*-?\\s*(?:m|min|mins|minutes)\\b${LONG}`, "i"), m => { out.hours = Math.round(Number(m[1]) / 60 * 4) / 4; });
     take(/\b(urgent|asap)\b/i, () => { out.priority = "urgent"; }) || take(/\b(important|high priority)\b/i, () => { out.priority = "high"; });
     take(/\b(?:at\s*|@\s*|by\s*)?(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/i, m => {
       let h = Number(m[1]); if (h < 1 || h > 12) { out.flags.push("time"); return false; }
@@ -33400,9 +33410,25 @@ const CAP = (() => {
         out.time = pad2(h) + ":00";
       });
     if (!out.time && /\b(?:at|@)\s*\d{1,2}\b(?!\s*[\/:%.-]\d)/i.test(s)) out.flags.push("time");
+    // ("the first chapter" stays words: after "the", only when the phrase ends there or goes on with "of <month>", "at", "by")
+    s = s.replace(new RegExp(`\\b((?:${MONRE})\\.?\\s+(?:the\\s+)?)(${ORDRE})\\b`, "gi"), (all, pre, w) => pre + ORDN(w) + "th")
+      .replace(new RegExp(`\\b(the\\s+)(${ORDRE})\\b(?=\\s*(?:$|[,.;!?]|of\\s+(?:${MONRE})\\b|at\\b|@|by\\b))`, "gi"), (all, pre, w) => pre + ORDN(w) + "th");
+    // a weekday said with the date ("friday oct 30", "fri, 10/30", "friday the 30th"): the date decides, the weekday picks its year
+    const WDPRE = `(?:(${WDRE})\\.?,?\\s+(?:the\\s+)?)?`;
+    const wdOf = w => w ? WD.findIndex(a => a.includes(w.toLowerCase())) : -1;
+    const withDay = (mo, day, year, w) => {
+      const k = wdOf(w);
+      if (k >= 0 && !year) { const y0 = parts(today)[0]; for (const y of [y0, y0 + 1, y0 - 1]) { const d = isoOf(y, mo + 1, day); if (validISO(d) && dow(d) === k && diff(today, d) >= -45 && diff(today, d) <= 400) return d; } }
+      const d = monthDay(mo, day, today, year); if (d && k >= 0 && dow(d) !== k) out.flags.push("date");
+      return d;
+    };
     const wd = new RegExp(`\\b(?:(next|this|coming)\\s+)?(${WDRE})\\b\\.?`, "i");
     take(/\b(20\d\d)-(\d{1,2})-(\d{1,2})\b/, m => { const d = isoOf(+m[1], +m[2], +m[3]); if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d; }) ||
+    take(/\b(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|wks?)\s+from\s+(?:now|today)\b/i, m => {
+      const n = NUMW[m[1].toLowerCase()] || Number(m[1]); if (!n) return false; out.due = addDays(today, /^w/i.test(m[2]) ? n * 7 : n);
+    }) ||
     take(/\b(today|tonight)\b/i, m => { out.due = today; if (/tonight/i.test(m[1]) && !out.time) out.time = "23:59"; }) ||
+    take(/\b(?:the\s+)?day\s+after\s+(?:tomorrow|tmrw|tmr)\b/i, () => { out.due = addDays(today, 2); }) ||
     take(/\b(tomorrow|tmrw|tmr|tmw)\b/i, () => { out.due = addDays(today, 1); }) ||
     take(/\bin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|wks?)\b/i, m => {
       const n = NUMW[m[1].toLowerCase()] || Number(m[1]); if (!n) return false; out.due = addDays(today, /^w/i.test(m[2]) ? n * 7 : n);
@@ -33418,24 +33444,27 @@ const CAP = (() => {
       const mon = addDays(opts.termStart, -((dow(opts.termStart) + 6) % 7));
       out.due = addDays(mon, (n - 1) * 7 + 4); out.term = "week";
     }) ||
-    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
-    // An optional year may follow: "dec 5 2027", "January 10, 2027", "5 dec 2027"
-    take(new RegExp(`\\b(${MONRE})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[1].slice(0, 3).toLowerCase()), Number(m[2]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    // An optional year may follow: "dec 5 2027", "January 10, 2027", "5 dec 2027"; an optional weekday may lead: "friday oct 30"
+    take(new RegExp(`\\b${WDPRE}(${MONRE})\\.?\\s+(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = withDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[3]), Number(m[4]) || 0, m[1]); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
-      const d = monthDay(MON.indexOf(m[2].slice(0, 3).toLowerCase()), Number(m[1]), today, Number(m[3]) || 0); if (!d) { out.flags.push("date"); return false; } out.due = d;
+    take(new RegExp(`\\b${WDPRE}(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONRE})\\b(?:,?\\s+(20\\d\\d)\\b)?`, "i"), m => {
+      const d = withDay(MON.indexOf(m[3].slice(0, 3).toLowerCase()), Number(m[2]), Number(m[4]) || 0, m[1]); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    // "due the 15th": the next 15th, this month or next
-    take(/\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i, m => {
-      const n = Number(m[1]); let [y, mo] = parts(today), d = isoOf(y, mo, n);
-      if (!validISO(d) || d < today) { mo = mo % 12 + 1; if (mo === 1) y++; d = isoOf(y, mo, n); }
-      if (!validISO(d)) { out.flags.push("date"); return false; } out.due = d;
+    // "10/30", "10/30/26", "fri 10/30"; "30/10" when the first number can't be a month
+    take(new RegExp(`\\b${WDPRE}(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?\\b`), m => {
+      const y = m[4] ? (m[4].length === 2 ? 2000 + Number(m[4]) : Number(m[4])) : 0;
+      let a = Number(m[2]), b = Number(m[3]); if (a > 12 && b <= 12) [a, b] = [b, a];
+      const d = withDay(a - 1, b, y, m[1]); if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/, m => {
-      const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : 0;
-      const d = monthDay(Number(m[1]) - 1, Number(m[2]), today, y); if (!d) { out.flags.push("date"); return false; } out.due = d;
-    });
+    // "due the 15th", "friday the 30th": the next 15th, this month or next (with a weekday, the next one that falls on it)
+    take(new RegExp(`\\b(?:on\\s+)?(?:(${WDRE})\\.?,?\\s+)?the\\s+(\\d{1,2})(?:st|nd|rd|th)\\b`, "i"), m => {
+      const n = Number(m[2]), k = wdOf(m[1]); let [y, mo] = parts(today), d = "";
+      for (let i = 0; i < 14 && !d; i++) { const c = isoOf(y, mo, n); if (validISO(c) && c >= today && (k < 0 || dow(c) === k)) d = c; mo = mo % 12 + 1; if (mo === 1) y++; }
+      if (!d && k >= 0) { [y, mo] = parts(today); const c = isoOf(y, mo, n); d = validISO(c) && c >= today ? c : ""; if (!d) { mo = mo % 12 + 1; if (mo === 1) y++; const c2 = isoOf(y, mo, n); d = validISO(c2) ? c2 : ""; } if (d) out.flags.push("date"); }
+      if (!d) { out.flags.push("date"); return false; } out.due = d;
+    }) ||
+    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); });
     if (out.due && diff(today, out.due) > 800) { out.due = ""; out.flags.push("date"); }
     if (out.due && out.due < today) out.flags.push("past");
     out.rest = s.replace(/\s+/g, " ").trim();
