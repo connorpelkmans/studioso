@@ -32,7 +32,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.click('nav.tabs [data-tab="notes"]'); await page.waitForTimeout(800);
     const b = await (await page.$('.note[data-note="n1"]')).boundingBox();
     await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(700);
-    ok(await page.evaluate(() => !!document.querySelector(".note.editing.n-sheet") && document.activeElement && document.activeElement.id === "noteText"), "tapping the note opens it as a sheet, typing");
+    ok(await page.evaluate(() => !!document.querySelector(".note.editing.n-sheet") && !(document.activeElement && document.activeElement.id === "noteText") && !document.documentElement.classList.contains("kb-open")), "tapping the note opens it as a sheet with its options, no keyboard yet");
+    // a tap in its text starts typing
+    const tb0 = await (await page.$("#noteText")).boundingBox();
+    await page.touchscreen.tap(tb0.x + tb0.width / 2, tb0.y + tb0.height / 2); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => document.activeElement && document.activeElement.id === "noteText"), "a tap in the text box starts typing");
     await page.keyboard.type(" and more"); await page.waitForTimeout(200);
     // tap inside the note, away from the text box: the keyboard goes away and the note's options show
     const away = await page.evaluate(() => { const r = document.querySelector(".note.n-sheet").getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + 12}; });

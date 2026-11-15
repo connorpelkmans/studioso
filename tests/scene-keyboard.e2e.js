@@ -29,16 +29,14 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.setViewportSize({width: 402, height: 874}); await page.evaluate(() => document.documentElement.classList.remove("kb-open")); await page.waitForTimeout(900);
     const down = await look();
     ok(down.h === before.h && down.sig === before.sig, "keyboard down: still the same scene");
-    // switching tabs: only the page's content cross-fades; the scene (and the rest) stays live, never frozen into a still
+    // switching tabs: the new page shows at once, fully drawn; no copy of the old page and no fade, and the scene stays live
     await page.waitForTimeout(400);
     await page.tap('nav.tabs [data-tab="notes"]');
     const vt = await page.evaluate(() => new Promise(res => requestAnimationFrame(() => {
-      const g = document.querySelector(".tab-ghost"), nav = document.querySelector("nav.tabs"), fr = document.querySelector(".cp-front");
-      const z = el => el ? (+getComputedStyle(el).zIndex || 0) : -99;
-      res({ghost: !!g, ghostZ: z(g), navZ: z(nav), compZ: z(fr), pseudo: document.getAnimations().some(a => a.effect && a.effect.pseudoElement)});
+      const v = document.getElementById("view");
+      res({ghost: !!document.querySelector(".tab-ghost"), op: +getComputedStyle(v).opacity, notes: /Notes/.test(v.innerText.slice(0, 200)), pseudo: document.getAnimations().some(a => a.effect && a.effect.pseudoElement)});
     })));
-    ok(vt.ghost && !vt.pseudo, "switching tabs cross-fades the page content only (a still copy of the old page fades out); nothing else is captured or frozen: " + JSON.stringify(vt));
-    ok(vt.navZ > vt.ghostZ && vt.compZ > vt.navZ, "the tab bar stays above the fading page, and the companion above the tab bar");
+    ok(!vt.ghost && vt.op === 1 && vt.notes && !vt.pseudo, "switching tabs shows the new page at once, with nothing of the old page left over it: " + JSON.stringify(vt));
     await page.waitForTimeout(600);
     ok(await page.evaluate(() => !!document.querySelector("#sceneArt svg")), "and the scene is the same one after");
     // turning the phone sideways is a real change, and the scene follows it

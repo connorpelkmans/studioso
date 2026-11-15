@@ -3,16 +3,18 @@
 // Free to the student: their free Gemini key, or Studyboard AI (included with paid Pro)
 // A Claude key in Studyboard AI Mode counts too: its monthly and daily limits cap what automatic AI can spend
 const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "studyboard" || (p === "anthropic" && m === "studyboard");
+// For running by itself in the background, the student's own Claude key is paid: it bills them, so it's never on without their confirming paid use
+const isAutoFree = (p, m) => isFreeModel(p, m) && p !== "anthropic";
 function autoState(){
   if (inPreview()) return {on: false, reason: "preview"};
   const raw = (state.settings && state.settings.ai) || {}, c = aiCfg();
   if (!c.key) return {on: false, reason: "nokey"};
-  const want = raw.auto !== undefined ? !!raw.auto : isFreeModel(c.provider, c.model);
+  const want = raw.auto !== undefined ? !!raw.auto : isAutoFree(c.provider, c.model);
   if (!want) return {on: false, reason: "off"};
   // Free Gemini for automatic AI when the student has a key, except on Studyboard AI (paid Pro), where their key is only the backup
   const cfg = c.provider !== "studyboard" && !c.backup && raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
   if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};
-  const paid = !isFreeModel(cfg.provider, cfg.model);
+  const paid = !isAutoFree(cfg.provider, cfg.model);
   if (paid && raw.autoPaidOk !== `${cfg.provider}|${cfg.model}`) return {on: false, reason: "confirm", cfg, paid};
   return {on: true, cfg, paid};
 }

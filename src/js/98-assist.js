@@ -7,6 +7,15 @@
      and only on Apply makes them (one Undo for all). Settings are changed through the Settings sheet's own controls.
    - Whiteboards get a short description of their pictures, drawings and handwriting in the background (the "describe"
      job), so "the whiteboard with the cell diagram" can be found, and the jump lands on that spot. */
+/* Answers made on this device when the AI can't be reached (the Companion tab's chat and the bubble's Ask):
+   a "what next" question gets Do This Next, and a task always comes with its course and when it's due */
+window.SBLOCALANS = (() => {
+  const NEXT_Q = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b/i;
+  const when = t => { try { return t.due ? `${MILESTONE(t.type) ? "" : "due "}${fmtDate(t.due)}${t.time ? ", " + fmtTime(t.time) : ""}` : "no due date"; } catch (e) { return t.due || ""; } };
+  const taskLine = t => { const c = courseOf(t.courseId); return `**${t.title}**${c ? ", " + courseLabel(c) : ""}: ${t.status === "done" ? "done" : when(t)}${t.location ? ", " + t.location : ""}`; };
+  function nextLine(){ try { if (dayIsOff(todayISO())) return ""; const n = nextUp(computeFocus()); return n && n.x && n.x.t ? `Today's Plan says to do this next: ${taskLine(n.x.t)}` : ""; } catch (e) { return ""; } }
+  return {NEXT_Q, taskLine, nextLine};
+})();
 (() => {
   const clip = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -582,14 +591,16 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     let r = null, lastErr = null;
     for (let i = 0; i < 3 && !r; i++) {
       try { const x = await callAI(i === 2); if (x && x.data && !junk(x.data.answer)) r = x; }
-      catch (e) { lastErr = e; if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; await wait(1200 * (i + 1)); }
+      catch (e) { lastErr = e; if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; if (e && e.code === "limit" && !e.rate) break; await wait(1200 * (i + 1)); }
     }
     if (!r) {
       let best = null;
       try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 3, chars: 300, wait: 600, readWait: 1, semWait: 1500}) : null; const d0 = R && R.rows && R.rows[0] && R.rows[0].doc;
         if (d0) best = d0.type === "chunk" ? {kind: "file", id: d0.fid, page: d0.label === "Page" ? d0.page : 0} : d0.type === "card" ? {kind: "card", deck: d0.pid, id: d0.id} : d0.type === "question" ? {kind: "question", deck: d0.pid, quiz: d0.qid, id: d0.id} : ["task", "note", "board", "course", "file", "deck", "event"].includes(d0.type) ? {kind: d0.type, id: d0.id} : null; } catch (e) {}
-      const why = lastErr && lastErr.code === "limit" && !lastErr.rate ? "the AI allowance is used up for now" : navigator.onLine === false ? "you're offline" : "the AI isn't answering right now";
-      if (best && exists(best)) return {answer: `I couldn't get a full answer because ${why}, but this looks like the best match: ${labelOf(best)}.`, show: [Object.assign(best, {label: labelOf(best)})], changes: [], local: true};
+      const why = lastErr && lastErr.code === "limit" && !lastErr.rate ? "the AI allowance is used up for now" : navigator.onLine === false ? "you're offline" : lastErr && lastErr.code === "offline" ? "the AI can't be reached (check your internet)" : "the AI isn't answering right now";
+      const L = window.SBLOCALANS, nx = L && L.NEXT_Q.test(q) ? L.nextLine().replace(/\*\*/g, "") : "", tk = best && best.kind === "task" && state.tasks[best.id];
+      if (nx) return {answer: `I couldn't get a full answer because ${why}, but ${nx}.`, show: [], changes: [], local: true};
+      if (best && exists(best)) return {answer: `I couldn't get a full answer because ${why}, but this looks like the best match: ${tk && L ? L.taskLine(tk).replace(/\*\*/g, "") : labelOf(best)}.`, show: [Object.assign(best, {label: labelOf(best)})], changes: [], local: true};
       return {answer: `I couldn't get an answer because ${why}. Ask me again in a moment?`, show: [], changes: [], local: true};
     }
     const d = r.data || {};

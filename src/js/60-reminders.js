@@ -460,7 +460,7 @@ const RM_CORE = (() => {
     const set = !!lsGet(LS_PUSH, null);
     const sub = !sbConfig() || sbLocalOnly() || !sbUser ? "Needs a Studyboard account. Without it, reminders come only while Studyboard is open, or from the desktop app."
       : set ? "On for this device. Reminders arrive even when Studyboard is closed." : "Get reminders on your phone or computer even when Studyboard is closed.";
-    return `<div class="menu-list rm-list"><button type="button" data-act="rm-phone"><span>Set Up ${notifName()}<span class="sub">${esc(sub)}</span></span></button></div>`;
+    return `<div class="menu-list rm-list"><button type="button" data-act="rm-phone"><span>Set Up ${notifName()}<span class="sub">${esc(sub)}</span></span><svg class="rm-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>`;
   }
   function comingHtml(){
     const now = Date.now(), up = LIST.filter(r => r.at > now).slice(0, 5);
@@ -499,11 +499,12 @@ const RM_CORE = (() => {
           <p class="mini" style="margin:0">For planned study sessions, like the ones from an exam study plan. Study sessions with a set time get a nudge 10 minutes before.</p>
         </fieldset>
         <fieldset><legend>Flashcards Due</legend>
-          <div class="rm-row">${cb("cards", c.cards, "Once a day when cards are due, at")}${tIn("cardsTime", c.cardsTime)}</div>
+          <div class="rm-row">${cb("cards", c.cards, "When cards are due, at")}${tIn("cardsTime", c.cardsTime)}</div>
+          <p class="mini" style="margin:0">Once a day, only on days with flashcards due.</p>
         </fieldset>
         <fieldset><legend>Quiet Hours</legend>
-          <div class="rm-row">${cb("quiet", c.quiet, "No reminders from")}${tIn("quietFrom", c.quietFrom)}<span>to</span>${tIn("quietTo", c.quietTo)}</div>
-          <p class="mini" style="margin:0">Reminders during quiet hours arrive when they end, or just before they start if that would be too late.${quietWarn ? " <b>One of your times above is inside quiet hours</b>, so it will move." : ""}</p>
+          <div class="rm-row">${cb("quiet", c.quiet, "From")}${tIn("quietFrom", c.quietFrom)}<span class="rm-to">to ${tIn("quietTo", c.quietTo)}</span></div>
+          <p class="mini" style="margin:0">No reminders in these hours. Reminders during quiet hours arrive when they end, or just before they start if that would be too late.${quietWarn ? " <b>One of your times above is inside quiet hours</b>, so it will move." : ""}</p>
         </fieldset>
         <fieldset><legend>Coming Up</legend><div id="rmComing">${comingHtml()}</div></fieldset>
       </div>

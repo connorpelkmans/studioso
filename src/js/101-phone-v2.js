@@ -30,9 +30,12 @@
       el.querySelector(".ph-k").textContent = k.trim();
       el.querySelector(".ph-k").hidden = !k.trim();
       const view = document.getElementById("view"); if (!view) return;
-      if (isPhone() && (tab === "notes" || tab === "groups") && !view.querySelector(":scope > .pview-tabs")) {
-        const pill = document.createElement("div"); pill.className = "pview-tabs ph-solo"; pill.setAttribute("role", "heading"); pill.setAttribute("aria-level", "2");
-        pill.innerHTML = `<span class="ph-solo-t"></span>`; pill.firstChild.textContent = t;
+      // (not on a group's own page: its header already names it, and the title would push the group down)
+      if (isPhone() && (tab === "notes" || (tab === "groups" && !ui.grp)) && !view.querySelector(":scope > .pview-tabs")) {
+        // drawn as the other tabs' switch with its one choice picked (a real tab button, so every theme styles it the same way);
+        // to screen readers it's just the page's heading
+        const pill = document.createElement("div"); pill.className = "pview-tabs pg-tabs ph-solo"; pill.setAttribute("role", "heading"); pill.setAttribute("aria-level", "2"); pill.setAttribute("aria-label", t);
+        pill.innerHTML = `<button type="button" class="ph-solo-t" aria-selected="true" aria-hidden="true" tabindex="-1"></button>`; pill.firstChild.textContent = t;
         view.insertBefore(pill, view.firstChild);
       }
       const sel = view.querySelector(":scope > .pview-tabs [aria-selected=true], :scope > .pview-tabs.ph-solo > .ph-solo-t");
@@ -68,7 +71,18 @@
         const sel = row.querySelector("select");
         nodes.forEach((b, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = "\u2003".repeat(depth(b)) + nm(b) + (cnt(b) ? ` (${cnt(b)})` : ""); if (b.dataset.c && b.dataset.c !== "all") o.dataset.course = b.dataset.c; if (b === cur) o.selected = true; sel.appendChild(o); });
         sel.addEventListener("change", () => { const b = nodes[Number(sel.value)]; if (b) b.click(); });
-        if (ft) [...ft.children].filter(c => c.matches(".cl-btn, [data-act='trash-open'], .trash-btn")).forEach(c => { c.classList.add("ph-ic"); row.appendChild(c); });
+        // Scan to PDF and Convert don't fit beside the folder and sort on one line: with Cloud and Recently Deleted they go in a ⋯ More menu
+        const extra = ft ? [...ft.children].filter(c => c.matches(".pde-scan-btn, [data-act='pdt-convert'], [data-act='pdt-batch']")) : [];
+        if (ft) [...ft.children].filter(c => c.matches(".cl-btn, [data-act='trash-open'], .trash-btn")).forEach(c => {
+          if (extra.length) { if (c.matches(".trash-btn")) { const l = document.createElement("span"); l.textContent = "Recently Deleted"; c.insertBefore(l, c.querySelector("span")); } extra.push(c); return; }
+          c.classList.add("ph-ic"); row.appendChild(c);
+        });
+        if (extra.length) {
+          const d = document.createElement("details"); d.className = "ph-more f-more";
+          d.innerHTML = `<summary class="btn small" aria-label="More file actions" title="More"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary><div class="ph-menu" role="menu"></div>`;
+          const m = d.querySelector(".ph-menu"); extra.forEach(b => { b.setAttribute("role", "menuitem"); m.appendChild(b); });
+          row.appendChild(d);
+        }
         const sort = ft && ft.querySelector(":scope > .segb"); if (sort) row.appendChild(sort);
         view.insertBefore(row, view.querySelector(":scope > .fwrap"));
         if (ft) ft.classList.add("ph-moved");
@@ -334,6 +348,14 @@
   document.addEventListener("click", e => {
     document.querySelectorAll("details.ph-more[open]").forEach(d => { if (!d.contains(e.target) || e.target.closest(".ph-menu .btn")) d.open = false; });
   });
+  // once a menu closes, its ⋯ button doesn't stay highlighted (it kept the focus from the tap); someone moving with a keyboard
+  // keeps their place
+  document.addEventListener("toggle", e => {
+    const d = e.target; if (!(d instanceof HTMLDetailsElement) || d.open || !d.classList.contains("ph-more")) return;
+    const s = d.querySelector(":scope > summary"), a = document.activeElement; if (!s || !(a === s || d.contains(a))) return;
+    let kb = false; try { kb = s.matches(":focus-visible"); } catch (x) {}
+    if (!kb) a.blur();
+  }, true);
   // The phone course filter (see chipsHtml)
   document.addEventListener("change", e => { const s = e.target; if (!s || !s.matches || !s.matches("select[data-course-filter]")) return; ui.filter = s.value || "all"; render(); });
   // The phone note board dropdown

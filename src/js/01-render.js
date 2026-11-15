@@ -2,10 +2,14 @@
 /* Render */
 let renderQueued = false, renderBlocked = false;
 let renderHold = 0;
+// renderAsk counts the asks for a redraw; renderOnce() draws now and lets a redraw already queued for the same change go
+let renderAsk = 0, renderSkip = -1;
+function renderOnce(){ const a = renderAsk; render(); renderSkip = a; }
 function scheduleRender(){
+  focusStale(); renderAsk++;
   if (renderQueued) return;
   renderQueued = true;
-  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } renderQueued = false; render(); };
+  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } renderQueued = false; if (renderSkip === renderAsk) return; renderGo = true; try { render(); } finally { renderGo = false; } };
   requestAnimationFrame(go);
 }
 // A finished check pops before the list redraws (phones, when motion is on)
@@ -24,7 +28,7 @@ function fabConfig(){
   if (ui.tab === "courses") return ui.courseId || ui.courseTab === "grades" ? null : {act: "fab-course", label: "Add Course"};
   if (ui.tab === "files") return {act: "fab-file", label: "Add File"};
   if (ui.tab === "schedule") return {act: "sch-add", label: "Add Event"};
-  if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "Add Board"} : {act: "fab-note", label: "Add Note"};
+  if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "New Whiteboard"} : {act: "fab-note", label: "Add Note"};
   if (ui.tab === "flashcards") { const dk = $("#view [data-fc-deck]"); return dk ? {act: "fc-add", label: "Add Card", id: dk.dataset.fcDeck} : $("#view [data-fc-list]") ? {act: "fab-deck", label: "Add Deck"} : $("#view [data-qz-list]") ? {act: "qz-add", label: "Add Quiz"} : null; }
   if (ui.tab === "groups") return $("#view [data-grp-list]") ? {act: "fab-group", label: "Add Group"} : (window.SBGRPFAB && window.SBGRPFAB()) || null;
   return {act: "new-task", label: "Add Task"};
@@ -36,7 +40,10 @@ function refreshFab(){
 }
 // The app tour's example planner (49-apptour.js)
 let tourDemo = null, demoDrawing = false;
+// set while the queued redraw runs (it was asked for, and counted, by scheduleRender); any other call to render() is a new ask
+let renderGo = false;
 function render(){
+  if (!renderGo) focusStale();
   if (!tourDemo || demoDrawing) return renderNow();
   const real = state; demoDrawing = true; state = Object.assign({}, tourDemo, {settings: real.settings, trash: {}});
   try { return renderNow(); } finally { state = real; demoDrawing = false; FOCUS = null; }
@@ -46,13 +53,20 @@ function renderNow(){
   try { AUTO_ON = autoState().on; } catch(e) { AUTO_ON = false; }
   if (window.__SB_TEST && window.__sbForceAuto) AUTO_ON = true;
   try { const want = (s => skinOk(s) && SKINS.some(x => x.id === s) ? s : "classic")(styleCfg().skin); if ((document.documentElement.dataset.skin || "classic") !== want) applySkin(); } catch(e) {}
-  computeFocus(); remoteStoreSoon();
+  // A flashcard review shows only the card: Today's Plan isn't worked out again on every flip and grade (with a full term that
+  // was most of a second per card on a phone). It is once the review ends, and anything that asks computeFocus() meanwhile gets a fresh one.
+  if (!(ui.tab === "flashcards" && ui.fc && ui.fc.mode === "study")) computeFocus();
+  remoteStoreSoon();
   // the date, and what today is at school (Day 3, B Day, or a day off)
   const sdT = (() => { try { return schoolDayText(todayISO()); } catch (e) { return ""; } })();
   { const nd = new Date(); $("#navDate").innerHTML = esc(nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"})) + (sdT ? `<span class="nd-sd">${esc(sdT)}</span>` : ""); }
-  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> <span class="md">${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}</span>${sdT ? ` <span class="nd-sd">· ${esc(sdT)}</span>` : ""}${sk.cur >= 2 && !STREAK_HIDDEN && !(window.SBSTREAK && SBSTREAK.on()) ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
+  todayFit();
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
+  // Schedule's Week / Month stays as the student last chose it; a week opened from the month (See Week) is just a look,
+  // so coming back to the Schedule from another page shows the month again
+  if (ui.tab !== ui.schSeenTab) { if (ui.tab === "schedule" && ui.schPeek) { ui.schPeek = false; ui.schMode = "month"; } ui.schSeenTab = ui.tab; }
   const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === navTab ? "page" : "false"));
   document.body.classList.add("wide");
@@ -79,7 +93,8 @@ function renderNow(){
     }
     else sc.scrollLeft = ui.tlScroll;
     ui.tlScroll = sc.scrollLeft;
-    sc.addEventListener("scroll", () => { ui.tlScroll = sc.scrollLeft; }, {passive: true});
+    let edgeRaf = 0; tlEdges(sc);
+    sc.addEventListener("scroll", () => { ui.tlScroll = sc.scrollLeft; if (!edgeRaf) edgeRaf = requestAnimationFrame(() => { edgeRaf = 0; tlEdges(sc); }); }, {passive: true});
   }
   drawDeps();
   if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
@@ -130,10 +145,12 @@ function fitNoteBoard(){
 }
 /* -- Note board zoom */
 const NBZ_KEY = "studyboard:noteZoom", NBZ_MIN = 0.4, NBZ_MAX = 2;
-let NBZ = 1; try { NBZ = Math.min(NBZ_MAX, Math.max(NBZ_MIN, Number(localStorage.getItem(NBZ_KEY)) || 1)); } catch (e) {}
+// A phone's board starts a little smaller, so more notes fit; that size is its "100%" and the steps and labels count from it
+const nbHome = () => window.innerWidth < 640 ? 0.8 : 1;
+let NBZ = nbHome(); try { NBZ = Math.min(NBZ_MAX, Math.max(NBZ_MIN, Number(localStorage.getItem(NBZ_KEY)) || nbHome())); } catch (e) {}
 const nbZ = () => NBZ;
 function nbZoomCtl(){
-  const pct = Math.round(NBZ * 100);
+  const pct = Math.round(NBZ / nbHome() * 100);
   return `<div class="nb-zoom" role="group" aria-label="Board zoom"><button type="button" class="nbz-b" data-act="nb-zoom" data-id="out" aria-label="Zoom out"${NBZ <= NBZ_MIN + 0.001 ? " disabled" : ""}>−</button><button type="button" class="nbz-pct${pct === 100 ? "" : " on"}" data-act="nb-zoom" data-id="reset" aria-label="${pct === 100 ? "Zoom 100%" : `Zoom ${pct}%. Back to 100%`}" title="Back to 100%">${pct === 100 ? "100%" : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>${pct}%`}</button><button type="button" class="nbz-b" data-act="nb-zoom" data-id="in" aria-label="Zoom in"${NBZ >= NBZ_MAX - 0.001 ? " disabled" : ""}>+</button></div>`;
 }
 // Re-fit when the board's view changes size (window resized, a side panel opens), so a zoomed-out board still fills it
@@ -189,9 +206,9 @@ function nbFocusNote(id){
   const run = ++nbFocusRun, calm = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const {sc: sc0, el: el0} = first;
   const nx = el0.offsetLeft + el0.offsetWidth / 2, ny = el0.offsetTop + el0.offsetHeight / 2;
-  // big enough that the note fills about half the view, never smaller than now's zoom or 100%
+  // big enough that the note fills about half the view, never smaller than now's zoom or 100% (the phone's own 100%)
   const fit = Math.min(sc0.clientWidth * 0.55 / el0.offsetWidth, sc0.clientHeight * 0.55 / el0.offsetHeight);
-  const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, 1, Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
+  const z1 = Math.round(Math.min(NBZ_MAX, Math.max(NBZ, nbHome(), Math.min(fit, 1.5))) * 100) / 100, z0 = NBZ;
   const cx0 = (sc0.scrollLeft + sc0.clientWidth / 2) / z0, cy0 = (sc0.scrollTop + sc0.clientHeight / 2) / z0;
   const place = (z, cx, cy) => { const {sc} = q(); if (!sc) return false; NBZ = z; nbZoomApply(); sc.scrollLeft = cx * z - sc.clientWidth / 2; sc.scrollTop = cy * z - sc.clientHeight / 2; return true; };
   const done = () => {
@@ -217,7 +234,7 @@ function nbFocusNote(id){
   requestAnimationFrame(step);
   return true;
 }
-function nbZoomStep(dir){ const z = dir > 0 ? NBZ_STEPS.find(v => v > NBZ + 0.001) : [...NBZ_STEPS].reverse().find(v => v < NBZ - 0.001); if (z) nbZoomTo(z); }
+function nbZoomStep(dir){ const h = nbHome(), r = NBZ / h, z = dir > 0 ? NBZ_STEPS.find(v => v > r + 0.001) : [...NBZ_STEPS].reverse().find(v => v < r - 0.001); nbZoomTo(z ? z * h : dir > 0 ? NBZ_MAX : NBZ_MIN); }
 // Trackpad pinch (Chrome, Edge, Firefox send it as Ctrl + wheel) and Ctrl/⌘ + mouse wheel
 document.addEventListener("wheel", e => {
   if (!(e.ctrlKey || e.metaKey) || ui.tab !== "notes" || !e.target.closest || !e.target.closest("#nbScroll")) return;
@@ -403,6 +420,9 @@ function openSheet(html, onSubmit){
       if (e.key === "Enter" && e.target.tagName === "INPUT" && !e.target.hasAttribute("data-noenter") && !["checkbox","radio","button"].includes(e.target.type)) { e.preventDefault(); run(); }
     });
   }
+  // On a phone nothing is focused by itself (showModal would focus an [autofocus] box): typing starts with a tap
+  const narrow = !window.matchMedia("(min-width:601px)").matches;
+  if (narrow) dlg.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus"));
   if (!dlg.open) dlg.showModal();
   const first = dlg.querySelector("[autofocus]");
   if (first && window.matchMedia("(min-width:601px)").matches) first.focus();
@@ -481,13 +501,14 @@ function taskView(t0){
     if (t.due) {
       const n = dayDiff(today, t.due);
       rows.push([I.cal, esc(parse(t.due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"})) + (t.time && cfg.time ? ", " + esc(fmtTime(t.time)) : ""),
-        esc(cfg.due) + (done ? "" : n === 0 ? " · Today" : n === 1 ? " · Tomorrow" : n > 1 ? ` · In ${n} days` : ` · ${-n} day${n === -1 ? "" : "s"} late`)]);
-    } else rows.push([I.cal, "No due date", ""]);
-    const st = !cfg.single && (t.start || startOf(t));
-    if (st && st !== t.due) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
+        esc(cfg.due) + (done ? "" : n === 0 ? " · Today" : n === 1 ? " · Tomorrow" : n > 1 ? ` · In ${n} days` : n < -365 ? " · Over a year late" : ` · ${-n} day${n === -1 ? "" : "s"} late`)]);
+    } else rows.push([I.cal, t.dueBad ? "No due date — check the date" : "No due date", ""]);
+    // Start Date is the day of the first focus session on this task; before any, there's no start date to show
+    const st = !cfg.single && workEntries(t).filter(e => e.kind === "focus").map(e => e.d).sort()[0];
+    if (st) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
     // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
     const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
-    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtH(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
+    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtHM(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
     else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}` + leftTxt]);
     if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
     if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
@@ -523,10 +544,11 @@ function taskView(t0){
         <h2 class="occv-title">${esc(t.title)}</h2>
         <div class="occv-tags">${tags}</div>
         <ul class="occv-rows">${rows.map(([i, a, b]) => `<li><span class="occv-ri">${i}</span><div><b>${a}</b>${b ? `<span>${b}</span>` : ""}</div></li>`).join("")}</ul>
+        ${window.SBBREAK && SBBREAK.offerHtml ? SBBREAK.offerHtml(t) : ""}
         ${cl}
         ${prog}
       </div>
-      ${(tools => `<div class="sheet-foot tv-foot">${tools ? `<div class="tv-row tv-tools">${tools}</div>` : ""}<div class="tv-row"><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div></div>`)(`${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBRUBRIC ? SBRUBRIC.taskBtn(t) : ""}`)}
+      ${(tools => `<div class="sheet-foot tv-foot">${tools ? `<div class="tv-row tv-tools">${tools}</div>` : ""}<div class="tv-row"><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div></div>`)(`${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBRUBRIC ? SBRUBRIC.taskBtn(t) : ""}${window.SBWRITE ? SBWRITE.taskBtn(t) : ""}`)}
     </div>`);
     const sc2 = dlg.querySelector(".occv-body"); if (sc2) sc2.scrollTop = top;
     $("#tvEdit").addEventListener("click", () => { const x = state.tasks[id]; if (x) taskForm(x); });
@@ -597,6 +619,8 @@ function taskForm(t, preset = {}){
         <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
         ${canRepeat ? `<label class="f" id="repeatWrap">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="1">Every day</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="m">Every month</option></select></label>` : ""}
       </div>
+      <div class="two"><label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label></div>
+      ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
       ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
       <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
       <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From home"], ["no", "In person"], ["", "Not sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
@@ -621,10 +645,8 @@ function taskForm(t, preset = {}){
           <label class="f" data-fld="link"><span class="lh"><span class="lbl">Link</span>${t.link && safeUrl(t.link) ? `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(safeUrl(t.link))}">Open in ${esc(lmsSite(t) || "browser")}</button>` : ""}</span><input type="url" name="link" maxlength="500" value="${esc(t.link)}" placeholder="https://…"></label>
           <fieldset class="plan-fs"><legend>Planning Details <span class="hint">used to rank Today's Plan</span></legend>
             <div class="two">
-              <label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label>
               <label class="f">Late Work<select name="late">${Object.entries(LATE_LABEL).map(([k, l]) => `<option value="${k}" ${k === t.late ? "selected" : ""}>${l}</option>`).join("")}</select></label>
             </div>
-            ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
             <label class="f" id="latePenWrap"${t.late === "penalty" ? "" : " hidden"}><span class="lh">Late Penalty <span class="hint">% off for each day late</span></span><input type="number" name="latePen" min="0" max="100" step="1" inputmode="decimal" value="${hasLatePen(t) ? esc(t.latePen) : ""}" placeholder="10"></label>
             <div><span class="lbl" style="font-size:.88rem;font-weight:600">Difficulty</span>${seg("difficulty", [["easy","Easy"],["med","Medium"],["hard","Hard"]], t.difficulty)}</div>
             <p class="plan-hint" id="planHint" aria-live="polite"></p>
@@ -646,7 +668,7 @@ function taskForm(t, preset = {}){
       ${!isNew && t.history.length ? `<details class="hist"><summary>History (${t.history.length})</summary><ul>${t.history.slice().reverse().map(h => `<li><span>${esc(h.text)}</span><time>${esc(new Date(h.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</time></li>`).join("")}</ul></details>` : ""}
       ${isNew && window.SBBREAK ? SBBREAK.formHtml(null, true) : ""}
     </div>
-    <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-task" data-id="${esc(t.id)}">Delete</button>${canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Focus</button>` : ""}${MILESTONE(t.type) && t.due > todayISO() && t.status !== "done" ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : ""}${t.type === "Study" && (t.studyDecks || []).some(id => state.decks[id]) ? `<button type="button" class="btn" data-act="${t.studyKind === "practice" ? "fc-practice-plan" : "fc-study-plan"}" data-id="${esc(t.id)}">${t.studyKind === "practice" ? "Practice Quiz" : "Study Cards"}</button>` : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button>${isNew ? `<button type="button" class="btn" id="tfPlanPrep" hidden>Add &amp; Plan Prep</button>` : ""}<button type="button" class="btn primary" data-submit>${isNew ? "Add Task" : "Save Task"}</button></div>
+    <div class="sheet-foot tf-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-task" data-id="${esc(t.id)}">Delete</button>${canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Focus</button>` : ""}${MILESTONE(t.type) && t.due > todayISO() && t.status !== "done" ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : ""}${t.type === "Study" && (t.studyDecks || []).some(id => state.decks[id]) ? `<button type="button" class="btn" data-act="${t.studyKind === "practice" ? "fc-practice-plan" : "fc-study-plan"}" data-id="${esc(t.id)}">${t.studyKind === "practice" ? "Practice Quiz" : "Study Cards"}</button>` : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button>${isNew ? `<button type="button" class="btn" id="tfPlanPrep" hidden>Add &amp; Plan Prep</button>` : ""}<button type="button" class="btn primary" data-submit>${isNew ? "Add Task" : "Save Task"}</button></div>
   </form>`, fd => {
     const title = String(fd.get("title") || "").trim();
     if (!title) return false;
@@ -693,7 +715,9 @@ function taskForm(t, preset = {}){
       const base = newTask(Object.assign({}, data, {id: t.id, doneAt: data.status === "done" ? Date.now() : null}));
       if (every) base.seriesId = uid();
       const changes = [{kind:"task", id: base.id, after: base}].concat(every ? repeatCopies(base, every, until) : []);
-      applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : "Task added");
+      // The toast names what was added and when it's due, so a wrong date is caught right away
+      const dueTxt = base.due ? ` · due ${parse(base.due).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}` : "";
+      applyChanges(changes.concat(fileChanges), changes.length > 1 ? `Added ${changes.length} tasks` : `Added ${base.title}${dueTxt}`);
       if (planAfter && MILESTONE(base.type) && base.due) setTimeout(() => { if (window.SBPREP) SBPREP.open(base.id); }, 80);
       else if (MILESTONE(base.type) && base.due && base.due >= todayISO() && base.status !== "done") setTimeout(() => { if (!dlg.open) remoteAsk(base.id); }, 80);
     } else {
@@ -720,15 +744,12 @@ function taskForm(t, preset = {}){
     if (v("location")) bits.push(v("location"));
     if (v("team")) bits.push("team");
     if (v("link")) bits.push("link");
-    const wIn = f.elements.weight, est = !!(wIn && wIn.classList.contains("w-est-in") && v("weight"));
-    if (v("weight")) bits.push(est ? `~${v("weight")}% of grade (estimated)` : v("weight") + "% of grade");
     const diff = (f.querySelector("input[name=difficulty]:checked") || {}).value; if (diff && diff !== "med") bits.push(DIFF_LABEL[diff].toLowerCase());
     { const nn = (typeof noteSet !== "undefined" ? noteSet.size : 0) + (typeof newNotes !== "undefined" ? newNotes.length : 0); if (nn) bits.push(nn + " sticky note" + (nn === 1 ? "" : "s")); }
     if (items.length) bits.push(`checklist ${items.filter(i => i.done).length}/${items.length}`);
     if (deps.length) bits.push(`${deps.length} dependenc${deps.length === 1 ? "y" : "ies"}`);
     if (attached.size) bits.push(`${attached.size} file${attached.size === 1 ? "" : "s"}`);
     $("#advSum").textContent = bits.length ? bits.join(", ") : "Hours, checklist, files and more";
-    $("#advSum").classList.toggle("w-est", est);
   };
   const drawCl = () => {
     const pw = $("#pctWrap"); if (pw) pw.hidden = isNew || (items.length > 0 && !MILESTONE(curType()));
@@ -868,11 +889,11 @@ function taskForm(t, preset = {}){
   const tfNotes = $("#tfNotes"), tfNoteAttach = $("#tfNoteAttach");
   const drawNotes = () => {
     const ns = [...noteSet].map(id => state.notes[id]).filter(Boolean);
-    tfNotes.innerHTML = ns.map(n => `<div class="tf-note" style="--nc:${noteColor(n.color)}"><span>${esc(n.text.slice(0, 140)) || "<i>Empty note</i>"}</span><button type="button" class="x-btn" data-n-rm="${esc(n.id)}" aria-label="Detach note">${CLOSE}</button></div>`).join("")
+    tfNotes.innerHTML = ns.map(n => `<div class="tf-note" style="--nc:${noteColor(n.color)}"><span>${esc(notePlain(n.text, 140)) || "<i>Empty note</i>"}</span><button type="button" class="x-btn" data-n-rm="${esc(n.id)}" aria-label="Detach note">${CLOSE}</button></div>`).join("")
       + newNotes.map((txt, i) => `<div class="tf-note" style="--nc:${noteColor("yellow")}"><span>${esc(txt.slice(0, 140))}</span><button type="button" class="x-btn" data-n-new="${i}" aria-label="Remove new note">${CLOSE}</button></div>`).join("")
       || `<span class="mini">No sticky notes. Write one here, or attach one from the Notes board.</span>`;
     const cands = notesArr().filter(n => !noteSet.has(n.id) && !n.archived).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
-    tfNoteAttach.innerHTML = `<option value="">Attach a note from the board…</option>` + cands.map(n => `<option value="${esc(n.id)}">${esc((n.text.trim() || "Empty note").slice(0, 60))}${n.taskId && state.tasks[n.taskId] ? " (on " + esc(state.tasks[n.taskId].title) + ")" : ""}</option>`).join("");
+    tfNoteAttach.innerHTML = `<option value="">Attach a note from the board…</option>` + cands.map(n => `<option value="${esc(n.id)}">${esc(notePlain(n.text, 60) || "Empty note")}${n.taskId && state.tasks[n.taskId] ? " (on " + esc(state.tasks[n.taskId].title) + ")" : ""}</option>`).join("");
     tfNoteAttach.hidden = !cands.length;
     if (typeof advSummary === "function") advSummary();
   };
@@ -889,6 +910,40 @@ function taskForm(t, preset = {}){
   let start = null;
   ["focusin", "pointerdown", "keydown"].forEach(ev => tForm.addEventListener(ev, () => { if (start === null) start = snap(); }, true));
   dlgGuard = () => start !== null && snap() !== start;
+  // A changed sheet is kept as a draft on this device while you type, so a reload doesn't lose it (tfDraftOffer)
+  let dT = 0;
+  const keep = () => { clearTimeout(dT); dT = 0; if (!tForm.isConnected || !dlg.open) return; try { if (dlgGuard && dlgGuard()) localStorage.setItem(TF_DRAFT, JSON.stringify({id: t.id, isNew, title: t.title || "", at: Date.now(), f: [...new FormData(tForm)].filter(([, v]) => typeof v === "string")})); else localStorage.removeItem(TF_DRAFT); } catch (e) {} };
+  const soon = () => { clearTimeout(dT); dT = setTimeout(keep, 400); };
+  tForm.addEventListener("input", soon); tForm.addEventListener("change", soon);
+  tfDraftNow = () => { if (dT) keep(); };
+}
+/* Drafts of the task sheet. Saving, Cancel or Discard clears the draft (the sheet closes); after a reload, the app offers
+   it back once: Restore opens the task again with what you had typed. */
+const TF_DRAFT = "studyboard:taskDraft";
+let tfDraftNow = null;
+addEventListener("pagehide", () => { if (tfDraftNow) tfDraftNow(); });
+hook("boot", () => setTimeout(() => { try { tfDraftOffer(); } catch (e) { console.warn("task draft", e); } }, 1500));
+// (a close event that arrives after another sheet already opened, such as a restored draft, is about the sheet before it)
+dlg.addEventListener("close", () => { if (!tfDraftNow || dlg.open) return; tfDraftNow = null; try { localStorage.removeItem(TF_DRAFT); } catch (e) {} });
+function tfDraftOffer(){
+  let d = null; try { d = JSON.parse(localStorage.getItem(TF_DRAFT) || "null"); localStorage.removeItem(TF_DRAFT); } catch (e) { d = null; }
+  if (!d || !Array.isArray(d.f) || !(Date.now() - (Number(d.at) || 0) < 7 * 864e5)) return;
+  const t = d.isNew ? null : state.tasks[d.id]; if (!d.isNew && !t) return;
+  const name = (d.f.find(([k]) => k === "title") || [])[1] || d.title || "";
+  toast(`Restore your unsaved changes${name ? ` to “${name.slice(0, 60)}”` : " to a task"}?`, null, {label: "Restore", fn: () => {
+    if (dlg.open) dlg.close();
+    taskForm(d.isNew ? null : state.tasks[d.id] || null);
+    const form = dlg.querySelector("form"); if (!form) return;
+    // (as if you'd started editing: the sheet knows it has changes, so closing it asks first and the draft is kept again)
+    form.dispatchEvent(new FocusEvent("focusin"));
+    const byName = {}; d.f.forEach(([k, v]) => { (byName[k] = byName[k] || []).push(v); });
+    Object.keys(byName).forEach(k => {
+      const els = [...form.elements].filter(el => el.name === k); if (!els.length) return;
+      els.forEach(el => { if (el.type === "radio" || el.type === "checkbox") el.checked = byName[k].includes(el.value); else el.value = byName[k][0]; });
+      els[els.length - 1].dispatchEvent(new Event("change", {bubbles: true}));
+    });
+    form.dispatchEvent(new Event("input", {bubbles: true}));
+  }});
 }
 // Repeats run until the course's last deadline, or the end of the usual term
 function repeatEnd(due, cid){
@@ -957,8 +1012,8 @@ function courseForm(c){
       </div>
       <fieldset><legend>Color</legend><div class="swatches cc-sw">${COURSE_COLORS.map((x, i) => `<label title="${esc(COURSE_COLOR_NAMES[i] || "")}"><input type="radio" name="color" value="${x}" ${x.toLowerCase() === String(c.color || "").toLowerCase() ? "checked" : ""} aria-label="${esc(COURSE_COLOR_NAMES[i] || "Color " + (i + 1))}"><span style="--c:${x}"></span></label>`).join("")}${(cv => `<label class="cc-custom" title="Any color"><input type="radio" name="color" id="ccRadio" value="${esc(cv)}" ${COURSE_COLORS.some(x => x.toLowerCase() === String(c.color || "").toLowerCase()) ? "" : "checked"} aria-label="Custom color"><span style="--c:${esc(cv)}"></span><input type="color" id="ccPick" value="${esc(cv)}" aria-label="Pick any color" tabindex="-1"></label>`)(/^#[0-9a-f]{6}$/i.test(c.color || "") ? c.color : "#7C3AED")}</div></fieldset>
       <fieldset class="ci-fs"><legend>Icon <span class="hint">shown in the course's circle</span></legend><div class="ci-grid" id="ciGrid" style="--c:${esc(c.color)}" data-picked="${COURSE_ICONS[c.icon] || customIcon(c.icon) ? "1" : ""}">
-        ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and get one that matches your description, in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro() ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
-        <div class="ci-ai" id="ciAi" hidden><label class="f"><span class="lh">Describe the Icon<span class="beta-sym" title="Beta: still being improved" role="img" aria-label="Beta">β</span> <span class="hint">e.g. "a stethoscope with a heart" or "a hockey stick and puck"</span></span><input type="text" id="ciAiQ" maxlength="120" autocomplete="off"></label>
+        ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and get one that matches your description, in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && (!PLAN.isPro() || tagPro()) ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
+        <div class="ci-ai" id="ciAi" hidden><label class="f"><span class="lh">Describe the Icon<span class="beta-pill" title="Beta: still being improved">Beta</span> <span class="hint">e.g. "a stethoscope with a heart" or "a hockey stick and puck"</span></span><input type="text" id="ciAiQ" maxlength="120" autocomplete="off"></label>
           <div class="ci-ai-row"><button type="button" class="btn primary small ai-btn" data-act="ci-ai-go">${AI_ICON} Find Icons</button><span class="ci-ai-prev" id="ciAiPrev" aria-live="polite"></span><button type="button" class="btn small" data-act="ci-ai-use" id="ciAiUse" hidden>Use This Icon</button></div></div></fieldset>
       <label class="f"><span class="lh">Links <span class="hint">one per line, optionally "Label | url"</span></span><textarea name="links" placeholder="Syllabus | https://…&#10;Canvas | https://…">${esc(linksText)}</textarea></label>
       <label class="f">Notes<textarea name="notes" maxlength="10000" placeholder="Grading breakdown, exam dates, TA contact…">${esc(c.notes)}</textarea></label>
@@ -1058,7 +1113,8 @@ function askBox(o){
     d.onclick = e => { if (e.target === d) nope(); };
     d.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); nope(); } };
     try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
-    setTimeout(() => { const f = d.querySelector(o.input ? "#askIn" : "#askYes"); if (f) { f.focus(); if (o.input) f.select(); } }, 30);
+    // A destructive choice (Discard, Delete) is never the one Enter picks by default: the safe one has the focus
+    setTimeout(() => { const f = d.querySelector(o.input ? "#askIn" : o.danger ? "#askNo" : "#askYes"); if (f) { f.focus(); if (o.input) f.select(); } }, 30);
   });
 }
 function confirmSheet(title, text, label, onYes){
@@ -1103,7 +1159,7 @@ function menuSheet(){
       <button data-act="export-json"><span>Export Data Only<span class="sub">A smaller file without your uploaded files</span></span></button>`
         : `<button data-act="export"><span>Export a Backup File<span class="sub">Download a file you can keep anywhere, like Google Drive or a USB drive</span></span></button>`; })()}
       <button data-act="backup-now"><span>Save a Copy on This Device<span class="sub">Kept in this browser, which also saves a copy each day. It won't survive clearing the browser.</span></span></button>
-      <button data-act="restore"><span>Restore a Backup</span></button>
+      <button data-act="restore"><span>Restore a Device Copy<span class="sub">Go back to a copy saved on this device, or an automatic backup</span></span></button>
       <button data-act="import"><span>Import from a Backup File</span></button>
       <button data-act="ia-open"><span>Import From Another App<span class="sub">Anki, Quizlet, Knowt, Todoist or Notion. Read on this device, nothing is uploaded.</span></span></button>
       <button data-act="clear-all" style="color:var(--late)"><span>Clear All Data</span></button>
@@ -1123,7 +1179,7 @@ function menuSheet(){
 }
 
 async function restoreSheet(){
-  openSheet(`<div class="sheet">${head("Restore a Backup")}<div class="sheet-body"><p class="status-msg">Loading backups…</p></div></div>`);
+  openSheet(`<div class="sheet">${head("Restore a Device Copy")}<div class="sheet-body"><p class="status-msg">Loading backups…</p></div></div>`);
   let list = [];
   try { list = await listBackups(); } catch(e) {}
   if (!dlg.open) return;
@@ -1141,3 +1197,27 @@ async function restoreSheet(){
   }));
 }
 
+
+// The date under the logo always fits its space: "Saturday November 14", or if that's too wide "Saturday Nov 14", then "Sat Nov 14"
+// (instead of being cut off as "Saturday November ...")
+// It's fitted again whenever its room changes (a running Focus timer's pill appears beside the logo, the phone turns), but not
+// for its own change of width when a shorter form is put in, which would only make it try the long form again
+let todayFitW = -1;
+function todayFit(){
+  const el = document.getElementById("todayLabel"), wd = el && el.querySelector(".wd"), md = el && el.querySelector(".md");
+  if (!wd || !md || !el.clientWidth) return;
+  const d = new Date(), f = (o) => d.toLocaleDateString(undefined, o);
+  const forms = [[{weekday: "long"}, {month: "long", day: "numeric"}], [{weekday: "long"}, {month: "short", day: "numeric"}], [{weekday: "short"}, {month: "short", day: "numeric"}]];
+  for (const [a, b] of forms) { wd.textContent = f(a); md.textContent = f(b); if (el.scrollWidth <= el.clientWidth + 1) break; }
+  todayFitW = el.clientWidth;
+  todayWatch(el);
+}
+function todayWatch(el){
+  if (todayWatch.on === el || !window.ResizeObserver) return;
+  if (todayWatch.ro) todayWatch.ro.disconnect();
+  todayWatch.on = el;
+  todayWatch.ro = new ResizeObserver(() => { if (Math.abs(el.clientWidth - todayFitW) >= 1) requestAnimationFrame(todayFit); });
+  todayWatch.ro.observe(el);
+}
+addEventListener("resize", () => requestAnimationFrame(todayFit));
+try { document.fonts && document.fonts.ready.then(todayFit); } catch (e) {}

@@ -45,7 +45,7 @@ function serverInit(opts){
     my_username: () => SV.username || null,
     agree_share_terms: a => { if (a.p_version !== "2026-10-27") throw {message: "Update Studyboard to the latest version, then try again."}; SV.terms = a.p_version; return null; },
     my_age: () => SV.age === undefined ? 20 : SV.age,
-    set_birthdate: a => { const b = new Date(a.p_date + "T12:00:00"), n = new Date(); let y = n.getFullYear() - b.getFullYear(); if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) y--; SV.age = y; SV.bday = a.p_date; return y; },
+    set_birthdate: a => { const b = new Date(a.p_date + "T12:00:00"), n = new Date(); let y = n.getFullYear() - b.getFullYear(); if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) y--; SV.bdayCalls = (SV.bdayCalls || 0) + 1; if (y < 13) throw {message: "SB_UNDER13: Studyboard accounts are for people 13 and older."}; SV.age = y; SV.bday = a.p_date; return y; },
     username_check: a => [{ok: !/fuck|admin/i.test(a.p_name) && a.p_name.toLowerCase() !== "taken_name", reason: /fuck/i.test(a.p_name) ? "That name isn't allowed. Pick another." : "That username is taken."}],
     set_username: a => { if (a.p_name.toLowerCase() === "taken_name") throw {message: "SB_USERNAME: That username is taken."}; SV.username = a.p_name; return a.p_name; },
     search_schools: a => [{key: "uwaterloo.ca", name: "University of Waterloo", country: "Canada", region: "Ontario", web: "", city: "", kind: "university"}, {key: "wlu.ca", name: "Wilfrid Laurier University", country: "Canada", region: "", web: "", city: "", kind: "university"},
@@ -266,11 +266,12 @@ async function sharer(browser){
   const kid = new Date(); kid.setFullYear(kid.getFullYear() - 11);
   await page.fill("dialog[open] input[name=bday]", `${kid.getFullYear()}-${String(kid.getMonth() + 1).padStart(2, "0")}-${String(kid.getDate()).padStart(2, "0")}`);
   await page.click("#bdSave"); await page.waitForTimeout(400);
-  ok(await page.evaluate(() => window.__SV.age === 11) && /13 and older/.test(await txt(page, "dialog[open]")), "under 13: the birthday is saved and publishing says it's for 13 and older");
+  ok(await page.evaluate(() => window.__SV.age === null && !window.__SV.bday) && /can't make a Studyboard account/.test(await txt(page, "dialog[open]")), "under 13: no birthday is saved and there is no account");
+  ok(await page.evaluate(() => !!localStorage.getItem("studyboard:agegate")), "and the device remembers the refusal");
   await page.evaluate(() => __sbSync.dlg.close());
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForTimeout(300);
-  ok(/13 and older/.test(await txt(page, "dialog[open]")) && !(await page.$("dialog[open] input[name=bday]")), "and it isn't asked again");
-  await page.evaluate(() => { __sbSync.dlg.close(); window.__SV.age = 20; Object.keys(localStorage).filter(k => k.startsWith("studyboard:age:")).forEach(k => localStorage.removeItem(k)); });
+  ok(/can't make a Studyboard account/.test(await txt(page, "dialog[open]")) && !(await page.$("dialog[open] input[name=bday]")), "and the birthday isn't asked again on this device (an older one can't be tried)");
+  await page.evaluate(() => { __sbSync.dlg.close(); window.__SV.age = 20; Object.keys(localStorage).filter(k => k.startsWith("studyboard:age")).forEach(k => localStorage.removeItem(k)); });
   await page.evaluate(() => { __sbSync.ui.deckId = "d1"; __sbSync.render(); }); await page.waitForTimeout(200);
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForTimeout(300);
   ok(/at least 4 cards/.test(await page.evaluate(() => document.querySelector("#toast").textContent)), "a deck with fewer than 4 cards can't be published");

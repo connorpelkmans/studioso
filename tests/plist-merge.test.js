@@ -33,4 +33,12 @@ ok(/<key>NSCameraUsageDescription<\/key>\s*<string>[^<]{20,}<\/string>/.test(r.t
 ok(/<key>CFBundleURLSchemes<\/key>\s*<array>\s*<string>studyboard<\/string>/.test(r.text), "nested values come across whole");
 ok(r.text.trim().endsWith("</dict>\n</plist>") && (r.text.match(/<dict>/g) || []).length === (r.text.match(/<\/dict>/g) || []).length, "the result is still one well-formed plist");
 ok(mergePlist(r.text, ADD).added.length === 0, "running it again changes nothing");
+// a list the project already has gets the strings it's missing (Background App Refresh's "fetch"), keeping its own
+{
+  const withModes = CAP.replace("</dict>", "\t<key>UIBackgroundModes</key>\n\t<array>\n\t\t<string>audio</string>\n\t</array>\n</dict>");
+  const m = mergePlist(withModes, ADD), modes = m.text.match(/<key>UIBackgroundModes<\/key>\s*<array>([\s\S]*?)<\/array>/)[1];
+  ok(/audio/.test(modes) && /remote-notification/.test(modes) && /fetch/.test(modes), "adds the missing background modes to the project's list, keeping its own");
+  ok(keys(m.text).filter(k => k === "UIBackgroundModes").length === 1 && mergePlist(m.text, ADD).added.length === 0, "one list, and nothing more on a second run");
+  ok(/<key>BGTaskSchedulerPermittedIdentifiers<\/key>\s*<array>\s*<string>com\.studyboardapp\.studyboard\.refresh<\/string>/.test(m.text), "permits the Background App Refresh task");
+}
 console.log("\nplist-merge.test: " + n + " checks passed");

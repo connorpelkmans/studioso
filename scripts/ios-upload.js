@@ -33,7 +33,10 @@ const run = (args, what) => {
   try { execFileSync("xcodebuild", args, {stdio: "inherit"}); }
   catch (e) { console.error("\n✗ " + what + " failed. The error is a few lines above (look for \"error:\")."); process.exit(1); }
 };
-run(["-project", proj, "-scheme", "App", "-configuration", "Release", "-destination", "generic/platform=iOS", "-archivePath", archive,
+// a CocoaPods project builds through its workspace, which builds the plugins' pods (haptics, keyboard...) along with the app
+const ws = path.join(app, "App.xcworkspace"), useWs = fs.existsSync(ws) && fs.existsSync(path.join(app, "Podfile"));
+if (useWs) console.log("Building from App.xcworkspace (CocoaPods)");
+run([useWs ? "-workspace" : "-project", useWs ? ws : proj, "-scheme", "App", "-configuration", "Release", "-destination", "generic/platform=iOS", "-archivePath", archive,
      "-allowProvisioningUpdates", `DEVELOPMENT_TEAM=${team}`, `CURRENT_PROJECT_VERSION=${build}`, `MARKETING_VERSION=${version}`, "archive", "-quiet"], "Archiving (a few minutes)");
 run(["-exportArchive", "-archivePath", archive, "-exportOptionsPlist", opts, "-exportPath", path.join(work, "export"), "-allowProvisioningUpdates"], "Uploading to App Store Connect");
 console.log("\n✓ Uploaded version " + version + " (build " + build + "). It appears in App Store Connect > your app > TestFlight in 10 to 30 minutes.");

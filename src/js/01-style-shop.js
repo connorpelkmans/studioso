@@ -280,7 +280,10 @@ function skinVars(s, dark){
 function skinCss(s){
   if (!s || !s.light) return "";
   const L0 = skinVars(s, false), ab = (L0.match(/--accent:\s*(#[0-9A-Fa-f]{3,8})/) || [])[1], L = L0 + (ab ? `;--accent-band:${ab}` : ""), D = skinVars(s, true) + (ab ? `;--accent-band:${ab}` : ""), r = `:root[data-skin="${s.id}"]`;
-  return `${r}{${L};color-scheme:light}@media (prefers-color-scheme:dark){${r}:not([data-theme="light"]){${D};color-scheme:dark}}${r}[data-theme="dark"]{${D};color-scheme:dark}`;
+  // A theme's glow stays still behind the page. It's drawn on a fixed layer of its own rather than as a fixed page background:
+  // with background-attachment:fixed the browser repainted the whole page on every frame of a scroll (and under a scene)
+  const glow = s.glow ? `${r} body{background-image:none}${r}::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:var(--bgimg);background-size:var(--bgsize);background-position:var(--bgpos)}` : "";
+  return `${r}{${L};color-scheme:light}@media (prefers-color-scheme:dark){${r}:not([data-theme="light"]){${D};color-scheme:dark}}${r}[data-theme="dark"]{${D};color-scheme:dark}${glow}`;
 }
 
 /* Theme artwork */
@@ -326,6 +329,7 @@ const GRADE_CHEER = (() => {
     try { celebrate("check"); } catch (e) {}
     const t = fresh[0], p = Math.round(pctOf(t));
     try { toast(fresh.length === 1 ? `${p}% on ${t.title}. Great work!` : `${fresh.length} new grades of ${MIN}% or more. Great work!`); } catch (e) {}
+    fire("good-moment", "grade");
   }
   const soon = ms => { clearTimeout(T); T = setTimeout(() => { try { scan(); } catch (e) { console.warn("grade cheer", e); } }, ms); };
   hook("render", () => soon(1500));
@@ -1506,6 +1510,8 @@ const themeTier = id => id === "plain" || !id ? "free" : ((SKINS.find(x => x.id 
 const itemTier = (kind, id) => ((STYLE_LISTS[kind] || []).find(x => x.id === id) || {}).tier || "free";
 const owns = (kind, id) => {
   if (!STORE.paywall || itemTier(kind, id) === "free") return true;
+  // A photo theme someone made (ph-...) stays theirs after Pro ends; only making or editing one needs Pro
+  if (kind === "skin" && typeof id === "string" && id.indexOf("ph-") === 0) return true;
   if (typeof PLAN !== "undefined" && !!PLAN && (PLAN.isPro() || (PLAN.styleGrace && PLAN.styleGrace()))) return true;
   // A Founder keeps the theme made from their suggestion, with or without Pro
   if (kind === "skin" && window.SBEARLY && SBEARLY.keeps(id)) return true;
@@ -1521,6 +1527,8 @@ const skinHeld = id => !!SKIN_HOLD && id === SKIN_HOLD && Date.now() < SKIN_HOLD
 const skinOk = id => owns("skin", id) || skinHeld(id);
 if (SKIN_HOLD) setTimeout(() => { try { if (document.documentElement.dataset.skin === SKIN_HOLD && !owns("skin", SKIN_HOLD)) applySkin(); } catch (e) {} }, 10050);
 // The theme actually on screen
+// Test handle (only when a test page sets window.__SB_TEST)
+if (window.__SB_TEST) window.__sbOwns = (kind, id) => owns(kind, id);
 const effSkinId = () => { const id = ((state.settings && state.settings.style) || {}).skin || "classic"; return SKINS.some(x => x.id === id) && owns("skin", id) ? id : "classic"; };
 const styleCfg = () => Object.assign({skin: "classic", card: "index", note: "classic", pin: "pin"}, (state.settings && state.settings.style) || {});
 
@@ -1623,6 +1631,8 @@ function shopUnlock(kind, id){ toast("This item is part of Studyboard Pro."); }
 
 /* The shop */
 const PRO_BADGE = `<span class="pro-badge">PRO</span>`, FREE_BADGE = `<span class="free-badge">Free</span>`;
+// PRO tags also show on the free weeks of Pro, so people see what they'd lose when those end (PLAN.trialTags)
+const tagPro = () => { try { return typeof PLAN !== "undefined" && !!PLAN && typeof PLAN.trialTags === "function" && PLAN.trialTags(); } catch (e) { return false; } };
 function skinPreview(s, dark){
   const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848;--spine-bg:linear-gradient(165deg,#0E2148,#060F24 52%,#040A18)" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4;--spine-bg:linear-gradient(165deg,#1B4486,#0E2A56 52%,#0B2245)";
   const base = "--bgimg:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);--bgsize:12px 12px;--bgpos:0 0;--scene:none;--scene-h:0px;--btn-bg:var(--accent);--spine-bg:var(--spine);--sel:var(--accent);--accent-2:var(--accent);";
@@ -1652,7 +1662,7 @@ function styleShop(tab){
   if (typeof PLAN !== "undefined" && PLAN && PLAN.endStyleGrace && PLAN.endStyleGrace()) { try { applySkin(); } catch (e) {} render(); }
   ui.shopTab = tab || ui.shopTab || "themes";
   const cfg = styleCfg();
-  const btnFor = (kind, it, cur, useLabel) => !owns(kind, it.id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${kind}" data-id="${it.id}">🔒 Unlock</button>${kind === "skin" ? cpBtn(it.id) : ""}` : cur ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${kind}" data-id="${it.id}">${useLabel || "Use"}</button>`;
+  const btnFor = (kind, it, cur, useLabel) => !owns(kind, it.id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${kind}" data-id="${it.id}">🔒 Unlock</button>${kind === "skin" ? cpBtn(it.id) : ""}` : cur ? `<button type="button" class="btn small shop-inuse" disabled>✓ In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${kind}" data-id="${it.id}">${useLabel || "Use"}</button>`;
   const nameRow = it => `<div class="shop-name"><b>${esc(it.name)}</b>${it.tier === "pro" ? PRO_BADGE : FREE_BADGE}</div><p class="mini">${esc(it.desc || "")}</p>`;
   const grid = (list, fn) => `<div class="shop-grid">${list.map(fn).join("")}</div>`;
   const section = (title, list, fn) => list.length ? `<h3 class="fsec shop-sec">${title}</h3>${grid(list, fn)}` : "";
@@ -1663,13 +1673,13 @@ function styleShop(tab){
       ${[["plain", "Free · Plain Colors"], ["world", `${PRO_BADGE} Pro · Around the World`], ["ideas", `${PRO_BADGE} Pro · New Theme Ideas`], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`], ["founders", `${PRO_BADGE} Pro · Founder Themes`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
   } else if (ui.shopTab === "cards") {
     body = `<p class="mini" style="margin:0">How flashcards look while you study. You can also give one deck its own style under Edit Deck.</p>
-      ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id, "Use for All Decks")}</div>`)}`;
+      ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id)}</div>`)}`;
   } else if (ui.shopTab === "notes") {
     body = `<p class="mini" style="margin:0">The shape of your sticky notes. Change one note's shape while editing it.</p>
-      ${split(NOTE_SHAPES, (sh, i) => `<div class="shop-tile ${noteShapeOf(null) === sh.id ? "on" : ""}">${noteDemo(sh.id, notePinOf(null), NOTE_SHAPES.indexOf(sh))}${nameRow(sh)}${btnFor("note", sh, noteShapeOf(null) === sh.id, "Use for Notes")}</div>`)}`;
+      ${split(NOTE_SHAPES, (sh, i) => `<div class="shop-tile ${noteShapeOf(null) === sh.id ? "on" : ""}">${noteDemo(sh.id, notePinOf(null), NOTE_SHAPES.indexOf(sh))}${nameRow(sh)}${btnFor("note", sh, noteShapeOf(null) === sh.id)}</div>`)}`;
   } else if (ui.shopTab === "pins") {
     body = `<p class="mini" style="margin:0">What holds your notes to the board. Pins work with any note shape; change one note's pin while editing it.</p>
-      ${kitFollow("pin", PINS, notePinOf(null), cfg.pinAuto === true)}${section("All Pins", PINS, pn => `<div class="shop-tile ${notePinOf(null) === pn.id ? "on" : ""}">${noteDemo(noteShapeOf(null), pn.id, PINS.indexOf(pn) + 1)}${nameRow(pn)}${btnFor("pin", pn, notePinOf(null) === pn.id && !(cfg.pinAuto !== false && themeKit()), "Use for Notes")}</div>`)}`;
+      ${kitFollow("pin", PINS, notePinOf(null), cfg.pinAuto === true)}${section("All Pins", PINS, pn => `<div class="shop-tile ${notePinOf(null) === pn.id ? "on" : ""}">${noteDemo(noteShapeOf(null), pn.id, PINS.indexOf(pn) + 1)}${nameRow(pn)}${btnFor("pin", pn, notePinOf(null) === pn.id && !(cfg.pinAuto !== false && themeKit()))}</div>`)}`;
   } else {
     body = `<p class="mini" style="margin:0">Stickers live in the envelope beside your Notes board. Drag one onto a note and it moves with the note. Drag it off to remove it, or tap it to resize.</p>
       ${[["free", "Free"], ["pro", `${PRO_BADGE} Pro`]].map(([t, l]) => `<h3 class="fsec shop-sec">${l}</h3>${STICKER_PACKS.filter(p => p.tier === t).map(p => `<div class="shop-pack"><div class="shop-name"><b>${esc(p.name)}</b><span class="mini">${Object.keys(p.items).length} stickers</span>${owns("sticker", p.id) ? "" : `<button type="button" class="btn small" data-act="shop-unlock" data-kind="sticker" data-id="${p.id}">🔒 Unlock</button>`}</div><div class="pack-grid">${Object.keys(p.items).map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div></div>`).join("")}`).join("")}`;
@@ -1780,7 +1790,7 @@ function envelopeHtml(){
   const cur = STICKER_PACKS.find(p => p.id === ui.stkPack) || STICKER_PACKS[0], p = stkParts(), q = ui.stkQ || "";
   const open = ui.envOpen !== false;
   return `<aside class="env ${open ? "" : "closed"} ${q.trim() ? "searching" : ""}" aria-label="Sticker envelope">
-    <button type="button" class="env-head" data-act="env-toggle" aria-expanded="${open}"><span class="env-title">Stickers</span><span class="env-caret" aria-hidden="true">${open ? "▾" : "▸"}</span></button>
+    <button type="button" class="env-head" data-act="env-toggle" aria-expanded="${open}"${open ? "" : ' title="Stickers"'}><span class="env-title">Stickers</span><span class="env-caret" aria-hidden="true">${open ? "▾" : "▸"}</span><svg class="env-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 16.6l-5.3 2.9 1.1-5.9-4.4-4.1 6-.8z" fill="#F6C343" stroke="#4A3014" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
     <div class="env-body">
       <div class="env-search" role="search"><input type="search" class="env-q" placeholder="Search stickers" aria-label="Search all sticker packs" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="40" value="${esc(q)}"><button type="button" class="env-qx" data-act="stk-qclear" aria-label="Clear search" ${q ? "" : "hidden"}>×</button></div>
       <div class="env-packs" role="group" aria-label="Sticker packs">${STICKER_PACKS.map(p => `<button type="button" data-act="stk-pack" data-id="${p.id}" class="${p === cur ? "on" : ""}" title="${esc(p.name)}${p.tier === "pro" ? " (Pro)" : ""}" aria-label="${esc(p.name)}" aria-pressed="${p === cur}">${stickerSvg(Object.keys(p.items)[0])}${owns("sticker", p.id) ? "" : `<i class="lock">🔒</i>`}</button>`).join("")}</div>
@@ -1865,9 +1875,9 @@ function stkEnd(ok, e){
   if (d.fromNote) {
     const src = state.notes[d.noteId]; if (!src) return;
     const m = clone(src); moved = m.stickers.splice(d.i, 1)[0]; if (!moved) return;
-    if (tid === d.noteId) { Object.assign(moved, noteLocalPoint(target, e.clientX, e.clientY)); delete moved.y; m.stickers.splice(d.i, 0, moved); applyChanges([{kind: "note", id: src.id, after: m}], ""); return; }
+    if (tid === d.noteId) { sbHaptic("drop"); Object.assign(moved, noteLocalPoint(target, e.clientX, e.clientY)); delete moved.y; m.stickers.splice(d.i, 0, moved); applyChanges([{kind: "note", id: src.id, after: m}], ""); return; }
     changes.push({kind: "note", id: src.id, after: m});
-    if (!tid) { applyChanges(changes, "Sticker removed"); return; }
+    if (!tid) { sbHaptic("drop"); applyChanges(changes, "Sticker removed"); return; }
   }
   if (!tid || !state.notes[tid]) { if (!d.fromNote) toast("Drop stickers onto a sticky note"); return; }
   const t = clone(state.notes[tid]);
@@ -1876,6 +1886,8 @@ function stkEnd(ok, e){
   changes.push({kind: "note", id: tid, after: t});
   // On a phone the envelope covers the board, so it stays tucked away once a sticker from it lands
   if (!d.fromNote && window.matchMedia && window.matchMedia("(max-width:700px)").matches) { ui.envOpen = false; try { localStorage.setItem("studyboard:env", "0"); } catch(err) {} }
+  // a tap as the sticker lands, as a note does when it's dropped
+  sbHaptic("drop");
   applyChanges(changes, "");
 }
 // Turning a sticker
@@ -1912,7 +1924,7 @@ document.addEventListener("pointermove", e => {
   if (!sDrag.moved && Math.hypot(e.clientX - sDrag.x0, e.clientY - sDrag.y0) < 6) return;
   if (!sDrag.moved) {
     sDrag.moved = true; document.body.classList.add("stk-dragging");
-    const g = document.createElement("div"); g.className = "stk stk-ghost"; g.innerHTML = stickerSvg(sDrag.k);
+    const g = document.createElement("div"); g.className = "stk stk-ghost sm-skip"; g.innerHTML = stickerSvg(sDrag.k);
     const sz = Math.max(40, Math.min(90, sDrag.size || 48)); g.style.width = g.style.height = sz + "px";
     document.body.appendChild(g); sDrag.ghost = g;
     if (sDrag.el) sDrag.el.style.opacity = "0";
@@ -1952,10 +1964,13 @@ const STYLE_ACTS = {
   "motion-toggle": el => { saveStyle({motion: !!el.checked}); artSig = ""; renderSkinArt(); },
   "anim-toggle": el => { saveStyle({[el.dataset.key]: !!el.checked}); artSig = ""; renderSkinArt(); },
   "kit-follow": el => { saveStyle({[el.dataset.kind + "Auto"]: true}); render(); styleShop(); },
-  // On a phone the sticker drawer rises and fades in when it opens, and sinks away before it closes
+  // On a phone the sticker drawer rises and fades in when it opens, and sinks away before it closes.
+  // Beside the board (wider screens) it folds into a round button at the board's top right, and unfolds back (envMorph)
   "env-toggle": () => {
     const opening = ui.envOpen === false, env = document.querySelector(".env");
-    const r = document.documentElement, glide = env && env.animate && matchMedia("(max-width:639px)").matches && r.dataset.motion !== "static" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const r = document.documentElement, still = r.dataset.motion === "static" || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (env && env.animate && !still && matchMedia("(min-width:701px)").matches) { envMorph(opening); return; }
+    const glide = env && env.animate && matchMedia("(max-width:639px)").matches && !still;
     const ease = "cubic-bezier(.32,.72,0,1)";
     const flip = () => {
       ui.envOpen = opening; try { localStorage.setItem("studyboard:env", ui.envOpen ? "1" : "0"); } catch(e) {} render();
@@ -1966,6 +1981,50 @@ const STYLE_ACTS = {
     flip();
   }
 };
+/* Closing beside the board: the envelope's flap folds shut, the board's round buttons (Archive, Trash, Expand) step left to make
+   room, the envelope shrinks into a round button in that spot, then the board grows into the space the envelope used. Opening
+   plays the same steps backward. It is all played on the open layout (the board's width held, then let out), so the closed
+   layout drawn afterwards is exactly where it ends. */
+const ENV_MS = 450;
+// While the envelope folds, the board changes width every frame; its scroll bar along the bottom stays hidden until the board has
+// settled at its new size, so it can't flash up for a moment
+const envMorphing = on => { const r = document.documentElement; if (on) { clearTimeout(envMorphing.t); r.classList.add("env-morph"); } else requestAnimationFrame(() => requestAnimationFrame(() => { envMorphing.t = setTimeout(() => r.classList.remove("env-morph"), 60); })); };
+function envMorph(opening){
+  const save = () => { ui.envOpen = opening; try { localStorage.setItem("studyboard:env", opening ? "1" : "0"); } catch(e) {} };
+  envMorphing(true);
+  if (opening) { save(); render(); }
+  const env = document.querySelector(".nb-wrap > .env:not(.closed)"), wrap = env && env.parentElement, main = wrap && wrap.querySelector(":scope > .nb-main"), head = env && env.querySelector(".env-head");
+  if (!env || !main || !head) { if (!opening) { save(); render(); } envMorphing(false); return; }
+  const er = env.getBoundingClientRect(), mr = main.getBoundingClientRect(), hh = head.getBoundingClientRect().height;
+  const gap = er.left - mr.right, mw = parseFloat(getComputedStyle(main).width), grow = er.width + gap;
+  // the round button takes the spot Expand has now (Expand and the others step left for it), the size of the board's other buttons
+  const mx = main.querySelector(":scope > .nb-max"), xr = mx ? mx.getBoundingClientRect() : {left: mr.right - 51, top: mr.top + 15, width: 36};
+  const C = xr.width, tx = xr.left - er.left, ty = xr.top - er.top;
+  // the inline height nbFill sets is !important, which an animation can't override; the same height without it can be
+  // (nbFill leaves its height alone while it folds: data-morph)
+  const H = er.height; env.dataset.morph = "1"; env.style.setProperty("height", H + "px"); env.style.setProperty("max-height", "none"); env.style.setProperty("min-height", "0");
+  // the steps are timed by the keyframe offsets, so the easing goes on each step rather than on the whole
+  const o = {duration: ENV_MS, easing: "linear", fill: "both", direction: opening ? "reverse" : "normal"};
+  const flap = "polygon(0 0,100% 0,100% 55%,50% 100%,0 55%)", flat = "polygon(0 0,100% 0,100% 100%,50% 100%,0 100%)";
+  const keep = (k, x) => Object.assign({offset: k, easing: "cubic-bezier(.4,0,.2,1)"}, x);
+  const envOpen = {width: er.width + "px", height: H + "px", transform: "translate(0,0)", borderRadius: "14px"}, envShut = Object.assign({}, envOpen, {height: hh + "px"}), envBtn = {width: C + "px", height: C + "px", transform: `translate(${tx}px,${ty}px)`, borderRadius: C / 2 + "px"};
+  const runs = [
+    env.animate([keep(0, envOpen), keep(.3, envShut), keep(.45, envShut), keep(.7, envBtn), keep(1, envBtn)], o),
+    head.animate([keep(0, {height: hh + "px", clipPath: flap}), keep(.45, {height: hh + "px", clipPath: flap}), keep(.7, {height: C + "px", clipPath: flat}), keep(1, {height: C + "px", clipPath: flat})], o),
+    // the board keeps its width until the envelope is a button, then grows into the space
+    main.animate([keep(0, {minWidth: mw + "px", maxWidth: mw + "px"}), keep(.7, {minWidth: mw + "px", maxWidth: mw + "px"}), keep(1, {minWidth: mw + grow + "px", maxWidth: mw + grow + "px"})], o)
+  ];
+  const fade = (el, a, b) => { if (el) runs.push(el.animate([keep(0, {opacity: 1}), keep(a, {opacity: 1}), keep(b, {opacity: 0}), keep(1, {opacity: 0})], o)); };
+  env.querySelectorAll(":scope > .env-body, :scope > .env-pocket").forEach(el => fade(el, 0, .25));
+  head.querySelectorAll(".env-title, .env-caret").forEach(el => fade(el, .4, .55));
+  const ic = head.querySelector(".env-ic"); if (ic) runs.push(ic.animate([keep(0, {opacity: 0}), keep(.5, {opacity: 0}), keep(.7, {opacity: 1}), keep(1, {opacity: 1})], o));
+  try { runs.push(head.animate([keep(0, {opacity: 1}), keep(.35, {opacity: 1}), keep(.5, {opacity: 0}), keep(1, {opacity: 0})], Object.assign({pseudoElement: "::after"}, o))); } catch (e) {}
+  main.querySelectorAll(":scope > .nb-max, :scope > .nb-targets").forEach(el => runs.push(el.animate([keep(0, {transform: "translateX(0)"}), keep(.3, {transform: "translateX(0)"}), keep(.45, {transform: "translateX(-44px)"}), keep(1, {transform: "translateX(-44px)"})], o)));
+  Promise.all(runs.map(a => a.finished)).then(() => {
+    if (!opening) { save(); render(); envMorphing(false); return; }
+    runs.forEach(a => a.cancel()); delete env.dataset.morph; env.style.removeProperty("min-height"); nbFill(); envMorphing(false);
+  }, () => { if (!opening) { save(); render(); } envMorphing(false); });
+}
 // The sticker envelope starts closed; once you open it, it stays the way you left it
 try { const v = localStorage.getItem("studyboard:env"); ui.envOpen = v ? v === "1" : false; } catch(e) { ui.envOpen = false; }
 document.addEventListener("change", e => {
@@ -1985,7 +2044,7 @@ const AI_ACTS = {
   "tf-est": el => tfEstimate(el),
   "nu-skip": el => { nuSkips().ids.push(el.dataset.id); nuSkipSave(); if (!/^study:/.test(el.dataset.id)) nufbAdd("skip", state.tasks[el.dataset.id]); render(); },
   "nu-more": el => { ui.nuMore = !ui.nuMore; const c = el.closest(".next-up"); if (c) c.classList.toggle("nu-open", ui.nuMore); el.setAttribute("aria-expanded", String(!!ui.nuMore)); },
-  "nu-enough": el => { const t = state.tasks[el.dataset.id]; if (!t) return; const n = clone(t); n.history = (n.history || []).concat({at: Date.now(), text: "Enough for today"}).slice(-30); applyChanges([{kind: "task", id: t.id, after: n}], null); toast(`Okay, moving on from “${t.title}” for today. It stays on your list.`); render(); },
+  "nu-enough": el => { const t = state.tasks[el.dataset.id]; if (!t) return; const n = clone(t); n.history = (n.history || []).concat({at: Date.now(), text: "Enough for today"}).slice(-30); const inv = applyChanges([{kind: "task", id: t.id, after: n}], ""); toast(t.due === todayISO() && t.status !== "done" ? `Okay, moving on from “${t.title}” for today. It's still due today${t.time ? " at " + fmtTime(t.time) : ""}.` : `Okay, moving on from “${t.title}” for today. It stays on your list.`, inv ? () => { applyChanges(inv, null); toast("Undone"); } : undefined); render(); },
   "nu-back": () => { const id = nuSkips().ids.pop(); nuSkipSave(); ui.nuLast = null; if (id && !/^study:/.test(id)) nufbDrop("skip", id); render(); },
   "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} Object.keys(h).forEach(k => { if (Date.now() - h[k] > 8 * 864e5 || h[k] === 1) delete h[k]; }); h[el.dataset.id] = Date.now(); try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
   "ai-explain": el => runExplain(el.dataset.key, el.dataset.given),

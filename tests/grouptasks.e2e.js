@@ -86,10 +86,14 @@ async function scenario(browser, w){
   ok(/permission/.test(await txt(page, "#toast")), tag + " the error is explained");
   await page.evaluate(() => { window.__offline = true; });
   await page.fill("#ptTitle", "Offline thought"); await page.press("#ptTitle", "Enter"); await page.waitForTimeout(400);
-  eq(await page.$$eval(".pt-task", e => e.length), 4, tag + " offline add rolls back");
-  eq(await page.inputValue("#ptTitle"), "Offline thought", tag + " offline add restores what was typed");
-  ok(/reach Studyboard/.test(await txt(page, "#toast")), tag + " offline message");
-  await page.evaluate(() => { window.__offline = false; }); await page.fill("#ptTitle", "");
+  // a dropped connection keeps the task on this device and sends it when it's back (SO16)
+  eq(await page.$$eval(".pt-task", e => e.length), 5, tag + " offline add is kept");
+  ok(/Sending when you're back online/.test(await txt(page, '.pt-task.is-pending')), tag + " and shows as sending later");
+  await page.evaluate(() => { window.__offline = false; window.dispatchEvent(new Event("online")); }); await page.waitForTimeout(1800);
+  ok(await page.evaluate(() => window.__DB.group_tasks.some(t => t.title === "Offline thought")), tag + " sent once back online");
+  await page.evaluate(() => { window.__DB.group_tasks = window.__DB.group_tasks.filter(t => t.title !== "Offline thought"); window.__fire("group_tasks", "DELETE"); }); await page.waitForTimeout(900);
+  eq(await page.$$eval(".pt-task", e => e.length), 4, tag + " (removed again for the checks below)");
+  await page.fill("#ptTitle", "");
   await page.click('.pt-task:has-text("Write the abstract") [data-act="grp-pt-edit"]'); await page.waitForSelector("dialog[open] input[name=title]");
   await page.fill('dialog input[name="title"]', "Write the abstract (150 words)"); await page.fill('dialog textarea[name="notes"]', "Keep it under 150 words"); await page.selectOption('dialog select[name="priority"]', "high"); await page.selectOption('dialog select[name="who"]', "u1");
   await noOverflow(page, tag + " edit sheet");
@@ -146,7 +150,9 @@ async function planner(browser, w){
   await toPlan(page);
   await page.waitForSelector("#grpMine", {timeout: 6000});
   const card = await txt(page, "#grpMine");
-  ok(/Group: BIOL 201 Poster/.test(card), tag + " group badge: " + card.replace(/\s+/g, " "));
+  // one label for a group task everywhere (Round 2 SO4): the group's name, as on Today's Plan, with the list in its tooltip
+  const gTitle = await page.evaluate(() => { const b = document.querySelector("#grpMine .gm-badge"); return b ? b.getAttribute("title") || b.dataset.tip || "" : ""; });
+  ok(/Bio Squad/.test(card) && /BIOL 201 Poster/.test(gTitle), tag + " group badge: " + card.replace(/\s+/g, " ") + " / " + gTitle);
   ok(/Write the methods section/.test(card) && /Collect survey data/.test(card) && !/Design the poster layout/.test(card) && !/Proofread/.test(card), tag + " only my tasks");
   ok(/My Group Tasks\s*2/.test(card) && !/assigned to you|due this week|Open the Group/.test(card), tag + " the card has its title and count, no summary line: " + card.replace(/\s+/g, " ").slice(0, 160));
   ok(/Due yesterday/.test(card) && await page.locator("#grpMine .gm-row.is-late").count() === 1, tag + " an overdue task is marked late on its row");

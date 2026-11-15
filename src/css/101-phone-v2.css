@@ -1,4 +1,7 @@
 /* ===== module: 101-phone-v2.css ===== */
+/* a file row's ⋯ menu is for phones; computers keep the row's own buttons */
+.fr-more{display:none}
+.frow > .f-acts{display:contents}
 /* Saving is automatic, so the header says nothing about it unless there's a problem */
 #guestBadge,#guestBadgeSide{display:none!important}
 .sync:is([data-state="ok"],[data-state="busy"]){display:none!important}
@@ -73,7 +76,7 @@
   nav.tabs .in [data-tab="companion"][aria-current="page"]::after{box-shadow:0 0 0 4px var(--accent-band,var(--accent)),0 0 0 7px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28)}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
   /* The Add button */
-  .fab{width:56px;height:56px;padding:0!important;border-radius:50%!important;justify-content:center;right:16px;bottom:calc(var(--ph-bar-b) + 74px)}
+  .fab{width:56px;height:56px;padding:0!important;border-radius:50%!important;justify-content:center;inset-inline-end:16px;bottom:calc(var(--ph-bar-b) + 74px)}
   .fab span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .fab svg{width:26px;height:26px}
   /* Page switchers */
@@ -82,6 +85,12 @@
   #view > .pview-tabs:has(> button:nth-of-type(4)) button,#view > .bview-row .bview-tabs:has(> button:nth-of-type(4)) button{font-size:1.1rem;padding:8px 4px;flex:1 1 auto;min-width:0}
   /* the smallest phones: three page names still fit (Due Dates, Schedule, Crunch) */
   @media (max-width:359px){#view > .pview-tabs button,#view > .bview-row .bview-tabs button{font-size:1.02rem;padding:8px 2px;flex:1 1 auto;min-width:0}}
+  /* Large and Extra Large text: the names grow only as far as the screen has room, so the last one isn't pushed off the edge */
+  html:is([data-ts="l"],[data-ts="xl"]) #view > :is(.pview-tabs,.bview-row .bview-tabs) button{font-size:min(1.2rem,5.2vw);flex:1 1 auto;min-width:0}
+  html:is([data-ts="l"],[data-ts="xl"]) #view > :is(.pview-tabs,.bview-row .bview-tabs):has(> button:nth-of-type(4)) button{font-size:min(1.1rem,4.2vw)}
+  /* Other languages: page names run longer than the English ones (Plan de hoy, Tablero de tareas), so they share the row
+     evenly and wrap to a second line instead of pushing the last one off the edge */
+  html:not([lang|="en"]) #view > :is(.pview-tabs,.bview-row .bview-tabs) button{flex:1 1 0;min-width:0;white-space:normal;line-height:1.1;font-size:min(1.1rem,4.4vw);text-wrap:balance;overflow-wrap:anywhere}
   #view > .bview-row{margin-top:0}
   .ph-dup{display:none!important}
   #view .view-head:not(:has(> :not(h2.ph-dup))){display:none}
@@ -135,13 +144,14 @@
   .ph-sch .sch-nav{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;width:100%}
   .ph-sch .sch-range{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* its own layer above the schedule: while the fade-in animation runs, the menu would otherwise sit under the events */
-  .ph-more{position:relative;z-index:30;flex:none;margin-left:4px}
+  .ph-more{position:relative;z-index:1;flex:none;margin-left:4px}
+  .ph-more[open]{z-index:30}
   .ph-more > summary{list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;cursor:pointer}
   .ph-more > summary::-webkit-details-marker{display:none}
   .ph-more > summary svg{width:14px;height:14px;transition:transform .15s}
   .ph-more[open] > summary svg{transform:rotate(180deg)}
-  .ph-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:8;display:grid;gap:4px;min-width:200px;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--ph-surf,var(--surface));box-shadow:0 12px 28px rgba(8,20,50,.22)}
-  .ph-menu .btn{justify-content:flex-start;width:100%;min-height:44px;border:0;box-shadow:none;background:transparent;border-radius:10px;text-align:left}
+  .ph-menu{position:absolute;inset-inline-end:0;top:calc(100% + 6px);z-index:8;display:grid;gap:4px;min-width:200px;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--ph-surf,var(--surface));box-shadow:0 12px 28px rgba(8,20,50,.22)}
+  .ph-menu .btn{justify-content:flex-start;width:100%;min-height:44px;border:0;box-shadow:none;background:transparent;border-radius:10px;text-align:start}
   .ph-menu .btn:hover,.ph-menu .btn:focus-visible{background:var(--soft)}
   /* Companion page */
   .cpt-head.cpt3{padding-bottom:10px}
@@ -177,6 +187,26 @@
   #view > .view-head.ph-moved,#view > .tl-controls.ph-moved,#view .ftree.ph-moved{display:none}
   .f-row .segb{flex:none}
   .f-row .segb button{min-height:36px;padding:4px 12px;font-size:.86rem}
+  /* Files: the ⋯ More menu (Scan to PDF, Convert…) as a round icon beside Cloud, so the row stays on one line */
+  .f-row > .f-more{margin-left:auto}.f-row > .ph-ic + .f-more{margin-left:0}
+  .f-more > summary.btn{width:40px;min-width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;justify-content:center}
+  .f-more > summary svg,.f-more[open] > summary svg{width:20px;height:20px;transform:none}
+  /* a file's own actions: one ⋯ menu at the end of its row (01-notes.js fileRowMore) */
+  .frow > .f-acts{display:none!important}
+  .frow > .fr-more{display:block;margin-inline-start:auto;align-self:center}
+  .frow > .fr-more > summary{min-height:40px;min-width:40px;padding:0 10px;justify-content:center}
+  .frow > .fr-more > summary svg{width:16px;height:16px}
+  .frow > .fr-more[open] > summary svg{transform:none}
+  .fr-more .ph-menu{min-width:190px}
+  /* while it's open the menu reaches past the list's rounded box and sits above the rows below it */
+  .flist:has(.fr-more[open]){overflow:visible}
+  .frow > .fr-more[open]{z-index:60}
+  .fr-more .ph-menu .btn{display:flex;align-items:center;gap:10px}
+  .fr-more .ph-menu .btn svg,.fr-more .ph-menu .btn img{width:18px;height:18px;flex:none}
+  .f-more .ph-menu{min-width:220px}
+  .f-more .ph-menu .btn{display:flex;align-items:center;gap:10px}
+  .f-more .ph-menu .btn svg{width:18px;height:18px;flex:none}
+  .f-more .ph-menu .btn:not(:has(svg))::before{content:"";width:18px;flex:none}   /* items without an icon (Convert) line up with the rest */
   #view > .nb-boards{display:none}
   .nb-row .nb-opts{min-height:40px;min-width:40px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none;margin-right:auto}
   .nb-row .cf-pick{max-width:55%}
@@ -219,9 +249,8 @@
   @media (max-height:700px){html.ph-lock #view .cpt-priv{display:none}}
   /* the starter questions always stack (the chat scrolls if there's no room) */
   /* Notes / Groups */
-  /* a page with one view gets a plain title, not a switch with a single choice */
-  #view > .pview-tabs.ph-solo{justify-content:flex-start;padding:0 4px;background:none;border:0;box-shadow:none}
-  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;display:flex;align-items:center;min-width:0;min-height:42px;padding:0;color:var(--ink);font:800 1.55rem var(--display);letter-spacing:-.01em}
+  /* a page with one view: its title in the same full-width pill as the other tabs' switches, its one choice picked */
+  #view > .pview-tabs.ph-solo .ph-solo-t{flex:1 1 auto;pointer-events:none;cursor:default}
   :is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small{min-height:40px;margin:0!important}
   /* Task Board: Group By as a small control */
   .bview-row .board-ctl .segb button{min-height:34px;padding-block:4px;font-size:.84rem}
@@ -234,6 +263,13 @@
   /* A course's page */
   .c2-head .cd-tabs button{font-size:.84rem;padding-inline:4px;white-space:nowrap}
 }
+/* A label longer than its slot (German "Wiederholen", French "Calendrier") ends in an ellipsis inside its own tab instead of running
+   into the next one. The label is a bare text node, so the button itself becomes the block that clips it, with the icon on its own
+   line above. Letters sit a touch closer so Spanish "Calendario" still fits whole. (The companion's seat has no label and draws outside its button.) */
+@media (min-width:360px) and (max-width:639px){
+  nav.tabs .in button:not([data-tab="companion"]){display:block;overflow:hidden;text-overflow:ellipsis;text-align:center;letter-spacing:-.02em}
+  nav.tabs .in button:not([data-tab="companion"]) > svg{display:block;margin:0 auto 4px}
+}
 /* the narrowest phones */
 @media (max-width:359px){header.top .today{font-size:.68rem!important}}
 @media (max-width:359px){nav.tabs .in button,html[data-ts] nav.tabs .in button{font-size:0!important;line-height:0!important;gap:0;min-height:48px;justify-content:center}}
@@ -244,17 +280,21 @@
 @media (min-width:640px){nav.tabs{scrollbar-width:none}nav.tabs::-webkit-scrollbar{display:none}}
 /* The page never scrolls sideways; a stray wide frame (the companion moving between pages) can't add a scrollbar that squeezes the side menu */
 @media (min-width:640px){html{overflow-x:clip}}
-/* Page buttons sit level with the tabs, not the title */
+/* Page buttons sit level with the tabs, not the title: their bottoms line up with the tabs' bottom (12px margin + 46px tabs) */
 @media (min-width:640px){
   #view > .pg-head:not(.pg-solo){position:relative}
-  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 46px);transform:translateY(-100%);align-items:center;flex-wrap:nowrap;z-index:2}
+  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;inset-inline-end:0;top:calc(100% + 58px);transform:translateY(-100%);align-items:flex-end;flex-wrap:nowrap;z-index:2}
+  /* (placed after the tabs, so Tab order follows the screen: a zero-height holder whose top is 16px under the tabs) */
+  #view > .pg-rwrap{position:relative;height:0;margin:0!important;padding:0}
+  #view > .pg-rwrap > .pg-right{position:absolute;inset-inline-end:0;bottom:calc(100% + 16px);align-items:flex-end;flex-wrap:nowrap;z-index:2}
+  #view > .pg-rwrap + *{margin-top:0!important}
 }
-#view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-left:auto}
+#view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-inline-start:auto}
 /* Task Board: the tab line runs the full width, Group By sits on it like the other page buttons */
 @media (min-width:640px){
   #view > .bview-row:has(> .pg-tabs){position:relative;display:block}
   #view > .bview-row > .pg-tabs{width:100%}
-  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;right:0;bottom:6px;margin:0;display:flex;align-items:center;gap:8px}
+  #view > .bview-row:has(> .pg-tabs) > .board-ctl{position:absolute;inset-inline-end:0;bottom:0;margin:0;display:flex;align-items:center;gap:8px}
 }
 /* Review's due count grows leftwards, clear of the companion's seat next to it */
 @media (max-width:639px){nav.tabs .in [data-tab="flashcards"] .fc-navdue,nav.tabs .in [data-tab="courses"] .fc-navdue{left:auto;right:calc(50% - 14px);margin-left:0;top:2px;z-index:2;min-width:14px;height:14px;font:700 .54rem/14px var(--display);padding:0 3px;box-shadow:0 0 0 1.5px var(--surface),0 1px 3px rgba(0,0,0,.2)}}
@@ -311,7 +351,7 @@ html[data-plan-top="week"] .dtl{display:none}
   .dtl{display:block;margin:0 0 12px}
   .dtl-rail{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scroll-padding-inline:8px;scrollbar-width:none;padding:4px 8px 6px;margin:0 -8px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   .dtl-rail::-webkit-scrollbar{display:none}
-  .dtl-c{position:relative;flex:none;width:138px;display:grid;align-content:start;gap:4px;padding:8px 10px 9px;border-radius:12px;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;scroll-snap-align:start}
+  .dtl-c{position:relative;flex:none;width:138px;display:grid;align-content:start;gap:4px;padding:8px 10px 9px;border-radius:12px;text-align:start;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;scroll-snap-align:start}
   button.dtl-c{cursor:pointer}
   .dtl-t{font:700 .68rem/1.1 var(--display);letter-spacing:.02em;color:var(--muted)}
   .dtl-n{font:700 .82rem/1.2 var(--display);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
@@ -326,7 +366,8 @@ html[data-plan-top="week"] .dtl{display:none}
   .dtl-c.now,.dtl-c.next{box-shadow:0 0 0 2px var(--c,var(--accent))}
   .dtl-t{white-space:nowrap}
   .dtl-m{display:flex;align-items:center;justify-content:space-between;gap:6px;font:700 .68rem/1.1 var(--display);color:color-mix(in srgb,var(--c) 50%,var(--ink))}
-  .dtl-badge{font:800 .56rem/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
+  /* Now / Next: white on a small pill of the course colour (deepened where white wouldn't read on it, --cb from 01-board.js) */
+  .dtl-badge{flex:none;font:800 .7rem/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--cb,var(--c));padding:3px 6px 2px;border-radius:999px}
 /* a design switch: <html data-plan-top="week"> brings back the two-week ribbon beside a Planned Today tile instead */
 
 /* Today's plan rows: the check circle is centred against the title only */
@@ -358,8 +399,8 @@ html[data-plan-top="week"] .dtl{display:none}
 
 /* Date and time boxes: iOS gives them a wide built-in size that spills over their neighbours; keep them in their column */
 @media (max-width:639px){
-  input[type=date],input[type=time],input[type=datetime-local]{display:block;width:100%;min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:44px;text-align:left}
-  input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:left;min-width:0}
+  input[type=date],input[type=time],input[type=datetime-local]{display:block;width:100%;min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;min-height:44px;text-align:start}
+  input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value,input[type=datetime-local]::-webkit-date-and-time-value{text-align:start;min-width:0}
   .two>*{min-width:0}
 }
 
@@ -407,11 +448,12 @@ dialog:has(> .sheet > .g2-sheet-head){background:transparent}
 .ui-col .ui-col-act{justify-content:center;text-align:center}
 
 /* Course dropdowns: our own menu, with small flat dots */
-html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px);background-repeat:no-repeat}
+/* the dot and the dropdown chevron together: the plain select rule (103-phone-design.css) would otherwise replace the dot */
+:root select.cs-custom.has-dot:not([multiple]):not([size]){padding-left:34px;background-image:radial-gradient(circle at 18px 50%,var(--cs-dot) 0 5px,transparent 5.5px),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:0 0,right 12px center;background-size:auto,14px 14px}
 .cs-back{position:fixed;inset:0;z-index:9998;background:rgba(10,20,30,.22)}
 .cs-menu{position:fixed;z-index:9999;display:grid;gap:2px;align-content:start;overflow:auto;padding:6px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.28)}
 .cs-menu.cs-sheet{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:60vh;border-radius:18px}
-.cs-menu button{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 12px;border:0;border-radius:10px;background:none;color:inherit;font:600 .95rem var(--display);text-align:left;cursor:pointer}
+.cs-menu button{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:6px 12px;border:0;border-radius:10px;background:none;color:inherit;font:600 .95rem var(--display);text-align:start;cursor:pointer}
 .cs-menu button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
 .cs-menu button[aria-selected="true"]{background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .cs-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
@@ -441,7 +483,7 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   html.kb-open dialog#dlg{margin-bottom:var(--kb-h,0);max-height:calc(var(--vv-h,100dvh) - env(safe-area-inset-top,0px) - 16px)}
   /* the iPhone app's keyboard slides over the app: sheets and the note editor rise with it, on the keyboard's own curve */
   html.kb-native dialog#dlg{transition:margin-bottom .3s cubic-bezier(.32,.72,0,1)}
-  html.kb-native .note.editing.n-sheet{transition:bottom .3s cubic-bezier(.32,.72,0,1),max-height .3s cubic-bezier(.32,.72,0,1)}
+  /* (the note editor glides on its own: noteGlideWatch, 01-notes.js) */
   /* bars pinned to the bottom of the screen would float over what you're typing, so they step aside */
   html.kb-open:not(.kb-native) nav.tabs,html.kb-open:not(.kb-native) .fab,html.kb-open .room-pill,html.kb-open .acc-chip,html.kb-open .tz-note,html.kb-open .gr-prompt{visibility:hidden!important;pointer-events:none!important}
   html.kb-open .toast{bottom:calc(var(--kb-h,0px) + 12px)}
@@ -467,7 +509,9 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   .nb-zoom,.board-max-btn,.nb-main .nb-target:not(.hot),.nb-target:not(.hot){background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
   .wb-max{background:rgba(255,255,255,.76)!important}
   .wb-dk .wb-max{background:rgba(38,45,54,.78)!important}
-  .wb-stage .wb-zoom{background:color-mix(in srgb,var(--surface) 76%,transparent)!important}
+  /* (follows the board's own light / dark, not the app's: on a light board in a dark app it was a dark pill under dark icons) */
+  .wb-stage .wb-zoom{background:rgba(255,255,255,.76)!important;border-color:rgba(0,0,0,.08)!important}
+  .wb-dk.wb-stage .wb-zoom{background:rgba(38,45,54,.78)!important;border-color:rgba(255,255,255,.1)!important}
 }
 
 /* Do This Next band: "Do This Next, Pip's pick" stays on one line beside the time */
@@ -489,13 +533,18 @@ html select.cs-custom.has-dot{padding-left:34px;background-image:radial-gradient
   html:not(.board-max):not(.kb-open):not(:has(:is(input,textarea,[contenteditable]):focus))::before{content:"Turn your phone upright to keep using Studyboard.\A Notes and the whiteboard can go sideways in full screen.";white-space:pre-wrap;position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 48px;background:var(--bg,#f4f6fa);color:var(--ink,#1a2238);font:700 1.05rem/1.5 var(--display,system-ui)}
 }
 
-/* Group tabs: an even grid of equal, centred buttons */
+/* Group page on phones: a smaller banner and icon, and the section tabs in one row that scrolls sideways and stays at the
+   top while the section scrolls (the header itself sticks with only its tab row showing: --grp-stick, 80-groups.js stickTabs) */
 @media (max-width:639px){
-  .g2-head .grp-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 14px 14px;overflow:visible}
-  .g2-head .grp-tabs button{display:flex;align-items:center;justify-content:center;text-align:center;min-height:42px;padding:8px 6px;font-size:.88rem;white-space:nowrap;background:color-mix(in srgb,var(--ink) 5%,transparent)!important;border-radius:14px}
+  .g2-head .grp-tabs{display:flex;flex-wrap:nowrap;gap:6px;padding:0 12px 10px;margin-top:10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-padding-inline:12px}
+  .g2-head .grp-tabs button{flex:none;display:flex;align-items:center;justify-content:center;min-height:40px;padding:8px 14px;font-size:.88rem;white-space:nowrap;background:color-mix(in srgb,var(--ink) 5%,transparent)!important;border-radius:999px}
   .g2-head .grp-tabs button.on{background:color-mix(in srgb,var(--c) 18%,var(--surface))!important}
-  .g2-head .grp-tabs button:last-child:nth-child(3n+1){grid-column:1/-1}
-  .g2-head .grp-tabs button:last-child:nth-child(3n+2){grid-column:span 2}
+  #grpHead.g2-head{position:sticky;top:var(--grp-stick,auto);z-index:4;background:linear-gradient(var(--surface),var(--surface)),var(--bg)}
+  .g2-head .g2-band{padding:10px 12px 30px}
+  .g2-head .g2-ring{width:58px;height:58px}
+  .g2-low{margin-top:-26px;gap:10px}
+  .g2-txt{padding-top:28px}
+  .g2-txt h2{font-size:1.25rem}
 }
 
 /* Group events: the RSVP choices are one even row, the other actions a tidy row beneath */
@@ -561,6 +610,10 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
   .dtl-c.fr{min-width:74px}
   .dtl-c:not(.fr):is(.fr + .dtl-c,:has(+ .dtl-c.fr)){min-width:156px}
 }
+/* An edge with more cards past it fades softly (01-board.js marks which) */
+.dtl-rail:is(.dtl-more-l,.dtl-more-r){--fl:0px;--fr:0px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 var(--fl),#000 calc(100% - var(--fr)),transparent);mask-image:linear-gradient(90deg,transparent,#000 var(--fl),#000 calc(100% - var(--fr)),transparent)}
+.dtl-rail.dtl-more-l{--fl:40px}
+.dtl-rail.dtl-more-r{--fr:40px}
 /* Past your end of day: one card across the whole row, its words side by side */
 .dtl-over .dtl-rail{overflow:visible}
 .dtl-over .dtl-c.dtl-end,.dtl-over .dtl-c.fr.dtl-end{flex:1 1 100%;width:auto;min-width:0;max-width:none;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 10px;padding:12px 16px;text-align:center;font:600 .82rem/1.35 var(--display)}
@@ -575,16 +628,16 @@ html[data-plan-top="week"] .plan .fh-ctl.has-stats .hours-ctl{display:none}
 /* the time wraps after its dash rather than being cut, so a narrow card still shows when it ends */
 .dtl-c .dtl-t{white-space:normal;text-overflow:clip;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 /* Time Today sits in the row with Today's Plan / Task Board */
-.bview-row > .bv-hours{flex:none;margin-left:auto;display:flex;align-items:center}
-.bv-hours .hours-ctl{display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 3px 2px 12px;min-height:40px;box-sizing:border-box}
-.bv-hours .hours-ctl .mini{margin-right:4px;font-size:.78rem;color:var(--muted);white-space:nowrap}
+.bview-row > .bv-hours{flex:none;margin-inline-start:auto;display:flex;align-items:center}
+.bv-hours .hours-ctl{display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 3px;padding-inline-start:12px;min-height:40px;box-sizing:border-box}
+.bv-hours .hours-ctl .mini{margin-inline-end:4px;font-size:.78rem;color:var(--muted);white-space:nowrap}
 .bv-hours .hours-ctl b{min-width:34px;text-align:center;font-size:.92rem}
 .bv-hours .hours-ctl .icon-btn.sm{width:30px;height:30px;border-radius:50%;border:0;background:transparent;color:var(--ink);box-shadow:none}
 .bv-hours .hours-ctl .icon-btn.sm:hover{background:var(--soft)}
 .hours-ctl .hc-row{display:flex;align-items:center}
 html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 @media (min-width:640px){
-  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;right:0;top:50%;transform:translateY(-50%);margin:0;z-index:2}
+  #view > .bview-row:has(> .pg-tabs) > .bv-hours{position:absolute;inset-inline-end:0;bottom:0;margin:0;z-index:2}
 }
 /* Phones keep Time Today in the plan box; wider screens have it in the tab row (and not in the box) */
 @media (max-width:639px){#view > .bview-row > .bv-hours{display:none}}
@@ -611,7 +664,7 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 /* Crunch: the Next 6 Weeks / Whole Term switch sits beside the view tabs; the content starts the same distance below the tabs as Due Dates */
 @media (min-width:760px){
   #view > .pview-tabs + .cr{position:relative}
-  #view > .pview-tabs + .cr > .cr-head{position:absolute;right:0;top:-59px;margin:0!important;padding:0;min-height:0}
+  #view > .pview-tabs + .cr > .cr-head{position:absolute;inset-inline-end:0;top:-59px;margin:0!important;padding:0;min-height:0}
   #view > .pview-tabs + .cr > .cr-head > .cr2-range{margin:0!important}
   #view > .pview-tabs + .cr > .cr2-top{margin-top:2px}
 }

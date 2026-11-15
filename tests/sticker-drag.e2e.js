@@ -23,6 +23,13 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {},
         await page.mouse.up(); await page.waitForTimeout(250);
       };
       for (const [dx, dy] of [[40, 30], [-30, 25], [15, -20], [-45, -10]]) await drag(dx, dy);
+      { // the sticker being dragged stays under the pointer from the first move (it used to jump off toward the note's edge, then catch up)
+        const s = await page.locator(".nb-board .note .stk").first().boundingBox(), x = s.x + s.width / 2, y = s.y + s.height / 2;
+        await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 20, y + 12); await page.waitForTimeout(60);
+        const g = await page.evaluate(() => { const r = document.querySelector(".stk-ghost").getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+        await page.mouse.move(x + 1, y + 1); await page.mouse.up(); await page.waitForTimeout(250);
+        ok(Math.abs(g[0] - x - 20) < 3 && Math.abs(g[1] - y - 12) < 3, `${label}: the dragged sticker stays under the pointer: ` + JSON.stringify(g.map(Math.round)) + " vs " + [Math.round(x + 20), Math.round(y + 12)]);
+      }
       ok(!(await editing()), `${label}: moving a sticker around on its note never opens the note's editor`);
       const st = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).notes[0].stickers);
       ok(st.length === 1 && (st[0].x !== 30 || st[0].yp !== 40), `${label}: and the sticker moved: ` + JSON.stringify(st[0]));

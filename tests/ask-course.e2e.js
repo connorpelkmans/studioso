@@ -223,11 +223,15 @@ function reply(ctx, t){
   await ask(fp, "How does light get absorbed in photosynthesis?");
   await answered(fp, 1); await fp.waitForSelector("#sxAnswer .sx-cite");
   ok(await fp.locator('#sxAnswer [data-sx="mk-cards"]').count() === 1 && await fp.locator('#sxAnswer [data-sx="save-note"]').count() === 1, "free: cited answers, Make Flashcards and Save as Note");
-  ok(await fp.locator('#sxAnswer [data-sx="quiz"] .pro-badge').count() === 1, "free: Quiz Me shows the PRO badge");
+  ok(/3 free this week/.test(await fp.locator('#sxAnswer [data-sx="quiz"]').textContent()) && await fp.locator('#sxAnswer [data-sx="quiz"] .pro-badge').count() === 0, "free: Quiz Me says how many free sessions are left this week");
+  ok(await fp.evaluate(() => StudyboardPlan.runsLeft("quiz") === 3), "free: 3 free Quiz Me sessions a week");
+  // this week's free sessions used up: back to the PRO badge and the Pro sheet
+  await fp.evaluate(() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); const p = n => String(n).padStart(2, "0"); const st = window.__sbProStudy.state(); st.settings = Object.assign({}, st.settings, {freeRuns: {wk: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, quiz: 3}}); });
+  ok(await fp.evaluate(() => StudyboardPlan.runsLeft("quiz") === 0), "free: none left once 3 are used");
   ok(await fp.evaluate(() => { const s = document.querySelector("#sxDlg .sx"); return s.scrollWidth <= s.clientWidth + 1 && document.documentElement.scrollWidth <= window.innerWidth + 1; }), "no sideways scrolling at 390px");
   await fp.click('#sxAnswer [data-sx="quiz"]');
   await fp.waitForSelector("dialog[open] .plan-sheet, dialog[open] .pro-sheet", {timeout: 5000}).catch(() => {});
-  ok(/Quiz Me is part of Studyboard Pro/.test(await fp.evaluate(() => (document.querySelector("dialog[open]") || {}).textContent || "")), "free: Quiz Me opens the Pro sheet with the reason");
+  ok(/used this week's 3 free Quiz Me sessions/.test(await fp.evaluate(() => (document.querySelector("dialog[open]") || {}).textContent || "")), "free: Quiz Me opens the Pro sheet with the reason");
   ok(fctx.quizzes.length === 0, "free: no quiz is written");
   ok(fp.errs.length === 0, "no page errors: " + fp.errs.join("; "));
   await browser.close(); server.close(); console.log(n + " checks passed");

@@ -97,7 +97,7 @@ const AI_STAGES = {kind: "paper", stages: [
       await page.click("#bdList li.bd-m:nth-child(3) [data-a=up]");
       ok(await page.$eval("#bdList li.bd-m:nth-child(2) [data-f=title]", e => e.value) === t2 && await page.$eval("#bdList li.bd-m:nth-child(3) [data-f=title]", e => e.value) === t1, "move up swaps the order");
       await page.click("#bdList li.bd-m:nth-child(5) [data-a=rm]"); await page.click("#bdAdd");
-      ok(await page.locator("#bdList li.bd-m").count() === 5 && /Create 5 milestones/.test(await page.textContent("#bdGo")), "remove and add milestone; primary button counts them");
+      ok(await page.locator("#bdList li.bd-m").count() === 5 && /Create 5 Milestones/.test(await page.textContent("#bdGo")), "remove and add milestone; primary button counts them");
       ok(/add up to/.test(await page.textContent("#bdTotal")), "total hours check shown");
       // create and a single Undo
       const countBefore = (await tasks(page)).length;

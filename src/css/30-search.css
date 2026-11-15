@@ -33,7 +33,7 @@ dialog.sx-dlg[open]{display:flex}
 .sx-s{font-size:.85rem;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .sx-meta{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:.76rem;color:var(--muted);max-width:34%;text-align:right}
 .sx-meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.sx-tag{font-weight:700;color:color-mix(in srgb,var(--c) 75%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border-radius:6px;padding:1px 6px}
+.sx-tag{font-weight:700;color:var(--ci,color-mix(in srgb,var(--c) 75%,var(--ink)));background:color-mix(in srgb,var(--c) 13%,transparent);border-radius:6px;padding:1px 6px}
 .sx-row mark,.sx-pl mark,.sx-ans mark{background:color-mix(in srgb,var(--mark) 75%,transparent);color:inherit;border-radius:3px;padding:0 1px}
 .sx-empty{margin:18px 8px;background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:20px;text-align:center;color:var(--muted)}
 .sx-none{margin:12px 14px 2px;color:var(--muted);font-size:.92rem}
@@ -71,14 +71,14 @@ dialog.sx-dlg[open]{display:flex}
 .sx-gen-row{align-items:center}
 .sx-fu,.sx-study{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px}
 .sx-study{gap:8px}
-.sx-fu .chip{min-height:34px;max-width:100%;white-space:normal;text-align:left}
+.sx-fu .chip{min-height:34px;max-width:100%;white-space:normal;text-align:start}
 .sx-err{color:color-mix(in srgb,#DC2626 75%,var(--ink))}
 .sx-ans-h .spacer{flex:1}
 .sx-tutor .sx-ans-h{flex-wrap:wrap}
 .sx-tsub{font-family:var(--body)}
 .sx-tq{font-weight:600;font-size:1rem;overflow-wrap:anywhere}
 .sx-topts{display:grid;gap:6px;margin:8px 0}
-.sx-topt{text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:inherit;font:inherit;min-height:44px;cursor:pointer;overflow-wrap:anywhere}
+.sx-topt{text-align:start;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:inherit;font:inherit;min-height:44px;cursor:pointer;overflow-wrap:anywhere}
 .sx-topt:not(:disabled):hover{border-color:#8B5CF6}
 .sx-topt:disabled{cursor:default}
 .sx-topt.ok{border-color:#16A34A;background:color-mix(in srgb,#16A34A 13%,var(--surface))}
@@ -95,7 +95,8 @@ dialog.sx-dlg[open]{display:flex}
 .sx-keys{display:flex;align-items:center;gap:4px;white-space:nowrap}
 .sx-keys kbd{margin-left:4px}
 .sx-keys kbd:first-child{margin-left:0}
-.sx-st{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+/* a longer status (reading files) wraps onto a second line rather than being cut off mid-word */
+.sx-st{flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;text-align:right}
 .sx-foot .link-btn{font-size:.8rem;white-space:nowrap;min-height:32px}
 .sx-pl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .sx-pl li{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--field,var(--bg))}
@@ -118,7 +119,7 @@ dialog.sx-dlg[open]{display:flex}
   .sx-bar select{max-width:150px}
   .sx-types{padding:2px 12px 8px}
   .sx-meta{max-width:30%}
-  .sx-st{text-align:left}
+  .sx-st{text-align:start}
 }
 body.desk dialog.sx-dlg{max-height:calc(100vh - var(--tb, 0px) - 60px);max-height:calc(100dvh - var(--tb, 0px) - 60px)}
 @media (max-width:600px){.sx-t{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}

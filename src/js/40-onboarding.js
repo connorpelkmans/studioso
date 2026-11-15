@@ -109,7 +109,7 @@
     return `${hero(IC.courses)}
       <h2 class="ob-h" id="obH" tabindex="-1">What Do You Study?</h2>
       <p class="ob-lead">Pick your area so Studyboard can tailor task types, example tasks, typical hours and its AI helpers to it. Change it any time in Settings.</p>
-      ${SBAREA.chips(a.id, "data-ob-area")}
+      ${SBAREA.chips((a.text || "").trim() ? "" : a.id, "data-ob-area")}
       <label class="f ob-area-text"><span class="lbl">Your Major or Program <span class="hint">optional</span></span><input type="text" id="obAreaText" maxlength="60" value="${esc(a.text || "")}" placeholder="e.g. Marine Biology" autocomplete="off" data-noenter></label>`;
   }
 
@@ -290,7 +290,7 @@
         ${li("Picture Cards", "and cards made from the diagrams in your PDFs and pictures")}
         ${li("Insights, Term Recap and More Focus Routines")}
       </ul>
-      <p class="ob-note mini">${gift ? "" : account ? "It starts as soon as you confirm your email address. " : "It starts when you make your free account. You can do that at the end of setup. "}Storage and backups stay at the Free amounts during the week.</p>`;
+      <p class="ob-note mini">${gift ? "" : account ? "It starts as soon as you confirm your email address. " : "It starts when you make your free account. You can do that at the end of setup. "}Storage and backups stay at the Free amounts during the two weeks.</p>`;
   }
 
   function doneStep(){
@@ -409,12 +409,17 @@
     form.addEventListener("change", e => {
       if (e.target.id === "obPdf") { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) queueFiles(fs); return; }
       if (e.target.id === "obIcs") { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; if (f.size > 8e6) { say("That calendar file is too big (over 8 MB)."); return; } f.text().then(t => leaveTo(() => icsImportSheet(t, f.name))).catch(() => say("Couldn't read that file.")); return; }
-      if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") { const a = SBAREA.get(), v = e.target.value; if (a) SBAREA.set(a.id, v); else if (v.trim()) SBAREA.set("other", v); } });
+      if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") {
+        // your own field, or one from the list, never both: typing unpicks the field; emptying the box leaves nothing picked
+        const a = SBAREA.get(), v = e.target.value;
+        if (v.trim()) { SBAREA.set("other", v); dlg.querySelectorAll("[data-ob-area]").forEach(x => { x.classList.remove("on"); x.setAttribute("aria-checked", "false"); }); }
+        else if (a && a.text) SBAREA.set(null);
+      } });
   }
 
   function onClick(e){
     const ab = e.target.closest("[data-ob-area]");
-    if (ab) { e.preventDefault(); e.stopPropagation(); SBAREA.set(ab.dataset.obArea, ($("#obAreaText") || {}).value); show(step); const t = dlg.querySelector(`[data-ob-area="${ab.dataset.obArea}"]`); if (t) t.focus({preventScroll: true}); return; }
+    if (ab) { e.preventDefault(); e.stopPropagation(); SBAREA.set(ab.dataset.obArea, ""); show(step); const t = dlg.querySelector(`[data-ob-area="${ab.dataset.obArea}"]`); if (t) t.focus({preventScroll: true}); return; }
     const b = e.target.closest("[data-ob]"); if (!b) return;
     const a = b.dataset.ob, id = b.dataset.id;
     e.preventDefault(); e.stopPropagation();

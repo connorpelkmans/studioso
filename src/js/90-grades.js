@@ -32,6 +32,8 @@
   const r1 = v => Math.round(v * 10) / 10;
   const fmtP = v => r1(v) + "%";
   const fmtW = v => r1(v) + "%";
+  // A score you need is rounded up, so reaching the shown number is always enough
+  const fmtN = v => Math.ceil(v * 10 - 1e-6) / 10 + "%";
   const courseName = c => c ? courseLabel(c) : "this course";
 
   // "43/50", "43 out of 50", "86%" or "86"
@@ -147,18 +149,41 @@
     const end = classesEnd(c);
     return !!end && addDays(end, FINAL_AFTER) <= todayISO();
   }
+  /* A points course. When none of a course's weights came from the school or from you, and the only ones it has were worked out
+     from points (estimated), those were worked out from the school site's Grades page alone: marked work found elsewhere (a quiz's
+     submission page, an exam) had no share, and the rest split 100% among themselves (one assignment "worth 100%" beside a marked
+     exam). Such a course is graded by points instead: every item whose points are known shares the course by its points, marked
+     or not, so the marks counted are all the marks, and each share is labelled as worked out from points. */
+  const LMS_F = ["bs", "cv", "bb", "md", "sg", "gc"];
+  const ptsOf = t => { const L = lmsOf(t), o = L && Number(L.outOf); if (o > 0) return o; const m = t.mark; return m && LMS_F.includes(m.src) && Number(m.outOf) > 0 ? Number(m.outOf) : 0; };
+  let EFFW = new Map();   // task id -> its share (%) in a points course; filled by courseGrade
+  const inPts = t => EFFW.has(t.id);
+  const wOf = t => inPts(t) ? EFFW.get(t.id) : hasWeight(t) ? Number(t.weight) : null;
+  function pointsShares(c){
+    const all = allTasks().filter(t => t.courseId === c.id && !t.prepFor);
+    if (all.some(t => hasWeight(t) && !weightGuessed(t))) return null;
+    const pts = all.filter(t => ptsOf(t) > 0);
+    if (!pts.length || !(all.some(weightGuessed) || pts.length >= 3)) return null;
+    const sum = pts.reduce((s, t) => s + ptsOf(t), 0);
+    return sum > 0 ? new Map(pts.map(t => [t.id, Math.round(ptsOf(t) / sum * 10000) / 100])) : null;
+  }
+  // a points course says so once, above its marks, instead of counting "estimated weights"
+  const ptsNote = gr => gr.pts ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>Graded by points.</b> Your school site doesn't show weights for this course, so each item counts by its share of all the points (${gr.ts.length} ${gr.ts.length === 1 ? "item" : "items"} with points so far). If your syllabus gives weights, tap an item to type in the real one.</span></div>` : weightGuessNote(gr.ts);
   function courseGrade(c, asOf, pretend){
     const g = gradingOf(c), R = rulesOf(c);
-    const ts = allTasks().filter(t => t.courseId === c.id && hasWeight(t) && !t.prepFor);
+    const share = pointsShares(c);
+    allTasks().forEach(t => { if (t.courseId === c.id) EFFW.delete(t.id); });
+    if (share) share.forEach((w, id) => EFFW.set(id, w));
+    const ts = allTasks().filter(t => t.courseId === c.id && !t.prepFor && (share ? share.has(t.id) : hasWeight(t)));
     const pctOf = t => { const p = markPct(t); if (p == null && pretend && isNum(pretend[t.id])) return Number(pretend[t.id]); return p != null && (!(asOf instanceof Set) || asOf.has(t.id)) ? p : null; };
     const pm = new Map(ts.map(t => [t.id, pctOf(t)]));
     const marked = ts.filter(t => pm.get(t.id) != null), open = ts.filter(t => pm.get(t.id) == null);
-    const wMarked = marked.reduce((s, t) => s + Number(t.weight), 0);
-    const earned = marked.reduce((s, t) => s + Number(t.weight) * pm.get(t.id) / 100, 0);
-    const wAll = ts.reduce((s, t) => s + Number(t.weight), 0);
+    const wMarked = marked.reduce((s, t) => s + wOf(t), 0);
+    const earned = marked.reduce((s, t) => s + wOf(t) * pm.get(t.id) / 100, 0);
+    const wAll = ts.reduce((s, t) => s + wOf(t), 0);
     const D = Math.max(100, wAll);
     const remaining = Math.max(0, D - wMarked), unlisted = Math.max(0, 100 - wAll);
-    const items = ts.map(t => ({id: t.id, w: Number(t.weight), cat: t.type, fin: /\bfinal\b/i.test(t.title || ""), pct: pm.get(t.id)}));
+    const items = ts.map(t => ({id: t.id, w: wOf(t), cat: t.type, fin: /\bfinal\b/i.test(t.title || ""), pct: pm.get(t.id)}));
     if (unlisted > 0.001) items.push({id: "", w: unlisted, cat: "", fin: false, pct: null});
     const ruled = GRULES.active(items, R);
     let current, minFinal, maxFinal, need, dropped = new Set();
@@ -173,8 +198,8 @@
     }
     const remShown = remaining / D * 100;
     const projected = current == null ? null : remaining > 0.01 ? (ruled ? GRULES.finalWith(items, R, D, current) : current) : minFinal;
-    const loose = allTasks().filter(t => t.courseId === c.id && !hasWeight(t) && !t.prepFor && markPct(t) != null);
-    const gr = {c, g, R, ruled, dropped, ts, loose, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+    const loose = allTasks().filter(t => t.courseId === c.id && wOf(t) == null && !t.prepFor && markPct(t) != null);
+    const gr = {c, g, R, ruled, dropped, ts, loose, marked, open, pts: !!share, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
     // every listed item marked isn't a final grade: more can still be added until classes are over
     gr.final = gr.done && classesOver(c);
     gr.risk = riskOf(gr);
@@ -236,7 +261,10 @@
     });
     const save = v => {
       const cur = state.tasks[id]; if (!cur) return;
+      if (!v && !cur.mark) { dlg.close(); if (back) setTimeout(back, 40); return; }
       const n = clone(cur); n.mark = v;
+      // A marked task has been handed in: finish it, the way Paste Grades does
+      if (v && n.status !== "done") { n.status = "done"; n.doneAt = Date.now(); n.pct = 100; }
       dlg.close();
       applyChanges([{kind: "task", id, after: n}], v ? `Mark saved: ${fmtMark(v)}` : "Mark removed");
       // After an exam or quiz's first mark: a one-minute reflection (the exam wrapper), then back to where you were
@@ -334,7 +362,7 @@
     if (v === null) return "";
     if (v === undefined) return `<span class="late">Type it like 43/50 or 86%.</span>`;
     const p = v.got / v.outOf * 100, L = letterOf(p, g.scale);
-    return `<b>${fmtP(p)}</b>${L ? ` (${esc(L)})` : ""}${hasWeight(t) ? `, which adds ${r1(Number(t.weight) * p / 100)} of the ${r1(Number(t.weight))} points this is worth` : ""}.`;
+    return `<b>${fmtP(p)}</b>${L ? ` (${esc(L)})` : ""}${wOf(t) != null ? `, which adds ${r1(wOf(t) * p / 100)} of the ${r1(wOf(t))} points this is worth` : ""}.`;
   }
 
   /* Task form: a compact Mark field */
@@ -436,15 +464,16 @@
     if (g.goal != null) {
       const n = gr.need(g.goal);
       if (n <= 0) out.push(`You've already locked in your goal of <b>${fmtP(g.goal)}</b>. Nice work.`);
-      else if (n <= 100) out.push(`You need an average of <b>${fmtP(n)}</b> on ${remTxt} to reach your goal of ${fmtP(g.goal)}.`);
+      else if (n <= 100) out.push(`You need an average of <b>${fmtN(n)}</b> on ${remTxt} to reach your goal of ${fmtP(g.goal)}.`);
       else out.push(`<span class="gr-kind">Your goal of ${fmtP(g.goal)} is out of reach now, even with full marks on everything left. The highest you can still get is <b>${fmtP(gr.maxFinal)}</b>${L(gr.maxFinal) ? ` (${esc(L(gr.maxFinal))})` : ""}. Every mark from here still counts, and a new goal can keep you going.</span>`);
     }
     const np = gr.need(g.pass), hold = holdOf(gr);
-    if (g.goal == null && hold && !inDanger(gr) && hold.th > g.pass) out.push(hold.n <= 0 ? `You've locked in at least ${esc(hold.l)} (${fmtP(hold.th)}). Nice work.` : hold.n <= 100 ? `To keep your ${esc(hold.l)} (${fmtP(hold.th)}), you need an average of <b>${fmtP(hold.n)}</b> on ${remTxt}.` : "");
+    if (g.goal == null && hold && !inDanger(gr) && hold.th > g.pass) out.push(hold.n <= 0 ? `You've locked in at least ${esc(hold.l)} (${fmtP(hold.th)}). Nice work.` : hold.n <= 100 ? `To keep your ${esc(hold.l)} (${fmtP(hold.th)}), you need an average of <b>${fmtN(hold.n)}</b> on ${remTxt}.` : "");
     if (np <= 0) out.push(`You've already secured the <b>${fmtP(g.pass)}</b> pass mark, whatever happens next.`);
     else if (np > 100) out.push(`<span class="gr-kind">Even full marks on the rest would leave ${nm} below the ${fmtP(g.pass)} pass mark. Please talk to your instructor soon. They can explain your options, like extra support or what happens next. Lots of students go through this, and asking early helps.</span>`);
-    else if ((inDanger(gr) || !hold || hold.th <= g.pass || !(hold.n <= 100))) out.push(`To pass (${fmtP(g.pass)}), you need an average of <b>${fmtP(np)}</b> on ${remTxt}.${gr.risk === "risk" || gr.risk === "watch" ? " Today's Plan is moving this course's graded work up a little." : ""}`);
+    else if ((inDanger(gr) || !hold || hold.th <= g.pass || !(hold.n <= 100))) out.push(`To pass (${fmtP(g.pass)}), you need an average of <b>${fmtN(np)}</b> on ${remTxt}.${gr.risk === "risk" || gr.risk === "watch" ? " Today's Plan is moving this course's graded work up a little." : ""}`);
     for (let k = out.length - 1; k >= 0; k--) if (!out[k]) out.splice(k, 1);
+    if (gr.wAll > 100.5) out.push(`<span class="mini gr-kind">Your graded tasks add up to ${fmtW(gr.wAll)}, more than 100%, so each one is scaled down to fit. Check the weights against your course outline.</span>`);
     if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
     return out;
   }
@@ -457,10 +486,10 @@
   }
   // The unmarked graded item with the most weight
   function biggestSwing(gr){
-    const open = (gr.open || []).filter(t => Number(t.weight) > 0);
+    const open = (gr.open || []).filter(t => wOf(t) > 0);
     if (gr.done || open.length < 2) return null;
-    const t = open.slice().sort((a, b) => Number(b.weight) - Number(a.weight) || String(a.due || "9999").localeCompare(String(b.due || "9999")))[0];
-    const share = Number(t.weight) / gr.D * 100;
+    const t = open.slice().sort((a, b) => wOf(b) - wOf(a) || String(a.due || "9999").localeCompare(String(b.due || "9999")))[0];
+    const share = wOf(t) / gr.D * 100;
     return {t, share, per10: share / 10};
   }
   /* Where the grade comes from */
@@ -470,15 +499,15 @@
   // The marked work of each type, weighted, highest first. left: how much of the course is still to come in that type
   function byType(gr){
     const m = {}, key = t => t.type || "Other";
-    gr.marked.forEach(t => { const w = Number(t.weight), o = m[key(t)] || (m[key(t)] = {type: key(t), w: 0, e: 0, n: 0, left: 0}); o.w += w; o.e += w * markPct(t); o.n++; });
-    gr.open.forEach(t => { const o = m[key(t)]; if (o) o.left += Number(t.weight); });
+    gr.marked.forEach(t => { const w = wOf(t), o = m[key(t)] || (m[key(t)] = {type: key(t), w: 0, e: 0, n: 0, left: 0}); o.w += w; o.e += w * markPct(t); o.n++; });
+    gr.open.forEach(t => { const o = m[key(t)]; if (o) o.left += wOf(t); });
     return Object.values(m).filter(o => o.w > 0).map(o => Object.assign(o, {pct: o.e / o.w, share: o.w / gr.D * 100, left: o.left / gr.D * 100})).sort((a, b) => b.pct - a.pct);
   }
   // How much each mark lifts or lowers the current grade (the grade with it, minus the grade without it)
   function markImpact(gr){
     if (gr.current == null || gr.marked.length < 3) return null;
-    const W = gr.marked.reduce((s, t) => s + Number(t.weight), 0), E = gr.marked.reduce((s, t) => s + Number(t.weight) * markPct(t), 0);
-    const all = gr.marked.map(t => { const w = Number(t.weight); return W - w > 0 ? {t, d: gr.current - (E - w * markPct(t)) / (W - w)} : null; }).filter(Boolean).sort((a, b) => b.d - a.d);
+    const W = gr.marked.reduce((s, t) => s + wOf(t), 0), E = gr.marked.reduce((s, t) => s + wOf(t) * markPct(t), 0);
+    const all = gr.marked.map(t => { const w = wOf(t); return W - w > 0 ? {t, d: gr.current - (E - w * markPct(t)) / (W - w)} : null; }).filter(Boolean).sort((a, b) => b.d - a.d);
     const boost = all[0] && all[0].d >= 0.5 ? all[0] : null, drag = all.length && all[all.length - 1].d <= -0.5 ? all[all.length - 1] : null;
     return boost || drag ? {boost, drag} : null;
   }
@@ -522,14 +551,14 @@
   function comingUp(all, days){
     const today = todayISO(), end = addDays(today, days - 1);
     return all.map(gr => {
-      const its = gr.open.filter(t => t.status !== "done" && t.due && t.due >= today && t.due <= end && Number(t.weight) > 0).sort(sortTasks);
-      return {gr, its, share: its.reduce((s, t) => s + Number(t.weight), 0) / gr.D * 100};
+      const its = gr.open.filter(t => t.status !== "done" && t.due && t.due >= today && t.due <= end && wOf(t) > 0).sort(sortTasks);
+      return {gr, its, share: its.reduce((s, t) => s + wOf(t), 0) / gr.D * 100};
     }).filter(x => x.its.length).sort((a, b) => b.share - a.share);
   }
   function comingUpHtml(all){
     const list = comingUp(all, 14); if (!list.length) return "";
     return `<h3 class="fsec">${esc(tr("gb.soon", "Graded Work Coming Up"))}<span class="n">${esc(tr("gb.soon.when", "next 2 weeks"))}</span></h3><ul class="gs-wait gb-soon">${list.map(x => `<li style="--c:${esc(x.gr.c.color)}"><span class="gs-name"><span>${esc(tr("gb.soon.row", "{share} of {course} is due", {share: fmtW(x.share), course: courseLabel(x.gr.c)}))}</span>
-      <span class="mini">${x.its.slice(0, 4).map(t => esc(tr("gb.soon.item", "{title} ({w}, {due})", {title: t.title, w: fmtW(Number(t.weight)), due: fmtShort(t.due)}))).join(" · ")}${x.its.length > 4 ? " · " + esc(tr("gb.more", "+{n} more", {n: x.its.length - 4})) : ""}</span></span>
+      <span class="mini">${x.its.slice(0, 4).map(t => esc(tr("gb.soon.item", "{title} ({w}, {due})", {title: t.title, w: fmtW(wOf(t)), due: fmtShort(t.due)}))).join(" · ")}${x.its.length > 4 ? " · " + esc(tr("gb.more", "+{n} more", {n: x.its.length - 4})) : ""}</span></span>
       <button class="btn small" data-act="g-open-course" data-id="${esc(x.gr.c.id)}">${esc(tr("gb.open", "Open"))}</button></li>`).join("")}</ul>`;
   }
   // What a course would look like with pretend marks
@@ -547,18 +576,18 @@
     if (w.done) out.push(`That would finish the course on ${lt(w.minFinal)}${w.minFinal >= g.pass ? ", a pass." : `, under the ${fmtP(g.pass)} pass mark.`}`);
     else {
       if (w.current != null) out.push(`Your grade on marked work would be ${lt(w.current)}.`);
-      const tp = (name, t) => { const n = w.need(t); return n <= 0 ? `${name.charAt(0).toUpperCase() + name.slice(1)} is secured.` : n <= 100 ? `You'd then need <b>${fmtP(n)}</b> on the remaining ${fmtW(w.rem)} for ${name}.` : `${name} would be out of reach.`; };
+      const tp = (name, t) => { const n = w.need(t); return n <= 0 ? `${name.charAt(0).toUpperCase() + name.slice(1)} is secured.` : n <= 100 ? `You'd then need <b>${fmtN(n)}</b> on the remaining ${fmtW(w.rem)} for ${name}.` : `${name} would be out of reach.`; };
       if (g.goal != null) out.push(tp(`your goal of ${fmtP(g.goal)}`, g.goal));
       out.push(tp(`the ${fmtP(g.pass)} pass mark`, g.pass));
     }
     return out.join(" ");
   }
   function whatIfHtml(gr){
-    const open = (gr.open || []).filter(t => Number(t.weight) > 0).slice().sort(sortTasks).slice(0, 8);
+    const open = (gr.open || []).filter(t => wOf(t) > 0).slice().sort(sortTasks).slice(0, 8);
     if (gr.done || !open.length) return "";
     const vals = (ui.gWhatIf && ui.gWhatIf[gr.c.id]) || {};
     return `<div class="gr-sub gr-wi" data-wi-course="${esc(gr.c.id)}"><h4>What If?</h4>
-      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter></li>`).join("")}</ul>
+      <ul class="gr-wi-list">${open.map(t => `<li><label for="wi-${esc(t.id)}"><span class="gr-row-t">${esc(t.title)}</span><span class="mini">worth ${fmtW(wOf(t))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}</span></label><input type="text" id="wi-${esc(t.id)}" data-wi="${esc(t.id)}" inputmode="decimal" autocomplete="off" placeholder="85 or 43/50" value="${esc(vals[t.id] != null ? vals[t.id + ":raw"] || vals[t.id] : "")}" data-noenter aria-describedby="wio-${esc(t.id)}"><span class="mini gr-wi-over" id="wio-${esc(t.id)}"${vals[t.id] > 100 ? "" : " hidden"}>That's over 100%. Bonus marks?</span></li>`).join("")}</ul>
       <p class="gr-wi-out" role="status" aria-live="polite">${whatIfOut(gr, vals)}</p>
       <button type="button" class="link-btn" data-act="wi-clear" data-id="${esc(gr.c.id)}" style="justify-self:start"${Object.keys(vals).length ? "" : " hidden"}>Clear What-Ifs</button></div>`;
   }
@@ -600,8 +629,8 @@
       const p = markPct(t);
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
-      const nw = p != null && !hasWeight(t);
-      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est" title="${esc(WEIGHT_GUESS_TIP)}">worth ~${fmtW(Number(t.weight))} (estimated)</span>` : `worth ${fmtW(Number(t.weight))}`) : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
+      const nw = p != null && wOf(t) == null;
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${inPts(t) ? `<span class="w-est" title="This course has no weights, so it's graded by points: each item counts by its share of all the points.">worth ~${fmtW(wOf(t))} (by points)</span>` : hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est" title="${esc(WEIGHT_GUESS_TIP)}">worth ~${fmtW(Number(t.weight))} (estimated)</span>` : `worth ${fmtW(Number(t.weight))}`) : "not counted yet"}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">${t.status === "done" ? "Add Mark" : "Mark"}</button>`}${fbk ? `<div class="gr-drop" data-drop="${esc(t.id)}"${open ? "" : " hidden"}>${open && window.SBLMS_FBBODY ? SBLMS_FBBODY(t) : ""}</div>` : ""}</li>`;
     }).join("");
@@ -614,18 +643,21 @@
       : gr.final ? `Final ${fmtP(gr.minFinal)}${L(gr.minFinal) ? " " + L(gr.minFinal) : ""}`
       : gr.done ? `${fmtP(gr.minFinal)}${L(gr.minFinal) ? " " + L(gr.minFinal) : ""} on everything marked so far. Not final until a couple of weeks after classes end.`
       : np > 100 ? "Pass mark out of reach. Talk to your instructor."
-      : g.goal != null && !inDanger(gr) ? (n => n <= 0 ? "Goal secured." : n <= 100 ? `Needs ${fmtP(n)} on the remaining ${fmtW(gr.remaining)} for your goal.` : "Goal out of reach now.")(gr.need(g.goal))
+      : g.goal != null && !inDanger(gr) ? (n => n <= 0 ? "Goal secured." : n <= 100 ? `Needs ${fmtN(n)} on the remaining ${fmtW(gr.remaining)} for your goal.` : "Goal out of reach now.")(gr.need(g.goal))
       : !inDanger(gr) && (h => h && h.th > g.pass && h.n <= 100)(holdOf(gr)) ? (h => h.n <= 0 ? `${h.l} locked in.` : `Needs ${fmtP(h.n)} on the remaining ${fmtW(gr.remaining)} to keep your ${h.l}.`)(holdOf(gr))
-      : np <= 0 ? `Pass mark secured. ${g.goal != null ? (n => n <= 0 ? "Goal secured too." : n <= 100 ? `${fmtP(n)} on the rest for your goal.` : "Goal out of reach now.")(gr.need(g.goal)) : ""}`
-      : `Needs ${fmtP(np)} on the remaining ${fmtW(gr.remaining)} to pass${g.goal != null ? (n => n <= 0 ? ", goal secured" : n <= 100 ? `, ${fmtP(n)} for your goal` : ", goal out of reach")(gr.need(g.goal)) : ""}.`;
+      : np <= 0 ? `Pass mark secured. ${g.goal != null ? (n => n <= 0 ? "Goal secured too." : n <= 100 ? `${fmtN(n)} on the rest for your goal.` : "Goal out of reach now.")(gr.need(g.goal)) : ""}`
+      : `Needs ${fmtN(np)} on the remaining ${fmtW(gr.remaining)} to pass${g.goal != null ? (n => n <= 0 ? ", goal secured" : n <= 100 ? `, ${fmtN(n)} for your goal` : ", goal out of reach")(gr.need(g.goal)) : ""}.`;
   }
   /* New marks from a sync: a red count on Courses, on the Grades switch, on each course with one (its card, its row on Grades,
      its own Grades tab), and a red dot on the mark itself. Seen once you've had that course's Grades tab (or its marks on Grades) open and moved on. */
   const newMarks = cid => tasksArr().filter(t => t && t.markNew && t.mark && t.mark.got != null && t.mark.got !== "" && (!cid || t.courseId === cid));
+  // the counts are put back on every redraw: they ease in only the first time they're seen, after that they're simply there (99-smooth
+  // eases in anything new after a tap, so each tap on Grades made them blink out and back)
+  const pipSeen = new Set();
   const pipOn = (el, n, cls, label) => {
     if (!el) return; let d = el.querySelector(":scope > ." + cls);
     if (!n) { if (d) d.remove(); return; }
-    if (!d) { d = document.createElement("span"); d.className = cls; d.setAttribute("aria-hidden", "true"); el.appendChild(d); }
+    if (!d) { d = document.createElement("span"); d.className = cls + (pipSeen.has(cls) ? " sm-skip" : ""); d.setAttribute("aria-hidden", "true"); el.appendChild(d); pipSeen.add(cls); }
     d.textContent = n > 9 ? "9+" : String(n);
     if (label) el.setAttribute("aria-label", label);
   };
@@ -683,7 +715,7 @@
         <div class="gr-stat"><span class="gr-k">Projected Final</span>${gr.projected != null ? `<span class="gr-v">${fmtP(gr.projected)}${L(gr.projected) ? ` <span class="gr-l">${esc(L(gr.projected))}</span>` : ""}</span><span class="mini">${gr.done ? "all work marked" : `if you keep this up. Possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}`}</span>` : `<span class="gr-v gr-none">Not Yet</span><span class="mini">Needs a first mark</span>`}</div>
         <div class="gr-stat gr-pass"><span class="gr-k">Pass Mark</span><span class="gr-v">${fmtP(g.pass)}${L(g.pass) ? ` <span class="gr-l">${esc(L(g.pass))}</span>` : ""}</span><span class="mini">${g.goal != null && gg ? `<b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></div>
       </div>
-      ${weightGuessNote(gr.ts)}
+      ${ptsNote(gr)}
       ${goalAsk(gr) || goalField(c, gr)}
       ${gradeBar(gr)}
       ${need.length ? `<div class="gr-sub"><h4>What You Need</h4><ul class="gr-need">${need.map(x => `<li>${x}</li>`).join("")}</ul></div>` : ""}
@@ -693,21 +725,33 @@
       <div class="gr-sub"><h4>Still to Mark <span class="n">${unmarked.length}</span></h4>${unmarked.length ? `<ul class="gr-work">${gradeRows(unmarked, sw && sw.t.id)}</ul>` : `<p class="mini" style="margin:0">Every graded item has a mark. Weights add up to ${fmtW(gr.wAll)}.</p>`}</div>
     </section>`;
   }
-  // The Target Grade field on a course page (blank clears it)
+  // One target grade per course (grading.goal), set from the course page, the Grades tab or Grade Settings: one check and one message for all
+  function goalCheck(raw){
+    raw = String(raw == null ? "" : raw).trim(); if (raw === "") return {v: null};
+    const v = Number(raw);
+    if (!isFinite(v)) return {err: "Enter the target as a number, like 85"};
+    if (v > 100) return {err: "A target can be at most 100%"};
+    if (v <= 0) return {err: "A target has to be more than 0%"};
+    return {v};
+  }
+  // The Target Grade field on a course page and its Grades tab (blank clears it). A rejected entry stays in the box with
+  // the reason under it (ui.goalErr) until it's fixed, so a redraw can't make it look accepted or silently dropped
   function goalField(c, gr){
+    const bad = ui.goalErr && ui.goalErr.cid === c.id ? ui.goalErr : null;
     gr = gr || courseGrade(c); const g = gr.g, gs = goalShort(gr), gg = goalGap(gr), ng = g.goal != null && !gr.done && gr.current != null ? gr.need(g.goal) : null;
     const note = g.goal == null ? "What you're aiming for. Today's Plan gives more time to courses falling short."
       : gs ? `${gs.under > 0.05 ? `${r1(gs.under)} pts under it now` : "You need better than your average so far"}, so Today's Plan gives this course more time.`
       : ng != null && ng > 100 ? "Out of reach now, even with full marks on the rest."
       : gg ? (gg.gap >= 0 ? `On track: ${gg.text}.` : gg.text + ".") : "Shows how you're doing once there's a mark.";
-    return `<div class="gr-target"><label class="gr-target-l" for="goalIn-${esc(c.id)}">Target Grade</label><span class="gr-target-in"><input type="number" id="goalIn-${esc(c.id)}" data-goal-in="${esc(c.id)}" min="1" max="100" step="0.5" inputmode="decimal" placeholder="None" value="${g.goal != null ? esc(r1(g.goal)) : ""}" aria-describedby="goalNote-${esc(c.id)}"><span aria-hidden="true">%</span></span><span class="mini gr-target-n${gs ? " short" : ""}" id="goalNote-${esc(c.id)}">${esc(note)}</span></div>`;
+    return `<div class="gr-target"><label class="gr-target-l" for="goalIn-${esc(c.id)}">Target Grade</label><span class="gr-target-in"><input type="number" id="goalIn-${esc(c.id)}" data-goal-in="${esc(c.id)}" min="1" max="100" step="0.5" inputmode="decimal" placeholder="None" value="${bad ? esc(bad.raw) : g.goal != null ? esc(r1(g.goal)) : ""}" aria-describedby="goalNote-${esc(c.id)}"${bad ? ' aria-invalid="true"' : ""}><span aria-hidden="true">%</span></span><span class="mini gr-target-n${bad ? " err" : gs ? " short" : ""}" id="goalNote-${esc(c.id)}"${bad ? ' role="alert"' : ""}>${esc(bad ? bad.err + (g.goal != null ? `. Your target is still ${fmtP(g.goal)}.` : ".") : note)}</span></div>`;
   }
   document.addEventListener("change", e => {
     const el = e.target; if (!el || !el.matches || !el.matches("[data-goal-in]")) return;
     const c = courseOf(el.dataset.goalIn); if (!c) return;
-    const raw = String(el.value || "").trim(), v = raw === "" ? null : Number(raw);
-    if (v != null && (!isFinite(v) || v <= 0 || v > 100)) { el.setAttribute("aria-invalid", "true"); toast("Enter a target between 1 and 100, or leave it blank"); return; }
-    el.removeAttribute("aria-invalid");
+    // a number box holding text reports "" but flags badInput: that's a mistake, not clearing the target
+    const raw = el.validity && el.validity.badInput ? "?" : String(el.value || "").trim(), chk = goalCheck(raw), v = chk.v;
+    if (chk.err) { ui.goalErr = {cid: c.id, raw: raw === "?" ? "" : raw, err: chk.err}; toast(chk.err); render(); return; }
+    if (ui.goalErr && ui.goalErr.cid === c.id) { ui.goalErr = null; render(); }
     const cur = gradingOf(c).goal; if ((cur == null && v == null) || (cur != null && v != null && r1(cur) === r1(v))) return;
     const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: v == null ? null : r1(v)});
     applyChanges([{kind: "course", id: c.id, after: n}], v == null ? "Target grade cleared" : `Target grade set to ${fmtP(v)}`);
@@ -725,7 +769,7 @@
       <span class="chips">${picks.map(x => `<button type="button" class="chip" data-act="g-goal" data-cid="${esc(c.id)}" data-id="${esc(Number(x[1]))}">${esc(x[0])} ${esc(r1(Number(x[1])))}%</button>`).join("")}<button type="button" class="chip" data-act="g-course-set" data-id="${esc(c.id)}">Other</button><button type="button" class="link-btn" data-act="g-goal-no" data-id="${esc(c.id)}">Not Now</button></span></div>`;
   }
   hook("act", (act, el, id) => {
-    if (act === "g-goal") { const c = courseOf(el.dataset.cid); if (!c) return true; const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: r1(Number(id))}); applyChanges([{kind: "course", id: c.id, after: n}], `Goal set to ${fmtP(Number(id))}`); return true; }
+    if (act === "g-goal") { const c = courseOf(el.dataset.cid); if (!c) return true; if (ui.goalErr && ui.goalErr.cid === c.id) ui.goalErr = null; const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: r1(Number(id))}); applyChanges([{kind: "course", id: c.id, after: n}], `Goal set to ${fmtP(Number(id))}`); return true; }
     if (act === "g-goal-no") { try { localStorage.setItem(GOAL_NO, JSON.stringify(goalNo().concat(id).slice(-100))); } catch (e) {} render(); return true; }
     return false;
   });
@@ -816,7 +860,8 @@
   function gpaStrip(S){
     if (!S.marked.length && S.pastGpa == null) return "";
     const of = S.max === 4.3 ? "4.3" : "4.0";
-    const tile = (k, v, sub) => `<div class="gp-g"><span class="gr-k">${k}</span><span class="gr-v">${v}</span>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`;
+    // on phones the line under the number is left out (it stays the tile's tooltip) and the scale sits beside the number
+    const tile = (k, v, sub) => `<div class="gp-g"${sub ? ` title="${esc(sub)}"` : ""}><span class="gr-k">${k}</span><span class="gr-v">${v}<span class="gp-of"> / ${of}</span></span>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`;
     const tiles = (S.n ? tile("Term GPA", fmtG(S.gpaNow), `out of ${of}, from your grades now`) + tile("Projected Term GPA", fmtG(S.gpaProj), "if you keep this up") : "")
       + (S.cum != null && S.max ? tile("Cumulative GPA", fmtG(S.cum), `with this term · past terms ${fmtG(S.pastGpa)}`) : "");
     const k = S.noCr.length;
@@ -920,8 +965,8 @@
       const head = `COURSE ${courseLabel(c)}${c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : ""}${isNum(c.credits) ? ", " + fmtCr(c.credits) + " credits" : ""}: `
         + (gr.current != null ? `current ${fmtP(gr.current)}${Lt(gr.current)} on ${fmtW(gr.wMarked)} of the course marked; ${gr.final ? "final" : gr.done ? "everything listed so far is marked (not final: classes aren't over, more marks may come); so far" : "projected final"} ${fmtP(finalOf(gr))}${Lt(finalOf(gr))}; possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}` : "no marks yet")
         + `; pass mark ${fmtP(g.pass)}${g.goal != null ? "; goal " + fmtP(g.goal) : ""}${risk ? "; " + risk : ""}. ${gradeLine(gr)}${rulesText(gr.R) ? " Grading rules: " + rulesText(gr.R) + "." : ""}`;
-      const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
-      const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(Number(t.weight))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
+      const mk = gr.marked.slice().sort(sortTasks).map(t => `${t.title} (${t.type}, worth ${fmtW(wOf(t))}${t.due ? ", " + t.due : ""}): ${fmtP(markPct(t))}${gr.dropped.has(t.id) ? ", dropped" : ""}`).join("; ");
+      const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, worth ${fmtW(wOf(t))}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
       L.push(head + (zeroed(gr) ? "\n  LOOKS WRONG: every mark in this course is 0%, which almost always means the marks weren't entered or the school site sent ungraded work as 0. Don't treat it as a real failing grade." : "") + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
     });
     return L.join("\n");
@@ -976,11 +1021,12 @@
     const withMarks = all.filter(gr => gr.current != null), atRisk = all.filter(gr => gr.risk).length;
     const toCome = all.reduce((n, gr) => n + gr.open.length, 0) - waiting.length;
     const S = termStats(all), avg = S.avg;
-    const stat = (n, k, bad) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${k}</span></div>`;
+    // (a shorter label shows on phones, where the three tiles share one narrow row)
+    const stat = (n, k, bad, short) => `<div class="gr-stat gp-tile${bad ? " gr-bad" : ""}"><span class="gr-v">${n}</span><span class="gr-k">${short ? `<span class="gp-l">${k}</span><span class="gp-s">${short}</span>` : k}</span></div>`;
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
-        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
-        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div>` : ""}</div>`;
+        <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"}<span class="gp-l"> with marks</span> · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : `all on track<span class="gp-l"> to pass</span>`}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
@@ -995,12 +1041,12 @@
         : n == null ? "Add marks to see what you need."
         : n <= 0 ? `<span class="gp-calc-big">Secured</span><span>${fmtP(want)} is already locked in, whatever the rest brings.</span>`
         : n > 100 ? `<span class="gp-calc-big">Out of reach</span><span>The most you can still finish with is ${fmtP(gr.maxFinal)}.</span>`
-        : `<span>To finish with ${fmtP(want)} you need</span><span class="gp-calc-big">${fmtP(n)}</span><span>on the remaining ${fmtW(gr.remaining)}${gr.current != null ? `. You have ${fmtP(gr.current)} so far.` : "."}</span>`;
+        : `<span>To finish with ${fmtP(want)} you need</span><span class="gp-calc-big">${fmtN(n)}</span><span>on the remaining ${fmtW(gr.remaining)}${gr.current != null ? `. You have ${fmtP(gr.current)} so far.` : "."}</span>`;
       const calc = `<section class="gp-calc gp-d-calc"><h4 class="gp-d-h">What Do I Need?</h4>
         <div class="chips gp-calc-t" role="group" aria-label="Target">${tg.map(([k, v]) => `<button type="button" class="chip" data-act="gp-target" data-cid="${esc(c.id)}" data-id="${v}" aria-pressed="${Math.abs(v - want) < 0.01}">${esc(k)} ${r1(v)}%</button>`).join("")}</div>
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
-        ${weightGuessNote(gr.ts)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
+        ${ptsNote(gr)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
@@ -1042,6 +1088,8 @@
     const pm = parseMark(i.value);
     if (pm && Number(pm.outOf) > 0) { m[i.dataset.wi] = pm.got / pm.outOf * 100; m[i.dataset.wi + ":raw"] = i.value; i.removeAttribute("aria-invalid"); }
     else { delete m[i.dataset.wi]; delete m[i.dataset.wi + ":raw"]; if (pm === undefined) i.setAttribute("aria-invalid", "true"); else i.removeAttribute("aria-invalid"); }
+    // a mark over 100% is allowed (bonus marks), but said, so a typo like 150 for 50 doesn't pass unnoticed
+    const over = document.getElementById("wio-" + i.dataset.wi); if (over) over.hidden = !(m[i.dataset.wi] > 100);
     const clean = {}; Object.keys(m).forEach(k => { if (k.indexOf(":raw") < 0) clean[k] = m[k]; });
     const out = box.querySelector(".gr-wi-out"); if (out) out.innerHTML = whatIfOut(courseGrade(c), clean);
     const clr = box.querySelector('[data-act="wi-clear"]'); if (clr) clr.hidden = !Object.keys(clean).length && ![...box.querySelectorAll("[data-wi]")].some(x => x.value.trim());
@@ -1167,7 +1215,7 @@
         busy = false;
         if (f) { found = f; say(""); paint(); showFound(); return; }
         say(tr("gr.school.none2", "The AI isn't sure of that grade scale. Upload a screenshot of it, or paste it, in a course's Grade Settings."));
-      } catch (e) { busy = false; say((e && e.message) || tr("gr.school.fail2", "The lookup didn't work. Upload a screenshot of the scale, or paste it, in a course's Grade Settings.")); }
+      } catch (e) { busy = false; say((e && e.message) || tr("gr.school.fail2", "The lookup didn't work. Upload a screenshot of the scale, or paste it, in a course's Grade Settings.")); if (msg && e && e.detail) msg.insertAdjacentHTML("beforeend", aiDetailHtml(e)); }
       const fb2 = $("#gsFind"); if (fb2) fb2.disabled = false;
     }
     paint();
@@ -1352,7 +1400,7 @@
           <p class="mini" style="margin:0">${(c.grading || {}).passSrc === "school" && (c.grading || {}).passFrom ? `Filled in from ${esc(c.grading.passFrom)}. Change it if your course outline says otherwise; a sync won't change it back.` : (c.grading || {}).passSrc === "user" ? "You set this, so syncing with your school site won't change it." : "Many courses need a minimum grade to pass, and some need a pass on each part (like the exams). Check your course outline and set it here."}</p>
           <label class="mi-check"><input type="checkbox" name="passAll"> Use This Pass Mark for All My Courses</label>
         </div>
-        <label class="f"><span class="lh">Your Goal <span class="hint">optional, the final grade you're aiming for</span></span><input type="number" name="goal" min="0" max="100" step="0.5" inputmode="decimal" value="${g.goal != null ? esc(r1(g.goal)) : ""}" placeholder="e.g. 80"></label>
+        <label class="f"><span class="lh">Target Grade <span class="hint">optional, the final grade you're aiming for, the same one shown on the course page</span></span><input type="number" name="goal" min="0" max="100" step="0.5" inputmode="decimal" value="${g.goal != null ? esc(r1(g.goal)) : ""}" placeholder="e.g. 80" aria-describedby="gsGoalErr"><span class="mini gr-target-n err" id="gsGoalErr" role="alert" hidden></span></label>
         <label class="f"><span class="lh">Credits <span class="hint">optional, for your GPA and a weighted average. 0 leaves this course out</span></span><input type="number" name="credits" min="0" max="30" step="0.25" inputmode="decimal" value="${isNum(c.credits) ? esc(c.credits) : ""}" placeholder="e.g. 3"></label>
         ${rulesFields(c)}
         <div class="gr-scale">
@@ -1370,9 +1418,11 @@
         </div>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
-      const pass = Number(fd.get("pass")), goalS = String(fd.get("goal") || "").trim();
+      const pass = Number(fd.get("pass")), gIn = dlg.querySelector('input[name="goal"]'), gChk = goalCheck(gIn && gIn.validity.badInput ? "?" : fd.get("goal")), goalS = gChk.v == null ? "" : String(gChk.v);
       if (!isNum(pass) || pass < 0 || pass > 100) { toast("Enter a pass mark between 0 and 100"); return false; }
-      if (goalS && (!isNum(goalS) || Number(goalS) <= 0 || Number(goalS) > 100)) { toast("Enter a goal between 1 and 100, or leave it blank"); return false; }
+      const gErr = $("#gsGoalErr"); if (gErr) gErr.hidden = !gChk.err;
+      if (gChk.err) { if (gErr) gErr.textContent = gChk.err + "."; if (gIn) { gIn.setAttribute("aria-invalid", "true"); gIn.focus(); } toast(gChk.err); return false; }
+      if (ui.goalErr && ui.goalErr.cid === c.id) ui.goalErr = null;
       const crS = String(fd.get("credits") || "").trim();
       if (crS && (!isNum(crS) || Number(crS) < 0 || Number(crS) > 30)) { toast("Enter credits between 0 and 30, or leave it blank"); return false; }
       const rules = readRules(fd, c); if (rules === false) return false;
@@ -1517,8 +1567,8 @@
 
   /* Today's Plan: courses near their pass mark move up a little */
   const BOOST = {risk: 1.25, out: 1.1, watch: 1.12};
-  const origCF = computeFocus;
-  computeFocus = function(){
+  const origCF = computeFocusNow;
+  computeFocusNow = function(){
     const F = origCF.apply(this, arguments);
     try { boostFocus(F); } catch(e) { console.warn("grades: focus", e); }
     return F;
@@ -1716,8 +1766,14 @@
   }
   function rwChanges(p){
     const ch = p.sugg.filter(s => s.on && state.tasks[s.t.id]).map(s => {
-      const n = Object.assign(clone(state.tasks[s.t.id]), s.ov);
+      const cur = state.tasks[s.t.id], n = Object.assign(clone(cur), s.ov);
       if (n.start && n.due && n.start > n.due) n.start = n.due;
+      // A graded deadline handed in late keeps the instructor's real date, in the task and its notes
+      if (s.ov.due && s.ov.due !== cur.due && hasWeight(cur) && !/^(Study|Reading)$/.test(cur.type)) {
+        if (!n.origDue) n.origDue = cur.due;
+        const line = `Officially due ${fmtShort(n.origDue)}. Planned to hand in by ${fmtShort(n.due)} (Rough Week plan).`;
+        n.notes = (cur.notes ? cur.notes.trim() + "\n\n" : "") + line;
+      }
       return {kind: "task", id: n.id, after: n};
     });
     if (p.ext && p.heavy) {
@@ -1735,7 +1791,7 @@
     dlg.close();
     const moved = p.sugg.filter(s => s.on).length;
     const inv = applyChanges(ch, "");
-    toast(moved ? `Plan applied. ${moved} task${moved === 1 ? "" : "s"} moved to next week.` : "Plan applied", () => { applyChanges(inv, null); toast("Undone"); });
+    toast(moved ? `Plan applied. ${moved} task${moved === 1 ? "" : "s"} rescheduled.` : "Plan applied", () => { applyChanges(inv, null); toast("Undone"); });
     try { localStorage.setItem(RW_KEY, mondayOf(todayISO())); } catch(e) {}
     RW = null;
   }
@@ -1781,6 +1837,8 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
 
   // For tests and other modules
   window.SBGRADES.math = {courseGrade, letterOf, markPct, fmtP, gradingOf};
+  // An "Add Mark" toast button for an exam or quiz just marked done; the later "Got a Mark Back?" prompt is skipped for it
+  window.SBGRADES.offerMark = id => { const t = state.tasks[id]; if (!t || t.mark || t.prepFor) return undefined; setAsked(id); return {label: "Add Mark", fn: () => markSheet(id)}; };
   window.__sbGrades = {parseMark, parseScale, cleanScale, vetSchool, schoolHosts, courseGrade: id => courseGrade(courseOf(id)), rwPlan, showPrompt,
     addTask: f => { const t = newTask(f); applyChanges([{kind: "task", id: t.id, after: t}], null); return t.id; },
     setCourse: (id, patch) => applyChanges([{kind: "course", id, after: Object.assign(clone(state.courses[id]), patch)}], null),

@@ -23,6 +23,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     let b = await (await page.$('.note[data-note="n1"]')).boundingBox();
     await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(700);
     ok(await page.evaluate(() => !!document.querySelector(".note.editing.n-sheet")), "tapping the note opens it as a sheet");
+    // typing starts with a tap in the note's text
+    { const tb = await (await page.$(".note.n-sheet .note-text")).boundingBox(); await page.touchscreen.tap(tb.x + tb.width / 2, tb.y + tb.height / 2); await page.waitForTimeout(300); }
     await page.keyboard.type(" and more"); await page.waitForTimeout(200);
     // with the keyboard up, the note's colour carries on down behind it
     { await page.evaluate(() => document.documentElement.style.setProperty("--kb", "300px")); await page.waitForTimeout(100);

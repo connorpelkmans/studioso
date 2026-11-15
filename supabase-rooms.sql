@@ -50,13 +50,17 @@ begin
   if to_regclass('public.studyboard_config') is null then return; end if;
   update public.studyboard_config
      set value = value
-       || jsonb_build_object('free', '{"roomPeople": 4, "roomMinutes": 180}'::jsonb || coalesce(value -> 'free', '{}'::jsonb))
+       || jsonb_build_object('free', '{"roomPeople": 5, "roomMinutes": 180}'::jsonb || coalesce(value -> 'free', '{}'::jsonb))
        || jsonb_build_object('pro', '{"roomPeople": 30, "roomMinutes": 180}'::jsonb || coalesce(value -> 'pro', '{}'::jsonb))
    where key = 'limits' and jsonb_typeof(value) = 'object'
      and not ((value -> 'free') ? 'roomPeople' and (value -> 'free') ? 'roomMinutes' and (value -> 'pro') ? 'roomPeople' and (value -> 'pro') ? 'roomMinutes');
   update public.studyboard_config
      set value = jsonb_set(value, '{free,roomMinutes}', '180'::jsonb)
    where key = 'limits' and jsonb_typeof(value) = 'object' and (value #>> '{free,roomMinutes}') = '60';
+  -- A free room holds the whole free group (5 members), so nobody in the group is left out
+  update public.studyboard_config
+     set value = jsonb_set(value, '{free,roomPeople}', '5'::jsonb)
+   where key = 'limits' and jsonb_typeof(value) = 'object' and (value #>> '{free,roomPeople}') = '4';
 end $$;
 
 create or replace function public.sbr_limits(gid uuid)
@@ -68,7 +72,7 @@ declare
   pro boolean := true;
   lim jsonb;
   tier text;
-  defaults constant jsonb := '{"free": {"roomPeople": 4, "roomMinutes": 180}, "pro": {"roomPeople": 30, "roomMinutes": 180}}';
+  defaults constant jsonb := '{"free": {"roomPeople": 5, "roomMinutes": 180}, "pro": {"roomPeople": 30, "roomMinutes": 180}}';
   p jsonb; m jsonb;
 begin
   select g.owner_id into owner from public.study_groups g where g.id = gid;

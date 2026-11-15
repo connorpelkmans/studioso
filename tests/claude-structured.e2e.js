@@ -32,7 +32,7 @@ const SEED = {v: 2, updated: 1, tasks: [], files: [], notes: [], settings: {}, c
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content, stop_reason: "end_turn", usage: {input_tokens: 1500, output_tokens: 600}})});
     });
     await ctx.addInitScript(([seed, model]) => {
-      window.__SB_TEST = true;
+      window.__SB_TEST = true; window.__SB_OWN_KEYS = true; // a Claude key needs the account's permission (supabase-own-keys.sql)
       try {
         const s = JSON.parse(JSON.stringify(seed)); s.settings.ai = {provider: "anthropic", model};
         localStorage.setItem("coursework:v2", JSON.stringify(s)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");

@@ -108,6 +108,7 @@ function qaAdd(){
   });
   ui.qa = null; ui.qaText = "";
   const one = changes.length === 1 ? changes[0].after : null, ex1 = one && MILESTONE(one.type) && one.due > todayISO() ? one : null;
+  if (changes.length) sbHaptic("tap");
   if (changes.length) applyChanges(changes, one ? `Added ${one.title}` : `Added ${changes.length} tasks`, one ? [ex1 && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(ex1.id)} : null, {label: "Edit", fn: () => { if (state.tasks[one.id]) taskForm(state.tasks[one.id]); }}] : undefined); else render();
   const ask = changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);
   if (ask) { remoteAsk(ask.id); return; }
@@ -122,4 +123,16 @@ function qaFull(){
   set("title", x.title); set("time", x.time); set("hours", MILESTONE(x.type) ? "" : x.hours); set("weight", x.weight); set("location", x.location); set("reading", x.reading); set("notes", x.notes);
   const pr = dlg.querySelector(`input[name=priority][value="${x.priority}"]`); if (pr) pr.checked = true;
 }
+// What's typed in the add bar survives a reload on this device (pull to refresh, Ctrl+R, the browser restarting): it's back
+// in the bar when the app opens again, for a day. Once it's added (or the bar is emptied) the copy goes.
+const QA_DRAFT = "studyboard:qaDraft";
+let qaDraftT = 0, qaDraftOn = false;
+try { const d = JSON.parse(localStorage.getItem(QA_DRAFT) || "null"); if (d && typeof d.v === "string" && d.v.trim() && Date.now() - (Number(d.at) || 0) < 864e5) { if (!ui.qaText) ui.qaText = d.v.slice(0, 400); qaDraftOn = true; } else if (d) localStorage.removeItem(QA_DRAFT); } catch (e) {}
+function qaDraftSave(){
+  clearTimeout(qaDraftT); qaDraftT = 0;
+  try { const v = String(ui.qaText || ""); if (v.trim()) { localStorage.setItem(QA_DRAFT, JSON.stringify({v, at: Date.now()})); qaDraftOn = true; } else { localStorage.removeItem(QA_DRAFT); qaDraftOn = false; } } catch (e) {}
+}
+document.addEventListener("input", e => { if (e.target.id === "qaIn") { clearTimeout(qaDraftT); qaDraftT = setTimeout(qaDraftSave, 400); } });
+addEventListener("pagehide", () => { if (qaDraftT) qaDraftSave(); });
+hook("render", () => { if (qaDraftOn && !String(ui.qaText || "").trim()) qaDraftSave(); });
 

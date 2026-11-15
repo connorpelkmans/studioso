@@ -36,4 +36,11 @@ ok(F.seed({seen: 0}) === null, "a new card has no state");
 const sd = F.seed({seen: 6, right: 6, box: 4}), sw = F.seed({seen: 6, right: 1, box: 1});
 ok(sd.s === 14 && sw.s === 1.2 && sd.d < sw.d, "seeded from the box, easier when usually right");
 ok(F.seed({seen: 3, box: 2, fs: {s: 9, d: 4}}).s === 9, "a card's own state wins");
+// Hard, Good and Easy always give different intervals: a new card, a same-day relearn, an unknown last review
+const lapsed = F.next(on, "again", 5);
+for (const [prev, el, what] of [[null, 0, "new card"], [lapsed, 0, "relearned the same day"], [{s: 3, d: 5}, null, "no last-review date"], [on, F.interval(on.s, 0.9), "on time"]]) {
+  const x = F.spread(prev, el, 0.9);
+  ok(x.again === 0 && x.hard >= 1 && x.hard < x.good && x.good < x.easy, what + ": Hard < Good < Easy (" + [x.hard, x.good, x.easy] + ")");
+}
+ok(F.next(lapsed, "easy", 0).s > F.next(lapsed, "good", 0).s && F.next(lapsed, "good", 0).s > F.next(lapsed, "hard", 0).s, "a same-day review still moves stability by the grade");
 console.log(`fsrs.test: ${n} checks passed`);

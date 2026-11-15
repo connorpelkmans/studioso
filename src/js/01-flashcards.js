@@ -4,6 +4,8 @@ const BOX_DAYS = [0, 1, 3, 7, 14, 30];
 const FC_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/></svg>';
 function normDeck(d){
   d = Object.assign({name: "Untitled Deck", courseId: "", cards: [], quizzes: []}, d);
+  // a blank name (from an import) would leave the deck's card with no title
+  if (typeof d.name !== "string" || !d.name.trim()) d.name = "Untitled Deck";
   if (!Array.isArray(d.cards)) d.cards = [];
   d.cards = d.cards.filter(c => c && c.id).map(c => Object.assign({front: "", back: "", box: 0, due: "", seen: 0, right: 0, wrong: 0}, c));
   // copied: the card's text came straight from a course file (a PDF highlight), so it stays private (kept when the card is edited)
@@ -82,6 +84,21 @@ function examDueCap(due, cid, cardId){
   const p = fcPulls()[cardId], span = EXAM_WIN - EXAM_LAST + 1, want = addDays(ex.due, -EXAM_WIN + (cardHash(cardId) % span));
   return p && p < due ? p : want < due ? want : due;
 }
+// The next review for each rating, as the buttons say it. Near an exam the cap can land Hard, Good and Easy on the same
+// pre-exam day, which makes the choice look meaningless: then they're spread over the days left (Hard tomorrow, Good on its
+// pre-exam day, Easy on the last day of the pre-exam window), every one still before the exam. spread: the rating's day was moved this way.
+function rateDues(d, c){
+  const today = todayISO(), out = {};
+  ["again", "hard", "good", "easy"].forEach(r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(boxAfter(c, r), r); out[r] = {due0, due: examDueCap(due0, d.courseId, c.id)}; });
+  // the spread stays inside the pre-exam window the cap uses (the last slot is EXAM_LAST days before the exam)
+  const ex = d.courseId && fcExams()[d.courseId], n = ex ? dayDiff(today, addDays(ex.due, -EXAM_LAST)) : 0;
+  const off = r => dayDiff(today, out[r].due), cap = r => out[r].due < out[r].due0, H = off("hard"), G = off("good"), E = off("easy");
+  if (ex && n >= 2 && (cap("hard") || cap("good") || cap("easy")) && !(H < G && G < E)) {
+    const h = cap("hard") ? Math.min(H, 1) : H, g = Math.min(n, Math.max(G, h + 1)), e = Math.min(n, Math.max(cap("easy") ? n : E, g + 1));
+    [["hard", h], ["good", g], ["easy", e]].forEach(([r, k]) => { const due = addDays(today, k); if (due !== out[r].due) out[r] = {due0: out[r].due0, due, spread: true}; });
+  }
+  return out;
+}
 const cardDue = c => c.seen > 0 && (!c.due || cardDueOn(c) <= todayISO());
 const cardNew = c => !c.seen;
 /* How prepared you are for a deck (0 to 100), from every card */
@@ -123,6 +140,15 @@ function studyCounts(deckIds){
   return {due, fresh};
 }
 // The Review tab shows how many cards are due
+// A deck's face is cut to its rounded shape in one piece (100-phone.css): its own corner radius, which differs by card style,
+// is read once before that rule turns the painted corners square
+function deckFaceClip(){
+  document.querySelectorAll("#view .deck.deck-fc:not(.fr-on)").forEach(d => {
+    const f = d.querySelector(":scope > .deck-face"); if (!f) return;
+    d.style.setProperty("--fr", getComputedStyle(f).borderTopLeftRadius || "8px"); d.classList.add("fr-on");
+  });
+}
+hook("render", () => { if (ui.tab === "flashcards") deckFaceClip(); });
 hook("render", () => {
   const b = document.querySelector('nav.tabs [data-tab="flashcards"]'); if (!b) return;
   const n = allDueCount(); let dot = b.querySelector(".fc-navdue");
@@ -236,7 +262,7 @@ function reviewDays(){
 function reviewWeekHtml(){
   const today = todayISO(), wd = (parse(today).getDay() + 6) % 7, mon = addDays(today, -wd), done = reviewDays();
   let n = 0;
-  const cells = ["M", "T", "W", "T", "F", "S", "S"].map((l, i) => {
+  const cells = tr("dow.narrow", "M|T|W|T|F|S|S").split("|").map((l, i) => {
     const d = addDays(mon, i), on = done.has(d); if (on && d <= today) n++;
     return `<span class="rv-wd${d === today ? " now" : ""}${on ? " on" : ""}${d > today ? " later" : ""}"><i>${on ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ""}</i>${l}</span>`;
   }).join("");
@@ -250,10 +276,11 @@ function reviewHeroHtml(){
   const cids = new Set(inC.map(d => d.courseId).filter(Boolean)), isEx = t => window.SBEXAM ? SBEXAM.EXAMMODE.isExam(t) : /^(Exam|Quiz)$/.test(t.type);
   const ex = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= todayISO() && cids.has(t.courseId) && isEx(t) && dayDiff(todayISO(), t.due) <= 21).sort((a, b) => a.due.localeCompare(b.due))[0];
   const exD = ex ? dayDiff(todayISO(), ex.due) : 0, exWords = ex ? `${ex.title} is ${exD === 0 ? "today" : exD === 1 ? "tomorrow" : `in ${exD} days`}` : "";
-  let title, sub;
+  let title, sub, mins = 0;
   if (ready) {
-    const mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
-    title = `${ready} card${ready === 1 ? "" : "s"} ready to review`;
+    mins = Math.max(1, Math.round((n.due * 10 + n.fresh * 20) / 60));
+    // due and new cards are counted apart, so the number due matches the Review tab's badge (which counts due cards only)
+    title = n.due && n.fresh ? `${n.due} card${n.due === 1 ? "" : "s"} due + ${n.fresh} new` : n.fresh ? `${n.fresh} new card${n.fresh === 1 ? "" : "s"} to learn` : `${ready} card${ready === 1 ? "" : "s"} ready to review`;
     sub = [`About ${mins} minute${mins === 1 ? "" : "s"}`, deckWords, exWords];
   } else {
     const next = inC.reduce((m, d) => d.cards.reduce((mm, c) => !c.draft && c.seen > 0 && c.due && c.due > todayISO() && (!mm || c.due < mm) ? c.due : mm, m), "");
@@ -261,10 +288,13 @@ function reviewHeroHtml(){
     title = "All caught up";
     sub = [next ? `Next review ${nd === 1 ? "tomorrow" : nd < 7 ? parse(next).toLocaleDateString(undefined, {weekday: "long"}) : fmtShort(next)}` : "Nothing is due", exWords];
   }
-  const more = n.due || w.n ? `<button class="btn rv-more" data-act="fc-review-menu">Review Options</button>` : "";
+  // on a phone the button is a round icon (the words stay its name), so Start Review can share its line
+  const more = n.due || w.n ? `<button class="btn rv-more" data-act="fc-review-menu" aria-label="Review Options" title="Review Options"><svg class="rv-more-ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="rv-more-t">Review Options</span></button>` : "";
+  // the time reads "About 7 minutes", or "~7 min" where a phone keeps it to one line
+  const subHtml = sub.filter(Boolean).map((x, i) => i === 0 && mins ? `<span class="rv-min-l">${esc(x)}</span><span class="rv-min-s">~${mins} min</span>` : esc(x)).join(" · ");
   return `<section class="rv-hero${ready ? "" : " done"}" aria-label="Review">
     <span class="rv-stack" aria-hidden="true"><i></i><i></i><i></i></span>
-    <div class="rv-t"><h3>${esc(title)}</h3><p>${sub.filter(Boolean).map(esc).join(" · ")}</p></div>
+    <div class="rv-t"><h3>${esc(title)}</h3><p>${subHtml}</p></div>
     ${reviewWeekHtml()}
     <div class="rv-acts">${ready ? `<button class="btn primary rv-go" data-act="fc-review-start" data-course="${esc(course)}">Start Review</button>` : ""}${more}</div>
   </section>`;
@@ -282,7 +312,7 @@ function viewFlashcards(){
     return `<article class="deck deck-fc cs-${esc(cardStyleOf(d))}" data-rv="${esc(d.id)}" style="--c:${esc(colorOf(d.courseId))}">
       <span class="deck-lay l3" aria-hidden="true"><span class="face"></span></span><span class="deck-lay l2" aria-hidden="true"><span class="face"></span></span>
       <span class="deck-tab">${esc(c ? courseLabel(c) : "General")}</span>
-      <span class="deck-count" role="img" aria-label="${st.total} card${st.total === 1 ? "" : "s"}" title="${st.total} card${st.total === 1 ? "" : "s"}">${st.total}</span>
+      <span class="deck-count" role="img" aria-label="${st.total} card${st.total === 1 ? "" : "s"}" title="${st.total} card${st.total === 1 ? "" : "s"}">${st.total} card${st.total === 1 ? "" : "s"}</span>
       <div class="face deck-face">
       <span class="fc-band" aria-hidden="true"><span class="fc-ic">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span></span>
       <button class="deck-main" data-act="fc-open" data-id="${esc(d.id)}">
@@ -351,7 +381,7 @@ function rvStart(){
   if (!el.isConnected) { rvDrag = null; return; }
   const r = el.getBoundingClientRect();
   d.started = true; renderBlocked = true;
-  if (d.touch && navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+  if (d.touch) sbHaptic("lift");
   try { getSelection().removeAllRanges(); } catch (x) {}
   d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
   const g = el.cloneNode(true);
@@ -525,7 +555,8 @@ function addCardSheet(d){
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button><button type="submit" class="btn primary">Add Card</button></div>
   </form>`);
-  const f = $("#fcFront"); if (f) f.focus();
+  // a phone waits for a tap in the box (its keyboard would otherwise be expected, and the sheet would rise and fall back)
+  const f = $("#fcFront"); if (f && window.matchMedia("(min-width:601px)").matches) f.focus();
 }
 function bulkSheet(d){
   openSheet(`<form class="sheet">${head("Paste Cards")}
@@ -610,12 +641,15 @@ function rateCard(rating){
   const c = d.cards.find(x => x.id === it.cardId);
   const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
   if (c) {
+    // the day the button showed, when it was spread out before an exam (rateDues)
+    const shown = (() => { try { return rateDues(d, c)[rating]; } catch (e) { return null; } })();
     const sm = window.SBPRO && SBPRO.cardRated ? SBPRO.cardRated(d, c, rating) : null;
     c.box = boxAfter(c, rating);
     c.seen++; c.last = todayISO(); c.rate = rating;
     if (rating === "again") c.wrong++; else c.right++;
     c.due = nextDue(c.box, rating);
     if (sm) { c.box = sm.box; c.due = sm.due; }
+    if (shown && shown.spread) c.due = shown.due;
     d.updated = Date.now();
     saveDeck(d, null);
     fire("fc-rated", {rating, deckId: it.deckId, cardId: it.cardId});
@@ -625,7 +659,10 @@ function rateCard(rating){
   if (rating === "again" && (f.repeats[it.cardId] || 0) < 2) { f.repeats[it.cardId] = (f.repeats[it.cardId] || 0) + 1; f.q.push(it); step.pushed = true; }
   f.hist = (f.hist || []).concat(step).slice(-50);
   f.i++; f.flipped = false;
-  render();
+  // a tap for each card, and the success pattern for the last one: the session is done
+  sbHaptic(f.q[f.i] ? "tap" : "success");
+  // the card on screen changes at once; the redraw the save queued has nothing more to show
+  renderOnce();
 }
 // Undo the last rating: the card, the session and its counts go back to how they were
 function undoRate(){
@@ -650,10 +687,12 @@ function viewStudy(){
   const deckNames = f.deckIds.map(id => state.decks[id] && state.decks[id].name).filter(Boolean);
   const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} decks`;
   if (!it) {
-    const total = f.again + f.hard + f.good + f.easy;
+    // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
+    const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     return `<div class="view-head"><h2>Study Session Done</h2></div>
       <section class="done-card">
-        <p class="big-num">${total}<span> cards reviewed</span></p>
+        <p class="big-num">${cards}<span> card${cards === 1 ? "" : "s"} studied</span></p>
+        ${again ? `<p class="mini" style="margin:-4px 0 6px">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
         <div class="deck-stats"><span><b>${f.easy + f.good}</b> known</span><span><b>${f.hard}</b> hard</span><span><b>${f.again}</b> to relearn</span></div>
         <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.</p>
         <div class="row-actions"><button class="btn primary" data-act="fc-quiz-from-study">Take a Quiz</button><button class="btn" data-act="fc-study-again">Study Again</button>${undoBtn(f)}<button class="btn" data-act="fc-exit">Done</button></div>
@@ -661,14 +700,15 @@ function viewStudy(){
   }
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
-  const lbl = r => { const due0 = (window.SBPRO && SBPRO.cardPreview ? SBPRO.cardPreview(d, c, r) : "") || nextDue(boxAfter(c, r), r), due = examDueCap(due0, d.courseId, c.id), n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
+  const RD = f.flipped ? rateDues(d, c) : null;
+  const lbl = r => { const {due0, due} = RD[r], n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
-    ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-live="polite" aria-label="${f.flipped ? "Answer shown. " : ""}Flip card">
+    ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-label="${f.flipped ? "Flip card back to the front" : "Flip card"}" aria-describedby="fcFaceNow">
       <span class="flip-inner">
-        <span class="face front"><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
-        <span class="face back"><span class="face-label">Back</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint">${esc(c.front)}</span>`}</span>
+        <span class="face front"${f.flipped ? ` aria-hidden="true"` : ` id="fcFaceNow"`}><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint" aria-hidden="true">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
+        <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">${esc(tr("fc.side.back", "Back"))}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">
@@ -676,7 +716,7 @@ function viewStudy(){
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -744,11 +784,13 @@ function quizSheet(deckIds){
   const ds = decksArr().filter(d => d.cards.length);
   if (!ds.length) { toast("Add cards to a deck first"); return; }
   const sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady(), last = quizOpts();
+  // A deck smaller than the usual count starts on All (a 6-card deck can't make 10 questions)
+  const have = [...sel].reduce((t, id) => t + (state.decks[id] ? state.decks[id].cards.length : 0), 0), qn = last.qn !== "all" && have < Number(last.qn) ? "all" : last.qn;
   openSheet(`<form class="sheet">${head(ai ? `Make a Quiz with ${aiWho("AI")}` : "Make a Quiz")}
     <div class="sheet-body">
       <fieldset><legend>Decks</legend><div class="check-list">${ds.map(d => `<label class="mi-check"><input type="checkbox" name="deck" value="${esc(d.id)}" ${sel.has(d.id) ? "checked" : ""}> ${esc(d.name)} <span class="mini">${d.cards.length} cards</span></label>`).join("")}</div></fieldset>
       <label class="f"><span class="lh">Quiz Name</span><input type="text" name="qname" maxlength="120" value="${esc(uniqueQuizTitle((state.decks[[...sel][0]] || ds[0]).name + " Quiz"))}"></label>
-      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], last.qn)}</fieldset>
+      <fieldset><legend>Questions</legend>${seg("qn", [["5", "5"], ["10", "10"], ["20", "20"], ["all", "All"]], qn)}</fieldset>
       <fieldset><legend>Question Types</legend><div class="check-list row">
         <label class="mi-check"><input type="checkbox" name="qt" value="mc"${last.qt.includes("mc") ? " checked" : ""}> Multiple choice</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
@@ -793,8 +835,9 @@ async function quizFromCardsAi(decks, n, types, dir, title){
 // Without AI: the questions are made from the cards here, in the same form
 function quizFromCardsLocal(decks, n, types, dir, title){
   const qs = aiCleanQuestions(buildQuiz(decks, n, types, dir).map(q => q.type === "mc" ? {type: "single", stem: q.prompt, options: q.options, correct: [q.options.indexOf(q.answer)]}
-    : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt}\nAnswer: ${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
-    : {type: "short", stem: q.prompt, answer: q.answer}));
+    // A true/false question reads as a statement, the term and the claimed answer on two lines
+    : q.type === "tf" ? {type: "truefalse", stem: `${q.prompt} ${q.fwd ? "means" : "is called"}:\n${q.shown}`, options: ["True", "False"], correct: [q.truth ? 0 : 1]}
+    : {type: "short", stem: q.prompt, answer: q.answer}), v => String(v == null ? "" : v).trim());
   if (!qs.length) { toast("Couldn't make questions from these cards"); return; }
   const d = clone(state.decks[decks[0]]); if (!d) return;
   const qid = uid(), name = uniqueQuizTitle(title);
@@ -815,9 +858,12 @@ function answerQuiz(given, pre){
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r;
+  sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
   render();
+  // Keyboard goes to Next Question so Enter moves on, even after a mouse-picked answer (the click left focus on Quit)
+  setTimeout(() => { const n = $("#qNext"); if (n) n.focus(); }, 30);
 }
 function finishQuiz(){
   const f = ui.fc; f.done = true;
@@ -827,6 +873,7 @@ function finishQuiz(){
   applyChanges(changes, null);
   const sc = Object.values(byDeck).reduce((a, r) => a + r.score, 0), tot = Object.values(byDeck).reduce((a, r) => a + r.total, 0);
   if (tot > 0 && sc / tot >= 0.8) { try { celebrate("check"); } catch (e) {} }
+  sbHaptic(tot > 0 && sc / tot >= 0.8 ? "success" : "tap");
   if (quizPasses(sc, tot)) earnBump("q");
 }
 function viewQuiz(){
@@ -866,15 +913,31 @@ function viewQuiz(){
       ${body}${fb}
     </section>`;
 }
+// The back stays out of a screen reader's way until the card turns over (hearing the answer first defeats the recall), and
+// turning it says the side that's now up. The live region stays put across redraws, so the words are announced.
+function fcSay(text){
+  let l = document.getElementById("fcLive");
+  if (!l) { l = document.createElement("div"); l.id = "fcLive"; l.className = "sr"; l.setAttribute("aria-live", "polite"); l.setAttribute("aria-atomic", "true"); document.body.appendChild(l); }
+  l.textContent = ""; setTimeout(() => { l.textContent = text; }, 40);
+}
+function fcFlip(){
+  const f = ui.fc; if (!f) return;
+  f.flipped = !f.flipped; render();
+  const it = f.q && f.q[f.i], d = it && state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
+  const say = s => typeof mathSpeech === "function" ? mathSpeech(String(s || "")) : String(s || "");
+  if (c) fcSay(f.flipped ? "Answer: " + say(c.back) + ". Rate it with 1 to 4." : "Front: " + say(c.front));
+}
 function fcKey(e){
   if (ui.tab !== "flashcards" || !ui.fc || dlg.open || e.target.closest("input,textarea,select")) return false;
   const f = ui.fc;
   if (f.mode === "study" && (e.key === "z" || e.key === "Z" || e.key === "Backspace") && !e.altKey && f.hist && f.hist.length) { e.preventDefault(); undoRate(); return true; }
   // Ctrl, Cmd and Alt shortcuts belong to the browser; Enter and Space on a focused button press that button
   if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  // Esc ends a study session or quiz, as End Session does (a quiz half answered still asks first)
+  if (e.key === "Escape" && !e.defaultPrevented && !e.repeat && !document.querySelector("dialog[open]")) { e.preventDefault(); fcAction("fc-exit", {dataset: {}}); return true; }
   if ((e.key === " " || e.key === "Enter") && e.target.closest && e.target.closest("button,a,[role=button],summary") && !e.target.closest('[data-act="fc-flip"],[data-act="fc-next"]')) return false;
   if (f.mode === "study" && f.q[f.i]) {
-    if (e.key === " " || e.key === "Enter") { if (!f.flipped) { e.preventDefault(); f.flipped = true; render(); return true; } }
+    if (e.key === " " || e.key === "Enter") { if (!f.flipped) { e.preventDefault(); fcFlip(); return true; } }
     if (f.flipped && ["1", "2", "3", "4"].includes(e.key)) { e.preventDefault(); rateCard(["again", "hard", "good", "easy"][Number(e.key) - 1]); return true; }
   }
   if (f.mode === "quiz" && f.qs[f.i]) {
@@ -905,7 +968,7 @@ function fcAction(act, el){
     case "fc-study-course": { if (el.closest("dialog")) dlg.close(); const ids = deckListArr().filter(x => x.courseId === el.dataset.course && x.cards.some(c => !c.draft)).map(x => x.id); if (ids.length) startStudy(ids); else toast("This course has no flashcards yet"); return true; }
     case "fc-review-start": startStudy(readyDecks(el.dataset.course)); return true;
     case "fc-quiz": quizSheet([id]); return true;
-    case "fc-flip": if (ui.fc) { ui.fc.flipped = !ui.fc.flipped; render(); } return true;
+    case "fc-flip": fcFlip(); return true;
     case "fc-rate": rateCard(id); return true;
     case "fc-undo": undoRate(); return true;
     case "fc-answer": answerQuiz(el.dataset.val); return true;

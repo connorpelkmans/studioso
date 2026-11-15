@@ -34,7 +34,8 @@ var SBWB = null;
   // on the dark board a very dark custom colour is shown lighter, so it can be seen
   const forDark = hex => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, l = (0.299 * r + 0.587 * g + 0.114 * b) / 255; if (l >= 0.35) return hex; const k = 0.55; return "#" + [r, g, b].map(v => Math.round(v + (255 - v) * k).toString(16).padStart(2, "0")).join(""); };
   const penHex = (c, light) => { const h = hexOf(c); if (h) return !light && DK ? forDark(h) : h; return !light && DK ? (PEN_D[c] || PEN_D.ink) : (PEN.find(x => x[0] === c) || PEN[0])[2]; };
-  const proLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
+  // Drawing on a whiteboard is free, in any color (Pictures, Draw Again and the AI tools beside it are still Pro)
+  const proLocked = () => false;
   const hlHex = c => (HLC.find(x => x[0] === c) || HLC[0])[2];
   const colOf = (s, light) => s.t === "hl" ? hlHex(s.c) : penHex(s.c, light);
   const SV = p => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -435,7 +436,6 @@ var SBWB = null;
     clampCam(); dirty(); camSave();
   }
   // The − and + buttons move along an even ladder (10% steps to 100%, then 25%, then 50%), and glide to the new zoom
-  const STEPS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4];
   let zoomRaf = 0, zoomTarget = 0;
   function zoomGlide(z){
     cancelAnimationFrame(zoomRaf);
@@ -446,9 +446,16 @@ var SBWB = null;
     const step = now => { const k = Math.min(1, (now - t0) / ms); zoomAt(z0 * Math.pow(z / z0, ease(k))); if (k < 1) zoomRaf = requestAnimationFrame(step); else zoomTarget = 0; };
     zoomRaf = requestAnimationFrame(step);
   }
+  // "100%" is the board's home view: the whole page on screen (a blank board's page, or a template's page). The zoom
+  // shown and the zoom steps count from there, so a new board opens at 100% instead of a tiny-sounding 21%.
+  const home = () => {
+    if (fixedPage() && fw > 0 && fh > 0) { const R = pageRect(noteOf().wb.pa); return Math.max(zMin(), Math.min(fw / R[2], fh / R[3])); }
+    return zMin();
+  };
+  const REL = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 12, 16];
   const zoomStep = d => {
-    const z = zoomTarget || cam.z, lo = zMin();
-    const next = d > 0 ? (STEPS.find(s => s > z + 0.004) || ZMAX) : ([...STEPS].reverse().find(s => s < z - 0.004) || lo);
+    const z = zoomTarget || cam.z, lo = zMin(), h = home(), steps = REL.map(r => r * h).filter(s => s >= lo - 1e-6 && s <= ZMAX);
+    const next = d > 0 ? (steps.find(s => s > z * 1.004) || ZMAX) : ([...steps].reverse().find(s => s < z / 1.004) || lo);
     zoomGlide(Math.max(next, d < 0 ? Math.min(lo, z) : next));
   };
   function contentBB(){
@@ -543,7 +550,7 @@ var SBWB = null;
     const tf = `translate(${cam.x}px,${cam.y - LV}px) scale(${cam.z})`; back.style.transform = tf; front.style.transform = tf; STAGE.style.setProperty("--wb-inv", String(1 / cam.z));
     if (all) { all = false; paintInk(); }
     paintLive(); selbarPlace();
-    if (zoomEl) { zoomEl.textContent = Math.round(cam.z * 100) + "%"; const t = PHONE() ? "Fit to screen" : "Zoom to 100%"; if (zoomEl.getAttribute("aria-label") !== t) { zoomEl.setAttribute("aria-label", t); zoomEl.title = PHONE() ? "Fit to Screen" : ""; } }
+    if (zoomEl) { zoomEl.textContent = Math.round(cam.z / home() * 100) + "%"; const t = PHONE() ? "Fit to screen" : "Zoom to 100%"; if (zoomEl.getAttribute("aria-label") !== t) { zoomEl.setAttribute("aria-label", t); zoomEl.title = PHONE() ? "Fit to Screen" : ""; } }
   }
   const SELHIDE = () => SEL && SEL.drag ? SEL.ids : null;
   // A stroke, with the spots the eraser rubbed
@@ -873,7 +880,7 @@ var SBWB = null;
       if (D !== d) return;
       clearTimeout(d.snapT); D = {kind: "move", id: d.id, a: w, s, held: true};
       select(new Set([k])); SEL.drag = true; itemsDraw(); dirty();
-      try { navigator.vibrate && navigator.vibrate(10); } catch (x) {}
+      sbHaptic("lift");
     }, 450);
   }
   function begin(e, s, w){
@@ -902,7 +909,7 @@ var SBWB = null;
     }
   }
   // Hold still for a moment at the end of a stroke
-  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} dirty(true); } }, 600); }
+  function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; sbHaptic("tick", {force: true}); dirty(true); } }, 600); }
   function drag(e, s){
     const w = toW(s);
     // a finger only moves the board once it really moves (a hand settling on the screen doesn't nudge it)
@@ -1028,7 +1035,7 @@ var SBWB = null;
       else if (k === " ") { spaceDown = true; frame.classList.add("pan-ready"); }
       else if (!mod && !e.altKey && (k === "+" || k === "=")) zoomStep(1);
       else if (!mod && !e.altKey && k === "-") zoomStep(-1);
-      else if (!mod && !e.altKey && k === "0") zoomAt(1);
+      else if (!mod && !e.altKey && k === "0") zoomAt(home());
       else if (!mod && !e.altKey && TOOLS.some(t => t[2].toLowerCase() === k)) setTool(TOOLS.find(t => t[2].toLowerCase() === k)[0]);
       else done = false;
       if (done) { e.preventDefault(); e.stopPropagation(); }
@@ -1182,7 +1189,7 @@ var SBWB = null;
       case "zoom-in": zoomStep(1); break;
       case "zoom-out": zoomStep(-1); break;
       // phones pinch to zoom, so the % fits the board to the screen instead
-      case "zoom-reset": if (PHONE()) { if (fixedPage()) zoomAt(ZMIN); else fit(); } else zoomAt(1); break;
+      case "zoom-reset": if (PHONE()) { if (fixedPage()) zoomAt(ZMIN); else fit(); } else zoomAt(home()); break;
       case "fit": fit(); break;
       case "theme": setBoardTheme(DK ? "light" : "dark"); themeBtn(); break;
       default: fire("wb-act", a, el, id); return;
@@ -1249,11 +1256,13 @@ var SBWB = null;
     const list = boards(), cur = curId();
     const extra = fire("wb-head", cur).filter(Boolean).join("");
     const DOTS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>';
-    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>${on ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Board options" title="Board options">${DOTS}</button>` : ""}`; };
-    const strip = list.length ? `<div class="nb-boards wb-boards" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>` : "";
-    const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all">All Boards</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Board options" title="Board options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
+    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>`; };
+    // (the options button follows the tab list rather than sitting inside it among the tabs)
+    const opts = list.some(b => b.id === cur) ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options">${DOTS}</button>` : "";
+    const strip = list.length ? `<div class="nb-boards wb-boards"><div class="nb-tlist" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>${opts}</div>` : "";
+    const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all" aria-label="All Whiteboards" title="All Whiteboards">All</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
     if (!list.length) return headHtml + `<div class="wb-empty"><div class="wb-empty-in"><h3>Start a Whiteboard</h3><p>Sketch, write and plan with markers on a big board you can zoom around.</p>
-      <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Board</b><span class="mini">Start from a clean white board</span></span></button>
+      <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Whiteboard</b><span class="mini">Start from a clean white board</span></span></button>
       <h4 class="wb-or">Or Start From a Template</h4><div class="wb-tiles">${tiles("", "", true, true)}</div></div></div>`;
     return headHtml + `<div class="wb-host" id="wbHost"></div>`;
   }
@@ -1264,7 +1273,7 @@ var SBWB = null;
     openSheet(`<form class="sheet wb-sheet">${bandHead("New Whiteboard", SH_IC.board, "var(--accent-band,var(--accent))")}<div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="60" value="${esc(nextName())}"></label>
       <fieldset class="wb-tplset"><legend>Start With</legend>
-        <div class="segb wb-start" role="radiogroup" aria-label="Start with"><label><input type="radio" name="start" value="blank"${!tpl || tpl === "blank" ? " checked" : ""}> Blank Board</label><label><input type="radio" name="start" value="tpl"${tpl && tpl !== "blank" ? " checked" : ""}> A Template</label></div>
+        <div class="segb wb-start" role="radiogroup" aria-label="Start with"><label><input type="radio" name="start" value="blank"${!tpl || tpl === "blank" ? " checked" : ""}> Blank Whiteboard</label><label><input type="radio" name="start" value="tpl"${tpl && tpl !== "blank" ? " checked" : ""}> A Template</label></div>
         <div class="wb-tiles wb-tpl-pick"${!tpl || tpl === "blank" ? " hidden" : ""}>${tiles("tpl", tpl && tpl !== "blank" ? tpl : "grid", false, true)}</div></fieldset>
       <label class="f">Course<select name="courseId">${courseOpts("")}</select></label></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Create Whiteboard</button></div></form>`, fd => {
@@ -1421,7 +1430,7 @@ var SBWB = null;
       if (ED && ch.some(c => c.t === "i" && c.id === ED.it.id && !c.v)) { ED.ta.remove(); ED = null; }
       later(); itemsDraw(); dirty(); selbarDraw(); return true;
     },
-    onLive: fn => { LIVE = fn; }, cam: () => Object.assign({}, cam), toWorld: (cx, cy) => { const r = frame.getBoundingClientRect(); return toW([cx - r.left, cy - r.top]); },
+    onLive: fn => { LIVE = fn; }, cam: () => Object.assign({}, cam), zoomTo: z => { zoomAt(z); }, toWorld: (cx, cy) => { const r = frame.getBoundingClientRect(); return toW([cx - r.left, cy - r.top]); },
     select: ids => select(new Set(ids)), undo, redo, penHex,
     // handwriting to text
     selInk: () => {

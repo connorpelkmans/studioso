@@ -156,7 +156,9 @@ async function deckGame(browser){
   await page.click('dialog[open] .sheet-foot [data-act="close"]'); await page.waitForTimeout(200);
   ok(!(await page.evaluate(() => document.getElementById("dlg").open)), "Done closes the game");
   await openDeck(page, "d2"); await page.click('[data-fc-deck="d2"] [data-act="mt-start"]'); await page.waitForTimeout(200);
-  ok(!(await page.evaluate(() => document.getElementById("dlg").open)) && /at least 3 cards/.test(await toastOf(page)), "fewer than 3 cards: a friendly message, no game: " + await toastOf(page));
+  await page.waitForSelector("dialog[open] [data-mt-play]");
+  ok((await tiles(page)).length === 4, "a 2-card deck plays a 2-pair round");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(250);
   await openDeck(page, "d1"); await page.click('[data-fc-deck="d1"] [data-act="mt-start"]'); await page.waitForSelector("dialog[open] [data-mt-play]");
   ts = await tiles(page); await click(page, ts[0].i); await page.keyboard.press("Escape"); await page.waitForTimeout(250);
   ok(await page.evaluate(() => window.__sbMatch.round() === null), "closing the sheet mid-round ends it");
@@ -218,7 +220,7 @@ async function group(browser){
   await act("grp-page"); await page.waitForSelector('[data-act="grp-open"][data-id="g1"]'); await page.click('[data-act="grp-open"][data-id="g1"]');
   await page.waitForSelector("#grpDecks .grp-item"); await page.waitForTimeout(600);
   ok(await page.$('#grpDecks [data-act="grp-match"][data-id="dk1"]') !== null, "group: a shared deck has a Match button");
-  ok(await page.$('#grpDecks [data-act="grp-match"][data-id="dk2"]') === null, "group: no Match button on a shared deck with fewer than 3 cards");
+  ok(await page.$('#grpDecks [data-act="grp-match"][data-id="dk2"]') !== null, "group: a shared deck with 2 cards has a Match button too");
   const decksBefore = await page.evaluate(() => Object.keys(window.__sbMatch.state().decks).length);
   await page.click('#grpDecks [data-act="grp-match"][data-id="dk1"]'); await page.waitForSelector("dialog[open] [data-mt-play]");
   ok(/Cell parts/.test(await txt(page, "dialog[open] .mt-name")) && (await tiles(page)).length === 12, "group: Match plays the shared deck's cards");

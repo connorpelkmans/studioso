@@ -147,9 +147,10 @@ async function downloadFile(f, revIndex){
   if (revIndex != null && revIndex !== f.revs.length - 1) name = name.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(revIndex)})$1`);
   if (DESK) { try { saveBlob(name, new Blob([await assetBytes(r.assetId)], {type: r.type || "application/octet-stream"})); } catch(e) { toast(navigator.onLine === false ? "You're offline and this file isn't on this computer yet" : "Couldn't get the file. Try again."); } return; }
   if (!inPreview()) {
-    if (!sbActive()) { toast("Sign in to download stored files"); return; }
-    let data = null; try { data = await sbDownload(r.assetId); } catch (e) {}
-    if (!data) { toast("Couldn't download the file. Check your connection."); return; }
+    // a copy already on this device is used first (no sign-in or connection needed for it)
+    let data = null, why = "";
+    try { data = new Blob([await assetBytes(r.assetId)], {type: r.type || "application/octet-stream"}); } catch (e) { why = String((e && e.message) || ""); }
+    if (!data) { toast(/only on the computer/.test(why) ? "This file is still on the computer it was added from. It uploads the next time Studyboard is open there and signed in." : /not signed in/.test(why) ? "Sign in to download stored files" : "Couldn't download the file. Check your connection."); return; }
     saveBlob(name, data); return;
   }
   const dl = caps.downloads || await useCap("downloads");
@@ -174,21 +175,38 @@ function filesVisible(){
     return true;
   }).sort((a, b) => ui.fSort === "name" ? a.name.localeCompare(b.name) : ((b.updated || b.created || 0) - (a.updated || a.created || 0)));
 }
+// Phones: a file's actions (Summary, Read, Edit, Preview or Open) sit in one ⋯ menu at the end of its row, so the name has the room
+// (101-phone-v2.css shows it there and hides the row's own buttons; computers keep the buttons)
+const FR_IC = {sum: AI_ICON, read: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>',
+  open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'};
+function fileRowMore(f, read, pv){
+  const it = [];
+  if (f.summary && !inPreview()) it.push(`<button type="button" class="btn" role="menuitem" data-act="f-summarize" data-id="${esc(f.id)}">${FR_IC.sum}Summary</button>`);
+  if (read) {
+    it.push(`<button type="button" class="btn" role="menuitem" data-act="pdr-open" data-id="${esc(f.id)}">${FR_IC.read}Read</button>`);
+    if (fileKind(f) === "pdf") it.push(`<button type="button" class="btn" role="menuitem" data-act="pde-edit" data-id="${esc(f.id)}">${FR_IC.edit}Edit</button>`);
+  } else if (pv) it.push(`<button type="button" class="btn" role="menuitem" data-act="f-preview" data-id="${esc(f.id)}">${FR_IC.read}Preview</button>`);
+  else it.push(`<a class="btn" role="menuitem" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${FR_IC.open}Open</a>`);
+  return `<details class="ph-more fr-more"><summary class="btn small" aria-label="Actions for ${esc(f.name)}" title="More"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary><div class="ph-menu" role="menu">${it.join("")}</div></details>`;
+}
 function fileRow(f){
   const r = curRev(f), c = courseOf(f.courseId);
   const tasks = f.taskIds.map(id => state.tasks[id]).filter(Boolean);
   const meta = [];
   if (ui.fCourse === "all") meta.push(`<span class="tag" style="--c:${esc(colorOf(f.courseId))};color:color-mix(in srgb,var(--c) 70%,var(--ink))">${esc(c ? courseLabel(c) : "General")}</span>`);
   if (f.kind === "cloud") { meta.push(`<span class="f-cloud">${CLOUD_SVG}${esc(CLOUD_NAMES[f.cloud.p])}</span>`); if (f.cloud.size) meta.push(`<span>${fmtSize(f.cloud.size)}</span>`); }
-  else if (f.kind === "file") { meta.push(`<span>Rev ${revLetter(f.revs.length - 1)}</span>`); if (r) meta.push(`<span>${fmtSize(r.size)}</span>`); }
+  // the version number only once there's more than one ("Version 2 · updated Nov 3"); a single version says nothing
+  else if (f.kind === "file") { if (f.revs.length > 1) meta.push(`<span>Version ${f.revs.length}</span>`); if (r) meta.push(`<span>${fmtSize(r.size)}</span>`); }
   else { try { meta.push(`<span>${esc(new URL(safeUrl(f.url)).hostname.replace(/^www\./, ""))}</span>`); } catch(e) {} }
-  meta.push(`<span>${esc(new Date(f.updated || f.created || Date.now()).toLocaleDateString(undefined, {month:"short", day:"numeric"}))}</span>`);
+  const more = f.kind === "file" && f.revs.length > 1;
+  meta.push(`<span>${more ? "updated " : ""}${esc(new Date((more && r && r.at) || f.updated || f.created || Date.now()).toLocaleDateString(undefined, {month:"short", day:"numeric"}))}</span>`);
   const read = f.kind === "file" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f), pv = !read && canPreview(f);
   return `<li class="frow" draggable="true" data-fid="${esc(f.id)}">
     ${fileIcon(f)}
     <button class="fmain" data-act="f-open" data-id="${esc(f.id)}" aria-label="Details of ${esc(f.name)}" title="Name, course, folder, tasks and versions"><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
       ${tasks.length ? `<span class="ftasks">${tasks.slice(0, 3).map(t => `<span class="dep-chip" style="--c:${esc(colorOf(t.courseId))}">${CLIP}${esc(t.title)}</span>`).join("")}${tasks.length > 3 ? `<span class="mini">+${tasks.length - 3}</span>` : ""}</span>` : ""}</button>
-    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}
+    <span class="f-acts">${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}${read ? `<button type="button" class="btn small f-read" data-act="pdr-open" data-id="${esc(f.id)}" aria-label="Read ${esc(f.name)}">Read</button>${fileKind(f) === "pdf" ? `<button type="button" class="btn small f-edit" data-act="pde-edit" data-id="${esc(f.id)}" aria-label="Edit ${esc(f.name)} in the PDF editor">Edit</button>` : ""}` : pv ? `<button type="button" class="btn small f-read" data-act="f-preview" data-id="${esc(f.id)}" aria-label="Preview ${esc(f.name)}">Preview</button>` : `<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>`}</span>${fileRowMore(f, read, pv)}
   </li>`;
 }
 // A course's Lecture Notes folder, grouped by class, with each class's typed notes and recording too (99-class-sessions.js)
@@ -216,7 +234,8 @@ function viewFiles(){
   let lec = null;
   if (ui.fFolder === "notes" && ui.fCourse !== "all" && window.SBCLS && SBCLS.lecFolders) { try { lec = SBCLS.lecFolders(ui.fCourse, fs, fileRow); } catch (e) { console.warn("lecture folders", e); } }
   const sep = `<span class="fc-sep" aria-hidden="true">›</span>`;
-  const crumbs = ui.fCourse === "all" ? "All Files" : `${esc(c ? c.name : "General")}${folder ? `${sep}${lec && lec.crumb ? `<button type="button" class="fc-up" data-act="f-cls" data-key="">${esc(folder.name)}</button>${sep}${esc(lec.crumb)}` : esc(folder.name)}` : ""}`;
+  // inside a folder the course name sits small above the folder's name, so the title stays short
+  const crumbs = ui.fCourse === "all" ? "All Files" : `${folder ? `<span class="fc-course">${esc(c ? c.name : "General")}</span>` : esc(c ? c.name : "General")}${folder ? `${lec && lec.crumb ? `<button type="button" class="fc-up" data-act="f-cls" data-key="">${esc(folder.name)}</button>${sep}${esc(lec.crumb)}` : esc(folder.name)}` : ""}`;
   let list;
   if (lec) list = lec.html;
   else if (!fs.length) {
@@ -256,7 +275,7 @@ function fileSheet(f){
   const isLink = f.kind === "link" || f.kind === "cloud", isCloud = f.kind === "cloud";
   // What you can do with the file, in one row under its name (Read and Edit for PDFs, Summarize, Open)
   const pdf = !isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
-  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a></div>`;
+  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && !DESK && fvPhone() && fvKind(f) ? `${fvKind(f) !== "office" && !pdf ? `<button type="button" class="btn primary" data-act="f-view" data-id="${esc(f.id)}">Open</button>` : ""}<button type="button" class="btn" data-act="f-save" data-id="${esc(f.id)}">${nativeShell() ? "Share or Open In…" : "Download"}</button>` : `<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a>`}</div>`;
   openSheet(`<form class="sheet">${head(isCloud ? CLOUD_NAMES[f.cloud.p] + " File" : isLink ? "Link" : "File")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="200" value="${esc(f.name)}"></label>
@@ -268,8 +287,8 @@ function fileSheet(f){
       </div>
       <label class="f">Description<textarea name="desc" maxlength="2000" placeholder="What this is, where it came from…">${esc(f.desc)}</textarea></label>
       <fieldset><legend>Attached to Tasks</legend><div class="dep-list" id="fsTasks"></div><select id="fsTaskAdd" aria-label="Attach to a task"></select></fieldset>
-      ${isLink ? "" : `<fieldset><legend>Revisions</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Rev ${revLetter(i)}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
-        ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Revision</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}${window.SBCLOUD ? SBCLOUD.moveHtml(f) : ""}</fieldset>`}
+      ${isLink ? "" : `<fieldset><legend>${f.revs.length > 1 ? "Versions" : "Version"}</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Version ${i + 1}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
+        ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Version</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}${window.SBCLOUD ? SBCLOUD.moveHtml(f) : ""}</fieldset>`}
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save</button></div>
   </form>`, fd => {
@@ -312,7 +331,7 @@ function fileSheet(f){
         const cur = state.files[f.id]; if (!cur) return;
         const n = clone(cur); n.revs = n.revs.concat(Object.assign({assetId: r.id, size: r.sizeBytes, type: r.contentType, at: Date.now(), name: file.name}, r.localRel ? {localRel: r.localRel} : {})); n.updated = Date.now();
         dlg.close();
-        applyChanges([{kind:"file", id: f.id, after: n}], `${n.name}: Rev ${revLetter(n.revs.length - 1)} uploaded`);
+        applyChanges([{kind:"file", id: f.id, after: n}], `${n.name}: version ${n.revs.length} uploaded`);
       } catch(err) {
         const code = err && err.code, why = code === "too_large" ? "big" : code === "quota_or_state" ? "full" : code === "unsupported_type" ? "type" : "";
         if (why) { if (dlg.open) dlg.close(); storageLimit([file], lopts, why); } else toast("Couldn't upload the new revision");
@@ -352,13 +371,87 @@ async function officePreview(fid){
     if (box) box.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is only on the computer it was added from." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : /not a zip|damaged|corrupt/i.test(m) ? "This file looks damaged, so it can't be shown here. Try opening it in its own app." : m && m.length < 160 ? m : "Couldn't show this file here. Try opening it in its own app.")}</p>`;
   }
 }
+/* Phones and tablets: a stored file opens inside Studyboard. Opening it in a new browser window (sbOpenAsset) doesn't work there:
+   in the iPhone and Android apps there's no new window to open, and the Home Screen web app on iPhone opens one that can't see the
+   downloaded file, so the tap did nothing or showed a blank page. PDFs are drawn page by page (pdf.js, only the pages near the
+   screen, so long ones don't run the phone out of memory); pictures, text, audio and video show as they are; Word, PowerPoint and
+   Excel use the Office preview; anything else goes to Share or Open In… (the phone's share sheet) or a download. */
+const fvPhone = () => { try { return nativeShell() || !!navigator.standalone || (matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches); } catch (e) { return false; } };
+function fvKind(f){
+  if (!f || f.kind !== "file" || !f.revs || !f.revs.length) return "";
+  if (canPreview(f)) return "office";
+  const r = curRev(f), t = String((r && r.type) || "").toLowerCase(), n = String(fileNameOf(f) || "").toLowerCase();
+  if (t === "application/pdf" || /\.pdf$/.test(n)) return "pdf";
+  if (/^image\/(png|jpe?g|gif|webp|bmp|heic|heif|avif|svg\+xml)$/.test(t) || /\.(png|jpe?g|gif|webp|bmp|heic|heif|avif|svg)$/.test(n)) return "image";
+  if (/^audio\//.test(t) || /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac)$/.test(n)) return "audio";
+  if (/^video\//.test(t) || /\.(mp4|m4v|mov|webm)$/.test(n)) return "video";
+  if (/^text\//.test(t) || /^application\/(json|xml)$/.test(t) || /\.(txt|md|markdown|json|xml|tex|log|py|js|java|c|cpp|h|cs|html?|css|r|m|sql|ya?ml|ini|srt|vtt)$/.test(n)) return "text";
+  return "other";
+}
+let FVW = null;
+function fvClose(){ const v = FVW; FVW = null; if (!v) return; if (v.io) v.io.disconnect(); v.urls.forEach(u => URL.revokeObjectURL(u)); if (v.doc) try { v.doc.destroy(); } catch (e) {} }
+dlg.addEventListener("close", () => { if (!dlg.open) fvClose(); });
+async function fileViewer(fid){
+  const f = state.files[fid]; if (!f || f.kind !== "file") return;
+  const kind = fvKind(f);
+  if (kind === "office") { officePreview(fid); return; }
+  if (kind === "pdf" && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f) && SBPRO.openReader) { SBPRO.openReader(fid); return; }
+  fvClose();
+  const my = FVW = {fid, urls: [], io: null, doc: null};
+  const saveLabel = nativeShell() ? "Share or Open In…" : "Download";
+  openSheet(`<div class="sheet ofv-sheet fv-sheet">${head(f.name)}<div class="sheet-body ofv-body fv-body" id="fvBody" tabindex="0" aria-label="${esc(f.name)}"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening…</p></div>
+    <div class="sheet-foot"><button type="button" class="btn" data-act="f-open" data-id="${esc(f.id)}">Details</button><span class="spacer"></span><button type="button" class="btn primary" data-act="f-save" data-id="${esc(f.id)}">${saveLabel}</button></div></div>`);
+  const box = () => FVW === my ? $("#fvBody") : null;
+  try {
+    const bytes = await fileBytes(f);
+    const b = box(); if (!b) return;
+    const type = (curRev(f) || {}).type || "";
+    const url = mime => { const u = URL.createObjectURL(new Blob([bytes], {type: mime || type || "application/octet-stream"})); my.urls.push(u); return u; };
+    if (kind === "pdf") await fvPdf(b, bytes, my);
+    else if (kind === "image") b.innerHTML = `<img class="fv-img" alt="${esc(f.name)}" src="${url(/svg/.test(type) || /\.svg$/i.test(fileNameOf(f)) ? "image/svg+xml" : "")}">`;
+    else if (kind === "audio") b.innerHTML = `<audio class="fv-media" controls preload="metadata" src="${url()}"></audio>`;
+    else if (kind === "video") b.innerHTML = `<video class="fv-media" controls playsinline preload="metadata" src="${url()}"></video>`;
+    else if (kind === "text") { const cut = bytes.length > 2e6; b.innerHTML = `<pre class="fv-text">${esc(new TextDecoder().decode(cut ? bytes.slice(0, 2e6) : bytes))}</pre>${cut ? `<p class="mini">Only the first 2 MB is shown. ${esc(saveLabel)} for the rest.</p>` : ""}`; }
+    else b.innerHTML = `<p class="pdr-wait">Studyboard can't show this kind of file. ${nativeShell() ? "Tap Share or Open In… to open it in another app, or save it to Files." : "Download it to open it."}</p>`;
+  } catch (e) {
+    const b = box(); if (!b) return;
+    const m = String((e && e.message) || "");
+    b.innerHTML = `<p class="pdr-wait">${esc(/only on the computer/.test(m) ? "This file is still on the computer it was added from. It uploads the next time Studyboard is open there and signed in." : navigator.onLine === false ? "You're offline, and this file isn't on this device yet." : /not signed in/.test(m) ? "Sign in to open your stored files." : "Couldn't open the file. Check your connection and try again.")}</p>`;
+  }
+}
+// The pages are drawn when they come near the screen and let go of once far from it
+async function fvPdf(box, bytes, my){
+  await loadPdfJs();
+  const doc = my.doc = await window.pdfjsLib.getDocument({data: bytes, ...PDF_OPTS}).promise;
+  if (FVW !== my) { try { doc.destroy(); } catch (e) {} return; }
+  const room = Math.max(200, box.clientWidth - 28), first = await doc.getPage(1), v1 = first.getViewport({scale: 1});
+  const n = doc.numPages, w = Math.round(Math.min(room, v1.width * 2));
+  box.innerHTML = Array.from({length: n}, (_, i) => `<div class="fv-page" data-p="${i + 1}" role="img" aria-label="Page ${i + 1} of ${n}" style="width:${w}px;height:${Math.round(w * v1.height / v1.width)}px"></div>`).join("");
+  const draw = async el => {
+    if (el.dataset.on) return; el.dataset.on = "1";
+    try {
+      const page = await doc.getPage(Number(el.dataset.p)), v = page.getViewport({scale: 1}), k = w / v.width, dpr = Math.min(2, window.devicePixelRatio || 1);
+      const vp = page.getViewport({scale: k * dpr}), c = document.createElement("canvas");
+      c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+      el.style.height = Math.round(v.height * k) + "px";
+      await page.render({canvasContext: c.getContext("2d"), viewport: vp}).promise;
+      if (FVW !== my || !el.dataset.on) return;
+      el.replaceChildren(c);
+    } catch (e) { delete el.dataset.on; }
+  };
+  const drop = el => { if (!el.dataset.on) return; delete el.dataset.on; const c = el.querySelector("canvas"); if (c) { c.width = 0; c.height = 0; } el.replaceChildren(); };
+  my.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) draw(e.target); else if (Math.abs(e.boundingClientRect.top - e.rootBounds.top) > 4000) drop(e.target); }), {root: box, rootMargin: "1200px 0px"});
+  box.querySelectorAll(".fv-page").forEach(el => my.io.observe(el));
+}
 // Each page keeps its own size and is scaled down to fit the sheet, so text wraps exactly as in the file
 function officeDraw(){
   const box = $("#ofvBody"); if (!box || !OFV || !OFV.res) return;
   const res = OFV.res, room = Math.max(200, box.clientWidth - 28);
   box.innerHTML = (res.warnings || []).map(w => `<p class="mini ofv-warn">${esc(w)}</p>`).join("") + res.pages.map((pg, i) => {
-    const k = Math.min(res.kind === "pptx" ? 1.5 : 1, room / pg.w), sheet = res.kind === "xlsx" || res.kind === "csv", s = sheet ? Math.max(0.6, k) : k;
-    return `<figure class="ofv-page${sheet ? " ofv-grid" : ""}" aria-label="${esc(pg.label || "Page " + (i + 1))}"><div class="ofv-frame" style="width:${Math.round(pg.w * s)}px;height:${Math.round(pg.h * s)}px"><div class="ofv-in" style="width:${pg.w}px;height:${pg.h}px;transform:scale(${s.toFixed(4)})">${pg.html}</div></div><figcaption class="mini">${esc(pg.label || "Page " + (i + 1))}</figcaption></figure>`;
+    // a spreadsheet keeps its real size (readable on a phone) and scrolls sideways, with its sheet name above it like a tab
+    const k = Math.min(res.kind === "pptx" ? 1.5 : 1, room / pg.w), sheet = res.kind === "xlsx" || res.kind === "csv", s = sheet ? 1 : k;
+    const cap = sheet ? String(pg.label || "Sheet " + (i + 1)).replace(/^Sheet: /, "") : pg.label || "Page " + (i + 1);
+    return `<figure class="ofv-page${sheet ? " ofv-grid" : ""}" aria-label="${esc(pg.label || "Page " + (i + 1))}"><div class="ofv-frame" style="width:${Math.round(pg.w * s)}px;height:${Math.round(pg.h * s)}px"><div class="ofv-in" style="width:${pg.w}px;height:${pg.h}px;transform:scale(${s.toFixed(4)})">${pg.html}</div></div><figcaption class="mini${sheet ? " ofv-tab" : ""}">${esc(cap)}</figcaption></figure>`;
   }).join("") || `<p class="pdr-wait">This file is empty.</p>`;
 }
 dlg.addEventListener("close", () => { if (!dlg.open) officeClose(); });
@@ -463,12 +556,17 @@ const NOTE_COLORS = [["yellow","#FFE680"],["pink","#FFB8CC"],["blue","#AED6FF"],
 const NOTE_COLORS_SHOWN = NOTE_COLORS.map((c, i, a) => a[i === 0 ? 2 : i === 2 ? 0 : i]);
 // A note keeps the colour you picked on every theme
 const noteColor = k => NOTE_COLORS[Math.max(0, NOTE_COLORS.findIndex(c => c[0] === k))][1];
+// a course tag's text on a note: the course colour toward ink (as .note-tag draws it), deepened further only if its tint on
+// that paper needs it to read
+const noteTagInk = (c, paper) => { const tint = hexBlend(hexBlend(paper, "#FFFFFF", 0.6), c, 0.22); return courseInk(hexBlend(c, "#1A1A1A", 0.3), [tint]); };
 // One width on every screen
 const NOTE_W = () => 200;
 const TRASH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6"/></svg>';
 const ARCHIVE = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M9 13h6"/></svg>';
 function normNote(n){
   n = Object.assign({text:"", color:"yellow", x:40, y:40, z:1, rot:0, courseId:"", archived:false, shape:"", pin:"", stickers:[]}, n);
+  // a note from an old backup, an import or a synced copy can come without its text (null, or a number): it's an empty note, not one that stops the Notes tab
+  if (typeof n.text !== "string") n.text = n.text == null ? "" : String(n.text);
   if (n.shape === "taped") { n.shape = ""; n.pin = n.pin || "tape"; }
   if (!Array.isArray(n.stickers)) n.stickers = [];
   // OneNote: the page a note came from (on), or the page it was saved to (onSaved)
@@ -542,6 +640,16 @@ function noteTaskOpts(n){
     + grp(n.courseId && courseOf(n.courseId) ? courseLabel(courseOf(n.courseId)) : "Open tasks", cands.filter(t => !n.courseId || t.courseId === n.courseId))
     + (n.courseId ? grp("Other courses", cands.filter(t => t.courseId !== n.courseId)) : "");
 }
+// A note as one line of plain text, for lists that can only show text (a dropdown): math as characters ("d/(dx)xⁿ"),
+// no [[link]] brackets or ** marks, its lines joined with " · ", cut with "…"
+function notePlain(text, max){
+  let t = String(text || "").trim(); if (!t) return "";
+  try { if (typeof mathPlain === "function") t = mathPlain(t); } catch (e) {}
+  t = t.replace(/\[\[([^\]]*)\]\]/g, "$1").split(/\n+/).map(l => l.replace(/^\s*[-*•]\s+/, "").trim()).filter(Boolean).join(" · ").replace(/\s+/g, " ");
+  return max && t.length > max ? t.slice(0, max - 1).trimEnd() + "…" : t;
+}
+// A note's name for screen readers: its words as read, not its formatting or math code
+const noteLabelText = n => { const t = String(n.text || "").trim(); if (!t) return "Empty note"; const s = typeof mathSpeech === "function" ? mathSpeech(t) : t; return s.replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\s+/g, " ").slice(0, 80); };
 function noteHtml(n){
   const c = courseOf(n.courseId), w = NOTE_W(), tk = n.taskId ? state.tasks[n.taskId] : null;
   const editing = noteEditing === n.id;
@@ -558,12 +666,12 @@ function noteHtml(n){
          <div class="note-btns">${window.SBONENOTE ? SBONENOTE.noteBtn(n) : ""}<button type="button" class="nb" data-act="note-archive" data-id="${esc(n.id)}" title="Archive" aria-label="Archive note">${ARCHIVE}</button><button type="button" class="nb" data-act="note-trash" data-id="${esc(n.id)}" title="Delete" aria-label="Delete note">${TRASH}</button><button type="button" class="btn small" data-act="note-done">Done</button></div>
        </div>`
     : `<div class="note-body">${n.text.trim() ? (window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
-  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="${editing ? "group" : "button"}" aria-label="${editing ? "Editing note" : "Note: " + esc(n.text.slice(0, 60) || "empty") + ". Press Enter to edit."}"
+  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="group" aria-roledescription="note" aria-label="${editing ? "Note options. Press Enter to type in the note, Escape to close it." : esc(noteLabelText(n)) + ". Press Enter for its options."}"
     style="left:${n.x}px;top:${n.y}px;z-index:${editing ? 9000 : n.z};width:${w}px;--nc:${noteColor(n.color)};--rot:${editing ? 0 : n.rot}deg">
     ${pinHtml(notePinOf(n))}
     ${editing ? "" : `<span class="note-rot" data-rot="${esc(n.id)}" title="Drag to rotate" aria-hidden="true">${ROT_ICON}</span>`}
     ${noteStickersHtml(n, editing)}
-    ${c ? `<span class="note-tag" style="--c:${esc(c.color)}">${esc(courseLabel(c))}</span>` : ""}
+    ${c ? `<span class="note-tag" style="--c:${esc(c.color)};--ci:${esc(noteTagInk(c.color, noteColor(n.color)))}">${esc(courseLabel(c))}</span>` : ""}
     ${n.conflict ? `<button type="button" class="note-conflict" data-act="note-resolve" data-id="${esc(n.id)}">Edited on two devices. Tap to review.</button>` : ""}
     ${tk ? `<button type="button" class="note-task-tag" data-act="edit-task" data-id="${esc(tk.id)}" title="Open ${esc(tk.title)}">${CLIP}${esc(tk.title)}</button>` : ""}
     ${body}
@@ -575,16 +683,19 @@ function noteHtml(n){
 // Notes never show a scrollbar
 const NOTE_OPEN = new Set();
 function noteFitText(t){ if (!t) return; const h = t.offsetHeight; t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; if (t.offsetHeight !== h) fitNoteBoard(); }
+// In passes over all the notes (set which are open, then measure every one, then add or drop the buttons), so the board is
+// measured once rather than once per note, which froze the Notes tab for seconds with a few hundred notes
 function noteClipCheck(){
-  $$(".note[data-note]:not(.editing)").forEach(el => {
-    const b = el.querySelector(".note-body"); if (!b) return;
-    const id = el.dataset.note, open = NOTE_OPEN.has(id);
-    el.classList.toggle("nb-open", open);
-    const long = open || b.scrollHeight > b.clientHeight + 2;
+  const all = $$(".note[data-note]:not(.editing)").map(el => ({el, b: el.querySelector(".note-body"), open: NOTE_OPEN.has(el.dataset.note)})).filter(x => x.b);
+  all.forEach(x => x.el.classList.toggle("nb-open", x.open));
+  all.forEach(x => { x.long = x.open || x.b.scrollHeight > x.b.clientHeight + 2; });
+  all.forEach(({el, b, open, long}) => {
     el.classList.toggle("nb-clip", long);
     let m = el.querySelector(".note-more");
     if (long && !m) { m = document.createElement("button"); m.type = "button"; m.className = "note-more"; b.after(m); }
     if (!long && m) m.remove();
+    // (a button that already says the right thing is left as it is)
+    if (m && m.firstChild && m.firstChild.nodeValue === (open ? "Show Less " : "Show More ") && m.getAttribute("aria-expanded") === (open ? "true" : "false")) return;
     if (m) { m.innerHTML = (open ? "Show Less" : "Show More") + ` <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`; m.setAttribute("aria-expanded", open ? "true" : "false"); }
   });
 }
@@ -609,7 +720,7 @@ function noteSheetUp(){
   // the note's own colour also fills the strip behind the keyboard (see .n-sheet-bg.on::after)
   try { document.documentElement.style.setProperty("--n-sheet-c", getComputedStyle(el).getPropertyValue("--nc").trim() || getComputedStyle(el).backgroundColor); } catch (e) {}
   // slides up once when a note opens, not again on every redraw while it's being edited
-  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); }, 500); }
+  if (noteSheetId !== el.dataset.note) { noteSheetId = el.dataset.note; el.classList.add("n-enter"); if (bg) { bg.classList.remove("n-enter"); void bg.offsetWidth; bg.classList.add("n-enter"); } if (window.SBSMOOTH) { SBSMOOTH.hold(el); SBSMOOTH.hold(bg); } setTimeout(() => { el.classList.remove("n-enter"); if (bg) bg.classList.remove("n-enter"); if (el.isConnected) noteSheetKeep(el); }, 500); }
   if (el.showPopover && !el.matches(":popover-open")) {
     const t = $("#noteText"), had = t && document.activeElement === t;
     el.setAttribute("popover", "manual");
@@ -617,7 +728,41 @@ function noteSheetUp(){
     if (had && document.activeElement !== t) try { t.focus({preventScroll: true}); } catch (e) {}
     noteToastUp(true);
   }
-  noteKbFit(); noteSheetKeep(el);
+  noteKbFit(); noteSheetKeep(el); noteGlideWatch();
+}
+// The open editor never jumps: whenever the spot it rests in changes (the keyboard coming or going, its options folding away
+// as typing starts, the text growing a line), it glides there from where it was, on the keyboard's own curve. Where it rests is
+// offsetTop, which leaves out its own slide-in and glides; checked once a frame while it's open, before the frame is drawn, so
+// the jump itself never shows. A redraw while editing puts in a fresh copy: a glide under way carries on on it
+let noteGlideRaf = 0, noteGlideAt = null;   // noteGlideAt: {id, top, runs: [{d, t0}]}
+const NOTE_GLIDE_MS = 340;
+function noteGlideRun(el, d, t0){
+  try {
+    const a = el.animate([{translate: `0 ${d}px`}, {translate: "0 0"}], {duration: NOTE_GLIDE_MS, easing: "cubic-bezier(.32,.72,0,1)", composite: "add"});
+    a.currentTime = Math.max(0, performance.now() - t0);
+  } catch (e) {}
+}
+function noteGlideWatch(){
+  if (noteGlideRaf) return;
+  const tick = () => {
+    noteGlideRaf = 0;
+    const el = $(".note.editing.n-sheet");
+    if (!el || !el.isConnected) { noteGlideAt = null; return; }
+    const id = el.dataset.note, top = el.offsetTop, now = performance.now();
+    if (!noteGlideAt || noteGlideAt.id !== id) noteGlideAt = {id, top, runs: [], el};   // just opened: its own slide-in shows it
+    else {
+      const G = noteGlideAt;
+      G.runs = G.runs.filter(r => now - r.t0 < NOTE_GLIDE_MS);
+      if (G.el !== el) { G.el = el; G.runs.forEach(r => noteGlideRun(el, r.d, r.t0)); }   // a redrawn copy picks up the glide
+      if (Math.abs(top - G.top) > 1) {
+        const still = document.documentElement.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+        if (!still) { const r = {d: G.top - top, t0: now}; G.runs.push(r); noteGlideRun(el, r.d, r.t0); }
+        G.top = top;
+      }
+    }
+    noteGlideRaf = requestAnimationFrame(tick);
+  };
+  noteGlideRaf = requestAnimationFrame(tick);
 }
 // Closing a note on a phone: the editor slides back down like the other sheets, instead of vanishing (a still copy does the
 // sliding; the note itself is already saved and closed)
@@ -677,16 +822,24 @@ function noteScrollIn(){
   if (dx || dy) sc.scrollBy(dx, dy);
   const r = sc.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) sc.scrollIntoView({block: "nearest"});
 }
-// Desktop: the board reaches down to the same spot as the whiteboard
+// The board and the sticker envelope reach down to the same spot as the whiteboard (its frame ends 16px above the bottom of the screen)
 function nbFill(){
-  const el = document.getElementById("nbScroll");
+  const el = document.getElementById("nbScroll"), env = document.querySelector(".nb-wrap > .env");
   if (!el) return;
-  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); return; }
-  const top = el.getBoundingClientRect().top + scrollY;
-  el.style.setProperty("height", Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - 27)) + "px", "important");
+  if (innerWidth < 640 || boardMaxOn()) { el.style.removeProperty("height"); if (env) env.style.removeProperty("height"); return; }
+  const r = el.getBoundingClientRect(), main = el.closest(".nb-main");
+  const top = r.top + scrollY, pad = main ? Math.max(0, main.getBoundingClientRect().bottom - r.bottom) : 0;
+  // room for the tab bar where it runs along the bottom (an iPad held upright), as the whiteboard leaves
+  const nav = document.querySelector("nav.tabs"), nr = nav ? nav.getBoundingClientRect() : null, navH = nr && nr.height && nr.top > innerHeight / 2 ? Math.round(innerHeight - nr.top) : 0;
+  const h = Math.max(380, Math.round(innerHeight - Math.min(top, innerHeight * 0.45) - navH - 16 - pad));
+  el.style.setProperty("height", h + "px", "important");
+  // beside the board it is as tall as the board; on narrower screens it is a tray along the bottom and keeps its own size
+  // closed beside the board it's a small round button (or the strip under it), and keeps its own size too
+  if (env && !env.dataset.morph) { if (env.classList.contains("closed") || getComputedStyle(env).position === "fixed") { env.style.removeProperty("height"); env.style.removeProperty("max-height"); } else { env.style.setProperty("height", h + "px", "important"); env.style.setProperty("max-height", "none", "important"); } }
 }
 addEventListener("resize", () => { if (ui.tab === "notes") nbFill(); });
-hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
+// the board is sized in the same frame it's drawn (and again once notes' text has settled), so it never shows a moment at the wrong size
+hook("render", () => { noteSheetUp(); if (ui.tab !== "notes") return; noteFitText($("#noteText")); nbFill(); fitNoteBoard(); requestAnimationFrame(() => { noteFitText($("#noteText")); noteClipCheck(); fitNoteBoard(); noteScrollIn(); }); });
 document.addEventListener("input", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 document.addEventListener("focusin", e => { if (e.target && e.target.id === "noteText") noteFitText(e.target); });
 ["pointerdown", "mousedown", "touchstart"].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest(".note-more")) e.stopPropagation(); }, {capture: true, passive: true}));
@@ -711,10 +864,13 @@ const nbColor = b => { const c = b && b.courseId && courseOf(b.courseId); return
 function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
-  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>${id && id === cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}`;
-  return `<div class="nb-boards" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Board</button></div>`
+  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
+  // Only the tabs are in the tab list; the board's options and New Note Board come just after it (a list of tabs holding other
+  // buttons reads as broken tabs). The list is display:contents, so the row looks the same.
+  const opts = cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : "";
+  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-      <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
+      <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Note Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
 const DOTS_H = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>';
 function noteBoardSheet(id){
@@ -803,6 +959,13 @@ function viewNotes(){
   if (window.SBWB && SBWB.on()) return notesSwitchHtml() + SBWB.view();
   return notesSwitchHtml() + viewNoteBoard();
 }
+// The notes in the order they're read on the board, for Tab and screen readers: rows top to bottom (notes whose tops are
+// within 80px share a row), each row left to right. Which note is drawn on top is their z-index, not this order.
+function noteReadOrder(list){
+  const out = [], byY = list.slice().sort((a, b) => a.y - b.y || a.x - b.x);
+  for (let i = 0; i < byY.length;) { const top = byY[i].y; let j = i; while (j < byY.length && byY[j].y - top < 80) j++; out.push(...byY.slice(i, j).sort((a, b) => a.x - b.x)); i = j; }
+  return out;
+}
 function viewNoteBoard(){
   repairNoteBoards();
   const curBoard = noteBoardId();
@@ -814,16 +977,17 @@ function viewNoteBoard(){
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">
-      <div class="nb-scroll" id="nbScroll">
-        <div class="nb-sizer" id="nbSizer"><div class="nb-board" id="nbBoard" style="width:${W}px;height:${H}px">
-          ${onBoard.sort((a, b) => a.z - b.z).map(noteHtml).join("")}
-          ${!onBoard.length ? `<div class="nb-empty sb-es">${emptyArt("notes")}<strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
-        </div></div>
-      </div>
-      ${boardMaxBtn("nb-max")}${nbZoomCtl()}
+      ${nbZoomCtl()}
       <div class="nb-targets">
         <div class="nb-target" data-drop-note="archive" role="button" tabindex="0" data-act="note-archive-open" title="Archive" aria-label="Archive, ${archived} notes">${ARCHIVE}<span>Archive</span></div>
         <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" title="Trash" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
+      </div>
+      ${boardMaxBtn("nb-max")}
+      <div class="nb-scroll" id="nbScroll">
+        <div class="nb-sizer" id="nbSizer"><div class="nb-board" id="nbBoard" style="width:${W}px;height:${H}px">
+          ${noteReadOrder(onBoard).map(noteHtml).join("")}
+          ${!onBoard.length ? `<div class="nb-empty sb-es">${emptyArt("notes")}<strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
+        </div></div>
       </div>
     </div>${envelopeHtml()}</div>
     <p class="hint-line tip-everyday nb-hint"><span class="nbh-l">Drag to move · drop on a tab, the archive or the trash · tap to edit</span><span class="nbh-s">Drag a note to move it. Tap one to edit.</span></p>`;
@@ -856,6 +1020,11 @@ function newNoteAt(x, y){
   { const t = $("#noteText"); if (t) try { t.focus({preventScroll: true}); } catch (e) {} }
   setTimeout(() => { const t = $("#noteText"); if (t && document.activeElement !== t) t.focus({preventScroll: true}); }, 60);
 }
+// A note opened with a tap, click or Enter shows its options first; keyboard focus waits on the note itself (no keyboard pops
+// up on a phone), so keys go to the note, not to the app's one-key shortcuts
+function noteHold(){ const el = $(".note.editing"); if (el && !el.contains(document.activeElement)) try { el.focus({preventScroll: true}); } catch (e) {} }
+// The second step: the cursor goes to the end of the text (inside the tap, so a phone raises its keyboard)
+function noteType(){ const t = $("#noteText"); if (!t) return; try { t.focus({preventScroll: true}); t.setSelectionRange(t.value.length, t.value.length); } catch (e) {} }
 function saveNoteText(){
   const t = $("#noteText"); const id = noteEditing;
   noteEditing = null; noteDraftClear();
@@ -1201,6 +1370,10 @@ function dlgKbFit(){
   // (a short dip, such as Safari's toolbars sliding, isn't the keyboard: it has to be clearly taller than them)
   const up = innerHeight - vv.height > 150;
   clearTimeout(dlgKbFit.t);
-  if (up) d.classList.add("kb-open"); else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
+  if (up) {
+    d.classList.add("kb-open");
+    // the sheet shrank above the keyboard: bring the box being typed in back into view
+    requestAnimationFrame(() => { const a = document.activeElement; if (a && a.closest && a.closest("dialog[open]") && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { try { a.scrollIntoView({block: "nearest"}); } catch (e) {} } });
+  } else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }

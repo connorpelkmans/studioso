@@ -124,7 +124,9 @@
     add: T("+"), sub: T("−", "-"), mul: T("×", "*"), div: T("÷", "/"), neg: T("−", "-"), pow: T("^", "^"), sq: T("²", "^2"), cube: T("³", "^3"), inv: T("⁻¹", "^(-1)"), fact: T("!"),
     lp: T("("), rp: T(")"), pi: T("π", "pi"), e: T("e", "(e)"), pct: T("%"), ans: T("Ans", "(Ans)"), mr: T("M", "(M)"), exp: T("ᴇ", "ᴇ"),
     ncr: T("C", "⒞"), npr: T("P", "⒫"), root: T("ˣ√", "⒭"),
-    sqrt: FN("√"), cbrt: FN("∛"), log: FN("log"), ln: FN("ln"), abs: FN("Abs"), tenx: T("10^(", "10^("), ex: T("e^(", "e^(")
+    sqrt: FN("√"), cbrt: FN("∛"), log: FN("log"), ln: FN("ln"), abs: FN("Abs"), tenx: T("10^(", "10^("), ex: T("e^(", "e^("),
+    // only reached by typing their names (the keys use HYP)
+    sinh: FN("sinh"), cosh: FN("cosh"), tanh: FN("tanh"), asinh: FN("sinh⁻¹"), acosh: FN("cosh⁻¹"), atanh: FN("tanh⁻¹")
   };
   const TRIG = {sin: 1, cos: 1, tan: 1, asin: 1, acos: 1, atan: 1};
   function tokenFor(a){
@@ -496,6 +498,23 @@
   function close(){ if (!W) return; W.hidden = true; const b = document.querySelector('[data-act="calc-open"]'); if (b && b.offsetParent) b.focus({preventScroll: true}); }
   const KEYMAP = {"+": "add", "-": "sub", "*": "mul", "x": "mul", "/": "div", "^": "pow", "(": "lp", ")": "rp", ".": "dot", ",": "dot", "%": "pct", "!": "fact", "Enter": "eq", "=": "eq", "Backspace": "del", "Delete": "ac",
     "ArrowLeft": "left", "ArrowRight": "right", "ArrowUp": "up", "ArrowDown": "down", "p": "pi", "s": "sin", "c": "cos", "t": "tan", "l": "ln", "g": "log", "r": "sqrt", "e": "e", "a": "ans", "E": "exp"};
+  // Typing a whole name (sqrt, sin, log, pi, ans...) puts in that function once, instead of one function per letter.
+  // The first letter still acts as its shortcut at once; if the next letters spell a name, that shortcut is taken back.
+  const NAMES = ["sqrt", "cbrt", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "log", "ln", "abs", "pi", "ans"];
+  const NAME_FN = new Set(NAMES.filter(n => n !== "pi" && n !== "ans"));   // these put in their own "("
+  let typed = null;   // {s: letters so far, snap: the display before them, at: when, named: a name just finished}
+  const snap = () => ({tokens: S.tokens.slice(), cur: S.cur, done: S.done, result: S.result, err: S.err, txt: S.txt, note: S.note, frac: S.frac});
+  function typeLetter(e){
+    const k = e.key.toLowerCase(), now = Date.now();
+    const s = typed && now - typed.at < 1500 ? typed.s + k : "";
+    if (s && NAMES.some(n => n.startsWith(s))) {
+      e.preventDefault(); typed.s = s; typed.at = now; typed.named = false;
+      if (NAMES.includes(s)) { Object.assign(S, typed.snap, {tokens: typed.snap.tokens.slice()}); typed.named = NAME_FN.has(s); act(s); }
+      return true;
+    }
+    typed = NAMES.some(n => n.startsWith(k)) ? {s: k, snap: snap(), at: now, named: false} : null;
+    return false;
+  }
   function onKey(e){
     if (e.target && e.target.closest && e.target.closest(".cx-grip")) return;
     if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
@@ -503,7 +522,11 @@
     if (e.key === "Tab" || e.key === " ") return;
     // Enter on a focused key presses that key; Enter elsewhere is =
     if (e.key === "Enter" && e.target.closest && e.target.closest("[data-cx]") && e.target.dataset.cx !== "eq") return;
+    if (/^[a-z]$/i.test(e.key) && e.key !== "E" && typeLetter(e)) return;
+    // "(" right after a typed name like sqrt is already on screen
+    if (e.key === "(" && typed && typed.named) { e.preventDefault(); typed = null; return; }
     const a = /^[0-9]$/.test(e.key) ? e.key : KEYMAP[e.key]; if (!a) return;
+    if (!/^[a-z]$/i.test(e.key)) typed = null;
     e.preventDefault();
     const b = W.querySelector(`[data-cx="${a}"]`); if (b) { b.classList.add("is-down"); setTimeout(() => b.classList.remove("is-down"), 110); }
     act(a);
@@ -525,6 +548,9 @@
     if (e.defaultPrevented) {
       e.stopImmediatePropagation();
       if (!inside) W.focus({preventScroll: true});
+    } else if (inside && e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // a letter the calculator doesn't use (the n of "sin", say) must not reach page shortcuts such as N for New Task
+      e.preventDefault(); e.stopImmediatePropagation();
     }
   }, true);
 

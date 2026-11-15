@@ -79,6 +79,7 @@ function applyChanges(changes, label, extra, opts){
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
   let binned = [];
   if (label !== null) { try { binned = trashCapture(changes, label); } catch(e) { console.warn("Recently Deleted", e); } }
+  if (binned.length) sbHaptic("warning");
   // An exam or quiz marked done keeps how ready you were right then (how ready you felt, and what your results said), so the
   // reflection after the mark compares the mark with the readiness before the exam, on every device
   if (label !== null && typeof examReadiness === "function") changes.forEach(c => {

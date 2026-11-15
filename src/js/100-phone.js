@@ -4,6 +4,12 @@
   const ls = window.localStorage;
   const rawSet = Storage.prototype.setItem, rawRm = Storage.prototype.removeItem, rawGet = Storage.prototype.getItem;
 
+  // the top bar's height, for things pinned just under it (the Schedule's day pills); it changes with text size and safe areas
+  (() => {
+    const hd = document.querySelector("header.top"); if (!hd || !window.ResizeObserver) return;
+    new ResizeObserver(() => { if (hd.offsetHeight) document.documentElement.style.setProperty("--top-bar-h", hd.offsetHeight + "px"); }).observe(hd);
+  })();
+
   /* Swipe between days on the Schedule (phone layout): the day follows your finger with the next one sliding in beside it,
      like a calendar app's day view. While swiping, a clipped window over the day's cell holds still copies of the two days
      side by side and only that strip moves; the real schedule underneath isn't touched until the swipe settles, so nothing
@@ -117,7 +123,7 @@
         if (go) {
           // the new day is drawn underneath first, then the window lifts off: no frame without a day in it
           const commit = S.nb.commit, win = S.win, h0 = S.hh;
-          S.win = null; cleanup(); commit(); render();
+          S.win = null; cleanup(); commit(); render(); sbHaptic("tick");
           if (win) { requestAnimationFrame(() => win.remove()); }
           // the new day's header can be taller or shorter (more due items): the hours below ease into place instead of jumping
           const g = document.querySelector(".sch-wrap .sch-grid"), nh = g && g.querySelector(":scope > .sch-head.sel"), d = nh ? Math.round(nh.getBoundingClientRect().height - h0) : 0;
@@ -137,7 +143,7 @@
   /* Dismissals and light/dark follow you between devices */
   const UI_KEYS = new Set(["studioso:theme", "studioso:nudge", "studioso:lastExport", "studyboard:crunch", "studyboard:roughWeekHidden", "studyboard:grpNudge",
     "studyboard:semester", "studyboard:review:snooze", "studyboard:fgs:cards", "studyboard:streak:said", "studyboard:heads:hide", "studyboard:gradeAsked",
-    "studyboard:gradeCheer", "studyboard:scrapToastAt"]);
+    "studyboard:gradeCheer", "studyboard:scrapToastAt", "studyboard:aiIntro"]);
   const AT = "studyboard:uiSyncAt";
   const atMap = () => { try { const m = JSON.parse(rawGet.call(ls, AT) || "{}"); return m && typeof m === "object" ? m : {}; } catch (e) { return {}; } };
   const putAt = m => { try { rawSet.call(ls, AT, JSON.stringify(m)); } catch (e) {} };
@@ -323,7 +329,7 @@
     const wrap = document.querySelector("body > .wrap"), nt = nav ? nav.getBoundingClientRect().top : 0;
     const on = !!(sc && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
     const wbOn = !!(document.getElementById("wbHost") && nav && window.matchMedia && matchMedia(Q).matches && !document.documentElement.classList.contains("board-max") && nt > innerHeight / 2);
-    if (!on) { [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) { if (wbOn) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important"); else wrap.style.removeProperty("padding-bottom"); } return; }
+    if (!on) { if (sc && typeof nbFill === "function") nbFill(); else [sc, env].forEach(e => e && e.style.removeProperty("height")); if (wrap) { if (wbOn) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important"); else wrap.style.removeProperty("padding-bottom"); } return; }
     // and the page leaves only the tab bar's room below them, so there's nothing to scroll to
     if (wrap) wrap.style.setProperty("padding-bottom", Math.floor(innerHeight - nt + 13) + "px", "important");
     const y = window.scrollY || 0, stop = nt + y - 14;

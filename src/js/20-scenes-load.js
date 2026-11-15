@@ -19,7 +19,7 @@ const SCN20 = (() => {
     });
     return wait;
   }
-  return {SCENES, ENGINES, ready: () => !!sync(), load,
+  return {SCENES, ENGINES, url, ready: () => !!sync(), load,
     buildScene: function () { return need().buildScene.apply(null, arguments); },
     buildSceneAt: function () { return need().buildSceneAt.apply(null, arguments); },
     setAnim: a => { const L = sync(); if (L) L.setAnim(a); },

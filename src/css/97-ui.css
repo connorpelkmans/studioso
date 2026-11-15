@@ -8,7 +8,7 @@
 .us-search svg{width:18px;height:18px;flex:none}
 .us-search input{border:0!important;background:none!important;padding:8px 0!important;min-width:0;flex:1;color:var(--ink);box-shadow:none!important;outline:none}
 .us-cats{display:grid;gap:4px}
-.us-cat{display:flex;align-items:center;gap:12px;border:0;background:none;color:var(--ink);text-align:left;border-radius:12px;padding:10px;cursor:pointer;min-height:44px;width:100%;transition:background .15s,box-shadow .15s}
+.us-cat{display:flex;align-items:center;gap:12px;border:0;background:none;color:var(--ink);text-align:start;border-radius:12px;padding:10px;cursor:pointer;min-height:44px;width:100%;transition:background .15s,box-shadow .15s}
 .us-cat:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .us-cat:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .us-ic{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--accent);background:color-mix(in srgb,var(--accent) 11%,var(--surface))}

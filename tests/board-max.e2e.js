@@ -36,7 +36,9 @@ const SHOTS = process.env.SHOTS || "";
       const bm = await page.evaluate(() => { const b = document.querySelector(".nb-max").getBoundingClientRect(), s = document.getElementById("nbScroll").getBoundingClientRect(), z = document.querySelector(".nb-zoom").getBoundingClientRect();
         const t = [...document.querySelectorAll(".nb-target")].map(x => x.getBoundingClientRect()), apart = (p, q) => p.right <= q.left || q.right <= p.left || p.bottom <= q.top || q.bottom <= p.top;
         const covers = [...document.querySelectorAll("nav.tabs, .fab")].filter(e => getComputedStyle(e).position === "fixed" && getComputedStyle(e).opacity !== "0").map(e => e.getBoundingClientRect());
-        return {right: s.right - b.right < 24 && b.top - s.top < 24, zoomLeft: z.left - s.left < 24 && z.top - s.top < 24,
+        // with the Stickers envelope closed on a wide screen, its round button takes the corner and Expand sits just left of it
+        const stk = document.querySelector(".nb-wrap > .env.closed"), sr = stk && innerWidth > 700 ? stk.getBoundingClientRect() : null;
+        return {right: (sr ? sr.left >= b.right && s.right - sr.right < 24 : s.right - b.right < 24) && b.top - s.top < 24, zoomLeft: z.left - s.left < 24 && z.top - s.top < 24,
           top: t.length === 2 && t.every(q => q.top - s.top < 24 && q.right <= b.left && b.left - q.right < 60 && q.width < 50), clear: [b, z].every(p => t.every(q => apart(p, q))) && apart(t[0], t[1])}; });
       ok(await page.locator(".nb-max").isVisible() && bm.right && bm.zoomLeft, `${label}: the note board has its zoom at the top left and the expand button at the top right`);
       ok(bm.top && bm.clear, `${label}: Archive and Trash are round buttons at the top, just left of the expand button`);

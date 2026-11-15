@@ -73,12 +73,16 @@ const SBPOLICY = (() => {
   const micro = usd => Math.max(0, Math.ceil(usd * 1e6 - 1e-6));
   function limits(env){
     env = env || {};
-    // A week (Monday to Sunday, UTC) at a time. The defaults are a quarter of the old monthly ones ($2.25 hard, $1.80 soft),
-    // which kept a student's real cost near $2.50 a month with Washington sales tax (about 10%).
+    // Over the last 7 days (rolling, by UTC day): $0.52 hard keeps a student near the old $2.25 a month of AI (about $2.50 a
+    // month with Washington sales tax, about 10%); past $0.40 everyday jobs think less.
     // Claude is paid with Studyboard's own Anthropic key in the gateway, so there's no 5% credit fee on it.
-    const hard = num(env.WEEKLY_HARD_USD, 0.5625, 0, HARD.monthUsd), soft = Math.min(hard, num(env.WEEKLY_SOFT_USD, 0.45, 0, HARD.monthUsd));
-    const day = num(env.DAILY_USD, 0.5, 0.05, HARD.dayUsd);
-    return {softUsd: soft, hardUsd: hard, dayUsd: day, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day),
+    const hard = num(env.WEEKLY_HARD_USD, 0.52, 0, HARD.monthUsd), soft = Math.min(hard, num(env.WEEKLY_SOFT_USD, 0.4, 0, HARD.monthUsd));
+    // No daily limit unless DAILY_USD is set: a day may use the whole week's allowance
+    const day = String(env.DAILY_USD == null ? "" : env.DAILY_USD).trim() === "" ? hard : Math.min(hard, num(env.DAILY_USD, hard, 0.05, HARD.dayUsd));
+    // And a cap per calendar month (UTC), so a month never costs more than it was designed to: $0.52 a week could otherwise
+    // reach $2.60 in a 31-day month (a full allowance on days 1, 8, 15, 22 and 29)
+    const cap = num(env.MONTHLY_CAP_USD, 2.25, 0, 10);
+    return {softUsd: soft, hardUsd: hard, dayUsd: day, capUsd: cap, monthMicro: micro(hard), softMicro: micro(soft), dayMicro: micro(day), capMicro: micro(cap),
       perMinute: Math.floor(num(env.PER_MINUTE, 20, 1, HARD.perMinute)), inflight: Math.floor(num(env.MAX_INFLIGHT, 4, 1, HARD.inflight))};
   }
   const monthOf = now => new Date(now).toISOString().slice(0, 7);
@@ -113,14 +117,20 @@ const SBPOLICY = (() => {
   /* One student's allowance. storage: {get(k), put(k, v) or put({k: v}), deleteAll()}, all async (a Durable Object's storage on
      the Worker; the device's storage for a student's own key). Each call reads and writes with nothing in between, one at a time,
      so two jobs can never both pass a check that only one fits. lock: optional, wraps each call (the app uses a cross-tab lock). */
+  const backAt = r => { const from = dayOf((r.now || Date.now()) - 6 * 864e5), ks = Object.keys(r.days || {}).filter(k => r.days[k] > 0 && k >= from).sort(); return ks.length ? Date.parse(ks[0] + "T00:00:00Z") + 7 * 864e5 : null; };
   class Meter {
     // o (on a device only): {sid: this page's id, alive: sid => is that page still open}. A job started by a page that has
     // closed or reloaded can't still be running, so it stops counting as in flight at once (its charge stays).
     constructor(storage, now = () => Date.now(), lock = null, o = null){ this.s = storage; this.now = now; this.o = o || {}; const one = serial(); this.one = lock ? fn => one(() => lock(fn)) : one; }
     async read(){
-      const keys = ["gone", "month", "spent", "day", "daySpent", "flying", "hits"], v = await Promise.all(keys.map(k => this.s.get(k)));
-      const [gone, month, spent, day, daySpent, flying, hits] = v, now = this.now(), m = weekOf(now), d = dayOf(now);
-      return {gone: !!gone, now, month: m, spent: month === m ? spent || 0 : 0, day: d, daySpent: day === d ? daySpent || 0 : 0,
+      const keys = ["gone", "days", "flying", "hits"], v = await Promise.all(keys.map(k => this.s.get(k)));
+      const [gone, days0, flying, hits] = v, now = this.now(), d = dayOf(now), from = dayOf(now - 6 * 864e5), mon = monthOf(now);
+      // spending per UTC day, kept for the last 7 days and this calendar month: the allowance is what the last 7 days add up
+      // to (rolling), and the month's total has its own cap
+      const days = {}; Object.keys(days0 && typeof days0 === "object" ? days0 : {}).forEach(k => { const n = Number(days0[k]); if ((k >= from || k.slice(0, 7) === mon) && k <= d && n > 0) days[k] = n; });
+      const sum = f => Object.keys(days).filter(f).reduce((a, k) => a + days[k], 0);
+      const spent = sum(k => k >= from), monthSpent = sum(k => k.slice(0, 7) === mon);
+      return {gone: !!gone, now, month: from + ".." + d, days, spent, monthSpent, mon, day: d, daySpent: days[d] || 0,
         // A job that never settled (its Worker or tab stopped) stays charged; after 15 minutes it stops counting as in flight
         flying: (flying || []).filter(f => now - f.at < 15 * 60000 && (!this.o.alive || this.o.alive(f.sid))), hits: (hits || []).filter(t => now - t < 60000)};
     }
@@ -154,11 +164,12 @@ const SBPOLICY = (() => {
       const r = await this.read();
       if (r.gone) return {ok: false, reason: "gone"};
       if (r.hits.length >= lim.perMinute || r.flying.length >= lim.inflight) return {ok: false, reason: "rate"};
-      if (r.spent + cost > lim.monthMicro) return {ok: false, reason: "used_up", ...this.view(r, lim)};
+      if (r.spent + cost > lim.monthMicro || (lim.capMicro != null && r.monthSpent + cost > lim.capMicro)) return {ok: false, reason: "used_up", ...this.view(r, lim)};
       if (r.daySpent + cost > lim.dayMicro) return {ok: false, reason: "today", ...this.view(r, lim)};
       const id = crypto.randomUUID();
       r.flying.push(Object.assign({id, at: r.now, cost, month: r.month, day: r.day}, this.o.sid ? {sid: this.o.sid} : {})); r.hits.push(r.now);
-      await this.s.put({month: r.month, spent: r.spent + cost, day: r.day, daySpent: r.daySpent + cost, flying: r.flying, hits: r.hits});
+      r.days[r.day] = (r.days[r.day] || 0) + cost;
+      await this.s.put({days: r.days, flying: r.flying, hits: r.hits});
       return {ok: true, id};
     }
     // Replace a reservation with what the job really cost (never more than 4 times the reservation; a garbled amount keeps it)
@@ -167,12 +178,15 @@ const SBPOLICY = (() => {
       if (!f || r.gone) return false;
       const real = Number.isFinite(actual) ? Math.max(0, Math.min(Math.ceil(actual), f.cost * 4)) : f.cost, delta = real - f.cost;
       const upd = {flying: r.flying.filter(x => x.id !== id)};
-      if (f.month === r.month) upd.spent = Math.max(0, r.spent + delta);
-      if (f.day === r.day) upd.daySpent = Math.max(0, r.daySpent + delta);
+      // the change lands on the day the job started (if that day is still in the last 7)
+      if (r.days[f.day] != null) { r.days[f.day] = Math.max(0, r.days[f.day] + delta); upd.days = r.days; }
       await this.s.put(upd);
       return true;
     }
-    view(r, lim){ return {usedPct: lim.monthMicro > 0 ? Math.min(100, Math.round(r.spent / lim.monthMicro * 100)) : 100, dayPct: lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: nextWeek(r.now)}; }
+    view(r, lim){ const capPct = lim.capMicro > 0 ? Math.round((r.monthSpent || 0) / lim.capMicro * 100) : lim.capMicro === 0 ? 100 : 0, wkPct = lim.monthMicro > 0 ? Math.round(r.spent / lim.monthMicro * 100) : 100;
+      return {usedPct: Math.min(100, Math.max(wkPct, capPct)), dayPct: lim.dayMicro >= lim.monthMicro ? undefined : lim.dayMicro > 0 ? Math.min(100, Math.round(r.daySpent / lim.dayMicro * 100)) : 100, soft: r.spent >= lim.softMicro, resets: capPct >= 100 && wkPct < 100 ? nextMonth(r.now) : backAt(r)}; }
+    // Rolling: some of the allowance comes back when the oldest day with spending drops out of the last 7 (UTC midnight)
+    // (null when nothing has been spent)
     async _status(lim){ const r = await this.read(); return r.gone ? {usedPct: 100, soft: false, resets: null, gone: true} : this.view(r, lim); }
     // Delete My Account: the id is closed for good, so deleting can't be used to reset an allowance
     async _forget(){ await this.s.deleteAll(); await this.s.put("gone", true); }

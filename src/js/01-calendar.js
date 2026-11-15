@@ -5,10 +5,24 @@ const minToT = m => pad(Math.floor(m / 60)) + ":" + pad(m % 60);
 const tToMin = t => { const [h, m] = String(t || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
 const EV_LABEL_CLASS = {Lecture: "k-lecture", Lab: "k-lab", Discussion: "k-discussion", Tutorial: "k-discussion", "Office Hours": "k-officehours"};
 const wkDiff = (a, b) => Math.round((parse(mondayOf(a)) - parse(mondayOf(b))) / 6048e5);
-// Every class meeting and event that lands between from and to (inclusive)
+// Every class meeting and event that lands between from and to (inclusive).
+// The classes and events depend only on the courses, the events and the school's days off, and every change to one of those
+// replaces it, so each stretch of days is worked out once and kept until one changes (Today's Plan asks for the same days
+// dozens of times per redraw). Each call still gets its own copies, as before; your availability is added fresh every time.
+let OCC_MEMO = {refs: [], sc: null, z: "", m: new Map()};
 function schOccurrences(from, to){
+  const refs = coursesArr().concat(eventsArr()), sc = schoolCfg(), z = schoolZone(), M = OCC_MEMO;
+  if (M.sc !== sc || M.z !== z || M.refs.length !== refs.length || refs.some((r, i) => r !== M.refs[i])) OCC_MEMO = {refs, sc, z, m: new Map()};
+  const key = from + "|" + to;
+  let base = OCC_MEMO.m.get(key);
+  if (!base) { base = schOccurrencesNow(from, to, sc); if (OCC_MEMO.m.size > 400) OCC_MEMO.m.clear(); OCC_MEMO.m.set(key, base); }
+  const out = base.map(o => Object.assign({}, o));
+  try { availOccs(from, to).forEach(o => out.push(o)); } catch(e) {}
+  return out;
+}
+function schOccurrencesNow(from, to, sc){
   const out = [], lo = addDays(from, -7), hi = addDays(to, 7), inRange = d => d >= from && d <= to;
-  const sc = schoolCfg(), SS = window.SBSCHOOL;
+  const SS = window.SBSCHOOL;
   coursesArr().forEach(c => courseMeetings(c).forEach(m => {
     for (let d = lo; d <= hi; d = addDays(d, 1)) {
       // no class on a day off; a rotating class time meets on its cycle days
@@ -26,6 +40,14 @@ function schOccurrences(from, to){
       if (ev.exdates.includes(d)) return;
       const mv = ev.moved[d], o = Object.assign({}, base, {key: d, orig: d, date: d, start: ev.start, end: ev.end, moved: false, skipped: false});
       if (mv) { if (mv.skip) o.skipped = true; else Object.assign(o, {date: mv.date || d, start: mv.start || ev.start, end: mv.end || ev.end, moved: true}); }
+      // An event past midnight (10 PM to 1 AM) is drawn in two pieces, each showing the whole time: up to midnight, then the next morning
+      if (!o.allDay && o.start && o.end && o.end < o.start) {
+        const ds = o.start, de = o.end;
+        if (inRange(o.date)) out.push(Object.assign({}, o, {end: "24:00", ds, de, ovn: "head"}));
+        const nd = addDays(o.date, 1);
+        if (inRange(nd) && !o.skipped) out.push(Object.assign({}, o, {date: nd, start: "00:00", end: de, ds, de, ovn: "tail"}));
+        return;
+      }
       if (inRange(o.date)) out.push(o);
     };
     if (!ev.repeat) {
@@ -40,10 +62,9 @@ function schOccurrences(from, to){
       push(d);
     }
   });
-  try { availOccs(from, to).forEach(o => out.push(o)); } catch(e) {}
   return out;
 }
-const occWhen = o => `${parse(o.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}${o.allDay ? "" : `, ${fmtTime(o.start)}–${fmtTime(o.end)}`}`;
+const occWhen = o => `${parse(o.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}${o.allDay ? "" : `, ${fmtTime(o.ds || o.start)}–${fmtTime(o.de || o.end)}${o.ovn ? " (overnight)" : ""}`}`;
 // Change one week's class or event without touching the others
 function setOccurrence(type, id, key, val, label){
   if (type === "meet") {
@@ -89,7 +110,8 @@ function occView(type, id, key){
   const when = parse(o.date).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const rows = [];
   rows.push([I.cal, esc(when), o.skipped ? "Skipped this week" : o.moved ? `Moved this week (usually ${esc(parse(o.orig).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"}))})` : ""]);
-  if (o.start && o.end) rows.push([I.clock, `${esc(fmtTime(o.start))} – ${esc(fmtTime(o.end))}`, esc(dur(mins(o.start, o.end)))]);
+  // an overnight event shows its whole time (10:00 PM – 1:00 AM, 3 h), whichever piece was tapped
+  if (o.start && o.end) { const s0 = o.ds || o.start, e0 = o.de || o.end, n = mins(s0, e0); rows.push([I.clock, `${esc(fmtTime(s0))} – ${esc(fmtTime(e0))}${o.ovn ? " (next day)" : ""}`, esc(dur(n < 0 ? n + 1440 : n))]); }
   else rows.push([I.clock, "All day", ""]);
   if (o.where) rows.push([I.pin, esc(o.where), ""]);
   if (m && m.days && m.days.length) rows.push([I.rep, `Every week on ${esc(daysOf(m.days))}`, ""]);
@@ -109,9 +131,25 @@ function occView(type, id, key){
       ${kind || o.skipped || o.moved ? `<div class="occv-tags">${kind ? `<span class="occv-tag">${esc(kind)}</span>` : ""}${o.skipped ? `<span class="occv-tag warn">Skipped this week</span>` : o.moved ? `<span class="occv-tag">Moved this week</span>` : ""}</div>` : ""}
       <ul class="occv-rows">${rows.map(([i, a, b]) => `<li><span class="occv-ri">${i}</span><div><b>${a}</b>${b ? `<span>${b}</span>` : ""}</div></li>`).join("")}</ul>
     </div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" id="occEdit">Edit</button></div>
+    <div class="sheet-foot" id="occFoot">${type === "event" && ev ? `<button type="button" class="btn danger" id="occDel">Delete</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" id="occEdit">Edit</button></div>
   </div>`);
   const b = $("#occEdit"); if (b) b.addEventListener("click", () => { dlg.close(); setTimeout(() => occSheet(type, id, key), 30); });
+  // Delete straight from the event's view: a one-off event goes (with Undo); a repeating one asks which
+  const del = $("#occDel");
+  if (del) del.addEventListener("click", () => {
+    const cur = state.events[id]; if (!cur) return;
+    const all = () => { dlg.close(); applyChanges([{kind: "event", id, after: null}], `Deleted ${cur.title}`); };
+    if (!cur.repeat) { all(); return; }
+    const foot = $("#occFoot");
+    foot.innerHTML = `<span class="mini" style="margin-right:auto">Delete ${esc(cur.title)}:</span><button type="button" class="btn" id="occDelOne">This One Only</button><button type="button" class="btn danger" id="occDelAll">Every One</button><button type="button" class="btn" data-act="close">Cancel</button>`;
+    $("#occDelAll").addEventListener("click", all);
+    $("#occDelOne").addEventListener("click", () => {
+      dlg.close();
+      const n = clone(cur); n.exdates = [...new Set((n.exdates || []).concat(o.orig))];
+      applyChanges([{kind: "event", id, after: n}], `Deleted ${cur.title} on ${fmtShort(o.orig)}`);
+    });
+    $("#occDelOne").focus();
+  });
 }
 function occSheet(type, id, key){
   if (type === "avail") { availOccSheet(id, key); return; }
@@ -165,7 +203,7 @@ function eventForm(ev, preset){
       </div>
       <div class="two ev-times">
         <label class="f">Starts<input type="time" name="start" value="${esc(ev.start || "10:00")}"></label>
-        <label class="f">Ends<input type="time" name="end" value="${esc(ev.end || "11:00")}"></label>
+        <label class="f"><span class="lh">Ends <span class="hint" id="evNext" hidden>the next day</span></span><input type="time" name="end" value="${esc(ev.end || "11:00")}"></label>
       </div>
       <label class="f">Repeats<select name="rep"><option value="">Doesn't repeat</option>${[1, 2, 3, 4].map(k => `<option value="${k}" ${rp && rp.every === k ? "selected" : ""}>${k === 1 ? "Every week" : `Every ${k} weeks`}</option>`).join("")}</select></label>
       <div class="ev-rep" ${rp ? "" : "hidden"}>
@@ -178,20 +216,28 @@ function eventForm(ev, preset){
   </form>`, fd => {
     const title = String(fd.get("title") || "").trim(); if (!title) return false;
     const allDay = !!fd.get("allDay"), start = String(fd.get("start") || ""), end = String(fd.get("end") || ""), rep = Number(fd.get("rep") || 0);
-    if (!allDay && (!start || !end || end <= start)) { toast("The event needs to end after it starts"); return false; }
+    if (!allDay && (!start || !end || end === start)) { toast("The event needs to end after it starts"); return false; }
     if (rep && !pickDays.length) { toast("Pick the days it repeats on"); return false; }
     if (rep && fd.get("until") && String(fd.get("until")) < String(fd.get("date"))) { toast("The repeat needs to end on or after the date"); return false; }
     const n = normEvent(Object.assign(clone(ev), {title, courseId: fd.get("courseId") || "", where: String(fd.get("where") || "").trim(), date: String(fd.get("date")), allDay, start: allDay ? "" : start, end: allDay ? "" : end,
       repeat: rep ? {days: pickDays, every: rep, until: String(fd.get("until") || "")} : null, notes: String(fd.get("notes") || "")}));
     if (isNew) n.id = uid();
-    applyChanges([{kind: "event", id: n.id, after: n}], isNew ? `Added ${title}` : "Event saved");
+    applyChanges([{kind: "event", id: n.id, after: n}], (isNew ? `Added ${title}` : "Event saved") + (!allDay && end < start ? " (ends the next day)" : ""));
     ui.schWeek = mondayOf(n.date);
   });
   let pickDays = days.slice();
   const f = dlg.querySelector("form"), repSel = f.elements.rep, box = f.querySelector(".ev-rep"), times = f.querySelector(".ev-times"), ad = f.elements.allDay;
   const sync = () => { box.hidden = !repSel.value; times.hidden = ad.checked; };
   repSel.addEventListener("change", sync); ad.addEventListener("change", sync); sync();
-  $("#evDays").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (!b) return; const d = Number(b.dataset.day); pickDays = pickDays.includes(d) ? pickDays.filter(x => x !== d) : pickDays.concat(d); b.setAttribute("aria-pressed", pickDays.includes(d)); });
+  // Until the days are picked by hand, a weekly repeat follows the event's date
+  let daysTouched = !!rp;
+  f.elements.date.addEventListener("change", () => { const v = f.elements.date.value; if (daysTouched || !isDate(v)) return; pickDays = [parse(v).getDay()]; $$("#evDays [data-day]").forEach(b => b.setAttribute("aria-pressed", pickDays.includes(Number(b.dataset.day)))); });
+  // Moving the start keeps the event's length
+  { let prevStart = f.elements.start.value; f.elements.start.addEventListener("change", () => { const a = f.elements.start.value, e2 = f.elements.end.value; if (a && prevStart && e2) { const len = ((tToMin(e2) - tToMin(prevStart)) % 1440 + 1440) % 1440 || 60, m = (tToMin(a) + len) % 1440; f.elements.end.value = String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); } prevStart = a; nextDay(); }); }
+  // an end earlier than the start is the next day (10 PM to 1 AM)
+  function nextDay(){ const h = f.querySelector("#evNext"); if (h) h.hidden = !(f.elements.start.value && f.elements.end.value && f.elements.end.value < f.elements.start.value); }
+  f.elements.end.addEventListener("change", nextDay); f.elements.end.addEventListener("input", nextDay); nextDay();
+  $("#evDays").addEventListener("click", e => { const b = e.target.closest("[data-day]"); if (!b) return; daysTouched = true; const d = Number(b.dataset.day); pickDays = pickDays.includes(d) ? pickDays.filter(x => x !== d) : pickDays.concat(d); b.setAttribute("aria-pressed", pickDays.includes(d)); });
   const del = $("#evDel"); if (del) del.addEventListener("click", () => { dlg.close(); applyChanges([{kind: "event", id: ev.id, after: null}], `Deleted ${ev.title}`); });
 }
 
@@ -207,7 +253,7 @@ let schDragEnd = 0;
     b.classList.add("dragging"); document.body.classList.add("sch-dragging");
     b.style.left = "2px"; b.style.width = "calc(100% - 4px)";
     if (!b.querySelector(".sch-dt")) b.insertAdjacentHTML("beforeend", `<em class="sch-dt"></em>`);
-    try { navigator.vibrate && navigator.vibrate(8); } catch(e) {}
+    sbHaptic("lift");
   };
   document.addEventListener("pointerdown", e => {
     const b = e.target.closest && e.target.closest(".sch-b[data-drag]"); if (!b || e.button > 0) return;
@@ -1025,14 +1071,107 @@ function courseTimesText(c){
 }
 const meetingsSummary = ms => ms.filter(m => m.kind !== "Office Hours").map(m => `${meetWhen(m)} ${fmtTime(m.start)}–${fmtTime(m.end)}`).join("; ");
 let schNoticeHtml = "";
+// Week / Month: a switch in the Schedule's toolbar on wide screens; on a phone, an item in Options just under This Week
+const schPhone = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
+const schModeCtl = month => schPhone()
+  ? `<button class="btn small" data-act="sch-mode" data-id="${month ? "week" : "month"}">${month ? "Week View" : "Month View"}</button>`
+  : `<div class="segb sch-mode" role="group" aria-label="View"><button data-act="sch-mode" data-id="week" aria-pressed="${!month}">Week</button><button data-act="sch-mode" data-id="month" aria-pressed="${month}">Month</button></div>`;
+const SCH_ARROW = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+// (each icon's drawing is centred in its 24 x 24 box, so it sits in the middle of its colour dot: tests/sch-month-keep.e2e.js)
+// What kind of thing an event or class is, for its icon in the Schedule's month (drawn like a task's icon on Due Dates):
+// a class by its meeting kind; an event by its label, a study group's meeting, or words in its title
+const EV_KINDS = {
+  lecture: ["Class", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M8 8.5h8M9.5 11.5h5"/>'],
+  lab: ["Lab", '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.4 15h9.2"/>'],
+  disc: ["Discussion or Tutorial", '<g transform="translate(0 1)"><path d="M4 5h11v8H8l-4 3z"/><path d="M15 9h5v8l-3-2h-6v-2"/></g>'],
+  office: ["Office Hours", '<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17M3 21h18"/><circle cx="15" cy="12" r="1"/>'],
+  exam: ["Exam or Quiz", '<g transform="translate(0 2)"><path d="M12 3l9 4-9 4-9-4z"/><path d="M7 9.5V14c0 1.5 2.2 3 5 3s5-1.5 5-3V9.5"/></g>'],
+  group: ["Study Group or Meeting", '<g transform="translate(.25 -.5)"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5M15.5 14.5c2.5 0 4.6 1.6 5 5"/></g>'],
+  work: ["Work or Shift", '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>'],
+  appt: ["Appointment", '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+  event: ["Event", '<rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>']
+};
+function evKind(o){
+  const lab = String((o.type === "meet" ? o.label : o.label) || "").toLowerCase(), t = String(o.title || "").toLowerCase();
+  if (o.type === "meet" || lab) {
+    if (/office/.test(lab)) return "office";
+    if (/lab|practical|clinical/.test(lab)) return "lab";
+    if (/discuss|tutorial|seminar|recitation|workshop/.test(lab)) return "disc";
+    if (/exam|quiz|test|midterm/.test(lab)) return "exam";
+    if (o.type === "meet" || /lecture|class/.test(lab)) return "lecture";
+  }
+  if (o.ev && o.ev.groupRef) return "group";
+  if (/\b(exam|midterm|final|quiz|test)\b/.test(t)) return "exam";
+  if (/\b(study group|group|project|team|meeting|meet up|meetup|study session|review session)\b/.test(t)) return "group";
+  if (/\boffice hours?\b/.test(t)) return "office";
+  if (/\b(lab|clinical|practicum)\b/.test(t)) return "lab";
+  if (/\b(tutorial|discussion|seminar|recitation|workshop)\b/.test(t)) return "disc";
+  if (/\b(lecture|class)\b/.test(t)) return "lecture";
+  if (/\b(work|shift|job|internship)\b/.test(t)) return "work";
+  if (/\b(appointment|appt|doctor|dentist|advisor|adviser|counsell?ing|therapy|interview|clinic)\b/.test(t)) return "appt";
+  return "event";
+}
+const evIcon = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(EV_KINDS[k] || EV_KINDS.event)[1]}</svg>`;
+// The month: each day's classes and events, each with an icon for its kind (as tasks have on Due Dates), plus holidays and days
+// off, so a month reads at a glance. A day picked lists everything on it underneath.
+function viewScheduleMonth(){
+  const today = todayISO();
+  if (!ui.schMonth) ui.schMonth = today.slice(0, 7) + "-01";
+  const m = parse(ui.schMonth), first = new Date(m.getFullYear(), m.getMonth(), 1), start = new Date(first); start.setDate(1 - first.getDay());
+  const weeks = Math.ceil((first.getDay() + new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate()) / 7);
+  const endD = new Date(start); endD.setDate(start.getDate() + weeks * 7 - 1);
+  const lo = iso(start), hi = iso(endD), monthKey = ui.schMonth.slice(0, 7);
+  const pick = ui.schPick && ui.schPick.slice(0, 7) === monthKey ? ui.schPick : today.slice(0, 7) === monthKey ? today : ui.schMonth;
+  const evBy = {};
+  try {
+    schOccurrences(lo, hi).forEach(o => { if ((o.type !== "event" && o.type !== "meet") || o.skipped || o.ovn === "tail") return; o.kind = evKind(o); (evBy[o.date] = evBy[o.date] || []).push(o); });
+    Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
+  } catch (e) { console.warn("schedule month: events", e); }
+  const hol = {};
+  try {
+    const sc = schoolCfg() || {}, S = window.SBSCHOOL;
+    if (S) {
+      S.holidays(sc, lo, hi).forEach(h => { (hol[h.date] = hol[h.date] || []).push({name: h.name, off: !!(h.sure ? S.norm(sc).pub : h.ans === "off")}); });
+      S.norm(sc).off.forEach(o => { for (let x = o.from > lo ? o.from : lo; x <= o.to && x <= hi; x = addDays(x, 1)) { const l = hol[x] = hol[x] || []; if (!l.some(y => y.name === o.name)) l.push({name: o.name || "Day off", off: true}); } });
+    }
+  } catch (e) {}
+  const evTime = o => o.allDay ? "" : fmtTime(o.ds || o.start).replace(/:00(?= ?[AP]M)/, "").replace(/ ?([AP])M/, (x, a) => a.toLowerCase());
+  const phone = schPhone(), per = phone ? 2 : 3;
+  const dows = []; for (let i = 0; i < 7; i++) { const d = new Date(2023, 0, 1 + i); dows.push(`<div class="dow${i === 0 || i === 6 ? " wkend" : ""}" aria-hidden="true"><span class="dw-n">${d.toLocaleDateString(undefined, {weekday: "narrow"})}</span><span class="dw-s">${d.toLocaleDateString(undefined, {weekday: "short"})}</span><span class="dw-l">${d.toLocaleDateString(undefined, {weekday: "long"})}</span></div>`); }
+  let cells = "", nMonth = 0; const kinds = new Set();
+  const evName = o => o.type === "meet" ? `${o.title} ${o.label}` : o.title;
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    // (office hours are listed under the day, not in the cell, so the month isn't full of them)
+    const k = iso(d), evs = evBy[k] || [], cellEvs = evs.filter(o => o.kind !== "office"), out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
+    if (!out) { nMonth += evs.length; evs.forEach(o => kinds.add(o.kind)); }
+    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots" aria-hidden="true">${cellEvs.slice(0, per).map(o => `<span class="ci-row${o.kind === "exam" ? " big" : ""}" style="--c:${esc(o.color)}"><i class="ci" data-kind="${o.kind}" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}: ${esc(evName(o))}" style="--c:${esc(o.color)}">${evIcon(o.kind)}</i><span class="ci-t">${o.allDay ? "" : `<b class="smc-tm">${esc(evTime(o))}</b> `}${esc(o.title)}</span></span>`).join("")}${cellEvs.length > per ? `<b class="ci-more">+${cellEvs.length - per}<span class="ci-mw"> more</span></b>` : ""}</span></button>`;
+  }
+  const dayEvs = evBy[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
+  const isNow = monthKey === today.slice(0, 7);
+  const nav = `<div class="view-head sch-top">
+    <div class="sch-nav"><button class="icon-btn" data-act="sch-mprev" aria-label="Previous month">${SCH_ARROW("M15 6l-6 6 6 6")}</button>
+    <span class="sch-range">${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}</span>
+    <button class="icon-btn" data-act="sch-mnext" aria-label="Next month">${SCH_ARROW("M9 6l6 6-6 6")}</button>
+    <button class="btn small" data-act="sch-mtoday" ${isNow ? 'disabled aria-pressed="true" title="You are viewing this month"' : 'aria-pressed="false"'}>This Month</button>${schModeCtl(true)}
+    <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
+</div></div>`;
+  return nav + `
+    <div class="cal sch-month" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}, ${nMonth} event${nMonth === 1 ? "" : "s"}. Arrow keys move between days.">${dows.join("")}${cells}</div>
+    ${kinds.size ? `<div class="tl-legend smc-legend">${Object.keys(EV_KINDS).filter(k => kinds.has(k)).map(k => `<span><i class="tl-ic key">${evIcon(k)}</i>${esc(EV_KINDS[k][0])}</span>`).join("")}</div>` : ""}
+    <h2 class="sec${pick === today ? " hl" : ""}"><span class="t">${esc(dayLabel)}</span><span class="n">${dayEvs.length || ""}</span><span class="spacer"></span><button type="button" class="btn small smc-week" data-act="sch-mweek" data-id="${pick}">See Week</button></h2>
+    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow smc-row" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><i class="smc-ic" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}">${evIcon(o.kind)}</i><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(evName(o))}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
+      : `<div class="empty">Nothing on this day. <button class="link-btn" data-act="sch-add" data-date="${pick}">Add an Event</button></div>`}`;
+}
 function viewSchedule(){
+  if (ui.schMode === "month") return viewScheduleMonth();
   const today = todayISO(), mon = ui.schWeek || mondayOf(today);
   const cs = coursesArr();
   const nav = `<div class="view-head sch-top">
     <div class="sch-nav"><button class="icon-btn" data-act="sch-prev" aria-label="Previous week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
     <span class="sch-range">${esc(fmtShort(mon))} – ${esc(fmtShort(addDays(mon, 6)))}</span>
     <button class="icon-btn" data-act="sch-next" aria-label="Next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
-    <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>
+    <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>${schModeCtl(false)}
     <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
 </div></div>`;
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
@@ -1069,30 +1208,34 @@ function viewSchedule(){
   const lastDay = days[days.length - 1].iso;
   const weekTasks = tasksArr().filter(t => t.due && t.due >= mon && t.due <= lastDay && t.status !== "done");
   const onGrid = t => MILESTONE(t.type) && t.time;
+  // phone (one day at a time): other deadlines with a time also get a small marker at that time, not only a chip in the day's header
+  const phoneDay = !!(window.matchMedia && matchMedia("(max-width:700px)").matches), onMark = t => phoneDay && t.time && !onGrid(t);
   const shown = new Set(days.map(d => d.iso)), timed = occ.filter(o => !o.allDay && shown.has(o.date));
-  let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time)), 9 * 60);
-  let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), 17 * 60);
+  let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(t => onGrid(t) || onMark(t)).map(t => tToMin(t.time)), 9 * 60);
+  let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), ...weekTasks.filter(onMark).map(t => tToMin(t.time) + 30), 17 * 60);
   const h0 = Math.max(0, Math.floor(lo / 60)), h1 = Math.min(24, Math.ceil(hi / 60));
   const PPH = 56, top = m => (m - h0 * 60) / 60 * PPH, H = (h1 - h0) * PPH;
   const sel = ui.schDay === -1 ? days.length - 1 : ui.schDay != null && days[ui.schDay] ? ui.schDay : Math.max(0, days.findIndex(d => d.iso === today));
   let classMin = 0, availMinSum = 0;
   const cols = days.map(d => {
     const items = timed.filter(o => o.date === d.iso).map(o => ({s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o}))
-      .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t}))).sort((a, b) => a.s - b.s || b.e - a.e);
+      .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t})))
+      .concat(weekTasks.filter(t => t.due === d.iso && onMark(t)).map(t => ({s: tToMin(t.time), e: Math.min(24 * 60, tToMin(t.time) + 30), t, mk: true}))).sort((a, b) => a.s - b.s || b.e - a.e);
     let group = [], groupEnd = -1;
     const flush = () => { const lanes = []; group.forEach(it => { let l = lanes.findIndex(end => end <= it.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); group.forEach(it => it.lanes = lanes.length); group = []; };
     items.forEach(it => { if (it.s >= groupEnd) { flush(); groupEnd = it.e; } else groupEnd = Math.max(groupEnd, it.e); group.push(it); });
     flush();
     const blocks = items.map(it => {
       const pos = `top:${top(it.s)}px;height:${Math.max(22, top(it.e) - top(it.s) - 2)}px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px)`;
+      if (it.mk) return `<button class="sch-b sch-exam sch-mk" style="top:${Math.min(top(it.s), H - 24)}px;height:22px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px);--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" title="${esc(it.t.title)}, due ${esc(fmtTime(it.t.time))}"><span><b>${esc(fmtTime(it.t.time))}</b> Due: ${esc(it.t.title)}</span></button>`;
       if (it.t) { const c = courseOf(it.t.courseId); return `<button class="sch-b sch-exam" style="${pos};--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" data-drag="1" data-type="task" data-dur="60"><b>${esc(it.t.title)}</b><span>${esc(fmtTime(it.t.time))}${c ? " · " + esc(courseLabel(c)) : ""}${it.t.location ? " · " + esc(it.t.location) : ""}</span></button>`; }
       const o = it.o;
       if (o.type === "meet" && o.label !== "Office Hours" && !o.skipped) classMin += it.e - it.s;
       if (o.type === "avail" && !o.skipped) availMinSum += Math.max(0, it.e - it.s) * (o.avail.kind === "work" || o.avail.kind === "shift" ? 1 : 0);
-      const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}`;
+      const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`;
       const tip = o.type === "avail" ? `${o.title}, ${o.label}, ${o.rangeText}${o.moved ? " (changed this day only)" : ""}. Tap to change or skip this day.` : `${o.title}${o.label ? ", " + o.label : ""}, ${fmtTime(o.start)}–${fmtTime(o.end)}${o.where ? ", " + o.where : ""}${o.moved ? " (moved this week only)" : ""}. Drag to move${o.type === "meet" || (o.ev && o.ev.repeat) ? " just this week" : ""}.`;
-      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
-        : o.type === "event" && o.course && !o.skipped ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.course)}</span><b>${esc(courseLabel(o.course))}</b></span><span class="sch-bd"><span class="sch-t">${esc(o.title)}</span><span>${o.label ? esc(o.label) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>` : `<b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}`}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
+      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" || o.ovn === "tail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
+        : o.type === "event" && o.course && !o.skipped ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.course)}</span><b>${esc(courseLabel(o.course))}</b></span><span class="sch-bd"><span class="sch-t">${esc(o.title)}</span><span>${o.label ? esc(o.label) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>` : `<b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}`}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
     }).join("");
     const allDay = occ.filter(o => o.allDay && o.date === d.iso);
     const dueList = weekTasks.filter(t => t.due === d.iso && !onGrid(t)).sort(sortTasks);
@@ -1136,10 +1279,15 @@ function planViewSet(t){
 function pageHeadHtml(title, right){
   return `<header class="pg-head"><div class="pg-tt"><h2 class="pg-title">${esc(title)}</h2></div>${right ? `<div class="pg-right">${right}</div>` : ""}</header>`;
 }
+// (whether the window is phone-sized, kept up to date by the browser's own media query: reading innerWidth right after the
+// page was redrawn made the browser lay out the whole new page just to answer)
+let pageHeadNarrow = innerWidth < 640;
+try { const q = matchMedia("(max-width: 639.98px)"), f = () => { pageHeadNarrow = q.matches; }; f(); if (q.addEventListener) q.addEventListener("change", f); else q.addListener(f); } catch (e) {}
+const pageHeadPhone = () => pageHeadNarrow;
 // Lift the page's own heading above its tabs, with its context line and its buttons beside it
 function pageHeadUp(v){
   if (v.querySelector(":scope > .pg-head")) return;
-  const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"), phone = innerWidth < 640;
+  const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"), phone = pageHeadPhone();
   if (!tabs) { soloHeadUp(v, phone); return; }
   let title = "", head = null;
   if (tabs.matches(".bview-row")) { const s = tabs.querySelector("[aria-selected=true]"); title = s ? s.textContent.trim() : ""; }
@@ -1161,6 +1309,10 @@ function pageHeadUp(v){
   }
   (tabs.matches(".bview-row") ? tabs.querySelector(".bview-tabs") : tabs).classList.add("pg-tabs");
   v.insertBefore(pg, tabs);
+  // The page's buttons sit level with the tabs, at the right: they come after the tabs for the keyboard too (Tab reaches the
+  // page's own Notes / Whiteboard or Flashcards / Quizzes switch first, as it's read left to right)
+  const r = !phone && !tabs.matches(".bview-row") && pg.querySelector(":scope > .pg-right");
+  if (r) { const w = document.createElement("div"); w.className = "pg-rwrap"; w.appendChild(r); tabs.after(w); }
 }
 // Pages without tabs: the same big title, then the content
 function soloHeadUp(v, phone){
@@ -1187,7 +1339,7 @@ function planHeadHtml(){
 }
 function planSwitchHtml(){
   const t = ui.tab;
-  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Due Dates</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
+  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">${esc(tr("cal.tab.schedule", "Schedule"))}</button><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">${esc(tr("cal.tab.due", "Due Dates"))}</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">${esc(tr("cal.tab.crunch", "Crunch"))}</button></div>`;
 }
 
 /* Courses and Files share one nav tab */

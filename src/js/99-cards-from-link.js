@@ -72,31 +72,57 @@ const LINKCARDS = (() => {
   /* In the Create with AI sheet */
   function html(){
     if (inPreview()) return "";
-    return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
+    return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
       <div class="cl-in"><label class="f"><span class="lh">Link</span><input type="url" id="aiLink" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="https://www.youtube.com/watch?v=… or an article's address" data-noenter></label>
-      <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key.</p></div></details>`;
+      <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key.</p>
+      <div class="cl-yt" id="aiYtWay" hidden><div class="seg" role="radiogroup" aria-label="How to read the video">
+        <label><input type="radio" name="aiYtWay" value="watch" checked><span>Watch with Gemini</span></label><label><input type="radio" name="aiYtWay" value="paste"><span>Paste Transcript</span></label></div>
+        <div id="aiYtTrBox" hidden><p class="mini" style="margin:6px 0">On YouTube, open the video's description and tap <b>Show transcript</b>, then copy it and paste it here.</p>
+        <textarea id="aiYtTr" rows="5" maxlength="150000" placeholder="Paste the video's transcript" data-noenter></textarea></div></div></div></details>`;
   }
   const claims = root => { const i = (root || document).querySelector("#aiLink"); return !!(i && i.value.trim()); };
   document.addEventListener("toggle", e => {
     const d = e.target; if (!d || d.id !== "aiLinkD" || !d.open || !locked()) return;
     d.open = false; proWhy();
   }, true);
-  document.addEventListener("input", e => {
-    if (!e.target || e.target.id !== "aiLink") return;
-    const h = document.getElementById("aiLinkHint"); if (!h) return;
-    const v = e.target.value.trim(), L = LINKCARDS.parse(v), prov = aiCfg().provider;
+  // A YouTube link: Gemini watches the video (speech and what's shown on screen), or the student pastes its transcript and their own
+  // AI (Studyboard AI, not Gemini) reads only that: far cheaper, but anything only shown on screen isn't in it
+  const ytPaste = () => { const r = document.querySelector('input[name="aiYtWay"]:checked'); return !!(r && r.value === "paste"); };
+  document.addEventListener("change", e => { if (e.target && e.target.name === "aiYtWay") { linkHint(); if (ytPaste()) { const t = document.getElementById("aiYtTr"); if (t) t.focus(); } } });
+  document.addEventListener("input", e => { if (e.target && e.target.id === "aiLink") linkHint(); });
+  function linkHint(){
+    const inp = document.getElementById("aiLink"), h = document.getElementById("aiLinkHint"); if (!h || !inp) return;
+    const v = inp.value.trim(), L = LINKCARDS.parse(v), prov = aiCfg().provider;
+    const yt = !!v && L.ok && L.kind === "youtube", way = document.getElementById("aiYtWay"), box = document.getElementById("aiYtTrBox");
+    if (way) way.hidden = !yt; if (box) box.hidden = !(yt && ytPaste());
+    if (yt && ytPaste()) {
+      const who = prov === "studyboard" ? "Studyboard AI" : aiWho("Your AI");
+      h.classList.remove("cl-bad", "cl-warn");
+      h.textContent = `${who} reads the transcript you paste instead of Gemini watching the video, so it uses much less${prov === "studyboard" ? " of your Studyboard AI" : ""}. It only knows what's said: slides, equations or anything only shown on screen won't be in your cards.`;
+      return;
+    }
     h.classList.toggle("cl-bad", !!v && !L.ok);
     // a video through Studyboard AI uses a big share of the week's AI: said up front, in warning colours
     const sbYt = !!v && L.ok && L.kind === "youtube" && prov === "studyboard" && aiProYoutube();
     h.classList.toggle("cl-warn", sbYt);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
       : !L.ok ? (L.why === "bad" && v.length < 12 ? "Paste the whole link." : L.msg)
-      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? " Heads up: a video uses a large share of your weekly Studyboard AI, and only its first 90 minutes are read. Other AI features may pause for the rest of the week after it." : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
+      : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? ytWarn() : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.`;
-  });
+  }
+  // A video through Studyboard AI: how much of the 7-day allowance it can take, and what happens at the limit. One video can cost
+  // up to about two-thirds of the allowance (its first 90 minutes); someone already past a third may hit the limit with it
+  const ytWarn = () => {
+    const used = Math.max(0, Math.min(100, Number((aiProGet() || {}).usedPct) || 0));
+    return " Heads up: one video can use up to two-thirds of your Studyboard AI for the last 7 days (only its first 90 minutes are read)." +
+      (used >= 34 ? ` You've used ${used}%, so this video may reach your limit, and Studyboard AI would then stop until some of your use is 7 days old.` : " If you reach your limit, Studyboard AI stops until some of your use is 7 days old.");
+  };
   document.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-cl]"); if (!b) return;
-    if (b.dataset.cl === "paste") { const d = document.getElementById("aiPasteD"), t = document.getElementById("aiPaste"); if (d) d.open = true; if (t) { t.focus(); t.scrollIntoView({block: "center"}); } }
+    if (b.dataset.cl === "paste") {
+      const r = document.querySelector('input[name="aiYtWay"][value="paste"]'), w = document.getElementById("aiYtWay");
+      if (r && w && !w.hidden) { r.checked = true; linkHint(); const t = document.getElementById("aiYtTr"); if (t) { t.focus(); t.scrollIntoView({block: "center"}); } return; }
+      const d = document.getElementById("aiPasteD"), t = document.getElementById("aiPaste"); if (d) d.open = true; if (t) { t.focus(); t.scrollIntoView({block: "center"}); } }
   });
 
   /* Reading the link */
@@ -207,12 +233,17 @@ const LINKCARDS = (() => {
     const PASTE = ` <button type="button" class="btn small" data-cl="paste">Paste the Text Instead</button>`;
     if (!L.ok) { say(L.msg, L.why === "local" ? PASTE : ""); inp.focus(); return; }
     if (locked()) { proWhy(); return; }
-    const pasted = String(o.pasted || "").trim(), prov = aiCfg().provider;
+    let pasted = String(o.pasted || "").trim(); const prov = aiCfg().provider;
+    if (L.kind === "youtube" && ytPaste()) {
+      const tr = String((document.getElementById("aiYtTr") || {}).value || "").trim();
+      if (tr.length < 40) { say("Paste the video's transcript first, or choose Watch with Gemini."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
+      pasted = tr;
+    }
     if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
-    const who = esc(aiModelName(aiCfg().provider, aiCfg().model));
+    const who = esc(aiBrandName());
     // which step it's on and how long it's been, so a long video never looks stuck
     const t0 = Date.now(); let step = "";
     const clock = () => { const s = Math.floor((Date.now() - t0) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -256,10 +287,14 @@ const LINKCARDS = (() => {
         if ((e && (e.code === "big" || e.code === "long")) || /token|too long|exceed|duration|maximum/i.test(m)) msg = failMsg("too_long", L);
         else if ((e && e.code === "http") || /private|unavailable|not (?:be )?found|invalid.*(?:video|url|uri|argument)|file_?uri|unsupported|cannot (?:access|fetch)|permission/i.test(m)) msg = failMsg("unreachable", L);
       }
-      // Gemini can't open most YouTube videos from the last few weeks (a known problem on Google's side, the Gemini app too): say so, and how to get the transcript
-      if (L.kind === "youtube" && !pasted && e && e.link && /^(?:empty|unreachable|novideo|choke)$/.test(e.st || String(e.code || "").replace(/^link-/, ""))) msg += " If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.";
+      // Gemini can't open most YouTube videos from the last few weeks (a known problem on Google's side, the Gemini app too).
+      // A video Gemini couldn't watch gets one short line and the paste button; the causes and what came back sit behind Why?, so a phone isn't filled with text
+      const noWatch = L.kind === "youtube" && !pasted && e && e.link && /^(?:empty|unreachable|novideo|choke)$/.test(e.st || String(e.code || "").replace(/^link-/, ""));
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
-      say(msg + (offerPaste ? (e && e.link ? " Paste the text instead, and the AI can work from that." : "") : ""), (offerPaste ? PASTE : "") + (e && e.diag && e.diag.length ? `<details class="cl-diag"><summary>Details</summary><ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul></details>` : ""));
+      const diag = e && e.diag && e.diag.length ? `<ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+      const pasteBtn = offerPaste ? (L.kind === "youtube" ? PASTE.replace("Paste the Text Instead", "Paste the Transcript Instead") : PASTE) : "";
+      if (noWatch) say("Gemini couldn't watch this video. New or blocked videos often fail.", pasteBtn + `<details class="cl-diag"><summary>Why?</summary><p>${esc(msg)}</p><p>If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.</p>${diag}</details>`);
+      else say(msg + (offerPaste && e && e.link ? " Paste the text instead, and the AI can work from that." : ""), pasteBtn + (diag ? `<details class="cl-diag"><summary>Details</summary>${diag}</details>` : ""));
       aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     } finally { clearInterval(tick); }
@@ -271,12 +306,16 @@ const LINKCARDS = (() => {
   const css = document.createElement("style");
   css.textContent = `
 .cl-link summary{cursor:pointer}
+.cl-yt{display:grid;gap:6px;margin-top:8px}
+.cl-yt .seg{justify-self:start}
+.cl-yt textarea{width:100%;box-sizing:border-box;min-height:110px}
 .cl-in{display:grid;gap:6px;margin-top:8px}
 .cl-in input{width:100%;min-width:0}
 .cl-hint{margin:0;overflow-wrap:anywhere}
 .cl-diag{margin-top:6px;font-size:.82rem;color:var(--muted)}
 .cl-diag summary{cursor:pointer;font-weight:600}
 .cl-diag ul{margin:4px 0 0;padding-left:18px}
+.cl-diag p{margin:6px 0 0}
 .cl-hint.cl-bad{color:var(--danger,#c0392b)}
 .cl-hint.cl-warn{color:var(--ink);background:color-mix(in srgb,#F5A524 16%,var(--surface));border:1px solid color-mix(in srgb,#F5A524 45%,transparent);border-radius:10px;padding:8px 10px}
 #aiStatus .btn.small{margin:6px 6px 0 0}

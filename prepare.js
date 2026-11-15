@@ -19,6 +19,8 @@ else copy("@supabase/supabase-js/dist/umd/supabase.js", "supabase-js-2.117.2.umd
 for (const f of ["fzstd-0.1.1.umd.js", "fzstd-LICENSE.txt"]) fs.copyFileSync(path.join(root, "vendor", f), path.join(vendor, f));
 // math.js (Apache 2.0) does the calculator's arithmetic; loaded the first time the calculator opens
 fs.cpSync(path.join(root, "vendor", "mathjs-15.1.1"), path.join(vendor, "mathjs-15.1.1"), { recursive: true });
+// citeproc-js (Writing Studio citations) with its CSL styles and locales
+fs.cpSync(path.join(root, "vendor", "citeproc-2.4.63"), path.join(vendor, "citeproc-2.4.63"), { recursive: true });
 // KaTeX (MIT) draws math and chemistry; loaded the first time a formula is shown
 fs.cpSync(path.join(root, "vendor", "katex-0.18.11"), path.join(vendor, "katex-0.18.11"), { recursive: true });
 // PDF.js is loaded by index.html with import() from vendor/pdfjs/

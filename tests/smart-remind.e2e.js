@@ -88,10 +88,11 @@ const SEED = ([avail, free]) => {
     ok((await smart(p)).every(r => r.day !== 2 || r.hm === 12 * 60), "no second smart reminder for it today");
     ok(!p.errs.length, "no console errors (Pro): " + p.errs.join(" | "));
 
-    // No availability blocks: the plan's daily study hours (2h a day), at the study nudge time
+    // No availability blocks: the plan's daily study hours (2h a day), at the first free time from now (the next quarter hour;
+    // no classes in this seed), not a fixed 4 PM
     const d = await open({avail: false});
     const ds = await smart(d);
-    ok(ds.length === 1 && ds[0].title === "Essay Draft" && ds[0].day === 2 && ds[0].hm === 16 * 60, "falls back to daily hours, at 4:00 PM: " + JSON.stringify(ds));
+    ok(ds.length === 1 && ds[0].title === "Essay Draft" && ds[0].day === 2 && ds[0].hm === 10 * 60 + 15, "falls back to daily hours, at the next free time: " + JSON.stringify(ds));
     ok(/^This needs about \d+h( \d+m)? by Wednesday, and your plan has about \d+h( \d+m)? of study time until then\. Start now\?$/.test(ds[0].body), "daily-hours message: " + ds[0].body);
     ok(!d.errs.length, "no console errors (daily hours): " + d.errs.join(" | "));
 
@@ -106,7 +107,7 @@ const SEED = ([avail, free]) => {
     ok(!f.errs.length, "no console errors (locked): " + f.errs.join(" | "));
 
     // Listed under Studyboard Pro
-    ok(await p.evaluate(() => window.SBPRO.compareRows().some(r => r[0] === "Smart Reminders")), "listed as a Studyboard Pro feature");
+    ok(await p.evaluate(() => /Smart Reminders/.test(window.SBPRO.sheetHtml(false))), "listed under Show All Pro Features");
     console.log("\nsmart-remind.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

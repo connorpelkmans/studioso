@@ -102,7 +102,7 @@ if (DESK) window.addEventListener("resize", () => { clearTimeout(deskTintT); des
 if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (themePref() === "system") applyTheme(); });
 function themeRow(){
   const p = themePref();
-  return `<div class="cap-row"><span style="flex:1;font-weight:600">Appearance<span class="sub">System follows your device's setting</span></span><div class="segb" role="group" aria-label="Appearance">${[["system","System"],["light","Light"],["dark","Dark"]].map(([k, l]) => `<button data-act="theme-set" data-id="${k}" aria-pressed="${p === k}">${l}</button>`).join("")}</div></div>`;
+  return `<div class="cap-row"><span style="flex:1;font-weight:600">Light or Dark<span class="sub">System follows your device's setting</span></span><div class="segb" role="group" aria-label="Light or dark">${[["system","System"],["light","Light"],["dark","Dark"]].map(([k, l]) => `<button data-act="theme-set" data-id="${k}" aria-pressed="${p === k}">${l}</button>`).join("")}</div></div>`;
 }
 
 /* Backup files */
@@ -170,9 +170,9 @@ $("#importFile").addEventListener("change", async e => {
     const raw = JSON.parse(text), d = fromArrays(raw), has = k => !!raw && Array.isArray(raw[k]);
     const cs = has("courses") ? Object.values(d.courses) : Object.values(state.courses), ts = has("tasks") ? Object.values(d.tasks) : Object.values(state.tasks), ns = has("notes") ? Object.values(d.notes) : Object.values(state.notes), ds = has("decks") ? Object.values(d.decks) : Object.values(state.decks || {}), es = has("events") ? Object.values(d.events || {}) : Object.values(state.events || {});
     let fs = has("files") ? Object.values(d.files) : Object.values(state.files);
-    if (!cs.length && !ts.length && !ns.length && !fs.length && !ds.length) throw new Error("empty");
+    if (!cs.length && !ts.length && !ns.length && !fs.length && !ds.length && !es.length) throw new Error("empty");
     const nFiles = entries ? entries.filter(x => x.name.startsWith("files/")).length : 0;
-    confirmSheet("Replace Your Data?", `This backup has ${plural0(cs.length, "course")}, ${plural0(ts.length, "task")}, ${plural0(ns.length, "note")} and ${plural0(ds.length, "flashcard deck")}${nFiles ? `, plus ${nFiles} stored file${nFiles === 1 ? "" : "s"}` : ""}. It will replace everything currently here. You can undo right after.`, "Replace", async () => {
+    confirmSheet("Replace Your Data?", `This backup has ${plural0(cs.length, "course")}, ${plural0(ts.length, "task")}, ${plural0(ns.length, "note")}, ${plural0(ds.length, "flashcard deck")} and ${plural0(es.length, "event")}${nFiles ? `, plus ${nFiles} stored file${nFiles === 1 ? "" : "s"}` : ""}. It will replace everything currently here. You can undo right after.`, "Replace", async () => {
       ui.courseId = null; ui.filter = "all";
       backupBefore("Before importing a backup");
       let msg = "Backup imported";

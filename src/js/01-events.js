@@ -5,7 +5,8 @@ let suppressClick = false;
 // A quick second click on a complete circle lands on whatever slid under the pointer once the done card left the list.
 // A second pointer click in the same spot within 450ms is taken as part of the first one and ignored.
 let lastToggle = null;
-function toggleTask(id, el){
+// extra: a toast button to offer once the task is done (e.g. Add Mark after "Did you take X?")
+function toggleTask(id, el, extra){
   const t = state.tasks[id]; if (!t) return;
   const ev = window.event, ptr = ev && ev.type === "click" && ev.detail > 0 && el && el !== document.body, now = Date.now();
   if (ptr) {
@@ -17,40 +18,51 @@ function toggleTask(id, el){
   if (t.status === "done") { n.status = "todo"; n.doneAt = null; if (!MILESTONE(t.type) && n.pct >= 100) n.pct = 0; } else { n.status = "done"; n.doneAt = Date.now(); if (!MILESTONE(t.type)) n.pct = 100; }
   n.order = nextOrder(n.status);
   if (n.status === "done") { celebrate("check"); popDone(el); if (ui.nextShown === id) { nufbAdd("accept", t); ui.nextShown = null; } }
-  applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, undefined, n.status === "done" ? {done: true} : undefined);
+  applyChanges([{kind:"task", id, after:n}], n.status === "done" ? `Completed ${t.title}` : `Moved ${t.title} back to To Do`, n.status === "done" ? extra : undefined, n.status === "done" ? {done: true} : undefined);
+  if (n.status === "done") { const cleared = todayCleared(); sbHaptic(cleared ? "success" : "tap"); if (cleared) fire("good-moment", "plan"); }
 }
-// Switching tabs cross-fades the old page into the new one. A still copy of the old page fades out where it was while the new
-// page fades in; everything else (header, tab bar, companion, theme scene) stays live and in its usual layer the whole time.
-// 99-smooth.js skips its own page fade while this runs.
-const TAB_MS = 240;
-function tabSwap(changed, go){
-  const r = document.documentElement, still = r.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  const v = document.getElementById("view");
-  if (!changed || still || !v || dlg.open || !v.animate) { go(); return; }
-  let ghost = null;
+// "Did you take X?" → Move Date: a small picker (tomorrow, the course's next class, or any date) instead of the whole edit sheet
+function moveDateSheet(id){
+  const t = state.tasks[id]; if (!t) return;
+  const today = todayISO(), tmr = addDays(today, 1);
+  let next = "";
+  try { const o = schOccurrences(tmr, addDays(today, 28)).filter(o => o.type === "meet" && o.id === t.courseId && !o.skipped && o.m.kind !== "Office Hours").sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)[0]; next = o ? o.date : ""; } catch (e) {}
+  const day = d => parse(d).toLocaleDateString(undefined, {weekday: "long", month: "short", day: "numeric"});
+  const opt = (d, label) => `<button type="button" data-md="${d}"><span class="fm-t"><b>${label}</b><span class="sub">${esc(day(d))}</span></span></button>`;
+  const move = d => {
+    const x = state.tasks[id]; if (!isDate(d) || !x) return;
+    const n = clone(x); n.due = d; if (n.start && n.start > d) n.start = d;
+    if (dlg.open) dlg.close();
+    applyChanges([{kind: "task", id, after: n}], `${t.due ? "Moved" : "Dated"} ${t.title} to ${fmtShort(d)}`);
+  };
+  openSheet(`<form class="sheet md-sheet">${head((t.due ? "Move " : "Add a Date: ") + t.title)}<div class="sheet-body">
+      <div class="menu-list md-list">${opt(tmr, next === tmr ? "Tomorrow (next class)" : "Tomorrow")}${next && next !== tmr ? opt(next, "Next Class") : ""}</div>
+      <label class="f"><span class="lh">Or Pick a Date</span><input type="date" name="due" min="${today}"></label></div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Move</button></div></form>`, fd => {
+    const d = String(fd.get("due") || "");
+    if (!isDate(d)) { toast("Pick a date first"); const i = dlg.querySelector("input[name=due]"); if (i) i.focus(); return false; }
+    move(d); return false;
+  });
+  dlg.querySelectorAll("[data-md]").forEach(b => b.addEventListener("click", () => move(b.dataset.md)));
+}
+// Today's Plan has nothing left to do: no planned work still open, nothing due today or earlier still open (99-review-ask.js)
+function todayCleared(){
   try {
-    const b = v.getBoundingClientRect(), cs = getComputedStyle(v);
-    ghost = v.cloneNode(true);
-    ghost.removeAttribute("id"); ghost.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
-    ghost.querySelectorAll("input, textarea, select, button, a").forEach(e => e.setAttribute("tabindex", "-1"));
-    ghost.className = (v.className || "") + " tab-ghost sm-skip"; ghost.setAttribute("aria-hidden", "true"); ghost.inert = true;
-    Object.assign(ghost.style, {position: "fixed", left: b.left + "px", top: b.top + "px", width: b.width + "px", height: Math.min(b.height, innerHeight - b.top + 40) + "px", margin: "0", padding: cs.padding, overflow: "hidden", pointerEvents: "none", zIndex: "1"});
-    v.parentNode.insertBefore(ghost, v.nextSibling);
-  } catch (e) { ghost = null; }
-  r.classList.add("vt-tab");
-  go();
-  const ease = "cubic-bezier(.2,.8,.2,1)";
-  v.animate([{opacity: 0}, {opacity: 1}], {duration: TAB_MS, easing: ease});
-  const end = () => { if (ghost) ghost.remove(); r.classList.remove("vt-tab"); };
-  if (ghost) ghost.animate([{opacity: 1}, {opacity: 0}], {duration: TAB_MS * 0.8, easing: ease, fill: "forwards"}).finished.then(end, end);
-  else setTimeout(end, TAB_MS);
+    const today = todayISO(), F = computeFocus();
+    if ((F.ranked || []).some(x => (x.alloc > 0 || x.dl <= 0) && !x.t.xs && !x.dead && x.t.status !== "done")) return false;
+    return !tasksArr().some(t => t.status !== "done" && t.due && t.due <= today && !t.deleted && !t.archived);
+  } catch (e) { return false; }
 }
+if (window.__SB_TEST) window.__sbHaptic = {device: () => hapticDevice(), cleared: () => todayCleared(), del: id => deleteTask(id), task: id => clone(state.tasks[id] || null), today: () => todayISO(), apply: ch => applyChanges(ch, null)};
+// Switching tabs shows the new page at once, fully drawn: no fade, and no copy of the old page left over it while the new one appears
+function tabSwap(changed, go){ go(); }
 // Where a press on the screen began: a tap that starts inside the note being edited is a tap in the note, even when the note
 // moves under the finger before it lifts (on a phone, tapping back in the text box hides the note's options at once, so the
 // sheet shrinks and the end of the tap lands on the dimmed page behind it; that used to close the note)
-let noteDownIn = 0;
+let noteDownIn = 0, noteWasTyping = false;
 ["pointerdown", "touchstart", "mousedown"].forEach(t => document.addEventListener(t, e => {
   noteDownIn = e.target && e.target.closest && e.target.closest(".note.editing") ? Date.now() : 0;
+  noteWasTyping = !!document.activeElement && document.activeElement.id === "noteText";
 }, {capture: true, passive: true}));
 document.addEventListener("click", e => {
   const downIn = noteDownIn && Date.now() - noteDownIn < 1500; noteDownIn = 0;
@@ -70,7 +82,10 @@ document.addEventListener("click", e => {
   if (ui.tab === "notes" && !e.target.closest("dialog") && !e.target.closest(".rb-bar,.rb-eq")) {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
-    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
+    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict") && !e.target.closest(".note-link") && !e.target.closest(".np-photos")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); noteHold(); return; }   // the note opens with its options; typing starts with a second tap or Enter (no keyboard straight away on a phone)
+    // A second tap or click on the open note, anywhere but one of its controls, puts the cursor in its text (a tap there while
+    // typing does the opposite: it puts the keyboard away and shows the options)
+    if (nEl && nEl.classList.contains("editing") && !noteWasTyping && !e.target.closest("button,a,select,summary,details,input,textarea,label,[data-act],[contenteditable],.stk,.np-photos")) { noteType(); return; }
     if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) {
       if (downIn && $(".note.editing")) return;   // began in the note: not a tap away from it
       saveNoteText();
@@ -119,7 +134,8 @@ document.addEventListener("click", e => {
     case "focus-toggle": ui.focusOpen = !ui.focusOpen; render(); break;
     case "plan-rows": ui.planAllToday = !ui.planAllToday; render(); break;
     case "plan-tile": ui.planTile = id && ui.planTile !== id ? id : ""; render(); requestAnimationFrame(() => { const l = ui.planTile && document.querySelector("#view .plan .plan-past, #view .plan #planListLbl"); if (l && l.scrollIntoView) l.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
-    case "move-date": { const t = state.tasks[id]; if (!t) break; taskForm(t); const d = dlg.querySelector("input[name=due]"); if (d) { d.focus(); try { d.showPicker(); } catch (err) {} } break; }
+    case "move-date": moveDateSheet(id); break;
+    case "undated-open": undatedSheet(); break;
     case "plan-sec": { const k = id === "how" ? "planHow" : "planMore"; ui[k] = !ui[k]; const p = document.getElementById("plan-" + id); if (p) p.hidden = !ui[k]; el.setAttribute("aria-expanded", String(ui[k])); break; }
     case "plan-why": { ui.planWhy = ui.planWhy || {}; const on = !ui.planWhy[id]; if (on) ui.planWhy[id] = 1; else delete ui.planWhy[id]; const p = document.getElementById("pw-" + id); if (p) p.hidden = !on; el.setAttribute("aria-expanded", String(on)); const li = el.closest(".plan-row"); if (li) li.classList.toggle("why-open", on); break; }
     case "show-old": ui.showOldDone = true; render(); break;
@@ -129,7 +145,8 @@ document.addEventListener("click", e => {
         due: el.dataset.due || (ui.tab === "timeline" && ui.tlMode === "calendar" ? ui.calDay : ""), status: el.dataset.status});
       break;
     case "edit-task": { const t = state.tasks[id]; if (t) (el.dataset.edit ? taskForm : taskView)(t); break; }
-    case "toggle": toggleTask(id, el); break;
+    // "Did you take X?" → Mark Done offers to add the score right away
+    case "toggle": toggleTask(id, el, el.dataset.mark && window.SBGRADES && SBGRADES.offerMark ? SBGRADES.offerMark(id) : undefined); break;
     case "delete-task": deleteTask(id); break;
     case "archive-open": ui.tab = "archive"; dlg.open && dlg.close(); render(); window.scrollTo(0, 0); break;
     case "archive-back": ui.tab = "board"; render(); window.scrollTo(0, 0); break;
@@ -141,8 +158,20 @@ document.addEventListener("click", e => {
     case "sch-notices": openSheet(`<div class="sheet">${head("Notices")}<div class="sheet-body sch-ntc-body">${schNoticeHtml}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`); break;
     case "sch-today": ui.schWeek = mondayOf(todayISO()); ui.schDay = null; render(); break;
     case "sch-day": ui.schDay = Number(id); render(); break;
+    case "sch-mode": {
+      ui.schMode = id === "month" ? "month" : "week"; ui.schPeek = false;
+      // the month opens on the week being looked at; the week opens on the day picked in the month
+      if (ui.schMode === "month") { const w = ui.schWeek || mondayOf(todayISO()), t0 = todayISO(), d = w === mondayOf(t0) ? t0 : w; ui.schMonth = d.slice(0, 7) + "-01"; ui.schPick = d; }
+      else if (ui.schPick) { ui.schWeek = mondayOf(ui.schPick); ui.schDay = (parse(ui.schPick).getDay() + 6) % 7; }
+      try { localStorage.setItem("studyboard:schmode", ui.schMode); } catch (e) {}
+      if (dlg.open) dlg.close(); render(); break;
+    }
+    case "sch-mprev": case "sch-mnext": { const m = parse(ui.schMonth || todayISO().slice(0, 7) + "-01"); m.setDate(1); m.setMonth(m.getMonth() + (act === "sch-mprev" ? -1 : 1)); ui.schMonth = iso(m); ui.schPick = null; render(); break; }
+    case "sch-mtoday": ui.schMonth = todayISO().slice(0, 7) + "-01"; ui.schPick = todayISO(); render(); break;
+    case "sch-mpick": ui.schPick = id; if (id.slice(0, 7) !== (ui.schMonth || "").slice(0, 7)) ui.schMonth = id.slice(0, 7) + "-01"; render(); break;
+    case "sch-mweek": ui.schMode = "week"; ui.schPeek = true; ui.schWeek = mondayOf(id); ui.schDay = (parse(id).getDay() + 6) % 7; render(); window.scrollTo(0, 0); break;
     case "sch-occ": occView(el.dataset.type, id, el.dataset.key); break;
-    case "sch-add": { const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
+    case "sch-add": { if (el.dataset.date) { eventForm(null, {date: el.dataset.date}); break; } if (ui.schMode === "month" && ui.schPick) { eventForm(null, {date: ui.schPick < todayISO() && ui.schPick.slice(0, 7) === todayISO().slice(0, 7) ? todayISO() : ui.schPick}); break; } const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
     case "avail-add": if (dlg.open) dlg.close(); setTimeout(() => availForm(null), 30); break;
     case "avail-open": if (dlg.open) dlg.close(); setTimeout(availManager, 30); break;
     case "avail-edit": { const b = availBlocks().find(x => x.id === id); if (b) { if (dlg.open) dlg.close(); setTimeout(() => availForm(b), 30); } break; }
@@ -170,7 +199,7 @@ document.addEventListener("click", e => {
     case "tl-mode": ui.tlMode = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlmode", id); } catch(err) {} render(); break;
     case "note-new": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "board-max": boardMax(!boardMaxOn()); break;
-    case "nb-zoom": if (id === "reset") nbZoomTo(1); else nbZoomStep(id === "in" ? 1 : -1); break;
+    case "nb-zoom": if (id === "reset") nbZoomTo(nbHome()); else nbZoomStep(id === "in" ? 1 : -1); break;
     case "nb-pick": if (noteEditing) saveNoteText(); ui.noteBoard = el.dataset.id || ""; try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {} render(); break;
     case "nb-new": if (noteEditing) saveNoteText(); noteBoardSheet(""); break;
     case "nb-edit": noteBoardSheet(el.dataset.id); break;
@@ -189,6 +218,8 @@ document.addEventListener("click", e => {
     case "f-go": ui.tab = "files"; ui.fCourse = el.dataset.c; ui.fFolder = el.dataset.f || ""; ui.fCls = ""; ui.courseId = null; render(); window.scrollTo(0, 0); break;
     case "f-open": { const f = state.files[id]; if (f) fileSheet(f); break; }
     case "f-preview": officePreview(id); break;
+    case "f-view": fileViewer(id); break;
+    case "f-save": { const f = state.files[id]; if (f) downloadFile(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
     case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
     case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ...(inPreview() ? [] : [["f-sync", "Sync Drive", "Choose the Drive or OneDrive folders Studyboard uses. AI only reads files you've added", "sync"]]), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
@@ -213,11 +244,13 @@ document.addEventListener("click", e => {
     case "f-folder-edit": { const fo = foldersOf(ui.fCourse === "all" ? "" : ui.fCourse).find(x => x.id === ui.fFolder); if (fo) folderSheet(fo); break; }
     case "f-sort": ui.fSort = id; render(); break;
     case "tl-zoom": ui.tlZoom = id; ui.tlJump = true; try { localStorage.setItem("studyboard:tlzoom", id); } catch(err) {} render(); break;
+    case "tl-edge": { const sc = el.closest(".tl-scroll"), r = el.closest(".tl-row"), lw = sc ? Number((sc.querySelector(".tl") || {dataset: {}}).dataset.lw || 0) : 0;
+      if (sc && r) sc.scrollTo({left: Math.max(0, Number(r.dataset.x) - (sc.clientWidth - lw) / 2), behavior: "smooth"}); break; }
     case "tl-today": ui.tlJump = "smooth"; if (ui.tlMode !== "bars") ui.tlMode = "bars"; render(); break;
     case "pick-day": ui.calDay = id; if (id.slice(0, 7) !== ui.calMonth.slice(0, 7)) ui.calMonth = id.slice(0, 7) + "-01"; render(); break;
     case "cal-prev": case "cal-next": {
       const m = parse(ui.calMonth); m.setMonth(m.getMonth() + (act === "cal-prev" ? -1 : 1));
-      ui.calMonth = iso(m); render(); break;
+      ui.calMonth = iso(m); { const t0 = todayISO(); ui.calDay = t0.slice(0, 7) === ui.calMonth.slice(0, 7) ? t0 : ui.calMonth; } render(); break;
     }
     case "cal-today": ui.calDay = todayISO(); ui.calMonth = ui.calDay.slice(0, 7) + "-01"; render(); requestAnimationFrame(() => { const d = document.querySelector("#view .cal .today, #view .cal [aria-current]"); if (d && d.scrollIntoView) d.scrollIntoView({block: "nearest", behavior: "smooth"}); }); break;
     case "import-syllabus": importSheet(el.dataset.course || (ui.tab === "courses" ? ui.courseId : "") || ""); break;
@@ -249,7 +282,7 @@ document.addEventListener("pointerdown", e => {
   nbHold = {x0, y0, id: e.pointerId, t: setTimeout(() => {
     if (!nbHold || !board.isConnected) return;
     nbHold = null;
-    if (navigator.vibrate) { try { navigator.vibrate(12); } catch (x) {} }
+    sbHaptic("lift");
     nbHoldDone = Date.now();
     const r = board.getBoundingClientRect();
     newNoteAt((x0 - r.left) / nbZ() - NOTE_W() / 2, (y0 - r.top) / nbZ() - 20);
@@ -283,7 +316,17 @@ document.addEventListener("change", e => {
 });
 document.addEventListener("keydown", e => {
   if (e.target.id === "noteText" && (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey)))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
-  const nf = e.target.matches && e.target.matches('.note[role="button"]') ? state.notes[e.target.dataset.note] : null;
+  // The open note, before its text has the cursor: Enter or Space (or simply typing) starts typing, Esc closes it. Esc also
+  // closes it from its colour, task and other controls.
+  if (noteEditing && ui.tab === "notes" && !e.defaultPrevented && !e.isComposing && !document.querySelector("dialog[open]")) {
+    const open = e.target.closest && e.target.closest(".note.editing"), lost = e.target === document.body || e.target === document.documentElement;
+    if (e.key === "Escape" && (open || lost || (e.target.closest && e.target.closest("#nbBoard")))) { e.preventDefault(); const nid = noteEditing; saveNoteText(); noteRefocus(nid); return; }
+    if (open === e.target || lost) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); noteType(); return; }
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { noteType(); return; }   // (not prevented: the letter lands in the text)
+    }
+  }
+  const nf = e.target.matches && e.target.matches('.note[data-note]:not(.editing)') ? state.notes[e.target.dataset.note] : null;
   if (nf && (e.key === "[" || e.key === "]")) {
     e.preventDefault();
     const r = Math.round(((Number(nf.rot) || 0) + (e.key === "]" ? 5 : -5) + 540) % 360 - 180);
@@ -297,6 +340,21 @@ document.addEventListener("keydown", e => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.target.click(); return; }
   }
   if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('.card[role="button"]')) { e.preventDefault(); e.target.click(); }
+});
+// Month view: arrow keys move a day or a week, Home and End go to the week's start and end, Page Up and Page Down a month
+// (as in a date picker); the day moved to is chosen, so its tasks show below
+document.addEventListener("keydown", e => {
+  const b = e.target.closest && e.target.closest('.cal .day[data-act="pick-day"], .cal .day[data-act="sch-mpick"]'); if (!b || e.altKey || e.ctrlKey || e.metaKey) return;
+  const sch = b.dataset.act === "sch-mpick";
+  const d = parse(b.dataset.id), k = e.key;
+  if (k === "ArrowLeft" || k === "ArrowRight") d.setDate(d.getDate() + (k === "ArrowLeft" ? -1 : 1));
+  else if (k === "ArrowUp" || k === "ArrowDown") d.setDate(d.getDate() + (k === "ArrowUp" ? -7 : 7));
+  else if (k === "Home" || k === "End") d.setDate(d.getDate() + (k === "Home" ? -d.getDay() : 6 - d.getDay()));
+  else if (k === "PageUp" || k === "PageDown") { const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (k === "PageUp" ? -1 : 1)); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); }
+  else return;
+  e.preventDefault();
+  const id = iso(d); if (sch) { ui.schPick = id; ui.schMonth = id.slice(0, 7) + "-01"; } else { ui.calDay = id; ui.calMonth = id.slice(0, 7) + "-01"; } render();
+  const n = $(`.cal .day[data-id="${id}"]`); if (n) try { n.focus({preventScroll: true}); n.scrollIntoView({block: "nearest"}); } catch (x) {}
 });
 function toggleSearch(open){
   const row = $("#searchRow");
@@ -359,7 +417,7 @@ window.addEventListener("keydown", e => { if (e.key === "Escape" && drag && drag
 
 function startDrag(){
   drag.started = true; renderBlocked = true;
-  if (navigator.vibrate) { try { navigator.vibrate(12); } catch(e){} }
+  sbHaptic("lift");
   if (drag.kind === "rot") {
     const n = state.notes[drag.id];
     if (!n) { drag.started = false; renderBlocked = false; drag = null; return; }
@@ -375,6 +433,11 @@ function startDrag(){
     drag.nx = n.x; drag.ny = n.y;
     drag.el.classList.add("dragging"); drag.el.style.zIndex = 9500;
     document.body.classList.add("dragging-note");
+    // Measured once for the whole drag: the note's size, and where the drop targets (boards, archive, trash) are. The note
+    // then slides by translate, which needs no new layout, instead of left/top, which re-laid out the board every frame.
+    drag.x0n = n.x; drag.y0n = n.y; drag.w = drag.el.offsetWidth; drag.h = drag.el.offsetHeight;
+    drag.tgs = $$("[data-drop-note]").map(t => ({t, r: t.getBoundingClientRect(), nb: t.classList.contains("nb-target")}));
+    drag.tgAt = [scrollX, scrollY];
   } else if (drag.kind === "card") {
     const el = drag.el, r = el.getBoundingClientRect();
     drag.dx = drag.x - r.left; drag.dy = drag.y - r.top;
@@ -394,10 +457,14 @@ function startDrag(){
     drag.start0 = startOf(t); drag.due0 = t.due; drag.start = drag.start0; drag.due = drag.due0;
     drag.left0 = parseFloat(drag.el.style.left); drag.w0 = parseFloat(drag.el.style.width);
     drag.el.classList.add("dragging");
+    // the marker's old date label would sit on top of it while it moves
+    if (drag.el.parentElement) drag.el.parentElement.classList.add("tl-dragging");
     const tip = document.createElement("div"); tip.className = "tl-tip"; document.body.appendChild(tip); drag.tip = tip;
   }
   drag.raf = requestAnimationFrame(tick);
 }
+// A dragged bar or marker says what changes: only the due date ("Due Nov 17"), only the start ("Start Nov 9"), or both
+const barWords = (mode, s, d, f) => mode === "end" ? "Due " + f(d) : mode === "start" ? "Start " + f(s) : s === d ? f(d) : fmtShort(s) + " to " + fmtShort(d);
 function tick(){
   if (!drag || !drag.started) return;
   if (drag.kind === "rot") {
@@ -412,7 +479,11 @@ function tick(){
   }
   if (drag.kind === "note") {
     const sc = $("#nbScroll"), board = $("#nbBoard");
-    const overT = (() => { const u = document.elementFromPoint(drag.x, drag.y); return !!(u && u.closest("[data-drop-note]")) || $$(".nb-target").some(t => { const q = t.getBoundingClientRect(); return drag.x >= q.left - 8 && drag.x <= q.right + 8 && drag.y >= q.top - 8 && drag.y <= q.bottom + 8; }); })();
+    // the page itself scrolled (a mouse wheel during the drag): the targets are measured again
+    if (drag.tgAt[0] !== scrollX || drag.tgAt[1] !== scrollY) { drag.tgs.forEach(g => { g.r = g.t.getBoundingClientRect(); }); drag.tgAt = [scrollX, scrollY]; }
+    const inR = (q, m) => drag.x >= q.left - m && drag.x <= q.right + m && drag.y >= q.top - m && drag.y <= q.bottom + m;
+    const hit = drag.tgs.find(g => g.t.isConnected && inR(g.r, 0));
+    const overT = !!hit || drag.tgs.some(g => g.nb && inR(g.r, 8));
     if (sc && board) {
       const r = sc.getBoundingClientRect();
       if (!overT) {
@@ -422,16 +493,15 @@ function tick(){
       const br = board.getBoundingClientRect();
       drag.nx = Math.max(0, Math.min(6000, Math.round((drag.x - br.left) / nbZ() - drag.dx)));
       drag.ny = Math.max(0, Math.min(6000, Math.round((drag.y - br.top) / nbZ() - drag.dy)));
-      const needW = drag.nx + drag.el.offsetWidth + 28, needH = drag.ny + drag.el.offsetHeight + 28;
+      const needW = drag.nx + drag.w + 28, needH = drag.ny + drag.h + 28;
       let grew = false;
       if (!overT && needW > board.offsetWidth) { board.style.width = needW + "px"; grew = true; }
       if (!overT && needH > board.offsetHeight) { board.style.height = needH + "px"; grew = true; }
       if (grew) nbZoomApply();
-      drag.el.style.left = drag.nx + "px"; drag.el.style.top = drag.ny + "px";
+      drag.el.style.translate = (drag.nx - drag.x0n) + "px " + (drag.ny - drag.y0n) + "px";
     }
-    const under = document.elementFromPoint(drag.x, drag.y);
-    const tgt = under && under.closest("[data-drop-note]");
-    $$("[data-drop-note]").forEach(t => t.classList.toggle("hot", t === tgt));
+    const tgt = hit ? hit.t : null;
+    drag.tgs.forEach(g => g.t.classList.toggle("hot", g.t === tgt));
     drag.el.classList.toggle("over-target", !!tgt);
     drag.target = tgt ? tgt.dataset.dropNote : null;
     drag.raf = requestAnimationFrame(tick);
@@ -475,7 +545,7 @@ function tick(){
     drag.start = s; drag.due = d;
     const shiftL = (drag.isMs ? dayDiff(drag.due0, d) : dayDiff(drag.start0, s)) * drag.dw, w = (dayDiff(s, d) + 1) * drag.dw;
     drag.el.style.left = (drag.left0 + shiftL) + "px"; if (!drag.isMs) drag.el.style.width = w + "px";
-    drag.tip.textContent = (s === d ? fmtDate(d) : fmtShort(s) + " to " + fmtShort(d));
+    drag.tip.textContent = barWords(drag.mode, s, d, fmtDate);
     drag.tip.style.left = Math.min(window.innerWidth - 170, Math.max(8, drag.x - 60)) + "px";
     drag.tip.style.top = Math.max(8, drag.y - 52) + "px";
   }
@@ -619,6 +689,8 @@ function placeAt(x, y){
   const col = under && under.closest(".col");
   $$(".col.over").forEach(c => { if (c !== col) c.classList.remove("over"); });
   if (!col) return;
+  if (drag.hCol && drag.hCol !== col) sbHaptic("tick");
+  drag.hCol = col;
   col.classList.add("over");
   const shown = el => el.checkVisibility ? el.checkVisibility() : !!el.getClientRects().length;
   const lists = [...col.querySelectorAll(".col-list")].filter(shown);
@@ -635,6 +707,7 @@ function placeAt(x, y){
 function endDrag(ok){
   cancelAnimationFrame(drag.raf);
   const d = drag; drag = null; renderBlocked = false;
+  if (ok && d.started) sbHaptic(d.kind === "note" && d.target === "trash" ? "warning" : "drop", {force: true});
   suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
   if (d.kind === "rot") {
     d.el.classList.remove("rotating");
@@ -644,6 +717,9 @@ function endDrag(ok){
     return;
   }
   if (d.kind === "note") {
+    // where it was let go, from what is really under the pointer (the highlight above came from positions measured at the start)
+    if (ok) { const u = document.elementFromPoint(d.x, d.y), t = u && u.closest("[data-drop-note]"); d.target = t ? t.dataset.dropNote : null; }
+    d.el.style.translate = ""; d.el.style.left = d.nx + "px"; d.el.style.top = d.ny + "px";
     document.body.classList.remove("dragging-note");
     $$("[data-drop-note]").forEach(t => t.classList.remove("hot"));
     const n = state.notes[d.id];
@@ -658,10 +734,10 @@ function endDrag(ok){
   }
   const t = state.tasks[d.id];
   if (d.kind === "bar") {
-    d.tip.remove(); d.el.classList.remove("dragging");
+    d.tip.remove(); d.el.classList.remove("dragging"); if (d.el.parentElement) d.el.parentElement.classList.remove("tl-dragging");
     if (!ok || !t || (d.start === d.start0 && d.due === d.due0)) { render(); return; }
     const n = Object.assign(clone(t), {start: d.start, due: d.due});
-    const label = `${t.title}: ${d.start === d.due ? fmtShort(d.due) : fmtShort(d.start) + " to " + fmtShort(d.due)}`;
+    const label = `${t.title}: ${barWords(d.start !== d.start0 && d.due !== d.due0 ? "move" : d.due !== d.due0 ? "end" : "start", d.start, d.due, fmtShort)}`;
     const inv = applyChanges([{kind:"task", id: t.id, after: n}], "");
     const redo = () => { applyChanges(inv, null); toast("Undone"); };
     toast(label, redo, shiftOffer(t.id));

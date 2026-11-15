@@ -84,7 +84,7 @@ const REPLY = {summary: "The thesis is clear and the organization works, but the
   await act(page, "edit-task", "t4"); await page.waitForSelector("#dlg[open] .sheet-foot");
   ok(await page.locator(btn).count() === 0, "or on an assignment that's done");
   await act(page, "edit-task", "t1"); await page.waitForSelector(btn);
-  ok((await page.textContent(btn)).trim() === "Check Against Rubric", "an open assignment has Check Against Rubric in the task sheet's actions");
+  ok(await page.locator(btn).count() === 1 && /Check Against Rubric|Rubric Check/.test(await page.textContent(btn)) && (await page.getAttribute(btn, "data-act")) === "rb-check", "an open assignment has Check Against Rubric in the task sheet's actions (Rubric Check, the short label, in the sheet's row)");
   ok(await fits(page), "the task sheet still fits at 1280px");
   await page.click(btn); await page.waitForSelector("#dlg[open] .rbx-sheet [data-rb-rub]");
   await page.waitForFunction(() => /Clear, arguable thesis/.test(document.querySelector("[data-rb-rub]").value));
@@ -154,9 +154,12 @@ const REPLY = {summary: "The thesis is clear and the organization works, but the
   /* Free (locked) */
   const fctx = await mkCtx({key: true, free: true}), fp = await open(fctx);
   await act(fp, "edit-task", "t1"); await fp.waitForSelector(btn);
-  ok(await fp.locator(btn + " .pro-badge").count() === 1, "free users see it with a PRO badge");
+  // the free plan has a few checks a week (PLAN.runsLeft): the button says how many, and opens the check itself
+  ok(/\d+ free this week/.test(await fp.textContent(btn)) || await fp.locator(btn + " .pro-badge").count() === 1, "free users see how many free checks are left this week (or PRO when none are): " + (await fp.textContent(btn)).trim());
+  const freeLeft = /free this week/.test(await fp.textContent(btn));
   await fp.click(btn); await fp.waitForTimeout(400);
-  ok(/Rubric Check is part of Studyboard Pro/.test(await fp.textContent("#dlg[open]")) && await fp.locator(".rbx-sheet").count() === 0 && fctx.bodies.length === 0, "and it opens the Pro sheet instead");
+  if (freeLeft) ok(await fp.locator("#dlg[open] .rbx-sheet").count() === 1 && fctx.bodies.length === 0, "with checks left it opens Rubric Check, and sends nothing until asked");
+  else ok(/Rubric Check/.test(await fp.textContent("#dlg[open]")) && await fp.locator(".rbx-sheet").count() === 0 && fctx.bodies.length === 0, "with none left it opens the Pro sheet instead");
   ok(fp.errs.length === 0, "no console errors (free): " + fp.errs.join(" | "));
   await fctx.close();
 

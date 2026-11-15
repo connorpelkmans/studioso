@@ -388,6 +388,36 @@
     }).then(function () { result("manage", "success"); });
   });
 
+  /* 6b. Home Screen and Lock Screen widgets (iPhone and iPad, UNTESTED; ios-wrapper/native/HomeWidgets) */
+  // save(data): the day the widgets show (src/js/70-widgets.js phoneData), written to the App Group, then the widgets reload.
+  // drain(): tasks checked off on a widget, [{id, kind: "done", task, at}], oldest first; ack(ids) once they're done in the page.
+  var HW = P.StudyboardHomeWidgets;
+  try { if (!HW && C.isPluginAvailable && C.isPluginAvailable("StudyboardHomeWidgets") && C.registerPlugin) HW = C.registerPlugin("StudyboardHomeWidgets"); } catch (e) {}
+  if (HW && !(C.getPlatform && C.getPlatform() === "android")) {
+    window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
+      homeWidgets: {
+        save: function (data) {
+          var json; try { json = JSON.stringify(data); } catch (e) { return Promise.resolve(false); }
+          if (!json || json.length > 200000) return Promise.resolve(false);
+          return Promise.resolve().then(function () { return HW.save({json: json}); }).then(function () { return true; }, function () { return false; });
+        },
+        drain: function () {
+          if (typeof HW.drain !== "function") return Promise.resolve([]);
+          return Promise.resolve().then(function () { return HW.drain(); }).then(function (r) {
+            return (r && Array.isArray(r.items) ? r.items : []).filter(function (x) {
+              return x && typeof x.id === "string" && /^[\w-]{1,64}$/.test(x.id) && x.kind === "done" && typeof x.task === "string" && /^[\w:.-]{1,80}$/.test(x.task);
+            }).map(function (x) { return {id: x.id, kind: "done", task: x.task, at: Number(x.at) || 0}; });
+          }, function () { return []; });
+        },
+        clear: function () { if (typeof HW.clear !== "function") return Promise.resolve(); return Promise.resolve().then(function () { return HW.clear(); }).then(function () {}, function () {}); },
+        ack: function (ids) {
+          if (typeof HW.ack !== "function") return Promise.resolve();
+          return Promise.resolve().then(function () { return HW.ack({ids: (ids || []).filter(function (x) { return typeof x === "string"; }).slice(0, 100)}); }).then(function () {}, function () {});
+        }
+      }
+    });
+  }
+
   /* 7. Focus timer in the Dynamic Island (iOS Live Activity) */
   // found by name too, in case it was registered after the plugin list was handed to the page
   var FA = P.StudyboardFocusActivity;
@@ -560,11 +590,15 @@
       // a box tapped while no keyboard is up: the keyboard is about to come, and its height is known from last time, so the
       // page makes room for it straight away (the editor heads to its final spot in one move); if no keyboard comes (a
       // hardware keyboard), that's undone
-      var expectT = 0;
+      // Only a box that was just tapped (or the note editor, focused inside the tap that makes a note) brings the keyboard: a
+      // box a sheet focuses by itself gets no keyboard from iOS, and making room for one moved the sheet up and back down
+      var expectT = 0, touchEl = null, touchAt = 0;
+      document.addEventListener("touchend", function (e) { touchEl = e.target; touchAt = Date.now(); }, true);
+      var tapped = function (t) { if (Date.now() - touchAt > 800 || !touchEl || !touchEl.nodeType) return false; if (t === touchEl || t.contains(touchEl)) return true; var l = touchEl.closest && touchEl.closest("label"); return !!l && l.contains(t); };
       document.addEventListener("focusin", function (e) {
         if (!isBox(e.target)) return;
         clearTimeout(unlockT); try { KB.setScroll({ isDisabled: true }); } catch (x) {}
-        if (!isOpen && kbH > 0) { kbOn(true, kbH); clearTimeout(expectT); expectT = setTimeout(function () { if (!realOpen) kbOn(false); }, 900); }
+        if (!isOpen && kbH > 0 && (tapped(e.target) || e.target.id === "noteText")) { kbOn(true, kbH); clearTimeout(expectT); expectT = setTimeout(function () { if (!realOpen) kbOn(false); }, 900); }
       }, true);
       document.addEventListener("focusout", function () { clearTimeout(unlockT); unlockT = setTimeout(function () { if (!isBox(document.activeElement) && !isOpen) try { KB.setScroll({ isDisabled: false }); } catch (x) {} }, 120); }, true);
     } catch (e) {}

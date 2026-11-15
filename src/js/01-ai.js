@@ -282,12 +282,66 @@ async function aiProForget(){
   try { await fetchT(`${AI_PRO}/v1/me`, {method: "DELETE", headers: {Authorization: "Bearer " + tok}, cache: "no-store"}, 8000); } catch(e) {}
   try { localStorage.removeItem(AI_PRO_LS); } catch(e) {}
 }
+/* Your own paid API key (Claude, ChatGPT): only for accounts Studyboard has allowed (supabase-own-keys.sql). Everyone else uses a free
+   Gemini key or Studyboard AI with Pro. Read when signed in and remembered on this device, so it holds offline; signed out or not
+   allowed means no paid key of their own. A paid key saved before stays on the device but is never used. */
+const AI_PAID_OWN = ["anthropic", "openai"];
+const AI_OWNKEYS = (() => {
+  const KEY = "studyboard:ownKeyAccess";
+  let uid = null, checkedAt = 0, fake = null;
+  const client = () => fake ? fake.sb : sb, user = () => fake ? fake.user : sbUser;
+  const saved = () => { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } };
+  const save = v => { try { if (v) localStorage.setItem(KEY, JSON.stringify(v)); else localStorage.removeItem(KEY); } catch (e) {} };
+  function ok(){
+    if (window.__SB_TEST && window.__SB_OWN_KEYS) return true;
+    const u = user(); if (!u || u.is_anonymous) return false;
+    const s = saved(); return !!(s && s.on && s.uid === u.id);
+  }
+  async function check(){
+    const c = client(), u = user();
+    if (!c || !u || u.is_anonymous) return;
+    const id = u.id, was = ok(); checkedAt = Date.now();
+    try {
+      const {data, error} = await c.from("studyboard_own_key_access").select("allowed").eq("user_id", id).maybeSingle();
+      // offline or not set up yet: the last answer on this device stands
+      if (error || !user() || user().id !== id) return;
+      save(data && data.allowed === true ? {uid: id, on: true} : null);
+      if (ok() !== was) { try { scheduleRender(); } catch (e) {} }
+    } catch (e) {}
+  }
+  hook("render", () => {
+    const id = user() ? user().id : null;
+    if (id === uid) return;
+    uid = id;
+    if (id) { const s = saved(); if (s && s.uid !== id) save(null); check(); }
+  });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && uid && Date.now() - checkedAt > 10 * 60e3) check(); });
+  const api = {ok, check};
+  if (window.__SB_TEST) api.fake = (c, u) => { fake = {sb: c, user: u}; uid = null; try { scheduleRender(); } catch (e) {} };
+  return api;
+})();
+const aiOwnPaidOk = () => AI_OWNKEYS.ok();
+// Every key saved on this device, the unused paid ones included (for keeping them, Turn Off and moving them to another device)
+function aiHeldKeys(){
+  const raw = (state.settings && state.settings.ai) || {};
+  const k = Object.assign({gemini: "", anthropic: "", openai: ""}, raw.keys || {}, aiLocalKeys);
+  if (raw.key && !k.gemini) k.gemini = raw.key;
+  return k;
+}
+// Paid keys saved on this device that this account may not use
+function aiBlockedKeys(){ if (aiOwnPaidOk()) return {}; const k = aiHeldKeys(), out = {}; AI_PAID_OWN.forEach(p => { if (k[p]) out[p] = k[p]; }); return out; }
+// The one line that says why a saved Claude or ChatGPT key isn't used any more
+function aiOwnGoneLine(){
+  const b = Object.keys(aiBlockedKeys()); if (!b.length) return "";
+  const names = b.map(p => AI_PROVIDERS[p].short).join(" and "), paywall = (() => { try { return typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall(); } catch (e) { return false; } })();
+  return `<p class="ai-disclaimer mini" id="aiOwnGone" style="margin:0">Studyboard no longer uses your own ${esc(names)} key, so nothing more is charged to it (it's still saved on this device). AI now works with a free Gemini key, or with Studyboard AI in ${paywall ? `<button type="button" class="link-btn" data-act="plan-open" data-reason="Get Studyboard AI with Pro">Pro</button>` : "Pro"}.</p>`;
+}
 // Test handle (only when a test page sets window.__SB_TEST)
-if (window.__SB_TEST) window.__sbAi = {cfg: () => aiCfg(), proRefresh: () => aiProRefresh(), proGet: () => aiProGet(), useOwnMode: () => aiSaveCfg({provider: "anthropic", model: "studyboard"})};
+if (window.__SB_TEST) window.__sbAi = {cfg: () => aiCfg(), ownKeys: AI_OWNKEYS, proRefresh: () => aiProRefresh(), proGet: () => aiProGet(), useOwnMode: () => aiSaveCfg({provider: "anthropic", model: "studyboard"})};
 // Studyboard AI's rules (src/js/01-ai-policy.js): the built-in AI, or a student's own Claude key in Studyboard AI Mode
 const aiSbMode = c => !!c && (c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard"));
 /* A student's own Claude key in Studyboard AI Mode: the same rules as the built-in AI (SBPOLICY.runJob: model, thinking per job,
-   output caps, the same weekly, daily, per-minute and at-once limits), run on this device and paid by their key. The allowance
+   output caps, the same 7-day and monthly, daily, per-minute and at-once limits), run on this device and paid by their key. The allowance
    is kept on this device, one change at a time across tabs. */
 const AI_OWN_LS = "studyboard:ownAI";
 const ownStore = {
@@ -323,7 +377,11 @@ function ownClaude(key, signal, ms){
     count: async req => { const rest = Object.assign({}, req); delete rest.max_tokens; return (await call("/v1/messages/count_tokens", rest)).input_tokens; }
   };
 }
-const ownView = () => { try { const r = ownStore.all(), L = ownLimits(), m = SBPOLICY.weekOf(Date.now()), spent = r.month === m ? r.spent || 0 : 0; return {usedPct: Math.min(100, Math.round(spent / L.monthMicro * 100)), soft: spent >= L.softMicro, resets: SBPOLICY.nextWeek(Date.now())}; } catch(e) { return {usedPct: 0, soft: false, resets: null}; } };
+// this device's own-key allowance, read the same way as Studyboard AI's (the last 7 days, and this month's cap)
+const ownView = () => { try { const now = Date.now(), d = SBPOLICY.dayOf(now), from = SBPOLICY.dayOf(now - 6 * 864e5), mon = SBPOLICY.monthOf(now), raw = (ownStore.all() || {}).days || {}, days = {};
+  Object.keys(raw).forEach(k => { const n = Number(raw[k]); if ((k >= from || k.slice(0, 7) === mon) && k <= d && n > 0) days[k] = n; });
+  const sum = f => Object.keys(days).filter(f).reduce((a, k) => a + days[k], 0);
+  return SBPOLICY.Meter.prototype.view({now, days, spent: sum(k => k >= from), monthSpent: sum(k => k.slice(0, 7) === mon), daySpent: days[d] || 0}, ownLimits()); } catch(e) { return {usedPct: 0, soft: false, resets: null}; } };
 // "Resets on December 1"
 const aiProResets = () => { const t = aiProGet(); if (!t || !t.resets) return ""; try { return new Date(t.resets).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } };
 // A scanned code opens the app as <app>#sbkey=XXXX-XXXX-XXXX
@@ -385,14 +443,15 @@ const KEY_MASK = (() => { try { return CSS.supports("-webkit-text-security", "di
 function aiCfg(){
   aiAdoptLegacyKeys();
   const raw = (state.settings && state.settings.ai) || {};
-  const keys = Object.assign({gemini: "", anthropic: "", openai: ""}, raw.keys || {}, aiLocalKeys);
-  if (raw.key && !keys.gemini) keys.gemini = raw.key;
+  // A paid key of their own (Claude, ChatGPT) only for allowed accounts: otherwise it stays saved but is never used
+  const keys = aiHeldKeys();
+  if (!aiOwnPaidOk()) AI_PAID_OWN.forEach(p => { keys[p] = ""; });
   let provider = AI_PROVIDERS[raw.provider] ? raw.provider : "gemini";
   let model = raw.model || (provider === "gemini" ? "auto" : AI_PROVIDERS[provider].models[0][0]);
   if (!keys[provider]) { const p = ["gemini", "anthropic", "openai"].find(x => keys[x]); if (p) { provider = p; model = p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]; } }
   if (provider === "anthropic") model = "studyboard";
-  // Studyboard AI (Pro) unless the student chose their own key; once this week's is used up, their own key takes over if they have one
-  // Paid Pro: Studyboard AI first, always. The student's own key (Gemini first) only once this week's or today's allowance is used up.
+  // Studyboard AI (Pro) unless the student chose their own key; once it's used up, their own key takes over if they have one
+  // Paid Pro: Studyboard AI first, always. The student's own key (Gemini first) only once the allowance (or today's, if there's a daily limit) is used up.
   if (aiProAvail() && !raw.ownKey) {
     if (!aiProUsedUp()) return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
     const b = aiProBackup(keys);
@@ -403,12 +462,16 @@ function aiCfg(){
 }
 const aiReady = () => !inPreview() && !!aiCfg().key;
 const aiErr = (code, message) => Object.assign(new Error(message), {code});
+// The technical part of an AI error (the provider's own words), folded away under the friendly message
+const aiDetailHtml = e => e && e.detail ? `<details class="cl-diag ai-detail"><summary>Details</summary><p class="mini" style="margin:0">${esc(e.detail)}</p></details>` : "";
 function aiModelName(provider, model){
   if (provider === "studyboard" || (provider === "anthropic" && aiProUser())) return "Studyboard AI";
   const P = AI_PROVIDERS[provider]; if (!P) return model;
   const m = P.models.find(x => x[0] === model);
   return m ? m[1].replace(/ \(.*$/, "").replace(/, Auto$/, "") : model;
 }
+// Who is working, in progress lines: "Gemini", not a picker label like "Gemini Auto"
+const aiBrandName = () => { const c = aiCfg(), p = c.provider; return p === "studyboard" || (p === "anthropic" && aiProUser()) ? "Studyboard AI" : (AI_WHO[p] || {}).product || aiModelName(p, c.model); };
 // One model's label in a picker: a Claude key runs as Studyboard AI does, so for Pro students it's just "Studyboard AI"
 const aiOptLabel = (p, m, l) => p === "anthropic" && m === "studyboard" && aiProUser() ? "Studyboard AI" : l;
 /* The model choices for the keys given, grouped by company. For Pro students the Claude key's choice stands on its own as
@@ -722,15 +785,16 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
       if (res.status === 401 || res.status === 403 || (res.status === 400 && /api[ _-]?key/i.test(msg))) return {err: aiErr("key", "Google didn't accept your Gemini key. Check it in Settings, then AI Features."), fatal: true};
       if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) return {err: aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best)."), fatal: true};
       if (res.status === 404 || (res.status === 400 && /model/i.test(msg) && !/token|size|large/i.test(msg))) return {err: aiErr("model", `The model ${m} isn't available on your key.`), weak: true};
-      if (res.status === 429) { if (!search && !urlContext) cool(m, /day|daily|per ?day/i.test(msg) ? 6 * 3600000 : 70000); return {err: aiErr("limit", "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)." + (msg ? ` Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : ""))}; }
+      // Google's own words (and the model) go behind Details: noise to a student. daily: Google said it's the day's limit
+      if (res.status === 429) { const daily = /day|daily|per ?day/i.test(msg); if (!search && !urlContext) cool(m, daily ? 6 * 3600000 : 70000); return {err: Object.assign(aiErr("limit", daily ? "You've used up today's free Gemini requests. They reset tomorrow." : "You've used up the free AI requests for now. Wait a minute and try again (if it's the daily limit, it resets tomorrow)."), {daily, detail: msg ? `Google said (${m}${search ? ", web search" : ""}): ${String(msg).replace(/\s+/g, " ").slice(0, 200)}` : ""})}; }
       // a video or file that Google's servers choke on isn't the model's fault: no bench, and Google's own words go with the error
-      if (res.status >= 500) { if (!media) cool(m, 3 * 60000); return {err: Object.assign(aiErr("busy", "Google's AI is very busy right now. Try again in a minute." + (msg ? ` Google said (${m}): ${String(msg).replace(/\s+/g, " ").slice(0, 160)}` : "")), {status: res.status, gmsg: String(msg || "").slice(0, 300)})}; }
+      if (res.status >= 500) { if (!media) cool(m, 3 * 60000); return {err: Object.assign(aiErr("busy", "Google's AI is very busy right now. Try again in a minute."), {status: res.status, gmsg: String(msg || "").slice(0, 300), detail: msg ? `Google said (${m}): ${String(msg).replace(/\s+/g, " ").slice(0, 160)}` : ""})}; }
       return {err: aiErr("http", msg ? "The AI couldn't do that: " + msg.slice(0, 180) : "The AI couldn't do that right now (error " + res.status + ")."), fatal: true};
     }
     return {err: aiErr("http", "The AI couldn't do that right now.")};
   }
   return new Promise((resolve, reject) => {
-    let next = 0, running = 0, hedgeT = 0, lastErr = null;
+    let next = 0, running = 0, hedgeT = 0, lastErr = null, limits = 0;
     const finish = (fn, v) => { if (settled) return; settled = true; clearTimeout(hedgeT); ctrls.forEach(c => { try { c.abort(); } catch (e) {} }); fn(v); };
     const launch = () => {
       if (settled || next >= models.length) return false;
@@ -742,6 +806,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
         if (settled || o.quiet) return;
         if (o.ok) { finish(resolve, o.r); return; }
         if (o.fatal) { finish(reject, o.err); return; }
+        // a second model out of free requests too: it's the key's quota, so the rest won't do better (and each try uses it up further)
+        if (o.err && o.err.code === "limit" && ++limits >= 2) { finish(reject, o.err); return; }
         // the first real reason is the one worth showing (a missing model is only a reason when nothing else went wrong)
         if (!lastErr || (lastErr.code === "model" && !o.weak)) lastErr = o.err;
         if (!launch() && running === 0) finish(reject, lastErr || aiErr("http", "The AI couldn't do that right now."));
@@ -753,20 +819,20 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
 }
 // Studyboard AI (AI_PRO)
 const AI_PRO_WORDS = {
-  used_up: {title: "You've Used This Week's Studyboard AI", body: "Studyboard AI is back when your allowance resets. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
-  today: {title: "You've Used Today's Studyboard AI", body: "Studyboard AI has a daily share so this week's allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
+  used_up: {title: "You've Used Your Studyboard AI for Now", body: "Studyboard AI comes back as your recent use rolls off. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
+  today: {title: "You've Used Today's Studyboard AI", body: "Studyboard AI has a daily share so your allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
   files: {title: "This Needs a Gemini Key", body: "Studyboard AI reads text, photos and PDFs. Videos need Google's Gemini, the only AI that can watch them. A free Gemini key takes about a minute to set up.", err: "Videos need a free Gemini key."},
   search: {title: "This Needs Your Own Key", body: "Looking things up on the web needs your own free Google Gemini key, which takes about a minute.", err: "This needs your own free Gemini key."},
   too_long: {title: "That's Too Much in One Go", body: "Studyboard AI handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
 };
 // own: the student's own Claude key in Studyboard AI Mode (the same job, run on this device), otherwise the built-in AI
 const AI_OWN_WORDS_PRO = {
-  used_up: {title: "Your Own Key's Weekly Limit Is Reached", body: "Studyboard AI keeps your own key to its weekly limit, so AI pauses until it resets. Choose another model in Settings, AI Features to keep going.", err: "Your own key's Studyboard AI limit for this month is reached."},
+  used_up: {title: "Your Own Key's Limit Is Reached", body: "Studyboard AI keeps your own key to the same limits as Studyboard AI (over the last 7 days, and each month), so AI pauses until it resets. Choose another model in Settings, AI Features to keep going.", err: "Your own key's Studyboard AI limit for this month is reached."},
   today: {title: "That's Today's Limit on Your Own Key", body: "Studyboard AI keeps your own key to its daily limit. It's back tomorrow, or choose another model in Settings, AI Features.", err: "That's today's Studyboard AI limit on your own key. More tomorrow."}
 };
 const aiOwnWords = () => aiProUser() ? AI_OWN_WORDS_PRO : AI_OWN_WORDS;
 const AI_OWN_WORDS = {
-  used_up: {title: "Your Claude Key's Weekly Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same weekly limit as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
+  used_up: {title: "Your Claude Key's Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same limits as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
   today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
 };
 // A request the student made that meets "too many at once" waits a moment and tries again (up to 3 times) instead of failing
@@ -803,7 +869,7 @@ async function proCallOnce({system, parts, schema, ms, task, signal, auto, searc
     aiProSet(j);
   }
   if (res.ok && j.data && typeof j.data === "object") {
-    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of this week's Studyboard AI. Everyday jobs now think a little less so the rest lasts."), 600); }
+    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of your Studyboard AI for now. Everyday jobs now think a little less so the rest lasts."), 600); }
     return {data: j.data, model: own ? aiModelName("anthropic", "studyboard") : "Studyboard AI", provider: own ? "anthropic" : "studyboard", truncated: !!j.truncated};
   }
   const why = res.status === 413 ? "too_long" : AI_PRO_WORDS[j.error] && j.error !== "files" && j.error !== "search" ? j.error : "";
@@ -859,7 +925,7 @@ async function proYoutube(url, signal){
   aiProSet(j);
   if (res.ok && typeof j.transcript === "string" && j.transcript) return j;
   if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
-  if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI.${aiProResets() ? ` More on ${aiProResets()}.` : ""} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
+  if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI.${(n => ` More on ${new Date(n).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"})}.`)(SBPOLICY.nextMonth(Date.now()))} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
   if (j.error === "video") throw aiErr("video", "That video couldn't be watched. It may be private, unlisted, age-restricted, members-only or removed.");
   if (res.status === 429) throw aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute.");
   throw aiErr("busy", "Studyboard AI couldn't watch that video right now. Try again in a minute.");
@@ -872,7 +938,7 @@ function aiProPrompt(why, own){
   const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiProTitle");
   const when = why === "used_up" ? (own ? (r => { try { return new Date(r).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } })(ownView().resets) : aiProResets()) : "";
   d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiProTitle">${esc(W.title)}</h2></div>
-    <div class="sheet-body"><p style="margin:0">${esc(W.body)}</p>${when ? `<p class="mini" style="margin:0">Your Studyboard AI resets on ${esc(when)}.</p>` : ""}</div>
+    <div class="sheet-body"><p style="margin:0">${esc(W.body)}</p>${when ? `<p class="mini" style="margin:0">More of your Studyboard AI comes back on ${esc(when)}.</p>` : ""}</div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>${own ? "AI Settings" : "Add My Free Gemini Key"}</button></div></div>`;
   const finish = go => { aiProAsking = null; try { d.close(); } catch(e) {} d.remove(); if (go) { aiSetupSheet(true); if (!own) try { window.open("https://aistudio.google.com/apikey", "_blank", "noopener"); } catch(e) {} } };
   d.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
@@ -932,7 +998,7 @@ async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
 // The model picker shown in every AI sheet
 function aiModelBar(){
   const c = aiCfg();
-  if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% of this week's used` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
+  if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% used, last 7 days` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
   const groups = aiModelOpts(c.keys, `${c.provider}|${c.model}`, (p, P) => p === c.provider && !P.models.some(x => x[0] === c.model) ? `<option value="${p}|${esc(c.model)}" selected>${esc(aiModelName(p, c.model))}</option>` : "");
   return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Model</span><select data-ai-model aria-label="AI model">${groups}</select><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></label>`;
 }
@@ -1107,24 +1173,26 @@ const QUIZ_SCHEMA = {type: "OBJECT", properties: {
     topic: {type: "STRING"},
     source: {type: "STRING"}}, required: ["type", "stem", "rationale"]}}},
   required: ["questions"]};
-function aiCleanQuestions(list){
+// tidy: how each piece of text is cleaned (questions made from your own cards keep their text, math included)
+function aiCleanQuestions(list, tidy){
+  if (typeof tidy !== "function") tidy = aiTidyText;
   const out = [];
   (Array.isArray(list) ? list : []).forEach(q => {
     const type = ["single", "multiple", "order", "truefalse", "short"].includes(q.type) ? q.type : "single";
-    const stem = aiTidyText(q.stem); if (!stem) return;
-    let options = (Array.isArray(q.options) ? q.options : []).map(o => aiTidyText(o)).filter(Boolean);
+    const stem = tidy(q.stem); if (!stem) return;
+    let options = (Array.isArray(q.options) ? q.options : []).map(o => tidy(o)).filter(Boolean);
     if (type === "truefalse") options = ["True", "False"];
     let correct = (Array.isArray(q.correct) ? q.correct : []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < options.length);
     if (type === "truefalse" && !correct.length && q.answer) correct = [/^t/i.test(q.answer) ? 0 : 1];
-    const answer = aiTidyText(q.answer);
+    const answer = tidy(q.answer);
     if (type === "short") { if (!answer && !(correct.length && options[correct[0]])) return; }
     else if (options.length < 2) return;
     if ((type === "single" || type === "truefalse") && correct.length !== 1) return;
     if (type === "multiple" && !correct.length) return;
     if (type === "order" && (correct.length !== options.length || new Set(correct).size !== options.length)) return;
-    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => aiTidyText(s)) : [];
+    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => tidy(s)) : [];
     out.push({id: uid(), type, stem, options: type === "short" ? [] : options, correct: type === "short" ? [] : (type === "multiple" ? [...new Set(correct)].sort((a, b) => a - b) : correct),
-      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: aiTidyText(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
+      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
   });
   return out;
 }
@@ -1250,6 +1318,9 @@ function aiStudySheet(deckId, mode){
     if (f && r[Number(f.dataset.forget)]) { aiForgetStyle(r[Number(f.dataset.forget)]); drawRecent(); }
   });
   if (deck && deck.aiStyle) $("#aiStyle").value = deck.aiStyle;
+  // Cancel while it's still making the set throws that work away: ask first (✕ or a tap outside sets it aside and it keeps going)
+  { const cx = dlg.querySelector('.ai-sheet .sheet-foot [data-act="close"]'); if (cx) cx.addEventListener("click", e => { if (!job.busy) return; e.stopPropagation(); e.preventDefault();
+    askBox({title: "Stop Creating?", text: "It's still being made. Stop now and it's thrown away, or keep it going: tap outside this window and it finishes in the background.", yes: "Stop and Discard", no: "Keep Going", danger: true}).then(ok => { if (ok && dlg.open && dlg.contains(cx)) dlg.close(); }); }); }
   $("#aiGo").addEventListener("click", async () => {
     if (job.busy) return;
     const pasted = $("#aiPaste").value.trim();
@@ -1263,10 +1334,15 @@ function aiStudySheet(deckId, mode){
     const custom = $("#aiStyle").value.trim(), picks = $$(".ai-style-sel", dlg).map(s => s.value).filter(v => v !== "").map(Number);
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
-    job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
+    job.busy = true; const go = $("#aiGo"), goWas = go.innerHTML; go.disabled = true; go.classList.add("busy", "ai-going");
+    // the button itself says it's working, with a clock, so a long wait never looks like nothing happened
+    const t0 = Date.now(), goClock = () => { const sec = Math.floor((Date.now() - t0) / 1000); go.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Creating… ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`; };
+    goClock(); const goTick = setInterval(() => { if (!job.busy || !go.isConnected) clearInterval(goTick); else goClock(); }, 1000);
+    const goBack = () => { clearInterval(goTick); go.innerHTML = goWas; go.classList.remove("ai-going"); };
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
-    status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
+    const brand = aiBrandName();
+    status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(brand)} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     aiShowStatus(status);
     try {
       const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
@@ -1278,9 +1354,9 @@ function aiStudySheet(deckId, mode){
       sheetReady(keyK, () => aiReviewSheet(r, ctx), aiReadyMsg(r));
     } catch(e) {
       if (e && e.code === "cancelled") return;
-      console.warn(e); status.textContent = e.code ? e.message : "Something went wrong. Try again.";
+      console.warn(e); status.innerHTML = esc(e.code ? e.message : "Something went wrong. Try again.") + aiDetailHtml(e);
       aiJobFailed(); aiShowStatus(status);
-      job.busy = false; go.disabled = false; go.classList.remove("busy");
+      job.busy = false; go.disabled = false; go.classList.remove("busy"); goBack();
       if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
     }
   });
@@ -1376,7 +1452,11 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial};
+  // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
+  sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
+  // Keyboard goes to Next Question so Enter moves on, even after a mouse-picked answer (the click left focus on Quit)
+  setTimeout(() => { const n = $("#aiNext"); if (n) n.focus(); }, 30);
 }
 function aiFinish(){
   const f = ui.fc; f.done = true;
@@ -1390,6 +1470,7 @@ function aiFinish(){
   d.quizzes = d.quizzes.concat({at: Date.now(), score: right, total, ai: true}).slice(-20);
   saveDeck(d, null);
   if (total > 0 && right / total >= 0.8) { try { celebrate("check"); } catch (e) {} }
+  sbHaptic(total > 0 && right / total >= 0.8 ? "success" : "tap");
   if (quizPasses(right, total) && !(!qz || f.qs.length !== qz.questions.length)) earnBump("q");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
 }
@@ -1580,13 +1661,13 @@ Return JSON only.`});
 }
 
 /* Settings: turning AI on and choosing a model */
-// What Studyboard AI says about this week, for Settings
+// What Studyboard AI says about the last 7 days, for Settings
 function aiProLine(){
   const t = aiProGet() || {}, when = aiProResets();
-  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% of this week's used` : ""}${when ? `, resets ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
+  return `Included with Pro${t.usedPct ? `: ${t.usedPct}% used over the last 7 days` : ""}${when && t.usedPct >= 100 ? `, more back ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
 }
-/* The AI menu's usage card: this week as a percentage, and today's share, with no amounts or costs. The chip in its header
-   always says where things stand; amber once everyday answers get shorter, orange when the week or the day is used up. */
+/* The AI menu's usage card: the last 7 days as a percentage, and today's share, with no amounts or costs. The chip in its header
+   always says where things stand; amber once everyday answers get shorter, orange when the allowance or the day is used up. */
 const SBAI_STAR = '<svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" aria-hidden="true"><path d="M12 4.5l1.9 5.6 5.6 1.9-5.6 1.9L12 19.5l-1.9-5.6-5.6-1.9 5.6-1.9z"/></svg>';
 function aiUseCard(){
   const t = aiProGet() || {}, today = new Date().toISOString().slice(0, 10), when = aiProResets();
@@ -1601,31 +1682,34 @@ function aiUseCard(){
   const st = monthOut ? "out" : dayOut ? "day" : low ? "warn" : "";
   const ringCls = monthOut || dayOut ? "out" : low ? "warn" : "", ringPct = monthOut || dayOut ? 100 : m;
   const chip = monthOut ? "Used up" : dayOut ? back.replace(/^b/, "B") : `${m}%`;
-  const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "this week"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
-  const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "next week"}. Until then, AI keeps working with your backup key below.`
+  const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "the last 7 days"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
+  const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "soon"}. Until then, AI keeps working with your backup key below.`
     : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
-    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual.${when ? ` The week resets <b>${esc(when)}</b>.` : ""}`
-    : `Included with Pro.${when ? ` The week resets <b>${esc(when)}</b>` : ""}${d != null && dayEnds ? `${when ? ";" : ""} today's share resets at ${esc(dayEnds)}.` : when ? "." : ""}`;
+    // the allowance is the last 7 days, rolling: what was used a week ago comes back day by day, so there's no single date to wait for
+    : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual. Use from over a week ago keeps coming back each day.`
+    : `Included with Pro. Counts the last 7 days, so use from over a week ago comes back each day${d != null && dayEnds ? `; today's share resets at ${esc(dayEnds)}.` : "."}`;
   return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
     <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
-    <div class="sbai-num">${m}%<small>used this week</small></div>
-    <div class="sbai-rows">${bar("This week", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
+    <div class="sbai-num">${m}%<small>used, last 7 days</small></div>
+    <div class="sbai-rows">${bar("Last 7 days", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
     <p class="sbai-note">${note}</p></div>`;
 }
 function aiRow(){
   const on = aiReady(), c = aiCfg();
-  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of this week's limit used.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
+  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of the limit used over the last 7 days.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
   if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
-  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
+  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : Object.keys(aiBlockedKeys()).length ? `Off. Studyboard no longer uses your own ${esc(Object.keys(aiBlockedKeys()).map(p => AI_PROVIDERS[p].short).join(" and "))} key. Add a free Gemini key, or get Studyboard AI with Pro.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
 // Which company a pasted key is from, by its format (Claude keys also start with sk-, so they're checked first)
 const aiKeyKind = k => /^sk-ant-/.test(k) ? "anthropic" : /^sk-/.test(k) ? "openai" : /^AIza/.test(k) ? "gemini" : "";
 // opts.code: a code from another device (a scanned link) to offer at the top
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
-  const c = aiCfg(), hasKey = !!(c.keys.gemini || c.keys.anthropic || c.keys.openai), pro = aiProAvail();
+  const c = aiCfg(), held = aiHeldKeys(), hasKey = !!(held.gemini || held.anthropic || held.openai), pro = aiProAvail();
+  // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
+  const paidOk = aiOwnPaidOk(), kindOk = p => !!p && (p === "gemini" || paidOk), kindsSaid = paidOk ? "a Gemini, OpenAI or Claude key" : "a Gemini key";
   // Pro: one box for a backup key from any company, saved into the same per-company keys the separate boxes use
-  const backupHint = () => aiProDeclined() ? "Used while Studyboard AI is off. Paste your own AI API key." : "Used if your Studyboard AI runs out. Paste your own AI API key.";
+  const backupHint = () => (aiProDeclined() ? "Used while Studyboard AI is off. " : "Used if your Studyboard AI runs out. ") + (paidOk ? "Paste your own AI API key." : "Paste a free Gemini API key.");
   const backupRow = () => { const b = aiProBackup(c.keys); return `<div class="ai-key" id="aiBackup">
       <label class="f"><span class="lh">Backup API Key <span class="hint" id="aiBackupHint">${esc(backupHint())}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-backup" id="aiBackupKey" value="${esc(b ? c.keys[b] : "")}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" id="aiBackupShow">Show</button><button type="button" class="btn small" id="aiBackupTest">Test</button></span></label>
       <p class="mini" id="aiBackupKind" aria-live="polite" style="margin:0"></p>
@@ -1636,12 +1720,14 @@ function aiSetupSheet(fromFeature, opts){
       <p class="mini ai-test-msg" data-msg="${p}" aria-live="polite" style="margin:0"></p></div>`; };
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
     return aiModelOpts(keys, `${c.provider}|${c.model}`) || `<option value="">Add a key first</option>`; };
-  openSheet(`<form class="sheet">${head("AI Features")}
+  // opened from a feature that needs AI (opts.feature, e.g. "Photo to Note"), the title says what it's for
+  openSheet(`<form class="sheet">${head(opts.feature ? "Set Up AI to Use " + opts.feature : "AI Features")}
     <div class="sheet-body">
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
-        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If this week's or today's Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
+      ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
@@ -1652,11 +1738,12 @@ function aiSetupSheet(fromFeature, opts){
       ${opts.code && KEY_RELAY ? `<div class="ai-disclaimer" id="aiHoAsk" style="display:grid;gap:8px"><p style="margin:0"><b>Add AI from your other device?</b> This adds the AI keys you set up there to this device, using code <b>${esc(opts.code)}</b>.</p><div class="row" style="display:flex;gap:8px"><button type="button" class="btn primary small" id="aiHoYes">Add Keys</button><button type="button" class="btn small" id="aiHoNo">Not Now</button></div></div>` : ""}
       <p class="mini" id="aiPasteMsg" aria-live="polite" style="margin:0" hidden></p>
       ${pro ? backupRow() : keyRow("gemini")}
+      ${aiOwnGoneLine()}
       ${KEY_RELAY ? `<details class="ai-paid" id="aiHoIn" ${opts.code ? "open" : ""}><summary>Already Set Up on Another Device?</summary>
         <div class="ai-handoff-in"><p class="mini" style="margin:0">On that device, open <b>Settings</b>, <b>AI Features</b> and tap <b>Add AI to Another Device</b>. Scan the code it shows with this device's camera, or type the code here.</p>
           <span class="key-row"><input type="text" class="ai-code-in" id="aiHoCode" value="${esc(opts.code || "")}" placeholder="XXXX-XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Code from your other device" data-noenter><button type="button" class="btn small" id="aiHoGet">Add Keys</button></span>
           <p class="mini" id="aiHoMsg" aria-live="polite" style="margin:0"></p></div></details>` : ""}
-      ${pro ? "" : `<details class="ai-paid" ${c.keys.anthropic || c.keys.openai ? "open" : ""}><summary>Use a Paid Model Instead (Optional)</summary>
+      ${pro || !paidOk ? "" : `<details class="ai-paid" ${c.keys.anthropic || c.keys.openai ? "open" : ""}><summary>Use a Paid Model Instead (Optional)</summary>
         <div class="ai-paid-body">
           <p class="mini ai-disclaimer" style="margin:0"><b>These cost money.</b> You can use a paid Gemini model by turning on billing for your key in Google AI Studio, or use Claude or ChatGPT with an API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">Anthropic</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a>. These usually do not use what you send to train their models.</p>
           ${keyRow("anthropic")}
@@ -1664,7 +1751,7 @@ function aiSetupSheet(fromFeature, opts){
         </div></details>`}
       <label class="f"><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
       <fieldset class="ai-auto"><legend>Automatic AI</legend>
-        <label class="mi-check"><input type="checkbox" id="aiAuto" ${(ai => ai.auto !== undefined ? ai.auto : isFreeModel(c.provider, c.model))((state.settings && state.settings.ai) || {}) ? "checked" : ""}> Improve Today's Plan and study sessions automatically</label>
+        <label class="mi-check"><input type="checkbox" id="aiAuto" ${(ai => ai.auto !== undefined ? ai.auto : isAutoFree(c.provider, c.model))((state.settings && state.settings.ai) || {}) ? "checked" : ""}> Improve Today's Plan and study sessions automatically</label>
         <p class="mini" style="margin:0">AI helps in the background, like picking <b>Do This Next</b> and estimating hours. It never changes anything without a tap. Choose the parts in <button type="button" class="link-btn" data-act="auto-panel">What Each Part Does</button>.</p>
         <label class="f"><span class="lh">Model for Automatic AI</span><select id="aiAutoModel"><option value="free" ${((state.settings.ai || {}).autoModel || "free") === "free" ? "selected" : ""}>Free Gemini (no cost)</option><option value="default" ${(state.settings.ai || {}).autoModel === "default" ? "selected" : ""}>My default model</option></select></label>
         <p class="ai-disclaimer mini" id="aiAutoWarn" hidden style="margin:0"></p>
@@ -1674,15 +1761,19 @@ function aiSetupSheet(fromFeature, opts){
       <p class="mini" style="margin:0">Your keys stay on this device${DESK ? " (in your system keychain)" : ""}, never in your account or backups. AI requests go to the company you chose. Google's free tier may use them to improve its products, so avoid private info.</p>
       <div class="ai-paste"><button type="button" class="btn" data-ai-report="settings" data-ai-text="">Report an AI Response</button><p class="mini">AI can be wrong. Tell us if a response was wrong or harmful.</p></div>
     </div>
-    <div class="sheet-foot">${c.keys.gemini || c.keys.anthropic || c.keys.openai ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
+    <div class="sheet-foot">${hasKey ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
   </form>`);
+  // opened from a feature (Teach It Back, Concept Map, Rubric Check): Save or Cancel goes back to it
+  if (typeof opts.back === "function") { const back = opts.back; dlg.addEventListener("close", () => { if (dlg.querySelector("#aiSave")) setTimeout(() => { if (!dlg.open) { try { back(); } catch (e) { console.warn("ai setup back", e); } } }, 0); }, {once: true}); }
   const keysNow = () => { const k = {}; $$("[data-key]", dlg).forEach(i => { k[i.dataset.key] = i.value.trim(); }); return k; };
   const autoEngine = () => { const k = keysNow(), [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); return $("#aiAutoModel").value === "free" && k.gemini ? {provider: "gemini", model: "auto"} : {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto"}; };
-  const autoWarn = () => { if (!$("#aiAutoWarn") || !$("#aiDefault")) return; const w = $("#aiAutoWarn"), e = autoEngine(), paid = !isFreeModel(e.provider, e.model); w.hidden = !($("#aiAuto").checked && paid);
+  // Without a Gemini key there's no free model for Automatic AI: the choice says so, and the paid one is named below
+  const autoFreeLabel = () => { const o = $("#aiAutoModel") && $("#aiAutoModel").querySelector('option[value="free"]'); if (o) o.textContent = keysNow().gemini || pro ? "Free Gemini (no cost)" : "Free Gemini (needs a Gemini key)"; };
+  const autoWarn = () => { if (!$("#aiAutoWarn") || !$("#aiDefault")) return; autoFreeLabel(); const w = $("#aiAutoWarn"), e = autoEngine(), paid = !isAutoFree(e.provider, e.model); w.hidden = !($("#aiAuto").checked && paid);
     w.innerHTML = `<b>This would use a paid model (${esc(aiModelName(e.provider, e.model))}) in the background and may cost money.</b> You'll be asked to confirm before it's turned on.${keysNow().gemini || pro ? "" : " Add a free Gemini key to run it at no cost."}`; };
   let autoTouched = ((state.settings && state.settings.ai) || {}).auto !== undefined;
   $("#aiAuto").addEventListener("change", () => { autoTouched = true; });
-  const autoDefault = () => { if (autoTouched || !$("#aiDefault") || !$("#aiAuto")) return; const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); $("#aiAuto").checked = !!keysNow()[p] && isFreeModel(p, m); };
+  const autoDefault = () => { if (autoTouched || !$("#aiDefault") || !$("#aiAuto")) return; const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|"); $("#aiAuto").checked = !!keysNow()[p] && isAutoFree(p, m); };
   $("#aiDefault").addEventListener("change", autoDefault); $$("[data-key]", dlg).forEach(i => i.addEventListener("change", () => setTimeout(() => { autoDefault(); autoWarn(); }, 0)));
   ["#aiAuto", "#aiAutoModel", "#aiDefault"].forEach(id => $(id).addEventListener("change", autoWarn));
   $$("[data-key]", dlg).forEach(i => i.addEventListener("change", autoWarn));
@@ -1708,6 +1799,18 @@ function aiSetupSheet(fromFeature, opts){
   $$("[data-test]", dlg).forEach(b => b.addEventListener("click", async () => {
     const p = b.dataset.test, key = keysNow()[p], msg = dlg.querySelector(`[data-msg="${p}"]`);
     if (!key) { msg.textContent = "Paste the key first."; return; }
+    // the same format check Save makes, before anything is sent (or consent asked): a key in the wrong box can move to the right one
+    const kind = aiKeyKind(key), into = kind && kind !== p ? dlg.querySelector(`[data-key="${kind}"]`) : null, nm = x => x === "anthropic" ? "Claude" : x === "openai" ? "OpenAI" : "Gemini";
+    const bad = kind && kind !== p ? `That's ${kind === "openai" ? "an" : "a"} ${nm(kind)} key, not ${p === "openai" ? "an" : "a"} ${nm(p)} key.`
+      : p === "gemini" ? (!/^[\w.-]{30,}$/.test(key) || /^(sk-|sb_)/.test(key) ? "That doesn't look like a Gemini key. Gemini keys come from Google AI Studio." : "")
+      : p === "anthropic" ? (/^sk-ant-/.test(key) ? "" : "Claude API keys start with sk-ant-.") : (/^sk-/.test(key) ? "" : "OpenAI keys start with sk-.");
+    if (bad) {
+      msg.textContent = bad + (into ? " " : "");
+      if (into) { const mv = document.createElement("button"); mv.type = "button"; mv.className = "link-btn"; mv.textContent = `Move It to the ${nm(kind)} Box`; msg.appendChild(mv);
+        mv.addEventListener("click", () => { const from = dlg.querySelector(`[data-key="${p}"]`), det = into.closest("details"); if (det) det.open = true; into.value = key; from.value = ""; [into, from].forEach(i => i.dispatchEvent(new Event("change")));
+          msg.textContent = ""; const m2 = dlg.querySelector(`[data-msg="${kind}"]`); if (m2) m2.textContent = `Moved here. Press Test to check it.`; into.focus(); }); }
+      return;
+    }
     msg.textContent = "Testing…"; b.disabled = true;
     const r = await testKey(p, key);
     msg.textContent = r.ok ? `It works. Connected to ${r.model}.` : r.err; b.disabled = false;
@@ -1715,8 +1818,8 @@ function aiSetupSheet(fromFeature, opts){
   // Pro's one backup box: the key's format says which company it's from; it replaces any saved keys, and an empty box removes them
   const bx = $("#aiBackupKey"), bxKind = $("#aiBackupKind"), bxMsg = $("#aiBackupMsg");
   const bxSay = () => { if (!bx) return; const v = bx.value.trim(), p = aiKeyKind(v), k = keysNow(), saved = aiProBackup(c.keys), others = Object.keys(AI_PROVIDERS).filter(x => x !== p && k[x]);
-    bxKind.textContent = !v ? "No backup key." : !p ? "That doesn't look like a Gemini, OpenAI or Claude key." : `${v === c.keys[p] && p === saved ? "Saved" : "New"}: ${AI_PROVIDERS[p].label} key${others.length ? ` (also ${others.map(x => AI_PROVIDERS[x].short).join(" and ")})` : ""}.`; };
-  const bxSet = () => { const v = bx.value.trim(), p = aiKeyKind(v), hid = dlg.querySelector('[data-key="gemini"]');
+    bxKind.textContent = !v ? "No backup key." : !kindOk(p) ? `That doesn't look like ${kindsSaid}.` : `${v === c.keys[p] && p === saved ? "Saved" : "New"}: ${AI_PROVIDERS[p].label} key${others.length ? ` (also ${others.map(x => AI_PROVIDERS[x].short).join(" and ")})` : ""}.`; };
+  const bxSet = () => { const v = bx.value.trim(), p = kindOk(aiKeyKind(v)) ? aiKeyKind(v) : "", hid = dlg.querySelector('[data-key="gemini"]');
     $$("[data-key]", dlg).forEach(i => { i.value = p === i.dataset.key ? v : ""; });
     bxMsg.textContent = ""; bxSay(); hid.dispatchEvent(new Event("change")); };
   if (bx) {
@@ -1726,14 +1829,14 @@ function aiSetupSheet(fromFeature, opts){
     $("#aiBackupShow").addEventListener("click", e => { const hid = KEY_MASK ? bx.classList.toggle("key-mask") : (bx.type = bx.type === "password" ? "text" : "password") === "password"; e.currentTarget.textContent = hid ? "Show" : "Hide"; });
     $("#aiBackupTest").addEventListener("click", async e => { const b = e.currentTarget, v = bx.value.trim(), p = aiKeyKind(v);
       if (!v) { bxMsg.textContent = "Paste the key first."; return; }
-      if (!p) { bxMsg.textContent = "That doesn't look like a Gemini, OpenAI or Claude key."; return; }
+      if (!kindOk(p)) { bxMsg.textContent = `That doesn't look like ${kindsSaid}.`; return; }
       bxMsg.textContent = "Testing…"; b.disabled = true;
       const r = await testKey(p, v);
       bxMsg.textContent = r.ok ? `It works. Connected to ${r.model}.` : r.err; b.disabled = false; });
   }
   const save = okMsg => {
     const k = keysNow(), bx = $("#aiBackupKey");
-    if (bx) { const v = bx.value.trim(); if (v && !aiKeyKind(v)) { $("#aiBackupMsg").textContent = "That doesn't look like a Gemini, OpenAI or Claude key."; bx.focus(); return; } }
+    if (bx) { const v = bx.value.trim(); if (v && !kindOk(aiKeyKind(v))) { $("#aiBackupMsg").textContent = `That doesn't look like ${kindsSaid}.`; bx.focus(); return; } }
     else if (!k.gemini && !k.anthropic && !k.openai) { const m = dlg.querySelector('[data-msg="gemini"]'); m.textContent = "Paste your Gemini key first."; dlg.querySelector('[data-key="gemini"]').focus(); return; }
     if (k.gemini && /^(sk-|sb_)/.test(k.gemini)) { dlg.querySelector('[data-msg="gemini"]').textContent = "That doesn't look like a Gemini key. Gemini keys come from Google AI Studio."; return; }
     if (k.anthropic && !/^sk-ant-/.test(k.anthropic)) { dlg.querySelector('[data-msg="anthropic"]').textContent = "Claude API keys start with sk-ant-."; return; }
@@ -1741,7 +1844,8 @@ function aiSetupSheet(fromFeature, opts){
     const prev = state.settings.ai || {};
     const next = {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto", keys: {}, auto: $("#aiAuto").checked, autoModel: $("#aiAutoModel").value, autoPaidOk: prev.autoPaidOk || ""};
     if (prev.ownKey) next.ownKey = true;
-    const e = autoEngine(), paid = !isFreeModel(e.provider, e.model), tag = `${e.provider}|${e.model}`;
+    const e = autoEngine(), paid = !isAutoFree(e.provider, e.model), tag = `${e.provider}|${e.model}`;
+    const keep = Object.assign({}, recv, aiBlockedKeys()); Object.keys(keep).forEach(p => { if (!k[p]) k[p] = keep[p]; });
     const finish = msg => { aiKeysSetLocal(k); state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings(); AUTO.sig = ""; AUTO.planAt = 0; autoErr = null; autoSave(); if (dlg.open) dlg.close(); toast(msg); scheduleRender();
       const pv = next.provider; if (k[pv] && !aiConsented(pv)) setTimeout(() => aiConsentAsk(pv), 300); };
     if (next.auto && paid && next.autoPaidOk !== tag) {
@@ -1757,6 +1861,7 @@ function aiSetupSheet(fromFeature, opts){
   const pasteSay = t => { if (pasteMsg) { pasteMsg.hidden = !t; pasteMsg.textContent = t; } };
   const live = () => dlg.open && sheetEl.isConnected;
   let lastTried = "", hoBusy = false;
+  const recv = {}; // keys from another device that have no box on this sheet
   const useKey = async key => {
     if (!live() || key === lastTried) return;
     lastTried = key;
@@ -1780,7 +1885,7 @@ function aiSetupSheet(fromFeature, opts){
     if (!live()) return;
     if (!keys) { m.textContent = err; return; }
     lastTried = keys.gemini || "";
-    Object.entries(keys).forEach(([p, k]) => { const i = dlg.querySelector(`[data-key="${p}"]`); if (i) { i.value = k; i.dispatchEvent(new Event("change")); } });
+    Object.entries(keys).forEach(([p, k]) => { const i = dlg.querySelector(`[data-key="${p}"]`); if (i && kindOk(p)) { i.value = k; i.dispatchEvent(new Event("change")); } else recv[p] = k; });
     if (keys.anthropic || keys.openai) { const d = dlg.querySelector("details.ai-paid:not(#aiHoIn)"); if (d) d.open = true; }
     if (bx) { const p = aiProBackup(keysNow()); bx.value = p ? keysNow()[p] : ""; bxSay(); }
     const n = Object.keys(keys).length;
@@ -1830,7 +1935,7 @@ function aiSetupSheet(fromFeature, opts){
     hoGet.addEventListener("click", () => { const code = KEYHO.normCode($("#aiHoCode").value); if (!code) { $("#aiHoMsg").textContent = "Codes have 12 letters and numbers, like K7Q2-9XMD-4TRP."; return; } getKeys(code); });
     $("#aiHoCode").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); hoGet.click(); } });
   }
-  const hoSend = $("#aiHoSend"); if (hoSend) hoSend.addEventListener("click", () => keyHandoffSend(aiCfg().keys));
+  const hoSend = $("#aiHoSend"); if (hoSend) hoSend.addEventListener("click", () => keyHandoffSend(aiHeldKeys()));
   // the usage card shows what was last read; read it again now and redraw it in place
   if (aiProAvail() && AI_PRO && sbUser) aiProRefresh().then(j => { const el = j && dlg.open ? dlg.querySelector("#sbaiUse") : null; if (el) el.outerHTML = aiUseCard(); });
   const usePro = $("#aiUsePro");

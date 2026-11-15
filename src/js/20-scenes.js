@@ -269,9 +269,110 @@
   const MO = () => window.SBMotion || null;
   const liveOK = () => styleCfg().motion !== false && (!MO() || MO().live());
 
+  /* The animation draws in a worker. The engines' drawing (and, with no GPU, copying each finished canvas frame to the screen)
+     took most of the main thread's time with a living scene on, so scrolling, typing and switching tabs stuttered. Each canvas
+     hands its drawing to an OffscreenCanvas in a worker that runs the same engine on the same scene data (A and v are copied
+     over), at the same frame rate, so nothing on screen changes; the page only tells it when to run, rest or play a moment.
+     Browsers without OffscreenCanvas or a worker frame clock keep drawing here, as before. */
+  function sceneWorker(){
+    const F_BAL = {s: 1, a: 1};
+    let L = null, cur = null, raf = 0, rafT = 0, last = 0, T = 0, live = false, hidden = false, finUntil = 0, gap = 4, cost2 = 0, hold60 = 0;
+    // the library makes its sprite canvases with document.createElement and reads window.devicePixelRatio
+    self.window = self; self.document = {createElement: () => new OffscreenCanvas(1, 1)};
+    const stop = () => { if (raf > 0) cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
+    const gapNow = () => (performance.now() < hold60 ? 14 : gap);
+    const running = () => !hidden && (live || performance.now() < finUntil);
+    const next = () => { const g = gapNow(), wait = last ? g - (performance.now() - last) + 1 : 0; if (g > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
+    function draw(){
+      const c = cur; if (!c) return;
+      if (c.drawn && c.eng.idle && c.eng.idle(T)) return;
+      const uses = typeof c.eng.uses === "string" ? c.eng.uses : "ab";
+      c.ctx.forEach((x, i) => { if (uses.indexOf(i ? "b" : "a") < 0) return; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, x.canvas.width, x.canvas.height); x.setTransform(c.s, 0, 0, c.s, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = "source-over"; });
+      c.eng.draw(c.ctx[0], c.ctx[1], T, F_BAL); c.drawn = true;
+    }
+    // an engine that throws is dropped; the page redraws the theme as a still scene
+    function safe(fn){ try { fn(); return true; } catch (e) { const g = cur && cur.gen; stop(); cur = null; postMessage({t: "broken", gen: g, err: String(e && e.stack || e)}); return false; } }
+    function tick(ts){
+      raf = 0;
+      const c = cur; if (!c || !running()) { last = 0; return; }
+      if (last && ts - last < gapNow()) { raf = next(); return; }
+      const dt = last ? Math.min(0.1, (ts - last) / 1000) : 1 / 30; last = ts; T += dt;
+      const t0 = performance.now();
+      safe(() => { c.eng.step(dt, T, F_BAL); draw(); });
+      { const cost = performance.now() - t0; cost2 = cost2 * 0.9 + cost * 0.1; if (cost2 > 5 && ts > hold60) hold60 = ts + 15000; }
+      if (!raf && cur === c) raf = next();
+    }
+    const sync = () => { if (cur && !raf && running()) { last = 0; raf = requestAnimationFrame(tick); } else if (raf && !running()) { stop(); last = 0; } };
+    const on = {
+      init(m){
+        self.devicePixelRatio = m.dpr;
+        try { importScripts(m.url); L = self.SCN20_LIB; } catch (e) { L = null; }
+        postMessage({t: "init", ok: !!(L && L.ENGINES && typeof OffscreenCanvas === "function"), raf: typeof requestAnimationFrame === "function"});
+      },
+      build(m){
+        stop(); cur = null; last = 0; T = 0;
+        let eng;
+        try { eng = L.ENGINES[m.sc](m.A, m.v, m.dk); } catch (e) { postMessage({t: "broken", gen: m.gen, err: String(e && e.stack || e)}); return; }
+        const dpr = Math.min(m.base, eng.maxDpr || 9) * m.scale, [a, st, b] = m.cv;
+        [a, b].forEach(c => { c.width = Math.round(m.W * dpr); c.height = Math.round(m.H * dpr); });
+        if (eng.stat) { st.width = eng.stat.width; st.height = eng.stat.height; st.getContext("2d").drawImage(eng.stat, 0, 0); eng.hosted = true; } else { st.width = 1; st.height = 1; }
+        cur = {gen: m.gen, eng, s: m.k * dpr, ctx: [a.getContext("2d"), b.getContext("2d")]};
+        if (!safe(() => { eng.step(1 / 30, 0, F_BAL); T = 1 / 30; draw(); })) return;
+        postMessage({t: "ready", gen: m.gen, pointer: !!eng.pointer});
+        sync();
+      },
+      drop(){ stop(); cur = null; },
+      run(m){ live = m.on; hidden = m.hidden; gap = m.gap; sync(); },
+      finish(){ if (!cur) return; if (safe(() => cur.eng.finish(T))) { finUntil = Math.max(finUntil, performance.now() + 6000); stop(); last = 0; sync(); } },
+      ptr(m){ if (cur && cur.eng.pointer && raf) safe(() => cur.eng.pointer(m.p)); }
+    };
+    onmessage = e => { const m = e.data, f = m && on[m.t]; if (f) f(m); };
+  }
+  const WK = (() => {
+    let w = null, dead = false, gen = 0;
+    const can = () => !dead && !window.__SB_SCENE_MAIN && typeof Worker === "function" && typeof OffscreenCanvas === "function" && typeof structuredClone === "function"
+      && !!(window.HTMLCanvasElement && HTMLCanvasElement.prototype.transferControlToOffscreen);
+    // the worker couldn't start, load the library or keep frame time: every scene draws here again
+    function fail(){ if (dead) return; dead = true; try { w && w.terminate(); } catch (e) {} w = null; if (cur && cur.wk) { const id = cur.id; cur = null; build(id); } }
+    function onMsg(e){
+      const m = e.data || {};
+      if (m.t === "init") { if (!m.ok || !m.raf) fail(); return; }
+      const c = cur; if (!c || !c.wk || m.gen !== c.gen) return;
+      if (m.t === "ready") { c.has.pointer = m.pointer; shown(c); }
+      else if (m.t === "broken") { console.warn("scene engine " + c.sc, m.err); broken.add(c.sc); const id = c.id; cur = null; build(id); }
+    }
+    function start(){
+      if (w || !can()) return w;
+      try {
+        const u = URL.createObjectURL(new Blob(["(" + sceneWorker + ")()"], {type: "text/javascript"}));
+        w = new Worker(u); setTimeout(() => URL.revokeObjectURL(u), 60e3);
+        w.onmessage = onMsg; w.onerror = e => { if (e && e.preventDefault) e.preventDefault(); fail(); };
+        w.postMessage({t: "init", url: new URL(L.url, document.baseURI).href, dpr: window.devicePixelRatio || 1});
+      } catch (e) { w = null; dead = true; }
+      return w;
+    }
+    const post = (m, tr) => { if (w) w.postMessage(m, tr || []); };
+    return {can, start, post, next: () => ++gen};
+  })();
+  // A new scene drawn by the worker shows once its first frame is in, over the old one until then (no blank moment on a
+  // resize or a dark-mode switch)
+  function shown(c){
+    if (c.shown) return; c.shown = true; clearTimeout(c.showT);
+    c.el.style.visibility = "";
+    requestAnimationFrame(() => requestAnimationFrame(() => { document.querySelectorAll("#sceneArt").forEach(x => { if (x !== c.el && (!cur || x !== cur.el)) x.remove(); }); }));
+  }
+  let wkRun = "";
+  function wkSync(){
+    const c = cur; if (!c || !c.wk) return;
+    const on = liveOK() && !popup && !document.hidden, gap = gapNow(), sig = [c.gen, on, document.hidden, gap].join("|");
+    c.on = on;
+    if (sig === wkRun) return; wkRun = sig;
+    WK.post({t: "run", on, hidden: document.hidden, gap});
+  }
+
   /* The scene on screen */
   let cur = null, raf = 0, rafT = 0, last = 0, T = 0, finUntil = 0, rebuildTimer = 0;
-  const stopLoop = () => { cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
+  const stopLoop = () => { if (cur && cur.wk) return; cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
   // Sleep between frames
   let cost2 = 0, hold60 = 0;
   const gapNow = () => (performance.now() < hold60 ? 14 : (MO() ? MO().frameMs() : FRAME_MS));
@@ -316,6 +417,11 @@
     if (!L.ready()) return null;
     const sc = sceneOf(id), wantEng = !!L.ENGINES[sc] && !broken.has(sc);
     let A = null, v = null, eng = null;
+    if (wantEng && WK.start()) {
+      // the worker builds the engine from a copy of the same scene data; data that can't be copied keeps it here
+      try { A = {}; L.setAnim(A); v = L.buildSceneAt(sc, dk, g.bw, g.bh, g.desk); L.setAnim(null); structuredClone([A, v]); return {v, eng: {remote: true}, sc, A}; }
+      catch (e) { L.setAnim(null); v = null; }
+    }
     if (wantEng) {
       try { A = {}; L.setAnim(A); v = L.buildSceneAt(sc, dk, g.bw, g.bh, g.desk); L.setAnim(null); eng = L.ENGINES[sc](A, v, dk); }
       catch (e) { L.setAnim(null); console.warn("scene engine " + sc, e); broken.add(sc); v = null; eng = null; }
@@ -328,14 +434,32 @@
     clearTimeout(rebuildTimer);
     const dk = isDarkNow(), g = geometry(), made = makeScene(id, dk, g);
     if (!made) return false;
-    const {v, eng, sc} = made, k = g.k;
+    const {v, eng, sc} = made, k = g.k, wk = !!(eng && eng.remote);
     let el = document.getElementById("sceneArt");
+    // the scene on screen stays until the worker's new one has its first frame
+    const old = el && (wk || (cur && cur.wk)) ? el : null, wasWk = !!(cur && cur.wk);
+    if (old) { el = null; document.querySelectorAll("#sceneArt").forEach(x => { if (x !== old) x.remove(); }); }
     if (!el) { el = document.createElement("div"); el.id = "sceneArt"; el.setAttribute("aria-hidden", "true"); document.body.prepend(el); }
-    el.style.cssText = `left:${g.side}px;top:0;width:${g.W}px;height:${g.H}px;background:${v.sky}`;
+    el.style.cssText = `left:${g.side}px;top:0;width:${g.W}px;height:${g.H}px;background:${v.sky}` + (wk ? ";visibility:hidden" : "");
     const band = v.band.h ? `<div class="sc-band" style="top:${v.band.top * k}px;height:${v.band.h * k}px;background:${v.band.bg}"></div>` : "";
     el.innerHTML = band + layerHtml(v.far, true, v, k) + layerHtml(v.refl, true, v, k) + layerHtml(v.mid, true, v, k)
-      + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng && eng.stat ? `<canvas class="sc-cv sc-s"></canvas>` : "") + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
-    const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, eng && eng.maxDpr || 9, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
+      + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng && (eng.stat || wk) ? `<canvas class="sc-cv sc-s"></canvas>` : "") + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
+    // a scene drawn here replaces a worker's one at once
+    if (!wk && old) { old.remove(); if (wasWk) WK.post({t: "drop"}); }
+    const base = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, window.devicePixelRatio || 1), scale = MO() ? MO().dprScale() : 1;
+    if (wk) {
+      const cvs = [".sc-a", ".sc-s", ".sc-b"].map(q => el.querySelector(q)); cvs.forEach(c => { c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
+      const gen = WK.next(), off = cvs.map(c => c.transferControlToOffscreen());
+      stopLoop(); last = 0; T = 0; wkRun = "";
+      document.documentElement.classList.add("sc-on");
+      cur = {id, sc, dk, sig: sigOf(id, dk, g), g, v, eng, s: k * base, el, dprK: scale, wk: true, gen, has: {}, ctx: []};
+      WK.post({t: "build", gen, sc, dk, A: made.A, v, cv: off, W: g.W, H: g.H, k, base, scale}, off);
+      // never left blank if the first frame is slow to come
+      const c = cur; c.showT = setTimeout(() => shown(c), 1500);
+      syncRun();
+      return true;
+    }
+    const dpr = Math.min(base, eng && eng.maxDpr || 9) * scale, s = k * dpr;
     const cvs = eng ? [el.querySelector(".sc-a"), el.querySelector(".sc-b")] : [];
     cvs.forEach(c => { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
     const sCv = eng && eng.stat ? el.querySelector(".sc-s") : null;
@@ -349,9 +473,9 @@
   }
 
   function teardown(){
-    clearTimeout(rebuildTimer); stopLoop(); cur = null;
+    clearTimeout(rebuildTimer); stopLoop(); if (cur && cur.wk) WK.post({t: "drop"}); cur = null;
     document.documentElement.classList.remove("sc-on");
-    const el = document.getElementById("sceneArt"); if (el) el.remove();
+    document.querySelectorAll("#sceneArt").forEach(el => el.remove());
   }
 
   const feel = () => F_BAL;
@@ -383,6 +507,7 @@
     if (!raf && cur === c) raf = nextFrame();
   }
   function syncRun(){
+    if (cur && cur.wk) { wkSync(); return; }
     if (!cur || !cur.eng || raf || document.hidden) return;
     if ((liveOK() && !popup) || performance.now() < finUntil) { last = 0; raf = requestAnimationFrame(tick); }
   }
@@ -390,7 +515,7 @@
   let popup = false;
   const origPause = ambientPause;
   ambientPause = function (on) { origPause.apply(this, arguments); popup = !!on; if (!on) syncRun(); };
-  document.addEventListener("visibilitychange", () => { if (document.hidden) { stopLoop(); } else syncRun(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { stopLoop(); wkSync(); } else syncRun(); });
   // The Animations governor changed something (mode, power, focus, idle, quality step)
   window.addEventListener("sb-motion", () => {
     stopLoop(); last = 0;
@@ -402,7 +527,7 @@
   hook("skinart", () => {
     const id = document.documentElement.dataset.skin;
     if (!isScene(id)) { teardown(); return false; }
-    if (!L.ready()) { L.load().then(ok => { if (ok && document.documentElement.dataset.skin === id) renderSkinArt(); }); teardown(); return false; }
+    if (!L.ready()) { L.load().then(ok => { if (ok && document.documentElement.dataset.skin === id) { if (L.ENGINES[sceneOf(id)]) WK.start(); renderSkinArt(); } }); teardown(); return false; }
     const dk = isDarkNow(), g = geometry(), sig = sigOf(id, dk, g);
     if (!cur || cur.id !== id) return build(id) || (teardown(), false);
     if (cur.sig !== sig) {
@@ -420,7 +545,8 @@
     if (!hasMoment() || document.hidden || (MO() && MO().level() === "static")) return false;
     const cfg = styleCfg();
     if (!byUser && (cfg.celebrate === false || cfg.motion === false)) return false;
-    if (!safe(() => cur.eng.finish(T))) return false;
+    if (cur.wk) WK.post({t: "finish"});
+    else if (!safe(() => cur.eng.finish(T))) return false;
     finUntil = Math.max(finUntil, performance.now() + 6000);
     stopLoop(); syncRun();
     return true;
@@ -471,12 +597,12 @@
   // Pointer positions for engines that react to them
   let lastPtr = 0;
   document.addEventListener("pointermove", e => {
-    const c = cur; if (!c || !c.eng || !c.eng.pointer || e.pointerType === "touch" || !raf) return;
+    const c = cur; if (!c || !c.eng || e.pointerType === "touch" || (c.wk ? !c.has.pointer || !(c.on || performance.now() < finUntil) : !c.eng.pointer || !raf)) return;
     if (e.timeStamp - lastPtr < 30) return; lastPtr = e.timeStamp;
-    const x = (e.clientX - c.g.side) / c.g.k, y = e.clientY / c.g.k;
-    safe(() => c.eng.pointer(x >= 0 && y >= 0 && x <= c.v.bw && y <= c.v.bh ? {x, y} : null));
+    const x = (e.clientX - c.g.side) / c.g.k, y = e.clientY / c.g.k, p = x >= 0 && y >= 0 && x <= c.v.bw && y <= c.v.bh ? {x, y} : null;
+    if (c.wk) WK.post({t: "ptr", p}); else safe(() => c.eng.pointer(p));
   }, {passive: true});
-  document.documentElement.addEventListener("pointerleave", () => { const c = cur; if (c && c.eng && c.eng.pointer) safe(() => c.eng.pointer(null)); });
+  document.documentElement.addEventListener("pointerleave", () => { const c = cur; if (!c || !c.eng) return; if (c.wk) { if (c.has.pointer) WK.post({t: "ptr", p: null}); } else if (c.eng.pointer) safe(() => c.eng.pointer(null)); });
 
   /* Style Shop previews */
   const TH_W = 640, TH_H = 400, thumbs = new Map();

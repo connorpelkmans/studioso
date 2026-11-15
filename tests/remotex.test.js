@@ -206,7 +206,7 @@ t("the AI plan schema/prompt never lets the model pick fixed events", () => asse
 
 /* -- Task data: normalising, merging, exporting */
 const norm = (() => {
-  const body = fnText("normTask"), ctx = {DIFF_M: {easy: 1, med: 1, hard: 1}, LATE_M: {unknown: 1}, STATUS_LABEL: {todo: 1, doing: 1, done: 1}, PRIO: {low: 1, med: 1, high: 1, urgent: 1}, isDate: x => /^\d{4}-\d{2}-\d{2}$/.test(x || ""), scrubFields: o => o, Object, Array, Number, Math, String};
+  const body = fnText("normTask"), ctx = {DIFF_M: {easy: 1, med: 1, hard: 1}, LATE_M: {unknown: 1}, STATUS_LABEL: {todo: 1, doing: 1, done: 1}, PRIO: {low: 1, med: 1, high: 1, urgent: 1}, isDate: x => /^\d{4}-\d{2}-\d{2}$/.test(x || ""), realDate: x => /^\d{4}-\d{2}-\d{2}$/.test(x || ""), scrubFields: o => o, Object, Array, Number, Math, String};
   vm.createContext(ctx); vm.runInContext(body, ctx); return x => ctx.normTask(x);
 })();
 t("normTask keeps a valid answer and tidies the rest", () => {

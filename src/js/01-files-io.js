@@ -107,7 +107,8 @@ async function assetBytes(id){
   if (!inPreview() && FCACHE.ok(id)) { const hit = await FCACHE.get(id); if (hit) { FCACHE.hits++; return new Uint8Array(await hit.arrayBuffer()); } }
   if (inPreview()) { const r = await fetch("/_blob/" + id); if (!r.ok) throw new Error("fetch " + r.status); return new Uint8Array(await r.arrayBuffer()); }
   if (!sbActive()) throw new Error("not signed in");
-  const data = await sbDownload(id).catch(e => { throw new Error((e && e.message) || "download failed"); });
+  // missing: the account has no such file (storage answers 400 "Object not found"), so asking again won't help
+  const data = await sbDownload(id).catch(e => { throw Object.assign(new Error((e && e.message) || "download failed"), {missing: !!e && (String(e.statusCode) === "404" || e.status === 404 || /object not found|not_found/i.test(String(e.message || "")))}); });
   return new Uint8Array(await data.arrayBuffer());
 }
 const hasStoredFiles = () => Object.values(state.files).some(f => f.kind === "file" && (f.revs || []).some(r => r && r.assetId));
@@ -224,7 +225,7 @@ async function cloudBackupGo(kind){
 function backupWhereSheet(){
   const B = cloudBk(), via = k => !!(B && B.possible(BK_PROV[k]));
   if (B) ["gdrive", "onedrive"].forEach(k => { if (via(k) && !B.connected(BK_PROV[k])) B.connectUrl(BK_PROV[k]); });
-  const cloudCard = (kind, title) => card(kind, title, [B.connected(BK_PROV[kind]) ? `Your ${title} is connected.` : `Click the button below and allow Studyboard in the page that opens.`, `Every hour, a backup of everything goes to <b>Studyboard › Backups</b> in your ${title}. The latest also shows in Files, and you can restore any day from Restore a Backup.`], `Back Up to ${title}`);
+  const cloudCard = (kind, title) => card(kind, title, [B.connected(BK_PROV[kind]) ? `Your ${title} is connected.` : `Click the button below and allow Studyboard in the page that opens.`, `Every hour, a backup of everything goes to <b>Studyboard › Backups</b> in your ${title}. The latest also shows in Files, and you can restore any day from Restore a Device Copy.`], `Back Up to ${title}`);
   if (!FSB.supported() && !via("gdrive") && !via("onedrive")) { toast("Automatic backups need Chrome or Edge on a computer, or Google Drive or OneDrive connected"); return; }
   const card = (kind, title, steps, btn) => `<div class="bk-opt"><div class="bk-head"><span class="bk-ico bk-${kind}" aria-hidden="true">${BRAND_LOGO[kind] || ""}</span><strong>${title}</strong></div><ol>${steps.map(x => `<li>${x}</li>`).join("")}</ol><button type="button" class="btn small ${kind === "other" ? "" : "primary"}" data-fsb="${kind}">${btn}</button></div>`;
   openSheet(`<div class="sheet">${head("Automatic Backups")}<div class="sheet-body">
@@ -321,9 +322,9 @@ function cloudBackupRow(){
   const p = B.provider(), st = B.state();
   if (B.on()) {
     const ago = st.last ? (() => { const m = Math.round((Date.now() - st.last) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; })() : "not yet";
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${st.busy ? "Backing up now…" : st.err ? esc(st.err) : `Saving to ${esc(B.name(p))} › Studyboard › Backups every hour, last saved ${ago}. The latest is in Files and in Restore a Backup.`}</span></span><button class="btn small" data-act="cbk-now"${st.busy ? " disabled" : ""}>Back Up Now</button><button class="btn small" data-act="cbk-stop">Stop</button></div>`;
+    return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">${st.busy ? "Backing up now…" : st.err ? esc(st.err) : `Saving to ${esc(B.name(p))} › Studyboard › Backups every hour, last saved ${ago}. The latest is in Files and in Restore a Backup.`}</span></span><span class="cbk-btns"><button class="btn small" data-act="cbk-now"${st.busy ? " disabled" : ""}>Back Up Now</button><button class="btn small" data-act="cbk-stop">Stop</button></span></div>`;
   }
-  if (B.pending()) return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">Waiting for ${esc(B.name(B.pending()))} to connect. Finish in the page that opened.</span></span><button class="btn small" data-act="cbk-stop">Cancel</button></div>`;
+  if (B.pending()) return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">Waiting for ${esc(B.name(B.pending()))} to connect. Finish in the page that opened.</span></span><button class="btn small" data-act="cbk-stop">Cancel</button></div>`;
   return "";
 }
 function folderBackupRow(){
@@ -332,7 +333,7 @@ function folderBackupRow(){
   // On the website, backups go to Google Drive or OneDrive. A folder backup someone already set up keeps its own row below
   if (!DESK && cloudBk() && FSB.status !== "on" && FSB.status !== "paused") {
     const B = cloudBk(); if (B.ready() && !B.loaded()) B.refresh();
-    return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${B.ready() ? "Back up everything to your Google Drive or OneDrive every hour." : "Make a free account to back up everything to your Google Drive or OneDrive every hour."}</span></span><button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button><button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button></div>`;
+    return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">${B.ready() ? "Back up everything to your Google Drive or OneDrive every hour." : "Make a free account to back up everything to your Google Drive or OneDrive every hour."}</span></span><span class="cbk-btns"><button class="btn small" data-act="cbk-go" data-id="gdrive">Google Drive</button><button class="btn small" data-act="cbk-go" data-id="onedrive">OneDrive</button></span></div>`;
   }
   if (DESK) {
     const ago = FSB.last ? (() => { const m = Math.round((Date.now() - FSB.last) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; })() : "not yet";
@@ -345,7 +346,7 @@ function folderBackupRow(){
   const btns = FSB.status === "on" ? `<button class="btn small" data-act="fsb-choose">Change</button><button class="btn small" data-act="fsb-stop">Stop</button>`
     : FSB.status === "paused" ? `<button class="btn small primary" data-act="fsb-resume">Resume</button><button class="btn small" data-act="fsb-choose">Change</button>`
     : `<button class="btn small primary" data-act="fsb-choose">Set Up</button>`;
-  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">Automatic Backups<span class="sub">${sub}</span></span>${btns}</div>`;
+  return `<div class="cap-row cbk-row"><span class="cbk-t">Automatic Backups<span class="sub">${sub}</span></span>${btns}</div>`;
 }
 
 
@@ -398,24 +399,36 @@ const deskAssets = {
   delete: async id => { if (!/^local:/.test(id) && sbActive()) { try { await sbAssets.delete(id); } catch(e) {} } return {deleted: true}; }
 };
 let deskPromoting = false;
+let deskUpWarnAt = 0;
 async function deskPromote(){
   if (!DESK || deskPromoting || !sbActive() || !cloud.on || navigator.onLine === false) return;
   deskPromoting = true;
+  // Each file on its own: one that can't upload (too big, storage full, a type that can't be stored) no longer stops the others,
+  // and the student is told, since until it uploads it can't be opened on their phone or another computer
+  let n = 0;
+  const failed = [];
   try {
-    let n = 0;
     for (const f of Object.values(state.files)) {
       if (f.kind !== "file" || !(f.revs || []).some(r => /^local:/.test(r.assetId) && r.localRel)) continue;
       const nf = clone(f); let changed = false;
       for (const r of nf.revs) {
         if (!/^local:/.test(r.assetId) || !r.localRel) continue;
+        if (navigator.onLine === false) break;
         const bytes = await DESK.read(r.localRel); if (!bytes) continue;
-        try { const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"}); deskMarkDone(up.id); r.assetId = up.id; changed = true; n++; }
-        catch(e) { throw e; }
+        try {
+          const up = await sbAssets.upload(new File([bytes], r.name || f.name, {type: r.type || "application/octet-stream"}), {type: r.type || "application/octet-stream"});
+          deskMarkDone(up.id); r.assetId = up.id; changed = true; n++;
+        } catch (e) { failed.push({name: f.name, why: String((e && e.message) || e || "")}); }
       }
       if (changed) applyChanges([{kind: "file", id: f.id, after: nf}], "");
     }
-    if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"} added while offline`);
-  } catch(e) { }
+  } catch (e) { console.warn("upload local files", e); }
+  if (n) toast(`Uploaded ${n} file${n === 1 ? "" : "s"}, so ${n === 1 ? "it opens" : "they open"} on your other devices too`);
+  if (failed.length && Date.now() - deskUpWarnAt > 6 * 3600e3) {
+    deskUpWarnAt = Date.now();
+    const why = failed[0].why, full = /quota|storage|exceed|limit|too large|payload|413/i.test(why);
+    toast(`${failed.length === 1 ? `“${failed[0].name}” couldn't` : `${failed.length} files couldn't`} upload to your account${full ? " (a storage or size limit)" : ""}, so ${failed.length === 1 ? "it only opens" : "they only open"} on this computer.`, null, null, {error: true});
+  }
   deskPromoting = false;
 }
 async function deskOpenAsset(id){

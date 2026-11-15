@@ -3,14 +3,17 @@
 (function(){
   const root = document.documentElement;
   const on = () => root.dataset.motion !== "static" && styleCfg().motion !== false && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-  let lastKey = null, userAt = 0;
-  const play = (el, cls) => { if (!el || !on()) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
+  let userAt = 0;
+  // (the page is laid out again to restart the animation only when it is still running from last time; a fresh one just starts)
+  const play = (el, cls) => { if (!el || !on()) return; if (el.classList.contains(cls)) { el.classList.remove(cls); void el.offsetWidth; } el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 420); };
 
   // A pop-up opens with nothing highlighted: the browser would otherwise put focus (and its ring) on the first button, the close X
   const showModal0 = HTMLDialogElement.prototype.showModal;
   // On a phone no sheet raises the keyboard by itself: the person taps the box they want to type in
   const phoneW = () => matchMedia("(max-width:639px)").matches;
   const quiet = d => {
+    // Search is opened to type in, so its box keeps the focus (and the keyboard comes up)
+    if (d && d.id === "sxDlg") return;
     try {
       const a = document.activeElement;
       // A heading the sheet focused on purpose stays focused, so screen readers start there
@@ -22,12 +25,29 @@
       }
     } catch (e) {}
   };
+  // Tab from that heading goes on from the top of the sheet: a sheet whose title sits under a colour band reaches the band's
+  // Close (X) first, as it's seen, rather than last after the whole sheet
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Tab" || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return;
+    const h = e.target, d = h && h.classList && h.classList.contains("sm-focus-h") ? h.closest("dialog[open]") : null; if (!d) return;
+    const first = [...d.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')]
+      .find(x => x.getClientRects().length && !x.closest("[inert],[hidden]") && (x.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING));
+    if (first) { e.preventDefault(); first.focus(); }
+  }, true);
   // the dialog itself would focus an [autofocus] box as it opens, which on a phone pops the keyboard up for a moment
   // (the sheet shrinks above it, then stretches back down as it drops), so on a phone nothing is marked to take focus
   const noAuto = d => { try { if (phoneW()) d.querySelectorAll("[autofocus]").forEach(x => x.removeAttribute("autofocus")); } catch (e) {} };
+  // A pop-up's entrance waits for its first drawn frame. Opening one also builds it and redraws the page behind, which can take a
+  // few hundred milliseconds on a phone; the slide-up's clock used to run through that, so by the first frame anyone saw it was
+  // nearly over and the sheet seemed to pop into place. It's held at its start (still off the bottom, or see-through) until the
+  // sheet has been drawn once, then plays in full.
+  // (phones only: on computers pop-ups open as they always have)
+  const hold = el => { if (!el || !on() || !phoneW()) return; el.classList.add("sm-hold"); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("sm-hold"))); };
+  window.SBSMOOTH = Object.assign(window.SBSMOOTH || {}, {hold});
   HTMLDialogElement.prototype.showModal = function(){
     noAuto(this);
     const r = showModal0.apply(this, arguments);
+    hold(this);
     quiet(this); requestAnimationFrame(() => quiet(this));
     return r;
   };
@@ -58,33 +78,38 @@
       return () => {
         document.body.appendChild(host); try { host.showPopover(); } catch (e) {}
         if (sc2) sc2.scrollTop = st;   // where it was scrolled to
-        // quick but smooth: it gets going at once and eases off as it leaves (was 260ms, slow to start)
-        const ease = {duration: 180, easing: "cubic-bezier(.3,0,.7,.4)", fill: "forwards"};
-        const a = c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease);
-        host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
-        const done = () => host.remove(); a.finished.then(done, done); setTimeout(done, 450);
+        // it starts moving on the next frame, once the page's own work after closing (saving, redrawing the list) is done, so the
+        // whole slide is seen rather than its last few frames (phones only: pop-ups on computers close as they always have)
+        const done = () => host.remove(); setTimeout(done, 900);
+        requestAnimationFrame(() => {
+          const ease = {duration: 300, easing: "cubic-bezier(.4,0,.6,1)", fill: "forwards"};
+          const a = c.animate([{transform: "translateY(0)"}, {transform: "translateY(" + Math.max(r.height, innerHeight - r.top) + "px)"}], ease);
+          host.firstChild.animate([{opacity: 1}, {opacity: 0}], ease);
+          a.finished.then(done, done);
+        });
       };
     } catch (e) { return null; }
   }
+  let escGhost = null;
   HTMLDialogElement.prototype.close = function(){
+    escGhost = null;
     const ghost = sheetGhost(this);
     const r = close0.apply(this, arguments);
     if (ghost) ghost();
     return r;
   };
+  // Esc closes a pop-up through the browser, not close(): a stand-in is made as Esc is pressed and plays only if the pop-up
+  // really closes (a sheet that asks "Discard changes?" first stops the Esc, and then nothing plays)
+  document.addEventListener("cancel", e => { const d = e.target; escGhost = d instanceof HTMLDialogElement ? {d, run: sheetGhost(d)} : null; }, true);
+  document.addEventListener("close", e => { const g = escGhost; escGhost = null; if (g && g.d === e.target && g.run && !e.target.open) g.run(); }, true);
   // The main sheets carry their own showModal (99-release.js), so wrap those too
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
     const f = d.showModal;
-    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
   });
 
-  // A tab (or course / plan view) changed: the new page eases in. Re-draws from edits stay still.
-  hook("render", tab => {
-    const key = tab + "|" + (typeof ui !== "undefined" && ui.courseId || "");
-    const changed = lastKey !== null && key !== lastKey; lastKey = key;
-    if (changed && !root.classList.contains("vt-tab")) play(document.getElementById("view"), "sm-view");
-  });
+  // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped
 
   // Tab bar: the tapped tab shows as selected at once, so the highlight fades in with the tap instead of after the page is drawn
   document.addEventListener("pointerup", e => {

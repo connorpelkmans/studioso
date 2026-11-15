@@ -259,8 +259,8 @@ async function makePdf(pages){
       /* Turn In: the file name follows the task */
       await page.click('[data-act="pde-dlmenu"]'); await page.click('.pdr-dlmenu [data-act="pde-ti"]'); await page.waitForSelector("#pdeTiTask");
       const n1 = await page.inputValue("#pdeTiName"); await page.selectOption("#pdeTiTask", "t2"); const n2 = await page.inputValue("#pdeTiName");
-      ok(/Lab_report/.test(n1) && /Osmosis_worksheet/.test(n2), "Turn In's file name follows the task picked: " + n1 + " → " + n2);
-      ok(/Osmosis worksheet/.test(await page.locator("#pdeTiDoneRow").textContent()), "and says which task it marks done");
+      ok(/Lab report/.test(n1) && /Osmosis worksheet/.test(n2) && !/_/.test(n1 + n2), "Turn In's file name follows the task picked, with its spaces kept: " + n1 + " → " + n2);
+      ok(await page.locator("#pdeTiDone").count() === 0, "and it doesn't tick marking the task done up front (it asks after the download)");
       await page.click('.pde-pf [data-act="pde-panel-close"]');
 
       /* Without AI set up, Ask and Recognize Text offer to set it up */

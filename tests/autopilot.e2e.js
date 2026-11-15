@@ -41,8 +41,9 @@ const SEED = ([mode, free, elsewhere]) => {
         t("m3", {title: "Write the first draft", courseId: "his", type: "Project", due: "2026-11-07", start: "2026-11-07", breakdownOf: "paper", step: "3/4", hours: 3}),
         t("m4", {title: "Revise and cite", courseId: "his", type: "Project", due: "2026-11-10", start: "2026-11-10", breakdownOf: "paper", step: "4/4", hours: 1.5}),
         t("st", {title: "Review lecture 7", type: "Study", due: "2026-11-03", hours: 1}),
-        t("lab", {title: "Lab Report 3", due: "2026-11-03", hours: 3}),
-        t("lms", {title: "Canvas practice set", type: "Study", due: "2026-11-02", hours: 1, cv: {id: "c9", course: "bio"}}),
+        // nearly finished, so the overdue real work (which now takes its time first) leaves Thursday room for the moved Study task
+        t("lab", {title: "Lab Report 3", due: "2026-11-03", hours: 3, pct: 95}),
+        t("lms", {title: "Canvas practice set", type: "Study", due: "2026-11-02", hours: 0.25, cv: {id: "c9", course: "bio"}}),
         t("lms2", {title: "D2L Reading Quiz", type: "Quiz", due: "2026-11-03", bs: {id: "q4", ou: "1"}})
       ], files: [], notes: [], decks: [], events: [], settings, updated: 1}));
   } catch (e) {}
@@ -88,8 +89,8 @@ const SOFT = ["s1", "s2", "s3", "s4", "s5", "m2", "m3", "m4", "st"], FIXED = ["l
     ok(T.m3.due === "2026-11-07" && T.m4.due === "2026-11-10", "the on-track milestones stayed");
     ok(T.st.due >= "2026-11-04" && T.st.due !== "2026-11-06", "the overdue Study task got a free day: " + T.st.due);
     ok(T.ex.prep.examDue === "2026-11-10" && T.ex.due === "2026-11-10", "the exam's date is unchanged");
-    const L = await line(p), m = /^Autopilot moved (\d+) things? last night\. See What Changed · Undo/.exec(L);
-    ok(m && Number(m[1]) === run.n && run.n >= 3, "the line at the top of Today's Plan, with the right count: " + L);
+    const L = await line(p), m = /^Autopilot (?:rescheduled (\d+) things?)?(?: and )?(?:added (\d+) study sessions?)? this morning\. See What Changed · Undo/.exec(L);
+    ok(m && Number(m[1] || 0) + Number(m[2] || 0) === run.n && Number(m[2] || 0) === run.moves.filter(x => !x.from).length && run.n >= 3, "the line at the top of Today's Plan, with the right counts: " + L);
     ok(!(await behindCard(p)), "the Catch Up card it already handled is gone");
     ok(await overflow(p) <= 0, "no horizontal overflow at 390px (Today's Plan)");
 
@@ -99,7 +100,7 @@ const SOFT = ["s1", "s2", "s3", "s4", "s5", "m2", "m3", "m4", "st"], FIXED = ["l
     ok(rows.length === run.n, `${rows.length} rows, one per move`);
     ok(rows.some(r => /Review lecture 7/.test(r) && /Tue, Nov 3 → /.test(r) && /Missed, moved to your next free time/.test(r)), "the Study task's row: " + rows.find(r => /Review lecture 7/.test(r)));
     ok(rows.some(r => /Outline the argument/.test(r) && /Missed step, moved to free time before “Research Paper” is due/.test(r)), "the milestone's row names the assignment");
-    ok(rows.some(r => /Cell biology \(learn\)/.test(r) && /Mon, Nov 2 → /.test(r) && /Missed, moved to a free day before the exam/.test(r)), "the missed prep session's row");
+    ok(rows.some(r => /Learn: Cell biology/.test(r) && /Mon, Nov 2 → /.test(r) && /Missed, moved to a free day before the exam/.test(r)), "the missed prep session's row");
     ok(!rows.some(r => /Lab Report|Canvas|D2L/.test(r)), "nothing with a real or school date is listed");
     ok(await overflow(p) <= 0, "no horizontal overflow at 390px (What Changed)");
     await p.setViewportSize({width: 1280, height: 900}); await settle(p, 200);
@@ -122,7 +123,7 @@ const SOFT = ["s1", "s2", "s3", "s4", "s5", "m2", "m3", "m4", "st"], FIXED = ["l
     await p.clock.setSystemTime(new Date("2026-11-05T07:45:00-05:00")); await p.clock.runFor(65000); await settle(p, 300);
     const N = await tasks(p), st2 = await settings(p);
     ok(st2.autopilot.run.day === "2026-11-05" && N.st.due >= "2026-11-05" && N.m2.due >= "2026-11-05", "a new day runs again (fake clock moved to Thursday)");
-    ok(/^Autopilot moved \d+ things? last night/.test(await line(p)), "with a new line");
+    ok(/^Autopilot (rescheduled|added) .* this morning/.test(await line(p)), "with a new line");
     // The line hides once dismissed
     await p.click('.ap-line [data-act="ap-dismiss"]'); await settle(p, 200);
     ok(await line(p) === "", "dismissed: the line hides");
@@ -174,7 +175,7 @@ const SOFT = ["s1", "s2", "s3", "s4", "s5", "m2", "m3", "m4", "st"], FIXED = ["l
     const AA = await tasks(a);
     ok(AA.st.due >= "2026-11-04" && AA.m2.due >= "2026-11-04" && Object.values(AA).filter(x => x.prepFor === "ex" && x.status !== "done").every(x => x.due >= "2026-11-04"), "Apply moves them");
     ok(same(a.pre, AA, FIXED), "and still leaves real dates alone");
-    ok(/^Autopilot moved \d+ things? last night\. See What Changed · Undo/.test(await line(a)), "the line now says what moved");
+    ok(/^Autopilot (rescheduled|added) .* this morning\. See What Changed · Undo/.test(await line(a)), "the line now says what moved");
     ok(!a.errs.length, "no console errors (Ask Me First): " + a.errs.join(" | "));
 
     /* ---- Off ---- */

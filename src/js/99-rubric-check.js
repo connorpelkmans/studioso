@@ -18,7 +18,8 @@
 const RBC = (() => {
   const STATUSES = ["Strong", "OK", "Weak", "Missing"];
   const WRITING = /\b(essay|paper|report|presentation|thesis|dissertation|draft|write[- ]?up|reflection|proposal|review|portfolio|speech|article|memo|brief)\b/i;
-  const eligible = t => !!t && t.status !== "done" && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))));
+  // a broken-down paper's own steps get it only where there's a draft to check (draft, revise, final)
+  const eligible = t => !!t && t.status !== "done" && (!t.breakdownOf || /\b(draft|revis|proofread|final|submit|polish)/i.test(String(t.title || ""))) && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))));
   const ptsOf = s => { const m = /\b(\d{1,3}(?:\.\d+)?)\s*(points?|pts|marks?|%)/i.exec(String(s || "")); return m ? Number(m[1]) : null; };
   // Criteria from a pasted rubric, with points (lines: the group Rubric Checklist's rule)
   function criteria(text, lines){
@@ -96,6 +97,9 @@ const RBC = (() => {
 /*RUBRIC-END*/
 
 const PRO_WHY = "Rubric Check is part of Studyboard Pro: see which rubric criteria your draft misses before you submit.";
+// free plan: a few checks a week with the student's own AI key (PLAN.runsLeft)
+const locked = () => !!(window.SBPRO && SBPRO.locked());
+const left = () => { try { return PLAN.runsLeft("rubric"); } catch (e) { return 0; } };
 const LMS_F = ["cv", "bs", "bb", "md", "sg", "gc"];
 const R = {tid: "", view: "form", rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, err: "", busy: false, cut: null, saved: 0, ac: null, el: null};
 // A check that's still running is set aside (not stopped) when you tap away, and comes back when you open Rubric Check again
@@ -110,7 +114,7 @@ const isDoc = f => f && f.kind !== "link" && /^(pdf|docx|txt|md|markdown)$/.test
 const RUB_NAME = /rubric|criteria|marking|grading|scoring|assessment guide/i;
 function taskBtn(t){
   if (!t || inPreview() || !RBC.eligible(t) || !window.SBPRO) return "";
-  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn ai-btn" data-act="rb-check" data-id="${esc(t.id)}">${AI_ICON}<span class="rb-long">Check Against Rubric</span><span class="rb-short">Rubric Check</span>${locked() && left() > 0 ? ` <span class="mini">${left()} free this week</span>` : locked() || tagPro() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
 }
 // The rubric a task already has: from the school site, an attached rubric file, or notes that read like one
 async function autoRubric(t){
@@ -132,7 +136,8 @@ async function fileText(file){
 }
 function open(id){
   const t = state.tasks[id]; if (!t) return;
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
+  // a check already done for this task can always be opened again; starting a new one needs a free run (or Pro)
+  if (locked() && left() <= 0 && !(R.tid === id && (R.res || R.busy))) { PLAN.runsGone("rubric", "Rubric Check: see which rubric criteria your draft misses before you submit."); return; }
   if (sheetResume(KEY(id))) return;
   if (R.tid !== id) { if (R.tid) sheetDrop(KEY(R.tid)); Object.assign(R, {tid: id, rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, cut: null}); }
   Object.assign(R, {view: own() ? (R.res ? "result" : "form") : "nokey", err: "", busy: false, saved: 0});
@@ -185,10 +190,12 @@ function draw(){
     sheetKeep(KEY(t.id), {name: "Rubric Check", dirty: () => false, busy: () => R.busy, drop: () => { if (R.ac) { try { R.ac.abort(); } catch (e) {} } }});
   }
   wire(t);
+  // The error sits at the end of a long form: bring it into view, or the button just seems to do nothing
+  if (R.err && R.view === "form") { const e = R.el.querySelector(".rbx-err"); if (e) aiShowStatus(e); }
 }
 function wire(t){
   const q = s => R.el.querySelector(s);
-  const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { aiSetupSheet(true); });
+  const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { const id = R.tid; aiSetupSheet(true, {back: () => open(id)}); });
   const bk = q("[data-rb-back]"); if (bk) bk.addEventListener("click", () => { R.view = "form"; R.err = ""; draw(); });
   const sv = q("[data-rb-save]"); if (sv) sv.addEventListener("click", () => save(t.id));
   const rub = q("[data-rb-rub]"), dr = q("[data-rb-draft]");
@@ -213,8 +220,9 @@ function wire(t){
 async function run(id){
   const t = state.tasks[id]; if (!t || R.busy) return;
   if (!own()) { R.view = "nokey"; draw(); return; }
+  if (locked() && left() <= 0) { PLAN.runsGone("rubric"); return; }
   if (!R.rubric.trim()) { R.err = "Add the rubric first: paste it, or choose the file."; draw(); return; }
-  if (R.draft.trim().split(/\s+/).length < 30) { R.err = "Add your draft first (at least a paragraph): paste it, upload it or pick a file."; draw(); return; }
+  if (R.draft.trim().split(/\s+/).length < 30) { R.err = R.draft.trim() ? "Your draft is too short to check. Paste at least a paragraph, upload it or pick a file." : "Add your draft first: paste it, upload it or pick a file."; draw(); return; }
   const cr = crits(), draft = RBC.clip(R.draft, 60000), c = courseOf(t.courseId);
   const ac = typeof AbortController === "function" ? new AbortController() : null;
   R.ac = ac; R.busy = true; R.err = ""; draw();
@@ -225,6 +233,7 @@ async function run(id){
     const out = RBC.parse(res && res.data, cr, draft.text);
     if (!out) throw Object.assign(new Error("The AI's answer didn't make sense. Try again."), {code: "bad"});
     Object.assign(R, {res: out, cut: draft, view: "result", saved: 0});
+    if (locked() && PLAN.useRun) PLAN.useRun("rubric");
   } catch (e) {
     if ((ac && ac.signal.aborted) || (e && e.code === "cancelled")) return;
     R.err = (e && e.message) || "Couldn't check your draft right now. Try again.";
@@ -249,7 +258,7 @@ hook("act", (act, el, id) => {
   if (dlg.open) dlg.close();
   open(id); return true;
 });
-if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", free: "3 a Week, Own Key", pro: "Unlimited", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -259,6 +268,8 @@ css.textContent = `
 .rbx-row select{max-width:100%;min-width:0;flex:1 1 180px}
 .rbx-pick{position:relative;overflow:hidden;cursor:pointer}
 .rbx-err{color:#B42318}
+:root[data-theme="dark"] .rbx-err{color:#FF8A80}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rbx-err{color:#FF8A80}}
 .rbx-st{display:inline-block;font-size:.72rem;font-weight:700;border-radius:6px;padding:1px 7px;background:var(--soft,#EEF1F6);color:var(--ink);white-space:nowrap}
 .rbx-st.st-strong{background:color-mix(in srgb,#2E9E5B 20%,var(--surface));color:color-mix(in srgb,#1D6B3D 80%,var(--ink))}
 .rbx-st.st-ok{background:color-mix(in srgb,#3B6FE0 16%,var(--surface))}

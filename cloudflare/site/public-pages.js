@@ -39,6 +39,69 @@ const jsonLd = o => `<script type="application/ld+json">${JSON.stringify(o).repl
 const monthYear = t => { const d = new Date(t); return isNaN(d) ? "" : d.toLocaleDateString("en-US", {month: "long", year: "numeric", timeZone: "UTC"}); };
 const isoDate = t => { const d = new Date(t); return isNaN(d) ? "" : d.toISOString().slice(0, 10); };
 
+/* Math and chemistry in card and quiz text ($...$, $$...$$, \(...\), \[...\], \ce{...}, as in the app's 01-math.js).
+   The page shows a readable plain version (for search engines and without scripts); public.js draws it with KaTeX. */
+const MATH_MAX = 3000;
+function braceEnd(s, i){
+  if (s[i] !== "{") return -1;
+  for (let d = 0, j = i; j < s.length && j - i < MATH_MAX; j++) {
+    if (s[j] === "\\") { j++; continue; }
+    if (s[j] === "{") d++;
+    else if (s[j] === "}" && --d === 0) return j;
+  }
+  return -1;
+}
+export function mathSplit(s){
+  s = String(s == null ? "" : s);
+  const out = []; let buf = "", i = 0;
+  const push = (tex, d, end) => { if (buf) out.push({m: false, s: buf}); buf = ""; out.push({m: true, s: tex, d}); i = end; };
+  while (i < s.length) {
+    const c = s[i], n = s[i + 1];
+    if (c === "\\" && n === "$") { buf += "$"; i += 2; continue; }
+    if (c === "\\" && (n === "(" || n === "[")) {
+      const j = s.indexOf(n === "(" ? "\\)" : "\\]", i + 2);
+      if (j > i + 2 && j - i < MATH_MAX && s.slice(i + 2, j).trim()) { push(s.slice(i + 2, j).trim(), n === "[", j + 2); continue; }
+    }
+    if (c === "\\" && s.startsWith("\\ce{", i)) { const j = braceEnd(s, i + 3); if (j > 0) { push(s.slice(i, j + 1), false, j + 1); continue; } }
+    if (c === "$" && n === "$") {
+      const j = s.indexOf("$$", i + 2);
+      if (j > i + 2 && j - i < MATH_MAX && s.slice(i + 2, j).trim()) { push(s.slice(i + 2, j).trim(), true, j + 2); continue; }
+      buf += "$$"; i += 2; continue;
+    }
+    if (c === "$" && n && !/\s/.test(n)) {
+      let j = i + 1, end = -1;
+      while (j < s.length && j - i < MATH_MAX) { const x = s[j]; if (x === "\\") { j += 2; continue; } if (x === "\n") break; if (x === "$") { if (!/\s/.test(s[j - 1]) && !/\d/.test(s[j + 1] || "")) end = j; break; } j++; }
+      if (end > i + 1) { push(s.slice(i + 1, end), false, end + 1); continue; }
+    }
+    buf += c; i++;
+  }
+  if (buf) out.push({m: false, s: buf});
+  return out;
+}
+const SUP = {"0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "+": "⁺", "-": "⁻", "n": "ⁿ"};
+const SUB = {"0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉", "+": "₊", "-": "₋"};
+const SYM = {times: "×", cdot: "·", div: "÷", pm: "±", mp: "∓", le: "≤", leq: "≤", ge: "≥", geq: "≥", neq: "≠", ne: "≠", approx: "≈", infty: "∞", to: "→", rightarrow: "→", leftarrow: "←", Rightarrow: "⇒",
+  partial: "∂", nabla: "∇", int: "∫", sum: "∑", prod: "∏", degree: "°", circ: "°", alpha: "α", beta: "β", gamma: "γ", delta: "δ", Delta: "Δ", epsilon: "ε", theta: "θ", lambda: "λ", mu: "μ", pi: "π", rho: "ρ",
+  sigma: "σ", Sigma: "Σ", tau: "τ", phi: "φ", omega: "ω", Omega: "Ω", quad: " ", qquad: " ", ",": " ", ";": " ", "!": ""};
+const script = (x, map) => [...x].every(ch => map[ch]) ? [...x].map(ch => map[ch]).join("") : null;
+// A readable plain version of one piece of math (H₂O, HR × SV, a/b, x²)
+export function mathPlain(tex){
+  let t = String(tex || "");
+  const ce = /^\\ce\{([\s\S]*)\}$/.exec(t);
+  if (ce) return ce[1].replace(/<?->|->/g, " → ").replace(/<=>/g, " ⇌ ").replace(/([A-Za-z)\]])(\d+)/g, (m, a, d) => a + script(d, SUB)).replace(/\^\{?([0-9+-]+)\}?/g, (m, x) => script(x, SUP) || "^" + x).replace(/([A-Za-z\d)\u2080-\u2089])([+-])(?=\s|$)/g, (m, a, sg) => a + SUP[sg]).replace(/\s+/g, " ").trim();
+  for (let k = 0; k < 4; k++) t = t.replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => `${a.length > 1 ? "(" + a + ")" : a}/${b.length > 1 ? "(" + b + ")" : b}`).replace(/\\sqrt\{([^{}]*)\}/g, "√($1)");
+  t = t.replace(/\\(?:mathrm|text|textbf|mathbf|operatorname)\{([^{}]*)\}/g, "$1").replace(/\\left|\\right/g, "")
+    .replace(/\\([A-Za-z]+|[,;!])/g, (m, w) => SYM[w] != null ? SYM[w] : w)
+    .replace(/\^\{([^{}]*)\}|\^(\S)/g, (m, a, b) => { const x = a != null ? a : b; return script(x, SUP) || "^" + x; })
+    .replace(/_\{([^{}]*)\}|_(\S)/g, (m, a, b) => { const x = a != null ? a : b; return script(x, SUB) || "_" + x; })
+    .replace(/[{}]/g, "").replace(/\s*([×·÷=])\s*/g, " $1 ").replace(/\s+/g, " ").trim();
+  return t;
+}
+// Plain text with its math made readable (descriptions, structured data)
+export const plainText = s => mathSplit(s).map(t => t.m ? mathPlain(t.s) : t.s).join("");
+// Card or quiz text as HTML: math shows readable, marked for public.js to draw with KaTeX
+export const richText = s => mathSplit(s).map(t => t.m ? `<span class="pm${t.d ? " pm-d" : ""}" data-tex="${esc(t.s)}">${esc(mathPlain(t.s))}</span>` : esc(t.s)).join("");
+
 /* reading from Supabase (published items only) */
 export async function rpc(env, fn, args){
   const base = String(env.SUPABASE_URL || "").replace(/\/+$/, ""), key = env.SUPABASE_ANON_KEY || "";
@@ -89,7 +152,7 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ""}
 <link rel="apple-touch-icon" href="/website/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/website/assets/fonts.css">
 <link rel="stylesheet" href="/website/assets/site.css">
-<link rel="stylesheet" href="/website/assets/public.css?v=3">
+<link rel="stylesheet" href="/website/assets/public.css?v=4">
 ${(ld || []).map(jsonLd).join("\n")}
 </head>
 <body class="pub">
@@ -158,7 +221,7 @@ function listHtml(section, rows){
     ${r.preview ? `<span class="pub-prev">${esc(clip(r.preview, 140))}</span>` : ""}</a></li>`).join("")}</ul>`;
 }
 const pager = (section, base, pageNo, more) => (pageNo > 1 || more) ? `<nav class="pub-pager" aria-label="Pages">${pageNo > 1 ? `<a class="btn" rel="prev" href="${esc(base + (pageNo === 2 ? "" : (base.includes("?") ? "&" : "?") + "page=" + (pageNo - 1)))}">Previous</a>` : "<span></span>"}<span>Page ${pageNo}</span>${more ? `<a class="btn" rel="next" href="${esc(base + (base.includes("?") ? "&" : "?") + "page=" + (pageNo + 1))}">Next</a>` : "<span></span>"}</nav>` : "";
-const cta = section => `<aside class="pub-cta"><div><b>Make your own ${section === "quizzes" ? "practice quizzes" : "flashcards"}, free</b><span>Studyboard plans your semester and brings each card back just before you'd forget it. Works in any browser, no download needed.</span></div><a class="btn primary" href="/">Open Studyboard</a></aside>`;
+const cta = section => `<aside class="pub-cta"><div><b>Make your own ${section === "quizzes" ? "practice quizzes" : "flashcards"}, free</b><span>${section === "quizzes" ? "Studyboard turns your notes and slides into practice quizzes and plans your study time before each exam." : "Studyboard plans your semester and brings each card back just before you'd forget it."} Works in any browser, no download needed.</span></div><a class="btn primary" href="/">Open Studyboard</a></aside>`;
 
 /* the pages */
 async function indexPage(env, section, url, origin){
@@ -233,7 +296,7 @@ async function itemPage(env, section, slug, code, origin){
   if (K.kind === "deck") {
     const cards = (Array.isArray(d.cards) ? d.cards : []).filter(c => c && (c.front || c.back)).slice(0, 2000);
     title = `${row.name}${label && !row.name.toLowerCase().includes(label.toLowerCase()) ? " (" + label + ")" : ""} Flashcards | ${SITE}`;
-    description = clip(`Study ${row.name}${label ? " for " + label : ""}${school ? " at " + school : ""} with ${cards.length} flashcards: ${cards.slice(0, 5).map(c => c.front).join(", ")}.`, 158);
+    description = clip(`Study ${row.name}${label ? " for " + label : ""}${school ? " at " + school : ""} with ${cards.length} flashcards: ${cards.slice(0, 5).map(c => plainText(c.front)).join(", ")}.`, 158);
     const L = deckLook({course_label: label, course_key: key, name: row.name, look: d.look});
     const chips = [`<b>${esc(String(cards.length))}</b> ${esc(cards.length === 1 ? K.unit : K.unit + "s")}`, school && esc(school), row.sharer_name && "by " + esc(row.sharer_name), row.updated_at && "Updated " + esc(monthYear(row.updated_at))].filter(Boolean);
     body = `${crumbs(cr)}<header class="pdh pc${L.color}"><div class="pdh-band"><span class="pdh-kick">${esc(label || "General")} · Flashcards</span></div>
@@ -243,21 +306,25 @@ async function itemPage(env, section, slug, code, origin){
       <section id="study" class="pub-study" hidden aria-label="Study these flashcards"><button type="button" class="pub-card" data-pub-card aria-live="polite"></button>
         <div class="pub-nav"><button type="button" class="btn" data-pub-prev>Previous</button><span data-pub-pos></span><button type="button" class="btn" data-pub-next>Next</button><button type="button" class="btn" data-pub-shuffle>Shuffle</button></div></section>
       <section class="pub-sec"><h2>Terms in this set (${cards.length})</h2>
-      <ol class="pub-terms pcards">${cards.map(c => `<li data-front="${esc(c.front)}" data-back="${esc(c.back)}"><span class="t">${esc(c.front)}</span><span class="d">${esc(c.back)}</span></li>`).join("")}</ol></section>`;
+      <ol class="pub-terms pcards">${cards.map(c => `<li data-front="${esc(plainText(c.front))}" data-back="${esc(plainText(c.back))}"><span class="t">${richText(c.front)}</span><span class="d">${richText(c.back)}</span></li>`).join("")}</ol></section>`;
     ld = [{"@context": "https://schema.org", "@type": "Quiz", name: row.name, about: {"@type": "Thing", name: label || row.name}, educationalLevel: "University",
       ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name, ...(school ? {affiliation: {"@type": "CollegeOrUniversity", name: school}} : {})}} : {}), ...(school ? {sourceOrganization: {"@type": "CollegeOrUniversity", name: school}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
-      hasPart: cards.slice(0, 500).map(c => ({"@type": "Question", eduQuestionType: "Flashcard", text: clip(c.front, 600), acceptedAnswer: {"@type": "Answer", text: clip(c.back, 1200)}}))}];
+      hasPart: cards.slice(0, 500).map(c => ({"@type": "Question", eduQuestionType: "Flashcard", text: clip(plainText(c.front), 600), acceptedAnswer: {"@type": "Answer", text: clip(plainText(c.back), 1200)}}))}];
   } else {
     const qz = d.quiz && typeof d.quiz === "object" ? d.quiz : {}, qs = (Array.isArray(qz.questions) ? qz.questions : []).filter(q => q && q.stem).slice(0, 300);
     title = `${row.name}${label && !row.name.toLowerCase().includes(label.toLowerCase()) ? " (" + label + ")" : ""}: Practice Quiz | ${SITE}`;
-    description = clip(`Practice quiz with ${qs.length} questions${label ? " for " + label : ""}${school ? " at " + school : ""}: ${qs.slice(0, 2).map(q => q.stem).join(" ")}`, 158);
-    body = `${crumbs(cr)}<header class="pub-head"><h1>${esc(row.name)}</h1><p class="pub-meta">${meta}</p>
-      <div class="pub-acts"><a class="btn primary" href="${esc(appLink)}">Take the Quiz in Studyboard</a></div></header>
+    description = clip(`Practice quiz with ${qs.length} questions${label ? " for " + label : ""}${school ? " at " + school : ""}: ${qs.slice(0, 2).map(q => plainText(q.stem)).join(" ")}`, 158);
+    // the same coloured course band and icon as a flashcard page
+    const L = deckLook({course_label: label, course_key: key, name: row.name, look: d.look});
+    const chips = [`<b>${esc(String(qs.length))}</b> ${esc(qs.length === 1 ? K.unit : K.unit + "s")}`, school && esc(school), row.sharer_name && "by " + esc(row.sharer_name), row.updated_at && "Updated " + esc(monthYear(row.updated_at))].filter(Boolean);
+    body = `${crumbs(cr)}<header class="pdh pc${L.color}"><div class="pdh-band"><span class="pdh-kick">${esc(label || "General")} · Practice Quiz</span></div>
+      <div class="pdh-low"><span class="pdh-ring" aria-hidden="true">${L.icon}</span><div class="pdh-txt"><h1>${esc(row.name)}</h1><p class="pdh-chips">${chips.map(x => `<span>${x}</span>`).join("")}</p></div></div>
+      <div class="pdh-acts"><a class="pdh-btn primary" href="${esc(appLink)}">Take the Quiz in Studyboard</a></div></header>
       ${qz.kind === "case" && qz.scenario ? `<section class="pub-sec pub-case"><h2>Case</h2><p>${esc(qz.scenario)}</p></section>` : ""}
       <section class="pub-sec"><h2>Questions (${qs.length})</h2><ol class="pub-qs">${qs.map((q, i) => {
         const o = Array.isArray(q.options) ? q.options : [];
-        return `<li class="pub-q"><p class="stem">${esc(q.stem)}</p>${o.length && q.type !== "short" ? `<ol class="opts" type="A">${o.map(x => `<li>${esc(x)}</li>`).join("")}</ol>` : ""}
-          <details><summary>Show answer</summary><p class="ans"><b>${esc(quizAnswerText(q))}</b></p>${q.rationale ? `<p class="why">${esc(q.rationale)}</p>` : ""}</details></li>`; }).join("")}</ol></section>`;
+        return `<li class="pub-q"><p class="stem">${richText(q.stem)}</p>${o.length && q.type !== "short" ? `<ol class="opts" type="A">${o.map(x => `<li>${richText(x)}</li>`).join("")}</ol>` : ""}
+          <details><summary>Show answer</summary><p class="ans"><b>${richText(quizAnswerText(q))}</b></p>${q.rationale ? `<p class="why">${richText(q.rationale)}</p>` : ""}</details></li>`; }).join("")}</ol></section>`;
     ld = [{"@context": "https://schema.org", "@type": "Quiz", name: row.name, about: {"@type": "Thing", name: label || row.name}, educationalLevel: "University",
       ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name, ...(school ? {affiliation: {"@type": "CollegeOrUniversity", name: school}} : {})}} : {}), ...(school ? {sourceOrganization: {"@type": "CollegeOrUniversity", name: school}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
       hasPart: qs.slice(0, 300).map(q => {

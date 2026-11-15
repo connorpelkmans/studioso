@@ -43,18 +43,132 @@
     };
   }
 
+  // Background App Refresh (iPhone and iPad app: MainViewController.swift, StudyboardBackgroundRefresh): iOS wakes the app now and
+  // then while it's in the background; the app asks the page for what changed on other devices, then sends the widgets the day
+  // again, so a task added on a laptop reaches the Home Screen without opening Studyboard. Done within iOS's ~30 seconds.
+  window.__sbBgRefresh = async () => {
+    const wait = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, ms))]);
+    try { if (typeof cloud !== "undefined" && cloud.on && cloud.refresh) await wait(cloud.refresh(), 15000); } catch (e) {}
+    await new Promise(r => setTimeout(r, 300));   // what came in is applied before the day is worked out
+    phoneSent = ""; push();
+    try { localStorage.setItem("studyboard:bgRefreshAt", String(Date.now())); } catch (e) {}
+    return true;
+  };
+  if (window.__SB_TEST) window.__sbPhoneWidgets = {data: () => phoneData(widgetData()), drain: () => drainPhone(), push: () => { phoneSent = ""; push(); }};
   /* Sending it to the widgets */
   let lastSent = "", pushT = null;
+  // Where a widget can take the feed: the desktop app's Today widget, or the Windows 11 Widgets board (through the service
+  // worker, from the website in Edge or Chrome on Windows). Anywhere else (a phone's browser, the iPhone and Android apps,
+  // a Mac's browser) nothing receives it, so it isn't built: on a phone with a full term that was a whole re-plan of the day
+  // after every change. The Today view added to a phone's Home Screen (?widget=today) draws its own data (todayCard) and
+  // the phone apps' Siri and Shortcuts data has its own feed (96-siri.js), so neither depends on this.
+  const winBoard = () => !DESK && !inPreview() && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost");
+  const WIN_OK = /Windows/.test(navigator.userAgent || "") && !/Android|iPhone|iPad|iPod/.test(navigator.userAgent || "");
+  // (the iPhone and iPad app's Home Screen and Lock Screen widgets take it too, through StudyboardNative.homeWidgets: they were
+  // left out here, so the app never sent them the day and they stayed on "Open Studyboard to start")
+  const deskFeed = () => DESK_OK || (WIN_OK && winBoard());
+  const feedOk = () => deskFeed() || !!phoneNative();
   function push(){
     clearTimeout(pushT); pushT = null;
+    if (!feedOk()) return;
     let d; try { d = widgetData(); } catch(e) { console.warn("widget data", e); return; }
+    // the phone widgets also show a running Focus, Exam Mode and the week ahead, so they keep their own check for changes
+    pushPhone(d);
+    if (!deskFeed()) return;
     const sig = JSON.stringify(d);
     if (sig === lastSent) return;
     lastSent = sig;
     if (DESK_OK) { try { DESK.setWidgetData(d); } catch(e) {} }
     pushWindows(d);
   }
-  const pushSoon = () => { if (!pushT) pushT = setTimeout(push, 500); };
+  const pushSoon = () => { if (!pushT && feedOk()) pushT = setTimeout(push, 500); };
+
+  /* iPhone and iPad Home Screen and Lock Screen widgets (ios-wrapper/native/HomeWidgets): the same day as the desktop widget,
+     plus what the widget needs to stay right without the app open: the time each task is due, the week ahead (for the iPad's
+     Extra Large size and for after midnight), Exam Mode, a Day Off and a running Focus. Written to the App Group on each change. */
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const hex = (c, d) => { c = String(c || "").trim(); if (/^#[0-9a-f]{3}$/i.test(c)) c = "#" + c.slice(1).split("").map(x => x + x).join(""); return HEX.test(c) ? c.toUpperCase() : d; };
+  const cut = (v, n) => String(v == null ? "" : v).slice(0, n);
+  const phoneNative = () => { const n = window.StudyboardNative; return n && n.homeWidgets && typeof n.homeWidgets.save === "function" ? n.homeWidgets : null; };
+  // The rest of today's plan as blocks with real times: the widget shows the one on now (or the next) and moves on by itself, so Do
+  // This Next stays right through the day without the app running. Back-to-back sessions of one task are one block.
+  function planSlots(){
+    let F = null, list = [];
+    try { const r = dayList(); F = r.F; list = r.list; } catch (e) { return []; }
+    const sd = (F && F.sd) || studyDay(), sb = (F && F.slotsBy) || {}, [y, mo, da] = String(sd.date || todayISO()).split("-").map(Number);
+    // minutes count from the plan day's midnight (past 1440 after midnight, for a late end of day)
+    const at = m => new Date(y, mo - 1, da, 0, Math.round(m)).getTime(), now = Date.now(), rows = [];
+    list.forEach(({t}) => { if (!t || t.status === "done") return; (sb[t.id] || []).forEach(sl => { if (sl && sl.e - sl.s >= 10) rows.push({s: sl.s, e: sl.e, t}); }); });
+    rows.sort((p, q) => p.s - q.s || p.e - q.e);
+    const merged = [];
+    rows.forEach(r => { const last = merged[merged.length - 1]; if (last && last.t.id === r.t.id && r.s - last.e <= 15) { last.e = Math.max(last.e, r.e); last.min += r.e - r.s; } else merged.push(Object.assign({min: r.e - r.s}, r)); });
+    return merged.map(r => { const c = courseOf(r.t.courseId); return {from: at(r.s), to: at(r.e), id: cut(r.t.id, 80), title: cut(r.t.title, 90), course: cut(c ? courseLabel(c) : "", 24), color: hex(colorOf(r.t.courseId), "#8A94A6"), mins: Math.max(1, Math.round(r.min))}; })
+      .filter(x => x.to > now).slice(0, 16);
+  }
+  function phoneData(d){
+    const today = todayISO(), byId = id => state.tasks[id];
+    const item = t => { const x = byId(t.id) || {}; return {id: cut(t.id, 80), title: cut(t.title, 90), course: cut(t.course, 24), color: hex(t.color, "#8A94A6"), meta: cut(t.meta, 48),
+      done: !!t.done, late: !!t.late, due: x.due || "", time: x.time || "", exam: MILESTONE(x.type || "")}; };
+    const tasks = d.tasks.map(item);
+    let exam = null;
+    try {
+      const em = window.SBEXAM && SBEXAM.current && SBEXAM.current();
+      if (em && em.exam) { const t = em.exam, xr = typeof examReadiness === "function" ? examReadiness(t) : null, r = xr ? (xr.measured != null ? xr.measured : xr.self) : null;
+        exam = {id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24), color: hex(colorOf(t.courseId), "#8A94A6"),
+          due: t.due || "", time: t.time || "", days: Math.round(Math.max(0, Number(em.days) || 0)), ready: r == null ? null : Math.max(0, Math.min(100, Math.round(r)))}; }
+    } catch (e) {}
+    // the next six days: what's due each day (exams first), for the week view and for showing tomorrow after midnight
+    const days = [];
+    for (let i = 1; i <= 6; i++) {
+      const day = addDays(today, i), due = tasksArr().filter(t => t.status !== "done" && t.due === day && !t.prepFor)
+        .sort((a, b) => (MILESTONE(b.type) ? 1 : 0) - (MILESTONE(a.type) ? 1 : 0) || (a.time || "99").localeCompare(b.time || "99"));
+      days.push({date: day, off: !!dayIsOff(day), items: due.slice(0, 4).map(t => ({id: cut(t.id, 80), title: cut(t.title, 60), course: cut(courseOf(t.courseId) ? courseLabel(courseOf(t.courseId)) : "", 24),
+        color: hex(colorOf(t.courseId), "#8A94A6"), time: t.time || "", exam: MILESTONE(t.type)})), more: Math.max(0, due.length - 4)});
+    }
+    let focus = null;
+    try { if (typeof pomo !== "undefined" && pomo && (pomo.running || pomo.left > 0)) {
+      const t = pomo.taskId && byId(pomo.taskId);
+      focus = {mode: pomo.mode === "focus" ? "focus" : "break", running: !!pomo.running, endsAt: pomo.running ? Number(pomo.endAt) || 0 : 0,
+        left: pomo.running ? 0 : Math.round((Number(pomo.left) || 0) / 1000), task: t ? cut(t.title, 60) : ""};
+    } } catch (e) {}
+    const th = d.theme || {};
+    return {v: 1, day: today, at: Date.now(), dateLabel: cut(d.dateLabel, 40),
+      next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.round(Math.max(5, Math.min(180, Number(d.next.mins) || 25))),
+        due: (byId(d.next.id) || {}).due || "", time: (byId(d.next.id) || {}).time || ""} : null,
+      // (whole numbers: the widget reads these as Int, and a fraction would make it refuse the whole day)
+      tasks, more: Math.max(0, Math.round(Number(d.more) || 0)), cards: Math.max(0, Math.round(Number(d.cards) || 0)), dayOff: !!dayIsOff(today), exam, focus, days,
+      theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}, plan: planSlots()};
+  }
+  let phoneSent = "";
+  function pushPhone(d){
+    const N = phoneNative(); if (!N) return;
+    let j; try { j = phoneData(d); } catch (e) { console.warn("phone widget data", e); return; }
+    const sig = JSON.stringify(Object.assign({}, j, {at: 0}));
+    if (sig === phoneSent) return;
+    phoneSent = sig;
+    Promise.resolve().then(() => N.save(j)).catch(() => {});
+  }
+  // Signing out: nothing of the student's stays on the Home Screen (the next save after sign-in fills it again)
+  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'), N = phoneNative(); if (b && N && N.clear) { phoneSent = ""; N.clear(); } }, true);
+  // Tasks checked off on a widget while the app was closed or in the background: done here (with the time they were ticked), then
+  // acknowledged so the widget's queue empties. A task that is already done, or gone, is just acknowledged.
+  let draining = false;
+  function drainPhone(){
+    const N = phoneNative(); if (!N || typeof N.drain !== "function" || draining) return;
+    draining = true;
+    Promise.resolve().then(() => N.drain()).then(list => {
+      const ids = [];
+      (Array.isArray(list) ? list : []).forEach(a => {
+        ids.push(a.id);
+        const t = a.kind === "done" && state.tasks[a.task];
+        if (!t || t.status === "done") return;
+        const n = clone(t); n.status = "done"; n.doneAt = Number(a.at) > 0 && a.at <= Date.now() ? Number(a.at) : Date.now(); if (!MILESTONE(t.type)) n.pct = 100;
+        n.order = nextOrder("done");
+        applyChanges([{kind: "task", id: t.id, after: n}], `Completed ${t.title} (from the widget)`);
+      });
+      if (ids.length && typeof N.ack === "function") return N.ack(ids);
+    }).catch(() => {}).then(() => { draining = false; });
+  }
 
   // Windows 11 Widgets board (the installed web app from Edge)
   function cardData(d){
@@ -71,7 +185,7 @@
     };
   }
   function pushWindows(d){
-    if (DESK || inPreview() || !("serviceWorker" in navigator) || !(location.protocol === "https:" || location.hostname === "localhost")) return;
+    if (!WIN_OK || !winBoard()) return;
     const msg = {type: "sb-widget-data", data: cardData(d)};
     navigator.serviceWorker.ready.then(r => { if (r.active) r.active.postMessage(msg); }).catch(() => {});
   }
@@ -115,6 +229,7 @@
     if (!a && !task) return;
     try { history.replaceState(null, "", location.pathname + (WV ? "?widget=today" : "") + location.hash); } catch(e) {}
     if (a === "done" && task) doAction("done", task);
+    else if (a === "focus" && task) doAction("focus-task", task);
     else if (task) doAction("task", task);
     else if (ACTIONS.includes(a)) doAction(a);
   }
@@ -233,6 +348,7 @@
   });
   hook("render", pushSoon);
   hook("changed", pushSoon);
+  hook("focus-state", pushSoon);
   hook("boot", () => {
     if (DESK_OK) {
       if (DESK.onAction) DESK.onAction((a, arg) => doAction(a, arg));
@@ -247,6 +363,8 @@
     setInterval(push, 5 * 60000);
     handleUrl();
     push();
+    drainPhone();
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) { drainPhone(); pushSoon(); } });
     // The phone apps' native-bridge.js hands deep links and reminder taps here once the app is running, so open quizzes and unsaved text survive.
     // Returns false for anything it can't open in place (the bridge then reloads with the link, as on a cold start).
     window.SBOPEN = q => {
@@ -258,6 +376,7 @@
           localStorage.setItem("sb:grpPending", JSON.stringify({kind: dk ? "deck" : "group", code, at: Date.now()}));   // 80-groups.js picks this up within seconds
           return true;
         }
+        if (a === "focus" && task) { doAction("focus-task", task); return true; }
         if (task) { doAction("task", task); return true; }
         if (ACTIONS.includes(a) && a !== "done") { doAction(a); return true; }
       } catch (e) {}

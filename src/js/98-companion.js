@@ -20,19 +20,20 @@
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
   /* Props (accessories) */
-  // Props follow effort and consistency (focus time, study days, streaks, spreading exam study over days), never how many
+  // Props follow effort and consistency (focus time, flashcards, practice quizzes, study days, spreading exam study over days), never how many
   // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
   const ACC = [
-    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["studydays", 3], ["checkins", 3]]},
-    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
-    {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["studydays", 10], ["spread", 1], ["checkins", 7]]},
-    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 3]]},
-    {id: "medal", name: "Champion Medal", free: true, paths: [["quizzes", 6], ["cards", 400], ["spread", 3]]},
-    {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["studydays", 40], ["checkins", 21]]},
-    {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
+    // Every prop can be earned by focus time, flashcards or practice quizzes, plus a few other ways (study days, notes, exam prep...)
+    {id: "scarf", name: "Cozy Scarf", hours: 2, free: true, paths: [["cards", 30], ["quizzes", 5], ["studydays", 3], ["checkins", 3]]},
+    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 7], ["notes", 3], ["groups", 1]]},
+    {id: "bowtie", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
+    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
+    {id: "medal", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
+    {id: "cape", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
+    {id: "star", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
     {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["spread", 8], ["studydays", 80]]},
-    {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
+    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
+    {id: "crown", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 60], ["stickers", 30]]}
   ];
   // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
   if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
@@ -261,6 +262,12 @@
   const patsNow = () => { if (!pro()) return {}; const p = cfg().pat || {}, o = {}; PAT_PROPS.forEach(k => { if (PATS.some(x => x[0] === p[k])) o[k] = p[k]; }); return o; };
   // a prop's art with its fabric patterned: the fill that follows the prop's colour becomes the pattern
   const withPat = (art, id, kind, col) => { if (!kind || !col) return art; const pid = `cpp-${id}-${kind}-${col.replace("#", "")}`; return `<defs>${patDef(pid, kind, col)}</defs>` + String(art).split(WEAR).join(`style="fill:url(#${pid})"`); };
+  // A prop's picture on its own, centred (the wardrobe's tiles and the new-prop reveal)
+  function propIcon(a, tints){
+    tints = tints || tintsNow();
+    const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
+    return `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
+  }
   const tintsNow = () => { const t = cfg().tint || {}; if (pro()) return t; const o = {}; Object.keys(t).forEach(k => { if (inPalette(t[k])) o[k] = t[k]; }); return o; };
   const paywall = () => { try { return !!(typeof PLAN !== "undefined" && PLAN && PLAN.paywall()); } catch (e) { return false; } };
   const skinId = () => document.documentElement.dataset.skin || effSkinId() || "classic";
@@ -269,7 +276,8 @@
     try {
       if (typeof id !== "string" || id.indexOf("ph-") !== 0 || !window.SBPHOTO || typeof SBPHOTO.recs !== "function") return null;
       const r = SBPHOTO.recs().find(x => x.id === id), list = (r && Array.isArray(r.comps) ? r.comps : []).map(cid => BYID[cid]).filter(Boolean).slice(0, 3);
-      return list.length ? list : null;
+      // Without Pro its Pro companions are locked; with none of its three left to use, the free plain set stands in
+      return list.length && list.some(c => canComp(c)) ? list : null;
     } catch (e) { return null; }
   };
   const themeKey = id => REG[id] ? id : photoSet(id) ? id : "plain";
@@ -305,15 +313,16 @@
   const hours = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() / 60 : 0; } catch (e) { return 0; } };
   /* Earning props */
   const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
-    notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "study group or room", focusWeeks: "weeks with 4+ focus days", festive: "winter holiday visit"};
+    notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "Study Group or Room", focusWeeks: "weeks with 4+ focus days", festive: "Winter Holiday Visit"};
   const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
-    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n} practice quizzes (70% or more)`, notes: n => `Write ${n} notes`,
+    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n === 1 ? "a practice quiz" : n + " practice quizzes"} (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
     groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
-  let pStat = null, pStatAt = 0;
-  // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot)
+  let pStat = null, pStatAt = 0, pStatSc;
+  // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot); a scrapbook update counts again at once
   function propStats(){
-    const now = Date.now(); if (pStat && now - pStatAt < 4000) return pStat;
+    const now = Date.now(), sc0 = state.settings && state.settings.scrap; if (pStat && now - pStatAt < 4000 && sc0 === pStatSc) return pStat;
+    pStatSc = sc0;
     const s = {hours: 0, studydays: 0, spread: 0, streak: 0, cards: 0, quizzes: 0, notes: 0, stickers: 0, prep: 0, checkins: 0, groups: 0, focusWeeks: 0, festive: 0};
     const tr = f => { try { f(); } catch (e) {} };
     tr(() => { s.hours = hours(); });
@@ -328,6 +337,7 @@
     tr(() => { const sc = state.settings && state.settings.scrap; if (sc) { s.stickers = [sc.cur].concat(sc.past || []).reduce((n, p) => n + (p && p.g ? Object.keys(p.g).length : 0), 0);
       s.groups = ["gp", "rm"].filter(k => sc.f && sc.f[k]).length; } });
     tr(() => { s.checkins = (cfg().ci || []).length; });
+    tr(() => { s.prep = Object.values(state.tasks || {}).filter(t => t && t.prepFor && t.status === "done").length; });
     tr(() => { const per = {}; Object.entries(SBSTATS.focusDays()).forEach(([d, m]) => { if (Number(m) >= 15) { const w = mondayOf(d); per[w] = (per[w] || 0) + 1; } }); s.focusWeeks = Object.values(per).filter(n => n >= 4).length; });
     tr(() => { const d = new Date(), m = d.getMonth(), day = d.getDate(); s.festive = m === 11 || (m === 0 && day <= 6) ? 1 : 0; });
     pStat = s; pStatAt = now;
@@ -339,7 +349,11 @@
   const propProg = a => { const s = propStats(); return pathsOf(a).map(([k, n]) => { const v = Math.min(Number(s[k]) || 0, n); return {k, n, v: k === "hours" ? Math.round(v * 10) / 10 : Math.floor(v), p: v / n, ask: PROP_ASK[k](n), unit: PROP_UNIT[k]}; }); };
   const isEarned = a => !!a && (wasEarned(a) || propProg(a).some(x => x.p >= 1));
   const unlocked = () => ACC.filter(isEarned);
-  const closestPath = a => propProg(a).sort((x, y) => y.p - x.p)[0];
+  // The goal a prop shows stays the same for the session: the scrapbook's sticker count only arrives a few seconds after load,
+  // and a "closest" path picked before it would flip under the student. So nothing is pinned until the scrapbook is ready.
+  const pinPath = {};
+  const closestPath = a => { const ps = propProg(a), pin = pinPath[a.id] && ps.find(x => x.k === pinPath[a.id]); if (pin) return pin;
+    const b = ps.sort((x, y) => y.p - x.p)[0]; if (b && (!window.__sbScrap || (state.settings && state.settings.scrap))) pinPath[a.id] = b.k; return b; };
   const pathShort = x => x.k === "festive" || x.k === "groups" ? x.unit : `${x.v} of ${x.n} ${x.unit}`;
   const canWear = a => !!a && isEarned(a) && owns("prop", a.id);
   // What it wears now
@@ -356,6 +370,8 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
+  // (moves were made 35% slower on Nov 12 and felt sluggish: now halfway between that and their earlier speed, the calmer style kept)
+  const CALM = 1.17;
   /* ---------- An actor: animations on one rendered rig ---------- */
   function actor(c, root, opts){
     opts = opts || {};
@@ -363,8 +379,10 @@
     const q = s => svg.querySelector(s);
     const part = n => q(".cp-" + n);
     const running = new Set();
+    // Every move plays at CALM times its written length (1: as written)
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
+      ms = Math.round(ms * CALM);
       const a = el.animate(frames, Object.assign({duration: ms, easing: "ease-in-out"}, o));
       if (opts.watch) opts.watch(ms);
       running.add(a); a.onfinish = a.oncancel = () => running.delete(a);
@@ -400,7 +418,7 @@
           case "headTilt": if (!partSvg(c.parts.head)) return null; return anim(q(".cp-headg"), [0, 9, 9, -4, 0].map(rot), 1800);
           case "topBob": return A.part("top", [0, 13 * k, -11 * k, 7, -3, 0].map(rot), 1300);
           case "bounce": return A.move([0, -6 * k, 0, -3 * k, 0].map((y, i) => ({transform: `translateY(${y}px) scale(${i % 2 ? "0.97,1.04" : i ? "1.04,0.96" : "1,1"})`})), 900);
-          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(2px) scale(1.08,.9)", offset: 0.15}, {transform: `translateY(${-16 * k}px) scale(.95,1.06)`, offset: 0.45}, {transform: "translateY(1px) scale(1.07,.92)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 720);
+          case "hop": return A.move([{transform: "translateY(0) scale(1,1)"}, {transform: "translateY(1px) scale(1.04,.95)", offset: 0.15}, {transform: `translateY(${-12 * k}px) scale(.98,1.03)`, offset: 0.45}, {transform: "translateY(1px) scale(1.04,.96)", offset: 0.8}, {transform: "translateY(0) scale(1,1)"}], 800);
           case "spin": return A.move([{transform: "perspective(400px) rotateY(0deg)"}, {transform: "perspective(400px) rotateY(360deg)"}], 900, {easing: "cubic-bezier(.5,0,.3,1)"});
           case "sway": return A.move([0, 4, -4, 3, 0].map(d => ({transform: `rotate(${d * k}deg)`})), 1900);
           case "waddle": return A.move([0, -6, 6, -6, 6, 0].map((d, i) => ({transform: `translateX(${i % 2 ? -1.5 : i ? 1.5 : 0}px) rotate(${d}deg)`})), 1200);
@@ -424,16 +442,28 @@
   const timers = new Set();
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
   const clearTimers = () => { timers.forEach(t => clearTimeout(t)); timers.clear(); };
-  const phone = () => innerWidth < 640;
+  // a phone-sized window, kept up to date by the browser: reading innerWidth right after the page changed made the browser lay
+  // the page out again, and this is asked every frame while the companion moves
+  const PHONE_MQ = window.matchMedia ? matchMedia("(max-width: 639.98px)") : null;
+  let phoneNow = innerWidth < 640;
+  if (PHONE_MQ) { const f = () => { phoneNow = PHONE_MQ.matches; }; f(); if (PHONE_MQ.addEventListener) PHONE_MQ.addEventListener("change", f); else if (PHONE_MQ.addListener) PHONE_MQ.addListener(f); }
+  const phone = () => phoneNow;
+  // a short window with the tab bar along the bottom (a laptop zoomed to 200%, a phone on its side): it takes its seat in the
+  // tab bar as on a phone, instead of standing over the few lines of page there is room for
+  const SHORT_MQ = window.matchMedia ? matchMedia("(max-width: 979.98px) and (max-height: 600px)") : null;
+  const docks = () => phoneNow || !!(SHORT_MQ && SHORT_MQ.matches);
   const sizePx = c => { const s = c ? c.size : 1; return Math.round((phone() ? Math.max(62, Math.min(72, 66 * s)) : Math.max(86, Math.min(108, 96 * s))) * shrink); };
   const GAP = 26;
 
+  // Right to left (Arabic, Hebrew): the side menu is on the right, the Add button bottom left, and everything below mirrors
+  const rtl = () => document.documentElement.dir === "rtl";
   function geometry(){
-    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect();
-    const sideNav = !!(r && r.width && r.left < 4 && r.height > innerHeight * 0.6);
+    const nav = document.querySelector("nav.tabs"), r = nav && nav.getBoundingClientRect(), rl = rtl();
+    const sideNav = !!(r && r.width && (rl ? r.right > (document.documentElement.clientWidth || innerWidth) - 4 : r.left < 4) && r.height > innerHeight * 0.6);
     // (the page keeps a gap beside the side menu wide enough for the companion: 103-phone-design.css, body.cp-on .wrap)
-    const side = sideNav ? Math.round(r.right) : 0;
-    return {nav, r, sideNav, side};
+    // side: where the menu ends on the left (0 without one); sideR: where it starts on the right (Infinity without one)
+    const side = sideNav && !rl ? Math.round(r.right) : 0, sideR = sideNav && rl ? Math.round(r.left) : Infinity;
+    return {nav, r, sideNav, side, sideR, rtl: rl};
   }
 
 
@@ -455,7 +485,8 @@
     const vv = window.visualViewport, ins = insets(), de = document.documentElement;
     const lw = de.clientWidth || innerWidth, lh = de.clientHeight || innerHeight;
     let l = 0, t = 0, r = lw, b = lh;
-    if (vv) {
+    // pinch-zoomed in: the companion stays where it stands on the page instead of chasing the zoomed-in view
+    if (vv && !(vv.scale > 1.01)) {
       const l2 = Math.max(l, vv.offsetLeft), t2 = Math.max(t, vv.offsetTop), r2 = Math.min(r, vv.offsetLeft + vv.width), b2 = Math.min(b, vv.offsetTop + vv.height);
       if (r2 - l2 >= 100 && b2 - t2 >= 100) { l = l2; t = t2; r = r2; b = b2; }
     }
@@ -494,7 +525,7 @@
   // The box positions (left/top) whose art, with room for its own motions
   function range(px, fresh){
     const S = safeRect(fresh), g = geometry(), e = vext || measureArt() || DEF_ART;
-    return {L: Math.max(S.l, g.side - 7) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
+    return {L: Math.max(S.l, g.side - 7) - e.l * px + AN_SIDE, R: Math.min(S.r, g.sideR + 7) - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
   // It stays in the lower part of the screen
@@ -553,12 +584,21 @@
   let gT = 0;
   const guardSoon = (why, ms) => { if (gT) return; gT = setTimeout(() => { gT = 0; try { clamp(why); } catch (e) { console.warn("companion guard", e); } fitHitSoon(); }, ms == null ? 60 : ms); };
   // While any of its animations runs, look at it every frame
-  let mwEnd = 0, mwRaf = 0;
+  let mwEnd = 0, mwRaf = 0, mwLast = 0;
   function motionWatch(ms){
     if (still()) return;
     mwEnd = Math.max(mwEnd, performance.now() + (ms || 1000) + 100);
     if (mwRaf) return;
-    const step = () => { mwRaf = 0; if (!box || box.hidden || still()) return; try { clamp("anim"); } catch (e) {} if (performance.now() < mwEnd) mwRaf = requestAnimationFrame(step); };
+    // seated in the phone's tab bar it doesn't travel, so it is checked once its motion ends rather than every frame (each check
+    // measured the page, and typing in the add bar changes the page on every key)
+    // Each check measures the companion and the page (a full style and layout pass), so while it moves it runs every 150ms, not
+    // every frame: every frame it took most of each frame's time on a laptop and made its moves stutter. Once more when it stops.
+    const step = () => {
+      mwRaf = 0; if (!box || box.hidden || still()) return;
+      const now = performance.now(), more = now < mwEnd;
+      if (!more || now - mwLast >= 150) { if (!(more && spotKind === "dock" && !travelAnim && !glideAnim)) { mwLast = now; try { clamp("anim"); } catch (e) {} } }
+      if (more) mwRaf = requestAnimationFrame(step);
+    };
     mwRaf = requestAnimationFrame(step);
   }
   /* Controls (buttons, links, fields) under its tap area */
@@ -644,7 +684,9 @@
     const f = document.getElementById("fab"), key = phone() ? "p" : "d";
     const r = f && f.getBoundingClientRect(), shown = f && r.width > 0 && getComputedStyle(f).display !== "none" && getComputedStyle(f).visibility !== "hidden";
     if (shown) { fabMem[key] = {right: innerWidth - r.right, bottom: innerHeight - r.bottom, w: r.width, h: r.height}; return {left: r.left, top: r.top, right: r.right, bottom: r.bottom, w: r.width, h: r.height, shown: true}; }
-    const m = fabMem[key] || (phone() ? {right: 16, bottom: 92, w: 140, h: 52} : {right: 32, bottom: 28, w: 144, h: 48});
+    let m = fabMem[key] || (phone() ? {right: 16, bottom: 92, w: 140, h: 52} : {right: 32, bottom: 28, w: 144, h: 48});
+    // (never seen yet, right to left: the button's place is bottom left)
+    if (!fabMem[key] && rtl()) m = Object.assign({}, m, {right: innerWidth - m.right - m.w});
     const right = innerWidth - m.right, bottom = innerHeight - m.bottom;
     return {left: right - m.w, top: bottom - m.h, right, bottom, w: m.w, h: m.h, shown: false};
   }
@@ -670,21 +712,47 @@
   }
   // Everything a student reads or presses on screen right now, as rectangles
   const CONTENT_SEL = "button,a,input,select,textarea,label,img,video,canvas,iframe,[data-act],[data-tab],[role=button],[contenteditable=true],.note,.stk,.chip,.badge,#nbScroll,.tl-scroll,.sch-grid,.env";
-  function contentRects(){
-    const out = [], W = innerWidth, H = innerHeight;
+  // band {t, b}: only what reaches into that strip of the screen (where it may stand). The walk then skips whole parts of the
+  // page above or below the strip (a long list's off-screen cards and columns) instead of measuring every word on the page,
+  // which froze the app for seconds with a full term of work. What it finds inside the strip is the same, except things that
+  // aren't drawn at all (a closed <details>, display:none), which are no longer counted as in its way.
+  const BAND_PAD = 48;
+  function contentRects(band){
+    const out = [], W = innerWidth, H = innerHeight, T = band ? Math.max(0, band.t) : 0, B = band ? Math.min(H, band.b) : H;
     const skip = el => !el || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,nav.tabs,.fab,#fab");
-    const vis = r => r.width > 1 && r.height > 1 && r.bottom > 0 && r.right > 0 && r.top < H && r.left < W;
-    const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => n.textContent.trim() && !skip(n.parentElement) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT});
+    const vis = r => r.width > 1 && r.height > 1 && r.bottom > T && r.right > 0 && r.top < B && r.left < W;
+    const els = [], svgs = [];
+    const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {acceptNode: n => {
+      // what a closed <details> holds isn't drawn (a column's "Show more" cards): measuring it made the browser lay it all out
+      const pe = n.parentElement, shut = !!pe && pe.tagName === "DETAILS" && !pe.open && n.nodeName !== "SUMMARY";
+      if (n.nodeType === 3) return n.textContent.trim() && !shut && !skip(pe) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      if (shut || skip(n)) return NodeFilter.FILTER_REJECT;
+      // nothing inside display:none is drawn; asking the style of each word in there was the slowest part of all
+      if (!n.getClientRects().length && getComputedStyle(n).display === "none") return NodeFilter.FILTER_REJECT;
+      // a box well above or below the strip is passed over with everything in it (the margin keeps what pokes out of its box,
+      // like a note's pin or a formula's superscript). Zero-size boxes (display:contents, empty wrappers) are looked inside.
+      if (band) { const r = n.getBoundingClientRect(); if (r.width > 0 && r.height > 0 && (r.bottom <= T - BAND_PAD || r.top >= B + BAND_PAD)) return NodeFilter.FILTER_REJECT; }
+      if (n.matches(CONTENT_SEL)) els.push(n);
+      if (n.tagName.toLowerCase() === "svg" && !n.closest("button,a,[data-act]")) svgs.push(n);
+      return NodeFilter.FILTER_SKIP;
+    }});
     const rg = document.createRange();
     for (let n = tw.nextNode(), k = 0; n && k < 4000; n = tw.nextNode(), k++) {
       const pe = n.parentElement; if (!pe.offsetParent && getComputedStyle(pe).position !== "fixed") continue;
       rg.selectNodeContents(n); for (const r of rg.getClientRects()) if (vis(r)) out.push(r);
     }
-    document.querySelectorAll(CONTENT_SEL).forEach(el => { if (skip(el)) return; const r = el.getBoundingClientRect(); if (vis(r)) out.push(r); });
-    document.querySelectorAll("svg").forEach(el => { if (skip(el) || el.closest("button,a,[data-act]")) return; const r = el.getBoundingClientRect(); if (vis(r) && r.width < W * 0.6) out.push(r); });
+    // (the walk stops after 4,000 words: the controls and pictures are then still collected from the rest of the page)
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {}
+    els.forEach(el => { const r = el.getBoundingClientRect(); if (vis(r)) out.push(r); });
+    svgs.forEach(el => { const r = el.getBoundingClientRect(); if (vis(r) && r.width < W * 0.6) out.push(r); });
     return out;
   }
+  // The rectangles for a strip, measured once and reused while choosing among spots in it
   let RECTS = null;
+  const rectsFor = (t, b) => {
+    if (!RECTS || RECTS.t > t || RECTS.b < b) { const u = RECTS ? {t: Math.min(t, RECTS.t), b: Math.max(b, RECTS.b)} : {t, b}; RECTS = {t: u.t, b: u.b, list: contentRects({t: u.t - 2, b: u.b + 2})}; }
+    return RECTS.list;
+  };
   function spotCheck(c, px, f){
     const rg = range(px);
     if (c.left < rg.L - 0.5 || c.left > rg.R + 0.5 || c.top < rg.T - 0.5 || c.top > rg.B + 0.5) return {hard: true};
@@ -694,7 +762,7 @@
     // the drawing's own outline with a little room (not a fixed box: a slim companion fits a narrower gap)
     const e = vext || measureArt() || DEF_ART;
     const a = {l: c.left + px * e.l - 3, r: c.left + px * e.r + 3, t: c.top + px * Math.max(0.1, e.t) - 6, b: c.top + px * 0.97 + 4};
-    for (const q of (RECTS || (RECTS = contentRects()))) if (q.left < a.r && q.right > a.l && q.top < a.b && q.bottom > a.t) return {hard: true};
+    for (const q of rectsFor(a.t, a.b)) if (q.left < a.r && q.right > a.l && q.top < a.b && q.bottom > a.t) return {hard: true};
     let surface = false;
     for (const fx of [0.15, 0.5, 0.85]) for (const fy of [0.2, 0.55, 0.9]) { const r = contentAt(c.left + px * fx, c.top + px * fy); if (r.hard) return {hard: true}; if (r.surface) surface = true; }
     return {hard: false, surface};
@@ -710,12 +778,33 @@
   function candidates(px, f, fresh){
     const rg = range(px), feet = px * (112 / 120), ground = Math.round(Math.min(f.bottom - feet, rg.B)), L = rg.L, R = Math.max(rg.L, rg.R), out = [];
     const want = L + (R - L) * wantX(fresh), span = Math.max(1, R - L);
-    const home = {left: Math.round(f.left - GAP - px), top: ground, kind: "home"};
+    const home = {left: Math.round(rtl() ? f.right + GAP : f.left - GAP - px), top: ground, kind: "home"};
     home.score = Math.abs(home.left - want) / span * 220 - 12;
     out.push(home);
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
+    // the gap between the side menu and the page, if it fits there: the spot right in its middle
+    try {
+      const g = geometry(), v = document.getElementById("view"), e = vext || measureArt() || DEF_ART;
+      if (g.sideNav && v && g.rtl) {
+        // mirrored: the gap between the page's right edge and the menu
+        const vr = v.getBoundingClientRect().right, artW = px * (e.r - e.l), mid = (vr + g.sideR) / 2;
+        if (g.sideR - vr >= artW + 8) {
+          const x = Math.round(mid - px * (e.l + e.r) / 2);
+          for (let i = out.length - 1; i >= 0; i--) if (out[i].kind === "ground" && out[i].left + px * e.r > vr && out[i].left + px * e.l >= vr - 2) out.splice(i, 1);
+          if (x >= L && x <= R + 0.5) out.push({left: x, top: ground, kind: "ground", score: Math.abs(x - want) / span * 220 - 1});
+        }
+      } else if (g.sideNav && v) {
+        const vl = v.getBoundingClientRect().left, artW = px * (e.r - e.l), mid = (g.side + vl) / 2;
+        if (vl - g.side >= artW + 8) {
+          const x = Math.round(mid - px * (e.l + e.r) / 2);
+          // any other spot inside the gap gives way to the middle one
+          for (let i = out.length - 1; i >= 0; i--) if (out[i].kind === "ground" && out[i].left + px * e.l < vl && out[i].left + px * e.r <= vl + 2) out.splice(i, 1);
+          if (x >= L - 0.5 && x <= R) out.push({left: x, top: ground, kind: "ground", score: Math.abs(x - want) / span * 220 - 1});
+        }
+      }
+    } catch (err) {}
     const lowT = lowTop(rg);
-    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
+    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(rtl() ? L + 2 : R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
     for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T, lowT); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
     return out;
@@ -750,9 +839,9 @@
     px = Math.max(px, Math.round(Math.min(r.width, r.height) * 1.02));
     return {left: Math.round(r.left + (r.width - px) / 2), top: Math.round(r.top + (r.height - px) / 2 - seatLift(cur, px)), kind: "slot", px};
   }
-  // Phones: its seat in the middle of the bottom tab bar
+  // Phones (and short windows): its seat in the bottom tab bar
   function dockSpot(px){
-    if (!phone() || (typeof ui !== "undefined" && ui.tab === "companion")) return null;
+    if (!docks() || (typeof ui !== "undefined" && ui.tab === "companion")) return null;
     const el = document.querySelector('nav.tabs .in [data-tab="companion"]'); if (!el) return null;
     const r = el.getBoundingClientRect(); if (r.width < 20 || r.height < 20) return null;
     const seat = 56, cx = r.left + r.width / 2, seatTop = r.top - 16, sz = Math.round(seat * 0.86);
@@ -762,17 +851,31 @@
     const px = sizePx(cur), f = fabRect();
     { const sl = slotSpot(px); if (sl) return Object.assign({px}, sl, {fab: f}); }
     { const dk = dockSpot(px); if (dk) return Object.assign({px}, dk, {fab: f}); }
+    // Short desktop windows (200% zoom): the Add button sits in the header row there, so its corner at the bottom right stays
+    // Mochi's home, the place it always stood beside that button, rather than wandering onto the page
+    if (!phone() && window.matchMedia && matchMedia("(max-height:600px)").matches) { const rg = range(px); return {left: Math.round(Math.max(rg.L, rg.R)), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
     // Desktop, "Companion Stays Put": always the bottom-left corner (the Companion page still seats it in its ring, above)
-    if (staysPut()) { const rg = range(px); return {left: Math.round(rg.L), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
+    if (staysPut()) { const rg = range(px); return {left: Math.round(rtl() ? Math.max(rg.L, rg.R) : rg.L), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
     if (spotKind === "slot") fresh = true;
     if (phone()) {
-      const rg = range(px), feet = px * (112 / 120), left = Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, f.shown ? f.left - 4 - px : f.right - px)));
+      const rg = range(px), feet = px * (112 / 120), left = Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, rtl() ? (f.shown ? f.right + 4 : f.left) : f.shown ? f.left - 4 - px : f.right - px)));
       const top = Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, f.bottom - feet)));
       return {left, top, kind: "pin", px, fab: f};
     }
     const here = box && box.dataset.x ? {left: +box.dataset.x, top: +box.dataset.y} : null;
     RECTS = null;
-    if (!fresh && here && +box.dataset.px === px && spotKind) { const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f}); }
+    // it stays where it is while that spot is still clear, at its size on this page too (Courses draws it full size, the Board a
+    // little smaller), so opening a page doesn't send it walking across the screen
+    if (!fresh && here && spotKind) {
+      const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f});
+      // a spot that's only just too tight on this page (the gap beside Courses' cards is a few pixels narrower than the Board's)
+      // keeps it there a touch smaller, feet where they were, rather than sending it across the screen
+      // (on a computer it never shrinks: it stays there at full size, since the spot is only a few pixels short)
+      for (const k of [0.94, 0.88]) {
+        const p2 = Math.round(px * k), c2 = {left: here.left, top: Math.round(here.top + (px - p2))};
+        if (!spotCheck(c2, p2, f).hard) return phone() ? Object.assign(c2, {kind: spotKind, px: p2, fab: f}) : Object.assign(here, {kind: spotKind, px, fab: f});
+      }
+    }
     RECTS = null;
     // It stands level with the Add button, never higher up the page
     const list = candidates(px, f, fresh).filter(c => c.kind === "home" || c.kind === "ground").sort((a, b) => a.score - b.score);
@@ -792,6 +895,9 @@
   }
   function choose(fresh){
     shrink = 1;
+    // On a computer it's always its full size, on every page: a busy page (Courses, Schedule) used to have it shrink to fit a
+    // gap. On a phone it may shrink a little to find room. (clamp() still shrinks it in a window too small to hold it at all.)
+    if (!phone()) return choose1(fresh);
     while (shrink > 0.55 && !feasible(range(sizePx(cur), true))) shrink = Math.round((shrink - 0.05) * 100) / 100;
     const fit = shrink;
     let s = choose1(fresh);
@@ -805,9 +911,10 @@
   }
   // The best fully-on-screen spot when no open spot exists
   function edgeSpot(px, f, list, here, fresh){
-    const rg = range(px), rects = (RECTS || (RECTS = contentRects())).slice(0, 1800), ctl = controlRects();
+    const rg = range(px), ctl = controlRects();
     const e = vext || DEF_ART, S = safeRect(), g = geometry();
     const X0 = rg.L, X1 = Math.max(rg.L, rg.R), Y1 = Math.max(rg.T, rg.B), Y0 = Math.min(Y1, Math.max(rg.T, lowTop(rg)));
+    const rects = rectsFor(Y0 + px * Math.min(0, e.t), Y1 + px * Math.max(1, e.b)).slice(0, 1800);
     const home = list.find(c => c.kind === "home") || {left: X1, top: Y1};
     const hx = Math.min(X1, Math.max(X0, home.left)), hy = Math.min(Y1, Math.max(Y0, home.top));
     const heavy = [];
@@ -884,7 +991,8 @@
     const float = cur.pose === "float", dir = to.left > from.left ? 1 : -1, feetY = to.top + px * (112 / 120);
     const frames = []; let dur, easing = "linear";
     const T = (t, x, y, extra) => frames.push({transform: `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)${extra || ""}`, offset: t});
-    const style = force || d > Math.max(innerWidth * 0.55, 620) ? (force || "dash") : float ? (Math.random() < 0.55 ? "loop" : "wave") : (d > 260 && Math.random() < 0.4 ? "leap" : "hops");
+    // Calm on its own: a short way it glides, further it takes a few low hops (or floats there); no leaps, spins, dashes or loops
+    const style = force || (d < 150 ? "glide" : float ? "wave" : "hops");
     if (style === "dash") {
       dur = 900;
       T(0, dx, dy, " scale(1)"); T(0.14, dx + dir * 14, dy, ` scale(.86,1.12) rotate(${-dir * 6}deg)`);
@@ -898,15 +1006,18 @@
       for (let i = 1; i <= 8; i++) { const t = i / 8, x = dx * (1 - t), y = dy * (1 - t) - Math.sin(Math.PI * t) * h; T(0.12 + t * 0.7, x, y, ` rotate(${(dir * 360 * t).toFixed(0)}deg) scale(${t < 0.15 ? 0.94 : 1},${t < 0.15 ? 1.08 : 1})`); }
       T(0.9, 0, 0, " scale(1.16,.82)"); T(1, 0, 0, " scale(1)");
       later(() => puff(from.left + px / 2, from.top + px * (112 / 120)), dur * 0.12); later(() => puff(to.left + px / 2, feetY, true), dur * 0.84);
+    } else if (style === "glide") {
+      dur = Math.min(950, 590 + d * 1.35); easing = "cubic-bezier(.45,0,.25,1)";
+      for (let i = 0; i <= 8; i++) { const t = i / 8; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 6); }
     } else if (style === "hops") {
-      const hops = Math.max(2, Math.min(5, Math.round(d / 120))), h = Math.min(56, 26 + d / hops * 0.2);
-      dur = Math.min(1500, 420 + hops * 230);
+      const hops = Math.max(2, Math.min(5, Math.round(d / 150))), h = Math.min(26, 12 + d / hops * 0.08);
+      dur = Math.min(1900, 560 + hops * 295);
       T(0, dx, dy, " scale(1)");
       for (let k = 0; k < hops; k++) {
         const a = k / hops, bT = (k + 1) / hops, mid = (a + bT) / 2;
-        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.1,.9)");
-        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 9}deg) scale(.94,1.08)`);
-        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 3}deg) scale(1.14,.86)`);
+        T(a + 0.02, dx * (1 - a), dy * (1 - a), " scale(1.04,.96)");
+        T(mid, dx * (1 - mid), dy * (1 - mid) - h, ` rotate(${dir * 3}deg) scale(.98,1.03)`);
+        T(Math.min(0.999, bT - 0.01), dx * (1 - bT), dy * (1 - bT), ` rotate(${-dir * 1}deg) scale(1.05,.95)`);
         const lx = to.left + px / 2 + dx * (1 - bT), ly = to.top + px * (112 / 120) + dy * (1 - bT);
         later(() => puff(lx, ly, k === hops - 1), dur * bT);
       }
@@ -921,10 +1032,9 @@
       easing = "ease-in-out";
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     } else {
-      dur = Math.min(1400, 800 + d * 0.9);
-      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 36 + Math.sin(t * Math.PI * 4) * 10, ` rotate(${(Math.sin(t * Math.PI * 4) * dir * 10).toFixed(0)}deg)`); }
+      dur = Math.min(1800, 1000 + d * 1);
+      for (let i = 0; i <= 12; i++) { const t = i / 12; T(t, dx * (1 - t), dy * (1 - t) - Math.sin(Math.PI * t) * 22 + Math.sin(t * Math.PI * 2) * 5, ` rotate(${(Math.sin(t * Math.PI * 2) * dir * 4).toFixed(0)}deg)`); }
       easing = "ease-in-out";
-      for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
     // on its way it flies above everything; it settles under the page's bars (cp-under) only once seated in its circle
@@ -943,12 +1053,17 @@
     };
   }
   // Phones: while a sheet is open or the keyboard is up, the companion stays exactly where it is, whatever circle it is in
-  let fullH = 0, fullW = 0;
+  let fullH = 0, fullW = 0, fullLayoutH = 0;
   function dockFrozen(){
     if (!phone() || !box || !box.dataset.x) return false;
-    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; }
+    if (innerWidth !== fullW) { fullW = innerWidth; fullH = 0; fullLayoutH = 0; }
     const h = Math.max(innerHeight, (window.visualViewport && visualViewport.height) || 0);
     if (h > fullH) fullH = h;
+    if (innerHeight > fullLayoutH) fullLayoutH = innerHeight;
+    // the whole page got shorter (the Android app's keyboard resizes the page, and the tab bar rides up above it):
+    // where it stood is now under the keyboard or off the screen, so it moves with the tab bar instead of staying put
+    // (on the Companion tab its circle has its own keyboard animation, so there it stays put)
+    if (innerHeight < fullLayoutH - 100 && spotKind !== "slot") return false;
     // a sheet is open, or one just closed and the keyboard is still sliding away
     // or the keyboard is up (typing on the whiteboard or in a note)
     const vv = window.visualViewport;
@@ -1063,14 +1178,22 @@
     for (let i = 0; i < n; i++) {
       const s = document.createElement("span");
       s.className = "cp-pt" + (still() ? " cp-pt-still" : "");
-      const size = (kind === "z" ? 13 : rand(11, 16)) * (small ? 0.8 : 1);
-      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : top[0] * k + rand(-px * 0.36, px * 0.36), y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : top[1] * k + rand(-4, 14);
-      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(kind === "bang" ? 0 : rand(-14, 14))}px;--r:${f1(kind === "bang" ? 0 : rand(-20, 20))}deg;animation-delay:${Math.round(i * 110)}ms`;
+      // Hearts and sparkles: a clear size, starting either side of the head (alternating) and drifting up and outward, so they
+      // never pass behind the speech bubble above it; each keeps one gentle tilt the whole way (no wobble)
+      const pop = kind === "heart" || kind === "sparkle";
+      const size = (kind === "z" ? 13 : pop ? rand(16, 19) : rand(11, 16)) * (small ? 0.8 : 1);
+      const sd = i % 2 ? 1 : -1, cx = top[0] * k;
+      const x = kind === "z" ? (cur.eyes.rx + 14) * k : kind === "bang" ? (cur.eyes.rx + 10) * k : pop ? cx + sd * px * rand(0.3, 0.44) : top[0] * k + rand(-px * 0.36, px * 0.36);
+      const y = kind === "z" || kind === "bang" ? (cur.eyes.y - 18) * k : pop ? top[1] * k + rand(4, 16) : top[1] * k + rand(-4, 14);
+      const dx = kind === "bang" ? 0 : pop ? sd * rand(10, 18) : rand(-14, 14), r = kind === "bang" ? 0 : pop ? sd * rand(4, 10) : rand(-20, 20);
+      s.className += pop ? " cp-pt-pop" : "";
+      s.style.cssText = `left:${f1(x - size / 2)}px;top:${f1(y - size / 2)}px;width:${f1(size)}px;height:${f1(size)}px;--dx:${f1(dx)}px;--r:${f1(r)}deg;animation-delay:${Math.round(i * (pop ? 170 : 200))}ms`;
       s.innerHTML = art[kind] || art.sparkle;
       fx.appendChild(s);
       const kill = () => s.remove();
-      s.addEventListener("animationend", kill, {once: true});
-      setTimeout(kill, 2600 + i * 110);
+      // only its own float ends it (the page-wide fade-in for new things, 99-smooth, used to end it after a fifth of a second)
+      s.addEventListener("animationend", e => { if (e.target === s && /^cp(Up|Float|Fade)$/.test(e.animationName)) kill(); });
+      setTimeout(kill, 3600 + i * 200);
     }
   }
 
@@ -1106,12 +1229,12 @@
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
   function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
   let bRects = null, bRectsAt = 0;
-  const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects(); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
+  const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects({t: 0, b: innerHeight}); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
   function placeBubble(b){
     const r = box.getBoundingClientRect(), g = geometry(), S = safeRect(), cx = r.left + r.width / 2;
     let PL = 4, PR = 14, PT = 14, PB = 8;
-    const maxW = Math.max(120, Math.min(phone() ? 300 : 280, S.r - PR - Math.max(S.l, g.side + MARGIN) - PL - 8));
+    const maxW = Math.max(120, Math.min(phone() ? 300 : 280, Math.min(S.r, g.sideR - MARGIN) - PR - Math.max(S.l, g.side + MARGIN) - PL - 8));
     if (b.dataset.mw !== String(maxW)) { b.style.maxWidth = maxW + "px"; b.dataset.mw = maxW; }
     b.style.width = ""; b.style.left = "0px";
     const w = b.offsetWidth + 1; b.style.width = w + "px";
@@ -1120,7 +1243,7 @@
     b.style.overflowY = b.scrollHeight > mh + 1 ? "auto" : "";
     const h = b.offsetHeight;
     const tx = Math.ceil(h / 2 * 0.06), ty = Math.ceil(w / 2 * 0.06); PL += tx; PR += tx; PT += ty; PB += ty;
-    const lo = Math.max(S.l, g.side + MARGIN) + PL, hi = S.r - PR;
+    const lo = Math.max(S.l, g.side + MARGIN) + PL, hi = Math.min(S.r, g.sideR - MARGIN) - PR;
     const left = Math.max(lo, Math.min(hi - w, cx - w / 2));
     const minT = S.t + PT, maxT = S.b - PB - h;
     let top = r.top + r.height * 0.06 - h;
@@ -1183,6 +1306,9 @@
     if (opts.cheer || /^(WOO|YES|YAY|Woohoo|Yay|Hooray)\b/.test(text)) b.classList.add("cheer");
     b.innerHTML = `<span class="cp-b-t"></span>`;
     b.querySelector(".cp-b-t").textContent = text;
+    // The companion's lines are written in English only: on a page in another language a line the catalog doesn't cover is
+    // marked English, so a screen reader reads it with an English voice
+    if (!/^en\b/.test(SBI18N.page) && SBI18N.text(text) === text) b.querySelector(".cp-b-t").setAttribute("lang", "en");
     // Ask is offered on the bubble that answers a click on the companion (react, loved), not on lines it says by itself
     const idea = opts.idea || null, ask = !!opts.ask && !askOnTab();
     bubbleIdea = idea; bubbleAsk = ask;
@@ -1298,7 +1424,7 @@
     clearTimeout(bubbleT);
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
-    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} or have it find or change anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
+    b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
       ${sc ? `<label class="cp-ask-ctx"><input type="checkbox" class="cp-ctx-on" checked> <span>About this ${esc(sc.kind.toLowerCase())}: <b>${esc(shortT(sc.label, 34))}</b></span></label>` : ""}
       <span class="cp-ask-hint">${sc ? esc(sc.hint) : (() => { try { return aiReady(); } catch (e) { return false; } })() ? `Like "find my lab notes" or "move my essay to Friday"` : `Like "what should I do next?" or "quiz me on something"`}</span>`;
     placeBubble(b);
@@ -1425,9 +1551,9 @@
     if (layer && sig === curSig) { applyVars(); placeSoon(0); return; }
     const first = !layer;
     if (!layer) {
-      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer";
+      layer = document.createElement("div"); layer.id = "compLayer"; layer.className = "cp-layer sm-skip";
       document.body.appendChild(layer);
-      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front";
+      front = document.createElement("div"); front.id = "compFront"; front.className = "cp-front sm-skip";
       front.innerHTML = `<div class="cp-bubble" role="status"></div>`;
       // pointing at a bubble keeps it up; it goes a moment after the pointer leaves (an open Ask box keeps its own timer)
       { const bb = front.querySelector(".cp-bubble");
@@ -1443,7 +1569,7 @@
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
-    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
+    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx sm-skip"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
     // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
     // while a sheet or the keyboard holds off the next placement
@@ -1511,7 +1637,7 @@
     act.eyes("happy"); act.mouth("smile");
     box.classList.add("cp-loved");
     act.motion(cur.cheer === "hop" ? "spin" : cur.cheer, true);
-    later(() => act && act.motion("hop"), 950);
+    later(() => act && act.motion("hop"), Math.round(950 * CALM));
     spawnFx("heart", 5);
     if (talkOn()) say(pickFrom(cur.id + ":pet", ownLines("pet")), {ask: askShown()});
     later(() => { if (!act) return; box.classList.remove("cp-loved"); act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2600);
@@ -1526,7 +1652,7 @@
       hold(2200);
       act.eyes("happy"); act.mouth("smile");
       act.motion(cur.cheer, true);
-      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), 900);
+      if (cur.cheer !== "hop") later(() => act && act.motion("hop"), Math.round(900 * CALM));
       spawnFx("sparkle", 4);
       later(() => { if (!act) return; act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 2000);
     }, delay || 0);
@@ -1570,15 +1696,71 @@
     const fresh = earnedNow.filter(a => !got[a.id]);
     if (!fresh.length) return;
     setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
-    if (!act || !cur) return;
-    const wearable = fresh.filter(canWear), a = wearable[wearable.length - 1] || fresh[fresh.length - 1];
-    if (a && canWear(a) && !wearOf(cur).length) setCfg({wear: {[cur.id]: [a.id]}});
-    build();
-    hold(2200);
-    act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
-    if (talkOn()) say(fresh.length > 1 ? `Ooh, ${fresh.length} new props: ${fresh.map(x => x.name).join(", ")}! Look in my wardrobe!` : `Ooh, a new prop: the ${a.name}! Thanks for working so hard!`);
-    later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
     try { refreshPicker(); } catch (e) {}
+    // each new prop is shown big in the middle of the screen (revealProp), one after another; the companion celebrates as each closes
+    fresh.forEach(a => { if (!revealQ.some(x => x.id === a.id)) revealQ.push(a); });
+    revealSoon();
+  }
+
+  /* A new prop: shown in the middle of the screen in a burst of light, with Put It On and Later. It waits for a calm moment
+     (nothing being typed, dragged or held, no sheet open), shows even when the companion is hidden, and comes one at a time */
+  const revealQ = [];
+  let revealOn = false, revealT = 0, pressing = false;
+  document.addEventListener("pointerdown", () => { pressing = true; }, true);
+  ["pointerup", "pointercancel"].forEach(t => document.addEventListener(t, () => { pressing = false; }, true));
+  const revealBusy = () => { const ae = document.activeElement;
+    return document.hidden || pressing || !!document.querySelector("dialog[open]") || !!(ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))
+      || !!document.querySelector(".dragging, .sort-ghost, .rv-ghost, .stk-ghost, .note.editing") || /\b(sorting|rv-dragging|sch-dragging|stk-dragging|dragging-note)\b/.test(document.body.className); };
+  function revealSoon(){
+    clearTimeout(revealT);
+    if (!revealQ.length || revealOn) return;
+    if (revealBusy()) { revealT = setTimeout(revealSoon, 1500); return; }
+    revealProp(revealQ.shift());
+  }
+  const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/></svg>';
+  function revealProp(a){
+    revealOn = true;
+    const c = current(), wearNow = !!c && canWear(a), done = propProg(a).find(x => x.p >= 1);
+    const tints = tintsNow(), col = hexOk(tints[a.id]) ? tints[a.id] : ACC_DEF[a.id] || (c ? wearColor(c) : "");
+    const o = document.createElement("div");
+    o.className = "cpu" + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpuName"); o.setAttribute("aria-describedby", "cpuHow");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
+    const how = !c ? "Pick a companion to wear it." : wearNow ? "Your companion can wear it now." : owns("prop", a.id) ? "It's in your companion's wardrobe." : "It comes with Studyboard Pro.";
+    o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
+      <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
+        ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
+        <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
+      <span class="cpu-kick">New Prop Unlocked!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>
+      <p class="cpu-how" id="cpuHow">${done ? `<span class="cpu-did">${esc(done.ask)}</span> ` : ""}${esc(how)}</p>
+      <div class="cpu-acts">${wearNow ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">Got It</button>`}</div></div>`;
+    document.body.appendChild(o);
+    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    sbHaptic("success", {force: true});
+    const back = document.activeElement;
+    setTimeout(() => { const b = o.querySelector('[data-cpu="wear"]') || o.querySelector("[data-cpu]"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    let closed = false;
+    const close = wear => {
+      if (closed) return; closed = true;
+      o.classList.add("cpu-out");
+      setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); }, still() ? 0 : 260);
+      try { if (back && back.isConnected && back.focus) back.focus({preventScroll: true}); } catch (e) {}
+      const cc = current();
+      if (wear && cc && canWear(a)) { const now = wearOf(cc); setCfg({wear: {[cc.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {} }
+      // the companion celebrates too
+      if (act && cur) {
+        hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
+        if (talkOn()) say(wear ? `How do I look in the ${a.name}? Thanks for working so hard!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
+        later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
+      }
+      revealOn = false;
+      revealT = setTimeout(revealSoon, 900);
+    };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpu]"); if (b) close(b.dataset.cpu === "wear"); });
+    o.addEventListener("keydown", e => {
+      if (e.key === "Escape") { e.preventDefault(); close(false); return; }
+      if (e.key === "Tab") { const bs = [...o.querySelectorAll("[data-cpu]")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); }
+    });
   }
   // Checked as you go (not only at the daily hello)
   hook("render", () => { if (Date.now() - lastUnlockChk > 20000 && !document.hidden) setTimeout(checkUnlocks, 1500); });
@@ -2077,7 +2259,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }
     try { clamp("keyboard"); } catch (e) {} guardSoon("keyboard", 60);
   });
-  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
+  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { if (k === "scroll" && visualViewport.scale > 1.01) return; sAt = 0; if (k === "resize") dockNow(); guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
   document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
   document.addEventListener("focusout", () => guardSoon("blur", 350));
   new MutationObserver(() => { sAt = 0; vext = null; guardSoon("text-size", 100); placeSoon(150); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-ts", "data-hc"]});
@@ -2100,7 +2282,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   hook("render", tab => {
     if (!layer) { if (isOn()) refresh(0); return; }
     applyVars(); fitHitSoon();
-    const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && !phone() && !staysPut() && roamDue(0.2);
+    // a new page only moves it when its spot would cover something there (no random wandering off on a tab change)
+    const newTab = tab !== lastTab, first = !lastTab, wander = false;
     if (wander) lastRoam = Date.now();
     // an open Ask box doesn't stay behind when the page changes and the companion moves (Ask's own answers, said after it
     // goes somewhere, aren't the Ask box, so they stay)
@@ -2296,7 +2479,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // Read the saved pictures a little after start-up, so the shop's lists open ready
   // and make any that are missing (once per device; they're saved), a few at a time in quiet moments
   let warmAll = false;
-  hook("boot", () => setTimeout(() => idleTick().then(loadSaved).then(() => { if (Object.keys(BYID).some(id => !pngs[id])) { warmAll = true; warmStills(); } }), 5000));
+  // (not on a phone: reading and making every picture at start-up kept a mid-range phone busy and taps slow; there the
+  // shop reads and makes them when it opens, as its lists come into view)
+  hook("boot", () => { if (window.matchMedia && matchMedia("(max-width:639px)").matches) return; setTimeout(() => idleTick().then(loadSaved).then(() => { if (Object.keys(BYID).some(id => !pngs[id])) { warmAll = true; warmStills(); } }), 5000); });
   const swapStill = id => document.querySelectorAll(`img.cp-still[data-still="${CSS.escape(id)}"]`).forEach(im => { im.src = pngs[id]; });
   const saveSoon = () => { clearTimeout(saveT); saveT = setTimeout(() => { if (saved && window.SBUI && SBUI.cacheSet) SBUI.cacheSet(STILL_KEY, saved).catch(() => {}); }, 1500); };
   // Every companion, in quiet moments while the Style Shop is open, so its lists are ready
@@ -2350,16 +2535,15 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function pickerBody(){
     const list = setOf(skinId()), c = current(), key = themeKey(skinId());
     const lockedMsg = paywall() && !pro();
-    const want = Number((cfg().pick || {})[key]) || 0;
     const ord = id => { const k = SET_ORDER.indexOf(id); return k < 0 ? 99 : k; };
     const tiles = list.map((x, i) => ({x, i})).sort((p, q) => key === "plain" ? ord(p.x.id) - ord(q.x.id) || p.i - q.i : p.i - q.i).map(({x, i}) => {
       const locked = !canSlot(i), on = c && c.id === x.id, left = focusLeft(x), earn = left > 0 && owns("comp", x.id);
-      return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
+      return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" data-tier="${compTier(x) === "pro" ? "pro" : "free"}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
-        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || pro() ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
+        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : ownName(x.id) || x.name)}</b>${x.theme === "extra" || earn || (pro() && !tagPro()) ? "" : compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <p class="cp-bio">${esc(x.bio || "")}</p>
         ${earn ? (pct => `<span class="cp-earn">${esc(EARN[x.id].how)} to unlock</span><span class="cp-earn-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to unlock ${esc(x.name)}"><i style="width:${pct}%"></i></span><span class="mini">${esc(EARN[x.id].left(left))} to go</span><button type="button" class="link-btn cp-earn-pro" data-act="comp-pick" data-slot="${i}">Or Get It With Pro</button>`)(Math.max(0, Math.min(99, Math.floor((1 - left / EARN[x.id].n) * 100))))
-          : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
+          : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen shop-inuse" role="status">✓ In Use</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Use</button>`}
       </div>`;
     }).join("");
     const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
@@ -2369,10 +2553,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
       const got = isEarned(a), can = canWear(a), on = wear.includes(a.id);
-      const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
-      const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
+      const icon = propIcon(a, tints);
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || pro() ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
@@ -2383,11 +2566,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
-      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, study days, streaks, spreading exam study over several days, flashcards, quizzes, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
+      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
-      ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
+      ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
       ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
@@ -2423,7 +2606,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const rank = k => window.SBUI && typeof SBUI.themeRank === "function" ? SBUI.themeRank(k) : SKINS.findIndex(x => x.id === k);
     const others = Object.keys(REG).filter(k => k !== here && k !== "plain" && SKINS.some(x => x.id === k) && (REG[k].list || []).length).sort((a, b) => rank(a) - rank(b));
     const group = k => { const sk = SKINS.find(x => x.id === k), have = owns("skin", k);
-      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
+      return `<div class="cp-oth-g"><h4>${esc(sk ? sk.name : k)}${have && !(tagPro() && sk && sk.tier === "pro") ? "" : ` ${PRO_BADGE}`}</h4><div class="cp-oth-list">${REG[k].list.map((x, n) => `<button type="button" class="cp-oth" data-act="comp-theme" data-skin="${esc(k)}" data-slot="${n}" data-id="${esc(x.id)}" title="${esc(`${x.name}: switch to the ${sk ? sk.name : k} theme`)}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}</span></button>`).join("")}</div></div>`; };
     return mine + (others.length ? `<details class="cp-oth-d"${ui.cpOth ? " open" : ""}><summary>Companions from Other Themes</summary><p class="mini" style="margin:0">Tap one to switch to its theme. Each theme has its own companions.</p>${others.map(group).join("")}</details>` : "");
   }
   function openChange(){
@@ -2556,12 +2739,27 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         body.querySelectorAll('[data-act="shop-tab"]').forEach(b => { const on = b.dataset.id === "companions"; b.setAttribute("aria-selected", on); b.setAttribute("aria-pressed", on); });
         body.insertAdjacentHTML("beforeend", `<div class="cp-shop">${shopBody()}</div>`);
         body.dataset.uiTab = "companions";
+        shopChips(body, bar);
         wirePreviews(body.querySelector(".cp-shop"));
         warmStills();
       }
     } catch (e) { console.warn("companion shop", e); }
     return r;
   };
+  // The same All / Free / Pro row as the other Style Shop tabs, for this theme's companions
+  let shopF = "all";
+  function shopChips(body, bar){
+    const tiles = [...body.querySelectorAll(".cp-shop .cp-tiles > .cp-tile[data-tier]")];
+    const has = new Set(tiles.map(t => t.dataset.tier)), chips = [["all", "All"], ["free", "Free"], ["pro", "Pro"]].filter(([k]) => k === "all" || has.has(k));
+    if (!bar || (chips.length < 3 && !STORE.paywall)) return;
+    if (!chips.some(([k]) => k === shopF)) shopF = "all";
+    const row = document.createElement("div"); row.className = "ui-chips"; row.setAttribute("role", "group"); row.setAttribute("aria-label", "Show");
+    row.innerHTML = chips.map(([k, l]) => `<button type="button" class="ui-chip" data-cp-f="${k}" aria-pressed="${k === shopF}">${l}</button>`).join("");
+    const q = bar.querySelector(".ui-shop-q"); if (q) bar.insertBefore(row, q); else bar.appendChild(row);
+    const show = () => { row.querySelectorAll("[data-cp-f]").forEach(c => c.setAttribute("aria-pressed", c.dataset.cpF === shopF)); tiles.forEach(t => { t.hidden = shopF !== "all" && t.dataset.tier !== shopF; }); };
+    row.addEventListener("click", e => { const c = e.target.closest("[data-cp-f]"); if (!c) return; shopF = c.dataset.cpF; show(); });
+    show();
+  }
   function addShopTab(){
     const tabs = dlg.querySelector(".sheet.shop .shop-tabs");
     if (!tabs || tabs.querySelector('[data-id="companions"]')) return;
@@ -2826,6 +3024,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // Every companion, for the Your Photo theme editor's "Companions" picker
     all: () => Object.keys(REG).flatMap(k => REG[k].list.map(c => ({id: c.id, name: c.name, kind: c.kind || "", theme: k, owned: canComp(c)}))),
     current: () => current() && current().id, mood: () => mood, el: () => box, open: openPicker,
+    // the new-prop reveal, for tests and previews
+    reveal: id => { const a = ACC.find(x => x.id === id); if (a && !revealQ.some(x => x.id === a.id)) { revealQ.push(a); revealSoon(); } return !!a; },
     tap: () => react(), cheer: k => { lastCheer = 0; cheer(k || "task"); }, greet: () => { try { sessionStorage.removeItem(GREET_KEY); } catch (e) {} greet(); },
     say: (t, o) => say(t, Object.assign({again: true}, o)),
     // A trip to a corner or any point (clamped into the allowed range), in a chosen style

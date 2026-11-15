@@ -54,6 +54,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
       if (/BOOMBOOMBOO/.test(body)) { route.fulfill({status: 400, contentType: "application/json", body: JSON.stringify({error: {code: 400, message: "Request contains an invalid argument.", status: "INVALID_ARGUMENT"}})}); return; }
       if (/LongLongLon/.test(body)) { route.fulfill({status: 400, contentType: "application/json", body: JSON.stringify({error: {code: 400, message: "The input token count (2210000) exceeds the maximum number of tokens allowed (1048576).", status: "INVALID_ARGUMENT"}})}); return; }
       if (/file_uri/.test(body)) { route.fulfill(gem(JSON.stringify(VIDEO_NOTES))); return; }
+      if (/The student pasted its transcript/.test(body)) { route.fulfill(gem(JSON.stringify(VIDEO_NOTES))); return; }
       if (/url_context/.test(body)) {
         const pay = /paywalled/.test(body), url = (/(https:\/\/[^\s"\\]+)/.exec(body.split("web page at ")[1] || "") || [])[1] || "";
         route.fulfill(gem(pay ? "```json\n" + JSON.stringify({status: "ok", title: "Subscribe to read", overview: "Made-up content the model should not have written about membranes.", sections: [{heading: "x", points: ["A long made up point about membrane transport that was never on the page at all."]}]}) + "\n```" : "Here are the notes:\n```json\n" + JSON.stringify(PAGE_NOTES) + "\n```",
@@ -77,7 +78,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content, stop_reason: "end_turn", usage: {input_tokens: 1500, output_tokens: 500}})});
     });
     await ctx.addInitScript(([seed, o]) => {
-      window.__SB_TEST = true;
+      window.__SB_TEST = true; if (o.claude) window.__SB_OWN_KEYS = true; // a Claude key needs the account's permission (supabase-own-keys.sql)
       try {
         if (!localStorage.getItem("coursework:v2")) {
           const s = JSON.parse(JSON.stringify(seed)); if (o.claude) s.settings.ai = {provider: "anthropic", model: "claude-sonnet-5"};
@@ -184,7 +185,22 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     await page.waitForFunction(() => /too long/.test(document.getElementById("aiStatus").textContent), null, {timeout: 15000});
     ok(/too long to cover in one go/.test(await status(page)), "a video over the limit is explained: " + await status(page));
     await page.click('#aiStatus [data-cl="paste"]');
-    ok(await page.evaluate(() => document.getElementById("aiPasteD").open && document.activeElement && document.activeElement.id === "aiPaste"), "Paste the Text Instead opens the paste box");
+    ok(await page.evaluate(() => document.querySelector('input[name="aiYtWay"][value="paste"]').checked && !document.getElementById("aiYtTrBox").hidden && document.activeElement && document.activeElement.id === "aiYtTr"), "Paste the Transcript Instead switches the video to Paste the Transcript and focuses its box");
+    ok(/reads the transcript you paste instead of Gemini watching the video, so it uses much less/.test(await page.textContent("#aiLinkHint")) && /only shown on screen/.test(await page.textContent("#aiLinkHint")), "the hint says it's cheaper and loses what's only shown on screen");
+    /* Paste the Transcript: the AI reads the text, the video isn't sent */
+    await page.click("#aiGo"); await page.waitForTimeout(150);
+    ok(/Paste the video's transcript first/.test(await status(page)), "choosing Paste with nothing pasted asks for the transcript");
+    { const before = page.context().gem.length;
+      await page.fill("#aiLink", "https://www.youtube.com/watch?v=aBcDeFgHiJk"); await page.fill("#aiYtTr", TRANSCRIPT);
+      await page.click("#aiGo"); await page.waitForSelector("#arSave", {timeout: 15000});
+      const sent = page.context().gem.slice(before), j = sent.join(" ");
+      ok(sent.length && !/file_data|fileData|file_uri/.test(j) && /The student pasted its transcript/.test(j) && /Today: osmosis/.test(j), "the pasted transcript goes to the AI as text and the video itself isn't sent");
+      await page.click("#arSave"); await page.waitForTimeout(500); }
+    /* Gemini Watches It is the default and hides the box */
+    await openCreate(page); await useLink(page, "https://www.youtube.com/watch?v=aBcDeFgHiJk");
+    ok(await page.evaluate(() => document.querySelector('input[name="aiYtWay"][value="watch"]').checked && !document.getElementById("aiYtWay").hidden && document.getElementById("aiYtTrBox").hidden), "a YouTube link offers the choice, Gemini Watches It first");
+    await page.fill("#aiLink", "https://www.khanacademy.org/science/biology"); await page.waitForTimeout(50);
+    ok(await page.evaluate(() => document.getElementById("aiYtWay").hidden), "a web page doesn't show the video choice");
     ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
     await page.context().close();
 
@@ -196,7 +212,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     await pc.click("#aiGo"); await pc.waitForTimeout(150);
     ok(/YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using Claude/.test(await status(pc)) && /Show Transcript/.test(await status(pc)) && pc.context().claude.length === 0, "Create explains it plainly and sends nothing");
     await pc.click('#aiStatus [data-cl="paste"]');
-    await pc.fill("#aiPaste", TRANSCRIPT);
+    await pc.fill("#aiYtTr", TRANSCRIPT);
     await pc.selectOption("#aiCourse", "c1");
     await pc.click("#aiGo"); await pc.waitForSelector("#arSave", {timeout: 15000});
     const c1 = pc.context().claude[0].body;

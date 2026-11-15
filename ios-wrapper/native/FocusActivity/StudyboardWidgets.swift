@@ -4,9 +4,19 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
+// The Focus timer's Live Activity, and the Home Screen and Lock Screen widgets (native/HomeWidgets: add StudyboardHomeWidgets.swift and
+// StudyboardHomeWidgetData.swift to this target too, see README-IOS.md 3d). The widgets are left out until their files are in the
+// project: npm run ios:stage sets STUDYBOARD_HOME_WIDGETS for this target once StudyboardHomeWidgets.swift is there, so a project
+// without them still builds with the Focus timer alone.
 @main
 struct StudyboardWidgets: WidgetBundle {
-    var body: some Widget { StudyboardFocusLiveActivity() }
+    var body: some Widget {
+        StudyboardFocusLiveActivity()
+        #if STUDYBOARD_HOME_WIDGETS
+        StudyboardTodayWidget()
+        StudyboardLockWidget()
+        #endif
+    }
 }
 
 private extension Color {

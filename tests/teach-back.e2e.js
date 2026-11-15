@@ -96,7 +96,7 @@ const topicConf = async (page, tid) => (await F.exam(page)).prep.topics.find(t =
       await openTopic(page, "t3");
       ok(/Nothing is linked to this topic yet/.test(await dlgText(page)) && await page.locator('[data-tb="check"][disabled]').count() === 1, "it asks to link material first; Check is off");
       await page.click('[data-tb="link"]'); await page.waitForTimeout(400);
-      ok(/Plan My Prep/i.test(await page.locator("#ppTitle").textContent()) && await page.locator('[data-pn="t3"]').count() === 1, "Link Material opens the topic editor");
+      ok(/Exam Prep/i.test(await page.locator("#ppTitle").textContent()) && await page.locator('[data-pn="t3"]').count() === 1, "Link Material opens the topic editor");
       await F.act(page, "close"); await page.waitForTimeout(200);
       await openTopic(page, "t3");
       await page.check('[data-tb="general"]'); await page.waitForTimeout(100);
@@ -154,9 +154,12 @@ const topicConf = async (page, tid) => (await F.exam(page)).prep.topics.find(t =
     {
       const {ctx, page} = await F.mk(browser, 390, 844, {ai: true, free: true});
       await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
-      ok(await page.locator('#ppBody [data-act="tb-open"] .pro-badge').count() === 3, "free: each Teach It Back shows a PRO badge");
+      ok(/3 free this week/.test(await page.locator('#ppBody [data-act="tb-open"]').first().textContent()), "free: Teach It Back says how many free checks are left this week");
+      await page.evaluate(() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); const p = n => String(n).padStart(2, "0"); const st = window.__sbProStudy.state(); st.settings = Object.assign({}, st.settings, {freeRuns: {wk: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, teach: 3}}); });
+      await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
+      ok(await page.locator('#ppBody [data-act="tb-open"] .pro-badge').count() === 3, "free: with this week's checks used, each Teach It Back shows a PRO badge");
       await page.click('#ppBody [data-act="tb-open"][data-topic="t1"]'); await page.waitForTimeout(600);
-      ok(/Teach It Back is part of Studyboard Pro/.test(await dlgText(page)) && await page.locator("#tbText").count() === 0, "free: it opens the Pro sheet with the reason");
+      ok(/used this week's 3 free Teach It Back checks/.test(await dlgText(page)) && await page.locator("#tbText").count() === 0, "free: it opens the Pro sheet with the reason");
       ok(tbCalls(ctx).length === 0, "free: no AI call");
       ok(page.errs.length === 0, "no console errors (free): " + page.errs.join(" | "));
       await ctx.close();

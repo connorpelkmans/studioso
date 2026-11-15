@@ -69,7 +69,8 @@
       <b class="grp-prev-name">${esc(name)}</b><span class="mini">${sub}</span></div>`;
   }
   const byLine = row => row.sharer_name ? ` · Shared by ${esc(row.sharer_name)}` : "";
-  const reportBtn = row => row.is_mine ? "" : `<button type="button" class="btn" data-act="share-report" data-id="${esc(row.code)}">Report</button>`;
+  // a small link in the footer, not a full button next to the main ones (it's rarely needed)
+  const reportBtn = row => row.is_mine ? "" : `<button type="button" class="link-btn sh-rep" data-act="share-report" data-id="${esc(row.code)}">Report</button>`;
   const copyOf = code => decksArr().find(d => d.sharedFrom && d.sharedFrom.code === code);
   const saved = code => { if (signedIn()) rpc("share_saved", {p_code: code}).catch(() => {}); };
 
@@ -546,6 +547,8 @@
     catch (e) { if (sk) throw e; r = rows(await rpc("public_search", base)); }
     return r.map(x => ({code: x.code, name: x.name, sharer_name: x.sharer_name, n: Number(x.n) || 0, saves: Number(x.saves) || 0, school_key: x.school_key || "", school_name: x.school_name || ""}));
   }
+  // Signed out, sharing with a link isn't offered, so the empty library says how to get there
+  const signInLine = kind => `Sign in to share your own ${kind} here.<div class="row-actions" style="justify-content:center;margin-top:10px"><button type="button" class="btn primary" data-act="sb-signin">Sign In</button></div>`;
   async function libSheet(cid, kind){
     if (kind) L.kind = kind === "quiz" ? "quiz" : "deck";
     const isQ = L.kind === "quiz";
@@ -573,8 +576,8 @@
     const el = $("#libList"); if (!el || !dlg.open) return;
     el.innerHTML = r.length ? `<ul class="lib-list">${r.map(x => `<li><button type="button" class="lib-item" data-act="lib-preview" data-id="${esc(x.code)}"><b>${esc(x.name)}</b>
         <span class="mini">${isQ ? plural(x.n, "question") : plural(x.card_count, "card")}${x.sharer_name ? ` · by ${esc(x.sharer_name)}` : ""}${x.saves ? ` · ${plural(x.saves, "save")}` : ""}${(!sc || x.school_key !== sc.key) && x.school_name ? ` · ${esc(x.school_name)}` : ""}${x.is_mine ? " · Yours" : ""}${!isQ && copyOf(x.code) ? " · Added" : ""}</span></button></li>`).join("")}</ul>`
-      : isQ ? `<div class="empty" style="margin:6px 0 0"><strong>No Quizzes Yet</strong>Nobody has published a quiz for ${esc(c.code || k)}${sc && !L.all ? ` at ${esc(sc.name)}` : ""} yet. Be the first: open one of your quizzes, tap Share, then Publish.</div>`
-      : `<div class="empty" style="margin:6px 0 0"><strong>No Decks Yet</strong>Nobody has shared a deck for ${esc(c.code || k)}${sc && !L.all ? ` at ${esc(sc.name)}` : ""} yet. Be the first: open one of your decks, tap Share, then Anyone With the Link, and List It in the Course Library.</div>`;
+      : isQ ? `<div class="empty" style="margin:6px 0 0"><strong>No Quizzes Yet</strong>Nobody has published a quiz for ${esc(c.code || k)}${sc && !L.all ? ` at ${esc(sc.name)}` : ""} yet. ${signedIn() ? "Be the first: open one of your quizzes, tap Share, then Publish." : signInLine("quiz")}</div>`
+      : `<div class="empty" style="margin:6px 0 0"><strong>No Decks Yet</strong>Nobody has shared a deck for ${esc(c.code || k)}${sc && !L.all ? ` at ${esc(sc.name)}` : ""} yet. ${signedIn() ? "Be the first: open one of your decks, tap Share, then Anyone With the Link, and List It in the Course Library." : signInLine("deck")}</div>`;
   }
 
   // The listing switch in a deck's link sheet (groups' deckShareSheet)
@@ -606,7 +609,7 @@
     const srcDeck = decksArr().find(x => x.shared && x.shared.code === code) || (kind === "quiz" ? decksArr().find(x => (x.aiQuizzes || []).some(q => q.shared && q.shared.code === code)) : null);
     if (!on && notMine(srcDeck)) { r.innerHTML = `<p class="mini" style="margin:0">${notMineText(srcDeck)}</p>`; return; }
     r.innerHTML = `<label class="mi-check"><input type="checkbox" id="pubOn" ${on ? "checked" : ""}> Publish to ${esc(where)}</label>
-      <span class="mini">${on ? `Anyone can find it by searching, on the web and in ${esc(where)}. It shows your shared copy and your name.` : `Give it a public page anyone can find by searching, on Google too. It shows your shared copy and your display name.`}</span>
+      <span class="mini">${on ? `Anyone can find it by searching, on the web and in ${esc(where)}. It shows your shared copy and your username${window.SBUNAME && SBUNAME.cached() ? ` (@${esc(SBUNAME.cached())})` : ""}.` : `Give it a public page anyone can find by searching, on Google too. It shows your shared copy and your username${window.SBUNAME && SBUNAME.cached() ? ` (@${esc(SBUNAME.cached())})` : ""}.`}</span>
       ${on ? `<div class="grp-link"><input type="text" readonly value="${esc(url)}" aria-label="Public page" id="pubUrlIn"><button type="button" class="btn small" id="pubView">View Page</button></div>` : ""}`;
     const v = $("#pubView"); if (v) v.addEventListener("click", () => openOut(url));
     const ui2 = $("#pubUrlIn"); if (ui2) ui2.addEventListener("focus", () => ui2.select());

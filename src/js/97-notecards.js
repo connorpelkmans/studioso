@@ -259,8 +259,15 @@ function bestDeckFor(id){
   const e = madeFrom()[id]; if (!e) return "";
   return Object.keys(e.decks).filter(k => state.decks[k] && !state.decks[k].archived).sort((a, b) => e.decks[b] - e.decks[a])[0] || "";
 }
+// A deck the note links to, as [[Deck name]] (the first one that names a deck)
+function linkedDeck(text){
+  const key = x => String(x || "").toLowerCase().replace(/\s+/g, " ").trim(), re = /\[\[([^[\]\n|#]{1,200})(?:[#|][^[\]\n]*)?\]\]/g; let m;
+  while ((m = re.exec(String(text || "")))) { const k = key(m[1]), d = decksArr().find(x => key(x.name) === k); if (d) return d.id; }
+  return "";
+}
 function defaultDeck(n, text){
   const prev = bestDeckFor(n.id); if (prev) return prev;
+  const link = linkedDeck(text != null ? text : n.text); if (link) return link;
   const nm = suggestName(n, text), same = decksArr().find(d => d.name === nm && (d.courseId || "") === (n.courseId || ""));
   return same ? same.id : "new";
 }
@@ -589,8 +596,16 @@ function decorateDeck(){
     // The lifted copy lives inside #view so it keeps the card styles that are scoped to it
     st.ghost = st.item.cloneNode(true); st.ghost.classList.add("sort-ghost");
     Object.assign(st.ghost.style, {width: r.width + "px", height: r.height + "px", left: r.left + "px", top: r.top + "px"});
-    (document.getElementById("view") || document.body).appendChild(st.ghost); st.item.classList.add("sort-hole"); document.body.classList.add("sorting");
-    if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+    (document.getElementById("view") || document.body).appendChild(st.ghost);
+    // Where it will land: a dashed outline the card's size, as on Flashcards and Quizzes (the card itself waits, hidden, until the drop)
+    const ph = document.createElement("div"); ph.className = "placeholder sort-ph"; ph.dataset.sortId = st.item.dataset.sortId;
+    ph.style.height = r.height + "px";
+    // the card's corners (a course's wrapper has none of its own: the card inside it is the rounded one)
+    const kid = st.item.firstElementChild, rad = getComputedStyle(st.item).borderTopLeftRadius;
+    ph.style.borderRadius = parseFloat(rad) || !kid ? rad : getComputedStyle(kid).borderTopLeftRadius;
+    st.real = st.item; st.real.after(ph); st.real.style.display = "none"; st.real.removeAttribute("data-sort-id"); st.item = ph;
+    document.body.classList.add("sorting");
+    sbHaptic("lift");
   };
   const move = (x, y) => {
     st.ghost.style.left = (x - st.dx) + "px"; st.ghost.style.top = (y - st.dy) + "px";
@@ -603,8 +618,12 @@ function decorateDeck(){
   const end = drop => {
     clearTimeout(st.hold);
     if (st.on) {
-      st.ghost.remove(); st.item.classList.remove("sort-hole"); document.body.classList.remove("sorting"); noClick = Date.now();
-      if (drop) save(st.box.dataset.sortable, [...st.box.querySelectorAll(":scope > [data-sort-id]")].map(e => e.dataset.sortId));
+      st.ghost.remove(); document.body.classList.remove("sorting"); noClick = Date.now();
+      const ids = [...st.box.querySelectorAll(":scope > [data-sort-id]")].map(e => e.dataset.sortId);
+      // dropped: the card takes the outline's place; let go elsewhere (cancelled): it stays where it was
+      st.real.dataset.sortId = st.item.dataset.sortId; st.real.style.display = "";
+      if (drop) st.item.replaceWith(st.real); else st.item.remove();
+      if (drop) save(st.box.dataset.sortable, ids);
     }
     st = null;
   };

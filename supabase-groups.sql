@@ -285,10 +285,10 @@ begin
   return g;
 end $$;
 
--- See a group before joining, by its invite code
+-- See a group before joining, by its invite code (with its kind, so a group project's invite reads as one)
 drop function if exists public.group_preview(text);
 create or replace function public.group_preview(p_code text)
-returns table (id uuid, name text, course text, member_count int, owner_name text, is_member boolean)
+returns table (id uuid, name text, course text, member_count int, owner_name text, is_member boolean, kind text, project_due date)
 language plpgsql volatile security definer set search_path = public as $$
 begin
   if auth.uid() is null then return; end if;
@@ -296,7 +296,8 @@ begin
   return query select g.id, g.name, g.course,
     (select count(*)::int from public.group_members m where m.group_id = g.id),
     coalesce((select m.display_name from public.group_members m where m.group_id = g.id and m.role = 'owner' limit 1), ''),
-    exists (select 1 from public.group_members m where m.group_id = g.id and m.user_id = auth.uid())
+    exists (select 1 from public.group_members m where m.group_id = g.id and m.user_id = auth.uid()),
+    coalesce(g.kind, 'study'), g.project_due
   from public.study_groups g
   where g.invite_code = public.sbg_norm_code(p_code) and g.deleted_at is null;
 end $$;

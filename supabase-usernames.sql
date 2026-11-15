@@ -1,4 +1,5 @@
--- Studyboard: usernames and age Age (like Quizlet): every account gives its birthday once
+-- Studyboard: usernames and age. Accounts are for people 13 and older: every account gives its birthday once, and a
+-- birthday under 13 is refused (nothing is saved), here and when an account is created
 
 alter table public.study_profiles add column if not exists username text;
 alter table public.study_profiles add column if not exists username_set_at timestamptz;
@@ -135,6 +136,8 @@ declare me uuid := auth.uid(); cur date; meta jsonb;
 begin
   if me is null then raise exception 'Sign in first'; end if;
   if p_date is null or p_date > current_date or p_date < date '1900-01-01' then raise exception 'SB_AGE: Enter your real birthday.'; end if;
+  -- Under 13: refused, and nothing is saved (the app then deletes the account)
+  if age(current_date, p_date) < interval '13 years' then raise exception 'SB_UNDER13: Studyboard accounts are for people 13 and older.'; end if;
   select birth_date into cur from public.study_profiles where user_id = me;
   if cur is not null and cur <> p_date then raise exception 'SB_AGE: Your birthday is already saved. To correct it, contact support.'; end if;
   if exists (select 1 from public.study_profiles where user_id = me) then
@@ -160,6 +163,23 @@ language sql stable security definer set search_path = public as $$
   from (select (select birth_date from public.study_profiles where user_id = p_uid) as b) x;
 $$;
 revoke all on function public.sbu_age_ok(uuid) from public, anon, authenticated;
+
+-- A new account that says it is under 13 (the birthday sent with an email sign-up) is refused before it is created.
+-- The app refuses first; this stops anyone calling the sign-up API directly with that birthday.
+create or replace function public.sbu_refuse_under13() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare v text := new.raw_user_meta_data ->> 'birth_date'; b date;
+begin
+  if v is null or v !~ '^\d{4}-\d{2}-\d{2}$' then return new; end if;
+  begin b := v::date; exception when others then return new; end;
+  if b <= current_date and age(current_date, b) < interval '13 years' then
+    raise exception 'SB_UNDER13: Studyboard accounts are for people 13 and older.';
+  end if;
+  return new;
+end $$;
+revoke all on function public.sbu_refuse_under13() from public, anon, authenticated;
+drop trigger if exists sbu_refuse_under13 on auth.users;
+create trigger sbu_refuse_under13 before insert on auth.users for each row execute function public.sbu_refuse_under13();
 
 revoke all on function public.username_check(text), public.set_username(text), public.my_username(), public.set_birthdate(date), public.my_age() from public, anon;
 grant execute on function public.set_birthdate(date), public.my_age() to authenticated;

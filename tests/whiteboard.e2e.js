@@ -38,7 +38,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.waitForSelector(".nv-tabs");
     ok(await page.locator('.nv-tabs [data-id="board"][aria-selected=true]').count() === 1 && await page.locator("#nbBoard .note").count() === 1, "Notes opens on the sticky notes, with a Notes | Whiteboard switch");
     await page.click('.nv-tabs [data-id="wb"]'); await page.waitForTimeout(300);
-    ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && /Add Board/.test(await page.locator("#fab").textContent()) && await page.locator("#fab").isVisible(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates, and the + button is Add Board");
+    ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && /New Whiteboard/.test(await page.locator("#fab").textContent()) && await page.locator("#fab").isVisible(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates, and the + button is New Whiteboard");
 
     await act("wb-new"); await page.waitForSelector("dialog[open] .wb-start");
     await page.fill('dialog[open] input[name="name"]', "Cell Biology");
@@ -72,7 +72,10 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.click('dialog[open] [data-act="close"]'); await page.waitForTimeout(150);
     ok(await page.locator(".wb-tplbox pattern").count() === 1 && !(await page.evaluate(() => document.querySelector(".wb-tplbox").textContent.includes("Summary"))), "Cancel puts the board's own grid back");
     await page.click('.wb-zoom [data-wb="zoom-reset"]'); await page.waitForTimeout(100);
-    ok((await page.evaluate(() => SBWB.cam())).z === 1 && /100%/.test(await page.locator(".wbz-pct").textContent()), "100% zooms to full size");
+    // 100% is the board's home view (the whole page on screen), not the drawing's actual size
+    ok((await page.evaluate(() => SBWB.cam())).z < 1 && /^100%$/.test((await page.locator(".wbz-pct").textContent()).trim()), "100% goes back to the whole page");
+    // the drawing checks below measure strokes at actual size
+    await page.evaluate(() => SBWB.zoomTo(1)); await page.waitForTimeout(100);
 
     await wb("tool", "pen"); await wb("pen", "blue"); await wb("pw", 1);
     const p1 = []; for (let i = 0; i <= 30; i++) p1.push([F.x + 100 + i * 10, F.y + 120 + Math.sin(i / 3) * 40]);
@@ -144,9 +147,10 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     const f1 = (await live()).items[0].f;
     ok(f1 > f0 * 1.8 && /Huge/.test(await page.locator('.wb-tray .wb-fontpick[data-id="size"]').textContent()), "Huge makes the selected text bigger: " + f0 + " to " + f1);
     await page.evaluate(() => SBWB.undo()); await page.click('.wb-tray .wb-fontpick[data-id="size"]'); await page.click('.wb-fontmenu [data-wb="tsize"][data-id="1"]'); await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(40);
-    ok(await page.locator('.wb-tray [data-wb="pen-any"] .wb-pro').count() === 1, "the rainbow (any color) marker shows a Pro badge on a free plan");
+    ok(await page.locator('.wb-tray [data-wb="pen-any"] .wb-pro').count() === 0, "the rainbow (any color) marker has no Pro badge: drawing is free");
     await page.click('.wb-tray [data-wb="pen-any"]'); await page.waitForTimeout(250);
-    ok(/any color/i.test(await page.locator("dialog[open]").textContent()), "and opens the Pro sheet");
+    ok(await page.locator(".wb-cpick").count() === 1 && !(await page.evaluate(() => !!document.querySelector(".plan-sheet"))), "and opens the color picker, not the Pro sheet");
+    await page.evaluate(() => { const c = document.querySelector(".wb-cpick"); if (c) c.remove(); });
     await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await page.keyboard.press("Escape"); await page.waitForTimeout(40);
     await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));

@@ -124,6 +124,18 @@ const MON10 = at("2026-11-02", "10:00");
   eq(nudge.length, 0, "a nudge time inside quiet hours sends nothing");
 }
 
+// No availability blocks but a class schedule: the first free time from now, never in a class, never after the "due in 2h" reminder
+{
+  const daily = {h: 4, today: 4, start: 420, end: 1380}, busy = {"2026-11-02": [w("11:30", "12:50"), w("13:30", "16:20")]};
+  const ps = T("ps", {title: "Problem Set", due: "2026-11-02", time: "17:00", rem: 2});
+  const out = run({now: at("2026-11-02", "10:05"), mode: "daily", daily, busy, tasks: [ps]});
+  ok(out.length === 1 && out[0].at === at("2026-11-02", "10:15"), "free now: the next quarter hour, not 4 PM in the lab: " + (out[0] && hhmm(out[0].at)));
+  const lab = run({now: at("2026-11-02", "13:45"), mode: "daily", daily, busy, tasks: [ps]});
+  eq(lab.length, 0, "in the lab until 4:20 with 2h needed by 5 PM: no nudge after the due reminder");
+  const gap = run({now: at("2026-11-02", "11:40"), mode: "daily", daily, busy, tasks: [T("e", {due: "2026-11-03", rem: 6})]});
+  ok(gap.length === 1 && gap[0].at === at("2026-11-02", "12:50"), "in class now: the free time between classes: " + (gap[0] && hhmm(gap[0].at)));
+}
+
 // With the real free-time engine: classes, a café job and placement days (about 7h free before Thursday 1 PM)
 {
   const blocks = [

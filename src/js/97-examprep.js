@@ -100,8 +100,14 @@ const EXAMPREP = (() => {
     (m.checklist || []).forEach(n => put(n, "exam checklist"));
     chaptersIn(m.examNotes).concat(chaptersIn(m.reading)).forEach(n => put(n, "exam notes"));
     String(m.examNotes || "").split(/\n|;|•/).map(s => s.replace(/^[\s\-*\d.)]+/, "").trim()).filter(s => s.length > 2 && s.length < 70 && !/^(chapters?|ch\.?)\s*\d/i.test(s)).forEach(n => put(n, "exam notes"));
-    (m.decks || []).forEach(d => { put(String(d.name || "").replace(/\b(deck|flashcards?|cards)\b/gi, ""), "deck"); const tagc = {}; (d.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; }); (d.cards || []).forEach(c => (c.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; })); Object.keys(tagc).sort((a, b) => tagc[b] - tagc[a]).slice(0, 6).forEach(t => put(t, "deck tag")); });
-    (m.notes || []).forEach(n => { const h = headingsOf(n.text); if (h[0]) put(h[0], "note"); });
+    // A one-line reminder ("Ask about…", "Bring calculator…") isn't something to study
+    const REMIND = /^(ask|email|e-mail|bring|remember|call|buy|print|submit|pick up|text|message|book|check if|find out|reply|don'?t forget|todo|to do)\b/i;
+    const studyNote = n => { const lines = String(n.text || "").split("\n").map(l => l.trim()).filter(Boolean); return lines.length > 1 || !(REMIND.test(lines[0] || "") || /\?\s*$/.test(lines[0] || "")); };
+    const notes = (m.notes || []).filter(studyNote);
+    // A deck a suggested note already links ([[Heart Terms]]) is that note's material, not a topic of its own
+    const linked = new Set(); notes.forEach(n => { if (headingsOf(n.text)[0]) (String(n.text || "").match(/\[\[([^\]]+)\]\]/g) || []).forEach(x => linked.add(keyOf(x.slice(2, -2)))); });
+    (m.decks || []).filter(d => !linked.has(keyOf(String(d.name || "")))).forEach(d => { put(String(d.name || "").replace(/\b(deck|flashcards?|cards)\b/gi, ""), "deck"); const tagc = {}; (d.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; }); (d.cards || []).forEach(c => (c.tags || []).forEach(t => { tagc[t] = (tagc[t] || 0) + 1; })); Object.keys(tagc).sort((a, b) => tagc[b] - tagc[a]).slice(0, 6).forEach(t => put(t, "deck tag")); });
+    notes.forEach(n => { const h = headingsOf(n.text); if (h[0]) put(h[0], "note"); });
     (m.files || []).forEach(f => put(f.name, "file"));
     return out.slice(0, 24);
   }
@@ -494,13 +500,54 @@ function inputFor(ex, P, topics, due){
     days: P.days, rest: P.rest, light: P.light, start: P.start || "", done, examTitle: ex.title, early: !!(P.lesson && P.lesson.early), favor: P.lesson && P.lesson.questions ? "questions" : "", dayInfo: dayInfoFn(ex, today, due),
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
-function readyFor(ex){
+// doneOf (optional): whether to count a session as done, for the exam-day forecast's "what if" (default: whether it is done)
+function readyFor(ex, doneOf){
   const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {};
   P.topics.forEach(t => (t.links || []).forEach(l => {
     if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).mastery};
     if (l.k === "quiz") { const d = state.decks[l.deckId], q = d && (d.aiQuizzes || []).find(x => x.id === l.id), r = q && (q.results || []).slice(-1)[0]; if (r && r.total) quiz[l.id] = Math.round(r.score / r.total * 100); }
   }));
-  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: s.status === "done", kind: s.kind})), decks, quiz});
+  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
+}
+/* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
+   flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
+   - if you do every session: every session not done yet counted as done, slipped ones too (that's what Catch Up is for)
+   - at your pace: today's readiness moved toward that by the share of sessions due so far that got done
+     (only once at least one session has come due)
+   - the topic to work on next: the one still lowest if every session gets done, with Teach It Back (or a quiz, once it's Strong) */
+function forecastOf(ex){
+  if (!ex || !hasPlan(ex)) return null;
+  const today = todayISO(); if (!ex.due || ex.due < today) return null;
+  const P = prepOf(ex), ss = sessionsOf(ex.id).slice().sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
+  const now = readyMemo(ex), dueSoFar = ss.filter(s => s.due < today), doneSoFar = dueSoFar.filter(s => s.status === "done").length;
+  const left = ss.filter(s => s.status !== "done" && s.due >= today), rate = dueSoFar.length ? doneSoFar / dueSoFar.length : null;
+  const full = readyFor(ex, () => true), slipped = dueSoFar.length - doneSoFar;
+  // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
+  const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
+  const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
+  const weakest = topics.slice().sort((a, b) => a.full - b.full || a.now - b.now)[0] || null;
+  const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
+  // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it
+  const cap = v => v == null ? null : Math.min(95, v), ev = full.evidence || {};
+  return {now: now.pct, pace: cap(pace), full: cap(full.pct), thin: !(ev.cards || ev.quizzes), slipped, rate, dueSoFar: dueSoFar.length, doneSoFar, left: left.length, days, topics, weakest};
+}
+const FC_WHY = "The Exam Day Forecast is part of Studyboard Pro: where your readiness is heading by exam day, and the topic to work on next.";
+function forecastHtml(ex){
+  const F = forecastOf(ex); if (!F || F.full == null) return "";
+  const locked = !!(window.SBPRO && SBPRO.locked());
+  if (locked) return `<div class="pp-fc pp-fc-lock"><div class="pp-fc-h"><b>Exam Day Forecast</b> ${typeof PRO_BADGE === "string" ? PRO_BADGE : ""}</div><p class="pp-fc-why">See how ready you'll be on ${esc(fmtDate(ex.due))} at your pace, and which topic to work on next.</p><button type="button" class="btn small" data-act="pp-fc-pro">See Pro</button></div>`;
+  // one number for exam day: at your pace once a session has come due, otherwise if you do every session
+  const day = F.pace != null ? F.pace : F.full, left = F.left + F.slipped;
+  const why = F.pace != null ? `At your pace: you've done ${F.doneSoFar} of the ${F.dueSoFar} session${F.dueSoFar === 1 ? "" : "s"} so far.`
+    : F.rate != null ? "You haven't done a session yet, so this is if you start with today's."
+    : `If you do all ${left} session${left === 1 ? "" : "s"} in your plan.`;
+  const tip = F.pace != null && left && F.full - day >= 5
+    ? `Do ${left === 1 ? "the last session" : `all ${left} sessions left`}${F.slipped ? `, including ${F.slipped === 1 ? "the one that slipped" : `the ${F.slipped} that slipped`},` : ""} to reach about <b>${F.full}%</b>.` : "";
+  const W = F.weakest, nextH = W && W.full < 85 ? `<div class="pp-fc-next"><span>Weakest topic: <b>${esc(W.name)}</b></span>${W.conf === "strong" ? "" : `<button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(W.id)}" data-name="${esc(W.name)}">Teach It Back</button>`}</div>` : "";
+  const when = F.days === 0 ? "Today" : F.days === 1 ? "Tomorrow" : `In ${F.days} days`;
+  return `<div class="pp-fc"><div class="pp-fc-h"><b>Exam Day Forecast</b><span class="mini">${esc(when)}</span></div>
+    <div class="pp-fc-big" role="img" aria-label="${F.now != null ? `Ready today: ${F.now} percent. ` : ""}On exam day: about ${day} percent">${F.now != null ? `<span class="pp-fc-n"><small>Today</small>${F.now}%</span><span class="pp-fc-arrow" aria-hidden="true">→</span>` : ""}<span class="pp-fc-n pp-fc-day"><small>Exam day</small>~${day}%</span></div>
+    <p class="pp-fc-why">${esc(why)}</p>${tip ? `<p class="pp-fc-tip">${tip}</p>` : ""}${nextH}</div>`;
 }
 let PCACHE = {k: "", v: {}};
 function readyMemo(ex){
@@ -697,7 +744,7 @@ function drawPlan(){
     <p class="status-msg" id="ppStatus" style="margin:0" aria-live="polite"></p>`;
   const n = out && !out.err ? out.sessions.length : 0;
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${have.length && !S.replan ? `<button type="button" class="btn" data-pp="view">Back to Plan</button>` : ""}<button type="button" class="btn primary" id="ppCreate" data-pp="create" ${n ? "" : "disabled"}>${have.length ? `Re-plan ${n} Session${n === 1 ? "" : "s"}` : `Create Plan (${n} Session${n === 1 ? "" : "s"})`}</button>`;
-  const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan My Prep" : "Plan My Prep";
+  const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan Exam Prep" : "Exam Prep";
 }
 /* What the last reflection changed, one line each, each with its own Undo */
 const LATE = {night: "last time you started the night before", short: "last time you started 1 or 2 days before", cram: "last time it came down to one long session the night before"};
@@ -729,25 +776,26 @@ function drawView(){
       <div class="pp-bar" role="img" aria-label="${esc(t.name)}: ${b.cov}% of its sessions done"><i style="width:${b.cov}%"></i></div>
       <div class="mini pp-links">${ls.length ? ls.map(l => esc(linkIcon(l.k) + ": " + l.title)).join(" · ") : "No linked material. "}${ls.length ? "" : `<button type="button" class="link-btn" data-pp="gen">Make Flashcards from Your Notes</button>`}${window.SBTEACH ? SBTEACH.btn(ex, t) : ""}</div></li>`; }).join("");
   const agenda = Object.keys(byDate).sort().map(d => `<li class="pp-day${d === today ? " is-today" : ""}${d < today ? " is-past" : ""}" ${d === today ? 'aria-current="date"' : ""}><div class="ep-day-head"><b>${esc(fmtDate(d))}</b>${d === today ? `<span class="pp-badge">Today</span>` : ""}<span class="mini">${fmtHM(byDate[d].reduce((a, x) => a + minOf(x), 0) / 60)}</span></div>
-      <ul>${byDate[d].map(s => `<li class="pp-sess${s.status === "done" ? " is-done" : ""}${s.status !== "done" && d < today ? " is-missed" : ""}">
+      <ul>${byDate[d].map(s => `<li class="pp-sess${s.status === "done" ? " is-done" : ""}${s.status !== "done" && d < today ? " is-missed" : ""}" style="--c:${esc(colorOf(ex.courseId))}">
         <div class="pp-sess-top"><button type="button" class="check pp-check" data-act="prep-done" data-id="${esc(s.id)}" aria-label="${s.status === "done" ? "Mark not done" : "Mark done"}: ${esc(s.title)}">${CHECK}</button>
           <span class="pp-sess-t"><b>${esc(s.kind === "past" || s.kind === "light" ? EXAMPREP.KIND_LABEL[s.kind] : (s.topic || "Topic") + ": " + (KLOW[s.kind] || s.kind))}</b><span class="mini">${minOf(s)} min${s.slot ? " · " + esc(fmtTime(s.slot)) : ""}${s.status !== "done" && d < today ? " · missed" : ""}</span></span>${matBtn(s)}<button type="button" class="btn small" data-act="edit-task" data-edit="1" data-id="${esc(s.id)}">Edit</button></div>
         <p class="pp-sess-x">${esc(s.notes || "")}</p></li>`).join("")}</ul></li>`).join("");
   body.innerHTML = `
     <div class="pp-head"><p class="pp-line"><b>${esc(sm.line)}</b></p>
       ${r.gate ? `<p class="mini" style="margin:0">Readiness is worked out from ${esc(evTxt)}.</p>` : `<p class="mini" style="margin:0">Readiness shows once you finish a session, progress on a linked deck or score a quiz.</p>`}
-      <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div></div>
+      <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div>
+    ${past ? "" : forecastHtml(ex)}</div>
     ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-plan to the New Date</button></p>` : ""}
     ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> No problem: spread them over the days that are left. <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
     ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add My Mark and Wrap Up</button></p>` : ""}
     <h3 class="fsec">Day by Day</h3><ol class="pp-agenda">${agenda}</ol>
-    <h3 class="fsec">Topics</h3>${window.SBEXAMSHEET ? SBEXAMSHEET.btn(ex) : ""}<ul class="pp-covs">${topicRows}</ul>`;
+    <h3 class="fsec">Topics</h3>${window.SBEXAMSHEET ? SBEXAMSHEET.btn(ex) : ""}${window.SBCMAP ? SBCMAP.examBtn(ex) : ""}<ul class="pp-covs">${topicRows}</ul>`;
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Close</button><span class="spacer"></span><button type="button" class="btn" data-pp="edit">Edit Topics</button>${sm.missed && !past ? `<button type="button" class="btn" data-pp="catch">Catch Up</button>` : ""}<button type="button" class="btn primary" data-pp="replan">Re-plan</button>`;
   const t = $("#ppTitle"); if (t) t.textContent = "Prep Plan";
 }
 function draw(){ if (!S) return; if (S.step === "view") drawView(); else drawPlan(); }
 function sheet(){
-  openSheet(`<form class="sheet ai-sheet ep pp"><div class="sheet-head"><h2 id="ppTitle">Plan My Prep</h2><button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div><div class="sheet-body" id="ppBody"></div><div class="sheet-foot" id="ppFoot"></div></form>`);
+  openSheet(`<form class="sheet ai-sheet ep pp"><div class="sheet-head"><h2 id="ppTitle">Exam Prep</h2><button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div><div class="sheet-body" id="ppBody"></div><div class="sheet-foot" id="ppFoot"></div></form>`);
   const form = dlg.querySelector("form");
   form.addEventListener("click", onClick); form.addEventListener("change", onChange);
   form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "ppAdd" && !e.shiftKey) { e.preventDefault(); onClick({target: {closest: () => ({dataset: {pp: "add"}})}}); } });
@@ -757,7 +805,7 @@ function sheet(){
   const arm = () => dlg.addEventListener("close", () => { S = null; }, {once: true});
   arm();
   let held = null;
-  sheetKeep("prep:" + S.exId, {name: "Plan My Prep", dirty: () => { held = S; return !!S && S.step === "plan" && !!S.touched; }, busy: () => { held = held || S; return !!(S && S.busy); },
+  sheetKeep("prep:" + S.exId, {name: "Exam Prep", dirty: () => { held = S; return !!S && S.step === "plan" && !!S.touched; }, busy: () => { held = held || S; return !!(S && S.busy); },
     drop: () => { const h = held || S; if (h) h.dropped = true; }, resume: () => { if (held) S = held; arm(); draw(); }});
 }
 function onChange(e){
@@ -919,7 +967,7 @@ function todayHtml(){
 function formHtml(t){
   if (!t || !MILESTONE(t.type)) return t && window.SBTEACH ? SBTEACH.taskHtml(t) : "";
   const sm = summaryOf(t), today = todayISO(), over = t.due && t.due < today;
-  if (!sm) return t.status === "done" || over ? "" : `<div class="pp-form"><div><b>Exam prep</b><span class="mini"> Spread review sessions across the days before, with your decks and notes.</span></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>`;
+  if (!sm) return t.status === "done" || over ? "" : `<div class="pp-form"><div><b>Exam Prep</b><span class="mini"> Spread review sessions across the days before, with your decks and notes.</span></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Plan My Prep</button></div>`;
   return `<div class="pp-form"><div><b>Prep plan</b><span class="mini"> ${esc(sm.line)}${sm.missed ? ` · ${sm.missed} slipped` : ""}${sm.moved ? " · date changed" : ""}</span><div class="pp-bar" role="img" aria-label="${sm.pct == null ? sm.done + " of " + sm.total + " sessions done" : "Readiness " + sm.pct + " percent"}"><i style="width:${sm.pct == null ? Math.round(sm.done / sm.total * 100) : sm.pct}%"></i></div></div><button type="button" class="btn small primary" data-act="exam-plan" data-id="${esc(t.id)}">Open Prep Plan</button></div>`;
 }
 function rowBtn(t){
@@ -951,6 +999,7 @@ function runIdea(id){ const t = state.tasks[id]; if (!t) return; if (t.matKind) 
 
 /* actions */
 hook("act", (act, el, id) => {
+  if (act === "pp-fc-pro") { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(FC_WHY); return true; }
   switch (act) {
     case "prep-plan": open(id || (upcoming()[0] || {}).id); return true;
     case "exam-plan": open(id); return true;
@@ -974,6 +1023,6 @@ hook("changed", changes => {
     });
   } catch (e) { console.warn("prep changed", e); }
 });
-window.SBPREP = {open, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
+window.SBPREP = {open, forecast: forecastOf, todayHtml, formHtml, rowBtn, rowLine, courseHtml, courseExams, matBtn, pct: pctOf, summary: summaryOf, offer, offered, ideaValid, runIdea, catchUp, replanChanges, sessions: sessionsOf, EXAMPREP, _state: () => S, _plan: id => { const ex = state.tasks[id], P = prepOf(ex); return EXAMPREP.plan(inputFor(ex, P, P.topics, ex.due)); }};
 })();
 

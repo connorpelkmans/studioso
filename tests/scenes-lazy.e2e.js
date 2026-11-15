@@ -17,6 +17,8 @@ const server = http.createServer((req, res) => {
   fs.createReadStream(f).pipe(res);
 });
 const scenesAsked = () => asked.filter(p => p === "/bundle/scenes.js").length;
+// An animated scene also reads the library into the worker that draws it (the same file, from the browser's cache in the app;
+// this test server sends no cache headers, so it is asked for twice)
 
 (async () => {
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8"), listed = (/\/\*SCENE-IDS\*\/"([^"]*)"/.exec(html) || [])[1] || "";
@@ -50,14 +52,14 @@ const scenesAsked = () => asked.filter(p => p === "/bundle/scenes.js").length;
 
     asked.length = 0;
     await page.reload(); await page.waitForTimeout(2500);
-    ok(scenesAsked() === 1 && await page.evaluate(() => window.__libAtStart), "with a scene theme saved, the next open loads the library at start (before the app runs)");
+    ok(scenesAsked() >= 1 && scenesAsked() <= 2 && await page.evaluate(() => window.__libAtStart), "with a scene theme saved, the next open loads the library at start (before the app runs)");
     ok(await page.locator("#sceneArt svg").count() > 0, "and the scene is there from the first paint");
 
     await page.evaluate(() => localStorage.removeItem("studyboard:skin"));
     asked.length = 0;
     await page.reload(); await page.waitForTimeout(500);
     await page.waitForFunction(() => document.querySelector("#sceneArt svg"), null, {timeout: 30000});
-    ok(scenesAsked() === 1, "a scene theme the start-up script didn't know about still loads the library and draws its scene");
+    ok(scenesAsked() >= 1 && scenesAsked() <= 2, "a scene theme the start-up script didn't know about still loads the library and draws its scene");
     ok(!errors.length, "no page errors: " + errors.slice(0, 3).join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nscenes-lazy: ${n} checks passed`);

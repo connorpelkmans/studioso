@@ -7,6 +7,8 @@ const todayISO = () => iso(new Date());
 const dayDiff = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
 const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
 const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+// A date that really exists (an import can bring 2026-13-45, which the calendar would roll into February, or the year 0001)
+const realDate = s => isDate(s) && s >= "1900" && s < "2201" && iso(parse(s)) === s;
 const fmtShort = s => parse(s).toLocaleDateString(undefined, {month:"short", day:"numeric"});
 const fmtDate = s => parse(s).toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"});
 const mondayOf = s => { const d = parse(s); const wd = (d.getDay() + 6) % 7; return addDays(s, -wd); };
@@ -145,6 +147,8 @@ const TB = (() => {
   const csv = (header, rows) => "﻿" + [header].concat(rows).map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
   const isoDay = ms => ms ? new Date(ms).toISOString() : "";
   const nz = v => v == null || v === "" ? "" : v;
+  // meeting and repeat days are stored as getDay() numbers (0 = Sunday); people reading the CSV want "Mon/Wed"
+  const dayNames = days => (days || []).map(d => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d] || d).join("/");
   const pctOf = t => t && t.mark && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Math.round(Number(t.mark.got) / Number(t.mark.outOf) * 1000) / 10 : "";
   const cname = (courses, id) => { const c = courses[id]; return c ? (c.code ? c.code + " " : "") + (c.name || "") : ""; };
   function toCsvFiles(data, want){
@@ -172,9 +176,9 @@ const TB = (() => {
       f["flashcards-anki.txt"] = "#separator:tab\n#html:false\n#tags column:3\n" + (data.decks || []).flatMap(d => (d.cards || []).map(c => [q(String(c.front || "").replace(/\r\n?/g, "\n")), q(String(c.back || "").replace(/\r\n?/g, "\n")), String(d.name || "deck").trim().replace(/\s+/g, "_")].join("\t"))).join("\n") + "\n";
     }
     if (w("courses")) f["courses.csv"] = csv(["name", "code", "color", "goal_percent", "pass_percent", "meetings", "tasks"], (data.courses || []).map(c => [c.name, c.code, c.color, c.grading ? nz(c.grading.goal) : "", c.grading ? nz(c.grading.pass) : "",
-      (c.meetings || []).map(m => `${m.kind || "Class"} ${(m.days || []).join("/")} ${m.start || ""}-${m.end || ""}`).join("; "), (data.tasks || []).filter(t => t.courseId === c.id).length]));
+      (c.meetings || []).map(m => `${m.kind || "Class"} ${dayNames(m.days)} ${m.start || ""}-${m.end || ""}`).join("; "), (data.tasks || []).filter(t => t.courseId === c.id).length]));
     if (w("events")) f["events.csv"] = csv(["title", "course", "date", "end_date", "start_time", "end_time", "all_day", "where", "repeat_days", "repeat_until", "notes"],
-      (data.events || []).map(e => [e.title, cname(courses, e.courseId), e.date, e.endDate, e.start, e.end, !!e.allDay, e.where, e.repeat ? (e.repeat.days || []).join("/") : "", e.repeat ? e.repeat.until || "" : "", e.notes]));
+      (data.events || []).map(e => [e.title, cname(courses, e.courseId), e.date, e.endDate, e.start, e.end, !!e.allDay, e.where, e.repeat ? dayNames(e.repeat.days) : "", e.repeat ? e.repeat.until || "" : "", e.notes]));
     if (w("sessions")) f["study-sessions.csv"] = csv(["task", "course", "type", "focus_minutes", "status", "due_date"],
       (data.tasks || []).filter(t => Number(t.focusMin) > 0).map(t => [t.title, cname(courses, t.courseId), t.type, Math.round(Number(t.focusMin)), t.status, t.due]));
     return f;
@@ -236,6 +240,7 @@ const TB = (() => {
 let state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
 const ui = {tab:"board", courseId:null, q:"", focusOpen:true, showOldDone:false,
   planView: (() => { try { const v = localStorage.getItem("studyboard:planview"); return v === "schedule" || v === "crunch" ? v : "timeline"; } catch(e) { return "timeline"; } })(),
+  schMode: (() => { try { return localStorage.getItem("studyboard:schmode") === "month" ? "month" : "week"; } catch(e) { return "week"; } })(),
   tlMode: (() => { try { return localStorage.getItem("studyboard:tlmode") === "calendar" ? "calendar" : "bars"; } catch(e) { return "bars"; } })(),
   tlZoom: (() => { try { const v = localStorage.getItem("studyboard:tlzoom"); return v === "week" || v === "term" ? v : "month"; } catch(e) { return "month"; } })(), tlScroll:null, tlJump:true, calMonth:null, calDay:null,
   groupBy: (() => { try { return localStorage.getItem("coursework:group") || "none"; } catch(e) { return "none"; } })(), fCourse:"all", fFolder:"", fSort:"date"};
@@ -269,8 +274,11 @@ function normTask(t){
   if (!STATUS_LABEL[t.status]) t.status = "todo";
   if (!PRIO[t.priority]) t.priority = "med";
   if (!Array.isArray(t.checklist)) t.checklist = [];
+  // a due date that isn't a real day is kept aside (dueBad) and the task shows "No due date — check the date" until it gets a new one
+  if (isDate(t.due) && !realDate(t.due)) { t.dueBad = t.due; t.due = ""; }
   if (!isDate(t.due)) t.due = "";
-  if (!isDate(t.start)) t.start = "";
+  if (t.due || typeof t.dueBad !== "string") delete t.dueBad; else t.dueBad = t.dueBad.slice(0, 10);
+  if (!realDate(t.start)) t.start = "";
   delete t.earned; delete t.possible;
   if (t.prep != null) t.prep = normPrep(t.prep);
   if (t.docs != null) { t.docs = DOCLINK.norm(t.docs); if (!t.docs.length) delete t.docs; }
@@ -451,14 +459,15 @@ function normInk(list, max){
 function normEvent(e){
   const isT = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x || ""), tm = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   e = Object.assign({title: "Event", courseId: "", label: "", date: "", endDate: "", start: "", end: "", allDay: false, where: "", notes: "", repeat: null, exdates: [], moved: {}, icsUid: "", src: ""}, e);
-  if (!isDate(e.date)) e.date = iso(new Date());
-  if (!isDate(e.endDate)) e.endDate = "";
+  if (!realDate(e.date)) e.date = iso(new Date());
+  if (!realDate(e.endDate)) e.endDate = "";
   if (!isT(e.start)) e.start = ""; if (!isT(e.end)) e.end = "";
-  if (!e.allDay && e.start && (!e.end || tm(e.end) <= tm(e.start))) { const m = Math.min(1439, tm(e.start) + 60); e.end = pad(Math.floor(m / 60)) + ":" + pad(m % 60); }
+  // an end before the start is the next morning (10 PM to 1 AM); only a missing or equal end gets the 1-hour default
+  if (!e.allDay && e.start && (!e.end || tm(e.end) === tm(e.start))) { const m = Math.min(1439, tm(e.start) + 60); e.end = pad(Math.floor(m / 60)) + ":" + pad(m % 60); }
   if (!e.allDay && !e.start) e.allDay = true;
   if (e.allDay) { e.start = ""; e.end = ""; }
   if (e.repeat && (!Array.isArray(e.repeat.days) || !e.repeat.days.length)) e.repeat = null;
-  if (e.repeat) e.repeat = {days: [...new Set(e.repeat.days.map(Number))].filter(d => d >= 0 && d <= 6).sort(), every: Math.max(1, Math.min(4, Number(e.repeat.every) || 1)), until: isDate(e.repeat.until) ? e.repeat.until : ""};
+  if (e.repeat) e.repeat = {days: [...new Set(e.repeat.days.map(Number))].filter(d => d >= 0 && d <= 6).sort(), every: Math.max(1, Math.min(4, Number(e.repeat.every) || 1)), until: realDate(e.repeat.until) ? e.repeat.until : ""};
   if (!Array.isArray(e.exdates)) e.exdates = [];
   if (!e.moved || typeof e.moved !== "object" || Array.isArray(e.moved)) e.moved = {};
   return scrubFields(e, ["title", "where"], e.icsUid || e.synced || e.src ? ["notes"] : []);
@@ -466,7 +475,7 @@ function normEvent(e){
 const norm = (kind, o) => kind === "task" ? normTask(o) : kind === "file" ? normFile(o) : kind === "note" ? normNote(o) : kind === "deck" ? normDeck(o) : kind === "event" ? normEvent(o) : kind === "trash" ? TB.normEntry(o) : o;
 function fromArrays(o){
   const s = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:Object.assign({capacity:15}, (o && o.settings) || {}), updated:(o && o.updated) || 0};
-  ((o && Array.isArray(o.courses)) ? o.courses : []).forEach(c => { if (c && c.id) { const k = scrubFields(clone(c), ["name", "code"]); if (!/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i.test(String(k.color || "").trim())) k.color = "#8A94A6"; s.courses[c.id] = k; } });
+  ((o && Array.isArray(o.courses)) ? o.courses : []).forEach(c => { if (c && c.id) { const k = scrubFields(clone(c), ["name", "code"]); if (!/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i.test(String(k.color || "").trim())) k.color = "#8A94A6"; if (typeof k.name !== "string" || !k.name.trim()) k.name = "Untitled Course"; s.courses[c.id] = k; } });
   ((o && Array.isArray(o.tasks)) ? o.tasks : []).forEach(t => { if (t && t.id) s.tasks[t.id] = normTask(clone(t)); });
   ((o && Array.isArray(o.files)) ? o.files : []).forEach(f => { if (f && f.id) s.files[f.id] = normFile(clone(f)); });
   ((o && Array.isArray(o.notes)) ? o.notes : []).forEach(n => { if (n && n.id) s.notes[n.id] = normNote(clone(n)); });
@@ -481,7 +490,7 @@ let deviceWiping = false;
 let saveWarnAt = 0;
 function saveWarn(e){
   if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
+  if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { sbHaptic("error", {force: true}); toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost.", null, null, {error: true}); } catch(e2) {} }, 700); }
 }
 /* The big copy: localStorage holds only about 5 MB, which a few whiteboards and a lot of notes can fill.
    Once the saved copy is over SPILL_AT characters, or localStorage refuses it, it moves to IndexedDB (far more
@@ -555,7 +564,21 @@ async function spillRetry(asked){
 }
 window.addEventListener("pagehide", () => { try { spillFlush(); } catch(e) {} });
 document.addEventListener("visibilitychange", () => { if (document.hidden) { try { spillFlush(); } catch(e) {} } });
+// Saves asked for during one step (a card grade saves the deck, your counts and your streak) are written once, as soon as
+// that step's code has run (a microtask, before anything else happens), instead of copying all your data three or four times
+let saveQueued = false;
 function saveLocal(){
+  focusStale();
+  if (deviceWiping || demoDrawing || saveQueued) return;
+  saveQueued = true;
+  queueMicrotask(saveFlush);
+}
+function saveFlush(){
+  if (!saveQueued) return;
+  saveQueued = false;
+  saveLocalNow();
+}
+function saveLocalNow(){
   if (deviceWiping || demoDrawing) return;
   if (spillBlocked) { if (Date.now() - spillWarnAt > 6e4 && !$("#toast").classList.contains("show")) spillStuckToast(); return; }
   if (lsHold) return;
@@ -617,6 +640,7 @@ function deskNewer(own){
   return out;
 }
 function loadLocal(){
+  saveFlush();
   let r = null;
   try {
     r = spillRaw != null ? spillRaw : localStorage.getItem(LS2);
@@ -718,7 +742,8 @@ function trashCapture(changes, label){
   trashEnforce(); trashSaveLocal();
   return entries.map(e => e.id).filter(id => state.trash[id]);
 }
-const trashBtn = kind => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && TB.isSub(e.kind))).length; return n ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted (${n})" title="Recently Deleted (${n})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>${n}</span></button>` : ""; };
+// always: shown even with nothing deleted, so Recently Deleted stays easy to find (the Task Board)
+const trashBtn = (kind, always) => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && TB.isSub(e.kind))).length; return n || always ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted${n ? ` (${n})` : ""}" title="Recently Deleted${n ? ` (${n})` : ""}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>${n ? `<span>${n}</span>` : ""}</button>` : ""; };
 const plural0 = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const trashExists = (kind, id, parent) => {
   if (kind === "card") { const d = state.decks[parent && parent.id]; return !!(d && d.cards.some(c => c.id === id)); }

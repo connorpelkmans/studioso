@@ -71,7 +71,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await page.screenshot({path: path.join(OUT, `course-${tag}.png`)});
       await page.click('.pp-exams [data-act="exam-plan"]'); await page.waitForTimeout(500);
       ok(await vis(page, "#ppBody"), "the planner sheet opens from the exam");
-      ok((await txt(page, "#ppTitle")) === "Plan My Prep", "title");
+      ok((await txt(page, "#ppTitle")) === "Exam Prep", "title");
       const tn = await page.evaluate(() => [...document.querySelectorAll("[data-pn]")].map(i => i.value));
       ok(tn.includes("Cardiac Drugs") && tn.includes("Renal Physiology") && tn.includes("Respiratory system") && tn.includes("Acid base balance"), "topics suggested from decks and notes: " + tn.join(" | "));
       ok(tn.includes("Chapter 3") && tn.includes("Chapter 4"), "and from the chapters named in the exam notes");
@@ -114,7 +114,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       ok((await sessions(page)).length === 0 && (await store(page)).tasks.length === nBefore, "one Undo removes every session and nothing else");
       ok(!(await exam(page)).prep, "and the plan settings");
       await act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
-      ok(await vis(page, "#ppBody") && (await txt(page, "#ppTitle")) === "Plan My Prep", "re-opening after Undo starts a fresh plan");
+      ok(await vis(page, "#ppBody") && (await txt(page, "#ppTitle")) === "Exam Prep", "re-opening after Undo starts a fresh plan");
       await page.click("[data-pp=suggest]"); await page.waitForTimeout(100);
       await page.click(`[data-pp=conf][data-id="${await page.evaluate(() => [...document.querySelectorAll("[data-pn]")].find(i => i.value === "Cardiac Drugs").dataset.pn)}"][data-v=weak]`);
       await page.click("#ppCreate"); await page.waitForTimeout(500);
@@ -256,7 +256,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       ok(!(await vis(page, "dialog[open] [data-rx]")), "adding the exam doesn't ask where it's taken (exams are assumed in person)");
       ok(await vis(page, "#toast.show") && /Plan My Prep/.test(await txt(page, "#toastExtra")), "the toast still offers Plan My Prep after creating the exam");
       await page.click("#toastExtra"); await page.waitForTimeout(500);
-      ok(await vis(page, "#ppBody") && /Plan My Prep/.test(await txt(page, "#ppTitle")) && (await page.evaluate(() => SBPREP._state().exId)) === cap.id, "which opens the planner on that exam");
+      ok(await vis(page, "#ppBody") && /Exam Prep/.test(await txt(page, "#ppTitle")) && (await page.evaluate(() => SBPREP._state().exId)) === cap.id, "which opens the planner on that exam");
       ok((await page.evaluate(() => document.querySelector("#ppDue").value)) === "2026-10-28" && (await page.evaluate(() => document.querySelector("#ppTime").value)) === "09:00", "prefilled with the captured date and time");
       await page.keyboard.press("Escape");
       await ctx.close();

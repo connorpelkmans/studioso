@@ -566,6 +566,7 @@ function tryCelebrate(){
     const line = C._speech.choose(lines(c), "streak");
     if (!line) return;
     if (C.cheer) C.cheer("task");
+    if (c.kind !== "welcome") sbHaptic("success", {force: true});
     C.say(line, {cheer: true, name: false, again: false, cat: "streak"});
     if (C.bubble && C.bubble() === line) {
       const s = saidRead(); s.m = s.m || {};

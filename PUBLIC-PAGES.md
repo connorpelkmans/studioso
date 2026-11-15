@@ -25,7 +25,7 @@ Set pages are cached at Cloudflare's edge for 15 minutes (lists for up to an hou
 In the app:
 - A deck's or quiz's Share sheet has **Publish to Studyboard Flashcards** (or **Quizzes**). It asks first, then shows the public address.
 - A deck's page has a **Publish** button: it asks for your school first (filled in from your Brightspace, Canvas or Blackboard connection, or searched from the list of about 10,000 real universities and colleges; the server refuses any other), shows what will be public, then shares and publishes the deck in one step. The school shows on the page.
-- **High schools** work like on Quizlet: pick yours from the list (US, Ontario and BC). A published page shows only "High school, <province or state>", never the school's name. **Age:** everyone gives a birthday once; students under 13 (signed up by a parent or guardian) can't publish, share with a link or list in the Course Library, and the server enforces it.
+- **High schools** work like on Quizlet: pick yours from the list (US, Ontario and BC). A published page shows only "High school, <province or state>", never the school's name. **Age:** everyone gives a birthday once, and accounts are for people 13 and older only: an under-13 birthday is refused and the account deleted. Publishing still checks the age on the server as a second guard.
 - Publishing also needs a **username** (picked at sign-up, or asked for once). Pages show the maker as @username. Usernames are unique and checked on the server against rude and hateful words, including look-alike spellings.
 - Flashcards and Quizzes have an **Explore** button that opens the public pages.
 - Limits: at least 4 cards or 3 questions, and up to 100 published per account. People suspended from groups can't publish.

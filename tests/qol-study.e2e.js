@@ -80,7 +80,7 @@ function SEED(){
     const overlap = await page.evaluate(id => { const a = document.querySelector(`.note[data-note="${id}"]`); const ra = {x: a.offsetLeft, y: a.offsetTop, w: 200, h: 140}; return [...document.querySelectorAll("#nbBoard .note")].filter(e => e !== a).some(e => e.offsetLeft < ra.x + ra.w && e.offsetLeft + e.offsetWidth > ra.x && e.offsetTop < ra.y + ra.h && e.offsetTop + e.offsetHeight > ra.y); }, made.id);
     ok(!overlap, "and lands in an empty spot, not on top of another note: " + JSON.stringify({x: made.x, y: made.y}));
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
-    ok(await page.locator('.tl-controls [data-act="note-photo"], .pg-head [data-act="note-photo"]').count() === 1, "Photo to Note is a button beside the board");
+    ok(await page.locator('.tl-controls [data-act="note-photo"], .pg-head [data-act="note-photo"], .pg-rwrap [data-act="note-photo"]').count() === 1, "Photo to Note is a button beside the board");
     await act(page, "note-archive-open"); await page.waitForTimeout(250);
     ok(/Drag a note onto the folder, or open it and choose Archive/.test(await page.locator("dialog[open]").textContent()), "an empty Archive explains both ways to archive");
     await page.evaluate(() => document.querySelector("dialog[open]").close());
@@ -91,10 +91,10 @@ function SEED(){
     await page.click("#toastUndo"); await page.waitForTimeout(300);
     ok(await page.evaluate(() => state.settings.noteBoards.some(b => b.id === "b1" && b.name === "Ideas") && state.notes.n4.board === "b1" && ui.noteBoard === "b1"), "Undo brings the board back with its name and notes");
 
-    /* Whiteboard: Add Board floats bottom right and the board fills the page */
+    /* Whiteboard: New Whiteboard floats bottom right and the board fills the page */
     await page.evaluate(() => { const T = window.__sbProStudy; T.applyChanges([{kind: "note", id: "w1", after: {id: "w1", text: "", wb: {v: 1, tpl: "grid"}, color: "yellow", x: 0, y: 0, z: 1, created: 1}}], null); });
     await act(page, "nv-view", "wb"); await page.waitForSelector(".wb-frame"); await page.waitForTimeout(1200);
-    ok(await page.evaluate(() => { const f = document.getElementById("fab"); return getComputedStyle(f).display !== "none" && f.dataset.act === "wb-new" && /Add Board/.test(f.textContent); }), "the Add Board button floats bottom right on an open whiteboard");
+    ok(await page.evaluate(() => { const f = document.getElementById("fab"); return getComputedStyle(f).display !== "none" && f.dataset.act === "wb-new" && /New Whiteboard/.test(f.textContent); }), "the New Whiteboard button floats bottom right on an open whiteboard");
     const cv = await rect(page, ".wb-frame"), vh = await page.evaluate(() => innerHeight);
     ok(cv.b >= vh - 40, "the board fills the page down to the bottom: " + JSON.stringify({b: cv.b, vh}));
     await act(page, "nv-view", "board"); await page.waitForTimeout(250);
@@ -112,8 +112,8 @@ function SEED(){
     /* Review */
     await tab(page, "flashcards"); await page.evaluate(() => { ui.rvView = "cards"; ui.filter = "all"; render(); }); await page.waitForTimeout(200);
     ok(/2 due · 1 new/.test(await page.locator('[data-act="fc-study"][data-id="d1"]').locator("xpath=ancestor::article").textContent()), "a deck tile shows what's due and new");
-    const heroCount = 6;
-    ok(new RegExp(`\\b${heroCount} cards ready to review`).test(await page.locator("#view .rv-hero h3").textContent()) && await page.locator('#view .rv-hero [data-act="fc-review-start"]').count() === 1 && await page.locator('#view .rv-hero [data-act="fc-review-menu"]').count() === 1, "the review hero counts the cards ready (" + heroCount + "), with Start Review and Review Options");
+    const heroCount = "3 cards due \\+ 3 new";
+    ok(new RegExp(`\\b${heroCount}`).test(await page.locator("#view .rv-hero h3").textContent()) && await page.locator('#view .rv-hero [data-act="fc-review-start"]').count() === 1 && await page.locator('#view .rv-hero [data-act="fc-review-menu"]').count() === 1, "the review hero counts the cards ready (" + heroCount + "), with Start Review and Review Options");
     ok((await page.locator('nav.tabs [data-tab="flashcards"] .fc-navdue').textContent()) === "3", "and so does the Review tab");
     await page.evaluate(() => { ui.filter = "c2"; render(); }); await page.waitForTimeout(200);
     await act(page, "fc-review-menu"); await page.waitForTimeout(250);

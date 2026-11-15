@@ -113,8 +113,29 @@ function drawMath(el){
   }
   if (!html) { el.classList.add("mth-bad"); return; }
   el.innerHTML = html; el.classList.add("mth-ok");
+  mathFit(el);
 }
-function mathPending(root){ (root || document).querySelectorAll(".mth:not(.mth-ok):not(.mth-bad)").forEach(drawMath); }
+// A formula wider than its sticky note shrinks to fit (down to 60%) instead of being cut off at the edge.
+// While a pass over the page runs (fitBatch), the formulas are collected and fitted together: all reset, then all measured,
+// then all sized, so the page is measured once instead of once per formula (hundreds of notes with math took seconds).
+let FIT_Q = null;
+function mathFit(el){ if (FIT_Q) FIT_Q.push(el); else mathFitAll([el]); }
+function mathFitAll(list){
+  const xs = list.map(el => ({el, box: el.closest(".note-body")})).filter(x => x.box);
+  xs.forEach(x => { x.el.style.fontSize = ""; });
+  const room = new Map();
+  xs.forEach(x => {
+    if (!room.has(x.box)) { const cs = getComputedStyle(x.box); room.set(x.box, x.box.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0)); }
+    x.room = room.get(x.box); x.w = x.el.offsetWidth;
+  });
+  xs.forEach(x => { if (x.room > 0 && x.w > x.room) x.el.style.fontSize = Math.max(0.6, Math.floor(x.room / x.w * 100) / 100) + "em"; });
+}
+function fitBatch(fn){
+  if (FIT_Q) return fn();
+  FIT_Q = [];
+  try { return fn(); } finally { const q = [...new Set(FIT_Q)]; FIT_Q = null; mathFitAll(q.filter(el => el.isConnected)); }
+}
+function mathPending(root){ fitBatch(() => (root || document).querySelectorAll(".mth:not(.mth-ok):not(.mth-bad)").forEach(drawMath)); }
 // Plain text to a fragment with math and formatting, or null when there's nothing to draw
 function richFrag(s){
   const parts = mathSplit(s);
@@ -137,19 +158,46 @@ function richNode(el){
 // Where text is shown with its math and formatting: notes, card faces and lists, quizzes, whiteboard text, the reader's
 // comments, picture card answers, Match tiles, and anything marked class="rt"
 const RT_SCOPES = [".note-body", ".face-text", ".fc-front", ".fc-back", ".q-prompt", ".q-card .mc", ".q-card .tf-pair", ".q-card .written", ".miss-list",
-  "button.opt", ".opt-note", ".q-card .rationale", ".q-card .ans", ".q-card .ai-fb", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".ar-cards", ".rt", "[data-rt]"];
+  "button.opt", ".opt-note", ".q-card .rationale", ".q-card .ans", ".q-card .ai-fb", ".ci-ans", ".mt-tx", ".wb-t", ".pdr-lc", ".ar-cards", ".face-hint", ".sx-t", ".sx-s", ".rt", "[data-rt]"];
 let rtQueued = false;
+const RT_SEL = RT_SCOPES.join(",");
+// What changed since the last pass: the places text changed in (rtIn) and what was added (rtAdd). Only the text scopes
+// around and inside those are looked at, not the whole page on every keystroke. rtAll: the first pass, or too much changed.
+let rtAll = true;
+const rtIn = new Set(), rtAdd = new Set();
+function rtScopes(){
+  if (rtAll) return [...document.querySelectorAll(RT_SEL)];
+  const s = new Set();
+  rtIn.forEach(n => { for (let e = n.isConnected ? n.closest(RT_SEL) : null; e; e = e.parentElement && e.parentElement.closest(RT_SEL)) s.add(e); });
+  rtAdd.forEach(n => { if (!n.isConnected) return; if (n.matches(RT_SEL)) s.add(n); n.querySelectorAll(RT_SEL).forEach(e => s.add(e)); });
+  // in page order, as the whole-page pass went
+  return [...s].sort((a, b) => a === b ? 0 : a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+}
 function rtRun(){
   rtQueued = false;
-  document.querySelectorAll(RT_SCOPES.join(",")).forEach(el => {
-    const t = el.textContent;
-    if (el.__rt === t) return;
-    richNode(el); el.__rt = el.textContent;
+  const list = rtScopes();
+  rtAll = false; rtIn.clear(); rtAdd.clear();
+  fitBatch(() => {
+    list.forEach(el => {
+      const t = el.textContent;
+      if (el.__rt === t) return;
+      richNode(el); el.__rt = el.textContent;
+      if (el.classList.contains("note-body")) el.querySelectorAll(".mth.mth-ok").forEach(mathFit);
+    });
+    if (katexOk) mathPending(document);
   });
-  if (katexOk) mathPending(document);
 }
 const rtSoon = () => { if (!rtQueued) { rtQueued = true; requestAnimationFrame(rtRun); } };
-if (typeof MutationObserver === "function") new MutationObserver(rtSoon).observe(document.documentElement, {childList: true, subtree: true, characterData: true});
+function rtNote(list){
+  if (!rtAll) for (const m of list) {
+    const t = m.target, el = t.nodeType === 1 ? t : t.parentElement;
+    if (el) rtIn.add(el);
+    if (m.type === "childList") m.addedNodes.forEach(n => { if (n.nodeType === 1) rtAdd.add(n); });
+    if (rtIn.size + rtAdd.size > 600) { rtAll = true; rtIn.clear(); rtAdd.clear(); break; }
+  }
+  rtSoon();
+}
+if (typeof MutationObserver === "function") new MutationObserver(rtNote).observe(document.documentElement, {childList: true, subtree: true, characterData: true});
 rtSoon();
 // Math read aloud and in plain-text places: "$\frac{a}{b}$" becomes "a over b"
 const SPEAK = {alpha: "alpha", beta: "beta", gamma: "gamma", delta: "delta", Delta: "delta", theta: "theta", lambda: "lambda", mu: "mu", pi: "pi", sigma: "sigma", Sigma: "sum", omega: "omega", Omega: "omega", phi: "phi", rho: "rho", epsilon: "epsilon",
@@ -226,7 +274,8 @@ function rbPlace(el, f, below){
   let top = below ? r.bottom + 6 : r.top - h - 6;
   if (!below && top < vTop + 6) top = r.bottom + 6;
   if (top + h > vTop + vH - 4) top = Math.max(vTop + 6, vTop + vH - h - 4);
-  const left = Math.max(6, Math.min(vw - w - 6, r.left));
+  // The toolbar sits at the field's right edge, clear of its label on the left; the equation box below starts at its left
+  const left = Math.max(6, Math.min(vw - w - 6, below ? r.left : r.right - w));
   el.style.left = (left - off.left) + "px"; el.style.top = (top - off.top) + "px";
 }
 function rbShow(f){

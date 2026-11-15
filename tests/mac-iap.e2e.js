@@ -65,7 +65,7 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
   try {
     let {ctx, page, rc} = await run(true);
     ok(await page.evaluate(() => /Apple ID account at confirmation/.test((document.getElementById("planLegal") || {}).textContent || "")), "the Mac App Store build sells Pro with Apple's in-app purchase terms");
-    await page.click('dialog[open] [data-act="plan-buy"][data-id="monthly"]'); await page.waitForTimeout(1500);
+    await page.click('dialog[open] [data-act="plan-pick"][data-id="monthly"]'); await page.click('dialog[open] [data-act="plan-buy"][data-id="monthly"]'); await page.waitForTimeout(1500);
     const iap = await page.evaluate(() => window.__iap);
     ok(iap.some(x => x[0] === "buy" && x[1] === "studyboard_pro_monthly" && x[2] === "11111111-2222-3333-4444-555555555555"), "Monthly buys RevenueCat's monthly product with Apple, for this account: " + JSON.stringify(iap));
     const rec = rc.find(x => x.path === "/v1/receipts");
@@ -76,7 +76,7 @@ const jwt = () => b64({alg: "HS256", typ: "JWT"}) + "." + b64({sub: USER.id, aud
     await ctx.close();
 
     ({ctx, page, rc} = await run(false));
-    await page.click('dialog[open] [data-act="plan-buy"][data-id="monthly"]'); await page.waitForTimeout(1200);
+    await page.click('dialog[open] [data-act="plan-pick"][data-id="monthly"]'); await page.click('dialog[open] [data-act="plan-buy"][data-id="monthly"]'); await page.waitForTimeout(1200);
     ok(!(await page.evaluate(() => window.__iap)).some(x => x[0] === "buy"), "where Apple doesn't sell Pro (not available in that country), nothing is bought");
     await ctx.close();
 

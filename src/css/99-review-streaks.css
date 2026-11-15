@@ -6,7 +6,7 @@
 .wkr-s,.fgs-it span{color:var(--muted);font-size:.9rem}
 .wkr-acts{display:flex;flex-wrap:wrap;gap:8px}
 .wkr-card .btn,.fgs-intro .btn,.wkr-sheet .btn,.fgs-sheet .btn{min-height:44px}
-.wkr-sheet .link-btn{min-height:44px;display:inline-flex;align-items:center;padding-block:0;text-align:left}
+.wkr-sheet .link-btn{min-height:44px;display:inline-flex;align-items:center;padding-block:0;text-align:start}
 .fgs-strip{margin:4px 0 0}
 .fgs-chip{display:inline-flex;align-items:center;min-height:44px;padding:0;border:0;background:none;color:var(--ink);font:inherit;cursor:pointer}
 .fgs-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));background:color-mix(in srgb,var(--accent) 12%,var(--surface));font:700 .82rem var(--display)}
@@ -24,7 +24,7 @@
 .wkr-list li{display:flex;align-items:center;gap:10px;padding:6px 0;flex-wrap:wrap}
 .wkr-list .btn{margin-left:auto}
 .wkr-li{flex:1 1 180px;min-width:0;display:grid;gap:1px}
-.wkr-li .link-btn{text-align:left}
+.wkr-li .link-btn{text-align:start}
 .wkr-dot{width:10px;height:10px;border-radius:50%;flex:none}
 .wkr-bars{display:grid;gap:6px;margin-top:6px}
 .wkr-bars li{display:grid;grid-template-columns:minmax(70px,30%) minmax(0,1fr) auto;gap:8px;align-items:center;font-size:.9rem}

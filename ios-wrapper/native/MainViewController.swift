@@ -5,6 +5,7 @@ import Capacitor
 import AuthenticationServices
 import CryptoKit
 import StoreKit
+import BackgroundTasks
 
 class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     private var offsetWatch: NSKeyValueObservation?
@@ -12,7 +13,7 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     override func capacitorDidLoad() {
         // Studyboard's own plugins, each only if its file is in the project (so this file builds whatever you've added)
-        for name in ["StudyboardFocusActivityPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardSiriDataPlugin", "StudyboardLmsPlugin", "StudyboardSignInPlugin", "StudyboardStorePlugin"] {
+        for name in ["StudyboardFocusActivityPlugin", "StudyboardHomeWidgetsPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardSiriDataPlugin", "StudyboardLmsPlugin", "StudyboardSignInPlugin", "StudyboardStorePlugin", "StudyboardHapticsPlugin"] {
             // (ios:stage also lists them for Capacitor, which then connects them itself; never twice)
             if let type = NSClassFromString(name) as? CAPPlugin.Type, let plugin = (type as NSObject.Type).init() as? CAPPlugin,
                bridge?.plugin(withName: (plugin as? CAPBridgedPlugin)?.jsName ?? "") == nil {
@@ -209,3 +210,130 @@ public class StudyboardStorePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 }
 
+
+// Haptics, from this file rather than the @capacitor/haptics package: this file is always built into the app, so haptics don't
+// depend on that package's native code making it in through CocoaPods or Swift packages (a TestFlight build showed it hadn't).
+// The same four calls as @capacitor/haptics, so the page uses whichever is there (sbHaptic in src/js/01-helpers.js).
+@objc(StudyboardHapticsPlugin)
+public class StudyboardHapticsPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "StudyboardHapticsPlugin"
+    public let jsName = "StudyboardHaptics"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "impact", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "notification", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "selectionStart", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "selectionChanged", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "selectionEnd", returnType: CAPPluginReturnPromise)
+    ]
+    private var selection: UISelectionFeedbackGenerator?
+
+    @objc func impact(_ call: CAPPluginCall) {
+        let s = (call.getString("style") ?? "MEDIUM").uppercased()
+        let style: UIImpactFeedbackGenerator.FeedbackStyle = s == "HEAVY" ? .heavy : s == "LIGHT" ? .light : .medium
+        DispatchQueue.main.async {
+            let g = UIImpactFeedbackGenerator(style: style)
+            g.prepare()
+            g.impactOccurred()
+            call.resolve()
+        }
+    }
+
+    @objc func notification(_ call: CAPPluginCall) {
+        let t = (call.getString("type") ?? "SUCCESS").uppercased()
+        let type: UINotificationFeedbackGenerator.FeedbackType = t == "WARNING" ? .warning : t == "ERROR" ? .error : .success
+        DispatchQueue.main.async {
+            let g = UINotificationFeedbackGenerator()
+            g.prepare()
+            g.notificationOccurred(type)
+            call.resolve()
+        }
+    }
+
+    @objc func selectionStart(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.selection = UISelectionFeedbackGenerator()
+            self.selection?.prepare()
+            call.resolve()
+        }
+    }
+
+    @objc func selectionChanged(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let g = self.selection ?? UISelectionFeedbackGenerator()
+            g.selectionChanged()
+            g.prepare()
+            call.resolve()
+        }
+    }
+
+    @objc func selectionEnd(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.selection = nil
+            call.resolve()
+        }
+    }
+}
+
+// Background App Refresh: iOS wakes the app now and then while it's in the background (how often is up to iOS: it learns when the
+// student opens Studyboard). The page fetches what changed on other devices and sends the widgets the day again
+// (window.__sbBgRefresh, src/js/70-widgets.js). register() runs from AppDelegate's didFinishLaunchingWithOptions (ios:stage adds
+// that line); the id is in Info.plist's BGTaskSchedulerPermittedIdentifiers and UIBackgroundModes has "fetch".
+enum StudyboardBackgroundRefresh {
+    static let id = "com.studyboardapp.studyboard.refresh"
+    private static var registered = false
+
+    static func register() {
+        guard !registered else { return }
+        registered = BGTaskScheduler.shared.register(forTaskWithIdentifier: id, using: nil) { task in
+            guard let task = task as? BGAppRefreshTask else { task.setTaskCompleted(success: false); return }
+            handle(task)
+        }
+        guard registered else { return }
+        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in schedule() }
+    }
+
+    static func schedule() {
+        let req = BGAppRefreshTaskRequest(identifier: id)
+        req.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60)
+        try? BGTaskScheduler.shared.submit(req)
+    }
+
+    private static func handle(_ task: BGAppRefreshTask) {
+        schedule()   // the next one
+        var finished = false
+        let finish: (Bool) -> Void = { ok in
+            DispatchQueue.main.async { if !finished { finished = true; task.setTaskCompleted(success: ok) } }
+        }
+        task.expirationHandler = { finish(false) }
+        DispatchQueue.main.async { run(tries: 0, finish) }
+    }
+
+    private static func webView() -> WKWebView? {
+        func find(_ vc: UIViewController?) -> CAPBridgeViewController? {
+            guard let vc = vc else { return nil }
+            if let b = vc as? CAPBridgeViewController { return b }
+            for c in vc.children { if let b = find(c) { return b } }
+            return find(vc.presentedViewController)
+        }
+        let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }
+        let roots = ((UIApplication.shared.delegate?.window ?? nil).map { [$0] } ?? []) + windows
+        for w in roots { if let b = find(w.rootViewController) { _ = b.view; return b.bridge?.webView } }
+        return nil
+    }
+
+    // The page may still be loading (iOS can start the app just for this): asked again each second, for up to 12 seconds
+    private static func run(tries: Int, _ finish: @escaping (Bool) -> Void) {
+        guard let web = webView() else {
+            if tries < 12 { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { run(tries: tries + 1, finish) } } else { finish(false) }
+            return
+        }
+        let js = "if (typeof window.__sbBgRefresh !== 'function') return 'loading'; return await window.__sbBgRefresh();"
+        web.callAsyncJavaScript(js, arguments: [:], in: nil, in: .page) { result in
+            if case .success(let v) = result, (v as? String) == "loading" {
+                if tries < 12 { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { run(tries: tries + 1, finish) } } else { finish(false) }
+                return
+            }
+            if case .success = result { finish(true) } else { finish(false) }
+        }
+    }
+}

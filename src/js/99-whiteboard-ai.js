@@ -31,7 +31,7 @@
         <fieldset class="wb-ai-k" aria-label="What to make">
           <label class="mi-check"><input type="radio" name="wbaK" value="notes" checked> Typed notes <span class="mini">A clean, typed copy of the board, saved as a note</span></label>
           <label class="mi-check"><input type="radio" name="wbaK" value="cards"> Typed notes and flashcards <span class="mini">Then draft cards from them for you to check</span></label>
-          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() ? " " + PRO_BADGE : ""} <span class="mini">The board as a picture with its labels hidden, to guess</span></label>
+          <label class="mi-check"><input type="radio" name="wbaK" value="pics"> Picture flashcards${picLocked() || tagPro() ? " " + PRO_BADGE : ""} <span class="mini">The board as a picture with its labels hidden, to guess</span></label>
         </fieldset>
         <label class="f">Course<select id="wbaCourse">${courseSelectHtml(n.courseId || "")}</select></label>
         <label class="f" id="wbaDeckL" hidden>Deck<select id="wbaDeck"></select></label>

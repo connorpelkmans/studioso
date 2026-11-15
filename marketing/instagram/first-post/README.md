@@ -7,7 +7,7 @@ Three options for the account's first post. All are 1080 × 1350 (Instagram's 4:
 - **Art:** the real logo and app icon, and the free companions (Hoot, Mochi, Inky, Packy) exported straight from the app's own drawings.
 - **Voice:** calm and plain. Copy reuses lines from the website ("Your whole semester on one board.", "Type it like you'd say it.") and states only what the README says the app does.
 
-The finished images are in `png/`.
+The files to upload are in `jpg/`. `png/` holds lossless copies for editing. See **Uploading at highest quality** below.
 
 **Recommendation:** post **Concept B (carousel)** first. A first post should say who you are, and a carousel tells the whole story in four swipes. Carousels also tend to get more reach than single images. Keep A and C as posts 2 and 3 so the grid opens with a consistent set.
 
@@ -15,7 +15,7 @@ The finished images are in `png/`.
 
 ## Concept A: "One board" (single image)
 
-`png/a-one-board.png`
+`jpg/a-one-board.jpg`
 
 A light, grid-paper intro: the website's headline, highlighted in yellow, above a slightly tilted mini task board with Mochi sitting on it. Each card uses its course icon from the app.
 
@@ -35,7 +35,7 @@ A light, grid-paper intro: the website's headline, highlighted in yellow, above 
 
 ## Concept B: "Hi, we're Studyboard" (4-slide carousel) ⭐ recommended
 
-`png/b1-hello.png` → `png/b2-today.png` → `png/b3-companion.png` → `png/b4-free.png`
+`jpg/b1-hello.jpg` → `jpg/b2-today.jpg` → `jpg/b3-companion.jpg` → `jpg/b4-free.jpg`
 
 1. **Hello:** navy cover with the app icon, "Hi. We're Studyboard." and Mochi.
 2. **Today's Plan:** "Always knows what's next." with a sample plan fitted into 4–7 PM.
@@ -69,7 +69,7 @@ A light, grid-paper intro: the website's headline, highlighted in yellow, above 
 
 ## Concept C: "Type it like you'd say it" (single image)
 
-`png/c-quick-add.png`
+`jpg/c-quick-add.jpg`
 
 A navy feature demo: a casual note, "bio quiz fri 2pm 5%", turns into a neat BIO 101 quiz card. Packy the backpack watches.
 
@@ -87,9 +87,27 @@ A navy feature demo: a casual note, "bio quiz fri 2pm 5%", turns into a neat BIO
 
 ---
 
+## Uploading at highest quality
+
+Instagram always recompresses uploads. The files in `jpg/` are prepared so that recompression costs as little as possible:
+
+- **Size:** exactly 1080 × 1350 (4:5), so Instagram doesn't crop or resample them.
+- **Sharpness:** each post is drawn at 2× and scaled down with Lanczos, so text and the tilted cards' edges are smooth.
+- **Format:** a standard baseline JPEG (the same kind phone cameras and Photoshop write) at quality 95 with full color resolution (4:4:4), so colored text such as "At risk" and the course headers doesn't blur. It opens in Photos, Files, Instagram and any other app.
+- **Color:** sRGB. The file carries no color profile, which every app reads as sRGB.
+
+**Why the 1080 file can look soft in your camera roll:** phone screens are wider than 1080 pixels (an iPhone is about 1170–1320), so Photos stretches the image to fill the screen. Instagram shows feed photos at 1080 wide either way, so this doesn't affect the post. If you want a copy that also looks sharp in Photos, use `jpg@2x/` (2160 × 2700, same layout). Instagram scales it down to 1080 itself. Post a test from each to a private or close-friends account and keep whichever looks better on the feed.
+
+When posting:
+
+1. In Instagram, open **Settings and activity → Media quality**. Turn **on** "Upload at highest quality" and turn **off** "Use less data".
+2. Upload the `.jpg` files directly. Get them to your phone with AirDrop, Google Drive, iCloud Drive or a USB cable, not WhatsApp, Messages or a screenshot, because those recompress the image.
+3. Upload on Wi-Fi.
+4. In the crop step, keep the full 4:5 frame (don't zoom or pinch).
+
 ## Editing and re-rendering
 
-All posts are in one file, `src/posts.html`. Companion art is in `assets/*.svg` and is inserted where the file says `{{owl}}`, `{{mochi}}`, `{{inky}}` or `{{packy}}`. To rebuild the PNGs (needs Node and Playwright), run this from the repo root:
+All posts are in one file, `src/posts.html`. Companion art is in `assets/*.svg` and is inserted where the file says `{{owl}}`, `{{mochi}}`, `{{inky}}` or `{{packy}}`. To rebuild the images (needs Node, Playwright and ImageMagick), run this from the repo root:
 
 ```bash
 node marketing/instagram/first-post/render.js

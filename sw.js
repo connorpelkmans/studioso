@@ -17,6 +17,9 @@ OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs",
 OPTIONAL.push("./vendor/fzstd-0.1.1.umd.js");
 // math.js does the calculator's arithmetic offline
 OPTIONAL.push("./vendor/mathjs-15.1.1/math.js");
+// citeproc-js makes Writing Studio citations offline, with the styles and locales that come with the app
+OPTIONAL.push("./vendor/citeproc-2.4.63/citeproc.js", "./vendor/citeproc-2.4.63/locales/locales-en-US.xml", "./vendor/citeproc-2.4.63/locales/locales-en-GB.xml",
+  ...["apa", "modern-language-association", "chicago-author-date", "chicago-notes-bibliography", "ieee", "harvard-cite-them-right", "american-medical-association", "american-sociological-association"].map(s => `./vendor/citeproc-2.4.63/styles/${s}.csl`));
 // KaTeX draws math and chemistry offline: the script, its chemistry add-on, styles and the fonts most formulas use
 OPTIONAL.push("./vendor/katex-0.18.11/katex.min.js", "./vendor/katex-0.18.11/contrib/mhchem.min.js", "./vendor/katex-0.18.11/katex.min.css",
   ...["Main-Regular", "Main-Bold", "Main-Italic", "Math-Italic", "Size1-Regular", "Size2-Regular", "Size3-Regular", "Size4-Regular", "AMS-Regular"].map(f => `./vendor/katex-0.18.11/fonts/KaTeX_${f}.woff2`));

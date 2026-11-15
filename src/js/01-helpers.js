@@ -110,7 +110,19 @@ const allCourses = () => Object.values(state.courses).sort((a, b) => (courseOrd(
 const coursesArr = () => allCourses().filter(c => !c.archived);
 const courseOf = id => id ? state.courses[id] : null;
 const colorOf = id => { const c = courseOf(id); return c ? c.color : "#8A94A6"; };
-const courseLabel = c => c.code || c.name;
+/* Course colours in small labels: the course's own hue, deepened (or lifted, on dark) only as far as it takes to read at
+   4.5:1 (ensureContrast, 01-style-shop.js), so most colours are left exactly as they are. courseSolid is a fill for white text */
+const courseInk = (hex, bgs) => { try { return ensureContrast(hex, bgs, 4.6); } catch (e) { return hex; } };
+const courseSolid = hex => courseInk(hex, ["#FFFFFF"]);
+const hexBlend = (a, b, f) => { try { return mixHex(a, b, f); } catch (e) { return a; } };
+// the theme's own colours as drawn (hex), for working out what a label sits on; read at most once a second
+let themeHexAt = 0, themeHexMemo = {};
+const themeHex = (k, dflt) => {
+  const now = Date.now(); if (now - themeHexAt > 1000) { themeHexAt = now; themeHexMemo = {}; }
+  if (!(k in themeHexMemo)) { let v = ""; try { v = getComputedStyle(document.documentElement).getPropertyValue("--" + k).trim(); } catch (e) {} themeHexMemo[k] = /^#[0-9a-f]{6}$/i.test(v) ? v : dflt; }
+  return themeHexMemo[k];
+};
+const courseLabel = c => c.code || c.name || "Untitled Course";
 // A course code from a school site
 const COURSE_CODE_RX = /\b([A-Za-z]{2,6})[\s_-]?(\d{2,4}[A-Za-z]?)\b/;
 const cleanCourseCode = (raw, name) => {
@@ -143,7 +155,13 @@ const XR_GAP = 20, XR_FULL = 30, XR_DAYS = 30;
    5. otherwise the whole course, as before */
 const XR_STOP = new Set("about after again also bring calculator cards class closed cover covers covered exam exams final finals from have held in-class including lecture lectures material materials midterm midterms note notes online open page pages paper pencil please quiz quizzes review room section sections study test tests that their there these this time topic topics will with what when where which your chapter chapters unit units week weeks module modules part parts book textbook slides questions question answer answers multiple choice short long take taken home person minutes hour hours worth grade percent points".split(" "));
 const xrStem = w => w.length > 5 && /ies$/.test(w) ? w.slice(0, -3) + "y" : w.length > 5 && /(sses|ches|shes|xes)$/.test(w) ? w.slice(0, -2) : w.length > 4 && /s$/.test(w) && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w.length > 6 && /ing$/.test(w) ? w.slice(0, -3) : w.length > 5 && /ed$/.test(w) ? w.slice(0, -2) : w;
-const xrWords = txt => String(txt || "").toLowerCase().replace(/<[^>]*>/g, " ").split(/[^a-z\u00c0-\u024f]+/).filter(w => w.length >= 4 && !XR_STOP.has(w)).map(xrStem);
+// (the same card texts are read again for every exam on every redraw, so each text's words are kept; callers only read them)
+const XR_WORDS = new Map();
+const xrWords = txt => {
+  const s = String(txt || ""); let w = XR_WORDS.get(s);
+  if (!w) { w = s.toLowerCase().replace(/<[^>]*>/g, " ").split(/[^a-z\u00c0-\u024f]+/).filter(x => x.length >= 4 && !XR_STOP.has(x)).map(xrStem); if (XR_WORDS.size > 20000) XR_WORDS.clear(); XR_WORDS.set(s, w); }
+  return w;
+};
 // Chapter, unit, module, week and lecture numbers named in a text: {kind: Set of numbers}
 function xrNums(txt){
   const out = {}, re = /\b(ch(?:apter)?s?|units?|modules?|weeks?|lectures?|lessons?)\.?\s*((?:\d{1,2}\s*(?:-|–|to|,|&|and)?\s*)+)/gi;
@@ -337,12 +355,12 @@ function boardOrder(a, b){
   return sortTasks(a, b);
 }
 function relDue(t){
-  if (!t.due) return "No due date";
+  if (!t.due) return t.dueBad ? "No due date — check the date" : "No due date";
   const n = dayDiff(todayISO(), t.due);
   let s;
   if (n === 0) s = "Due today";
   else if (n === 1) s = "Due tomorrow";
-  else if (n < 0 && t.status !== "done") s = n === -1 ? "1 day late" : `${-n} days late`;
+  else if (n < 0 && t.status !== "done") s = n === -1 ? "1 day late" : n < -365 ? "Over a year late" : `${-n} days late`;
   else if (n > 1 && n < 7) s = "Due " + parse(t.due).toLocaleDateString(undefined, {weekday:"long"});
   else s = "Due " + fmtDate(t.due);
   if (t.time) s += ", " + fmtTime(t.time);
@@ -440,7 +458,21 @@ function syncPill(on){
   if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
   else el.classList.remove("show");
 }
+/* Unhappy moments: an error message, or a free-plan limit, offers "Tell Us" (the feedback form, with the message filled in), so a
+   student who's stuck reaches the person who makes the app, and the App Store review prompt stays quiet for a while (99-review-ask.js) */
+function tellUs(about, cat){
+  const go = () => { try { if (window.SBFEEDBACK) SBFEEDBACK.open({cat: cat || "bug", msg: about ? `About “${String(about).slice(0, 300)}”: ` : ""}); } catch (e) {} };
+  try { if (dlg.open) { dlg.close(); setTimeout(go, 40); return; } } catch (e) {}
+  go();
+}
+const tellUsBtn = (about, cat) => ({label: "Tell Us", fn: () => tellUs(about, cat)});
+// keep the review prompt away for a few days after a limit, a paywall or the end of the free weeks
+function reviewQuiet(days){
+  try { const k = "studyboard:reviewQuietUntil", until = Date.now() + days * 864e5; if (until > (Number(localStorage.getItem(k)) || 0)) localStorage.setItem(k, String(until)); } catch (e) {}
+}
 function toast(msg, undoFn, extra, opts){
+  // an error message with a free button slot offers Tell Us (not the feedback form's own messages, and not offline errors)
+  if (opts && opts.error && !opts.noTell && [].concat(extra || []).filter(Boolean).length < 2 && window.SBFEEDBACK && !(typeof navigator !== "undefined" && navigator.onLine === false)) extra = [].concat(extra || []).filter(Boolean).concat([tellUsBtn(msg, "bug")]);
   const t = toastEl(), b = toastPart("toastUndo"), x = toastPart("toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = toastPart("toastX");
   if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", toastHide); }
@@ -466,9 +498,86 @@ function toastTimer(ms){
   clearTimeout(toastT);
   toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
+/* Haptics: one small vocabulary for the whole app, on phones and tablets only.
+   tap (light: a task checked off, a card graded) · tick (a selection snaps: a day, a column) · lift (a drag picks up, a long press)
+   drop (something lands) · success (a Focus finished, a plan cleared, a new best) · warning (something deleted) · error (a wrong pair, a failed save)
+   The iPhone and Android apps use Apple's and Android's own generators through @capacitor/haptics (iOS's System Haptics switch applies).
+   A browser on an Android phone gets a short vibration; Safari on iPhone and computers have nothing to feel, so they stay silent.
+   At most one every 120 ms, and only within 1.5 s of the student touching the screen (opts.force for the end of a Focus or a streak day).
+   Settings > Haptic Feedback turns it off on this device. */
+const HAPTIC_KEY = "studyboard:haptics", HAPTIC_GAP = 120, HAPTIC_INPUT_MS = 1500;
+const HAPTIC_WEB = {tap: 10, tick: 6, lift: 18, drop: 10, success: [12, 70, 22], warning: [22, 70, 12], error: [12, 45, 12, 45, 12]};
+let hapticAt = 0, hapticInputAt = 0, hapticSel = false;
+["pointerdown", "touchstart", "keydown"].forEach(t => document.addEventListener(t, e => { if (e.isTrusted !== false) hapticInputAt = Date.now(); }, {capture: true, passive: true}));
+// Capacitor only lists a plugin in Capacitor.Plugins once something registers it, and this page doesn't load the plugin's own
+// script, so it's registered here by name (as native-bridge.js does for the app's other plugins). Looking only in Plugins found
+// nothing in the real app, and every haptic was silently skipped
+// The app has two ways to reach the iPhone's haptics: @capacitor/haptics ("Haptics") and Studyboard's own plugin in
+// MainViewController.swift ("StudyboardHaptics", the same calls), which is always built in. Whichever is there is used.
+let hapticReg = {};
+function hapticNative(){
+  try {
+    const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
+    for (const name of ["Haptics", "StudyboardHaptics"]) {
+      if (C.isPluginAvailable && !C.isPluginAvailable(name)) continue;
+      if (C.Plugins && C.Plugins[name]) return C.Plugins[name];
+      if (!hapticReg[name] && typeof C.registerPlugin === "function") hapticReg[name] = C.registerPlugin(name);
+      if (hapticReg[name]) return hapticReg[name];
+    }
+    return null;
+  } catch (e) { return null; }
+}
+// a phone or tablet: the iPhone or Android app, or a browser on a touch screen with no mouse
+function hapticDevice(){
+  try { if (hapticNative()) return true; return !!(window.matchMedia && matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches); } catch (e) { return false; }
+}
+const hapticOn = () => { try { return localStorage.getItem(HAPTIC_KEY) !== "off"; } catch (e) { return true; } };
+function sbHaptic(kind, opts){
+  try {
+    if (!HAPTIC_WEB[kind] || !hapticOn() || document.hidden || !hapticDevice()) return false;
+    const now = Date.now();
+    if (now - hapticAt < HAPTIC_GAP) return false;
+    if (!(opts && opts.force) && now - hapticInputAt > HAPTIC_INPUT_MS) return false;
+    hapticAt = now;
+    const H = hapticNative();
+    if (H) {
+      const done = p => { if (p && p.catch) p.catch(() => {}); };
+      if (kind === "tick") { if (!hapticSel && H.selectionStart) { done(H.selectionStart()); hapticSel = true; } done(H.selectionChanged()); }
+      else if (kind === "success" || kind === "warning" || kind === "error") done(H.notification({type: kind.toUpperCase()}));
+      // a tap or a drop is Apple's LIGHT impact, picking something up MEDIUM
+      else done(H.impact({style: kind === "lift" ? "MEDIUM" : "LIGHT"}));
+      return true;
+    }
+    if (navigator.vibrate) { navigator.vibrate(HAPTIC_WEB[kind]); return true; }
+  } catch (e) {}
+  return false;
+}
+window.sbHaptic = sbHaptic;
+// Settings > Haptic Feedback > Try It: sends one at once and says what happened, so "I feel nothing" can be told apart from a copy
+// of the app built without haptics, Safari on an iPhone (no haptics for web pages), or the iPhone's own setting
+async function hapticTry(){
+  const C = window.Capacitor, app = !!(C && C.isNativePlatform && C.isNativePlatform());
+  if (!hapticOn()) return "Haptic Feedback is off. Turn it on above, then try again.";
+  if (app) {
+    const H = hapticNative();
+    if (!H) {
+      // what the app can see, for working out why: the plugin listed by the app, and its JavaScript side
+      let seen = ""; try { const has = n => C.isPluginAvailable ? (C.isPluginAvailable(n) ? "yes" : "no") : "?"; seen = ` (Haptics: ${has("Haptics")}, StudyboardHaptics: ${has("StudyboardHaptics")}, can register: ${typeof C.registerPlugin === "function" ? "yes" : "no"})`; } catch (e) {}
+      if (C.isPluginAvailable && !C.isPluginAvailable("Haptics") && !C.isPluginAvailable("StudyboardHaptics")) return "Neither haptics plugin is built into this copy of the app" + seen + ". On the Mac, run npm run ios:stage and build the app again (MainViewController.swift has Studyboard's own).";
+      return "This copy of the app can't reach the iPhone's haptics" + seen + ". Install the newest build (TestFlight, or run it from Xcode) and try again.";
+    }
+    // a strong one, then the success pattern, so there's no mistaking it
+    try { await H.impact({style: "HEAVY"}); await new Promise(r => setTimeout(r, 350)); await H.notification({type: "SUCCESS"}); }
+    catch (e) { return "The iPhone didn't take the tap: " + String((e && e.message) || e).slice(0, 120); }
+    return "Sent two taps. If you felt nothing, turn on System Haptics in your iPhone's Settings > Sounds & Haptics (Low Power Mode also turns haptics down).";
+  }
+  if (!navigator.vibrate) return "This browser can't make haptics (Safari on iPhone and iPad can't). The Studyboard app can.";
+  navigator.vibrate(HAPTIC_WEB.success);
+  return "Sent a tap. If you felt nothing, check your phone's vibration settings.";
+}
 document.addEventListener("close", e => { const t = toastEl(); if (e.target && (t.parentNode === e.target || !t.isConnected)) document.body.appendChild(t); }, true);
 hook("render", () => { if (toastView && toastView !== toastViewKey() && toastEl().classList.contains("show")) toastHide(); });
-toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) f(); });
+toastPart("toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; toastEl().classList.remove("show"); if (f) { sbHaptic("tap"); f(); } });
 toastPart("toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; toastEl().classList.remove("show"); if (f) f(); });
 // Pointing at a toast with a button, or tabbing into it, holds it open
 { const t = TOAST_EL, acts = () => t.classList.contains("show") && !!(toastUndoFn || toastExtraFn || toastExtra2Fn), hold = e => { if (acts() && (e.type === "focusin" || Date.now() - toastAt > 700)) clearTimeout(toastT); }, go = () => { if (acts() && !toastErr) toastTimer(Math.max(3000, toastMs / 2)); };

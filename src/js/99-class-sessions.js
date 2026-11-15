@@ -63,18 +63,56 @@ var SBCLS = null;
   function termOf(c){
     const cd = c.classDates || {}, today = todayISO();
     let from = isDate(cd.from) ? cd.from : "", until = isDate(cd.until) ? cd.until : "";
+    // Courses usually share one term: dates set on another course are the best guess for this one
     if (!from || !until) {
-      const seen = [];
-      allTasks().forEach(t => { if (t.courseId === c.id) { if (isDate(t.due)) seen.push(t.due); if (isDate(t.start)) seen.push(t.start); } });
-      Object.values(state.files || {}).forEach(f => { if (f.courseId === c.id && isLec(f)) seen.push(dOf(f.created)); });
-      Object.values(state.notes || {}).forEach(n => { if (n.courseId === c.id && n.cls) seen.push(keyParts(n.cls).date); });
-      eventsArr().forEach(e => { if (e.courseId === c.id && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
+      const other = coursesArr().map(x => x.classDates || {}).filter(d => isDate(d.from) && isDate(d.until) && d.until >= d.from);
+      if (other.length) { if (!from) from = other[0].from; if (!until) until = other[0].until; }
+    }
+    if (!from || !until) {
+      // ...otherwise the term is guessed from every course's dates, so all courses agree on Week 1
+      const seen = [], mine = new Set(coursesArr().map(x => x.id));
+      allTasks().forEach(t => { if (mine.has(t.courseId)) { if (isDate(t.due)) seen.push(t.due); if (isDate(t.start)) seen.push(t.start); } });
+      Object.values(state.files || {}).forEach(f => { if (mine.has(f.courseId) && isLec(f)) seen.push(dOf(f.created)); });
+      Object.values(state.notes || {}).forEach(n => { if (mine.has(n.courseId) && n.cls) seen.push(keyParts(n.cls).date); });
+      eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
       const early = seen.filter(isDate).sort()[0], late = seen.filter(isDate).sort().pop();
-      if (!from) { from = [c.created ? dOf(c.created) : today, early || today].sort()[0]; if (from < addDays(today, -150)) from = addDays(today, -150); }
+      if (!from) { from = [...coursesArr().map(x => x.created ? dOf(x.created) : today), early || today].filter(isDate).sort()[0] || today; if (from < addDays(today, -150)) from = addDays(today, -150); }
       if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180); }
     }
     if (until < from) until = from;
     return {from, until, set: isDate(cd.from) && isDate(cd.until)};
+  }
+
+  /* When a course's term is over: Crunch and Today's Plan stop counting its past-due work then. The Last Class date when it's
+     set (this course's or, as termOf does, another course's); otherwise a guess from the last date any course has (a deadline
+     or the end of a class series), the same dates termOf guesses from. A guessed end waits two weeks, so a course whose next
+     deadlines aren't entered yet isn't taken as over. */
+  let LAST = null;
+  function endOf(c){
+    const cd = (c && c.classDates) || {};
+    if (isDate(cd.until)) return {until: cd.until, set: true};
+    const other = coursesArr().map(x => x.classDates || {}).filter(d => isDate(d.from) && isDate(d.until) && d.until >= d.from);
+    if (other.length) return {until: other[0].until, set: true};
+    if (!LAST || LAST.st !== state || LAST.at !== state.updated) {
+      const mine = new Set(coursesArr().map(x => x.id)); let late = "";
+      const see = d => { if (isDate(d) && d > late) late = d; };
+      allTasks().forEach(t => { if (mine.has(t.courseId)) { see(t.due); see(t.start); } });
+      eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { see(e.date); if (e.repeat) see(e.repeat.until); } });
+      LAST = {st: state, at: state.updated, late};
+    }
+    return {until: LAST.late, set: false};
+  }
+  const ended = (c, today) => { const e = endOf(c); return !!e.until && (today || todayISO()) > (e.set ? e.until : addDays(e.until, 14)); };
+  // Which open work no longer counts today: past due, in a course whose term is over (work with no course once every course is)
+  function overOf(today){
+    today = today || todayISO();
+    const cs = coursesArr(); if (!cs.length) return null;
+    const by = {}; cs.forEach(c => { by[c.id] = ended(c, today); });
+    const all = cs.every(c => by[c.id]);
+    if (!all && !cs.some(c => by[c.id])) return null;
+    const f = t => !!t && isDate(t.due) && t.due < today && (courseOf(t.courseId) ? !!by[t.courseId] : all);
+    f.all = all; f.ended = cs.filter(c => by[c.id]);
+    return f;
   }
 
   /* Every class of a course in its term, numbered per kind (Lecture 7, Lab 3); skipped classes stay listed but aren't counted */
@@ -114,9 +152,14 @@ var SBCLS = null;
     return fit[0] ? fit[0].key : cands.length === 1 ? cands[0].key : "";
   }
   function itemsOf(cid, key){
-    const notes = Object.values(state.notes || {}).filter(n => n && n.courseId === cid && n.cls === key && !n.archived).sort((a, b) => (a.created || 0) - (b.created || 0));
     const files = Object.values(state.files || {}).filter(f => f && f.courseId === cid && f.cls === key && !isLec(f)).sort((a, b) => (a.created || 0) - (b.created || 0));
     const recs = Object.values(state.files || {}).filter(f => f && f.courseId === cid && isLec(f) && recKeyOf(f) === key).sort((a, b) => (a.created || 0) - (b.created || 0));
+    // a note not tagged to any class still belongs here when it's attached to this class's recording, or was written during the class
+    // (`via` says which, and these have no "take it off" button: nothing on the note links it)
+    const att = new Set(); recs.forEach(f => ((f.lec && Array.isArray(f.lec.att)) ? f.lec.att : []).forEach(a => { if (a && a.k === "note" && a.id) att.add(a.id); }));
+    const x = findClass(cid, key), during = n => !!x && !x.skipped && !!x.end && dOf(n.created) === x.date && minOfDay(n.created) >= tMin(x.start) - 10 && minOfDay(n.created) <= tMin(x.end) + 10;
+    const notes = Object.values(state.notes || {}).filter(n => n && n.courseId === cid && !n.archived && (n.cls === key || (!n.cls && (att.has(n.id) || (n.created && during(n))))))
+      .map(n => n.cls === key ? n : Object.assign({}, n, {via: att.has(n.id) ? "rec" : "time"})).sort((a, b) => (a.created || 0) - (b.created || 0));
     return {notes, files, recs, n: notes.length + files.length + recs.length};
   }
   const hasSum = f => !!(f.lec && f.lec.sum);
@@ -167,11 +210,13 @@ var SBCLS = null;
     openSheet(`<form class="sheet">${head("Term Dates")}<div class="sheet-body">
       <p class="mini" style="margin:0 0 10px">When ${esc(courseLabel(c))}'s classes run. Every class between these dates gets its own page in Lectures.</p>
       <div class="two"><label class="f">First Class<input type="date" name="from" value="${esc(T.from)}" required></label><label class="f">Last Class<input type="date" name="until" value="${esc(T.until)}" required></label></div>
+      ${coursesArr().length > 1 ? `<label class="mi-check" style="margin-top:6px"><input type="checkbox" name="all" checked> Use these dates for all my courses</label>` : ""}
       </div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button class="btn primary" data-submit>Save</button></div></form>`, fd => {
       const from = String(fd.get("from") || ""), until = String(fd.get("until") || "");
       if (!isDate(from) || !isDate(until) || until < from) { toast("The last class needs to be on or after the first."); return false; }
       const cur = state.courses[cid]; if (!cur) return;
-      applyChanges([{kind: "course", id: cid, after: Object.assign(clone(cur), {classDates: {from, until}})}], "Term dates saved");
+      const ids = fd.get("all") ? coursesArr().map(x => x.id) : [cid];
+      applyChanges(ids.filter(id => state.courses[id]).map(id => ({kind: "course", id, after: Object.assign(clone(state.courses[id]), {classDates: {from, until}})})), ids.length > 1 ? `Term dates saved for ${ids.length} courses` : "Term dates saved");
     });
   }
 
@@ -184,7 +229,7 @@ var SBCLS = null;
     const c = courseOf(x.cid), I = itemsOf(x.cid, x.key), all = classesOf(c).filter(y => y.kind === x.kind && (!y.skipped || y.key === x.key));
     const i = all.findIndex(y => y.key === x.key), prev = i > 0 ? all[i - 1] : null, next = i >= 0 && i < all.length - 1 ? all[i + 1] : null;
     const rm = (k, id) => `<button type="button" class="x-btn" data-act="cls-unlink" data-k="${k}" data-id="${esc(id)}" aria-label="Take it off this class (it isn't deleted)" title="Take it off this class (it isn't deleted)">${CLOSE}</button>`;
-    const noteLi = n => `<li class="cls-it">${n.wb ? IC.board(16) : IC.note(16)}<button type="button" class="cls-it-main" data-act="cls-note" data-id="${esc(n.id)}"><b>${esc(n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") : noteName(n))}</b>${!n.wb && notePeek(n) ? `<span class="mini">${esc(notePeek(n))}</span>` : `<span class="mini">${n.wb ? "Whiteboard" : "Note"}</span>`}</button>${rm("note", n.id)}</li>`;
+    const noteLi = n => `<li class="cls-it">${n.wb ? IC.board(16) : IC.note(16)}<button type="button" class="cls-it-main" data-act="cls-note" data-id="${esc(n.id)}"><b>${esc(n.wb ? (String(n.text || "").split("\n")[0] || "Whiteboard") : noteName(n))}</b>${!n.wb && notePeek(n) ? `<span class="mini">${esc(notePeek(n))}</span>` : `<span class="mini">${n.wb ? "Whiteboard" : "Note"}</span>`}${n.via ? `<span class="mini cls-via">${n.via === "rec" ? "With the recording" : "Written during class"}</span>` : ""}</button>${n.via ? "" : rm("note", n.id)}</li>`;
     const fileLi = f => `<li class="cls-it">${IC.file(16)}<button type="button" class="cls-it-main" data-act="cls-file" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${srcTag(f)}${esc(day(dOf(f.created), {month: "short", day: "numeric"}))}</span></button>${rm("file", f.id)}</li>`;
     const recLi = f => `<li class="cls-it k-rec">${IC.mic(16)}<button type="button" class="cls-it-main" data-act="lec-view" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${esc([f.dur && window.SBLEC ? SBLEC.clock(f.dur * 1000) : "", f.tr && f.tr.text ? "Transcript" : "", hasSum(f) ? "Summary" : ""].filter(Boolean).join(" · ") || "Recording")}</span></button>${hasSum(f) ? `<button type="button" class="btn small" data-act="cls-sum" data-id="${esc(f.id)}">Summary</button>` : ""}</li>`;
     const nowish = x.date === todayISO() && minOfDay(Date.now()) >= tMin(x.start) - 20 && minOfDay(Date.now()) <= tMin(x.end) + 10;
@@ -196,16 +241,16 @@ var SBCLS = null;
         <p class="cls-kick">${esc(x.title)}${x.n && x.of ? ` <span class="mini">of ${x.of}</span>` : ""}</p>
         <h2 class="occv-title">${esc(day(x.date, {weekday: "long", month: "long", day: "numeric"}))}</h2>
         ${x.name ? `<p class="cls-name">${esc(x.name)}</p>` : ""}
-        <p class="mini cls-when">${esc([x.start ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
+        <p class="mini cls-when">${esc([x.start ? (x.end ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : fmtTime(x.start)) : "", x.where, x.skipped ? "No class this week" : x.moved ? "Moved this week" : "", x.gone ? "No longer on the schedule" : ""].filter(Boolean).join(" · "))}</p>
         <div class="cls-navs">${nav(prev, "p")}${nav(next, "n")}</div>
 
         <section class="cls-sec"><h3><span>${esc(x.kind || "Class")} Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
           ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Upload the slides before class." : "Nothing for this class yet."}</p>`}
-          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
+          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-newnote">${IC.plus(16)}New Note</button><button type="button" class="btn small" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
         </section>
 
         <section class="cls-sec"><h3><span>Recording</span></h3>
-          ${I.recs.length ? `<ul class="cls-items">${I.recs.map(recLi).join("")}</ul>` : `<p class="mini cls-empty">${recOk ? (nowish ? "This class is on now. Record it for a transcript and a summary." : "Record the class, or upload a recording, for a transcript and a summary.") : "No recording for this class."}</p>`}
+          ${I.recs.length ? `<ul class="cls-items">${I.recs.map(recLi).join("")}</ul>${(r => r ? window.SBREPLAY.dockHtml(r.id, {compact: true}) : "")(window.SBREPLAY && I.recs.find(SBREPLAY.hasAudio))}` : `<p class="mini cls-empty">${recOk ? (nowish ? "This class is on now. Record it for a transcript and a summary." : "Record the class, or upload a recording, for a transcript and a summary.") : "No recording for this class."}</p>`}
           ${recOk && !I.recs.length ? `<div class="cls-acts">${nowish || x.date === todayISO() ? `<button type="button" class="btn small primary" data-act="cls-rec">${IC.mic(16)}Record This Class</button>` : ""}<button type="button" class="btn small" data-act="cls-rec-up">${IC.up(16)}Upload a Recording</button></div>` : ""}
         </section>
 
@@ -387,6 +432,12 @@ var SBCLS = null;
       case "cls-kind": { ui.clsKind = Object.assign({}, ui.clsKind, {[el.dataset.cid]: el.dataset.k}); render(); return true; }
       case "cls-dates": datesSheet(el.dataset.cid); return true;
       case "cls-upload": { const x = cur(); if (x) upload(x); return true; }
+      // a typed note already tagged to this class, opened to write in
+      case "cls-newnote": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); if (noteEditing) saveNoteText();
+        const n = addNoteText(`${x.title} notes, ${day(x.date, {month: "short", day: "numeric"})}\n`, x.cid, "", {cls: x.key});
+        noteEditing = n.id; ui.tab = "notes"; render(); window.scrollTo(0, 0);
+        setTimeout(() => { const t = $("#noteText"); if (t) { try { t.focus({preventScroll: true}); t.setSelectionRange(t.value.length, t.value.length); } catch (e) {} } }, 60);
+        return true; }
       case "cls-drive": { const x = cur(); if (x) drive(x); return true; }
       case "cls-connect": { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); return true; }
       case "cls-pick": { const x = cur(); if (x) pickSheet(x); return true; }
@@ -412,5 +463,50 @@ var SBCLS = null;
     return true;
   });
 
-  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
+  // The Lectures tab opens at this week (earlier weeks stay above it), once each time the tab is opened
+  let LANDED = "";
+  hook("render", () => {
+    const tab = document.querySelector(".cls-tab"); if (!tab) { LANDED = ""; return; }
+    const k = ui.courseId || "1"; if (LANDED === k) return; LANDED = k;
+    const w = tab.querySelector(".cls-week.is-now"); if (!w || w === tab.querySelector(".cls-week")) return;
+    requestAnimationFrame(() => { try { const top = w.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo(0, Math.max(0, top)); } catch (e) {} });
+  });
+
+  // Back to top: once the class list is scrolled well down, a round arrow sits just above the add button (or in its corner
+  // when there is none); a tap glides back to the top of the page
+  {
+    let btn = null, raf = 0;
+    const check = () => {
+      raf = 0;
+      const tab = document.querySelector(".cls-tab"), R = document.documentElement;
+      const on = !!tab && !R.classList.contains("kb-open") && !R.classList.contains("board-max") && !(document.getElementById("dlg") || {}).open && window.scrollY > Math.max(480, innerHeight * 0.75);
+      if (on && !btn) {
+        btn = document.createElement("button"); btn.type = "button"; btn.className = "cls-totop";
+        btn.setAttribute("aria-label", "Back to top"); btn.title = "Back to top";
+        btn.innerHTML = SV('<path d="M12 19V5M5 12l7-7 7 7"/>', 22);
+        btn.addEventListener("click", () => {
+          const still = R.dataset.motion === "static" || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+          window.scrollTo({top: 0, behavior: still ? "auto" : "smooth"});
+          // keyboard users land on the list's heading, not lost at the bottom of the page
+          const h = document.querySelector(".cls-tab .cls-top h2, .cls-tab .cls-top"); if (h && document.activeElement === btn) { h.tabIndex = -1; try { h.focus({preventScroll: true}); } catch (e) {} }
+        });
+        document.body.appendChild(btn);
+      }
+      if (!btn) return;
+      if (on) {
+        // lined up with the add button, just above it
+        const fab = document.querySelector(".fab"), fr = fab && getComputedStyle(fab).display !== "none" && getComputedStyle(fab).visibility !== "hidden" ? fab.getBoundingClientRect() : null;
+        if (fr && fr.width && fr.top < innerHeight) {
+          btn.style.setProperty("left", Math.round(fr.left + fr.width / 2 - 22) + "px");
+          btn.style.setProperty("bottom", Math.round(innerHeight - fr.top + 12) + "px");
+        } else { btn.style.removeProperty("left"); btn.style.removeProperty("bottom"); }
+      }
+      btn.classList.toggle("on", on); btn.tabIndex = on ? 0 : -1; btn.setAttribute("aria-hidden", on ? "false" : "true");
+    };
+    const soon = () => { if (!raf) raf = requestAnimationFrame(check); };
+    addEventListener("scroll", soon, {passive: true}); addEventListener("resize", soon);
+    hook("render", soon);
+  }
+
+  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();

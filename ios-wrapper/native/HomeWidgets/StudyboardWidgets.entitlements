@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- UNTESTED template. Entitlements of the StudyboardWidgets target: the SAME App Group as the App target, so the Home Screen and
+     Lock Screen widgets can read the day the app saves (widget-today.json) and queue tasks ticked on them (widget-actions.json).
+     Xcode adds this when you add the App Groups capability to the StudyboardWidgets target and tick the group. -->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.application-groups</key>
+  <array>
+    <string>group.com.studyboardapp.studyboard</string>
+  </array>
+</dict>
+</plist>
