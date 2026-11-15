@@ -2616,10 +2616,11 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .cal-evrow.smc-row{grid-template-columns:auto auto 1fr;align-items:center}
 .cal-evrow.smc-row .smc-ic{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--c);color:#fff;margin:0}
 .cal-evrow.smc-row .smc-ic svg{width:15px;height:15px}
-/* phone: two icons fit a day; more shows as "+1" in the day's corner */
+/* phone: two icons fit a day; more shows as a small "+1" tag along the day's bottom edge, under the icons */
 @media (max-width:899.98px){
   .sch-month .day{position:relative}
-  .sch-month .dots .ci-more{position:absolute;top:4px;right:5px;font:800 .62rem/1 var(--body);color:var(--muted)}
+  .sch-month .dots .ci-more{position:absolute;left:50%;bottom:1px;translate:-50% 0;padding:1px 5px;border-radius:999px;background:color-mix(in srgb,var(--ink) 9%,var(--surface));font:800 .56rem/1.15 var(--body);color:var(--muted)}
+  .sch-month .day:has(.ci-more) .dots{margin-top:-3px}
 }
 .cal-evrow.smc-row .cal-evt{grid-row:span 2}
 .cal-evrow.smc-row .mini{grid-column:3}
