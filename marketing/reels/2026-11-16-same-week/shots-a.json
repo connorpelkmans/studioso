@@ -1,3 +1,20 @@
-[{"clip": "../_broll/stressed.mp4", "in": 3.4, "dur": 2.6},
- {"color": "#0E2A56", "dur": 3.0},
- {"clip": "../_broll/tired.mp4", "in": 3.4, "dur": 2.4}]
+[
+ {
+  "clip": "../_broll/stressed.mp4",
+  "in": 3.4,
+  "dur": 2.6
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 3.0
+ },
+ {
+  "clip": "../_broll/tired.mp4",
+  "in": 3.4,
+  "dur": 3.0
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 3.4
+ }
+]

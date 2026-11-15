@@ -35,11 +35,24 @@ html,body{margin:0;background:#000}
 .chip i{width:18px;height:18px;border-radius:50%}
 .chip em{font-style:normal;font-weight:600;color:var(--tomato);font-size:28px}
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9}
+#tag{position:absolute;left:0;right:0;top:250px;text-align:center;opacity:0}
+#tag span{display:inline-block;font:700 32px var(--display);letter-spacing:.04em;color:#0E2A56;background:#FFE45C;padding:12px 24px;border-radius:14px}
+#btn{position:absolute;left:250px;width:600px;top:900px;text-align:center;font:700 38px var(--display);color:#fff;background:#3988FE;padding:24px;border-radius:22px;box-shadow:0 20px 50px -12px rgba(57,136,254,.6);opacity:0}
+#end{position:absolute;inset:0;visibility:hidden;z-index:8;text-align:center;
+  background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
+#end img{position:absolute;left:400px;top:520px;width:200px;height:200px;border-radius:46px;box-shadow:0 26px 60px rgba(0,0,0,.4)}
+#end .w{position:absolute;left:60px;right:160px;top:770px;font:800 104px/1 var(--display);letter-spacing:-.03em}
+#end .s{position:absolute;left:60px;right:160px;top:910px;font:600 40px var(--display);color:#C9D7F2}
+#end .u{position:absolute;left:60px;right:160px;top:1010px}
+#end .u span{display:inline-block;background:#3988FE;color:#fff;border-radius:26px;padding:24px 42px;font:700 44px var(--display)}
 </style>
 </head>
 <body>
 <div id="stage">
   <div id="cal"><div id="cam"><div id="grid"><div class="dh"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></div><div id="chips"></div></div></div>
+  <div id="tag"><span>Crunch Forecast · free</span></div>
+  <div id="btn">Pull work forward</div>
+  <div id="end"><img src="{{ROOT}}/icon-512.png" alt=""><div class="w">studyboard</div><div class="s">free · no account needed</div><div class="u"><span>studyboardapp.com</span></div></div>
   <div id="flash"></div>
   <div id="cap"></div>
 </div>
@@ -51,10 +64,13 @@ const TEXT = {
   b: "me realizing 3 exams, a lab report and an essay are all in week 11 and it's already week 10",
   c: "nobody warned me november has 4 week elevens in a row",
 };
-document.getElementById("cap").textContent = TEXT[VARIANT];
+// Caption track: the relatable line, then a turn, then what Studyboard does (only claims the README makes)
+const CAPS = [[0, 7.4, TEXT[VARIANT]], [7.4, 8.6, "plot twist: you can see it coming"], [8.6, 10.6, "studyboard flags your worst week, weeks early"]];
 
-// Timeline: music hits every 2.0 s at 0.6, 2.6, 4.6, 6.6 (dramatic.wav from 32.4 s). 8.0 s loops on the beat grid.
-const CAL_IN = 2.6, CAL_OUT = 5.6, END = 8.0, COVER = 0.3;
+// Timeline on a 2.0 s beat grid: dramatic.wav from 32.4 s hits at 0.6, 2.6, 4.6, 6.6; lofi.wav drops at 8.6 for the fix.
+// 0-2.6 face | 2.6-5.6 calendar chaos | 5.6-8.6 face-plant (head lands 6.6) | 8.6-10.6 the fix | 10.6-12.0 end card. 12.0 s loops on the grid.
+const CAL_IN = 2.6, CAL_OUT = 5.6, FIX_IN = 8.6, FIX_OUT = 10.6, END = 12.0, COVER = 0.3;
+const PRESS = 9.1, COOL = 9.35;
 const HITS = [2.6, 3.1, 3.6, 4.1], DROP = 4.6;
 
 const $ = id => document.getElementById(id);
@@ -70,12 +86,44 @@ if (VARIANT !== "c") $("chips").innerHTML = CHIPS.map((c, i) => `<div class="chi
 const HEAT = [.35, .9, 1, 1, .95, .55, .6];
 const rowY = r => 330 + 50 + r * 82;
 
+// Heat colours for the fix: mint -> yellow -> orange -> red
+const STOPS = [[0, [207, 235, 221]], [.45, [255, 228, 92]], [.72, [255, 160, 70]], [1, [228, 81, 59]]];
+const heat = v => { v = clamp(v); for (let i = 1; i < STOPS.length; i++) if (v <= STOPS[i][0]) { const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], k = (v - a) / (b - a); return `rgb(${ca.map((c, j) => Math.round(c + (cb[j] - c) * k)).join(",")})`; } return "rgb(228,81,59)"; };
+const COOLED = [.2, .45, .5, .45, .4, .15, .15];
+
 function render(t) {
-  const inCal = t >= CAL_IN && t < CAL_OUT;
-  $("cal").style.visibility = inCal ? "visible" : "hidden";
+  const cap = CAPS.find(([a, b]) => t >= a && t < b);
+  $("cap").textContent = cap ? cap[2] : "";
+  const inCal = t >= CAL_IN && t < CAL_OUT, inFix = t >= FIX_IN && t < FIX_OUT;
+  document.querySelectorAll(".c").forEach(el => { el.style.opacity = ""; });
+  $("cal").style.visibility = inCal || inFix ? "visible" : "hidden";
+  $("end").style.visibility = t >= FIX_OUT ? "visible" : "hidden";
   // White flash on each cut, for 2 frames
-  const cut = [CAL_IN, CAL_OUT].some(c => t >= c && t < c + .07);
+  const cut = [CAL_IN, CAL_OUT, FIX_IN, FIX_OUT].some(c => t >= c && t < c + .07);
   $("flash").style.opacity = cut ? .35 : 0;
+  $("tag").style.opacity = inFix ? P(t, FIX_IN, FIX_IN + .2) : 0;
+  $("btn").style.opacity = inFix ? P(t, FIX_IN + .1, FIX_IN + .3) : 0;
+  if (inFix) {
+    const pr = P(t, PRESS - .05, PRESS + .05) - P(t, PRESS + .05, PRESS + .2);
+    $("btn").style.transform = `scale(${1 - pr * .06})`;
+    $("btn").style.background = t > PRESS ? "#1E9E74" : "";
+    $("btn").textContent = t > PRESS + .1 ? "✓ Moved 3 things earlier" : "Pull work forward";
+    $("cam").style.transform = "none";
+    if (VARIANT !== "c") CHIPS.forEach((_, i) => { $("ch" + i).style.opacity = 0; });
+    const k = ioCubic(P(t, COOL, COOL + .6));
+    WEEKS.forEach((_, r) => [0,1,2,3,4,5,6].forEach(d => {
+      const el = $(`c${r}_${d}`), idx = RED.indexOf(r);
+      if (idx >= 0) el.style.background = heat(HEAT[d] + (COOLED[d] - HEAT[d]) * k);
+      else if (VARIANT !== "c" && (r === CR - 1 || r === CR - 2) && d < 5 && k > 0) { el.style.background = heat(.3 * k); el.style.opacity = .25 + .75 * k; }
+      else el.style.background = "";
+    }));
+    RED.forEach(r => { const g = $("g" + r); g.style.opacity = 1;
+      g.style.outlineColor = k > .5 ? "#1E9E74" : ""; g.style.boxShadow = k > .5 ? "0 0 54px 10px rgba(30,158,116,.6)" : ""; });
+    return;
+  }
+  RED.forEach(r => { const g = $("g" + r); g.style.outlineColor = ""; g.style.boxShadow = ""; });
+  if (t >= FIX_OUT) { const e = P(t, FIX_OUT, FIX_OUT + .3); $("end").style.opacity = 1; $("cap").textContent = "";
+    [...$("end").children].forEach((el, i) => { const k = ioCubic(P(t, FIX_OUT + .05 * i, FIX_OUT + .3 + .05 * i)); el.style.transform = `translateY(${(1 - k) * 40}px)`; el.style.opacity = k; }); return; }
   if (!inCal) return;
   // Shake on each hit, push-in toward the red week on the drop
   let shake = 0; HITS.concat([DROP]).forEach(h => { const k = P(t, h, h + .25); if (k > 0 && k < 1) shake += Math.sin(k * Math.PI * 6) * (1 - k) * 10; });

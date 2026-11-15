@@ -31,7 +31,7 @@ Don't stall on questions. If the request is "make a reel about Quick Add", decid
 ### 1b. Pick the reel type
 
 Live research (Nov 2026) shows two kinds of reel work for this audience, and a healthy feed mixes them about 2:1:
-- **Relatable** (reach): modelled on the top outlier. A real person at frame 0 (stock b-roll), one persistent native caption (white bold Inter, black outline), the Studyboard calendar as the "proof" shot cut on a music hit, a punchline shot, and a loop. No logo or CTA in the video: the calendar UI and the caption or first comment carry the brand. These get sent and are how a new account reaches people who don't follow it. Example: `marketing/reels/2026-11-16-same-week/`.
+- **Relatable** (reach): modelled on the top outlier. A real person at frame 0 (stock b-roll), one persistent native caption (white bold Inter, black outline), the Studyboard calendar as the "proof" shot cut on a music hit, a punchline shot, and a loop. Then, unlike a creator's meme, **always a short payoff**: a turn line ("plot twist: you can see it coming"), about 2 s of Studyboard fixing the exact problem from the hook, and a 1.4 s end card (name, "free · no account needed", URL). A business reel that never shows the product gets views but no users. Keep the opening native: the brand appears only after the hook has earned attention. The total stays on the music's beat grid so it still loops (12.0 s). These get sent and are how a new account reaches people who don't follow it. Example: `marketing/reels/2026-11-16-same-week/`.
 - **The fix** (conversion): hook → payoff demo → URL. Example: `marketing/reels/2026-11-15-crunch-week/`.
 
 ### 2. Hooks first
