@@ -6195,7 +6195,8 @@ details.pp-group[open]>summary::before{content:"▾"}
 .exm-bar i{display:block;height:100%;min-width:7px;background:var(--c,var(--accent));border-radius:inherit}
 .exm-acts{display:flex;flex-direction:column;gap:8px;align-self:center;margin-top:14px}
 .exm-acts .btn{min-height:40px;justify-content:center;padding:0 18px;border-radius:12px;white-space:nowrap}
-.exm-off{position:absolute;top:8px;right:12px;font-size:.78rem;font-weight:600;color:var(--muted);min-height:32px;padding:0 4px}
+/* Not Now: a quiet text button under the actions, centred (the X on phones sits at the card's edge, below) */
+.exm-off{align-self:center;font-size:.8rem;font-weight:600;color:var(--muted);min-height:28px;padding:0 8px;margin-top:-2px}
 .exm-off:hover{color:var(--ink)}
 .exm-others{margin:2px 0 0;font-size:.82rem;color:var(--muted)}
 .exm-others .link-btn{font-size:inherit;min-height:32px;display:inline-flex;align-items:center}
@@ -6221,7 +6222,7 @@ details.pp-group[open]>summary::before{content:"▾"}
   .exm-when b{font-weight:600;color:var(--muted)}
   .exm-acts{margin:0}
   .exm-acts .btn.primary{min-height:40px;padding:0 14px;border-radius:12px}
-  .exm-off{top:50%;right:4px;transform:translateY(-50%);width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:12px}
+  .exm-off{position:absolute;margin:0;top:50%;right:4px;transform:translateY(-50%);width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:12px}
   .exm-x{display:block}
 }
 /* Getting Started checklist on the Board */

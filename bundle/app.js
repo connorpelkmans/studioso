@@ -79597,8 +79597,8 @@ function todayHtml(){
       <p class="exm-when"><span class="exm-wk">Exam Mode · </span><b>${esc(count)}</b>${when ? ` <span>${when}</span>` : ""}</p>
       ${prep}${othersH}
     </div>
-    <div class="exm-acts"><button type="button" class="btn primary" data-act="exm-study" data-id="${esc(ex.id)}">Study<span class="exm-sl"> for It</span></button>${planBtn}</div>
-    <button type="button" class="link-btn exm-off" data-act="exm-off" data-id="${esc(ex.id)}" aria-label="Not now: turn Exam Mode off for ${esc(ex.title)}"><span class="exm-offt">Not Now</span><svg class="exm-x" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="exm-acts"><button type="button" class="btn primary" data-act="exm-study" data-id="${esc(ex.id)}">Study<span class="exm-sl"> for It</span></button>${planBtn}
+    <button type="button" class="link-btn exm-off" data-act="exm-off" data-id="${esc(ex.id)}" aria-label="Not now: turn Exam Mode off for ${esc(ex.title)}"><span class="exm-offt">Not Now</span><svg class="exm-x" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   </section>`;
 }
 
