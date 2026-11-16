@@ -78,32 +78,32 @@ def stack_image(name, stacks, glow, sparkles):
     cy = S * 0.53   # the pile's middle
     r2 = ((xx - S / 2) ** 2 + ((yy - cy) * 1.15) ** 2) / (S * 0.30) ** 2
     halo = np.exp(-r2) * glow + np.exp(-r2 * 4) * glow * 0.6
-    bg = bg + np.array([255, 186, 70], np.float32) * halo[..., None] * 0.85
+    bg = bg + np.array([255, 186, 70], np.float32) * halo[..., None] * 0.42
     img = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
     rng = np.random.default_rng(len(name))
-    # Shadows: a wide, very soft one thrown down and to the right (the light is from the top left), then a tight,
-    # darker contact shadow where each stack meets the ground
-    def shade(spread, lift, h, blur, alpha, dx):
+    # Shadows that sit on the ground like real ones: each is the shape of the coin's own bottom (a flattened ellipse,
+    # mostly hidden under the stack), so it shows only as a rim around the base: a soft one leaning a little to the
+    # lower right (the light is from the top left), a firmer contact shadow, and a thin dark line where metal meets ground
+    faceh = coin.height - EDGE * w   # the height of a coin's face as drawn
+    def shade(rx, ry, dx, dy, blur, alpha):
         m = Image.new("L", (S, S), 0); d = ImageDraw.Draw(m)
         for x, foot, n, row in place:
-            d.ellipse([x + dx - w * spread, foot - h * coin.height * 0.5 - lift, x + dx + w * spread, foot + h * coin.height * 0.5 - lift], fill=255)
-        m = m.filter(ImageFilter.GaussianBlur(blur)).point(lambda v: int(v * alpha))
+            cx, cy = x + w * dx, foot - faceh * 0.5 + faceh * dy
+            d.ellipse([cx - w * rx, cy - faceh * ry, cx + w * rx, cy + faceh * ry], fill=255)
+        m = m.filter(ImageFilter.GaussianBlur(max(1, int(blur)))).point(lambda v: int(v * alpha))
         return Image.merge("RGBA", (Image.new("L", (S, S), 4), Image.new("L", (S, S), 12), Image.new("L", (S, S), 30), m))
-    img = Image.alpha_composite(img, shade(0.62, -int(w * 0.05), 0.55, int(w * 0.11), 0.42, int(w * 0.07)))
-    img = Image.alpha_composite(img, shade(0.47, int(w * 0.02), 0.24, int(w * 0.025), 0.62, int(w * 0.015)))
+    img = Image.alpha_composite(img, shade(0.64, 0.80, 0.10, 0.12, w * 0.10, 0.30))
+    img = Image.alpha_composite(img, shade(0.55, 0.62, 0.03, 0.04, w * 0.035, 0.55))
+    img = Image.alpha_composite(img, shade(0.51, 0.53, 0.00, 0.01, w * 0.010, 0.60))
     shadows = img; img = Image.new("RGBA", (S, S), (0, 0, 0, 0))   # the coins go on their own layer, for their aura
     for x, foot, n, row in sorted(place, key=lambda t: t[3]):   # the back row first, then the stacks in front
-        if row:   # a front stack's own contact shadow falls on the stacks behind it
-            m = Image.new("L", (S, S), 0); ImageDraw.Draw(m).ellipse([x - w * 0.5, foot - coin.height * 0.16, x + w * 0.56, foot + coin.height * 0.12], fill=255)
-            m = m.filter(ImageFilter.GaussianBlur(int(w * 0.03))).point(lambda v: int(v * 0.55))
-            img = Image.alpha_composite(img, Image.merge("RGBA", (Image.new("L", (S, S), 4), Image.new("L", (S, S), 12), Image.new("L", (S, S), 30), m)))
         for k in range(n):
             j = int(rng.normal(0, w * 0.012))
             img.alpha_composite(coin, (x - w // 2 + j, foot - coin.height - k * step))
     # a soft golden aura around the coins' outline, then the coins over it
     a = img.getchannel("A")
-    aura = Image.merge("L", [a.filter(ImageFilter.GaussianBlur(int(w * 0.16))).point(lambda v: int(min(255, v * 1.3) * glow * 2.0))])
-    wide = a.filter(ImageFilter.GaussianBlur(int(w * 0.45))).point(lambda v: int(min(255, v * 1.6) * glow * 1.4))
+    aura = Image.merge("L", [a.filter(ImageFilter.GaussianBlur(int(w * 0.16))).point(lambda v: int(min(255, v * 1.3) * glow * 0.85))])
+    wide = a.filter(ImageFilter.GaussianBlur(int(w * 0.45))).point(lambda v: int(min(255, v * 1.6) * glow * 0.55))
     gold = lambda m: Image.merge("RGBA", (Image.new("L", (S, S), 255), Image.new("L", (S, S), 200), Image.new("L", (S, S), 96), m))
     img = Image.alpha_composite(Image.alpha_composite(Image.alpha_composite(shadows, gold(wide)), gold(aura)), img)
     arr = np.asarray(img.convert("RGB")).astype(np.float32)
