@@ -54439,7 +54439,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 75, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 83.5, w: 3.4},
         cheeks: {lx: 37.5, rx: 82.5, y: 83, w: 5.6, h: 3.4},
-        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 56, 92], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 72, 92], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
           pet: ["Hehe, extra squishy happy!", "More pats? Yes please, yes please!"],
@@ -54468,7 +54468,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 77, r: 6, style: "round"},
         mouth: {x: 60, y: 90, w: 3.4},
         cheeks: {lx: 41, rx: 79, y: 88, w: 4.6, h: 2.9, color: "#FFA3C4"},
-        anchors: {top: [60, 37.5, 0.8, 0], neck: [60, 99, 1.2, 0, 61, 51], chest: [73, 104.5, 0.59], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
+        anchors: {top: [60, 37.5, 0.8, 0], neck: [60, 99, 1.2, 0, 50, 51], chest: [73, 104.5, 0.59], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
         lines: {
           tap: ["Fresh page, fresh start! Let's go!", "We're going to write something great today!", "You're on a roll and I love it!", "Neat notes, happy brain, happy me!", "Every word you write counts!", "Doodle break? I won't tell a soul!", "Ink it in! You've totally got this!"],
           pet: ["Careful, I might smudge with joy!", "Hehe, that tickles my inky drips!"],
@@ -54540,7 +54540,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 72, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 80, w: 3},
         cheeks: {lx: 47, rx: 73, y: 79.5, w: 3.6, h: 2.4},
-        anchors: {top: [60, 25, 0.85, 0], neck: [60, 89, 0.95, 0, 47, 41], chest: [70, 95, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
+        anchors: {top: [60, 25, 0.85, 0], neck: [60, 87, 0.95, 0, 38, 40, 35], chest: [70, 95, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
         lines: {tap: ["This part? Definitely important.", "I only light up the good stuff.", "You don't have to remember it all. Just the key bits.", "Hi! Ready to make things stand out?", "One clear line at a time.", "Bright idea incoming!"], pet: ["Hehe, careful, my cap pops off!", "Glowing extra bright now."], hello: ["You're back! Let's find the key ideas.", "Hi again! Cap's off, ready to go."], morning: ["Good morning! Today looks bright."], night: ["Cap on, lights low. Time to rest."], focus: ["Steady hand. You've got this.", "Marking the moment. Keep going."], done: ["Great session! That deserves a big bright line.", "Done! You really focused."], task: ["Done! Highlighted in gold.", "Yes! That one's marked finished.", "Another one done. Nice!"], break: ["Cap on for a minute. Stretch it out."]}
       },
       {
