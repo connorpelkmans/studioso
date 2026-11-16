@@ -14,9 +14,10 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-17 | marketing/reels/2026-11-17-what-you-need | Grade Tracker (What You Need) | Problem-fix | "me doing the math on what i need on the final to not fail this class" | 18.0 s | | | | | | | Notebook equation → grade card |
 | 2026-11-18 | marketing/reels/2026-11-18-exam-prep | Exam Prep Planner | Problem-fix | "3 exams in 6 days and i haven't started studying for any of them" | 18.0 s | | | | | | | Empty week → sessions spread |
 | 2026-11-19 | marketing/reels/2026-11-19-breakdown | Assignment breakdown | Problem-fix | "my 10 page paper is due friday and so far i've written my name" | 18.0 s | | | | | | | Countdown → 5 milestones |
-| 2026-11-20 | marketing/reels/2026-11-20-types-of-students | (brand: companions) | Entertainment, animated | "Every friend group during finals week" | 17.7 s | Instagram, scheduled Sun Nov 15 5:50 PM PT (Metricool post 429217674) | | | | | | Field guide, tag-your-friends; soft sign-off |
+| 2026-11-20 | marketing/reels/2026-11-20-types-of-students | (brand: companions) | Entertainment, animated | "Every friend group during finals week" | 17.7 s | Instagram, posted Sun Nov 15 5:50 PM PT ([DfyG7a4AoRN](https://www.instagram.com/reel/DfyG7a4AoRN/)) | 122 @ 2 h | | | | | 6 likes, 2 comments (1 is our pinned first comment). Recheck at 24 h / 72 h | Field guide, tag-your-friends; soft sign-off |
 | 2026-11-21 | marketing/reels/2026-11-21-plan-vs-reality | (brand only) | Entertainment, animated | "My study plan vs. what actually happened" | 17.2 s | | | | | | | Expectation vs. reality planner |
 | 2026-11-22 | marketing/reels/2026-11-22-one-episode | (brand only) | Entertainment, live action | "Just one episode, then I'll study." | 19.4 s | | | | | | | Lock-screen timestamps; one actor through the night |
+| 2026-11-15 | (posted by Connor, earlier feature tour) | Board, school sync | Feature ad | "The planner that syncs with your school site and tells you what to do next!" | 20 s | Instagram ([Dfv0WLYRMak](https://www.instagram.com/reel/Dfv0WLYRMak/)) | 54 @ ~1 day | | | | | 0 likes. Baseline for ad-style content |
 
 ## What we've learned
 
@@ -31,3 +32,4 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 - Calendar fixes now redistribute visibly (Connor's review): Week 11's load moves into Weeks 10 and 9 in sequence, conserving the total, with rings and pops as each week receives it.
 - Copy pass (Connor's review): one yellow highlight per caption on the punchline, twist or benefit; exclamation marks on turns, payoffs and wins ("Way better!").
 - Added an entertainment-first set (Connor: less like ads, genuinely relatable): no pitch in the video, a small sign-off, brand in the caption. Compare their shares and follows with the feature reels.
+- **First real data (Nov 15, ~2 h in):** the entertainment reel had 122 plays and 6 likes (~5% like rate), versus 54 plays and 0 likes for the feature-ad reel after ~1 day. Directional only (n = 1 each, different times), but it supports leading with relatable or entertainment content and keeping product demos as the payoff. The account has 3 followers, so the plays are mostly non-followers. Watch time and skip rate are still to come.
