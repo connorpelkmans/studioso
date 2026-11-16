@@ -102411,7 +102411,11 @@ If there's no math in it, set found to false.`;
     const W = calcWin(); if (W) W.style.visibility = "hidden";   // not in the picture if this tab is the one shared
     let stream = null, c = null; const t0 = Date.now();
     try {
-      stream = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 5}, audio: false});
+      // Chrome jumps to a shared tab or window; the controller keeps you here, where the picture is boxed. Its focus has to be
+      // set straight after sharing starts (in the same task), so nothing is awaited between
+      const ctl = typeof CaptureController === "function" ? new CaptureController() : null;
+      stream = await navigator.mediaDevices.getDisplayMedia(Object.assign({video: {frameRate: 5}, audio: false}, ctl ? {controller: ctl} : {}));
+      if (ctl && ctl.setFocusBehavior) { try { ctl.setFocusBehavior("no-focus-change"); } catch (e) {} }
       c = await frameOf(stream);
     } catch (e) {
       // refused before anyone could have picked: the browser or the site blocks screen sharing, so say so (a real Cancel stays quiet)
