@@ -169,6 +169,34 @@ function SEED(){
   await page.waitForFunction(() => { const e = document.querySelector("[data-cm-err]"); return e && !e.hidden; });
   ok(/No concept map was found/.test(await page.textContent("[data-cm-err]")) && (await course(page, "c3")).maps.length === 3, "a photo with no map in it says so and makes nothing");
   await page.keyboard.press("Escape"); await page.waitForTimeout(250);
+  /* Videos and embeds (Pro) */
+  await ctx.route(/youtube-nocookie\.com|i\.ytimg\.com|docs\.google\.com/, r => r.fulfill({status: 200, contentType: /ytimg/.test(r.request().url()) ? "image/png" : "text/html", body: /ytimg/.test(r.request().url()) ? PNG : "<!doctype html><title>player</title><p>player</p>"}));
+  const blocked = []; page.on("console", m => { if (/Refused to frame|frame-src/.test(m.text())) blocked.push(m.text()); });
+  await act(page, "cm-open", "c3", {kind: "course", map: sm.id}); await page.waitForSelector('.cm-node[data-n="root"]');
+  await page.click('[data-cm="emb"]'); await page.waitForSelector("#cmEmbIn");
+  await page.fill("#cmEmbIn", "https://example.com/video"); ok(/can't play on a map/.test(await page.textContent("[data-cm-embst]")) && await page.isDisabled(".cm-embf [type=submit]"), "a link from another site can't be embedded, and says which sites can");
+  await page.fill("#cmEmbIn", "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42"); ok(/YouTube/.test(await page.textContent("[data-cm-embst]")) && !(await page.isDisabled(".cm-embf [type=submit]")), "a YouTube link is recognised as you paste it");
+  await page.click(".cm-embf [type=submit]"); await page.waitForSelector(".cm-node .cm-emb");
+  let em = (await course(page, "c3")).maps[2].add.find(x => x.emb);
+  ok(em && em.emb.p === "youtube" && em.emb.e === "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&start=42" && /ytimg/.test(await page.getAttribute(".cm-node .cm-emb image", "href")), "it becomes a video on the map, with its thumbnail (privacy-enhanced player, start time kept)");
+  await page.dblclick(".cm-node:has(.cm-emb)"); await page.waitForSelector(".cm-player iframe");
+  const fsrc = await page.getAttribute(".cm-player iframe", "src");
+  ok(/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(fsrc) && /autoplay=1/.test(fsrc) && /allow-scripts/.test(await page.getAttribute(".cm-player iframe", "sandbox")), "double-click plays it on the map, in a sandboxed frame");
+  await page.waitForTimeout(600);
+  ok(await page.frames().some(f => /youtube-nocookie/.test(f.url())) && !blocked.length, "the app's security policy lets the player load: " + blocked.join(" | "));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+  ok(!(await page.locator(".cm-player").count()) && await page.isVisible(".cm-sheet"), "Escape closes the video, not the map");
+  // paste a Google Slides link straight onto the map
+  await page.evaluate(() => { const dt = new DataTransfer(); dt.setData("text/plain", "https://docs.google.com/presentation/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012/edit#slide=id.p"); SBCMAP.state().sel = ""; document.querySelector(".cm-canvas").dispatchEvent(new ClipboardEvent("paste", {clipboardData: dt, bubbles: true})); }); await page.waitForTimeout(300);
+  em = (await course(page, "c3")).maps[2].add.filter(x => x.emb);
+  ok(em.length === 2 && em[1].emb.p === "gslides" && /\/embed\?start=false/.test(em[1].emb.e), "pasting a Google Slides link onto the map adds the slides");
+  ok(await page.evaluate(() => SBCMAP.state().sel) === "idea:" + em[1].id && /View/.test(await page.textContent(".cm-panel")), "the pasted embed is selected, ready to View"); ok(/View/.test(await page.textContent(".cm-panel")) && /Remove Embed/.test(await page.textContent(".cm-panel")), "an embed's panel: View and Remove Embed");
+  await page.click('[data-cm="play"]'); await page.waitForSelector(".cm-player iframe"); ok(/docs\.google\.com\/presentation/.test(await page.getAttribute(".cm-player iframe", "src")), "View opens the slides on the map");
+  await page.click('[data-cm="unplay"]'); await page.click('[data-cm="emboff"]'); await page.waitForTimeout(200);
+  ok((await course(page, "c3")).maps[2].add.filter(x => x.emb).length === 1, "Remove Embed takes it off");
+  ok(page.errs.length === 0, "no console errors (embeds): " + page.errs.join(" | "));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(250);
+
   /* The list shows each map as a small picture of itself */
   await act(page, "cm-review", "c3"); await page.waitForSelector(".cm-mapcard");
   ok(await page.locator('.cm-mapcard:has(.cm-ctitle:text-is("Water cycle")) svg.cm-peek text', {hasText: "Evaporation"}).count() === 1 && await page.locator('.cm-mapcard:has(.cm-ctitle:text-is("Water cycle")) .cm-peek ellipse').count() >= 2, "a map's card shows a preview of the map, its words and shapes");

@@ -35,7 +35,7 @@ const CMAP = (() => {
   function graph(src){
     const N = new Map(), E = new Map(), user = src.user || {}, auto = !src.blank;
     const hide = new Set(user.hide || []), cut = new Set(user.cut || []), names = user.names || {};
-    const add = (id, kind, label, extra) => { if (!N.has(id)) N.set(id, Object.assign({id, kind, label: String(label || "Untitled").slice(0, 120)}, extra || {})); return id; };
+    const add = (id, kind, label, extra) => { if (!N.has(id)) N.set(id, Object.assign({id, kind, label: label === "" && extra && (extra.img || extra.emb) ? "" : String(label || "Untitled").slice(0, 120)}, extra || {})); return id; };
     const link = (a, b, why, label) => { if (!a || !b || a === b || !N.has(a) || !N.has(b)) return; const k = ek(a, b); if (!E.has(k)) E.set(k, {a, b, why, label: label || "", key: k}); };
     add("root", src.root.kind || "course", src.root.label, {root: true});
     (src.notes || []).forEach(n => add((n.board ? "board:" : "note:") + n.id, n.board ? "board" : "note", n.label, {ref: n.id}));
@@ -155,7 +155,7 @@ const CMAP = (() => {
   function quizPick(g, seed){
     let s = seed || 1; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
     const score = n => (n.kind === "topic" ? 3 : n.kind === "idea" ? 2.5 : n.kind === "note" || n.kind === "deck" ? 2 : 1) + rnd();
-    const ok = g.nodes.filter(n => !n.root && n.deg > 0 && String(n.label).length <= 60);
+    const ok = g.nodes.filter(n => !n.root && n.deg > 0 && String(n.label).trim() && String(n.label).length <= 60);
     const seen = new Set(), pick = ok.sort((a, b) => score(b) - score(a)).filter(n => { const k = keyOf(n.label); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 12);
     const bank = pick.map(n => ({id: n.id, label: n.label})).sort(() => rnd() - 0.5);
     return {ids: pick.map(n => n.id), bank};
@@ -460,6 +460,45 @@ async function smallJpeg(file, max){
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, w, h); cx.drawImage(bmp, 0, 0, w, h);
   const blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.85)); return {blob, w, h};
 }
+/* Embeds (Pro): a video, slides, a doc or a simulation on the map. Only links from the sites in CMAP.EMBED_HOSTS become players; they play in a frame over the map. */
+const EMB_VIDEO = new Set(["youtube", "vimeo", "loom", "ted", "spotify"]);
+const EMB_COL = {youtube: "#C4302B", vimeo: "#1AB7EA", loom: "#625DF5", gdoc: "#2B7CD3", gslides: "#E6A100", gsheet: "#1E8E3E", gdrive: "#4285F4", desmos: "#2F7D31", geogebra: "#6557D2", phet: "#2A6EBB", spotify: "#1DB954", ted: "#E62B1E", canva: "#7D2AE8"};
+const embName = e => { const nm = CMAP.PROVIDERS[e && e.p] || "Embed"; return ["youtube", "vimeo", "loom"].includes(e && e.p) ? nm + " video" : nm; };
+const EMB_SITES = "YouTube, Vimeo, Loom, Google Docs, Slides, Sheets and Drive, Desmos, GeoGebra, PhET, Spotify, TED and Canva";
+function addEmbed(raw, ontoId){
+  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
+  const e = CMAP.embedOf(raw); if (!e || !CMAP.embedOk(e.e)) return false;
+  const emb = {p: e.p, u: e.u, e: e.e, th: e.th || ""}, x = userOf(M.own);
+  if (ontoId && ontoId.startsWith("idea:")) { x.add = x.add.map(i => "idea:" + i.id === ontoId ? Object.assign({}, i, {emb}) : i); saveUser(x, `Added ${e.name} to the map`); M.sel = ontoId; }
+  else {
+    const id = uid(); x.add = x.add.concat([{id, label: "", emb}]); x.links = x.links.concat([{a: M.sel || "root", b: "idea:" + id, label: ""}]);
+    const c = M.pos[M.sel || "root"] || [0, 0]; x.pos = Object.assign({}, x.pos, {["idea:" + id]: [c[0] + 90, c[1] + 170]});
+    saveUser(x, `Added ${e.name} to the map`); M.sel = "idea:" + id;
+  }
+  M.err = ""; rebuild(true); grew(); paint(); panTo(M.sel); return true;
+}
+function embedPanel(ontoId){
+  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return; }
+  const P = M.el.querySelector(".cm-panel"), onto = ontoId && M.byId[ontoId] && M.byId[ontoId].kind === "idea" ? ontoId : "";
+  P.innerHTML = `<form class="cm-embf"><label class="lh" for="cmEmbIn">${onto ? `Add a video or embed to <b>${esc(trunc(M.byId[onto].label, 30))}</b>` : "Add a video or embed"}</label>
+    <div class="cm-embrow"><input type="url" id="cmEmbIn" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link, like youtube.com/watch?v=…"><button type="submit" class="btn small primary" disabled>Add</button></div>
+    <p class="mini cm-embst" data-cm-embst aria-live="polite">Works with ${EMB_SITES}.</p><div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button></div></form>`;
+  const f = P.querySelector("form"), inp = f.querySelector("input"), st = f.querySelector("[data-cm-embst]"), go = f.querySelector("[type=submit]");
+  const check = () => { const v = inp.value.trim(), e = v ? CMAP.embedOf(v) : null; go.disabled = !e; st.classList.toggle("is-ok", !!e); st.classList.toggle("is-bad", !!v && !e);
+    st.innerHTML = !v ? `Works with ${EMB_SITES}.` : e ? `<span class="cm-embdot" style="background:${EMB_COL[e.p]}"></span>${esc(e.name)}${EMB_VIDEO.has(e.p) ? " · plays right on the map" : " · opens right on the map"}` : `That link can't play on a map. Use a link from ${EMB_SITES}.`; };
+  inp.addEventListener("input", check); inp.focus();
+  f.addEventListener("submit", ev => { ev.preventDefault(); if (!addEmbed(inp.value, onto)) check(); });
+}
+function player(id){
+  closePlayer();
+  const n = M.byId[id]; if (!n || !n.emb || !CMAP.embedOk(n.emb.e)) return;
+  const e = n.emb, name = n.label || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
+  const src = e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e;
+  cv.insertAdjacentHTML("beforeend", `<div class="cm-player${vid && e.p !== "spotify" ? " is-video" : e.p === "spotify" ? " is-audio" : ""}" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><span class="cm-embdot" style="background:${EMB_COL[e.p] || "#475569"}"></span><b>${esc(name)}</b><span class="spacer"></span><a class="btn small" href="${esc(e.u)}" target="_blank" rel="noopener noreferrer">Open in ${esc(CMAP.PROVIDERS[e.p] || "Browser")}</a><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">×</button></div>
+    <div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms"></iframe></div></div>`);
+  const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
+}
+function closePlayer(){ const p = M.el && M.el.querySelector(".cm-player"); if (p) { p.remove(); return true; } return false; }
 // a picture onto the map: a new picture idea, or onto the idea that's selected (Pro)
 async function addPicture(file, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Pictures in concept maps are part of Studyboard Pro."); return; }
@@ -538,6 +577,16 @@ function paint(){
   world.querySelectorAll(".cm-node").forEach(el => {
     const n = M.byId[el.dataset.n], t = el.querySelector(".cm-lab"), shape = CMAP.shapeOf(n), dot = !!el.dataset.dot;
     let tw = 60; try { tw = t.getBBox().width; } catch (e) {}
+    if (n.emb) {
+      const k = n.scale || 1, iw = Math.round(176 * k), ih = Math.round(iw * 9 / 16), fs = n.size || 13, lh = fs * 1.6 + 4, w = Math.max(iw + 16, tw + 24), h = ih + 16 + lh; M.size[n.id] = [w, h];
+      const e = n.emb, cid = "cmc" + n.ref.replace(/[^a-z0-9]/gi, ""), col = EMB_COL[e.p] || "#475569", y0 = -h / 2 + 8, vid = EMB_VIDEO.has(e.p);
+      el.insertAdjacentHTML("afterbegin", shapeSvg(shape === "pill" ? "rounded" : shape, w, h, el.dataset.col, false, n) + `<clipPath id="${cid}"><rect x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" rx="8"/></clipPath>`
+        + `<g class="cm-emb" clip-path="url(#${cid})"><rect x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" fill="${col}"/>${e.th ? `<image href="${esc(e.th)}" x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid slice"/>` : `<text class="cm-emb-name" x="0" y="${y0 + ih - 12}" text-anchor="middle">${esc(CMAP.PROVIDERS[e.p] || "Embed")}</text>`}</g>`
+        + `<g class="cm-emb-btn" transform="translate(0 ${y0 + ih / 2 - (e.th ? 0 : 8)})"><circle r="${Math.round(17 * Math.min(k, 1.6))}"/>${vid ? `<path d="M-5 -8L9 0L-5 8Z" transform="scale(${Math.min(k, 1.6)})"/>` : `<path d="M-6 -2V-6H-2M6 2V6H2M-6 -6L-1 -1M6 6L1 1" transform="scale(${Math.min(k, 1.6)})" class="cm-emb-ex"/>`}</g>`);
+      if (!n.label) t.textContent = embName(e);
+      t.setAttribute("y", h / 2 - lh / 2 + fs * 0.36 - 2); t.setAttribute("x", 0); t.setAttribute("text-anchor", "middle");
+      return;
+    }
     if (n.img) {
       // a picture: as wide as the box size says, its own shape, the words under it
       const k = n.scale || 1, iw = Math.round(150 * k), ih = Math.round(Math.max(60 * k, Math.min(200 * k, iw * n.img.h / n.img.w))), fs = n.size || 13, lh = n.label ? fs * 1.6 + 4 : 0;
@@ -569,7 +618,7 @@ function tools(){
   if (M.quiz) { T.innerHTML = `<b class="cm-qt">Fill In the Map</b><span class="mini">${M.quiz.done.size} of ${M.quiz.ids.length} placed${M.quiz.miss ? ` · ${M.quiz.miss} wrong tr${M.quiz.miss === 1 ? "y" : "ies"}` : ""}</span><span class="spacer"></span><button type="button" class="btn small" data-cm="quiz-again">Start Over</button><button type="button" class="btn small" data-cm="quiz-end">Back to the Map</button>`; return; }
   const hasTopics = M.g.nodes.some(n => n.kind === "topic"), loose = M.g.loose.length;
   const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
-  T.innerHTML = `<button type="button" class="btn small" data-cm="idea">+ Idea</button><button type="button" class="btn small" data-cm="pic">+ Picture${pro}</button>
+  T.innerHTML = `<button type="button" class="btn small" data-cm="idea">+ Idea</button><button type="button" class="btn small" data-cm="pic">+ Picture${pro}</button><button type="button" class="btn small" data-cm="emb">+ Video or Embed${pro}</button>
     <button type="button" class="btn small ai-btn" data-cm="desc">${AI_ICON} Describe</button>
     <button type="button" class="btn small ai-btn" data-cm="suggest" ${M.busy ? "disabled" : ""}>${AI_ICON} ${M.busy ? "Thinking…" : "Suggest Connections"}</button>
     <button type="button" class="btn small" data-cm="quiz" ${M.g.nodes.filter(n => !n.root && n.deg).length >= 3 ? "" : "disabled"}>Fill In the Map</button>
@@ -623,7 +672,7 @@ function panel(){
     const n = g.nodes.find(x => x.id === M.sel); if (!n) { M.sel = ""; panel(); return; }
     const k = (KIND[n.kind] || KIND.file)[0], know = M.know ? CMAP.knowledge(g)[n.id] : n.conf, opens = n.kind !== "idea" && !(n.root && M.own.kind === "course");
     P.innerHTML = `<div class="cm-row"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? CMAP.knowledge(g) : null)}"></span><b class="cm-sname">${esc(n.label)}</b><span class="mini">${esc(k)}${know && CONF[know] ? " · " + CONF[know][0] : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span></div>
-      ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row">${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}<button type="button" class="btn small" data-cm="connect">Connect To…</button><button type="button" class="btn small" data-cm="rename">Rename</button>${n.kind === "idea" ? `<button type="button" class="btn small" data-cm="picon">${n.img ? "Change Picture" : "Add Picture"}</button>${n.img ? `<button type="button" class="btn small" data-cm="picoff">Remove Picture</button>` : ""}` : ""}${n.root ? "" : `<button type="button" class="btn small" data-cm="${n.kind === "idea" ? "del" : "hide"}">${n.kind === "idea" ? "Delete" : "Hide"}</button>`}</div>
+      ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row">${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}<button type="button" class="btn small" data-cm="connect">Connect To…</button><button type="button" class="btn small" data-cm="rename">Rename</button>${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${n.kind === "idea" ? `<button type="button" class="btn small" data-cm="emb">${n.emb ? "Change Embed" : "Add Embed"}</button>${n.emb ? `<button type="button" class="btn small" data-cm="emboff">Remove Embed</button>` : ""}<button type="button" class="btn small" data-cm="picon">${n.img ? "Change Picture" : "Add Picture"}</button>${n.img ? `<button type="button" class="btn small" data-cm="picoff">Remove Picture</button>` : ""}` : ""}${n.root ? "" : `<button type="button" class="btn small" data-cm="${n.kind === "idea" ? "del" : "hide"}">${n.kind === "idea" ? "Delete" : "Hide"}</button>`}</div>
       ${styleHtml(n)}`}`;
     return;
   }
@@ -653,6 +702,16 @@ function panTo(id){
 }
 function wireCanvas(){
   const cv = M.el.querySelector(".cm-canvas"), svg = M.el.querySelector(".cm-svg");
+  // paste onto the map: a link from a video or embed site becomes a player, a copied picture becomes a picture
+  M.el.addEventListener("paste", e => {
+    if (e.target.closest("input, textarea, select, [contenteditable]")) return;
+    const cd = e.clipboardData || {}, file = [...(cd.items || [])].find(x => x.kind === "file" && /^image\//.test(x.type));
+    if (file) { e.preventDefault(); addPicture(file.getAsFile(), M.sel && M.sel.startsWith("idea:") ? M.sel : ""); return; }
+    const txt = String(cd.getData ? cd.getData("text/plain") : "").trim();
+    if (txt && CMAP.embedOf(txt)) { e.preventDefault(); addEmbed(txt, ""); }
+  });
+  // Escape closes a playing video first, then the map
+  if (!wireCanvas.esc) { wireCanvas.esc = true; dlg.addEventListener("cancel", e => { if (M.el && M.el.isConnected && closePlayer()) e.preventDefault(); }); }
   let drag = null; const pts = new Map();
   svg.addEventListener("pointerdown", e => {
     pts.set(e.pointerId, [e.clientX, e.clientY]);
@@ -687,6 +746,10 @@ function moveEdges(id){
   M.g.edges.forEach(e => { if (e.a !== id && e.b !== id) return; const g = svg.querySelector(`.cm-edge[data-e="${CSS.escape(e.key)}"]`); if (!g) return; const G = edgeGeo(e); g.querySelectorAll("line").forEach(l => { l.setAttribute("x1", G.sx); l.setAttribute("y1", G.sy); l.setAttribute("x2", G.ex); l.setAttribute("y2", G.ey); }); const lg = g.querySelector(".cm-elg"); if (lg) lg.setAttribute("transform", `translate(${G.mx},${G.my})`); });
 }
 function tapNode(id){
+  // a second tap on a video or embed plays it (a tap repaints the map, so the browser's own double-click can't be relied on)
+  const now = Date.now(), tn = M.byId[id];
+  if (tn && tn.emb && !M.quiz && !M.connect && M.lastTap && M.lastTap.id === id && now - M.lastTap.t < 500) { M.lastTap = null; M.sel = id; M.selE = ""; paint(); player(id); return; }
+  M.lastTap = {id, t: now};
   if (M.quiz) { const Q = M.quiz; if (Q.ids.includes(id) && !Q.done.has(id)) { Q.pick = Q.pick === id ? "" : id; Q.wrong = ""; paint(); } return; }
   if (M.connect && M.connect !== id) {
     const u = userOf(M.own), k = CMAP.ek(M.connect, id);
@@ -752,6 +815,10 @@ async function onClick(e){
     case "pick": M.pick = M.pick === b.dataset.v ? "" : b.dataset.v; panel(); break;
     case "pic": pickPicture(""); break;
     case "picon": if (n) pickPicture(n.id); break;
+    case "emb": embedPanel(n && n.kind === "idea" ? n.id : ""); break;
+    case "play": if (n) player(n.id); break;
+    case "unplay": closePlayer(); break;
+    case "emboff": { if (!n) return; const x = u(); x.add = x.add.map(i => "idea:" + i.id === n.id ? (({emb, ...rest}) => rest)(i) : i); if (!n.label && !n.img) x.add = x.add.filter(i => "idea:" + i.id !== n.id), M.sel = ""; saveUser(x, "Took an embed off the map"); rebuild(true); paint(); break; }
     case "picoff": { if (!n) return; const x = u(); x.add = x.add.map(i => "idea:" + i.id === n.id ? (({img, ...rest}) => rest)(i) : i); saveUser(x, "Took a picture off the map"); rebuild(true); paint(); break; }
     case "desc": { const P = M.el.querySelector(".cm-panel"); M.sel = ""; M.selE = "";
       P.innerHTML = `<form class="cm-descf"><label class="lh" for="cmDescIn">${AI_ICON} Describe more ideas and connections</label><textarea id="cmDescIn" rows="3" placeholder="Glycolysis happens in the cytoplasm and makes pyruvate. Pyruvate goes on to the Krebs cycle.&#10;or arrows: Glycolysis -> Pyruvate : makes"></textarea><p class="mini cm-err" role="alert" data-cm-derr hidden></p><div class="cm-row"><span class="mini">Names already on the map are reused.</span><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button><button type="submit" class="btn small primary">Add to Map</button></div></form>`;
@@ -1066,7 +1133,7 @@ function listHtml(){
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
-if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", where: "On a course page and in an exam's Prep Plan: how your notes, decks, PDFs, lectures and topics connect, with Fill In the Map", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", where: "In Review, beside Flashcards and Quizzes: maps of how a course fits together, drawn from your material, a template, a description or a photo of one you drew by hand, with pictures, videos and Fill In the Map", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -1165,6 +1232,29 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-sortb select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
 .cm-sortb::after{content:none!important}
 @media (max-width:639px){.cm-sortb .sm-lbl{display:inline!important}}
+.cm-emb-name{fill:#fff;font-weight:800;font-size:13px;letter-spacing:.02em}
+.cm-emb-btn circle{fill:rgb(0 0 0/.55);stroke:#fff;stroke-width:1.5}
+.cm-emb-btn path{fill:#fff}
+.cm-emb-btn .cm-emb-ex{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.cm-node:hover .cm-emb-btn circle{fill:rgb(0 0 0/.75)}
+.cm-embf{display:flex;flex-direction:column;gap:6px}
+.cm-embrow{display:flex;gap:8px}
+.cm-embrow input{flex:1 1 auto;min-width:0;font-size:16px}
+.cm-embst{margin:0;display:flex;align-items:center;gap:6px}
+.cm-embst.is-ok{color:var(--ink);font-weight:700}
+.cm-embst.is-bad{color:var(--danger,#C62828)}
+.cm-embdot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+.cm-player{position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(860px,calc(100% - 24px));max-height:calc(100% - 24px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px -12px rgb(0 0 0/.45);overflow:hidden;animation:cmPlayIn .18s ease-out}
+@keyframes cmPlayIn{from{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+.cm-player-head{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--line)}
+.cm-player-head b{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-player-head .icon-btn{font-size:1.4rem;line-height:1}
+.cm-player-box{position:relative;flex:1 1 auto;min-height:0;aspect-ratio:4/3;max-height:70vh;background:#000}
+.cm-player.is-video .cm-player-box{aspect-ratio:16/9}
+.cm-player.is-audio .cm-player-box{aspect-ratio:auto;height:232px;background:transparent}
+.cm-player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+@media (max-width:560px){.cm-player-head .btn{display:none}}
+@media (prefers-reduced-motion:reduce){.cm-player{animation:none}}
 .cm-drop{position:relative;display:grid;place-items:center;min-height:150px;border:2px dashed color-mix(in srgb,var(--accent,#2F6FE4) 40%,var(--line));border-radius:16px;background:color-mix(in srgb,var(--accent,#2F6FE4) 5%,var(--surface));cursor:pointer;overflow:hidden;text-align:center;transition:border-color .15s,background .15s}
 .cm-drop:hover,.cm-drop.over{border-color:var(--accent,#2F6FE4);background:color-mix(in srgb,var(--accent,#2F6FE4) 10%,var(--surface))}
 .cm-drop:focus-within{outline:2px solid var(--accent,#2F6FE4);outline-offset:2px}
