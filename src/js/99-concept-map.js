@@ -63,7 +63,9 @@ const CMAP = (() => {
     if (auto) (src.files || []).forEach(f => (f.att || []).forEach(([k, id]) => { if (k === "note") { link("file:" + f.id, "note:" + id, "att"); link("file:" + f.id, "board:" + id, "att"); } else if (k === "file" || k === "lecture") link("file:" + f.id, "file:" + id, "att"); }));
     if (auto && src.mode !== "exam") Object.keys(src.classes || {}).forEach(k => link("root", "class:" + k, "class"));
     // the student's own ideas and connections
-    (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, Object.assign({ref: i.id}, i.img && i.img.k ? {img: {k: String(i.img.k), w: Number(i.img.w) || 4, h: Number(i.img.h) || 3}} : {}, i.emb && i.emb.e && embedOk(i.emb.e) ? {emb: {p: String(i.emb.p || ""), u: String(i.emb.u || "").slice(0, 600), e: String(i.emb.e).slice(0, 600), th: String(i.emb.th || "").slice(0, 300)}} : {})));
+    (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, Object.assign({ref: i.id}, i.img && i.img.k ? {img: {k: String(i.img.k), w: Number(i.img.w) || 4, h: Number(i.img.h) || 3}} : {}, atOf(i.at) ? {at: atOf(i.at)} : {}, i.emb && i.emb.e && embedOk(i.emb.e) ? {emb: {p: String(i.emb.p || ""), u: String(i.emb.u || "").slice(0, 600), e: String(i.emb.e).slice(0, 600), th: String(i.emb.th || "").slice(0, 300)}} : {})));
+    // an idea linked to a PDF page or lecture moment sits next to that file when the file is on the map
+    (user.add || []).forEach(i => { const a = atOf(i.at); if (a) link("idea:" + i.id, "file:" + a.f, "at", a.t != null ? "at " + clock(a.t) : "p. " + a.p); });
     cut.forEach(k => E.delete(k));
     (user.links || []).forEach(l => { if (N.has(l.a) && N.has(l.b)) { const k = ek(l.a, l.b), old = E.get(k); E.set(k, {a: l.a, b: l.b, why: old ? old.why : "user", label: String(l.label || "").slice(0, 60), key: k, user: true, line: LINES.includes(l.line) ? l.line : "solid", arrow: ARROWS.includes(l.arrow) ? l.arrow : "none"}); } });
     hide.forEach(id => { if (id !== "root") N.delete(id); });
@@ -94,6 +96,58 @@ const CMAP = (() => {
   }
   // Knowledge colour: a topic's own, else the weakest topic next to it
   const RANK = {weak: 0, ok: 1, strong: 2};
+  /* An idea's link to where it's taught: {f: file id, p: PDF page (from 1)} or {f, t: ms into a lecture recording} */
+  function atOf(a){
+    if (!a || typeof a !== "object" || typeof a.f !== "string" || !a.f || a.f.length > 80) return null;
+    if (Number.isFinite(Number(a.t)) && a.t !== null && a.t !== "" && Number(a.t) >= 0 && Number(a.t) < 864e5) return {f: a.f, t: Math.round(Number(a.t))};
+    const p = Math.floor(Number(a.p)); return p >= 1 && p <= 100000 ? {f: a.f, p} : null;
+  }
+  const clock = ms => { const x = Math.floor(ms / 1000), h = Math.floor(x / 3600), m = Math.floor(x / 60) % 60, sec = x % 60; return (h ? h + ":" + String(m).padStart(2, "0") : String(m)) + ":" + String(sec).padStart(2, "0"); };
+  const parseClock = v => { const m = /^\s*(?:(\d{1,2}):)?(\d{1,3}):(\d{2})\s*$/.exec(String(v || "")); if (!m || Number(m[3]) > 59) return null; return ((Number(m[1] || 0) * 3600) + Number(m[2]) * 60 + Number(m[3])) * 1000; };
+  /* Map to flashcards: each connection with words on it is a card, "Glycolysis → makes → ?" with "Pyruvate" on the back (and backwards, if asked).
+     Only the student's own connections count; a line with no words, or an idea with no name, is skipped (and counted, so the sheet can say so). */
+  function mapCards(g, o){
+    o = o || {}; const by = new Map(g.nodes.map(n => [n.id, n])), cards = []; let skipped = 0;
+    g.edges.forEach(e => {
+      if (!e.user) return; const a = by.get(e.a), b = by.get(e.b), lab = String(e.label || "").trim(), la = String(a && a.label || "").trim(), lb = String(b && b.label || "").trim();
+      if (!lab || !la || !lb) { skipped++; return; }
+      cards.push({e: e.key, d: "f", a: e.a, b: e.b, front: `${la} → ${lab} → ?`, back: lb});
+      if (o.both) cards.push({e: e.key, d: "r", a: e.a, b: e.b, front: `? → ${lab} → ${lb}`, back: la});
+    });
+    return {cards, skipped};
+  }
+  // Brings a deck's cards up to date with the map: new connections are added, changed words are updated (progress kept), nothing is deleted
+  function syncCards(cards, want, ref, newId){
+    const out = (cards || []).map(c => Object.assign({}, c)), at = new Map(); let added = 0, changed = 0;
+    out.forEach((c, i) => { const f = c.from; if (f && f.k === "cmap" && f.id === ref) at.set(f.e + "|" + f.d, i); });
+    want.forEach(w => { const i = at.get(w.e + "|" + w.d), from = {k: "cmap", id: ref, e: w.e, d: w.d, a: w.a, b: w.b};
+      if (i != null) { const c = out[i]; if (c.front !== w.front || c.back !== w.back) { c.front = w.front; c.back = w.back; changed++; } c.from = from; }
+      else { out.push({id: newId(), front: w.front, back: w.back, box: 0, due: "", seen: 0, right: 0, wrong: 0, from}); added++; } });
+    const keep = new Set(want.map(w => w.e + "|" + w.d)), gone = out.filter(c => c.from && c.from.k === "cmap" && c.from.id === ref && !keep.has(c.from.e + "|" + c.from.d)).length;
+    return {cards: out, added, changed, gone};
+  }
+  /* How well each idea is known, from results: flashcards (right and wrong) and quiz questions (tries and misses).
+     A card made from this map counts for the two ideas it joins; any other card or question counts for each idea whose name it contains, as whole words.
+     ev: [{text, right, wrong, ids?, card?}]. Out: {nodeId: {right, wrong, cards: [card refs], lvl: weak|ok|strong (only once tried)}} */
+  const plain = s => " " + keyOf(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim() + " ";
+  function knowFrom(g, ev){
+    const out = {}, names = g.nodes.filter(n => !n.root && String(n.label || "").trim()).map(n => [n.id, plain(n.label)]).filter(([, k]) => k.trim().length >= 3);
+    const ids = new Set(g.nodes.map(n => n.id));
+    (ev || []).forEach(x => {
+      const r = Math.max(0, Number(x.right) || 0), w = Math.max(0, Number(x.wrong) || 0), hit = new Set();
+      if (Array.isArray(x.ids) && x.ids.length) x.ids.forEach(id => { if (id !== "root" && ids.has(id)) hit.add(id); });
+      else { const t = plain(x.text); names.forEach(([id, k]) => { if (t.includes(k)) hit.add(id); }); }
+      hit.forEach(id => { const o = out[id] || (out[id] = {right: 0, wrong: 0, cards: []}); o.right += r; o.wrong += w; if (x.card) o.cards.push(x.card); });
+    });
+    Object.keys(out).forEach(id => { const o = out[id], t = o.right + o.wrong; if (!t) return; const acc = o.right / t; o.lvl = acc >= 0.85 && t >= 3 ? "strong" : acc >= 0.6 ? "ok" : "weak"; o.pct = Math.round(acc * 100); });
+    return out;
+  }
+  // The colour for each idea: its own results first, then (for an exam's map) how sure the student said they are of the topic it hangs off
+  function levels(g, ev){
+    const k = knowFrom(g, ev), t = knowledge(g), out = {};
+    g.nodes.forEach(n => { if (n.root) return; const v = k[n.id] && k[n.id].lvl || t[n.id]; if (v) out[n.id] = v; });
+    return {lv: out, stats: k};
+  }
   function knowledge(g){
     const conf = {}; g.nodes.forEach(n => { if (n.kind === "topic") conf[n.id] = n.conf || "ok"; });
     const out = Object.assign({}, conf);
@@ -282,7 +336,7 @@ const CMAP = (() => {
     return null;
   }
   const embedOk = url => { try { const x = new URL(url); return x.protocol === "https:" && EMBED_HOSTS.includes(x.hostname); } catch (e) { return false; } };
-  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
+  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
 })();
 /*CMAP-END*/
 
@@ -293,6 +347,7 @@ const PRO_WHY = "Concept Maps are part of Studyboard Pro: see how your notes, de
 const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/></svg>';
 const KIND = {course: ["Course", "#2F6FE4"], exam: ["Exam", "#D64545"], topic: ["Topic", "#7C5CFF"], note: ["Note", "#C98A1B"], board: ["Whiteboard", "#E8590C"], deck: ["Deck", "#1C7ED6"], file: ["File", "#5F6B7A"], lecture: ["Lecture recording", "#0C8599"], class: ["Class", "#0CA678"], idea: ["Your idea", "#D6336C"]};
 const CONF = {weak: ["Shaky", "#E03131"], ok: ["OK", "#E8A317"], strong: ["Strong", "#2F9E44"]};
+const NOT_YET = "#98A2B3";
 const SHAPE_NAMES = {box: "Box", rounded: "Rounded", pill: "Pill", circle: "Circle", cloud: "Cloud", diamond: "Diamond", hexagon: "Hexagon", text: "Text only"};
 const SHAPE_IC = {box: '<rect x="3" y="7" width="18" height="10" rx="1"/>', rounded: '<rect x="3" y="7" width="18" height="10" rx="3.5"/>', pill: '<rect x="3" y="7" width="18" height="10" rx="5"/>', circle: '<ellipse cx="12" cy="12" rx="9" ry="6.5"/>',
   cloud: '<path d="M7 17.5a3.6 3.6 0 0 1-.6-7.1A4.6 4.6 0 0 1 15 8.6a3.6 3.6 0 0 1 3.4 4.9A2.1 2.1 0 0 1 18 17.5Z"/>', diamond: '<path d="M12 4l9 8-9 8-9-8Z"/>', hexagon: '<path d="M7 5h10l5 7-5 7H7l-5-7Z"/>', text: '<path d="M6 7h12M12 7v11"/>'};
@@ -324,18 +379,109 @@ function mapsOf(c){
 const mapOf = o => { if (!o || o.kind !== "course") return null; const c = state.courses[o.id], ms = mapsOf(c); return ms.find(m => m.id === o.map) || (o.map === "main" || !o.map ? {id: o.map || "main", name: `${courseName(c)} Map`, auto: true} : null); };
 const overlay = u => { u = u && typeof u === "object" ? u : {}; return {pos: u.pos && typeof u.pos === "object" ? u.pos : {}, hide: Array.isArray(u.hide) ? u.hide : [], add: Array.isArray(u.add) ? u.add : [], links: Array.isArray(u.links) ? u.links : [], cut: Array.isArray(u.cut) ? u.cut : [], names: u.names && typeof u.names === "object" ? u.names : {}, styles: u.styles && typeof u.styles === "object" ? u.styles : {}}; };
 const userOf = o => { if (o && o.kind === "course") return overlay(mapOf(o)); const x = ownerObj(o); return overlay(x && x.cmap); };
+/* Studying from the map (Pro, like the maps): its deck of cards, and how well each idea is known from flashcard and quiz results */
+const refOf = o => o.kind === "course" ? `c:${o.id}:${o.map || "main"}` : `e:${o.id}`;
+const refParse = r => { const m = /^c:([^:]+):(.+)$/.exec(String(r || "")), e = /^e:(.+)$/.exec(String(r || "")); return m ? {kind: "course", id: m[1], map: m[2]} : e ? {kind: "exam", id: e[1]} : null; };
+const metaOf = o => (o.kind === "course" ? mapOf(o) : (ownerObj(o) || {}).cmap) || {};
+const courseIdOf = o => o.kind === "course" ? o.id : (ownerObj(o) || {}).courseId || "";
+const mapDeck = o => { const d = state.decks[metaOf(o).deck]; return d && !d.archived ? d : null; };
+// every result for this map's course: each card (right and wrong) and each quiz question (tries and misses)
+function evidence(o){
+  const cid = courseIdOf(o), ref = refOf(o), out = [];
+  Object.values(state.decks || {}).forEach(d => {
+    if (!d || d.archived || (cid ? d.courseId !== cid : d.id !== metaOf(o).deck)) return;
+    (d.cards || []).forEach(c => { if (!c || c.draft) return; const mine = c.from && c.from.k === "cmap" && c.from.id === ref;
+      out.push({text: `${c.front || ""} ${c.back || ""}`, right: c.right, wrong: c.wrong, ids: mine ? [c.from.a, c.from.b] : null, card: {d: d.id, c: c.id}}); });
+    (d.aiQuizzes || []).forEach(qz => (qz.questions || []).forEach(q => { const t = q.tries || 0, m = Math.min(q.miss || 0, t); if (!t) return;
+      out.push({text: [q.stem, q.topic, q.answer, ...(q.options || [])].join(" "), right: t - m, wrong: m}); }));
+  });
+  return out;
+}
+function know(){ if (!M.g) return {lv: {}, stats: {}}; if (!M.kc || M.kc.g !== M.g) M.kc = Object.assign({g: M.g}, CMAP.levels(M.g, evidence(M.own))); return M.kc; }
+// study the cards behind some ideas (or the shaky ones): closes the map and starts a review of just those cards
+function studyIdeas(ids){
+  const st = know().stats, refs = [], seen = new Set();
+  ids.forEach(id => ((st[id] || {}).cards || []).forEach(r => { const k = r.d + "|" + r.c; if (!seen.has(k) && state.decks[r.d]) { seen.add(k); refs.push(r); } }));
+  if (!refs.length) { toast("No cards for that yet. Make Flashcards from the map first."); return; }
+  if (dlg.open) dlg.close();
+  setTimeout(() => startStudy([...new Set(refs.map(r => r.d))], refs.map(r => r.c)), 0);
+}
+// Make (or update) the map's deck: each worded connection is a card; one Undo for the deck and the map together
+function makeCards(both){
+  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Making flashcards from a concept map is part of Studyboard Pro."); return; }
+  const o = M.own, m = CMAP.mapCards(M.g, {both}), ref = refOf(o), old = mapDeck(o), name = (metaOf(o).name || (ownerObj(o) || {}).title || "Concept Map").slice(0, 70);
+  if (!m.cards.length) { M.err = "Put words on some connections first (tap a line, then type how the two ideas connect). Each worded connection becomes a card."; paint(); return; }
+  const d = old ? clone(old) : normDeck({id: uid(), name: `${name} Map Cards`, courseId: courseIdOf(o), created: Date.now(), cards: []});
+  const r = CMAP.syncCards(d.cards, m.cards, ref, uid); d.cards = r.cards; d.updated = Date.now();
+  if (old && !r.added && !r.changed) { M.err = ""; toast("Your cards already match the map."); return; }
+  const ch = [{kind: "deck", id: d.id, after: d}], mc = mapChange(userOf(o), {deck: d.id}); if (mc) ch.push(mc);
+  const what = old ? [r.added ? `added ${r.added} card${r.added === 1 ? "" : "s"}` : "", r.changed ? `updated ${r.changed}` : ""].filter(Boolean).join(", ") : `made ${r.added} card${r.added === 1 ? "" : "s"}`;
+  applyChanges(ch, `${what.charAt(0).toUpperCase() + what.slice(1)} in ${d.name}`, {label: "Study Now", fn: () => { if (dlg.open) dlg.close(); setTimeout(() => startStudy([d.id]), 0); }});
+  M.kc = null; M.cardsOpen = false; paint();
+}
+function cardsPanel(){
+  const P = M.el.querySelector(".cm-panel"), m = CMAP.mapCards(M.g), mb = CMAP.mapCards(M.g, {both: true}), old = mapDeck(M.own);
+  M.sel = ""; M.selE = ""; M.cardsOpen = true;
+  const sync = old ? CMAP.syncCards(old.cards, m.cards, refOf(M.own), () => "x") : null;
+  P.innerHTML = `<div class="cm-cardsp"><div class="cm-row"><b>${old ? "Update Flashcards" : "Make Flashcards"}</b><span class="mini">${m.cards.length} worded connection${m.cards.length === 1 ? "" : "s"}${m.skipped ? ` · ${m.skipped} without words skipped` : ""}</span></div>
+    ${m.cards.length ? `<div class="cm-cprev">${m.cards.slice(0, 3).map(c => `<div class="cm-cprv"><span>${esc(c.front)}</span><b>${esc(c.back)}</b></div>`).join("")}${m.cards.length > 3 ? `<span class="mini">and ${m.cards.length - 3} more</span>` : ""}</div>` : `<p class="mini" style="margin:0">Tap a line and type how the two ideas connect, like <i>makes</i> or <i>is part of</i>. Each worded connection becomes a card.</p>`}
+    ${m.cards.length ? `<label class="cm-tog"><input type="checkbox" data-cm-both ${M.both ? "checked" : ""}> Also ask it backwards (${mb.cards.length} cards)</label>` : ""}
+    <p class="mini" style="margin:0">${old ? `Into <b>${esc(old.name)}</b>${sync && (sync.added || sync.changed) ? `: ${sync.added} new, ${sync.changed} changed. Cards you've studied keep their progress.` : ": already up to date."}` : "They go in a new deck for this course. Your results colour the map, so you can see what you know."}</p>
+    <div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="cards-x">Cancel</button><button type="button" class="btn small primary" data-cm="cards-go" ${m.cards.length ? "" : "disabled"}>${old ? "Update Deck" : "Make Cards"}</button></div></div>`;
+}
+/* An idea's link to a PDF page or a lecture moment: tapping it goes there */
+const atFiles = o => { const cid = courseIdOf(o); return Object.values(state.files || {}).filter(f => f && cid && f.courseId === cid && !f.archived && (isPdf(f) || f.folderId === "lectures")).sort((a, b) => String(a.name).localeCompare(String(b.name))); };
+const isLec = f => !!f && f.folderId === "lectures";
+const atLabel = a => a.t != null ? CMAP.clock(a.t) : "p. " + a.p;
+function goAt(a){
+  const f = a && state.files[a.f]; if (!f) { toast("That file isn't in your Files any more."); return; }
+  if (dlg.open) dlg.close();
+  if (a.t != null && isLec(f)) {
+    setTimeout(() => { if (typeof fileSheet === "function") fileSheet(f); if (window.SBREPLAY && SBREPLAY.seek) SBREPLAY.seek(f.id, a.t, {lead: 0}); else toast("Lecture replay isn't available here."); }, 0);
+    return;
+  }
+  setTimeout(() => { if (window.SBPRO && SBPRO.openReader && isPdf(f)) SBPRO.openReader(f.id, a.p || 1); else if (typeof fileSheet === "function") fileSheet(f); }, 0);
+}
+function atPanel(n){
+  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Linking a concept map to your PDFs and lectures is part of Studyboard Pro."); return; }
+  const P = M.el.querySelector(".cm-panel"), fs = atFiles(M.own), cur = n.at || {}, pdfs = fs.filter(isPdf), lecs = fs.filter(isLec);
+  if (!fs.length) { P.innerHTML = `<p class="mini" style="margin:0">Add a PDF to this course's Files, or record a lecture, and you can link <b>${esc(n.label)}</b> to the page or the moment it's taught. <button type="button" class="link-btn" data-cm="err-x">OK</button></p>`; return; }
+  const now = window.SBREPLAY && SBREPLAY.state ? SBREPLAY.state() : {}, pick = state.files[cur.f] ? cur.f : now.fid && lecs.some(f => f.id === now.fid) ? now.fid : fs[0].id;
+  const opt = f => `<option value="${esc(f.id)}" ${f.id === pick ? "selected" : ""}>${esc(f.name || "Untitled")}</option>`;
+  P.innerHTML = `<form class="cm-atf"><label class="lh" for="cmAtF">Link <b>${esc(trunc(n.label, 40))}</b> to where it's taught</label>
+    <select id="cmAtF">${pdfs.length ? `<optgroup label="PDFs">${pdfs.map(opt).join("")}</optgroup>` : ""}${lecs.length ? `<optgroup label="Lectures">${lecs.map(opt).join("")}</optgroup>` : ""}</select>
+    <div class="cm-atrow" data-at="pdf"><label>Page <input type="number" id="cmAtP" min="1" max="100000" inputmode="numeric" value="${cur.p || 1}"></label></div>
+    <div class="cm-atrow" data-at="lec"><label>Time <input type="text" id="cmAtT" inputmode="numeric" placeholder="12:34" value="${cur.t != null ? CMAP.clock(cur.t) : ""}" autocomplete="off"></label><button type="button" class="btn small" data-at-now hidden></button></div>
+    <p class="mini cm-err" role="alert" data-at-err hidden></p>
+    <div class="cm-row">${n.at ? `<button type="button" class="link-btn" data-cm="atoff">Remove Link</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button><button type="submit" class="btn small primary">Save Link</button></div></form>`;
+  const f = P.querySelector("form"), sel = f.querySelector("#cmAtF"), nowB = f.querySelector("[data-at-now]");
+  const sync = () => { const fl = state.files[sel.value], lec = isLec(fl); f.querySelector('[data-at="pdf"]').hidden = lec; f.querySelector('[data-at="lec"]').hidden = !lec;
+    const st = window.SBREPLAY && SBREPLAY.state ? SBREPLAY.state() : {}; nowB.hidden = !(lec && st.fid === sel.value && st.now > 0); if (!nowB.hidden) nowB.textContent = `Use ${CMAP.clock(st.now)} (playing now)`; };
+  sel.addEventListener("change", sync); sync(); sel.focus();
+  nowB.addEventListener("click", () => { const st = SBREPLAY.state(); f.querySelector("#cmAtT").value = CMAP.clock(st.now || 0); });
+  f.addEventListener("submit", e => { e.preventDefault(); const fl = state.files[sel.value], er = f.querySelector("[data-at-err]"), bad = m => { er.textContent = m; er.hidden = false; };
+    let at; if (isLec(fl)) { const t = CMAP.parseClock(f.querySelector("#cmAtT").value); if (t == null) return bad("Type the time like 12:34 (or 1:02:03)."); at = {f: fl.id, t}; }
+    else { const pg = Math.floor(Number(f.querySelector("#cmAtP").value)); if (!(pg >= 1)) return bad("Type a page number."); at = {f: fl.id, p: pg}; }
+    const x = userOf(M.own); x.add = x.add.map(i => "idea:" + i.id === n.id ? Object.assign({}, i, {at}) : i);
+    saveUser(x, `Linked ${n.label} to ${at.t != null ? CMAP.clock(at.t) + " in " : "page " + at.p + " of "}${fl.name || "a file"}`); rebuild(true); paint(); });
+}
 function saveUser(u, label, meta){
-  const x = ownerObj(M.own); if (!x) return;
+  const ch = mapChange(u, meta); if (ch) applyChanges([ch], label === undefined ? null : label);
+}
+// the change that saves the open map (u: its overlay, meta: the map's own fields, like its deck)
+function mapChange(u, meta){
+  const x = ownerObj(M.own); if (!x) return null;
   // positions only for nodes still on the map, so the record stays small
   const live = new Set((M.g ? M.g.nodes : []).map(n => n.id)), pos = {}; Object.keys(u.pos).forEach(k => { if (live.has(k)) pos[k] = u.pos[k]; });
-  const styles = {}; Object.keys(u.styles || {}).forEach(k => { const st = CMAP.styleOf(u.styles[k]); if ((st.shape || st.color) && (live.has(k) || k === "root")) styles[k] = st; });
+  const styles = {}; Object.keys(u.styles || {}).forEach(k => { const st = CMAP.styleOf(u.styles[k]); if (CMAP.styled(st) && (live.has(k) || k === "root")) styles[k] = st; });
   const ov = {pos, hide: u.hide.slice(-200), add: u.add.slice(-80), links: u.links.slice(-240), cut: u.cut.slice(-200), names: u.names, styles, at: Date.now()};
   if (M.own.kind === "course") {
     const cur = mapOf(M.own) || {id: M.own.map || uid(), name: `${courseName(x)} Map`, auto: true}, ms = mapsOf(x), rec = Object.assign({}, cur, ov, meta || {}, {created: cur.created || Date.now()});
     const i = ms.findIndex(m => m.id === rec.id), next = i >= 0 ? ms.map((m, k) => k === i ? rec : m) : ms.concat([rec]);
     const after = Object.assign(clone(x), {maps: next.slice(-MAX_MAPS)}); delete after.cmap;
-    applyChanges([{kind: "course", id: x.id, after}], label === undefined ? null : label);
-  } else applyChanges([{kind: "task", id: x.id, after: Object.assign(clone(x), {cmap: ov})}], label === undefined ? null : label);
+    return {kind: "course", id: x.id, after};
+  }
+  return {kind: "task", id: x.id, after: Object.assign(clone(x), {cmap: Object.assign({}, x.cmap || {}, ov, meta || {})})};
 }
 // every map, for the Review tab: each course's maps, and each exam's map (from its Prep Plan topics)
 function allMaps(){
@@ -442,8 +588,10 @@ function open(kind, id, map){
 
 /* Drawing */
 const trunc = (s, n) => (s = String(s || "")).length > n ? s.slice(0, n - 1) + "…" : s;
+const know_ = () => know().lv;
 function nodeColor(n, know){
   if (know && know[n.id]) return CONF[know[n.id]][1];
+  if (know && !n.root) return NOT_YET;
   if (n.root) return M.src && M.src.color || KIND.course[1];
   return (KIND[n.kind] || KIND.file)[1];
 }
@@ -560,7 +708,7 @@ function fitEdgeLabels(scope){
 }
 function paint(){
   if (!shown() || !M.g) return;
-  const g = M.g, world = M.el.querySelector(".cm-world"), know = M.know ? CMAP.knowledge(g) : null, Q = M.quiz;
+  const g = M.g, world = M.el.querySelector(".cm-world"), know = M.know ? know_() : null, Q = M.quiz;
   const P = id => M.pos[id] || [0, 0];
   M.byId = {}; g.nodes.forEach(n => { M.byId[n.id] = n; }); M.size = {};
   // nodes first (their sizes come from their labels), then the lines between their edges
@@ -601,6 +749,9 @@ function paint(){
     el.insertAdjacentHTML("afterbegin", shapeSvg(shape, w, h, el.dataset.col, n.root, n));
     if (dot) { el.querySelector(".cm-kdot").setAttribute("cx", -w / 2 + 14); t.setAttribute("x", -w / 2 + 26); }
   });
+  world.querySelectorAll(".cm-node").forEach(el => { const n = M.byId[el.dataset.n], sz = M.size[el.dataset.n]; if (!n || !n.at || !sz) return;
+    const lab = atLabel(n.at), w = lab.length * 6.4 + 24, x = sz[0] / 2 - w + 6, y = -sz[1] / 2 - 9, f = state.files[n.at.f];
+    el.insertAdjacentHTML("beforeend", `<g class="cm-atb${n.at.t != null ? " is-lec" : ""}" transform="translate(${x} ${y})"><title>${esc((n.at.t != null ? "Plays " : "Opens ") + (f ? f.name : "the file") + " at " + lab + " (tap twice)")}</title><rect width="${w}" height="18" rx="9"/>${n.at.t != null ? '<path d="M7 5.5v7l5.5-3.5z"/>' : '<path d="M6.5 4.5h4l2 2v7h-6z" class="pg"/>'}<text x="17" y="12.6">${esc(lab)}</text></g>`); });
   world.querySelector(".cm-edges").innerHTML = g.edges.map(edgeSvg).join("");
   fitEdgeLabels(world);
   const need = [...new Set(g.nodes.map(n => FONT_FILE[n.font]).filter(Boolean))].filter(f => !M.fontsOk[f]);
@@ -610,19 +761,21 @@ function paint(){
 function legend(know){
   const L = M.el.querySelector(".cm-legend"); if (!L) return;
   const kinds = [...new Set(M.g.nodes.filter(n => !n.root).map(n => n.kind))];
-  L.innerHTML = know ? Object.keys(CONF).map(k => `<span><i style="background:${CONF[k][1]}"></i>${CONF[k][0]}</span>`).join("") + `<span><i style="background:${KIND.file[1]}"></i>Not tied to a topic</span>`
+  L.innerHTML = know ? Object.keys(CONF).map(k => `<span><i style="background:${CONF[k][1]}"></i>${CONF[k][0]}</span>`).join("") + `<span><i style="background:${NOT_YET}"></i>No results yet</span>`
     : kinds.map(k => `<span><i style="background:${KIND[k][1]}"></i>${KIND[k][0]}</span>`).join("");
 }
 function tools(){
   const T = M.el.querySelector(".cm-tools"); if (!T) return;
   if (M.quiz) { T.innerHTML = `<b class="cm-qt">Fill In the Map</b><span class="mini">${M.quiz.done.size} of ${M.quiz.ids.length} placed${M.quiz.miss ? ` · ${M.quiz.miss} wrong tr${M.quiz.miss === 1 ? "y" : "ies"}` : ""}</span><span class="spacer"></span><button type="button" class="btn small" data-cm="quiz-again">Start Over</button><button type="button" class="btn small" data-cm="quiz-end">Back to the Map</button>`; return; }
-  const hasTopics = M.g.nodes.some(n => n.kind === "topic"), loose = M.g.loose.length;
+  const loose = M.g.loose.length;
   const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
   T.innerHTML = `<button type="button" class="btn small" data-cm="idea">+ Idea</button><button type="button" class="btn small" data-cm="pic">+ Picture${pro}</button><button type="button" class="btn small" data-cm="emb">+ Video or Embed${pro}</button>
     <button type="button" class="btn small ai-btn" data-cm="desc">${AI_ICON} Describe</button>
     <button type="button" class="btn small ai-btn" data-cm="suggest" ${M.busy ? "disabled" : ""}>${AI_ICON} ${M.busy ? "Thinking…" : "Suggest Connections"}</button>
     <button type="button" class="btn small" data-cm="quiz" ${M.g.nodes.filter(n => !n.root && n.deg).length >= 3 ? "" : "disabled"}>Fill In the Map</button>
-    ${hasTopics ? `<label class="cm-tog"><input type="checkbox" data-cm="know" ${M.know ? "checked" : ""}> Colour by Knowledge</label>` : ""}
+    <button type="button" class="btn small" data-cm="cards">${mapDeck(M.own) ? "Update Flashcards" : "Make Flashcards"}</button>
+    <label class="cm-tog" title="Colours each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" ${M.know ? "checked" : ""}> Colour by Knowledge</label>
+    ${M.know ? (() => { const K = know(), weak = Object.keys(K.lv).filter(id => K.lv[id] === "weak" && (K.stats[id] || {}).cards && K.stats[id].cards.length); return weak.length ? `<button type="button" class="btn small cm-shaky" data-cm="shaky">Review ${weak.length} Shaky Idea${weak.length === 1 ? "" : "s"}</button>` : ""; })() : ""}
     <span class="spacer"></span>
     ${loose || M.loose ? `<label class="cm-tog"><input type="checkbox" data-cm="loose" ${M.loose ? "checked" : ""}> Show ${M.loose ? "unlinked items" : `${loose} unlinked`}</label>` : ""}
     <button type="button" class="link-btn" data-cm="reset">Tidy Layout</button>`;
@@ -668,11 +821,16 @@ function panel(){
       <div class="cm-row cm-style">${seg("eline", CMAP.LINES, e.line || "solid", LINE_NAMES, LINE_IC)}${seg("earrow", CMAP.ARROWS, e.arrow || "none", ARROW_NAMES, ARROW_IC)}${e.arrow === "end" ? `<button type="button" class="btn small" data-cm="eflip" title="Point the arrow the other way">Flip</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="ecut">Remove</button></div>`;
     return;
   }
+  if (M.sel || M.selE) M.cardsOpen = false;
+  if (M.cardsOpen) { cardsPanel(); return; }
   if (M.sel) {
     const n = g.nodes.find(x => x.id === M.sel); if (!n) { M.sel = ""; panel(); return; }
-    const k = (KIND[n.kind] || KIND.file)[0], know = M.know ? CMAP.knowledge(g)[n.id] : n.conf, opens = n.kind !== "idea" && !(n.root && M.own.kind === "course");
-    P.innerHTML = `<div class="cm-row"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? CMAP.knowledge(g) : null)}"></span><b class="cm-sname">${esc(n.label)}</b><span class="mini">${esc(k)}${know && CONF[know] ? " · " + CONF[know][0] : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span></div>
-      ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row">${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}<button type="button" class="btn small" data-cm="connect">Connect To…</button><button type="button" class="btn small" data-cm="rename">Rename</button>${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${n.kind === "idea" ? `<button type="button" class="btn small" data-cm="emb">${n.emb ? "Change Embed" : "Add Embed"}</button>${n.emb ? `<button type="button" class="btn small" data-cm="emboff">Remove Embed</button>` : ""}<button type="button" class="btn small" data-cm="picon">${n.img ? "Change Picture" : "Add Picture"}</button>${n.img ? `<button type="button" class="btn small" data-cm="picoff">Remove Picture</button>` : ""}` : ""}${n.root ? "" : `<button type="button" class="btn small" data-cm="${n.kind === "idea" ? "del" : "hide"}">${n.kind === "idea" ? "Delete" : "Hide"}</button>`}</div>
+    const k = (KIND[n.kind] || KIND.file)[0], K = know(), kn = K.lv[n.id] || (M.know ? "" : n.conf), ks = K.stats[n.id], opens = n.kind !== "idea" && !(n.root && M.own.kind === "course");
+    const res = ks && ks.right + ks.wrong ? `${ks.pct}% right (${ks.right} of ${ks.right + ks.wrong})` : ks && ks.cards.length ? "not studied yet" : "";
+    const ic = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+    P.innerHTML = `<div class="cm-row"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span></div>
+      ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row">${n.at ? `<button type="button" class="btn small primary cm-gob" data-cm="goat">${n.at.t != null ? ic('<path d="M8 5v14l11-7z"/>') + " Play from " : ic('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>') + " Go to "}${esc(atLabel(n.at))}</button>` : ""}${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}${ks && ks.cards.length ? `<button type="button" class="btn small${kn === "weak" ? " primary" : ""}" data-cm="study">Review ${ks.cards.length} Card${ks.cards.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn small" data-cm="connect">Connect To…</button><button type="button" class="btn small" data-cm="rename">Rename</button>${n.root ? "" : `<button type="button" class="btn small" data-cm="${n.kind === "idea" ? "del" : "hide"}">${n.kind === "idea" ? "Delete" : "Hide"}</button>`}</div>
+      ${n.kind === "idea" ? `<div class="cm-row cm-attach"><span class="mini">Attach:</span><button type="button" class="link-btn" data-cm="at">${n.at ? "Change Page or Lecture" : "Page or Lecture"}</button><button type="button" class="link-btn" data-cm="picon">${n.img ? "Change Picture" : "Picture"}</button>${n.img ? `<button type="button" class="link-btn" data-cm="picoff">Remove Picture</button>` : ""}<button type="button" class="link-btn" data-cm="emb">${n.emb ? "Change Video or Embed" : "Video or Embed"}</button>${n.emb ? `<button type="button" class="link-btn" data-cm="emboff">Remove Embed</button>` : ""}</div>` : ""}
       ${styleHtml(n)}`}`;
     return;
   }
@@ -702,6 +860,7 @@ function panTo(id){
 }
 function wireCanvas(){
   const cv = M.el.querySelector(".cm-canvas"), svg = M.el.querySelector(".cm-svg");
+  M.el.addEventListener("change", e => { if (e.target.matches && e.target.matches("[data-cm-both]")) { M.both = e.target.checked; cardsPanel(); } });
   // paste onto the map: a link from a video or embed site becomes a player, a copied picture becomes a picture
   M.el.addEventListener("paste", e => {
     if (e.target.closest("input, textarea, select, [contenteditable]")) return;
@@ -748,7 +907,7 @@ function moveEdges(id){
 function tapNode(id){
   // a second tap on a video or embed plays it (a tap repaints the map, so the browser's own double-click can't be relied on)
   const now = Date.now(), tn = M.byId[id];
-  if (tn && tn.emb && !M.quiz && !M.connect && M.lastTap && M.lastTap.id === id && now - M.lastTap.t < 500) { M.lastTap = null; M.sel = id; M.selE = ""; paint(); player(id); return; }
+  if (tn && (tn.emb || tn.at) && !M.quiz && !M.connect && M.lastTap && M.lastTap.id === id && now - M.lastTap.t < 500) { M.lastTap = null; M.sel = id; M.selE = ""; paint(); if (tn.emb) player(id); else goAt(tn.at); return; }
   M.lastTap = {id, t: now};
   if (M.quiz) { const Q = M.quiz; if (Q.ids.includes(id) && !Q.done.has(id)) { Q.pick = Q.pick === id ? "" : id; Q.wrong = ""; paint(); } return; }
   if (M.connect && M.connect !== id) {
@@ -789,7 +948,15 @@ async function onClick(e){
     case "in": zoomAt(1.25); break;
     case "out": zoomAt(0.8); break;
     case "fit": fit(); paint(); break;
-    case "know": M.know = b.checked; paint(); break;
+    case "know": M.know = b.checked; M.kc = null; paint(); break;
+    case "cards": cardsPanel(); break;
+    case "cards-x": M.cardsOpen = false; panel(); break;
+    case "cards-go": makeCards(!!M.both); break;
+    case "shaky": { const K = know(); studyIdeas(Object.keys(K.lv).filter(id => K.lv[id] === "weak")); break; }
+    case "study": if (n) studyIdeas([n.id]); break;
+    case "at": if (n) atPanel(n); break;
+    case "goat": if (n && n.at) goAt(n.at); break;
+    case "atoff": { if (!n) return; const x = u(); x.add = x.add.map(i => "idea:" + i.id === n.id ? (({at, ...rest}) => rest)(i) : i); saveUser(x, `Took the page or lecture link off ${n.label}`); rebuild(true); paint(); break; }
     case "loose": M.loose = b.checked; rebuild(true); grew(); paint(); break;
     case "reset": { const x = u(); x.pos = {}; saveUser(x, "Tidied the map's layout"); rebuild(); paint(); break; }
     case "err-x": M.err = ""; paint(); break;
@@ -908,8 +1075,18 @@ hook("changed", changes => {
 hook("act", (act, el, id) => {
   if (act !== "cm-open") return false;
   if (dlg.open) dlg.close();
-  open(el && el.dataset ? el.dataset.kind : "course", id, el && el.dataset ? el.dataset.map : ""); return true;
+  const d = (el && el.dataset) || {};
+  open(d.kind || "course", id, d.map || "");
+  if (d.edge && M.g && M.g.edges.some(e => e.key === d.edge)) { M.know = true; M.kc = null; M.selE = d.edge; M.sel = ""; paint(); }
+  return true;
 });
+// under a card made from a map, while studying: which map, and a way back to it (with this connection picked out and the map coloured by knowledge)
+function cardHtml(d, c){
+  const f = c && c.from; if (!f || f.k !== "cmap") return "";
+  const o = refParse(f.id); if (!o || !ownerObj(o)) return "";
+  const nm = o.kind === "course" ? (mapOf(o) || {}).name : (ownerObj(o) || {}).title;
+  return `<p class="mini cm-fromcard">${ICON.replace('width="16" height="16"', 'width="14" height="14"')} From your concept map <b>${esc(nm || "")}</b> <button type="button" class="link-btn" data-act="cm-open" data-kind="${o.kind}" data-id="${esc(o.id)}" data-map="${esc(o.map || "")}" data-edge="${esc(f.e || "")}">See It on the Map</button></p>`;
+}
 /* The Review tab's Concept Maps: the list, a new map, rename, delete */
 hook("act", (act, el, id) => {
   const d = (el && el.dataset) || {};
@@ -1133,7 +1310,7 @@ function listHtml(){
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
-if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", where: "In Review, beside Flashcards and Quizzes: maps of how a course fits together, drawn from your material, a template, a description or a photo of one you drew by hand, with pictures, videos and Fill In the Map", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", where: "In Review, beside Flashcards and Quizzes: maps of how a course fits together, drawn from your material, a template, a description or a photo of one you drew by hand, with pictures, videos, links to PDF pages and lecture moments, flashcards made from its connections, colours from your results, and Fill In the Map", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -1255,6 +1432,29 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 @media (max-width:560px){.cm-player-head .btn{display:none}}
 @media (prefers-reduced-motion:reduce){.cm-player{animation:none}}
+.cm-atb rect{fill:var(--surface);stroke:color-mix(in srgb,#2F6FE4 55%,var(--line));stroke-width:1.2}
+.cm-atb.is-lec rect{stroke:color-mix(in srgb,#C2255C 55%,var(--line))}
+.cm-atb text{font-size:10.5px;font-weight:800;fill:#2F6FE4}
+.cm-atb.is-lec text,.cm-atb.is-lec path{fill:#C2255C}
+.cm-atb path{fill:#2F6FE4}
+.cm-atb path.pg{fill:none;stroke:#2F6FE4;stroke-width:1.3;stroke-linejoin:round}
+.cm-attach{gap:4px 12px;padding-top:2px}
+.cm-attach .mini{margin-right:-4px}
+.cm-attach .link-btn{font-size:.85rem}
+.cm-gob svg{vertical-align:-2px}
+.cm-shaky{border-color:color-mix(in srgb,#E03131 45%,var(--line));color:#C92A2A}
+.cm-cardsp{display:flex;flex-direction:column;gap:8px}
+.cm-cprev{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.cm-cprv{display:flex;flex-direction:column;gap:4px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0/.05);font-size:.88rem}
+.cm-cprv b{padding-top:5px;border-top:1px dashed var(--line);color:color-mix(in srgb,#2F6FE4 75%,var(--ink))}
+.cm-atf{display:flex;flex-direction:column;gap:8px}
+.cm-atf select{max-width:100%;font-size:16px}
+.cm-atrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cm-atrow[hidden]{display:none}
+.cm-atrow label{display:flex;align-items:center;gap:8px;font-weight:700}
+.cm-atrow input{width:110px;font-size:16px}
+.cm-fromcard{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 8px;margin:10px 0 0}
+.cm-fromcard svg{color:#7C5CFF}
 .cm-drop{position:relative;display:grid;place-items:center;min-height:150px;border:2px dashed color-mix(in srgb,var(--accent,#2F6FE4) 40%,var(--line));border-radius:16px;background:color-mix(in srgb,var(--accent,#2F6FE4) 5%,var(--surface));cursor:pointer;overflow:hidden;text-align:center;transition:border-color .15s,background .15s}
 .cm-drop:hover,.cm-drop.over{border-color:var(--accent,#2F6FE4);background:color-mix(in srgb,var(--accent,#2F6FE4) 10%,var(--surface))}
 .cm-drop:focus-within{outline:2px solid var(--accent,#2F6FE4);outline-offset:2px}
@@ -1293,5 +1493,5 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 `;
 document.head.appendChild(css);
 
-window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, CMAP, state: () => M};
+window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M};
 })();

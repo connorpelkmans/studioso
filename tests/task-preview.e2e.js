@@ -28,7 +28,10 @@ async function cornerLeak(p){
     const r = await p.evaluate(() => { const d = document.querySelector("#dlg").getBoundingClientRect(); return {x: d.left, y: d.top, w: d.width}; });
     const out = []; for (const x of [r.x, r.x + r.w - 26]) out.push((await p.screenshot({clip: {x, y: r.y, width: 26, height: 26}})).toString("base64")); return out;
   };
+  // freeze whatever is still moving on the page behind (the companion breathing, its celebration when a task is done), so only the test colours differ
+  await p.evaluate(() => document.getAnimations().forEach(a => { try { a.pause(); } catch (e) {} }));
   const A = await grab("#ff00ff"), B = await grab("#00ff00");
+  await p.evaluate(() => document.getAnimations().forEach(a => { try { if (a.playState === "paused") a.play(); } catch (e) {} }));
   await p.evaluate(() => { for (const el of [document.querySelector("#dlg"), document.querySelector("#dlg > .sheet")]) { el.style.removeProperty("background-color"); el.style.removeProperty("background-image"); delete el.dataset.bg; delete el.dataset.bgi; } });
   let worst = 0;
   for (let k = 0; k < 2; k++) worst = Math.max(worst, await p.evaluate(async ([a, b]) => { const px = async s => { const img = new Image(); img.src = "data:image/png;base64," + s; await img.decode(); const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
