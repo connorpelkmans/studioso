@@ -2628,6 +2628,17 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .cbk-row .cbk-btns{flex:1 1 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:360px}
 .cbk-row .cbk-btns .btn{width:100%;justify-content:center;margin:0;white-space:nowrap;border:1px solid var(--line)}
 .cbk-row .cbk-btns .btn:only-child{grid-column:1 / -1}
+
+/* Any colour for a note (Pro), after the set colours; and the PRO tag on the course and note rainbows */
+.nc.nc-any{position:relative;display:inline-block;padding:0;border:0;background:conic-gradient(from 0deg,#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#8b5cf6,#ec4899,#ef4444)!important;cursor:pointer}
+.nc.nc-any::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1.5px rgba(255,255,255,.9)}
+.nc.nc-any input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0}
+.nc.nc-any.locked::after{background:var(--surface,#fff)}
+.nc-any .pro-badge,.cc-custom .pro-badge{position:absolute;right:-8px;top:-8px;z-index:3;transform:scale(.72);transform-origin:top right;pointer-events:none}
+.cc-custom{position:relative}
+.cc-custom.locked input[type=color]{pointer-events:none!important}
+.note.note-dark{color:#fff}
+.note.note-dark .note-empty{color:rgba(255,255,255,.75)}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}

@@ -208,6 +208,7 @@ document.addEventListener("click", e => {
     case "note-redo": noteUndoRedo(1); break;
     case "note-versions": noteVersionsSheet(id); break;
     case "note-export": if (noteEditing && !id) saveNoteText(); noteExportSheet(id || ""); break;
+    case "nc-pro": anyColorPro("note"); break;
     case "note-color": { const n = state.notes[id]; if (!n) break; const t = $("#noteText"); try { localStorage.setItem(NOTE_COLOR_KEY, el.dataset.color); } catch (err) {} applyChanges([{kind:"note", id, after: Object.assign(clone(n), {color: el.dataset.color, text: t ? t.value : n.text})}], ""); break; }
     case "note-archive": noteToArchive(id); break;
     case "note-trash": noteToTrash(id); break;
