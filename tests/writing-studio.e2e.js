@@ -178,7 +178,10 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await page.selectOption(`[data-ws-mv="q1"]`, t1.ws.out[0].id); await page.waitForTimeout(200);
   ok((await task(page, "t1")).ws.q.find(x => x.id === "q1").sec === t1.ws.out[0].id, "a quote moved with its menu");
   const qid = t1.ws.q[1].id;
+  // the strip above the tabs makes the outline taller: a taller window keeps the quote and Conclusion both in view for the drag
+  await page.setViewportSize({width: 1280, height: 1100}); await page.waitForTimeout(150);
   await page.dragAndDrop(`[data-ws-dq="${qid}"]`, `.ws-sec[data-ws-drop="${t1.ws.out[2].id}"]`); await page.waitForTimeout(300);
+  await page.setViewportSize({width: 1280, height: 900});
   ok((await task(page, "t1")).ws.q.find(x => x.id === qid).sec === t1.ws.out[2].id, "and one dragged into Conclusion");
   await page.fill(`[data-ws-sect="${t1.ws.out[1].id}"]`, "Evidence"); await page.press(`[data-ws-sect="${t1.ws.out[1].id}"]`, "Tab"); await page.waitForTimeout(200);
   ok((await task(page, "t1")).ws.out[1].t === "Evidence", "a section is renamed in place");

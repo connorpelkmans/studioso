@@ -1,7 +1,12 @@
 /* ===== module: 99-writing-studio.js ===== */
 /* Writing Studio (Pro): a reference manager for each paper, with quotes, an outline and a citation check. No AI.
    - Entry: "Writing Studio" in the task sheet's actions, on the same assignment-like tasks as Rubric Check (and on any task that already
-     has sources). Free accounts see a PRO badge, which opens the Pro sheet.
+     has sources, quotes or a draft). Also: a small chip on Board cards and in Do This Next for papers that already have Writing Studio data;
+     a Writing view in Review (papers with data and upcoming essays and reports, plus My Library and Zotero without picking a paper); a
+     Break It Down step opens its matching tab; Today's Plan suggests Check Citations (one row) on or the day before the due date when the
+     saved draft hasn't been checked since it changed. Free accounts see a PRO badge, which opens the Pro sheet.
+   - Tabs: Check, Sources, Quotes, Outline. Opening lands on Check, or on Sources for a paper with sources but no draft yet. A strip on every
+     tab says how far along the paper is (sources · quotes · placed · last check), each part a way to its tab.
    - Citations are made by citeproc-js (the CSL processor Zotero itself uses, vendor/citeproc-2.4.63) with real CSL styles, so the output is
      the same as Zotero's: 8 styles come with the app and work offline (APA 7, MLA 9, Chicago author-date and notes-bibliography, IEEE,
      Harvard Cite Them Right, AMA, ASA), and any of the 10,000+ styles in the Zotero Style Repository can be searched and added (fetched
@@ -13,13 +18,27 @@
      Google Scholar export); picked from My Library (every source in your other papers); or pulled from Zotero.
    - Zotero: connect with a Zotero API key (kept on this device only; requests go straight to api.zotero.org). Browse My Library and group
      libraries by collection, search, tick items and add them; items keep their Zotero key, and Update From Zotero refreshes them.
-   - Duplicates (same DOI, ISBN, or title and year) are skipped. Export the list as BibTeX, RIS or CSL-JSON (Zotero imports all three).
+   - Lookups send only the identifier. Duplicates (same DOI, ISBN, or title and year) are skipped. Export the list as BibTeX, RIS or
+     CSL-JSON (Zotero imports all three).
    - Quotes: reader highlights come in as quotes tied to their source and page; each has its in-text citation (a footnote in note styles)
-     and opens its page again. Outline: sections (Introduction, Body, Conclusion, or the paper's milestones), quotes dragged into them.
-     Export to Word (with real footnotes for note styles), Google Docs (copied as formatted text) or text.
-   - Check: the draft (pasted, uploaded or picked) is checked on this device: sources never cited, citations matching no source, quotes
-     without a citation, a missing or misnamed reference list, sources missing from it, the style's common slips, and the assignment's own
-     rules (the style it names, at least N sources). It never writes or rewrites any of the student's work.
+     and opens its page again, and says when the draft uses it. Open a PDF to Highlight opens the reader for this paper (its PDF sources and
+     the course's PDFs, or an upload): each new highlight offers Add as Quote there and then (the PDF becomes a source if it isn't one), and
+     closing the reader comes back to Quotes. A PDF that's a source of exactly one open paper shows the same "Writing Studio: <paper>" bar
+     in the reader from anywhere. Sources without a PDF get Attach PDF. Each source says how it's used (quoted, cited in the draft).
+   - Outline: sections (Introduction, Body, Conclusion, or the paper's milestones), quotes dragged into them; sections with no quotes and
+     quotes never placed are pointed out. Export to Word (with real footnotes for note styles), Google Docs (copied as formatted text) or text.
+   - Check: the draft (pasted, uploaded, or chosen from Studyboard: this assignment's files, the course's, all files, or a longer note; an
+     attached draft is offered) is kept on the paper (t.ws.draft: its text capped at 60,000 characters, where it came from, when) so it
+     isn't pasted again, and checked on this device: sources never cited, citations matching no source, quotes without a citation, a
+     missing or misnamed reference list, sources missing from it, the style's common slips, and the assignment's own rules (the style it
+     names, at least N sources). The last check is kept too (t.ws.chk), so Check Again says what changed ("2 fixed, 1 new"); a draft
+     from a Studyboard file or note is read again when that changed. Clicking an issue shows its sentence marked in a read-only view of
+     the draft. Check feeds the other tabs: the entries in the draft's reference list that aren't sources yet (ones with a DOI or ISBN
+     looked up, the rest read from the list and marked to check) and its quoted passages with a citation (tied to their source and page)
+     can be ticked and added. It never writes or rewrites any of the student's work.
+   - After adding a source: Also Add to Another Paper? for the other open papers in the course. A Break It Down step is ticked done only
+     where it's clearly measurable: "find N sources" once there are N, and a step only about the citations once the saved draft's latest
+     check has nothing to fix (never quotes, outlines, drafting, proofreading or handing in).
    - Saved on the task (t.ws), so it syncs; changes have Undo.
    The pure part is between CITE-START and CITE-END. */
 (() => {
@@ -102,7 +121,7 @@ const CITE = (() => {
       const x = {}; if (a.literal || a.name) x.literal = cap(a.literal || a.name, 200); else { x.family = cap(a.family, 120); if (a.given) x.given = cap(a.given, 120); ["non-dropping-particle", "dropping-particle", "suffix"].forEach(p => { if (a[p]) x[p] = cap(a[p], 30); }); } return x; });
       if (l.length) it[k] = l; } });
     ["issued", "accessed", "original-date", "event-date"].forEach(k => { const d = o[k]; if (!d || typeof d !== "object") return; const p = dateParts(d).filter(n => n > 0).slice(0, 3); if (p.length) it[k] = {"date-parts": [p]}; else if (d.literal || d.raw) it[k] = {literal: cap(d.literal || d.raw, 40)}; });
-    ["fid", "zkey", "zlib", "src"].forEach(k => { if (o[k]) it[k] = cap(o[k], 120); });
+    ["fid", "zkey", "zlib", "src", "rv"].forEach(k => { if (o[k]) it[k] = cap(o[k], 120); });
     if (o.caseAsIs) it.caseAsIs = true;
     return it;
   }
@@ -298,7 +317,7 @@ const CITE = (() => {
       L.push("ER  - "); return L.join("\r\n");
     }).join("\r\n\r\n") + "\r\n";
   }
-  const toCslJson = items => JSON.stringify(items.map(x => { const c = clean(x); ["fid", "zkey", "zlib", "src"].forEach(k => delete c[k]); return c; }), null, 2);
+  const toCslJson = items => JSON.stringify(items.map(x => { const c = clean(x); ["fid", "zkey", "zlib", "src", "rv"].forEach(k => delete c[k]); return c; }), null, 2);
 
   /* Duplicates: the same DOI, ISBN, or title and year */
   const tkey = s => sq(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -390,64 +409,68 @@ const CITE = (() => {
     return out;
   }
   const SCHOLARLY = ["article-journal", "chapter", "book", "paper-conference", "thesis", "report", "entry-encyclopedia"];
+  // Each issue can carry where in the draft it is (at, len), so the draft can be shown with that sentence marked
   function check(draftIn, itemsIn, o){
     o = o || {}; const style = o.style || "apa", kind = o.kind || "author-date", label = o.label || style, want = headingOf(style, kind);
-    const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), sources = (itemsIn || []).map(clean), issues = [], push = (k, t, d, fix) => issues.push({k, t, d: d || "", fix: fix || ""});
+    const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), sources = (itemsIn || []).map(clean), issues = [], push = (k, t, d, fix, at, len) => issues.push(Object.assign({k, t, d: d || "", fix: fix || ""}, at != null && at >= 0 ? {at, len: len || 1} : {}));
     const ref = refSection(draft), body = ref ? draft.slice(0, ref.at) : draft;
-    const cited = new Set(), unknown = [], slips = new Set();
+    const cited = new Set(), firstAt = {}, unknown = [], slips = new Map();
+    const cite = (id, at, len) => { cited.add(id); if (!(id in firstAt)) firstAt[id] = [at, len]; };
+    const slip = (t, at, len) => { if (!slips.has(t)) slips.set(t, [at, len]); };
     // a source with no author or title has no name to look for: famRe("") would match every citation, so leave it out
     const named = sources.filter(s => keyName(s)), match = seg => named.filter(s => famRe(keyName(s)).test(seg));
     let m; const PAR = /\(([^()\n]{2,200})\)/g;
     while ((m = PAR.exec(body))) {
+      const at = m.index, len = m[0].length;
       m[1].split(/;\s*/).forEach(seg => {
         seg = sq(seg); if (!seg) return;
         const hits = match(seg), hasYear = YEAR.test(seg), mlaLike = /^[“"]?[\p{Lu}][\p{L}'’-]+.*?\s\d{1,4}(?:[–-]\d+)?$/u.test(seg) && !hasYear;
-        if (hits.length) hits.forEach(s => cited.add(s.id));
+        if (hits.length) hits.forEach(s => cite(s.id, at, len));
         else if (hasYear) {
-          const before = body.slice(Math.max(0, m.index - 60), m.index), nb = named.filter(s => famRe(keyName(s)).test(before));
-          if (nb.length) nb.forEach(s => cited.add(s.id));
-          else if (/^[“"]?[\p{Lu}]/u.test(seg) || /(\p{Lu}[\p{L}'’-]+)\s*$/u.test(before)) unknown.push(seg);
-        } else if (mlaLike && kind === "author" && !/^(p|pp|para|ch|fig|figure|table|see|chapter|section)\b/i.test(seg)) unknown.push(seg);
+          const before = body.slice(Math.max(0, at - 60), at), nb = named.filter(s => famRe(keyName(s)).test(before));
+          if (nb.length) nb.forEach(s => cite(s.id, at, len));
+          else if (/^[“"]?[\p{Lu}]/u.test(seg) || /(\p{Lu}[\p{L}'’-]+)\s*$/u.test(before)) unknown.push([seg, at, len]);
+        } else if (mlaLike && kind === "author" && !/^(p|pp|para|ch|fig|figure|table|see|chapter|section)\b/i.test(seg)) unknown.push([seg, at, len]);
         if (style === "apa" && hasYear) {
-          if (/\b\p{Lu}[\p{L}'’-]+ and \p{Lu}[\p{L}'’-]+,/u.test(seg)) slips.add("In APA, use & between two authors inside brackets: (Smith & Lee, 2021).");
-          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)? (1[5-9]\d\d|20\d\d)\b/u.test(seg)) slips.add("In APA, put a comma between the name and the year: (Smith, 2021).");
-          if (/\bpg\.?\s*\d/.test(seg)) slips.add("In APA, write p. 4 (or pp. 4–6) for pages, not pg.");
+          if (/\b\p{Lu}[\p{L}'’-]+ and \p{Lu}[\p{L}'’-]+,/u.test(seg)) slip("In APA, use & between two authors inside brackets: (Smith & Lee, 2021).", at, len);
+          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)? (1[5-9]\d\d|20\d\d)\b/u.test(seg)) slip("In APA, put a comma between the name and the year: (Smith, 2021).", at, len);
+          if (/\bpg\.?\s*\d/.test(seg)) slip("In APA, write p. 4 (or pp. 4–6) for pages, not pg.", at, len);
         }
         if (kind === "author") {
-          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)?,\s*(p{1,2}\.\s*)?\d/u.test(seg)) slips.add("In MLA, there's no comma or p. between the name and the page: (Smith 42).");
-          if (hasYear && hits.length) slips.add("MLA in-text citations use the author and the page, not the year: (Smith 42).");
+          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)?,\s*(p{1,2}\.\s*)?\d/u.test(seg)) slip("In MLA, there's no comma or p. between the name and the page: (Smith 42).", at, len);
+          if (hasYear && hits.length) slip("MLA in-text citations use the author and the page, not the year: (Smith 42).", at, len);
         }
-        if (kind === "numeric" && hits.length && hasYear) slips.add(`${label} uses numbered citations, not author and year.`);
+        if (kind === "numeric" && hits.length && hasYear) slip(`${label} uses numbered citations, not author and year.`, at, len);
       });
     }
     const BR = /\[(\d{1,3}(?:\s*[,–-]\s*\d{1,3})*)(?:,\s*(?:pp?\.\s*)?[\d–-]+)?\]/g;
-    while ((m = BR.exec(body))) m[1].split(/\s*,\s*/).forEach(part => { const r = part.split(/\s*[–-]\s*/).map(Number); for (let k = r[0]; k <= (r[1] || r[0]) && k - r[0] < 50; k++) { if (sources[k - 1] && (kind === "numeric" || (o.order && o.order[k - 1]))) cited.add((o.order ? o.order[k - 1] : sources[k - 1].id)); else if (kind === "numeric") unknown.push(`[${k}]`); } });
-    if (kind !== "numeric" && /\[\d{1,3}\]/.test(body) && !/\(([^()]*\b(1[5-9]\d\d|20\d\d))\)/.test(body)) slips.add(`Your draft uses numbered citations like [1]; ${label} uses the author${kind === "author" ? " and page" : kind === "note" ? " in footnotes" : " and year"}.`);
+    while ((m = BR.exec(body))) { const at = m.index, len = m[0].length; m[1].split(/\s*,\s*/).forEach(part => { const r = part.split(/\s*[–-]\s*/).map(Number); for (let k = r[0]; k <= (r[1] || r[0]) && k - r[0] < 50; k++) { if (sources[k - 1] && (kind === "numeric" || (o.order && o.order[k - 1]))) cite((o.order ? o.order[k - 1] : sources[k - 1].id), at, len); else if (kind === "numeric") unknown.push([`[${k}]`, at, len]); } }); }
+    if (kind !== "numeric" && /\[\d{1,3}\]/.test(body) && !/\(([^()]*\b(1[5-9]\d\d|20\d\d))\)/.test(body)) { const b = /\[\d{1,3}\]/.exec(body); slip(`Your draft uses numbered citations like [1]; ${label} uses the author${kind === "author" ? " and page" : kind === "note" ? " in footnotes" : " and year"}.`, b.index, b[0].length); }
     // names in footnotes (note styles): when the footnotes came along in the paste, count a source named anywhere in the body
-    if (kind === "note") named.forEach(s => { if (famRe(keyName(s)).test(body)) cited.add(s.id); });
+    if (kind === "note") named.forEach(s => { const r = famRe(keyName(s)).exec(body); if (r) cite(s.id, r.index, r[0].length); });
     const bare = [];
     const Q = /[“"]([^”"\n]{30,500})[”"]/g;
     while ((m = Q.exec(body))) {
       const after = body.slice(m.index + m[0].length, m.index + m[0].length + 160), before = body.slice(Math.max(0, m.index - 200), m.index);
       const sAfter = after.split(/(?<=[.?!])\s+(?=[\p{Lu}“"])/u)[0], sBefore = before.split(/[.?!]\s+(?=[\p{Lu}“"])/u).pop();
       const has = s => /\([^()]*(\d|n\.\s?d\.)[^()]*\)/.test(s) || /\[\d{1,3}/.test(s) || /^[.,;:]?\s*\d{1,3}\b/.test(s) || (kind === "author" && named.some(x => famRe(keyName(x)).test(s)));
-      if (!has(sAfter) && !has(sBefore)) bare.push(m[1].split(/\s+/).slice(0, 8).join(" "));
+      if (!has(sAfter) && !has(sBefore)) bare.push([m[1].split(/\s+/).slice(0, 8).join(" "), m.index, m[0].length]);
     }
     const n = sources.length, citedN = sources.filter(s => cited.has(s.id)).length;
     if (!n) push("warn", "No sources in your Writing Studio yet", "Add your sources to check your citations against them.");
     else if (citedN === n) push("ok", `All ${n} source${n === 1 ? " is" : "s are"} cited in your draft`);
     if (named.length < n) push("warn", `${n - named.length === 1 ? "A source has" : n - named.length + " sources have"} no title or author`, `Fill ${n - named.length === 1 ? "it" : "them"} in on the Sources tab so your citations can be checked against ${n - named.length === 1 ? "it" : "them"}.`);
     named.filter(s => !cited.has(s.id)).forEach(s => push("warn", `Never cited: ${s.title || keyName(s)}`, kind === "note" ? "Cite it in a footnote where you use it, or remove it if you didn't use it. (Footnotes don't always come along in a paste: check those by eye.)" : "Cite it where you use it, or remove it from your sources if you didn't use it."));
-    [...new Set(unknown)].slice(0, 12).forEach(u => push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, "Add this source to your Writing Studio, or check the spelling of the name."));
-    if (kind !== "note") bare.slice(0, 10).forEach(q => push("err", `Quote without a citation: “${q}…”`, "Every direct quote needs an in-text citation right after it."));
+    const seenU = new Set(); unknown.filter(([u]) => !seenU.has(u) && seenU.add(u)).slice(0, 12).forEach(([u, at, len]) => push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, "Add this source to your Writing Studio, or check the spelling of the name.", "", at, len));
+    if (kind !== "note") bare.slice(0, 10).forEach(([q, at, len]) => push("err", `Quote without a citation: “${q}…”`, "Every direct quote needs an in-text citation right after it.", "", at, len));
     if (!ref) push(n ? "err" : "warn", `No ${want} list found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`);
     else {
-      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) push("warn", `Your list is called “${sq(ref.name)}”`, `${label} calls it ${want}.`);
+      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) push("warn", `Your list is called “${sq(ref.name)}”`, `${label} calls it ${want}.`, "", ref.at, ref.name.length);
       const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body));
-      miss.forEach(s => push("err", `Cited but not in your ${want} list: ${s.title || keyName(s)}`, "Add its entry to the list."));
+      miss.forEach(s => push("err", `Cited but not in your ${want} list: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1]));
       if (!miss.length && citedN) push("ok", `Every cited source is in your ${want} list`);
     }
-    slips.forEach(t => push("warn", t));
+    slips.forEach(([at, len], t) => push("warn", t, "", "", at, len));
     const r = rules(o.req);
     if (r.style && r.style !== style) push("err", `The assignment asks for ${o.names && o.names[r.style] || r.style}`, `Your Writing Studio is set to ${label}.`, "style:" + r.style);
     if (r.min) {
@@ -456,10 +479,161 @@ const CITE = (() => {
     }
     const order = {err: 0, warn: 1, ok: 2};
     issues.sort((a, b) => order[a.k] - order[b.k]);
-    return {issues, cited: citedN, total: n, hasRef: !!ref};
+    return {issues, cited: citedN, total: n, hasRef: !!ref, citedIds: sources.filter(s => cited.has(s.id)).map(s => s.id)};
+  }
+  // What changed between two checks: the issues (to fix or to look at) that went away, and the new ones
+  const issueKeys = r => ((r && r.issues) || []).filter(x => x.k !== "ok").map(x => x.t);
+  function diffIssues(prevKeys, next){
+    const a = new Set(prevKeys || []), b = new Set(issueKeys(next));
+    return {fixed: [...a].filter(k => !b.has(k)).length, fresh: [...b].filter(k => !a.has(k)).length};
+  }
+  // A short fingerprint of a text (to tell whether a draft changed since it was checked)
+  function hash(s){ s = String(s || ""); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ":" + s.length; }
+  // A draft kept on the paper is capped: its start and its end (where the reference list is) when it's longer
+  function capDraft(s, max){
+    s = String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); max = max || 60000;
+    if (s.length <= max) return s;
+    const ref = refSection(s), tail = ref ? Math.min(s.length - ref.at, Math.floor(max * 0.4)) : Math.floor(max * 0.25);
+    return s.slice(0, max - tail - 3) + "\n…\n" + s.slice(s.length - tail);
+  }
+  // The sentence around a place in the text: [start, end]
+  function sentenceAt(text, at, len){
+    text = String(text || ""); at = Math.max(0, Math.min(text.length, at || 0));
+    let s = at;
+    while (s > 0) { const c = text[s - 1]; if (c === "\n") break; if (/[.?!]/.test(c) && /\s/.test(text[s] || "") && !/(^|[\s(])(\p{Lu}|p|pp|al|vol|no|ed|eds|e\.g|i\.e)$/u.test(text.slice(Math.max(0, s - 6), s - 1))) break; s--; }
+    while (/\s/.test(text[s] || "")) s++;
+    const from = Math.min(text.length, at + Math.max(1, len || 1)), re = /[.?!]["”’)]*(?=\s|$)|\n/g; re.lastIndex = from;
+    const m = re.exec(text), e = m ? m.index + (m[0] === "\n" ? 0 : m[0].length) : text.length;
+    return [s, Math.max(e, from)];
+  }
+
+  /* Reading the draft's own reference list: its entries, and each entry's details (no AI: the patterns of APA, MLA, Chicago, IEEE and Harvard) */
+  function refEntries(draftIn){
+    const ref = refSection(String(draftIn || "").replace(/\r\n?/g, "\n")); if (!ref) return [];
+    let body = ref.body; const stop = /\n[ \t]*(appendix|appendices|endnotes|tables?|figures?)\b[^\n]{0,60}(\n|$)/i.exec("\n" + body); if (stop) body = body.slice(0, Math.max(0, stop.index - 1));
+    const lines = body.split("\n"), out = [], blank = /\S[ \t]*\n[ \t]*\n[ \t]*\S/.test(body.trim());
+    const numbered = l => /^\s*(\[\d{1,3}\]|\d{1,3}[.)]\s)/.test(l);
+    const anyNum = lines.filter(numbered).length >= 2;
+    let cur = "";
+    const flush = () => { const e = sq(cur.replace(/-\n(?=\p{Ll})/gu, "").replace(/\n/g, " ")); if (e) out.push(e); cur = ""; };
+    lines.forEach(l => {
+      if (!l.trim()) { if (blank || anyNum) flush(); return; }
+      // without numbers or blank lines between them, an entry starts on a line with a capital after one that ended (a full stop, a bracket, a link or a number)
+      const starts = anyNum ? numbered(l) : blank ? false : (/^\s*[\p{Lu}“"‘'[]/u.test(l) && !/^\s*(https?:|doi|www\.)/i.test(l) && /([.)]|\/\S*|\d)\s*$/.test(cur.trim() || "."));
+      if (starts && cur.trim()) flush();
+      cur += (cur ? "\n" : "") + l.trim();
+    });
+    flush();
+    return out.filter(e => e.length >= 15 && (YEAR.test(e) || /\b10\.\d{4,9}\/|https?:\/\/|\bISBN/i.test(e))).slice(0, 80);
+  }
+  const ABBR = /(?:^|[\s(.])(?:\p{Lu}|vol|nos?|pp?|eds?|al|inc|jr|sr|st|dr|mr|mrs|ms|co|ltd|corp|rev|trans|n\.d|u\.s|u\.k|e\.g|i\.e|ch|para|fig|dept|univ|ser)$/iu;
+  // splits at full stops that end a part (not after an initial or an abbreviation); "Smith, Jordan A." at the start still ends the first part
+  function segs(s){
+    const out = []; let last = 0, m; const re = /([.?!])\s+/g;
+    s = String(s || "");
+    while ((m = re.exec(s))) {
+      const before = s.slice(last, m.index);
+      if (m[1] === "." && ABBR.test(before) && !(!out.length && /^[\p{L}'’ -]+,\s+\p{Lu}[\p{L}'’-]+(\s+\p{Lu})+$/u.test(before))) continue;
+      out.push(s.slice(last, m.index + (m[1] === "." ? 0 : 1))); last = m.index + m[0].length;
+    }
+    out.push(s.slice(last));
+    return out.map(x => sq(x).replace(/^[,.;:\s]+|[,.;:\s]+$/g, "")).filter(Boolean);
+  }
+  const PART = /^(van|von|de|der|den|del|della|da|di|la|le|du|ter|bin|al|dos|das)$/i;
+  const isInit = x => /^(\p{Lu}\.?[\s-]?){1,4}$/u.test(sq(x));
+  // "Smith, J. A., & Lee, K." · "Smith, Jordan A., and Kim Lee" · "J. A. Smith and K. Lee" · "Smith, J.A. and Lee, K." · "World Health Organization"
+  function authorsOf(a){
+    a = sq(a).replace(/\bet al\.?/gi, "").replace(/\(eds?\.?\)|\beds?\.\s*$/gi, "").replace(/^[,.;:\s]+|[,.;:\s]+$/g, "");
+    if (!a) return [];
+    const toks = a.replace(/\s*,?\s*(?:&|\band\b)\s+/g, ", ").split(/\s*,\s*/).map(sq).filter(Boolean), out = [];
+    for (let i = 0; i < toks.length; i++) {
+      const t0 = toks[i], nx = toks[i + 1], oneWord = t0.split(" ").every((w, j, l) => j === l.length - 1 || PART.test(w));
+      if (nx && !ORG.test(t0) && (isInit(nx) || (i === 0 && oneWord && !isInit(t0)))) { out.push({family: t0, given: isInit(nx) && !/-/.test(nx) ? nx.replace(/[.\s]/g, "").split("").join(". ") + "." : nx}); i++; }
+      else { const p = person(t0); if (p) out.push(p); }
+    }
+    return out.slice(0, 30);
+  }
+  const YR = /(?<![\d–-])(1[5-9]\d\d|20\d\d)(?![\d–-])/g;
+  function parseRef(raw){
+    let s = sq(raw).replace(/^(\[\d{1,3}\]|\d{1,3}[.)])\s*/, ""); const it = {};
+    const doi = /(?:https?:\/\/(?:dx\.)?doi\.org\/|\bdoi:?\s*)?\b(10\.\d{4,9}\/[^\s"<>]+)/i.exec(s);
+    if (doi) { it.DOI = doi[1].replace(/[.,;)\]]+$/, ""); s = s.replace(doi[0], " "); }
+    const ib = /\bISBN(?:-1[03])?:?\s*([\dX][\d\s-]{8,16}[\dX])/i.exec(s); if (ib) { const d = ib[1].replace(/[\s-]/g, ""); if ((d.length === 10 || d.length === 13) && isbnOk(d)) it.ISBN = d.toUpperCase(); s = s.replace(ib[0], " "); }
+    const url = /(?:Retrieved from:?\s*|Available (?:at|from):?\s*)?<?(https?:\/\/[^\s<>"]+)>?/i.exec(s); if (url) { it.URL = url[1].replace(/[.,;)\]]+$/, ""); s = s.replace(url[0], " "); }
+    s = s.replace(/[([]?(?:Accessed|Retrieved|Viewed)(?::|\s)[^)\]]*?\d{4}[)\]]?[.,]?/gi, " ");
+    s = sq(s).replace(/\s+([.,;:])/g, "$1").replace(/[,.;:\s]+$/, "");
+    let authors = "", year = "", title = "", rest = "", m;
+    const Qt = /^\s*[“"]([^”"]{2,400})[”"]|^\s*[‘']([^‘’']{2,400})[’']/;
+    const takeTitle = r => { const q = Qt.exec(r); if (q) return [q[1] || q[2], r.slice(q[0].length)]; const g = segs(r); const t = g[0] || ""; return [t, r.slice(r.indexOf(t) + t.length)]; };
+    if ((m = /\((\d{4})[a-z]?(?:,[^)]*)?\)|\((n\.\s?d\.)\)/.exec(s)) && m.index < 300) {
+      // APA, Harvard: Authors (Year). Title. Rest
+      authors = s.slice(0, m.index); year = m[1] || ""; [title, rest] = takeTitle(s.slice(m.index + m[0].length).replace(/^[.,:\s]+/, ""));
+    } else if ((m = /[“"]([^”"]{2,400})[”"]/.exec(s)) && m.index < 300) {
+      // MLA, Chicago, IEEE: Authors. (Year.) “Title.” Rest
+      authors = s.slice(0, m.index); title = m[1]; rest = s.slice(m.index + m[0].length);
+      const y = /[.,]?\s*(1[5-9]\d\d|20\d\d)[a-z]?[.,]?\s*$/.exec(authors); if (y) { year = y[1]; authors = authors.slice(0, y.index); }
+    } else {
+      const ie = /^((?:(?:\p{Lu}\.\s?-?)+\s*[\p{L}'’-]+(?:\s*,\s*(?:and\s+)?|\s+and\s+))+)(.*)$/u.exec(s);
+      if (ie) { authors = ie[1]; const g = segs(ie[2]); title = g[0] || ""; rest = ie[2].slice(ie[2].indexOf(title) + title.length); }
+      else {
+        const g = segs(s); authors = g[0] || ""; let i = 1;
+        if (g[i] && /^(1[5-9]\d\d|20\d\d)[a-z]?$/.test(g[i])) { year = g[i].slice(0, 4); i++; }
+        title = g[i] || ""; rest = g.slice(i + 1).join(". ");
+      }
+    }
+    title = sq(title).replace(/^[“"‘']|[”"’']$/g, "").replace(/[,.;:\s]+$/, "");
+    const ed = /\s*\((\d+)(?:st|nd|rd|th)\.? ed(?:ition|\.)?\)/i.exec(title); if (ed) { it.edition = ed[1]; title = title.replace(ed[0], ""); }
+    // IEEE and Chicago books: "Title, 2nd ed. London: Publisher" (what follows the edition is the rest)
+    const ed2 = /,?\s+(\d+)(?:st|nd|rd|th)\.? ed(?:ition|\.)?\.?(?:\s+(.*))?$/i.exec(title); if (ed2 && ed2.index > 2) { it.edition = ed2[1]; title = title.slice(0, ed2.index); rest = (ed2[2] || "") + (rest ? ". " + rest : ""); }
+    rest = sq(rest).replace(/^[,.;:\s]+/, "");
+    const allYears = rest.match(YR) || []; if (!year && allYears.length) year = allYears[allYears.length - 1];
+    let vol = (/\b(?:vol\.?|volume)\s*(\d+)/i.exec(rest) || [])[1] || "", iss = (/\b(?:no\.?|issue|iss\.)\s*(\d+)/i.exec(rest) || [])[1] || "";
+    const vi = /(?:^|[\s,])(\d{1,4})\s?\((\d{1,4}(?:[–-]\d+)?)\)/.exec(rest); if (vi && !vol) { vol = vi[1]; iss = iss || vi[2]; }
+    const page = (/\bpp?\.\s*([\dA-Za-z]*\d[\dA-Za-z]*(?:\s*[–-]\s*[\dA-Za-z]+)?)/.exec(rest) || [])[1] || (/:\s*(\d+\s*[–-]\s*\d+)/.exec(rest) || [])[1] || (/\)\s*,\s*(\d+\s*[–-]\s*\d+)/.exec(rest) || [])[1] || "";
+    const r0 = segs(rest)[0] || "", chap = /^In\s+/.test(rest) || /\bedited by\b|\(eds?\.?\)/i.test(rest);
+    let cont = "";
+    if (chap) cont = sq((/^In\s+(?:[^,(]*?\(eds?\.?\),?\s*)?(.+?)(?:\s*\(pp?\.|,\s*edited by|\.\s|,\s*\d|$)/i.exec(rest) || /^(.+?),\s*edited by/i.exec(rest) || [])[1] || "");
+    else cont = sq(r0.split(/,\s*|\s+(?=\d)|\s+(?=vol\b)/i)[0] || "").replace(/^in\s+/i, "");
+    const article = !!(vol || iss || (page && cont && !chap));
+    let type = chap ? "chapter" : /proceedings|conference|symposium|workshop/i.test(cont) ? "paper-conference" : article || (it.DOI && cont && !it.ISBN && !/^[^,]*:/.test(r0)) ? "article-journal" : it.URL && !it.ISBN ? "webpage" : "book";
+    if (type === "book") {
+      // the part after the title is the publisher: "Place: Publisher" (Chicago, Harvard, IEEE), "Publisher, 2019" (MLA) or "Publisher" (APA)
+      const pb = segs(rest).map(x => x.replace(YR, "").replace(/[,.;:\s]+$/, "").trim()).find(x => x && !/^(\d+(st|nd|rd|th)\.? ed\.?|pp?\.)/i.test(x));
+      if (pb) { const pl = /^([^:]{2,60}):\s*(.+)$/.exec(pb); if (pl) { it["publisher-place"] = pl[1]; it.publisher = pl[2]; } else it.publisher = pb; } else if (!it.ISBN) type = "document";
+    } else if (cont) it["container-title"] = cont.replace(/[,.;:\s]+$/, "");
+    if (type === "webpage" && !it["container-title"] && it.URL) it["container-title"] = hostOf(it.URL);
+    Object.assign(it, {type, title, author: authorsOf(authors), volume: vol, issue: iss, page: page.replace(/\s/g, "")});
+    if (year) it.issued = date(year);
+    const c = clean(it);
+    return c.title || c.author ? c : null;
+  }
+  // Quoted passages in the draft with a citation right after them: (Smith, 2020, p. 4), (Smith 42), [3], [3, p. 4] or a footnote mark
+  const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function quotesIn(draftIn, itemsIn, o){
+    o = o || {}; const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), ref = refSection(draft), body = ref ? draft.slice(0, ref.at) : draft;
+    const sources = (itemsIn || []).map(clean), byName = seg => (sources.find(s => keyName(s) && famRe(keyName(s)).test(seg)) || {}).id || "", out = [];
+    let m; const Q = /[“"]([^”"\n]{20,600})[”"]/g;
+    while ((m = Q.exec(body)) && out.length < 60) {
+      const t = sq(m[1]).replace(/[,.;:]$/, ""); if (t.split(" ").length < 5) continue;
+      const after = body.slice(m.index + m[0].length, m.index + m[0].length + 200), before = body.slice(Math.max(0, m.index - 220), m.index), sBefore = before.split(/[.?!]\s+(?=[\p{Lu}“"])/u).pop();
+      let sid = "", p = "", cite = "", x;
+      if ((x = /^\s*[,.;:]?\s*\(([^()\n]{1,160})\)/.exec(after))) {
+        cite = `(${x[1]})`; const seg = x[1];
+        p = ((/\b(?:pp?|para)\.\s*(\d+(?:\s*[–-]\s*\d+)?)/i.exec(seg) || [])[1] || (/(?:^|[\s,])(\d{1,4}(?:[–-]\d+)?)$/.exec(seg) || [])[1] || "").replace(/\s/g, "");
+        if (p && /^(1[5-9]\d\d|20\d\d)$/.test(p) && !/\bpp?\./.test(seg)) p = "";
+        sid = byName(seg) || byName(sBefore);
+      } else if ((x = /^\s*[,.;:]?\s*\[(\d{1,3})(?:\s*,\s*(?:pp?\.\s*)?([\d–-]+))?\]/.exec(after))) {
+        cite = `[${x[1]}]`; const k = Number(x[1]) - 1; sid = (o.order ? o.order[k] : (sources[k] || {}).id) || ""; p = x[2] || "";
+      } else if ((x = new RegExp(`^[.,;:]?([${SUP}]+|\\d{1,3})(?=[\\s.,;:]|$)`).exec(after))) {
+        cite = "Note " + [...x[1]].map(ch => SUP.includes(ch) ? SUP.indexOf(ch) : ch).join(""); sid = byName(sBefore);
+      } else continue;
+      out.push({t, sid, p, cite, at: m.index});
+    }
+    return out;
   }
   return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf, keyName,
-    parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase};
+    parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase,
+    diffIssues, issueKeys, hash, capDraft, sentenceAt, refEntries, parseRef, authorsOf, segs, quotesIn, refSection};
 })();
 /*CITE-END*/
 
@@ -559,13 +733,22 @@ const betaHead = html => BETA ? html.replace(/(<span class="sh-kick">[^<]*)(<\/s
 const PRO_WHY = "Writing Studio is part of Studyboard Pro: a reference manager for every paper, with Zotero's citation engine and thousands of styles, quotes from your highlights, an outline and a citation check.";
 const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 1.5zM4 19.5A2 2 0 0 0 6 21h12"/><path d="M9 7h6M9 11h4"/></svg>';
 const WRITING = /\b(essay|paper|report|presentation|thesis|dissertation|draft|write[- ]?up|reflection|proposal|review|portfolio|speech|article|memo|brief|research|annotated|bibliography|literature)\b/i;
-const eligible = t => !!t && !t.prepFor && !t.breakdownOf && ((t.ws && Array.isArray(t.ws.src) && t.ws.src.length) || (t.status !== "done" && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
-const MAX_SRC = 150, MAX_Q = 300, MAX_SEC = 30;
-const W = {tid: "", tab: "sources", view: "", edit: null, draft: "", draftSrc: "", res: null, busy: "", err: "", el: null, hlPick: null, inp: "", note: "", z: null, imp: null, find: null};
+// a paper that already has something in Writing Studio: sources, quotes or a saved draft
+const hasData = t => !!(t && t.ws && typeof t.ws === "object" && ((Array.isArray(t.ws.src) && t.ws.src.length) || (Array.isArray(t.ws.q) && t.ws.q.length) || (t.ws.draft && t.ws.draft.t)));
+const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.status !== "done" && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
+// The draft kept on the paper (t.ws.draft): its text (capped), where it came from and when; and the last check (t.ws.chk): when, on which version of
+// the draft, and what it found (the issues' titles, so the next check can say what changed)
+const MAX_SRC = 150, MAX_Q = 300, MAX_SEC = 30, MAX_DRAFT = 60000;
+const W = {tid: "", tab: "", view: "", edit: null, paste: "", res: null, busy: "", err: "", el: null, hlPick: null, inp: "", note: "", z: null, imp: null, find: null, found: null, show: null, diff: null, also: null, hub: "", pick: null};
 function wsOf(t){
   const w = t && t.ws && typeof t.ws === "object" ? t.ws : {};
-  return {style: typeof w.style === "string" && w.style ? w.style : "", lang: w.lang === "en-GB" ? "en-GB" : "", src: Array.isArray(w.src) ? w.src.filter(s => s && s.id) : [], q: Array.isArray(w.q) ? w.q.filter(q => q && q.id) : [], out: Array.isArray(w.out) ? w.out.filter(s => s && s.id) : []};
+  const d = w.draft && typeof w.draft === "object" && typeof w.draft.t === "string" && w.draft.t ? w.draft : null, c = w.chk && typeof w.chk === "object" ? w.chk : null;
+  return {style: typeof w.style === "string" && w.style ? w.style : "", lang: w.lang === "en-GB" ? "en-GB" : "", src: Array.isArray(w.src) ? w.src.filter(s => s && s.id) : [], q: Array.isArray(w.q) ? w.q.filter(q => q && q.id) : [], out: Array.isArray(w.out) ? w.out.filter(s => s && s.id) : [],
+    draft: d ? {t: d.t, from: String(d.from || ""), fid: d.fid || "", nid: d.nid || "", r: d.r || "", at: Number(d.at) || 0, h: d.h || CITE.hash(d.t)} : null,
+    chk: c ? {at: Number(c.at) || 0, h: c.h || "", keys: Array.isArray(c.keys) ? c.keys.slice(0, 60) : [], err: Number(c.err) || 0, warn: Number(c.warn) || 0, cited: Number(c.cited) || 0, total: Number(c.total) || 0} : null,
+    tk: Array.isArray(w.tk) ? w.tk.slice(0, 20) : []};
 }
+const makeDraft = (text, o) => { const t = CITE.capDraft(text, MAX_DRAFT); return Object.assign({t, at: Date.now(), h: CITE.hash(t)}, o || {}); };
 function reqText(t){
   const parts = [t.notes || ""];
   ["cv", "bs", "bb", "md", "sg", "gc"].forEach(k => { const r = t[k] && t[k].rub; if (r && Array.isArray(r.cr)) parts.push(r.cr.map(c => `${c.t} ${c.d || ""}`).join("\n")); if (t[k] && t[k].desc) parts.push(String(t[k].desc)); });
@@ -574,7 +757,31 @@ function reqText(t){
 const styleOf = (t, w) => w.style || CITE.rules(reqText(t)).style || "apa";
 function save(t, w, label, extra){
   const cur = state.tasks[t.id]; if (!cur) return;
-  applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws: {style: w.style, lang: w.lang || undefined, src: w.src.slice(0, MAX_SRC), q: w.q.slice(0, MAX_Q), out: w.out.slice(0, MAX_SEC), v: 2}})}], label === undefined ? null : label, extra);
+  const ws = {style: w.style, lang: w.lang || undefined, src: w.src.slice(0, MAX_SRC), q: w.q.slice(0, MAX_Q), out: w.out.slice(0, MAX_SEC), v: 2};
+  if (w.draft) ws.draft = {t: w.draft.t, from: w.draft.from || "", fid: w.draft.fid || undefined, nid: w.draft.nid || undefined, r: w.draft.r || undefined, at: w.draft.at, h: w.draft.h};
+  if (w.chk) ws.chk = w.chk;
+  const changes = [{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws})}];
+  // a Break It Down step whose part is now clearly met is ticked done, in the same change (one Undo takes both back)
+  const ticks = stepTicks(cur, w);
+  if (ticks.length) {
+    ws.tk = w.tk.concat(ticks.map(x => x.id)).slice(-20);
+    ticks.forEach(x => { const n = clone(x); n.status = "done"; n.doneAt = Date.now(); n.pct = 100; if (typeof nextOrder === "function") n.order = nextOrder("done"); changes.push({kind: "task", id: x.id, after: n}); });
+    label = `${label ? label + ". " : ""}Step done: ${ticks.map(x => x.title).join(", ")}`;
+  } else if (w.tk.length) ws.tk = w.tk;
+  applyChanges(changes, label === undefined ? null : label, extra);
+}
+// Which of a paper's steps are met: only the clearly measurable ones. A "find N sources" step once the paper has N sources, and a step that's only
+// about the citations ("Check the citations", "Format the bibliography") once the saved draft's latest check found nothing to fix.
+// Quotes, the outline, drafting, proofreading and handing in are never ticked here: only the student knows when those are done.
+function stepTicks(parent, w){
+  if (!parent || parent.status === "done" || !eligible(parent)) return [];
+  return allTasks().filter(x => x.breakdownOf === parent.id && x.status !== "done" && !w.tk.includes(x.id)).filter(x => stepMet(x, parent, w));
+}
+function stepMet(x, parent, w){
+  const m = stepOf(x, parent, w); if (!m) return false;
+  if (m.tab === "sources") return m.want > 0 && w.src.length >= m.want;
+  if (m.tab === "check") return !/\b(submit|hand in|turn in|upload|proofread|final|write|draft|revise|edit|polish)\b/i.test(String(x.title || "")) && /\b(citations?|bibliograph\w*|references?|works cited)\b/i.test(String(x.title || "")) && !!(w.draft && w.chk && w.chk.h === w.draft.h && !w.chk.err);
+  return false;
 }
 const shown = () => !!W.el && dlg.open && dlg.contains(W.el);
 const isPdfFile = f => !!f && f.kind === "file" && Array.isArray(f.revs) && f.revs.length && /\.pdf$/i.test((f.revs[f.revs.length - 1] || {}).name || f.name || "");
@@ -606,15 +813,19 @@ function citeOf(t, w, sid, page){
 /* A milestone of a broken-down paper opens its paper's Studio on the tab for that step, with how far along it is */
 const STEP_TABS = [[/\b(find|collect|gather|search|choose)\b.*\bsources?\b|\bsources?\b.*\b(find|collect)|\bresearch and (gather|plan)/i, "sources"], [/\b(take notes|annotate|read and)\b/i, "quotes"],
   [/\boutline\b|\bdraft\b|\bwrite the\b|\brevise\b/i, "outline"], [/\bproofread|\bcitations?\b|\bbibliograph|\bformat\b/i, "check"]];
+function stepOf(t, parent, w){
+  const hit = STEP_TABS.find(([re]) => re.test(String(t.title || ""))); if (!hit) return null;
+  const want = Number((/\b(\d{1,2})\s+(?:\w+\s+)?sources\b/i.exec(t.title) || [])[1]) || CITE.rules(reqText(parent)).min || 0;
+  return {tab: hit[1], want};
+}
 function milestoneOf(t){
   if (!t || !t.breakdownOf) return null;
   const parent = state.tasks[t.breakdownOf]; if (!parent || parent.status === "done" || !eligible(parent)) return null;
-  const hit = STEP_TABS.find(([re]) => re.test(String(t.title || ""))); if (!hit) return null;
-  const w = wsOf(parent), tab = hit[1];
-  const want = Number((/\b(\d{1,2})\s+(?:\w+\s+)?sources\b/i.exec(t.title) || [])[1]) || CITE.rules(reqText(parent)).min || 0;
+  const w = wsOf(parent), s = stepOf(t, parent, w); if (!s) return null;
+  const {tab, want} = s, c = w.chk && w.draft && w.chk.h === w.draft.h ? w.chk : null;
   const label = tab === "sources" ? (want ? `${Math.min(w.src.length, 99)} of ${want} sources` : `${w.src.length} source${w.src.length === 1 ? "" : "s"}`)
-    : tab === "quotes" ? `${w.q.length} quote${w.q.length === 1 ? "" : "s"}` : tab === "outline" ? (w.out.length ? "Outline" : "Start the outline") : "Check citations";
-  return {parent, tab, label, done: tab === "sources" && want > 0 && w.src.length >= want};
+    : tab === "quotes" ? `${w.q.length} quote${w.q.length === 1 ? "" : "s"}` : tab === "outline" ? (w.out.length ? "Outline" : "Start the outline") : c ? (c.err ? `${c.err} to fix` : "Citations checked") : "Check citations";
+  return {parent, tab, label, done: tab === "sources" ? want > 0 && w.src.length >= want : tab === "check" ? !!c && !c.err : false};
 }
 function taskBtn(t){
   if (!t || inPreview() || !window.SBPRO) return "";
@@ -625,10 +836,19 @@ function taskBtn(t){
   if (!eligible(t)) return "";
   return `<button type="button" class="btn ws-btn" data-act="ws-open" data-id="${esc(t.id)}" title="Writing Studio" aria-label="Writing Studio">${ICON}<span class="ws-long">Writing Studio</span><span class="ws-short">Writing</span>${pro}</button>`;
 }
+// A small chip on Board cards and Do This Next, only for a paper that already has something in Writing Studio (cards stay uncluttered)
+function chip(t){
+  if (!t || inPreview() || !window.SBPRO || t.status === "done" || !hasData(t) || !eligible(t)) return "";
+  const w = wsOf(t), c = w.chk && w.draft && w.chk.h === w.draft.h ? w.chk : null;
+  const tip = [`${w.src.length} source${w.src.length === 1 ? "" : "s"}`, `${w.q.length} quote${w.q.length === 1 ? "" : "s"}`, c ? (c.err ? `${c.err} to fix` : "citations checked") : ""].filter(Boolean).join(" · ");
+  return `<button type="button" class="ws-chip" data-act="ws-open" data-id="${esc(t.id)}" title="Writing Studio: ${esc(tip)}" aria-label="Open ${esc(t.title)} in Writing Studio (${esc(tip)})">${ICON}<span>Writing Studio</span>${c && c.err ? `<b class="ws-chip-n">${c.err}</b>` : ""}</button>`;
+}
 
-/* From the PDF reader: which papers a quote from this PDF could go to, best first */
+/* From the PDF reader: which papers a quote from this PDF could go to, best first. While the reader is open for one paper (from its
+   Writing Studio, or a PDF that's a source of just one open paper), that paper only, so a highlight goes straight in. */
 function papersFor(fid){
   const f = state.files[fid]; if (!f) return [];
+  const x = readerTarget(fid); if (x) return [x.t];
   const today = todayISO();
   return allTasks().filter(t => eligible(t) && t.status !== "done" && (!t.due || t.due >= addDays(today, -3))).map(t => {
     const w = wsOf(t), score = w.src.some(s => s.fid === fid) ? 3 : (f.taskIds || []).includes(t.id) ? 2 : f.courseId && t.courseId === f.courseId ? 1 : 0;
@@ -663,20 +883,62 @@ function addQuote(tid, fid, h, o){
   // one message, with Undo and a way into the Studio
   save(t, w, `Quote added to ${t.title}${fresh ? ". This PDF is now one of its sources." : ""}`, {label: "Open", fn: () => { if (dlg.open) dlg.close(); open(tid, "quotes"); }});
   if (fresh) enrich(tid, src.id, fid, o && o.text);
+  if (RD && RD.tid === tid && RD.fid === fid) { RD.n++; const el = document.getElementById("pdrWsN"); if (el) el.textContent = `${RD.n} quote${RD.n === 1 ? "" : "s"} added`; }
   return true;
 }
 function readerBtn(fid, h){
   if (!window.SBPRO || inPreview()) return "";
   if (h) { const t = quotedIn(fid, h.id); if (t) return `<button type="button" class="btn small" data-act="pdr-paper" data-id="${esc(h.id)}" title="${esc(t.title)}">In Paper ✓</button>`; }
   if (!papersFor(fid).length) return "";
-  return `<button type="button" class="btn small" data-act="${h ? "pdr-paper" : "pdr-sel-paper"}"${h ? ` data-id="${esc(h.id)}"` : ""}>Add to Paper</button>`;
+  const one = readerTarget(fid);
+  return `<button type="button" class="btn small${one ? " primary" : ""}" data-act="${h ? "pdr-paper" : "pdr-sel-paper"}"${h ? ` data-id="${esc(h.id)}"` : ""}${one ? ` title="Add it to ${esc(one.t.title)}"` : ""}>${one ? "Add as Quote" : "Add to Paper"}</button>`;
 }
+
+/* Highlighting from inside Writing Studio: the reader opens for one paper; each new highlight offers Add as Quote there and then,
+   and closing the reader comes back to the paper's Quotes. A PDF that's a source of exactly one open paper gets the same bar from anywhere. */
+let RD = null; // {tid, fid, n, shown}
+function readerTarget(fid){
+  if (RD && RD.fid === fid && state.tasks[RD.tid]) return {t: state.tasks[RD.tid], studio: true, n: RD.n};
+  const ps = allTasks().filter(t => t.status !== "done" && eligible(t) && t.ws && Array.isArray(t.ws.src) && t.ws.src.some(s => s && s.fid === fid));
+  return ps.length === 1 ? {t: ps[0], studio: false, n: 0} : null;
+}
+function readerBar(fid){
+  if (!window.SBPRO || SBPRO.locked() || inPreview()) return "";
+  const x = readerTarget(fid); if (!x) return "";
+  if (RD && RD.fid === fid) RD.shown = true;
+  return `<div class="pdr-ws" role="note">${ICON}<span class="pdr-ws-t">Writing Studio: <b>${esc(x.t.title)}</b></span><span class="mini" id="pdrWsN">${x.n ? `${x.n} quote${x.n === 1 ? "" : "s"} added` : "Highlight a passage to add it as a quote"}</span><span class="spacer"></span><button type="button" class="btn small" data-act="pdr-ws-back" data-id="${esc(x.t.id)}">${x.studio ? "Back to Writing Studio" : "Open"}</button></div>`;
+}
+// What the reader shows by a highlight just made, when it can go straight to a paper
+function hlPop(fid, h){
+  if (!h || h.m || !window.SBPRO || SBPRO.locked() || quotedIn(fid, h.id)) return "";
+  const x = readerTarget(fid); if (!x) return "";
+  return `<span class="mini pdr-pop-lbl">Highlighted.</span><button type="button" class="btn small primary" data-act="pdr-paper-to" data-id="${esc(h.id)}" data-t="${esc(x.t.id)}" title="Add it to ${esc(x.t.title)}">Add as Quote</button>`;
+}
+function openReader(tid, fid, page){
+  if (!state.files[fid] || !window.SBPRO || !SBPRO.openLink) return;
+  RD = {tid, fid, n: 0, shown: false};
+  SBPRO.openLink({kind: "file", id: fid}, Number(page) || 0);
+}
+// back from the reader: to the paper's Quotes, with what was added
+function fromReader(tid){
+  const was = RD; RD = null;
+  const id = tid || (was && was.tid); if (!id || !state.tasks[id]) return;
+  setTimeout(() => { if (dlg.open && !dlg.querySelector(".pdr-sheet")) return; open(id, "quotes"); if (was && was.n) W.okMsg = `${was.n} quote${was.n === 1 ? "" : "s"} added from ${state.files[was.fid] ? state.files[was.fid].name : "the PDF"}.`; if (shown()) draw(); }, 0);
+}
+dlg.addEventListener("close", () => {
+  if (!RD || !RD.shown || dlg.open || !dlg.querySelector(".pdr-sheet")) return;
+  fromReader(RD.tid);
+});
+
 function open(id, tab){
   const t = state.tasks[id]; if (!t) return;
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
-  if (W.tid !== id) Object.assign(W, {tid: id, draft: "", draftSrc: "", res: null, tab: "sources"});
-  Object.assign(W, {view: "", edit: null, err: "", busy: "", hlPick: null, imp: null, find: null});
+  RD = null;
+  if (W.tid !== id || W.hub) Object.assign(W, {tid: id, hub: "", paste: "", res: null, tab: "", found: null, show: null, diff: null, also: null, offerOff: false, okMsg: "", redo: false, attachFor: ""});
+  Object.assign(W, {view: "", edit: null, err: "", busy: "", hlPick: null, imp: null, find: null, pick: null});
+  // Check comes first, and feeds the other tabs; a paper with sources but no draft yet opens on its Sources
   if (tab) W.tab = tab;
+  else { const w = wsOf(t); W.tab = w.src.length && !w.draft ? "sources" : "check"; }
   draw(true);
 }
 
@@ -709,10 +971,18 @@ async function lookup(id){
 }
 // Adds items, skipping duplicates; returns {added, dup}
 function addItems(t, items, label){
-  const cur = state.tasks[t.id], w = wsOf(cur); let added = 0, dup = 0;
-  items.forEach(x => { if (w.src.length >= MAX_SRC) return; if (CITE.dupOf(x, w.src)) { dup++; return; } w.src.push(Object.assign(CITE.clean(x), {id: uid()})); added++; });
-  if (added) { w.style = w.style || styleOf(cur, w); save(cur, w, label || `Added ${added} source${added === 1 ? "" : "s"}`); }
-  return {added, dup};
+  const cur = state.tasks[t.id], w = wsOf(cur), ids = []; let dup = 0;
+  items.forEach(x => { if (w.src.length >= MAX_SRC) return; if (CITE.dupOf(x, w.src)) { dup++; return; } const id = uid(); w.src.push(Object.assign(CITE.clean(x), {id})); ids.push(id); });
+  if (ids.length) { w.style = w.style || styleOf(cur, w); save(cur, w, label || `Added ${ids.length} source${ids.length === 1 ? "" : "s"}`); if (W.tid === t.id) W.also = otherPapers(cur).length ? {ids} : null; }
+  return {added: ids.length, dup, ids};
+}
+// Other open papers in the same course, for "Also Add to Another Paper?"
+const otherPapers = t => !t || !t.courseId ? [] : allTasks().filter(x => x.id !== t.id && x.courseId === t.courseId && x.status !== "done" && eligible(x) && (!x.due || x.due >= todayISO())).sort((a, b) => String(a.due || "9").localeCompare(String(b.due || "9"))).slice(0, 3);
+function alsoAdd(from, to, ids){
+  const a = state.tasks[from], b = state.tasks[to]; if (!a || !b) return;
+  const items = wsOf(a).src.filter(s => ids.includes(s.id)).map(s => { const c = Object.assign({}, s); delete c.id; return c; });
+  const r = addItems(b, items, `Added ${items.length === 1 ? "it" : items.length + " sources"} to ${b.title}`);
+  if (!r.added) toast(`Already in ${b.title}`);
 }
 async function addFromInput(t, raw){
   const id = CITE.parseId(raw);
@@ -749,9 +1019,15 @@ function library(exceptTid){
 }
 
 /* ---------- Drawing ---------- */
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const cut = (s, n) => (s = String(s || "")).length > n ? s.slice(0, n - 1) + "…" : s;
+const wordsIn = s => (String(s || "").match(/\S+/g) || []).length;
+const ago = ms => { const d = Math.floor((Date.now() - ms) / 864e5); return !ms ? "" : d <= 0 ? "today" : d === 1 ? "yesterday" : d < 14 ? `${d} days ago` : "on " + new Date(ms).toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
+const normText = s => String(s || "").toLowerCase().replace(/[‘’“”"']/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const TABS = ["check", "sources", "quotes", "outline"];
 function tabsHtml(w){
   const tb = (k, l, n) => `<button type="button" role="tab" class="ws-tab" data-ws-tab="${k}" aria-selected="${W.tab === k}" ${W.tab === k ? "" : 'tabindex="-1"'}>${l}${n != null ? ` <span class="ws-n">${n}</span>` : ""}</button>`;
-  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}${tb("check", "Check")}</div>`;
+  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("check", "Check")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
 }
 function styleSel(st){
   const ext = extStyles(), ids = BUILT.map(b => b[0]).concat(Object.keys(ext).filter(k => !BUILT_FMT[k]));
@@ -759,21 +1035,49 @@ function styleSel(st){
   return `<label class="ws-style"><span class="mini">Style</span><select data-ws-style aria-label="Citation style">${ids.map(k => `<option value="${esc(k)}" ${k === st ? "selected" : ""}>${esc(styleName(k))}</option>`).join("")}<option value="__find">More styles…</option></select></label>`;
 }
 const citeHtml = rs => CITE.runsHtml(rs);
+// What the saved draft says about each source and quote (cited in it, used in it), worked out once per draft, list and style
+function usage(t, w){
+  const st = styleOf(t, w), key = [w.draft ? w.draft.h : "", st, !!engNow(st, w.src, w.lang), w.src.map(s => s.id + ":" + (s.title || "") + ":" + CITE.familyOf((s.author || s.editor || [])[0])).join(",")].join("|");
+  if (W.use && W.use.key === key && W.use.tid === t.id) return W.use;
+  const res = w.draft ? runCheck(t, w, w.draft.t) : null, dn = w.draft ? normText(w.draft.t) : "";
+  W.use = {key, tid: t.id, res, cited: new Set(res ? res.citedIds : []), used: q => !!dn && dn.includes(normText(q.t).slice(0, 80))};
+  return W.use;
+}
+// The strip at the top of every tab: how far along the paper is, each part a way to its tab
+function stripHtml(t, w){
+  const placed = w.q.filter(q => q.sec && w.out.some(s => s.id === q.sec)).length, c = w.chk, stale = !!(w.draft && c && c.h !== w.draft.h);
+  const chk = !w.draft ? "no draft yet" : !c ? "not checked yet" : stale ? "draft changed since the last check" : c.err ? `last check: ${c.err} to fix` : c.warn ? `last check: ${c.warn} to look at` : "last check: all good ✓";
+  const b = (tab, txt, cls) => `<button type="button" class="ws-sp${cls ? " " + cls : ""}${W.tab === tab ? " is-here" : ""}" data-ws-go="${tab}">${txt}</button>`;
+  return `<nav class="ws-strip" aria-label="This paper so far">${b("sources", plural(w.src.length, "source"))}<span class="ws-dot" aria-hidden="true"> · </span>${b("quotes", plural(w.q.length, "quote"))}<span class="ws-dot" aria-hidden="true"> · </span>${b("outline", `${placed} placed`)}<span class="ws-dot" aria-hidden="true"> · </span>${b("check", chk, c && !stale && c.err ? "bad" : c && !stale && !c.err && !c.warn ? "good" : "")}</nav>`;
+}
+function goalHtml(t, w){
+  const r = CITE.rules(reqText(t)); if (!r.min) return "";
+  const n = w.src.length, met = n >= r.min;
+  return `<div class="ws-goal${met ? " met" : ""}"><span class="mini"><b>${Math.min(n, 99)} of ${r.min}</b> ${r.scholarly ? "scholarly " : ""}sources the assignment asks for${met ? " ✓" : ""}</span><span class="ws-meter" role="progressbar" aria-label="Sources" aria-valuemin="0" aria-valuemax="${r.min}" aria-valuenow="${Math.min(n, r.min)}"><i style="width:${Math.min(100, Math.round(n / r.min * 100))}%"></i></span></div>`;
+}
+function alsoHtml(t){
+  if (!W.also || !W.also.ids.length) return "";
+  const ps = otherPapers(t); if (!ps.length) return "";
+  return `<div class="ws-also" role="status"><span class="mini">Also add ${W.also.ids.length === 1 ? "it" : "them"} to another paper?</span>${ps.map(p => `<button type="button" class="btn small" data-ws-also="${esc(p.id)}">${esc(cut(p.title, 34))}</button>`).join("")}<button type="button" class="link-btn" data-ws-alsono>No Thanks</button></div>`;
+}
 function sourcesHtml(t, w){
   const files = Object.values(state.files).filter(f => isPdfFile(f) && (f.taskIds.includes(t.id) || (t.courseId && f.courseId === t.courseId)) && !w.src.some(s => s.fid === f.id)).slice(0, 40);
-  const B = bibOf(t, w), st = B.st, z = zcred(), lib = library(t.id).filter(s => !CITE.dupOf(s, w.src)).length;
+  const B = bibOf(t, w), st = B.st, z = zcred(), lib = library(t.id).filter(s => !CITE.dupOf(s, w.src)).length, U = usage(t, w);
   const heading = CITE.headingOf(st, styleFmt(st));
-  return `<div class="ws-add"><label class="f ws-grow"><span class="lh">Add a source</span><input type="text" data-ws-in placeholder="Paste a DOI, arXiv ID, ISBN or link" value="${esc(W.inp || "")}" autocomplete="off" spellcheck="false" data-noenter></label>
+  const useTxt = s => { const n = w.q.filter(q => q.sid === s.id).length; return [n ? `Quoted ${n === 1 ? "once" : n + " times"}` : "No quotes yet", w.draft ? (U.cited.has(s.id) ? '<span class="ws-yes">Cited in draft ✓</span>' : '<span class="ws-no">Not cited yet</span>') : ""].filter(Boolean).join(" · "); };
+  return `${goalHtml(t, w)}<div class="ws-add"><label class="f ws-grow"><span class="lh">Add a source</span><input type="text" data-ws-in placeholder="Paste a DOI, arXiv ID, ISBN or link" value="${esc(W.inp || "")}" autocomplete="off" spellcheck="false" data-noenter></label>
       <button type="button" class="btn primary" data-ws-add ${W.busy ? "disabled" : ""}>${W.busy === "add" ? "Looking Up…" : "Add"}</button></div>
     <div class="ws-row ws-src-row"><button type="button" class="btn small ws-zbtn" data-ws-zot>${ZICON} ${z ? "From Zotero" : "Connect Zotero"}</button><button type="button" class="btn small" data-ws-imp>Import File</button><button type="button" class="btn small" data-ws-manual>Add by Hand</button>${lib ? `<button type="button" class="btn small" data-ws-lib>My Library <span class="ws-n">${lib}</span></button>` : ""}${files.length ? `<select data-ws-file aria-label="Add a PDF in Studyboard as a source"><option value="">Add a PDF from Studyboard…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
-    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}${alsoHtml(t)}
     ${W.engErr === st ? `<p class="mini ws-err">Couldn't load ${esc(styleName(st))}. ${BUILT_FMT[st] ? "Reload Studyboard and try again." : "It's fetched from zotero.org the first time: check your connection."}</p>` : ""}
-    ${B.entries.length ? `<h3 class="fsec ws-bibh">${esc(heading)} <span class="mini">${esc(styleName(st))}${B.ready ? "" : " · formatting…"}</span></h3><ol class="ws-refs${B.hang ? " hang" : ""}">${B.entries.map(e => { const s = w.src.find(y => y.id === e.id); if (!s) return ""; return `<li class="ws-ref">
+    ${B.entries.length ? `<h3 class="fsec ws-bibh">${esc(heading)} <span class="mini">${esc(styleName(st))}${B.ready ? "" : " · formatting…"}</span></h3><ol class="ws-refs${B.hang ? " hang" : ""}">${B.entries.map(e => { const s = w.src.find(y => y.id === e.id); if (!s) return ""; const pdf = s.fid && state.files[s.fid]; return `<li class="ws-ref">
         <p class="ws-cite">${citeHtml(e.runs)}</p>
-        <p class="mini ws-info">${CITE.keyName(s) ? "" : '<b class="ws-need">Needs a title and author</b> · '}${esc(typeName(s.type))}${s.zkey ? " · Zotero" : ""}${s.fid && state.files[s.fid] ? " · PDF in Studyboard" : ""} · In text: ${citeHtml(citeOf(t, w, s.id, ""))}</p>
-        <div class="ws-acts"><button type="button" class="ws-act" data-ws-copy="${esc(s.id)}">Copy</button><button type="button" class="ws-act" data-ws-edit="${esc(s.id)}">Edit</button>${s.fid && state.files[s.fid] ? `<button type="button" class="ws-act" data-ws-openf="${esc(s.fid)}">Open PDF</button>` : s.URL || s.DOI ? `<a class="ws-act" href="${esc(s.DOI ? "https://doi.org/" + s.DOI : s.URL)}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-rm="${esc(s.id)}" aria-label="Remove ${esc(String(s.title || "this source").slice(0, 60))}" title="Remove">${TRASH}</button></div></li>`; }).join("")}</ol>
+        <p class="mini ws-info">${CITE.keyName(s) ? "" : '<b class="ws-need">Needs a title and author</b> · '}${esc(typeName(s.type))}${s.zkey ? " · Zotero" : ""}${pdf ? " · PDF in Studyboard" : ""} · In text: ${citeHtml(citeOf(t, w, s.id, ""))}</p>
+        <p class="mini ws-use">${useTxt(s)}</p>
+        ${s.rv ? `<p class="mini ws-rv">Read from your draft's list, so check its details. <button type="button" class="link-btn" data-ws-edit="${esc(s.id)}">Check Details</button></p>` : ""}
+        <div class="ws-acts"><button type="button" class="ws-act" data-ws-copy="${esc(s.id)}">Copy</button><button type="button" class="ws-act" data-ws-ccopy="${esc(s.id)}">Copy In-Text</button><button type="button" class="ws-act" data-ws-edit="${esc(s.id)}">Edit</button>${pdf ? `<button type="button" class="ws-act" data-ws-openf="${esc(s.fid)}">Highlight PDF</button>` : `<button type="button" class="ws-act" data-ws-attach="${esc(s.id)}">Attach PDF</button>`}${s.URL || s.DOI ? `<a class="ws-act" href="${esc(s.DOI ? "https://doi.org/" + s.DOI : s.URL)}" target="_blank" rel="noopener noreferrer">Open Link</a>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-rm="${esc(s.id)}" aria-label="Remove ${esc(String(s.title || "this source").slice(0, 60))}" title="Remove">${TRASH}</button></div></li>`; }).join("")}</ol>
         ${w.src.some(s => s.zkey) && z ? `<p class="mini" style="margin:0"><button type="button" class="link-btn" data-ws-zsync>Update From Zotero</button> refreshes the ${w.src.filter(s => s.zkey).length} source${w.src.filter(s => s.zkey).length === 1 ? "" : "s"} that came from Zotero.</p>` : ""}`
-      : `<div class="ws-empty"><b>No sources yet.</b><p class="mini">Paste a DOI (10.1037/…), an ISBN or a link above, pull them from Zotero, or import a BibTeX or RIS file. Your citations and ${esc(heading)} list build themselves.</p></div>`}
+      : `<div class="ws-empty"><b>No sources yet.</b><p class="mini">Paste a DOI (10.1037/…), an ISBN or a link above, pull them from Zotero, or import a BibTeX or RIS file. ${w.draft ? "Or check your draft: the sources in its list can be added in one go." : `Your citations and ${esc(heading)} list build themselves.`}</p>${w.draft ? `<button type="button" class="btn small" data-ws-go="check">Check My Draft</button>` : ""}</div>`}
     <p class="mini ws-priv">DOIs are looked up at doi.org and ISBNs with Open Library; only the number is sent. Citations are made on this device with citeproc-js and CSL, the engine and styles Zotero uses.</p>`;
 }
 const TRASH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
@@ -855,75 +1159,169 @@ async function styleList(){
   return STYLE_LIST;
 }
 function quotesHtml(t, w){
-  const secName = id => (w.out.find(s => s.id === id) || {}).t || "", pick = W.hlPick, note = styleFmt(styleOf(t, w)) === "note";
+  const secName = id => (w.out.find(s => s.id === id) || {}).t || "", pick = W.hlPick, note = styleFmt(styleOf(t, w)) === "note", U = usage(t, w);
   if (pick) {
     return `<p style="margin:0">Pick the highlights to add as quotes. Each keeps its page, and its PDF becomes a source if it isn't one yet.</p>
       ${pick.length ? `<div class="ws-hls">${pick.map(g => `<fieldset class="ws-hlf"><legend><b>${esc(g.name)}</b></legend>${g.hl.map(h => `<label class="ws-hl"><input type="checkbox" data-ws-hl="${esc(g.fid)}:${esc(h.id)}" checked><span>“${esc(h.t.slice(0, 300))}${h.t.length > 300 ? "…" : ""}” <span class="mini">p. ${esc(String(h.p))}</span></span></label>`).join("")}</fieldset>`).join("")}</div>`
-        : `<div class="ws-empty"><b>No new highlights.</b><p class="mini">Open a PDF for this paper in the reader, highlight the passages you want to use, and they show up here.</p></div>`}`;
+        : `<div class="ws-empty"><b>No new highlights.</b><p class="mini">Open a PDF to highlight: each passage you highlight can go straight in as a quote.</p><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button></div>`}`;
   }
-  return `<div class="ws-row"><button type="button" class="btn small primary" data-ws-hlpick>Add From Highlights</button><button type="button" class="btn small" data-ws-qnew>Add a Quote</button></div>
+  return `<div class="ws-row"><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button><button type="button" class="btn small" data-ws-hlpick>Add From Highlights</button><button type="button" class="btn small" data-ws-qnew>Add a Quote</button></div>
     ${W.qform ? `<div class="ws-qform"><label class="f"><span class="lh">Quote</span><textarea data-wq-t rows="3" data-noenter></textarea></label>
       <div class="ws-row"><select data-wq-s aria-label="Source">${w.src.length ? w.src.map(s => `<option value="${esc(s.id)}">${esc(srcLabel(s))}</option>`).join("") : `<option value="">Add a source first</option>`}</select><label class="ws-pg"><span class="mini">Page</span><input type="text" data-wq-p inputmode="numeric" size="5"></label><button type="button" class="btn small primary" data-wq-save ${w.src.length ? "" : "disabled"}>Save Quote</button></div></div>` : ""}
-    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : ""}
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
     ${w.q.length ? `<ul class="ws-qs">${w.q.map(q => { const s = w.src.find(x => x.id === q.sid); return `<li class="ws-q">
         <blockquote>“${esc(q.t)}”</blockquote>
-        <p class="mini ws-info">${s ? (note ? "Footnote: " : "") + citeHtml(citeOf(t, w, s.id, q.p)) : "No source"}${q.sec && secName(q.sec) ? ` · in ${esc(secName(q.sec))}` : ""}</p>
+        <p class="mini ws-info">${s ? (note ? "Footnote: " : "") + citeHtml(citeOf(t, w, s.id, q.p)) : "No source"}${q.sec && secName(q.sec) ? ` · in ${esc(secName(q.sec))}` : ""}${U.used(q) ? ' · <span class="ws-yes">Used in draft ✓</span>' : ""}</p>
         <div class="ws-acts"><button type="button" class="ws-act" data-ws-qcopy="${esc(q.id)}">Copy With Citation</button>${q.fid && state.files[q.fid] ? `<button type="button" class="ws-act" data-ws-qopen="${esc(q.id)}">Open Page ${esc(String(q.p || ""))}</button>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-qrm="${esc(q.id)}" aria-label="Remove this quote" title="Remove">${TRASH}</button></div></li>`; }).join("")}</ul>`
-      : `<div class="ws-empty"><b>No quotes yet.</b><p class="mini">Highlight passages in the PDF reader, then Add From Highlights. Every quote keeps its source and page, so you'll always know where you read it.</p></div>`}`;
+      : `<div class="ws-empty"><b>No quotes yet.</b><p class="mini">Open a PDF to highlight: each passage you highlight can go in as a quote, with its source and page. Quotes already in your draft show up on Check.</p></div>`}`;
 }
 function outlineHtml(t, w){
   const steps = allTasks().filter(x => x.breakdownOf === t.id).sort((a, b) => String(a.due).localeCompare(String(b.due)));
   const qHtml = q => `<li class="ws-oq" draggable="true" data-ws-dq="${esc(q.id)}"><span class="ws-grip" aria-hidden="true">⋮⋮</span><span class="ws-oqt">“${esc(q.t.length > 220 ? q.t.slice(0, 220) + "…" : q.t)}” <span class="mini">${q.sid ? citeHtml(citeOf(t, w, q.sid, q.p)) : ""}</span></span>
     <select data-ws-mv="${esc(q.id)}" aria-label="Move this quote to a section"><option value="">Not placed</option>${w.out.map(s2 => `<option value="${esc(s2.id)}" ${q.sec === s2.id ? "selected" : ""}>${esc(s2.t)}</option>`).join("")}</select></li>`;
-  const loose = w.q.filter(q => !q.sec || !w.out.some(s => s.id === q.sec));
+  const loose = w.q.filter(q => !q.sec || !w.out.some(s => s.id === q.sec)), empty = w.out.filter(s => !w.q.some(q => q.sec === s.id));
   if (!w.out.length) return `<div class="ws-empty"><b>Start an outline.</b><p class="mini">Make sections, then drag your quotes into them. Export it to Word or Google Docs with the citations in place.</p>
       <div class="ws-row" style="justify-content:center"><button type="button" class="btn small primary" data-ws-seed="basic">Introduction, Body, Conclusion</button>${steps.length ? `<button type="button" class="btn small" data-ws-seed="steps">Use the ${steps.length} Milestones</button>` : ""}<button type="button" class="btn small" data-ws-secadd>Add a Section</button></div></div>`;
+  const gaps = [loose.length ? `${plural(loose.length, "quote")} never placed` : "", w.q.length && empty.length ? `${plural(empty.length, "section")} with no quotes` : ""].filter(Boolean);
   return `<p class="mini" style="margin:0">Drag quotes into a section (or use each quote's menu). Notes are your own words, for you.</p>
+    ${gaps.length ? `<p class="mini ws-gaps" role="status">${esc(gaps.join(" · "))}</p>` : w.q.length ? `<p class="mini ws-ok" role="status">Every quote is placed, and every section has one ✓</p>` : ""}
     <div class="ws-drop ws-loose" data-ws-drop=""><div class="ws-sech"><b>Not placed yet</b><span class="mini">${loose.length}</span></div>${loose.length ? `<ul class="ws-oqs">${loose.map(qHtml).join("")}</ul>` : `<p class="mini" style="margin:0">Every quote has a place.</p>`}</div>
-    <ol class="ws-secs">${w.out.map((s, i) => { const qs = w.q.filter(q => q.sec === s.id); return `<li class="ws-drop ws-sec" data-ws-drop="${esc(s.id)}">
+    <ol class="ws-secs">${w.out.map((s, i) => { const qs = w.q.filter(q => q.sec === s.id); return `<li class="ws-drop ws-sec${qs.length ? "" : " is-empty"}" data-ws-drop="${esc(s.id)}">
       <div class="ws-sech"><input type="text" class="ws-sect" data-ws-sect="${esc(s.id)}" value="${esc(s.t)}" aria-label="Section name" maxlength="120"><span class="mini">${qs.length}</span>
         <button type="button" class="icon-btn" data-ws-up="${esc(s.id)}" aria-label="Move ${esc(s.t)} up" ${i ? "" : "disabled"}>↑</button><button type="button" class="icon-btn" data-ws-dn="${esc(s.id)}" aria-label="Move ${esc(s.t)} down" ${i < w.out.length - 1 ? "" : "disabled"}>↓</button><button type="button" class="icon-btn" data-ws-secrm="${esc(s.id)}" aria-label="Remove section ${esc(s.t)}">✕</button></div>
       <textarea class="ws-secn" data-ws-secn="${esc(s.id)}" rows="1" placeholder="Your notes for this section" data-noenter>${esc(s.n || "")}</textarea>
-      ${qs.length ? `<ul class="ws-oqs">${qs.map(qHtml).join("")}</ul>` : `<p class="mini ws-hint">Drop quotes here</p>`}</li>`; }).join("")}</ol>
+      ${qs.length ? `<ul class="ws-oqs">${qs.map(qHtml).join("")}</ul>` : `<p class="mini ws-hint">${w.q.length ? "No quotes here yet: drop one in" : "Drop quotes here"}</p>`}</li>`; }).join("")}</ol>
     <div class="ws-row"><button type="button" class="btn small" data-ws-secadd>Add a Section</button></div>`;
 }
-function checkHtml(t, w){
-  const files = Object.values(state.files).filter(f => f && f.kind !== "link" && (f.taskIds.includes(t.id) || (t.courseId && f.courseId === t.courseId)) && /\.(pdf|docx|txt|md)$/i.test(f.name || "")).slice(0, 40);
-  const r = W.res, words = W.draft.trim() ? W.draft.trim().split(/\s+/).length : 0, req = CITE.rules(reqText(t)), st = styleOf(t, w);
-  const ic = {err: "✕", warn: "!", ok: "✓"};
-  return `<p style="margin:0">Check your draft's citations against your sources before you hand it in. It runs on this device and never changes your writing.</p>
-    ${req.style || req.min ? `<p class="mini ws-note">From the assignment: ${esc([req.style ? styleName(req.style) : "", req.min ? `at least ${req.min}${req.scholarly ? " scholarly" : ""} sources` : ""].filter(Boolean).join(", "))}.</p>` : ""}
-    <label class="f"><span class="lh">Your Draft <span class="hint" data-ws-wc>${words ? `about ${words} words` : ""}</span></span><textarea data-ws-draft rows="7" data-noenter placeholder="Paste your draft, with its ${esc(CITE.headingOf(st, styleFmt(st)))} list">${esc(W.draft)}</textarea></label>
-    <div class="ws-row"><span class="mini ws-grow">${esc(W.draftSrc)}</span><label class="btn small ws-pick">Upload Draft<input type="file" accept=".pdf,.docx,.txt,.md,application/pdf,text/plain" data-ws-dfile class="sr" tabindex="-1" aria-label="Choose your draft file"></label>${files.length ? `<select data-ws-dpick aria-label="Use a file in Studyboard"><option value="">Or use a file in Studyboard</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
-    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : ""}
-    ${r ? `<div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at</p>
-      <ul class="ws-issues">${r.issues.map(x => `<li class="ws-is k-${x.k}"><span class="ws-ic" aria-hidden="true">${ic[x.k]}</span><span><b>${esc(x.t)}</b>${x.d ? `<span class="mini">${esc(x.d)}</span>` : ""}${x.fix && x.fix.startsWith("style:") ? ` <button type="button" class="link-btn" data-ws-setst="${esc(x.fix.slice(6))}">Switch to ${esc(styleShort(x.fix.slice(6)))}</button>` : ""}</span></li>`).join("")}</ul></div>` : ""}`;
+
+/* Check: the draft, saved on the paper; the check; what changed since the last one; what the draft has that the paper doesn't yet */
+const DRAFT_EXT = /\.(pdf|docx|txt|md)$/i;
+const fileName = f => String((curRev(f) || {}).name || f.name || "");
+const fileAt = f => Math.max(Number(f.created) || 0, ...(f.revs || []).map(r => Number(r && r.at) || 0));
+// a draft-like file attached to the assignment (not one of its sources), to offer when there's no draft yet
+function draftOffer(t, w){
+  const srcF = new Set(w.src.map(s => s.fid).filter(Boolean));
+  const fs = Object.values(state.files).filter(f => f && f.kind === "file" && (f.revs || []).length && (f.taskIds || []).includes(t.id) && !srcF.has(f.id) && DRAFT_EXT.test(fileName(f)));
+  const score = f => (/draft|essay|paper|final|report|write|submission/i.test(f.name) ? 4 : 0) + (/\.docx$/i.test(fileName(f)) ? 2 : /\.(txt|md)$/i.test(fileName(f)) ? 1 : 0);
+  return fs.sort((a, b) => score(b) - score(a) || fileAt(b) - fileAt(a))[0] || null;
 }
-function runCheck(t){
-  const w = wsOf(t), st = styleOf(t, w), names = {}; BUILT.forEach(([k, n]) => { names[k] = n; });
+function draftView(text, x){
+  let html = esc(text);
+  if (x && x.at != null) {
+    const a = Math.max(0, x.at), b = Math.min(text.length, a + (x.len || 1)), [s0, e0] = CITE.sentenceAt(text, a, b - a), s = Math.min(s0, a), e = Math.max(e0, b);
+    html = esc(text.slice(0, s)) + `<mark class="ws-mark">${esc(text.slice(s, a))}<b>${esc(text.slice(a, b))}</b>${esc(text.slice(b, e))}</mark>` + esc(text.slice(e));
+  }
+  return `<div class="ws-dv" tabindex="0" role="region" aria-label="Your draft, read only">${html}</div>`;
+}
+function foundHtml(t, w){
+  const F = W.found; if (!F || F.tid !== t.id || !w.draft || F.h !== w.draft.h) return "";
+  const refs = F.refs.filter(r => !r.dup), dupN = F.refs.length - refs.length, qs = F.quotes, st = styleOf(t, w), head = CITE.headingOf(st, styleFmt(st));
+  if (!refs.length && !qs.length) return F.refs.length ? `<p class="mini ws-ok">Every entry in your ${esc(head)} list is one of your sources ✓</p>` : "";
+  const nR = refs.filter(r => F.sel.has(r.k)).length, nQ = qs.filter(q => F.sel.has(q.k)).length;
+  const meta = it => [CITE.familyOf((it.author || it.editor || [])[0]), CITE.yearOf(it), typeName(it.type)].filter(Boolean).join(" · ");
+  return `<section class="ws-found" aria-label="Found in your draft"><h3 class="fsec">Found in Your Draft</h3>
+    ${refs.length ? `<p class="mini" style="margin:0">${plural(refs.length, "entry").replace("entrys", "entries")} in your ${esc(head)} list ${refs.length === 1 ? "isn't a source" : "aren't sources"} here yet${dupN ? ` (${dupN} already ${dupN === 1 ? "is" : "are"})` : ""}. Ones with a DOI or ISBN are looked up for their full details; the rest are read from your list, so check them after.</p>
+      <ul class="ws-picks ws-fl">${refs.map(r => `<li><label class="ws-hl"><input type="checkbox" data-wf-ref="${esc(r.k)}" ${F.sel.has(r.k) ? "checked" : ""}><span><b>${esc(r.it.title || "Untitled")}</b> <span class="mini">${esc(meta(r.it))} · ${r.st === "look" ? "Looking up…" : r.st === "ok" ? `Found by ${r.it.ISBN && !r.it.DOI ? "ISBN" : "DOI"} ✓` : "Read from your list: check it"}</span></span></label></li>`).join("")}</ul>
+      <div class="ws-row"><button type="button" class="btn small primary" data-wf-addrefs ${nR ? "" : "disabled"}>Add ${nR} Source${nR === 1 ? "" : "s"}</button></div>` : ""}
+    ${qs.length ? `<p class="mini" style="margin:0">${plural(qs.length, "quoted passage")} with a citation after ${qs.length === 1 ? "it" : "them"}. Add them as quotes, each with its source and page.</p>
+      <ul class="ws-picks ws-fq">${qs.map(q => `<li><label class="ws-hl"><input type="checkbox" data-wf-q="${esc(q.k)}" ${F.sel.has(q.k) ? "checked" : ""}><span>“${esc(cut(q.t, 220))}” <span class="mini">${esc(q.cite)}${q.p ? ` · p. ${esc(q.p)}` : ""}</span></span></label>
+        <select data-wf-qs="${esc(q.k)}" aria-label="Source for this quote"><option value="">Which source?</option>${w.src.map(s => `<option value="${esc(s.id)}" ${q.sid === s.id ? "selected" : ""}>${esc(srcLabel(s))}</option>`).join("")}</select></li>`).join("")}</ul>
+      <div class="ws-row"><button type="button" class="btn small primary" data-wf-addq ${nQ ? "" : "disabled"}>Add ${nQ} Quote${nQ === 1 ? "" : "s"}</button></div>` : ""}
+  </section>`;
+}
+function checkHtml(t, w){
+  const req = CITE.rules(reqText(t)), st = styleOf(t, w), d = w.draft, editing = !d || W.redo;
+  const ic = {err: "✕", warn: "!", ok: "✓"};
+  let h = `<p style="margin:0">Check your draft's citations against your sources before you hand it in. It runs on this device and never changes your writing.</p>
+    ${req.style || req.min ? `<p class="mini ws-note">From the assignment: ${esc([req.style ? styleName(req.style) : "", req.min ? `at least ${req.min}${req.scholarly ? " scholarly" : ""} sources` : ""].filter(Boolean).join(", "))}.</p>` : ""}`;
+  if (editing) {
+    const off = !d && !W.offerOff ? draftOffer(t, w) : null, words = wordsIn(W.paste);
+    h += `${off ? `<div class="ws-offer" role="note"><span>Use <b>${esc(off.name)}</b>? It's attached to this assignment.</span><span class="ws-row"><button type="button" class="btn small primary" data-ws-dsel="f:${esc(off.id)}">Use It</button><button type="button" class="link-btn" data-ws-offno>Not Now</button></span></div>` : ""}
+      <label class="f"><span class="lh">Your Draft <span class="hint" data-ws-wc>${words ? `about ${words} words` : ""}</span></span><textarea data-ws-draft rows="7" data-noenter placeholder="Paste your draft, with its ${esc(CITE.headingOf(st, styleFmt(st)))} list">${esc(W.paste)}</textarea></label>
+      <div class="ws-row"><span class="mini ws-grow">It's kept with this paper, so next time Check just runs again.</span><label class="btn small ws-pick">Upload Draft<input type="file" accept=".pdf,.docx,.txt,.md,application/pdf,text/plain" data-ws-dfile class="sr" tabindex="-1" aria-label="Choose your draft file"></label><button type="button" class="btn small" data-ws-dpick>Choose From Studyboard</button></div>
+      ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "read" ? `<p class="mini" role="status">Reading your draft…</p>` : ""}`;
+    return h;
+  }
+  const c = w.chk, stale = !c || c.h !== d.h, r = usage(t, w).res;
+  h += `<div class="ws-draft"><div class="ws-draft-t"><b>Your Draft</b><span class="mini">${esc(d.from && d.from !== "Pasted" ? "From " + d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words · saved ${esc(ago(d.at))}</span>
+      <span class="mini${stale ? " ws-no" : ""}">${!c ? "Not checked yet" : stale ? `Changed since the last check (${esc(ago(c.at))})` : `Checked ${esc(ago(c.at))}: ${c.err} to fix · ${c.warn} to look at`}</span></div>
+    <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button><span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
+    ${W.show === "all" ? draftView(d.t, null) : ""}</div>
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
+    ${W.diff ? `<p class="ws-diff" role="status">${W.diff.fixed || W.diff.fresh ? `Since your last check: <b>${W.diff.fixed} fixed</b>, ${W.diff.fresh} new.` : "Nothing changed since your last check."}</p>` : ""}
+    ${foundHtml(t, w)}
+    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at</p>
+      <ul class="ws-issues">${r.issues.map((x, i) => `<li class="ws-is k-${x.k}${W.show === i ? " is-open" : ""}"><span class="ws-ic" aria-hidden="true">${ic[x.k]}</span><span>${x.at != null ? `<button type="button" class="ws-is-b" data-ws-show="${i}" aria-expanded="${W.show === i}"><b>${esc(x.t)}</b><span class="ws-is-go">${W.show === i ? "Hide" : "Show in Draft"}</span></button>` : `<b>${esc(x.t)}</b>`}${x.d ? `<span class="mini">${esc(x.d)}</span>` : ""}${x.fix && x.fix.startsWith("style:") ? ` <button type="button" class="link-btn" data-ws-setst="${esc(x.fix.slice(6))}">Switch to ${esc(styleShort(x.fix.slice(6)))}</button>` : ""}${W.show === i ? draftView(d.t, x) : ""}</span></li>`).join("")}</ul></div>`;
+  return h;
+}
+function runCheck(t, w, text){
+  w = w || wsOf(t); const st = styleOf(t, w), names = {}; BUILT.forEach(([k, n]) => { names[k] = n; });
   const B = bibOf(t, w), order = styleFmt(st) === "numeric" ? B.entries.map(e => e.id) : null;
-  return CITE.check(W.draft, order ? order.map(id => w.src.find(s => s.id === id)).filter(Boolean) : w.src, {style: st, kind: styleFmt(st), label: styleShort(st), req: reqText(t), names});
+  return CITE.check(text, order ? order.map(id => w.src.find(s => s.id === id)).filter(Boolean) : w.src, {style: st, kind: styleFmt(st), label: styleShort(st), req: reqText(t), names});
+}
+
+/* Pickers: a draft from anywhere in Studyboard, a PDF to attach to a source, a PDF to highlight */
+function fileGroups(t, ok, q){
+  const qq = String(q || "").trim().toLowerCase(), all = Object.values(state.files).filter(f => f && f.kind === "file" && (f.revs || []).length && ok(f) && (!qq || String(f.name || "").toLowerCase().includes(qq)));
+  const recent = (a, b) => fileAt(b) - fileAt(a), mine = all.filter(f => (f.taskIds || []).includes(t.id)).sort(recent);
+  const course = all.filter(f => !mine.includes(f) && t.courseId && f.courseId === t.courseId).sort(recent), rest = all.filter(f => !mine.includes(f) && !course.includes(f)).sort(recent);
+  return [["This Assignment", mine], ["This Course", course], ["All Files", rest]].filter(g => g[1].length);
+}
+const courseName = id => { const c = id && typeof courseOf === "function" ? courseOf(id) : null; return c ? (typeof courseLabel === "function" ? courseLabel(c) : c.name) : ""; };
+const rowsHtml = (list, attr, btn) => `<ul class="ws-flist">${list.map(x => `<li><span class="ws-fn"><b>${esc(x.name)}</b><span class="mini">${esc(x.meta)}</span></span><button type="button" class="btn small" ${attr}="${esc(x.id)}">${btn}</button></li>`).join("")}</ul>`;
+const fileRow = (f, extra) => ({id: "f:" + f.id, name: f.name, meta: [String(fileName(f).split(".").pop() || "").toUpperCase(), courseName(f.courseId), extra || "", fileAt(f) ? ago(fileAt(f)).replace(/^on /, "") : ""].filter(Boolean).join(" · ")});
+const noteTitle = n => String(n.text || "").trim().split("\n")[0].replace(/^#+\s*/, "").slice(0, 80) || "Untitled note";
+function searchBox(ph){ return `<div class="ws-add"><label class="f ws-grow"><span class="lh">Search</span><input type="search" data-wp-q value="${esc((W.pick || {}).q || "")}" placeholder="${esc(ph)}" data-noenter></label></div>`; }
+function draftsHtml(t){
+  const P = W.pick || {}, qq = String(P.q || "").trim().toLowerCase();
+  const groups = fileGroups(t, f => DRAFT_EXT.test(fileName(f)), P.q).map(([h, l]) => [h, l.slice(0, 40).map(f => fileRow(f))]);
+  const notes = Object.values(state.notes || {}).filter(n => n && n.id && wordsIn(n.text) >= 60 && (!qq || String(n.text).toLowerCase().includes(qq))).sort((a, b) => ((b.courseId === t.courseId) - (a.courseId === t.courseId)) || (Number(b.updated || b.created) || 0) - (Number(a.updated || a.created) || 0)).slice(0, 30)
+    .map(n => ({id: "n:" + n.id, name: noteTitle(n), meta: ["Note", courseName(n.courseId), `about ${wordsIn(n.text)} words`].filter(Boolean).join(" · ")}));
+  if (notes.length) groups.push(["Your Notes", notes]);
+  return `<p style="margin:0">Pick your draft: a Word file, PDF or text file in Studyboard, or one of your notes. It's read on this device and kept with this paper.</p>
+    ${searchBox("File or note name")}
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "read" ? `<p class="mini" role="status">Reading your draft…</p>` : ""}
+    ${groups.length ? groups.map(([h, l]) => `<h3 class="fsec">${esc(h)}</h3>${rowsHtml(l, "data-ws-dsel", "Use")}`).join("") : `<div class="ws-empty"><b>${qq ? "Nothing matches." : "No drafts in Studyboard yet."}</b><p class="mini">Word files (.docx), PDFs, text files and longer notes show up here. Or go back and upload or paste your draft.</p></div>`}`;
+}
+function pdfPickHtml(t, w, mode){
+  const P = W.pick || {}, srcF = new Map(w.src.filter(s => s.fid).map(s => [s.fid, s]));
+  const extra = f => [srcF.has(f.id) ? "a source" : "", hlOf(f).length ? plural(hlOf(f).length, "highlight") : ""].filter(Boolean).join(" · ");
+  let groups;
+  if (mode === "hlpdf") {
+    const mine = w.src.map(s => s.fid && state.files[s.fid]).filter(f => f && isPdfFile(f)), qq = String(P.q || "").trim().toLowerCase();
+    groups = [["This Paper's Sources", mine.filter(f => !qq || f.name.toLowerCase().includes(qq))]].concat(fileGroups(t, f => isPdfFile(f) && !srcF.has(f.id), P.q).filter(g => g[0] !== "All Files" || qq))
+      .map(([h, l]) => [h, l.slice(0, 40).map(f => fileRow(f, extra(f)))]).filter(g => g[1].length);
+  } else groups = fileGroups(t, f => isPdfFile(f) && !srcF.has(f.id), P.q).map(([h, l]) => [h, l.slice(0, 40).map(f => fileRow(f, extra(f)))]);
+  const s = mode === "attach" ? w.src.find(x => x.id === W.attachFor) : null;
+  return `<p style="margin:0">${mode === "attach" ? `Pick the PDF of <b>${esc(cut(s ? s.title || "this source" : "this source", 80))}</b>, so you can highlight it and add quotes.` : "Open a PDF in the reader: each passage you highlight can go straight into this paper as a quote, with its page. Close the reader to come back here."}</p>
+    ${searchBox("PDF name")}
+    <div class="ws-row"><label class="btn small ws-pick">Upload a PDF<input type="file" accept=".pdf,application/pdf" data-wp-up class="sr" tabindex="-1" aria-label="Upload a PDF"></label><span class="mini ws-grow">It's added to this assignment's files.</span></div>
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "up" ? `<p class="mini" role="status">Uploading…</p>` : ""}
+    ${groups.length ? groups.map(([h, l]) => `<h3 class="fsec">${esc(h)}</h3>${rowsHtml(l, mode === "attach" ? "data-wp-attach" : "data-wp-open", mode === "attach" ? "Attach" : "Open")}`).join("") : `<div class="ws-empty"><b>${P.q ? "Nothing matches." : "No PDFs here yet."}</b><p class="mini">Upload one above${mode === "hlpdf" ? ", or attach a PDF to a source on the Sources tab" : ""}.</p></div>`}`;
 }
 function footHtml(t, w){
   const back = `<button type="button" class="btn" data-act="edit-task" data-id="${esc(t.id)}">Back to Task</button><span class="spacer"></span>`, cancel = `<button type="button" class="btn" data-ws-vback>Back</button><span class="spacer"></span>`;
   if (W.view === "zotero") { const z = zcred(), n = W.z && W.z.sel ? W.z.sel.size : 0; return cancel + (z ? `<button type="button" class="btn primary" data-wz-add ${n && !W.busy ? "" : "disabled"}>${W.busy === "z" ? "Adding…" : `Add ${n || ""} to This Paper`}</button>` : `<button type="button" class="btn primary" data-wz-connect ${W.busy ? "disabled" : ""}>${W.busy === "zc" ? "Connecting…" : "Connect"}</button>`); }
   if (W.view === "import") return cancel + (W.imp && W.imp.items ? `<button type="button" class="btn primary" data-wi-add>Add Selected</button>` : `<button type="button" class="btn primary" data-wi-read>Read</button>`);
   if (W.view === "library") return cancel + `<button type="button" class="btn primary" data-wl-add>Add Selected</button>`;
-  if (W.view === "styles") return cancel;
+  if (W.view) return cancel;
   if (W.tab === "sources" && W.edit) return `<button type="button" class="btn" data-ws-cancel>Cancel</button><span class="spacer"></span><button type="button" class="btn primary" data-ws-esave>Save Source</button>`;
   if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button><button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
   if (W.tab === "quotes" && W.hlPick) return `<button type="button" class="btn" data-ws-hlcancel>Cancel</button><span class="spacer"></span>${W.hlPick.length ? `<button type="button" class="btn primary" data-ws-hladd ${W.busy ? "disabled" : ""}>${W.busy === "hl" ? "Adding…" : "Add Quotes"}</button>` : ""}`;
   if (W.tab === "outline") return back + (w.out.length || w.q.length ? `<button type="button" class="btn primary" data-ws-export>Export…</button>` : "");
-  if (W.tab === "check") return back + `<button type="button" class="btn primary" data-ws-check>Check My Citations</button>`;
+  if (W.tab === "check") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
   return back + `<button type="button" class="btn primary" data-act="close">Done</button>`;
 }
 function draw(fresh){
+  if (W.hub) { drawHub(fresh); return; }
   const t = state.tasks[W.tid]; if (!t) { if (shown()) dlg.close(); return; }
   const w = wsOf(t), st = styleOf(t, w);
-  const VIEW = {zotero: ["Zotero", () => zotHtml(t, w)], import: ["Import Sources", impHtml], library: ["My Library", () => libHtml(t, w)], styles: ["More Styles", findHtml]}[W.view];
+  const VIEW = {zotero: ["Zotero", () => zotHtml(t, w)], import: ["Import Sources", impHtml], library: ["My Library", () => libHtml(t, w)], styles: ["More Styles", findHtml],
+    drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")]}[W.view];
+  if (!TABS.includes(W.tab)) W.tab = "check";
   const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
-    ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
+    ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
   if (shown()) W.el.innerHTML = inner;
   else { openSheet(`<div class="sheet ws-sheet">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
@@ -1067,6 +1465,170 @@ async function zsync(t){
   W.busy = ""; if (shown()) draw();
 }
 
+/* ---------- The draft and its check ---------- */
+async function readFileText(f){ let x = ""; try { x = window.SBFILETEXT ? String(await SBFILETEXT(f.id, 400000) || "").trim() : ""; } catch (e) { x = ""; } return x.replace(/\s/g, "").length >= 20 ? x : ""; }
+// keeps a draft on the paper, then checks it
+function useDraft(tid, text, o){
+  const t = state.tasks[tid]; if (!t) return;
+  const w = wsOf(t); w.draft = makeDraft(text, o); w.style = w.style || styleOf(t, w);
+  save(t, w, null);
+  Object.assign(W, {paste: "", redo: false, busy: "", err: "", show: null, view: "", tab: "check"});
+  doCheck(state.tasks[tid], {first: true});
+}
+// a draft picked in Studyboard: "f:<file id>" or "n:<note id>"
+async function pickDraft(tid, key){
+  const id = String(key || "").slice(2);
+  if (/^n:/.test(key)) { const n = state.notes[id]; if (!n) return; useDraft(tid, String(n.text || ""), {from: noteTitle(n), nid: n.id}); return; }
+  const f = state.files[id]; if (!f) return;
+  W.busy = "read"; W.err = ""; draw();
+  const x = await readFileText(f);
+  if (!x) { W.busy = ""; W.err = `Couldn't read the text in ${f.name} (a scan, or not on this device yet). Paste your draft instead.`; if (shown()) draw(); return; }
+  useDraft(tid, x, {from: f.name, fid: f.id, r: (curRev(f) || {}).assetId || ""});
+}
+// Check (again): a draft from a file or note in Studyboard is read again first when that file or note has changed since
+async function doCheck(t, o){
+  o = o || {}; if (!t) return;
+  let w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  if (o.reread && w.draft.fid && state.files[w.draft.fid]) {
+    const f = state.files[w.draft.fid], rv = (curRev(f) || {}).assetId || "";
+    if (rv && rv !== w.draft.r) { W.busy = "read"; draw(); const x = await readFileText(f); W.busy = ""; if (x) { w = wsOf(state.tasks[t.id]); w.draft = makeDraft(x, {from: f.name, fid: f.id, r: rv}); W.okMsg = `Read the newer version of ${f.name}.`; } }
+  }
+  if (o.reread && w.draft.nid && state.notes[w.draft.nid]) { const n = state.notes[w.draft.nid], d = makeDraft(String(n.text || ""), {from: noteTitle(n), nid: n.id}); if (d.h !== w.draft.h) { w.draft = d; W.okMsg = `Read the latest ${noteTitle(n)}.`; } }
+  const cur = state.tasks[t.id]; if (!cur) return;
+  const res = runCheck(cur, w, w.draft.t), prev = w.chk;
+  // a replaced draft is compared with the last check too: what the new version fixed, and what it brought
+  W.diff = prev ? CITE.diffIssues(prev.keys, res) : null;
+  w.chk = {at: Date.now(), h: w.draft.h, keys: CITE.issueKeys(res).slice(0, 60), err: res.issues.filter(x => x.k === "err").length, warn: res.issues.filter(x => x.k === "warn").length, cited: res.cited, total: res.total};
+  save(cur, w, null);
+  W.show = null; if (!o.quiet && !o.first) W.okMsg = W.okMsg && /^Read the/.test(W.okMsg) ? W.okMsg : "";
+  findInDraft(state.tasks[t.id]);
+  if (shown() && W.tid === t.id) { draw(); const r = W.el.querySelector(".ws-found") || W.el.querySelector(".ws-res"); if (r && r.scrollIntoView && !o.quiet) r.scrollIntoView({block: "nearest"}); }
+}
+// What the draft has that the paper doesn't yet: entries in its reference list, and quoted passages with a citation
+function findInDraft(t){
+  const w = wsOf(t), d = w.draft; if (!d) { W.found = null; return; }
+  let F = W.found && W.found.tid === t.id && W.found.h === d.h ? W.found : null;
+  if (!F) {
+    const seen = [], refs = [];
+    CITE.refEntries(d.t).forEach(raw => { const it = CITE.parseRef(raw); if (!it || CITE.dupOf(it, seen)) return; seen.push(it); refs.push({k: uid(), raw, it, st: it.DOI || it.ISBN ? "look" : "parsed"}); });
+    F = W.found = {tid: t.id, h: d.h, refs, quotes: [], sel: new Set(), touched: new Set()};
+    refs.forEach(r => { r.dup = !!CITE.dupOf(r.it, w.src); if (!r.dup) F.sel.add(r.k); });
+    lookups(t.id, F);
+  } else F.refs.forEach(r => { r.dup = r.dup || !!CITE.dupOf(r.it, w.src); });
+  foundQuotes(t, F);
+}
+function foundQuotes(t, F){
+  const w = wsOf(state.tasks[t.id]), have = w.q.map(q => normText(q.t)).filter(Boolean), st = styleOf(t, w);
+  const order = styleFmt(st) === "numeric" ? bibOf(t, w).entries.map(e => e.id) : null, old = new Map((F.quotes || []).map(q => [q.nt, q]));
+  F.quotes = CITE.quotesIn(w.draft.t, w.src, {order}).map(q => Object.assign(q, {nt: normText(q.t)})).filter(q => !have.some(h => q.nt.includes(h) || h.includes(q.nt))).map(q => {
+    // one that now has its source (just added) is ticked, unless the student already chose
+    const o = old.get(q.nt); if (o) { if (!o.sid && q.sid && !F.touched.has(o.k)) F.sel.add(o.k); return Object.assign(q, {k: o.k, sid: o.sid || q.sid}); }
+    const k = uid(); if (q.sid) F.sel.add(k); return Object.assign(q, {k});
+  });
+}
+// entries with a DOI or ISBN are looked up for their full details (only the number is sent), three at a time
+async function lookups(tid, F){
+  const todo = F.refs.filter(r => r.st === "look" && !r.dup); let i = 0;
+  const one = async () => {
+    while (i < todo.length) {
+      const r = todo[i++];
+      try { const rec = await lookup(r.it.DOI ? {kind: "doi", v: r.it.DOI} : {kind: "isbn", v: r.it.ISBN}); if (r.it.URL && !rec.URL) rec.URL = r.it.URL; r.it = rec; r.st = "ok"; } catch (e) { r.st = "parsed"; }
+      if (W.found !== F) return;
+      const t = state.tasks[tid]; if (t && CITE.dupOf(r.it, wsOf(t).src)) { r.dup = true; F.sel.delete(r.k); }
+      redrawSoon(tid);
+    }
+  };
+  await Promise.all([one(), one(), one()]);
+}
+let redrawT2 = 0;
+function redrawSoon(tid){
+  clearTimeout(redrawT2);
+  redrawT2 = setTimeout(() => {
+    if (!shown() || W.tid !== tid || W.hub || W.view || W.tab !== "check") return;
+    const a = document.activeElement; if (a && W.el.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.type !== "checkbox") return;
+    draw();
+  }, 80);
+}
+// Attach PDF: a source gets its PDF, so it can be highlighted
+function attachPdf(tid, sid, fid){
+  const t = state.tasks[tid], f = state.files[fid]; if (!t || !f) return;
+  const w = wsOf(t), s = w.src.find(x => x.id === sid); if (!s) { W.view = ""; draw(true); return; }
+  if (w.src.some(x => x.fid === fid && x.id !== sid)) { W.err = `${f.name} is already the PDF of another source.`; draw(); return; }
+  w.src = w.src.map(x => x.id === sid ? Object.assign({}, x, {fid}) : x);
+  save(t, w, `${f.name} attached`);
+  if (!(f.taskIds || []).includes(tid)) applyChanges([{kind: "file", id: f.id, after: Object.assign(clone(f), {taskIds: (f.taskIds || []).concat([tid])})}], null);
+  Object.assign(W, {view: "", attachFor: "", pick: null, err: "", okMsg: `${f.name} is attached. Highlight PDF opens it: each passage you highlight can go in as a quote.`});
+  draw(true);
+}
+
+/* ---------- Without a paper: My Library and Zotero, from Review ---------- */
+function openHub(view){
+  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
+  RD = null;
+  Object.assign(W, {hub: view === "zotero" ? "zotero" : "library", tid: "", tab: "", view: "", err: "", busy: "", okMsg: "", hubTo: W.hubTo || ""});
+  if (W.hub === "zotero" && zcred() && !(W.z && W.z.items)) { draw(true); zload(); return; }
+  draw(true);
+}
+const openPapers = () => allTasks().filter(x => x.status !== "done" && eligible(x)).sort((a, b) => (hasData(b) - hasData(a)) || String(a.due || "9").localeCompare(String(b.due || "9"))).slice(0, 40);
+function hubHtml(){
+  const ps = openPapers(), to = W.hubTo && ps.some(p => p.id === W.hubTo) ? W.hubTo : (ps[0] || {}).id || "";
+  const paperSel = `<label class="ws-style ws-to"><span class="mini">Add to</span><select data-wh-to aria-label="Paper to add sources to">${ps.length ? ps.map(p => `<option value="${esc(p.id)}" ${p.id === to ? "selected" : ""}>${esc(cut(p.title, 48))}</option>`).join("") : `<option value="">No open papers</option>`}</select></label>`;
+  if (W.hub === "zotero") return `${paperSel}${zotHtml(null, {src: to && state.tasks[to] ? wsOf(state.tasks[to]).src : []})}`;
+  const L = library(""), st = W.hubStyle || "apa";
+  const B = (() => { const items = L.map((s, i) => Object.assign(CITE.clean(s), {id: "L" + i})), eng = engNow(st, items, ""); if (!eng) { engineFor(st, items, "").then(() => { if (shown() && W.hub === "library") draw(); }).catch(() => {}); return null; } try { return eng.bib(); } catch (e) { return null; } })();
+  const runsFor = i => { const e = B && B.entries.find(x => x.id === "L" + i); return e ? e.runs : CITE.plain(L[i]); };
+  const where = s => allTasks().filter(x => x.ws && Array.isArray(x.ws.src) && x.ws.src.some(y => CITE.dupOf(s, [y]))).map(x => x.title);
+  return `<p style="margin:0">Every source in every paper, once each. Copy a reference in any style, or add it to another paper.</p>
+    <div class="ws-row">${styleSel(st).replace("data-ws-style", "data-wh-style").replace('<option value="__find">More styles…</option>', "")}${paperSel}</div>
+    ${W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
+    ${L.length ? `<ol class="ws-refs hang">${L.map((s, i) => `<li class="ws-ref"><p class="ws-cite">${citeHtml(runsFor(i))}</p><p class="mini ws-info">In ${esc(where(s).join(", "))}</p>
+      <div class="ws-acts"><button type="button" class="ws-act" data-wh-copy="${i}">Copy</button><button type="button" class="ws-act" data-wh-add="${i}" ${to ? "" : "disabled"}>Add to Paper</button></div></li>`).join("")}</ol>`
+      : `<div class="ws-empty"><b>Your library is empty.</b><p class="mini">Sources you add to any paper show up here.</p></div>`}`;
+}
+function drawHub(fresh){
+  const z = W.hub === "zotero", title = z ? "Zotero" : "My Library", n = W.z && W.z.sel ? W.z.sel.size : 0;
+  const foot = `<button type="button" class="btn" data-wh-switch>${z ? "My Library" : "Zotero"}</button><span class="spacer"></span>${z ? (zcred() ? `<button type="button" class="btn primary" data-wz-add ${n && !W.busy ? "" : "disabled"}>${W.busy === "z" ? "Adding…" : `Add ${n || ""} to Paper`}</button>` : `<button type="button" class="btn primary" data-wz-connect ${W.busy ? "disabled" : ""}>${W.busy === "zc" ? "Connecting…" : "Connect"}</button>`) : `<button type="button" class="btn primary" data-act="close">Done</button>`}`;
+  const inner = `${bandHead(title, ICON.replace('width="16" height="16"', ""), "#2F6FE4", "", "Writing Studio")}<div class="sheet-body ws-body" role="region">${hubHtml()}</div><div class="sheet-foot">${foot}</div>`;
+  const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
+  if (shown()) W.el.innerHTML = inner;
+  else { openSheet(`<div class="sheet ws-sheet ws-hub">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
+  const b = W.el.querySelector(".ws-body"); if (b && y) b.scrollTop = y;
+  const R = W.el, q = s => R.querySelector(s), qa = s => [...R.querySelectorAll(s)], on = (sel, ev, fn) => { const el = q(sel); if (el) el.addEventListener(ev, fn); return el; };
+  const target = () => { const ps = openPapers(); return state.tasks[W.hubTo] && ps.some(p => p.id === W.hubTo) ? state.tasks[W.hubTo] : ps[0] || null; };
+  const ts = on("[data-wh-to]", "change", () => { W.hubTo = ts.value; draw(); });
+  const ss = on("[data-wh-style]", "change", () => { W.hubStyle = ss.value; draw(); });
+  on("[data-wh-switch]", "click", () => openHub(z ? "library" : "zotero"));
+  qa("[data-wh-copy]").forEach(b => b.addEventListener("click", async () => { const el = b.closest(".ws-ref").querySelector(".ws-cite"); toast(await noteCopyRich(el.innerHTML, el.textContent) ? "Reference copied" : "Couldn't copy"); }));
+  qa("[data-wh-add]").forEach(b => b.addEventListener("click", () => { const t = target(); if (!t) return; const x = Object.assign({}, library("")[Number(b.dataset.whAdd)]); delete x.from; delete x.id; const r = addItems(t, [x], `Added to ${t.title}`); if (!r.added) toast(`Already in ${t.title}`); }));
+  wireZot(R, target, () => draw());
+}
+// The Writing view in Review: papers with Writing Studio, and essays and reports coming up
+function reviewHtml(){
+  const today = todayISO(), f = typeof ui !== "undefined" && ui.filter && ui.filter !== "all" ? ui.filter : "";
+  const list = allTasks().filter(t => eligible(t) && (!f || t.courseId === f) && (hasData(t) ? t.status !== "done" || (t.due && t.due >= addDays(today, -14)) : t.status !== "done" && t.due && t.due >= today && t.due <= addDays(today, 45)))
+    .sort((a, b) => (hasData(b) - hasData(a)) || String(a.due || "9").localeCompare(String(b.due || "9"))).slice(0, 40);
+  const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
+  const card = t => {
+    const w = wsOf(t), c = courseOf(t.courseId), ck = w.chk && w.draft && w.chk.h === w.draft.h ? w.chk : null;
+    const line = hasData(t) ? [plural(w.src.length, "source"), plural(w.q.length, "quote"), !w.draft ? "no draft yet" : !ck ? "not checked yet" : ck.err ? `last check: ${ck.err} to fix` : "last check: all good"].join(" · ") : "Not started in Writing Studio";
+    return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}"><button type="button" class="wsr-main" data-act="ws-open" data-id="${esc(t.id)}"><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc([c ? courseLabel(c) : "", t.due ? (t.status === "done" ? "Done" : relDue(t)) : ""].filter(Boolean).join(" · "))}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button><button type="button" class="btn small" data-act="ws-open" data-id="${esc(t.id)}" aria-label="Open ${esc(t.title)} in Writing Studio">Open${pro}</button></li>`;
+  };
+  const started = list.filter(hasData), next = list.filter(t => !hasData(t));
+  return `<div class="view-head"><h2>Writing</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
+    ${typeof chipsHtml === "function" ? chipsHtml() : ""}
+    ${list.length ? `${started.length ? `<h3 class="plan-sub">In Writing Studio</h3><ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
+      : `<div class="empty" style="margin-top:14px"><strong>No papers yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
+}
+// Today's Plan: on the due date or the day before, a saved draft that hasn't been checked since it changed gets one gentle row
+function planNote(inView){
+  const today = todayISO(), tmr = addDays(today, 1);
+  const t = allTasks().filter(x => x.status !== "done" && (x.due === today || x.due === tmr) && eligible(x) && (!inView || inView(x))).find(x => { const w = wsOf(x); return w.draft && (!w.chk || w.chk.h !== w.draft.h); });
+  if (!t) return null;
+  const w = wsOf(t);
+  return {k: "ready", main: `<b>${esc(t.title)}</b> is due ${t.due === today ? "today" : "tomorrow"}. Your saved draft ${w.chk ? "has changed since its last citation check" : "hasn't had a citation check yet"}: a quick one catches a missing reference.`,
+    acts: `<button class="btn small primary" data-act="ws-open" data-id="${esc(t.id)}" data-ws-to="check">Check Citations</button>`};
+}
+
 /* ---------- Wiring ---------- */
 let DRAG = "";
 function wire(t){
@@ -1075,11 +1637,13 @@ function wire(t){
   const on = (sel, ev, fn) => { const el = q(sel); if (el) el.addEventListener(ev, fn); return el; };
   const vback = q("[data-ws-vback]"); if (vback) vback.addEventListener("click", () => { W.view = ""; W.err = ""; draw(true); });
   // a toast about the last tab (e.g. "Started an outline · Undo") goes with it
-  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => { if (b.dataset.wsTab !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = b.dataset.wsTab; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; draw(true); R.querySelector(`[data-ws-tab="${W.tab}"]`).focus(); }));
-  on(".ws-tabs", "keydown", e => { if (!/^Arrow(Left|Right)$/.test(e.key)) return; const ks = ["sources", "quotes", "outline", "check"], i = ks.indexOf(W.tab); W.tab = ks[(i + (e.key === "ArrowRight" ? 1 : 3)) % 4]; W.edit = null; W.hlPick = null; draw(true); R.querySelector(`[data-ws-tab="${W.tab}"]`).focus(); });
+  const goTab = (k, focus) => { if (k !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = k; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; W.also = null; W.show = null; draw(true); if (focus) { const b = R.querySelector(`[data-ws-tab="${W.tab}"]`); if (b) b.focus(); } };
+  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsTab, true)));
+  qa("[data-ws-go]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsGo, false)));
+  on(".ws-tabs", "keydown", e => { if (!/^Arrow(Left|Right)$|^(Home|End)$/.test(e.key)) return; e.preventDefault(); const i = TABS.indexOf(W.tab); goTab(e.key === "Home" ? TABS[0] : e.key === "End" ? TABS[TABS.length - 1] : TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length], true); });
   const sel = on("[data-ws-style]", "change", () => {
     if (sel.value === "__find") { W.view = "styles"; W.find = W.find || {q: ""}; W.err = ""; draw(true); const i = q("[data-wy-q]"); if (i) i.focus(); return; }
-    const w = ws(); w.style = sel.value; save(cur(), w, null); W.engErr = ""; if (W.res) W.res = null; draw();
+    const w = ws(); w.style = sel.value; save(cur(), w, null); W.engErr = ""; W.show = null; draw();
   });
   // Sources
   const inp = q("[data-ws-in]");
@@ -1092,9 +1656,13 @@ function wire(t){
   on("[data-ws-zsync]", "click", () => zsync(cur()));
   const fsel = on("[data-ws-file]", "change", async () => { if (!fsel.value) return; W.busy = "add"; draw(); await addFromFile(cur(), fsel.value); W.busy = ""; if (shown()) draw(); });
   qa("[data-ws-edit]").forEach(b => b.addEventListener("click", () => { W.edit = b.dataset.wsEdit; W.form = null; W.note = ""; draw(true); }));
-  qa("[data-ws-openf]").forEach(b => b.addEventListener("click", () => { if (window.SBPRO && SBPRO.openLink) SBPRO.openLink({kind: "file", id: b.dataset.wsOpenf}, 0); }));
+  qa("[data-ws-openf]").forEach(b => b.addEventListener("click", () => openReader(t.id, b.dataset.wsOpenf, 0)));
+  qa("[data-ws-attach]").forEach(b => b.addEventListener("click", () => { W.view = "attach"; W.attachFor = b.dataset.wsAttach; W.pick = {q: ""}; W.err = ""; draw(true); }));
+  qa("[data-ws-also]").forEach(b => b.addEventListener("click", () => { const ids = (W.also || {}).ids || []; alsoAdd(t.id, b.dataset.wsAlso, ids); b.disabled = true; b.textContent = "Added ✓"; }));
+  on("[data-ws-alsono]", "click", () => { W.also = null; draw(); });
+  qa("[data-ws-ccopy]").forEach(b => b.addEventListener("click", async () => { const c = citeOf(cur(), ws(), b.dataset.wsCcopy, ""), note = styleFmt(st()) === "note"; if (!c.length) return; toast(await noteCopyRich(CITE.runsHtml(c), CITE.runsText(c)) ? (note ? "Footnote copied" : "In-text citation copied") : "Couldn't copy"); }));
   qa("[data-ws-rm]").forEach(b => b.addEventListener("click", () => { const w = ws(), s = w.src.find(x => x.id === b.dataset.wsRm); w.src = w.src.filter(x => x.id !== b.dataset.wsRm); w.q = w.q.map(x => x.sid === b.dataset.wsRm ? Object.assign({}, x, {sid: ""}) : x); save(cur(), w, `Removed ${s && s.title ? "“" + String(s.title).slice(0, 40) + "”" : "a source"}`); draw(); }));
-  qa("[data-ws-copy]").forEach(b => b.addEventListener("click", async () => { const B = bibOf(cur(), ws()), e = B.entries.find(x => x.id === b.dataset.wsCopy); if (!e) return; toast(await noteCopyRich(CITE.runsHtml(e.runs), CITE.runsText(e.runs)) ? "Citation copied" : "Couldn't copy"); }));
+  qa("[data-ws-copy]").forEach(b => b.addEventListener("click", async () => { const B = bibOf(cur(), ws()), e = B.entries.find(x => x.id === b.dataset.wsCopy); if (!e) return; toast(await noteCopyRich(CITE.runsHtml(e.runs), CITE.runsText(e.runs)) ? "Reference copied" : "Couldn't copy"); }));
   on("[data-ws-bibcopy]", "click", async () => { const B = bibOf(cur(), ws()), s0 = st(), h = CITE.headingOf(s0, styleFmt(s0)); toast(await noteCopyRich(`<p><b>${xmlEsc(h)}</b></p>` + B.entries.map(x => `<p${B.hang ? ' style="padding-left:36pt;text-indent:-36pt"' : ""}>${CITE.runsHtml(x.runs)}</p>`).join(""), h + "\n\n" + B.entries.map(x => CITE.runsText(x.runs)).join("\n\n")) ? `${h} list copied` : "Couldn't copy"); });
   on("[data-ws-export]", "click", () => exportSheet(cur()));
   // the source form: the preview is made by citeproc with the same style
@@ -1113,21 +1681,12 @@ function wire(t){
       const w = ws();
       if (W.edit === "new") { if (CITE.dupOf(r, w.src)) { toast("That source is already in your list"); return; } r.id = uid(); w.src.push(r); }
       else w.src = w.src.map(x => x.id === r.id ? Object.assign(r, {fid: x.fid, zkey: x.zkey, zlib: x.zlib}) : x);
-      w.style = w.style || st(); save(cur(), w, W.edit === "new" ? "Added a source" : "Edited a source"); W.edit = null; W.form = null; W.note = ""; draw();
+      w.src.forEach(x => { if (x.id === r.id) delete x.rv; });
+      const added = W.edit === "new"; w.style = w.style || st(); save(cur(), w, added ? "Added a source" : "Edited a source"); W.also = added && otherPapers(cur()).length ? {ids: [r.id]} : null; W.edit = null; W.form = null; W.note = ""; draw();
     });
   }
   // Zotero
-  const zk = q("[data-wz-key]"); if (zk) zk.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); q("[data-wz-connect]").click(); } });
-  on("[data-wz-connect]", "click", async () => { W.busy = "zc"; W.err = ""; const key = zk ? zk.value : ""; draw(); try { await zconnect(key); W.z = null; W.busy = ""; draw(); zload(); } catch (e) { W.busy = ""; W.err = e.message; draw(); } });
-  on("[data-wz-off]", "click", () => { try { localStorage.removeItem(ZKEY); } catch (e) {} W.z = null; toast("Zotero disconnected on this device"); draw(); });
-  const zl = on("[data-wz-lib]", "change", () => { W.z.lib = zl.value; W.z.col = ""; W.z.cols = null; zload(); });
-  const zc = on("[data-wz-col]", "change", () => { W.z.col = zc.value; zload(); });
-  const zq = q("[data-wz-q]"); if (zq) { zq.addEventListener("input", () => { W.z.q = zq.value; }); zq.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); zload(); } }); }
-  on("[data-wz-go]", "click", () => zload());
-  on("[data-wz-more]", "click", () => zload(true));
-  qa("[data-wz-pick]").forEach(c => c.addEventListener("change", () => { const S = W.z.sel; if (c.checked) S.add(c.dataset.wzPick); else S.delete(c.dataset.wzPick); const b = q("[data-wz-add]"); if (b) { b.disabled = !S.size; b.textContent = `Add ${S.size || ""} to This Paper`; } }));
-  on("[data-wz-all]", "click", () => { qa("[data-wz-pick]").forEach(c => { if (!c.disabled) { c.checked = true; W.z.sel.add(c.dataset.wzPick); } }); draw(); });
-  on("[data-wz-add]", "click", () => { const Z = W.z, items = (Z.items || []).filter(x => Z.sel.has(x.key)).map(x => x.csl); const r = addItems(cur(), items, `Added ${items.length} source${items.length === 1 ? "" : "s"} from Zotero`); Z.sel = new Set(); W.view = ""; W.okMsg = `Added ${r.added} from Zotero${r.dup ? `; ${r.dup} ${r.dup === 1 ? "was" : "were"} already here` : ""}.`; draw(true); });
+  wireZot(R, cur, r => { W.view = ""; W.okMsg = `Added ${r.added} from Zotero${r.dup ? `; ${r.dup} ${r.dup === 1 ? "was" : "were"} already here` : ""}.`; draw(true); });
   // Import
   const it = q("[data-wi-text]"); if (it) it.addEventListener("input", () => { W.imp = {text: it.value}; });
   const readImp = (txt, src) => { const r = CITE.parseAny(txt, src), w = ws(); if (!r.items.length) { W.err = "No sources found. Use a BibTeX (.bib), RIS (.ris) or CSL-JSON (.json) export."; W.imp = {text: txt, src}; } else { W.err = ""; W.imp = {text: txt, src, fmt: r.fmt, items: r.items, dup: r.items.map(x => !!CITE.dupOf(x, w.src))}; } draw(); };
@@ -1179,7 +1738,8 @@ function wire(t){
   });
   qa("[data-ws-qrm]").forEach(b => b.addEventListener("click", () => { const w = ws(); w.q = w.q.filter(x => x.id !== b.dataset.wsQrm); save(cur(), w, "Removed a quote"); draw(); }));
   qa("[data-ws-qcopy]").forEach(b => b.addEventListener("click", async () => { const w = ws(), x = w.q.find(y => y.id === b.dataset.wsQcopy), c = x.sid ? citeOf(cur(), w, x.sid, x.p) : [], note = styleFmt(st()) === "note"; toast(await copyText(`“${x.t}”${c.length ? (note ? "\n\nFootnote: " : " ") + CITE.runsText(c) : ""}`) ? "Quote copied with its citation" : "Couldn't copy"); }));
-  qa("[data-ws-qopen]").forEach(b => b.addEventListener("click", () => { const x = ws().q.find(y => y.id === b.dataset.wsQopen); if (x && window.SBPRO && SBPRO.openLink) SBPRO.openLink({kind: "file", id: x.fid}, Number(x.p) || 0); }));
+  qa("[data-ws-qopen]").forEach(b => b.addEventListener("click", () => { const x = ws().q.find(y => y.id === b.dataset.wsQopen); if (x) openReader(t.id, x.fid, Number(x.p) || 0); }));
+  qa("[data-ws-hlpdf]").forEach(b => b.addEventListener("click", () => { W.view = "hlpdf"; W.pick = {q: ""}; W.err = ""; W.hlPick = null; draw(true); }));
   // Outline
   qa("[data-ws-seed]").forEach(b => b.addEventListener("click", () => {
     const w = ws(), names = b.dataset.wsSeed === "steps" ? allTasks().filter(x => x.breakdownOf === t.id).sort((a, c) => String(a.due).localeCompare(String(c.due))).map(x => String(x.step || x.title).replace(new RegExp("^" + String(t.title).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[:·-]\\s*", "i"), "")) : ["Introduction", "Body", "Conclusion"];
@@ -1211,31 +1771,97 @@ function wire(t){
     d.addEventListener("dragleave", e => { if (!d.contains(e.relatedTarget)) d.classList.remove("is-over"); });
     d.addEventListener("drop", e => { if (!DRAG) return; e.preventDefault(); const over = e.target.closest && e.target.closest("[data-ws-dq]"); const id = DRAG; DRAG = ""; place(id, d.dataset.wsDrop, over && over.dataset.wsDq !== id ? over.dataset.wsDq : ""); });
   });
-  // Check
-  const dr = q("[data-ws-draft]"); if (dr) dr.addEventListener("input", () => { W.draft = dr.value; W.draftSrc = ""; const n = W.draft.trim() ? W.draft.trim().split(/\s+/).length : 0, h = q("[data-ws-wc]"); if (h) h.textContent = n ? `about ${n} words` : ""; });
-  const df = on("[data-ws-dfile]", "change", async () => { const f = df.files && df.files[0]; if (!f) return; try { const x = (await draftFromFile(f)).trim(); if (x.replace(/\s/g, "").length < 20) throw new Error(`${f.name} has no text that can be read (a scan?). Paste the text instead.`); W.draft = x; W.draftSrc = `From ${f.name}.`; W.err = ""; } catch (e) { W.err = e && e.message && !/^[a-z]/.test(e.message) ? e.message : `Couldn't read ${f.name}. Paste the text instead.`; } draw(); });
-  const dp = on("[data-ws-dpick]", "change", async () => { const f = state.files[dp.value]; if (!f) return; let x = ""; try { x = window.SBFILETEXT ? String(await SBFILETEXT(f.id, 200000) || "").trim() : ""; } catch (e) { x = ""; } if (x.replace(/\s/g, "").length < 20) W.err = `Couldn't read the text in ${f.name}. Paste your draft instead.`; else { W.draft = x; W.draftSrc = `From ${f.name}.`; W.err = ""; } draw(); });
-  on("[data-ws-check]", "click", () => {
-    if (W.draft.trim().split(/\s+/).length < 30) { W.err = W.draft.trim() ? "Your draft is too short to check. Paste at least a paragraph, upload it or pick a file." : "Add your draft first: paste it, upload it or pick a file."; W.res = null; draw(); return; }
-    W.err = ""; W.res = runCheck(cur()); draw();
-    const r = W.el.querySelector(".ws-res"); if (r && r.scrollIntoView) r.scrollIntoView({block: "nearest"});
+  // Check: the draft (pasted, uploaded, or picked from anywhere in Studyboard) is kept on the paper, then checked
+  const dr = q("[data-ws-draft]"); if (dr) dr.addEventListener("input", () => { W.paste = dr.value; const n = wordsIn(W.paste), h = q("[data-ws-wc]"); if (h) h.textContent = n ? `about ${n} words` : ""; });
+  const df = on("[data-ws-dfile]", "change", async () => {
+    const f = df.files && df.files[0]; if (!f) return;
+    W.busy = "read"; W.err = ""; draw();
+    try { const x = (await draftFromFile(f)).trim(); if (x.replace(/\s/g, "").length < 20) throw new Error(`${f.name} has no text that can be read (a scan?). Paste the text instead.`); useDraft(t.id, x, {from: f.name}); }
+    catch (e) { W.busy = ""; W.err = e && e.message && !/^[a-z]/.test(e.message) ? e.message : `Couldn't read ${f.name}. Paste the text instead.`; draw(); }
   });
-  qa("[data-ws-setst]").forEach(b => b.addEventListener("click", () => { const w = ws(); w.style = b.dataset.wsSetst; save(cur(), w, `Citation style set to ${styleName(w.style)}`); W.res = runCheck(cur()); draw(); }));
+  on("[data-ws-dpick]", "click", () => { W.view = "drafts"; W.pick = {q: ""}; W.err = ""; draw(true); const i = q("[data-wp-q]") || W.el.querySelector("[data-wp-q]"); if (i && !matchMedia("(max-width:560px)").matches) i.focus(); });
+  qa("[data-ws-dsel]").forEach(b => b.addEventListener("click", () => pickDraft(t.id, b.dataset.wsDsel)));
+  on("[data-ws-offno]", "click", () => { W.offerOff = true; draw(); });
+  on("[data-ws-redo]", "click", () => { W.redo = true; W.paste = ""; W.show = null; W.err = ""; draw(); });
+  on("[data-ws-redono]", "click", () => { W.redo = false; W.err = ""; draw(); });
+  on("[data-ws-drm]", "click", () => { const w = ws(); w.draft = null; w.chk = null; save(cur(), w, "Draft removed from Writing Studio"); Object.assign(W, {found: null, show: null, diff: null, redo: false}); draw(); });
+  on("[data-ws-dview]", "click", () => { W.show = W.show === "all" ? null : "all"; draw(); });
+  qa("[data-ws-show]").forEach(b => b.addEventListener("click", () => { const i = Number(b.dataset.wsShow); W.show = W.show === i ? null : i; draw(); }));
+  on("[data-ws-check]", "click", () => {
+    const w = ws();
+    if (!w.draft || W.redo) {
+      if (wordsIn(W.paste) < 30) { W.err = W.paste.trim() ? "Your draft is too short to check. Paste at least a paragraph, upload it or choose it from Studyboard." : "Add your draft first: paste it, upload it or choose it from Studyboard."; draw(); return; }
+      useDraft(t.id, W.paste, {from: "Pasted"}); return;
+    }
+    doCheck(cur(), {reread: true});
+  });
+  // where the draft is marked, scroll it into view inside its box
+  const mk = q(".ws-dv .ws-mark"); if (mk) { const dv = mk.closest(".ws-dv"); dv.scrollTop = Math.max(0, mk.getBoundingClientRect().top - dv.getBoundingClientRect().top + dv.scrollTop - 40); }
+  // Found in Your Draft
+  const F = W.found, fBtn = (sel, attr, word) => { const b = q(sel); if (!b || !F) return; const n = qa(`[${attr}]`).filter(c => c.checked).length; b.disabled = !n; b.textContent = `Add ${n} ${word}${n === 1 ? "" : "s"}`; };
+  qa("[data-wf-ref]").forEach(c => c.addEventListener("change", () => { if (c.checked) F.sel.add(c.dataset.wfRef); else F.sel.delete(c.dataset.wfRef); fBtn("[data-wf-addrefs]", "data-wf-ref", "Source"); }));
+  qa("[data-wf-q]").forEach(c => c.addEventListener("change", () => { F.touched.add(c.dataset.wfQ); if (c.checked) F.sel.add(c.dataset.wfQ); else F.sel.delete(c.dataset.wfQ); fBtn("[data-wf-addq]", "data-wf-q", "Quote"); }));
+  qa("[data-wf-qs]").forEach(sl => sl.addEventListener("change", () => { const x = F && F.quotes.find(y => y.k === sl.dataset.wfQs); if (x) x.sid = sl.value; }));
+  on("[data-wf-addrefs]", "click", () => {
+    const picks = F.refs.filter(r => !r.dup && F.sel.has(r.k));
+    const items = picks.map(r => Object.assign({}, r.it, r.st === "ok" ? {} : {rv: "1"}));
+    const res = addItems(cur(), items, `Added ${plural(items.length, "source")} from your draft`);
+    picks.forEach(r => { r.dup = true; F.sel.delete(r.k); });
+    W.okMsg = `Added ${plural(res.added, "source")} from your draft${picks.some(r => r.st !== "ok") ? ". The ones read from your list are marked on Sources: check their details" : ""}.`;
+    doCheck(cur(), {quiet: true});
+  });
+  on("[data-wf-addq]", "click", () => {
+    const w = ws(), now = Date.now(), picks = F.quotes.filter(x => F.sel.has(x.k));
+    picks.forEach(x => { if (w.q.length >= MAX_Q) return; const s = w.src.find(y => y.id === x.sid); w.q.push({id: uid(), sid: s ? s.id : "", t: x.t.slice(0, 1200), p: String(x.p || "").slice(0, 12), fid: s && s.fid ? s.fid : "", hl: "", sec: "", at: now}); });
+    save(cur(), w, `Added ${plural(picks.length, "quote")} from your draft`);
+    W.okMsg = `Added ${plural(picks.length, "quote")}. They're on the Quotes tab, ready to place in your outline.`;
+    foundQuotes(cur(), F); draw();
+  });
+  // Pickers (drafts, Attach PDF, Open a PDF to Highlight): search, upload, choose
+  const pq = q("[data-wp-q]"); if (pq) pq.addEventListener("input", () => { W.pick = Object.assign(W.pick || {}, {q: pq.value}); clearTimeout(W.pqt); W.pqt = setTimeout(() => { if (!shown()) return; draw(); const i = W.el.querySelector("[data-wp-q]"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 150); });
+  qa("[data-wp-attach]").forEach(b => b.addEventListener("click", () => attachPdf(t.id, W.attachFor, b.dataset.wpAttach.slice(2))));
+  qa("[data-wp-open]").forEach(b => b.addEventListener("click", () => openReader(t.id, b.dataset.wpOpen.slice(2), 0)));
+  const up = on("[data-wp-up]", "change", async () => {
+    const f = up.files && up.files[0]; if (!f) return;
+    if (!/\.pdf$/i.test(f.name)) { W.err = "Choose a PDF."; draw(); return; }
+    W.busy = "up"; W.err = ""; draw();
+    let made = []; try { made = typeof uploadFiles === "function" ? await uploadFiles([f], {courseId: cur().courseId || "", taskId: t.id}) : []; } catch (e) { made = []; }
+    W.busy = ""; const nf = (made || [])[0];
+    if (!nf) { W.err = `Couldn't upload ${f.name}.`; if (shown()) draw(); return; }
+    if (W.view === "attach") attachPdf(t.id, W.attachFor, nf.id); else openReader(t.id, nf.id, 0);
+  });
+  qa("[data-ws-setst]").forEach(b => b.addEventListener("click", () => { const w = ws(); w.style = b.dataset.wsSetst; save(cur(), w, `Citation style set to ${styleName(w.style)}`); W.show = null; doCheck(cur()); }));
+}
+function wireZot(R, target, done){
+  const q = s => R.querySelector(s), qa = s => [...R.querySelectorAll(s)], on = (sel, ev, fn) => { const el = q(sel); if (el) el.addEventListener(ev, fn); return el; };
+  const zk = q("[data-wz-key]"); if (zk) zk.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); q("[data-wz-connect]").click(); } });
+  on("[data-wz-connect]", "click", async () => { W.busy = "zc"; W.err = ""; const key = zk ? zk.value : ""; draw(); try { await zconnect(key); W.z = null; W.busy = ""; draw(); zload(); } catch (e) { W.busy = ""; W.err = e.message; draw(); } });
+  on("[data-wz-off]", "click", () => { try { localStorage.removeItem(ZKEY); } catch (e) {} W.z = null; toast("Zotero disconnected on this device"); draw(); });
+  const zl = on("[data-wz-lib]", "change", () => { W.z.lib = zl.value; W.z.col = ""; W.z.cols = null; zload(); });
+  const zc = on("[data-wz-col]", "change", () => { W.z.col = zc.value; zload(); });
+  const zq = q("[data-wz-q]"); if (zq) { zq.addEventListener("input", () => { W.z.q = zq.value; }); zq.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); zload(); } }); }
+  on("[data-wz-go]", "click", () => zload());
+  on("[data-wz-more]", "click", () => zload(true));
+  qa("[data-wz-pick]").forEach(c => c.addEventListener("change", () => { const S = W.z.sel; if (c.checked) S.add(c.dataset.wzPick); else S.delete(c.dataset.wzPick); const b = q("[data-wz-add]"); if (b) { b.disabled = !S.size; b.textContent = b.textContent.replace(/^Add \d*\s*/, `Add ${S.size || ""} `); } }));
+  on("[data-wz-all]", "click", () => { qa("[data-wz-pick]").forEach(c => { if (!c.disabled) { c.checked = true; W.z.sel.add(c.dataset.wzPick); } }); draw(); });
+  on("[data-wz-add]", "click", () => { const t = target(); if (!t) { toast("Add a paper first"); return; } const Z = W.z, items = (Z.items || []).filter(x => Z.sel.has(x.key)).map(x => x.csl); const r = addItems(t, items, `Added ${items.length} source${items.length === 1 ? "" : "s"} from Zotero${W.hub ? " to " + t.title : ""}`); Z.sel = new Set(); done(r); });
 }
 // Undo, sync from another device, or an edit elsewhere: the open Studio follows (not while something is being typed in it)
 let redrawT = 0;
 hook("changed", changes => {
-  if (!shown() || !(changes || []).some(c => (c.kind === "task" && c.id === W.tid) || c.kind === "file")) return;
+  if (!shown() || !(changes || []).some(c => (c.kind === "task" && (c.id === W.tid || W.hub)) || c.kind === "file")) return;
   clearTimeout(redrawT);
   redrawT = setTimeout(() => {
     if (!shown()) return;
     const a = document.activeElement, typing = a && W.el.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.type !== "checkbox";
     if (typing || W.edit || W.busy || DRAG) return;
+    if (W.hub) { draw(); return; }
     if (!state.tasks[W.tid]) { dlg.close(); return; }
     draw();
   }, 30);
 });
 hook("act", (act, el, id) => {
+  if (act === "ws-lib" || act === "ws-zot") { if (dlg.open) dlg.close(); openHub(act === "ws-zot" ? "zotero" : "library"); return true; }
   if (act !== "ws-open") return false;
   if (dlg.open) dlg.close();
   open(id, el && el.dataset ? el.dataset.wsTo : ""); return true;
@@ -1350,9 +1976,69 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 .ws-ic{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:.75rem;font-weight:800;color:#fff}
 .ws-is.k-err .ws-ic{background:#D64545}.ws-is.k-warn .ws-ic{background:#B7791F}.ws-is.k-ok .ws-ic{background:#2E8A52}
 .ws-is.k-err{border-left:4px solid #D64545}
+/* the strip at the top of every tab */
+.ws-strip{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;padding:6px 20px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--ink) 2.5%,var(--surface));font-size:.84rem}
+.ws-sp{border:0;background:none;font:inherit;color:var(--muted);padding:3px 6px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.ws-sp:hover{background:color-mix(in srgb,var(--accent,#2F6FE4) 9%,transparent);color:var(--ink)}
+.ws-sp:focus-visible{outline:2px solid var(--accent,#2F6FE4);outline-offset:1px}
+.ws-sp.is-here{color:var(--ink);font-weight:600}
+.ws-sp.bad{color:#B42318;font-weight:600}.ws-sp.good{color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
+.ws-dot{color:var(--muted);opacity:.6}
+.ws-goal{display:grid;gap:4px}
+.ws-meter{display:block;height:6px;border-radius:99px;background:color-mix(in srgb,var(--ink) 9%,var(--surface));overflow:hidden}
+.ws-meter i{display:block;height:100%;border-radius:inherit;background:var(--accent,#2F6FE4);transition:width .3s}
+.ws-goal.met .ws-meter i{background:#2E8A52}
+.ws-also,.ws-offer{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent,#2F6FE4) 8%,var(--surface));min-width:0}
+.ws-offer>span:first-child{flex:1 1 220px;min-width:0;word-break:break-word}
+.ws-use,.ws-rv{margin:0}
+.ws-yes{color:color-mix(in srgb,#1D6B3D 88%,var(--ink));font-weight:600}
+.ws-no{color:#9A5B00}
+.ws-rv{padding:4px 8px;border-radius:8px;background:color-mix(in srgb,#B7791F 12%,var(--surface))}
+.ws-draft{border:1px solid var(--line);border-radius:12px;padding:10px 12px 6px;display:grid;gap:6px;min-width:0}
+.ws-draft-t{display:grid;gap:2px;min-width:0}
+.ws-draft-t .mini{word-break:break-word}
+.ws-dv{max-height:min(46vh,340px);overflow:auto;white-space:pre-wrap;word-break:break-word;font-family:Georgia,"Times New Roman",serif;font-size:.92rem;line-height:1.55;padding:10px 12px;border-radius:10px;background:var(--soft,#F4F6FA);border:1px solid var(--line);margin-top:6px;color:var(--ink)}
+.ws-mark{background:color-mix(in srgb,#F5C518 42%,var(--surface));color:inherit;border-radius:3px;padding:1px 0;box-shadow:0 0 0 2px color-mix(in srgb,#F5C518 42%,var(--surface))}
+.ws-mark b{text-decoration:underline;text-decoration-color:#B42318;text-decoration-thickness:2px;text-underline-offset:2px}
+.ws-is-b{border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;min-width:0}
+.ws-is-go{font-size:.8rem;font-weight:600;color:var(--accent,#2F6FE4);white-space:nowrap}
+.ws-is-b:hover .ws-is-go{text-decoration:underline}
+.ws-is-b:focus-visible{outline:2px solid var(--accent,#2F6FE4);outline-offset:2px;border-radius:4px}
+.ws-diff{margin:0;padding:6px 10px;border-radius:10px;background:color-mix(in srgb,#2E8A52 10%,var(--surface))}
+.ws-found{display:grid;gap:8px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--accent,#2F6FE4) 35%,var(--line));border-radius:12px;background:color-mix(in srgb,var(--accent,#2F6FE4) 4%,var(--surface));min-width:0}
+.ws-found .fsec{margin:0}
+.ws-fq li{display:grid;gap:4px;padding:4px 0;border-bottom:1px solid var(--line)}
+.ws-fq li:last-child{border-bottom:0}
+.ws-fq select{max-width:100%;font-size:.84rem;margin-left:26px;width:calc(100% - 26px)}
+.ws-flist{list-style:none;margin:0;padding:0;display:grid;gap:0;border:1px solid var(--line);border-radius:10px}
+.ws-flist li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--line);min-width:0}
+.ws-flist li:last-child{border-bottom:0}
+.ws-fn{display:grid;gap:1px;min-width:0}
+.ws-fn b{word-break:break-word}
+.ws-gaps{margin:0;color:#9A5B00}
+.ws-sec.is-empty .ws-hint{color:#9A5B00}
+.ws-to select{max-width:260px}
+/* Board cards and Do This Next */
+.ws-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid color-mix(in srgb,var(--accent,#2F6FE4) 30%,var(--line));background:color-mix(in srgb,var(--accent,#2F6FE4) 7%,var(--surface));color:var(--ink);font:inherit;font-size:.74rem;font-weight:600;line-height:1.2;padding:2px 7px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.ws-chip svg{width:12px;height:12px;flex:none}
+.ws-chip:hover{background:color-mix(in srgb,var(--accent,#2F6FE4) 14%,var(--surface))}
+.ws-chip-n{display:inline-grid;place-items:center;min-width:1.3em;height:1.3em;border-radius:99px;background:#D64545;color:#fff;font-size:.7rem}
+.nu-ws{display:block;margin-top:6px}
+/* the reader's Writing Studio bar */
+.pdr-ws{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;padding:6px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent,#2F6FE4) 9%,var(--surface));font-size:.88rem;min-width:0}
+.pdr-ws svg{flex:none;color:var(--accent,#2F6FE4)}
+.pdr-ws-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+@media (max-width:560px){.pdr-ws{padding:6px 10px}.pdr-ws>.mini{display:none}}
+/* Review: Writing */
+.wsr-list{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}
+.wsr-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:12px;background:var(--surface);min-width:0}
+.wsr-main{flex:1 1 auto;min-width:0;border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:grid;gap:2px}
+.wsr-t{font-weight:700;word-break:break-word}
+.wsr-l.bad{color:#B42318}
+@media (max-width:560px){.ws-strip{padding:5px 12px;font-size:.8rem}.ws-sp{padding:3px 4px}}
 @media (max-width:560px){.ws-bar{padding:4px 12px 0}.ws-tab{padding:9px 6px}.ws-tabs{flex:1 1 100%}.ws-style select{max-width:160px}.ws-add{flex-wrap:wrap}.ws-oq{flex-wrap:wrap}.ws-oq select{max-width:100%;flex:1 1 100%}}
 `;
 document.head.appendChild(css);
 
-window.SBWRITE = {taskBtn, open, CITE, eligible, state: () => W, styleName, loadCiteproc, papersFor, quotedIn, addQuote, readerBtn, milestoneOf};
+window.SBWRITE = {taskBtn, chip, open, openHub, CITE, eligible, hasData, state: () => W, styleName, loadCiteproc, papersFor, quotedIn, addQuote, readerBtn, readerBar, readerTarget, hlPop, fromReader, milestoneOf, reviewHtml, planNote};
 })();
