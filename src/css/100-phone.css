@@ -442,7 +442,8 @@ h2.sec.c2-bh{align-items:center}
 .sheet.shop .shop-band h2{font-size:1.5rem!important}
 @media (max-width:600px){.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *) h2,.sheet.shop .shop-band h2,.occv-title{font-size:1.3rem!important}}
 .shop-band > .icon-btn{background:rgba(255,255,255,.2)!important}
-.occv-band{background:linear-gradient(120deg,color-mix(in srgb,var(--accent-band,var(--accent)) 88%,#000),color-mix(in srgb,var(--accent-band,var(--accent)) 74%,var(--surface)))}
+/* an assignment's, event's or class's sheet is banded in its course's colour (the sheet sets --c), not the theme's */
+.occv-band{background:linear-gradient(120deg,color-mix(in srgb,var(--c,var(--accent)) 88%,#000),color-mix(in srgb,var(--c,var(--accent)) 74%,var(--surface)))}
 .occv-title{font-size:1.5rem}
 /* ===== Clean-up pass ===== */
 /* rings always sit on a light disc, so a sticker reads the same in light and dark themes */

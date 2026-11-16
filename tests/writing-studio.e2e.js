@@ -48,6 +48,16 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
+  // a map control may sit in a toolbar menu (Add, Study, More), the idea panel's Attach menu, or its Style section: open whichever holds it, then click
+  const cmClick = async (page, sel) => {
+    const shown = () => page.locator(sel).first().isVisible().catch(() => false);
+    for (const op of ['.cm-panel [data-cm="style"]', '.cm-tools [data-cm="menu"][data-v="add"]', '.cm-tools [data-cm="menu"][data-v="study"]', '.cm-tools [data-cm="menu"][data-v="more"]', '.cm-panel [data-cm="menu"][data-v="attach"]']) {
+      if (await shown()) break;
+      if (op.includes('"style"') && await page.locator(".cm-panel .cm-style").count()) continue;
+      if (await page.locator(op).count()) { await page.click(op); await page.waitForTimeout(60); }
+    }
+    await page.click(sel);
+  };
   const mkCtx = async (o, viewport) => {
     const ctx = await browser.newContext({viewport: viewport || {width: 1280, height: 900}, serviceWorkers: "block", acceptDownloads: true});
     Object.assign(ctx, {bodies: [], zot: []});
@@ -87,7 +97,8 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   };
   const act = (page, a, id, extra) => page.evaluate(([a, id, extra]) => { const b = document.createElement("button"); b.dataset.act = a; if (id) b.dataset.id = id; Object.assign(b.dataset, extra || {}); b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, id || "", extra || {}]);
   const task = (page, id) => page.evaluate(id => window.__sbProStudy.state().tasks[id], id);
-  const course = (page, id) => page.evaluate(id => window.__sbProStudy.state().courses[id], id);
+  // a course, with its first concept map as .cmap (a course can hold several maps now: c.maps)
+  const course = (page, id) => page.evaluate(id => { const c = Object.assign({}, window.__sbProStudy.state().courses[id]); c.cmap = (Array.isArray(c.maps) && c.maps[0]) || c.cmap; return c; }, id);
   const fits = page => page.evaluate(() => { const d = document.querySelector("dialog[open]"), w = document.documentElement; return w.scrollWidth <= w.clientWidth + 1 && (!d || [...d.querySelectorAll(".sheet-body, .sheet-foot, .ws-ref, .ws-q, .ws-acts, .ws-row, .cm-panel")].every(x => x.scrollWidth <= x.clientWidth + 1)); });
   // a node is tapped with the keyboard (Enter), which also brings it into view
   const tap = async (page, id) => { await page.focus(`.cm-node[data-n="${id}"]`); await page.keyboard.press("Enter"); await page.waitForTimeout(380); };
@@ -177,7 +188,10 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await page.selectOption(`[data-ws-mv="q1"]`, t1.ws.out[0].id); await page.waitForTimeout(200);
   ok((await task(page, "t1")).ws.q.find(x => x.id === "q1").sec === t1.ws.out[0].id, "a quote moved with its menu");
   const qid = t1.ws.q[1].id;
+  // the strip above the tabs makes the outline taller: a taller window keeps the quote and Conclusion both in view for the drag
+  await page.setViewportSize({width: 1280, height: 1100}); await page.waitForTimeout(150);
   await page.dragAndDrop(`[data-ws-dq="${qid}"]`, `.ws-sec[data-ws-drop="${t1.ws.out[2].id}"]`); await page.waitForTimeout(300);
+  await page.setViewportSize({width: 1280, height: 900});
   ok((await task(page, "t1")).ws.q.find(x => x.id === qid).sec === t1.ws.out[2].id, "and one dragged into Conclusion");
   await page.fill(`[data-ws-sect="${t1.ws.out[1].id}"]`, "Evidence"); await page.press(`[data-ws-sect="${t1.ws.out[1].id}"]`, "Tab"); await page.waitForTimeout(200);
   ok((await task(page, "t1")).ws.out[1].t === "Evidence", "a section is renamed in place");
@@ -202,21 +216,22 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await page.keyboard.press("Escape"); await page.waitForTimeout(300);
 
   /* ---------- Concept Maps, Pro ---------- */
-  ok(/data-act="cm-open"/.test(await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c1))) && /data-act="cm-open"/.test(await page.evaluate(() => SBCMAP.examBtn(window.__sbProStudy.state().tasks.x1))), "Concept Map buttons for a course and an exam");
+  ok(/data-act="cm-(open|new)"/.test(await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c1))) && /data-act="cm-open"/.test(await page.evaluate(() => SBCMAP.examBtn(window.__sbProStudy.state().tasks.x1))), "Concept Map buttons for a course and an exam");
   ok(await page.evaluate(() => SBCMAP.examBtn(window.__sbProStudy.state().tasks.t2)) === "", "no button on an exam without topics");
   await act(page, "cm-open", "c1", {kind: "course"}); await page.waitForSelector(".cm-node");
   const ids = await page.$$eval(".cm-node", x => x.map(e => e.dataset.n));
   ok(ids.includes("root") && ids.includes("exam:x1") && ids.includes("topic:x1:tp1") && ids.includes("note:n1") && ids.includes("deck:d1") && ids.includes("file:f2"), "the course map: exam, topics, notes, decks, files");
-  ok(!ids.includes("note:n4") && /1 not linked to anything/.test(await page.textContent(".cm-panel")), "an unlinked note is counted, not drawn");
-  await page.check('[data-cm="loose"]'); await page.waitForSelector('.cm-node[data-n="note:n4"]');
+  await page.click('.cm-tools [data-cm="menu"][data-v="more"]'); const moreMenu = await page.textContent(".cm-tools .cm-menu"); await page.click('.cm-tools [data-cm="menu"][data-v="more"]');
+  ok(!ids.includes("note:n4") && /Show 1 Unlinked/.test(moreMenu), "an unlinked note is counted (More, Show 1 Unlinked), not drawn");
+  await cmClick(page, '[data-cm="loose-t"]'); await page.waitForSelector('.cm-node[data-n="note:n4"]');
   ok(true, "Show unlinked draws it");
-  await page.uncheck('[data-cm="loose"]');
+  await cmClick(page, '[data-cm="loose-t"]');
   ok(await fits(page), "the map fits at 1280px");
   // select, connect, label
   await tap(page, "note:n2"); await page.waitForSelector('[data-cm="open"]');
   ok(/Greenhouse effect/.test(await page.textContent(".cm-panel")) && /Note/.test(await page.textContent(".cm-panel")), "tapping a node shows what it is");
-  await page.click('[data-cm="connect"]'); await tap(page, "deck:d2"); await page.waitForSelector("[data-cm-elab]");
-  await page.fill("[data-cm-elab]", "affects"); await page.click('[data-cm="elab"]'); await page.waitForTimeout(200);
+  await cmClick(page, '[data-cm="connect"]'); await tap(page, "deck:d2"); await page.waitForSelector("[data-cm-elab]");
+  await page.fill("[data-cm-elab]", "affects"); await page.press("[data-cm-elab]", "Enter"); await page.waitForTimeout(200);
   let c1 = await course(page, "c1");
   ok(c1.cmap.links.some(l => [l.a, l.b].sort().join() === "deck:d2,note:n2" && l.label === "affects"), "a labelled connection is kept on the course");
   ok(await page.locator(".cm-elab", {hasText: "affects"}).count() === 1, "and drawn");
@@ -227,24 +242,24 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   c1 = await course(page, "c1");
   ok(Array.isArray(c1.cmap.pos["note:n1"]), "a dragged node keeps its place");
   // hide with Undo
-  await tap(page, "file:f2"); await page.click('[data-cm="hide"]'); await page.waitForTimeout(200);
+  await tap(page, "file:f2"); await cmClick(page, '[data-cm="hide"]'); await page.waitForTimeout(200);
   ok(await page.locator('.cm-node[data-n="file:f2"]').count() === 0, "Hide takes a node off the map");
   await page.click("#toastUndo"); await page.waitForTimeout(300);
   ok((await course(page, "c1")).cmap.hide.length === 0, "Undo brings it back");
   // an idea, named in the panel's form
-  await tap(page, "topic:x1:tp2"); await page.click('[data-cm="idea"]'); await page.waitForSelector("#cmAsk");
+  await tap(page, "topic:x1:tp2"); await cmClick(page, '[data-cm="idea"]'); await page.waitForSelector("#cmAsk");
   await page.fill("#cmAsk", "Albedo"); await page.press("#cmAsk", "Enter"); await page.waitForTimeout(250);
   c1 = await course(page, "c1");
   const idea = c1.cmap.add.find(x => x.label === "Albedo");
   ok(idea && c1.cmap.links.some(l => l.b === "idea:" + idea.id && l.a === "topic:x1:tp2"), "+ Idea adds a node tied to the selected one");
   // AI suggestions
-  await page.click('[data-cm="suggest"]'); await page.waitForSelector("[data-cm-sl]");
+  await cmClick(page, '[data-cm="suggest"]'); await page.waitForSelector("[data-cm-sl]");
   ok(/see how their course material connects/.test(ctx.bodies[ctx.bodies.length - 1]) && /note:n2 \| Note \| Greenhouse effect \| CO2 traps heat/.test(ctx.bodies[ctx.bodies.length - 1]), "Suggest sends the node names and the first lines of notes");
-  await page.click('[data-cm="sug-add"]'); await page.waitForTimeout(250);
+  await cmClick(page, '[data-cm="sug-add"]'); await page.waitForTimeout(250);
   c1 = await course(page, "c1");
   ok(c1.cmap.links.some(l => l.label === "warms") && c1.cmap.add.filter(x => x.label === "Albedo").length === 2, "accepted suggestions join the map");
   // Fill In the Map
-  await page.click('[data-cm="quiz"]'); await page.waitForSelector(".cm-chip");
+  await cmClick(page, '[data-cm="quiz"]'); await page.waitForSelector(".cm-chip");
   const blanks = await page.locator(".cm-node.is-blank").count();
   ok(blanks >= 5, "Fill In the Map hides labels: " + blanks);
   const pick = await page.evaluate(() => SBCMAP.state().quiz.pick), want = await page.evaluate(id => SBCMAP.state().g.nodes.find(x => x.id === id).label, pick);
@@ -253,7 +268,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   ok(await page.evaluate(() => SBCMAP.state().quiz.miss) === 1, "a wrong label is counted");
   await page.click(`.cm-chip >> text="${want}"`); await page.waitForTimeout(150);
   ok(await page.evaluate(() => SBCMAP.state().quiz.done.size) === 1 && /1 of \d+ placed/.test(await page.textContent(".cm-tools")), "the right one fills the blank, and the next blank is picked");
-  await page.click('[data-cm="quiz-end"]');
+  await cmClick(page, '[data-cm="quiz-end"]');
   ok(page.errs.length === 0, "no console errors (map): " + page.errs.join(" | "));
   await page.keyboard.press("Escape");
   // an exam map, coloured by knowledge
@@ -263,15 +278,15 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await page.keyboard.press("Escape"); await page.waitForTimeout(200);
   // a course with nothing linked yet: the Overview card offers to create a map
   const card2 = await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c2));
-  ok(/Create Map/.test(card2) && /data-act="cm-open"/.test(card2), "a course with nothing linked still has the card, with Create Map");
+  ok(/Create Map/.test(card2) && /data-act="cm-new"/.test(card2), "a course with no maps has the card, with Create Map");
   await act(page, "cm-open", "c2", {kind: "course"}); await page.waitForSelector('.cm-node[data-n="root"]');
-  ok(await page.locator('.cm-node[data-n="file:f1"]').count() === 1 && await page.isChecked('[data-cm="loose"]'), "a new map starts with the course's unlinked material on show, ready to connect");
+  ok(await page.locator('.cm-node[data-n="file:f1"]').count() === 1 && await page.evaluate(() => SBCMAP.state().loose), "a new map starts with the course's unlinked material on show, ready to connect");
   ok(/Start your map/.test(await page.textContent(".cm-panel")) && await page.locator('.cm-panel [data-cm="idea"]').count() === 1, "and one clear first step: Add Your First Idea");
-  await page.click('.cm-panel [data-cm="idea"]'); await page.waitForSelector("#cmAsk");
+  await cmClick(page, '.cm-panel [data-cm="idea"]'); await page.waitForSelector("#cmAsk");
   await page.fill("#cmAsk", "Thesis: parks cool cities"); await page.press("#cmAsk", "Enter"); await page.waitForTimeout(250);
   const c2 = await course(page, "c2"), first = c2.cmap.add.find(x => x.label === "Thesis: parks cool cities");
   ok(first && c2.cmap.links.some(l => l.a === "root" && l.b === "idea:" + first.id), "the first idea, with nothing selected, joins the course in the middle");
-  ok(/Open Map/.test(await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c2))), "after that, the card says Open Map");
+  ok(/1 map for this course/.test(await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c2))), "after that, the card counts the course's maps, with Open");
   ok(page.errs.length === 0, "no console errors (new map): " + page.errs.join(" | "));
   await ctx.close();
 

@@ -2569,6 +2569,10 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .tv-row{display:flex;gap:8px;width:100%}
 .tv-row > .btn{flex:1 1 0;min-width:0;justify-content:center;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tv-tools > .btn{min-height:40px}
+/* a label too long for its share of the row ends in "…" (a centred label overflowing showed its middle, "c Check"); badges keep their size */
+.tv-tools > .btn > *{flex:none}
+.tv-tools > .btn > span:not(.pro-badge,.mini){flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:480px){.tv-tools > .btn{flex:1 1 auto}.tv-tools > .btn:not(.focus-btn) > svg:first-child,.tv-tools > .btn:not(.focus-btn) > :is(.ai-ic,.ws-ic,img):first-child{display:none}}
 .rb-short{display:none}
 /* In a task's sheet the shorter label, so the tools and Mark Done and Edit fit on one row */
 .tv-tools .rb-long{display:none}.tv-tools .rb-short{display:inline}

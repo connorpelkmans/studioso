@@ -16,7 +16,9 @@ ok(H === want.join(" "), `every inline script after the injector is hashed (${wa
 ok(/script-src 'self' "\+\(lax\?"'unsafe-inline'":H\)\+" https:\/\/cdn\.jsdelivr\.net;/.test(first), "script-src uses the hashes; 'unsafe-inline' only in the preview host");
 ok(/lax=!H\|\|\/\(\^\|\\\.\)claudeusercontent\\\.com\$\/\.test\(location\.hostname\)/.test(first), "the lax case is limited to *.claudeusercontent.com (or no hashes at all)");
 ok(/SBJS_SRI/.test(app) && /loadScript\(src, SBJS_SRI\)/.test(app), "the only CDN script (the supabase-js fallback) is loaded with its pinned SRI hash");
-for (const d of ["object-src 'none'", "frame-src 'none'", "base-uri 'self'", "form-action 'self'", "default-src 'self'"]) ok(first.includes(d), "policy keeps " + d);
+for (const d of ["object-src 'none'", "base-uri 'self'", "form-action 'self'", "default-src 'self'"]) ok(first.includes(d), "policy keeps " + d);
+const fr = (first.match(/frame-src ([^;"]+)/) || [])[1] || "";
+ok(fr && fr.split(/\s+/).every(x => /^https:\/\/[a-z0-9.-]+$/.test(x)), "frames: only exact https hosts, no wildcards or 'self' (" + fr.split(/\s+/).length + " embed sites)");
 ok(!/\son[a-z]+\s*=\s*["']/i.test(html.replace(/<script>[\s\S]*?<\/script>/g, "")), "no inline event handler attributes in the page markup (they would be blocked)");
 
 // apply() is idempotent and updates a changed script

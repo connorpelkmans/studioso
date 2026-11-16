@@ -1,5 +1,5 @@
 // Tests for Writing Studio's pure part (identifiers, names, BibTeX / RIS / CSL-JSON in and out, duplicates, citeproc HTML to runs,
-// the draft check) and Concept Maps' pure part (the graph from linked material, the overlay of the student's edits, layout, knowledge colour, quiz, AI checks)
+// the draft check, where issues are, reading the draft's reference list in five styles and its quoted passages) and Concept Maps' pure part (the graph from linked material, the overlay of the student's edits, layout, knowledge colour, quiz, AI checks)
 const assert = require("assert");
 const s = require("../scripts/app-files").source();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
@@ -127,6 +127,89 @@ const R4 = CITE.check(draft, src.concat([{id: "web", type: "webpage", "container
 ok(R4.issues.some(x => /Not in your sources: \(Johnson, 2018\)/.test(x.t)) && R4.issues.some(x => /A source has no title or author/.test(x.t)) && R4.cited === R.cited, "an unnamed source is named as incomplete and the check still works: " + JSON.stringify(R4.issues.map(x => x.t)));
 ok(JSON.stringify(CITE.rules("Use MLA format with a minimum of five peer-reviewed sources")) === JSON.stringify({style: "modern-language-association", min: 5, scholarly: true}), "assignment rules: style and minimum");
 ok(CITE.rules("Chicago style with footnotes").style === "chicago-notes-bibliography" && CITE.rules("Chicago author-date").style === "chicago-author-date", "Chicago notes or author-date");
+
+/* Where each issue is in the draft, and the sentence around it */
+const johnson = R.issues.find(x => /Johnson/.test(x.t));
+ok(johnson.at === draft.indexOf("(Johnson, 2018)") && johnson.len === "(Johnson, 2018)".length, "an issue knows where it is in the draft");
+const [s0, e0] = CITE.sentenceAt(draft, johnson.at, johnson.len);
+ok(draft.slice(s0, e0) === "Others disagree (Johnson, 2018).", "and the sentence around it: " + draft.slice(s0, e0));
+const bareQ = R.issues.find(x => /Quote without/.test(x.t)), [s1, e1] = CITE.sentenceAt(draft, bareQ.at, bareQ.len);
+ok(/^As one study put it, "shade from street trees/.test(draft.slice(s1, e1)) && /that matters\.$/.test(draft.slice(s1, e1)), "a quote's sentence runs past the quote");
+ok(!R.issues.some(x => /Never cited/.test(x.t) && x.at != null), "a source never cited has no place");
+ok(R.citedIds.join() === "a,b", "the sources it found cited, by id");
+/* What changed since the last check */
+const fixedDraft = draft.replace(" Others disagree (Johnson, 2018).", "").replace("(Smith 2021)", "(Smith, 2021)") + "\nLee, K., & Ng, M. (2019). Urban trees.\nWorld Health Organization. (2023). Heat and health.";
+const R5 = CITE.check(fixedDraft, src, {style: "apa", kind: "author-date", label: "APA"});
+const D = CITE.diffIssues(CITE.issueKeys(R), R5);
+ok(D.fixed >= 3 && D.fresh === 0, `fixed and new since the last check: ${D.fixed} fixed, ${D.fresh} new`);
+ok(CITE.diffIssues([], R).fresh === CITE.issueKeys(R).length, "everything is new on a first check");
+ok(CITE.hash("abc") === CITE.hash("abc") && CITE.hash("abc") !== CITE.hash("abd"), "a draft's fingerprint changes when it does");
+const long = "Body. ".repeat(20000) + "\n\nReferences\nSmith, J. (2021). Parks and heat.";
+const capped = CITE.capDraft(long, 60000);
+ok(capped.length <= 60000 && /References\nSmith, J\. \(2021\)\. Parks and heat\.$/.test(capped), "a long draft is capped, keeping its reference list");
+
+/* Reading the draft's reference list */
+const refDraft = `Intro (Smith & Lee, 2021).
+
+References
+Smith, J. A., & Lee, K. (2021). The urban heat island effect and green infrastructure. Urban Climate,
+38(2), 100–118. https://doi.org/10.1016/j.uclim.2021.100118
+Ng, M. (2019). Cities and climate change. Routledge.
+World Health Organization. (2020, May 3). Heat and health.
+https://www.who.int/news-room/fact-sheets/detail/heat
+
+Appendix A
+Survey questions (2020).`;
+const E = CITE.refEntries(refDraft);
+ok(E.length === 3 && /^Smith, J\. A\., & Lee, K\. \(2021\).*Urban Climate, 38\(2\), 100–118\. https:\/\/doi\.org/.test(E[0]) && /who\.int/.test(E[2]), "entries split by line, wrapped lines joined, the appendix left out");
+const EN = CITE.refEntries("Text.\n\nWorks Cited\n\n[1] J. A. Smith and K. Lee, “Title one,” Urban Climate, vol. 38, 2021.\n[2] M. Ng, Cities and Climate Change. London:\nRoutledge, 2019.");
+ok(EN.length === 2 && /London: Routledge, 2019\.$/.test(EN[1]), "numbered entries, wrapped");
+const EB = CITE.refEntries("Text.\n\nBibliography\n\nNg, Mo. Cities and Climate Change. London:\nRoutledge, 2019.\n\nSmith, Jordan A., and Kim Lee. 2021. “The Urban Heat Island Effect.” Urban Climate 38 (2): 100–118.");
+ok(EB.length === 2 && /^Smith, Jordan/.test(EB[1]), "entries split by blank lines");
+ok(CITE.refEntries("No list here at all, just words (2020).").length === 0, "no list, no entries");
+const P = x => CITE.parseRef(x), fam = it => (it.author || []).map(a => a.literal || `${a.family}|${a.given || ""}`).join("; ");
+// APA
+let it = P("Smith, J. A., & Lee, K. (2021). The urban heat island effect and green infrastructure. Urban Climate, 38(2), 100–118. https://doi.org/10.1016/j.uclim.2021.100118");
+ok(it.type === "article-journal" && fam(it) === "Smith|J. A.; Lee|K." && CITE.yearOf(it) === 2021 && it.title === "The urban heat island effect and green infrastructure" && it["container-title"] === "Urban Climate" && it.volume === "38" && it.issue === "2" && it.page === "100–118" && it.DOI === "10.1016/j.uclim.2021.100118", "APA journal article: " + JSON.stringify(it));
+it = P("Ng, M. (2019). Cities and climate change (2nd ed.). Routledge.");
+ok(it.type === "book" && it.title === "Cities and climate change" && it.edition === "2" && it.publisher === "Routledge" && fam(it) === "Ng|M.", "APA book with an edition");
+it = P("World Health Organization. (2020, May 3). Heat and health. https://www.who.int/news-room/fact-sheets/detail/heat");
+ok(it.type === "webpage" && fam(it) === "World Health Organization" && it.URL === "https://www.who.int/news-room/fact-sheets/detail/heat" && CITE.yearOf(it) === 2020, "APA web page by an organisation");
+it = P("Brown, A. (2018). Shade in the city. In P. Green (Ed.), Handbook of urban design (pp. 45–67). Springer.");
+ok(it.type === "chapter" && it["container-title"] === "Handbook of urban design" && it.page === "45–67", "APA book chapter");
+it = P("Kahneman, D. (2011). Thinking, fast and slow. Farrar, Straus and Giroux. ISBN 978-0-374-27563-1");
+ok(it.ISBN === "9780374275631" && it.type === "book" && it.title === "Thinking, fast and slow", "an ISBN in an entry");
+// MLA
+it = P("Smith, Jordan A., and Kim Lee. “The Urban Heat Island Effect and Green Infrastructure.” Urban Climate, vol. 38, no. 2, 2021, pp. 100-18.");
+ok(it.type === "article-journal" && fam(it) === "Smith|Jordan A.; Lee|Kim" && it.title === "The Urban Heat Island Effect and Green Infrastructure" && it["container-title"] === "Urban Climate" && it.volume === "38" && it.issue === "2" && it.page === "100–18" && CITE.yearOf(it) === 2021, "MLA article: " + JSON.stringify(it));
+it = P("Ng, Mo. Cities and Climate Change. Routledge, 2019.");
+ok(it.type === "book" && fam(it) === "Ng|Mo" && it.title === "Cities and Climate Change" && it.publisher === "Routledge" && CITE.yearOf(it) === 2019, "MLA book");
+// Chicago
+it = P("Smith, Jordan A., and Kim Lee. 2021. “The Urban Heat Island Effect and Green Infrastructure.” Urban Climate 38 (2): 100–118. https://doi.org/10.1016/j.uclim.2021.100118.");
+ok(it.type === "article-journal" && CITE.yearOf(it) === 2021 && fam(it) === "Smith|Jordan A.; Lee|Kim" && it["container-title"] === "Urban Climate" && it.volume === "38" && it.issue === "2" && it.page === "100–118" && it.DOI === "10.1016/j.uclim.2021.100118", "Chicago author-date article");
+it = P("Ng, Mo. Cities and Climate Change. London: Routledge, 2019.");
+ok(it.type === "book" && it["publisher-place"] === "London" && it.publisher === "Routledge" && CITE.yearOf(it) === 2019, "Chicago book with place and publisher");
+// IEEE
+it = P("[1] J. A. Smith and K. Lee, “The urban heat island effect and green infrastructure,” Urban Climate, vol. 38, no. 2, pp. 100–118, 2021, doi: 10.1016/j.uclim.2021.100118.");
+ok(it.type === "article-journal" && fam(it) === "Smith|J. A.; Lee|K." && it.title === "The urban heat island effect and green infrastructure" && it["container-title"] === "Urban Climate" && it.page === "100–118" && it.DOI === "10.1016/j.uclim.2021.100118", "IEEE article: " + JSON.stringify(it));
+it = P("[2] M. Ng, Cities and Climate Change, 2nd ed. London, U.K.: Routledge, 2019.");
+ok(it.type === "book" && fam(it) === "Ng|M." && it.title === "Cities and Climate Change" && it.edition === "2" && it.publisher === "Routledge" && it["publisher-place"] === "London, U.K.", "IEEE book: " + JSON.stringify(it));
+// Harvard
+it = P("Smith, J.A. and Lee, K. (2021) 'The urban heat island effect and green infrastructure', Urban Climate, 38(2), pp. 100–118. doi: 10.1016/j.uclim.2021.100118.");
+ok(it.type === "article-journal" && fam(it) === "Smith|J. A.; Lee|K." && it.title === "The urban heat island effect and green infrastructure" && it["container-title"] === "Urban Climate" && it.volume === "38" && it.page === "100–118", "Harvard article: " + JSON.stringify(it));
+it = P("Ng, M. (2019) Cities and climate change. London: Routledge.");
+ok(it.type === "book" && it.publisher === "Routledge" && it["publisher-place"] === "London" && CITE.yearOf(it) === 2019, "Harvard book");
+ok(CITE.dupOf(P("Smith, J. A., & Lee, K. (2021). The urban heat island effect and green infrastructure. Urban Climate, 38(2), 100–118."), [CITE.clean({id: "x", title: "The urban heat island effect and green infrastructure", issued: {"date-parts": [[2021]]}})]), "an entry already among the sources is a duplicate");
+ok(P("") === null, "an empty entry is nothing");
+
+/* Quoted passages in the draft */
+const qsrc = [CITE.clean({id: "s1", title: "x", author: [{family: "Smith"}], issued: {"date-parts": [[2021]]}}), CITE.clean({id: "s2", title: "Cities", author: [{family: "Ng"}], issued: {"date-parts": [[2019]]}})];
+const QS = CITE.quotesIn(`Parks were "on average four degrees cooler than the surrounding blocks" (Smith & Lee, 2021, p. 104). Ng writes that "cities must plan for heat before the summer comes" (Ng 50). As Ng puts it, “the plan matters more than the money spent.”³ And "this has no citation at all, really nothing" here. One more "numbered quote that has a number after it" [2, p. 9].\n\nReferences\nSmith "a quoted title that is in the list itself" (2021).`, qsrc);
+ok(QS.length === 4, "four quotes with citations (one without is left out, and the list isn't read): " + QS.length);
+ok(QS[0].sid === "s1" && QS[0].p === "104" && QS[0].t === "on average four degrees cooler than the surrounding blocks", "APA: the source and page");
+ok(QS[1].sid === "s2" && QS[1].p === "50", "MLA: the page after the name");
+ok(QS[2].cite === "Note 3" && QS[2].sid === "s2" && QS[2].p === "", "a footnote mark, with the source named before the quote");
+ok(QS[3].sid === "s2" && QS[3].p === "9" && QS[3].cite === "[2]", "a numbered citation with a page");
 
 /* ---------- Concept Maps ---------- */
 const SRC = () => ({root: {label: "BIO 201", kind: "course"}, mode: "course",

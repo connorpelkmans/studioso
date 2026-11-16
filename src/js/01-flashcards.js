@@ -177,9 +177,12 @@ const fcMatches = (d, q) => {
 function masteryPips(box){ return `<span class="pips" title="Level ${box} of 5">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= box ? "on" : ""}"></i>`).join("")}</span>`; }
 
 /* Review (the Flashcards tab) */
-ui.rvView = ui.rvView || (() => { try { return localStorage.getItem("studyboard:rvview") === "quizzes" ? "quizzes" : "cards"; } catch (e) { return "cards"; } })();
-const rvSet = v => { ui.rvView = v === "quizzes" ? "quizzes" : "cards"; try { localStorage.setItem("studyboard:rvview", ui.rvView); } catch (e) {} };
-const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Review"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView !== "quizzes"}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button></div>`;
+// Review's views: Flashcards, Quizzes, Concept Maps (99-concept-map.js) and Writing (99-writing-studio.js: papers, My Library and Zotero)
+const RV_VIEWS = ["cards", "quizzes", "maps", "writing"];
+ui.rvView = ui.rvView || (() => { try { const v = localStorage.getItem("studyboard:rvview"); return RV_VIEWS.includes(v) ? v : "cards"; } catch (e) { return "cards"; } })();
+const rvSet = v => { ui.rvView = RV_VIEWS.includes(v) ? v : "cards"; try { localStorage.setItem("studyboard:rvview", ui.rvView); } catch (e) {} };
+const rvWriting = () => !!(window.SBWRITE && SBWRITE.reviewHtml) && !inPreview();
+const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Review"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView === "cards" || (ui.rvView === "writing" && !rvWriting()) || (ui.rvView === "maps" && !window.SBCMAP)}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button>${window.SBCMAP ? `<button role="tab" data-act="rv-view" data-id="maps" aria-selected="${ui.rvView === "maps"}" aria-label="Concept Maps"><span class="rv-long">Concept Maps</span><span class="rv-short">Maps</span></button>` : ""}${rvWriting() ? `<button role="tab" data-act="rv-view" data-id="writing" aria-selected="${ui.rvView === "writing"}">Writing</button>` : ""}</div>`;
 const QZ_GROUP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.1c2.6.2 4.5 2.2 4.5 4.9"/></svg>';
 // Quizzes you put away with Archive (qz.archived) stay on their deck, out of the list
 // New quizzes (no qz.order yet) come first, newest first, then the ones you've put in order
@@ -306,6 +309,8 @@ function viewFlashcards(){
   if (ui.deckId && state.decks[ui.deckId]) return viewDeck(state.decks[ui.deckId]);
   ui.deckId = null;
   if (ui.rvView === "quizzes") return reviewSwitchHtml() + viewQuizzes();
+  if (ui.rvView === "maps" && window.SBCMAP) return reviewSwitchHtml() + SBCMAP.listHtml();
+  if (ui.rvView === "writing" && rvWriting()) return reviewSwitchHtml() + SBWRITE.reviewHtml();
   const ds = decksShown().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
   const tiles = ds.map(d => {
     const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";
@@ -714,7 +719,7 @@ function viewStudy(){
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
 }
 
 /* Quizzes made automatically from your cards */
