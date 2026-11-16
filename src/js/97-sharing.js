@@ -97,7 +97,6 @@
       ${band(p.course, p.name, `${plural(p.cards.length, "card")}${np ? ` (${plural(np, "picture card")})` : ""}${nq ? `, ${plural(nq, "practice quiz", "practice quizzes")}` : ""}${byLine(row)}`)}
       ${cards.length ? `<button type="button" class="sh-card" id="shCard"></button>
       <div class="sh-nav"><button type="button" class="btn small" id="shPrev">Previous</button><span class="mini" id="shPos" aria-live="polite"></span><button type="button" class="btn small" id="shNext">Next</button></div>` : ""}
-      ${g.heldNote ? g.heldNote(p) : ""}
       ${row.is_mine ? `<div class="grp-note">This is your own shared deck. Adding it makes a second copy.</div>` : have ? `<div class="grp-note">You already have this deck (${esc(have.name)}).</div>` : ""}
       ${coursesArr().length ? `<label class="f">Put It In<select id="shCourse">${courseSelectHtml(g.matchCourse(p.course))}</select></label>` : ""}
       <p class="mini" style="margin:0">Add it to get your own copy, with each card brought back just before you'd forget it.${signedIn() ? "" : " No account needed."}</p></div>

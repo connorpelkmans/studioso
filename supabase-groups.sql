@@ -261,8 +261,7 @@ language plpgsql volatile security definer set search_path = public as $$
 begin
   if auth.uid() is null then return; end if;
   if not public.sbg_lookup_ok() then raise exception 'Too many code lookups. Try again in an hour.'; end if;
-  -- picture cards only for the deck's owner and people with Pro (sbg_deck_for, below)
-  return query select d.code, d.name, d.sharer_name, d.card_count, public.sbg_deck_for(d.data, d.owner_id, auth.uid()), d.updated_at, d.owner_id = auth.uid()
+  return query select d.code, d.name, d.sharer_name, d.card_count, d.data, d.updated_at, d.owner_id = auth.uid()
   from public.shared_decks d
   where d.code = public.sbg_norm_code(p_code);
 end $$;
@@ -1457,8 +1456,8 @@ drop function if exists public.sbs_item_no_copies();
 drop function if exists public.sbg_payload_problem(jsonb);
 
 -- Picture cards in a shared deck (a share link or a published deck). A card with img is a picture card; data.pics holds its
--- pictures. Only an account with Pro can share them, and only people with Pro get them back: everyone else gets the deck
--- without them, and picsHeld says how many were held back. Public pages never show them.
+-- pictures. Only an account with Pro can share them (making and sharing picture cards is Pro); anyone who opens the link or
+-- adds the deck gets them, like any card. Public pages never show them, just how many there are (picsHeld).
 -- sbg_pro: Pro, or the paywall is off (or this server has no plans: supabase-plans.sql)
 create or replace function public.sbg_pro(p_uid uuid) returns boolean
 language plpgsql stable security definer set search_path = public as $$
@@ -1483,14 +1482,8 @@ language sql immutable set search_path = public as $$
       'picsHeld', (select count(*) from jsonb_array_elements(p -> 'cards') c where jsonb_typeof(c) = 'object' and c ? 'img'))
   end
 $$;
--- What one person gets of a shared deck: all of it for its owner or someone with Pro
-create or replace function public.sbg_deck_for(p jsonb, p_owner uuid, p_uid uuid) returns jsonb
-language plpgsql stable security definer set search_path = public as $$
-begin
-  if not public.sbg_deck_has_pics(p) or (p_uid is not null and p_uid = p_owner) or public.sbg_pro(p_uid) then return p; end if;
-  return public.sbg_deck_strip(p);
-end $$;
-revoke all on function public.sbg_deck_has_pics(jsonb), public.sbg_deck_strip(jsonb), public.sbg_deck_for(jsonb, uuid, uuid) from public, anon, authenticated;
+drop function if exists public.sbg_deck_for(jsonb, uuid, uuid);
+revoke all on function public.sbg_deck_has_pics(jsonb), public.sbg_deck_strip(jsonb) from public, anon, authenticated;
 
 -- Deck links and public decks (share_deck writes shared_decks): picture cards need Pro, and a deck is at most 3 MB (8 MB with pictures)
 create or replace function public.sbg_deck_check() returns trigger

@@ -232,7 +232,7 @@ async function sharer(browser){
   ok(await page.evaluate(() => { const t = document.querySelector("#pubLookTile"); return t.style.getPropertyValue("--c") === "#9A4FD1" && /<path/.test(t.querySelector(".fc-ic").innerHTML) && document.querySelector('dialog[open] input[name="pubIcon"]:checked').value === "psych"; }), "picking a colour and an icon updates the preview");
   await page.screenshot({path: shots + "/publish-look.png"});
   const refreshed = []; await page.route("**/flashcards/refresh", r => { refreshed.push(r.request().postData()); r.fulfill({status: 204, body: ""}); });
-  ok(/1 picture card is shared too/.test(await txt(page, "dialog[open]")) && /Only people with Pro can add picture cards/.test(await txt(page, "dialog[open]")), "the publish sheet says the picture card is shared too, and only people with Pro can add it");
+  ok(/1 picture card is shared too/.test(await txt(page, "dialog[open]")) && /Anyone who adds the deck can study them/.test(await txt(page, "dialog[open]")), "the publish sheet says the picture card is shared too, and anyone who adds the deck can study it");
   // the picture card's picture, as this device would read it
   await page.evaluate(() => { SBPRO.imageBlob = async () => { const c = document.createElement("canvas"); c.width = 40; c.height = 30; c.getContext("2d").fillRect(0, 0, 20, 15); return new Promise(r => c.toBlob(r, "image/png")); }; });
   await page.click("#pubGo"); await page.waitForTimeout(300);

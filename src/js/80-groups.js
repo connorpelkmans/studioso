@@ -500,7 +500,7 @@
     return o;
   }
   /* Picture cards. A share link and a published deck (Studyboard Flashcards) carry them, with their pictures, when the
-     person sharing has Pro; only people with Pro can add them (the server holds them back from everyone else: picsHeld).
+     person sharing has Pro (making and sharing picture cards is Pro). Anyone can add and study them, like any shared card.
      Group shares and deck files leave them out. */
   const proOn = () => !!(window.SBPRO && typeof SBPRO.locked === "function" && !SBPRO.locked());
   const picCards = d => (d && d.cards || []).filter(x => x && x.img && !x.draft);
@@ -508,12 +508,10 @@
   // where: "link" (a share link or a published page) or anything else (a group or a deck file)
   const picNote = (d, where) => {
     const n = picCards(d).length; if (!n) return "";
-    if (where === "link" && proOn()) return `<p class="mini sh-pics" style="margin:0">Your ${plural(n, "picture card")} ${n === 1 ? "is" : "are"} shared too, with ${n === 1 ? "its picture" : "their pictures"}. Only people with Pro can add picture cards; everyone else gets the rest of the deck.</p>`;
+    if (where === "link" && proOn()) return `<p class="mini sh-pics" style="margin:0">Your ${plural(n, "picture card")} ${n === 1 ? "is" : "are"} shared too, with ${n === 1 ? "its picture" : "their pictures"}. Anyone who adds the deck can study them.</p>`;
     if (where === "link") return `<p class="mini sh-pics" style="margin:0">Your ${plural(n, "picture card")} ${n === 1 ? "is" : "are"} left out. Sharing picture cards is part of Pro. ${upBtn}</p>`;
     return `<p class="mini sh-pics" style="margin:0">Your ${plural(n, "picture card")} ${n === 1 ? "is" : "are"} left out here. With Pro, share the deck with a link or publish it to include picture cards.</p>`;
   };
-  // Someone else's deck that has picture cards you can't add without Pro
-  const heldNote = p => p && p.picsHeld > 0 ? `<p class="mini sh-pics" style="margin:0">This deck also has ${plural(p.picsHeld, "picture card")}. Adding picture cards from a shared deck is part of Pro. ${upBtn}</p>` : "";
   const PIC_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/, PICS_MAX = 6000000;
   const num01 = v => Math.max(0, Math.min(1, Number(v) || 0));
   // A picture card's masks and settings (k: the picture, a key on this device or a ref into the payload's pics)
@@ -559,11 +557,11 @@
     if (Object.keys(pics).length) p.pics = pics;
     return p;
   }
-  // The pictures of a shared deck saved on this device (Pro), before its cards are added; without Pro they're left out
+  // The pictures of a shared deck saved on this device, before its cards are added (anyone can add them)
   async function takePics(p){
     const pics = p.pics || {}; delete p.pics;
     if (!p.cards.some(c => c.img)) return p;
-    if (!proOn() || !(window.SBPRO && SBPRO.storeImage)) { p.picsHeld = (p.picsHeld || 0) + p.cards.filter(c => c.img).length; p.cards = p.cards.filter(c => !c.img); return p; }
+    if (!(window.SBPRO && SBPRO.storeImage)) { p.cards = p.cards.filter(c => !c.img); return p; }
     const keys = new Map();
     for (const c of p.cards) {
       if (!c.img) continue;
@@ -622,7 +620,6 @@
     const course = p.course && typeof p.course === "object" ? {code: str(p.course.code, 40), name: str(p.course.name, 120)} : null;
     const out = {name: str(p.name, 120).trim() || "Shared Deck", course, cards, quizzes, sharedBy: str(p.sharedBy, 40), hash: str(p.hash, 40)};
     if (Object.keys(pics).length) out.pics = pics;
-    const held = Math.round(Number(p.picsHeld) || 0); if (held > 0) out.picsHeld = Math.min(5000, held);
     return out;
   }
   // sh remembers the text as shared, so a later update can tell a card you edited
@@ -3147,7 +3144,6 @@
         <b class="grp-prev-name">${esc(p.name)}</b>
         <span class="mini">${plural(p.cards.length, "card")}${nq ? `, ${plural(nq, "practice quiz", "practice quizzes")}` : ""}${sharer ? ` · Shared by ${esc(sharer)}` : ""}</span></div>
       ${p.cards.length ? `<h3 class="fsec" style="margin:4px 0 0">A Few Cards</h3><ul class="grp-sample">${p.cards.slice(0, 3).map(x => `<li><span class="f">${esc(x.front)}</span><span class="b">${esc(x.back)}</span></li>`).join("")}</ul>${p.cards.length > 3 ? `<details class="grp-more-cards"><summary class="mini">and ${plural(p.cards.length - 3, "more card")}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><ul class="grp-sample">${p.cards.slice(3, 500).map(x => `<li><span class="f">${esc(x.front)}</span><span class="b">${esc(x.back)}</span></li>`).join("")}</ul>${p.cards.length > 500 ? `<p class="mini">and ${plural(p.cards.length - 500, "more card")} after you add the deck</p>` : ""}</details>` : ""}` : ""}
-      ${heldNote(p)}
       ${isMine ? `<div class="grp-note">This is your own shared deck. Adding it makes a second copy.</div>` : existing ? `<div class="grp-note">You already have this deck (${esc(existing.name)}). Adding it again makes another copy.</div>` : ""}
       <label class="f">Put It In<select name="courseId">${courseSelectHtml(cid)}</select></label>
       <p class="mini" style="margin:0">You get your own copy with fresh study progress. ${sharer ? esc(sharer) + " won't" : "Nobody else will"} see how you study.</p></div>
@@ -4539,7 +4535,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // visitor sees what was shared first, then the welcome and setup
     sharePending: () => { const p = takePending(); return !!p && (p.kind === "deck" || p.kind === "share") && !!window.SBSHARE && SBSHARE.can(); }};
   // For 97-sharing.js (public links and the Course Library)
-  window.SBGROUPS.share = {picCards, picNote, heldNote, proOn, attachPics, picErr, rightsBox, rightsOk, confirmRights, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
+  window.SBGROUPS.share = {picCards, picNote, proOn, attachPics, picErr, rightsBox, rightsOk, confirmRights, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
     deckShareSheet, matchCourse, codeKey, copyText, sendText, busyBtn, hashOf, loadingSheet, myName: () => S.name || "",
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),

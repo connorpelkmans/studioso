@@ -207,9 +207,7 @@ declare k text := public.sbg_norm_code(p_code);
 begin
   if k !~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$' then return; end if;
   if not public.sbs_lookup_ok() then raise exception 'Too many links opened. Try again in an hour.'; end if;
-  -- picture cards only for the deck's owner and people with Pro (sbg_deck_for in supabase-groups.sql)
-  return query select d.code, 'deck'::text, d.name, d.sharer_name, d.card_count,
-      case when to_regprocedure('public.sbg_deck_for(jsonb,uuid,uuid)') is null then d.data else public.sbg_deck_for(d.data, d.owner_id, auth.uid()) end, d.updated_at, coalesce(d.owner_id = auth.uid(), false)
+  return query select d.code, 'deck'::text, d.name, d.sharer_name, d.card_count, d.data, d.updated_at, coalesce(d.owner_id = auth.uid(), false)
     from public.shared_decks d where d.code = k and not d.hidden;
   if found then return; end if;
   return query select i.code, i.kind, i.title, i.sharer_name, 0, i.data, i.updated_at, coalesce(i.owner_id = auth.uid(), false)
