@@ -228,7 +228,8 @@ const HOOK = {b: "Tag the friend who<br>“works better under <b>pressure</b>”
 // d/e: "max hook": extreme close-up on the reaction, red alarm glow, impact at frame 0, snap-out reveal + stamp at ~1 s,
 // then the open loop ("every friend group has one") at 1.6 s, and into the list at ~3 s.
 const ZOOM = VARIANT === "d" || VARIANT === "e";
-const HOOK2 = "Every friend group<br>has one of these 👇";
+// Open loop (information-gap theory): a specific, closeable question that's only answered at the end
+const HOOK2 = {d: "Every friend group has all 4.<br><b>#4</b> is the worst 👇", e: "Every friend group has all 4.<br><b>#4</b> hasn't slept in days 👇"}[VARIANT] || "Every friend group<br>has one of these 👇";
 const FACE = {d: [750, 702], e: [365, 652]}[VARIANT];
 const STAMP = {d: ["CUMULATIVE!", 70, 750, -10], e: ["0% DONE", 540, 690, 8]}[VARIANT];
 const COLD = VARIANT !== "a";
@@ -253,7 +254,7 @@ function render(t) {
   if (ZOOM) {
     // Line 1 (the gasp) until 1.5 s, then the open loop, then hand off to the scene's own title at ~2.9 s
     const two = t >= 1.55;
-    $("hook").innerHTML = two ? HOOK2 : HOOK; $("hook").style.fontSize = two ? "72px" : (VARIANT === "e" ? "80px" : "96px");
+    $("hook").innerHTML = two ? HOOK2 : HOOK; $("hook").style.fontSize = two ? "62px" : (VARIANT === "e" ? "80px" : "96px");
     $("hook").style.opacity = (two ? ioCubic(P(t, 1.55, 1.75)) : 1) * (1 - P(t, 2.6, 2.8));
     $("hook").style.transform = two ? "none" : `scale(${1 + .18 * (1 - oBack(P(t, 0, .25)))})`;
     $("alarm").style.opacity = (1 - P(t, .95, 1.35)) * (.75 + .25 * Math.sin(t * 6.3));
