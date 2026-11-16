@@ -4966,8 +4966,9 @@ html.cp-hover{cursor:pointer}
 .cp-pt{position:absolute;display:block;animation:cpUp 2.3s cubic-bezier(.25,.6,.35,1) both}
 .cp-pt svg{width:100%;height:100%;display:block;overflow:visible}
 /* Hearts and sparkles: fade and grow in, float up and outward at one tilt, fade out (smooth, on the compositor) */
-.cp-pt.cp-pt-pop{animation:cpFloat 2s cubic-bezier(.22,.61,.36,1) both;will-change:transform,opacity}
-@keyframes cpFloat{0%{opacity:0;transform:translate(0,4px) scale(.7) rotate(var(--r))}18%{opacity:1;transform:translate(calc(var(--dx)*.2),-4px) scale(1) rotate(var(--r))}65%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-30px) scale(.92) rotate(var(--r))}}
+.cp-pt.cp-pt-pop{animation:cpPtRise 2s cubic-bezier(.22,.61,.36,1) both;will-change:transform,opacity}
+/* (named apart from cpFloat, the floating companions' hover: the same name made them fade in and out) */
+@keyframes cpPtRise{0%{opacity:0;transform:translate(0,4px) scale(.7) rotate(var(--r))}18%{opacity:1;transform:translate(calc(var(--dx)*.2),-4px) scale(1) rotate(var(--r))}65%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-30px) scale(.92) rotate(var(--r))}}
 .cp-pt.cp-pt-still{animation:cpFade 2.2s ease-out both}
 @keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.6) rotate(0)}22%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
 @keyframes cpFade{0%{opacity:0}20%{opacity:1}75%{opacity:1}100%{opacity:0}}
@@ -5131,10 +5132,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 /* Thinking: three dots taking turns, while the student waits on the AI */
 .cp-bubble.cp-think{padding:9px 14px}
 .cp-dots{display:inline-flex;gap:5px;align-items:center;height:14px}
-.cp-dots i{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.3;animation:cpDot 1.2s infinite ease-in-out}
+.cp-dots i{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.3;animation:cpDots 1.2s infinite ease-in-out}
 .cp-dots i:nth-child(2){animation-delay:.18s}
 .cp-dots i:nth-child(3){animation-delay:.36s}
-@keyframes cpDot{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:.9;transform:translateY(-4px)}}
+@keyframes cpDots{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:.9;transform:translateY(-4px)}}
 @media (prefers-reduced-motion:reduce){.cp-dots i{animation:cpDotFade 1.6s infinite}@keyframes cpDotFade{0%,100%{opacity:.35}50%{opacity:1}}}
 
 /* Ask's confirm panel (98-assist.js): sits low on the screen so the highlighted thing above stays in view */

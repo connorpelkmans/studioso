@@ -66937,7 +66937,15 @@ var COMP_EXTRA = [];
     // the blush stays inside the face's outline (never over wings, arms, ears or the outline itself)
     // and goes under anything worn on the body (its shape is cut out of the blush), while a beak or snout stays in front of a scarf
     const bodyWear = `${capePart(wrapW ? collarArt(collarAt(capeA[2])) : ACC_ART.capeCollar)}${acc("scarf", A.neck, wrapW ? scarfArt(hwAt(ns)) : "")}${acc("star", chestA)}${acc("medal", medalA)}${acc("bowtie", bowA)}`;
-    const ck = cheeksSvg(c), skin = ck ? (hasHead ? partSvg(P.head) : partSvg(P.body)) + partSvg(P.face) : "";
+    // the blush's mask only needs the face's shape (its filter paints it white), so the copy drops the colour gradients:
+    // otherwise every gradient id appeared twice in the drawing, once in the mask
+    // (clip paths stay, so the shape is exact, under ids of their own)
+    const shape = svg => {
+      let t = String(svg || "").replace(/<(linear|radial)Gradient\b[\s\S]*?<\/\1Gradient>/g, "").replace(/(\s(?:fill|stroke))="url\(#[^)]+\)"/g, '$1="#fff"');
+      const ids = new Set(); t.replace(/\sid="([^"]+)"/g, (m, id) => { ids.add(id); return m; });
+      return ids.size ? t.replace(/(\sid=")([^"]+)"/g, '$1$2-ck"').replace(/url\(#([^)]+)\)/g, (m, id) => ids.has(id) ? `url(#${id}-ck)` : m) : t;
+    };
+    const ck = cheeksSvg(c), skin = ck ? shape(hasHead ? partSvg(P.head) : partSvg(P.body)) + shape(partSvg(P.face)) : "";
     const R = `x="-40" y="-40" width="200" height="200"`;
     const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
     const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}`;
