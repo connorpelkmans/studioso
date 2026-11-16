@@ -64,6 +64,9 @@ alter table public.share_reports enable row level security;   -- no policies: on
 -- Whiteboards (Notes > Whiteboard) can be shared as a copy too
 alter table public.shared_items drop constraint if exists shared_items_kind_check;
 alter table public.shared_items add constraint shared_items_kind_check check (kind in ('note', 'quiz', 'board'));
+-- Copyright is its own reason (studyboard_copyright_reports in supabase-takedowns.sql lists them)
+alter table public.share_reports drop constraint if exists share_reports_reason_check;
+alter table public.share_reports add constraint share_reports_reason_check check (reason in ('harassment', 'hate', 'sexual', 'threat', 'spam', 'privacy', 'cheating', 'copyright', 'other'));
 alter table public.share_reports drop constraint if exists share_reports_kind_check;
 alter table public.share_reports add constraint share_reports_kind_check check (kind in ('deck', 'note', 'quiz', 'board'));
 revoke all on public.share_reports from public, anon, authenticated;

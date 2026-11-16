@@ -307,7 +307,7 @@
       return `<div class="wbg-card">
         <button type="button" class="wbg-pv" data-act="grp-wb-open" data-id="${esc(r.id)}" data-g="${esc(gid)}" aria-label="${mine ? "Open" : "Add and open"} ${esc(r.name)}">${okPv(pvOf(r)) ? `<img src="${esc(pvOf(r))}" alt="">` : `<span class="wbg-ph">${esc(W.tplName ? W.tplName(r.tpl) : "Whiteboard")}</span>`}</button>
         <div class="wbg-meta"><b>${esc(r.name)}</b><span class="wbg-who"><span class="wbg-avs" aria-hidden="true">${dots}</span>${esc(who)}</span></div>
-        <div class="wbg-acts">${mine ? `<button type="button" class="btn small" data-act="grp-wb-open" data-id="${esc(r.id)}" data-g="${esc(gid)}">Open</button>` : `<button type="button" class="btn small primary" data-act="grp-wb-add" data-id="${esc(r.id)}" data-g="${esc(gid)}">Add to My Whiteboards</button>`}</div>
+        <div class="wbg-acts">${mine ? `<button type="button" class="btn small" data-act="grp-wb-open" data-id="${esc(r.id)}" data-g="${esc(gid)}">Open</button>` : `<button type="button" class="btn small primary" data-act="grp-wb-add" data-id="${esc(r.id)}" data-g="${esc(gid)}">Add to My Whiteboards</button>`}<details class="grp-more g2-mm grp-rep"><summary class="g2-dots" aria-label="More for ${esc(r.name)}">⋯</summary><div class="grp-menu"><button type="button" class="btn" data-act="grp-wb-report" data-id="${esc(r.id)}" data-g="${esc(gid)}">Report</button></div></details></div>
       </div>`; }).join("")}</div>`;
   }
   function fillPanes(){ document.querySelectorAll(".grp-wbs[data-gid]").forEach(el => { const b = el.querySelector(".grp-wbs-body"); if (b) { const h = paneBody(el.dataset.gid); if (b.innerHTML !== h) b.innerHTML = h; } }); }
@@ -391,6 +391,14 @@
     if (act === "wb-access") { accessSheet(id || W.curId()); return true; }
     if (act === "grp-wb-open" || act === "grp-wb-add") { openFromGroup(id, el && el.dataset.g, act === "grp-wb-add"); return true; }
     if (act === "grp-wb-share") { shareToGroupSheet(id); return true; }
+    // Report a group whiteboard (to the people who run Studyboard, like any group report)
+    if (act === "grp-wb-report") {
+      const gid = el && el.dataset.g, c = GB.get(gid), row = c && c.rows && c.rows.find(r => r.id === id), g = G(); if (!row || !g || !g.reportBoard) return true;
+      const m = (g.members ? g.members(gid) : []).find(x => x.id === row.created_by);
+      if (el.closest("details")) el.closest("details").open = false;
+      g.reportBoard(gid, row.id, {who: row.created_by || "", name: m ? m.name : "", excerpt: "whiteboard: " + cut(row.name, 120)});
+      return true;
+    }
     return false;
   });
   Object.assign(W, {shareSrc, shareView, share: {discover: gid => loadGroup(gid, true), live: () => L, send: () => L && send(L), picData, access: bid => access(bid, true)}});

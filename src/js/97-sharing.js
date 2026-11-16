@@ -180,9 +180,12 @@
     openSheet(`<form class="sheet">${head("Report This")}<div class="sheet-body">
       <fieldset class="sh-reasons"><legend class="mini">What's wrong with it?</legend>${REASONS.map(([k, l], i) => `<label class="mi-check"><input type="radio" name="reason" value="${k}" ${i ? "" : "checked"}> ${esc(l)}</label>`).join("")}</fieldset>
       <label class="f">More Details <span class="hint">optional</span><textarea name="details" rows="2" maxlength="500"></textarea></label>
-      <p class="mini" style="margin:0">We review reports and remove what breaks the rules. The person isn't told who reported it.</p></div>
+      <p class="mini" style="margin:0">We review reports and remove what breaks the rules. The person isn't told who reported it. Your own work copied? You can also send a formal copyright notice: see Copyright complaints in the Terms.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Send Report</button></div></form>`, fd => {
-      rpc("report_share", (r => ({p_code: code, p_reason: r === "copyright" ? "other" : r, p_details: ((r === "copyright" ? "[copyright] " : "") + String(fd.get("details") || "")).slice(0, 500)}))(String(fd.get("reason") || "other")))
+      const r = String(fd.get("reason") || "other"), det = String(fd.get("details") || "").slice(0, 500);
+      // a server without the copyright reason yet (supabase-sharing.sql) takes it as Something else, marked in the details
+      rpc("report_share", {p_code: code, p_reason: r, p_details: det})
+        .catch(e => { if (r !== "copyright" || !/check constraint|share_reports_reason/i.test(String(e && e.message))) throw e; return rpc("report_share", {p_code: code, p_reason: "other", p_details: ("[copyright] " + det).slice(0, 500)}); })
         .then(() => toast("Thanks. We'll review it soon.")).catch(e => toast(e.message));
     });
   }

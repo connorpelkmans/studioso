@@ -167,6 +167,12 @@ function fake(opts){
       ok(darkSrc === "data:image/jpeg;base64,QUJD", "with dark whiteboards, the group's tab shows the board's dark preview");
       await page.emulateMedia({colorScheme: "light"}); await page.waitForTimeout(300);
       ok(/^data:image\/png/.test(await page.locator(".wbg-card img").getAttribute("src")), "and the light one again in light mode");
+      // A group whiteboard can be reported, for copyright too (it goes to the people who run Studyboard, not the group)
+      await page.evaluate(() => { __DB.group_reports = []; });
+      await page.click(".wbg-card .grp-rep summary"); await page.click('.wbg-card [data-act="grp-wb-report"]'); await page.waitForSelector("dialog[open] .grp-report");
+      ok(/Report Whiteboard/.test(await page.locator("dialog[open]").textContent()) && await page.locator('dialog[open] input[name="reason"][value="copyright"]').count() === 1, "a group whiteboard has Report, with a copyright reason");
+      await page.check('dialog[open] input[name="reason"][value="copyright"]'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(500);
+      ok(await page.evaluate(() => __DB.group_reports.some(r => r.target_kind === "board" && r.target_id === "b9" && r.reason === "copyright" && r.group_id === "g1" && /Group Brainstorm/.test(r.excerpt))), "the report names the board and the reason");
       await page.click('.wbg-card [data-act="grp-wb-add"]'); await page.waitForTimeout(600);
       st = await S(page); let gb = Object.values(st.notes).find(x => x.wb && x.wb.g && x.wb.g.bid === "b9");
       ok(gb && gb.text === "Group Brainstorm" && gb.wb.tpl === "concept" && gb.wb.g.gn === "Bio Squad" && (gb.wbInk || []).length === 1 && (gb.wbItems || [])[0].s === "Hello group", "Add to My Whiteboards adds it, with everything drawn on it so far");

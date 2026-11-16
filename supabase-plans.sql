@@ -1069,10 +1069,16 @@ language sql immutable set search_path = public as $$
   select case when split_part(p_name, '/', 2) = 'g' and split_part(p_name, '/', 3) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
               then split_part(p_name, '/', 3)::uuid end
 $$;
+-- A member can open a group's file, unless it was taken down after a copyright notice (supabase-takedowns.sql)
 create or replace function public.sbg_group_file_ok(p_name text) returns boolean
-language sql stable security definer set search_path = public, pg_temp as $$
-  select public.plans_group_of_object(p_name) is not null and public.sbg_is_member(public.plans_group_of_object(p_name))
-$$;
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare gid uuid := public.plans_group_of_object(p_name);
+begin
+  if gid is null or not public.sbg_is_member(gid) then return false; end if;
+  if to_regclass('public.copyright_takedowns') is not null
+     and exists (select 1 from public.copyright_takedowns t where t.kind = 'group_file' and t.ref = p_name and t.restored_at is null) then return false; end if;
+  return true;
+end $$;
 create or replace function public.plans_group_upload() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare gid uuid; used bigint; delta bigint;

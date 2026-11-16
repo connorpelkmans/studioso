@@ -263,7 +263,7 @@ begin
   if not public.sbg_lookup_ok() then raise exception 'Too many code lookups. Try again in an hour.'; end if;
   return query select d.code, d.name, d.sharer_name, d.card_count, d.data, d.updated_at, d.owner_id = auth.uid()
   from public.shared_decks d
-  where d.code = public.sbg_norm_code(p_code);
+  where d.code = public.sbg_norm_code(p_code) and (not d.hidden or d.owner_id = auth.uid());   -- (hidden: taken down after a report or a copyright notice)
 end $$;
 
 -- Make a group; you become its owner

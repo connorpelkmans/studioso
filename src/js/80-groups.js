@@ -2821,23 +2821,27 @@
     try { await api.unblock(id); } catch(e) {}
     if (ui.grp) loadGroup(ui.grp);
   }
-  const REPORT_REASONS = [["harassment", "Harassment or bullying"], ["hate", "Hate or discrimination"], ["sexual", "Sexual or inappropriate content"], ["threat", "Threats, violence or self-harm"], ["spam", "Spam or scams"], ["privacy", "Private information about someone"], ["other", "Something else"]];
+  const REPORT_REASONS = [["harassment", "Harassment or bullying"], ["hate", "Hate or discrimination"], ["sexual", "Sexual or inappropriate content"], ["threat", "Threats, violence or self-harm"], ["spam", "Spam or scams"], ["privacy", "Private information about someone"], ["copyright", "Copies someone else's work (copyright)"], ["other", "Something else"]];
   // Report (and block) sits in a small "..." menu, not among a row's main actions (it's rarely needed)
   const repMenu = (kind, id, about) => `<details class="grp-more g2-mm grp-rep"><summary class="g2-dots" aria-label="More for ${esc(about)}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="${kind}" data-id="${esc(id)}">Report or Block</button></div></details>`;
   const repBtn = it => repMenu("item", it.id, str(it.title, 60));
-  function reportSheet(g, kind, id){
+  // info (a group whiteboard, from 99-whiteboard-share.js): {who, name, excerpt}. A board is drawn on by many people, so
+  // whoever started it may be you; then nobody in particular is reported and there's no one to block.
+  function reportSheet(g, kind, id, info){
     let who = "", name = "", excerpt = "", targetId = id;
-    if (kind === "message") { const m = (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return; who = m.user_id; name = m.author_name; excerpt = str(m.body, 500); }
+    if (kind === "board") { if (!info) return; who = info.who && info.who !== myId() ? info.who : ""; name = info.name || ""; excerpt = str(info.excerpt, 500); }
+    else if (kind === "message") { const m = (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return; who = m.user_id; name = m.author_name; excerpt = str(m.body, 500); }
     else if (kind === "item") { const it = (S.items[g.id] || []).find(x => x.id === id); if (!it) return; who = it.user_id; name = it.author_name; excerpt = str(`${it.kind}: ${it.title}`, 500); }
     else { const m = (S.members[g.id] || []).find(x => x.user_id === id); if (!m) return; who = m.user_id; name = m.display_name; targetId = m.user_id; }
-    if (!who || who === myId()) return;
+    if (kind !== "board" && (!who || who === myId())) return;
     const label = name || "this member";
-    openSheet(`<form class="sheet grp-report">${head("Report " + (kind === "message" ? "Message" : kind === "item" ? "Shared Item" : "Member"))}
+    openSheet(`<form class="sheet grp-report">${head("Report " + (kind === "message" ? "Message" : kind === "item" ? "Shared Item" : kind === "board" ? "Whiteboard" : "Member"))}
       <div class="sheet-body">
         <p style="margin:0">Reports go privately to the people who run Studyboard, not to the group. We review them and remove content that breaks the rules. Someone who breaks them can be removed from study groups: they lose access to groups and group projects, and the rest of their Studyboard stays as it is.${excerpt ? ` <span class="mini">Reporting: “${esc(excerpt.slice(0, 120))}${excerpt.length > 120 ? "…" : ""}” from ${esc(label)}.</span>` : ` <span class="mini">Reporting ${esc(label)}.</span>`}</p>
         <fieldset><legend>What's wrong?</legend>${REPORT_REASONS.map(([k, t], i) => `<label class="mi-check"><input type="radio" name="reason" value="${k}" ${i === 0 ? "checked" : ""}> ${esc(t)}</label>`).join("")}</fieldset>
         <label class="f"><span class="lh">Details <span class="hint">Optional</span></span><textarea name="details" rows="3" maxlength="500" placeholder="Anything that helps us understand"></textarea></label>
-        <label class="mi-check"><input type="checkbox" name="block" checked> Also block ${esc(label)} (you won't see what they post or share)</label>
+        ${who ? `<label class="mi-check"><input type="checkbox" name="block" checked> Also block ${esc(label)} (you won't see what they post or share)</label>` : ""}
+        <p class="mini" style="margin:0">Your own work copied? You can also send a formal copyright notice: see Copyright complaints in the Terms.</p>
         <p class="status-msg" id="grpRepMsg" aria-live="polite" style="margin:0"></p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Send Report</button></div></form>`, fd => {
@@ -2845,7 +2849,10 @@
       (async () => {
         const msg = $("#grpRepMsg"), go = $("[data-submit]", dlg); if (go) go.disabled = true;
         try {
-          await api.fileReport({group_id: g.id, target_kind: kind, target_id: String(targetId), reported_user_id: who, reason, details: details || null, excerpt: excerpt || null});
+          const row = {group_id: g.id, target_kind: kind, target_id: String(targetId), reported_user_id: who || null, reason, details: details || null, excerpt: excerpt || null};
+          // a server without the copyright reason yet (supabase-moderation.sql) takes it as Something else, marked in the details
+          try { await api.fileReport(row); }
+          catch (e1) { if (reason !== "copyright" || !/check constraint|group_reports_limits/i.test(String(e1 && e1.message))) throw e1; await api.fileReport(Object.assign(row, {reason: "other", details: ("[copyright] " + (details || "")).slice(0, 500)})); }
           if (alsoBlock) await blockUser(who, name);
           if (dlg.open) dlg.close();
           toast(alsoBlock ? `Report sent and ${label} is blocked. Thank you.` : "Report sent. Thank you.");
@@ -4535,7 +4542,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // visitor sees what was shared first, then the welcome and setup
     sharePending: () => { const p = takePending(); return !!p && (p.kind === "deck" || p.kind === "share") && !!window.SBSHARE && SBSHARE.can(); }};
   // For 97-sharing.js (public links and the Course Library)
-  window.SBGROUPS.share = {picCards, picNote, proOn, attachPics, picErr, rightsBox, rightsOk, confirmRights, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
+  window.SBGROUPS.share = {reportBoard: (gid, bid, info) => { const g = groupOf(gid); if (g) reportSheet(g, "board", bid, info); }, picCards, picNote, proOn, attachPics, picErr, rightsBox, rightsOk, confirmRights, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
     deckShareSheet, matchCourse, codeKey, copyText, sendText, busyBtn, hashOf, loadingSheet, myName: () => S.name || "",
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
