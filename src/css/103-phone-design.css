@@ -293,6 +293,11 @@
   .tv-foot .tv-row{width:auto}
   .tv-foot .tv-row > .btn{flex:none}
   .tv-foot .tv-row:last-child{margin-left:auto}
+  /* three tools don't fit beside Mark Done and Edit: two full rows instead of a ragged wrap, each row's buttons sharing it evenly */
+  .sheet-foot.tv-foot:has(> .tv-tools > .btn:nth-child(3)){flex-direction:column;align-items:stretch;flex-wrap:nowrap}
+  .tv-foot:has(> .tv-tools > .btn:nth-child(3)) .tv-row{width:100%;margin-left:0}
+  .tv-foot:has(> .tv-tools > .btn:nth-child(3)) .tv-row > .btn{flex:1 1 0}
+  .tv-foot:has(> .tv-tools > .btn:nth-child(3)) .tv-tools > .btn{flex:1 1 auto;padding-left:12px;padding-right:12px}
 }
 
 /* ===== One dropdown arrow everywhere =====
