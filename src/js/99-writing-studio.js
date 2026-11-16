@@ -1496,7 +1496,8 @@ async function doCheck(t, o){
   if (o.reread && w.draft.nid && state.notes[w.draft.nid]) { const n = state.notes[w.draft.nid], d = makeDraft(String(n.text || ""), {from: noteTitle(n), nid: n.id}); if (d.h !== w.draft.h) { w.draft = d; W.okMsg = `Read the latest ${noteTitle(n)}.`; } }
   const cur = state.tasks[t.id]; if (!cur) return;
   const res = runCheck(cur, w, w.draft.t), prev = w.chk;
-  W.diff = prev && !o.first ? CITE.diffIssues(prev.keys, res) : null;
+  // a replaced draft is compared with the last check too: what the new version fixed, and what it brought
+  W.diff = prev ? CITE.diffIssues(prev.keys, res) : null;
   w.chk = {at: Date.now(), h: w.draft.h, keys: CITE.issueKeys(res).slice(0, 60), err: res.issues.filter(x => x.k === "err").length, warn: res.issues.filter(x => x.k === "warn").length, cited: res.cited, total: res.total};
   save(cur, w, null);
   W.show = null; if (!o.quiet && !o.first) W.okMsg = W.okMsg && /^Read the/.test(W.okMsg) ? W.okMsg : "";
