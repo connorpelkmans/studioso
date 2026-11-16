@@ -30,7 +30,9 @@
 .sbc-stage{display:grid;place-items:center;min-height:168px;padding:16px;border-radius:16px;background:var(--soft);overflow:hidden}
 .sbc-stage .cs-demo{width:min(240px,100%);margin:0}
 .sbc-stage .skin-prev{width:min(320px,100%);height:120px}
-.sbc-stage .ns-demo{width:100%;height:168px;margin:-16px;border-radius:16px}
+/* the corkboard fills the whole preview */
+.sbc-stage:has(> .ns-demo){padding:0}
+.sbc-stage > .ns-demo{place-self:stretch;width:auto;height:auto;min-height:168px;margin:0;border-radius:16px}
 .sbc-stage .sbc-stk{display:grid;grid-template-columns:repeat(4,56px);gap:10px}
 .sbc-stage .sbc-stk .stk-cell{width:56px;height:56px}
 .sbc-price{display:flex;align-items:center;gap:12px}
@@ -110,3 +112,8 @@
 @media (prefers-reduced-motion:reduce){.sbc-spin{animation-duration:3s}}
 .sbc-done-coin{filter:drop-shadow(0 3px 6px rgba(0,0,0,.25))}
 .sbc-pack.busy{opacity:.7;cursor:progress}
+
+/* Get Pro, beside the main button, in the PRO badge's colours */
+.btn.sbc-getpro{background:linear-gradient(135deg,#FFB443,#FF5C8A);border-color:transparent;color:#fff;font-weight:800}
+.btn.sbc-getpro:hover{filter:brightness(1.06)}
+.btn.sbc-getpro:focus-visible{outline:3px solid color-mix(in srgb,#FF5C8A 55%,transparent);outline-offset:2px}

@@ -12242,7 +12242,7 @@ function viewBars(){
   for (let i = 0; i < days; i++) {
     const k = addDays(min, i), d = parse(k), wd = d.getDay();
     if (wd === 0 || wd === 6) bg += `<i class="we" style="left:${i*dw}px;width:${dw}px"></i>`;
-    if (i === 0 || d.getDate() === 1) { const nx = mStarts[mStarts.indexOf(i) + 1], span = ((nx == null ? days : nx) - i) * dw; months += `<span class="tl-m" style="left:${i*dw}px;width:${span}px"><span class="tl-mt" style="left:${LW + 8}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 && span >= 120 ? "long" : "short"}))}${(i === 0 || d.getMonth() === 0) && span >= 130 ? `<small>${d.getFullYear()}</small>` : ""}</span></span>`; }
+    if (i === 0 || d.getDate() === 1) { const nx = mStarts[mStarts.indexOf(i) + 1], span = ((nx == null ? days : nx) - i) * dw; months += `<span class="tl-m" style="left:${i*dw}px;width:${span}px"><span class="tl-mt" style="left:${LW + 8}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 && span >= 120 ? "long" : "short"}))}${span >= 130 ? `<small>${d.getFullYear()}</small>` : ""}</span></span>`; }
     if (dw >= 20) dayh += `<span class="tl-d ${k === today ? "is-today" : ""}" style="left:${i*dw}px;width:${dw}px"><b>${d.getDate()}</b></span>`;
     else if (wd === 1) dayh += `<span class="tl-d" style="left:${i*dw}px;width:${dw*7}px;justify-content:flex-start;padding-left:4px">${d.getDate()}</span>`;
   }
@@ -72390,7 +72390,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const inside = kind === "skin" ? insideHtml(id) : "";
     const list = kind === "skin" && !inside ? contents(id) : [];
     const go = !mineOk ? `<button type="button" class="btn primary" data-act="sbc-signin">Sign In to Buy</button>`
-      : enough ? `<button type="button" class="btn primary sbc-go" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">Keep It for ${COIN}${cost}</button>`
+      : enough ? `<button type="button" class="btn primary sbc-go" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">Buy It for ${COIN}${cost} Credits</button>`
       : storeApp() ? "" : `<button type="button" class="btn primary" data-act="sbc-packs">Get Credits</button>`;
     const wallet = !mineOk ? `<p class="sbc-note">Credits belong to your account, so sign in first.</p>`
       : `<div class="sbc-wallet" role="status"><span class="sbc-wallet-l">Your balance</span><span class="sbc-wallet-n">${COIN}<b>${bal.toLocaleString()}</b></span>${enough ? `<span class="sbc-chip ok">${bal - cost} left after</span>` : `<span class="sbc-chip">${cost - bal} more needed</span>`}</div>${!enough && storeApp() ? `<p class="sbc-note">Buying credits isn't available in this app.</p>` : ""}`;
@@ -72398,14 +72398,13 @@ You can also DO things in Studyboard, but only when the student asks or what the
       <div class="sheet-body">
         ${note ? `<p class="sbc-note sbc-why">${esc(note)}</p>` : ""}
         <div class="sbc-stage sbc-stage-${esc(kind)}" aria-hidden="true">${preview(kind, id)}${kind === "skin" ? `<span class="sbc-stage-l">Theme</span>` : ""}</div>
-        <div class="sbc-price"><img class="sbc-price-coin" src="${COIN_SRC}" width="44" height="44" alt=""><span class="sbc-price-t"><b>${cost} credits</b><span>${esc(KIND_NAME[kind] || "")} · yours to keep, with or without Pro</span></span></div>
+        <div class="sbc-price"><img class="sbc-price-coin" src="${COIN_SRC}" width="44" height="44" alt=""><span class="sbc-price-t"><b>${cost} credits</b>${KIND_NAME[kind] ? `<span>${esc(KIND_NAME[kind])}</span>` : ""}</span></div>
         ${inside}
         ${list.length ? `<ul class="sbc-list">${list.map(x => `<li>${TICK}<span>${esc(x)}</span></li>`).join("")}</ul>` : ""}
         ${wallet}
         ${th ? `<button type="button" class="sbc-upsell" data-act="sbc-item" data-kind="skin" data-id="${esc(th)}"><span class="sbc-upsell-t"><b>Get the whole ${esc(themeName(th))} Collection</b><span>The theme, its companions, stickers, pins and this style, for ${priceOf("skin", th)} credits</span></span>${CHEV}</button>` : ""}
-        <p class="sbc-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> for every collection while you're subscribed.</p>
       </div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}</div></div>`);
+      <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}${PLAN.isPro() ? "" : `<button type="button" class="btn sbc-getpro" data-act="plan-open" title="Every collection while you're subscribed">Get Pro</button>`}</div></div>`);
   }
   const money = (cents, cur) => { try { return new Intl.NumberFormat(undefined, {style: "currency", currency: String(cur || "usd").toUpperCase()}).format(cents / 100); } catch (e) { return "$" + (cents / 100).toFixed(2); } };
   function packsSheet(){
@@ -72545,7 +72544,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       b.dataset.cr = "1";
       const n = priceOf(b.dataset.kind, b.dataset.id); if (!n) return;
       b.innerHTML = `🔒 ${n} Credits`;
-      b.setAttribute("aria-label", `Keep ${nameOf(b.dataset.kind, b.dataset.id)} for ${n} credits`);
+      b.setAttribute("aria-label", `Buy ${nameOf(b.dataset.kind, b.dataset.id)} for ${n} credits`);
     });
   }
   // Rows the shop fills in later (collections, See All) get their prices too
@@ -105076,7 +105075,9 @@ const CMAP = (() => {
     const ns = g.nodes, n = ns.length, idx = new Map(ns.map((x, i) => [x.id, i]));
     const P = ns.map(() => ({x: 0, y: 0, vx: 0, vy: 0, fixed: false}));
     const ring = {}; ns.forEach(x => { const d = Math.min(x.depth, 5); (ring[d] = ring[d] || []).push(x); });
-    Object.keys(ring).forEach(d => { const list = ring[d], r = Number(d) === 9 || Number(d) === 5 ? 900 : Number(d) * 230; list.forEach((x, i) => { const a = (i / list.length) * Math.PI * 2 + Number(d) * 0.6; const p = P[idx.get(x.id)]; p.x = Math.cos(a) * r * ax; p.y = Math.sin(a) * r * ay; }); });
+    // unlinked items (depth 9) sit just outside the connected part, so a small or brand-new map stays compact
+    const deep = Math.max(0, ...ns.filter(x => x.depth < 9).map(x => Math.min(x.depth, 5))), outer = Math.min(900, Math.max(260, (deep + 1) * 230));
+    Object.keys(ring).forEach(d => { const list = ring[d], r = Number(d) === 9 ? outer : Number(d) === 5 ? 900 : Number(d) * 230; list.forEach((x, i) => { const a = (i / list.length) * Math.PI * 2 + Number(d) * 0.6; const p = P[idx.get(x.id)]; p.x = Math.cos(a) * r * ax; p.y = Math.sin(a) * r * ay; }); });
     ns.forEach((x, i) => { const s = pos[x.id]; if (Array.isArray(s) && isFinite(s[0]) && isFinite(s[1])) { P[i].x = s[0]; P[i].y = s[1]; P[i].fixed = true; } });
     if (P[idx.get("root")] && !P[idx.get("root")].fixed) { P[idx.get("root")].x = 0; P[idx.get("root")].y = 0; }
     const E = g.edges.map(e => [idx.get(e.a), idx.get(e.b)]).filter(e => e[0] != null && e[1] != null);
@@ -105170,7 +105171,9 @@ function fit(){
   const cv = M.el && M.el.querySelector(".cm-canvas"), W = cv ? cv.clientWidth : 900, H = cv ? cv.clientHeight : 600;
   // on a small screen the whole map would be too small to read: keep labels legible (about 11px) and centre on the middle node; the rest is a drag away
   const k0 = Math.min(W / (b.w + 120), H / (b.h + 120)), floor = W < 700 ? 0.85 : 0.3, k = Math.max(floor, Math.min(1.4, k0));
-  const c = k0 < floor ? (M.pos.root || [0, 0]) : [b.x + b.w / 2, b.y + b.h / 2];
+  // centred on the middle of everything; when that can't all fit, as much as fits, with the course (or exam) in the centre still on screen
+  const c = [b.x + b.w / 2, b.y + b.h / 2];
+  if (k0 < floor) { const r = M.pos.root || [0, 0], mx = W * 0.32 / k, my = H * 0.32 / k; c[0] = Math.max(r[0] - mx, Math.min(r[0] + mx, c[0])); c[1] = Math.max(r[1] - my, Math.min(r[1] + my, c[1])); }
   M.view = {k, x: W / 2 - c[0] * k, y: H / 2 - c[1] * k}; M.part = k0 < floor;
 }
 // After items were added (unlinked items, an idea, suggestions) the layout moves: refit when anything now sits outside the view
@@ -105197,9 +105200,12 @@ if (typeof C2_ICONS === "object" && C2_ICONS && !C2_ICONS.cmap) C2_ICONS.cmap = 
 function courseCard(c){
   if (!c || inPreview() || !window.SBPRO || typeof c2Box !== "function") return "";
   let g = null; try { const src = gather({kind: "course", id: c.id}); if (src) { src.loose = false; g = CMAP.graph(src); } } catch (e) { g = null; }
-  if (!g || g.edges.length < 2) return "";
-  const items = g.nodes.length - 1, pro = SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
-  return c2Box("cmap", "Concept Map", "", `<div class="facts c2-none cm-card"><span class="mini">${items} item${items === 1 ? "" : "s"}, ${g.edges.length} connections</span><button type="button" class="btn small" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">Open Map${pro}</button></div>`);
+  const pro = SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "", btn = l => `<button type="button" class="btn small" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">${l}${pro}</button>`;
+  const ideas = Array.isArray(c.cmap && c.cmap.add) ? c.cmap.add.length : 0;
+  // nothing linked yet and no ideas of your own: the card offers to start one
+  if (!g || (!g.edges.length && !ideas)) return c2Box("cmap", "Concept Map", "", `<div class="facts c2-none cm-card"><span class="mini">See how this course fits together: add ideas and connect your notes, decks and files.</span>${btn("Create Map")}</div>`);
+  const items = g.nodes.length - 1;
+  return c2Box("cmap", "Concept Map", "", `<div class="facts c2-none cm-card"><span class="mini">${items} item${items === 1 ? "" : "s"}, ${g.edges.length} connection${g.edges.length === 1 ? "" : "s"}</span>${btn("Open Map")}</div>`);
 }
 function examBtn(ex){
   if (!ex || inPreview() || !window.SBPRO || !topicsOf(ex).length) return "";
@@ -105218,6 +105224,8 @@ function open(kind, id){
     <div class="cm-panel" aria-live="polite"></div></div>`);
   M.el = dlg.querySelector(".cm-sheet");
   rebuild();
+  // a map with nothing connected yet starts with the course's notes, decks and files on show, ready to connect
+  if (!same && !M.loose && M.g && !M.g.edges.length && M.g.loose.length) { M.loose = true; rebuild(); }
   requestAnimationFrame(() => { fit(); paint(); });
   wireCanvas();
   paint();
@@ -105301,7 +105309,7 @@ function panel(){
     return;
   }
   const hidden = userOf(M.own).hide.length, nn = g.nodes.length;
-  P.innerHTML = nn <= 1 ? `<p style="margin:0"><b>Nothing is linked yet.</b> <span class="mini">Add exam topics in a Prep Plan, link notes with [[ ]], or make cards from your notes and PDFs, and the map draws itself. Or add your own ideas with + Idea.</span></p>`
+  P.innerHTML = !g.edges.length ? `<div class="cm-row cm-start"><p style="margin:0;flex:1 1 220px"><b>Start your map.</b> <span class="mini">${nn > 1 ? "Your notes, decks and files are around the edge: tap one, then Connect To… to link it. " : ""}Add your own ideas, too. Linked notes, decks and exam topics join the map by themselves.</span></p><button type="button" class="btn small primary" data-cm="idea">Add Your First Idea</button></div>`
     : `<p class="mini" style="margin:0">${nn} items, ${g.edges.length} connections${g.loose.length && !M.loose ? `, ${g.loose.length} not linked to anything` : ""}. Drag to move things; tap one to open, connect or rename it.${M.part ? " Drag the map to see the rest of it." : ""}${hidden ? ` <button type="button" class="link-btn" data-cm="unhide">Show ${hidden} hidden</button>` : ""}</p>`;
 }
 
@@ -105404,8 +105412,8 @@ async function onClick(e){
     case "idea": {
       const name = await ask("Name the idea or concept:"); if (!name || !name.trim()) return;
       const x = u(), id = uid(); x.add = x.add.concat([{id, label: name.trim().slice(0, 80)}]);
-      if (M.sel) x.links = x.links.concat([{a: M.sel, b: "idea:" + id, label: ""}]);
-      const c = M.sel && M.pos[M.sel] ? M.pos[M.sel] : [0, 0]; x.pos = Object.assign({}, x.pos, {["idea:" + id]: [c[0] + 60, c[1] + 110]});
+      x.links = x.links.concat([{a: M.sel || "root", b: "idea:" + id, label: ""}]);
+      const c = M.pos[M.sel || "root"] || [0, 0]; x.pos = Object.assign({}, x.pos, {["idea:" + id]: [c[0] + 60, c[1] + 110]});
       saveUser(x, `Added ${name.trim()} to the map`); rebuild(true); grew(); M.sel = "idea:" + id; paint(); panTo("idea:" + id); break;
     }
     case "open": if (n) openNode(n); break;
