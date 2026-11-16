@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Synthesises a small sound-effects kit with ffmpeg (no samples, nothing to license).
+# Usage: make_sfx.sh <out-dir>   -> thud.wav, whoosh.wav, pop.wav, tick.wav, ding.wav, alarm.wav
+set -euo pipefail
+OUT="${1:-.}"; mkdir -p "$OUT"
+A=(-loglevel error -y)
+# Thud: a falling sine (90 Hz -> 45 Hz) with a fast decay, plus a soft click on top.
+ffmpeg "${A[@]}" -f lavfi -i "aevalsrc='0.9*sin(2*PI*(90-45*t/0.35)*t)*exp(-9*t)+0.25*(random(0)*2-1)*exp(-120*t)':s=48000:d=0.4" -ac 2 "$OUT/thud.wav"
+# Whoosh: band-passed noise that swells and fades.
+ffmpeg "${A[@]}" -f lavfi -i "anoisesrc=d=0.45:c=pink:a=0.6" -af "bandpass=f=1400:w=1800,volume='sin(PI*t/0.45)':eval=frame,afade=t=out:st=0.35:d=0.1" -ac 2 "$OUT/whoosh.wav"
+# Pop: a short high blip for UI moments (a button press, a badge changing).
+ffmpeg "${A[@]}" -f lavfi -i "aevalsrc='0.5*sin(2*PI*(880+600*t/0.08)*t)*exp(-40*t)':s=48000:d=0.12" -ac 2 "$OUT/pop.wav"
+# Tick: a tiny click for typing.
+ffmpeg "${A[@]}" -f lavfi -i "aevalsrc='0.35*(random(0)*2-1)*exp(-400*t)':s=48000:d=0.03" -ac 2 "$OUT/tick.wav"
+echo "SFX in $OUT"
+# Ding: a bright two-note chime for the payoff moment (C6 then E6).
+ffmpeg "${A[@]}" -f lavfi -i "aevalsrc='0.35*sin(2*PI*1046.5*t)*exp(-5*t)+0.35*gt(t,0.09)*sin(2*PI*1318.5*(t-0.09))*exp(-5*(t-0.09))':s=48000:d=0.9" -ac 2 "$OUT/ding.wav"
+echo "+ ding.wav"
+# Alarm: a phone-style double beep, repeated (1.6 s).
+ffmpeg "${A[@]}" -f lavfi -i "aevalsrc='0.3*sin(2*PI*1760*t)*lt(mod(t,0.4),0.08)+0.3*sin(2*PI*1760*t)*gte(mod(t,0.4),0.12)*lt(mod(t,0.4),0.2)':s=48000:d=1.6" -ac 2 "$OUT/alarm.wav"
+echo "+ alarm.wav"

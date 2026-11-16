@@ -1,0 +1,78 @@
+<!-- SCENE CSS -->
+.grid{position:absolute;left:66px;top:330px;width:798px}
+.dh{display:flex;gap:10px;margin:0 0 12px 150px;font:600 26px var(--display);color:rgba(255,255,255,.5)}
+.dh span{width:84px;text-align:center}
+.wk{display:flex;align-items:center;gap:10px;height:72px;margin-bottom:10px;position:relative}
+.wl{width:140px;font:600 28px var(--display);color:rgba(255,255,255,.65)}
+.c{width:84px;height:72px;border-radius:16px;background:rgba(207,235,221,.18);flex:none}
+.glow{position:absolute;left:140px;right:-14px;top:-10px;bottom:-10px;border-radius:24px;outline:5px solid #FF6B57;box-shadow:0 0 54px 10px rgba(228,81,59,.8);opacity:0}
+.chip{position:absolute;display:flex;align-items:center;gap:14px;background:#fff;color:#0F1F3D;border-radius:18px;padding:16px 24px;font:700 34px var(--display);box-shadow:0 18px 40px -10px rgba(0,0,0,.6);white-space:nowrap;opacity:0}
+.chip i{width:18px;height:18px;border-radius:50%}
+.chip em{font-style:normal;font-weight:600;color:var(--tomato);font-size:28px}
+#fbtn{position:absolute;left:230px;width:620px;top:900px}
+<!-- /SCENE CSS -->
+
+<!-- PROBLEM HTML -->
+<div class="grid" id="pg"></div><div id="chips"></div>
+<!-- /PROBLEM HTML -->
+
+<!-- FIX HTML -->
+<div class="grid" id="fg"></div>
+<div class="btn" id="fbtn">Pull work forward</div>
+<!-- /FIX HTML -->
+
+<!-- SCENE JS -->
+const VARIANT = "a";
+const HOOK = {
+  a: "Every exam I have this semester somehow landed in <b>the exact same week</b>",
+  b: "Me realizing 3 exams, a lab report and an essay are all in Week 11, and <b>it's already Week 10</b>",
+  c: "Nobody warned me November has <b>four Week 11s</b> in a row",
+};
+CAPS = caps(HOOK[VARIANT],
+            "Plot twist: you can <b>see it coming</b>!",
+            "Studyboard flags your worst week <b>weeks early</b>!");
+BURST = {t: 1.5, x: 540, y: 700};
+TAG = "Crunch Forecast · free";
+const WEEKS = [7, 8, 9, 10, 11, 12], CR = 4;
+const RED = VARIANT === "c" ? [2, 3, 4, 5] : [CR];
+const HEAT = [.35, .9, 1, 1, .95, .55, .6], COOLED = [.2, .45, .5, .45, .4, .15, .15];
+const gridHTML = p => `<div class="dh"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>` +
+  WEEKS.map((w, r) => `<div class="wk"><span class="wl">Week ${w}</span>${[0,1,2,3,4,5,6].map(d => `<span class="c" id="${p}${r}_${d}"></span>`).join("")}${RED.includes(r) ? `<span class="glow" id="${p}g${r}"></span>` : ""}</div>`).join("");
+$("pg").innerHTML = gridHTML("p"); $("fg").innerHTML = gridHTML("f");
+const CHIPS = [["Bio midterm", "Tue", "#1E9E74", 150, -70, -8], ["Chem exam", "Wed", "#7A4FD6", 430, -96, 6], ["Calc exam", "Thu", "#E4513B", 290, -160, -4], ["Lab report", "Fri", "#1F6FEB", 470, -40, 4]];
+if (VARIANT !== "c") $("chips").innerHTML = CHIPS.map((c, i) => `<div class="chip" id="ch${i}"><i style="background:${c[2]}"></i>${c[0]}<em>${c[1]}</em></div>`).join("");
+const rowY = r => 330 + 50 + r * 82;
+PROB = (t, lt) => {
+  const s = shakeAt(lt, [0, .5, 1, 1.5, 2.0]), push = ioCubic(P(lt, 2.0, 2.35));
+  $("pcam").style.transformOrigin = `540px ${VARIANT === "c" ? rowY(3.5) : rowY(CR)}px`;
+  $("pcam").style.transform = `scale(${1 + push * .25}) translate(${s}px,${s * .4}px)`;
+  if (VARIANT !== "c") CHIPS.forEach((c, i) => { const el = $("ch" + i); el.style.left = (66 + c[3]) + "px"; el.style.top = (rowY(CR) + c[4]) + "px";
+    el.style.transform = slam(el, lt, i * .5, -280) + ` rotate(${c[5]}deg)`; });
+  WEEKS.forEach((_, r) => [0,1,2,3,4,5,6].forEach(d => { const idx = RED.indexOf(r), el = $(`p${r}_${d}`);
+    if (idx < 0) return; const h = VARIANT === "c" ? idx * .5 : 0, k = P(lt, h, h + (VARIANT === "c" ? .15 : 1.5));
+    el.style.background = k > 0 ? heat(.18 + (HEAT[d] - .18) * k) : ""; }));
+  RED.forEach(r => { $("pg" + r).style.opacity = P(lt, 1.95, 2.1) * (.65 + .35 * Math.abs(Math.sin(t * 3.4))); });
+};
+FIX = (t, lt) => {
+  const PR = .6, k = ioCubic(P(lt, .85, 1.5));
+  press($("fbtn"), lt, PR);
+  $("fbtn").style.background = lt > PR ? "#1E9E74" : "";
+  $("fbtn").textContent = lt > PR + .1 ? "✓ Moved 3 things earlier" : "Pull work forward";
+  WEEKS.forEach((_, r) => [0,1,2,3,4,5,6].forEach(d => { const el = $(`f${r}_${d}`), idx = RED.indexOf(r);
+    // The load Week 11 gives up (3.05) lands in Week 10 (1.8) then Week 9 (1.25); in version C the four red weeks share theirs with Weeks 7-8
+    const GIVE = VARIANT === "c" ? {0: [.5, .55, .6, .55, .5, .15, .15], 1: [.55, .6, .65, .6, .55, .2, .2]} : {3: [.35, .4, .4, .35, .3, 0, 0], 2: [.25, .3, .25, .25, .2, 0, 0]};
+    const DELAY = VARIANT === "c" ? {1: .25, 0: .5} : {3: .25, 2: .5};
+    const kc = idx >= 0 ? k : 0;
+    el.style.boxShadow = "";
+    if (idx >= 0) el.style.background = heat(HEAT[d] + ((VARIANT === "c" ? [.4, .6, .65, .6, .55, .3, .3][d] : COOLED[d]) - HEAT[d]) * kc);
+    else if (GIVE[r] && GIVE[r][d] > 0) {
+      const kr = ioCubic(P(lt, .85 + DELAY[r], 1.4 + DELAY[r]));
+      el.style.background = kr > 0 ? heat(GIVE[r][d] * kr) : "";
+      const ring = Math.sin(P(lt, .85 + DELAY[r], 1.55 + DELAY[r]) * Math.PI);
+      if (ring > 0) el.style.boxShadow = `0 0 0 ${Math.round(4 * ring)}px rgba(57,136,254,${.85 * ring})`;
+    }
+    else el.style.background = ""; }));
+  RED.forEach(r => { const g = $("fg" + r); g.style.opacity = 1;
+    g.style.outlineColor = k > .5 ? "#1E9E74" : ""; g.style.boxShadow = k > .5 ? "0 0 54px 10px rgba(30,158,116,.6)" : ""; });
+};
+<!-- /SCENE JS -->

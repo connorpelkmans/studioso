@@ -294,7 +294,8 @@ async function itemPage(env, section, slug, code, origin){
   const meta = `${esc(plural(Number(row.n) || 0, K.unit))}${label ? ` · ${esc(label)}` : ""}${school ? ` · ${esc(school)}` : ""}${row.sharer_name ? ` · Made by ${esc(row.sharer_name)}` : ""}${row.updated_at ? ` · Updated ${esc(monthYear(row.updated_at))}` : ""}`;
   let body, ld, title, description;
   if (K.kind === "deck") {
-    const cards = (Array.isArray(d.cards) ? d.cards : []).filter(c => c && (c.front || c.back)).slice(0, 2000);
+    // picture cards never show on a public page (public_page leaves them out and counts them: picsHeld); they come with the set when it's added
+    const cards = (Array.isArray(d.cards) ? d.cards : []).filter(c => c && !c.img && (c.front || c.back)).slice(0, 2000), pics = Math.max(0, Math.round(Number(d.picsHeld) || 0));
     title = `${row.name}${label && !row.name.toLowerCase().includes(label.toLowerCase()) ? " (" + label + ")" : ""} Flashcards | ${SITE}`;
     description = clip(`Study ${row.name}${label ? " for " + label : ""}${school ? " at " + school : ""} with ${cards.length} flashcards: ${cards.slice(0, 5).map(c => plainText(c.front)).join(", ")}.`, 158);
     const L = deckLook({course_label: label, course_key: key, name: row.name, look: d.look});
@@ -306,7 +307,8 @@ async function itemPage(env, section, slug, code, origin){
       <section id="study" class="pub-study" hidden aria-label="Study these flashcards"><button type="button" class="pub-card" data-pub-card aria-live="polite"></button>
         <div class="pub-nav"><button type="button" class="btn" data-pub-prev>Previous</button><span data-pub-pos></span><button type="button" class="btn" data-pub-next>Next</button><button type="button" class="btn" data-pub-shuffle>Shuffle</button></div></section>
       <section class="pub-sec"><h2>Terms in this set (${cards.length})</h2>
-      <ol class="pub-terms pcards">${cards.map(c => `<li data-front="${esc(plainText(c.front))}" data-back="${esc(plainText(c.back))}"><span class="t">${richText(c.front)}</span><span class="d">${richText(c.back)}</span></li>`).join("")}</ol></section>`;
+      <ol class="pub-terms pcards">${cards.map(c => `<li data-front="${esc(plainText(c.front))}" data-back="${esc(plainText(c.back))}"><span class="t">${richText(c.front)}</span><span class="d">${richText(c.back)}</span></li>`).join("")}</ol>
+      ${pics ? `<p class="pub-official">This set also has ${esc(plural(pics, "picture card"))}. Picture cards come with the set when you add it to Studyboard, free.</p>` : ""}</section>`;
     ld = [{"@context": "https://schema.org", "@type": "Quiz", name: row.name, about: {"@type": "Thing", name: label || row.name}, educationalLevel: "University",
       ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name, ...(school ? {affiliation: {"@type": "CollegeOrUniversity", name: school}} : {})}} : {}), ...(school ? {sourceOrganization: {"@type": "CollegeOrUniversity", name: school}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
       hasPart: cards.slice(0, 500).map(c => ({"@type": "Question", eduQuestionType: "Flashcard", text: clip(plainText(c.front), 600), acceptedAnswer: {"@type": "Answer", text: clip(plainText(c.back), 1200)}}))}];
