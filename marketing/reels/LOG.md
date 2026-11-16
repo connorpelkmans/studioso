@@ -18,6 +18,8 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-21 | marketing/reels/2026-11-21-plan-vs-reality | (brand only) | Entertainment, animated | "My study plan vs. what actually happened" | 17.2 s | | | | | | | Expectation vs. reality planner |
 | 2026-11-22 | marketing/reels/2026-11-22-one-episode | (brand only) | Entertainment, live action | "Just one episode, then I'll study." | 19.4 s | | | | | | | Lock-screen timestamps; one actor through the night |
 | 2026-11-15 | (posted by Connor, earlier feature tour) | Board, school sync | Feature ad | "The planner that syncs with your school site and tells you what to do next!" | 20 s | Instagram ([Dfv0WLYRMak](https://www.instagram.com/reel/Dfv0WLYRMak/)) | 54 @ ~1 day | | | | | 0 likes. Baseline for ad-style content |
+| 2026-11-16 | marketing/reels/2026-11-20-types-of-students (B) | (brand: companions) | Entertainment, cold open | "Tag the friend who “works better under pressure”" (opens on Packy) | 15.7 s | Planned as Trial Reel | | | | | | Hook fix after v1's weak open |
+| 2026-11-16 | marketing/reels/2026-11-20-types-of-students (C) | (brand: companions) | Entertainment, cold open | "POV: you just found out the final is cumulative" (opens on Mochi) | 15.7 s | Planned as Trial Reel | | | | | | Hook fix after v1's weak open |
 
 ## What we've learned
 
@@ -33,3 +35,4 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 - Copy pass (Connor's review): one yellow highlight per caption on the punchline, twist or benefit; exclamation marks on turns, payoffs and wins ("Way better!").
 - Added an entertainment-first set (Connor: less like ads, genuinely relatable): no pitch in the video, a small sign-off, brand in the caption. Compare their shares and follows with the feature reels.
 - **First real data (Nov 15, ~2 h in):** the entertainment reel had 122 plays and 6 likes (~5% like rate), versus 54 plays and 0 likes for the feature-ad reel after ~1 day. Directional only (n = 1 each, different times), but it supports leading with relatable or entertainment content and keeping product demos as the payoff. The account has 3 followers, so the plays are mostly non-followers. Watch time and skip rate are still to come.
+- **Hook lesson (Connor, from Instagram's insights on the first post):** the title-card opener ("A field guide / Every friend group…") didn't hold attention. Nothing happens and no situation lands until 2.7 s. Fix: open cold on the funniest character moment, with the situation already on screen and the hook line in the eye-line (centre, where the title will be), then hand off cleanly to the content. Versions B and C test two hook styles (callout vs. POV).

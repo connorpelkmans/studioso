@@ -53,6 +53,8 @@ html,body{margin:0;background:#000}
 .night{width:520px;height:440px;border-radius:40px;background:linear-gradient(160deg,#16386E,#0A1F42);box-shadow:0 24px 60px -14px rgba(14,42,86,.45)}
 .clock{font:800 44px var(--display);color:#fff;background:rgba(255,255,255,.12);border-radius:16px;padding:8px 20px}
 .chip{display:inline-flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:14px 22px;font:700 30px var(--display);box-shadow:0 16px 40px -12px rgba(14,42,86,.35)}
+#hook{position:absolute;left:60px;right:60px;top:925px;text-align:center;z-index:20;font:800 60px/1.16 "Inter",system-ui,sans-serif;color:#fff;-webkit-text-stroke:9px #000;paint-order:stroke fill;opacity:0}
+#hook b{color:#FFE45C}
 #sign{position:absolute;left:0;right:0;top:1340px;display:flex;justify-content:center;align-items:center;gap:16px;font:800 40px var(--display);color:var(--navy);opacity:0}
 #sign img{width:60px;height:60px;border-radius:15px}
 </style>
@@ -130,6 +132,7 @@ html,body{margin:0;background:#000}
     <div class="comp" id="e4" style="left:780px;top:880px;width:210px;height:210px">{{packy}}</div>
     <div class="abs" style="left:90px;width:900px;top:1110px;display:flex;justify-content:space-around;font:800 44px var(--display);color:var(--accent)"><span>1</span><span>2</span><span>3</span><span>4</span></div>
   </div>
+  <div id="hook"></div>
   <div id="sign"><img src="{{ROOT}}/icon-512.png" alt="">Studyboard</div>
 </div>
 <script>
@@ -212,7 +215,16 @@ const hopY = (t, t0, H = 40) => { const k = P(t, t0, t0 + .42); return -H * 4 * 
 const MOODS = [["owl", "proud"], ["mochi", "shocked"], ["inky", "tired"], ["packy", "nervous"]];
 [["c0a", "c0b", "c0c", "c0d"], ["c1", "c2", "c3", "c4"], ["e1", "e2", "e3", "e4"]].forEach(ids => ids.forEach((id, i) => decorate($(id), MOODS[i][0], MOODS[i][1])));
 // Timeline (s). Each type gets 2.9 s: enough to read a two-line title and a two-line joke.
-const T0 = 2.7, D = 2.9, END_IN = T0 + 4 * D, END = END_IN + 3.4, COVER = 0.4;
+// Variants: "a" opens on the title card (as first posted). "b" and "c" cut the title and open cold on the funniest
+// character moment with a native hook caption, then run the other three types (hook test, Nov 2026).
+const VARIANT = "a";
+const ORDER = {a: [0, 1, 2, 3], b: [3, 0, 1, 2], c: [1, 0, 2, 3]}[VARIANT];
+const HOOK = {b: "Tag the friend who<br>“works better under <b>pressure</b>”", c: "POV: you just found out<br>the final is <b>cumulative</b>"}[VARIANT];
+const COLD = VARIANT !== "a";
+const T0 = COLD ? 0 : 2.7, D = 2.9, D0 = COLD ? 3.6 : 2.9;
+const START = ORDER.map((_, pos) => T0 + (pos === 0 ? 0 : D0 + (pos - 1) * D));
+const END_IN = T0 + D0 + 3 * D, END = END_IN + 3.4, COVER = COLD ? 0.5 : 0.4;
+if (COLD) $("hook").innerHTML = HOOK;
 const SL = .32; // slide time between pages
 function page(el, t, tin, tout) {
   // slides in from the right, out to the left; smooth, like swiping a carousel
@@ -223,17 +235,21 @@ function page(el, t, tin, tout) {
 }
 function render(t) {
   // Title (visible at frame 0)
-  const s0 = $("s0"); s0.style.visibility = t < T0 ? "visible" : "hidden";
+  const s0 = $("s0"); s0.style.visibility = !COLD && t < T0 ? "visible" : "hidden";
+  // Cold-open hook caption: up from frame 0, fades as the scene's own title arrives
+  $("hook").style.opacity = COLD ? 1 - P(t, 2.1, 2.3) : 0;
   s0.style.transform = `translateX(${-ioCubic(P(t, T0 - SL, T0)) * 1080}px)`;
   ["c0a", "c0b", "c0c", "c0d"].forEach((id, i) => {
     const el = $(id); animateFace(el, t, i * .37);
     el.style.transform = `translateY(${Math.sin((t + i * .37) * 2.6) * 6 + hopY(t, .5 + i * .22, 46)}px)`;
   });
   // Types
-  const ids = ["s1", "s2", "s3", "s4"];
-  ids.forEach((id, i) => {
-    const tin = T0 + i * D, tout = tin + D;
+  ORDER.forEach((i, pos) => {
+    const id = "s" + (i + 1), tin = START[pos], tout = tin + (pos === 0 ? D0 : D);
     if (!page($(id), t, tin, tout)) return;
+    const sc = $(id); sc.querySelector(".num").textContent = `${pos + 1} OF 4`;
+    const tk = COLD && pos === 0 ? ioCubic(P(t, 2.35, 2.65)) : 1;
+    sc.querySelectorAll(".num,.ttl,.sub").forEach(el => { el.style.opacity = tk; });
     const lt = t - tin, c = $("c" + (i + 1));
     animateFace(c, t, i * .5);
     if (i === 0) { // proud: happy eyes, sparkles, a little strut
@@ -254,7 +270,7 @@ function render(t) {
     }
     if (i === 3) { // "calm": forced grin, eyes darting, sweat sliding; a tiny nervous shuffle
       c.style.transform = `translateY(${Math.sin(t * 2.2) * 5}px) rotate(${Math.sin(t * 7) * 1.2}deg)`;
-      [["p4a", .35], ["p4b", .7]].forEach(([pid, at]) => { const k = P(lt, at, at + .3); $(pid).style.opacity = clamp(k * 2); $(pid).style.transform = `translateY(${(1 - oBack(k)) * -40}px)`; });
+      [["p4a", .35], ["p4b", .7]].forEach(([pid, at]) => { if (COLD && pos === 0) at = -1; const k = P(lt, at, at + .3); $(pid).style.opacity = clamp(k * 2); $(pid).style.transform = `translateY(${(1 - oBack(k)) * -40}px)`; });
     }
   });
   // End: all four, hopping in a wave; then a quiet sign-off

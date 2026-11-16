@@ -55,6 +55,8 @@ A relatable character + a dream outcome + **minimal conditions**. Any unfair adv
 | Tell a friend | "Send this to the friend who does everything the night before" |
 | Unexpected detail | "This planner's owl quizzes you on chapter 4" |
 
+**Never open on a title card.** Our first live post opened on "A field guide / Every friend group during finals week" with the cast idling. Insights showed the hook didn't hold, because no situation landed before the first swipe at 2.7 s. Open cold on the most relatable or funny moment (the character mid-reaction, its props already on screen) with the hook line in the eye-line, and let the list or series structure reveal itself after.
+
 Weak hooks: the app's name, "Introducing…", a logo, "Hey guys", a question with an obvious no ("Do you like being stressed?"), a feature name.
 
 ## Structure for 8–15 s
