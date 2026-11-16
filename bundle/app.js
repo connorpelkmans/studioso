@@ -72248,7 +72248,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const inside = kind === "skin" ? insideHtml(id) : "";
     const list = kind === "skin" && !inside ? contents(id) : [];
     const go = !mineOk ? `<button type="button" class="btn primary" data-act="sbc-signin">Sign In to Buy</button>`
-      : enough ? `<button type="button" class="btn primary sbc-go" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">Keep It for ${COIN}${cost}</button>`
+      : enough ? `<button type="button" class="btn primary sbc-go" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">Buy It for ${COIN}${cost} Credits</button>`
       : storeApp() ? "" : `<button type="button" class="btn primary" data-act="sbc-packs">Get Credits</button>`;
     const wallet = !mineOk ? `<p class="sbc-note">Credits belong to your account, so sign in first.</p>`
       : `<div class="sbc-wallet" role="status"><span class="sbc-wallet-l">Your balance</span><span class="sbc-wallet-n">${COIN}<b>${bal.toLocaleString()}</b></span>${enough ? `<span class="sbc-chip ok">${bal - cost} left after</span>` : `<span class="sbc-chip">${cost - bal} more needed</span>`}</div>${!enough && storeApp() ? `<p class="sbc-note">Buying credits isn't available in this app.</p>` : ""}`;
@@ -72256,14 +72256,13 @@ You can also DO things in Studyboard, but only when the student asks or what the
       <div class="sheet-body">
         ${note ? `<p class="sbc-note sbc-why">${esc(note)}</p>` : ""}
         <div class="sbc-stage sbc-stage-${esc(kind)}" aria-hidden="true">${preview(kind, id)}${kind === "skin" ? `<span class="sbc-stage-l">Theme</span>` : ""}</div>
-        <div class="sbc-price"><img class="sbc-price-coin" src="${COIN_SRC}" width="44" height="44" alt=""><span class="sbc-price-t"><b>${cost} credits</b><span>${esc(KIND_NAME[kind] || "")} · yours to keep, with or without Pro</span></span></div>
+        <div class="sbc-price"><img class="sbc-price-coin" src="${COIN_SRC}" width="44" height="44" alt=""><span class="sbc-price-t"><b>${cost} credits</b>${KIND_NAME[kind] ? `<span>${esc(KIND_NAME[kind])}</span>` : ""}</span></div>
         ${inside}
         ${list.length ? `<ul class="sbc-list">${list.map(x => `<li>${TICK}<span>${esc(x)}</span></li>`).join("")}</ul>` : ""}
         ${wallet}
         ${th ? `<button type="button" class="sbc-upsell" data-act="sbc-item" data-kind="skin" data-id="${esc(th)}"><span class="sbc-upsell-t"><b>Get the whole ${esc(themeName(th))} Collection</b><span>The theme, its companions, stickers, pins and this style, for ${priceOf("skin", th)} credits</span></span>${CHEV}</button>` : ""}
-        <p class="sbc-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> for every collection while you're subscribed.</p>
       </div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}</div></div>`);
+      <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}${PLAN.isPro() ? "" : `<button type="button" class="btn sbc-getpro" data-act="plan-open" title="Every collection while you're subscribed">Get Pro</button>`}</div></div>`);
   }
   const money = (cents, cur) => { try { return new Intl.NumberFormat(undefined, {style: "currency", currency: String(cur || "usd").toUpperCase()}).format(cents / 100); } catch (e) { return "$" + (cents / 100).toFixed(2); } };
   function packsSheet(){
@@ -72403,7 +72402,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       b.dataset.cr = "1";
       const n = priceOf(b.dataset.kind, b.dataset.id); if (!n) return;
       b.innerHTML = `🔒 ${n} Credits`;
-      b.setAttribute("aria-label", `Keep ${nameOf(b.dataset.kind, b.dataset.id)} for ${n} credits`);
+      b.setAttribute("aria-label", `Buy ${nameOf(b.dataset.kind, b.dataset.id)} for ${n} credits`);
     });
   }
   // Rows the shop fills in later (collections, See All) get their prices too
