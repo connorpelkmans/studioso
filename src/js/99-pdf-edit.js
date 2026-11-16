@@ -3701,7 +3701,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
           parts: [{text: material.slice(0, 60000)}], schema: {type: "OBJECT", properties: {cards: {type: "ARRAY", items: {type: "OBJECT", properties: {front: {type: "STRING"}, back: {type: "STRING"}, page: {type: "NUMBER"}}, required: ["front", "back"]}}}, required: ["cards"]}});
         const cards = ((res && res.data && res.data.cards) || []).filter(c => c && String(c.front || "").trim() && String(c.back || "").trim()).slice(0, n).map(c => {
           const card = {id: uid(), front: String(c.front).slice(0, 300), back: String(c.back).slice(0, 1200), box: 0, due: "", seen: 0, right: 0, wrong: 0, src: {f: f.id, p: Math.max(1, Math.round(Number(c.page)) || 1)}};
-          // a card whose words repeat the reading is marked copied, so it's never shared
+          // a card whose words repeat the reading is marked copied, so AI writing from the deck won't repeat it
           if (aiCopied(card.front + "\n" + card.back, idx)) card.copied = true;
           return card; });
         if (!cards.length) throw new Error("The AI didn't write any cards. Try again.");

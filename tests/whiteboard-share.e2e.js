@@ -45,7 +45,7 @@ function fake(opts){
       then(res, rej) { return run().then(res, rej); }};
     return api;
   };
-  const client = {from: mk, rpc: async (fn, a) => { if (fn === "group_board_preview_nopics") { const b = DB.group_boards.find(x => x.id === a.p_board); if (b) { b.preview = a.p_preview; b.preview_dark = a.p_dark || null; } DB.calls.push(fn); return {data: null, error: null}; }
+  const client = {from: mk, rpc: async (fn, a) => { if (fn === "group_board_preview") { const b = DB.group_boards.find(x => x.id === a.p_board); if (b) { b.preview = a.p_preview; b.preview_dark = a.p_dark || null; } DB.calls.push(fn); return {data: null, error: null}; }
       return {data: fn === "my_username" ? "connor" : fn === "my_age" ? 20 : null, error: null}; }, removeChannel(c) { c.closed = true; },
     channel: name => { const c = {name, subs: [], on(ev, f, cb) { c.subs.push({f, cb}); return c; }, subscribe(cb) { c.status = cb; if (cb) cb("SUBSCRIBED"); return c; }}; DB.chans.push(c); return c; }};
   window.__sbGroupsStub = {user: {id: opts.me, email: opts.me + "@x.com"}, client};
@@ -86,7 +86,7 @@ function fake(opts){
       ok(sharedRow.kind === "board" && sharedRow.ref_id === "wb1" && sharedRow.title === "Cell Cycle" && sharedRow.data.ink.length === 1 && sharedRow.data.items[0].s === "G1 -> S -> G2 -> M" && sharedRow.data.tpl === "grid" && sharedRow.data.course.code === "BIO 101",
         "the link holds the board: its drawing, text, template and course");
       ok(await page.evaluate(() => { const n = JSON.parse(JSON.stringify(__sbSync.state.notes.wb1 || Object.values(__sbSync.state.notes).find(x => x.id === "wb1"))); n.id = "wbPic"; n.wbItems = n.wbItems.concat({id: "p1", k: "i", x: 100, y: 100, w: 200, h: 150, src: "data:image/png;base64,iVBORw0KGgo=", at: 1});
-        __sbSync.state.notes.wbPic = n; const src = SBWB.shareSrc("wbPic"); delete __sbSync.state.notes.wbPic; return src && src.data.items.length === 1 && !src.data.items.some(it => it.k === "i"); }), "pictures on a board are never put in the shared copy");
+        __sbSync.state.notes.wbPic = n; const src = SBWB.shareSrc("wbPic"); delete __sbSync.state.notes.wbPic; return src && src.data.items.length === 2 && src.data.items.some(it => it.k === "i" && /^data:image/.test(it.src || "")); }), "pictures on a board go in the shared copy");
       ok(await page.locator("dialog[open] .grp-code-big").textContent() === "WBRD-0001", "and shows the code to send");
       ok(((await S(page)).notes.wb1 || Object.values((await S(page)).notes).find(x => x.id === "wb1")).shared.code === "WBRD-0001", "the board remembers it's shared");
       await page.keyboard.press("Escape");
@@ -101,7 +101,7 @@ function fake(opts){
       const st = await S(page), wb = Object.values(st.notes).find(x => x.id === "wb1");
       ok(wb.wb.g && wb.wb.g.bid === "b1" && wb.wb.g.gn === "Bio Squad" && await page.locator(".wb-livechip.on").count() === 1 && /Live with Bio Squad/.test(await page.locator(".wb-livechip").textContent()), "the board shows Live with Bio Squad");
       await page.waitForTimeout(700);
-      ok(await page.evaluate(() => __DB.group_board_people.some(r => r.board_id === "b1" && r.user_id === "u1") && __DB.calls.includes("group_board_preview_nopics") && /^data:image\/jpeg/.test(__DB.group_boards[0].preview || "")), "sharing puts you on its list and sends a preview picture for the group's Whiteboards tab");
+      ok(await page.evaluate(() => __DB.group_board_people.some(r => r.board_id === "b1" && r.user_id === "u1") && __DB.calls.includes("group_board_preview") && /^data:image\/jpeg/.test(__DB.group_boards[0].preview || "")), "sharing puts you on its list and sends a preview picture for the group's Whiteboards tab");
       const lum = await page.evaluate(async () => { const b = __DB.group_boards[0], m = async u => { if (!u) return -1; const im = new Image(); im.src = u; await im.decode(); const c = document.createElement("canvas"); c.width = 20; c.height = 20; const x = c.getContext("2d"); x.drawImage(im, 0, 0, 20, 20); const d = x.getImageData(0, 0, 20, 20).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (d.length / 4) / 3; }; return [await m(b.preview), await m(b.preview_dark)]; });
       ok(lum[0] > 180 && lum[1] >= 0 && lum[1] < 90, "it sends a light preview and a dark one (for members whose whiteboards are dark): " + lum.map(Math.round));
       const F = await page.evaluate(() => { const r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left, y: r.top}; });
@@ -128,14 +128,14 @@ function fake(opts){
       await page.evaluate(([a]) => { window.dispatchEvent(new Event("offline")); __DB.group_board_ops.push(a); window.dispatchEvent(new Event("online")); }, [stroke(904, "m3")]);
       await page.waitForTimeout(300);
       ok(await page.evaluate(() => SBWB.board().strokes.some(s => s.id === "m3")), "back online, strokes made meanwhile are caught up");
-      // Pictures never travel through a group board: one sent by someone else is not taken in, and one added here stays here
+      // Pictures travel through a group board: one sent by someone else is taken in, and one added here is sent
       await page.evaluate(() => { const ch = __DB.chans.find(c => /^sbwb-b1-/.test(c.name) && !c.closed); const row = {id: 901, board_id: "b1", group_id: "g1", user_id: "u2", tag: "other", ch: [{t: "i", id: "rpic", v: {k: "i", x: 10, y: 10, w: 100, h: 80, src: "data:image/png;base64,iVBORw0KGgo=", at: 3}}]};
         __DB.group_board_ops.push(row); ch.subs.forEach(s => s.cb({new: row})); });
       await page.waitForTimeout(200);
-      ok(!(await page.evaluate(() => SBWB.board().items.some(i => i.id === "rpic"))), "a picture sent by another member is not taken in");
+      ok(await page.evaluate(() => SBWB.board().items.some(i => i.id === "rpic")), "a picture sent by another member is taken in");
       const opsP = await page.evaluate(() => __DB.group_board_ops.length);
       await page.evaluate(() => SBWB.set("i", "lpic", {id: "lpic", k: "i", x: 400, y: 300, w: 120, h: 90, src: "data:image/png;base64,iVBORw0KGgo=", at: 4})); await page.waitForTimeout(600);
-      ok(await page.evaluate(() => SBWB.board().items.some(i => i.id === "lpic")) && await page.evaluate(n => __DB.group_board_ops.slice(n).every(o => !o.ch.some(c => c.v && c.v.k === "i")), opsP), "a picture added to a live board stays on your copy and isn't sent");
+      ok(await page.evaluate(() => SBWB.board().items.some(i => i.id === "lpic")) && await page.evaluate(n => __DB.group_board_ops.slice(n).some(o => o.ch.some(c => c.id === "lpic" && c.v && c.v.k === "i" && /^data:image/.test(c.v.src || ""))), opsP), "a picture added to a live board is sent to the group");
       await page.evaluate(() => { const ch = __DB.chans.find(c => /^sbwb-b1-/.test(c.name) && !c.closed); const mine = __DB.group_board_ops.find(o => o.user_id === "u1" && o.ch.some(c => c.t === "s")); const echo = Object.assign({}, mine, {id: 950}); ch.subs.forEach(s => s.cb({new: echo})); });
       ok(true, "an echo of our own change is skipped (same tag)");
       await page.evaluate(() => SBWB.flush()); await page.waitForTimeout(100);
@@ -201,14 +201,13 @@ function fake(opts){
       await ctx.close();
     }
     {
-      // A live group board that still holds a picture another member sent before pictures stopped being shared:
-      // it's gone as soon as the app opens, so the board's thumbnail never shows it. Your own pictures (a file of yours) stay.
+      // A live group board that holds a picture another member sent: it stays (pictures share on group boards), as do your own
       const live = {id: "wbL", text: "Group Board", wb: {v: 1, tpl: "blank", g: {gid: "g1", bid: "b5", seq: 0, gn: "Bio Squad"}}, courseId: "", created: 1, updated: 1,
         wbInk: [{id: "k1", t: "pen", c: "red", w: 70, d: "gHgHgBgB", at: 1}],
         wbItems: [{id: "theirs", k: "i", x: 10, y: 10, w: 100, h: 80, src: "data:image/png;base64,iVBORw0KGgo=", at: 1}, {id: "mine", k: "i", x: 300, y: 10, w: 100, h: 80, f: "myfile", at: 1}, {id: "t1", k: "t", x: 50, y: 300, s: "Label", at: 1}]};
       const {ctx, page} = await boot({me: "u2", seed: Object.assign({}, SEED, {notes: [live]}), groups: [{id: "g1", name: "Bio Squad"}], boards: [{id: "b5", group_id: "g1", name: "Group Board", tpl: "blank", deleted: false, created_by: "u1"}]});
       const ids = await page.evaluate(() => (__sbSync.state.notes.wbL.wbItems || []).map(i => i.id).sort());
-      ok(JSON.stringify(ids) === JSON.stringify(["mine", "t1"]), "on opening the app, pictures other members sent to a live board are removed before its thumbnail is drawn: " + ids.join(", "));
+      ok(JSON.stringify(ids) === JSON.stringify(["mine", "t1", "theirs"]), "on opening the app, pictures other members sent to a live board stay: " + ids.join(", "));
       ok(!page.errs.length, "no page errors (old pictures): " + page.errs.join(" | "));
       await ctx.close();
     }

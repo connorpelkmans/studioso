@@ -261,7 +261,8 @@ language plpgsql volatile security definer set search_path = public as $$
 begin
   if auth.uid() is null then return; end if;
   if not public.sbg_lookup_ok() then raise exception 'Too many code lookups. Try again in an hour.'; end if;
-  return query select d.code, d.name, d.sharer_name, d.card_count, d.data, d.updated_at, d.owner_id = auth.uid()
+  -- picture cards only for the deck's owner and people with Pro (sbg_deck_for, below)
+  return query select d.code, d.name, d.sharer_name, d.card_count, public.sbg_deck_for(d.data, d.owner_id, auth.uid()), d.updated_at, d.owner_id = auth.uid()
   from public.shared_decks d
   where d.code = public.sbg_norm_code(p_code);
 end $$;
@@ -1369,10 +1370,10 @@ alter table public.group_boards add column if not exists preview text check (pre
 alter table public.group_boards add column if not exists preview_at timestamptz;
 -- the same preview as a dark whiteboard shows it, for members whose whiteboards are dark
 alter table public.group_boards add column if not exists preview_dark text check (preview_dark is null or (char_length(preview_dark) < 200000 and preview_dark like 'data:image/%'));
--- 1.17: previews are drawn without the board's pictures. The old name is dropped so an older app (which drew pictures in) can't set one.
+-- Previews show the board as it is, pictures included. group_board_preview_nopics (the 1.17 name, when previews left pictures
+-- out) is kept as another name for it, so an app from then still works.
 drop function if exists public.group_board_preview(uuid, text);
-drop function if exists public.group_board_preview(uuid, text, text);
-create or replace function public.group_board_preview_nopics(p_board uuid, p_preview text, p_dark text default null) returns void
+create or replace function public.group_board_preview(p_board uuid, p_preview text, p_dark text default null) returns void
 language plpgsql security definer set search_path = public as $$
 declare g uuid;
 begin
@@ -1383,8 +1384,10 @@ begin
   if p_dark is not null and (char_length(p_dark) >= 200000 or p_dark not like 'data:image/%') then p_dark := null; end if;
   update public.group_boards set preview = p_preview, preview_dark = p_dark, preview_at = now() where id = p_board;
 end $$;
-revoke all on function public.group_board_preview_nopics(uuid, text, text) from public, anon;
-grant execute on function public.group_board_preview_nopics(uuid, text, text) to authenticated;
+create or replace function public.group_board_preview_nopics(p_board uuid, p_preview text, p_dark text default null) returns void
+language sql security definer set search_path = public as $$ select public.group_board_preview(p_board, p_preview, p_dark) $$;
+revoke all on function public.group_board_preview(uuid, text, text), public.group_board_preview_nopics(uuid, text, text) from public, anon;
+grant execute on function public.group_board_preview(uuid, text, text), public.group_board_preview_nopics(uuid, text, text) to authenticated;
 
 create table if not exists public.group_board_people (
   board_id uuid not null references public.group_boards(id) on delete cascade,
@@ -1437,73 +1440,71 @@ begin
     end loop;
   end if;
 end $$;
--- 1.17: Nothing that could be someone else's work is shared: no pictures, files or text copied word for word from a file,
--- in a group, a link or a public page. Typed text, flashcards, quizzes and what students draw still share as before.
--- sbg_payload_problem: why a shared payload can't be shared, or null when it's fine
-create or replace function public.sbg_payload_problem(p jsonb) returns text
+-- 1.18: Studyboard has a designated copyright agent (see Copyright complaints in the Terms), so what 1.17 turned off for
+-- copyright is back: pictures, files and cards copied from a file share in groups, links and public pages again, live group
+-- boards carry pictures, and files can be uploaded to a group. Reports and formal notices remove what breaks someone's rights.
+-- The 1.17 rules are dropped here (run supabase-sharing.sql and supabase-plans.sql again too).
+drop trigger if exists sbg_items_no_copies on public.group_items;
+drop function if exists public.sbg_items_no_copies();
+drop trigger if exists sbg_board_no_pictures on public.group_board_ops;
+drop function if exists public.sbg_board_no_pictures();
+drop trigger if exists sbg_deck_no_copies on public.shared_decks;
+drop function if exists public.sbg_deck_no_copies();
+do $$ begin
+  if to_regclass('public.shared_items') is not null then execute 'drop trigger if exists sbs_item_no_copies on public.shared_items'; end if;
+end $$;
+drop function if exists public.sbs_item_no_copies();
+drop function if exists public.sbg_payload_problem(jsonb);
+
+-- Picture cards in a shared deck (a share link or a published deck). A card with img is a picture card; data.pics holds its
+-- pictures. Only an account with Pro can share them, and only people with Pro get them back: everyone else gets the deck
+-- without them, and picsHeld says how many were held back. Public pages never show them.
+-- sbg_pro: Pro, or the paywall is off (or this server has no plans: supabase-plans.sql)
+create or replace function public.sbg_pro(p_uid uuid) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare r boolean := false;
+begin
+  if to_regprocedure('public.studyboard_paywall()') is null or to_regprocedure('public.studyboard_is_pro(uuid)') is null then return true; end if;
+  execute 'select not public.studyboard_paywall() or ($1 is not null and public.studyboard_is_pro($1))' into r using p_uid;
+  return coalesce(r, false);
+end $$;
+revoke all on function public.sbg_pro(uuid) from public, anon, authenticated;
+create or replace function public.sbg_deck_has_pics(p jsonb) returns boolean
 language sql immutable set search_path = public as $$
-  select case
-    when p is null then null
-    when jsonb_path_exists(p, 'lax $.** ? (@ like_regex "^data:[^,]*;base64," flag "i")')
-      or jsonb_path_exists(p, 'lax $.**.img') or jsonb_path_exists(p, 'lax $.**.image')
-      or jsonb_path_exists(p, 'lax $.**.src') or jsonb_path_exists(p, 'lax $.**.file')
-      or jsonb_path_exists(p, 'lax $.** ? (@.k == "i")')
-      then 'SB_NO_PICTURES: Pictures and files can''t be shared. Share what you wrote or drew yourself.'
-    when jsonb_path_exists(p, 'lax $.** ? (@.copied == true)')
-      then 'SB_COPIED: Cards copied word for word from a file can''t be shared.'
+  select p is not null and (p ? 'pics' or (jsonb_typeof(p -> 'cards') = 'array' and exists (select 1 from jsonb_array_elements(p -> 'cards') c where jsonb_typeof(c) = 'object' and c ? 'img')))
+$$;
+-- A shared deck without its picture cards and their pictures
+create or replace function public.sbg_deck_strip(p jsonb) returns jsonb
+language sql immutable set search_path = public as $$
+  select case when not public.sbg_deck_has_pics(p) then p
+    when jsonb_typeof(p -> 'cards') <> 'array' then p - 'pics'
+    else (p - 'pics') || jsonb_build_object(
+      'cards', coalesce((select jsonb_agg(c order by i) from jsonb_array_elements(p -> 'cards') with ordinality t(c, i) where not (jsonb_typeof(c) = 'object' and c ? 'img')), '[]'::jsonb),
+      'picsHeld', (select count(*) from jsonb_array_elements(p -> 'cards') c where jsonb_typeof(c) = 'object' and c ? 'img'))
   end
 $$;
-revoke all on function public.sbg_payload_problem(jsonb) from public, anon;
-
-create or replace function public.sbg_items_no_copies() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare why text;
+-- What one person gets of a shared deck: all of it for its owner or someone with Pro
+create or replace function public.sbg_deck_for(p jsonb, p_owner uuid, p_uid uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
 begin
-  if tg_op = 'INSERT' and new.kind = 'gfile' then
-    raise exception 'SB_NO_FILES: Files can''t be shared with a group. Share a link to a doc the group made instead.';
-  end if;
-  if tg_op = 'UPDATE' and new.data is not distinct from old.data then return new; end if;
-  why := public.sbg_payload_problem(new.data);
-  if why is not null then raise exception '%', why; end if;
-  return new;
+  if not public.sbg_deck_has_pics(p) or (p_uid is not null and p_uid = p_owner) or public.sbg_pro(p_uid) then return p; end if;
+  return public.sbg_deck_strip(p);
 end $$;
-revoke all on function public.sbg_items_no_copies() from public, anon, authenticated;
-drop trigger if exists sbg_items_no_copies on public.group_items;
-create trigger sbg_items_no_copies before insert or update on public.group_items for each row execute function public.sbg_items_no_copies();
+revoke all on function public.sbg_deck_has_pics(jsonb), public.sbg_deck_strip(jsonb), public.sbg_deck_for(jsonb, uuid, uuid) from public, anon, authenticated;
 
--- Live boards share ink and text, never pictures
-create or replace function public.sbg_board_no_pictures() returns trigger
+-- Deck links and public decks (share_deck writes shared_decks): picture cards need Pro, and a deck is at most 3 MB (8 MB with pictures)
+create or replace function public.sbg_deck_check() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare why text := public.sbg_payload_problem(new.ch);
-begin
-  if why is not null then raise exception '%', why; end if;
-  return new;
-end $$;
-revoke all on function public.sbg_board_no_pictures() from public, anon, authenticated;
-drop trigger if exists sbg_board_no_pictures on public.group_board_ops;
-create trigger sbg_board_no_pictures before insert on public.group_board_ops for each row execute function public.sbg_board_no_pictures();
--- Pictures sent to group boards before this: their previews are cleared (they come back, without pictures, when someone draws)
--- and the pictures are taken out of the board history
-update public.group_boards set preview = null, preview_dark = null
-  where id in (select board_id from public.group_board_ops where jsonb_path_exists(ch, 'lax $[*] ? (@.v.k == "i")'));
-delete from public.group_board_ops o
-  where jsonb_path_exists(o.ch, 'lax $[*] ? (@.v.k == "i")') and not jsonb_path_exists(o.ch, 'lax $[*] ? (!(@.v.k == "i"))');
-update public.group_board_ops o set ch = (select jsonb_agg(e) from jsonb_array_elements(o.ch) e where not coalesce(e -> 'v' ->> 'k' = 'i', false))
-  where jsonb_path_exists(o.ch, 'lax $[*] ? (@.v.k == "i")');
-
--- Deck links and public decks (share_deck writes shared_decks)
-create or replace function public.sbg_deck_no_copies() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare why text;
+declare pics boolean;
 begin
   if tg_op = 'UPDATE' and new.data is not distinct from old.data then return new; end if;
-  if octet_length(new.data::text) >= 3000000 then raise exception 'That deck is too big to share. Try a shorter one.'; end if;
-  why := public.sbg_payload_problem(new.data);
-  if why is not null then raise exception '%', why; end if;
+  pics := public.sbg_deck_has_pics(new.data);
+  if pics and not public.sbg_pro(new.owner_id) then raise exception 'SB_PRO_PICS: Sharing picture cards is part of Pro.' using errcode = 'P0001'; end if;
+  if octet_length(new.data::text) >= (case when pics then 8000000 else 3000000 end) then raise exception 'That deck is too big to share. Try a shorter one.' using errcode = 'P0001'; end if;
   return new;
 end $$;
-revoke all on function public.sbg_deck_no_copies() from public, anon, authenticated;
-drop trigger if exists sbg_deck_no_copies on public.shared_decks;
-create trigger sbg_deck_no_copies before insert or update on public.shared_decks for each row execute function public.sbg_deck_no_copies();
+revoke all on function public.sbg_deck_check() from public, anon, authenticated;
+drop trigger if exists sbg_deck_check on public.shared_decks;
+create trigger sbg_deck_check before insert or update on public.shared_decks for each row execute function public.sbg_deck_check();
 
 notify pgrst, 'reload schema';

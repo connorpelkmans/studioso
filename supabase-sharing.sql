@@ -118,20 +118,6 @@ $$;
 revoke all on function public.agree_share_terms(text), public.my_share_terms() from public, anon;
 grant execute on function public.agree_share_terms(text), public.my_share_terms() to authenticated;
 
--- Shared notes, quizzes and whiteboards carry no pictures, files or copied text either (sbg_payload_problem, supabase-groups.sql)
-create or replace function public.sbs_item_no_copies() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare why text;
-begin
-  if tg_op = 'UPDATE' and new.data is not distinct from old.data then return new; end if;
-  why := public.sbg_payload_problem(new.data);
-  if why is not null then raise exception '%', why; end if;
-  return new;
-end $$;
-revoke all on function public.sbs_item_no_copies() from public, anon, authenticated;
-drop trigger if exists sbs_item_no_copies on public.shared_items;
-create trigger sbs_item_no_copies before insert or update on public.shared_items for each row execute function public.sbs_item_no_copies();
-
 -- Helpers
 create or replace function public.sbs_lookup_ok() returns boolean
 language plpgsql volatile security definer set search_path = public as $$
@@ -221,7 +207,9 @@ declare k text := public.sbg_norm_code(p_code);
 begin
   if k !~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$' then return; end if;
   if not public.sbs_lookup_ok() then raise exception 'Too many links opened. Try again in an hour.'; end if;
-  return query select d.code, 'deck'::text, d.name, d.sharer_name, d.card_count, d.data, d.updated_at, coalesce(d.owner_id = auth.uid(), false)
+  -- picture cards only for the deck's owner and people with Pro (sbg_deck_for in supabase-groups.sql)
+  return query select d.code, 'deck'::text, d.name, d.sharer_name, d.card_count,
+      case when to_regprocedure('public.sbg_deck_for(jsonb,uuid,uuid)') is null then d.data else public.sbg_deck_for(d.data, d.owner_id, auth.uid()) end, d.updated_at, coalesce(d.owner_id = auth.uid(), false)
     from public.shared_decks d where d.code = k and not d.hidden;
   if found then return; end if;
   return query select i.code, i.kind, i.title, i.sharer_name, 0, i.data, i.updated_at, coalesce(i.owner_id = auth.uid(), false)
@@ -418,7 +406,7 @@ begin
   select d.data, d.created_at into dd, made from public.shared_decks d where d.code = p_code and d.owner_id = p_owner;
   if dd is not null then
     select array_agg(distinct lower(btrim(x ->> 'front'))) into mine
-      from jsonb_array_elements(case when jsonb_typeof(dd -> 'cards') = 'array' then dd -> 'cards' else '[]'::jsonb end) x where btrim(coalesce(x ->> 'front', '')) <> '';
+      from jsonb_array_elements(case when jsonb_typeof(dd -> 'cards') = 'array' then dd -> 'cards' else '[]'::jsonb end) x where btrim(coalesce(x ->> 'front', '')) <> '' and not (x ? 'img');   -- (picture cards share a default question)
     if coalesce(cardinality(mine), 0) < 4 then return false; end if;
     select max(c) into best from (select count(distinct lower(btrim(y ->> 'front'))) c from public.shared_decks o,
         jsonb_array_elements(case when jsonb_typeof(o.data -> 'cards') = 'array' then o.data -> 'cards' else '[]'::jsonb end) y
@@ -580,7 +568,8 @@ create or replace function public.public_page(p_kind text, p_code text)
 returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, published_at timestamptz, updated_at timestamptz, data jsonb, school_name text)
 language sql stable security definer set search_path = public as $$
   select d.code, d.name, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = d.owner_id), d.sharer_name), d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.published_at, d.updated_at,
-         jsonb_build_object('course', d.data -> 'course', 'cards', d.data -> 'cards', 'look', d.data -> 'look'), d.school_name
+         -- public pages never show picture cards: just how many there are (picsHeld)
+         jsonb_build_object('course', d.data -> 'course', 'cards', public.sbg_deck_strip(d.data) -> 'cards', 'look', d.data -> 'look', 'picsHeld', coalesce(public.sbg_deck_strip(d.data) -> 'picsHeld', '0'::jsonb)), d.school_name
     from public.shared_decks d where p_kind = 'deck' and d.code = public.sbg_norm_code(p_code) and d.published and not d.hidden
   union all
   select i.code, i.title, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = i.owner_id), i.sharer_name), i.item_count, i.course_key, i.course_label, i.saves, i.published_at, i.updated_at, i.data, i.school_name
