@@ -11,7 +11,7 @@ Short-form videos that make a student stop scrolling, watch to the end, and want
 
 1. `marketing/reels/LOG.md`, if it exists. It records every reel made with this skill and, when the user has shared them, the numbers (views, 3-second hold, average watch time, shares). Lean toward what held attention and away from what didn't, and say so when you do ("The POV hooks held better last time, so two of these are POV").
 2. `references/brand.md` for colours, fonts, companions, voice, and the rules on what Studyboard may claim.
-3. `references/retention.md` for hook formulas, pacing, and the formats that work for a student audience.
+3. `references/retention.md` for hook formulas (plus `marketing/reels/HOOK-EVIDENCE.md`: the research behind each hook element, with caveats), pacing, and the formats that work for a student audience.
 4. `references/diagnose.md`: five lenses (views, likes, comments, shares, follows), used as a pre-flight check on every storyboard and to diagnose a reel whose numbers came back weak.
 5. `references/tools.md`: how to use **vidIQ** (live outlier research before a batch, Instagram insights after) and **Metricool** (best times, scheduling after the user approves). Run the outlier research at the start of each new batch.
 6. `README.md` at the repo root if the reel is about a specific feature: it's the source of truth for what the app does and whether it's free or Pro. Never promise anything the README doesn't say. A promo that overclaims gets called out in the comments and costs trust.

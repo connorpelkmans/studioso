@@ -53,6 +53,10 @@ html,body{margin:0;background:#000}
 .night{width:520px;height:440px;border-radius:40px;background:linear-gradient(160deg,#16386E,#0A1F42);box-shadow:0 24px 60px -14px rgba(14,42,86,.45)}
 .clock{font:800 44px var(--display);color:#fff;background:rgba(255,255,255,.12);border-radius:16px;padding:8px 20px}
 .chip{display:inline-flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:14px 22px;font:700 30px var(--display);box-shadow:0 16px 40px -12px rgba(14,42,86,.35)}
+#hook{position:absolute;left:60px;right:60px;top:925px;text-align:center;z-index:20;font:800 60px/1.16 "Inter",system-ui,sans-serif;color:#fff;-webkit-text-stroke:9px #000;paint-order:stroke fill;opacity:0}
+#hook b{color:#FFE45C}
+#alarm{position:absolute;inset:0;z-index:15;pointer-events:none;opacity:0;background:radial-gradient(75% 60% at 50% 45%,transparent 35%,rgba(228,30,40,.55) 100%)}
+#stamp{position:absolute;z-index:16;opacity:0;font:800 62px/1 var(--display);letter-spacing:.02em;color:#E4513B;border:10px solid #E4513B;border-radius:22px;padding:14px 30px;background:rgba(255,255,255,.92);box-shadow:0 20px 50px -10px rgba(0,0,0,.35);white-space:nowrap}
 #sign{position:absolute;left:0;right:0;top:1340px;display:flex;justify-content:center;align-items:center;gap:16px;font:800 40px var(--display);color:var(--navy);opacity:0}
 #sign img{width:60px;height:60px;border-radius:15px}
 </style>
@@ -130,6 +134,9 @@ html,body{margin:0;background:#000}
     <div class="comp" id="e4" style="left:780px;top:880px;width:210px;height:210px">{{packy}}</div>
     <div class="abs" style="left:90px;width:900px;top:1110px;display:flex;justify-content:space-around;font:800 44px var(--display);color:var(--accent)"><span>1</span><span>2</span><span>3</span><span>4</span></div>
   </div>
+  <div id="alarm"></div>
+  <div id="stamp"></div>
+  <div id="hook"></div>
   <div id="sign"><img src="{{ROOT}}/icon-512.png" alt="">Studyboard</div>
 </div>
 <script>
@@ -212,8 +219,27 @@ const hopY = (t, t0, H = 40) => { const k = P(t, t0, t0 + .42); return -H * 4 * 
 const MOODS = [["owl", "proud"], ["mochi", "shocked"], ["inky", "tired"], ["packy", "nervous"]];
 [["c0a", "c0b", "c0c", "c0d"], ["c1", "c2", "c3", "c4"], ["e1", "e2", "e3", "e4"]].forEach(ids => ids.forEach((id, i) => decorate($(id), MOODS[i][0], MOODS[i][1])));
 // Timeline (s). Each type gets 2.9 s: enough to read a two-line title and a two-line joke.
-const T0 = 2.7, D = 2.9, END_IN = T0 + 4 * D, END = END_IN + 3.4, COVER = 0.4;
+// Variants: "a" opens on the title card (as first posted). "b" and "c" cut the title and open cold on the funniest
+// character moment with a native hook caption, then run the other three types (hook test, Nov 2026).
+const VARIANT = "a";
+const ORDER = {a: [0, 1, 2, 3], b: [3, 0, 1, 2], c: [1, 0, 2, 3], d: [1, 0, 2, 3], e: [3, 0, 1, 2]}[VARIANT];
+const HOOK = {b: "Tag the friend who<br>“works better under <b>pressure</b>”", c: "POV: you just found out<br>the final is <b>cumulative</b>",
+  d: "The final is<br><b>cumulative</b>?!", e: "“I work better<br>under <b>pressure</b>”"}[VARIANT];
+// d/e: "max hook": extreme close-up on the reaction, red alarm glow, impact at frame 0, snap-out reveal + stamp at ~1 s,
+// then the open loop ("every friend group has one") at 1.6 s, and into the list at ~3 s.
+const ZOOM = VARIANT === "d" || VARIANT === "e";
+// Open loop (information-gap theory): a specific, closeable question that's only answered at the end
+const HOOK2 = {d: "Every friend group has all 4.<br><b>#4</b> is the worst 👇", e: "Every friend group has all 4.<br><b>#4</b> hasn't slept in days 👇"}[VARIANT] || "Every friend group<br>has one of these 👇";
+const FACE = {d: [750, 702], e: [365, 652]}[VARIANT];
+const STAMP = {d: ["CUMULATIVE!", 70, 750, -10], e: ["0% DONE", 540, 690, 8]}[VARIANT];
+const COLD = VARIANT !== "a";
+const T0 = COLD ? 0 : 2.7, D = 2.9, D0 = ZOOM ? 5.2 : COLD ? 3.6 : 2.9;
+const START = ORDER.map((_, pos) => T0 + (pos === 0 ? 0 : D0 + (pos - 1) * D));
+const END_IN = T0 + D0 + 3 * D, END = END_IN + 3.4, COVER = COLD ? 0.5 : 0.4;
+if (COLD) $("hook").innerHTML = HOOK;
+if (ZOOM) { $("stamp").textContent = STAMP[0]; $("stamp").style.left = STAMP[1] + "px"; $("stamp").style.top = STAMP[2] + "px"; $("hook").style.fontSize = "96px"; }
 const SL = .32; // slide time between pages
+const shakeIt = (t, times, amp = 14) => { let s = 0; times.forEach(h => { const k = P(t, h, h + .3); if (k > 0 && k < 1) s += Math.sin(k * Math.PI) * (1 - k) * amp; }); return s; };
 function page(el, t, tin, tout) {
   // slides in from the right, out to the left; smooth, like swiping a carousel
   const a = ioCubic(P(t, tin - SL, tin)), b = tout == null ? 0 : ioCubic(P(t, tout - SL, tout));
@@ -223,17 +249,36 @@ function page(el, t, tin, tout) {
 }
 function render(t) {
   // Title (visible at frame 0)
-  const s0 = $("s0"); s0.style.visibility = t < T0 ? "visible" : "hidden";
+  const s0 = $("s0"); s0.style.visibility = !COLD && t < T0 ? "visible" : "hidden";
+  // Cold-open hook caption: up from frame 0, fades as the scene's own title arrives
+  if (ZOOM) {
+    // Line 1 (the gasp) until 1.5 s, then the open loop, then hand off to the scene's own title at ~2.9 s
+    const two = t >= 1.55;
+    $("hook").innerHTML = two ? HOOK2 : HOOK; $("hook").style.fontSize = two ? "62px" : (VARIANT === "e" ? "80px" : "96px");
+    $("hook").style.opacity = (two ? ioCubic(P(t, 1.55, 1.75)) : 1) * (1 - P(t, 2.6, 2.8));
+    $("hook").style.transform = two ? "none" : `scale(${1 + .18 * (1 - oBack(P(t, 0, .25)))})`;
+    $("alarm").style.opacity = (1 - P(t, .95, 1.35)) * (.75 + .25 * Math.sin(t * 6.3));
+    const sk = P(t, 1.25, 1.45); $("stamp").style.opacity = clamp(sk * 3) * (1 - P(t, 2.7, 2.9));
+    $("stamp").style.transform = `rotate(${STAMP[3]}deg) scale(${sk > 0 ? lerp(2.2, 1, oBack(sk)) : 2.2})`;
+  } else $("hook").style.opacity = COLD ? 1 - P(t, 2.1, 2.3) : 0;
   s0.style.transform = `translateX(${-ioCubic(P(t, T0 - SL, T0)) * 1080}px)`;
   ["c0a", "c0b", "c0c", "c0d"].forEach((id, i) => {
     const el = $(id); animateFace(el, t, i * .37);
     el.style.transform = `translateY(${Math.sin((t + i * .37) * 2.6) * 6 + hopY(t, .5 + i * .22, 46)}px)`;
   });
   // Types
-  const ids = ["s1", "s2", "s3", "s4"];
-  ids.forEach((id, i) => {
-    const tin = T0 + i * D, tout = tin + D;
+  ORDER.forEach((i, pos) => {
+    const id = "s" + (i + 1), tin = START[pos], tout = tin + (pos === 0 ? D0 : D);
     if (!page($(id), t, tin, tout)) return;
+    const sc = $(id); sc.querySelector(".num").textContent = `${pos + 1} OF 4`;
+    const tk = COLD && pos === 0 ? (ZOOM ? ioCubic(P(t, 2.85, 3.15)) : ioCubic(P(t, 2.35, 2.65))) : 1;
+    sc.querySelectorAll(".num,.ttl,.sub").forEach(el => { el.style.opacity = tk; });
+    // Max hook: extreme close-up on the face, snapping out at ~1 s, with a smooth nudge on each hit
+    if (ZOOM && pos === 0 && t < 1.5) {
+      const z = lerp(3.0, 1, ioCubic(P(t, .95, 1.25))), nud = shakeIt(t, [0, 1.25]);
+      sc.style.transformOrigin = `${FACE[0]}px ${FACE[1]}px`;
+      sc.style.transform = `translate(${nud}px,${nud * .5}px) scale(${z})`;
+    }
     const lt = t - tin, c = $("c" + (i + 1));
     animateFace(c, t, i * .5);
     if (i === 0) { // proud: happy eyes, sparkles, a little strut
@@ -254,7 +299,7 @@ function render(t) {
     }
     if (i === 3) { // "calm": forced grin, eyes darting, sweat sliding; a tiny nervous shuffle
       c.style.transform = `translateY(${Math.sin(t * 2.2) * 5}px) rotate(${Math.sin(t * 7) * 1.2}deg)`;
-      [["p4a", .35], ["p4b", .7]].forEach(([pid, at]) => { const k = P(lt, at, at + .3); $(pid).style.opacity = clamp(k * 2); $(pid).style.transform = `translateY(${(1 - oBack(k)) * -40}px)`; });
+      [["p4a", .35], ["p4b", .7]].forEach(([pid, at]) => { if (COLD && pos === 0) at = -1; const k = P(lt, at, at + .3); $(pid).style.opacity = clamp(k * 2); $(pid).style.transform = `translateY(${(1 - oBack(k)) * -40}px)`; });
     }
   });
   // End: all four, hopping in a wave; then a quiet sign-off
