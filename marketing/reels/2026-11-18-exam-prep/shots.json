@@ -1,0 +1,20 @@
+[
+ {
+  "clip": "../_broll/writing.mp4",
+  "in": 7.5,
+  "dur": 4.0
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 4.0
+ },
+ {
+  "clip": "../_broll/stressed.mp4",
+  "in": 3.7,
+  "dur": 3.0
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 7.0
+ }
+]

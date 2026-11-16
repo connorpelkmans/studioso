@@ -8,7 +8,7 @@ function normDeck(d){
   if (typeof d.name !== "string" || !d.name.trim()) d.name = "Untitled Deck";
   if (!Array.isArray(d.cards)) d.cards = [];
   d.cards = d.cards.filter(c => c && c.id).map(c => Object.assign({front: "", back: "", box: 0, due: "", seen: 0, right: 0, wrong: 0}, c));
-  // copied: the card's text came straight from a course file (a PDF highlight), so it stays private (kept when the card is edited)
+  // copied: the card's text came straight from a course file (a PDF highlight); AI writing from the deck won't repeat it (kept when the card is edited)
   d.cards.forEach(c => { if ("copied" in c) { if (c.copied) c.copied = true; else delete c.copied; } });
   if (!Array.isArray(d.quizzes)) d.quizzes = [];
   if (!Array.isArray(d.aiQuizzes)) d.aiQuizzes = [];

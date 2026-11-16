@@ -1,0 +1,5 @@
+stills/
+*.built.html
+_broll/*.mp4
+bg-*.mp4
+silent-*.mp4

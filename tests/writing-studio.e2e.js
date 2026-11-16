@@ -260,6 +260,19 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await act(page, "cm-open", "x1", {kind: "exam"}); await page.waitForSelector(".cm-node");
   ok(await page.isChecked('[data-cm="know"]') && /Shaky/.test(await page.textContent(".cm-legend")), "an exam map starts coloured by knowledge");
   ok(await page.locator('.cm-node[data-n="file:f2"]').count() === 1 && await page.locator('.cm-node[data-n="note:n4"]').count() === 0, "it shows what the topics reach, not the whole course");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+  // a course with nothing linked yet: the Overview card offers to create a map
+  const card2 = await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c2));
+  ok(/Create Map/.test(card2) && /data-act="cm-open"/.test(card2), "a course with nothing linked still has the card, with Create Map");
+  await act(page, "cm-open", "c2", {kind: "course"}); await page.waitForSelector('.cm-node[data-n="root"]');
+  ok(await page.locator('.cm-node[data-n="file:f1"]').count() === 1 && await page.isChecked('[data-cm="loose"]'), "a new map starts with the course's unlinked material on show, ready to connect");
+  ok(/Start your map/.test(await page.textContent(".cm-panel")) && await page.locator('.cm-panel [data-cm="idea"]').count() === 1, "and one clear first step: Add Your First Idea");
+  await page.click('.cm-panel [data-cm="idea"]'); await page.waitForSelector("#cmAsk");
+  await page.fill("#cmAsk", "Thesis: parks cool cities"); await page.press("#cmAsk", "Enter"); await page.waitForTimeout(250);
+  const c2 = await course(page, "c2"), first = c2.cmap.add.find(x => x.label === "Thesis: parks cool cities");
+  ok(first && c2.cmap.links.some(l => l.a === "root" && l.b === "idea:" + first.id), "the first idea, with nothing selected, joins the course in the middle");
+  ok(/Open Map/.test(await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c2))), "after that, the card says Open Map");
+  ok(page.errs.length === 0, "no console errors (new map): " + page.errs.join(" | "));
   await ctx.close();
 
   /* ---------- Locked ---------- */

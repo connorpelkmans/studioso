@@ -1,0 +1,20 @@
+[
+ {
+  "clip": "../_broll/asleep.mp4",
+  "in": 1.0,
+  "dur": 4.0
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 4.0
+ },
+ {
+  "clip": "../_broll/tired.mp4",
+  "in": 3.5,
+  "dur": 3.0
+ },
+ {
+  "color": "#0E2A56",
+  "dur": 7.0
+ }
+]
