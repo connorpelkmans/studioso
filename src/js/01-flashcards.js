@@ -177,9 +177,18 @@ const fcMatches = (d, q) => {
 function masteryPips(box){ return `<span class="pips" title="Level ${box} of 5">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= box ? "on" : ""}"></i>`).join("")}</span>`; }
 
 /* Review (the Flashcards tab) */
+<<<<<<< HEAD
 ui.rvView = ui.rvView || (() => { try { return localStorage.getItem("studyboard:rvview") === "quizzes" ? "quizzes" : "cards"; } catch (e) { return "cards"; } })();
 const rvSet = v => { ui.rvView = v === "quizzes" ? "quizzes" : "cards"; try { localStorage.setItem("studyboard:rvview", ui.rvView); } catch (e) {} };
 const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Review"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView !== "quizzes"}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button></div>`;
+=======
+// Review's views: Flashcards, Quizzes, Concept Maps (99-concept-map.js) and Writing (99-writing-studio.js: papers, My Library and Zotero)
+const RV_VIEWS = ["cards", "quizzes", "maps", "writing"];
+ui.rvView = ui.rvView || (() => { try { const v = localStorage.getItem("studyboard:rvview"); return RV_VIEWS.includes(v) ? v : "cards"; } catch (e) { return "cards"; } })();
+const rvSet = v => { ui.rvView = RV_VIEWS.includes(v) ? v : "cards"; try { localStorage.setItem("studyboard:rvview", ui.rvView); } catch (e) {} };
+const rvWriting = () => !!(window.SBWRITE && SBWRITE.reviewHtml) && !inPreview();
+const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Review"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView === "cards" || (ui.rvView === "writing" && !rvWriting()) || (ui.rvView === "maps" && !window.SBCMAP)}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button>${window.SBCMAP ? `<button role="tab" data-act="rv-view" data-id="maps" aria-selected="${ui.rvView === "maps"}" aria-label="Concept Maps"><span class="rv-long">Concept Maps</span><span class="rv-short">Maps</span></button>` : ""}${rvWriting() ? `<button role="tab" data-act="rv-view" data-id="writing" aria-selected="${ui.rvView === "writing"}">Writing</button>` : ""}</div>`;
+>>>>>>> 45237d86 (Writing Studio: Check first, drafts from anywhere, highlighting from inside, and a strip that ties the tabs together)
 const QZ_GROUP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.1c2.6.2 4.5 2.2 4.5 4.9"/></svg>';
 // Quizzes you put away with Archive (qz.archived) stay on their deck, out of the list
 // New quizzes (no qz.order yet) come first, newest first, then the ones you've put in order
@@ -306,6 +315,11 @@ function viewFlashcards(){
   if (ui.deckId && state.decks[ui.deckId]) return viewDeck(state.decks[ui.deckId]);
   ui.deckId = null;
   if (ui.rvView === "quizzes") return reviewSwitchHtml() + viewQuizzes();
+<<<<<<< HEAD
+=======
+  if (ui.rvView === "maps" && window.SBCMAP) return reviewSwitchHtml() + SBCMAP.listHtml();
+  if (ui.rvView === "writing" && rvWriting()) return reviewSwitchHtml() + SBWRITE.reviewHtml();
+>>>>>>> 45237d86 (Writing Studio: Check first, drafts from anywhere, highlighting from inside, and a strip that ties the tabs together)
   const ds = decksShown().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
   const tiles = ds.map(d => {
     const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";

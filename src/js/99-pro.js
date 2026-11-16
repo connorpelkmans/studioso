@@ -2629,6 +2629,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
         <span class="spacer"></span>
         ${ofcTop || hlTop ? "" : hlBtn}
       </div>
+      ${view || !window.SBWRITE || !SBWRITE.readerBar ? "" : SBWRITE.readerBar(fid)}
       <div class="pdr-main"><div class="pdr-pages" id="pdrPages" tabindex="0" aria-label="Pages"><p class="pdr-wait"><span class="ai-spin" aria-hidden="true"></span> Opening ${esc(f.name)}…</p></div><aside class="pdr-side" id="pdrSide" hidden></aside></div>
     </div>`);
     const my = R;
@@ -2944,6 +2945,13 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     if (ps.length === 1) { hidePop(); SBWRITE.addQuote(ps[0].id, R.fid, h, {text: firstText}); return; }
     showPop(`<span class="mini pdr-pop-lbl">Add the quote to</span>${ps.map(t => `<button type="button" class="btn small pdr-nb" data-act="pdr-paper-to" data-id="${esc(h.id)}" data-t="${esc(t.id)}"><span class="dot" style="--c:${esc(t.courseId ? colorOf(t.courseId) : "var(--muted)")}" aria-hidden="true"></span>${esc(String(t.title).length > 34 ? String(t.title).slice(0, 33) + "…" : t.title)}</button>`).join("")}`, at);
   }
+  // Writing Studio: a highlight just made in a PDF that belongs to one paper offers Add as Quote right there
+  function wsOffer(h){
+    const html = h && window.SBWRITE && SBWRITE.hlPop ? SBWRITE.hlPop(R.fid, h) : ""; if (!html) return;
+    const pg = R.pages[h.p - 1]; if (!pg || !pg.el) return;
+    const b = pg.el.getBoundingClientRect(), r = h.r[h.r.length - 1];
+    showPop(html, {left: b.left + r[0] * b.width, width: r[2] * b.width, top: b.top + r[1] * b.height, bottom: b.top + (r[1] + r[3]) * b.height});
+  }
   function hlNote(h, to){
     const f = fileOf(); if (!f || !h) return;
     if (h.n && state.notes[h.n]) { const id = h.n; if (dlg.open) dlg.close(); if (P.openLink) P.openLink({kind: "note", id}); return; }
@@ -3140,7 +3148,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-zoom": zoomBy(Number(id) || 1); break;
       case "pdr-fit": { R.fitMode = R.fitMode === "page" ? "width" : "page"; R.zoom = 1; try { localStorage.setItem(FIT_KEY, R.fitMode); } catch (e) {} el.setAttribute("aria-pressed", String(R.fitMode === "page")); layout(R.cur); break; }
       case "pdr-color": R.color = id; state.settings = Object.assign({}, state.settings, {hlColor: id}); saveSettings(); dlg.querySelectorAll('.pdr-bar .pdr-col').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id))); break;
-      case "pdr-hl-add": addFromSel(id); break;
+      case "pdr-hl-add": { const h = addFromSel(id); wsOffer(h); break; }
       case "pdr-mk-add": addFromSel(R.color, {m: id}); break;
       case "pdr-sel-cm": { const h = addFromSel(R.color); if (h) cmEdit(h.id); break; }
       case "pdr-cm": cmEdit(id); break;
@@ -3164,6 +3172,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       case "pdr-sel-paper": { const h = addFromSel(R.color); if (h) toPaper(h, R.popAt); break; }
       case "pdr-paper": toPaper(byId(id), el.getBoundingClientRect()); break;
       case "pdr-paper-to": { const h = byId(id); hidePop(); if (h && window.SBWRITE) SBWRITE.addQuote(el.dataset.t, R.fid, h, {text: firstText}); break; }
+      case "pdr-ws-back": if (dlg.open) dlg.close(); if (window.SBWRITE) SBWRITE.fromReader(id); break;
       case "pdr-hl-del": { const h = byId(id); if (!h) break; const before = mine(); saveHl(before.filter(x => x.id !== id)); hidePop(); paint(h.p); counts(); if (R.side) side(); hlDone(before, "Highlight removed"); break; }
       case "pdr-side": R.side = !R.side; R.card = null; if (R.side && window.SBPDE && SBPDE.closePanel) SBPDE.closePanel(); side(); break;   // Highlights takes the side column from a docked panel
       case "pdr-go-h": { const h = byId(id); if (h) goTo(h.p); break; }
