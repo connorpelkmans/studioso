@@ -104022,64 +104022,68 @@ const CITE = (() => {
     return out;
   }
   const SCHOLARLY = ["article-journal", "chapter", "book", "paper-conference", "thesis", "report", "entry-encyclopedia"];
+  // Each issue can carry where in the draft it is (at, len), so the draft can be shown with that sentence marked
   function check(draftIn, itemsIn, o){
     o = o || {}; const style = o.style || "apa", kind = o.kind || "author-date", label = o.label || style, want = headingOf(style, kind);
-    const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), sources = (itemsIn || []).map(clean), issues = [], push = (k, t, d, fix) => issues.push({k, t, d: d || "", fix: fix || ""});
+    const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), sources = (itemsIn || []).map(clean), issues = [], push = (k, t, d, fix, at, len) => issues.push(Object.assign({k, t, d: d || "", fix: fix || ""}, at != null && at >= 0 ? {at, len: len || 1} : {}));
     const ref = refSection(draft), body = ref ? draft.slice(0, ref.at) : draft;
-    const cited = new Set(), unknown = [], slips = new Set();
+    const cited = new Set(), firstAt = {}, unknown = [], slips = new Map();
+    const cite = (id, at, len) => { cited.add(id); if (!(id in firstAt)) firstAt[id] = [at, len]; };
+    const slip = (t, at, len) => { if (!slips.has(t)) slips.set(t, [at, len]); };
     // a source with no author or title has no name to look for: famRe("") would match every citation, so leave it out
     const named = sources.filter(s => keyName(s)), match = seg => named.filter(s => famRe(keyName(s)).test(seg));
     let m; const PAR = /\(([^()\n]{2,200})\)/g;
     while ((m = PAR.exec(body))) {
+      const at = m.index, len = m[0].length;
       m[1].split(/;\s*/).forEach(seg => {
         seg = sq(seg); if (!seg) return;
         const hits = match(seg), hasYear = YEAR.test(seg), mlaLike = /^[“"]?[\p{Lu}][\p{L}'’-]+.*?\s\d{1,4}(?:[–-]\d+)?$/u.test(seg) && !hasYear;
-        if (hits.length) hits.forEach(s => cited.add(s.id));
+        if (hits.length) hits.forEach(s => cite(s.id, at, len));
         else if (hasYear) {
-          const before = body.slice(Math.max(0, m.index - 60), m.index), nb = named.filter(s => famRe(keyName(s)).test(before));
-          if (nb.length) nb.forEach(s => cited.add(s.id));
-          else if (/^[“"]?[\p{Lu}]/u.test(seg) || /(\p{Lu}[\p{L}'’-]+)\s*$/u.test(before)) unknown.push(seg);
-        } else if (mlaLike && kind === "author" && !/^(p|pp|para|ch|fig|figure|table|see|chapter|section)\b/i.test(seg)) unknown.push(seg);
+          const before = body.slice(Math.max(0, at - 60), at), nb = named.filter(s => famRe(keyName(s)).test(before));
+          if (nb.length) nb.forEach(s => cite(s.id, at, len));
+          else if (/^[“"]?[\p{Lu}]/u.test(seg) || /(\p{Lu}[\p{L}'’-]+)\s*$/u.test(before)) unknown.push([seg, at, len]);
+        } else if (mlaLike && kind === "author" && !/^(p|pp|para|ch|fig|figure|table|see|chapter|section)\b/i.test(seg)) unknown.push([seg, at, len]);
         if (style === "apa" && hasYear) {
-          if (/\b\p{Lu}[\p{L}'’-]+ and \p{Lu}[\p{L}'’-]+,/u.test(seg)) slips.add("In APA, use & between two authors inside brackets: (Smith & Lee, 2021).");
-          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)? (1[5-9]\d\d|20\d\d)\b/u.test(seg)) slips.add("In APA, put a comma between the name and the year: (Smith, 2021).");
-          if (/\bpg\.?\s*\d/.test(seg)) slips.add("In APA, write p. 4 (or pp. 4–6) for pages, not pg.");
+          if (/\b\p{Lu}[\p{L}'’-]+ and \p{Lu}[\p{L}'’-]+,/u.test(seg)) slip("In APA, use & between two authors inside brackets: (Smith & Lee, 2021).", at, len);
+          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)? (1[5-9]\d\d|20\d\d)\b/u.test(seg)) slip("In APA, put a comma between the name and the year: (Smith, 2021).", at, len);
+          if (/\bpg\.?\s*\d/.test(seg)) slip("In APA, write p. 4 (or pp. 4–6) for pages, not pg.", at, len);
         }
         if (kind === "author") {
-          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)?,\s*(p{1,2}\.\s*)?\d/u.test(seg)) slips.add("In MLA, there's no comma or p. between the name and the page: (Smith 42).");
-          if (hasYear && hits.length) slips.add("MLA in-text citations use the author and the page, not the year: (Smith 42).");
+          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)?,\s*(p{1,2}\.\s*)?\d/u.test(seg)) slip("In MLA, there's no comma or p. between the name and the page: (Smith 42).", at, len);
+          if (hasYear && hits.length) slip("MLA in-text citations use the author and the page, not the year: (Smith 42).", at, len);
         }
-        if (kind === "numeric" && hits.length && hasYear) slips.add(`${label} uses numbered citations, not author and year.`);
+        if (kind === "numeric" && hits.length && hasYear) slip(`${label} uses numbered citations, not author and year.`, at, len);
       });
     }
     const BR = /\[(\d{1,3}(?:\s*[,–-]\s*\d{1,3})*)(?:,\s*(?:pp?\.\s*)?[\d–-]+)?\]/g;
-    while ((m = BR.exec(body))) m[1].split(/\s*,\s*/).forEach(part => { const r = part.split(/\s*[–-]\s*/).map(Number); for (let k = r[0]; k <= (r[1] || r[0]) && k - r[0] < 50; k++) { if (sources[k - 1] && (kind === "numeric" || (o.order && o.order[k - 1]))) cited.add((o.order ? o.order[k - 1] : sources[k - 1].id)); else if (kind === "numeric") unknown.push(`[${k}]`); } });
-    if (kind !== "numeric" && /\[\d{1,3}\]/.test(body) && !/\(([^()]*\b(1[5-9]\d\d|20\d\d))\)/.test(body)) slips.add(`Your draft uses numbered citations like [1]; ${label} uses the author${kind === "author" ? " and page" : kind === "note" ? " in footnotes" : " and year"}.`);
+    while ((m = BR.exec(body))) { const at = m.index, len = m[0].length; m[1].split(/\s*,\s*/).forEach(part => { const r = part.split(/\s*[–-]\s*/).map(Number); for (let k = r[0]; k <= (r[1] || r[0]) && k - r[0] < 50; k++) { if (sources[k - 1] && (kind === "numeric" || (o.order && o.order[k - 1]))) cite((o.order ? o.order[k - 1] : sources[k - 1].id), at, len); else if (kind === "numeric") unknown.push([`[${k}]`, at, len]); } }); }
+    if (kind !== "numeric" && /\[\d{1,3}\]/.test(body) && !/\(([^()]*\b(1[5-9]\d\d|20\d\d))\)/.test(body)) { const b = /\[\d{1,3}\]/.exec(body); slip(`Your draft uses numbered citations like [1]; ${label} uses the author${kind === "author" ? " and page" : kind === "note" ? " in footnotes" : " and year"}.`, b.index, b[0].length); }
     // names in footnotes (note styles): when the footnotes came along in the paste, count a source named anywhere in the body
-    if (kind === "note") named.forEach(s => { if (famRe(keyName(s)).test(body)) cited.add(s.id); });
+    if (kind === "note") named.forEach(s => { const r = famRe(keyName(s)).exec(body); if (r) cite(s.id, r.index, r[0].length); });
     const bare = [];
     const Q = /[“"]([^”"\n]{30,500})[”"]/g;
     while ((m = Q.exec(body))) {
       const after = body.slice(m.index + m[0].length, m.index + m[0].length + 160), before = body.slice(Math.max(0, m.index - 200), m.index);
       const sAfter = after.split(/(?<=[.?!])\s+(?=[\p{Lu}“"])/u)[0], sBefore = before.split(/[.?!]\s+(?=[\p{Lu}“"])/u).pop();
       const has = s => /\([^()]*(\d|n\.\s?d\.)[^()]*\)/.test(s) || /\[\d{1,3}/.test(s) || /^[.,;:]?\s*\d{1,3}\b/.test(s) || (kind === "author" && named.some(x => famRe(keyName(x)).test(s)));
-      if (!has(sAfter) && !has(sBefore)) bare.push(m[1].split(/\s+/).slice(0, 8).join(" "));
+      if (!has(sAfter) && !has(sBefore)) bare.push([m[1].split(/\s+/).slice(0, 8).join(" "), m.index, m[0].length]);
     }
     const n = sources.length, citedN = sources.filter(s => cited.has(s.id)).length;
     if (!n) push("warn", "No sources in your Writing Studio yet", "Add your sources to check your citations against them.");
     else if (citedN === n) push("ok", `All ${n} source${n === 1 ? " is" : "s are"} cited in your draft`);
     if (named.length < n) push("warn", `${n - named.length === 1 ? "A source has" : n - named.length + " sources have"} no title or author`, `Fill ${n - named.length === 1 ? "it" : "them"} in on the Sources tab so your citations can be checked against ${n - named.length === 1 ? "it" : "them"}.`);
     named.filter(s => !cited.has(s.id)).forEach(s => push("warn", `Never cited: ${s.title || keyName(s)}`, kind === "note" ? "Cite it in a footnote where you use it, or remove it if you didn't use it. (Footnotes don't always come along in a paste: check those by eye.)" : "Cite it where you use it, or remove it from your sources if you didn't use it."));
-    [...new Set(unknown)].slice(0, 12).forEach(u => push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, "Add this source to your Writing Studio, or check the spelling of the name."));
-    if (kind !== "note") bare.slice(0, 10).forEach(q => push("err", `Quote without a citation: “${q}…”`, "Every direct quote needs an in-text citation right after it."));
+    const seenU = new Set(); unknown.filter(([u]) => !seenU.has(u) && seenU.add(u)).slice(0, 12).forEach(([u, at, len]) => push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, "Add this source to your Writing Studio, or check the spelling of the name.", "", at, len));
+    if (kind !== "note") bare.slice(0, 10).forEach(([q, at, len]) => push("err", `Quote without a citation: “${q}…”`, "Every direct quote needs an in-text citation right after it.", "", at, len));
     if (!ref) push(n ? "err" : "warn", `No ${want} list found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`);
     else {
-      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) push("warn", `Your list is called “${sq(ref.name)}”`, `${label} calls it ${want}.`);
+      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) push("warn", `Your list is called “${sq(ref.name)}”`, `${label} calls it ${want}.`, "", ref.at, ref.name.length);
       const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body));
-      miss.forEach(s => push("err", `Cited but not in your ${want} list: ${s.title || keyName(s)}`, "Add its entry to the list."));
+      miss.forEach(s => push("err", `Cited but not in your ${want} list: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1]));
       if (!miss.length && citedN) push("ok", `Every cited source is in your ${want} list`);
     }
-    slips.forEach(t => push("warn", t));
+    slips.forEach(([at, len], t) => push("warn", t, "", "", at, len));
     const r = rules(o.req);
     if (r.style && r.style !== style) push("err", `The assignment asks for ${o.names && o.names[r.style] || r.style}`, `Your Writing Studio is set to ${label}.`, "style:" + r.style);
     if (r.min) {
@@ -104088,10 +104092,161 @@ const CITE = (() => {
     }
     const order = {err: 0, warn: 1, ok: 2};
     issues.sort((a, b) => order[a.k] - order[b.k]);
-    return {issues, cited: citedN, total: n, hasRef: !!ref};
+    return {issues, cited: citedN, total: n, hasRef: !!ref, citedIds: sources.filter(s => cited.has(s.id)).map(s => s.id)};
+  }
+  // What changed between two checks: the issues (to fix or to look at) that went away, and the new ones
+  const issueKeys = r => ((r && r.issues) || []).filter(x => x.k !== "ok").map(x => x.t);
+  function diffIssues(prevKeys, next){
+    const a = new Set(prevKeys || []), b = new Set(issueKeys(next));
+    return {fixed: [...a].filter(k => !b.has(k)).length, fresh: [...b].filter(k => !a.has(k)).length};
+  }
+  // A short fingerprint of a text (to tell whether a draft changed since it was checked)
+  function hash(s){ s = String(s || ""); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ":" + s.length; }
+  // A draft kept on the paper is capped: its start and its end (where the reference list is) when it's longer
+  function capDraft(s, max){
+    s = String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); max = max || 60000;
+    if (s.length <= max) return s;
+    const ref = refSection(s), tail = ref ? Math.min(s.length - ref.at, Math.floor(max * 0.4)) : Math.floor(max * 0.25);
+    return s.slice(0, max - tail - 3) + "\n…\n" + s.slice(s.length - tail);
+  }
+  // The sentence around a place in the text: [start, end]
+  function sentenceAt(text, at, len){
+    text = String(text || ""); at = Math.max(0, Math.min(text.length, at || 0));
+    let s = at;
+    while (s > 0) { const c = text[s - 1]; if (c === "\n") break; if (/[.?!]/.test(c) && /\s/.test(text[s] || "") && !/(^|[\s(])(\p{Lu}|p|pp|al|vol|no|ed|eds|e\.g|i\.e)$/u.test(text.slice(Math.max(0, s - 6), s - 1))) break; s--; }
+    while (/\s/.test(text[s] || "")) s++;
+    const from = Math.min(text.length, at + Math.max(1, len || 1)), re = /[.?!]["”’)]*(?=\s|$)|\n/g; re.lastIndex = from;
+    const m = re.exec(text), e = m ? m.index + (m[0] === "\n" ? 0 : m[0].length) : text.length;
+    return [s, Math.max(e, from)];
+  }
+
+  /* Reading the draft's own reference list: its entries, and each entry's details (no AI: the patterns of APA, MLA, Chicago, IEEE and Harvard) */
+  function refEntries(draftIn){
+    const ref = refSection(String(draftIn || "").replace(/\r\n?/g, "\n")); if (!ref) return [];
+    let body = ref.body; const stop = /\n[ \t]*(appendix|appendices|endnotes|tables?|figures?)\b[^\n]{0,60}(\n|$)/i.exec("\n" + body); if (stop) body = body.slice(0, Math.max(0, stop.index - 1));
+    const lines = body.split("\n"), out = [], blank = /\S[ \t]*\n[ \t]*\n[ \t]*\S/.test(body.trim());
+    const numbered = l => /^\s*(\[\d{1,3}\]|\d{1,3}[.)]\s)/.test(l);
+    const anyNum = lines.filter(numbered).length >= 2;
+    let cur = "";
+    const flush = () => { const e = sq(cur.replace(/-\n(?=\p{Ll})/gu, "").replace(/\n/g, " ")); if (e) out.push(e); cur = ""; };
+    lines.forEach(l => {
+      if (!l.trim()) { if (blank || anyNum) flush(); return; }
+      // without numbers or blank lines between them, an entry starts on a line with a capital after one that ended (a full stop, a bracket, a link or a number)
+      const starts = anyNum ? numbered(l) : blank ? false : (/^\s*[\p{Lu}“"‘'[]/u.test(l) && !/^\s*(https?:|doi|www\.)/i.test(l) && /([.)]|\/\S*|\d)\s*$/.test(cur.trim() || "."));
+      if (starts && cur.trim()) flush();
+      cur += (cur ? "\n" : "") + l.trim();
+    });
+    flush();
+    return out.filter(e => e.length >= 15 && (YEAR.test(e) || /\b10\.\d{4,9}\/|https?:\/\/|\bISBN/i.test(e))).slice(0, 80);
+  }
+  const ABBR = /(?:^|[\s(.])(?:\p{Lu}|vol|nos?|pp?|eds?|al|inc|jr|sr|st|dr|mr|mrs|ms|co|ltd|corp|rev|trans|n\.d|u\.s|u\.k|e\.g|i\.e|ch|para|fig|dept|univ|ser)$/iu;
+  // splits at full stops that end a part (not after an initial or an abbreviation); "Smith, Jordan A." at the start still ends the first part
+  function segs(s){
+    const out = []; let last = 0, m; const re = /([.?!])\s+/g;
+    s = String(s || "");
+    while ((m = re.exec(s))) {
+      const before = s.slice(last, m.index);
+      if (m[1] === "." && ABBR.test(before) && !(!out.length && /^[\p{L}'’ -]+,\s+\p{Lu}[\p{L}'’-]+(\s+\p{Lu})+$/u.test(before))) continue;
+      out.push(s.slice(last, m.index + (m[1] === "." ? 0 : 1))); last = m.index + m[0].length;
+    }
+    out.push(s.slice(last));
+    return out.map(x => sq(x).replace(/^[,.;:\s]+|[,.;:\s]+$/g, "")).filter(Boolean);
+  }
+  const PART = /^(van|von|de|der|den|del|della|da|di|la|le|du|ter|bin|al|dos|das)$/i;
+  const isInit = x => /^(\p{Lu}\.?[\s-]?){1,4}$/u.test(sq(x));
+  // "Smith, J. A., & Lee, K." · "Smith, Jordan A., and Kim Lee" · "J. A. Smith and K. Lee" · "Smith, J.A. and Lee, K." · "World Health Organization"
+  function authorsOf(a){
+    a = sq(a).replace(/\bet al\.?/gi, "").replace(/\(eds?\.?\)|\beds?\.\s*$/gi, "").replace(/^[,.;:\s]+|[,.;:\s]+$/g, "");
+    if (!a) return [];
+    const toks = a.replace(/\s*,?\s*(?:&|\band\b)\s+/g, ", ").split(/\s*,\s*/).map(sq).filter(Boolean), out = [];
+    for (let i = 0; i < toks.length; i++) {
+      const t0 = toks[i], nx = toks[i + 1], oneWord = t0.split(" ").every((w, j, l) => j === l.length - 1 || PART.test(w));
+      if (nx && !ORG.test(t0) && (isInit(nx) || (i === 0 && oneWord && !isInit(t0)))) { out.push({family: t0, given: isInit(nx) && !/-/.test(nx) ? nx.replace(/[.\s]/g, "").split("").join(". ") + "." : nx}); i++; }
+      else { const p = person(t0); if (p) out.push(p); }
+    }
+    return out.slice(0, 30);
+  }
+  const YR = /(?<![\d–-])(1[5-9]\d\d|20\d\d)(?![\d–-])/g;
+  function parseRef(raw){
+    let s = sq(raw).replace(/^(\[\d{1,3}\]|\d{1,3}[.)])\s*/, ""); const it = {};
+    const doi = /(?:https?:\/\/(?:dx\.)?doi\.org\/|\bdoi:?\s*)?\b(10\.\d{4,9}\/[^\s"<>]+)/i.exec(s);
+    if (doi) { it.DOI = doi[1].replace(/[.,;)\]]+$/, ""); s = s.replace(doi[0], " "); }
+    const ib = /\bISBN(?:-1[03])?:?\s*([\dX][\d\s-]{8,16}[\dX])/i.exec(s); if (ib) { const d = ib[1].replace(/[\s-]/g, ""); if ((d.length === 10 || d.length === 13) && isbnOk(d)) it.ISBN = d.toUpperCase(); s = s.replace(ib[0], " "); }
+    const url = /(?:Retrieved from:?\s*|Available (?:at|from):?\s*)?<?(https?:\/\/[^\s<>"]+)>?/i.exec(s); if (url) { it.URL = url[1].replace(/[.,;)\]]+$/, ""); s = s.replace(url[0], " "); }
+    s = s.replace(/[([]?(?:Accessed|Retrieved|Viewed)(?::|\s)[^)\]]*?\d{4}[)\]]?[.,]?/gi, " ");
+    s = sq(s).replace(/\s+([.,;:])/g, "$1").replace(/[,.;:\s]+$/, "");
+    let authors = "", year = "", title = "", rest = "", m;
+    const Qt = /^\s*[“"]([^”"]{2,400})[”"]|^\s*[‘']([^‘’']{2,400})[’']/;
+    const takeTitle = r => { const q = Qt.exec(r); if (q) return [q[1] || q[2], r.slice(q[0].length)]; const g = segs(r); const t = g[0] || ""; return [t, r.slice(r.indexOf(t) + t.length)]; };
+    if ((m = /\((\d{4})[a-z]?(?:,[^)]*)?\)|\((n\.\s?d\.)\)/.exec(s)) && m.index < 300) {
+      // APA, Harvard: Authors (Year). Title. Rest
+      authors = s.slice(0, m.index); year = m[1] || ""; [title, rest] = takeTitle(s.slice(m.index + m[0].length).replace(/^[.,:\s]+/, ""));
+    } else if ((m = /[“"]([^”"]{2,400})[”"]/.exec(s)) && m.index < 300) {
+      // MLA, Chicago, IEEE: Authors. (Year.) “Title.” Rest
+      authors = s.slice(0, m.index); title = m[1]; rest = s.slice(m.index + m[0].length);
+      const y = /[.,]?\s*(1[5-9]\d\d|20\d\d)[a-z]?[.,]?\s*$/.exec(authors); if (y) { year = y[1]; authors = authors.slice(0, y.index); }
+    } else {
+      const ie = /^((?:(?:\p{Lu}\.\s?-?)+\s*[\p{L}'’-]+(?:\s*,\s*(?:and\s+)?|\s+and\s+))+)(.*)$/u.exec(s);
+      if (ie) { authors = ie[1]; const g = segs(ie[2]); title = g[0] || ""; rest = ie[2].slice(ie[2].indexOf(title) + title.length); }
+      else {
+        const g = segs(s); authors = g[0] || ""; let i = 1;
+        if (g[i] && /^(1[5-9]\d\d|20\d\d)[a-z]?$/.test(g[i])) { year = g[i].slice(0, 4); i++; }
+        title = g[i] || ""; rest = g.slice(i + 1).join(". ");
+      }
+    }
+    title = sq(title).replace(/^[“"‘']|[”"’']$/g, "").replace(/[,.;:\s]+$/, "");
+    const ed = /\s*\((\d+)(?:st|nd|rd|th)\.? ed(?:ition|\.)?\)/i.exec(title); if (ed) { it.edition = ed[1]; title = title.replace(ed[0], ""); }
+    // IEEE and Chicago books: "Title, 2nd ed. London: Publisher" (what follows the edition is the rest)
+    const ed2 = /,?\s+(\d+)(?:st|nd|rd|th)\.? ed(?:ition|\.)?\.?(?:\s+(.*))?$/i.exec(title); if (ed2 && ed2.index > 2) { it.edition = ed2[1]; title = title.slice(0, ed2.index); rest = (ed2[2] || "") + (rest ? ". " + rest : ""); }
+    rest = sq(rest).replace(/^[,.;:\s]+/, "");
+    const allYears = rest.match(YR) || []; if (!year && allYears.length) year = allYears[allYears.length - 1];
+    let vol = (/\b(?:vol\.?|volume)\s*(\d+)/i.exec(rest) || [])[1] || "", iss = (/\b(?:no\.?|issue|iss\.)\s*(\d+)/i.exec(rest) || [])[1] || "";
+    const vi = /(?:^|[\s,])(\d{1,4})\s?\((\d{1,4}(?:[–-]\d+)?)\)/.exec(rest); if (vi && !vol) { vol = vi[1]; iss = iss || vi[2]; }
+    const page = (/\bpp?\.\s*([\dA-Za-z]*\d[\dA-Za-z]*(?:\s*[–-]\s*[\dA-Za-z]+)?)/.exec(rest) || [])[1] || (/:\s*(\d+\s*[–-]\s*\d+)/.exec(rest) || [])[1] || (/\)\s*,\s*(\d+\s*[–-]\s*\d+)/.exec(rest) || [])[1] || "";
+    const r0 = segs(rest)[0] || "", chap = /^In\s+/.test(rest) || /\bedited by\b|\(eds?\.?\)/i.test(rest);
+    let cont = "";
+    if (chap) cont = sq((/^In\s+(?:[^,(]*?\(eds?\.?\),?\s*)?(.+?)(?:\s*\(pp?\.|,\s*edited by|\.\s|,\s*\d|$)/i.exec(rest) || /^(.+?),\s*edited by/i.exec(rest) || [])[1] || "");
+    else cont = sq(r0.split(/,\s*|\s+(?=\d)|\s+(?=vol\b)/i)[0] || "").replace(/^in\s+/i, "");
+    const article = !!(vol || iss || (page && cont && !chap));
+    let type = chap ? "chapter" : /proceedings|conference|symposium|workshop/i.test(cont) ? "paper-conference" : article || (it.DOI && cont && !it.ISBN && !/^[^,]*:/.test(r0)) ? "article-journal" : it.URL && !it.ISBN ? "webpage" : "book";
+    if (type === "book") {
+      // the part after the title is the publisher: "Place: Publisher" (Chicago, Harvard, IEEE), "Publisher, 2019" (MLA) or "Publisher" (APA)
+      const pb = segs(rest).map(x => x.replace(YR, "").replace(/[,.;:\s]+$/, "").trim()).find(x => x && !/^(\d+(st|nd|rd|th)\.? ed\.?|pp?\.)/i.test(x));
+      if (pb) { const pl = /^([^:]{2,60}):\s*(.+)$/.exec(pb); if (pl) { it["publisher-place"] = pl[1]; it.publisher = pl[2]; } else it.publisher = pb; } else if (!it.ISBN) type = "document";
+    } else if (cont) it["container-title"] = cont.replace(/[,.;:\s]+$/, "");
+    if (type === "webpage" && !it["container-title"] && it.URL) it["container-title"] = hostOf(it.URL);
+    Object.assign(it, {type, title, author: authorsOf(authors), volume: vol, issue: iss, page: page.replace(/\s/g, "")});
+    if (year) it.issued = date(year);
+    const c = clean(it);
+    return c.title || c.author ? c : null;
+  }
+  // Quoted passages in the draft with a citation right after them: (Smith, 2020, p. 4), (Smith 42), [3], [3, p. 4] or a footnote mark
+  const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function quotesIn(draftIn, itemsIn, o){
+    o = o || {}; const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), ref = refSection(draft), body = ref ? draft.slice(0, ref.at) : draft;
+    const sources = (itemsIn || []).map(clean), byName = seg => (sources.find(s => keyName(s) && famRe(keyName(s)).test(seg)) || {}).id || "", out = [];
+    let m; const Q = /[“"]([^”"\n]{20,600})[”"]/g;
+    while ((m = Q.exec(body)) && out.length < 60) {
+      const t = sq(m[1]).replace(/[,.;:]$/, ""); if (t.split(" ").length < 5) continue;
+      const after = body.slice(m.index + m[0].length, m.index + m[0].length + 200), before = body.slice(Math.max(0, m.index - 220), m.index), sBefore = before.split(/[.?!]\s+(?=[\p{Lu}“"])/u).pop();
+      let sid = "", p = "", cite = "", x;
+      if ((x = /^\s*[,.;:]?\s*\(([^()\n]{1,160})\)/.exec(after))) {
+        cite = `(${x[1]})`; const seg = x[1];
+        p = ((/\b(?:pp?|para)\.\s*(\d+(?:\s*[–-]\s*\d+)?)/i.exec(seg) || [])[1] || (/(?:^|[\s,])(\d{1,4}(?:[–-]\d+)?)$/.exec(seg) || [])[1] || "").replace(/\s/g, "");
+        if (p && /^(1[5-9]\d\d|20\d\d)$/.test(p) && !/\bpp?\./.test(seg)) p = "";
+        sid = byName(seg) || byName(sBefore);
+      } else if ((x = /^\s*[,.;:]?\s*\[(\d{1,3})(?:\s*,\s*(?:pp?\.\s*)?([\d–-]+))?\]/.exec(after))) {
+        cite = `[${x[1]}]`; const k = Number(x[1]) - 1; sid = (o.order ? o.order[k] : (sources[k] || {}).id) || ""; p = x[2] || "";
+      } else if ((x = new RegExp(`^[.,;:]?([${SUP}]+|\\d{1,3})(?=[\\s.,;:]|$)`).exec(after))) {
+        cite = "Note " + [...x[1]].map(ch => SUP.includes(ch) ? SUP.indexOf(ch) : ch).join(""); sid = byName(sBefore);
+      } else continue;
+      out.push({t, sid, p, cite, at: m.index});
+    }
+    return out;
   }
   return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf, keyName,
-    parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase};
+    parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase,
+    diffIssues, issueKeys, hash, capDraft, sentenceAt, refEntries, parseRef, authorsOf, segs, quotesIn, refSection};
 })();
 /*CITE-END*/
 
