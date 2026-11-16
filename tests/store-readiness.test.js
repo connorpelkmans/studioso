@@ -26,7 +26,7 @@ const mentioned = t => new RegExp(`\\['${t}'`).test(worker) || new RegExp(`publi
 ok(Object.keys(tables).length > 25, "found the tables");
 for (const [t, v] of Object.entries(tables)) {
   for (const c of v.plain) ok(mentioned(t), `${t}.${c} holds a user id with no foreign key: the delete worker must handle it`);
-  for (const c of v.setnull) ok(mentioned(t) || t === "group_reports", `${t}.${c} is set null by the foreign key: confirm that is the intended rule`);
+  for (const c of v.setnull) ok(mentioned(t) || t === "group_reports" || t === "copyright_takedowns", `${t}.${c} is set null by the foreign key: confirm that is the intended rule`);
   // cascade tables are removed with the auth row
   for (const c of v.cascade) ok(mentioned(t) || t === "study_groups", `${t}.${c} cascades from auth.users but is not in the worker list (add it so the Edge Function path deletes it before the auth row goes)`);
 }
@@ -62,7 +62,7 @@ const FACTS = [/supabase auth/, /salted hash/, /gemini/, /anthropic/, /openai/, 
   assert.deepStrictEqual(heads(appTerms), heads(webTerms), "in-app and website terms sections must be the same, in the same order");
   const tApp = (app.match(/TERMS_UPDATED = "([^"]+)"/) || [])[1], tWeb = (webTerms.match(/Effective: ([A-Za-z]+ \d+, \d{4})/) || [])[1];
   ok(tApp && tApp === tWeb, `terms effective date must match (app ${tApp}, website ${tWeb})`);
-  for (const re of [/course materials and copyright/, /you made it or have the right to share it/, /questions from your instructor's tests or quizzes/, /copyright complaints/, /without notice/, /repeatedly share content/, /in its own words/, /picture cards, including ones made from your slides or pdfs, stay in your own decks and are never shared/, /when you publish something, to anyone/, /not medical, nursing, legal, financial or other professional advice/, /academic integrity/, /you agree to cover our reasonable costs/, /30 days to try to resolve it informally/, /if part of these terms can't be enforced/, /content other people share/, /you alone are responsible for having the right to upload them/, /stay private to your account/])
+  for (const re of [/course materials and copyright/, /you made it or have the right to share it/, /questions from your instructor's tests or quizzes/, /copyright complaints/, /without notice/, /repeatedly share content/, /in its own words/, /picture cards, including ones made from your slides or pdfs, stay in your own decks unless you share them \(with pro\)/, /designated copyright agent: copyright agent, studyboard, 1780 iowa st unit #2200, bellingham, wa 98229/, /dmca@studyboardapp\.com/, /\(971\) 361-6892/, /when you publish something, to anyone/, /not medical, nursing, legal, financial or other professional advice/, /academic integrity/, /you agree to cover our reasonable costs/, /30 days to try to resolve it informally/, /if part of these terms can't be enforced/, /content other people share/, /you alone are responsible for having the right to upload them/, /stay private to your account/])
     { ok(re.test(norm(appTerms)), "in-app terms must say: " + re); ok(re.test(norm(webTerms)), "website terms must say: " + re); }
 }
 for (const re of FACTS) { ok(re.test(norm(appPrivacy)) || re.test(norm(appPrivacy.replace(/\$\{contact\(\)\}/g, "support@YOUR-DOMAIN"))), "in-app privacy must say: " + re); ok(re.test(norm(webPrivacy)), "website privacy must say: " + re); }

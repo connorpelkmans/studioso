@@ -1542,7 +1542,7 @@ var SBPRO = null;
   });
   dlg.addEventListener("close", () => { if (dlg.open) return; OC = null; CF = null; DK = null; DP = null; });
   P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: stats, and picture cards from your files (Smart scheduling is free for everyone)", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
-  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf, storeImage});
+  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf, storeImage, imageBlob: blobOf});
 
   const css = document.createElement("style");
   css.textContent = `
@@ -3003,7 +3003,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const f = fileOf(), front = ($("#pdrFront").value || "").trim(), back = ($("#pdrBack").value || "").trim(), did = $("#pdrDeck").value;
     if (!front) { toast("Write the front first"); $("#pdrFront").focus(); return; }
     const card = {id: uid(), front, back: back || h.t.slice(0, 1200), box: 0, due: "", seen: 0, right: 0, wrong: 0, src: {f: f.id, p: h.p}};
-    // Text straight from the PDF (not restated by AI) is marked copied, so it's never shared
+    // Text straight from the PDF (not restated by AI) is marked copied, so AI writing from the deck won't repeat it
     // and so is a card whose words repeat the passage (8 or more words in a row), even after AI or the student wrote it
     if (!back || R.cardAi !== h.id || aiCopied(front + "\n" + back, aiCopyIndex(h.t))) card.copied = true;
     let d = did && state.decks[did] ? clone(state.decks[did]) : null;

@@ -2569,6 +2569,10 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 .tv-row{display:flex;gap:8px;width:100%}
 .tv-row > .btn{flex:1 1 0;min-width:0;justify-content:center;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tv-tools > .btn{min-height:40px}
+/* a label too long for its share of the row ends in "…" (a centred label overflowing showed its middle, "c Check"); badges keep their size */
+.tv-tools > .btn > *{flex:none}
+.tv-tools > .btn > span:not(.pro-badge,.mini){flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:480px){.tv-tools > .btn{flex:1 1 auto}.tv-tools > .btn:not(.focus-btn) > svg:first-child,.tv-tools > .btn:not(.focus-btn) > :is(.ai-ic,.ws-ic,img):first-child{display:none}}
 .rb-short{display:none}
 /* In a task's sheet the shorter label, so the tools and Mark Done and Edit fit on one row */
 .tv-tools .rb-long{display:none}.tv-tools .rb-short{display:inline}
@@ -4962,8 +4966,9 @@ html.cp-hover{cursor:pointer}
 .cp-pt{position:absolute;display:block;animation:cpUp 2.3s cubic-bezier(.25,.6,.35,1) both}
 .cp-pt svg{width:100%;height:100%;display:block;overflow:visible}
 /* Hearts and sparkles: fade and grow in, float up and outward at one tilt, fade out (smooth, on the compositor) */
-.cp-pt.cp-pt-pop{animation:cpFloat 2s cubic-bezier(.22,.61,.36,1) both;will-change:transform,opacity}
-@keyframes cpFloat{0%{opacity:0;transform:translate(0,4px) scale(.7) rotate(var(--r))}18%{opacity:1;transform:translate(calc(var(--dx)*.2),-4px) scale(1) rotate(var(--r))}65%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-30px) scale(.92) rotate(var(--r))}}
+.cp-pt.cp-pt-pop{animation:cpPtRise 2s cubic-bezier(.22,.61,.36,1) both;will-change:transform,opacity}
+/* (named apart from cpFloat, the floating companions' hover: the same name made them fade in and out) */
+@keyframes cpPtRise{0%{opacity:0;transform:translate(0,4px) scale(.7) rotate(var(--r))}18%{opacity:1;transform:translate(calc(var(--dx)*.2),-4px) scale(1) rotate(var(--r))}65%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-30px) scale(.92) rotate(var(--r))}}
 .cp-pt.cp-pt-still{animation:cpFade 2.2s ease-out both}
 @keyframes cpUp{0%{opacity:0;transform:translate(0,6px) scale(.6) rotate(0)}22%{opacity:1;transform:translate(calc(var(--dx)*.3),-4px) scale(1) rotate(calc(var(--r)*.4))}100%{opacity:0;transform:translate(var(--dx),-34px) scale(.9) rotate(var(--r))}}
 @keyframes cpFade{0%{opacity:0}20%{opacity:1}75%{opacity:1}100%{opacity:0}}
@@ -5127,10 +5132,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 /* Thinking: three dots taking turns, while the student waits on the AI */
 .cp-bubble.cp-think{padding:9px 14px}
 .cp-dots{display:inline-flex;gap:5px;align-items:center;height:14px}
-.cp-dots i{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.3;animation:cpDot 1.2s infinite ease-in-out}
+.cp-dots i{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.3;animation:cpDots 1.2s infinite ease-in-out}
 .cp-dots i:nth-child(2){animation-delay:.18s}
 .cp-dots i:nth-child(3){animation-delay:.36s}
-@keyframes cpDot{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:.9;transform:translateY(-4px)}}
+@keyframes cpDots{0%,70%,100%{opacity:.3;transform:translateY(0)}35%{opacity:.9;transform:translateY(-4px)}}
 @media (prefers-reduced-motion:reduce){.cp-dots i{animation:cpDotFade 1.6s infinite}@keyframes cpDotFade{0%,100%{opacity:.35}50%{opacity:1}}}
 
 /* Ask's confirm panel (98-assist.js): sits low on the screen so the highlighted thing above stays in view */
@@ -6190,7 +6195,8 @@ details.pp-group[open]>summary::before{content:"▾"}
 .exm-bar i{display:block;height:100%;min-width:7px;background:var(--c,var(--accent));border-radius:inherit}
 .exm-acts{display:flex;flex-direction:column;gap:8px;align-self:center;margin-top:14px}
 .exm-acts .btn{min-height:40px;justify-content:center;padding:0 18px;border-radius:12px;white-space:nowrap}
-.exm-off{position:absolute;top:8px;right:12px;font-size:.78rem;font-weight:600;color:var(--muted);min-height:32px;padding:0 4px}
+/* Not Now: a quiet text button under the actions, centred (the X on phones sits at the card's edge, below) */
+.exm-off{align-self:center;font-size:.8rem;font-weight:600;color:var(--muted);min-height:28px;padding:0 8px;margin-top:-2px}
 .exm-off:hover{color:var(--ink)}
 .exm-others{margin:2px 0 0;font-size:.82rem;color:var(--muted)}
 .exm-others .link-btn{font-size:inherit;min-height:32px;display:inline-flex;align-items:center}
@@ -6216,7 +6222,7 @@ details.pp-group[open]>summary::before{content:"▾"}
   .exm-when b{font-weight:600;color:var(--muted)}
   .exm-acts{margin:0}
   .exm-acts .btn.primary{min-height:40px;padding:0 14px;border-radius:12px}
-  .exm-off{top:50%;right:4px;transform:translateY(-50%);width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:12px}
+  .exm-off{position:absolute;margin:0;top:50%;right:4px;transform:translateY(-50%);width:40px;height:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:12px}
   .exm-x{display:block}
 }
 /* Getting Started checklist on the Board */
@@ -6903,7 +6909,8 @@ h2.sec.c2-bh{align-items:center}
 .sheet.shop .shop-band h2{font-size:1.5rem!important}
 @media (max-width:600px){.sheet-head:not(.g2-sheet-head,.shop-band,.sb-acct[data-mode="hello"] > *) h2,.sheet.shop .shop-band h2,.occv-title{font-size:1.3rem!important}}
 .shop-band > .icon-btn{background:rgba(255,255,255,.2)!important}
-.occv-band{background:linear-gradient(120deg,color-mix(in srgb,var(--accent-band,var(--accent)) 88%,#000),color-mix(in srgb,var(--accent-band,var(--accent)) 74%,var(--surface)))}
+/* an assignment's, event's or class's sheet is banded in its course's colour (the sheet sets --c), not the theme's */
+.occv-band{background:linear-gradient(120deg,color-mix(in srgb,var(--c,var(--accent)) 88%,#000),color-mix(in srgb,var(--c,var(--accent)) 74%,var(--surface)))}
 .occv-title{font-size:1.5rem}
 /* ===== Clean-up pass ===== */
 /* rings always sit on a light disc, so a sticker reads the same in light and dark themes */
@@ -8970,6 +8977,11 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   .tv-foot .tv-row{width:auto}
   .tv-foot .tv-row > .btn{flex:none}
   .tv-foot .tv-row:last-child{margin-left:auto}
+  /* three tools don't fit beside Mark Done and Edit: two full rows instead of a ragged wrap, each row's buttons sharing it evenly */
+  .sheet-foot.tv-foot:has(> .tv-tools > .btn:nth-child(3)){flex-direction:column;align-items:stretch;flex-wrap:nowrap}
+  .tv-foot:has(> .tv-tools > .btn:nth-child(3)) .tv-row{width:100%;margin-left:0}
+  .tv-foot:has(> .tv-tools > .btn:nth-child(3)) .tv-row > .btn{flex:1 1 0}
+  .tv-foot:has(> .tv-tools > .btn:nth-child(3)) .tv-tools > .btn{flex:1 1 auto;padding-left:12px;padding-right:12px}
 }
 
 /* ===== One dropdown arrow everywhere =====

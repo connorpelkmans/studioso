@@ -17,9 +17,9 @@ create table if not exists public.group_reports (
 
 alter table public.group_reports drop constraint if exists group_reports_limits;
 alter table public.group_reports add constraint group_reports_limits check (
-  target_kind in ('message', 'item', 'member')
+  target_kind in ('message', 'item', 'member', 'board')   -- board: a live group whiteboard (group_boards.id)
   and char_length(target_id) between 1 and 80
-  and reason in ('harassment', 'hate', 'sexual', 'threat', 'spam', 'privacy', 'other')
+  and reason in ('harassment', 'hate', 'sexual', 'threat', 'spam', 'privacy', 'copyright', 'other')
   and (details is null or char_length(details) <= 500)
   and (excerpt is null or char_length(excerpt) <= 500)
   and status in ('new', 'reviewing', 'actioned', 'dismissed')

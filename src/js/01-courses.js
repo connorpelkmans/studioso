@@ -37,7 +37,7 @@ function viewBars(){
   for (let i = 0; i < days; i++) {
     const k = addDays(min, i), d = parse(k), wd = d.getDay();
     if (wd === 0 || wd === 6) bg += `<i class="we" style="left:${i*dw}px;width:${dw}px"></i>`;
-    if (i === 0 || d.getDate() === 1) { const nx = mStarts[mStarts.indexOf(i) + 1], span = ((nx == null ? days : nx) - i) * dw; months += `<span class="tl-m" style="left:${i*dw}px;width:${span}px"><span class="tl-mt" style="left:${LW + 8}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 && span >= 120 ? "long" : "short"}))}${(i === 0 || d.getMonth() === 0) && span >= 130 ? `<small>${d.getFullYear()}</small>` : ""}</span></span>`; }
+    if (i === 0 || d.getDate() === 1) { const nx = mStarts[mStarts.indexOf(i) + 1], span = ((nx == null ? days : nx) - i) * dw; months += `<span class="tl-m" style="left:${i*dw}px;width:${span}px"><span class="tl-mt" style="left:${LW + 8}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 && span >= 120 ? "long" : "short"}))}${span >= 130 ? `<small>${d.getFullYear()}</small>` : ""}</span></span>`; }
     if (dw >= 20) dayh += `<span class="tl-d ${k === today ? "is-today" : ""}" style="left:${i*dw}px;width:${dw}px"><b>${d.getDate()}</b></span>`;
     else if (wd === 1) dayh += `<span class="tl-d" style="left:${i*dw}px;width:${dw*7}px;justify-content:flex-start;padding-left:4px">${d.getDate()}</span>`;
   }

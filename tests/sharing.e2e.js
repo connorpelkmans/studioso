@@ -207,6 +207,8 @@ async function sharer(browser){
   await page.evaluate(() => __sbSync.dlg.close());
   await page.evaluate(() => { __sbSync.ui.tab = "flashcards"; __sbSync.ui.fc = null; __sbSync.ui.deckId = "d3"; __sbSync.render(); }); await page.waitForTimeout(300);
   ok(/Publish/.test(await txt(page, '#view [data-act="pub-deck"]')), "a deck's page has a Publish button");
+  // this account has Pro, so its picture cards are shared too (the free plan's sheet says they're left out)
+  await page.evaluate(() => { SBPRO.locked = () => false; });
   await page.evaluate(() => { localStorage.removeItem("studyboard:uname:u1"); localStorage.removeItem("studyboard:age:u1"); delete window.__SV.username; delete window.__SV.school; delete __sbSync.state.settings.school; __sbSync.saveSettings(); });
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #unIn", {timeout: 6000});
   ok(/Pick a Username/.test(await txt(page, "dialog[open]")) && !/publish/i.test(await txt(page, "dialog[open] .sheet-body")), "publishing asks for a username first, plainly");
@@ -224,20 +226,22 @@ async function sharer(browser){
   await page.click("#schUseAuto"); await page.waitForSelector("dialog[open] #pubGo");
   ok(await page.evaluate(() => __sbSync.state.settings.school.key === "uwaterloo.ca" && __sbSync.state.settings.school.v === 1 && window.__SV.school === "uwaterloo.ca"), "the school is kept, on this device and on the server");
   await page.screenshot({path: shots + "/publish-confirm.png"});
-  ok(/University of Waterloo/.test(await txt(page, "dialog[open] .pub-sum")) && /BIOL 201/.test(await txt(page, "dialog[open] .pub-sum")) && /5 cards/.test(await txt(page, "dialog[open] .pub-sum")) && /@Connor_P/.test(await txt(page, "dialog[open] .pub-sum")), "Publish shows the school, course, card count and @username first");
+  ok(/University of Waterloo/.test(await txt(page, "dialog[open] .pub-sum")) && /BIOL 201/.test(await txt(page, "dialog[open] .pub-sum")) && /6 cards/.test(await txt(page, "dialog[open] .pub-sum")) && /@Connor_P/.test(await txt(page, "dialog[open] .pub-sum")), "Publish shows the school, course, card count and @username first");
   ok(await page.evaluate(() => document.querySelector('dialog[open] input[name="pubColor"]:checked').value === "#3B6FE0" && document.querySelector('dialog[open] input[name="pubIcon"]:checked').value === "bio"), "the page's colour and icon start from the deck's course");
   await page.check('dialog[open] input[name="pubColor"][value="#9A4FD1"]', {force: true}); await page.check('dialog[open] input[name="pubIcon"][value="psych"]', {force: true});
   ok(await page.evaluate(() => { const t = document.querySelector("#pubLookTile"); return t.style.getPropertyValue("--c") === "#9A4FD1" && /<path/.test(t.querySelector(".fc-ic").innerHTML) && document.querySelector('dialog[open] input[name="pubIcon"]:checked').value === "psych"; }), "picking a colour and an icon updates the preview");
   await page.screenshot({path: shots + "/publish-look.png"});
   const refreshed = []; await page.route("**/flashcards/refresh", r => { refreshed.push(r.request().postData()); r.fulfill({status: 204, body: ""}); });
-  ok(/picture card and 1 card copied straight from a file stay private/.test(await txt(page, "dialog[open]")), "the publish sheet says the picture card and the copied card stay private");
+  ok(/1 picture card is shared too/.test(await txt(page, "dialog[open]")) && /Anyone who adds the deck can study them/.test(await txt(page, "dialog[open]")), "the publish sheet says the picture card is shared too, and anyone who adds the deck can study it");
+  // the picture card's picture, as this device would read it
+  await page.evaluate(() => { SBPRO.imageBlob = async () => { const c = document.createElement("canvas"); c.width = 40; c.height = 30; c.getContext("2d").fillRect(0, 0, 20, 15); return new Promise(r => c.toBlob(r, "image/png")); }; });
   await page.click("#pubGo"); await page.waitForTimeout(300);
   ok(!(await page.$("dialog[open] #pubOff")) && !(await page.evaluate(() => window.__SV.decks.some(x => x.deck_id === "d3"))), "Publish does nothing until the box is ticked");
   await rights(page); await page.click("#pubGo"); await page.waitForSelector("dialog[open] #pubOff");
   await page.waitForTimeout(200);
   ok(refreshed.some(x => /"code":"PUBD-/.test(x) && /"name":"Organelles"/.test(x) && /"course":"BIOL 201"/.test(x)), "publishing tells the website to refresh its cached pages");
-  ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return !!d && d.published === true && d.card_count === 5; }), "it shares the deck and publishes it in one step");
-  ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return d.data.cards.length === 5 && !d.data.cards.some(c => c.id === "pic1" || c.id === "cp1" || c.img || /hidden label|Copied straight/.test(c.front + c.back)); }), "picture cards and copied cards are removed before the deck is uploaded");
+  ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return !!d && d.published === true && d.card_count === 7; }), "it shares the deck and publishes it in one step");
+  ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"), pc = d.data.cards.find(c => c.id === "pic1"); return d.data.cards.length === 7 && d.data.cards.some(c => c.id === "cp1") && pc && pc.img.k === "p0" && !("src" in pc.img) && /^data:image\/jpeg;base64,/.test((d.data.pics || {}).p0 || ""); }), "the copied card and the picture card (with its picture) are shared");
   ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return d.data.look && d.data.look.color === "#9A4FD1" && d.data.look.icon === "psych" && __sbSync.state.decks.d3.courseId === "c1"; }), "the page gets the picked colour and icon; the deck in the app keeps its course");
   await page.click("#pubLook"); await page.waitForSelector("dialog[open] #pubLookGo");
   ok(await page.evaluate(() => document.querySelector('dialog[open] input[name="pubColor"]:checked').value === "#9A4FD1"), "Change Color and Icon opens with the current picks");

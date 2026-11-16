@@ -13,13 +13,13 @@
 # frame from docs.google.com. Only this page gets the wider policy; the app itself keeps the strict one above.
 /drive-picker.html
   ! Content-Security-Policy
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com; frame-src https://docs.google.com https://accounts.google.com https://content.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com; frame-src https://docs.google.com https://accounts.google.com https://content.googleapis.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com https://drive.google.com https://www.desmos.com https://www.geogebra.org https://phet.colorado.edu https://open.spotify.com https://embed.ted.com https://www.canva.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   Cache-Control: no-cache
 
 # Cloudflare serves the page without ".html" (it redirects there), so the same rule is needed for that address
 /drive-picker
   ! Content-Security-Policy
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com; frame-src https://docs.google.com https://accounts.google.com https://content.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com; frame-src https://docs.google.com https://accounts.google.com https://content.googleapis.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com https://drive.google.com https://www.desmos.com https://www.geogebra.org https://phet.colorado.edu https://open.spotify.com https://embed.ted.com https://www.canva.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   Cache-Control: no-cache
 
 # The service worker must always be fetched fresh

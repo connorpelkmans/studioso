@@ -154,9 +154,9 @@ const REPLY = {summary: "The thesis is clear and the organization works, but the
   /* Free (locked) */
   const fctx = await mkCtx({key: true, free: true}), fp = await open(fctx);
   await act(fp, "edit-task", "t1"); await fp.waitForSelector(btn);
-  // the free plan has a few checks a week (PLAN.runsLeft): the button says how many, and opens the check itself
-  ok(/\d+ free this week/.test(await fp.textContent(btn)) || await fp.locator(btn + " .pro-badge").count() === 1, "free users see how many free checks are left this week (or PRO when none are): " + (await fp.textContent(btn)).trim());
-  const freeLeft = /free this week/.test(await fp.textContent(btn));
+  // the free plan has a few checks a week (PLAN.runsLeft): while there are some the button opens the check itself; with none it shows PRO
+  ok(!/free this week/.test(await fp.textContent(btn)), "the button doesn't count free checks: " + (await fp.textContent(btn)).trim());
+  const freeLeft = await fp.locator(btn + " .pro-badge").count() === 0;
   await fp.click(btn); await fp.waitForTimeout(400);
   if (freeLeft) ok(await fp.locator("#dlg[open] .rbx-sheet").count() === 1 && fctx.bodies.length === 0, "with checks left it opens Rubric Check, and sends nothing until asked");
   else ok(/Rubric Check/.test(await fp.textContent("#dlg[open]")) && await fp.locator(".rbx-sheet").count() === 0 && fctx.bodies.length === 0, "with none left it opens the Pro sheet instead");

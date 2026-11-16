@@ -192,14 +192,18 @@ const DB = (page, f) => page.evaluate(f);
     ok(/Every week/.test(await txt(page, "#grpSessions")), "the meeting list says Every week");
 
     await tab(page, "files");
-    ok(!(await txt(page, "#gxUploads")).trim() && !(await page.$('input[data-gx-up]')), "Files has no Group Uploads: files can't be shared with a group");
-    ok(!(await page.$('#gxPro input[data-f="uploads"], [data-feat="uploads"]')), "and File Uploads isn't a Pro group feature any more");
-    // files uploaded before uploads were turned off: only the uploader sees theirs, to save or remove it
+    ok(/Group Uploads/.test(await txt(page, "#gxUploads")) && !!(await page.$('input[data-gx-up]')), "a Pro group project has Group Uploads with an Upload button");
+    // every member sees the group's files; only the uploader can remove one
     await DB(page, () => { const gid = window.__DB.group_items.find(i => i.kind === "avail").group_id; window.__DB.group_items.push(
       {id: "gf-me", group_id: gid, user_id: "u1", author_name: "Connor", kind: "gfile", ref_id: "u1/g/" + gid + "/x-mine.pdf", title: "mine.pdf", data: {v: 1, path: "u1/g/" + gid + "/x-mine.pdf", size: 2048}, created_at: new Date().toISOString()},
       {id: "gf-sam", group_id: gid, user_id: "u2", author_name: "Sam", kind: "gfile", ref_id: "u2/g/" + gid + "/x-sams.pdf", title: "sams.pdf", data: {v: 1, path: "u2/g/" + gid + "/x-sams.pdf", size: 2048}, created_at: new Date().toISOString()}); });
     await page.evaluate(() => window.__fire("group_items", "INSERT")); await page.waitForTimeout(1200); await tab(page, "files");
-    { const up = await txt(page, "#gxUploads"); ok(/mine\.pdf/.test(up) && !/sams\.pdf/.test(up) && /only you can see these/.test(up), "an earlier upload shows only to whoever uploaded it: " + up); }
+    { const up = await txt(page, "#gxUploads"); ok(/mine\.pdf/.test(up) && /sams\.pdf/.test(up) && /Added by Sam/.test(up), "the group's uploads show to every member: " + up); }
+    ok(await page.locator('#gxUploads [data-act="gx-up-del"]').count() === 1, "only your own upload has a remove button");
+    // an upload asks first that the file is yours to share
+    await page.setInputFiles('#gxUploads input[data-gx-up]', {name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello")}); await page.waitForTimeout(300);
+    ok(await page.locator("#dlg[open] #shRights").count() === 1 && /Only share files you made or have permission to share/.test(await txt(page, "#dlg")), "uploading a file asks to confirm it's yours to share");
+    await page.click('#dlg [data-act="close"]'); await page.waitForTimeout(200);
 
     await tab(page, "overview");
     await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });

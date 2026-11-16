@@ -1118,11 +1118,14 @@ function loadScriptHashes() {
   try { const h = JSON.parse(fs.readFileSync(path.join(APP_DIR, "csp-hashes.json"), "utf8")); scriptHashes = Array.isArray(h) && h.every(x => /^sha256-[A-Za-z0-9+/=]+$/.test(x)) ? h : null; } catch (e) { scriptHashes = null; }
   if (!IS_DEV && !(scriptHashes && scriptHashes.length)) mainReport("csp-hashes", new Error("csp-hashes.json missing or invalid in a packaged build"), { type: "CspHashes" });
 }
+// Concept map embeds (Pro): the only sites the app may show in a frame. Keep in step with EMBED_HOSTS in src/js/99-concept-map.js (tests/embeds.test.js checks).
+const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com"];
+const isEmbedUrl = raw => { try { const u = new URL(String(raw)); return u.protocol === "https:" && EMBED_HOSTS.includes(u.hostname); } catch (e) { return false; } };
 function appCsp() {
   const scripts = scriptHashes && scriptHashes.length ? scriptHashes.map(h => `'${h}'`).join(" ") : IS_DEV ? "'unsafe-inline'" : "";
   return ["default-src 'self'", `script-src 'self'${scripts ? " " + scripts : ""}`, "worker-src 'self' blob:", "style-src 'self' 'unsafe-inline'", "font-src 'self' data: app://studioso",
     "img-src 'self' data: blob: https:", "media-src 'self' data: blob: https:", "connect-src 'self' https: wss: blob: data:", "object-src 'none'", "base-uri 'none'",
-    "form-action 'none'", "frame-src 'none'", "frame-ancestors 'none'"].join("; ");
+    "form-action 'none'", "frame-src " + EMBED_HOSTS.map(h => "https://" + h).join(" "), "frame-ancestors 'none'"].join("; ");
 }
 const WIDGET_CSP = "default-src 'none'; script-src 'self'; style-src 'self' app://studioso; font-src app://studioso; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'";
 function lockSession(ses) {
@@ -1147,7 +1150,13 @@ app.on("web-contents-created", (e, wc) => {
   const guard = (ev, url) => { if (!isAppUrl(url)) { ev.preventDefault(); openExternalSafe(url); } };
   wc.on("will-navigate", guard);
   wc.on("will-redirect", guard);
-  wc.on("will-frame-navigate", guard);
+  // A frame inside the app: an embed from a listed site may load (and move around inside itself); any other frame the app holds is stopped, never opened in the browser
+  wc.on("will-frame-navigate", (ev, legacyUrl) => {
+    const url = ev.url || legacyUrl, f = ev.frame;
+    if (ev.isMainFrame !== false) return guard(ev, url);
+    const top = f && f.parent && !f.parent.parent;
+    if (top && !isEmbedUrl(url) && !isAppUrl(url) && url !== "about:blank") ev.preventDefault();
+  });
   wc.setWindowOpenHandler(({ url }) => { openExternalSafe(url); return { action: "deny" }; });
 });
 

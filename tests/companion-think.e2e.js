@@ -41,7 +41,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const d = await dots();
       if (!d) console.log("DEBUG", await page.evaluate(() => { const b = document.querySelector(".cp-bubble"); return {b: b ? b.className + " | " + b.innerHTML.slice(0, 120) : "none", el: !!SBCOMP.el(), hidden: SBCOMP.el() && SBCOMP.el().closest("[hidden]") ? "in hidden" : "", vis: document.visibilityState}; }));
       ok(d && d.n === 3 && / is thinking$/.test(d.label), `${motion}: while it waits (after its "On it!" line), a bubble with three dots: ` + JSON.stringify(d));
-      ok(d && d.anim === (motion === "reduce" ? "cpDotFade" : "cpDot"), `${motion}: the dots ${motion === "reduce" ? "fade gently (reduced motion)" : "bounce in turn"}`);
+      ok(d && d.anim === (motion === "reduce" ? "cpDotFade" : "cpDots"), `${motion}: the dots ${motion === "reduce" ? "fade gently (reduced motion)" : "bounce in turn"}`);
       ok(await call, `${motion}: the answer arrives`);
       await page.waitForTimeout(1500);
       ok(!(await dots()), `${motion}: and the bubble goes`);
