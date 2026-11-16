@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Types of students in finals week</title>
+<!-- Entertainment-first reel: a "field guide" to the friend group in finals week, cast with Studyboard's companions.
+     No pitch in the video; a small sign-off at the end. Music: quirky.wav from 0. -->
+<style>
+@font-face{font-family:"Lexend";font-weight:600;src:url({{ROOT}}/website/assets/fonts/lexend-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:700;src:url({{ROOT}}/website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url({{ROOT}}/website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:400;src:url({{ROOT}}/website/assets/fonts/atkinson-hyperlegible-next-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson";font-weight:700;src:url({{ROOT}}/website/assets/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2) format("woff2")}
+:root{--navy:#0E2A56;--ink:#0F1F3D;--muted:#5A6A86;--accent:#3988FE;--mark:#FFE45C;--tomato:#E4513B;--leaf:#1E9E74;--plum:#7A4FD6;--amber:#B86A00;--display:"Lexend",system-ui,sans-serif;--body:"Atkinson",system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;color:var(--ink);-webkit-font-smoothing:antialiased;
+  background-color:#F2F5FA;background-image:linear-gradient(rgba(57,136,254,.09) 2px,transparent 2px),linear-gradient(90deg,rgba(57,136,254,.09) 2px,transparent 2px);background-size:54px 54px}
+.abs{position:absolute}
+.scene{position:absolute;inset:0}
+.ttl{font:800 62px/1.12 var(--display);letter-spacing:-.02em;text-align:center;color:var(--ink)}
+.sub{font:500 40px/1.3 var(--body);text-align:center;color:var(--muted)}
+.mk{position:relative;z-index:0;white-space:nowrap}
+.mk::before{content:"";position:absolute;left:-.06em;right:-.06em;top:.56em;height:.38em;background:var(--mark);z-index:-1;border-radius:4px}
+.num{display:inline-block;font:700 30px var(--display);letter-spacing:.12em;color:var(--accent);background:#fff;border:3px solid #DCE6F5;border-radius:999px;padding:10px 26px}
+.card{background:#fff;border-radius:28px;box-shadow:0 2px 4px rgba(14,42,86,.06),0 24px 60px -14px rgba(14,42,86,.3)}
+/* companions */
+.comp{position:absolute}
+.comp svg{width:100%;height:100%;overflow:visible;display:block;filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 12px 22px rgba(30,20,50,.22))}
+.cp-svg .cp-p,.cp-svg .cp-headg,.cp-svg .cp-eye,.cp-svg .cp-page{transform-box:view-box}
+.cp-svg .cp-cheeks{opacity:.62}
+.cp-svg .cp-e-happy,.cp-svg .cp-e-sleepy,.cp-svg .cp-mouth>g,.cp-svg .cp-prop,.cp-svg .cp-zs{display:none}
+.cp-svg[data-m=neutral] .cp-m-neutral,.cp-svg[data-m=smile] .cp-m-smile,.cp-svg[data-m=open] .cp-m-open,.cp-svg[data-m=sleepy] .cp-m-sleepy{display:inline}
+.cp-svg[data-e=happy] .cp-eye,.cp-svg[data-e=sleepy] .cp-eye{display:none}
+.cp-svg[data-e=happy] .cp-e-happy,.cp-svg[data-e=sleepy] .cp-e-sleepy{display:inline}
+.cp-svg[data-z="1"] .cp-zs{display:inline}
+.cp-svg[data-e=none] .cp-eye{display:none}
+.mug{position:absolute;width:96px;height:96px}
+.mug .b{position:absolute;left:0;top:18px;width:78px;height:78px;border-radius:12px 12px 22px 22px;background:#fff;box-shadow:inset 0 -10px 0 #E6ECF5,0 10px 24px -8px rgba(0,0,0,.4)}
+.mug .b::after{content:"";position:absolute;right:-22px;top:16px;width:22px;height:34px;border:8px solid #fff;border-left:none;border-radius:0 18px 18px 0}
+.mug .band{position:absolute;left:0;right:0;top:30px;height:14px;background:#3988FE}
+.mug .st{position:absolute;top:-30px;width:8px;height:34px;border-radius:8px;background:rgba(255,255,255,.75)}
+/* props */
+.plan{width:330px;padding:24px}
+.plan .h{font:800 26px var(--display);margin-bottom:12px}
+.plan .r{display:flex;align-items:center;gap:12px;margin:10px 0;font:600 25px var(--display)}
+.plan .r i{width:26px;height:26px;border-radius:7px;flex:none;display:grid;place-items:center;color:#fff;font:800 18px var(--display);font-style:normal}
+.syl{width:360px;padding:26px 28px;transform:rotate(-5deg)}
+.syl .h{font:800 28px var(--display);letter-spacing:.06em;color:var(--muted);margin-bottom:14px}
+.syl .l{height:12px;border-radius:6px;background:#E6ECF5;margin:12px 0}
+.syl .k{font:700 30px/1.3 var(--display);margin-top:14px}
+.syl .k span{background:var(--mark);padding:0 6px;border-radius:6px}
+.night{width:520px;height:440px;border-radius:40px;background:linear-gradient(160deg,#16386E,#0A1F42);box-shadow:0 24px 60px -14px rgba(14,42,86,.45)}
+.clock{font:800 44px var(--display);color:#fff;background:rgba(255,255,255,.12);border-radius:16px;padding:8px 20px}
+.chip{display:inline-flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:14px 22px;font:700 30px var(--display);box-shadow:0 16px 40px -12px rgba(14,42,86,.35)}
+#hook{position:absolute;left:60px;right:60px;top:925px;text-align:center;z-index:20;font:800 60px/1.16 "Inter",system-ui,sans-serif;color:#fff;-webkit-text-stroke:9px #000;paint-order:stroke fill;opacity:0}
+#hook b{color:#FFE45C}
+#alarm{position:absolute;inset:0;z-index:15;pointer-events:none;opacity:0;background:radial-gradient(75% 60% at 50% 45%,transparent 35%,rgba(228,30,40,.55) 100%)}
+#stamp{position:absolute;z-index:16;opacity:0;font:800 62px/1 var(--display);letter-spacing:.02em;color:#E4513B;border:10px solid #E4513B;border-radius:22px;padding:14px 30px;background:rgba(255,255,255,.92);box-shadow:0 20px 50px -10px rgba(0,0,0,.35);white-space:nowrap}
+#sign{position:absolute;left:0;right:0;top:1340px;display:flex;justify-content:center;align-items:center;gap:16px;font:800 40px var(--display);color:var(--navy);opacity:0}
+#sign img{width:60px;height:60px;border-radius:15px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <!-- Title -->
+  <div class="scene" id="s0">
+    <div class="abs" style="left:0;right:0;top:300px;text-align:center"><span class="num" style="letter-spacing:.18em">A FIELD GUIDE</span></div>
+    <div class="abs ttl" id="t0" style="left:60px;right:60px;top:440px;font-size:80px;line-height:1.08">Every friend group<br>during <span class="mk">finals week</span></div>
+    <div class="comp" id="c0a" style="left:90px;top:780px;width:210px;height:210px">{{owl}}</div>
+    <div class="comp" id="c0b" style="left:320px;top:780px;width:210px;height:210px">{{mochi}}</div>
+    <div class="comp" id="c0c" style="left:550px;top:780px;width:210px;height:210px">{{inky}}</div>
+    <div class="comp" id="c0d" style="left:780px;top:780px;width:210px;height:210px">{{packy}}</div>
+  </div>
+
+  <!-- 1: the planner -->
+  <div class="scene" id="s1" style="visibility:hidden">
+    <div class="abs" style="left:0;right:0;top:290px;text-align:center"><span class="num">1 OF 4</span></div>
+    <div class="card plan abs" id="p1" style="left:610px;top:450px;transform:rotate(5deg)">
+      <div class="h">Finals plan ✨</div>
+      <div class="r"><i style="background:var(--leaf)">✓</i>Bio · Ch 1–4</div>
+      <div class="r"><i style="background:var(--plum)">✓</i>Chem · Unit 3</div>
+      <div class="r"><i style="background:var(--tomato)">✓</i>Calc · Integrals</div>
+      <div class="r"><i style="background:var(--accent)"></i>Hist · Essay</div>
+    </div>
+    <div class="comp" id="c1" style="left:150px;top:420px;width:440px;height:440px">{{owl}}</div>
+    <div class="abs ttl" style="left:90px;right:90px;top:920px">The one with a<br><span class="mk">colour-coded</span> study plan</div>
+    <div class="abs sub" style="left:110px;right:110px;top:1100px">Started reviewing in Week 2.<br>Nobody knows how.</div>
+  </div>
+
+  <!-- 2: the late discovery -->
+  <div class="scene" id="s2" style="visibility:hidden">
+    <div class="abs" style="left:0;right:0;top:290px;text-align:center"><span class="num">2 OF 4</span></div>
+    <div class="card syl abs" id="p2" style="left:110px;top:470px">
+      <div class="h">SYLLABUS</div><div class="l"></div><div class="l" style="width:80%"></div><div class="l" style="width:90%"></div>
+      <div class="k">Final exam:<br><span>cumulative</span> (40%)</div>
+    </div>
+    <div class="comp" id="c2" style="left:540px;top:440px;width:420px;height:420px">{{mochi}}</div>
+    <div class="abs ttl" style="left:90px;right:90px;top:920px">The one who just learned<br>the final is <span class="mk">cumulative</span></div>
+    <div class="abs sub" style="left:110px;right:110px;top:1100px">Opened the syllabus for the<br>first time. In December.</div>
+  </div>
+
+  <!-- 3: the 4 AM library goblin -->
+  <div class="scene" id="s3" style="visibility:hidden">
+    <div class="abs" style="left:0;right:0;top:290px;text-align:center"><span class="num">3 OF 4</span></div>
+    <div class="night abs" style="left:280px;top:420px">
+      <div class="abs" style="left:56px;top:46px;width:70px;height:70px;border-radius:50%;box-shadow:18px -10px 0 0 #FFE45C"></div>
+      <div class="abs" style="left:150px;top:70px;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:-80px 120px 0 rgba(255,255,255,.7),-40px 250px 0 rgba(255,255,255,.55),310px 150px 0 rgba(255,255,255,.7),290px 280px 0 rgba(255,255,255,.5)"></div>
+      <div class="abs clock" id="clk" style="right:30px;top:30px">4:07 AM</div>
+    </div>
+    <div class="comp" id="c3" style="left:350px;top:500px;width:350px;height:350px">{{inky}}</div>
+    <div class="mug" id="mug" style="left:640px;top:700px"><div class="st" id="st1" style="left:18px"></div><div class="st" id="st2" style="left:42px"></div><div class="b"><div class="band"></div></div></div>
+    <div class="abs ttl" style="left:90px;right:90px;top:920px">The 4 AM<br><span class="mk">library goblin</span></div>
+    <div class="abs sub" style="left:110px;right:110px;top:1100px">Hasn't seen the sun<br>since Tuesday.</div>
+  </div>
+
+  <!-- 4: the pressure "expert" -->
+  <div class="scene" id="s4" style="visibility:hidden">
+    <div class="abs" style="left:0;right:0;top:290px;text-align:center"><span class="num">4 OF 4</span></div>
+    <div class="abs" id="p4a" style="left:600px;top:470px"><span class="chip"><span style="color:var(--tomato)">●</span>Paper due 9 AM</span></div>
+    <div class="abs" id="p4b" style="left:640px;top:580px"><span class="chip">Progress: <span style="color:var(--tomato)">0%</span></span></div>
+    <div class="comp" id="c4" style="left:150px;top:430px;width:430px;height:430px">{{packy}}</div>
+    <div class="abs ttl" style="left:90px;right:90px;top:920px">The "I work better<br>under <span class="mk">pressure</span>" one</div>
+    <div class="abs sub" style="left:110px;right:110px;top:1100px">Hasn't started. Is calm.<br>Is lying.</div>
+  </div>
+
+  <!-- End -->
+  <div class="scene" id="s5" style="visibility:hidden">
+    <div class="abs ttl" style="left:90px;right:90px;top:420px;font-size:96px">Which one<br>are <span class="mk">you</span>?</div>
+    <div class="abs sub" style="left:110px;right:110px;top:690px">Tag your study group 👇</div>
+    <div class="comp" id="e1" style="left:90px;top:880px;width:210px;height:210px">{{owl}}</div>
+    <div class="comp" id="e2" style="left:320px;top:880px;width:210px;height:210px">{{mochi}}</div>
+    <div class="comp" id="e3" style="left:550px;top:880px;width:210px;height:210px">{{inky}}</div>
+    <div class="comp" id="e4" style="left:780px;top:880px;width:210px;height:210px">{{packy}}</div>
+    <div class="abs" style="left:90px;width:900px;top:1110px;display:flex;justify-content:space-around;font:800 44px var(--display);color:var(--accent)"><span>1</span><span>2</span><span>3</span><span>4</span></div>
+  </div>
+  <div id="alarm"></div>
+  <div id="stamp"></div>
+  <div id="hook"></div>
+  <div id="sign"><img src="{{ROOT}}/icon-512.png" alt="">Studyboard</div>
+</div>
+<script>
+["600 100px Lexend","700 100px Lexend","800 100px Lexend","400 40px Atkinson","700 40px Atkinson"].forEach(f => document.fonts.load(f));
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const oBack = x => { const c = 1.6, d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const svg = el => el.querySelector("svg");
+const face = (el, e, m, z) => { const s = svg(el); s.dataset.e = e; s.dataset.m = m; s.dataset.z = z ? "1" : "0"; };
+// ---- Expressions drawn on top of the real companion art (viewBox 0 0 120 120) ----
+const GEO = {owl: {L: [47, 60], R: [73, 60], r: 7, m: [60, 71], lid: "#F9EEDF"}, mochi: {L: [47, 75], R: [73, 75], r: 5.2, m: [60, 84], lid: "#FFF1E4"},
+  inky: {L: [50, 77], R: [70, 77], r: 6, m: [60, 90], lid: "#6F8FEB"}, packy: {L: [48, 62], R: [72, 62], r: 5.2, m: [60, 70], lid: "#FF8D7A"}};
+const NS = "http://www.w3.org/2000/svg", INK = "#2B2233";
+const add = (g, html) => { g.insertAdjacentHTML("beforeend", html); };
+const drop = (x, y) => `<path class="xsw" d="M${x} ${y} q4.2 6.4 0 9.6 q-4.2 -3.2 0 -9.6z" fill="#9CD3FF" stroke="#fff" stroke-width="1.2"/>`;
+function decorate(el, who, mood) {
+  const svgEl = svg(el), G = GEO[who];
+  let g = svgEl.querySelector(".xf"); if (g) g.remove();
+  g = document.createElementNS(NS, "g"); g.setAttribute("class", "xf"); svgEl.appendChild(g);
+  const [lx, ly] = G.L, [rx, ry] = G.R, r = G.r, [mx, my] = G.m;
+  if (mood === "proud") { // happy eyes, smile, sparkles
+    svgEl.dataset.e = "happy"; svgEl.dataset.m = "smile";
+    const star = (x, y, s, c) => `<path class="xsp" d="M${x} ${y - s} Q${x} ${y} ${x + s} ${y} Q${x} ${y} ${x} ${y + s} Q${x} ${y} ${x - s} ${y} Q${x} ${y} ${x} ${y - s}z" fill="${c}" style="transform-origin:${x}px ${y}px"/>`;
+    add(g, star(100, 30, 7, "#FFE45C") + star(18, 44, 5, "#FFE45C") + star(104, 54, 4, "#fff"));
+  }
+  if (mood === "shocked") { // wide eyes, pin pupils, worried brows, gaping mouth, sweat, shock lines
+    svgEl.dataset.e = "none"; svgEl.dataset.m = "none";
+    [[lx, ly], [rx, ry]].forEach(([x, y]) => add(g, `<circle cx="${x}" cy="${y}" r="${r + 2.6}" fill="#fff" stroke="${INK}" stroke-width="1.8"/><circle class="xpu" cx="${x}" cy="${y}" r="1.9" fill="${INK}"/>`));
+    add(g, `<path d="M${lx - 7} ${ly - r - 5} L${lx + 5} ${ly - r - 9}" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/><path d="M${rx + 7} ${ry - r - 5} L${rx - 5} ${ry - r - 9}" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>`);
+    add(g, `<g class="xmo" style="transform-origin:${mx}px ${my + 3}px"><ellipse cx="${mx}" cy="${my + 3}" rx="4.6" ry="6.2" fill="${INK}"/><ellipse cx="${mx}" cy="${my + 6.2}" rx="2.8" ry="1.8" fill="#FF8FA8"/></g>`);
+    add(g, drop(lx - 15, ly - 18));
+    add(g, `<g stroke="#5AA9F5" stroke-width="2" stroke-linecap="round"><path d="M26 48 l-6 -5"/><path d="M24 58 l-8 -1"/><path d="M94 48 l6 -5"/><path d="M96 58 l8 -1"/></g>`);
+  }
+  if (mood === "tired") { // awake but wrecked: half-closed eyes under heavy lids, bags, a wobbly mouth
+    svgEl.dataset.e = "none"; svgEl.dataset.m = "none"; svgEl.dataset.z = "0";
+    [[lx, ly, "L"], [rx, ry, "R"]].forEach(([x, y, k]) => add(g,
+      `<g class="xlid${k}" style="transform-box:view-box;transform-origin:${x}px ${y}px"><path d="M${x - r} ${y} A${r} ${r * 1.1} 0 0 0 ${x + r} ${y}Z" fill="${INK}"/><circle cx="${x + r * .35}" cy="${y + r * .45}" r="${r * .28}" fill="#fff"/></g>` +
+      `<path d="M${x - r - 1.5} ${y - .3} Q${x} ${y - 2.2} ${x + r + 1.5} ${y - .3}" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>` +
+      `<path d="M${x - r + .5} ${y + r + 3.5} Q${x} ${y + r + 6.5} ${x + r - .5} ${y + r + 3.5}" fill="none" stroke="#33489A" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>`));
+    add(g, `<path d="M${mx - 5} ${my} q1.7 -1.6 3.4 0 t3.3 0 t3.3 0" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`);
+  }
+  if (mood === "nervous") { // forced grin, eyes darting sideways, sweat sliding
+    svgEl.dataset.e = "open"; svgEl.dataset.m = "smile";
+    const sm = svgEl.querySelector(".cp-m-smile"); sm.style.transformBox = "view-box"; sm.style.transformOrigin = `${mx}px ${my}px`; sm.style.transform = "scale(1.55,1.3)";
+    add(g, drop(rx + 14, ry - 14));
+    add(g, `<path d="M${lx - 6} ${ly - r - 4} L${lx + 4} ${ly - r - 7}" stroke="${INK}" stroke-width="2" stroke-linecap="round"/><path d="M${rx + 6} ${ry - r - 4} L${rx - 4} ${ry - r - 7}" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`);
+  }
+  el.dataset.mood = mood;
+}
+// Per-frame life for each mood
+function animateFace(el, t, seed) {
+  const s = svg(el), mood = el.dataset.mood;
+  const sw = s.querySelector(".xsw"); if (sw) { const k = ((t + seed) % 1.6) / 1.6; sw.setAttribute("transform", `translate(0 ${k * 10})`); sw.style.opacity = k < .8 ? 1 : 1 - (k - .8) * 5; }
+  if (mood === "proud") s.querySelectorAll(".xsp").forEach((p, i) => { const k = .65 + .45 * Math.abs(Math.sin((t + seed) * 3 + i * 1.3)); p.style.transform = `scale(${k}) rotate(${(t * 40 + i * 30) % 360}deg)`; });
+  if (mood === "shocked") { const j = Math.sin((t + seed) * 31); s.querySelectorAll(".xpu").forEach(p => p.setAttribute("transform", `translate(${j * .6} ${Math.cos((t + seed) * 27) * .5})`));
+    const mo = s.querySelector(".xmo"); if (mo) mo.style.transform = `scale(${1 + .08 * Math.sin((t + seed) * 9)})`; }
+  if (mood === "tired") { // lids sag slowly; every ~2.4 s the left one droops almost shut, then jerks back open
+    const ph = ((t + seed) % 2.4), sag = ph > 1.8 ? Math.sin((ph - 1.8) / .6 * Math.PI) : 0;
+    ["L", "R"].forEach((k, i) => { const lid = s.querySelector(".xlid" + k); if (lid) lid.style.transform = `scaleY(${1 - (i === 0 ? sag * .75 : sag * .35) + Math.sin((t + seed) * 1.7) * .04})`; });
+  }
+  if (mood === "nervous") { // eyes dart left/right with a glance every ~1.2 s
+    const ph = (t + seed) % 1.2, dx = ph < .5 ? 2.6 : ph < .62 ? lerp(2.6, -2.2, (ph - .5) / .12) : -2.2;
+    s.querySelectorAll(".cp-look").forEach(l => { l.style.transform = `translate(${dx}px,-.6px)`; });
+    // a nervous blink now and then
+    s.dataset.e = ((t + seed) % 2.3) < .09 ? "sleepy" : "open";
+  }
+}
+// Idle life: a gentle bob and a blink every ~2 s (blink = sleepy eyes for 3 frames)
+const idle = (el, t, seed, e, m, z, amp = 8) => {
+  const blink = e === "open" && ((t + seed) % 2.1) < .1;
+  face(el, blink ? "sleepy" : e, m, z);
+  return Math.sin((t + seed) * 2.6) * amp;
+};
+const hopY = (t, t0, H = 40) => { const k = P(t, t0, t0 + .42); return -H * 4 * k * (1 - k); };
+
+// Signature moods: the same face in the line-up, the scene and the finale
+const MOODS = [["owl", "proud"], ["mochi", "shocked"], ["inky", "tired"], ["packy", "nervous"]];
+[["c0a", "c0b", "c0c", "c0d"], ["c1", "c2", "c3", "c4"], ["e1", "e2", "e3", "e4"]].forEach(ids => ids.forEach((id, i) => decorate($(id), MOODS[i][0], MOODS[i][1])));
+// Timeline (s). Each type gets 2.9 s: enough to read a two-line title and a two-line joke.
+// Variants: "a" opens on the title card (as first posted). "b" and "c" cut the title and open cold on the funniest
+// character moment with a native hook caption, then run the other three types (hook test, Nov 2026).
+const VARIANT = "e";
+const ORDER = {a: [0, 1, 2, 3], b: [3, 0, 1, 2], c: [1, 0, 2, 3], d: [1, 0, 2, 3], e: [3, 0, 1, 2]}[VARIANT];
+const HOOK = {b: "Tag the friend who<br>“works better under <b>pressure</b>”", c: "POV: you just found out<br>the final is <b>cumulative</b>",
+  d: "The final is<br><b>cumulative</b>?!", e: "“I work better<br>under <b>pressure</b>”"}[VARIANT];
+// d/e: "max hook": extreme close-up on the reaction, red alarm glow, impact at frame 0, snap-out reveal + stamp at ~1 s,
+// then the open loop ("every friend group has one") at 1.6 s, and into the list at ~3 s.
+const ZOOM = VARIANT === "d" || VARIANT === "e";
+const HOOK2 = "Every friend group<br>has one of these 👇";
+const FACE = {d: [750, 702], e: [365, 652]}[VARIANT];
+const STAMP = {d: ["CUMULATIVE!", 70, 750, -10], e: ["0% DONE", 540, 690, 8]}[VARIANT];
+const COLD = VARIANT !== "a";
+const T0 = COLD ? 0 : 2.7, D = 2.9, D0 = ZOOM ? 5.2 : COLD ? 3.6 : 2.9;
+const START = ORDER.map((_, pos) => T0 + (pos === 0 ? 0 : D0 + (pos - 1) * D));
+const END_IN = T0 + D0 + 3 * D, END = END_IN + 3.4, COVER = COLD ? 0.5 : 0.4;
+if (COLD) $("hook").innerHTML = HOOK;
+if (ZOOM) { $("stamp").textContent = STAMP[0]; $("stamp").style.left = STAMP[1] + "px"; $("stamp").style.top = STAMP[2] + "px"; $("hook").style.fontSize = "96px"; }
+const SL = .32; // slide time between pages
+const shakeIt = (t, times, amp = 14) => { let s = 0; times.forEach(h => { const k = P(t, h, h + .3); if (k > 0 && k < 1) s += Math.sin(k * Math.PI) * (1 - k) * amp; }); return s; };
+function page(el, t, tin, tout) {
+  // slides in from the right, out to the left; smooth, like swiping a carousel
+  const a = ioCubic(P(t, tin - SL, tin)), b = tout == null ? 0 : ioCubic(P(t, tout - SL, tout));
+  const vis = a > 0 && b < 1; el.style.visibility = vis ? "visible" : "hidden";
+  el.style.transform = `translateX(${(1 - a) * 1080 - b * 1080}px)`;
+  return vis;
+}
+function render(t) {
+  // Title (visible at frame 0)
+  const s0 = $("s0"); s0.style.visibility = !COLD && t < T0 ? "visible" : "hidden";
+  // Cold-open hook caption: up from frame 0, fades as the scene's own title arrives
+  if (ZOOM) {
+    // Line 1 (the gasp) until 1.5 s, then the open loop, then hand off to the scene's own title at ~2.9 s
+    const two = t >= 1.55;
+    $("hook").innerHTML = two ? HOOK2 : HOOK; $("hook").style.fontSize = two ? "72px" : (VARIANT === "e" ? "80px" : "96px");
+    $("hook").style.opacity = (two ? ioCubic(P(t, 1.55, 1.75)) : 1) * (1 - P(t, 2.6, 2.8));
+    $("hook").style.transform = two ? "none" : `scale(${1 + .18 * (1 - oBack(P(t, 0, .25)))})`;
+    $("alarm").style.opacity = (1 - P(t, .95, 1.35)) * (.75 + .25 * Math.sin(t * 6.3));
+    const sk = P(t, 1.25, 1.45); $("stamp").style.opacity = clamp(sk * 3) * (1 - P(t, 2.7, 2.9));
+    $("stamp").style.transform = `rotate(${STAMP[3]}deg) scale(${sk > 0 ? lerp(2.2, 1, oBack(sk)) : 2.2})`;
+  } else $("hook").style.opacity = COLD ? 1 - P(t, 2.1, 2.3) : 0;
+  s0.style.transform = `translateX(${-ioCubic(P(t, T0 - SL, T0)) * 1080}px)`;
+  ["c0a", "c0b", "c0c", "c0d"].forEach((id, i) => {
+    const el = $(id); animateFace(el, t, i * .37);
+    el.style.transform = `translateY(${Math.sin((t + i * .37) * 2.6) * 6 + hopY(t, .5 + i * .22, 46)}px)`;
+  });
+  // Types
+  ORDER.forEach((i, pos) => {
+    const id = "s" + (i + 1), tin = START[pos], tout = tin + (pos === 0 ? D0 : D);
+    if (!page($(id), t, tin, tout)) return;
+    const sc = $(id); sc.querySelector(".num").textContent = `${pos + 1} OF 4`;
+    const tk = COLD && pos === 0 ? (ZOOM ? ioCubic(P(t, 2.85, 3.15)) : ioCubic(P(t, 2.35, 2.65))) : 1;
+    sc.querySelectorAll(".num,.ttl,.sub").forEach(el => { el.style.opacity = tk; });
+    // Max hook: extreme close-up on the face, snapping out at ~1 s, with a smooth nudge on each hit
+    if (ZOOM && pos === 0 && t < 1.5) {
+      const z = lerp(3.0, 1, ioCubic(P(t, .95, 1.25))), nud = shakeIt(t, [0, 1.25]);
+      sc.style.transformOrigin = `${FACE[0]}px ${FACE[1]}px`;
+      sc.style.transform = `translate(${nud}px,${nud * .5}px) scale(${z})`;
+    }
+    const lt = t - tin, c = $("c" + (i + 1));
+    animateFace(c, t, i * .5);
+    if (i === 0) { // proud: happy eyes, sparkles, a little strut
+      const y = Math.sin(t * 2.6) * 8 + hopY(t, tin + .35, 50);
+      c.style.transform = `translateY(${y}px) rotate(${Math.sin(t * 3) * 2}deg)`;
+      $("p1").style.transform = `rotate(${5 + Math.sin(t * 2) * 1.5}deg) translateY(${Math.sin(t * 2.2) * 6}px)`;
+    }
+    if (i === 1) { // shock: open mouth, little tremble, the syllabus shakes into view
+      const trem = lt > .35 ? Math.sin(t * 40) * 2.5 * (1 - P(lt, .35, 1.2)) : 0;
+      c.style.transform = `translate(${trem}px,${hopY(t, tin + .3, 30)}px) scale(${1 + .06 * Math.sin(P(lt, .3, .6) * Math.PI)})`;
+      $("p2").style.transform = `rotate(${-5 + Math.sin(t * 2.4) * 2}deg)`;
+    }
+    if (i === 2) { // awake at 4 AM: heavy lids, a slow sway, coffee steaming; the clock ticks a minute later
+      c.style.transform = `translateY(${Math.sin(t * 1.4) * 6}px) rotate(${Math.sin(t * 1.1) * 3}deg)`;
+      ["st1", "st2"].forEach((id2, j) => { const k = ((t + j * .45) % 1.1) / 1.1; $(id2).style.transform = `translate(${Math.sin(k * 6 + j) * 5}px,${-k * 26}px) scaleY(${1 - k * .3})`; $(id2).style.opacity = Math.sin(k * Math.PI) * .9; });
+      $("mug").style.transform = `rotate(${-6 + Math.sin(t * 1.4) * 2}deg)`;
+      $("clk").textContent = lt > 1.6 ? "4:08 AM" : "4:07 AM";
+    }
+    if (i === 3) { // "calm": forced grin, eyes darting, sweat sliding; a tiny nervous shuffle
+      c.style.transform = `translateY(${Math.sin(t * 2.2) * 5}px) rotate(${Math.sin(t * 7) * 1.2}deg)`;
+      [["p4a", .35], ["p4b", .7]].forEach(([pid, at]) => { if (COLD && pos === 0) at = -1; const k = P(lt, at, at + .3); $(pid).style.opacity = clamp(k * 2); $(pid).style.transform = `translateY(${(1 - oBack(k)) * -40}px)`; });
+    }
+  });
+  // End: all four, hopping in a wave; then a quiet sign-off
+  if (page($("s5"), t, END_IN, null)) {
+    ["e1", "e2", "e3", "e4"].forEach((id, i) => {
+      const el = $(id); animateFace(el, t, i * .37);
+      el.style.transform = `translateY(${Math.sin((t + i * .37) * 2.6) * 5 + hopY(t, END_IN + .3 + i * .15, 50) + hopY(t, END_IN + 1.4 + i * .15, 30)}px)`;
+    });
+  }
+  const sg = P(t, END_IN + 1.6, END_IN + 2.0); $("sign").style.opacity = sg; $("sign").style.transform = `translateY(${(1 - sg) * 16}px)`;
+}
+window.render = render; window.END = END; window.COVER = COVER;
+render(0);
+</script>
+</body>
+</html>

@@ -55,6 +55,12 @@ A relatable character + a dream outcome + **minimal conditions**. Any unfair adv
 | Tell a friend | "Send this to the friend who does everything the night before" |
 | Unexpected detail | "This planner's owl quizzes you on chapter 4" |
 
+**The first 3 seconds, as a recipe** (Connor's review: B/C still too calm; D/E in `marketing/reels/2026-11-20-types-of-students/`):
+1. **0.0 s:** an extreme close-up of the emotion (a face filling the frame), a high-contrast urgency cue (a pulsing red glow at the edges), a hard impact sound, and a 3–5 word gasp line in huge type ("The final is **cumulative**?!"). Already moving at frame 0.
+2. **~1.0 s:** a snap-out reveal of the whole situation, with a second hit as the evidence slams in (a stamp: "CUMULATIVE!", "0% DONE").
+3. **~1.6 s:** the open loop ("Every friend group has one of these 👇"), which promises the rest.
+4. **~3 s:** the content starts; the music switches from dramatic to playful (contrast is the joke).
+
 **Never open on a title card.** Our first live post opened on "A field guide / Every friend group during finals week" with the cast idling. Insights showed the hook didn't hold, because no situation landed before the first swipe at 2.7 s. Open cold on the most relatable or funny moment (the character mid-reaction, its props already on screen) with the hook line in the eye-line, and let the list or series structure reveal itself after.
 
 Weak hooks: the app's name, "Introducing…", a logo, "Hey guys", a question with an obvious no ("Do you like being stressed?"), a feature name.
