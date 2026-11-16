@@ -16002,7 +16002,7 @@ function courseForm(c){
         <label class="f"><span class="lh">Room <span class="hint">default for class times</span></span><input type="text" name="room" maxlength="80" value="${esc(c.room)}"></label>
         <label class="f"><span class="lh">Office Hours <span class="hint">notes</span></span><input type="text" name="office" maxlength="120" value="${esc(c.office || "")}"></label>
       </div>
-      <fieldset><legend>Color</legend><div class="swatches cc-sw">${COURSE_COLORS.map((x, i) => `<label title="${esc(COURSE_COLOR_NAMES[i] || "")}"><input type="radio" name="color" value="${x}" ${x.toLowerCase() === String(c.color || "").toLowerCase() ? "checked" : ""} aria-label="${esc(COURSE_COLOR_NAMES[i] || "Color " + (i + 1))}"><span style="--c:${x}"></span></label>`).join("")}${(cv => `<label class="cc-custom" title="Any color"><input type="radio" name="color" id="ccRadio" value="${esc(cv)}" ${COURSE_COLORS.some(x => x.toLowerCase() === String(c.color || "").toLowerCase()) ? "" : "checked"} aria-label="Custom color"><span style="--c:${esc(cv)}"></span><input type="color" id="ccPick" value="${esc(cv)}" aria-label="Pick any color" tabindex="-1"></label>`)(/^#[0-9a-f]{6}$/i.test(c.color || "") ? c.color : "#7C3AED")}</div></fieldset>
+      <fieldset><legend>Color</legend><div class="swatches cc-sw">${COURSE_COLORS.map((x, i) => `<label title="${esc(COURSE_COLOR_NAMES[i] || "")}"><input type="radio" name="color" value="${x}" ${x.toLowerCase() === String(c.color || "").toLowerCase() ? "checked" : ""} aria-label="${esc(COURSE_COLOR_NAMES[i] || "Color " + (i + 1))}"><span style="--c:${x}"></span></label>`).join("")}${(cv => `<label class="cc-custom${anyColorLocked() ? " locked" : ""}" title="${anyColorLocked() ? "Any color (Pro)" : "Any color"}"><input type="radio" name="color" id="ccRadio" value="${esc(cv)}" ${COURSE_COLORS.some(x => x.toLowerCase() === String(c.color || "").toLowerCase()) ? "" : "checked"} aria-label="${anyColorLocked() ? "Custom color, part of Studyboard Pro" : "Custom color"}"><span style="--c:${esc(cv)}"></span><input type="color" id="ccPick" value="${esc(cv)}" aria-label="Pick any color" tabindex="-1"${anyColorLocked() ? " disabled" : ""}>${anyColorLocked() ? `<i class="pro-badge">PRO</i>` : ""}</label>`)(/^#[0-9a-f]{6}$/i.test(c.color || "") ? c.color : "#7C3AED")}</div></fieldset>
       <fieldset class="ci-fs"><legend>Icon <span class="hint">shown in the course's circle</span></legend><div class="ci-grid" id="ciGrid" style="--c:${esc(c.color)}" data-picked="${COURSE_ICONS[c.icon] || customIcon(c.icon) ? "1" : ""}">
         ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and get one that matches your description, in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && (!PLAN.isPro() || tagPro()) ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
         <div class="ci-ai" id="ciAi" hidden><label class="f"><span class="lh">Describe the Icon<span class="beta-pill" title="Beta: still being improved">Beta</span> <span class="hint">e.g. "a stethoscope with a heart" or "a hockey stick and puck"</span></span><input type="text" id="ciAiQ" maxlength="120" autocomplete="off"></label>
@@ -16033,7 +16033,9 @@ function courseForm(c){
   });
   dlg.querySelectorAll('input[name="color"]').forEach(r => r.addEventListener("change", () => { const g = $("#ciGrid"); if (g) g.style.setProperty("--c", r.value); }));
   { const pk = $("#ccPick"), rd = $("#ccRadio");
-    if (pk && rd) { pk.addEventListener("input", () => { rd.value = pk.value; rd.nextElementSibling.style.setProperty("--c", pk.value); rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); });
+    // On the free plan the rainbow opens the Pro sheet instead (a colour chosen before stays as it is)
+    if (pk && rd && anyColorLocked()) rd.addEventListener("click", e => { e.preventDefault(); anyColorPro("course"); });
+    else if (pk && rd) { pk.addEventListener("input", () => { rd.value = pk.value; rd.nextElementSibling.style.setProperty("--c", pk.value); rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); });
       rd.addEventListener("click", () => { try { pk.showPicker ? pk.showPicker() : pk.click(); } catch (e) { pk.click(); } });
       // iPhone and iPad: the tap lands on the colour box itself (laid over the rainbow), which opens Apple's colour picker; it picks the rainbow too
       pk.addEventListener("click", () => { if (!rd.checked) { rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); } }); } }
@@ -18171,7 +18173,12 @@ document.addEventListener("drop", e => {
 const NOTE_COLORS = [["yellow","#FFE680"],["pink","#FFB8CC"],["blue","#AED6FF"],["green","#BDECA8"],["orange","#FFCB8E"],["purple","#D6C6FF"]];
 const NOTE_COLORS_SHOWN = NOTE_COLORS.map((c, i, a) => a[i === 0 ? 2 : i === 2 ? 0 : i]);
 // A note keeps the colour you picked on every theme
-const noteColor = k => NOTE_COLORS[Math.max(0, NOTE_COLORS.findIndex(c => c[0] === k))][1];
+const noteColor = k => /^#[0-9a-f]{6}$/i.test(k || "") ? k : NOTE_COLORS[Math.max(0, NOTE_COLORS.findIndex(c => c[0] === k))][1];
+// Picking any colour (a course's or a note's own colour, beyond the set ones) is part of Studyboard Pro. Colours chosen before stay.
+const anyColorLocked = () => { try { return typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && !PLAN.isPro(); } catch (e) { return false; } };
+const anyColorPro = what => { try { PLAN.openSheet(`Picking any ${what} color is part of Studyboard Pro`); } catch (e) {} };
+// A dark note colour gets light text
+const noteDark = k => { const h = /^#([0-9a-f]{6})$/i.exec(k || ""); if (!h) return false; const v = parseInt(h[1], 16), r = v >> 16, g = (v >> 8) & 255, b = v & 255; return (0.299 * r + 0.587 * g + 0.114 * b) < 140; };
 // a course tag's text on a note: the course colour toward ink (as .note-tag draws it), deepened further only if its tint on
 // that paper needs it to read
 const noteTagInk = (c, paper) => { const tint = hexBlend(hexBlend(paper, "#FFFFFF", 0.6), c, 0.22); return courseInk(hexBlend(c, "#1A1A1A", 0.3), [tint]); };
@@ -18273,7 +18280,11 @@ function noteHtml(n){
   const body = editing
     ? `<textarea class="note-text" id="noteText" maxlength="8000" aria-label="Note text" placeholder="Write a note…">${esc(n.text)}</textarea>${window.SBPRO && SBPRO.noteExtra ? SBPRO.noteExtra(n) : ""}
        <div class="note-tools">
-         <div class="note-colors" role="group" aria-label="Note color">${NOTE_COLORS_SHOWN.map(([k, hex]) => `<button type="button" class="nc ${k === n.color ? "on" : ""}" style="background:${noteColor(k)}" data-act="note-color" data-id="${esc(n.id)}" data-color="${k}" aria-label="${k}"></button>`).join("")}</div>
+         <div class="note-colors" role="group" aria-label="Note color">${NOTE_COLORS_SHOWN.map(([k, hex]) => `<button type="button" class="nc ${k === n.color ? "on" : ""}" style="background:${noteColor(k)}" data-act="note-color" data-id="${esc(n.id)}" data-color="${k}" aria-label="${k}"></button>`).join("")}${(() => {
+           const own = /^#[0-9a-f]{6}$/i.test(n.color || ""), cv = own ? n.color : "#FFD6A5", lk = anyColorLocked();
+           return lk ? `<button type="button" class="nc nc-any locked ${own ? "on" : ""}" style="--c:${esc(cv)}" data-act="nc-pro" title="Any color (Pro)" aria-label="Any color, part of Studyboard Pro"><i class="pro-badge">PRO</i></button>`
+             : `<label class="nc nc-any ${own ? "on" : ""}" style="--c:${esc(cv)}" title="Any color"><input type="color" class="nc-pick" data-id="${esc(n.id)}" value="${esc(cv)}" aria-label="Pick any note color"></label>`;
+         })()}</div>
          <select class="note-task" data-id="${esc(n.id)}" aria-label="Attach to a task">${noteTaskOpts(n)}</select>
          <select class="note-course" data-id="${esc(n.id)}" aria-label="Course">${`<option value="">No course</option>` + coursesArr().map(x => `<option value="${esc(x.id)}" ${x.id === n.courseId ? "selected" : ""}>${esc(courseLabel(x))}</option>`).join("")}</select>
          ${window.SBPRO && SBPRO.noteBar ? SBPRO.noteBar(n) : ""}
@@ -18282,7 +18293,7 @@ function noteHtml(n){
          <div class="note-btns">${window.SBONENOTE ? SBONENOTE.noteBtn(n) : ""}<button type="button" class="nb" data-act="note-archive" data-id="${esc(n.id)}" title="Archive" aria-label="Archive note">${ARCHIVE}</button><button type="button" class="nb" data-act="note-trash" data-id="${esc(n.id)}" title="Delete" aria-label="Delete note">${TRASH}</button><button type="button" class="btn small" data-act="note-done">Done</button></div>
        </div>`
     : `<div class="note-body">${n.text.trim() ? (window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
-  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="group" aria-roledescription="note" aria-label="${editing ? "Note options. Press Enter to type in the note, Escape to close it." : esc(noteLabelText(n)) + ". Press Enter for its options."}"
+  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}${noteDark(n.color) ? " note-dark" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="group" aria-roledescription="note" aria-label="${editing ? "Note options. Press Enter to type in the note, Escape to close it." : esc(noteLabelText(n)) + ". Press Enter for its options."}"
     style="left:${n.x}px;top:${n.y}px;z-index:${editing ? 9000 : n.z};width:${w}px;--nc:${noteColor(n.color)};--rot:${editing ? 0 : n.rot}deg">
     ${pinHtml(notePinOf(n))}
     ${editing ? "" : `<span class="note-rot" data-rot="${esc(n.id)}" title="Drag to rotate" aria-hidden="true">${ROT_ICON}</span>`}
@@ -18619,6 +18630,15 @@ function noteFreeSpot(rects, view, w, h){
 }
 /*NOTESPOT-END*/
 const NOTE_COLOR_KEY = "studyboard:noteColor";
+if (window.__SB_TEST) window.__sbAnyColor = {course: c => courseForm(c), note: id => { noteEditing = id; render(); }, locked: () => anyColorLocked()};
+// A note's own colour from the colour picker (Pro): saved when the picker closes, like tapping a colour
+document.addEventListener("change", e => {
+  const pk = e.target; if (!pk || !pk.classList || !pk.classList.contains("nc-pick")) return;
+  const n = state.notes[pk.dataset.id]; if (!n || !/^#[0-9a-f]{6}$/i.test(pk.value)) return;
+  if (anyColorLocked()) { anyColorPro("note"); return; }
+  const t = $("#noteText");
+  applyChanges([{kind: "note", id: n.id, after: Object.assign(clone(n), {color: pk.value.toLowerCase(), text: t ? t.value : n.text})}], "");
+});
 const noteLastColor = () => { let c = ""; try { c = localStorage.getItem(NOTE_COLOR_KEY) || ""; } catch (e) {} return NOTE_COLORS_SHOWN.some(([k]) => k === c) ? c : "yellow"; };
 function newNoteAt(x, y){
   const sc = $("#nbScroll");
@@ -19003,7 +19023,7 @@ function normDeck(d){
   if (typeof d.name !== "string" || !d.name.trim()) d.name = "Untitled Deck";
   if (!Array.isArray(d.cards)) d.cards = [];
   d.cards = d.cards.filter(c => c && c.id).map(c => Object.assign({front: "", back: "", box: 0, due: "", seen: 0, right: 0, wrong: 0}, c));
-  // copied: the card's text came straight from a course file (a PDF highlight), so it stays private (kept when the card is edited)
+  // copied: the card's text came straight from a course file (a PDF highlight); AI writing from the deck won't repeat it (kept when the card is edited)
   d.cards.forEach(c => { if ("copied" in c) { if (c.copied) c.copied = true; else delete c.copied; } });
   if (!Array.isArray(d.quizzes)) d.quizzes = [];
   if (!Array.isArray(d.aiQuizzes)) d.aiQuizzes = [];
@@ -23197,6 +23217,7 @@ document.addEventListener("click", e => {
     case "note-redo": noteUndoRedo(1); break;
     case "note-versions": noteVersionsSheet(id); break;
     case "note-export": if (noteEditing && !id) saveNoteText(); noteExportSheet(id || ""); break;
+    case "nc-pro": anyColorPro("note"); break;
     case "note-color": { const n = state.notes[id]; if (!n) break; const t = $("#noteText"); try { localStorage.setItem(NOTE_COLOR_KEY, el.dataset.color); } catch (err) {} applyChanges([{kind:"note", id, after: Object.assign(clone(n), {color: el.dataset.color, text: t ? t.value : n.text})}], ""); break; }
     case "note-archive": noteToArchive(id); break;
     case "note-trash": noteToTrash(id); break;
@@ -35371,33 +35392,103 @@ hook("boot", boot);
   /* Deck payloads */
   function cleanQuiz(qz){
     const o = {id: str(qz.id, 60) || uid(), title: str(qz.title, 200) || "Practice Quiz", style: str(qz.style, 500),
-      // text only: anything that could carry a picture or a file is left out
-      questions: (qz.questions || []).map(x => { const c = clone(x); ["tries", "miss", "img", "image", "src", "file", "copied"].forEach(k => delete c[k]); return c; })};
+      questions: (qz.questions || []).map(x => { const c = clone(x); delete c.tries; delete c.miss; return c; })};
     if (qz.kind === "case") { o.kind = "case"; o.scenario = str(qz.scenario, 6000); }
     return o;
   }
-  // Picture cards are never shared: they can hold diagrams that belong to someone else, so they stay on your devices
-  // Cards copied word for word from a file (a PDF highlight) also stay private
-  const picCards = d => (d && d.cards || []).filter(x => x && x.img);
-  const keepPrivate = x => !!(x && (x.img || x.copied));
-  const picNote = d => {
-    const cs = (d && d.cards || []), np = cs.filter(x => x && x.img).length, nc = cs.filter(x => x && !x.img && x.copied).length;
-    const bits = [np ? plural(np, "picture card") : "", nc ? plural(nc, "card") + " copied straight from a file" : ""].filter(Boolean);
-    return bits.length ? `<p class="mini sh-pics" style="margin:0">Your ${bits.join(" and ")} stay private and are left out of the shared copy. Picture cards and copied text are never shared.</p>` : "";
+  /* Picture cards. A share link and a published deck (Studyboard Flashcards) carry them, with their pictures, when the
+     person sharing has Pro (making and sharing picture cards is Pro). Anyone can add and study them, like any shared card.
+     Group shares and deck files leave them out. */
+  const proOn = () => !!(window.SBPRO && typeof SBPRO.locked === "function" && !SBPRO.locked());
+  const picCards = d => (d && d.cards || []).filter(x => x && x.img && !x.draft);
+  const upBtn = `<button type="button" class="link-btn" data-act="grp-upgrade" data-r="Sharing picture cards is part of Studyboard Pro.">See Pro</button>`;
+  // where: "link" (a share link or a published page) or anything else (a group or a deck file)
+  const picNote = (d, where) => {
+    const n = picCards(d).length; if (!n) return "";
+    if (where === "link" && proOn()) return `<p class="mini sh-pics" style="margin:0">Your ${plural(n, "picture card")} ${n === 1 ? "is" : "are"} shared too, with ${n === 1 ? "its picture" : "their pictures"}. Anyone who adds the deck can study them.</p>`;
+    if (where === "link") return `<p class="mini sh-pics" style="margin:0">Your ${plural(n, "picture card")} ${n === 1 ? "is" : "are"} left out. Sharing picture cards is part of Pro. ${upBtn}</p>`;
+    return `<p class="mini sh-pics" style="margin:0">Your ${plural(n, "picture card")} ${n === 1 ? "is" : "are"} left out here. With Pro, share the deck with a link or publish it to include picture cards.</p>`;
   };
+  const PIC_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/, PICS_MAX = 6000000;
+  const num01 = v => Math.max(0, Math.min(1, Number(v) || 0));
+  // A picture card's masks and settings (k: the picture, a key on this device or a ref into the payload's pics)
+  function cleanImg(im){
+    if (!im || typeof im !== "object" || typeof im.k !== "string" || !im.k || im.k.length > 80) return null;
+    const m = (Array.isArray(im.m) ? im.m : []).slice(0, 300).filter(b => Array.isArray(b) && b.length >= 4 && b.slice(0, 4).every(v => typeof v === "number" && isFinite(v)))
+      .map(b => { const o = b.slice(0, 4).map(num01); if (typeof b[4] === "string" && /^(e|p[\d.,\s-]{0,6000})$/.test(b[4])) o.push(b[4]); return o; });
+    if (!m.length) return null;
+    const o = {k: im.k, m, i: Math.max(0, Math.min(m.length - 1, Math.round(Number(im.i) || 0))), w: Math.max(1, Math.min(20000, Number(im.w) || 4)), h: Math.max(1, Math.min(20000, Number(im.h) || 3)),
+      mode: im.mode === "all" || im.mode === "tap" ? im.mode : "one"};
+    const g = Array.isArray(im.g) ? [...new Set(im.g.map(Number).filter(j => Number.isInteger(j) && j >= 0 && j < m.length))].slice(0, 300) : [];
+    if (g.length) o.g = g;
+    if (im.nl) o.nl = 1;
+    if (typeof im.x === "string" && im.x.trim()) o.x = str(im.x, 2000);
+    if (typeof im.s === "string" && im.s) o.s = str(im.s, 80);
+    return o;
+  }
+  // A picture on this device as a JPEG data URL, at most 1600px on its longest side
+  const loadImg = u => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; });
+  async function picData(key){
+    try {
+      const b = window.SBPRO && SBPRO.imageBlob ? await SBPRO.imageBlob(key) : null; if (!b) return "";
+      const u = URL.createObjectURL(b); let im; try { im = await loadImg(u); } finally { URL.revokeObjectURL(u); }
+      for (const [side, q] of [[1600, 0.85], [1200, 0.8], [900, 0.75]]) {
+        const k = Math.min(1, side / Math.max(im.naturalWidth, im.naturalHeight)), cv = document.createElement("canvas");
+        cv.width = Math.max(1, Math.round(im.naturalWidth * k)); cv.height = Math.max(1, Math.round(im.naturalHeight * k));
+        const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(im, 0, 0, cv.width, cv.height);
+        const url = cv.toDataURL("image/jpeg", q); if (url.length < 900000) return url;
+      }
+    } catch (e) {}
+    return "";
+  }
+  // Puts the pictures into a payload made with pics on (deckPayload); a picture that can't be read drops its cards
+  async function attachPics(p){
+    const list = p.cards.filter(x => x.img); if (!list.length) return p;
+    const refs = new Map(), pics = {}; let total = 0;
+    for (const x of list) {
+      const k = x.img.k;
+      if (!refs.has(k)) { const url = await picData(k), r = "p" + refs.size; if (url && total + url.length <= PICS_MAX) { pics[r] = url; total += url.length; refs.set(k, r); } else refs.set(k, ""); }
+      x.img = Object.assign({}, x.img, {k: refs.get(k)});
+    }
+    p.cards = p.cards.filter(x => !x.img || x.img.k);
+    if (Object.keys(pics).length) p.pics = pics;
+    return p;
+  }
+  // The pictures of a shared deck saved on this device, before its cards are added (anyone can add them)
+  async function takePics(p){
+    const pics = p.pics || {}; delete p.pics;
+    if (!p.cards.some(c => c.img)) return p;
+    if (!(window.SBPRO && SBPRO.storeImage)) { p.cards = p.cards.filter(c => !c.img); return p; }
+    const keys = new Map();
+    for (const c of p.cards) {
+      if (!c.img) continue;
+      const r = c.img.k;
+      if (!keys.has(r)) {
+        let key = "";
+        try { const m = /^data:([^;]+);base64,(.*)$/.exec(pics[r] || ""); if (m) { const bin = atob(m[2]), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); key = await SBPRO.storeImage(new Blob([u8], {type: m[1]}), "shared-card.jpg"); } } catch (e) { key = ""; }
+        keys.set(r, key);
+      }
+      c.img = Object.assign({}, c.img, {k: keys.get(r)});
+    }
+    p.cards = p.cards.filter(c => !c.img || c.img.k);
+    return p;
+  }
   // A short sheet that asks for the confirmation, for actions that share straight from a button
-  function confirmRights(then){
+  // kind: "pic" (a picture on a group whiteboard), "file" (a file uploaded to a group), or anything else
+  function confirmRights(then, kind){
     openSheet(`<form class="sheet">${head("Before You Share")}<div class="sheet-body">
-      <p style="margin:0">Share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages and test questions usually belong to someone else, so share them only if you have permission or they're free to share.</p>
-      ${rightsBox()}</div>
+      <p style="margin:0">${kind === "pic" ? "Everyone in the group sees the pictures on this board. Only add pictures you took or made yourself, or have permission to share." : kind === "file" ? "Everyone in the group can open this file. Only share files you made or have permission to share. Slides, handouts, textbook pages and tests usually belong to your instructor, your school or a publisher." : "Share what you made yourself or what AI wrote for you in its own words. Slides, handouts, textbook pages and test questions usually belong to someone else, so share them only if you have permission or they're free to share."}</p>
+      ${rightsBox(kind)}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Continue</button></div></form>`, () => { if (!rightsOk()) return false; dlg.close(); then(); return false; });
   }
   // Before anything is shared: the person confirms it's their own work, not copied course material
-  const rightsBox = () => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>I made this myself or AI wrote it in its own words. Anything else in it, like slides, textbook content or test questions, I have permission to share.</span></label>`;
+  const rightsBox = kind => `<label class="mi-check sh-rights"><input type="checkbox" id="shRights"> <span>${kind === "pic" ? "These are my own photos or drawings, or I have permission to share them." : kind === "file" ? "I made this file or have permission to share it." : "I made this myself or AI wrote it in its own words. Anything else in it, like slides, textbook content or test questions, I have permission to share."}</span></label>`;
   const rightsOk = () => { const b = $("#shRights"); if (!b || b.checked) return true; toast("Tick the box to confirm this is your own work first."); b.focus(); return false; };
-  function deckPayload(d, withQ){
+  // pics: picture cards go in too (a link or a published deck, with Pro), their pictures added by attachPics before sending
+  function deckPayload(d, withQ, pics){
     const c = courseOf(d.courseId);
-    const cards = d.cards.filter(x => !keepPrivate(x) && (String(x.front || "").trim() || String(x.back || "").trim())).map(x => ({id: x.id, front: x.front, back: x.back}));
+    const cards = d.cards.filter(x => x.img ? !!(pics && !x.draft && cleanImg(x.img)) : (String(x.front || "").trim() || String(x.back || "").trim()))
+      .map(x => x.img ? {id: x.id, front: x.front, back: x.back, img: cleanImg(x.img)} : {id: x.id, front: x.front, back: x.back});
     const quizzes = withQ ? (d.aiQuizzes || []).map(cleanQuiz) : [];
     const p = {v: 1, app: "studyboard", type: "deck", name: d.name, course: c ? {code: c.code || "", name: c.name || ""} : null, cards, quizzes};
     if (d.pubLook && d.pubLook.color && d.pubLook.icon) p.look = {color: d.pubLook.color, icon: d.pubLook.icon};
@@ -35407,7 +35498,14 @@ hook("boot", boot);
   // Anything that comes from someone else
   function cleanPayload(p){
     if (!p || typeof p !== "object" || !Array.isArray(p.cards)) return null;
-    const cards = p.cards.slice(0, 5000).map(c => c && typeof c === "object" ? {id: str(c.id, 60) || uid(), front: str(c.front, 5000), back: str(c.back, 5000)} : null).filter(c => c && (c.front.trim() || c.back.trim()));
+    // picture cards come with their pictures (pics), or not at all
+    const allPics = p.pics && typeof p.pics === "object" && !Array.isArray(p.pics) ? p.pics : {}, pics = {};
+    const cards = p.cards.slice(0, 5000).map(c => {
+      if (!c || typeof c !== "object") return null;
+      const o = {id: str(c.id, 60) || uid(), front: str(c.front, 5000), back: str(c.back, 5000)};
+      if (c.img) { const im = cleanImg(c.img), u = im && Object.prototype.hasOwnProperty.call(allPics, im.k) ? allPics[im.k] : ""; if (typeof u !== "string" || !PIC_RE.test(u)) return null; o.img = im; pics[im.k] = u; }
+      return o;
+    }).filter(c => c && (c.img || c.front.trim() || c.back.trim()));
     const quizzes = (Array.isArray(p.quizzes) ? p.quizzes : []).slice(0, 100).map(qz => {
       if (!qz || typeof qz !== "object") return null;
       const qs = aiCleanQuestions((Array.isArray(qz.questions) ? qz.questions : []).slice(0, 300).filter(x => x && typeof x === "object").map(x => Object.assign({}, x, {optionNotes: x.notes})));
@@ -35417,13 +35515,16 @@ hook("boot", boot);
       return o;
     }).filter(Boolean);
     const course = p.course && typeof p.course === "object" ? {code: str(p.course.code, 40), name: str(p.course.name, 120)} : null;
-    return {name: str(p.name, 120).trim() || "Shared Deck", course, cards, quizzes, sharedBy: str(p.sharedBy, 40), hash: str(p.hash, 40)};
+    const out = {name: str(p.name, 120).trim() || "Shared Deck", course, cards, quizzes, sharedBy: str(p.sharedBy, 40), hash: str(p.hash, 40)};
+    if (Object.keys(pics).length) out.pics = pics;
+    return out;
   }
   // sh remembers the text as shared, so a later update can tell a card you edited
   const shOf = c => (c.front || "") + "\u0001" + (c.back || "");
-  const localCard = c => ({id: uid(), sid: c.id, front: c.front, back: c.back, sh: shOf(c), box: 0, due: "", seen: 0, right: 0, wrong: 0});
+  const localCard = c => Object.assign({id: uid(), sid: c.id, front: c.front, back: c.back, sh: shOf(c), box: 0, due: "", seen: 0, right: 0, wrong: 0}, c.img ? {img: c.img} : {});
   const localQuiz = qz => Object.assign(clone(qz), {id: uid(), sid: qz.id, sh: JSON.stringify(qz.questions || null), results: [], sources: ["Shared deck"], created: Date.now()});
   function addDeckCopy(p, meta, courseId, then, stay){
+    if (p.pics) { takePics(p).then(q => addDeckCopy(q, meta, courseId, then, stay)); return null; }
     const nd = normDeck({id: uid(), created: Date.now(), name: p.name, courseId: courseId || "", cards: p.cards.map(localCard), aiQuizzes: p.quizzes.map(localQuiz), sharedFrom: meta});
     if (!stay) { ui.tab = "flashcards"; ui.fc = null; ui.deckId = nd.id; window.scrollTo(0, 0); }
     saveDeck(nd, `Added ${p.name} to your Flashcards`);
@@ -35997,7 +36098,7 @@ hook("boot", boot);
   // Pro group features, in the same list with a PRO badge
   const GXFEAT = {
     study: [["weak", "Most-Missed Cards"], ["challenge", "Weekly Challenge"], ["topics", "Split Exam Topics"], ["livequiz", "Live Quiz"]],
-    project: [["split", "Split the Work"], ["rubric", "Rubric Checklist"], ["report", "Contribution Report"]]
+    project: [["split", "Split the Work"], ["rubric", "Rubric Checklist"], ["report", "Contribution Report"], ["uploads", "File Uploads"]]
   };
   const hiddenOf = g => new Set(g && Array.isArray(g.hidden_features) ? g.hidden_features.filter(x => typeof x === "string") : []);
   // Most-Missed Cards and Weekly Challenge moved to Pro
@@ -36551,15 +36652,15 @@ hook("boot", boot);
   const webLink = v => { const u = safeUrl(v); if (!u) return ""; try { const h = new URL(u).hostname; return /^([a-z0-9-]+\.)+[a-z][a-z0-9-]+$/i.test(h) || h === "localhost" ? u : ""; } catch(e) { return ""; } };
   function linksHtml(g){
     if (!isProj(g)) return `<div id="grpFiles"></div>`;
-    // Files can't be shared with a group any more (they may be someone else's work); one uploaded before that is seen only by whoever added it
-    const its = kindItems(g.id, "link").map(it => ({it, url: webLink((it.data || {}).url), file: it.user_id === myId() ? fileOf(it) : null})).filter(x => x.url || x.file);
+    const its = kindItems(g.id, "link").map(it => ({it, url: webLink((it.data || {}).url), file: fileOf(it)})).filter(x => x.url || x.file);
     const rows = its.map(({it, url, file}) => `<li class="grp-item"><div class="grp-item-main"><b>${esc(it.title)}</b><span class="mini">${file ? `${esc(fileSize(file.size))} file` : esc(GK.hostOf(url))} · Added by ${by(g, it)} ${esc(ago(it.created_at, 1))}</span>${(it.data || {}).note ? `<span class="mini">${esc(str(it.data.note, 200))}</span>` : ""}</div>
       <div class="grp-item-btns">${file ? `<a class="btn small primary" href="${esc(file.url)}" download="${esc(file.name)}">Download</a>` : `<a class="btn small primary" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open</a><button class="btn small" data-act="grp-link-copy" data-id="${esc(it.id)}">Copy</button>`}${it.user_id === myId() ? "" : repBtn(it)}${canRemove(g, it) ? rmBtn(it) : ""}</div></li>`).join("");
     return `<section class="grp-sec" id="grpFiles">${secHead(I_LINK, "Files and Links", its.length)}
-      ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">Keep the shared doc, data and sources in one place. Tap Add Link at the bottom right to add one.</p>`)}
-      <p class="mini">Links open in a new tab. Files can't be uploaded to a group, so share a link to a doc the group made instead. Don't link to course files, like slides or handouts, that aren't yours to share.</p></section>`;
+      ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">Keep the shared doc, data and sources in one place. Tap Add File at the bottom right to upload a file or add a link.</p>`)}
+      <p class="mini">Links open in a new tab. For files that change a lot, share a link so everyone always sees the latest version. Only share files you made or have permission to share.</p></section>`;
   }
-  // A file kept inside a shared item (group files from before files were turned off)
+  // An uploaded file is kept inside the shared item itself (small files only)
+  const FILE_MAX = 1500000;
   const fileSize = n => n >= 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB";
   function fileOf(it){
     const f = it && it.data && it.data.file; if (!f || typeof f.url !== "string" || typeof f.name !== "string") return null;
@@ -36567,6 +36668,32 @@ hook("boot", boot);
     const name = str(f.name, 120).replace(/[\\/:*?"<>|\u0000-\u001f‪-‮⁦-⁩]/g, "_").replace(/[.\s]+$/, "") || "file";
     if (/\.(exe|msi|msix|appx|bat|cmd|com|scr|pif|cpl|lnk|url|reg|vbs|vbe|js|jse|wsf|wsh|hta|ps1|psm1|jar|jnlp|app|command|tool|pkg|dmg|sh|py|apk|ipa|desktop|scpt|workflow|iso|img|vhd|vhdx|html?|svg|xhtml|mht|xml|xsl)$/i.test(name)) return null;
     return {name, url: "data:application/octet-stream;base64," + m[1], size: Number(f.size) || Math.round(m[1].length * .75)};
+  }
+  function fileAddSheet(g){
+    openSheet(`<div class="sheet">${head("Add a File or Link")}<div class="sheet-body"><div class="fm-list" style="display:grid;gap:10px">
+      <button type="button" class="btn" data-act="grp-file-pick" style="justify-content:flex-start;text-align:left;padding:14px 16px"><span><b>Upload a File</b><span class="sub" style="display:block;font-weight:400">A document, image or PDF up to ${fileSize(FILE_MAX)}</span></span></button>
+      <button type="button" class="btn" data-act="grp-link-new" data-id="${esc(g.id)}" style="justify-content:flex-start;text-align:left;padding:14px 16px"><span><b>Add a Link</b><span class="sub" style="display:block;font-weight:400">A shared Google Doc, slide deck or website</span></span></button></div></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+  }
+  function pickGroupFile(g){
+    const inp = document.createElement("input"); inp.type = "file"; inp.style.display = "none"; document.body.appendChild(inp);
+    inp.addEventListener("change", () => {
+      const f = inp.files && inp.files[0]; inp.remove(); if (!f) return;
+      if (f.size > FILE_MAX) { toast(`That file is ${fileSize(f.size)}. Files can be up to ${fileSize(FILE_MAX)}. Share a link to a bigger one.`); return; }
+      const rd = new FileReader();
+      rd.onerror = () => toast("Couldn't read that file.");
+      rd.onload = () => {
+        const url = String(rd.result || ""), name = str(f.name, 120);
+        if (!/^data:[^;,]*;base64,/.test(url)) { toast("Couldn't read that file."); return; }
+        if (!fileOf({data: {file: {name, url}}})) { toast("That kind of file can't be shared here. Share a document, image or PDF."); return; }
+        confirmRights(() => ensureName(async () => {
+          try { addRows(g.id, await api.addItems([{group_id: g.id, kind: "link", ref_id: "", title: name, data: {v: 1, file: {name, size: f.size, url}}}])); if (dlg.open) dlg.close(); toast(`Added ${name}`); patch(g.id); }
+          catch(e) { toast(e.message); }
+        }), "file");
+      };
+      rd.readAsDataURL(f);
+    });
+    inp.click();
   }
   function linkSheet(g){
     openSheet(`<form class="sheet">${head("Add a Link")}<div class="sheet-body">${REQ_NOTE}
@@ -36985,7 +37112,8 @@ hook("boot", boot);
       case "grp-role-set": setRole(g, el.dataset.r); break;
       case "grp-battle": setBattle(g, el.dataset.on === "1"); break;
       case "grp-link-new": linkSheet(g); break;
-      case "grp-file-new": linkSheet(g); break;
+      case "grp-file-new": fileAddSheet(g); break;
+      case "grp-file-pick": pickGroupFile(g); break;
       case "grp-link-copy": { const it = itemOf(id), u = it && webLink((it.data || {}).url); if (u) copyText(u, "Link copied"); break; }
       case "grp-min-new": minutesSheet(g, null); break;
       case "grp-min-edit": { const it = itemOf(id); if (it && it.user_id === myId()) minutesSheet(g, it); break; }
@@ -37590,23 +37718,27 @@ hook("boot", boot);
     try { await api.unblock(id); } catch(e) {}
     if (ui.grp) loadGroup(ui.grp);
   }
-  const REPORT_REASONS = [["harassment", "Harassment or bullying"], ["hate", "Hate or discrimination"], ["sexual", "Sexual or inappropriate content"], ["threat", "Threats, violence or self-harm"], ["spam", "Spam or scams"], ["privacy", "Private information about someone"], ["other", "Something else"]];
+  const REPORT_REASONS = [["harassment", "Harassment or bullying"], ["hate", "Hate or discrimination"], ["sexual", "Sexual or inappropriate content"], ["threat", "Threats, violence or self-harm"], ["spam", "Spam or scams"], ["privacy", "Private information about someone"], ["copyright", "Copies someone else's work (copyright)"], ["other", "Something else"]];
   // Report (and block) sits in a small "..." menu, not among a row's main actions (it's rarely needed)
   const repMenu = (kind, id, about) => `<details class="grp-more g2-mm grp-rep"><summary class="g2-dots" aria-label="More for ${esc(about)}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="${kind}" data-id="${esc(id)}">Report or Block</button></div></details>`;
   const repBtn = it => repMenu("item", it.id, str(it.title, 60));
-  function reportSheet(g, kind, id){
+  // info (a group whiteboard, from 99-whiteboard-share.js): {who, name, excerpt}. A board is drawn on by many people, so
+  // whoever started it may be you; then nobody in particular is reported and there's no one to block.
+  function reportSheet(g, kind, id, info){
     let who = "", name = "", excerpt = "", targetId = id;
-    if (kind === "message") { const m = (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return; who = m.user_id; name = m.author_name; excerpt = str(m.body, 500); }
+    if (kind === "board") { if (!info) return; who = info.who && info.who !== myId() ? info.who : ""; name = info.name || ""; excerpt = str(info.excerpt, 500); }
+    else if (kind === "message") { const m = (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return; who = m.user_id; name = m.author_name; excerpt = str(m.body, 500); }
     else if (kind === "item") { const it = (S.items[g.id] || []).find(x => x.id === id); if (!it) return; who = it.user_id; name = it.author_name; excerpt = str(`${it.kind}: ${it.title}`, 500); }
     else { const m = (S.members[g.id] || []).find(x => x.user_id === id); if (!m) return; who = m.user_id; name = m.display_name; targetId = m.user_id; }
-    if (!who || who === myId()) return;
+    if (kind !== "board" && (!who || who === myId())) return;
     const label = name || "this member";
-    openSheet(`<form class="sheet grp-report">${head("Report " + (kind === "message" ? "Message" : kind === "item" ? "Shared Item" : "Member"))}
+    openSheet(`<form class="sheet grp-report">${head("Report " + (kind === "message" ? "Message" : kind === "item" ? "Shared Item" : kind === "board" ? "Whiteboard" : "Member"))}
       <div class="sheet-body">
         <p style="margin:0">Reports go privately to the people who run Studyboard, not to the group. We review them and remove content that breaks the rules. Someone who breaks them can be removed from study groups: they lose access to groups and group projects, and the rest of their Studyboard stays as it is.${excerpt ? ` <span class="mini">Reporting: “${esc(excerpt.slice(0, 120))}${excerpt.length > 120 ? "…" : ""}” from ${esc(label)}.</span>` : ` <span class="mini">Reporting ${esc(label)}.</span>`}</p>
         <fieldset><legend>What's wrong?</legend>${REPORT_REASONS.map(([k, t], i) => `<label class="mi-check"><input type="radio" name="reason" value="${k}" ${i === 0 ? "checked" : ""}> ${esc(t)}</label>`).join("")}</fieldset>
         <label class="f"><span class="lh">Details <span class="hint">Optional</span></span><textarea name="details" rows="3" maxlength="500" placeholder="Anything that helps us understand"></textarea></label>
-        <label class="mi-check"><input type="checkbox" name="block" checked> Also block ${esc(label)} (you won't see what they post or share)</label>
+        ${who ? `<label class="mi-check"><input type="checkbox" name="block" checked> Also block ${esc(label)} (you won't see what they post or share)</label>` : ""}
+        <p class="mini" style="margin:0">Your own work copied? You can also send a formal copyright notice: see Copyright complaints in the Terms.</p>
         <p class="status-msg" id="grpRepMsg" aria-live="polite" style="margin:0"></p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Send Report</button></div></form>`, fd => {
@@ -37614,7 +37746,10 @@ hook("boot", boot);
       (async () => {
         const msg = $("#grpRepMsg"), go = $("[data-submit]", dlg); if (go) go.disabled = true;
         try {
-          await api.fileReport({group_id: g.id, target_kind: kind, target_id: String(targetId), reported_user_id: who, reason, details: details || null, excerpt: excerpt || null});
+          const row = {group_id: g.id, target_kind: kind, target_id: String(targetId), reported_user_id: who || null, reason, details: details || null, excerpt: excerpt || null};
+          // a server without the copyright reason yet (supabase-moderation.sql) takes it as Something else, marked in the details
+          try { await api.fileReport(row); }
+          catch (e1) { if (reason !== "copyright" || !/check constraint|group_reports_limits/i.test(String(e1 && e1.message))) throw e1; await api.fileReport(Object.assign(row, {reason: "other", details: ("[copyright] " + (details || "")).slice(0, 500)})); }
           if (alsoBlock) await blockUser(who, name);
           if (dlg.open) dlg.close();
           toast(alsoBlock ? `Report sent and ${label} is blocked. Thank you.` : "Report sent. Thank you.");
@@ -37795,12 +37930,12 @@ hook("boot", boot);
       d = state.decks[d.id] || d;
       const nq = (d.aiQuizzes || []).length, sh = d.shared && row && d.shared.code === row.code ? d.shared : null;
       const withQ = sh ? !!sh.q : true;
-      const changed = row && (!sh || deckPayload(d, withQ).hash !== sh.h);
+      const changed = row && (!sh || deckPayload(d, withQ, proOn()).hash !== sh.h);
       const qBox = nq ? `<label class="mi-check"><input type="checkbox" id="grpWithQ" ${withQ ? "checked" : ""}> Include my ${plural(nq, "practice quiz", "practice quizzes")}</label>` : "";
       if (!row) {
         openSheet(`<form class="sheet">${head("Share " + d.name)}<div class="sheet-body">
           <p style="margin:0">Make a link and short code for this deck. Anyone with the link can open it in a browser, no account needed, and add a copy. They get your cards, not your progress.</p>
-          ${qBox}${picNote(d)}${rightsBox()}
+          ${qBox}${picNote(d, "link")}${rightsBox()}
           <p class="mini" style="margin:0">They'll see your name as <b>${esc(S.name || "")}</b>. You can update the shared copy or stop sharing any time.</p></div>
           <div class="sheet-foot"><button type="button" class="btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><span class="spacer"></span><button type="button" class="btn primary" data-submit id="grpMake">Create Link</button></div></form>`, () => {
           if (!rightsOk()) return false;
@@ -37817,7 +37952,7 @@ hook("boot", boot);
         <p class="mini" style="margin:0">Shared ${esc(ago(row.updated_at, 1))} with ${plural(row.card_count, "card")}.</p>
         ${window.SBSHARE ? SBSHARE.libRow(d, row.code) : ""}
         ${changed ? `<div class="grp-note">You've changed this deck since you shared it. Update the shared copy so new people get the latest cards.</div>` : ""}
-        ${qBox}${picNote(d)}${changed ? rightsBox() : ""}
+        ${qBox}${picNote(d, "link")}${changed ? rightsBox() : ""}
         <div class="grp-sub"><button type="button" class="link-btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><button type="button" class="link-btn grp-stop" id="grpStop">Stop Sharing</button></div></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn${changed ? " primary" : ""}" id="grpUpd"${changed ? "" : " hidden"}>Update Shared Copy</button>${changed ? "" : `<button type="button" class="btn primary" id="grpSend">Send</button>`}</div></form>`);
       // nothing changed: Update appears only if the practice-quiz choice is changed
@@ -37825,17 +37960,18 @@ hook("boot", boot);
       const cl = $("#grpCopyLink"); if (cl) cl.addEventListener("click", () => copyText(link, "Link copied"));
       const li = $("#grpLinkIn"); if (li) li.addEventListener("focus", () => li.select());
       const sd = $("#grpSend"); if (sd) sd.addEventListener("click", () => sendText(d.name, `Study my Studyboard deck "${d.name}". Code: ${row.code}`, link));
-      $("#grpUpd").addEventListener("click", e => { const wq = !!($("#grpWithQ") || {}).checked; if (!$("#shRights")) { openSheet(`<form class="sheet">${head("Update Shared Copy")}<div class="sheet-body">${picNote(d)}${rightsBox()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpUpd2">Update</button></div></form>`, () => { if (!rightsOk()) return false; doShare(d, wq, $("#grpUpd2")); return false; }); return; } if (!rightsOk()) return; doShare(d, wq, e.currentTarget); });
+      $("#grpUpd").addEventListener("click", e => { const wq = !!($("#grpWithQ") || {}).checked; if (!$("#shRights")) { openSheet(`<form class="sheet">${head("Update Shared Copy")}<div class="sheet-body">${picNote(d, "link")}${rightsBox()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpUpd2">Update</button></div></form>`, () => { if (!rightsOk()) return false; doShare(d, wq, $("#grpUpd2")); return false; }); return; } if (!rightsOk()) return; doShare(d, wq, e.currentTarget); });
       $("#grpStop").addEventListener("click", () => confirmSheet("Stop Sharing?", stopText(d.name, row.code), "Stop Sharing", () => stopShare(row.code)));
     });
   }
   async function doShare(d, withQ, btn){
     d = state.decks[d.id] || d;
-    const p = deckPayload(d, withQ);
+    const p = deckPayload(d, withQ, proOn());
     if (!p.cards.length && !p.quizzes.length) { toast("Add some cards to this deck first"); return; }
     const tick = !!($("#shRights") || {}).checked;
     busyBtn(btn, true);
     try {
+      await attachPics(p);
       const send = () => api.shareDeck(d.id, str(d.name, 200) || "Deck", p, p.cards.length);
       const code = await (window.SBSHARE && SBSHARE.agreedThen ? SBSHARE.agreedThen(send, tick) : send());
       const nd = clone(state.decks[d.id]); nd.shared = {code: String(code), h: p.hash, q: withQ ? 1 : 0, at: Date.now()};
@@ -37843,8 +37979,10 @@ hook("boot", boot);
       // a new link: the sheet that opens next shows it with its code (a toast would cover its buttons on a phone)
       if (d.shared && d.shared.code === code) toast("Shared copy updated");
       deckShareSheet(nd);
-    } catch(e) { busyBtn(btn, false); if (e.terms && window.SBSHARE && SBSHARE.reconfirm) SBSHARE.reconfirm(); else toast(e.message); }
+    } catch(e) { busyBtn(btn, false); if (e.terms && window.SBSHARE && SBSHARE.reconfirm) SBSHARE.reconfirm(); else toast(picErr(e)); }
   }
+  // The server refuses picture cards from an account without Pro (SB_PRO_PICS)
+  const picErr = e => { const m = String((e && e.message) || e || ""); return /SB_PRO_PICS/.test(m) ? "Sharing picture cards is part of Pro. Your plan may have just ended: open the deck again to share it without them." : m; };
   // The deck behind a share code (its link, or its published page, which is the same shared copy)
   const deckOfCode = code => decksArr().find(x => (x.shared && x.shared.code === code) || (x.published && x.published.code === code));
   const stopText = (name, code) => { const d = deckOfCode(code); return `The link and code for ${name} stop working.${d && d.published && d.published.code === code ? " Its public page in Studyboard Flashcards is taken down too." : ""} People who already added it keep their copy.`; };
@@ -38164,7 +38302,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       <p style="margin:0">Members can study it right away or add their own copy. They get your cards, not your study progress.</p>
       <fieldset><legend>Deck</legend><div class="check-list grp-pick">${ds.map((d, i) => `<label class="mi-check"><input type="radio" name="deck" value="${esc(d.id)}" ${(pre ? d.id === pre : i === 0) ? "checked" : ""}> <span><b>${esc(d.name)}</b> <span class="mini">${plural(d.cards.length, "card")}${(d.aiQuizzes || []).length ? `, ${plural(d.aiQuizzes.length, "quiz", "quizzes")}` : ""}${mineIn.has(d.id) ? " · already shared, sharing again updates it" : ""}</span></span></label>`).join("")}</div></fieldset>
       ${ds.some(d => (d.aiQuizzes || []).length) ? `<label class="mi-check"><input type="checkbox" name="withQ" checked> Include practice quizzes</label>` : ""}
-      ${ds.some(d => d.cards.some(keepPrivate)) ? `<p class="mini sh-pics" style="margin:0">Picture cards and cards copied straight from a file are never shared, so they're left out.</p>` : ""}${rightsBox()}</div>
+      ${ds.some(d => picCards(d).length) ? `<p class="mini sh-pics" style="margin:0">Picture cards are left out of group shares. With Pro, share a deck with a link or publish it to include them.</p>` : ""}${rightsBox()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpShareGo">Share With ${esc(g.name.length > 22 ? "Group" : g.name)}</button></div></form>`, fd => {
       const d = state.decks[fd.get("deck")]; if (!d) return false;
       if (!rightsOk()) return false;
@@ -38221,7 +38359,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   window.SBGRPFAB = () => {
     const g = ui.grp ? groupOf(ui.grp) : null; if (!g || !isProj(g) || !$("#grpDetail")) return null;
     const t = curTab(g);
-    return t === "tasks" ? {act: "grp-pt-new", label: "Add Task"} : t === "files" ? {act: "grp-file-new", label: "Add Link", id: g.id} : null;
+    return t === "tasks" ? {act: "grp-pt-new", label: "Add Task"} : t === "files" ? {act: "grp-file-new", label: "Add File", id: g.id} : null;
   };
   function openGroup(gid){
     if (dlg.open) dlg.close();
@@ -38374,6 +38512,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
         busyBtn(el, true);
         (async () => { try { const r = await api.getDeck(d.sharedFrom.code); const p = r && cleanPayload(r.data);
           if (!p) { toast("That deck isn't shared anymore."); busyBtn(el, false); return; }
+          await takePics(p);
           const m = mergeDeck(state.decks[d.id], p, {v: r.updated_at, by: r.sharer_name}); delete S.linkNew[d.id];
           saveDeck(m.nd, mergeMsg(d.name, m));
         } catch(e) { busyBtn(el, false); toast(e.message); } })();
@@ -38737,7 +38876,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const li = (t, s) => `<li><span class="pf-t"><b>${t}</b><span class="mini">${s}</span></span></li>`;
     openSheet(`<div class="sheet pro-sheet">${head("Assign Pro")}<div class="sheet-body">
       <p style="margin:0">Everyone in <b>${esc(g.name)}</b> gets these, even on the free plan, for as long as you're in the group and have Pro.</p>
-      <ul class="pro-feats">${proj ? li("Split the Work", "A fair split of tasks by role and free time") + li("Team Deadline", "An earlier date the group works toward") + li("Rubric Checklist and Review Before Done", "Nothing missed at submission") + li("Contribution Report", "A PDF of who did what, for your instructor")
+      <ul class="pro-feats">${proj ? li("Split the Work", "A fair split of tasks by role and free time") + li("Team Deadline", "An earlier date the group works toward") + li("Rubric Checklist and Review Before Done", "Nothing missed at submission") + li("Contribution Report", "A PDF of who did what, for your instructor") + li("Group Uploads", "Up to 2 GB of group files, from your own storage")
         : li("Split Exam Topics", "Each member covers a topic for everyone") + li("Live Quiz", "Quiz each other live in a session")}${li("Weekly Sessions", "Sessions and meetings that repeat")}${li("Up to 100 members, full chat history", "Instead of 5 members and 60 days")}</ul></div>
       <div class="sheet-foot"><span class="mini">Uses 1 of your ${GX_MAX} Pro groups (${GX_MAX - gxMine()} left). Unassign any time.</span><span class="spacer"></span><button type="button" class="btn gx-assign" data-act="gx-pro-on" data-id="${esc(g.id)}">Assign Pro</button></div></div>`);
   }
@@ -39021,16 +39160,31 @@ ${kindPreview("study")}${kindPreview("project")}`;
     $("#gxRepPrint").addEventListener("click", () => SBPRO.printRaw(html, null, false, {mode: "print", name}));
   }
 
-  /* Group Uploads (turned off: files may be someone else's work). Files uploaded before stay with their uploader, who can save or remove them. */
+  /* Group Uploads (group projects) */
+  const MAXUP = 50 * 1048576;
   function gxUploadsHtml(g){
-    const me = myId(), its = kindItems(g.id, "gfile").filter(it => it.user_id === me); if (!its.length) return `<div id="gxUploads"></div>`;
+    const its = kindItems(g.id, "gfile"), me = myId();
     const size = n => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
-    return `<section class="grp-sec" id="gxUploads">${secHead(gi('<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>'), "Your Earlier Uploads", its.length)}
-      <p class="mini">Files can't be shared with a group any more, so only you can see these. Save any you need, then remove them.</p>
-      <ul class="grp-list">${its.map(it => `<li class="grp-item"><div class="grp-item-main"><b>${esc(it.title)}</b><span class="mini">${esc(size(Number((it.data || {}).size) || 0))}</span></div><div class="grp-item-btns"><button class="btn small" data-act="gx-up-open" data-id="${esc(it.id)}">Save</button><button class="x-btn" data-act="gx-up-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(str(it.title, 60))}">${CLOSE}</button></div></li>`).join("")}</ul></section>`;
+    return `<section class="grp-sec" id="gxUploads">${secHead(gi('<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>'), "Group Uploads", its.length || null, `<label class="btn small" style="position:relative;overflow:hidden">Upload<input type="file" data-gx-up="${esc(g.id)}" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>`)}
+      ${its.length ? `<ul class="grp-list">${its.map(it => `<li class="grp-item"><div class="grp-item-main"><b>${esc(it.title)}</b><span class="mini">${esc(size(Number((it.data || {}).size) || 0))} · ${it.user_id === me ? "Added by you" : "Added by " + esc(it.author_name || "a member")}</span></div><div class="grp-item-btns"><button class="btn small" data-act="gx-up-open" data-id="${esc(it.id)}">Open</button>${it.user_id === me ? `<button class="x-btn" data-act="gx-up-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(str(it.title, 60))}">${CLOSE}</button>` : repBtn(it)}</div></li>`).join("")}</ul>`
+        : `<p class="grp-none">Files everyone in the group can open: drafts, data, images. Up to 2 GB for the group, counted in the uploader's own storage.</p>`}</section>`;
+  }
+  async function gxUpload(g, file, ok){
+    if (!file) return;
+    if (!ok) { confirmRights(() => gxUpload(g, file, true), "file"); return; }
+    if (file.size > MAXUP) { toast("Files up to 50 MB can be uploaded to a group."); return; }
+    const c = cli(); if (!c || !c.storage) { toast("Uploading needs you to be signed in and online."); return; }
+    const safe = (file.name || "file").replace(/[^\w.\-]+/g, "_").slice(-80), path = `${myId()}/g/${g.id}/${uid()}-${safe}`;
+    toast(`Uploading ${file.name}…`);
+    try {
+      const {error} = await c.storage.from(SB_BUCKET).upload(path, file, {contentType: file.type || "application/octet-stream", upsert: false});
+      if (error) throw error;
+      const rows = await api.addItems([{group_id: g.id, kind: "gfile", ref_id: path, title: str(file.name, 200) || "File", data: {v: 1, path, size: file.size, type: file.type || ""}}]);
+      addRows(g.id, rows); patch(g.id); toast(`Uploaded ${file.name}`);
+    } catch(e) { const m = String(e && e.message || e); toast(/SB_GROUP_STORAGE/.test(m) ? "This group's uploads are full (2 GB). Remove some files first." : /SB_GROUP_PRO/.test(m) ? "Uploading to a group is part of Pro groups." : /SB_STORAGE_LIMIT/.test(m) ? "Your file storage is full." : /SB_NO_FILES/.test(m) ? srvSetup("Group uploads", "plans.sql") : /kind_check/.test(m) ? srvSetup("Group uploads", "groups.sql") : "Couldn't upload that file. Try again."); }
   }
   async function gxOpenUpload(it){
-    const c = cli(), p = it && it.data && it.data.path; if (!c || !c.storage || !p || it.user_id !== myId()) return;
+    const c = cli(), p = it && it.data && it.data.path; if (!c || !c.storage || !p) return;
     try { const data = await sbDownload(p, c); saveBlob(it.title || "file", data, data.type || "application/octet-stream"); }
     catch(e) { toast("Couldn't open that file. Check your connection and try again."); }
   }
@@ -39144,7 +39298,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (k === "members") return `<div id="gxPro">${gxProBox(g)}</div>`;
     if (proj && k === "overview") return `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
     if (proj && k === "tasks") return `<div id="gxTasks" class="gx-tools">${featOn(g, "rubric") ? `<button type="button" class="btn small" data-act="gx-rubric" data-id="${esc(g.id)}">Rubric Checklist</button>` : ""}${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl" data-id="${esc(g.id)}">Start From a Template</button></div>`;
-    if (proj && k === "files") return gxUploadsHtml(g);
+    if (proj && k === "files") return featOn(g, "uploads") ? gxUploadsHtml(g) : "";
     if (k === "meetings" || (!proj && k === "sessions")) return ftSec + (proj || !featOn(g, "livequiz") ? "" : lqHtml(g));
     if (!proj && k === "study") return featOn(g, "topics") ? gxTopicsHtml(g) : "";
     return "";
@@ -39165,6 +39319,11 @@ ${kindPreview("study")}${kindPreview("project")}`;
   const unsubscribeBase = unsubscribe;
   unsubscribe = function(){ unsubscribeBase(); if (!LQ.host) lqDisconnect(); };
 
+  document.addEventListener("change", e => {
+    const inp = e.target && e.target.closest && e.target.closest("[data-gx-up]"); if (!inp) return;
+    const g = groupOf(inp.dataset.gxUp); if (g && inp.files && inp.files[0]) gxUpload(g, inp.files[0]);
+    inp.value = "";
+  });
   hook("act", (act, el, id) => {
     if (!act.startsWith("gx-")) return false;
     const g = groupOf(id) || groupOf(ui.grp);
@@ -39280,7 +39439,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // visitor sees what was shared first, then the welcome and setup
     sharePending: () => { const p = takePending(); return !!p && (p.kind === "deck" || p.kind === "share") && !!window.SBSHARE && SBSHARE.can(); }};
   // For 97-sharing.js (public links and the Course Library)
-  window.SBGROUPS.share = {picCards, picNote, rightsBox, rightsOk, confirmRights, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
+  window.SBGROUPS.share = {reportBoard: (gid, bid, info) => { const g = groupOf(gid); if (g) reportSheet(g, "board", bid, info); }, picCards, picNote, proOn, attachPics, picErr, rightsBox, rightsOk, confirmRights, online, cli, myId, ensureName, rememberWebUrl, linkFor, normCode, cleanPayload, cleanQuizPayload, quizPayload, deckPayload, addDeckCopy, previewSheet,
     deckShareSheet, matchCourse, codeKey, copyText, sendText, busyBtn, hashOf, loadingSheet, myName: () => S.name || "",
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
@@ -39663,10 +39822,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const g = G(), p = g.cleanPayload(row.data);
     if (!p || (!p.cards.length && !p.quizzes.length)) { msgSheet("Shared Deck", "That deck couldn't be read. Ask the person to share it again."); return; }
     p.name = clip(row.name, 120) || p.name;
-    const cards = p.cards.filter(c => c.front || c.back), have = copyOf(row.code), nq = p.quizzes.length;
+    const cards = p.cards.filter(c => !c.img && (c.front || c.back)), have = copyOf(row.code), nq = p.quizzes.length, np = p.cards.length - p.cards.filter(c => !c.img).length;
     let i = 0, back = false;
     openSheet(`<div class="sheet sh-view">${head("Shared Deck")}<div class="sheet-body">
-      ${band(p.course, p.name, `${plural(p.cards.length, "card")}${nq ? `, ${plural(nq, "practice quiz", "practice quizzes")}` : ""}${byLine(row)}`)}
+      ${band(p.course, p.name, `${plural(p.cards.length, "card")}${np ? ` (${plural(np, "picture card")})` : ""}${nq ? `, ${plural(nq, "practice quiz", "practice quizzes")}` : ""}${byLine(row)}`)}
       ${cards.length ? `<button type="button" class="sh-card" id="shCard"></button>
       <div class="sh-nav"><button type="button" class="btn small" id="shPrev">Previous</button><span class="mini" id="shPos" aria-live="polite"></span><button type="button" class="btn small" id="shNext">Next</button></div>` : ""}
       ${row.is_mine ? `<div class="grp-note">This is your own shared deck. Adding it makes a second copy.</div>` : have ? `<div class="grp-note">You already have this deck (${esc(have.name)}).</div>` : ""}
@@ -39752,9 +39911,12 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     openSheet(`<form class="sheet">${head("Report This")}<div class="sheet-body">
       <fieldset class="sh-reasons"><legend class="mini">What's wrong with it?</legend>${REASONS.map(([k, l], i) => `<label class="mi-check"><input type="radio" name="reason" value="${k}" ${i ? "" : "checked"}> ${esc(l)}</label>`).join("")}</fieldset>
       <label class="f">More Details <span class="hint">optional</span><textarea name="details" rows="2" maxlength="500"></textarea></label>
-      <p class="mini" style="margin:0">We review reports and remove what breaks the rules. The person isn't told who reported it.</p></div>
+      <p class="mini" style="margin:0">We review reports and remove what breaks the rules. The person isn't told who reported it. Your own work copied? You can also send a formal copyright notice: see Copyright complaints in the Terms.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Send Report</button></div></form>`, fd => {
-      rpc("report_share", (r => ({p_code: code, p_reason: r === "copyright" ? "other" : r, p_details: ((r === "copyright" ? "[copyright] " : "") + String(fd.get("details") || "")).slice(0, 500)}))(String(fd.get("reason") || "other")))
+      const r = String(fd.get("reason") || "other"), det = String(fd.get("details") || "").slice(0, 500);
+      // a server without the copyright reason yet (supabase-sharing.sql) takes it as Something else, marked in the details
+      rpc("report_share", {p_code: code, p_reason: r, p_details: det})
+        .catch(e => { if (r !== "copyright" || !/check constraint|share_reports_reason/i.test(String(e && e.message))) throw e; return rpc("report_share", {p_code: code, p_reason: "other", p_details: ("[copyright] " + det).slice(0, 500)}); })
         .then(() => toast("Thanks. We'll review it soon.")).catch(e => toast(e.message));
     });
   }
@@ -39800,7 +39962,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     src = srcOf(kind, ref); if (!src) { dlg.close(); return; }
     if (!row) {
       openSheet(`<div class="sheet">${head(title)}<div class="sheet-body">
-        <p style="margin:0">Make a link for this ${what}. Anyone with the link can ${kind === "note" ? "read it" : kind === "board" ? "see it" : "take it"} in a browser, no account needed, and save their own copy.${kind === "board" ? " It's a copy: your changes after this show up for them when you update the link. Only your drawing and text are shared, not pictures on the board." : ""}${kind === "note" ? " Only the text is shared, not photos or stickers." : " They get the questions, not your scores."}</p>
+        <p style="margin:0">Make a link for this ${what}. Anyone with the link can ${kind === "note" ? "read it" : kind === "board" ? "see it" : "take it"} in a browser, no account needed, and save their own copy.${kind === "board" ? " It's a copy: your changes after this show up for them when you update the link. Pictures on the board are shared too, so only share pictures you have the right to." : ""}${kind === "note" ? " Only the text is shared, not photos or stickers." : kind === "quiz" ? " They get the questions, not your scores." : ""}</p>
         <p class="mini" style="margin:0">They'll see your name as <b>${esc(g.myName())}</b>. You can update it or stop sharing any time.</p></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="shMake">Create Link</button></div></div>`);
       $("#shMake").addEventListener("click", e => make(kind, ref, e.currentTarget));
@@ -39969,9 +40131,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const g = G(), d = state.decks[id]; if (!g || !d) return;
     if (notMine(d) && !(d.published && d.published.code)) { msgSheet("Not Your Deck", notMineText(d, true)); return; }
     if (!signedIn()) { signInSheet("Publish Deck", "Sign in to publish your deck. A free account is all it takes."); return; }
-    const n = d.cards.filter(c => !c.draft && !c.img && !c.copied && String(c.front || "").trim() && String(c.back || "").trim()).length;
+    // the public page shows text cards (picture cards travel with the deck for Pro, but aren't shown on the page)
+    const n = d.cards.filter(c => !c.draft && !c.img && String(c.front || "").trim() && String(c.back || "").trim()).length;
     if (d.published && d.published.code) { managePub(id); return; }
-    if (n < 4) { toast(d.cards.some(c => c.img || c.copied) ? "A deck needs at least 4 cards to be published, not counting picture cards or copied cards, which are never shared." : "A deck needs at least 4 cards to be published."); return; }
+    if (n < 4) { toast(d.cards.some(c => c.img) ? "A deck needs at least 4 text cards to be published, not counting picture cards." : "A deck needs at least 4 cards to be published."); return; }
     g.rememberWebUrl();
     g.ensureName(() => withUsername(() => ensureSchool(sc => confirmPub(id, sc))));
   }
@@ -40023,7 +40186,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     $("#pubLookGo").addEventListener("click", e => { const nd = clone(state.decks[id]); nd.pubLook = get(); saveDeck(nd, null); doPublish(id, e.currentTarget); });
   }
   function confirmPub(id, sc){
-    const d = state.decks[id], c = courseOf(d.courseId), n = d.cards.filter(x => !x.draft && !x.img && !x.copied).length, L = lookOf(d);
+    const d = state.decks[id], c = courseOf(d.courseId), n = d.cards.filter(x => !x.draft && !x.img).length, L = lookOf(d);
     openSheet(`<div class="sheet">${head("Publish " + d.name)}<div class="sheet-body">
       <p style="margin:0">Publishing gives this deck its own page in Studyboard Flashcards. Anyone can find it by searching, on Google too, and add a copy.</p>
       <ul class="pub-sum"><li><span class="mini">Shows</span><b>${esc(plural(n, "card"))}</b></li><li><span class="mini">Course</span><b>${esc(c ? courseLabel(c) : "None")}</b></li>
@@ -40031,7 +40194,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       ${c ? "" : `<p class="mini" style="margin:0">Tip: put the deck in a course with a course code, so students searching that course find it.</p>`}
       <h3 class="fsec" style="margin:6px 0 0">On the Page</h3>
       <div class="pub-look-prev">${lookTile(d, L)}</div>${lookFields(L)}
-      <p class="mini" style="margin:0">Your study progress is never shared. You can update or unpublish it any time.</p>${G().picNote(d)}${G().rightsBox()}</div>
+      <p class="mini" style="margin:0">Your study progress is never shared. You can update or unpublish it any time.</p>${G().picNote(d, "link")}${G().rightsBox()}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="pubGo">Publish</button></div></div>`);
     const get = wireLook(dlg, L);
     $("#pubSch").addEventListener("click", () => schoolSheet(() => { const s2 = (state.settings || {}).school; if (s2 && s2.v) confirmPub(id, s2); }));
@@ -40042,7 +40205,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const g = G(), tick = ticked(); let d = state.decks[id]; if (!d) return;
     g.busyBtn(btn, true);
     try {
-      const p = g.deckPayload(d, false);
+      const p = await g.attachPics(g.deckPayload(d, false, g.proOn()));
       const code = String(await agreedThen(() => rpc("share_deck", {p_deck_id: d.id, p_name: String(d.name || "Deck").slice(0, 200), p_data: p, p_count: p.cards.length}), tick));
       await rpc("share_publish", {p_code: code, p_on: true});
       pubRefresh("deck", d.name, code, deckCourse(d));
@@ -40058,16 +40221,16 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       if (/SB_USERNAME_NEEDED/.test(String(e.message))) { try { localStorage.removeItem("studyboard:uname:" + (sbUser || {}).id); } catch (er) {} withUsername(() => confirmPub(id, (state.settings || {}).school)); return; }
       if (/SB_SCHOOL/.test(String(e.message)) || /Pick your school/.test(e.message)) { ensureSchool(sc => confirmPub(id, sc)); return; }
       if (/SB_NOT_YOURS/.test(String(e.message))) { msgSheet("Not Your Deck", "You can only publish decks you made. This one matches someone else's shared deck, so it stays in your Studyboard just for you."); return; }
-      toast(String(e.message).replace(/^SB_[A-Z]+:\s*/, ""));
+      toast(g.picErr(e).replace(/^SB_[A-Z_]+:\s*/, ""));
     }
   }
   function managePub(id, fresh){
     const d = state.decks[id]; if (!d || !d.published) return;
-    const code = d.published.code, url = pubUrl("deck", d.name, code), changed = d.shared && d.shared.code === code && G().deckPayload(d, false).hash !== d.shared.h;
+    const code = d.published.code, url = pubUrl("deck", d.name, code), changed = d.shared && d.shared.code === code && G().deckPayload(d, false, G().proOn()).hash !== d.shared.h;
     openSheet(`<div class="sheet">${head(fresh ? "Published" : "Published Deck")}<div class="sheet-body">
       ${fresh ? `<p style="margin:0"><b>${esc(d.name)}</b> is live in Studyboard Flashcards. It can take a few days to show up on Google.</p>` : `<p style="margin:0">Anyone can find <b>${esc(d.name)}</b> in Studyboard Flashcards${d.published.school ? ` under ${esc(d.published.school)}` : ""}.</p>`}
       <div class="grp-link"><input type="text" readonly value="${esc(url)}" aria-label="Public page" id="pubUrl2"><button type="button" class="btn small" id="pubCopy">Copy Link</button></div>
-      ${changed ? `<div class="grp-note">You've changed this deck since it was published. Update the page so it shows the latest cards.</div>${G().picNote(d)}${G().rightsBox()}` : ""}
+      ${changed ? `<div class="grp-note">You've changed this deck since it was published. Update the page so it shows the latest cards.</div>${G().picNote(d, "link")}${G().rightsBox()}` : ""}
       <div class="pub-acts"><button type="button" class="btn small" id="pubLook">Change Color and Icon</button><button type="button" class="btn small danger" id="pubOff">Unpublish</button></div></div>
       <div class="sheet-foot"><span class="spacer"></span>${changed ? `<button type="button" class="btn primary" id="pubUpd">Update Page</button>` : ""}<button type="button" class="btn${changed ? "" : " primary"}" id="pubOpen">View Page</button></div></div>`);
     $("#pubCopy").addEventListener("click", () => G().copyText(url, "Link copied"));
@@ -54418,7 +54581,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 75, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 83.5, w: 3.4},
         cheeks: {lx: 37.5, rx: 82.5, y: 83, w: 5.6, h: 3.4},
-        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 56, 92], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 72, 92], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
           pet: ["Hehe, extra squishy happy!", "More pats? Yes please, yes please!"],
@@ -54447,7 +54610,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 77, r: 6, style: "round"},
         mouth: {x: 60, y: 90, w: 3.4},
         cheeks: {lx: 41, rx: 79, y: 88, w: 4.6, h: 2.9, color: "#FFA3C4"},
-        anchors: {top: [60, 37.5, 0.8, 0], neck: [60, 99, 1.2, 0, 61, 51], chest: [73, 104.5, 0.59], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
+        anchors: {top: [60, 37.5, 0.8, 0], neck: [60, 99, 1.2, 0, 50, 51], chest: [73, 104.5, 0.59], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
         lines: {
           tap: ["Fresh page, fresh start! Let's go!", "We're going to write something great today!", "You're on a roll and I love it!", "Neat notes, happy brain, happy me!", "Every word you write counts!", "Doodle break? I won't tell a soul!", "Ink it in! You've totally got this!"],
           pet: ["Careful, I might smudge with joy!", "Hehe, that tickles my inky drips!"],
@@ -54519,7 +54682,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 52, rx: 68, y: 72, r: 4.6, style: "dot"},
         mouth: {x: 60, y: 80, w: 3},
         cheeks: {lx: 47, rx: 73, y: 79.5, w: 3.6, h: 2.4},
-        anchors: {top: [60, 25, 0.85, 0], neck: [60, 89, 0.95, 0, 47, 41], chest: [70, 95, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
+        anchors: {top: [60, 25, 0.85, 0], neck: [60, 87, 0.95, 0, 38, 40, 35], chest: [70, 95, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
         lines: {tap: ["This part? Definitely important.", "I only light up the good stuff.", "You don't have to remember it all. Just the key bits.", "Hi! Ready to make things stand out?", "One clear line at a time.", "Bright idea incoming!"], pet: ["Hehe, careful, my cap pops off!", "Glowing extra bright now."], hello: ["You're back! Let's find the key ideas.", "Hi again! Cap's off, ready to go."], morning: ["Good morning! Today looks bright."], night: ["Cap on, lights low. Time to rest."], focus: ["Steady hand. You've got this.", "Marking the moment. Keep going."], done: ["Great session! That deserves a big bright line.", "Done! You really focused."], task: ["Done! Highlighted in gold.", "Yes! That one's marked finished.", "Another one done. Nice!"], break: ["Cap on for a minute. Stretch it out."]}
       },
       {
@@ -69283,7 +69446,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function allThemesHtml(){
     const names = id => { const s = SKINS.find(x => x.id === id); return s ? s.name : id === "plain" ? "Plain Colors" : id; };
     const keys = ["plain"].concat(SKINS.map(s => s.id).filter(id => REG[id]));
-    return keys.filter(k => REG[k]).map(k => `<div class="cp-row"><div class="cp-row-t">${esc(names(k))}${k === themeKey(skinId()) ? `<span class="tp-now">Your Theme</span>` : ""}</div><div class="cp-row-l">${REG[k].list.map((x, i) => `<span class="cp-mini" ${canComp(x) ? "" : `data-act="shop-unlock" data-kind="comp" data-id="${esc(x.id)}" role="button" tabindex="0"`} title="${esc(x.name + ", " + (x.kind || ""))}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}${compTier(x) === "pro" ? PRO_BADGE : ""}${canComp(x) ? "" : " 🔒"}</span></span>`).join("")}</div></div>`).join("");
+    return keys.filter(k => REG[k]).map(k => `<div class="cp-row"><div class="cp-row-t">${esc(names(k))}${k === themeKey(skinId()) ? `<span class="tp-now">Your Theme</span>` : ""}</div><div class="cp-row-l">${REG[k].list.map((x, i) => `<span class="cp-mini" ${canComp(x) ? "" : `data-act="shop-unlock" data-kind="comp" data-id="${esc(x.id)}" role="button" tabindex="0"`} title="${esc(x.name + ", " + (x.kind || ""))}"><span class="cp-still-box">${stillHtml(x, 64)}</span><span>${esc(x.name)}${compTier(x) === "pro" ? PRO_BADGE : ""}</span></span>`).join("")}</div></div>`).join("");
   }
   function shopBody(){
     return `${pickerBody()}<button type="button" class="btn small cp-more" data-act="comp-more" aria-expanded="false">See Every Theme's Companions</button><div class="cp-all" hidden></div>`;
@@ -72026,9 +72189,9 @@ You can also DO things in Studyboard, but only when the student asks or what the
    Switched on with studyboard_config.item_purchases (see CREDITS-GUIDE.md). */
 (() => {
   const K = "studyboard:credits";
-  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin"};
+  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin", note: "Note Shape"};
   // Shown until the server has answered once; the server's own prices always win when buying
-  const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50};
+  const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50, note: 100};
   // The Studyboard Credits coin (build-resources/credits-art: the gold coin, 96 px WebP)
   const COIN_SRC = "data:image/webp;base64,UklGRvIQAABXRUJQVlA4WAoAAAAQAAAAXwAAXwAAQUxQSFEEAAABoLRtmyHJHtAb8eXYto5t27Z2tm37rMa2bWtlW8e2zfjiexeNqsqMiJgAVNxnAgB19jnjxqd7jpwxd+7M0X2ev+XsA+sDgM88iu3EA2h19jPTdv/EEn95b87LF7UD4MQVxwmAbnfM+prVxhhVY1TVGI1Vf1j80EEAxBXDZUCj62b/RtKCRmOJFjVEkv8sv7UVID5/ToC2T79DUtVYdtNA8os3ewDiciZA+9e/IaMaK2yq5C/99gEkT05Q79EvSY3MpSn582vN4V1uBDh3MxmMubVAvn8DIDnJ0Kw/qcZcWyAnd4DkwQlO2UWLzH1UfnYpvKuYc7j3XwYWMpCvAr5CHn4AqSxojJzaBFIRj0azqcbCWuDaTpAKeLRcwcBC/893e0DK5tFiPQMLHvj+PpAyeddoJQMLr3ynM3xZnPg5DExg4KamzpVDMICBSQyc5cWVJribgYkMfBtSkscJ/6ilwpRXQUpwvsleKpNp9n0X52snGEBlQpXzILUSnG1qKaHyJkhtfL0djEyq2TdtvKtJ8AiViVX2ga/BuzbfWkyNxX8Odr46wWtUJlc5HlKNc21/MEsP7b9Dna+S4WkqE6wcDAHgXIMPLKbI7JcOcIDgGkYmWfkYBPCYbZqqzeLg0OV3Wppoejx8hjuoTLTyDWQes9MVuUkcWnxLS5Xx3wOAs2lMtvJm4BmGdAUOBqZT0xW53tXdw5gu43cd9/mZli5STznDmPLIG29kTNtLz6RNObRn6uaNoqYscuWM1G2ek7rtcxlTZtw+k5qyyC2jU7e6N2PaFjyfNuWIW9MW+drZxrTdesCvtIRZPKP+e4zpMv7YFXOp6YrcIniFIV2Bo4CLGNOlvAto+zMtVUY9DB5LqKmK3FXHZXgoXYG9kHns9w9TbTwDAo+lpmmK3FsXDhluYqKULyEDHJp/aTFFZn/uAw9A8CZDipST4AHAu26/myUo6omQKhD0o6ZHOQ8e1XrX9bdoqbGoJ0Cqg+A1amqU4yGo0flmH1tMi8VfujtfEwTXMqRF+RgEtRVMpaZEuSbzrlbetf+Klg6Lfx4Kj9oLLqZaMgLvhKBUwasMqQgcBUHJTjCNIQ2Ba+t7Vxqca7yeIQXKjzrCo5weHfdSi6f85hAIyuvR432Goim/Pw4Zyi3o8S7/L1bg18ciQ/kFnTcwFCnww0ORoZKCZjMZY1FMubozBJX1wNukFkPJEQ0gqLRzuPobquXPAv+4C/DIoaDbHFItZ0quOALeIZcC3PoFqZYjNf78hECQV+/QtvffpFo+TI0cuw+cR44FOGzMv6TGykUlbdZJgCDfToAjh/xCMkSrQFQj/5x8KuA9cu8F6PLoBiOpIVppFlVJcsfz+wHeo5BeAHfiG5v+Z9UYNcZoFmPUGFnVdvY8KwPEo7BOAOCAmwat+yay1O+3jLzz8AxA5lFo5zNU7XjyjS8Nmbdy8/btW1YvHPHqrWd0cwAg4lBpAFZQOCB6DAAAEC8AnQEqYABgAD49FolDIiEhFqxHbCADxLUAXZmhQ7Pc/NesD+U/E/N9mwtof631SeKb0p/2u9S/nUf6r1Wf5X1AP7n/jOsW/cD2AP2x9Nr91vgp/dP9xfgN/Yb/85yr8gHlJ/n/CnyQ+683bMvxYeSb8CfnvNXvH4AXsP+9flp/SvfV2Ad8zsP+p/4H9H9gL2Y+qf6rjM8QD9Xv9NxtFAD+V/1b/f/4b3Wf6j/u/6b8zPbp9M/9n/M/4f5Bf5d/UP9l/ev3s/yHzd+z30YP1mURrcTX8NCueWlp4NHrlYrBwefl65gHLAsFJjiPf10f/ka6oCoRhXo/XP5ghVf/54jkeM9mzJAiK9+2xfPVNIKg1YMTJulMc3hxyod4kT1rUkq3CdWDKpEM6YYlQS9o4bruCsT0CFvG4ZDuml6oH7ayApxrqyBlzpWGDqgOS3Cn6HwExCk5wfgY2LDLDTPYDciVI4atff8VBB+LGX0/k/7cSXx9FLHnOUJ63pZtjPWoAAD+/5OFz6XLCrAvfytXDYUBWe8daHaVW6jaUHIj/kgFC9tISN+mFScbQqOotuvVqC4iVJsXDic/elJa/qdGmM+spKpQ2+zpgRnJc1Jz9EKFGxV8XjMwUb3SC+gsUyC95PxYhdqRRc3YeRgleuePtFvfGdB4agFucxdm2m3hGEzAF3NUQtpVVYSHPUPZ8L+v9BsJoJibwcAIES7D9vJd1MrEyv23KelYN8dpwLUGtaM88DZqMnSTvQka65PLIWTQT+nX2lbKKcIrM4xy3SzCeUNV6sJS6nKU2sugk0pgYc5ZBeKSNvIY+JOqIRZybXZcGnU1Fy4RbdOrCsYFSqwIkqUbx9aFm54fht3KJ1ZKw3V/kMWjhdFo3wUFQrC0FeYnGlxUasDEWRq5s4Xvp1ZhoFZyq4UQEmQcq7B4vPAZrGlP/lxIrkxn4Da5yjI0HIEQuMsUqkQpYRrjPUva+V2ljHHb3QqgwkCd5ocwZMdip/YJEAkyZbQtRb1gzTfGX7QjRjiX3PavB8FQby2yGG0Kl7tEaTeGehBan00cDxiKBo/KXJdrj+YeCZDrH37E49gGqIflHUnJYfoJSxZgBSjzJ21yXsrbpqxoMemIYmUXP+LBMW/O+/KZoXI46gKaqJBJuWj3yJp6D1/Ik4Sz9Mi/7yQPxXMYMx6XJWKXdHbKToZ36QS1TbUv/sU/DUDI6Q+ngD/Y1xemfStVDMDwmWqzElqrGq0LLJoIATH+NY6NsgJ8XfDmWOvb2j+aZdZ98Pq6RXyVMB0MWCGMv5mLmWxuGtmOOJif5x0y97x3dSxAepOpuqm9USE2qkWObpLfsqo43xTd8AA5lBuLnXH0SYiAJxza/8ik9JYQCeEWYVtSc8L4VtGF8FSfmW1aKOn7kfkwVsjrEXrLluLU0EEP71dWemth9ZZTGUi/hu4qZqboI9j663GsvKbxFDvD8T7WHmYRJErtCmflraoF+l/UxFaytADVKer4q+/kTVUcRWvFwne9i315nqH77ETQqn+BErn8xqU4ei3Ox3NEo6DDM7aGlSnqZj5XEHmVdar1pG85sXsdqru+WHj3bloLqQPyZrEqKfWZW6tdbx3MeUTf6vL/Le1QJI87QlNjIJ3wNw0m1og/cNtmkYqNwxnl3z+/LxFaSLvCiUFl2XWaNvoGa6jUYxIyL7Xy3uA5Vh3iBazevr9TCc8b1iaoSHGbMBr0eKM2/+klH7WxMZaSU4Lt8vVpNr5qCkBCM83HiKZSyvQnjk2k9mbmaQwsfEp+/GKFMjBHl5wwrMOyZ/L157akWiyMRNrPKtlcFjY8ipYMZZlj+J0nxzw3YjD0aPSx+xdBpWWGmgcjshh+OkRf8xRErzVZR23W8AhjHxhSGLdLFpJw9qQiqW5V9+2XyetQCoHdRIh/v6Yivcb5K1GaildfzUBW0vB3PyUxzDk9+zbIxWRqJsOehD11fWd9xnLmBSKxnsebux5YTjDb6Jx05jO61Jkn/TnX6/BIpJ9bILbCnTnaAaLLNjaYYndTMO0qv5YGJA996v5Rp2NWDX0HO989llwDC7DMizKE5DZtttuQHlSw/8udP98VnNTWCcym7tijlewy1jueN62VaZsOz+M8yETmYG5zDCvKAgKjoDBc+ouTrH/sfk0V8xIrXPHYcF/vj6T9JIrZwU/FFLISC+WG9B3piDKy37JkeqcthdXWHum/4oPQcirtf7k4kcDBTTp4/327Ne6Sf20kXSZRZ3p+3RbhF7uIu7kpUSICitovQgu0kcG5uBcjmv5cu92wmaJRGdfswNxJhf1W6cgWm71RiRH75mujqXJhUGr00g2slJ4V77WCfbN96h7QZwEC/dyJzwfbjtenzNeXfPhJGo+SCIhHNA3i/l/P7APgKx9AbcsMmoaOK+V9ihqOlQzGvW1saKT6o3/ZdGmzQKZD5OCM0YSjbHpaBVYlbk/54/IBmCTJyZ3uPlyuEAUyOPGykFBvJ7BfjhGbI12bSMq8M4Dz8Ydnl3w9GGujvOKZHwMqKbyPUqnb0zqNRw/HqfknLHOUY9LHVpDuVGDIPKCaEiukXFO6WgBGz+aT1KxMY+5oT3DIHbtezY6h5rPDejUqJLxaE2L+cw+j5r1gXxXFIWP2V3jd2EtUIcs/CwnG5oJ+r8bmr8YOrUBQNLYpyyq0usOe3sICz7MDgxLn8ZdUGYNiiNf++8x+6XNWufDyWzuLvIad2I3c4hmNR/kYDvRbFvBFREA8/gvpGuWIqVlH20/0yV4Qu5ikrF513lQASANNeZnX6LrAsAAsfQHUtAGOvSkkaq6vVOPCdRMcMl0fkwKd1kM1sUZ8DbAyNoyFxVYpWgMUaPnzsFcQdTx08xWhVmDxy14gnzO0IeQj6fb1Uu/1cRsxhV7tbH/1n2NO3oJV26+HvRfmDAExiSNoh8hxAylZIYZ5Bdk9MZHOaMYPqaJAIB24Jtqw6H1+kbH/vlVE7zCoF9GvPiX0AaV7pyXigZ8SqWu+OWU85OPWOv7kYNpYR9MiSoxombMP4D0f0v+g6kc1orQSGcb7w5cQXqRWONfYaG2VpGt9re5GI4EMgCDtYPSYw4xsC/p+k187VMXzVBV18jA0bdKvl8cz6dvwCPNPaOiXHjQ7zl0ygXCPccfqNK1I6zzpfZC6o68+FtlrJzwNXK+mLrBlIQ0SfM+D1yk7noI6/z6tXv8eng+Pxx0XU7Vu6IE2l8+N973+Wxjc+uK48Mrhj/UdPFgUQrDC9Jida4DE/4iRzGNV0sDUROOPuVvSnSZ62YOmXf7AnkDhhCh1nNAZ1yy8Nc6DDhbZw08b28nhhMKpiwxVPC8hru95CVjGTSA+bFhLOaxGpbzOzp2E5kOmdNDikpK3+9xtw4GWHqIF4l1u596tNABZNyFuX82D0e5Dpc6i5bmkcBuRGywTI0Vmb9/f9vY3FTD6MZqe7QFfrlpBaLgfxZ926e0/RIu4HTvJPiabf+A53r5/VWX5NT23mG5kXHAUD2IaeTWCjsjztIhF0EztPq88LCZJHSRlL2FU2VZfCsjsDcpzHDDssosXrbgo0Vpd4T4aH+GErFV07jI0dqYHZ7nB24y9FY30Rw1ho9xjV8U8eRuQHNWUYWfAybp/emeC3eB6Sq68GiFguHuHG8yAvzNTWZJ0vVXpBQMfpUL7D2bjFChx3JrNkMPsbPn760jYhL1Wu1WEkuc7vVhHk1O4wT5cPHHkIMFfnNd937/wvgpf155gZWhutBE1eCLdoXtRe5H67948HzS5Xd0y/tXoDoEuDharNU5pWZINcU7GBP1Zr8RQu8PoUmCXsZjx2jZH5ugqRjMWYAJg7ZI6xTWjx5krKbihYJVnLlDx+Dj2ohiT5pBnI0xCJ2n2p4v4YJRoPtmUAKoOgO9o1xshsTwR8EIVYsdWi9vc95escl+gVduLtoaBN/o1h74WtybG7umB38/uOfesh+ich1bysV35hw7a5sb+kkdrD3Rv/GE7+m7T204mc5oLl6fqr9pF1oJMLEz9pzVpIcYm6sv7oHXx+4NUNh6WL9IShomFnxA69B8+BdaVkkoEa/f90vxQ/DyGfTSXmWeuATG3UCCIsjj798Qa4TzW2PUJSwulH03d8tKhOpA9Odn516FjnSbVs7MDZllHfOo//LLT34Ko1dwvQuteYQ8tgAUULvZKhTHEzJTwuiV6ABHcDzACRoKtjEZLKFh/oOy9DQ24oggcH9Lq21OnzkhV8pLpQpGtg7i1+1MAAAA=";
   const COIN = `<img class="sbc-coin" src="${COIN_SRC}" width="20" height="20" alt="" aria-hidden="true">`;
@@ -72054,6 +72217,15 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const enabled = () => { try { return STORE.paywall && planOk() && !!PLAN.config().item_purchases && !inPreview(); } catch (e) { return false; } };
   const signedIn = () => { const u = usr(); return !!u && !u.is_anonymous; };
   const storeApp = () => { try { return planOk() && PLAN.storeRoute(); } catch (e) { return false; } };
+
+  // A sticker drawn with its own gradient and clip names (the same sticker often sits on the page twice, and a copy that's
+  // hidden would otherwise lend its colours to the visible one, washing it out)
+  let stkN = 0;
+  function stkPic(k){
+    const svg = (STICKERS[k] || {}).svg || "", n = ++stkN;
+    const own = svg.replace(/\bid=(["'])([^"']+)\1/g, (m, q, i) => `id=${q}${i}-c${n}${q}`).replace(/url\(#([^)]+)\)/g, (m, i) => `url(#${i}-c${n})`).replace(/href=(["'])#([^"']+)\1/g, (m, q, i) => `href=${q}#${i}-c${n}${q}`);
+    return `<span class="stk-cell"><svg viewBox="0 0 64 64" aria-hidden="true">${own}</svg></span>`;
+  }
 
   /* ---------- Ownership ---------- */
   const has = (kind, id) => owned.has(kind + ":" + id);
@@ -72103,7 +72275,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
         C = Object.assign({}, data, {uid: usr().id, at: Date.now()});
         save(); rebuild();
         if (was !== JSON.stringify([C.balance, C.owned])) {
-          if (before && C.balance > before.balance) toast(`${C.balance - before.balance} credits added. You have ${C.balance}.`);
+          if (before && C.balance > before.balance) {
+            const got = C.balance - before.balance;
+            if (pending) { added = {credits: got, balance: C.balance}; pending = null; }
+            if (!(dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])"))) toast(`${got} credits added. You have ${C.balance}.`);
+          }
           try { applySkin(); } catch (e) {}
           scheduleRender(); redrawOpen();
         }
@@ -72134,9 +72310,10 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   function preview(kind, id){
     if (kind === "skin") { const s = SKINS.find(x => x.id === id); return s ? skinPreview(s, isDark()) : ""; }
-    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? `<div class="sbc-stk">${Object.keys(p.items).slice(0, 6).map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div>` : ""; }
+    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? `<div class="sbc-stk">${Object.keys(p.items).map(k => stkPic(k)).join("")}</div>` : ""; }
     if (kind === "card") return `<div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`;
     if (kind === "pin") return noteDemo(noteShapeOf(null), id, 1);
+    if (kind === "note") return noteDemo(id, notePinOf(null), 1);
     return "";
   }
   const CHEV = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -72144,22 +72321,67 @@ You can also DO things in Studyboard, but only when the student asks or what the
   // Every piece of a Theme Collection, drawn as it looks in the app
   function insideHtml(th){
     const r = window.SBTP && SBTP.rec ? SBTP.rec(th) : null, tiles = [];
-    const tile = (label, sub, body, cls) => `<div class="sbc-in ${cls || ""}"><span class="sbc-in-l">${esc(label)}</span><div class="sbc-in-b">${body}</div>${sub ? `<span class="sbc-in-s">${esc(sub)}</span>` : ""}</div>`;
+    let what = "";
+    const tile = (label, sub, body, cls) => `<button type="button" class="sbc-in ${cls || ""}" data-act="sbc-zoom" data-what="${what}" data-th="${esc(th)}" aria-label="${esc(label)}: see bigger"><span class="sbc-in-l">${esc(label)}</span><span class="sbc-in-b">${body}</span>${sub ? `<span class="sbc-in-s">${esc(sub)}</span>` : ""}</button>`;
     const comps = (STYLE_LISTS.comp || []).filter(c => c.theme === th);
     if (comps.length) {
       const pic = c => { let u = ""; try { const h = window.SBCOMP && SBCOMP.head ? SBCOMP.head(c.id) : ""; u = h ? "data:image/svg+xml," + encodeURIComponent(h.replace("<svg ", h.includes("xmlns=") ? "<svg " : '<svg xmlns="http://www.w3.org/2000/svg" ')) : window.SBCOMP && SBCOMP.stillUrl ? SBCOMP.stillUrl(c.id) : ""; } catch (e) {} return `<figure title="${esc(c.name)}">${u ? `<img src="${esc(u)}" alt="${esc(c.name)}" width="40" height="40">` : ""}</figure>`; };
-      tiles.push(tile(comps.length === 1 ? "Companion" : `${comps.length} Companions`, comps.map(c => c.name).join(", "), `<div class="sbc-comps">${comps.map(pic).join("")}</div>`));
+      what = "comps"; tiles.push(tile(comps.length === 1 ? "Companion" : `${comps.length} Companions`, comps.map(c => c.name).join(", "), `<div class="sbc-comps">${comps.map(pic).join("")}</div>`));
     }
     const p = r && r.pack && STICKER_PACKS.find(x => x.id === r.pack);
-    if (p) { const keys = Object.keys(p.items); tiles.push(tile(`${keys.length} Stickers`, p.name, `<div class="sbc-stk">${keys.map(k => `<span class="stk-cell">${stickerSvg(k)}</span>`).join("")}</div>`)); }
+    if (p) { const keys = Object.keys(p.items); what = "stk"; tiles.push(tile(`${keys.length} Stickers`, p.name, `<div class="sbc-stk">${keys.map(k => stkPic(k)).join("")}</div>`)); }
     const cs = r && r.card && CARD_STYLES.find(x => x.id === r.card);
+    if (cs) what = "card";
     if (cs) tiles.push(tile("Flashcard", cs.name, `<div class="cs-demo cs-${esc(cs.id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`));
     if (r && r.pins && r.pins.length) {
+      what = "pins";
       const names = r.pins.map(pid => ((PINS.find(x => x.id === pid) || {}).name || "")).filter(Boolean).join(" · ");
       tiles.push(tile(r.pins.length === 1 ? "Pin" : `${r.pins.length} Pins`, names, `<div class="sbc-pins">${r.pins.map((pid, i) => noteDemo(i ? "rounded" : "classic", pid, i + 2)).join("")}</div>`));
     }
     return tiles.length ? `<div class="sbc-inside"><h3 class="sbc-h">What's Inside</h3><div class="sbc-in-grid">${tiles.join("")}</div></div>` : "";
   }
+  // A bigger look at one piece of a collection, over the buy sheet (Back or Escape returns)
+  function zoomHtml(what, th){
+    const r = window.SBTP && SBTP.rec ? SBTP.rec(th) : null;
+    if (what === "comps") {
+      const comps = (STYLE_LISTS.comp || []).filter(c => c.theme === th);
+      return [comps.length === 1 ? "Companion" : `${comps.length} Companions`, `<div class="sbc-z-comps">${comps.map(c => { let u = ""; try { u = SBCOMP.stillUrl(c.id); } catch (e) {} return `<figure>${u ? `<img src="${esc(u)}" alt="">` : ""}<figcaption>${esc(c.name)}</figcaption></figure>`; }).join("")}</div><p class="sbc-note">They live on your board and cheer you on. Pick one in the Companion tab.</p>`];
+    }
+    if (what === "stk") {
+      const p = r && r.pack && STICKER_PACKS.find(x => x.id === r.pack); if (!p) return null;
+      return [`${p.name} · ${Object.keys(p.items).length} Stickers`, `<div class="sbc-z-stk">${Object.keys(p.items).map(k => stkPic(k)).join("")}</div><p class="sbc-note">Drag them onto your sticky notes from the envelope beside the Notes board.</p>`];
+    }
+    if (what === "card") {
+      const cs = r && r.card && CARD_STYLES.find(x => x.id === r.card); if (!cs) return null;
+      return [`Flashcard Style · ${cs.name}`, `<div class="sbc-z-card"><div class="cs-demo cs-${esc(cs.id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div></div><p class="sbc-note">How your flashcards look while you study. Use it for every deck, or give one deck its own.</p>`];
+    }
+    if (what === "pins" && r && r.pins && r.pins.length) {
+      return [r.pins.length === 1 ? "Pin" : `${r.pins.length} Pins`, `<div class="sbc-z-pins">${r.pins.map((pid, i) => `<figure>${noteDemo(i ? "rounded" : "classic", pid, i + 2)}<figcaption>${esc((PINS.find(x => x.id === pid) || {}).name || "")}</figcaption></figure>`).join("")}</div><p class="sbc-note">What holds your sticky notes to the board.</p>`];
+    }
+    return null;
+  }
+  function zoom(what, th){
+    const sheet = dlg.querySelector(".sbc-sheet"); if (!sheet) return;
+    const z = zoomHtml(what, th); if (!z) return;
+    const body = sheet.querySelector(".sheet-body"); if (!body) return;
+    let box = sheet.querySelector(".sbc-zoom");
+    if (!box) { box = document.createElement("div"); box.className = "sbc-zoom"; body.appendChild(box); }
+    sheet.dataset.scroll = body.scrollTop; body.scrollTop = 0;
+    box.setAttribute("role", "dialog"); box.setAttribute("aria-label", z[0]);
+    box.innerHTML = `<div class="sbc-zoom-h"><button type="button" class="btn small" data-act="sbc-zoom-x">Back</button><b>${esc(z[0])}</b></div><div class="sbc-zoom-b">${z[1]}</div>`;
+    sheet.classList.add("zoomed");
+    const back = box.querySelector('[data-act="sbc-zoom-x"]'); if (back) back.focus();
+  }
+  function unzoom(){
+    const sheet = dlg.querySelector(".sbc-sheet.zoomed"); if (!sheet) return false;
+    const box = sheet.querySelector(".sbc-zoom");
+    if (box) box.remove(); sheet.classList.remove("zoomed");
+    const body = sheet.querySelector(".sheet-body"); if (body) body.scrollTop = +sheet.dataset.scroll || 0;
+    const t = sheet.querySelector(".sbc-in"); if (t) t.focus();
+    return true;
+  }
+  // Escape closes the big view first, not the whole sheet
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && dlg.open && dlg.querySelector(".sbc-sheet.zoomed")) { e.preventDefault(); e.stopPropagation(); unzoom(); } }, true);
   function buySheet(kind, id, note){
     if (!dlg.open || !dlg.querySelector(".sbc-sheet")) backToShop = shopOpen();
     const cost = priceOf(kind, id), bal = balance(), mineOk = signedIn(), enough = bal >= cost;
@@ -72188,6 +72410,17 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const money = (cents, cur) => { try { return new Intl.NumberFormat(undefined, {style: "currency", currency: String(cur || "usd").toUpperCase()}).format(cents / 100); } catch (e) { return "$" + (cents / 100).toFixed(2); } };
   function packsSheet(){
     if (!dlg.open || !dlg.querySelector(".sbc-sheet")) backToShop = shopOpen();
+    if (pending && Date.now() - pending.at > 30 * 60000) pending = null;
+    if (added || pending) {
+      const body = added
+        ? `<div class="sbc-done" role="status"><img class="sbc-done-coin" src="${COIN_SRC}" width="64" height="64" alt=""><b>${added.credits.toLocaleString()} credits added</b><span>You have ${added.balance.toLocaleString()} credits. Pick anything in the Style Shop to keep it for good.</span></div>`
+        : `<div class="sbc-wait" role="status"><span class="sbc-spin" aria-hidden="true"></span><b>Finish paying in the checkout tab</b><span>${pending.credits ? `Your ${pending.credits.toLocaleString()} credits` : "Your credits"} appear here as soon as Stripe confirms the payment. You can keep using Studyboard meanwhile.</span>
+            <div class="sbc-wait-acts"><button type="button" class="btn small" data-act="sbc-reopen">Open Checkout Again</button><button type="button" class="btn small" data-act="sbc-check">Check Now</button></div></div>`;
+      openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Credits")}
+        <div class="sheet-body">${body}</div>
+        <div class="sheet-foot">${added ? "" : `<button type="button" class="btn" data-act="sbc-cancel">Choose Another Pack</button>`}<span class="spacer"></span><button type="button" class="btn primary" data-act="sbc-back">${backToShop ? "Back to Shop" : "Done"}</button></div></div>`);
+      return;
+    }
     const m = mine(), packs = m && Array.isArray(m.packs) ? m.packs : null, base = packs && packs[0] ? packs[0].cents / packs[0].credits : 0;
     const body = !signedIn() ? `<p style="margin:0">Credits belong to your account. Sign in or create a free account first.</p>`
       : storeApp() ? `<p style="margin:0">Buying credits isn't available in this app. Credits you already have work here.</p>`
@@ -72229,13 +72462,22 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (wasShop) setTimeout(() => { try { styleShop(); } catch (e) {} }, 120);
     load();
   }
+  // A checkout that's open in another tab: {pack, credits, url, at, from}. The Credits sheet shows it until the credits arrive.
+  let pending = null, added = null;
   async function buyPack(id, btn){
     if (!planOk() || !PLAN.checkoutCall) return;
-    if (btn) btn.disabled = true;
-    toast("Opening checkout…");
+    const all = dlg.querySelectorAll(".sbc-pack"); all.forEach(b => { b.disabled = true; });
+    if (btn) btn.classList.add("busy");
     const r = await PLAN.checkoutCall({pack: id});
-    if (btn && btn.isConnected) btn.disabled = false;
-    if (r && r.url) { PLAN.openExternal(r.url); toast("Finish in the checkout page that just opened. Your credits show up here by themselves."); watch(); return; }
+    all.forEach(b => { if (b.isConnected) b.disabled = false; });
+    if (btn && btn.isConnected) btn.classList.remove("busy");
+    if (r && r.url) {
+      const pk = ((mine() || {}).packs || []).find(x => x.id === id) || {};
+      pending = {pack: id, credits: +pk.credits || 0, url: r.url, at: Date.now(), from: balance()}; added = null;
+      PLAN.openExternal(r.url); watch();
+      if (dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])")) packsSheet();
+      return;
+    }
     toast((r && r.message) || "Couldn't open checkout. Check your connection and try again.");
   }
 
@@ -72257,8 +72499,13 @@ You can also DO things in Studyboard, but only when the student asks or what the
       case "sbc-item": buySheet(el.dataset.kind, el.dataset.id); return true;
       case "sbc-buy": buy(el.dataset.kind, el.dataset.id, el); return true;
       case "sbc-pack": buyPack(el.dataset.id, el); return true;
+      case "sbc-reopen": if (pending) PLAN.openExternal(pending.url); return true;
+      case "sbc-check": load(); toast("Checking for your credits…"); return true;
+      case "sbc-cancel": pending = null; packsSheet(); return true;
+      case "sbc-zoom": zoom(el.dataset.what, el.dataset.th); return true;
+      case "sbc-zoom-x": unzoom(); return true;
       case "sbc-signin": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp(); else if (typeof sbSignInSheet === "function") sbSignInSheet(); }, 120); return true;
-      case "sbc-back": if (backToShop) styleShop(); else if (dlg.open) dlg.close(); return true;
+      case "sbc-back": added = null; if (backToShop) styleShop(); else if (dlg.open) dlg.close(); return true;
     }
     return false;
   });
@@ -72307,7 +72554,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   window.SBCREDITS = {owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
     // For tests: what this device remembers
     state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
-  if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
+  if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), pending: () => pending, added: () => added, comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
 })();
 /* ===== module: 98-rooms.js ===== */
 /* Studyboard 1.11 */
@@ -82922,7 +83169,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
   const VERSION = "1.15.7";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "November 13, 2026", TERMS_UPDATED = "November 13, 2026";
+  const UPDATED = "November 16, 2026", TERMS_UPDATED = "November 16, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -82964,7 +83211,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>If you paste a calendar link instead, it is saved on that device only. It works like a password to your calendar, so it is never synced to your account and never put in a backup or export. On the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard does not ask for or use Canvas access tokens. A token an earlier version saved on a device is deleted from it, and you can also delete it in Canvas (Account, Settings). Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs to your account like everything else if you have one.</p>
 
 <h3>Optional: reminders, calendar link, study groups</h3>
-<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Studyboard AI (with a paid Pro plan, transcribed by a model Cloudflare runs) or to Google or OpenAI with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports. The first time you share with a link or publish, we keep a record that you agreed to the sharing rules in the Terms, with the date and the version of the Terms.</p>
+<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Studyboard AI (with a paid Pro plan, transcribed by a model Cloudflare runs) or to Google or OpenAI with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. If you have Pro, a shared deck can include its picture cards, with their pictures; anyone with the link can open and add them, and public pages never show them. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports. When we remove something after a copyright notice, we keep a record of what was removed, the notice and the date, also after the account that shared it is deleted (without the account). The first time you share with a link or publish, we keep a record that you agreed to the sharing rules in the Terms, with the date and the version of the Terms.</p>
 
 <h3>Optional: Google Drive and OneDrive</h3>
 <p>If you connect Google Drive or OneDrive, Studyboard can save your files, lecture recordings and (if you turn it on) automatic backups there instead of in Studyboard&rsquo;s storage, and open them again when you ask. Our server keeps the sign-in Google or Microsoft gives us, encrypted, and uses it only to give your own Studyboard a short-lived key; your files travel straight between your device and Google or Microsoft, never through our server. Studyboard keeps only each file&rsquo;s name, size, link and where you filed it, with your other data.</p>
@@ -83039,15 +83286,16 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <p>Keep your password private; you are responsible for what happens under your account. Everything you put into Studyboard is yours. You give us a worldwide, non-exclusive, royalty-free permission to store, copy, process, sync and show it so Studyboard can work: back to you, to the people you share it with and, when you publish something, to anyone. We use it for nothing else. The permission ends when you delete it, except for copies other people already saved and backups we keep for a short time. You can export it or delete it at any time (see the Privacy Policy). Keep your own backups of anything important. Accounts are only for people 13 and older, and nobody may make one for someone younger, a parent or guardian included. We delete an account when we learn it belongs to someone under 13. Only publish sets you made or have the right to share, and never answers to graded work; we remove what is reported.</p>
 
     <h3>Course materials and copyright</h3>
-    <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may upload them to Studyboard to study from them yourself, as your school allows. Course files you upload, such as lecture slides, stay private to your account: no one else can open them, and Studyboard never shares or publishes them or lets you share them with a group. Pictures, files and text copied word for word from a file can't be shared anywhere in Studyboard: not in a group, with another person or on a public page. You can share what you write or draw yourself, and what AI writes for you in its own words; pictures on a whiteboard stay on your own copy. You alone are responsible for having the right to upload them. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a message or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. You confirm this each time you share or publish, and we keep a record of when you agreed and to which version of these terms. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission.</p>
-    <p><b>Copyright complaints:</b> If you think something shared in Studyboard copies your work, use Report on it for a quick review, or send a formal notice to ${contact()} with: your physical or electronic signature; your name, postal address, phone number and email; the work you own; where the copy appears in Studyboard (a link or share code); a statement that you believe in good faith the use isn't allowed by the owner, its agent or the law; and a statement that your notice is accurate and, under penalty of perjury, that you own the work or may act for the owner. We may remove or disable anything shared in Studyboard when we receive a complaint, without notice, and we tell the person who shared it. We stop people who repeatedly share content that breaks other people's rights from sharing, and may close their accounts.</p>
-    <p><b>If we removed something you shared:</b> If you think it was removed by mistake or misidentified, send a counter-notice to ${contact()} with: your physical or electronic signature; your name, postal address and phone number; what was removed and where it was (a link or share code); a statement, under penalty of perjury, that you believe in good faith it was removed by mistake or misidentification; and a statement that you consent to the jurisdiction of the federal district court for your address (or, if you live outside the United States, any judicial district where we may be found) and will accept service of legal papers from the person who complained. We send your counter-notice, with your contact details, to the person who complained. Unless they tell us they have started a court case to stop it being shared, we may put it back 10 to 14 business days after we receive your counter-notice. Anyone who knowingly makes a false notice or counter-notice can be liable for damages.</p>
+    <p>Slides, handouts, readings, tests and other course materials usually belong to your instructor, your school or a publisher. You may upload them to Studyboard to study from them yourself, as your school allows. Course files you upload, such as lecture slides, stay private to your account: no one else can open them unless you share them yourself, and Studyboard never publishes them on its own. You alone are responsible for having the right to upload them. When you share or publish anything in Studyboard (a deck, a quiz, notes, a whiteboard, a picture, a file, a message or a link, in a group or with a link), you promise that you made it or have the right to share it, and that sharing it doesn't break anyone's copyright or other rights or your school's rules. You confirm this each time you share or publish, and we keep a record of when you agreed and to which version of these terms. Share the cards and questions you wrote, or that AI wrote for you in its own words. Don't share uploaded slides or handouts, pictures taken from them, wording copied from them, questions from your instructor's tests or quizzes, or answers to graded work, unless you have permission. Making picture cards, and sharing them with a link or on Studyboard Flashcards, is part of Pro; without Pro, a deck is shared without its picture cards. Anyone can add and study the picture cards in a deck someone shared.</p>
+    <p><b>Copyright complaints:</b> If you think something shared in Studyboard copies your work, use Report on it for a quick review, or send a formal notice to our designated copyright agent (below) with: your physical or electronic signature; your name, postal address, phone number and email; the work you own; where the copy appears in Studyboard (a link or share code); a statement that you believe in good faith the use isn't allowed by the owner, its agent or the law; and a statement that your notice is accurate and, under penalty of perjury, that you own the work or may act for the owner. We may remove or disable anything shared in Studyboard when we receive a complaint, without notice, and we tell the person who shared it. We stop people who repeatedly share content that breaks other people's rights from sharing, and may close their accounts.</p>
+    <p><b>If we removed something you shared:</b> If you think it was removed by mistake or misidentified, send a counter-notice to our designated copyright agent (below) with: your physical or electronic signature; your name, postal address and phone number; what was removed and where it was (a link or share code); a statement, under penalty of perjury, that you believe in good faith it was removed by mistake or misidentification; and a statement that you consent to the jurisdiction of the federal district court for your address (or, if you live outside the United States, any judicial district where we may be found) and will accept service of legal papers from the person who complained. We send your counter-notice, with your contact details, to the person who complained. Unless they tell us they have started a court case to stop it being shared, we may put it back 10 to 14 business days after we receive your counter-notice. Anyone who knowingly makes a false notice or counter-notice can be liable for damages.</p>
+    <p><b>Designated copyright agent:</b> Copyright Agent, Studyboard, 1780 Iowa St Unit #2200, Bellingham, WA 98229, United States. Phone: <a href="tel:+19713616892">(971) 361-6892</a>. Email: <a href="mailto:dmca@studyboardapp.com">dmca@studyboardapp.com</a>. This agent is registered with the U.S. Copyright Office under the Digital Millennium Copyright Act (17 U.S.C. 512(c)). Send only copyright notices and counter-notices here; other questions go to ${contact()}.</p>
 
     <h3>Study groups and shared content</h3>
     <p>Study groups, study rooms and shared decks let you post content other people see. There is zero tolerance for objectionable content or abusive users: no harassment, bullying, hate, threats, sexual content, spam, cheating services or sharing other people's personal information. Use Report on a group message, a shared item or a group member to tell us, and Block (in the group's member list) to stop seeing someone's messages straight away. We review reports within 24 hours, remove content that breaks these rules and remove people who post it. We don't check what people share before it appears and we aren't responsible for it; content made by other people is theirs, not ours, and you use it at your own risk. Anyone who can see something you share or publish can save a copy, and unpublishing or deleting it doesn't remove the copies they already saved.</p>
 
     <h3>AI features</h3>
-    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, with a paid Pro plan, Studyboard AI, which runs on Anthropic's Claude through Cloudflare, within a usage allowance (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards, including ones made from your slides or PDFs, stay in your own decks and are never shared. Check what AI makes before you share it.</p>
+    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, with a paid Pro plan, Studyboard AI, which runs on Anthropic's Claude through Cloudflare, within a usage allowance (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards, including ones made from your slides or PDFs, stay in your own decks unless you share them (with Pro), so share them only if you have the right to. Check what AI makes before you share it.</p>
 
     <h3>Study use only</h3>
     <p>Studyboard is a study tool. Flashcards, quizzes, summaries, plans and answers in it, whether written by you, by AI or by other students, can be wrong, incomplete or out of date, and we don't promise they will help you pass. They are not medical, nursing, legal, financial or other professional advice: never use them to make decisions about a patient's care, your health or anyone's safety, and always check your course materials, your instructor and official guidelines. You are responsible for following your school's academic integrity rules. Don't use Studyboard to cheat, to share or collect answers to graded work or questions from real tests, or to hand in AI-written work where your school doesn't allow it.</p>
@@ -85890,7 +86138,7 @@ var SBPRO = null;
   });
   dlg.addEventListener("close", () => { if (dlg.open) return; OC = null; CF = null; DK = null; DP = null; });
   P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: stats, and picture cards from your files (Smart scheduling is free for everyone)", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
-  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf, storeImage});
+  Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf, storeImage, imageBlob: blobOf});
 
   const css = document.createElement("style");
   css.textContent = `
@@ -87351,7 +87599,7 @@ button.oc-n{border:0;padding:0;cursor:pointer}
     const f = fileOf(), front = ($("#pdrFront").value || "").trim(), back = ($("#pdrBack").value || "").trim(), did = $("#pdrDeck").value;
     if (!front) { toast("Write the front first"); $("#pdrFront").focus(); return; }
     const card = {id: uid(), front, back: back || h.t.slice(0, 1200), box: 0, due: "", seen: 0, right: 0, wrong: 0, src: {f: f.id, p: h.p}};
-    // Text straight from the PDF (not restated by AI) is marked copied, so it's never shared
+    // Text straight from the PDF (not restated by AI) is marked copied, so AI writing from the deck won't repeat it
     // and so is a card whose words repeat the passage (8 or more words in a row), even after AI or the student wrote it
     if (!back || R.cardAi !== h.id || aiCopied(front + "\n" + back, aiCopyIndex(h.t))) card.copied = true;
     let d = did && state.decks[did] ? clone(state.decks[did]) : null;
@@ -95145,7 +95393,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
           parts: [{text: material.slice(0, 60000)}], schema: {type: "OBJECT", properties: {cards: {type: "ARRAY", items: {type: "OBJECT", properties: {front: {type: "STRING"}, back: {type: "STRING"}, page: {type: "NUMBER"}}, required: ["front", "back"]}}}, required: ["cards"]}});
         const cards = ((res && res.data && res.data.cards) || []).filter(c => c && String(c.front || "").trim() && String(c.back || "").trim()).slice(0, n).map(c => {
           const card = {id: uid(), front: String(c.front).slice(0, 300), back: String(c.back).slice(0, 1200), box: 0, due: "", seen: 0, right: 0, wrong: 0, src: {f: f.id, p: Math.max(1, Math.round(Number(c.page)) || 1)}};
-          // a card whose words repeat the reading is marked copied, so it's never shared
+          // a card whose words repeat the reading is marked copied, so AI writing from the deck won't repeat it
           if (aiCopied(card.front + "\n" + card.back, idx)) card.copied = true;
           return card; });
         if (!cards.length) throw new Error("The AI didn't write any cards. Try again.");
@@ -98034,13 +98282,13 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
       im.src = u;
     });
   }
-  // Pictures on a study group's board stay on your copy only (they are never sent to the group): say so once per board
-  const groupSaid = new Set();
+  // Pictures on a study group's board are seen by everyone in the group: confirm once per board that they're yours to share
+  const groupOk = new Set();
   async function add(files, at){
     if (locked()) { upsell(); return; }
     const b = W.board(); if (!b) return;
-    { const nb = state.notes[b.id];
-      if (nb && nb.wb && nb.wb.g && !groupSaid.has(b.id)) { groupSaid.add(b.id); toast("Pictures stay on your copy of this board. The group sees only what you draw and write."); } }
+    { const nb = state.notes[b.id], sh = window.SBGROUPS && SBGROUPS.share;
+      if (nb && nb.wb && nb.wb.g && !groupOk.has(b.id) && sh && sh.confirmRights) { const list = [...files]; sh.confirmRights(() => { groupOk.add(b.id); add(list, at); }, "pic"); return; } }
     files = [...files].filter(f => /^image\//.test(f.type || "") || /\.(jpe?g|png|gif|webp|heic)$/i.test(f.name || ""));
     if (!files.length) { toast("Choose a picture (JPG, PNG, GIF or WebP)."); return; }
     const room = MAX - count(); if (room <= 0) { toast(`A board can hold ${MAX} pictures.`); return; }
@@ -98655,29 +98903,50 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   const K_SEQ = "studyboard:wbSeq", TAG = uid();
   const live = n => (n && n.wb && n.wb.g) || null;
 
-  /* Pictures on a board never leave this device: they may come from slides, books or other people's work.
-     Links and study groups get only what the student drew and wrote. */
-  const isPic = it => !!(it && it.k === "i");
+  /* Pictures travel as small images inside the board */
+  const PIC = new Map();
+  const loadImg = u => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; });
+  async function picData(it){
+    if (it.src) return it.src;
+    if (!it.f) return null;
+    if (PIC.has(it.f)) return PIC.get(it.f);
+    const f = state.files[it.f]; if (!f || !f.revs || !f.revs.length) return null;
+    try {
+      const r = curRev(f), io = W.pictures && W.pictures.IO, b = await (io ? io.bytes(r.assetId) : assetBytes(r.assetId));
+      const u = URL.createObjectURL(new Blob([b], {type: r.type || "image/png"})), im = await loadImg(u); URL.revokeObjectURL(u);
+      for (const side of [900, 640, 420]) {
+        const k = Math.min(1, side / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k)); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        let url = c.toDataURL("image/webp", 0.8); if (!/^data:image\/webp/.test(url)) url = c.toDataURL("image/png");
+        if (url.length < 380000) { PIC.set(it.f, url); return url; }
+      }
+    } catch (e) {}
+    return null;
+  }
+  async function prepPictures(n){ await Promise.all(((n && n.wbItems) || []).filter(it => it.k === "i").map(picData)); }
+  const embedded = it => it.k !== "i" ? it : (it.src || PIC.get(it.f)) ? Object.assign({}, it, {src: it.src || PIC.get(it.f), f: undefined}) : null;
 
   /* Share a Copy (a link) */
   function shareSrc(id, g){
     const n = state.notes[id]; if (!n || !n.wb) return null;
-    const ink = n.wbInk || [], all = (n.wbItems || []).filter(it => !isPic(it));
+    const ink = n.wbInk || [], all = (n.wbItems || []).map(embedded).filter(Boolean);
     if (!ink.length && !all.length) return null;
     const c = courseOf(n.courseId);
     let data = JSON.parse(JSON.stringify({v: 1, type: "board", name: W.boardName(n), tpl: n.wb.tpl || "blank", ink, items: all, course: c ? {code: c.code || "", name: c.name || ""} : null}));
+    // too big with its pictures: the drawing and text go without them
+    if (JSON.stringify(data).length > 950000) data.items = all.filter(it => it.k !== "i");
     return {title: W.boardName(n), data, h: g ? g.hashOf(JSON.stringify(data)) : "",
       cur: () => (state.notes[id] || {}).shared,
       mark: m => { const cur = state.notes[id]; if (!cur) return; const nn = clone(cur); if (m) nn.shared = m; else delete nn.shared; applyChanges([{kind: "note", id, after: nn}], ""); }};
   }
   async function shareCopy(id){
     if (!window.SBSHARE) { toast("Sharing isn't available here."); return; }
-    W.flush();
+    W.flush(); await prepPictures(state.notes[id]);
     SBSHARE.shareRef("board", id);
   }
   function shareView(row, h){
     const d = row.data && typeof row.data === "object" ? row.data : {};
-    const tmp = {id: "shared-" + row.code, text: cut(row.name || d.name || "Whiteboard", 60), wb: {v: 1, tpl: d.tpl}, wbInk: d.ink, wbItems: Array.isArray(d.items) ? d.items.filter(it => !isPic(it)) : d.items};
+    const tmp = {id: "shared-" + row.code, text: cut(row.name || d.name || "Whiteboard", 60), wb: {v: 1, tpl: d.tpl}, wbInk: d.ink, wbItems: d.items};
     normWbNote(tmp);
     if (!tmp.wbInk && !tmp.wbItems) { h.msgSheet("Shared Whiteboard", "That whiteboard couldn't be read. Ask the person to share it again."); return; }
     const course = d.course && typeof d.course === "object" ? {code: cut(d.course.code, 40), name: cut(d.course.name, 120)} : null;
@@ -98707,8 +98976,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   // What arrives from others goes through the same checks as anything saved (normWbNote)
   function clean(list){
     if (!Array.isArray(list)) return [];
-    // a picture from someone else is never taken in (only its removal is)
-    const ok = list.filter(c => c && (c.t === "s" || c.t === "i") && typeof c.id === "string" && /^[\w-]{1,40}$/.test(c.id) && !(c.t === "i" && isPic(c.v))).slice(0, 200);
+    const ok = list.filter(c => c && (c.t === "s" || c.t === "i") && typeof c.id === "string" && /^[\w-]{1,40}$/.test(c.id)).slice(0, 200);
     const tmp = {wb: {v: 1}, wbInk: ok.filter(c => c.t === "s" && c.v).map(c => Object.assign({}, c.v, {id: c.id})), wbItems: ok.filter(c => c.t === "i" && c.v).map(c => Object.assign({}, c.v, {id: c.id}))};
     normWbNote(tmp);
     const S = new Map((tmp.wbInk || []).map(x => [x.id, x])), I = new Map((tmp.wbItems || []).map(x => [x.id, x]));
@@ -98732,18 +99000,6 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     return out;
   }
   let L = null;
-  // Pictures that came from other members before pictures stopped being shared (they carry their image, not a file of yours)
-  function dropReceived(nid){
-    const n = state.notes[nid]; if (!n || !(n.wbItems || []).some(it => isPic(it) && it.src && !it.f)) return;
-    const after = clone(n); after.wbItems = after.wbItems.filter(it => !(isPic(it) && it.src && !it.f)); after.updated = Date.now();
-    applyChanges([{kind: "note", id: nid, after}], null);
-  }
-  // ...on every live board as soon as the app opens, so their thumbnails don't show them either
-  let purged = "";
-  hook("render", () => {
-    const who = (G() && G().myId && G().myId()) || "local"; if (purged === who) return; purged = who;
-    setTimeout(() => Object.values(state.notes || {}).filter(n => live(n)).forEach(n => dropReceived(n.id)), 0);
-  });
   async function catchUp(nid, Lx, from){
     const g = live(state.notes[nid]); if (!g || !online()) return;
     const rows = await fetchOps(g.bid, from != null ? Math.min(from, seqGet(g.bid)) : seqGet(g.bid));
@@ -98773,7 +99029,6 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const n = state.notes[nid], g = live(n);
     if (L && L.nid === nid) return;
     stop(); if (!g || !online()) return;
-    dropReceived(nid);
     const x = L = {nid, bid: g.bid, gid: g.gid, ch: null, q: [], timer: 0, sent: new Set(), seen: new Set(), on: false};
     const c = cli();
     if (c && typeof c.channel === "function") {
@@ -98797,8 +99052,11 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     clearTimeout(x.timer); x.timer = 0;
     const last = new Map(); x.q.splice(0).forEach(c => last.set(c.t + c.id, c));
     let list = [...last.values()];
-    // pictures stay on this device; removing one is still sent, so a picture shared before this change goes away for everyone
-    list = JSON.parse(JSON.stringify(list.filter(c => !(c.t === "i" && isPic(c.v)))));
+    list = await Promise.all(list.map(async c => {
+      if (!(c.t === "i" && c.v && c.v.k === "i")) return c;
+      const src = await picData(c.v); return src ? {t: c.t, id: c.id, v: Object.assign({}, c.v, {src, f: undefined})} : null;
+    }));
+    list = JSON.parse(JSON.stringify(list.filter(Boolean)));
     for (let i = 0; i < list.length;) {
       let n = Math.min(150, list.length - i), part = list.slice(i, i + n);
       while (n > 1 && JSON.stringify(part).length > 500000) { n = Math.ceil(n / 2); part = list.slice(i, i + n); }
@@ -98837,7 +99095,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     openSheet(`<form class="sheet">${head("Share With a Study Group")}<div class="sheet-body">
       <p style="margin:0">“${esc(W.boardName(n))}” shows up in the group's Whiteboards tab. Whoever adds it can draw on it with you, and what anyone draws or writes shows up for everyone as it happens.</p>
       <fieldset class="wb-grp-pick"><legend>Group</legend>${groups.map((g, i) => `<label class="mi-check"><input type="radio" name="gid" value="${esc(g.id)}"${i ? "" : " checked"}> ${esc(g.name)}</label>`).join("")}</fieldset>
-      <p class="mini" style="margin:0">Pictures on the board stay on your copy: the group sees only what you draw and write. Each person's copy is their own: deleting yours doesn't delete anyone else's.</p></div>
+      <p class="mini" style="margin:0">Everyone in the group sees the board's pictures too, so only add pictures you have the right to share. Each person's copy is their own: deleting yours doesn't delete anyone else's.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Share</button></div></form>`, fd => {
       const gid = String(fd.get("gid") || ""), g = groups.find(x => x.id === gid); if (!g) return false;
       makeLive(nid, g.id, g.name); return true;
@@ -98856,7 +99114,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     listen(nid);
     if (L && L.nid === nid) {
       (after.wbInk || []).forEach(s => L.q.push({t: "s", id: s.id, v: s}));
-      (after.wbItems || []).filter(it => !isPic(it)).forEach(it => L.q.push({t: "i", id: it.id, v: it}));
+      (after.wbItems || []).forEach(it => L.q.push({t: "i", id: it.id, v: it}));
       if (L.q.length) await send(L);
     }
     await addMe(row.id, gid); previewSoon(nid, true); GB.delete(gid);
@@ -98902,9 +99160,11 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     PV.set(g.bid, Date.now());
     setTimeout(async () => {
       try {
-        W.flush(); const pic = async dark => { const cv = await W.renderBoard(state.notes[nid] || n, {max: 520, dark, noPics: true}); let url = cv.toDataURL("image/jpeg", 0.72); if (url.length > 190000) url = cv.toDataURL("image/jpeg", 0.45); return url.length < 190000 ? url : null; };
+        W.flush(); const pic = async dark => { const cv = await W.renderBoard(state.notes[nid] || n, {max: 520, dark}); let url = cv.toDataURL("image/jpeg", 0.72); if (url.length > 190000) url = cv.toDataURL("image/jpeg", 0.45); return url.length < 190000 ? url : null; };
         const url = await pic(false), dk = await pic(true); if (!url) return;
-        await q(cli().rpc("group_board_preview_nopics", {p_board: g.bid, p_preview: url, p_dark: dk}));
+        // group_board_preview (supabase-groups.sql); a server not updated since previews left pictures out has only the _nopics name
+        try { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url, p_dark: dk})); }
+        catch (e) { if (!/Could not find the function|schema cache|does not exist/i.test(String(e && e.message))) throw e; await q(cli().rpc("group_board_preview_nopics", {p_board: g.bid, p_preview: url, p_dark: dk})); }
       } catch (e) {}
     }, 300);
   }
@@ -98939,7 +99199,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
       return `<div class="wbg-card">
         <button type="button" class="wbg-pv" data-act="grp-wb-open" data-id="${esc(r.id)}" data-g="${esc(gid)}" aria-label="${mine ? "Open" : "Add and open"} ${esc(r.name)}">${okPv(pvOf(r)) ? `<img src="${esc(pvOf(r))}" alt="">` : `<span class="wbg-ph">${esc(W.tplName ? W.tplName(r.tpl) : "Whiteboard")}</span>`}</button>
         <div class="wbg-meta"><b>${esc(r.name)}</b><span class="wbg-who"><span class="wbg-avs" aria-hidden="true">${dots}</span>${esc(who)}</span></div>
-        <div class="wbg-acts">${mine ? `<button type="button" class="btn small" data-act="grp-wb-open" data-id="${esc(r.id)}" data-g="${esc(gid)}">Open</button>` : `<button type="button" class="btn small primary" data-act="grp-wb-add" data-id="${esc(r.id)}" data-g="${esc(gid)}">Add to My Whiteboards</button>`}</div>
+        <div class="wbg-acts">${mine ? `<button type="button" class="btn small" data-act="grp-wb-open" data-id="${esc(r.id)}" data-g="${esc(gid)}">Open</button>` : `<button type="button" class="btn small primary" data-act="grp-wb-add" data-id="${esc(r.id)}" data-g="${esc(gid)}">Add to My Whiteboards</button>`}<details class="grp-more g2-mm grp-rep"><summary class="g2-dots" aria-label="More for ${esc(r.name)}">⋯</summary><div class="grp-menu"><button type="button" class="btn" data-act="grp-wb-report" data-id="${esc(r.id)}" data-g="${esc(gid)}">Report</button></div></details></div>
       </div>`; }).join("")}</div>`;
   }
   function fillPanes(){ document.querySelectorAll(".grp-wbs[data-gid]").forEach(el => { const b = el.querySelector(".grp-wbs-body"); if (b) { const h = paneBody(el.dataset.gid); if (b.innerHTML !== h) b.innerHTML = h; } }); }
@@ -99023,9 +99283,17 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     if (act === "wb-access") { accessSheet(id || W.curId()); return true; }
     if (act === "grp-wb-open" || act === "grp-wb-add") { openFromGroup(id, el && el.dataset.g, act === "grp-wb-add"); return true; }
     if (act === "grp-wb-share") { shareToGroupSheet(id); return true; }
+    // Report a group whiteboard (to the people who run Studyboard, like any group report)
+    if (act === "grp-wb-report") {
+      const gid = el && el.dataset.g, c = GB.get(gid), row = c && c.rows && c.rows.find(r => r.id === id), g = G(); if (!row || !g || !g.reportBoard) return true;
+      const m = (g.members ? g.members(gid) : []).find(x => x.id === row.created_by);
+      if (el.closest("details")) el.closest("details").open = false;
+      g.reportBoard(gid, row.id, {who: row.created_by || "", name: m ? m.name : "", excerpt: "whiteboard: " + cut(row.name, 120)});
+      return true;
+    }
     return false;
   });
-  Object.assign(W, {shareSrc, shareView, share: {discover: gid => loadGroup(gid, true), live: () => L, send: () => L && send(L), access: bid => access(bid, true)}});
+  Object.assign(W, {shareSrc, shareView, share: {discover: gid => loadGroup(gid, true), live: () => L, send: () => L && send(L), picData, access: bid => access(bid, true)}});
 
   const css = document.createElement("style");
   css.textContent = `

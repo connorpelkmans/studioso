@@ -15,8 +15,9 @@ Both are **switched off** until you turn them on (see "Launch" below). While the
 | Sticker pack | 100 | $1 |
 | Flashcard style | 100 | $1 |
 | Pin | 50 | $0.50 |
+| Note shape | 100 | $1 |
 
-Only Pro items can be bought; free items, note shapes and companion accessories can't. A companion opens its Theme Collection. A pin, sticker pack or flashcard style that belongs to a collection also points to the whole collection.
+Only Pro items can be bought; free items and companion accessories can't. A companion opens its Theme Collection. A pin, sticker pack or flashcard style that belongs to a collection also points to the whole collection.
 
 ### Credit Packs (Stripe product "Studyboard Credits", `prod_VdRSF2ExXrjwfx`, live)
 

@@ -1069,10 +1069,16 @@ language sql immutable set search_path = public as $$
   select case when split_part(p_name, '/', 2) = 'g' and split_part(p_name, '/', 3) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
               then split_part(p_name, '/', 3)::uuid end
 $$;
+-- A member can open a group's file, unless it was taken down after a copyright notice (supabase-takedowns.sql)
 create or replace function public.sbg_group_file_ok(p_name text) returns boolean
-language sql stable security definer set search_path = public, pg_temp as $$
-  select public.plans_group_of_object(p_name) is not null and public.sbg_is_member(public.plans_group_of_object(p_name))
-$$;
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare gid uuid := public.plans_group_of_object(p_name);
+begin
+  if gid is null or not public.sbg_is_member(gid) then return false; end if;
+  if to_regclass('public.copyright_takedowns') is not null
+     and exists (select 1 from public.copyright_takedowns t where t.kind = 'group_file' and t.ref = p_name and t.restored_at is null) then return false; end if;
+  return true;
+end $$;
 create or replace function public.plans_group_upload() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare gid uuid; used bigint; delta bigint;
@@ -1082,10 +1088,6 @@ begin
   if gid is null then return new; end if;
   if public.plans_object_owner(new.name) is distinct from auth.uid() and auth.uid() is not null then
     raise exception 'SB_STORAGE_PATH: Files are stored in your own folder.' using errcode = 'P0001';
-  end if;
-  -- 1.17: files can't be shared with a group (they may be someone else's work). Files already there stay with their uploader.
-  if tg_op = 'INSERT' or new.name is distinct from old.name then
-    raise exception 'SB_NO_FILES: Files can''t be shared with a group. Share a link to a doc the group made instead.' using errcode = 'P0001';
   end if;
   if auth.uid() is not null and not public.sbg_is_member(gid) then raise exception 'You''re not in that group' using errcode = 'P0001'; end if;
   if not public.plans_group_is_pro(gid) then
@@ -1106,8 +1108,9 @@ begin
   begin
     execute 'drop trigger if exists plans_group_upload on storage.objects';
     execute 'create trigger plans_group_upload before insert or update on storage.objects for each row execute function public.plans_group_upload()';
-    -- 1.17: other members can no longer open files uploaded to a group (the uploader still can, from their own folder)
+    -- members of the group can open its files (1.18: back after 1.17 turned group files off)
     execute 'drop policy if exists "group files member read" on storage.objects';
+    execute 'create policy "group files member read" on storage.objects for select to authenticated using (bucket_id = ''studioso-files'' and public.sbg_group_file_ok(name))';
   exception when insufficient_privilege then
     raise notice 'Skipped the group upload rules (no permission on storage.objects). Group uploads stay off; everything else works.';
   end;

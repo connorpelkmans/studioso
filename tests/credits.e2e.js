@@ -24,7 +24,7 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     // A fake server: the balance, the items and the prices live here, like studyboard_credits_me and studyboard_buy_item
     await page.evaluate(() => {
       const srv = window.__crSrv = {balance: 350, owned: [], calls: []};
-      const prices = {skin: 300, sticker: 100, card: 100, pin: 50};
+      const prices = {skin: 300, sticker: 100, card: 100, pin: 50, note: 100};
       const me = () => ({on: true, balance: srv.balance, bought: !!srv.bought, owned: srv.owned.slice(), prices, packs: [
         {id: "credits_100", credits: 100, cents: 99, currency: "usd", label: "100 Credits"}, {id: "credits_300", credits: 300, cents: 299, currency: "usd"},
         {id: "credits_600", credits: 600, cents: 499, currency: "usd", badge: "20% Bonus"}, {id: "credits_1300", credits: 1300, cents: 999, currency: "usd", badge: "Best Value"}]});
@@ -57,7 +57,9 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     const before = await page.evaluate(p => ({skin: window.__sbCollPreview.owns("skin", p.th), pack: window.__sbCollPreview.owns("sticker", p.pack), price: window.SBCREDITS.priceOf("skin", p.th), pinPrice: window.SBCREDITS.priceOf("pin", p.pin), freePin: window.SBCREDITS.priceOf("pin", "pin"), note: window.SBCREDITS.priceOf("note", "torn")}), pick);
     ok(!before.skin && !before.pack, "a free account doesn't own the collection yet");
     ok(before.price === 300 && before.pinPrice === 50, "a collection costs 300 credits and a pin 50");
-    ok(before.freePin === 0 && before.note === 0, "free items and note shapes can't be bought");
+    ok(before.freePin === 0, "free items can't be bought");
+    const notes = await page.evaluate(() => ({torn: window.SBCREDITS.priceOf("note", "torn"), classic: window.SBCREDITS.priceOf("note", "classic")}));
+    ok(notes.torn === 100 && notes.classic === 0, "a Pro note shape costs 100 credits; free shapes aren't sold");
 
     // The Style Shop shows the balance and prices on locked items
     await page.evaluate(() => window.SBCREDITS.shop());
@@ -116,6 +118,47 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     ok(real.pack && real.pack.url === "https://checkout.stripe.com/c/pay/test" && real.plan && real.plan.url, "the app's checkout call reaches the server and gets Stripe's checkout address");
     ok(real.sent.length === 2 && real.sent[0][0] === "create-checkout" && real.sent[0][1].pack === "credits_600" && real.sent[0][1].src === "app" && real.sent[1][1].plan === "monthly", "it sends only the pack or plan (and that it came from the app)");
     ok(real.guest === null, "a guest account isn't sent to checkout");
+
+    // A sticker pack's sheet shows every sticker in it
+    const stk = await page.evaluate(p => { window.SBCREDITS.buySheet("sticker", p.pack); return {shown: document.querySelectorAll(".sbc-stage .stk-cell").length}; }, pick);
+    ok(stk.shown >= 8, `a sticker pack's sheet shows all its stickers (${stk.shown})`);
+
+    // Each piece of a collection opens bigger, and Back or Escape returns
+    await page.evaluate(th => window.SBCREDITS.buySheet("skin", th), pick.th);
+    await page.waitForSelector('.sbc-in[data-what="stk"]');
+    const zooms = {};
+    for (const w of ["comps", "stk", "card", "pins"]) {
+      if (!(await page.$(`.sbc-in[data-what="${w}"]`))) continue;
+      await page.click(`.sbc-in[data-what="${w}"]`);
+      await page.waitForSelector(".sbc-zoom");
+      zooms[w] = await page.evaluate(() => ({title: document.querySelector(".sbc-zoom-h b").textContent, items: document.querySelectorAll(".sbc-zoom-b img, .sbc-zoom-b .stk-cell, .sbc-zoom-b .cs-demo, .sbc-zoom-b .ns-demo").length}));
+      if (w === "card") await page.keyboard.press("Escape"); else await page.click('[data-act="sbc-zoom-x"]');
+      zooms[w].closed = await page.evaluate(() => !document.querySelector(".sbc-zoom") && !!document.querySelector("dialog[open] .sbc-sheet"));
+    }
+    ok(zooms.comps && zooms.comps.items >= 1 && zooms.stk && zooms.stk.items >= 8 && zooms.card && zooms.card.items === 1 && zooms.pins && zooms.pins.items >= 1, "every piece opens bigger: companions, all stickers, the flashcard, the pins");
+    ok(Object.values(zooms).every(z => z.closed), "Back and Escape close the big view and keep the buy sheet open");
+
+    // Checkout waits in the Credits sheet (not a toast), then shows the credits arriving
+    await page.evaluate(() => { const P = window.__sbPlanObj(); P.checkoutCall = async () => ({url: "https://checkout.stripe.com/c/pay/test"}); P.openExternal = () => {}; window.SBCREDITS.packsSheet(); });
+    await page.waitForSelector('.sbc-pack[data-id="credits_100"]');
+    await page.click('.sbc-pack[data-id="credits_100"]');
+    await page.waitForSelector(".sbc-wait", {timeout: 5000});
+    const waitTxt = await page.textContent(".sbc-wait");
+    ok(/checkout tab/i.test(waitTxt) && /100 credits/.test(waitTxt) && !!(await page.$('[data-act="sbc-reopen"]')), "after opening checkout the sheet says to finish in the checkout tab, with Open Checkout Again");
+    await page.evaluate(async () => { window.__crSrv.balance += 100; await window.SBCREDITS.load(); });
+    await page.waitForSelector(".sbc-done", {timeout: 5000});
+    ok(/100 credits added/.test(await page.textContent(".sbc-done")), "when the payment lands the sheet shows the credits added");
+    await page.click('.sbc-sheet [data-act="sbc-back"]');
+    await page.evaluate(async () => { window.__crSrv.balance -= 100; await window.SBCREDITS.load(); });
+
+    // A note shape for 100 credits: its sheet shows the shape, and buying unlocks it
+    await page.evaluate(async () => { window.__crSrv.balance += 100; await window.SBCREDITS.load(); window.SBCREDITS.unlock("note", "torn"); });
+    await page.waitForSelector('.sbc-sheet[data-kind="note"] [data-act="sbc-buy"]', {timeout: 5000});
+    ok(!!(await page.$(".sbc-stage .ns-demo .ns-torn")) && /Note Shape/.test(await page.textContent(".sbc-sheet")), "a note shape's sheet shows the shape");
+    await page.click('.sbc-sheet [data-act="sbc-buy"]');
+    await page.waitForFunction(() => window.__sbCollPreview.owns("note", "torn"), null, {timeout: 5000});
+    ok(true, "a note shape is kept for good once bought");
+    await page.waitForTimeout(600);
 
     // A single pin for 50 credits
     await page.evaluate(p => window.SBCREDITS.buySheet("pin", p.otherPin), pick);

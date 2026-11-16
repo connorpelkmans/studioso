@@ -2628,6 +2628,17 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .cbk-row .cbk-btns{flex:1 1 100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:360px}
 .cbk-row .cbk-btns .btn{width:100%;justify-content:center;margin:0;white-space:nowrap;border:1px solid var(--line)}
 .cbk-row .cbk-btns .btn:only-child{grid-column:1 / -1}
+
+/* Any colour for a note (Pro), after the set colours; and the PRO tag on the course and note rainbows */
+.nc.nc-any{position:relative;display:inline-block;padding:0;border:0;background:conic-gradient(from 0deg,#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#8b5cf6,#ec4899,#ef4444)!important;cursor:pointer}
+.nc.nc-any::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1.5px rgba(255,255,255,.9)}
+.nc.nc-any input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0}
+.nc.nc-any.locked::after{background:var(--surface,#fff)}
+.nc-any .pro-badge,.cc-custom .pro-badge{position:absolute;right:-8px;top:-8px;z-index:3;transform:scale(.72);transform-origin:top right;pointer-events:none}
+.cc-custom{position:relative}
+.cc-custom.locked input[type=color]{pointer-events:none!important}
+.note.note-dark{color:#fff}
+.note.note-dark .note-empty{color:rgba(255,255,255,.75)}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -4675,7 +4686,7 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .sbc-stage .cs-demo{width:min(240px,100%);margin:0}
 .sbc-stage .skin-prev{width:min(320px,100%);height:120px}
 .sbc-stage .ns-demo{width:100%;height:168px;margin:-16px;border-radius:16px}
-.sbc-stage .sbc-stk{display:grid;grid-template-columns:repeat(3,56px);gap:10px}
+.sbc-stage .sbc-stk{display:grid;grid-template-columns:repeat(4,56px);gap:10px}
 .sbc-stage .sbc-stk .stk-cell{width:56px;height:56px}
 .sbc-price{display:flex;align-items:center;gap:12px}
 .sbc-price-coin{flex:none;width:44px;height:44px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
@@ -4708,7 +4719,9 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .sbc-stage-l{position:absolute;left:12px;top:10px;padding:2px 8px;border-radius:999px;font:700 .72rem var(--display);letter-spacing:.04em;text-transform:uppercase;background:var(--surface);color:var(--muted)}
 .sbc-h{margin:0 0 8px;font:800 .95rem var(--display)}
 .sbc-in-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.sbc-in{display:grid;grid-template-rows:auto 1fr auto;gap:6px;padding:8px 8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);min-width:0}
+.sbc-in{display:grid;grid-template-rows:auto 1fr auto;gap:6px;padding:8px 8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);min-width:0;color:var(--ink);font:inherit;text-align:start;cursor:zoom-in;transition:border-color .15s,transform .15s}
+.sbc-in:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));transform:translateY(-1px)}
+.sbc-in:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
 .sbc-in-l{font:700 .68rem var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sbc-in-b{display:grid;place-items:center;height:76px;border-radius:9px;background:var(--soft);padding:6px;overflow:hidden}
 .sbc-in-s{font-size:.74rem;line-height:1.3;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -4722,6 +4735,36 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 .sbc-pins{display:flex;justify-content:center;zoom:.3}
 .sbc-pins .ns-demo{background:none;height:170px;width:150px}
 @media (max-width:560px){.sbc-in-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* The big view of one piece, over the buy sheet */
+/* shown in the sheet's body in place of its usual content */
+.sbc-sheet.zoomed .sheet-body > :not(.sbc-zoom){display:none!important}
+.sbc-zoom{display:grid;gap:4px;animation:sbcZoomIn .18s ease-out}
+@keyframes sbcZoomIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.sbc-zoom{animation:none}}
+.sbc-zoom-h{display:flex;align-items:center;gap:12px;padding:0 0 12px;border-bottom:1px solid var(--line)}
+.sbc-zoom-h b{font:800 1.05rem var(--display)}
+.sbc-zoom-b{padding:14px 0 0;display:grid;gap:14px;align-content:start}
+.sbc-z-comps{display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
+.sbc-z-comps figure,.sbc-z-pins figure{margin:0;display:grid;justify-items:center;gap:6px}
+.sbc-z-comps img{width:140px;height:140px;object-fit:contain;border-radius:16px;background:var(--soft)}
+.sbc-z-comps figcaption,.sbc-z-pins figcaption{font:700 .92rem var(--display)}
+.sbc-z-stk{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;justify-items:center;padding:12px;border-radius:16px;background:var(--soft)}
+.sbc-z-stk .stk-cell{width:72px;height:72px}
+.sbc-z-card{display:grid;place-items:center;padding:20px;border-radius:16px;background:var(--soft)}
+.sbc-z-card .cs-demo{width:min(320px,100%);margin:0}
+.sbc-z-pins{display:flex;justify-content:center;gap:16px;flex-wrap:wrap}
+.sbc-z-pins .ns-demo{width:180px;border-radius:14px}
+/* Waiting for Stripe, and the credits arriving */
+.sbc-wait,.sbc-done{display:grid;justify-items:center;gap:8px;text-align:center;padding:22px 12px}
+.sbc-wait b,.sbc-done b{font:800 1.15rem var(--display)}
+.sbc-wait > span,.sbc-done > span{color:var(--muted);font-size:.92rem;max-width:36ch}
+.sbc-wait-acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.sbc-spin{width:34px;height:34px;border-radius:50%;border:3px solid color-mix(in srgb,var(--accent) 22%,transparent);border-top-color:var(--accent);animation:sbcSpin .9s linear infinite}
+@keyframes sbcSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.sbc-spin{animation-duration:3s}}
+.sbc-done-coin{filter:drop-shadow(0 3px 6px rgba(0,0,0,.25))}
+.sbc-pack.busy{opacity:.7;cursor:progress}
 /* ===== module: 97-ui.css ===== */
 /* ===== 97-ui: Settings in categories ===== */
 .us-sheet .us-back{display:none}
