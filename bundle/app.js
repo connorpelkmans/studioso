@@ -16002,7 +16002,7 @@ function courseForm(c){
         <label class="f"><span class="lh">Room <span class="hint">default for class times</span></span><input type="text" name="room" maxlength="80" value="${esc(c.room)}"></label>
         <label class="f"><span class="lh">Office Hours <span class="hint">notes</span></span><input type="text" name="office" maxlength="120" value="${esc(c.office || "")}"></label>
       </div>
-      <fieldset><legend>Color</legend><div class="swatches cc-sw">${COURSE_COLORS.map((x, i) => `<label title="${esc(COURSE_COLOR_NAMES[i] || "")}"><input type="radio" name="color" value="${x}" ${x.toLowerCase() === String(c.color || "").toLowerCase() ? "checked" : ""} aria-label="${esc(COURSE_COLOR_NAMES[i] || "Color " + (i + 1))}"><span style="--c:${x}"></span></label>`).join("")}${(cv => `<label class="cc-custom" title="Any color"><input type="radio" name="color" id="ccRadio" value="${esc(cv)}" ${COURSE_COLORS.some(x => x.toLowerCase() === String(c.color || "").toLowerCase()) ? "" : "checked"} aria-label="Custom color"><span style="--c:${esc(cv)}"></span><input type="color" id="ccPick" value="${esc(cv)}" aria-label="Pick any color" tabindex="-1"></label>`)(/^#[0-9a-f]{6}$/i.test(c.color || "") ? c.color : "#7C3AED")}</div></fieldset>
+      <fieldset><legend>Color</legend><div class="swatches cc-sw">${COURSE_COLORS.map((x, i) => `<label title="${esc(COURSE_COLOR_NAMES[i] || "")}"><input type="radio" name="color" value="${x}" ${x.toLowerCase() === String(c.color || "").toLowerCase() ? "checked" : ""} aria-label="${esc(COURSE_COLOR_NAMES[i] || "Color " + (i + 1))}"><span style="--c:${x}"></span></label>`).join("")}${(cv => `<label class="cc-custom${anyColorLocked() ? " locked" : ""}" title="${anyColorLocked() ? "Any color (Pro)" : "Any color"}"><input type="radio" name="color" id="ccRadio" value="${esc(cv)}" ${COURSE_COLORS.some(x => x.toLowerCase() === String(c.color || "").toLowerCase()) ? "" : "checked"} aria-label="${anyColorLocked() ? "Custom color, part of Studyboard Pro" : "Custom color"}"><span style="--c:${esc(cv)}"></span><input type="color" id="ccPick" value="${esc(cv)}" aria-label="Pick any color" tabindex="-1"${anyColorLocked() ? " disabled" : ""}>${anyColorLocked() ? `<i class="pro-badge">PRO</i>` : ""}</label>`)(/^#[0-9a-f]{6}$/i.test(c.color || "") ? c.color : "#7C3AED")}</div></fieldset>
       <fieldset class="ci-fs"><legend>Icon <span class="hint">shown in the course's circle</span></legend><div class="ci-grid" id="ciGrid" style="--c:${esc(c.color)}" data-picked="${COURSE_ICONS[c.icon] || customIcon(c.icon) ? "1" : ""}">
         ${Object.keys(COURSE_ICONS).map(k => `<label title="${esc(COURSE_ICONS[k][0])}"><input type="radio" name="icon" value="${k}" ${courseIconKey(c) === k ? "checked" : ""} aria-label="${esc(COURSE_ICONS[k][0])}"><span>${courseIconSvg(k)}</span></label>`).join("")}${customIcons().map(x => `<label title="${esc(x.name)} (made with AI)"><input type="radio" name="icon" value="x:${esc(x.id)}" ${courseIconKey(c) === "x:" + x.id ? "checked" : ""} aria-label="${esc(x.name)}"><span>${courseIconSvg("x:" + x.id)}</span></label>`).join("")}<button type="button" class="ci-ai-btn" data-act="ci-ai" title="Describe an icon and get one that matches your description, in this style">${AI_ICON}<span>Create</span>${typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && (!PLAN.isPro() || tagPro()) ? `<i class="pro-badge">PRO</i>` : ""}</button></div>
         <div class="ci-ai" id="ciAi" hidden><label class="f"><span class="lh">Describe the Icon<span class="beta-pill" title="Beta: still being improved">Beta</span> <span class="hint">e.g. "a stethoscope with a heart" or "a hockey stick and puck"</span></span><input type="text" id="ciAiQ" maxlength="120" autocomplete="off"></label>
@@ -16033,7 +16033,9 @@ function courseForm(c){
   });
   dlg.querySelectorAll('input[name="color"]').forEach(r => r.addEventListener("change", () => { const g = $("#ciGrid"); if (g) g.style.setProperty("--c", r.value); }));
   { const pk = $("#ccPick"), rd = $("#ccRadio");
-    if (pk && rd) { pk.addEventListener("input", () => { rd.value = pk.value; rd.nextElementSibling.style.setProperty("--c", pk.value); rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); });
+    // On the free plan the rainbow opens the Pro sheet instead (a colour chosen before stays as it is)
+    if (pk && rd && anyColorLocked()) rd.addEventListener("click", e => { e.preventDefault(); anyColorPro("course"); });
+    else if (pk && rd) { pk.addEventListener("input", () => { rd.value = pk.value; rd.nextElementSibling.style.setProperty("--c", pk.value); rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); });
       rd.addEventListener("click", () => { try { pk.showPicker ? pk.showPicker() : pk.click(); } catch (e) { pk.click(); } });
       // iPhone and iPad: the tap lands on the colour box itself (laid over the rainbow), which opens Apple's colour picker; it picks the rainbow too
       pk.addEventListener("click", () => { if (!rd.checked) { rd.checked = true; rd.dispatchEvent(new Event("change", {bubbles: true})); } }); } }
@@ -18171,7 +18173,12 @@ document.addEventListener("drop", e => {
 const NOTE_COLORS = [["yellow","#FFE680"],["pink","#FFB8CC"],["blue","#AED6FF"],["green","#BDECA8"],["orange","#FFCB8E"],["purple","#D6C6FF"]];
 const NOTE_COLORS_SHOWN = NOTE_COLORS.map((c, i, a) => a[i === 0 ? 2 : i === 2 ? 0 : i]);
 // A note keeps the colour you picked on every theme
-const noteColor = k => NOTE_COLORS[Math.max(0, NOTE_COLORS.findIndex(c => c[0] === k))][1];
+const noteColor = k => /^#[0-9a-f]{6}$/i.test(k || "") ? k : NOTE_COLORS[Math.max(0, NOTE_COLORS.findIndex(c => c[0] === k))][1];
+// Picking any colour (a course's or a note's own colour, beyond the set ones) is part of Studyboard Pro. Colours chosen before stay.
+const anyColorLocked = () => { try { return typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && !PLAN.isPro(); } catch (e) { return false; } };
+const anyColorPro = what => { try { PLAN.openSheet(`Picking any ${what} color is part of Studyboard Pro`); } catch (e) {} };
+// A dark note colour gets light text
+const noteDark = k => { const h = /^#([0-9a-f]{6})$/i.exec(k || ""); if (!h) return false; const v = parseInt(h[1], 16), r = v >> 16, g = (v >> 8) & 255, b = v & 255; return (0.299 * r + 0.587 * g + 0.114 * b) < 140; };
 // a course tag's text on a note: the course colour toward ink (as .note-tag draws it), deepened further only if its tint on
 // that paper needs it to read
 const noteTagInk = (c, paper) => { const tint = hexBlend(hexBlend(paper, "#FFFFFF", 0.6), c, 0.22); return courseInk(hexBlend(c, "#1A1A1A", 0.3), [tint]); };
@@ -18273,7 +18280,11 @@ function noteHtml(n){
   const body = editing
     ? `<textarea class="note-text" id="noteText" maxlength="8000" aria-label="Note text" placeholder="Write a note…">${esc(n.text)}</textarea>${window.SBPRO && SBPRO.noteExtra ? SBPRO.noteExtra(n) : ""}
        <div class="note-tools">
-         <div class="note-colors" role="group" aria-label="Note color">${NOTE_COLORS_SHOWN.map(([k, hex]) => `<button type="button" class="nc ${k === n.color ? "on" : ""}" style="background:${noteColor(k)}" data-act="note-color" data-id="${esc(n.id)}" data-color="${k}" aria-label="${k}"></button>`).join("")}</div>
+         <div class="note-colors" role="group" aria-label="Note color">${NOTE_COLORS_SHOWN.map(([k, hex]) => `<button type="button" class="nc ${k === n.color ? "on" : ""}" style="background:${noteColor(k)}" data-act="note-color" data-id="${esc(n.id)}" data-color="${k}" aria-label="${k}"></button>`).join("")}${(() => {
+           const own = /^#[0-9a-f]{6}$/i.test(n.color || ""), cv = own ? n.color : "#FFD6A5", lk = anyColorLocked();
+           return lk ? `<button type="button" class="nc nc-any locked ${own ? "on" : ""}" style="--c:${esc(cv)}" data-act="nc-pro" title="Any color (Pro)" aria-label="Any color, part of Studyboard Pro"><i class="pro-badge">PRO</i></button>`
+             : `<label class="nc nc-any ${own ? "on" : ""}" style="--c:${esc(cv)}" title="Any color"><input type="color" class="nc-pick" data-id="${esc(n.id)}" value="${esc(cv)}" aria-label="Pick any note color"></label>`;
+         })()}</div>
          <select class="note-task" data-id="${esc(n.id)}" aria-label="Attach to a task">${noteTaskOpts(n)}</select>
          <select class="note-course" data-id="${esc(n.id)}" aria-label="Course">${`<option value="">No course</option>` + coursesArr().map(x => `<option value="${esc(x.id)}" ${x.id === n.courseId ? "selected" : ""}>${esc(courseLabel(x))}</option>`).join("")}</select>
          ${window.SBPRO && SBPRO.noteBar ? SBPRO.noteBar(n) : ""}
@@ -18282,7 +18293,7 @@ function noteHtml(n){
          <div class="note-btns">${window.SBONENOTE ? SBONENOTE.noteBtn(n) : ""}<button type="button" class="nb" data-act="note-archive" data-id="${esc(n.id)}" title="Archive" aria-label="Archive note">${ARCHIVE}</button><button type="button" class="nb" data-act="note-trash" data-id="${esc(n.id)}" title="Delete" aria-label="Delete note">${TRASH}</button><button type="button" class="btn small" data-act="note-done">Done</button></div>
        </div>`
     : `<div class="note-body">${n.text.trim() ? (window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
-  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="group" aria-roledescription="note" aria-label="${editing ? "Note options. Press Enter to type in the note, Escape to close it." : esc(noteLabelText(n)) + ". Press Enter for its options."}"
+  return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}${noteDark(n.color) ? " note-dark" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="group" aria-roledescription="note" aria-label="${editing ? "Note options. Press Enter to type in the note, Escape to close it." : esc(noteLabelText(n)) + ". Press Enter for its options."}"
     style="left:${n.x}px;top:${n.y}px;z-index:${editing ? 9000 : n.z};width:${w}px;--nc:${noteColor(n.color)};--rot:${editing ? 0 : n.rot}deg">
     ${pinHtml(notePinOf(n))}
     ${editing ? "" : `<span class="note-rot" data-rot="${esc(n.id)}" title="Drag to rotate" aria-hidden="true">${ROT_ICON}</span>`}
@@ -18619,6 +18630,15 @@ function noteFreeSpot(rects, view, w, h){
 }
 /*NOTESPOT-END*/
 const NOTE_COLOR_KEY = "studyboard:noteColor";
+if (window.__SB_TEST) window.__sbAnyColor = {course: c => courseForm(c), note: id => { noteEditing = id; render(); }, locked: () => anyColorLocked()};
+// A note's own colour from the colour picker (Pro): saved when the picker closes, like tapping a colour
+document.addEventListener("change", e => {
+  const pk = e.target; if (!pk || !pk.classList || !pk.classList.contains("nc-pick")) return;
+  const n = state.notes[pk.dataset.id]; if (!n || !/^#[0-9a-f]{6}$/i.test(pk.value)) return;
+  if (anyColorLocked()) { anyColorPro("note"); return; }
+  const t = $("#noteText");
+  applyChanges([{kind: "note", id: n.id, after: Object.assign(clone(n), {color: pk.value.toLowerCase(), text: t ? t.value : n.text})}], "");
+});
 const noteLastColor = () => { let c = ""; try { c = localStorage.getItem(NOTE_COLOR_KEY) || ""; } catch (e) {} return NOTE_COLORS_SHOWN.some(([k]) => k === c) ? c : "yellow"; };
 function newNoteAt(x, y){
   const sc = $("#nbScroll");
@@ -23197,6 +23217,7 @@ document.addEventListener("click", e => {
     case "note-redo": noteUndoRedo(1); break;
     case "note-versions": noteVersionsSheet(id); break;
     case "note-export": if (noteEditing && !id) saveNoteText(); noteExportSheet(id || ""); break;
+    case "nc-pro": anyColorPro("note"); break;
     case "note-color": { const n = state.notes[id]; if (!n) break; const t = $("#noteText"); try { localStorage.setItem(NOTE_COLOR_KEY, el.dataset.color); } catch (err) {} applyChanges([{kind:"note", id, after: Object.assign(clone(n), {color: el.dataset.color, text: t ? t.value : n.text})}], ""); break; }
     case "note-archive": noteToArchive(id); break;
     case "note-trash": noteToTrash(id); break;
@@ -72227,7 +72248,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const inside = kind === "skin" ? insideHtml(id) : "";
     const list = kind === "skin" && !inside ? contents(id) : [];
     const go = !mineOk ? `<button type="button" class="btn primary" data-act="sbc-signin">Sign In to Buy</button>`
-      : enough ? `<button type="button" class="btn primary sbc-go" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">Keep It for ${COIN}${cost}</button>`
+      : enough ? `<button type="button" class="btn primary sbc-go" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">Buy It for ${COIN}${cost} Credits</button>`
       : storeApp() ? "" : `<button type="button" class="btn primary" data-act="sbc-packs">Get Credits</button>`;
     const wallet = !mineOk ? `<p class="sbc-note">Credits belong to your account, so sign in first.</p>`
       : `<div class="sbc-wallet" role="status"><span class="sbc-wallet-l">Your balance</span><span class="sbc-wallet-n">${COIN}<b>${bal.toLocaleString()}</b></span>${enough ? `<span class="sbc-chip ok">${bal - cost} left after</span>` : `<span class="sbc-chip">${cost - bal} more needed</span>`}</div>${!enough && storeApp() ? `<p class="sbc-note">Buying credits isn't available in this app.</p>` : ""}`;
@@ -72235,14 +72256,13 @@ You can also DO things in Studyboard, but only when the student asks or what the
       <div class="sheet-body">
         ${note ? `<p class="sbc-note sbc-why">${esc(note)}</p>` : ""}
         <div class="sbc-stage sbc-stage-${esc(kind)}" aria-hidden="true">${preview(kind, id)}${kind === "skin" ? `<span class="sbc-stage-l">Theme</span>` : ""}</div>
-        <div class="sbc-price"><img class="sbc-price-coin" src="${COIN_SRC}" width="44" height="44" alt=""><span class="sbc-price-t"><b>${cost} credits</b><span>${esc(KIND_NAME[kind] || "")} · yours to keep, with or without Pro</span></span></div>
+        <div class="sbc-price"><img class="sbc-price-coin" src="${COIN_SRC}" width="44" height="44" alt=""><span class="sbc-price-t"><b>${cost} credits</b>${KIND_NAME[kind] ? `<span>${esc(KIND_NAME[kind])}</span>` : ""}</span></div>
         ${inside}
         ${list.length ? `<ul class="sbc-list">${list.map(x => `<li>${TICK}<span>${esc(x)}</span></li>`).join("")}</ul>` : ""}
         ${wallet}
         ${th ? `<button type="button" class="sbc-upsell" data-act="sbc-item" data-kind="skin" data-id="${esc(th)}"><span class="sbc-upsell-t"><b>Get the whole ${esc(themeName(th))} Collection</b><span>The theme, its companions, stickers, pins and this style, for ${priceOf("skin", th)} credits</span></span>${CHEV}</button>` : ""}
-        <p class="sbc-pro">Or <button type="button" class="link-btn" data-act="plan-open">go Pro</button> for every collection while you're subscribed.</p>
       </div>
-      <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}</div></div>`);
+      <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}${PLAN.isPro() ? "" : `<button type="button" class="btn sbc-getpro" data-act="plan-open" title="Every collection while you're subscribed">Get Pro</button>`}</div></div>`);
   }
   const money = (cents, cur) => { try { return new Intl.NumberFormat(undefined, {style: "currency", currency: String(cur || "usd").toUpperCase()}).format(cents / 100); } catch (e) { return "$" + (cents / 100).toFixed(2); } };
   function packsSheet(){
@@ -72382,7 +72402,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       b.dataset.cr = "1";
       const n = priceOf(b.dataset.kind, b.dataset.id); if (!n) return;
       b.innerHTML = `🔒 ${n} Credits`;
-      b.setAttribute("aria-label", `Keep ${nameOf(b.dataset.kind, b.dataset.id)} for ${n} credits`);
+      b.setAttribute("aria-label", `Buy ${nameOf(b.dataset.kind, b.dataset.id)} for ${n} credits`);
     });
   }
   // Rows the shop fills in later (collections, See All) get their prices too
