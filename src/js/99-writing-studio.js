@@ -1,7 +1,12 @@
 /* ===== module: 99-writing-studio.js ===== */
 /* Writing Studio (Pro): a reference manager for each paper, with quotes, an outline and a citation check. No AI.
    - Entry: "Writing Studio" in the task sheet's actions, on the same assignment-like tasks as Rubric Check (and on any task that already
-     has sources). Free accounts see a PRO badge, which opens the Pro sheet.
+     has sources, quotes or a draft). Also: a small chip on Board cards and in Do This Next for papers that already have Writing Studio data;
+     a Writing view in Review (papers with data and upcoming essays and reports, plus My Library and Zotero without picking a paper); a
+     Break It Down step opens its matching tab; Today's Plan suggests Check Citations (one row) on or the day before the due date when the
+     saved draft hasn't been checked since it changed. Free accounts see a PRO badge, which opens the Pro sheet.
+   - Tabs: Check, Sources, Quotes, Outline. Opening lands on Check, or on Sources for a paper with sources but no draft yet. A strip on every
+     tab says how far along the paper is (sources · quotes · placed · last check), each part a way to its tab.
    - Citations are made by citeproc-js (the CSL processor Zotero itself uses, vendor/citeproc-2.4.63) with real CSL styles, so the output is
      the same as Zotero's: 8 styles come with the app and work offline (APA 7, MLA 9, Chicago author-date and notes-bibliography, IEEE,
      Harvard Cite Them Right, AMA, ASA), and any of the 10,000+ styles in the Zotero Style Repository can be searched and added (fetched
@@ -13,13 +18,27 @@
      Google Scholar export); picked from My Library (every source in your other papers); or pulled from Zotero.
    - Zotero: connect with a Zotero API key (kept on this device only; requests go straight to api.zotero.org). Browse My Library and group
      libraries by collection, search, tick items and add them; items keep their Zotero key, and Update From Zotero refreshes them.
-   - Duplicates (same DOI, ISBN, or title and year) are skipped. Export the list as BibTeX, RIS or CSL-JSON (Zotero imports all three).
+   - Lookups send only the identifier. Duplicates (same DOI, ISBN, or title and year) are skipped. Export the list as BibTeX, RIS or
+     CSL-JSON (Zotero imports all three).
    - Quotes: reader highlights come in as quotes tied to their source and page; each has its in-text citation (a footnote in note styles)
-     and opens its page again. Outline: sections (Introduction, Body, Conclusion, or the paper's milestones), quotes dragged into them.
-     Export to Word (with real footnotes for note styles), Google Docs (copied as formatted text) or text.
-   - Check: the draft (pasted, uploaded or picked) is checked on this device: sources never cited, citations matching no source, quotes
-     without a citation, a missing or misnamed reference list, sources missing from it, the style's common slips, and the assignment's own
-     rules (the style it names, at least N sources). It never writes or rewrites any of the student's work.
+     and opens its page again, and says when the draft uses it. Open a PDF to Highlight opens the reader for this paper (its PDF sources and
+     the course's PDFs, or an upload): each new highlight offers Add as Quote there and then (the PDF becomes a source if it isn't one), and
+     closing the reader comes back to Quotes. A PDF that's a source of exactly one open paper shows the same "Writing Studio: <paper>" bar
+     in the reader from anywhere. Sources without a PDF get Attach PDF. Each source says how it's used (quoted, cited in the draft).
+   - Outline: sections (Introduction, Body, Conclusion, or the paper's milestones), quotes dragged into them; sections with no quotes and
+     quotes never placed are pointed out. Export to Word (with real footnotes for note styles), Google Docs (copied as formatted text) or text.
+   - Check: the draft (pasted, uploaded, or chosen from Studyboard: this assignment's files, the course's, all files, or a longer note; an
+     attached draft is offered) is kept on the paper (t.ws.draft: its text capped at 60,000 characters, where it came from, when) so it
+     isn't pasted again, and checked on this device: sources never cited, citations matching no source, quotes without a citation, a
+     missing or misnamed reference list, sources missing from it, the style's common slips, and the assignment's own rules (the style it
+     names, at least N sources). The last check is kept too (t.ws.chk), so Check Again says what changed ("2 fixed, 1 new"); a draft
+     from a Studyboard file or note is read again when that changed. Clicking an issue shows its sentence marked in a read-only view of
+     the draft. Check feeds the other tabs: the entries in the draft's reference list that aren't sources yet (ones with a DOI or ISBN
+     looked up, the rest read from the list and marked to check) and its quoted passages with a citation (tied to their source and page)
+     can be ticked and added. It never writes or rewrites any of the student's work.
+   - After adding a source: Also Add to Another Paper? for the other open papers in the course. A Break It Down step is ticked done only
+     where it's clearly measurable: "find N sources" once there are N, and a step only about the citations once the saved draft's latest
+     check has nothing to fix (never quotes, outlines, drafting, proofreading or handing in).
    - Saved on the task (t.ws), so it syncs; changes have Undo.
    The pure part is between CITE-START and CITE-END. */
 (() => {
@@ -915,7 +934,7 @@ function open(id, tab){
   const t = state.tasks[id]; if (!t) return;
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
   RD = null;
-  if (W.tid !== id || W.hub) Object.assign(W, {tid: id, hub: "", paste: "", res: null, tab: "", found: null, show: null, diff: null, also: null, offerOff: false, okMsg: ""});
+  if (W.tid !== id || W.hub) Object.assign(W, {tid: id, hub: "", paste: "", res: null, tab: "", found: null, show: null, diff: null, also: null, offerOff: false, okMsg: "", redo: false, attachFor: ""});
   Object.assign(W, {view: "", edit: null, err: "", busy: "", hlPick: null, imp: null, find: null, pick: null});
   // Check comes first, and feeds the other tabs; a paper with sources but no draft yet opens on its Sources
   if (tab) W.tab = tab;
@@ -2003,7 +2022,7 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 .ws-chip svg{width:12px;height:12px;flex:none}
 .ws-chip:hover{background:color-mix(in srgb,var(--accent,#2F6FE4) 14%,var(--surface))}
 .ws-chip-n{display:inline-grid;place-items:center;min-width:1.3em;height:1.3em;border-radius:99px;background:#D64545;color:#fff;font-size:.7rem}
-.nu-acts .ws-chip{font-size:.8rem;padding:5px 10px}
+.nu-ws{display:block;margin-top:6px}
 /* the reader's Writing Studio bar */
 .pdr-ws{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;padding:6px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent,#2F6FE4) 9%,var(--surface));font-size:.88rem;min-width:0}
 .pdr-ws svg{flex:none;color:var(--accent,#2F6FE4)}

@@ -43,7 +43,9 @@ function SEED(){
       {id: "t3", title: "Reflection essay", courseId: "c2", type: "Assignment", due: day(12), start: day(0), status: "todo", priority: "med", created: 6},
       {id: "t4", title: "Policy brief", courseId: "c2", type: "Assignment", due: day(1), start: day(0), status: "todo", priority: "med", created: 7,
         ws: {style: "apa", src: [{id: "p1", type: "book", title: "Cities and climate change", author: [{family: "Ng", given: "Mo"}], issued: {"date-parts": [[2019]]}}], q: [], out: [], draft: {t: "A brief on heat. Ng (2019) says plan ahead.\n\nReferences\nNg, M. (2019). Cities and climate change. Routledge.", from: "Pasted", at: 1}}},
-      {id: "m1", title: "Find 4 sources", courseId: "c2", type: "Project", due: day(2), start: day(0), status: "todo", priority: "med", breakdownOf: "t1", step: "1/2", created: 10}],
+      {id: "m1", title: "Find 4 sources", courseId: "c2", type: "Project", due: day(2), start: day(0), status: "todo", priority: "med", breakdownOf: "t1", step: "1/2", created: 10},
+      {id: "m4", title: "Format the citations", courseId: "c2", type: "Project", due: day(1), start: day(0), status: "todo", priority: "med", breakdownOf: "t4", step: "1/2", created: 11},
+      {id: "m5", title: "Proofread the citations and submit", courseId: "c2", type: "Project", due: day(1), start: day(0), status: "todo", priority: "med", breakdownOf: "t4", step: "2/2", created: 12}],
     notes: [{id: "n7", text: NOTE, courseId: "c2", x: 40, y: 40, z: 1, created: 3}], decks: [],
     files: [
       {id: "fd", name: "Essay draft.txt", courseId: "c2", folderId: "other", kind: "file", taskIds: ["t1"], desc: "", url: "", revs: [{assetId: "a-draft", name: "Essay draft.txt", size: DRAFT.length, type: "text/plain", at: 2}]},
@@ -193,6 +195,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   ok(/^Check/.test(await selTab(page)), "which opens its Check");
   await page.click("[data-ws-check]"); await page.waitForTimeout(300); await page.keyboard.press("Escape"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => SBWRITE.planNote()) === null, "once checked, the row goes");
+  ok((await task(page, "m4")).status === "done" && (await task(page, "m5")).status !== "done", "a step only about the citations is ticked once the check finds nothing to fix; one that also says submit isn't");
   await page.click('nav.tabs [data-tab="flashcards"]'); await page.waitForTimeout(300);
   await act(page, "rv-view", "writing"); await page.waitForSelector(".wsr-card");
   const cards = await page.$$eval(".wsr-card .wsr-t", x => x.map(e => e.textContent));
