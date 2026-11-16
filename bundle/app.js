@@ -106265,10 +106265,11 @@ function open(kind, id, map){
   if (!same) { M.loose = false; M.know = o.kind === "exam"; }
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
   const mp = mapOf(o);
-  openSheet(`<div class="sheet cm-sheet">${betaHead(bandHead("Concept Map", ICON.replace('width="16" height="16"', ""), c ? c.color : "#2F6FE4", "", esc(mp ? mp.name : ownerObj(o).title)))}
-    <div class="cm-tools" role="toolbar" aria-label="Concept map tools"></div>
-    <div class="cm-canvas" tabindex="-1"><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div></div>
-    <div class="cm-panel" aria-live="polite"></div></div>`);
+  // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
+  openSheet(`<div class="sheet cm-sheet" style="--c:${esc(c ? c.color : "#2F6FE4")}"><div class="cm-top"><span class="cm-hic" aria-hidden="true">${ICON.replace('width="16" height="16"', 'width="18" height="18"')}</span>
+    <div class="cm-tt"><span class="cm-kick">Concept Map${BETA ? ' <span class="sb-beta" title="Beta: still being improved">Beta</span>' : ""}</span><h2 class="cm-name">${esc(mp ? mp.name : ownerObj(o).title)}</h2></div>
+    <div class="cm-tools" role="toolbar" aria-label="Concept map tools"></div><button type="button" class="icon-btn cm-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
+    <div class="cm-canvas" tabindex="-1"><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div><div class="cm-panel" aria-live="polite"></div></div></div>`);
   M.el = dlg.querySelector(".cm-sheet");
   rebuild();
   // a map with nothing connected yet starts with the course's notes, decks and files on show, ready to connect
@@ -106459,18 +106460,27 @@ function legend(know){
 function tools(){
   const T = M.el.querySelector(".cm-tools"); if (!T) return;
   if (M.quiz) { T.innerHTML = `<b class="cm-qt">Fill In the Map</b><span class="mini">${M.quiz.done.size} of ${M.quiz.ids.length} placed${M.quiz.miss ? ` · ${M.quiz.miss} wrong tr${M.quiz.miss === 1 ? "y" : "ies"}` : ""}</span><span class="spacer"></span><button type="button" class="btn small" data-cm="quiz-again">Start Over</button><button type="button" class="btn small" data-cm="quiz-end">Back to the Map</button>`; return; }
-  const loose = M.g.loose.length;
-  const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
-  T.innerHTML = `<button type="button" class="btn small" data-cm="idea">+ Idea</button><button type="button" class="btn small" data-cm="pic">+ Picture${pro}</button><button type="button" class="btn small" data-cm="emb">+ Video or Embed${pro}</button>
-    <button type="button" class="btn small ai-btn" data-cm="desc">${AI_ICON} Describe</button>
-    <button type="button" class="btn small ai-btn" data-cm="suggest" ${M.busy ? "disabled" : ""}>${AI_ICON} ${M.busy ? "Thinking…" : "Suggest Connections"}</button>
-    <button type="button" class="btn small" data-cm="quiz" ${M.g.nodes.filter(n => !n.root && n.deg).length >= 3 ? "" : "disabled"}>Fill In the Map</button>
-    <button type="button" class="btn small" data-cm="cards">${mapDeck(M.own) ? "Update Flashcards" : "Make Flashcards"}</button>
-    <label class="cm-tog" title="Colours each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" ${M.know ? "checked" : ""}> Colour by Knowledge</label>
-    ${M.know ? (() => { const K = know(), weak = Object.keys(K.lv).filter(id => K.lv[id] === "weak" && (K.stats[id] || {}).cards && K.stats[id].cards.length); return weak.length ? `<button type="button" class="btn small cm-shaky" data-cm="shaky">Review ${weak.length} Shaky Idea${weak.length === 1 ? "" : "s"}</button>` : ""; })() : ""}
-    <span class="spacer"></span>
-    ${loose || M.loose ? `<label class="cm-tog"><input type="checkbox" data-cm="loose" ${M.loose ? "checked" : ""}> Show ${M.loose ? "unlinked items" : `${loose} unlinked`}</label>` : ""}
-    <button type="button" class="link-btn" data-cm="reset">Tidy Layout</button>`;
+  const loose = M.g.loose.length, hidden = userOf(M.own).hide.length, pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
+  const K = M.know ? know() : null, weak = K ? Object.keys(K.lv).filter(id => K.lv[id] === "weak" && (K.stats[id] || {}).cards && K.stats[id].cards.length).length : 0;
+  const item = (cm, label, extra) => `<button type="button" role="menuitem" class="cm-mi" data-cm="${cm}" ${extra || ""}>${label}</button>`;
+  T.innerHTML = menu("add", `${mi('<path d="M12 5v14M5 12h14"/>')}<span class="cm-ml">Add</span>`, "Add to the map",
+      item("idea", `${mi('<rect x="3" y="7" width="18" height="10" rx="5"/>')} Idea`) + item("pic", `${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} Picture${pro}`) + item("emb", `${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} Video or Embed${pro}`)
+      + `<span class="cm-msep">Studyboard AI</span>` + item("desc", `${AI_ICON} Describe Ideas`) + item("suggest", `${AI_ICON} ${M.busy ? "Thinking…" : "Suggest Connections"}`, M.busy ? "disabled" : ""))
+    + menu("study", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')}<span class="cm-ml">Study</span>`, "Study from the map",
+      item("quiz", `${mi('<path d="M4 6h16M4 12h10M4 18h7"/>')} Fill In the Map`, M.g.nodes.filter(n => !n.root && n.deg).length >= 3 ? "" : "disabled") + item("cards", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} ${mapDeck(M.own) ? "Update Flashcards" : "Make Flashcards"}`)
+      + (weak ? item("shaky", `${mi('<circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/>')} Review ${weak} Shaky Idea${weak === 1 ? "" : "s"}`) : ""))
+    + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span></label>`
+    + (weak ? `<button type="button" class="btn small cm-shaky" data-cm="shaky" title="Review the cards for your shaky ideas">${weak} Shaky</button>` : "")
+    + `<span class="spacer"></span>`
+    + menu("more", mi('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'), "More",
+      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout"), true);
+}
+function closeMenu(){ M.menu = ""; if (!M.el) return; M.el.querySelectorAll(".cm-menu").forEach(m => m.remove()); M.el.querySelectorAll(".cm-mb.on").forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); }
+// a toolbar or panel menu: the button, and its list while open (one open at a time; a tap anywhere else closes it)
+const mi = d => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+function menu(id, label, title, items, right){
+  const on = M.menu === id;
+  return `<div class="cm-mw${right ? " right" : ""}"><button type="button" class="btn small cm-mb${on ? " on" : ""}" data-cm="menu" data-v="${id}" aria-haspopup="menu" aria-expanded="${on}" aria-label="${esc(title)}" title="${esc(title)}">${label}${right ? "" : '<svg class="cm-car" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'}</button>${on ? `<div class="cm-menu" role="menu">${items}</div>` : ""}</div>`;
 }
 // a box's style: shape; fill, outline and text colour (each opens its swatches); font; text size; box size
 function styleHtml(n){
@@ -106519,16 +106529,15 @@ function panel(){
     const n = g.nodes.find(x => x.id === M.sel); if (!n) { M.sel = ""; panel(); return; }
     const k = (KIND[n.kind] || KIND.file)[0], K = know(), kn = K.lv[n.id] || (M.know ? "" : n.conf), ks = K.stats[n.id], opens = n.kind !== "idea" && !(n.root && M.own.kind === "course");
     const res = ks && ks.right + ks.wrong ? `${ks.pct}% right (${ks.right} of ${ks.right + ks.wrong})` : ks && ks.cards.length ? "not studied yet" : "";
-    const ic = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-    P.innerHTML = `<div class="cm-row"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span></div>
-      ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row">${n.at ? `<button type="button" class="btn small primary cm-gob" data-cm="goat">${n.at.t != null ? ic('<path d="M8 5v14l11-7z"/>') + " Play from " : ic('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>') + " Go to "}${esc(atLabel(n.at))}</button>` : ""}${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}${ks && ks.cards.length ? `<button type="button" class="btn small${kn === "weak" ? " primary" : ""}" data-cm="study">Review ${ks.cards.length} Card${ks.cards.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn small" data-cm="connect">Connect To…</button><button type="button" class="btn small" data-cm="rename">Rename</button>${n.root ? "" : `<button type="button" class="btn small" data-cm="${n.kind === "idea" ? "del" : "hide"}">${n.kind === "idea" ? "Delete" : "Hide"}</button>`}</div>
-      ${n.kind === "idea" ? `<div class="cm-row cm-attach"><span class="mini">Attach:</span><button type="button" class="link-btn" data-cm="at">${n.at ? "Change Page or Lecture" : "Page or Lecture"}</button><button type="button" class="link-btn" data-cm="picon">${n.img ? "Change Picture" : "Picture"}</button>${n.img ? `<button type="button" class="link-btn" data-cm="picoff">Remove Picture</button>` : ""}<button type="button" class="link-btn" data-cm="emb">${n.emb ? "Change Video or Embed" : "Video or Embed"}</button>${n.emb ? `<button type="button" class="link-btn" data-cm="emboff">Remove Embed</button>` : ""}</div>` : ""}
-      ${styleHtml(n)}`}`;
+    P.innerHTML = `<div class="cm-row"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span><button type="button" class="icon-btn cm-pclose" data-cm="desel" aria-label="Done" title="Done">${CLOSE}</button></div>
+      ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row cm-acts">${n.at ? `<button type="button" class="btn small primary cm-gob" data-cm="goat">${n.at.t != null ? mi('<path d="M8 5v14l11-7z"/>') + " Play from " : mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>') + " Go to "}${esc(atLabel(n.at))}</button>` : ""}${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}${ks && ks.cards.length ? `<button type="button" class="btn small${kn === "weak" ? " primary" : ""}" data-cm="study">Review ${ks.cards.length} Card${ks.cards.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn small" data-cm="connect" aria-label="Connect To…">Connect<span class="cm-ml"> To…</span></button><button type="button" class="btn small" data-cm="rename">Rename</button><button type="button" class="btn small${M.styleOpen ? " on" : ""}" data-cm="style" aria-expanded="${!!M.styleOpen}">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml"> Style</span></button>${n.kind === "idea" ? menu("attach", `${mi('<path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/>')}<span class="cm-ml"> Attach</span>`, "Attach a page, lecture, picture or video",
+        `<button type="button" role="menuitem" class="cm-mi" data-cm="at">${mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>')} ${n.at ? "Change Page or Lecture" : "Page or Lecture"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="picon">${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} ${n.img ? "Change Picture" : "Picture"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="emb">${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} ${n.emb ? "Change Video or Embed" : "Video or Embed"}</button>${n.at || n.img || n.emb ? '<span class="cm-msep">Remove</span>' : ""}${n.at ? `<button type="button" role="menuitem" class="cm-mi" data-cm="atoff">Page or Lecture Link</button>` : ""}${n.img ? `<button type="button" role="menuitem" class="cm-mi" data-cm="picoff">Picture</button>` : ""}${n.emb ? `<button type="button" role="menuitem" class="cm-mi" data-cm="emboff">Video or Embed</button>` : ""}`) : ""}${n.root ? "" : `<button type="button" class="icon-btn cm-delb" data-cm="${n.kind === "idea" ? "del" : "hide"}" aria-label="${n.kind === "idea" ? "Delete" : "Hide"}" title="${n.kind === "idea" ? "Delete" : "Hide"}">${n.kind === "idea" ? mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') : mi('<path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.6C4.3 8.1 3 12 3 12s4 6 9 6a9 9 0 0 0 4.4-1.2"/>')}</button>`}</div>
+      ${M.styleOpen ? styleHtml(n) : ""}`}`;
     return;
   }
   const hidden = userOf(M.own).hide.length, nn = g.nodes.length;
   P.innerHTML = !g.edges.length ? `<div class="cm-row cm-start"><p style="margin:0;flex:1 1 220px"><b>Start your map.</b> <span class="mini">${nn > 1 ? "Your notes, decks and files are around the edge: tap one, then Connect To… to link it. " : ""}Add your own ideas, too. Linked notes, decks and exam topics join the map by themselves.</span></p><button type="button" class="btn small primary" data-cm="idea">Add Your First Idea</button></div>`
-    : `<p class="mini" style="margin:0">${nn} items, ${g.edges.length} connections${g.loose.length && !M.loose ? `, ${g.loose.length} not linked to anything` : ""}. Drag to move things; tap one to open, connect or rename it.${M.part ? " Drag the map to see the rest of it." : ""}${hidden ? ` <button type="button" class="link-btn" data-cm="unhide">Show ${hidden} hidden</button>` : ""}</p>`;
+    : "";
 }
 
 /* Interaction */
@@ -106543,7 +106552,9 @@ function zoomAt(f, cx, cy){
 // glides a node into the middle of what's visible (above the panel), unless it's already well inside
 function panTo(id){
   const p = M.pos[id], cv = M.el && M.el.querySelector(".cm-canvas"); if (!p || !cv) return;
-  const W = cv.clientWidth, H = cv.clientHeight, sx = M.view.x + p[0] * M.view.k, sy = M.view.y + p[1] * M.view.k;
+  // the floating panel covers the bottom of the map, so "in view" means above it
+  const P = cv.querySelector(".cm-panel"), cover = P && P.offsetParent && P.innerHTML ? P.offsetHeight + 16 : 0;
+  const W = cv.clientWidth, H = Math.max(120, cv.clientHeight - cover), sx = M.view.x + p[0] * M.view.k, sy = M.view.y + p[1] * M.view.k;
   if (sx > W * 0.18 && sx < W * 0.82 && sy > H * 0.18 && sy < H * 0.82) return;
   const tx = W / 2 - p[0] * M.view.k, ty = H / 2 - p[1] * M.view.k, x0 = M.view.x, y0 = M.view.y, t0 = performance.now();
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches, dur = reduce ? 0 : 320;
@@ -106552,6 +106563,8 @@ function panTo(id){
 }
 function wireCanvas(){
   const cv = M.el.querySelector(".cm-canvas"), svg = M.el.querySelector(".cm-svg");
+  // a tap outside an open menu closes it without redrawing, so the button being tapped still gets the tap
+  M.el.addEventListener("pointerdown", e => { if (M.menu && !e.target.closest(".cm-mw")) closeMenu(); }, true);
   M.el.addEventListener("change", e => { if (e.target.matches && e.target.matches("[data-cm-both]")) { M.both = e.target.checked; cardsPanel(); } });
   // paste onto the map: a link from a video or embed site becomes a player, a copied picture becomes a picture
   M.el.addEventListener("paste", e => {
@@ -106562,7 +106575,7 @@ function wireCanvas(){
     if (txt && CMAP.embedOf(txt)) { e.preventDefault(); addEmbed(txt, ""); }
   });
   // Escape closes a playing video first, then the map
-  if (!wireCanvas.esc) { wireCanvas.esc = true; dlg.addEventListener("cancel", e => { if (M.el && M.el.isConnected && closePlayer()) e.preventDefault(); }); }
+  if (!wireCanvas.esc) { wireCanvas.esc = true; dlg.addEventListener("cancel", e => { if (!(M.el && M.el.isConnected)) return; if (M.menu) { e.preventDefault(); closeMenu(); return; } if (closePlayer()) e.preventDefault(); }); }
   let drag = null; const pts = new Map();
   svg.addEventListener("pointerdown", e => {
     pts.set(e.pointerId, [e.clientX, e.clientY]);
@@ -106636,7 +106649,12 @@ async function onClick(e){
   const a = b.dataset.cm, isTog = b.tagName === "INPUT" || b.tagName === "SELECT";
   if ((e.type === "change") !== isTog) return;
   const u = () => userOf(M.own), n = M.g && M.g.nodes.find(x => x.id === M.sel);
+  if (a === "menu") { M.menu = M.menu === b.dataset.v ? "" : b.dataset.v; tools(); panel(); const m = M.el.querySelector(".cm-menu .cm-mi:not([disabled])"); if (m) m.focus(); return; }
+  if (M.menu && a !== "know") closeMenu();
   switch (a) {
+    case "style": M.styleOpen = !M.styleOpen; panel(); return;
+    case "desel": M.sel = ""; M.selE = ""; M.pick = ""; paint(); return;
+    case "loose-t": M.loose = !M.loose; rebuild(true); grew(); paint(); return;
     case "in": zoomAt(1.25); break;
     case "out": zoomAt(0.8); break;
     case "fit": fit(); paint(); break;
@@ -107008,7 +107026,35 @@ const css = document.createElement("style");
 css.textContent = `
 dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px);height:min(92dvh,1000px)}
 .cm-sheet{display:flex;flex-direction:column;height:100%}
-.cm-tools{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line)}
+.cm-top{position:relative;z-index:6;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 12px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,color-mix(in srgb,var(--c) 9%,var(--surface)),var(--surface))}
+.cm-hic{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:11px;background:var(--c);color:#fff;box-shadow:0 3px 10px -3px color-mix(in srgb,var(--c) 70%,transparent)}
+.cm-tt{display:flex;flex-direction:column;min-width:0;flex:0 1 auto;max-width:34%}
+.cm-kick{font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:color-mix(in srgb,var(--c) 70%,var(--ink));display:flex;align-items:center;gap:6px;white-space:nowrap}
+.cm-kick .sb-beta{font-size:.6rem;padding:1px 6px}
+.cm-name{margin:0;font-size:1.05rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cm-x{flex:none}
+.cm-tools{display:flex;flex-wrap:nowrap;gap:6px;align-items:center;flex:1 1 auto;min-width:0;padding:0 0 0 6px}
+.cm-tools .spacer{flex:1 1 0}
+.cm-mw{position:relative;flex:none}
+.cm-mb{display:inline-flex;align-items:center;gap:5px}
+.cm-mb.on{background:color-mix(in srgb,var(--c) 14%,var(--surface));border-color:color-mix(in srgb,var(--c) 45%,var(--line))}
+.cm-car{opacity:.6;margin-left:-1px}
+.cm-menu{position:absolute;z-index:8;top:calc(100% + 6px);left:0;min-width:220px;display:flex;flex-direction:column;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 34px -10px rgb(0 0 0/.35);animation:cmMenuIn .12s ease-out}
+.cm-mw.right .cm-menu{left:auto;right:0}
+.cm-acts .cm-mw .cm-menu{top:auto;bottom:calc(100% + 6px)}
+@keyframes cmMenuIn{from{opacity:0;transform:translateY(-4px)}}
+.cm-mi{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:0;border-radius:9px;background:none;color:inherit;font:inherit;font-size:.92rem;font-weight:600;text-align:left;cursor:pointer;white-space:nowrap}
+.cm-mi:hover,.cm-mi:focus-visible{background:color-mix(in srgb,var(--c) 11%,var(--surface));outline:none}
+.cm-mi[disabled]{opacity:.45;cursor:default}
+.cm-mi svg{flex:none;opacity:.8}
+.cm-msep{padding:8px 10px 3px;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--line);margin-top:4px}
+.cm-chiptog{position:relative;display:inline-flex;align-items:center;gap:7px;flex:none;padding:6px 12px;border:1px solid var(--line);border-radius:999px;font-size:.86rem;font-weight:700;cursor:pointer;background:var(--surface);white-space:nowrap}
+.cm-chiptog input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.cm-chiptog:focus-within{outline:2px solid var(--accent,#2F6FE4);outline-offset:2px}
+.cm-chiptog.on{background:color-mix(in srgb,#2F9E44 10%,var(--surface));border-color:color-mix(in srgb,#2F9E44 45%,var(--line))}
+.cm-kdots{display:inline-flex;gap:2px}.cm-kdots i{width:7px;height:7px;border-radius:50%;background:#98A2B3}
+.cm-chiptog.on .cm-kdots i:nth-child(1){background:#E03131}.cm-chiptog.on .cm-kdots i:nth-child(2){background:#E8A317}.cm-chiptog.on .cm-kdots i:nth-child(3){background:#2F9E44}
+.cm-ms{display:none}
 .cm-tog{display:flex;align-items:center;gap:6px;font-size:.88rem;white-space:nowrap}
 .cm-qt{font-size:.95rem}
 .cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:radial-gradient(circle,color-mix(in srgb,var(--ink) 9%,transparent) 1px,transparent 1.4px) 0 0/22px 22px,var(--surface);touch-action:none}
@@ -107038,12 +107084,22 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-node.is-blank .cm-lab{fill:var(--muted);font-weight:800}
 .cm-node.is-pick .cm-shape{stroke:var(--accent,#2F6FE4);stroke-width:3;stroke-dasharray:none}
 .cm-node.is-got .cm-shape{fill:color-mix(in srgb,#2F9E44 18%,var(--surface));stroke:#2F9E44}
-.cm-zoom{position:absolute;right:12px;bottom:12px;display:grid;gap:4px}
+.cm-zoom{position:absolute;right:12px;top:12px;display:grid;gap:4px;z-index:2}
 .cm-zoom .icon-btn{width:34px;height:34px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:1.1rem;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.cm-legend{position:absolute;left:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:4px 12px;max-width:calc(100% - 80px);font-size:.75rem;color:var(--muted);background:color-mix(in srgb,var(--surface) 88%,transparent);padding:4px 8px;border-radius:8px;pointer-events:none}
+.cm-legend{position:absolute;left:12px;top:12px;display:flex;flex-wrap:wrap;gap:4px 12px;max-width:calc(100% - 80px);font-size:.75rem;color:var(--muted);background:color-mix(in srgb,var(--surface) 88%,transparent);padding:4px 8px;border-radius:8px;pointer-events:none}
 .cm-legend span{display:flex;align-items:center;gap:4px}
 .cm-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
-.cm-panel{border-top:1px solid var(--line);padding:10px 16px 14px;display:grid;gap:8px;max-height:38%;overflow:auto;min-height:44px}
+/* the panel floats over the bottom of the map, only while there's something to show */
+.cm-panel{position:absolute;z-index:4;left:50%;bottom:12px;transform:translateX(-50%);width:min(780px,calc(100% - 24px));max-height:min(46%,420px);overflow:auto;display:grid;gap:8px;padding:10px 12px;background:color-mix(in srgb,var(--surface) 96%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 36px -14px rgb(0 0 0/.4)}
+.cm-panel:empty{display:none}
+.cm-panel:has(.cm-mw .cm-menu){overflow:visible}
+.cm-acts{gap:6px}
+.cm-pclose{margin-left:auto;width:30px;height:30px;flex:none}
+.cm-pclose svg{width:16px;height:16px}
+.cm-panel>.cm-row:first-child{flex-wrap:nowrap}
+.cm-panel>.cm-row:first-child .mini{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-delb{color:var(--muted)}
+.cm-delb:hover{color:var(--danger,#C62828)}
 .cm-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
 .cm-row input[type=text]{flex:1 1 200px;min-width:0}
 .cm-asklab{flex:1 1 100%;font-weight:600}
@@ -107181,7 +107237,25 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-opt>span{display:grid;gap:2px}
 .rv-tabs .rv-short{display:none}
 @media (max-width:480px){.rv-tabs .rv-long{display:none}.rv-tabs .rv-short{display:inline}}
-@media (max-width:640px){dialog:has(.cm-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}.cm-tools{padding:6px 10px}.cm-tools>*{flex:0 0 auto}.cm-tools .spacer{flex:0 0 4px}.cm-legend{bottom:8px;left:8px;font-size:.7rem}.cm-panel{padding:8px 12px 12px}}
+@media (max-width:860px){.cm-chiptog .cm-ml{display:none}.cm-chiptog .cm-ms{display:inline}}
+@media (max-width:640px){dialog:has(.cm-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}
+  .cm-top{flex-wrap:wrap;padding:6px 8px 6px 10px;gap:6px 8px;padding-top:max(6px,env(safe-area-inset-top))}
+  .cm-hic{width:30px;height:30px;border-radius:10px}
+  .cm-tt{flex:1 1 0;max-width:none}
+  .cm-tools{order:3;flex:1 1 100%;padding:0;flex-wrap:wrap;gap:4px}
+  .cm-tools .btn.small,.cm-chiptog{padding:6px 8px}
+  .cm-tools .cm-mb{gap:4px}
+  .cm-chiptog{gap:5px}
+  .cm-legend{top:8px;left:8px;font-size:.68rem;max-width:calc(100% - 64px)}
+  .cm-zoom{top:8px;right:8px}
+  .cm-panel{left:0;right:0;bottom:0;transform:none;width:auto;max-height:52%;border-radius:18px 18px 0 0;border-bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+  .cm-menu{position:fixed;left:8px!important;right:8px!important;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom))!important;min-width:0}
+  .cm-acts{gap:5px}
+  .cm-acts .btn.small{padding:5px 10px;font-size:.84rem}
+  .cm-tools .cm-shaky{display:none}
+  .cm-acts [data-cm="style"] .cm-ml,.cm-acts .cm-mw .cm-ml,.cm-acts [data-cm="connect"] .cm-ml{display:none}}
+.cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:380px){.cm-tools .cm-ml{display:none}}
 `;
 document.head.appendChild(css);
 

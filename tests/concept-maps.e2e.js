@@ -31,6 +31,16 @@ function SEED(){
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
+  // a map control may sit in a toolbar menu (Add, Study, More), the idea panel's Attach menu, or its Style section: open whichever holds it, then click
+  const cmClick = async (page, sel) => {
+    const shown = () => page.locator(sel).first().isVisible().catch(() => false);
+    for (const op of ['.cm-panel [data-cm="style"]', '.cm-tools [data-cm="menu"][data-v="add"]', '.cm-tools [data-cm="menu"][data-v="study"]', '.cm-tools [data-cm="menu"][data-v="more"]', '.cm-panel [data-cm="menu"][data-v="attach"]']) {
+      if (await shown()) break;
+      if (op.includes('"style"') && await page.locator(".cm-panel .cm-style").count()) continue;
+      if (await page.locator(op).count()) { await page.click(op); await page.waitForTimeout(60); }
+    }
+    await page.click(sel);
+  };
   const mkCtx = async (viewport, o) => {
     const ctx = await browser.newContext({viewport: viewport || {width: 1280, height: 860}, serviceWorkers: "block"});
     await ctx.addInitScript(([seed, o]) => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } if (o && o.free) localStorage.setItem("studyboard:paywall-test", "1"); localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } catch (e) {} }, [SEED(), o || {}]);
@@ -74,42 +84,42 @@ function SEED(){
 
   /* The old single map carries over */
   await act(page, "cm-open", "c1", {kind: "course", map: "main"}); await page.waitForSelector('.cm-node[data-n="idea:i1"]');
-  ok(/ENV 210 Map/.test(await page.textContent("#dlg[open] .sheet-head")), "the course's old map opens as its first map");
-  await tap(page, "idea:i1"); await page.click('[data-cm="shape"][data-v="cloud"]'); await page.waitForTimeout(250);
+  ok(/ENV 210 Map/.test(await page.textContent("#dlg[open] .cm-top")), "the course's old map opens as its first map");
+  await tap(page, "idea:i1"); await cmClick(page, '[data-cm="shape"][data-v="cloud"]'); await page.waitForTimeout(250);
   let c1 = await course(page, "c1");
   ok(!c1.cmap && Array.isArray(c1.maps) && c1.maps.length === 1 && c1.maps[0].id === "main" && c1.maps[0].add[0].label === "Albedo" && c1.maps[0].styles["idea:i1"].shape === "cloud", "saving moves it into the course's maps, keeping everything");
   ok(await page.locator('.cm-node[data-n="idea:i1"].sh-cloud path.cm-shape').count() === 1, "and the idea is now a cloud");
   // fill, outline and text colour: a chip opens its swatches
-  const swatch = async k => { await page.click(`[data-cm="pick"][data-v="${k}"]`); await page.waitForSelector(`[data-cm="st"][data-k="${k}"]`); const v = await page.getAttribute(`[data-cm="st"][data-k="${k}"]:nth-child(3)`, "data-v"); await page.click(`[data-cm="st"][data-k="${k}"][data-v="${v}"]`); await page.waitForTimeout(200); return v; };
+  const swatch = async k => { await cmClick(page, `[data-cm="pick"][data-v="${k}"]`); await page.waitForSelector(`[data-cm="st"][data-k="${k}"]`); const v = await page.getAttribute(`[data-cm="st"][data-k="${k}"]:nth-child(3)`, "data-v"); await cmClick(page, `[data-cm="st"][data-k="${k}"][data-v="${v}"]`); await page.waitForTimeout(200); return v; };
   const fillV = await swatch("fill"), strokeV = await swatch("stroke"), textV = await swatch("text");
   let st = (await course(page, "c1")).maps[0].styles["idea:i1"];
   ok(st.fill === fillV && st.stroke === strokeV && st.text === textV && st.shape === "cloud", `fill, outline and text colours save (${fillV}, ${strokeV}, ${textV}) and keep the shape`);
   ok(new RegExp(fillV, "i").test(await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "fill") + (await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "style") || "")), "the box shows its fill");
-  await page.selectOption('[data-cm="font"]', "hand"); await page.waitForTimeout(200);
-  for (let i = 0; i < 3; i++) { await page.click('[data-cm="tsize"][data-v="1"]'); await page.waitForTimeout(80); }
+  await page.locator('[data-cm="font"]').count() || await cmClick(page, '[data-cm="style"]'); await page.selectOption('[data-cm="font"]', "hand"); await page.waitForTimeout(200);
+  for (let i = 0; i < 3; i++) { await cmClick(page, '[data-cm="tsize"][data-v="1"]'); await page.waitForTimeout(80); }
   const w0 = await page.evaluate(() => document.querySelector('.cm-node[data-n="idea:i1"]').getBBox().width);
-  await page.click('[data-cm="bsize"][data-v="1"]'); await page.waitForTimeout(200);
+  await cmClick(page, '[data-cm="bsize"][data-v="1"]'); await page.waitForTimeout(200);
   st = (await course(page, "c1")).maps[0].styles["idea:i1"];
   ok(st.font === "hand" && st.size === 16 && st.scale > 1, `font, text size and box size save (${st.font}, ${st.size}, ${st.scale})`);
   ok(await page.evaluate(() => document.querySelector('.cm-node[data-n="idea:i1"]').getBBox().width) > w0, "a bigger box draws bigger");
-  await page.click('[data-cm="streset"]'); await page.waitForTimeout(200);
+  await cmClick(page, '[data-cm="streset"]'); await page.waitForTimeout(200);
   ok(!(await course(page, "c1")).maps[0].styles["idea:i1"], "Reset Style goes back to the plain look");
-  await page.click('[data-cm="shape"][data-v="cloud"]'); await page.waitForTimeout(150);
-  for (const sh of ["box", "circle", "diamond", "hexagon", "text", "pill"]) { await page.click(`[data-cm="shape"][data-v="${sh}"]`); await page.waitForTimeout(150); ok(await page.locator(`.cm-node[data-n="idea:i1"].sh-${sh}`).count() === 1, `shape: ${sh}`); }
+  await cmClick(page, '[data-cm="shape"][data-v="cloud"]'); await page.waitForTimeout(150);
+  for (const sh of ["box", "circle", "diamond", "hexagon", "text", "pill"]) { await cmClick(page, `[data-cm="shape"][data-v="${sh}"]`); await page.waitForTimeout(150); ok(await page.locator(`.cm-node[data-n="idea:i1"].sh-${sh}`).count() === 1, `shape: ${sh}`); }
   // a connection: words, line, arrows, flip
   const ekey = await page.evaluate(() => SBCMAP.state().g.edges.find(e => e.b === "idea:i1" || e.a === "idea:i1").key);
   await page.evaluate(k => { const S = SBCMAP.state(); S.selE = k; S.sel = ""; }, ekey); await tap(page, "idea:i1"); await page.evaluate(k => { const S = SBCMAP.state(); S.sel = ""; S.selE = k; }, ekey);
   await page.evaluate(() => { const b = document.createElement("button"); b.dataset.cm = "fit"; document.querySelector(".cm-tools").appendChild(b); b.click(); b.remove(); }); await page.waitForSelector("[data-cm-elab]");
   await page.fill("[data-cm-elab]", "is part of"); await page.press("[data-cm-elab]", "Enter"); await page.waitForTimeout(250);
   ok(await page.locator(".cm-elab", {hasText: "is part of"}).count() === 1, "words on a connection show on the line");
-  for (const ln of ["dashed", "dotted", "thick", "solid"]) { await page.click(`[data-cm="eline"][data-v="${ln}"]`); await page.waitForTimeout(150); ok(await page.locator(`.cm-edge.ln-${ln}[data-e="${ekey}"]`).count() === 1, `line: ${ln}`); }
-  await page.click('[data-cm="earrow"][data-v="end"]'); await page.waitForTimeout(200);
+  for (const ln of ["dashed", "dotted", "thick", "solid"]) { await cmClick(page, `[data-cm="eline"][data-v="${ln}"]`); await page.waitForTimeout(150); ok(await page.locator(`.cm-edge.ln-${ln}[data-e="${ekey}"]`).count() === 1, `line: ${ln}`); }
+  await cmClick(page, '[data-cm="earrow"][data-v="end"]'); await page.waitForTimeout(200);
   ok(/cmArr/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-end") || ""), "an arrow one way");
   let L = (await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey);
-  const from = L.a; await page.click('[data-cm="eflip"]'); await page.waitForTimeout(200);
+  const from = L.a; await cmClick(page, '[data-cm="eflip"]'); await page.waitForTimeout(200);
   L = (await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey);
   ok(L.a !== from && L.label === "is part of" && L.line === "solid" && L.arrow === "end", "Flip turns the arrow around and keeps the words and line");
-  await page.click('[data-cm="earrow"][data-v="both"]'); await page.waitForTimeout(200);
+  await cmClick(page, '[data-cm="earrow"][data-v="both"]'); await page.waitForTimeout(200);
   ok(/cmArrS/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-start") || ""), "arrows both ways");
   ok(await fits(page), "the map and its panels fit at 1280px");
   await page.keyboard.press("Escape"); await page.waitForTimeout(250);
@@ -121,8 +131,8 @@ function SEED(){
   await page.waitForSelector('.cm-node[data-n="root"]');
   let c2 = await course(page, "c2");
   ok(c2.maps.length === 2 && c2.maps[1].name === "Photosynthesis" && c2.maps[1].auto === false, "a second map for the course, from a blank page");
-  ok(/Photosynthesis/.test(await page.textContent("#dlg[open] .sheet-head")) && await page.locator(".cm-node").count() >= 1, "it opens, named");
-  await page.click('[data-cm="idea"]'); await page.waitForSelector("#cmAsk"); await page.fill("#cmAsk", "Chlorophyll"); await page.press("#cmAsk", "Enter"); await page.waitForTimeout(250);
+  ok(/Photosynthesis/.test(await page.textContent("#dlg[open] .cm-top")) && await page.locator(".cm-node").count() >= 1, "it opens, named");
+  await cmClick(page, '[data-cm="idea"]'); await page.waitForSelector("#cmAsk"); await page.fill("#cmAsk", "Chlorophyll"); await page.press("#cmAsk", "Enter"); await page.waitForTimeout(250);
   c2 = await course(page, "c2");
   ok(c2.maps[1].add.some(x => x.label === "Chlorophyll") && !c2.maps[0].add.some(x => x.label === "Chlorophyll"), "its ideas are its own: the other map doesn't change");
   ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
@@ -173,7 +183,7 @@ function SEED(){
   await ctx.route(/youtube-nocookie\.com|i\.ytimg\.com|docs\.google\.com/, r => r.fulfill({status: 200, contentType: /ytimg/.test(r.request().url()) ? "image/png" : "text/html", body: /ytimg/.test(r.request().url()) ? PNG : "<!doctype html><title>player</title><p>player</p>"}));
   const blocked = []; page.on("console", m => { if (/Refused to frame|frame-src/.test(m.text())) blocked.push(m.text()); });
   await act(page, "cm-open", "c3", {kind: "course", map: sm.id}); await page.waitForSelector('.cm-node[data-n="root"]');
-  await page.click('[data-cm="emb"]'); await page.waitForSelector("#cmEmbIn");
+  await cmClick(page, '[data-cm="emb"]'); await page.waitForSelector("#cmEmbIn");
   await page.fill("#cmEmbIn", "https://example.com/video"); ok(/can't play on a map/.test(await page.textContent("[data-cm-embst]")) && await page.isDisabled(".cm-embf [type=submit]"), "a link from another site can't be embedded, and says which sites can");
   await page.fill("#cmEmbIn", "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42"); ok(/YouTube/.test(await page.textContent("[data-cm-embst]")) && !(await page.isDisabled(".cm-embf [type=submit]")), "a YouTube link is recognised as you paste it");
   await page.click(".cm-embf [type=submit]"); await page.waitForSelector(".cm-node .cm-emb");
@@ -190,9 +200,9 @@ function SEED(){
   await page.evaluate(() => { const dt = new DataTransfer(); dt.setData("text/plain", "https://docs.google.com/presentation/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012/edit#slide=id.p"); SBCMAP.state().sel = ""; document.querySelector(".cm-canvas").dispatchEvent(new ClipboardEvent("paste", {clipboardData: dt, bubbles: true})); }); await page.waitForTimeout(300);
   em = (await course(page, "c3")).maps[2].add.filter(x => x.emb);
   ok(em.length === 2 && em[1].emb.p === "gslides" && /\/embed\?start=false/.test(em[1].emb.e), "pasting a Google Slides link onto the map adds the slides");
-  ok(await page.evaluate(() => SBCMAP.state().sel) === "idea:" + em[1].id && /View/.test(await page.textContent(".cm-panel")), "the pasted embed is selected, ready to View"); ok(/View/.test(await page.textContent(".cm-panel")) && /Remove Embed/.test(await page.textContent(".cm-panel")), "an embed's panel: View and Remove Embed");
-  await page.click('[data-cm="play"]'); await page.waitForSelector(".cm-player iframe"); ok(/docs\.google\.com\/presentation/.test(await page.getAttribute(".cm-player iframe", "src")), "View opens the slides on the map");
-  await page.click('[data-cm="unplay"]'); await page.click('[data-cm="emboff"]'); await page.waitForTimeout(200);
+  ok(await page.evaluate(() => SBCMAP.state().sel) === "idea:" + em[1].id && /View/.test(await page.textContent(".cm-panel")), "the pasted embed is selected, ready to View"); await page.click('.cm-panel [data-cm="menu"][data-v="attach"]'); ok(/View/.test(await page.textContent(".cm-panel")) && await page.locator('.cm-panel [data-cm="emboff"]').count() === 1, "an embed's panel: View and Remove Embed");
+  await cmClick(page, '[data-cm="play"]'); await page.waitForSelector(".cm-player iframe"); ok(/docs\.google\.com\/presentation/.test(await page.getAttribute(".cm-player iframe", "src")), "View opens the slides on the map");
+  await cmClick(page, '[data-cm="unplay"]'); await cmClick(page, '[data-cm="emboff"]'); await page.waitForTimeout(200);
   ok((await course(page, "c3")).maps[2].add.filter(x => x.emb).length === 1, "Remove Embed takes it off");
   ok(page.errs.length === 0, "no console errors (embeds): " + page.errs.join(" | "));
   await page.keyboard.press("Escape"); await page.waitForTimeout(250);

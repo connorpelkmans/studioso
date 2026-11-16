@@ -28,6 +28,16 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
+  // a map control may sit in a toolbar menu (Add, Study, More), the idea panel's Attach menu, or its Style section: open whichever holds it, then click
+  const cmClick = async (page, sel) => {
+    const shown = () => page.locator(sel).first().isVisible().catch(() => false);
+    for (const op of ['.cm-panel [data-cm="style"]', '.cm-tools [data-cm="menu"][data-v="add"]', '.cm-tools [data-cm="menu"][data-v="study"]', '.cm-tools [data-cm="menu"][data-v="more"]', '.cm-panel [data-cm="menu"][data-v="attach"]']) {
+      if (await shown()) break;
+      if (op.includes('"style"') && await page.locator(".cm-panel .cm-style").count()) continue;
+      if (await page.locator(op).count()) { await page.click(op); await page.waitForTimeout(60); }
+    }
+    await page.click(sel);
+  };
   const mkCtx = async viewport => {
     const ctx = await browser.newContext({viewport: viewport || {width: 1280, height: 860}, serviceWorkers: "block"});
     await ctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, SEED);
@@ -45,7 +55,8 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
 
   /* Colour by Knowledge, from flashcard and quiz results */
   await openMap(page);
-  ok(await page.isVisible('[data-cm="know"]') && await page.isVisible('[data-cm="cards"]'), "every map offers Make Flashcards and Colour by Knowledge");
+  await page.click('.cm-tools [data-cm="menu"][data-v="study"]'); const studyMenu = await page.textContent(".cm-tools .cm-menu"); await page.click('.cm-tools [data-cm="menu"][data-v="study"]');
+  ok(await page.isVisible(".cm-chiptog") && /Make Flashcards/.test(studyMenu) && /Fill In the Map/.test(studyMenu), "every map offers Colour by Knowledge on the toolbar, and Make Flashcards in Study");
   await page.check('[data-cm="know"]'); await page.waitForTimeout(250);
   ok((await col(page, "idea:c")).toUpperCase() === "#2F9E44", "Krebs cycle is green: a card naming it, 5 of 5 right");
   ok((await col(page, "idea:d")).toUpperCase() === "#E03131", "ATP is red: a card naming it, 0 of 3");
@@ -54,23 +65,24 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   ok(/No results yet/.test(await page.textContent(".cm-legend")) && /Shaky/.test(await page.textContent(".cm-legend")), "the key says what the colours mean");
   await tap(page, "idea:d");
   ok(/Shaky · 0% right \(0 of 3\)/.test(await page.textContent(".cm-panel")) && await page.isVisible('[data-cm="study"]'), "an idea's panel shows its results and Review 1 Card");
-  ok(/Review 1 Shaky Idea/.test(await page.textContent(".cm-tools")), "the toolbar offers Review for shaky ideas that have cards");
-  await page.click('[data-cm="shaky"]'); await page.waitForFunction(() => { const s = window.__sbProStudy; return !document.querySelector("dialog[open] .cm-sheet"); }); await page.waitForTimeout(300);
+  ok(/1 Shaky/.test(await page.textContent(".cm-tools")), "the toolbar offers Review for shaky ideas that have cards");
+  await cmClick(page, '[data-cm="shaky"]'); await page.waitForFunction(() => { const s = window.__sbProStudy; return !document.querySelector("dialog[open] .cm-sheet"); }); await page.waitForTimeout(300);
   const fc = await page.evaluate(() => { const u = window.__sbProStudy.ui; return u.fc ? {mode: u.fc.mode, q: u.fc.q.map(x => x.cardId)} : null; });
   ok(fc && fc.mode === "study" && fc.q.length === 1 && fc.q[0] === "kc2", "Review Shaky Ideas studies just those cards (What is ATP?)");
 
   /* Make Flashcards from the map */
   await openMap(page);
-  await page.click('[data-cm="cards"]'); await page.waitForSelector(".cm-cardsp");
+  await cmClick(page, '[data-cm="cards"]'); await page.waitForSelector(".cm-cardsp");
   let t = await page.textContent(".cm-cardsp");
   ok(/3 worded connections · 1 without words skipped/.test(t) && /Glycolysis → makes → \?/.test(t) && /Pyruvate/.test(t), "Make Flashcards: a preview of the cards, and what's skipped");
   await page.check("[data-cm-both]"); await page.waitForTimeout(100); ok(/6 cards/.test(await page.textContent(".cm-cardsp")), "Also ask it backwards doubles them");
   await page.uncheck("[data-cm-both]"); await page.waitForTimeout(100);
-  await page.click('[data-cm="cards-go"]'); await page.waitForTimeout(300);
+  await cmClick(page, '[data-cm="cards-go"]'); await page.waitForTimeout(300);
   let st = await S(page), mp = st.courses.c2.maps[0], dk = st.decks[mp.deck];
   ok(dk && dk.name === "Cell respiration Map Cards" && dk.courseId === "c2" && dk.cards.length === 3, "a new deck for the course, named after the map, with 3 cards");
   ok(dk.cards.every(c => c.from.k === "cmap" && c.from.id === "c:c2:m1") && dk.cards.some(c => c.front === "Glycolysis → makes → ?" && c.back === "Pyruvate"), "each card knows its map and connection");
-  ok(/Study Now/.test(await page.textContent("#toast")) && /Update Flashcards/.test(await page.textContent(".cm-tools")), "a toast offers Study Now, and the button becomes Update Flashcards");
+  await page.click('.cm-tools [data-cm="menu"][data-v="study"]'); const sm2 = await page.textContent(".cm-tools .cm-menu"); await page.click('.cm-tools [data-cm="menu"][data-v="study"]');
+  ok(/Study Now/.test(await page.textContent("#toast")) && /Update Flashcards/.test(sm2), "a toast offers Study Now, and the button becomes Update Flashcards");
   // the map's own cards colour the ideas they join
   await page.evaluate(id => { const d = window.__sbProStudy.state().decks[id]; const c = d.cards.find(x => x.back === "Pyruvate"); c.right = 0; c.wrong = 4; }, mp.deck);
   await page.evaluate(() => { const S = SBCMAP.state(); S.kc = null; S.know = true; }); await page.check('[data-cm="know"]').catch(() => {}); await page.evaluate(() => { const S = SBCMAP.state(); S.kc = null; }); await tap(page, "idea:b");
@@ -79,9 +91,9 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   const ek = await page.evaluate(() => SBCMAP.state().g.edges.find(e => [e.a, e.b].sort().join() === ["idea:b", "idea:c"].sort().join()).key);
   await page.evaluate(k => { const S = SBCMAP.state(); S.sel = ""; S.selE = k; }, ek); await page.evaluate(() => { const b = document.createElement("button"); b.dataset.cm = "fit"; document.querySelector(".cm-tools").appendChild(b); b.click(); b.remove(); });
   await page.waitForSelector("[data-cm-elab]"); await page.fill("[data-cm-elab]", "feeds"); await page.press("[data-cm-elab]", "Enter"); await page.waitForTimeout(250);
-  await page.click('[data-cm="cards"]'); await page.waitForSelector(".cm-cardsp");
+  await cmClick(page, '[data-cm="cards"]'); await page.waitForSelector(".cm-cardsp");
   ok(/1 new, 0 changed/.test(await page.textContent(".cm-cardsp")), "Update Flashcards says what will change");
-  await page.click('[data-cm="cards-go"]'); await page.waitForTimeout(300);
+  await cmClick(page, '[data-cm="cards-go"]'); await page.waitForTimeout(300);
   dk = (await S(page)).decks[mp.deck];
   ok(dk.cards.length === 4 && dk.cards.find(c => c.back === "Pyruvate").wrong === 4 && dk.cards.some(c => c.front === "Pyruvate → feeds → ?"), "Update adds the new card and keeps the studied one's progress");
   await page.click("#toastUndo"); await page.waitForTimeout(300);
@@ -100,18 +112,18 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
 
   /* Link an idea to a PDF page or a lecture moment */
   await page.evaluate(() => { window.__went = []; SBPRO.openReader = (id, p) => window.__went.push(["pdf", id, p]); SBREPLAY.seek = (id, ms) => { window.__went.push(["lec", id, ms]); return Promise.resolve(); }; window.fileSheet = () => {}; });
-  await tap(page, "idea:a"); ok(/Attach:/.test(await page.textContent(".cm-panel")), "an idea's panel: Attach a page or lecture, a picture, a video");
-  await page.click('[data-cm="at"]'); await page.waitForSelector("#cmAtF");
+  await tap(page, "idea:a"); ok(await page.locator('.cm-panel [data-cm="menu"][data-v="attach"]').count() === 1 && await page.locator('.cm-panel [data-cm="style"]').count() === 1, "an idea's panel: Attach (a page or lecture, a picture, a video) and Style");
+  await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF");
   ok(await page.$$eval("#cmAtF optgroup", g => g.map(x => x.label).join("|")) === "PDFs|Lectures", "the course's PDFs and lectures to pick from");
   await page.selectOption("#cmAtF", "f1"); await page.fill("#cmAtP", "12"); await page.click(".cm-atf [type=submit]"); await page.waitForTimeout(250);
   let idea = (await S(page)).courses.c2.maps[0].add.find(x => x.id === "a");
   ok(idea.at && idea.at.f === "f1" && idea.at.p === 12, "Glycolysis links to page 12 of the slides");
   ok(await page.textContent('.cm-node[data-n="idea:a"] .cm-atb text') === "p. 12", "the box shows a p. 12 tab");
   await tap(page, "idea:a"); ok(/Go to p\. 12/.test(await page.textContent(".cm-panel")), "its panel leads with Go to p. 12");
-  await page.click('[data-cm="goat"]'); await page.waitForTimeout(200);
+  await cmClick(page, '[data-cm="goat"]'); await page.waitForTimeout(200);
   ok(JSON.stringify(await page.evaluate(() => window.__went)) === JSON.stringify([["pdf", "f1", 12]]), "Go to p. 12 opens the PDF at page 12");
   await openMap(page); await page.evaluate(() => { window.__went = []; });
-  await tap(page, "idea:d"); await page.click('[data-cm="at"]'); await page.waitForSelector("#cmAtF");
+  await tap(page, "idea:d"); await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF");
   await page.selectOption("#cmAtF", "f2"); ok(await page.isVisible("#cmAtT") && !(await page.isVisible("#cmAtP")), "a lecture asks for a time, not a page");
   await page.fill("#cmAtT", "7:99"); await page.click(".cm-atf [type=submit]"); ok(/like 12:34/.test(await page.textContent("[data-at-err]")), "a time that isn't one says how to write it");
   await page.fill("#cmAtT", "12:34"); await page.click(".cm-atf [type=submit]"); await page.waitForTimeout(250);
@@ -119,7 +131,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   ok(idea.at && idea.at.f === "f2" && idea.at.t === 754000 && await page.textContent('.cm-node[data-n="idea:d"] .cm-atb text') === "12:34", "ATP links to 12:34 in the lecture, shown on its box");
   await page.evaluate(() => { const S = SBCMAP.state(); S.sel = ""; S.lastTap = null; }); await page.focus('.cm-node[data-n="idea:d"]'); await page.keyboard.press("Enter"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   ok(JSON.stringify(await page.evaluate(() => window.__went)) === JSON.stringify([["lec", "f2", 754000]]), "tapping the box twice plays the lecture from 12:34");
-  await openMap(page); await tap(page, "idea:d"); await page.click('[data-cm="at"]'); await page.waitForSelector("#cmAtF"); await page.click('[data-cm="atoff"]'); await page.waitForTimeout(200);
+  await openMap(page); await tap(page, "idea:d"); await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF"); await cmClick(page, '[data-cm="atoff"]'); await page.waitForTimeout(200);
   ok(!(await S(page)).courses.c2.maps[0].add.find(x => x.id === "d").at && !(await page.locator('.cm-node[data-n="idea:d"] .cm-atb').count()), "Remove Link takes it off");
   ok(page.errs.length === 0, "no console errors (links): " + page.errs.join(" | "));
   await ctx.close();
@@ -127,8 +139,8 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   /* Phone */
   const pctx = await mkCtx({width: 390, height: 844}), pp = await open(pctx);
   await openMap(pp); await tap(pp, "idea:a"); ok(await fits(pp), "an idea's panel fits at 390px");
-  await pp.click('[data-cm="cards"]'); await pp.waitForSelector(".cm-cardsp"); ok(await fits(pp), "Make Flashcards fits at 390px");
-  await tap(pp, "idea:a"); await pp.click('[data-cm="at"]'); await pp.waitForSelector("#cmAtF"); ok(await fits(pp), "the page or lecture link fits at 390px");
+  await cmClick(pp, '[data-cm="cards"]'); await pp.waitForSelector(".cm-cardsp"); ok(await fits(pp), "Make Flashcards fits at 390px");
+  await tap(pp, "idea:a"); await cmClick(pp, '[data-cm="at"]'); await pp.waitForSelector("#cmAtF"); ok(await fits(pp), "the page or lecture link fits at 390px");
   ok(pp.errs.length === 0, "no console errors (phone): " + pp.errs.join(" | "));
   await pctx.close();
   await browser.close(); server.close();
