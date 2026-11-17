@@ -20,8 +20,8 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-15 | (posted by Connor, earlier feature tour) | Board, school sync | Feature ad | "The planner that syncs with your school site and tells you what to do next!" | 20 s | Instagram ([Dfv0WLYRMak](https://www.instagram.com/reel/Dfv0WLYRMak/)) | 54 @ ~1 day | | | | | 0 likes. Baseline for ad-style content |
 | 2026-11-16 | marketing/reels/2026-11-20-types-of-students (B) | (brand: companions) | Entertainment, cold open | "Tag the friend who “works better under pressure”" (opens on Packy) | 15.7 s | Planned as Trial Reel | | | | | | Hook fix after v1's weak open |
 | 2026-11-16 | marketing/reels/2026-11-20-types-of-students (C) | (brand: companions) | Entertainment, cold open | "POV: you just found out the final is cumulative" (opens on Mochi) | 15.7 s | Planned as Trial Reel | | | | | | Hook fix after v1's weak open |
-| 2026-11-16 | marketing/reels/2026-11-20-types-of-students (D) | (brand: companions) | Entertainment, max hook | "The final is cumulative?!" (Mochi close-up, red glow, snap-out + stamp) | 17.3 s | Candidate for Trial Reel | | | | | | Stronger first 3 s |
-| 2026-11-16 | marketing/reels/2026-11-20-types-of-students (E) | (brand: companions) | Entertainment, max hook | "“I work better under pressure”" (Packy close-up, “0% DONE” stamp) | 17.3 s | Candidate for Trial Reel | | | | | | Stronger first 3 s |
+| 2026-11-16 | marketing/reels/2026-11-20-types-of-students (D) | (brand: companions) | Entertainment, max hook | "The final is cumulative?!" (Mochi close-up, red glow, snap-out + stamp) | 17.3 s | Trial Reel, scheduled Tue Nov 17 5:50 PM PT (Metricool 431858461) | | | | | | Stronger first 3 s |
+| 2026-11-16 | marketing/reels/2026-11-20-types-of-students (E) | (brand: companions) | Entertainment, max hook | "“I work better under pressure”" (Packy close-up, “0% DONE” stamp) | 17.3 s | Trial Reel, scheduled Wed Nov 18 5:50 PM PT (Metricool 431891247) | | | | | | Stronger first 3 s |
 
 ## What we've learned
 
