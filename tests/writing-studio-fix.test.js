@@ -144,4 +144,15 @@ const sameOutside = (a, b, from, to) => b.startsWith(a.slice(0, from)) && b.ends
   const n = CITE.check(body + "\n\nTherefore, Singer (1972) is wrong about this, and I have shown why in each part above.", [], APA).issues.map(x => x.t);
   ok(n.includes("No References list found"), "a last sentence that names an author isn't taken for a list");
 }
+/* a name a letter off a source's, same year: the source misspelled. It counts as citing it, and Fix writes the source's spelling everywhere */
+{
+  const L = [CITE.clean({id: "l", type: "article-journal", title: "Dwellers in the deep", author: [{family: "Lingam", given: "M"}, {family: "Balbi", given: "A"}, {family: "Tiwari", given: "M"}], issued: {"date-parts": [[2024]]}})];
+  const D = "The paper by Lingham et al. (2024) gives estimates of the rate of oxygen production in the deep sea (Lingham et al., 2024).\n\nReferences\nLingham, M., Balbi, A., & Tiwari, M. (2024). Dwellers in the deep.";
+  const r = CITE.check(D, L, APA), sp = r.issues.filter(x => /^Check the spelling/.test(x.t));
+  ok(sp.length === 1 && /Your source is by Lingam \(2024\)/.test(sp[0].d) && sp[0].edits.length === 3, "Check the spelling: one issue, Fix in all 3 places: " + r.issues.map(x => x.t).join(" | "));
+  ok(!r.issues.some(x => /^(Never cited|Cited but not in your|In your References list, not yet|Not in your sources)/.test(x.t)), "and nothing else about it: it's the same source");
+  ok(!/Lingham/.test(CITE.applyEdits(D, sp[0].edits).text), "Fix writes Lingam everywhere");
+  const o = CITE.check("As Smyth (2021) says, it's so.\n\nReferences\nSmyth, J. (2021). X.", [CITE.clean({id: "s", type: "book", title: "Y", author: [{family: "Smith", given: "J"}], issued: {"date-parts": [[2020]]}})], APA).issues.map(x => x.t);
+  ok(!o.some(t => /spelling/.test(t)), "a different year: another author, not a misspelling");
+}
 console.log(`writing-studio-fix.test: ${n} passed`);
