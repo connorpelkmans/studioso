@@ -151,6 +151,18 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   ok(note === N.replace("(Smith & Lee 2021)", "(Smith & Lee, 2021)") && /Fixed 1 thing in your note, Heat essay/.test(await page.textContent("#dlg[open]")), "a note's draft: the note itself is fixed: " + JSON.stringify(note.split("\n")[1]));
   await page.click("[data-ws-check]"); await page.waitForTimeout(700);
   ok(!(await page.locator('#dlg[open] .ws-is:has-text("write (Smith & Lee, 2021)")').count()) && (await draftOf()).includes("(Smith & Lee, 2021)"), "and Check Again (which reads the note) keeps the fix");
+  // a citation whose entry is in the draft's list but isn't a source yet: the list's entries become sources by themselves (one Undo)
+  const nSrc = (await task(page, "t1")).ws.src.length;
+  await page.click('#dlg[open] [data-ws-redo]'); await page.fill("[data-ws-draft]", "Toxoplasma changes behaviour differently in men and women, and this matters for how we read the evidence (Lindová et al., 2006). As described by Flegr (2013), it can't be tested in a lab. Cities are warming fast (Smith & Lee, 2021).\n\nReferences\nFlegr, J. (2013, January 1). Influence of latent Toxoplasma infection on human personality. Journal of Experimental Biology.\nLindová, J., Novotná, M., Havlíček, J., Jozífková, E., ... Flegr, J. (2006, August 31). Gender differences in behavioural changes induced by latent toxoplasmosis. International Journal for Parasitology.\nSmith, J. A., & Lee, K. (2021). The urban heat island effect and green infrastructure. Urban Climate, 38(2), 100–118.");
+  await page.click("[data-ws-check]");
+  await page.waitForFunction(n => window.__sbProStudy.state().tasks.t1.ws.src.length >= n + 2, nSrc, {timeout: 15000});
+  const added = (await task(page, "t1")).ws.src;
+  ok(added.some(x => /Gender differences/.test(x.title || "") && (x.author || [])[0].family === "Lindová") && added.some(x => /Influence of latent Toxoplasma/.test(x.title || "")), "the draft's list adds its new entries to Sources by itself");
+  await page.waitForTimeout(800);
+  ok(/Added 2 sources from your draft's list to Sources/.test(await page.textContent("#dlg[open]")), "and says so");
+  ok(!(await page.locator('#dlg[open] .ws-is:has-text("Lindová")').count()) && !(await page.locator('#dlg[open] .ws-is:has-text("(2013)")').count()), "and the check no longer flags them (Flegr (2013) found by its name too)");
+  await page.click("#toastUndo"); await page.waitForTimeout(500);
+  ok((await task(page, "t1")).ws.src.length === nSrc, "one Undo takes them all off Sources");
   ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
   await browser.close(); server.close();
   console.log(`writing-studio-fix.e2e: ${n} passed`);

@@ -109,4 +109,27 @@ const sameOutside = (a, b, from, to) => b.startsWith(a.slice(0, from)) && b.ends
   const num = CITE.refAdd("Text [1].\n\nReferences\n[1] J. Smith, \"Parks and heat,\" 2021.", src, refs);
   ok(num.numbered && !num.edits.length, "a numbered list is left alone (its numbers follow the citations)"); }
 
+/* a citation whose source is in the draft's own list but not in Writing Studio's sources: the paper is fine, so it's a note with Add to Sources, not an error */
+{
+  const D = "Behaviour differs by sex (Lindová et al., 2006). Drivers crash more (Smith, 2021).\n\nReferences\nLindová, J., Novotná, M., Havlíček, J., ... Flegr, J. (2006, August 31). Gender differences in behavioural changes induced by latent toxoplasmosis. International Journal for Parasitology.\nSmith, J. (2021). Parks and heat.";
+  const r = CITE.check(D, src, APA), x = r.issues.find(i => /Lindov/.test(i.t));
+  ok(x && x.k === "warn" && /^In your References list, not yet in your sources: \(Lindová et al\., 2006\)/.test(x.t) && x.addRef === "Lindová" && /Your paper is fine here/.test(x.d), "in the draft's list but not a source: a note to add it, not an error: " + JSON.stringify(x));
+  const y = CITE.check(D.replace("(Lindová", "(Lindova"), src, APA).issues.find(i => /Lindov/.test(i.t));
+  ok(y && y.k === "warn" && y.addRef, "the name matched with or without its accent");
+  const z = CITE.check(D.replace(/\nLindová[^\n]*/, ""), src, APA).issues.find(i => /Lindov/.test(i.t));
+  ok(z && z.k === "err" && /^Not in your sources/.test(z.t) && /isn't in your References list either/.test(z.d) && !z.addRef, "not in the list either: still an error");
+}
+/* narrative citations keep their name; a year that belongs to another entry by the same author in the list is that other work, never "fixed" */
+{
+  const F = (id, y, t) => CITE.clean({id, type: "article-journal", title: t, author: [{family: "Flegr", given: "J"}], issued: {"date-parts": [[y]]}});
+  const R = "\n\nReferences\nFlegr, J. (2013). Influence of latent Toxoplasma infection.\nFlegr, J., Klose, J. (2019). Negative effects of latent toxoplasmosis on mental health.\nFlegr, J. (2007). Effects of Toxoplasma.";
+  const D = "In the discussion section by Flegr et al. (2019), the researchers report. This, as described by Flegr (2013), is not feasible. Earlier (Flegr, 2007).";
+  const a = CITE.check(D + R, [], APA).issues.filter(x => x.k !== "ok").map(x => x.t);
+  ok(a.includes("In your References list, not yet in your sources: Flegr (2013)") && a.includes("In your References list, not yet in your sources: Flegr et al. (2019)"), "a narrative citation keeps its name, and is found in the list: " + a.join(" | "));
+  const b = CITE.check(D + R, [F("a", 2013, "Influence of latent Toxoplasma infection")], APA).issues;
+  ok(!b.some(x => /year doesn't match|In APA, write Flegr \(2013\)/.test(x.t)) && !b.some(x => (x.edits || []).some(e => /2019/.test(e.from))), "Flegr et al. (2019) isn't Flegr 2013 with a wrong year: no fix rewrites it");
+  ok(b.some(x => x.k === "warn" && /Flegr et al\. \(2019\)/.test(x.t)), "it's the 2019 entry in the list, not a source yet");
+  const c = CITE.check("Smith (2019) said so. Later (Smith, 2018).\n\nReferences\nSmith, J. (2018). Parks.", [CITE.clean({id: "s", type: "book", title: "Parks", author: [{family: "Smith", given: "J"}], issued: {"date-parts": [[2018]]}})], APA).issues;
+  ok(c.some(x => /^The year doesn't match your source: Smith \(2019\)/.test(x.t)), "a real slip of the year (no 2019 entry in the list) is still caught");
+}
 console.log(`writing-studio-fix.test: ${n} passed`);
