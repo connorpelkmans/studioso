@@ -1018,6 +1018,38 @@ function arrowFor(e){
   if (!M.marks[id]) M.marks[id] = `<marker id="${id}" viewBox="0 0 10 10" refX="2" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M0 0L10 5L0 10Z"/></marker><marker id="${id}S" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M10 0L0 5L10 10Z"/></marker>`;
   return id;
 }
+/* A connection's own thickness and Solid / Dashed / Dotted, on a map style's line (each style draws its line its own way).
+   Thickness scales the line's strokes and its decorations (beads, flowers, coins, notes); Dashed and Dotted break up the line itself and
+   its other line strokes (a staff's five lines, a film strip's edges). A style made only of decorations gets a line under them to dash. */
+const PK_K = {1: 0.6, 2: 1, 3: 1.45, 4: 1.9};
+function lineTune(L, e, pk){
+  const k = PK_K[e.w] || 1, dash = e.line === "dashed" || e.line === "dotted" ? e.line : "";
+  if (k === 1 && !dash) return L;
+  const fx = v => (Math.round(v * 100) / 100).toString(), dashOf = w => dash === "dashed" ? `${fx(Math.max(6, w * 3.2))} ${fx(Math.max(4, w * 2.2))}` : `.1 ${fx(Math.max(4.5, w * 2.6))}`;
+  // the drawing, tag by tag: what's inside a moved group scales with it; a loose shape scales its own size; a loose line keeps its place
+  const tune = html => { if (!html) return html; let depth = 0;
+    return html.replace(/<\/?([a-zA-Z]+)([^>]*?)(\/?)>/g, (m, tag, attrs, self) => {
+      if (m.startsWith("</")) { if (tag === "g" && depth) depth--; return m; }
+      if (depth) { if (tag === "g" && !self) depth++; return m; }
+      const tr = /\stransform="([^"]*)"/.exec(attrs);
+      if (tr && /^translate\(/.test(tr[1])) { attrs = attrs.replace(tr[0], ` transform="${tr[1]} scale(${fx(k)})"`); if (tag === "g" && !self) depth++; return `<${tag}${attrs}${self}>`; }
+      if (tag === "g" && !self) { depth++; return m; } // a group of loose parts (rare): left as drawn
+      attrs = attrs.replace(/\s(r|rx|ry)="([\d.]+)"/g, (q, a, v) => ` ${a}="${fx(+v * k)}"`).replace(/\sfont-size="([\d.]+)"/g, (q, v) => ` font-size="${fx(+v * k)}"`);
+      const sw = /\sstroke-width="([\d.]+)"/.exec(attrs);
+      if (sw) attrs = attrs.replace(sw[0], ` stroke-width="${fx(+sw[1] * k)}"`);
+      if (dash && tag === "path" && /fill="none"/.test(attrs) && !tr) { const w = sw ? +sw[1] * k : 1.5 * k; attrs = attrs.replace(/\sstroke-dasharray="[^"]*"/, "") + ` stroke-dasharray="${dashOf(w)}"` + (dash === "dotted" ? ' stroke-linecap="round"' : ""); }
+      return `<${tag}${attrs}${self}>`;
+    }); };
+  let st = String(L.st || ""); const wm = /stroke-width:\s*([\d.]+)/.exec(st), w0 = wm ? +wm[1] : 2;
+  st = st.replace(/stroke-width:\s*([\d.]+)/, (q, v) => `stroke-width:${fx(+v * k)}`);
+  const hidden = /stroke:\s*transparent/.test(st) || /opacity:\s*\.0\d/.test(st), lines = /<path [^>]*fill="none"/.test((L.pre || "") + (L.post || ""));
+  if (dash) {
+    // a style drawn only with decorations: a line in its colour, under them, to show Dashed or Dotted
+    if (hidden && !lines) st = st.replace(/stroke:\s*transparent/, `stroke:${pk.arrow || pk.col || "#888"}`).replace(/opacity:\s*\.0\d/, "opacity:.8") + (wm ? "" : `;stroke-width:${fx(2 * k)}`);
+    if (!hidden || !lines) st = st.replace(/;?stroke-dasharray:[^;]*/g, "").replace(/;?stroke-linecap:[^;]*/g, "") + `;stroke-dasharray:${dashOf(wm ? w0 * k : 2 * k)}${dash === "dotted" ? ";stroke-linecap:round" : ""}`;
+  }
+  return Object.assign({}, L, {st, pre: tune(L.pre), post: tune(L.post)});
+}
 function edgeSvg(e){
   const G = edgeGeo(e), lab = e.label ? trunc(e.label, 30) : "";
   // a coloured or thicker line gets arrowheads of its own colour and size (made once per kind, in the map's defs)
@@ -1026,7 +1058,7 @@ function edgeSvg(e){
   if (M.pk && !M.pk.native) {
     // a map style's line: the line itself (its arrows, its colour if one was picked) with the style's drawing under and over it
     const t = (a, b, f) => a + (b - a) * f, p = G.curved ? [[G.sx, G.sy], [t(G.sx, G.cx, 2 / 3), t(G.sy, G.cy, 2 / 3)], [t(G.ex, G.cx, 2 / 3), t(G.ey, G.cy, 2 / 3)], [G.ex, G.ey]] : [[G.sx, G.sy], [t(G.sx, G.ex, 1 / 3), t(G.sy, G.ey, 1 / 3)], [t(G.sx, G.ex, 2 / 3), t(G.sy, G.ey, 2 / 3)], [G.ex, G.ey]];
-    let L = {}; try { L = M.pk.line(p, pkVar(e.key)) || {}; } catch (er) {}
+    let L = {}; try { L = lineTune(M.pk.line(p, pkVar(e.key)) || {}, e, M.pk); } catch (er) {}
     const d = CMPACK.D(p);
     return `<g class="cm-edge pk-e ln-${e.line || "solid"}${e.user ? " is-user" : ""}${e.col ? " has-lc" : ""}${M.selE === e.key ? " is-sel" : ""}" data-e="${esc(e.key)}"><path d="${d}" class="cm-hit"/>${L.pre || ""}<path d="${L.d || d}" class="cm-line" style="${L.st || ""}${e.col ? `;stroke:${e.col}` : ""}"${mk}${ms}/>${L.post || ""}${lab ? `<g class="cm-elg" transform="translate(${G.mx},${G.my})"><rect class="cm-elbg" x="0" y="-10" width="0" height="20" rx="10"/><text x="0" y="4" class="cm-elab">${esc(lab)}</text></g>` : ""}</g>`;
   }
