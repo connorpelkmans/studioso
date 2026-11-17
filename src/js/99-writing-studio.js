@@ -400,7 +400,25 @@ const CITE = (() => {
   const headingOf = (style, kind) => HEADS[style] || (kind === "note" ? "Bibliography" : "References");
   function refSection(draft){
     const m = /(^|\n)[ \t]*(references|works cited|bibliography|reference list|sources cited|works consulted|literature cited|sources)[ \t]*:?[ \t]*(\n|$)/i.exec(draft);
-    return m ? {name: m[2], at: m.index + m[1].length, body: draft.slice(m.index + m[0].length)} : null;
+    return m ? {name: m[2], at: m.index + m[1].length, body: draft.slice(m.index + m[0].length)} : bareList(draft);
+  }
+  // A list with no heading: the draft ends in reference entries ("Singer, P. (1972). Famine, Affluence, and Morality. …"), each starting with
+  // a surname and an initial or first name and holding a year, a link on its own line going with the entry above it. name "" says it has no heading.
+  const ENTRY = /^\s*(?:\[\d{1,3}\]\s*|\d{1,3}[.)]\s+)?(?:(?:van|von|de|du|da|di|la|le|der|den)\s+)?[\p{Lu}][\p{L}'’-]+(?:[ -][\p{Lu}][\p{L}'’-]+)?,\s+(?:[\p{Lu}]\.|[\p{Lu}][\p{L}'’-]+[.,])/u;
+  function bareList(draft){
+    const lines = draft.split("\n"); let i = lines.length - 1, first = -1, n = 0;
+    while (i >= 0 && !lines[i].trim()) i--;
+    for (; i >= 0; i--) {
+      const L = lines[i].trim();
+      if (!L) continue;
+      if (/^(https?:\/\/|doi:|www\.)\S+$/i.test(L)) continue;
+      if (ENTRY.test(L) && L.length >= 25 && /\b(1[5-9]\d\d|20\d\d)\b|\bn\.\s?d\./.test(L) && !/[.!?]["”’]?\s+[\p{Ll}]/u.test(L.slice(0, 40))) { first = i; n++; continue; }
+      break;
+    }
+    if (first <= 0 || !n) return null;
+    const at = lines.slice(0, first).join("\n").length + 1, before = draft.slice(0, at).trim();
+    if (before.length < 200 || n * 2 > lines.filter(l => l.trim()).length) return null;
+    return {name: "", at, body: draft.slice(at), bare: true};
   }
   const NUM = {one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, fifteen: 15, twenty: 20};
   const NAMED = [[/\bAPA\b/, "apa"], [/\bMLA\b/, "modern-language-association"], [/\bChicago\b[^.\n]{0,40}\b(foot|end)notes?\b|\bnotes[- ]bibliography\b|\bTurabian\b/i, "chicago-notes-bibliography"], [/\bChicago\b/i, "chicago-author-date"], [/\bIEEE\b/, "ieee"], [/\bHarvard\b/i, "harvard-cite-them-right"], [/\bAMA\b/, "american-medical-association"], [/\bASA\b/, "american-sociological-association"]];
@@ -822,7 +840,8 @@ const CITE = (() => {
       push(n ? "err" : "warn", `No ${wantL} found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`, "", null, null, ordered.length ? {key: "ref-none", edits: [refAppend(draft, want, ordered.map(id => P.num ? o.refs[id] : unnum(o.refs[id])))]} : {key: "ref-none"});
     }
     else {
-      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) { const ha = draft.indexOf(ref.name, ref.at); push("err", `In ${label}, the list is called ${want}`, `Yours is called “${sq(ref.name)}”: rename the heading.`, "", ref.at, ref.name.length, {key: "heading", edits: [editAt(draft, ha, ref.name.length, ref.name, want)].filter(Boolean)}); }
+      if (ref.bare) push("err", `Your ${wantL} has no heading`, `In ${label}, the list starts with a heading, ${want}, on its own line above the entries.`, "", ref.at, Math.min(80, ref.body.indexOf("\n") > 0 ? ref.body.indexOf("\n") : ref.body.length), {key: "heading", edits: [{at: ref.at, len: 0, from: "", to: want + "\n", k: "!"}]});
+      else if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) { const ha = draft.indexOf(ref.name, ref.at); push("err", `In ${label}, the list is called ${want}`, `Yours is called “${sq(ref.name)}”: rename the heading.`, "", ref.at, ref.name.length, {key: "heading", edits: [editAt(draft, ha, ref.name.length, ref.name, want)].filter(Boolean)}); }
       const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body));
       miss.forEach(s => { const X = o.refs && o.refs[s.id], ins = X ? refInsert(draft, ref, ents, P.num ? X : unnum(X)) : null; push("err", `Cited but not in your ${wantL}: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1], {key: "miss:" + s.id, edits: ins ? [ins] : []}); });
       // only when nothing cited is missing: a citation that isn't in the sources is cited too
@@ -2690,7 +2709,7 @@ if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", free:
 
 const css = document.createElement("style");
 css.textContent = `
-dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
+dialog:has(.ws-sheet){width:min(1240px,calc(100% - 32px))}
 /* phones: a full-width sheet like every other (the 24px left for margins sat all on the right, so it looked pushed left) */
 @media (max-width:639px){dialog:has(.ws-sheet){width:100%}}
 /* the tabs change the body's height: keep the window's top edge still (anchored near the top; a full-height sheet on phones) so the tabs don't slide away from the pointer */
@@ -2742,7 +2761,7 @@ svg.ws-zic{display:block;flex:none}
 .ws-ldsum{margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ws-ldsum .ws-fixall{margin-left:0}
 .ws-ldwrap:not(:empty){margin-top:10px}
-.ws-ldf{display:block;width:100%;height:min(68vh,860px);min-height:320px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.ws-ldf{display:block;width:100%;height:min(74vh,1000px);min-height:320px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .ws-note{margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent,#2F6FE4) 9%,var(--surface))}
 .ws-empty{text-align:center;padding:22px 12px;border:1px dashed var(--line);border-radius:12px;display:grid;gap:6px}
 .ws-empty p{margin:0}

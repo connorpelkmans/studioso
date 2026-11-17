@@ -132,4 +132,16 @@ const sameOutside = (a, b, from, to) => b.startsWith(a.slice(0, from)) && b.ends
   const c = CITE.check("Smith (2019) said so. Later (Smith, 2018).\n\nReferences\nSmith, J. (2018). Parks.", [CITE.clean({id: "s", type: "book", title: "Parks", author: [{family: "Smith", given: "J"}], issued: {"date-parts": [[2018]]}})], APA).issues;
   ok(c.some(x => /^The year doesn't match your source: Smith \(2019\)/.test(x.t)), "a real slip of the year (no 2019 entry in the list) is still caught");
 }
+/* a reference list with no heading: the entries at the end are found, and Fix adds the heading */
+{
+  const body = "Whilst I am capable of accepting the first premise, I intend to argue that the reaction of those from affluent countries is in fact justified. I will focus on the strong version, as Singer states himself (Singer, 1972).\n\nIn conclusion, although I can agree with the first premise of Singer’s argument that suffering is bad, I find the following three premises untrue as a result of differing approaches.";
+  const D = body + "\n\nSinger, P. (1972). Famine, Affluence, and Morality. Philosophy & Public Affairs, 1(3), 229–243.\nhttp://www.jstor.org/stable/2265052";
+  const r = CITE.check(D, [], APA), t = r.issues.map(x => x.t);
+  ok(t.includes("Your References list has no heading") && t.includes("In your References list, not yet in your sources: (Singer, 1972)") && !t.some(x => /^Not in your sources|No References list found/.test(x)), "a list with no heading is still the list: " + t.join(" | "));
+  ok(CITE.refEntries(D).length === 1 && /^Singer, P\. \(1972\)/.test(CITE.refEntries(D)[0]), "its entry is read (the link on its own line goes with it)");
+  const fx = CITE.applyEdits(D, r.issues.flatMap(x => x.edits || [])).text;
+  ok(fx === body + "\n\nReferences\nSinger, P. (1972). Famine, Affluence, and Morality. Philosophy & Public Affairs, 1(3), 229–243.\nhttp://www.jstor.org/stable/2265052", "Fix adds the heading above the entries: " + JSON.stringify(fx.slice(-150)));
+  const n = CITE.check(body + "\n\nTherefore, Singer (1972) is wrong about this, and I have shown why in each part above.", [], APA).issues.map(x => x.t);
+  ok(n.includes("No References list found"), "a last sentence that names an author isn't taken for a list");
+}
 console.log(`writing-studio-fix.test: ${n} passed`);
