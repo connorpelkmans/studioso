@@ -276,6 +276,14 @@ function SEED(){
     const und = () => pu.isDisabled('.cm-tools [data-cm="undo"]'), red = () => pu.isDisabled('.cm-tools [data-cm="redo"]');
     const m1 = async () => (await course(pu, "c2")).maps.find(m => m.id === "m1");
     ok(await und() && await red(), "a freshly opened map: Undo and Redo are greyed out");
+    // the dotted background moves and zooms with the map
+    const bg = () => pu.evaluate(() => { const c = document.querySelector(".cm-canvas"), cs = getComputedStyle(c); return {x: cs.getPropertyValue("--cmx"), g: parseFloat(cs.getPropertyValue("--cmg"))}; });
+    const b0 = await bg(), cvb = await pu.locator(".cm-canvas").boundingBox();
+    await pu.mouse.move(cvb.x + cvb.width - 60, cvb.y + cvb.height - 60); await pu.mouse.down(); for (let i = 1; i <= 5; i++) await pu.mouse.move(cvb.x + cvb.width - 60 - i * 7, cvb.y + cvb.height - 60 - i * 3); await pu.mouse.up(); await pu.waitForTimeout(150);
+    const b1 = await bg(); ok(b1.x !== b0.x, `dragging the map moves the dots with it (${b0.x} to ${b1.x})`);
+    await pu.click('[data-cm="in"]'); await pu.waitForTimeout(150); const b2 = await bg();
+    ok(b2.g > b1.g, `zooming in spreads the dots out (${b1.g} to ${b2.g}px)`);
+    await pu.click('[data-cm="out"]'); await pu.waitForTimeout(150);
     await tap(pu, "idea:a"); await cmClick(pu, '[data-cm="shape"][data-v="cloud"]'); await pu.waitForTimeout(200);
     ok(((await m1()).styles || {})["idea:a"].shape === "cloud" && !(await und()) && await red(), "a change: Undo is ready");
     await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);

@@ -894,7 +894,7 @@ function paint(){
       ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round((n.size || (n.root ? 15 : 13)) * 0.36)}"${dot ? "" : ' text-anchor="middle" x="0"'} style="${n.size ? `font-size:${n.size}px;` : ""}${n.font ? `font-family:${esc(FONT_STACK[n.font])};` : ""}${(n.text || autoInk(n.fill)) ? `fill:${n.text || autoInk(n.fill)};` : ""}">${esc(label)}</text></g>`;
   }).join("");
   world.innerHTML = `<defs><marker id="cmArr" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M0 0L10 5L0 10Z"/></marker><marker id="cmArrS" viewBox="0 0 10 10" refX="1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M10 0L0 5L10 10Z"/></marker></defs><g class="cm-edges"></g><g class="cm-nodes">${nodes}</g>`;
-  world.setAttribute("transform", `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`);
+  world.setAttribute("transform", viewT());
   // each label is measured, and its box drawn to fit
   world.querySelectorAll(".cm-node").forEach(el => {
     const n = M.byId[el.dataset.n], t = el.querySelector(".cm-lab"), shape = CMAP.shapeOf(n), dot = !!el.dataset.dot;
@@ -1053,7 +1053,7 @@ function zoomAt(f, cx, cy){
   if (cx == null) { cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
   const k = Math.max(0.2, Math.min(2.5, M.view.k * f)), px = cx - r.left, py = cy - r.top;
   M.view.x = px - (px - M.view.x) * (k / M.view.k); M.view.y = py - (py - M.view.y) * (k / M.view.k); M.view.k = k;
-  M.el.querySelector(".cm-world").setAttribute("transform", `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`);
+  M.el.querySelector(".cm-world").setAttribute("transform", viewT());
 }
 // glides a node into the middle of what's visible (above the panel), unless it's already well inside
 function panTo(id){
@@ -1064,7 +1064,7 @@ function panTo(id){
   if (sx > W * 0.18 && sx < W * 0.82 && sy > H * 0.18 && sy < H * 0.82) return;
   const tx = W / 2 - p[0] * M.view.k, ty = H / 2 - p[1] * M.view.k, x0 = M.view.x, y0 = M.view.y, t0 = performance.now();
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches, dur = reduce ? 0 : 320;
-  const step = now => { const f = dur ? Math.min(1, (now - t0) / dur) : 1, e = 1 - Math.pow(1 - f, 3); M.view.x = x0 + (tx - x0) * e; M.view.y = y0 + (ty - y0) * e; const w = M.el && M.el.querySelector(".cm-world"); if (w) w.setAttribute("transform", `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`); if (f < 1) requestAnimationFrame(step); };
+  const step = now => { const f = dur ? Math.min(1, (now - t0) / dur) : 1, e = 1 - Math.pow(1 - f, 3); M.view.x = x0 + (tx - x0) * e; M.view.y = y0 + (ty - y0) * e; const w = M.el && M.el.querySelector(".cm-world"); if (w) w.setAttribute("transform", viewT()); if (f < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
 }
 function wireCanvas(){
@@ -1122,7 +1122,7 @@ function wireCanvas(){
       return;
     }
     if (drag.id && !M.quiz) { M.pos[drag.id] = [Math.round(drag.start[0] + dx / M.view.k), Math.round(drag.start[1] + dy / M.view.k)]; const el = svg.querySelector(`.cm-node[data-n="${CSS.escape(drag.id)}"]`); if (el) el.setAttribute("transform", `translate(${M.pos[drag.id][0]},${M.pos[drag.id][1]})`); const hg = drag.id === M.sel && svg.querySelector(".cm-hdls"); if (hg) hg.setAttribute("transform", `translate(${M.pos[drag.id][0]},${M.pos[drag.id][1]})`); moveEdges(drag.id); }
-    else if (!drag.id || M.quiz) { M.view.x = drag.vx + dx; M.view.y = drag.vy + dy; M.el.querySelector(".cm-world").setAttribute("transform", `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`); }
+    else if (!drag.id || M.quiz) { M.view.x = drag.vx + dx; M.view.y = drag.vy + dy; M.el.querySelector(".cm-world").setAttribute("transform", viewT()); }
   });
   const up = e => {
     pts.delete(e.pointerId); if (!drag) return; const d = drag; drag = null; if (d.pinch) return;
@@ -1171,6 +1171,14 @@ function drawHandles(){
   const k = M.view.k || 1, coarse = window.matchMedia && matchMedia("(pointer:coarse)").matches, r = (coarse ? 9 : 5.5) / k, [bw, bh] = sz;
   w.insertAdjacentHTML("beforeend", `<g class="cm-hdls" transform="translate(${p[0]},${p[1]})"><rect class="cm-rsz" x="${-bw / 2}" y="${-bh / 2}" width="${bw}" height="${bh}" rx="6" style="stroke-width:${1.5 / k}" hidden/>`
     + HANDLES.map(([d, dx, dy]) => `<rect class="cm-hdl h-${d}" data-hdl="${d}" x="${dx * bw / 2 - r}" y="${dy * bh / 2 - r}" width="${r * 2}" height="${r * 2}" rx="${d === "se" ? r : r * 0.5}" style="stroke-width:${1.5 / k}"><title>Drag to resize</title></rect>`).join("") + `</g>`);
+}
+// the map's place and zoom; the dotted background moves and scales with it (as on the notes board)
+function viewT(){
+  const cv = M.el && M.el.querySelector(".cm-canvas"), k = M.view.k || 1;
+  if (cv) { let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
+    cv.style.setProperty("--cmg", step.toFixed(2) + "px"); cv.style.setProperty("--cmr", r.toFixed(2) + "px");
+    cv.style.setProperty("--cmx", (M.view.x % step).toFixed(1) + "px"); cv.style.setProperty("--cmy", (M.view.y % step).toFixed(1) + "px"); }
+  return `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`;
 }
 function tapNode(id){
   // a second tap on a video or embed plays it (a tap repaints the map, so the browser's own double-click can't be relied on)
@@ -1670,7 +1678,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-ms{display:none}
 .cm-tog{display:flex;align-items:center;gap:6px;font-size:.88rem;white-space:nowrap}
 .cm-qt{font-size:.95rem}
-.cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:radial-gradient(circle,color-mix(in srgb,var(--ink) 9%,transparent) 1px,transparent 1.4px) 0 0/22px 22px,var(--surface);touch-action:none}
+.cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:radial-gradient(circle,color-mix(in srgb,var(--ink) 11%,transparent) var(--cmr,1px),transparent calc(var(--cmr,1px) + .5px)) var(--cmx,0) var(--cmy,0)/var(--cmg,22px) var(--cmg,22px),var(--surface);touch-action:none}
 .cm-svg{width:100%;height:100%;display:block;cursor:grab;user-select:none;-webkit-user-select:none}
 .cm-svg:active{cursor:grabbing}
 .cm-line{stroke:color-mix(in srgb,var(--ink) 28%,transparent);stroke-width:1.6}
