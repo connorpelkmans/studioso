@@ -108081,6 +108081,14 @@ function player(id){
     ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}${e.p === "spotify" ? `<p class="mini cm-player-tip">Spotify plays whole songs and episodes here only when you're signed in to Spotify in this browser; otherwise it plays a 30-second preview. Open in Spotify plays the whole thing.</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; storage-access" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div></div>`);
   const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
 }
+// A box's picture, big, over the map (the same frame as the video player, so Escape and Close work the same way)
+function picView(id){
+  closePlayer();
+  const n = M.byId[id], url = n && n.img ? imgUrl(n.img.k) : ""; if (!url) return;
+  const cv = M.el.querySelector(".cm-canvas"), name = n.label || "Picture";
+  cv.insertAdjacentHTML("beforeend", `<div class="cm-player cm-picview" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><b>${esc(name)}</b><span class="spacer"></span><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">✕</button></div><button type="button" class="cm-picbig" data-cm="unplay" aria-label="Close the picture"><img src="${url}" alt="${esc(name)}"></button></div>`);
+  const b = cv.querySelector(".cm-picview .icon-btn"); if (b) b.focus();
+}
 function closePlayer(){ const p = M.el && M.el.querySelector(".cm-player"); if (p) { p.remove(); return true; } return false; }
 /* Previews on embed boxes (CMAP.previewOf): the provider's own picture, loaded from the provider by its address. Only the address and the title are
    saved on the embed, never the picture. A picture that won't load (taken down, or a private Google file) leaves the plain box. Sites with no
@@ -108600,7 +108608,7 @@ function wireCanvas(){
       const n = M.byId[M.sel]; drag = {rsz: hd.dataset.hdl, id: M.sel, w0: M.size[M.sel][0], h0: M.size[M.sel][1], minW: n && (n.img || n.emb) ? 90 : tw + 30, minH: n && (n.img || n.emb) ? 60 : Math.max(26, (n && n.size || 13) * 1.9), x: e.clientX, y: e.clientY, moved: false};
       try { svg.setPointerCapture(e.pointerId); } catch (er) {} e.stopPropagation(); return; }
     const nd = e.target.closest(".cm-node"), ed = e.target.closest(".cm-edge");
-    drag = {id: nd ? nd.dataset.n : "", emb: !!(nd && e.target.closest(".cm-emb, .cm-emb-btn")), edge: !nd && ed ? ed.dataset.e : "", x: e.clientX, y: e.clientY, vx: M.view.x, vy: M.view.y, moved: false, start: nd ? (M.pos[nd.dataset.n] || [0, 0]).slice() : null};
+    drag = {id: nd ? nd.dataset.n : "", emb: !!(nd && e.target.closest(".cm-emb, .cm-emb-btn")), pic: !!(nd && e.target.closest(".cm-img")), edge: !nd && ed ? ed.dataset.e : "", x: e.clientX, y: e.clientY, vx: M.view.x, vy: M.view.y, moved: false, start: nd ? (M.pos[nd.dataset.n] || [0, 0]).slice() : null};
     try { svg.setPointerCapture(e.pointerId); } catch (er) {}
   });
   svg.addEventListener("pointermove", e => {
@@ -108638,6 +108646,8 @@ function wireCanvas(){
     if (d.moved) return;
     // a box with a video or embed: a tap on the embed plays it; a tap anywhere else on the box picks it, to edit
     if (d.id && d.emb && !M.quiz && !M.connect) { M.sel = d.id; M.selE = ""; M.pick = ""; lite(); player(d.id); return; }
+    // a box with a picture: a tap on the picture shows it big; a tap on its words picks the box, to edit
+    if (d.id && d.pic && !M.quiz && !M.connect) { M.sel = d.id; M.selE = ""; M.pick = ""; lite(); picView(d.id); return; }
     if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
     else {
       // a double-click (or double tap) on an empty spot adds an idea there, asking for its name first
@@ -109398,6 +109408,10 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-embdot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
 /* the player appears at once, in the middle (centred by layout, not a transform, so nothing slides or replays) */
 .cm-player{position:absolute;z-index:5;inset:0;margin:auto;height:fit-content;width:min(860px,calc(100% - 24px));max-height:calc(100% - 24px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px -12px rgb(0 0 0/.45);overflow:hidden}
+.cm-picview{width:min(1100px,calc(100% - 24px));height:calc(100% - 24px)}
+.cm-picbig{display:block;position:relative;padding:0;margin:8px 12px 12px;border:0;background:none;cursor:zoom-out;min-height:0;flex:1 1 auto;overflow:hidden}
+.cm-picbig img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.cm-node.is-pic .cm-img,.cm-node .cm-img{cursor:zoom-in}
 .cm-player-head{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--line)}
 .cm-player-head b{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cm-player-head .icon-btn{font-size:1.4rem;line-height:1}
