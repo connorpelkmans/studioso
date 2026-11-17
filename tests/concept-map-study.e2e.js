@@ -24,7 +24,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
     {id: "kc2", front: "What is ATP?", back: "The cell's energy currency", box: 0, due: "", seen: 3, right: 0, wrong: 3}], quizzes: [],
     aiQuizzes: [{id: "q1", title: "Practice Quiz", created: 1, results: [], questions: [{id: "qq1", type: "single", stem: "Where does glycolysis happen?", options: ["Cytoplasm", "Nucleus"], correct: [0], tries: 2, miss: 2}]}]}],
   files: [{id: "f1", kind: "file", name: "Lecture slides.pdf", courseId: "c2", folderId: "", created: 1, revs: [{name: "Lecture slides.pdf", assetId: "x1", at: 1}]},
-    {id: "f2", kind: "file", name: "Lecture 3 recording", courseId: "c2", folderId: "lectures", created: 2, revs: [{name: "lecture.webm", assetId: "x2", at: 1}]}]};
+    {id: "f2", kind: "file", name: "Lecture 3 recording", courseId: "c2", folderId: "lectures", created: 2, dur: 1500, revs: [{name: "lecture.webm", assetId: "x2", at: 1}]}]};
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
@@ -40,7 +40,9 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   };
   const mkCtx = async viewport => {
     const ctx = await browser.newContext({viewport: viewport || {width: 1280, height: 860}, serviceWorkers: "block"});
-    await ctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, SEED);
+    await ctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, SEED);
+    ctx.aiCalls = [];
+    await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.aiCalls.push(route.request().postData() || ""); route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(ctx.aiReply || {matches: []})}]}, finishReason: "STOP"}]})}); });
     return ctx;
   };
   const open = async ctx => { const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error" && !/Failed to load resource|ERR_FAILED/.test(m.text())) page.errs.push(m.text()); });
@@ -62,7 +64,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   ok((await col(page, "idea:d")).toUpperCase() === "#E03131", "ATP is red: a card naming it, 0 of 3");
   ok((await col(page, "idea:a")).toUpperCase() === "#E03131", "Glycolysis is red: a quiz question naming it, missed 2 of 2");
   ok((await col(page, "idea:b")).toUpperCase() === "#98A2B3", "Pyruvate is grey: no results yet");
-  ok(/No results yet/.test(await page.textContent(".cm-legend")) && /Shaky/.test(await page.textContent(".cm-legend")), "the key says what the colours mean");
+  ok(/No Results Yet/.test(await page.textContent(".cm-legend")) && /Shaky/.test(await page.textContent(".cm-legend")), "the key says what the colours mean");
   await tap(page, "idea:d");
   ok(/Shaky · 0% right \(0 of 3\)/.test(await page.textContent(".cm-panel")) && await page.isVisible('[data-cm="study"]'), "an idea's panel shows its results and Review 1 Card");
   ok(/1 Shaky/.test(await page.textContent(".cm-tools")), "the toolbar offers Review for shaky ideas that have cards");
@@ -116,8 +118,8 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   /* Link an idea to a PDF page or a lecture moment */
   await page.evaluate(() => { window.__went = []; SBPRO.openReader = (id, p) => window.__went.push(["pdf", id, p]); SBREPLAY.seek = (id, ms) => { window.__went.push(["lec", id, ms]); return Promise.resolve(); }; window.fileSheet = () => {}; });
   await tap(page, "idea:a"); ok(await page.locator('.cm-panel [data-cm="menu"][data-v="attach"]').count() === 1 && await page.locator('.cm-panel [data-cm="style"]').count() === 1, "an idea's panel: Attach (a page or lecture, a picture, a video) and Style");
-  await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF");
-  ok(await page.$$eval("#cmAtF optgroup", g => g.map(x => x.label).join("|")) === "PDFs|Lectures", "the course's PDFs and lectures to pick from");
+  await cmClick(page, '[data-cm="atpdf"]'); await page.waitForSelector("#cmAtF");
+  ok(JSON.stringify(await page.$$eval("#cmAtF option", o => o.map(x => x.value))) === '["f1"]' && await page.isVisible("#cmAtP") && !(await page.isVisible("#cmAtT")), "PDF Page lists only the course's PDFs and asks for a page");
   await page.selectOption("#cmAtF", "f1"); await page.fill("#cmAtP", "12"); await page.click(".cm-atf [type=submit]"); await page.waitForTimeout(250);
   let idea = (await S(page)).courses.c2.maps[0].add.find(x => x.id === "a");
   ok(idea.at && idea.at.f === "f1" && idea.at.p === 12, "Glycolysis links to page 12 of the slides");
@@ -126,24 +128,65 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   await cmClick(page, '[data-cm="goat"]'); await page.waitForTimeout(200);
   ok(JSON.stringify(await page.evaluate(() => window.__went)) === JSON.stringify([["pdf", "f1", 12]]), "Go to p. 12 opens the PDF at page 12");
   await openMap(page); await page.evaluate(() => { window.__went = []; });
-  await tap(page, "idea:d"); await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF");
-  await page.selectOption("#cmAtF", "f2"); ok(await page.isVisible("#cmAtT") && !(await page.isVisible("#cmAtP")), "a lecture asks for a time, not a page");
+  await tap(page, "idea:d"); await cmClick(page, '[data-cm="atlec"]'); await page.waitForSelector("#cmAtF");
+  ok(JSON.stringify(await page.$$eval("#cmAtF option", o => o.map(x => x.value))) === '["f2"]' && await page.isVisible("#cmAtT") && !(await page.isVisible("#cmAtP")), "Lecture Moment lists only the course's lectures and asks for a time, not a page");
   await page.fill("#cmAtT", "7:99"); await page.click(".cm-atf [type=submit]"); ok(/like 12:34/.test(await page.textContent("[data-at-err]")), "a time that isn't one says how to write it");
+  ok(/The recording is 25:00 long/.test(await page.textContent("[data-at-len]")), "it says how long the recording is");
+  await page.fill("#cmAtT", "31:00"); await page.click(".cm-atf [type=submit]"); ok(/only 25:00 long/.test(await page.textContent("[data-at-err]")), "a time past the end of the recording isn't allowed");
   await page.fill("#cmAtT", "12:34"); await page.click(".cm-atf [type=submit]"); await page.waitForTimeout(250);
   idea = (await S(page)).courses.c2.maps[0].add.find(x => x.id === "d");
   ok(idea.at && idea.at.f === "f2" && idea.at.t === 754000 && await page.textContent('.cm-node[data-n="idea:d"] .cm-atb text') === "12:34", "ATP links to 12:34 in the lecture, shown on its box");
+  ok(await page.locator('.cm-node[data-n="file:f2"]').count() === 0 && await page.locator('.cm-node[data-n="file:f1"]').count() === 0, "linking doesn't add the lecture's or the PDF's own box to the map");
   await page.evaluate(() => { const S = SBCMAP.state(); S.sel = ""; S.lastTap = null; }); await page.focus('.cm-node[data-n="idea:d"]'); await page.keyboard.press("Enter"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   ok(JSON.stringify(await page.evaluate(() => window.__went)) === JSON.stringify([["lec", "f2", 754000]]), "tapping the box twice plays the lecture from 12:34");
-  await openMap(page); await tap(page, "idea:d"); await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF"); await cmClick(page, '[data-cm="atoff"]'); await page.waitForTimeout(200);
+  await openMap(page); await tap(page, "idea:d"); await cmClick(page, '[data-cm="atlec"]'); await page.waitForSelector("#cmAtF"); await page.click('.cm-atf [data-cm="atoff"]'); await page.waitForTimeout(200);
   ok(!(await S(page)).courses.c2.maps[0].add.find(x => x.id === "d").at && !(await page.locator('.cm-node[data-n="idea:d"] .cm-atb').count()), "Remove Link takes it off");
   ok(page.errs.length === 0, "no console errors (links): " + page.errs.join(" | "));
   await ctx.close();
+
+  /* Flashcards and quiz questions attached to an idea colour it; Studyboard AI can find them */
+  {
+    const c2 = await mkCtx(), pg = await open(c2);
+    await openMap(pg); await pg.check('[data-cm="know"]'); await pg.waitForTimeout(200);
+    ok((await col(pg, "idea:b")).toUpperCase() === "#98A2B3", "Pyruvate starts with no results");
+    await tap(pg, "idea:b"); await cmClick(pg, '[data-cm="evp"]'); await pg.waitForSelector(".cm-evf");
+    ok(await pg.locator(".cm-evi").count() === 3 && /Card/.test(await pg.textContent(".cm-evl")) && /Question/.test(await pg.textContent(".cm-evl")), "Attach, Flashcards and Questions lists the course's cards and quiz questions");
+    await pg.fill("[data-ev-q]", "atp"); ok(await pg.locator(".cm-evi:not([hidden])").count() === 1, "search narrows the list");
+    await pg.fill("[data-ev-q]", ""); await pg.check('.cm-evi input[value="c:k1:kc2"]'); await pg.click(".cm-evf [type=submit]"); await pg.waitForTimeout(300);
+    let b = (await S(pg)).courses.c2.maps[0].add.find(x => x.id === "b");
+    ok(JSON.stringify(b.ev) === '["c:k1:kc2"]' && (await col(pg, "idea:b")).toUpperCase() === "#E03131", "attaching the ATP card (0 of 3) makes Pyruvate shaky");
+    await tap(pg, "idea:b"); ok(/1 attached/.test(await pg.textContent(".cm-panel")) && /Review 1 Card/.test(await pg.textContent(".cm-panel")), "its panel says what's attached, and reviews that card");
+    // the strong card too: the two combine (5 of 8 right is OK)
+    await cmClick(pg, '[data-cm="evp"]'); await pg.waitForSelector(".cm-evf"); await pg.check('.cm-evi input[value="c:k1:kc1"]'); await pg.click(".cm-evf [type=submit]"); await pg.waitForTimeout(300);
+    ok((await col(pg, "idea:b")).toUpperCase() === "#E8A317", "two attached cards combine: 5 of 8 right colours it OK");
+    // Find With AI: the idea and what it's connected to go to the AI; its picks come back ticked
+    c2.aiReply = {matches: [{idea: "idea:b", items: ["i3"]}]};
+    await tap(pg, "idea:b"); await cmClick(pg, '[data-cm="evp"]'); await pg.waitForSelector(".cm-evf"); await pg.click("[data-ev-ai]");
+    await pg.waitForFunction(() => /Found 1/.test(document.querySelector("[data-ev-st]").textContent));
+    const sent = c2.aiCalls[c2.aiCalls.length - 1];
+    ok(/idea:b \| Pyruvate/.test(sent) && /connected:/.test(sent) && /makes Glycolysis/.test(sent) && /Where does glycolysis happen/.test(sent), "the AI gets the idea, its connections and the course's cards and questions");
+    ok(await pg.isChecked('.cm-evi input[value^="q:k1:q1:qq1"]'), "the question it found is ticked, ready to save");
+    await pg.click(".cm-evf [type=submit]"); await pg.waitForTimeout(300);
+    b = (await S(pg)).courses.c2.maps[0].add.find(x => x.id === "b");
+    ok(b.ev.length === 3 && b.ev.includes("q:k1:q1:qq1") && (await col(pg, "idea:b")).toUpperCase() === "#E03131", "the quiz question counts too (missed 2 of 2: now 5 of 10, shaky)");
+    // Study, Match Cards to Ideas: every idea at once
+    c2.aiReply = {matches: [{idea: "idea:c", items: ["i2"]}, {idea: "idea:d", items: ["i2", "i9"]}]};
+    await cmClick(pg, '[data-cm="matchall"]'); await pg.waitForSelector(".cm-evf .cm-matg");
+    ok(await pg.locator(".cm-evf .cm-matg").count() === 2 && await pg.locator(".cm-evf input:checked").count() === 2, "Match Cards to Ideas shows each idea's matches (codes not in the list are dropped)");
+    await pg.uncheck('.cm-evf input[data-idea="idea:d"]'); await pg.click(".cm-evf [type=submit]"); await pg.waitForTimeout(300);
+    const st2 = (await S(pg)).courses.c2.maps[0].add;
+    ok(JSON.stringify(st2.find(x => x.id === "c").ev) === '["c:k1:kc2"]' && !st2.find(x => x.id === "d").ev, "it attaches what's left ticked");
+    await pg.click('.cm-tools [data-cm="undo"]'); await pg.waitForTimeout(250);
+    ok(!(await S(pg)).courses.c2.maps[0].add.find(x => x.id === "c").ev, "one Undo takes them all off");
+    ok(pg.errs.length === 0, "no console errors (attached cards): " + pg.errs.join(" | "));
+    await c2.close();
+  }
 
   /* Phone */
   const pctx = await mkCtx({width: 390, height: 844}), pp = await open(pctx);
   await openMap(pp); await tap(pp, "idea:a"); ok(await fits(pp), "an idea's panel fits at 390px");
   await cmClick(pp, '[data-cm="cards"]'); await pp.waitForSelector(".cm-cardsp"); ok(await fits(pp), "Make Flashcards fits at 390px");
-  await tap(pp, "idea:a"); await cmClick(pp, '[data-cm="at"]'); await pp.waitForSelector("#cmAtF"); ok(await fits(pp), "the page or lecture link fits at 390px");
+  await tap(pp, "idea:a"); await cmClick(pp, '[data-cm="atpdf"]'); await pp.waitForSelector("#cmAtF"); ok(await fits(pp), "the page or lecture link fits at 390px");
   ok(pp.errs.length === 0, "no console errors (phone): " + pp.errs.join(" | "));
   await pctx.close();
   await browser.close(); server.close();

@@ -54,6 +54,15 @@ function SEED(){
     const act = (x, id, data) => page.evaluate(([x, id, data]) => { const b = document.createElement("button"); b.dataset.act = x; if (id) b.dataset.id = id; Object.assign(b.dataset, data || {}); b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [x, id, data]);
     const st = () => page.evaluate(() => window.SBREPLAY.state());
 
+    /* A concept map idea linked to 0:30 of the lecture: going there opens the lecture's view and plays from 0:30 */
+    await page.evaluate(() => { const st = window.__sbProStudy.state(), c = st.courses.c1; c.maps = [{id: "mm", name: "Map", auto: false, created: 1, at: 1, add: [{id: "q", label: "Tone", at: {f: "L1", t: 30000}}], links: [{a: "root", b: "idea:q", label: ""}]}]; });
+    await act("cm-open", "c1", {kind: "course", map: "mm"}); await page.waitForSelector('.cm-node[data-n="idea:q"]');
+    await page.evaluate(() => { const S = SBCMAP.state(); S.sel = "idea:q"; }); await page.focus('.cm-node[data-n="idea:q"]'); await page.keyboard.press("Enter"); await page.keyboard.press("Enter");
+    await page.waitForSelector(".lec-sheet .rp-dock", {timeout: 6000});
+    await page.waitForFunction(() => { const s = window.SBREPLAY.state(); return s.fid === "L1" && s.playing && s.now >= 29000; }, null, {timeout: 8000});
+    ok(true, "a concept map link to 0:30 opens the lecture and plays it from 0:30");
+    await page.evaluate(() => { window.SBREPLAY.stop(); const d = document.querySelector("dialog[open]"); if (d) d.close(); }); await page.waitForTimeout(300);
+
     /* The lecture's sheet */
     await act("lec-view", "L1"); await page.waitForSelector(".lec-sheet .rp-dock", {timeout: 5000});
     ok(await page.locator(".lec-audio").count() === 0 && await page.locator(".rp-slot .rp-dock").count() === 1, "the lecture has one player under its views, in place of the plain audio control");

@@ -21,7 +21,7 @@ const PHONE_CAM = (() => {
       const code = b64u(crypto.getRandomValues(new Uint8Array(16))), te = new TextEncoder();
       const [idH, kH] = await Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-scan-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-scan-key:" + code))]);
       ph.id = hexOf(idH); ph.key = await crypto.subtle.importKey("raw", kH, "AES-GCM", false, ["decrypt"]);
-      ph.url = RELAY() + "/s" + (ph.o.kind === "notes" ? "?for=notes" : "") + "#" + code;
+      ph.url = RELAY() + "/s" + (ph.o.kind === "notes" || ph.o.kind === "map" ? "?for=" + ph.o.kind : "") + "#" + code;
       if (ph.stopped) return;
       draw(ph);
       try {

@@ -96,7 +96,12 @@ function SEED(){
   ok(!(await page.locator("#toast.show").count()), "changing a box's style shows no notice");
   ok(st.fill === fillV && st.stroke === strokeV && st.text === textV && st.shape === "cloud", `fill, outline and text colours save (${fillV}, ${strokeV}, ${textV}) and keep the shape`);
   ok(new RegExp(fillV, "i").test(await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "fill") + (await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "style") || "")), "the box shows its fill");
+  // any colour (Pro), from the rainbow swatch at the end of the row
+  if (!(await page.locator('[data-cm-any="fill"]').count())) await cmClick(page, '[data-cm="pick"][data-v="fill"]');
+  await page.locator('[data-cm-any="fill"]').fill("#12a4b6"); await page.waitForTimeout(250);
+  ok((await course(page, "c1")).maps[0].styles["idea:i1"].fill === "#12A4B6", "any fill colour, from the colour picker");
   await page.locator('[data-cm="font"]').count() || await cmClick(page, '[data-cm="style"]'); await page.selectOption('[data-cm="font"]', "hand"); await page.waitForTimeout(200);
+  ok(/Caveat/.test(await page.evaluate(() => getComputedStyle(document.querySelector('.cm-node[data-n="idea:i1"] .cm-lab')).fontFamily)), "the box's words show in the chosen font (Handwritten: Caveat)");
   for (let i = 0; i < 3; i++) { await cmClick(page, '[data-cm="tsize"][data-v="1"]'); await page.waitForTimeout(80); }
   const w0 = await page.evaluate(() => document.querySelector('.cm-node[data-n="idea:i1"]').getBBox().width);
   await cmClick(page, '[data-cm="bsize"][data-v="1"]'); await page.waitForTimeout(200);
@@ -113,15 +118,25 @@ function SEED(){
   await page.evaluate(() => { const b = document.createElement("button"); b.dataset.cm = "fit"; document.querySelector(".cm-tools").appendChild(b); b.click(); b.remove(); }); await page.waitForSelector("[data-cm-elab]");
   await page.fill("[data-cm-elab]", "is part of"); await page.press("[data-cm-elab]", "Enter"); await page.waitForTimeout(250);
   ok(await page.locator(".cm-elab", {hasText: "is part of"}).count() === 1, "words on a connection show on the line");
-  for (const ln of ["dashed", "dotted", "thick", "solid"]) { await cmClick(page, `[data-cm="eline"][data-v="${ln}"]`); await page.waitForTimeout(150); ok(await page.locator(`.cm-edge.ln-${ln}[data-e="${ekey}"]`).count() === 1, `line: ${ln}`); }
+  for (const ln of ["dashed", "dotted", "solid"]) { await cmClick(page, `[data-cm="eline"][data-v="${ln}"]`); await page.waitForTimeout(150); ok(await page.locator(`.cm-edge.ln-${ln}[data-e="${ekey}"]`).count() === 1, `line: ${ln}`); }
+  // thickness and colour, for any line
+  await cmClick(page, '[data-cm="ewidth"][data-v="4"]'); await page.waitForTimeout(150);
+  await cmClick(page, '[data-cm="ecol"][data-v="#D6336C"]'); await page.waitForTimeout(150);
+  await page.locator('[data-cm-any="line"]').fill("#aa22cc"); await page.waitForTimeout(200);
+  ok((await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey).col === "#AA22CC", "any line colour, from the colour picker");
+  await cmClick(page, '[data-cm="ecol"][data-v="#D6336C"]'); await page.waitForTimeout(150);
+  let LW = (await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey);
+  ok(LW.w === 4 && LW.col === "#D6336C", "a line takes a thickness (Heavy) and a colour");
+  ok(await page.evaluate(k => { const l = document.querySelector(`.cm-edge[data-e="${k}"] .cm-line`), cs = getComputedStyle(l); return parseFloat(cs.strokeWidth) === 5 && /214, 51, 108|d6336c/i.test(cs.stroke); }, ekey), "it draws heavy and in that colour (even while picked)");
   await cmClick(page, '[data-cm="earrow"][data-v="end"]'); await page.waitForTimeout(200);
-  ok(/cmArr/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-end") || ""), "an arrow one way");
+  ok(/#cmA/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-end") || ""), "an arrow one way");
+  ok(await page.evaluate(k => { const m = (document.querySelector(`.cm-edge[data-e="${k}"] .cm-line`).getAttribute("marker-end") || "").replace(/^url\(#|\)$/g, ""), p = document.getElementById(m); return !!p && /D6336C/i.test(p.innerHTML) && Number(p.getAttribute("markerWidth")) > 11; }, ekey), "its arrowhead takes the line's colour and is sized for it");
   let L = (await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey);
   const from = L.a; await cmClick(page, '[data-cm="eflip"]'); await page.waitForTimeout(200);
   L = (await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey);
   ok(L.a !== from && L.label === "is part of" && L.line === "solid" && L.arrow === "end", "Flip turns the arrow around and keeps the words and line");
   await cmClick(page, '[data-cm="earrow"][data-v="both"]'); await page.waitForTimeout(200);
-  ok(/cmArrS/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-start") || ""), "arrows both ways");
+  ok(/#cmA\w*S\)/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-start") || ""), "arrows both ways");
   ok(await fits(page), "the map and its panels fit at 1280px");
   await page.keyboard.press("Escape"); await page.waitForTimeout(250);
 
@@ -139,6 +154,25 @@ function SEED(){
   ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
   await page.keyboard.press("Escape"); await page.waitForTimeout(250);
 
+  /* My Course Material: choose which material the map starts with, then add more from the map's Add menu */
+  await act(page, "cm-new", "", {course: "c1"}); await page.waitForSelector("#cmName");
+  await page.check('[name="cmStart"][value="auto"]');
+  ok(await page.locator(".cm-matbox .cm-mat input").count() >= 3 && await page.locator(".cm-matbox .cm-mat input:checked").count() === await page.locator(".cm-matbox .cm-mat input").count() && /Exams/.test(await page.textContent(".cm-matbox")) && /Notes/.test(await page.textContent(".cm-matbox")), "My Course Material lists the course's exams and notes, all ticked");
+  await page.click('.cm-matbox [data-mat-all="0"]'); ok(/0 of \d+ chosen/.test(await page.textContent(".cm-matbox")), "Select None");
+  await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(150); ok(/Tick at least one item/.test(await page.textContent("[data-cm-err]")), "with nothing ticked it asks for something");
+  await page.check('.cm-matbox input[value="note:n1"]'); await page.fill("#cmName", "Carbon only"); await page.click("#dlg[open] [data-submit]"); await page.waitForSelector('.cm-node[data-n="root"]');
+  let cm = (await course(page, "c1")).maps.find(m => m.name === "Carbon only");
+  ok(cm && JSON.stringify(cm.mat) === '["note:n1"]' && await page.locator('.cm-node[data-n="note:n1"]').count() === 1 && await page.locator('.cm-node[data-n="note:n2"]').count() === 0 && await page.locator('.cm-node[data-n="exam:x1"]').count() === 0, "the map shows only the ticked note");
+  await cmClick(page, '[data-cm="mat"]'); await page.waitForSelector(".cm-matf");
+  ok(await page.isChecked('.cm-matf input[value="note:n1"]') && !(await page.isChecked('.cm-matf input[value="note:n2"]')), "Add, Course Material shows what's on the map");
+  await page.check('.cm-matf input[value="note:n2"]'); await page.click(".cm-matf [type=submit]"); await page.waitForTimeout(250);
+  cm = (await course(page, "c1")).maps.find(m => m.name === "Carbon only");
+  ok(cm.mat.includes("note:n2") && await page.locator('.cm-node[data-n="note:n2"]').count() === 1, "ticking another note adds it to the map, ready to connect");
+  await cmClick(page, '[data-cm="mat"]'); await page.waitForSelector(".cm-matf"); await page.click('.cm-matf [data-mat-all="1"]'); await page.click(".cm-matf [type=submit]"); await page.waitForTimeout(250);
+  cm = (await course(page, "c1")).maps.find(m => m.name === "Carbon only");
+  ok(cm.mat == null && await page.locator('.cm-node[data-n="exam:x1"]').count() === 1, "Select All goes back to all the course's material (new material joins by itself)");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(250);
+
   /* Describe it, offline: typed arrows need no AI */
   await act(page, "cm-new", "", {course: "c3"}); await page.waitForSelector("#cmName");
   await page.fill("#cmName", "Revolution"); await page.check('[name="cmStart"][value="describe"]');
@@ -151,7 +185,7 @@ function SEED(){
   /* A template */
   await act(page, "cm-new", "", {course: "c3"}); await page.waitForSelector("#cmName");
   await page.check('[name="cmStart"][value="tpl"]'); ok(await page.locator(".cm-tpl").count() >= 8 && await page.locator(".cm-tpl svg.cm-tthumb").count() >= 8, "templates show as small pictures");
-  await page.check('[name="cmTpl"][value="timeline"]'); await page.fill("#cmName", ""); await page.click("#dlg[open] [data-submit]"); await page.waitForSelector('.cm-node[data-n="root"]');
+  await page.click('.cm-tpl:has([value="timeline"])'); await page.fill("#cmName", ""); await page.click("#dlg[open] [data-submit]"); await page.waitForSelector('.cm-node[data-n="root"]');
   c3 = await course(page, "c3"); const tm = c3.maps[1];
   ok(tm && tm.add.length >= 3 && tm.pos && Object.keys(tm.styles || {}).length >= 1 && /Timeline/i.test(tm.name), "a template makes a ready-made map, named after it: " + (tm && tm.name));
   await page.keyboard.press("Escape"); await page.waitForTimeout(250);
@@ -160,7 +194,7 @@ function SEED(){
   await page.check('[name="cmStart"][value="scan"]');
   ok(await page.isVisible("[data-cm-drop]") && await page.textContent("#dlg[open] [data-submit]") === "Scan My Drawing", "Scan a drawing: a place for the photo and a Scan My Drawing button");
   await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(150);
-  ok(/Choose a photo/.test(await page.textContent("[data-cm-err]")), "without a photo it asks for one");
+  ok(/Take or upload a photo/.test(await page.textContent("[data-cm-err]")), "without a photo it asks for one");
   const PNG = Buffer.from((await page.evaluate(() => { const c = document.createElement("canvas"); c.width = 320; c.height = 220; const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, 320, 220); x.strokeRect(40, 40, 90, 40); x.strokeRect(190, 140, 90, 40); x.beginPath(); x.moveTo(130, 60); x.lineTo(190, 160); x.stroke(); x.fillStyle = "#000"; x.fillText("Evaporation", 50, 64); return c.toDataURL("image/png"); })).split(",")[1], "base64");
   await page.setInputFiles("#cmScan", {name: "map.png", mimeType: "image/png", buffer: PNG}); await page.waitForTimeout(200);
   ok(await page.isVisible("[data-cm-shot]") && await page.isVisible(".cm-drop-chg"), "the chosen photo shows, with Change Picture");
@@ -191,6 +225,8 @@ function SEED(){
   let em = (await course(page, "c3")).maps[2].add.find(x => x.emb);
   ok(em && em.emb.p === "youtube" && em.emb.e === "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&start=42" && /ytimg/.test(await page.getAttribute(".cm-node .cm-emb image", "href")), "it becomes a video on the map, with its thumbnail (privacy-enhanced player, start time kept)");
   await page.click(".cm-node:has(.cm-emb)"); await page.waitForSelector(".cm-player iframe");
+  ok(await page.evaluate(() => { const p = document.querySelector(".cm-player"), c = document.querySelector(".cm-canvas").getBoundingClientRect(), r = p.getBoundingClientRect();
+    return !p.getAnimations().length && Math.abs((r.left + r.width / 2) - (c.left + c.width / 2)) < 2 && Math.abs((r.top + r.height / 2) - (c.top + c.height / 2)) < 2; }), "the player appears at once, in the middle (no fade or slide)");
   ok(await page.evaluate(() => !document.querySelector(".cm-node:has(.cm-emb) .cm-kdot")), "a video's box has no colour dot over its thumbnail");
   const fsrc = await page.getAttribute(".cm-player iframe", "src");
   ok(/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(fsrc) && /autoplay=1/.test(fsrc) && /allow-scripts/.test(await page.getAttribute(".cm-player iframe", "sandbox")), "one tap plays it on the map, in a sandboxed frame");
@@ -212,6 +248,8 @@ function SEED(){
   /* The list shows each map as a small picture of itself */
   await act(page, "cm-review", "c3"); await page.waitForSelector(".cm-mapcard");
   ok(await page.locator('.cm-mapcard:has(.cm-ctitle:text-is("Water cycle")) svg.cm-peek text', {hasText: "Evaporation"}).count() === 1 && await page.locator('.cm-mapcard:has(.cm-ctitle:text-is("Water cycle")) .cm-peek ellipse').count() >= 2, "a map's card shows a preview of the map, its words and shapes");
+  ok(await page.evaluate(() => [...document.querySelectorAll(".cm-peek")].every(svg => { const boxes = [...svg.querySelectorAll(".pk-n, .pk-root")].map(b => b.getBBox());
+    return [...svg.querySelectorAll(".pk-e line")].every(l => [[+l.getAttribute("x1"), +l.getAttribute("y1")], [+l.getAttribute("x2"), +l.getAttribute("y2")]].every(([x, y]) => boxes.every(r => !(x > r.x + 3 && x < r.x + r.width - 3 && y > r.y + 3 && y < r.y + r.height - 3)))); })), "preview lines stop at the boxes' edges (none runs under a box)");
   ok(page.errs.length === 0, "no console errors (describe, templates, scan): " + page.errs.join(" | "));
   await act(page, "filter", "all").catch(() => {}); await page.evaluate(() => { const c = document.querySelector('[data-act="filter"][data-id="all"], [data-act="chip"][data-id="all"]'); if (c) c.click(); }); await page.waitForTimeout(200);
 
@@ -230,6 +268,74 @@ function SEED(){
   ok(/2 maps for this course/.test(await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c2))) && /Create Map/.test(await page.evaluate(() => SBCMAP.courseCard({id: "zz", name: "Art", color: "#888888"}))), "the course page's card counts a course's maps, or offers to create one");
   ok(page.errs.length === 0, "no console errors (list): " + page.errs.join(" | "));
   await ctx.close();
+
+  /* Undo and Redo on the map */
+  {
+    const ctxU = await mkCtx(), pu = await open(ctxU);
+    await act(pu, "cm-open", "c2", {kind: "course", map: "m1"}); await pu.waitForSelector('.cm-node[data-n="idea:a"]');
+    const und = () => pu.isDisabled('.cm-tools [data-cm="undo"]'), red = () => pu.isDisabled('.cm-tools [data-cm="redo"]');
+    const m1 = async () => (await course(pu, "c2")).maps.find(m => m.id === "m1");
+    ok(await und() && await red(), "a freshly opened map: Undo and Redo are greyed out");
+    // the dotted background moves and zooms with the map
+    const bg = () => pu.evaluate(() => { const c = document.querySelector(".cm-canvas"), cs = getComputedStyle(c); return {x: cs.getPropertyValue("--cmx"), g: parseFloat(cs.getPropertyValue("--cmg"))}; });
+    const b0 = await bg(), cvb = await pu.locator(".cm-canvas").boundingBox();
+    await pu.mouse.move(cvb.x + cvb.width - 60, cvb.y + cvb.height - 60); await pu.mouse.down(); for (let i = 1; i <= 5; i++) await pu.mouse.move(cvb.x + cvb.width - 60 - i * 7, cvb.y + cvb.height - 60 - i * 3); await pu.mouse.up(); await pu.waitForTimeout(150);
+    const b1 = await bg(); ok(b1.x !== b0.x, `dragging the map moves the dots with it (${b0.x} to ${b1.x})`);
+    await pu.click('[data-cm="in"]'); await pu.waitForTimeout(150); const b2 = await bg();
+    ok(b2.g > b1.g, `zooming in spreads the dots out (${b1.g} to ${b2.g}px)`);
+    await pu.click('[data-cm="out"]'); await pu.waitForTimeout(150);
+    await tap(pu, "idea:a"); await cmClick(pu, '[data-cm="shape"][data-v="cloud"]'); await pu.waitForTimeout(200);
+    ok(((await m1()).styles || {})["idea:a"].shape === "cloud" && !(await und()) && await red(), "a change: Undo is ready");
+    await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);
+    ok(!((await m1()).styles || {})["idea:a"] && await pu.locator('.cm-node[data-n="idea:a"].sh-cloud').count() === 0 && !(await red()), "Undo takes the cloud off, on the map and in what's saved; Redo is ready");
+    await pu.click('.cm-tools [data-cm="redo"]'); await pu.waitForTimeout(250);
+    ok(((await m1()).styles || {})["idea:a"].shape === "cloud" && await pu.locator('.cm-node[data-n="idea:a"].sh-cloud').count() === 1 && await red(), "Redo puts it back");
+    // an idea added, undone, redone
+    await pu.evaluate(() => { const S = SBCMAP.state(); S.sel = ""; S.selE = ""; }); await cmClick(pu, '[data-cm="idea"]'); await pu.waitForSelector("#cmAsk"); await pu.fill("#cmAsk", "NADH"); await pu.press("#cmAsk", "Enter"); await pu.waitForTimeout(250);
+    const hasN = async () => (await m1()).add.some(x => x.label === "NADH");
+    ok(await hasN() && await pu.locator(".cm-node .cm-lab", {hasText: "NADH"}).count() === 1, "a new idea");
+    await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);
+    ok(!(await hasN()) && await pu.locator(".cm-node .cm-lab", {hasText: "NADH"}).count() === 0, "Undo removes the idea");
+    await pu.click('.cm-tools [data-cm="redo"]'); await pu.waitForTimeout(250);
+    ok(await hasN() && await pu.locator(".cm-node .cm-lab", {hasText: "NADH"}).count() === 1, "Redo brings it back");
+    // a box moved, undone
+    const nb = await pu.locator('.cm-node[data-n="idea:b"]').boundingBox(), p0 = await pu.evaluate(() => SBCMAP.state().pos["idea:b"].slice());
+    await pu.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2); await pu.mouse.down(); for (let i = 1; i <= 6; i++) await pu.mouse.move(nb.x + nb.width / 2 + i * 15, nb.y + nb.height / 2 + i * 8); await pu.mouse.up(); await pu.waitForTimeout(250);
+    const p1 = await pu.evaluate(() => SBCMAP.state().pos["idea:b"].slice());
+    ok(p1[0] !== p0[0], "a box dragged to a new place");
+    await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);
+    const p2 = await pu.evaluate(() => SBCMAP.state().pos["idea:b"].slice());
+    ok(Math.abs(p2[0] - p0[0]) < 2 && Math.abs(p2[1] - p0[1]) < 2, "Undo moves it back");
+    // keyboard: Ctrl+Z and Ctrl+Shift+Z, and a new change clears Redo
+    await pu.evaluate(() => document.querySelector(".cm-canvas").focus());
+    await pu.keyboard.press("Control+Shift+Z"); await pu.waitForTimeout(250);
+    const p3 = await pu.evaluate(() => SBCMAP.state().pos["idea:b"].slice());
+    ok(Math.abs(p3[0] - p1[0]) < 2, "Ctrl+Shift+Z redoes the move");
+    await pu.keyboard.press("Control+Z"); await pu.waitForTimeout(250);
+    ok(Math.abs((await pu.evaluate(() => SBCMAP.state().pos["idea:b"][0])) - p0[0]) < 2 && !(await red()), "Ctrl+Z undoes it again");
+    await tap(pu, "idea:a"); await cmClick(pu, '[data-cm="shape"][data-v="diamond"]'); await pu.waitForTimeout(200);
+    ok(await red(), "a new change after an Undo clears Redo");
+    // resizing: drag a picked box's side, then its corner
+    await tap(pu, "idea:b");
+    ok(await pu.locator(".cm-hdls .cm-hdl").count() === 5, "a picked box shows handles on its sides and a corner");
+    const w0 = await pu.evaluate(() => SBCMAP.state().size["idea:b"][0]), hE = await pu.locator(".cm-hdl.h-e").boundingBox();
+    await pu.mouse.move(hE.x + hE.width / 2, hE.y + hE.height / 2); await pu.mouse.down();
+    for (let i = 1; i <= 6; i++) await pu.mouse.move(hE.x + hE.width / 2 + i * 10, hE.y + hE.height / 2);
+    ok(await pu.isVisible(".cm-hdls .cm-rsz"), "dragging shows the new size");
+    await pu.mouse.up(); await pu.waitForTimeout(300);
+    const sb = ((await m1()).styles || {})["idea:b"] || {}, w1 = await pu.evaluate(() => SBCMAP.state().size["idea:b"][0]), k = await pu.evaluate(() => SBCMAP.state().view.k);
+    ok(sb.bw && Math.abs(w1 - (w0 + 120 / k)) < 6 && !sb.bh, `dragging the right side widens the box, and only its width (${Math.round(w0)} to ${Math.round(w1)})`);
+    const hS = await pu.locator(".cm-hdl.h-se").boundingBox(), h0 = await pu.evaluate(() => SBCMAP.state().size["idea:b"][1]);
+    await pu.mouse.move(hS.x + hS.width / 2, hS.y + hS.height / 2); await pu.mouse.down(); for (let i = 1; i <= 5; i++) await pu.mouse.move(hS.x + hS.width / 2 + i * 4, hS.y + hS.height / 2 + i * 8); await pu.mouse.up(); await pu.waitForTimeout(300);
+    ok(((await m1()).styles["idea:b"] || {}).bh > h0 && await pu.evaluate(() => SBCMAP.state().size["idea:b"][1]) > h0, "the corner changes the height too");
+    const hW = await pu.locator(".cm-hdl.h-w").boundingBox();
+    await pu.mouse.move(hW.x + hW.width / 2, hW.y + hW.height / 2); await pu.mouse.down(); for (let i = 1; i <= 8; i++) await pu.mouse.move(hW.x + hW.width / 2 + i * 60, hW.y + hW.height / 2); await pu.mouse.up(); await pu.waitForTimeout(300);
+    ok(await pu.evaluate(() => { const S = SBCMAP.state(), el = document.querySelector('.cm-node[data-n="idea:b"] .cm-lab'); return S.size["idea:b"][0] >= el.getBBox().width + 20; }), "a box can't be made narrower than its words");
+    await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250); await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250); await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);
+    ok(!((await m1()).styles || {})["idea:b"] || !(await m1()).styles["idea:b"].bw, "Undo takes the sizes back");
+    ok(!(await pu.locator("#toast.show").count()) && pu.errs.length === 0, "no notices, no errors: " + pu.errs.join(" | "));
+    await ctxU.close();
+  }
 
   /* Free plan */
   const fctx = await mkCtx(null, {free: true}), fp = await open(fctx);
