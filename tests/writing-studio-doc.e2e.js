@@ -146,7 +146,8 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
       init = init || {}; const m = init.method || "GET";
       if (p === "google") {
         F.g.calls.push(m + " " + url.replace(/\?.*/, ""));
-        if (m === "GET") return /gdoc123/.test(url) ? gdoc() : null;
+        if (m === "GET" && /drive\/v3/.test(url)) return res(404, {error: {message: "File not found: nope42."}});
+        if (m === "GET") return /gdoc123/.test(url) ? gdoc() : res(404, {error: {message: "Requested entity was not found.", status: "NOT_FOUND"}});
         const b = JSON.parse(init.body);
         if (b.writeControl.requiredRevisionId !== "rev" + F.g.rev) return res(400, {error: {message: "revision"}});
         const arr = [""].concat([...F.g.raw]);
@@ -154,6 +155,7 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
         F.g.raw = arr.slice(1).join(""); F.g.rev++; return res(200, {});
       }
       F.w.calls.push(m + " " + url.replace(/^https:\/\/graph\.microsoft\.com\/v1\.0/, "").replace(/\?.*/, ""));
+      if (F.w.spo && /\/search\(/.test(url)) return res(400, {error: {code: "BadRequest", message: "Tenant does not have a SPO license."}});
       if (/\/recent/.test(url)) return res(400, {error: {code: "invalidRequest", message: "recent is not supported"}});
       if (/\/search\(/.test(url)) return {value: [{id: "W1", name: "Heat essay.docx", webUrl: "https://onedrive.live.com/edit?id=W1", lastModifiedDateTime: new Date().toISOString(), parentReference: {driveId: "D1"}}, {id: "X9", name: "Budget.xlsx", parentReference: {driveId: "D1"}}]};
       if (/\/preview$/.test(url)) return {getUrl: "https://onedrive.live.com/embed?resid=W1&em=2"};
@@ -170,7 +172,7 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
   // a doc Google gives no access to (the picker set up for another project): it says so
   await page.evaluate(() => { const C = window.SBCLOUD, was = C.pickGoogleDoc; C.pickGoogleDoc = async () => { C.pickGoogleDoc = was; return {id: "nope42", name: "Other", type: "application/vnd.google-apps.document"}; }; });
   await page.click("#dlg[open] [data-ws-ldg]"); await page.waitForSelector("#dlg[open] .ws-err", {timeout: 10000});
-  ok(/Google didn't give Studyboard access to that doc/.test(await page.textContent("#dlg[open] .ws-err")) && !(await task(page, "t1")).ws.ld, "a doc Google won't open isn't linked, and it says why");
+  ok(/Google didn't give Studyboard access to that doc.*Google Docs: Requested entity was not found\. Google Drive: 404 File not found: nope42\.\)/.test(await page.textContent("#dlg[open] .ws-err")) && !(await task(page, "t1")).ws.ld, "a doc Google won't open isn't linked, and it says why");
   // link the Google Doc: read, made the paper's draft, checked
   await page.click("#dlg[open] [data-ws-ldg]");
   await page.waitForSelector("#dlg[open] .ws-ldf", {timeout: 15000}); await page.waitForSelector("#dlg[open] .ws-ldsum", {timeout: 15000});
@@ -211,6 +213,9 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
   await page.click("#dlg[open] [data-ws-ldw]"); await page.waitForSelector("#dlg[open] [data-ws-ldpick]", {timeout: 10000});
   ok(await page.locator("#dlg[open] [data-ws-ldpick]").count() === 1 && /Heat essay\.docx/.test(await page.textContent("#dlg[open] .ws-flist")) && !(await page.locator("#dlg[open] .ws-err").count()), "Choose a Word File: Word files in OneDrive only, found by search (OneDrive's recent list refuses)");
   ok(await page.evaluate(() => window.__fake.w.calls.some(c => /search\(q='.docx'\)/.test(decodeURIComponent(c)))), "searched for .docx");
+  await page.evaluate(() => { window.__fake.w.spo = true; }); await page.fill("#dlg[open] [data-ws-ldq]", "heat"); await page.waitForSelector("#dlg[open] .ws-err", {timeout: 10000});
+  ok(/has no OneDrive: its school or work organization doesn't include it/.test(await page.textContent("#dlg[open] .ws-err")), "a Microsoft account with no OneDrive (no SharePoint license) is told so plainly");
+  await page.evaluate(() => { window.__fake.w.spo = false; }); await page.fill("#dlg[open] [data-ws-ldq]", ""); await page.waitForSelector('#dlg[open] [data-ws-ldpick="W1"]', {timeout: 10000});
   await page.click('#dlg[open] [data-ws-ldpick="W1"]');
   await page.waitForSelector("#dlg[open] .ws-ldsum", {timeout: 15000}); await page.waitForSelector("#dlg[open] .ws-ldf", {timeout: 10000});
   ok((await task(page, "t1")).ws.ld.p === "microsoft" && (await task(page, "t1")).ws.ld.drive === "D1" && /^Heat essay\nCities are warming fast \(Smith & Lee 2021\)/.test(await draftOf()), "a Word file linked: its text is the draft");

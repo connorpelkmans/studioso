@@ -2045,7 +2045,7 @@ async function ldRead(l){
   const C = ldCloud();
   if (l.p === "google") {
     const r = await C.docApi("google", LDU.docs + encodeURIComponent(l.id), null, "raw");
-    if (r.status === 404) throw new LdErr("Google didn't give Studyboard access to that doc. Choose it again in Google's window (Choose, on My Doc). If it keeps happening, the Google Picker on this Studyboard server is set up for a different Google project than its Drive sign-in.");
+    if (r.status === 404) throw await ldGoogle404(C, l, r);
     if (!r.ok) throw await ldApiErr(r, "Google Docs");
     const j = await r.json().catch(() => null);
     if (!j || !j.body) throw new LdErr("Google didn't send the document. Check that it's still in your Drive.");
@@ -2066,9 +2066,19 @@ async function ldRead(l){
 }
 // an API's refusal, in its own words (Google's and Microsoft's errors both say what's wrong)
 async function ldApiErr(r, who){
-  let m = ""; try { const j = await r.json(); m = String((j && j.error && (j.error.message || j.error.code)) || "").slice(0, 220); } catch (e) {}
+  let m = ""; try { const j = await r.json(); m = String((j && j.error && (j.error.message || j.error.code)) || "").slice(0, 220).replace(/[.\s]+$/, ""); } catch (e) {}
+  if (who === "OneDrive" && /SPO license|SharePoint/i.test(m)) return new LdErr("The Microsoft account connected to Studyboard has no OneDrive: its school or work organization doesn't include it. In Files, Cloud, connect a personal Microsoft account (Outlook, Hotmail or Live) or a school account that has OneDrive.");
   if (who === "Google Docs" && /has not been used|is disabled|SERVICE_DISABLED/i.test(m)) return new LdErr("The Google Docs API isn't turned on for this Studyboard server yet.");
   return new LdErr(`${who} didn't accept that (${r.status})${m ? ": " + m : ""}.`);
+}
+// Google Docs says a chosen doc isn't there: ask Google Drive about the same file, so the message says which side is refusing and why
+async function ldGoogle404(C, l, r){
+  const why = async x => { try { const j = await x.json(); return String((j && j.error && (j.error.message || j.error.status)) || "").slice(0, 160).replace(/[.\s]+$/, ""); } catch (e) { return ""; } };
+  const docs = await why(r); let drive = "";
+  try { const d = await C.docApi("google", "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(l.id) + "?fields=id,name,mimeType&supportsAllDrives=true", null, "raw"); const dw = d.ok ? "" : await why(d); drive = d.ok ? "ok" : `${d.status}${dw ? " " + dw : ""}`; } catch (e) { drive = "no answer"; }
+  const app = C.pickerApp ? C.pickerApp() : "";
+  if (drive === "ok") return new LdErr(`Google Drive can open that doc, but Google Docs says it isn't there (${docs || "404"}). Check that the Google Docs API is turned on in the same Google Cloud project as Studyboard's Drive sign-in.`);
+  return new LdErr(`Google didn't give Studyboard access to that doc. Choose it again in Google's window. (Google Docs: ${docs || "404"}. Google Drive: ${drive}.${app ? ` Picker app ID ${app}: it must be the project number of Studyboard's Google sign-in.` : ""})`);
 }
 const ldChanged = l => new LdErr(`Your ${ldName(l)} changed since it was checked`, "changed");
 // rounds of edits, each on the (tidy) text the one before left, made in the document; what the document says afterwards
