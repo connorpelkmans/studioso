@@ -284,7 +284,7 @@ var SBPRO = null;
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
-    writing: "Sources, citations in 10,000+ styles, quotes from your highlights, an outline and a citation check for every paper.",
+    writing: "Sources, citations in 10,000+ styles, quotes from your highlights, an outline, and a citation check that fixes what it can, right in your Google Doc or Word file.",
     cmap: "Concept maps are free for everyone. Pro adds every theme and subject style, pictures, videos, any colour, PDF and lecture links, Scan a Drawing and Colour by Knowledge.",
     autopilot: "Missed study sessions move into your next free time overnight. Due dates never move.",
     rubric: "Feedback on your draft against the rubric before you submit.",
@@ -5112,7 +5112,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const on = async e => {
         if (e.origin !== location.origin || e.source !== w) return;
         const m = e.data; if (!m) return;
-        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
+        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files === "gdoc" ? "gdoc" : files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
         else if (m.sbPicker === "done" && files && Array.isArray(m.docs)) end(resolve, m.docs.slice(0, 20).filter(d => d && d.id).map(d => ({id: String(d.id), name: String(d.name || "File").slice(0, 200), type: String(d.mimeType || ""), url: /^https:\/\//.test(String(d.url || "")) ? String(d.url) : "", size: Number(d.size) || 0})));
         else if (m.sbPicker === "done" && m.id) end(resolve, {id: String(m.id), name: String(m.name || "Folder").slice(0, 120)});
         else if (m.sbPicker === "cancel") end(resolve, null);
@@ -5408,7 +5408,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   // Google Drive files picked for Studyboard (drive.file access covers the files the student picks)
   const canPickFiles = () => { try { return connected().includes("google") && !!cache().picker; } catch (e) { return false; } };
   const pickFiles = () => pickGoogleFolder(true);
-  window.SBCLOUD = {canPickFiles, pickFiles, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  // Writing Studio's linked document: one Google Doc picked in Google's window (drive.file covers it), and calls to Google's and Microsoft's APIs
+  const pickGoogleDoc = () => pickGoogleFolder("gdoc").then(d => Array.isArray(d) ? d[0] || null : d);
+  const docApi = (p, url, init, mode) => api(p, url, init, mode);
+  window.SBCLOUD = {canPickFiles, pickFiles, pickGoogleDoc, docApi, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");

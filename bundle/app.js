@@ -83253,7 +83253,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <h3>How Studyboard uses Google user data</h3>
 <p>This section covers what happens when you connect a Google account to Studyboard: Google Drive, two-way calendar sync with Google Calendar (Pro), or Google Classroom. Each is optional and starts only when you ask.</p>
 <ul>
-<li><b>What Studyboard accesses:</b> your Google account&rsquo;s email address, to show which account is connected. For Google Drive, only the files Studyboard itself creates (Google&rsquo;s &ldquo;drive.file&rdquo; permission); it can&rsquo;t see or open anything else in your Drive. For Google Calendar, only a calendar called Studyboard that Studyboard creates and keeps up to date (Google&rsquo;s &ldquo;calendar.app.created&rdquo; permission). Studyboard doesn&rsquo;t read your other Google calendars or their events. For Google Classroom, read-only access to your classes, your own classwork with its due dates, whether you&rsquo;ve turned it in and your grades, and your classes&rsquo; announcements (Google&rsquo;s &ldquo;classroom.courses.readonly&rdquo;, &ldquo;classroom.coursework.me.readonly&rdquo; and &ldquo;classroom.announcements.readonly&rdquo; permissions). Studyboard can&rsquo;t change, post or turn in anything in Classroom, and it can&rsquo;t see your classmates&rsquo; work.</li>
+<li><b>What Studyboard accesses:</b> your Google account&rsquo;s email address, to show which account is connected. For Google Drive, only the files Studyboard itself creates and the files and folders you choose for it in Google&rsquo;s own window (Google&rsquo;s &ldquo;drive.file&rdquo; permission); it can&rsquo;t see or open anything else in your Drive. A Google Doc you link in Writing Studio is read to check its citations, and changed only when you tap Fix. For Google Calendar, only a calendar called Studyboard that Studyboard creates and keeps up to date (Google&rsquo;s &ldquo;calendar.app.created&rdquo; permission). Studyboard doesn&rsquo;t read your other Google calendars or their events. For Google Classroom, read-only access to your classes, your own classwork with its due dates, whether you&rsquo;ve turned it in and your grades, and your classes&rsquo; announcements (Google&rsquo;s &ldquo;classroom.courses.readonly&rdquo;, &ldquo;classroom.coursework.me.readonly&rdquo; and &ldquo;classroom.announcements.readonly&rdquo; permissions). Studyboard can&rsquo;t change, post or turn in anything in Classroom, and it can&rsquo;t see your classmates&rsquo; work.</li>
 <li><b>How it is used:</b> only to provide the feature you turned on: saving and opening your files, putting your deadlines and study sessions on your calendar, planning around your other events, and bringing your Classroom work, grades and announcements into your planner. Google user data is never used for advertising, never sold, never used to build profiles, and never used to train AI models.</li>
 <li><b>How it is stored and protected:</b> the sign-in Google gives us is kept encrypted on our server (Supabase) and used only to give your own Studyboard a short-lived key. Your files travel straight between your device and Google and are never stored on our server. Studyboard keeps each Drive file&rsquo;s name, size and link, and the calendar events you chose to bring in, with your other planner data, protected the same way (encrypted in transit, private to your account).</li>
 <li><b>Sharing:</b> we don&rsquo;t share Google user data with anyone, except the hosting provider that runs Studyboard&rsquo;s server (Supabase), the AI provider you set up when you yourself use an AI feature on a file or event, or when the law requires it. No person at Studyboard reads it, unless you ask us to (for example, for support), it is needed for security, or the law requires it.</li>
@@ -84913,7 +84913,7 @@ var SBPRO = null;
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
-    writing: "Sources, citations in 10,000+ styles, quotes from your highlights, an outline and a citation check for every paper.",
+    writing: "Sources, citations in 10,000+ styles, quotes from your highlights, an outline, and a citation check that fixes what it can, right in your Google Doc or Word file.",
     cmap: "Concept maps are free for everyone. Pro adds every theme and subject style, pictures, videos, any colour, PDF and lecture links, Scan a Drawing and Colour by Knowledge.",
     autopilot: "Missed study sessions move into your next free time overnight. Due dates never move.",
     rubric: "Feedback on your draft against the rubric before you submit.",
@@ -89741,7 +89741,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const on = async e => {
         if (e.origin !== location.origin || e.source !== w) return;
         const m = e.data; if (!m) return;
-        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
+        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files === "gdoc" ? "gdoc" : files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
         else if (m.sbPicker === "done" && files && Array.isArray(m.docs)) end(resolve, m.docs.slice(0, 20).filter(d => d && d.id).map(d => ({id: String(d.id), name: String(d.name || "File").slice(0, 200), type: String(d.mimeType || ""), url: /^https:\/\//.test(String(d.url || "")) ? String(d.url) : "", size: Number(d.size) || 0})));
         else if (m.sbPicker === "done" && m.id) end(resolve, {id: String(m.id), name: String(m.name || "Folder").slice(0, 120)});
         else if (m.sbPicker === "cancel") end(resolve, null);
@@ -90037,7 +90037,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   // Google Drive files picked for Studyboard (drive.file access covers the files the student picks)
   const canPickFiles = () => { try { return connected().includes("google") && !!cache().picker; } catch (e) { return false; } };
   const pickFiles = () => pickGoogleFolder(true);
-  window.SBCLOUD = {canPickFiles, pickFiles, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  // Writing Studio's linked document: one Google Doc picked in Google's window (drive.file covers it), and calls to Google's and Microsoft's APIs
+  const pickGoogleDoc = () => pickGoogleFolder("gdoc").then(d => Array.isArray(d) ? d[0] || null : d);
+  const docApi = (p, url, init, mode) => api(p, url, init, mode);
+  window.SBCLOUD = {canPickFiles, pickFiles, pickGoogleDoc, docApi, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
@@ -103667,6 +103670,172 @@ css.textContent = `
 `;
 document.head.appendChild(css);
 })();
+/*LIVEDOC-START*/
+/* A Google Doc or a Word file linked to a paper in Writing Studio: its text, and Writing Studio's fixes made in the document itself.
+   Writing Studio checks a tidy copy of the text (CITE.capDraft: no spaces before line ends, at most one blank line, trimmed), so
+   norm() keeps where each of its characters is in the document's own text, and edits to the tidy copy are moved onto the document's.
+   Google Docs: the text comes from the document's paragraphs (tables too), with where each run starts; a fix is a batchUpdate of
+   deleteContentRange and insertText, made from the end so earlier places stay right, and only on the version that was read.
+   Word (.docx): word/document.xml's paragraphs; a fix changes the text in its runs where it is, so formatting, links and pictures
+   stay, and a new line is a new paragraph like the one it's in. Pure: the XML document is passed in, so tests can use any DOM. */
+const LIVEDOC = (() => {
+  // the tidy text, and for each of its characters (and its end) where it is in the raw text
+  function norm(rawIn){
+    const raw = String(rawIn || "");
+    let ch = [], ix = [];
+    for (let i = 0; i < raw.length; i++) { if (raw[i] === "\r") { if (raw[i + 1] !== "\n") { ch.push("\n"); ix.push(i); } continue; } ch.push(raw[i]); ix.push(i); }
+    const pass = (re, keepOf) => {
+      const s = ch.join(""), drop = new Uint8Array(ch.length); let m; re.lastIndex = 0;
+      while ((m = re.exec(s))) { const k = keepOf(m); for (let j = m.index; j < m.index + m[0].length; j++) if (j < m.index + k[0] || j >= m.index + k[1]) drop[j] = 1; if (!m[0].length) re.lastIndex++; }
+      const c2 = [], i2 = []; ch.forEach((c, j) => { if (!drop[j]) { c2.push(c); i2.push(ix[j]); } }); ch = c2; ix = i2;
+    };
+    pass(/[ \t]+\n/g, m => [m[0].length - 1, m[0].length]);
+    pass(/\n{3,}/g, () => [0, 2]);
+    pass(/^\s+/g, () => [0, 0]);
+    pass(/\s+$/g, () => [0, 0]);
+    const text = ch.join(""), map = ix.slice(); map.push(ix.length ? ix[ix.length - 1] + 1 : 0);
+    return {text, map};
+  }
+  // edits to the tidy text (in the order they're made: from the end) as edits to the raw text
+  function toRaw(raw, N, plan){
+    return plan.map(e => {
+      const s = e.len ? N.map[e.at] : N.map[e.at], end = e.len ? N.map[e.at + e.len - 1] + 1 : s;
+      return {at: s, len: end - s, from: raw.slice(s, end), to: e.to};
+    });
+  }
+
+  /* Google Docs: the text of documents.get's body, and where each part of it is in the document */
+  function gText(doc){
+    const segs = []; let text = "";
+    const walk = content => (content || []).forEach(el => {
+      if (el.paragraph) (el.paragraph.elements || []).forEach(pe => {
+        const tr = pe.textRun; if (!tr || typeof tr.content !== "string" || typeof pe.startIndex !== "number") return;
+        const c = tr.content.replace(/\u000b/g, "\n");
+        segs.push({t: text.length, i: pe.startIndex, n: c.length}); text += c;
+      });
+      else if (el.table) (el.table.tableRows || []).forEach(r => (r.tableCells || []).forEach(c => walk(c.content)));
+      else if (el.tableOfContents) walk(el.tableOfContents.content);
+    });
+    walk(doc && doc.body && doc.body.content);
+    // the document's last paragraph mark can't be edited: it isn't part of the text, but stays a place to put things before
+    const raw = text.replace(/\n$/, "");
+    return {raw, segs};
+  }
+  // the document index of the character at a place in the text (or, for the end of a range, just after the one before it)
+  function gIndex(segs, off, isEnd){
+    if (isEnd) { const p = off - 1; const s = segs.find(x => p >= x.t && p < x.t + x.n); return s ? s.i + (p - s.t) + 1 : null; }
+    const s = segs.find(x => off >= x.t && off < x.t + x.n); return s ? s.i + (off - s.t) : null;
+  }
+  // batchUpdate requests for raw edits (already in the order to make them: from the end)
+  function gRequests(G, rawPlan){
+    const req = [];
+    for (const e of rawPlan) {
+      const s = gIndex(G.segs, e.at, false); if (s == null) return null;
+      if (e.len) { const end = gIndex(G.segs, e.at + e.len, true); if (end == null || end <= s) return null; req.push({deleteContentRange: {range: {startIndex: s, endIndex: end}}}); }
+      if (e.to) req.push({insertText: {location: {index: s}, text: e.to}});
+    }
+    return req;
+  }
+
+  /* Word: word/document.xml */
+  const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const ln = n => n && (n.localName || String(n.nodeName || "").replace(/^.*:/, ""));
+  const isW = (n, name) => n && n.nodeType === 1 && n.namespaceURI === W && ln(n) === name;
+  const inside = (n, name, stop) => { for (let p = n.parentNode; p && p !== stop; p = p.parentNode) if (isW(p, name)) return true; return false; };
+  // the body's paragraphs in reading order (tables too; not text boxes, which sit inside another paragraph)
+  function wParas(doc){
+    const body = doc.getElementsByTagNameNS(W, "body")[0]; if (!body) return [];
+    return Array.from(body.getElementsByTagNameNS(W, "p")).filter(p => !inside(p, "p", body));
+  }
+  // the text, and what each part of it is: a w:t (editable), a tab or line break in a run (one character), a paragraph's end
+  function wIndex(doc){
+    const segs = []; let text = "";
+    wParas(doc).forEach(p => {
+      const walk = n => { for (let c = n.firstChild; c; c = c.nextSibling) {
+        if (c.nodeType !== 1) continue;
+        if (isW(c, "pPr") || isW(c, "rPr") || isW(c, "del") || isW(c, "moveFrom") || isW(c, "txbxContent") || isW(c, "drawing") || isW(c, "pict") || isW(c, "object")) continue;
+        if (isW(c, "t")) { const v = c.textContent || ""; segs.push({k: "t", node: c, p, t: text.length, n: v.length}); text += v; continue; }
+        if ((isW(c, "tab") || isW(c, "br") || isW(c, "cr")) && isW(c.parentNode, "r")) { const v = isW(c, "tab") ? "\t" : "\n"; segs.push({k: "x", node: c, p, t: text.length, n: 1}); text += v; continue; }
+        walk(c);
+      } };
+      walk(p); segs.push({k: "p", node: p, p, t: text.length, n: 1}); text += "\n";
+    });
+    return {raw: text.replace(/\n$/, ""), segs};
+  }
+  const runOf = n => { for (let p = n; p; p = p.parentNode) if (isW(p, "r")) return p; return null; };
+  const setT = (t, v) => { while (t.firstChild) t.removeChild(t.firstChild); t.appendChild(t.ownerDocument.createTextNode(v)); t.setAttribute("xml:space", "preserve"); };
+  const propOf = el => { for (let c = el.firstChild; c; c = c.nextSibling) if (c.nodeType === 1 && /Pr$/.test(ln(c))) return c; return null; };
+  function newRun(doc, rPr){ const r = doc.createElementNS(W, "w:r"); if (rPr) r.appendChild(rPr.cloneNode(true)); const t = doc.createElementNS(W, "w:t"); setT(t, ""); r.appendChild(t); return {r, t}; }
+  // a paragraph like p (its paragraph settings), empty
+  function likePara(p){ const q = p.cloneNode(false), pr = propOf(p); if (pr && isW(pr, "pPr")) q.appendChild(pr.cloneNode(true)); return q; }
+  // splits p after node x (one of its descendants): everything after it goes to a new paragraph like p, after p
+  function splitAfter(x, p){
+    let cur = x, carry = null;
+    while (cur.parentNode !== p) {
+      const par = cur.parentNode, cl = par.cloneNode(false), pr = propOf(par); if (pr && pr !== cur) cl.appendChild(pr.cloneNode(true));
+      if (carry) cl.appendChild(carry);
+      while (cur.nextSibling) cl.appendChild(cur.nextSibling);
+      carry = cl; cur = par;
+    }
+    const q = likePara(p); if (carry) q.appendChild(carry);
+    while (cur.nextSibling) q.appendChild(cur.nextSibling);
+    p.parentNode.insertBefore(q, p.nextSibling);
+    return q;
+  }
+  // the run settings to give new text at a place: the run just before it in its paragraph, or just after
+  function rPrNear(I, at){
+    const p = segAt(I, at) || segAt(I, at - 1); if (!p) return null;
+    const near = I.segs.filter(s => s.p === p.p && s.k !== "p").sort((a, b) => Math.abs(a.t - at) - Math.abs(b.t - at))[0];
+    const r = near && runOf(near.node); const pr = r && propOf(r); return pr && isW(pr, "rPr") ? pr : null;
+  }
+  const segAt = (I, off) => I.segs.find(s => off >= s.t && off < s.t + s.n) || null;
+  function wDelete(doc, a, b){
+    const I = wIndex(doc);
+    I.segs.filter(s => s.t < b && s.t + s.n > a).sort((x, y) => y.t - x.t).forEach(s => {
+      if (s.k === "t") { const v = s.node.textContent || "", i = Math.max(0, a - s.t), j = Math.min(s.n, b - s.t); setT(s.node, v.slice(0, i) + v.slice(j)); }
+      else if (s.k === "x") s.node.parentNode.removeChild(s.node);
+      else { // a paragraph's end: the next paragraph joins this one
+        const all = wParas(doc), q = all[all.indexOf(s.p) + 1]; if (!q) return;
+        for (let c = q.firstChild; c;) { const nx = c.nextSibling; if (!isW(c, "pPr")) s.p.appendChild(c); c = nx; }
+        q.parentNode.removeChild(q);
+      }
+    });
+  }
+  // text with no new lines, at a place
+  function wInsertPlain(doc, at, str, rPr){
+    if (!str) return;
+    const I = wIndex(doc), prev = segAt(I, at - 1), here = segAt(I, at);
+    if (prev && prev.k === "t" && (!here || here.p === prev.p)) { const v = prev.node.textContent || "", k = at - prev.t; setT(prev.node, v.slice(0, k) + str + v.slice(k)); return; }
+    if (here && here.k === "t") { const v = here.node.textContent || "", k = at - here.t; setT(here.node, v.slice(0, k) + str + v.slice(k)); return; }
+    const p = (here || prev || {}).p; if (!p) return;
+    const nr = newRun(doc, rPr || rPrNear(I, at)); setT(nr.t, str);
+    if (here && here.k === "x") { const r = runOf(here.node); r.parentNode.insertBefore(nr.r, r); }
+    else if (here && here.k === "p") p.appendChild(nr.r);
+    else { const r = runOf(prev.node); r.parentNode.insertBefore(nr.r, r.nextSibling); }
+  }
+  // a new paragraph at a place (the text after it moves to the new paragraph)
+  function wBreak(doc, at){
+    const I = wIndex(doc), prev = segAt(I, at - 1), here = segAt(I, at);
+    if (!here) return;
+    if (!prev || prev.k === "p") { here.p.parentNode.insertBefore(likePara(here.p), here.p); return; }
+    if (prev.k === "t" && here.node === prev.node) {
+      const v = prev.node.textContent || "", k = at - prev.t, t2 = prev.node.cloneNode(false);
+      setT(prev.node, v.slice(0, k)); setT(t2, v.slice(k)); prev.node.parentNode.insertBefore(t2, prev.node.nextSibling);
+    }
+    splitAfter(prev.node, prev.p);
+  }
+  // one raw edit, in place
+  function wEdit(doc, e){
+    const I = wIndex(doc), rPr = rPrNear(I, e.at);
+    if (e.len) wDelete(doc, e.at, e.at + e.len);
+    const lines = String(e.to || "").split("\n"); let at = e.at;
+    lines.forEach((line, i) => { if (i) { wBreak(doc, at); at += 1; } wInsertPlain(doc, at, line, rPr); at += line.length; });
+  }
+  function wApply(doc, rawPlan){ rawPlan.forEach(e => wEdit(doc, e)); return wIndex(doc).raw; }
+
+  return {norm, toRaw, gText, gRequests, wIndex, wApply, W};
+})();
+/*LIVEDOC-END*/
 /* ===== module: 99-writing-studio.js ===== */
 /* Writing Studio (Pro): a reference manager for each paper, with quotes, an outline and a citation check. No AI.
    - Entry: "Writing Studio" in the task sheet's actions, on the same assignment-like tasks as Rubric Check (and on any task that already
@@ -104537,6 +104706,12 @@ const CITE = (() => {
      so several at one place land in order. Edits that overlap aren't applied together (the rest wait for the next round, after a new check). */
   const editAt = (draft, at, len, from, to) => at != null && at >= 0 && from != null && draft.slice(at, at + len) === from && from !== to ? {at, len, from, to} : null;
   function applyEdits(textIn, editsIn){
+    const text = String(textIn || ""), keep = planEdits(text, editsIn);
+    let out = text; keep.forEach(e => { out = out.slice(0, e.at) + e.to + out.slice(e.at + e.len); });
+    return {text: out, n: keep.length, skipped: (editsIn || []).length - keep.length, plan: keep};
+  }
+  // the edits that can be made together, in the order to make them
+  function planEdits(textIn, editsIn){
     const text = String(textIn || ""), ok = (editsIn || []).filter(e => e && e.at >= 0 && e.at + e.len <= text.length && text.slice(e.at, e.at + e.len) === e.from);
     const keep = [];
     ok.slice().sort((a, b) => a.at - b.at || b.len - a.len).forEach(e => {
@@ -104545,8 +104720,7 @@ const CITE = (() => {
     });
     // from the end, so earlier positions stay right; at one place, a replacement before insertions, insertions by key (last first)
     keep.sort((a, b) => b.at - a.at || (b.len ? 1 : 0) - (a.len ? 1 : 0) || String(b.k || "").localeCompare(String(a.k || "")));
-    let out = text; keep.forEach(e => { out = out.slice(0, e.at) + e.to + out.slice(e.at + e.len); });
-    return {text: out, n: keep.length, skipped: (editsIn || []).length - keep.length};
+    return keep;
   }
   // where a new entry goes in the draft's reference list: in alphabetical order among the others (a numbered list is left alone)
   const refKey = t => loose(String(t || "")).replace(/^(the|a|an)\s+/, "");
@@ -104831,11 +105005,15 @@ const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.s
 // the draft, and what it found (the issues' titles, so the next check can say what changed)
 const MAX_SRC = 150, MAX_Q = 300, MAX_SEC = 30, MAX_DRAFT = 60000;
 const W = {tid: "", tab: "", view: "", edit: null, paste: "", res: null, busy: "", err: "", el: null, hlPick: null, inp: "", note: "", z: null, imp: null, find: null, found: null, show: null, diff: null, also: null, hub: "", pick: null};
+// the linked document (a Google Doc or a Word file in OneDrive): which one, and its name and address to open it
+const ldNorm = l => l && typeof l === "object" && (l.p === "google" || l.p === "microsoft") && typeof l.id === "string" && /^[\w!.-]{1,200}$/.test(l.id)
+  ? {p: l.p, id: l.id, drive: typeof l.drive === "string" && /^[\w!.-]{1,200}$/.test(l.drive) ? l.drive : "", name: String(l.name || "").slice(0, 200), url: /^https:\/\//.test(String(l.url || "")) ? String(l.url).slice(0, 600) : "", big: !!l.big} : null;
 function wsOf(t){
   const w = t && t.ws && typeof t.ws === "object" ? t.ws : {};
   const d = w.draft && typeof w.draft === "object" && typeof w.draft.t === "string" && w.draft.t ? w.draft : null, c = w.chk && typeof w.chk === "object" ? w.chk : null;
   return {style: typeof w.style === "string" && w.style ? w.style : "", lang: w.lang === "en-GB" ? "en-GB" : "", src: Array.isArray(w.src) ? w.src.filter(s => s && s.id) : [], q: Array.isArray(w.q) ? w.q.filter(q => q && q.id) : [], out: Array.isArray(w.out) ? w.out.filter(s => s && s.id) : [],
-    draft: d ? {t: d.t, from: String(d.from || ""), fid: d.fid || "", nid: d.nid || "", r: d.r || "", at: Number(d.at) || 0, h: d.h || CITE.hash(d.t), fx: Number(d.fx) || 0} : null,
+    draft: d ? {t: d.t, from: String(d.from || ""), fid: d.fid || "", nid: d.nid || "", r: d.r || "", at: Number(d.at) || 0, h: d.h || CITE.hash(d.t), fx: Number(d.fx) || 0, ld: !!d.ld} : null,
+    ld: ldNorm(w.ld),
     chk: c ? {at: Number(c.at) || 0, h: c.h || "", keys: Array.isArray(c.keys) ? c.keys.slice(0, 60) : [], err: Number(c.err) || 0, warn: Number(c.warn) || 0, cited: Number(c.cited) || 0, total: Number(c.total) || 0} : null,
     tk: Array.isArray(w.tk) ? w.tk.slice(0, 20) : []};
 }
@@ -104849,7 +105027,8 @@ const styleOf = (t, w) => w.style || CITE.rules(reqText(t)).style || "apa";
 function save(t, w, label, extra, more){
   const cur = state.tasks[t.id]; if (!cur) return;
   const ws = {style: w.style, lang: w.lang || undefined, src: w.src.slice(0, MAX_SRC), q: w.q.slice(0, MAX_Q), out: w.out.slice(0, MAX_SEC), v: 2};
-  if (w.draft) ws.draft = {t: w.draft.t, from: w.draft.from || "", fid: w.draft.fid || undefined, nid: w.draft.nid || undefined, r: w.draft.r || undefined, at: w.draft.at, h: w.draft.h, fx: w.draft.fx || undefined};
+  if (w.draft) ws.draft = {t: w.draft.t, from: w.draft.from || "", fid: w.draft.fid || undefined, nid: w.draft.nid || undefined, r: w.draft.r || undefined, at: w.draft.at, h: w.draft.h, fx: w.draft.fx || undefined, ld: w.draft.ld ? 1 : undefined};
+  if (w.ld) ws.ld = w.ld;
   if (w.chk) ws.chk = w.chk;
   const changes = [{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws})}].concat(more || []);
   // a Break It Down step whose part is now clearly met is ticked done, in the same change (one Undo takes both back)
@@ -105115,10 +105294,10 @@ const cut = (s, n) => (s = String(s || "")).length > n ? s.slice(0, n - 1) + "�
 const wordsIn = s => (String(s || "").match(/\S+/g) || []).length;
 const ago = ms => { const d = Math.floor((Date.now() - ms) / 864e5); return !ms ? "" : d <= 0 ? "today" : d === 1 ? "yesterday" : d < 14 ? `${d} days ago` : "on " + new Date(ms).toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
 const normText = s => String(s || "").toLowerCase().replace(/[‘’“”"']/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-const TABS = ["check", "sources", "quotes", "outline"];
+const TABS = ["check", "doc", "sources", "quotes", "outline"];
 function tabsHtml(w){
   const tb = (k, l, n) => `<button type="button" role="tab" class="ws-tab" data-ws-tab="${k}" aria-selected="${W.tab === k}" ${W.tab === k ? "" : 'tabindex="-1"'}>${l}${n != null ? ` <span class="ws-n">${n}</span>` : ""}</button>`;
-  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("check", "Check")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
+  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("check", "Check")}${tb("doc", "My Doc")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
 }
 function styleSel(st){
   const ext = extStyles(), ids = BUILT.map(b => b[0]).concat(Object.keys(ext).filter(k => !BUILT_FMT[k]));
@@ -105338,7 +105517,7 @@ function checkHtml(t, w){
   const c = w.chk, stale = !c || c.h !== d.h, r = usage(t, w).res;
   h += `<div class="ws-draft"><div class="ws-draft-t"><b>Your Draft</b><span class="mini">${esc(d.from && d.from !== "Pasted" ? "From " + d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words · saved ${esc(ago(d.at))}</span>
       <span class="mini${stale ? " ws-no" : ""}">${!c ? "Not checked yet" : stale ? `Changed since the last check (${esc(ago(c.at))})` : `Checked ${esc(ago(c.at))}: ${c.err} to fix · ${c.warn} to look at`}</span></div>
-    <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button>${d.fx && !d.nid ? `<button type="button" class="ws-act" data-ws-dcopy>Copy Fixed Draft</button>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
+    <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button>${d.fx && !d.nid && !d.ld ? `<button type="button" class="ws-act" data-ws-dcopy>Copy Fixed Draft</button>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
     ${W.show === "all" ? draftView(d.t, null) : ""}</div>
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
     ${W.diff ? `<p class="ws-diff" role="status">${W.diff.fixed || W.diff.fresh ? `Since your last check: <b>${W.diff.fixed} fixed</b>, ${W.diff.fresh} new.` : "Nothing changed since your last check."}</p>` : ""}
@@ -105407,6 +105586,39 @@ function pdfPickHtml(t, w, mode){
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "up" ? `<p class="mini" role="status">Uploading…</p>` : ""}
     ${groups.length ? groups.map(([h, l]) => `<h3 class="fsec">${esc(h)}</h3>${rowsHtml(l, mode === "attach" ? "data-wp-attach" : "data-wp-open", mode === "attach" ? "Attach" : "Open")}`).join("") : `<div class="ws-empty"><b>${P.q ? "Nothing matches." : "No PDFs here yet."}</b><p class="mini">Upload one above${mode === "hlpdf" ? ", or attach a PDF to a source on the Sources tab" : ""}.</p></div>`}`;
 }
+// My Doc: link a Google Doc or a Word file; once linked, it's here to write in, with its check and Fix All above it
+function docHtml(t, w){
+  const l = w.ld, C = window.SBCLOUD, con = C && C.connected ? C.connected() : [], ic = p => (C && C.icons && C.icons[p]) || "";
+  const msg = W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "link" || W.busy === "read" ? `<p class="mini" role="status">Reading your document…</p>` : W.busy === "fix" ? `<p class="mini" role="status">Fixing your document…</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : "";
+  if (!l) {
+    const card = (p, name, what, pick, conn) => `<div class="ws-ldk">${ic(p)}<span class="ws-ldk-t"><b>${name}</b><span class="mini">${what}</span></span>${con.includes(p) ? `<button type="button" class="btn small primary" ${pick} ${W.busy ? "disabled" : ""}>Choose</button>` : `<button type="button" class="btn small" data-ws-ldcon>${conn}</button>`}</div>`;
+    return `<p style="margin:0">Link the Google Doc or Word file you're writing. Write in it right here, Check reads it, and each Fix goes straight into it.</p>
+      <div class="ws-ldc">${card("google", "A Google Doc", "Chosen in Google's own window: Studyboard can open only the docs you choose.", "data-ws-ldg", "Connect Google Drive")}${card("microsoft", "A Word File", "A Word file (.docx) in your OneDrive.", "data-ws-ldw", "Connect OneDrive")}</div>${msg}`;
+  }
+  const d = ldOf(w) ? w.draft : null, c = d && w.chk && w.chk.h === d.h ? w.chk : null, r = d ? usage(t, w).res : null, fixes = r && !l.big ? r.issues.filter(x => x.edits && x.edits.length).length : 0;
+  const open = l.p === "google" ? `https://docs.google.com/document/d/${encodeURIComponent(l.id)}/edit` : l.url;
+  const src = l.p === "google" ? open : W.ldPrev && W.ldPrev.id === l.id ? W.ldPrev.u : "";
+  const state0 = d ? (c ? `${c.err} to fix · ${c.warn} to look at` : "Not checked yet") : w.draft ? "Your saved draft is another one: Check Citations reads this document instead" : "Not read yet";
+  const sum = d && c ? (fixes ? `<p class="ws-sum ws-ldsum"><b>Writing Studio can fix ${plural(fixes, "problem")} for you</b><button type="button" class="btn small primary ws-fixall" data-ws-fixall ${W.busy ? "disabled" : ""}>Fix All${fixes > 1 ? ` (${fixes})` : ""}</button><button type="button" class="link-btn" data-ws-go="check">See Each Issue</button></p>`
+    : c.err || c.warn ? `<p class="mini ws-ldsum">What's left needs you. <button type="button" class="link-btn" data-ws-go="check">See Each Issue</button></p>` : `<p class="mini ws-ok ws-ldsum">No citation problems found ✓</p>`) : "";
+  const word = l.p === "microsoft" ? `<p class="mini ws-note">${src ? "Word for the web shows it here to read. To write in it, open it in Word for the web: Check and Fix work on the file either way." : W.ldPrev && W.ldPrev.id === l.id ? "Microsoft doesn't let Word for the web open inside another app for this account, so open it in Word to write. Check and Fix still work on the file here." : "Loading Word's preview…"}</p>` : "";
+  return `<div class="ws-ldtop"><div class="ws-ldh">${ic(l.p)}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">${esc(state0)}</span></span><span class="spacer"></span>${open ? `<a class="btn small" href="${esc(open)}" target="_blank" rel="noopener noreferrer">Open in ${ldApp(l)}</a>` : ""}<button type="button" class="link-btn" data-ws-ldoff>Unlink</button></div>
+    ${msg}${sum}${word}</div>
+    <div class="ws-ldwrap" data-k="${esc(src + (l.p === "microsoft" ? "#" + (W.ldKey || 0) : ""))}">${src ? `<iframe class="ws-ldf" src="${esc(src)}" title="${esc(l.name || ldName(l))} in ${ldApp(l)}" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>` : ""}</div>`;
+}
+function ldWordHtml(){
+  const L = W.ldList;
+  return `<p style="margin:0">Choose the Word file you're writing. Studyboard reads it on this device, and each Fix you tap is saved into it.</p>
+    <div class="ws-add"><label class="f ws-grow"><span class="lh">Search Your OneDrive</span><input type="search" data-ws-ldq value="${esc(W.ldQ || "")}" placeholder="File name" data-noenter></label></div>
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "link" ? `<p class="mini" role="status">Reading your document…</p>` : ""}
+    ${!L || L.busy ? `<p class="mini" role="status">Looking in your OneDrive…</p>` : L.items.length ? `<h3 class="fsec">${W.ldQ ? "Matches" : "Recent Word Files"}</h3>${rowsHtml(L.items.map(x => ({id: x.id, name: x.name, meta: x.at ? "Changed " + ago(x.at) : ""})), "data-ws-ldpick", "Link")}`
+      : `<div class="ws-empty"><b>${W.ldQ ? "No Word files match." : "No recent Word files."}</b><p class="mini">Search for it by name above.</p></div>`}`;
+}
+function ldLoadList(){
+  const q = W.ldQ || "", my = W.ldList = {busy: true, items: []};
+  ldWordList(q).then(items => { if (W.ldList === my) W.ldList = {items}; }).catch(e => { if (W.ldList === my) { W.ldList = {items: []}; W.err = ldErrText(e); } })
+    .then(() => { if (W.view === "ldword" && shown() && W.ldList !== my) { draw(); const i = W.el.querySelector("[data-ws-ldq]"); if (i && q) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } });
+}
 function footHtml(t, w){
   const back = `<button type="button" class="btn" data-act="edit-task" data-id="${esc(t.id)}">Back to Task</button><span class="spacer"></span>`, cancel = `<button type="button" class="btn" data-ws-vback>Back</button><span class="spacer"></span>`;
   if (W.view === "zotero") { const z = zcred(), n = W.z && W.z.sel ? W.z.sel.size : 0; return cancel + (z ? `<button type="button" class="btn primary" data-wz-add ${n && !W.busy ? "" : "disabled"}>${W.busy === "z" ? "Adding…" : `Add ${n || ""} to This Paper`}</button>` : `<button type="button" class="btn primary" data-wz-connect ${W.busy ? "disabled" : ""}>${W.busy === "zc" ? "Connecting…" : "Connect"}</button>`); }
@@ -105416,6 +105628,7 @@ function footHtml(t, w){
   if (W.tab === "sources" && W.edit) return `<button type="button" class="btn" data-ws-cancel>Cancel</button><span class="spacer"></span><button type="button" class="btn primary" data-ws-esave>Save Source</button>`;
   if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button>${w.draft ? `<button type="button" class="btn" data-ws-refadd title="Put these sources in your draft's ${esc(listOf(CITE.headingOf(styleOf(t, w), styleFmt(styleOf(t, w)))))} (made if there isn't one)">Add to My Draft</button>` : ""}<button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
   if (W.tab === "quotes" && W.hlPick) return `<button type="button" class="btn" data-ws-hlcancel>Cancel</button><span class="spacer"></span>${W.hlPick.length ? `<button type="button" class="btn primary" data-ws-hladd ${W.busy ? "disabled" : ""}>${W.busy === "hl" ? "Adding…" : "Add Quotes"}</button>` : ""}`;
+  if (W.tab === "doc") return back + (w.ld ? `<button type="button" class="btn primary" data-ws-ldcheck ${W.busy ? "disabled" : ""}>${W.busy === "read" || W.busy === "link" ? "Reading…" : W.busy === "fix" ? "Fixing…" : "Check Citations"}</button>` : "");
   if (W.tab === "outline") return back + (w.out.length || w.q.length ? `<button type="button" class="btn primary" data-ws-export>Export…</button>` : "");
   if (W.tab === "check") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
   return back + `<button type="button" class="btn primary" data-act="close">Done</button>`;
@@ -105425,13 +105638,23 @@ function draw(fresh){
   const t = state.tasks[W.tid]; if (!t) { if (shown()) dlg.close(); return; }
   const w = wsOf(t), st = styleOf(t, w);
   const VIEW = {zotero: ["Zotero", () => zotHtml(t, w)], import: ["Import Sources", impHtml], library: ["My Library", () => libHtml(t, w)], styles: ["More Styles", findHtml],
-    drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")]}[W.view];
+    drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")], ldword: ["Choose a Word File", ldWordHtml]}[W.view];
   if (!TABS.includes(W.tab)) W.tab = "check";
-  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
+  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.tab === "doc" ? docHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
     ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
-  if (shown()) W.el.innerHTML = inner;
+  // My Doc's document stays open while the rest is drawn again (drawing it again would load it again, and lose your place in it)
+  const keep = shown() && !VIEW && W.tab === "doc" ? W.el.querySelector(".ws-ldwrap") : null, tmp = keep ? document.createElement("div") : null;
+  if (tmp) tmp.innerHTML = inner;
+  const nw = tmp && tmp.querySelector(".ws-ldwrap"), ob = keep && W.el.querySelector(".ws-body"), nb = tmp && tmp.querySelector(".ws-body");
+  if (nw && keep.dataset.k === nw.dataset.k && ob && nb && keep.firstChild) {
+    [...ob.childNodes].forEach(n => { if (n !== keep) n.remove(); });
+    [...nb.childNodes].forEach(n => { if (n !== nw) { if (n.compareDocumentPosition(nw) & Node.DOCUMENT_POSITION_FOLLOWING) ob.insertBefore(n, keep); else ob.appendChild(n); } });
+    const kids = [...tmp.children], at = kids.indexOf(nb);
+    [...W.el.children].forEach(c => { if (c !== ob) c.remove(); });
+    kids.slice(0, at).forEach(c => W.el.insertBefore(c, ob)); kids.slice(at + 1).forEach(c => W.el.appendChild(c));
+  } else if (shown()) W.el.innerHTML = inner;
   else { openSheet(`<div class="sheet ws-sheet">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
   const b = W.el.querySelector(".ws-body"); if (b && y) b.scrollTop = y;
   wire(t);
@@ -105600,10 +105823,11 @@ const refsMap = (t, w) => { const B = bibOf(t, w); return B.ready ? Object.fromE
 async function fixDraft(t, edits, label){
   const d = wsOf(state.tasks[t.id]).draft; if (!d || !edits || !edits.length) return 0;
   const r = CITE.applyEdits(d.t, edits); if (!r.n) { W.err = "Your draft changed since it was checked. Check it again, then fix."; draw(); return 0; }
-  return saveFixed(t, r.text, r.n, label);
+  return saveFixed(t, r.text, r.n, label, [edits]);
 }
 // the fixed text saved (one Undo, with the note when the draft is a note's), then checked again
-async function saveFixed(t, text, count, label){
+async function saveFixed(t, text, count, label, rounds){
+  if (ldOf(wsOf(state.tasks[t.id]))) return ldFix(t, count, rounds);
   const w = wsOf(state.tasks[t.id]), d = w.draft, r = {text, n: count};
   let nid = d.nid; const n = nid && state.notes[nid], more = [];
   if (n) { const raw = String(n.text || "").replace(/\r\n?/g, "\n"); if (raw === d.t) more.push({kind: "note", id: n.id, after: Object.assign(clone(n), {text: r.text, updated: Date.now()})}); else nid = undefined; }
@@ -105617,12 +105841,14 @@ async function saveFixed(t, text, count, label){
 async function fixAll(t){
   const w = wsOf(state.tasks[t.id]); if (!w.draft) return;
   const st0 = styleOf(state.tasks[t.id], w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} }
-  let text = w.draft.t, total = 0;
+  let text = w.draft.t, total = 0; const rounds = [];
   for (let round = 0; round < 6; round++) {
     const res = runCheck(state.tasks[t.id], w, text), edits = res.issues.flatMap(x => x.edits || []); if (!edits.length) break;
-    const r = CITE.applyEdits(text, edits); if (!r.n) break; text = r.text; total += r.n;
+    const r = CITE.applyEdits(text, edits); if (!r.n) break; text = r.text; total += r.n; rounds.push(edits);
   }
-  if (total) await saveFixed(t, text, total, `Fixed ${total === 1 ? "1 thing" : total + " things"} in your draft`);
+  const linked = ldOf(w);
+  const done = total ? await saveFixed(t, text, total, `Fixed ${total === 1 ? "1 thing" : total + " things"} in your draft`, rounds) : 0;
+  if (linked) { if (done) W.okMsg += " What's left needs you."; else if (!total) W.okMsg = "Nothing more can be fixed for you: what's left needs your own words."; if (shown()) draw(); return; }
   W.okMsg = total ? `Fixed ${total === 1 ? "1 thing" : total + " things"} in ${wsOf(state.tasks[t.id]).draft.nid ? "your note" : "Writing Studio's copy of your draft"}. What's left needs you. Undo puts it back.` : "Nothing more can be fixed for you: what's left needs your own words.";
   if (shown()) draw();
 }
@@ -105636,8 +105862,154 @@ async function addToDraftRefs(t){
   if (a.numbered) { W.err = "Your list is numbered in the order you cite each source, so add these by hand (Copy List gives you each entry)."; draw(); return; }
   if (!a.edits.length) { W.okMsg = a.already.length ? "Every source is already in your draft's list." : "No sources to add yet."; draw(); return; }
   const n = await fixDraft(state.tasks[t.id], a.edits, a.made ? "Added a reference list to your draft" : `Added ${plural(a.added.length, "source")} to your draft's list`);
-  if (n) W.okMsg = `${a.made ? `Made a ${CITE.headingOf(st0, styleFmt(st0))} list at the end of your draft with ${plural(a.added.length, "source")}` : `Added ${plural(a.added.length, "source")} to your draft's list, in order`}${a.already.length ? ` (${a.already.length === 1 ? "1 was" : a.already.length + " were"} already there)` : ""}.`;
+  if (n && ldOf(wsOf(state.tasks[t.id]))) W.okMsg = `${a.made ? `Made a ${CITE.headingOf(st0, styleFmt(st0))} list at the end of` : `Added ${plural(a.added.length, "source")} to the list in`} your ${ldName(wsOf(state.tasks[t.id]).ld)}, ${wsOf(state.tasks[t.id]).ld.name}${a.already.length ? ` (${a.already.length === 1 ? "1 was" : a.already.length + " were"} already there)` : ""}.`;
+  else if (n) W.okMsg = `${a.made ? `Made a ${CITE.headingOf(st0, styleFmt(st0))} list at the end of your draft with ${plural(a.added.length, "source")}` : `Added ${plural(a.added.length, "source")} to your draft's list, in order`}${a.already.length ? ` (${a.already.length === 1 ? "1 was" : a.already.length + " were"} already there)` : ""}.`;
   if (shown()) draw();
+}
+/* My Doc: a Google Doc or a Word file (in OneDrive) linked to the paper. Check reads it (LIVEDOC), and each fix is made in the document
+   itself: Google Docs through the Docs API (only on the version that was read), Word by changing the file's text where it is and saving
+   it back (only if it hasn't changed since). Undo puts the same text back in the document. Google Drive's access is drive.file, so a doc
+   is only reachable once it's been chosen in Google's own window. */
+const LDU = {docs: "https://docs.googleapis.com/v1/documents/", graph: "https://graph.microsoft.com/v1.0"};
+const ldName = l => l && l.p === "google" ? "Google Doc" : "Word file";
+const ldApp = l => l && l.p === "google" ? "Google Docs" : "Word for the web";
+// the link, when the saved draft is the linked document's text
+const ldOf = w => w && w.ld && w.draft && w.draft.ld ? w.ld : null;
+const ldItem = l => l.drive ? `${LDU.graph}/drives/${encodeURIComponent(l.drive)}/items/${encodeURIComponent(l.id)}` : `${LDU.graph}/me/drive/items/${encodeURIComponent(l.id)}`;
+class LdErr extends Error { constructor(msg, code){ super(msg); this.code = code || ""; } }
+const ldCloud = () => { const C = window.SBCLOUD; if (!C || !C.docApi) throw new LdErr("Google Drive and OneDrive aren't available here. Sign in to your Studyboard account first."); return C; };
+const ldErrText = e => (e && e.message) || "Couldn't reach your document. Check your connection.";
+async function ldRead(l){
+  const C = ldCloud();
+  if (l.p === "google") {
+    const j = await C.docApi("google", LDU.docs + encodeURIComponent(l.id) + "?fields=" + encodeURIComponent("title,revisionId,body"));
+    if (!j || !j.body) throw new LdErr("Google didn't send the document. Check that it's still in your Drive.");
+    const G = LIVEDOC.gText(j); return {raw: G.raw, G, ver: String(j.revisionId || ""), name: String(j.title || l.name || "")};
+  }
+  const meta = await C.docApi("microsoft", ldItem(l) + "?$select=id,name,eTag,webUrl,size");
+  if (!/\.docx$/i.test(String(meta.name || l.name || ""))) throw new LdErr("That isn't a Word file (.docx).");
+  if (Number(meta.size) > 40e6) throw new LdErr("That Word file is too big to read here.");
+  const r = await C.docApi("microsoft", ldItem(l) + "/content", null, "raw");
+  if (!r || !r.ok) throw new LdErr(`OneDrive didn't send the file (${r ? r.status : "no answer"}).`);
+  const big = [], parts = await unzipBytes(await r.arrayBuffer(), () => true, {big, max: 60e6, entries: 4000});
+  if (big.length || !parts["word/document.xml"]) throw new LdErr("Couldn't read that Word file.");
+  const dom = new DOMParser().parseFromString(new TextDecoder().decode(parts["word/document.xml"]), "application/xml");
+  if (dom.getElementsByTagName("parsererror").length) throw new LdErr("Couldn't read that Word file.");
+  return {raw: LIVEDOC.wIndex(dom).raw, dom, parts, ver: String(meta.eTag || ""), name: String(meta.name || l.name || ""), url: String(meta.webUrl || "")};
+}
+const ldChanged = l => new LdErr(`Your ${ldName(l)} changed since it was checked`, "changed");
+// rounds of edits, each on the (tidy) text the one before left, made in the document; what the document says afterwards
+async function ldPush(l, base, rounds){
+  const C = ldCloud();
+  if (l.p === "google") {
+    let text = base;
+    for (const edits of rounds) {
+      const R = await ldRead(l), N = LIVEDOC.norm(R.raw); if (N.text !== text) throw ldChanged(l);
+      const A = CITE.applyEdits(text, edits); if (!A.n) continue;
+      const requests = LIVEDOC.gRequests(R.G, LIVEDOC.toRaw(R.raw, N, A.plan)); if (!requests) throw ldChanged(l);
+      const r = await C.docApi("google", LDU.docs + encodeURIComponent(l.id) + ":batchUpdate", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({requests, writeControl: {requiredRevisionId: R.ver}})}, "raw");
+      if (r.status === 400) throw ldChanged(l);
+      if (r.status === 403) throw new LdErr("Google Docs didn't let Studyboard change it: you may only be allowed to comment on it, or the Docs API isn't on for this Studyboard server.");
+      if (!r.ok) throw new LdErr(`Google Docs didn't accept the fix (${r.status}).`);
+      text = A.text;
+    }
+    const R = await ldRead(l); return {raw: R.raw, ver: R.ver, want: text};
+  }
+  const R = await ldRead(l); let text = base;
+  if (LIVEDOC.norm(R.raw).text !== text) throw ldChanged(l);
+  for (const edits of rounds) {
+    const A = CITE.applyEdits(text, edits); if (!A.n) continue;
+    const raw = LIVEDOC.wIndex(R.dom).raw; LIVEDOC.wApply(R.dom, LIVEDOC.toRaw(raw, LIVEDOC.norm(raw), A.plan)); text = A.text;
+  }
+  let xml = new XMLSerializer().serializeToString(R.dom); if (!/^<\?xml/.test(xml)) xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + xml;
+  R.parts["word/document.xml"] = new TextEncoder().encode(xml);
+  const body = zipMany(Object.keys(R.parts).map(name => ({name, data: R.parts[name]})));
+  const r = await C.docApi("microsoft", ldItem(l) + "/content", {method: "PUT", headers: {"Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "If-Match": R.ver}, body}, "raw");
+  if (r.status === 412) throw ldChanged(l);
+  if (r.status === 423) throw new LdErr("Word has the file locked right now. Wait a moment, or close it in Word, then fix again.");
+  if (!r.ok) throw new LdErr(`OneDrive didn't accept the fix (${r.status}).`);
+  const j = await r.json().catch(() => ({}));
+  return {raw: LIVEDOC.wIndex(R.dom).raw, ver: String(j.eTag || ""), want: text};
+}
+// what puts rounds of fixes back: the same places, the other way round, last round first
+function ldInverse(base, rounds){
+  const out = []; let text = base;
+  rounds.forEach(edits => {
+    const A = CITE.applyEdits(text, edits); let shift = 0; const inv = [];
+    A.plan.slice().reverse().forEach(e => { inv.push({at: e.at + shift, len: e.to.length, from: e.to, to: e.from}); shift += e.to.length - e.len; });
+    out.unshift(inv); text = A.text;
+  });
+  return out;
+}
+// the paper's draft from what the document says now
+function ldSetDraft(t, raw, l, fx, wIn){
+  const N = LIVEDOC.norm(raw), w = wIn || wsOf(state.tasks[t.id]);
+  w.ld = Object.assign({}, w.ld || l, {big: N.text.length > MAX_DRAFT});
+  w.draft = N.text ? Object.assign(makeDraft(N.text, {from: w.ld.name || ldName(l), ld: true}), {fx: fx || 0}) : null;
+  return w;
+}
+// Check reads the document again first; null when it can't be read (the reason is shown)
+async function ldRefresh(t){
+  let w = wsOf(state.tasks[t.id]); const l = ldOf(w); if (!l) return w;
+  W.busy = "read"; if (shown()) draw();
+  try {
+    const R = await ldRead(l); W.busy = "";
+    if (R.name && R.name !== l.name) w.ld = Object.assign({}, l, {name: R.name});
+    if (LIVEDOC.norm(R.raw).text !== w.draft.t || R.name !== l.name) { w = ldSetDraft(t, R.raw, w.ld, w.draft.fx); if (!w.draft) { save(state.tasks[t.id], w, null); W.err = `Your ${ldName(l)} is empty. Write in it, then check again.`; if (shown()) draw(); return null; } }
+    return w;
+  } catch (e) { W.busy = ""; W.err = `Couldn't read ${l.name || "your " + ldName(l)}: ${ldErrText(e)}`; if (shown()) draw(); return null; }
+}
+async function ldFix(t, count, rounds){
+  const w0 = wsOf(state.tasks[t.id]), l = ldOf(w0), base = w0.draft.t;
+  if (l.big) { W.err = `Your ${ldName(l)} is too long for Writing Studio to fix in place. Fix it by hand from the list.`; draw(); return 0; }
+  W.busy = "fix"; W.err = ""; W.okMsg = ""; if (shown()) draw();
+  let out;
+  try { out = await ldPush(l, base, rounds); }
+  catch (e) {
+    W.busy = "";
+    if (e.code === "changed") { await doCheck(state.tasks[t.id], {quiet: true}); W.err = `Your ${ldName(l)} changed since it was checked, so nothing was fixed. It's been checked again: fix from what it says now.`; }
+    else W.err = ldErrText(e);
+    if (shown()) draw(); return 0;
+  }
+  W.busy = ""; W.ldKey = (W.ldKey || 0) + 1;
+  const w = ldSetDraft(t, out.raw, l, (w0.draft.fx || 0) + count), inv = ldInverse(base, rounds), fixed = w.draft ? w.draft.t : "";
+  W.okMsg = `${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}, ${l.name}.${LIVEDOC.norm(out.raw).text === out.want ? "" : " It was being changed at the same time, so check what it says."}`;
+  await doCheck(state.tasks[t.id], {quiet: true, w, label: null});
+  const msg = W.okMsg;
+  toast(`${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}`, async () => {
+    try {
+      const back = await ldPush(l, fixed, inv); W.ldKey++;
+      const w2 = ldSetDraft(t, back.raw, l, Math.max(0, (wsOf(state.tasks[t.id]).draft || {fx: 0}).fx - count));
+      W.okMsg = `Put ${l.name} back as it was.`; await doCheck(state.tasks[t.id], {quiet: true, w: w2, label: null}); toast(`Put your ${ldName(l)} back`);
+    } catch (e) { toast(e.code === "changed" ? `Your ${ldName(l)} has changed since, so it wasn't put back. Its version history has the earlier version.` : ldErrText(e), null, null, {error: true}); }
+  });
+  W.okMsg = msg; if (shown()) draw();
+  return count;
+}
+// link a document: read it, and make it the paper's draft
+async function ldLink(t, l){
+  W.busy = "link"; W.err = ""; W.okMsg = ""; draw();
+  try {
+    const R = await ldRead(l), link = ldNorm(Object.assign({}, l, {name: R.name || l.name, url: R.url || l.url}));
+    if (!link) throw new LdErr("Couldn't link that document.");
+    const w = wsOf(state.tasks[t.id]); w.ld = link;
+    const w2 = ldSetDraft(t, R.raw, link, 0, w); w2.style = w2.style || styleOf(state.tasks[t.id], w2);
+    save(state.tasks[t.id], w2, `Linked ${link.name}`);
+    Object.assign(W, {busy: "", view: "", tab: "doc", pick: null, ldList: null, okMsg: w2.draft ? "" : `${link.name} is empty: write in it here, then tap Check Citations.`});
+    if (w2.draft) await doCheck(state.tasks[t.id], {first: true, w: w2, label: null}); else draw(true);
+  } catch (e) { W.busy = ""; W.err = ldErrText(e); draw(); }
+}
+// Word files in OneDrive: recent ones, or ones whose name matches
+async function ldWordList(q){
+  const C = ldCloud(), qq = String(q || "").trim();
+  const j = await C.docApi("microsoft", qq ? `${LDU.graph}/me/drive/root/search(q='${encodeURIComponent(qq.replace(/'/g, "''"))}')?$top=50` : `${LDU.graph}/me/drive/recent?$top=80`);
+  const seen = new Set();
+  return (j && Array.isArray(j.value) ? j.value : []).map(x => { const it = x.remoteItem || x; return {id: String(it.id || ""), drive: String(((it.parentReference || {}).driveId) || ((x.parentReference || {}).driveId) || ""), name: String(x.name || it.name || ""), url: String(x.webUrl || it.webUrl || ""), at: Date.parse(x.lastModifiedDateTime || it.lastModifiedDateTime || "") || 0}; })
+    .filter(x => x.id && /\.docx$/i.test(x.name) && !seen.has(x.id) && seen.add(x.id)).slice(0, 40);
+}
+// Word shows a file inside another page only as a preview; Microsoft's preview address, when it's one the app may show
+async function ldPreview(l){
+  try { const j = await ldCloud().docApi("microsoft", ldItem(l) + "/preview", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"}, "maybe"); const u = j && String(j.getUrl || ""); return /^https:\/\/(onedrive\.live\.com|view\.officeapps\.live\.com)\//.test(u) ? u : ""; } catch (e) { return ""; }
 }
 // Check (again): a draft from a file or note in Studyboard is read again first when that file or note has changed since
 async function doCheck(t, o){
@@ -105647,6 +106019,7 @@ async function doCheck(t, o){
     const f = state.files[w.draft.fid], rv = (curRev(f) || {}).assetId || "";
     if (rv && rv !== w.draft.r) { W.busy = "read"; draw(); const x = await readFileText(f); W.busy = ""; if (x) { w = wsOf(state.tasks[t.id]); w.draft = makeDraft(x, {from: f.name, fid: f.id, r: rv}); W.okMsg = `Read the newer version of ${f.name}.`; } }
   }
+  if (!o.w && ldOf(w)) { const nw = await ldRefresh(t); if (!nw) return; w = nw; }
   if (o.reread && w.draft.nid && state.notes[w.draft.nid]) { const n = state.notes[w.draft.nid], d = makeDraft(String(n.text || ""), {from: noteTitle(n), nid: n.id}); if (d.h !== w.draft.h) { w.draft = d; W.okMsg = `Read the latest ${noteTitle(n)}.`; } }
   // the style's own references come from citeproc: load it first, so the saved counts match what's shown
   { const st0 = styleOf(state.tasks[t.id] || t, w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} } }
@@ -105948,6 +106321,22 @@ function wire(t){
   qa("[data-ws-fix]").forEach(b => b.addEventListener("click", async () => { const w = ws(), res = usage(cur(), w).res, x = res && res.issues[Number(b.dataset.wsFix)]; if (!x || !x.edits) return; b.disabled = true; await fixDraft(cur(), x.edits); }));
   on("[data-ws-fixall]", "click", async e => { e.currentTarget.disabled = true; await fixAll(cur()); });
   on("[data-ws-refadd]", "click", async e => { e.currentTarget.disabled = true; W.err = ""; await addToDraftRefs(cur()); });
+  // My Doc
+  on("[data-ws-ldg]", "click", async () => {
+    const C = window.SBCLOUD; W.err = "";
+    if (!C || !C.pickGoogleDoc || !C.canPickFiles()) { W.err = "Choosing a Google Doc isn't set up on this Studyboard server yet."; draw(); return; }
+    let d; try { d = await C.pickGoogleDoc(); } catch (e) { W.err = ldErrText(e); draw(); return; }
+    if (!d) return;
+    if (d.type && d.type !== "application/vnd.google-apps.document") { W.err = "That isn't a Google Doc. For a Word file, choose A Word File."; draw(); return; }
+    await ldLink(cur(), {p: "google", id: d.id, name: d.name, url: d.url});
+  });
+  on("[data-ws-ldw]", "click", () => { Object.assign(W, {view: "ldword", ldQ: "", err: ""}); ldLoadList(); draw(true); });
+  qa("[data-ws-ldpick]").forEach(b => b.addEventListener("click", () => { const x = ((W.ldList || {}).items || []).find(i => i.id === b.dataset.wsLdpick); if (x) ldLink(cur(), {p: "microsoft", id: x.id, drive: x.drive, name: x.name, url: x.url}); }));
+  on("[data-ws-ldq]", "input", e => { W.ldQ = e.target.value; clearTimeout(W.ldT); W.ldT = setTimeout(ldLoadList, 450); });
+  on("[data-ws-ldcon]", "click", () => { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); });
+  on("[data-ws-ldoff]", "click", () => { const w = ws(), l = w.ld; if (!l) return; w.ld = null; if (w.draft && w.draft.ld) w.draft.ld = false; save(cur(), w, `Unlinked ${l.name || ldName(l)}`); W.okMsg = ""; W.err = ""; draw(); });
+  on("[data-ws-ldcheck]", "click", async () => { const w = ws(); W.err = ""; W.okMsg = ""; if (ldOf(w)) await doCheck(cur(), {}); else if (w.ld) await ldLink(cur(), w.ld); if (shown()) draw(); });
+  { const w = ws(); if (W.tab === "doc" && !W.view && w.ld && w.ld.p === "microsoft" && (!W.ldPrev || W.ldPrev.id !== w.ld.id) && W.ldPrevFor !== w.ld.id) { const l = w.ld; W.ldPrevFor = l.id; ldPreview(l).then(u => { W.ldPrev = {id: l.id, u}; W.ldPrevFor = ""; if (shown() && W.tab === "doc") draw(); }); } }
   on("[data-ws-dcopy]", "click", async () => { const d = ws().draft; if (!d) return; try { await navigator.clipboard.writeText(d.t); toast("Copied your fixed draft. Paste it into your document."); } catch (e) { toast("Couldn't copy: select the draft under View Draft and copy it."); } });
   on("[data-ws-check]", "click", () => {
     const w = ws();
@@ -106072,6 +106461,17 @@ svg.ws-zic{display:block;flex:none}
 :root[data-theme="dark"] :is(.ws-err,.ws-need){color:#FF8A80}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.ws-err,.ws-need){color:#FF8A80}}
 .ws-ok{margin:0;color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
+.ws-ldc{display:grid;gap:8px}
+.ws-ldk,.ws-ldh{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px}
+.ws-ldh{border:0;background:none;padding:0}
+.ws-ldk>svg,.ws-ldh>svg{width:22px;height:22px;flex:none}.ws-ldk>img,.ws-ldh>img{width:24px;height:auto;flex:none}
+.ws-ldk-t{display:grid;gap:2px;flex:1 1 180px;min-width:0}
+.ws-ldk-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ws-ldtop{display:grid;gap:8px}
+.ws-ldsum{margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ws-ldsum .ws-fixall{margin-left:0}
+.ws-ldwrap:not(:empty){margin-top:10px}
+.ws-ldf{display:block;width:100%;height:min(68vh,860px);min-height:320px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .ws-note{margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent,#2F6FE4) 9%,var(--surface))}
 .ws-empty{text-align:center;padding:22px 12px;border:1px dashed var(--line);border-radius:12px;display:grid;gap:6px}
 .ws-empty p{margin:0}
