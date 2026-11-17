@@ -171,7 +171,7 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
   const G = () => page.evaluate(() => window.__fake.g.raw.replace(/\n$/, ""));
   await openWS(); await page.click('#dlg[open] [data-ws-tab="check"]');
   ok(await page.textContent('#dlg[open] [data-ws-tab="check"]') === "Check My Doc" && !(await page.locator('#dlg[open] [data-ws-tab="doc"]').count()), "one tab: Check My Doc");
-  ok(await page.locator("#dlg[open] .ws-ldrow [data-ws-ldg]").count() === 1 && await page.locator('#dlg[open] .ws-ldrow [data-ws-ldcon]:has-text("Word in OneDrive")').count() === 1 && await page.locator("#dlg[open] [data-ws-dfile]").count() === 1, "Check My Doc: paste, upload, or link a Google Doc (Drive connected) or a Word file in OneDrive (connect it first)");
+  ok(await page.locator("#dlg[open] .ws-ldrow [data-ws-ldg]").count() === 1 && await page.locator('#dlg[open] .ws-ldrow [data-ws-ldcon]:has-text("Word From OneDrive")').count() === 1 && await page.locator("#dlg[open] [data-ws-dfile]").count() === 1, "Check My Doc: paste, upload, or link a Google Doc (Drive connected) or a Word file in OneDrive (connect it first)");
   const shot = async nm => { if (process.env.SHOT) await page.screenshot({path: process.env.SHOT + nm + ".png"}); };
   await shot("ld-check");
   // a doc Google gives no access to (the picker set up for another project): it says so
