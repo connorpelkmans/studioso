@@ -6032,7 +6032,7 @@ const PHONE_CAM = (() => {
       const code = b64u(crypto.getRandomValues(new Uint8Array(16))), te = new TextEncoder();
       const [idH, kH] = await Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-scan-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-scan-key:" + code))]);
       ph.id = hexOf(idH); ph.key = await crypto.subtle.importKey("raw", kH, "AES-GCM", false, ["decrypt"]);
-      ph.url = RELAY() + "/s" + (ph.o.kind === "notes" ? "?for=notes" : "") + "#" + code;
+      ph.url = RELAY() + "/s" + (ph.o.kind === "notes" || ph.o.kind === "map" ? "?for=" + ph.o.kind : "") + "#" + code;
       if (ph.stopped) return;
       draw(ph);
       try {
@@ -106053,10 +106053,10 @@ const BETA = true;
 const betaHead = html => BETA ? html.replace(/(<span class="sh-kick">[^<]*)(<\/span>)/, '$1<span class="sb-beta" title="Beta: still being improved">Beta</span>$2').replace(/(<span class="g2-ring sh-ring"[^>]*>)/, '$1<span class="sb-beta sb-beta-alt" aria-hidden="true">Beta</span>') : html;
 const PRO_WHY = "Concept Maps are part of Studyboard Pro: see how your notes, decks, PDFs, lectures and exam topics connect, and practise filling the map in.";
 const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/></svg>';
-const KIND = {course: ["Course", "#2F6FE4"], exam: ["Exam", "#D64545"], topic: ["Topic", "#7C5CFF"], note: ["Note", "#C98A1B"], board: ["Whiteboard", "#E8590C"], deck: ["Deck", "#1C7ED6"], file: ["File", "#5F6B7A"], lecture: ["Lecture recording", "#0C8599"], class: ["Class", "#0CA678"], idea: ["Your idea", "#D6336C"]};
+const KIND = {course: ["Course", "#2F6FE4"], exam: ["Exam", "#D64545"], topic: ["Topic", "#7C5CFF"], note: ["Note", "#C98A1B"], board: ["Whiteboard", "#E8590C"], deck: ["Deck", "#1C7ED6"], file: ["File", "#5F6B7A"], lecture: ["Lecture Recording", "#0C8599"], class: ["Class", "#0CA678"], idea: ["Your Idea", "#D6336C"]};
 const CONF = {weak: ["Shaky", "#E03131"], ok: ["OK", "#E8A317"], strong: ["Strong", "#2F9E44"]};
 const NOT_YET = "#98A2B3";
-const SHAPE_NAMES = {box: "Box", rounded: "Rounded", pill: "Pill", circle: "Circle", cloud: "Cloud", diamond: "Diamond", hexagon: "Hexagon", text: "Text only"};
+const SHAPE_NAMES = {box: "Box", rounded: "Rounded", pill: "Pill", circle: "Circle", cloud: "Cloud", diamond: "Diamond", hexagon: "Hexagon", text: "Text Only"};
 const SHAPE_IC = {box: '<rect x="3" y="7" width="18" height="10" rx="1"/>', rounded: '<rect x="3" y="7" width="18" height="10" rx="3.5"/>', pill: '<rect x="3" y="7" width="18" height="10" rx="5"/>', circle: '<ellipse cx="12" cy="12" rx="9" ry="6.5"/>',
   cloud: '<path d="M7 17.5a3.6 3.6 0 0 1-.6-7.1A4.6 4.6 0 0 1 15 8.6a3.6 3.6 0 0 1 3.4 4.9A2.1 2.1 0 0 1 18 17.5Z"/>', diamond: '<path d="M12 4l9 8-9 8-9-8Z"/>', hexagon: '<path d="M7 5h10l5 7-5 7H7l-5-7Z"/>', text: '<path d="M6 7h12M12 7v11"/>'};
 const COLORS = ["#2F6FE4", "#7C5CFF", "#D6336C", "#E03131", "#E8590C", "#E8A317", "#2F9E44", "#0C8599", "#5F6B7A"];
@@ -106156,7 +106156,7 @@ function atPanel(n){
   if (!fs.length) { P.innerHTML = `<p class="mini" style="margin:0">Add a PDF to this course's Files, or record a lecture, and you can link <b>${esc(n.label)}</b> to the page or the moment it's taught. <button type="button" class="link-btn" data-cm="err-x">OK</button></p>`; return; }
   const now = window.SBREPLAY && SBREPLAY.state ? SBREPLAY.state() : {}, pick = state.files[cur.f] ? cur.f : now.fid && lecs.some(f => f.id === now.fid) ? now.fid : fs[0].id;
   const opt = f => `<option value="${esc(f.id)}" ${f.id === pick ? "selected" : ""}>${esc(f.name || "Untitled")}</option>`;
-  P.innerHTML = `<form class="cm-atf"><label class="lh" for="cmAtF">Link <b>${esc(trunc(n.label, 40))}</b> to where it's taught</label>
+  P.innerHTML = `<form class="cm-atf"><label class="lh" for="cmAtF">Link <b>${esc(trunc(n.label, 40))}</b> to Where It's Taught</label>
     <select id="cmAtF">${pdfs.length ? `<optgroup label="PDFs">${pdfs.map(opt).join("")}</optgroup>` : ""}${lecs.length ? `<optgroup label="Lectures">${lecs.map(opt).join("")}</optgroup>` : ""}</select>
     <div class="cm-atrow" data-at="pdf"><label>Page <input type="number" id="cmAtP" min="1" max="100000" inputmode="numeric" value="${cur.p || 1}"></label></div>
     <div class="cm-atrow" data-at="lec"><label>Time <input type="text" id="cmAtT" inputmode="numeric" placeholder="12:34" value="${cur.t != null ? CMAP.clock(cur.t) : ""}" autocomplete="off"></label><button type="button" class="btn small" data-at-now hidden></button></div>
@@ -106344,7 +106344,7 @@ function addEmbed(raw, ontoId){
 function embedPanel(ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return; }
   const P = M.el.querySelector(".cm-panel"), onto = ontoId && M.byId[ontoId] && M.byId[ontoId].kind === "idea" ? ontoId : "";
-  P.innerHTML = `<form class="cm-embf"><label class="lh" for="cmEmbIn">${onto ? `Add a video or embed to <b>${esc(trunc(M.byId[onto].label, 30))}</b>` : "Add a video or embed"}</label>
+  P.innerHTML = `<form class="cm-embf"><label class="lh" for="cmEmbIn">${onto ? `Add a Video or Embed to <b>${esc(trunc(M.byId[onto].label, 30))}</b>` : "Add a Video or Embed"}</label>
     <div class="cm-embrow"><input type="url" id="cmEmbIn" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link, like youtube.com/watch?v=…"><button type="submit" class="btn small primary" disabled>Add</button></div>
     <p class="mini cm-embst" data-cm-embst aria-live="polite">Works with ${EMB_SITES}.</p><div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button></div></form>`;
   const f = P.querySelector("form"), inp = f.querySelector("input"), st = f.querySelector("[data-cm-embst]"), go = f.querySelector("[type=submit]");
@@ -106491,7 +106491,7 @@ function paint(){
 function legend(know){
   const L = M.el.querySelector(".cm-legend"); if (!L) return;
   const kinds = [...new Set(M.g.nodes.filter(n => !n.root).map(n => n.kind))];
-  L.innerHTML = know ? Object.keys(CONF).map(k => `<span><i style="background:${CONF[k][1]}"></i>${CONF[k][0]}</span>`).join("") + `<span><i style="background:${NOT_YET}"></i>No results yet</span>`
+  L.innerHTML = know ? Object.keys(CONF).map(k => `<span><i style="background:${CONF[k][1]}"></i>${CONF[k][0]}</span>`).join("") + `<span><i style="background:${NOT_YET}"></i>No Results Yet</span>`
     : kinds.map(k => `<span><i style="background:${KIND[k][1]}"></i>${KIND[k][0]}</span>`).join("");
 }
 function tools(){
@@ -106568,7 +106568,7 @@ function panel(){
     const n = g.nodes.find(x => x.id === M.sel); if (!n) { M.sel = ""; panel(); return; }
     const k = (KIND[n.kind] || KIND.file)[0], K = know(), kn = K.lv[n.id] || (M.know ? "" : n.conf), ks = K.stats[n.id], opens = n.kind !== "idea" && !(n.root && M.own.kind === "course");
     const res = ks && ks.right + ks.wrong ? `${ks.pct}% right (${ks.right} of ${ks.right + ks.wrong})` : ks && ks.cards.length ? "not studied yet" : "";
-    P.innerHTML = `<div class="cm-row"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span><button type="button" class="icon-btn cm-pclose" data-cm="desel" aria-label="Done" title="Done">${CLOSE}</button></div>
+    P.innerHTML = `<div class="cm-row cm-ttl"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span><button type="button" class="icon-btn cm-pclose" data-cm="desel" aria-label="Done" title="Done">${CLOSE}</button></div>
       ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row cm-acts">${n.at ? `<button type="button" class="btn small primary cm-gob" data-cm="goat">${n.at.t != null ? mi('<path d="M8 5v14l11-7z"/>') + " Play from " : mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>') + " Go to "}${esc(atLabel(n.at))}</button>` : ""}${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}${ks && ks.cards.length ? `<button type="button" class="btn small${kn === "weak" ? " primary" : ""}" data-cm="study">Review ${ks.cards.length} Card${ks.cards.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn small" data-cm="connect" aria-label="Connect To…">Connect<span class="cm-ml"> To…</span></button><button type="button" class="btn small" data-cm="rename">Rename</button><button type="button" class="btn small${M.styleOpen ? " on" : ""}" data-cm="style" aria-expanded="${!!M.styleOpen}">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml"> Style</span></button>${n.kind === "idea" ? menu("attach", `${mi('<path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/>')}<span class="cm-ml"> Attach</span>`, "Attach a page, lecture, picture or video",
         `<button type="button" role="menuitem" class="cm-mi" data-cm="at">${mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>')} ${n.at ? "Change Page or Lecture" : "Page or Lecture"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="picon">${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} ${n.img ? "Change Picture" : "Picture"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="emb">${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} ${n.emb ? "Change Video or Embed" : "Video or Embed"}</button>${n.at || n.img || n.emb ? '<span class="cm-msep">Remove</span>' : ""}${n.at ? `<button type="button" role="menuitem" class="cm-mi" data-cm="atoff">Page or Lecture Link</button>` : ""}${n.img ? `<button type="button" role="menuitem" class="cm-mi" data-cm="picoff">Picture</button>` : ""}${n.emb ? `<button type="button" role="menuitem" class="cm-mi" data-cm="emboff">Video or Embed</button>` : ""}`) : ""}${n.root ? "" : `<button type="button" class="icon-btn cm-delb" data-cm="${n.kind === "idea" ? "del" : "hide"}" aria-label="${n.kind === "idea" ? "Delete" : "Hide"}" title="${n.kind === "idea" ? "Delete" : "Hide"}">${n.kind === "idea" ? mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') : mi('<path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.6C4.3 8.1 3 12 3 12s4 6 9 6a9 9 0 0 0 4.4-1.2"/>')}</button>`}</div>
       ${M.styleOpen ? styleHtml(n) : ""}`}`;
@@ -106750,7 +106750,7 @@ async function onClick(e){
     case "emboff": { if (!n) return; const x = u(); x.add = x.add.map(i => "idea:" + i.id === n.id ? (({emb, ...rest}) => rest)(i) : i); if (!n.label && !n.img) x.add = x.add.filter(i => "idea:" + i.id !== n.id), M.sel = ""; saveUser(x, "Took an embed off the map"); rebuild(true); paint(); break; }
     case "picoff": { if (!n) return; const x = u(); x.add = x.add.map(i => "idea:" + i.id === n.id ? (({img, ...rest}) => rest)(i) : i); saveUser(x, "Took a picture off the map"); rebuild(true); paint(); break; }
     case "desc": { const P = M.el.querySelector(".cm-panel"); M.sel = ""; M.selE = "";
-      P.innerHTML = `<form class="cm-descf"><label class="lh" for="cmDescIn">${AI_ICON} Describe more ideas and connections</label><textarea id="cmDescIn" rows="3" placeholder="Glycolysis happens in the cytoplasm and makes pyruvate. Pyruvate goes on to the Krebs cycle.&#10;or arrows: Glycolysis -> Pyruvate : makes"></textarea><p class="mini cm-err" role="alert" data-cm-derr hidden></p><div class="cm-row"><span class="mini">Names already on the map are reused.</span><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button><button type="submit" class="btn small primary">Add to Map</button></div></form>`;
+      P.innerHTML = `<form class="cm-descf"><label class="lh" for="cmDescIn">${AI_ICON} Describe More Ideas and Connections</label><textarea id="cmDescIn" rows="3" placeholder="Glycolysis happens in the cytoplasm and makes pyruvate. Pyruvate goes on to the Krebs cycle.&#10;or arrows: Glycolysis -> Pyruvate : makes"></textarea><p class="mini cm-err" role="alert" data-cm-derr hidden></p><div class="cm-row"><span class="mini">Names already on the map are reused.</span><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button><button type="submit" class="btn small primary">Add to Map</button></div></form>`;
       const f = P.querySelector("form"), ta = P.querySelector("textarea"); ta.focus();
       f.addEventListener("submit", async ev => { ev.preventDefault(); const txt = ta.value.trim(); if (txt.length < 3) return; const btn = f.querySelector("[type=submit]"); btn.disabled = true; btn.textContent = "Adding…";
         try { const r = await describe(txt, "", M.g.nodes.map(n2 => ({id: n2.id, label: n2.label}))), x = userOf(M.own); x.add = x.add.concat(r.ov.add); x.links = x.links.concat(r.ov.links); x.styles = Object.assign({}, x.styles, r.ov.styles);
@@ -106862,17 +106862,25 @@ hook("act", (act, el, id) => {
 document.addEventListener("change", e => { const s = e.target && e.target.closest && e.target.closest("[data-cm-sort]"); if (!s) return; ui.cmSort = s.value; try { localStorage.setItem("studyboard:cmSort", s.value); } catch (er) {} render(); });
 const coursesLive = () => Object.values(state.courses || {}).filter(c => c && !c.archived).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
 // a template's little preview, drawn from its own layout
+// A template's preview: its real layout, small. Boxes take the template's colours, softly filled to suit light and dark mode,
+// with a short bar where the words go; the middle idea is solid
 function tplThumb(t){
   const o = t.build(), P = o.pos, xs = Object.values(P).map(p => p[0]), ys = Object.values(P).map(p => p[1]);
-  const x0 = Math.min(...xs) - 90, x1 = Math.max(...xs) + 90, y0 = Math.min(...ys) - 50, y1 = Math.max(...ys) + 50;
-  const lines = o.links.map(l => { const a = P[l.a], b = P[l.b]; return a && b ? `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="tl-${l.line}"/>` : ""; }).join("");
-  const boxes = Object.keys(P).map(id => { const st = o.styles[id] || {}, sh = st.shape || "rounded", [x, y] = P[id], c = st.stroke || st.color || "#5F6B7A", f = st.fill || (st.color ? st.color + "33" : "#ffffff");
-    const a = id === "root" ? 80 : 62, b = id === "root" ? 30 : 24;
-    if (sh === "circle" || sh === "cloud") return `<ellipse cx="${x}" cy="${y}" rx="${a}" ry="${b + 6}" fill="${f}" stroke="${c}"/>`;
-    if (sh === "diamond") return `<path d="M${x} ${y - b - 10}L${x + a} ${y}L${x} ${y + b + 10}L${x - a} ${y}Z" fill="${f}" stroke="${c}"/>`;
-    if (sh === "text") return `<rect x="${x - a * 0.7}" y="${y - 6}" width="${a * 1.4}" height="12" rx="6" fill="${c}" opacity=".35"/>`;
-    return `<rect x="${x - a}" y="${y - b}" width="${a * 2}" height="${b * 2}" rx="${sh === "pill" ? b : sh === "box" ? 4 : 12}" fill="${f}" stroke="${c}"/>`; }).join("");
-  return `<svg class="cm-tthumb" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" aria-hidden="true"><g class="tl">${lines}</g><g class="tb">${boxes}</g></svg>`;
+  let x0 = Math.min(...xs) - 95, x1 = Math.max(...xs) + 95, y0 = Math.min(...ys) - 55, y1 = Math.max(...ys) + 55;
+  const wantH = (x1 - x0) * 0.62; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const d = ((y1 - y0) / 0.62 - (x1 - x0)) / 2; x0 -= d; x1 += d; }
+  const ok = c => /^#[0-9a-f]{3,8}$/i.test(String(c || "")) ? c : "";
+  const lines = o.links.map(l => { const a = P[l.a], b = P[l.b]; return a && b ? `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="tl-${l.line || "solid"}"/>` : ""; }).join("");
+  const boxes = Object.keys(P).map(id => {
+    const st = o.styles[id] || {}, root = id === "root", sh = st.shape || (root ? "pill" : "rounded"), [x, y] = P[id], c = ok(st.stroke) || ok(st.color) || "";
+    const look = root ? `class="tb-root"` : c ? `style="stroke:${c};fill:color-mix(in srgb,${c} 16%,var(--surface))"` : "";
+    const a = root ? 84 : 64, b = root ? 30 : 24, bar = sh === "text" ? "" : `<rect class="tb-bar${root ? " on-root" : ""}" x="${x - a * 0.5}" y="${y - 5}" width="${a}" height="10" rx="5"/>`;
+    if (sh === "text") return `<rect class="tb-bar" x="${x - a * 0.6}" y="${y - 5}" width="${a * 1.2}" height="10" rx="5"/>`;
+    if (sh === "circle" || sh === "cloud") return `<ellipse cx="${x}" cy="${y}" rx="${a}" ry="${b + 8}" ${look}/>` + bar;
+    if (sh === "diamond") return `<path d="M${x} ${y - b - 14}L${x + a + 8} ${y}L${x} ${y + b + 14}L${x - a - 8} ${y}Z" ${look}/>` + bar;
+    if (sh === "hexagon") return `<path d="M${x - a + 14} ${y - b}H${x + a - 14}L${x + a + 6} ${y}L${x + a - 14} ${y + b}H${x - a + 14}L${x - a - 6} ${y}Z" ${look}/>` + bar;
+    return `<rect x="${x - a}" y="${y - b}" width="${a * 2}" height="${b * 2}" rx="${sh === "pill" ? b : sh === "box" ? 5 : 13}" ${look}/>` + bar;
+  }).join("");
+  return `<svg class="cm-tthumb" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="tl">${lines}</g><g class="tb">${boxes}</g></svg>`;
 }
 function newMapSheet(cid, o){
   o = o || {};
@@ -106884,21 +106892,24 @@ function newMapSheet(cid, o){
     <div class="sheet-body">
       <label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" value="${esc(o.name != null ? o.name : n ? "" : `${courseName(pick)} Map`)}" placeholder="e.g. Cell respiration, Unit 3, Essay plan" autocomplete="off"></label>
       <label class="f"><span class="lh">Course</span><select id="cmCourse">${cs.map(c => `<option value="${esc(c.id)}" ${c.id === pick.id ? "selected" : ""}>${esc(courseLabel(c))}</option>`).join("")}</select></label>
-      <fieldset class="f cm-start-pick"><legend class="lh">Start from</legend>
-        ${opt("auto", "My course material", "Exam topics, notes, decks and files you've linked draw themselves in.")}
-        ${opt("describe", `${AI_ICON} Describe it`, "Write the ideas and how they connect, in your own words. Studyboard AI draws the map.")}
-        ${opt("scan", `${AI_ICON} Scan a drawing${window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}`, "Take a photo of a map you drew by hand. Studyboard AI redraws it here, ready to edit.")}
-        ${opt("tpl", "A template", "A ready-made layout to fill in: hub, timeline, cause and effect and more.")}
-        ${opt("blank", "A blank page", "Just your own ideas and connections.")}
+      <fieldset class="f cm-start-pick"><legend class="lh">Start From</legend>
+        ${opt("blank", "A Blank Page", "Just your own ideas and connections.")}
+        ${opt("auto", "My Course Material", "Exam topics, notes, decks and files you've linked draw themselves in.")}
+        ${opt("describe", `${AI_ICON} Describe It`, "Write the ideas and how they connect, in your own words. Studyboard AI draws the map.")}
+        ${opt("scan", `${AI_ICON} Scan a Drawing${window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}`, "Take a photo of a map you drew by hand. Studyboard AI redraws it here, ready to edit.")}
+        ${opt("tpl", "A Template", "A ready-made layout to fill in: hub, timeline, cause and effect and more.")}
       </fieldset>
       <div class="cm-more" data-for="describe" ${start === "describe" ? "" : "hidden"}>
-        <label class="f"><span class="lh">Your ideas and connections</span><textarea id="cmDesc" rows="6" placeholder="Photosynthesis needs sunlight, water and carbon dioxide.&#10;It makes glucose and oxygen.&#10;Chlorophyll in the leaves absorbs the sunlight.">${esc(o.desc || "")}</textarea></label>
+        <label class="f"><span class="lh">Your Ideas and Connections</span><textarea id="cmDesc" rows="6" placeholder="Photosynthesis needs sunlight, water and carbon dioxide.&#10;It makes glucose and oxygen.&#10;Chlorophyll in the leaves absorbs the sunlight.">${esc(o.desc || "")}</textarea></label>
         <p class="mini cm-tip">Write it any way: sentences, a list, or arrows like <code>Sunlight -> Photosynthesis : powers</code>. Arrows and lists work even without AI.</p>
-        <div class="cm-eg">${["Photosynthesis needs sunlight, water and CO2, and makes glucose and oxygen.", "French Revolution -> Napoleon : leads to\nEnlightenment -> French Revolution : inspires\nDebt -> French Revolution : triggers", "Supply and demand: price, quantity, equilibrium, shortage, surplus"].map((x, i) => `<button type="button" class="cm-egb" data-eg="${esc(x)}">${["Sentences", "Arrows", "A list"][i]}</button>`).join("")}<span class="mini">Try an example</span></div>
+        <div class="cm-eg"><span class="mini">Try an example</span>${["Photosynthesis needs sunlight, water and CO2, and makes glucose and oxygen.", "French Revolution -> Napoleon : leads to\nEnlightenment -> French Revolution : inspires\nDebt -> French Revolution : triggers", "Supply and demand: price, quantity, equilibrium, shortage, surplus"].map((x, i) => `<button type="button" class="btn small cm-egb" data-eg="${esc(x)}">${["Sentences", "Arrows", "A list"][i]}</button>`).join("")}</div>
       </div>
       <div class="cm-more" data-for="scan" ${start === "scan" ? "" : "hidden"}>
+        ${(() => { const CAM = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>', UP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v4h16v-4"/></svg>';
+          const qr = typeof PHONE_CAM !== "undefined" && PHONE_CAM.can(), cam = !qr && typeof phoneLike === "function" && phoneLike();
+          return `<div class="row-actions cm-scan-acts">${qr ? `<button type="button" class="btn primary" data-scan-phone aria-pressed="false">${CAM}Take Photo With Your Phone</button>` : cam ? `<button type="button" class="btn primary" data-scan-cam>${CAM}Take Photo</button>` : ""}<button type="button" class="btn${qr || cam ? "" : " primary"}" data-scan-pick>${UP}${cam ? "Choose a Picture" : "Upload a Picture"}</button></div>${cam ? `<input type="file" id="cmScanCam" accept="image/*" capture="environment" class="sr" tabindex="-1">` : ""}<div data-scan-qr></div>`; })()}
         <label class="cm-drop" data-cm-drop><input type="file" id="cmScan" accept="image/*" hidden><img alt="" hidden data-cm-shot>
-          <span class="cm-drop-in"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><b>Take a Photo or Choose a Picture</b><span class="mini">Or drop a picture here</span></span>
+          <span class="cm-drop-in"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><b>Drop or Paste a Picture Here</b><span class="mini">or click to choose one</span></span>
           <span class="cm-drop-chg" hidden>Change Picture</span></label>
         <p class="mini cm-tip">Works best with the whole page in frame, good light and clear writing. Boxes, circles, clouds, arrows, dashed lines and words on lines all carry over. The photo itself isn't kept.</p>
       </div>
@@ -106912,6 +106923,18 @@ function newMapSheet(cid, o){
   const shot = {f: null}; root._shot = shot;
   const setShot = f => { if (!f || !/^image\//.test(f.type || "") && !/\.(heic|heif|jpe?g|png|webp)$/i.test(f.name || "")) return; shot.f = f; const im = root.querySelector("[data-cm-shot]"); try { if (im.src) URL.revokeObjectURL(im.src); } catch (e) {} im.src = URL.createObjectURL(f); im.hidden = false; root.querySelector(".cm-drop-in").hidden = true; root.querySelector(".cm-drop-chg").hidden = false; root.querySelector("[data-cm-drop]").classList.add("has"); const r = root.querySelector('[name="cmStart"][value="scan"]'); if (r && !r.checked) { r.checked = true; sync(); } };
   const inp = root.querySelector("#cmScan"), dz = root.querySelector("[data-cm-drop]");
+  // take the photo: a phone's own camera, or on a computer a QR code that opens the camera on the phone (the photo comes back locked,
+  // through the relay, as for Scan to PDF); the first photo from the phone is the drawing, and the phone's link then closes
+  const camIn = root.querySelector("#cmScanCam"), pickB = root.querySelector("[data-scan-pick]"), camB = root.querySelector("[data-scan-cam]"), phB = root.querySelector("[data-scan-phone]"), qrBox = root.querySelector("[data-scan-qr]");
+  if (pickB) pickB.addEventListener("click", () => inp.click());
+  if (camB && camIn) { camB.addEventListener("click", () => camIn.click()); camIn.addEventListener("change", () => setShot(camIn.files && camIn.files[0])); }
+  const phoneDraw = () => { if (qrBox) qrBox.innerHTML = shot.phone ? PHONE_CAM.panel(shot.phone, "data-scan-ph", "Take a photo of your drawing there and it shows up here.") : ""; if (phB) phB.setAttribute("aria-pressed", shot.phone ? "true" : "false"); };
+  const phoneStop = () => { const ph = shot.phone; if (!ph) return; shot.phone = null; PHONE_CAM.stop(ph); phoneDraw(); };
+  const phoneStart = () => { if (shot.phone) return; const ph = shot.phone = PHONE_CAM.start({kind: "map", onChange: phoneDraw,
+      onPhoto: f => { setShot(f); setTimeout(phoneStop, 0); },
+      alive: () => shot.phone === ph && root.isConnected && dlg.open && dlg.contains(root) && (root.querySelector('[name="cmStart"]:checked') || {}).value === "scan"}); phoneDraw(); };
+  if (phB) phB.addEventListener("click", () => shot.phone ? phoneStop() : phoneStart());
+  if (qrBox) qrBox.addEventListener("click", e => { const b = e.target.closest("[data-scan-ph]"); if (!b) return; if (b.getAttribute("data-scan-ph") === "phone-again") { phoneStop(); phoneStart(); } else phoneStop(); });
   inp.addEventListener("change", () => setShot(inp.files && inp.files[0]));
   dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("over"); }); dz.addEventListener("dragleave", () => dz.classList.remove("over"));
   dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("over"); setShot(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
@@ -106931,7 +106954,8 @@ async function createFromSheet(){
   if (start === "tpl") { const id = (root.querySelector('[name="cmTpl"]:checked') || {}).value || "hub", t = CMAP.TEMPLATES.find(x => x.id === id); ov = CMAP.template(id) || {}; if (!name) name = t ? t.name : ""; }
   if (start === "scan") {
     if (window.SBPRO && SBPRO.locked()) { if (dlg.open) dlg.close(); PLAN.openSheet("Scanning a hand-drawn concept map is part of Studyboard Pro."); return; }
-    const f = root._shot && root._shot.f; if (!f) { err("Choose a photo of your drawing first."); root.querySelector("#cmScan").click(); return; }
+    const f = root._shot && root._shot.f; if (!f) { err("Take or upload a photo of your drawing first."); return; }
+    if (root._shot.phone) { PHONE_CAM.stop(root._shot.phone); root._shot.phone = null; }
     const b = root.querySelector("[data-submit]"); b.disabled = true; b.textContent = "Reading Your Drawing…"; err("");
     try { const r = await scanDrawing(f, name, m => { b.textContent = m; }); ov = r.ov; if (!name) name = r.title || ""; }
     catch (e) { b.disabled = false; b.textContent = "Scan My Drawing"; err((e && e.message) || "Couldn't read that drawing right now. Try again."); return; }
@@ -107148,8 +107172,11 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-acts{gap:6px}
 .cm-pclose{margin-left:auto;width:30px;height:30px;flex:none}
 .cm-pclose svg{width:16px;height:16px}
-.cm-panel>.cm-row:first-child{flex-wrap:nowrap}
-.cm-panel>.cm-row:first-child .mini{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-ttl{flex-wrap:nowrap}
+.cm-start{flex-wrap:wrap;gap:10px 14px}
+.cm-start p{min-width:0}
+.cm-start .btn{flex:none;white-space:nowrap}
+.cm-ttl .mini{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cm-delb{color:var(--muted)}
 .cm-acts .cm-delb{width:36px;height:36px;border-radius:999px;flex:none}
 .cm-undo{flex:none;width:34px;height:34px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
@@ -107273,6 +107300,9 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-atrow input{width:110px;font-size:16px}
 .cm-fromcard{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 8px;margin:10px 0 0}
 .cm-fromcard svg{color:#7C5CFF}
+.cm-scan-acts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.cm-scan-acts .btn svg{margin-right:6px;vertical-align:-3px}
+[data-scan-qr]:not(:empty){margin-bottom:10px}
 .cm-drop{position:relative;display:grid;place-items:center;min-height:150px;border:2px dashed color-mix(in srgb,var(--accent,#2F6FE4) 40%,var(--line));border-radius:16px;background:color-mix(in srgb,var(--accent,#2F6FE4) 5%,var(--surface));cursor:pointer;overflow:hidden;text-align:center;transition:border-color .15s,background .15s}
 .cm-drop:hover,.cm-drop.over{border-color:var(--accent,#2F6FE4);background:color-mix(in srgb,var(--accent,#2F6FE4) 10%,var(--surface))}
 .cm-drop:focus-within{outline:2px solid var(--accent,#2F6FE4);outline-offset:2px}
@@ -107301,6 +107331,31 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-del{color:var(--muted)}
 .cm-del:hover{color:#B42318}
 .cm-start-pick{border:0;padding:0;margin:0;display:grid;gap:8px}
+/* templates: a grid of cards, each a small preview of the layout with its name and what it's for */
+.cm-tpls{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
+.cm-tpl{position:relative;display:flex;flex-direction:column;gap:3px;padding:8px 8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer;transition:border-color .12s,box-shadow .12s}
+.cm-tpl:hover{border-color:color-mix(in srgb,var(--accent,#2F6FE4) 45%,var(--line))}
+.cm-tpl input{position:absolute;opacity:0;pointer-events:none}
+.cm-tpl:has(input:checked){border-color:var(--accent,#2F6FE4);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent,#2F6FE4) 28%,transparent);background:color-mix(in srgb,var(--accent,#2F6FE4) 6%,var(--surface))}
+.cm-tpl:has(input:focus-visible){outline:2px solid var(--accent,#2F6FE4);outline-offset:2px}
+.cm-tpl b{font-size:.9rem;line-height:1.2;padding:0 2px}
+.cm-tpl .mini{line-height:1.3;padding:0 2px}
+.cm-tthumb{display:block;width:100%;height:auto;aspect-ratio:1.6/1;margin-bottom:4px;border-radius:10px;background:radial-gradient(circle,color-mix(in srgb,var(--ink) 10%,transparent) 1px,transparent 1.4px) 0 0/12px 12px,color-mix(in srgb,var(--ink) 3%,var(--surface))}
+.cm-tthumb .tl line{stroke:color-mix(in srgb,var(--ink) 40%,transparent);stroke-width:1.4;vector-effect:non-scaling-stroke}
+.cm-tthumb .tl .tl-dashed{stroke-dasharray:5 4}
+.cm-tthumb .tl .tl-dotted{stroke-dasharray:.1 4;stroke-linecap:round;stroke-width:2.2}
+.cm-tthumb .tl .tl-thick{stroke-width:2.6}
+.cm-tthumb .tb>rect:not(.tb-bar),.cm-tthumb .tb>ellipse,.cm-tthumb .tb>path{fill:var(--surface);stroke:color-mix(in srgb,var(--ink) 45%,transparent);stroke-width:1.4;vector-effect:non-scaling-stroke}
+.cm-tthumb .tb>.tb-root{fill:var(--accent,#2F6FE4);stroke:var(--accent,#2F6FE4)}
+.cm-tthumb .tb-bar{fill:color-mix(in srgb,var(--ink) 22%,transparent)}
+.cm-tthumb .tb-bar.on-root{fill:rgb(255 255 255/.75)}
+.cm-tpl:has(input:checked) .tb-root{fill:var(--accent,#2F6FE4)}
+/* Describe it: a hint, and examples to try as the app's small buttons */
+.cm-tip{margin:6px 0 0}
+.cm-tip code{font-size:.85em;padding:1px 6px;border-radius:6px;background:color-mix(in srgb,var(--ink) 8%,var(--surface));white-space:nowrap}
+.cm-eg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.cm-eg .mini{margin-left:2px}
+.cm-imgph{fill:color-mix(in srgb,var(--ink) 8%,var(--surface))}
 .cm-opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer}
 .cm-opt:has(input:checked){border-color:var(--accent,#2F6FE4);background:color-mix(in srgb,var(--accent,#2F6FE4) 7%,var(--surface))}
 .cm-opt input{margin-top:4px}

@@ -152,7 +152,7 @@ function SEED(){
   /* A template */
   await act(page, "cm-new", "", {course: "c3"}); await page.waitForSelector("#cmName");
   await page.check('[name="cmStart"][value="tpl"]'); ok(await page.locator(".cm-tpl").count() >= 8 && await page.locator(".cm-tpl svg.cm-tthumb").count() >= 8, "templates show as small pictures");
-  await page.check('[name="cmTpl"][value="timeline"]'); await page.fill("#cmName", ""); await page.click("#dlg[open] [data-submit]"); await page.waitForSelector('.cm-node[data-n="root"]');
+  await page.click('.cm-tpl:has([value="timeline"])'); await page.fill("#cmName", ""); await page.click("#dlg[open] [data-submit]"); await page.waitForSelector('.cm-node[data-n="root"]');
   c3 = await course(page, "c3"); const tm = c3.maps[1];
   ok(tm && tm.add.length >= 3 && tm.pos && Object.keys(tm.styles || {}).length >= 1 && /Timeline/i.test(tm.name), "a template makes a ready-made map, named after it: " + (tm && tm.name));
   await page.keyboard.press("Escape"); await page.waitForTimeout(250);
@@ -161,7 +161,7 @@ function SEED(){
   await page.check('[name="cmStart"][value="scan"]');
   ok(await page.isVisible("[data-cm-drop]") && await page.textContent("#dlg[open] [data-submit]") === "Scan My Drawing", "Scan a drawing: a place for the photo and a Scan My Drawing button");
   await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(150);
-  ok(/Choose a photo/.test(await page.textContent("[data-cm-err]")), "without a photo it asks for one");
+  ok(/Take or upload a photo/.test(await page.textContent("[data-cm-err]")), "without a photo it asks for one");
   const PNG = Buffer.from((await page.evaluate(() => { const c = document.createElement("canvas"); c.width = 320; c.height = 220; const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, 320, 220); x.strokeRect(40, 40, 90, 40); x.strokeRect(190, 140, 90, 40); x.beginPath(); x.moveTo(130, 60); x.lineTo(190, 160); x.stroke(); x.fillStyle = "#000"; x.fillText("Evaporation", 50, 64); return c.toDataURL("image/png"); })).split(",")[1], "base64");
   await page.setInputFiles("#cmScan", {name: "map.png", mimeType: "image/png", buffer: PNG}); await page.waitForTimeout(200);
   ok(await page.isVisible("[data-cm-shot]") && await page.isVisible(".cm-drop-chg"), "the chosen photo shows, with Change Picture");

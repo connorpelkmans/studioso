@@ -282,6 +282,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await act(page, "cm-open", "c2", {kind: "course"}); await page.waitForSelector('.cm-node[data-n="root"]');
   ok(await page.locator('.cm-node[data-n="file:f1"]').count() === 1 && await page.evaluate(() => SBCMAP.state().loose), "a new map starts with the course's unlinked material on show, ready to connect");
   ok(/Start your map/.test(await page.textContent(".cm-panel")) && await page.locator('.cm-panel [data-cm="idea"]').count() === 1, "and one clear first step: Add Your First Idea");
+  ok(await page.evaluate(() => { const P = document.querySelector(".cm-panel"), b = P.querySelector('[data-cm="idea"]').getBoundingClientRect(), r = P.getBoundingClientRect(); return P.scrollWidth <= P.clientWidth + 1 && b.right <= r.right + 1 && b.height < 60; }), "the first step fits: no sideways scroll, its button in view on one line");
   await cmClick(page, '.cm-panel [data-cm="idea"]'); await page.waitForSelector("#cmAsk");
   await page.fill("#cmAsk", "Thesis: parks cool cities"); await page.press("#cmAsk", "Enter"); await page.waitForTimeout(250);
   const c2 = await course(page, "c2"), first = c2.cmap.add.find(x => x.label === "Thesis: parks cool cities");

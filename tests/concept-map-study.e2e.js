@@ -62,7 +62,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   ok((await col(page, "idea:d")).toUpperCase() === "#E03131", "ATP is red: a card naming it, 0 of 3");
   ok((await col(page, "idea:a")).toUpperCase() === "#E03131", "Glycolysis is red: a quiz question naming it, missed 2 of 2");
   ok((await col(page, "idea:b")).toUpperCase() === "#98A2B3", "Pyruvate is grey: no results yet");
-  ok(/No results yet/.test(await page.textContent(".cm-legend")) && /Shaky/.test(await page.textContent(".cm-legend")), "the key says what the colours mean");
+  ok(/No Results Yet/.test(await page.textContent(".cm-legend")) && /Shaky/.test(await page.textContent(".cm-legend")), "the key says what the colours mean");
   await tap(page, "idea:d");
   ok(/Shaky · 0% right \(0 of 3\)/.test(await page.textContent(".cm-panel")) && await page.isVisible('[data-cm="study"]'), "an idea's panel shows its results and Review 1 Card");
   ok(/1 Shaky/.test(await page.textContent(".cm-tools")), "the toolbar offers Review for shaky ideas that have cards");
