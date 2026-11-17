@@ -1887,7 +1887,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-evk{flex:none;margin-top:1px;padding:1px 7px;border-radius:999px;font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
 .cm-evk.is-card{background:color-mix(in srgb,#1C7ED6 16%,var(--surface));color:#1C7ED6}
 .cm-evk.is-q{background:color-mix(in srgb,#7C5CFF 16%,var(--surface));color:#7C5CFF}
-@media (max-width:560px){.cm-evi .mini{display:none}}
+@media (max-width:560px){.cm-evi .mini{display:none}.cm-evbar{flex-wrap:wrap}.cm-evbar input{flex:1 1 100%}.cm-evbar .btn{flex:1 1 auto}}
 .cm-scan-acts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .cm-scan-acts .btn svg{margin-right:6px;vertical-align:-3px}
 [data-scan-qr]:not(:empty){margin-bottom:10px}
