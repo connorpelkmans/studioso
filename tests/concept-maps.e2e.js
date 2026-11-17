@@ -366,14 +366,20 @@ function SEED(){
   {
     const ctxL = await mkCtx(), pl = await open(ctxL), mp = async () => (await course(pl, "c2")).maps.find(m => m.id === "m1");
     await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node");
+    ok(!(await mp()).pack && await pl.getAttribute(".cm-canvas", "data-pk") === "t_classic" && await pl.locator(".cm-node").count() > 0, "a map with no style chosen matches the theme in use (Classic)");
+    await pl.evaluate(() => { const s = window.__sbProStudy.state(); s.settings.style = Object.assign({}, s.settings.style, {skin: "sakura"}); });
+    await pl.click(".cm-x"); await pl.waitForTimeout(250); await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node");
+    ok(await pl.getAttribute(".cm-canvas", "data-pk") === "sakura" && await pl.locator(".cm-node.is-pk").count() > 0, "on Sakura, the same map opens in Sakura's style");
+    await pl.evaluate(() => { const s = window.__sbProStudy.state(); s.settings.style = Object.assign({}, s.settings.style, {skin: "classic"}); });
+    await pl.click(".cm-x"); await pl.waitForTimeout(250); await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node");
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
-    ok(await pl.locator(".cm-look").count() >= 73 && await pl.locator('.cm-look.on[data-v=""]').count() === 1, "Map Style: Plain, Match My Theme, 20 subjects and every app theme, Plain chosen");
+    ok(await pl.locator(".cm-look").count() >= 104 && await pl.locator('.cm-look[data-v^="t-"]').count() === 0 && await pl.locator('.cm-look.on[data-v="theme"]').count() === 1, "Map Style: Plain, Match My Theme, 20 subjects and every app theme, each with its own style; a new map matches the theme");
     // a trackpad or mouse wheel over the list scrolls the list (not the map's zoom)
     const k0 = await pl.evaluate(() => SBCMAP.state().view.k), lb = await pl.locator(".cm-panel").boundingBox();
     await pl.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2); await pl.mouse.wheel(0, 400); await pl.waitForTimeout(250);
     ok(await pl.evaluate(() => document.querySelector(".cm-panel").scrollTop) > 100 && await pl.evaluate(() => SBCMAP.state().view.k) === k0, "scrolling over the style list scrolls it, and doesn't zoom the map");
-    await pl.click('.cm-look[data-v="t-lavender"]'); await pl.waitForTimeout(300);
-    ok((await mp()).pack === "t-lavender" && await pl.getAttribute(".cm-canvas", "data-pk") === "t-lavender", "any theme's style can be chosen, not just the current theme's (Lavender, while on Classic)");
+    await pl.click('.cm-look[data-v="t_lavender"]'); await pl.waitForTimeout(300);
+    ok((await mp()).pack === "t_lavender" && await pl.getAttribute(".cm-canvas", "data-pk") === "t_lavender" && await pl.locator(".cm-canvas.cm-pkn").count() === 1 && await pl.evaluate(() => document.querySelector('.cm-node[data-n="idea:a"]').dataset.col.toLowerCase() === "#8a73c9"), "any theme's style can be chosen, not just the current theme's (Lavender's colour, while on Classic)");
     await pl.click('.cm-look[data-v="halloween"]'); await pl.waitForTimeout(300);
     ok(await pl.getAttribute(".cm-canvas", "data-pk") === "halloween", "a theme with its own style: Halloween, while on Classic");
     await pl.click('.cm-look[data-v="med"]'); await pl.waitForTimeout(300);
@@ -391,7 +397,7 @@ function SEED(){
     ok(await pl.locator(".cm-edge.pk-e").count() >= 3 && await pl.locator(".cm-edge:not(.pk-e)").count() === 0, "dragging a box keeps its lines in the style");
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForTimeout(150); if (!(await pl.locator(".cm-looks").count())) { await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); }
     await pl.click('.cm-look[data-v="theme"]'); await pl.waitForTimeout(300);
-    ok((await mp()).pack === "theme" && await pl.getAttribute(".cm-canvas", "data-pk") === "t-classic", "Match My Theme: a theme without a style of its own gets its colours and motif");
+    ok((await mp()).pack === "theme" && await pl.getAttribute(".cm-canvas", "data-pk") === "t_classic", "Match My Theme on Classic: Classic's own style (index cards and paper clips)");
     await pl.evaluate(() => { const s = window.__sbProStudy.state(); s.settings.style = Object.assign({}, s.settings.style, {skin: "sakura"}); }); await pl.click('.cm-look[data-v="theme"]').catch(() => {});
     await pl.click('.cm-tools [data-cm="undo"]'); await pl.waitForTimeout(300);
     ok((await mp()).pack === "med" && await pl.getAttribute(".cm-canvas", "data-pk") === "med", "Undo puts the last style back");
@@ -404,7 +410,7 @@ function SEED(){
     ok(await pl.locator(".cm-node.is-pk").count() === 0 && await pl.locator(".cm-canvas.cm-pk").count() === 1, "Colour by Knowledge shows plain boxes on the style's background");
     await pl.click('.cm-tools [data-cm="know"]'); await pl.waitForTimeout(200);
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); await pl.click('.cm-look[data-v=""]'); await pl.waitForTimeout(300);
-    ok(!(await mp()).pack && await pl.locator(".cm-canvas.cm-pk").count() === 0 && await pl.locator(".cm-node.is-pk").count() === 0, "Plain takes the style off");
+    ok((await mp()).pack === "plain" && await pl.locator(".cm-canvas.cm-pk, .cm-canvas.cm-pkn").count() === 0 && await pl.locator(".cm-node.is-pk").count() === 0, "Plain takes the style off, and is kept (it doesn't fall back to the theme)");
     // Map Style closes when you click away from it (on the map), or press Escape, like a menu
     if (!(await pl.locator(".cm-looks").count())) await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
     const cvb = await pl.locator(".cm-canvas").boundingBox(); await pl.mouse.click(cvb.x + 40, cvb.y + 40); await pl.waitForTimeout(200);
@@ -419,15 +425,81 @@ function SEED(){
     await tap(pl, "idea:a"); if (!(await pl.locator(".cm-panel .cm-style").count())) await pl.click('.cm-panel [data-cm="style"]'); await pl.waitForTimeout(150);
     await pl.click(".cm-x"); await pl.waitForTimeout(300); await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node"); await tap(pl, "idea:a"); await pl.waitForTimeout(200);
     ok(await pl.locator(".cm-panel .cm-style:not([hidden])").count() === 0 && await pl.locator('.cm-panel [data-cm="style"][aria-expanded="true"]').count() === 0, "and a box's Style section starts closed too");
+    // without Pro (e.g. Pro ended while the map was open): no style is drawn, the picker marks every style Pro, and picking one opens the Pro sheet
+    await pl.click('.cm-tools [data-cm="looks"]').catch(() => {}); if (!(await pl.locator(".cm-looks").count())) await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
+    await pl.click('.cm-look[data-v="sakura"]'); await pl.waitForTimeout(300);
+    ok(await pl.locator(".cm-canvas.cm-pk").count() === 1, "with Pro, the style shows");
+    await pl.evaluate(() => { window.__realLocked = SBPRO.locked; SBPRO.locked = () => true; });
+    await pl.click('.cm-look[data-v=""]'); await pl.waitForTimeout(150); await pl.click('.cm-tools [data-cm="looks"]').catch(() => {}); if (!(await pl.locator(".cm-looks").count())) await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
+    ok(await pl.locator(".cm-canvas.cm-pk").count() === 0 && await pl.locator(".cm-node.is-pk").count() === 0, "without Pro, the map is drawn plain");
+    ok(await pl.locator('.cm-look[data-v="sakura"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v="med"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v=""] .pro-badge').count() === 0, "theme and subject styles are marked Pro; Plain isn't");
+    ok(await pl.locator(".cm-look .pro-badge").count() === await pl.locator(".cm-look").count() - 15 - (await pl.locator('.cm-look[data-v="theme"] .pro-badge').count() ? 0 : 1), "the 14 plain-colour styles (and Plain) are free, everything else is Pro");
+    const before = (await mp()).pack;
+    await pl.click('.cm-look[data-v="sakura"]'); await pl.waitForTimeout(300);
+    ok(await pl.locator("#dlg[open] .plan-sheet").count() === 1 && /This map style is part of Studyboard Pro/.test(await pl.textContent("#dlg[open]")) && (await mp()).pack === before, "picking a Pro theme's style without Pro opens the Pro sheet and changes nothing");
+    await pl.keyboard.press("Escape"); await pl.waitForTimeout(200);
+    await pl.evaluate(() => { SBPRO.locked = window.__realLocked; });
     ok(!(await pl.locator("#toast.show").count()) && pl.errs.length === 0, "Map Style: no notices, no errors: " + pl.errs.join(" | "));
     await ctxL.close();
   }
 
-  /* Free plan */
-  const fctx = await mkCtx(null, {free: true}), fp = await open(fctx);
-  await act(fp, "cm-new", "", {course: "c2"}); await fp.waitForSelector("#dlg[open] .plan-sheet");
-  ok(/Concept Maps are part of Studyboard Pro/.test(await fp.textContent("#dlg[open]")), "free: New Map opens the Pro sheet");
-  await fctx.close();
+  /* Double-click an empty spot: a new idea there, named first */
+  {
+    const ctxD = await mkCtx(), pd = await open(ctxD);
+    await act(pd, "cm-open", "c2", {kind: "course", map: "m1"}); await pd.waitForSelector(".cm-node");
+    const n0 = await pd.locator(".cm-node").count(), cvb = await pd.locator(".cm-canvas").boundingBox(), px = cvb.x + cvb.width * 0.82, py = cvb.y + cvb.height * 0.22;
+    ok(await pd.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return !!el && !el.closest(".cm-node, .cm-edge, .cm-panel, .cm-zoom"); }, [px, py]), "the spot is empty map");
+    await pd.mouse.dblclick(px, py); await pd.waitForSelector("#cmAsk");
+    ok(/Name the new idea/.test(await pd.textContent(".cm-ask")), "double-clicking the map asks for the new idea's name");
+    await pd.fill("#cmAsk", "Electron Transport"); await pd.keyboard.press("Enter"); await pd.waitForTimeout(400);
+    const nb = await pd.locator(".cm-node", {hasText: "Electron Transport"}).boundingBox();
+    ok(await pd.locator(".cm-node").count() === n0 + 1 && nb && Math.hypot(nb.x + nb.width / 2 - px, nb.y + nb.height / 2 - py) < 24, "the idea appears where you double-clicked");
+    const mp = (await course(pd, "c2")).maps.find(m => m.id === "m1"), added = mp.add.find(i => i.label === "Electron Transport");
+    ok(added && mp.pos["idea:" + added.id] && !mp.links.some(l => l.b === "idea:" + added.id || l.a === "idea:" + added.id), "it's saved with its place, not connected yet");
+    ok(await pd.locator(".cm-node.is-sel", {hasText: "Electron Transport"}).count() === 1, "and it's picked, ready to connect or style");
+    await pd.mouse.dblclick(px - 160, py + 120); await pd.waitForSelector("#cmAsk"); await pd.keyboard.press("Escape"); await pd.waitForTimeout(250);
+    ok(await pd.locator(".cm-node").count() === n0 + 1 && await pd.locator(".cm-node").count() > 0, "Escape (or no name) adds nothing");
+    await pd.locator(".cm-node", {hasText: "Electron Transport"}).dblclick(); await pd.waitForTimeout(300);
+    ok(await pd.locator("#cmAsk").count() === 0 || !/Name the new idea/.test(await pd.textContent(".cm-panel")), "double-clicking a box doesn't add an idea");
+    ok(pd.errs.length === 0, "double-click: no errors: " + pd.errs.join(" | "));
+    await ctxD.close();
+  }
+
+  /* Free plan: maps for everyone; styles beyond the plain colours, embeds, pictures, any colour, PDF and lecture links, Colour by Knowledge are Pro */
+  {
+    const fctx = await mkCtx(null, {free: true}), fp = await open(fctx), sheet = async () => (await fp.locator("#dlg[open] .plan-sheet").count()) ? await fp.textContent("#dlg[open]") : "";
+    const reopen = async () => { await fp.keyboard.press("Escape"); await fp.waitForTimeout(200); if (!(await fp.locator(".cm-node").count())) { await act(fp, "cm-open", "c2", {kind: "course", map: "m1"}); await fp.waitForSelector(".cm-node"); } };
+    await act(fp, "cm-new", "", {course: "c2"}); await fp.waitForSelector("#cmName");
+    ok(!(await sheet()), "free: New Map opens New Map, not the Pro sheet");
+    await fp.keyboard.press("Escape"); await fp.waitForTimeout(200);
+    await act(fp, "cm-open", "c2", {kind: "course", map: "m1"}); await fp.waitForSelector(".cm-node");
+    ok(await fp.locator(".cm-node").count() >= 4 && !(await sheet()), "free: a map opens, with its ideas");
+    await act(fp, "cm-review", ""); await fp.waitForTimeout(300); await act(fp, "cm-open", "c2", {kind: "course", map: "m1"}); await fp.waitForSelector(".cm-node");
+    // Map Style: the plain colours are free, the rest Pro
+    await fp.click('.cm-tools [data-cm="looks"]'); await fp.waitForSelector(".cm-looks");
+    ok(await fp.locator('.cm-look[data-v="t_lavender"] .pro-badge').count() === 0 && await fp.locator('.cm-look[data-v="t_indigo"] .pro-badge').count() === 0 && await fp.locator('.cm-look[data-v="sakura"] .pro-badge').count() === 1 && await fp.locator('.cm-look[data-v="med"] .pro-badge').count() === 1, "free: plain-colour styles have no PRO badge; scene and subject styles do");
+    await fp.click('.cm-look[data-v="t_lavender"]'); await fp.waitForTimeout(300);
+    ok(await fp.getAttribute(".cm-canvas", "data-pk") === "t_lavender" && !(await sheet()), "free: a plain-colour style (Lavender) can be used");
+    await fp.click('.cm-look[data-v="med"]'); await fp.waitForTimeout(300);
+    ok(/This map style is part of Studyboard Pro/.test(await sheet()), "free: a subject style opens the Pro sheet");
+    await reopen();
+    ok(await fp.getAttribute(".cm-canvas", "data-pk") === "t_lavender", "and the map keeps its free style");
+    // Colour by Knowledge
+    await fp.click('.cm-tools [data-cm="know"]'); await fp.waitForTimeout(300);
+    ok(/Colour by Knowledge is part of Studyboard Pro/.test(await sheet()), "free: Colour by Knowledge opens the Pro sheet");
+    await reopen();
+    // an idea's Attach menu: everything there is Pro
+    await tap(fp, "idea:a"); await fp.click('.cm-panel [data-cm="menu"][data-v="attach"]'); await fp.waitForSelector(".cm-menu");
+    ok(await fp.locator(".cm-menu .pro-badge").count() === 5, "free: Attach's Flashcards and Questions, PDF Page, Lecture Moment, Picture and Video are marked Pro");
+    await fp.click('.cm-menu [data-cm="atlec"]'); await fp.waitForTimeout(300);
+    ok(/part of Studyboard Pro/.test(await sheet()), "free: Lecture Moment opens the Pro sheet");
+    await reopen();
+    // a free part still works: Make Flashcards
+    await cmClick(fp, '[data-cm="cards"]'); await fp.waitForTimeout(300);
+    ok(!(await sheet()), "free: Make Flashcards is free");
+    ok(fp.errs.length === 0, "free: no errors: " + fp.errs.join(" | "));
+    await fctx.close();
+  }
 
   /* Phone */
   const pctx = await mkCtx({width: 390, height: 844}), pp = await open(pctx);

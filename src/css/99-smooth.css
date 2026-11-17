@@ -95,7 +95,8 @@ html #view :is(.g2-head .g2-band .btn.primary, .c2-head .g2-band .btn.primary)::
   html:not([data-motion="static"]) .deck.deck-fc,html:not([data-motion="static"]) .qz-card,html:not([data-motion="static"]) .wsr-card{transition:translate .18s ease,box-shadow .18s ease}
   html:not([data-motion="static"]) .deck.deck-fc:hover,html:not([data-motion="static"]) .qz-card:hover,html:not([data-motion="static"]) .wsr-card:hover{translate:0 -2px;box-shadow:0 2px 4px rgb(0 0 0/.06),0 14px 28px -14px color-mix(in srgb,var(--c,#2F6FE4) 60%,transparent)}
   /* a deck is a stack of card faces in a see-through wrapper (its own shadow is off), so its glow follows the stack's shape instead */
-  html:not([data-motion="static"]) .deck.deck-fc{transition:translate .18s ease,filter .18s ease}
+  /* at rest the same two shadows, invisible and already in the course colour: fading from no filter at all started the glow grey */
+  html:not([data-motion="static"]) .deck.deck-fc{transition:translate .18s ease,filter .18s ease;filter:drop-shadow(0 1px 2px rgb(0 0 0/0)) drop-shadow(0 10px 9px color-mix(in srgb,var(--c,#2F6FE4) 0%,transparent))}
   html:not([data-motion="static"]) .deck.deck-fc:hover{filter:drop-shadow(0 1px 2px rgb(0 0 0/.06)) drop-shadow(0 10px 9px color-mix(in srgb,var(--c,#2F6FE4) 48%,transparent))}
 }
 @media (prefers-reduced-motion:reduce){.deck.deck-fc:hover,.qz-card:hover,.wsr-card:hover{translate:none}}

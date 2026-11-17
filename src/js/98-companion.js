@@ -1206,7 +1206,7 @@
   }
 
   /* Speech bubble */
-  let bubbleT = 0, bubbleIdea = null, bubbleAsk = false;
+  let bubbleT = 0, bubbleIdea = null, bubbleAsk = false, askFlow = false; // askFlow: the bubble is Ask's (its box, the thinking dots or the answer)
   const order = {};
   /* One shared guard so the companion never says the same line twice in a row */
   function speechGuard(store){
@@ -1235,7 +1235,7 @@
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
-  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
+  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; askFlow = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
   let bRects = null, bRectsAt = 0;
   const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects({t: 0, b: innerHeight}); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
@@ -1304,6 +1304,7 @@
   }
   function say(text, opts){
     if (!front || !cur || !box || box.hidden || document.hidden || !text) return;
+    askFlow = false; // a new line isn't Ask's (Ask's answer marks itself again once it's said)
     opts = opts || {};
     text = withName(text, opts);
     if (!opts.again && !SPEECH.ok(text)) return;
@@ -1429,7 +1430,7 @@
     if (!aiSetUp() && !linesAsk()) { hideBubble(); try { if (inPreview()) toast("Ask works in the Studyboard app and on your own Studyboard website."); else aiSetupSheet(false); } catch (e) {} return; }
     if (askOnTab()) { if (typeof ui !== "undefined" && ui.tab !== "companion") { ui.tab = "companion"; render(); } return; }
     const b = front && front.querySelector(".cp-bubble"); if (!b || !cur) return;
-    clearTimeout(bubbleT);
+    clearTimeout(bubbleT); askFlow = true;
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
     b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
@@ -1455,12 +1456,12 @@
     act.look(0, 0);
     if (r && r.answer && !SPEECH.ok(r.answer)) r = {why: pickFrom("ask:same", ["Hmm, I'd say the same thing again! Try asking another way?", "That's my answer again! Want to ask it differently?", "I keep landing on the same answer! Give me a different question?"])};
     if (r && r.answer) {
-      const speak = () => { if (!act) return; say(r.answer, {idea: r.idea, ms: Math.min(60000, Math.max(14000, 6000 + r.answer.length * 75)), long: r.answer.length > 200}); act.eyes("happy"); later(() => act && act.eyes("open"), 1200); };
+      const speak = () => { if (!act) return; say(r.answer, {idea: r.idea, ms: Math.min(60000, Math.max(14000, 6000 + r.answer.length * 75)), long: r.answer.length > 200}); askFlow = true; act.eyes("happy"); later(() => act && act.eyes("open"), 1200); };
       // Ask found something or has a change: go there first (that redraws the page), then say the answer there
       if (r.go) { let spoke = false; const once = () => { if (!spoke) { spoke = true; setTimeout(speak, 150); } }; Promise.resolve().then(() => r.go(once)).catch(e => console.warn(e)).finally(once); }
       else speak();
     }
-    else say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000});
+    else { say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000}); askFlow = true; }
   }
 
   /* Moods: idle, study (a tiny book), doze (sleepy characters during focus), nap */
@@ -1569,6 +1570,12 @@
         bb.addEventListener("pointerleave", () => { if (bb.classList.contains("on") && !bb.classList.contains("asking") && !bb.classList.contains("cp-think") && !bb.querySelector(".cp-thinking") && !bb.contains(document.activeElement)) { clearTimeout(bubbleT); bubbleT = setTimeout(hideBubble, 2500); } }); }
       document.body.appendChild(front);
       front.querySelector(".cp-bubble").addEventListener("click", onBubbleClick);
+      // after Ask: a click or tap anywhere else (not the bubble, not the companion) puts the bubble away
+      document.addEventListener("pointerdown", e => {
+        const bb = front && front.querySelector(".cp-bubble"); if (!askFlow || !bb || !bb.classList.contains("on")) return;
+        if (bb.contains(e.target) || (box && box.contains(e.target))) return;
+        hideBubble();
+      }, true);
     }
     if (act) act.stopAll();
     const keepMood = cur && cur.id === c.id ? mood : null;

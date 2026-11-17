@@ -30,6 +30,12 @@ const server = http.createServer((req, res) => { let p = decodeURIComponent(new 
       ok(mac.files.filter(f => /\.dmg$/.test(f)).join() === "Studyboard-1.2.3-mac-universal.dmg", "one universal Mac download: " + mac.files.join(", "));
       ok(/Download for Mac/.test(mac.hero) && /v1\.2\.3/.test(mac.hero) && !/Intel Macs?\b.*Download|Mac with Intel|Which Mac/.test(mac.hero + mac.all), "the Mac hero has a single Mac button: " + mac.hero.replace(/\s+/g, " ").slice(0, 120));
       ok(!/Mac M-series|Mac Intel/.test(win.hero) && /Mac/.test(win.hero), "other computers see one Mac link: " + win.hero.replace(/\s+/g, " ").slice(0, 120)); }
+    // links to the latest release (the release workflow uploads fixed-name copies): no version shown, and the fixed file name
+    link("macArm", "https://github.com/connorpelkmans/installers/releases/latest/download/Studyboard-mac-universal.dmg", "Studyboard-mac-universal.dmg");
+    link("macIntel", "https://github.com/connorpelkmans/installers/releases/latest/download/Studyboard-mac-universal.dmg", "Studyboard-mac-universal.dmg");
+    { const mac = await look(MACUA);
+      ok(mac.files.filter(f => /\.dmg$/.test(f)).join() === "Studyboard-mac-universal.dmg" && /Download for Mac/.test(mac.hero), "a latest-release link: one Mac download with the fixed file name: " + mac.files.join(", "));
+      ok(!/v9\.9\.9|v\d+\.\d+\.\d+ · Apple/.test(mac.hero) && !/undefined|v ·/.test(mac.hero + mac.all), "and no version is claimed for it: " + mac.hero.replace(/\s+/g, " ").slice(0, 120)); }
     // separate M-series and Intel files: two Mac cards, named from the version in each link
     link("macArm", REL + "Studyboard-1.2.3-mac.dmg", "Studyboard-{version}-mac.dmg");
     link("macIntel", REL + "Studyboard-1.2.3-mac-intel.dmg", "Studyboard-{version}-mac-intel.dmg");

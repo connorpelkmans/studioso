@@ -50,6 +50,21 @@ const seed = () => { localStorage.setItem("studioso:sb", '"local"'); localStorag
       await page.mouse.move(200, 200, {steps: 3}); await page.waitForTimeout(3200);
       ok(!(await on(page)), "and it goes once the pointer leaves");
       await ctx.close(); }
+    // 3. after Ask, clicking away puts the bubble away: the open Ask box, and the answer
+    { const {ctx, page, tap} = await page0();
+      await tap(); await page.waitForSelector('.cp-bubble.on [data-cp="ask"]'); await page.click('.cp-bubble.on [data-cp="ask"]'); await page.waitForSelector(".cp-bubble.on .cp-ask-in");
+      await page.click(".cp-ask-in"); await page.waitForTimeout(200);
+      ok(await on(page), "clicking in the Ask box keeps it open");
+      await page.mouse.click(640, 120); await page.waitForTimeout(250);
+      ok(!(await on(page)), "clicking away from the Ask box puts the bubble away");
+      await tap(); await page.waitForSelector('.cp-bubble.on [data-cp="ask"]'); await page.click('.cp-bubble.on [data-cp="ask"]');
+      await page.fill(".cp-ask-in", "what is my most recent flashcard set?"); await page.press(".cp-ask-in", "Enter");
+      await page.waitForFunction(() => /Cell Biology/.test(document.querySelector(".cp-bubble").textContent), null, {timeout: 10000});
+      ok(await on(page), "the answer is up");
+      await page.mouse.click(640, 120); await page.waitForTimeout(250);
+      ok(!(await on(page)), "clicking away from the answer puts it away");
+      ok(!page.errs.length, "no page errors " + page.errs.join(" | "));
+      await ctx.close(); }
     console.log(`companion-bubble.e2e: ${n} checks passed`);
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

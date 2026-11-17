@@ -16,12 +16,16 @@ Mac builds can only be made on macOS, so everything is built by GitHub Actions (
    * *A code-signing certificate* (.pfx from a CA): secrets `WIN_CSC_LINK` (base64 .pfx) and `WIN_CSC_KEY_PASSWORD`.
    Without either, the release has no Windows installer.
 
-## Each release
+## Each release (automatic for the Mac)
 
-1. Bump `version` in `package.json` (and `VERSION` in `website/config.js`).
-2. `git tag v1.13.0 && git push origin v1.13.0`. Actions builds, signs, notarizes, then uploads to
-   `https://github.com/connorpelkmans/installers/releases/download/v1.13.0/<file>`.
-3. Fill the links in `website/config.js` and redeploy the website:
+1. Bump `version` in `package.json` (and `VERSION` in `website/config.js`, `APP_VERSION` in `src/js/49-feedback.js` and `src/js/49-errreport.js`, `VERSION` in `src/js/99-release.js`, the website footers).
+2. `git tag v1.15.8 && git push origin v1.15.8`. Actions runs lint and the tests, builds, signs and notarizes the universal DMG, then uploads it to
+   `https://github.com/connorpelkmans/installers/releases/download/v1.15.8/<file>`, **plus a copy named `Studyboard-mac-universal.dmg`**, and marks that release *latest*.
+3. Nothing else for the Mac: the website's Mac buttons link to
+   `https://github.com/connorpelkmans/installers/releases/latest/download/Studyboard-mac-universal.dmg`, which always serves the newest signed DMG
+   (unsigned test builds are published as pre-releases, so they never become *latest*). The website only needs deploying once, for this link change.
+
+Before the automatic links, each release changed the links by hand (still how the Windows `.exe` link works, if Windows signing is set up):
 
 ```js
 windows:  { ..., url: "https://github.com/connorpelkmans/installers/releases/download/v1.13.0/Studyboard-Setup-1.13.0.exe", ... },
