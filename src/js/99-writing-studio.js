@@ -1806,7 +1806,7 @@ const WORD_ICON = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="
 function ldPickRow(w){
   const C = window.SBCLOUD, con = C && C.connected ? C.connected() : [], ic = p => (C && C.icons && C.icons[p]) || "";
   const b = (p, label, attr) => `<button type="button" class="btn small ws-ldb" ${con.includes(p) ? attr : `data-ws-ldcon title="Connect ${p === "google" ? "Google Drive" : "OneDrive"} first (Files, Cloud)"`} ${W.busy ? "disabled" : ""}>${ic(p)}<span>${label}</span></button>`;
-  return `<div class="ws-row ws-ldrow"><span class="mini ws-grow">Or link the doc you're writing: Check reads it, and each Fix goes straight into it.</span>${b("google", "Google Doc", "data-ws-ldg")}${b("microsoft", "Word in OneDrive", "data-ws-ldw")}</div>
+  return `<div class="ws-row ws-ldrow"><span class="mini ws-grow">Or link the doc you're writing: Check reads it, and each Fix goes straight into it.</span>${b("google", "Google Doc From Google Drive", "data-ws-ldg")}${b("microsoft", "Word From OneDrive", "data-ws-ldw")}</div>
     ${w.ld && !ldOf(w) ? `<p class="mini ws-note">Linked: <b>${esc(w.ld.name || ldName(w.ld))}</b> · <button type="button" class="link-btn" data-ws-ldcheck>Check It</button> · <button type="button" class="link-btn" data-ws-ldoff>Unlink</button></p>` : ""}`;
 }
 // a linked doc, above its check: its name, Write in It Here (the doc itself, in the tab), Open, Unlink
@@ -2745,6 +2745,11 @@ dialog:has(.ws-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .ws-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 20px 0;border-bottom:1px solid var(--line)}
 /* Zotero's Z: its red, centred on the label beside it */
 svg.ws-zic{display:block;flex:none}
+/* the Google Drive and OneDrive logos on Link a Doc keep their own shape (OneDrive's is wider than it is tall) */
+.ws-ldb{display:inline-flex;align-items:center;gap:6px}
+.ws-ldb > .brand-lg{flex:none;display:block;min-width:0}
+.ws-ldb > img.brand-lg{width:24px;height:16px;object-fit:contain}
+.ws-ldb > svg.brand-lg{width:20px;height:18px}
 :is(.btn,button):has(> svg.ws-zic){display:inline-flex;align-items:center;gap:6px}
 .ws-tabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
 /* the head, tab bar and progress strip keep their own height on every tab (a long tab squeezed them, moving the line under the title) */

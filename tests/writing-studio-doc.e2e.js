@@ -175,7 +175,7 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
   await page.keyboard.press("Escape"); await page.waitForTimeout(300);
   await openWS(); await page.click('#dlg[open] [data-ws-tab="check"]');
   ok(await page.textContent('#dlg[open] [data-ws-tab="check"]') === "Check My Doc" && !(await page.locator('#dlg[open] [data-ws-tab="doc"]').count()), "one tab: Check My Doc");
-  ok(await page.locator("#dlg[open] .ws-ldrow [data-ws-ldg]").count() === 1 && await page.locator('#dlg[open] .ws-ldrow [data-ws-ldcon]:has-text("Word in OneDrive")').count() === 1 && await page.locator("#dlg[open] [data-ws-dfile]").count() === 1, "Check My Doc: paste, upload, or link a Google Doc (Drive connected) or a Word file in OneDrive (connect it first)");
+  ok(await page.locator("#dlg[open] .ws-ldrow [data-ws-ldg]").count() === 1 && await page.locator('#dlg[open] .ws-ldrow [data-ws-ldcon]:has-text("Word From OneDrive")').count() === 1 && await page.locator("#dlg[open] [data-ws-dfile]").count() === 1, "Check My Doc: paste, upload, or link a Google Doc (Drive connected) or a Word file in OneDrive (connect it first)");
   // the same window as Concept Maps (min(1180px, 100% - 24px) wide, min(92vh, 1000px) tall, centred), whatever the tab
   const rect = () => page.evaluate(() => { const r = document.querySelector("#dlg[open]").getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; });
   const want = cmRect;
