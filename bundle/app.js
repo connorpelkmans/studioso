@@ -106069,7 +106069,8 @@ const SHAPE_IC = {box: '<rect x="3" y="7" width="18" height="10" rx="1"/>', roun
   cloud: '<path d="M7 17.5a3.6 3.6 0 0 1-.6-7.1A4.6 4.6 0 0 1 15 8.6a3.6 3.6 0 0 1 3.4 4.9A2.1 2.1 0 0 1 18 17.5Z"/>', diamond: '<path d="M12 4l9 8-9 8-9-8Z"/>', hexagon: '<path d="M7 5h10l5 7-5 7H7l-5-7Z"/>', text: '<path d="M6 7h12M12 7v11"/>'};
 const COLORS = ["#2F6FE4", "#7C5CFF", "#D6336C", "#E03131", "#E8590C", "#E8A317", "#2F9E44", "#0C8599", "#5F6B7A"];
 // fill and text get light and dark choices too
-const FILLS = ["#FFFFFF", "#E7F0FF", "#F1EDFF", "#FFE6F0", "#FFE3E3", "#FFEBD6", "#FFF6D6", "#E6FCF5", "#E3F7FA", "#EEF1F5"].concat(COLORS);
+// light fills that still read as their colour (blue, violet, pink, red, orange, yellow, green, teal, grey) beside white, then the strong ones
+const FILLS = ["#FFFFFF", "#A5C8FF", "#C7B8FF", "#FFADCB", "#FFA8A8", "#FFC48A", "#FFE066", "#9BE5AA", "#8FE3EE", "#CED4DA"].concat(COLORS);
 const INKS = ["#1E293B", "#FFFFFF"].concat(COLORS);
 const FONT_NAMES = {"": "App font", rounded: "Rounded", readable: "Readable", serif: "Serif", mono: "Typewriter", hand: "Handwritten", casual: "Casual", marker: "Marker"};
 const FONT_STACK = {"": "", rounded: '"Lexend",system-ui,sans-serif', readable: '"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif', serif: 'Georgia,"Times New Roman",serif', mono: 'ui-monospace,"SF Mono",Consolas,monospace', hand: '"Caveat",cursive', casual: '"Patrick Hand",cursive', marker: '"Permanent Marker",cursive'};
@@ -106524,6 +106525,13 @@ function pickPicture(ontoId){
   inp.addEventListener("change", () => { const f = inp.files && inp.files[0]; inp.remove(); if (f) addPicture(f, ontoId); });
   document.body.appendChild(inp); inp.click();
 }
+// words on a filled box with no text colour of their own: dark on a light fill, white on a dark one (the theme's own colour could vanish)
+function autoInk(fill){
+  const m = /^#([0-9a-f]{6})$/i.exec(String(fill || "")); if (!m) return "";
+  const v = parseInt(m[1], 16), lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const L = 0.2126 * lin(v >> 16 & 255) + 0.7152 * lin(v >> 8 & 255) + 0.0722 * lin(v & 255);
+  return L > 0.36 ? "#1E293B" : "#FFFFFF";
+}
 function shapeSvg(shape, w, h, col, root, n){
   const st = `style="--c:${col}${n && n.fill ? `;fill:${n.fill}` : ""}${n && n.stroke ? `;stroke:${n.stroke}` : ""}"`, a = w / 2, b = h / 2;
   if (shape === "box") return `<rect class="cm-shape" x="${-a}" y="${-b}" width="${w}" height="${h}" rx="3" ${st}/>`;
@@ -106591,7 +106599,7 @@ function paint(){
     const label = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), dot = !n.img && !n.emb && /^(box|rounded|pill)$/.test(shape);
     const kind = (KIND[n.kind] || KIND.file)[0], conf = know && know[n.id] ? `, ${CONF[know[n.id]][0]}` : "";
     return `<g class="cm-node k-${n.kind} sh-${shape}${n.root ? " is-root" : ""}${n.color ? " has-col" : ""}${M.sel === n.id ? " is-sel" : ""}${M.connect === n.id ? " is-con" : ""}${hidden ? " is-blank" : ""}${qi >= 0 && Q.done.has(n.id) ? " is-got" : ""}${Q && Q.pick === n.id ? " is-pick" : ""}" data-n="${esc(n.id)}" data-col="${col}" data-dot="${dot ? 1 : ""}" transform="translate(${x},${y})" tabindex="0" role="button" aria-label="${esc(hidden ? `Blank ${qi + 1}` : `${n.label}, ${kind}${conf}`)}">
-      ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round((n.size || (n.root ? 15 : 13)) * 0.36)}"${dot ? "" : ' text-anchor="middle" x="0"'} style="${n.size ? `font-size:${n.size}px;` : ""}${n.font ? `font-family:${esc(FONT_STACK[n.font])};` : ""}${n.text ? `fill:${n.text};` : ""}">${esc(label)}</text></g>`;
+      ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round((n.size || (n.root ? 15 : 13)) * 0.36)}"${dot ? "" : ' text-anchor="middle" x="0"'} style="${n.size ? `font-size:${n.size}px;` : ""}${n.font ? `font-family:${esc(FONT_STACK[n.font])};` : ""}${(n.text || autoInk(n.fill)) ? `fill:${n.text || autoInk(n.fill)};` : ""}">${esc(label)}</text></g>`;
   }).join("");
   world.innerHTML = `<defs><marker id="cmArr" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M0 0L10 5L0 10Z"/></marker><marker id="cmArrS" viewBox="0 0 10 10" refX="1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M10 0L0 5L10 10Z"/></marker></defs><g class="cm-edges"></g><g class="cm-nodes">${nodes}</g>`;
   world.setAttribute("transform", `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`);
