@@ -108,24 +108,24 @@ ok(T.some(t => /^warn: Never cited: Heat and health/.test(t)), "a source never c
 ok(T.some(t => /^err: Not in your sources: \(Johnson, 2018\)/.test(t)), "a citation that matches no source");
 ok(T.some(t => /^err: Quote without a citation: “shade from street trees/.test(t)), "a quote without a citation");
 ok(T.some(t => /^err: Cited but not in your References list: Urban trees/.test(t)), "a cited source missing from the list");
-ok(T.some(t => /comma between the name and the year/.test(t)), "an APA slip: (Smith 2021)");
+ok(T.some(t => /In APA, write \(Smith, 2021\)/.test(t)) && R.issues.some(x => /put a comma between the author and the year/i.test(x.d)), "an APA slip: (Smith 2021)");
 ok(T.some(t => /^err: The assignment asks for at least 4 scholarly sources: you cite 2/.test(t)), "the assignment's minimum");
 ok(!T.some(t => /asks for APA/.test(t)), "the right style isn't flagged");
 const R2 = CITE.check(draft.replace("References", "Bibliography"), src, {style: "modern-language-association", kind: "author", label: "MLA", req: "Format in APA style", names: {apa: "APA 7th edition"}});
 ok(R2.issues.some(x => x.k === "err" && /asks for APA 7th edition/.test(x.t) && x.fix === "style:apa"), "a style mismatch offers to switch");
-ok(R2.issues.some(x => /Your list is called “Bibliography”/.test(x.t)), "MLA expects Works Cited");
-ok(R2.issues.some(x => /author and the page, not the year/.test(x.t)), "an MLA slip: a year in the citation");
+ok(R2.issues.some(x => /In MLA, the list is called Works Cited/.test(x.t) && /Yours is called “Bibliography”/.test(x.d)), "MLA expects Works Cited");
+ok(R2.issues.some(x => /have no year, just the author and the page/.test(x.d)), "an MLA slip: a year in the citation");
 // a format slip quotes the student's own citation, corrected (not a made-up example)
 { const r = CITE.check("Sleep matters (Carskadon 2011). Both agree (Lo and Lee, 2018). Old (Xie et al. 2013).\n\nReferences\n", [], {style: "apa", kind: "author-date", label: "APA"}), t = r.issues.map(x => x.t + " " + (x.d || "")).join(" | ");
-  ok(/put a comma between the name and the year: \(Carskadon, 2011\)/.test(t) && /\(Xie et al\., 2013\)/.test(t) && /use & between two authors inside brackets: \(Lo & Lee, 2018\)/.test(t) && !/Smith/.test(t), "APA slips show the student's citation fixed: " + t); }
+  ok(/In APA, write \(Carskadon, 2011\): put a comma between the author and the year/.test(t) && /\(Xie et al\., 2013\)/.test(t) && /write \(Lo & Lee, 2018\): use & between two authors inside brackets/.test(t) && !/Smith/.test(t), "APA slips show the student's citation fixed: " + t); }
 { const r = CITE.check("Short sleep blunts memory (Walker, 112).\n\nWorks Cited\n", [], {style: "modern-language-association", kind: "author", label: "MLA"}), t = r.issues.map(x => x.t + " " + (x.d || "")).join(" | ");
-  ok(/no comma or p\. between the name and the page: \(Walker 112\)/.test(t) && !/Smith/.test(t), "an MLA slip shows the student's citation fixed: " + t); }
+  ok(/write \(Walker 112\): no comma between the author and the page/i.test(t) && !/Smith/.test(t), "an MLA slip shows the student's citation fixed: " + t); }
 // results never contradict: a citation that isn't in the sources keeps "every cited source" from being claimed, and its format slip joins it
 { const src2 = [{id: "w", type: "book", title: "Why We Sleep", author: [{family: "Walker", given: "Matthew"}], issued: {"date-parts": [[2017]]}}];
   const r = CITE.check("Sleep matters (Walker, 2017). Others disagree (Carskadon 2011).\n\nReferences\nWalker, M. (2017). Why we sleep. Scribner.\n", src2, {style: "apa", kind: "author-date", label: "APA"});
   const t2 = r.issues.map(x => x.k + ": " + x.t + (x.d ? " / " + x.d : "")).join(" | ");
   ok(!/Every cited source/.test(t2) && /ok: Your cited Writing Studio source is in your References list/.test(t2), "with a citation not in the sources, the reference check speaks only for the Writing Studio sources: " + t2);
-  ok(r.issues.filter(x => /Carskadon/.test(x.t + x.d)).length === 1 && /isn't in your References list either\. Also: In APA, put a comma between the name and the year: \(Carskadon, 2011\)/.test(t2), "one entry for that citation: not in the sources, not in the list, and its comma"); }
+  ok(r.issues.filter(x => /Carskadon/.test(x.t + x.d)).length === 1 && /isn't in your References list either\. Also: In APA, write \(Carskadon, 2011\): put a comma between the author and the year/.test(t2), "one entry for that citation: not in the sources, not in the list, and its comma"); }
 // "Walker (2017)": the name just before year-only brackets counts (et al. included); a name in an earlier citation never does
 { const W = [{id: "w", type: "book", title: "Why We Sleep", author: [{family: "Walker", given: "M"}], issued: {"date-parts": [[2017]]}}, {id: "x", type: "article-journal", title: "Sleep Drives", author: [{family: "Xie", given: "L"}, {family: "Kang", given: "H"}, {family: "Xu", given: "Q"}], issued: {"date-parts": [[2013]]}}];
   const c = d => CITE.check(d + "\n\nReferences\nWalker. Xie.", W, {style: "apa", kind: "author-date", label: "APA"});
@@ -155,7 +155,7 @@ ok(/^As one study put it, "shade from street trees/.test(draft.slice(s1, e1)) &&
 ok(!R.issues.some(x => /Never cited/.test(x.t) && x.at != null), "a source never cited has no place");
 ok(R.citedIds.join() === "a,b", "the sources it found cited, by id");
 /* What changed since the last check */
-const fixedDraft = draft.replace(" Others disagree (Johnson, 2018).", "").replace("(Smith 2021)", "(Smith, 2021)") + "\nLee, K., & Ng, M. (2019). Urban trees.\nWorld Health Organization. (2023). Heat and health.";
+const fixedDraft = draft.replace(" Others disagree (Johnson, 2018).", "").replace("(Smith 2021)", "(Smith, 2021)").replace("Smith, J. (2021). Parks and heat.", "Lee, K., & Ng, M. (2019). Urban trees.\nSmith, J. (2021). Parks and heat.") + "\nWorld Health Organization. (2023). Heat and health.";
 const R5 = CITE.check(fixedDraft, src, {style: "apa", kind: "author-date", label: "APA"});
 const D = CITE.diffIssues(CITE.issueKeys(R), R5);
 ok(D.fixed >= 3 && D.fresh === 0, `fixed and new since the last check: ${D.fixed} fixed, ${D.fresh} new`);
