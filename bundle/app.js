@@ -104662,6 +104662,17 @@ const CITE = (() => {
       const has = s => /\([^()]*(\d|n\.\s?d\.)[^()]*\)/.test(s) || /\[\d{1,3}/.test(s) || /^[.,;:]?\s*\d{1,3}\b/.test(s) || /^[.,;:]?\s*[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(s) || (kind === "author" && named.some(x => famRe(keyName(x)).test(s)));
       if (!has(sAfter) && !has(sBefore)) bare.push([m[1].split(/\s+/).slice(0, 8).join(" "), m.index, m[0].length]);
     }
+    // a name a letter or two off a source's, with the same year, is that source misspelled ("Lingham et al. (2024)" for Lingam): it counts as
+    // citing it, and Check the spelling says so, with a Fix that writes the source's spelling everywhere the draft has the other one
+    const lev = (a, b) => { const d = Array.from({length: b.length + 1}, (_, j) => j); for (let i = 1; i <= a.length; i++) { let p = d[0]; d[0] = i; for (let j = 1; j <= b.length; j++) { const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, p + (a[i - 1] === b[j - 1] ? 0 : 1)); p = t; } } return d[b.length]; };
+    const nearOf = new Map();
+    unknown.forEach(([u, at, len]) => {
+      if (nearOf.has(u)) return;
+      const nm = (/^[“"]?([\p{Lu}][\p{L}'’-]+)/u.exec(u) || [])[1]; if (!nm || nm.length < 4) return;
+      const f = foldL(nm), ys = yrsOf(u);
+      const s = named.find(x => { const k = foldL(keyName(x)); return k && k !== f && k[0] === f[0] && Math.abs(k.length - f.length) <= 2 && lev(k, f) <= (Math.min(k.length, f.length) >= 7 ? 2 : 1) && (!ys.length || ys.includes(String(yearOf(x)))); });
+      if (s) { nearOf.set(u, {s, nm}); cite(s.id, at, len); }
+    });
     const n = sources.length, citedN = sources.filter(s => cited.has(s.id)).length;
     if (!n) push("warn", "No sources in your Writing Studio yet", "Add your sources to check your citations against them.");
     else if (citedN === n) push("ok", n === 1 ? "Your Writing Studio source is cited in your draft" : `All ${n} sources in your Writing Studio are cited in your draft`);
@@ -104670,8 +104681,16 @@ const CITE = (() => {
     // a citation that isn't in the sources is one entry: whether it's in the reference list too, and any format slip in it, go with it
     const sayFix = f => f.fixed ? `In ${P.n}, write ${f.fixed}: ${f.probs.map(k => whyOf(k, P)[1]).join("; ")}.` : `${whyOf(f.probs[0], P)[1]}.`.replace(/^./, ch => ch.toUpperCase());
     const slipAt = new Map(); slips.forEach(([at], t) => { slipAt.set(at, (slipAt.get(at) || []).concat([t])); });
-    const used = new Set(), seenU = new Set();
+    const used = new Set(), seenU = new Set(), spelled = new Set();
     unknown.filter(([u]) => !seenU.has(u) && seenU.add(u)).slice(0, 12).forEach(([u, at, len]) => {
+      const near = nearOf.get(u);
+      if (near) {
+        if (spelled.has(near.nm)) return; spelled.add(near.nm);
+        const right = keyName(near.s), re = new RegExp("(^|[^\\p{L}])(" + reEsc(near.nm) + ")(?=$|[^\\p{L}])", "gu"), edits = []; let mm;
+        while ((mm = re.exec(draft))) { const e = editAt(draft, mm.index + mm[1].length, near.nm.length, near.nm, right); if (e) edits.push(e); }
+        push("err", `Check the spelling: ${/^\[|\)$/.test(u) ? u : "(" + u + ")"}`, `Your source is by ${right}${yearOf(near.s) ? ` (${yearOf(near.s)})` : ""}${near.s.title ? `: “${near.s.title}”` : ""}. ${edits.length > 1 ? `“${near.nm}” is in your draft ${edits.length} times; Fix writes ${right} in each.` : `Fix writes ${right}.`} If your source is the one that's wrong, fix it on the Sources tab instead.`, "", at, len, {key: "spell:" + near.nm, edits});
+        return;
+      }
       const nm = (/^[“"]?([\p{Lu}][\p{L}'’-]+)/u.exec(u) || [])[1], fold = x => String(x).normalize("NFD").replace(/\p{M}/gu, ""), inR = ref && nm && famRe(fold(nm)).test(fold(ref.body));
       const also = (slipAt.get(at) || []).filter(t => !used.has(t)); also.forEach(t => used.add(t));
       const fx = fmts.filter(f => f.u && !f.used && f.pat === at); fx.forEach(f => { f.used = true; });
@@ -104718,7 +104737,7 @@ const CITE = (() => {
     else {
       if (ref.bare) push("err", `Your ${wantL} has no heading`, `In ${label}, the list starts with a heading, ${want}, on its own line above the entries.`, "", ref.at, Math.min(80, ref.body.indexOf("\n") > 0 ? ref.body.indexOf("\n") : ref.body.length), {key: "heading", edits: [{at: ref.at, len: 0, from: "", to: want + "\n", k: "!"}]});
       else if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) { const ha = draft.indexOf(ref.name, ref.at); push("err", `In ${label}, the list is called ${want}`, `Yours is called “${sq(ref.name)}”: rename the heading.`, "", ref.at, ref.name.length, {key: "heading", edits: [editAt(draft, ha, ref.name.length, ref.name, want)].filter(Boolean)}); }
-      const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body));
+      const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body) && ![...nearOf.values()].some(v => v.s === s && famRe(v.nm).test(ref.body)));
       miss.forEach(s => { const X = o.refs && o.refs[s.id], ins = X ? refInsert(draft, ref, ents, P.num ? X : unnum(X)) : null; push("err", `Cited but not in your ${wantL}: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1], {key: "miss:" + s.id, edits: ins ? [ins] : []}); });
       // only when nothing cited is missing: a citation that isn't in the sources is cited too
       if (!miss.length && citedN) push("ok", !unknownN ? `Every cited source is in your ${wantL}` : citedN === 1 ? `Your cited Writing Studio source is in your ${wantL}` : `All ${citedN} cited Writing Studio sources are in your ${wantL}`);
@@ -106585,7 +106604,7 @@ if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", free:
 
 const css = document.createElement("style");
 css.textContent = `
-dialog:has(.ws-sheet){width:min(1240px,calc(100% - 32px))}
+dialog:has(.ws-sheet){width:min(1180px,calc(100% - 24px))}
 /* phones: a full-width sheet like every other (the 24px left for margins sat all on the right, so it looked pushed left) */
 @media (max-width:639px){dialog:has(.ws-sheet){width:100%}}
 /* the tabs change the body's height: keep the window's top edge still (anchored near the top; a full-height sheet on phones) so the tabs don't slide away from the pointer */
