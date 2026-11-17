@@ -131,6 +131,7 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
     const unzip = u => { const dv = new DataView(u.buffer, u.byteOffset, u.byteLength), out = {}; let e = u.length - 22; while (dv.getUint32(e, true) !== 0x06054b50) e--; let p = dv.getUint32(e + 16, true); const n = dv.getUint16(e + 10, true);
       for (let k = 0; k < n; k++) { const cs = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true), name = dec.decode(u.subarray(p + 46, p + 46 + nl)); if (dv.getUint16(p + 10, true) !== 0) throw new Error("stored only"); const st = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true); out[name] = u.subarray(st, st + cs); p += 46 + nl + xl + cl; } return out; };
     F.xml = () => dec.decode(unzip(F.w.bytes)["word/document.xml"]);
+    F.textOf = arr => dec.decode(unzip(new Uint8Array(arr))["word/document.xml"]).split(/<w:p(?=[ >\/])/).slice(1).map(p => [...p.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map(m => un(m[1])).join("")).join("\n");
     const un = s => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
     F.mkDocx = paras => zipMany([{name: "[Content_Types].xml", data: '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>'},
       {name: "word/document.xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${paras.map(p => `<w:p>${/^(Bibliography|References)$/.test(p) ? '<w:pPr><w:pStyle w:val="Heading1"/></w:pPr>' : ""}${p ? `<w:r><w:rPr><w:i/></w:rPr><w:t xml:space="preserve">${esc(p.slice(0, 6))}</w:t></w:r><w:r><w:t xml:space="preserve">${esc(p.slice(6))}</w:t></w:r>` : ""}</w:p>`).join("")}<w:sectPr/></w:body></w:document>`},
@@ -168,51 +169,51 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
     };
   }, G0);
   const G = () => page.evaluate(() => window.__fake.g.raw.replace(/\n$/, ""));
-  await openWS(); await page.click('#dlg[open] [data-ws-tab="doc"]');
-  ok(await page.locator("#dlg[open] .ws-ldk").count() === 2 && await page.locator("#dlg[open] [data-ws-ldg]").count() === 1 && await page.locator('#dlg[open] [data-ws-ldcon]:has-text("Connect OneDrive")').count() === 1, "My Doc: a Google Doc (Drive connected: Choose) or a Word file (Connect OneDrive first)");
+  await openWS(); await page.click('#dlg[open] [data-ws-tab="check"]');
+  ok(await page.textContent('#dlg[open] [data-ws-tab="check"]') === "Check My Doc" && !(await page.locator('#dlg[open] [data-ws-tab="doc"]').count()), "one tab: Check My Doc");
+  ok(await page.locator("#dlg[open] .ws-ldrow [data-ws-ldg]").count() === 1 && await page.locator('#dlg[open] .ws-ldrow [data-ws-ldcon]:has-text("Word in OneDrive")').count() === 1 && await page.locator("#dlg[open] [data-ws-dfile]").count() === 1, "Check My Doc: paste, upload, or link a Google Doc (Drive connected) or a Word file in OneDrive (connect it first)");
   const shot = async nm => { if (process.env.SHOT) await page.screenshot({path: process.env.SHOT + nm + ".png"}); };
-  await shot("ld-cards");
+  await shot("ld-check");
   // a doc Google gives no access to (the picker set up for another project): it says so
   await page.evaluate(() => { const C = window.SBCLOUD, was = C.pickGoogleDoc; C.pickGoogleDoc = async () => { C.pickGoogleDoc = was; return {id: "nope42", name: "Other", type: "application/vnd.google-apps.document"}; }; });
   await page.click("#dlg[open] [data-ws-ldg]"); await page.waitForSelector("#dlg[open] .ws-err", {timeout: 10000});
   ok(/Google didn't give Studyboard access to that doc.*Google Docs: Requested entity was not found\. Google Drive: 404 File not found: nope42\.\)/.test(await page.textContent("#dlg[open] .ws-err")) && !(await task(page, "t1")).ws.ld, "a doc Google won't open isn't linked, and it says why");
   // link the Google Doc: read, made the paper's draft, checked
   await page.click("#dlg[open] [data-ws-ldg]");
-  await page.waitForSelector("#dlg[open] .ws-ldf", {timeout: 15000}); await page.waitForSelector("#dlg[open] .ws-ldsum", {timeout: 15000});
+  await page.waitForSelector("#dlg[open] .ws-ldf", {timeout: 15000}); await page.waitForSelector("#dlg[open] .ws-sum [data-ws-fixall]", {timeout: 15000});
   const t1 = await task(page, "t1");
   ok(t1.ws.ld && t1.ws.ld.p === "google" && t1.ws.ld.id === "gdoc123" && t1.ws.draft.ld && t1.ws.draft.t === cap(G0), "linking makes the doc the paper's draft (tidied as every draft is)");
   ok(await page.getAttribute("#dlg[open] .ws-ldf", "src") === "https://docs.google.com/document/d/gdoc123/edit", "the doc is open to write in, in Google Docs");
-  ok(/Writing Studio can fix [234] problems for you/.test(await page.textContent("#dlg[open] .ws-ldsum")) && await page.locator("#dlg[open] .ws-ldsum [data-ws-fixall]").count() === 1, "and its check is above it, with Fix All");
+  ok(/Fix All \([234]\)/.test(await page.textContent("#dlg[open] .ws-sum")) && await page.locator("#dlg[open] .ws-ldtop").count() === 1, "and its check is with it, with Fix All");
   await shot("ld-google");
   await page.evaluate(() => { document.querySelector("#dlg[open] .ws-ldf").__mark = 1; });
-  await page.click("#dlg[open] .ws-ldsum [data-ws-fixall]");
+  await page.click("#dlg[open] .ws-sum [data-ws-fixall]");
   await page.waitForFunction(() => /Fixed \d+ things in your Google Doc/.test((document.querySelector("#dlg[open] .ws-ok") || {}).textContent || ""), null, {timeout: 15000});
   const g1 = await G();
   ok(/\(Smith & Lee, 2021\)\. Ng/.test(g1) && /around them \(Smith & Lee, 2021\)\./.test(g1) && /\n\nReferences\nNg, M\. \(2019\)[^\n]*\nSmith, J\. A\., & Lee, K\. \(2021\)/.test(g1) && !/Bibliography/.test(g1), "Fix All: made in the Google Doc itself: " + JSON.stringify(g1.slice(-160)));
   ok(/^Heat in Cities\n\n/.test(g1) && /\(Smith & Lee, 2021\)\. {2}\n/.test(g1), "and the rest of it (its blank line, the spaces it had) is as it was");
   ok(await page.evaluate(() => document.querySelector("#dlg[open] .ws-ldf").__mark === 1), "the open doc wasn't loaded again");
-  ok((await draftOf()) === cap(g1) && !(await page.locator("#dlg[open] .ws-ldsum [data-ws-fixall]").count()), "the draft is the doc again, checked: nothing left to fix");
+  ok((await draftOf()) === cap(g1) && !(await page.locator("#dlg[open] .ws-sum [data-ws-fixall]").count()), "the draft is the doc again, checked: nothing left to fix");
   ok(await page.evaluate(() => window.__fake.g.calls.filter(c => /batchUpdate/.test(c)).length) >= 1, "with batchUpdate");
   await page.click("#toastUndo");
   await page.waitForFunction(g0 => window.__fake.g.raw.includes("(Smith & Lee 2021)"), G0, {timeout: 15000});
   ok(cap(await G()) === cap(G0), "Undo puts the Google Doc back");
   await page.waitForTimeout(500);
-  ok(/Writing Studio can fix/.test(await page.textContent("#dlg[open] .ws-ldsum")), "and it's checked again");
+  ok(await page.locator("#dlg[open] .ws-sum [data-ws-fixall]").count() === 1, "and it's checked again");
   // changed since the check: nothing is fixed
   await page.evaluate(() => { const F = window.__fake; F.g.raw = F.g.raw.replace("Heat in Cities", "Heat in Our Cities"); F.g.rev++; });
-  await page.click("#dlg[open] .ws-ldsum [data-ws-fixall]"); await page.waitForSelector("#dlg[open] .ws-err", {timeout: 15000});
+  await page.click("#dlg[open] .ws-sum [data-ws-fixall]"); await page.waitForSelector("#dlg[open] .ws-err", {timeout: 15000});
   ok(/changed since it was checked, so nothing was fixed/.test(await page.textContent("#dlg[open] .ws-err")) && (await G()).includes("(Smith & Lee 2021)"), "a doc changed since its check isn't fixed: " + await page.textContent("#dlg[open] .ws-err"));
   ok((await draftOf()).startsWith("Heat in Our Cities"), "and it's read and checked again");
-  // one Fix from the Check tab goes into the doc too
-  await page.click('#dlg[open] [data-ws-tab="check"]');
+  // one Fix goes into the doc too
   await page.click('#dlg[open] .ws-is:has-text("write (Smith & Lee, 2021)") [data-ws-fix]');
   await page.waitForFunction(() => !window.__fake.g.raw.includes("(Smith & Lee 2021)"), null, {timeout: 15000});
   ok((await G()).includes("fast (Smith & Lee, 2021). Ng") && (await G()).includes("Bibliography"), "one Fix: only that citation, in the doc");
   ok(!(await page.locator("#dlg[open] [data-ws-dcopy]").count()), "no Copy Fixed Draft: the doc is already fixed");
   // Unlink, then a Word file
-  await page.click('#dlg[open] [data-ws-tab="doc"]'); await page.click("#dlg[open] [data-ws-ldoff]"); await page.waitForTimeout(300);
-  ok(!(await task(page, "t1")).ws.ld && !(await task(page, "t1")).ws.draft.ld && await page.locator("#dlg[open] .ws-ldk").count() === 2, "Unlink: the draft stays as Writing Studio's copy");
-  await page.evaluate(() => { window.__fake.connected = ["google", "microsoft"]; }); await page.click('#dlg[open] [data-ws-tab="check"]'); await page.click('#dlg[open] [data-ws-tab="doc"]');
+  await page.click("#dlg[open] [data-ws-ldoff]"); await page.waitForTimeout(300);
+  ok(!(await task(page, "t1")).ws.ld && !(await task(page, "t1")).ws.draft.ld && !(await page.locator("#dlg[open] .ws-ldtop").count()), "Unlink: the draft stays as Writing Studio's copy");
+  await page.evaluate(() => { window.__fake.connected = ["google", "microsoft"]; }); await page.click('#dlg[open] [data-ws-tab="sources"]'); await page.click('#dlg[open] [data-ws-tab="check"]'); await page.click("#dlg[open] [data-ws-redo]");
   await page.click("#dlg[open] [data-ws-ldw]"); await page.waitForSelector("#dlg[open] [data-ws-lddir]", {timeout: 10000});
   // a search OneDrive refuses: the folders instead
   await page.evaluate(() => { window.__fake.w.noSearch = true; }); await page.fill("#dlg[open] [data-ws-ldq]", "heat"); await page.waitForSelector("#dlg[open] .ws-note:has-text(\"won't search\")", {timeout: 10000});
@@ -227,15 +228,15 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
   await page.click('#dlg[open] [data-ws-lddir="FO1"]'); await page.waitForSelector('#dlg[open] [data-ws-ldpick="W1"]', {timeout: 10000});
   ok(/OneDrive\s*›\s*School/.test(await page.textContent("#dlg[open] .ws-ldcr")), "open a folder: its Word files, with the way back up");
   await page.click('#dlg[open] [data-ws-ldpick="W1"]');
-  await page.waitForSelector("#dlg[open] .ws-ldsum", {timeout: 15000}); await page.waitForSelector("#dlg[open] .ws-ldf", {timeout: 10000});
+  await page.waitForSelector("#dlg[open] .ws-sum [data-ws-fixall]", {timeout: 15000}); await page.click("#dlg[open] [data-ws-ldshow]"); await page.waitForSelector("#dlg[open] .ws-ldf", {timeout: 10000});
   ok((await task(page, "t1")).ws.ld.p === "microsoft" && (await task(page, "t1")).ws.ld.drive === "D1" && /^Heat essay\nCities are warming fast \(Smith & Lee 2021\)/.test(await draftOf()), "a Word file linked: its text is the draft");
   ok(/onedrive\.live\.com\/embed/.test(await page.getAttribute("#dlg[open] .ws-ldf", "src")) && /Word for the web shows it here to read/.test(await page.textContent("#dlg[open] .ws-ldtop")), "Word's preview is shown, and it says how to write in it");
   await shot("ld-word");
   await page.evaluate(() => { window.__fake.w.locked = true; });
-  await page.click("#dlg[open] .ws-ldsum [data-ws-fixall]"); await page.waitForSelector("#dlg[open] .ws-err", {timeout: 15000});
+  await page.click("#dlg[open] .ws-sum [data-ws-fixall]"); await page.waitForSelector("#dlg[open] .ws-err", {timeout: 15000});
   ok(/locked/.test(await page.textContent("#dlg[open] .ws-err")) && /\(Smith & Lee 2021\)/.test(await page.evaluate(() => window.__fake.wText())), "a Word file that's locked isn't changed, and it says why");
   await page.evaluate(() => { window.__fake.w.locked = false; });
-  await page.click("#dlg[open] .ws-ldsum [data-ws-fixall]");
+  await page.click("#dlg[open] .ws-sum [data-ws-fixall]");
   await page.waitForFunction(() => /Fixed \d+ things? in your Word file/.test((document.querySelector("#dlg[open] .ws-ok") || {}).textContent || ""), null, {timeout: 15000});
   const w1 = await page.evaluate(() => window.__fake.wText());
   ok(/\(Smith & Lee, 2021\) and parks/.test(w1) && /References\nNg, M\. \(2019\)[^\n]*\nSmith, J\. A\., & Lee, K\. \(2021\)/.test(w1), "Fix All: saved into the Word file: " + JSON.stringify(w1));
@@ -250,6 +251,19 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
   const w2 = await page.evaluate(() => window.__fake.wText());
   ok(/References\nCity of Phoenix\. \(2022\)[^\n]*\nNg, M\./.test(w2), "Add to My Draft: into the Word file's list, in order: " + JSON.stringify(w2.slice(-200)));
   ok(/to the list in your Word file, Heat essay\.docx/.test(await page.textContent("#dlg[open]")), "and it says so");
+  // a Word file from the computer: uploaded, fixed in place on this device, downloaded again
+  await page.click('#dlg[open] [data-ws-tab="check"]'); await page.click("#dlg[open] [data-ws-ldoff]"); await page.waitForTimeout(300); await page.click("#dlg[open] [data-ws-redo]");
+  const up = await page.evaluate(() => Array.from(window.__fake.mkDocx(["My essay", "Parks cool cities down (Smith & Lee 2021) and Ng agrees (Ng, 2019).", "", "Bibliography", "Ng, M. (2019). Cities and climate change. Routledge."])));
+  await page.setInputFiles("#dlg[open] [data-ws-dfile]", {name: "My essay.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from(up)});
+  await page.waitForSelector("#dlg[open] [data-ws-lddl]", {timeout: 15000}); await page.waitForSelector("#dlg[open] .ws-sum [data-ws-fixall]", {timeout: 15000});
+  const tl = (await task(page, "t1")).ws;
+  ok(tl.ld && tl.ld.p === "file" && tl.ld.name === "My essay.docx" && /^My essay\nParks cool cities down \(Smith & Lee 2021\)/.test(tl.draft.t) && /kept on this device/.test(await page.textContent("#dlg[open] .ws-ldtop")), "an uploaded Word file is linked, kept on this device");
+  await page.click("#dlg[open] .ws-sum [data-ws-fixall]");
+  await page.waitForFunction(() => /Fixed \d+ things? in your Word file, My essay\.docx\..*Download it/.test((document.querySelector("#dlg[open] .ws-ok") || {}).textContent || ""), null, {timeout: 15000});
+  ok(/Download Fixed File/.test(await page.textContent("#dlg[open] [data-ws-lddl]")), "Download Fixed File");
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#dlg[open] [data-ws-lddl]")]);
+  const got = require("fs").readFileSync(await dl.path()), gt = await page.evaluate(a => window.__fake.textOf(a), Array.from(got));
+  ok(dl.suggestedFilename() === "My essay.docx" && /\(Smith & Lee, 2021\) and Ng/.test(gt) && /References\nNg, M\. \(2019\)[^\n]*\nSmith, J\. A\., & Lee, K\. \(2021\)/.test(gt), "the downloaded file is the fixed Word file: " + JSON.stringify(gt));
   ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
   await browser.close(); server.close();
   console.log(`writing-studio-doc.e2e: ${n} passed`);
