@@ -12818,7 +12818,7 @@ function courseDecksHtml(c){
   const ds = deckListArr().filter(d => d.courseId === c.id);
   const row = d => { const st = deckStats(d), n = studyCounts([d.id]);
     return `<li><button class="c2-li-main" data-act="course-deck" data-id="${esc(d.id)}"><b>${esc(d.name)}</b><span class="mini${st.due ? " c2-due" : ""}">${st.total ? (st.due || st.fresh ? `${st.due} due · ${st.fresh} new` : "All caught up") : "No cards yet"}</span></button>${st.total ? `<button class="btn small${n.due ? " primary" : ""}" data-act="fc-study" data-id="${esc(d.id)}" aria-label="Study ${esc(d.name)}">Study</button>` : ""}</li>`; };
-  return c2Box("decks", "Your Decks", ds.length || "",
+  return c2Box("decks", "Flashcards", ds.length || "",
     ds.length ? `<ul class="c2-list">${ds.map(row).join("")}</ul>` : `<div class="facts c2-none"><span class="mini">No flashcard decks for this course yet.</span><button class="btn small" data-act="course-deck-new" data-id="${esc(c.id)}">New Deck</button></div>`);
 }
 function courseNotesHtml(c){
