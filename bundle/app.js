@@ -106604,13 +106604,11 @@ if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", free:
 
 const css = document.createElement("style");
 css.textContent = `
-dialog:has(.ws-sheet){width:min(1180px,calc(100% - 24px))}
-/* phones: a full-width sheet like every other (the 24px left for margins sat all on the right, so it looked pushed left) */
-@media (max-width:639px){dialog:has(.ws-sheet){width:100%}}
-/* the tabs change the body's height: keep the window's top edge still (anchored near the top; a full-height sheet on phones) so the tabs don't slide away from the pointer */
-@media (min-width:601px){dialog:has(.ws-sheet){margin:4vh auto auto}}
-@media (max-width:600px){dialog:has(.ws-sheet){height:90vh;height:90dvh}dialog:has(.ws-sheet) > .ws-sheet{height:100%}.ws-sheet > .ws-body{flex:1 1 auto}}
-.ws-sheet{display:flex;flex-direction:column;max-height:inherit}
+/* the same window as Concept Maps: the same size and place (and a fixed height, so changing tabs never moves it); full screen on phones */
+dialog:has(.ws-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px);height:min(92dvh,1000px)}
+.ws-sheet{display:flex;flex-direction:column;height:100%;max-height:inherit}
+.ws-sheet > .ws-body{flex:1 1 auto}
+@media (max-width:640px){dialog:has(.ws-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}}
 .ws-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 20px 0;border-bottom:1px solid var(--line)}
 /* Zotero's Z: its red, centred on the label beside it */
 svg.ws-zic{display:block;flex:none}

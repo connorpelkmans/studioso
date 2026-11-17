@@ -169,9 +169,18 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
     };
   }, G0);
   const G = () => page.evaluate(() => window.__fake.g.raw.replace(/\n$/, ""));
+  // where a Concept Maps window opens, to compare Writing Studio's with
+  await act(page, "cm-open", "c1", {kind: "course", map: "main"}); await page.waitForSelector("#dlg[open] .cm-sheet"); await page.waitForTimeout(300);
+  const cmRect = await page.evaluate(() => { const r = document.querySelector("#dlg[open]").getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; });
+  await page.keyboard.press("Escape"); await page.waitForTimeout(300);
   await openWS(); await page.click('#dlg[open] [data-ws-tab="check"]');
   ok(await page.textContent('#dlg[open] [data-ws-tab="check"]') === "Check My Doc" && !(await page.locator('#dlg[open] [data-ws-tab="doc"]').count()), "one tab: Check My Doc");
   ok(await page.locator("#dlg[open] .ws-ldrow [data-ws-ldg]").count() === 1 && await page.locator('#dlg[open] .ws-ldrow [data-ws-ldcon]:has-text("Word From OneDrive")').count() === 1 && await page.locator("#dlg[open] [data-ws-dfile]").count() === 1, "Check My Doc: paste, upload, or link a Google Doc (Drive connected) or a Word file in OneDrive (connect it first)");
+  // the same window as Concept Maps (min(1180px, 100% - 24px) wide, min(92vh, 1000px) tall, centred), whatever the tab
+  const rect = () => page.evaluate(() => { const r = document.querySelector("#dlg[open]").getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; });
+  const want = cmRect;
+  const r1 = await rect(); await page.click('#dlg[open] [data-ws-tab="outline"]'); const r2 = await rect(); await page.click('#dlg[open] [data-ws-tab="check"]');
+  ok(r1.every((v, i) => Math.abs(v - want[i]) <= 2) && JSON.stringify(r1) === JSON.stringify(r2), "Writing Studio opens where Concept Maps does, and stays put across tabs: " + JSON.stringify([r1, r2, want]));
   const shot = async nm => { if (process.env.SHOT) await page.screenshot({path: process.env.SHOT + nm + ".png"}); };
   await shot("ld-check");
   // a doc Google gives no access to (the picker set up for another project): it says so
