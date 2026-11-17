@@ -67,7 +67,7 @@ const CMAP = (() => {
     // an idea linked to a PDF page or lecture moment sits next to that file when the file is on the map
     (user.add || []).forEach(i => { const a = atOf(i.at); if (a) link("idea:" + i.id, "file:" + a.f, "at", a.t != null ? "at " + clock(a.t) : "p. " + a.p); });
     cut.forEach(k => E.delete(k));
-    (user.links || []).forEach(l => { if (N.has(l.a) && N.has(l.b)) { const k = ek(l.a, l.b), old = E.get(k); E.set(k, {a: l.a, b: l.b, why: old ? old.why : "user", label: String(l.label || "").slice(0, 60), key: k, user: true, line: LINES.includes(l.line) ? l.line : "solid", arrow: ARROWS.includes(l.arrow) ? l.arrow : "none"}); } });
+    (user.links || []).forEach(l => { if (N.has(l.a) && N.has(l.b)) { const k = ek(l.a, l.b), old = E.get(k); E.set(k, {a: l.a, b: l.b, why: old ? old.why : "user", label: String(l.label || "").slice(0, 60), key: k, user: true, w: [1, 2, 3, 4].includes(Number(l.w)) ? Number(l.w) : l.line === "thick" ? 3 : 0, col: /^#[0-9a-f]{6}$/i.test(String(l.col || "")) ? String(l.col) : "", line: LINES.includes(l.line) && l.line !== "thick" ? l.line : "solid", arrow: ARROWS.includes(l.arrow) ? l.arrow : "none"}); } });
     hide.forEach(id => { if (id !== "root") N.delete(id); });
     [...E.keys()].forEach(k => { const e = E.get(k); if (!N.has(e.a) || !N.has(e.b)) E.delete(k); });
     Object.keys(names).forEach(id => { if (N.has(id) && names[id]) N.get(id).label = String(names[id]).slice(0, 120); });
@@ -83,6 +83,7 @@ const CMAP = (() => {
       if (depth.has(id)) keep.add(id);
       else if (adj.get(id).length) keep.add(id); // connected among themselves (e.g. a note linking a deck), not to the root
       else if (n.kind === "idea") keep.add(id);
+      else if (src.keep && src.keep.includes(id)) keep.add(id); // material the student chose for this map
       else loose.push(id);
     });
     if (src.loose) loose.forEach(id => keep.add(id));
@@ -359,6 +360,9 @@ const FONT_NAMES = {"": "App font", rounded: "Rounded", readable: "Readable", se
 const FONT_STACK = {"": "", rounded: '"Lexend",system-ui,sans-serif', readable: '"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif', serif: 'Georgia,"Times New Roman",serif', mono: 'ui-monospace,"SF Mono",Consolas,monospace', hand: '"Caveat",cursive', casual: '"Patrick Hand",cursive', marker: '"Permanent Marker",cursive'};
 const FONT_FILE = {rounded: "Lexend", readable: "Atkinson Hyperlegible Next", hand: "Caveat", casual: "Patrick Hand", marker: "Permanent Marker"};
 const LINE_NAMES = {solid: "Solid", dashed: "Dashed", dotted: "Dotted", thick: "Thick"};
+// a line's thickness (1 thin to 4 heavy) and the swatches for its colour
+const LINE_W = {1: 1, 2: 2, 3: 3.4, 4: 5}, W_NAMES = {1: "Thin", 2: "Regular", 3: "Thick", 4: "Heavy"};
+const W_IC = {1: '<path d="M3 12h18" stroke-width="1"/>', 2: '<path d="M3 12h18" stroke-width="2"/>', 3: '<path d="M3 12h18" stroke-width="3.4"/>', 4: '<path d="M3 12h18" stroke-width="5"/>'};
 const LINE_IC = {solid: '<path d="M3 12h18"/>', dashed: '<path d="M3 12h4M10 12h4M17 12h4"/>', dotted: '<path d="M3.5 12h.01M8 12h.01M12 12h.01M16 12h.01M20.5 12h.01" stroke-width="3"/>', thick: '<path d="M3 12h18" stroke-width="4.2"/>'};
 const ARROW_IC = {none: '<path d="M3 12h18"/>', end: '<path d="M3 12h16M14 7l5 5-5 5"/>', both: '<path d="M5 12h14M10 7l-5 5 5 5M14 7l5 5-5 5"/>'};
 const ARROW_NAMES = {none: "No arrows", end: "Arrow one way", both: "Arrows both ways"};
@@ -428,6 +432,40 @@ function cardsPanel(){
     ${m.cards.length ? `<label class="cm-tog"><input type="checkbox" data-cm-both ${M.both ? "checked" : ""}> Also ask it backwards (${mb.cards.length} cards)</label>` : ""}
     <p class="mini" style="margin:0">${old ? `Into <b>${esc(old.name)}</b>${sync && (sync.added || sync.changed) ? `: ${sync.added} new, ${sync.changed} changed. Cards you've studied keep their progress.` : ": already up to date."}` : "They go in a new deck for this course. Your results colour the map, so you can see what you know."}</p>
     <div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="cards-x">Cancel</button><button type="button" class="btn small primary" data-cm="cards-go" ${m.cards.length ? "" : "disabled"}>${old ? "Update Deck" : "Make Cards"}</button></div></div>`;
+}
+/* Choosing course material: a checklist of the course's exams, notes, whiteboards, decks, files and lectures */
+const MAT_GROUPS = [["exam", "Exams"], ["note", "Notes"], ["board", "Whiteboards"], ["deck", "Decks"], ["file", "Files"], ["lecture", "Lectures"]];
+function materialsOf(o){
+  const src = gather(o, true); if (!src) return [];
+  return [].concat(
+    (src.mode === "course" ? src.exams : []).map(x => ({id: "exam:" + x.id, kind: "exam", label: x.label, sub: `${(x.topics || []).length} topic${(x.topics || []).length === 1 ? "" : "s"}`})),
+    src.notes.map(n => ({id: (n.board ? "board:" : "note:") + n.id, kind: n.board ? "board" : "note", label: n.label})),
+    src.decks.map(d => ({id: "deck:" + d.id, kind: "deck", label: d.label})),
+    src.files.map(f => ({id: "file:" + f.id, kind: f.lec ? "lecture" : "file", label: f.label})));
+}
+function matHtml(items, on){
+  if (!items.length) return `<p class="mini cm-matnone">This course has no notes, decks, files or exam topics yet. Add some and they can join your map.</p>`;
+  const groups = MAT_GROUPS.map(([k, name]) => [name, items.filter(x => x.kind === k)]).filter(([, l]) => l.length);
+  return `<div class="cm-matbar"><span class="mini" data-mat-n>${items.filter(x => on.has(x.id)).length} of ${items.length} chosen</span><span class="spacer"></span><button type="button" class="link-btn" data-mat-all="1">Select All</button><button type="button" class="link-btn" data-mat-all="0">Select None</button></div>
+    <div class="cm-matl">${groups.map(([name, l]) => `<fieldset class="cm-matg"><legend>${esc(name)}</legend>${l.map(x => `<label class="cm-mat"><input type="checkbox" value="${esc(x.id)}" ${on.has(x.id) ? "checked" : ""}><span class="cm-matdot" style="background:${(KIND[x.kind] || KIND.file)[1]}"></span><span class="cm-matt">${esc(x.label || "Untitled")}</span>${x.sub ? `<span class="mini">${esc(x.sub)}</span>` : ""}</label>`).join("")}</fieldset>`).join("")}</div>`;
+}
+// keeps the checklist's count and Select All / None working, inside whatever holds it
+function matWire(box){
+  const count = () => { const n = box.querySelector("[data-mat-n]"), all = box.querySelectorAll(".cm-mat input"); if (n) n.textContent = `${[...all].filter(i => i.checked).length} of ${all.length} chosen`; };
+  box.addEventListener("change", e => { if (e.target.closest(".cm-mat")) count(); });
+  box.addEventListener("click", e => { const b = e.target.closest("[data-mat-all]"); if (!b) return; e.preventDefault(); box.querySelectorAll(".cm-mat input").forEach(i => { i.checked = b.dataset.matAll === "1"; }); count(); });
+}
+const matChosen = box => [...box.querySelectorAll(".cm-mat input")].filter(i => i.checked).map(i => i.value);
+// Add, Course Material: tick what's on the map; saving keeps the list (all of them ticked: no list, so new material joins by itself)
+function matPanel(){
+  const P = M.el.querySelector(".cm-panel"), items = materialsOf(M.own), cur = matOf(M.own), shown = new Set(M.g.nodes.map(n => n.id));
+  const on = new Set(cur ? cur : M.src.blank ? items.filter(x => shown.has(x.id)).map(x => x.id) : items.map(x => x.id));
+  M.sel = ""; M.selE = ""; M.cardsOpen = false; M.made = null;
+  P.innerHTML = `<form class="cm-matf"><div class="cm-row cm-ttl"><b>Course Material on This Map</b><span class="mini">Tick what belongs here. Ticked items stay on the map, ready to connect.</span></div>${matHtml(items, on)}
+    <div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button>${items.length ? `<button type="submit" class="btn small primary">Update Map</button>` : ""}</div></form>`;
+  const f = P.querySelector("form"); matWire(f);
+  f.addEventListener("submit", e => { e.preventDefault(); const ids = matChosen(f), all = ids.length === items.length && !M.src.blank;
+    const x = userOf(M.own); saveUser(x, `Chose the course material on ${metaOf(M.own).name || "the map"}`, {mat: all ? null : ids}); M.kc = null; rebuild(true); grew(); paint(); });
 }
 /* An idea's link to a PDF page or a lecture moment: tapping it goes there */
 const atFiles = o => { const cid = courseIdOf(o); return Object.values(state.files || {}).filter(f => f && cid && f.courseId === cid && !f.archived && (isPdf(f) || f.folderId === "lectures")).sort((a, b) => String(a.name).localeCompare(String(b.name))); };
@@ -500,7 +538,9 @@ const isPdf = f => !!f && f.kind === "file" && Array.isArray(f.revs) && f.revs.l
 const noteLabel = n => { const t = window.SBPRO && SBPRO.noteTitle ? SBPRO.noteTitle(n.text) : String(n.text || "").split("\n").map(l => l.trim()).find(Boolean) || ""; return t || "Untitled note"; };
 const isExam = t => !!t && typeof MILESTONE === "function" && MILESTONE(t.type) && !t.prepFor;
 const topicsOf = x => (x.prep && Array.isArray(x.prep.topics) && x.prep.topics.length ? x.prep.topics : (x.planTopics || []).map((t, i) => ({id: "p" + i, name: t.name, conf: t.conf, links: []}))).filter(t => t && t.name);
-function gather(o){
+// the materials a map shows: a list of node ids (note:, board:, deck:, file:, exam:), or null for all of the course's
+const matOf = o => { const m = metaOf(o).mat; return Array.isArray(m) ? m.filter(x => typeof x === "string").slice(0, 400) : null; };
+function gather(o, all){
   const own = ownerObj(o); if (!own) return null;
   const cid = o.kind === "course" ? o.id : own.courseId, c = courseOf(cid);
   const notes = Object.values(state.notes || {}).filter(n => n && !n.archived && (cid ? n.courseId === cid : false)).map(n => ({id: n.id, label: n.wb ? String(n.text || "").split("\n")[0].trim() || "Untitled whiteboard" : noteLabel(n), text: n.wb ? "" : n.text, cls: n.cls || "", board: !!n.wb}));
@@ -515,8 +555,11 @@ function gather(o){
   notes.concat(files).forEach(x => { if (!x.cls || classes[x.cls]) return; let lab = ""; try { const k = window.SBCLS && SBCLS.classOf ? SBCLS.classOf(cid, x.cls) : null; if (k) lab = `${k.title}${k.date ? ", " + fmtDate(k.date) : ""}`; } catch (e) {} if (!lab) { const d = /\d{4}-\d{2}-\d{2}/.exec(x.cls); lab = d ? "Class, " + fmtDate(d[0]) : "Class"; } classes[x.cls] = lab; });
   const today = todayISO();
   const exams = o.kind === "exam" ? [{id: own.id, label: own.title, topics: topicsOf(own)}] : allTasks().filter(t => isExam(t) && t.courseId === cid && topicsOf(t).length && (t.due >= addDays(today, -45) || t.status !== "done")).sort((a, b) => String(a.due).localeCompare(String(b.due))).slice(0, 8).map(t => ({id: t.id, label: t.title, topics: topicsOf(t)}));
-  const mp = o.kind === "course" ? mapOf(o) : null;
-  return {root: {label: mp ? mp.name : own.title, kind: o.kind === "course" ? "course" : "exam"}, mode: o.kind === "course" ? "course" : "exam", blank: !!mp && mp.auto === false, exams, notes, decks, files, classes, user: userOf(o), loose: M.loose, color: c ? c.color : "#2F6FE4"};
+  const mp = o.kind === "course" ? mapOf(o) : null, mat = all ? null : matOf(o);
+  // a map with a list of materials shows only those (and keeps them on show); no list: everything, as before
+  const inMat = id => !mat || mat.includes(id);
+  const nF = notes.filter(n => inMat((n.board ? "board:" : "note:") + n.id)), dF = decks.filter(d => inMat("deck:" + d.id)), fF = files.filter(f => inMat("file:" + f.id)), xF = o.kind === "course" ? exams.filter(x => inMat("exam:" + x.id)) : exams;
+  return {root: {label: mp ? mp.name : own.title, kind: o.kind === "course" ? "course" : "exam"}, mode: o.kind === "course" ? "course" : "exam", blank: !!mp && mp.auto === false, exams: xF, notes: nF, decks: dF, files: fF, classes, user: userOf(o), loose: M.loose, color: c ? c.color : "#2F6FE4", keep: mat || null};
 }
 function rebuild(keepView){
   const src = gather(M.own); if (!src) return false;
@@ -720,10 +763,18 @@ function edgeGeo(e){
   const ok = L > ra + rb + 4, sx = ok ? x1 + dx / L * ra : x1, sy = ok ? y1 + dy / L * ra : y1, ex = ok ? x2 - dx / L * rb : x2, ey = ok ? y2 - dy / L * rb : y2;
   return {sx, sy, ex, ey, mx: (sx + ex) / 2, my: (sy + ey) / 2};
 }
+function arrowFor(e){
+  const id = "cmA" + (e.col || "x").replace("#", "") + (e.w > 2 ? e.w : ""), sz = e.w === 4 ? 16 : e.w === 3 ? 14 : 11, fill = e.col ? `style="fill:${e.col}"` : 'class="cm-arrow"';
+  M.marks = M.marks || {};
+  if (!M.marks[id]) M.marks[id] = `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M0 0L10 5L0 10Z"/></marker><marker id="${id}S" viewBox="0 0 10 10" refX="1" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M10 0L0 5L10 10Z"/></marker>`;
+  return id;
+}
 function edgeSvg(e){
   const G = edgeGeo(e), lab = e.label ? trunc(e.label, 30) : "";
-  const mk = e.arrow === "end" || e.arrow === "both" ? ' marker-end="url(#cmArr)"' : "", ms = e.arrow === "both" ? ' marker-start="url(#cmArrS)"' : "";
-  return `<g class="cm-edge ln-${e.line || "solid"}${e.user ? " is-user" : ""}${M.selE === e.key ? " is-sel" : ""}" data-e="${esc(e.key)}"><line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-hit"/><line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-line"${mk}${ms}/>${lab ? `<g class="cm-elg" transform="translate(${G.mx},${G.my})"><rect class="cm-elbg" x="0" y="-10" width="0" height="20" rx="10"/><text x="0" y="4" class="cm-elab">${esc(lab)}</text></g>` : ""}</g>`;
+  // a coloured or thicker line gets arrowheads of its own colour and size (made once per kind, in the map's defs)
+  const mid = e.col || e.w > 2 ? arrowFor(e) : "", mk = e.arrow === "end" || e.arrow === "both" ? ` marker-end="url(#${mid ? mid : "cmArr"})"` : "", ms = e.arrow === "both" ? ` marker-start="url(#${mid ? mid + "S" : "cmArrS"})"` : "";
+  const st = `${e.w ? `--lw:${LINE_W[e.w]}px;` : ""}${e.col ? `--lc:${e.col};` : ""}`;
+  return `<g class="cm-edge ln-${e.line || "solid"}${e.user ? " is-user" : ""}${e.w ? " has-w" : ""}${e.col ? " has-lc" : ""}${M.selE === e.key ? " is-sel" : ""}" data-e="${esc(e.key)}"${st ? ` style="${st}"` : ""}><line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-hit"/><line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-line"${mk}${ms}/>${lab ? `<g class="cm-elg" transform="translate(${G.mx},${G.my})"><rect class="cm-elbg" x="0" y="-10" width="0" height="20" rx="10"/><text x="0" y="4" class="cm-elab">${esc(lab)}</text></g>` : ""}</g>`;
 }
 function fitEdgeLabels(scope){
   (scope || M.el).querySelectorAll(".cm-elg").forEach(g => { const t = g.querySelector("text"), r = g.querySelector("rect"); try { const w = t.getBBox().width + 16; r.setAttribute("width", w); r.setAttribute("x", -w / 2); } catch (e) {} });
@@ -774,7 +825,7 @@ function paint(){
   world.querySelectorAll(".cm-node").forEach(el => { const n = M.byId[el.dataset.n], sz = M.size[el.dataset.n]; if (!n || !n.at || !sz) return;
     const lab = atLabel(n.at), w = lab.length * 6.4 + 24, x = sz[0] / 2 - w + 6, y = -sz[1] / 2 - 9, f = state.files[n.at.f];
     el.insertAdjacentHTML("beforeend", `<g class="cm-atb${n.at.t != null ? " is-lec" : ""}" transform="translate(${x} ${y})"><title>${esc((n.at.t != null ? "Plays " : "Opens ") + (f ? f.name : "the file") + " at " + lab + " (tap twice)")}</title><rect width="${w}" height="18" rx="9"/>${n.at.t != null ? '<path d="M7 5.5v7l5.5-3.5z"/>' : '<path d="M6.5 4.5h4l2 2v7h-6z" class="pg"/>'}<text x="17" y="12.6">${esc(lab)}</text></g>`); });
-  world.querySelector(".cm-edges").innerHTML = g.edges.map(edgeSvg).join("");
+  M.marks = {}; world.querySelector(".cm-edges").innerHTML = g.edges.map(edgeSvg).join(""); world.querySelector("defs").insertAdjacentHTML("beforeend", Object.values(M.marks).join(""));
   fitEdgeLabels(world);
   const need = [...new Set(g.nodes.map(n => FONT_FILE[n.font]).filter(Boolean))].filter(f => !M.fontsOk[f]);
   if (need.length && document.fonts && document.fonts.load) Promise.all(need.map(f => document.fonts.load(`16px "${f}"`).catch(() => null))).then(() => { need.forEach(f => { M.fontsOk[f] = true; }); if (shown()) paint(); });
@@ -793,7 +844,7 @@ function tools(){
   const K = M.know ? know() : null, weak = K ? Object.keys(K.lv).filter(id => K.lv[id] === "weak" && (K.stats[id] || {}).cards && K.stats[id].cards.length).length : 0;
   const item = (cm, label, extra) => `<button type="button" role="menuitem" class="cm-mi" data-cm="${cm}" ${extra || ""}>${label}</button>`;
   T.innerHTML = menu("add", `${mi('<path d="M12 5v14M5 12h14"/>')}<span class="cm-ml">Add</span>`, "Add to the map",
-      item("idea", `${mi('<rect x="3" y="7" width="18" height="10" rx="5"/>')} Idea`) + item("pic", `${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} Picture${pro}`) + item("emb", `${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} Video or Embed${pro}`)
+      item("idea", `${mi('<rect x="3" y="7" width="18" height="10" rx="5"/>')} Idea`) + item("mat", `${mi('<path d="M4 5h6l2 2h8v12H4z"/>')} Course Material`) + item("pic", `${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} Picture${pro}`) + item("emb", `${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} Video or Embed${pro}`)
       + `<span class="cm-msep">Studyboard AI</span>` + item("desc", `${AI_ICON} Describe Ideas`) + item("suggest", `${AI_ICON} ${M.busy ? "Thinking…" : "Suggest Connections"}`, M.busy ? "disabled" : ""))
     + menu("study", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')}<span class="cm-ml">Study</span>`, "Study from the map",
       item("quiz", `${mi('<path d="M4 6h16M4 12h10M4 18h7"/>')} Fill In the Map`, M.g.nodes.filter(n => !n.root && n.deg).length >= 3 ? "" : "disabled") + item("cards", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} ${mapDeck(M.own) ? "Update Flashcards" : "Make Flashcards"}`)
@@ -847,10 +898,11 @@ function panel(){
   if (M.selE) {
     const e = g.edges.find(x => x.key === M.selE); if (!e) { M.selE = ""; panel(); return; }
     const a = g.nodes.find(n => n.id === e.a), b = g.nodes.find(n => n.id === e.b), WHY = {exam: "exam topic", topic: "linked in the Prep Plan", link: "a [[link]] in the note", from: "cards made from it", class: "filed under the class", user: "your connection"};
-    const seg = (key, opts, cur, names, icons) => `<div class="cm-seg" role="group" aria-label="${key === "eline" ? "Line style" : "Arrows"}">${opts.map(v => `<button type="button" class="cm-segb" data-cm="${key}" data-v="${v}" aria-pressed="${cur === v}" title="${names[v]}" aria-label="${names[v]}">${ic(icons[v])}</button>`).join("")}</div>`;
+    const seg = (key, opts, cur, names, icons) => `<div class="cm-seg" role="group" aria-label="${key === "eline" ? "Line style" : key === "ewidth" ? "Line thickness" : "Arrows"}">${opts.map(v => `<button type="button" class="cm-segb" data-cm="${key}" data-v="${v}" aria-pressed="${cur === v}" title="${names[v]}" aria-label="${names[v]}">${ic(icons[v])}</button>`).join("")}</div>`;
     P.innerHTML = `<p style="margin:0"><b>${esc(a ? a.label : "")}</b> ${e.arrow === "none" ? "—" : e.arrow === "both" ? "↔" : "→"} <b>${esc(b ? b.label : "")}</b> <span class="mini">${esc(WHY[e.why] || "")}</span></p>
       <form class="cm-row cm-elf"><input type="text" data-cm-elab value="${esc(e.label)}" placeholder="Words on the line: causes, is part of, leads to…" maxlength="60" aria-label="Words on this connection" enterkeyhint="done"><button type="submit" class="btn small">Save</button></form>
-      <div class="cm-row cm-style">${seg("eline", CMAP.LINES, e.line || "solid", LINE_NAMES, LINE_IC)}${seg("earrow", CMAP.ARROWS, e.arrow || "none", ARROW_NAMES, ARROW_IC)}${e.arrow === "end" ? `<button type="button" class="btn small" data-cm="eflip" title="Point the arrow the other way">Flip</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="ecut">Remove</button></div>`;
+      <div class="cm-row cm-style">${seg("eline", ["solid", "dashed", "dotted"], e.line || "solid", LINE_NAMES, LINE_IC)}${seg("ewidth", ["1", "2", "3", "4"], String(e.w || 2), W_NAMES, W_IC)}${seg("earrow", CMAP.ARROWS, e.arrow || "none", ARROW_NAMES, ARROW_IC)}${e.arrow === "end" ? `<button type="button" class="btn small" data-cm="eflip" title="Point the arrow the other way">Flip</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="ecut">Remove</button></div>
+      <div class="cm-cols" role="group" aria-label="Line colour"><button type="button" class="cm-col cm-col-auto" data-cm="ecol" data-v="" aria-pressed="${!e.col}" title="Automatic colour" aria-label="Automatic colour"></button>${COLORS.concat(["#1E293B"]).map(v => `<button type="button" class="cm-col" data-cm="ecol" data-v="${v}" style="--sw:${v}" aria-pressed="${(e.col || "").toLowerCase() === v.toLowerCase()}" title="${v}" aria-label="Colour ${v}"></button>`).join("")}</div>`;
     return;
   }
   if (M.sel || M.selE) { M.cardsOpen = false; M.made = null; }
@@ -995,6 +1047,7 @@ async function onClick(e){
   switch (a) {
     case "style": M.styleOpen = !M.styleOpen; panel(); return;
     case "undo": undoMap(); return;
+    case "mat": matPanel(); return;
     case "made-x": M.made = null; panel(); return;
     case "study-deck": { const id = M.made && M.made.deck; M.made = null; if (id && state.decks[id]) { if (dlg.open) dlg.close(); setTimeout(() => startStudy([id]), 0); } return; }
     case "desel": M.sel = ""; M.selE = ""; M.pick = ""; lite(); return;
@@ -1030,6 +1083,8 @@ async function onClick(e){
     case "del": { if (!n) return; const x = u(); x.add = x.add.filter(i => "idea:" + i.id !== n.id); x.links = x.links.filter(l => l.a !== n.id && l.b !== n.id); saveUser(x, `Deleted ${n.label} from the map`); M.sel = ""; rebuild(true); paint(); break; }
     // a connection's words, line, arrows and direction (an automatic one becomes yours when you style it)
     case "eline": edgeSet({line: b.dataset.v}, "Changed a connection's line"); break;
+    case "ewidth": edgeSet({w: Number(b.dataset.v) || 2}, "Changed a connection's thickness"); break;
+    case "ecol": edgeSet({col: b.dataset.v || ""}, b.dataset.v ? "Coloured a connection" : "Took a connection's colour off"); break;
     case "earrow": edgeSet({arrow: b.dataset.v}, b.dataset.v === "none" ? "Took the arrows off a connection" : "Added an arrow to a connection"); break;
     case "eflip": edgeSet({flip: true}, "Turned a connection's arrow around"); break;
     // a box's shape and colour
@@ -1075,7 +1130,7 @@ async function onClick(e){
 function edgeSet(patch, label){
   const e2 = M.g && M.g.edges.find(x => x.key === M.selE); if (!e2) return;
   const x = userOf(M.own), had = x.links.find(l => CMAP.ek(l.a, l.b) === e2.key) || {}, el = M.el.querySelector("[data-cm-elab]");
-  const rec = {a: e2.a, b: e2.b, label: el ? String(el.value || "").trim().slice(0, 60) : e2.label || "", line: e2.line || "solid", arrow: e2.arrow || "none"};
+  const rec = {a: e2.a, b: e2.b, label: el ? String(el.value || "").trim().slice(0, 60) : e2.label || "", line: e2.line || "solid", arrow: e2.arrow || "none", w: e2.w || 0, col: e2.col || ""};
   if (patch.flip) { rec.a = e2.b; rec.b = e2.a; } else Object.assign(rec, patch);
   x.links = x.links.filter(l => CMAP.ek(l.a, l.b) !== e2.key).concat([Object.assign({}, had, rec)]); x.cut = x.cut.filter(k => k !== e2.key);
   saveUser(x, label); rebuild(true); paint();
@@ -1191,6 +1246,7 @@ function newMapSheet(cid, o){
         ${opt("scan", `${AI_ICON} Scan a Drawing${window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}`, "Take a photo of a map you drew by hand. Studyboard AI redraws it here, ready to edit.")}
         ${opt("tpl", "A Template", "A ready-made layout to fill in: hub, timeline, cause and effect and more.")}
       </fieldset>
+      <div class="cm-more cm-matbox" data-for="auto" ${start === "auto" ? "" : "hidden"}></div>
       <div class="cm-more" data-for="describe" ${start === "describe" ? "" : "hidden"}>
         <label class="f"><span class="lh">Your Ideas and Connections</span><textarea id="cmDesc" rows="6" placeholder="Photosynthesis needs sunlight, water and carbon dioxide.&#10;It makes glucose and oxygen.&#10;Chlorophyll in the leaves absorbs the sunlight.">${esc(o.desc || "")}</textarea></label>
         <p class="mini cm-tip">Write it any way: sentences, a list, or arrows like <code>Sunlight -> Photosynthesis : powers</code>. Arrows and lists work even without AI.</p>
@@ -1231,6 +1287,9 @@ function newMapSheet(cid, o){
   dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("over"); }); dz.addEventListener("dragleave", () => dz.classList.remove("over"));
   dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("over"); setShot(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
   root.addEventListener("paste", e => { const it = [...((e.clipboardData || {}).items || [])].find(x => x.kind === "file" && /^image\//.test(x.type)); if (it) { e.preventDefault(); setShot(it.getAsFile()); } });
+  // My Course Material: the chosen course's material, all ticked to start with; a new course redraws the list
+  const matBox = root.querySelector(".cm-matbox"), matDraw = () => { const items = materialsOf({kind: "course", id: root.querySelector("#cmCourse").value, map: "__new"}); matBox._n = items.length; matBox.innerHTML = matHtml(items, new Set(items.map(x => x.id))); };
+  matWire(matBox); matDraw(); root.querySelector("#cmCourse").addEventListener("change", matDraw);
   root.addEventListener("change", e => { if (e.target.name === "cmStart") { sync(); if (e.target.value === "describe") { const d = root.querySelector("#cmDesc"); if (d) d.focus(); } } });
   root.querySelectorAll("[data-eg]").forEach(b => b.addEventListener("click", () => { const d = root.querySelector("#cmDesc"); d.value = b.dataset.eg; d.focus(); }));
   sync(); if (nm && !o.desc) { nm.focus(); nm.select(); }
@@ -1259,7 +1318,9 @@ async function createFromSheet(){
     catch (e) { b.disabled = false; b.textContent = "Draw My Map"; err((e && e.message) || "Couldn't draw that right now. Try again."); return; }
   }
   if (!name) name = `${courseName(c)} Map`;
-  const rec = Object.assign({id: uid(), name, auto: start === "auto", created: Date.now(), at: Date.now()}, start === "auto" || start === "blank" ? {} : ov);
+  let mat = null;
+  if (start === "auto") { const box = root.querySelector(".cm-matbox"), ids = matChosen(box); if (box._n && !ids.length) { err("Tick at least one item, or start from a blank page."); return; } if (ids.length < (box._n || 0)) mat = ids; }
+  const rec = Object.assign({id: uid(), name, auto: start === "auto", created: Date.now(), at: Date.now()}, start === "auto" || start === "blank" ? {} : ov, mat ? {mat} : {});
   const cur = state.courses[c.id], after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
   applyChanges([{kind: "course", id: c.id, after}], `Made the map ${name}`, null, {quiet: true});
   if (dlg.open) dlg.close();
@@ -1434,11 +1495,16 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-edge.ln-dashed .cm-line{stroke-dasharray:9 6}
 .cm-edge.ln-dotted .cm-line{stroke-dasharray:.1 6;stroke-linecap:round;stroke-width:2.6}
 .cm-edge.ln-thick .cm-line{stroke-width:3.6}
+.cm-edge.has-w .cm-line{stroke-width:var(--lw)}
+.cm-edge.has-lc .cm-line{stroke:var(--lc)}
+.cm-edge.has-lc .cm-elbg{stroke:var(--lc)}
 .cm-arrow{fill:color-mix(in srgb,var(--ink) 58%,var(--surface))}
 .cm-elbg{fill:var(--surface);stroke:color-mix(in srgb,var(--ink) 18%,transparent);stroke-width:1}
 .cm-elg{cursor:pointer}
 .cm-edge.is-sel .cm-elbg{stroke:var(--accent,#2F6FE4)}
-.cm-edge.is-sel .cm-line{stroke:var(--accent,#2F6FE4);stroke-width:3}
+.cm-edge.is-sel .cm-line{filter:drop-shadow(0 0 3px color-mix(in srgb,var(--accent,#2F6FE4) 70%,transparent))}
+.cm-edge.is-sel:not(.has-lc) .cm-line{stroke:var(--accent,#2F6FE4)}
+.cm-edge.is-sel:not(.has-w) .cm-line{stroke-width:3}
 .cm-elab{font-size:11.5px;font-weight:600;fill:color-mix(in srgb,var(--ink) 80%,var(--muted));text-anchor:middle;pointer-events:none}
 .cm-node{cursor:pointer;outline:none}
 .cm-node .cm-shape{fill:color-mix(in srgb,var(--c) 13%,var(--surface));stroke:color-mix(in srgb,var(--c) 70%,var(--line));stroke-width:1.5;transition:stroke-width .12s}
@@ -1592,6 +1658,18 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-atrow input{width:110px;font-size:16px}
 .cm-fromcard{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 8px;margin:10px 0 0}
 .cm-fromcard svg{color:#7C5CFF}
+.cm-matbox{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:-2px}
+.cm-matbar{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.cm-matl{display:grid;gap:10px;max-height:260px;overflow:auto;padding-right:4px}
+.cm-panel .cm-matl{max-height:min(38vh,320px)}
+.cm-matg{border:0;margin:0;padding:0;display:grid;gap:2px}
+.cm-matg legend{padding:0 0 4px;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cm-mat{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:9px;cursor:pointer;min-width:0}
+.cm-mat:hover{background:color-mix(in srgb,var(--accent,#2F6FE4) 8%,var(--surface))}
+.cm-mat input{flex:none;width:17px;height:17px;margin:0;accent-color:var(--accent,#2F6FE4)}
+.cm-matdot{width:9px;height:9px;border-radius:50%;flex:none}
+.cm-matt{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:.92rem}
+.cm-matf{display:grid;gap:10px}
 .cm-scan-acts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .cm-scan-acts .btn svg{margin-right:6px;vertical-align:-3px}
 [data-scan-qr]:not(:empty){margin-bottom:10px}

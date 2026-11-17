@@ -65,4 +65,10 @@ const ga = CMAP.graph({root: {label: "Bio"}, files: [{id: "f1", label: "Lecture 
 const ia = ga.nodes.find(x => x.id === "idea:a");
 ok(ia.at.p === 12 && ga.edges.some(e => e.key === [ "file:f1", "idea:a"].sort().join("|") && e.label === "p. 12"), "an idea linked to a page sits next to that PDF on the map, the line saying which page");
 ok(ga.nodes.find(x => x.id === "idea:b").at.f === "nope" && !ga.edges.some(e => e.a === "idea:b" || e.b === "idea:b"), "a link to a file not on the map draws no line");
+/* Lines: thickness and colour; the old thick line is a solid, thick one */
+{ const gl = CMAP.graph({root: {label: "M"}, blank: true, user: {add: [{id: "a", label: "A"}, {id: "b", label: "B"}, {id: "c", label: "C"}], links: [{a: "root", b: "idea:a", line: "thick"}, {a: "root", b: "idea:b", line: "dashed", w: 4, col: "#D6336C"}, {a: "root", b: "idea:c", w: 9, col: "red; x"}]}});
+  const E = id => gl.edges.find(e => e.b === id || e.a === id && e.b === "root");
+  ok(E("idea:a").line === "solid" && E("idea:a").w === 3, "an old thick line becomes solid and thick");
+  ok(E("idea:b").line === "dashed" && E("idea:b").w === 4 && E("idea:b").col === "#D6336C", "a line keeps its pattern, thickness and colour");
+  ok(E("idea:c").w === 0 && E("idea:c").col === "", "a thickness or colour that isn't one is ignored"); }
 console.log(`concept-map-study: ${n} checks passed`);

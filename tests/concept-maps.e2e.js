@@ -114,15 +114,22 @@ function SEED(){
   await page.evaluate(() => { const b = document.createElement("button"); b.dataset.cm = "fit"; document.querySelector(".cm-tools").appendChild(b); b.click(); b.remove(); }); await page.waitForSelector("[data-cm-elab]");
   await page.fill("[data-cm-elab]", "is part of"); await page.press("[data-cm-elab]", "Enter"); await page.waitForTimeout(250);
   ok(await page.locator(".cm-elab", {hasText: "is part of"}).count() === 1, "words on a connection show on the line");
-  for (const ln of ["dashed", "dotted", "thick", "solid"]) { await cmClick(page, `[data-cm="eline"][data-v="${ln}"]`); await page.waitForTimeout(150); ok(await page.locator(`.cm-edge.ln-${ln}[data-e="${ekey}"]`).count() === 1, `line: ${ln}`); }
+  for (const ln of ["dashed", "dotted", "solid"]) { await cmClick(page, `[data-cm="eline"][data-v="${ln}"]`); await page.waitForTimeout(150); ok(await page.locator(`.cm-edge.ln-${ln}[data-e="${ekey}"]`).count() === 1, `line: ${ln}`); }
+  // thickness and colour, for any line
+  await cmClick(page, '[data-cm="ewidth"][data-v="4"]'); await page.waitForTimeout(150);
+  await cmClick(page, '[data-cm="ecol"][data-v="#D6336C"]'); await page.waitForTimeout(150);
+  let LW = (await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey);
+  ok(LW.w === 4 && LW.col === "#D6336C", "a line takes a thickness (Heavy) and a colour");
+  ok(await page.evaluate(k => { const l = document.querySelector(`.cm-edge[data-e="${k}"] .cm-line`), cs = getComputedStyle(l); return parseFloat(cs.strokeWidth) === 5 && /214, 51, 108|d6336c/i.test(cs.stroke); }, ekey), "it draws heavy and in that colour (even while picked)");
   await cmClick(page, '[data-cm="earrow"][data-v="end"]'); await page.waitForTimeout(200);
-  ok(/cmArr/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-end") || ""), "an arrow one way");
+  ok(/#cmA/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-end") || ""), "an arrow one way");
+  ok(await page.evaluate(k => { const m = (document.querySelector(`.cm-edge[data-e="${k}"] .cm-line`).getAttribute("marker-end") || "").replace(/^url\(#|\)$/g, ""), p = document.getElementById(m); return !!p && /D6336C/i.test(p.innerHTML) && Number(p.getAttribute("markerWidth")) > 11; }, ekey), "its arrowhead takes the line's colour and is sized for it");
   let L = (await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey);
   const from = L.a; await cmClick(page, '[data-cm="eflip"]'); await page.waitForTimeout(200);
   L = (await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey);
   ok(L.a !== from && L.label === "is part of" && L.line === "solid" && L.arrow === "end", "Flip turns the arrow around and keeps the words and line");
   await cmClick(page, '[data-cm="earrow"][data-v="both"]'); await page.waitForTimeout(200);
-  ok(/cmArrS/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-start") || ""), "arrows both ways");
+  ok(/#cmA\w*S\)/.test(await page.getAttribute(`.cm-edge[data-e="${ekey}"] .cm-line`, "marker-start") || ""), "arrows both ways");
   ok(await fits(page), "the map and its panels fit at 1280px");
   await page.keyboard.press("Escape"); await page.waitForTimeout(250);
 
@@ -138,6 +145,25 @@ function SEED(){
   c2 = await course(page, "c2");
   ok(c2.maps[1].add.some(x => x.label === "Chlorophyll") && !c2.maps[0].add.some(x => x.label === "Chlorophyll"), "its ideas are its own: the other map doesn't change");
   ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
+  await page.keyboard.press("Escape"); await page.waitForTimeout(250);
+
+  /* My Course Material: choose which material the map starts with, then add more from the map's Add menu */
+  await act(page, "cm-new", "", {course: "c1"}); await page.waitForSelector("#cmName");
+  await page.check('[name="cmStart"][value="auto"]');
+  ok(await page.locator(".cm-matbox .cm-mat input").count() >= 3 && await page.locator(".cm-matbox .cm-mat input:checked").count() === await page.locator(".cm-matbox .cm-mat input").count() && /Exams/.test(await page.textContent(".cm-matbox")) && /Notes/.test(await page.textContent(".cm-matbox")), "My Course Material lists the course's exams and notes, all ticked");
+  await page.click('.cm-matbox [data-mat-all="0"]'); ok(/0 of \d+ chosen/.test(await page.textContent(".cm-matbox")), "Select None");
+  await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(150); ok(/Tick at least one item/.test(await page.textContent("[data-cm-err]")), "with nothing ticked it asks for something");
+  await page.check('.cm-matbox input[value="note:n1"]'); await page.fill("#cmName", "Carbon only"); await page.click("#dlg[open] [data-submit]"); await page.waitForSelector('.cm-node[data-n="root"]');
+  let cm = (await course(page, "c1")).maps.find(m => m.name === "Carbon only");
+  ok(cm && JSON.stringify(cm.mat) === '["note:n1"]' && await page.locator('.cm-node[data-n="note:n1"]').count() === 1 && await page.locator('.cm-node[data-n="note:n2"]').count() === 0 && await page.locator('.cm-node[data-n="exam:x1"]').count() === 0, "the map shows only the ticked note");
+  await cmClick(page, '[data-cm="mat"]'); await page.waitForSelector(".cm-matf");
+  ok(await page.isChecked('.cm-matf input[value="note:n1"]') && !(await page.isChecked('.cm-matf input[value="note:n2"]')), "Add, Course Material shows what's on the map");
+  await page.check('.cm-matf input[value="note:n2"]'); await page.click(".cm-matf [type=submit]"); await page.waitForTimeout(250);
+  cm = (await course(page, "c1")).maps.find(m => m.name === "Carbon only");
+  ok(cm.mat.includes("note:n2") && await page.locator('.cm-node[data-n="note:n2"]').count() === 1, "ticking another note adds it to the map, ready to connect");
+  await cmClick(page, '[data-cm="mat"]'); await page.waitForSelector(".cm-matf"); await page.click('.cm-matf [data-mat-all="1"]'); await page.click(".cm-matf [type=submit]"); await page.waitForTimeout(250);
+  cm = (await course(page, "c1")).maps.find(m => m.name === "Carbon only");
+  ok(cm.mat == null && await page.locator('.cm-node[data-n="exam:x1"]').count() === 1, "Select All goes back to all the course's material (new material joins by itself)");
   await page.keyboard.press("Escape"); await page.waitForTimeout(250);
 
   /* Describe it, offline: typed arrows need no AI */
