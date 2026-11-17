@@ -559,7 +559,8 @@ const CMPACK = (() => {
     plum: ["#F8F2F7", "#8E3E7E", "#F1E3EE", "#3A1433"], indigo: ["#F0F2FA", "#3F51A0", "#E3E7F6", "#18214A"]};
   const dotGrid = c => tile(22, 22, `<circle cx="11" cy="11" r="1.1" fill="${c}" opacity=".3"/>`);
   Object.entries(PLAIN).forEach(([k, [paper, c, fill, ink]]) => { const was = T2[k] || {};
-    T2[k] = {name: was.name, base: paper, desc: `Simple ${was.name} colour: rounded boxes and plain lines.`, tile: dotGrid(c), arrow: c,
+    // native: the map draws its own boxes (your shapes) and background, in this colour; box() and line() are for the picker's picture
+    T2[k] = {name: was.name, base: paper, native: true, col: c, desc: `Simple ${was.name} colour: your boxes and lines in it.`, tile: dotGrid(c), arrow: c,
       line: () => ({st: `stroke:${c};stroke-width:2;stroke-linecap:round;opacity:.8`}),
       box: n => ({o: rr(n, n.root ? 14 : 12, S(n.root ? c : fill, c, n.root ? 2 : 1.6, SH)), t: {ink: n.root ? "#fff" : ink, fw: 800}})}; });
   Object.keys(T2).forEach(k => { P["t_" + k] = Object.assign({group: "theme"}, T2[k]); });

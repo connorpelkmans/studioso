@@ -366,14 +366,20 @@ function SEED(){
   {
     const ctxL = await mkCtx(), pl = await open(ctxL), mp = async () => (await course(pl, "c2")).maps.find(m => m.id === "m1");
     await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node");
+    ok(!(await mp()).pack && await pl.getAttribute(".cm-canvas", "data-pk") === "t_classic" && await pl.locator(".cm-node").count() > 0, "a map with no style chosen matches the theme in use (Classic)");
+    await pl.evaluate(() => { const s = window.__sbProStudy.state(); s.settings.style = Object.assign({}, s.settings.style, {skin: "sakura"}); });
+    await pl.click(".cm-x"); await pl.waitForTimeout(250); await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node");
+    ok(await pl.getAttribute(".cm-canvas", "data-pk") === "sakura" && await pl.locator(".cm-node.is-pk").count() > 0, "on Sakura, the same map opens in Sakura's style");
+    await pl.evaluate(() => { const s = window.__sbProStudy.state(); s.settings.style = Object.assign({}, s.settings.style, {skin: "classic"}); });
+    await pl.click(".cm-x"); await pl.waitForTimeout(250); await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node");
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
-    ok(await pl.locator(".cm-look").count() >= 104 && await pl.locator('.cm-look[data-v^="t-"]').count() === 0 && await pl.locator('.cm-look.on[data-v=""]').count() === 1, "Map Style: Plain, Match My Theme, 20 subjects and every app theme, each with its own style; Plain chosen");
+    ok(await pl.locator(".cm-look").count() >= 104 && await pl.locator('.cm-look[data-v^="t-"]').count() === 0 && await pl.locator('.cm-look.on[data-v="theme"]').count() === 1, "Map Style: Plain, Match My Theme, 20 subjects and every app theme, each with its own style; a new map matches the theme");
     // a trackpad or mouse wheel over the list scrolls the list (not the map's zoom)
     const k0 = await pl.evaluate(() => SBCMAP.state().view.k), lb = await pl.locator(".cm-panel").boundingBox();
     await pl.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2); await pl.mouse.wheel(0, 400); await pl.waitForTimeout(250);
     ok(await pl.evaluate(() => document.querySelector(".cm-panel").scrollTop) > 100 && await pl.evaluate(() => SBCMAP.state().view.k) === k0, "scrolling over the style list scrolls it, and doesn't zoom the map");
     await pl.click('.cm-look[data-v="t_lavender"]'); await pl.waitForTimeout(300);
-    ok((await mp()).pack === "t_lavender" && await pl.getAttribute(".cm-canvas", "data-pk") === "t_lavender" && await pl.locator(".cm-node .pk-o").count() > 0, "any theme's style can be chosen, not just the current theme's (Lavender's soap bars, while on Classic)");
+    ok((await mp()).pack === "t_lavender" && await pl.getAttribute(".cm-canvas", "data-pk") === "t_lavender" && await pl.locator(".cm-canvas.cm-pkn").count() === 1 && await pl.evaluate(() => document.querySelector('.cm-node[data-n="idea:a"]').dataset.col.toLowerCase() === "#8a73c9"), "any theme's style can be chosen, not just the current theme's (Lavender's colour, while on Classic)");
     await pl.click('.cm-look[data-v="halloween"]'); await pl.waitForTimeout(300);
     ok(await pl.getAttribute(".cm-canvas", "data-pk") === "halloween", "a theme with its own style: Halloween, while on Classic");
     await pl.click('.cm-look[data-v="med"]'); await pl.waitForTimeout(300);
@@ -404,7 +410,7 @@ function SEED(){
     ok(await pl.locator(".cm-node.is-pk").count() === 0 && await pl.locator(".cm-canvas.cm-pk").count() === 1, "Colour by Knowledge shows plain boxes on the style's background");
     await pl.click('.cm-tools [data-cm="know"]'); await pl.waitForTimeout(200);
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); await pl.click('.cm-look[data-v=""]'); await pl.waitForTimeout(300);
-    ok(!(await mp()).pack && await pl.locator(".cm-canvas.cm-pk").count() === 0 && await pl.locator(".cm-node.is-pk").count() === 0, "Plain takes the style off");
+    ok((await mp()).pack === "plain" && await pl.locator(".cm-canvas.cm-pk, .cm-canvas.cm-pkn").count() === 0 && await pl.locator(".cm-node.is-pk").count() === 0, "Plain takes the style off, and is kept (it doesn't fall back to the theme)");
     // Map Style closes when you click away from it (on the map), or press Escape, like a menu
     if (!(await pl.locator(".cm-looks").count())) await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
     const cvb = await pl.locator(".cm-canvas").boundingBox(); await pl.mouse.click(cvb.x + 40, cvb.y + 40); await pl.waitForTimeout(200);
