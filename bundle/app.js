@@ -106293,10 +106293,19 @@ function reviewHtml(){
   const list = allTasks().filter(t => eligible(t) && (!f || t.courseId === f) && (hasData(t) ? t.status !== "done" || (t.due && t.due >= addDays(today, -14)) : t.status !== "done" && t.due && t.due >= today && t.due <= addDays(today, 45)))
     .sort((a, b) => (hasData(b) - hasData(a)) || String(a.due || "9").localeCompare(String(b.due || "9"))).slice(0, 40);
   const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
+  // a card like Concept Maps': a peek at the paper itself (its draft's opening words on a page, citations marked), its course, how its
+  // check stands and its linked doc; then its title, when it's due and how far along it is
   const card = t => {
-    const w = wsOf(t), c = courseOf(t.courseId), ck = w.chk && w.draft && w.chk.h === w.draft.h ? w.chk : null;
+    const w = wsOf(t), c = courseOf(t.courseId), ck = w.chk && w.draft && w.chk.h === w.draft.h ? w.chk : null, open = `data-act="ws-open" data-id="${esc(t.id)}"`;
     const line = hasData(t) ? [plural(w.src.length, "source"), plural(w.q.length, "quote"), !w.draft ? "no draft yet" : !ck ? "not checked yet" : ck.err ? `last check: ${ck.err} to fix` : "last check: all good"].join(" · ") : "Not started in Writing Studio";
-    return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}"><button type="button" class="wsr-main" data-act="ws-open" data-id="${esc(t.id)}"><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc([c ? courseLabel(c) : "", t.due ? (t.status === "done" ? "Done" : relDue(t)) : ""].filter(Boolean).join(" · "))}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button><button type="button" class="btn small" data-act="ws-open" data-id="${esc(t.id)}" aria-label="Open ${esc(t.title)} in Writing Studio">Open${pro}</button></li>`;
+    const badge = !hasData(t) ? ["new", "Not Started"] : !w.draft ? ["none", "No Draft Yet"] : !ck ? ["wait", "Not Checked"] : ck.err ? ["bad", `${ck.err} to Fix`] : ck.warn ? ["warn", `${ck.warn} to Look At`] : ["good", "All Good ✓"];
+    const snip = w.draft ? esc(cut(String(w.draft.t).replace(/\s+/g, " "), 340)).replace(/\([^()]{2,70}?(?:1[5-9]\d\d|20\d\d|n\.d\.)[a-z]?(?:,[^()]{0,20})?\)/g, m => `<mark>${m}</mark>`) : "";
+    const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
+    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ph">${esc(cut(t.title, 60))}</span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
+    return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}">
+      <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
+      <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button>
+      <button type="button" class="btn small" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open${pro}</button></div></li>`;
   };
   const started = list.filter(hasData), next = list.filter(t => !hasData(t));
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
@@ -106790,9 +106799,26 @@ svg.ws-zic{display:block;flex:none}
 .pdr-ws-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 @media (max-width:560px){.pdr-ws{padding:6px 10px}.pdr-ws>.mini{display:none}}
 /* Review: Writing */
-.wsr-list{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}
-.wsr-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:12px;background:var(--surface);min-width:0}
+.wsr-list{list-style:none;margin:12px 0 18px;padding:0;display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}
+/* a card like Concept Maps': the paper peeking out on its course's colour, then its title and how it stands */
+.wsr-card{position:relative;display:flex;flex-direction:column;min-width:0;border-radius:18px;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 26%,var(--line));box-shadow:0 1px 2px rgb(0 0 0/.05),0 6px 18px -10px color-mix(in srgb,var(--c) 45%,transparent);overflow:hidden}
+.wsr-peekb{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;border:0;cursor:pointer;overflow:hidden;background:repeating-linear-gradient(0deg,transparent 0 13px,color-mix(in srgb,var(--c) 10%,transparent) 13px 14px),linear-gradient(160deg,color-mix(in srgb,var(--c) 16%,var(--surface)),color-mix(in srgb,var(--c) 5%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
+.wsr-page,.wsr-back{position:absolute;left:50%;top:40px;width:min(62%,230px);height:calc(100% + 6px);translate:-50% 0;border-radius:6px 6px 0 0;background:color-mix(in srgb,#fff 88%,var(--c));box-shadow:0 2px 10px -3px color-mix(in srgb,var(--c) 45%,rgb(0 0 0/.25))}
+.wsr-back{rotate:-4deg;top:44px;background:color-mix(in srgb,#fff 70%,var(--c));opacity:.75}
+.wsr-page{rotate:1.5deg;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:5px;text-align:left;overflow:hidden;color:#2B2F3A;transition:rotate .3s cubic-bezier(.2,.8,.2,1),translate .3s cubic-bezier(.2,.8,.2,1)}
+.wsr-page::after{content:"";position:absolute;right:0;top:0;width:16px;height:16px;background:linear-gradient(225deg,color-mix(in srgb,var(--c) 28%,var(--surface)) 50%,color-mix(in srgb,#000 10%,#fff) 50%);border-bottom-left-radius:4px}
+.wsr-card:hover .wsr-page{rotate:0deg;translate:-50% -4px}
+.wsr-ph{font:700 .62rem/1.25 Georgia,"Times New Roman",serif;text-align:center;color:#1E2230;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 10px}
+.wsr-pt{font:.5rem/1.55 Georgia,"Times New Roman",serif;color:#4A5060;text-indent:1.4em;-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
+.wsr-pt mark{background:color-mix(in srgb,var(--c) 26%,#fff);color:inherit;border-radius:2px;padding:0 1px}
+.wsr-pl{flex:1;background:repeating-linear-gradient(180deg,#D9DCE3 0 3px,transparent 3px 9px);margin:4px 2px 0;opacity:.8;-webkit-mask-image:linear-gradient(90deg,#000 70%,transparent 96%),linear-gradient(#000 50%,transparent);mask-image:linear-gradient(#000 50%,transparent)}
+.wsr-chip{z-index:1;max-width:calc(100% - 128px)}
+.wsr-badge{position:absolute;right:10px;top:10px;z-index:1;font:800 .62rem var(--display);letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--surface);color:var(--muted);box-shadow:0 1px 3px rgb(0 0 0/.12)}
+.wsr-badge.k-bad{background:#FDE7E5;color:#B42318}.wsr-badge.k-good{background:#E3F5EA;color:#1D6B3D}.wsr-badge.k-warn,.wsr-badge.k-wait{background:#FFF3D6;color:#8A5A00}
+.wsr-ld{position:absolute;right:10px;bottom:8px;z-index:1;display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.15)}
+.wsr-foot{display:flex;align-items:center;gap:10px;padding:10px 12px 12px}
 .wsr-main{flex:1 1 auto;min-width:0;border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:grid;gap:2px}
+@media (prefers-reduced-motion:reduce){.wsr-page{transition:none}.wsr-card:hover .wsr-page{rotate:1.5deg;translate:-50% 0}}
 .wsr-t{font-weight:700;word-break:break-word}
 .wsr-l.bad{color:#B42318}
 @media (max-width:560px){.ws-strip{padding:5px 12px;font-size:.8rem}.ws-sp{padding:3px 4px}}
