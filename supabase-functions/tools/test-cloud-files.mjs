@@ -56,7 +56,7 @@ function world(opts = {}) {
     throw new Error("unexpected " + m + " " + url);
   };
   const env = k => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "svc", SUPABASE_ANON_KEY: "anon", CLOUD_KEY: opts.key ?? SECRET, CLOUD_REDIRECT: opts.redirect || "",
-    GOOGLE_CLIENT_ID: "g-id", GOOGLE_CLIENT_SECRET: "g-secret", MS_CLIENT_ID: opts.noMs ? "" : "m-id", MS_CLIENT_SECRET: opts.noMs ? "" : "m-secret" }[k] ?? "");
+    GOOGLE_CLIENT_ID: opts.gId || "g-id", GOOGLE_CLIENT_SECRET: "g-secret", GOOGLE_PICKER_API_KEY: opts.pKey || "", GOOGLE_PICKER_APP_ID: opts.pApp || "", MS_CLIENT_ID: opts.noMs ? "" : "m-id", MS_CLIENT_SECRET: opts.noMs ? "" : "m-secret" }[k] ?? "");
   const deps = { env, fetch, now: () => now, log: (...a) => logs.push(a.join(" ")) };
   const call = async (body, jwt = "user-jwt") => { const r = await F.handle(new Request(FN_URL, { method: "POST", headers: { authorization: "Bearer " + jwt, "content-type": "application/json" }, body: JSON.stringify(body) }), deps); return { status: r.status, body: await r.json() }; };
   const get = async (qs, cookie, via) => { const r = await F.handle(new Request(FN_URL + "?" + qs, { headers: { ...(cookie ? { cookie } : {}), ...(via ? { "x-studyboard-via": "site" } : {}) } }), deps); return { status: r.status, text: await r.text(), csp: r.headers.get("content-security-policy"), location: r.headers.get("location"), cookie: (r.headers.get("set-cookie") || "").split(";")[0] }; };
@@ -98,6 +98,12 @@ await test("connecting Google Drive: only drive.file, confirmed by the person, s
   assert.equal(await F.unseal(SECRET, a.refresh_enc, UID, "google"), "g-refresh-1");
   const st = await w.call({ action: "status" });
   assert.equal(st.body.accounts[0].provider, "google"); assert.ok(!JSON.stringify(st.body).includes("refresh"));
+});
+await test("the Google Picker's app ID is the Drive sign-in's own project number (else no chosen file can be opened)", async () => {
+  const w = world({ gId: "123456789012-abc.apps.googleusercontent.com", pKey: "AIzaKEY", pApp: "999999999" });
+  assert.deepEqual((await w.call({ action: "status" })).body.picker, { key: "AIzaKEY", appId: "123456789012" }, "taken from the client ID, not a mismatched secret");
+  assert.deepEqual((await world({ pKey: "AIzaKEY", pApp: "555555555" }).call({ action: "status" })).body.picker, { key: "AIzaKEY", appId: "555555555" }, "the secret, when the client ID doesn't say");
+  assert.equal((await world({ pApp: "555555555" }).call({ action: "status" })).body.picker, null, "no picker without its key");
 });
 await test("Google: unticking the Drive box doesn't connect", async () => {
   const w = world({ gScope: "openid email" });

@@ -277,7 +277,10 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (!b || typeof b !== "object") return reply({ error: "bad request" }, 400);
     const providers = { google: A.google.configured(), microsoft: A.microsoft.configured(), classroom: A.classroom.configured(), onenote: A.onenote.configured(), onenote_class: A.onenote_class.configured() };
     // The Google Picker's browser key and app (project) number. Both are public by design; they just have to be set as secrets.
-    const pk = d.env("GOOGLE_PICKER_API_KEY").trim(), pa = d.env("GOOGLE_PICKER_APP_ID").trim();
+    // The app ID must be the project number of the Google client the Drive sign-in uses, or Google gives Studyboard no access to the files
+    // chosen (each one then reads as not found). A Google client ID starts with that number, so it's taken from there when it can be.
+    const cid = envOr(d, "CLOUD_GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_ID").trim(), own = (cid.match(/^(\d{6,})-/) || [])[1] || "";
+    const pk = d.env("GOOGLE_PICKER_API_KEY").trim(), pa = own || d.env("GOOGLE_PICKER_APP_ID").trim();
     const picker = providers.google && pk && /^\d{6,}$/.test(pa) ? { key: pk, appId: pa } : null;
     if (b.action === "status") return reply({ accounts: await rpc(d, "cloud_status", { p_uid: uid }) || [], providers, picker }, 200);
     if (!PROVIDERS.includes(b.provider)) return reply({ error: "bad request" }, 400);
