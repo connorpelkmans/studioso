@@ -105748,6 +105748,7 @@ const CMAP = (() => {
   const styleOf = st => { st = st && typeof st === "object" ? st : {}; const o = {shape: SHAPES.includes(st.shape) ? st.shape : "", color: hex(st.color)};
     const f = hex(st.fill), k = hex(st.stroke), t = hex(st.text), font = FONTS.includes(st.font) ? st.font : "", size = num(st.size, 9, 36), scale = num(st.scale, 0.6, 3), bw = num(st.bw, 40, 900), bh = num(st.bh, 24, 600);
     if (bw) o.bw = Math.round(bw); if (bh) o.bh = Math.round(bh);
+    if (st.b === 1 || st.b === -1) o.b = st.b; if (st.i === 1 || st.i === true) o.i = 1;
     if (f) o.fill = f; if (k) o.stroke = k; if (t) o.text = t; if (font) o.font = font; if (size) o.size = size; if (scale && scale !== 1) o.scale = scale; return o; };
   const styled = st => Object.keys(st).some(k => st[k]);
   function graph(src){
@@ -105784,12 +105785,12 @@ const CMAP = (() => {
     (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, Object.assign({ref: i.id}, i.img && i.img.k ? {img: {k: String(i.img.k), w: Number(i.img.w) || 4, h: Number(i.img.h) || 3}} : {}, atOf(i.at) ? {at: atOf(i.at)} : {}, Array.isArray(i.ev) && i.ev.length ? {ev: i.ev.filter(r => typeof r === "string" && /^[cq]:[^:]+:[^:]+(:[^:]+)?$/.test(r) && r.length < 200).slice(0, 80)} : {}, i.emb && i.emb.e && embedOk(i.emb.e) ? {emb: {p: String(i.emb.p || ""), u: String(i.emb.u || "").slice(0, 600), e: String(i.emb.e).slice(0, 600), th: String(i.emb.th || "").slice(0, 300)}} : {})));
     // (an idea linked to a PDF page or lecture moment plays or opens it from its own box: no line to the file, so the file isn't pulled onto the map)
     cut.forEach(k => E.delete(k));
-    (user.links || []).forEach(l => { if (N.has(l.a) && N.has(l.b)) { const k = ek(l.a, l.b), old = E.get(k); E.set(k, {a: l.a, b: l.b, why: old ? old.why : "user", label: String(l.label || "").slice(0, 60), key: k, user: true, w: [1, 2, 3, 4].includes(Number(l.w)) ? Number(l.w) : l.line === "thick" ? 3 : 0, col: /^#[0-9a-f]{6}$/i.test(String(l.col || "")) ? String(l.col) : "", line: LINES.includes(l.line) && l.line !== "thick" ? l.line : "solid", arrow: ARROWS.includes(l.arrow) ? l.arrow : "none"}); } });
+    (user.links || []).forEach(l => { if (N.has(l.a) && N.has(l.b)) { const k = ek(l.a, l.b), old = E.get(k); E.set(k, {a: l.a, b: l.b, why: old ? old.why : "user", label: String(l.label || "").slice(0, 60), key: k, user: true, cv: Array.isArray(l.cv) && l.cv.length === 2 && l.cv.every(v => Number.isFinite(Number(v))) ? [Math.max(-1, Math.min(1, Number(l.cv[0]))), Math.max(-3, Math.min(3, Number(l.cv[1])))] : null, w: [1, 2, 3, 4].includes(Number(l.w)) ? Number(l.w) : l.line === "thick" ? 3 : 0, col: /^#[0-9a-f]{6}$/i.test(String(l.col || "")) ? String(l.col) : "", line: LINES.includes(l.line) && l.line !== "thick" ? l.line : "solid", arrow: ARROWS.includes(l.arrow) ? l.arrow : "none"}); } });
     hide.forEach(id => { if (id !== "root") N.delete(id); });
     [...E.keys()].forEach(k => { const e = E.get(k); if (!N.has(e.a) || !N.has(e.b)) E.delete(k); });
     Object.keys(names).forEach(id => { if (N.has(id) && names[id]) N.get(id).label = String(names[id]).slice(0, 120); });
     const styles = user.styles && typeof user.styles === "object" ? user.styles : {};
-    N.forEach((n, id) => { const st = styleOf(styles[id]); ["shape", "color", "fill", "stroke", "text", "font", "size", "scale", "bw", "bh"].forEach(k => { if (st[k]) n[k] = st[k]; }); });
+    N.forEach((n, id) => { const st = styleOf(styles[id]); ["shape", "color", "fill", "stroke", "text", "font", "size", "scale", "bw", "bh", "b", "i"].forEach(k => { if (st[k]) n[k] = st[k]; }); });
     // what's reachable: an exam map keeps what its topics reach (3 steps out); a course map keeps everything connected
     const adj = new Map(); N.forEach((v, id) => adj.set(id, []));
     E.forEach(e => { adj.get(e.a).push(e.b); adj.get(e.b).push(e.a); });
@@ -106577,6 +106578,17 @@ function edgeOut(id, dx, dy, simple){
 function edgeGeo(e){
   const P = id => M.pos[id] || [0, 0], S = id => M.size[id] || [80, 36], sh = id => { const n = M.byId[id]; return n ? CMAP.shapeOf(n) : "rounded"; };
   const [x1, y1] = P(e.a), [x2, y2] = P(e.b), dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
+  if (e.cv) {
+    // a curve: a control point off the middle; each end leaves its box toward it, and the arrow follows the curve
+    const ux = dx / L, uy = dy / L, cx = (x1 + x2) / 2 + ux * e.cv[0] * L - uy * e.cv[1] * L, cy = (y1 + y2) / 2 + uy * e.cv[0] * L + ux * e.cv[1] * L;
+    const ax = cx - x1, ay = cy - y1, bx = cx - x2, by = cy - y2, la = Math.hypot(ax, ay) || 1, lb = Math.hypot(bx, by) || 1;
+    const ra = edgeOut(e.a, ax, ay, () => CMAP.exitAt(sh(e.a), S(e.a)[0], S(e.a)[1], ax, ay)), rb = edgeOut(e.b, bx, by, () => CMAP.exitAt(sh(e.b), S(e.b)[0], S(e.b)[1], bx, by));
+    let sx = x1 + ax / la * ra, sy = y1 + ay / la * ra, ex = x2 + bx / lb * rb, ey = y2 + by / lb * rb;
+    const asz = e.w === 4 ? 16 : e.w === 3 ? 14 : 11, back = asz * 0.8;
+    if (e.arrow === "end" || e.arrow === "both") { const tx = ex - cx, ty = ey - cy, tl = Math.hypot(tx, ty) || 1; if (tl > back * 2) { ex -= tx / tl * back; ey -= ty / tl * back; } }
+    if (e.arrow === "both") { const tx = sx - cx, ty = sy - cy, tl = Math.hypot(tx, ty) || 1; if (tl > back * 2) { sx -= tx / tl * back; sy -= ty / tl * back; } }
+    return {sx, sy, ex, ey, cx, cy, curved: true, mx: 0.25 * sx + 0.5 * cx + 0.25 * ex, my: 0.25 * sy + 0.5 * cy + 0.25 * ey};
+  }
   const ra = edgeOut(e.a, dx, dy, () => CMAP.exitAt(sh(e.a), S(e.a)[0], S(e.a)[1], dx, dy)), rb = edgeOut(e.b, -dx, -dy, () => CMAP.exitAt(sh(e.b), S(e.b)[0], S(e.b)[1], -dx, -dy));
   const ok = L > ra + rb + 4; let sx = ok ? x1 + dx / L * ra : x1, sy = ok ? y1 + dy / L * ra : y1, ex = ok ? x2 - dx / L * rb : x2, ey = ok ? y2 - dy / L * rb : y2;
   // an arrowhead's tip is on the box's edge: the line stops short by the arrow's length, inside its wide base (no line end showing past the tip)
@@ -106596,7 +106608,7 @@ function edgeSvg(e){
   // a coloured or thicker line gets arrowheads of its own colour and size (made once per kind, in the map's defs)
   const mid = e.col || e.w > 2 ? arrowFor(e) : "", mk = e.arrow === "end" || e.arrow === "both" ? ` marker-end="url(#${mid ? mid : "cmArr"})"` : "", ms = e.arrow === "both" ? ` marker-start="url(#${mid ? mid + "S" : "cmArrS"})"` : "";
   const st = `${e.w ? `--lw:${LINE_W[e.w]}px;` : ""}${e.col ? `--lc:${e.col};` : ""}`;
-  return `<g class="cm-edge ln-${e.line || "solid"}${e.user ? " is-user" : ""}${e.w ? " has-w" : ""}${e.col ? " has-lc" : ""}${M.selE === e.key ? " is-sel" : ""}" data-e="${esc(e.key)}"${st ? ` style="${st}"` : ""}><line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-hit"/><line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-line"${mk}${ms}/>${lab ? `<g class="cm-elg" transform="translate(${G.mx},${G.my})"><rect class="cm-elbg" x="0" y="-10" width="0" height="20" rx="10"/><text x="0" y="4" class="cm-elab">${esc(lab)}</text></g>` : ""}</g>`;
+  return `<g class="cm-edge ln-${e.line || "solid"}${e.user ? " is-user" : ""}${e.w ? " has-w" : ""}${e.col ? " has-lc" : ""}${M.selE === e.key ? " is-sel" : ""}" data-e="${esc(e.key)}"${st ? ` style="${st}"` : ""}>${G.curved ? `<path d="M${G.sx} ${G.sy}Q${G.cx} ${G.cy} ${G.ex} ${G.ey}" class="cm-hit"/><path d="M${G.sx} ${G.sy}Q${G.cx} ${G.cy} ${G.ex} ${G.ey}" class="cm-line"${mk}${ms}/>` : `<line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-hit"/><line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-line"${mk}${ms}/>`}${lab ? `<g class="cm-elg" transform="translate(${G.mx},${G.my})"><rect class="cm-elbg" x="0" y="-10" width="0" height="20" rx="10"/><text x="0" y="4" class="cm-elab">${esc(lab)}</text></g>` : ""}</g>`;
 }
 function fitEdgeLabels(scope){
   (scope || M.el).querySelectorAll(".cm-elg").forEach(g => { const t = g.querySelector("text"), r = g.querySelector("rect"); try { const w = t.getBBox().width + 16; r.setAttribute("width", w); r.setAttribute("x", -w / 2); } catch (e) {} });
@@ -106609,10 +106621,10 @@ function paint(){
   // nodes first (their sizes come from their labels), then the lines between their edges
   const nodes = g.nodes.map(n => {
     const [x, y] = P(n.id), col = n.color && !know ? n.color : nodeColor(n, know), qi = Q ? Q.ids.indexOf(n.id) : -1, hidden = qi >= 0 && !Q.done.has(n.id), shape = CMAP.shapeOf(n);
-    const label = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), dot = !n.img && !n.emb && /^(box|rounded|pill)$/.test(shape);
+    const label = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), dot = false;
     const kind = (KIND[n.kind] || KIND.file)[0], conf = know && know[n.id] ? `, ${CONF[know[n.id]][0]}` : "";
     return `<g class="cm-node k-${n.kind} sh-${shape}${n.root ? " is-root" : ""}${n.color ? " has-col" : ""}${M.sel === n.id ? " is-sel" : ""}${M.connect === n.id ? " is-con" : ""}${hidden ? " is-blank" : ""}${qi >= 0 && Q.done.has(n.id) ? " is-got" : ""}${Q && Q.pick === n.id ? " is-pick" : ""}" data-n="${esc(n.id)}" data-col="${col}" data-dot="${dot ? 1 : ""}" transform="translate(${x},${y})" tabindex="0" role="button" aria-label="${esc(hidden ? `Blank ${qi + 1}` : `${n.label}, ${kind}${conf}`)}">
-      ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round((n.size || (n.root ? 15 : 13)) * 0.36)}"${dot ? "" : ' text-anchor="middle" x="0"'} style="${n.size ? `font-size:${n.size}px;` : ""}${n.font ? `font-family:${esc(FONT_STACK[n.font])};` : ""}${(n.text || autoInk(n.fill)) ? `fill:${n.text || autoInk(n.fill)};` : ""}">${esc(label)}</text></g>`;
+      ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round((n.size || (n.root ? 15 : 13)) * 0.36)}"${dot ? "" : ' text-anchor="middle" x="0"'} style="${n.size ? `font-size:${n.size}px;` : ""}${n.b === 1 ? "font-weight:800;" : n.b === -1 ? "font-weight:500;" : ""}${n.i ? "font-style:italic;" : ""}${n.font ? `font-family:${esc(FONT_STACK[n.font])};` : ""}${(n.text || autoInk(n.fill)) ? `fill:${n.text || autoInk(n.fill)};` : ""}">${esc(label)}</text></g>`;
   }).join("");
   world.innerHTML = `<defs><marker id="cmArr" viewBox="0 0 10 10" refX="2" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M0 0L10 5L0 10Z"/></marker><marker id="cmArrS" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M10 0L0 5L10 10Z"/></marker></defs><g class="cm-edges"></g><g class="cm-nodes">${nodes}</g>`;
   world.setAttribute("transform", viewT());
@@ -106670,7 +106682,8 @@ function legend(know){
   const L = M.el.querySelector(".cm-legend"); if (!L) return;
   const kinds = [...new Set(M.g.nodes.filter(n => !n.root).map(n => n.kind))];
   L.innerHTML = know ? Object.keys(CONF).map(k => `<span><i style="background:${CONF[k][1]}"></i>${CONF[k][0]}</span>`).join("") + `<span><i style="background:${NOT_YET}"></i>No Results Yet</span>`
-    : kinds.map(k => `<span><i style="background:${KIND[k][1]}"></i>${KIND[k][0]}</span>`).join("");
+    : ""; // the kinds' key only added clutter: the key shows with Colour by Knowledge, where the colours mean something
+  L.hidden = !know; void kinds;
 }
 function tools(){
   const T = M.el.querySelector(".cm-tools"); if (!T) return;
@@ -106716,6 +106729,7 @@ function styleHtml(n){
   return `<div class="cm-row cm-style"><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
     <div class="cm-row cm-style">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
       <label class="cm-font"><span class="sr">Font</span><select data-cm="font" aria-label="Font">${CMAP.FONTS.map(f => `<option value="${f}" ${(n.font || "") === f ? "selected" : ""} style="${FONT_STACK[f] ? `font-family:${esc(FONT_STACK[f])}` : ""}">${FONT_NAMES[f]}</option>`).join("")}</select></label>
+      <span class="cm-step cm-bi" role="group" aria-label="Bold and Italic"><button type="button" class="cm-stb cm-b" data-cm="bold" aria-pressed="${n.b === 1 || (n.root && n.b !== -1)}" title="Bold" aria-label="Bold">B</button><button type="button" class="cm-stb cm-i" data-cm="ital" aria-pressed="${!!n.i}" title="Italic" aria-label="Italic">I</button></span>
       <span class="cm-step" role="group" aria-label="Text size"><button type="button" class="cm-stb" data-cm="tsize" data-v="-1" aria-label="Smaller text">A−</button><span class="cm-stv" title="Text Size">${fs}</span><button type="button" class="cm-stb" data-cm="tsize" data-v="1" aria-label="Bigger text">A+</button></span>
       <span class="cm-step" role="group" aria-label="Box size"><button type="button" class="cm-stb" data-cm="bsize" data-v="-1" aria-label="Smaller box">${ic('<rect x="7" y="9" width="10" height="6" rx="1.5"/>')}</button><span class="cm-stv" title="Box Size">${Math.round(sc * 100)}%</span><button type="button" class="cm-stb" data-cm="bsize" data-v="1" aria-label="Bigger box">${ic('<rect x="3" y="6" width="18" height="12" rx="2"/>')}</button></span>
       ${CMAP.styled(CMAP.styleOf(userOf(M.own).styles[n.id])) ? `<button type="button" class="link-btn" data-cm="streset">Reset Style</button>` : ""}</div>
@@ -106742,10 +106756,10 @@ function panel(){
   if (M.selE) {
     const e = g.edges.find(x => x.key === M.selE); if (!e) { M.selE = ""; panel(); return; }
     const a = g.nodes.find(n => n.id === e.a), b = g.nodes.find(n => n.id === e.b), WHY = {exam: "Exam Topic", topic: "Linked in the Prep Plan", link: "A [[Link]] in the Note", from: "Cards Made From It", class: "Filed Under the Class", user: "Connection", at: "Linked Page or Lecture"};
-    const seg = (key, opts, cur, names, icons) => `<div class="cm-seg" role="group" aria-label="${key === "eline" ? "Line style" : key === "ewidth" ? "Line thickness" : "Arrows"}">${opts.map(v => `<button type="button" class="cm-segb" data-cm="${key}" data-v="${v}" aria-pressed="${cur === v}" title="${names[v]}" aria-label="${names[v]}">${ic(icons[v])}</button>`).join("")}</div>`;
+    const seg = (key, opts, cur, names, icons) => `<div class="cm-seg" role="group" aria-label="${key === "eline" ? "Line Style" : key === "ewidth" ? "Line Thickness" : key === "ecurve" ? "Straight or Curved" : "Arrows"}">${opts.map(v => `<button type="button" class="cm-segb" data-cm="${key}" data-v="${v}" aria-pressed="${cur === v}" title="${names[v]}" aria-label="${names[v]}">${ic(icons[v])}</button>`).join("")}</div>`;
     P.innerHTML = `<p style="margin:0"><b>${esc(a ? a.label : "")}</b> ${e.arrow === "none" ? "—" : e.arrow === "both" ? "↔" : "→"} <b>${esc(b ? b.label : "")}</b> <span class="mini">${esc(WHY[e.why] || "")}</span></p>
       <form class="cm-row cm-elf"><input type="text" data-cm-elab value="${esc(e.label)}" placeholder="Words on the line: causes, is part of, leads to…" maxlength="60" aria-label="Words on this connection" enterkeyhint="done"><button type="submit" class="btn small">Save</button></form>
-      <div class="cm-row cm-style">${seg("eline", ["solid", "dashed", "dotted"], e.line || "solid", LINE_NAMES, LINE_IC)}${seg("ewidth", ["1", "2", "3", "4"], String(e.w || 2), W_NAMES, W_IC)}${seg("earrow", CMAP.ARROWS, e.arrow || "none", ARROW_NAMES, ARROW_IC)}${e.arrow === "end" ? `<button type="button" class="btn small" data-cm="eflip" title="Point the arrow the other way">Flip</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="ecut">Remove</button></div>
+      <div class="cm-row cm-style">${seg("ecurve", ["0", "1"], e.cv ? "1" : "0", {0: "Straight", 1: "Curved (drag the handle on the line to shape it)"}, {0: '<path d="M4 18L20 6"/>', 1: '<path d="M4 18C6 6 14 4 20 6"/>'})}${seg("eline", ["solid", "dashed", "dotted"], e.line || "solid", LINE_NAMES, LINE_IC)}${seg("ewidth", ["1", "2", "3", "4"], String(e.w || 2), W_NAMES, W_IC)}${seg("earrow", CMAP.ARROWS, e.arrow || "none", ARROW_NAMES, ARROW_IC)}${e.arrow === "end" ? `<button type="button" class="btn small" data-cm="eflip" title="Point the arrow the other way">Flip</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="ecut">Remove</button></div>
       <div class="cm-cols" role="group" aria-label="Line colour"><button type="button" class="cm-col cm-col-auto" data-cm="ecol" data-v="" aria-pressed="${!e.col}" title="Automatic Colour" aria-label="Automatic colour"></button>${COLORS.concat(["#1E293B"]).map(v => `<button type="button" class="cm-col" data-cm="ecol" data-v="${v}" style="--sw:${v}" aria-pressed="${(e.col || "").toLowerCase() === v.toLowerCase()}" title="${v}" aria-label="Colour ${v}"></button>`).join("")}${anySw("line", e.col, "line")}</div>`;
     return;
   }
@@ -106819,6 +106833,8 @@ function wireCanvas(){
   svg.addEventListener("pointerdown", e => {
     pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pts.size === 2) { const [a, b] = [...pts.values()]; drag = {pinch: Math.hypot(a[0] - b[0], a[1] - b[1]), k: M.view.k}; return; }
+    const ch = e.target.closest && e.target.closest(".cm-chdl");
+    if (ch && M.selE) { drag = {curve: M.selE, x: e.clientX, y: e.clientY, moved: false}; try { svg.setPointerCapture(e.pointerId); } catch (er) {} e.stopPropagation(); return; }
     const hd = e.target.closest && e.target.closest(".cm-hdl");
     if (hd && M.sel && M.size[M.sel]) { const el = svg.querySelector(`.cm-node[data-n="${CSS.escape(M.sel)}"] .cm-lab`); let tw = 40; try { tw = el ? el.getBBox().width : 40; } catch (er) {}
       const n = M.byId[M.sel]; drag = {rsz: hd.dataset.hdl, id: M.sel, w0: M.size[M.sel][0], h0: M.size[M.sel][1], minW: n && (n.img || n.emb) ? 90 : tw + 30, minH: n && (n.img || n.emb) ? 60 : Math.max(26, (n && n.size || 13) * 1.9), x: e.clientX, y: e.clientY, moved: false};
@@ -106831,6 +106847,15 @@ function wireCanvas(){
     if (!drag) return; if (pts.has(e.pointerId)) pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (drag.pinch) { if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); zoomAt((drag.k * d / drag.pinch) / M.view.k, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); } return; }
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (!drag.moved && Math.hypot(dx, dy) < 4) return; drag.moved = true;
+    if (drag.curve) {
+      // the pointer is the curve's control point, kept relative to the two boxes (so the curve keeps its shape as they move)
+      const e2 = M.g.edges.find(x => x.key === drag.curve); if (!e2) return;
+      const r = svg.getBoundingClientRect(), k = M.view.k || 1, px = (e.clientX - r.left - M.view.x) / k, py = (e.clientY - r.top - M.view.y) / k;
+      const [x1, y1] = M.pos[e2.a] || [0, 0], [x2, y2] = M.pos[e2.b] || [0, 0], dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      const cx = px, cy = py, rx = cx - (x1 + x2) / 2, ry = cy - (y1 + y2) / 2; // the handle is the curve's control point, as with a pen tool
+      e2.cv = [Math.max(-1, Math.min(1, (rx * ux + ry * uy) / L)), Math.max(-3, Math.min(3, (-rx * uy + ry * ux) / L))]; drag.cv = e2.cv;
+      moveEdges(e2.a); return;
+    }
     if (drag.rsz) {
       // the box keeps its middle, so the side being dragged follows the pointer: the size changes by twice the move
       const k = M.view.k || 1, d = drag.rsz, n = M.byId[drag.id], prop = n && (n.img || n.emb);
@@ -106848,6 +106873,7 @@ function wireCanvas(){
   const up = e => {
     pts.delete(e.pointerId); if (!drag) return; const d = drag; drag = null; if (d.pinch) return;
     if (d.rsz) { if (d.moved && d.nw) resizeTo(d.id, d.nw, d.nh, d); else drawHandles(); return; }
+    if (d.curve) { if (d.moved && d.cv) edgeSet({cv: d.cv.map(v => Math.round(v * 1000) / 1000)}, "Shaped a curve"); return; }
     if (d.moved && d.id && !M.quiz) { const u = userOf(M.own); u.pos = Object.assign({}, u.pos, {[d.id]: M.pos[d.id]}); saveUser(u, null); return; }
     if (d.moved) return;
     if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
@@ -106863,7 +106889,7 @@ function wireCanvas(){
 }
 function moveEdges(id){
   const svg = M.el.querySelector(".cm-svg");
-  M.g.edges.forEach(e => { if (e.a !== id && e.b !== id) return; const g = svg.querySelector(`.cm-edge[data-e="${CSS.escape(e.key)}"]`); if (!g) return; const G = edgeGeo(e); g.querySelectorAll("line").forEach(l => { l.setAttribute("x1", G.sx); l.setAttribute("y1", G.sy); l.setAttribute("x2", G.ex); l.setAttribute("y2", G.ey); }); const lg = g.querySelector(".cm-elg"); if (lg) lg.setAttribute("transform", `translate(${G.mx},${G.my})`); });
+  M.g.edges.forEach(e => { if (e.a !== id && e.b !== id) return; const g = svg.querySelector(`.cm-edge[data-e="${CSS.escape(e.key)}"]`); if (!g) return; const G = edgeGeo(e); g.querySelectorAll("line").forEach(l => { l.setAttribute("x1", G.sx); l.setAttribute("y1", G.sy); l.setAttribute("x2", G.ex); l.setAttribute("y2", G.ey); }); if (G.curved) g.querySelectorAll("path.cm-line, path.cm-hit").forEach(pp => pp.setAttribute("d", `M${G.sx} ${G.sy}Q${G.cx} ${G.cy} ${G.ex} ${G.ey}`)); if (e.key === M.selE) drawHandles(); const lg = g.querySelector(".cm-elg"); if (lg) lg.setAttribute("transform", `translate(${G.mx},${G.my})`); });
 }
 // Picking something only changes which box or line is highlighted and what the panel shows, so the drawing itself stays put
 // (rebuilding it would flash, and reload pictures and video thumbnails)
@@ -106887,6 +106913,10 @@ function resizeTo(id, nw, nh, d){
 function drawHandles(){
   const w = M.el && M.el.querySelector(".cm-world"); if (!w) return;
   const old = w.querySelector(".cm-hdls"); if (old) old.remove();
+  const oc = w.querySelector(".cm-chdls"); if (oc) oc.remove();
+  const se = M.selE && M.g && M.g.edges.find(x => x.key === M.selE);
+  if (se && se.cv && !M.quiz) { const G = edgeGeo(se), k = M.view.k || 1, coarse = window.matchMedia && matchMedia("(pointer:coarse)").matches, r = (coarse ? 10 : 7) / k;
+    w.insertAdjacentHTML("beforeend", `<g class="cm-chdls"><path class="cm-cguide" d="M${G.sx} ${G.sy}L${G.cx} ${G.cy}L${G.ex} ${G.ey}" style="stroke-width:${1.2 / k}"/><circle class="cm-chdl" data-chdl="1" cx="${G.cx}" cy="${G.cy}" r="${r}" style="stroke-width:${2 / k}"><title>Drag to shape the curve</title></circle></g>`); }
   if (!M.sel || M.quiz || M.connect) return;
   const sz = M.size[M.sel], p = M.pos[M.sel]; if (!sz || !p) return;
   const k = M.view.k || 1, coarse = window.matchMedia && matchMedia("(pointer:coarse)").matches, r = (coarse ? 9 : 5.5) / k, [bw, bh] = sz;
@@ -106989,6 +107019,7 @@ async function onClick(e){
     // a connection's words, line, arrows and direction (an automatic one becomes yours when you style it)
     case "eline": edgeSet({line: b.dataset.v}, "Changed a connection's line"); break;
     case "ewidth": edgeSet({w: Number(b.dataset.v) || 2}, "Changed a connection's thickness"); break;
+    case "ecurve": edgeSet({cv: b.dataset.v === "1" ? [0, 0.22] : null}, b.dataset.v === "1" ? "Curved a connection" : "Straightened a connection"); break;
     case "ecol": edgeSet({col: b.dataset.v || ""}, b.dataset.v ? "Coloured a connection" : "Took a connection's colour off"); break;
     case "earrow": edgeSet({arrow: b.dataset.v}, b.dataset.v === "none" ? "Took the arrows off a connection" : "Added an arrow to a connection"); break;
     case "eflip": edgeSet({flip: true}, "Turned a connection's arrow around"); break;
@@ -107009,16 +107040,18 @@ async function onClick(e){
           saveUser(x, `Added ${r.ov.add.length} idea${r.ov.add.length === 1 ? "" : "s"} to the map`); rebuild(true); grew(); paint(); }
         catch (e2) { btn.disabled = false; btn.textContent = "Add to Map"; const er = f.querySelector("[data-cm-derr]"); er.textContent = (e2 && e2.message) || "Couldn't add that right now."; er.hidden = false; } });
       break; }
-    case "st": case "font": case "tsize": case "bsize": case "streset": { if (!n) return; const x = u(), cur = CMAP.styleOf(x.styles[n.id]); let next = Object.assign({}, cur), what = "Changed a box's style";
+    case "st": case "font": case "tsize": case "bsize": case "streset": case "bold": case "ital": { if (!n) return; const x = u(), cur = CMAP.styleOf(x.styles[n.id]); let next = Object.assign({}, cur), what = "Changed a box's style";
       if (a === "st") { next[b.dataset.k] = b.dataset.v; if (b.dataset.k !== "text" && cur.color) { next.fill = next.fill || (b.dataset.k === "fill" ? b.dataset.v : ""); delete next.color; if (b.dataset.k === "stroke" && !cur.fill) next.fill = ""; } what = {fill: "Changed a box's fill", stroke: "Changed a box's outline", text: "Changed a box's text colour"}[b.dataset.k]; }
       if (a === "font") { next.font = b.value; what = `Set a box's font to ${FONT_NAMES[b.value]}`; }
       if (a === "tsize") { const f = (cur.size || (n.root ? 15 : 13)) + Number(b.dataset.v) * (cur.size >= 20 ? 2 : 1); next.size = Math.max(9, Math.min(36, f)); what = "Changed a box's text size"; }
       if (a === "bsize") { const k = Math.round(((cur.scale || 1) + Number(b.dataset.v) * 0.15) * 100) / 100; next.scale = Math.max(0.6, Math.min(3, k)); what = "Changed a box's size"; }
       if (a === "streset") { next = {}; what = "Reset a box's style"; M.pick = ""; }
+      if (a === "bold") { const on = cur.b === 1 || (n.root && cur.b !== -1); if (on) { if (n.root) next.b = -1; else delete next.b; } else { if (n.root) delete next.b; else next.b = 1; } what = on ? "Took bold off a box's words" : "Made a box's words bold"; }
+      if (a === "ital") { if (cur.i) delete next.i; else next.i = 1; what = cur.i ? "Took italic off a box's words" : "Made a box's words italic"; }
       const clean = CMAP.styleOf(next); x.styles = Object.assign({}, x.styles, {[n.id]: clean}); if (!CMAP.styled(clean)) delete x.styles[n.id];
       saveUser(x, what); rebuild(true); paint(); break; }
     case "shape": case "color": { if (!n) return; const x = u(), cur = CMAP.styleOf(x.styles[n.id]), next = Object.assign({}, cur, a === "shape" ? {shape: b.dataset.v === (n.kind === "topic" || n.kind === "idea" ? "pill" : "rounded") && !cur.shape ? "" : b.dataset.v} : {color: b.dataset.v});
-      x.styles = Object.assign({}, x.styles, {[n.id]: next}); if (!next.shape && !next.color) delete x.styles[n.id]; saveUser(x, a === "shape" ? `Made ${trunc(n.label, 30)} a ${SHAPE_NAMES[b.dataset.v].toLowerCase()}` : "Changed a colour on the map"); rebuild(true); paint(); break; }
+      x.styles = Object.assign({}, x.styles, {[n.id]: CMAP.styleOf(next)}); if (!CMAP.styled(CMAP.styleOf(next))) delete x.styles[n.id]; saveUser(x, a === "shape" ? `Made ${trunc(n.label, 30)} a ${SHAPE_NAMES[b.dataset.v].toLowerCase()}` : "Changed a colour on the map"); rebuild(true); paint(); break; }
     case "ecut": { const e2 = M.g.edges.find(x => x.key === M.selE); if (!e2) return; const x = u(); x.links = x.links.filter(l => CMAP.ek(l.a, l.b) !== e2.key); if (!e2.user) x.cut = x.cut.concat([e2.key]); saveUser(x, "Removed a connection from the map"); M.selE = ""; rebuild(true); paint(); break; }
     case "quiz": case "quiz-again": { const q = CMAP.quizPick(M.g, (Date.now() % 100000) + 7); M.quiz = Object.assign(q, {done: new Set(), pick: q.ids[0] || "", miss: 0, wrong: "", firstMiss: new Set()}); M.sel = ""; M.selE = ""; paint(); panTo(M.quiz.pick); break; }
     case "quiz-end": M.quiz = null; paint(); break;
@@ -107035,7 +107068,8 @@ async function onClick(e){
 function edgeSet(patch, label){
   const e2 = M.g && M.g.edges.find(x => x.key === M.selE); if (!e2) return;
   const x = userOf(M.own), had = x.links.find(l => CMAP.ek(l.a, l.b) === e2.key) || {}, el = M.el.querySelector("[data-cm-elab]");
-  const rec = {a: e2.a, b: e2.b, label: el ? String(el.value || "").trim().slice(0, 60) : e2.label || "", line: e2.line || "solid", arrow: e2.arrow || "none", w: e2.w || 0, col: e2.col || ""};
+  const rec = {a: e2.a, b: e2.b, label: el ? String(el.value || "").trim().slice(0, 60) : e2.label || "", line: e2.line || "solid", arrow: e2.arrow || "none", w: e2.w || 0, col: e2.col || "", cv: e2.cv || null};
+  if (patch.flip && rec.cv) rec.cv = [-rec.cv[0], -rec.cv[1]]; // the same curve, drawn from the other end
   if (patch.flip) { rec.a = e2.b; rec.b = e2.a; } else Object.assign(rec, patch);
   x.links = x.links.filter(l => CMAP.ek(l.a, l.b) !== e2.key).concat([Object.assign({}, had, rec)]); x.cut = x.cut.filter(k => k !== e2.key);
   saveUser(x, label); rebuild(true); paint();
@@ -107494,6 +107528,9 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-stb{display:grid;place-items:center;min-width:34px;height:100%;padding:0 8px;border:0;background:none;color:var(--ink);font:inherit;font-size:.88rem;font-weight:800;cursor:pointer}
 .cm-stb:hover{background:color-mix(in srgb,var(--accent,#2F6FE4) 10%,var(--surface))}
 .cm-stb svg{width:18px;height:18px}
+.cm-bi .cm-stb{min-width:36px;font-family:Georgia,"Times New Roman",serif;font-size:1rem}
+.cm-bi .cm-b{font-weight:900}.cm-bi .cm-i{font-style:italic;font-weight:600;border-left:1px solid var(--line)}
+.cm-stb[aria-pressed="true"]{background:color-mix(in srgb,var(--accent,#2F6FE4) 16%,var(--surface));color:var(--accent,#2F6FE4)}
 .cm-stv{min-width:42px;padding:0 4px;text-align:center;font-size:.84rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);border-left:1px solid var(--line);border-right:1px solid var(--line);line-height:32px}
 .cm-cols{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .cm-col{width:24px;height:24px;border-radius:50%;border:2px solid var(--surface);background:var(--sw);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
@@ -107670,6 +107707,10 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-hdl.h-e,.cm-hdl.h-w{cursor:ew-resize}.cm-hdl.h-n,.cm-hdl.h-s{cursor:ns-resize}.cm-hdl.h-se{cursor:nwse-resize;fill:var(--accent,#2F6FE4)}
 .cm-hdl:hover{fill:var(--accent,#2F6FE4)}
 .cm-rsz[hidden]{display:none}
+path.cm-line,path.cm-hit{fill:none}
+.cm-chdl{fill:var(--surface);stroke:var(--accent,#2F6FE4);cursor:grab;touch-action:none}
+.cm-chdl:hover{fill:var(--accent,#2F6FE4)}
+.cm-cguide{fill:none;stroke:var(--accent,#2F6FE4);stroke-dasharray:4 4;opacity:.55;pointer-events:none}
 .cm-rsz{fill:none;stroke:var(--accent,#2F6FE4);stroke-dasharray:5 4;pointer-events:none}
 .cm-imgph{fill:color-mix(in srgb,var(--ink) 8%,var(--surface))}
 .cm-opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer}
