@@ -43,6 +43,7 @@ ok(k.group === "theme" && k.base === "#FFF6CC" && k.tile.svg.includes("M0 -10a10
 const plain = C.kit({});
 ok(/^#/.test(plain.base) && !bad(plain.tile.svg) && plain.tile.svg.includes("<circle"), "a theme with no kit: dots in its accent colour");
 ok(C.kit({dark: true, paper: "#111111"}).dark === true, "a dark theme stays dark");
+ok(C.kit({id: "t-lavender"}).id === "t-lavender" && C.kit({id: "bad id\""}).id === "kit", "a theme's style is named after the theme (safely)");
 ok(C.get("nope") === null && C.get("med") === C.P.med, "an unknown style is none");
 
 /* The map keeps its style, and the app uses it */

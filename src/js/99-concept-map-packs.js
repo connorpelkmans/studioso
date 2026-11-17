@@ -249,7 +249,7 @@ const CMPACK = (() => {
   function kit(o){
     o = o || {}; const mc = o.mc || "#7C5CFF", bd = o.bd || "#C9BFF3", ink = o.ink || "#1E1740", c0 = (o.card && o.card[0]) || "#FFFFFF", paper = o.paper || "#F7F7FB";
     const mark = o.motif ? (x, y, r) => `<path d="${o.motif}" fill="${mc}" opacity="${o.dark ? 0.16 : 0.13}" transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(r * 60 - 30)}) scale(${f1(0.55 + r * 0.3)})"/>` : (x, y) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="1.6" fill="${mc}" opacity=".25"/>`;
-    return {id: "kit", name: o.name || "My Theme", group: "theme", base: paper, dark: !!o.dark, desc: "Your theme's colours with its motif.",
+    return {id: /^[\w-]+$/.test(o.id || "") ? o.id : "kit", name: o.name || "My Theme", group: "theme", base: paper, dark: !!o.dark, desc: "Your theme's colours with its motif.",
       tile: tile(200, 180, scatter(o.motif ? 4 : 8, 51, 200, 180, mark, 18)),
       line: () => ({st: `stroke:${mc};stroke-width:2.4;stroke-linecap:round;opacity:.75`}), arrow: mc,
       box: n => ({o: rr(n, n.root ? 16 : 12, S(n.root ? mc : c0, n.root ? mc : bd, 2, SH)), t: {ink: n.root ? "#fff" : ink, fw: 800}})};

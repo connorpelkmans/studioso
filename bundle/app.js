@@ -106350,7 +106350,7 @@ const CMPACK = (() => {
   function kit(o){
     o = o || {}; const mc = o.mc || "#7C5CFF", bd = o.bd || "#C9BFF3", ink = o.ink || "#1E1740", c0 = (o.card && o.card[0]) || "#FFFFFF", paper = o.paper || "#F7F7FB";
     const mark = o.motif ? (x, y, r) => `<path d="${o.motif}" fill="${mc}" opacity="${o.dark ? 0.16 : 0.13}" transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(r * 60 - 30)}) scale(${f1(0.55 + r * 0.3)})"/>` : (x, y) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="1.6" fill="${mc}" opacity=".25"/>`;
-    return {id: "kit", name: o.name || "My Theme", group: "theme", base: paper, dark: !!o.dark, desc: "Your theme's colours with its motif.",
+    return {id: /^[\w-]+$/.test(o.id || "") ? o.id : "kit", name: o.name || "My Theme", group: "theme", base: paper, dark: !!o.dark, desc: "Your theme's colours with its motif.",
       tile: tile(200, 180, scatter(o.motif ? 4 : 8, 51, 200, 180, mark, 18)),
       line: () => ({st: `stroke:${mc};stroke-width:2.4;stroke-linecap:round;opacity:.75`}), arrow: mc,
       box: n => ({o: rr(n, n.root ? 16 : 12, S(n.root ? mc : c0, n.root ? mc : bd, 2, SH)), t: {ink: n.root ? "#fff" : ink, fw: 800}})};
@@ -107211,20 +107211,23 @@ function probeCol(v){
   const c = getComputedStyle(d).color, m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c); d.remove();
   return m ? "#" + [m[1], m[2], m[3]].map(x => (+x).toString(16).padStart(2, "0")).join("") : "";
 }
-// any theme without a style of its own: its colours (from its kit, or the page's) and its motif on the background
+// any theme without a style of its own: its colours (its kit, or its light or dark palette) and its motif on the background
+const KIT_BASE = {light: ["#F4F7FB", "#FFFFFF", "#1E293B", "#D6DEE8", "#2F6FE4"], dark: ["#0F141B", "#18202A", "#E6EDF5", "#2A3442", "#6CA0FF"]};
 function themeKit(skin){
-  const dark = typeof isDarkNow === "function" && isDarkNow();
-  if (M.kit && M.kit.skin === skin && M.kit.dark === dark) return M.kit.pk;
-  const K = typeof THEME_KIT !== "undefined" && THEME_KIT[skin], sh = K && typeof FX_SHAPES !== "undefined" && FX_SHAPES[K.motif];
-  const acc = probeCol("var(--accent)") || "#7C5CFF", surf = probeCol("var(--surface)") || "#FFFFFF", ink = probeCol("var(--ink)") || "#1E293B", line = probeCol("var(--line)") || "#D0D5DD";
-  const pk = CMPACK.kit({name: skinName(skin), dark, motif: sh ? sh.d : "", mc: K && !dark ? K.mc : acc, bd: K && !dark ? K.bd : line, ink: K && !dark ? K.ink : ink,
-    card: [K && !dark ? K.card[0] : surf], paper: K && !dark ? K.card[1] : probeCol("color-mix(in srgb,var(--surface) 92%,var(--accent))") || surf});
-  M.kit = {skin, dark, pk}; return pk;
+  const dark = typeof isDarkNow === "function" && isDarkNow(), key = skin + (dark ? ":d" : ""); M.kits = M.kits || {}; if (M.kits[key]) return M.kits[key];
+  const s = typeof SKINS !== "undefined" && SKINS.find(x => x.id === skin), v = s && (dark ? s.dark : s.light), hx = c => /^#[0-9a-f]{6}$/i.test(c || "") ? c : "";
+  const [paper, surf, ink, line, acc] = v ? [hx(v[0]), hx(v[2]), hx(v[3]), hx(v[5]), hx(v[8])].map((c, i) => c || KIT_BASE[dark ? "dark" : "light"][i]) : KIT_BASE[dark ? "dark" : "light"];
+  const K = typeof THEME_KIT !== "undefined" && THEME_KIT[skin], sh = K && typeof FX_SHAPES !== "undefined" && FX_SHAPES[K.motif], kl = K && !dark;
+  return (M.kits[key] = CMPACK.kit({id: "t-" + skin, name: s ? s.name : "Theme", dark, motif: sh && sh.d ? sh.d : "", mc: kl ? K.mc : acc, bd: kl ? K.bd : line, ink: kl ? K.ink : ink, card: [kl ? K.card[0] : surf], paper: kl ? K.card[1] : paper}));
 }
+// a theme's map style: its own (Sakura's cherry branch...), or its colours and motif
+const themePack = sk => CMPACK.THEME_OF[sk] ? CMPACK.get(CMPACK.THEME_OF[sk]) : themeKit(sk);
+const skinOk = sk => typeof SKINS === "undefined" || SKINS.some(x => x.id === sk);
 function packOf(){
   const id = M.own ? metaOf(M.own).pack : ""; if (!id || !window.CMPACK || (window.SBPRO && SBPRO.locked())) return null;
-  if (id !== "theme") return CMPACK.get(id);
-  const sk = skinNow(); return CMPACK.THEME_OF[sk] ? CMPACK.get(CMPACK.THEME_OF[sk]) : themeKit(sk);
+  if (id === "theme") return themePack(skinNow());
+  if (/^t-/.test(id)) return skinOk(id.slice(2)) ? themePack(id.slice(2)) : null;
+  return CMPACK.get(id);
 }
 // the outline a style drew becomes the box's shape (lines meet it, and it shows selection); the box's own colours still win
 const pkOutline = (o, col, n) => o.replace(/^<(\w+)/, '<$1 class="cm-shape pk-o"').replace(/style="([^"]*)"/, (m, st) => `style="--c:${col};${st}${n.fill ? `;fill:${n.fill}` : ""}${n.stroke ? `;stroke:${n.stroke}` : ""}"`);
@@ -107451,16 +107454,24 @@ function styleHtml(n){
       ${CMAP.styled(CMAP.styleOf(userOf(M.own).styles[n.id])) ? `<button type="button" class="link-btn" data-cm="streset">Reset Style</button>` : ""}</div>
     ${M.pick === "fill" ? sw("fill", FILLS, n.fill || "", "Automatic Fill") : M.pick === "stroke" ? sw("stroke", COLORS.concat(["#1E293B"]), n.stroke || "", "Automatic Outline") : M.pick === "text" ? sw("text", INKS, n.text || "", "Automatic Text Colour") : ""}`;
 }
+// every app theme, grouped as in the theme shop: a theme with its own style shows that, the rest their colours and motif
+const LOOK_GROUPS = [["plain", "Plain Colour Themes"], ["season", "Season Themes"], ["pro", "Scene Themes"], ["hobby", "Hobby Themes"], ["holiday", "Holiday Themes"]];
+function themeGrids(tile){
+  const all = typeof SKINS !== "undefined" ? SKINS : CMPACK.THEMES.map(id => ({id, name: CMPACK.P[id].name, group: "pro"}));
+  const known = new Set(LOOK_GROUPS.map(g => g[0])), groups = LOOK_GROUPS.concat([["", "More Themes"]]);
+  return groups.map(([g, title]) => { const list = all.filter(s => g ? s.group === g || (g === "pro" && s.group === "newscenes") : !known.has(s.group) && s.group !== "newscenes"); if (!list.length) return "";
+    return `<p class="cm-lookh">${title}</p><div class="cm-lookg">${list.map(s => { const own = CMPACK.THEME_OF[s.id], pk = themePack(s.id), id = own || "t-" + s.id; return tile(id, s.name, CMPACK.preview(pk, FONT_STACK), own ? pk.desc : `${s.name}'s colours${pk.tile.svg.includes("<path") ? " and motif" : ""}`); }).join("")}</div>`; }).join("");
+}
 // Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
 function looksPanel(){
   const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
-  const cur = metaOf(M.own).pack || "", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = CMPACK.THEME_OF[sk] ? CMPACK.get(CMPACK.THEME_OF[sk]) : themeKit(sk);
+  const cur = metaOf(M.own).pack || "", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
   const plain = `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><g fill="var(--muted)" opacity=".35">${Array.from({length: 28}, (_, i) => `<circle cx="${8 + (i % 7) * 25}" cy="${10 + Math.floor(i / 7) * 25}" r="1"/>`).join("")}</g><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.6"/><rect x="101" y="13" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/><rect x="101" y="61" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/></svg>`;
   const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
   const grid = ids => `<div class="cm-lookg">${ids.map(id => { const k = CMPACK.P[id]; return tile(id, k.name, CMPACK.preview(k, FONT_STACK), k.desc); }).join("")}</div>`;
   P.innerHTML = `<div class="cm-looks"><div class="cm-row cm-ttl"><b>Map Style</b><span class="mini">A look for the whole map: its background, boxes and lines.</span><span class="spacer"></span><button type="button" class="btn small" data-cm="looks-x">Done</button></div>
     <div class="cm-lookg">${tile("", "Plain", plain, "Studyboard's own look")}${tile("theme", `Match My Theme`, CMPACK.preview(mine, FONT_STACK), `Follows your theme (now ${skinName(sk)})`)}</div>
-    <p class="cm-lookh">Subjects</p>${grid(CMPACK.SUBJECTS)}<p class="cm-lookh">Themes</p>${grid(CMPACK.THEMES)}</div>`;
+    <p class="cm-lookh">Subjects</p>${grid(CMPACK.SUBJECTS)}${themeGrids(tile)}</div>`;
   const on = P.querySelector(".cm-look.on"); if (on && on.scrollIntoView && !M.lookScrolled) { M.lookScrolled = true; try { on.scrollIntoView({block: "nearest"}); } catch (e) {} }
 }
 function panel(){
@@ -107611,7 +107622,8 @@ function wireCanvas(){
     else if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
   };
   svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", e => { pts.delete(e.pointerId); drag = null; });
-  cv.addEventListener("wheel", e => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX, e.clientY); }, {passive: false});
+  cv.addEventListener("wheel", e => { if (e.target.closest && e.target.closest(".cm-panel, .cm-menu")) return; // the panel and menus scroll as usual
+    e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX, e.clientY); }, {passive: false});
   svg.addEventListener("keydown", e => { const nd = e.target.closest && e.target.closest(".cm-node"); if (nd && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); tapNode(nd.dataset.n); const again = M.el.querySelector(`.cm-node[data-n="${CSS.escape(nd.dataset.n)}"]`); if (again) again.focus(); } });
   M.el.addEventListener("click", onClick);
   M.el.addEventListener("change", onClick);
@@ -107718,7 +107730,7 @@ async function onClick(e){
     case "look": {
       const v = b.dataset.v || "", cur = metaOf(M.own).pack || ""; if (v === cur) return;
       if (v && window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Map styles are part of Studyboard Pro."); return; }
-      const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : (CMPACK.P[v] || {}).name || v;
+      const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : /^t-/.test(v) ? skinName(v.slice(2)) : (CMPACK.P[v] || {}).name || v;
       saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || null}); paint(); return;
     }
     case "evp": if (n) evPanel(n); return;

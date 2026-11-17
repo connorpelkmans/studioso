@@ -367,7 +367,15 @@ function SEED(){
     const ctxL = await mkCtx(), pl = await open(ctxL), mp = async () => (await course(pl, "c2")).maps.find(m => m.id === "m1");
     await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node");
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
-    ok(await pl.locator(".cm-look").count() === 37 && await pl.locator('.cm-look.on[data-v=""]').count() === 1, "Map Style: Plain, Match My Theme, 20 subjects and 15 themes, Plain chosen");
+    ok(await pl.locator(".cm-look").count() >= 73 && await pl.locator('.cm-look.on[data-v=""]').count() === 1, "Map Style: Plain, Match My Theme, 20 subjects and every app theme, Plain chosen");
+    // a trackpad or mouse wheel over the list scrolls the list (not the map's zoom)
+    const k0 = await pl.evaluate(() => SBCMAP.state().view.k), lb = await pl.locator(".cm-panel").boundingBox();
+    await pl.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2); await pl.mouse.wheel(0, 400); await pl.waitForTimeout(250);
+    ok(await pl.evaluate(() => document.querySelector(".cm-panel").scrollTop) > 100 && await pl.evaluate(() => SBCMAP.state().view.k) === k0, "scrolling over the style list scrolls it, and doesn't zoom the map");
+    await pl.click('.cm-look[data-v="t-lavender"]'); await pl.waitForTimeout(300);
+    ok((await mp()).pack === "t-lavender" && await pl.getAttribute(".cm-canvas", "data-pk") === "t-lavender", "any theme's style can be chosen, not just the current theme's (Lavender, while on Classic)");
+    await pl.click('.cm-look[data-v="halloween"]'); await pl.waitForTimeout(300);
+    ok(await pl.getAttribute(".cm-canvas", "data-pk") === "halloween", "a theme with its own style: Halloween, while on Classic");
     await pl.click('.cm-look[data-v="med"]'); await pl.waitForTimeout(300);
     ok((await mp()).pack === "med" && await pl.getAttribute(".cm-canvas", "data-pk") === "med" && await pl.locator(".cm-canvas.cm-pk").count() === 1, "choosing Medicine & Nursing keeps it on the map");
     ok(await pl.evaluate(() => /data:image\/svg/.test(getComputedStyle(document.querySelector(".cm-canvas")).backgroundImage)), "the style's background is on the map");
@@ -383,7 +391,7 @@ function SEED(){
     ok(await pl.locator(".cm-edge.pk-e").count() >= 3 && await pl.locator(".cm-edge:not(.pk-e)").count() === 0, "dragging a box keeps its lines in the style");
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForTimeout(150); if (!(await pl.locator(".cm-looks").count())) { await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); }
     await pl.click('.cm-look[data-v="theme"]'); await pl.waitForTimeout(300);
-    ok((await mp()).pack === "theme" && await pl.getAttribute(".cm-canvas", "data-pk") === "kit", "Match My Theme: a theme without a style of its own gets its colours and motif");
+    ok((await mp()).pack === "theme" && await pl.getAttribute(".cm-canvas", "data-pk") === "t-classic", "Match My Theme: a theme without a style of its own gets its colours and motif");
     await pl.evaluate(() => { const s = window.__sbProStudy.state(); s.settings.style = Object.assign({}, s.settings.style, {skin: "sakura"}); }); await pl.click('.cm-look[data-v="theme"]').catch(() => {});
     await pl.click('.cm-tools [data-cm="undo"]'); await pl.waitForTimeout(300);
     ok((await mp()).pack === "med" && await pl.getAttribute(".cm-canvas", "data-pk") === "med", "Undo puts the last style back");
