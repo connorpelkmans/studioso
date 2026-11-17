@@ -4852,6 +4852,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       if (r.status === 401 && i === 0) continue;
       if (mode === "raw") return r;
       if (r.status === 404 && mode === "maybe") return null;
+      // a work or school Microsoft account whose organization has no OneDrive: every request is refused, so say why
+      if (!r.ok && p === "microsoft" && r.status === 400) { let m = ""; try { m = String(((await r.clone().json()).error || {}).message || ""); } catch (e) {} if (/SPO license/i.test(m)) throw new CloudErr("Microsoft says this account has no OneDrive: it's a work or school account whose organization isn't licensed for OneDrive. Disconnect OneDrive here and connect a personal Microsoft account (Outlook, Hotmail or Live) or a school account that has OneDrive.", "noonedrive"); }
       if (!r.ok) throw new CloudErr(r.status === 404 ? `That's no longer in your ${NM[p]}.` : r.status === 507 || r.status === 403 && p === "google" ? `Your ${NM[p]} is full or doesn't allow this.` : `${NM[p]} didn't accept that (${r.status}).`, r.status === 404 ? "gone" : "http");
       return r.status === 204 ? {} : r.json().catch(() => ({}));
     }
@@ -5105,7 +5107,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   function pickGoogleFolder(files){
     return new Promise((resolve, reject) => {
       const pk = cache().picker; if (!pk) return reject(new CloudErr("Google folder choosing isn't set up on this Studyboard server yet.", "nopicker"));
-      const w = window.open("drive-picker", "sbDrivePicker", "popup,width=900,height=640");
+      // big enough for Google's largest Picker (1051 x 650), and centred over Studyboard's window
+      const ww = Math.min(1100, (screen.availWidth || 1100) - 40), wh = Math.min(760, (screen.availHeight || 760) - 60);
+      const wl = Math.max(0, Math.round((window.screenX || 0) + ((window.outerWidth || ww) - ww) / 2)), wt = Math.max(0, Math.round((window.screenY || 0) + ((window.outerHeight || wh) - wh) / 2));
+      const w = window.open("drive-picker", "sbDrivePicker", `popup,width=${ww},height=${wh},left=${wl},top=${wt}`);
       if (!w) return reject(new CloudErr("Your browser blocked the Google Drive window. Allow pop-ups for Studyboard and try again.", "popup"));
       let done = false;
       const end = (fn, v) => { if (done) return; done = true; clearInterval(iv); clearTimeout(to); window.removeEventListener("message", on); fn(v); };
@@ -5411,7 +5416,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   // Writing Studio's linked document: one Google Doc picked in Google's window (drive.file covers it), and calls to Google's and Microsoft's APIs
   const pickGoogleDoc = () => pickGoogleFolder("gdoc").then(d => Array.isArray(d) ? d[0] || null : d);
   const docApi = (p, url, init, mode) => api(p, url, init, mode);
-  window.SBCLOUD = {canPickFiles, pickFiles, pickGoogleDoc, docApi, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  const pickerApp = () => { try { return String((cache().picker || {}).appId || ""); } catch (e) { return ""; } };
+  window.SBCLOUD = {canPickFiles, pickFiles, pickGoogleDoc, docApi, pickerApp, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");

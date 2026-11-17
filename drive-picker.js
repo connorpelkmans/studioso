@@ -17,18 +17,36 @@
   function show(a){
     var g = window.google;
     var gdoc = a.mode === "gdoc", files = a.mode === "files" || gdoc;
-    var view = gdoc ? new g.picker.DocsView(g.picker.ViewId.DOCUMENTS).setIncludeFolders(true).setSelectFolderEnabled(false).setMimeTypes("application/vnd.google-apps.document")
-      : files ? new g.picker.DocsView(g.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false)
+    var view = files && !gdoc ? new g.picker.DocsView(g.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false)
       : new g.picker.DocsView(g.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes("application/vnd.google-apps.folder");
-    var b = new g.picker.PickerBuilder().setAppId(a.appId).setDeveloperKey(a.key).setOAuthToken(a.token).setOrigin(location.origin).setTitle(gdoc ? "Choose your Google Doc" : files ? "Choose files for this class" : "Choose a folder for Studyboard")
-      .addView(view).setCallback(function(r){
+    var b = new g.picker.PickerBuilder().setAppId(a.appId).setDeveloperKey(a.key).setOAuthToken(a.token).setOrigin(location.origin).setTitle(gdoc ? "Choose your Google Doc" : files ? "Choose files for this class" : "Choose a folder for Studyboard");
+    // a Google Doc: a list of every doc first (with their dates, and Google's search box), then the same by folder, shared, starred and on
+    // shared drives; each tab is tried on its own, so an option an older Picker doesn't know just leaves that tab plain
+    if (gdoc) {
+      var DOC = "application/vnd.google-apps.document";
+      var docs = function(o){
+        var v = new g.picker.DocsView(g.picker.ViewId.DOCUMENTS).setMimeTypes(DOC).setSelectFolderEnabled(false).setIncludeFolders(!!o.folders);
+        try { v.setMode(g.picker.DocsViewMode.LIST); } catch (e) {}
+        if (o.folders) try { v.setParent("root"); } catch (e) {}
+        if (o.owned != null) try { v.setOwnedByMe(o.owned); } catch (e) {}
+        if (o.starred) try { v.setStarred(true); } catch (e) {}
+        if (o.drives) try { v.setEnableDrives(true); } catch (e) {}
+        try { v.setLabel(o.label); } catch (e) {}
+        return v;
+      };
+      b.addView(docs({label: "All My Docs"})).addView(docs({label: "Folders", folders: true})).addView(docs({label: "Shared with Me", owned: false})).addView(docs({label: "Starred", starred: true}));
+      try { b.enableFeature(g.picker.Feature.SUPPORT_DRIVES); b.addView(docs({label: "Shared Drives", drives: true})); } catch (e) {}
+      try { b.addView(new g.picker.View(g.picker.ViewId.RECENTLY_PICKED).setMimeTypes(DOC)); } catch (e) {}
+      try { b.setSize(Math.min(1051, window.innerWidth - 24), Math.min(650, window.innerHeight - 24)); } catch (e) {}
+    } else b.addView(view);
+    b.setCallback(function(r){
         var A = g.picker.Action;
         if (r[g.picker.Response.ACTION] === A.PICKED && files) { var D = g.picker.Document; finish({sbPicker: "done", docs: r[g.picker.Response.DOCUMENTS].slice(0, 20).map(function(x){ return {id: String(x[D.ID] || ""), name: String(x[D.NAME] || "File"), mimeType: String(x[D.MIME_TYPE] || ""), url: String(x[D.URL] || ""), size: Number(x.sizeBytes) || 0}; })}); }
         else if (r[g.picker.Response.ACTION] === A.PICKED) { var d = r[g.picker.Response.DOCUMENTS][0]; finish({sbPicker: "done", id: String(d[g.picker.Document.ID] || ""), name: String(d[g.picker.Document.NAME] || "Folder")}); }
         else if (r[g.picker.Response.ACTION] === A.CANCEL) finish({sbPicker: "cancel"});
       });
     if (files && !gdoc) b.enableFeature(g.picker.Feature.MULTISELECT_ENABLED);
-    b.build().setVisible(true); say("");
+    b.build().setVisible(true); say(""); document.body.classList.add("open");
   }
   window.addEventListener("message", function(e){
     if (e.origin !== location.origin || e.source !== opener || started) return;

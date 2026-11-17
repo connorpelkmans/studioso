@@ -1,5 +1,25 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark">
-<title>Choose a Google Drive folder</title>
-<style>body{margin:0;font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;text-align:center;padding:16px;box-sizing:border-box}p{max-width:30em}</style></head>
-<body><p id="msg">Opening Google Drive…</p><script src="drive-picker.js"></script></body></html>
+<title>Google Drive · Studyboard</title>
+<style>
+:root{--bg:#EEF2FB;--card:#fff;--ink:#14213D;--soft:#5B6782;--ring:#D5DDF0;--acc:#2F6FE4}
+@media (prefers-color-scheme:dark){:root{--bg:#0E1526;--card:#172038;--ink:#E8EDF8;--soft:#9AA6C2;--ring:#2A3656;--acc:#7EA6FF}}
+html,body{height:100%}
+body{margin:0;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:radial-gradient(1200px 600px at 50% -10%,color-mix(in srgb,var(--acc) 18%,transparent),transparent 70%),var(--bg);display:grid;place-items:center;padding:16px;box-sizing:border-box}
+main{display:grid;justify-items:center;gap:14px;text-align:center;background:var(--card);border:1px solid var(--ring);border-radius:20px;padding:28px 30px;max-width:26em;box-shadow:0 18px 50px rgba(20,33,61,.14);transition:opacity .2s}
+body.open main{opacity:0;pointer-events:none}
+.logos{display:flex;align-items:center;gap:12px}
+.logos img{width:44px;height:44px;border-radius:12px}
+.dots{display:flex;gap:5px}.dots i{width:6px;height:6px;border-radius:50%;background:var(--soft);opacity:.35;animation:b 1.2s infinite}.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes b{40%{opacity:1;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.dots i{animation:none;opacity:.7}}
+h1{font-size:1.15rem;margin:0}
+p{margin:0;color:var(--soft);font-size:.95rem}
+#msg:empty{display:none}
+</style></head>
+<body><main aria-live="polite">
+<div class="logos"><img src="icon-192.png" alt="Studyboard"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg width="44" height="40" viewBox="0 0 87.3 78" aria-label="Google Drive" role="img"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg></div>
+<h1>Opening Google Drive</h1>
+<p>Google's own window comes up here. Studyboard can open only what you choose in it.</p>
+<p id="msg">One moment…</p>
+</main><script src="drive-picker.js"></script></body></html>

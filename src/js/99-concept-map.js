@@ -835,6 +835,14 @@ function player(id){
     ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}${e.p === "spotify" ? `<p class="mini cm-player-tip">Spotify plays whole songs and episodes here only when you're signed in to Spotify in this browser; otherwise it plays a 30-second preview. Open in Spotify plays the whole thing.</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; storage-access" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div></div>`);
   const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
 }
+// A box's picture, big, over the map (the same frame as the video player, so Escape and Close work the same way)
+function picView(id){
+  closePlayer();
+  const n = M.byId[id], url = n && n.img ? imgUrl(n.img.k) : ""; if (!url) return;
+  const cv = M.el.querySelector(".cm-canvas"), name = n.label || "Picture";
+  cv.insertAdjacentHTML("beforeend", `<div class="cm-player cm-picview" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><b>${esc(name)}</b><span class="spacer"></span><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">✕</button></div><button type="button" class="cm-picbig" data-cm="unplay" aria-label="Close the picture"><img src="${url}" alt="${esc(name)}"></button></div>`);
+  const b = cv.querySelector(".cm-picview .icon-btn"); if (b) b.focus();
+}
 function closePlayer(){ const p = M.el && M.el.querySelector(".cm-player"); if (p) { p.remove(); return true; } return false; }
 /* Previews on embed boxes (CMAP.previewOf): the provider's own picture, loaded from the provider by its address. Only the address and the title are
    saved on the embed, never the picture. A picture that won't load (taken down, or a private Google file) leaves the plain box. Sites with no
@@ -1191,7 +1199,8 @@ function tools(){
     + `<button type="button" class="icon-btn cm-undo" data-cm="undo" aria-label="Undo" title="${(M.undoS || []).length ? esc("Undo: " + M.undoS[M.undoS.length - 1].label) : "Undo"}" ${(M.undoS || []).length ? "" : "disabled"}>${mi('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button>`
     + `<button type="button" class="icon-btn cm-undo cm-redo" data-cm="redo" aria-label="Redo" title="${(M.redoS || []).length ? esc("Redo: " + M.redoS[M.redoS.length - 1].label) : "Redo"}" ${(M.redoS || []).length ? "" : "disabled"}>${mi('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>')}</button>`
     + menu("more", mi('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'), "More",
-      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", "Map Style", 'data-phone="1"'), true);
+      M.xsub ? `<span class="cm-msep cm-xsep">Export the Whole Map</span>${Object.keys(EXP_LABEL).map(f => item("export", EXP_LABEL[f], `data-v="${f}"`)).join("")}` : (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", "Map Style", 'data-phone="1"')
+      + item("xmenu", M.exporting ? "Exporting…" : "Export…", M.exporting ? "disabled" : 'aria-haspopup="menu"'), true);
 }
 function closeMenu(){ M.menu = ""; if (!M.el) return; M.el.querySelectorAll(".cm-menu").forEach(m => m.remove()); M.el.querySelectorAll(".cm-mb.on").forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); }
 // a toolbar or panel menu: the button, and its list while open (one open at a time; a tap anywhere else closes it)
@@ -1354,7 +1363,7 @@ function wireCanvas(){
       const n = M.byId[M.sel]; drag = {rsz: hd.dataset.hdl, id: M.sel, w0: M.size[M.sel][0], h0: M.size[M.sel][1], minW: n && (n.img || n.emb) ? 90 : tw + 30, minH: n && (n.img || n.emb) ? 60 : Math.max(26, (n && n.size || 13) * 1.9), x: e.clientX, y: e.clientY, moved: false};
       try { svg.setPointerCapture(e.pointerId); } catch (er) {} e.stopPropagation(); return; }
     const nd = e.target.closest(".cm-node"), ed = e.target.closest(".cm-edge");
-    drag = {id: nd ? nd.dataset.n : "", emb: !!(nd && e.target.closest(".cm-emb, .cm-emb-btn")), edge: !nd && ed ? ed.dataset.e : "", x: e.clientX, y: e.clientY, vx: M.view.x, vy: M.view.y, moved: false, start: nd ? (M.pos[nd.dataset.n] || [0, 0]).slice() : null};
+    drag = {id: nd ? nd.dataset.n : "", emb: !!(nd && e.target.closest(".cm-emb, .cm-emb-btn")), pic: !!(nd && e.target.closest(".cm-img")), edge: !nd && ed ? ed.dataset.e : "", x: e.clientX, y: e.clientY, vx: M.view.x, vy: M.view.y, moved: false, start: nd ? (M.pos[nd.dataset.n] || [0, 0]).slice() : null};
     try { svg.setPointerCapture(e.pointerId); } catch (er) {}
   });
   svg.addEventListener("pointermove", e => {
@@ -1392,6 +1401,8 @@ function wireCanvas(){
     if (d.moved) return;
     // a box with a video or embed: a tap on the embed plays it; a tap anywhere else on the box picks it, to edit
     if (d.id && d.emb && !M.quiz && !M.connect) { M.sel = d.id; M.selE = ""; M.pick = ""; lite(); player(d.id); return; }
+    // a box with a picture: a tap on the picture shows it big; a tap on its words picks the box, to edit
+    if (d.id && d.pic && !M.quiz && !M.connect) { M.sel = d.id; M.selE = ""; M.pick = ""; lite(); picView(d.id); return; }
     if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
     else {
       // a double-click (or double tap) on an empty spot adds an idea there, asking for its name first
@@ -1504,7 +1515,8 @@ async function onClick(e){
   const a = b.dataset.cm, isTog = b.tagName === "INPUT" || b.tagName === "SELECT";
   if ((e.type === "change") !== isTog) return;
   const u = () => userOf(M.own), n = M.g && M.g.nodes.find(x => x.id === M.sel);
-  if (a === "menu") { M.menu = M.menu === b.dataset.v ? "" : b.dataset.v; tools(); panel(); const m = M.el.querySelector(".cm-menu .cm-mi:not([disabled])"); if (m) m.focus(); return; }
+  if (a === "menu") { M.xsub = false; M.menu = M.menu === b.dataset.v ? "" : b.dataset.v; tools(); panel(); const m = M.el.querySelector(".cm-menu .cm-mi:not([disabled])"); if (m) m.focus(); return; }
+  if (a === "xmenu") { M.xsub = true; tools(); const m = M.el.querySelector('.cm-menu [data-cm="export"]'); if (m) m.focus(); return; }
   if (M.menu && a !== "know") closeMenu();
   switch (a) {
     case "style": M.styleOpen = !M.styleOpen; panel(); return;
@@ -1526,6 +1538,7 @@ async function onClick(e){
     case "study-deck": { const id = M.made && M.made.deck; M.made = null; if (id && state.decks[id]) { if (dlg.open) dlg.close(); setTimeout(() => startStudy([id]), 0); } return; }
     case "desel": M.sel = ""; M.selE = ""; M.pick = ""; lite(); return;
     case "loose-t": M.loose = !M.loose; rebuild(true); grew(); paint(); return;
+    case "export": exportMap(b.dataset.v); return;
     case "in": zoomAt(1.25); break;
     case "out": zoomAt(0.8); break;
     case "fit": fit(); paint(); break;
@@ -1938,6 +1951,218 @@ function listHtml(){
 }
 if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
+/* Export (the ⋯ menu): the whole map as a picture (PNG or JPG), a PDF, or a Word file with the picture and an outline to study from.
+   The picture is the map's own drawing: its SVG, copied with the styles it's drawn with (so its Map Style, colours and Colour by Knowledge
+   come out as shown), the fonts it uses built in, and drawn onto a canvas. An embed's preview picture lives on another site: it's asked for
+   once more (allowed only where that site permits it) and built into the copy; where it isn't, the plain box with the site's name is drawn,
+   as on the map when a picture won't load. A live preview (Desmos, GeoGebra...) is a web page over the map, so it's the plain box too.
+   Nothing is uploaded: the file is saved like any other export (download, the desktop app's Save, or the phone's share sheet). */
+const EXP_LABEL = {pdf: "PDF", png: "Picture (PNG)", jpg: "Picture (JPG)", docx: "Word (.docx)"};
+const EXP_PROPS = ["color", "stop-color", "stop-opacity", "fill", "fill-opacity", "fill-rule", "stroke", "stroke-width", "stroke-opacity", "stroke-dasharray", "stroke-dashoffset", "stroke-linecap", "stroke-linejoin", "opacity", "font-family", "font-size", "font-weight", "font-style", "font-variant", "letter-spacing", "text-anchor", "dominant-baseline", "paint-order", "filter", "visibility", "marker-start", "marker-end", "mix-blend-mode"];
+const expTitle = () => { const h = M.el && M.el.querySelector(".cm-name"); return String(h ? h.textContent : (metaOf(M.own).name || "Concept Map")).replace(/\s+/g, " ").trim() || "Concept Map"; };
+const expFile = () => expTitle().replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Concept Map";
+const expData = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+async function expFetch(url, ms){
+  const ac = typeof AbortController === "function" ? new AbortController() : null, to = setTimeout(() => ac && ac.abort(), ms || 8000);
+  try { const r = await fetch(url, /^(blob|data):/.test(url) ? {} : {mode: "cors", credentials: "omit", referrerPolicy: "no-referrer", signal: ac ? ac.signal : undefined}); if (!r.ok) return null; const b = await r.blob(); return b && b.size ? b : null; }
+  catch (e) { return null; } finally { clearTimeout(to); }
+}
+// the app's own fonts the copy uses (Lexend, Caveat...), built in; any other font falls back to the device's, as in the app
+async function expFonts(fams){
+  const want = new Set([...fams].map(f => f.toLowerCase())), out = [], seen = new Set();
+  for (const sh of [...document.styleSheets]) {
+    let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+    for (const r of [...(rules || [])]) {
+      if (typeof CSSFontFaceRule === "undefined" || !(r instanceof CSSFontFaceRule)) continue;
+      const fam = r.style.getPropertyValue("font-family").replace(/["']/g, "").trim(), m = /url\(\s*["']?([^"')]+)["']?\s*\)/.exec(r.style.getPropertyValue("src"));
+      if (!fam || !m || !want.has(fam.toLowerCase())) continue;
+      let url; try { url = new URL(m[1], sh.href || document.baseURI).href; } catch (e) { continue; }
+      const key = fam + "|" + url; if (seen.has(key) || seen.size > 24) continue; seen.add(key);
+      const b = await expFetch(url); if (!b) continue;
+      const ur = r.style.getPropertyValue("unicode-range");
+      out.push(`@font-face{font-family:"${fam}";font-style:${r.style.getPropertyValue("font-style") || "normal"};font-weight:${r.style.getPropertyValue("font-weight") || "400"};${ur ? `unicode-range:${ur};` : ""}src:url(${await expData(new Blob([b], {type: "font/woff2"}))}) format("woff2")}`);
+    }
+  }
+  return out.join("");
+}
+const expLum = c => { const m = /rgba?\((\d+)[, ]+(\d+)[, ]+(\d+)/.exec(c || ""); if (!m) return 1; const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * lin(+m[1]) + 0.7152 * lin(+m[2]) + 0.0722 * lin(+m[3]); };
+/* The map, whole, as a canvas: {cv, w, h} (w and h in the map's own units). maxSide and maxPx keep it to a size the device can hold
+   (a phone's browser refuses a canvas over about 16 million pixels). */
+async function expCanvas(o){
+  o = o || {};
+  // drawn plain: nothing picked, no resize handles; every picture loaded first
+  M.sel = ""; M.selE = ""; M.connect = ""; M.pick = "";
+  await Promise.all(M.g.nodes.filter(n => n.img && !M.imgs[n.img.k]).map(async n => { try { const b = window.SBPRO && SBPRO.imageBlob ? await SBPRO.imageBlob(n.img.k) : null; if (b) M.imgs[n.img.k] = URL.createObjectURL(b); } catch (e) {} }));
+  paint();
+  try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+  await new Promise(r => requestAnimationFrame(() => r()));
+  const cvEl = M.el.querySelector(".cm-canvas"), world = M.el.querySelector(".cm-world"); if (!world) throw new Error("no map");
+  let bb = null;
+  [".cm-nodes", ".cm-edges"].forEach(s => { const g = world.querySelector(s); let b; try { b = g && g.getBBox(); } catch (e) {} if (!b || (!b.width && !b.height)) return; bb = bb ? {x0: Math.min(bb.x0, b.x), y0: Math.min(bb.y0, b.y), x1: Math.max(bb.x1, b.x + b.width), y1: Math.max(bb.y1, b.y + b.height)} : {x0: b.x, y0: b.y, x1: b.x + b.width, y1: b.y + b.height}; });
+  if (!bb) { const b = bounds(); if (!b) throw new Error("empty"); bb = {x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h}; }
+  // each embed box's place, so a PDF or Word file can make it a link to the embed's own page
+  const hot = M.g.nodes.filter(n => n.emb && /^https:\/\//i.test(n.emb.u || n.emb.e || "")).map(n => {
+    const el = world.querySelector(`.cm-node[data-n="${CSS.escape(n.id)}"]`); if (!el) return null;
+    let b, m; try { b = el.getBBox(); const t = el.transform && el.transform.baseVal && el.transform.baseVal.consolidate(); m = t ? t.matrix : null; } catch (e) { return null; }
+    if (!b || !b.width) return null; const sx = m ? m.a : 1, sy = m ? m.d : 1;
+    return {u: n.emb.u || n.emb.e, tt: n.label || embInfo(n.emb).tt || embName(n.emb), x: (m ? m.e : 0) + b.x * sx, y: (m ? m.f : 0) + b.y * sy, w: b.width * sx, h: b.height * sy};
+  }).filter(Boolean);
+  // the copy, each part with the styles it's drawn with now
+  const copy = world.cloneNode(true), from = [world, ...world.querySelectorAll("*")], to = [copy, ...copy.querySelectorAll("*")], fams = new Set();
+  const inDefs = el => !!el.closest("defs, clipPath, marker, pattern, mask, symbol, linearGradient, radialGradient, filter");
+  from.forEach((el, i) => {
+    const c = to[i]; if (!c || !c.setAttribute) return;
+    const cs = getComputedStyle(el); if (cs.display === "none" && !inDefs(el)) { c.setAttribute("data-x", "1"); return; }
+    c.setAttribute("style", EXP_PROPS.map(p => { const v = cs.getPropertyValue(p); return v && v !== "normal" && v !== "none" || p === "fill" || p === "stroke" ? `${p}:${String(v).replace(/url\(\s*"?[^"#)]*#([^")]+)"?\s*\)/g, "url(#$1)").replace(/"/g, "'")}` : ""; }).filter(Boolean).join(";"));
+    if (el.tagName === "text") cs.fontFamily.split(",").forEach(f => fams.add(f.replace(/["']/g, "").trim()));
+  });
+  copy.removeAttribute("transform");
+  copy.querySelectorAll("[data-x], .cm-hdls, .cm-chdls, .cm-hit, [hidden], title").forEach(el => el.remove());
+  // pictures in, from this device (yours) or from the embed's site where it allows it; otherwise the plain box with the site's name
+  for (const im of [...copy.querySelectorAll("image")]) {
+    const href = im.getAttribute("href") || im.getAttributeNS("http://www.w3.org/1999/xlink", "href") || "";
+    if (/^data:/.test(href)) continue;
+    const b = href ? await expFetch(href, 6000) : null;
+    if (b && /^image\//.test(b.type)) { im.setAttribute("href", await expData(b)); continue; }
+    const btn = im.classList.contains("cm-emb-th") && im.closest(".cm-node") && im.closest(".cm-node").querySelector(".cm-emb-btn"); im.remove();
+    if (btn) btn.setAttribute("transform", btn.getAttribute("transform").replace(/translate\(0 ([-\d.]+)\)/, (m, y) => `translate(0 ${Number(y) - 8})`));
+  }
+  [copy, ...copy.querySelectorAll("*")].forEach(el => ["class", "tabindex", "role", "aria-label", "data-n", "data-e", "data-col", "data-dot", "data-src", "data-hdl", "data-chdl"].forEach(a => el.removeAttribute(a)));
+  // the page: the map's background (a map style's pattern too), its name at the top, and the knowledge key when the colours mean that
+  const bg = getComputedStyle(cvEl).backgroundColor || "#ffffff", dark = expLum(bg) < 0.3, ink = dark ? "#F1F5F9" : "#1E293B", mut = dark ? "#AEB8C6" : "#5B6576";
+  const title = o.title === false ? "" : expTitle(), tf = getComputedStyle(M.el.querySelector(".cm-name") || document.body).fontFamily || "system-ui,sans-serif"; tf.split(",").forEach(f => fams.add(f.replace(/["']/g, "").trim()));
+  const pad = 44, bw = bb.x1 - bb.x0, bh = bb.y1 - bb.y0, mc = document.createElement("canvas").getContext("2d");
+  let tsz = 28; if (title) { mc.font = `700 ${tsz}px ${tf}`; const tw = mc.measureText(title).width, room = Math.max(bw, 520); if (tw > room) tsz = Math.max(16, Math.floor(tsz * room / tw)); }
+  mc.font = `700 ${tsz}px ${tf}`; const tW = title ? mc.measureText(title).width : 0;
+  const keyOn = !!M.know, keyItems = keyOn ? Object.keys(CONF).map(k => [CONF[k][0], CONF[k][1]]).concat([["No Results Yet", NOT_YET]]) : [];
+  mc.font = `600 13px ${tf}`; const keyW = keyItems.reduce((s, k) => s + 22 + mc.measureText(k[0]).width + 18, 0);
+  const tH = title ? tsz + 26 : 0, kH = keyOn ? 30 : 0, W = Math.ceil(Math.max(bw, tW, keyW) + pad * 2), H = Math.ceil(bh + pad * 2 + tH + kH);
+  const ox = (W - bw) / 2 - bb.x0, oy = pad + tH + kH - bb.y0;
+  const pk = M.pk && !M.pk.native && !M.know ? M.pk : null;
+  const pat = pk && pk.tile ? `<pattern id="cmxBg" patternUnits="userSpaceOnUse" x="${ox}" y="${oy}" width="${pk.tile.w}" height="${pk.tile.h}"><image href="data:image/svg+xml,${encodeURIComponent(pk.tile.svg)}" width="${pk.tile.w}" height="${pk.tile.h}"/></pattern>` : "";
+  let kx = (W - keyW) / 2;
+  const key = keyItems.map(([l, c]) => { mc.font = `600 13px ${tf}`; const s = `<circle cx="${kx + 7}" cy="${pad + tH + 8}" r="6" fill="${c}"/><text x="${kx + 19}" y="${pad + tH + 12.5}" style="font:600 13px ${tf.replace(/"/g, "'")};fill:${mut}">${esc(l)}</text>`; kx += 22 + mc.measureText(l).width + 18; return s; }).join("");
+  const S = Math.max(0.2, Math.min(o.scale || 2, (o.maxSide || 8000) / Math.max(W, H), Math.sqrt((o.maxPx || 16e6) / (W * H))));
+  const css = await expFonts(fams);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${Math.round(W * S)}" height="${Math.round(H * S)}" viewBox="0 0 ${W} ${H}"><defs>${css ? `<style>${css}</style>` : ""}${pat}</defs>`
+    + `<rect width="${W}" height="${H}" fill="${bg}"/>${pat ? `<rect width="${W}" height="${H}" fill="url(#cmxBg)"/>` : ""}`
+    + (title ? `<text x="${W / 2}" y="${pad + tsz * 0.8}" text-anchor="middle" style="font:700 ${tsz}px ${tf.replace(/"/g, "'")};fill:${ink}">${esc(title)}</text>` : "") + key
+    + `<g transform="translate(${ox} ${oy})">${new XMLSerializer().serializeToString(copy).replace(/^<g[^>]*>/, "<g>")}</g></svg>`;
+  const url = URL.createObjectURL(new Blob([svg], {type: "image/svg+xml;charset=utf-8"}));
+  try {
+    const img = new Image(); img.decoding = "sync";
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error("draw")); img.src = url; });
+    await new Promise(r => setTimeout(r, 60)); // Safari draws an SVG's built-in pictures and fonts a moment after it loads
+    const cv = document.createElement("canvas"); cv.width = Math.round(W * S); cv.height = Math.round(H * S);
+    const cx = cv.getContext("2d"); cx.fillStyle = bg; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0, cv.width, cv.height);
+    return {cv, w: W, h: H, svg, links: hot.map(l => Object.assign({}, l, {x: l.x + ox, y: l.y + oy}))};
+  } finally { URL.revokeObjectURL(url); }
+}
+const expBlob = (cv, type, q) => new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("toBlob")), type, q));
+// pdf-lib (vendored, as the PDF tools use), loaded the first time a map is saved as a PDF
+let expPdfLib = null;
+const expLoadPdf = () => window.PDFLib ? Promise.resolve(window.PDFLib) : expPdfLib || (expPdfLib = new Promise((res, rej) => {
+  const s = document.createElement("script"); s.src = "vendor/pdflib/pdf-lib.min.js"; s.async = true;
+  s.onload = () => window.PDFLib ? res(window.PDFLib) : rej(new Error("pdf")); s.onerror = () => { expPdfLib = null; rej(new Error("pdf")); }; document.head.appendChild(s);
+}));
+/* One page the size of the map (at the map's own scale, 1 unit = 0.75 pt, so it prints at screen size): maps run wide, tall or square, and a
+   fixed Letter or A4 page would shrink a wide map's words or leave half the page empty. A viewer zooms in freely, and printing fits it to the paper. */
+async function expPdf(r){
+  const L = await expLoadPdf(), doc = await L.PDFDocument.create(), png = await expBlob(r.cv, "image/png");
+  doc.setTitle(expTitle()); doc.setCreator("Studyboard"); doc.setProducer("Studyboard");
+  const img = await doc.embedPng(new Uint8Array(await png.arrayBuffer()));
+  let pw = r.w * 0.75, ph = r.h * 0.75; const k = Math.min(1, 14400 / Math.max(pw, ph)); pw *= k; ph *= k;
+  const page = doc.addPage([pw, ph]); page.drawImage(img, {x: 0, y: 0, width: pw, height: ph});
+  // each embed box opens its page (a video, a doc, a simulation) when it's clicked in the PDF
+  const f = pw / r.w, ctx = doc.context, ann = (r.links || []).map(l => ctx.register(ctx.obj({Type: "Annot", Subtype: "Link", Rect: [l.x * f, ph - (l.y + l.h) * f, (l.x + l.w) * f, ph - l.y * f], Border: [0, 0, 0],
+    Contents: L.PDFString.of(l.tt || l.u), A: {Type: "Action", S: "URI", URI: L.PDFString.of(l.u)}})));
+  if (ann.length) page.node.set(L.PDFName.of("Annots"), ctx.obj(ann));
+  return new Blob([await doc.save({useObjectStreams: false})], {type: "application/pdf"});
+}
+/* Word: the map's picture, then each idea in turn (the centre first, then outward along the lines): what it is, its notes, its connections,
+   and what's attached to it (cards, quiz questions, a PDF page, a lecture moment, a video or embed as a link), to study from. */
+function expOutline(){
+  const g = M.g, byId = {}; g.nodes.forEach(n => { byId[n.id] = n; });
+  const nameOf = n => n ? (n.label || (n.emb ? (embInfo(n.emb).tt || embName(n.emb)) : n.img ? "Picture" : "Untitled")) : "";
+  const order = [], seen = new Set(), q = byId.root ? ["root"] : [];
+  while (q.length) { const id = q.shift(); if (seen.has(id)) continue; seen.add(id); order.push(id); g.edges.filter(e => e.a === id || e.b === id).map(e => e.a === id ? e.b : e.a).filter(x => !seen.has(x) && byId[x]).sort((a, b) => nameOf(byId[a]).localeCompare(nameOf(byId[b]))).forEach(x => q.push(x)); }
+  g.nodes.filter(n => !seen.has(n.id)).sort((a, b) => nameOf(a).localeCompare(nameOf(b))).forEach(n => order.push(n.id));
+  const lv = M.know ? know_() : null, cards = {}, qs = {};
+  Object.values(state.decks || {}).forEach(d => { if (!d) return; (d.cards || []).forEach(c => { if (c) cards[`c:${d.id}:${c.id}`] = c; }); (d.aiQuizzes || []).forEach(z => (z.questions || []).forEach(x => { if (x) qs[`q:${d.id}:${z.id}:${x.id}`] = x; })); });
+  const one = s => String(s || "").replace(/\s+/g, " ").trim();
+  return order.map(id => {
+    const n = byId[id], kind = n.root ? (M.own.kind === "exam" ? "Exam" : "Map centre") : (KIND[n.kind] || KIND.file)[0], items = [];
+    if (n.kind === "note") { const t = String((state.notes[n.ref] || {}).text || "").split("\n").slice(1).join("\n").trim(); if (t) items.push({notes: t.slice(0, 4000)}); }
+    if (n.kind === "topic" && CONF[n.conf]) items.push({t: `Confidence: ${CONF[n.conf][0]}`});
+    if (lv && lv[n.id] && CONF[lv[n.id]]) items.push({t: `How well you know it: ${CONF[lv[n.id]][0]}`});
+    g.edges.filter(e => e.a === id || e.b === id).forEach(e => { const o = byId[e.a === id ? e.b : e.a], back = e.arrow === "end" && e.b === id;
+      items.push({t: `${back ? "← comes from" : "→ connects to"} ${nameOf(o)}${e.label ? ": " + one(e.label) : ""}`}); });
+    if (n.emb) { const nm = CMAP.PROVIDERS[n.emb.p] || "Embed", tt = embInfo(n.emb).tt; items.push({t: `${EMB_VIDEO.has(n.emb.p) ? "Video" : "Embed"} (${nm}): `, link: n.emb.u || n.emb.e, lt: tt || n.emb.u || n.emb.e}); }
+    if (n.img) items.push({t: "Picture: shown on the map above"});
+    if (n.at) { const f = state.files[n.at.f]; items.push({t: n.at.t != null ? `Lecture moment: ${CMAP.clock(n.at.t)} in ${f ? f.name : "a recording"}` : `PDF page: page ${n.at.p} of ${f ? f.name : "a file"}`}); }
+    (n.ev || []).forEach(k => { const c = cards[k], x = qs[k];
+      if (c) items.push({t: `Card: ${one(c.front)} → ${one(c.back)}`});
+      else if (x) items.push({t: `Quiz question: ${one(x.stem)}${x.answer ? ` (Answer: ${one(x.answer)})` : ""}`}); });
+    return {h: nameOf(n), kind, items};
+  });
+}
+const expX = s => String(s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// a clear 1x1 picture: what the Word file's link areas are made of
+async function expDot(){ const c = document.createElement("canvas"); c.width = 1; c.height = 1; return new Uint8Array(await (await expBlob(c, "image/png")).arrayBuffer()); }
+async function expDocx(r){
+  const png = new Uint8Array(await (await expBlob(r.cv, "image/png")).arrayBuffer()), list = expOutline(), title = expTitle();
+  const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"', H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  const run = (t, rp) => `<w:r>${rp ? `<w:rPr>${rp}</w:rPr>` : ""}<w:t xml:space="preserve">${expX(t)}</w:t></w:r>`, links = [];
+  const para = (inner, style, extra) => `<w:p>${style || extra ? `<w:pPr>${style ? `<w:pStyle w:val="${style}"/>` : ""}${extra || ""}</w:pPr>` : ""}${inner}</w:p>`;
+  // a wide map gets its own landscape page, so its words stay as big as they can; the outline is on portrait pages after it
+  const wide = r.w / r.h > 1.15, maxW = (wide ? 9 : 6.5) * 914400, maxH = (wide ? 5.6 : 7.6) * 914400, k = Math.min(maxW / (r.w * 9525), maxH / (r.h * 9525), 1.5), cx = Math.round(r.w * 9525 * k), cy = Math.round(r.h * 9525 * k);
+  const pic = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Concept map" descr="${expX(title)}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="1" name="map.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+  const mar = '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>', port = `<w:pgSz w:w="12240" w:h="15840"/>${mar}`;
+  const col = (wide ? 9 : 6.5) * 914400, sc = cx / r.w, x0 = (col - cx) / 2;
+  const spots = (r.links || []).map((l, i) => { links.push(l.u); const id = links.length, X = Math.round(x0 + l.x * sc), Y = Math.round(l.y * sc), W = Math.max(1, Math.round(l.w * sc)), Hh = Math.max(1, Math.round(l.h * sc));
+    return `<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="${251660000 + i}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="column"><wp:posOffset>${X}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>${Y}</wp:posOffset></wp:positionV><wp:extent cx="${W}" cy="${Hh}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${100 + i}" name="Link ${i + 1}" descr="Opens ${expX(l.tt || l.u)}"><a:hlinkClick r:id="rIdL${id}"/></wp:docPr><wp:cNvGraphicFramePr/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${100 + i}" name="link.png"><a:hlinkClick r:id="rIdL${id}"/></pic:cNvPr><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdDot"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${W}" cy="${Hh}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>`; }).join("");
+  let body = para(run(title), "Title") + para(pic + spots, "", '<w:jc w:val="center"/>');
+  if (wide) body += para("", "", `<w:sectPr><w:pgSz w:w="15840" w:h="12240" w:orient="landscape"/>${mar}</w:sectPr>`);
+  body += para(run("Ideas and Connections"), "Heading1");
+  list.forEach(x => {
+    body += para(run(x.h) + run("  " + x.kind, '<w:b w:val="0"/><w:color w:val="6B7280"/><w:sz w:val="20"/>'), "Heading2");
+    x.items.forEach(it => {
+      if (it.notes) { it.notes.split(/\n+/).map(l => l.trim()).filter(Boolean).slice(0, 60).forEach(l => { body += para(run(l), "Notes"); }); return; }
+      let inner = run(it.t);
+      if (it.link && /^https?:\/\//i.test(it.link)) { links.push(it.link); inner += `<w:hyperlink r:id="rIdL${links.length}">${run(it.lt, '<w:rStyle w:val="Hyperlink"/>')}</w:hyperlink>`; }
+      body += para(inner, "Item");
+    });
+  });
+  const sty = (id, name, rp, pp, type) => `<w:style w:type="${type || "paragraph"}" w:styleId="${id}"><w:name w:val="${name}"/>${type ? "" : '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>'}${pp ? `<w:pPr>${pp}</w:pPr>` : ""}<w:rPr>${rp}</w:rPr></w:style>`;
+  const styles = H + `<w:styles ${NS}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="en-US"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="80" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>`
+    + sty("Title", "Title", '<w:b/><w:sz w:val="40"/><w:szCs w:val="40"/>', '<w:jc w:val="center"/><w:spacing w:after="240"/>')
+    + sty("Heading1", "heading 1", '<w:b/><w:sz w:val="30"/><w:szCs w:val="30"/>', '<w:keepNext/><w:pageBreakBefore/><w:spacing w:before="0" w:after="160"/><w:outlineLvl w:val="0"/>')
+    + sty("Heading2", "heading 2", '<w:b/><w:sz w:val="25"/><w:szCs w:val="25"/>', '<w:keepNext/><w:spacing w:before="260" w:after="80"/><w:outlineLvl w:val="1"/>')
+    + sty("Item", "Map Item", "", '<w:ind w:left="360"/><w:spacing w:after="60"/>') + sty("Notes", "Map Notes", '<w:color w:val="374151"/>', '<w:ind w:left="360"/><w:spacing w:after="60"/>')
+    + sty("Hyperlink", "Hyperlink", '<w:color w:val="1D4ED8"/><w:u w:val="single"/>', "", "character") + `</w:styles>`;
+  return new Blob([zipMany([
+    {name: "[Content_Types].xml", data: H + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},
+    {name: "_rels/.rels", data: H + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
+    {name: "word/document.xml", data: H + `<w:document ${NS}><w:body>${body}<w:sectPr>${port}</w:sectPr></w:body></w:document>`},
+    {name: "word/_rels/document.xml.rels", data: H + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/map.png"/><Relationship Id="rIdDot" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/link.png"/>${links.map((u, i) => `<Relationship Id="rIdL${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${expX(u)}" TargetMode="External"/>`).join("")}</Relationships>`},
+    {name: "word/styles.xml", data: styles},
+    {name: "word/media/map.png", data: png},
+    {name: "word/media/link.png", data: await expDot()}
+  ])], {type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+async function exportMap(fmt){
+  if (!EXP_LABEL[fmt] || M.exporting || !M.g || !shown()) return;
+  M.exporting = fmt; tools(); toast(`Exporting the map as ${EXP_LABEL[fmt]}…`);
+  try {
+    const r = await expCanvas(fmt === "docx" ? {maxSide: 4000, title: false} : {}), base = expFile();
+    const out = fmt === "png" ? await expBlob(r.cv, "image/png") : fmt === "jpg" ? await expBlob(r.cv, "image/jpeg", 0.92) : fmt === "pdf" ? await expPdf(r) : await expDocx(r);
+    r.cv.width = r.cv.height = 0;
+    const ext = {png: ".png", jpg: ".jpg", pdf: ".pdf", docx: ".docx"}[fmt];
+    if (await noteFileSave(base + ext, new Uint8Array(await out.arrayBuffer()), out.type)) toast(`Saved ${base}${ext}`);
+  } catch (e) {
+    toast(fmt === "pdf" && e && e.message === "pdf" ? "Couldn't load the PDF maker. Check your connection and try again." : "Couldn't export the map. Try again, or try another format.", null, null, {error: true});
+  } finally { M.exporting = ""; if (shown()) tools(); }
+}
 const css = document.createElement("style");
 css.textContent = `
 dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px);height:min(92dvh,1000px)}
@@ -1964,6 +2189,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-mi[disabled]{opacity:.45;cursor:default}
 .cm-mi svg{flex:none;opacity:.8}
 .cm-msep{padding:8px 10px 3px;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--line);margin-top:4px}
+.cm-msep.cm-xsep{border-top:0;margin-top:0}
 .cm-chiptog{position:relative;display:inline-flex;align-items:center;gap:7px;flex:none;padding:6px 12px;border:1px solid var(--line);border-radius:999px;font-size:.86rem;font-weight:700;cursor:pointer;background:var(--surface);white-space:nowrap}
 .cm-chiptog input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
 .cm-chiptog:focus-within{outline:2px solid var(--accent,#2F6FE4);outline-offset:2px}
@@ -2152,6 +2378,10 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-embdot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
 /* the player appears at once, in the middle (centred by layout, not a transform, so nothing slides or replays) */
 .cm-player{position:absolute;z-index:5;inset:0;margin:auto;height:fit-content;width:min(860px,calc(100% - 24px));max-height:calc(100% - 24px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px -12px rgb(0 0 0/.45);overflow:hidden}
+.cm-picview{width:min(1100px,calc(100% - 24px));height:calc(100% - 24px)}
+.cm-picbig{display:block;position:relative;padding:0;margin:8px 12px 12px;border:0;background:none;cursor:zoom-out;min-height:0;flex:1 1 auto;overflow:hidden}
+.cm-picbig img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.cm-node.is-pic .cm-img,.cm-node .cm-img{cursor:zoom-in}
 .cm-player-head{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--line)}
 .cm-player-head b{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cm-player-head .icon-btn{font-size:1.4rem;line-height:1}
