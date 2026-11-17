@@ -323,6 +323,11 @@ const CMAP = (() => {
     }
     if (h === "vimeo.com" || h === "player.vimeo.com") { m = /\/(?:video\/)?(\d{5,12})/.exec(p); return m ? out("vimeo", `https://player.vimeo.com/video/${m[1]}`, {id: m[1]}) : null; }
     if (h === "loom.com" && (m = /^\/(?:share|embed)\/([0-9a-f]{20,40})/.exec(p))) return out("loom", `https://www.loom.com/embed/${m[1]}`, {id: m[1]});
+    // published to the web (File, Share, Publish to web): anyone can see it, no sign-in
+    if (h === "docs.google.com" && (m = /^\/(document|presentation|spreadsheets)\/d\/e\/([\w-]{20,})/.exec(p))) {
+      const k = {document: "gdoc", presentation: "gslides", spreadsheets: "gsheet"}[m[1]];
+      return out(k, `https://docs.google.com/${m[1]}/d/e/${m[2]}/${m[1] === "presentation" ? "embed?start=false&loop=false" : m[1] === "spreadsheets" ? "pubhtml?widget=true&headers=false" : "pub?embedded=true"}`, {id: m[2], pub: true});
+    }
     if (h === "docs.google.com" && (m = /^\/(document|presentation|spreadsheets|drawings)\/d\/([\w-]{20,})/.exec(p))) {
       const k = {document: "gdoc", presentation: "gslides", spreadsheets: "gsheet", drawings: "gdrive"}[m[1]];
       return out(k, `https://docs.google.com/${m[1]}/d/${m[2]}/${m[1] === "presentation" ? "embed?start=false&loop=false" : m[1] === "drawings" ? "preview" : "preview"}`, {id: m[2]});
@@ -663,7 +668,9 @@ async function smallJpeg(file, max){
 const EMB_VIDEO = new Set(["youtube", "vimeo", "loom", "ted", "spotify"]);
 const EMB_COL = {youtube: "#C4302B", vimeo: "#1AB7EA", loom: "#625DF5", gdoc: "#2B7CD3", gslides: "#E6A100", gsheet: "#1E8E3E", gdrive: "#4285F4", desmos: "#2F7D31", geogebra: "#6557D2", phet: "#2A6EBB", spotify: "#1DB954", ted: "#E62B1E", canva: "#7D2AE8"};
 const embName = e => { const nm = CMAP.PROVIDERS[e && e.p] || "Embed"; return ["youtube", "vimeo", "loom"].includes(e && e.p) ? nm + " video" : nm; };
-const EMB_SITES = "YouTube, Vimeo, Loom, Google Docs, Slides, Sheets and Drive, Desmos, GeoGebra, PhET, Spotify, TED and Canva";
+const EMB_SITES = "YouTube, Vimeo, Loom, Google Docs, Google Slides, Google Sheets, Google Drive, Desmos, GeoGebra, PhET, Spotify, TED and Canva";
+const GOOGLE = new Set(["gdoc", "gslides", "gsheet", "gdrive"]);
+const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with the link can view (or File, Share, Publish to web).";
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
   const e = CMAP.embedOf(raw); if (!e || !CMAP.embedOk(e.e)) return false;
@@ -684,7 +691,7 @@ function embedPanel(ontoId){
     <p class="mini cm-embst" data-cm-embst aria-live="polite">Works with ${EMB_SITES}.</p><div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button></div></form>`;
   const f = P.querySelector("form"), inp = f.querySelector("input"), st = f.querySelector("[data-cm-embst]"), go = f.querySelector("[type=submit]");
   const check = () => { const v = inp.value.trim(), e = v ? CMAP.embedOf(v) : null; go.disabled = !e; st.classList.toggle("is-ok", !!e); st.classList.toggle("is-bad", !!v && !e);
-    st.innerHTML = !v ? `Works with ${EMB_SITES}.` : e ? `<span class="cm-embdot" style="background:${EMB_COL[e.p]}"></span>${esc(e.name)}${EMB_VIDEO.has(e.p) ? " · plays right on the map" : " · opens right on the map"}` : `That link can't play on a map. Use a link from ${EMB_SITES}.`; };
+    st.innerHTML = !v ? `Works with ${EMB_SITES}.` : e ? `<span class="cm-embdot" style="background:${EMB_COL[e.p]}"></span>${esc(e.name)}${EMB_VIDEO.has(e.p) ? " · plays right on the map" : " · opens right on the map"}${GOOGLE.has(e.p) && !e.pub ? `<span class="cm-embtip">${esc(GOOGLE_TIP)}</span>` : ""}` : `That link can't play on a map. Use a link from ${EMB_SITES}.`; };
   inp.addEventListener("input", check); inp.focus();
   f.addEventListener("submit", ev => { ev.preventDefault(); if (!addEmbed(inp.value, onto)) check(); });
 }
@@ -694,7 +701,7 @@ function player(id){
   const e = n.emb, name = n.label || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
   const src = e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e;
   cv.insertAdjacentHTML("beforeend", `<div class="cm-player${vid && e.p !== "spotify" ? " is-video" : e.p === "spotify" ? " is-audio" : ""}" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><span class="cm-embdot" style="background:${EMB_COL[e.p] || "#475569"}"></span><b>${esc(name)}</b><span class="spacer"></span><a class="btn small" href="${esc(e.u)}" target="_blank" rel="noopener noreferrer">Open in ${esc(CMAP.PROVIDERS[e.p] || "Browser")}</a><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">×</button></div>
-    <div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms"></iframe></div></div>`);
+    ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms"></iframe></div></div>`);
   const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
 }
 function closePlayer(){ const p = M.el && M.el.querySelector(".cm-player"); if (p) { p.remove(); return true; } return false; }
@@ -864,8 +871,15 @@ function menu(id, label, title, items, right){
   return `<div class="cm-mw${right ? " right" : ""}"><button type="button" class="btn small cm-mb${on ? " on" : ""}" data-cm="menu" data-v="${id}" aria-haspopup="menu" aria-expanded="${on}" aria-label="${esc(title)}" title="${esc(title)}">${label}${right ? "" : '<svg class="cm-car" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'}</button>${on ? `<div class="cm-menu" role="menu">${items}</div>` : ""}</div>`;
 }
 // a box's style: shape; fill, outline and text colour (each opens its swatches); font; text size; box size
+function anySw(key, cur, label){
+  const own = /^#[0-9a-f]{6}$/i.test(cur || ""), cv = own ? cur : "#7C5CFF";
+  const known = (key === "fill" ? FILLS : key === "text" ? INKS : COLORS.concat(["#1E293B"])).some(v => v.toLowerCase() === String(cur || "").toLowerCase());
+  return typeof anyColorLocked === "function" && anyColorLocked()
+    ? `<button type="button" class="cm-col cm-col-any locked" data-cm="anypro" title="Any colour (Pro)" aria-label="Any ${label} colour, part of Studyboard Pro"><i class="pro-badge">PRO</i></button>`
+    : `<label class="cm-col cm-col-any${own && !known ? " on" : ""}" style="--sw:${esc(cv)}" title="Any colour"><input type="color" data-cm-any="${key}" value="${esc(cv)}" aria-label="Pick any ${label} colour"></label>`;
+}
 function styleHtml(n){
-  const sw = (key, list, cur, auto) => `<div class="cm-cols" role="group" aria-label="${{fill: "Fill colour", stroke: "Outline colour", text: "Text colour"}[key]}"><button type="button" class="cm-col cm-col-auto" data-cm="st" data-k="${key}" data-v="" aria-pressed="${!cur}" title="${auto}" aria-label="${auto}"></button>${list.map(v => `<button type="button" class="cm-col" data-cm="st" data-k="${key}" data-v="${v}" style="--sw:${v}" aria-pressed="${String(cur).toLowerCase() === v.toLowerCase()}" aria-label="${v}"></button>`).join("")}</div>`;
+  const sw = (key, list, cur, auto) => `<div class="cm-cols" role="group" aria-label="${{fill: "Fill colour", stroke: "Outline colour", text: "Text colour"}[key]}"><button type="button" class="cm-col cm-col-auto" data-cm="st" data-k="${key}" data-v="" aria-pressed="${!cur}" title="${auto}" aria-label="${auto}"></button>${list.map(v => `<button type="button" class="cm-col" data-cm="st" data-k="${key}" data-v="${v}" style="--sw:${v}" aria-pressed="${String(cur).toLowerCase() === v.toLowerCase()}" aria-label="${v}"></button>`).join("")}${anySw(key, cur, {fill: "fill", stroke: "outline", text: "text"}[key])}</div>`;
   const chip = (key, l, cur) => `<button type="button" class="cm-pickb" data-cm="pick" data-v="${key}" aria-expanded="${M.pick === key}"><i style="--sw:${cur || "transparent"}" class="${cur ? "" : "is-auto"}"></i>${l}</button>`;
   const shown = id => ({fill: n.fill || (n.color ? "" : ""), stroke: n.stroke || "", text: n.text || ""})[id];
   const fs = n.size || (n.root ? 15 : 13), sc = n.scale || 1;
@@ -902,7 +916,7 @@ function panel(){
     P.innerHTML = `<p style="margin:0"><b>${esc(a ? a.label : "")}</b> ${e.arrow === "none" ? "—" : e.arrow === "both" ? "↔" : "→"} <b>${esc(b ? b.label : "")}</b> <span class="mini">${esc(WHY[e.why] || "")}</span></p>
       <form class="cm-row cm-elf"><input type="text" data-cm-elab value="${esc(e.label)}" placeholder="Words on the line: causes, is part of, leads to…" maxlength="60" aria-label="Words on this connection" enterkeyhint="done"><button type="submit" class="btn small">Save</button></form>
       <div class="cm-row cm-style">${seg("eline", ["solid", "dashed", "dotted"], e.line || "solid", LINE_NAMES, LINE_IC)}${seg("ewidth", ["1", "2", "3", "4"], String(e.w || 2), W_NAMES, W_IC)}${seg("earrow", CMAP.ARROWS, e.arrow || "none", ARROW_NAMES, ARROW_IC)}${e.arrow === "end" ? `<button type="button" class="btn small" data-cm="eflip" title="Point the arrow the other way">Flip</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="ecut">Remove</button></div>
-      <div class="cm-cols" role="group" aria-label="Line colour"><button type="button" class="cm-col cm-col-auto" data-cm="ecol" data-v="" aria-pressed="${!e.col}" title="Automatic colour" aria-label="Automatic colour"></button>${COLORS.concat(["#1E293B"]).map(v => `<button type="button" class="cm-col" data-cm="ecol" data-v="${v}" style="--sw:${v}" aria-pressed="${(e.col || "").toLowerCase() === v.toLowerCase()}" title="${v}" aria-label="Colour ${v}"></button>`).join("")}</div>`;
+      <div class="cm-cols" role="group" aria-label="Line colour"><button type="button" class="cm-col cm-col-auto" data-cm="ecol" data-v="" aria-pressed="${!e.col}" title="Automatic colour" aria-label="Automatic colour"></button>${COLORS.concat(["#1E293B"]).map(v => `<button type="button" class="cm-col" data-cm="ecol" data-v="${v}" style="--sw:${v}" aria-pressed="${(e.col || "").toLowerCase() === v.toLowerCase()}" title="${v}" aria-label="Colour ${v}"></button>`).join("")}${anySw("line", e.col, "line")}</div>`;
     return;
   }
   if (M.sel || M.selE) { M.cardsOpen = false; M.made = null; }
@@ -948,6 +962,14 @@ function wireCanvas(){
   const cv = M.el.querySelector(".cm-canvas"), svg = M.el.querySelector(".cm-svg");
   // a tap outside an open menu closes it without redrawing, so the button being tapped still gets the tap
   M.el.addEventListener("pointerdown", e => { if (M.menu && !e.target.closest(".cm-mw")) closeMenu(); }, true);
+  M.el.addEventListener("change", e => {
+    const a = e.target.closest && e.target.closest("[data-cm-any]"); if (!a) return;
+    if (typeof anyColorLocked === "function" && anyColorLocked()) { anyColorPro("map"); return; }
+    const v = String(a.value || "").toUpperCase(); if (!/^#[0-9A-F]{6}$/.test(v)) return;
+    const b = document.createElement("button"); b.type = "button"; b.hidden = true;
+    if (a.dataset.cmAny === "line") { b.dataset.cm = "ecol"; b.dataset.v = v; } else { b.dataset.cm = "st"; b.dataset.k = a.dataset.cmAny; b.dataset.v = v; }
+    M.el.appendChild(b); b.click(); b.remove();
+  });
   M.el.addEventListener("change", e => { if (e.target.matches && e.target.matches("[data-cm-both]")) { M.both = e.target.checked; cardsPanel(); } });
   // paste onto the map: a link from a video or embed site becomes a player, a copied picture becomes a picture
   M.el.addEventListener("paste", e => {
@@ -1047,6 +1069,7 @@ async function onClick(e){
   switch (a) {
     case "style": M.styleOpen = !M.styleOpen; panel(); return;
     case "undo": undoMap(); return;
+    case "anypro": anyColorPro("map"); return;
     case "mat": matPanel(); return;
     case "made-x": M.made = null; panel(); return;
     case "study-deck": { const id = M.made && M.made.deck; M.made = null; if (id && state.decks[id]) { if (dlg.open) dlg.close(); setTimeout(() => startStudy([id]), 0); } return; }
@@ -1585,6 +1608,12 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-cols{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .cm-col{width:24px;height:24px;border-radius:50%;border:2px solid var(--surface);background:var(--sw);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
 .cm-col[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
+.cm-col-any{position:relative;display:inline-block;background:conic-gradient(from 0deg,#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#8b5cf6,#ec4899,#ef4444)!important}
+.cm-col-any::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--sw);box-shadow:0 0 0 1.5px rgb(255 255 255/.9)}
+.cm-col-any.on{box-shadow:0 0 0 2px var(--ink)}
+.cm-col-any.locked::after{background:var(--surface)}
+.cm-col-any input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0}
+.cm-col-any .pro-badge{position:absolute;right:-9px;top:-9px;z-index:3;transform:scale(.68);transform-origin:top right;pointer-events:none}
 .cm-col-auto{background:conic-gradient(#2F6FE4,#7C5CFF,#D6336C,#E8A317,#2F9E44,#2F6FE4)}
 .cm-elf{flex-wrap:nowrap}
 /* the Review tab's list, and a new map */
@@ -1623,6 +1652,9 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-embst{margin:0;display:flex;align-items:center;gap:6px}
 .cm-embst.is-ok{color:var(--ink);font-weight:700}
 .cm-embst.is-bad{color:var(--danger,#C62828)}
+.cm-embst{flex-wrap:wrap}
+.cm-embtip{flex-basis:100%;font-weight:400;color:var(--muted)}
+.cm-player-tip{margin:0;padding:6px 14px;border-bottom:1px solid var(--line)}
 .cm-embdot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
 /* the player appears at once, in the middle (centred by layout, not a transform, so nothing slides or replays) */
 .cm-player{position:absolute;z-index:5;inset:0;margin:auto;height:fit-content;width:min(860px,calc(100% - 24px));max-height:calc(100% - 24px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px -12px rgb(0 0 0/.45);overflow:hidden}

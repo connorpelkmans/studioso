@@ -23,6 +23,10 @@ const cases = [
   ["https://open.spotify.com/episode/7makk4oTQel546B0PZlDM5", "spotify", "https://open.spotify.com/embed/episode/7makk4oTQel546B0PZlDM5"],
   ["https://www.ted.com/talks/ken_robinson_do_schools_kill_creativity", "ted", "https://embed.ted.com/talks/ken_robinson_do_schools_kill_creativity"],
 ];
+cases.push(["https://docs.google.com/document/d/e/2PACX-1vQabcdefghijklmnopqrstuv/pub", "gdoc", "https://docs.google.com/document/d/e/2PACX-1vQabcdefghijklmnopqrstuv/pub?embedded=true"],
+  ["https://docs.google.com/presentation/d/e/2PACX-1vQabcdefghijklmnopqrstuv/pub?start=false", "gslides", "https://docs.google.com/presentation/d/e/2PACX-1vQabcdefghijklmnopqrstuv/embed?start=false&loop=false"],
+  ["https://docs.google.com/spreadsheets/d/e/2PACX-1vQabcdefghijklmnopqrstuv/pubhtml", "gsheet", "https://docs.google.com/spreadsheets/d/e/2PACX-1vQabcdefghijklmnopqrstuv/pubhtml?widget=true&headers=false"],
+  ["https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/edit?usp=sharing", "gsheet", "https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/preview"]);
 for (const [u, p, e] of cases) { const r = E(u); ok(r && r.p === p && r.e === e && CMAP.embedOk(r.e), `${p}: ${u} -> ${r && r.e}`); }
 ok(/i\.ytimg\.com\/vi\/dQw4w9WgXcQ\//.test(E("youtu.be/dQw4w9WgXcQ").th), "a YouTube video brings its thumbnail");
 

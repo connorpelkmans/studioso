@@ -96,6 +96,10 @@ function SEED(){
   ok(!(await page.locator("#toast.show").count()), "changing a box's style shows no notice");
   ok(st.fill === fillV && st.stroke === strokeV && st.text === textV && st.shape === "cloud", `fill, outline and text colours save (${fillV}, ${strokeV}, ${textV}) and keep the shape`);
   ok(new RegExp(fillV, "i").test(await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "fill") + (await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "style") || "")), "the box shows its fill");
+  // any colour (Pro), from the rainbow swatch at the end of the row
+  if (!(await page.locator('[data-cm-any="fill"]').count())) await cmClick(page, '[data-cm="pick"][data-v="fill"]');
+  await page.locator('[data-cm-any="fill"]').fill("#12a4b6"); await page.waitForTimeout(250);
+  ok((await course(page, "c1")).maps[0].styles["idea:i1"].fill === "#12A4B6", "any fill colour, from the colour picker");
   await page.locator('[data-cm="font"]').count() || await cmClick(page, '[data-cm="style"]'); await page.selectOption('[data-cm="font"]', "hand"); await page.waitForTimeout(200);
   ok(/Caveat/.test(await page.evaluate(() => getComputedStyle(document.querySelector('.cm-node[data-n="idea:i1"] .cm-lab')).fontFamily)), "the box's words show in the chosen font (Handwritten: Caveat)");
   for (let i = 0; i < 3; i++) { await cmClick(page, '[data-cm="tsize"][data-v="1"]'); await page.waitForTimeout(80); }
@@ -117,6 +121,9 @@ function SEED(){
   for (const ln of ["dashed", "dotted", "solid"]) { await cmClick(page, `[data-cm="eline"][data-v="${ln}"]`); await page.waitForTimeout(150); ok(await page.locator(`.cm-edge.ln-${ln}[data-e="${ekey}"]`).count() === 1, `line: ${ln}`); }
   // thickness and colour, for any line
   await cmClick(page, '[data-cm="ewidth"][data-v="4"]'); await page.waitForTimeout(150);
+  await cmClick(page, '[data-cm="ecol"][data-v="#D6336C"]'); await page.waitForTimeout(150);
+  await page.locator('[data-cm-any="line"]').fill("#aa22cc"); await page.waitForTimeout(200);
+  ok((await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey).col === "#AA22CC", "any line colour, from the colour picker");
   await cmClick(page, '[data-cm="ecol"][data-v="#D6336C"]'); await page.waitForTimeout(150);
   let LW = (await course(page, "c1")).maps[0].links.find(l => [l.a, l.b].sort().join("|") === ekey);
   ok(LW.w === 4 && LW.col === "#D6336C", "a line takes a thickness (Heavy) and a colour");

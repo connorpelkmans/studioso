@@ -1895,7 +1895,8 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 .ws-tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .ws-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent,#2F6FE4)}
 .ws-n{display:inline-block;min-width:1.4em;font-size:.72rem;border-radius:9px;padding:0 5px;background:var(--soft,#EEF1F6);color:var(--muted);text-align:center}
-.ws-style{display:flex;align-items:center;gap:6px;padding-bottom:6px;min-width:0}
+.ws-style{display:flex;align-items:center;gap:8px;padding-bottom:6px;min-width:0}
+.ws-style>span{flex:none;white-space:nowrap;font-size:.8rem;font-weight:700;letter-spacing:.01em;color:var(--muted)}
 .ws-style select{max-width:230px;min-width:0}
 .ws-body{display:grid;gap:10px;align-content:start}
 .ws-add{display:flex;gap:8px;align-items:flex-end}
