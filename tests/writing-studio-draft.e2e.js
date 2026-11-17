@@ -36,13 +36,32 @@ function textPdf(){
   const x = out.length; out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offs.map(o => String(o).padStart(10, "0") + " 00000 n \n").join("") + `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
   return [...Buffer.from(out, "latin1")];
 }
+// The user's example: an MLA draft with (Walker, 112), (Carskadon 2011), (Lo et al.) and (Ray 30), and a list headed References
+const MLA_SRC = [{id: "mw", type: "book", title: "Why We Sleep: Unlocking the Power of Sleep and Dreams", author: [{family: "Walker", given: "Matthew"}], issued: {"date-parts": [[2017]]}, publisher: "Scribner"},
+  {id: "mc", type: "article-journal", title: "Sleep Deprivation in Adolescents", author: [{family: "Carskadon", given: "Mary A."}], issued: {"date-parts": [[2011]]}, "container-title": "Pediatric Clinics of North America", volume: "58", issue: "3", page: "637–647", DOI: "10.1016/j.pcl.2011.03.003"},
+  {id: "ml", type: "webpage", title: "How Much Sleep Do Teens Need", author: [{family: "Lo", given: "June C."}, {family: "Ong", given: "Ju Lynn"}, {family: "Chee", given: "Michael W. L."}], issued: {"date-parts": [[2016, 5, 2]]}, "container-title": "Sleep Foundation", URL: "https://www.sleepfoundation.org/teens"},
+  {id: "mr", type: "article-journal", title: "Stress and the Teenage Brain", author: [{family: "Ray", given: "Oakley"}], issued: {"date-parts": [[2004]]}, "container-title": "American Psychologist", volume: "59", issue: "1", page: "29–40"}];
+const MLA_DRAFT = `Teenagers are chronically short on sleep, and it shows in class. Short sleep blunts memory (Walker, 112). The body clock shifts later in adolescence (Carskadon 2011), so early starts hurt. Most teens need eight to ten hours (Lo et al.). Stress makes it worse (Ray 30), and naps only help a little (Walker, 140).
+
+References
+
+Carskadon, Mary A. "Sleep Deprivation in Adolescents." Pediatric Clinics of North America, vol. 58, no. 3, 2011, pp. 637-47, https://doi.org/10.1016/j.pcl.2011.03.003.
+
+Lo, June C., et al. "How Much Sleep Do Teens Need." Sleep Foundation, 2 May 2016, https://www.sleepfoundation.org/teens.
+
+Ray, Oakley. "Stress and the Teenage Brain." American Psychologist, vol. 59, no. 1, 2004, pp. 29-40.
+
+Walker, Matthew. Why We Sleep: Unlocking the Power of Sleep and Dreams. 2017.`;
+const SHOTS = "/tmp/claude-0/-home-user-studioso/ae81c5c9-6cd9-539f-8cd9-400a34421d33/scratchpad/wsfmt/";
 function SEED(){
-  return {v: 2, updated: 1, settings: {}, courses: [{id: "c2", name: "Writing and Rhetoric", code: "ENG 102", color: "#E0563B"}],
+  return {v: 2, updated: 1, settings: {}, courses: [{id: "c2", name: "Writing and Rhetoric", code: "ENG 102", color: "#E0563B"}, {id: "c3", name: "Health Science", code: "HSC 110", color: "#2E8A52"}],
     tasks: [
       {id: "t1", title: "Research paper: urban heat", courseId: "c2", type: "Assignment", due: day(9), start: day(0), status: "todo", priority: "high", notes: "Use APA. Cite at least 3 sources.", created: 5},
       {id: "t3", title: "Reflection essay", courseId: "c2", type: "Assignment", due: day(12), start: day(0), status: "todo", priority: "med", created: 6},
       {id: "t4", title: "Policy brief", courseId: "c2", type: "Assignment", due: day(1), start: day(0), status: "todo", priority: "med", created: 7,
         ws: {style: "apa", src: [{id: "p1", type: "book", title: "Cities and climate change", author: [{family: "Ng", given: "Mo"}], issued: {"date-parts": [[2019]]}}], q: [], out: [], draft: {t: "A brief on heat. Ng (2019) says plan ahead.\n\nReferences\nNg, M. (2019). Cities and climate change. Routledge.", from: "Pasted", at: 1}}},
+      {id: "t5", title: "Sleep and teens essay", courseId: "c3", type: "Assignment", due: day(20), start: day(0), status: "todo", priority: "med", created: 8,
+        ws: {style: "modern-language-association", src: MLA_SRC, q: [], out: [], draft: {t: MLA_DRAFT, from: "Pasted", at: 1}}},
       {id: "m1", title: "Find 4 sources", courseId: "c2", type: "Project", due: day(2), start: day(0), status: "todo", priority: "med", breakdownOf: "t1", step: "1/2", created: 10},
       {id: "m4", title: "Format the citations", courseId: "c2", type: "Project", due: day(1), start: day(0), status: "todo", priority: "med", breakdownOf: "t4", step: "1/2", created: 11},
       {id: "m5", title: "Proofread the citations and submit", courseId: "c2", type: "Project", due: day(1), start: day(0), status: "todo", priority: "med", breakdownOf: "t4", step: "2/2", created: 12}],
@@ -127,7 +146,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   ok(await page.evaluate(() => { const dv = document.querySelector(".ws-dv"), m = dv.querySelector(".ws-mark").getBoundingClientRect(), b = dv.getBoundingClientRect(); return m.top >= b.top - 1 && m.bottom <= b.bottom + 1; }), "and scrolls it into view");
   ok(await fits(page), "Check fits at 1280px");
   // the strip and the tab keys
-  ok(/4 sources · 2 quotes · 0 placed · last check: \d+ to fix/.test((await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ")), "the strip follows: " + (await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ").trim());
+  ok(/4 sources · 2 quotes · 0 placed · check: \d+ to fix/.test((await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ")), "the strip follows: " + (await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ").trim());
   await page.focus('#dlg[open] [data-ws-tab="check"]'); await page.keyboard.press("ArrowRight");
   ok(/^Sources/.test(await selTab(page)) && await page.evaluate(() => document.activeElement.dataset.wsTab) === "sources", "Arrow Right goes from Check to Sources");
   await page.keyboard.press("ArrowLeft"); await page.keyboard.press("ArrowLeft");
@@ -209,6 +228,41 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   ok(/Connect your Zotero library/.test(await page.textContent("#dlg[open] .ws-hub")), "and Zotero");
   ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
   await ctx.close();
+
+  /* Citation format, MLA (the user's example): a comma before the page, a year, the heading, an entry, each shown in the draft */
+  { const mctx = await mkCtx(), mp = await open(mctx);
+    await act(mp, "ws-open", "t5"); await mp.waitForSelector("#dlg[open] .ws-res");
+    // citeproc loads, then the entries are checked against MLA's own version of them
+    await mp.waitForFunction(() => /Works Cited: fix the entry/.test(document.querySelector("#dlg[open] .ws-res").textContent), null, {timeout: 15000});
+    const res = (await mp.textContent("#dlg[open] .ws-res")).replace(/\s+/g, " ");
+    ok(/2 citations put a comma between the author and the page/.test(res) && /In MLA, write \(Walker 112\), not \(Walker, 112\): no comma between the author and the page/.test(res), "MLA: (Walker, 112) is caught, with the right form, and grouped with the other one");
+    ok(/In MLA, write \(Carskadon\)/.test(res) && /MLA citations have no year/.test(res), "MLA: (Carskadon 2011) is caught: no year in MLA");
+    ok(new RegExp("check: " + (await mp.locator("#dlg[open] .ws-is.k-err").count()) + " to fix").test(await mp.textContent("#dlg[open] .ws-strip")), "the strip counts the same results the list shows: " + (await mp.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ").trim());
+    ok(/In MLA, the list is called Works Cited/.test(res) && /Yours is called “References”/.test(res), "MLA: the References heading is caught");
+    ok(!/\(Lo et al\.\)|\(Ray 30\)/.test(res.replace(/Show the others:.*?(?=Should|$)/, "")), "(Lo et al.) and (Ray 30) are right in MLA, so they aren't flagged");
+    ok(/Works Cited: fix the entry for Walker \(2017\)/.test(res) && /Add the publisher: Scribner/.test(res) && /Should be: ?Walker, Matthew\. Why We Sleep: Unlocking the Power of Sleep and Dreams\. Scribner, 2017\./.test(res), "a Works Cited entry: what's missing and the right version");
+    ok(await mp.locator("#dlg[open] .ws-should [data-ws-copy]").count() >= 1, "with Copy");
+    await mp.locator("#dlg[open] .ws-res").scrollIntoViewIfNeeded(); await mp.screenshot({path: SHOTS + "check-mla-desktop-list.png", fullPage: false});
+    // clicking the group shows its first citation marked in the draft; Show the Others goes to the next
+    await mp.locator("#dlg[open] .ws-is-b", {hasText: "comma between the author and the page"}).click(); await mp.waitForSelector("#dlg[open] .ws-dv .ws-mark");
+    ok((await mp.textContent("#dlg[open] .ws-mark b")) === "(Walker, 112)" && /Short sleep blunts memory/.test(await mp.textContent("#dlg[open] .ws-mark")), "clicking the issue marks (Walker, 112) in the draft");
+    await mp.screenshot({path: SHOTS + "check-mla-desktop.png", fullPage: false});
+    await mp.click('#dlg[open] .ws-chipb[data-ws-show$=":0"]'); await mp.waitForSelector("#dlg[open] .ws-dv .ws-mark");
+    ok((await mp.textContent("#dlg[open] .ws-mark b")) === "(Walker, 140)", "Show the others marks the next one");
+    ok(await fits(mp), "Check with format issues fits at 1280px");
+    ok(mp.errs.length === 0, "no console errors (format): " + mp.errs.join(" | "));
+    await mctx.close();
+    const qctx = await mkCtx({width: 390, height: 844}), qp = await open(qctx);
+    await act(qp, "ws-open", "t5"); await qp.waitForSelector("#dlg[open] .ws-res");
+    await qp.waitForFunction(() => /Works Cited: fix the entry/.test(document.querySelector("#dlg[open] .ws-res").textContent), null, {timeout: 15000});
+    await qp.locator("#dlg[open] .ws-is-b", {hasText: "comma between the author and the page"}).click(); await qp.waitForSelector("#dlg[open] .ws-dv .ws-mark");
+    ok(await fits(qp), "Check with format issues fits at 390px");
+    await qp.locator("#dlg[open] .ws-is", {hasText: "comma between the author and the page"}).scrollIntoViewIfNeeded();
+    await qp.screenshot({path: SHOTS + "check-mla-phone.png", fullPage: false});
+    await qp.locator("#dlg[open] .ws-is", {hasText: "Works Cited: fix the entry"}).scrollIntoViewIfNeeded();
+    await qp.screenshot({path: SHOTS + "check-mla-phone-entry.png", fullPage: false});
+    ok(qp.errs.length === 0, "no console errors (format, phone): " + qp.errs.join(" | "));
+    await qctx.close(); }
 
   /* Phone */
   const pctx = await mkCtx({width: 390, height: 844}), pp = await open(pctx);
