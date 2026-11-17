@@ -310,11 +310,19 @@ const CMAP = (() => {
   }
   /* Embeds (Pro): a link from a site that's made to be embedded becomes a player on the map.
      Only these hosts can be framed (the app's Content-Security-Policy lists the same EMBED_HOSTS); anything else stays a link. */
-  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com"];
-  const PROVIDERS = {youtube: "YouTube", vimeo: "Vimeo", loom: "Loom", gdoc: "Google Docs", gslides: "Google Slides", gsheet: "Google Sheets", gdrive: "Google Drive", desmos: "Desmos", geogebra: "GeoGebra", phet: "PhET Simulation", spotify: "Spotify", ted: "TED Talk", canva: "Canva"};
+  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com"];
+  // exact sites only (no wildcards: the app's security policy frames named sites, never a whole domain such as every school's sharepoint.com)
+  const hostOk = host => EMBED_HOSTS.includes(host);
+  const PROVIDERS = {youtube: "YouTube", vimeo: "Vimeo", loom: "Loom", gdoc: "Google Docs", gslides: "Google Slides", gsheet: "Google Sheets", gdrive: "Google Drive", desmos: "Desmos", geogebra: "GeoGebra", phet: "PhET Simulation", spotify: "Spotify", ted: "TED Talk", canva: "Canva", mword: "Word", mexcel: "Excel", mppt: "PowerPoint", m365: "Microsoft 365"};
   const secs = t => { const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/.exec(String(t || "")); return m ? (Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0)) : 0; };
+  // Microsoft 365: Word, Excel or PowerPoint from a share link's letter (:w: :x: :p:) or a file's extension
+  const msKind = s => /^(w|docx?|word)$/i.test(s) ? "mword" : /^(x|xlsx?|xlsm|excel)$/i.test(s) ? "mexcel" : /^(p|pptx?|powerpoint)$/i.test(s) ? "mppt" : "m365";
+  const extOf = s => (/\.(docx?|xlsx?|xlsm|pptx?)(?:$|[?#])/i.exec(String(s || "")) || [])[1] || "";
   function embedOf(raw){
-    let u; try { u = new URL(String(raw || "").trim().replace(/^(?!https?:\/\/)/i, "https://")); } catch (e) { return null; }
+    raw = String(raw || "").trim();
+    // embed code pasted as it's given (OneDrive's Embed, and most sites'): its <iframe>'s address
+    const fr = /<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i.exec(raw); if (fr) raw = fr[1].replace(/&amp;/g, "&");
+    let u; try { u = new URL(raw.replace(/^(?!https?:\/\/)/i, "https://")); } catch (e) { return null; }
     if (u.protocol !== "https:" && u.protocol !== "http:") return null;
     const h = u.hostname.replace(/^(www|m)\./, ""), p = u.pathname, q = k => u.searchParams.get(k) || "", out = (pv, e, x) => Object.assign({p: pv, u: u.href, e, name: PROVIDERS[pv]}, x || {});
     let m;
@@ -342,9 +350,17 @@ const CMAP = (() => {
     if (h === "open.spotify.com" && (m = /^\/(?:embed\/)?(track|album|playlist|episode|show)\/(\w{10,})/.exec(p))) return out("spotify", `https://open.spotify.com/embed/${m[1]}/${m[2]}`, {id: m[2]});
     if ((h === "ted.com" || h === "embed.ted.com") && (m = /^\/talks\/([\w-]+)/.exec(p))) return out("ted", `https://embed.ted.com/talks/${m[1]}`, {id: m[1]});
     if (h === "canva.com" && (m = /^\/design\/([\w-]{8,})\/([\w-]+)?/.exec(p))) return out("canva", `https://www.canva.com/design/${m[1]}/${m[2] || "view"}/view?embed`, {id: m[1]});
+    // Microsoft 365, personal OneDrive: the address from File, Share, Embed (its embed code or link)
+    if (u.hostname === "onedrive.live.com" && /^\/embed\/?$/.test(p) && (q("resid") || q("id") || q("cid"))) {
+      const e = new URL("https://onedrive.live.com/embed"); ["cid", "resid", "id", "authkey", "em", "wdAllowInteractivity", "wdStartOn", "ithint"].forEach(k => { if (q(k)) e.searchParams.set(k, q(k)); });
+      if (!e.searchParams.get("em")) e.searchParams.set("em", "2");
+      const it = /file,(\w+)/.exec(q("ithint")); return out(msKind(it ? it[1] : extOf(q("resid"))), e.href, {id: q("resid") || q("id")});
+    }
+    // Office's viewer for a file anyone can download (Word, Excel or PowerPoint at a public address)
+    if (u.hostname === "view.officeapps.live.com" && /^\/op\/(view|embed)\.aspx$/i.test(p) && /^https:\/\//i.test(q("src"))) return out(msKind(extOf(q("src"))), "https://view.officeapps.live.com/op/embed.aspx?src=" + encodeURIComponent(q("src")), {id: q("src")});
     return null;
   }
-  const embedOk = url => { try { const x = new URL(url); return x.protocol === "https:" && EMBED_HOSTS.includes(x.hostname); } catch (e) { return false; } };
+  const embedOk = url => { try { const x = new URL(url); return x.protocol === "https:" && hostOk(x.hostname); } catch (e) { return false; } };
   /* Previews: an embed's box shows the provider's own picture, loaded from the provider by its address. Only the address (th) and the title (tt) are kept on the embed,
      never the picture. th: the provider's documented thumbnail address; oe: its oEmbed endpoint (answers with CORS) for thumbnail_url and title;
      live: no picture to be had (Desmos, GeoGebra, Canva, Google published to the web), so the box can show a small live view of the embed itself. */
@@ -365,7 +381,7 @@ const CMAP = (() => {
   }
   // what an oEmbed answer gives a box: the address of the provider's picture, and the title
   const fromOembed = j => ({th: j && thumbOk(j.thumbnail_url) ? j.thumbnail_url : "", tt: j && typeof j.title === "string" ? j.title.replace(/\s+/g, " ").trim().slice(0, 120) : ""});
-  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
+  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, hostOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
 })();
 /*CMAP-END*/
 
@@ -778,11 +794,14 @@ async function smallJpeg(file, max){
 }
 /* Embeds (Pro): a video, slides, a doc or a simulation on the map. Only links from the sites in CMAP.EMBED_HOSTS become players; they play in a frame over the map. */
 const EMB_VIDEO = new Set(["youtube", "vimeo", "loom", "ted", "spotify"]);
-const EMB_COL = {youtube: "#C4302B", vimeo: "#1AB7EA", loom: "#625DF5", gdoc: "#2B7CD3", gslides: "#E6A100", gsheet: "#1E8E3E", gdrive: "#4285F4", desmos: "#2F7D31", geogebra: "#6557D2", phet: "#2A6EBB", spotify: "#1DB954", ted: "#E62B1E", canva: "#7D2AE8"};
+const EMB_COL = {youtube: "#C4302B", vimeo: "#1AB7EA", loom: "#625DF5", gdoc: "#2B7CD3", gslides: "#E6A100", gsheet: "#1E8E3E", gdrive: "#4285F4", desmos: "#2F7D31", geogebra: "#6557D2", phet: "#2A6EBB", spotify: "#1DB954", ted: "#E62B1E", canva: "#7D2AE8", mword: "#185ABD", mexcel: "#107C41", mppt: "#C43E1C", m365: "#0F6CBD"};
 const embName = e => { const nm = CMAP.PROVIDERS[e && e.p] || "Embed"; return ["youtube", "vimeo", "loom"].includes(e && e.p) ? nm + " video" : nm; };
-const EMB_SITES = "YouTube, Vimeo, Loom, Google Docs, Google Slides, Google Sheets, Google Drive, Desmos, GeoGebra, PhET, Spotify, TED and Canva";
+const EMB_SITES = "YouTube, Vimeo, Loom, Google Docs, Slides, Sheets and Drive, Word, Excel and PowerPoint for the web, Desmos, GeoGebra, PhET, Spotify, TED and Canva";
 const GOOGLE = new Set(["gdoc", "gslides", "gsheet", "gdrive"]);
 const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with the link can view (or File, Share, Publish to web).";
+// Word, Excel and PowerPoint: a personal OneDrive file shows from its Embed code; a school or work file shows to people signed in to that school's Microsoft 365
+const MS365 = new Set(["mword", "mexcel", "mppt", "m365"]);
+const MS_TIP = "From OneDrive: File, Share, Embed, then paste the code here. A school or work file shows to anyone signed in to that Microsoft 365 who can open it.";
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
   const e = CMAP.embedOf(raw); if (!e || !CMAP.embedOk(e.e)) return false;
@@ -799,11 +818,11 @@ function embedPanel(ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return; }
   const P = M.el.querySelector(".cm-panel"), onto = ontoId && M.byId[ontoId] && M.byId[ontoId].kind === "idea" ? ontoId : "";
   P.innerHTML = `<form class="cm-embf"><label class="lh" for="cmEmbIn">${onto ? `Add a Video or Embed to <b>${esc(trunc(M.byId[onto].label, 30))}</b>` : "Add a Video or Embed"}</label>
-    <div class="cm-embrow"><input type="url" id="cmEmbIn" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link, like youtube.com/watch?v=…"><button type="submit" class="btn small primary" disabled>Add</button></div>
+    <div class="cm-embrow"><input type="text" id="cmEmbIn" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link or embed code, like youtube.com/watch?v=…"><button type="submit" class="btn small primary" disabled>Add</button></div>
     <p class="mini cm-embst" data-cm-embst aria-live="polite">Works with ${EMB_SITES}.</p><div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button></div></form>`;
   const f = P.querySelector("form"), inp = f.querySelector("input"), st = f.querySelector("[data-cm-embst]"), go = f.querySelector("[type=submit]");
   const check = () => { const v = inp.value.trim(), e = v ? CMAP.embedOf(v) : null; go.disabled = !e; st.classList.toggle("is-ok", !!e); st.classList.toggle("is-bad", !!v && !e);
-    st.innerHTML = !v ? `Works with ${EMB_SITES}.` : e ? `<span class="cm-embdot" style="background:${EMB_COL[e.p]}"></span>${esc(e.name)}${EMB_VIDEO.has(e.p) ? " · plays right on the map" : " · opens right on the map"}${GOOGLE.has(e.p) && !e.pub ? `<span class="cm-embtip">${esc(GOOGLE_TIP)}</span>` : ""}` : `That link can't play on a map. Use a link from ${EMB_SITES}.`; };
+    st.innerHTML = !v ? `Works with ${EMB_SITES}.` : e ? `<span class="cm-embdot" style="background:${EMB_COL[e.p]}"></span>${esc(e.name)}${EMB_VIDEO.has(e.p) ? " · plays right on the map" : " · opens right on the map"}${MS365.has(e.p) && !/onedrive\.live\.com\/embed|officeapps/.test(e.e) ? `<span class="cm-embtip">${esc(MS_TIP)}</span>` : ""}${GOOGLE.has(e.p) && !e.pub ? `<span class="cm-embtip">${esc(GOOGLE_TIP)}</span>` : ""}` : /\.sharepoint\.com/i.test(v) ? "A school or work Microsoft 365 link can't show on a map. Save the file to your personal OneDrive and paste its Embed code (File, Share, Embed), or use a Google Docs link." : `That link can't play on a map. Use a link from ${EMB_SITES}.`; };
   inp.addEventListener("input", check); inp.focus();
   f.addEventListener("submit", ev => { ev.preventDefault(); if (!addEmbed(inp.value, onto)) check(); });
 }

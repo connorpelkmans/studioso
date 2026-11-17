@@ -1119,8 +1119,9 @@ function loadScriptHashes() {
   if (!IS_DEV && !(scriptHashes && scriptHashes.length)) mainReport("csp-hashes", new Error("csp-hashes.json missing or invalid in a packaged build"), { type: "CspHashes" });
 }
 // Concept map embeds (Pro): the only sites the app may show in a frame. Keep in step with EMBED_HOSTS in src/js/99-concept-map.js (tests/embeds.test.js checks).
-const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com"];
-const isEmbedUrl = raw => { try { const u = new URL(String(raw)); return u.protocol === "https:" && EMBED_HOSTS.includes(u.hostname); } catch (e) { return false; } };
+const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com"];
+const embedHostOk = h => EMBED_HOSTS.includes(h);
+const isEmbedUrl = raw => { try { const u = new URL(String(raw)); return u.protocol === "https:" && embedHostOk(u.hostname); } catch (e) { return false; } };
 function appCsp() {
   const scripts = scriptHashes && scriptHashes.length ? scriptHashes.map(h => `'${h}'`).join(" ") : IS_DEV ? "'unsafe-inline'" : "";
   return ["default-src 'self'", `script-src 'self'${scripts ? " " + scripts : ""}`, "worker-src 'self' blob:", "style-src 'self' 'unsafe-inline'", "font-src 'self' data: app://studioso",
