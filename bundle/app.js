@@ -106213,7 +106213,7 @@ async function matchAI(ideas, items){
 }
 function evPanel(n){
   const P = M.el.querySelector(".cm-panel"), items = evItems(M.own), on = new Set(n.ev || []), decks = [...new Set(items.map(x => x.deck))];
-  P.innerHTML = `<form class="cm-evf"><div class="cm-row cm-ttl"><b>Flashcards and Questions for ${esc(trunc(n.label, 36))}</b><span class="mini">Their results colour this idea</span></div>
+  P.innerHTML = `<form class="cm-evf"><div class="cm-row cm-ttl"><b>Flashcards and Questions for ${esc(trunc(n.label, 36))}</b><span class="mini">Their results set this idea's colour in Colour by Knowledge</span></div>
     ${items.length ? `<div class="cm-row cm-evbar"><input type="search" data-ev-q placeholder="Search cards and questions" aria-label="Search cards and questions" autocomplete="off"><button type="button" class="btn small ai-btn" data-ev-ai>${AI_ICON} Find With AI</button></div><p class="mini cm-evst" data-ev-st aria-live="polite"></p>
     <div class="cm-matbar"><span class="mini" data-mat-n></span><span class="spacer"></span><button type="button" class="link-btn" data-mat-all="0">Select None</button></div>
     <div class="cm-matl cm-evl">${decks.map(dn => `<fieldset class="cm-matg"><legend>${esc(dn)}</legend>${items.filter(x => x.deck === dn).map(x => `<label class="cm-mat cm-evi" data-ev-t="${esc((x.text + " " + (x.quiz || "")).toLowerCase())}"><input type="checkbox" value="${esc(x.k)}" ${on.has(x.k) ? "checked" : ""}><span class="cm-evk ${x.kind === "card" ? "is-card" : "is-q"}">${x.kind === "card" ? "Card" : "Question"}</span><span class="cm-matt">${esc(x.text)}</span><span class="mini">${esc(x.sub)}</span></label>`).join("")}</fieldset>`).join("")}</div>`
@@ -106242,7 +106242,7 @@ async function matchAll(){
   const rows = ideas.map(n => [n, (m.get(n.id) || []).filter(k => !(n.ev || []).includes(k))]).filter(([, ks]) => ks.length);
   if (!rows.length) { M.err = "No new matches: the ideas' cards and questions are already attached, or none fit."; paint(); return; }
   const by = new Map(items.map(x => [x.k, x]));
-  P.innerHTML = `<form class="cm-evf"><div class="cm-row cm-ttl"><b>Matched Cards and Questions</b><span class="mini">Untick any that don't fit</span></div><div class="cm-matl cm-evl">${rows.map(([n, ks]) => `<fieldset class="cm-matg"><legend>${esc(n.label)}</legend>${ks.map(k => { const x = by.get(k); return `<label class="cm-mat cm-evi"><input type="checkbox" data-idea="${esc(n.id)}" value="${esc(k)}" checked><span class="cm-evk ${x.kind === "card" ? "is-card" : "is-q"}">${x.kind === "card" ? "Card" : "Question"}</span><span class="cm-matt">${esc(x.text)}</span></label>`; }).join("")}</fieldset>`).join("")}</div>
+  P.innerHTML = `<form class="cm-evf"><div class="cm-row cm-ttl"><b>Matched Cards and Questions</b><span class="mini">Their results will set each idea's colour in Colour by Knowledge. Untick any that don't fit</span></div><div class="cm-matl cm-evl">${rows.map(([n, ks]) => `<fieldset class="cm-matg"><legend>${esc(n.label)}</legend>${ks.map(k => { const x = by.get(k); return `<label class="cm-mat cm-evi"><input type="checkbox" data-idea="${esc(n.id)}" value="${esc(k)}" checked><span class="cm-evk ${x.kind === "card" ? "is-card" : "is-q"}">${x.kind === "card" ? "Card" : "Question"}</span><span class="cm-matt">${esc(x.text)}</span></label>`; }).join("")}</fieldset>`).join("")}</div>
     <div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button><button type="submit" class="btn small primary">Attach</button></div></form>`;
   const f = P.querySelector("form");
   f.addEventListener("submit", e => { e.preventDefault(); const add = new Map(); f.querySelectorAll("input:checked").forEach(i => add.set(i.dataset.idea, (add.get(i.dataset.idea) || []).concat([i.value])));
@@ -107583,6 +107583,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-matt{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:.92rem}
 .cm-matf{display:grid;gap:10px}
 .cm-evf{display:grid;gap:8px}
+.cm-evf .cm-ttl,.cm-matf .cm-ttl{flex-wrap:wrap;gap:2px 10px}
+.cm-evf .cm-ttl .mini,.cm-matf .cm-ttl .mini{white-space:normal;overflow:visible}
 .cm-evbar{flex-wrap:nowrap}
 .cm-evbar input{flex:1 1 auto;min-width:0;font-size:16px}
 .cm-evbar .btn{flex:none}
