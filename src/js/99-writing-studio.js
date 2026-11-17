@@ -2002,9 +2002,9 @@ function reviewHtml(){
     return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}"><button type="button" class="wsr-main" data-act="ws-open" data-id="${esc(t.id)}"><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc([c ? courseLabel(c) : "", t.due ? (t.status === "done" ? "Done" : relDue(t)) : ""].filter(Boolean).join(" · "))}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button><button type="button" class="btn small" data-act="ws-open" data-id="${esc(t.id)}" aria-label="Open ${esc(t.title)} in Writing Studio">Open${pro}</button></li>`;
   };
   const started = list.filter(hasData), next = list.filter(t => !hasData(t));
-  return `<div class="view-head"><h2>Writing</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
+  return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}
-    ${list.length ? `${started.length ? `<h3 class="plan-sub">In Writing Studio</h3><ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
+    ${list.length ? `${started.length ? `<ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
       : `<div class="empty" style="margin-top:14px"><strong>No papers yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
 }
 // Today's Plan: on the due date or the day before, a saved draft that hasn't been checked since it changed gets one gentle row
