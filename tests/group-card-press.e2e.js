@@ -83,6 +83,17 @@ const measure = (page, sel) => page.evaluate(sel => {
     ok(!(await page.$("#view .sort-ph")) && await page.locator(sel).isVisible(), "on release the outline goes and the card is back");
     ok(!errs.length, "no errors: " + errs.join(" | "));
     await ctx.close();
+    // a computer: a group card rises and glows in its colour under the pointer, like decks, quizzes and maps
+    const dctx = await browser.newContext({viewport: {width: 1280, height: 860}});
+    const dp = await dctx.newPage();
+    await dp.addInitScript({content: `(${stubSrc})(${JSON.stringify({seed: SEED, me: "u1"})})`});
+    await dp.goto("file://" + file); await dp.waitForTimeout(1500);
+    await dp.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "grp-page"; document.body.appendChild(b); b.click(); b.remove(); });
+    const dsel = '#view .grp-card[data-sort-id="g2"]'; await dp.waitForSelector(dsel); await dp.waitForTimeout(400);
+    const look = () => dp.evaluate(s => { const cs = getComputedStyle(document.querySelector(s)); return {tr: cs.translate, sh: cs.boxShadow}; }, dsel);
+    const rest = await look(); await dp.hover(dsel + " .grp-name"); await dp.waitForTimeout(400); const up = await look();
+    ok(rest.tr === "none" && /-2px/.test(up.tr) && up.sh !== rest.sh && /0px 14px 28px -14px/.test(up.sh), "a group card rises and glows under the pointer: " + JSON.stringify({rest, up}));
+    await dctx.close();
   } finally { await browser.close(); }
   console.log(`group-card-press.e2e.js: ${checks} checks passed.`);
 })().catch(e => { console.error("FAILED:", e.message.split("\n")[0]); process.exit(1); });
