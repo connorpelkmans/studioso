@@ -9,8 +9,9 @@ const FONTS = ["", "rounded", "readable", "serif", "mono", "hand", "casual", "ma
 const bad = str => /NaN|undefined|Infinity|\[object/.test(str);
 
 const ids = Object.keys(C.P);
-ok(ids.length === 35, `35 styles: 15 themes and 20 subjects (${ids.length})`);
-ok(C.SUBJECTS.length === 20 && C.THEMES.length === 15, "20 subjects, 15 themes");
+ok(ids.length === 102, `102 styles: 82 themes and 20 subjects (${ids.length})`);
+ok(C.SUBJECTS.length === 20 && C.THEMES.length === 82, "20 subjects, and a style of its own for every one of the 82 themes");
+ok(new Set(ids.map(k => C.P[k].desc)).size === ids.length, "every style is described differently");
 ok(C.THEMES.every(t => C.P[C.THEME_OF[t]] && C.P[C.THEME_OF[t]].group === "theme"), "each theme with a style of its own points at it");
 const sizes = [[60, 30], [120, 40], [220, 64], [90, 90]];
 ids.forEach(id => {

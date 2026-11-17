@@ -19202,7 +19202,7 @@ const RV_VIEWS = ["cards", "quizzes", "maps", "writing"];
 ui.rvView = ui.rvView || (() => { try { const v = localStorage.getItem("studyboard:rvview"); return RV_VIEWS.includes(v) ? v : "cards"; } catch (e) { return "cards"; } })();
 const rvSet = v => { ui.rvView = RV_VIEWS.includes(v) ? v : "cards"; try { localStorage.setItem("studyboard:rvview", ui.rvView); } catch (e) {} };
 const rvWriting = () => !!(window.SBWRITE && SBWRITE.reviewHtml) && !inPreview();
-const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Review"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView === "cards" || (ui.rvView === "writing" && !rvWriting()) || (ui.rvView === "maps" && !window.SBCMAP)}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button>${window.SBCMAP ? `<button role="tab" data-act="rv-view" data-id="maps" aria-selected="${ui.rvView === "maps"}" aria-label="Concept Maps"><span class="rv-long">Concept Maps</span><span class="rv-short">Maps</span></button>` : ""}${rvWriting() ? `<button role="tab" data-act="rv-view" data-id="writing" aria-selected="${ui.rvView === "writing"}">Writing</button>` : ""}</div>`;
+const reviewSwitchHtml = () => `<div class="pview-tabs rv-tabs" role="tablist" aria-label="Review"><button role="tab" data-act="rv-view" data-id="cards" aria-selected="${ui.rvView === "cards" || (ui.rvView === "writing" && !rvWriting()) || (ui.rvView === "maps" && !window.SBCMAP)}">Flashcards</button><button role="tab" data-act="rv-view" data-id="quizzes" aria-selected="${ui.rvView === "quizzes"}">Quizzes</button>${window.SBCMAP ? `<button role="tab" data-act="rv-view" data-id="maps" aria-selected="${ui.rvView === "maps"}" aria-label="Concept Maps"><span class="rv-long">Concept Maps</span><span class="rv-short">Maps</span></button>` : ""}${rvWriting() ? `<button role="tab" data-act="rv-view" data-id="writing" aria-selected="${ui.rvView === "writing"}">Writing<span class="rv-long"> Studio</span></button>` : ""}</div>`;
 const QZ_GROUP_IC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14.1c2.6.2 4.5 2.2 4.5 4.9"/></svg>';
 // Quizzes you put away with Archive (qz.archived) stay on their deck, out of the list
 // New quizzes (no qz.order yet) come first, newest first, then the ones you've put in order
@@ -25254,7 +25254,7 @@ const SCN20 = (() => {
     const on = {
       init(m){
         self.devicePixelRatio = m.dpr;
-        try { importScripts(m.url); L = self.SCN20_LIB; } catch (e) { L = null; }
+        try { self.importScripts(m.url); L = self.SCN20_LIB; } catch (e) { L = null; }
         postMessage({t: "init", ok: !!(L && L.ENGINES && typeof OffscreenCanvas === "function"), raf: typeof requestAnimationFrame === "function"});
       },
       build(m){
@@ -30769,6 +30769,7 @@ document.head.appendChild(AREA_CSS);
       <ul class="ob-sum ob-pro">
         ${li("Every Premium Theme and Companion", "plus sticker packs, card styles and 46 Theme Collections")}
         ${li("Record a Lecture", "live captions, then AI study notes and flashcards")}
+        ${li("Writing Studio", "sources, citations and a citation check for your papers")}
         ${li("Two-Way Calendar Sync", "with Google Calendar or Outlook")}
         ${li("PDF Reader with Highlights", "and decks read aloud with Listen")}
         ${li("Picture Cards", "and cards made from the diagrams in your PDFs and pictures")}
@@ -31147,7 +31148,7 @@ document.head.appendChild(AREA_CSS);
 /* ===== module: 49-feedback.js ===== */
 /* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.7";
+  const APP_VERSION = "1.15.8";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
   const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
@@ -31333,7 +31334,7 @@ document.head.appendChild(AREA_CSS);
 
 /* ===== module: 49-errreport.js ===== */
 /* Anonymous crash and error reports */
-const APP_VERSION = "1.15.7";
+const APP_VERSION = "1.15.8";
 const BUILD_ID = "dev";
 const ERROR_REPORTING = {
   dsn: "",
@@ -83191,7 +83192,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 /* ===== module: 99-release.js ===== */
 /* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.7";
+  const VERSION = "1.15.8";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "November 16, 2026", TERMS_UPDATED = "November 16, 2026";
@@ -84905,6 +84906,8 @@ var SBPRO = null;
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
+    writing: "Sources, citations in 10,000+ styles, quotes from your highlights, an outline and a citation check for every paper.",
+    cmap: "Concept maps are free for everyone. Pro adds every theme and subject style, pictures, videos, any colour, PDF and lecture links, Scan a Drawing and Colour by Knowledge.",
     autopilot: "Missed study sessions move into your next free time overnight. Due dates never move.",
     rubric: "Feedback on your draft against the rubric before you submit.",
     insights: "Where your time goes, how each course is trending, and what's worth a closer look.",
@@ -84923,7 +84926,7 @@ var SBPRO = null;
     email: "Forward school emails and Studyboard finds the deadlines in them."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
-  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
+  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "writing", "cmap", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
     const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
     const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
@@ -100858,7 +100861,7 @@ var SBREPLAY = null;
   };
   const clock = R.clock;
   // Beta: the BETA pill beside the player, the recorder's notes, a note's replay and Hear It. Set to false to take it off everywhere.
-  const BETA = true;
+  const BETA = false; // out of beta
   const beta = () => BETA ? `<span class="beta-pill" title="Beta: still being improved">Beta</span>` : "";
   const hasAudio = f => !!f && f.folderId === "lectures" && ((Array.isArray(f.revs) && f.revs.length) || !!f.cloud);
   const durOf = f => f && Number(f.dur) > 0 ? Math.round(Number(f.dur) * 1000) : 0;
@@ -105661,9 +105664,9 @@ function reviewHtml(){
     return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}"><button type="button" class="wsr-main" data-act="ws-open" data-id="${esc(t.id)}"><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc([c ? courseLabel(c) : "", t.due ? (t.status === "done" ? "Done" : relDue(t)) : ""].filter(Boolean).join(" · "))}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button><button type="button" class="btn small" data-act="ws-open" data-id="${esc(t.id)}" aria-label="Open ${esc(t.title)} in Writing Studio">Open${pro}</button></li>`;
   };
   const started = list.filter(hasData), next = list.filter(t => !hasData(t));
-  return `<div class="view-head"><h2>Writing</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
+  return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}
-    ${list.length ? `${started.length ? `<h3 class="plan-sub">In Writing Studio</h3><ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
+    ${list.length ? `${started.length ? `<ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
       : `<div class="empty" style="margin-top:14px"><strong>No papers yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
 }
 // Today's Plan: on the due date or the day before, a saved draft that hasn't been checked since it changed gets one gentle row
@@ -105913,7 +105916,7 @@ hook("act", (act, el, id) => {
   if (dlg.open) dlg.close();
   open(id, el && el.dataset ? el.dataset.wsTo : ""); return true;
 });
-if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", where: "On a paper, essay or project: sources (with Zotero), citations in 10,000+ styles, quotes from your highlights, an outline and a citation check", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 1.5zM4 19.5A2 2 0 0 0 6 21h12"/><path d="M9 7h6M9 11h4"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", free: "—", pro: "Included", where: "On a paper, essay or project: sources (with Zotero), citations in 10,000+ styles, quotes from your highlights, an outline and a citation check", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 1.5zM4 19.5A2 2 0 0 0 6 21h12"/><path d="M9 7h6M9 11h4"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -106341,9 +106344,334 @@ const CMPACK = (() => {
       if (n.root) return {o: `<path d="${wob(0)}" ${S("transparent", "#FFE066", 2.6, "filter:url(#pk-chalk);stroke-linecap:round")}/>`, post: `<path d="${wob(4)}" fill="none" stroke="#FFE066" stroke-width="1.4" opacity=".8" filter="url(#pk-chalk)"/>`, t: {ink: "#FFE066", font: "hand", fw: 400, sz: 1.5, fx: "url(#pk-chalk)"}};
       const c = ["#FAA2C1", "#74C0FC", "#8CE99A"][n.i]; return {o: `<path d="${wob(0)}" ${S("transparent", "#F8F9FA", 2.2, "filter:url(#pk-chalk);stroke-linecap:round")}/>`, post: `<path d="M${f1(-n.w * 0.3)} ${f1(n.h / 2 - 7)}q${f1(n.w * 0.3)} 3 ${f1(n.w * 0.6)} -1" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round" filter="url(#pk-chalk)"/>`, t: {ink: "#F8F9FA", font: "hand", fw: 400, sz: 1.4, dy: -2, fx: "url(#pk-chalk)"}}; }};
 
+
+  /* ───────── Every other theme: its own objects (made in the spirit of Music Room's records, Reading Nook's spines, Bake Shop's awnings) ───────── */
+  const heart = (x, y, s, c, more = "") => `<path transform="translate(${f1(x)} ${f1(y)}) scale(${f1(s)})" d="M0 3C-6-2-4-8 0-5C4-8 6-2 0 3Z" fill="${c}" ${more}/>`;
+  const moon = (x, y, s, c) => `<path transform="translate(${f1(x)} ${f1(y)}) scale(${f1(s)})" d="M2-6a6 6 0 1 0 0 12a4.6 4.6 0 1 1 0-12z" fill="${c}"/>`;
+  const leafP = (x, y, s, c, a = 0) => `<path transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(a)}) scale(${f1(s)})" d="M-6 0Q0-5 6 0Q0 5-6 0Z" fill="${c}"/>`;
+  const flame = (x, y, s, c, c2 = "#FFE066") => `<g transform="translate(${f1(x)} ${f1(y)}) scale(${f1(s)})"><path d="M0-9C4-4 5 0 3 3a3.4 3.4 0 0 1-6 0C-5 0-3-4 0-9Z" fill="${c}"/><path d="M0-3C2 0 2 1.5 1 2.6a1.4 1.4 0 0 1-2 0C-2 1.5-1.4 0 0-3Z" fill="${c2}"/></g>`;
+  const beads = (p, gap, f, a = 0.08, b = 0.92) => every(p, gap, a, b).map(f).join("");
+  const dotsTile = (w, h, n, seed, f, m) => tile(w, h, scatter(n, seed, w, h, f, m));
+  const pick = (i, list) => list[i % list.length];
+  const T2 = {};
+  /* Plain colours */
+  T2.classic = {name: "Classic", base: "#F4F7FB", desc: "Index cards with a paper clip; ballpoint lines on graph paper.",
+    tile: tile(24, 24, `<path d="M24 0H0V24" fill="none" stroke="#2F6FE4" stroke-opacity=".09"/>`),
+    line: p => ({st: "stroke:#2F6FE4;stroke-width:1.8;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 23) * 0.7)}), arrow: "#2F6FE4",
+    box: n => { const {x0, y0, x1} = B(n); return {o: rr(n, 3, S(n.root ? "#2F6FE4" : "#fff", n.root ? "#1F4FB4" : "#C9D6EA", 1.4, SH)), post: (n.root ? "" : `<path d="M${f1(x0 + 1)} ${f1(y0 + 8)}H${f1(x1 - 1)}" stroke="#F08A8A" stroke-width="1.2"/>`) + `<path transform="translate(${f1(x1 - 16)} ${f1(y0 - 6)}) rotate(12)" d="M2 14V3a3 3 0 0 1 6 0v12a5 5 0 0 1-10 0V5" fill="none" stroke="${n.root ? "#fff" : "#8A99B3"}" stroke-width="1.6" stroke-linecap="round"/>`, t: {ink: n.root ? "#fff" : "#1E293B", fw: 800, dy: n.root ? 0 : 2}}; }};
+  T2.paper = {name: "Plain Paper", base: "#FAFAF7", desc: "Sticky notes held on with washi tape; pencil lines.",
+    tile: dotsTile(160, 160, 10, 61, (x, y, r) => `<path d="M${f1(x)} ${f1(y)}l${f1(4 + r * 6)} ${f1(r * 2)}" stroke="#C9C6BC" stroke-width=".6" opacity=".5"/>`),
+    line: p => ({st: "stroke:#6B6F76;stroke-width:1.5;stroke-linecap:round;stroke-dasharray:6 3"}), arrow: "#6B6F76",
+    box: n => { const c = n.root ? "#D9C3A0" : pick(n.i, ["#FFF3A3", "#FFD6E0", "#CFE8FF"]), tc = pick(n.i + (n.root ? 1 : 0), ["#9FD8C6", "#F5B7C8", "#F7D07A"]); return {o: rr(n, 2, S(c, "#0000", 0, "filter:drop-shadow(1px 3px 2px rgb(0 0 0/.16))")), post: `<rect x="-17" y="${f1(-n.h / 2 - 7)}" width="34" height="12" fill="${tc}" opacity=".85" transform="rotate(${n.i % 2 ? 4 : -5})"/>`, t: {ink: "#33302A", font: "casual", fw: 400, sz: 1.2, dy: 2}}; }};
+  T2.slate = {name: "Slate", base: "#EEF1F4", desc: "Smooth river pebbles joined by stepping stones.",
+    tile: dotsTile(180, 160, 6, 62, (x, y, r) => `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(4 + r * 4)}" ry="${f1(3 + r * 2)}" fill="#9AA5B3" opacity=".14"/>`),
+    line: p => ({st: "stroke:transparent;stroke-width:8", pre: beads(p, 15, (q, j) => `<ellipse cx="${f1(q.x)}" cy="${f1(q.y)}" rx="${j % 2 ? 4.5 : 3.6}" ry="3" fill="#8A96A6" transform="rotate(${f1(deg(q.a))} ${f1(q.x)} ${f1(q.y)})"/>`)}), arrow: "#6E7A8A",
+    box: n => { const c = n.root ? "#4A5668" : pick(n.i, ["#D7DDE5", "#C5CDD8", "#E3E7EC"]); return {o: `<path d="M${f1(-n.w / 2 + 6)} ${f1(-n.h / 2 + 4)}C${f1(-n.w / 4)} ${f1(-n.h / 2 - 3)} ${f1(n.w / 4)} ${f1(-n.h / 2 - 1)} ${f1(n.w / 2 - 6)} ${f1(-n.h / 2 + 3)}C${f1(n.w / 2 + 4)} -6 ${f1(n.w / 2 + 3)} 8 ${f1(n.w / 2 - 8)} ${f1(n.h / 2)}C${f1(n.w / 4)} ${f1(n.h / 2 + 3)} ${f1(-n.w / 4)} ${f1(n.h / 2 + 2)} ${f1(-n.w / 2 + 7)} ${f1(n.h / 2 - 1)}C${f1(-n.w / 2 - 4)} 6 ${f1(-n.w / 2 - 3)} -7 ${f1(-n.w / 2 + 6)} ${f1(-n.h / 2 + 4)}Z" ${S(c, n.root ? "#333D4B" : "#A7B1BE", 1.4, SH)}/>`, post: `<ellipse cx="${f1(-n.w / 4)}" cy="${f1(-n.h / 2 + 7)}" rx="${f1(n.w / 6)}" ry="3" fill="#fff" opacity=".35"/>`, t: {ink: n.root ? "#F1F4F8" : "#2B3442", fw: 800}}; }};
+  T2.sand = {name: "Sand", base: "#F6EEDF", desc: "Messages in bottles, tied with twine, on warm sand.",
+    tile: dotsTile(120, 120, 16, 63, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(0.5 + r)}" fill="#C8AE7E" opacity=".35"/>`, 4),
+    line: p => ({st: "stroke:#B08A57;stroke-width:1.8;stroke-dasharray:5 2 1 2", post: beads(p, 34, q => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="2.4" fill="#8E6B3E"/>`, 0.2, 0.8)}), arrow: "#8E6B3E",
+    box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#5FB3A8" : pick(n.i, ["#9FD3C7", "#B9DDB0", "#A9C9E8"]); return {o: `<path d="M${f1(x0 + 10)} ${f1(y0)}H${f1(x1 - 18)}q8 0 10 ${f1(n.h * 0.28)}h8v${f1(n.h * 0.44)}h-8q-2 ${f1(n.h * 0.28)}-10 ${f1(n.h * 0.28)}H${f1(x0 + 10)}a10 10 0 0 1-10-10V${f1(y0 + 10)}a10 10 0 0 1 10-10z" ${S(c, "#3E8A80", 1.6, SH + ";fill-opacity:.85")}/>`, post: `<rect x="${f1(x1)}" y="${f1(-n.h * 0.18)}" width="7" height="${f1(n.h * 0.36)}" rx="2" fill="#B98552"/><path d="M${f1(x0 + 8)} ${f1(y0 + 5)}h${f1(n.w * 0.4)}" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".6"/>`, t: {ink: n.root ? "#fff" : "#1F4D47", fw: 800, dx: -6, pad: 16}}; }};
+  T2.blush = {name: "Blush", base: "#FFF5F6", desc: "Satin-ribbon bows on blush boxes; curling ribbon lines.",
+    tile: dotsTile(180, 180, 5, 64, (x, y, r) => heart(x, y, 0.9 + r * 0.5, "#F2A9B8", 'opacity=".2"')),
+    line: p => ({st: "stroke:#E58BA0;stroke-width:3;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 9) * 2.2)}), arrow: "#D96C88",
+    box: n => { const y0 = -n.h / 2; return {o: rr(n, 12, S(n.root ? "#F2A9B8" : pick(n.i, ["#FFE1E7", "#FDE8DE", "#F9E1F0"]), "#E58BA0", 1.8, SH)), post: `<g transform="translate(0 ${f1(y0)})"><path d="M0 0C-6-8-15-6-13 0C-15 6-6 8 0 0ZM0 0C6-8 15-6 13 0C15 6 6 8 0 0Z" fill="#D96C88"/><path d="M-1 1l-5 9M1 1l5 9" stroke="#D96C88" stroke-width="2.4" stroke-linecap="round"/><circle r="2.6" fill="#B84F6B"/></g>`, t: {ink: n.root ? "#5C1A2E" : "#7A2C44", fw: 800, dy: 3}}; }};
+  T2.lavender = {name: "Lavender", base: "#F7F4FC", desc: "Bars of lavender soap; strings of soap bubbles.",
+    tile: dotsTile(160, 160, 7, 65, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(3 + r * 6)}" fill="none" stroke="#B9A6E0" opacity=".3"/>`),
+    line: p => ({st: "stroke:#B9A6E0;stroke-width:1;opacity:.7", post: beads(p, 13, (q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="${j % 3 ? 3 : 4.6}" fill="#fff" fill-opacity=".7" stroke="#9C86D6" stroke-width="1.1"/><circle cx="${f1(q.x - 1.2)}" cy="${f1(q.y - 1.2)}" r="1" fill="#fff"/>`)}), arrow: "#9C86D6",
+    box: n => ({o: rr(n, 14, S(n.root ? "#9C86D6" : "#E8E0F7", n.root ? "#7B65BA" : "#C2B3E8", 2, SH)), post: rr({w: n.w - 10, h: n.h - 10}, 10, `fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.4"`) + `<g fill="#fff" stroke="#9C86D6" stroke-width=".8"><circle cx="${f1(n.w / 2 - 6)}" cy="${f1(-n.h / 2 + 2)}" r="5"/><circle cx="${f1(n.w / 2 + 2)}" cy="${f1(-n.h / 2 + 7)}" r="3.4"/></g>`, t: {ink: n.root ? "#fff" : "#4A3A78", fw: 800}})};
+  T2.sky = {name: "Sky", base: "#EEF7FF", desc: "Fluffy cloud boxes and paper-plane trails.",
+    tile: dotsTile(220, 180, 3, 66, (x, y, r) => `<path transform="translate(${f1(x)} ${f1(y)}) scale(${f1(0.6 + r * 0.5)})" d="M-14 4a6 6 0 0 1 4-10a8 8 0 0 1 15-2a6 6 0 0 1 9 8z" fill="#fff" opacity=".8"/>`, 24),
+    line: (p, i) => ({st: "stroke:#7FB3E0;stroke-width:1.6;stroke-dasharray:4 5;stroke-linecap:round", post: i === 0 ? at(along(p, 1, 0.55, 0.55)[0], `<path d="M-7-5L9 0L-7 5L-4 0Z" fill="#fff" stroke="#4E8CC4" stroke-width="1.1" stroke-linejoin="round"/><path d="M-4 0L9 0" stroke="#4E8CC4" stroke-width=".8"/>`) : ""}), arrow: "#4E8CC4",
+    box: n => { const {x0, y0, x1, y1} = B(n), k = Math.max(3, Math.round(n.w / 26)); let d = `M${f1(x0 + 8)} ${f1(y1)}`; d += `a${f1(n.h / 3)} ${f1(n.h / 3)} 0 0 1 -2 ${f1(-n.h * 0.62)}`; for (let j = 0; j < k; j++) d += `a${f1((n.w - 14) / k / 2)} ${f1(n.h * (j % 2 ? 0.34 : 0.46))} 0 0 1 ${f1((n.w - 14) / k)} 0`; d += `a${f1(n.h / 3)} ${f1(n.h / 3)} 0 0 1 -2 ${f1(n.h * 0.62)}Z`;
+      return {o: `<path d="${d}" ${S(n.root ? "#4E8CC4" : "#fff", n.root ? "#3A72A8" : "#B5D6F2", 1.8, SH)}/>`, post: n.root ? `<circle cx="${f1(x1 - 6)}" cy="${f1(y0 - 2)}" r="9" fill="#FFD43B" opacity=".9"/>` : "", t: {ink: n.root ? "#fff" : "#2A5C8A", fw: 800, dy: 4, padH: 10}}; }};
+  T2.sage = {name: "Sage", base: "#F3F6F1", desc: "Leaf-shaped boxes on a trailing vine.",
+    tile: dotsTile(180, 180, 5, 67, (x, y, r) => leafP(x, y, 0.8 + r * 0.4, "#9DB59A", r * 180) .replace("/>", ' opacity=".22"/>')),
+    line: p => ({st: "stroke:#6F8F6B;stroke-width:2;stroke-linecap:round", post: beads(p, 22, (q, j) => at(q, leafP(0, j % 2 ? -5 : 5, 0.9, "#8FB08A", j % 2 ? -30 : 30)), 0.15, 0.85)}), arrow: "#6F8F6B",
+    box: n => { const a = n.w / 2 + 6, b = n.h / 2; return {o: `<path d="M${f1(-a)} 0C${f1(-a * 0.6)} ${f1(-b * 1.5)} ${f1(a * 0.6)} ${f1(-b * 1.5)} ${f1(a)} 0C${f1(a * 0.6)} ${f1(b * 1.5)} ${f1(-a * 0.6)} ${f1(b * 1.5)} ${f1(-a)} 0Z" ${S(n.root ? "#6F8F6B" : pick(n.i, ["#DCE8D6", "#E6EDDA", "#D3E3D6"]), n.root ? "#4F6E4C" : "#8FB08A", 1.6, SH)}/>`, post: `<path d="M${f1(-a + 4)} 0Q0 ${f1(n.h * 0.22)} ${f1(a - 4)} 0" fill="none" stroke="${n.root ? "#fff" : "#8FB08A"}" stroke-opacity=".35" stroke-width="1.2"/>`, t: {ink: n.root ? "#fff" : "#2F4A2C", fw: 800, pad: 18, padH: 6}}; }};
+  T2.peach = {name: "Peach", base: "#FFF6F0", desc: "Fuzzy peaches with a leaf; twig lines with blossoms.",
+    defs: `<radialGradient id="pk-peach" cx=".35" cy=".35" r=".8"><stop offset="0" stop-color="#FFE3C9"/><stop offset=".7" stop-color="#FFB98C"/><stop offset="1" stop-color="#F58F7C"/></radialGradient>`,
+    tile: dotsTile(180, 180, 4, 68, (x, y) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="5" fill="#FFB98C" opacity=".18"/>`),
+    line: p => ({st: "stroke:#8E5B45;stroke-width:2.2;stroke-linecap:round", post: beads(p, 40, q => flower(q.x, q.y - 4, 4.5, "#FFC2A8"), 0.25, 0.75)}), arrow: "#8E5B45",
+    box: n => ({o: rr(n, n.h / 2, S(n.root ? "url(#pk-peach)" : "#FFF0E6", "#F2A07E", 1.8, SH)), post: `<path d="M${f1(-4)} ${f1(-n.h / 2 + 1)}q1-6 4-8" stroke="#7A4A33" stroke-width="2" fill="none" stroke-linecap="round"/>` + leafP(8, -n.h / 2 - 5, 1.1, "#6FA35A", -25), t: {ink: n.root ? "#6B2E1F" : "#8A3F2A", fw: 800}})};
+  T2.butter = {name: "Cherry", base: "#FFF7F7", desc: "Glossy cherry-red boxes with a cherry pair; stem lines.",
+    tile: dotsTile(180, 180, 4, 69, (x, y) => `<g opacity=".18"><circle cx="${f1(x)}" cy="${f1(y)}" r="4" fill="#D7263D"/><circle cx="${f1(x + 7)}" cy="${f1(y + 1)}" r="4" fill="#D7263D"/></g>`),
+    line: p => ({st: "stroke:#5C8A3A;stroke-width:2;stroke-linecap:round", post: beads(p, 40, q => `<path d="M${f1(q.x)} ${f1(q.y)}q-3 5-4 8M${f1(q.x)} ${f1(q.y)}q3 5 4 8" stroke="#5C8A3A" stroke-width="1.2" fill="none"/><circle cx="${f1(q.x - 4)}" cy="${f1(q.y + 10)}" r="3.6" fill="#D7263D"/><circle cx="${f1(q.x + 4)}" cy="${f1(q.y + 10)}" r="3.6" fill="#D7263D"/>`, 0.25, 0.75)}), arrow: "#5C8A3A",
+    box: n => { const {x1, y0} = B(n); return {o: rr(n, n.h / 2, S(n.root ? "#D7263D" : "#FFE3E6", n.root ? "#A3172B" : "#F09AA6", 1.8, SH)), post: `<ellipse cx="${f1(-n.w / 4)}" cy="${f1(y0 + 7)}" rx="${f1(n.w / 5)}" ry="2.6" fill="#fff" opacity=".45"/><path d="M${f1(x1 - 14)} ${f1(y0 - 8)}q-4 6-6 12M${f1(x1 - 14)} ${f1(y0 - 8)}q3 6 4 12" stroke="#5C8A3A" stroke-width="1.4" fill="none"/><circle cx="${f1(x1 - 20)}" cy="${f1(y0 + 5)}" r="4.4" fill="#C21E33"/><circle cx="${f1(x1 - 10)}" cy="${f1(y0 + 5)}" r="4.4" fill="#E0334A"/>`, t: {ink: n.root ? "#fff" : "#8A1526", fw: 800}}; }};
+  T2.teal = {name: "Teal", base: "#EEF8F7", desc: "Frosted sea-glass boxes; wave lines.",
+    tile: tile(200, 60, `<path d="M0 30q25-10 50 0t50 0 50 0 50 0" fill="none" stroke="#5CB8AE" stroke-opacity=".15" stroke-width="1.5"/>`),
+    line: p => ({st: "stroke:#2A9D8F;stroke-width:2;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 7) * 3 * Math.min(1, t * 6, (1 - t) * 6))}), arrow: "#2A9D8F",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: `<path d="M${f1(x0 + 6)} ${f1(y0 + 2)}L${f1(x1 - 12)} ${f1(y0)}L${f1(x1)} ${f1(y0 + 9)}L${f1(x1 - 3)} ${f1(y1 - 4)}L${f1(x0 + 14)} ${f1(y1)}L${f1(x0)} ${f1(y1 - 10)}Z" ${S(n.root ? "#2A9D8F" : pick(n.i, ["#BFE6E0", "#CDEBD9", "#C7E2EE"]), n.root ? "#1D7268" : "#7CC4BA", 1.6, SH + ";stroke-linejoin:round;fill-opacity:.9")}/>`, post: `<path d="M${f1(x0 + 10)} ${f1(y0 + 6)}l${f1(n.w * 0.3)} -2" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".55"/>`, t: {ink: n.root ? "#fff" : "#1B5A53", fw: 800, pad: 10}}; }};
+  T2.mocha = {name: "Mocha", base: "#F7F0EA", desc: "Chocolate-bar boxes in foil; chocolate-drizzle lines.",
+    tile: dotsTile(160, 160, 6, 70, (x, y, r) => `<rect x="${f1(x)}" y="${f1(y)}" width="6" height="4" rx="1" fill="#7B4B33" opacity=".12" transform="rotate(${f1(r * 90)} ${f1(x)} ${f1(y)})"/>`),
+    line: p => ({st: "stroke:#5A3422;stroke-width:3.4;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 10) * 3)}), arrow: "#5A3422",
+    box: n => { const {x0, y0, x1, y1} = B(n), cols = Math.max(2, Math.round(n.w / 34)); return {o: rr(n, 4, S(n.root ? "#5A3422" : "#7B4B33", "#3F2216", 1.6, SH)), post: Array.from({length: cols - 1}, (_, j) => `<path d="M${f1(x0 + (j + 1) * n.w / cols)} ${f1(y0 + 3)}V${f1(y1 - 3)}" stroke="#00000030" stroke-width="1.4"/><path d="M${f1(x0 + (j + 1) * n.w / cols + 1.4)} ${f1(y0 + 3)}V${f1(y1 - 3)}" stroke="#ffffff1c"/>`).join("") + `<path d="M${f1(x1 - 26)} ${f1(y1)}L${f1(x1)} ${f1(y1 - 20)}V${f1(y1 - 4)}a4 4 0 0 1-4 4Z" fill="${n.root ? "#D9B44A" : "#C9CED6"}"/>`, t: {ink: "#FBEFE3", fw: 800, halo: "#5A3422"}}; }};
+  T2.plum = {name: "Plum", base: "#F8F2F7", desc: "Velvet jewel boxes with a gem; pearl-strand lines.",
+    defs: `<linearGradient id="pk-gem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB3E6"/><stop offset="1" stop-color="#9C2A86"/></linearGradient>`,
+    tile: dotsTile(180, 180, 5, 71, (x, y) => star4(x, y, 3.5, "#C79A3A", 0.25)),
+    line: p => ({st: "stroke:#C79A3A;stroke-width:.8", post: beads(p, 9, q => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="3.4" fill="#FBF6F2" stroke="#D8CFC4" stroke-width=".8"/><circle cx="${f1(q.x - 1)}" cy="${f1(q.y - 1)}" r="1" fill="#fff"/>`, 0.05, 0.95)}), arrow: "#C79A3A",
+    box: n => ({o: rr(n, 8, S(n.root ? "#6E2A62" : "#8E3E7E", "#C79A3A", 2, SH)), post: rr({w: n.w - 8, h: n.h - 8}, 5, `fill="none" stroke="#E2C27A" stroke-opacity=".6" stroke-width=".8"`) + `<path transform="translate(0 ${f1(-n.h / 2)})" d="M-6-2L-3-6H3L6-2L0 5Z" fill="url(#pk-gem)" stroke="#C79A3A" stroke-width="1"/>`, t: {ink: "#FBE9F6", fw: 800, dy: 2}})};
+  T2.indigo = {name: "Indigo", base: "#EEF0F8", desc: "Denim patches with orange stitching and copper rivets.",
+    defs: `<pattern id="pk-denim" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="#33468F"/><path d="M0 4L4 0" stroke="#4A5DA6" stroke-width="1"/></pattern>`,
+    tile: tile(40, 40, `<path d="M0 40L40 0" stroke="#3F51A0" stroke-opacity=".07" stroke-width="6"/>`),
+    line: p => ({st: "stroke:#E8914A;stroke-width:2;stroke-dasharray:5 3;stroke-linecap:round"}), arrow: "#E8914A",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: rr(n, 6, S(n.root ? "url(#pk-denim)" : "#5B6DB8", "#26336B", 1.6, SH)), post: rr({w: n.w - 8, h: n.h - 8}, 3, `fill="none" stroke="#E8914A" stroke-width="1.2" stroke-dasharray="3.5 2.5"`) + [[x0 + 7, y0 + 7], [x1 - 7, y0 + 7]].map(([x, y]) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="2.6" fill="#C98A4B" stroke="#8A5A2B" stroke-width=".8"/>`).join("") + (n.root ? `<path d="M${f1(x0 + 12)} ${f1(y1 - 4)}h${f1(n.w * 0.28)}" stroke="#E8914A" stroke-width="1.2" stroke-dasharray="3 2"/>` : ""), t: {ink: "#F4F1EA", fw: 800, pad: 10}}; }};
+  /* Seasons */
+  T2.spring = {name: "Spring", base: "#F5FBEF", desc: "Daisy-crowned boxes; tulip-stem lines with a butterfly.",
+    tile: dotsTile(180, 180, 6, 72, (x, y, r) => flower(x, y, 3 + r * 2, pick(Math.floor(r * 3), ["#FFC9DE", "#FFF0A6", "#CDE7FF"])).replace("<g ", '<g opacity=".4" ')),
+    line: (p, i) => ({st: "stroke:#6CB65A;stroke-width:2.2;stroke-linecap:round", post: beads(p, 26, (q, j) => at(q, leafP(0, j % 2 ? -4 : 4, 0.7, "#8FD07A", j % 2 ? -35 : 35)), 0.15, 0.85) + (i === 1 ? at(Object.assign(along(p, 1, 0.5, 0.5)[0], {a: 0}), `<g transform="translate(0 -10)"><path d="M0 0C-6-8-11-4-8 0C-11 4-6 7 0 0ZM0 0C6-8 11-4 8 0C11 4 6 7 0 0Z" fill="#B197FC"/><path d="M0-4V4" stroke="#5F3DC4" stroke-width="1.4"/></g>`) : "")}), arrow: "#6CB65A",
+    box: n => { const k = Math.max(3, Math.round(n.w / 26)); return {o: rr(n, n.h / 2, S(n.root ? "#8FD07A" : "#FFFFFF", "#6CB65A", 1.8, SH)), post: Array.from({length: k}, (_, j) => flower(-n.w / 2 + 12 + j * (n.w - 24) / (k - 1), -n.h / 2, 4.2, pick(j, ["#FFFFFF", "#FFC9DE", "#FFF0A6"]), "#F4B400")).join(""), t: {ink: n.root ? "#1F4D16" : "#2F6B22", fw: 800, dy: 2}}; }};
+  T2.summer = {name: "Summer", base: "#FFF9EC", desc: "Popsicle boxes on sticks; pool-lane float lines.",
+    tile: dotsTile(200, 180, 3, 73, (x, y) => `<g opacity=".25" transform="translate(${f1(x)} ${f1(y)})"><circle r="7" fill="#FFD43B"/>${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<path d="M0-9v-3" stroke="#FFB000" stroke-width="1.6" transform="rotate(${a})"/>`).join("")}</g>`, 18),
+    line: p => ({st: "stroke:#4DABF7;stroke-width:1.4", post: beads(p, 9, (q, j) => at(q, `<rect x="-4" y="-3.2" width="8" height="6.4" rx="3.2" fill="${pick(j, ["#FA5252", "#FFFFFF", "#FA5252", "#4DABF7"])}" stroke="#00000020" stroke-width=".6"/>`), 0.05, 0.95)}), arrow: "#4DABF7",
+    box: n => { const c = n.root ? "#FF8A3D" : pick(n.i, ["#FF6FAE", "#7AD36B", "#6EC6FF"]), {x0, y0, x1, y1} = B(n); return {pre: `<rect x="-5" y="${f1(y1 - 4)}" width="10" height="16" rx="4" fill="#E7C38A" stroke="#B8915A"/>`, o: `<path d="M${f1(x0)} ${f1(y1)}V${f1(y0 + n.h / 2)}a${f1(n.h / 2)} ${f1(n.h / 2)} 0 0 1 ${f1(n.h / 2)}-${f1(n.h / 2)}H${f1(x1 - n.h / 2)}a${f1(n.h / 2)} ${f1(n.h / 2)} 0 0 1 ${f1(n.h / 2)} ${f1(n.h / 2)}V${f1(y1)}z" ${S(c, "#0000002a", 1.2, SH)}/>`, post: `<path d="M${f1(x0 + 8)} ${f1(y0 + 10)}v${f1(n.h - 16)}" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".45"/>`, t: {ink: "#fff", fw: 800, halo: "#0000002a", dy: 1}}; }};
+  /* Scenes */
+  T2.lemonade = {name: "Lemonade", base: "#FFFBE6", desc: "Lemonade jars with a lemon label; striped-straw lines.",
+    tile: dotsTile(180, 180, 3, 74, (x, y) => `<g opacity=".22" transform="translate(${f1(x)} ${f1(y)})"><circle r="8" fill="#FFE066" stroke="#F2B705" stroke-width="1.4"/>${[0, 60, 120].map(a => `<path d="M0-7V7" stroke="#F2B705" stroke-width=".8" transform="rotate(${a})"/>`).join("")}</g>`, 18),
+    line: p => ({st: "stroke:#fff;stroke-width:6;stroke-linecap:round;filter:drop-shadow(0 0 1px #F2B70588)", post: `<path d="${D(p)}" fill="none" stroke="#F2B705" stroke-width="6" stroke-dasharray="4 4"/>`}), arrow: "#E8A600",
+    box: n => { const {x0, y0, x1} = B(n); return {o: rr(n, 8, S(n.root ? "#FFE066" : "#FFF8CC", "#E8A600", 1.8, SH + ";fill-opacity:.95")), post: `<rect x="${f1(x0 - 2)}" y="${f1(y0 - 5)}" width="${f1(n.w + 4)}" height="8" rx="3" fill="#E8A600"/><g transform="translate(${f1(x1 - 12)} ${f1(y0 + 13)})"><circle r="6" fill="#FFF3B0" stroke="#F2B705" stroke-width="1.2"/>${[0, 60, 120].map(a => `<path d="M0-5V5" stroke="#F2B705" stroke-width=".7" transform="rotate(${a})"/>`).join("")}</g>`, t: {ink: "#6B4E00", fw: 800, dx: -6, pad: 18, dy: 2}}; }};
+  T2.sunset = {name: "Sunset Beach", base: "#FFF4EA", desc: "Surfboard boxes with a stripe; footprints in the sand.",
+    tile: dotsTile(180, 160, 5, 75, (x, y, r) => `<path transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(r * 360)})" d="M0-5C3-5 5-2 5 0L0 5L-5 0C-5-2-3-5 0-5Z" fill="#F4A261" opacity=".18"/>`),
+    line: p => ({st: "stroke:#E9C9A3;stroke-width:9;stroke-linecap:round;opacity:.6", post: beads(p, 13, (q, j) => at(q, `<ellipse cx="0" cy="${j % 2 ? -3 : 3}" rx="3.4" ry="1.9" fill="#B5835A"/>`))}), arrow: "#B5835A",
+    box: n => { const a = n.w / 2 + 10, c = n.root ? "#FF7B54" : pick(n.i, ["#FFD166", "#06B6D4", "#F78FB3"]); return {o: `<path d="M${f1(-a)} 0C${f1(-a + 10)} ${f1(-n.h / 2 - 2)} ${f1(a - 22)} ${f1(-n.h / 2)} ${f1(a)} 0C${f1(a - 22)} ${f1(n.h / 2)} ${f1(-a + 10)} ${f1(n.h / 2 + 2)} ${f1(-a)} 0Z" ${S(c, "#00000033", 1.2, SH)}/>`, post: `<path d="M${f1(-a + 8)} 0H${f1(a - 6)}" stroke="#fff" stroke-width="2" opacity=".55"/>`, t: {ink: "#fff", fw: 800, halo: "#00000030", pad: 20}}; }};
+  T2.mint = {name: "Mint Chip", base: "#F0FBF6", desc: "Drippy mint scoops with chocolate chips; sprinkle trails.",
+    tile: dotsTile(160, 160, 10, 76, (x, y, r) => `<rect x="${f1(x)}" y="${f1(y)}" width="3" height="3" fill="#5A3422" opacity=".14" transform="rotate(${f1(r * 90)} ${f1(x)} ${f1(y)})"/>`),
+    line: p => ({st: "stroke:#9FE2C5;stroke-width:1", post: beads(p, 10, (q, j) => at(q, `<rect x="-3" y="-1.1" width="6" height="2.2" rx="1.1" fill="${pick(j, ["#F783AC", "#FFD43B", "#74C0FC", "#5A3422"])}" transform="rotate(${j * 47})"/>`))}), arrow: "#3CB98A",
+    box: n => { const {x0, y0, x1, y1} = B(n), k = Math.max(3, Math.round(n.w / 22)); let d = `M${f1(x0)} ${f1(y1 - 6)}V${f1(y0 + 12)}a12 12 0 0 1 12-12H${f1(x1 - 12)}a12 12 0 0 1 12 12V${f1(y1 - 6)}`; for (let j = 0; j < k; j++) { const w = n.w / k; d += `q${f1(-w / 4)} ${j % 2 ? 9 : 4} ${f1(-w / 2)} 0t${f1(-w / 2)} 0`; } d += "Z";
+      sd = 80 + n.i; return {o: `<path d="${d}" ${S(n.root ? "#5FD3A3" : "#B6EED6", "#3CB98A", 1.6, SH)}/>`, post: Array.from({length: 5}, () => `<rect x="${f1(x0 + 8 + rnd() * (n.w - 16))}" y="${f1(y0 + 4 + rnd() * (n.h - 12))}" width="3.2" height="3.2" fill="#5A3422" opacity=".8" transform="rotate(${f1(rnd() * 90)})" transform-origin="center"/>`).join(""), t: {ink: n.root ? "#0E4A33" : "#16583D", fw: 800, halo: n.root ? "#5FD3A3" : "#B6EED6"}}; }};
+  T2.bokeh = {name: "Colorful Bokeh", base: "#161A33", dark: true, desc: "Glowing glass boxes; lines of soft out-of-focus lights.",
+    tile: dotsTile(220, 200, 7, 77, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(6 + r * 12)}" fill="${pick(Math.floor(r * 4), ["#FF6B9A", "#FFD166", "#5CE1E6", "#9B7BFF"])}" opacity=".12"/>`, 22),
+    line: p => ({st: "stroke:#ffffff40;stroke-width:1", post: beads(p, 14, (q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="${j % 2 ? 4.5 : 3.2}" fill="${pick(j, ["#FF6B9A", "#FFD166", "#5CE1E6", "#9B7BFF"])}" opacity=".75"/>`)}), arrow: "#FFD166",
+    box: n => { const c = n.root ? "#FF6B9A" : pick(n.i, ["#5CE1E6", "#9B7BFF", "#FFD166"]); return {o: rr(n, n.h / 2, S(`${c}33`, c, 1.8, `filter:drop-shadow(0 0 6px ${c})`)), post: [[-0.3, -0.2, 4], [0.32, 0.18, 3]].map(([fx, fy, r]) => `<circle cx="${f1(fx * n.w)}" cy="${f1(fy * n.h)}" r="${r}" fill="#fff" opacity=".2"/>`).join(""), t: {ink: "#fff", fw: 800}}; }};
+  T2.neon = {name: "Neon Dusk", base: "#1A1030", dark: true, desc: "Glowing neon-tube signs on a dusky night.",
+    tile: dotsTile(200, 200, 8, 78, (x, y) => `<circle cx="${f1(x)}" cy="${f1(y)}" r=".9" fill="#FFB3F0" opacity=".45"/>`),
+    chip: ["#1A1030", "#FF4FD8", "#FFD6F7", ""],
+    line: (p, i) => { const c = pick(i, ["#4FF0FF", "#FF4FD8", "#FFE14F"]); return {st: `stroke:${c};stroke-width:2.4;stroke-linecap:round;filter:drop-shadow(0 0 3px ${c}) drop-shadow(0 0 6px ${c})`}; }, arrow: "#4FF0FF",
+    box: n => { const c = n.root ? "#FF4FD8" : pick(n.i, ["#4FF0FF", "#FFE14F", "#7CFF6B"]); return {o: rr(n, 12, S("#1A1030", c, 2.6, `filter:drop-shadow(0 0 4px ${c}) drop-shadow(0 0 9px ${c})`)), post: rr({w: n.w - 8, h: n.h - 8}, 8, `fill="none" stroke="${c}" stroke-opacity=".35"`), t: {ink: "#fff", fw: 800, halo: c + "66"}}; }};
+  T2.arcade = {name: "Synthwave", base: "#1B0F2E", dark: true, desc: "Sunset-stripe boxes over a neon grid; laser lines.",
+    defs: `<linearGradient id="pk-sw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD84A"/><stop offset=".5" stop-color="#FF6B6B"/><stop offset="1" stop-color="#C13584"/></linearGradient>`,
+    tile: tile(60, 60, `<path d="M60 0H0V60" fill="none" stroke="#FF4FD8" stroke-opacity=".16"/>`),
+    chip: ["#1B0F2E", "#FF4FD8", "#FFD6F7", "mono"],
+    line: p => ({st: "stroke:#4FF0FF;stroke-width:1.6;filter:drop-shadow(0 0 4px #4FF0FF)", pre: `<path d="${offs(p, () => 3.4, 30)}" fill="none" stroke="#FF4FD8" stroke-width="1.2" opacity=".9"/>`}), arrow: "#4FF0FF",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: rr(n, 4, S(n.root ? "url(#pk-sw)" : "#2B1747", "#FF4FD8", 1.8, "filter:drop-shadow(0 0 6px #FF4FD8)")), post: n.root ? [0.62, 0.74, 0.86].map(f => `<rect x="${f1(x0 + 1)}" y="${f1(y0 + n.h * f)}" width="${f1(n.w - 2)}" height="${f1(n.h * 0.05)}" fill="#1B0F2E"/>`).join("") : `<path d="M${f1(x0 + 4)} ${f1(y1 - 4)}H${f1(x1 - 4)}" stroke="#4FF0FF" stroke-opacity=".6"/>`, t: {ink: "#fff", font: "mono", fw: 800, up: true, ls: 1.5, halo: n.root ? "#C1358499" : ""}}; }};
+  T2.koi = {name: "Koi Pond", base: "#E9F6F4", desc: "Lily-pad boxes with a lotus; ripple lines with a koi.",
+    tile: dotsTile(220, 200, 3, 79, (x, y, r) => `<g fill="none" stroke="#5FB7A8" opacity=".2"><circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(6 + r * 4)}"/><circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(12 + r * 4)}"/></g>`, 24),
+    line: (p, i) => ({st: "stroke:#7CC6B9;stroke-width:1.8;stroke-dasharray:1 5;stroke-linecap:round", post: i === 1 ? at(along(p, 1, 0.5, 0.5)[0], `<path d="M8 0C4-5-4-5-6 0C-4 5 4 5 8 0ZM-5 0L-11-4L-9 0L-11 4Z" fill="#FF8C42"/><circle cx="4" cy="-1.4" r="1.4" fill="#fff"/><path d="M0-4c1 2 1 4 0 8" stroke="#fff" stroke-width="1.2" fill="none" opacity=".8"/>`) : ""}), arrow: "#4FA394",
+    box: n => { const a = n.w / 2, b = n.h / 2; return {o: `<path d="M0 0L${f1(a * 0.18)} ${f1(-b)}A${f1(a)} ${f1(b)} 0 1 1 ${f1(-a * 0.18)} ${f1(-b)}Z" ${S(n.root ? "#4E9F5B" : "#7CC47F", "#3F7F48", 1.6, SH + ";stroke-linejoin:round")}/>`, post: (n.root ? flower(-a + 10, -b + 6, 7, "#F7A8C8", "#FFE066") : "") + `<path d="M${f1(-a * 0.6)} ${f1(b * 0.5)}Q0 ${f1(b * 0.9)} ${f1(a * 0.6)} ${f1(b * 0.5)}" fill="none" stroke="#ffffff55"/>`, t: {ink: "#fff", fw: 800, halo: "#2F6B37", pad: 20, padH: 10, dy: 3}}; }};
+  T2.jelly = {name: "Jellyfish Drift", base: "#0F1F3D", dark: true, desc: "Glowing jellyfish boxes trailing tentacles; bubble lines.",
+    tile: dotsTile(200, 200, 8, 80, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(1 + r * 2)}" fill="none" stroke="#9FD8FF" opacity=".3"/>`),
+    line: p => ({st: "stroke:#9FD8FF55;stroke-width:1", post: beads(p, 12, (q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y + (j % 2 ? 2 : -2))}" r="${j % 3 ? 2.2 : 3.4}" fill="none" stroke="#B9E6FF" stroke-width="1.1"/>`)}), arrow: "#B9E6FF",
+    box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#FF8FD0" : pick(n.i, ["#9FD8FF", "#C7A3FF", "#7FF0D8"]), k = Math.max(4, Math.round(n.w / 14)); let d = `M${f1(x0)} ${f1(y1 - 4)}V${f1(y0 + n.h * 0.45)}A${f1(n.w / 2)} ${f1(n.h * 0.45)} 0 0 1 ${f1(x1)} ${f1(y0 + n.h * 0.45)}V${f1(y1 - 4)}`; for (let j = 0; j < k; j++) d += `q${f1(-n.w / k / 2)} 6 ${f1(-n.w / k)} 0`; d += "Z";
+      return {pre: Array.from({length: k - 1}, (_, j) => `<path d="M${f1(x0 + (j + 1) * n.w / k)} ${f1(y1)}q4 7 0 12t0 10" fill="none" stroke="${c}" stroke-width="1.4" opacity=".7"/>`).join(""), o: `<path d="${d}" ${S(c + "55", c, 1.8, `filter:drop-shadow(0 0 6px ${c})`)}/>`, t: {ink: "#fff", fw: 800, dy: 1, padH: 6}}; }};
+  T2.bamboo = {name: "Bamboo Grove", base: "#F1F7EC", desc: "Bamboo-stalk boxes with growth rings; leafy cane lines.",
+    tile: dotsTile(200, 200, 5, 81, (x, y, r) => leafP(x, y, 1.4, "#7FB069", r * 60 - 30).replace("/>", ' opacity=".18"/>')),
+    line: p => ({st: "stroke:#8DB86B;stroke-width:3.2;stroke-linecap:round", post: beads(p, 26, (q, j) => at(q, `<path d="M0-2v4" stroke="#5E8C45" stroke-width="2"/>${j % 2 ? leafP(4, -5, 1.2, "#6FAE4E", -30) : ""}`), 0.1, 0.9)}), arrow: "#5E8C45",
+    box: n => { const {x0, y0} = B(n), segs = Math.max(2, Math.round(n.w / 50)); return {o: rr(n, 8, S(n.root ? "#5E8C45" : "#A9CF7E", "#4A7536", 1.8, SH)), post: Array.from({length: segs - 1}, (_, j) => `<path d="M${f1(x0 + (j + 1) * n.w / segs)} ${f1(y0 + 1)}v${f1(n.h - 2)}" stroke="#4A7536" stroke-width="2.4" opacity=".55"/>`).join("") + `<path d="M${f1(x0 + 6)} ${f1(y0 + 6)}h${f1(n.w - 12)}" stroke="#fff" stroke-width="2" opacity=".3" stroke-linecap="round"/>` + leafP(-x0 - 4, y0 - 2, 1.5, "#6FAE4E", -25), t: {ink: n.root ? "#fff" : "#20391A", fw: 800, halo: n.root ? "" : "#A9CF7E"}}; }};
+  T2.lavenderfields = {name: "Lavender Fields", base: "#F6F2FB", desc: "Ribbon-tied lavender sachets; sprig lines in bloom.",
+    tile: tile(200, 50, `<path d="M0 40Q100 30 200 40" fill="none" stroke="#B89BE0" stroke-opacity=".2" stroke-width="2"/>`),
+    line: p => ({st: "stroke:#7E9A5B;stroke-width:1.6", post: beads(p, 7, (q, j) => at(q, `<ellipse cx="0" cy="${j % 2 ? -2.6 : 2.6}" rx="2.6" ry="1.8" fill="${j % 3 ? "#9775FA" : "#B197FC"}"/>`), 0.3, 0.92)}), arrow: "#7E9A5B",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: `<path d="M${f1(x0 + 8)} ${f1(y0 + 6)}Q0 ${f1(y0 + 2)} ${f1(x1 - 8)} ${f1(y0 + 6)}Q${f1(x1 + 2)} 0 ${f1(x1 - 4)} ${f1(y1 - 6)}Q0 ${f1(y1 + 3)} ${f1(x0 + 4)} ${f1(y1 - 6)}Q${f1(x0 - 2)} 0 ${f1(x0 + 8)} ${f1(y0 + 6)}Z" ${S(n.root ? "#9775FA" : "#E5DBFF", "#7B5FD6", 1.6, SH)}/>`, post: `<path d="M-14 ${f1(y0 + 4)}q-8-8-12-2q4 6 12 2zM14 ${f1(y0 + 4)}q8-8 12-2q-4 6-12 2z" fill="#F783AC"/><circle cx="0" cy="${f1(y0 + 4)}" r="2.6" fill="#E64980"/>`, t: {ink: n.root ? "#fff" : "#4A2E9C", fw: 800, dy: 2, padH: 4}}; }};
+  T2.rainforest = {name: "Rainforest Canopy", base: "#EDF7EE", desc: "Monstera-leaf boxes; liana vines with curling tendrils.",
+    tile: dotsTile(220, 220, 4, 82, (x, y, r) => leafP(x, y, 2.4, "#2F9E5A", r * 180).replace("/>", ' opacity=".1"/>')),
+    line: p => ({st: "stroke:#6B5A2A;stroke-width:2.6;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 16) * 3), post: beads(p, 30, (q, j) => at(q, j % 2 ? leafP(0, -6, 1.1, "#2F9E5A", -35) : `<path d="M0 0c0 7 6 8 7 4s-4-4-3-1" fill="none" stroke="#3E8B4A" stroke-width="1"/>`), 0.15, 0.85)}), arrow: "#6B5A2A",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: `<path d="M${f1(x0 + 4)} ${f1(y0 + 8)}Q0 ${f1(y0 - 6)} ${f1(x1 - 4)} ${f1(y0 + 8)}Q${f1(x1 + 6)} 0 ${f1(x1 - 4)} ${f1(y1 - 8)}Q0 ${f1(y1 + 6)} ${f1(x0 + 4)} ${f1(y1 - 8)}Q${f1(x0 - 6)} 0 ${f1(x0 + 4)} ${f1(y0 + 8)}Z" ${S(n.root ? "#1E7A45" : "#3FAE6A", "#16603A", 1.6, SH)}/>`, post: `<path d="M${f1(x0 + 2)} 0H${f1(x1 - 2)}" stroke="#A8E6B8" stroke-width="1.2" opacity=".5"/>` + [x0 + 10, x1 - 14].map(x => `<ellipse cx="${f1(x)}" cy="${f1(y1 - 7)}" rx="3" ry="2" fill="${n.root ? "#EDF7EE" : "#EDF7EE"}" opacity=".9"/>`).join(""), t: {ink: "#fff", fw: 800, halo: "#16603A", pad: 14, padH: 6}}; }};
+  T2.volcano = {name: "Volcano Island", base: "#2A1E1E", dark: true, desc: "Lava rocks with glowing cracks; molten lava-flow lines.",
+    tile: dotsTile(200, 200, 8, 83, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(0.8 + r)}" fill="#FF8A3D" opacity="${f1(0.2 + r * 0.3)}"/>`),
+    chip: ["#2A1E1E", "#FF6A2A", "#FFD6B8", ""],
+    line: p => ({st: "stroke:#FF6A2A;stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 5px #FF4D00)", post: `<path d="${D(p)}" fill="none" stroke="#FFD25A" stroke-width="1.6" stroke-linecap="round"/>`}), arrow: "#FF8A3D",
+    box: n => { const {x0, y0, x1, y1} = B(n); sd = 90 + n.i + (n.root ? 7 : 0); const j = () => rnd() * 4 - 2; return {o: `<path d="M${f1(x0 + 6)} ${f1(y0 + j())}L${f1(-n.w * 0.2)} ${f1(y0 - 2 + j())}L${f1(x1 - 8)} ${f1(y0 + j())}L${f1(x1 + 2)} ${f1(-4 + j())}L${f1(x1 - 4)} ${f1(y1 + j())}L${f1(n.w * 0.1)} ${f1(y1 + 2 + j())}L${f1(x0 + 4)} ${f1(y1 + j())}L${f1(x0 - 2)} ${f1(2 + j())}Z" ${S(n.root ? "#3B2B2B" : "#4A3838", "#1C1212", 1.6, SH + ";stroke-linejoin:round")}/>`, post: `<path d="M${f1(x0 + 10)} ${f1(y1 - 6)}l8-6 4 3 7-7M${f1(x1 - 12)} ${f1(y0 + 5)}l-6 6 3 3" fill="none" stroke="#FF6A2A" stroke-width="1.6" stroke-linejoin="round" style="filter:drop-shadow(0 0 2px #FF4D00)"/>`, t: {ink: "#FFE3CF", fw: 800, pad: 8}}; }};
+  T2.geology = {name: "Crystal Cave", base: "#EFEAF7", desc: "Cut-gem boxes with facets; sparkle lines.",
+    tile: dotsTile(200, 200, 5, 84, (x, y, r) => `<path transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(r * 40 - 20)})" d="M0-9L4-3L0 9L-4-3Z" fill="${pick(Math.floor(r * 3), ["#B197FC", "#63E6BE", "#74C0FC"])}" opacity=".2"/>`),
+    line: p => ({st: "stroke:#9C86D6;stroke-width:1.4", post: beads(p, 26, (q, j) => star4(q.x, q.y, j % 2 ? 4 : 6, pick(j, ["#B197FC", "#63E6BE", "#74C0FC"])), 0.12, 0.88)}), arrow: "#7B65BA",
+    box: n => { const {x0, y0, x1, y1} = B(n), k = 10, c = n.root ? "#7B4FD8" : pick(n.i, ["#9AE6C8", "#A5C8F5", "#D0B8FF"]); return {o: `<path d="M${f1(x0 + k)} ${f1(y0)}H${f1(x1 - k)}L${f1(x1)} ${f1(y0 + n.h * 0.4)}L${f1(x1 - k)} ${f1(y1)}H${f1(x0 + k)}L${f1(x0)} ${f1(y0 + n.h * 0.4)}Z" ${S(c, n.root ? "#5A35A8" : "#6E7FB8", 1.6, SH + ";stroke-linejoin:round")}/>`, post: `<path d="M${f1(x0)} ${f1(y0 + n.h * 0.4)}H${f1(x1)}M${f1(x0 + k)} ${f1(y0)}L${f1(x0 + k * 2.4)} ${f1(y0 + n.h * 0.4)}M${f1(x1 - k)} ${f1(y0)}L${f1(x1 - k * 2.4)} ${f1(y0 + n.h * 0.4)}" stroke="#fff" stroke-opacity=".45" fill="none"/>` + star4(x1 - 8, y0 + 5, 3.5, "#fff", 0.9), t: {ink: n.root ? "#fff" : "#2E2A5A", fw: 800, dy: 3, pad: 14}}; }};
+  T2.marinebio = {name: "Kelp Forest", base: "#EAF5F2", desc: "Sea-stone boxes with a shell; swaying kelp lines.",
+    tile: dotsTile(200, 200, 6, 85, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(1.5 + r * 2)}" fill="none" stroke="#5FA8A0" opacity=".25"/>`),
+    line: p => ({st: "stroke:#A3882C;stroke-width:3;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 11) * 4), post: beads(p, 22, (q, j) => at(q, `<ellipse cx="${j % 2 ? 0 : 0}" cy="${j % 2 ? -6 : 6}" rx="6" ry="2.4" fill="#C2A53A" transform="rotate(${j % 2 ? -25 : 25})"/><circle cy="${j % 2 ? -2 : 2}" r="1.8" fill="#8A7020"/>`), 0.12, 0.88)}), arrow: "#8A7020",
+    box: n => { const {x1, y0} = B(n); return {o: rr(n, 14, S(n.root ? "#2F6F78" : pick(n.i, ["#CFE5DF", "#D8E7EF", "#E6E1D3"]), n.root ? "#1F4F56" : "#7FA8A2", 1.6, SH)), post: `<g transform="translate(${f1(x1 - 6)} ${f1(y0 + 2)}) rotate(20)"><path d="M0-8L7 3H-7Z" fill="#F7B79F" stroke="#D9826A" stroke-width="1" stroke-linejoin="round"/><path d="M0-7V3M-3-2l-2 5M3-2l2 5" stroke="#D9826A" stroke-width=".7"/></g>`, t: {ink: n.root ? "#fff" : "#1F4A45", fw: 800}}; }};
+  T2.nighttrain = {name: "Night Train", base: "#1B2340", dark: true, desc: "Train-car boxes with lit windows; railway-track lines.",
+    tile: dotsTile(200, 200, 9, 86, (x, y, r) => r > 0.85 ? star4(x, y, 3, "#FFE8A3", 0.5) : `<circle cx="${f1(x)}" cy="${f1(y)}" r=".8" fill="#fff" opacity=".45"/>`),
+    chip: ["#1B2340", "#FFD66B88", "#FFE8A3", ""],
+    line: p => ({st: "stroke:transparent;stroke-width:10", pre: every(p, 7, 0.02, 0.98).map(q => at(q, `<path d="M0-5V5" stroke="#6B5A47" stroke-width="2.2"/>`)).join("") + [-3.5, 3.5].map(o => `<path d="${offs(p, () => o, 40)}" fill="none" stroke="#B8C2D6" stroke-width="1.4"/>`).join("")}), arrow: "#B8C2D6",
+    box: n => { const {x0, y0, x1, y1} = B(n), w = Math.max(2, Math.round(n.w / 26)); return {pre: [x0 + 12, x1 - 12].map(x => `<circle cx="${f1(x)}" cy="${f1(y1 + 2)}" r="4" fill="#2B2B33" stroke="#9AA3B5" stroke-width="1.2"/>`).join(""), o: rr(n, 6, S(n.root ? "#B23A48" : pick(n.i, ["#2F6F9F", "#2E7D5B", "#6A4C93"]), "#0D1124", 1.6, SH)), post: (n.root ? `<rect x="${f1(x0 + 8)}" y="${f1(y0 - 9)}" width="8" height="10" fill="#2B2B33"/>` : "") + Array.from({length: w}, (_, j) => `<rect x="${f1(x0 + 5 + j * (n.w - 10) / w)}" y="${f1(y0 + 4)}" width="${f1((n.w - 10) / w - 4)}" height="5" rx="1" fill="#FFD66B" opacity=".85"/>`).join(""), t: {ink: "#fff", fw: 800, dy: 4, padH: 6}}; }};
+  T2.greenhouse = {name: "Greenhouse", base: "#F2F8EE", desc: "Terracotta pots with a sprout; watering-drop lines.",
+    tile: tile(80, 80, `<path d="M80 0H0V80M40 0V80" fill="none" stroke="#8FB58A" stroke-opacity=".18"/>`),
+    line: p => ({st: "stroke:#8FC1E0;stroke-width:1.2;stroke-dasharray:2 6", post: beads(p, 18, q => `<path transform="translate(${f1(q.x)} ${f1(q.y)})" d="M0-4C2-1 3 0 3 1.6a3 3 0 0 1-6 0C-3 0-2-1 0-4Z" fill="#4DABF7"/>`, 0.12, 0.88)}), arrow: "#4DABF7",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: `<path d="M${f1(x0)} ${f1(y0)}H${f1(x1)}V${f1(y0 + 9)}H${f1(x1 - 4)}L${f1(x1 - 10)} ${f1(y1)}H${f1(x0 + 10)}L${f1(x0 + 4)} ${f1(y0 + 9)}H${f1(x0)}Z" ${S(n.root ? "#C2603A" : "#D9814F", "#9A4527", 1.6, SH + ";stroke-linejoin:round")}/>`, post: `<path d="M${f1(x0 + 1)} ${f1(y0 + 9)}H${f1(x1 - 1)}" stroke="#9A4527"/><path d="M0 ${f1(y0)}v-8" stroke="#3F8F3A" stroke-width="2"/>` + leafP(-5, y0 - 8, 1, "#5DB356", -30) + leafP(5, y0 - 10, 1, "#5DB356", 30), t: {ink: "#FFF5EC", fw: 800, dy: 4, pad: 20, padH: 8}}; }};
+  T2.campfire = {name: "Campfire Night", base: "#1E1A28", dark: true, desc: "Log boxes with growth rings; drifting-spark lines.",
+    tile: dotsTile(200, 200, 8, 87, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(0.6 + r)}" fill="${r > 0.6 ? "#FFB347" : "#fff"}" opacity=".35"/>`),
+    chip: ["#1E1A28", "#FFB34788", "#FFE3B8", ""],
+    line: p => ({st: "stroke:#FF9F43;stroke-width:1.4;stroke-dasharray:1 7;stroke-linecap:round", post: beads(p, 22, (q, j) => j % 3 === 1 ? flame(q.x, q.y, 0.7, "#FF7A1A") : `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="2" fill="#FFD27A" style="filter:drop-shadow(0 0 3px #FF9F43)"/>`)}), arrow: "#FF9F43",
+    box: n => { const {x0, x1} = B(n), ry = n.h / 2; return {o: `<path d="M${f1(x0 + 8)} ${f1(-ry)}H${f1(x1 - 8)}A8 ${f1(ry)} 0 0 1 ${f1(x1 - 8)} ${f1(ry)}H${f1(x0 + 8)}A8 ${f1(ry)} 0 0 1 ${f1(x0 + 8)} ${f1(-ry)}Z" ${S(n.root ? "#7A4A2A" : "#8E5B36", "#3E2614", 1.6, SH)}/>`, post: `<ellipse cx="${f1(x1 - 8)}" cy="0" rx="7" ry="${f1(ry - 1)}" fill="#D9A86C" stroke="#3E2614" stroke-width="1"/><ellipse cx="${f1(x1 - 8)}" cy="0" rx="3.5" ry="${f1(ry / 2)}" fill="none" stroke="#A9773E"/><path d="M${f1(x0 + 10)} -6h${f1(n.w * 0.4)}M${f1(x0 + 20)} 7h${f1(n.w * 0.35)}" stroke="#00000030" stroke-width="1.4"/>` + (n.root ? flame(-n.w * 0.15, -ry - 4, 1.2, "#FF7A1A") : ""), t: {ink: "#FFEBD2", fw: 800, dx: -6, pad: 18}}; }};
+  T2.aquarium = {name: "Aquarium Tunnel", base: "#E3F4FB", desc: "Porthole bubble boxes; little fish swimming the lines.",
+    tile: dotsTile(200, 200, 8, 88, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(1.5 + r * 3)}" fill="none" stroke="#5BB5D9" opacity=".3"/>`),
+    line: p => ({st: "stroke:#5BB5D9;stroke-width:1.4;stroke-dasharray:3 4", post: beads(p, 34, (q, j) => at(q, `<path d="M6 0C3-4-3-4-5 0C-3 4 3 4 6 0ZM-4 0L-9-3L-8 0L-9 3Z" fill="${pick(j, ["#FF922B", "#FCC419", "#4DABF7"])}"/><circle cx="3" cy="-1" r="1" fill="#fff"/>`), 0.2, 0.8)}), arrow: "#2E8FB8",
+    box: n => ({o: rr(n, n.h / 2, S(n.root ? "#2E8FB8" : "#F2FBFF", "#2E8FB8", 2, SH)), post: rr({w: n.w - 8, h: n.h - 8}, n.h / 2 - 4, `fill="none" stroke="${n.root ? "#fff" : "#9FD3EA"}" stroke-opacity=".6"`) + `<path d="M${f1(-n.w / 2 + 10)} ${f1(-n.h / 2 + 9)}q6-5 14-5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".7"/><path d="M${f1(n.w / 2 - 14)} ${f1(n.h / 2 - 1)}q-4-6 0-11t0-9M${f1(n.w / 2 - 9)} ${f1(n.h / 2 - 1)}q3-5 0-9" fill="none" stroke="#3FAE6A" stroke-width="2" stroke-linecap="round"/><circle cx="${f1(n.w / 2 - 22)}" cy="${f1(-n.h / 2 + 10)}" r="2" fill="none" stroke="${n.root ? "#fff" : "#5BB5D9"}"/><circle cx="${f1(n.w / 2 - 18)}" cy="${f1(-n.h / 2 + 5)}" r="1.3" fill="none" stroke="${n.root ? "#fff" : "#5BB5D9"}"/>`, t: {ink: n.root ? "#fff" : "#145A78", fw: 800, dx: -4, pad: 14}})};
+  /* Hobbies */
+  T2.photography = {name: "Photo Walk", base: "#F4F4F2", desc: "Polaroid boxes with handwritten captions; strap lines with a camera.",
+    tile: dotsTile(200, 200, 4, 89, (x, y, r) => `<rect x="${f1(x)}" y="${f1(y)}" width="14" height="16" fill="#fff" stroke="#D8D6CF" transform="rotate(${f1(r * 30 - 15)} ${f1(x)} ${f1(y)})" opacity=".7"/>`),
+    line: (p, i) => ({st: "stroke:#3A3A3A;stroke-width:2.2;stroke-dasharray:8 2", post: i === 0 ? at(Object.assign(along(p, 1, 0.5, 0.5)[0], {a: 0}), `<rect x="-9" y="-6" width="18" height="12" rx="2.5" fill="#3A3A3A"/><rect x="-4" y="-9" width="8" height="4" rx="1" fill="#3A3A3A"/><circle r="4" fill="#9FC7E8" stroke="#fff" stroke-width="1.4"/>`) : ""}), arrow: "#3A3A3A",
+    box: n => { const {x0, y0, y1} = B(n), c = n.root ? "#FFB86B" : pick(n.i, ["#9FC7E8", "#A8D8A0", "#F5A9B8"]); return {o: rr(n, 2, S("#fff", "#E2E0D8", 1, "filter:drop-shadow(1px 3px 3px rgb(0 0 0/.2))")), post: `<rect x="${f1(x0 + 5)}" y="${f1(y0 + 5)}" width="${f1(n.w - 10)}" height="${f1(n.h * 0.42)}" fill="${c}"/><path d="M${f1(x0 + 5)} ${f1(y0 + 5 + n.h * 0.42)}l${f1(n.w * 0.25)}-${f1(n.h * 0.2)} ${f1(n.w * 0.2)} ${f1(n.h * 0.12)} ${f1(n.w * 0.15)}-${f1(n.h * 0.08)} ${f1(n.w * 0.3 - 10)} ${f1(n.h * 0.16)}z" fill="#00000022"/>`, t: {ink: "#2B2B2B", font: "hand", fw: 400, sz: 1.35, dy: n.h * 0.24, padH: 20}}; }};
+  T2.film = {name: "Movie Palace", base: "#2A0F14", dark: true, desc: "Striped popcorn-box ideas; red velvet rope lines on brass posts.",
+    tile: dotsTile(200, 200, 6, 90, (x, y) => star4(x, y, 3, "#F2C14E", 0.25)),
+    chip: ["#2A0F14", "#F2C14E", "#FFE8A3", "serif"],
+    line: p => ({st: "stroke:#B3122E;stroke-width:5;stroke-linecap:round", d: offs(p, (t, d) => -Math.abs(Math.sin(t * Math.PI * 2)) * 8), post: along(p, 3, 0, 1).map(q => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="4.4" fill="#E0B44A" stroke="#8A6A1E" stroke-width="1.2"/>`).join("")}), arrow: "#E0B44A",
+    box: n => { const {x0, y0, x1, y1} = B(n), k = Math.max(4, Math.round(n.w / 14)); return {pre: Array.from({length: k + 1}, (_, j) => `<circle cx="${f1(x0 + 2 + j * (n.w - 4) / k)}" cy="${f1(y0 - 1 + (j % 2) * 2)}" r="6.5" fill="#FFF3D1" stroke="#E8CF8A" stroke-width=".8"/>`).join(""), o: `<path d="M${f1(x0)} ${f1(y0 + 2)}H${f1(x1)}L${f1(x1 - 8)} ${f1(y1)}H${f1(x0 + 8)}Z" ${S(n.root ? "#D7263D" : "#E63946", "#8A1020", 1.4, SH + ";stroke-linejoin:round")}/>`, post: Array.from({length: Math.floor(k / 2)}, (_, j) => { const xa = x0 + (2 * j + 0.5) * n.w / k, xb = xa + n.w / k; return `<path d="M${f1(xa)} ${f1(y0 + 2)}H${f1(xb)}L${f1(xb - (xb / n.w) * 14)} ${f1(y1)}H${f1(xa - (xa / n.w) * 14)}Z" fill="#fff" opacity=".9"/>`; }).join("") + rr({w: Math.min(n.w * 0.8, n.w - 24), h: n.h * 0.5}, 4, `fill="#fff" stroke="#8A1020" stroke-width="1"`), t: {ink: "#8A1020", font: "serif", fw: 800, dy: 1, pad: 26, padH: 8}}; }};
+  T2.culinary = {name: "Test Kitchen", base: "#FBF7F0", desc: "Recipe cards with a chef's hat on the main idea; wooden-spoon lines.",
+    defs: `<pattern id="pk-ging" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#fff"/><rect width="4" height="8" fill="#E03131" opacity=".45"/><rect width="8" height="4" fill="#E03131" opacity=".45"/></pattern>`,
+    tile: tile(40, 40, `<rect width="20" height="20" fill="#E9F2FF" opacity=".5"/><rect x="20" y="20" width="20" height="20" fill="#E9F2FF" opacity=".5"/>`),
+    line: (p, i) => ({st: "stroke:#B98552;stroke-width:2;stroke-dasharray:6 3", post: i === 1 ? at(along(p, 1, 0.5, 0.5)[0], `<path d="M-12-1.4H3v2.8H-12z" fill="#C9965E"/><ellipse cx="8" rx="6" ry="4" fill="#C9965E"/>`) : ""}), arrow: "#8A5A2B",
+    box: n => { const {x0, y0, x1} = B(n); return {pre: n.root ? `<g transform="translate(0 ${f1(y0 - 2)})"><path d="M-15 0V-8a7 7 0 0 1 4-12a9 9 0 0 1 17 0a7 7 0 0 1 9 12V0Z" fill="#fff" stroke="#C9C2B4" stroke-width="1.2"/><path d="M-15-4H15" stroke="#E2DACB"/></g>` : "", o: rr(n, 4, S("#FFFEFA", n.root ? "#D9480F" : "#E0D6C4", 1.4, SH)), post: `<path d="M${f1(x0 + 0.7)} ${f1(y0 + 9)}V${f1(y0 + 4)}a3.3 3.3 0 0 1 3.3-3.3H${f1(x1 - 4)}a3.3 3.3 0 0 1 3.3 3.3V${f1(y0 + 9)}Z" fill="url(#pk-ging)"/><path d="M${f1(x0 + 6)} ${f1(n.h / 2 - 6)}H${f1(x1 - 6)}" stroke="#A5C8F0" stroke-width=".8"/><g transform="translate(${f1(x0 + 11)} 3) rotate(-30)" fill="none" stroke="#868E96" stroke-width="1.1"><path d="M0 7V2"/><path d="M0 2C-4-2-3-8 0-8S4-2 0 2M0 2C-1.6-2-1.4-8 0-8S1.6-2 0 2"/></g>`, t: {ink: n.root ? "#9C2F0A" : "#2B2B2B", font: "casual", fw: 400, sz: 1.25, dy: 3, dx: 6, pad: 16, padH: 4}}; }};
+  T2.pottery = {name: "Pottery Studio", base: "#F7EFE7", desc: "Glazed vase-shaped boxes; coiled-clay lines.",
+    tile: dotsTile(180, 180, 6, 91, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(1 + r * 2)}" fill="#C08457" opacity=".15"/>`),
+    line: p => ({st: "stroke:#C97B4A;stroke-width:5;stroke-linecap:round", post: beads(p, 7, q => at(q, `<path d="M-1.5-2.4l3 4.8" stroke="#A35E33" stroke-width="1"/>`))}), arrow: "#A35E33",
+    box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#3E7C8C" : pick(n.i, ["#E9A07A", "#8FB9A8", "#D4B36A"]); return {o: `<path d="M${f1(x0 + 14)} ${f1(y0)}H${f1(x1 - 14)}Q${f1(x1 - 8)} ${f1(y0 + 6)} ${f1(x1 - 4)} ${f1(y0 + 10)}Q${f1(x1 + 6)} 0 ${f1(x1 - 6)} ${f1(y1 - 4)}Q0 ${f1(y1 + 3)} ${f1(x0 + 6)} ${f1(y1 - 4)}Q${f1(x0 - 6)} 0 ${f1(x0 + 4)} ${f1(y0 + 10)}Q${f1(x0 + 8)} ${f1(y0 + 6)} ${f1(x0 + 14)} ${f1(y0)}Z" ${S(c, "#5A3A28", 1.6, SH)}/>`, post: `<path d="M${f1(x0 + 6)} ${f1(y1 - 9)}Q0 ${f1(y1 - 4)} ${f1(x1 - 6)} ${f1(y1 - 9)}" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2"/>`, t: {ink: "#fff", fw: 800, halo: "#00000033", pad: 18, dy: -2}}; }};
+  /* Holidays */
+  const lantern = (n, c, cap) => { const {x0, y0, x1, y1} = B(n); return {pre: `<path d="M0 ${f1(y0 - 12)}v8" stroke="${cap}" stroke-width="1.4"/><path d="M0 ${f1(y1 + 3)}v10M-3 ${f1(y1 + 13)}h6" stroke="${cap}" stroke-width="2" stroke-linecap="round"/>`, o: `<path d="M${f1(x0 + 10)} ${f1(y0)}H${f1(x1 - 10)}Q${f1(x1 + 6)} 0 ${f1(x1 - 10)} ${f1(y1)}H${f1(x0 + 10)}Q${f1(x0 - 6)} 0 ${f1(x0 + 10)} ${f1(y0)}Z" ${S(c, "#00000040", 1.4, `filter:drop-shadow(0 0 7px ${c}99)`)}/>`, post: `<rect x="${f1(-n.w * 0.3)}" y="${f1(y0 - 4)}" width="${f1(n.w * 0.6)}" height="6" rx="2" fill="${cap}"/><rect x="${f1(-n.w * 0.3)}" y="${f1(y1 - 2)}" width="${f1(n.w * 0.6)}" height="6" rx="2" fill="${cap}"/>` + [-0.25, 0, 0.25].map(f => `<path d="M${f1(f * n.w)} ${f1(y0 + 2)}Q${f1(f * n.w * 1.3)} 0 ${f1(f * n.w)} ${f1(y1 - 2)}" fill="none" stroke="#00000022"/>`).join("")}; };
+  T2.lunarnewyear = {name: "Lunar New Year", base: "#FFF4EC", desc: "Red paper lanterns with gold caps; firecracker-string lines.",
+    tile: dotsTile(200, 200, 5, 92, (x, y) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="5" fill="none" stroke="#E0B44A" opacity=".3"/><circle cx="${f1(x)}" cy="${f1(y)}" r="2" fill="#D7263D" opacity=".2"/>`),
+    line: p => ({st: "stroke:#B8860B;stroke-width:1.2", post: beads(p, 12, q => at(q, `<rect x="-2.6" y="-6" width="5.2" height="12" rx="1.4" fill="#D7263D"/><rect x="-2.6" y="-1" width="5.2" height="2" fill="#F2C14E"/>`, false))}), arrow: "#B8860B",
+    box: n => Object.assign(lantern(n, n.root ? "#D7263D" : "#E8424F", "#E0B44A"), {t: {ink: "#FFE8A3", fw: 800, pad: 16}})};
+  T2.valentines = {name: "Valentine's Day", base: "#FFF3F6", desc: "Love-letter envelopes with a heart seal; strings of hearts.",
+    tile: dotsTile(180, 180, 6, 93, (x, y, r) => heart(x, y, 0.8 + r * 0.6, "#F06595", 'opacity=".16"')),
+    line: p => ({st: "stroke:#F06595;stroke-width:1.2", post: beads(p, 16, (q, j) => heart(q.x, q.y, j % 2 ? 0.8 : 1.1, j % 2 ? "#F783AC" : "#E64980"), 0.1, 0.9)}), arrow: "#E64980",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: rr(n, 3, S(n.root ? "#F06595" : "#FFF0F5", "#E64980", 1.6, SH)), post: `<path d="M${f1(x0 + 1)} ${f1(y0 + 1)}L0 ${f1(y0 + n.h * 0.5)}L${f1(x1 - 1)} ${f1(y0 + 1)}" fill="none" stroke="${n.root ? "#FFC2D6" : "#F5B5CB"}" stroke-width="1.4"/>` + heart(0, y0 + n.h * 0.5 + 1, 1.4, "#C2255C"), t: {ink: n.root ? "#fff" : "#A61E4D", fw: 800, dy: n.h * 0.22, padH: 14, halo: n.root ? "#F06595" : "#FFF0F5"}}; }};
+  T2.ramadan = {name: "Ramadan Nights", base: "#151B3B", dark: true, desc: "Glowing fanous lanterns; crescent-and-star lines.",
+    tile: dotsTile(200, 200, 9, 94, (x, y, r) => r > 0.85 ? moon(x, y, 0.8, "#F2D27A") : `<circle cx="${f1(x)}" cy="${f1(y)}" r=".9" fill="#F2D27A" opacity=".5"/>`),
+    chip: ["#151B3B", "#F2D27A88", "#FFF1C9", ""],
+    line: p => ({st: "stroke:#F2D27A;stroke-width:1;stroke-dasharray:2 4", post: beads(p, 28, (q, j) => j % 2 ? moon(q.x, q.y, 0.7, "#F2D27A") : star5(q.x, q.y, 3.4, "#FFE8A3"), 0.12, 0.88)}), arrow: "#F2D27A",
+    box: n => Object.assign(lantern(n, n.root ? "#E0A93C" : pick(n.i, ["#2E8B7A", "#4466C8", "#9B4FC1"]), "#F2D27A"), {t: {ink: "#FFF6DD", fw: 800, pad: 16, halo: "#00000033"}})};
+  T2.holi = {name: "Holi", base: "#FFFBF5", desc: "Bright paint-splash boxes; lines of coloured powder.",
+    tile: dotsTile(220, 220, 6, 95, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(6 + r * 10)}" fill="${pick(Math.floor(r * 5), ["#FF4D8D", "#FFC93C", "#3EC1D3", "#7B5CFF", "#4CD964"])}" opacity=".1"/>`, 22),
+    line: (p, i) => ({st: `stroke:${pick(i, ["#FF4D8D", "#3EC1D3", "#7B5CFF"])};stroke-width:2.4;stroke-linecap:round`, post: beads(p, 6, (q, j) => { sd = 300 + j + i * 50; return `<circle cx="${f1(q.x + rnd() * 8 - 4)}" cy="${f1(q.y + rnd() * 8 - 4)}" r="${f1(0.8 + rnd() * 1.6)}" fill="${pick(j + i, ["#FF4D8D", "#FFC93C", "#3EC1D3", "#7B5CFF", "#4CD964"])}" opacity=".85"/>`; })}), arrow: "#7B5CFF",
+    box: n => { const c = n.root ? "#FF4D8D" : pick(n.i, ["#FFC93C", "#3EC1D3", "#4CD964"]); sd = 400 + n.i + (n.root ? 9 : 0); const pts = Array.from({length: 18}, (_, j) => { const a = j / 18 * Math.PI * 2, r = 1 + (j % 2 ? 0.1 : -0.04) + rnd() * 0.06; return [Math.cos(a) * (n.w / 2 + 4) * r, Math.sin(a) * (n.h / 2 + 4) * r]; });
+      return {o: `<path d="M${pts.map(q => f1(q[0]) + " " + f1(q[1])).join("L")}Z" ${S(c, "#0000", 0, SH + ";stroke-linejoin:round")}/>`, post: Array.from({length: 4}, () => `<circle cx="${f1((rnd() - 0.5) * (n.w + 30))}" cy="${f1((rnd() - 0.5) * (n.h + 24))}" r="${f1(1.5 + rnd() * 2.5)}" fill="${c}"/>`).join(""), t: {ink: n.i === 0 && !n.root ? "#5C3A00" : "#fff", fw: 800, halo: "#00000026"}}; }};
+  T2.stpatricks = {name: "St. Patrick's Day", base: "#F1F9EF", desc: "Shamrock-badge boxes; rainbow lines that end in a gold coin.",
+    tile: dotsTile(180, 180, 5, 96, (x, y) => `<g opacity=".18" transform="translate(${f1(x)} ${f1(y)})">${[0, 120, 240].map(a => heart(0, -4, 0.9, "#2F9E44", `transform="rotate(${a})"`)).join("")}</g>`),
+    line: p => ({st: "stroke:#FA5252;stroke-width:1.8", pre: ["#FFA94D", "#FFD43B", "#51CF66", "#4DABF7"].map((c, j) => `<path d="${offs(p, () => (j + 1) * 1.8, 30)}" fill="none" stroke="${c}" stroke-width="1.8"/>`).join(""), post: `<circle cx="${f1(p[3][0])}" cy="${f1(p[3][1])}" r="4.5" fill="#F2C14E" stroke="#B8860B"/>`}), arrow: "#B8860B",
+    box: n => { const {x0} = B(n), sham = `<g transform="translate(${f1(x0 + 15)} 0)"><circle r="11" fill="#fff"/>${[0, 120, 240].map(a => `<path d="M0 3C-6-2-4-8 0-5C4-8 6-2 0 3Z" fill="#2F9E44" transform="rotate(${a}) translate(0 -4.5) scale(.95)"/>`).join("")}<path d="M0 2q1 5 3 7" stroke="#2F9E44" stroke-width="1.4" fill="none"/></g>`; return {o: rr(n, n.h / 2, S(n.root ? "#2F9E44" : "#E6F6E3", "#2B8A3E", 1.8, SH)), post: sham, t: {ink: n.root ? "#fff" : "#1E5E2A", fw: 800, dx: 12, pad: 26}}; }};
+  T2.easter = {name: "Easter", base: "#FBF8FF", desc: "Painted-egg boxes with zigzag bands; grass-and-flower lines.",
+    tile: dotsTile(180, 180, 5, 97, (x, y, r) => `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="5" ry="6.6" fill="${pick(Math.floor(r * 3), ["#FFC9DE", "#C5F6FA", "#FFF3BF"])}" opacity=".5"/>`),
+    line: p => ({st: "stroke:#8CD17A;stroke-width:1.8", post: beads(p, 8, (q, j) => at(q, j % 5 === 2 ? flower(0, -4, 3.4, "#FFC9DE", "#FFD43B") : `<path d="M-2 0l1-6M1 0l2-5" stroke="#69B85A" stroke-width="1.2" stroke-linecap="round"/>`))}), arrow: "#69B85A",
+    box: n => { const c = n.root ? "#B197FC" : pick(n.i, ["#FFC9DE", "#C5F6FA", "#FFF3BF"]), b2 = n.root ? "#FFD43B" : pick(n.i, ["#F783AC", "#3BC9DB", "#FAB005"]), {x0, y0} = B(n), k = Math.round(n.w / 9); return {o: `<ellipse rx="${f1(n.w / 2 + 6)}" ry="${f1(n.h / 2 + 4)}" ${S(c, "#00000026", 1.2, SH)}/>`, post: `<path d="M${f1(x0 - 2)} ${f1(y0 + 2)}${Array.from({length: k}, (_, j) => `l${f1((n.w + 4) / k / 2)} 5l${f1((n.w + 4) / k / 2)}-5`).join("")}" fill="none" stroke="${b2}" stroke-width="2.2" stroke-linejoin="round"/><path d="M${f1(x0 - 2)} ${f1(-y0 - 2)}${Array.from({length: k}, (_, j) => `l${f1((n.w + 4) / k / 2)} -5l${f1((n.w + 4) / k / 2)} 5`).join("")}" fill="none" stroke="${b2}" stroke-width="2.2" stroke-linejoin="round"/>`, t: {ink: n.root ? "#fff" : "#4A2E5C", fw: 800, halo: c, padH: 10}}; }};
+  T2.july4 = {name: "Fourth of July", base: "#F5F8FF", desc: "Star badges on striped boxes; firework-burst lines.",
+    tile: dotsTile(200, 200, 4, 98, (x, y) => `<g opacity=".2" transform="translate(${f1(x)} ${f1(y)})">${Array.from({length: 8}, (_, j) => `<path d="M0-4v-6" stroke="${pick(j, ["#E03131", "#1C3D8F"])}" stroke-width="1.4" transform="rotate(${j * 45})"/>`).join("")}</g>`, 18),
+    line: (p, i) => ({st: `stroke:${pick(i, ["#E03131", "#1C3D8F", "#E03131"])};stroke-width:2;stroke-dasharray:8 3`, post: at(Object.assign(along(p, 1, 0.5, 0.5)[0], {a: 0}), Array.from({length: 8}, (_, j) => `<path d="M0-3v-5" stroke="${pick(j, ["#E03131", "#1C3D8F", "#F2C14E"])}" stroke-width="1.6" stroke-linecap="round" transform="rotate(${j * 45})"/>`).join("") + `<circle r="1.6" fill="#F2C14E"/>`)}), arrow: "#1C3D8F",
+    box: n => { const {x0, y0, x1} = B(n); return {o: rr(n, 6, S("#fff", "#1C3D8F", 1.8, SH)), post: [0.2, 0.55, 0.9].map(f => `<rect x="${f1(x0 + 34)}" y="${f1(y0 + n.h * f - 2)}" width="${f1(n.w - 36)}" height="3" fill="#E03131" opacity=".25"/>`).join("") + `<path d="M${f1(x0 + 6)} ${f1(y0)}h24v${f1(n.h)}h-24a6 6 0 0 1-6-6v${f1(-(n.h - 12))}a6 6 0 0 1 6-6z" fill="#1C3D8F"/>` + star5(x0 + 15, 0, 6.5, "#fff"), t: {ink: n.root ? "#B71C1C" : "#1C3D8F", fw: 800, dx: 15, pad: 30}}; }};
+  T2.midautumn = {name: "Mid-Autumn Festival", base: "#FFF6E6", desc: "Mooncake boxes with a scalloped rim; paper-lantern lines.",
+    tile: dotsTile(220, 200, 2, 99, (x, y) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="14" fill="#FFE8A3" opacity=".35"/>`, 24),
+    line: p => ({st: "stroke:#8A5A2B;stroke-width:1.2", post: beads(p, 30, (q, j) => `<path d="M${f1(q.x)} ${f1(q.y)}v4" stroke="#8A5A2B"/><ellipse cx="${f1(q.x)}" cy="${f1(q.y + 10)}" rx="5" ry="6" fill="${pick(j, ["#FF6B3D", "#FFB000", "#E03131"])}" style="filter:drop-shadow(0 0 3px #FFB000)"/>`, 0.15, 0.85)}), arrow: "#8A5A2B",
+    box: n => { const {x0, y0, x1, y1} = B(n), k = Math.max(6, Math.round((n.w + n.h) / 9)); let d = ""; const per = [[x0, y0, x1, y0], [x1, y0, x1, y1], [x1, y1, x0, y1], [x0, y1, x0, y0]]; d = `M${f1(x0)} ${f1(y0)}`; per.forEach(([ax, ay, bx, by]) => { const L = Math.hypot(bx - ax, by - ay), m = Math.max(2, Math.round(L / 12)), ux = (bx - ax) / m, uy = (by - ay) / m, nx = uy / Math.hypot(ux, uy) * 4, ny = -ux / Math.hypot(ux, uy) * 4; for (let j = 0; j < m; j++) d += `q${f1(ux / 2 - nx)} ${f1(uy / 2 - ny)} ${f1(ux)} ${f1(uy)}`; }); void k;
+      return {o: `<path d="${d}Z" ${S(n.root ? "#C9822E" : "#E0A04A", "#8A5A1E", 1.4, SH)}/>`, post: rr({w: n.w - 10, h: n.h - 10}, 4, `fill="none" stroke="#FFE3B0" stroke-opacity=".6" stroke-width="1.2"`), t: {ink: "#4A2C08", fw: 800, halo: "#F2C27A"}}; }};
+  T2.diadelosmuertos = {name: "Día de los Muertos", base: "#2B1A3D", dark: true, desc: "Papel-picado banner boxes; marigold-garland lines.",
+    tile: dotsTile(200, 200, 6, 100, (x, y, r) => flower(x, y, 3 + r * 2, "#FF9F1C").replace("<g ", '<g opacity=".25" ')),
+    chip: ["#2B1A3D", "#FF9F1C", "#FFE3B8", ""],
+    line: p => ({st: "stroke:#4CAF50;stroke-width:1.2", post: beads(p, 10, (q, j) => flower(q.x, q.y, j % 2 ? 4 : 5, j % 2 ? "#FFB703" : "#FB8500", "#9A3B00"))}), arrow: "#FFB703",
+    box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#FF4FA3" : pick(n.i, ["#00B4D8", "#FFB703", "#8AC926"]), k = Math.max(4, Math.round(n.w / 12)); return {o: `<path d="M${f1(x0)} ${f1(y0)}H${f1(x1)}V${f1(y1 - 6)}${Array.from({length: k}, () => `l${f1(-n.w / k / 2)} 6l${f1(-n.w / k / 2)}-6`).join("")}Z" ${S(c, "#0000", 0, SH)}/>`, post: `<path d="M${f1(x0 - 4)} ${f1(y0)}H${f1(x1 + 4)}" stroke="#FFE3B8" stroke-width="1.4"/>` + Array.from({length: k}, (_, j) => `<circle cx="${f1(x0 + (j + 0.5) * n.w / k)}" cy="${f1(y1 - 9)}" r="1.6" fill="#2B1A3D" opacity=".55"/>`).join("") + `<path d="M${f1(x0 + 5)} ${f1(y0 + 5)}h4l2 3 2-3h4" fill="none" stroke="#2B1A3D" stroke-opacity=".4"/>`, t: {ink: "#fff", fw: 800, halo: "#00000040", dy: -2, padH: 8}}; }};
+  T2.diwali = {name: "Diwali", base: "#2A1631", dark: true, desc: "Rangoli-bordered boxes; lines of little diya lamps.",
+    tile: dotsTile(200, 200, 8, 101, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(0.8 + r)}" fill="#FFC94D" opacity=".4"/>`),
+    chip: ["#2A1631", "#FFC94D", "#FFF0C2", ""],
+    line: p => ({st: "stroke:#FFC94D;stroke-width:1;stroke-dasharray:2 3", post: beads(p, 30, q => `<g transform="translate(${f1(q.x)} ${f1(q.y)})"><path d="M-7 0Q0 7 7 0Z" fill="#D9480F"/>${flame(0, -2, 0.55, "#FF9F1C")}</g>`, 0.15, 0.85)}), arrow: "#FFC94D",
+    box: n => { const c = n.root ? "#E8590C" : pick(n.i, ["#C2255C", "#7048E8", "#0CA678"]); return {o: rr(n, 10, S(c, "#FFC94D", 2, `filter:drop-shadow(0 0 6px ${c}aa)`)), post: rr({w: n.w - 8, h: n.h - 8}, 6, `fill="none" stroke="#FFC94D" stroke-width="1.6" stroke-dasharray="1 4" stroke-linecap="round"`) + [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => flower(a * (n.w / 2 - 2), b * (n.h / 2 - 2), 4, "#FFC94D", "#E8590C")).join(""), t: {ink: "#FFF5DC", fw: 800}}; }};
+  T2.thanksgiving = {name: "Thanksgiving", base: "#FBF4EA", desc: "Pie-crust boxes; garlands of autumn leaves and acorns.",
+    tile: dotsTile(180, 180, 5, 102, (x, y, r) => `<path transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(r * 360)}) scale(.7)" d="${LEAF}" fill="${pick(Math.floor(r * 3), ["#D9480F", "#F08C00", "#A0522D"])}" opacity=".2"/>`),
+    line: p => ({st: "stroke:#8A5A2B;stroke-width:1.6", post: beads(p, 18, (q, j) => j % 3 === 2 ? `<g transform="translate(${f1(q.x)} ${f1(q.y + 3)})"><ellipse cy="2" rx="3.4" ry="4" fill="#B5793A"/><path d="M-4-1h8a4 3 0 0 0-8 0z" fill="#6B4423"/></g>` : at(q, `<path transform="translate(0 ${j % 2 ? -6 : 6}) scale(.7) rotate(${j % 2 ? 0 : 180})" d="${LEAF}" fill="${pick(j, ["#D9480F", "#F08C00"])}"/>`))}), arrow: "#8A5A2B",
+    box: n => { const {x0, y0, x1} = B(n), k = Math.max(4, Math.round(n.w / 11)); return {o: rr(n, 8, S(n.root ? "#E8A65A" : "#F3C98B", "#A8692E", 1.6, SH)), post: `<path d="M${f1(x0 + 2)} ${f1(y0 + 3)}${Array.from({length: k}, () => `q${f1((n.w - 4) / k / 2)} -6 ${f1((n.w - 4) / k)} 0`).join("")}" fill="#D9934A" stroke="#A8692E" stroke-width="1.2"/>` + (n.root ? `<path d="M${f1(-n.w * 0.25)} 6l${f1(n.w * 0.5)} -2M${f1(-n.w * 0.2)} -1l${f1(n.w * 0.4)} 3" stroke="#C67A34" stroke-width="2" stroke-linecap="round" opacity=".5"/>` : ""), t: {ink: "#5A3010", fw: 800, dy: 2, halo: n.root ? "#E8A65A" : "#F3C98B"}}; }};
+  T2.hanukkah = {name: "Hanukkah", base: "#F2F6FF", desc: "Blue-and-silver dreidel boxes; candle-flame lines.",
+    tile: dotsTile(180, 180, 6, 103, (x, y) => star4(x, y, 3.5, "#7FA3E8", 0.3)),
+    line: p => ({st: "stroke:#9AAED8;stroke-width:1.4", post: beads(p, 22, q => `<g transform="translate(${f1(q.x)} ${f1(q.y)})"><rect x="-1.8" y="-2" width="3.6" height="8" rx="1" fill="#E7EEFF" stroke="#5C7CCF" stroke-width=".8"/>${flame(0, -3, 0.5, "#FFB000")}</g>`, 0.12, 0.88)}), arrow: "#5C7CCF",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: `<path d="M${f1(x0)} ${f1(y0)}H${f1(x1)}V${f1(y1 - 8)}Q${f1(x1)} ${f1(y1)} ${f1(x1 - 10)} ${f1(y1)}H${f1(x0 + 10)}Q${f1(x0)} ${f1(y1)} ${f1(x0)} ${f1(y1 - 8)}Z" ${S(n.root ? "#2F55B5" : "#E7EEFF", "#2F55B5", 1.8, SH)}/>`, post: `<rect x="-3" y="${f1(y0 - 9)}" width="6" height="10" rx="2" fill="#C9D3E8" stroke="#8A97B5"/><path d="M${f1(x0 + 1)} ${f1(y0 + 4)}H${f1(x1 - 1)}M${f1(x0 + 1)} ${f1(y0 + 8)}H${f1(x1 - 1)}" stroke="${n.root ? "#C9D3E8" : "#9AAED8"}" stroke-width="1.6"/><path d="M${f1(x0 + 1)} ${f1(y0 + 6)}H${f1(x1 - 1)}" stroke="#fff" stroke-width="1.2"/>` + star4(x1 - 8, y1 - 8, 4, n.root ? "#fff" : "#7FA3E8") + star4(x1 - 15, y1 - 5, 2.2, n.root ? "#fff" : "#7FA3E8", 0.8), t: {ink: n.root ? "#fff" : "#1E3A8A", fw: 800, dy: 3, padH: 6}}; }};
+  T2.newyear = {name: "New Year's Eve", base: "#14162B", dark: true, desc: "Gold party-ticket boxes with confetti; streamer lines.",
+    tile: dotsTile(200, 200, 12, 104, (x, y, r) => `<rect x="${f1(x)}" y="${f1(y)}" width="5" height="2.4" fill="${pick(Math.floor(r * 4), ["#F2C14E", "#FF6B9A", "#5CE1E6", "#fff"])}" opacity=".4" transform="rotate(${f1(r * 180)} ${f1(x)} ${f1(y)})"/>`),
+    chip: ["#14162B", "#F2C14E", "#FFF1C9", ""],
+    line: (p, i) => ({st: `stroke:${pick(i, ["#F2C14E", "#FF6B9A", "#5CE1E6"])};stroke-width:2.2;stroke-linecap:round`, d: offs(p, (t, d) => Math.sin(d / 6) * 3.2)}), arrow: "#F2C14E",
+    box: n => { const {x0, y0, x1, y1} = B(n); sd = 500 + n.i; return {o: `<path d="M${f1(x0)} ${f1(y0)}H${f1(x1)}V-5a5 5 0 0 0 0 10V${f1(y1)}H${f1(x0)}V5a5 5 0 0 0 0-10Z" ${S(n.root ? "#F2C14E" : "#22264A", "#F2C14E", 1.8, "filter:drop-shadow(0 0 6px #F2C14E66)")}/>`, post: Array.from({length: 5}, () => `<rect x="${f1(x0 + 8 + rnd() * (n.w - 16))}" y="${f1(rnd() < 0.5 ? y0 + 3 : y1 - 6)}" width="4" height="2" fill="${pick(Math.floor(rnd() * 3), ["#FF6B9A", "#5CE1E6", "#fff"])}" opacity=".9"/>`).join(""), t: {ink: n.root ? "#3A2A00" : "#FFF1C9", fw: 800, pad: 10}}; }};
+  /* Fields and places */
+  T2.nursing = {name: "Night Shift", base: "#EEF4F8", desc: "Clipboard-chart boxes; IV-drip lines.",
+    tile: dotsTile(180, 180, 4, 105, (x, y) => `<path transform="translate(${f1(x)} ${f1(y)})" d="M-1.6-5h3.2v3.4h3.4v3.2h-3.4v3.4h-3.2v-3.4h-3.4v-3.2h3.4z" fill="#4DA3D9" opacity=".18"/>`),
+    line: p => ({st: "stroke:#9CC9E6;stroke-width:2.6;stroke-linecap:round", post: beads(p, 26, q => `<path transform="translate(${f1(q.x)} ${f1(q.y)})" d="M0-3.4C1.6-1 2.4 0 2.4 1.2a2.4 2.4 0 0 1-4.8 0C-2.4 0-1.6-1 0-3.4Z" fill="#4DA3D9"/>`, 0.15, 0.85)}), arrow: "#4DA3D9",
+    box: n => { const {y0} = B(n); return {o: rr(n, 5, S(n.root ? "#B07B4E" : "#C79A6E", "#7A5230", 1.6, SH)), post: `<rect x="${f1(-n.w / 2 + 5)}" y="${f1(y0 + 7)}" width="${f1(n.w - 10)}" height="${f1(n.h - 12)}" rx="2" fill="#fff"/><rect x="-12" y="${f1(y0 - 4)}" width="24" height="9" rx="2.5" fill="#9AA3AF" stroke="#6B7280"/><path d="M${f1(-n.w / 2 + 10)} ${f1(n.h / 2 - 8)}h${f1(n.w * 0.4)}" stroke="#D0E6F5" stroke-width="1.2"/>`, t: {ink: "#1F3A55", fw: 800, dy: 3, padH: 10}}; }};
+  T2.biology = {name: "Cell Garden", base: "#F1FAF2", desc: "Cell boxes with a nucleus and organelles; vine lines.",
+    tile: dotsTile(200, 200, 5, 106, (x, y, r) => `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(7 + r * 4)}" ry="${f1(5 + r * 3)}" fill="none" stroke="#51CF66" opacity=".2"/>`),
+    line: p => ({st: "stroke:#37B24D;stroke-width:2;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 14) * 2.2), post: beads(p, 30, (q, j) => at(q, leafP(0, j % 2 ? -5 : 5, 0.9, "#69DB7C", j % 2 ? -30 : 30)), 0.15, 0.85)}), arrow: "#2B8A3E",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: `<path d="M${f1(x0 + 10)} ${f1(y0 + 2)}Q0 ${f1(y0 - 6)} ${f1(x1 - 10)} ${f1(y0 + 2)}Q${f1(x1 + 6)} 0 ${f1(x1 - 8)} ${f1(y1 - 2)}Q0 ${f1(y1 + 6)} ${f1(x0 + 8)} ${f1(y1 - 2)}Q${f1(x0 - 6)} 0 ${f1(x0 + 10)} ${f1(y0 + 2)}Z" ${S(n.root ? "#B2F2BB" : "#E6FCF5", "#2B8A3E", 2, SH)}/>`, post: `<ellipse cx="${f1(x1 - 14)}" cy="${f1(y0 + 10)}" rx="5" ry="4" fill="#9C36B5" opacity=".55"/><ellipse cx="${f1(x0 + 12)}" cy="${f1(y1 - 7)}" rx="5" ry="2.4" fill="#F08C00" opacity=".55"/>`, t: {ink: "#1B4D2A", fw: 800, pad: 14}}; }};
+  T2.compsci = {name: "Code Night", base: "#20232E", dark: true, desc: "Keyboard-keycap boxes; cable lines with a plug.",
+    tile: tile(160, 120, `<g opacity=".12" font-family="monospace" font-size="11" fill="#A6E3A1"><text x="10" y="30">01</text><text x="90" y="80">{ }</text></g>`),
+    chip: ["#20232E", "#7AA2F7", "#C0CAF5", "mono"],
+    line: p => ({st: "stroke:#3B4261;stroke-width:4;stroke-linecap:round", post: `<path d="${D(p)}" fill="none" stroke="#7AA2F7" stroke-width="1" stroke-dasharray="2 6" opacity=".8"/>`}), arrow: "#7AA2F7",
+    box: n => { const c = n.root ? "#7AA2F7" : pick(n.i, ["#C0CAF5", "#E0AF68", "#9ECE6A"]); return {o: rr(n, 7, S("#2B2F42", "#151826", 1.4, "filter:drop-shadow(0 3px 0 #151826)")), post: rr({w: n.w - 8, h: n.h - 9}, 5, `fill="${c}" fill-opacity=".14" stroke="${c}" stroke-opacity=".45" transform="translate(0 -2)"`), t: {ink: c, font: "mono", fw: 700, dy: -1}}; }};
+  T2.engineering = {name: "Gear Works", base: "#EEF0F2", desc: "Bolted steel plates; coiled-spring lines.",
+    tile: dotsTile(200, 200, 4, 107, (x, y) => `<g opacity=".12" transform="translate(${f1(x)} ${f1(y)})"><path d="M0-8l7 4v8l-7 4-7-4v-8z" fill="#5C6670"/><circle r="3" fill="#EEF0F2"/></g>`),
+    line: p => ({st: "stroke:transparent;stroke-width:8", pre: `<path d="${offs(p, (t, d) => Math.sin(d / 3) * 4, 0)}" fill="none" stroke="#6C757D" stroke-width="1.6"/>`}), arrow: "#495057",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: rr(n, 3, S(n.root ? "#495057" : "#ADB5BD", "#343A40", 1.6, SH)), post: [[x0 + 7, y0 + 7], [x1 - 7, y0 + 7], [x0 + 7, y1 - 7], [x1 - 7, y1 - 7]].map(([x, y]) => `<g transform="translate(${f1(x)} ${f1(y)})"><path d="M0-3.6l3.1 1.8v3.6L0 3.6l-3.1-1.8v-3.6z" fill="#DEE2E6" stroke="#343A40" stroke-width=".7"/></g>`).join("") + `<path d="M${f1(x0 + 3)} ${f1(y0 + 3)}H${f1(x1 - 3)}" stroke="#fff" stroke-opacity=".5"/>`, t: {ink: n.root ? "#F8F9FA" : "#212529", fw: 800, pad: 16}}; }};
+  T2.education = {name: "Sunny Classroom", base: "#FFFBEA", desc: "Spiral-notebook boxes; pencil lines with a sharpened tip.",
+    tile: dotsTile(200, 200, 3, 108, (x, y) => `<g opacity=".18" transform="translate(${f1(x)} ${f1(y)})"><circle r="6" fill="#FFD43B"/></g>`),
+    line: p => ({st: "stroke:#495057;stroke-width:1.6;stroke-linecap:round", post: at({x: p[3][0], y: p[3][1], a: ang(p, 0.98)}, `<path d="M-22-3.2H-7L0 0L-7 3.2H-22Z" fill="#FFC53D" stroke="#B8860B" stroke-width=".6"/><path d="M-7-3.2L0 0L-7 3.2Z" fill="#F1D3A8"/><path d="M-2.2-1L0 0L-2.2 1Z" fill="#343A40"/><rect x="-26" y="-3.2" width="4" height="6.4" fill="#F783AC"/>`)}), arrow: "#495057",
+    box: n => { const {x0, y0, x1} = B(n), k = Math.max(3, Math.round(n.w / 14)); return {o: rr(n, 4, S(n.root ? "#4DABF7" : "#fff", n.root ? "#1C7ED6" : "#C9D6E8", 1.4, SH)), post: Array.from({length: k}, (_, j) => `<ellipse cx="${f1(x0 + 8 + j * (n.w - 16) / (k - 1))}" cy="${f1(y0 + 1)}" rx="2" ry="4.2" fill="none" stroke="#868E96" stroke-width="1.4"/>`).join("") + (n.root ? "" : `<path d="M${f1(x0 + 1)} ${f1(n.h / 2 - 8)}H${f1(x1 - 1)}" stroke="#A5D8FF" stroke-width=".8"/>`), t: {ink: n.root ? "#fff" : "#1E3A5F", font: "casual", fw: 400, sz: 1.25, dy: 2}}; }};
+  T2.justice = {name: "Case Room", base: "#D9C4A3", desc: "A detective's corkboard: pinned index cards joined by red string.",
+    tile: dotsTile(100, 100, 18, 109, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(0.6 + r)}" fill="#8A6A44" opacity=".3"/>`, 3),
+    line: p => ({st: "stroke:#C92A2A;stroke-width:1.6", d: offs(p, (t) => Math.sin(t * Math.PI) * 6, 30)}), arrow: "#C92A2A",
+    box: n => { const {y0} = B(n); return {o: rr(n, 1, S(n.root ? "#FFF9DB" : "#FFFFFF", "#D8CFC0", 1, `filter:drop-shadow(1px 3px 2px rgb(0 0 0/.25));transform:rotate(${n.root ? -1.5 : pick(n.i, [-2, 1.5, -1])}deg)`)), post: `<circle cy="${f1(y0 + 4)}" r="4.4" fill="#C92A2A"/><circle cx="-1.2" cy="${f1(y0 + 2.8)}" r="1.4" fill="#fff" opacity=".7"/>`, t: {ink: "#2B2B2B", font: n.root ? "marker" : "casual", fw: 400, sz: n.root ? 1.1 : 1.2, dy: 3, padH: 4}}; }};
+  T2.chem = {name: "Chem Lab", base: "#F2F7FA", desc: "Beaker boxes half-full of liquid; ball-and-stick bond lines.",
+    tile: dotsTile(200, 200, 4, 110, (x, y) => `<g opacity=".14" fill="none" stroke="#1971C2"><path d="M${f1(x)} ${f1(y - 8)}l7 4v8l-7 4-7-4v-8z"/></g>`),
+    line: (p, i) => ({st: "stroke:#868E96;stroke-width:2.4", post: along(p, 3, 0.25, 0.75).map((q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="${j === 1 ? 5 : 4}" fill="${pick(j + i, ["#E03131", "#1971C2", "#495057"])}" stroke="#fff" stroke-width="1.2"/>`).join("")}), arrow: "#495057",
+    box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#40C057" : pick(n.i, ["#4DABF7", "#F783AC", "#FFD43B"]), lv = y0 + n.h * 0.48; return {o: rr(n, 6, S("#FFFFFFE6", "#5C6B7A", 1.6, SH)), post: `<path d="M${f1(x0 + 1.5)} ${f1(lv)}q${f1(n.w / 4)}-3 ${f1(n.w / 2)} 0t${f1(n.w / 2 - 3)} 0V${f1(y1 - 6)}a5 5 0 0 1-5 5H${f1(x0 + 6.5)}a5 5 0 0 1-5-5Z" fill="${c}" opacity=".45"/><path d="M${f1(x0 - 3)} ${f1(y0)}H${f1(x0 + 8)}M${f1(x1 - 8)} ${f1(y0)}H${f1(x1 + 3)}" stroke="#5C6B7A" stroke-width="1.6"/><circle cx="${f1(x1 - 14)}" cy="${f1(lv + 6)}" r="2" fill="#fff" opacity=".8"/><circle cx="${f1(x1 - 20)}" cy="${f1(lv + 11)}" r="1.3" fill="#fff" opacity=".8"/>`, t: {ink: "#1F2933", fw: 800}}; }};
+  T2.sketchcity = {name: "Sketch City", base: "#FAF9F6", desc: "Hand-sketched building boxes with rooflines and hatching.",
+    tile: dotsTile(220, 200, 3, 111, (x, y) => `<path transform="translate(${f1(x)} ${f1(y)})" d="M-12 8V-2h6v-6h8v10h6V0h4v8" fill="none" stroke="#A0A0A0" stroke-opacity=".3"/>`, 20),
+    line: p => ({st: "stroke:#4A4A4A;stroke-width:1.4;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 7) * 0.8 + Math.sin(d / 19) * 0.8), pre: `<path d="${offs(p, (t, d) => 1.2 + Math.sin(d / 11) * 0.6)}" fill="none" stroke="#4A4A4A" stroke-width=".7" opacity=".5"/>`}), arrow: "#4A4A4A",
+    box: n => { const {x0, y0, x1, y1} = B(n), roof = n.root ? `L${f1(x0 + n.w * 0.2)} ${f1(y0 - 10)}H${f1(x0 + n.w * 0.45)}V${f1(y0 - 18)}H${f1(x0 + n.w * 0.7)}V${f1(y0 - 6)}L${f1(x1)} ${f1(y0)}` : pick(n.i, [`L0 ${f1(y0 - 12)}L${f1(x1)} ${f1(y0)}`, `V${f1(y0 - 8)}H${f1(x1)}V${f1(y0)}`, `H${f1(x0 + n.w * 0.6)}V${f1(y0 - 10)}H${f1(x1)}V${f1(y0)}`]);
+      return {o: `<path d="M${f1(x0)} ${f1(y1)}V${f1(y0)}${roof}V${f1(y1)}Z" ${S("#FFFFFF", "#3A3A3A", 1.6, "stroke-linejoin:round")}/>`, post: `<path d="M${f1(x0 + 1)} ${f1(y1 + 1.5)}H${f1(x1 + 2)}M${f1(x1 + 1.5)} ${f1(y1)}V${f1(y0 + 2)}" stroke="#3A3A3A" stroke-width=".8" opacity=".5"/>` + Array.from({length: 6}, (_, j) => `<path d="M${f1(x1 - 4 - j * 3)} ${f1(y1 - 1)}l4 -6" stroke="#9A9A9A" stroke-width=".7"/>`).join(""), t: {ink: "#2A2A2A", font: "hand", fw: 400, sz: 1.45, pad: 10}}; }};
+  T2.japan = {name: "Japan", base: "#FBF6EF", desc: "Lacquer boxes with a wave band and red sun; red-cord lines with knots.",
+    defs: `<pattern id="pk-sei" width="16" height="8" patternUnits="userSpaceOnUse"><path d="M0 8a8 8 0 0 1 16 0M4 8a4 4 0 0 1 8 0" fill="none" stroke="#fff" stroke-opacity=".7"/></pattern>`,
+    tile: tile(32, 32, `<path d="M0 16a16 16 0 0 1 32 0M8 16a8 8 0 0 1 16 0M-16 32a16 16 0 0 1 32 0M16 32a16 16 0 0 1 32 0M-8 32a8 8 0 0 1 16 0M24 32a8 8 0 0 1 16 0" fill="none" stroke="#3B5BA9" stroke-opacity=".08"/>`),
+    line: p => ({st: "stroke:#C92A2A;stroke-width:2", post: beads(p, 36, q => at(q, `<circle r="3.4" fill="#C92A2A"/><path d="M-1 3l-2 6M1 3l2 6" stroke="#C92A2A" stroke-width="1.2"/>`), 0.2, 0.8)}), arrow: "#C92A2A",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: rr(n, 4, S(n.root ? "#B22222" : "#1F2A44", "#0F1424", 1.6, SH)), post: `<rect x="${f1(x0 + 1)}" y="${f1(y1 - 9)}" width="${f1(n.w - 2)}" height="8" fill="url(#pk-sei)"/><circle cx="${f1(x1 - 10)}" cy="${f1(y0 + 9)}" r="5" fill="${n.root ? "#fff" : "#D7263D"}"/>`, t: {ink: "#FDF6E8", font: "serif", fw: 700, dy: -3, pad: 18, padH: 6}}; }};
+  T2.morocco = {name: "Morocco", base: "#FBF3E8", desc: "Arched-doorway boxes with zellige tiles; lantern-bead lines.",
+    tile: tile(40, 40, `<path d="M20 4l5 11 11 5-11 5-5 11-5-11L4 20l11-5z" fill="none" stroke="#1C7C7D" stroke-opacity=".1"/>`),
+    line: p => ({st: "stroke:#B8860B;stroke-width:1.4", post: beads(p, 18, (q, j) => `<path transform="translate(${f1(q.x)} ${f1(q.y)})" d="M0-5L3.4 0L0 5L-3.4 0Z" fill="${pick(j, ["#1C7C7D", "#C2410C", "#B8860B"])}"/>`)}), arrow: "#B8860B",
+    box: n => { const {x0, y0, x1, y1} = B(n), r = Math.min(n.w / 2, 16); return {o: `<path d="M${f1(x0)} ${f1(y1)}V${f1(y0 + r)}Q${f1(x0)} ${f1(y0)} ${f1(-n.w * 0.15)} ${f1(y0)}L0 ${f1(y0 - 8)}L${f1(n.w * 0.15)} ${f1(y0)}Q${f1(x1)} ${f1(y0)} ${f1(x1)} ${f1(y0 + r)}V${f1(y1)}Z" ${S(n.root ? "#1C7C7D" : "#F6E7D2", "#9A4A1C", 1.8, SH + ";stroke-linejoin:round")}/>`, post: Array.from({length: Math.round(n.w / 10)}, (_, j) => `<rect x="${f1(x0 + 2 + j * 10)}" y="${f1(y1 - 7)}" width="7" height="5" fill="${pick(j, ["#1C7C7D", "#C2410C", "#E0B44A", "#2B4C9A"])}" transform="rotate(45 ${f1(x0 + 5.5 + j * 10)} ${f1(y1 - 4.5)})" opacity=".85"/>`).join("").replace(/x="(-?[\d.]+)"/g, (m, v) => +v > x1 - 9 ? 'x="-9999"' : m), t: {ink: n.root ? "#FFF3DE" : "#7A2E0E", fw: 800, dy: -1, padH: 10}}; }};
+  T2.italy = {name: "Italy", base: "#FFFAF0", desc: "Café-awning boxes in green, white and red with a lemon; tricolour lines.",
+    defs: `<pattern id="pk-itaw" width="27" height="10" patternUnits="userSpaceOnUse"><rect width="9" height="10" fill="#2F9E44"/><rect x="9" width="9" height="10" fill="#fff"/><rect x="18" width="9" height="10" fill="#E03131"/></pattern>`,
+    tile: dotsTile(180, 180, 3, 112, (x, y) => `<g opacity=".2" transform="translate(${f1(x)} ${f1(y)})"><ellipse rx="6" ry="4.4" fill="#FFD43B"/>${leafP(6, -4, 0.8, "#2F9E44", -30)}</g>`),
+    line: p => ({st: "stroke:#fff;stroke-width:2", pre: `<path d="${offs(p, () => 2.4, 30)}" fill="none" stroke="#2F9E44" stroke-width="2"/><path d="${offs(p, () => -2.4, 30)}" fill="none" stroke="#E03131" stroke-width="2"/>`}), arrow: "#2F9E44",
+    box: n => { const {x0, y0, x1} = B(n); return {o: rr(n, 6, S(n.root ? "#FFF3D6" : "#FFFFFF", "#C2410C", 1.6, SH)), post: `<path d="M${f1(x0 + 0.8)} ${f1(y0 + 10)}V${f1(y0 + 6)}a5.2 5.2 0 0 1 5.2-5.2H${f1(x1 - 6)}a5.2 5.2 0 0 1 5.2 5.2V${f1(y0 + 10)}Z" fill="url(#pk-itaw)"/><path d="M${f1(x0)} ${f1(y0 + 10)}H${f1(x1)}" stroke="#C2410C" stroke-width="1"/>` + (n.root ? `<g transform="translate(${f1(x1 - 8)} ${f1(y0 + 2)})"><ellipse rx="6" ry="4.4" fill="#FFD43B" stroke="#E8A600"/>${leafP(6, -4, 0.8, "#2F9E44", -30)}</g>` : ""), t: {ink: "#7A2E0E", font: "serif", fw: 700, dy: 4, padH: 8}}; }};
+  T2.greece = {name: "Greece", base: "#F4F8FD", desc: "Whitewashed boxes with a blue dome and Greek-key border; meander lines.",
+    tile: tile(40, 20, `<path d="M0 15h10V5H5v5" fill="none" stroke="#1E5BB8" stroke-opacity=".1"/>`),
+    line: p => ({st: "stroke:#1E5BB8;stroke-width:1.6", post: beads(p, 12, (q, j) => at(q, `<path d="M-4 3V-3H3V1H-1" fill="none" stroke="#1E5BB8" stroke-width="1.1" transform="translate(0 ${j % 2 ? -5 : 5}) scale(.8)"/>`), 0.1, 0.9)}), arrow: "#1E5BB8",
+    box: n => { const {x0, y0, x1, y1} = B(n), k = Math.floor((n.w - 6) / 10); return {pre: n.root ? `<path d="M${f1(-n.w * 0.22)} ${f1(y0 + 1)}a${f1(n.w * 0.22)} ${f1(n.w * 0.16)} 0 0 1 ${f1(n.w * 0.44)} 0Z" fill="#1E5BB8"/><path d="M0 ${f1(y0 - n.w * 0.16)}v-8M-3 ${f1(y0 - n.w * 0.16 - 5)}h6" stroke="#1E5BB8" stroke-width="1.6"/>` : "", o: rr(n, 3, S("#FFFFFF", "#1E5BB8", 1.6, SH)), post: `<path d="M${f1(x0 + 3)} ${f1(y1 - 3)}${Array.from({length: k}, () => "v-5h7v3h-4v-1").join("").replace(/v-1/g, "v-1m4 3")}" fill="none" stroke="#1E5BB8" stroke-width=".9" opacity=".8"/>`, t: {ink: "#14427F", font: "serif", fw: 700, dy: -2, padH: 8}}; }};
+  T2.egypt = {name: "Egypt", base: "#F7EBD0", desc: "Gold stone tablets with a lotus-and-eye border; Nile-wave lines.",
+    tile: tile(60, 52, `<path d="M30 6L54 46H6Z" fill="none" stroke="#B8862B" stroke-opacity=".12"/>`),
+    line: p => ({st: "stroke:#1C6FA8;stroke-width:2.2;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 5) * 2.4), post: beads(p, 40, q => at(q, `<path d="M0-6c3 2 3 4 0 6c-3-2-3-4 0-6zM0 0c4-1 6 1 6 3M0 0c-4-1-6 1-6 3" fill="#2F9E44" stroke="#2F9E44" stroke-width=".8"/>`, false), 0.25, 0.75)}), arrow: "#1C6FA8",
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: rr(n, 3, S(n.root ? "#D4A437" : "#EBD08F", "#8A6A1E", 1.8, SH)), post: `<rect x="${f1(x0 + 3)}" y="${f1(y0 + 3)}" width="${f1(n.w - 6)}" height="${f1(n.h - 6)}" fill="none" stroke="#1C6FA8" stroke-width="1.2"/>` + Array.from({length: Math.max(2, Math.round(n.w / 20))}, (_, j) => `<path transform="translate(${f1(x0 + 10 + j * (n.w - 20) / Math.max(1, Math.round(n.w / 20) - 1))} ${f1(y1 - 4.5)})" d="M-3 0Q0-3 3 0Q0 3-3 0Z" fill="none" stroke="#1C6FA8" stroke-width=".8"/>`).join(""), t: {ink: "#3D2A06", font: "serif", fw: 700, dy: -2, padH: 6}}; }};
+  T2.canada = {name: "Canada", base: "#FBF5F3", desc: "Buffalo-plaid boxes with a maple leaf; canoe-paddle lines.",
+    defs: `<pattern id="pk-plaid" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#C92A2A"/><rect width="8" height="8" fill="#7A1414"/><rect x="8" y="8" width="8" height="8" fill="#A61E1E"/></pattern>`,
+    tile: dotsTile(200, 200, 4, 113, (x, y, r) => `<path transform="translate(${f1(x)} ${f1(y)}) scale(.7) rotate(${f1(r * 40 - 20)})" d="M0-10l2 5 4-2-1 6 4 1-5 4 1 3-5-1v4h-1v-4l-5 1 1-3-5-4 4-1-1-6 4 2z" fill="#E03131" opacity=".15"/>`),
+    line: (p, i) => ({st: "stroke:#8A5A2B;stroke-width:2.6;stroke-linecap:round", post: i === 1 ? at(along(p, 1, 0.5, 0.5)[0], `<path d="M-14-1.4H2v2.8H-14z" fill="#A0703F"/><ellipse cx="9" rx="8" ry="4" fill="#C9965E" stroke="#8A5A2B"/>`) : ""}), arrow: "#8A5A2B",
+    box: n => { const {x0} = B(n); return {o: rr(n, 6, S(n.root ? "url(#pk-plaid)" : "#FFFFFF", "#7A1414", 1.6, SH)), post: (n.root ? rr({w: n.w - 14, h: n.h - 14}, 4, `fill="#fff" fill-opacity=".9"`) : "") + `<path transform="translate(${f1(x0 + (n.root ? -2 : 13))} ${f1(n.root ? -n.h / 2 : 1)}) scale(${n.root ? 1 : 0.85})" d="M0-10l2 5 4-2-1 6 4 1-5 4 1 3-5-1v4h-1v-4l-5 1 1-3-5-4 4-1-1-6 4 2z" fill="#E03131"/>`, t: {ink: "#7A1414", fw: 800, dx: n.root ? 0 : 8, pad: n.root ? 18 : 22}}; }};
+  T2.mexico = {name: "Mexico", base: "#FFF8EE", desc: "Sarape-striped boxes; colourful stitched lines with a cactus.",
+    tile: dotsTile(200, 200, 3, 114, (x, y) => `<path transform="translate(${f1(x)} ${f1(y)})" d="M-2 8V-6a2 2 0 0 1 4 0V8M-2 0h-3V-4M2 2h3V-2" fill="none" stroke="#2F9E44" stroke-width="2" stroke-linecap="round" opacity=".18"/>`, 18),
+    line: (p, i) => ({st: `stroke:${pick(i, ["#E64980", "#12B886", "#F59F00"])};stroke-width:2;stroke-dasharray:6 3`, post: i === 2 ? at(Object.assign(along(p, 1, 0.5, 0.5)[0], {a: 0}), `<path d="M-2 8V-6a2 2 0 0 1 4 0V8M-2 0h-3V-4M2 2h3V-2" fill="none" stroke="#2F9E44" stroke-width="2.4" stroke-linecap="round"/>`) : ""}), arrow: "#E64980",
+    box: n => { const {x0, y0, x1} = B(n), st = ["#E64980", "#F59F00", "#12B886", "#7048E8", "#E03131"]; return {o: rr(n, 5, S(n.root ? "#2B2440" : "#FFF3E0", "#2B2440", 1.6, SH)), post: [0, 1].map(s => `<g>${st.map((c, j) => `<rect x="${f1(s ? x1 - 3 - (j + 1) * 3 : x0 + 3 + j * 3)}" y="${f1(y0 + 1)}" width="3" height="${f1(n.h - 2)}" fill="${c}"/>`).join("")}</g>`).join(""), t: {ink: n.root ? "#FFF3E0" : "#2B2440", fw: 800, pad: 36}}; }};
+  T2.brazil = {name: "Brazil", base: "#F3FBF2", desc: "Carnival-feather boxes in green and gold; samba-bead lines.",
+    tile: dotsTile(220, 200, 4, 115, (x, y, r) => leafP(x, y, 2.2, "#2F9E44", r * 180).replace("/>", ' opacity=".1"/>')),
+    line: p => ({st: "stroke:#1E7B3A;stroke-width:1.2", post: beads(p, 10, (q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="${j % 2 ? 2.6 : 3.4}" fill="${pick(j, ["#FFD43B", "#2F9E44", "#1C5BBA"])}"/>`)}), arrow: "#1E7B3A",
+    box: n => { const {x0, y0, x1} = B(n), c = n.root ? "#1E7B3A" : pick(n.i, ["#FFD43B", "#2F9E44", "#1C5BBA"]); return {pre: [-1, 0, 1].map(k => `<path transform="translate(${f1(k * 16)} ${f1(y0 + 2)}) rotate(${k * 22})" d="M0 0C-6-8-4-20 0-24C4-20 6-8 0 0Z" fill="${pick(k + 1, ["#FFD43B", "#E64980", "#3BC9DB"])}" stroke="#00000022"/>`).join(""), o: rr(n, n.h / 2, S(c, "#0F4D22", 1.6, SH)), post: `<path d="M${f1(x0 + 8)} ${f1(-n.h / 2 + 5)}H${f1(x1 - 8)}" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".35"/>`, t: {ink: n.i === 0 && !n.root ? "#5C3D00" : "#fff", fw: 800}}; }};
+  /* The plain-colour themes: just colour. Rounded boxes and plain lines in the theme's colour, on the default map's even dot grid;
+     no decoration (their names and descriptions stay). [paper background, main colour, light fill, words] */
+  const PLAIN = {classic: ["#F4F7FB", "#2F6FE4", "#EAF1FD", "#1E293B"], paper: ["#FAFAF7", "#4B5563", "#F1F1EC", "#1F2328"], slate: ["#F1F3F6", "#4A6FA5", "#E6ECF4", "#1E2733"],
+    sand: ["#F7F2E9", "#B08A57", "#F3EADB", "#3B2F1E"], blush: ["#FCF3F4", "#D96C88", "#FBE6EB", "#4A1F2B"], lavender: ["#F6F3FB", "#8A73C9", "#EEE9F8", "#2E2450"],
+    sky: ["#F0F7FD", "#3E8AC8", "#E3F0FB", "#16324D"], sage: ["#F3F6F1", "#6F8F6B", "#E8EFE5", "#243322"], peach: ["#FFF5EF", "#E07A5F", "#FCE8DF", "#4A2418"],
+    butter: ["#FFF5F5", "#C21E33", "#FBE3E6", "#4A0D16"], teal: ["#EFF8F7", "#2A9D8F", "#DDF1EE", "#123F3A"], mocha: ["#F7F1EC", "#7B4B33", "#EFE4DB", "#2E1A10"],
+    plum: ["#F8F2F7", "#8E3E7E", "#F1E3EE", "#3A1433"], indigo: ["#F0F2FA", "#3F51A0", "#E3E7F6", "#18214A"]};
+  const dotGrid = c => tile(22, 22, `<circle cx="11" cy="11" r="1.1" fill="${c}" opacity=".3"/>`);
+  Object.entries(PLAIN).forEach(([k, [paper, c, fill, ink]]) => { const was = T2[k] || {};
+    // native: the map draws its own boxes (your shapes) and background, in this colour; box() and line() are for the picker's picture
+    T2[k] = {name: was.name, base: paper, native: true, col: c, desc: `Simple ${was.name} colour: your boxes and lines in it.`, tile: dotGrid(c), arrow: c,
+      line: () => ({st: `stroke:${c};stroke-width:2;stroke-linecap:round;opacity:.8`}),
+      box: n => ({o: rr(n, n.root ? 14 : 12, S(n.root ? c : fill, c, n.root ? 2 : 1.6, SH)), t: {ink: n.root ? "#fff" : ink, fw: 800}})}; });
+  Object.keys(T2).forEach(k => { P["t_" + k] = Object.assign({group: "theme"}, T2[k]); });
   Object.keys(P).forEach(k => { P[k].id = k; });
   // which theme has its own style (skin id → style)
   const THEME_OF = {sakura: "sakura", forest: "forest", ocean: "ocean", galaxy: "galaxy", cafe: "cafe", halloween: "halloween", reading: "reading", music: "music", autumn: "autumn", winter: "winter", arctic: "arctic", candy: "candy", baking: "baking", gaming: "gaming", xmas: "xmas"};
+  Object.keys(T2).forEach(k => { THEME_OF[k] = "t_" + k; });
   const SUBJECTS = Object.keys(P).filter(k => P[k].group === "subject");
   // every other theme: its own colours, its motif sprinkled on the background, softly rounded boxes
   // o: {mc (main colour), bd (border), ink, card: [light, deeper], paper (background), motif (a path in ±10 units) or "", dark}
@@ -106441,7 +106769,7 @@ const CMAP = (() => {
     if (auto) (src.files || []).forEach(f => (f.att || []).forEach(([k, id]) => { if (k === "note") { link("file:" + f.id, "note:" + id, "att"); link("file:" + f.id, "board:" + id, "att"); } else if (k === "file" || k === "lecture") link("file:" + f.id, "file:" + id, "att"); }));
     if (auto && src.mode !== "exam") Object.keys(src.classes || {}).forEach(k => link("root", "class:" + k, "class"));
     // the student's own ideas and connections
-    (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, Object.assign({ref: i.id}, i.img && i.img.k ? {img: {k: String(i.img.k), w: Number(i.img.w) || 4, h: Number(i.img.h) || 3}} : {}, atOf(i.at) ? {at: atOf(i.at)} : {}, Array.isArray(i.ev) && i.ev.length ? {ev: i.ev.filter(r => typeof r === "string" && /^[cq]:[^:]+:[^:]+(:[^:]+)?$/.test(r) && r.length < 200).slice(0, 80)} : {}, i.emb && i.emb.e && embedOk(i.emb.e) ? {emb: {p: String(i.emb.p || ""), u: String(i.emb.u || "").slice(0, 600), e: String(i.emb.e).slice(0, 600), th: String(i.emb.th || "").slice(0, 300)}} : {})));
+    (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, Object.assign({ref: i.id}, i.img && i.img.k ? {img: {k: String(i.img.k), w: Number(i.img.w) || 4, h: Number(i.img.h) || 3}} : {}, atOf(i.at) ? {at: atOf(i.at)} : {}, Array.isArray(i.ev) && i.ev.length ? {ev: i.ev.filter(r => typeof r === "string" && /^[cq]:[^:]+:[^:]+(:[^:]+)?$/.test(r) && r.length < 200).slice(0, 80)} : {}, i.emb && i.emb.e && embedOk(i.emb.e) ? {emb: {p: String(i.emb.p || ""), u: String(i.emb.u || "").slice(0, 600), e: String(i.emb.e).slice(0, 600), th: thumbOk(i.emb.th) ? String(i.emb.th) : "", tt: String(i.emb.tt || "").replace(/\s+/g, " ").trim().slice(0, 120)}} : {})));
     // (an idea linked to a PDF page or lecture moment plays or opens it from its own box: no line to the file, so the file isn't pulled onto the map)
     cut.forEach(k => E.delete(k));
     (user.links || []).forEach(l => { if (N.has(l.a) && N.has(l.b)) { const k = ek(l.a, l.b), old = E.get(k); E.set(k, {a: l.a, b: l.b, why: old ? old.why : "user", label: String(l.label || "").slice(0, 60), key: k, user: true, cv: Array.isArray(l.cv) && l.cv.length === 2 && l.cv.every(v => Number.isFinite(Number(v))) ? [Math.max(-1, Math.min(1, Number(l.cv[0]))), Math.max(-3, Math.min(3, Number(l.cv[1])))] : null, w: [1, 2, 3, 4].includes(Number(l.w)) ? Number(l.w) : l.line === "thick" ? 3 : 0, col: /^#[0-9a-f]{6}$/i.test(String(l.col || "")) ? String(l.col) : "", line: LINES.includes(l.line) && l.line !== "thick" ? l.line : "solid", arrow: ARROWS.includes(l.arrow) ? l.arrow : "none"}); } });
@@ -106695,7 +107023,8 @@ const CMAP = (() => {
     const h = u.hostname.replace(/^(www|m)\./, ""), p = u.pathname, q = k => u.searchParams.get(k) || "", out = (pv, e, x) => Object.assign({p: pv, u: u.href, e, name: PROVIDERS[pv]}, x || {});
     let m;
     if (h === "youtube.com" || h === "youtu.be" || h === "youtube-nocookie.com" || h === "music.youtube.com") {
-      const id = h === "youtu.be" ? p.slice(1).split("/")[0] : q("v") || ((m = /^\/(?:embed|shorts|live|v)\/([\w-]{6,})/.exec(p)) ? m[1] : "");
+      m = /^\/(?:embed|shorts|live|v)\/([\w-]{6,})/.exec(p);
+      const id = h === "youtu.be" ? p.slice(1).split("/")[0] : q("v") || (m ? m[1] : "");
       if (!/^[\w-]{6,20}$/.test(id)) return null; const t = secs(q("t") || q("start"));
       return out("youtube", `https://www.youtube-nocookie.com/embed/${id}?rel=0${t ? "&start=" + t : ""}`, {id, th: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`});
     }
@@ -106720,14 +107049,37 @@ const CMAP = (() => {
     return null;
   }
   const embedOk = url => { try { const x = new URL(url); return x.protocol === "https:" && EMBED_HOSTS.includes(x.hostname); } catch (e) { return false; } };
-  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
+  /* Previews: an embed's box shows the provider's own picture, loaded from the provider by its address. Only the address (th) and the title (tt) are kept on the embed,
+     never the picture. th: the provider's documented thumbnail address; oe: its oEmbed endpoint (answers with CORS) for thumbnail_url and title;
+     live: no picture to be had (Desmos, GeoGebra, Canva, Google published to the web), so the box can show a small live view of the embed itself. */
+  const OEMBED = {youtube: [/\/embed\/([\w-]{6,20})/, "https://www.youtube.com/oembed?format=json&url=https://youtu.be/"], vimeo: [/\/video\/(\d{5,12})/, "https://vimeo.com/api/oembed.json?url=https://vimeo.com/"],
+    loom: [/\/embed\/([0-9a-f]{20,40})/, "https://www.loom.com/v1/oembed?url=https://www.loom.com/share/"], spotify: [/\/embed\/((?:track|album|playlist|episode|show)\/\w{10,})/, "https://open.spotify.com/oembed?url=https://open.spotify.com/"],
+    ted: [/\/talks\/([\w-]+)/, "https://www.ted.com/services/v1/oembed.json?url=https://www.ted.com/talks/"]};
+  const thumbOk = s => typeof s === "string" && s.length <= 600 && /^https:\/\/[^\s"'<>\\]+$/.test(s);
+  function previewOf(emb){
+    const e = String(emb && emb.e || ""), p = emb && emb.p, o = OEMBED[p], r = {th: "", oe: "", live: false}; let m;
+    if (!embedOk(e)) return r;
+    if (p === "youtube" && (m = /\/embed\/([\w-]{6,20})/.exec(e))) r.th = `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
+    else if (p === "phet" && (m = /\/sims\/html\/([\w-]+)\//.exec(e))) r.th = `https://phet.colorado.edu/sims/html/${m[1]}/latest/${m[1]}-600.png`;
+    // a Google file shared as Anyone with the link: Drive's thumbnail (a private file's doesn't load, and the box stays plain)
+    else if (/^g(doc|slides|sheet|drive)$/.test(p) && !/\/d\/e\//.test(e) && (m = /\/d\/([\w-]{20,})\//.exec(e))) r.th = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w640`;
+    if (o && (m = o[0].exec(e))) r.oe = o[1] + m[1];
+    r.live = !r.th && !r.oe;
+    return r;
+  }
+  // what an oEmbed answer gives a box: the address of the provider's picture, and the title
+  const fromOembed = j => ({th: j && thumbOk(j.thumbnail_url) ? j.thumbnail_url : "", tt: j && typeof j.title === "string" ? j.title.replace(/\s+/g, " ").trim().slice(0, 120) : ""});
+  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
 })();
 /*CMAP-END*/
 
 // Beta: a small β after the title until the owner says it's done (set BETA to false to take it off)
-const BETA = true;
+const BETA = false; // out of beta
 const betaHead = html => BETA ? html.replace(/(<span class="sh-kick">[^<]*)(<\/span>)/, '$1<span class="sb-beta" title="Beta: still being improved">Beta</span>$2').replace(/(<span class="g2-ring sh-ring"[^>]*>)/, '$1<span class="sb-beta sb-beta-alt" aria-hidden="true">Beta</span>') : html;
-const PRO_WHY = "Concept Maps are part of Studyboard Pro: see how your notes, decks, PDFs, lectures and exam topics connect, and practise filling the map in.";
+/* Concept maps are free for everyone. Pro: map styles, videos and embeds, pictures, any colour, links to a PDF page or lecture moment,
+   Scan a Drawing, and Colour by Knowledge (with the flashcards and quiz questions attached to ideas, and matching them) */
+const isLocked = () => !!(window.SBPRO && SBPRO.locked());
+const PRO_KNOW = "Colour by Knowledge is part of Studyboard Pro: each idea takes the colour of how well you know it, from your flashcard and quiz results.";
 const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/></svg>';
 const KIND = {course: ["Course", "#2F6FE4"], exam: ["Exam", "#D64545"], topic: ["Topic", "#7C5CFF"], note: ["Note", "#C98A1B"], board: ["Whiteboard", "#E8590C"], deck: ["Deck", "#1C7ED6"], file: ["File", "#5F6B7A"], lecture: ["Lecture Recording", "#0C8599"], class: ["Class", "#0CA678"], idea: ["Your Idea", "#D6336C"]};
 const CONF = {weak: ["Shaky", "#E03131"], ok: ["OK", "#E8A317"], strong: ["Strong", "#2F9E44"]};
@@ -106798,7 +107150,6 @@ function studyIdeas(ids){
 }
 // Make (or update) the map's deck: each worded connection is a card; one Undo for the deck and the map together
 function makeCards(both){
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Making flashcards from a concept map is part of Studyboard Pro."); return; }
   const o = M.own, m = CMAP.mapCards(M.g, {both}), ref = refOf(o), old = mapDeck(o), name = (metaOf(o).name || (ownerObj(o) || {}).title || "Concept Map").slice(0, 70);
   if (!m.cards.length) { M.err = "Put words on some connections first (tap a line, then type how the two ideas connect). Each worded connection becomes a card."; paint(); return; }
   const d = old ? clone(old) : normDeck({id: uid(), name: `${name} Map Cards`, courseId: courseIdOf(o), created: Date.now(), cards: []});
@@ -106985,7 +107336,8 @@ function saveUser(u, label, meta){
 function mapChange(u, meta){
   const x = ownerObj(M.own); if (!x) return null;
   // positions only for nodes still on the map, so the record stays small
-  const live = new Set((M.g ? M.g.nodes : []).map(n => n.id)), pos = {}; Object.keys(u.pos).forEach(k => { if (live.has(k)) pos[k] = u.pos[k]; });
+  // (an idea being added isn't drawn yet, but keeps its place)
+  const live = new Set((M.g ? M.g.nodes : []).map(n => n.id).concat(u.add.map(i => "idea:" + i.id))), pos = {}; Object.keys(u.pos).forEach(k => { if (live.has(k)) pos[k] = u.pos[k]; });
   const styles = {}; Object.keys(u.styles || {}).forEach(k => { const st = CMAP.styleOf(u.styles[k]); if (CMAP.styled(st) && (live.has(k) || k === "root")) styles[k] = st; });
   const ov = {pos, hide: u.hide.slice(-200), add: u.add.slice(-80), links: u.links.slice(-240), cut: u.cut.slice(-200), names: u.names, styles, at: Date.now()};
   if (M.own.kind === "course") {
@@ -107066,30 +107418,29 @@ function bounds(){
 /* Entry points */
 function courseBtn(c){
   if (!c || inPreview() || !window.SBPRO) return "";
-  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">${ICON} Concept Map${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">${ICON} Concept Map</button>`;
 }
 // A course's map lives in a small card in the course page's side column (the button row is kept to five), once there's something to map
 if (typeof C2_ICONS === "object" && C2_ICONS && !C2_ICONS.cmap) C2_ICONS.cmap = '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>';
 function courseCard(c){
   if (!c || inPreview() || !window.SBPRO || typeof c2Box !== "function") return "";
-  const pro = SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "", n = mapsOf(c).length;
+  const pro = "", n = mapsOf(c).length; // maps are free for everyone
   const newBtn = l => `<button type="button" class="btn small" data-act="cm-new" data-course="${esc(c.id)}">${l}${pro}</button>`;
   if (!n) return c2Box("cmap", "Concept Maps", "", `<div class="facts c2-none cm-card"><span class="mini">See how this course fits together: map your ideas and connect your notes, decks and files.</span>${newBtn("Create Map")}</div>`);
   return c2Box("cmap", "Concept Maps", n, `<div class="facts c2-none cm-card"><span class="mini">${n} map${n === 1 ? "" : "s"} for this course, in Review.</span><button type="button" class="btn small" data-act="cm-review" data-id="${esc(c.id)}">Open</button>${newBtn("New")}</div>`);
 }
 function examBtn(ex){
   if (!ex || inPreview() || !window.SBPRO || !topicsOf(ex).length) return "";
-  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="exam" data-id="${esc(ex.id)}">${ICON} Concept Map${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="exam" data-id="${esc(ex.id)}">${ICON} Concept Map</button>`;
 }
 function open(kind, id, map){
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
   const o = {kind: kind === "exam" ? "exam" : "course", id}; if (!ownerObj(o)) return;
   // a course map: the one asked for, else the course's first (or a new one, saved once you change something)
   if (o.kind === "course") { const ms = mapsOf(state.courses[id]); o.map = map && ms.some(m => m.id === map) ? map : (ms[0] || {}).id || "main"; }
   const same = M.own && M.own.kind === o.kind && M.own.id === o.id && M.own.map === o.map;
   // a map always opens with its menus and panels closed (Map Style, a box's Style, a toolbar menu, a colour picker...), even if they were open when it closed
   Object.assign(M, {own: o, sel: "", selE: "", connect: "", quiz: null, sug: null, err: "", busy: false, menu: "", looks: false, lookScrolled: false, styleOpen: false, cardsOpen: false, made: null, pick: "", lastTap: null});
-  if (!same) { M.loose = false; M.know = o.kind === "exam"; M.undoS = []; M.redoS = []; }
+  if (!same) { M.loose = false; M.know = o.kind === "exam" && !isLocked(); M.undoS = []; M.redoS = []; }
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
   const mp = mapOf(o);
   // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
@@ -107139,7 +107490,7 @@ const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
   const e = CMAP.embedOf(raw); if (!e || !CMAP.embedOk(e.e)) return false;
-  const emb = {p: e.p, u: e.u, e: e.e, th: e.th || ""}, x = userOf(M.own);
+  const emb = {p: e.p, u: e.u, e: e.e, th: e.th || CMAP.previewOf(e).th || ""}, x = userOf(M.own);
   if (ontoId && ontoId.startsWith("idea:")) { x.add = x.add.map(i => "idea:" + i.id === ontoId ? Object.assign({}, i, {emb}) : i); saveUser(x, `Added ${e.name} to the map`); M.sel = ontoId; }
   else {
     const id = uid(); x.add = x.add.concat([{id, label: "", emb}]); x.links = x.links.concat([{a: M.sel || "root", b: "idea:" + id, label: ""}]);
@@ -107163,13 +107514,76 @@ function embedPanel(ontoId){
 function player(id){
   closePlayer();
   const n = M.byId[id]; if (!n || !n.emb || !CMAP.embedOk(n.emb.e)) return;
-  const e = n.emb, name = n.label || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
+  const e = n.emb, name = n.label || embInfo(e).tt || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
   const src = e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e;
   cv.insertAdjacentHTML("beforeend", `<div class="cm-player${vid && e.p !== "spotify" ? " is-video" : e.p === "spotify" ? " is-audio" : ""}" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><span class="cm-embdot" style="background:${EMB_COL[e.p] || "#475569"}"></span><b>${esc(name)}</b><span class="spacer"></span><a class="btn small" href="${esc(e.u)}" target="_blank" rel="noopener noreferrer">Open in ${esc(CMAP.PROVIDERS[e.p] || "Browser")}</a><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">×</button></div>
     ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}${e.p === "spotify" ? `<p class="mini cm-player-tip">Spotify plays whole songs and episodes here only when you're signed in to Spotify in this browser; otherwise it plays a 30-second preview. Open in Spotify plays the whole thing.</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; storage-access" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div></div>`);
   const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
 }
 function closePlayer(){ const p = M.el && M.el.querySelector(".cm-player"); if (p) { p.remove(); return true; } return false; }
+/* Previews on embed boxes (CMAP.previewOf): the provider's own picture, loaded from the provider by its address. Only the address and the title are
+   saved on the embed, never the picture. A picture that won't load (taken down, or a private Google file) leaves the plain box. Sites with no
+   picture get a small live view of the embed, drawn over the box: never on a phone, at most LIVE_MAX at once, and hidden while the map moves. */
+const EMB_INFO = new Map(), EMB_BAD = new Set(), LIVE_MAX = 4; let EMB_DOWN = 0;
+["pointerdown", "pointerup", "pointercancel"].forEach(t => addEventListener(t, ev => { EMB_DOWN = ev.type === "pointerdown" ? 1 : 0; }, true));
+function embInfo(e){
+  const c = EMB_INFO.get(e.e) || {}, pv = CMAP.previewOf(e), th = e.th || c.th || pv.th;
+  return {th: th && CMAP.thumbOk(th) && !EMB_BAD.has(th) ? th : "", tt: e.tt || c.tt || "", live: pv.live};
+}
+// the provider's oEmbed answer, asked once a session for each embed missing its picture or title; a slow or failed answer leaves the box as it is
+function embLookup(e){
+  const pv = CMAP.previewOf(e); if (!pv.oe || EMB_INFO.has(e.e) || (e.th && e.tt)) return;
+  EMB_INFO.set(e.e, {});
+  const ac = typeof AbortController === "function" ? new AbortController() : null, to = setTimeout(() => ac && ac.abort(), 5000);
+  fetch(pv.oe, {credentials: "omit", referrerPolicy: "no-referrer", signal: ac ? ac.signal : undefined}).then(r => r.ok ? r.json() : null)
+    .then(j => { const got = CMAP.fromOembed(j); if (!got.th && !got.tt) return; EMB_INFO.set(e.e, got); embKeep(e.e); })
+    .catch(() => {}).finally(() => clearTimeout(to));
+}
+// what was found goes onto the embed with the map's save (not an undo step), so the map doesn't ask again
+function embKeep(src){
+  if (!shown() || !M.g) return;
+  if (EMB_DOWN) { setTimeout(() => embKeep(src), 500); return; } // not in the middle of a drag
+  const got = EMB_INFO.get(src) || {}, fill = emb => emb && emb.e === src && ((!emb.th && got.th) || (!emb.tt && got.tt)) ? Object.assign({}, emb, !emb.th && got.th ? {th: got.th} : {}, !emb.tt && got.tt ? {tt: got.tt} : {}) : null;
+  const x = userOf(M.own); let hit = false;
+  x.add = x.add.map(i => { const f = fill(i.emb); if (!f) return i; hit = true; return Object.assign({}, i, {emb: f}); });
+  if (hit && !(typeof inPreview === "function" && inPreview())) { const ch = mapChange(x); if (ch) { M.ownSave = true; try { applyChanges([ch], null, null, {quiet: true}); } finally { M.ownSave = false; } } }
+  M.g.nodes.forEach(n => { const f = fill(n.emb); if (f) n.emb = f; });
+  paint();
+}
+function embPreviews(world, list){
+  // a picture that doesn't load: gone at the source, or not shared. Show the plain box (the site's name underneath).
+  world.querySelectorAll("image.cm-emb-th").forEach(im => im.addEventListener("error", () => { EMB_BAD.add(im.getAttribute("href")); const b = im.closest(".cm-node"); im.remove(); const btn = b && b.querySelector(".cm-emb-btn"); if (btn) btn.setAttribute("transform", btn.getAttribute("transform").replace(/translate\(0 ([-\d.]+)\)/, (m, y) => `translate(0 ${Number(y) - 8})`)); }, {once: true}));
+  if (list.length) setTimeout(() => list.forEach(embLookup), 0);
+  if (!world._cmLive && typeof MutationObserver === "function") {
+    // the map moved (pan, zoom, a box dragged): the live views hide, and come back where they belong once it stops
+    world._cmLive = new MutationObserver(ms => { if (ms.some(m => m.type === "attributes")) { const L = M.el && M.el.querySelector(".cm-live"); if (L) L.classList.add("is-moving"); } clearTimeout(M.liveT); M.liveT = setTimeout(liveSync, 250); });
+    world._cmLive.observe(world, {attributes: true, attributeFilter: ["transform"], childList: true, subtree: true});
+  }
+  clearTimeout(M.liveT); M.liveT = setTimeout(liveSync, 250);
+}
+function liveSync(){
+  const cv = M.el && M.el.querySelector(".cm-canvas"); if (!cv) return;
+  let L = cv.querySelector(".cm-live"); const want = [];
+  // a phone scrolls and pans the map by touch: several live sites would cost smoothness, so it keeps the plain box
+  const phone = !window.matchMedia || matchMedia("(max-width: 640px), (hover: none) and (pointer: coarse)").matches;
+  if (!phone && shown()) {
+    const R = cv.getBoundingClientRect();
+    cv.querySelectorAll(".cm-emb.is-live").forEach(g => {
+      const src = g.dataset.src, r = g.firstElementChild.getBoundingClientRect(), nd = g.closest(".cm-node");
+      if (want.length >= LIVE_MAX || !CMAP.embedOk(src) || !nd || r.width < 90 || r.right < R.left || r.left > R.right || r.bottom < R.top || r.top > R.bottom) return;
+      want.push({k: nd.dataset.n + " " + src, src, x: r.left - R.left, y: r.top - R.top, w: r.width, h: r.height});
+    });
+  }
+  if (!L) { if (!want.length) return; cv.querySelector(".cm-svg").insertAdjacentHTML("afterend", '<div class="cm-live" aria-hidden="true"></div>'); L = cv.querySelector(".cm-live"); }
+  const keep = new Set(want.map(v => v.k));
+  [...L.children].forEach(c => { if (!keep.has(c.dataset.k)) c.remove(); });
+  want.forEach(v => {
+    let f = [...L.children].find(c => c.dataset.k === v.k);
+    if (!f) { L.insertAdjacentHTML("beforeend", `<div class="cm-livef"><iframe src="${esc(v.src)}" title="" tabindex="-1" aria-hidden="true" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div>`); f = L.lastElementChild; f.dataset.k = v.k; }
+    f.style.cssText = `left:${v.x}px;top:${v.y}px;width:${v.w}px;height:${v.h}px`; f.firstElementChild.style.transform = `scale(${v.w / 480})`;
+  });
+  L.classList.remove("is-moving");
+}
 // a picture onto the map: a new picture idea, or onto the idea that's selected (Pro)
 async function addPicture(file, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Pictures in concept maps are part of Studyboard Pro."); return; }
@@ -107224,18 +107638,23 @@ function themeKit(skin){
 // a theme's map style: its own (Sakura's cherry branch...), or its colours and motif
 const themePack = sk => CMPACK.THEME_OF[sk] ? CMPACK.get(CMPACK.THEME_OF[sk]) : themeKit(sk);
 const skinOk = sk => typeof SKINS === "undefined" || SKINS.some(x => x.id === sk);
+// the 14 plain-colour themes' styles are free for everyone; every other style (themes, subjects) is Pro
+const FREE_SKINS = ["classic", "paper", "slate", "sand", "blush", "lavender", "sky", "sage", "peach", "butter", "teal", "mocha", "plum", "indigo"];
+const packFree = pk => !!pk && FREE_SKINS.some(sk => CMPACK.THEME_OF[sk] === pk.id);
 function packOf(){
-  const id = M.own ? metaOf(M.own).pack : ""; if (!id || !window.CMPACK || (window.SBPRO && SBPRO.locked())) return null;
-  if (id === "theme") return themePack(skinNow());
-  if (/^t-/.test(id)) return skinOk(id.slice(2)) ? themePack(id.slice(2)) : null;
-  return CMPACK.get(id);
+  // a map with no style chosen follows the theme in use (Match My Theme); Plain is kept as "plain"
+  const id = M.own ? metaOf(M.own).pack || "theme" : ""; if (!id || id === "plain" || !window.CMPACK) return null;
+  const pk = id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? (skinOk(id.slice(2)) ? themePack(id.slice(2)) : null) : CMPACK.get(id);
+  return pk && (!isLocked() || packFree(pk)) ? pk : null;
 }
 // the outline a style drew becomes the box's shape (lines meet it, and it shows selection); the box's own colours still win
 const pkOutline = (o, col, n) => o.replace(/^<(\w+)/, '<$1 class="cm-shape pk-o"').replace(/style="([^"]*)"/, (m, st) => `style="--c:${col};${st}${n.fill ? `;fill:${n.fill}` : ""}${n.stroke ? `;stroke:${n.stroke}` : ""}"`);
 const pkText = (pk, n) => { try { return pk.box({w: 120, h: 40, root: !!n.root, i: pkVar(n.id)}).t || {}; } catch (e) { return {}; } };
 function pkCanvas(pk){
   const cv = M.el && M.el.querySelector(".cm-canvas"); if (!cv) return;
-  cv.classList.toggle("cm-pk", !!pk); cv.dataset.pk = pk ? pk.id : "";
+  const nat = !!pk && !!pk.native; cv.classList.toggle("cm-pkn", nat); if (nat) cv.style.setProperty("--pk-line", pk.col); else cv.style.removeProperty("--pk-line");
+  cv.dataset.pk = pk ? pk.id : ""; if (nat) pk = null; // a plain-colour style keeps the map's own background and lines
+  cv.classList.toggle("cm-pk", !!pk);
   const set = (k, v) => v ? cv.style.setProperty(k, v) : cv.style.removeProperty(k);
   let arrow = ""; if (pk) { try { arrow = pk.arrow || (/stroke:(#[0-9a-f]{3,8})/i.exec(pk.line([[0, 0], [20, 0], [40, 0], [60, 0]], 0).st || "") || [])[1]; } catch (e) {} }
   const ch = pk ? pk.chip || [pk.base, pk.dark ? "#ffffff55" : "#00000026", pk.dark ? "#FFFFFF" : "#2B2B2B", ""] : [];
@@ -107308,7 +107727,7 @@ function edgeSvg(e){
   // a coloured or thicker line gets arrowheads of its own colour and size (made once per kind, in the map's defs)
   const mid = e.col || e.w > 2 ? arrowFor(e) : "", mk = e.arrow === "end" || e.arrow === "both" ? ` marker-end="url(#${mid ? mid : "cmArr"})"` : "", ms = e.arrow === "both" ? ` marker-start="url(#${mid ? mid + "S" : "cmArrS"})"` : "";
   const st = `${e.w ? `--lw:${LINE_W[e.w]}px;` : ""}${e.col ? `--lc:${e.col};` : ""}`;
-  if (M.pk) {
+  if (M.pk && !M.pk.native) {
     // a map style's line: the line itself (its arrows, its colour if one was picked) with the style's drawing under and over it
     const t = (a, b, f) => a + (b - a) * f, p = G.curved ? [[G.sx, G.sy], [t(G.sx, G.cx, 2 / 3), t(G.sy, G.cy, 2 / 3)], [t(G.ex, G.cx, 2 / 3), t(G.ey, G.cy, 2 / 3)], [G.ex, G.ey]] : [[G.sx, G.sy], [t(G.sx, G.ex, 1 / 3), t(G.sy, G.ey, 1 / 3)], [t(G.sx, G.ex, 2 / 3), t(G.sy, G.ey, 2 / 3)], [G.ex, G.ey]];
     let L = {}; try { L = M.pk.line(p, pkVar(e.key)) || {}; } catch (er) {}
@@ -107323,12 +107742,12 @@ function fitEdgeLabels(scope){
 function paint(){
   if (!shown() || !M.g) return;
   const g = M.g, world = M.el.querySelector(".cm-world"), know = M.know ? know_() : null, Q = M.quiz;
-  const P = id => M.pos[id] || [0, 0], pk = M.pk = packOf(), pkb = pk && !know && !Q ? pk : null, pkFonts = new Set();
+  const P = id => M.pos[id] || [0, 0], pk = M.pk = packOf(), pkb = pk && !know && !Q && !pk.native ? pk : null, pkCol = pk && pk.native && !know ? pk.col : "", pkFonts = new Set();
   pkCanvas(pk);
-  M.byId = {}; g.nodes.forEach(n => { M.byId[n.id] = n; }); M.size = {};
+  M.byId = {}; g.nodes.forEach(n => { M.byId[n.id] = n; }); M.size = {}; const embLater = [];
   // nodes first (their sizes come from their labels), then the lines between their edges
   const nodes = g.nodes.map(n => {
-    const [x, y] = P(n.id), col = n.color && !know ? n.color : nodeColor(n, know), qi = Q ? Q.ids.indexOf(n.id) : -1, hidden = qi >= 0 && !Q.done.has(n.id), shape = CMAP.shapeOf(n);
+    const [x, y] = P(n.id), col = n.color && !know ? n.color : pkCol || nodeColor(n, know), qi = Q ? Q.ids.indexOf(n.id) : -1, hidden = qi >= 0 && !Q.done.has(n.id), shape = CMAP.shapeOf(n);
     const pt = pkb && !n.img && !n.emb ? pkText(pkb, n) : null; if (pt && pt.font && !n.font) pkFonts.add(pt.font);
     const lab0 = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), label = pt && pt.up ? lab0.toUpperCase() : lab0, dot = false;
     const fs = n.size || Math.round((n.root ? 15 : 13) * (pt && pt.sz ? pt.sz : 1)), fam = n.font ? FONT_STACK[n.font] : pt && pt.font ? FONT_STACK[pt.font] : "", ink = n.text || autoInk(n.fill) || (pt ? pt.ink : "");
@@ -107344,11 +107763,12 @@ function paint(){
     let tw = 60; try { tw = t.getBBox().width; } catch (e) {}
     if (n.emb) {
       const k = n.scale || 1, iw = Math.round(176 * k), ih = Math.round(iw * 9 / 16), fs = n.size || 13, lh = fs * 1.6 + 4, w = Math.max(iw + 16, tw + 24), h = ih + 16 + lh; M.size[n.id] = [w, h];
-      const e = n.emb, cid = "cmc" + n.ref.replace(/[^a-z0-9]/gi, ""), col = EMB_COL[e.p] || "#475569", y0 = -h / 2 + 8, vid = EMB_VIDEO.has(e.p);
+      const e = n.emb, cid = "cmc" + n.ref.replace(/[^a-z0-9]/gi, ""), col = EMB_COL[e.p] || "#475569", y0 = -h / 2 + 8, vid = EMB_VIDEO.has(e.p), pv = embInfo(e), th = pv.th; embLater.push(e);
       el.insertAdjacentHTML("afterbegin", shapeSvg(shape === "pill" ? "rounded" : shape, w, h, el.dataset.col, false, n) + `<clipPath id="${cid}"><rect x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" rx="8"/></clipPath>`
-        + `<g class="cm-emb" clip-path="url(#${cid})"><rect x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" fill="${col}"/>${e.th ? `<image href="${esc(e.th)}" x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid slice"/>` : `<text class="cm-emb-name" x="0" y="${y0 + ih - 12}" text-anchor="middle">${esc(CMAP.PROVIDERS[e.p] || "Embed")}</text>`}</g>`
-        + `<g class="cm-emb-btn" transform="translate(0 ${y0 + ih / 2 - (e.th ? 0 : 8)})"><circle r="${Math.round(17 * Math.min(k, 1.6))}"/>${vid ? `<path d="M-5 -8L9 0L-5 8Z" transform="scale(${Math.min(k, 1.6)})"/>` : `<path d="M-6 -2V-6H-2M6 2V6H2M-6 -6L-1 -1M6 6L1 1" transform="scale(${Math.min(k, 1.6)})" class="cm-emb-ex"/>`}</g>`);
-      if (!n.label) t.textContent = embName(e);
+        + `<g class="cm-emb${pv.live ? " is-live" : ""}" clip-path="url(#${cid})"${pv.live ? ` data-src="${esc(e.e)}"` : ""}><rect x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" fill="${col}"/><text class="cm-emb-name" x="0" y="${y0 + ih - 12}" text-anchor="middle">${esc(CMAP.PROVIDERS[e.p] || "Embed")}</text>${th ? `<image class="cm-emb-th" href="${esc(th)}" x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid slice"/>` : ""}</g>`
+        + `<g class="cm-emb-btn" transform="translate(0 ${y0 + ih / 2 - (th ? 0 : 8)})"><circle r="${Math.round(17 * Math.min(k, 1.6))}"/>${vid ? `<path d="M-5 -8L9 0L-5 8Z" transform="scale(${Math.min(k, 1.6)})"/>` : `<path d="M-6 -2V-6H-2M6 2V6H2M-6 -6L-1 -1M6 6L1 1" transform="scale(${Math.min(k, 1.6)})" class="cm-emb-ex"/>`}</g>`);
+      // no caption of its own: the title from the provider (cut to fit the box), else the site's name
+      if (!n.label) { t.textContent = pv.tt ? trunc(pv.tt, Math.max(10, Math.floor(iw / 7.4))) : embName(e); if (pv.tt) t.insertAdjacentHTML("beforeend", `<title>${esc(pv.tt)}</title>`); }
       t.setAttribute("y", h / 2 - lh / 2 + fs * 0.36 - 2); t.setAttribute("x", 0); t.setAttribute("text-anchor", "middle");
       return;
     }
@@ -107395,7 +107815,7 @@ function paint(){
   fitEdgeLabels(world);
   const need = [...new Set(g.nodes.map(n => FONT_FILE[n.font]).concat([...pkFonts].map(f => FONT_FILE[f])).concat(pk && pk.chip && pk.chip[3] ? [FONT_FILE[pk.chip[3]]] : []).filter(Boolean))].filter(f => !M.fontsOk[f]);
   if (need.length && document.fonts && document.fonts.load) Promise.all(need.map(f => document.fonts.load(`16px "${f}"`).catch(() => null))).then(() => { need.forEach(f => { M.fontsOk[f] = true; }); if (shown()) paint(); });
-  tools(); panel(); legend(know);
+  tools(); panel(); legend(know); embPreviews(world, embLater);
 }
 function legend(know){
   const L = M.el.querySelector(".cm-legend"); if (!L) return;
@@ -107411,20 +107831,20 @@ function tools(){
   const K = M.know ? know() : null, weak = K ? Object.keys(K.lv).filter(id => K.lv[id] === "weak" && (K.stats[id] || {}).cards && K.stats[id].cards.length).length : 0;
   const item = (cm, label, extra) => `<button type="button" role="menuitem" class="cm-mi" data-cm="${cm}" ${extra || ""}>${label}</button>`;
   T.innerHTML = menu("add", `${mi('<path d="M12 5v14M5 12h14"/>')}<span class="cm-ml">Add</span>`, "Add to the map",
-      item("idea", `${mi('<rect x="3" y="7" width="18" height="10" rx="5"/>')} Idea`) + item("mat", `${mi('<path d="M4 5h6l2 2h8v12H4z"/>')} Course Material`) + item("pic", `${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} Picture${pro}`) + item("emb", `${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} Video or Embed${pro}`)
+      item("idea", `${mi('<rect x="3" y="7" width="18" height="10" rx="5"/>')} Idea`, 'title="Or double-click anywhere on the map to add one there"') + item("mat", `${mi('<path d="M4 5h6l2 2h8v12H4z"/>')} Course Material`) + item("pic", `${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} Picture${pro}`) + item("emb", `${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} Video or Embed${pro}`)
       + `<span class="cm-msep">Studyboard AI</span>` + item("desc", `${AI_ICON} Describe Ideas`) + item("suggest", `${AI_ICON} ${M.busy ? "Thinking…" : "Suggest Connections"}`, M.busy ? "disabled" : ""))
     + menu("study", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')}<span class="cm-ml">Study</span>`, "Study from the map",
       item("quiz", `${mi('<path d="M4 6h16M4 12h10M4 18h7"/>')} Fill In the Map`, M.g.nodes.filter(n => !n.root && n.deg).length >= 3 ? "" : "disabled") + item("cards", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} ${mapDeck(M.own) ? "Update Flashcards" : "Make Flashcards"}`)
-      + item("matchall", `${AI_ICON} Match Cards to Ideas`)
+      + item("matchall", `${AI_ICON} Match Cards to Ideas${pro}`)
       + (weak ? item("shaky", `${mi('<circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/>')} Review ${weak} Shaky Idea${weak === 1 ? "" : "s"}`) : ""))
-    + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" aria-label="Colour by Knowledge" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span></label>`
+    + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" aria-label="Colour by Knowledge" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span>${pro}</label>`
     + (weak ? `<button type="button" class="btn small cm-shaky" data-cm="shaky" title="Review the cards for your shaky ideas">${weak} Shaky</button>` : "")
-    + `<button type="button" class="btn small cm-mb${M.looks ? " on" : ""}" data-cm="looks" aria-expanded="${!!M.looks}" title="Map Style: a look for the whole map">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml">Map Style</span>${pro}</button>`
+    + `<button type="button" class="btn small cm-mb${M.looks ? " on" : ""}" data-cm="looks" aria-expanded="${!!M.looks}" title="Map Style: a look for the whole map">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml">Map Style</span></button>`
     + `<span class="spacer"></span>`
     + `<button type="button" class="icon-btn cm-undo" data-cm="undo" aria-label="Undo" title="${(M.undoS || []).length ? esc("Undo: " + M.undoS[M.undoS.length - 1].label) : "Undo"}" ${(M.undoS || []).length ? "" : "disabled"}>${mi('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button>`
     + `<button type="button" class="icon-btn cm-undo cm-redo" data-cm="redo" aria-label="Redo" title="${(M.redoS || []).length ? esc("Redo: " + M.redoS[M.redoS.length - 1].label) : "Redo"}" ${(M.redoS || []).length ? "" : "disabled"}>${mi('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>')}</button>`
     + menu("more", mi('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'), "More",
-      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", `Map Style${pro}`, 'data-phone="1"'), true);
+      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", "Map Style", 'data-phone="1"'), true);
 }
 function closeMenu(){ M.menu = ""; if (!M.el) return; M.el.querySelectorAll(".cm-menu").forEach(m => m.remove()); M.el.querySelectorAll(".cm-mb.on").forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); }
 // a toolbar or panel menu: the button, and its list while open (one open at a time; a tap anywhere else closes it)
@@ -107446,7 +107866,8 @@ function styleHtml(n){
   const chip = (key, l, cur) => `<button type="button" class="cm-pickb" data-cm="pick" data-v="${key}" aria-expanded="${M.pick === key}"><i style="--sw:${cur || "transparent"}" class="${cur ? "" : "is-auto"}"></i>${l}</button>`;
   const shown = id => ({fill: n.fill || (n.color ? "" : ""), stroke: n.stroke || "", text: n.text || ""})[id];
   const fs = n.size || (n.root ? 15 : 13), sc = n.scale || 1;
-  return `${M.pk && !M.know && !n.img && !n.emb ? `<p class="mini cm-pknote">This map's style draws the boxes. Colours, fonts and text still change here.</p>` : ""}<div class="cm-row cm-style"${M.pk && !M.know && !n.img && !n.emb ? " hidden" : ""}><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
+  const pkd = M.pk && !M.pk.native && !M.know && !n.img && !n.emb;
+  return `${pkd ? `<p class="mini cm-pknote">This map's style draws the boxes. Colours, fonts and text still change here.</p>` : ""}<div class="cm-row cm-style"${pkd ? " hidden" : ""}><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
     <div class="cm-row cm-style">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
       <label class="cm-font"><span class="sr">Font</span><select data-cm="font" aria-label="Font">${CMAP.FONTS.map(f => `<option value="${f}" ${(n.font || "") === f ? "selected" : ""} style="${FONT_STACK[f] ? `font-family:${esc(FONT_STACK[f])}` : ""}">${FONT_NAMES[f]}</option>`).join("")}</select></label>
       <span class="cm-step cm-bi" role="group" aria-label="Bold and Italic"><button type="button" class="cm-stb cm-b" data-cm="bold" aria-pressed="${n.b === 1 || (n.root && n.b !== -1)}" title="Bold" aria-label="Bold">B</button><button type="button" class="cm-stb cm-i" data-cm="ital" aria-pressed="${!!n.i}" title="Italic" aria-label="Italic">I</button></span>
@@ -107463,15 +107884,17 @@ function themeGrids(tile){
   return groups.map(([g, title]) => { const list = all.filter(s => g ? s.group === g || (g === "pro" && s.group === "newscenes") : !known.has(s.group) && s.group !== "newscenes"); if (!list.length) return "";
     return `<p class="cm-lookh">${title}</p><div class="cm-lookg">${list.map(s => { const own = CMPACK.THEME_OF[s.id], pk = themePack(s.id), id = own || "t-" + s.id; return tile(id, s.name, CMPACK.preview(pk, FONT_STACK), own ? pk.desc : `${s.name}'s colours${pk.tile.svg.includes("<path") ? " and motif" : ""}`); }).join("")}</div>`; }).join("");
 }
+// whether a style in the picker is free: Plain, a plain-colour theme's, or Match My Theme while on a plain-colour theme
+const lookFree = id => !id || packFree(id === "theme" ? themePack(skinNow()) : CMPACK.get(id));
 // Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
 function looksPanel(){
   const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
-  const cur = metaOf(M.own).pack || "", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
+  const cur = metaOf(M.own).pack === "plain" ? "" : metaOf(M.own).pack || "theme", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
   const plain = `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><g fill="var(--muted)" opacity=".35">${Array.from({length: 28}, (_, i) => `<circle cx="${8 + (i % 7) * 25}" cy="${10 + Math.floor(i / 7) * 25}" r="1"/>`).join("")}</g><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.6"/><rect x="101" y="13" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/><rect x="101" y="61" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/></svg>`;
-  const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
+  const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked && !lookFree(id) ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
   const grid = ids => `<div class="cm-lookg">${ids.map(id => { const k = CMPACK.P[id]; return tile(id, k.name, CMPACK.preview(k, FONT_STACK), k.desc); }).join("")}</div>`;
   P.innerHTML = `<div class="cm-looks"><div class="cm-row cm-ttl"><b>Map Style</b><span class="mini">A look for the whole map: its background, boxes and lines.</span><span class="spacer"></span><button type="button" class="btn small" data-cm="looks-x">Done</button></div>
-    <div class="cm-lookg">${tile("", "Plain", plain, "Studyboard's own look")}${tile("theme", `Match My Theme`, CMPACK.preview(mine, FONT_STACK), `Follows your theme (now ${skinName(sk)})`)}</div>
+    <div class="cm-lookg">${tile("", "Plain", plain, "Studyboard's own look")}${tile("theme", `Match My Theme`, CMPACK.preview(mine, FONT_STACK), `The default: follows your theme (now ${skinName(sk)})`)}</div>
     <p class="cm-lookh">Subjects</p>${grid(CMPACK.SUBJECTS)}${themeGrids(tile)}</div>`;
   const on = P.querySelector(".cm-look.on"); if (on && on.scrollIntoView && !M.lookScrolled) { M.lookScrolled = true; try { on.scrollIntoView({block: "nearest"}); } catch (e) {} }
 }
@@ -107511,9 +107934,9 @@ function panel(){
     const n = g.nodes.find(x => x.id === M.sel); if (!n) { M.sel = ""; panel(); return; }
     const k = (KIND[n.kind] || KIND.file)[0], K = know(), kn = K.lv[n.id] || (M.know ? "" : n.conf), ks = K.stats[n.id], opens = n.kind !== "idea" && !(n.root && M.own.kind === "course");
     const res = ks && ks.right + ks.wrong ? `${ks.pct}% right (${ks.right} of ${ks.right + ks.wrong})` : ks && ks.cards.length ? "not studied yet" : "";
-    P.innerHTML = `<div class="cm-row cm-ttl"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""}${(n.ev || []).length ? ` · ${n.ev.length} attached` : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span><button type="button" class="icon-btn cm-pclose" data-cm="desel" aria-label="Done" title="Done">${CLOSE}</button></div>
+    P.innerHTML = `<div class="cm-row cm-ttl"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embInfo(n.emb).tt || embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""}${(n.ev || []).length ? ` · ${n.ev.length} attached` : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span><button type="button" class="icon-btn cm-pclose" data-cm="desel" aria-label="Done" title="Done">${CLOSE}</button></div>
       ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row cm-acts">${n.at ? `<button type="button" class="btn small primary cm-gob" data-cm="goat">${n.at.t != null ? mi('<path d="M8 5v14l11-7z"/>') + " Play from " : mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>') + " Go to "}${esc(atLabel(n.at))}</button>` : ""}${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}${ks && ks.cards.length ? `<button type="button" class="btn small${kn === "weak" ? " primary" : ""}" data-cm="study">Review ${ks.cards.length} Card${ks.cards.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn small" data-cm="connect" aria-label="Connect To…">Connect<span class="cm-ml"> To…</span></button><button type="button" class="btn small" data-cm="rename">Rename</button><button type="button" class="btn small${M.styleOpen ? " on" : ""}" data-cm="style" aria-expanded="${!!M.styleOpen}">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml"> Style</span></button>${n.kind === "idea" ? menu("attach", `${mi('<path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/>')}<span class="cm-ml"> Attach</span>`, "Attach a page, lecture, picture or video",
-        `<button type="button" role="menuitem" class="cm-mi" data-cm="evp">${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} Flashcards and Questions${(n.ev || []).length ? ` (${n.ev.length})` : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atpdf">${mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>')} ${n.at && n.at.p ? "Change PDF Page" : "PDF Page"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atlec">${mi('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')} ${n.at && n.at.t != null ? "Change Lecture Moment" : "Lecture Moment"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="picon">${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} ${n.img ? "Change Picture" : "Picture"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="emb">${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} ${n.emb ? "Change Video or Embed" : "Video or Embed"}</button>${n.at || n.img || n.emb ? '<span class="cm-msep">Remove</span>' : ""}${n.at ? `<button type="button" role="menuitem" class="cm-mi" data-cm="atoff">${n.at.t != null ? "Lecture Moment" : "PDF Page"}</button>` : ""}${n.img ? `<button type="button" role="menuitem" class="cm-mi" data-cm="picoff">Picture</button>` : ""}${n.emb ? `<button type="button" role="menuitem" class="cm-mi" data-cm="emboff">Video or Embed</button>` : ""}`) : ""}${n.root ? "" : `<button type="button" class="icon-btn cm-delb" data-cm="${n.kind === "idea" ? "del" : "hide"}" aria-label="${n.kind === "idea" ? "Delete" : "Hide"}" title="${n.kind === "idea" ? "Delete" : "Hide"}">${n.kind === "idea" ? mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') : mi('<path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.6C4.3 8.1 3 12 3 12s4 6 9 6a9 9 0 0 0 4.4-1.2"/>')}</button>`}</div>
+        `<button type="button" role="menuitem" class="cm-mi" data-cm="evp">${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} Flashcards and Questions${(n.ev || []).length ? ` (${n.ev.length})` : ""}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atpdf">${mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>')} ${n.at && n.at.p ? "Change PDF Page" : "PDF Page"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atlec">${mi('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')} ${n.at && n.at.t != null ? "Change Lecture Moment" : "Lecture Moment"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="picon">${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} ${n.img ? "Change Picture" : "Picture"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="emb">${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} ${n.emb ? "Change Video or Embed" : "Video or Embed"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button>${n.at || n.img || n.emb ? '<span class="cm-msep">Remove</span>' : ""}${n.at ? `<button type="button" role="menuitem" class="cm-mi" data-cm="atoff">${n.at.t != null ? "Lecture Moment" : "PDF Page"}</button>` : ""}${n.img ? `<button type="button" role="menuitem" class="cm-mi" data-cm="picoff">Picture</button>` : ""}${n.emb ? `<button type="button" role="menuitem" class="cm-mi" data-cm="emboff">Video or Embed</button>` : ""}`) : ""}${n.root ? "" : `<button type="button" class="icon-btn cm-delb" data-cm="${n.kind === "idea" ? "del" : "hide"}" aria-label="${n.kind === "idea" ? "Delete" : "Hide"}" title="${n.kind === "idea" ? "Delete" : "Hide"}">${n.kind === "idea" ? mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') : mi('<path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.6C4.3 8.1 3 12 3 12s4 6 9 6a9 9 0 0 0 4.4-1.2"/>')}</button>`}</div>
       ${M.styleOpen ? styleHtml(n) : ""}`}`;
     return;
   }
@@ -107623,7 +108046,12 @@ function wireCanvas(){
     // a box with a video or embed: a tap on the embed plays it; a tap anywhere else on the box picks it, to edit
     if (d.id && d.emb && !M.quiz && !M.connect) { M.sel = d.id; M.selE = ""; M.pick = ""; lite(); player(d.id); return; }
     if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
-    else if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
+    else {
+      // a double-click (or double tap) on an empty spot adds an idea there, asking for its name first
+      const now = Date.now(), b = M.bgTap; M.bgTap = {t: now, x: e.clientX, y: e.clientY};
+      if (!M.quiz && b && now - b.t < 450 && Math.hypot(e.clientX - b.x, e.clientY - b.y) < 14) { M.bgTap = null; const [wx, wy] = toWorld(e.clientX, e.clientY); addIdeaAt(Math.round(wx), Math.round(wy)); return; }
+      if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
+    }
   };
   svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", e => { pts.delete(e.pointerId); drag = null; });
   cv.addEventListener("wheel", e => { if (e.target.closest && e.target.closest(".cm-panel, .cm-menu")) return; // the panel and menus scroll as usual
@@ -107634,10 +108062,18 @@ function wireCanvas(){
   // the words on a connection save with Enter or Save
   M.el.addEventListener("submit", e => { if (!e.target.closest(".cm-elf")) return; e.preventDefault(); edgeSet({}, "Put words on a connection"); });
 }
+// a new idea of its own at a spot on the map (double-click), not connected yet: Connect To... links it
+async function addIdeaAt(wx, wy){
+  if (M.connect) M.connect = "";
+  const name = await ask("Name the new idea:"); if (!name || !name.trim()) return;
+  const x = userOf(M.own), id = uid(); x.add = x.add.concat([{id, label: name.trim().slice(0, 80)}]);
+  x.pos = Object.assign({}, x.pos, {["idea:" + id]: [wx, wy]});
+  saveUser(x, `Added ${name.trim()} to the map`); rebuild(true); M.pos["idea:" + id] = [wx, wy]; M.sel = "idea:" + id; M.selE = ""; paint();
+}
 function moveEdges(id){
   const svg = M.el.querySelector(".cm-svg");
   M.g.edges.forEach(e => { if (e.a !== id && e.b !== id) return; const g = svg.querySelector(`.cm-edge[data-e="${CSS.escape(e.key)}"]`); if (!g) return;
-    if (M.pk) { g.insertAdjacentHTML("afterend", edgeSvg(e)); const ng = g.nextElementSibling; g.remove(); fitEdgeLabels(ng); if (e.key === M.selE) drawHandles(); return; }
+    if (M.pk && !M.pk.native) { g.insertAdjacentHTML("afterend", edgeSvg(e)); const ng = g.nextElementSibling; g.remove(); fitEdgeLabels(ng); if (e.key === M.selE) drawHandles(); return; }
     const G = edgeGeo(e); g.querySelectorAll("line").forEach(l => { l.setAttribute("x1", G.sx); l.setAttribute("y1", G.sy); l.setAttribute("x2", G.ex); l.setAttribute("y2", G.ey); }); if (G.curved) g.querySelectorAll("path.cm-line, path.cm-hit").forEach(pp => pp.setAttribute("d", `M${G.sx} ${G.sy}Q${G.cx} ${G.cy} ${G.ex} ${G.ey}`)); if (e.key === M.selE) drawHandles(); const lg = g.querySelector(".cm-elg"); if (lg) lg.setAttribute("transform", `translate(${G.mx},${G.my})`); });
 }
 // Picking something only changes which box or line is highlighted and what the panel shows, so the drawing itself stays put
@@ -107678,7 +108114,7 @@ function viewT(){
   if (cv) { let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
     cv.style.setProperty("--cmg", step.toFixed(2) + "px"); cv.style.setProperty("--cmr", r.toFixed(2) + "px");
     cv.style.setProperty("--cmx", (M.view.x % step).toFixed(1) + "px"); cv.style.setProperty("--cmy", (M.view.y % step).toFixed(1) + "px");
-    if (M.pk) { const tw = M.pk.tile.w * k, th = M.pk.tile.h * k; cv.style.setProperty("--pkw", tw.toFixed(2) + "px"); cv.style.setProperty("--pkh", th.toFixed(2) + "px"); cv.style.setProperty("--pkx", (((M.view.x % tw) + tw) % tw).toFixed(1) + "px"); cv.style.setProperty("--pky", (((M.view.y % th) + th) % th).toFixed(1) + "px"); } }
+    if (M.pk && !M.pk.native) { const tw = M.pk.tile.w * k, th = M.pk.tile.h * k; cv.style.setProperty("--pkw", tw.toFixed(2) + "px"); cv.style.setProperty("--pkh", th.toFixed(2) + "px"); cv.style.setProperty("--pkx", (((M.view.x % tw) + tw) % tw).toFixed(1) + "px"); cv.style.setProperty("--pky", (((M.view.y % th) + th) % th).toFixed(1) + "px"); } }
   return `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`;
 }
 function tapNode(id){
@@ -107732,13 +108168,13 @@ async function onClick(e){
     case "looks": M.looks = !(M.looks && !M.sel && !M.selE && !M.quiz); M.lookScrolled = false; if (M.looks) { M.sel = ""; M.selE = ""; M.styleOpen = false; M.cardsOpen = false; M.made = null; lite(); } tools(); panel(); return;
     case "looks-x": M.looks = false; tools(); panel(); return;
     case "look": {
-      const v = b.dataset.v || "", cur = metaOf(M.own).pack || ""; if (v === cur) return;
-      if (v && window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Map styles are part of Studyboard Pro."); return; }
+      const v = b.dataset.v || "", pk0 = metaOf(M.own).pack, cur = pk0 === "plain" ? "" : pk0 || "theme"; if (v === cur) return;
+      if (isLocked() && !lookFree(v)) { PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
       const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : /^t-/.test(v) ? skinName(v.slice(2)) : (CMPACK.P[v] || {}).name || v;
-      saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || null}); paint(); return;
+      saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || "plain"}); paint(); return;
     }
-    case "evp": if (n) evPanel(n); return;
-    case "matchall": matchAll(); return;
+    case "evp": if (isLocked()) { PLAN.openSheet("Attaching flashcards and quiz questions to ideas is part of Studyboard Pro, with Colour by Knowledge."); return; } if (n) evPanel(n); return;
+    case "matchall": if (isLocked()) { PLAN.openSheet("Matching your cards to ideas is part of Studyboard Pro, with Colour by Knowledge."); return; } matchAll(); return;
     case "made-x": M.made = null; panel(); return;
     case "study-deck": { const id = M.made && M.made.deck; M.made = null; if (id && state.decks[id]) { if (dlg.open) dlg.close(); setTimeout(() => startStudy([id]), 0); } return; }
     case "desel": M.sel = ""; M.selE = ""; M.pick = ""; lite(); return;
@@ -107746,7 +108182,7 @@ async function onClick(e){
     case "in": zoomAt(1.25); break;
     case "out": zoomAt(0.8); break;
     case "fit": fit(); paint(); break;
-    case "know": M.know = b.checked; M.kc = null; paint(); break;
+    case "know": if (b.checked && isLocked()) { b.checked = false; PLAN.openSheet(PRO_KNOW); return; } M.know = b.checked; M.kc = null; paint(); break;
     case "cards": cardsPanel(); break;
     case "cards-x": M.cardsOpen = false; panel(); break;
     case "cards-go": makeCards(!!M.both); break;
@@ -107896,7 +108332,7 @@ function cardHtml(d, c){
 hook("act", (act, el, id) => {
   const d = (el && el.dataset) || {};
   if (act === "cm-review") { if (dlg.open) dlg.close(); ui.tab = "flashcards"; ui.deckId = null; ui.fc = null; ui.qzOpen = null; if (typeof rvSet === "function") rvSet("maps"); if (id) ui.filter = id; render(); window.scrollTo(0, 0); return true; }
-  if (act === "cm-new") { if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return true; } newMapSheet(d.course || (ui.filter && ui.filter !== "all" ? ui.filter : "")); return true; }
+  if (act === "cm-new") { newMapSheet(d.course || (ui.filter && ui.filter !== "all" ? ui.filter : "")); return true; }
   if (act === "cm-ren") { renameSheet(d.course, id); return true; }
   if (act === "cm-del") { delMap(d.course, id); return true; }
   if (act === "cm-sort") return true;
@@ -108133,7 +108569,7 @@ function listHtml(){
   const list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
   const cl = x => { const c = courseOf(x.cid); return c ? courseLabel(c) : "General"; };
   list.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name));
-  const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
+  const pro = ""; // maps are free; Pro parts are marked inside the map
   let lastCourse = "";
   const cards = list.map(x => {
     const c = courseOf(x.cid), pk = mapPeek(x), n = pk, head = sort === "course" && cl(x) !== lastCourse ? (lastCourse = cl(x), `<h3 class="fsec cm-grp">${esc(cl(x))}</h3>`) : "";
@@ -108153,7 +108589,7 @@ function listHtml(){
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
-if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", where: "In Review, beside Flashcards and Quizzes: maps of how a course fits together, drawn from your material, a template, a description or a photo of one you drew by hand, with pictures, videos, links to PDF pages and lecture moments, flashcards made from its connections, colours from your results, and Fill In the Map", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -108230,6 +108666,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 /* the panel floats over the bottom of the map, only while there's something to show */
 .cm-canvas.cm-pk{background:var(--pk-img) var(--pkx,0) var(--pky,0)/var(--pkw,200px) var(--pkh,200px),var(--pk-base);box-shadow:var(--pk-frame,none)}
 .cm-canvas.cm-pk .cm-arrow{fill:var(--pk-arrow)}
+.cm-canvas.cm-pkn .cm-edge:not(.has-lc) .cm-line{stroke:color-mix(in srgb,var(--pk-line) 62%,transparent)}
+.cm-canvas.cm-pkn .cm-arrow{fill:color-mix(in srgb,var(--pk-line) 80%,var(--ink))}
 .cm-canvas.cm-pk .cm-elbg{fill:var(--pk-cbg);stroke:var(--pk-cbd)}
 .cm-canvas.cm-pk .cm-elab{fill:var(--pk-cink);font-family:var(--pk-cf,inherit)}
 .cm-canvas.cm-pk .cm-node.is-sel .pk-o{filter:drop-shadow(0 0 2px var(--accent,#2F6FE4)) drop-shadow(0 0 5px var(--accent,#2F6FE4))!important}
@@ -108347,6 +108785,11 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-emb-name{fill:#fff;font-weight:800;font-size:13px;letter-spacing:.02em}
 .cm-node .cm-emb,.cm-node .cm-emb-btn{cursor:pointer}
 .cm-emb-btn circle{fill:rgb(0 0 0/.55);stroke:#fff;stroke-width:1.5}
+.cm-live{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.cm-live.is-moving{visibility:hidden}
+.cm-livef{position:absolute;overflow:hidden;border-radius:7px;background:#fff;pointer-events:none}
+.cm-livef::after{content:"";position:absolute;right:6px;bottom:6px;width:24px;height:24px;border-radius:50%;box-sizing:border-box;border:1.5px solid #fff;background:rgb(0 0 0/.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-9 -9 18 18'%3E%3Cpath d='M-6 -2V-6H-2M6 2V6H2M-6 -6L-1 -1M6 6L1 1' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat}
+.cm-livef iframe{position:absolute;left:0;top:0;width:480px;height:270px;border:0;transform-origin:0 0;pointer-events:none}
 .cm-emb-btn path{fill:#fff}
 .cm-emb-btn .cm-emb-ex{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .cm-node:hover .cm-emb-btn circle{fill:rgb(0 0 0/.75)}

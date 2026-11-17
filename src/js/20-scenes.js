@@ -306,7 +306,7 @@
     const on = {
       init(m){
         self.devicePixelRatio = m.dpr;
-        try { importScripts(m.url); L = self.SCN20_LIB; } catch (e) { L = null; }
+        try { self.importScripts(m.url); L = self.SCN20_LIB; } catch (e) { L = null; }
         postMessage({t: "init", ok: !!(L && L.ENGINES && typeof OffscreenCanvas === "function"), raf: typeof requestAnimationFrame === "function"});
       },
       build(m){

@@ -297,8 +297,8 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   ok(/PRO/.test(await lp.textContent('#dlg[open] [data-act="ws-open"]')), "free accounts see a PRO badge");
   await lp.click('#dlg[open] [data-act="ws-open"]'); await lp.waitForSelector("#dlg[open] .plan-sheet");
   ok(/Writing Studio is part of Studyboard Pro/.test(await lp.textContent("#dlg[open]")), "which opens the Pro sheet");
-  await act(lp, "cm-open", "c1", {kind: "course"}); await lp.waitForSelector("#dlg[open] .plan-sheet");
-  ok(/Concept Maps are part of Studyboard Pro/.test(await lp.textContent("#dlg[open]")), "and so does Concept Map");
+  await act(lp, "cm-open", "c1", {kind: "course"}); await lp.waitForSelector("#dlg[open] .cm-sheet");
+  ok(await lp.locator("#dlg[open] .plan-sheet").count() === 0, "while Concept Maps are free for everyone");
   await lctx.close();
 
   /* ---------- Phone ---------- */

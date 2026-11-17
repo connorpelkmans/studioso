@@ -284,6 +284,8 @@ var SBPRO = null;
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
+    writing: "Sources, citations in 10,000+ styles, quotes from your highlights, an outline and a citation check for every paper.",
+    cmap: "Concept maps are free for everyone. Pro adds every theme and subject style, pictures, videos, any colour, PDF and lecture links, Scan a Drawing and Colour by Knowledge.",
     autopilot: "Missed study sessions move into your next free time overnight. Due dates never move.",
     rubric: "Feedback on your draft against the rubric before you submit.",
     insights: "Where your time goes, how each course is trending, and what's worth a closer look.",
@@ -302,7 +304,7 @@ var SBPRO = null;
     email: "Forward school emails and Studyboard finds the deadlines in them."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
-  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
+  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "writing", "cmap", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
     const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
     const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");

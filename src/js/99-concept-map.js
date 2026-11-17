@@ -65,7 +65,7 @@ const CMAP = (() => {
     if (auto) (src.files || []).forEach(f => (f.att || []).forEach(([k, id]) => { if (k === "note") { link("file:" + f.id, "note:" + id, "att"); link("file:" + f.id, "board:" + id, "att"); } else if (k === "file" || k === "lecture") link("file:" + f.id, "file:" + id, "att"); }));
     if (auto && src.mode !== "exam") Object.keys(src.classes || {}).forEach(k => link("root", "class:" + k, "class"));
     // the student's own ideas and connections
-    (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, Object.assign({ref: i.id}, i.img && i.img.k ? {img: {k: String(i.img.k), w: Number(i.img.w) || 4, h: Number(i.img.h) || 3}} : {}, atOf(i.at) ? {at: atOf(i.at)} : {}, Array.isArray(i.ev) && i.ev.length ? {ev: i.ev.filter(r => typeof r === "string" && /^[cq]:[^:]+:[^:]+(:[^:]+)?$/.test(r) && r.length < 200).slice(0, 80)} : {}, i.emb && i.emb.e && embedOk(i.emb.e) ? {emb: {p: String(i.emb.p || ""), u: String(i.emb.u || "").slice(0, 600), e: String(i.emb.e).slice(0, 600), th: String(i.emb.th || "").slice(0, 300)}} : {})));
+    (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, Object.assign({ref: i.id}, i.img && i.img.k ? {img: {k: String(i.img.k), w: Number(i.img.w) || 4, h: Number(i.img.h) || 3}} : {}, atOf(i.at) ? {at: atOf(i.at)} : {}, Array.isArray(i.ev) && i.ev.length ? {ev: i.ev.filter(r => typeof r === "string" && /^[cq]:[^:]+:[^:]+(:[^:]+)?$/.test(r) && r.length < 200).slice(0, 80)} : {}, i.emb && i.emb.e && embedOk(i.emb.e) ? {emb: {p: String(i.emb.p || ""), u: String(i.emb.u || "").slice(0, 600), e: String(i.emb.e).slice(0, 600), th: thumbOk(i.emb.th) ? String(i.emb.th) : "", tt: String(i.emb.tt || "").replace(/\s+/g, " ").trim().slice(0, 120)}} : {})));
     // (an idea linked to a PDF page or lecture moment plays or opens it from its own box: no line to the file, so the file isn't pulled onto the map)
     cut.forEach(k => E.delete(k));
     (user.links || []).forEach(l => { if (N.has(l.a) && N.has(l.b)) { const k = ek(l.a, l.b), old = E.get(k); E.set(k, {a: l.a, b: l.b, why: old ? old.why : "user", label: String(l.label || "").slice(0, 60), key: k, user: true, cv: Array.isArray(l.cv) && l.cv.length === 2 && l.cv.every(v => Number.isFinite(Number(v))) ? [Math.max(-1, Math.min(1, Number(l.cv[0]))), Math.max(-3, Math.min(3, Number(l.cv[1])))] : null, w: [1, 2, 3, 4].includes(Number(l.w)) ? Number(l.w) : l.line === "thick" ? 3 : 0, col: /^#[0-9a-f]{6}$/i.test(String(l.col || "")) ? String(l.col) : "", line: LINES.includes(l.line) && l.line !== "thick" ? l.line : "solid", arrow: ARROWS.includes(l.arrow) ? l.arrow : "none"}); } });
@@ -319,7 +319,8 @@ const CMAP = (() => {
     const h = u.hostname.replace(/^(www|m)\./, ""), p = u.pathname, q = k => u.searchParams.get(k) || "", out = (pv, e, x) => Object.assign({p: pv, u: u.href, e, name: PROVIDERS[pv]}, x || {});
     let m;
     if (h === "youtube.com" || h === "youtu.be" || h === "youtube-nocookie.com" || h === "music.youtube.com") {
-      const id = h === "youtu.be" ? p.slice(1).split("/")[0] : q("v") || ((m = /^\/(?:embed|shorts|live|v)\/([\w-]{6,})/.exec(p)) ? m[1] : "");
+      m = /^\/(?:embed|shorts|live|v)\/([\w-]{6,})/.exec(p);
+      const id = h === "youtu.be" ? p.slice(1).split("/")[0] : q("v") || (m ? m[1] : "");
       if (!/^[\w-]{6,20}$/.test(id)) return null; const t = secs(q("t") || q("start"));
       return out("youtube", `https://www.youtube-nocookie.com/embed/${id}?rel=0${t ? "&start=" + t : ""}`, {id, th: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`});
     }
@@ -344,14 +345,37 @@ const CMAP = (() => {
     return null;
   }
   const embedOk = url => { try { const x = new URL(url); return x.protocol === "https:" && EMBED_HOSTS.includes(x.hostname); } catch (e) { return false; } };
-  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
+  /* Previews: an embed's box shows the provider's own picture, loaded from the provider by its address. Only the address (th) and the title (tt) are kept on the embed,
+     never the picture. th: the provider's documented thumbnail address; oe: its oEmbed endpoint (answers with CORS) for thumbnail_url and title;
+     live: no picture to be had (Desmos, GeoGebra, Canva, Google published to the web), so the box can show a small live view of the embed itself. */
+  const OEMBED = {youtube: [/\/embed\/([\w-]{6,20})/, "https://www.youtube.com/oembed?format=json&url=https://youtu.be/"], vimeo: [/\/video\/(\d{5,12})/, "https://vimeo.com/api/oembed.json?url=https://vimeo.com/"],
+    loom: [/\/embed\/([0-9a-f]{20,40})/, "https://www.loom.com/v1/oembed?url=https://www.loom.com/share/"], spotify: [/\/embed\/((?:track|album|playlist|episode|show)\/\w{10,})/, "https://open.spotify.com/oembed?url=https://open.spotify.com/"],
+    ted: [/\/talks\/([\w-]+)/, "https://www.ted.com/services/v1/oembed.json?url=https://www.ted.com/talks/"]};
+  const thumbOk = s => typeof s === "string" && s.length <= 600 && /^https:\/\/[^\s"'<>\\]+$/.test(s);
+  function previewOf(emb){
+    const e = String(emb && emb.e || ""), p = emb && emb.p, o = OEMBED[p], r = {th: "", oe: "", live: false}; let m;
+    if (!embedOk(e)) return r;
+    if (p === "youtube" && (m = /\/embed\/([\w-]{6,20})/.exec(e))) r.th = `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
+    else if (p === "phet" && (m = /\/sims\/html\/([\w-]+)\//.exec(e))) r.th = `https://phet.colorado.edu/sims/html/${m[1]}/latest/${m[1]}-600.png`;
+    // a Google file shared as Anyone with the link: Drive's thumbnail (a private file's doesn't load, and the box stays plain)
+    else if (/^g(doc|slides|sheet|drive)$/.test(p) && !/\/d\/e\//.test(e) && (m = /\/d\/([\w-]{20,})\//.exec(e))) r.th = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w640`;
+    if (o && (m = o[0].exec(e))) r.oe = o[1] + m[1];
+    r.live = !r.th && !r.oe;
+    return r;
+  }
+  // what an oEmbed answer gives a box: the address of the provider's picture, and the title
+  const fromOembed = j => ({th: j && thumbOk(j.thumbnail_url) ? j.thumbnail_url : "", tt: j && typeof j.title === "string" ? j.title.replace(/\s+/g, " ").trim().slice(0, 120) : ""});
+  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
 })();
 /*CMAP-END*/
 
 // Beta: a small β after the title until the owner says it's done (set BETA to false to take it off)
-const BETA = true;
+const BETA = false; // out of beta
 const betaHead = html => BETA ? html.replace(/(<span class="sh-kick">[^<]*)(<\/span>)/, '$1<span class="sb-beta" title="Beta: still being improved">Beta</span>$2').replace(/(<span class="g2-ring sh-ring"[^>]*>)/, '$1<span class="sb-beta sb-beta-alt" aria-hidden="true">Beta</span>') : html;
-const PRO_WHY = "Concept Maps are part of Studyboard Pro: see how your notes, decks, PDFs, lectures and exam topics connect, and practise filling the map in.";
+/* Concept maps are free for everyone. Pro: map styles, videos and embeds, pictures, any colour, links to a PDF page or lecture moment,
+   Scan a Drawing, and Colour by Knowledge (with the flashcards and quiz questions attached to ideas, and matching them) */
+const isLocked = () => !!(window.SBPRO && SBPRO.locked());
+const PRO_KNOW = "Colour by Knowledge is part of Studyboard Pro: each idea takes the colour of how well you know it, from your flashcard and quiz results.";
 const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/></svg>';
 const KIND = {course: ["Course", "#2F6FE4"], exam: ["Exam", "#D64545"], topic: ["Topic", "#7C5CFF"], note: ["Note", "#C98A1B"], board: ["Whiteboard", "#E8590C"], deck: ["Deck", "#1C7ED6"], file: ["File", "#5F6B7A"], lecture: ["Lecture Recording", "#0C8599"], class: ["Class", "#0CA678"], idea: ["Your Idea", "#D6336C"]};
 const CONF = {weak: ["Shaky", "#E03131"], ok: ["OK", "#E8A317"], strong: ["Strong", "#2F9E44"]};
@@ -422,7 +446,6 @@ function studyIdeas(ids){
 }
 // Make (or update) the map's deck: each worded connection is a card; one Undo for the deck and the map together
 function makeCards(both){
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Making flashcards from a concept map is part of Studyboard Pro."); return; }
   const o = M.own, m = CMAP.mapCards(M.g, {both}), ref = refOf(o), old = mapDeck(o), name = (metaOf(o).name || (ownerObj(o) || {}).title || "Concept Map").slice(0, 70);
   if (!m.cards.length) { M.err = "Put words on some connections first (tap a line, then type how the two ideas connect). Each worded connection becomes a card."; paint(); return; }
   const d = old ? clone(old) : normDeck({id: uid(), name: `${name} Map Cards`, courseId: courseIdOf(o), created: Date.now(), cards: []});
@@ -609,7 +632,8 @@ function saveUser(u, label, meta){
 function mapChange(u, meta){
   const x = ownerObj(M.own); if (!x) return null;
   // positions only for nodes still on the map, so the record stays small
-  const live = new Set((M.g ? M.g.nodes : []).map(n => n.id)), pos = {}; Object.keys(u.pos).forEach(k => { if (live.has(k)) pos[k] = u.pos[k]; });
+  // (an idea being added isn't drawn yet, but keeps its place)
+  const live = new Set((M.g ? M.g.nodes : []).map(n => n.id).concat(u.add.map(i => "idea:" + i.id))), pos = {}; Object.keys(u.pos).forEach(k => { if (live.has(k)) pos[k] = u.pos[k]; });
   const styles = {}; Object.keys(u.styles || {}).forEach(k => { const st = CMAP.styleOf(u.styles[k]); if (CMAP.styled(st) && (live.has(k) || k === "root")) styles[k] = st; });
   const ov = {pos, hide: u.hide.slice(-200), add: u.add.slice(-80), links: u.links.slice(-240), cut: u.cut.slice(-200), names: u.names, styles, at: Date.now()};
   if (M.own.kind === "course") {
@@ -690,30 +714,29 @@ function bounds(){
 /* Entry points */
 function courseBtn(c){
   if (!c || inPreview() || !window.SBPRO) return "";
-  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">${ICON} Concept Map${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">${ICON} Concept Map</button>`;
 }
 // A course's map lives in a small card in the course page's side column (the button row is kept to five), once there's something to map
 if (typeof C2_ICONS === "object" && C2_ICONS && !C2_ICONS.cmap) C2_ICONS.cmap = '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>';
 function courseCard(c){
   if (!c || inPreview() || !window.SBPRO || typeof c2Box !== "function") return "";
-  const pro = SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "", n = mapsOf(c).length;
+  const pro = "", n = mapsOf(c).length; // maps are free for everyone
   const newBtn = l => `<button type="button" class="btn small" data-act="cm-new" data-course="${esc(c.id)}">${l}${pro}</button>`;
   if (!n) return c2Box("cmap", "Concept Maps", "", `<div class="facts c2-none cm-card"><span class="mini">See how this course fits together: map your ideas and connect your notes, decks and files.</span>${newBtn("Create Map")}</div>`);
   return c2Box("cmap", "Concept Maps", n, `<div class="facts c2-none cm-card"><span class="mini">${n} map${n === 1 ? "" : "s"} for this course, in Review.</span><button type="button" class="btn small" data-act="cm-review" data-id="${esc(c.id)}">Open</button>${newBtn("New")}</div>`);
 }
 function examBtn(ex){
   if (!ex || inPreview() || !window.SBPRO || !topicsOf(ex).length) return "";
-  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="exam" data-id="${esc(ex.id)}">${ICON} Concept Map${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="exam" data-id="${esc(ex.id)}">${ICON} Concept Map</button>`;
 }
 function open(kind, id, map){
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
   const o = {kind: kind === "exam" ? "exam" : "course", id}; if (!ownerObj(o)) return;
   // a course map: the one asked for, else the course's first (or a new one, saved once you change something)
   if (o.kind === "course") { const ms = mapsOf(state.courses[id]); o.map = map && ms.some(m => m.id === map) ? map : (ms[0] || {}).id || "main"; }
   const same = M.own && M.own.kind === o.kind && M.own.id === o.id && M.own.map === o.map;
   // a map always opens with its menus and panels closed (Map Style, a box's Style, a toolbar menu, a colour picker...), even if they were open when it closed
   Object.assign(M, {own: o, sel: "", selE: "", connect: "", quiz: null, sug: null, err: "", busy: false, menu: "", looks: false, lookScrolled: false, styleOpen: false, cardsOpen: false, made: null, pick: "", lastTap: null});
-  if (!same) { M.loose = false; M.know = o.kind === "exam"; M.undoS = []; M.redoS = []; }
+  if (!same) { M.loose = false; M.know = o.kind === "exam" && !isLocked(); M.undoS = []; M.redoS = []; }
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
   const mp = mapOf(o);
   // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
@@ -763,7 +786,7 @@ const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
   const e = CMAP.embedOf(raw); if (!e || !CMAP.embedOk(e.e)) return false;
-  const emb = {p: e.p, u: e.u, e: e.e, th: e.th || ""}, x = userOf(M.own);
+  const emb = {p: e.p, u: e.u, e: e.e, th: e.th || CMAP.previewOf(e).th || ""}, x = userOf(M.own);
   if (ontoId && ontoId.startsWith("idea:")) { x.add = x.add.map(i => "idea:" + i.id === ontoId ? Object.assign({}, i, {emb}) : i); saveUser(x, `Added ${e.name} to the map`); M.sel = ontoId; }
   else {
     const id = uid(); x.add = x.add.concat([{id, label: "", emb}]); x.links = x.links.concat([{a: M.sel || "root", b: "idea:" + id, label: ""}]);
@@ -787,13 +810,76 @@ function embedPanel(ontoId){
 function player(id){
   closePlayer();
   const n = M.byId[id]; if (!n || !n.emb || !CMAP.embedOk(n.emb.e)) return;
-  const e = n.emb, name = n.label || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
+  const e = n.emb, name = n.label || embInfo(e).tt || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
   const src = e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e;
   cv.insertAdjacentHTML("beforeend", `<div class="cm-player${vid && e.p !== "spotify" ? " is-video" : e.p === "spotify" ? " is-audio" : ""}" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><span class="cm-embdot" style="background:${EMB_COL[e.p] || "#475569"}"></span><b>${esc(name)}</b><span class="spacer"></span><a class="btn small" href="${esc(e.u)}" target="_blank" rel="noopener noreferrer">Open in ${esc(CMAP.PROVIDERS[e.p] || "Browser")}</a><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">×</button></div>
     ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}${e.p === "spotify" ? `<p class="mini cm-player-tip">Spotify plays whole songs and episodes here only when you're signed in to Spotify in this browser; otherwise it plays a 30-second preview. Open in Spotify plays the whole thing.</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; storage-access" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div></div>`);
   const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
 }
 function closePlayer(){ const p = M.el && M.el.querySelector(".cm-player"); if (p) { p.remove(); return true; } return false; }
+/* Previews on embed boxes (CMAP.previewOf): the provider's own picture, loaded from the provider by its address. Only the address and the title are
+   saved on the embed, never the picture. A picture that won't load (taken down, or a private Google file) leaves the plain box. Sites with no
+   picture get a small live view of the embed, drawn over the box: never on a phone, at most LIVE_MAX at once, and hidden while the map moves. */
+const EMB_INFO = new Map(), EMB_BAD = new Set(), LIVE_MAX = 4; let EMB_DOWN = 0;
+["pointerdown", "pointerup", "pointercancel"].forEach(t => addEventListener(t, ev => { EMB_DOWN = ev.type === "pointerdown" ? 1 : 0; }, true));
+function embInfo(e){
+  const c = EMB_INFO.get(e.e) || {}, pv = CMAP.previewOf(e), th = e.th || c.th || pv.th;
+  return {th: th && CMAP.thumbOk(th) && !EMB_BAD.has(th) ? th : "", tt: e.tt || c.tt || "", live: pv.live};
+}
+// the provider's oEmbed answer, asked once a session for each embed missing its picture or title; a slow or failed answer leaves the box as it is
+function embLookup(e){
+  const pv = CMAP.previewOf(e); if (!pv.oe || EMB_INFO.has(e.e) || (e.th && e.tt)) return;
+  EMB_INFO.set(e.e, {});
+  const ac = typeof AbortController === "function" ? new AbortController() : null, to = setTimeout(() => ac && ac.abort(), 5000);
+  fetch(pv.oe, {credentials: "omit", referrerPolicy: "no-referrer", signal: ac ? ac.signal : undefined}).then(r => r.ok ? r.json() : null)
+    .then(j => { const got = CMAP.fromOembed(j); if (!got.th && !got.tt) return; EMB_INFO.set(e.e, got); embKeep(e.e); })
+    .catch(() => {}).finally(() => clearTimeout(to));
+}
+// what was found goes onto the embed with the map's save (not an undo step), so the map doesn't ask again
+function embKeep(src){
+  if (!shown() || !M.g) return;
+  if (EMB_DOWN) { setTimeout(() => embKeep(src), 500); return; } // not in the middle of a drag
+  const got = EMB_INFO.get(src) || {}, fill = emb => emb && emb.e === src && ((!emb.th && got.th) || (!emb.tt && got.tt)) ? Object.assign({}, emb, !emb.th && got.th ? {th: got.th} : {}, !emb.tt && got.tt ? {tt: got.tt} : {}) : null;
+  const x = userOf(M.own); let hit = false;
+  x.add = x.add.map(i => { const f = fill(i.emb); if (!f) return i; hit = true; return Object.assign({}, i, {emb: f}); });
+  if (hit && !(typeof inPreview === "function" && inPreview())) { const ch = mapChange(x); if (ch) { M.ownSave = true; try { applyChanges([ch], null, null, {quiet: true}); } finally { M.ownSave = false; } } }
+  M.g.nodes.forEach(n => { const f = fill(n.emb); if (f) n.emb = f; });
+  paint();
+}
+function embPreviews(world, list){
+  // a picture that doesn't load: gone at the source, or not shared. Show the plain box (the site's name underneath).
+  world.querySelectorAll("image.cm-emb-th").forEach(im => im.addEventListener("error", () => { EMB_BAD.add(im.getAttribute("href")); const b = im.closest(".cm-node"); im.remove(); const btn = b && b.querySelector(".cm-emb-btn"); if (btn) btn.setAttribute("transform", btn.getAttribute("transform").replace(/translate\(0 ([-\d.]+)\)/, (m, y) => `translate(0 ${Number(y) - 8})`)); }, {once: true}));
+  if (list.length) setTimeout(() => list.forEach(embLookup), 0);
+  if (!world._cmLive && typeof MutationObserver === "function") {
+    // the map moved (pan, zoom, a box dragged): the live views hide, and come back where they belong once it stops
+    world._cmLive = new MutationObserver(ms => { if (ms.some(m => m.type === "attributes")) { const L = M.el && M.el.querySelector(".cm-live"); if (L) L.classList.add("is-moving"); } clearTimeout(M.liveT); M.liveT = setTimeout(liveSync, 250); });
+    world._cmLive.observe(world, {attributes: true, attributeFilter: ["transform"], childList: true, subtree: true});
+  }
+  clearTimeout(M.liveT); M.liveT = setTimeout(liveSync, 250);
+}
+function liveSync(){
+  const cv = M.el && M.el.querySelector(".cm-canvas"); if (!cv) return;
+  let L = cv.querySelector(".cm-live"); const want = [];
+  // a phone scrolls and pans the map by touch: several live sites would cost smoothness, so it keeps the plain box
+  const phone = !window.matchMedia || matchMedia("(max-width: 640px), (hover: none) and (pointer: coarse)").matches;
+  if (!phone && shown()) {
+    const R = cv.getBoundingClientRect();
+    cv.querySelectorAll(".cm-emb.is-live").forEach(g => {
+      const src = g.dataset.src, r = g.firstElementChild.getBoundingClientRect(), nd = g.closest(".cm-node");
+      if (want.length >= LIVE_MAX || !CMAP.embedOk(src) || !nd || r.width < 90 || r.right < R.left || r.left > R.right || r.bottom < R.top || r.top > R.bottom) return;
+      want.push({k: nd.dataset.n + " " + src, src, x: r.left - R.left, y: r.top - R.top, w: r.width, h: r.height});
+    });
+  }
+  if (!L) { if (!want.length) return; cv.querySelector(".cm-svg").insertAdjacentHTML("afterend", '<div class="cm-live" aria-hidden="true"></div>'); L = cv.querySelector(".cm-live"); }
+  const keep = new Set(want.map(v => v.k));
+  [...L.children].forEach(c => { if (!keep.has(c.dataset.k)) c.remove(); });
+  want.forEach(v => {
+    let f = [...L.children].find(c => c.dataset.k === v.k);
+    if (!f) { L.insertAdjacentHTML("beforeend", `<div class="cm-livef"><iframe src="${esc(v.src)}" title="" tabindex="-1" aria-hidden="true" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div>`); f = L.lastElementChild; f.dataset.k = v.k; }
+    f.style.cssText = `left:${v.x}px;top:${v.y}px;width:${v.w}px;height:${v.h}px`; f.firstElementChild.style.transform = `scale(${v.w / 480})`;
+  });
+  L.classList.remove("is-moving");
+}
 // a picture onto the map: a new picture idea, or onto the idea that's selected (Pro)
 async function addPicture(file, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Pictures in concept maps are part of Studyboard Pro."); return; }
@@ -848,18 +934,23 @@ function themeKit(skin){
 // a theme's map style: its own (Sakura's cherry branch...), or its colours and motif
 const themePack = sk => CMPACK.THEME_OF[sk] ? CMPACK.get(CMPACK.THEME_OF[sk]) : themeKit(sk);
 const skinOk = sk => typeof SKINS === "undefined" || SKINS.some(x => x.id === sk);
+// the 14 plain-colour themes' styles are free for everyone; every other style (themes, subjects) is Pro
+const FREE_SKINS = ["classic", "paper", "slate", "sand", "blush", "lavender", "sky", "sage", "peach", "butter", "teal", "mocha", "plum", "indigo"];
+const packFree = pk => !!pk && FREE_SKINS.some(sk => CMPACK.THEME_OF[sk] === pk.id);
 function packOf(){
-  const id = M.own ? metaOf(M.own).pack : ""; if (!id || !window.CMPACK || (window.SBPRO && SBPRO.locked())) return null;
-  if (id === "theme") return themePack(skinNow());
-  if (/^t-/.test(id)) return skinOk(id.slice(2)) ? themePack(id.slice(2)) : null;
-  return CMPACK.get(id);
+  // a map with no style chosen follows the theme in use (Match My Theme); Plain is kept as "plain"
+  const id = M.own ? metaOf(M.own).pack || "theme" : ""; if (!id || id === "plain" || !window.CMPACK) return null;
+  const pk = id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? (skinOk(id.slice(2)) ? themePack(id.slice(2)) : null) : CMPACK.get(id);
+  return pk && (!isLocked() || packFree(pk)) ? pk : null;
 }
 // the outline a style drew becomes the box's shape (lines meet it, and it shows selection); the box's own colours still win
 const pkOutline = (o, col, n) => o.replace(/^<(\w+)/, '<$1 class="cm-shape pk-o"').replace(/style="([^"]*)"/, (m, st) => `style="--c:${col};${st}${n.fill ? `;fill:${n.fill}` : ""}${n.stroke ? `;stroke:${n.stroke}` : ""}"`);
 const pkText = (pk, n) => { try { return pk.box({w: 120, h: 40, root: !!n.root, i: pkVar(n.id)}).t || {}; } catch (e) { return {}; } };
 function pkCanvas(pk){
   const cv = M.el && M.el.querySelector(".cm-canvas"); if (!cv) return;
-  cv.classList.toggle("cm-pk", !!pk); cv.dataset.pk = pk ? pk.id : "";
+  const nat = !!pk && !!pk.native; cv.classList.toggle("cm-pkn", nat); if (nat) cv.style.setProperty("--pk-line", pk.col); else cv.style.removeProperty("--pk-line");
+  cv.dataset.pk = pk ? pk.id : ""; if (nat) pk = null; // a plain-colour style keeps the map's own background and lines
+  cv.classList.toggle("cm-pk", !!pk);
   const set = (k, v) => v ? cv.style.setProperty(k, v) : cv.style.removeProperty(k);
   let arrow = ""; if (pk) { try { arrow = pk.arrow || (/stroke:(#[0-9a-f]{3,8})/i.exec(pk.line([[0, 0], [20, 0], [40, 0], [60, 0]], 0).st || "") || [])[1]; } catch (e) {} }
   const ch = pk ? pk.chip || [pk.base, pk.dark ? "#ffffff55" : "#00000026", pk.dark ? "#FFFFFF" : "#2B2B2B", ""] : [];
@@ -932,7 +1023,7 @@ function edgeSvg(e){
   // a coloured or thicker line gets arrowheads of its own colour and size (made once per kind, in the map's defs)
   const mid = e.col || e.w > 2 ? arrowFor(e) : "", mk = e.arrow === "end" || e.arrow === "both" ? ` marker-end="url(#${mid ? mid : "cmArr"})"` : "", ms = e.arrow === "both" ? ` marker-start="url(#${mid ? mid + "S" : "cmArrS"})"` : "";
   const st = `${e.w ? `--lw:${LINE_W[e.w]}px;` : ""}${e.col ? `--lc:${e.col};` : ""}`;
-  if (M.pk) {
+  if (M.pk && !M.pk.native) {
     // a map style's line: the line itself (its arrows, its colour if one was picked) with the style's drawing under and over it
     const t = (a, b, f) => a + (b - a) * f, p = G.curved ? [[G.sx, G.sy], [t(G.sx, G.cx, 2 / 3), t(G.sy, G.cy, 2 / 3)], [t(G.ex, G.cx, 2 / 3), t(G.ey, G.cy, 2 / 3)], [G.ex, G.ey]] : [[G.sx, G.sy], [t(G.sx, G.ex, 1 / 3), t(G.sy, G.ey, 1 / 3)], [t(G.sx, G.ex, 2 / 3), t(G.sy, G.ey, 2 / 3)], [G.ex, G.ey]];
     let L = {}; try { L = M.pk.line(p, pkVar(e.key)) || {}; } catch (er) {}
@@ -947,12 +1038,12 @@ function fitEdgeLabels(scope){
 function paint(){
   if (!shown() || !M.g) return;
   const g = M.g, world = M.el.querySelector(".cm-world"), know = M.know ? know_() : null, Q = M.quiz;
-  const P = id => M.pos[id] || [0, 0], pk = M.pk = packOf(), pkb = pk && !know && !Q ? pk : null, pkFonts = new Set();
+  const P = id => M.pos[id] || [0, 0], pk = M.pk = packOf(), pkb = pk && !know && !Q && !pk.native ? pk : null, pkCol = pk && pk.native && !know ? pk.col : "", pkFonts = new Set();
   pkCanvas(pk);
-  M.byId = {}; g.nodes.forEach(n => { M.byId[n.id] = n; }); M.size = {};
+  M.byId = {}; g.nodes.forEach(n => { M.byId[n.id] = n; }); M.size = {}; const embLater = [];
   // nodes first (their sizes come from their labels), then the lines between their edges
   const nodes = g.nodes.map(n => {
-    const [x, y] = P(n.id), col = n.color && !know ? n.color : nodeColor(n, know), qi = Q ? Q.ids.indexOf(n.id) : -1, hidden = qi >= 0 && !Q.done.has(n.id), shape = CMAP.shapeOf(n);
+    const [x, y] = P(n.id), col = n.color && !know ? n.color : pkCol || nodeColor(n, know), qi = Q ? Q.ids.indexOf(n.id) : -1, hidden = qi >= 0 && !Q.done.has(n.id), shape = CMAP.shapeOf(n);
     const pt = pkb && !n.img && !n.emb ? pkText(pkb, n) : null; if (pt && pt.font && !n.font) pkFonts.add(pt.font);
     const lab0 = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), label = pt && pt.up ? lab0.toUpperCase() : lab0, dot = false;
     const fs = n.size || Math.round((n.root ? 15 : 13) * (pt && pt.sz ? pt.sz : 1)), fam = n.font ? FONT_STACK[n.font] : pt && pt.font ? FONT_STACK[pt.font] : "", ink = n.text || autoInk(n.fill) || (pt ? pt.ink : "");
@@ -968,11 +1059,12 @@ function paint(){
     let tw = 60; try { tw = t.getBBox().width; } catch (e) {}
     if (n.emb) {
       const k = n.scale || 1, iw = Math.round(176 * k), ih = Math.round(iw * 9 / 16), fs = n.size || 13, lh = fs * 1.6 + 4, w = Math.max(iw + 16, tw + 24), h = ih + 16 + lh; M.size[n.id] = [w, h];
-      const e = n.emb, cid = "cmc" + n.ref.replace(/[^a-z0-9]/gi, ""), col = EMB_COL[e.p] || "#475569", y0 = -h / 2 + 8, vid = EMB_VIDEO.has(e.p);
+      const e = n.emb, cid = "cmc" + n.ref.replace(/[^a-z0-9]/gi, ""), col = EMB_COL[e.p] || "#475569", y0 = -h / 2 + 8, vid = EMB_VIDEO.has(e.p), pv = embInfo(e), th = pv.th; embLater.push(e);
       el.insertAdjacentHTML("afterbegin", shapeSvg(shape === "pill" ? "rounded" : shape, w, h, el.dataset.col, false, n) + `<clipPath id="${cid}"><rect x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" rx="8"/></clipPath>`
-        + `<g class="cm-emb" clip-path="url(#${cid})"><rect x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" fill="${col}"/>${e.th ? `<image href="${esc(e.th)}" x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid slice"/>` : `<text class="cm-emb-name" x="0" y="${y0 + ih - 12}" text-anchor="middle">${esc(CMAP.PROVIDERS[e.p] || "Embed")}</text>`}</g>`
-        + `<g class="cm-emb-btn" transform="translate(0 ${y0 + ih / 2 - (e.th ? 0 : 8)})"><circle r="${Math.round(17 * Math.min(k, 1.6))}"/>${vid ? `<path d="M-5 -8L9 0L-5 8Z" transform="scale(${Math.min(k, 1.6)})"/>` : `<path d="M-6 -2V-6H-2M6 2V6H2M-6 -6L-1 -1M6 6L1 1" transform="scale(${Math.min(k, 1.6)})" class="cm-emb-ex"/>`}</g>`);
-      if (!n.label) t.textContent = embName(e);
+        + `<g class="cm-emb${pv.live ? " is-live" : ""}" clip-path="url(#${cid})"${pv.live ? ` data-src="${esc(e.e)}"` : ""}><rect x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" fill="${col}"/><text class="cm-emb-name" x="0" y="${y0 + ih - 12}" text-anchor="middle">${esc(CMAP.PROVIDERS[e.p] || "Embed")}</text>${th ? `<image class="cm-emb-th" href="${esc(th)}" x="${-iw / 2}" y="${y0}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid slice"/>` : ""}</g>`
+        + `<g class="cm-emb-btn" transform="translate(0 ${y0 + ih / 2 - (th ? 0 : 8)})"><circle r="${Math.round(17 * Math.min(k, 1.6))}"/>${vid ? `<path d="M-5 -8L9 0L-5 8Z" transform="scale(${Math.min(k, 1.6)})"/>` : `<path d="M-6 -2V-6H-2M6 2V6H2M-6 -6L-1 -1M6 6L1 1" transform="scale(${Math.min(k, 1.6)})" class="cm-emb-ex"/>`}</g>`);
+      // no caption of its own: the title from the provider (cut to fit the box), else the site's name
+      if (!n.label) { t.textContent = pv.tt ? trunc(pv.tt, Math.max(10, Math.floor(iw / 7.4))) : embName(e); if (pv.tt) t.insertAdjacentHTML("beforeend", `<title>${esc(pv.tt)}</title>`); }
       t.setAttribute("y", h / 2 - lh / 2 + fs * 0.36 - 2); t.setAttribute("x", 0); t.setAttribute("text-anchor", "middle");
       return;
     }
@@ -1019,7 +1111,7 @@ function paint(){
   fitEdgeLabels(world);
   const need = [...new Set(g.nodes.map(n => FONT_FILE[n.font]).concat([...pkFonts].map(f => FONT_FILE[f])).concat(pk && pk.chip && pk.chip[3] ? [FONT_FILE[pk.chip[3]]] : []).filter(Boolean))].filter(f => !M.fontsOk[f]);
   if (need.length && document.fonts && document.fonts.load) Promise.all(need.map(f => document.fonts.load(`16px "${f}"`).catch(() => null))).then(() => { need.forEach(f => { M.fontsOk[f] = true; }); if (shown()) paint(); });
-  tools(); panel(); legend(know);
+  tools(); panel(); legend(know); embPreviews(world, embLater);
 }
 function legend(know){
   const L = M.el.querySelector(".cm-legend"); if (!L) return;
@@ -1035,20 +1127,20 @@ function tools(){
   const K = M.know ? know() : null, weak = K ? Object.keys(K.lv).filter(id => K.lv[id] === "weak" && (K.stats[id] || {}).cards && K.stats[id].cards.length).length : 0;
   const item = (cm, label, extra) => `<button type="button" role="menuitem" class="cm-mi" data-cm="${cm}" ${extra || ""}>${label}</button>`;
   T.innerHTML = menu("add", `${mi('<path d="M12 5v14M5 12h14"/>')}<span class="cm-ml">Add</span>`, "Add to the map",
-      item("idea", `${mi('<rect x="3" y="7" width="18" height="10" rx="5"/>')} Idea`) + item("mat", `${mi('<path d="M4 5h6l2 2h8v12H4z"/>')} Course Material`) + item("pic", `${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} Picture${pro}`) + item("emb", `${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} Video or Embed${pro}`)
+      item("idea", `${mi('<rect x="3" y="7" width="18" height="10" rx="5"/>')} Idea`, 'title="Or double-click anywhere on the map to add one there"') + item("mat", `${mi('<path d="M4 5h6l2 2h8v12H4z"/>')} Course Material`) + item("pic", `${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} Picture${pro}`) + item("emb", `${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} Video or Embed${pro}`)
       + `<span class="cm-msep">Studyboard AI</span>` + item("desc", `${AI_ICON} Describe Ideas`) + item("suggest", `${AI_ICON} ${M.busy ? "Thinking…" : "Suggest Connections"}`, M.busy ? "disabled" : ""))
     + menu("study", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')}<span class="cm-ml">Study</span>`, "Study from the map",
       item("quiz", `${mi('<path d="M4 6h16M4 12h10M4 18h7"/>')} Fill In the Map`, M.g.nodes.filter(n => !n.root && n.deg).length >= 3 ? "" : "disabled") + item("cards", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} ${mapDeck(M.own) ? "Update Flashcards" : "Make Flashcards"}`)
-      + item("matchall", `${AI_ICON} Match Cards to Ideas`)
+      + item("matchall", `${AI_ICON} Match Cards to Ideas${pro}`)
       + (weak ? item("shaky", `${mi('<circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/>')} Review ${weak} Shaky Idea${weak === 1 ? "" : "s"}`) : ""))
-    + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" aria-label="Colour by Knowledge" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span></label>`
+    + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" aria-label="Colour by Knowledge" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span>${pro}</label>`
     + (weak ? `<button type="button" class="btn small cm-shaky" data-cm="shaky" title="Review the cards for your shaky ideas">${weak} Shaky</button>` : "")
-    + `<button type="button" class="btn small cm-mb${M.looks ? " on" : ""}" data-cm="looks" aria-expanded="${!!M.looks}" title="Map Style: a look for the whole map">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml">Map Style</span>${pro}</button>`
+    + `<button type="button" class="btn small cm-mb${M.looks ? " on" : ""}" data-cm="looks" aria-expanded="${!!M.looks}" title="Map Style: a look for the whole map">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml">Map Style</span></button>`
     + `<span class="spacer"></span>`
     + `<button type="button" class="icon-btn cm-undo" data-cm="undo" aria-label="Undo" title="${(M.undoS || []).length ? esc("Undo: " + M.undoS[M.undoS.length - 1].label) : "Undo"}" ${(M.undoS || []).length ? "" : "disabled"}>${mi('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button>`
     + `<button type="button" class="icon-btn cm-undo cm-redo" data-cm="redo" aria-label="Redo" title="${(M.redoS || []).length ? esc("Redo: " + M.redoS[M.redoS.length - 1].label) : "Redo"}" ${(M.redoS || []).length ? "" : "disabled"}>${mi('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>')}</button>`
     + menu("more", mi('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'), "More",
-      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", `Map Style${pro}`, 'data-phone="1"'), true);
+      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", "Map Style", 'data-phone="1"'), true);
 }
 function closeMenu(){ M.menu = ""; if (!M.el) return; M.el.querySelectorAll(".cm-menu").forEach(m => m.remove()); M.el.querySelectorAll(".cm-mb.on").forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); }
 // a toolbar or panel menu: the button, and its list while open (one open at a time; a tap anywhere else closes it)
@@ -1070,7 +1162,8 @@ function styleHtml(n){
   const chip = (key, l, cur) => `<button type="button" class="cm-pickb" data-cm="pick" data-v="${key}" aria-expanded="${M.pick === key}"><i style="--sw:${cur || "transparent"}" class="${cur ? "" : "is-auto"}"></i>${l}</button>`;
   const shown = id => ({fill: n.fill || (n.color ? "" : ""), stroke: n.stroke || "", text: n.text || ""})[id];
   const fs = n.size || (n.root ? 15 : 13), sc = n.scale || 1;
-  return `${M.pk && !M.know && !n.img && !n.emb ? `<p class="mini cm-pknote">This map's style draws the boxes. Colours, fonts and text still change here.</p>` : ""}<div class="cm-row cm-style"${M.pk && !M.know && !n.img && !n.emb ? " hidden" : ""}><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
+  const pkd = M.pk && !M.pk.native && !M.know && !n.img && !n.emb;
+  return `${pkd ? `<p class="mini cm-pknote">This map's style draws the boxes. Colours, fonts and text still change here.</p>` : ""}<div class="cm-row cm-style"${pkd ? " hidden" : ""}><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
     <div class="cm-row cm-style">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
       <label class="cm-font"><span class="sr">Font</span><select data-cm="font" aria-label="Font">${CMAP.FONTS.map(f => `<option value="${f}" ${(n.font || "") === f ? "selected" : ""} style="${FONT_STACK[f] ? `font-family:${esc(FONT_STACK[f])}` : ""}">${FONT_NAMES[f]}</option>`).join("")}</select></label>
       <span class="cm-step cm-bi" role="group" aria-label="Bold and Italic"><button type="button" class="cm-stb cm-b" data-cm="bold" aria-pressed="${n.b === 1 || (n.root && n.b !== -1)}" title="Bold" aria-label="Bold">B</button><button type="button" class="cm-stb cm-i" data-cm="ital" aria-pressed="${!!n.i}" title="Italic" aria-label="Italic">I</button></span>
@@ -1087,15 +1180,17 @@ function themeGrids(tile){
   return groups.map(([g, title]) => { const list = all.filter(s => g ? s.group === g || (g === "pro" && s.group === "newscenes") : !known.has(s.group) && s.group !== "newscenes"); if (!list.length) return "";
     return `<p class="cm-lookh">${title}</p><div class="cm-lookg">${list.map(s => { const own = CMPACK.THEME_OF[s.id], pk = themePack(s.id), id = own || "t-" + s.id; return tile(id, s.name, CMPACK.preview(pk, FONT_STACK), own ? pk.desc : `${s.name}'s colours${pk.tile.svg.includes("<path") ? " and motif" : ""}`); }).join("")}</div>`; }).join("");
 }
+// whether a style in the picker is free: Plain, a plain-colour theme's, or Match My Theme while on a plain-colour theme
+const lookFree = id => !id || packFree(id === "theme" ? themePack(skinNow()) : CMPACK.get(id));
 // Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
 function looksPanel(){
   const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
-  const cur = metaOf(M.own).pack || "", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
+  const cur = metaOf(M.own).pack === "plain" ? "" : metaOf(M.own).pack || "theme", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
   const plain = `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><g fill="var(--muted)" opacity=".35">${Array.from({length: 28}, (_, i) => `<circle cx="${8 + (i % 7) * 25}" cy="${10 + Math.floor(i / 7) * 25}" r="1"/>`).join("")}</g><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.6"/><rect x="101" y="13" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/><rect x="101" y="61" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/></svg>`;
-  const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
+  const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked && !lookFree(id) ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
   const grid = ids => `<div class="cm-lookg">${ids.map(id => { const k = CMPACK.P[id]; return tile(id, k.name, CMPACK.preview(k, FONT_STACK), k.desc); }).join("")}</div>`;
   P.innerHTML = `<div class="cm-looks"><div class="cm-row cm-ttl"><b>Map Style</b><span class="mini">A look for the whole map: its background, boxes and lines.</span><span class="spacer"></span><button type="button" class="btn small" data-cm="looks-x">Done</button></div>
-    <div class="cm-lookg">${tile("", "Plain", plain, "Studyboard's own look")}${tile("theme", `Match My Theme`, CMPACK.preview(mine, FONT_STACK), `Follows your theme (now ${skinName(sk)})`)}</div>
+    <div class="cm-lookg">${tile("", "Plain", plain, "Studyboard's own look")}${tile("theme", `Match My Theme`, CMPACK.preview(mine, FONT_STACK), `The default: follows your theme (now ${skinName(sk)})`)}</div>
     <p class="cm-lookh">Subjects</p>${grid(CMPACK.SUBJECTS)}${themeGrids(tile)}</div>`;
   const on = P.querySelector(".cm-look.on"); if (on && on.scrollIntoView && !M.lookScrolled) { M.lookScrolled = true; try { on.scrollIntoView({block: "nearest"}); } catch (e) {} }
 }
@@ -1135,9 +1230,9 @@ function panel(){
     const n = g.nodes.find(x => x.id === M.sel); if (!n) { M.sel = ""; panel(); return; }
     const k = (KIND[n.kind] || KIND.file)[0], K = know(), kn = K.lv[n.id] || (M.know ? "" : n.conf), ks = K.stats[n.id], opens = n.kind !== "idea" && !(n.root && M.own.kind === "course");
     const res = ks && ks.right + ks.wrong ? `${ks.pct}% right (${ks.right} of ${ks.right + ks.wrong})` : ks && ks.cards.length ? "not studied yet" : "";
-    P.innerHTML = `<div class="cm-row cm-ttl"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""}${(n.ev || []).length ? ` · ${n.ev.length} attached` : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span><button type="button" class="icon-btn cm-pclose" data-cm="desel" aria-label="Done" title="Done">${CLOSE}</button></div>
+    P.innerHTML = `<div class="cm-row cm-ttl"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embInfo(n.emb).tt || embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""}${(n.ev || []).length ? ` · ${n.ev.length} attached` : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span><button type="button" class="icon-btn cm-pclose" data-cm="desel" aria-label="Done" title="Done">${CLOSE}</button></div>
       ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row cm-acts">${n.at ? `<button type="button" class="btn small primary cm-gob" data-cm="goat">${n.at.t != null ? mi('<path d="M8 5v14l11-7z"/>') + " Play from " : mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>') + " Go to "}${esc(atLabel(n.at))}</button>` : ""}${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}${ks && ks.cards.length ? `<button type="button" class="btn small${kn === "weak" ? " primary" : ""}" data-cm="study">Review ${ks.cards.length} Card${ks.cards.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn small" data-cm="connect" aria-label="Connect To…">Connect<span class="cm-ml"> To…</span></button><button type="button" class="btn small" data-cm="rename">Rename</button><button type="button" class="btn small${M.styleOpen ? " on" : ""}" data-cm="style" aria-expanded="${!!M.styleOpen}">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml"> Style</span></button>${n.kind === "idea" ? menu("attach", `${mi('<path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/>')}<span class="cm-ml"> Attach</span>`, "Attach a page, lecture, picture or video",
-        `<button type="button" role="menuitem" class="cm-mi" data-cm="evp">${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} Flashcards and Questions${(n.ev || []).length ? ` (${n.ev.length})` : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atpdf">${mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>')} ${n.at && n.at.p ? "Change PDF Page" : "PDF Page"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atlec">${mi('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')} ${n.at && n.at.t != null ? "Change Lecture Moment" : "Lecture Moment"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="picon">${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} ${n.img ? "Change Picture" : "Picture"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="emb">${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} ${n.emb ? "Change Video or Embed" : "Video or Embed"}</button>${n.at || n.img || n.emb ? '<span class="cm-msep">Remove</span>' : ""}${n.at ? `<button type="button" role="menuitem" class="cm-mi" data-cm="atoff">${n.at.t != null ? "Lecture Moment" : "PDF Page"}</button>` : ""}${n.img ? `<button type="button" role="menuitem" class="cm-mi" data-cm="picoff">Picture</button>` : ""}${n.emb ? `<button type="button" role="menuitem" class="cm-mi" data-cm="emboff">Video or Embed</button>` : ""}`) : ""}${n.root ? "" : `<button type="button" class="icon-btn cm-delb" data-cm="${n.kind === "idea" ? "del" : "hide"}" aria-label="${n.kind === "idea" ? "Delete" : "Hide"}" title="${n.kind === "idea" ? "Delete" : "Hide"}">${n.kind === "idea" ? mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') : mi('<path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.6C4.3 8.1 3 12 3 12s4 6 9 6a9 9 0 0 0 4.4-1.2"/>')}</button>`}</div>
+        `<button type="button" role="menuitem" class="cm-mi" data-cm="evp">${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} Flashcards and Questions${(n.ev || []).length ? ` (${n.ev.length})` : ""}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atpdf">${mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>')} ${n.at && n.at.p ? "Change PDF Page" : "PDF Page"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atlec">${mi('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')} ${n.at && n.at.t != null ? "Change Lecture Moment" : "Lecture Moment"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="picon">${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} ${n.img ? "Change Picture" : "Picture"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="emb">${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} ${n.emb ? "Change Video or Embed" : "Video or Embed"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button>${n.at || n.img || n.emb ? '<span class="cm-msep">Remove</span>' : ""}${n.at ? `<button type="button" role="menuitem" class="cm-mi" data-cm="atoff">${n.at.t != null ? "Lecture Moment" : "PDF Page"}</button>` : ""}${n.img ? `<button type="button" role="menuitem" class="cm-mi" data-cm="picoff">Picture</button>` : ""}${n.emb ? `<button type="button" role="menuitem" class="cm-mi" data-cm="emboff">Video or Embed</button>` : ""}`) : ""}${n.root ? "" : `<button type="button" class="icon-btn cm-delb" data-cm="${n.kind === "idea" ? "del" : "hide"}" aria-label="${n.kind === "idea" ? "Delete" : "Hide"}" title="${n.kind === "idea" ? "Delete" : "Hide"}">${n.kind === "idea" ? mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') : mi('<path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.6C4.3 8.1 3 12 3 12s4 6 9 6a9 9 0 0 0 4.4-1.2"/>')}</button>`}</div>
       ${M.styleOpen ? styleHtml(n) : ""}`}`;
     return;
   }
@@ -1247,7 +1342,12 @@ function wireCanvas(){
     // a box with a video or embed: a tap on the embed plays it; a tap anywhere else on the box picks it, to edit
     if (d.id && d.emb && !M.quiz && !M.connect) { M.sel = d.id; M.selE = ""; M.pick = ""; lite(); player(d.id); return; }
     if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
-    else if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
+    else {
+      // a double-click (or double tap) on an empty spot adds an idea there, asking for its name first
+      const now = Date.now(), b = M.bgTap; M.bgTap = {t: now, x: e.clientX, y: e.clientY};
+      if (!M.quiz && b && now - b.t < 450 && Math.hypot(e.clientX - b.x, e.clientY - b.y) < 14) { M.bgTap = null; const [wx, wy] = toWorld(e.clientX, e.clientY); addIdeaAt(Math.round(wx), Math.round(wy)); return; }
+      if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
+    }
   };
   svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", e => { pts.delete(e.pointerId); drag = null; });
   cv.addEventListener("wheel", e => { if (e.target.closest && e.target.closest(".cm-panel, .cm-menu")) return; // the panel and menus scroll as usual
@@ -1258,10 +1358,18 @@ function wireCanvas(){
   // the words on a connection save with Enter or Save
   M.el.addEventListener("submit", e => { if (!e.target.closest(".cm-elf")) return; e.preventDefault(); edgeSet({}, "Put words on a connection"); });
 }
+// a new idea of its own at a spot on the map (double-click), not connected yet: Connect To... links it
+async function addIdeaAt(wx, wy){
+  if (M.connect) M.connect = "";
+  const name = await ask("Name the new idea:"); if (!name || !name.trim()) return;
+  const x = userOf(M.own), id = uid(); x.add = x.add.concat([{id, label: name.trim().slice(0, 80)}]);
+  x.pos = Object.assign({}, x.pos, {["idea:" + id]: [wx, wy]});
+  saveUser(x, `Added ${name.trim()} to the map`); rebuild(true); M.pos["idea:" + id] = [wx, wy]; M.sel = "idea:" + id; M.selE = ""; paint();
+}
 function moveEdges(id){
   const svg = M.el.querySelector(".cm-svg");
   M.g.edges.forEach(e => { if (e.a !== id && e.b !== id) return; const g = svg.querySelector(`.cm-edge[data-e="${CSS.escape(e.key)}"]`); if (!g) return;
-    if (M.pk) { g.insertAdjacentHTML("afterend", edgeSvg(e)); const ng = g.nextElementSibling; g.remove(); fitEdgeLabels(ng); if (e.key === M.selE) drawHandles(); return; }
+    if (M.pk && !M.pk.native) { g.insertAdjacentHTML("afterend", edgeSvg(e)); const ng = g.nextElementSibling; g.remove(); fitEdgeLabels(ng); if (e.key === M.selE) drawHandles(); return; }
     const G = edgeGeo(e); g.querySelectorAll("line").forEach(l => { l.setAttribute("x1", G.sx); l.setAttribute("y1", G.sy); l.setAttribute("x2", G.ex); l.setAttribute("y2", G.ey); }); if (G.curved) g.querySelectorAll("path.cm-line, path.cm-hit").forEach(pp => pp.setAttribute("d", `M${G.sx} ${G.sy}Q${G.cx} ${G.cy} ${G.ex} ${G.ey}`)); if (e.key === M.selE) drawHandles(); const lg = g.querySelector(".cm-elg"); if (lg) lg.setAttribute("transform", `translate(${G.mx},${G.my})`); });
 }
 // Picking something only changes which box or line is highlighted and what the panel shows, so the drawing itself stays put
@@ -1302,7 +1410,7 @@ function viewT(){
   if (cv) { let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
     cv.style.setProperty("--cmg", step.toFixed(2) + "px"); cv.style.setProperty("--cmr", r.toFixed(2) + "px");
     cv.style.setProperty("--cmx", (M.view.x % step).toFixed(1) + "px"); cv.style.setProperty("--cmy", (M.view.y % step).toFixed(1) + "px");
-    if (M.pk) { const tw = M.pk.tile.w * k, th = M.pk.tile.h * k; cv.style.setProperty("--pkw", tw.toFixed(2) + "px"); cv.style.setProperty("--pkh", th.toFixed(2) + "px"); cv.style.setProperty("--pkx", (((M.view.x % tw) + tw) % tw).toFixed(1) + "px"); cv.style.setProperty("--pky", (((M.view.y % th) + th) % th).toFixed(1) + "px"); } }
+    if (M.pk && !M.pk.native) { const tw = M.pk.tile.w * k, th = M.pk.tile.h * k; cv.style.setProperty("--pkw", tw.toFixed(2) + "px"); cv.style.setProperty("--pkh", th.toFixed(2) + "px"); cv.style.setProperty("--pkx", (((M.view.x % tw) + tw) % tw).toFixed(1) + "px"); cv.style.setProperty("--pky", (((M.view.y % th) + th) % th).toFixed(1) + "px"); } }
   return `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`;
 }
 function tapNode(id){
@@ -1356,13 +1464,13 @@ async function onClick(e){
     case "looks": M.looks = !(M.looks && !M.sel && !M.selE && !M.quiz); M.lookScrolled = false; if (M.looks) { M.sel = ""; M.selE = ""; M.styleOpen = false; M.cardsOpen = false; M.made = null; lite(); } tools(); panel(); return;
     case "looks-x": M.looks = false; tools(); panel(); return;
     case "look": {
-      const v = b.dataset.v || "", cur = metaOf(M.own).pack || ""; if (v === cur) return;
-      if (v && window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Map styles are part of Studyboard Pro."); return; }
+      const v = b.dataset.v || "", pk0 = metaOf(M.own).pack, cur = pk0 === "plain" ? "" : pk0 || "theme"; if (v === cur) return;
+      if (isLocked() && !lookFree(v)) { PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
       const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : /^t-/.test(v) ? skinName(v.slice(2)) : (CMPACK.P[v] || {}).name || v;
-      saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || null}); paint(); return;
+      saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || "plain"}); paint(); return;
     }
-    case "evp": if (n) evPanel(n); return;
-    case "matchall": matchAll(); return;
+    case "evp": if (isLocked()) { PLAN.openSheet("Attaching flashcards and quiz questions to ideas is part of Studyboard Pro, with Colour by Knowledge."); return; } if (n) evPanel(n); return;
+    case "matchall": if (isLocked()) { PLAN.openSheet("Matching your cards to ideas is part of Studyboard Pro, with Colour by Knowledge."); return; } matchAll(); return;
     case "made-x": M.made = null; panel(); return;
     case "study-deck": { const id = M.made && M.made.deck; M.made = null; if (id && state.decks[id]) { if (dlg.open) dlg.close(); setTimeout(() => startStudy([id]), 0); } return; }
     case "desel": M.sel = ""; M.selE = ""; M.pick = ""; lite(); return;
@@ -1370,7 +1478,7 @@ async function onClick(e){
     case "in": zoomAt(1.25); break;
     case "out": zoomAt(0.8); break;
     case "fit": fit(); paint(); break;
-    case "know": M.know = b.checked; M.kc = null; paint(); break;
+    case "know": if (b.checked && isLocked()) { b.checked = false; PLAN.openSheet(PRO_KNOW); return; } M.know = b.checked; M.kc = null; paint(); break;
     case "cards": cardsPanel(); break;
     case "cards-x": M.cardsOpen = false; panel(); break;
     case "cards-go": makeCards(!!M.both); break;
@@ -1520,7 +1628,7 @@ function cardHtml(d, c){
 hook("act", (act, el, id) => {
   const d = (el && el.dataset) || {};
   if (act === "cm-review") { if (dlg.open) dlg.close(); ui.tab = "flashcards"; ui.deckId = null; ui.fc = null; ui.qzOpen = null; if (typeof rvSet === "function") rvSet("maps"); if (id) ui.filter = id; render(); window.scrollTo(0, 0); return true; }
-  if (act === "cm-new") { if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return true; } newMapSheet(d.course || (ui.filter && ui.filter !== "all" ? ui.filter : "")); return true; }
+  if (act === "cm-new") { newMapSheet(d.course || (ui.filter && ui.filter !== "all" ? ui.filter : "")); return true; }
   if (act === "cm-ren") { renameSheet(d.course, id); return true; }
   if (act === "cm-del") { delMap(d.course, id); return true; }
   if (act === "cm-sort") return true;
@@ -1757,7 +1865,7 @@ function listHtml(){
   const list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
   const cl = x => { const c = courseOf(x.cid); return c ? courseLabel(c) : "General"; };
   list.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name));
-  const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
+  const pro = ""; // maps are free; Pro parts are marked inside the map
   let lastCourse = "";
   const cards = list.map(x => {
     const c = courseOf(x.cid), pk = mapPeek(x), n = pk, head = sort === "course" && cl(x) !== lastCourse ? (lastCourse = cl(x), `<h3 class="fsec cm-grp">${esc(cl(x))}</h3>`) : "";
@@ -1777,7 +1885,7 @@ function listHtml(){
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
-if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", where: "In Review, beside Flashcards and Quizzes: maps of how a course fits together, drawn from your material, a template, a description or a photo of one you drew by hand, with pictures, videos, links to PDF pages and lecture moments, flashcards made from its connections, colours from your results, and Fill In the Map", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -1854,6 +1962,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 /* the panel floats over the bottom of the map, only while there's something to show */
 .cm-canvas.cm-pk{background:var(--pk-img) var(--pkx,0) var(--pky,0)/var(--pkw,200px) var(--pkh,200px),var(--pk-base);box-shadow:var(--pk-frame,none)}
 .cm-canvas.cm-pk .cm-arrow{fill:var(--pk-arrow)}
+.cm-canvas.cm-pkn .cm-edge:not(.has-lc) .cm-line{stroke:color-mix(in srgb,var(--pk-line) 62%,transparent)}
+.cm-canvas.cm-pkn .cm-arrow{fill:color-mix(in srgb,var(--pk-line) 80%,var(--ink))}
 .cm-canvas.cm-pk .cm-elbg{fill:var(--pk-cbg);stroke:var(--pk-cbd)}
 .cm-canvas.cm-pk .cm-elab{fill:var(--pk-cink);font-family:var(--pk-cf,inherit)}
 .cm-canvas.cm-pk .cm-node.is-sel .pk-o{filter:drop-shadow(0 0 2px var(--accent,#2F6FE4)) drop-shadow(0 0 5px var(--accent,#2F6FE4))!important}
@@ -1971,6 +2081,11 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-emb-name{fill:#fff;font-weight:800;font-size:13px;letter-spacing:.02em}
 .cm-node .cm-emb,.cm-node .cm-emb-btn{cursor:pointer}
 .cm-emb-btn circle{fill:rgb(0 0 0/.55);stroke:#fff;stroke-width:1.5}
+.cm-live{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.cm-live.is-moving{visibility:hidden}
+.cm-livef{position:absolute;overflow:hidden;border-radius:7px;background:#fff;pointer-events:none}
+.cm-livef::after{content:"";position:absolute;right:6px;bottom:6px;width:24px;height:24px;border-radius:50%;box-sizing:border-box;border:1.5px solid #fff;background:rgb(0 0 0/.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-9 -9 18 18'%3E%3Cpath d='M-6 -2V-6H-2M6 2V6H2M-6 -6L-1 -1M6 6L1 1' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat}
+.cm-livef iframe{position:absolute;left:0;top:0;width:480px;height:270px;border:0;transform-origin:0 0;pointer-events:none}
 .cm-emb-btn path{fill:#fff}
 .cm-emb-btn .cm-emb-ex{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .cm-node:hover .cm-emb-btn circle{fill:rgb(0 0 0/.75)}

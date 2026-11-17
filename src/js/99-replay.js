@@ -266,7 +266,7 @@ var SBREPLAY = null;
   };
   const clock = R.clock;
   // Beta: the BETA pill beside the player, the recorder's notes, a note's replay and Hear It. Set to false to take it off everywhere.
-  const BETA = true;
+  const BETA = false; // out of beta
   const beta = () => BETA ? `<span class="beta-pill" title="Beta: still being improved">Beta</span>` : "";
   const hasAudio = f => !!f && f.folderId === "lectures" && ((Array.isArray(f.revs) && f.revs.length) || !!f.cloud);
   const durOf = f => f && Number(f.dur) > 0 ? Math.round(Number(f.dur) * 1000) : 0;
