@@ -55,7 +55,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
     ok(/Credit-Weighted Average/.test(hero) && /82\.3%/.test(hero), "the hero average is weighted by credits: " + hero);
     const strip = await text(".gp-gpa");
     ok(/Term GPA\s*2\.73/.test(strip), "term GPA from letters and credits: " + strip);
-    ok(/Projected Term GPA/.test(strip), "a projected term GPA");
+    ok(/Projected Term GPA/.test(strip) ? !/Term GPA\s*([\d.]+)[\s\S]*Projected Term GPA\s*\1\b/.test(strip) : /on track to stay there/.test(strip), "a projected term GPA only when it differs (else 'on track to stay there'): " + strip);
     ok(/1 course has no credits yet, so it counts as 2 credits/.test(strip), "says how a course with no credits counts");
     ok(!/Cumulative/.test(strip), "no cumulative GPA without past terms");
 
