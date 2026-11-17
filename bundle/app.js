@@ -109345,6 +109345,13 @@ async function expCanvas(o){
   let bb = null;
   [".cm-nodes", ".cm-edges"].forEach(s => { const g = world.querySelector(s); let b; try { b = g && g.getBBox(); } catch (e) {} if (!b || (!b.width && !b.height)) return; bb = bb ? {x0: Math.min(bb.x0, b.x), y0: Math.min(bb.y0, b.y), x1: Math.max(bb.x1, b.x + b.width), y1: Math.max(bb.y1, b.y + b.height)} : {x0: b.x, y0: b.y, x1: b.x + b.width, y1: b.y + b.height}; });
   if (!bb) { const b = bounds(); if (!b) throw new Error("empty"); bb = {x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h}; }
+  // each embed box's place, so a PDF or Word file can make it a link to the embed's own page
+  const hot = M.g.nodes.filter(n => n.emb && /^https:\/\//i.test(n.emb.u || n.emb.e || "")).map(n => {
+    const el = world.querySelector(`.cm-node[data-n="${CSS.escape(n.id)}"]`); if (!el) return null;
+    let b, m; try { b = el.getBBox(); const t = el.transform && el.transform.baseVal && el.transform.baseVal.consolidate(); m = t ? t.matrix : null; } catch (e) { return null; }
+    if (!b || !b.width) return null; const sx = m ? m.a : 1, sy = m ? m.d : 1;
+    return {u: n.emb.u || n.emb.e, tt: n.label || embInfo(n.emb).tt || embName(n.emb), x: (m ? m.e : 0) + b.x * sx, y: (m ? m.f : 0) + b.y * sy, w: b.width * sx, h: b.height * sy};
+  }).filter(Boolean);
   // the copy, each part with the styles it's drawn with now
   const copy = world.cloneNode(true), from = [world, ...world.querySelectorAll("*")], to = [copy, ...copy.querySelectorAll("*")], fams = new Set();
   const inDefs = el => !!el.closest("defs, clipPath, marker, pattern, mask, symbol, linearGradient, radialGradient, filter");
@@ -109393,7 +109400,7 @@ async function expCanvas(o){
     await new Promise(r => setTimeout(r, 60)); // Safari draws an SVG's built-in pictures and fonts a moment after it loads
     const cv = document.createElement("canvas"); cv.width = Math.round(W * S); cv.height = Math.round(H * S);
     const cx = cv.getContext("2d"); cx.fillStyle = bg; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0, cv.width, cv.height);
-    return {cv, w: W, h: H, svg};
+    return {cv, w: W, h: H, svg, links: hot.map(l => Object.assign({}, l, {x: l.x + ox, y: l.y + oy}))};
   } finally { URL.revokeObjectURL(url); }
 }
 const expBlob = (cv, type, q) => new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("toBlob")), type, q));
@@ -109410,7 +109417,11 @@ async function expPdf(r){
   doc.setTitle(expTitle()); doc.setCreator("Studyboard"); doc.setProducer("Studyboard");
   const img = await doc.embedPng(new Uint8Array(await png.arrayBuffer()));
   let pw = r.w * 0.75, ph = r.h * 0.75; const k = Math.min(1, 14400 / Math.max(pw, ph)); pw *= k; ph *= k;
-  doc.addPage([pw, ph]).drawImage(img, {x: 0, y: 0, width: pw, height: ph});
+  const page = doc.addPage([pw, ph]); page.drawImage(img, {x: 0, y: 0, width: pw, height: ph});
+  // each embed box opens its page (a video, a doc, a simulation) when it's clicked in the PDF
+  const f = pw / r.w, ctx = doc.context, ann = (r.links || []).map(l => ctx.register(ctx.obj({Type: "Annot", Subtype: "Link", Rect: [l.x * f, ph - (l.y + l.h) * f, (l.x + l.w) * f, ph - l.y * f], Border: [0, 0, 0],
+    Contents: L.PDFString.of(l.tt || l.u), A: {Type: "Action", S: "URI", URI: L.PDFString.of(l.u)}})));
+  if (ann.length) page.node.set(L.PDFName.of("Annots"), ctx.obj(ann));
   return new Blob([await doc.save({useObjectStreams: false})], {type: "application/pdf"});
 }
 /* Word: the map's picture, then each idea in turn (the centre first, then outward along the lines): what it is, its notes, its connections,
@@ -109441,6 +109452,8 @@ function expOutline(){
   });
 }
 const expX = s => String(s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// a clear 1x1 picture: what the Word file's link areas are made of
+async function expDot(){ const c = document.createElement("canvas"); c.width = 1; c.height = 1; return new Uint8Array(await (await expBlob(c, "image/png")).arrayBuffer()); }
 async function expDocx(r){
   const png = new Uint8Array(await (await expBlob(r.cv, "image/png")).arrayBuffer()), list = expOutline(), title = expTitle();
   const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"', H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
@@ -109450,7 +109463,10 @@ async function expDocx(r){
   const wide = r.w / r.h > 1.15, maxW = (wide ? 9 : 6.5) * 914400, maxH = (wide ? 5.6 : 7.6) * 914400, k = Math.min(maxW / (r.w * 9525), maxH / (r.h * 9525), 1.5), cx = Math.round(r.w * 9525 * k), cy = Math.round(r.h * 9525 * k);
   const pic = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Concept map" descr="${expX(title)}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="1" name="map.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
   const mar = '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>', port = `<w:pgSz w:w="12240" w:h="15840"/>${mar}`;
-  let body = para(run(title), "Title") + para(pic, "", '<w:jc w:val="center"/>');
+  const col = (wide ? 9 : 6.5) * 914400, sc = cx / r.w, x0 = (col - cx) / 2;
+  const spots = (r.links || []).map((l, i) => { links.push(l.u); const id = links.length, X = Math.round(x0 + l.x * sc), Y = Math.round(l.y * sc), W = Math.max(1, Math.round(l.w * sc)), Hh = Math.max(1, Math.round(l.h * sc));
+    return `<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="${251660000 + i}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="column"><wp:posOffset>${X}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>${Y}</wp:posOffset></wp:positionV><wp:extent cx="${W}" cy="${Hh}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${100 + i}" name="Link ${i + 1}" descr="Opens ${expX(l.tt || l.u)}"><a:hlinkClick r:id="rIdL${id}"/></wp:docPr><wp:cNvGraphicFramePr/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${100 + i}" name="link.png"><a:hlinkClick r:id="rIdL${id}"/></pic:cNvPr><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdDot"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${W}" cy="${Hh}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>`; }).join("");
+  let body = para(run(title), "Title") + para(pic + spots, "", '<w:jc w:val="center"/>');
   if (wide) body += para("", "", `<w:sectPr><w:pgSz w:w="15840" w:h="12240" w:orient="landscape"/>${mar}</w:sectPr>`);
   body += para(run("Ideas and Connections"), "Heading1");
   list.forEach(x => {
@@ -109473,9 +109489,10 @@ async function expDocx(r){
     {name: "[Content_Types].xml", data: H + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},
     {name: "_rels/.rels", data: H + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
     {name: "word/document.xml", data: H + `<w:document ${NS}><w:body>${body}<w:sectPr>${port}</w:sectPr></w:body></w:document>`},
-    {name: "word/_rels/document.xml.rels", data: H + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/map.png"/>${links.map((u, i) => `<Relationship Id="rIdL${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${expX(u)}" TargetMode="External"/>`).join("")}</Relationships>`},
+    {name: "word/_rels/document.xml.rels", data: H + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/map.png"/><Relationship Id="rIdDot" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/link.png"/>${links.map((u, i) => `<Relationship Id="rIdL${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${expX(u)}" TargetMode="External"/>`).join("")}</Relationships>`},
     {name: "word/styles.xml", data: styles},
-    {name: "word/media/map.png", data: png}
+    {name: "word/media/map.png", data: png},
+    {name: "word/media/link.png", data: await expDot()}
   ])], {type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
 }
 async function exportMap(fmt){

@@ -129,8 +129,12 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: 
   ok(mb && Math.abs(Number(mb[1]) / Number(mb[2]) - pw / ph) < 0.02 && Math.abs(Number(mb[1]) - pw / 2 * 0.75) < 2, `one page the map's shape, at its own size: ${mb && mb[1]} x ${mb && mb[2]} pt`);
 
   /* Word */
+  { const uris = [...pdf.matchAll(/\/Subtype\s*\/Link[\s\S]*?\/URI\s*\(([^)]*)\)/g)].map(m => m[1]);
+    ok(uris.some(u => /youtube\.com\/watch/.test(u)) && uris.some(u => /vimeo\.com\/76979871/.test(u)) && uris.length === 2, "PDF: each embed box is a link to its page: " + uris.join(", ")); }
   const W = await save("docx"), z = unzip(W.buf), doc = (z["word/document.xml"] || "").toString(), rels = (z["word/_rels/document.xml.rels"] || "").toString();
   ok(W.name === "Cell Respiration.docx" && W.buf.slice(0, 2).toString() === "PK" && z["word/media/map.png"] && z["word/media/map.png"].slice(1, 4).toString() === "PNG", `Word: ${W.name}, ${Math.round(W.buf.length / 1024)} KB, with the map's picture`);
+  { const hl = [...doc.matchAll(/<wp:anchor[\s\S]*?<a:hlinkClick r:id="(rIdL\d+)"/g)].map(m => m[1]), tgt = id => ((new RegExp(`Id="${id}"[^>]*Target="([^"]+)"`)).exec(rels) || [])[1] || "";
+    ok(hl.length === 2 && hl.some(id => /youtube\.com\/watch/.test(tgt(id))) && hl.some(id => /vimeo\.com/.test(tgt(id))) && z["word/media/link.png"], "Word: a clear link area lies over each embed box on the picture: " + hl.map(tgt).join(", ")); }
   const text = doc.replace(/<[^>]+>/g, "");
   ["Cell Respiration", "Ideas and Connections", "Glycolysis", "→ connects to Krebs cycle: feeds", "← comes from Glycolysis: feeds", "→ connects to ATP: makes", "Powerhouse of the cell",
     "Card: Where does the Krebs cycle happen? → In the mitochondrial matrix", "PDF page: page 4 of Biology.pdf", "Picture: shown on the map above", "Rick Astley video", "The Vimeo Player"].forEach(s => ok(text.includes(s.replace(/&/g, "&amp;")), "the outline has: " + s));
