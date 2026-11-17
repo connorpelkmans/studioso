@@ -419,6 +419,19 @@ function SEED(){
     await tap(pl, "idea:a"); if (!(await pl.locator(".cm-panel .cm-style").count())) await pl.click('.cm-panel [data-cm="style"]'); await pl.waitForTimeout(150);
     await pl.click(".cm-x"); await pl.waitForTimeout(300); await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node"); await tap(pl, "idea:a"); await pl.waitForTimeout(200);
     ok(await pl.locator(".cm-panel .cm-style:not([hidden])").count() === 0 && await pl.locator('.cm-panel [data-cm="style"][aria-expanded="true"]').count() === 0, "and a box's Style section starts closed too");
+    // without Pro (e.g. Pro ended while the map was open): no style is drawn, the picker marks every style Pro, and picking one opens the Pro sheet
+    await pl.click('.cm-tools [data-cm="looks"]').catch(() => {}); if (!(await pl.locator(".cm-looks").count())) await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
+    await pl.click('.cm-look[data-v="t_lavender"]'); await pl.waitForTimeout(300);
+    ok(await pl.locator(".cm-canvas.cm-pk").count() === 1, "with Pro, the style shows");
+    await pl.evaluate(() => { window.__realLocked = SBPRO.locked; SBPRO.locked = () => true; });
+    await pl.click('.cm-look[data-v=""]'); await pl.waitForTimeout(150); await pl.click('.cm-tools [data-cm="looks"]').catch(() => {}); if (!(await pl.locator(".cm-looks").count())) await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
+    ok(await pl.locator(".cm-canvas.cm-pk").count() === 0 && await pl.locator(".cm-node.is-pk").count() === 0, "without Pro, the map is drawn plain");
+    ok(await pl.locator('.cm-look[data-v="t_lavender"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v="theme"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v="med"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v=""] .pro-badge').count() === 0, "every theme and subject style is marked Pro; Plain isn't");
+    const before = (await mp()).pack;
+    await pl.click('.cm-look[data-v="t_sakura"], .cm-look[data-v="sakura"]'); await pl.waitForTimeout(300);
+    ok(await pl.locator("#dlg[open] .plan-sheet").count() === 1 && /Map styles are part of Studyboard Pro/.test(await pl.textContent("#dlg[open]")) && (await mp()).pack === before, "picking a theme's style without Pro opens the Pro sheet and changes nothing");
+    await pl.keyboard.press("Escape"); await pl.waitForTimeout(200);
+    await pl.evaluate(() => { SBPRO.locked = window.__realLocked; });
     ok(!(await pl.locator("#toast.show").count()) && pl.errs.length === 0, "Map Style: no notices, no errors: " + pl.errs.join(" | "));
     await ctxL.close();
   }
