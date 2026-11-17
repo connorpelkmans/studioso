@@ -1,3 +1,16 @@
+# Hook test: Trial Reels (shown to non-followers only)
+
+✅ Scheduled in Metricool. Both are versions of "Every friend group during finals week" with the evidence-backed hook (see `HOOK-EVIDENCE.md`).
+
+| When (PT) | Version | Hook | Metricool post |
+|---|---|---|---|
+| Tue Nov 17, 5:50 PM | D | "The final is cumulative?!" (Mochi) | 431858461 |
+| Wed Nov 18, 5:50 PM | E | "“I work better under pressure”" (Packy) | 431891247 |
+
+Trial Reels don't auto-share to followers (`shareTrialAutomatically: false`). After ~72 h, compare each one's skip rate and 3-second hold with the original Nov 15 post; share the winner to the main grid from Instagram and use its hook style going forward.
+
+---
+
 # Today: Sunday Nov 15, "Every friend group during finals week"
 
 ✅ **Scheduled in Metricool** (post 429217674, auto-publish, first comment included). **Post at 5:50 PM PT** as a regular Reel (`2026-11-20-types-of-students/reel.mp4`), moved up from slot #9.
