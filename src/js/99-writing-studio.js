@@ -780,14 +780,16 @@ const CITE = (() => {
     const IEEE_WHY = {"ieee-range": ["put a range inside one pair of brackets", "write a range as [1]–[3], each number in its own brackets"], "ieee-list": ["put several numbers in one pair of brackets", "give each number its own brackets: [1], [2]"]};
     groups.forEach((list, k) => {
       const f = list[0], why = x => (IEEE_WHY[x] || whyOf(x, P)), whys = f.probs.map(x => why(x)[1]).join("; "), say = x => x.fixed ? `${x.orig} → ${x.fixed}` : x.orig;
-      const more = list.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig}));
+      const more = list.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig})), edits = list.map(x => x.fixed ? editAt(draft, x.at, x.len, x.orig, x.fixed) : null).filter(Boolean);
       const head = f.fixed ? `In ${P.n}, write ${f.fixed}` : f.probs[0] === "numeric" ? `${P.n} cites by number, not author and year: ${f.orig}` : `${P.n} cites in footnotes, not in brackets: ${f.orig}`;
-      if (list.length === 1) push("err", head, `${f.fixed ? `Not ${f.orig}: ` : ""}${whys.replace(/^./, ch => ch.toUpperCase())}.`, "", f.at, f.len, {key: "fmt:" + k});
-      else push("err", `${list.length} citations ${why(f.probs[0])[0]}`, `${f.fixed ? `In ${P.n}, write ${f.fixed}, not ${f.orig}` : `Like ${f.orig}`}: ${whys}. The others: ${list.slice(1, 9).map(say).join("; ")}${list.length > 9 ? `; and ${list.length - 9} more` : ""}.`, "", f.at, f.len, {key: "fmt:" + k, more});
+      if (list.length === 1) push("err", head, `${f.fixed ? `Not ${f.orig}: ` : ""}${whys.replace(/^./, ch => ch.toUpperCase())}.`, "", f.at, f.len, {key: "fmt:" + k, edits});
+      else push("err", `${list.length} citations ${why(f.probs[0])[0]}`, `${f.fixed ? `In ${P.n}, write ${f.fixed}, not ${f.orig}` : `Like ${f.orig}`}: ${whys}. The others: ${list.slice(1, 9).map(say).join("; ")}${list.length > 9 ? `; and ${list.length - 9} more` : ""}.`, "", f.at, f.len, {key: "fmt:" + k, more, edits});
     });
     if (mism.length) {
       const f = mism[0], one = x => `${x.orig}: ${x.src.title ? `“${cap(x.src.title, 60)}”` : keyName(x.src)} is from ${x.y}`;
-      push("err", mism.length === 1 ? `The year doesn't match your source: ${f.orig}` : `${mism.length} citations have a year that doesn't match the source`, mism.length === 1 ? `${one(f)} in your Writing Studio. Fix the year here, or on the Sources tab if the source is wrong.` : `${mism.slice(0, 8).map(one).join("; ")}. Fix the years here, or on the Sources tab if a source is wrong.`, "", f.at, f.len, {key: "fmt:year-match", more: mism.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig}))});
+      // a citation with just the one year: that year becomes the source's (a citation of several works is left to the student)
+      const edits = mism.map(x => { const ys = x.orig.match(/\b(1[5-9]\d\d|20\d\d)[a-z]?\b/g) || []; return ys.length === 1 ? editAt(draft, x.at, x.len, x.orig, x.orig.replace(ys[0], x.y)) : null; }).filter(Boolean);
+      push("err", mism.length === 1 ? `The year doesn't match your source: ${f.orig}` : `${mism.length} citations have a year that doesn't match the source`, mism.length === 1 ? `${one(f)} in your Writing Studio. Fix the year here, or on the Sources tab if the source is wrong.` : `${mism.slice(0, 8).map(one).join("; ")}. Fix the years here, or on the Sources tab if a source is wrong.`, "", f.at, f.len, {key: "fmt:year-match", more: mism.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig})), edits});
     }
     if (!P.gen && !P.num && !P.note && parsed.length && !fmts.length && !mism.length) push("ok", `Your in-text citations are in ${P.n} format`);
     // the whole draft written in another style (when the assignment doesn't name one): offer to switch
@@ -801,11 +803,15 @@ const CITE = (() => {
       else if (P.yr && P.ay === " " && T >= 4 && ac.length / T >= 0.8) { to = "apa"; ex = ac[0]; }
       if (to && to !== style && to !== o.parent) push("warn", `Your citations look like ${SHORTN[to]}`, `Most are written like ${ex.orig}, and Writing Studio is set to ${label}. If your assignment uses ${SHORTN[to]}, switch; if not, fix them as shown here.`, "style:" + to, null, null, {key: "looks:" + to});
     }
-    if (!ref) push(n ? "err" : "warn", `No ${wantL} found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`);
+    if (!ref) {
+      // a list made from the cited sources' entries (in the style's own order), at the end
+      const ids = sources.filter(s => cited.has(s.id) && o.refs && o.refs[s.id]).map(s => s.id), ordered = o.refs ? Object.keys(o.refs).filter(id => ids.includes(id)) : [];
+      push(n ? "err" : "warn", `No ${wantL} found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`, "", null, null, ordered.length ? {key: "ref-none", edits: [refAppend(draft, want, ordered.map(id => P.num ? o.refs[id] : unnum(o.refs[id])))]} : {key: "ref-none"});
+    }
     else {
-      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) push("err", `In ${label}, the list is called ${want}`, `Yours is called “${sq(ref.name)}”: rename the heading.`, "", ref.at, ref.name.length, {key: "heading"});
+      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) { const ha = draft.indexOf(ref.name, ref.at); push("err", `In ${label}, the list is called ${want}`, `Yours is called “${sq(ref.name)}”: rename the heading.`, "", ref.at, ref.name.length, {key: "heading", edits: [editAt(draft, ha, ref.name.length, ref.name, want)].filter(Boolean)}); }
       const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body));
-      miss.forEach(s => push("err", `Cited but not in your ${wantL}: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1]));
+      miss.forEach(s => { const X = o.refs && o.refs[s.id], ins = X ? refInsert(draft, ref, ents, P.num ? X : unnum(X)) : null; push("err", `Cited but not in your ${wantL}: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1], {key: "miss:" + s.id, edits: ins ? [ins] : []}); });
       // only when nothing cited is missing: a citation that isn't in the sources is cited too
       if (!miss.length && citedN) push("ok", !unknownN ? `Every cited source is in your ${wantL}` : citedN === 1 ? `Your cited Writing Studio source is in your ${wantL}` : `All ${citedN} cited Writing Studio sources are in your ${wantL}`);
       // its order: alphabetical by the first author (or title), or numbered 1, 2, 3 in numbered styles
@@ -816,7 +822,11 @@ const CITE = (() => {
         const first = e => (loose(e.t).replace(/^(the|a|an)\s+/, "").split(" ")[0] || ""), name = e => (/^[“"‘']?([\p{L}'’-]+)/u.exec(nq(e.t).replace(/^["']?(the|a|an)\s+/i, "")) || [])[1] || "";
         for (let i = 1; i < ents.length; i++) {
           if (/^[-—–_]{2,}/.test(ents[i].t) || /^[-—–_]{2,}/.test(ents[i - 1].t)) continue;
-          if (first(ents[i - 1]).localeCompare(first(ents[i]), "en", {sensitivity: "base"}) > 0) { push("warn", `Your ${wantL} isn't in alphabetical order`, `${name(ents[i])} should come before ${name(ents[i - 1])}: the list goes by the first author's last name (or the title, when there's no author).`, "", ents[i].at, ents[i].len, {key: "ref-order"}); break; }
+          if (first(ents[i - 1]).localeCompare(first(ents[i]), "en", {sensitivity: "base"}) > 0) {
+            // the entries in order, each exactly as written, with the list's own spacing between them
+            const a = ents[0].at, end = ents[ents.length - 1].at + ents[ents.length - 1].len, seps = ents.slice(1).map((e, j) => draft.slice(ents[j].at + ents[j].len, e.at)), same = seps.every(x => x === seps[0]);
+            const sorted = ents.slice().sort((x, y) => refKey(x.t).localeCompare(refKey(y.t), "en", {sensitivity: "base"})).map(e => draft.slice(e.at, e.at + e.len));
+            push("warn", `Your ${wantL} isn't in alphabetical order`, `${name(ents[i])} should come before ${name(ents[i - 1])}: the list goes by the first author's last name (or the title, when there's no author).`, "", ents[i].at, ents[i].len, {key: "ref-order", edits: same && /^\s*$/.test(seps[0]) ? [editAt(draft, a, end - a, draft.slice(a, end), sorted.join(seps[0]))].filter(Boolean) : []}); break; }
         }
       }
       // each entry against the style's own version of it
@@ -826,7 +836,9 @@ const CITE = (() => {
         ents.forEach(e => {
           const s = e.sid && sources.find(x => x.id === e.sid), X = s && o.refs[s.id]; if (!X) return;
           compared++; const why = refDiff(e.t, X, s); if (!why.length) return;
-          if (++bad <= 10) push("err", `${want}: fix the entry for ${who(s)}`, why.join(". ") + ".", "", e.at, e.len, {key: "ref:" + s.id, should: unnum(X), sid: s.id});
+          // the right entry in its place (a numbered list keeps the entry's own number)
+          const was = draft.slice(e.at, e.at + e.len), pre = (/^\s*(\[\d{1,3}\]\s*|\d{1,3}[.)]\s+)/.exec(was) || [""])[0];
+          if (++bad <= 10) push("err", `${want}: fix the entry for ${who(s)}`, why.join(". ") + ".", "", e.at, e.len, {key: "ref:" + s.id, should: unnum(X), sid: s.id, edits: [editAt(draft, e.at, e.len, was, pre + unnum(X))].filter(Boolean)});
         });
         if (bad > 10) push("err", `${bad - 10} more ${want} entries need fixing`, "Fix the ones above, then check again.", "", null, null, {key: "ref:more"});
         if (compared && !bad) push("ok", `Your ${want} entries are in ${P.n} format`);
@@ -851,6 +863,46 @@ const CITE = (() => {
   // A short fingerprint of a text (to tell whether a draft changed since it was checked)
   function hash(s){ s = String(s || ""); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ":" + s.length; }
   // A draft kept on the paper is capped: its start and its end (where the reference list is) when it's longer
+  /* Auto-fix: changes to the draft that are certain. Each edit says what it expects to find (from) where (at, len) and what goes there (to);
+     it's made only when the draft really has that text there, and applied only when it still does. An insertion (len 0) can carry a sort key (k)
+     so several at one place land in order. Edits that overlap aren't applied together (the rest wait for the next round, after a new check). */
+  const editAt = (draft, at, len, from, to) => at != null && at >= 0 && from != null && draft.slice(at, at + len) === from && from !== to ? {at, len, from, to} : null;
+  function applyEdits(textIn, editsIn){
+    const text = String(textIn || ""), ok = (editsIn || []).filter(e => e && e.at >= 0 && e.at + e.len <= text.length && text.slice(e.at, e.at + e.len) === e.from);
+    const keep = [];
+    ok.slice().sort((a, b) => a.at - b.at || b.len - a.len).forEach(e => {
+      const clash = keep.some(x => x.len && e.len ? e.at < x.at + x.len && x.at < e.at + e.len : x.len ? e.at > x.at && e.at < x.at + x.len : e.len ? x.at > e.at && x.at < e.at + e.len : false);
+      if (!clash && !keep.some(x => x.at === e.at && x.len === e.len && x.from === e.from && x.to === e.to && !e.len === !x.len && x.k === e.k)) keep.push(e);
+    });
+    // from the end, so earlier positions stay right; at one place, a replacement before insertions, insertions by key (last first)
+    keep.sort((a, b) => b.at - a.at || (b.len ? 1 : 0) - (a.len ? 1 : 0) || String(b.k || "").localeCompare(String(a.k || "")));
+    let out = text; keep.forEach(e => { out = out.slice(0, e.at) + e.to + out.slice(e.at + e.len); });
+    return {text: out, n: keep.length, skipped: (editsIn || []).length - keep.length};
+  }
+  // where a new entry goes in the draft's reference list: in alphabetical order among the others (a numbered list is left alone)
+  const refKey = t => loose(String(t || "")).replace(/^(the|a|an)\s+/, "");
+  const isNumbered = ents => ents.some(e => e.num || /^\s*(\[\d{1,3}\]|\d{1,3}[.)]\s)/.test(e.t));
+  function refInsert(draft, ref, ents, entry){
+    if (!ref || isNumbered(ents)) return null;
+    const k = refKey(entry);
+    if (!ents.length) { const pos = draft.length - ref.body.length, end = pos >= draft.length; return {at: pos, len: 0, from: "", to: (end && !/\n$/.test(draft) ? "\n" : "") + entry + (end ? "" : "\n"), k}; }
+    const sep = ents.length >= 2 ? (/^\s*\n\s*\n/.test(draft.slice(ents[0].at + ents[0].len, ents[1].at)) ? "\n\n" : "\n") : "\n";
+    const i = ents.findIndex(e => refKey(e.t).localeCompare(k, "en", {sensitivity: "base"}) > 0);
+    if (i >= 0) return {at: ents[i].at, len: 0, from: "", to: entry + sep, k};
+    const last = ents[ents.length - 1]; return {at: last.at + last.len, len: 0, from: "", to: sep + entry, k};
+  }
+  // a whole new list at the end of the draft: its heading, then the entries
+  const refAppend = (draft, head, entries) => ({at: draft.length, len: 0, from: "", to: (draft ? (/\n$/.test(draft) ? "\n" : "\n\n") : "") + head + "\n" + entries.join("\n"), k: "~"});
+  /* Add to References: the chosen sources' entries in the draft's list (made if there isn't one), skipping the ones already in it */
+  function refAdd(draftIn, sourcesIn, refs, o){
+    o = o || {}; const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), sources = (sourcesIn || []).map(clean), ref = refSection(draft), ents = ref ? refEntriesAt(draft) : [];
+    const has = s => ref && famRe(keyName(s)).test(ref.body) && (!s.title || loose(ref.body).includes(loose(s.title).split(" ").slice(0, 4).join(" ")));
+    const order = Object.keys(refs || {}), todo = sources.filter(s => refs && refs[s.id] && !has(s)).sort((x, y) => order.indexOf(x.id) - order.indexOf(y.id)), already = sources.filter(s => has(s)).map(s => s.id), entry = s => o.num ? refs[s.id] : unnum(refs[s.id]);
+    if (!todo.length) return {edits: [], added: [], already};
+    if (!ref) return {edits: [refAppend(draft, o.head || "References", todo.map(entry))], added: todo.map(s => s.id), already, made: true};
+    if (isNumbered(ents)) return {edits: [], added: [], already, numbered: true, left: todo.map(s => s.id)};
+    return {edits: todo.map(s => refInsert(draft, ref, ents, entry(s))).filter(Boolean), added: todo.map(s => s.id), already};
+  }
   function capDraft(s, max){
     s = String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); max = max || 60000;
     if (s.length <= max) return s;
@@ -999,7 +1051,7 @@ const CITE = (() => {
   }
   return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf, keyName,
     parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase,
-    diffIssues, issueKeys, hash, capDraft, sentenceAt, refEntries, refEntriesAt, parseRef, authorsOf, segs, quotesIn, refSection, parseCite, profileOf, refDiff};
+    diffIssues, issueKeys, hash, capDraft, applyEdits, refAdd, sentenceAt, refEntries, refEntriesAt, parseRef, authorsOf, segs, quotesIn, refSection, parseCite, profileOf, refDiff};
 })();
 /*CITE-END*/
 
@@ -1114,7 +1166,7 @@ function wsOf(t){
   const w = t && t.ws && typeof t.ws === "object" ? t.ws : {};
   const d = w.draft && typeof w.draft === "object" && typeof w.draft.t === "string" && w.draft.t ? w.draft : null, c = w.chk && typeof w.chk === "object" ? w.chk : null;
   return {style: typeof w.style === "string" && w.style ? w.style : "", lang: w.lang === "en-GB" ? "en-GB" : "", src: Array.isArray(w.src) ? w.src.filter(s => s && s.id) : [], q: Array.isArray(w.q) ? w.q.filter(q => q && q.id) : [], out: Array.isArray(w.out) ? w.out.filter(s => s && s.id) : [],
-    draft: d ? {t: d.t, from: String(d.from || ""), fid: d.fid || "", nid: d.nid || "", r: d.r || "", at: Number(d.at) || 0, h: d.h || CITE.hash(d.t)} : null,
+    draft: d ? {t: d.t, from: String(d.from || ""), fid: d.fid || "", nid: d.nid || "", r: d.r || "", at: Number(d.at) || 0, h: d.h || CITE.hash(d.t), fx: Number(d.fx) || 0} : null,
     chk: c ? {at: Number(c.at) || 0, h: c.h || "", keys: Array.isArray(c.keys) ? c.keys.slice(0, 60) : [], err: Number(c.err) || 0, warn: Number(c.warn) || 0, cited: Number(c.cited) || 0, total: Number(c.total) || 0} : null,
     tk: Array.isArray(w.tk) ? w.tk.slice(0, 20) : []};
 }
@@ -1125,12 +1177,12 @@ function reqText(t){
   return parts.join("\n");
 }
 const styleOf = (t, w) => w.style || CITE.rules(reqText(t)).style || "apa";
-function save(t, w, label, extra){
+function save(t, w, label, extra, more){
   const cur = state.tasks[t.id]; if (!cur) return;
   const ws = {style: w.style, lang: w.lang || undefined, src: w.src.slice(0, MAX_SRC), q: w.q.slice(0, MAX_Q), out: w.out.slice(0, MAX_SEC), v: 2};
-  if (w.draft) ws.draft = {t: w.draft.t, from: w.draft.from || "", fid: w.draft.fid || undefined, nid: w.draft.nid || undefined, r: w.draft.r || undefined, at: w.draft.at, h: w.draft.h};
+  if (w.draft) ws.draft = {t: w.draft.t, from: w.draft.from || "", fid: w.draft.fid || undefined, nid: w.draft.nid || undefined, r: w.draft.r || undefined, at: w.draft.at, h: w.draft.h, fx: w.draft.fx || undefined};
   if (w.chk) ws.chk = w.chk;
-  const changes = [{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws})}];
+  const changes = [{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws})}].concat(more || []);
   // a Break It Down step whose part is now clearly met is ticked done, in the same change (one Undo takes both back)
   const ticks = stepTicks(cur, w);
   if (ticks.length) {
@@ -1604,7 +1656,7 @@ function foundHtml(t, w){
 }
 function checkHtml(t, w){
   const req = CITE.rules(reqText(t)), st = styleOf(t, w), d = w.draft, editing = !d || W.redo;
-  let h = `<p style="margin:0">Check your draft's citations against your sources before you hand it in. It runs on this device and never changes your writing.</p>
+  let h = `<p style="margin:0">Check your draft's citations against your sources before you hand it in. It runs on this device, and fixes what has one right answer when you tap Fix.</p>
     ${req.style || req.min ? `<p class="mini ws-note">From the assignment: ${esc([req.style ? styleName(req.style) : "", req.min ? `at least ${req.min}${req.scholarly ? " scholarly" : ""} sources` : ""].filter(Boolean).join(", "))}.</p>` : ""}`;
   if (editing) {
     const off = !d && !W.offerOff ? draftOffer(t, w) : null, words = wordsIn(W.paste);
@@ -1617,12 +1669,12 @@ function checkHtml(t, w){
   const c = w.chk, stale = !c || c.h !== d.h, r = usage(t, w).res;
   h += `<div class="ws-draft"><div class="ws-draft-t"><b>Your Draft</b><span class="mini">${esc(d.from && d.from !== "Pasted" ? "From " + d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words · saved ${esc(ago(d.at))}</span>
       <span class="mini${stale ? " ws-no" : ""}">${!c ? "Not checked yet" : stale ? `Changed since the last check (${esc(ago(c.at))})` : `Checked ${esc(ago(c.at))}: ${c.err} to fix · ${c.warn} to look at`}</span></div>
-    <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button><span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
+    <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button>${d.fx && !d.nid ? `<button type="button" class="ws-act" data-ws-dcopy>Copy Fixed Draft</button>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
     ${W.show === "all" ? draftView(d.t, null) : ""}</div>
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
     ${W.diff ? `<p class="ws-diff" role="status">${W.diff.fixed || W.diff.fresh ? `Since your last check: <b>${W.diff.fixed} fixed</b>, ${W.diff.fresh} new.` : "Nothing changed since your last check."}</p>` : ""}
     ${foundHtml(t, w)}
-    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at</p>
+    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at${(() => { const f = r.issues.filter(x => x.edits && x.edits.length).length; return f ? `<button type="button" class="btn small primary ws-fixall" data-ws-fixall>Fix All${f > 1 ? ` (${f})` : ""}</button>` : ""; })()}</p>
       <ul class="ws-issues">${r.issues.map((x, i) => issueHtml(x, i, d.t)).join("")}</ul></div>`;
   return h;
 }
@@ -1631,7 +1683,8 @@ function checkHtml(t, w){
 function issueHtml(x, i, text){
   const ic = {err: "✕", warn: "!", ok: "✓"}, sh = W.show == null ? "" : String(W.show), me = sh === String(i), sub = sh.indexOf(i + ":") === 0 ? Number(sh.split(":")[1]) : -1;
   const at = sub >= 0 && x.more && x.more[sub] ? x.more[sub] : x;
-  return `<li class="ws-is k-${x.k}${me || sub >= 0 ? " is-open" : ""}"><span class="ws-ic" aria-hidden="true">${ic[x.k]}</span><span>${x.at != null ? `<button type="button" class="ws-is-b" data-ws-show="${i}" aria-expanded="${me}"><b>${esc(x.t)}</b><span class="ws-is-go">${me ? "Hide" : "Show in Draft"}</span></button>` : `<b>${esc(x.t)}</b>`}${x.d ? `<span class="mini">${esc(x.d)}</span>` : ""}`
+  const fixB = x.edits && x.edits.length ? `<button type="button" class="btn small primary ws-fixb" data-ws-fix="${i}">${x.edits.length > 1 ? `Fix All ${x.edits.length}` : "Fix"}</button>` : "";
+  return `<li class="ws-is k-${x.k}${me || sub >= 0 ? " is-open" : ""}"><span class="ws-ic" aria-hidden="true">${ic[x.k]}</span><span>${x.at != null ? `<button type="button" class="ws-is-b" data-ws-show="${i}" aria-expanded="${me}"><b>${esc(x.t)}</b><span class="ws-is-go">${me ? "Hide" : "Show in Draft"}</span></button>` : `<b>${esc(x.t)}</b>`}${x.d ? `<span class="mini">${esc(x.d)}</span>` : ""}${fixB}`
     + (x.more && x.more.length ? `<span class="ws-more"><span class="mini">Show the others:</span>${x.more.map((y, j) => `<button type="button" class="ws-chipb" data-ws-show="${i}:${j}" aria-pressed="${sub === j}">${esc(cut(y.s, 44))}</button>`).join("")}</span>` : "")
     + (x.should ? `<span class="ws-should"><span class="mini">Should be:</span><span class="ws-should-t">${esc(x.should)}</span>${x.sid ? `<button type="button" class="btn small" data-ws-copy="${esc(x.sid)}">Copy</button>` : ""}</span>` : "")
     + (x.fix && x.fix.startsWith("style:") ? ` <button type="button" class="link-btn" data-ws-setst="${esc(x.fix.slice(6))}">Switch to ${esc(styleShort(x.fix.slice(6)))}</button>` : "")
@@ -1692,7 +1745,7 @@ function footHtml(t, w){
   if (W.view === "library") return cancel + `<button type="button" class="btn primary" data-wl-add>Add Selected</button>`;
   if (W.view) return cancel;
   if (W.tab === "sources" && W.edit) return `<button type="button" class="btn" data-ws-cancel>Cancel</button><span class="spacer"></span><button type="button" class="btn primary" data-ws-esave>Save Source</button>`;
-  if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button><button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
+  if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button>${w.draft ? `<button type="button" class="btn" data-ws-refadd title="Put these sources in your draft's ${esc(listOf(CITE.headingOf(styleOf(t, w), styleFmt(styleOf(t, w)))))} (made if there isn't one)">Add to My Draft</button>` : ""}<button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
   if (W.tab === "quotes" && W.hlPick) return `<button type="button" class="btn" data-ws-hlcancel>Cancel</button><span class="spacer"></span>${W.hlPick.length ? `<button type="button" class="btn primary" data-ws-hladd ${W.busy ? "disabled" : ""}>${W.busy === "hl" ? "Adding…" : "Add Quotes"}</button>` : ""}`;
   if (W.tab === "outline") return back + (w.out.length || w.q.length ? `<button type="button" class="btn primary" data-ws-export>Export…</button>` : "");
   if (W.tab === "check") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
@@ -1871,10 +1924,56 @@ async function pickDraft(tid, key){
   if (!x) { W.busy = ""; W.err = `Couldn't read the text in ${f.name} (a scan, or not on this device yet). Paste your draft instead.`; if (shown()) draw(); return; }
   useDraft(tid, x, {from: f.name, fid: f.id, r: (curRev(f) || {}).assetId || ""});
 }
+/* Auto-fix: certain changes to the saved draft (CITE.applyEdits), then a new check. A draft from a note changes the note too (one Undo for both),
+   so the next check, which reads the note again, keeps the fix; a note that's been edited since stays as it is and the draft becomes Writing
+   Studio's own copy. A draft from a file is Writing Studio's copy: Copy Fixed Draft takes it back to the document. */
+const refsMap = (t, w) => { const B = bibOf(t, w); return B.ready ? Object.fromEntries(B.entries.map(e => [e.id, CITE.runsText(e.runs)])) : null; };
+async function fixDraft(t, edits, label){
+  const d = wsOf(state.tasks[t.id]).draft; if (!d || !edits || !edits.length) return 0;
+  const r = CITE.applyEdits(d.t, edits); if (!r.n) { W.err = "Your draft changed since it was checked. Check it again, then fix."; draw(); return 0; }
+  return saveFixed(t, r.text, r.n, label);
+}
+// the fixed text saved (one Undo, with the note when the draft is a note's), then checked again
+async function saveFixed(t, text, count, label){
+  const w = wsOf(state.tasks[t.id]), d = w.draft, r = {text, n: count};
+  let nid = d.nid; const n = nid && state.notes[nid], more = [];
+  if (n) { const raw = String(n.text || "").replace(/\r\n?/g, "\n"); if (raw === d.t) more.push({kind: "note", id: n.id, after: Object.assign(clone(n), {text: r.text, updated: Date.now()})}); else nid = undefined; }
+  w.draft = Object.assign(makeDraft(r.text, {from: d.from, fid: d.fid, nid, r: d.r}), {fx: (d.fx || 0) + r.n});
+  const lbl = label || (r.n === 1 ? "Fixed a citation in your draft" : `Fixed ${r.n} things in your draft`);
+  W.okMsg = `${r.n === 1 ? "Fixed 1 thing" : `Fixed ${r.n} things`} in ${more.length ? `your note, ${noteTitle(n)}` : "Writing Studio's copy of your draft"}.${more.length ? "" : " Copy the fixed draft back into your document."} Undo puts it back.`;
+  W.err = ""; await doCheck(state.tasks[t.id], {quiet: true, w, label: lbl, more});
+  return r.n;
+}
+// Fix All: every certain fix, in rounds (each checked again, as one fix can move the next) until there's nothing more, then saved as one change
+async function fixAll(t){
+  const w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  const st0 = styleOf(state.tasks[t.id], w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} }
+  let text = w.draft.t, total = 0;
+  for (let round = 0; round < 6; round++) {
+    const res = runCheck(state.tasks[t.id], w, text), edits = res.issues.flatMap(x => x.edits || []); if (!edits.length) break;
+    const r = CITE.applyEdits(text, edits); if (!r.n) break; text = r.text; total += r.n;
+  }
+  if (total) await saveFixed(t, text, total, `Fixed ${total === 1 ? "1 thing" : total + " things"} in your draft`);
+  W.okMsg = total ? `Fixed ${total === 1 ? "1 thing" : total + " things"} in ${wsOf(state.tasks[t.id]).draft.nid ? "your note" : "Writing Studio's copy of your draft"}. What's left needs you. Undo puts it back.` : "Nothing more can be fixed for you: what's left needs your own words.";
+  if (shown()) draw();
+}
+// Sources tab: Add to My Draft puts these sources' entries in the draft's list (in order), or makes the list
+async function addToDraftRefs(t){
+  let w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  const st0 = styleOf(state.tasks[t.id], w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} }
+  w = wsOf(state.tasks[t.id]); const refs = refsMap(state.tasks[t.id], w);
+  if (!refs) { W.err = "The citation style is still loading. Try again in a moment."; draw(); return; }
+  const a = CITE.refAdd(w.draft.t, w.src, refs, {num: styleFmt(st0) === "numeric", head: CITE.headingOf(st0, styleFmt(st0))});
+  if (a.numbered) { W.err = "Your list is numbered in the order you cite each source, so add these by hand (Copy List gives you each entry)."; draw(); return; }
+  if (!a.edits.length) { W.okMsg = a.already.length ? "Every source is already in your draft's list." : "No sources to add yet."; draw(); return; }
+  const n = await fixDraft(state.tasks[t.id], a.edits, a.made ? "Added a reference list to your draft" : `Added ${plural(a.added.length, "source")} to your draft's list`);
+  if (n) W.okMsg = `${a.made ? `Made a ${CITE.headingOf(st0, styleFmt(st0))} list at the end of your draft with ${plural(a.added.length, "source")}` : `Added ${plural(a.added.length, "source")} to your draft's list, in order`}${a.already.length ? ` (${a.already.length === 1 ? "1 was" : a.already.length + " were"} already there)` : ""}.`;
+  if (shown()) draw();
+}
 // Check (again): a draft from a file or note in Studyboard is read again first when that file or note has changed since
 async function doCheck(t, o){
   o = o || {}; if (!t) return;
-  let w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  let w = o.w || wsOf(state.tasks[t.id]); if (!w.draft) return;
   if (o.reread && w.draft.fid && state.files[w.draft.fid]) {
     const f = state.files[w.draft.fid], rv = (curRev(f) || {}).assetId || "";
     if (rv && rv !== w.draft.r) { W.busy = "read"; draw(); const x = await readFileText(f); W.busy = ""; if (x) { w = wsOf(state.tasks[t.id]); w.draft = makeDraft(x, {from: f.name, fid: f.id, r: rv}); W.okMsg = `Read the newer version of ${f.name}.`; } }
@@ -1887,7 +1986,8 @@ async function doCheck(t, o){
   // a replaced draft is compared with the last check too: what the new version fixed, and what it brought
   W.diff = prev ? CITE.diffIssues(prev.keys, res) : null;
   w.chk = {at: Date.now(), h: w.draft.h, keys: CITE.issueKeys(res).slice(0, 60), err: res.issues.filter(x => x.k === "err").length, warn: res.issues.filter(x => x.k === "warn").length, cited: res.cited, total: res.total};
-  save(cur, w, null);
+  // a fix is saved with its check, as one change (so one Undo takes the fix back, check and all)
+  save(cur, w, o.w ? o.label : null, null, o.w ? o.more : undefined);
   W.show = null; if (!o.quiet && !o.first) W.okMsg = W.okMsg && /^Read the/.test(W.okMsg) ? W.okMsg : "";
   findInDraft(state.tasks[t.id]);
   if (shown() && W.tid === t.id) { draw(); const r = W.el.querySelector(".ws-found") || W.el.querySelector(".ws-res"); if (r && r.scrollIntoView && !o.quiet) r.scrollIntoView({block: "nearest"}); }
@@ -2176,6 +2276,10 @@ function wire(t){
   on("[data-ws-drm]", "click", () => { const w = ws(); w.draft = null; w.chk = null; save(cur(), w, "Draft removed from Writing Studio"); Object.assign(W, {found: null, show: null, diff: null, redo: false}); draw(); });
   on("[data-ws-dview]", "click", () => { W.show = W.show === "all" ? null : "all"; draw(); });
   qa("[data-ws-show]").forEach(b => b.addEventListener("click", () => { const i = b.dataset.wsShow; W.show = String(W.show) === i ? null : i; draw(); }));
+  qa("[data-ws-fix]").forEach(b => b.addEventListener("click", async () => { const w = ws(), res = usage(cur(), w).res, x = res && res.issues[Number(b.dataset.wsFix)]; if (!x || !x.edits) return; b.disabled = true; await fixDraft(cur(), x.edits); }));
+  on("[data-ws-fixall]", "click", async e => { e.currentTarget.disabled = true; await fixAll(cur()); });
+  on("[data-ws-refadd]", "click", async e => { e.currentTarget.disabled = true; W.err = ""; await addToDraftRefs(cur()); });
+  on("[data-ws-dcopy]", "click", async () => { const d = ws().draft; if (!d) return; try { await navigator.clipboard.writeText(d.t); toast("Copied your fixed draft. Paste it into your document."); } catch (e) { toast("Couldn't copy: select the draft under View Draft and copy it."); } });
   on("[data-ws-check]", "click", () => {
     const w = ws();
     if (!w.draft || W.redo) {
@@ -2274,6 +2378,8 @@ svg.ws-zic{display:block;flex:none}
 /* the head, tab bar and progress strip keep their own height on every tab (a long tab squeezed them, moving the line under the title) */
 .ws-sheet>:not(.ws-body):not(.ws-main):not(.ws-scroll){flex-shrink:0}
 .ws-tab:focus:not(:focus-visible){outline:none}
+.ws-fixb{display:inline-flex;margin-top:6px;width:max-content}
+.ws-sum .ws-fixall{margin-left:10px;vertical-align:middle}
 .ws-tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .ws-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent,#2F6FE4)}
 .ws-n{display:inline-block;min-width:1.4em;font-size:.72rem;border-radius:9px;padding:0 5px;background:var(--soft,#EEF1F6);color:var(--muted);text-align:center}
