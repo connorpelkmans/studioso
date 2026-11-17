@@ -141,7 +141,7 @@ const noOverflow = page => page.evaluate(() => document.documentElement.scrollWi
       }
 
       /* The same header on the other tabbed pages */
-      for (const [o, title] of [[{tab: "board", bview: "board"}, "Task Board"], [{tab: "flashcards", rvView: "quizzes"}, "Your Quizzes"], [{tab: "courses", courseId: null, courseTab: ""}, "Your Courses"], [{tab: "notes"}, "Notes"]]) {
+      for (const [o, title] of [[{tab: "board", bview: "board"}, "Task Board"], [{tab: "flashcards", rvView: "quizzes"}, "Quizzes"], [{tab: "courses", courseId: null, courseTab: ""}, "Your Courses"], [{tab: "notes"}, "Notes"]]) {
         await go(page, Object.assign({rvView: "cards"}, o)); await page.waitForTimeout(300);
         const h = await page.evaluate(() => [...document.querySelectorAll("#view h2")].filter(e => e.offsetWidth).map(e => e.textContent.trim()));
         if (!phone) ok(await txt(page, ".pg-head .pg-title") === title && h.filter(x => x === title).length === 1 && await page.locator(".pg-tabs").count() === 1 && await page.locator(".pg-sub").count() === 0, tag + ": " + title + " gets the page header");
