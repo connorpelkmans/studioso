@@ -2044,11 +2044,16 @@ const ldErrText = e => (e && e.message) || "Couldn't reach your document. Check 
 async function ldRead(l){
   const C = ldCloud();
   if (l.p === "google") {
-    const j = await C.docApi("google", LDU.docs + encodeURIComponent(l.id) + "?fields=" + encodeURIComponent("title,revisionId,body"));
+    const r = await C.docApi("google", LDU.docs + encodeURIComponent(l.id), null, "raw");
+    if (r.status === 404) throw new LdErr("Google didn't give Studyboard access to that doc. Choose it again in Google's window (Choose, on My Doc). If it keeps happening, the Google Picker on this Studyboard server is set up for a different Google project than its Drive sign-in.");
+    if (!r.ok) throw await ldApiErr(r, "Google Docs");
+    const j = await r.json().catch(() => null);
     if (!j || !j.body) throw new LdErr("Google didn't send the document. Check that it's still in your Drive.");
     const G = LIVEDOC.gText(j); return {raw: G.raw, G, ver: String(j.revisionId || ""), name: String(j.title || l.name || "")};
   }
-  const meta = await C.docApi("microsoft", ldItem(l) + "?$select=id,name,eTag,webUrl,size");
+  const mr = await C.docApi("microsoft", ldItem(l) + "?$select=id,name,eTag,webUrl,size", null, "raw");
+  if (!mr.ok) throw await ldApiErr(mr, "OneDrive");
+  const meta = await mr.json().catch(() => ({}));
   if (!/\.docx$/i.test(String(meta.name || l.name || ""))) throw new LdErr("That isn't a Word file (.docx).");
   if (Number(meta.size) > 40e6) throw new LdErr("That Word file is too big to read here.");
   const r = await C.docApi("microsoft", ldItem(l) + "/content", null, "raw");
@@ -2058,6 +2063,12 @@ async function ldRead(l){
   const dom = new DOMParser().parseFromString(new TextDecoder().decode(parts["word/document.xml"]), "application/xml");
   if (dom.getElementsByTagName("parsererror").length) throw new LdErr("Couldn't read that Word file.");
   return {raw: LIVEDOC.wIndex(dom).raw, dom, parts, ver: String(meta.eTag || ""), name: String(meta.name || l.name || ""), url: String(meta.webUrl || "")};
+}
+// an API's refusal, in its own words (Google's and Microsoft's errors both say what's wrong)
+async function ldApiErr(r, who){
+  let m = ""; try { const j = await r.json(); m = String((j && j.error && (j.error.message || j.error.code)) || "").slice(0, 220); } catch (e) {}
+  if (who === "Google Docs" && /has not been used|is disabled|SERVICE_DISABLED/i.test(m)) return new LdErr("The Google Docs API isn't turned on for this Studyboard server yet.");
+  return new LdErr(`${who} didn't accept that (${r.status})${m ? ": " + m : ""}.`);
 }
 const ldChanged = l => new LdErr(`Your ${ldName(l)} changed since it was checked`, "changed");
 // rounds of edits, each on the (tidy) text the one before left, made in the document; what the document says afterwards
@@ -2071,8 +2082,8 @@ async function ldPush(l, base, rounds){
       const requests = LIVEDOC.gRequests(R.G, LIVEDOC.toRaw(R.raw, N, A.plan)); if (!requests) throw ldChanged(l);
       const r = await C.docApi("google", LDU.docs + encodeURIComponent(l.id) + ":batchUpdate", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({requests, writeControl: {requiredRevisionId: R.ver}})}, "raw");
       if (r.status === 400) throw ldChanged(l);
-      if (r.status === 403) throw new LdErr("Google Docs didn't let Studyboard change it: you may only be allowed to comment on it, or the Docs API isn't on for this Studyboard server.");
-      if (!r.ok) throw new LdErr(`Google Docs didn't accept the fix (${r.status}).`);
+      if (r.status === 403) { const e = await ldApiErr(r, "Google Docs"); throw /turned on/.test(e.message) ? e : new LdErr("Google Docs didn't let Studyboard change it: you may only be allowed to view or comment on it."); }
+      if (!r.ok) throw await ldApiErr(r, "Google Docs");
       text = A.text;
     }
     const R = await ldRead(l); return {raw: R.raw, ver: R.ver, want: text};
@@ -2089,7 +2100,7 @@ async function ldPush(l, base, rounds){
   const r = await C.docApi("microsoft", ldItem(l) + "/content", {method: "PUT", headers: {"Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "If-Match": R.ver}, body}, "raw");
   if (r.status === 412) throw ldChanged(l);
   if (r.status === 423) throw new LdErr("Word has the file locked right now. Wait a moment, or close it in Word, then fix again.");
-  if (!r.ok) throw new LdErr(`OneDrive didn't accept the fix (${r.status}).`);
+  if (!r.ok) throw await ldApiErr(r, "OneDrive");
   const j = await r.json().catch(() => ({}));
   return {raw: LIVEDOC.wIndex(R.dom).raw, ver: String(j.eTag || ""), want: text};
 }
@@ -2162,12 +2173,17 @@ async function ldLink(t, l){
   } catch (e) { W.busy = ""; W.err = ldErrText(e); draw(); }
 }
 // Word files in OneDrive: recent ones, or ones whose name matches
+// (a search for Word files: OneDrive's own list of recent files is being retired, and refuses requests on many accounts)
 async function ldWordList(q){
-  const C = ldCloud(), qq = String(q || "").trim();
-  const j = await C.docApi("microsoft", qq ? `${LDU.graph}/me/drive/root/search(q='${encodeURIComponent(qq.replace(/'/g, "''"))}')?$top=50` : `${LDU.graph}/me/drive/recent?$top=80`);
+  const C = ldCloud(), qq = String(q || "").trim(), find = term => `${LDU.graph}/me/drive/root/search(q='${encodeURIComponent(term.replace(/'/g, "''"))}')`;
+  let j = null, err = null;
+  for (const url of qq ? [find(qq)] : [find(".docx"), `${LDU.graph}/me/drive/recent`]) {
+    try { const r = await C.docApi("microsoft", url, null, "raw"); if (r.ok) { j = await r.json().catch(() => null); if (j && Array.isArray(j.value) && j.value.length) break; } else err = await ldApiErr(r, "OneDrive"); } catch (e) { err = e; }
+  }
+  if (!j && err) throw err;
   const seen = new Set();
   return (j && Array.isArray(j.value) ? j.value : []).map(x => { const it = x.remoteItem || x; return {id: String(it.id || ""), drive: String(((it.parentReference || {}).driveId) || ((x.parentReference || {}).driveId) || ""), name: String(x.name || it.name || ""), url: String(x.webUrl || it.webUrl || ""), at: Date.parse(x.lastModifiedDateTime || it.lastModifiedDateTime || "") || 0}; })
-    .filter(x => x.id && /\.docx$/i.test(x.name) && !seen.has(x.id) && seen.add(x.id)).slice(0, 40);
+    .filter(x => x.id && /\.docx$/i.test(x.name) && !seen.has(x.id) && seen.add(x.id)).sort((a, b) => b.at - a.at).slice(0, 40);
 }
 // Word shows a file inside another page only as a preview; Microsoft's preview address, when it's one the app may show
 async function ldPreview(l){
