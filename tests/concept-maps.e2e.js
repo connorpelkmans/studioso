@@ -106,6 +106,9 @@ function SEED(){
   const w0 = await page.evaluate(() => document.querySelector('.cm-node[data-n="idea:i1"]').getBBox().width);
   await cmClick(page, '[data-cm="bsize"][data-v="1"]'); await page.waitForTimeout(200);
   st = (await course(page, "c1")).maps[0].styles["idea:i1"];
+  await page.click('[data-cm="bold"]'); await page.waitForTimeout(150); await page.click('[data-cm="ital"]'); await page.waitForTimeout(150);
+  ok(await page.evaluate(() => { const l = getComputedStyle(document.querySelector('.cm-node[data-n="idea:i1"] .cm-lab')); return Number(l.fontWeight) >= 800 && l.fontStyle === "italic"; }) && (await course(page, "c1")).maps[0].styles["idea:i1"].b === 1 && (await course(page, "c1")).maps[0].styles["idea:i1"].i === 1, "Bold and Italic");
+  ok(await page.getAttribute('[data-cm="bold"]', "aria-pressed") === "true" && await page.getAttribute('[data-cm="ital"]', "aria-pressed") === "true", "the B and I buttons show they're on");
   ok(st.font === "hand" && st.size === 16 && st.scale > 1, `font, text size and box size save (${st.font}, ${st.size}, ${st.scale})`);
   ok(await page.evaluate(() => document.querySelector('.cm-node[data-n="idea:i1"]').getBBox().width) > w0, "a bigger box draws bigger");
   await cmClick(page, '[data-cm="streset"]'); await page.waitForTimeout(200);
@@ -224,12 +227,15 @@ function SEED(){
   await page.click(".cm-embf [type=submit]"); await page.waitForSelector(".cm-node .cm-emb");
   let em = (await course(page, "c3")).maps[2].add.find(x => x.emb);
   ok(em && em.emb.p === "youtube" && em.emb.e === "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&start=42" && /ytimg/.test(await page.getAttribute(".cm-node .cm-emb image", "href")), "it becomes a video on the map, with its thumbnail (privacy-enhanced player, start time kept)");
-  await page.click(".cm-node:has(.cm-emb)"); await page.waitForSelector(".cm-player iframe");
+  await page.evaluate(() => { const S = SBCMAP.state(); S.sel = ""; S.selE = ""; });
+  { const nb = await page.locator(".cm-node:has(.cm-emb)").boundingBox(); await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height - 8); await page.waitForTimeout(250); }
+  ok(!(await page.locator(".cm-player").count()) && /Play/.test(await page.textContent(".cm-panel")), "a tap on the box outside the video picks it, to edit (the video doesn't open)");
+  await page.click(".cm-node .cm-emb"); await page.waitForSelector(".cm-player iframe");
   ok(await page.evaluate(() => { const p = document.querySelector(".cm-player"), c = document.querySelector(".cm-canvas").getBoundingClientRect(), r = p.getBoundingClientRect();
     return !p.getAnimations().length && Math.abs((r.left + r.width / 2) - (c.left + c.width / 2)) < 2 && Math.abs((r.top + r.height / 2) - (c.top + c.height / 2)) < 2; }), "the player appears at once, in the middle (no fade or slide)");
   ok(await page.evaluate(() => !document.querySelector(".cm-node:has(.cm-emb) .cm-kdot")), "a video's box has no colour dot over its thumbnail");
   const fsrc = await page.getAttribute(".cm-player iframe", "src");
-  ok(/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(fsrc) && /autoplay=1/.test(fsrc) && /allow-scripts/.test(await page.getAttribute(".cm-player iframe", "sandbox")), "one tap plays it on the map, in a sandboxed frame");
+  ok(/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(fsrc) && /autoplay=1/.test(fsrc) && /allow-scripts/.test(await page.getAttribute(".cm-player iframe", "sandbox")), "a tap on the video itself plays it on the map, in a sandboxed frame");
   await page.waitForTimeout(600);
   ok(await page.frames().some(f => /youtube-nocookie/.test(f.url())) && !blocked.length, "the app's security policy lets the player load: " + blocked.join(" | "));
   await page.keyboard.press("Escape"); await page.waitForTimeout(200);
@@ -315,6 +321,25 @@ function SEED(){
     ok(Math.abs((await pu.evaluate(() => SBCMAP.state().pos["idea:b"][0])) - p0[0]) < 2 && !(await red()), "Ctrl+Z undoes it again");
     await tap(pu, "idea:a"); await cmClick(pu, '[data-cm="shape"][data-v="diamond"]'); await pu.waitForTimeout(200);
     ok(await red(), "a new change after an Undo clears Redo");
+    // no key and no coloured dots unless Colour by Knowledge is on
+    ok(await pu.isHidden(".cm-legend") && await pu.locator(".cm-kdot").count() === 0, "no key or coloured dots on a plain map");
+    // curved lines: Curved, then drag the handle (the curve's control point) to shape it
+    const ck = await pu.evaluate(() => SBCMAP.state().g.edges.find(e => [e.a, e.b].sort().join() === ["idea:a", "idea:b"].sort().join()).key);
+    await pu.evaluate(k => { const S = SBCMAP.state(); S.sel = ""; S.selE = k; }, ck); await pu.evaluate(() => { const b = document.createElement("button"); b.dataset.cm = "fit"; document.querySelector(".cm-tools").appendChild(b); b.click(); b.remove(); });
+    await pu.waitForSelector('[data-cm="ecurve"]'); await pu.click('[data-cm="ecurve"][data-v="1"]'); await pu.waitForTimeout(250);
+    const lk = async () => (await m1()).links.find(l => [l.a, l.b].sort().join("|") === ck);
+    ok(Array.isArray((await lk()).cv) && /Q/.test(await pu.getAttribute(`.cm-edge[data-e="${ck}"] .cm-line`, "d")) && await pu.locator(".cm-chdl").count() === 1, "Curved draws a curve, with a handle to shape it");
+    const cv0 = (await lk()).cv.slice(), hb = await pu.locator(".cm-chdl").boundingBox();
+    await pu.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2); await pu.mouse.down(); for (let i = 1; i <= 6; i++) await pu.mouse.move(hb.x + hb.width / 2 + i * 8, hb.y + hb.height / 2 + i * 12); await pu.mouse.up(); await pu.waitForTimeout(250);
+    const cv1 = (await lk()).cv;
+    ok(cv1 && (cv1[0] !== cv0[0] || cv1[1] !== cv0[1]), `dragging the handle reshapes the curve (${cv0} to ${cv1})`);
+    ok(await pu.evaluate(k => { const p = document.querySelector(`.cm-edge[data-e="${k}"] .cm-line`), h = document.querySelector(".cm-chdl"), m = /Q([-\d.]+) ([-\d.]+)/.exec(p.getAttribute("d")); return m && Math.abs(+m[1] - +h.getAttribute("cx")) < 1 && Math.abs(+m[2] - +h.getAttribute("cy")) < 1; }, ck), "the handle is the curve's control point");
+    await pu.click('[data-cm="ecurve"][data-v="0"]'); await pu.waitForTimeout(250);
+    ok(!(await lk()).cv && await pu.locator(`.cm-edge[data-e="${ck}"] line.cm-line`).count() === 1 && await pu.locator(".cm-chdl").count() === 0, "Straight makes it a straight line again");
+    await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);
+    ok(JSON.stringify((await lk()).cv) === JSON.stringify(cv1), "Undo brings the curve back as it was shaped");
+    await pu.evaluate(() => { const S = SBCMAP.state(); S.selE = ""; }); await pu.evaluate(() => { const b = document.createElement("button"); b.dataset.cm = "desel"; document.querySelector(".cm-tools").appendChild(b); b.click(); b.remove(); });
+
     // resizing: drag a picked box's side, then its corner
     await tap(pu, "idea:b");
     ok(await pu.locator(".cm-hdls .cm-hdl").count() === 5, "a picked box shows handles on its sides and a corner");
