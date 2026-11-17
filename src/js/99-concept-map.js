@@ -372,7 +372,7 @@ const LINE_W = {1: 1, 2: 2, 3: 3.4, 4: 5}, W_NAMES = {1: "Thin", 2: "Regular", 3
 const W_IC = {1: '<path d="M3 12h18" stroke-width="1"/>', 2: '<path d="M3 12h18" stroke-width="2"/>', 3: '<path d="M3 12h18" stroke-width="3.4"/>', 4: '<path d="M3 12h18" stroke-width="5"/>'};
 const LINE_IC = {solid: '<path d="M3 12h18"/>', dashed: '<path d="M3 12h4M10 12h4M17 12h4"/>', dotted: '<path d="M3.5 12h.01M8 12h.01M12 12h.01M16 12h.01M20.5 12h.01" stroke-width="3"/>', thick: '<path d="M3 12h18" stroke-width="4.2"/>'};
 const ARROW_IC = {none: '<path d="M3 12h18"/>', end: '<path d="M3 12h16M14 7l5 5-5 5"/>', both: '<path d="M5 12h14M10 7l-5 5 5 5M14 7l5 5-5 5"/>'};
-const ARROW_NAMES = {none: "No arrows", end: "Arrow one way", both: "Arrows both ways"};
+const ARROW_NAMES = {none: "No Arrows", end: "Arrow One Way", both: "Arrows Both Ways"};
 const ic = (d, sw) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="${sw || 1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const M = {own: null, el: null, g: null, pos: {}, size: {}, byId: {}, fontsOk: {}, pick: "", imgs: {}, view: {x: 0, y: 0, k: 1}, sel: "", selE: "", connect: "", know: false, loose: false, quiz: null, sug: null, busy: false, err: ""};
 const shown = () => !!M.el && dlg.open && dlg.contains(M.el);
@@ -861,13 +861,17 @@ function edgeGeo(e){
   const P = id => M.pos[id] || [0, 0], S = id => M.size[id] || [80, 36], sh = id => { const n = M.byId[id]; return n ? CMAP.shapeOf(n) : "rounded"; };
   const [x1, y1] = P(e.a), [x2, y2] = P(e.b), dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
   const ra = edgeOut(e.a, dx, dy, () => CMAP.exitAt(sh(e.a), S(e.a)[0], S(e.a)[1], dx, dy)), rb = edgeOut(e.b, -dx, -dy, () => CMAP.exitAt(sh(e.b), S(e.b)[0], S(e.b)[1], -dx, -dy));
-  const ok = L > ra + rb + 4, sx = ok ? x1 + dx / L * ra : x1, sy = ok ? y1 + dy / L * ra : y1, ex = ok ? x2 - dx / L * rb : x2, ey = ok ? y2 - dy / L * rb : y2;
+  const ok = L > ra + rb + 4; let sx = ok ? x1 + dx / L * ra : x1, sy = ok ? y1 + dy / L * ra : y1, ex = ok ? x2 - dx / L * rb : x2, ey = ok ? y2 - dy / L * rb : y2;
+  // an arrowhead's tip is on the box's edge: the line stops short by the arrow's length, inside its wide base (no line end showing past the tip)
+  const asz = e.w === 4 ? 16 : e.w === 3 ? 14 : 11, back = asz * 0.8, LL = Math.hypot(ex - sx, ey - sy) || 1, ux = (ex - sx) / LL, uy = (ey - sy) / LL;
+  if ((e.arrow === "end" || e.arrow === "both") && LL > back * 2) { ex -= ux * back; ey -= uy * back; }
+  if (e.arrow === "both" && LL > back * 3) { sx += ux * back; sy += uy * back; }
   return {sx, sy, ex, ey, mx: (sx + ex) / 2, my: (sy + ey) / 2};
 }
 function arrowFor(e){
   const id = "cmA" + (e.col || "x").replace("#", "") + (e.w > 2 ? e.w : ""), sz = e.w === 4 ? 16 : e.w === 3 ? 14 : 11, fill = e.col ? `style="fill:${e.col}"` : 'class="cm-arrow"';
   M.marks = M.marks || {};
-  if (!M.marks[id]) M.marks[id] = `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M0 0L10 5L0 10Z"/></marker><marker id="${id}S" viewBox="0 0 10 10" refX="1" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M10 0L0 5L10 10Z"/></marker>`;
+  if (!M.marks[id]) M.marks[id] = `<marker id="${id}" viewBox="0 0 10 10" refX="2" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M0 0L10 5L0 10Z"/></marker><marker id="${id}S" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M10 0L0 5L10 10Z"/></marker>`;
   return id;
 }
 function edgeSvg(e){
@@ -893,7 +897,7 @@ function paint(){
     return `<g class="cm-node k-${n.kind} sh-${shape}${n.root ? " is-root" : ""}${n.color ? " has-col" : ""}${M.sel === n.id ? " is-sel" : ""}${M.connect === n.id ? " is-con" : ""}${hidden ? " is-blank" : ""}${qi >= 0 && Q.done.has(n.id) ? " is-got" : ""}${Q && Q.pick === n.id ? " is-pick" : ""}" data-n="${esc(n.id)}" data-col="${col}" data-dot="${dot ? 1 : ""}" transform="translate(${x},${y})" tabindex="0" role="button" aria-label="${esc(hidden ? `Blank ${qi + 1}` : `${n.label}, ${kind}${conf}`)}">
       ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round((n.size || (n.root ? 15 : 13)) * 0.36)}"${dot ? "" : ' text-anchor="middle" x="0"'} style="${n.size ? `font-size:${n.size}px;` : ""}${n.font ? `font-family:${esc(FONT_STACK[n.font])};` : ""}${(n.text || autoInk(n.fill)) ? `fill:${n.text || autoInk(n.fill)};` : ""}">${esc(label)}</text></g>`;
   }).join("");
-  world.innerHTML = `<defs><marker id="cmArr" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M0 0L10 5L0 10Z"/></marker><marker id="cmArrS" viewBox="0 0 10 10" refX="1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M10 0L0 5L10 10Z"/></marker></defs><g class="cm-edges"></g><g class="cm-nodes">${nodes}</g>`;
+  world.innerHTML = `<defs><marker id="cmArr" viewBox="0 0 10 10" refX="2" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M0 0L10 5L0 10Z"/></marker><marker id="cmArrS" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M10 0L0 5L10 10Z"/></marker></defs><g class="cm-edges"></g><g class="cm-nodes">${nodes}</g>`;
   world.setAttribute("transform", viewT());
   // each label is measured, and its box drawn to fit
   world.querySelectorAll(".cm-node").forEach(el => {
@@ -984,8 +988,8 @@ function anySw(key, cur, label){
   const own = /^#[0-9a-f]{6}$/i.test(cur || ""), cv = own ? cur : "#7C5CFF";
   const known = (key === "fill" ? FILLS : key === "text" ? INKS : COLORS.concat(["#1E293B"])).some(v => v.toLowerCase() === String(cur || "").toLowerCase());
   return typeof anyColorLocked === "function" && anyColorLocked()
-    ? `<button type="button" class="cm-col cm-col-any locked" data-cm="anypro" title="Any colour (Pro)" aria-label="Any ${label} colour, part of Studyboard Pro"><i class="pro-badge">PRO</i></button>`
-    : `<label class="cm-col cm-col-any${own && !known ? " on" : ""}" style="--sw:${esc(cv)}" title="Any colour"><input type="color" data-cm-any="${key}" value="${esc(cv)}" aria-label="Pick any ${label} colour"></label>`;
+    ? `<button type="button" class="cm-col cm-col-any locked" data-cm="anypro" title="Any Colour (Pro)" aria-label="Any ${label} colour, part of Studyboard Pro"><i class="pro-badge">PRO</i></button>`
+    : `<label class="cm-col cm-col-any${own && !known ? " on" : ""}" style="--sw:${esc(cv)}" title="Any Colour"><input type="color" data-cm-any="${key}" value="${esc(cv)}" aria-label="Pick any ${label} colour"></label>`;
 }
 function styleHtml(n){
   const sw = (key, list, cur, auto) => `<div class="cm-cols" role="group" aria-label="${{fill: "Fill colour", stroke: "Outline colour", text: "Text colour"}[key]}"><button type="button" class="cm-col cm-col-auto" data-cm="st" data-k="${key}" data-v="" aria-pressed="${!cur}" title="${auto}" aria-label="${auto}"></button>${list.map(v => `<button type="button" class="cm-col" data-cm="st" data-k="${key}" data-v="${v}" style="--sw:${v}" aria-pressed="${String(cur).toLowerCase() === v.toLowerCase()}" aria-label="${v}"></button>`).join("")}${anySw(key, cur, {fill: "fill", stroke: "outline", text: "text"}[key])}</div>`;
@@ -995,10 +999,10 @@ function styleHtml(n){
   return `<div class="cm-row cm-style"><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
     <div class="cm-row cm-style">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
       <label class="cm-font"><span class="sr">Font</span><select data-cm="font" aria-label="Font">${CMAP.FONTS.map(f => `<option value="${f}" ${(n.font || "") === f ? "selected" : ""} style="${FONT_STACK[f] ? `font-family:${esc(FONT_STACK[f])}` : ""}">${FONT_NAMES[f]}</option>`).join("")}</select></label>
-      <span class="cm-step" role="group" aria-label="Text size"><button type="button" class="cm-stb" data-cm="tsize" data-v="-1" aria-label="Smaller text">A−</button><span class="cm-stv" title="Text size">${fs}</span><button type="button" class="cm-stb" data-cm="tsize" data-v="1" aria-label="Bigger text">A+</button></span>
-      <span class="cm-step" role="group" aria-label="Box size"><button type="button" class="cm-stb" data-cm="bsize" data-v="-1" aria-label="Smaller box">${ic('<rect x="7" y="9" width="10" height="6" rx="1.5"/>')}</button><span class="cm-stv" title="Box size">${Math.round(sc * 100)}%</span><button type="button" class="cm-stb" data-cm="bsize" data-v="1" aria-label="Bigger box">${ic('<rect x="3" y="6" width="18" height="12" rx="2"/>')}</button></span>
+      <span class="cm-step" role="group" aria-label="Text size"><button type="button" class="cm-stb" data-cm="tsize" data-v="-1" aria-label="Smaller text">A−</button><span class="cm-stv" title="Text Size">${fs}</span><button type="button" class="cm-stb" data-cm="tsize" data-v="1" aria-label="Bigger text">A+</button></span>
+      <span class="cm-step" role="group" aria-label="Box size"><button type="button" class="cm-stb" data-cm="bsize" data-v="-1" aria-label="Smaller box">${ic('<rect x="7" y="9" width="10" height="6" rx="1.5"/>')}</button><span class="cm-stv" title="Box Size">${Math.round(sc * 100)}%</span><button type="button" class="cm-stb" data-cm="bsize" data-v="1" aria-label="Bigger box">${ic('<rect x="3" y="6" width="18" height="12" rx="2"/>')}</button></span>
       ${CMAP.styled(CMAP.styleOf(userOf(M.own).styles[n.id])) ? `<button type="button" class="link-btn" data-cm="streset">Reset Style</button>` : ""}</div>
-    ${M.pick === "fill" ? sw("fill", FILLS, n.fill || "", "Automatic fill") : M.pick === "stroke" ? sw("stroke", COLORS.concat(["#1E293B"]), n.stroke || "", "Automatic outline") : M.pick === "text" ? sw("text", INKS, n.text || "", "Automatic text colour") : ""}`;
+    ${M.pick === "fill" ? sw("fill", FILLS, n.fill || "", "Automatic Fill") : M.pick === "stroke" ? sw("stroke", COLORS.concat(["#1E293B"]), n.stroke || "", "Automatic Outline") : M.pick === "text" ? sw("text", INKS, n.text || "", "Automatic Text Colour") : ""}`;
 }
 function panel(){
   const P = M.el.querySelector(".cm-panel"); if (!P) return;
@@ -1020,12 +1024,12 @@ function panel(){
   }
   if (M.selE) {
     const e = g.edges.find(x => x.key === M.selE); if (!e) { M.selE = ""; panel(); return; }
-    const a = g.nodes.find(n => n.id === e.a), b = g.nodes.find(n => n.id === e.b), WHY = {exam: "exam topic", topic: "linked in the Prep Plan", link: "a [[link]] in the note", from: "cards made from it", class: "filed under the class", user: "your connection"};
+    const a = g.nodes.find(n => n.id === e.a), b = g.nodes.find(n => n.id === e.b), WHY = {exam: "Exam Topic", topic: "Linked in the Prep Plan", link: "A [[Link]] in the Note", from: "Cards Made From It", class: "Filed Under the Class", user: "Connection", at: "Linked Page or Lecture"};
     const seg = (key, opts, cur, names, icons) => `<div class="cm-seg" role="group" aria-label="${key === "eline" ? "Line style" : key === "ewidth" ? "Line thickness" : "Arrows"}">${opts.map(v => `<button type="button" class="cm-segb" data-cm="${key}" data-v="${v}" aria-pressed="${cur === v}" title="${names[v]}" aria-label="${names[v]}">${ic(icons[v])}</button>`).join("")}</div>`;
     P.innerHTML = `<p style="margin:0"><b>${esc(a ? a.label : "")}</b> ${e.arrow === "none" ? "—" : e.arrow === "both" ? "↔" : "→"} <b>${esc(b ? b.label : "")}</b> <span class="mini">${esc(WHY[e.why] || "")}</span></p>
       <form class="cm-row cm-elf"><input type="text" data-cm-elab value="${esc(e.label)}" placeholder="Words on the line: causes, is part of, leads to…" maxlength="60" aria-label="Words on this connection" enterkeyhint="done"><button type="submit" class="btn small">Save</button></form>
       <div class="cm-row cm-style">${seg("eline", ["solid", "dashed", "dotted"], e.line || "solid", LINE_NAMES, LINE_IC)}${seg("ewidth", ["1", "2", "3", "4"], String(e.w || 2), W_NAMES, W_IC)}${seg("earrow", CMAP.ARROWS, e.arrow || "none", ARROW_NAMES, ARROW_IC)}${e.arrow === "end" ? `<button type="button" class="btn small" data-cm="eflip" title="Point the arrow the other way">Flip</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="ecut">Remove</button></div>
-      <div class="cm-cols" role="group" aria-label="Line colour"><button type="button" class="cm-col cm-col-auto" data-cm="ecol" data-v="" aria-pressed="${!e.col}" title="Automatic colour" aria-label="Automatic colour"></button>${COLORS.concat(["#1E293B"]).map(v => `<button type="button" class="cm-col" data-cm="ecol" data-v="${v}" style="--sw:${v}" aria-pressed="${(e.col || "").toLowerCase() === v.toLowerCase()}" title="${v}" aria-label="Colour ${v}"></button>`).join("")}${anySw("line", e.col, "line")}</div>`;
+      <div class="cm-cols" role="group" aria-label="Line colour"><button type="button" class="cm-col cm-col-auto" data-cm="ecol" data-v="" aria-pressed="${!e.col}" title="Automatic Colour" aria-label="Automatic colour"></button>${COLORS.concat(["#1E293B"]).map(v => `<button type="button" class="cm-col" data-cm="ecol" data-v="${v}" style="--sw:${v}" aria-pressed="${(e.col || "").toLowerCase() === v.toLowerCase()}" title="${v}" aria-label="Colour ${v}"></button>`).join("")}${anySw("line", e.col, "line")}</div>`;
     return;
   }
   if (M.sel || M.selE) { M.cardsOpen = false; M.made = null; }
@@ -1434,14 +1438,14 @@ function newMapSheet(cid, o){
       <div class="cm-more" data-for="describe" ${start === "describe" ? "" : "hidden"}>
         <label class="f"><span class="lh">Your Ideas and Connections</span><textarea id="cmDesc" rows="6" placeholder="Photosynthesis needs sunlight, water and carbon dioxide.&#10;It makes glucose and oxygen.&#10;Chlorophyll in the leaves absorbs the sunlight.">${esc(o.desc || "")}</textarea></label>
         <p class="mini cm-tip">Write it any way: sentences, a list, or arrows like <code>Sunlight -> Photosynthesis : powers</code>. Arrows and lists work even without AI.</p>
-        <div class="cm-eg"><span class="mini">Try an example</span>${["Photosynthesis needs sunlight, water and CO2, and makes glucose and oxygen.", "French Revolution -> Napoleon : leads to\nEnlightenment -> French Revolution : inspires\nDebt -> French Revolution : triggers", "Supply and demand: price, quantity, equilibrium, shortage, surplus"].map((x, i) => `<button type="button" class="btn small cm-egb" data-eg="${esc(x)}">${["Sentences", "Arrows", "A list"][i]}</button>`).join("")}</div>
+        <div class="cm-eg"><span class="mini">Try an Example</span>${["Photosynthesis needs sunlight, water and CO2, and makes glucose and oxygen.", "French Revolution -> Napoleon : leads to\nEnlightenment -> French Revolution : inspires\nDebt -> French Revolution : triggers", "Supply and demand: price, quantity, equilibrium, shortage, surplus"].map((x, i) => `<button type="button" class="btn small cm-egb" data-eg="${esc(x)}">${["Sentences", "Arrows", "A list"][i]}</button>`).join("")}</div>
       </div>
       <div class="cm-more" data-for="scan" ${start === "scan" ? "" : "hidden"}>
         ${(() => { const CAM = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>', UP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v4h16v-4"/></svg>';
           const qr = typeof PHONE_CAM !== "undefined" && PHONE_CAM.can(), cam = !qr && typeof phoneLike === "function" && phoneLike();
           return `<div class="row-actions cm-scan-acts">${qr ? `<button type="button" class="btn primary" data-scan-phone aria-pressed="false">${CAM}Take Photo With Your Phone</button>` : cam ? `<button type="button" class="btn primary" data-scan-cam>${CAM}Take Photo</button>` : ""}<button type="button" class="btn${qr || cam ? "" : " primary"}" data-scan-pick>${UP}${cam ? "Choose a Picture" : "Upload a Picture"}</button></div>${cam ? `<input type="file" id="cmScanCam" accept="image/*" capture="environment" class="sr" tabindex="-1">` : ""}<div data-scan-qr></div>`; })()}
         <label class="cm-drop" data-cm-drop><input type="file" id="cmScan" accept="image/*" hidden><img alt="" hidden data-cm-shot>
-          <span class="cm-drop-in"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><b>Drop or Paste a Picture Here</b><span class="mini">or click to choose one</span></span>
+          <span class="cm-drop-in"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><b>Drop or Paste a Picture Here</b><span class="mini">Or Click to Choose One</span></span>
           <span class="cm-drop-chg" hidden>Change Picture</span></label>
         <p class="mini cm-tip">Works best with the whole page in frame, good light and clear writing. Boxes, circles, clouds, arrows, dashed lines and words on lines all carry over. The photo itself isn't kept.</p>
       </div>
@@ -1694,8 +1698,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-elbg{fill:var(--surface);stroke:color-mix(in srgb,var(--ink) 18%,transparent);stroke-width:1}
 .cm-elg{cursor:pointer}
 .cm-edge.is-sel .cm-elbg{stroke:var(--accent,#2F6FE4)}
-.cm-edge.is-sel .cm-line{filter:drop-shadow(0 0 3px color-mix(in srgb,var(--accent,#2F6FE4) 70%,transparent))}
-.cm-edge.is-sel:not(.has-lc) .cm-line{stroke:var(--accent,#2F6FE4)}
+.cm-edge.is-sel .cm-line{filter:drop-shadow(0 0 3px var(--accent,#2F6FE4)) drop-shadow(0 0 1px var(--accent,#2F6FE4))}
+.cm-edge.is-sel:not(.has-lc) .cm-line{stroke:color-mix(in srgb,var(--ink) 62%,transparent)}
 .cm-edge.is-sel:not(.has-w) .cm-line{stroke-width:3}
 .cm-elab{font-size:11.5px;font-weight:600;fill:color-mix(in srgb,var(--ink) 80%,var(--muted));text-anchor:middle;pointer-events:none}
 .cm-node{cursor:pointer;outline:none}
