@@ -789,7 +789,7 @@ function player(id){
   const e = n.emb, name = n.label || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
   const src = e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e;
   cv.insertAdjacentHTML("beforeend", `<div class="cm-player${vid && e.p !== "spotify" ? " is-video" : e.p === "spotify" ? " is-audio" : ""}" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><span class="cm-embdot" style="background:${EMB_COL[e.p] || "#475569"}"></span><b>${esc(name)}</b><span class="spacer"></span><a class="btn small" href="${esc(e.u)}" target="_blank" rel="noopener noreferrer">Open in ${esc(CMAP.PROVIDERS[e.p] || "Browser")}</a><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">×</button></div>
-    ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms"></iframe></div></div>`);
+    ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}${e.p === "spotify" ? `<p class="mini cm-player-tip">Spotify plays whole songs and episodes here only when you're signed in to Spotify in this browser; otherwise it plays a 30-second preview. Open in Spotify plays the whole thing.</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; storage-access" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div></div>`);
   const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
 }
 function closePlayer(){ const p = M.el && M.el.querySelector(".cm-player"); if (p) { p.remove(); return true; } return false; }
@@ -1123,7 +1123,7 @@ function wireCanvas(){
       const n = M.byId[M.sel]; drag = {rsz: hd.dataset.hdl, id: M.sel, w0: M.size[M.sel][0], h0: M.size[M.sel][1], minW: n && (n.img || n.emb) ? 90 : tw + 30, minH: n && (n.img || n.emb) ? 60 : Math.max(26, (n && n.size || 13) * 1.9), x: e.clientX, y: e.clientY, moved: false};
       try { svg.setPointerCapture(e.pointerId); } catch (er) {} e.stopPropagation(); return; }
     const nd = e.target.closest(".cm-node"), ed = e.target.closest(".cm-edge");
-    drag = {id: nd ? nd.dataset.n : "", edge: !nd && ed ? ed.dataset.e : "", x: e.clientX, y: e.clientY, vx: M.view.x, vy: M.view.y, moved: false, start: nd ? (M.pos[nd.dataset.n] || [0, 0]).slice() : null};
+    drag = {id: nd ? nd.dataset.n : "", emb: !!(nd && e.target.closest(".cm-emb, .cm-emb-btn")), edge: !nd && ed ? ed.dataset.e : "", x: e.clientX, y: e.clientY, vx: M.view.x, vy: M.view.y, moved: false, start: nd ? (M.pos[nd.dataset.n] || [0, 0]).slice() : null};
     try { svg.setPointerCapture(e.pointerId); } catch (er) {}
   });
   svg.addEventListener("pointermove", e => {
@@ -1159,6 +1159,8 @@ function wireCanvas(){
     if (d.curve) { if (d.moved && d.cv) edgeSet({cv: d.cv.map(v => Math.round(v * 1000) / 1000)}, "Shaped a curve"); return; }
     if (d.moved && d.id && !M.quiz) { const u = userOf(M.own); u.pos = Object.assign({}, u.pos, {[d.id]: M.pos[d.id]}); saveUser(u, null); return; }
     if (d.moved) return;
+    // a box with a video or embed: a tap on the embed plays it; a tap anywhere else on the box picks it, to edit
+    if (d.id && d.emb && !M.quiz && !M.connect) { M.sel = d.id; M.selE = ""; M.pick = ""; lite(); player(d.id); return; }
     if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
     else if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
   };
@@ -1217,7 +1219,6 @@ function viewT(){
 function tapNode(id){
   // a second tap on a video or embed plays it (a tap repaints the map, so the browser's own double-click can't be relied on)
   const now = Date.now(), tn = M.byId[id];
-  if (tn && tn.emb && !M.quiz && !M.connect) { M.lastTap = null; M.sel = id; M.selE = ""; M.pick = ""; lite(); player(id); return; }
   if (tn && tn.at && !M.quiz && !M.connect && M.lastTap && M.lastTap.id === id && now - M.lastTap.t < 500) { M.lastTap = null; M.sel = id; M.selE = ""; lite(); goAt(tn.at); return; }
   M.lastTap = {id, t: now};
   if (M.quiz) { const Q = M.quiz; if (Q.ids.includes(id) && !Q.done.has(id)) { Q.pick = Q.pick === id ? "" : id; Q.wrong = ""; paint(); } return; }
@@ -1854,6 +1855,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-sortb::after{content:none!important}
 @media (max-width:639px){.cm-sortb .sm-lbl{display:inline!important}}
 .cm-emb-name{fill:#fff;font-weight:800;font-size:13px;letter-spacing:.02em}
+.cm-node .cm-emb,.cm-node .cm-emb-btn{cursor:pointer}
 .cm-emb-btn circle{fill:rgb(0 0 0/.55);stroke:#fff;stroke-width:1.5}
 .cm-emb-btn path{fill:#fff}
 .cm-emb-btn .cm-emb-ex{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}

@@ -227,12 +227,15 @@ function SEED(){
   await page.click(".cm-embf [type=submit]"); await page.waitForSelector(".cm-node .cm-emb");
   let em = (await course(page, "c3")).maps[2].add.find(x => x.emb);
   ok(em && em.emb.p === "youtube" && em.emb.e === "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&start=42" && /ytimg/.test(await page.getAttribute(".cm-node .cm-emb image", "href")), "it becomes a video on the map, with its thumbnail (privacy-enhanced player, start time kept)");
-  await page.click(".cm-node:has(.cm-emb)"); await page.waitForSelector(".cm-player iframe");
+  await page.evaluate(() => { const S = SBCMAP.state(); S.sel = ""; S.selE = ""; });
+  { const nb = await page.locator(".cm-node:has(.cm-emb)").boundingBox(); await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height - 8); await page.waitForTimeout(250); }
+  ok(!(await page.locator(".cm-player").count()) && /Play/.test(await page.textContent(".cm-panel")), "a tap on the box outside the video picks it, to edit (the video doesn't open)");
+  await page.click(".cm-node .cm-emb"); await page.waitForSelector(".cm-player iframe");
   ok(await page.evaluate(() => { const p = document.querySelector(".cm-player"), c = document.querySelector(".cm-canvas").getBoundingClientRect(), r = p.getBoundingClientRect();
     return !p.getAnimations().length && Math.abs((r.left + r.width / 2) - (c.left + c.width / 2)) < 2 && Math.abs((r.top + r.height / 2) - (c.top + c.height / 2)) < 2; }), "the player appears at once, in the middle (no fade or slide)");
   ok(await page.evaluate(() => !document.querySelector(".cm-node:has(.cm-emb) .cm-kdot")), "a video's box has no colour dot over its thumbnail");
   const fsrc = await page.getAttribute(".cm-player iframe", "src");
-  ok(/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(fsrc) && /autoplay=1/.test(fsrc) && /allow-scripts/.test(await page.getAttribute(".cm-player iframe", "sandbox")), "one tap plays it on the map, in a sandboxed frame");
+  ok(/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(fsrc) && /autoplay=1/.test(fsrc) && /allow-scripts/.test(await page.getAttribute(".cm-player iframe", "sandbox")), "a tap on the video itself plays it on the map, in a sandboxed frame");
   await page.waitForTimeout(600);
   ok(await page.frames().some(f => /youtube-nocookie/.test(f.url())) && !blocked.length, "the app's security policy lets the player load: " + blocked.join(" | "));
   await page.keyboard.press("Escape"); await page.waitForTimeout(200);
