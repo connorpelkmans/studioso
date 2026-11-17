@@ -106651,9 +106651,18 @@ const CMPACK = (() => {
     tile: dotsTile(220, 200, 4, 115, (x, y, r) => leafP(x, y, 2.2, "#2F9E44", r * 180).replace("/>", ' opacity=".1"/>')),
     line: p => ({st: "stroke:#1E7B3A;stroke-width:1.2", post: beads(p, 10, (q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="${j % 2 ? 2.6 : 3.4}" fill="${pick(j, ["#FFD43B", "#2F9E44", "#1C5BBA"])}"/>`)}), arrow: "#1E7B3A",
     box: n => { const {x0, y0, x1} = B(n), c = n.root ? "#1E7B3A" : pick(n.i, ["#FFD43B", "#2F9E44", "#1C5BBA"]); return {pre: [-1, 0, 1].map(k => `<path transform="translate(${f1(k * 16)} ${f1(y0 + 2)}) rotate(${k * 22})" d="M0 0C-6-8-4-20 0-24C4-20 6-8 0 0Z" fill="${pick(k + 1, ["#FFD43B", "#E64980", "#3BC9DB"])}" stroke="#00000022"/>`).join(""), o: rr(n, n.h / 2, S(c, "#0F4D22", 1.6, SH)), post: `<path d="M${f1(x0 + 8)} ${f1(-n.h / 2 + 5)}H${f1(x1 - 8)}" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".35"/>`, t: {ink: n.i === 0 && !n.root ? "#5C3D00" : "#fff", fw: 800}}; }};
-  // the plain-colour themes keep the default map's orderly dot grid (22px, like the plain map), in their own colour
-  const dotGrid = c => tile(22, 22, `<circle cx="11" cy="11" r="1.1" fill="${c}" opacity=".32"/>`);
-  Object.entries({classic: "#2F6FE4", paper: "#8A8780", slate: "#5F6B7A", sand: "#A88A5C", blush: "#D96C88", lavender: "#8A73C9", sky: "#4E8CC4", sage: "#6F8F6B", peach: "#E07A5F", butter: "#C21E33", teal: "#2A9D8F", mocha: "#7B4B33", plum: "#8E3E7E", indigo: "#3F51A0"}).forEach(([k, c]) => { T2[k].tile = dotGrid(c); });
+  /* The plain-colour themes: just colour. Rounded boxes and plain lines in the theme's colour, on the default map's even dot grid;
+     no decoration (their names and descriptions stay). [paper background, main colour, light fill, words] */
+  const PLAIN = {classic: ["#F4F7FB", "#2F6FE4", "#EAF1FD", "#1E293B"], paper: ["#FAFAF7", "#4B5563", "#F1F1EC", "#1F2328"], slate: ["#F1F3F6", "#4A6FA5", "#E6ECF4", "#1E2733"],
+    sand: ["#F7F2E9", "#B08A57", "#F3EADB", "#3B2F1E"], blush: ["#FCF3F4", "#D96C88", "#FBE6EB", "#4A1F2B"], lavender: ["#F6F3FB", "#8A73C9", "#EEE9F8", "#2E2450"],
+    sky: ["#F0F7FD", "#3E8AC8", "#E3F0FB", "#16324D"], sage: ["#F3F6F1", "#6F8F6B", "#E8EFE5", "#243322"], peach: ["#FFF5EF", "#E07A5F", "#FCE8DF", "#4A2418"],
+    butter: ["#FFF5F5", "#C21E33", "#FBE3E6", "#4A0D16"], teal: ["#EFF8F7", "#2A9D8F", "#DDF1EE", "#123F3A"], mocha: ["#F7F1EC", "#7B4B33", "#EFE4DB", "#2E1A10"],
+    plum: ["#F8F2F7", "#8E3E7E", "#F1E3EE", "#3A1433"], indigo: ["#F0F2FA", "#3F51A0", "#E3E7F6", "#18214A"]};
+  const dotGrid = c => tile(22, 22, `<circle cx="11" cy="11" r="1.1" fill="${c}" opacity=".3"/>`);
+  Object.entries(PLAIN).forEach(([k, [paper, c, fill, ink]]) => { const was = T2[k] || {};
+    T2[k] = {name: was.name, base: paper, desc: `Simple ${was.name} colour: rounded boxes and plain lines.`, tile: dotGrid(c), arrow: c,
+      line: () => ({st: `stroke:${c};stroke-width:2;stroke-linecap:round;opacity:.8`}),
+      box: n => ({o: rr(n, n.root ? 14 : 12, S(n.root ? c : fill, c, n.root ? 2 : 1.6, SH)), t: {ink: n.root ? "#fff" : ink, fw: 800}})}; });
   Object.keys(T2).forEach(k => { P["t_" + k] = Object.assign({group: "theme"}, T2[k]); });
   Object.keys(P).forEach(k => { P[k].id = k; });
   // which theme has its own style (skin id → style)
