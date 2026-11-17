@@ -65,8 +65,7 @@ const CMAP = (() => {
     if (auto && src.mode !== "exam") Object.keys(src.classes || {}).forEach(k => link("root", "class:" + k, "class"));
     // the student's own ideas and connections
     (user.add || []).forEach(i => add("idea:" + i.id, "idea", i.label, Object.assign({ref: i.id}, i.img && i.img.k ? {img: {k: String(i.img.k), w: Number(i.img.w) || 4, h: Number(i.img.h) || 3}} : {}, atOf(i.at) ? {at: atOf(i.at)} : {}, i.emb && i.emb.e && embedOk(i.emb.e) ? {emb: {p: String(i.emb.p || ""), u: String(i.emb.u || "").slice(0, 600), e: String(i.emb.e).slice(0, 600), th: String(i.emb.th || "").slice(0, 300)}} : {})));
-    // an idea linked to a PDF page or lecture moment sits next to that file when the file is on the map
-    (user.add || []).forEach(i => { const a = atOf(i.at); if (a) link("idea:" + i.id, "file:" + a.f, "at", a.t != null ? "at " + clock(a.t) : "p. " + a.p); });
+    // (an idea linked to a PDF page or lecture moment plays or opens it from its own box: no line to the file, so the file isn't pulled onto the map)
     cut.forEach(k => E.delete(k));
     (user.links || []).forEach(l => { if (N.has(l.a) && N.has(l.b)) { const k = ek(l.a, l.b), old = E.get(k); E.set(k, {a: l.a, b: l.b, why: old ? old.why : "user", label: String(l.label || "").slice(0, 60), key: k, user: true, w: [1, 2, 3, 4].includes(Number(l.w)) ? Number(l.w) : l.line === "thick" ? 3 : 0, col: /^#[0-9a-f]{6}$/i.test(String(l.col || "")) ? String(l.col) : "", line: LINES.includes(l.line) && l.line !== "thick" ? l.line : "solid", arrow: ARROWS.includes(l.arrow) ? l.arrow : "none"}); } });
     hide.forEach(id => { if (id !== "root") N.delete(id); });
@@ -1505,12 +1504,20 @@ function peekSvg(p, col){
   // keep a wide card shape: pad the short side so nodes aren't squashed
   const wantH = (x1 - x0) * 0.42; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
   const ok = c => /^#[0-9a-f]{3,8}$/i.test(String(c || "")) ? c : "";
-  const lines = p.g.edges.filter(e => keep.has(e.a) && keep.has(e.b)).map(e => { const a = P[e.a], b = P[e.b]; return a && b ? `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"${e.line && e.line !== "solid" ? ` class="ln-${esc(e.line)}"` : ""}/>` : ""; }).join("");
+  // each box's outline (the same sizes the boxes are drawn with), so the lines stop at the edges instead of running under the boxes
+  const geo = {};
+  ns.forEach(n => { const lab = String(n.label || ""), max = n.root ? 18 : 16, t = lab.length > max ? lab.slice(0, max - 1) + "…" : lab, f = n.root ? fs * 1.12 : fs, sh = CMAP.shapeOf(n);
+    const w = n.img || n.emb ? fs * 8 : Math.max(fs * 3, t.length * f * 0.58 + f * 1.6), h = f * 2;
+    geo[n.id] = n.root ? ["rounded", w, h] : sh === "text" ? ["box", w * 0.7, 10] : n.img || n.emb ? ["box", w, fs * 5.2] : sh === "circle" || sh === "cloud" ? ["circle", w, h + 12] : sh === "diamond" ? ["diamond", w, h + 16] : ["box", w, h]; });
+  const cut = (id, dx, dy) => { const g = geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
+  const lines = p.g.edges.filter(e => keep.has(e.a) && keep.has(e.b)).map(e => { const a = P[e.a], b = P[e.b]; if (!a || !b) return "";
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ra = cut(e.a, dx, dy), rb = cut(e.b, -dx, -dy); if (L <= ra + rb) return "";
+    return `<line x1="${a[0] + dx / L * ra}" y1="${a[1] + dy / L * ra}" x2="${b[0] - dx / L * rb}" y2="${b[1] - dy / L * rb}"${e.line && e.line !== "solid" ? ` class="ln-${esc(e.line)}"` : ""}/>`; }).join("");
   const nodes = ns.map(n => {
     const lab = String(n.label || ""), max = n.root ? 18 : 16, t = lab.length > max ? lab.slice(0, max - 1).trimEnd() + "…" : lab, f = n.root ? fs * 1.12 : fs;
     const [x, y] = P[n.id] || [0, 0], sh = CMAP.shapeOf(n), w = n.img || n.emb ? fs * 8 : Math.max(fs * 3, t.length * f * 0.58 + f * 1.6), h = f * 2;
     const txt = sh === "text" || n.img || n.emb ? "" : `<text x="${x}" y="${y}" class="${n.root ? "pk-rt" : "pk-t"}" style="font-size:${f.toFixed(1)}px"${!n.root && ok(n.text) ? ` fill="${ok(n.text)}"` : ""}>${esc(t)}</text>`;
-    const st = ok(n.stroke) || ok(n.color) || "", fl = ok(n.fill) || "", attr = `${st ? ` stroke="${st}"` : ""}${fl ? ` fill="${fl}"` : st ? ` fill="${st}33"` : ""}`;
+    const st = ok(n.stroke) || ok(n.color) || "", fl = ok(n.fill) || "", attr = `${st ? ` stroke="${st}"` : ""}${fl ? ` style="fill:color-mix(in srgb,${fl.slice(0, 7)} 100%,var(--surface))"` : st ? ` style="fill:color-mix(in srgb,${st.slice(0, 7)} 20%,var(--surface))"` : ""}`; // solid fills: the lines meet in the middle, under the boxes
     if (n.root) return `<rect class="pk-root" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${h / 2}" fill="${esc(col)}"/>` + txt;
     if (sh === "text") return `<rect class="pk-txt" x="${x - w * 0.35}" y="${y - 5}" width="${w * 0.7}" height="10" rx="5"/>`;
     if (sh === "circle" || sh === "cloud") return `<ellipse class="pk-n" cx="${x}" cy="${y}" rx="${w / 2}" ry="${h / 2 + 6}"${attr}/>` + txt;
@@ -1708,6 +1715,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-peek .pk-e line.ln-thick{stroke-width:2.6}
 .cm-peek .pk-n{fill:var(--surface);stroke:color-mix(in srgb,var(--c) 60%,var(--ink));stroke-opacity:.7;vector-effect:non-scaling-stroke;stroke-width:1.3}
 .cm-peek .pk-pic{stroke-dasharray:3 3}
+.cm-peek .pk-n,.cm-peek .pk-pic{fill-opacity:1}
 .cm-peek .pk-ghost rect{fill:var(--surface);stroke-dasharray:4 4}
 .cm-peek text{font:700 19px var(--font,system-ui);text-anchor:middle;dominant-baseline:central;pointer-events:none}
 .cm-peek .pk-t{fill:color-mix(in srgb,var(--ink) 78%,transparent);font-weight:600;font-size:17px}

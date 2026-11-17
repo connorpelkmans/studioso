@@ -63,8 +63,8 @@ ok([null, {}, {f: "f1"}, {f: "f1", p: 0}, {f: "f1", p: -3}, {f: "", p: 2}, {f: 5
 ok(CMAP.clock(754000) === "12:34" && CMAP.clock(3723000) === "1:02:03" && CMAP.parseClock("12:34") === 754000 && CMAP.parseClock("1:02:03") === 3723000 && CMAP.parseClock("7:61") === null && CMAP.parseClock("abc") === null, "times read and written as 12:34");
 const ga = CMAP.graph({root: {label: "Bio"}, files: [{id: "f1", label: "Lecture 3 slides.pdf", pdf: true}], user: {add: [{id: "a", label: "Glycolysis", at: {f: "f1", p: 12}}, {id: "b", label: "Gone", at: {f: "nope", p: 2}}]}});
 const ia = ga.nodes.find(x => x.id === "idea:a");
-ok(ia.at.p === 12 && ga.edges.some(e => e.key === [ "file:f1", "idea:a"].sort().join("|") && e.label === "p. 12"), "an idea linked to a page sits next to that PDF on the map, the line saying which page");
-ok(ga.nodes.find(x => x.id === "idea:b").at.f === "nope" && !ga.edges.some(e => e.a === "idea:b" || e.b === "idea:b"), "a link to a file not on the map draws no line");
+ok(ia.at.p === 12 && !ga.edges.some(e => e.a === "idea:a" || e.b === "idea:a") && !ga.nodes.some(x => x.id === "file:f1"), "an idea linked to a page keeps the link on its own box: no line to the PDF, which isn't pulled onto the map");
+ok(ga.nodes.find(x => x.id === "idea:b").at.f === "nope", "a link to a file that's gone stays on the idea (Go To then says the file isn't there)");
 /* Lines: thickness and colour; the old thick line is a solid, thick one */
 { const gl = CMAP.graph({root: {label: "M"}, blank: true, user: {add: [{id: "a", label: "A"}, {id: "b", label: "B"}, {id: "c", label: "C"}], links: [{a: "root", b: "idea:a", line: "thick"}, {a: "root", b: "idea:b", line: "dashed", w: 4, col: "#D6336C"}, {a: "root", b: "idea:c", w: 9, col: "red; x"}]}});
   const E = id => gl.edges.find(e => e.b === id || e.a === id && e.b === "root");

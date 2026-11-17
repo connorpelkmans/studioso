@@ -248,6 +248,8 @@ function SEED(){
   /* The list shows each map as a small picture of itself */
   await act(page, "cm-review", "c3"); await page.waitForSelector(".cm-mapcard");
   ok(await page.locator('.cm-mapcard:has(.cm-ctitle:text-is("Water cycle")) svg.cm-peek text', {hasText: "Evaporation"}).count() === 1 && await page.locator('.cm-mapcard:has(.cm-ctitle:text-is("Water cycle")) .cm-peek ellipse').count() >= 2, "a map's card shows a preview of the map, its words and shapes");
+  ok(await page.evaluate(() => [...document.querySelectorAll(".cm-peek")].every(svg => { const boxes = [...svg.querySelectorAll(".pk-n, .pk-root")].map(b => b.getBBox());
+    return [...svg.querySelectorAll(".pk-e line")].every(l => [[+l.getAttribute("x1"), +l.getAttribute("y1")], [+l.getAttribute("x2"), +l.getAttribute("y2")]].every(([x, y]) => boxes.every(r => !(x > r.x + 3 && x < r.x + r.width - 3 && y > r.y + 3 && y < r.y + r.height - 3)))); })), "preview lines stop at the boxes' edges (none runs under a box)");
   ok(page.errs.length === 0, "no console errors (describe, templates, scan): " + page.errs.join(" | "));
   await act(page, "filter", "all").catch(() => {}); await page.evaluate(() => { const c = document.querySelector('[data-act="filter"][data-id="all"], [data-act="chip"][data-id="all"]'); if (c) c.click(); }); await page.waitForTimeout(200);
 

@@ -134,6 +134,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   await page.fill("#cmAtT", "12:34"); await page.click(".cm-atf [type=submit]"); await page.waitForTimeout(250);
   idea = (await S(page)).courses.c2.maps[0].add.find(x => x.id === "d");
   ok(idea.at && idea.at.f === "f2" && idea.at.t === 754000 && await page.textContent('.cm-node[data-n="idea:d"] .cm-atb text') === "12:34", "ATP links to 12:34 in the lecture, shown on its box");
+  ok(await page.locator('.cm-node[data-n="file:f2"]').count() === 0 && await page.locator('.cm-node[data-n="file:f1"]').count() === 0, "linking doesn't add the lecture's or the PDF's own box to the map");
   await page.evaluate(() => { const S = SBCMAP.state(); S.sel = ""; S.lastTap = null; }); await page.focus('.cm-node[data-n="idea:d"]'); await page.keyboard.press("Enter"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   ok(JSON.stringify(await page.evaluate(() => window.__went)) === JSON.stringify([["lec", "f2", 754000]]), "tapping the box twice plays the lecture from 12:34");
   await openMap(page); await tap(page, "idea:d"); await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF"); await cmClick(page, '[data-cm="atoff"]'); await page.waitForTimeout(200);
