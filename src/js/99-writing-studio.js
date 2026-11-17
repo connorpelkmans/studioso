@@ -427,18 +427,22 @@ const CITE = (() => {
         const hits = match(seg), hasYear = YEAR.test(seg), mlaLike = /^[“"]?[\p{Lu}][\p{L}'’-]+.*?\s\d{1,4}(?:[–-]\d+)?$/u.test(seg) && !hasYear;
         if (hits.length) hits.forEach(s => cite(s.id, at, len));
         else if (hasYear) {
-          const before = body.slice(Math.max(0, at - 60), at), nb = named.filter(s => famRe(keyName(s)).test(before));
+          // "Walker (2017)": the brackets hold only the year, so the name is just before them, in the same sentence.
+          // A citation that starts with a name, "(Carskadon 2011)", is matched by that name alone (never by a name further back)
+          const lead = /^[“"]?[\p{Lu}]/u.test(seg), before = lead ? "" : body.slice(Math.max(0, at - 60), at).split(/(?<!\b(?:al|e\.g|i\.e|cf|vs|ed|eds|Dr|Mr|Mrs|Ms|Prof|St))[.?!;)]\s/).pop().split(/\s+/).slice(-6).join(" "), nb = before ? named.filter(s => famRe(keyName(s)).test(before)) : [];
           if (nb.length) nb.forEach(s => cite(s.id, at, len));
           else if (/^[“"]?[\p{Lu}]/u.test(seg) || /(\p{Lu}[\p{L}'’-]+)\s*$/u.test(before)) unknown.push([seg, at, len]);
         } else if (mlaLike && kind === "author" && !/^(p|pp|para|ch|fig|figure|table|see|chapter|section)\b/i.test(seg)) unknown.push([seg, at, len]);
+        // each message shows the student's own citation as it should be, not a made-up example
+        const nameOf = (/^[“"]?([\p{Lu}][\p{L}'’-]+(?: et al\.)?)/u.exec(seg) || [])[1] || "";
         if (style === "apa" && hasYear) {
-          if (/\b\p{Lu}[\p{L}'’-]+ and \p{Lu}[\p{L}'’-]+,/u.test(seg)) slip("In APA, use & between two authors inside brackets: (Smith & Lee, 2021).", at, len);
-          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)? (1[5-9]\d\d|20\d\d)\b/u.test(seg)) slip("In APA, put a comma between the name and the year: (Smith, 2021).", at, len);
-          if (/\bpg\.?\s*\d/.test(seg)) slip("In APA, write p. 4 (or pp. 4–6) for pages, not pg.", at, len);
+          if (/\b\p{Lu}[\p{L}'’-]+ and \p{Lu}[\p{L}'’-]+,/u.test(seg)) slip(`In APA, use & between two authors inside brackets: (${seg.replace(/\b(\p{Lu}[\p{L}'’-]+) and (\p{Lu}[\p{L}'’-]+),/u, "$1 & $2,")}).`, at, len);
+          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)? (1[5-9]\d\d|20\d\d)\b/u.test(seg)) slip(`In APA, put a comma between the name and the year: (${seg.replace(/^([\p{Lu}][\p{L}'’-]+(?: et al\.)?) (1[5-9]\d\d|20\d\d)\b/u, "$1, $2")}).`, at, len);
+          if (/\bpg\.?\s*\d/.test(seg)) slip(`In APA, write p. for a page (pp. for pages), not pg.: (${seg.replace(/\bpg\.?\s*(\d+)\s*[–-]\s*(\d+)/, "pp. $1–$2").replace(/\bpg\.?\s*(\d)/, "p. $1")}).`, at, len);
         }
         if (kind === "author") {
-          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)?,\s*(p{1,2}\.\s*)?\d/u.test(seg)) slip("In MLA, there's no comma or p. between the name and the page: (Smith 42).", at, len);
-          if (hasYear && hits.length) slip("MLA in-text citations use the author and the page, not the year: (Smith 42).", at, len);
+          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)?,\s*(p{1,2}\.\s*)?\d/u.test(seg)) slip(`In MLA, there's no comma or p. between the name and the page: (${seg.replace(/^([\p{Lu}][\p{L}'’-]+(?: et al\.)?),\s*(?:p{1,2}\.\s*)?(\d)/u, "$1 $2")}).`, at, len);
+          if (hasYear && hits.length) slip(`MLA in-text citations use the author and the page, not the year: (${nameOf || "Author"} and the page number, like ${nameOf || "Author"} 42).`, at, len);
         }
         if (kind === "numeric" && hits.length && hasYear) slip(`${label} uses numbered citations, not author and year.`, at, len);
       });
@@ -458,19 +462,28 @@ const CITE = (() => {
     }
     const n = sources.length, citedN = sources.filter(s => cited.has(s.id)).length;
     if (!n) push("warn", "No sources in your Writing Studio yet", "Add your sources to check your citations against them.");
-    else if (citedN === n) push("ok", `All ${n} source${n === 1 ? " is" : "s are"} cited in your draft`);
+    else if (citedN === n) push("ok", n === 1 ? "Your Writing Studio source is cited in your draft" : `All ${n} sources in your Writing Studio are cited in your draft`);
     if (named.length < n) push("warn", `${n - named.length === 1 ? "A source has" : n - named.length + " sources have"} no title or author`, `Fill ${n - named.length === 1 ? "it" : "them"} in on the Sources tab so your citations can be checked against ${n - named.length === 1 ? "it" : "them"}.`);
     named.filter(s => !cited.has(s.id)).forEach(s => push("warn", `Never cited: ${s.title || keyName(s)}`, kind === "note" ? "Cite it in a footnote where you use it, or remove it if you didn't use it. (Footnotes don't always come along in a paste: check those by eye.)" : "Cite it where you use it, or remove it from your sources if you didn't use it."));
-    const seenU = new Set(); unknown.filter(([u]) => !seenU.has(u) && seenU.add(u)).slice(0, 12).forEach(([u, at, len]) => push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, "Add this source to your Writing Studio, or check the spelling of the name.", "", at, len));
+    // a citation that isn't in the sources is one entry: whether it's in the reference list too, and any format slip in it, go with it
+    const slipAt = new Map(); slips.forEach(([at], t) => { slipAt.set(at, (slipAt.get(at) || []).concat([t])); });
+    const used = new Set(), seenU = new Set();
+    unknown.filter(([u]) => !seenU.has(u) && seenU.add(u)).slice(0, 12).forEach(([u, at, len]) => {
+      const nm = (/^[“"]?([\p{Lu}][\p{L}'’-]+)/u.exec(u) || [])[1], inRef = ref && nm && famRe(nm).test(ref.body);
+      const also = (slipAt.get(at) || []).filter(t => !used.has(t)); also.forEach(t => used.add(t));
+      push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, [`Add this source to your Writing Studio, or check the spelling of the name.${ref && nm && !inRef ? ` It isn't in your ${want} list either.` : ""}`, ...also.map(t => "Also: " + t)].join(" "), "", at, len);
+    });
+    const unknownN = seenU.size;
     if (kind !== "note") bare.slice(0, 10).forEach(([q, at, len]) => push("err", `Quote without a citation: “${q}…”`, "Every direct quote needs an in-text citation right after it.", "", at, len));
     if (!ref) push(n ? "err" : "warn", `No ${want} list found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`);
     else {
       if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) push("warn", `Your list is called “${sq(ref.name)}”`, `${label} calls it ${want}.`, "", ref.at, ref.name.length);
       const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body));
       miss.forEach(s => push("err", `Cited but not in your ${want} list: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1]));
-      if (!miss.length && citedN) push("ok", `Every cited source is in your ${want} list`);
+      // only when nothing cited is missing: a citation that isn't in the sources is cited too
+      if (!miss.length && citedN) push("ok", !unknownN ? `Every cited source is in your ${want} list` : citedN === 1 ? `Your cited Writing Studio source is in your ${want} list` : `All ${citedN} cited Writing Studio sources are in your ${want} list`);
     }
-    slips.forEach(([at, len], t) => push("warn", t, "", "", at, len));
+    slips.forEach(([at, len], t) => { if (!used.has(t)) push("warn", t, "", "", at, len); });
     const r = rules(o.req);
     if (r.style && r.style !== style) push("err", `The assignment asks for ${o.names && o.names[r.style] || r.style}`, `Your Writing Studio is set to ${label}.`, "style:" + r.style);
     if (r.min) {
@@ -1882,7 +1895,8 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 .ws-tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .ws-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent,#2F6FE4)}
 .ws-n{display:inline-block;min-width:1.4em;font-size:.72rem;border-radius:9px;padding:0 5px;background:var(--soft,#EEF1F6);color:var(--muted);text-align:center}
-.ws-style{display:flex;align-items:center;gap:6px;padding-bottom:6px;min-width:0}
+.ws-style{display:flex;align-items:center;gap:8px;padding-bottom:6px;min-width:0}
+.ws-style>span{flex:none;white-space:nowrap;font-size:.8rem;font-weight:700;letter-spacing:.01em;color:var(--muted)}
 .ws-style select{max-width:230px;min-width:0}
 .ws-body{display:grid;gap:10px;align-content:start}
 .ws-add{display:flex;gap:8px;align-items:flex-end}

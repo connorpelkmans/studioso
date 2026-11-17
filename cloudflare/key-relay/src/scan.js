@@ -1,6 +1,7 @@
 // Studyboard photo relay: photos taken on a phone go to Scan to PDF (or Photo to Note) on a computer
 //
-// The computer makes a random code and shows it in a QR code (/s#code for Scan to PDF, /s?for=notes#code for Photo to Note, which
+// The computer makes a random code and shows it in a QR code (/s#code for Scan to PDF, /s?for=notes#code for Photo to Note, /s?for=map#code
+// for scanning a hand-drawn concept map (worded like notes, for one drawing), which
 // only changes the page's wording). From the code it works out a session id and an
 // AES-GCM key (SHA-256 of two labels plus the code). The phone gets the code from the link's #fragment, which
 // browsers never send to a server, locks (encrypts) each photo with the key and posts it here. The computer
@@ -133,7 +134,7 @@ li.ok span{background:rgba(26,127,69,.85)}li.bad span{background:rgba(179,38,30,
 </div></main><script src="/s.js"></script></body></html>`;
 
 export const SCAN_JS = `(function(){
-  var code = (location.hash || "").replace(/^#/, ""), notes = /(^|[?&])for=notes(&|$)/.test(location.search || "");
+  var code = (location.hash || "").replace(/^#/, ""), map = /(^|[?&])for=map(&|$)/.test(location.search || ""), notes = map || /(^|[?&])for=notes(&|$)/.test(location.search || "");
   try { history.replaceState(null, "", location.pathname); } catch (e) {}
   // the words: pages for Scan to PDF, or photos for Photo to Note
   var W = notes ? {one: "Photo", ones: "photos", full: "That's as many photos as one session can take. Make the note on your computer, then start again."}
@@ -141,7 +142,8 @@ export const SCAN_JS = `(function(){
   if (notes) {
     document.title = "Photos to Studyboard";
     document.getElementById("h").textContent = "Send photos to your computer";
-    document.getElementById("intro").textContent = "Take a photo of the board, a slide or your notes. They go straight to Photo to Note on your computer, where they become typed notes.";
+    document.getElementById("intro").textContent = map ? "Take a photo of the concept map you drew. It goes straight to your computer, where Studyboard redraws it as a map you can edit."
+      : "Take a photo of the board, a slide or your notes. They go straight to Photo to Note on your computer, where they become typed notes.";
   }
   var good = /^[A-Za-z0-9_-]{22}$/.test(code) && window.crypto && crypto.subtle;
   document.getElementById(good ? "ok" : "bad").hidden = false;

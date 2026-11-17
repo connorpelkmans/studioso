@@ -7,6 +7,7 @@ function undoLast(){
     const s = undoStack.pop();
     if (s.done || Date.now() - s.at > 30 * 60000) continue;
     const kept = s.undo();
+    if (s.quiet) return true;
     toast((s.label ? `Undone: ${s.label}` : "Undone") + (kept ? ". Changes you made after it were kept." : ""));
     return true;
   }
@@ -93,19 +94,21 @@ function applyChanges(changes, label, extra, opts){
   state.updated = Date.now();
   saveLocal();
   scheduleRender();
-  const step = {label: label || "", at: Date.now(), done: false, binned: binned.length > 0};
+  // opts.quiet: the step can still be undone (Ctrl+Z, or an Undo button of the feature's own) but shows no notice, now or when undone
+  const step = {label: label || "", at: Date.now(), done: false, binned: binned.length > 0, quiet: !!(opts && opts.quiet)};
   // Puts back what this step changed but keeps later edits to the same items (Ctrl+Z can come much later). Returns how many items kept one
   const undo = () => {
     if (step.done) return 0; step.done = true;
     let kept = 0; const back = [];
     inverse.forEach((v, i) => { const r = applied ? undoMerge(v.after, applied[i], getItem(v.kind, v.id), SyncMerge.eq) : {val: v.after}; if (r.kept) kept++; if (!r.skip) back.push({kind: v.kind, id: v.id, after: r.val}); });
     if (back.length) applyChanges(back, null);
-    trashDrop(binned); toast(kept ? "Undone. Changes you made after it were kept." : "Undone");
+    trashDrop(binned); if (!step.quiet) toast(kept ? "Undone. Changes you made after it were kept." : "Undone");
     return kept;
   };
   step.undo = undo;
   if (typeof extra === "function") extra = extra();
-  if (label) { toast(label, undo, extra, opts); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
+  if (label) { if (!step.quiet) toast(label, undo, extra, opts); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
+  applyChanges.last = label ? step : null;
   if (typeof scheduleFolderBackup === "function") scheduleFolderBackup(DESK ? 3000 : 60000);
   if (progressed) { try { noteProgress(); } catch(e) { console.warn(e); } }
   fire("changed", changes, inverse);
