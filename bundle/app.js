@@ -104753,7 +104753,7 @@ function sourcesHtml(t, w){
     <p class="mini ws-priv">DOIs are looked up at doi.org and ISBNs with Open Library; only the number is sent. Citations are made on this device with citeproc-js and CSL, the engine and styles Zotero uses.</p>`;
 }
 const TRASH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
-const ZICON = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M5 4h14v2.6L9.3 17.4H19V20H5v-2.6l9.7-10.8H5z"/></svg>';
+const ZICON = '<svg class="ws-zic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="#CC2936" d="M5 4h14v2.6L9.3 17.4H19V20H5v-2.6l9.7-10.8H5z"/></svg>';
 function editHtml(t, w){
   const st = styleOf(t, w), base = W.edit === "new" ? CITE.clean({type: "article-journal"}) : w.src.find(x => x.id === W.edit);
   if (!base) { W.edit = null; return sourcesHtml(t, w); }
@@ -105550,6 +105550,9 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 @media (max-width:600px){dialog:has(.ws-sheet){height:90vh;height:90dvh}dialog:has(.ws-sheet) > .ws-sheet{height:100%}.ws-sheet > .ws-body{flex:1 1 auto}}
 .ws-sheet{display:flex;flex-direction:column;max-height:inherit}
 .ws-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 20px 0;border-bottom:1px solid var(--line)}
+/* Zotero's Z: its red, centred on the label beside it */
+svg.ws-zic{display:block;flex:none}
+:is(.btn,button):has(> svg.ws-zic){display:inline-flex;align-items:center;gap:6px}
 .ws-tabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
 .ws-tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .ws-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent,#2F6FE4)}
