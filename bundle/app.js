@@ -41645,7 +41645,15 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const of = S.max === 4.3 ? "4.3" : "4.0";
     // on phones the line under the number is left out (it stays the tile's tooltip) and the scale sits beside the number
     const tile = (k, v, sub) => `<div class="gp-g"${sub ? ` title="${esc(sub)}"` : ""}><span class="gr-k">${k}</span><span class="gr-v">${v}<span class="gp-of"> / ${of}</span></span>${sub ? `<span class="mini">${sub}</span>` : ""}</div>`;
-    const tiles = (S.n ? tile("Term GPA", fmtG(S.gpaNow), `out of ${of}, from your grades now`) + tile("Projected Term GPA", fmtG(S.gpaProj), "if you keep this up") : "")
+    // Projected only shows when it differs: keeping up your average lands on the grade you have, so it moves only when
+    // missed work counts as 0 or a drop rule changes what counts. The reason goes under it.
+    const same = fmtG(S.gpaNow) === fmtG(S.gpaProj);
+    const why = () => {
+      const moved = S.marked.filter(gr => !gr.done && gr.current != null && letterOf(nowOf(gr), gr.g.scale) !== letterOf(finalOf(gr), gr.g.scale));
+      const nz = moved.reduce((n, gr) => n + (gr.missed || []).length, 0), dr = moved.some(gr => gr.ruled);
+      return `if you keep this up${nz ? `, counting ${nz} missed item${nz === 1 ? "" : "s"} as 0` : ""}${dr ? `${nz ? " and" : ","} with your drop rules` : ""}`;
+    };
+    const tiles = (S.n ? (same ? tile("Term GPA", fmtG(S.gpaNow), `out of ${of}, from your grades now, and on track to stay there`) : tile("Term GPA", fmtG(S.gpaNow), `out of ${of}, from your grades now`) + tile("Projected Term GPA", fmtG(S.gpaProj), why())) : "")
       + (S.cum != null && S.max ? tile("Cumulative GPA", fmtG(S.cum), `with this term · past terms ${fmtG(S.pastGpa)}`) : "");
     const k = S.noCr.length;
     const note = !k ? "" : S.anyCr ? `${k} course${k === 1 ? " has" : "s have"} no credits yet, so ${k === 1 ? "it counts" : "they count"} as ${fmtCr(S.def)} credit${S.def === 1 ? "" : "s"}.` : "Add each course's credits to weight your average and GPA by course size.";
