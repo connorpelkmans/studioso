@@ -1227,10 +1227,12 @@
   const keepTabFocus = () => { if (!tabFocus || (document.activeElement && document.activeElement !== document.body)) return; const b = $('#grpDetail .grp-tabs [aria-selected="true"]'); if (b) b.focus(); };
   function showTab(g, t){
     if (!g || !tabsOf(g).some(x => x[0] === t)) return false;
+    const hd = $("#grpHead"), was = hd && hd._html && hd._html === drawKey(headHtml(g));
     S.tab[g.id] = t;
     $$("#grpDetail .grp-pane").forEach(p => { p.hidden = p.dataset.pane !== t; });
     newsSeen(g.id, t);
     $$("#grpDetail .grp-tabs [role=tab]").forEach(b => { const on = b.dataset.t === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; });
+    if (was) hd._html = drawKey(headHtml(g));   // the tab row now matches a fresh draw, so a live update needn't redraw the header for it
     // phones, with the tab row stuck at the top: the new section starts right under it
     const h = $("#grpHead"), tb = h && h.style.getPropertyValue("--grp-stick") && $(".grp-tabs", h), pn = $("#grpPane-" + t);
     if (tb && pn && h.getBoundingClientRect().top < 0) { const d = pn.getBoundingClientRect().top - tb.getBoundingClientRect().bottom - 8; if (d < 0) window.scrollBy(0, d); }
@@ -1245,7 +1247,15 @@
     const v = Math.round(bar - t.offsetTop) + "px"; if (h.style.getPropertyValue("--grp-stick") !== v) h.style.setProperty("--grp-stick", v);
     const on = $(".on", t); if (on && !t._seen) { t._seen = 1; on.scrollIntoView({block: "nearest", inline: "nearest"}); }
   }
-  hook("render", tab => { if (tab === "groups" && ui.grp) setTimeout(stickTabs, 0); });
+  // A part as drawn, less the numbered ids each companion face's SVG gets (98-companion uniqIds), which differ every draw
+  const drawKey = html => html.replace(/-u[0-9a-z]+(?=["')])/g, "");
+  hook("render", tab => {
+    if (tab !== "groups" || !ui.grp) return;
+    setTimeout(stickTabs, 0);
+    // what the header was drawn from, so a live update that changes nothing in it leaves it alone (swapHead). Not on a
+    // computer, where the first update has always redrawn it (a full draw folds its buttons into More, an update doesn't)
+    const h = $("#grpHead"), g = groupOf(ui.grp); if (h && g && matchMedia("(max-width:600px)").matches) h._html = drawKey(headHtml(g));
+  });
   window.addEventListener("resize", () => { if (ui.tab === "groups" && ui.grp) stickTabs(); });
   function headHtml(g){
     const ms = S.members[g.id] || [], its = S.items[g.id] || [], proj = isProj(g), n = k => its.filter(x => x.kind === k && (k !== "task" || forGroupCourse(g, x.data))).length;
@@ -1683,10 +1693,18 @@
     });
   }
 
+  // A part redrawn with exactly what it already shows (a live update often refreshes the whole page while the open section
+  // hasn't changed, and two loads land back to back) keeps its node: replacing it anyway churned the open section on every
+  // update. Anything changed on the page since it was drawn (a menu opened, a busy button) means it is redrawn as before.
+  const drawnSame = (el, key) => el._sk === key && el._so === el.outerHTML;
+  const drawnAs = (n, key) => { n._sk = key; requestAnimationFrame(() => requestAnimationFrame(() => { if (n.isConnected && n._sk === key) n._so = n.outerHTML; })); };
   function replaceKeep(el, html, id){
+    const key = drawKey(html);
+    if (drawnSame(el, key)) return;
     const prev = new Map([...el.querySelectorAll(".score-bar")].map(b => [b.getAttribute("aria-label") || "", b.firstElementChild ? b.firstElementChild.style.width : ""]));
     el.outerHTML = html;
     const n = id && document.getElementById(id); if (!n) return;
+    drawnAs(n, key);
     n.querySelectorAll(".score-bar").forEach(b => {
       const i = b.firstElementChild, k = b.getAttribute("aria-label") || ""; if (!i || !prev.has(k) || !prev.get(k) || prev.get(k) === i.style.width) return;
       const to = i.style.width; i.style.width = prev.get(k); void i.offsetWidth; requestAnimationFrame(() => { i.style.width = to; });
@@ -2966,16 +2984,28 @@
         return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.badge ? gxBadgeIcon(m) : ""}${bd.some(b => b[0] === "champ") ? CHAMP_CROWN : ""}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.some(b => b[0] !== "champ") || gxBadgeLabel(m) ? `<span class="grp-badges">${gxBadgeLabel(m)}${bd.filter(b => b[0] !== "champ").map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${isProj(g) && roleOf(g.id, m.user_id) ? `<span class="pill gk-role">${esc(GK.roleLabel(roleOf(g.id, m.user_id)))}</span>` : ""}${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${me2 ? "" : `<details class="grp-more g2-mm"><summary class="g2-dots" aria-label="More for ${esc(m.display_name || "this member")}">⋯</summary><div class="grp-menu"><button class="btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}">Report or Block</button>${owner ? `<button class="btn" data-act="grp-member-del" data-id="${esc(m.user_id)}">Remove from Group</button>` : ""}</div></details>`}</li>`; }).join("")}</ul>
       ${(k => k ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${freeGrpLim("groupMembers")} members (${ms.length} now). ${freeGrpAct(g, k, "Pro groups hold up to 100 members.", "for up to 100.")}</p>` : "")(freeGrpKind(g))}</section>`;
   }
+  // The header (with the section tabs) is redrawn only when it would look different. A fresh copy used to land with its
+  // buttons unfolded (phones fold them into More a frame later), so the header grew a line and the open section jumped
+  // down and back on every live update, and the tab row lost its sideways scroll
+  function swapHead(g){
+    const el = $("#grpHead"), html = headHtml(g); if (!el || el._html === drawKey(html)) return;
+    const row = $(".grp-tabs", el), sx = row ? row.scrollLeft : 0, seen = row && row._seen;
+    swapEl("grpHead", html);
+    const n = $("#grpHead"); if (!n) return; n._html = drawKey(html);
+    const nr = $(".grp-tabs", n); if (nr && row) { nr._seen = seen; nr.scrollLeft = sx; }
+    try { if (window.raFoldNow) window.raFoldNow(); } catch (e) {}   // its buttons fold into More now, not a frame later (97-notecards.js)
+    keepTabFocus(); stickTabs(); newsPaint();
+  }
   // Update parts of the open group page in place, so a message you're typing isn't lost
   function patch(gid){
     const g = groupOf(gid), root = $("#grpDetail");
     if (!g || !root || root.dataset.gid !== gid) { if (ui.tab === "groups") render(); return; }
     if (root.dataset.feat !== [...hiddenOf(g)].sort().join()) { render(); return; }
-    swapEl("grpHead", headHtml(g)); keepTabFocus(); stickTabs();
+    swapHead(g);
     if (isProj(g)) { swapEl("grpOverview", overviewHtml(g)); swapEl("grpFiles", linksHtml(g)); swapEl("grpMinutes", minutesHtml(g)); }
     else { swapEl("grpChallenge", challengeHtml(g)); swapEl("grpBattle", battleHtml(g)); swapEl("grpDecks", decksHtml(g)); swapEl("grpQuizzes", quizzesHtml(g)); swapEl("grpWeak", weakHtml(g)); swapEl("grpQA", qaHtml(g)); swapEl("grpCheckin", checkinHtml(g)); }
     swapEl("grpOut", outHtml(gid)); swapEl("grpSessions", sessionsHtml(g)); swapEl("grpTasks", tasksHtml(g)); swapPT(g); swapEl("grpMembers", membersHtml(g)); swapEl("grpPins", pinsHtml(g)); drawThread();
-    const ml = $("#grpMsgList"); if (ml) ml.innerHTML = msgsHtml(g);
+    const ml = $("#grpMsgList"); if (ml) { const h = msgsHtml(g), k = drawKey(h); if (!(ml._mk === k && ml._mo === ml.innerHTML)) { ml.innerHTML = h; ml._mk = k; ml._mo = null; requestAnimationFrame(() => requestAnimationFrame(() => { if (ml._mk === k) ml._mo = ml.innerHTML; })); } }   // unchanged messages stay put (as replaceKeep)
     const eb = $(".grp-err", root); if (eb && !S.errG[gid]) eb.remove();
     refreshFab();
   }
@@ -4415,7 +4445,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     [["gxPro", "members"], ["gxOver", "overview"], ["gxUploads", "files"], ["gxTopics", "study"], ["gxLive", "sessions"]].forEach(([id, k]) => {
       const el = document.getElementById(id); if (!el) return;
       const html = id === "gxLive" ? lqHtml(g) : gxPane(g, k);
-      if (id === "gxPro" || id === "gxOver" || id === "gxUploads" || id === "gxTopics" || id === "gxLive") { const t = document.createElement("div"); t.innerHTML = html; const n = t.querySelector("#" + id); if (n) el.replaceWith(n); }
+      if (id === "gxPro" || id === "gxOver" || id === "gxUploads" || id === "gxTopics" || id === "gxLive") { const t = document.createElement("div"); t.innerHTML = html; const n = t.querySelector("#" + id); if (!n) return; const key = drawKey(n.outerHTML); if (drawnSame(el, key)) return; el.replaceWith(n); drawnAs(n, key); }
     });
     if (gxOn(g) && !isProj(g) && featOn(g, "livequiz")) lqConnect(g);
   };

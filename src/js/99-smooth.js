@@ -134,6 +134,8 @@
       if (m.type === "attributes") {
         if (!(t instanceof Element) || t.id === "view" || t.closest(".sm-skip")) continue;
         const a = m.attributeName;
+        // a page's own section tabs (a group's Chat, Members...) switch at once, like the app's tabs: no fade-up each time
+        if (a === "hidden" && t.matches("#view [role=tabpanel]")) continue;
         // hidden taken off, or open/expanded flags turned on, or a "shut" class removed
         if ((a === "hidden" && !t.hidden) || (a === "open" && t.hasAttribute("open"))) { play(t, "sm-in"); n++; }
         else if (a === "class") {

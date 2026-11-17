@@ -695,6 +695,8 @@ function raMore(onlyGx){
     ra.appendChild(box);
   });
 }
+// a header redrawn on its own folds at once, before it is painted, just as the watcher below would a frame later (80-groups.js swapHead)
+window.raFoldNow = () => raMore(!RA_MQ.matches);
 // Tidied right after the redraw
 hook("render", () => { queueMicrotask(() => raMore()); requestAnimationFrame(() => raMore()); });
 // Header bands are also redrawn on their own (a group's header refreshes with live updates)
