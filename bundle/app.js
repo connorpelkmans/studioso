@@ -89481,6 +89481,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       if (r.status === 401 && i === 0) continue;
       if (mode === "raw") return r;
       if (r.status === 404 && mode === "maybe") return null;
+      // a work or school Microsoft account whose organization has no OneDrive: every request is refused, so say why
+      if (!r.ok && p === "microsoft" && r.status === 400) { let m = ""; try { m = String(((await r.clone().json()).error || {}).message || ""); } catch (e) {} if (/SPO license/i.test(m)) throw new CloudErr("Microsoft says this account has no OneDrive: it's a work or school account whose organization isn't licensed for OneDrive. Disconnect OneDrive here and connect a personal Microsoft account (Outlook, Hotmail or Live) or a school account that has OneDrive.", "noonedrive"); }
       if (!r.ok) throw new CloudErr(r.status === 404 ? `That's no longer in your ${NM[p]}.` : r.status === 507 || r.status === 403 && p === "google" ? `Your ${NM[p]} is full or doesn't allow this.` : `${NM[p]} didn't accept that (${r.status}).`, r.status === 404 ? "gone" : "http");
       return r.status === 204 ? {} : r.json().catch(() => ({}));
     }
@@ -105608,17 +105610,28 @@ function docHtml(t, w){
     <div class="ws-ldwrap" data-k="${esc(src + (l.p === "microsoft" ? "#" + (W.ldKey || 0) : ""))}">${src ? `<iframe class="ws-ldf" src="${esc(src)}" title="${esc(l.name || ldName(l))} in ${ldApp(l)}" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>` : ""}</div>`;
 }
 function ldWordHtml(){
-  const L = W.ldList;
+  const L = W.ldList, D = W.ldDir || [{id: "root", name: "OneDrive"}], q = W.ldQ || "";
+  const crumbs = q ? "" : `<div class="ws-ldcr">${D.map((d, i) => i < D.length - 1 ? `<button type="button" class="link-btn" data-ws-ldup="${i}">${esc(d.name)}</button><span aria-hidden="true">›</span>` : `<b>${esc(d.name)}</b>`).join("")}</div>`;
+  const folders = L && L.folders && L.folders.length ? `<ul class="ws-flist">${L.folders.map(f => `<li><span class="ws-fn"><b>${esc(f.name)}</b><span class="mini">Folder</span></span><button type="button" class="btn small" data-ws-lddir="${esc(f.id)}">Open</button></li>`).join("")}</ul>` : "";
+  const files = L && L.items.length ? rowsHtml(L.items.map(x => ({id: x.id, name: x.name, meta: x.at ? "Changed " + ago(x.at) : ""})), "data-ws-ldpick", "Link") : "";
   return `<p style="margin:0">Choose the Word file you're writing. Studyboard reads it on this device, and each Fix you tap is saved into it.</p>
-    <div class="ws-add"><label class="f ws-grow"><span class="lh">Search Your OneDrive</span><input type="search" data-ws-ldq value="${esc(W.ldQ || "")}" placeholder="File name" data-noenter></label></div>
-    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "link" ? `<p class="mini" role="status">Reading your document…</p>` : ""}
-    ${!L || L.busy ? `<p class="mini" role="status">Looking in your OneDrive…</p>` : L.items.length ? `<h3 class="fsec">${W.ldQ ? "Matches" : "Recent Word Files"}</h3>${rowsHtml(L.items.map(x => ({id: x.id, name: x.name, meta: x.at ? "Changed " + ago(x.at) : ""})), "data-ws-ldpick", "Link")}`
-      : `<div class="ws-empty"><b>${W.ldQ ? "No Word files match." : "No recent Word files."}</b><p class="mini">Search for it by name above.</p></div>`}`;
+    <div class="ws-add"><label class="f ws-grow"><span class="lh">Search Your OneDrive</span><input type="search" data-ws-ldq value="${esc(q)}" placeholder="File name" data-noenter></label></div>
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "link" ? `<p class="mini" role="status">Reading your document…</p>` : W.ldNote ? `<p class="mini ws-note" role="status">${esc(W.ldNote)}</p>` : ""}
+    ${crumbs}
+    ${!L || L.busy ? `<p class="mini" role="status">Looking in your OneDrive…</p>` : files || folders ? `${files ? `<h3 class="fsec">${q ? "Matches" : "Word Files Here"}</h3>${files}` : ""}${folders ? `<h3 class="fsec">Folders</h3>${folders}` : ""}`
+      : `<div class="ws-empty"><b>${q ? "No Word files match." : "No Word files or folders here."}</b><p class="mini">${q ? "Clear the search to look through your folders." : "Go back up, or search by name above."}</p></div>`}`;
 }
 function ldLoadList(){
-  const q = W.ldQ || "", my = W.ldList = {busy: true, items: []};
-  ldWordList(q).then(items => { if (W.ldList === my) W.ldList = {items}; }).catch(e => { if (W.ldList === my) { W.ldList = {items: []}; W.err = ldErrText(e); } })
-    .then(() => { if (W.view === "ldword" && shown() && W.ldList !== my) { draw(); const i = W.el.querySelector("[data-ws-ldq]"); if (i && q) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } });
+  const q = W.ldQ || "", D = W.ldDir || (W.ldDir = [{id: "root", name: "OneDrive"}]), my = W.ldList = {busy: true, items: [], folders: []};
+  const done = () => { if (W.view === "ldword" && shown() && W.ldList !== my) { draw(); const i = W.el.querySelector("[data-ws-ldq]"); if (i && q) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } };
+  W.err = ""; W.ldNote = "";
+  ldWordList(q, D[D.length - 1].id).then(r => { if (W.ldList === my) W.ldList = r; })
+    .catch(async e => {
+      if (W.ldList !== my) return;
+      // a search OneDrive won't do on this account: the folders instead
+      if (q) { try { const r = await ldWordList("", D[D.length - 1].id); if (W.ldList === my) { W.ldList = r; W.ldNote = "OneDrive won't search this account, so here are your folders: open them to find your file."; } return; } catch (e2) { e = e2; } }
+      if (W.ldList === my) { W.ldList = {items: [], folders: []}; W.err = ldErrText(e); }
+    }).then(done);
 }
 function footHtml(t, w){
   const back = `<button type="button" class="btn" data-act="edit-task" data-id="${esc(t.id)}">Back to Task</button><span class="spacer"></span>`, cancel = `<button type="button" class="btn" data-ws-vback>Back</button><span class="spacer"></span>`;
@@ -105871,6 +105884,7 @@ async function addToDraftRefs(t){
    itself: Google Docs through the Docs API (only on the version that was read), Word by changing the file's text where it is and saving
    it back (only if it hasn't changed since). Undo puts the same text back in the document. Google Drive's access is drive.file, so a doc
    is only reachable once it's been chosen in Google's own window. */
+const MS_NO_ONEDRIVE = "Microsoft says the account connected for OneDrive has no OneDrive: it's a work or school account whose organization isn't licensed for OneDrive (SharePoint). In Files, Cloud, disconnect OneDrive and connect a personal Microsoft account (Outlook, Hotmail or Live) or a school account that has OneDrive.";
 const LDU = {docs: "https://docs.googleapis.com/v1/documents/", graph: "https://graph.microsoft.com/v1.0"};
 const ldName = l => l && l.p === "google" ? "Google Doc" : "Word file";
 const ldApp = l => l && l.p === "google" ? "Google Docs" : "Word for the web";
@@ -105906,7 +105920,7 @@ async function ldRead(l){
 // an API's refusal, in its own words (Google's and Microsoft's errors both say what's wrong)
 async function ldApiErr(r, who){
   let m = ""; try { const j = await r.json(); m = String((j && j.error && (j.error.message || j.error.code)) || "").slice(0, 220).replace(/[.\s]+$/, ""); } catch (e) {}
-  if (who === "OneDrive" && /SPO license|SharePoint/i.test(m)) return new LdErr("The Microsoft account connected to Studyboard has no OneDrive: its school or work organization doesn't include it. In Files, Cloud, connect a personal Microsoft account (Outlook, Hotmail or Live) or a school account that has OneDrive.");
+  if (who === "OneDrive" && /SPO license/i.test(m)) return new LdErr(MS_NO_ONEDRIVE);
   if (who === "Google Docs" && /has not been used|is disabled|SERVICE_DISABLED/i.test(m)) return new LdErr("The Google Docs API isn't turned on for this Studyboard server yet.");
   return new LdErr(`${who} didn't accept that (${r.status})${m ? ": " + m : ""}.`);
 }
@@ -106022,17 +106036,17 @@ async function ldLink(t, l){
   } catch (e) { W.busy = ""; W.err = ldErrText(e); draw(); }
 }
 // Word files in OneDrive: recent ones, or ones whose name matches
-// (a search for Word files: OneDrive's own list of recent files is being retired, and refuses requests on many accounts)
-async function ldWordList(q){
-  const C = ldCloud(), qq = String(q || "").trim(), find = term => `${LDU.graph}/me/drive/root/search(q='${encodeURIComponent(term.replace(/'/g, "''"))}')`;
-  let j = null, err = null;
-  for (const url of qq ? [find(qq)] : [find(".docx"), `${LDU.graph}/me/drive/recent`]) {
-    try { const r = await C.docApi("microsoft", url, null, "raw"); if (r.ok) { j = await r.json().catch(() => null); if (j && Array.isArray(j.value) && j.value.length) break; } else err = await ldApiErr(r, "OneDrive"); } catch (e) { err = e; }
-  }
-  if (!j && err) throw err;
-  const seen = new Set();
-  return (j && Array.isArray(j.value) ? j.value : []).map(x => { const it = x.remoteItem || x; return {id: String(it.id || ""), drive: String(((it.parentReference || {}).driveId) || ((x.parentReference || {}).driveId) || ""), name: String(x.name || it.name || ""), url: String(x.webUrl || it.webUrl || ""), at: Date.parse(x.lastModifiedDateTime || it.lastModifiedDateTime || "") || 0}; })
-    .filter(x => x.id && /\.docx$/i.test(x.name) && !seen.has(x.id) && seen.add(x.id)).sort((a, b) => b.at - a.at).slice(0, 40);
+// Word files in OneDrive: a folder's Word files and folders (as Files, Cloud reads OneDrive), or a search by name. OneDrive's search and its
+// recent-files list are refused on some personal accounts ("Tenant does not have a SPO license"), so the folders always work without them.
+const ldRow = x => { const it = x.remoteItem || x; return {id: String(it.id || ""), drive: String(((it.parentReference || {}).driveId) || ((x.parentReference || {}).driveId) || ""), name: String(x.name || it.name || ""), url: String(x.webUrl || it.webUrl || ""), at: Date.parse(x.lastModifiedDateTime || it.lastModifiedDateTime || "") || 0, folder: !!(x.folder || it.folder)}; };
+async function ldWordList(q, dir){
+  const C = ldCloud(), qq = String(q || "").trim();
+  const url = qq ? `${LDU.graph}/me/drive/root/search(q='${encodeURIComponent(qq.replace(/'/g, "''"))}')`
+    : `${LDU.graph}/me/drive/items/${encodeURIComponent(dir || "root")}/children?$select=id,name,file,folder,webUrl,lastModifiedDateTime,parentReference&$top=200`;
+  const r = await C.docApi("microsoft", url, null, "raw");
+  if (!r.ok) throw await ldApiErr(r, "OneDrive");
+  const j = await r.json().catch(() => null), seen = new Set(), rows = (j && Array.isArray(j.value) ? j.value : []).map(ldRow).filter(x => x.id && !seen.has(x.id) && seen.add(x.id));
+  return {folders: qq ? [] : rows.filter(x => x.folder).sort((a, b) => a.name.localeCompare(b.name)), items: rows.filter(x => !x.folder && /\.docx$/i.test(x.name)).sort((a, b) => b.at - a.at).slice(0, 60)};
 }
 // Word shows a file inside another page only as a preview; Microsoft's preview address, when it's one the app may show
 async function ldPreview(l){
@@ -106357,9 +106371,11 @@ function wire(t){
     if (d.type && d.type !== "application/vnd.google-apps.document") { W.err = "That isn't a Google Doc. For a Word file, choose A Word File."; draw(); return; }
     await ldLink(cur(), {p: "google", id: d.id, name: d.name, url: d.url});
   });
-  on("[data-ws-ldw]", "click", () => { Object.assign(W, {view: "ldword", ldQ: "", err: ""}); ldLoadList(); draw(true); });
+  on("[data-ws-ldw]", "click", () => { Object.assign(W, {view: "ldword", ldQ: "", err: "", ldDir: null}); ldLoadList(); draw(true); });
   qa("[data-ws-ldpick]").forEach(b => b.addEventListener("click", () => { const x = ((W.ldList || {}).items || []).find(i => i.id === b.dataset.wsLdpick); if (x) ldLink(cur(), {p: "microsoft", id: x.id, drive: x.drive, name: x.name, url: x.url}); }));
   on("[data-ws-ldq]", "input", e => { W.ldQ = e.target.value; clearTimeout(W.ldT); W.ldT = setTimeout(ldLoadList, 450); });
+  qa("[data-ws-lddir]").forEach(b => b.addEventListener("click", () => { const f = ((W.ldList || {}).folders || []).find(x => x.id === b.dataset.wsLddir); if (!f) return; W.ldDir = (W.ldDir || [{id: "root", name: "OneDrive"}]).concat({id: f.id, name: f.name}); ldLoadList(); draw(true); }));
+  qa("[data-ws-ldup]").forEach(b => b.addEventListener("click", () => { W.ldDir = (W.ldDir || []).slice(0, Number(b.dataset.wsLdup) + 1); ldLoadList(); draw(true); }));
   on("[data-ws-ldcon]", "click", () => { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); });
   on("[data-ws-ldoff]", "click", () => { const w = ws(), l = w.ld; if (!l) return; w.ld = null; if (w.draft && w.draft.ld) w.draft.ld = false; save(cur(), w, `Unlinked ${l.name || ldName(l)}`); W.okMsg = ""; W.err = ""; draw(); });
   on("[data-ws-ldcheck]", "click", async () => { const w = ws(); W.err = ""; W.okMsg = ""; if (ldOf(w)) await doCheck(cur(), {}); else if (w.ld) await ldLink(cur(), w.ld); if (shown()) draw(); });
@@ -106489,6 +106505,7 @@ svg.ws-zic{display:block;flex:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.ws-err,.ws-need){color:#FF8A80}}
 .ws-ok{margin:0;color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
 .ws-ldc{display:grid;gap:8px}
+.ws-ldcr{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.92rem}
 .ws-ldk,.ws-ldh{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px}
 .ws-ldh{border:0;background:none;padding:0}
 .ws-ldk>svg,.ws-ldh>svg{width:22px;height:22px;flex:none}.ws-ldk>img,.ws-ldh>img{width:24px;height:auto;flex:none}

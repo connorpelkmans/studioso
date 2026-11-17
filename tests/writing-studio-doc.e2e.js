@@ -155,7 +155,10 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
         F.g.raw = arr.slice(1).join(""); F.g.rev++; return res(200, {});
       }
       F.w.calls.push(m + " " + url.replace(/^https:\/\/graph\.microsoft\.com\/v1\.0/, "").replace(/\?.*/, ""));
-      if (F.w.spo && /\/search\(/.test(url)) return res(400, {error: {code: "BadRequest", message: "Tenant does not have a SPO license."}});
+      if (F.w.spo) return res(400, {error: {code: "BadRequest", message: "Tenant does not have a SPO license."}});
+      if (F.w.noSearch && /\/search\(/.test(url)) return res(400, {error: {code: "BadRequest", message: "Tenant does not have a SPO license."}});
+      if (/\/items\/root\/children/.test(url)) return {value: [{id: "FO1", name: "School", folder: {childCount: 1}, parentReference: {driveId: "D1"}}, {id: "X8", name: "Notes.txt", file: {}, parentReference: {driveId: "D1"}}]};
+      if (/\/items\/FO1\/children/.test(url)) return {value: [{id: "W1", name: "Heat essay.docx", file: {}, webUrl: "https://onedrive.live.com/edit?id=W1", lastModifiedDateTime: new Date().toISOString(), parentReference: {driveId: "D1"}}]};
       if (/\/recent/.test(url)) return res(400, {error: {code: "invalidRequest", message: "recent is not supported"}});
       if (/\/search\(/.test(url)) return {value: [{id: "W1", name: "Heat essay.docx", webUrl: "https://onedrive.live.com/edit?id=W1", lastModifiedDateTime: new Date().toISOString(), parentReference: {driveId: "D1"}}, {id: "X9", name: "Budget.xlsx", parentReference: {driveId: "D1"}}]};
       if (/\/preview$/.test(url)) return {getUrl: "https://onedrive.live.com/embed?resid=W1&em=2"};
@@ -210,12 +213,19 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
   await page.click('#dlg[open] [data-ws-tab="doc"]'); await page.click("#dlg[open] [data-ws-ldoff]"); await page.waitForTimeout(300);
   ok(!(await task(page, "t1")).ws.ld && !(await task(page, "t1")).ws.draft.ld && await page.locator("#dlg[open] .ws-ldk").count() === 2, "Unlink: the draft stays as Writing Studio's copy");
   await page.evaluate(() => { window.__fake.connected = ["google", "microsoft"]; }); await page.click('#dlg[open] [data-ws-tab="check"]'); await page.click('#dlg[open] [data-ws-tab="doc"]');
-  await page.click("#dlg[open] [data-ws-ldw]"); await page.waitForSelector("#dlg[open] [data-ws-ldpick]", {timeout: 10000});
-  ok(await page.locator("#dlg[open] [data-ws-ldpick]").count() === 1 && /Heat essay\.docx/.test(await page.textContent("#dlg[open] .ws-flist")) && !(await page.locator("#dlg[open] .ws-err").count()), "Choose a Word File: Word files in OneDrive only, found by search (OneDrive's recent list refuses)");
-  ok(await page.evaluate(() => window.__fake.w.calls.some(c => /search\(q='.docx'\)/.test(decodeURIComponent(c)))), "searched for .docx");
-  await page.evaluate(() => { window.__fake.w.spo = true; }); await page.fill("#dlg[open] [data-ws-ldq]", "heat"); await page.waitForSelector("#dlg[open] .ws-err", {timeout: 10000});
-  ok(/has no OneDrive: its school or work organization doesn't include it/.test(await page.textContent("#dlg[open] .ws-err")), "a Microsoft account with no OneDrive (no SharePoint license) is told so plainly");
-  await page.evaluate(() => { window.__fake.w.spo = false; }); await page.fill("#dlg[open] [data-ws-ldq]", ""); await page.waitForSelector('#dlg[open] [data-ws-ldpick="W1"]', {timeout: 10000});
+  await page.click("#dlg[open] [data-ws-ldw]"); await page.waitForSelector("#dlg[open] [data-ws-lddir]", {timeout: 10000});
+  // a search OneDrive refuses: the folders instead
+  await page.evaluate(() => { window.__fake.w.noSearch = true; }); await page.fill("#dlg[open] [data-ws-ldq]", "heat"); await page.waitForSelector("#dlg[open] .ws-note:has-text(\"won't search\")", {timeout: 10000});
+  ok(await page.locator("#dlg[open] [data-ws-lddir]").count() === 1 && !(await page.locator("#dlg[open] .ws-err").count()), "OneDrive won't search: the folders are shown, no error");
+  await page.evaluate(() => { window.__fake.w.noSearch = false; }); await page.fill("#dlg[open] [data-ws-ldq]", ""); await page.waitForTimeout(700);
+  // an account with no OneDrive at all
+  await page.evaluate(() => { window.__fake.w.spo = true; }); await page.fill("#dlg[open] [data-ws-ldq]", "x"); await page.waitForSelector("#dlg[open] .ws-err", {timeout: 10000});
+  ok(/has no OneDrive: it's a work or school account whose organization isn't licensed/.test(await page.textContent("#dlg[open] .ws-err")), "a Microsoft account with no OneDrive (no SharePoint license) is told so plainly");
+  await page.evaluate(() => { window.__fake.w.spo = false; }); await page.fill("#dlg[open] [data-ws-ldq]", ""); await page.waitForSelector("#dlg[open] [data-ws-lddir]", {timeout: 10000});
+  // browse into a folder
+  ok(await page.locator("#dlg[open] [data-ws-ldpick]").count() === 0 && /OneDrive/.test(await page.textContent("#dlg[open] .ws-ldcr")), "the folders of OneDrive, from the top (Word files only: not Notes.txt)");
+  await page.click('#dlg[open] [data-ws-lddir="FO1"]'); await page.waitForSelector('#dlg[open] [data-ws-ldpick="W1"]', {timeout: 10000});
+  ok(/OneDrive\s*›\s*School/.test(await page.textContent("#dlg[open] .ws-ldcr")), "open a folder: its Word files, with the way back up");
   await page.click('#dlg[open] [data-ws-ldpick="W1"]');
   await page.waitForSelector("#dlg[open] .ws-ldsum", {timeout: 15000}); await page.waitForSelector("#dlg[open] .ws-ldf", {timeout: 10000});
   ok((await task(page, "t1")).ws.ld.p === "microsoft" && (await task(page, "t1")).ws.ld.drive === "D1" && /^Heat essay\nCities are warming fast \(Smith & Lee 2021\)/.test(await draftOf()), "a Word file linked: its text is the draft");
