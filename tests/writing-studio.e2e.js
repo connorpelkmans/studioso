@@ -210,7 +210,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   ok(iss.some(x => /^err: Not in your sources: \(Johnson 12\)/.test(x)), "a citation that matches no source");
   ok(iss.some(x => /^err: Quote without a citation/.test(x)), "a quote without a citation");
   ok(iss.some(x => /^warn: Never cited: How the mind hurts/.test(x)), "a source never cited");
-  ok(iss.some(x => /^ok: Every cited source is in your Works Cited list/.test(x)), "the list has every cited source");
+  ok(iss.some(x => /^ok: (Every cited source is|All \d+ cited Writing Studio sources are|Your cited Writing Studio source is) in your Works Cited list/.test(x)) && !(iss.some(x => /^err: Not in your sources/.test(x)) && iss.some(x => /^ok: Every cited source/.test(x))), "the list has every cited Writing Studio source (and never claims every source while one isn't in the sources)");
   ok(await fits(page), "the check fits at 1280px");
   ok(page.errs.length === 0, "no console errors (Pro): " + page.errs.join(" | "));
   await page.keyboard.press("Escape"); await page.waitForTimeout(300);

@@ -427,7 +427,9 @@ const CITE = (() => {
         const hits = match(seg), hasYear = YEAR.test(seg), mlaLike = /^[“"]?[\p{Lu}][\p{L}'’-]+.*?\s\d{1,4}(?:[–-]\d+)?$/u.test(seg) && !hasYear;
         if (hits.length) hits.forEach(s => cite(s.id, at, len));
         else if (hasYear) {
-          const before = body.slice(Math.max(0, at - 60), at), nb = named.filter(s => famRe(keyName(s)).test(before));
+          // "Walker (2017)": the brackets hold only the year, so the name is just before them, in the same sentence.
+          // A citation that starts with a name, "(Carskadon 2011)", is matched by that name alone (never by a name further back)
+          const lead = /^[“"]?[\p{Lu}]/u.test(seg), before = lead ? "" : body.slice(Math.max(0, at - 60), at).split(/(?<!\b(?:al|e\.g|i\.e|cf|vs|ed|eds|Dr|Mr|Mrs|Ms|Prof|St))[.?!;)]\s/).pop().split(/\s+/).slice(-6).join(" "), nb = before ? named.filter(s => famRe(keyName(s)).test(before)) : [];
           if (nb.length) nb.forEach(s => cite(s.id, at, len));
           else if (/^[“"]?[\p{Lu}]/u.test(seg) || /(\p{Lu}[\p{L}'’-]+)\s*$/u.test(before)) unknown.push([seg, at, len]);
         } else if (mlaLike && kind === "author" && !/^(p|pp|para|ch|fig|figure|table|see|chapter|section)\b/i.test(seg)) unknown.push([seg, at, len]);
@@ -460,19 +462,28 @@ const CITE = (() => {
     }
     const n = sources.length, citedN = sources.filter(s => cited.has(s.id)).length;
     if (!n) push("warn", "No sources in your Writing Studio yet", "Add your sources to check your citations against them.");
-    else if (citedN === n) push("ok", `All ${n} source${n === 1 ? " is" : "s are"} cited in your draft`);
+    else if (citedN === n) push("ok", n === 1 ? "Your Writing Studio source is cited in your draft" : `All ${n} sources in your Writing Studio are cited in your draft`);
     if (named.length < n) push("warn", `${n - named.length === 1 ? "A source has" : n - named.length + " sources have"} no title or author`, `Fill ${n - named.length === 1 ? "it" : "them"} in on the Sources tab so your citations can be checked against ${n - named.length === 1 ? "it" : "them"}.`);
     named.filter(s => !cited.has(s.id)).forEach(s => push("warn", `Never cited: ${s.title || keyName(s)}`, kind === "note" ? "Cite it in a footnote where you use it, or remove it if you didn't use it. (Footnotes don't always come along in a paste: check those by eye.)" : "Cite it where you use it, or remove it from your sources if you didn't use it."));
-    const seenU = new Set(); unknown.filter(([u]) => !seenU.has(u) && seenU.add(u)).slice(0, 12).forEach(([u, at, len]) => push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, "Add this source to your Writing Studio, or check the spelling of the name.", "", at, len));
+    // a citation that isn't in the sources is one entry: whether it's in the reference list too, and any format slip in it, go with it
+    const slipAt = new Map(); slips.forEach(([at], t) => { slipAt.set(at, (slipAt.get(at) || []).concat([t])); });
+    const used = new Set(), seenU = new Set();
+    unknown.filter(([u]) => !seenU.has(u) && seenU.add(u)).slice(0, 12).forEach(([u, at, len]) => {
+      const nm = (/^[“"]?([\p{Lu}][\p{L}'’-]+)/u.exec(u) || [])[1], inRef = ref && nm && famRe(nm).test(ref.body);
+      const also = (slipAt.get(at) || []).filter(t => !used.has(t)); also.forEach(t => used.add(t));
+      push("err", `Not in your sources: ${/^\[/.test(u) ? u : "(" + u + ")"}`, [`Add this source to your Writing Studio, or check the spelling of the name.${ref && nm && !inRef ? ` It isn't in your ${want} list either.` : ""}`, ...also.map(t => "Also: " + t)].join(" "), "", at, len);
+    });
+    const unknownN = seenU.size;
     if (kind !== "note") bare.slice(0, 10).forEach(([q, at, len]) => push("err", `Quote without a citation: “${q}…”`, "Every direct quote needs an in-text citation right after it.", "", at, len));
     if (!ref) push(n ? "err" : "warn", `No ${want} list found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`);
     else {
       if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) push("warn", `Your list is called “${sq(ref.name)}”`, `${label} calls it ${want}.`, "", ref.at, ref.name.length);
       const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body));
       miss.forEach(s => push("err", `Cited but not in your ${want} list: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1]));
-      if (!miss.length && citedN) push("ok", `Every cited source is in your ${want} list`);
+      // only when nothing cited is missing: a citation that isn't in the sources is cited too
+      if (!miss.length && citedN) push("ok", !unknownN ? `Every cited source is in your ${want} list` : citedN === 1 ? `Your cited Writing Studio source is in your ${want} list` : `All ${citedN} cited Writing Studio sources are in your ${want} list`);
     }
-    slips.forEach(([at, len], t) => push("warn", t, "", "", at, len));
+    slips.forEach(([at, len], t) => { if (!used.has(t)) push("warn", t, "", "", at, len); });
     const r = rules(o.req);
     if (r.style && r.style !== style) push("err", `The assignment asks for ${o.names && o.names[r.style] || r.style}`, `Your Writing Studio is set to ${label}.`, "style:" + r.style);
     if (r.min) {
