@@ -367,13 +367,13 @@ function SEED(){
     const ctxL = await mkCtx(), pl = await open(ctxL), mp = async () => (await course(pl, "c2")).maps.find(m => m.id === "m1");
     await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node");
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
-    ok(await pl.locator(".cm-look").count() >= 73 && await pl.locator('.cm-look.on[data-v=""]').count() === 1, "Map Style: Plain, Match My Theme, 20 subjects and every app theme, Plain chosen");
+    ok(await pl.locator(".cm-look").count() >= 104 && await pl.locator('.cm-look[data-v^="t-"]').count() === 0 && await pl.locator('.cm-look.on[data-v=""]').count() === 1, "Map Style: Plain, Match My Theme, 20 subjects and every app theme, each with its own style; Plain chosen");
     // a trackpad or mouse wheel over the list scrolls the list (not the map's zoom)
     const k0 = await pl.evaluate(() => SBCMAP.state().view.k), lb = await pl.locator(".cm-panel").boundingBox();
     await pl.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2); await pl.mouse.wheel(0, 400); await pl.waitForTimeout(250);
     ok(await pl.evaluate(() => document.querySelector(".cm-panel").scrollTop) > 100 && await pl.evaluate(() => SBCMAP.state().view.k) === k0, "scrolling over the style list scrolls it, and doesn't zoom the map");
-    await pl.click('.cm-look[data-v="t-lavender"]'); await pl.waitForTimeout(300);
-    ok((await mp()).pack === "t-lavender" && await pl.getAttribute(".cm-canvas", "data-pk") === "t-lavender", "any theme's style can be chosen, not just the current theme's (Lavender, while on Classic)");
+    await pl.click('.cm-look[data-v="t_lavender"]'); await pl.waitForTimeout(300);
+    ok((await mp()).pack === "t_lavender" && await pl.getAttribute(".cm-canvas", "data-pk") === "t_lavender" && await pl.locator(".cm-node .pk-o").count() > 0, "any theme's style can be chosen, not just the current theme's (Lavender's soap bars, while on Classic)");
     await pl.click('.cm-look[data-v="halloween"]'); await pl.waitForTimeout(300);
     ok(await pl.getAttribute(".cm-canvas", "data-pk") === "halloween", "a theme with its own style: Halloween, while on Classic");
     await pl.click('.cm-look[data-v="med"]'); await pl.waitForTimeout(300);
@@ -391,7 +391,7 @@ function SEED(){
     ok(await pl.locator(".cm-edge.pk-e").count() >= 3 && await pl.locator(".cm-edge:not(.pk-e)").count() === 0, "dragging a box keeps its lines in the style");
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForTimeout(150); if (!(await pl.locator(".cm-looks").count())) { await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); }
     await pl.click('.cm-look[data-v="theme"]'); await pl.waitForTimeout(300);
-    ok((await mp()).pack === "theme" && await pl.getAttribute(".cm-canvas", "data-pk") === "t-classic", "Match My Theme: a theme without a style of its own gets its colours and motif");
+    ok((await mp()).pack === "theme" && await pl.getAttribute(".cm-canvas", "data-pk") === "t_classic", "Match My Theme on Classic: Classic's own style (index cards and paper clips)");
     await pl.evaluate(() => { const s = window.__sbProStudy.state(); s.settings.style = Object.assign({}, s.settings.style, {skin: "sakura"}); }); await pl.click('.cm-look[data-v="theme"]').catch(() => {});
     await pl.click('.cm-tools [data-cm="undo"]'); await pl.waitForTimeout(300);
     ok((await mp()).pack === "med" && await pl.getAttribute(".cm-canvas", "data-pk") === "med", "Undo puts the last style back");
@@ -421,6 +421,28 @@ function SEED(){
     ok(await pl.locator(".cm-panel .cm-style:not([hidden])").count() === 0 && await pl.locator('.cm-panel [data-cm="style"][aria-expanded="true"]').count() === 0, "and a box's Style section starts closed too");
     ok(!(await pl.locator("#toast.show").count()) && pl.errs.length === 0, "Map Style: no notices, no errors: " + pl.errs.join(" | "));
     await ctxL.close();
+  }
+
+  /* Double-click an empty spot: a new idea there, named first */
+  {
+    const ctxD = await mkCtx(), pd = await open(ctxD);
+    await act(pd, "cm-open", "c2", {kind: "course", map: "m1"}); await pd.waitForSelector(".cm-node");
+    const n0 = await pd.locator(".cm-node").count(), cvb = await pd.locator(".cm-canvas").boundingBox(), px = cvb.x + cvb.width * 0.82, py = cvb.y + cvb.height * 0.22;
+    ok(await pd.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return !!el && !el.closest(".cm-node, .cm-edge, .cm-panel, .cm-zoom"); }, [px, py]), "the spot is empty map");
+    await pd.mouse.dblclick(px, py); await pd.waitForSelector("#cmAsk");
+    ok(/Name the new idea/.test(await pd.textContent(".cm-ask")), "double-clicking the map asks for the new idea's name");
+    await pd.fill("#cmAsk", "Electron Transport"); await pd.keyboard.press("Enter"); await pd.waitForTimeout(400);
+    const nb = await pd.locator(".cm-node", {hasText: "Electron Transport"}).boundingBox();
+    ok(await pd.locator(".cm-node").count() === n0 + 1 && nb && Math.hypot(nb.x + nb.width / 2 - px, nb.y + nb.height / 2 - py) < 24, "the idea appears where you double-clicked");
+    const mp = (await course(pd, "c2")).maps.find(m => m.id === "m1"), added = mp.add.find(i => i.label === "Electron Transport");
+    ok(added && mp.pos["idea:" + added.id] && !mp.links.some(l => l.b === "idea:" + added.id || l.a === "idea:" + added.id), "it's saved with its place, not connected yet");
+    ok(await pd.locator(".cm-node.is-sel", {hasText: "Electron Transport"}).count() === 1, "and it's picked, ready to connect or style");
+    await pd.mouse.dblclick(px - 160, py + 120); await pd.waitForSelector("#cmAsk"); await pd.keyboard.press("Escape"); await pd.waitForTimeout(250);
+    ok(await pd.locator(".cm-node").count() === n0 + 1 && await pd.locator(".cm-node").count() > 0, "Escape (or no name) adds nothing");
+    await pd.locator(".cm-node", {hasText: "Electron Transport"}).dblclick(); await pd.waitForTimeout(300);
+    ok(await pd.locator("#cmAsk").count() === 0 || !/Name the new idea/.test(await pd.textContent(".cm-panel")), "double-clicking a box doesn't add an idea");
+    ok(pd.errs.length === 0, "double-click: no errors: " + pd.errs.join(" | "));
+    await ctxD.close();
   }
 
   /* Free plan */

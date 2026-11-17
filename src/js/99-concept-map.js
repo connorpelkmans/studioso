@@ -609,7 +609,8 @@ function saveUser(u, label, meta){
 function mapChange(u, meta){
   const x = ownerObj(M.own); if (!x) return null;
   // positions only for nodes still on the map, so the record stays small
-  const live = new Set((M.g ? M.g.nodes : []).map(n => n.id)), pos = {}; Object.keys(u.pos).forEach(k => { if (live.has(k)) pos[k] = u.pos[k]; });
+  // (an idea being added isn't drawn yet, but keeps its place)
+  const live = new Set((M.g ? M.g.nodes : []).map(n => n.id).concat(u.add.map(i => "idea:" + i.id))), pos = {}; Object.keys(u.pos).forEach(k => { if (live.has(k)) pos[k] = u.pos[k]; });
   const styles = {}; Object.keys(u.styles || {}).forEach(k => { const st = CMAP.styleOf(u.styles[k]); if (CMAP.styled(st) && (live.has(k) || k === "root")) styles[k] = st; });
   const ov = {pos, hide: u.hide.slice(-200), add: u.add.slice(-80), links: u.links.slice(-240), cut: u.cut.slice(-200), names: u.names, styles, at: Date.now()};
   if (M.own.kind === "course") {
@@ -1035,7 +1036,7 @@ function tools(){
   const K = M.know ? know() : null, weak = K ? Object.keys(K.lv).filter(id => K.lv[id] === "weak" && (K.stats[id] || {}).cards && K.stats[id].cards.length).length : 0;
   const item = (cm, label, extra) => `<button type="button" role="menuitem" class="cm-mi" data-cm="${cm}" ${extra || ""}>${label}</button>`;
   T.innerHTML = menu("add", `${mi('<path d="M12 5v14M5 12h14"/>')}<span class="cm-ml">Add</span>`, "Add to the map",
-      item("idea", `${mi('<rect x="3" y="7" width="18" height="10" rx="5"/>')} Idea`) + item("mat", `${mi('<path d="M4 5h6l2 2h8v12H4z"/>')} Course Material`) + item("pic", `${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} Picture${pro}`) + item("emb", `${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} Video or Embed${pro}`)
+      item("idea", `${mi('<rect x="3" y="7" width="18" height="10" rx="5"/>')} Idea`, 'title="Or double-click anywhere on the map to add one there"') + item("mat", `${mi('<path d="M4 5h6l2 2h8v12H4z"/>')} Course Material`) + item("pic", `${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} Picture${pro}`) + item("emb", `${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} Video or Embed${pro}`)
       + `<span class="cm-msep">Studyboard AI</span>` + item("desc", `${AI_ICON} Describe Ideas`) + item("suggest", `${AI_ICON} ${M.busy ? "Thinking…" : "Suggest Connections"}`, M.busy ? "disabled" : ""))
     + menu("study", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')}<span class="cm-ml">Study</span>`, "Study from the map",
       item("quiz", `${mi('<path d="M4 6h16M4 12h10M4 18h7"/>')} Fill In the Map`, M.g.nodes.filter(n => !n.root && n.deg).length >= 3 ? "" : "disabled") + item("cards", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} ${mapDeck(M.own) ? "Update Flashcards" : "Make Flashcards"}`)
@@ -1247,7 +1248,12 @@ function wireCanvas(){
     // a box with a video or embed: a tap on the embed plays it; a tap anywhere else on the box picks it, to edit
     if (d.id && d.emb && !M.quiz && !M.connect) { M.sel = d.id; M.selE = ""; M.pick = ""; lite(); player(d.id); return; }
     if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
-    else if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
+    else {
+      // a double-click (or double tap) on an empty spot adds an idea there, asking for its name first
+      const now = Date.now(), b = M.bgTap; M.bgTap = {t: now, x: e.clientX, y: e.clientY};
+      if (!M.quiz && b && now - b.t < 450 && Math.hypot(e.clientX - b.x, e.clientY - b.y) < 14) { M.bgTap = null; const [wx, wy] = toWorld(e.clientX, e.clientY); addIdeaAt(Math.round(wx), Math.round(wy)); return; }
+      if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
+    }
   };
   svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", e => { pts.delete(e.pointerId); drag = null; });
   cv.addEventListener("wheel", e => { if (e.target.closest && e.target.closest(".cm-panel, .cm-menu")) return; // the panel and menus scroll as usual
@@ -1257,6 +1263,14 @@ function wireCanvas(){
   M.el.addEventListener("change", onClick);
   // the words on a connection save with Enter or Save
   M.el.addEventListener("submit", e => { if (!e.target.closest(".cm-elf")) return; e.preventDefault(); edgeSet({}, "Put words on a connection"); });
+}
+// a new idea of its own at a spot on the map (double-click), not connected yet: Connect To... links it
+async function addIdeaAt(wx, wy){
+  if (M.connect) M.connect = "";
+  const name = await ask("Name the new idea:"); if (!name || !name.trim()) return;
+  const x = userOf(M.own), id = uid(); x.add = x.add.concat([{id, label: name.trim().slice(0, 80)}]);
+  x.pos = Object.assign({}, x.pos, {["idea:" + id]: [wx, wy]});
+  saveUser(x, `Added ${name.trim()} to the map`); rebuild(true); M.pos["idea:" + id] = [wx, wy]; M.sel = "idea:" + id; M.selE = ""; paint();
 }
 function moveEdges(id){
   const svg = M.el.querySelector(".cm-svg");
