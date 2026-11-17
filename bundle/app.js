@@ -107087,7 +107087,8 @@ function open(kind, id, map){
   // a course map: the one asked for, else the course's first (or a new one, saved once you change something)
   if (o.kind === "course") { const ms = mapsOf(state.courses[id]); o.map = map && ms.some(m => m.id === map) ? map : (ms[0] || {}).id || "main"; }
   const same = M.own && M.own.kind === o.kind && M.own.id === o.id && M.own.map === o.map;
-  Object.assign(M, {own: o, sel: "", selE: "", connect: "", quiz: null, sug: null, err: "", busy: false});
+  // a map always opens with its menus and panels closed (Map Style, a box's Style, a toolbar menu, a colour picker...), even if they were open when it closed
+  Object.assign(M, {own: o, sel: "", selE: "", connect: "", quiz: null, sug: null, err: "", busy: false, menu: "", looks: false, lookScrolled: false, styleOpen: false, cardsOpen: false, made: null, pick: "", lastTap: null});
   if (!same) { M.loose = false; M.know = o.kind === "exam"; M.undoS = []; M.redoS = []; }
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
   const mp = mapOf(o);
@@ -107545,7 +107546,10 @@ function panTo(id){
 function wireCanvas(){
   const cv = M.el.querySelector(".cm-canvas"), svg = M.el.querySelector(".cm-svg");
   // a tap outside an open menu closes it without redrawing, so the button being tapped still gets the tap
-  M.el.addEventListener("pointerdown", e => { if (M.menu && !e.target.closest(".cm-mw")) closeMenu(); }, true);
+  M.el.addEventListener("pointerdown", e => { if (M.menu && !e.target.closest(".cm-mw")) closeMenu();
+    // Map Style closes like a menu: a tap anywhere outside its panel (the map, a box, another tool)
+    // (the toolbar isn't redrawn here: the button being pressed has to stay there for its click)
+    if (M.looks && !e.target.closest('.cm-panel, [data-cm="looks"]')) { M.looks = false; M.el.querySelectorAll('.cm-tools > [data-cm="looks"]').forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); panel(); } }, true);
   M.el.addEventListener("change", e => {
     const a = e.target.closest && e.target.closest("[data-cm-any]"); if (!a) return;
     if (typeof anyColorLocked === "function" && anyColorLocked()) { anyColorPro("map"); return; }
@@ -107568,7 +107572,7 @@ function wireCanvas(){
     if (txt && CMAP.embedOf(txt)) { e.preventDefault(); addEmbed(txt, ""); }
   });
   // Escape closes a playing video first, then the map
-  if (!wireCanvas.esc) { wireCanvas.esc = true; dlg.addEventListener("cancel", e => { if (!(M.el && M.el.isConnected)) return; if (M.menu) { e.preventDefault(); closeMenu(); return; } if (closePlayer()) e.preventDefault(); }); }
+  if (!wireCanvas.esc) { wireCanvas.esc = true; dlg.addEventListener("cancel", e => { if (!(M.el && M.el.isConnected)) return; if (M.menu) { e.preventDefault(); closeMenu(); return; } if (M.looks) { e.preventDefault(); M.looks = false; tools(); panel(); return; } if (closePlayer()) e.preventDefault(); }); }
   let drag = null; const pts = new Map();
   svg.addEventListener("pointerdown", e => {
     pts.set(e.pointerId, [e.clientX, e.clientY]);

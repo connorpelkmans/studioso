@@ -405,6 +405,20 @@ function SEED(){
     await pl.click('.cm-tools [data-cm="know"]'); await pl.waitForTimeout(200);
     await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); await pl.click('.cm-look[data-v=""]'); await pl.waitForTimeout(300);
     ok(!(await mp()).pack && await pl.locator(".cm-canvas.cm-pk").count() === 0 && await pl.locator(".cm-node.is-pk").count() === 0, "Plain takes the style off");
+    // Map Style closes when you click away from it (on the map), or press Escape, like a menu
+    if (!(await pl.locator(".cm-looks").count())) await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
+    const cvb = await pl.locator(".cm-canvas").boundingBox(); await pl.mouse.click(cvb.x + 40, cvb.y + 40); await pl.waitForTimeout(200);
+    ok(await pl.locator(".cm-looks").count() === 0 && await pl.locator('.cm-tools [data-cm="looks"].on').count() === 0, "clicking away from Map Style closes it");
+    await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); await pl.keyboard.press("Escape"); await pl.waitForTimeout(200);
+    ok(await pl.locator(".cm-looks").count() === 0 && await pl.locator(".cm-node").count() > 0, "Escape closes Map Style, not the map");
+    // closed with the picker and a menu open, the map opens again with neither
+    await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); await pl.click('.cm-tools [data-cm="menu"][data-v="add"]'); await pl.waitForSelector(".cm-menu");
+    await pl.click(".cm-x"); await pl.waitForTimeout(300);
+    await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node"); await pl.waitForTimeout(200);
+    ok(await pl.locator(".cm-looks").count() === 0 && await pl.locator(".cm-menu").count() === 0 && await pl.locator('.cm-tools [data-cm="looks"].on').count() === 0, "a map reopens with Map Style and its menus closed");
+    await tap(pl, "idea:a"); if (!(await pl.locator(".cm-panel .cm-style").count())) await pl.click('.cm-panel [data-cm="style"]'); await pl.waitForTimeout(150);
+    await pl.click(".cm-x"); await pl.waitForTimeout(300); await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node"); await tap(pl, "idea:a"); await pl.waitForTimeout(200);
+    ok(await pl.locator(".cm-panel .cm-style:not([hidden])").count() === 0 && await pl.locator('.cm-panel [data-cm="style"][aria-expanded="true"]').count() === 0, "and a box's Style section starts closed too");
     ok(!(await pl.locator("#toast.show").count()) && pl.errs.length === 0, "Map Style: no notices, no errors: " + pl.errs.join(" | "));
     await ctxL.close();
   }
