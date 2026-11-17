@@ -698,10 +698,24 @@ function shapeSvg(shape, w, h, col, root, n){
   return `<rect class="cm-shape" x="${-a}" y="${-b}" width="${w}" height="${h}" rx="${root ? 12 : 10}" ${st}/>`;
 }
 // a line's ends sit on the boxes' edges (so arrowheads show), labels at the middle
+/* Where a line leaves a box: found on the shape as drawn (rounded corners, a pill's ends, a hexagon's slants, a cloud's bumps),
+   by walking out along the line until the point is no longer inside the outline, so every line meets its shape exactly.
+   Falls back to the box's simple outline where the browser can't test points (or before the shape is drawn). */
+function edgeOut(id, dx, dy, simple){
+  const L = Math.hypot(dx, dy); if (!L) return 0;
+  const el = M.el && M.el.querySelector(`.cm-node[data-n="${CSS.escape(id)}"] .cm-shape`), sz = M.size[id] || [80, 36];
+  if (!el || typeof el.isPointInFill !== "function" || typeof DOMPoint !== "function") return simple();
+  const ux = dx / L, uy = dy / L, inside = t => { try { return el.isPointInFill(new DOMPoint(ux * t, uy * t)); } catch (e) { return null; } };
+  if (inside(0) !== true) return simple();
+  let lo = 0, hi = Math.hypot(sz[0], sz[1]) / 2 + 24;
+  if (inside(hi)) return simple();
+  for (let i = 0; i < 16; i++) { const mid = (lo + hi) / 2; if (inside(mid)) lo = mid; else hi = mid; }
+  return lo + 0.6; // to the outside of the outline's stroke
+}
 function edgeGeo(e){
   const P = id => M.pos[id] || [0, 0], S = id => M.size[id] || [80, 36], sh = id => { const n = M.byId[id]; return n ? CMAP.shapeOf(n) : "rounded"; };
   const [x1, y1] = P(e.a), [x2, y2] = P(e.b), dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
-  const ra = CMAP.exitAt(sh(e.a), S(e.a)[0], S(e.a)[1], dx, dy) + 3, rb = CMAP.exitAt(sh(e.b), S(e.b)[0], S(e.b)[1], -dx, -dy) + 3;
+  const ra = edgeOut(e.a, dx, dy, () => CMAP.exitAt(sh(e.a), S(e.a)[0], S(e.a)[1], dx, dy)), rb = edgeOut(e.b, -dx, -dy, () => CMAP.exitAt(sh(e.b), S(e.b)[0], S(e.b)[1], -dx, -dy));
   const ok = L > ra + rb + 4, sx = ok ? x1 + dx / L * ra : x1, sy = ok ? y1 + dy / L * ra : y1, ex = ok ? x2 - dx / L * rb : x2, ey = ok ? y2 - dy / L * rb : y2;
   return {sx, sy, ex, ey, mx: (sx + ex) / 2, my: (sy + ey) / 2};
 }
