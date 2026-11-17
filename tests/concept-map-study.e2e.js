@@ -118,8 +118,8 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   /* Link an idea to a PDF page or a lecture moment */
   await page.evaluate(() => { window.__went = []; SBPRO.openReader = (id, p) => window.__went.push(["pdf", id, p]); SBREPLAY.seek = (id, ms) => { window.__went.push(["lec", id, ms]); return Promise.resolve(); }; window.fileSheet = () => {}; });
   await tap(page, "idea:a"); ok(await page.locator('.cm-panel [data-cm="menu"][data-v="attach"]').count() === 1 && await page.locator('.cm-panel [data-cm="style"]').count() === 1, "an idea's panel: Attach (a page or lecture, a picture, a video) and Style");
-  await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF");
-  ok(await page.$$eval("#cmAtF optgroup", g => g.map(x => x.label).join("|")) === "PDFs|Lectures", "the course's PDFs and lectures to pick from");
+  await cmClick(page, '[data-cm="atpdf"]'); await page.waitForSelector("#cmAtF");
+  ok(JSON.stringify(await page.$$eval("#cmAtF option", o => o.map(x => x.value))) === '["f1"]' && await page.isVisible("#cmAtP") && !(await page.isVisible("#cmAtT")), "PDF Page lists only the course's PDFs and asks for a page");
   await page.selectOption("#cmAtF", "f1"); await page.fill("#cmAtP", "12"); await page.click(".cm-atf [type=submit]"); await page.waitForTimeout(250);
   let idea = (await S(page)).courses.c2.maps[0].add.find(x => x.id === "a");
   ok(idea.at && idea.at.f === "f1" && idea.at.p === 12, "Glycolysis links to page 12 of the slides");
@@ -128,8 +128,8 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   await cmClick(page, '[data-cm="goat"]'); await page.waitForTimeout(200);
   ok(JSON.stringify(await page.evaluate(() => window.__went)) === JSON.stringify([["pdf", "f1", 12]]), "Go to p. 12 opens the PDF at page 12");
   await openMap(page); await page.evaluate(() => { window.__went = []; });
-  await tap(page, "idea:d"); await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF");
-  await page.selectOption("#cmAtF", "f2"); ok(await page.isVisible("#cmAtT") && !(await page.isVisible("#cmAtP")), "a lecture asks for a time, not a page");
+  await tap(page, "idea:d"); await cmClick(page, '[data-cm="atlec"]'); await page.waitForSelector("#cmAtF");
+  ok(JSON.stringify(await page.$$eval("#cmAtF option", o => o.map(x => x.value))) === '["f2"]' && await page.isVisible("#cmAtT") && !(await page.isVisible("#cmAtP")), "Lecture Moment lists only the course's lectures and asks for a time, not a page");
   await page.fill("#cmAtT", "7:99"); await page.click(".cm-atf [type=submit]"); ok(/like 12:34/.test(await page.textContent("[data-at-err]")), "a time that isn't one says how to write it");
   ok(/The recording is 25:00 long/.test(await page.textContent("[data-at-len]")), "it says how long the recording is");
   await page.fill("#cmAtT", "31:00"); await page.click(".cm-atf [type=submit]"); ok(/only 25:00 long/.test(await page.textContent("[data-at-err]")), "a time past the end of the recording isn't allowed");
@@ -139,7 +139,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   ok(await page.locator('.cm-node[data-n="file:f2"]').count() === 0 && await page.locator('.cm-node[data-n="file:f1"]').count() === 0, "linking doesn't add the lecture's or the PDF's own box to the map");
   await page.evaluate(() => { const S = SBCMAP.state(); S.sel = ""; S.lastTap = null; }); await page.focus('.cm-node[data-n="idea:d"]'); await page.keyboard.press("Enter"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   ok(JSON.stringify(await page.evaluate(() => window.__went)) === JSON.stringify([["lec", "f2", 754000]]), "tapping the box twice plays the lecture from 12:34");
-  await openMap(page); await tap(page, "idea:d"); await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF"); await cmClick(page, '[data-cm="atoff"]'); await page.waitForTimeout(200);
+  await openMap(page); await tap(page, "idea:d"); await cmClick(page, '[data-cm="atlec"]'); await page.waitForSelector("#cmAtF"); await page.click('.cm-atf [data-cm="atoff"]'); await page.waitForTimeout(200);
   ok(!(await S(page)).courses.c2.maps[0].add.find(x => x.id === "d").at && !(await page.locator('.cm-node[data-n="idea:d"] .cm-atb').count()), "Remove Link takes it off");
   ok(page.errs.length === 0, "no console errors (links): " + page.errs.join(" | "));
   await ctx.close();
@@ -186,7 +186,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   const pctx = await mkCtx({width: 390, height: 844}), pp = await open(pctx);
   await openMap(pp); await tap(pp, "idea:a"); ok(await fits(pp), "an idea's panel fits at 390px");
   await cmClick(pp, '[data-cm="cards"]'); await pp.waitForSelector(".cm-cardsp"); ok(await fits(pp), "Make Flashcards fits at 390px");
-  await tap(pp, "idea:a"); await cmClick(pp, '[data-cm="at"]'); await pp.waitForSelector("#cmAtF"); ok(await fits(pp), "the page or lecture link fits at 390px");
+  await tap(pp, "idea:a"); await cmClick(pp, '[data-cm="atpdf"]'); await pp.waitForSelector("#cmAtF"); ok(await fits(pp), "the page or lecture link fits at 390px");
   ok(pp.errs.length === 0, "no console errors (phone): " + pp.errs.join(" | "));
   await pctx.close();
   await browser.close(); server.close();
