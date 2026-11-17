@@ -580,7 +580,8 @@ function open(kind, id, map){
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
   const mp = mapOf(o);
   // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
-  openSheet(`<div class="sheet cm-sheet" style="--c:${esc(c ? c.color : "#2F6FE4")}"><div class="cm-top"><span class="cm-hic" aria-hidden="true">${ICON.replace('width="16" height="16"', 'width="18" height="18"')}</span>
+  // sm-skip: the app's fade-in for new content stays out of the map (it would fade every redraw, menu and the video player)
+  openSheet(`<div class="sheet cm-sheet sm-skip" style="--c:${esc(c ? c.color : "#2F6FE4")}"><div class="cm-top"><span class="cm-hic" aria-hidden="true">${ICON.replace('width="16" height="16"', 'width="18" height="18"')}</span>
     <div class="cm-tt"><span class="cm-kick">Concept Map${BETA ? ' <span class="sb-beta" title="Beta: still being improved">Beta</span>' : ""}</span><h2 class="cm-name">${esc(mp ? mp.name : ownerObj(o).title)}</h2></div>
     <div class="cm-tools" role="toolbar" aria-label="Concept map tools"></div><button type="button" class="icon-btn cm-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
     <div class="cm-canvas" tabindex="-1"><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div><div class="cm-panel" aria-live="polite"></div></div></div>`);
@@ -1530,17 +1531,17 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-embst.is-ok{color:var(--ink);font-weight:700}
 .cm-embst.is-bad{color:var(--danger,#C62828)}
 .cm-embdot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
-.cm-player{position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);width:min(860px,calc(100% - 24px));max-height:calc(100% - 24px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px -12px rgb(0 0 0/.45);overflow:hidden;animation:cmPlayIn .18s ease-out}
-@keyframes cmPlayIn{from{opacity:0;transform:translate(-50%,-48%) scale(.98)}}
+/* the player appears at once, in the middle (centred by layout, not a transform, so nothing slides or replays) */
+.cm-player{position:absolute;z-index:5;inset:0;margin:auto;height:fit-content;width:min(860px,calc(100% - 24px));max-height:calc(100% - 24px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px -12px rgb(0 0 0/.45);overflow:hidden}
 .cm-player-head{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--line)}
 .cm-player-head b{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cm-player-head .icon-btn{font-size:1.4rem;line-height:1}
 .cm-player-box{position:relative;flex:1 1 auto;min-height:0;aspect-ratio:4/3;max-height:70vh;background:#000}
 .cm-player.is-video .cm-player-box{aspect-ratio:16/9}
 .cm-player.is-audio .cm-player-box{aspect-ratio:auto;height:232px;background:transparent}
-.cm-player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.cm-player-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
 @media (max-width:560px){.cm-player-head .btn{display:none}}
-@media (prefers-reduced-motion:reduce){.cm-player{animation:none}}
+
 .cm-atb rect{fill:var(--surface);stroke:color-mix(in srgb,#2F6FE4 55%,var(--line));stroke-width:1.2}
 .cm-atb.is-lec rect{stroke:color-mix(in srgb,#C2255C 55%,var(--line))}
 .cm-atb text{font-size:10.5px;font-weight:800;fill:#2F6FE4}

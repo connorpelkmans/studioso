@@ -192,6 +192,8 @@ function SEED(){
   let em = (await course(page, "c3")).maps[2].add.find(x => x.emb);
   ok(em && em.emb.p === "youtube" && em.emb.e === "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&start=42" && /ytimg/.test(await page.getAttribute(".cm-node .cm-emb image", "href")), "it becomes a video on the map, with its thumbnail (privacy-enhanced player, start time kept)");
   await page.click(".cm-node:has(.cm-emb)"); await page.waitForSelector(".cm-player iframe");
+  ok(await page.evaluate(() => { const p = document.querySelector(".cm-player"), c = document.querySelector(".cm-canvas").getBoundingClientRect(), r = p.getBoundingClientRect();
+    return !p.getAnimations().length && Math.abs((r.left + r.width / 2) - (c.left + c.width / 2)) < 2 && Math.abs((r.top + r.height / 2) - (c.top + c.height / 2)) < 2; }), "the player appears at once, in the middle (no fade or slide)");
   ok(await page.evaluate(() => !document.querySelector(".cm-node:has(.cm-emb) .cm-kdot")), "a video's box has no colour dot over its thumbnail");
   const fsrc = await page.getAttribute(".cm-player iframe", "src");
   ok(/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(fsrc) && /autoplay=1/.test(fsrc) && /allow-scripts/.test(await page.getAttribute(".cm-player iframe", "sandbox")), "one tap plays it on the map, in a sandboxed frame");
