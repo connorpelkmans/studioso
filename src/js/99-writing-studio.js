@@ -780,14 +780,16 @@ const CITE = (() => {
     const IEEE_WHY = {"ieee-range": ["put a range inside one pair of brackets", "write a range as [1]–[3], each number in its own brackets"], "ieee-list": ["put several numbers in one pair of brackets", "give each number its own brackets: [1], [2]"]};
     groups.forEach((list, k) => {
       const f = list[0], why = x => (IEEE_WHY[x] || whyOf(x, P)), whys = f.probs.map(x => why(x)[1]).join("; "), say = x => x.fixed ? `${x.orig} → ${x.fixed}` : x.orig;
-      const more = list.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig}));
+      const more = list.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig})), edits = list.map(x => x.fixed ? editAt(draft, x.at, x.len, x.orig, x.fixed) : null).filter(Boolean);
       const head = f.fixed ? `In ${P.n}, write ${f.fixed}` : f.probs[0] === "numeric" ? `${P.n} cites by number, not author and year: ${f.orig}` : `${P.n} cites in footnotes, not in brackets: ${f.orig}`;
-      if (list.length === 1) push("err", head, `${f.fixed ? `Not ${f.orig}: ` : ""}${whys.replace(/^./, ch => ch.toUpperCase())}.`, "", f.at, f.len, {key: "fmt:" + k});
-      else push("err", `${list.length} citations ${why(f.probs[0])[0]}`, `${f.fixed ? `In ${P.n}, write ${f.fixed}, not ${f.orig}` : `Like ${f.orig}`}: ${whys}. The others: ${list.slice(1, 9).map(say).join("; ")}${list.length > 9 ? `; and ${list.length - 9} more` : ""}.`, "", f.at, f.len, {key: "fmt:" + k, more});
+      if (list.length === 1) push("err", head, `${f.fixed ? `Not ${f.orig}: ` : ""}${whys.replace(/^./, ch => ch.toUpperCase())}.`, "", f.at, f.len, {key: "fmt:" + k, edits});
+      else push("err", `${list.length} citations ${why(f.probs[0])[0]}`, `${f.fixed ? `In ${P.n}, write ${f.fixed}, not ${f.orig}` : `Like ${f.orig}`}: ${whys}. The others: ${list.slice(1, 9).map(say).join("; ")}${list.length > 9 ? `; and ${list.length - 9} more` : ""}.`, "", f.at, f.len, {key: "fmt:" + k, more, edits});
     });
     if (mism.length) {
       const f = mism[0], one = x => `${x.orig}: ${x.src.title ? `“${cap(x.src.title, 60)}”` : keyName(x.src)} is from ${x.y}`;
-      push("err", mism.length === 1 ? `The year doesn't match your source: ${f.orig}` : `${mism.length} citations have a year that doesn't match the source`, mism.length === 1 ? `${one(f)} in your Writing Studio. Fix the year here, or on the Sources tab if the source is wrong.` : `${mism.slice(0, 8).map(one).join("; ")}. Fix the years here, or on the Sources tab if a source is wrong.`, "", f.at, f.len, {key: "fmt:year-match", more: mism.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig}))});
+      // a citation with just the one year: that year becomes the source's (a citation of several works is left to the student)
+      const edits = mism.map(x => { const ys = x.orig.match(/\b(1[5-9]\d\d|20\d\d)[a-z]?\b/g) || []; return ys.length === 1 ? editAt(draft, x.at, x.len, x.orig, x.orig.replace(ys[0], x.y)) : null; }).filter(Boolean);
+      push("err", mism.length === 1 ? `The year doesn't match your source: ${f.orig}` : `${mism.length} citations have a year that doesn't match the source`, mism.length === 1 ? `${one(f)} in your Writing Studio. Fix the year here, or on the Sources tab if the source is wrong.` : `${mism.slice(0, 8).map(one).join("; ")}. Fix the years here, or on the Sources tab if a source is wrong.`, "", f.at, f.len, {key: "fmt:year-match", more: mism.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig})), edits});
     }
     if (!P.gen && !P.num && !P.note && parsed.length && !fmts.length && !mism.length) push("ok", `Your in-text citations are in ${P.n} format`);
     // the whole draft written in another style (when the assignment doesn't name one): offer to switch
@@ -801,11 +803,15 @@ const CITE = (() => {
       else if (P.yr && P.ay === " " && T >= 4 && ac.length / T >= 0.8) { to = "apa"; ex = ac[0]; }
       if (to && to !== style && to !== o.parent) push("warn", `Your citations look like ${SHORTN[to]}`, `Most are written like ${ex.orig}, and Writing Studio is set to ${label}. If your assignment uses ${SHORTN[to]}, switch; if not, fix them as shown here.`, "style:" + to, null, null, {key: "looks:" + to});
     }
-    if (!ref) push(n ? "err" : "warn", `No ${wantL} found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`);
+    if (!ref) {
+      // a list made from the cited sources' entries (in the style's own order), at the end
+      const ids = sources.filter(s => cited.has(s.id) && o.refs && o.refs[s.id]).map(s => s.id), ordered = o.refs ? Object.keys(o.refs).filter(id => ids.includes(id)) : [];
+      push(n ? "err" : "warn", `No ${wantL} found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`, "", null, null, ordered.length ? {key: "ref-none", edits: [refAppend(draft, want, ordered.map(id => P.num ? o.refs[id] : unnum(o.refs[id])))]} : {key: "ref-none"});
+    }
     else {
-      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) push("err", `In ${label}, the list is called ${want}`, `Yours is called “${sq(ref.name)}”: rename the heading.`, "", ref.at, ref.name.length, {key: "heading"});
+      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) { const ha = draft.indexOf(ref.name, ref.at); push("err", `In ${label}, the list is called ${want}`, `Yours is called “${sq(ref.name)}”: rename the heading.`, "", ref.at, ref.name.length, {key: "heading", edits: [editAt(draft, ha, ref.name.length, ref.name, want)].filter(Boolean)}); }
       const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body));
-      miss.forEach(s => push("err", `Cited but not in your ${wantL}: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1]));
+      miss.forEach(s => { const X = o.refs && o.refs[s.id], ins = X ? refInsert(draft, ref, ents, P.num ? X : unnum(X)) : null; push("err", `Cited but not in your ${wantL}: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1], {key: "miss:" + s.id, edits: ins ? [ins] : []}); });
       // only when nothing cited is missing: a citation that isn't in the sources is cited too
       if (!miss.length && citedN) push("ok", !unknownN ? `Every cited source is in your ${wantL}` : citedN === 1 ? `Your cited Writing Studio source is in your ${wantL}` : `All ${citedN} cited Writing Studio sources are in your ${wantL}`);
       // its order: alphabetical by the first author (or title), or numbered 1, 2, 3 in numbered styles
@@ -816,7 +822,11 @@ const CITE = (() => {
         const first = e => (loose(e.t).replace(/^(the|a|an)\s+/, "").split(" ")[0] || ""), name = e => (/^[“"‘']?([\p{L}'’-]+)/u.exec(nq(e.t).replace(/^["']?(the|a|an)\s+/i, "")) || [])[1] || "";
         for (let i = 1; i < ents.length; i++) {
           if (/^[-—–_]{2,}/.test(ents[i].t) || /^[-—–_]{2,}/.test(ents[i - 1].t)) continue;
-          if (first(ents[i - 1]).localeCompare(first(ents[i]), "en", {sensitivity: "base"}) > 0) { push("warn", `Your ${wantL} isn't in alphabetical order`, `${name(ents[i])} should come before ${name(ents[i - 1])}: the list goes by the first author's last name (or the title, when there's no author).`, "", ents[i].at, ents[i].len, {key: "ref-order"}); break; }
+          if (first(ents[i - 1]).localeCompare(first(ents[i]), "en", {sensitivity: "base"}) > 0) {
+            // the entries in order, each exactly as written, with the list's own spacing between them
+            const a = ents[0].at, end = ents[ents.length - 1].at + ents[ents.length - 1].len, seps = ents.slice(1).map((e, j) => draft.slice(ents[j].at + ents[j].len, e.at)), same = seps.every(x => x === seps[0]);
+            const sorted = ents.slice().sort((x, y) => refKey(x.t).localeCompare(refKey(y.t), "en", {sensitivity: "base"})).map(e => draft.slice(e.at, e.at + e.len));
+            push("warn", `Your ${wantL} isn't in alphabetical order`, `${name(ents[i])} should come before ${name(ents[i - 1])}: the list goes by the first author's last name (or the title, when there's no author).`, "", ents[i].at, ents[i].len, {key: "ref-order", edits: same && /^\s*$/.test(seps[0]) ? [editAt(draft, a, end - a, draft.slice(a, end), sorted.join(seps[0]))].filter(Boolean) : []}); break; }
         }
       }
       // each entry against the style's own version of it
@@ -826,7 +836,9 @@ const CITE = (() => {
         ents.forEach(e => {
           const s = e.sid && sources.find(x => x.id === e.sid), X = s && o.refs[s.id]; if (!X) return;
           compared++; const why = refDiff(e.t, X, s); if (!why.length) return;
-          if (++bad <= 10) push("err", `${want}: fix the entry for ${who(s)}`, why.join(". ") + ".", "", e.at, e.len, {key: "ref:" + s.id, should: unnum(X), sid: s.id});
+          // the right entry in its place (a numbered list keeps the entry's own number)
+          const was = draft.slice(e.at, e.at + e.len), pre = (/^\s*(\[\d{1,3}\]\s*|\d{1,3}[.)]\s+)/.exec(was) || [""])[0];
+          if (++bad <= 10) push("err", `${want}: fix the entry for ${who(s)}`, why.join(". ") + ".", "", e.at, e.len, {key: "ref:" + s.id, should: unnum(X), sid: s.id, edits: [editAt(draft, e.at, e.len, was, pre + unnum(X))].filter(Boolean)});
         });
         if (bad > 10) push("err", `${bad - 10} more ${want} entries need fixing`, "Fix the ones above, then check again.", "", null, null, {key: "ref:more"});
         if (compared && !bad) push("ok", `Your ${want} entries are in ${P.n} format`);
@@ -851,6 +863,51 @@ const CITE = (() => {
   // A short fingerprint of a text (to tell whether a draft changed since it was checked)
   function hash(s){ s = String(s || ""); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ":" + s.length; }
   // A draft kept on the paper is capped: its start and its end (where the reference list is) when it's longer
+  /* Auto-fix: changes to the draft that are certain. Each edit says what it expects to find (from) where (at, len) and what goes there (to);
+     it's made only when the draft really has that text there, and applied only when it still does. An insertion (len 0) can carry a sort key (k)
+     so several at one place land in order. Edits that overlap aren't applied together (the rest wait for the next round, after a new check). */
+  const editAt = (draft, at, len, from, to) => at != null && at >= 0 && from != null && draft.slice(at, at + len) === from && from !== to ? {at, len, from, to} : null;
+  function applyEdits(textIn, editsIn){
+    const text = String(textIn || ""), keep = planEdits(text, editsIn);
+    let out = text; keep.forEach(e => { out = out.slice(0, e.at) + e.to + out.slice(e.at + e.len); });
+    return {text: out, n: keep.length, skipped: (editsIn || []).length - keep.length, plan: keep};
+  }
+  // the edits that can be made together, in the order to make them
+  function planEdits(textIn, editsIn){
+    const text = String(textIn || ""), ok = (editsIn || []).filter(e => e && e.at >= 0 && e.at + e.len <= text.length && text.slice(e.at, e.at + e.len) === e.from);
+    const keep = [];
+    ok.slice().sort((a, b) => a.at - b.at || b.len - a.len).forEach(e => {
+      const clash = keep.some(x => x.len && e.len ? e.at < x.at + x.len && x.at < e.at + e.len : x.len ? e.at > x.at && e.at < x.at + x.len : e.len ? x.at > e.at && x.at < e.at + e.len : false);
+      if (!clash && !keep.some(x => x.at === e.at && x.len === e.len && x.from === e.from && x.to === e.to && !e.len === !x.len && x.k === e.k)) keep.push(e);
+    });
+    // from the end, so earlier positions stay right; at one place, a replacement before insertions, insertions by key (last first)
+    keep.sort((a, b) => b.at - a.at || (b.len ? 1 : 0) - (a.len ? 1 : 0) || String(b.k || "").localeCompare(String(a.k || "")));
+    return keep;
+  }
+  // where a new entry goes in the draft's reference list: in alphabetical order among the others (a numbered list is left alone)
+  const refKey = t => loose(String(t || "")).replace(/^(the|a|an)\s+/, "");
+  const isNumbered = ents => ents.some(e => e.num || /^\s*(\[\d{1,3}\]|\d{1,3}[.)]\s)/.test(e.t));
+  function refInsert(draft, ref, ents, entry){
+    if (!ref || isNumbered(ents)) return null;
+    const k = refKey(entry);
+    if (!ents.length) { const pos = draft.length - ref.body.length, end = pos >= draft.length; return {at: pos, len: 0, from: "", to: (end && !/\n$/.test(draft) ? "\n" : "") + entry + (end ? "" : "\n"), k}; }
+    const sep = ents.length >= 2 ? (/^\s*\n\s*\n/.test(draft.slice(ents[0].at + ents[0].len, ents[1].at)) ? "\n\n" : "\n") : "\n";
+    const i = ents.findIndex(e => refKey(e.t).localeCompare(k, "en", {sensitivity: "base"}) > 0);
+    if (i >= 0) return {at: ents[i].at, len: 0, from: "", to: entry + sep, k};
+    const last = ents[ents.length - 1]; return {at: last.at + last.len, len: 0, from: "", to: sep + entry, k};
+  }
+  // a whole new list at the end of the draft: its heading, then the entries
+  const refAppend = (draft, head, entries) => ({at: draft.length, len: 0, from: "", to: (draft ? (/\n$/.test(draft) ? "\n" : "\n\n") : "") + head + "\n" + entries.join("\n"), k: "~"});
+  /* Add to References: the chosen sources' entries in the draft's list (made if there isn't one), skipping the ones already in it */
+  function refAdd(draftIn, sourcesIn, refs, o){
+    o = o || {}; const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), sources = (sourcesIn || []).map(clean), ref = refSection(draft), ents = ref ? refEntriesAt(draft) : [];
+    const has = s => ref && famRe(keyName(s)).test(ref.body) && (!s.title || loose(ref.body).includes(loose(s.title).split(" ").slice(0, 4).join(" ")));
+    const order = Object.keys(refs || {}), todo = sources.filter(s => refs && refs[s.id] && !has(s)).sort((x, y) => order.indexOf(x.id) - order.indexOf(y.id)), already = sources.filter(s => has(s)).map(s => s.id), entry = s => o.num ? refs[s.id] : unnum(refs[s.id]);
+    if (!todo.length) return {edits: [], added: [], already};
+    if (!ref) return {edits: [refAppend(draft, o.head || "References", todo.map(entry))], added: todo.map(s => s.id), already, made: true};
+    if (isNumbered(ents)) return {edits: [], added: [], already, numbered: true, left: todo.map(s => s.id)};
+    return {edits: todo.map(s => refInsert(draft, ref, ents, entry(s))).filter(Boolean), added: todo.map(s => s.id), already};
+  }
   function capDraft(s, max){
     s = String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); max = max || 60000;
     if (s.length <= max) return s;
@@ -999,7 +1056,7 @@ const CITE = (() => {
   }
   return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf, keyName,
     parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase,
-    diffIssues, issueKeys, hash, capDraft, sentenceAt, refEntries, refEntriesAt, parseRef, authorsOf, segs, quotesIn, refSection, parseCite, profileOf, refDiff};
+    diffIssues, issueKeys, hash, capDraft, applyEdits, refAdd, sentenceAt, refEntries, refEntriesAt, parseRef, authorsOf, segs, quotesIn, refSection, parseCite, profileOf, refDiff};
 })();
 /*CITE-END*/
 
@@ -1110,11 +1167,15 @@ const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.s
 // the draft, and what it found (the issues' titles, so the next check can say what changed)
 const MAX_SRC = 150, MAX_Q = 300, MAX_SEC = 30, MAX_DRAFT = 60000;
 const W = {tid: "", tab: "", view: "", edit: null, paste: "", res: null, busy: "", err: "", el: null, hlPick: null, inp: "", note: "", z: null, imp: null, find: null, found: null, show: null, diff: null, also: null, hub: "", pick: null};
+// the linked document (a Google Doc or a Word file in OneDrive): which one, and its name and address to open it
+const ldNorm = l => l && typeof l === "object" && (l.p === "google" || l.p === "microsoft") && typeof l.id === "string" && /^[\w!.-]{1,200}$/.test(l.id)
+  ? {p: l.p, id: l.id, drive: typeof l.drive === "string" && /^[\w!.-]{1,200}$/.test(l.drive) ? l.drive : "", name: String(l.name || "").slice(0, 200), url: /^https:\/\//.test(String(l.url || "")) ? String(l.url).slice(0, 600) : "", big: !!l.big} : null;
 function wsOf(t){
   const w = t && t.ws && typeof t.ws === "object" ? t.ws : {};
   const d = w.draft && typeof w.draft === "object" && typeof w.draft.t === "string" && w.draft.t ? w.draft : null, c = w.chk && typeof w.chk === "object" ? w.chk : null;
   return {style: typeof w.style === "string" && w.style ? w.style : "", lang: w.lang === "en-GB" ? "en-GB" : "", src: Array.isArray(w.src) ? w.src.filter(s => s && s.id) : [], q: Array.isArray(w.q) ? w.q.filter(q => q && q.id) : [], out: Array.isArray(w.out) ? w.out.filter(s => s && s.id) : [],
-    draft: d ? {t: d.t, from: String(d.from || ""), fid: d.fid || "", nid: d.nid || "", r: d.r || "", at: Number(d.at) || 0, h: d.h || CITE.hash(d.t)} : null,
+    draft: d ? {t: d.t, from: String(d.from || ""), fid: d.fid || "", nid: d.nid || "", r: d.r || "", at: Number(d.at) || 0, h: d.h || CITE.hash(d.t), fx: Number(d.fx) || 0, ld: !!d.ld} : null,
+    ld: ldNorm(w.ld),
     chk: c ? {at: Number(c.at) || 0, h: c.h || "", keys: Array.isArray(c.keys) ? c.keys.slice(0, 60) : [], err: Number(c.err) || 0, warn: Number(c.warn) || 0, cited: Number(c.cited) || 0, total: Number(c.total) || 0} : null,
     tk: Array.isArray(w.tk) ? w.tk.slice(0, 20) : []};
 }
@@ -1125,12 +1186,13 @@ function reqText(t){
   return parts.join("\n");
 }
 const styleOf = (t, w) => w.style || CITE.rules(reqText(t)).style || "apa";
-function save(t, w, label, extra){
+function save(t, w, label, extra, more){
   const cur = state.tasks[t.id]; if (!cur) return;
   const ws = {style: w.style, lang: w.lang || undefined, src: w.src.slice(0, MAX_SRC), q: w.q.slice(0, MAX_Q), out: w.out.slice(0, MAX_SEC), v: 2};
-  if (w.draft) ws.draft = {t: w.draft.t, from: w.draft.from || "", fid: w.draft.fid || undefined, nid: w.draft.nid || undefined, r: w.draft.r || undefined, at: w.draft.at, h: w.draft.h};
+  if (w.draft) ws.draft = {t: w.draft.t, from: w.draft.from || "", fid: w.draft.fid || undefined, nid: w.draft.nid || undefined, r: w.draft.r || undefined, at: w.draft.at, h: w.draft.h, fx: w.draft.fx || undefined, ld: w.draft.ld ? 1 : undefined};
+  if (w.ld) ws.ld = w.ld;
   if (w.chk) ws.chk = w.chk;
-  const changes = [{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws})}];
+  const changes = [{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws})}].concat(more || []);
   // a Break It Down step whose part is now clearly met is ticked done, in the same change (one Undo takes both back)
   const ticks = stepTicks(cur, w);
   if (ticks.length) {
@@ -1394,10 +1456,10 @@ const cut = (s, n) => (s = String(s || "")).length > n ? s.slice(0, n - 1) + "�
 const wordsIn = s => (String(s || "").match(/\S+/g) || []).length;
 const ago = ms => { const d = Math.floor((Date.now() - ms) / 864e5); return !ms ? "" : d <= 0 ? "today" : d === 1 ? "yesterday" : d < 14 ? `${d} days ago` : "on " + new Date(ms).toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
 const normText = s => String(s || "").toLowerCase().replace(/[‘’“”"']/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-const TABS = ["check", "sources", "quotes", "outline"];
+const TABS = ["check", "doc", "sources", "quotes", "outline"];
 function tabsHtml(w){
   const tb = (k, l, n) => `<button type="button" role="tab" class="ws-tab" data-ws-tab="${k}" aria-selected="${W.tab === k}" ${W.tab === k ? "" : 'tabindex="-1"'}>${l}${n != null ? ` <span class="ws-n">${n}</span>` : ""}</button>`;
-  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("check", "Check")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
+  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("check", "Check")}${tb("doc", "My Doc")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
 }
 function styleSel(st){
   const ext = extStyles(), ids = BUILT.map(b => b[0]).concat(Object.keys(ext).filter(k => !BUILT_FMT[k]));
@@ -1604,7 +1666,7 @@ function foundHtml(t, w){
 }
 function checkHtml(t, w){
   const req = CITE.rules(reqText(t)), st = styleOf(t, w), d = w.draft, editing = !d || W.redo;
-  let h = `<p style="margin:0">Check your draft's citations against your sources before you hand it in. It runs on this device and never changes your writing.</p>
+  let h = `<p style="margin:0">Check your draft's citations against your sources before you hand it in. It runs on this device, and fixes what has one right answer when you tap Fix.</p>
     ${req.style || req.min ? `<p class="mini ws-note">From the assignment: ${esc([req.style ? styleName(req.style) : "", req.min ? `at least ${req.min}${req.scholarly ? " scholarly" : ""} sources` : ""].filter(Boolean).join(", "))}.</p>` : ""}`;
   if (editing) {
     const off = !d && !W.offerOff ? draftOffer(t, w) : null, words = wordsIn(W.paste);
@@ -1617,12 +1679,12 @@ function checkHtml(t, w){
   const c = w.chk, stale = !c || c.h !== d.h, r = usage(t, w).res;
   h += `<div class="ws-draft"><div class="ws-draft-t"><b>Your Draft</b><span class="mini">${esc(d.from && d.from !== "Pasted" ? "From " + d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words · saved ${esc(ago(d.at))}</span>
       <span class="mini${stale ? " ws-no" : ""}">${!c ? "Not checked yet" : stale ? `Changed since the last check (${esc(ago(c.at))})` : `Checked ${esc(ago(c.at))}: ${c.err} to fix · ${c.warn} to look at`}</span></div>
-    <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button><span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
+    <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button>${d.fx && !d.nid && !d.ld ? `<button type="button" class="ws-act" data-ws-dcopy>Copy Fixed Draft</button>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
     ${W.show === "all" ? draftView(d.t, null) : ""}</div>
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
     ${W.diff ? `<p class="ws-diff" role="status">${W.diff.fixed || W.diff.fresh ? `Since your last check: <b>${W.diff.fixed} fixed</b>, ${W.diff.fresh} new.` : "Nothing changed since your last check."}</p>` : ""}
     ${foundHtml(t, w)}
-    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at</p>
+    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at${(() => { const f = r.issues.filter(x => x.edits && x.edits.length).length; return f ? `<button type="button" class="btn small primary ws-fixall" data-ws-fixall>Fix All${f > 1 ? ` (${f})` : ""}</button>` : ""; })()}</p>
       <ul class="ws-issues">${r.issues.map((x, i) => issueHtml(x, i, d.t)).join("")}</ul></div>`;
   return h;
 }
@@ -1631,7 +1693,8 @@ function checkHtml(t, w){
 function issueHtml(x, i, text){
   const ic = {err: "✕", warn: "!", ok: "✓"}, sh = W.show == null ? "" : String(W.show), me = sh === String(i), sub = sh.indexOf(i + ":") === 0 ? Number(sh.split(":")[1]) : -1;
   const at = sub >= 0 && x.more && x.more[sub] ? x.more[sub] : x;
-  return `<li class="ws-is k-${x.k}${me || sub >= 0 ? " is-open" : ""}"><span class="ws-ic" aria-hidden="true">${ic[x.k]}</span><span>${x.at != null ? `<button type="button" class="ws-is-b" data-ws-show="${i}" aria-expanded="${me}"><b>${esc(x.t)}</b><span class="ws-is-go">${me ? "Hide" : "Show in Draft"}</span></button>` : `<b>${esc(x.t)}</b>`}${x.d ? `<span class="mini">${esc(x.d)}</span>` : ""}`
+  const fixB = x.edits && x.edits.length ? `<button type="button" class="btn small primary ws-fixb" data-ws-fix="${i}">${x.edits.length > 1 ? `Fix All ${x.edits.length}` : "Fix"}</button>` : "";
+  return `<li class="ws-is k-${x.k}${me || sub >= 0 ? " is-open" : ""}"><span class="ws-ic" aria-hidden="true">${ic[x.k]}</span><span>${x.at != null ? `<button type="button" class="ws-is-b" data-ws-show="${i}" aria-expanded="${me}"><b>${esc(x.t)}</b><span class="ws-is-go">${me ? "Hide" : "Show in Draft"}</span></button>` : `<b>${esc(x.t)}</b>`}${x.d ? `<span class="mini">${esc(x.d)}</span>` : ""}${fixB}`
     + (x.more && x.more.length ? `<span class="ws-more"><span class="mini">Show the others:</span>${x.more.map((y, j) => `<button type="button" class="ws-chipb" data-ws-show="${i}:${j}" aria-pressed="${sub === j}">${esc(cut(y.s, 44))}</button>`).join("")}</span>` : "")
     + (x.should ? `<span class="ws-should"><span class="mini">Should be:</span><span class="ws-should-t">${esc(x.should)}</span>${x.sid ? `<button type="button" class="btn small" data-ws-copy="${esc(x.sid)}">Copy</button>` : ""}</span>` : "")
     + (x.fix && x.fix.startsWith("style:") ? ` <button type="button" class="link-btn" data-ws-setst="${esc(x.fix.slice(6))}">Switch to ${esc(styleShort(x.fix.slice(6)))}</button>` : "")
@@ -1685,6 +1748,39 @@ function pdfPickHtml(t, w, mode){
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "up" ? `<p class="mini" role="status">Uploading…</p>` : ""}
     ${groups.length ? groups.map(([h, l]) => `<h3 class="fsec">${esc(h)}</h3>${rowsHtml(l, mode === "attach" ? "data-wp-attach" : "data-wp-open", mode === "attach" ? "Attach" : "Open")}`).join("") : `<div class="ws-empty"><b>${P.q ? "Nothing matches." : "No PDFs here yet."}</b><p class="mini">Upload one above${mode === "hlpdf" ? ", or attach a PDF to a source on the Sources tab" : ""}.</p></div>`}`;
 }
+// My Doc: link a Google Doc or a Word file; once linked, it's here to write in, with its check and Fix All above it
+function docHtml(t, w){
+  const l = w.ld, C = window.SBCLOUD, con = C && C.connected ? C.connected() : [], ic = p => (C && C.icons && C.icons[p]) || "";
+  const msg = W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "link" || W.busy === "read" ? `<p class="mini" role="status">Reading your document…</p>` : W.busy === "fix" ? `<p class="mini" role="status">Fixing your document…</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : "";
+  if (!l) {
+    const card = (p, name, what, pick, conn) => `<div class="ws-ldk">${ic(p)}<span class="ws-ldk-t"><b>${name}</b><span class="mini">${what}</span></span>${con.includes(p) ? `<button type="button" class="btn small primary" ${pick} ${W.busy ? "disabled" : ""}>Choose</button>` : `<button type="button" class="btn small" data-ws-ldcon>${conn}</button>`}</div>`;
+    return `<p style="margin:0">Link the Google Doc or Word file you're writing. Write in it right here, Check reads it, and each Fix goes straight into it.</p>
+      <div class="ws-ldc">${card("google", "A Google Doc", "Chosen in Google's own window: Studyboard can open only the docs you choose.", "data-ws-ldg", "Connect Google Drive")}${card("microsoft", "A Word File", "A Word file (.docx) in your OneDrive.", "data-ws-ldw", "Connect OneDrive")}</div>${msg}`;
+  }
+  const d = ldOf(w) ? w.draft : null, c = d && w.chk && w.chk.h === d.h ? w.chk : null, r = d ? usage(t, w).res : null, fixes = r && !l.big ? r.issues.filter(x => x.edits && x.edits.length).length : 0;
+  const open = l.p === "google" ? `https://docs.google.com/document/d/${encodeURIComponent(l.id)}/edit` : l.url;
+  const src = l.p === "google" ? open : W.ldPrev && W.ldPrev.id === l.id ? W.ldPrev.u : "";
+  const state0 = d ? (c ? `${c.err} to fix · ${c.warn} to look at` : "Not checked yet") : w.draft ? "Your saved draft is another one: Check Citations reads this document instead" : "Not read yet";
+  const sum = d && c ? (fixes ? `<p class="ws-sum ws-ldsum"><b>Writing Studio can fix ${plural(fixes, "problem")} for you</b><button type="button" class="btn small primary ws-fixall" data-ws-fixall ${W.busy ? "disabled" : ""}>Fix All${fixes > 1 ? ` (${fixes})` : ""}</button><button type="button" class="link-btn" data-ws-go="check">See Each Issue</button></p>`
+    : c.err || c.warn ? `<p class="mini ws-ldsum">What's left needs you. <button type="button" class="link-btn" data-ws-go="check">See Each Issue</button></p>` : `<p class="mini ws-ok ws-ldsum">No citation problems found ✓</p>`) : "";
+  const word = l.p === "microsoft" ? `<p class="mini ws-note">${src ? "Word for the web shows it here to read. To write in it, open it in Word for the web: Check and Fix work on the file either way." : W.ldPrev && W.ldPrev.id === l.id ? "Microsoft doesn't let Word for the web open inside another app for this account, so open it in Word to write. Check and Fix still work on the file here." : "Loading Word's preview…"}</p>` : "";
+  return `<div class="ws-ldtop"><div class="ws-ldh">${ic(l.p)}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">${esc(state0)}</span></span><span class="spacer"></span>${open ? `<a class="btn small" href="${esc(open)}" target="_blank" rel="noopener noreferrer">Open in ${ldApp(l)}</a>` : ""}<button type="button" class="link-btn" data-ws-ldoff>Unlink</button></div>
+    ${msg}${sum}${word}</div>
+    <div class="ws-ldwrap" data-k="${esc(src + (l.p === "microsoft" ? "#" + (W.ldKey || 0) : ""))}">${src ? `<iframe class="ws-ldf" src="${esc(src)}" title="${esc(l.name || ldName(l))} in ${ldApp(l)}" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>` : ""}</div>`;
+}
+function ldWordHtml(){
+  const L = W.ldList;
+  return `<p style="margin:0">Choose the Word file you're writing. Studyboard reads it on this device, and each Fix you tap is saved into it.</p>
+    <div class="ws-add"><label class="f ws-grow"><span class="lh">Search Your OneDrive</span><input type="search" data-ws-ldq value="${esc(W.ldQ || "")}" placeholder="File name" data-noenter></label></div>
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "link" ? `<p class="mini" role="status">Reading your document…</p>` : ""}
+    ${!L || L.busy ? `<p class="mini" role="status">Looking in your OneDrive…</p>` : L.items.length ? `<h3 class="fsec">${W.ldQ ? "Matches" : "Recent Word Files"}</h3>${rowsHtml(L.items.map(x => ({id: x.id, name: x.name, meta: x.at ? "Changed " + ago(x.at) : ""})), "data-ws-ldpick", "Link")}`
+      : `<div class="ws-empty"><b>${W.ldQ ? "No Word files match." : "No recent Word files."}</b><p class="mini">Search for it by name above.</p></div>`}`;
+}
+function ldLoadList(){
+  const q = W.ldQ || "", my = W.ldList = {busy: true, items: []};
+  ldWordList(q).then(items => { if (W.ldList === my) W.ldList = {items}; }).catch(e => { if (W.ldList === my) { W.ldList = {items: []}; W.err = ldErrText(e); } })
+    .then(() => { if (W.view === "ldword" && shown() && W.ldList !== my) { draw(); const i = W.el.querySelector("[data-ws-ldq]"); if (i && q) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } });
+}
 function footHtml(t, w){
   const back = `<button type="button" class="btn" data-act="edit-task" data-id="${esc(t.id)}">Back to Task</button><span class="spacer"></span>`, cancel = `<button type="button" class="btn" data-ws-vback>Back</button><span class="spacer"></span>`;
   if (W.view === "zotero") { const z = zcred(), n = W.z && W.z.sel ? W.z.sel.size : 0; return cancel + (z ? `<button type="button" class="btn primary" data-wz-add ${n && !W.busy ? "" : "disabled"}>${W.busy === "z" ? "Adding…" : `Add ${n || ""} to This Paper`}</button>` : `<button type="button" class="btn primary" data-wz-connect ${W.busy ? "disabled" : ""}>${W.busy === "zc" ? "Connecting…" : "Connect"}</button>`); }
@@ -1692,8 +1788,9 @@ function footHtml(t, w){
   if (W.view === "library") return cancel + `<button type="button" class="btn primary" data-wl-add>Add Selected</button>`;
   if (W.view) return cancel;
   if (W.tab === "sources" && W.edit) return `<button type="button" class="btn" data-ws-cancel>Cancel</button><span class="spacer"></span><button type="button" class="btn primary" data-ws-esave>Save Source</button>`;
-  if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button><button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
+  if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button>${w.draft ? `<button type="button" class="btn" data-ws-refadd title="Put these sources in your draft's ${esc(listOf(CITE.headingOf(styleOf(t, w), styleFmt(styleOf(t, w)))))} (made if there isn't one)">Add to My Draft</button>` : ""}<button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
   if (W.tab === "quotes" && W.hlPick) return `<button type="button" class="btn" data-ws-hlcancel>Cancel</button><span class="spacer"></span>${W.hlPick.length ? `<button type="button" class="btn primary" data-ws-hladd ${W.busy ? "disabled" : ""}>${W.busy === "hl" ? "Adding…" : "Add Quotes"}</button>` : ""}`;
+  if (W.tab === "doc") return back + (w.ld ? `<button type="button" class="btn primary" data-ws-ldcheck ${W.busy ? "disabled" : ""}>${W.busy === "read" || W.busy === "link" ? "Reading…" : W.busy === "fix" ? "Fixing…" : "Check Citations"}</button>` : "");
   if (W.tab === "outline") return back + (w.out.length || w.q.length ? `<button type="button" class="btn primary" data-ws-export>Export…</button>` : "");
   if (W.tab === "check") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
   return back + `<button type="button" class="btn primary" data-act="close">Done</button>`;
@@ -1703,13 +1800,23 @@ function draw(fresh){
   const t = state.tasks[W.tid]; if (!t) { if (shown()) dlg.close(); return; }
   const w = wsOf(t), st = styleOf(t, w);
   const VIEW = {zotero: ["Zotero", () => zotHtml(t, w)], import: ["Import Sources", impHtml], library: ["My Library", () => libHtml(t, w)], styles: ["More Styles", findHtml],
-    drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")]}[W.view];
+    drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")], ldword: ["Choose a Word File", ldWordHtml]}[W.view];
   if (!TABS.includes(W.tab)) W.tab = "check";
-  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
+  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.tab === "doc" ? docHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
     ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
-  if (shown()) W.el.innerHTML = inner;
+  // My Doc's document stays open while the rest is drawn again (drawing it again would load it again, and lose your place in it)
+  const keep = shown() && !VIEW && W.tab === "doc" ? W.el.querySelector(".ws-ldwrap") : null, tmp = keep ? document.createElement("div") : null;
+  if (tmp) tmp.innerHTML = inner;
+  const nw = tmp && tmp.querySelector(".ws-ldwrap"), ob = keep && W.el.querySelector(".ws-body"), nb = tmp && tmp.querySelector(".ws-body");
+  if (nw && keep.dataset.k === nw.dataset.k && ob && nb && keep.firstChild) {
+    [...ob.childNodes].forEach(n => { if (n !== keep) n.remove(); });
+    [...nb.childNodes].forEach(n => { if (n !== nw) { if (n.compareDocumentPosition(nw) & Node.DOCUMENT_POSITION_FOLLOWING) ob.insertBefore(n, keep); else ob.appendChild(n); } });
+    const kids = [...tmp.children], at = kids.indexOf(nb);
+    [...W.el.children].forEach(c => { if (c !== ob) c.remove(); });
+    kids.slice(0, at).forEach(c => W.el.insertBefore(c, ob)); kids.slice(at + 1).forEach(c => W.el.appendChild(c));
+  } else if (shown()) W.el.innerHTML = inner;
   else { openSheet(`<div class="sheet ws-sheet">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
   const b = W.el.querySelector(".ws-body"); if (b && y) b.scrollTop = y;
   wire(t);
@@ -1871,14 +1978,210 @@ async function pickDraft(tid, key){
   if (!x) { W.busy = ""; W.err = `Couldn't read the text in ${f.name} (a scan, or not on this device yet). Paste your draft instead.`; if (shown()) draw(); return; }
   useDraft(tid, x, {from: f.name, fid: f.id, r: (curRev(f) || {}).assetId || ""});
 }
+/* Auto-fix: certain changes to the saved draft (CITE.applyEdits), then a new check. A draft from a note changes the note too (one Undo for both),
+   so the next check, which reads the note again, keeps the fix; a note that's been edited since stays as it is and the draft becomes Writing
+   Studio's own copy. A draft from a file is Writing Studio's copy: Copy Fixed Draft takes it back to the document. */
+const refsMap = (t, w) => { const B = bibOf(t, w); return B.ready ? Object.fromEntries(B.entries.map(e => [e.id, CITE.runsText(e.runs)])) : null; };
+async function fixDraft(t, edits, label){
+  const d = wsOf(state.tasks[t.id]).draft; if (!d || !edits || !edits.length) return 0;
+  const r = CITE.applyEdits(d.t, edits); if (!r.n) { W.err = "Your draft changed since it was checked. Check it again, then fix."; draw(); return 0; }
+  return saveFixed(t, r.text, r.n, label, [edits]);
+}
+// the fixed text saved (one Undo, with the note when the draft is a note's), then checked again
+async function saveFixed(t, text, count, label, rounds){
+  if (ldOf(wsOf(state.tasks[t.id]))) return ldFix(t, count, rounds);
+  const w = wsOf(state.tasks[t.id]), d = w.draft, r = {text, n: count};
+  let nid = d.nid; const n = nid && state.notes[nid], more = [];
+  if (n) { const raw = String(n.text || "").replace(/\r\n?/g, "\n"); if (raw === d.t) more.push({kind: "note", id: n.id, after: Object.assign(clone(n), {text: r.text, updated: Date.now()})}); else nid = undefined; }
+  w.draft = Object.assign(makeDraft(r.text, {from: d.from, fid: d.fid, nid, r: d.r}), {fx: (d.fx || 0) + r.n});
+  const lbl = label || (r.n === 1 ? "Fixed a citation in your draft" : `Fixed ${r.n} things in your draft`);
+  W.okMsg = `${r.n === 1 ? "Fixed 1 thing" : `Fixed ${r.n} things`} in ${more.length ? `your note, ${noteTitle(n)}` : "Writing Studio's copy of your draft"}.${more.length ? "" : " Copy the fixed draft back into your document."} Undo puts it back.`;
+  W.err = ""; await doCheck(state.tasks[t.id], {quiet: true, w, label: lbl, more});
+  return r.n;
+}
+// Fix All: every certain fix, in rounds (each checked again, as one fix can move the next) until there's nothing more, then saved as one change
+async function fixAll(t){
+  const w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  const st0 = styleOf(state.tasks[t.id], w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} }
+  let text = w.draft.t, total = 0; const rounds = [];
+  for (let round = 0; round < 6; round++) {
+    const res = runCheck(state.tasks[t.id], w, text), edits = res.issues.flatMap(x => x.edits || []); if (!edits.length) break;
+    const r = CITE.applyEdits(text, edits); if (!r.n) break; text = r.text; total += r.n; rounds.push(edits);
+  }
+  const linked = ldOf(w);
+  const done = total ? await saveFixed(t, text, total, `Fixed ${total === 1 ? "1 thing" : total + " things"} in your draft`, rounds) : 0;
+  if (linked) { if (done) W.okMsg += " What's left needs you."; else if (!total) W.okMsg = "Nothing more can be fixed for you: what's left needs your own words."; if (shown()) draw(); return; }
+  W.okMsg = total ? `Fixed ${total === 1 ? "1 thing" : total + " things"} in ${wsOf(state.tasks[t.id]).draft.nid ? "your note" : "Writing Studio's copy of your draft"}. What's left needs you. Undo puts it back.` : "Nothing more can be fixed for you: what's left needs your own words.";
+  if (shown()) draw();
+}
+// Sources tab: Add to My Draft puts these sources' entries in the draft's list (in order), or makes the list
+async function addToDraftRefs(t){
+  let w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  const st0 = styleOf(state.tasks[t.id], w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} }
+  w = wsOf(state.tasks[t.id]); const refs = refsMap(state.tasks[t.id], w);
+  if (!refs) { W.err = "The citation style is still loading. Try again in a moment."; draw(); return; }
+  const a = CITE.refAdd(w.draft.t, w.src, refs, {num: styleFmt(st0) === "numeric", head: CITE.headingOf(st0, styleFmt(st0))});
+  if (a.numbered) { W.err = "Your list is numbered in the order you cite each source, so add these by hand (Copy List gives you each entry)."; draw(); return; }
+  if (!a.edits.length) { W.okMsg = a.already.length ? "Every source is already in your draft's list." : "No sources to add yet."; draw(); return; }
+  const n = await fixDraft(state.tasks[t.id], a.edits, a.made ? "Added a reference list to your draft" : `Added ${plural(a.added.length, "source")} to your draft's list`);
+  if (n && ldOf(wsOf(state.tasks[t.id]))) W.okMsg = `${a.made ? `Made a ${CITE.headingOf(st0, styleFmt(st0))} list at the end of` : `Added ${plural(a.added.length, "source")} to the list in`} your ${ldName(wsOf(state.tasks[t.id]).ld)}, ${wsOf(state.tasks[t.id]).ld.name}${a.already.length ? ` (${a.already.length === 1 ? "1 was" : a.already.length + " were"} already there)` : ""}.`;
+  else if (n) W.okMsg = `${a.made ? `Made a ${CITE.headingOf(st0, styleFmt(st0))} list at the end of your draft with ${plural(a.added.length, "source")}` : `Added ${plural(a.added.length, "source")} to your draft's list, in order`}${a.already.length ? ` (${a.already.length === 1 ? "1 was" : a.already.length + " were"} already there)` : ""}.`;
+  if (shown()) draw();
+}
+/* My Doc: a Google Doc or a Word file (in OneDrive) linked to the paper. Check reads it (LIVEDOC), and each fix is made in the document
+   itself: Google Docs through the Docs API (only on the version that was read), Word by changing the file's text where it is and saving
+   it back (only if it hasn't changed since). Undo puts the same text back in the document. Google Drive's access is drive.file, so a doc
+   is only reachable once it's been chosen in Google's own window. */
+const LDU = {docs: "https://docs.googleapis.com/v1/documents/", graph: "https://graph.microsoft.com/v1.0"};
+const ldName = l => l && l.p === "google" ? "Google Doc" : "Word file";
+const ldApp = l => l && l.p === "google" ? "Google Docs" : "Word for the web";
+// the link, when the saved draft is the linked document's text
+const ldOf = w => w && w.ld && w.draft && w.draft.ld ? w.ld : null;
+const ldItem = l => l.drive ? `${LDU.graph}/drives/${encodeURIComponent(l.drive)}/items/${encodeURIComponent(l.id)}` : `${LDU.graph}/me/drive/items/${encodeURIComponent(l.id)}`;
+class LdErr extends Error { constructor(msg, code){ super(msg); this.code = code || ""; } }
+const ldCloud = () => { const C = window.SBCLOUD; if (!C || !C.docApi) throw new LdErr("Google Drive and OneDrive aren't available here. Sign in to your Studyboard account first."); return C; };
+const ldErrText = e => (e && e.message) || "Couldn't reach your document. Check your connection.";
+async function ldRead(l){
+  const C = ldCloud();
+  if (l.p === "google") {
+    const j = await C.docApi("google", LDU.docs + encodeURIComponent(l.id) + "?fields=" + encodeURIComponent("title,revisionId,body"));
+    if (!j || !j.body) throw new LdErr("Google didn't send the document. Check that it's still in your Drive.");
+    const G = LIVEDOC.gText(j); return {raw: G.raw, G, ver: String(j.revisionId || ""), name: String(j.title || l.name || "")};
+  }
+  const meta = await C.docApi("microsoft", ldItem(l) + "?$select=id,name,eTag,webUrl,size");
+  if (!/\.docx$/i.test(String(meta.name || l.name || ""))) throw new LdErr("That isn't a Word file (.docx).");
+  if (Number(meta.size) > 40e6) throw new LdErr("That Word file is too big to read here.");
+  const r = await C.docApi("microsoft", ldItem(l) + "/content", null, "raw");
+  if (!r || !r.ok) throw new LdErr(`OneDrive didn't send the file (${r ? r.status : "no answer"}).`);
+  const big = [], parts = await unzipBytes(await r.arrayBuffer(), () => true, {big, max: 60e6, entries: 4000});
+  if (big.length || !parts["word/document.xml"]) throw new LdErr("Couldn't read that Word file.");
+  const dom = new DOMParser().parseFromString(new TextDecoder().decode(parts["word/document.xml"]), "application/xml");
+  if (dom.getElementsByTagName("parsererror").length) throw new LdErr("Couldn't read that Word file.");
+  return {raw: LIVEDOC.wIndex(dom).raw, dom, parts, ver: String(meta.eTag || ""), name: String(meta.name || l.name || ""), url: String(meta.webUrl || "")};
+}
+const ldChanged = l => new LdErr(`Your ${ldName(l)} changed since it was checked`, "changed");
+// rounds of edits, each on the (tidy) text the one before left, made in the document; what the document says afterwards
+async function ldPush(l, base, rounds){
+  const C = ldCloud();
+  if (l.p === "google") {
+    let text = base;
+    for (const edits of rounds) {
+      const R = await ldRead(l), N = LIVEDOC.norm(R.raw); if (N.text !== text) throw ldChanged(l);
+      const A = CITE.applyEdits(text, edits); if (!A.n) continue;
+      const requests = LIVEDOC.gRequests(R.G, LIVEDOC.toRaw(R.raw, N, A.plan)); if (!requests) throw ldChanged(l);
+      const r = await C.docApi("google", LDU.docs + encodeURIComponent(l.id) + ":batchUpdate", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({requests, writeControl: {requiredRevisionId: R.ver}})}, "raw");
+      if (r.status === 400) throw ldChanged(l);
+      if (r.status === 403) throw new LdErr("Google Docs didn't let Studyboard change it: you may only be allowed to comment on it, or the Docs API isn't on for this Studyboard server.");
+      if (!r.ok) throw new LdErr(`Google Docs didn't accept the fix (${r.status}).`);
+      text = A.text;
+    }
+    const R = await ldRead(l); return {raw: R.raw, ver: R.ver, want: text};
+  }
+  const R = await ldRead(l); let text = base;
+  if (LIVEDOC.norm(R.raw).text !== text) throw ldChanged(l);
+  for (const edits of rounds) {
+    const A = CITE.applyEdits(text, edits); if (!A.n) continue;
+    const raw = LIVEDOC.wIndex(R.dom).raw; LIVEDOC.wApply(R.dom, LIVEDOC.toRaw(raw, LIVEDOC.norm(raw), A.plan)); text = A.text;
+  }
+  let xml = new XMLSerializer().serializeToString(R.dom); if (!/^<\?xml/.test(xml)) xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + xml;
+  R.parts["word/document.xml"] = new TextEncoder().encode(xml);
+  const body = zipMany(Object.keys(R.parts).map(name => ({name, data: R.parts[name]})));
+  const r = await C.docApi("microsoft", ldItem(l) + "/content", {method: "PUT", headers: {"Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "If-Match": R.ver}, body}, "raw");
+  if (r.status === 412) throw ldChanged(l);
+  if (r.status === 423) throw new LdErr("Word has the file locked right now. Wait a moment, or close it in Word, then fix again.");
+  if (!r.ok) throw new LdErr(`OneDrive didn't accept the fix (${r.status}).`);
+  const j = await r.json().catch(() => ({}));
+  return {raw: LIVEDOC.wIndex(R.dom).raw, ver: String(j.eTag || ""), want: text};
+}
+// what puts rounds of fixes back: the same places, the other way round, last round first
+function ldInverse(base, rounds){
+  const out = []; let text = base;
+  rounds.forEach(edits => {
+    const A = CITE.applyEdits(text, edits); let shift = 0; const inv = [];
+    A.plan.slice().reverse().forEach(e => { inv.push({at: e.at + shift, len: e.to.length, from: e.to, to: e.from}); shift += e.to.length - e.len; });
+    out.unshift(inv); text = A.text;
+  });
+  return out;
+}
+// the paper's draft from what the document says now
+function ldSetDraft(t, raw, l, fx, wIn){
+  const N = LIVEDOC.norm(raw), w = wIn || wsOf(state.tasks[t.id]);
+  w.ld = Object.assign({}, w.ld || l, {big: N.text.length > MAX_DRAFT});
+  w.draft = N.text ? Object.assign(makeDraft(N.text, {from: w.ld.name || ldName(l), ld: true}), {fx: fx || 0}) : null;
+  return w;
+}
+// Check reads the document again first; null when it can't be read (the reason is shown)
+async function ldRefresh(t){
+  let w = wsOf(state.tasks[t.id]); const l = ldOf(w); if (!l) return w;
+  W.busy = "read"; if (shown()) draw();
+  try {
+    const R = await ldRead(l); W.busy = "";
+    if (R.name && R.name !== l.name) w.ld = Object.assign({}, l, {name: R.name});
+    if (LIVEDOC.norm(R.raw).text !== w.draft.t || R.name !== l.name) { w = ldSetDraft(t, R.raw, w.ld, w.draft.fx); if (!w.draft) { save(state.tasks[t.id], w, null); W.err = `Your ${ldName(l)} is empty. Write in it, then check again.`; if (shown()) draw(); return null; } }
+    return w;
+  } catch (e) { W.busy = ""; W.err = `Couldn't read ${l.name || "your " + ldName(l)}: ${ldErrText(e)}`; if (shown()) draw(); return null; }
+}
+async function ldFix(t, count, rounds){
+  const w0 = wsOf(state.tasks[t.id]), l = ldOf(w0), base = w0.draft.t;
+  if (l.big) { W.err = `Your ${ldName(l)} is too long for Writing Studio to fix in place. Fix it by hand from the list.`; draw(); return 0; }
+  W.busy = "fix"; W.err = ""; W.okMsg = ""; if (shown()) draw();
+  let out;
+  try { out = await ldPush(l, base, rounds); }
+  catch (e) {
+    W.busy = "";
+    if (e.code === "changed") { await doCheck(state.tasks[t.id], {quiet: true}); W.err = `Your ${ldName(l)} changed since it was checked, so nothing was fixed. It's been checked again: fix from what it says now.`; }
+    else W.err = ldErrText(e);
+    if (shown()) draw(); return 0;
+  }
+  W.busy = ""; W.ldKey = (W.ldKey || 0) + 1;
+  const w = ldSetDraft(t, out.raw, l, (w0.draft.fx || 0) + count), inv = ldInverse(base, rounds), fixed = w.draft ? w.draft.t : "";
+  W.okMsg = `${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}, ${l.name}.${LIVEDOC.norm(out.raw).text === out.want ? "" : " It was being changed at the same time, so check what it says."}`;
+  await doCheck(state.tasks[t.id], {quiet: true, w, label: null});
+  const msg = W.okMsg;
+  toast(`${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}`, async () => {
+    try {
+      const back = await ldPush(l, fixed, inv); W.ldKey++;
+      const w2 = ldSetDraft(t, back.raw, l, Math.max(0, (wsOf(state.tasks[t.id]).draft || {fx: 0}).fx - count));
+      W.okMsg = `Put ${l.name} back as it was.`; await doCheck(state.tasks[t.id], {quiet: true, w: w2, label: null}); toast(`Put your ${ldName(l)} back`);
+    } catch (e) { toast(e.code === "changed" ? `Your ${ldName(l)} has changed since, so it wasn't put back. Its version history has the earlier version.` : ldErrText(e), null, null, {error: true}); }
+  });
+  W.okMsg = msg; if (shown()) draw();
+  return count;
+}
+// link a document: read it, and make it the paper's draft
+async function ldLink(t, l){
+  W.busy = "link"; W.err = ""; W.okMsg = ""; draw();
+  try {
+    const R = await ldRead(l), link = ldNorm(Object.assign({}, l, {name: R.name || l.name, url: R.url || l.url}));
+    if (!link) throw new LdErr("Couldn't link that document.");
+    const w = wsOf(state.tasks[t.id]); w.ld = link;
+    const w2 = ldSetDraft(t, R.raw, link, 0, w); w2.style = w2.style || styleOf(state.tasks[t.id], w2);
+    save(state.tasks[t.id], w2, `Linked ${link.name}`);
+    Object.assign(W, {busy: "", view: "", tab: "doc", pick: null, ldList: null, okMsg: w2.draft ? "" : `${link.name} is empty: write in it here, then tap Check Citations.`});
+    if (w2.draft) await doCheck(state.tasks[t.id], {first: true, w: w2, label: null}); else draw(true);
+  } catch (e) { W.busy = ""; W.err = ldErrText(e); draw(); }
+}
+// Word files in OneDrive: recent ones, or ones whose name matches
+async function ldWordList(q){
+  const C = ldCloud(), qq = String(q || "").trim();
+  const j = await C.docApi("microsoft", qq ? `${LDU.graph}/me/drive/root/search(q='${encodeURIComponent(qq.replace(/'/g, "''"))}')?$top=50` : `${LDU.graph}/me/drive/recent?$top=80`);
+  const seen = new Set();
+  return (j && Array.isArray(j.value) ? j.value : []).map(x => { const it = x.remoteItem || x; return {id: String(it.id || ""), drive: String(((it.parentReference || {}).driveId) || ((x.parentReference || {}).driveId) || ""), name: String(x.name || it.name || ""), url: String(x.webUrl || it.webUrl || ""), at: Date.parse(x.lastModifiedDateTime || it.lastModifiedDateTime || "") || 0}; })
+    .filter(x => x.id && /\.docx$/i.test(x.name) && !seen.has(x.id) && seen.add(x.id)).slice(0, 40);
+}
+// Word shows a file inside another page only as a preview; Microsoft's preview address, when it's one the app may show
+async function ldPreview(l){
+  try { const j = await ldCloud().docApi("microsoft", ldItem(l) + "/preview", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"}, "maybe"); const u = j && String(j.getUrl || ""); return /^https:\/\/(onedrive\.live\.com|view\.officeapps\.live\.com)\//.test(u) ? u : ""; } catch (e) { return ""; }
+}
 // Check (again): a draft from a file or note in Studyboard is read again first when that file or note has changed since
 async function doCheck(t, o){
   o = o || {}; if (!t) return;
-  let w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  let w = o.w || wsOf(state.tasks[t.id]); if (!w.draft) return;
   if (o.reread && w.draft.fid && state.files[w.draft.fid]) {
     const f = state.files[w.draft.fid], rv = (curRev(f) || {}).assetId || "";
     if (rv && rv !== w.draft.r) { W.busy = "read"; draw(); const x = await readFileText(f); W.busy = ""; if (x) { w = wsOf(state.tasks[t.id]); w.draft = makeDraft(x, {from: f.name, fid: f.id, r: rv}); W.okMsg = `Read the newer version of ${f.name}.`; } }
   }
+  if (!o.w && ldOf(w)) { const nw = await ldRefresh(t); if (!nw) return; w = nw; }
   if (o.reread && w.draft.nid && state.notes[w.draft.nid]) { const n = state.notes[w.draft.nid], d = makeDraft(String(n.text || ""), {from: noteTitle(n), nid: n.id}); if (d.h !== w.draft.h) { w.draft = d; W.okMsg = `Read the latest ${noteTitle(n)}.`; } }
   // the style's own references come from citeproc: load it first, so the saved counts match what's shown
   { const st0 = styleOf(state.tasks[t.id] || t, w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} } }
@@ -1887,7 +2190,8 @@ async function doCheck(t, o){
   // a replaced draft is compared with the last check too: what the new version fixed, and what it brought
   W.diff = prev ? CITE.diffIssues(prev.keys, res) : null;
   w.chk = {at: Date.now(), h: w.draft.h, keys: CITE.issueKeys(res).slice(0, 60), err: res.issues.filter(x => x.k === "err").length, warn: res.issues.filter(x => x.k === "warn").length, cited: res.cited, total: res.total};
-  save(cur, w, null);
+  // a fix is saved with its check, as one change (so one Undo takes the fix back, check and all)
+  save(cur, w, o.w ? o.label : null, null, o.w ? o.more : undefined);
   W.show = null; if (!o.quiet && !o.first) W.okMsg = W.okMsg && /^Read the/.test(W.okMsg) ? W.okMsg : "";
   findInDraft(state.tasks[t.id]);
   if (shown() && W.tid === t.id) { draw(); const r = W.el.querySelector(".ws-found") || W.el.querySelector(".ws-res"); if (r && r.scrollIntoView && !o.quiet) r.scrollIntoView({block: "nearest"}); }
@@ -2025,8 +2329,9 @@ function wire(t){
   const on = (sel, ev, fn) => { const el = q(sel); if (el) el.addEventListener(ev, fn); return el; };
   const vback = q("[data-ws-vback]"); if (vback) vback.addEventListener("click", () => { W.view = ""; W.err = ""; draw(true); });
   // a toast about the last tab (e.g. "Started an outline · Undo") goes with it
-  const goTab = (k, focus) => { if (k !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = k; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; W.also = null; W.show = null; draw(true); if (focus) { const b = R.querySelector(`[data-ws-tab="${W.tab}"]`); if (b) b.focus(); } };
-  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsTab, true)));
+  const goTab = (k, focus) => { if (k !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = k; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; W.also = null; W.show = null; draw(true); if (focus) { const b = R.querySelector(`[data-ws-tab="${W.tab}"]`); if (b) b.focus(focus === "mouse" ? {preventScroll: true, focusVisible: false} : undefined); } };
+  // a click keeps focus on the tab (for the arrow keys) without the keyboard focus ring; arrow keys still show it
+  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsTab, "mouse")));
   qa("[data-ws-go]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsGo, false)));
   on(".ws-tabs", "keydown", e => { if (!/^Arrow(Left|Right)$|^(Home|End)$/.test(e.key)) return; e.preventDefault(); const i = TABS.indexOf(W.tab); goTab(e.key === "Home" ? TABS[0] : e.key === "End" ? TABS[TABS.length - 1] : TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length], true); });
   const sel = on("[data-ws-style]", "change", () => {
@@ -2175,6 +2480,26 @@ function wire(t){
   on("[data-ws-drm]", "click", () => { const w = ws(); w.draft = null; w.chk = null; save(cur(), w, "Draft removed from Writing Studio"); Object.assign(W, {found: null, show: null, diff: null, redo: false}); draw(); });
   on("[data-ws-dview]", "click", () => { W.show = W.show === "all" ? null : "all"; draw(); });
   qa("[data-ws-show]").forEach(b => b.addEventListener("click", () => { const i = b.dataset.wsShow; W.show = String(W.show) === i ? null : i; draw(); }));
+  qa("[data-ws-fix]").forEach(b => b.addEventListener("click", async () => { const w = ws(), res = usage(cur(), w).res, x = res && res.issues[Number(b.dataset.wsFix)]; if (!x || !x.edits) return; b.disabled = true; await fixDraft(cur(), x.edits); }));
+  on("[data-ws-fixall]", "click", async e => { e.currentTarget.disabled = true; await fixAll(cur()); });
+  on("[data-ws-refadd]", "click", async e => { e.currentTarget.disabled = true; W.err = ""; await addToDraftRefs(cur()); });
+  // My Doc
+  on("[data-ws-ldg]", "click", async () => {
+    const C = window.SBCLOUD; W.err = "";
+    if (!C || !C.pickGoogleDoc || !C.canPickFiles()) { W.err = "Choosing a Google Doc isn't set up on this Studyboard server yet."; draw(); return; }
+    let d; try { d = await C.pickGoogleDoc(); } catch (e) { W.err = ldErrText(e); draw(); return; }
+    if (!d) return;
+    if (d.type && d.type !== "application/vnd.google-apps.document") { W.err = "That isn't a Google Doc. For a Word file, choose A Word File."; draw(); return; }
+    await ldLink(cur(), {p: "google", id: d.id, name: d.name, url: d.url});
+  });
+  on("[data-ws-ldw]", "click", () => { Object.assign(W, {view: "ldword", ldQ: "", err: ""}); ldLoadList(); draw(true); });
+  qa("[data-ws-ldpick]").forEach(b => b.addEventListener("click", () => { const x = ((W.ldList || {}).items || []).find(i => i.id === b.dataset.wsLdpick); if (x) ldLink(cur(), {p: "microsoft", id: x.id, drive: x.drive, name: x.name, url: x.url}); }));
+  on("[data-ws-ldq]", "input", e => { W.ldQ = e.target.value; clearTimeout(W.ldT); W.ldT = setTimeout(ldLoadList, 450); });
+  on("[data-ws-ldcon]", "click", () => { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); });
+  on("[data-ws-ldoff]", "click", () => { const w = ws(), l = w.ld; if (!l) return; w.ld = null; if (w.draft && w.draft.ld) w.draft.ld = false; save(cur(), w, `Unlinked ${l.name || ldName(l)}`); W.okMsg = ""; W.err = ""; draw(); });
+  on("[data-ws-ldcheck]", "click", async () => { const w = ws(); W.err = ""; W.okMsg = ""; if (ldOf(w)) await doCheck(cur(), {}); else if (w.ld) await ldLink(cur(), w.ld); if (shown()) draw(); });
+  { const w = ws(); if (W.tab === "doc" && !W.view && w.ld && w.ld.p === "microsoft" && (!W.ldPrev || W.ldPrev.id !== w.ld.id) && W.ldPrevFor !== w.ld.id) { const l = w.ld; W.ldPrevFor = l.id; ldPreview(l).then(u => { W.ldPrev = {id: l.id, u}; W.ldPrevFor = ""; if (shown() && W.tab === "doc") draw(); }); } }
+  on("[data-ws-dcopy]", "click", async () => { const d = ws().draft; if (!d) return; try { await navigator.clipboard.writeText(d.t); toast("Copied your fixed draft. Paste it into your document."); } catch (e) { toast("Couldn't copy: select the draft under View Draft and copy it."); } });
   on("[data-ws-check]", "click", () => {
     const w = ws();
     if (!w.draft || W.redo) {
@@ -2270,6 +2595,11 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 svg.ws-zic{display:block;flex:none}
 :is(.btn,button):has(> svg.ws-zic){display:inline-flex;align-items:center;gap:6px}
 .ws-tabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+/* the head, tab bar and progress strip keep their own height on every tab (a long tab squeezed them, moving the line under the title) */
+.ws-sheet>:not(.ws-body):not(.ws-main):not(.ws-scroll){flex-shrink:0}
+.ws-tab:focus:not(:focus-visible){outline:none}
+.ws-fixb{display:inline-flex;margin-top:6px;width:max-content}
+.ws-sum .ws-fixall{margin-left:10px;vertical-align:middle}
 .ws-tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .ws-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent,#2F6FE4)}
 .ws-n{display:inline-block;min-width:1.4em;font-size:.72rem;border-radius:9px;padding:0 5px;background:var(--soft,#EEF1F6);color:var(--muted);text-align:center}
@@ -2293,6 +2623,17 @@ svg.ws-zic{display:block;flex:none}
 :root[data-theme="dark"] :is(.ws-err,.ws-need){color:#FF8A80}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.ws-err,.ws-need){color:#FF8A80}}
 .ws-ok{margin:0;color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
+.ws-ldc{display:grid;gap:8px}
+.ws-ldk,.ws-ldh{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px}
+.ws-ldh{border:0;background:none;padding:0}
+.ws-ldk>svg,.ws-ldh>svg{width:22px;height:22px;flex:none}.ws-ldk>img,.ws-ldh>img{width:24px;height:auto;flex:none}
+.ws-ldk-t{display:grid;gap:2px;flex:1 1 180px;min-width:0}
+.ws-ldk-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ws-ldtop{display:grid;gap:8px}
+.ws-ldsum{margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ws-ldsum .ws-fixall{margin-left:0}
+.ws-ldwrap:not(:empty){margin-top:10px}
+.ws-ldf{display:block;width:100%;height:min(68vh,860px);min-height:320px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .ws-note{margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent,#2F6FE4) 9%,var(--surface))}
 .ws-empty{text-align:center;padding:22px 12px;border:1px dashed var(--line);border-radius:12px;display:grid;gap:6px}
 .ws-empty p{margin:0}

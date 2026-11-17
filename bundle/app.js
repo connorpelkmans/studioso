@@ -12818,7 +12818,7 @@ function courseDecksHtml(c){
   const ds = deckListArr().filter(d => d.courseId === c.id);
   const row = d => { const st = deckStats(d), n = studyCounts([d.id]);
     return `<li><button class="c2-li-main" data-act="course-deck" data-id="${esc(d.id)}"><b>${esc(d.name)}</b><span class="mini${st.due ? " c2-due" : ""}">${st.total ? (st.due || st.fresh ? `${st.due} due · ${st.fresh} new` : "All caught up") : "No cards yet"}</span></button>${st.total ? `<button class="btn small${n.due ? " primary" : ""}" data-act="fc-study" data-id="${esc(d.id)}" aria-label="Study ${esc(d.name)}">Study</button>` : ""}</li>`; };
-  return c2Box("decks", "Your Decks", ds.length || "",
+  return c2Box("decks", "Flashcards", ds.length || "",
     ds.length ? `<ul class="c2-list">${ds.map(row).join("")}</ul>` : `<div class="facts c2-none"><span class="mini">No flashcard decks for this course yet.</span><button class="btn small" data-act="course-deck-new" data-id="${esc(c.id)}">New Deck</button></div>`);
 }
 function courseNotesHtml(c){
@@ -19261,7 +19261,7 @@ function viewQuizzes(){
       <div class="qz-band"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span>${qz.kind === "case" ? `<span class="qz-pill">Case Study</span>` : ""}</div>
       <button class="qz-body" data-act="qz-open" data-id="${esc(d.id + ":" + qz.id)}"><b class="qz-title">${esc(qz.title || "Practice Quiz")}</b><span class="mini">${n} question${n === 1 ? "" : "s"} · from ${esc(quizFrom(d, qz))}${last ? ` · last score ${last.score}/${last.total}` : ""}</span></button>
       <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div></article>`; }).join("");
-  return `<div class="view-head" data-qz-list><h2>Your Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+  return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt("quizzes")}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
@@ -19348,7 +19348,7 @@ function viewFlashcards(){
       <div class="deck-actions"><button class="btn small primary" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button><button class="btn small" data-act="fc-share" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Share</button><button class="btn small deck-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${esc(d.name)}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div>
     </div></article>`;
   }).join("");
-  return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Your Decks</h2>
+  return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Flashcards</h2>
       ${window.SBSHARE ? SBSHARE.libBtn() : ""}<button class="btn small sm-btn" data-act="grp-share-menu" aria-label="Share or Import" title="Share or Import">${QZ_GROUP_IC}<span class="sm-lbl">Share or Import</span></button>${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
@@ -67957,7 +67957,7 @@ var COMP_EXTRA = [];
   }
 
   /* Speech bubble */
-  let bubbleT = 0, bubbleIdea = null, bubbleAsk = false;
+  let bubbleT = 0, bubbleIdea = null, bubbleAsk = false, askFlow = false; // askFlow: the bubble is Ask's (its box, the thinking dots or the answer)
   const order = {};
   /* One shared guard so the companion never says the same line twice in a row */
   function speechGuard(store){
@@ -67986,7 +67986,7 @@ var COMP_EXTRA = [];
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
-  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
+  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; askFlow = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
   let bRects = null, bRectsAt = 0;
   const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects({t: 0, b: innerHeight}); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
@@ -68055,6 +68055,7 @@ var COMP_EXTRA = [];
   }
   function say(text, opts){
     if (!front || !cur || !box || box.hidden || document.hidden || !text) return;
+    askFlow = false; // a new line isn't Ask's (Ask's answer marks itself again once it's said)
     opts = opts || {};
     text = withName(text, opts);
     if (!opts.again && !SPEECH.ok(text)) return;
@@ -68180,7 +68181,7 @@ var COMP_EXTRA = [];
     if (!aiSetUp() && !linesAsk()) { hideBubble(); try { if (inPreview()) toast("Ask works in the Studyboard app and on your own Studyboard website."); else aiSetupSheet(false); } catch (e) {} return; }
     if (askOnTab()) { if (typeof ui !== "undefined" && ui.tab !== "companion") { ui.tab = "companion"; render(); } return; }
     const b = front && front.querySelector(".cp-bubble"); if (!b || !cur) return;
-    clearTimeout(bubbleT);
+    clearTimeout(bubbleT); askFlow = true;
     b.classList.remove("has-idea", "long"); b.classList.add("on", "asking");
     const sc = screenPeek();
     b.innerHTML = `<form class="cp-ask" autocomplete="off"><input type="text" class="cp-ask-in" maxlength="160" placeholder="${sc ? `Ask about this ${esc(sc.kind.toLowerCase())}` : `Ask ${esc(nameOf(cur))} anything`}" aria-label="Your question" data-noenter><button type="submit" class="btn primary ai-btn cp-ask-go">Ask</button></form>
@@ -68206,12 +68207,12 @@ var COMP_EXTRA = [];
     act.look(0, 0);
     if (r && r.answer && !SPEECH.ok(r.answer)) r = {why: pickFrom("ask:same", ["Hmm, I'd say the same thing again! Try asking another way?", "That's my answer again! Want to ask it differently?", "I keep landing on the same answer! Give me a different question?"])};
     if (r && r.answer) {
-      const speak = () => { if (!act) return; say(r.answer, {idea: r.idea, ms: Math.min(60000, Math.max(14000, 6000 + r.answer.length * 75)), long: r.answer.length > 200}); act.eyes("happy"); later(() => act && act.eyes("open"), 1200); };
+      const speak = () => { if (!act) return; say(r.answer, {idea: r.idea, ms: Math.min(60000, Math.max(14000, 6000 + r.answer.length * 75)), long: r.answer.length > 200}); askFlow = true; act.eyes("happy"); later(() => act && act.eyes("open"), 1200); };
       // Ask found something or has a change: go there first (that redraws the page), then say the answer there
       if (r.go) { let spoke = false; const once = () => { if (!spoke) { spoke = true; setTimeout(speak, 150); } }; Promise.resolve().then(() => r.go(once)).catch(e => console.warn(e)).finally(once); }
       else speak();
     }
-    else say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000});
+    else { say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000}); askFlow = true; }
   }
 
   /* Moods: idle, study (a tiny book), doze (sleepy characters during focus), nap */
@@ -68320,6 +68321,12 @@ var COMP_EXTRA = [];
         bb.addEventListener("pointerleave", () => { if (bb.classList.contains("on") && !bb.classList.contains("asking") && !bb.classList.contains("cp-think") && !bb.querySelector(".cp-thinking") && !bb.contains(document.activeElement)) { clearTimeout(bubbleT); bubbleT = setTimeout(hideBubble, 2500); } }); }
       document.body.appendChild(front);
       front.querySelector(".cp-bubble").addEventListener("click", onBubbleClick);
+      // after Ask: a click or tap anywhere else (not the bubble, not the companion) puts the bubble away
+      document.addEventListener("pointerdown", e => {
+        const bb = front && front.querySelector(".cp-bubble"); if (!askFlow || !bb || !bb.classList.contains("on")) return;
+        if (bb.contains(e.target) || (box && box.contains(e.target))) return;
+        hideBubble();
+      }, true);
     }
     if (act) act.stopAll();
     const keepMood = cur && cur.id === c.id ? mood : null;
@@ -83246,7 +83253,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <h3>How Studyboard uses Google user data</h3>
 <p>This section covers what happens when you connect a Google account to Studyboard: Google Drive, two-way calendar sync with Google Calendar (Pro), or Google Classroom. Each is optional and starts only when you ask.</p>
 <ul>
-<li><b>What Studyboard accesses:</b> your Google account&rsquo;s email address, to show which account is connected. For Google Drive, only the files Studyboard itself creates (Google&rsquo;s &ldquo;drive.file&rdquo; permission); it can&rsquo;t see or open anything else in your Drive. For Google Calendar, only a calendar called Studyboard that Studyboard creates and keeps up to date (Google&rsquo;s &ldquo;calendar.app.created&rdquo; permission). Studyboard doesn&rsquo;t read your other Google calendars or their events. For Google Classroom, read-only access to your classes, your own classwork with its due dates, whether you&rsquo;ve turned it in and your grades, and your classes&rsquo; announcements (Google&rsquo;s &ldquo;classroom.courses.readonly&rdquo;, &ldquo;classroom.coursework.me.readonly&rdquo; and &ldquo;classroom.announcements.readonly&rdquo; permissions). Studyboard can&rsquo;t change, post or turn in anything in Classroom, and it can&rsquo;t see your classmates&rsquo; work.</li>
+<li><b>What Studyboard accesses:</b> your Google account&rsquo;s email address, to show which account is connected. For Google Drive, only the files Studyboard itself creates and the files and folders you choose for it in Google&rsquo;s own window (Google&rsquo;s &ldquo;drive.file&rdquo; permission); it can&rsquo;t see or open anything else in your Drive. A Google Doc you link in Writing Studio is read to check its citations, and changed only when you tap Fix. For Google Calendar, only a calendar called Studyboard that Studyboard creates and keeps up to date (Google&rsquo;s &ldquo;calendar.app.created&rdquo; permission). Studyboard doesn&rsquo;t read your other Google calendars or their events. For Google Classroom, read-only access to your classes, your own classwork with its due dates, whether you&rsquo;ve turned it in and your grades, and your classes&rsquo; announcements (Google&rsquo;s &ldquo;classroom.courses.readonly&rdquo;, &ldquo;classroom.coursework.me.readonly&rdquo; and &ldquo;classroom.announcements.readonly&rdquo; permissions). Studyboard can&rsquo;t change, post or turn in anything in Classroom, and it can&rsquo;t see your classmates&rsquo; work.</li>
 <li><b>How it is used:</b> only to provide the feature you turned on: saving and opening your files, putting your deadlines and study sessions on your calendar, planning around your other events, and bringing your Classroom work, grades and announcements into your planner. Google user data is never used for advertising, never sold, never used to build profiles, and never used to train AI models.</li>
 <li><b>How it is stored and protected:</b> the sign-in Google gives us is kept encrypted on our server (Supabase) and used only to give your own Studyboard a short-lived key. Your files travel straight between your device and Google and are never stored on our server. Studyboard keeps each Drive file&rsquo;s name, size and link, and the calendar events you chose to bring in, with your other planner data, protected the same way (encrypted in transit, private to your account).</li>
 <li><b>Sharing:</b> we don&rsquo;t share Google user data with anyone, except the hosting provider that runs Studyboard&rsquo;s server (Supabase), the AI provider you set up when you yourself use an AI feature on a file or event, or when the law requires it. No person at Studyboard reads it, unless you ask us to (for example, for support), it is needed for security, or the law requires it.</li>
@@ -84906,7 +84913,7 @@ var SBPRO = null;
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
-    writing: "Sources, citations in 10,000+ styles, quotes from your highlights, an outline and a citation check for every paper.",
+    writing: "Sources, citations in 10,000+ styles, quotes from your highlights, an outline, and a citation check that fixes what it can, right in your Google Doc or Word file.",
     cmap: "Concept maps are free for everyone. Pro adds every theme and subject style, pictures, videos, any colour, PDF and lecture links, Scan a Drawing and Colour by Knowledge.",
     autopilot: "Missed study sessions move into your next free time overnight. Due dates never move.",
     rubric: "Feedback on your draft against the rubric before you submit.",
@@ -89734,7 +89741,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const on = async e => {
         if (e.origin !== location.origin || e.source !== w) return;
         const m = e.data; if (!m) return;
-        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
+        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files === "gdoc" ? "gdoc" : files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
         else if (m.sbPicker === "done" && files && Array.isArray(m.docs)) end(resolve, m.docs.slice(0, 20).filter(d => d && d.id).map(d => ({id: String(d.id), name: String(d.name || "File").slice(0, 200), type: String(d.mimeType || ""), url: /^https:\/\//.test(String(d.url || "")) ? String(d.url) : "", size: Number(d.size) || 0})));
         else if (m.sbPicker === "done" && m.id) end(resolve, {id: String(m.id), name: String(m.name || "Folder").slice(0, 120)});
         else if (m.sbPicker === "cancel") end(resolve, null);
@@ -90030,7 +90037,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   // Google Drive files picked for Studyboard (drive.file access covers the files the student picks)
   const canPickFiles = () => { try { return connected().includes("google") && !!cache().picker; } catch (e) { return false; } };
   const pickFiles = () => pickGoogleFolder(true);
-  window.SBCLOUD = {canPickFiles, pickFiles, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  // Writing Studio's linked document: one Google Doc picked in Google's window (drive.file covers it), and calls to Google's and Microsoft's APIs
+  const pickGoogleDoc = () => pickGoogleFolder("gdoc").then(d => Array.isArray(d) ? d[0] || null : d);
+  const docApi = (p, url, init, mode) => api(p, url, init, mode);
+  window.SBCLOUD = {canPickFiles, pickFiles, pickGoogleDoc, docApi, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
@@ -103660,6 +103670,172 @@ css.textContent = `
 `;
 document.head.appendChild(css);
 })();
+/*LIVEDOC-START*/
+/* A Google Doc or a Word file linked to a paper in Writing Studio: its text, and Writing Studio's fixes made in the document itself.
+   Writing Studio checks a tidy copy of the text (CITE.capDraft: no spaces before line ends, at most one blank line, trimmed), so
+   norm() keeps where each of its characters is in the document's own text, and edits to the tidy copy are moved onto the document's.
+   Google Docs: the text comes from the document's paragraphs (tables too), with where each run starts; a fix is a batchUpdate of
+   deleteContentRange and insertText, made from the end so earlier places stay right, and only on the version that was read.
+   Word (.docx): word/document.xml's paragraphs; a fix changes the text in its runs where it is, so formatting, links and pictures
+   stay, and a new line is a new paragraph like the one it's in. Pure: the XML document is passed in, so tests can use any DOM. */
+const LIVEDOC = (() => {
+  // the tidy text, and for each of its characters (and its end) where it is in the raw text
+  function norm(rawIn){
+    const raw = String(rawIn || "");
+    let ch = [], ix = [];
+    for (let i = 0; i < raw.length; i++) { if (raw[i] === "\r") { if (raw[i + 1] !== "\n") { ch.push("\n"); ix.push(i); } continue; } ch.push(raw[i]); ix.push(i); }
+    const pass = (re, keepOf) => {
+      const s = ch.join(""), drop = new Uint8Array(ch.length); let m; re.lastIndex = 0;
+      while ((m = re.exec(s))) { const k = keepOf(m); for (let j = m.index; j < m.index + m[0].length; j++) if (j < m.index + k[0] || j >= m.index + k[1]) drop[j] = 1; if (!m[0].length) re.lastIndex++; }
+      const c2 = [], i2 = []; ch.forEach((c, j) => { if (!drop[j]) { c2.push(c); i2.push(ix[j]); } }); ch = c2; ix = i2;
+    };
+    pass(/[ \t]+\n/g, m => [m[0].length - 1, m[0].length]);
+    pass(/\n{3,}/g, () => [0, 2]);
+    pass(/^\s+/g, () => [0, 0]);
+    pass(/\s+$/g, () => [0, 0]);
+    const text = ch.join(""), map = ix.slice(); map.push(ix.length ? ix[ix.length - 1] + 1 : 0);
+    return {text, map};
+  }
+  // edits to the tidy text (in the order they're made: from the end) as edits to the raw text
+  function toRaw(raw, N, plan){
+    return plan.map(e => {
+      const s = e.len ? N.map[e.at] : N.map[e.at], end = e.len ? N.map[e.at + e.len - 1] + 1 : s;
+      return {at: s, len: end - s, from: raw.slice(s, end), to: e.to};
+    });
+  }
+
+  /* Google Docs: the text of documents.get's body, and where each part of it is in the document */
+  function gText(doc){
+    const segs = []; let text = "";
+    const walk = content => (content || []).forEach(el => {
+      if (el.paragraph) (el.paragraph.elements || []).forEach(pe => {
+        const tr = pe.textRun; if (!tr || typeof tr.content !== "string" || typeof pe.startIndex !== "number") return;
+        const c = tr.content.replace(/\u000b/g, "\n");
+        segs.push({t: text.length, i: pe.startIndex, n: c.length}); text += c;
+      });
+      else if (el.table) (el.table.tableRows || []).forEach(r => (r.tableCells || []).forEach(c => walk(c.content)));
+      else if (el.tableOfContents) walk(el.tableOfContents.content);
+    });
+    walk(doc && doc.body && doc.body.content);
+    // the document's last paragraph mark can't be edited: it isn't part of the text, but stays a place to put things before
+    const raw = text.replace(/\n$/, "");
+    return {raw, segs};
+  }
+  // the document index of the character at a place in the text (or, for the end of a range, just after the one before it)
+  function gIndex(segs, off, isEnd){
+    if (isEnd) { const p = off - 1; const s = segs.find(x => p >= x.t && p < x.t + x.n); return s ? s.i + (p - s.t) + 1 : null; }
+    const s = segs.find(x => off >= x.t && off < x.t + x.n); return s ? s.i + (off - s.t) : null;
+  }
+  // batchUpdate requests for raw edits (already in the order to make them: from the end)
+  function gRequests(G, rawPlan){
+    const req = [];
+    for (const e of rawPlan) {
+      const s = gIndex(G.segs, e.at, false); if (s == null) return null;
+      if (e.len) { const end = gIndex(G.segs, e.at + e.len, true); if (end == null || end <= s) return null; req.push({deleteContentRange: {range: {startIndex: s, endIndex: end}}}); }
+      if (e.to) req.push({insertText: {location: {index: s}, text: e.to}});
+    }
+    return req;
+  }
+
+  /* Word: word/document.xml */
+  const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const ln = n => n && (n.localName || String(n.nodeName || "").replace(/^.*:/, ""));
+  const isW = (n, name) => n && n.nodeType === 1 && n.namespaceURI === W && ln(n) === name;
+  const inside = (n, name, stop) => { for (let p = n.parentNode; p && p !== stop; p = p.parentNode) if (isW(p, name)) return true; return false; };
+  // the body's paragraphs in reading order (tables too; not text boxes, which sit inside another paragraph)
+  function wParas(doc){
+    const body = doc.getElementsByTagNameNS(W, "body")[0]; if (!body) return [];
+    return Array.from(body.getElementsByTagNameNS(W, "p")).filter(p => !inside(p, "p", body));
+  }
+  // the text, and what each part of it is: a w:t (editable), a tab or line break in a run (one character), a paragraph's end
+  function wIndex(doc){
+    const segs = []; let text = "";
+    wParas(doc).forEach(p => {
+      const walk = n => { for (let c = n.firstChild; c; c = c.nextSibling) {
+        if (c.nodeType !== 1) continue;
+        if (isW(c, "pPr") || isW(c, "rPr") || isW(c, "del") || isW(c, "moveFrom") || isW(c, "txbxContent") || isW(c, "drawing") || isW(c, "pict") || isW(c, "object")) continue;
+        if (isW(c, "t")) { const v = c.textContent || ""; segs.push({k: "t", node: c, p, t: text.length, n: v.length}); text += v; continue; }
+        if ((isW(c, "tab") || isW(c, "br") || isW(c, "cr")) && isW(c.parentNode, "r")) { const v = isW(c, "tab") ? "\t" : "\n"; segs.push({k: "x", node: c, p, t: text.length, n: 1}); text += v; continue; }
+        walk(c);
+      } };
+      walk(p); segs.push({k: "p", node: p, p, t: text.length, n: 1}); text += "\n";
+    });
+    return {raw: text.replace(/\n$/, ""), segs};
+  }
+  const runOf = n => { for (let p = n; p; p = p.parentNode) if (isW(p, "r")) return p; return null; };
+  const setT = (t, v) => { while (t.firstChild) t.removeChild(t.firstChild); t.appendChild(t.ownerDocument.createTextNode(v)); t.setAttribute("xml:space", "preserve"); };
+  const propOf = el => { for (let c = el.firstChild; c; c = c.nextSibling) if (c.nodeType === 1 && /Pr$/.test(ln(c))) return c; return null; };
+  function newRun(doc, rPr){ const r = doc.createElementNS(W, "w:r"); if (rPr) r.appendChild(rPr.cloneNode(true)); const t = doc.createElementNS(W, "w:t"); setT(t, ""); r.appendChild(t); return {r, t}; }
+  // a paragraph like p (its paragraph settings), empty
+  function likePara(p){ const q = p.cloneNode(false), pr = propOf(p); if (pr && isW(pr, "pPr")) q.appendChild(pr.cloneNode(true)); return q; }
+  // splits p after node x (one of its descendants): everything after it goes to a new paragraph like p, after p
+  function splitAfter(x, p){
+    let cur = x, carry = null;
+    while (cur.parentNode !== p) {
+      const par = cur.parentNode, cl = par.cloneNode(false), pr = propOf(par); if (pr && pr !== cur) cl.appendChild(pr.cloneNode(true));
+      if (carry) cl.appendChild(carry);
+      while (cur.nextSibling) cl.appendChild(cur.nextSibling);
+      carry = cl; cur = par;
+    }
+    const q = likePara(p); if (carry) q.appendChild(carry);
+    while (cur.nextSibling) q.appendChild(cur.nextSibling);
+    p.parentNode.insertBefore(q, p.nextSibling);
+    return q;
+  }
+  // the run settings to give new text at a place: the run just before it in its paragraph, or just after
+  function rPrNear(I, at){
+    const p = segAt(I, at) || segAt(I, at - 1); if (!p) return null;
+    const near = I.segs.filter(s => s.p === p.p && s.k !== "p").sort((a, b) => Math.abs(a.t - at) - Math.abs(b.t - at))[0];
+    const r = near && runOf(near.node); const pr = r && propOf(r); return pr && isW(pr, "rPr") ? pr : null;
+  }
+  const segAt = (I, off) => I.segs.find(s => off >= s.t && off < s.t + s.n) || null;
+  function wDelete(doc, a, b){
+    const I = wIndex(doc);
+    I.segs.filter(s => s.t < b && s.t + s.n > a).sort((x, y) => y.t - x.t).forEach(s => {
+      if (s.k === "t") { const v = s.node.textContent || "", i = Math.max(0, a - s.t), j = Math.min(s.n, b - s.t); setT(s.node, v.slice(0, i) + v.slice(j)); }
+      else if (s.k === "x") s.node.parentNode.removeChild(s.node);
+      else { // a paragraph's end: the next paragraph joins this one
+        const all = wParas(doc), q = all[all.indexOf(s.p) + 1]; if (!q) return;
+        for (let c = q.firstChild; c;) { const nx = c.nextSibling; if (!isW(c, "pPr")) s.p.appendChild(c); c = nx; }
+        q.parentNode.removeChild(q);
+      }
+    });
+  }
+  // text with no new lines, at a place
+  function wInsertPlain(doc, at, str, rPr){
+    if (!str) return;
+    const I = wIndex(doc), prev = segAt(I, at - 1), here = segAt(I, at);
+    if (prev && prev.k === "t" && (!here || here.p === prev.p)) { const v = prev.node.textContent || "", k = at - prev.t; setT(prev.node, v.slice(0, k) + str + v.slice(k)); return; }
+    if (here && here.k === "t") { const v = here.node.textContent || "", k = at - here.t; setT(here.node, v.slice(0, k) + str + v.slice(k)); return; }
+    const p = (here || prev || {}).p; if (!p) return;
+    const nr = newRun(doc, rPr || rPrNear(I, at)); setT(nr.t, str);
+    if (here && here.k === "x") { const r = runOf(here.node); r.parentNode.insertBefore(nr.r, r); }
+    else if (here && here.k === "p") p.appendChild(nr.r);
+    else { const r = runOf(prev.node); r.parentNode.insertBefore(nr.r, r.nextSibling); }
+  }
+  // a new paragraph at a place (the text after it moves to the new paragraph)
+  function wBreak(doc, at){
+    const I = wIndex(doc), prev = segAt(I, at - 1), here = segAt(I, at);
+    if (!here) return;
+    if (!prev || prev.k === "p") { here.p.parentNode.insertBefore(likePara(here.p), here.p); return; }
+    if (prev.k === "t" && here.node === prev.node) {
+      const v = prev.node.textContent || "", k = at - prev.t, t2 = prev.node.cloneNode(false);
+      setT(prev.node, v.slice(0, k)); setT(t2, v.slice(k)); prev.node.parentNode.insertBefore(t2, prev.node.nextSibling);
+    }
+    splitAfter(prev.node, prev.p);
+  }
+  // one raw edit, in place
+  function wEdit(doc, e){
+    const I = wIndex(doc), rPr = rPrNear(I, e.at);
+    if (e.len) wDelete(doc, e.at, e.at + e.len);
+    const lines = String(e.to || "").split("\n"); let at = e.at;
+    lines.forEach((line, i) => { if (i) { wBreak(doc, at); at += 1; } wInsertPlain(doc, at, line, rPr); at += line.length; });
+  }
+  function wApply(doc, rawPlan){ rawPlan.forEach(e => wEdit(doc, e)); return wIndex(doc).raw; }
+
+  return {norm, toRaw, gText, gRequests, wIndex, wApply, W};
+})();
+/*LIVEDOC-END*/
 /* ===== module: 99-writing-studio.js ===== */
 /* Writing Studio (Pro): a reference manager for each paper, with quotes, an outline and a citation check. No AI.
    - Entry: "Writing Studio" in the task sheet's actions, on the same assignment-like tasks as Rubric Check (and on any task that already
@@ -104442,14 +104618,16 @@ const CITE = (() => {
     const IEEE_WHY = {"ieee-range": ["put a range inside one pair of brackets", "write a range as [1]–[3], each number in its own brackets"], "ieee-list": ["put several numbers in one pair of brackets", "give each number its own brackets: [1], [2]"]};
     groups.forEach((list, k) => {
       const f = list[0], why = x => (IEEE_WHY[x] || whyOf(x, P)), whys = f.probs.map(x => why(x)[1]).join("; "), say = x => x.fixed ? `${x.orig} → ${x.fixed}` : x.orig;
-      const more = list.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig}));
+      const more = list.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig})), edits = list.map(x => x.fixed ? editAt(draft, x.at, x.len, x.orig, x.fixed) : null).filter(Boolean);
       const head = f.fixed ? `In ${P.n}, write ${f.fixed}` : f.probs[0] === "numeric" ? `${P.n} cites by number, not author and year: ${f.orig}` : `${P.n} cites in footnotes, not in brackets: ${f.orig}`;
-      if (list.length === 1) push("err", head, `${f.fixed ? `Not ${f.orig}: ` : ""}${whys.replace(/^./, ch => ch.toUpperCase())}.`, "", f.at, f.len, {key: "fmt:" + k});
-      else push("err", `${list.length} citations ${why(f.probs[0])[0]}`, `${f.fixed ? `In ${P.n}, write ${f.fixed}, not ${f.orig}` : `Like ${f.orig}`}: ${whys}. The others: ${list.slice(1, 9).map(say).join("; ")}${list.length > 9 ? `; and ${list.length - 9} more` : ""}.`, "", f.at, f.len, {key: "fmt:" + k, more});
+      if (list.length === 1) push("err", head, `${f.fixed ? `Not ${f.orig}: ` : ""}${whys.replace(/^./, ch => ch.toUpperCase())}.`, "", f.at, f.len, {key: "fmt:" + k, edits});
+      else push("err", `${list.length} citations ${why(f.probs[0])[0]}`, `${f.fixed ? `In ${P.n}, write ${f.fixed}, not ${f.orig}` : `Like ${f.orig}`}: ${whys}. The others: ${list.slice(1, 9).map(say).join("; ")}${list.length > 9 ? `; and ${list.length - 9} more` : ""}.`, "", f.at, f.len, {key: "fmt:" + k, more, edits});
     });
     if (mism.length) {
       const f = mism[0], one = x => `${x.orig}: ${x.src.title ? `“${cap(x.src.title, 60)}”` : keyName(x.src)} is from ${x.y}`;
-      push("err", mism.length === 1 ? `The year doesn't match your source: ${f.orig}` : `${mism.length} citations have a year that doesn't match the source`, mism.length === 1 ? `${one(f)} in your Writing Studio. Fix the year here, or on the Sources tab if the source is wrong.` : `${mism.slice(0, 8).map(one).join("; ")}. Fix the years here, or on the Sources tab if a source is wrong.`, "", f.at, f.len, {key: "fmt:year-match", more: mism.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig}))});
+      // a citation with just the one year: that year becomes the source's (a citation of several works is left to the student)
+      const edits = mism.map(x => { const ys = x.orig.match(/\b(1[5-9]\d\d|20\d\d)[a-z]?\b/g) || []; return ys.length === 1 ? editAt(draft, x.at, x.len, x.orig, x.orig.replace(ys[0], x.y)) : null; }).filter(Boolean);
+      push("err", mism.length === 1 ? `The year doesn't match your source: ${f.orig}` : `${mism.length} citations have a year that doesn't match the source`, mism.length === 1 ? `${one(f)} in your Writing Studio. Fix the year here, or on the Sources tab if the source is wrong.` : `${mism.slice(0, 8).map(one).join("; ")}. Fix the years here, or on the Sources tab if a source is wrong.`, "", f.at, f.len, {key: "fmt:year-match", more: mism.slice(1, 12).map(x => ({at: x.at, len: x.len, s: x.orig})), edits});
     }
     if (!P.gen && !P.num && !P.note && parsed.length && !fmts.length && !mism.length) push("ok", `Your in-text citations are in ${P.n} format`);
     // the whole draft written in another style (when the assignment doesn't name one): offer to switch
@@ -104463,11 +104641,15 @@ const CITE = (() => {
       else if (P.yr && P.ay === " " && T >= 4 && ac.length / T >= 0.8) { to = "apa"; ex = ac[0]; }
       if (to && to !== style && to !== o.parent) push("warn", `Your citations look like ${SHORTN[to]}`, `Most are written like ${ex.orig}, and Writing Studio is set to ${label}. If your assignment uses ${SHORTN[to]}, switch; if not, fix them as shown here.`, "style:" + to, null, null, {key: "looks:" + to});
     }
-    if (!ref) push(n ? "err" : "warn", `No ${wantL} found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`);
+    if (!ref) {
+      // a list made from the cited sources' entries (in the style's own order), at the end
+      const ids = sources.filter(s => cited.has(s.id) && o.refs && o.refs[s.id]).map(s => s.id), ordered = o.refs ? Object.keys(o.refs).filter(id => ids.includes(id)) : [];
+      push(n ? "err" : "warn", `No ${wantL} found`, `Add a heading called ${want} at the end, then your sources. Copy it from the Sources tab.`, "", null, null, ordered.length ? {key: "ref-none", edits: [refAppend(draft, want, ordered.map(id => P.num ? o.refs[id] : unnum(o.refs[id])))]} : {key: "ref-none"});
+    }
     else {
-      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) push("err", `In ${label}, the list is called ${want}`, `Yours is called “${sq(ref.name)}”: rename the heading.`, "", ref.at, ref.name.length, {key: "heading"});
+      if (ref.name.toLowerCase() !== want.toLowerCase() && HEADS[style]) { const ha = draft.indexOf(ref.name, ref.at); push("err", `In ${label}, the list is called ${want}`, `Yours is called “${sq(ref.name)}”: rename the heading.`, "", ref.at, ref.name.length, {key: "heading", edits: [editAt(draft, ha, ref.name.length, ref.name, want)].filter(Boolean)}); }
       const miss = sources.filter(s => cited.has(s.id) && !famRe(keyName(s)).test(ref.body));
-      miss.forEach(s => push("err", `Cited but not in your ${wantL}: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1]));
+      miss.forEach(s => { const X = o.refs && o.refs[s.id], ins = X ? refInsert(draft, ref, ents, P.num ? X : unnum(X)) : null; push("err", `Cited but not in your ${wantL}: ${s.title || keyName(s)}`, "Add its entry to the list.", "", (firstAt[s.id] || [])[0], (firstAt[s.id] || [])[1], {key: "miss:" + s.id, edits: ins ? [ins] : []}); });
       // only when nothing cited is missing: a citation that isn't in the sources is cited too
       if (!miss.length && citedN) push("ok", !unknownN ? `Every cited source is in your ${wantL}` : citedN === 1 ? `Your cited Writing Studio source is in your ${wantL}` : `All ${citedN} cited Writing Studio sources are in your ${wantL}`);
       // its order: alphabetical by the first author (or title), or numbered 1, 2, 3 in numbered styles
@@ -104478,7 +104660,11 @@ const CITE = (() => {
         const first = e => (loose(e.t).replace(/^(the|a|an)\s+/, "").split(" ")[0] || ""), name = e => (/^[“"‘']?([\p{L}'’-]+)/u.exec(nq(e.t).replace(/^["']?(the|a|an)\s+/i, "")) || [])[1] || "";
         for (let i = 1; i < ents.length; i++) {
           if (/^[-—–_]{2,}/.test(ents[i].t) || /^[-—–_]{2,}/.test(ents[i - 1].t)) continue;
-          if (first(ents[i - 1]).localeCompare(first(ents[i]), "en", {sensitivity: "base"}) > 0) { push("warn", `Your ${wantL} isn't in alphabetical order`, `${name(ents[i])} should come before ${name(ents[i - 1])}: the list goes by the first author's last name (or the title, when there's no author).`, "", ents[i].at, ents[i].len, {key: "ref-order"}); break; }
+          if (first(ents[i - 1]).localeCompare(first(ents[i]), "en", {sensitivity: "base"}) > 0) {
+            // the entries in order, each exactly as written, with the list's own spacing between them
+            const a = ents[0].at, end = ents[ents.length - 1].at + ents[ents.length - 1].len, seps = ents.slice(1).map((e, j) => draft.slice(ents[j].at + ents[j].len, e.at)), same = seps.every(x => x === seps[0]);
+            const sorted = ents.slice().sort((x, y) => refKey(x.t).localeCompare(refKey(y.t), "en", {sensitivity: "base"})).map(e => draft.slice(e.at, e.at + e.len));
+            push("warn", `Your ${wantL} isn't in alphabetical order`, `${name(ents[i])} should come before ${name(ents[i - 1])}: the list goes by the first author's last name (or the title, when there's no author).`, "", ents[i].at, ents[i].len, {key: "ref-order", edits: same && /^\s*$/.test(seps[0]) ? [editAt(draft, a, end - a, draft.slice(a, end), sorted.join(seps[0]))].filter(Boolean) : []}); break; }
         }
       }
       // each entry against the style's own version of it
@@ -104488,7 +104674,9 @@ const CITE = (() => {
         ents.forEach(e => {
           const s = e.sid && sources.find(x => x.id === e.sid), X = s && o.refs[s.id]; if (!X) return;
           compared++; const why = refDiff(e.t, X, s); if (!why.length) return;
-          if (++bad <= 10) push("err", `${want}: fix the entry for ${who(s)}`, why.join(". ") + ".", "", e.at, e.len, {key: "ref:" + s.id, should: unnum(X), sid: s.id});
+          // the right entry in its place (a numbered list keeps the entry's own number)
+          const was = draft.slice(e.at, e.at + e.len), pre = (/^\s*(\[\d{1,3}\]\s*|\d{1,3}[.)]\s+)/.exec(was) || [""])[0];
+          if (++bad <= 10) push("err", `${want}: fix the entry for ${who(s)}`, why.join(". ") + ".", "", e.at, e.len, {key: "ref:" + s.id, should: unnum(X), sid: s.id, edits: [editAt(draft, e.at, e.len, was, pre + unnum(X))].filter(Boolean)});
         });
         if (bad > 10) push("err", `${bad - 10} more ${want} entries need fixing`, "Fix the ones above, then check again.", "", null, null, {key: "ref:more"});
         if (compared && !bad) push("ok", `Your ${want} entries are in ${P.n} format`);
@@ -104513,6 +104701,51 @@ const CITE = (() => {
   // A short fingerprint of a text (to tell whether a draft changed since it was checked)
   function hash(s){ s = String(s || ""); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ":" + s.length; }
   // A draft kept on the paper is capped: its start and its end (where the reference list is) when it's longer
+  /* Auto-fix: changes to the draft that are certain. Each edit says what it expects to find (from) where (at, len) and what goes there (to);
+     it's made only when the draft really has that text there, and applied only when it still does. An insertion (len 0) can carry a sort key (k)
+     so several at one place land in order. Edits that overlap aren't applied together (the rest wait for the next round, after a new check). */
+  const editAt = (draft, at, len, from, to) => at != null && at >= 0 && from != null && draft.slice(at, at + len) === from && from !== to ? {at, len, from, to} : null;
+  function applyEdits(textIn, editsIn){
+    const text = String(textIn || ""), keep = planEdits(text, editsIn);
+    let out = text; keep.forEach(e => { out = out.slice(0, e.at) + e.to + out.slice(e.at + e.len); });
+    return {text: out, n: keep.length, skipped: (editsIn || []).length - keep.length, plan: keep};
+  }
+  // the edits that can be made together, in the order to make them
+  function planEdits(textIn, editsIn){
+    const text = String(textIn || ""), ok = (editsIn || []).filter(e => e && e.at >= 0 && e.at + e.len <= text.length && text.slice(e.at, e.at + e.len) === e.from);
+    const keep = [];
+    ok.slice().sort((a, b) => a.at - b.at || b.len - a.len).forEach(e => {
+      const clash = keep.some(x => x.len && e.len ? e.at < x.at + x.len && x.at < e.at + e.len : x.len ? e.at > x.at && e.at < x.at + x.len : e.len ? x.at > e.at && x.at < e.at + e.len : false);
+      if (!clash && !keep.some(x => x.at === e.at && x.len === e.len && x.from === e.from && x.to === e.to && !e.len === !x.len && x.k === e.k)) keep.push(e);
+    });
+    // from the end, so earlier positions stay right; at one place, a replacement before insertions, insertions by key (last first)
+    keep.sort((a, b) => b.at - a.at || (b.len ? 1 : 0) - (a.len ? 1 : 0) || String(b.k || "").localeCompare(String(a.k || "")));
+    return keep;
+  }
+  // where a new entry goes in the draft's reference list: in alphabetical order among the others (a numbered list is left alone)
+  const refKey = t => loose(String(t || "")).replace(/^(the|a|an)\s+/, "");
+  const isNumbered = ents => ents.some(e => e.num || /^\s*(\[\d{1,3}\]|\d{1,3}[.)]\s)/.test(e.t));
+  function refInsert(draft, ref, ents, entry){
+    if (!ref || isNumbered(ents)) return null;
+    const k = refKey(entry);
+    if (!ents.length) { const pos = draft.length - ref.body.length, end = pos >= draft.length; return {at: pos, len: 0, from: "", to: (end && !/\n$/.test(draft) ? "\n" : "") + entry + (end ? "" : "\n"), k}; }
+    const sep = ents.length >= 2 ? (/^\s*\n\s*\n/.test(draft.slice(ents[0].at + ents[0].len, ents[1].at)) ? "\n\n" : "\n") : "\n";
+    const i = ents.findIndex(e => refKey(e.t).localeCompare(k, "en", {sensitivity: "base"}) > 0);
+    if (i >= 0) return {at: ents[i].at, len: 0, from: "", to: entry + sep, k};
+    const last = ents[ents.length - 1]; return {at: last.at + last.len, len: 0, from: "", to: sep + entry, k};
+  }
+  // a whole new list at the end of the draft: its heading, then the entries
+  const refAppend = (draft, head, entries) => ({at: draft.length, len: 0, from: "", to: (draft ? (/\n$/.test(draft) ? "\n" : "\n\n") : "") + head + "\n" + entries.join("\n"), k: "~"});
+  /* Add to References: the chosen sources' entries in the draft's list (made if there isn't one), skipping the ones already in it */
+  function refAdd(draftIn, sourcesIn, refs, o){
+    o = o || {}; const draft = String(draftIn || "").replace(/\r\n?/g, "\n"), sources = (sourcesIn || []).map(clean), ref = refSection(draft), ents = ref ? refEntriesAt(draft) : [];
+    const has = s => ref && famRe(keyName(s)).test(ref.body) && (!s.title || loose(ref.body).includes(loose(s.title).split(" ").slice(0, 4).join(" ")));
+    const order = Object.keys(refs || {}), todo = sources.filter(s => refs && refs[s.id] && !has(s)).sort((x, y) => order.indexOf(x.id) - order.indexOf(y.id)), already = sources.filter(s => has(s)).map(s => s.id), entry = s => o.num ? refs[s.id] : unnum(refs[s.id]);
+    if (!todo.length) return {edits: [], added: [], already};
+    if (!ref) return {edits: [refAppend(draft, o.head || "References", todo.map(entry))], added: todo.map(s => s.id), already, made: true};
+    if (isNumbered(ents)) return {edits: [], added: [], already, numbered: true, left: todo.map(s => s.id)};
+    return {edits: todo.map(s => refInsert(draft, ref, ents, entry(s))).filter(Boolean), added: todo.map(s => s.id), already};
+  }
   function capDraft(s, max){
     s = String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(); max = max || 60000;
     if (s.length <= max) return s;
@@ -104661,7 +104894,7 @@ const CITE = (() => {
   }
   return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf, keyName,
     parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase,
-    diffIssues, issueKeys, hash, capDraft, sentenceAt, refEntries, refEntriesAt, parseRef, authorsOf, segs, quotesIn, refSection, parseCite, profileOf, refDiff};
+    diffIssues, issueKeys, hash, capDraft, applyEdits, refAdd, sentenceAt, refEntries, refEntriesAt, parseRef, authorsOf, segs, quotesIn, refSection, parseCite, profileOf, refDiff};
 })();
 /*CITE-END*/
 
@@ -104772,11 +105005,15 @@ const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.s
 // the draft, and what it found (the issues' titles, so the next check can say what changed)
 const MAX_SRC = 150, MAX_Q = 300, MAX_SEC = 30, MAX_DRAFT = 60000;
 const W = {tid: "", tab: "", view: "", edit: null, paste: "", res: null, busy: "", err: "", el: null, hlPick: null, inp: "", note: "", z: null, imp: null, find: null, found: null, show: null, diff: null, also: null, hub: "", pick: null};
+// the linked document (a Google Doc or a Word file in OneDrive): which one, and its name and address to open it
+const ldNorm = l => l && typeof l === "object" && (l.p === "google" || l.p === "microsoft") && typeof l.id === "string" && /^[\w!.-]{1,200}$/.test(l.id)
+  ? {p: l.p, id: l.id, drive: typeof l.drive === "string" && /^[\w!.-]{1,200}$/.test(l.drive) ? l.drive : "", name: String(l.name || "").slice(0, 200), url: /^https:\/\//.test(String(l.url || "")) ? String(l.url).slice(0, 600) : "", big: !!l.big} : null;
 function wsOf(t){
   const w = t && t.ws && typeof t.ws === "object" ? t.ws : {};
   const d = w.draft && typeof w.draft === "object" && typeof w.draft.t === "string" && w.draft.t ? w.draft : null, c = w.chk && typeof w.chk === "object" ? w.chk : null;
   return {style: typeof w.style === "string" && w.style ? w.style : "", lang: w.lang === "en-GB" ? "en-GB" : "", src: Array.isArray(w.src) ? w.src.filter(s => s && s.id) : [], q: Array.isArray(w.q) ? w.q.filter(q => q && q.id) : [], out: Array.isArray(w.out) ? w.out.filter(s => s && s.id) : [],
-    draft: d ? {t: d.t, from: String(d.from || ""), fid: d.fid || "", nid: d.nid || "", r: d.r || "", at: Number(d.at) || 0, h: d.h || CITE.hash(d.t)} : null,
+    draft: d ? {t: d.t, from: String(d.from || ""), fid: d.fid || "", nid: d.nid || "", r: d.r || "", at: Number(d.at) || 0, h: d.h || CITE.hash(d.t), fx: Number(d.fx) || 0, ld: !!d.ld} : null,
+    ld: ldNorm(w.ld),
     chk: c ? {at: Number(c.at) || 0, h: c.h || "", keys: Array.isArray(c.keys) ? c.keys.slice(0, 60) : [], err: Number(c.err) || 0, warn: Number(c.warn) || 0, cited: Number(c.cited) || 0, total: Number(c.total) || 0} : null,
     tk: Array.isArray(w.tk) ? w.tk.slice(0, 20) : []};
 }
@@ -104787,12 +105024,13 @@ function reqText(t){
   return parts.join("\n");
 }
 const styleOf = (t, w) => w.style || CITE.rules(reqText(t)).style || "apa";
-function save(t, w, label, extra){
+function save(t, w, label, extra, more){
   const cur = state.tasks[t.id]; if (!cur) return;
   const ws = {style: w.style, lang: w.lang || undefined, src: w.src.slice(0, MAX_SRC), q: w.q.slice(0, MAX_Q), out: w.out.slice(0, MAX_SEC), v: 2};
-  if (w.draft) ws.draft = {t: w.draft.t, from: w.draft.from || "", fid: w.draft.fid || undefined, nid: w.draft.nid || undefined, r: w.draft.r || undefined, at: w.draft.at, h: w.draft.h};
+  if (w.draft) ws.draft = {t: w.draft.t, from: w.draft.from || "", fid: w.draft.fid || undefined, nid: w.draft.nid || undefined, r: w.draft.r || undefined, at: w.draft.at, h: w.draft.h, fx: w.draft.fx || undefined, ld: w.draft.ld ? 1 : undefined};
+  if (w.ld) ws.ld = w.ld;
   if (w.chk) ws.chk = w.chk;
-  const changes = [{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws})}];
+  const changes = [{kind: "task", id: t.id, after: Object.assign(clone(cur), {ws})}].concat(more || []);
   // a Break It Down step whose part is now clearly met is ticked done, in the same change (one Undo takes both back)
   const ticks = stepTicks(cur, w);
   if (ticks.length) {
@@ -105056,10 +105294,10 @@ const cut = (s, n) => (s = String(s || "")).length > n ? s.slice(0, n - 1) + "�
 const wordsIn = s => (String(s || "").match(/\S+/g) || []).length;
 const ago = ms => { const d = Math.floor((Date.now() - ms) / 864e5); return !ms ? "" : d <= 0 ? "today" : d === 1 ? "yesterday" : d < 14 ? `${d} days ago` : "on " + new Date(ms).toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
 const normText = s => String(s || "").toLowerCase().replace(/[‘’“”"']/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-const TABS = ["check", "sources", "quotes", "outline"];
+const TABS = ["check", "doc", "sources", "quotes", "outline"];
 function tabsHtml(w){
   const tb = (k, l, n) => `<button type="button" role="tab" class="ws-tab" data-ws-tab="${k}" aria-selected="${W.tab === k}" ${W.tab === k ? "" : 'tabindex="-1"'}>${l}${n != null ? ` <span class="ws-n">${n}</span>` : ""}</button>`;
-  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("check", "Check")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
+  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("check", "Check")}${tb("doc", "My Doc")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
 }
 function styleSel(st){
   const ext = extStyles(), ids = BUILT.map(b => b[0]).concat(Object.keys(ext).filter(k => !BUILT_FMT[k]));
@@ -105266,7 +105504,7 @@ function foundHtml(t, w){
 }
 function checkHtml(t, w){
   const req = CITE.rules(reqText(t)), st = styleOf(t, w), d = w.draft, editing = !d || W.redo;
-  let h = `<p style="margin:0">Check your draft's citations against your sources before you hand it in. It runs on this device and never changes your writing.</p>
+  let h = `<p style="margin:0">Check your draft's citations against your sources before you hand it in. It runs on this device, and fixes what has one right answer when you tap Fix.</p>
     ${req.style || req.min ? `<p class="mini ws-note">From the assignment: ${esc([req.style ? styleName(req.style) : "", req.min ? `at least ${req.min}${req.scholarly ? " scholarly" : ""} sources` : ""].filter(Boolean).join(", "))}.</p>` : ""}`;
   if (editing) {
     const off = !d && !W.offerOff ? draftOffer(t, w) : null, words = wordsIn(W.paste);
@@ -105279,12 +105517,12 @@ function checkHtml(t, w){
   const c = w.chk, stale = !c || c.h !== d.h, r = usage(t, w).res;
   h += `<div class="ws-draft"><div class="ws-draft-t"><b>Your Draft</b><span class="mini">${esc(d.from && d.from !== "Pasted" ? "From " + d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words · saved ${esc(ago(d.at))}</span>
       <span class="mini${stale ? " ws-no" : ""}">${!c ? "Not checked yet" : stale ? `Changed since the last check (${esc(ago(c.at))})` : `Checked ${esc(ago(c.at))}: ${c.err} to fix · ${c.warn} to look at`}</span></div>
-    <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button><span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
+    <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button>${d.fx && !d.nid && !d.ld ? `<button type="button" class="ws-act" data-ws-dcopy>Copy Fixed Draft</button>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
     ${W.show === "all" ? draftView(d.t, null) : ""}</div>
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
     ${W.diff ? `<p class="ws-diff" role="status">${W.diff.fixed || W.diff.fresh ? `Since your last check: <b>${W.diff.fixed} fixed</b>, ${W.diff.fresh} new.` : "Nothing changed since your last check."}</p>` : ""}
     ${foundHtml(t, w)}
-    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at</p>
+    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at${(() => { const f = r.issues.filter(x => x.edits && x.edits.length).length; return f ? `<button type="button" class="btn small primary ws-fixall" data-ws-fixall>Fix All${f > 1 ? ` (${f})` : ""}</button>` : ""; })()}</p>
       <ul class="ws-issues">${r.issues.map((x, i) => issueHtml(x, i, d.t)).join("")}</ul></div>`;
   return h;
 }
@@ -105293,7 +105531,8 @@ function checkHtml(t, w){
 function issueHtml(x, i, text){
   const ic = {err: "✕", warn: "!", ok: "✓"}, sh = W.show == null ? "" : String(W.show), me = sh === String(i), sub = sh.indexOf(i + ":") === 0 ? Number(sh.split(":")[1]) : -1;
   const at = sub >= 0 && x.more && x.more[sub] ? x.more[sub] : x;
-  return `<li class="ws-is k-${x.k}${me || sub >= 0 ? " is-open" : ""}"><span class="ws-ic" aria-hidden="true">${ic[x.k]}</span><span>${x.at != null ? `<button type="button" class="ws-is-b" data-ws-show="${i}" aria-expanded="${me}"><b>${esc(x.t)}</b><span class="ws-is-go">${me ? "Hide" : "Show in Draft"}</span></button>` : `<b>${esc(x.t)}</b>`}${x.d ? `<span class="mini">${esc(x.d)}</span>` : ""}`
+  const fixB = x.edits && x.edits.length ? `<button type="button" class="btn small primary ws-fixb" data-ws-fix="${i}">${x.edits.length > 1 ? `Fix All ${x.edits.length}` : "Fix"}</button>` : "";
+  return `<li class="ws-is k-${x.k}${me || sub >= 0 ? " is-open" : ""}"><span class="ws-ic" aria-hidden="true">${ic[x.k]}</span><span>${x.at != null ? `<button type="button" class="ws-is-b" data-ws-show="${i}" aria-expanded="${me}"><b>${esc(x.t)}</b><span class="ws-is-go">${me ? "Hide" : "Show in Draft"}</span></button>` : `<b>${esc(x.t)}</b>`}${x.d ? `<span class="mini">${esc(x.d)}</span>` : ""}${fixB}`
     + (x.more && x.more.length ? `<span class="ws-more"><span class="mini">Show the others:</span>${x.more.map((y, j) => `<button type="button" class="ws-chipb" data-ws-show="${i}:${j}" aria-pressed="${sub === j}">${esc(cut(y.s, 44))}</button>`).join("")}</span>` : "")
     + (x.should ? `<span class="ws-should"><span class="mini">Should be:</span><span class="ws-should-t">${esc(x.should)}</span>${x.sid ? `<button type="button" class="btn small" data-ws-copy="${esc(x.sid)}">Copy</button>` : ""}</span>` : "")
     + (x.fix && x.fix.startsWith("style:") ? ` <button type="button" class="link-btn" data-ws-setst="${esc(x.fix.slice(6))}">Switch to ${esc(styleShort(x.fix.slice(6)))}</button>` : "")
@@ -105347,6 +105586,39 @@ function pdfPickHtml(t, w, mode){
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "up" ? `<p class="mini" role="status">Uploading…</p>` : ""}
     ${groups.length ? groups.map(([h, l]) => `<h3 class="fsec">${esc(h)}</h3>${rowsHtml(l, mode === "attach" ? "data-wp-attach" : "data-wp-open", mode === "attach" ? "Attach" : "Open")}`).join("") : `<div class="ws-empty"><b>${P.q ? "Nothing matches." : "No PDFs here yet."}</b><p class="mini">Upload one above${mode === "hlpdf" ? ", or attach a PDF to a source on the Sources tab" : ""}.</p></div>`}`;
 }
+// My Doc: link a Google Doc or a Word file; once linked, it's here to write in, with its check and Fix All above it
+function docHtml(t, w){
+  const l = w.ld, C = window.SBCLOUD, con = C && C.connected ? C.connected() : [], ic = p => (C && C.icons && C.icons[p]) || "";
+  const msg = W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "link" || W.busy === "read" ? `<p class="mini" role="status">Reading your document…</p>` : W.busy === "fix" ? `<p class="mini" role="status">Fixing your document…</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : "";
+  if (!l) {
+    const card = (p, name, what, pick, conn) => `<div class="ws-ldk">${ic(p)}<span class="ws-ldk-t"><b>${name}</b><span class="mini">${what}</span></span>${con.includes(p) ? `<button type="button" class="btn small primary" ${pick} ${W.busy ? "disabled" : ""}>Choose</button>` : `<button type="button" class="btn small" data-ws-ldcon>${conn}</button>`}</div>`;
+    return `<p style="margin:0">Link the Google Doc or Word file you're writing. Write in it right here, Check reads it, and each Fix goes straight into it.</p>
+      <div class="ws-ldc">${card("google", "A Google Doc", "Chosen in Google's own window: Studyboard can open only the docs you choose.", "data-ws-ldg", "Connect Google Drive")}${card("microsoft", "A Word File", "A Word file (.docx) in your OneDrive.", "data-ws-ldw", "Connect OneDrive")}</div>${msg}`;
+  }
+  const d = ldOf(w) ? w.draft : null, c = d && w.chk && w.chk.h === d.h ? w.chk : null, r = d ? usage(t, w).res : null, fixes = r && !l.big ? r.issues.filter(x => x.edits && x.edits.length).length : 0;
+  const open = l.p === "google" ? `https://docs.google.com/document/d/${encodeURIComponent(l.id)}/edit` : l.url;
+  const src = l.p === "google" ? open : W.ldPrev && W.ldPrev.id === l.id ? W.ldPrev.u : "";
+  const state0 = d ? (c ? `${c.err} to fix · ${c.warn} to look at` : "Not checked yet") : w.draft ? "Your saved draft is another one: Check Citations reads this document instead" : "Not read yet";
+  const sum = d && c ? (fixes ? `<p class="ws-sum ws-ldsum"><b>Writing Studio can fix ${plural(fixes, "problem")} for you</b><button type="button" class="btn small primary ws-fixall" data-ws-fixall ${W.busy ? "disabled" : ""}>Fix All${fixes > 1 ? ` (${fixes})` : ""}</button><button type="button" class="link-btn" data-ws-go="check">See Each Issue</button></p>`
+    : c.err || c.warn ? `<p class="mini ws-ldsum">What's left needs you. <button type="button" class="link-btn" data-ws-go="check">See Each Issue</button></p>` : `<p class="mini ws-ok ws-ldsum">No citation problems found ✓</p>`) : "";
+  const word = l.p === "microsoft" ? `<p class="mini ws-note">${src ? "Word for the web shows it here to read. To write in it, open it in Word for the web: Check and Fix work on the file either way." : W.ldPrev && W.ldPrev.id === l.id ? "Microsoft doesn't let Word for the web open inside another app for this account, so open it in Word to write. Check and Fix still work on the file here." : "Loading Word's preview…"}</p>` : "";
+  return `<div class="ws-ldtop"><div class="ws-ldh">${ic(l.p)}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">${esc(state0)}</span></span><span class="spacer"></span>${open ? `<a class="btn small" href="${esc(open)}" target="_blank" rel="noopener noreferrer">Open in ${ldApp(l)}</a>` : ""}<button type="button" class="link-btn" data-ws-ldoff>Unlink</button></div>
+    ${msg}${sum}${word}</div>
+    <div class="ws-ldwrap" data-k="${esc(src + (l.p === "microsoft" ? "#" + (W.ldKey || 0) : ""))}">${src ? `<iframe class="ws-ldf" src="${esc(src)}" title="${esc(l.name || ldName(l))} in ${ldApp(l)}" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>` : ""}</div>`;
+}
+function ldWordHtml(){
+  const L = W.ldList;
+  return `<p style="margin:0">Choose the Word file you're writing. Studyboard reads it on this device, and each Fix you tap is saved into it.</p>
+    <div class="ws-add"><label class="f ws-grow"><span class="lh">Search Your OneDrive</span><input type="search" data-ws-ldq value="${esc(W.ldQ || "")}" placeholder="File name" data-noenter></label></div>
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "link" ? `<p class="mini" role="status">Reading your document…</p>` : ""}
+    ${!L || L.busy ? `<p class="mini" role="status">Looking in your OneDrive…</p>` : L.items.length ? `<h3 class="fsec">${W.ldQ ? "Matches" : "Recent Word Files"}</h3>${rowsHtml(L.items.map(x => ({id: x.id, name: x.name, meta: x.at ? "Changed " + ago(x.at) : ""})), "data-ws-ldpick", "Link")}`
+      : `<div class="ws-empty"><b>${W.ldQ ? "No Word files match." : "No recent Word files."}</b><p class="mini">Search for it by name above.</p></div>`}`;
+}
+function ldLoadList(){
+  const q = W.ldQ || "", my = W.ldList = {busy: true, items: []};
+  ldWordList(q).then(items => { if (W.ldList === my) W.ldList = {items}; }).catch(e => { if (W.ldList === my) { W.ldList = {items: []}; W.err = ldErrText(e); } })
+    .then(() => { if (W.view === "ldword" && shown() && W.ldList !== my) { draw(); const i = W.el.querySelector("[data-ws-ldq]"); if (i && q) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } });
+}
 function footHtml(t, w){
   const back = `<button type="button" class="btn" data-act="edit-task" data-id="${esc(t.id)}">Back to Task</button><span class="spacer"></span>`, cancel = `<button type="button" class="btn" data-ws-vback>Back</button><span class="spacer"></span>`;
   if (W.view === "zotero") { const z = zcred(), n = W.z && W.z.sel ? W.z.sel.size : 0; return cancel + (z ? `<button type="button" class="btn primary" data-wz-add ${n && !W.busy ? "" : "disabled"}>${W.busy === "z" ? "Adding…" : `Add ${n || ""} to This Paper`}</button>` : `<button type="button" class="btn primary" data-wz-connect ${W.busy ? "disabled" : ""}>${W.busy === "zc" ? "Connecting…" : "Connect"}</button>`); }
@@ -105354,8 +105626,9 @@ function footHtml(t, w){
   if (W.view === "library") return cancel + `<button type="button" class="btn primary" data-wl-add>Add Selected</button>`;
   if (W.view) return cancel;
   if (W.tab === "sources" && W.edit) return `<button type="button" class="btn" data-ws-cancel>Cancel</button><span class="spacer"></span><button type="button" class="btn primary" data-ws-esave>Save Source</button>`;
-  if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button><button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
+  if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button>${w.draft ? `<button type="button" class="btn" data-ws-refadd title="Put these sources in your draft's ${esc(listOf(CITE.headingOf(styleOf(t, w), styleFmt(styleOf(t, w)))))} (made if there isn't one)">Add to My Draft</button>` : ""}<button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
   if (W.tab === "quotes" && W.hlPick) return `<button type="button" class="btn" data-ws-hlcancel>Cancel</button><span class="spacer"></span>${W.hlPick.length ? `<button type="button" class="btn primary" data-ws-hladd ${W.busy ? "disabled" : ""}>${W.busy === "hl" ? "Adding…" : "Add Quotes"}</button>` : ""}`;
+  if (W.tab === "doc") return back + (w.ld ? `<button type="button" class="btn primary" data-ws-ldcheck ${W.busy ? "disabled" : ""}>${W.busy === "read" || W.busy === "link" ? "Reading…" : W.busy === "fix" ? "Fixing…" : "Check Citations"}</button>` : "");
   if (W.tab === "outline") return back + (w.out.length || w.q.length ? `<button type="button" class="btn primary" data-ws-export>Export…</button>` : "");
   if (W.tab === "check") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
   return back + `<button type="button" class="btn primary" data-act="close">Done</button>`;
@@ -105365,13 +105638,23 @@ function draw(fresh){
   const t = state.tasks[W.tid]; if (!t) { if (shown()) dlg.close(); return; }
   const w = wsOf(t), st = styleOf(t, w);
   const VIEW = {zotero: ["Zotero", () => zotHtml(t, w)], import: ["Import Sources", impHtml], library: ["My Library", () => libHtml(t, w)], styles: ["More Styles", findHtml],
-    drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")]}[W.view];
+    drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")], ldword: ["Choose a Word File", ldWordHtml]}[W.view];
   if (!TABS.includes(W.tab)) W.tab = "check";
-  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
+  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.tab === "doc" ? docHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
     ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
-  if (shown()) W.el.innerHTML = inner;
+  // My Doc's document stays open while the rest is drawn again (drawing it again would load it again, and lose your place in it)
+  const keep = shown() && !VIEW && W.tab === "doc" ? W.el.querySelector(".ws-ldwrap") : null, tmp = keep ? document.createElement("div") : null;
+  if (tmp) tmp.innerHTML = inner;
+  const nw = tmp && tmp.querySelector(".ws-ldwrap"), ob = keep && W.el.querySelector(".ws-body"), nb = tmp && tmp.querySelector(".ws-body");
+  if (nw && keep.dataset.k === nw.dataset.k && ob && nb && keep.firstChild) {
+    [...ob.childNodes].forEach(n => { if (n !== keep) n.remove(); });
+    [...nb.childNodes].forEach(n => { if (n !== nw) { if (n.compareDocumentPosition(nw) & Node.DOCUMENT_POSITION_FOLLOWING) ob.insertBefore(n, keep); else ob.appendChild(n); } });
+    const kids = [...tmp.children], at = kids.indexOf(nb);
+    [...W.el.children].forEach(c => { if (c !== ob) c.remove(); });
+    kids.slice(0, at).forEach(c => W.el.insertBefore(c, ob)); kids.slice(at + 1).forEach(c => W.el.appendChild(c));
+  } else if (shown()) W.el.innerHTML = inner;
   else { openSheet(`<div class="sheet ws-sheet">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
   const b = W.el.querySelector(".ws-body"); if (b && y) b.scrollTop = y;
   wire(t);
@@ -105533,14 +105816,210 @@ async function pickDraft(tid, key){
   if (!x) { W.busy = ""; W.err = `Couldn't read the text in ${f.name} (a scan, or not on this device yet). Paste your draft instead.`; if (shown()) draw(); return; }
   useDraft(tid, x, {from: f.name, fid: f.id, r: (curRev(f) || {}).assetId || ""});
 }
+/* Auto-fix: certain changes to the saved draft (CITE.applyEdits), then a new check. A draft from a note changes the note too (one Undo for both),
+   so the next check, which reads the note again, keeps the fix; a note that's been edited since stays as it is and the draft becomes Writing
+   Studio's own copy. A draft from a file is Writing Studio's copy: Copy Fixed Draft takes it back to the document. */
+const refsMap = (t, w) => { const B = bibOf(t, w); return B.ready ? Object.fromEntries(B.entries.map(e => [e.id, CITE.runsText(e.runs)])) : null; };
+async function fixDraft(t, edits, label){
+  const d = wsOf(state.tasks[t.id]).draft; if (!d || !edits || !edits.length) return 0;
+  const r = CITE.applyEdits(d.t, edits); if (!r.n) { W.err = "Your draft changed since it was checked. Check it again, then fix."; draw(); return 0; }
+  return saveFixed(t, r.text, r.n, label, [edits]);
+}
+// the fixed text saved (one Undo, with the note when the draft is a note's), then checked again
+async function saveFixed(t, text, count, label, rounds){
+  if (ldOf(wsOf(state.tasks[t.id]))) return ldFix(t, count, rounds);
+  const w = wsOf(state.tasks[t.id]), d = w.draft, r = {text, n: count};
+  let nid = d.nid; const n = nid && state.notes[nid], more = [];
+  if (n) { const raw = String(n.text || "").replace(/\r\n?/g, "\n"); if (raw === d.t) more.push({kind: "note", id: n.id, after: Object.assign(clone(n), {text: r.text, updated: Date.now()})}); else nid = undefined; }
+  w.draft = Object.assign(makeDraft(r.text, {from: d.from, fid: d.fid, nid, r: d.r}), {fx: (d.fx || 0) + r.n});
+  const lbl = label || (r.n === 1 ? "Fixed a citation in your draft" : `Fixed ${r.n} things in your draft`);
+  W.okMsg = `${r.n === 1 ? "Fixed 1 thing" : `Fixed ${r.n} things`} in ${more.length ? `your note, ${noteTitle(n)}` : "Writing Studio's copy of your draft"}.${more.length ? "" : " Copy the fixed draft back into your document."} Undo puts it back.`;
+  W.err = ""; await doCheck(state.tasks[t.id], {quiet: true, w, label: lbl, more});
+  return r.n;
+}
+// Fix All: every certain fix, in rounds (each checked again, as one fix can move the next) until there's nothing more, then saved as one change
+async function fixAll(t){
+  const w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  const st0 = styleOf(state.tasks[t.id], w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} }
+  let text = w.draft.t, total = 0; const rounds = [];
+  for (let round = 0; round < 6; round++) {
+    const res = runCheck(state.tasks[t.id], w, text), edits = res.issues.flatMap(x => x.edits || []); if (!edits.length) break;
+    const r = CITE.applyEdits(text, edits); if (!r.n) break; text = r.text; total += r.n; rounds.push(edits);
+  }
+  const linked = ldOf(w);
+  const done = total ? await saveFixed(t, text, total, `Fixed ${total === 1 ? "1 thing" : total + " things"} in your draft`, rounds) : 0;
+  if (linked) { if (done) W.okMsg += " What's left needs you."; else if (!total) W.okMsg = "Nothing more can be fixed for you: what's left needs your own words."; if (shown()) draw(); return; }
+  W.okMsg = total ? `Fixed ${total === 1 ? "1 thing" : total + " things"} in ${wsOf(state.tasks[t.id]).draft.nid ? "your note" : "Writing Studio's copy of your draft"}. What's left needs you. Undo puts it back.` : "Nothing more can be fixed for you: what's left needs your own words.";
+  if (shown()) draw();
+}
+// Sources tab: Add to My Draft puts these sources' entries in the draft's list (in order), or makes the list
+async function addToDraftRefs(t){
+  let w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  const st0 = styleOf(state.tasks[t.id], w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} }
+  w = wsOf(state.tasks[t.id]); const refs = refsMap(state.tasks[t.id], w);
+  if (!refs) { W.err = "The citation style is still loading. Try again in a moment."; draw(); return; }
+  const a = CITE.refAdd(w.draft.t, w.src, refs, {num: styleFmt(st0) === "numeric", head: CITE.headingOf(st0, styleFmt(st0))});
+  if (a.numbered) { W.err = "Your list is numbered in the order you cite each source, so add these by hand (Copy List gives you each entry)."; draw(); return; }
+  if (!a.edits.length) { W.okMsg = a.already.length ? "Every source is already in your draft's list." : "No sources to add yet."; draw(); return; }
+  const n = await fixDraft(state.tasks[t.id], a.edits, a.made ? "Added a reference list to your draft" : `Added ${plural(a.added.length, "source")} to your draft's list`);
+  if (n && ldOf(wsOf(state.tasks[t.id]))) W.okMsg = `${a.made ? `Made a ${CITE.headingOf(st0, styleFmt(st0))} list at the end of` : `Added ${plural(a.added.length, "source")} to the list in`} your ${ldName(wsOf(state.tasks[t.id]).ld)}, ${wsOf(state.tasks[t.id]).ld.name}${a.already.length ? ` (${a.already.length === 1 ? "1 was" : a.already.length + " were"} already there)` : ""}.`;
+  else if (n) W.okMsg = `${a.made ? `Made a ${CITE.headingOf(st0, styleFmt(st0))} list at the end of your draft with ${plural(a.added.length, "source")}` : `Added ${plural(a.added.length, "source")} to your draft's list, in order`}${a.already.length ? ` (${a.already.length === 1 ? "1 was" : a.already.length + " were"} already there)` : ""}.`;
+  if (shown()) draw();
+}
+/* My Doc: a Google Doc or a Word file (in OneDrive) linked to the paper. Check reads it (LIVEDOC), and each fix is made in the document
+   itself: Google Docs through the Docs API (only on the version that was read), Word by changing the file's text where it is and saving
+   it back (only if it hasn't changed since). Undo puts the same text back in the document. Google Drive's access is drive.file, so a doc
+   is only reachable once it's been chosen in Google's own window. */
+const LDU = {docs: "https://docs.googleapis.com/v1/documents/", graph: "https://graph.microsoft.com/v1.0"};
+const ldName = l => l && l.p === "google" ? "Google Doc" : "Word file";
+const ldApp = l => l && l.p === "google" ? "Google Docs" : "Word for the web";
+// the link, when the saved draft is the linked document's text
+const ldOf = w => w && w.ld && w.draft && w.draft.ld ? w.ld : null;
+const ldItem = l => l.drive ? `${LDU.graph}/drives/${encodeURIComponent(l.drive)}/items/${encodeURIComponent(l.id)}` : `${LDU.graph}/me/drive/items/${encodeURIComponent(l.id)}`;
+class LdErr extends Error { constructor(msg, code){ super(msg); this.code = code || ""; } }
+const ldCloud = () => { const C = window.SBCLOUD; if (!C || !C.docApi) throw new LdErr("Google Drive and OneDrive aren't available here. Sign in to your Studyboard account first."); return C; };
+const ldErrText = e => (e && e.message) || "Couldn't reach your document. Check your connection.";
+async function ldRead(l){
+  const C = ldCloud();
+  if (l.p === "google") {
+    const j = await C.docApi("google", LDU.docs + encodeURIComponent(l.id) + "?fields=" + encodeURIComponent("title,revisionId,body"));
+    if (!j || !j.body) throw new LdErr("Google didn't send the document. Check that it's still in your Drive.");
+    const G = LIVEDOC.gText(j); return {raw: G.raw, G, ver: String(j.revisionId || ""), name: String(j.title || l.name || "")};
+  }
+  const meta = await C.docApi("microsoft", ldItem(l) + "?$select=id,name,eTag,webUrl,size");
+  if (!/\.docx$/i.test(String(meta.name || l.name || ""))) throw new LdErr("That isn't a Word file (.docx).");
+  if (Number(meta.size) > 40e6) throw new LdErr("That Word file is too big to read here.");
+  const r = await C.docApi("microsoft", ldItem(l) + "/content", null, "raw");
+  if (!r || !r.ok) throw new LdErr(`OneDrive didn't send the file (${r ? r.status : "no answer"}).`);
+  const big = [], parts = await unzipBytes(await r.arrayBuffer(), () => true, {big, max: 60e6, entries: 4000});
+  if (big.length || !parts["word/document.xml"]) throw new LdErr("Couldn't read that Word file.");
+  const dom = new DOMParser().parseFromString(new TextDecoder().decode(parts["word/document.xml"]), "application/xml");
+  if (dom.getElementsByTagName("parsererror").length) throw new LdErr("Couldn't read that Word file.");
+  return {raw: LIVEDOC.wIndex(dom).raw, dom, parts, ver: String(meta.eTag || ""), name: String(meta.name || l.name || ""), url: String(meta.webUrl || "")};
+}
+const ldChanged = l => new LdErr(`Your ${ldName(l)} changed since it was checked`, "changed");
+// rounds of edits, each on the (tidy) text the one before left, made in the document; what the document says afterwards
+async function ldPush(l, base, rounds){
+  const C = ldCloud();
+  if (l.p === "google") {
+    let text = base;
+    for (const edits of rounds) {
+      const R = await ldRead(l), N = LIVEDOC.norm(R.raw); if (N.text !== text) throw ldChanged(l);
+      const A = CITE.applyEdits(text, edits); if (!A.n) continue;
+      const requests = LIVEDOC.gRequests(R.G, LIVEDOC.toRaw(R.raw, N, A.plan)); if (!requests) throw ldChanged(l);
+      const r = await C.docApi("google", LDU.docs + encodeURIComponent(l.id) + ":batchUpdate", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({requests, writeControl: {requiredRevisionId: R.ver}})}, "raw");
+      if (r.status === 400) throw ldChanged(l);
+      if (r.status === 403) throw new LdErr("Google Docs didn't let Studyboard change it: you may only be allowed to comment on it, or the Docs API isn't on for this Studyboard server.");
+      if (!r.ok) throw new LdErr(`Google Docs didn't accept the fix (${r.status}).`);
+      text = A.text;
+    }
+    const R = await ldRead(l); return {raw: R.raw, ver: R.ver, want: text};
+  }
+  const R = await ldRead(l); let text = base;
+  if (LIVEDOC.norm(R.raw).text !== text) throw ldChanged(l);
+  for (const edits of rounds) {
+    const A = CITE.applyEdits(text, edits); if (!A.n) continue;
+    const raw = LIVEDOC.wIndex(R.dom).raw; LIVEDOC.wApply(R.dom, LIVEDOC.toRaw(raw, LIVEDOC.norm(raw), A.plan)); text = A.text;
+  }
+  let xml = new XMLSerializer().serializeToString(R.dom); if (!/^<\?xml/.test(xml)) xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + xml;
+  R.parts["word/document.xml"] = new TextEncoder().encode(xml);
+  const body = zipMany(Object.keys(R.parts).map(name => ({name, data: R.parts[name]})));
+  const r = await C.docApi("microsoft", ldItem(l) + "/content", {method: "PUT", headers: {"Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "If-Match": R.ver}, body}, "raw");
+  if (r.status === 412) throw ldChanged(l);
+  if (r.status === 423) throw new LdErr("Word has the file locked right now. Wait a moment, or close it in Word, then fix again.");
+  if (!r.ok) throw new LdErr(`OneDrive didn't accept the fix (${r.status}).`);
+  const j = await r.json().catch(() => ({}));
+  return {raw: LIVEDOC.wIndex(R.dom).raw, ver: String(j.eTag || ""), want: text};
+}
+// what puts rounds of fixes back: the same places, the other way round, last round first
+function ldInverse(base, rounds){
+  const out = []; let text = base;
+  rounds.forEach(edits => {
+    const A = CITE.applyEdits(text, edits); let shift = 0; const inv = [];
+    A.plan.slice().reverse().forEach(e => { inv.push({at: e.at + shift, len: e.to.length, from: e.to, to: e.from}); shift += e.to.length - e.len; });
+    out.unshift(inv); text = A.text;
+  });
+  return out;
+}
+// the paper's draft from what the document says now
+function ldSetDraft(t, raw, l, fx, wIn){
+  const N = LIVEDOC.norm(raw), w = wIn || wsOf(state.tasks[t.id]);
+  w.ld = Object.assign({}, w.ld || l, {big: N.text.length > MAX_DRAFT});
+  w.draft = N.text ? Object.assign(makeDraft(N.text, {from: w.ld.name || ldName(l), ld: true}), {fx: fx || 0}) : null;
+  return w;
+}
+// Check reads the document again first; null when it can't be read (the reason is shown)
+async function ldRefresh(t){
+  let w = wsOf(state.tasks[t.id]); const l = ldOf(w); if (!l) return w;
+  W.busy = "read"; if (shown()) draw();
+  try {
+    const R = await ldRead(l); W.busy = "";
+    if (R.name && R.name !== l.name) w.ld = Object.assign({}, l, {name: R.name});
+    if (LIVEDOC.norm(R.raw).text !== w.draft.t || R.name !== l.name) { w = ldSetDraft(t, R.raw, w.ld, w.draft.fx); if (!w.draft) { save(state.tasks[t.id], w, null); W.err = `Your ${ldName(l)} is empty. Write in it, then check again.`; if (shown()) draw(); return null; } }
+    return w;
+  } catch (e) { W.busy = ""; W.err = `Couldn't read ${l.name || "your " + ldName(l)}: ${ldErrText(e)}`; if (shown()) draw(); return null; }
+}
+async function ldFix(t, count, rounds){
+  const w0 = wsOf(state.tasks[t.id]), l = ldOf(w0), base = w0.draft.t;
+  if (l.big) { W.err = `Your ${ldName(l)} is too long for Writing Studio to fix in place. Fix it by hand from the list.`; draw(); return 0; }
+  W.busy = "fix"; W.err = ""; W.okMsg = ""; if (shown()) draw();
+  let out;
+  try { out = await ldPush(l, base, rounds); }
+  catch (e) {
+    W.busy = "";
+    if (e.code === "changed") { await doCheck(state.tasks[t.id], {quiet: true}); W.err = `Your ${ldName(l)} changed since it was checked, so nothing was fixed. It's been checked again: fix from what it says now.`; }
+    else W.err = ldErrText(e);
+    if (shown()) draw(); return 0;
+  }
+  W.busy = ""; W.ldKey = (W.ldKey || 0) + 1;
+  const w = ldSetDraft(t, out.raw, l, (w0.draft.fx || 0) + count), inv = ldInverse(base, rounds), fixed = w.draft ? w.draft.t : "";
+  W.okMsg = `${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}, ${l.name}.${LIVEDOC.norm(out.raw).text === out.want ? "" : " It was being changed at the same time, so check what it says."}`;
+  await doCheck(state.tasks[t.id], {quiet: true, w, label: null});
+  const msg = W.okMsg;
+  toast(`${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}`, async () => {
+    try {
+      const back = await ldPush(l, fixed, inv); W.ldKey++;
+      const w2 = ldSetDraft(t, back.raw, l, Math.max(0, (wsOf(state.tasks[t.id]).draft || {fx: 0}).fx - count));
+      W.okMsg = `Put ${l.name} back as it was.`; await doCheck(state.tasks[t.id], {quiet: true, w: w2, label: null}); toast(`Put your ${ldName(l)} back`);
+    } catch (e) { toast(e.code === "changed" ? `Your ${ldName(l)} has changed since, so it wasn't put back. Its version history has the earlier version.` : ldErrText(e), null, null, {error: true}); }
+  });
+  W.okMsg = msg; if (shown()) draw();
+  return count;
+}
+// link a document: read it, and make it the paper's draft
+async function ldLink(t, l){
+  W.busy = "link"; W.err = ""; W.okMsg = ""; draw();
+  try {
+    const R = await ldRead(l), link = ldNorm(Object.assign({}, l, {name: R.name || l.name, url: R.url || l.url}));
+    if (!link) throw new LdErr("Couldn't link that document.");
+    const w = wsOf(state.tasks[t.id]); w.ld = link;
+    const w2 = ldSetDraft(t, R.raw, link, 0, w); w2.style = w2.style || styleOf(state.tasks[t.id], w2);
+    save(state.tasks[t.id], w2, `Linked ${link.name}`);
+    Object.assign(W, {busy: "", view: "", tab: "doc", pick: null, ldList: null, okMsg: w2.draft ? "" : `${link.name} is empty: write in it here, then tap Check Citations.`});
+    if (w2.draft) await doCheck(state.tasks[t.id], {first: true, w: w2, label: null}); else draw(true);
+  } catch (e) { W.busy = ""; W.err = ldErrText(e); draw(); }
+}
+// Word files in OneDrive: recent ones, or ones whose name matches
+async function ldWordList(q){
+  const C = ldCloud(), qq = String(q || "").trim();
+  const j = await C.docApi("microsoft", qq ? `${LDU.graph}/me/drive/root/search(q='${encodeURIComponent(qq.replace(/'/g, "''"))}')?$top=50` : `${LDU.graph}/me/drive/recent?$top=80`);
+  const seen = new Set();
+  return (j && Array.isArray(j.value) ? j.value : []).map(x => { const it = x.remoteItem || x; return {id: String(it.id || ""), drive: String(((it.parentReference || {}).driveId) || ((x.parentReference || {}).driveId) || ""), name: String(x.name || it.name || ""), url: String(x.webUrl || it.webUrl || ""), at: Date.parse(x.lastModifiedDateTime || it.lastModifiedDateTime || "") || 0}; })
+    .filter(x => x.id && /\.docx$/i.test(x.name) && !seen.has(x.id) && seen.add(x.id)).slice(0, 40);
+}
+// Word shows a file inside another page only as a preview; Microsoft's preview address, when it's one the app may show
+async function ldPreview(l){
+  try { const j = await ldCloud().docApi("microsoft", ldItem(l) + "/preview", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"}, "maybe"); const u = j && String(j.getUrl || ""); return /^https:\/\/(onedrive\.live\.com|view\.officeapps\.live\.com)\//.test(u) ? u : ""; } catch (e) { return ""; }
+}
 // Check (again): a draft from a file or note in Studyboard is read again first when that file or note has changed since
 async function doCheck(t, o){
   o = o || {}; if (!t) return;
-  let w = wsOf(state.tasks[t.id]); if (!w.draft) return;
+  let w = o.w || wsOf(state.tasks[t.id]); if (!w.draft) return;
   if (o.reread && w.draft.fid && state.files[w.draft.fid]) {
     const f = state.files[w.draft.fid], rv = (curRev(f) || {}).assetId || "";
     if (rv && rv !== w.draft.r) { W.busy = "read"; draw(); const x = await readFileText(f); W.busy = ""; if (x) { w = wsOf(state.tasks[t.id]); w.draft = makeDraft(x, {from: f.name, fid: f.id, r: rv}); W.okMsg = `Read the newer version of ${f.name}.`; } }
   }
+  if (!o.w && ldOf(w)) { const nw = await ldRefresh(t); if (!nw) return; w = nw; }
   if (o.reread && w.draft.nid && state.notes[w.draft.nid]) { const n = state.notes[w.draft.nid], d = makeDraft(String(n.text || ""), {from: noteTitle(n), nid: n.id}); if (d.h !== w.draft.h) { w.draft = d; W.okMsg = `Read the latest ${noteTitle(n)}.`; } }
   // the style's own references come from citeproc: load it first, so the saved counts match what's shown
   { const st0 = styleOf(state.tasks[t.id] || t, w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} } }
@@ -105549,7 +106028,8 @@ async function doCheck(t, o){
   // a replaced draft is compared with the last check too: what the new version fixed, and what it brought
   W.diff = prev ? CITE.diffIssues(prev.keys, res) : null;
   w.chk = {at: Date.now(), h: w.draft.h, keys: CITE.issueKeys(res).slice(0, 60), err: res.issues.filter(x => x.k === "err").length, warn: res.issues.filter(x => x.k === "warn").length, cited: res.cited, total: res.total};
-  save(cur, w, null);
+  // a fix is saved with its check, as one change (so one Undo takes the fix back, check and all)
+  save(cur, w, o.w ? o.label : null, null, o.w ? o.more : undefined);
   W.show = null; if (!o.quiet && !o.first) W.okMsg = W.okMsg && /^Read the/.test(W.okMsg) ? W.okMsg : "";
   findInDraft(state.tasks[t.id]);
   if (shown() && W.tid === t.id) { draw(); const r = W.el.querySelector(".ws-found") || W.el.querySelector(".ws-res"); if (r && r.scrollIntoView && !o.quiet) r.scrollIntoView({block: "nearest"}); }
@@ -105687,8 +106167,9 @@ function wire(t){
   const on = (sel, ev, fn) => { const el = q(sel); if (el) el.addEventListener(ev, fn); return el; };
   const vback = q("[data-ws-vback]"); if (vback) vback.addEventListener("click", () => { W.view = ""; W.err = ""; draw(true); });
   // a toast about the last tab (e.g. "Started an outline · Undo") goes with it
-  const goTab = (k, focus) => { if (k !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = k; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; W.also = null; W.show = null; draw(true); if (focus) { const b = R.querySelector(`[data-ws-tab="${W.tab}"]`); if (b) b.focus(); } };
-  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsTab, true)));
+  const goTab = (k, focus) => { if (k !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = k; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; W.also = null; W.show = null; draw(true); if (focus) { const b = R.querySelector(`[data-ws-tab="${W.tab}"]`); if (b) b.focus(focus === "mouse" ? {preventScroll: true, focusVisible: false} : undefined); } };
+  // a click keeps focus on the tab (for the arrow keys) without the keyboard focus ring; arrow keys still show it
+  qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsTab, "mouse")));
   qa("[data-ws-go]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsGo, false)));
   on(".ws-tabs", "keydown", e => { if (!/^Arrow(Left|Right)$|^(Home|End)$/.test(e.key)) return; e.preventDefault(); const i = TABS.indexOf(W.tab); goTab(e.key === "Home" ? TABS[0] : e.key === "End" ? TABS[TABS.length - 1] : TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length], true); });
   const sel = on("[data-ws-style]", "change", () => {
@@ -105837,6 +106318,26 @@ function wire(t){
   on("[data-ws-drm]", "click", () => { const w = ws(); w.draft = null; w.chk = null; save(cur(), w, "Draft removed from Writing Studio"); Object.assign(W, {found: null, show: null, diff: null, redo: false}); draw(); });
   on("[data-ws-dview]", "click", () => { W.show = W.show === "all" ? null : "all"; draw(); });
   qa("[data-ws-show]").forEach(b => b.addEventListener("click", () => { const i = b.dataset.wsShow; W.show = String(W.show) === i ? null : i; draw(); }));
+  qa("[data-ws-fix]").forEach(b => b.addEventListener("click", async () => { const w = ws(), res = usage(cur(), w).res, x = res && res.issues[Number(b.dataset.wsFix)]; if (!x || !x.edits) return; b.disabled = true; await fixDraft(cur(), x.edits); }));
+  on("[data-ws-fixall]", "click", async e => { e.currentTarget.disabled = true; await fixAll(cur()); });
+  on("[data-ws-refadd]", "click", async e => { e.currentTarget.disabled = true; W.err = ""; await addToDraftRefs(cur()); });
+  // My Doc
+  on("[data-ws-ldg]", "click", async () => {
+    const C = window.SBCLOUD; W.err = "";
+    if (!C || !C.pickGoogleDoc || !C.canPickFiles()) { W.err = "Choosing a Google Doc isn't set up on this Studyboard server yet."; draw(); return; }
+    let d; try { d = await C.pickGoogleDoc(); } catch (e) { W.err = ldErrText(e); draw(); return; }
+    if (!d) return;
+    if (d.type && d.type !== "application/vnd.google-apps.document") { W.err = "That isn't a Google Doc. For a Word file, choose A Word File."; draw(); return; }
+    await ldLink(cur(), {p: "google", id: d.id, name: d.name, url: d.url});
+  });
+  on("[data-ws-ldw]", "click", () => { Object.assign(W, {view: "ldword", ldQ: "", err: ""}); ldLoadList(); draw(true); });
+  qa("[data-ws-ldpick]").forEach(b => b.addEventListener("click", () => { const x = ((W.ldList || {}).items || []).find(i => i.id === b.dataset.wsLdpick); if (x) ldLink(cur(), {p: "microsoft", id: x.id, drive: x.drive, name: x.name, url: x.url}); }));
+  on("[data-ws-ldq]", "input", e => { W.ldQ = e.target.value; clearTimeout(W.ldT); W.ldT = setTimeout(ldLoadList, 450); });
+  on("[data-ws-ldcon]", "click", () => { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); });
+  on("[data-ws-ldoff]", "click", () => { const w = ws(), l = w.ld; if (!l) return; w.ld = null; if (w.draft && w.draft.ld) w.draft.ld = false; save(cur(), w, `Unlinked ${l.name || ldName(l)}`); W.okMsg = ""; W.err = ""; draw(); });
+  on("[data-ws-ldcheck]", "click", async () => { const w = ws(); W.err = ""; W.okMsg = ""; if (ldOf(w)) await doCheck(cur(), {}); else if (w.ld) await ldLink(cur(), w.ld); if (shown()) draw(); });
+  { const w = ws(); if (W.tab === "doc" && !W.view && w.ld && w.ld.p === "microsoft" && (!W.ldPrev || W.ldPrev.id !== w.ld.id) && W.ldPrevFor !== w.ld.id) { const l = w.ld; W.ldPrevFor = l.id; ldPreview(l).then(u => { W.ldPrev = {id: l.id, u}; W.ldPrevFor = ""; if (shown() && W.tab === "doc") draw(); }); } }
+  on("[data-ws-dcopy]", "click", async () => { const d = ws().draft; if (!d) return; try { await navigator.clipboard.writeText(d.t); toast("Copied your fixed draft. Paste it into your document."); } catch (e) { toast("Couldn't copy: select the draft under View Draft and copy it."); } });
   on("[data-ws-check]", "click", () => {
     const w = ws();
     if (!w.draft || W.redo) {
@@ -105932,6 +106433,11 @@ dialog:has(.ws-sheet){width:min(840px,calc(100% - 24px))}
 svg.ws-zic{display:block;flex:none}
 :is(.btn,button):has(> svg.ws-zic){display:inline-flex;align-items:center;gap:6px}
 .ws-tabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+/* the head, tab bar and progress strip keep their own height on every tab (a long tab squeezed them, moving the line under the title) */
+.ws-sheet>:not(.ws-body):not(.ws-main):not(.ws-scroll){flex-shrink:0}
+.ws-tab:focus:not(:focus-visible){outline:none}
+.ws-fixb{display:inline-flex;margin-top:6px;width:max-content}
+.ws-sum .ws-fixall{margin-left:10px;vertical-align:middle}
 .ws-tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .ws-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent,#2F6FE4)}
 .ws-n{display:inline-block;min-width:1.4em;font-size:.72rem;border-radius:9px;padding:0 5px;background:var(--soft,#EEF1F6);color:var(--muted);text-align:center}
@@ -105955,6 +106461,17 @@ svg.ws-zic{display:block;flex:none}
 :root[data-theme="dark"] :is(.ws-err,.ws-need){color:#FF8A80}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.ws-err,.ws-need){color:#FF8A80}}
 .ws-ok{margin:0;color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
+.ws-ldc{display:grid;gap:8px}
+.ws-ldk,.ws-ldh{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px}
+.ws-ldh{border:0;background:none;padding:0}
+.ws-ldk>svg,.ws-ldh>svg{width:22px;height:22px;flex:none}.ws-ldk>img,.ws-ldh>img{width:24px;height:auto;flex:none}
+.ws-ldk-t{display:grid;gap:2px;flex:1 1 180px;min-width:0}
+.ws-ldk-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ws-ldtop{display:grid;gap:8px}
+.ws-ldsum{margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ws-ldsum .ws-fixall{margin-left:0}
+.ws-ldwrap:not(:empty){margin-top:10px}
+.ws-ldf{display:block;width:100%;height:min(68vh,860px);min-height:320px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .ws-note{margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--accent,#2F6FE4) 9%,var(--surface))}
 .ws-empty{text-align:center;padding:22px 12px;border:1px dashed var(--line);border-radius:12px;display:grid;gap:6px}
 .ws-empty p{margin:0}
@@ -106127,8 +106644,10 @@ const CMPACK = (() => {
   const offs = (p, f, n, a = 0, b = 1) => { const L = len(p); n = n || Math.max(12, Math.min(160, Math.round(L / 3))); return "M" + Array.from({length: n + 1}, (_, i) => { const t = a + (b - a) * i / n, q = bz(p, t), g = ang(p, t), o = f(t, t * L); return f1(q[0] - Math.sin(g) * o) + " " + f1(q[1] + Math.cos(g) * o); }).join("L"); };
   // points along the line: a fixed count, or one every `gap` px
   const along = (p, n, a = 0.12, b = 0.88) => Array.from({length: n}, (_, i) => { const t = n === 1 ? (a + b) / 2 : a + (b - a) * i / (n - 1); const q = bz(p, t); return {x: q[0], y: q[1], a: ang(p, t), t}; });
-  const every = (p, gap, a = 0.08, b = 0.92) => along(p, Math.max(1, Math.round(len(p) * (b - a) / gap) + 1), a, b);
-  const at = (q, s, rot = true) => `<g transform="translate(${f1(q.x)} ${f1(q.y)})${rot ? ` rotate(${f1(deg(q.a))})` : ""}">${s}</g>`;
+  // one every `gap` px; the ends stay close to the boxes on a long line too (at most about half a gap empty at each end)
+  const every = (p, gap, a = 0.08, b = 0.92) => { const L = len(p) || 1, m = gap * 0.55 / L; a = Math.min(a, m); b = Math.max(b, 1 - m); return along(p, Math.max(1, Math.round(L * (b - a) / gap) + 1), a, b); };
+  // a drawing placed on the line, turned to follow it; on a line running leftwards it's flipped, so fish, leaves and flags stay the right way up
+  const at = (q, s, rot = true) => { const d = deg(q.a), left = Math.abs(((d + 540) % 360) - 180) > 90; return `<g transform="translate(${f1(q.x)} ${f1(q.y)})${rot ? ` rotate(${f1(d)})${left ? " scale(1 -1)" : ""}` : ""}">${s}</g>`; };
   const S = (fill, stroke, sw, more) => `style="fill:${fill};stroke:${stroke};stroke-width:${sw}${more ? ";" + more : ""}"`;
   const B = n => ({x0: -n.w / 2, y0: -n.h / 2, x1: n.w / 2, y1: n.h / 2});
   const rr = (n, rx, st) => `<rect x="${f1(-n.w / 2)}" y="${f1(-n.h / 2)}" width="${f1(n.w)}" height="${f1(n.h)}" rx="${f1(Math.min(rx, n.h / 2))}" ${st}/>`;
@@ -106147,7 +106666,7 @@ const CMPACK = (() => {
   P.sakura = {name: "Sakura", group: "theme", base: "#FFF6F9", desc: "Cherry-branch lines with blossoms; petal-pink boxes.",
     tile: tile(220, 200, scatter(7, 3, 220, 200, (x, y, r) => `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="4.2" ry="2.6" fill="#F4A6C0" opacity="${f1(0.35 + r * 0.25)}" transform="rotate(${f1(r * 180)} ${f1(x)} ${f1(y)})"/>`)),
     line: p => ({st: "stroke:#5B3A33;stroke-width:3.4;stroke-linecap:round", post: every(p, 30, 0.2, 0.8).map((q, i) => i % 2 ? `<circle cx="${f1(q.x)}" cy="${f1(q.y - 4)}" r="2.6" fill="#E7799C"/>` : flower(q.x, q.y - 5, 7, "#F6A9C2")).join("")}),
-    box: n => { const {x0, y0} = B(n); return {o: rr(n, n.h / 2, S(n.root ? "#F7B3C8" : "#FFF2F6", "#E486A6", 2, SH)), post: flower(x0 + 9, y0 + 6, 7, "#F48FB1"), t: {ink: n.root ? "#6B1F3A" : "#8A2C4F", fw: 800}}; }};
+    box: n => { const {x0, y0} = B(n); return {o: rr(n, n.h / 2, S(n.root ? "#F7B3C8" : "#FFF2F6", "#E486A6", 2, SH)), post: flower(x0 + n.h / 2, 0, Math.min(7, n.h / 2 - 9), "#F48FB1"), t: {ink: n.root ? "#6B1F3A" : "#8A2C4F", fw: 800, dx: 8, pad: 18}}; }};
   P.forest = {name: "Forest", group: "theme", base: "#F3F8F1", desc: "Wooden trail signs joined by pine branches.",
     tile: tile(220, 220, scatter(5, 5, 220, 220, (x, y, r) => `<path transform="translate(${f1(x)} ${f1(y)}) scale(${f1(0.7 + r * 0.5)})" d="M0-10L6-2H3L8 5H-8L-3-2H-6Z" fill="#7FB07A" opacity=".24"/>`)),
     line: p => ({st: "stroke:#6B4A2B;stroke-width:3.2;stroke-linecap:round", post: every(p, 13).map(q => at(q, `<path d="M0 0l-6-7M0 0l-6 7" stroke="#2F6B3A" stroke-width="2" stroke-linecap="round" fill="none"/>`)).join("")}),
@@ -106180,7 +106699,8 @@ const CMPACK = (() => {
     box: n => { const c = n.root ? "#5B2A1E" : ["#2D4F7A", "#3D6B45", "#7A2D3A"][n.i]; return {o: rr(n, 3, S(c, "#2A160C", 1.6, SH)), post: [-1, 1].map(s => `<rect x="${f1(s * (n.w / 2 - 12) - 3)}" y="${f1(-n.h / 2 + 2)}" width="6" height="${f1(n.h - 4)}" fill="#D9B25A"/>`).join(""), t: {ink: "#F3DC9A", font: "serif", fw: 700, pad: 16}}; }};
   P.music = {name: "Music Room", group: "theme", base: "#FBF8FF", desc: "Music-staff lines with notes; a vinyl-record main idea.",
     tile: tile(260, 200, [30, 130].map(y => [0, 5, 10, 15, 20].map(o => `<path d="M0 ${y + o}H260" stroke="#B9ADE0" stroke-width=".7" opacity=".4"/>`).join("")).join("") + `<text x="50" y="44" font-size="15" fill="#9B8CD0" opacity=".45">♪</text><text x="180" y="146" font-size="15" fill="#9B8CD0" opacity=".45">♫</text>`),
-    line: p => ({st: "stroke:#7B6AA8;stroke-width:.9", pre: [-6, -3, 3, 6].map(o => `<path d="${offs(p, () => o, 30)}" fill="none" stroke="#7B6AA8" stroke-width=".9"/>`).join(""), post: along(p, 2, 0.38, 0.62).map((q, i) => `<text x="${f1(q.x)}" y="${f1(q.y + 4)}" font-size="15" fill="#4C3A7A" text-anchor="middle">${i ? "♫" : "♪"}</text>`).join("")}),
+    // the staff's five lines meet in a point at each end, so every one of them reaches the box
+    line: p => ({st: "stroke:#7B6AA8;stroke-width:.9", pre: [-6, -3, 3, 6].map(o => `<path d="${offs(p, t => o * Math.min(1, t * 7, (1 - t) * 7), 40)}" fill="none" stroke="#7B6AA8" stroke-width=".9"/>`).join(""), post: along(p, 2, 0.38, 0.62).map((q, i) => `<text x="${f1(q.x)}" y="${f1(q.y + 4)}" font-size="15" fill="#4C3A7A" text-anchor="middle">${i ? "♫" : "♪"}</text>`).join("")}),
     box: n => n.root ? {o: rr(n, n.h / 2, S("#1D1A24", "#000", 1, SH)), post: [6, 11].map(o => `<rect x="${f1(-n.w / 2 + o)}" y="${f1(-n.h / 2 + o)}" width="${f1(n.w - 2 * o)}" height="${f1(n.h - 2 * o)}" rx="${f1(n.h / 2 - o)}" fill="none" stroke="#ffffff1c"/>`).join(""), t: {ink: "#E7DCFF", fw: 800}}
       : {o: rr(n, 4, S("#FFFBF3", "#5A4680", 1.8, SH)), post: `<path d="M${f1(-n.w / 2 + 6)} ${f1(n.h / 2 - 7)}h${f1(n.w - 12)}M${f1(-n.w / 2 + 6)} ${f1(n.h / 2 - 4)}h${f1(n.w - 12)}" stroke="#C9BFE0" stroke-width=".8"/>`, t: {ink: "#3A2A62", fw: 800}}};
   P.autumn = {name: "Autumn", group: "theme", base: "#FDF7EF", desc: "Dirt-path lines with a falling leaf; orchard-sign boxes.",
@@ -106190,7 +106710,7 @@ const CMPACK = (() => {
   P.winter = {name: "Winter", group: "theme", base: "#F4F8FC", desc: "Snow-capped boxes and ski-track lines.",
     tile: tile(220, 220, scatter(7, 19, 220, 220, (x, y, r) => r > 0.5 ? `<g transform="translate(${f1(x)} ${f1(y)}) scale(${f1(0.6 + r * 0.4)})" stroke="#9FC3DD" stroke-width="1.4" opacity=".45" stroke-linecap="round"><path d="M0-6V6M-5.2-3L5.2 3M-5.2 3L5.2-3"/></g>` : `<circle cx="${f1(x)}" cy="${f1(y)}" r="1.6" fill="#B9D3E8" opacity=".7"/>`)),
     arrow: "#8FB6D6", line: p => ({st: "stroke:transparent;stroke-width:6", pre: [-2.5, 2.5].map(o => `<path d="${offs(p, () => o, 30)}" fill="none" stroke="#8FB6D6" stroke-width="1.5"/>`).join("")}),
-    box: n => { const {x0, y0} = B(n), bumps = Math.max(2, Math.round(n.w / 22)); let d = `M${f1(x0 - 2)} ${f1(y0 + 6)}`; for (let j = 0; j < bumps; j++) d += `q${f1((n.w + 4) / bumps / 2)} -${j % 2 ? 9 : 12} ${f1((n.w + 4) / bumps)} 0`; return {o: rr(n, 9, S(n.root ? "#3C6C96" : "#F7FBFF", n.root ? "#244A6B" : "#86AED0", 2, SH)), post: `<path d="${d}v3h${f1(-n.w - 4)}z" fill="#fff" stroke="#C8DCEF" stroke-width="1"/>`, t: {ink: n.root ? "#fff" : "#24496B", fw: 800, dy: 2}}; }};
+    box: n => { const {x0, y0} = B(n), bumps = Math.max(2, Math.round(n.w / 22)); let d = `M${f1(x0)} ${f1(y0 + 6)}`; for (let j = 0; j < bumps; j++) d += `q${f1(n.w / bumps / 2)} -${j % 2 ? 9 : 12} ${f1(n.w / bumps)} 0`; return {o: rr(n, 9, S(n.root ? "#3C6C96" : "#F7FBFF", n.root ? "#244A6B" : "#86AED0", 2, SH)), post: `<path d="${d}v3h${f1(-n.w)}z" fill="#fff" stroke="#C8DCEF" stroke-width="1"/>`, t: {ink: n.root ? "#fff" : "#24496B", fw: 800, dy: 2}}; }};
   P.arctic = {name: "Arctic", group: "theme", base: "#F3F9FC", desc: "Aurora-ribbon lines and frosted ice-block boxes.",
     defs: `<linearGradient id="pk-aur2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4FC9A5"/><stop offset="1" stop-color="#7A6BE8"/></linearGradient>`,
     tile: tile(260, 180, `<path d="M0 30C80 6 160 54 260 28" fill="none" stroke="#6FB8F2" stroke-width="10" opacity=".08"/><path d="M0 40C80 16 160 64 260 38" fill="none" stroke="#5EE0B5" stroke-width="3" opacity=".14"/>` + scatter(4, 23, 260, 180, (x, y) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="1.4" fill="#9CC8E4" opacity=".6"/>`)),
@@ -106212,7 +106732,7 @@ const CMPACK = (() => {
   P.xmas = {name: "Christmas", group: "theme", base: "#FBF8F3", desc: "Wrapped-gift boxes joined by strings of fairy lights.",
     tile: tile(220, 220, scatter(6, 31, 220, 220, (x, y) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="1.6" fill="#C9D6E0" opacity=".8"/>`) + `<path d="M110 40l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6-4.5-4 6-1z" fill="#E8C35A" opacity=".25"/>`),
     line: p => ({st: "stroke:#2D4A2E;stroke-width:1.4", post: every(p, 22, 0.1, 0.9).map((q, j) => { const c = ["#FF5A5A", "#FFD84A", "#5AD1FF", "#7BE07B"][j % 4]; return `<circle cx="${f1(q.x)}" cy="${f1(q.y + 4)}" r="7" fill="${c}" opacity=".25"/><ellipse cx="${f1(q.x)}" cy="${f1(q.y + 4)}" rx="2.6" ry="3.6" fill="${c}"/>`; }).join("")}),
-    box: n => { const c = n.root ? "#C8323A" : ["#2F7A45", "#C8323A", "#2F6AA8"][n.i], {x0, y0} = B(n); return {o: rr(n, 4, S(c, "#00000040", 1.5, SH)), post: `<rect x="${f1(x0 + 12)}" y="${f1(y0)}" width="7" height="${f1(n.h)}" fill="#F4CF5A"/><path d="M${f1(x0 + 15.5)} ${f1(y0)}c-10-9-14 1 0 0c14 1 10-9 0 0" fill="#F4CF5A" stroke="#C99A2A"/>`, t: {ink: "#fff", fw: 800, dx: 8, pad: 16}}; }};
+    box: n => { const c = n.root ? "#C8323A" : ["#2F7A45", "#C8323A", "#2F6AA8"][n.i], {x0, y0} = B(n); return {o: rr(n, 4, S(c, "#00000040", 1.5, SH)), post: `<rect x="${f1(x0 + 12)}" y="${f1(y0)}" width="7" height="${f1(n.h)}" fill="#F4CF5A"/><path d="M${f1(x0 + 15.5)} ${f1(y0 + 9)}c-8-7-11 1 0 0c11 1 8-7 0 0" fill="#F4CF5A" stroke="#C99A2A"/>`, t: {ink: "#fff", fw: 800, dx: 8, pad: 16}}; }};
 
   /* ───────── Subjects ───────── */
   P.med = {name: "Medicine & Nursing", group: "subject", base: "#FFF7F8", desc: "Heartbeat lines on ECG paper; capsule boxes.",
@@ -106236,8 +106756,8 @@ const CMPACK = (() => {
     line: p => ({st: "stroke:#F08C00;stroke-width:2;stroke-dasharray:6 5;stroke-linecap:round"}),
     box: n => { const {x0, y0, x1, y1} = B(n); if (n.root) return {o: `<path d="M${f1(x0 + 12)} ${f1(y0)}H${f1(x1 - 12)}a12 12 0 0 1 12 12v${f1(n.h - 24)}a12 12 0 0 1-12 12H${f1(x0 + 40)}l-14 12 2-12H${f1(x0 + 12)}a12 12 0 0 1-12-12V${f1(y0 + 12)}a12 12 0 0 1 12-12z" ${S("#FF922B", "#E8590C", 2, SH)}/>`, t: {ink: "#fff", fw: 800}};
       const fl = [["#C60B1E", "#FFC400", "#C60B1E", 0], ["#0055A4", "#fff", "#EF4135", 1], ["#009246", "#fff", "#CE2B37", 1]][n.i];
-      const flag = fl[3] ? [0, 1, 2].map(j => `<rect x="${f1(x1 - 26 + j * 6)}" y="${f1(y0 - 6)}" width="6" height="11" fill="${fl[j]}"/>`).join("") : [0, 1, 2].map(j => `<rect x="${f1(x1 - 26)}" y="${f1(y0 - 6 + [0, 3, 8][j])}" width="18" height="${[3, 5, 3][j]}" fill="${fl[j]}"/>`).join("");
-      return {o: `<path d="M${f1(x0 + 10)} ${f1(y0)}H${f1(x1 - 10)}a10 10 0 0 1 10 10v${f1(n.h - 20)}a10 10 0 0 1-10 10H${f1(x0 + 10)}a10 10 0 0 1-10-10V8l-9-2 9-8V${f1(y0 + 10)}a10 10 0 0 1 10-10z" ${S("#fff", "#F08C00", 2, SH)}/>`, post: flag + `<rect x="${f1(x1 - 26)}" y="${f1(y0 - 6)}" width="18" height="11" fill="none" stroke="#0003" stroke-width=".6"/>`, t: {ink: "#7A2C00", fw: 800}}; }};
+      const flag = fl[3] ? [0, 1, 2].map(j => `<rect x="${f1(x1 - 26 + j * 6)}" y="${f1(y0 + 4)}" width="6" height="11" fill="${fl[j]}"/>`).join("") : [0, 1, 2].map(j => `<rect x="${f1(x1 - 26)}" y="${f1(y0 + 4 + [0, 3, 8][j])}" width="18" height="${[3, 5, 3][j]}" fill="${fl[j]}"/>`).join("");
+      return {o: `<path d="M${f1(x0 + 10)} ${f1(y0)}H${f1(x1 - 10)}a10 10 0 0 1 10 10v${f1(n.h - 20)}a10 10 0 0 1-10 10H${f1(x0 + 10)}a10 10 0 0 1-10-10V8l-9-2 9-8V${f1(y0 + 10)}a10 10 0 0 1 10-10z" ${S("#fff", "#F08C00", 2, SH)}/>`, post: flag + `<rect x="${f1(x1 - 26)}" y="${f1(y0 + 4)}" width="18" height="11" fill="none" stroke="#0003" stroke-width=".6"/>`, t: {ink: "#7A2C00", fw: 800, dx: -8, pad: 26}}; }};
   P.phil = {name: "Philosophy", group: "subject", base: "#F5F3EE", desc: "Marble with soft veins; a temple-front main idea and column-capital boxes.",
     tile: tile(300, 240, `<g fill="none" stroke-linecap="round"><path d="M-10 60C60 40 90 110 170 90S260 50 310 70" stroke="#CDC6BA" stroke-width="1.3" opacity=".6"/><path d="M-10 200C80 170 140 230 310 190" stroke="#D3CCC0" stroke-width="1" opacity=".7"/><path d="M170 90C190 120 180 150 210 170" stroke="#DDD2B6" stroke-width=".8"/></g>`),
     line: p => ({st: "stroke:#8A8378;stroke-width:1.5", post: at(along(p, 1, 0.5, 0.5)[0], `<path d="M-12 0H12" stroke="#6F7F3A" stroke-width="1.2"/>${[-9, -3, 3, 9].map(x => `<ellipse cx="${x}" cy="-4" rx="3.6" ry="1.6" fill="#7A8F3A" transform="rotate(-35 ${x} -4)"/><ellipse cx="${x}" cy="4" rx="3.6" ry="1.6" fill="#7A8F3A" transform="rotate(35 ${x} 4)"/>`).join("")}`)}),
@@ -106306,7 +106826,7 @@ const CMPACK = (() => {
   P.world = {name: "World Cultures & Travel", group: "subject", base: "#F4EAD2", desc: "An old map with a graticule; a luggage-tag main idea and passport stamps.",
     tile: tile(240, 200, `<g fill="none" stroke="#B89D66" stroke-width=".7" opacity=".5"><path d="M0 50Q120 40 240 50M0 150Q120 140 240 150"/><path d="M60 0Q66 100 60 200M180 0Q186 100 180 200"/></g><path d="M100 70c30-12 70-4 80 12s-10 26-40 24-50 6-60-8 0-22 20-28z" fill="#D6BF8C" opacity=".4"/>`),
     line: p => ({st: "stroke:#7A4F22;stroke-width:1.8;stroke-dasharray:5 4", post: along(p, 3, 0.25, 0.75).map(q => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="3" fill="#F4EAD2" stroke="#7A4F22" stroke-width="1.4"/>`).join("")}),
-    box: n => { const {x0, y0, x1, y1} = B(n); if (n.root) return {o: `<path d="M${f1(x0 + 16)} ${f1(y0)}H${f1(x1 - 4)}a4 4 0 0 1 4 4V${f1(y1 - 4)}a4 4 0 0 1-4 4H${f1(x0 + 16)}L${f1(x0)} ${f1(y1 - 14)}V${f1(y0 + 14)}Z" ${S("#D9A35B", "#8A5A2B", 1.8, SH)}/>`, post: `<circle cx="${f1(x0 + 12)}" cy="0" r="4.5" fill="#F6ECD3" stroke="#8A5A2B" stroke-width="1.4"/><path d="M${f1(x0 + 8)} 0c-14-6-20 10-30 2" fill="none" stroke="#C92A2A" stroke-width="1.4"/><rect x="${f1(x0 + 23)}" y="${f1(y0 + 5)}" width="${f1(n.w - 30)}" height="${f1(n.h - 10)}" fill="none" stroke="#8A5A2B" stroke-opacity=".4" stroke-dasharray="3 2"/>`, t: {ink: "#3B2410", font: "serif", fw: 700, dx: 10, pad: 32}};
+    box: n => { const {x0, y0, x1, y1} = B(n); if (n.root) return {o: `<path d="M${f1(x0 + 16)} ${f1(y0)}H${f1(x1 - 4)}a4 4 0 0 1 4 4V${f1(y1 - 4)}a4 4 0 0 1-4 4H${f1(x0 + 16)}L${f1(x0)} ${f1(y1 - 14)}V${f1(y0 + 14)}Z" ${S("#D9A35B", "#8A5A2B", 1.8, SH)}/>`, post: `<circle cx="${f1(x0 + 12)}" cy="0" r="4.5" fill="#F6ECD3" stroke="#8A5A2B" stroke-width="1.4"/><path d="M${f1(x0 + 9)} 2c3 5 9 4 11 9" fill="none" stroke="#C92A2A" stroke-width="1.4"/><rect x="${f1(x0 + 23)}" y="${f1(y0 + 5)}" width="${f1(n.w - 30)}" height="${f1(n.h - 10)}" fill="none" stroke="#8A5A2B" stroke-opacity=".4" stroke-dasharray="3 2"/>`, t: {ink: "#3B2410", font: "serif", fw: 700, dx: 10, pad: 32}};
       const c = ["#B02A2A", "#1864AB", "#2B8A3E"][n.i]; return {o: rr(n, 7, S("#FFFAF0B3", c, 2.4)), post: `<rect x="${f1(x0 + 4)}" y="${f1(y0 + 4)}" width="${f1(n.w - 8)}" height="${f1(n.h - 8)}" rx="4" fill="none" stroke="${c}" stroke-width="1"/>` + star5(x0 + 12, 0, 4.2, c) + star5(x1 - 12, 0, 4.2, c), t: {ink: c, font: "marker", fw: 400, pad: 22}}; }};
   P.agri = {name: "Agriculture & Environment", group: "subject", base: "#F7F8EC", desc: "Faint furrow rows; a red-barn main idea, seed packets and vine lines.",
     tile: tile(200, 60, `<path d="M0 20Q100 12 200 20M0 44Q100 36 200 44" fill="none" stroke="#C9B07A" stroke-width="1.2" opacity=".28"/><g fill="#8FB86A" opacity=".3"><circle cx="40" cy="15" r="2"/><circle cx="140" cy="39" r="2"/></g>`),
@@ -106341,7 +106861,7 @@ const CMPACK = (() => {
     tile: tile(300, 220, `<g fill="none" stroke="#fff" stroke-linecap="round" opacity=".045"><path d="M30 50c70-8 140 6 200-4" stroke-width="18"/><path d="M90 170c50 4 100-8 170 2" stroke-width="22"/></g>`),
     line: p => ({st: "stroke:#F1F3F5;stroke-width:2.4;stroke-linecap:round;filter:url(#pk-chalk)", d: offs(p, (t, d) => Math.sin(d / 13) * 0.9)}), arrow: "#F1F3F5",
     box: n => { const {x0, y0, x1, y1} = B(n); sd = 60 + n.i + (n.root ? 9 : 0); const wob = (o = 0) => { const j = () => rnd() * 2.4 - 1.2; return `M${f1(x0 - o + j())} ${f1(y0 - o + j())}C${f1(-20)} ${f1(y0 - o + j())} 20 ${f1(y0 - o - 1)} ${f1(x1 + o + j())} ${f1(y0 - o + j())}C${f1(x1 + o + 1)} -8 ${f1(x1 + o - 1)} 8 ${f1(x1 + o + j())} ${f1(y1 + o + j())}C20 ${f1(y1 + o + 1)} -20 ${f1(y1 + o - 1)} ${f1(x0 - o + j())} ${f1(y1 + o + j())}C${f1(x0 - o - 1)} 8 ${f1(x0 - o + 1)} -8 ${f1(x0 - o + 3)} ${f1(y0 - o + 1)}`; };
-      if (n.root) return {o: `<path d="${wob(0)}" ${S("transparent", "#FFE066", 2.6, "filter:url(#pk-chalk);stroke-linecap:round")}/>`, post: `<path d="${wob(4)}" fill="none" stroke="#FFE066" stroke-width="1.4" opacity=".8" filter="url(#pk-chalk)"/>`, t: {ink: "#FFE066", font: "hand", fw: 400, sz: 1.5, fx: "url(#pk-chalk)"}};
+      if (n.root) return {o: `<path d="${wob(0)}" ${S("transparent", "#FFE066", 2.6, "filter:url(#pk-chalk);stroke-linecap:round")}/>`, post: `<path d="${wob(-4)}" fill="none" stroke="#FFE066" stroke-width="1.4" opacity=".8" filter="url(#pk-chalk)"/>`, t: {ink: "#FFE066", font: "hand", fw: 400, sz: 1.5, fx: "url(#pk-chalk)"}};
       const c = ["#FAA2C1", "#74C0FC", "#8CE99A"][n.i]; return {o: `<path d="${wob(0)}" ${S("transparent", "#F8F9FA", 2.2, "filter:url(#pk-chalk);stroke-linecap:round")}/>`, post: `<path d="M${f1(-n.w * 0.3)} ${f1(n.h / 2 - 7)}q${f1(n.w * 0.3)} 3 ${f1(n.w * 0.6)} -1" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round" filter="url(#pk-chalk)"/>`, t: {ink: "#F8F9FA", font: "hand", fw: 400, sz: 1.4, dy: -2, fx: "url(#pk-chalk)"}}; }};
 
 
@@ -106419,7 +106939,7 @@ const CMPACK = (() => {
   T2.spring = {name: "Spring", base: "#F5FBEF", desc: "Daisy-crowned boxes; tulip-stem lines with a butterfly.",
     tile: dotsTile(180, 180, 6, 72, (x, y, r) => flower(x, y, 3 + r * 2, pick(Math.floor(r * 3), ["#FFC9DE", "#FFF0A6", "#CDE7FF"])).replace("<g ", '<g opacity=".4" ')),
     line: (p, i) => ({st: "stroke:#6CB65A;stroke-width:2.2;stroke-linecap:round", post: beads(p, 26, (q, j) => at(q, leafP(0, j % 2 ? -4 : 4, 0.7, "#8FD07A", j % 2 ? -35 : 35)), 0.15, 0.85) + (i === 1 ? at(Object.assign(along(p, 1, 0.5, 0.5)[0], {a: 0}), `<g transform="translate(0 -10)"><path d="M0 0C-6-8-11-4-8 0C-11 4-6 7 0 0ZM0 0C6-8 11-4 8 0C11 4 6 7 0 0Z" fill="#B197FC"/><path d="M0-4V4" stroke="#5F3DC4" stroke-width="1.4"/></g>`) : "")}), arrow: "#6CB65A",
-    box: n => { const k = Math.max(3, Math.round(n.w / 26)); return {o: rr(n, n.h / 2, S(n.root ? "#8FD07A" : "#FFFFFF", "#6CB65A", 1.8, SH)), post: Array.from({length: k}, (_, j) => flower(-n.w / 2 + 12 + j * (n.w - 24) / (k - 1), -n.h / 2, 4.2, pick(j, ["#FFFFFF", "#FFC9DE", "#FFF0A6"]), "#F4B400")).join(""), t: {ink: n.root ? "#1F4D16" : "#2F6B22", fw: 800, dy: 2}}; }};
+    box: n => { const k = Math.max(3, Math.round(n.w / 26)); return {o: rr(n, n.h / 2, S(n.root ? "#8FD07A" : "#FFFFFF", "#6CB65A", 1.8, SH)), post: Array.from({length: k}, (_, j) => flower(-n.w / 2 + n.h / 2 + j * (n.w - n.h) / (k - 1), -n.h / 2 + 7, 3.6, pick(j, ["#FFFFFF", "#FFC9DE", "#FFF0A6"]), "#F4B400")).join(""), t: {ink: n.root ? "#1F4D16" : "#2F6B22", fw: 800, dy: 2}}; }};
   T2.summer = {name: "Summer", base: "#FFF9EC", desc: "Popsicle boxes on sticks; pool-lane float lines.",
     tile: dotsTile(200, 180, 3, 73, (x, y) => `<g opacity=".25" transform="translate(${f1(x)} ${f1(y)})"><circle r="7" fill="#FFD43B"/>${[0, 45, 90, 135, 180, 225, 270, 315].map(a => `<path d="M0-9v-3" stroke="#FFB000" stroke-width="1.6" transform="rotate(${a})"/>`).join("")}</g>`, 18),
     line: p => ({st: "stroke:#4DABF7;stroke-width:1.4", post: beads(p, 9, (q, j) => at(q, `<rect x="-4" y="-3.2" width="8" height="6.4" rx="3.2" fill="${pick(j, ["#FA5252", "#FFFFFF", "#FA5252", "#4DABF7"])}" stroke="#00000020" stroke-width=".6"/>`), 0.05, 0.95)}), arrow: "#4DABF7",
@@ -106428,7 +106948,7 @@ const CMPACK = (() => {
   T2.lemonade = {name: "Lemonade", base: "#FFFBE6", desc: "Lemonade jars with a lemon label; striped-straw lines.",
     tile: dotsTile(180, 180, 3, 74, (x, y) => `<g opacity=".22" transform="translate(${f1(x)} ${f1(y)})"><circle r="8" fill="#FFE066" stroke="#F2B705" stroke-width="1.4"/>${[0, 60, 120].map(a => `<path d="M0-7V7" stroke="#F2B705" stroke-width=".8" transform="rotate(${a})"/>`).join("")}</g>`, 18),
     line: p => ({st: "stroke:#fff;stroke-width:6;stroke-linecap:round;filter:drop-shadow(0 0 1px #F2B70588)", post: `<path d="${D(p)}" fill="none" stroke="#F2B705" stroke-width="6" stroke-dasharray="4 4"/>`}), arrow: "#E8A600",
-    box: n => { const {x0, y0, x1} = B(n); return {o: rr(n, 8, S(n.root ? "#FFE066" : "#FFF8CC", "#E8A600", 1.8, SH + ";fill-opacity:.95")), post: `<rect x="${f1(x0 - 2)}" y="${f1(y0 - 5)}" width="${f1(n.w + 4)}" height="8" rx="3" fill="#E8A600"/><g transform="translate(${f1(x1 - 12)} ${f1(y0 + 13)})"><circle r="6" fill="#FFF3B0" stroke="#F2B705" stroke-width="1.2"/>${[0, 60, 120].map(a => `<path d="M0-5V5" stroke="#F2B705" stroke-width=".7" transform="rotate(${a})"/>`).join("")}</g>`, t: {ink: "#6B4E00", fw: 800, dx: -6, pad: 18, dy: 2}}; }};
+    box: n => { const {x0, y0, x1} = B(n); return {o: rr(n, 8, S(n.root ? "#FFE066" : "#FFF8CC", "#E8A600", 1.8, SH + ";fill-opacity:.95")), post: `<path d="M${f1(x0 + 0.9)} ${f1(y0 + 7)}V${f1(y0 + 8)}a7.1 7.1 0 0 1 7.1-7.1H${f1(x1 - 8)}a7.1 7.1 0 0 1 7.1 7.1V${f1(y0 + 7)}Z" fill="#E8A600"/><g transform="translate(${f1(x1 - 12)} ${f1(y0 + 13)})"><circle r="6" fill="#FFF3B0" stroke="#F2B705" stroke-width="1.2"/>${[0, 60, 120].map(a => `<path d="M0-5V5" stroke="#F2B705" stroke-width=".7" transform="rotate(${a})"/>`).join("")}</g>`, t: {ink: "#6B4E00", fw: 800, dx: -6, pad: 18, dy: 3, padH: 4}}; }};
   T2.sunset = {name: "Sunset Beach", base: "#FFF4EA", desc: "Surfboard boxes with a stripe; footprints in the sand.",
     tile: dotsTile(180, 160, 5, 75, (x, y, r) => `<path transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(r * 360)})" d="M0-5C3-5 5-2 5 0L0 5L-5 0C-5-2-3-5 0-5Z" fill="#F4A261" opacity=".18"/>`),
     line: p => ({st: "stroke:#E9C9A3;stroke-width:9;stroke-linecap:round;opacity:.6", post: beads(p, 13, (q, j) => at(q, `<ellipse cx="0" cy="${j % 2 ? -3 : 3}" rx="3.4" ry="1.9" fill="#B5835A"/>`))}), arrow: "#B5835A",
@@ -106437,7 +106957,7 @@ const CMPACK = (() => {
     tile: dotsTile(160, 160, 10, 76, (x, y, r) => `<rect x="${f1(x)}" y="${f1(y)}" width="3" height="3" fill="#5A3422" opacity=".14" transform="rotate(${f1(r * 90)} ${f1(x)} ${f1(y)})"/>`),
     line: p => ({st: "stroke:#9FE2C5;stroke-width:1", post: beads(p, 10, (q, j) => at(q, `<rect x="-3" y="-1.1" width="6" height="2.2" rx="1.1" fill="${pick(j, ["#F783AC", "#FFD43B", "#74C0FC", "#5A3422"])}" transform="rotate(${j * 47})"/>`))}), arrow: "#3CB98A",
     box: n => { const {x0, y0, x1, y1} = B(n), k = Math.max(3, Math.round(n.w / 22)); let d = `M${f1(x0)} ${f1(y1 - 6)}V${f1(y0 + 12)}a12 12 0 0 1 12-12H${f1(x1 - 12)}a12 12 0 0 1 12 12V${f1(y1 - 6)}`; for (let j = 0; j < k; j++) { const w = n.w / k; d += `q${f1(-w / 4)} ${j % 2 ? 9 : 4} ${f1(-w / 2)} 0t${f1(-w / 2)} 0`; } d += "Z";
-      sd = 80 + n.i; return {o: `<path d="${d}" ${S(n.root ? "#5FD3A3" : "#B6EED6", "#3CB98A", 1.6, SH)}/>`, post: Array.from({length: 5}, () => `<rect x="${f1(x0 + 8 + rnd() * (n.w - 16))}" y="${f1(y0 + 4 + rnd() * (n.h - 12))}" width="3.2" height="3.2" fill="#5A3422" opacity=".8" transform="rotate(${f1(rnd() * 90)})" transform-origin="center"/>`).join(""), t: {ink: n.root ? "#0E4A33" : "#16583D", fw: 800, halo: n.root ? "#5FD3A3" : "#B6EED6"}}; }};
+      sd = 80 + n.i; return {o: `<path d="${d}" ${S(n.root ? "#5FD3A3" : "#B6EED6", "#3CB98A", 1.6, SH)}/>`, post: Array.from({length: 5}, () => ((cx, cy, a) => `<rect x="${f1(cx - 1.6)}" y="${f1(cy - 1.6)}" width="3.2" height="3.2" fill="#5A3422" opacity=".8" transform="rotate(${f1(a)} ${f1(cx)} ${f1(cy)})"/>`)(x0 + 12 + rnd() * (n.w - 24), y0 + 6 + rnd() * (n.h - 16), rnd() * 90)).join(""), t: {ink: n.root ? "#0E4A33" : "#16583D", fw: 800, halo: n.root ? "#5FD3A3" : "#B6EED6"}}; }};
   T2.bokeh = {name: "Colorful Bokeh", base: "#161A33", dark: true, desc: "Glowing glass boxes; lines of soft out-of-focus lights.",
     tile: dotsTile(220, 200, 7, 77, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(6 + r * 12)}" fill="${pick(Math.floor(r * 4), ["#FF6B9A", "#FFD166", "#5CE1E6", "#9B7BFF"])}" opacity=".12"/>`, 22),
     line: p => ({st: "stroke:#ffffff40;stroke-width:1", post: beads(p, 14, (q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="${j % 2 ? 4.5 : 3.2}" fill="${pick(j, ["#FF6B9A", "#FFD166", "#5CE1E6", "#9B7BFF"])}" opacity=".75"/>`)}), arrow: "#FFD166",
@@ -106456,20 +106976,20 @@ const CMPACK = (() => {
   T2.koi = {name: "Koi Pond", base: "#E9F6F4", desc: "Lily-pad boxes with a lotus; ripple lines with a koi.",
     tile: dotsTile(220, 200, 3, 79, (x, y, r) => `<g fill="none" stroke="#5FB7A8" opacity=".2"><circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(6 + r * 4)}"/><circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(12 + r * 4)}"/></g>`, 24),
     line: (p, i) => ({st: "stroke:#7CC6B9;stroke-width:1.8;stroke-dasharray:1 5;stroke-linecap:round", post: i === 1 ? at(along(p, 1, 0.5, 0.5)[0], `<path d="M8 0C4-5-4-5-6 0C-4 5 4 5 8 0ZM-5 0L-11-4L-9 0L-11 4Z" fill="#FF8C42"/><circle cx="4" cy="-1.4" r="1.4" fill="#fff"/><path d="M0-4c1 2 1 4 0 8" stroke="#fff" stroke-width="1.2" fill="none" opacity=".8"/>`) : ""}), arrow: "#4FA394",
-    box: n => { const a = n.w / 2, b = n.h / 2; return {o: `<path d="M0 0L${f1(a * 0.18)} ${f1(-b)}A${f1(a)} ${f1(b)} 0 1 1 ${f1(-a * 0.18)} ${f1(-b)}Z" ${S(n.root ? "#4E9F5B" : "#7CC47F", "#3F7F48", 1.6, SH + ";stroke-linejoin:round")}/>`, post: (n.root ? flower(-a + 10, -b + 6, 7, "#F7A8C8", "#FFE066") : "") + `<path d="M${f1(-a * 0.6)} ${f1(b * 0.5)}Q0 ${f1(b * 0.9)} ${f1(a * 0.6)} ${f1(b * 0.5)}" fill="none" stroke="#ffffff55"/>`, t: {ink: "#fff", fw: 800, halo: "#2F6B37", pad: 20, padH: 10, dy: 3}}; }};
+    box: n => { const a = n.w / 2, b = n.h / 2; return {o: `<path d="M0 0L${f1(a * 0.18)} ${f1(-b)}A${f1(a)} ${f1(b)} 0 1 1 ${f1(-a * 0.18)} ${f1(-b)}Z" ${S(n.root ? "#4E9F5B" : "#7CC47F", "#3F7F48", 1.6, SH + ";stroke-linejoin:round")}/>`, post: (n.root ? flower(-a * 0.62, -b * 0.15, Math.min(7, b - 6), "#F7A8C8", "#FFE066") : "") + `<path d="M${f1(-a * 0.6)} ${f1(b * 0.5)}Q0 ${f1(b * 0.9)} ${f1(a * 0.6)} ${f1(b * 0.5)}" fill="none" stroke="#ffffff55"/>`, t: {ink: "#fff", fw: 800, halo: "#2F6B37", pad: n.root ? 34 : 20, padH: 10, dy: 3, dx: n.root ? 8 : 0}}; }};
   T2.jelly = {name: "Jellyfish Drift", base: "#0F1F3D", dark: true, desc: "Glowing jellyfish boxes trailing tentacles; bubble lines.",
     tile: dotsTile(200, 200, 8, 80, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(1 + r * 2)}" fill="none" stroke="#9FD8FF" opacity=".3"/>`),
-    line: p => ({st: "stroke:#9FD8FF55;stroke-width:1", post: beads(p, 12, (q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y + (j % 2 ? 2 : -2))}" r="${j % 3 ? 2.2 : 3.4}" fill="none" stroke="#B9E6FF" stroke-width="1.1"/>`)}), arrow: "#B9E6FF",
+    line: p => ({st: "stroke:transparent;stroke-width:6", post: beads(p, 12, (q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y + (j % 2 ? 2 : -2))}" r="${j % 3 ? 2.2 : 3.4}" fill="none" stroke="#B9E6FF" stroke-width="1.1"/>`)}), arrow: "#B9E6FF",
     box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#FF8FD0" : pick(n.i, ["#9FD8FF", "#C7A3FF", "#7FF0D8"]), k = Math.max(4, Math.round(n.w / 14)); let d = `M${f1(x0)} ${f1(y1 - 4)}V${f1(y0 + n.h * 0.45)}A${f1(n.w / 2)} ${f1(n.h * 0.45)} 0 0 1 ${f1(x1)} ${f1(y0 + n.h * 0.45)}V${f1(y1 - 4)}`; for (let j = 0; j < k; j++) d += `q${f1(-n.w / k / 2)} 6 ${f1(-n.w / k)} 0`; d += "Z";
       return {pre: Array.from({length: k - 1}, (_, j) => `<path d="M${f1(x0 + (j + 1) * n.w / k)} ${f1(y1)}q4 7 0 12t0 10" fill="none" stroke="${c}" stroke-width="1.4" opacity=".7"/>`).join(""), o: `<path d="${d}" ${S(c + "55", c, 1.8, `filter:drop-shadow(0 0 6px ${c})`)}/>`, t: {ink: "#fff", fw: 800, dy: 1, padH: 6}}; }};
   T2.bamboo = {name: "Bamboo Grove", base: "#F1F7EC", desc: "Bamboo-stalk boxes with growth rings; leafy cane lines.",
     tile: dotsTile(200, 200, 5, 81, (x, y, r) => leafP(x, y, 1.4, "#7FB069", r * 60 - 30).replace("/>", ' opacity=".18"/>')),
     line: p => ({st: "stroke:#8DB86B;stroke-width:3.2;stroke-linecap:round", post: beads(p, 26, (q, j) => at(q, `<path d="M0-2v4" stroke="#5E8C45" stroke-width="2"/>${j % 2 ? leafP(4, -5, 1.2, "#6FAE4E", -30) : ""}`), 0.1, 0.9)}), arrow: "#5E8C45",
-    box: n => { const {x0, y0} = B(n), segs = Math.max(2, Math.round(n.w / 50)); return {o: rr(n, 8, S(n.root ? "#5E8C45" : "#A9CF7E", "#4A7536", 1.8, SH)), post: Array.from({length: segs - 1}, (_, j) => `<path d="M${f1(x0 + (j + 1) * n.w / segs)} ${f1(y0 + 1)}v${f1(n.h - 2)}" stroke="#4A7536" stroke-width="2.4" opacity=".55"/>`).join("") + `<path d="M${f1(x0 + 6)} ${f1(y0 + 6)}h${f1(n.w - 12)}" stroke="#fff" stroke-width="2" opacity=".3" stroke-linecap="round"/>` + leafP(-x0 - 4, y0 - 2, 1.5, "#6FAE4E", -25), t: {ink: n.root ? "#fff" : "#20391A", fw: 800, halo: n.root ? "" : "#A9CF7E"}}; }};
+    box: n => { const {x0, y0} = B(n), segs = Math.max(2, Math.round(n.w / 50)); return {o: rr(n, 8, S(n.root ? "#5E8C45" : "#A9CF7E", "#4A7536", 1.8, SH)), post: Array.from({length: segs - 1}, (_, j) => `<path d="M${f1(x0 + (j + 1) * n.w / segs)} ${f1(y0 + 1)}v${f1(n.h - 2)}" stroke="#4A7536" stroke-width="2.4" opacity=".55"/>`).join("") + `<path d="M${f1(x0 + 6)} ${f1(y0 + 6)}h${f1(n.w - 12)}" stroke="#fff" stroke-width="2" opacity=".3" stroke-linecap="round"/>` + leafP(-x0 - 12, y0 + 9, 1.1, "#6FAE4E", -25), t: {ink: n.root ? "#fff" : "#20391A", fw: 800, halo: n.root ? "" : "#A9CF7E"}}; }};
   T2.lavenderfields = {name: "Lavender Fields", base: "#F6F2FB", desc: "Ribbon-tied lavender sachets; sprig lines in bloom.",
     tile: tile(200, 50, `<path d="M0 40Q100 30 200 40" fill="none" stroke="#B89BE0" stroke-opacity=".2" stroke-width="2"/>`),
     line: p => ({st: "stroke:#7E9A5B;stroke-width:1.6", post: beads(p, 7, (q, j) => at(q, `<ellipse cx="0" cy="${j % 2 ? -2.6 : 2.6}" rx="2.6" ry="1.8" fill="${j % 3 ? "#9775FA" : "#B197FC"}"/>`), 0.3, 0.92)}), arrow: "#7E9A5B",
-    box: n => { const {x0, y0, x1, y1} = B(n); return {o: `<path d="M${f1(x0 + 8)} ${f1(y0 + 6)}Q0 ${f1(y0 + 2)} ${f1(x1 - 8)} ${f1(y0 + 6)}Q${f1(x1 + 2)} 0 ${f1(x1 - 4)} ${f1(y1 - 6)}Q0 ${f1(y1 + 3)} ${f1(x0 + 4)} ${f1(y1 - 6)}Q${f1(x0 - 2)} 0 ${f1(x0 + 8)} ${f1(y0 + 6)}Z" ${S(n.root ? "#9775FA" : "#E5DBFF", "#7B5FD6", 1.6, SH)}/>`, post: `<path d="M-14 ${f1(y0 + 4)}q-8-8-12-2q4 6 12 2zM14 ${f1(y0 + 4)}q8-8 12-2q-4 6-12 2z" fill="#F783AC"/><circle cx="0" cy="${f1(y0 + 4)}" r="2.6" fill="#E64980"/>`, t: {ink: n.root ? "#fff" : "#4A2E9C", fw: 800, dy: 2, padH: 4}}; }};
+    box: n => { const {x0, y0, x1, y1} = B(n); return {o: `<path d="M${f1(x0 + 8)} ${f1(y0 + 6)}Q0 ${f1(y0 + 2)} ${f1(x1 - 8)} ${f1(y0 + 6)}Q${f1(x1 + 2)} 0 ${f1(x1 - 4)} ${f1(y1 - 6)}Q0 ${f1(y1 + 3)} ${f1(x0 + 4)} ${f1(y1 - 6)}Q${f1(x0 - 2)} 0 ${f1(x0 + 8)} ${f1(y0 + 6)}Z" ${S(n.root ? "#9775FA" : "#E5DBFF", "#7B5FD6", 1.6, SH)}/>`, post: `<path d="M-3 ${f1(y0 + 10)}q-7-6-11-1q4 5 11 1zM3 ${f1(y0 + 10)}q7-6 11-1q-4 5-11 1z" fill="#F783AC"/><circle cx="0" cy="${f1(y0 + 10)}" r="2.4" fill="#E64980"/>`, t: {ink: n.root ? "#fff" : "#4A2E9C", fw: 800, dy: 5, padH: 10}}; }};
   T2.rainforest = {name: "Rainforest Canopy", base: "#EDF7EE", desc: "Monstera-leaf boxes; liana vines with curling tendrils.",
     tile: dotsTile(220, 220, 4, 82, (x, y, r) => leafP(x, y, 2.4, "#2F9E5A", r * 180).replace("/>", ' opacity=".1"/>')),
     line: p => ({st: "stroke:#6B5A2A;stroke-width:2.6;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 16) * 3), post: beads(p, 30, (q, j) => at(q, j % 2 ? leafP(0, -6, 1.1, "#2F9E5A", -35) : `<path d="M0 0c0 7 6 8 7 4s-4-4-3-1" fill="none" stroke="#3E8B4A" stroke-width="1"/>`), 0.15, 0.85)}), arrow: "#6B5A2A",
@@ -106486,7 +107006,7 @@ const CMPACK = (() => {
   T2.marinebio = {name: "Kelp Forest", base: "#EAF5F2", desc: "Sea-stone boxes with a shell; swaying kelp lines.",
     tile: dotsTile(200, 200, 6, 85, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(1.5 + r * 2)}" fill="none" stroke="#5FA8A0" opacity=".25"/>`),
     line: p => ({st: "stroke:#A3882C;stroke-width:3;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 11) * 4), post: beads(p, 22, (q, j) => at(q, `<ellipse cx="${j % 2 ? 0 : 0}" cy="${j % 2 ? -6 : 6}" rx="6" ry="2.4" fill="#C2A53A" transform="rotate(${j % 2 ? -25 : 25})"/><circle cy="${j % 2 ? -2 : 2}" r="1.8" fill="#8A7020"/>`), 0.12, 0.88)}), arrow: "#8A7020",
-    box: n => { const {x1, y0} = B(n); return {o: rr(n, 14, S(n.root ? "#2F6F78" : pick(n.i, ["#CFE5DF", "#D8E7EF", "#E6E1D3"]), n.root ? "#1F4F56" : "#7FA8A2", 1.6, SH)), post: `<g transform="translate(${f1(x1 - 6)} ${f1(y0 + 2)}) rotate(20)"><path d="M0-8L7 3H-7Z" fill="#F7B79F" stroke="#D9826A" stroke-width="1" stroke-linejoin="round"/><path d="M0-7V3M-3-2l-2 5M3-2l2 5" stroke="#D9826A" stroke-width=".7"/></g>`, t: {ink: n.root ? "#fff" : "#1F4A45", fw: 800}}; }};
+    box: n => { const {x1, y0} = B(n); return {o: rr(n, 14, S(n.root ? "#2F6F78" : pick(n.i, ["#CFE5DF", "#D8E7EF", "#E6E1D3"]), n.root ? "#1F4F56" : "#7FA8A2", 1.6, SH)), post: `<g transform="translate(${f1(x1 - 16)} ${f1(y0 + 12)}) rotate(20) scale(.8)"><path d="M0-8L7 3H-7Z" fill="#F7B79F" stroke="#D9826A" stroke-width="1" stroke-linejoin="round"/><path d="M0-7V3M-3-2l-2 5M3-2l2 5" stroke="#D9826A" stroke-width=".7"/></g>`, t: {ink: n.root ? "#fff" : "#1F4A45", fw: 800, dx: -5, pad: 16}}; }};
   T2.nighttrain = {name: "Night Train", base: "#1B2340", dark: true, desc: "Train-car boxes with lit windows; railway-track lines.",
     tile: dotsTile(200, 200, 9, 86, (x, y, r) => r > 0.85 ? star4(x, y, 3, "#FFE8A3", 0.5) : `<circle cx="${f1(x)}" cy="${f1(y)}" r=".8" fill="#fff" opacity=".45"/>`),
     chip: ["#1B2340", "#FFD66B88", "#FFE8A3", ""],
@@ -106500,11 +107020,11 @@ const CMPACK = (() => {
     tile: dotsTile(200, 200, 8, 87, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(0.6 + r)}" fill="${r > 0.6 ? "#FFB347" : "#fff"}" opacity=".35"/>`),
     chip: ["#1E1A28", "#FFB34788", "#FFE3B8", ""],
     line: p => ({st: "stroke:#FF9F43;stroke-width:1.4;stroke-dasharray:1 7;stroke-linecap:round", post: beads(p, 22, (q, j) => j % 3 === 1 ? flame(q.x, q.y, 0.7, "#FF7A1A") : `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="2" fill="#FFD27A" style="filter:drop-shadow(0 0 3px #FF9F43)"/>`)}), arrow: "#FF9F43",
-    box: n => { const {x0, x1} = B(n), ry = n.h / 2; return {o: `<path d="M${f1(x0 + 8)} ${f1(-ry)}H${f1(x1 - 8)}A8 ${f1(ry)} 0 0 1 ${f1(x1 - 8)} ${f1(ry)}H${f1(x0 + 8)}A8 ${f1(ry)} 0 0 1 ${f1(x0 + 8)} ${f1(-ry)}Z" ${S(n.root ? "#7A4A2A" : "#8E5B36", "#3E2614", 1.6, SH)}/>`, post: `<ellipse cx="${f1(x1 - 8)}" cy="0" rx="7" ry="${f1(ry - 1)}" fill="#D9A86C" stroke="#3E2614" stroke-width="1"/><ellipse cx="${f1(x1 - 8)}" cy="0" rx="3.5" ry="${f1(ry / 2)}" fill="none" stroke="#A9773E"/><path d="M${f1(x0 + 10)} -6h${f1(n.w * 0.4)}M${f1(x0 + 20)} 7h${f1(n.w * 0.35)}" stroke="#00000030" stroke-width="1.4"/>` + (n.root ? flame(-n.w * 0.15, -ry - 4, 1.2, "#FF7A1A") : ""), t: {ink: "#FFEBD2", fw: 800, dx: -6, pad: 18}}; }};
+    box: n => { const {x0, x1} = B(n), ry = n.h / 2; return {o: `<path d="M${f1(x0 + 8)} ${f1(-ry)}H${f1(x1 - 8)}A8 ${f1(ry)} 0 0 1 ${f1(x1 - 8)} ${f1(ry)}H${f1(x0 + 8)}A8 ${f1(ry)} 0 0 1 ${f1(x0 + 8)} ${f1(-ry)}Z" ${S(n.root ? "#7A4A2A" : "#8E5B36", "#3E2614", 1.6, SH)}/>`, post: `<ellipse cx="${f1(x1 - 8)}" cy="0" rx="7" ry="${f1(ry - 1)}" fill="#D9A86C" stroke="#3E2614" stroke-width="1"/><ellipse cx="${f1(x1 - 8)}" cy="0" rx="3.5" ry="${f1(ry / 2)}" fill="none" stroke="#A9773E"/><path d="M${f1(x0 + 10)} -6h${f1(n.w * 0.4)}M${f1(x0 + 20)} 7h${f1(n.w * 0.35)}" stroke="#00000030" stroke-width="1.4"/>` + (n.root ? flame(x0 + 16, 3, Math.min(1.1, (ry - 3) / 9), "#FF7A1A") : ""), t: {ink: "#FFEBD2", fw: 800, dx: n.root ? 2 : -6, pad: n.root ? 32 : 18}}; }};
   T2.aquarium = {name: "Aquarium Tunnel", base: "#E3F4FB", desc: "Porthole bubble boxes; little fish swimming the lines.",
     tile: dotsTile(200, 200, 8, 88, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(1.5 + r * 3)}" fill="none" stroke="#5BB5D9" opacity=".3"/>`),
     line: p => ({st: "stroke:#5BB5D9;stroke-width:1.4;stroke-dasharray:3 4", post: beads(p, 34, (q, j) => at(q, `<path d="M6 0C3-4-3-4-5 0C-3 4 3 4 6 0ZM-4 0L-9-3L-8 0L-9 3Z" fill="${pick(j, ["#FF922B", "#FCC419", "#4DABF7"])}"/><circle cx="3" cy="-1" r="1" fill="#fff"/>`), 0.2, 0.8)}), arrow: "#2E8FB8",
-    box: n => ({o: rr(n, n.h / 2, S(n.root ? "#2E8FB8" : "#F2FBFF", "#2E8FB8", 2, SH)), post: rr({w: n.w - 8, h: n.h - 8}, n.h / 2 - 4, `fill="none" stroke="${n.root ? "#fff" : "#9FD3EA"}" stroke-opacity=".6"`) + `<path d="M${f1(-n.w / 2 + 10)} ${f1(-n.h / 2 + 9)}q6-5 14-5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".7"/><path d="M${f1(n.w / 2 - 14)} ${f1(n.h / 2 - 1)}q-4-6 0-11t0-9M${f1(n.w / 2 - 9)} ${f1(n.h / 2 - 1)}q3-5 0-9" fill="none" stroke="#3FAE6A" stroke-width="2" stroke-linecap="round"/><circle cx="${f1(n.w / 2 - 22)}" cy="${f1(-n.h / 2 + 10)}" r="2" fill="none" stroke="${n.root ? "#fff" : "#5BB5D9"}"/><circle cx="${f1(n.w / 2 - 18)}" cy="${f1(-n.h / 2 + 5)}" r="1.3" fill="none" stroke="${n.root ? "#fff" : "#5BB5D9"}"/>`, t: {ink: n.root ? "#fff" : "#145A78", fw: 800, dx: -4, pad: 14}})};
+    box: n => ({o: rr(n, n.h / 2, S(n.root ? "#2E8FB8" : "#F2FBFF", "#2E8FB8", 2, SH)), post: rr({w: n.w - 8, h: n.h - 8}, n.h / 2 - 4, `fill="none" stroke="${n.root ? "#fff" : "#9FD3EA"}" stroke-opacity=".6"`) + `<path d="M${f1(-n.w / 2 + 10)} ${f1(-n.h / 2 + 9)}q6-5 14-5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".7"/>${((sx, by, hh) => `<path d="M${f1(sx)} ${f1(by)}q-3 ${f1(-hh / 2)} 0 ${f1(-hh)}M${f1(sx + 5)} ${f1(by)}q3 ${f1(-hh * 0.35)} 0 ${f1(-hh * 0.7)}" fill="none" stroke="#3FAE6A" stroke-width="2" stroke-linecap="round"/>`)(n.w / 2 - n.h / 2 - 2, n.h / 2 - 7, Math.min(16, n.h - 18))}<circle cx="${f1(n.w / 2 - n.h / 2 - 10)}" cy="${f1(-n.h / 2 + 11)}" r="2" fill="none" stroke="${n.root ? "#fff" : "#5BB5D9"}"/><circle cx="${f1(n.w / 2 - n.h / 2 - 5)}" cy="${f1(-n.h / 2 + 8)}" r="1.3" fill="none" stroke="${n.root ? "#fff" : "#5BB5D9"}"/>`, t: {ink: n.root ? "#fff" : "#145A78", fw: 800, dx: -4, pad: 14}})};
   /* Hobbies */
   T2.photography = {name: "Photo Walk", base: "#F4F4F2", desc: "Polaroid boxes with handwritten captions; strap lines with a camera.",
     tile: dotsTile(200, 200, 4, 89, (x, y, r) => `<rect x="${f1(x)}" y="${f1(y)}" width="14" height="16" fill="#fff" stroke="#D8D6CF" transform="rotate(${f1(r * 30 - 15)} ${f1(x)} ${f1(y)})" opacity=".7"/>`),
@@ -106543,7 +107063,7 @@ const CMPACK = (() => {
     tile: dotsTile(220, 220, 6, 95, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(6 + r * 10)}" fill="${pick(Math.floor(r * 5), ["#FF4D8D", "#FFC93C", "#3EC1D3", "#7B5CFF", "#4CD964"])}" opacity=".1"/>`, 22),
     line: (p, i) => ({st: `stroke:${pick(i, ["#FF4D8D", "#3EC1D3", "#7B5CFF"])};stroke-width:2.4;stroke-linecap:round`, post: beads(p, 6, (q, j) => { sd = 300 + j + i * 50; return `<circle cx="${f1(q.x + rnd() * 8 - 4)}" cy="${f1(q.y + rnd() * 8 - 4)}" r="${f1(0.8 + rnd() * 1.6)}" fill="${pick(j + i, ["#FF4D8D", "#FFC93C", "#3EC1D3", "#7B5CFF", "#4CD964"])}" opacity=".85"/>`; })}), arrow: "#7B5CFF",
     box: n => { const c = n.root ? "#FF4D8D" : pick(n.i, ["#FFC93C", "#3EC1D3", "#4CD964"]); sd = 400 + n.i + (n.root ? 9 : 0); const pts = Array.from({length: 18}, (_, j) => { const a = j / 18 * Math.PI * 2, r = 1 + (j % 2 ? 0.1 : -0.04) + rnd() * 0.06; return [Math.cos(a) * (n.w / 2 + 4) * r, Math.sin(a) * (n.h / 2 + 4) * r]; });
-      return {o: `<path d="M${pts.map(q => f1(q[0]) + " " + f1(q[1])).join("L")}Z" ${S(c, "#0000", 0, SH + ";stroke-linejoin:round")}/>`, post: Array.from({length: 4}, () => `<circle cx="${f1((rnd() - 0.5) * (n.w + 30))}" cy="${f1((rnd() - 0.5) * (n.h + 24))}" r="${f1(1.5 + rnd() * 2.5)}" fill="${c}"/>`).join(""), t: {ink: n.i === 0 && !n.root ? "#5C3A00" : "#fff", fw: 800, halo: "#00000026"}}; }};
+      return {o: `<path d="M${pts.map(q => f1(q[0]) + " " + f1(q[1])).join("L")}Z" ${S(c, "#0000", 0, SH + ";stroke-linejoin:round")}/>`, post: Array.from({length: 4}, () => `<circle cx="${f1((rnd() - 0.5) * (n.w - 30))}" cy="${f1((rnd() < 0.5 ? -1 : 1) * (n.h / 2 - 5))}" r="${f1(1.5 + rnd() * 2.5)}" fill="${c}"/>`).join(""), t: {ink: n.i === 0 && !n.root ? "#5C3A00" : "#fff", fw: 800, halo: "#00000026"}}; }};
   T2.stpatricks = {name: "St. Patrick's Day", base: "#F1F9EF", desc: "Shamrock-badge boxes; rainbow lines that end in a gold coin.",
     tile: dotsTile(180, 180, 5, 96, (x, y) => `<g opacity=".18" transform="translate(${f1(x)} ${f1(y)})">${[0, 120, 240].map(a => heart(0, -4, 0.9, "#2F9E44", `transform="rotate(${a})"`)).join("")}</g>`),
     line: p => ({st: "stroke:#FA5252;stroke-width:1.8", pre: ["#FFA94D", "#FFD43B", "#51CF66", "#4DABF7"].map((c, j) => `<path d="${offs(p, () => (j + 1) * 1.8, 30)}" fill="none" stroke="${c}" stroke-width="1.8"/>`).join(""), post: `<circle cx="${f1(p[3][0])}" cy="${f1(p[3][1])}" r="4.5" fill="#F2C14E" stroke="#B8860B"/>`}), arrow: "#B8860B",
@@ -106551,11 +107071,17 @@ const CMPACK = (() => {
   T2.easter = {name: "Easter", base: "#FBF8FF", desc: "Painted-egg boxes with zigzag bands; grass-and-flower lines.",
     tile: dotsTile(180, 180, 5, 97, (x, y, r) => `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="5" ry="6.6" fill="${pick(Math.floor(r * 3), ["#FFC9DE", "#C5F6FA", "#FFF3BF"])}" opacity=".5"/>`),
     line: p => ({st: "stroke:#8CD17A;stroke-width:1.8", post: beads(p, 8, (q, j) => at(q, j % 5 === 2 ? flower(0, -4, 3.4, "#FFC9DE", "#FFD43B") : `<path d="M-2 0l1-6M1 0l2-5" stroke="#69B85A" stroke-width="1.2" stroke-linecap="round"/>`))}), arrow: "#69B85A",
-    box: n => { const c = n.root ? "#B197FC" : pick(n.i, ["#FFC9DE", "#C5F6FA", "#FFF3BF"]), b2 = n.root ? "#FFD43B" : pick(n.i, ["#F783AC", "#3BC9DB", "#FAB005"]), {x0, y0} = B(n), k = Math.round(n.w / 9); return {o: `<ellipse rx="${f1(n.w / 2 + 6)}" ry="${f1(n.h / 2 + 4)}" ${S(c, "#00000026", 1.2, SH)}/>`, post: `<path d="M${f1(x0 - 2)} ${f1(y0 + 2)}${Array.from({length: k}, (_, j) => `l${f1((n.w + 4) / k / 2)} 5l${f1((n.w + 4) / k / 2)}-5`).join("")}" fill="none" stroke="${b2}" stroke-width="2.2" stroke-linejoin="round"/><path d="M${f1(x0 - 2)} ${f1(-y0 - 2)}${Array.from({length: k}, (_, j) => `l${f1((n.w + 4) / k / 2)} -5l${f1((n.w + 4) / k / 2)} 5`).join("")}" fill="none" stroke="${b2}" stroke-width="2.2" stroke-linejoin="round"/>`, t: {ink: n.root ? "#fff" : "#4A2E5C", fw: 800, halo: c, padH: 10}}; }};
+    box: n => { const c = n.root ? "#B197FC" : pick(n.i, ["#FFC9DE", "#C5F6FA", "#FFF3BF"]), b2 = n.root ? "#FFD43B" : pick(n.i, ["#F783AC", "#3BC9DB", "#FAB005"]), a = n.w / 2 + 6, b = n.h / 2 + 4;
+      // each zigzag band sits inside the egg: at its height it runs only as wide as the egg is there
+      const band = (y, up) => { const half = a * Math.sqrt(Math.max(0, 1 - (y * y) / (b * b))) - 5, k = Math.max(2, Math.round(half * 2 / 9)), st = half * 2 / k; return `<path d="M${f1(-half)} ${f1(y)}${Array.from({length: k}, () => `l${f1(st / 2)} ${up ? -4 : 4}l${f1(st / 2)} ${up ? 4 : -4}`).join("")}" fill="none" stroke="${b2}" stroke-width="2.2" stroke-linejoin="round"/>`; };
+      return {o: `<ellipse rx="${f1(a)}" ry="${f1(b)}" ${S(c, "#00000026", 1.2, SH)}/>`, post: band(-b * 0.62, false) + band(b * 0.62, true), t: {ink: n.root ? "#fff" : "#4A2E5C", fw: 800, halo: c, padH: 10}}; }};
   T2.july4 = {name: "Fourth of July", base: "#F5F8FF", desc: "Star badges on striped boxes; firework-burst lines.",
     tile: dotsTile(200, 200, 4, 98, (x, y) => `<g opacity=".2" transform="translate(${f1(x)} ${f1(y)})">${Array.from({length: 8}, (_, j) => `<path d="M0-4v-6" stroke="${pick(j, ["#E03131", "#1C3D8F"])}" stroke-width="1.4" transform="rotate(${j * 45})"/>`).join("")}</g>`, 18),
     line: (p, i) => ({st: `stroke:${pick(i, ["#E03131", "#1C3D8F", "#E03131"])};stroke-width:2;stroke-dasharray:8 3`, post: at(Object.assign(along(p, 1, 0.5, 0.5)[0], {a: 0}), Array.from({length: 8}, (_, j) => `<path d="M0-3v-5" stroke="${pick(j, ["#E03131", "#1C3D8F", "#F2C14E"])}" stroke-width="1.6" stroke-linecap="round" transform="rotate(${j * 45})"/>`).join("") + `<circle r="1.6" fill="#F2C14E"/>`)}), arrow: "#1C3D8F",
-    box: n => { const {x0, y0, x1} = B(n); return {o: rr(n, 6, S("#fff", "#1C3D8F", 1.8, SH)), post: [0.2, 0.55, 0.9].map(f => `<rect x="${f1(x0 + 34)}" y="${f1(y0 + n.h * f - 2)}" width="${f1(n.w - 36)}" height="3" fill="#E03131" opacity=".25"/>`).join("") + `<path d="M${f1(x0 + 6)} ${f1(y0)}h24v${f1(n.h)}h-24a6 6 0 0 1-6-6v${f1(-(n.h - 12))}a6 6 0 0 1 6-6z" fill="#1C3D8F"/>` + star5(x0 + 15, 0, 6.5, "#fff"), t: {ink: n.root ? "#B71C1C" : "#1C3D8F", fw: 800, dx: 15, pad: 30}}; }};
+    box: n => { const {x0, y0, x1, y1} = B(n), cw = 26, stars = (x, y) => [[-5, -6], [5, -6], [0, 0], [-5, 6], [5, 6]].map(([a, b]) => star5(x + a, y + b, 2.6, "#fff")).join("");
+      // the main idea: navy with a row of stars and a red-and-white striped hem; the others: white with a starry canton and red stripes
+      if (n.root) return {o: rr(n, 8, S("#1C3D8F", "#0F2463", 1.8, SH)), post: ((c) => Array.from({length: c}, (_, j) => star5(x0 + 12 + j * (n.w - 24) / (c - 1), y0 + 7, 3, "#fff")).join(""))(Math.max(3, Math.round(n.w / 24))) + `<path d="M${f1(x0 + 1)} ${f1(y1 - 9)}H${f1(x1 - 1)}" stroke="#E03131" stroke-width="3"/><path d="M${f1(x0 + 1)} ${f1(y1 - 6)}H${f1(x1 - 1)}" stroke="#fff" stroke-width="2"/><path d="M${f1(x0 + 6)} ${f1(y1 - 3)}H${f1(x1 - 6)}" stroke="#E03131" stroke-width="2.4" stroke-linecap="round"/>`, t: {ink: "#fff", fw: 800, dy: 1, padH: 14}};
+      return {o: rr(n, 6, S("#fff", "#C92A2A", 1.8, SH)), post: `<path d="M${f1(x0 + cw)} ${f1(y0 + 3)}H${f1(x1 - 3)}M${f1(x0 + cw)} ${f1(y1 - 3)}H${f1(x1 - 3)}" stroke="#E03131" stroke-width="2.6" stroke-linecap="round"/><path d="M${f1(x0 + 6)} ${f1(y0)}H${f1(x0 + cw)}V${f1(y1)}H${f1(x0 + 6)}a6 6 0 0 1-6-6V${f1(y0 + 6)}a6 6 0 0 1 6-6z" fill="#1C3D8F"/>` + stars(x0 + cw / 2, 0), t: {ink: "#1C3D8F", fw: 800, dx: cw / 2, pad: cw + 6}}; }};
   T2.midautumn = {name: "Mid-Autumn Festival", base: "#FFF6E6", desc: "Mooncake boxes with a scalloped rim; paper-lantern lines.",
     tile: dotsTile(220, 200, 2, 99, (x, y) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="14" fill="#FFE8A3" opacity=".35"/>`, 24),
     line: p => ({st: "stroke:#8A5A2B;stroke-width:1.2", post: beads(p, 30, (q, j) => `<path d="M${f1(q.x)} ${f1(q.y)}v4" stroke="#8A5A2B"/><ellipse cx="${f1(q.x)}" cy="${f1(q.y + 10)}" rx="5" ry="6" fill="${pick(j, ["#FF6B3D", "#FFB000", "#E03131"])}" style="filter:drop-shadow(0 0 3px #FFB000)"/>`, 0.15, 0.85)}), arrow: "#8A5A2B",
@@ -106565,12 +107091,12 @@ const CMPACK = (() => {
     tile: dotsTile(200, 200, 6, 100, (x, y, r) => flower(x, y, 3 + r * 2, "#FF9F1C").replace("<g ", '<g opacity=".25" ')),
     chip: ["#2B1A3D", "#FF9F1C", "#FFE3B8", ""],
     line: p => ({st: "stroke:#4CAF50;stroke-width:1.2", post: beads(p, 10, (q, j) => flower(q.x, q.y, j % 2 ? 4 : 5, j % 2 ? "#FFB703" : "#FB8500", "#9A3B00"))}), arrow: "#FFB703",
-    box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#FF4FA3" : pick(n.i, ["#00B4D8", "#FFB703", "#8AC926"]), k = Math.max(4, Math.round(n.w / 12)); return {o: `<path d="M${f1(x0)} ${f1(y0)}H${f1(x1)}V${f1(y1 - 6)}${Array.from({length: k}, () => `l${f1(-n.w / k / 2)} 6l${f1(-n.w / k / 2)}-6`).join("")}Z" ${S(c, "#0000", 0, SH)}/>`, post: `<path d="M${f1(x0 - 4)} ${f1(y0)}H${f1(x1 + 4)}" stroke="#FFE3B8" stroke-width="1.4"/>` + Array.from({length: k}, (_, j) => `<circle cx="${f1(x0 + (j + 0.5) * n.w / k)}" cy="${f1(y1 - 9)}" r="1.6" fill="#2B1A3D" opacity=".55"/>`).join("") + `<path d="M${f1(x0 + 5)} ${f1(y0 + 5)}h4l2 3 2-3h4" fill="none" stroke="#2B1A3D" stroke-opacity=".4"/>`, t: {ink: "#fff", fw: 800, halo: "#00000040", dy: -2, padH: 8}}; }};
+    box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#FF4FA3" : pick(n.i, ["#00B4D8", "#FFB703", "#8AC926"]), k = Math.max(4, Math.round(n.w / 12)); return {o: `<path d="M${f1(x0)} ${f1(y0)}H${f1(x1)}V${f1(y1 - 6)}${Array.from({length: k}, () => `l${f1(-n.w / k / 2)} 6l${f1(-n.w / k / 2)}-6`).join("")}Z" ${S(c, "#0000", 0, SH)}/>`, post: `<path d="M${f1(x0)} ${f1(y0)}H${f1(x1)}" stroke="#FFE3B8" stroke-width="1.4"/>` + Array.from({length: k}, (_, j) => `<circle cx="${f1(x0 + (j + 0.5) * n.w / k)}" cy="${f1(y1 - 9)}" r="1.6" fill="#2B1A3D" opacity=".55"/>`).join("") + `<path d="M${f1(x0 + 5)} ${f1(y0 + 5)}h4l2 3 2-3h4" fill="none" stroke="#2B1A3D" stroke-opacity=".4"/>`, t: {ink: "#fff", fw: 800, halo: "#00000040", dy: -2, padH: 8}}; }};
   T2.diwali = {name: "Diwali", base: "#2A1631", dark: true, desc: "Rangoli-bordered boxes; lines of little diya lamps.",
     tile: dotsTile(200, 200, 8, 101, (x, y, r) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(0.8 + r)}" fill="#FFC94D" opacity=".4"/>`),
     chip: ["#2A1631", "#FFC94D", "#FFF0C2", ""],
     line: p => ({st: "stroke:#FFC94D;stroke-width:1;stroke-dasharray:2 3", post: beads(p, 30, q => `<g transform="translate(${f1(q.x)} ${f1(q.y)})"><path d="M-7 0Q0 7 7 0Z" fill="#D9480F"/>${flame(0, -2, 0.55, "#FF9F1C")}</g>`, 0.15, 0.85)}), arrow: "#FFC94D",
-    box: n => { const c = n.root ? "#E8590C" : pick(n.i, ["#C2255C", "#7048E8", "#0CA678"]); return {o: rr(n, 10, S(c, "#FFC94D", 2, `filter:drop-shadow(0 0 6px ${c}aa)`)), post: rr({w: n.w - 8, h: n.h - 8}, 6, `fill="none" stroke="#FFC94D" stroke-width="1.6" stroke-dasharray="1 4" stroke-linecap="round"`) + [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => flower(a * (n.w / 2 - 2), b * (n.h / 2 - 2), 4, "#FFC94D", "#E8590C")).join(""), t: {ink: "#FFF5DC", fw: 800}}; }};
+    box: n => { const c = n.root ? "#E8590C" : pick(n.i, ["#C2255C", "#7048E8", "#0CA678"]); return {o: rr(n, 10, S(c, "#FFC94D", 2, `filter:drop-shadow(0 0 6px ${c}aa)`)), post: rr({w: n.w - 8, h: n.h - 8}, 6, `fill="none" stroke="#FFC94D" stroke-width="1.6" stroke-dasharray="1 4" stroke-linecap="round"`) + [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => flower(a * (n.w / 2 - 9), b * (n.h / 2 - 8), 3.4, "#FFC94D", "#E8590C")).join(""), t: {ink: "#FFF5DC", fw: 800}}; }};
   T2.thanksgiving = {name: "Thanksgiving", base: "#FBF4EA", desc: "Pie-crust boxes; garlands of autumn leaves and acorns.",
     tile: dotsTile(180, 180, 5, 102, (x, y, r) => `<path transform="translate(${f1(x)} ${f1(y)}) rotate(${f1(r * 360)}) scale(.7)" d="${LEAF}" fill="${pick(Math.floor(r * 3), ["#D9480F", "#F08C00", "#A0522D"])}" opacity=".2"/>`),
     line: p => ({st: "stroke:#8A5A2B;stroke-width:1.6", post: beads(p, 18, (q, j) => j % 3 === 2 ? `<g transform="translate(${f1(q.x)} ${f1(q.y + 3)})"><ellipse cy="2" rx="3.4" ry="4" fill="#B5793A"/><path d="M-4-1h8a4 3 0 0 0-8 0z" fill="#6B4423"/></g>` : at(q, `<path transform="translate(0 ${j % 2 ? -6 : 6}) scale(.7) rotate(${j % 2 ? 0 : 180})" d="${LEAF}" fill="${pick(j, ["#D9480F", "#F08C00"])}"/>`))}), arrow: "#8A5A2B",
@@ -106613,7 +107139,7 @@ const CMPACK = (() => {
   T2.chem = {name: "Chem Lab", base: "#F2F7FA", desc: "Beaker boxes half-full of liquid; ball-and-stick bond lines.",
     tile: dotsTile(200, 200, 4, 110, (x, y) => `<g opacity=".14" fill="none" stroke="#1971C2"><path d="M${f1(x)} ${f1(y - 8)}l7 4v8l-7 4-7-4v-8z"/></g>`),
     line: (p, i) => ({st: "stroke:#868E96;stroke-width:2.4", post: along(p, 3, 0.25, 0.75).map((q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="${j === 1 ? 5 : 4}" fill="${pick(j + i, ["#E03131", "#1971C2", "#495057"])}" stroke="#fff" stroke-width="1.2"/>`).join("")}), arrow: "#495057",
-    box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#40C057" : pick(n.i, ["#4DABF7", "#F783AC", "#FFD43B"]), lv = y0 + n.h * 0.48; return {o: rr(n, 6, S("#FFFFFFE6", "#5C6B7A", 1.6, SH)), post: `<path d="M${f1(x0 + 1.5)} ${f1(lv)}q${f1(n.w / 4)}-3 ${f1(n.w / 2)} 0t${f1(n.w / 2 - 3)} 0V${f1(y1 - 6)}a5 5 0 0 1-5 5H${f1(x0 + 6.5)}a5 5 0 0 1-5-5Z" fill="${c}" opacity=".45"/><path d="M${f1(x0 - 3)} ${f1(y0)}H${f1(x0 + 8)}M${f1(x1 - 8)} ${f1(y0)}H${f1(x1 + 3)}" stroke="#5C6B7A" stroke-width="1.6"/><circle cx="${f1(x1 - 14)}" cy="${f1(lv + 6)}" r="2" fill="#fff" opacity=".8"/><circle cx="${f1(x1 - 20)}" cy="${f1(lv + 11)}" r="1.3" fill="#fff" opacity=".8"/>`, t: {ink: "#1F2933", fw: 800}}; }};
+    box: n => { const {x0, y0, x1, y1} = B(n), c = n.root ? "#40C057" : pick(n.i, ["#4DABF7", "#F783AC", "#FFD43B"]), lv = y0 + n.h * 0.48; return {o: rr(n, 6, S("#FFFFFFE6", "#5C6B7A", 1.6, SH)), post: `<path d="M${f1(x0 + 1.5)} ${f1(lv)}q${f1(n.w / 4)}-3 ${f1(n.w / 2)} 0t${f1(n.w / 2 - 3)} 0V${f1(y1 - 6)}a5 5 0 0 1-5 5H${f1(x0 + 6.5)}a5 5 0 0 1-5-5Z" fill="${c}" opacity=".45"/><path d="M${f1(x0 + 1)} ${f1(y0 + 1)}H${f1(x0 + 9)}M${f1(x1 - 9)} ${f1(y0 + 1)}H${f1(x1 - 1)}" stroke="#5C6B7A" stroke-width="1.6"/><circle cx="${f1(x1 - 14)}" cy="${f1(lv + 6)}" r="2" fill="#fff" opacity=".8"/><circle cx="${f1(x1 - 20)}" cy="${f1(lv + 11)}" r="1.3" fill="#fff" opacity=".8"/>`, t: {ink: "#1F2933", fw: 800}}; }};
   T2.sketchcity = {name: "Sketch City", base: "#FAF9F6", desc: "Hand-sketched building boxes with rooflines and hatching.",
     tile: dotsTile(220, 200, 3, 111, (x, y) => `<path transform="translate(${f1(x)} ${f1(y)})" d="M-12 8V-2h6v-6h8v10h6V0h4v8" fill="none" stroke="#A0A0A0" stroke-opacity=".3"/>`, 20),
     line: p => ({st: "stroke:#4A4A4A;stroke-width:1.4;stroke-linecap:round", d: offs(p, (t, d) => Math.sin(d / 7) * 0.8 + Math.sin(d / 19) * 0.8), pre: `<path d="${offs(p, (t, d) => 1.2 + Math.sin(d / 11) * 0.6)}" fill="none" stroke="#4A4A4A" stroke-width=".7" opacity=".5"/>`}), arrow: "#4A4A4A",
@@ -106627,12 +107153,12 @@ const CMPACK = (() => {
   T2.morocco = {name: "Morocco", base: "#FBF3E8", desc: "Arched-doorway boxes with zellige tiles; lantern-bead lines.",
     tile: tile(40, 40, `<path d="M20 4l5 11 11 5-11 5-5 11-5-11L4 20l11-5z" fill="none" stroke="#1C7C7D" stroke-opacity=".1"/>`),
     line: p => ({st: "stroke:#B8860B;stroke-width:1.4", post: beads(p, 18, (q, j) => `<path transform="translate(${f1(q.x)} ${f1(q.y)})" d="M0-5L3.4 0L0 5L-3.4 0Z" fill="${pick(j, ["#1C7C7D", "#C2410C", "#B8860B"])}"/>`)}), arrow: "#B8860B",
-    box: n => { const {x0, y0, x1, y1} = B(n), r = Math.min(n.w / 2, 16); return {o: `<path d="M${f1(x0)} ${f1(y1)}V${f1(y0 + r)}Q${f1(x0)} ${f1(y0)} ${f1(-n.w * 0.15)} ${f1(y0)}L0 ${f1(y0 - 8)}L${f1(n.w * 0.15)} ${f1(y0)}Q${f1(x1)} ${f1(y0)} ${f1(x1)} ${f1(y0 + r)}V${f1(y1)}Z" ${S(n.root ? "#1C7C7D" : "#F6E7D2", "#9A4A1C", 1.8, SH + ";stroke-linejoin:round")}/>`, post: Array.from({length: Math.round(n.w / 10)}, (_, j) => `<rect x="${f1(x0 + 2 + j * 10)}" y="${f1(y1 - 7)}" width="7" height="5" fill="${pick(j, ["#1C7C7D", "#C2410C", "#E0B44A", "#2B4C9A"])}" transform="rotate(45 ${f1(x0 + 5.5 + j * 10)} ${f1(y1 - 4.5)})" opacity=".85"/>`).join("").replace(/x="(-?[\d.]+)"/g, (m, v) => +v > x1 - 9 ? 'x="-9999"' : m), t: {ink: n.root ? "#FFF3DE" : "#7A2E0E", fw: 800, dy: -1, padH: 10}}; }};
+    box: n => { const {x0, y0, x1, y1} = B(n), r = Math.min(n.w / 2, 16); return {o: `<path d="M${f1(x0)} ${f1(y1)}V${f1(y0 + r)}Q${f1(x0)} ${f1(y0)} ${f1(-n.w * 0.15)} ${f1(y0)}L0 ${f1(y0 - 8)}L${f1(n.w * 0.15)} ${f1(y0)}Q${f1(x1)} ${f1(y0)} ${f1(x1)} ${f1(y0 + r)}V${f1(y1)}Z" ${S(n.root ? "#1C7C7D" : "#F6E7D2", "#9A4A1C", 1.8, SH + ";stroke-linejoin:round")}/>`, post: Array.from({length: Math.max(1, Math.floor((n.w - 12) / 10))}, (_, j) => `<rect x="${f1(x0 + 7 + j * 10)}" y="${f1(y1 - 8)}" width="5" height="5" fill="${pick(j, ["#1C7C7D", "#C2410C", "#E0B44A", "#2B4C9A"])}" transform="rotate(45 ${f1(x0 + 9.5 + j * 10)} ${f1(y1 - 5.5)})" opacity=".85"/>`).join(""), t: {ink: n.root ? "#FFF3DE" : "#7A2E0E", fw: 800, dy: -1, padH: 10}}; }};
   T2.italy = {name: "Italy", base: "#FFFAF0", desc: "Café-awning boxes in green, white and red with a lemon; tricolour lines.",
     defs: `<pattern id="pk-itaw" width="27" height="10" patternUnits="userSpaceOnUse"><rect width="9" height="10" fill="#2F9E44"/><rect x="9" width="9" height="10" fill="#fff"/><rect x="18" width="9" height="10" fill="#E03131"/></pattern>`,
     tile: dotsTile(180, 180, 3, 112, (x, y) => `<g opacity=".2" transform="translate(${f1(x)} ${f1(y)})"><ellipse rx="6" ry="4.4" fill="#FFD43B"/>${leafP(6, -4, 0.8, "#2F9E44", -30)}</g>`),
     line: p => ({st: "stroke:#fff;stroke-width:2", pre: `<path d="${offs(p, () => 2.4, 30)}" fill="none" stroke="#2F9E44" stroke-width="2"/><path d="${offs(p, () => -2.4, 30)}" fill="none" stroke="#E03131" stroke-width="2"/>`}), arrow: "#2F9E44",
-    box: n => { const {x0, y0, x1} = B(n); return {o: rr(n, 6, S(n.root ? "#FFF3D6" : "#FFFFFF", "#C2410C", 1.6, SH)), post: `<path d="M${f1(x0 + 0.8)} ${f1(y0 + 10)}V${f1(y0 + 6)}a5.2 5.2 0 0 1 5.2-5.2H${f1(x1 - 6)}a5.2 5.2 0 0 1 5.2 5.2V${f1(y0 + 10)}Z" fill="url(#pk-itaw)"/><path d="M${f1(x0)} ${f1(y0 + 10)}H${f1(x1)}" stroke="#C2410C" stroke-width="1"/>` + (n.root ? `<g transform="translate(${f1(x1 - 8)} ${f1(y0 + 2)})"><ellipse rx="6" ry="4.4" fill="#FFD43B" stroke="#E8A600"/>${leafP(6, -4, 0.8, "#2F9E44", -30)}</g>` : ""), t: {ink: "#7A2E0E", font: "serif", fw: 700, dy: 4, padH: 8}}; }};
+    box: n => { const {x0, y0, x1} = B(n); return {o: rr(n, 6, S(n.root ? "#FFF3D6" : "#FFFFFF", "#C2410C", 1.6, SH)), post: `<path d="M${f1(x0 + 0.8)} ${f1(y0 + 10)}V${f1(y0 + 6)}a5.2 5.2 0 0 1 5.2-5.2H${f1(x1 - 6)}a5.2 5.2 0 0 1 5.2 5.2V${f1(y0 + 10)}Z" fill="url(#pk-itaw)"/><path d="M${f1(x0)} ${f1(y0 + 10)}H${f1(x1)}" stroke="#C2410C" stroke-width="1"/>` + (n.root ? `<g transform="translate(${f1(x1 - 14)} ${f1(y0 + 17)}) scale(.8)"><ellipse rx="6" ry="4.4" fill="#FFD43B" stroke="#E8A600"/>${leafP(6, -4, 0.8, "#2F9E44", -30)}</g>` : ""), t: {ink: "#7A2E0E", font: "serif", fw: 700, dy: 4, padH: 8}}; }};
   T2.greece = {name: "Greece", base: "#F4F8FD", desc: "Whitewashed boxes with a blue dome and Greek-key border; meander lines.",
     tile: tile(40, 20, `<path d="M0 15h10V5H5v5" fill="none" stroke="#1E5BB8" stroke-opacity=".1"/>`),
     line: p => ({st: "stroke:#1E5BB8;stroke-width:1.6", post: beads(p, 12, (q, j) => at(q, `<path d="M-4 3V-3H3V1H-1" fill="none" stroke="#1E5BB8" stroke-width="1.1" transform="translate(0 ${j % 2 ? -5 : 5}) scale(.8)"/>`), 0.1, 0.9)}), arrow: "#1E5BB8",
@@ -106645,7 +107171,7 @@ const CMPACK = (() => {
     defs: `<pattern id="pk-plaid" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#C92A2A"/><rect width="8" height="8" fill="#7A1414"/><rect x="8" y="8" width="8" height="8" fill="#A61E1E"/></pattern>`,
     tile: dotsTile(200, 200, 4, 113, (x, y, r) => `<path transform="translate(${f1(x)} ${f1(y)}) scale(.7) rotate(${f1(r * 40 - 20)})" d="M0-10l2 5 4-2-1 6 4 1-5 4 1 3-5-1v4h-1v-4l-5 1 1-3-5-4 4-1-1-6 4 2z" fill="#E03131" opacity=".15"/>`),
     line: (p, i) => ({st: "stroke:#8A5A2B;stroke-width:2.6;stroke-linecap:round", post: i === 1 ? at(along(p, 1, 0.5, 0.5)[0], `<path d="M-14-1.4H2v2.8H-14z" fill="#A0703F"/><ellipse cx="9" rx="8" ry="4" fill="#C9965E" stroke="#8A5A2B"/>`) : ""}), arrow: "#8A5A2B",
-    box: n => { const {x0} = B(n); return {o: rr(n, 6, S(n.root ? "url(#pk-plaid)" : "#FFFFFF", "#7A1414", 1.6, SH)), post: (n.root ? rr({w: n.w - 14, h: n.h - 14}, 4, `fill="#fff" fill-opacity=".9"`) : "") + `<path transform="translate(${f1(x0 + (n.root ? -2 : 13))} ${f1(n.root ? -n.h / 2 : 1)}) scale(${n.root ? 1 : 0.85})" d="M0-10l2 5 4-2-1 6 4 1-5 4 1 3-5-1v4h-1v-4l-5 1 1-3-5-4 4-1-1-6 4 2z" fill="#E03131"/>`, t: {ink: "#7A1414", fw: 800, dx: n.root ? 0 : 8, pad: n.root ? 18 : 22}}; }};
+    box: n => { const {x0} = B(n); return {o: rr(n, 6, S(n.root ? "url(#pk-plaid)" : "#FFFFFF", "#7A1414", 1.6, SH)), post: (n.root ? rr({w: n.w - 14, h: n.h - 14}, 4, `fill="#fff" fill-opacity=".9"`) : "") + `<path transform="translate(${f1(x0 + (n.root ? 19 : 13))} 1) scale(${n.root ? 0.75 : 0.85})" d="M0-10l2 5 4-2-1 6 4 1-5 4 1 3-5-1v4h-1v-4l-5 1 1-3-5-4 4-1-1-6 4 2z" fill="#E03131"/>`, t: {ink: "#7A1414", fw: 800, dx: 8, pad: n.root ? 30 : 22}}; }};
   T2.mexico = {name: "Mexico", base: "#FFF8EE", desc: "Sarape-striped boxes; colourful stitched lines with a cactus.",
     tile: dotsTile(200, 200, 3, 114, (x, y) => `<path transform="translate(${f1(x)} ${f1(y)})" d="M-2 8V-6a2 2 0 0 1 4 0V8M-2 0h-3V-4M2 2h3V-2" fill="none" stroke="#2F9E44" stroke-width="2" stroke-linecap="round" opacity=".18"/>`, 18),
     line: (p, i) => ({st: `stroke:${pick(i, ["#E64980", "#12B886", "#F59F00"])};stroke-width:2;stroke-dasharray:6 3`, post: i === 2 ? at(Object.assign(along(p, 1, 0.5, 0.5)[0], {a: 0}), `<path d="M-2 8V-6a2 2 0 0 1 4 0V8M-2 0h-3V-4M2 2h3V-2" fill="none" stroke="#2F9E44" stroke-width="2.4" stroke-linecap="round"/>`) : ""}), arrow: "#E64980",
@@ -106653,7 +107179,7 @@ const CMPACK = (() => {
   T2.brazil = {name: "Brazil", base: "#F3FBF2", desc: "Carnival-feather boxes in green and gold; samba-bead lines.",
     tile: dotsTile(220, 200, 4, 115, (x, y, r) => leafP(x, y, 2.2, "#2F9E44", r * 180).replace("/>", ' opacity=".1"/>')),
     line: p => ({st: "stroke:#1E7B3A;stroke-width:1.2", post: beads(p, 10, (q, j) => `<circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="${j % 2 ? 2.6 : 3.4}" fill="${pick(j, ["#FFD43B", "#2F9E44", "#1C5BBA"])}"/>`)}), arrow: "#1E7B3A",
-    box: n => { const {x0, y0, x1} = B(n), c = n.root ? "#1E7B3A" : pick(n.i, ["#FFD43B", "#2F9E44", "#1C5BBA"]); return {pre: [-1, 0, 1].map(k => `<path transform="translate(${f1(k * 16)} ${f1(y0 + 2)}) rotate(${k * 22})" d="M0 0C-6-8-4-20 0-24C4-20 6-8 0 0Z" fill="${pick(k + 1, ["#FFD43B", "#E64980", "#3BC9DB"])}" stroke="#00000022"/>`).join(""), o: rr(n, n.h / 2, S(c, "#0F4D22", 1.6, SH)), post: `<path d="M${f1(x0 + 8)} ${f1(-n.h / 2 + 5)}H${f1(x1 - 8)}" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".35"/>`, t: {ink: n.i === 0 && !n.root ? "#5C3D00" : "#fff", fw: 800}}; }};
+    box: n => { const {x0, y0, x1} = B(n), c = n.root ? "#1E7B3A" : pick(n.i, ["#FFD43B", "#2F9E44", "#1C5BBA"]); const fan = [-1, 0, 1].map(k => `<path transform="translate(${f1(x0 + n.h / 2 + 2)} ${f1(n.h / 2 - 7)}) rotate(${k * 30}) scale(${f1(Math.min(0.8, (n.h - 14) / 24))})" d="M0 0C-5-7-4-17 0-21C4-17 5-7 0 0Z" fill="${pick(k + 1, ["#FFD43B", "#E64980", "#3BC9DB"])}" stroke="#00000022"/>`).join(""); return {o: rr(n, n.h / 2, S(c, "#0F4D22", 1.6, SH)), post: `<path d="M${f1(x0 + 8)} ${f1(-n.h / 2 + 5)}H${f1(x1 - 8)}" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".35"/>` + fan, t: {ink: n.i === 0 && !n.root ? "#5C3D00" : "#fff", fw: 800, dx: 8, pad: 18}}; }};
   /* The plain-colour themes: just colour. Rounded boxes and plain lines in the theme's colour, on the default map's even dot grid;
      no decoration (their names and descriptions stay). [paper background, main colour, light fill, words] */
   const PLAIN = {classic: ["#F4F7FB", "#2F6FE4", "#EAF1FD", "#1E293B"], paper: ["#FAFAF7", "#4B5563", "#F1F1EC", "#1F2328"], slate: ["#F1F3F6", "#4A6FA5", "#E6ECF4", "#1E2733"],
@@ -107014,11 +107540,19 @@ const CMAP = (() => {
   }
   /* Embeds (Pro): a link from a site that's made to be embedded becomes a player on the map.
      Only these hosts can be framed (the app's Content-Security-Policy lists the same EMBED_HOSTS); anything else stays a link. */
-  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com"];
-  const PROVIDERS = {youtube: "YouTube", vimeo: "Vimeo", loom: "Loom", gdoc: "Google Docs", gslides: "Google Slides", gsheet: "Google Sheets", gdrive: "Google Drive", desmos: "Desmos", geogebra: "GeoGebra", phet: "PhET Simulation", spotify: "Spotify", ted: "TED Talk", canva: "Canva"};
+  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com"];
+  // exact sites only (no wildcards: the app's security policy frames named sites, never a whole domain such as every school's sharepoint.com)
+  const hostOk = host => EMBED_HOSTS.includes(host);
+  const PROVIDERS = {youtube: "YouTube", vimeo: "Vimeo", loom: "Loom", gdoc: "Google Docs", gslides: "Google Slides", gsheet: "Google Sheets", gdrive: "Google Drive", desmos: "Desmos", geogebra: "GeoGebra", phet: "PhET Simulation", spotify: "Spotify", ted: "TED Talk", canva: "Canva", mword: "Word", mexcel: "Excel", mppt: "PowerPoint", m365: "Microsoft 365"};
   const secs = t => { const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/.exec(String(t || "")); return m ? (Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0)) : 0; };
+  // Microsoft 365: Word, Excel or PowerPoint from a share link's letter (:w: :x: :p:) or a file's extension
+  const msKind = s => /^(w|docx?|word)$/i.test(s) ? "mword" : /^(x|xlsx?|xlsm|excel)$/i.test(s) ? "mexcel" : /^(p|pptx?|powerpoint)$/i.test(s) ? "mppt" : "m365";
+  const extOf = s => (/\.(docx?|xlsx?|xlsm|pptx?)(?:$|[?#])/i.exec(String(s || "")) || [])[1] || "";
   function embedOf(raw){
-    let u; try { u = new URL(String(raw || "").trim().replace(/^(?!https?:\/\/)/i, "https://")); } catch (e) { return null; }
+    raw = String(raw || "").trim();
+    // embed code pasted as it's given (OneDrive's Embed, and most sites'): its <iframe>'s address
+    const fr = /<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i.exec(raw); if (fr) raw = fr[1].replace(/&amp;/g, "&");
+    let u; try { u = new URL(raw.replace(/^(?!https?:\/\/)/i, "https://")); } catch (e) { return null; }
     if (u.protocol !== "https:" && u.protocol !== "http:") return null;
     const h = u.hostname.replace(/^(www|m)\./, ""), p = u.pathname, q = k => u.searchParams.get(k) || "", out = (pv, e, x) => Object.assign({p: pv, u: u.href, e, name: PROVIDERS[pv]}, x || {});
     let m;
@@ -107046,9 +107580,17 @@ const CMAP = (() => {
     if (h === "open.spotify.com" && (m = /^\/(?:embed\/)?(track|album|playlist|episode|show)\/(\w{10,})/.exec(p))) return out("spotify", `https://open.spotify.com/embed/${m[1]}/${m[2]}`, {id: m[2]});
     if ((h === "ted.com" || h === "embed.ted.com") && (m = /^\/talks\/([\w-]+)/.exec(p))) return out("ted", `https://embed.ted.com/talks/${m[1]}`, {id: m[1]});
     if (h === "canva.com" && (m = /^\/design\/([\w-]{8,})\/([\w-]+)?/.exec(p))) return out("canva", `https://www.canva.com/design/${m[1]}/${m[2] || "view"}/view?embed`, {id: m[1]});
+    // Microsoft 365, personal OneDrive: the address from File, Share, Embed (its embed code or link)
+    if (u.hostname === "onedrive.live.com" && /^\/embed\/?$/.test(p) && (q("resid") || q("id") || q("cid"))) {
+      const e = new URL("https://onedrive.live.com/embed"); ["cid", "resid", "id", "authkey", "em", "wdAllowInteractivity", "wdStartOn", "ithint"].forEach(k => { if (q(k)) e.searchParams.set(k, q(k)); });
+      if (!e.searchParams.get("em")) e.searchParams.set("em", "2");
+      const it = /file,(\w+)/.exec(q("ithint")); return out(msKind(it ? it[1] : extOf(q("resid"))), e.href, {id: q("resid") || q("id")});
+    }
+    // Office's viewer for a file anyone can download (Word, Excel or PowerPoint at a public address)
+    if (u.hostname === "view.officeapps.live.com" && /^\/op\/(view|embed)\.aspx$/i.test(p) && /^https:\/\//i.test(q("src"))) return out(msKind(extOf(q("src"))), "https://view.officeapps.live.com/op/embed.aspx?src=" + encodeURIComponent(q("src")), {id: q("src")});
     return null;
   }
-  const embedOk = url => { try { const x = new URL(url); return x.protocol === "https:" && EMBED_HOSTS.includes(x.hostname); } catch (e) { return false; } };
+  const embedOk = url => { try { const x = new URL(url); return x.protocol === "https:" && hostOk(x.hostname); } catch (e) { return false; } };
   /* Previews: an embed's box shows the provider's own picture, loaded from the provider by its address. Only the address (th) and the title (tt) are kept on the embed,
      never the picture. th: the provider's documented thumbnail address; oe: its oEmbed endpoint (answers with CORS) for thumbnail_url and title;
      live: no picture to be had (Desmos, GeoGebra, Canva, Google published to the web), so the box can show a small live view of the embed itself. */
@@ -107069,7 +107611,7 @@ const CMAP = (() => {
   }
   // what an oEmbed answer gives a box: the address of the provider's picture, and the title
   const fromOembed = j => ({th: j && thumbOk(j.thumbnail_url) ? j.thumbnail_url : "", tt: j && typeof j.title === "string" ? j.title.replace(/\s+/g, " ").trim().slice(0, 120) : ""});
-  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
+  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, hostOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
 })();
 /*CMAP-END*/
 
@@ -107482,11 +108024,14 @@ async function smallJpeg(file, max){
 }
 /* Embeds (Pro): a video, slides, a doc or a simulation on the map. Only links from the sites in CMAP.EMBED_HOSTS become players; they play in a frame over the map. */
 const EMB_VIDEO = new Set(["youtube", "vimeo", "loom", "ted", "spotify"]);
-const EMB_COL = {youtube: "#C4302B", vimeo: "#1AB7EA", loom: "#625DF5", gdoc: "#2B7CD3", gslides: "#E6A100", gsheet: "#1E8E3E", gdrive: "#4285F4", desmos: "#2F7D31", geogebra: "#6557D2", phet: "#2A6EBB", spotify: "#1DB954", ted: "#E62B1E", canva: "#7D2AE8"};
+const EMB_COL = {youtube: "#C4302B", vimeo: "#1AB7EA", loom: "#625DF5", gdoc: "#2B7CD3", gslides: "#E6A100", gsheet: "#1E8E3E", gdrive: "#4285F4", desmos: "#2F7D31", geogebra: "#6557D2", phet: "#2A6EBB", spotify: "#1DB954", ted: "#E62B1E", canva: "#7D2AE8", mword: "#185ABD", mexcel: "#107C41", mppt: "#C43E1C", m365: "#0F6CBD"};
 const embName = e => { const nm = CMAP.PROVIDERS[e && e.p] || "Embed"; return ["youtube", "vimeo", "loom"].includes(e && e.p) ? nm + " video" : nm; };
-const EMB_SITES = "YouTube, Vimeo, Loom, Google Docs, Google Slides, Google Sheets, Google Drive, Desmos, GeoGebra, PhET, Spotify, TED and Canva";
+const EMB_SITES = "YouTube, Vimeo, Loom, Google Docs, Slides, Sheets and Drive, Word, Excel and PowerPoint for the web, Desmos, GeoGebra, PhET, Spotify, TED and Canva";
 const GOOGLE = new Set(["gdoc", "gslides", "gsheet", "gdrive"]);
 const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with the link can view (or File, Share, Publish to web).";
+// Word, Excel and PowerPoint: a personal OneDrive file shows from its Embed code; a school or work file shows to people signed in to that school's Microsoft 365
+const MS365 = new Set(["mword", "mexcel", "mppt", "m365"]);
+const MS_TIP = "From OneDrive: File, Share, Embed, then paste the code here. A school or work file shows to anyone signed in to that Microsoft 365 who can open it.";
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
   const e = CMAP.embedOf(raw); if (!e || !CMAP.embedOk(e.e)) return false;
@@ -107503,11 +108048,11 @@ function embedPanel(ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return; }
   const P = M.el.querySelector(".cm-panel"), onto = ontoId && M.byId[ontoId] && M.byId[ontoId].kind === "idea" ? ontoId : "";
   P.innerHTML = `<form class="cm-embf"><label class="lh" for="cmEmbIn">${onto ? `Add a Video or Embed to <b>${esc(trunc(M.byId[onto].label, 30))}</b>` : "Add a Video or Embed"}</label>
-    <div class="cm-embrow"><input type="url" id="cmEmbIn" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link, like youtube.com/watch?v=…"><button type="submit" class="btn small primary" disabled>Add</button></div>
+    <div class="cm-embrow"><input type="text" id="cmEmbIn" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link or embed code, like youtube.com/watch?v=…"><button type="submit" class="btn small primary" disabled>Add</button></div>
     <p class="mini cm-embst" data-cm-embst aria-live="polite">Works with ${EMB_SITES}.</p><div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button></div></form>`;
   const f = P.querySelector("form"), inp = f.querySelector("input"), st = f.querySelector("[data-cm-embst]"), go = f.querySelector("[type=submit]");
   const check = () => { const v = inp.value.trim(), e = v ? CMAP.embedOf(v) : null; go.disabled = !e; st.classList.toggle("is-ok", !!e); st.classList.toggle("is-bad", !!v && !e);
-    st.innerHTML = !v ? `Works with ${EMB_SITES}.` : e ? `<span class="cm-embdot" style="background:${EMB_COL[e.p]}"></span>${esc(e.name)}${EMB_VIDEO.has(e.p) ? " · plays right on the map" : " · opens right on the map"}${GOOGLE.has(e.p) && !e.pub ? `<span class="cm-embtip">${esc(GOOGLE_TIP)}</span>` : ""}` : `That link can't play on a map. Use a link from ${EMB_SITES}.`; };
+    st.innerHTML = !v ? `Works with ${EMB_SITES}.` : e ? `<span class="cm-embdot" style="background:${EMB_COL[e.p]}"></span>${esc(e.name)}${EMB_VIDEO.has(e.p) ? " · plays right on the map" : " · opens right on the map"}${MS365.has(e.p) && !/onedrive\.live\.com\/embed|officeapps/.test(e.e) ? `<span class="cm-embtip">${esc(MS_TIP)}</span>` : ""}${GOOGLE.has(e.p) && !e.pub ? `<span class="cm-embtip">${esc(GOOGLE_TIP)}</span>` : ""}` : /\.sharepoint\.com/i.test(v) ? "A school or work Microsoft 365 link can't show on a map. Save the file to your personal OneDrive and paste its Embed code (File, Share, Embed), or use a Google Docs link." : `That link can't play on a map. Use a link from ${EMB_SITES}.`; };
   inp.addEventListener("input", check); inp.focus();
   f.addEventListener("submit", ev => { ev.preventDefault(); if (!addEmbed(inp.value, onto)) check(); });
 }
@@ -107722,6 +108267,38 @@ function arrowFor(e){
   if (!M.marks[id]) M.marks[id] = `<marker id="${id}" viewBox="0 0 10 10" refX="2" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M0 0L10 5L0 10Z"/></marker><marker id="${id}S" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M10 0L0 5L10 10Z"/></marker>`;
   return id;
 }
+/* A connection's own thickness and Solid / Dashed / Dotted, on a map style's line (each style draws its line its own way).
+   Thickness scales the line's strokes and its decorations (beads, flowers, coins, notes); Dashed and Dotted break up the line itself and
+   its other line strokes (a staff's five lines, a film strip's edges). A style made only of decorations gets a line under them to dash. */
+const PK_K = {1: 0.6, 2: 1, 3: 1.45, 4: 1.9};
+function lineTune(L, e, pk){
+  const k = PK_K[e.w] || 1, dash = e.line === "dashed" || e.line === "dotted" ? e.line : "";
+  if (k === 1 && !dash) return L;
+  const fx = v => (Math.round(v * 100) / 100).toString(), dashOf = w => dash === "dashed" ? `${fx(Math.max(6, w * 3.2))} ${fx(Math.max(4, w * 2.2))}` : `.1 ${fx(Math.max(4.5, w * 2.6))}`;
+  // the drawing, tag by tag: what's inside a moved group scales with it; a loose shape scales its own size; a loose line keeps its place
+  const tune = html => { if (!html) return html; let depth = 0;
+    return html.replace(/<\/?([a-zA-Z]+)([^>]*?)(\/?)>/g, (m, tag, attrs, self) => {
+      if (m.startsWith("</")) { if (tag === "g" && depth) depth--; return m; }
+      if (depth) { if (tag === "g" && !self) depth++; return m; }
+      const tr = /\stransform="([^"]*)"/.exec(attrs);
+      if (tr && /^translate\(/.test(tr[1])) { attrs = attrs.replace(tr[0], ` transform="${tr[1]} scale(${fx(k)})"`); if (tag === "g" && !self) depth++; return `<${tag}${attrs}${self}>`; }
+      if (tag === "g" && !self) { depth++; return m; } // a group of loose parts (rare): left as drawn
+      attrs = attrs.replace(/\s(r|rx|ry)="([\d.]+)"/g, (q, a, v) => ` ${a}="${fx(+v * k)}"`).replace(/\sfont-size="([\d.]+)"/g, (q, v) => ` font-size="${fx(+v * k)}"`);
+      const sw = /\sstroke-width="([\d.]+)"/.exec(attrs);
+      if (sw) attrs = attrs.replace(sw[0], ` stroke-width="${fx(+sw[1] * k)}"`);
+      if (dash && tag === "path" && /fill="none"/.test(attrs) && !tr) { const w = sw ? +sw[1] * k : 1.5 * k; attrs = attrs.replace(/\sstroke-dasharray="[^"]*"/, "") + ` stroke-dasharray="${dashOf(w)}"` + (dash === "dotted" ? ' stroke-linecap="round"' : ""); }
+      return `<${tag}${attrs}${self}>`;
+    }); };
+  let st = String(L.st || ""); const wm = /stroke-width:\s*([\d.]+)/.exec(st), w0 = wm ? +wm[1] : 2;
+  st = st.replace(/stroke-width:\s*([\d.]+)/, (q, v) => `stroke-width:${fx(+v * k)}`);
+  const hidden = /stroke:\s*transparent/.test(st) || /opacity:\s*\.0\d/.test(st), lines = /<path [^>]*fill="none"/.test((L.pre || "") + (L.post || ""));
+  if (dash) {
+    // a style drawn only with decorations: a line in its colour, under them, to show Dashed or Dotted
+    if (hidden && !lines) st = st.replace(/stroke:\s*transparent/, `stroke:${pk.arrow || pk.col || "#888"}`).replace(/opacity:\s*\.0\d/, "opacity:.8") + (wm ? "" : `;stroke-width:${fx(2 * k)}`);
+    if (!hidden || !lines) st = st.replace(/;?stroke-dasharray:[^;]*/g, "").replace(/;?stroke-linecap:[^;]*/g, "") + `;stroke-dasharray:${dashOf(wm ? w0 * k : 2 * k)}${dash === "dotted" ? ";stroke-linecap:round" : ""}`;
+  }
+  return Object.assign({}, L, {st, pre: tune(L.pre), post: tune(L.post)});
+}
 function edgeSvg(e){
   const G = edgeGeo(e), lab = e.label ? trunc(e.label, 30) : "";
   // a coloured or thicker line gets arrowheads of its own colour and size (made once per kind, in the map's defs)
@@ -107730,7 +108307,7 @@ function edgeSvg(e){
   if (M.pk && !M.pk.native) {
     // a map style's line: the line itself (its arrows, its colour if one was picked) with the style's drawing under and over it
     const t = (a, b, f) => a + (b - a) * f, p = G.curved ? [[G.sx, G.sy], [t(G.sx, G.cx, 2 / 3), t(G.sy, G.cy, 2 / 3)], [t(G.ex, G.cx, 2 / 3), t(G.ey, G.cy, 2 / 3)], [G.ex, G.ey]] : [[G.sx, G.sy], [t(G.sx, G.ex, 1 / 3), t(G.sy, G.ey, 1 / 3)], [t(G.sx, G.ex, 2 / 3), t(G.sy, G.ey, 2 / 3)], [G.ex, G.ey]];
-    let L = {}; try { L = M.pk.line(p, pkVar(e.key)) || {}; } catch (er) {}
+    let L = {}; try { L = lineTune(M.pk.line(p, pkVar(e.key)) || {}, e, M.pk); } catch (er) {}
     const d = CMPACK.D(p);
     return `<g class="cm-edge pk-e ln-${e.line || "solid"}${e.user ? " is-user" : ""}${e.col ? " has-lc" : ""}${M.selE === e.key ? " is-sel" : ""}" data-e="${esc(e.key)}"><path d="${d}" class="cm-hit"/>${L.pre || ""}<path d="${L.d || d}" class="cm-line" style="${L.st || ""}${e.col ? `;stroke:${e.col}` : ""}"${mk}${ms}/>${L.post || ""}${lab ? `<g class="cm-elg" transform="translate(${G.mx},${G.my})"><rect class="cm-elbg" x="0" y="-10" width="0" height="20" rx="10"/><text x="0" y="4" class="cm-elab">${esc(lab)}</text></g>` : ""}</g>`;
   }
@@ -108585,7 +109162,7 @@ function listHtml(){
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
   const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"]];
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
-  return `<div class="view-head" data-cm-list><h2>Your Concept Maps</h2>${all.length > 1 ? sortSel : ""}</div>
+  return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }

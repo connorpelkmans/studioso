@@ -310,11 +310,19 @@ const CMAP = (() => {
   }
   /* Embeds (Pro): a link from a site that's made to be embedded becomes a player on the map.
      Only these hosts can be framed (the app's Content-Security-Policy lists the same EMBED_HOSTS); anything else stays a link. */
-  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com"];
-  const PROVIDERS = {youtube: "YouTube", vimeo: "Vimeo", loom: "Loom", gdoc: "Google Docs", gslides: "Google Slides", gsheet: "Google Sheets", gdrive: "Google Drive", desmos: "Desmos", geogebra: "GeoGebra", phet: "PhET Simulation", spotify: "Spotify", ted: "TED Talk", canva: "Canva"};
+  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com"];
+  // exact sites only (no wildcards: the app's security policy frames named sites, never a whole domain such as every school's sharepoint.com)
+  const hostOk = host => EMBED_HOSTS.includes(host);
+  const PROVIDERS = {youtube: "YouTube", vimeo: "Vimeo", loom: "Loom", gdoc: "Google Docs", gslides: "Google Slides", gsheet: "Google Sheets", gdrive: "Google Drive", desmos: "Desmos", geogebra: "GeoGebra", phet: "PhET Simulation", spotify: "Spotify", ted: "TED Talk", canva: "Canva", mword: "Word", mexcel: "Excel", mppt: "PowerPoint", m365: "Microsoft 365"};
   const secs = t => { const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/.exec(String(t || "")); return m ? (Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0)) : 0; };
+  // Microsoft 365: Word, Excel or PowerPoint from a share link's letter (:w: :x: :p:) or a file's extension
+  const msKind = s => /^(w|docx?|word)$/i.test(s) ? "mword" : /^(x|xlsx?|xlsm|excel)$/i.test(s) ? "mexcel" : /^(p|pptx?|powerpoint)$/i.test(s) ? "mppt" : "m365";
+  const extOf = s => (/\.(docx?|xlsx?|xlsm|pptx?)(?:$|[?#])/i.exec(String(s || "")) || [])[1] || "";
   function embedOf(raw){
-    let u; try { u = new URL(String(raw || "").trim().replace(/^(?!https?:\/\/)/i, "https://")); } catch (e) { return null; }
+    raw = String(raw || "").trim();
+    // embed code pasted as it's given (OneDrive's Embed, and most sites'): its <iframe>'s address
+    const fr = /<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i.exec(raw); if (fr) raw = fr[1].replace(/&amp;/g, "&");
+    let u; try { u = new URL(raw.replace(/^(?!https?:\/\/)/i, "https://")); } catch (e) { return null; }
     if (u.protocol !== "https:" && u.protocol !== "http:") return null;
     const h = u.hostname.replace(/^(www|m)\./, ""), p = u.pathname, q = k => u.searchParams.get(k) || "", out = (pv, e, x) => Object.assign({p: pv, u: u.href, e, name: PROVIDERS[pv]}, x || {});
     let m;
@@ -342,9 +350,17 @@ const CMAP = (() => {
     if (h === "open.spotify.com" && (m = /^\/(?:embed\/)?(track|album|playlist|episode|show)\/(\w{10,})/.exec(p))) return out("spotify", `https://open.spotify.com/embed/${m[1]}/${m[2]}`, {id: m[2]});
     if ((h === "ted.com" || h === "embed.ted.com") && (m = /^\/talks\/([\w-]+)/.exec(p))) return out("ted", `https://embed.ted.com/talks/${m[1]}`, {id: m[1]});
     if (h === "canva.com" && (m = /^\/design\/([\w-]{8,})\/([\w-]+)?/.exec(p))) return out("canva", `https://www.canva.com/design/${m[1]}/${m[2] || "view"}/view?embed`, {id: m[1]});
+    // Microsoft 365, personal OneDrive: the address from File, Share, Embed (its embed code or link)
+    if (u.hostname === "onedrive.live.com" && /^\/embed\/?$/.test(p) && (q("resid") || q("id") || q("cid"))) {
+      const e = new URL("https://onedrive.live.com/embed"); ["cid", "resid", "id", "authkey", "em", "wdAllowInteractivity", "wdStartOn", "ithint"].forEach(k => { if (q(k)) e.searchParams.set(k, q(k)); });
+      if (!e.searchParams.get("em")) e.searchParams.set("em", "2");
+      const it = /file,(\w+)/.exec(q("ithint")); return out(msKind(it ? it[1] : extOf(q("resid"))), e.href, {id: q("resid") || q("id")});
+    }
+    // Office's viewer for a file anyone can download (Word, Excel or PowerPoint at a public address)
+    if (u.hostname === "view.officeapps.live.com" && /^\/op\/(view|embed)\.aspx$/i.test(p) && /^https:\/\//i.test(q("src"))) return out(msKind(extOf(q("src"))), "https://view.officeapps.live.com/op/embed.aspx?src=" + encodeURIComponent(q("src")), {id: q("src")});
     return null;
   }
-  const embedOk = url => { try { const x = new URL(url); return x.protocol === "https:" && EMBED_HOSTS.includes(x.hostname); } catch (e) { return false; } };
+  const embedOk = url => { try { const x = new URL(url); return x.protocol === "https:" && hostOk(x.hostname); } catch (e) { return false; } };
   /* Previews: an embed's box shows the provider's own picture, loaded from the provider by its address. Only the address (th) and the title (tt) are kept on the embed,
      never the picture. th: the provider's documented thumbnail address; oe: its oEmbed endpoint (answers with CORS) for thumbnail_url and title;
      live: no picture to be had (Desmos, GeoGebra, Canva, Google published to the web), so the box can show a small live view of the embed itself. */
@@ -365,7 +381,7 @@ const CMAP = (() => {
   }
   // what an oEmbed answer gives a box: the address of the provider's picture, and the title
   const fromOembed = j => ({th: j && thumbOk(j.thumbnail_url) ? j.thumbnail_url : "", tt: j && typeof j.title === "string" ? j.title.replace(/\s+/g, " ").trim().slice(0, 120) : ""});
-  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
+  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, hostOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
 })();
 /*CMAP-END*/
 
@@ -778,11 +794,14 @@ async function smallJpeg(file, max){
 }
 /* Embeds (Pro): a video, slides, a doc or a simulation on the map. Only links from the sites in CMAP.EMBED_HOSTS become players; they play in a frame over the map. */
 const EMB_VIDEO = new Set(["youtube", "vimeo", "loom", "ted", "spotify"]);
-const EMB_COL = {youtube: "#C4302B", vimeo: "#1AB7EA", loom: "#625DF5", gdoc: "#2B7CD3", gslides: "#E6A100", gsheet: "#1E8E3E", gdrive: "#4285F4", desmos: "#2F7D31", geogebra: "#6557D2", phet: "#2A6EBB", spotify: "#1DB954", ted: "#E62B1E", canva: "#7D2AE8"};
+const EMB_COL = {youtube: "#C4302B", vimeo: "#1AB7EA", loom: "#625DF5", gdoc: "#2B7CD3", gslides: "#E6A100", gsheet: "#1E8E3E", gdrive: "#4285F4", desmos: "#2F7D31", geogebra: "#6557D2", phet: "#2A6EBB", spotify: "#1DB954", ted: "#E62B1E", canva: "#7D2AE8", mword: "#185ABD", mexcel: "#107C41", mppt: "#C43E1C", m365: "#0F6CBD"};
 const embName = e => { const nm = CMAP.PROVIDERS[e && e.p] || "Embed"; return ["youtube", "vimeo", "loom"].includes(e && e.p) ? nm + " video" : nm; };
-const EMB_SITES = "YouTube, Vimeo, Loom, Google Docs, Google Slides, Google Sheets, Google Drive, Desmos, GeoGebra, PhET, Spotify, TED and Canva";
+const EMB_SITES = "YouTube, Vimeo, Loom, Google Docs, Slides, Sheets and Drive, Word, Excel and PowerPoint for the web, Desmos, GeoGebra, PhET, Spotify, TED and Canva";
 const GOOGLE = new Set(["gdoc", "gslides", "gsheet", "gdrive"]);
 const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with the link can view (or File, Share, Publish to web).";
+// Word, Excel and PowerPoint: a personal OneDrive file shows from its Embed code; a school or work file shows to people signed in to that school's Microsoft 365
+const MS365 = new Set(["mword", "mexcel", "mppt", "m365"]);
+const MS_TIP = "From OneDrive: File, Share, Embed, then paste the code here. A school or work file shows to anyone signed in to that Microsoft 365 who can open it.";
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
   const e = CMAP.embedOf(raw); if (!e || !CMAP.embedOk(e.e)) return false;
@@ -799,11 +818,11 @@ function embedPanel(ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return; }
   const P = M.el.querySelector(".cm-panel"), onto = ontoId && M.byId[ontoId] && M.byId[ontoId].kind === "idea" ? ontoId : "";
   P.innerHTML = `<form class="cm-embf"><label class="lh" for="cmEmbIn">${onto ? `Add a Video or Embed to <b>${esc(trunc(M.byId[onto].label, 30))}</b>` : "Add a Video or Embed"}</label>
-    <div class="cm-embrow"><input type="url" id="cmEmbIn" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link, like youtube.com/watch?v=…"><button type="submit" class="btn small primary" disabled>Add</button></div>
+    <div class="cm-embrow"><input type="text" id="cmEmbIn" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link or embed code, like youtube.com/watch?v=…"><button type="submit" class="btn small primary" disabled>Add</button></div>
     <p class="mini cm-embst" data-cm-embst aria-live="polite">Works with ${EMB_SITES}.</p><div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button></div></form>`;
   const f = P.querySelector("form"), inp = f.querySelector("input"), st = f.querySelector("[data-cm-embst]"), go = f.querySelector("[type=submit]");
   const check = () => { const v = inp.value.trim(), e = v ? CMAP.embedOf(v) : null; go.disabled = !e; st.classList.toggle("is-ok", !!e); st.classList.toggle("is-bad", !!v && !e);
-    st.innerHTML = !v ? `Works with ${EMB_SITES}.` : e ? `<span class="cm-embdot" style="background:${EMB_COL[e.p]}"></span>${esc(e.name)}${EMB_VIDEO.has(e.p) ? " · plays right on the map" : " · opens right on the map"}${GOOGLE.has(e.p) && !e.pub ? `<span class="cm-embtip">${esc(GOOGLE_TIP)}</span>` : ""}` : `That link can't play on a map. Use a link from ${EMB_SITES}.`; };
+    st.innerHTML = !v ? `Works with ${EMB_SITES}.` : e ? `<span class="cm-embdot" style="background:${EMB_COL[e.p]}"></span>${esc(e.name)}${EMB_VIDEO.has(e.p) ? " · plays right on the map" : " · opens right on the map"}${MS365.has(e.p) && !/onedrive\.live\.com\/embed|officeapps/.test(e.e) ? `<span class="cm-embtip">${esc(MS_TIP)}</span>` : ""}${GOOGLE.has(e.p) && !e.pub ? `<span class="cm-embtip">${esc(GOOGLE_TIP)}</span>` : ""}` : /\.sharepoint\.com/i.test(v) ? "A school or work Microsoft 365 link can't show on a map. Save the file to your personal OneDrive and paste its Embed code (File, Share, Embed), or use a Google Docs link." : `That link can't play on a map. Use a link from ${EMB_SITES}.`; };
   inp.addEventListener("input", check); inp.focus();
   f.addEventListener("submit", ev => { ev.preventDefault(); if (!addEmbed(inp.value, onto)) check(); });
 }
@@ -1018,6 +1037,38 @@ function arrowFor(e){
   if (!M.marks[id]) M.marks[id] = `<marker id="${id}" viewBox="0 0 10 10" refX="2" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M0 0L10 5L0 10Z"/></marker><marker id="${id}S" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="${sz}" markerHeight="${sz}" orient="auto"><path ${fill} d="M10 0L0 5L10 10Z"/></marker>`;
   return id;
 }
+/* A connection's own thickness and Solid / Dashed / Dotted, on a map style's line (each style draws its line its own way).
+   Thickness scales the line's strokes and its decorations (beads, flowers, coins, notes); Dashed and Dotted break up the line itself and
+   its other line strokes (a staff's five lines, a film strip's edges). A style made only of decorations gets a line under them to dash. */
+const PK_K = {1: 0.6, 2: 1, 3: 1.45, 4: 1.9};
+function lineTune(L, e, pk){
+  const k = PK_K[e.w] || 1, dash = e.line === "dashed" || e.line === "dotted" ? e.line : "";
+  if (k === 1 && !dash) return L;
+  const fx = v => (Math.round(v * 100) / 100).toString(), dashOf = w => dash === "dashed" ? `${fx(Math.max(6, w * 3.2))} ${fx(Math.max(4, w * 2.2))}` : `.1 ${fx(Math.max(4.5, w * 2.6))}`;
+  // the drawing, tag by tag: what's inside a moved group scales with it; a loose shape scales its own size; a loose line keeps its place
+  const tune = html => { if (!html) return html; let depth = 0;
+    return html.replace(/<\/?([a-zA-Z]+)([^>]*?)(\/?)>/g, (m, tag, attrs, self) => {
+      if (m.startsWith("</")) { if (tag === "g" && depth) depth--; return m; }
+      if (depth) { if (tag === "g" && !self) depth++; return m; }
+      const tr = /\stransform="([^"]*)"/.exec(attrs);
+      if (tr && /^translate\(/.test(tr[1])) { attrs = attrs.replace(tr[0], ` transform="${tr[1]} scale(${fx(k)})"`); if (tag === "g" && !self) depth++; return `<${tag}${attrs}${self}>`; }
+      if (tag === "g" && !self) { depth++; return m; } // a group of loose parts (rare): left as drawn
+      attrs = attrs.replace(/\s(r|rx|ry)="([\d.]+)"/g, (q, a, v) => ` ${a}="${fx(+v * k)}"`).replace(/\sfont-size="([\d.]+)"/g, (q, v) => ` font-size="${fx(+v * k)}"`);
+      const sw = /\sstroke-width="([\d.]+)"/.exec(attrs);
+      if (sw) attrs = attrs.replace(sw[0], ` stroke-width="${fx(+sw[1] * k)}"`);
+      if (dash && tag === "path" && /fill="none"/.test(attrs) && !tr) { const w = sw ? +sw[1] * k : 1.5 * k; attrs = attrs.replace(/\sstroke-dasharray="[^"]*"/, "") + ` stroke-dasharray="${dashOf(w)}"` + (dash === "dotted" ? ' stroke-linecap="round"' : ""); }
+      return `<${tag}${attrs}${self}>`;
+    }); };
+  let st = String(L.st || ""); const wm = /stroke-width:\s*([\d.]+)/.exec(st), w0 = wm ? +wm[1] : 2;
+  st = st.replace(/stroke-width:\s*([\d.]+)/, (q, v) => `stroke-width:${fx(+v * k)}`);
+  const hidden = /stroke:\s*transparent/.test(st) || /opacity:\s*\.0\d/.test(st), lines = /<path [^>]*fill="none"/.test((L.pre || "") + (L.post || ""));
+  if (dash) {
+    // a style drawn only with decorations: a line in its colour, under them, to show Dashed or Dotted
+    if (hidden && !lines) st = st.replace(/stroke:\s*transparent/, `stroke:${pk.arrow || pk.col || "#888"}`).replace(/opacity:\s*\.0\d/, "opacity:.8") + (wm ? "" : `;stroke-width:${fx(2 * k)}`);
+    if (!hidden || !lines) st = st.replace(/;?stroke-dasharray:[^;]*/g, "").replace(/;?stroke-linecap:[^;]*/g, "") + `;stroke-dasharray:${dashOf(wm ? w0 * k : 2 * k)}${dash === "dotted" ? ";stroke-linecap:round" : ""}`;
+  }
+  return Object.assign({}, L, {st, pre: tune(L.pre), post: tune(L.post)});
+}
 function edgeSvg(e){
   const G = edgeGeo(e), lab = e.label ? trunc(e.label, 30) : "";
   // a coloured or thicker line gets arrowheads of its own colour and size (made once per kind, in the map's defs)
@@ -1026,7 +1077,7 @@ function edgeSvg(e){
   if (M.pk && !M.pk.native) {
     // a map style's line: the line itself (its arrows, its colour if one was picked) with the style's drawing under and over it
     const t = (a, b, f) => a + (b - a) * f, p = G.curved ? [[G.sx, G.sy], [t(G.sx, G.cx, 2 / 3), t(G.sy, G.cy, 2 / 3)], [t(G.ex, G.cx, 2 / 3), t(G.ey, G.cy, 2 / 3)], [G.ex, G.ey]] : [[G.sx, G.sy], [t(G.sx, G.ex, 1 / 3), t(G.sy, G.ey, 1 / 3)], [t(G.sx, G.ex, 2 / 3), t(G.sy, G.ey, 2 / 3)], [G.ex, G.ey]];
-    let L = {}; try { L = M.pk.line(p, pkVar(e.key)) || {}; } catch (er) {}
+    let L = {}; try { L = lineTune(M.pk.line(p, pkVar(e.key)) || {}, e, M.pk); } catch (er) {}
     const d = CMPACK.D(p);
     return `<g class="cm-edge pk-e ln-${e.line || "solid"}${e.user ? " is-user" : ""}${e.col ? " has-lc" : ""}${M.selE === e.key ? " is-sel" : ""}" data-e="${esc(e.key)}"><path d="${d}" class="cm-hit"/>${L.pre || ""}<path d="${L.d || d}" class="cm-line" style="${L.st || ""}${e.col ? `;stroke:${e.col}` : ""}"${mk}${ms}/>${L.post || ""}${lab ? `<g class="cm-elg" transform="translate(${G.mx},${G.my})"><rect class="cm-elbg" x="0" y="-10" width="0" height="20" rx="10"/><text x="0" y="4" class="cm-elab">${esc(lab)}</text></g>` : ""}</g>`;
   }
@@ -1881,7 +1932,7 @@ function listHtml(){
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
   const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"]];
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
-  return `<div class="view-head" data-cm-list><h2>Your Concept Maps</h2>${all.length > 1 ? sortSel : ""}</div>
+  return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }

@@ -27,6 +27,14 @@ cases.push(["https://docs.google.com/document/d/e/2PACX-1vQabcdefghijklmnopqrstu
   ["https://docs.google.com/presentation/d/e/2PACX-1vQabcdefghijklmnopqrstuv/pub?start=false", "gslides", "https://docs.google.com/presentation/d/e/2PACX-1vQabcdefghijklmnopqrstuv/embed?start=false&loop=false"],
   ["https://docs.google.com/spreadsheets/d/e/2PACX-1vQabcdefghijklmnopqrstuv/pubhtml", "gsheet", "https://docs.google.com/spreadsheets/d/e/2PACX-1vQabcdefghijklmnopqrstuv/pubhtml?widget=true&headers=false"],
   ["https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/edit?usp=sharing", "gsheet", "https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/preview"]);
+/* Microsoft 365: Word, Excel and PowerPoint for the web */
+cases.push(
+  ["https://onedrive.live.com/embed?resid=ABC123%21105&authkey=%21AXyZ&em=2&ithint=file%2cdocx", "mword", "https://onedrive.live.com/embed?resid=ABC123%21105&authkey=%21AXyZ&em=2&ithint=file%2Cdocx"],
+  ['<iframe src="https://onedrive.live.com/embed?cid=1234ABCD&amp;resid=1234ABCD%21110&amp;authkey=%21AAbc&amp;em=2&amp;wdAllowInteractivity=False" width="476px" height="288px" frameborder="0">This is an embedded Microsoft Office presentation</iframe>', "m365", "https://onedrive.live.com/embed?cid=1234ABCD&resid=1234ABCD%21110&authkey=%21AAbc&em=2&wdAllowInteractivity=False"],
+  ["https://view.officeapps.live.com/op/view.aspx?src=https%3A%2F%2Fexample.edu%2Fslides%2Fweek1.pptx", "mppt", "https://view.officeapps.live.com/op/embed.aspx?src=https%3A%2F%2Fexample.edu%2Fslides%2Fweek1.pptx"]);
+for (const u of ["https://evilsharepoint.com/:w:/s/x/abc", "https://contoso.sharepoint.com.evil.com/:w:/s/x/abc", "https://sharepoint.com/:w:/s/x/abc", "https://contoso.sharepoint.com/sites/Bio/SitePages/Home.aspx",
+  "https://onedrive.live.com/?id=root", "https://view.officeapps.live.com/op/view.aspx?src=javascript:alert(1)"]) ok(!E(u), "not a Microsoft 365 embed: " + u);
+ok(!E("https://contoso.sharepoint.com/:w:/s/Biology/EbAbCdEf123?e=XyZ1") && !CMAP.hostOk("contoso.sharepoint.com"), "a school's own SharePoint isn't framed (the policy names exact sites, never a whole domain)");
 for (const [u, p, e] of cases) { const r = E(u); ok(r && r.p === p && r.e === e && CMAP.embedOk(r.e), `${p}: ${u} -> ${r && r.e}`); }
 ok(/i\.ytimg\.com\/vi\/dQw4w9WgXcQ\//.test(E("youtu.be/dQw4w9WgXcQ").th), "a YouTube video brings its thumbnail");
 

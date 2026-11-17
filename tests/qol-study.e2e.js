@@ -103,7 +103,7 @@ function SEED(){
     await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; render(); }); await page.waitForTimeout(300);
     const view = await page.locator("#view").textContent();
     ok((view.match(/Midterm/g) || []).length === 1 && await page.locator('#view [data-act="exam-plan"]').count() === 1, "the exam shows once, with one Plan My Prep");
-    ok(/Your Decks/.test(view) && await page.locator('#view [data-act="course-deck"][data-id="d1"]').count() === 1 && /2 due · 1 new/.test(await page.locator('#view [data-act="course-deck"][data-id="d1"]').textContent()), "the course page lists your decks with what's due");
+    ok(/Flashcards/.test(view) && await page.locator('#view [data-act="course-deck"][data-id="d1"]').count() === 1 && /2 due · 1 new/.test(await page.locator('#view [data-act="course-deck"][data-id="d1"]').textContent()), "the course page lists your decks with what's due");
     ok(await page.locator('#view [data-act="course-note"][data-id="n1"]').count() === 1, "and your notes for the course");
     await page.click('#view [data-act="course-note"][data-id="n1"]'); await page.waitForTimeout(400);
     ok(await page.evaluate(() => ui.tab === "notes" && !!document.querySelector('.note.editing[data-note="n1"]')), "a note opens on its board, ready to edit");
