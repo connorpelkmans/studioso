@@ -115,6 +115,11 @@ const R2 = CITE.check(draft.replace("References", "Bibliography"), src, {style: 
 ok(R2.issues.some(x => x.k === "err" && /asks for APA 7th edition/.test(x.t) && x.fix === "style:apa"), "a style mismatch offers to switch");
 ok(R2.issues.some(x => /Your list is called “Bibliography”/.test(x.t)), "MLA expects Works Cited");
 ok(R2.issues.some(x => /author and the page, not the year/.test(x.t)), "an MLA slip: a year in the citation");
+// a format slip quotes the student's own citation, corrected (not a made-up example)
+{ const r = CITE.check("Sleep matters (Carskadon 2011). Both agree (Lo and Lee, 2018). Old (Xie et al. 2013).\n\nReferences\n", [], {style: "apa", kind: "author-date", label: "APA"}), t = r.issues.map(x => x.t).join(" | ");
+  ok(/put a comma between the name and the year: \(Carskadon, 2011\)/.test(t) && /\(Xie et al\., 2013\)/.test(t) && /use & between two authors inside brackets: \(Lo & Lee, 2018\)/.test(t) && !/Smith/.test(t), "APA slips show the student's citation fixed: " + t); }
+{ const r = CITE.check("Short sleep blunts memory (Walker, 112).\n\nWorks Cited\n", [], {style: "modern-language-association", kind: "author", label: "MLA"}), t = r.issues.map(x => x.t).join(" | ");
+  ok(/no comma or p\. between the name and the page: \(Walker 112\)/.test(t) && !/Smith/.test(t), "an MLA slip shows the student's citation fixed: " + t); }
 const R3 = CITE.check("Trees cool cities [1] and parks too [2], [4].\n\nReferences\n[1] Smith\n[2] Lee", src, {style: "ieee", kind: "numeric", label: "IEEE"});
 ok(R3.cited === 2 && R3.issues.some(x => /Not in your sources: \[4\]/.test(x.t)), "IEEE numbers, and one that doesn't exist");
 ok(CITE.check("x", [], {}).issues.some(x => /No sources/.test(x.t)), "no sources at all says so");

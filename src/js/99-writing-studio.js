@@ -431,14 +431,16 @@ const CITE = (() => {
           if (nb.length) nb.forEach(s => cite(s.id, at, len));
           else if (/^[“"]?[\p{Lu}]/u.test(seg) || /(\p{Lu}[\p{L}'’-]+)\s*$/u.test(before)) unknown.push([seg, at, len]);
         } else if (mlaLike && kind === "author" && !/^(p|pp|para|ch|fig|figure|table|see|chapter|section)\b/i.test(seg)) unknown.push([seg, at, len]);
+        // each message shows the student's own citation as it should be, not a made-up example
+        const nameOf = (/^[“"]?([\p{Lu}][\p{L}'’-]+(?: et al\.)?)/u.exec(seg) || [])[1] || "";
         if (style === "apa" && hasYear) {
-          if (/\b\p{Lu}[\p{L}'’-]+ and \p{Lu}[\p{L}'’-]+,/u.test(seg)) slip("In APA, use & between two authors inside brackets: (Smith & Lee, 2021).", at, len);
-          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)? (1[5-9]\d\d|20\d\d)\b/u.test(seg)) slip("In APA, put a comma between the name and the year: (Smith, 2021).", at, len);
-          if (/\bpg\.?\s*\d/.test(seg)) slip("In APA, write p. 4 (or pp. 4–6) for pages, not pg.", at, len);
+          if (/\b\p{Lu}[\p{L}'’-]+ and \p{Lu}[\p{L}'’-]+,/u.test(seg)) slip(`In APA, use & between two authors inside brackets: (${seg.replace(/\b(\p{Lu}[\p{L}'’-]+) and (\p{Lu}[\p{L}'’-]+),/u, "$1 & $2,")}).`, at, len);
+          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)? (1[5-9]\d\d|20\d\d)\b/u.test(seg)) slip(`In APA, put a comma between the name and the year: (${seg.replace(/^([\p{Lu}][\p{L}'’-]+(?: et al\.)?) (1[5-9]\d\d|20\d\d)\b/u, "$1, $2")}).`, at, len);
+          if (/\bpg\.?\s*\d/.test(seg)) slip(`In APA, write p. for a page (pp. for pages), not pg.: (${seg.replace(/\bpg\.?\s*(\d+)\s*[–-]\s*(\d+)/, "pp. $1–$2").replace(/\bpg\.?\s*(\d)/, "p. $1")}).`, at, len);
         }
         if (kind === "author") {
-          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)?,\s*(p{1,2}\.\s*)?\d/u.test(seg)) slip("In MLA, there's no comma or p. between the name and the page: (Smith 42).", at, len);
-          if (hasYear && hits.length) slip("MLA in-text citations use the author and the page, not the year: (Smith 42).", at, len);
+          if (/^[\p{Lu}][\p{L}'’-]+(?: et al\.)?,\s*(p{1,2}\.\s*)?\d/u.test(seg)) slip(`In MLA, there's no comma or p. between the name and the page: (${seg.replace(/^([\p{Lu}][\p{L}'’-]+(?: et al\.)?),\s*(?:p{1,2}\.\s*)?(\d)/u, "$1 $2")}).`, at, len);
+          if (hasYear && hits.length) slip(`MLA in-text citations use the author and the page, not the year: (${nameOf || "Author"} and the page number, like ${nameOf || "Author"} 42).`, at, len);
         }
         if (kind === "numeric" && hits.length && hasYear) slip(`${label} uses numbered citations, not author and year.`, at, len);
       });
