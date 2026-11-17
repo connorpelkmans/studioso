@@ -5107,7 +5107,10 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   function pickGoogleFolder(files){
     return new Promise((resolve, reject) => {
       const pk = cache().picker; if (!pk) return reject(new CloudErr("Google folder choosing isn't set up on this Studyboard server yet.", "nopicker"));
-      const w = window.open("drive-picker", "sbDrivePicker", "popup,width=900,height=640");
+      // big enough for Google's largest Picker (1051 x 650), and centred over Studyboard's window
+      const ww = Math.min(1100, (screen.availWidth || 1100) - 40), wh = Math.min(760, (screen.availHeight || 760) - 60);
+      const wl = Math.max(0, Math.round((window.screenX || 0) + ((window.outerWidth || ww) - ww) / 2)), wt = Math.max(0, Math.round((window.screenY || 0) + ((window.outerHeight || wh) - wh) / 2));
+      const w = window.open("drive-picker", "sbDrivePicker", `popup,width=${ww},height=${wh},left=${wl},top=${wt}`);
       if (!w) return reject(new CloudErr("Your browser blocked the Google Drive window. Allow pop-ups for Studyboard and try again.", "popup"));
       let done = false;
       const end = (fn, v) => { if (done) return; done = true; clearInterval(iv); clearTimeout(to); window.removeEventListener("message", on); fn(v); };
