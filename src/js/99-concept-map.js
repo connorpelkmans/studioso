@@ -628,19 +628,21 @@ function atPanel(n, kind){
 // Concept maps save without notices. The map keeps its own history: each change keeps what it replaced and what it made, so Undo puts
 // the before back and Redo puts the after back (the app's Ctrl+Z, outside the map, still works too: each change is on its undo list)
 function quietly(changes, label){
-  const before = changes.map(c => ({kind: c.kind, id: c.id, after: clone(getItem(c.kind, c.id))}));
+  const before = changes.map(c => ({kind: c.kind, id: c.id, after: clone(getItem(c.kind, c.id))})), GM = window.SBCMAPG, gb = GM && M.own ? GM.snap(M.own) : null;
   M.ownSave = true; try { applyChanges(changes, label, null, {quiet: true}); } finally { M.ownSave = false; }
   if (M.replaying) return;
   const after = changes.map(c => ({kind: c.kind, id: c.id, after: clone(getItem(c.kind, c.id))}));
-  M.undoS = (M.undoS || []).concat([{label: label || "Moved a box", before, after}]).slice(-60); M.redoS = [];
+  // a study group's map: Undo and Redo put back only what this step changed, so what others did meanwhile stays
+  M.undoS = (M.undoS || []).concat([{label: label || "Moved a box", before, after, gops: gb ? GM.steps(gb, GM.snap(M.own)) : null}]).slice(-60); M.redoS = [];
 }
+const stepOf = (e, which) => { const GM = window.SBCMAPG, ch = e.gops && GM ? GM.change(M.own, e.gops[which]) : null; return (which === "before" ? e.before : e.after).map(x => ch && x.kind === ch.kind && x.id === ch.id ? ch : x); };
 function replay(list, label){
   M.replaying = true; M.ownSave = true;
   try { applyChanges(list.map(x => ({kind: x.kind, id: x.id, after: clone(x.after)})), label, null, {quiet: true}); } finally { M.replaying = false; M.ownSave = false; }
   M.kc = null; M.sel = M.sel && M.g && M.g.nodes.some(n => n.id === M.sel) ? M.sel : ""; rebuild(true); if (M.sel && !M.g.nodes.some(n => n.id === M.sel)) M.sel = ""; if (M.selE && !M.g.edges.some(e => e.key === M.selE)) M.selE = ""; paint();
 }
-function undoMap(){ const e = (M.undoS || []).pop(); if (!e) return; M.redoS = (M.redoS || []).concat([e]); replay(e.before, "Undid: " + e.label); }
-function redoMap(){ const e = (M.redoS || []).pop(); if (!e) return; M.undoS = (M.undoS || []).concat([e]); replay(e.after, "Redid: " + e.label); }
+function undoMap(){ const e = (M.undoS || []).pop(); if (!e) return; M.redoS = (M.redoS || []).concat([e]); replay(stepOf(e, "before"), "Undid: " + e.label); }
+function redoMap(){ const e = (M.redoS || []).pop(); if (!e) return; M.undoS = (M.undoS || []).concat([e]); replay(stepOf(e, "after"), "Redid: " + e.label); }
 function saveUser(u, label, meta){
   const ch = mapChange(u, meta); if (ch) quietly([ch], label === undefined ? null : label);
 }
@@ -692,7 +694,9 @@ function gather(o, all){
   // a map with a list of materials shows only those (and keeps them on show); no list: everything, as before
   const inMat = id => !mat || mat.includes(id);
   const nF = notes.filter(n => inMat((n.board ? "board:" : "note:") + n.id)), dF = decks.filter(d => inMat("deck:" + d.id)), fF = files.filter(f => inMat("file:" + f.id)), xF = o.kind === "course" ? exams.filter(x => inMat("exam:" + x.id)) : exams;
-  return {root: {label: mp ? mp.name : own.title, kind: o.kind === "course" ? "course" : "exam"}, mode: o.kind === "course" ? "course" : "exam", blank: !!mp && mp.auto === false, exams: xF, notes: nF, decks: dF, files: fF, classes, user: userOf(o), loose: M.loose, color: c ? c.color : "#2F6FE4", keep: mat || null};
+  const out = {root: {label: mp ? mp.name : own.title, kind: o.kind === "course" ? "course" : "exam"}, mode: o.kind === "course" ? "course" : "exam", blank: !!mp && mp.auto === false, exams: xF, notes: nF, decks: dF, files: fF, classes, user: userOf(o), loose: M.loose, color: c ? c.color : "#2F6FE4", keep: mat || null};
+  // a study group's live map (99-concept-map-groups.js) holds only what's on it: never this course's own notes, decks, files or exams
+  return mp && mp.g ? Object.assign(out, {blank: true, exams: [], notes: [], decks: [], files: [], classes: {}, keep: null}) : out;
 }
 function rebuild(keepView){
   const src = gather(M.own); if (!src) return false;
@@ -912,6 +916,7 @@ async function addPicture(file, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Pictures in concept maps are part of Studyboard Pro."); return; }
   if (!file || !/^image\//.test(file.type)) { M.err = "Choose a picture (JPEG, PNG, WebP or HEIC)."; paint(); return; }
   if (!window.SBPRO || !SBPRO.storeImage) return;
+  if (window.SBCMAPG && SBCMAPG.picGate(M.own, () => addPicture(file, ontoId))) return;
   M.busy = true; paint();
   try {
     const {blob, w, h} = await smallJpeg(file), k = await SBPRO.storeImage(blob, (file.name || "map-picture").replace(/\.[a-z0-9]+$/i, "") + ".jpg");
@@ -1171,6 +1176,7 @@ function paint(){
   const need = [...new Set(g.nodes.map(n => FONT_FILE[n.font]).concat([...pkFonts].map(f => FONT_FILE[f])).concat(pk && pk.chip && pk.chip[3] ? [FONT_FILE[pk.chip[3]]] : []).filter(Boolean))].filter(f => !M.fontsOk[f]);
   if (need.length && document.fonts && document.fonts.load) Promise.all(need.map(f => document.fonts.load(`16px "${f}"`).catch(() => null))).then(() => { need.forEach(f => { M.fontsOk[f] = true; }); if (shown()) paint(); });
   tools(); panel(); legend(know); embPreviews(world, embLater);
+  fire("cm-painted", M.own, world);
 }
 function legend(know){
   const L = M.el.querySelector(".cm-legend"); if (!L) return;
@@ -1195,11 +1201,11 @@ function tools(){
     + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" aria-label="Colour by Knowledge" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span>${pro}</label>`
     + (weak ? `<button type="button" class="btn small cm-shaky" data-cm="shaky" title="Review the cards for your shaky ideas">${weak} Shaky</button>` : "")
     + `<button type="button" class="btn small cm-mb${M.looks ? " on" : ""}" data-cm="looks" aria-expanded="${!!M.looks}" title="Map Style: a look for the whole map">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml">Map Style</span></button>`
-    + `<span class="spacer"></span>`
+    + fire("cm-tools", M.own).filter(Boolean).join("") + `<span class="spacer"></span>`
     + `<button type="button" class="icon-btn cm-undo" data-cm="undo" aria-label="Undo" title="${(M.undoS || []).length ? esc("Undo: " + M.undoS[M.undoS.length - 1].label) : "Undo"}" ${(M.undoS || []).length ? "" : "disabled"}>${mi('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button>`
     + `<button type="button" class="icon-btn cm-undo cm-redo" data-cm="redo" aria-label="Redo" title="${(M.redoS || []).length ? esc("Redo: " + M.redoS[M.redoS.length - 1].label) : "Redo"}" ${(M.redoS || []).length ? "" : "disabled"}>${mi('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>')}</button>`
     + menu("more", mi('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'), "More",
-      M.xsub ? `<span class="cm-msep cm-xsep">Export the Whole Map</span>${Object.keys(EXP_LABEL).map(f => item("export", EXP_LABEL[f], `data-v="${f}"`)).join("")}` : (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", "Map Style", 'data-phone="1"')
+      M.xsub ? `<span class="cm-msep cm-xsep">Export the Whole Map</span>${Object.keys(EXP_LABEL).map(f => item("export", EXP_LABEL[f], `data-v="${f}"`)).join("")}` : (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", "Map Style", 'data-phone="1"') + fire("cm-more", M.own).filter(Boolean).join("")
       + item("xmenu", M.exporting ? "Exporting…" : "Export…", M.exporting ? "disabled" : 'aria-haspopup="menu"'), true);
 }
 function closeMenu(){ M.menu = ""; if (!M.el) return; M.el.querySelectorAll(".cm-menu").forEach(m => m.remove()); M.el.querySelectorAll(".cm-mb.on").forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); }
@@ -1256,6 +1262,7 @@ function looksPanel(){
 }
 function panel(){
   const P = M.el.querySelector(".cm-panel"); if (!P) return;
+  const ext = M.err || M.quiz ? "" : fire("cm-panel", M.own).find(Boolean); if (ext) { P.innerHTML = ext; return; }
   const g = M.g;
   if (M.err) { P.innerHTML = `<p class="mini cm-err" role="alert">${esc(M.err)}</p><button type="button" class="link-btn" data-cm="err-x">OK</button>`; return; }
   if (M.looks && !M.quiz && !M.sel && !M.selE) { looksPanel(); return; }
@@ -1518,6 +1525,7 @@ async function onClick(e){
   if (a === "menu") { M.xsub = false; M.menu = M.menu === b.dataset.v ? "" : b.dataset.v; tools(); panel(); const m = M.el.querySelector(".cm-menu .cm-mi:not([disabled])"); if (m) m.focus(); return; }
   if (a === "xmenu") { M.xsub = true; tools(); const m = M.el.querySelector('.cm-menu [data-cm="export"]'); if (m) m.focus(); return; }
   if (M.menu && a !== "know") closeMenu();
+  if (fire("cm-act", a, M.own, b, n).some(Boolean)) return;
   switch (a) {
     case "style": M.styleOpen = !M.styleOpen; panel(); return;
     case "undo": undoMap(); return;
@@ -1937,7 +1945,7 @@ function listHtml(){
     const meta = [n ? `${n.items} idea${n.items === 1 ? "" : "s"} · ${n.links} link${n.links === 1 ? "" : "s"}` : "", x.exam ? "from the Prep Plan" : "", ago(x.at)].filter(Boolean).join(" · ");
     const ic = (d, w) => `<svg viewBox="0 0 24 24" width="${w || 17}" height="${w || 17}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
     return `${head}<article class="cm-mapcard" style="--c:${esc(colorOf(x.cid))}">
-      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : ""}</button>
+      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
       <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b><span class="mini">${esc(meta)}</span></button>
       <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div>
     </article>`;
@@ -2540,5 +2548,5 @@ path.cm-line,path.cm-hit{fill:none}
 `;
 document.head.appendChild(css);
 
-window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M};
+window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M, peek: mapPeek, peekSvg, shown, redraw: () => { if (shown()) paint(); }};
 })();

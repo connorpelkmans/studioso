@@ -34,6 +34,8 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
     for (const op of ['.cm-panel [data-cm="style"]', '.cm-tools [data-cm="menu"][data-v="add"]', '.cm-tools [data-cm="menu"][data-v="study"]', '.cm-tools [data-cm="menu"][data-v="more"]', '.cm-panel [data-cm="menu"][data-v="attach"]']) {
       if (await shown()) break;
       if (op.includes('"style"') && await page.locator(".cm-panel .cm-style").count()) continue;
+      // a toolbar menu left open (a person would tap it closed first) can cover the panel's buttons at phone width
+      if (op.startsWith(".cm-panel") && await page.locator(".cm-tools .cm-menu").count()) { await page.click(".cm-tools .cm-mb.on"); await page.waitForTimeout(60); }
       if (await page.locator(op).count()) { await page.click(op); await page.waitForTimeout(60); }
     }
     await page.click(sel);

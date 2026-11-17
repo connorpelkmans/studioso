@@ -1501,3 +1501,123 @@ drop trigger if exists sbg_deck_check on public.shared_decks;
 create trigger sbg_deck_check before insert or update on public.shared_decks for each row execute function public.sbg_deck_check();
 
 notify pgrst, 'reload schema';
+
+-- Live concept maps (a concept map's ⋯ > Share With a Group, or a group's Whiteboards tab > Share a Concept Map), the same way as
+-- live whiteboards: the group gets a copy of what's on the map (ideas, connections, places, styles, embeds and pictures; boxes that
+-- open the sharer's own notes, decks or files go as plain ideas by name, or not at all). Each change is one row of per-item changes
+-- (an idea, a place, a style, a connection...), so two people editing different boxes both keep their edits.
+create table if not exists public.group_maps (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  created_by uuid default auth.uid() references auth.users(id) on delete set null,   -- kept for the group when its maker's account is deleted
+  name text not null check (char_length(name) between 1 and 80),
+  course text not null default '' check (char_length(course) <= 40),   -- the course code it came from, so members can file it under theirs
+  deleted boolean not null default false,
+  preview jsonb check (preview is null or (jsonb_typeof(preview) = 'object' and octet_length(preview::text) < 60000)),
+  preview_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists group_maps_group_idx on public.group_maps (group_id);
+alter table public.group_maps enable row level security;
+drop policy if exists "group map read" on public.group_maps;
+create policy "group map read" on public.group_maps for select to authenticated using (public.sbg_is_member(group_id));
+drop policy if exists "group map add" on public.group_maps;
+create policy "group map add" on public.group_maps for insert to authenticated with check (created_by = auth.uid() and public.sbg_is_member(group_id));
+-- whoever shared it, or the group's owner, can rename it or take it off the group
+drop policy if exists "group map change" on public.group_maps;
+create policy "group map change" on public.group_maps for update to authenticated
+  using (public.sbg_is_member(group_id) and (created_by = auth.uid() or public.sbg_is_owner(group_id)))
+  with check (public.sbg_is_member(group_id) and (created_by = auth.uid() or public.sbg_is_owner(group_id)));
+revoke delete, truncate, references, trigger on public.group_maps from authenticated;
+revoke all on public.group_maps from anon;
+
+create table if not exists public.group_map_ops (
+  id bigint generated always as identity primary key,
+  map_id uuid not null references public.group_maps(id) on delete cascade,
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  ch jsonb not null check (jsonb_typeof(ch) = 'array' and jsonb_array_length(ch) between 1 and 200 and octet_length(ch::text) < 600000),
+  tag text not null default '' check (char_length(tag) <= 40),   -- the sending device's session, so it can skip its own echoes
+  created_at timestamptz not null default now()
+);
+create index if not exists group_map_ops_map_idx on public.group_map_ops (map_id, id);
+alter table public.group_map_ops enable row level security;
+drop policy if exists "group map ops read" on public.group_map_ops;
+create policy "group map ops read" on public.group_map_ops for select to authenticated using (public.sbg_is_member(group_id));
+drop policy if exists "group map ops add" on public.group_map_ops;
+create policy "group map ops add" on public.group_map_ops for insert to authenticated with check (
+  user_id = auth.uid() and public.sbg_is_member(group_id)
+  and exists (select 1 from public.group_maps m where m.id = map_id and m.group_id = group_map_ops.group_id and not m.deleted));
+revoke update, delete, truncate, references, trigger on public.group_map_ops from authenticated;
+revoke all on public.group_map_ops from anon;
+
+create table if not exists public.group_map_people (
+  map_id uuid not null references public.group_maps(id) on delete cascade,
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  added_at timestamptz not null default now(),
+  primary key (map_id, user_id)
+);
+create index if not exists group_map_people_group_idx on public.group_map_people (group_id);
+alter table public.group_map_people enable row level security;
+drop policy if exists "group map people read" on public.group_map_people;
+create policy "group map people read" on public.group_map_people for select to authenticated using (public.sbg_is_member(group_id));
+drop policy if exists "group map people add" on public.group_map_people;
+create policy "group map people add" on public.group_map_people for insert to authenticated with check (
+  user_id = auth.uid() and public.sbg_is_member(group_id)
+  and exists (select 1 from public.group_maps m where m.id = map_id and m.group_id = group_map_people.group_id and not m.deleted));
+drop policy if exists "group map people leave" on public.group_map_people;
+create policy "group map people leave" on public.group_map_people for delete to authenticated using (user_id = auth.uid());
+revoke update, truncate, references, trigger on public.group_map_people from authenticated;
+revoke all on public.group_map_people from anon;
+
+-- A group map's preview for the group's tab: its boxes, lines and places (drawn by the app, never stored as markup)
+create or replace function public.group_map_preview(p_map uuid, p_preview jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare g uuid;
+begin
+  select group_id into g from public.group_maps where id = p_map and not deleted;
+  if g is null or not public.sbg_is_member(g) then raise exception 'That map isn''t in one of your groups.'; end if;
+  if p_preview is null or jsonb_typeof(p_preview) <> 'object' or octet_length(p_preview::text) >= 60000 then raise exception 'That preview can''t be used.'; end if;
+  if to_regprocedure('public.studyboard_rate_hit(text,integer,integer)') is not null and not public.studyboard_rate_hit('cmpv:' || auth.uid()::text, 30, 60) then return; end if;
+  update public.group_maps set preview = p_preview, preview_at = now() where id = p_map;
+end $$;
+revoke all on function public.group_map_preview(uuid, jsonb) from public, anon;
+grant execute on function public.group_map_preview(uuid, jsonb) to authenticated;
+
+-- Limits: 40 maps per group (like whiteboards), and changes come in batches
+create or replace function public.sbg_map_limits() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_table_name = 'group_maps' then
+    if (select count(*) from public.group_maps where group_id = new.group_id and not deleted) >= 40 then raise exception 'A group can have 40 concept maps. Take one off the group first.'; end if;
+  else
+    if to_regprocedure('public.studyboard_rate_hit(text,integer,integer)') is not null and not public.studyboard_rate_hit('cmop:' || auth.uid()::text, 900, 60) then
+      raise exception 'Changing the group map too fast. Wait a moment.';
+    end if;
+    update public.group_maps set updated_at = now() where id = new.map_id;
+  end if;
+  return new;
+end $$;
+revoke all on function public.sbg_map_limits() from public, anon, authenticated;
+drop trigger if exists sbg_map_limits on public.group_maps;
+create trigger sbg_map_limits before insert on public.group_maps for each row execute function public.sbg_map_limits();
+drop trigger if exists sbg_map_op_limits on public.group_map_ops;
+create trigger sbg_map_op_limits before insert on public.group_map_ops for each row execute function public.sbg_map_limits();
+
+do $$
+declare t text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['group_maps', 'group_map_ops', 'group_map_people'] loop
+      if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      end if;
+    end loop;
+  end if;
+end $$;
+-- Every function the rules above call can be run by a signed-in member (a rule calling one they can't run fails every read)
+grant execute on function public.sbg_is_member(uuid), public.sbg_is_owner(uuid) to authenticated;
+
+notify pgrst, 'reload schema';
