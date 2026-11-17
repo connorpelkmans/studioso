@@ -369,9 +369,12 @@ const CMAP = (() => {
 /*CMAP-END*/
 
 // Beta: a small β after the title until the owner says it's done (set BETA to false to take it off)
-const BETA = true;
+const BETA = false; // out of beta
 const betaHead = html => BETA ? html.replace(/(<span class="sh-kick">[^<]*)(<\/span>)/, '$1<span class="sb-beta" title="Beta: still being improved">Beta</span>$2').replace(/(<span class="g2-ring sh-ring"[^>]*>)/, '$1<span class="sb-beta sb-beta-alt" aria-hidden="true">Beta</span>') : html;
-const PRO_WHY = "Concept Maps are part of Studyboard Pro: see how your notes, decks, PDFs, lectures and exam topics connect, and practise filling the map in.";
+/* Concept maps are free for everyone. Pro: map styles, videos and embeds, pictures, any colour, links to a PDF page or lecture moment,
+   Scan a Drawing, and Colour by Knowledge (with the flashcards and quiz questions attached to ideas, and matching them) */
+const isLocked = () => !!(window.SBPRO && SBPRO.locked());
+const PRO_KNOW = "Colour by Knowledge is part of Studyboard Pro: each idea takes the colour of how well you know it, from your flashcard and quiz results.";
 const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/></svg>';
 const KIND = {course: ["Course", "#2F6FE4"], exam: ["Exam", "#D64545"], topic: ["Topic", "#7C5CFF"], note: ["Note", "#C98A1B"], board: ["Whiteboard", "#E8590C"], deck: ["Deck", "#1C7ED6"], file: ["File", "#5F6B7A"], lecture: ["Lecture Recording", "#0C8599"], class: ["Class", "#0CA678"], idea: ["Your Idea", "#D6336C"]};
 const CONF = {weak: ["Shaky", "#E03131"], ok: ["OK", "#E8A317"], strong: ["Strong", "#2F9E44"]};
@@ -442,7 +445,6 @@ function studyIdeas(ids){
 }
 // Make (or update) the map's deck: each worded connection is a card; one Undo for the deck and the map together
 function makeCards(both){
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Making flashcards from a concept map is part of Studyboard Pro."); return; }
   const o = M.own, m = CMAP.mapCards(M.g, {both}), ref = refOf(o), old = mapDeck(o), name = (metaOf(o).name || (ownerObj(o) || {}).title || "Concept Map").slice(0, 70);
   if (!m.cards.length) { M.err = "Put words on some connections first (tap a line, then type how the two ideas connect). Each worded connection becomes a card."; paint(); return; }
   const d = old ? clone(old) : normDeck({id: uid(), name: `${name} Map Cards`, courseId: courseIdOf(o), created: Date.now(), cards: []});
@@ -711,30 +713,29 @@ function bounds(){
 /* Entry points */
 function courseBtn(c){
   if (!c || inPreview() || !window.SBPRO) return "";
-  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">${ICON} Concept Map${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="course" data-id="${esc(c.id)}">${ICON} Concept Map</button>`;
 }
 // A course's map lives in a small card in the course page's side column (the button row is kept to five), once there's something to map
 if (typeof C2_ICONS === "object" && C2_ICONS && !C2_ICONS.cmap) C2_ICONS.cmap = '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>';
 function courseCard(c){
   if (!c || inPreview() || !window.SBPRO || typeof c2Box !== "function") return "";
-  const pro = SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "", n = mapsOf(c).length;
+  const pro = "", n = mapsOf(c).length; // maps are free for everyone
   const newBtn = l => `<button type="button" class="btn small" data-act="cm-new" data-course="${esc(c.id)}">${l}${pro}</button>`;
   if (!n) return c2Box("cmap", "Concept Maps", "", `<div class="facts c2-none cm-card"><span class="mini">See how this course fits together: map your ideas and connect your notes, decks and files.</span>${newBtn("Create Map")}</div>`);
   return c2Box("cmap", "Concept Maps", n, `<div class="facts c2-none cm-card"><span class="mini">${n} map${n === 1 ? "" : "s"} for this course, in Review.</span><button type="button" class="btn small" data-act="cm-review" data-id="${esc(c.id)}">Open</button>${newBtn("New")}</div>`);
 }
 function examBtn(ex){
   if (!ex || inPreview() || !window.SBPRO || !topicsOf(ex).length) return "";
-  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="exam" data-id="${esc(ex.id)}">${ICON} Concept Map${SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : ""}</button>`;
+  return `<button type="button" class="btn small cm-btn" data-act="cm-open" data-kind="exam" data-id="${esc(ex.id)}">${ICON} Concept Map</button>`;
 }
 function open(kind, id, map){
-  if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return; }
   const o = {kind: kind === "exam" ? "exam" : "course", id}; if (!ownerObj(o)) return;
   // a course map: the one asked for, else the course's first (or a new one, saved once you change something)
   if (o.kind === "course") { const ms = mapsOf(state.courses[id]); o.map = map && ms.some(m => m.id === map) ? map : (ms[0] || {}).id || "main"; }
   const same = M.own && M.own.kind === o.kind && M.own.id === o.id && M.own.map === o.map;
   // a map always opens with its menus and panels closed (Map Style, a box's Style, a toolbar menu, a colour picker...), even if they were open when it closed
   Object.assign(M, {own: o, sel: "", selE: "", connect: "", quiz: null, sug: null, err: "", busy: false, menu: "", looks: false, lookScrolled: false, styleOpen: false, cardsOpen: false, made: null, pick: "", lastTap: null});
-  if (!same) { M.loose = false; M.know = o.kind === "exam"; M.undoS = []; M.redoS = []; }
+  if (!same) { M.loose = false; M.know = o.kind === "exam" && !isLocked(); M.undoS = []; M.redoS = []; }
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
   const mp = mapOf(o);
   // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
@@ -932,11 +933,13 @@ function themeKit(skin){
 // a theme's map style: its own (Sakura's cherry branch...), or its colours and motif
 const themePack = sk => CMPACK.THEME_OF[sk] ? CMPACK.get(CMPACK.THEME_OF[sk]) : themeKit(sk);
 const skinOk = sk => typeof SKINS === "undefined" || SKINS.some(x => x.id === sk);
+// the 14 plain-colour themes' styles are free for everyone; every other style (themes, subjects) is Pro
+const FREE_SKINS = ["classic", "paper", "slate", "sand", "blush", "lavender", "sky", "sage", "peach", "butter", "teal", "mocha", "plum", "indigo"];
+const packFree = pk => !!pk && FREE_SKINS.some(sk => CMPACK.THEME_OF[sk] === pk.id);
 function packOf(){
-  const id = M.own ? metaOf(M.own).pack : ""; if (!id || !window.CMPACK || (window.SBPRO && SBPRO.locked())) return null;
-  if (id === "theme") return themePack(skinNow());
-  if (/^t-/.test(id)) return skinOk(id.slice(2)) ? themePack(id.slice(2)) : null;
-  return CMPACK.get(id);
+  const id = M.own ? metaOf(M.own).pack : ""; if (!id || !window.CMPACK) return null;
+  const pk = id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? (skinOk(id.slice(2)) ? themePack(id.slice(2)) : null) : CMPACK.get(id);
+  return pk && (!isLocked() || packFree(pk)) ? pk : null;
 }
 // the outline a style drew becomes the box's shape (lines meet it, and it shows selection); the box's own colours still win
 const pkOutline = (o, col, n) => o.replace(/^<(\w+)/, '<$1 class="cm-shape pk-o"').replace(/style="([^"]*)"/, (m, st) => `style="--c:${col};${st}${n.fill ? `;fill:${n.fill}` : ""}${n.stroke ? `;stroke:${n.stroke}` : ""}"`);
@@ -1124,16 +1127,16 @@ function tools(){
       + `<span class="cm-msep">Studyboard AI</span>` + item("desc", `${AI_ICON} Describe Ideas`) + item("suggest", `${AI_ICON} ${M.busy ? "Thinking…" : "Suggest Connections"}`, M.busy ? "disabled" : ""))
     + menu("study", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')}<span class="cm-ml">Study</span>`, "Study from the map",
       item("quiz", `${mi('<path d="M4 6h16M4 12h10M4 18h7"/>')} Fill In the Map`, M.g.nodes.filter(n => !n.root && n.deg).length >= 3 ? "" : "disabled") + item("cards", `${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} ${mapDeck(M.own) ? "Update Flashcards" : "Make Flashcards"}`)
-      + item("matchall", `${AI_ICON} Match Cards to Ideas`)
+      + item("matchall", `${AI_ICON} Match Cards to Ideas${pro}`)
       + (weak ? item("shaky", `${mi('<circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/>')} Review ${weak} Shaky Idea${weak === 1 ? "" : "s"}`) : ""))
-    + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" aria-label="Colour by Knowledge" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span></label>`
+    + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" aria-label="Colour by Knowledge" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span>${pro}</label>`
     + (weak ? `<button type="button" class="btn small cm-shaky" data-cm="shaky" title="Review the cards for your shaky ideas">${weak} Shaky</button>` : "")
-    + `<button type="button" class="btn small cm-mb${M.looks ? " on" : ""}" data-cm="looks" aria-expanded="${!!M.looks}" title="Map Style: a look for the whole map">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml">Map Style</span>${pro}</button>`
+    + `<button type="button" class="btn small cm-mb${M.looks ? " on" : ""}" data-cm="looks" aria-expanded="${!!M.looks}" title="Map Style: a look for the whole map">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml">Map Style</span></button>`
     + `<span class="spacer"></span>`
     + `<button type="button" class="icon-btn cm-undo" data-cm="undo" aria-label="Undo" title="${(M.undoS || []).length ? esc("Undo: " + M.undoS[M.undoS.length - 1].label) : "Undo"}" ${(M.undoS || []).length ? "" : "disabled"}>${mi('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button>`
     + `<button type="button" class="icon-btn cm-undo cm-redo" data-cm="redo" aria-label="Redo" title="${(M.redoS || []).length ? esc("Redo: " + M.redoS[M.redoS.length - 1].label) : "Redo"}" ${(M.redoS || []).length ? "" : "disabled"}>${mi('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>')}</button>`
     + menu("more", mi('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'), "More",
-      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", `Map Style${pro}`, 'data-phone="1"'), true);
+      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", "Map Style", 'data-phone="1"'), true);
 }
 function closeMenu(){ M.menu = ""; if (!M.el) return; M.el.querySelectorAll(".cm-menu").forEach(m => m.remove()); M.el.querySelectorAll(".cm-mb.on").forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); }
 // a toolbar or panel menu: the button, and its list while open (one open at a time; a tap anywhere else closes it)
@@ -1172,12 +1175,14 @@ function themeGrids(tile){
   return groups.map(([g, title]) => { const list = all.filter(s => g ? s.group === g || (g === "pro" && s.group === "newscenes") : !known.has(s.group) && s.group !== "newscenes"); if (!list.length) return "";
     return `<p class="cm-lookh">${title}</p><div class="cm-lookg">${list.map(s => { const own = CMPACK.THEME_OF[s.id], pk = themePack(s.id), id = own || "t-" + s.id; return tile(id, s.name, CMPACK.preview(pk, FONT_STACK), own ? pk.desc : `${s.name}'s colours${pk.tile.svg.includes("<path") ? " and motif" : ""}`); }).join("")}</div>`; }).join("");
 }
+// whether a style in the picker is free: Plain, a plain-colour theme's, or Match My Theme while on a plain-colour theme
+const lookFree = id => !id || packFree(id === "theme" ? themePack(skinNow()) : CMPACK.get(id));
 // Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
 function looksPanel(){
   const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
   const cur = metaOf(M.own).pack || "", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
   const plain = `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><g fill="var(--muted)" opacity=".35">${Array.from({length: 28}, (_, i) => `<circle cx="${8 + (i % 7) * 25}" cy="${10 + Math.floor(i / 7) * 25}" r="1"/>`).join("")}</g><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.6"/><rect x="101" y="13" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/><rect x="101" y="61" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/></svg>`;
-  const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
+  const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked && !lookFree(id) ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
   const grid = ids => `<div class="cm-lookg">${ids.map(id => { const k = CMPACK.P[id]; return tile(id, k.name, CMPACK.preview(k, FONT_STACK), k.desc); }).join("")}</div>`;
   P.innerHTML = `<div class="cm-looks"><div class="cm-row cm-ttl"><b>Map Style</b><span class="mini">A look for the whole map: its background, boxes and lines.</span><span class="spacer"></span><button type="button" class="btn small" data-cm="looks-x">Done</button></div>
     <div class="cm-lookg">${tile("", "Plain", plain, "Studyboard's own look")}${tile("theme", `Match My Theme`, CMPACK.preview(mine, FONT_STACK), `Follows your theme (now ${skinName(sk)})`)}</div>
@@ -1222,7 +1227,7 @@ function panel(){
     const res = ks && ks.right + ks.wrong ? `${ks.pct}% right (${ks.right} of ${ks.right + ks.wrong})` : ks && ks.cards.length ? "not studied yet" : "";
     P.innerHTML = `<div class="cm-row cm-ttl"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embInfo(n.emb).tt || embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""}${(n.ev || []).length ? ` · ${n.ev.length} attached` : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span><button type="button" class="icon-btn cm-pclose" data-cm="desel" aria-label="Done" title="Done">${CLOSE}</button></div>
       ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row cm-acts">${n.at ? `<button type="button" class="btn small primary cm-gob" data-cm="goat">${n.at.t != null ? mi('<path d="M8 5v14l11-7z"/>') + " Play from " : mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>') + " Go to "}${esc(atLabel(n.at))}</button>` : ""}${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}${ks && ks.cards.length ? `<button type="button" class="btn small${kn === "weak" ? " primary" : ""}" data-cm="study">Review ${ks.cards.length} Card${ks.cards.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn small" data-cm="connect" aria-label="Connect To…">Connect<span class="cm-ml"> To…</span></button><button type="button" class="btn small" data-cm="rename">Rename</button><button type="button" class="btn small${M.styleOpen ? " on" : ""}" data-cm="style" aria-expanded="${!!M.styleOpen}">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml"> Style</span></button>${n.kind === "idea" ? menu("attach", `${mi('<path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/>')}<span class="cm-ml"> Attach</span>`, "Attach a page, lecture, picture or video",
-        `<button type="button" role="menuitem" class="cm-mi" data-cm="evp">${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} Flashcards and Questions${(n.ev || []).length ? ` (${n.ev.length})` : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atpdf">${mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>')} ${n.at && n.at.p ? "Change PDF Page" : "PDF Page"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atlec">${mi('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')} ${n.at && n.at.t != null ? "Change Lecture Moment" : "Lecture Moment"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="picon">${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} ${n.img ? "Change Picture" : "Picture"}</button><button type="button" role="menuitem" class="cm-mi" data-cm="emb">${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} ${n.emb ? "Change Video or Embed" : "Video or Embed"}</button>${n.at || n.img || n.emb ? '<span class="cm-msep">Remove</span>' : ""}${n.at ? `<button type="button" role="menuitem" class="cm-mi" data-cm="atoff">${n.at.t != null ? "Lecture Moment" : "PDF Page"}</button>` : ""}${n.img ? `<button type="button" role="menuitem" class="cm-mi" data-cm="picoff">Picture</button>` : ""}${n.emb ? `<button type="button" role="menuitem" class="cm-mi" data-cm="emboff">Video or Embed</button>` : ""}`) : ""}${n.root ? "" : `<button type="button" class="icon-btn cm-delb" data-cm="${n.kind === "idea" ? "del" : "hide"}" aria-label="${n.kind === "idea" ? "Delete" : "Hide"}" title="${n.kind === "idea" ? "Delete" : "Hide"}">${n.kind === "idea" ? mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') : mi('<path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.6C4.3 8.1 3 12 3 12s4 6 9 6a9 9 0 0 0 4.4-1.2"/>')}</button>`}</div>
+        `<button type="button" role="menuitem" class="cm-mi" data-cm="evp">${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} Flashcards and Questions${(n.ev || []).length ? ` (${n.ev.length})` : ""}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atpdf">${mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>')} ${n.at && n.at.p ? "Change PDF Page" : "PDF Page"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atlec">${mi('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')} ${n.at && n.at.t != null ? "Change Lecture Moment" : "Lecture Moment"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="picon">${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} ${n.img ? "Change Picture" : "Picture"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="emb">${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} ${n.emb ? "Change Video or Embed" : "Video or Embed"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button>${n.at || n.img || n.emb ? '<span class="cm-msep">Remove</span>' : ""}${n.at ? `<button type="button" role="menuitem" class="cm-mi" data-cm="atoff">${n.at.t != null ? "Lecture Moment" : "PDF Page"}</button>` : ""}${n.img ? `<button type="button" role="menuitem" class="cm-mi" data-cm="picoff">Picture</button>` : ""}${n.emb ? `<button type="button" role="menuitem" class="cm-mi" data-cm="emboff">Video or Embed</button>` : ""}`) : ""}${n.root ? "" : `<button type="button" class="icon-btn cm-delb" data-cm="${n.kind === "idea" ? "del" : "hide"}" aria-label="${n.kind === "idea" ? "Delete" : "Hide"}" title="${n.kind === "idea" ? "Delete" : "Hide"}">${n.kind === "idea" ? mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') : mi('<path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.6C4.3 8.1 3 12 3 12s4 6 9 6a9 9 0 0 0 4.4-1.2"/>')}</button>`}</div>
       ${M.styleOpen ? styleHtml(n) : ""}`}`;
     return;
   }
@@ -1455,12 +1460,12 @@ async function onClick(e){
     case "looks-x": M.looks = false; tools(); panel(); return;
     case "look": {
       const v = b.dataset.v || "", cur = metaOf(M.own).pack || ""; if (v === cur) return;
-      if (v && window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Map styles are part of Studyboard Pro."); return; }
+      if (isLocked() && !lookFree(v)) { PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
       const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : /^t-/.test(v) ? skinName(v.slice(2)) : (CMPACK.P[v] || {}).name || v;
       saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || null}); paint(); return;
     }
-    case "evp": if (n) evPanel(n); return;
-    case "matchall": matchAll(); return;
+    case "evp": if (isLocked()) { PLAN.openSheet("Attaching flashcards and quiz questions to ideas is part of Studyboard Pro, with Colour by Knowledge."); return; } if (n) evPanel(n); return;
+    case "matchall": if (isLocked()) { PLAN.openSheet("Matching your cards to ideas is part of Studyboard Pro, with Colour by Knowledge."); return; } matchAll(); return;
     case "made-x": M.made = null; panel(); return;
     case "study-deck": { const id = M.made && M.made.deck; M.made = null; if (id && state.decks[id]) { if (dlg.open) dlg.close(); setTimeout(() => startStudy([id]), 0); } return; }
     case "desel": M.sel = ""; M.selE = ""; M.pick = ""; lite(); return;
@@ -1468,7 +1473,7 @@ async function onClick(e){
     case "in": zoomAt(1.25); break;
     case "out": zoomAt(0.8); break;
     case "fit": fit(); paint(); break;
-    case "know": M.know = b.checked; M.kc = null; paint(); break;
+    case "know": if (b.checked && isLocked()) { b.checked = false; PLAN.openSheet(PRO_KNOW); return; } M.know = b.checked; M.kc = null; paint(); break;
     case "cards": cardsPanel(); break;
     case "cards-x": M.cardsOpen = false; panel(); break;
     case "cards-go": makeCards(!!M.both); break;
@@ -1618,7 +1623,7 @@ function cardHtml(d, c){
 hook("act", (act, el, id) => {
   const d = (el && el.dataset) || {};
   if (act === "cm-review") { if (dlg.open) dlg.close(); ui.tab = "flashcards"; ui.deckId = null; ui.fc = null; ui.qzOpen = null; if (typeof rvSet === "function") rvSet("maps"); if (id) ui.filter = id; render(); window.scrollTo(0, 0); return true; }
-  if (act === "cm-new") { if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet(PRO_WHY); return true; } newMapSheet(d.course || (ui.filter && ui.filter !== "all" ? ui.filter : "")); return true; }
+  if (act === "cm-new") { newMapSheet(d.course || (ui.filter && ui.filter !== "all" ? ui.filter : "")); return true; }
   if (act === "cm-ren") { renameSheet(d.course, id); return true; }
   if (act === "cm-del") { delMap(d.course, id); return true; }
   if (act === "cm-sort") return true;
@@ -1855,7 +1860,7 @@ function listHtml(){
   const list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
   const cl = x => { const c = courseOf(x.cid); return c ? courseLabel(c) : "General"; };
   list.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name));
-  const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
+  const pro = ""; // maps are free; Pro parts are marked inside the map
   let lastCourse = "";
   const cards = list.map(x => {
     const c = courseOf(x.cid), pk = mapPeek(x), n = pk, head = sort === "course" && cl(x) !== lastCourse ? (lastCourse = cl(x), `<h3 class="fsec cm-grp">${esc(cl(x))}</h3>`) : "";

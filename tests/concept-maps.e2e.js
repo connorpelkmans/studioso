@@ -421,15 +421,16 @@ function SEED(){
     ok(await pl.locator(".cm-panel .cm-style:not([hidden])").count() === 0 && await pl.locator('.cm-panel [data-cm="style"][aria-expanded="true"]').count() === 0, "and a box's Style section starts closed too");
     // without Pro (e.g. Pro ended while the map was open): no style is drawn, the picker marks every style Pro, and picking one opens the Pro sheet
     await pl.click('.cm-tools [data-cm="looks"]').catch(() => {}); if (!(await pl.locator(".cm-looks").count())) await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
-    await pl.click('.cm-look[data-v="t_lavender"]'); await pl.waitForTimeout(300);
+    await pl.click('.cm-look[data-v="sakura"]'); await pl.waitForTimeout(300);
     ok(await pl.locator(".cm-canvas.cm-pk").count() === 1, "with Pro, the style shows");
     await pl.evaluate(() => { window.__realLocked = SBPRO.locked; SBPRO.locked = () => true; });
     await pl.click('.cm-look[data-v=""]'); await pl.waitForTimeout(150); await pl.click('.cm-tools [data-cm="looks"]').catch(() => {}); if (!(await pl.locator(".cm-looks").count())) await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
     ok(await pl.locator(".cm-canvas.cm-pk").count() === 0 && await pl.locator(".cm-node.is-pk").count() === 0, "without Pro, the map is drawn plain");
-    ok(await pl.locator('.cm-look[data-v="t_lavender"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v="theme"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v="med"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v=""] .pro-badge').count() === 0, "every theme and subject style is marked Pro; Plain isn't");
+    ok(await pl.locator('.cm-look[data-v="sakura"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v="med"] .pro-badge').count() === 1 && await pl.locator('.cm-look[data-v=""] .pro-badge').count() === 0, "theme and subject styles are marked Pro; Plain isn't");
+    ok(await pl.locator(".cm-look .pro-badge").count() === await pl.locator(".cm-look").count() - 15 - (await pl.locator('.cm-look[data-v="theme"] .pro-badge').count() ? 0 : 1), "the 14 plain-colour styles (and Plain) are free, everything else is Pro");
     const before = (await mp()).pack;
-    await pl.click('.cm-look[data-v="t_sakura"], .cm-look[data-v="sakura"]'); await pl.waitForTimeout(300);
-    ok(await pl.locator("#dlg[open] .plan-sheet").count() === 1 && /Map styles are part of Studyboard Pro/.test(await pl.textContent("#dlg[open]")) && (await mp()).pack === before, "picking a theme's style without Pro opens the Pro sheet and changes nothing");
+    await pl.click('.cm-look[data-v="sakura"]'); await pl.waitForTimeout(300);
+    ok(await pl.locator("#dlg[open] .plan-sheet").count() === 1 && /This map style is part of Studyboard Pro/.test(await pl.textContent("#dlg[open]")) && (await mp()).pack === before, "picking a Pro theme's style without Pro opens the Pro sheet and changes nothing");
     await pl.keyboard.press("Escape"); await pl.waitForTimeout(200);
     await pl.evaluate(() => { SBPRO.locked = window.__realLocked; });
     ok(!(await pl.locator("#toast.show").count()) && pl.errs.length === 0, "Map Style: no notices, no errors: " + pl.errs.join(" | "));
@@ -458,11 +459,41 @@ function SEED(){
     await ctxD.close();
   }
 
-  /* Free plan */
-  const fctx = await mkCtx(null, {free: true}), fp = await open(fctx);
-  await act(fp, "cm-new", "", {course: "c2"}); await fp.waitForSelector("#dlg[open] .plan-sheet");
-  ok(/Concept Maps are part of Studyboard Pro/.test(await fp.textContent("#dlg[open]")), "free: New Map opens the Pro sheet");
-  await fctx.close();
+  /* Free plan: maps for everyone; styles beyond the plain colours, embeds, pictures, any colour, PDF and lecture links, Colour by Knowledge are Pro */
+  {
+    const fctx = await mkCtx(null, {free: true}), fp = await open(fctx), sheet = async () => (await fp.locator("#dlg[open] .plan-sheet").count()) ? await fp.textContent("#dlg[open]") : "";
+    const reopen = async () => { await fp.keyboard.press("Escape"); await fp.waitForTimeout(200); if (!(await fp.locator(".cm-node").count())) { await act(fp, "cm-open", "c2", {kind: "course", map: "m1"}); await fp.waitForSelector(".cm-node"); } };
+    await act(fp, "cm-new", "", {course: "c2"}); await fp.waitForSelector("#cmName");
+    ok(!(await sheet()), "free: New Map opens New Map, not the Pro sheet");
+    await fp.keyboard.press("Escape"); await fp.waitForTimeout(200);
+    await act(fp, "cm-open", "c2", {kind: "course", map: "m1"}); await fp.waitForSelector(".cm-node");
+    ok(await fp.locator(".cm-node").count() >= 4 && !(await sheet()), "free: a map opens, with its ideas");
+    await act(fp, "cm-review", ""); await fp.waitForTimeout(300); await act(fp, "cm-open", "c2", {kind: "course", map: "m1"}); await fp.waitForSelector(".cm-node");
+    // Map Style: the plain colours are free, the rest Pro
+    await fp.click('.cm-tools [data-cm="looks"]'); await fp.waitForSelector(".cm-looks");
+    ok(await fp.locator('.cm-look[data-v="t_lavender"] .pro-badge').count() === 0 && await fp.locator('.cm-look[data-v="t_indigo"] .pro-badge').count() === 0 && await fp.locator('.cm-look[data-v="sakura"] .pro-badge').count() === 1 && await fp.locator('.cm-look[data-v="med"] .pro-badge').count() === 1, "free: plain-colour styles have no PRO badge; scene and subject styles do");
+    await fp.click('.cm-look[data-v="t_lavender"]'); await fp.waitForTimeout(300);
+    ok(await fp.getAttribute(".cm-canvas", "data-pk") === "t_lavender" && !(await sheet()), "free: a plain-colour style (Lavender) can be used");
+    await fp.click('.cm-look[data-v="med"]'); await fp.waitForTimeout(300);
+    ok(/This map style is part of Studyboard Pro/.test(await sheet()), "free: a subject style opens the Pro sheet");
+    await reopen();
+    ok(await fp.getAttribute(".cm-canvas", "data-pk") === "t_lavender", "and the map keeps its free style");
+    // Colour by Knowledge
+    await fp.click('.cm-tools [data-cm="know"]'); await fp.waitForTimeout(300);
+    ok(/Colour by Knowledge is part of Studyboard Pro/.test(await sheet()), "free: Colour by Knowledge opens the Pro sheet");
+    await reopen();
+    // an idea's Attach menu: everything there is Pro
+    await tap(fp, "idea:a"); await fp.click('.cm-panel [data-cm="menu"][data-v="attach"]'); await fp.waitForSelector(".cm-menu");
+    ok(await fp.locator(".cm-menu .pro-badge").count() === 5, "free: Attach's Flashcards and Questions, PDF Page, Lecture Moment, Picture and Video are marked Pro");
+    await fp.click('.cm-menu [data-cm="atlec"]'); await fp.waitForTimeout(300);
+    ok(/part of Studyboard Pro/.test(await sheet()), "free: Lecture Moment opens the Pro sheet");
+    await reopen();
+    // a free part still works: Make Flashcards
+    await cmClick(fp, '[data-cm="cards"]'); await fp.waitForTimeout(300);
+    ok(!(await sheet()), "free: Make Flashcards is free");
+    ok(fp.errs.length === 0, "free: no errors: " + fp.errs.join(" | "));
+    await fctx.close();
+  }
 
   /* Phone */
   const pctx = await mkCtx({width: 390, height: 844}), pp = await open(pctx);
