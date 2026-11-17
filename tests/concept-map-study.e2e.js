@@ -40,7 +40,9 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   };
   const mkCtx = async viewport => {
     const ctx = await browser.newContext({viewport: viewport || {width: 1280, height: 860}, serviceWorkers: "block"});
-    await ctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, SEED);
+    await ctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, SEED);
+    ctx.aiCalls = [];
+    await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.aiCalls.push(route.request().postData() || ""); route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(ctx.aiReply || {matches: []})}]}, finishReason: "STOP"}]})}); });
     return ctx;
   };
   const open = async ctx => { const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error" && !/Failed to load resource|ERR_FAILED/.test(m.text())) page.errs.push(m.text()); });
@@ -141,6 +143,44 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   ok(!(await S(page)).courses.c2.maps[0].add.find(x => x.id === "d").at && !(await page.locator('.cm-node[data-n="idea:d"] .cm-atb').count()), "Remove Link takes it off");
   ok(page.errs.length === 0, "no console errors (links): " + page.errs.join(" | "));
   await ctx.close();
+
+  /* Flashcards and quiz questions attached to an idea colour it; Studyboard AI can find them */
+  {
+    const c2 = await mkCtx(), pg = await open(c2);
+    await openMap(pg); await pg.check('[data-cm="know"]'); await pg.waitForTimeout(200);
+    ok((await col(pg, "idea:b")).toUpperCase() === "#98A2B3", "Pyruvate starts with no results");
+    await tap(pg, "idea:b"); await cmClick(pg, '[data-cm="evp"]'); await pg.waitForSelector(".cm-evf");
+    ok(await pg.locator(".cm-evi").count() === 3 && /Card/.test(await pg.textContent(".cm-evl")) && /Question/.test(await pg.textContent(".cm-evl")), "Attach, Flashcards and Questions lists the course's cards and quiz questions");
+    await pg.fill("[data-ev-q]", "atp"); ok(await pg.locator(".cm-evi:not([hidden])").count() === 1, "search narrows the list");
+    await pg.fill("[data-ev-q]", ""); await pg.check('.cm-evi input[value="c:k1:kc2"]'); await pg.click(".cm-evf [type=submit]"); await pg.waitForTimeout(300);
+    let b = (await S(pg)).courses.c2.maps[0].add.find(x => x.id === "b");
+    ok(JSON.stringify(b.ev) === '["c:k1:kc2"]' && (await col(pg, "idea:b")).toUpperCase() === "#E03131", "attaching the ATP card (0 of 3) makes Pyruvate shaky");
+    await tap(pg, "idea:b"); ok(/1 attached/.test(await pg.textContent(".cm-panel")) && /Review 1 Card/.test(await pg.textContent(".cm-panel")), "its panel says what's attached, and reviews that card");
+    // the strong card too: the two combine (5 of 8 right is OK)
+    await cmClick(pg, '[data-cm="evp"]'); await pg.waitForSelector(".cm-evf"); await pg.check('.cm-evi input[value="c:k1:kc1"]'); await pg.click(".cm-evf [type=submit]"); await pg.waitForTimeout(300);
+    ok((await col(pg, "idea:b")).toUpperCase() === "#E8A317", "two attached cards combine: 5 of 8 right colours it OK");
+    // Find With AI: the idea and what it's connected to go to the AI; its picks come back ticked
+    c2.aiReply = {matches: [{idea: "idea:b", items: ["i3"]}]};
+    await tap(pg, "idea:b"); await cmClick(pg, '[data-cm="evp"]'); await pg.waitForSelector(".cm-evf"); await pg.click("[data-ev-ai]");
+    await pg.waitForFunction(() => /Found 1/.test(document.querySelector("[data-ev-st]").textContent));
+    const sent = c2.aiCalls[c2.aiCalls.length - 1];
+    ok(/idea:b \| Pyruvate/.test(sent) && /connected:/.test(sent) && /makes Glycolysis/.test(sent) && /Where does glycolysis happen/.test(sent), "the AI gets the idea, its connections and the course's cards and questions");
+    ok(await pg.isChecked('.cm-evi input[value^="q:k1:q1:qq1"]'), "the question it found is ticked, ready to save");
+    await pg.click(".cm-evf [type=submit]"); await pg.waitForTimeout(300);
+    b = (await S(pg)).courses.c2.maps[0].add.find(x => x.id === "b");
+    ok(b.ev.length === 3 && b.ev.includes("q:k1:q1:qq1") && (await col(pg, "idea:b")).toUpperCase() === "#E03131", "the quiz question counts too (missed 2 of 2: now 5 of 10, shaky)");
+    // Study, Match Cards to Ideas: every idea at once
+    c2.aiReply = {matches: [{idea: "idea:c", items: ["i2"]}, {idea: "idea:d", items: ["i2", "i9"]}]};
+    await cmClick(pg, '[data-cm="matchall"]'); await pg.waitForSelector(".cm-evf .cm-matg");
+    ok(await pg.locator(".cm-evf .cm-matg").count() === 2 && await pg.locator(".cm-evf input:checked").count() === 2, "Match Cards to Ideas shows each idea's matches (codes not in the list are dropped)");
+    await pg.uncheck('.cm-evf input[data-idea="idea:d"]'); await pg.click(".cm-evf [type=submit]"); await pg.waitForTimeout(300);
+    const st2 = (await S(pg)).courses.c2.maps[0].add;
+    ok(JSON.stringify(st2.find(x => x.id === "c").ev) === '["c:k1:kc2"]' && !st2.find(x => x.id === "d").ev, "it attaches what's left ticked");
+    await pg.click('.cm-tools [data-cm="undo"]'); await pg.waitForTimeout(250);
+    ok(!(await S(pg)).courses.c2.maps[0].add.find(x => x.id === "c").ev, "one Undo takes them all off");
+    ok(pg.errs.length === 0, "no console errors (attached cards): " + pg.errs.join(" | "));
+    await c2.close();
+  }
 
   /* Phone */
   const pctx = await mkCtx({width: 390, height: 844}), pp = await open(pctx);

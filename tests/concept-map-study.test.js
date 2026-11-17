@@ -65,6 +65,10 @@ const ga = CMAP.graph({root: {label: "Bio"}, files: [{id: "f1", label: "Lecture 
 const ia = ga.nodes.find(x => x.id === "idea:a");
 ok(ia.at.p === 12 && !ga.edges.some(e => e.a === "idea:a" || e.b === "idea:a") && !ga.nodes.some(x => x.id === "file:f1"), "an idea linked to a page keeps the link on its own box: no line to the PDF, which isn't pulled onto the map");
 ok(ga.nodes.find(x => x.id === "idea:b").at.f === "nope", "a link to a file that's gone stays on the idea (Go To then says the file isn't there)");
+/* Attached cards and questions: they count for the idea they're attached to, and still for any idea they name (never twice) */
+{ const k2 = CMAP.knowFrom(g, [{text: "What does ATP synthase make?", right: 0, wrong: 2, ids: ["idea:b"], alsoText: true, card: {d: "k", c: "9"}}, {text: "unrelated words", right: 3, wrong: 1, ids: ["idea:b"], alsoText: true, q: "q:k:z:1"}]);
+  ok(k2["idea:b"].right === 3 && k2["idea:b"].wrong === 3 && k2["idea:b"].lvl === "weak" && k2["idea:b"].cards.length === 1 && k2["idea:b"].qs.length === 1, "an attached card and question combine for their idea (3 of 6 right: shaky)");
+  ok(k2["idea:d"] && k2["idea:d"].wrong === 2 && k2["idea:d"].right === 0, "an attached card still counts for an idea it names (ATP)"); }
 /* Lines: thickness and colour; the old thick line is a solid, thick one */
 { const gl = CMAP.graph({root: {label: "M"}, blank: true, user: {add: [{id: "a", label: "A"}, {id: "b", label: "B"}, {id: "c", label: "C"}], links: [{a: "root", b: "idea:a", line: "thick"}, {a: "root", b: "idea:b", line: "dashed", w: 4, col: "#D6336C"}, {a: "root", b: "idea:c", w: 9, col: "red; x"}]}});
   const E = id => gl.edges.find(e => e.b === id || e.a === id && e.b === "root");
