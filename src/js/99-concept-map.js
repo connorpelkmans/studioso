@@ -466,7 +466,7 @@ function atPanel(n){
     saveUser(x, `Linked ${n.label} to ${at.t != null ? CMAP.clock(at.t) + " in " : "page " + at.p + " of "}${fl.name || "a file"}`); rebuild(true); paint(); });
 }
 // Concept maps save without notices: each step can still be undone (the map's Undo button, or Ctrl+Z)
-function quietly(changes, label){ applyChanges(changes, label, null, {quiet: true}); const st = applyChanges.last; if (st && label) { M.steps = (M.steps || []).filter(x => !x.done).concat([st]).slice(-30); } }
+function quietly(changes, label){ M.ownSave = true; try { applyChanges(changes, label, null, {quiet: true}); } finally { M.ownSave = false; } const st = applyChanges.last; if (st && label) { M.steps = (M.steps || []).filter(x => !x.done).concat([st]).slice(-30); } }
 function undoMap(){
   const st = (M.steps || []).filter(x => !x.done && Date.now() - x.at < 30 * 60000).pop(); if (!st) return;
   st.undo(); M.steps = M.steps.filter(x => x !== st && !x.done); M.kc = null; rebuild(true); paint();
@@ -735,7 +735,7 @@ function paint(){
   // nodes first (their sizes come from their labels), then the lines between their edges
   const nodes = g.nodes.map(n => {
     const [x, y] = P(n.id), col = n.color && !know ? n.color : nodeColor(n, know), qi = Q ? Q.ids.indexOf(n.id) : -1, hidden = qi >= 0 && !Q.done.has(n.id), shape = CMAP.shapeOf(n);
-    const label = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), dot = !n.img && /^(box|rounded|pill)$/.test(shape);
+    const label = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), dot = !n.img && !n.emb && /^(box|rounded|pill)$/.test(shape);
     const kind = (KIND[n.kind] || KIND.file)[0], conf = know && know[n.id] ? `, ${CONF[know[n.id]][0]}` : "";
     return `<g class="cm-node k-${n.kind} sh-${shape}${n.root ? " is-root" : ""}${n.color ? " has-col" : ""}${M.sel === n.id ? " is-sel" : ""}${M.connect === n.id ? " is-con" : ""}${hidden ? " is-blank" : ""}${qi >= 0 && Q.done.has(n.id) ? " is-got" : ""}${Q && Q.pick === n.id ? " is-pick" : ""}" data-n="${esc(n.id)}" data-col="${col}" data-dot="${dot ? 1 : ""}" transform="translate(${x},${y})" tabindex="0" role="button" aria-label="${esc(hidden ? `Blank ${qi + 1}` : `${n.label}, ${kind}${conf}`)}">
       ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round((n.size || (n.root ? 15 : 13)) * 0.36)}"${dot ? "" : ' text-anchor="middle" x="0"'} style="${n.size ? `font-size:${n.size}px;` : ""}${n.font ? `font-family:${FONT_STACK[n.font]};` : ""}${n.text ? `fill:${n.text};` : ""}">${esc(label)}</text></g>`;
@@ -925,7 +925,8 @@ function wireCanvas(){
     pts.delete(e.pointerId); if (!drag) return; const d = drag; drag = null; if (d.pinch) return;
     if (d.moved && d.id && !M.quiz) { const u = userOf(M.own); u.pos = Object.assign({}, u.pos, {[d.id]: M.pos[d.id]}); saveUser(u, null); return; }
     if (d.moved) return;
-    if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; paint(); } else if (!M.quiz) { M.sel = ""; M.selE = ""; M.connect = ""; paint(); }
+    if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
+    else if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
   };
   svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", e => { pts.delete(e.pointerId); drag = null; });
   cv.addEventListener("wheel", e => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX, e.clientY); }, {passive: false});
@@ -939,10 +940,19 @@ function moveEdges(id){
   const svg = M.el.querySelector(".cm-svg");
   M.g.edges.forEach(e => { if (e.a !== id && e.b !== id) return; const g = svg.querySelector(`.cm-edge[data-e="${CSS.escape(e.key)}"]`); if (!g) return; const G = edgeGeo(e); g.querySelectorAll("line").forEach(l => { l.setAttribute("x1", G.sx); l.setAttribute("y1", G.sy); l.setAttribute("x2", G.ex); l.setAttribute("y2", G.ey); }); const lg = g.querySelector(".cm-elg"); if (lg) lg.setAttribute("transform", `translate(${G.mx},${G.my})`); });
 }
+// Picking something only changes which box or line is highlighted and what the panel shows, so the drawing itself stays put
+// (rebuilding it would flash, and reload pictures and video thumbnails)
+function lite(){
+  const w = M.el && M.el.querySelector(".cm-world"); if (!w || !M.g) { paint(); return; }
+  w.querySelectorAll(".cm-node").forEach(el => { el.classList.toggle("is-sel", el.dataset.n === M.sel); el.classList.toggle("is-con", el.dataset.n === M.connect); });
+  w.querySelectorAll(".cm-edge").forEach(el => el.classList.toggle("is-sel", el.dataset.e === M.selE));
+  tools(); panel();
+}
 function tapNode(id){
   // a second tap on a video or embed plays it (a tap repaints the map, so the browser's own double-click can't be relied on)
   const now = Date.now(), tn = M.byId[id];
-  if (tn && (tn.emb || tn.at) && !M.quiz && !M.connect && M.lastTap && M.lastTap.id === id && now - M.lastTap.t < 500) { M.lastTap = null; M.sel = id; M.selE = ""; paint(); if (tn.emb) player(id); else goAt(tn.at); return; }
+  if (tn && tn.emb && !M.quiz && !M.connect) { M.lastTap = null; M.sel = id; M.selE = ""; M.pick = ""; lite(); player(id); return; }
+  if (tn && tn.at && !M.quiz && !M.connect && M.lastTap && M.lastTap.id === id && now - M.lastTap.t < 500) { M.lastTap = null; M.sel = id; M.selE = ""; lite(); goAt(tn.at); return; }
   M.lastTap = {id, t: now};
   if (M.quiz) { const Q = M.quiz; if (Q.ids.includes(id) && !Q.done.has(id)) { Q.pick = Q.pick === id ? "" : id; Q.wrong = ""; paint(); } return; }
   if (M.connect && M.connect !== id) {
@@ -951,7 +961,7 @@ function tapNode(id){
     M.connect = ""; M.sel = ""; M.selE = k; paint(); const i = M.el.querySelector("[data-cm-elab]"); if (i) i.focus(); return;
   }
   if (M.sel !== id) M.pick = "";
-  M.sel = M.sel === id ? "" : id; M.selE = ""; M.connect = ""; paint(); if (M.sel) panTo(M.sel);
+  M.sel = M.sel === id ? "" : id; M.selE = ""; M.connect = ""; M.pick = ""; lite(); if (M.sel) panTo(M.sel);
 }
 function openNode(n){
   const own = ownerObj(M.own), cid = M.own.kind === "course" ? M.own.id : own.courseId, go = (kind, id, page) => { if (window.SBPRO && SBPRO.openLink) SBPRO.openLink({kind, id}, page || 0); };
@@ -986,7 +996,7 @@ async function onClick(e){
     case "undo": undoMap(); return;
     case "made-x": M.made = null; panel(); return;
     case "study-deck": { const id = M.made && M.made.deck; M.made = null; if (id && state.decks[id]) { if (dlg.open) dlg.close(); setTimeout(() => startStudy([id]), 0); } return; }
-    case "desel": M.sel = ""; M.selE = ""; M.pick = ""; paint(); return;
+    case "desel": M.sel = ""; M.selE = ""; M.pick = ""; lite(); return;
     case "loose-t": M.loose = !M.loose; rebuild(true); grew(); paint(); return;
     case "in": zoomAt(1.25); break;
     case "out": zoomAt(0.8); break;
@@ -1104,7 +1114,7 @@ async function suggest(){
 // Undo, sync or new material: the open map follows (not mid-drag, mid-quiz or while naming something)
 let redrawT = 0;
 hook("changed", changes => {
-  if (!shown() || !M.own) return;
+  if (!shown() || !M.own || M.ownSave) return;
   const kinds = new Set(["note", "deck", "file", "course", "task"]);
   if (!(changes || []).some(c => kinds.has(c.kind))) return;
   clearTimeout(redrawT);
@@ -1432,6 +1442,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-panel>.cm-row:first-child{flex-wrap:nowrap}
 .cm-panel>.cm-row:first-child .mini{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cm-delb{color:var(--muted)}
+.cm-acts .cm-delb{width:36px;height:36px;border-radius:999px;flex:none}
 .cm-undo{flex:none;width:34px;height:34px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
 .cm-undo[disabled]{opacity:.35}
 .cm-ok{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#2F9E44;color:#fff;font-weight:800;flex:none}
@@ -1463,6 +1474,20 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-segb:last-child{border-right:0}
 .cm-segb[aria-pressed="true"]{background:color-mix(in srgb,var(--accent,#2F6FE4) 14%,var(--surface));color:var(--accent,#2F6FE4)}
 .cm-segb:focus-visible{outline:2px solid var(--accent,#2F6FE4);outline-offset:-2px}
+/* style controls: colour chips, the font menu and the two steppers, all in the same rounded look as the shape picker */
+.cm-pickb{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px 0 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;font-weight:700;cursor:pointer}
+.cm-pickb:hover{border-color:color-mix(in srgb,var(--accent,#2F6FE4) 45%,var(--line))}
+.cm-pickb[aria-expanded="true"]{background:color-mix(in srgb,var(--accent,#2F6FE4) 12%,var(--surface));border-color:color-mix(in srgb,var(--accent,#2F6FE4) 55%,var(--line));color:var(--accent,#2F6FE4)}
+.cm-pickb:focus-visible,.cm-stb:focus-visible,.cm-font select:focus-visible{outline:2px solid var(--accent,#2F6FE4);outline-offset:1px}
+.cm-pickb i{width:18px;height:18px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 22%,transparent);flex:none}
+.cm-pickb i.is-auto{background:conic-gradient(#2F6FE4,#7C5CFF,#D6336C,#E8A317,#2F9E44,#2F6FE4)}
+.cm-font{display:inline-flex}
+.cm-font select{height:34px;padding:0 30px 0 10px;border:1px solid var(--line);border-radius:10px;background-color:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;font-weight:600;max-width:160px;cursor:pointer}
+.cm-step{display:inline-flex;align-items:center;height:34px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.cm-stb{display:grid;place-items:center;min-width:34px;height:100%;padding:0 8px;border:0;background:none;color:var(--ink);font:inherit;font-size:.88rem;font-weight:800;cursor:pointer}
+.cm-stb:hover{background:color-mix(in srgb,var(--accent,#2F6FE4) 10%,var(--surface))}
+.cm-stb svg{width:18px;height:18px}
+.cm-stv{min-width:42px;padding:0 4px;text-align:center;font-size:.84rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);border-left:1px solid var(--line);border-right:1px solid var(--line);line-height:32px}
 .cm-cols{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .cm-col{width:24px;height:24px;border-radius:50%;border:2px solid var(--surface);background:var(--sw);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
 .cm-col[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
