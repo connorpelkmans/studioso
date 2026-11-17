@@ -30769,6 +30769,7 @@ document.head.appendChild(AREA_CSS);
       <ul class="ob-sum ob-pro">
         ${li("Every Premium Theme and Companion", "plus sticker packs, card styles and 46 Theme Collections")}
         ${li("Record a Lecture", "live captions, then AI study notes and flashcards")}
+        ${li("Writing Studio", "sources, citations and a citation check for your papers")}
         ${li("Two-Way Calendar Sync", "with Google Calendar or Outlook")}
         ${li("PDF Reader with Highlights", "and decks read aloud with Listen")}
         ${li("Picture Cards", "and cards made from the diagrams in your PDFs and pictures")}
@@ -84905,6 +84906,8 @@ var SBPRO = null;
     calsync: "Your deadlines, classes and study sessions in Google Calendar or Outlook, and your events back in Studyboard.",
     reader: "Read PDFs and Office files, highlight, turn highlights into notes and cards, and fix a PDF's text.",
     lecture: "Record a class and get a clean transcript and a summary, saved with the course.",
+    writing: "Sources, citations in 10,000+ styles, quotes from your highlights, an outline and a citation check for every paper.",
+    cmap: "Concept maps are free for everyone. Pro adds every theme and subject style, pictures, videos, any colour, PDF and lecture links, Scan a Drawing and Colour by Knowledge.",
     autopilot: "Missed study sessions move into your next free time overnight. Due dates never move.",
     rubric: "Feedback on your draft against the rubric before you submit.",
     insights: "Where your time goes, how each course is trending, and what's worth a closer look.",
@@ -84923,7 +84926,7 @@ var SBPRO = null;
     email: "Forward school emails and Studyboard finds the deadlines in them."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
-  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "autopilot", "rubric", "insights"];
+  const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "writing", "cmap", "autopilot", "rubric", "insights"];
   function sheetHtml(pro){
     const rank = f => { const i = TOP.indexOf(f.id); return i < 0 ? TOP.length + FEATURES.indexOf(f) : i; };
     const rows = FEATURES.slice().sort((a, b) => rank(a) - rank(b)).map(f => `<li><span class="pf-ic">${ico(f.icon || "")}</span><span class="pf-t"><b>${esc(f.name)}</b><span class="mini">${esc(DESC[f.id] || f.where)}</span></span>${pro && f.act ? `<button type="button" class="btn small" data-act="${esc(f.act)}">Open</button>` : ""}</li>`).join("");
@@ -105913,7 +105916,7 @@ hook("act", (act, el, id) => {
   if (dlg.open) dlg.close();
   open(id, el && el.dataset ? el.dataset.wsTo : ""); return true;
 });
-if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", where: "On a paper, essay or project: sources (with Zotero), citations in 10,000+ styles, quotes from your highlights, an outline and a citation check", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 1.5zM4 19.5A2 2 0 0 0 6 21h12"/><path d="M9 7h6M9 11h4"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", free: "—", pro: "Included", where: "On a paper, essay or project: sources (with Zotero), citations in 10,000+ styles, quotes from your highlights, an outline and a citation check", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 1.5zM4 19.5A2 2 0 0 0 6 21h12"/><path d="M9 7h6M9 11h4"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -108585,7 +108588,7 @@ function listHtml(){
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
-if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", where: "In Review, beside Flashcards and Quizzes: maps of how a course fits together, drawn from your material, a template, a description or a photo of one you drew by hand, with pictures, videos, links to PDF pages and lecture moments, flashcards made from its connections, colours from your results, and Fill In the Map", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
 const css = document.createElement("style");
 css.textContent = `

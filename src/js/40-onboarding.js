@@ -285,6 +285,7 @@
       <ul class="ob-sum ob-pro">
         ${li("Every Premium Theme and Companion", "plus sticker packs, card styles and 46 Theme Collections")}
         ${li("Record a Lecture", "live captions, then AI study notes and flashcards")}
+        ${li("Writing Studio", "sources, citations and a citation check for your papers")}
         ${li("Two-Way Calendar Sync", "with Google Calendar or Outlook")}
         ${li("PDF Reader with Highlights", "and decks read aloud with Listen")}
         ${li("Picture Cards", "and cards made from the diagrams in your PDFs and pictures")}

@@ -2254,7 +2254,7 @@ hook("act", (act, el, id) => {
   if (dlg.open) dlg.close();
   open(id, el && el.dataset ? el.dataset.wsTo : ""); return true;
 });
-if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", where: "On a paper, essay or project: sources (with Zotero), citations in 10,000+ styles, quotes from your highlights, an outline and a citation check", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 1.5zM4 19.5A2 2 0 0 0 6 21h12"/><path d="M9 7h6M9 11h4"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "writing", name: "Writing Studio", free: "—", pro: "Included", where: "On a paper, essay or project: sources (with Zotero), citations in 10,000+ styles, quotes from your highlights, an outline and a citation check", icon: '<path d="M4 19.5V5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 1.5zM4 19.5A2 2 0 0 0 6 21h12"/><path d="M9 7h6M9 11h4"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
