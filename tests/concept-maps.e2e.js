@@ -97,6 +97,7 @@ function SEED(){
   ok(st.fill === fillV && st.stroke === strokeV && st.text === textV && st.shape === "cloud", `fill, outline and text colours save (${fillV}, ${strokeV}, ${textV}) and keep the shape`);
   ok(new RegExp(fillV, "i").test(await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "fill") + (await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "style") || "")), "the box shows its fill");
   await page.locator('[data-cm="font"]').count() || await cmClick(page, '[data-cm="style"]'); await page.selectOption('[data-cm="font"]', "hand"); await page.waitForTimeout(200);
+  ok(/Caveat/.test(await page.evaluate(() => getComputedStyle(document.querySelector('.cm-node[data-n="idea:i1"] .cm-lab')).fontFamily)), "the box's words show in the chosen font (Handwritten: Caveat)");
   for (let i = 0; i < 3; i++) { await cmClick(page, '[data-cm="tsize"][data-v="1"]'); await page.waitForTimeout(80); }
   const w0 = await page.evaluate(() => document.querySelector('.cm-node[data-n="idea:i1"]').getBBox().width);
   await cmClick(page, '[data-cm="bsize"][data-v="1"]'); await page.waitForTimeout(200);
