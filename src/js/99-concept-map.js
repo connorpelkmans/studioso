@@ -825,6 +825,43 @@ function autoInk(fill){
   const L = 0.2126 * lin(v >> 16 & 255) + 0.7152 * lin(v >> 8 & 255) + 0.0722 * lin(v & 255);
   return L > 0.36 ? "#1E293B" : "#FFFFFF";
 }
+/* Map styles (Pro): a whole look for the map (background, boxes, lines) from CMPACK (99-concept-map-packs.js), kept on the map as meta.pack:
+   "theme" (Match My Theme: the theme's own style, or its colours and motif), or a style's id. Colour by Knowledge and Fill In the Map keep plain boxes. */
+const pkVar = id => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h) % 3; };
+const skinNow = () => ((state.settings || {}).style || {}).skin || "classic";
+const skinName = id => { const s = typeof SKINS !== "undefined" && SKINS.find(x => x.id === id); return s ? s.name : "My Theme"; };
+function probeCol(v){
+  const d = document.createElement("i"); d.style.cssText = `position:absolute;visibility:hidden;color:${v}`; (M.el || document.body).appendChild(d);
+  const c = getComputedStyle(d).color, m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c); d.remove();
+  return m ? "#" + [m[1], m[2], m[3]].map(x => (+x).toString(16).padStart(2, "0")).join("") : "";
+}
+// any theme without a style of its own: its colours (from its kit, or the page's) and its motif on the background
+function themeKit(skin){
+  const dark = typeof isDarkNow === "function" && isDarkNow();
+  if (M.kit && M.kit.skin === skin && M.kit.dark === dark) return M.kit.pk;
+  const K = typeof THEME_KIT !== "undefined" && THEME_KIT[skin], sh = K && typeof FX_SHAPES !== "undefined" && FX_SHAPES[K.motif];
+  const acc = probeCol("var(--accent)") || "#7C5CFF", surf = probeCol("var(--surface)") || "#FFFFFF", ink = probeCol("var(--ink)") || "#1E293B", line = probeCol("var(--line)") || "#D0D5DD";
+  const pk = CMPACK.kit({name: skinName(skin), dark, motif: sh ? sh.d : "", mc: K && !dark ? K.mc : acc, bd: K && !dark ? K.bd : line, ink: K && !dark ? K.ink : ink,
+    card: [K && !dark ? K.card[0] : surf], paper: K && !dark ? K.card[1] : probeCol("color-mix(in srgb,var(--surface) 92%,var(--accent))") || surf});
+  M.kit = {skin, dark, pk}; return pk;
+}
+function packOf(){
+  const id = M.own ? metaOf(M.own).pack : ""; if (!id || !window.CMPACK || (window.SBPRO && SBPRO.locked())) return null;
+  if (id !== "theme") return CMPACK.get(id);
+  const sk = skinNow(); return CMPACK.THEME_OF[sk] ? CMPACK.get(CMPACK.THEME_OF[sk]) : themeKit(sk);
+}
+// the outline a style drew becomes the box's shape (lines meet it, and it shows selection); the box's own colours still win
+const pkOutline = (o, col, n) => o.replace(/^<(\w+)/, '<$1 class="cm-shape pk-o"').replace(/style="([^"]*)"/, (m, st) => `style="--c:${col};${st}${n.fill ? `;fill:${n.fill}` : ""}${n.stroke ? `;stroke:${n.stroke}` : ""}"`);
+const pkText = (pk, n) => { try { return pk.box({w: 120, h: 40, root: !!n.root, i: pkVar(n.id)}).t || {}; } catch (e) { return {}; } };
+function pkCanvas(pk){
+  const cv = M.el && M.el.querySelector(".cm-canvas"); if (!cv) return;
+  cv.classList.toggle("cm-pk", !!pk); cv.dataset.pk = pk ? pk.id : "";
+  const set = (k, v) => v ? cv.style.setProperty(k, v) : cv.style.removeProperty(k);
+  let arrow = ""; if (pk) { try { arrow = pk.arrow || (/stroke:(#[0-9a-f]{3,8})/i.exec(pk.line([[0, 0], [20, 0], [40, 0], [60, 0]], 0).st || "") || [])[1]; } catch (e) {} }
+  const ch = pk ? pk.chip || [pk.base, pk.dark ? "#ffffff55" : "#00000026", pk.dark ? "#FFFFFF" : "#2B2B2B", ""] : [];
+  set("--pk-base", pk && pk.base); set("--pk-img", pk && CMPACK.tileUrl(pk)); set("--pk-frame", pk && pk.frame); set("--pk-arrow", pk && (arrow || (pk.dark ? "#fff" : "#555")));
+  set("--pk-cbg", ch[0]); set("--pk-cbd", ch[1]); set("--pk-cink", ch[2]); set("--pk-cf", ch[3] ? FONT_STACK[ch[3]] : "");
+}
 function shapeSvg(shape, w, h, col, root, n){
   const st = `style="--c:${col}${n && n.fill ? `;fill:${n.fill}` : ""}${n && n.stroke ? `;stroke:${n.stroke}` : ""}"`, a = w / 2, b = h / 2;
   if (shape === "box") return `<rect class="cm-shape" x="${-a}" y="${-b}" width="${w}" height="${h}" rx="3" ${st}/>`;
@@ -891,6 +928,13 @@ function edgeSvg(e){
   // a coloured or thicker line gets arrowheads of its own colour and size (made once per kind, in the map's defs)
   const mid = e.col || e.w > 2 ? arrowFor(e) : "", mk = e.arrow === "end" || e.arrow === "both" ? ` marker-end="url(#${mid ? mid : "cmArr"})"` : "", ms = e.arrow === "both" ? ` marker-start="url(#${mid ? mid + "S" : "cmArrS"})"` : "";
   const st = `${e.w ? `--lw:${LINE_W[e.w]}px;` : ""}${e.col ? `--lc:${e.col};` : ""}`;
+  if (M.pk) {
+    // a map style's line: the line itself (its arrows, its colour if one was picked) with the style's drawing under and over it
+    const t = (a, b, f) => a + (b - a) * f, p = G.curved ? [[G.sx, G.sy], [t(G.sx, G.cx, 2 / 3), t(G.sy, G.cy, 2 / 3)], [t(G.ex, G.cx, 2 / 3), t(G.ey, G.cy, 2 / 3)], [G.ex, G.ey]] : [[G.sx, G.sy], [t(G.sx, G.ex, 1 / 3), t(G.sy, G.ey, 1 / 3)], [t(G.sx, G.ex, 2 / 3), t(G.sy, G.ey, 2 / 3)], [G.ex, G.ey]];
+    let L = {}; try { L = M.pk.line(p, pkVar(e.key)) || {}; } catch (er) {}
+    const d = CMPACK.D(p);
+    return `<g class="cm-edge pk-e ln-${e.line || "solid"}${e.user ? " is-user" : ""}${e.col ? " has-lc" : ""}${M.selE === e.key ? " is-sel" : ""}" data-e="${esc(e.key)}"><path d="${d}" class="cm-hit"/>${L.pre || ""}<path d="${L.d || d}" class="cm-line" style="${L.st || ""}${e.col ? `;stroke:${e.col}` : ""}"${mk}${ms}/>${L.post || ""}${lab ? `<g class="cm-elg" transform="translate(${G.mx},${G.my})"><rect class="cm-elbg" x="0" y="-10" width="0" height="20" rx="10"/><text x="0" y="4" class="cm-elab">${esc(lab)}</text></g>` : ""}</g>`;
+  }
   return `<g class="cm-edge ln-${e.line || "solid"}${e.user ? " is-user" : ""}${e.w ? " has-w" : ""}${e.col ? " has-lc" : ""}${M.selE === e.key ? " is-sel" : ""}" data-e="${esc(e.key)}"${st ? ` style="${st}"` : ""}>${G.curved ? `<path d="M${G.sx} ${G.sy}Q${G.cx} ${G.cy} ${G.ex} ${G.ey}" class="cm-hit"/><path d="M${G.sx} ${G.sy}Q${G.cx} ${G.cy} ${G.ex} ${G.ey}" class="cm-line"${mk}${ms}/>` : `<line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-hit"/><line x1="${G.sx}" y1="${G.sy}" x2="${G.ex}" y2="${G.ey}" class="cm-line"${mk}${ms}/>`}${lab ? `<g class="cm-elg" transform="translate(${G.mx},${G.my})"><rect class="cm-elbg" x="0" y="-10" width="0" height="20" rx="10"/><text x="0" y="4" class="cm-elab">${esc(lab)}</text></g>` : ""}</g>`;
 }
 function fitEdgeLabels(scope){
@@ -899,17 +943,20 @@ function fitEdgeLabels(scope){
 function paint(){
   if (!shown() || !M.g) return;
   const g = M.g, world = M.el.querySelector(".cm-world"), know = M.know ? know_() : null, Q = M.quiz;
-  const P = id => M.pos[id] || [0, 0];
+  const P = id => M.pos[id] || [0, 0], pk = M.pk = packOf(), pkb = pk && !know && !Q ? pk : null, pkFonts = new Set();
+  pkCanvas(pk);
   M.byId = {}; g.nodes.forEach(n => { M.byId[n.id] = n; }); M.size = {};
   // nodes first (their sizes come from their labels), then the lines between their edges
   const nodes = g.nodes.map(n => {
     const [x, y] = P(n.id), col = n.color && !know ? n.color : nodeColor(n, know), qi = Q ? Q.ids.indexOf(n.id) : -1, hidden = qi >= 0 && !Q.done.has(n.id), shape = CMAP.shapeOf(n);
-    const label = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), dot = false;
+    const pt = pkb && !n.img && !n.emb ? pkText(pkb, n) : null; if (pt && pt.font && !n.font) pkFonts.add(pt.font);
+    const lab0 = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), label = pt && pt.up ? lab0.toUpperCase() : lab0, dot = false;
+    const fs = n.size || Math.round((n.root ? 15 : 13) * (pt && pt.sz ? pt.sz : 1)), fam = n.font ? FONT_STACK[n.font] : pt && pt.font ? FONT_STACK[pt.font] : "", ink = n.text || autoInk(n.fill) || (pt ? pt.ink : "");
     const kind = (KIND[n.kind] || KIND.file)[0], conf = know && know[n.id] ? `, ${CONF[know[n.id]][0]}` : "";
     return `<g class="cm-node k-${n.kind} sh-${shape}${n.root ? " is-root" : ""}${n.color ? " has-col" : ""}${M.sel === n.id ? " is-sel" : ""}${M.connect === n.id ? " is-con" : ""}${hidden ? " is-blank" : ""}${qi >= 0 && Q.done.has(n.id) ? " is-got" : ""}${Q && Q.pick === n.id ? " is-pick" : ""}" data-n="${esc(n.id)}" data-col="${col}" data-dot="${dot ? 1 : ""}" transform="translate(${x},${y})" tabindex="0" role="button" aria-label="${esc(hidden ? `Blank ${qi + 1}` : `${n.label}, ${kind}${conf}`)}">
-      ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round((n.size || (n.root ? 15 : 13)) * 0.36)}"${dot ? "" : ' text-anchor="middle" x="0"'} style="${n.size ? `font-size:${n.size}px;` : ""}${n.b === 1 ? "font-weight:800;" : n.b === -1 ? "font-weight:500;" : ""}${n.i ? "font-style:italic;" : ""}${n.font ? `font-family:${esc(FONT_STACK[n.font])};` : ""}${(n.text || autoInk(n.fill)) ? `fill:${n.text || autoInk(n.fill)};` : ""}">${esc(label)}</text></g>`;
+      ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round(fs * 0.36) + (pt && pt.dy || 0)}"${dot ? "" : ` text-anchor="middle" x="${pt && pt.dx || 0}"`} style="${n.size || (pt && pt.sz) ? `font-size:${fs}px;` : ""}${n.b === 1 ? "font-weight:800;" : n.b === -1 ? "font-weight:500;" : pt && pt.fw ? `font-weight:${pt.fw};` : ""}${n.i || (pt && pt.it) ? "font-style:italic;" : ""}${fam ? `font-family:${esc(fam)};` : ""}${ink ? `fill:${ink};` : ""}${pt && pt.ls ? `letter-spacing:${pt.ls}px;` : ""}${pt && pt.sc ? "font-variant:small-caps;" : ""}${pt && pt.halo ? `stroke:${pt.halo};stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round;` : ""}${pt && pt.fx ? `filter:${pt.fx};` : ""}">${esc(label)}</text></g>`;
   }).join("");
-  world.innerHTML = `<defs><marker id="cmArr" viewBox="0 0 10 10" refX="2" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M0 0L10 5L0 10Z"/></marker><marker id="cmArrS" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M10 0L0 5L10 10Z"/></marker></defs><g class="cm-edges"></g><g class="cm-nodes">${nodes}</g>`;
+  world.innerHTML = `<defs>${pk && pk.defs ? pk.defs : ""}<marker id="cmArr" viewBox="0 0 10 10" refX="2" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M0 0L10 5L0 10Z"/></marker><marker id="cmArrS" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path class="cm-arrow" d="M10 0L0 5L10 10Z"/></marker></defs><g class="cm-edges"></g><g class="cm-nodes">${nodes}</g>`;
   world.setAttribute("transform", viewT());
   // each label is measured, and its box drawn to fit
   world.querySelectorAll(".cm-node").forEach(el => {
@@ -946,6 +993,15 @@ function paint(){
       t.setAttribute("y", h / 2 - lh / 2 + fs * 0.36 - 2); t.setAttribute("x", 0); t.setAttribute("text-anchor", "middle");
       return;
     }
+    if (pkb) {
+      // a map style: its box for this idea, sized to the words (with room for its own decoration)
+      const pt = pkText(pkb, n), pad = pt.pad || 0; let [w, h] = CMAP.boxSize("rounded", tw + pad, n.root, n.size, n.scale); h += pt.padH || 0;
+      const round = pkb.round === true || (pkb.round === "ideas" && !n.root); if (round) w = h = Math.round(Math.max(tw + 26, n.root ? 88 : 72) * (n.scale || 1));
+      if (n.bw) w = Math.max(tw + 26 + pad, n.bw); if (n.bh) h = Math.max((n.size || 13) * 1.9 + (pt.padH || 0), n.bh); if (round && (n.bw || n.bh)) w = h = Math.max(w, h);
+      M.size[n.id] = [w, h];
+      let b = null; try { b = pkb.box({w, h, root: !!n.root, i: pkVar(n.id)}); } catch (e) {}
+      if (b && b.o) { el.insertAdjacentHTML("afterbegin", (b.pre || "") + pkOutline(b.o, el.dataset.col, n) + (b.post || "")); el.classList.add("is-pk"); return; }
+    }
     let [w, h] = CMAP.boxSize(shape, tw + (dot ? 20 : 0), n.root, n.size, n.scale);
     if (n.bw) w = Math.max(tw + (dot ? 46 : 26), n.bw); if (n.bh) h = Math.max((n.size || 13) * 1.9, n.bh);
     M.size[n.id] = [w, h];
@@ -957,7 +1013,7 @@ function paint(){
     el.insertAdjacentHTML("beforeend", `<g class="cm-atb${n.at.t != null ? " is-lec" : ""}" transform="translate(${x} ${y})"><title>${esc((n.at.t != null ? "Plays " : "Opens ") + (f ? f.name : "the file") + " at " + lab + " (tap twice)")}</title><rect width="${w}" height="18" rx="9"/>${n.at.t != null ? '<path d="M7 5.5v7l5.5-3.5z"/>' : '<path d="M6.5 4.5h4l2 2v7h-6z" class="pg"/>'}<text x="17" y="12.6">${esc(lab)}</text></g>`); });
   M.marks = {}; world.querySelector(".cm-edges").innerHTML = g.edges.map(edgeSvg).join(""); drawHandles(); world.querySelector("defs").insertAdjacentHTML("beforeend", Object.values(M.marks).join(""));
   fitEdgeLabels(world);
-  const need = [...new Set(g.nodes.map(n => FONT_FILE[n.font]).filter(Boolean))].filter(f => !M.fontsOk[f]);
+  const need = [...new Set(g.nodes.map(n => FONT_FILE[n.font]).concat([...pkFonts].map(f => FONT_FILE[f])).concat(pk && pk.chip && pk.chip[3] ? [FONT_FILE[pk.chip[3]]] : []).filter(Boolean))].filter(f => !M.fontsOk[f]);
   if (need.length && document.fonts && document.fonts.load) Promise.all(need.map(f => document.fonts.load(`16px "${f}"`).catch(() => null))).then(() => { need.forEach(f => { M.fontsOk[f] = true; }); if (shown()) paint(); });
   tools(); panel(); legend(know);
 }
@@ -983,11 +1039,12 @@ function tools(){
       + (weak ? item("shaky", `${mi('<circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/>')} Review ${weak} Shaky Idea${weak === 1 ? "" : "s"}`) : ""))
     + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" aria-label="Colour by Knowledge" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span></label>`
     + (weak ? `<button type="button" class="btn small cm-shaky" data-cm="shaky" title="Review the cards for your shaky ideas">${weak} Shaky</button>` : "")
+    + `<button type="button" class="btn small cm-mb${M.looks ? " on" : ""}" data-cm="looks" aria-expanded="${!!M.looks}" title="Map Style: a look for the whole map">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml">Map Style</span>${pro}</button>`
     + `<span class="spacer"></span>`
     + `<button type="button" class="icon-btn cm-undo" data-cm="undo" aria-label="Undo" title="${(M.undoS || []).length ? esc("Undo: " + M.undoS[M.undoS.length - 1].label) : "Undo"}" ${(M.undoS || []).length ? "" : "disabled"}>${mi('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button>`
     + `<button type="button" class="icon-btn cm-undo cm-redo" data-cm="redo" aria-label="Redo" title="${(M.redoS || []).length ? esc("Redo: " + M.redoS[M.redoS.length - 1].label) : "Redo"}" ${(M.redoS || []).length ? "" : "disabled"}>${mi('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>')}</button>`
     + menu("more", mi('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'), "More",
-      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout"), true);
+      (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout") + item("looks", `Map Style${pro}`, 'data-phone="1"'), true);
 }
 function closeMenu(){ M.menu = ""; if (!M.el) return; M.el.querySelectorAll(".cm-menu").forEach(m => m.remove()); M.el.querySelectorAll(".cm-mb.on").forEach(b => { b.classList.remove("on"); b.setAttribute("aria-expanded", "false"); }); }
 // a toolbar or panel menu: the button, and its list while open (one open at a time; a tap anywhere else closes it)
@@ -1009,7 +1066,7 @@ function styleHtml(n){
   const chip = (key, l, cur) => `<button type="button" class="cm-pickb" data-cm="pick" data-v="${key}" aria-expanded="${M.pick === key}"><i style="--sw:${cur || "transparent"}" class="${cur ? "" : "is-auto"}"></i>${l}</button>`;
   const shown = id => ({fill: n.fill || (n.color ? "" : ""), stroke: n.stroke || "", text: n.text || ""})[id];
   const fs = n.size || (n.root ? 15 : 13), sc = n.scale || 1;
-  return `<div class="cm-row cm-style"><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
+  return `${M.pk && !M.know && !n.img && !n.emb ? `<p class="mini cm-pknote">This map's style draws the boxes. Colours, fonts and text still change here.</p>` : ""}<div class="cm-row cm-style"${M.pk && !M.know && !n.img && !n.emb ? " hidden" : ""}><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
     <div class="cm-row cm-style">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
       <label class="cm-font"><span class="sr">Font</span><select data-cm="font" aria-label="Font">${CMAP.FONTS.map(f => `<option value="${f}" ${(n.font || "") === f ? "selected" : ""} style="${FONT_STACK[f] ? `font-family:${esc(FONT_STACK[f])}` : ""}">${FONT_NAMES[f]}</option>`).join("")}</select></label>
       <span class="cm-step cm-bi" role="group" aria-label="Bold and Italic"><button type="button" class="cm-stb cm-b" data-cm="bold" aria-pressed="${n.b === 1 || (n.root && n.b !== -1)}" title="Bold" aria-label="Bold">B</button><button type="button" class="cm-stb cm-i" data-cm="ital" aria-pressed="${!!n.i}" title="Italic" aria-label="Italic">I</button></span>
@@ -1018,10 +1075,23 @@ function styleHtml(n){
       ${CMAP.styled(CMAP.styleOf(userOf(M.own).styles[n.id])) ? `<button type="button" class="link-btn" data-cm="streset">Reset Style</button>` : ""}</div>
     ${M.pick === "fill" ? sw("fill", FILLS, n.fill || "", "Automatic Fill") : M.pick === "stroke" ? sw("stroke", COLORS.concat(["#1E293B"]), n.stroke || "", "Automatic Outline") : M.pick === "text" ? sw("text", INKS, n.text || "", "Automatic Text Colour") : ""}`;
 }
+// Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
+function looksPanel(){
+  const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
+  const cur = metaOf(M.own).pack || "", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = CMPACK.THEME_OF[sk] ? CMPACK.get(CMPACK.THEME_OF[sk]) : themeKit(sk);
+  const plain = `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><g fill="var(--muted)" opacity=".35">${Array.from({length: 28}, (_, i) => `<circle cx="${8 + (i % 7) * 25}" cy="${10 + Math.floor(i / 7) * 25}" r="1"/>`).join("")}</g><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.6"/><rect x="101" y="13" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/><rect x="101" y="61" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/></svg>`;
+  const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
+  const grid = ids => `<div class="cm-lookg">${ids.map(id => { const k = CMPACK.P[id]; return tile(id, k.name, CMPACK.preview(k, FONT_STACK), k.desc); }).join("")}</div>`;
+  P.innerHTML = `<div class="cm-looks"><div class="cm-row cm-ttl"><b>Map Style</b><span class="mini">A look for the whole map: its background, boxes and lines.</span><span class="spacer"></span><button type="button" class="btn small" data-cm="looks-x">Done</button></div>
+    <div class="cm-lookg">${tile("", "Plain", plain, "Studyboard's own look")}${tile("theme", `Match My Theme`, CMPACK.preview(mine, FONT_STACK), `Follows your theme (now ${skinName(sk)})`)}</div>
+    <p class="cm-lookh">Subjects</p>${grid(CMPACK.SUBJECTS)}<p class="cm-lookh">Themes</p>${grid(CMPACK.THEMES)}</div>`;
+  const on = P.querySelector(".cm-look.on"); if (on && on.scrollIntoView && !M.lookScrolled) { M.lookScrolled = true; try { on.scrollIntoView({block: "nearest"}); } catch (e) {} }
+}
 function panel(){
   const P = M.el.querySelector(".cm-panel"); if (!P) return;
   const g = M.g;
   if (M.err) { P.innerHTML = `<p class="mini cm-err" role="alert">${esc(M.err)}</p><button type="button" class="link-btn" data-cm="err-x">OK</button>`; return; }
+  if (M.looks && !M.quiz && !M.sel && !M.selE) { looksPanel(); return; }
   if (M.quiz) {
     const Q = M.quiz, left = Q.bank.filter(b => !Q.done.has(b.id));
     if (!left.length) { P.innerHTML = `<p class="cm-done"><b>Map complete.</b> ${Q.ids.length - Q.firstMiss.size} of ${Q.ids.length} right the first time.</p>`; return; }
@@ -1174,7 +1244,9 @@ function wireCanvas(){
 }
 function moveEdges(id){
   const svg = M.el.querySelector(".cm-svg");
-  M.g.edges.forEach(e => { if (e.a !== id && e.b !== id) return; const g = svg.querySelector(`.cm-edge[data-e="${CSS.escape(e.key)}"]`); if (!g) return; const G = edgeGeo(e); g.querySelectorAll("line").forEach(l => { l.setAttribute("x1", G.sx); l.setAttribute("y1", G.sy); l.setAttribute("x2", G.ex); l.setAttribute("y2", G.ey); }); if (G.curved) g.querySelectorAll("path.cm-line, path.cm-hit").forEach(pp => pp.setAttribute("d", `M${G.sx} ${G.sy}Q${G.cx} ${G.cy} ${G.ex} ${G.ey}`)); if (e.key === M.selE) drawHandles(); const lg = g.querySelector(".cm-elg"); if (lg) lg.setAttribute("transform", `translate(${G.mx},${G.my})`); });
+  M.g.edges.forEach(e => { if (e.a !== id && e.b !== id) return; const g = svg.querySelector(`.cm-edge[data-e="${CSS.escape(e.key)}"]`); if (!g) return;
+    if (M.pk) { g.insertAdjacentHTML("afterend", edgeSvg(e)); const ng = g.nextElementSibling; g.remove(); fitEdgeLabels(ng); if (e.key === M.selE) drawHandles(); return; }
+    const G = edgeGeo(e); g.querySelectorAll("line").forEach(l => { l.setAttribute("x1", G.sx); l.setAttribute("y1", G.sy); l.setAttribute("x2", G.ex); l.setAttribute("y2", G.ey); }); if (G.curved) g.querySelectorAll("path.cm-line, path.cm-hit").forEach(pp => pp.setAttribute("d", `M${G.sx} ${G.sy}Q${G.cx} ${G.cy} ${G.ex} ${G.ey}`)); if (e.key === M.selE) drawHandles(); const lg = g.querySelector(".cm-elg"); if (lg) lg.setAttribute("transform", `translate(${G.mx},${G.my})`); });
 }
 // Picking something only changes which box or line is highlighted and what the panel shows, so the drawing itself stays put
 // (rebuilding it would flash, and reload pictures and video thumbnails)
@@ -1213,7 +1285,8 @@ function viewT(){
   const cv = M.el && M.el.querySelector(".cm-canvas"), k = M.view.k || 1;
   if (cv) { let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
     cv.style.setProperty("--cmg", step.toFixed(2) + "px"); cv.style.setProperty("--cmr", r.toFixed(2) + "px");
-    cv.style.setProperty("--cmx", (M.view.x % step).toFixed(1) + "px"); cv.style.setProperty("--cmy", (M.view.y % step).toFixed(1) + "px"); }
+    cv.style.setProperty("--cmx", (M.view.x % step).toFixed(1) + "px"); cv.style.setProperty("--cmy", (M.view.y % step).toFixed(1) + "px");
+    if (M.pk) { const tw = M.pk.tile.w * k, th = M.pk.tile.h * k; cv.style.setProperty("--pkw", tw.toFixed(2) + "px"); cv.style.setProperty("--pkh", th.toFixed(2) + "px"); cv.style.setProperty("--pkx", (((M.view.x % tw) + tw) % tw).toFixed(1) + "px"); cv.style.setProperty("--pky", (((M.view.y % th) + th) % th).toFixed(1) + "px"); } }
   return `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`;
 }
 function tapNode(id){
@@ -1264,6 +1337,14 @@ async function onClick(e){
     case "redo": redoMap(); return;
     case "anypro": anyColorPro("map"); return;
     case "mat": matPanel(); return;
+    case "looks": M.looks = !(M.looks && !M.sel && !M.selE && !M.quiz); M.lookScrolled = false; if (M.looks) { M.sel = ""; M.selE = ""; M.styleOpen = false; M.cardsOpen = false; M.made = null; lite(); } tools(); panel(); return;
+    case "looks-x": M.looks = false; tools(); panel(); return;
+    case "look": {
+      const v = b.dataset.v || "", cur = metaOf(M.own).pack || ""; if (v === cur) return;
+      if (v && window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Map styles are part of Studyboard Pro."); return; }
+      const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : (CMPACK.P[v] || {}).name || v;
+      saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || null}); paint(); return;
+    }
     case "evp": if (n) evPanel(n); return;
     case "matchall": matchAll(); return;
     case "made-x": M.made = null; panel(); return;
@@ -1755,6 +1836,23 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-legend span{display:flex;align-items:center;gap:4px}
 .cm-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
 /* the panel floats over the bottom of the map, only while there's something to show */
+.cm-canvas.cm-pk{background:var(--pk-img) var(--pkx,0) var(--pky,0)/var(--pkw,200px) var(--pkh,200px),var(--pk-base);box-shadow:var(--pk-frame,none)}
+.cm-canvas.cm-pk .cm-arrow{fill:var(--pk-arrow)}
+.cm-canvas.cm-pk .cm-elbg{fill:var(--pk-cbg);stroke:var(--pk-cbd)}
+.cm-canvas.cm-pk .cm-elab{fill:var(--pk-cink);font-family:var(--pk-cf,inherit)}
+.cm-canvas.cm-pk .cm-node.is-sel .pk-o{filter:drop-shadow(0 0 2px var(--accent,#2F6FE4)) drop-shadow(0 0 5px var(--accent,#2F6FE4))!important}
+.cm-canvas.cm-pk .cm-node.is-con .pk-o{stroke-dasharray:5 3}
+.cm-canvas.cm-pk .cm-edge.is-sel .cm-line{filter:drop-shadow(0 0 3px var(--accent,#2F6FE4)) drop-shadow(0 0 1px var(--accent,#2F6FE4))!important}
+.cm-looks{display:grid;gap:8px}
+.cm-lookg{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
+.cm-look{display:flex;flex-direction:column;gap:5px;padding:5px 5px 6px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;font-weight:700;text-align:left;cursor:pointer;transition:translate .15s,box-shadow .15s,border-color .15s}
+.cm-look svg{display:block;width:100%;height:auto;border-radius:8px}
+.cm-look:hover{translate:0 -2px;box-shadow:0 8px 18px -12px rgb(0 0 0/.45)}
+.cm-look.on{border-color:var(--accent,#2F6FE4);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent,#2F6FE4) 30%,transparent)}
+.cm-lookn{padding:0 3px;line-height:1.25}
+.cm-lookh{margin:4px 0 0;font-size:12.5px;font-weight:800;color:var(--muted)}
+.cm-pknote{margin:0}
+@media (min-width:641px){.cm-menu [data-cm="looks"][data-phone]{display:none}}
 .cm-panel{position:absolute;z-index:4;left:50%;bottom:12px;transform:translateX(-50%);width:min(780px,calc(100% - 24px));max-height:min(46%,420px);overflow:auto;display:grid;gap:8px;padding:10px 12px;background:color-mix(in srgb,var(--surface) 96%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 36px -14px rgb(0 0 0/.4)}
 .cm-panel:empty{display:none}
 .cm-panel:has(.cm-mw .cm-menu){overflow:visible}
@@ -2022,6 +2120,7 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-acts{gap:5px}
   .cm-acts .btn.small{padding:5px 10px;font-size:.84rem}
   .cm-tools .cm-shaky{display:none}
+  .cm-tools>[data-cm="looks"]{display:none}
   .cm-acts [data-cm="style"] .cm-ml,.cm-acts .cm-mw .cm-ml,.cm-acts [data-cm="connect"] .cm-ml{display:none}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:440px){.cm-chiptog .cm-ms{display:none}.cm-chiptog{padding:6px 10px}.cm-tools .cm-undo{width:34px;height:34px}}

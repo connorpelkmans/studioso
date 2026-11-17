@@ -362,6 +362,45 @@ function SEED(){
     await ctxU.close();
   }
 
+  /* Map Style: a whole look for the map, kept on the map */
+  {
+    const ctxL = await mkCtx(), pl = await open(ctxL), mp = async () => (await course(pl, "c2")).maps.find(m => m.id === "m1");
+    await act(pl, "cm-open", "c2", {kind: "course", map: "m1"}); await pl.waitForSelector(".cm-node");
+    await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks");
+    ok(await pl.locator(".cm-look").count() === 37 && await pl.locator('.cm-look.on[data-v=""]').count() === 1, "Map Style: Plain, Match My Theme, 20 subjects and 15 themes, Plain chosen");
+    await pl.click('.cm-look[data-v="med"]'); await pl.waitForTimeout(300);
+    ok((await mp()).pack === "med" && await pl.getAttribute(".cm-canvas", "data-pk") === "med" && await pl.locator(".cm-canvas.cm-pk").count() === 1, "choosing Medicine & Nursing keeps it on the map");
+    ok(await pl.evaluate(() => /data:image\/svg/.test(getComputedStyle(document.querySelector(".cm-canvas")).backgroundImage)), "the style's background is on the map");
+    ok(await pl.locator(".cm-node.is-pk .pk-o.cm-shape").count() === await pl.locator(".cm-node").count() && await pl.locator(".cm-edge.pk-e").count() >= 3, "every box and line is drawn in the style");
+    ok(await pl.evaluate(() => { const ln = document.querySelector(".cm-edge .cm-line"); return /#E03150|rgb\(224, 49, 80\)/i.test(getComputedStyle(ln).stroke); }), "the lines are the style's heartbeat red");
+    ok(await pl.locator(".cm-looks .cm-look.on[data-v=\"med\"]").count() === 1, "the picker stays open, showing the choice");
+    const x0 = await pl.evaluate(() => getComputedStyle(document.querySelector(".cm-canvas")).getPropertyValue("--pkx"));
+    await pl.click('.cm-zoom [data-cm="out"]'); await pl.waitForTimeout(200);
+    ok(await pl.evaluate(() => getComputedStyle(document.querySelector(".cm-canvas")).getPropertyValue("--pkw")) !== "" && await pl.evaluate(() => getComputedStyle(document.querySelector(".cm-canvas")).getPropertyValue("--pkx")) !== x0 + "x", "the background moves and zooms with the map");
+    // a box dragged: its lines follow, still in the style
+    const nb = await pl.locator('.cm-node[data-n="idea:b"]').boundingBox();
+    await pl.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2); await pl.mouse.down(); for (let i = 1; i <= 5; i++) await pl.mouse.move(nb.x + nb.width / 2 + i * 12, nb.y + nb.height / 2 + i * 6); await pl.mouse.up(); await pl.waitForTimeout(300);
+    ok(await pl.locator(".cm-edge.pk-e").count() >= 3 && await pl.locator(".cm-edge:not(.pk-e)").count() === 0, "dragging a box keeps its lines in the style");
+    await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForTimeout(150); if (!(await pl.locator(".cm-looks").count())) { await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); }
+    await pl.click('.cm-look[data-v="theme"]'); await pl.waitForTimeout(300);
+    ok((await mp()).pack === "theme" && await pl.getAttribute(".cm-canvas", "data-pk") === "kit", "Match My Theme: a theme without a style of its own gets its colours and motif");
+    await pl.evaluate(() => { const s = window.__sbProStudy.state(); s.settings.style = Object.assign({}, s.settings.style, {skin: "sakura"}); }); await pl.click('.cm-look[data-v="theme"]').catch(() => {});
+    await pl.click('.cm-tools [data-cm="undo"]'); await pl.waitForTimeout(300);
+    ok((await mp()).pack === "med" && await pl.getAttribute(".cm-canvas", "data-pk") === "med", "Undo puts the last style back");
+    await pl.click('.cm-tools [data-cm="redo"]'); await pl.waitForTimeout(300);
+    ok(await pl.getAttribute(".cm-canvas", "data-pk") === "sakura", "Match My Theme follows the theme (Sakura has its own style)");
+    await pl.locator('.cm-node[data-n="idea:a"]').click(); await pl.waitForTimeout(200);
+    if (!(await pl.locator(".cm-pknote").count())) await cmClick(pl, '.cm-panel [data-cm="style"]');
+    ok(await pl.locator(".cm-pknote").count() === 1, "a box's Style says the map's style draws the boxes");
+    await pl.click('.cm-tools [data-cm="know"]'); await pl.waitForTimeout(300);
+    ok(await pl.locator(".cm-node.is-pk").count() === 0 && await pl.locator(".cm-canvas.cm-pk").count() === 1, "Colour by Knowledge shows plain boxes on the style's background");
+    await pl.click('.cm-tools [data-cm="know"]'); await pl.waitForTimeout(200);
+    await pl.click('.cm-tools [data-cm="looks"]'); await pl.waitForSelector(".cm-looks"); await pl.click('.cm-look[data-v=""]'); await pl.waitForTimeout(300);
+    ok(!(await mp()).pack && await pl.locator(".cm-canvas.cm-pk").count() === 0 && await pl.locator(".cm-node.is-pk").count() === 0, "Plain takes the style off");
+    ok(!(await pl.locator("#toast.show").count()) && pl.errs.length === 0, "Map Style: no notices, no errors: " + pl.errs.join(" | "));
+    await ctxL.close();
+  }
+
   /* Free plan */
   const fctx = await mkCtx(null, {free: true}), fp = await open(fctx);
   await act(fp, "cm-new", "", {course: "c2"}); await fp.waitForSelector("#dlg[open] .plan-sheet");
@@ -375,6 +414,8 @@ function SEED(){
   ok(await fits(pp), "the list fits at 390px");
   await act(pp, "cm-open", "c2", {kind: "course", map: "m1"}); await pp.waitForSelector(".cm-node"); await tap(pp, "idea:a");
   ok(await fits(pp), "a map with a box's style controls fits at 390px");
+  ok(await pp.evaluate(() => { const t = document.querySelector(".cm-tools"), mid = x => { const r = x.getBoundingClientRect(); return r.top + r.height / 2; }, b = [...t.children].filter(x => x.offsetParent && !x.classList.contains("spacer")); return b.every(x => Math.abs(mid(x) - mid(b[0])) < 6); }), "the map toolbar stays on one row at 390px");
+  await pp.click('.cm-tools [data-cm="menu"][data-v="more"]'); await pp.click('.cm-menu [data-cm="looks"]'); await pp.waitForSelector(".cm-looks"); ok(await fits(pp), "the Map Style picker fits at 390px");
   await pp.keyboard.press("Escape"); await pp.waitForTimeout(200);
   await act(pp, "cm-new", "", {course: "c2"}); await pp.waitForSelector("#cmName");
   ok(await fits(pp), "New Map fits at 390px");
