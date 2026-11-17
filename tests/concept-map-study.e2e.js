@@ -82,10 +82,12 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   ok(dk && dk.name === "Cell respiration Map Cards" && dk.courseId === "c2" && dk.cards.length === 3, "a new deck for the course, named after the map, with 3 cards");
   ok(dk.cards.every(c => c.from.k === "cmap" && c.from.id === "c:c2:m1") && dk.cards.some(c => c.front === "Glycolysis → makes → ?" && c.back === "Pyruvate"), "each card knows its map and connection");
   await page.click('.cm-tools [data-cm="menu"][data-v="study"]'); const sm2 = await page.textContent(".cm-tools .cm-menu"); await page.click('.cm-tools [data-cm="menu"][data-v="study"]');
-  ok(/Study Now/.test(await page.textContent("#toast")) && /Update Flashcards/.test(sm2), "a toast offers Study Now, and the button becomes Update Flashcards");
+  ok(/Made 3 cards in Cell respiration Map Cards/.test(await page.textContent(".cm-panel")) && await page.locator('.cm-panel [data-cm="study-deck"]').count() === 1 && !(await page.locator("#toast.show").count()) && /Update Flashcards/.test(sm2), "the panel says what was made, with Study Now (no notice), and Study offers Update Flashcards");
   // the map's own cards colour the ideas they join
   await page.evaluate(id => { const d = window.__sbProStudy.state().decks[id]; const c = d.cards.find(x => x.back === "Pyruvate"); c.right = 0; c.wrong = 4; }, mp.deck);
-  await page.evaluate(() => { const S = SBCMAP.state(); S.kc = null; S.know = true; }); await page.check('[data-cm="know"]').catch(() => {}); await page.evaluate(() => { const S = SBCMAP.state(); S.kc = null; }); await tap(page, "idea:b");
+  // (results changed behind the map's back here, so turn the colours off and on to redraw them)
+  if (await page.isChecked('[data-cm="know"]')) { await page.uncheck('[data-cm="know"]'); await page.waitForTimeout(100); }
+  await page.check('[data-cm="know"]'); await page.waitForTimeout(150); await tap(page, "idea:b");
   ok((await col(page, "idea:b")).toUpperCase() === "#E03131" && /Review 1 Card/.test(await page.textContent(".cm-panel")), "studying the map's card (missed 4 times) turns Pyruvate red, with its card to review");
   // a new worded connection: Update adds just that, and keeps progress
   const ek = await page.evaluate(() => SBCMAP.state().g.edges.find(e => [e.a, e.b].sort().join() === ["idea:b", "idea:c"].sort().join()).key);
@@ -96,8 +98,9 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   await cmClick(page, '[data-cm="cards-go"]'); await page.waitForTimeout(300);
   dk = (await S(page)).decks[mp.deck];
   ok(dk.cards.length === 4 && dk.cards.find(c => c.back === "Pyruvate").wrong === 4 && dk.cards.some(c => c.front === "Pyruvate → feeds → ?"), "Update adds the new card and keeps the studied one's progress");
-  await page.click("#toastUndo"); await page.waitForTimeout(300);
-  ok((await S(page)).decks[mp.deck].cards.length === 3, "one Undo takes the update back");
+  ok(!(await page.locator('.cm-tools [data-cm="undo"]').isDisabled()), "the map's Undo button is ready");
+  await page.click('.cm-tools [data-cm="undo"]'); await page.waitForTimeout(300);
+  ok((await S(page)).decks[mp.deck].cards.length === 3 && !(await page.locator("#toast.show").count()), "the map's Undo takes the update back, quietly");
   ok(page.errs.length === 0, "no console errors (cards, knowledge): " + page.errs.join(" | "));
   await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 

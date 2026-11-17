@@ -93,6 +93,7 @@ function SEED(){
   const swatch = async k => { await cmClick(page, `[data-cm="pick"][data-v="${k}"]`); await page.waitForSelector(`[data-cm="st"][data-k="${k}"]`); const v = await page.getAttribute(`[data-cm="st"][data-k="${k}"]:nth-child(3)`, "data-v"); await cmClick(page, `[data-cm="st"][data-k="${k}"][data-v="${v}"]`); await page.waitForTimeout(200); return v; };
   const fillV = await swatch("fill"), strokeV = await swatch("stroke"), textV = await swatch("text");
   let st = (await course(page, "c1")).maps[0].styles["idea:i1"];
+  ok(!(await page.locator("#toast.show").count()), "changing a box's style shows no notice");
   ok(st.fill === fillV && st.stroke === strokeV && st.text === textV && st.shape === "cloud", `fill, outline and text colours save (${fillV}, ${strokeV}, ${textV}) and keep the shape`);
   ok(new RegExp(fillV, "i").test(await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "fill") + (await page.getAttribute('.cm-node[data-n="idea:i1"] .cm-shape', "style") || "")), "the box shows its fill");
   await page.locator('[data-cm="font"]').count() || await cmClick(page, '[data-cm="style"]'); await page.selectOption('[data-cm="font"]', "hand"); await page.waitForTimeout(200);
@@ -189,9 +190,10 @@ function SEED(){
   await page.click(".cm-embf [type=submit]"); await page.waitForSelector(".cm-node .cm-emb");
   let em = (await course(page, "c3")).maps[2].add.find(x => x.emb);
   ok(em && em.emb.p === "youtube" && em.emb.e === "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&start=42" && /ytimg/.test(await page.getAttribute(".cm-node .cm-emb image", "href")), "it becomes a video on the map, with its thumbnail (privacy-enhanced player, start time kept)");
-  await page.dblclick(".cm-node:has(.cm-emb)"); await page.waitForSelector(".cm-player iframe");
+  await page.click(".cm-node:has(.cm-emb)"); await page.waitForSelector(".cm-player iframe");
+  ok(await page.evaluate(() => !document.querySelector(".cm-node:has(.cm-emb) .cm-kdot")), "a video's box has no colour dot over its thumbnail");
   const fsrc = await page.getAttribute(".cm-player iframe", "src");
-  ok(/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(fsrc) && /autoplay=1/.test(fsrc) && /allow-scripts/.test(await page.getAttribute(".cm-player iframe", "sandbox")), "double-click plays it on the map, in a sandboxed frame");
+  ok(/^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(fsrc) && /autoplay=1/.test(fsrc) && /allow-scripts/.test(await page.getAttribute(".cm-player iframe", "sandbox")), "one tap plays it on the map, in a sandboxed frame");
   await page.waitForTimeout(600);
   ok(await page.frames().some(f => /youtube-nocookie/.test(f.url())) && !blocked.length, "the app's security policy lets the player load: " + blocked.join(" | "));
   await page.keyboard.press("Escape"); await page.waitForTimeout(200);
@@ -218,10 +220,12 @@ function SEED(){
   await act(page, "cm-ren", "m1", {course: "c2"}); await page.waitForSelector("#cmName");
   await page.fill("#cmName", "Respiration"); await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(250);
   ok((await course(page, "c2")).maps[0].name === "Respiration" && /Respiration/.test(await page.textContent(".cm-grid")), "Rename");
-  await page.click('.cm-mapcard:has(.cm-ctitle:text-is("Respiration")) [data-act="cm-del"]'); await page.waitForTimeout(250);
-  ok((await course(page, "c2")).maps.length === 1 && !(await titles(page)).includes("Respiration"), "Delete");
-  await page.click("#toastUndo"); await page.waitForTimeout(300);
-  ok((await course(page, "c2")).maps.length === 2 && (await titles(page)).includes("Respiration"), "Undo brings it back");
+  await page.click('.cm-mapcard:has(.cm-ctitle:text-is("Respiration")) [data-act="cm-del"]'); await page.waitForSelector("#dlg[open] [data-submit]");
+  ok(/Delete Respiration\?/.test(await page.textContent("#dlg[open]")) && (await course(page, "c2")).maps.length === 2, "Delete asks first");
+  await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(250);
+  ok((await course(page, "c2")).maps.length === 1 && !(await titles(page)).includes("Respiration") && !(await page.locator("#toast.show").count()), "Delete, with no notice");
+  await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.keyboard.press("Control+z"); await page.waitForTimeout(300);
+  ok((await course(page, "c2")).maps.length === 2 && (await titles(page)).includes("Respiration"), "Ctrl+Z brings it back");
   // the course page's card
   ok(/2 maps for this course/.test(await page.evaluate(() => SBCMAP.courseCard(window.__sbProStudy.state().courses.c2))) && /Create Map/.test(await page.evaluate(() => SBCMAP.courseCard({id: "zz", name: "Art", color: "#888888"}))), "the course page's card counts a course's maps, or offers to create one");
   ok(page.errs.length === 0, "no console errors (list): " + page.errs.join(" | "));

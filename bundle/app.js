@@ -3425,6 +3425,7 @@ function undoLast(){
     const s = undoStack.pop();
     if (s.done || Date.now() - s.at > 30 * 60000) continue;
     const kept = s.undo();
+    if (s.quiet) return true;
     toast((s.label ? `Undone: ${s.label}` : "Undone") + (kept ? ". Changes you made after it were kept." : ""));
     return true;
   }
@@ -3511,19 +3512,21 @@ function applyChanges(changes, label, extra, opts){
   state.updated = Date.now();
   saveLocal();
   scheduleRender();
-  const step = {label: label || "", at: Date.now(), done: false, binned: binned.length > 0};
+  // opts.quiet: the step can still be undone (Ctrl+Z, or an Undo button of the feature's own) but shows no notice, now or when undone
+  const step = {label: label || "", at: Date.now(), done: false, binned: binned.length > 0, quiet: !!(opts && opts.quiet)};
   // Puts back what this step changed but keeps later edits to the same items (Ctrl+Z can come much later). Returns how many items kept one
   const undo = () => {
     if (step.done) return 0; step.done = true;
     let kept = 0; const back = [];
     inverse.forEach((v, i) => { const r = applied ? undoMerge(v.after, applied[i], getItem(v.kind, v.id), SyncMerge.eq) : {val: v.after}; if (r.kept) kept++; if (!r.skip) back.push({kind: v.kind, id: v.id, after: r.val}); });
     if (back.length) applyChanges(back, null);
-    trashDrop(binned); toast(kept ? "Undone. Changes you made after it were kept." : "Undone");
+    trashDrop(binned); if (!step.quiet) toast(kept ? "Undone. Changes you made after it were kept." : "Undone");
     return kept;
   };
   step.undo = undo;
   if (typeof extra === "function") extra = extra();
-  if (label) { toast(label, undo, extra, opts); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
+  if (label) { if (!step.quiet) toast(label, undo, extra, opts); undoStack.push(step); if (undoStack.length > 20) undoStack.shift(); }
+  applyChanges.last = label ? step : null;
   if (typeof scheduleFolderBackup === "function") scheduleFolderBackup(DESK ? 3000 : 60000);
   if (progressed) { try { noteProgress(); } catch(e) { console.warn(e); } }
   fire("changed", changes, inverse);
@@ -106094,7 +106097,7 @@ function know(){ if (!M.g) return {lv: {}, stats: {}}; if (!M.kc || M.kc.g !== M
 function studyIdeas(ids){
   const st = know().stats, refs = [], seen = new Set();
   ids.forEach(id => ((st[id] || {}).cards || []).forEach(r => { const k = r.d + "|" + r.c; if (!seen.has(k) && state.decks[r.d]) { seen.add(k); refs.push(r); } }));
-  if (!refs.length) { toast("No cards for that yet. Make Flashcards from the map first."); return; }
+  if (!refs.length) { M.err = "No cards for that yet. Make Flashcards from the map first (Study, Make Flashcards)."; M.sel = ""; paint(); return; }
   if (dlg.open) dlg.close();
   setTimeout(() => startStudy([...new Set(refs.map(r => r.d))], refs.map(r => r.c)), 0);
 }
@@ -106105,11 +106108,11 @@ function makeCards(both){
   if (!m.cards.length) { M.err = "Put words on some connections first (tap a line, then type how the two ideas connect). Each worded connection becomes a card."; paint(); return; }
   const d = old ? clone(old) : normDeck({id: uid(), name: `${name} Map Cards`, courseId: courseIdOf(o), created: Date.now(), cards: []});
   const r = CMAP.syncCards(d.cards, m.cards, ref, uid); d.cards = r.cards; d.updated = Date.now();
-  if (old && !r.added && !r.changed) { M.err = ""; toast("Your cards already match the map."); return; }
+  if (old && !r.added && !r.changed) { M.cardsOpen = false; M.made = {deck: d.id, what: `${d.name} already matches the map.`}; paint(); return; }
   const ch = [{kind: "deck", id: d.id, after: d}], mc = mapChange(userOf(o), {deck: d.id}); if (mc) ch.push(mc);
   const what = old ? [r.added ? `added ${r.added} card${r.added === 1 ? "" : "s"}` : "", r.changed ? `updated ${r.changed}` : ""].filter(Boolean).join(", ") : `made ${r.added} card${r.added === 1 ? "" : "s"}`;
-  applyChanges(ch, `${what.charAt(0).toUpperCase() + what.slice(1)} in ${d.name}`, {label: "Study Now", fn: () => { if (dlg.open) dlg.close(); setTimeout(() => startStudy([d.id]), 0); }});
-  M.kc = null; M.cardsOpen = false; paint();
+  quietly(ch, `${what.charAt(0).toUpperCase() + what.slice(1)} in ${d.name}`);
+  M.kc = null; M.cardsOpen = false; M.made = {deck: d.id, what: `${what.charAt(0).toUpperCase() + what.slice(1)} in ${d.name}.`}; paint();
 }
 function cardsPanel(){
   const P = M.el.querySelector(".cm-panel"), m = CMAP.mapCards(M.g), mb = CMAP.mapCards(M.g, {both: true}), old = mapDeck(M.own);
@@ -106126,7 +106129,7 @@ const atFiles = o => { const cid = courseIdOf(o); return Object.values(state.fil
 const isLec = f => !!f && f.folderId === "lectures";
 const atLabel = a => a.t != null ? CMAP.clock(a.t) : "p. " + a.p;
 function goAt(a){
-  const f = a && state.files[a.f]; if (!f) { toast("That file isn't in your Files any more."); return; }
+  const f = a && state.files[a.f]; if (!f) { M.err = "That file isn't in your Files any more. Attach, Change Page or Lecture links it again."; paint(); return; }
   if (dlg.open) dlg.close();
   if (a.t != null && isLec(f)) {
     setTimeout(() => { if (typeof fileSheet === "function") fileSheet(f); if (window.SBREPLAY && SBREPLAY.seek) SBREPLAY.seek(f.id, a.t, {lead: 0}); else toast("Lecture replay isn't available here."); }, 0);
@@ -106157,8 +106160,14 @@ function atPanel(n){
     const x = userOf(M.own); x.add = x.add.map(i => "idea:" + i.id === n.id ? Object.assign({}, i, {at}) : i);
     saveUser(x, `Linked ${n.label} to ${at.t != null ? CMAP.clock(at.t) + " in " : "page " + at.p + " of "}${fl.name || "a file"}`); rebuild(true); paint(); });
 }
+// Concept maps save without notices: each step can still be undone (the map's Undo button, or Ctrl+Z)
+function quietly(changes, label){ M.ownSave = true; try { applyChanges(changes, label, null, {quiet: true}); } finally { M.ownSave = false; } const st = applyChanges.last; if (st && label) { M.steps = (M.steps || []).filter(x => !x.done).concat([st]).slice(-30); } }
+function undoMap(){
+  const st = (M.steps || []).filter(x => !x.done && Date.now() - x.at < 30 * 60000).pop(); if (!st) return;
+  st.undo(); M.steps = M.steps.filter(x => x !== st && !x.done); M.kc = null; rebuild(true); paint();
+}
 function saveUser(u, label, meta){
-  const ch = mapChange(u, meta); if (ch) applyChanges([ch], label === undefined ? null : label);
+  const ch = mapChange(u, meta); if (ch) quietly([ch], label === undefined ? null : label);
 }
 // the change that saves the open map (u: its overlay, meta: the map's own fields, like its deck)
 function mapChange(u, meta){
@@ -106384,10 +106393,24 @@ function shapeSvg(shape, w, h, col, root, n){
   return `<rect class="cm-shape" x="${-a}" y="${-b}" width="${w}" height="${h}" rx="${root ? 12 : 10}" ${st}/>`;
 }
 // a line's ends sit on the boxes' edges (so arrowheads show), labels at the middle
+/* Where a line leaves a box: found on the shape as drawn (rounded corners, a pill's ends, a hexagon's slants, a cloud's bumps),
+   by walking out along the line until the point is no longer inside the outline, so every line meets its shape exactly.
+   Falls back to the box's simple outline where the browser can't test points (or before the shape is drawn). */
+function edgeOut(id, dx, dy, simple){
+  const L = Math.hypot(dx, dy); if (!L) return 0;
+  const el = M.el && M.el.querySelector(`.cm-node[data-n="${CSS.escape(id)}"] .cm-shape`), sz = M.size[id] || [80, 36];
+  if (!el || typeof el.isPointInFill !== "function" || typeof DOMPoint !== "function") return simple();
+  const ux = dx / L, uy = dy / L, inside = t => { try { return el.isPointInFill(new DOMPoint(ux * t, uy * t)); } catch (e) { return null; } };
+  if (inside(0) !== true) return simple();
+  let lo = 0, hi = Math.hypot(sz[0], sz[1]) / 2 + 24;
+  if (inside(hi)) return simple();
+  for (let i = 0; i < 16; i++) { const mid = (lo + hi) / 2; if (inside(mid)) lo = mid; else hi = mid; }
+  return lo + 0.6; // to the outside of the outline's stroke
+}
 function edgeGeo(e){
   const P = id => M.pos[id] || [0, 0], S = id => M.size[id] || [80, 36], sh = id => { const n = M.byId[id]; return n ? CMAP.shapeOf(n) : "rounded"; };
   const [x1, y1] = P(e.a), [x2, y2] = P(e.b), dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
-  const ra = CMAP.exitAt(sh(e.a), S(e.a)[0], S(e.a)[1], dx, dy) + 3, rb = CMAP.exitAt(sh(e.b), S(e.b)[0], S(e.b)[1], -dx, -dy) + 3;
+  const ra = edgeOut(e.a, dx, dy, () => CMAP.exitAt(sh(e.a), S(e.a)[0], S(e.a)[1], dx, dy)), rb = edgeOut(e.b, -dx, -dy, () => CMAP.exitAt(sh(e.b), S(e.b)[0], S(e.b)[1], -dx, -dy));
   const ok = L > ra + rb + 4, sx = ok ? x1 + dx / L * ra : x1, sy = ok ? y1 + dy / L * ra : y1, ex = ok ? x2 - dx / L * rb : x2, ey = ok ? y2 - dy / L * rb : y2;
   return {sx, sy, ex, ey, mx: (sx + ex) / 2, my: (sy + ey) / 2};
 }
@@ -106407,7 +106430,7 @@ function paint(){
   // nodes first (their sizes come from their labels), then the lines between their edges
   const nodes = g.nodes.map(n => {
     const [x, y] = P(n.id), col = n.color && !know ? n.color : nodeColor(n, know), qi = Q ? Q.ids.indexOf(n.id) : -1, hidden = qi >= 0 && !Q.done.has(n.id), shape = CMAP.shapeOf(n);
-    const label = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), dot = !n.img && /^(box|rounded|pill)$/.test(shape);
+    const label = hidden ? `${qi + 1}` : trunc(n.label, n.root ? 32 : 28), dot = !n.img && !n.emb && /^(box|rounded|pill)$/.test(shape);
     const kind = (KIND[n.kind] || KIND.file)[0], conf = know && know[n.id] ? `, ${CONF[know[n.id]][0]}` : "";
     return `<g class="cm-node k-${n.kind} sh-${shape}${n.root ? " is-root" : ""}${n.color ? " has-col" : ""}${M.sel === n.id ? " is-sel" : ""}${M.connect === n.id ? " is-con" : ""}${hidden ? " is-blank" : ""}${qi >= 0 && Q.done.has(n.id) ? " is-got" : ""}${Q && Q.pick === n.id ? " is-pick" : ""}" data-n="${esc(n.id)}" data-col="${col}" data-dot="${dot ? 1 : ""}" transform="translate(${x},${y})" tabindex="0" role="button" aria-label="${esc(hidden ? `Blank ${qi + 1}` : `${n.label}, ${kind}${conf}`)}">
       ${dot ? `<circle class="cm-kdot" r="4.5" style="fill:${col}"/>` : ""}<text class="cm-lab${n.font ? " f-" + n.font : ""}" y="${Math.round((n.size || (n.root ? 15 : 13)) * 0.36)}"${dot ? "" : ' text-anchor="middle" x="0"'} style="${n.size ? `font-size:${n.size}px;` : ""}${n.font ? `font-family:${FONT_STACK[n.font]};` : ""}${n.text ? `fill:${n.text};` : ""}">${esc(label)}</text></g>`;
@@ -106472,6 +106495,7 @@ function tools(){
     + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span></label>`
     + (weak ? `<button type="button" class="btn small cm-shaky" data-cm="shaky" title="Review the cards for your shaky ideas">${weak} Shaky</button>` : "")
     + `<span class="spacer"></span>`
+    + `<button type="button" class="icon-btn cm-undo" data-cm="undo" aria-label="Undo" title="Undo" ${(M.steps || []).some(x => !x.done) ? "" : "disabled"}>${mi('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button>`
     + menu("more", mi('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'), "More",
       (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout"), true);
 }
@@ -106503,7 +106527,7 @@ function panel(){
   if (M.quiz) {
     const Q = M.quiz, left = Q.bank.filter(b => !Q.done.has(b.id));
     if (!left.length) { P.innerHTML = `<p class="cm-done"><b>Map complete.</b> ${Q.ids.length - Q.firstMiss.size} of ${Q.ids.length} right the first time.</p>`; return; }
-    P.innerHTML = `<p class="mini" style="margin:0">${Q.pick ? `Which label goes in blank <b>${Q.ids.indexOf(Q.pick) + 1}</b>? Tap another blank to skip ahead.` : "Tap a numbered blank on the map, then the label that goes there."}</p><div class="cm-bank">${left.map(b => `<button type="button" class="cm-chip${Q.wrong === b.id ? " is-wrong" : ""}" data-cm-chip="${esc(b.id)}">${esc(b.label)}</button>`).join("")}</div>`;
+    P.innerHTML = `<p class="mini" style="margin:0">${Q.pick ? `Which label goes in blank <b>${Q.ids.indexOf(Q.pick) + 1}</b>? Tap another blank to skip ahead.` : Q.hint ? "<b>First tap a numbered blank on the map</b>, then the label that goes there." : "Tap a numbered blank on the map, then the label that goes there."}</p><div class="cm-bank">${left.map(b => `<button type="button" class="cm-chip${Q.wrong === b.id ? " is-wrong" : ""}" data-cm-chip="${esc(b.id)}">${esc(b.label)}</button>`).join("")}</div>`;
     return;
   }
   if (M.sug) {
@@ -106523,7 +106547,8 @@ function panel(){
       <div class="cm-row cm-style">${seg("eline", CMAP.LINES, e.line || "solid", LINE_NAMES, LINE_IC)}${seg("earrow", CMAP.ARROWS, e.arrow || "none", ARROW_NAMES, ARROW_IC)}${e.arrow === "end" ? `<button type="button" class="btn small" data-cm="eflip" title="Point the arrow the other way">Flip</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="ecut">Remove</button></div>`;
     return;
   }
-  if (M.sel || M.selE) M.cardsOpen = false;
+  if (M.sel || M.selE) { M.cardsOpen = false; M.made = null; }
+  if (M.made && !M.cardsOpen) { const d = state.decks[M.made.deck]; P.innerHTML = `<div class="cm-row"><span class="cm-ok" aria-hidden="true">✓</span><span style="flex:1 1 200px">${esc(M.made.what)}</span>${d ? `<button type="button" class="btn small primary" data-cm="study-deck">Study Now</button>` : ""}<button type="button" class="icon-btn cm-pclose" data-cm="made-x" aria-label="Done" title="Done">${CLOSE}</button></div>`; return; }
   if (M.cardsOpen) { cardsPanel(); return; }
   if (M.sel) {
     const n = g.nodes.find(x => x.id === M.sel); if (!n) { M.sel = ""; panel(); return; }
@@ -106595,7 +106620,8 @@ function wireCanvas(){
     pts.delete(e.pointerId); if (!drag) return; const d = drag; drag = null; if (d.pinch) return;
     if (d.moved && d.id && !M.quiz) { const u = userOf(M.own); u.pos = Object.assign({}, u.pos, {[d.id]: M.pos[d.id]}); saveUser(u, null); return; }
     if (d.moved) return;
-    if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; paint(); } else if (!M.quiz) { M.sel = ""; M.selE = ""; M.connect = ""; paint(); }
+    if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
+    else if (!M.quiz && (M.sel || M.selE || M.connect)) { M.sel = ""; M.selE = ""; M.connect = ""; M.pick = ""; lite(); }
   };
   svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", e => { pts.delete(e.pointerId); drag = null; });
   cv.addEventListener("wheel", e => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX, e.clientY); }, {passive: false});
@@ -106609,10 +106635,19 @@ function moveEdges(id){
   const svg = M.el.querySelector(".cm-svg");
   M.g.edges.forEach(e => { if (e.a !== id && e.b !== id) return; const g = svg.querySelector(`.cm-edge[data-e="${CSS.escape(e.key)}"]`); if (!g) return; const G = edgeGeo(e); g.querySelectorAll("line").forEach(l => { l.setAttribute("x1", G.sx); l.setAttribute("y1", G.sy); l.setAttribute("x2", G.ex); l.setAttribute("y2", G.ey); }); const lg = g.querySelector(".cm-elg"); if (lg) lg.setAttribute("transform", `translate(${G.mx},${G.my})`); });
 }
+// Picking something only changes which box or line is highlighted and what the panel shows, so the drawing itself stays put
+// (rebuilding it would flash, and reload pictures and video thumbnails)
+function lite(){
+  const w = M.el && M.el.querySelector(".cm-world"); if (!w || !M.g) { paint(); return; }
+  w.querySelectorAll(".cm-node").forEach(el => { el.classList.toggle("is-sel", el.dataset.n === M.sel); el.classList.toggle("is-con", el.dataset.n === M.connect); });
+  w.querySelectorAll(".cm-edge").forEach(el => el.classList.toggle("is-sel", el.dataset.e === M.selE));
+  tools(); panel();
+}
 function tapNode(id){
   // a second tap on a video or embed plays it (a tap repaints the map, so the browser's own double-click can't be relied on)
   const now = Date.now(), tn = M.byId[id];
-  if (tn && (tn.emb || tn.at) && !M.quiz && !M.connect && M.lastTap && M.lastTap.id === id && now - M.lastTap.t < 500) { M.lastTap = null; M.sel = id; M.selE = ""; paint(); if (tn.emb) player(id); else goAt(tn.at); return; }
+  if (tn && tn.emb && !M.quiz && !M.connect) { M.lastTap = null; M.sel = id; M.selE = ""; M.pick = ""; lite(); player(id); return; }
+  if (tn && tn.at && !M.quiz && !M.connect && M.lastTap && M.lastTap.id === id && now - M.lastTap.t < 500) { M.lastTap = null; M.sel = id; M.selE = ""; lite(); goAt(tn.at); return; }
   M.lastTap = {id, t: now};
   if (M.quiz) { const Q = M.quiz; if (Q.ids.includes(id) && !Q.done.has(id)) { Q.pick = Q.pick === id ? "" : id; Q.wrong = ""; paint(); } return; }
   if (M.connect && M.connect !== id) {
@@ -106621,7 +106656,7 @@ function tapNode(id){
     M.connect = ""; M.sel = ""; M.selE = k; paint(); const i = M.el.querySelector("[data-cm-elab]"); if (i) i.focus(); return;
   }
   if (M.sel !== id) M.pick = "";
-  M.sel = M.sel === id ? "" : id; M.selE = ""; M.connect = ""; paint(); if (M.sel) panTo(M.sel);
+  M.sel = M.sel === id ? "" : id; M.selE = ""; M.connect = ""; M.pick = ""; lite(); if (M.sel) panTo(M.sel);
 }
 function openNode(n){
   const own = ownerObj(M.own), cid = M.own.kind === "course" ? M.own.id : own.courseId, go = (kind, id, page) => { if (window.SBPRO && SBPRO.openLink) SBPRO.openLink({kind, id}, page || 0); };
@@ -106653,7 +106688,10 @@ async function onClick(e){
   if (M.menu && a !== "know") closeMenu();
   switch (a) {
     case "style": M.styleOpen = !M.styleOpen; panel(); return;
-    case "desel": M.sel = ""; M.selE = ""; M.pick = ""; paint(); return;
+    case "undo": undoMap(); return;
+    case "made-x": M.made = null; panel(); return;
+    case "study-deck": { const id = M.made && M.made.deck; M.made = null; if (id && state.decks[id]) { if (dlg.open) dlg.close(); setTimeout(() => startStudy([id]), 0); } return; }
+    case "desel": M.sel = ""; M.selE = ""; M.pick = ""; lite(); return;
     case "loose-t": M.loose = !M.loose; rebuild(true); grew(); paint(); return;
     case "in": zoomAt(1.25); break;
     case "out": zoomAt(0.8); break;
@@ -106738,7 +106776,7 @@ function edgeSet(patch, label){
 }
 function answer(id){
   const Q = M.quiz; if (!Q) return;
-  if (!Q.pick) { toast("Tap a numbered blank on the map first"); return; }
+  if (!Q.pick) { Q.hint = true; panel(); return; }
   const right = Q.pick === id || CMAP.keyOf((M.g.nodes.find(n => n.id === Q.pick) || {}).label) === CMAP.keyOf((M.g.nodes.find(n => n.id === id) || {}).label);
   if (right) { Q.done.add(Q.pick); Q.wrong = ""; Q.pick = Q.ids.find(x => !Q.done.has(x)) || ""; paint(); if (Q.pick) panTo(Q.pick); return; }
   else { Q.miss++; Q.firstMiss.add(Q.pick); Q.wrong = id; }
@@ -106771,7 +106809,7 @@ async function suggest(){
 // Undo, sync or new material: the open map follows (not mid-drag, mid-quiz or while naming something)
 let redrawT = 0;
 hook("changed", changes => {
-  if (!shown() || !M.own) return;
+  if (!shown() || !M.own || M.ownSave) return;
   const kinds = new Set(["note", "deck", "file", "course", "task"]);
   if (!(changes || []).some(c => kinds.has(c.kind))) return;
   clearTimeout(redrawT);
@@ -106893,7 +106931,7 @@ async function createFromSheet(){
   if (!name) name = `${courseName(c)} Map`;
   const rec = Object.assign({id: uid(), name, auto: start === "auto", created: Date.now(), at: Date.now()}, start === "auto" || start === "blank" ? {} : ov);
   const cur = state.courses[c.id], after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
-  applyChanges([{kind: "course", id: c.id, after}], `Made the map ${name}`);
+  applyChanges([{kind: "course", id: c.id, after}], `Made the map ${name}`, null, {quiet: true});
   if (dlg.open) dlg.close();
   setTimeout(() => open("course", c.id, rec.id), 0);
 }
@@ -106944,14 +106982,14 @@ function renameSheet(cid, mid){
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit>Save</button></div></form>`, () => {
     const name = String(dlg.querySelector("#cmName").value || "").trim().slice(0, 80); if (!name) return false;
     const after = Object.assign(clone(c), {maps: mapsOf(c).map(x => x.id === mid ? Object.assign({}, x, {name, at: Date.now()}) : x)}); delete after.cmap;
-    applyChanges([{kind: "course", id: c.id, after}], `Renamed the map ${name}`);
+    applyChanges([{kind: "course", id: c.id, after}], `Renamed the map ${name}`, null, {quiet: true});
   });
   const nm = dlg.querySelector("#cmName"); if (nm) { nm.focus(); nm.select(); }
 }
 function delMap(cid, mid){
   const c = state.courses[cid], m = mapsOf(c).find(x => x.id === mid); if (!m) return;
   const after = Object.assign(clone(c), {maps: mapsOf(c).filter(x => x.id !== mid)}); delete after.cmap;
-  applyChanges([{kind: "course", id: c.id, after}], `Deleted the map ${m.name}`);
+  confirmSheet(`Delete ${m.name}?`, "The map's ideas, connections and styles are deleted. Your notes, decks and files stay as they are.", "Delete Map", () => applyChanges([{kind: "course", id: c.id, after}], `Deleted the map ${m.name}`, null, {quiet: true}));
 }
 const ago = t => { if (!t) return ""; const d = Math.round((Date.now() - t) / 864e5); return d <= 0 ? "edited today" : d === 1 ? "edited yesterday" : d < 7 ? `edited ${d} days ago` : `edited ${new Date(t).toLocaleDateString(undefined, {month: "short", day: "numeric"})}`; };
 // counts for a map's card, without drawing it
@@ -107099,6 +107137,10 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-panel>.cm-row:first-child{flex-wrap:nowrap}
 .cm-panel>.cm-row:first-child .mini{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cm-delb{color:var(--muted)}
+.cm-acts .cm-delb{width:36px;height:36px;border-radius:999px;flex:none}
+.cm-undo{flex:none;width:34px;height:34px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.cm-undo[disabled]{opacity:.35}
+.cm-ok{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#2F9E44;color:#fff;font-weight:800;flex:none}
 .cm-delb:hover{color:var(--danger,#C62828)}
 .cm-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
 .cm-row input[type=text]{flex:1 1 200px;min-width:0}
@@ -107127,6 +107169,20 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-segb:last-child{border-right:0}
 .cm-segb[aria-pressed="true"]{background:color-mix(in srgb,var(--accent,#2F6FE4) 14%,var(--surface));color:var(--accent,#2F6FE4)}
 .cm-segb:focus-visible{outline:2px solid var(--accent,#2F6FE4);outline-offset:-2px}
+/* style controls: colour chips, the font menu and the two steppers, all in the same rounded look as the shape picker */
+.cm-pickb{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px 0 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;font-weight:700;cursor:pointer}
+.cm-pickb:hover{border-color:color-mix(in srgb,var(--accent,#2F6FE4) 45%,var(--line))}
+.cm-pickb[aria-expanded="true"]{background:color-mix(in srgb,var(--accent,#2F6FE4) 12%,var(--surface));border-color:color-mix(in srgb,var(--accent,#2F6FE4) 55%,var(--line));color:var(--accent,#2F6FE4)}
+.cm-pickb:focus-visible,.cm-stb:focus-visible,.cm-font select:focus-visible{outline:2px solid var(--accent,#2F6FE4);outline-offset:1px}
+.cm-pickb i{width:18px;height:18px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 22%,transparent);flex:none}
+.cm-pickb i.is-auto{background:conic-gradient(#2F6FE4,#7C5CFF,#D6336C,#E8A317,#2F9E44,#2F6FE4)}
+.cm-font{display:inline-flex}
+.cm-font select{height:34px;padding:0 30px 0 10px;border:1px solid var(--line);border-radius:10px;background-color:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;font-weight:600;max-width:160px;cursor:pointer}
+.cm-step{display:inline-flex;align-items:center;height:34px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.cm-stb{display:grid;place-items:center;min-width:34px;height:100%;padding:0 8px;border:0;background:none;color:var(--ink);font:inherit;font-size:.88rem;font-weight:800;cursor:pointer}
+.cm-stb:hover{background:color-mix(in srgb,var(--accent,#2F6FE4) 10%,var(--surface))}
+.cm-stb svg{width:18px;height:18px}
+.cm-stv{min-width:42px;padding:0 4px;text-align:center;font-size:.84rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted);border-left:1px solid var(--line);border-right:1px solid var(--line);line-height:32px}
 .cm-cols{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .cm-col{width:24px;height:24px;border-radius:50%;border:2px solid var(--surface);background:var(--sw);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
 .cm-col[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
@@ -107245,6 +107301,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
   .cm-tools{order:3;flex:1 1 100%;padding:0;flex-wrap:wrap;gap:4px}
   .cm-tools .btn.small,.cm-chiptog{padding:6px 8px}
   .cm-tools .cm-mb{gap:4px}
+  .cm-tools .cm-car{display:none}
+  .cm-undo{width:32px;height:32px}
   .cm-chiptog{gap:5px}
   .cm-legend{top:8px;left:8px;font-size:.68rem;max-width:calc(100% - 64px)}
   .cm-zoom{top:8px;right:8px}

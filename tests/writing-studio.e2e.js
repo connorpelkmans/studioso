@@ -244,7 +244,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   // hide with Undo
   await tap(page, "file:f2"); await cmClick(page, '[data-cm="hide"]'); await page.waitForTimeout(200);
   ok(await page.locator('.cm-node[data-n="file:f2"]').count() === 0, "Hide takes a node off the map");
-  await page.click("#toastUndo"); await page.waitForTimeout(300);
+  await page.click('.cm-tools [data-cm="undo"]'); await page.waitForTimeout(300);
   ok((await course(page, "c1")).cmap.hide.length === 0, "Undo brings it back");
   // an idea, named in the panel's form
   await tap(page, "topic:x1:tp2"); await cmClick(page, '[data-cm="idea"]'); await page.waitForSelector("#cmAsk");

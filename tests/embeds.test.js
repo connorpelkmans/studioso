@@ -46,6 +46,9 @@ ok(((html.match(/frame-src ([^;"]+)/) || [])[1] || "").trim().split(/\s+/).sort(
 const mainHosts = eval((main.match(/const EMBED_HOSTS = (\[[^\]]+\])/) || [])[1] || "[]");
 ok(mainHosts.map(h => "https://" + h).sort().join(" ") === want, "the desktop app frames exactly the embed sites");
 ok(/"frame-src " \+ EMBED_HOSTS\.map/.test(main) && /will-frame-navigate[\s\S]{0,400}isEmbedUrl\(url\)[\s\S]{0,200}preventDefault/.test(main), "the desktop app stops any other frame (and never opens it in the browser)");
-const hf = [...hdr.matchAll(/frame-src ([^;]+)/g)].map(m => m[1].trim().split(/\s+/));
-ok(hf.length >= 1 && hf.every(list => CMAP.EMBED_HOSTS.every(h => list.includes("https://" + h))), "the website's policy allows the embed sites too");
+// every policy the website sends must let the players load: an explicit frame-src (else frames fall back to default-src, which is 'self')
+const pol = [...hdr.matchAll(/^\s*Content-Security-Policy:\s*(.+)$/gm)].map(m => m[1]);
+ok(pol.length >= 1 && pol.every(p => { const f = (/(?:^|;)\s*frame-src ([^;]+)/.exec(p) || [])[1]; return f && CMAP.EMBED_HOSTS.every(h => f.trim().split(/\s+/).includes("https://" + h)); }), `every website policy (${pol.length}) lets the embed sites load in a frame`);
+const pp = (/^\s*Permissions-Policy:\s*(.+)$/m.exec(hdr) || [])[1] || "";
+ok(["autoplay", "fullscreen"].every(f => { const m = new RegExp(f + "=\\(([^)]*)\\)").exec(pp); return m && CMAP.EMBED_HOSTS.every(h => m[1].includes('"https://' + h + '"')); }), "the website lets the players autoplay and go fullscreen");
 console.log(`embeds: ${n} checks passed`);
