@@ -25254,7 +25254,7 @@ const SCN20 = (() => {
     const on = {
       init(m){
         self.devicePixelRatio = m.dpr;
-        try { importScripts(m.url); L = self.SCN20_LIB; } catch (e) { L = null; }
+        try { self.importScripts(m.url); L = self.SCN20_LIB; } catch (e) { L = null; }
         postMessage({t: "init", ok: !!(L && L.ENGINES && typeof OffscreenCanvas === "function"), raf: typeof requestAnimationFrame === "function"});
       },
       build(m){
@@ -31148,7 +31148,7 @@ document.head.appendChild(AREA_CSS);
 /* ===== module: 49-feedback.js ===== */
 /* Report a Bug or Send Feedback */
 (() => {
-  const APP_VERSION = "1.15.7";
+  const APP_VERSION = "1.15.8";
   const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
   const MAX_SHOT = 280000;
   let shot = "", busy = false, flushing = false;
@@ -31334,7 +31334,7 @@ document.head.appendChild(AREA_CSS);
 
 /* ===== module: 49-errreport.js ===== */
 /* Anonymous crash and error reports */
-const APP_VERSION = "1.15.7";
+const APP_VERSION = "1.15.8";
 const BUILD_ID = "dev";
 const ERROR_REPORTING = {
   dsn: "",
@@ -83192,7 +83192,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 /* ===== module: 99-release.js ===== */
 /* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.7";
+  const VERSION = "1.15.8";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "November 16, 2026", TERMS_UPDATED = "November 16, 2026";
@@ -107023,7 +107023,8 @@ const CMAP = (() => {
     const h = u.hostname.replace(/^(www|m)\./, ""), p = u.pathname, q = k => u.searchParams.get(k) || "", out = (pv, e, x) => Object.assign({p: pv, u: u.href, e, name: PROVIDERS[pv]}, x || {});
     let m;
     if (h === "youtube.com" || h === "youtu.be" || h === "youtube-nocookie.com" || h === "music.youtube.com") {
-      const id = h === "youtu.be" ? p.slice(1).split("/")[0] : q("v") || ((m = /^\/(?:embed|shorts|live|v)\/([\w-]{6,})/.exec(p)) ? m[1] : "");
+      m = /^\/(?:embed|shorts|live|v)\/([\w-]{6,})/.exec(p);
+      const id = h === "youtu.be" ? p.slice(1).split("/")[0] : q("v") || (m ? m[1] : "");
       if (!/^[\w-]{6,20}$/.test(id)) return null; const t = secs(q("t") || q("start"));
       return out("youtube", `https://www.youtube-nocookie.com/embed/${id}?rel=0${t ? "&start=" + t : ""}`, {id, th: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`});
     }

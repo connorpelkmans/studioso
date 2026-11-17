@@ -20,7 +20,9 @@
   var WEB = httpsUrl(cfg.APP_URL || "");
   // An installer's version is the one in its download address (".../download/v1.14.4/..."), so the label always matches the file you get;
   // VERSION (the web app's) is only a fallback for links without one
-  var verOf = function (k) { var d = D[k] || {}, m = /\/v?(\d+\.\d+\.\d+)\/[^/]*$/.exec(String(d.url || "")) || /[-_](\d+\.\d+\.\d+)[-_.]/.exec(String(d.url || "").split("/").pop() || ""); return m ? m[1] : VER; };
+  // a link to .../releases/latest/download/... always gets the newest signed installer, so it names no version (and shows none)
+  var verOf = function (k) { var d = D[k] || {}; if (/\/releases\/latest\//.test(String(d.url || ""))) return ""; var m = /\/v?(\d+\.\d+\.\d+)\/[^/]*$/.exec(String(d.url || "")) || /[-_](\d+\.\d+\.\d+)[-_.]/.exec(String(d.url || "").split("/").pop() || ""); return m ? m[1] : VER; };
+  var vt = function (k) { var v = verOf(k); return v ? "v" + v + " · " : ""; };
   var fileName = function (d, k) { return d && d.file ? String(d.file).replace("{version}", verOf(k)) : ""; };
   // Windows comes from the Microsoft Store when its page is set
   var MS = httpsUrl((D.windows && D.windows.store) || "");
@@ -134,7 +136,7 @@
   var NAMES = {windows: ["windows", "Windows", "Windows 10 & 11"], macArm: ["mac", "Mac", MAC_ONE ? "M-series & Intel" : "Apple M-series"], macIntel: ["mac", "Mac", "Intel Macs"], linux: ["linux", "Linux", "AppImage"]};
 
   function desktopRow(k, p) {
-    var n = NAMES[k], free = "Free · v" + verOf(k) + " · " + (D[k] && D[k].needs ? D[k].needs : n[2]);
+    var n = NAMES[k], free = "Free · " + vt(k) + (D[k] && D[k].needs ? D[k].needs : n[2]);
     if (k === "windows" && MS) return webButton(true) + msBadge("big");
     if (ready(k)) return webButton(true) + bigButton(k, ICONS[n[0]], free, "Download for " + n[1], false);
     return webButton(true) + bigButton(k, ICONS[n[0]], "Coming soon · " + n[2], n[1], false);
@@ -159,7 +161,7 @@
         var k = p.chip === "arm" ? "macArm" : "macIntel", other = p.chip === "arm" ? "macIntel" : "macArm";
         html = '<div class="dlrow">' + desktopRow(k) + '</div><div class="others"><span>Also on</span>' + chip(other, ICONS.mac, p.chip === "arm" ? "Mac Intel" : "Mac M-series") + chip("windows", ICONS.windows, "Windows") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
       } else {
-        html = '<div class="dlrow">' + webButton(true) + (ready("macArm") ? bigButton("macArm", ICONS.mac, "Free · v" + verOf("macArm") + " · Apple M-series", "Download for Mac", false) : bigButton("macArm", ICONS.mac, "Coming soon · Apple M-series", "Mac", false)) + bigButton("macIntel", ICONS.mac, ready("macIntel") ? "Older Macs" : "Coming soon · older Macs", "Mac with Intel", false) + "</div>" + macHelp +
+        html = '<div class="dlrow">' + webButton(true) + (ready("macArm") ? bigButton("macArm", ICONS.mac, "Free · " + vt("macArm") + "Apple M-series", "Download for Mac", false) : bigButton("macArm", ICONS.mac, "Coming soon · Apple M-series", "Mac", false)) + bigButton("macIntel", ICONS.mac, ready("macIntel") ? "Older Macs" : "Coming soon · older Macs", "Mac with Intel", false) + "</div>" + macHelp +
           '<div class="others"><span>Also on</span>' + chip("windows", ICONS.windows, "Windows") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
       }
     } else {

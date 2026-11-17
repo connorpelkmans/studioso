@@ -319,7 +319,8 @@ const CMAP = (() => {
     const h = u.hostname.replace(/^(www|m)\./, ""), p = u.pathname, q = k => u.searchParams.get(k) || "", out = (pv, e, x) => Object.assign({p: pv, u: u.href, e, name: PROVIDERS[pv]}, x || {});
     let m;
     if (h === "youtube.com" || h === "youtu.be" || h === "youtube-nocookie.com" || h === "music.youtube.com") {
-      const id = h === "youtu.be" ? p.slice(1).split("/")[0] : q("v") || ((m = /^\/(?:embed|shorts|live|v)\/([\w-]{6,})/.exec(p)) ? m[1] : "");
+      m = /^\/(?:embed|shorts|live|v)\/([\w-]{6,})/.exec(p);
+      const id = h === "youtu.be" ? p.slice(1).split("/")[0] : q("v") || (m ? m[1] : "");
       if (!/^[\w-]{6,20}$/.test(id)) return null; const t = secs(q("t") || q("start"));
       return out("youtube", `https://www.youtube-nocookie.com/embed/${id}?rel=0${t ? "&start=" + t : ""}`, {id, th: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`});
     }

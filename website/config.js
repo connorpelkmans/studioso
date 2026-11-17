@@ -17,15 +17,17 @@ window.STUDYBOARD_SITE = {
   FUNCTIONS: { checkout: "create-checkout", portal: "create-portal-session" },
 
   // -- Downloads (home page). VERSION is the web app's; each installer's label and file name use the version in its own url,
-  // and `npm run check:release` fails while those urls are older than package.json (upload the installers, then bump the links)
-  VERSION: "1.15.7",
+  // and `npm run check:release` fails while those urls are older than package.json (upload the installers, then bump the links).
+  // The Mac links use .../releases/latest/download/...: each signed release (pushing a v* tag) uploads a copy under that fixed
+  // name, so the newest signed DMG is on the website without changing these links (they show no version)
+  VERSION: "1.15.8",
 
   // Where each installer lives
   DOWNLOADS: {
     // store: the Microsoft Store page
     windows:  { label: "Windows",              store: "https://apps.microsoft.com/detail/9N8PHL54N3SN?ocid=pdpshare", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.4/Studyboard-Setup-1.14.4.exe", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 and 11" },
-    macArm:   { label: "Mac (Apple M-series)", url: "https://github.com/connorpelkmans/installers/releases/download/v1.15.6/Studyboard-1.15.6-mac-universal.dmg", file: "Studyboard-{version}-mac-universal.dmg", needs: "Macs with an M1 chip or newer" },
-    macIntel: { label: "Mac (Intel)",          url: "https://github.com/connorpelkmans/installers/releases/download/v1.15.6/Studyboard-1.15.6-mac-universal.dmg", file: "Studyboard-{version}-mac-universal.dmg", needs: "Macs with an Intel processor" },
+    macArm:   { label: "Mac (Apple M-series)", url: "https://github.com/connorpelkmans/installers/releases/latest/download/Studyboard-mac-universal.dmg", file: "Studyboard-mac-universal.dmg", needs: "Macs with an M1 chip or newer" },
+    macIntel: { label: "Mac (Intel)",          url: "https://github.com/connorpelkmans/installers/releases/latest/download/Studyboard-mac-universal.dmg", file: "Studyboard-mac-universal.dmg", needs: "Macs with an Intel processor" },
     linux:    { label: "Linux",                url: "", file: "Studyboard-{version}.AppImage",        needs: "64-bit Linux, runs as an AppImage" },
     // appId: the app's Apple ID, digits only (App Store Connect > your app > App Information > Apple ID). Once set, the iPhone
     // download button goes to the App Store, and every page shows Safari's Smart App Banner: "Open" when Studyboard is installed,

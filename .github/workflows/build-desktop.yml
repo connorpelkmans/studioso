@@ -94,6 +94,9 @@ jobs:
           tag_name: v${{ steps.ver.outputs.v }}
           name: Studyboard ${{ steps.ver.outputs.v }}
           body: "Unsigned installers: Windows and macOS may warn before opening them."
+          # never "latest": the website's download buttons follow the latest release, which must be a signed one
+          prerelease: true
+          make_latest: "false"
           files: release/*
 
   mac-signed:
@@ -246,12 +249,28 @@ jobs:
         with:
           name: Studyboard-win-signed
           path: release
+      # The website's buttons link to .../releases/latest/download/<name without a version>, so each signed release also carries
+      # copies under those fixed names: a new release is on the website as soon as it's uploaded, with no link to change
+      - name: Fixed-name copies for the website
+        run: |
+          set -e
+          dmg="$(ls release/*-mac-universal.dmg 2>/dev/null | head -1)"
+          [ -n "$dmg" ] || { echo "::error::No signed Mac DMG in the build"; exit 1; }
+          cp "$dmg" release/Studyboard-mac-universal.dmg
+          exe="$(ls release/Studyboard-Setup-*.exe 2>/dev/null | head -1 || true)"
+          if [ -n "$exe" ]; then cp "$exe" release/Studyboard-Setup.exe; fi
+          ls -la release
+      - name: Is the token set?
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: '[ -n "$RELEASES_TOKEN" ] || { echo "::error::Add the RELEASES_TOKEN repository secret (fine-grained token, Contents: read and write on connorpelkmans/installers)"; exit 1; }'
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           repository: connorpelkmans/installers
           token: ${{ secrets.RELEASES_TOKEN }}
           tag_name: ${{ github.ref_name }}
           name: Studyboard ${{ github.ref_name }}
+          make_latest: "true"
           files: release/*
 
   mac-store:
