@@ -55,4 +55,20 @@ const pol = [...hdr.matchAll(/^\s*Content-Security-Policy:\s*(.+)$/gm)].map(m =>
 ok(pol.length >= 1 && pol.every(p => { const f = (/(?:^|;)\s*frame-src ([^;]+)/.exec(p) || [])[1]; return f && CMAP.EMBED_HOSTS.every(h => f.trim().split(/\s+/).includes("https://" + h)); }), `every website policy (${pol.length}) lets the embed sites load in a frame`);
 const pp = (/^\s*Permissions-Policy:\s*(.+)$/m.exec(hdr) || [])[1] || "";
 ok(["autoplay", "fullscreen"].every(f => { const m = new RegExp(f + "=\\(([^)]*)\\)").exec(pp); return m && CMAP.EMBED_HOSTS.every(h => m[1].includes('"https://' + h + '"')); }), "the website lets the players autoplay and go fullscreen");
+/* Previews: the provider's own picture by its address (documented thumbnail or oEmbed), else a live view; never a copy */
+const PV = u => CMAP.previewOf(E(u));
+ok(PV("youtu.be/dQw4w9WgXcQ").th === "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" && PV("youtu.be/dQw4w9WgXcQ").oe === "https://www.youtube.com/oembed?format=json&url=https://youtu.be/dQw4w9WgXcQ", "YouTube: its thumbnail, and oEmbed for the title");
+ok(PV("https://vimeo.com/76979871").oe === "https://vimeo.com/api/oembed.json?url=https://vimeo.com/76979871" && !PV("https://vimeo.com/76979871").th, "Vimeo: oEmbed");
+ok(PV("https://www.loom.com/share/0123456789abcdef0123456789abcdef").oe === "https://www.loom.com/v1/oembed?url=https://www.loom.com/share/0123456789abcdef0123456789abcdef", "Loom: oEmbed");
+ok(PV("https://open.spotify.com/episode/7makk4oTQel546B0PZlDM5").oe === "https://open.spotify.com/oembed?url=https://open.spotify.com/episode/7makk4oTQel546B0PZlDM5", "Spotify: oEmbed");
+ok(PV("https://www.ted.com/talks/ken_robinson_do_schools_kill_creativity").oe === "https://www.ted.com/services/v1/oembed.json?url=https://www.ted.com/talks/ken_robinson_do_schools_kill_creativity", "TED: oEmbed");
+ok(PV("https://phet.colorado.edu/en/simulations/projectile-motion").th === "https://phet.colorado.edu/sims/html/projectile-motion/latest/projectile-motion-600.png", "PhET: the sim's own screenshot");
+ok(PV("https://docs.google.com/presentation/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/edit").th === "https://drive.google.com/thumbnail?id=1AbCdEfGhIjKlMnOpQrStUvWxYz&sz=w640" && PV("https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/view").th.includes("id=1AbCdEfGhIjKlMnOpQrStUvWxYz"), "a shared Google file: Drive's thumbnail");
+for (const u of ["https://docs.google.com/document/d/e/2PACX-1vQabcdefghijklmnopqrstuv/pub", "https://www.desmos.com/calculator/abcdef1234", "https://www.geogebra.org/m/abcd123", "https://www.canva.com/design/DAFabcdefgh/view"]) { const p = PV(u); ok(p.live && !p.th && !p.oe, "no picture to be had, a live view: " + u); }
+ok(!CMAP.previewOf({p: "youtube", e: "https://evil.com/embed/dQw4w9WgXcQ"}).th && !CMAP.previewOf(null).th, "a preview only for a listed site's player");
+const fo = CMAP.fromOembed({title: "  A   talk ", thumbnail_url: "https://i.vimeocdn.com/video/1-d_295x166"});
+ok(fo.th === "https://i.vimeocdn.com/video/1-d_295x166" && fo.tt === "A talk", "oEmbed gives the picture's address and the title");
+for (const bad of ["data:image/png;base64,AAAA", "blob:https://x/1", "http://i.vimeocdn.com/x.jpg", "javascript:alert(1)", 'https://x.com/"onload="1', "https://x.com/" + "a".repeat(700)]) ok(!CMAP.fromOembed({thumbnail_url: bad}).th && !CMAP.thumbOk(bad), "never kept as a picture: " + bad.slice(0, 40));
+const g3 = CMAP.graph({root: {label: "Map"}, blank: true, user: {add: [{id: "v", label: "", emb: {p: "vimeo", e: "https://player.vimeo.com/video/76979871", th: "data:image/png;base64,AAAA", tt: "T"}}, {id: "w", label: "", emb: {p: "vimeo", e: "https://player.vimeo.com/video/76979871", th: "https://i.vimeocdn.com/v.jpg"}}]}});
+ok(g3.nodes.find(x => x.id === "idea:v").emb.th === "" && g3.nodes.find(x => x.id === "idea:v").emb.tt === "T" && g3.nodes.find(x => x.id === "idea:w").emb.th === "https://i.vimeocdn.com/v.jpg", "a saved map keeps only an https picture address (a data: picture is dropped when read)");
 console.log(`embeds: ${n} checks passed`);
