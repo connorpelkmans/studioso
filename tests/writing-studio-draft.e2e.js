@@ -146,7 +146,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   ok(await page.evaluate(() => { const dv = document.querySelector(".ws-dv"), m = dv.querySelector(".ws-mark").getBoundingClientRect(), b = dv.getBoundingClientRect(); return m.top >= b.top - 1 && m.bottom <= b.bottom + 1; }), "and scrolls it into view");
   ok(await fits(page), "Check fits at 1280px");
   // the strip and the tab keys
-  ok(/4 sources · 2 quotes · 0 placed · last check: \d+ to fix/.test((await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ")), "the strip follows: " + (await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ").trim());
+  ok(/4 sources · 2 quotes · 0 placed · check: \d+ to fix/.test((await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ")), "the strip follows: " + (await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ").trim());
   await page.focus('#dlg[open] [data-ws-tab="check"]'); await page.keyboard.press("ArrowRight");
   ok(/^Sources/.test(await selTab(page)) && await page.evaluate(() => document.activeElement.dataset.wsTab) === "sources", "Arrow Right goes from Check to Sources");
   await page.keyboard.press("ArrowLeft"); await page.keyboard.press("ArrowLeft");
@@ -237,6 +237,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
     const res = (await mp.textContent("#dlg[open] .ws-res")).replace(/\s+/g, " ");
     ok(/2 citations put a comma between the author and the page/.test(res) && /In MLA, write \(Walker 112\), not \(Walker, 112\): no comma between the author and the page/.test(res), "MLA: (Walker, 112) is caught, with the right form, and grouped with the other one");
     ok(/In MLA, write \(Carskadon\)/.test(res) && /MLA citations have no year/.test(res), "MLA: (Carskadon 2011) is caught: no year in MLA");
+    ok(new RegExp("check: " + (await mp.locator("#dlg[open] .ws-is.k-err").count()) + " to fix").test(await mp.textContent("#dlg[open] .ws-strip")), "the strip counts the same results the list shows: " + (await mp.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ").trim());
     ok(/In MLA, the list is called Works Cited/.test(res) && /Yours is called “References”/.test(res), "MLA: the References heading is caught");
     ok(!/\(Lo et al\.\)|\(Ray 30\)/.test(res.replace(/Show the others:.*?(?=Should|$)/, "")), "(Lo et al.) and (Ray 30) are right in MLA, so they aren't flagged");
     ok(/Works Cited: fix the entry for Walker \(2017\)/.test(res) && /Add the publisher: Scribner/.test(res) && /Should be: ?Walker, Matthew\. Why We Sleep: Unlocking the Power of Sleep and Dreams\. Scribner, 2017\./.test(res), "a Works Cited entry: what's missing and the right version");

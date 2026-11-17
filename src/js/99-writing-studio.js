@@ -1415,8 +1415,11 @@ function usage(t, w){
 }
 // The strip at the top of every tab: how far along the paper is, each part a way to its tab
 function stripHtml(t, w){
-  const placed = w.q.filter(q => q.sec && w.out.some(s => s.id === q.sec)).length, c = w.chk, stale = !!(w.draft && c && c.h !== w.draft.h);
-  const chk = !w.draft ? "no draft yet" : !c ? "not checked yet" : stale ? "draft changed since the last check" : c.err ? `last check: ${c.err} to fix` : c.warn ? `last check: ${c.warn} to look at` : "last check: all good ✓";
+  // the Check tab shows the saved draft's results live, so the strip counts the same live results (the saved check could be
+  // missing or older: a draft kept but never checked showed "not checked yet" beside its results)
+  const placed = w.q.filter(q => q.sec && w.out.some(s => s.id === q.sec)).length, r = w.draft ? usage(t, w).res : null;
+  const c = r ? {err: r.issues.filter(x => x.k === "err").length, warn: r.issues.filter(x => x.k === "warn").length} : null, stale = false;
+  const chk = !w.draft ? "no draft yet" : c.err ? `check: ${c.err} to fix` : c.warn ? `check: ${c.warn} to look at` : "check: all good ✓";
   const b = (tab, txt, cls) => `<button type="button" class="ws-sp${cls ? " " + cls : ""}${W.tab === tab ? " is-here" : ""}" data-ws-go="${tab}">${txt}</button>`;
   return `<nav class="ws-strip" aria-label="This paper so far">${b("sources", plural(w.src.length, "source"))}<span class="ws-dot" aria-hidden="true"> · </span>${b("quotes", plural(w.q.length, "quote"))}<span class="ws-dot" aria-hidden="true"> · </span>${b("outline", `${placed} placed`)}<span class="ws-dot" aria-hidden="true"> · </span>${b("check", chk, c && !stale && c.err ? "bad" : c && !stale && !c.err && !c.warn ? "good" : "")}</nav>`;
 }
