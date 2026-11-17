@@ -267,6 +267,66 @@ function SEED(){
   ok(page.errs.length === 0, "no console errors (list): " + page.errs.join(" | "));
   await ctx.close();
 
+  /* Undo and Redo on the map */
+  {
+    const ctxU = await mkCtx(), pu = await open(ctxU);
+    await act(pu, "cm-open", "c2", {kind: "course", map: "m1"}); await pu.waitForSelector('.cm-node[data-n="idea:a"]');
+    const und = () => pu.isDisabled('.cm-tools [data-cm="undo"]'), red = () => pu.isDisabled('.cm-tools [data-cm="redo"]');
+    const m1 = async () => (await course(pu, "c2")).maps.find(m => m.id === "m1");
+    ok(await und() && await red(), "a freshly opened map: Undo and Redo are greyed out");
+    await tap(pu, "idea:a"); await cmClick(pu, '[data-cm="shape"][data-v="cloud"]'); await pu.waitForTimeout(200);
+    ok(((await m1()).styles || {})["idea:a"].shape === "cloud" && !(await und()) && await red(), "a change: Undo is ready");
+    await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);
+    ok(!((await m1()).styles || {})["idea:a"] && await pu.locator('.cm-node[data-n="idea:a"].sh-cloud').count() === 0 && !(await red()), "Undo takes the cloud off, on the map and in what's saved; Redo is ready");
+    await pu.click('.cm-tools [data-cm="redo"]'); await pu.waitForTimeout(250);
+    ok(((await m1()).styles || {})["idea:a"].shape === "cloud" && await pu.locator('.cm-node[data-n="idea:a"].sh-cloud').count() === 1 && await red(), "Redo puts it back");
+    // an idea added, undone, redone
+    await pu.evaluate(() => { const S = SBCMAP.state(); S.sel = ""; S.selE = ""; }); await cmClick(pu, '[data-cm="idea"]'); await pu.waitForSelector("#cmAsk"); await pu.fill("#cmAsk", "NADH"); await pu.press("#cmAsk", "Enter"); await pu.waitForTimeout(250);
+    const hasN = async () => (await m1()).add.some(x => x.label === "NADH");
+    ok(await hasN() && await pu.locator(".cm-node .cm-lab", {hasText: "NADH"}).count() === 1, "a new idea");
+    await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);
+    ok(!(await hasN()) && await pu.locator(".cm-node .cm-lab", {hasText: "NADH"}).count() === 0, "Undo removes the idea");
+    await pu.click('.cm-tools [data-cm="redo"]'); await pu.waitForTimeout(250);
+    ok(await hasN() && await pu.locator(".cm-node .cm-lab", {hasText: "NADH"}).count() === 1, "Redo brings it back");
+    // a box moved, undone
+    const nb = await pu.locator('.cm-node[data-n="idea:b"]').boundingBox(), p0 = await pu.evaluate(() => SBCMAP.state().pos["idea:b"].slice());
+    await pu.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2); await pu.mouse.down(); for (let i = 1; i <= 6; i++) await pu.mouse.move(nb.x + nb.width / 2 + i * 15, nb.y + nb.height / 2 + i * 8); await pu.mouse.up(); await pu.waitForTimeout(250);
+    const p1 = await pu.evaluate(() => SBCMAP.state().pos["idea:b"].slice());
+    ok(p1[0] !== p0[0], "a box dragged to a new place");
+    await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);
+    const p2 = await pu.evaluate(() => SBCMAP.state().pos["idea:b"].slice());
+    ok(Math.abs(p2[0] - p0[0]) < 2 && Math.abs(p2[1] - p0[1]) < 2, "Undo moves it back");
+    // keyboard: Ctrl+Z and Ctrl+Shift+Z, and a new change clears Redo
+    await pu.evaluate(() => document.querySelector(".cm-canvas").focus());
+    await pu.keyboard.press("Control+Shift+Z"); await pu.waitForTimeout(250);
+    const p3 = await pu.evaluate(() => SBCMAP.state().pos["idea:b"].slice());
+    ok(Math.abs(p3[0] - p1[0]) < 2, "Ctrl+Shift+Z redoes the move");
+    await pu.keyboard.press("Control+Z"); await pu.waitForTimeout(250);
+    ok(Math.abs((await pu.evaluate(() => SBCMAP.state().pos["idea:b"][0])) - p0[0]) < 2 && !(await red()), "Ctrl+Z undoes it again");
+    await tap(pu, "idea:a"); await cmClick(pu, '[data-cm="shape"][data-v="diamond"]'); await pu.waitForTimeout(200);
+    ok(await red(), "a new change after an Undo clears Redo");
+    // resizing: drag a picked box's side, then its corner
+    await tap(pu, "idea:b");
+    ok(await pu.locator(".cm-hdls .cm-hdl").count() === 5, "a picked box shows handles on its sides and a corner");
+    const w0 = await pu.evaluate(() => SBCMAP.state().size["idea:b"][0]), hE = await pu.locator(".cm-hdl.h-e").boundingBox();
+    await pu.mouse.move(hE.x + hE.width / 2, hE.y + hE.height / 2); await pu.mouse.down();
+    for (let i = 1; i <= 6; i++) await pu.mouse.move(hE.x + hE.width / 2 + i * 10, hE.y + hE.height / 2);
+    ok(await pu.isVisible(".cm-hdls .cm-rsz"), "dragging shows the new size");
+    await pu.mouse.up(); await pu.waitForTimeout(300);
+    const sb = ((await m1()).styles || {})["idea:b"] || {}, w1 = await pu.evaluate(() => SBCMAP.state().size["idea:b"][0]), k = await pu.evaluate(() => SBCMAP.state().view.k);
+    ok(sb.bw && Math.abs(w1 - (w0 + 120 / k)) < 6 && !sb.bh, `dragging the right side widens the box, and only its width (${Math.round(w0)} to ${Math.round(w1)})`);
+    const hS = await pu.locator(".cm-hdl.h-se").boundingBox(), h0 = await pu.evaluate(() => SBCMAP.state().size["idea:b"][1]);
+    await pu.mouse.move(hS.x + hS.width / 2, hS.y + hS.height / 2); await pu.mouse.down(); for (let i = 1; i <= 5; i++) await pu.mouse.move(hS.x + hS.width / 2 + i * 4, hS.y + hS.height / 2 + i * 8); await pu.mouse.up(); await pu.waitForTimeout(300);
+    ok(((await m1()).styles["idea:b"] || {}).bh > h0 && await pu.evaluate(() => SBCMAP.state().size["idea:b"][1]) > h0, "the corner changes the height too");
+    const hW = await pu.locator(".cm-hdl.h-w").boundingBox();
+    await pu.mouse.move(hW.x + hW.width / 2, hW.y + hW.height / 2); await pu.mouse.down(); for (let i = 1; i <= 8; i++) await pu.mouse.move(hW.x + hW.width / 2 + i * 60, hW.y + hW.height / 2); await pu.mouse.up(); await pu.waitForTimeout(300);
+    ok(await pu.evaluate(() => { const S = SBCMAP.state(), el = document.querySelector('.cm-node[data-n="idea:b"] .cm-lab'); return S.size["idea:b"][0] >= el.getBBox().width + 20; }), "a box can't be made narrower than its words");
+    await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250); await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250); await pu.click('.cm-tools [data-cm="undo"]'); await pu.waitForTimeout(250);
+    ok(!((await m1()).styles || {})["idea:b"] || !(await m1()).styles["idea:b"].bw, "Undo takes the sizes back");
+    ok(!(await pu.locator("#toast.show").count()) && pu.errs.length === 0, "no notices, no errors: " + pu.errs.join(" | "));
+    await ctxU.close();
+  }
+
   /* Free plan */
   const fctx = await mkCtx(null, {free: true}), fp = await open(fctx);
   await act(fp, "cm-new", "", {course: "c2"}); await fp.waitForSelector("#dlg[open] .plan-sheet");

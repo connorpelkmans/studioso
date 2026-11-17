@@ -105738,7 +105738,8 @@ const CMAP = (() => {
   const num = (v, lo, hi) => { const x = Number(v); return isFinite(x) && x >= lo && x <= hi ? Math.round(x * 100) / 100 : 0; };
   // a box's look: shape; colour (fill and outline from one colour), or fill, outline and text colours of their own; font; text size (px); box size (x)
   const styleOf = st => { st = st && typeof st === "object" ? st : {}; const o = {shape: SHAPES.includes(st.shape) ? st.shape : "", color: hex(st.color)};
-    const f = hex(st.fill), k = hex(st.stroke), t = hex(st.text), font = FONTS.includes(st.font) ? st.font : "", size = num(st.size, 9, 36), scale = num(st.scale, 0.6, 3);
+    const f = hex(st.fill), k = hex(st.stroke), t = hex(st.text), font = FONTS.includes(st.font) ? st.font : "", size = num(st.size, 9, 36), scale = num(st.scale, 0.6, 3), bw = num(st.bw, 40, 900), bh = num(st.bh, 24, 600);
+    if (bw) o.bw = Math.round(bw); if (bh) o.bh = Math.round(bh);
     if (f) o.fill = f; if (k) o.stroke = k; if (t) o.text = t; if (font) o.font = font; if (size) o.size = size; if (scale && scale !== 1) o.scale = scale; return o; };
   const styled = st => Object.keys(st).some(k => st[k]);
   function graph(src){
@@ -105781,7 +105782,7 @@ const CMAP = (() => {
     [...E.keys()].forEach(k => { const e = E.get(k); if (!N.has(e.a) || !N.has(e.b)) E.delete(k); });
     Object.keys(names).forEach(id => { if (N.has(id) && names[id]) N.get(id).label = String(names[id]).slice(0, 120); });
     const styles = user.styles && typeof user.styles === "object" ? user.styles : {};
-    N.forEach((n, id) => { const st = styleOf(styles[id]); ["shape", "color", "fill", "stroke", "text", "font", "size", "scale"].forEach(k => { if (st[k]) n[k] = st[k]; }); });
+    N.forEach((n, id) => { const st = styleOf(styles[id]); ["shape", "color", "fill", "stroke", "text", "font", "size", "scale", "bw", "bh"].forEach(k => { if (st[k]) n[k] = st[k]; }); });
     // what's reachable: an exam map keeps what its topics reach (3 steps out); a course map keeps everything connected
     const adj = new Map(); N.forEach((v, id) => adj.set(id, []));
     E.forEach(e => { adj.get(e.a).push(e.b); adj.get(e.b).push(e.a); });
@@ -105864,7 +105865,7 @@ const CMAP = (() => {
     g.edges.forEach(e => [[e.a, e.b], [e.b, e.a]].forEach(([x, y]) => { if (conf[x] && !conf[y] && y !== "root") { if (!out[y] || RANK[conf[x]] < RANK[out[y]]) out[y] = conf[x]; } }));
     return out;
   }
-  const W = n => n.img || n.emb ? Math.round(190 * (n.scale || 1)) : (Math.min(220, 34 + String(n.label || "").slice(0, 28).length * 7.2) * ((n.size || 13) / 13) + (n.root ? 30 : 0)) * (n.scale || 1);
+  const W = n => n.bw && !n.img && !n.emb ? n.bw : n.img || n.emb ? Math.round(190 * (n.scale || 1)) : (Math.min(220, 34 + String(n.label || "").slice(0, 28).length * 7.2) * ((n.size || 13) / 13) + (n.root ? 30 : 0)) * (n.scale || 1);
   const shapeOf = n => n.shape || (n.kind === "topic" || n.kind === "idea" ? "pill" : "rounded");
   // a box's size for its label width (tw): circles, clouds, diamonds and hexagons need more room around the words
   function boxSize(shape, tw, root, size, scale){
@@ -106189,7 +106190,12 @@ function goAt(a){
   const f = a && state.files[a.f]; if (!f) { M.err = "That file isn't in your Files any more. Attach, Change Page or Lecture links it again."; paint(); return; }
   if (dlg.open) dlg.close();
   if (a.t != null && isLec(f)) {
-    setTimeout(() => { if (typeof fileSheet === "function") fileSheet(f); if (window.SBREPLAY && SBREPLAY.seek) SBREPLAY.seek(f.id, a.t, {lead: 0}); else toast("Lecture replay isn't available here."); }, 0);
+    // the lecture's own view (its player), then play from the moment once the player is there
+    setTimeout(() => {
+      const b = document.createElement("button"); b.dataset.act = "lec-view"; b.dataset.id = f.id; b.hidden = true; document.body.appendChild(b); b.click(); b.remove();
+      let tries = 0; const go = () => { if (dlg.open && dlg.querySelector(".rp-dock, .lec-sheet")) { if (window.SBREPLAY && SBREPLAY.seek) SBREPLAY.seek(f.id, a.t, {lead: 0}); return; } if (++tries < 40) setTimeout(go, 50); else if (window.SBREPLAY && SBREPLAY.seek) SBREPLAY.seek(f.id, a.t, {lead: 0}); };
+      go();
+    }, 0);
     return;
   }
   setTimeout(() => { if (window.SBPRO && SBPRO.openReader && isPdf(f)) SBPRO.openReader(f.id, a.p || 1); else if (typeof fileSheet === "function") fileSheet(f); }, 0);
@@ -106203,26 +106209,39 @@ function atPanel(n){
   P.innerHTML = `<form class="cm-atf"><label class="lh" for="cmAtF">Link <b>${esc(trunc(n.label, 40))}</b> to Where It's Taught</label>
     <select id="cmAtF">${pdfs.length ? `<optgroup label="PDFs">${pdfs.map(opt).join("")}</optgroup>` : ""}${lecs.length ? `<optgroup label="Lectures">${lecs.map(opt).join("")}</optgroup>` : ""}</select>
     <div class="cm-atrow" data-at="pdf"><label>Page <input type="number" id="cmAtP" min="1" max="100000" inputmode="numeric" value="${cur.p || 1}"></label></div>
-    <div class="cm-atrow" data-at="lec"><label>Time <input type="text" id="cmAtT" inputmode="numeric" placeholder="12:34" value="${cur.t != null ? CMAP.clock(cur.t) : ""}" autocomplete="off"></label><button type="button" class="btn small" data-at-now hidden></button></div>
+    <div class="cm-atrow" data-at="lec"><label>Time <input type="text" id="cmAtT" inputmode="numeric" placeholder="12:34" value="${cur.t != null ? CMAP.clock(cur.t) : ""}" autocomplete="off"></label><button type="button" class="btn small" data-at-now hidden></button><span class="mini" data-at-len></span></div>
     <p class="mini cm-err" role="alert" data-at-err hidden></p>
     <div class="cm-row">${n.at ? `<button type="button" class="link-btn" data-cm="atoff">Remove Link</button>` : ""}<span class="spacer"></span><button type="button" class="btn small" data-cm="err-x">Cancel</button><button type="submit" class="btn small primary">Save Link</button></div></form>`;
   const f = P.querySelector("form"), sel = f.querySelector("#cmAtF"), nowB = f.querySelector("[data-at-now]");
+  const lenMs = fl => fl && Number(fl.dur) > 0 ? Math.round(Number(fl.dur) * 1000) : 0;
   const sync = () => { const fl = state.files[sel.value], lec = isLec(fl); f.querySelector('[data-at="pdf"]').hidden = lec; f.querySelector('[data-at="lec"]').hidden = !lec;
+    const L = lec ? lenMs(fl) : 0; f.querySelector("[data-at-len]").textContent = L ? `The recording is ${CMAP.clock(L)} long` : "";
     const st = window.SBREPLAY && SBREPLAY.state ? SBREPLAY.state() : {}; nowB.hidden = !(lec && st.fid === sel.value && st.now > 0); if (!nowB.hidden) nowB.textContent = `Use ${CMAP.clock(st.now)} (playing now)`; };
   sel.addEventListener("change", sync); sync(); sel.focus();
   nowB.addEventListener("click", () => { const st = SBREPLAY.state(); f.querySelector("#cmAtT").value = CMAP.clock(st.now || 0); });
   f.addEventListener("submit", e => { e.preventDefault(); const fl = state.files[sel.value], er = f.querySelector("[data-at-err]"), bad = m => { er.textContent = m; er.hidden = false; };
-    let at; if (isLec(fl)) { const t = CMAP.parseClock(f.querySelector("#cmAtT").value); if (t == null) return bad("Type the time like 12:34 (or 1:02:03)."); at = {f: fl.id, t}; }
+    let at; if (isLec(fl)) { const t = CMAP.parseClock(f.querySelector("#cmAtT").value), L = lenMs(fl); if (t == null) return bad("Type the time like 12:34 (or 1:02:03)."); if (L && t > L) return bad(`${fl.name || "This recording"} is only ${CMAP.clock(L)} long. Pick a time up to ${CMAP.clock(L)}.`); at = {f: fl.id, t}; }
     else { const pg = Math.floor(Number(f.querySelector("#cmAtP").value)); if (!(pg >= 1)) return bad("Type a page number."); at = {f: fl.id, p: pg}; }
     const x = userOf(M.own); x.add = x.add.map(i => "idea:" + i.id === n.id ? Object.assign({}, i, {at}) : i);
     saveUser(x, `Linked ${n.label} to ${at.t != null ? CMAP.clock(at.t) + " in " : "page " + at.p + " of "}${fl.name || "a file"}`); rebuild(true); paint(); });
 }
 // Concept maps save without notices: each step can still be undone (the map's Undo button, or Ctrl+Z)
-function quietly(changes, label){ M.ownSave = true; try { applyChanges(changes, label, null, {quiet: true}); } finally { M.ownSave = false; } const st = applyChanges.last; if (st && label) { M.steps = (M.steps || []).filter(x => !x.done).concat([st]).slice(-30); } }
-function undoMap(){
-  const st = (M.steps || []).filter(x => !x.done && Date.now() - x.at < 30 * 60000).pop(); if (!st) return;
-  st.undo(); M.steps = M.steps.filter(x => x !== st && !x.done); M.kc = null; rebuild(true); paint();
+// Concept maps save without notices. The map keeps its own history: each change keeps what it replaced and what it made, so Undo puts
+// the before back and Redo puts the after back (the app's Ctrl+Z, outside the map, still works too: each change is on its undo list)
+function quietly(changes, label){
+  const before = changes.map(c => ({kind: c.kind, id: c.id, after: clone(getItem(c.kind, c.id))}));
+  M.ownSave = true; try { applyChanges(changes, label, null, {quiet: true}); } finally { M.ownSave = false; }
+  if (M.replaying) return;
+  const after = changes.map(c => ({kind: c.kind, id: c.id, after: clone(getItem(c.kind, c.id))}));
+  M.undoS = (M.undoS || []).concat([{label: label || "Moved a box", before, after}]).slice(-60); M.redoS = [];
 }
+function replay(list, label){
+  M.replaying = true; M.ownSave = true;
+  try { applyChanges(list.map(x => ({kind: x.kind, id: x.id, after: clone(x.after)})), label, null, {quiet: true}); } finally { M.replaying = false; M.ownSave = false; }
+  M.kc = null; M.sel = M.sel && M.g && M.g.nodes.some(n => n.id === M.sel) ? M.sel : ""; rebuild(true); if (M.sel && !M.g.nodes.some(n => n.id === M.sel)) M.sel = ""; if (M.selE && !M.g.edges.some(e => e.key === M.selE)) M.selE = ""; paint();
+}
+function undoMap(){ const e = (M.undoS || []).pop(); if (!e) return; M.redoS = (M.redoS || []).concat([e]); replay(e.before, "Undid: " + e.label); }
+function redoMap(){ const e = (M.redoS || []).pop(); if (!e) return; M.undoS = (M.undoS || []).concat([e]); replay(e.after, "Redid: " + e.label); }
 function saveUser(u, label, meta){
   const ch = mapChange(u, meta); if (ch) quietly([ch], label === undefined ? null : label);
 }
@@ -106333,7 +106352,7 @@ function open(kind, id, map){
   if (o.kind === "course") { const ms = mapsOf(state.courses[id]); o.map = map && ms.some(m => m.id === map) ? map : (ms[0] || {}).id || "main"; }
   const same = M.own && M.own.kind === o.kind && M.own.id === o.id && M.own.map === o.map;
   Object.assign(M, {own: o, sel: "", selE: "", connect: "", quiz: null, sug: null, err: "", busy: false});
-  if (!same) { M.loose = false; M.know = o.kind === "exam"; }
+  if (!same) { M.loose = false; M.know = o.kind === "exam"; M.undoS = []; M.redoS = []; }
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
   const mp = mapOf(o);
   // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
@@ -106525,23 +106544,36 @@ function paint(){
       return;
     }
     if (n.img) {
-      // a picture: as wide as the box size says, its own shape, the words under it
-      const k = n.scale || 1, iw = Math.round(150 * k), ih = Math.round(Math.max(60 * k, Math.min(200 * k, iw * n.img.h / n.img.w))), fs = n.size || 13, lh = n.label ? fs * 1.6 + 4 : 0;
+      const k = n.scale || 1, fs = n.size || 13, url = imgUrl(n.img.k), cid = "cmc" + n.ref.replace(/[^a-z0-9]/gi, "");
+      if (/^(circle|cloud|diamond|hexagon)$/.test(shape)) {
+        // a picture in a round or angled shape fills the shape, cut to its outline; the words sit under it
+        const W = Math.round(180 * k), H = Math.round(Math.max(W * 0.62, Math.min(W * 1.05, W * n.img.h / n.img.w))) + (shape === "diamond" ? Math.round(30 * k) : 0);
+        M.size[n.id] = [W, H]; el.classList.add("is-pic");
+        const outline = shapeSvg(shape, W, H, el.dataset.col, false, n);
+        el.insertAdjacentHTML("afterbegin", `<clipPath id="${cid}">${outline.replace(/ class="cm-shape"/, "").replace(/ style="[^"]*"/, "")}</clipPath>`
+          + (url ? `<image class="cm-img" href="${url}" x="${-W / 2}" y="${-H / 2}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${cid})"/>` : `<g clip-path="url(#${cid})"><rect class="cm-imgph" x="${-W / 2}" y="${-H / 2}" width="${W}" height="${H}"/></g>`) + outline);
+        t.setAttribute("y", H / 2 + fs + 4); t.setAttribute("x", 0); t.setAttribute("text-anchor", "middle"); t.classList.add("cm-lab-out");
+        return;
+      }
+      // a picture in a box: inside it, with the box's own corners, the words under the picture
+      const iw = Math.round(150 * k), ih = Math.round(Math.max(60 * k, Math.min(200 * k, iw * n.img.h / n.img.w))), lh = n.label ? fs * 1.6 + 4 : 0;
       const w = Math.max(iw + 16, tw + 24), h = ih + 16 + lh; M.size[n.id] = [w, h];
-      const url = imgUrl(n.img.k), cid = "cmc" + n.ref.replace(/[^a-z0-9]/gi, "");
-      el.insertAdjacentHTML("afterbegin", shapeSvg(shape === "pill" ? "rounded" : shape, w, h, el.dataset.col, false, n) + `<clipPath id="${cid}"><rect x="${-iw / 2}" y="${-h / 2 + 8}" width="${iw}" height="${ih}" rx="8"/></clipPath>`
-        + (url ? `<image class="cm-img" href="${url}" x="${-iw / 2}" y="${-h / 2 + 8}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${cid})"/>` : `<rect class="cm-imgph" x="${-iw / 2}" y="${-h / 2 + 8}" width="${iw}" height="${ih}" rx="8"/>`));
+      const bs = shape === "pill" ? "rounded" : shape === "text" ? "rounded" : shape, r = bs === "box" ? 2 : 8;
+      el.insertAdjacentHTML("afterbegin", shapeSvg(bs, w, h, el.dataset.col, false, n) + `<clipPath id="${cid}"><rect x="${-iw / 2}" y="${-h / 2 + 8}" width="${iw}" height="${ih}" rx="${r}"/></clipPath>`
+        + (url ? `<image class="cm-img" href="${url}" x="${-iw / 2}" y="${-h / 2 + 8}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${cid})"/>` : `<rect class="cm-imgph" x="${-iw / 2}" y="${-h / 2 + 8}" width="${iw}" height="${ih}" rx="${r}"/>`));
       t.setAttribute("y", h / 2 - lh / 2 + fs * 0.36 - 2); t.setAttribute("x", 0); t.setAttribute("text-anchor", "middle");
       return;
     }
-    const [w, h] = CMAP.boxSize(shape, tw + (dot ? 20 : 0), n.root, n.size, n.scale); M.size[n.id] = [w, h];
+    let [w, h] = CMAP.boxSize(shape, tw + (dot ? 20 : 0), n.root, n.size, n.scale);
+    if (n.bw) w = Math.max(tw + (dot ? 46 : 26), n.bw); if (n.bh) h = Math.max((n.size || 13) * 1.9, n.bh);
+    M.size[n.id] = [w, h];
     el.insertAdjacentHTML("afterbegin", shapeSvg(shape, w, h, el.dataset.col, n.root, n));
     if (dot) { el.querySelector(".cm-kdot").setAttribute("cx", -w / 2 + 14); t.setAttribute("x", -w / 2 + 26); }
   });
   world.querySelectorAll(".cm-node").forEach(el => { const n = M.byId[el.dataset.n], sz = M.size[el.dataset.n]; if (!n || !n.at || !sz) return;
     const lab = atLabel(n.at), w = lab.length * 6.4 + 24, x = sz[0] / 2 - w + 6, y = -sz[1] / 2 - 9, f = state.files[n.at.f];
     el.insertAdjacentHTML("beforeend", `<g class="cm-atb${n.at.t != null ? " is-lec" : ""}" transform="translate(${x} ${y})"><title>${esc((n.at.t != null ? "Plays " : "Opens ") + (f ? f.name : "the file") + " at " + lab + " (tap twice)")}</title><rect width="${w}" height="18" rx="9"/>${n.at.t != null ? '<path d="M7 5.5v7l5.5-3.5z"/>' : '<path d="M6.5 4.5h4l2 2v7h-6z" class="pg"/>'}<text x="17" y="12.6">${esc(lab)}</text></g>`); });
-  M.marks = {}; world.querySelector(".cm-edges").innerHTML = g.edges.map(edgeSvg).join(""); world.querySelector("defs").insertAdjacentHTML("beforeend", Object.values(M.marks).join(""));
+  M.marks = {}; world.querySelector(".cm-edges").innerHTML = g.edges.map(edgeSvg).join(""); drawHandles(); world.querySelector("defs").insertAdjacentHTML("beforeend", Object.values(M.marks).join(""));
   fitEdgeLabels(world);
   const need = [...new Set(g.nodes.map(n => FONT_FILE[n.font]).filter(Boolean))].filter(f => !M.fontsOk[f]);
   if (need.length && document.fonts && document.fonts.load) Promise.all(need.map(f => document.fonts.load(`16px "${f}"`).catch(() => null))).then(() => { need.forEach(f => { M.fontsOk[f] = true; }); if (shown()) paint(); });
@@ -106568,7 +106600,8 @@ function tools(){
     + `<label class="cm-chiptog${M.know ? " on" : ""}" title="Colour each idea by your flashcard and quiz results"><input type="checkbox" data-cm="know" ${M.know ? "checked" : ""}><span class="cm-kdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="cm-ml">Colour by Knowledge</span><span class="cm-ms">Knowledge</span></label>`
     + (weak ? `<button type="button" class="btn small cm-shaky" data-cm="shaky" title="Review the cards for your shaky ideas">${weak} Shaky</button>` : "")
     + `<span class="spacer"></span>`
-    + `<button type="button" class="icon-btn cm-undo" data-cm="undo" aria-label="Undo" title="Undo" ${(M.steps || []).some(x => !x.done) ? "" : "disabled"}>${mi('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button>`
+    + `<button type="button" class="icon-btn cm-undo" data-cm="undo" aria-label="Undo" title="${(M.undoS || []).length ? esc("Undo: " + M.undoS[M.undoS.length - 1].label) : "Undo"}" ${(M.undoS || []).length ? "" : "disabled"}>${mi('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>')}</button>`
+    + `<button type="button" class="icon-btn cm-undo cm-redo" data-cm="redo" aria-label="Redo" title="${(M.redoS || []).length ? esc("Redo: " + M.redoS[M.redoS.length - 1].label) : "Redo"}" ${(M.redoS || []).length ? "" : "disabled"}>${mi('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>')}</button>`
     + menu("more", mi('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'), "More",
       (loose || M.loose ? item("loose-t", `${M.loose ? "✓ " : ""}Show ${M.loose ? "Unlinked Items" : `${loose} Unlinked`}`) : "") + (hidden ? item("unhide", `Show ${hidden} Hidden`) : "") + item("reset", "Tidy Layout"), true);
 }
@@ -106680,6 +106713,10 @@ function wireCanvas(){
     M.el.appendChild(b); b.click(); b.remove();
   });
   M.el.addEventListener("change", e => { if (e.target.matches && e.target.matches("[data-cm-both]")) { M.both = e.target.checked; cardsPanel(); } });
+  M.el.addEventListener("keydown", e => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return; const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    const k = String(e.key).toLowerCase(); if (k === "z" && !e.shiftKey) { e.preventDefault(); undoMap(); } else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redoMap(); }
+  });
   // paste onto the map: a link from a video or embed site becomes a player, a copied picture becomes a picture
   M.el.addEventListener("paste", e => {
     if (e.target.closest("input, textarea, select, [contenteditable]")) return;
@@ -106694,6 +106731,10 @@ function wireCanvas(){
   svg.addEventListener("pointerdown", e => {
     pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pts.size === 2) { const [a, b] = [...pts.values()]; drag = {pinch: Math.hypot(a[0] - b[0], a[1] - b[1]), k: M.view.k}; return; }
+    const hd = e.target.closest && e.target.closest(".cm-hdl");
+    if (hd && M.sel && M.size[M.sel]) { const el = svg.querySelector(`.cm-node[data-n="${CSS.escape(M.sel)}"] .cm-lab`); let tw = 40; try { tw = el ? el.getBBox().width : 40; } catch (er) {}
+      const n = M.byId[M.sel]; drag = {rsz: hd.dataset.hdl, id: M.sel, w0: M.size[M.sel][0], h0: M.size[M.sel][1], minW: n && (n.img || n.emb) ? 90 : tw + 30, minH: n && (n.img || n.emb) ? 60 : Math.max(26, (n && n.size || 13) * 1.9), x: e.clientX, y: e.clientY, moved: false};
+      try { svg.setPointerCapture(e.pointerId); } catch (er) {} e.stopPropagation(); return; }
     const nd = e.target.closest(".cm-node"), ed = e.target.closest(".cm-edge");
     drag = {id: nd ? nd.dataset.n : "", edge: !nd && ed ? ed.dataset.e : "", x: e.clientX, y: e.clientY, vx: M.view.x, vy: M.view.y, moved: false, start: nd ? (M.pos[nd.dataset.n] || [0, 0]).slice() : null};
     try { svg.setPointerCapture(e.pointerId); } catch (er) {}
@@ -106702,11 +106743,23 @@ function wireCanvas(){
     if (!drag) return; if (pts.has(e.pointerId)) pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (drag.pinch) { if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); zoomAt((drag.k * d / drag.pinch) / M.view.k, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); } return; }
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (!drag.moved && Math.hypot(dx, dy) < 4) return; drag.moved = true;
-    if (drag.id && !M.quiz) { M.pos[drag.id] = [Math.round(drag.start[0] + dx / M.view.k), Math.round(drag.start[1] + dy / M.view.k)]; const el = svg.querySelector(`.cm-node[data-n="${CSS.escape(drag.id)}"]`); if (el) el.setAttribute("transform", `translate(${M.pos[drag.id][0]},${M.pos[drag.id][1]})`); moveEdges(drag.id); }
+    if (drag.rsz) {
+      // the box keeps its middle, so the side being dragged follows the pointer: the size changes by twice the move
+      const k = M.view.k || 1, d = drag.rsz, n = M.byId[drag.id], prop = n && (n.img || n.emb);
+      let nw = drag.w0, nh = drag.h0;
+      if (d.includes("e") || d.includes("w")) nw = Math.max(drag.minW, drag.w0 + (d.includes("e") ? 2 : -2) * dx / k);
+      if (d.includes("s") || d.includes("n")) nh = Math.max(drag.minH, drag.h0 + (d.includes("s") ? 2 : -2) * dy / k);
+      if (prop) { const f = d === "s" || d === "n" ? nh / drag.h0 : nw / drag.w0; nw = drag.w0 * f; nh = drag.h0 * f; }
+      drag.nw = Math.round(nw); drag.nh = Math.round(nh);
+      const g = svg.querySelector(".cm-hdls .cm-rsz"); if (g) { g.removeAttribute("hidden"); g.setAttribute("x", -nw / 2); g.setAttribute("y", -nh / 2); g.setAttribute("width", nw); g.setAttribute("height", nh); }
+      return;
+    }
+    if (drag.id && !M.quiz) { M.pos[drag.id] = [Math.round(drag.start[0] + dx / M.view.k), Math.round(drag.start[1] + dy / M.view.k)]; const el = svg.querySelector(`.cm-node[data-n="${CSS.escape(drag.id)}"]`); if (el) el.setAttribute("transform", `translate(${M.pos[drag.id][0]},${M.pos[drag.id][1]})`); const hg = drag.id === M.sel && svg.querySelector(".cm-hdls"); if (hg) hg.setAttribute("transform", `translate(${M.pos[drag.id][0]},${M.pos[drag.id][1]})`); moveEdges(drag.id); }
     else if (!drag.id || M.quiz) { M.view.x = drag.vx + dx; M.view.y = drag.vy + dy; M.el.querySelector(".cm-world").setAttribute("transform", `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`); }
   });
   const up = e => {
     pts.delete(e.pointerId); if (!drag) return; const d = drag; drag = null; if (d.pinch) return;
+    if (d.rsz) { if (d.moved && d.nw) resizeTo(d.id, d.nw, d.nh, d); else drawHandles(); return; }
     if (d.moved && d.id && !M.quiz) { const u = userOf(M.own); u.pos = Object.assign({}, u.pos, {[d.id]: M.pos[d.id]}); saveUser(u, null); return; }
     if (d.moved) return;
     if (d.id) tapNode(d.id); else if (d.edge && !M.quiz) { M.selE = d.edge; M.sel = ""; M.connect = ""; M.pick = ""; lite(); }
@@ -106728,9 +106781,29 @@ function moveEdges(id){
 // (rebuilding it would flash, and reload pictures and video thumbnails)
 function lite(){
   const w = M.el && M.el.querySelector(".cm-world"); if (!w || !M.g) { paint(); return; }
+  setTimeout(drawHandles, 0);
   w.querySelectorAll(".cm-node").forEach(el => { el.classList.toggle("is-sel", el.dataset.n === M.sel); el.classList.toggle("is-con", el.dataset.n === M.connect); });
   w.querySelectorAll(".cm-edge").forEach(el => el.classList.toggle("is-sel", el.dataset.e === M.selE));
   tools(); panel();
+}
+/* Resizing: a picked box shows handles on its sides and a corner; dragging one shows the new size, and letting go saves it */
+const HANDLES = [["e", 1, 0], ["w", -1, 0], ["s", 0, 1], ["n", 0, -1], ["se", 1, 1]];
+function resizeTo(id, nw, nh, d){
+  const n = M.byId[id]; if (!n) return;
+  const x = userOf(M.own), cur = CMAP.styleOf(x.styles[id]), next = Object.assign({}, cur);
+  if (n.img || n.emb) next.scale = Math.max(0.6, Math.min(3, Math.round((n.scale || 1) * nw / d.w0 * 100) / 100));
+  else { if (d.rsz !== "s" && d.rsz !== "n") next.bw = nw; if (d.rsz !== "e" && d.rsz !== "w") next.bh = nh; }
+  x.styles = Object.assign({}, x.styles, {[id]: CMAP.styleOf(next)});
+  saveUser(x, `Resized ${n.label || "a box"}`); rebuild(true); paint();
+}
+function drawHandles(){
+  const w = M.el && M.el.querySelector(".cm-world"); if (!w) return;
+  const old = w.querySelector(".cm-hdls"); if (old) old.remove();
+  if (!M.sel || M.quiz || M.connect) return;
+  const sz = M.size[M.sel], p = M.pos[M.sel]; if (!sz || !p) return;
+  const k = M.view.k || 1, coarse = window.matchMedia && matchMedia("(pointer:coarse)").matches, r = (coarse ? 9 : 5.5) / k, [bw, bh] = sz;
+  w.insertAdjacentHTML("beforeend", `<g class="cm-hdls" transform="translate(${p[0]},${p[1]})"><rect class="cm-rsz" x="${-bw / 2}" y="${-bh / 2}" width="${bw}" height="${bh}" rx="6" style="stroke-width:${1.5 / k}" hidden/>`
+    + HANDLES.map(([d, dx, dy]) => `<rect class="cm-hdl h-${d}" data-hdl="${d}" x="${dx * bw / 2 - r}" y="${dy * bh / 2 - r}" width="${r * 2}" height="${r * 2}" rx="${d === "se" ? r : r * 0.5}" style="stroke-width:${1.5 / k}"><title>Drag to resize</title></rect>`).join("") + `</g>`);
 }
 function tapNode(id){
   // a second tap on a video or embed plays it (a tap repaints the map, so the browser's own double-click can't be relied on)
@@ -106778,6 +106851,7 @@ async function onClick(e){
   switch (a) {
     case "style": M.styleOpen = !M.styleOpen; panel(); return;
     case "undo": undoMap(); return;
+    case "redo": redoMap(); return;
     case "anypro": anyColorPro("map"); return;
     case "mat": matPanel(); return;
     case "made-x": M.made = null; panel(); return;
@@ -107306,7 +107380,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-pickb[aria-expanded="true"]{background:color-mix(in srgb,var(--accent,#2F6FE4) 12%,var(--surface));border-color:color-mix(in srgb,var(--accent,#2F6FE4) 55%,var(--line));color:var(--accent,#2F6FE4)}
 .cm-pickb:focus-visible,.cm-stb:focus-visible,.cm-font select:focus-visible{outline:2px solid var(--accent,#2F6FE4);outline-offset:1px}
 .cm-pickb i{width:18px;height:18px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 22%,transparent);flex:none}
-.cm-pickb i.is-auto{background:conic-gradient(#2F6FE4,#7C5CFF,#D6336C,#E8A317,#2F9E44,#2F6FE4)}
+.cm-pickb i.is-auto{background:linear-gradient(135deg,transparent calc(50% - 1px),color-mix(in srgb,var(--ink) 55%,transparent) calc(50% - 1px),color-mix(in srgb,var(--ink) 55%,transparent) calc(50% + 1px),transparent calc(50% + 1px)),var(--surface)}
 .cm-font{display:inline-flex}
 .cm-font select{height:34px;padding:0 30px 0 10px;border:1px solid var(--line);border-radius:10px;background-color:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;font-weight:600;max-width:160px;cursor:pointer}
 .cm-step{display:inline-flex;align-items:center;height:34px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
@@ -107323,7 +107397,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-col-any.locked::after{background:var(--surface)}
 .cm-col-any input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0}
 .cm-col-any .pro-badge{position:absolute;right:-9px;top:-9px;z-index:3;transform:scale(.68);transform-origin:top right;pointer-events:none}
-.cm-col-auto{background:conic-gradient(#2F6FE4,#7C5CFF,#D6336C,#E8A317,#2F9E44,#2F6FE4)}
+/* Automatic: a plain circle with a slash (the rainbow means "any colour") */
+.cm-col-auto{background:linear-gradient(135deg,transparent calc(50% - 1px),color-mix(in srgb,var(--ink) 55%,transparent) calc(50% - 1px),color-mix(in srgb,var(--ink) 55%,transparent) calc(50% + 1px),transparent calc(50% + 1px)),var(--surface)}
 .cm-elf{flex-wrap:nowrap}
 /* the Review tab's list, and a new map */
 .cm-head{flex-wrap:wrap;gap:8px}
@@ -107466,6 +107541,13 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-tip code{font-size:.85em;padding:1px 6px;border-radius:6px;background:color-mix(in srgb,var(--ink) 8%,var(--surface));white-space:nowrap}
 .cm-eg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
 .cm-eg .mini{margin-left:2px}
+.cm-node.is-pic .cm-shape{fill:transparent!important;stroke-width:2.5}
+.cm-lab-out{paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
+.cm-hdl{fill:var(--surface);stroke:var(--accent,#2F6FE4);cursor:pointer;touch-action:none}
+.cm-hdl.h-e,.cm-hdl.h-w{cursor:ew-resize}.cm-hdl.h-n,.cm-hdl.h-s{cursor:ns-resize}.cm-hdl.h-se{cursor:nwse-resize;fill:var(--accent,#2F6FE4)}
+.cm-hdl:hover{fill:var(--accent,#2F6FE4)}
+.cm-rsz[hidden]{display:none}
+.cm-rsz{fill:none;stroke:var(--accent,#2F6FE4);stroke-dasharray:5 4;pointer-events:none}
 .cm-imgph{fill:color-mix(in srgb,var(--ink) 8%,var(--surface))}
 .cm-opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer}
 .cm-opt:has(input:checked){border-color:var(--accent,#2F6FE4);background:color-mix(in srgb,var(--accent,#2F6FE4) 7%,var(--surface))}

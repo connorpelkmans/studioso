@@ -24,7 +24,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
     {id: "kc2", front: "What is ATP?", back: "The cell's energy currency", box: 0, due: "", seen: 3, right: 0, wrong: 3}], quizzes: [],
     aiQuizzes: [{id: "q1", title: "Practice Quiz", created: 1, results: [], questions: [{id: "qq1", type: "single", stem: "Where does glycolysis happen?", options: ["Cytoplasm", "Nucleus"], correct: [0], tries: 2, miss: 2}]}]}],
   files: [{id: "f1", kind: "file", name: "Lecture slides.pdf", courseId: "c2", folderId: "", created: 1, revs: [{name: "Lecture slides.pdf", assetId: "x1", at: 1}]},
-    {id: "f2", kind: "file", name: "Lecture 3 recording", courseId: "c2", folderId: "lectures", created: 2, revs: [{name: "lecture.webm", assetId: "x2", at: 1}]}]};
+    {id: "f2", kind: "file", name: "Lecture 3 recording", courseId: "c2", folderId: "lectures", created: 2, dur: 1500, revs: [{name: "lecture.webm", assetId: "x2", at: 1}]}]};
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
@@ -129,6 +129,8 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   await tap(page, "idea:d"); await cmClick(page, '[data-cm="at"]'); await page.waitForSelector("#cmAtF");
   await page.selectOption("#cmAtF", "f2"); ok(await page.isVisible("#cmAtT") && !(await page.isVisible("#cmAtP")), "a lecture asks for a time, not a page");
   await page.fill("#cmAtT", "7:99"); await page.click(".cm-atf [type=submit]"); ok(/like 12:34/.test(await page.textContent("[data-at-err]")), "a time that isn't one says how to write it");
+  ok(/The recording is 25:00 long/.test(await page.textContent("[data-at-len]")), "it says how long the recording is");
+  await page.fill("#cmAtT", "31:00"); await page.click(".cm-atf [type=submit]"); ok(/only 25:00 long/.test(await page.textContent("[data-at-err]")), "a time past the end of the recording isn't allowed");
   await page.fill("#cmAtT", "12:34"); await page.click(".cm-atf [type=submit]"); await page.waitForTimeout(250);
   idea = (await S(page)).courses.c2.maps[0].add.find(x => x.id === "d");
   ok(idea.at && idea.at.f === "f2" && idea.at.t === 754000 && await page.textContent('.cm-node[data-n="idea:d"] .cm-atb text') === "12:34", "ATP links to 12:34 in the lecture, shown on its box");
