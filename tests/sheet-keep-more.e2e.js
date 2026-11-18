@@ -120,24 +120,18 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
     ok(await page.inputValue("#impText") === "" && await page.locator("#dlg .imp-row").count() === 0, "syllabus: and the next one is fresh");
     await cancel();
 
-    /* Rubric Check: a check still running is set aside, and its result waits in the sheet */
-    await act("rb-check", "t1"); await page.waitForSelector("#dlg[open] [data-rb-draft]");
-    await page.waitForFunction(() => /Clear, arguable thesis/.test(document.querySelector("[data-rb-rub]").value));
-    await page.fill("[data-rb-draft]", DRAFT); await page.click("[data-rb-go]"); await page.waitForTimeout(300);
+    /* Rubric Check (Writing Studio's Rubric tab): a check keeps going when Writing Studio is closed, and its result waits on the tab */
+    await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "ws-open"; b.dataset.id = "t1"; b.dataset.wsTo = "doc"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); });
+    await page.waitForSelector("#dlg[open] [data-ws-draft]"); await page.fill("[data-ws-draft]", DRAFT); await page.click("[data-ws-check]"); await page.waitForSelector("#dlg[open] .ws-res");
+    await page.click('#dlg[open] [data-ws-tab="rubric"]'); await page.waitForFunction(() => /Clear, arguable thesis/.test((document.querySelector("[data-rb-rub]") || {}).value || ""));
+    await page.click("[data-rb-go]"); await page.waitForTimeout(300);
     ok(/Checking/.test(await page.textContent("[data-rb-go]")), "rubric: the check starts");
-    await mark(); await away();
-    ok(!(await isOpen()) && /Rubric Check is still working/.test(await toastText()), "rubric: Escape sets it aside while it checks: " + await toastText());
-    await act("edit-task", "t1"); await page.waitForSelector('#dlg[open] [data-act="rb-check"]'); await page.click('#dlg[open] [data-act="rb-check"]'); await page.waitForTimeout(250);
-    ok(await marked() && /Checking/.test(await page.textContent("#dlg[open] [data-rb-go]")) && await page.evaluate(() => document.querySelector("#dlg[open] [data-rb-go]").disabled), "rubric: Check Against Rubric again brings back the same sheet, still checking (so it can't run twice)");
-    await page.click('#dlg .sheet-head [data-act="close"]'); await page.waitForTimeout(250);
-    ok(!(await isOpen()), "rubric: ✕ sets it aside too");
+    await away();
+    ok(!(await isOpen()), "rubric: Escape closes Writing Studio while it checks");
     await waitToast(/rubric check is ready/);
     ok(!(await isOpen()) && calls.rubric === 1, "rubric: it finishes without popping up, one AI call");
     await page.click("#toastExtra"); await page.waitForSelector("#dlg[open] .rbx-item");
-    ok(await marked() && await page.locator("#dlg[open] .rbx-item").count() === 3 && /Add 2 Steps/.test(await page.textContent("#dlg[open] [data-rb-save]")), "rubric: Open shows the result in the same sheet");
-    await page.click('#dlg .sheet-foot [data-act="edit-task"]'); await page.waitForTimeout(250);
-    await page.click('#dlg[open] [data-act="rb-check"]'); await page.waitForSelector("#dlg[open] .rbx-item");
-    ok(!(await marked()), "rubric: a finished check isn't held as a sheet (the result stays with the task as before)");
+    ok(await page.locator("#dlg[open] .rbx-item").count() === 3 && /Add 2 Steps/.test(await page.textContent("#dlg[open] [data-rb-save]")) && await page.getAttribute('#dlg[open] [data-ws-tab="rubric"]', "aria-selected") === "true", "rubric: Open shows the result on Writing Studio's Rubric tab");
     await page.keyboard.press("Escape"); await page.waitForTimeout(250);
 
     /* Weak Spots: the quiz being written is set aside; when done, Open starts it */

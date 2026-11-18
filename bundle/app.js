@@ -15562,7 +15562,7 @@ function taskView(t0){
         ${cl}
         ${prog}
       </div>
-      ${(tools => `<div class="sheet-foot tv-foot">${tools ? `<div class="tv-row tv-tools">${tools}</div>` : ""}<div class="tv-row"><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div></div>`)(`${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBRUBRIC ? SBRUBRIC.taskBtn(t) : ""}${window.SBWRITE ? SBWRITE.taskBtn(t) : ""}`)}
+      ${(tools => `<div class="sheet-foot tv-foot">${tools ? `<div class="tv-row tv-tools">${tools}</div>` : ""}<div class="tv-row"><button type="button" class="btn" id="tvDone">${done ? "Mark Not Done" : "Mark Done"}</button><button type="button" class="btn primary" id="tvEdit">Edit</button></div></div>`)(`${!done && canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(id)}">${TOMATO}Focus</button>` : ""}${prepBtn}${window.SBWRITE ? SBWRITE.taskBtn(t) : ""}`)}
     </div>`);
     const sc2 = dlg.querySelector(".occv-body"); if (sc2) sc2.scrollTop = top;
     $("#tvEdit").addEventListener("click", () => { const x = state.tasks[id]; if (x) taskForm(x); });
@@ -103301,11 +103301,13 @@ const pill = s => `<span class="rbx-st st-${s.toLowerCase()}">${esc(s)}</span>`;
 function formHtml(t){
   const cr = crits(), files = Object.values(state.files).filter(f => isDoc(f) && f.id !== R.rubFid && (f.taskIds.includes(t.id) || (t.courseId && f.courseId === t.courseId))).sort((a, b) => (b.taskIds.includes(t.id) - a.taskIds.includes(t.id)) || String(a.name).localeCompare(String(b.name))).slice(0, 40);
   const n = R.draft.trim() ? R.draft.trim().split(/\s+/).length : 0;
-  return `<p style="margin:0">Add your draft and the rubric, and see which criteria look weak before you submit. It gives feedback only: it never writes or rewrites your work.</p>
+  // in Writing Studio the draft is the paper on My Doc (the rubric is all there is to add)
+  const draftPart = R.embed ? (R.fromWS ? `<p class="mini rbx-from" style="margin:0">Checking your paper from My Doc (about ${n.toLocaleString()} words).</p>` : `<div class="rbx-row"><span class="mini">Add your paper on My Doc first: Rubric Check reads it from there.</span><button type="button" class="btn small" data-ws-go="doc">Go to My Doc</button></div>`) : null;
+  return `<p style="margin:0">Add the rubric, and see which criteria your ${R.embed ? "paper" : "draft"} looks weak on before you submit. It gives feedback only: it never writes or rewrites your work.</p>
     <label class="f"><span class="lh">Rubric <span class="hint" data-rb-cr>${cr.length ? `${cr.length} criteri${cr.length === 1 ? "on" : "a"} found` : ""}</span></span><textarea data-rb-rub rows="6" data-noenter placeholder="- Clear thesis that takes a position (20 points)&#10;- Uses at least 4 scholarly sources (15 points)&#10;- Addresses a counterargument (15 points)">${esc(R.rubric)}</textarea></label>
     <div class="rbx-row"><span class="mini" data-rb-rubsrc>${esc(R.rubSrc)}</span><label class="btn small rbx-pick">Choose a File<input type="file" accept=".pdf,.docx,.txt,.md,application/pdf,text/plain" data-rb-rubfile class="sr" tabindex="-1" aria-label="Choose the rubric file"></label></div>
-    <label class="f"><span class="lh">Your Draft <span class="hint" data-rb-n>${n ? `about ${n} words` : ""}</span></span><textarea data-rb-draft rows="8" data-noenter placeholder="Paste your draft here">${esc(R.draft)}</textarea></label>
-    <div class="rbx-row"><span class="mini" data-rb-draftsrc>${esc(R.draftSrc)}</span><label class="btn small rbx-pick">Upload Draft<input type="file" accept=".pdf,.docx,.txt,.md,application/pdf,text/plain" data-rb-draftfile class="sr" tabindex="-1" aria-label="Choose your draft file"></label>${files.length ? `<select data-rb-draftpick aria-label="Use a file in Studyboard"><option value="">Or use a file in Studyboard</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
+    ${draftPart != null ? draftPart : `<label class="f"><span class="lh">Your Draft <span class="hint" data-rb-n>${n ? `about ${n} words` : ""}</span></span><textarea data-rb-draft rows="8" data-noenter placeholder="Paste your draft here">${esc(R.draft)}</textarea></label>
+    <div class="rbx-row"><span class="mini" data-rb-draftsrc>${esc(R.draftSrc)}</span><label class="btn small rbx-pick">Upload Draft<input type="file" accept=".pdf,.docx,.txt,.md,application/pdf,text/plain" data-rb-draftfile class="sr" tabindex="-1" aria-label="Choose your draft file"></label>${files.length ? `<select data-rb-draftpick aria-label="Use a file in Studyboard"><option value="">Or use a file in Studyboard</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>`}
     <p class="mini rbx-priv" style="margin:0">Your draft is sent only to ${esc(who())}, with your own AI key, to check it. Studyboard doesn't keep a copy.</p>
     ${R.err ? `<p class="mini rbx-err" role="alert" style="margin:0">${esc(R.err)}</p>` : ""}`;
 }
@@ -103323,6 +103325,21 @@ function resultHtml(t){
 }
 function draw(){
   const t = state.tasks[R.tid]; if (!t) { if (shown()) dlg.close(); return; }
+  // in Writing Studio: its Rubric tab draws it
+  if (R.embed) { R.embed.redraw(); return; }
+  const {body, foot} = parts(t);
+  const inner = `${bandHead("Check Against Rubric", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title))}<div class="sheet-body">${body}</div><div class="sheet-foot">${foot}</div>`;
+  // redrawn in place while it's open or set aside, so a set-aside check keeps its place
+  if (shown() || (R.el && sheetKept(KEY(t.id)))) R.el.innerHTML = inner;
+  else {
+    openSheet(`<div class="sheet rbx-sheet">${inner}</div>`); R.el = dlg.querySelector(".rbx-sheet");
+    sheetKeep(KEY(t.id), {name: "Rubric Check", dirty: () => false, busy: () => R.busy, drop: () => { if (R.ac) { try { R.ac.abort(); } catch (e) {} } }});
+  }
+  wire(t);
+  // The error sits at the end of a long form: bring it into view, or the button just seems to do nothing
+  if (R.err && R.view === "form") { const e = R.el.querySelector(".rbx-err"); if (e) aiShowStatus(e); }
+}
+function parts(t){
   let body = "", foot = "";
   if (R.view === "nokey") {
     body = `<p style="margin:0">Rubric Check uses AI with your own key, so your draft goes only to your own AI provider. A free Google Gemini key takes about a minute to set up.</p>`;
@@ -103335,20 +103352,23 @@ function draw(){
     body = formHtml(t);
     foot = `<button type="button" class="btn" data-act="edit-task" data-id="${esc(t.id)}">Back to Task</button><span class="spacer"></span><button type="button" class="btn primary ai-btn" data-rb-go ${R.busy ? "disabled" : ""}>${AI_ICON} ${R.busy ? "Checking…" : "Check My Draft"}</button>`;
   }
-  const inner = `${bandHead("Check Against Rubric", SH_IC.pencil, t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title))}<div class="sheet-body">${body}</div><div class="sheet-foot">${foot}</div>`;
-  // redrawn in place while it's open or set aside, so a set-aside check keeps its place
-  if (shown() || (R.el && sheetKept(KEY(t.id)))) R.el.innerHTML = inner;
-  else {
-    openSheet(`<div class="sheet rbx-sheet">${inner}</div>`); R.el = dlg.querySelector(".rbx-sheet");
-    sheetKeep(KEY(t.id), {name: "Rubric Check", dirty: () => false, busy: () => R.busy, drop: () => { if (R.ac) { try { R.ac.abort(); } catch (e) {} } }});
-  }
-  wire(t);
-  // The error sits at the end of a long form: bring it into view, or the button just seems to do nothing
-  if (R.err && R.view === "form") { const e = R.el.querySelector(".rbx-err"); if (e) aiShowStatus(e); }
+  return {body, foot};
 }
+/* Writing Studio's Rubric tab: the same check, drawn in Writing Studio (its draft is the paper on My Doc); redraw draws Writing Studio */
+function tab(t, draftText, redraw){
+  if (R.tid !== t.id) { if (R.tid && !R.embed) sheetDrop(KEY(R.tid)); Object.assign(R, {tid: t.id, rubric: "", rubSrc: "", draft: "", draftSrc: "", res: null, cut: null, auto: false, view: "form", err: "", saved: 0}); }
+  R.embed = {redraw}; R.fromWS = !!(draftText && draftText.trim());
+  if (R.fromWS) { R.draft = draftText; R.draftSrc = "Your paper, from My Doc."; }
+  if (!own()) R.view = "nokey"; else if (R.view === "nokey") R.view = R.res ? "result" : "form";
+  if (R.view === "form" && !R.rubric.trim() && !R.auto) { R.auto = true; const id = t.id; autoRubric(t).then(a => { if (a && R.tid === id && !R.rubric.trim()) { R.rubric = a.text; R.rubSrc = a.src; R.rubFid = a.fid || ""; if (R.embed) R.embed.redraw(); } }); }
+  const p = parts(t);
+  return {body: `<div class="rbx-in">${p.body}</div>`, foot: p.foot};
+}
+function tabWire(el, t){ R.el = el; wire(t); if (R.err && R.view === "form") { const e = el.querySelector(".rbx-err"); if (e && typeof aiShowStatus === "function") aiShowStatus(e); } }
+const tabOff = () => { R.embed = null; };
 function wire(t){
   const q = s => R.el.querySelector(s);
-  const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { const id = R.tid; aiSetupSheet(true, {back: () => open(id)}); });
+  const su = q("[data-rb-setup]"); if (su) su.addEventListener("click", () => { const id = R.tid, emb = !!R.embed; aiSetupSheet(true, {back: () => emb && window.SBWRITE ? SBWRITE.open(id, "rubric") : open(id)}); });
   const bk = q("[data-rb-back]"); if (bk) bk.addEventListener("click", () => { R.view = "form"; R.err = ""; draw(); });
   const sv = q("[data-rb-save]"); if (sv) sv.addEventListener("click", () => save(t.id));
   const rub = q("[data-rb-rub]"), dr = q("[data-rb-draft]");
@@ -103393,6 +103413,8 @@ async function run(id){
     if (e && e.code === "nokey") R.view = "nokey";
   } finally { if (R.ac === ac) { R.busy = false; R.ac = null; } }
   if (R.tid !== id) return;
+  // in Writing Studio, closed while it checked: the result waits on the Rubric tab, and a toast says so
+  if (R.embed && !shown()) { if (R.view === "result") toast("Your rubric check is ready", null, {label: "Open", fn: () => window.SBWRITE && SBWRITE.open(id, "rubric")}); else toast("Rubric Check couldn't finish that. Open it again to see why.", null, {label: "Open", fn: () => window.SBWRITE && SBWRITE.open(id, "rubric")}, {error: true}); return; }
   // finished while set aside: the result waits in the sheet, and a toast says so
   const away = !shown() && sheetKept(KEY(id));
   if (!shown() && !away) return;
@@ -103406,12 +103428,14 @@ function save(id){
   applyChanges([{kind: "task", id, after: Object.assign(clone(t), {checklist: (t.checklist || []).concat(add)})}], `Added ${add.length} rubric step${add.length === 1 ? "" : "s"} to ${t.title}`);
   R.saved = add.length; draw();
 }
+// an old "Check Against Rubric" link (a notice, a step) opens Writing Studio's Rubric tab
 hook("act", (act, el, id) => {
   if (act !== "rb-check") return false;
   if (dlg.open) dlg.close();
-  open(id); return true;
+  if (window.SBWRITE) SBWRITE.open(id, "rubric"); else open(id);
+  return true;
 });
-if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", free: "3 a Week, Own Key", pro: "Unlimited", where: "On an assignment, paper, project or lab: Check Against Rubric, feedback on your draft before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
+if (window.SBPRO) SBPRO.addFeature({id: "rubric", name: "Rubric Check", free: "—", pro: "Included", where: "In Writing Studio, its Rubric tab: feedback on your paper against the assignment's rubric before you submit", icon: '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'});
 
 const css = document.createElement("style");
 css.textContent = `
@@ -103440,7 +103464,7 @@ css.textContent = `
 `;
 document.head.appendChild(css);
 
-window.SBRUBRIC = {taskBtn, open, RBC, state: () => R};
+window.SBRUBRIC = {taskBtn, open, RBC, state: () => R, tab, tabWire, tabOff};
 })();
 /* ===== module: 99-teach-back.js ===== */
 /* Teach It Back (Pro, needs AI): on an Exam Prep topic, the student explains it in their own words (typed, or spoken where the browser
@@ -105527,10 +105551,10 @@ const cut = (s, n) => (s = String(s || "")).length > n ? s.slice(0, n - 1) + "�
 const wordsIn = s => (String(s || "").match(/\S+/g) || []).length;
 const ago = ms => { const d = Math.floor((Date.now() - ms) / 864e5); return !ms ? "" : d <= 0 ? "today" : d === 1 ? "yesterday" : d < 14 ? `${d} days ago` : "on " + new Date(ms).toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
 const normText = s => String(s || "").toLowerCase().replace(/[‘’“”"']/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-const TABS = ["doc", "check", "sources", "quotes", "outline"];
+const TABS = ["doc", "check", "sources", "quotes", "outline", "rubric"];
 function tabsHtml(w){
   const tb = (k, l, n) => `<button type="button" role="tab" class="ws-tab" data-ws-tab="${k}" aria-selected="${W.tab === k}" ${W.tab === k ? "" : 'tabindex="-1"'}>${l}${n != null ? ` <span class="ws-n">${n}</span>` : ""}</button>`;
-  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("doc", "My Doc")}${tb("check", "Check")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
+  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("doc", "My Doc")}${tb("check", "Check")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}${window.SBRUBRIC ? tb("rubric", "Rubric") : ""}</div>`;
 }
 function styleSel(st){
   const ext = extStyles(), ids = BUILT.map(b => b[0]).concat(Object.keys(ext).filter(k => !BUILT_FMT[k]));
@@ -105997,6 +106021,7 @@ function footHtml(t, w){
   if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button>${w.draft ? `<button type="button" class="btn" data-ws-refadd title="Put every source in your draft's ${esc(listOf(CITE.headingOf(styleOf(t, w), styleFmt(styleOf(t, w)))))} (made if there isn't one)">Add All to My Draft</button>` : ""}<button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
   if (W.tab === "quotes" && W.hlPick) return `<button type="button" class="btn" data-ws-hlcancel>Cancel</button><span class="spacer"></span>${W.hlPick.length ? `<button type="button" class="btn primary" data-ws-hladd ${W.busy ? "disabled" : ""}>${W.busy === "hl" ? "Adding…" : "Add Quotes"}</button>` : ""}`;
   if (W.tab === "outline") return back + (w.out.length || w.q.length ? `<button type="button" class="btn primary" data-ws-export>Export…</button>` : "");
+  if (W.tab === "rubric") return W.rbFoot || back;
   if (W.tab === "check" || W.tab === "doc") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
   return back + `<button type="button" class="btn primary" data-act="close">Done</button>`;
 }
@@ -106006,8 +106031,11 @@ function draw(fresh){
   const w = wsOf(t), st = styleOf(t, w);
   const VIEW = {zotero: ["Zotero", () => zotHtml(t, w)], import: ["Import Sources", impHtml], library: ["My Library", () => libHtml(t, w)], styles: ["More Styles", findHtml],
     drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")], ldword: ["Choose a Word File", ldWordHtml]}[W.view];
-  if (!TABS.includes(W.tab)) W.tab = "doc";
-  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.tab === "doc" ? docTabHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
+  if (!TABS.includes(W.tab) || (W.tab === "rubric" && !window.SBRUBRIC)) W.tab = "doc";
+  // Rubric: the rubric check, drawn here (the paper on My Doc is what it reads)
+  const RB = !VIEW && W.tab === "rubric" ? SBRUBRIC.tab(t, (w.draft || {}).t || "", () => { if (shown() && W.tab === "rubric" && !W.view) draw(); }) : null;
+  W.rbFoot = RB ? RB.foot : "";
+  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.tab === "doc" ? docTabHtml(t, w) : W.tab === "rubric" ? (RB ? RB.body : "") : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
     ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
@@ -106025,6 +106053,7 @@ function draw(fresh){
   else { openSheet(`<div class="sheet ws-sheet">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
   const b = W.el.querySelector(".ws-body"); if (b && y) b.scrollTop = y;
   wire(t);
+  if (RB) SBRUBRIC.tabWire(W.el, t); else if (window.SBRUBRIC && SBRUBRIC.tabOff) SBRUBRIC.tabOff();
 }
 
 /* ---------- Export ---------- */
@@ -107033,6 +107062,7 @@ svg.ws-zic{display:block;flex:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.ws-err,.ws-need){color:#FF8A80}}
 .ws-ok{margin:0;color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
 .ws-ldc{display:grid;gap:8px}
+.rbx-in{display:grid;gap:10px}
 /* My Doc: the paper as a page (click to cite, select to quote), and the menu that opens there */
 .ws-rdbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0 8px}
 .ws-rdwrap{position:relative}

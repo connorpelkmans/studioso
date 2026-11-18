@@ -111,7 +111,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   /* Check first: the attached draft is offered */
   await act(page, "ws-open", "t1"); await page.waitForSelector("#dlg[open] .ws-tab");
   ok(/^My Doc/.test(await selTab(page)), "a paper opens on My Doc");
-  ok((await page.$$eval("#dlg[open] .ws-tab", x => x.map(e => e.textContent.replace(/\s*\d+$/, "").trim()))).join() === "My Doc,Check,Sources,Quotes,Outline", "the tabs: My Doc, Check, Sources, Quotes, Outline");
+  ok((await page.$$eval("#dlg[open] .ws-tab", x => x.map(e => e.textContent.replace(/\s*\d+$/, "").trim()))).join() === "My Doc,Check,Sources,Quotes,Outline,Rubric", "the tabs: My Doc, Check, Sources, Quotes, Outline, Rubric");
   ok(/Use Essay draft\.txt\?/.test(await page.textContent("#dlg[open] .ws-offer")), "the draft attached to the assignment is offered");
   ok(/0 sources · 0 quotes · 0 placed · no draft yet/.test((await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ")), "the strip: " + (await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ").trim());
   await page.click("#dlg[open] .ws-offer [data-ws-dsel]"); await page.waitForSelector("#dlg[open] .ws-found");
@@ -144,7 +144,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   await page.keyboard.press("ArrowLeft"); await page.keyboard.press("ArrowLeft");
   ok(/^My Doc/.test(await selTab(page)), "Arrow Left goes back through Check to My Doc");
   await page.keyboard.press("ArrowLeft");
-  ok(/^Outline/.test(await selTab(page)), "and wraps from My Doc to Outline");
+  ok(/^Rubric/.test(await selTab(page)), "and wraps from My Doc to the last tab, Rubric");
   await page.click('#dlg[open] .ws-strip [data-ws-go="sources"]'); await page.waitForSelector("#dlg[open] .ws-refs");
   const srcTxt = (await page.textContent("#dlg[open] .ws-refs")).replace(/\s+/g, " ");
   ok(/Quoted once · Cited in draft ✓/.test(srcTxt) && /No quotes yet · Cited in draft ✓/.test(srcTxt), "sources show their use");
