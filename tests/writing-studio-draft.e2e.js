@@ -217,12 +217,15 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
     await page.evaluate(() => { const s = window.__sbProStudy.state(), t = Object.values(s.tasks).find(x => x.ws && x.ws.draft); t.ws.draft.t = "Connor Pelkmans (53918363)\nSCIE 113 214\nPhilip Stamp\n3/12/2021\nHow does Toxoplasma gondii affect human behavior?\nEver since the first connection was made between infection with the protozoan parasite Toxoplasma gondii and behaviour in rodents (Webster, 2007), researchers have asked whether the same is true of people. Flegr (2013) argued it is."; window.__sbProStudy.render(); });
     await page.waitForTimeout(500); await page.screenshot({path: process.env.SHOT + "wsr-cards.png"});
   }
-  // the paper on a card stays crisp when it lifts under the pointer: the same pixels at rest, part way and lifted (it moves in whole pixels, not tilting)
+  // the paper on a card lifts smoothly under the pointer and its text is drawn the same once lifted as at rest (no tilt to animate, no heavier
+  // or blurred letters afterwards)
   {
-    const pg = page.locator(".wsr-card .wsr-ph").first(); await page.mouse.move(5, 5); await page.waitForTimeout(300);
-    const rest = await pg.screenshot(); await pg.hover({position: {x: 20, y: 10}});
-    const shots = []; for (const ms of [40, 60, 60, 300]) { await page.waitForTimeout(ms); shots.push(await pg.screenshot()); }
-    ok(shots.every(b => Buffer.compare(b, rest) === 0), "a card's paper looks exactly the same while it lifts and once lifted: " + shots.map(b => Buffer.compare(b, rest)).join(","));
+    const pg = page.locator(".wsr-card .wsr-ph").first(); await page.mouse.move(5, 5); await page.waitForTimeout(400);
+    const tbox = () => pg.evaluate(e => { const r = document.createRange(); r.selectNodeContents(e); const b = r.getBoundingClientRect(); return {x: Math.floor(b.left), y: Math.floor(b.top), width: Math.ceil(b.width) + 1, height: Math.ceil(b.height)}; });
+    const rest = await page.screenshot({clip: await tbox()}); await pg.hover({position: {x: 20, y: 10}}); await page.waitForTimeout(700);
+    const up = await page.screenshot({clip: await tbox()});
+    ok(Buffer.compare(rest, up) === 0, "a card's paper text looks exactly the same lifted as at rest");
+    ok((await page.evaluate(() => getComputedStyle(document.querySelector(".wsr-card .wsr-page")).transitionTimingFunction)) === "cubic-bezier(0.2, 0.8, 0.2, 1)", "and it glides there smoothly (no stepped movement)");
     ok((await page.evaluate(() => getComputedStyle(document.querySelector(".wsr-card .wsr-page")).translate)) === "0px -4px", "and it is lifted");
     await page.mouse.move(5, 5);
   }
