@@ -91,6 +91,7 @@ const measure = (page, sel) => page.evaluate(sel => {
     await dp.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "grp-page"; document.body.appendChild(b); b.click(); b.remove(); });
     const dsel = '#view .grp-card[data-sort-id="g2"]'; await dp.waitForSelector(dsel); await dp.waitForTimeout(400);
     const look = () => dp.evaluate(s => { const cs = getComputedStyle(document.querySelector(s)); return {tr: cs.translate, sh: cs.boxShadow}; }, dsel);
+    if (process.env.SHOT) await dp.screenshot({path: process.env.SHOT + "groups.png"});
     const rest = await look(); await dp.hover(dsel + " .grp-name"); await dp.waitForTimeout(400); const up = await look();
     ok(rest.tr === "none" && /-2px/.test(up.tr) && up.sh !== rest.sh && /0px 14px 28px -14px/.test(up.sh), "a group card rises and glows under the pointer: " + JSON.stringify({rest, up}));
     await dctx.close();
