@@ -589,6 +589,17 @@ function decorateDeck(){
       const ch = ids.map((id, i) => state.courses[id] && state.courses[id].order !== i * 10 ? {kind: "course", id, after: Object.assign(clone(state.courses[id]), {order: i * 10})} : null).filter(Boolean);
       if (ch.length) applyChanges(ch, "Courses reordered");
     } else if (kind === "groups") { try { localStorage.setItem("studyboard:grpOrder", JSON.stringify(ids)); } catch (e) {} }
+    // note boards: the order of their tabs (My Notes stays first)
+    else if (kind === "noteboards") {
+      const all = Array.isArray(state.settings && state.settings.noteBoards) ? state.settings.noteBoards : [], by = new Map(all.map(b => [b && b.id, b]));
+      const list = ids.map(id => by.get(id)).filter(Boolean).concat(all.filter(b => b && !ids.includes(b.id)));
+      if (list.some((b, i) => b !== all[i])) { state.settings = Object.assign({}, state.settings, {noteBoards: list}); saveSettings(); render(); }
+    }
+    // whiteboards: each keeps its place in the tabs (one change, so Undo puts them back)
+    else if (kind === "wb") {
+      const ch = ids.map((id, i) => state.notes[id] && state.notes[id].wbOrd !== i ? {kind: "note", id, after: Object.assign(clone(state.notes[id]), {wbOrd: i})} : null).filter(Boolean);
+      if (ch.length) applyChanges(ch, "Whiteboards reordered");
+    }
   };
   const begin = () => {
     const r = st.item.getBoundingClientRect();
@@ -600,6 +611,8 @@ function decorateDeck(){
     // Where it will land: a dashed outline the card's size, as on Flashcards and Quizzes (the card itself waits, hidden, until the drop)
     const ph = document.createElement("div"); ph.className = "placeholder sort-ph"; ph.dataset.sortId = st.item.dataset.sortId;
     ph.style.height = r.height + "px";
+    // a tab in a row of tabs keeps its width too
+    if (st.box.classList.contains("nb-tlist")) { ph.style.width = r.width + "px"; ph.style.flex = "none"; }
     // the card's corners (a course's wrapper has none of its own: the card inside it is the rounded one)
     const kid = st.item.firstElementChild, rad = getComputedStyle(st.item).borderTopLeftRadius;
     ph.style.borderRadius = parseFloat(rad) || !kid ? rad : getComputedStyle(kid).borderTopLeftRadius;
