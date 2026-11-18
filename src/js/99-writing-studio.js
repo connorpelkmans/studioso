@@ -1555,10 +1555,10 @@ const cut = (s, n) => (s = String(s || "")).length > n ? s.slice(0, n - 1) + "�
 const wordsIn = s => (String(s || "").match(/\S+/g) || []).length;
 const ago = ms => { const d = Math.floor((Date.now() - ms) / 864e5); return !ms ? "" : d <= 0 ? "today" : d === 1 ? "yesterday" : d < 14 ? `${d} days ago` : "on " + new Date(ms).toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
 const normText = s => String(s || "").toLowerCase().replace(/[‘’“”"']/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-const TABS = ["doc", "check", "sources", "quotes", "outline"];
+const TABS = ["doc", "check", "sources", "quotes", "outline", "rubric"];
 function tabsHtml(w){
   const tb = (k, l, n) => `<button type="button" role="tab" class="ws-tab" data-ws-tab="${k}" aria-selected="${W.tab === k}" ${W.tab === k ? "" : 'tabindex="-1"'}>${l}${n != null ? ` <span class="ws-n">${n}</span>` : ""}</button>`;
-  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("doc", "My Doc")}${tb("check", "Check")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
+  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("doc", "My Doc")}${tb("check", "Check")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}${window.SBRUBRIC ? tb("rubric", "Rubric") : ""}</div>`;
 }
 function styleSel(st){
   const ext = extStyles(), ids = BUILT.map(b => b[0]).concat(Object.keys(ext).filter(k => !BUILT_FMT[k]));
@@ -2025,6 +2025,7 @@ function footHtml(t, w){
   if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button>${w.draft ? `<button type="button" class="btn" data-ws-refadd title="Put every source in your draft's ${esc(listOf(CITE.headingOf(styleOf(t, w), styleFmt(styleOf(t, w)))))} (made if there isn't one)">Add All to My Draft</button>` : ""}<button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
   if (W.tab === "quotes" && W.hlPick) return `<button type="button" class="btn" data-ws-hlcancel>Cancel</button><span class="spacer"></span>${W.hlPick.length ? `<button type="button" class="btn primary" data-ws-hladd ${W.busy ? "disabled" : ""}>${W.busy === "hl" ? "Adding…" : "Add Quotes"}</button>` : ""}`;
   if (W.tab === "outline") return back + (w.out.length || w.q.length ? `<button type="button" class="btn primary" data-ws-export>Export…</button>` : "");
+  if (W.tab === "rubric") return W.rbFoot || back;
   if (W.tab === "check" || W.tab === "doc") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
   return back + `<button type="button" class="btn primary" data-act="close">Done</button>`;
 }
@@ -2034,8 +2035,11 @@ function draw(fresh){
   const w = wsOf(t), st = styleOf(t, w);
   const VIEW = {zotero: ["Zotero", () => zotHtml(t, w)], import: ["Import Sources", impHtml], library: ["My Library", () => libHtml(t, w)], styles: ["More Styles", findHtml],
     drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")], ldword: ["Choose a Word File", ldWordHtml]}[W.view];
-  if (!TABS.includes(W.tab)) W.tab = "doc";
-  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.tab === "doc" ? docTabHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
+  if (!TABS.includes(W.tab) || (W.tab === "rubric" && !window.SBRUBRIC)) W.tab = "doc";
+  // Rubric: the rubric check, drawn here (the paper on My Doc is what it reads)
+  const RB = !VIEW && W.tab === "rubric" ? SBRUBRIC.tab(t, (w.draft || {}).t || "", () => { if (shown() && W.tab === "rubric" && !W.view) draw(); }) : null;
+  W.rbFoot = RB ? RB.foot : "";
+  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.tab === "doc" ? docTabHtml(t, w) : W.tab === "rubric" ? (RB ? RB.body : "") : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
     ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
@@ -2053,6 +2057,7 @@ function draw(fresh){
   else { openSheet(`<div class="sheet ws-sheet">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
   const b = W.el.querySelector(".ws-body"); if (b && y) b.scrollTop = y;
   wire(t);
+  if (RB) SBRUBRIC.tabWire(W.el, t); else if (window.SBRUBRIC && SBRUBRIC.tabOff) SBRUBRIC.tabOff();
 }
 
 /* ---------- Export ---------- */
@@ -3061,6 +3066,7 @@ svg.ws-zic{display:block;flex:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.ws-err,.ws-need){color:#FF8A80}}
 .ws-ok{margin:0;color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
 .ws-ldc{display:grid;gap:8px}
+.rbx-in{display:grid;gap:10px}
 /* My Doc: the paper as a page (click to cite, select to quote), and the menu that opens there */
 .ws-rdbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0 8px}
 .ws-rdwrap{position:relative}
