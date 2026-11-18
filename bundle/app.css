@@ -8852,10 +8852,12 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
   #view .sb-es:not(.nb-empty){display:block;margin-top:8px;padding:4px 8px 0;border:0;background:none;box-shadow:none;text-align:center;color:var(--muted)}
   #view .sb-es .es-art{display:block;width:200px;height:140px;margin:4px auto 10px}
   #view .sb-es:not(.nb-empty) > strong,#view .sb-es .tb-setup-t > strong{display:block;margin:0 0 6px;font:800 1.35rem/1.2 var(--display);color:var(--ink)}
-  #view .sb-es .tb-setup-t{display:block;margin-bottom:14px}
+  #view .sb-es .tb-setup-t{display:block;margin-bottom:0}
   #view .sb-es .row-actions,#view .sb-es .es-ph{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:14px}
   #view .sb-es .btn.primary{min-height:48px;padding-inline:24px;border-radius:14px;font-size:1rem}
-  #view .sb-es.tb-setup{display:flex;flex-direction:column;align-items:center}
+  #view .sb-es.tb-setup{display:flex;flex-direction:column;align-items:center;gap:0}
+  /* the same gaps on every empty screen: picture, title, text, then buttons (some screens set their own margin inline) */
+  #view .sb-es:not(.nb-empty) .row-actions{margin-top:14px!important}
   #view .sb-es .btn:not(.primary){min-height:42px}
   #view .grp-offline.sb-es + .grp-file,#view .fpane:has(.sb-es) > #fmeter{margin-top:22px;padding:14px 16px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 1px 2px rgba(14,42,86,.05)}
   #view .grp-offline.sb-es + .grp-file h3{margin:0 0 4px;font-size:1rem}
