@@ -1466,7 +1466,7 @@ async function lookup(id){
 function addItems(t, items, label){
   const cur = state.tasks[t.id], w = wsOf(cur), ids = []; let dup = 0;
   items.forEach(x => { if (w.src.length >= MAX_SRC) return; if (CITE.dupOf(x, w.src)) { dup++; return; } const id = uid(); w.src.push(Object.assign(CITE.clean(x), {id})); ids.push(id); });
-  if (ids.length) { w.style = w.style || styleOf(cur, w); save(cur, w, label || `Added ${ids.length} source${ids.length === 1 ? "" : "s"}`); if (W.tid === t.id) W.also = otherPapers(cur).length ? {ids} : null; }
+  if (ids.length) { w.style = w.style || styleOf(cur, w); save(cur, w, label || `Added ${ids.length} source${ids.length === 1 ? "" : "s"}`); if (W.tid === t.id) { W.also = otherPapers(cur).length ? {ids} : null; W.dOffer = w.draft ? ids.slice() : null; } }
   return {added: ids.length, dup, ids};
 }
 // Other open papers in the same course, for "Also Add to Another Paper?"
@@ -1551,6 +1551,12 @@ function goalHtml(t, w){
   const n = w.src.length, met = n >= r.min;
   return `<div class="ws-goal${met ? " met" : ""}"><span class="mini"><b>${Math.min(n, 99)} of ${r.min}</b> ${r.scholarly ? "scholarly " : ""}sources the assignment asks for${met ? " ✓" : ""}</span><span class="ws-meter" role="progressbar" aria-label="Sources" aria-valuemin="0" aria-valuemax="${r.min}" aria-valuenow="${Math.min(n, r.min)}"><i style="width:${Math.min(100, Math.round(n / r.min * 100))}%"></i></span></div>`;
 }
+// right after adding a source to a paper with a draft: one tap puts it in the draft's list too (never on its own: a list entry wants a citation)
+function draftOfferHtml(w, inList){
+  const ids = (W.dOffer || []).filter(id => w.src.some(s => s.id === id) && !(inList && inList.has(id)));
+  if (!w.draft || !ids.length || !inList) return "";
+  return `<div class="ws-offer" role="note"><span>Also add ${ids.length === 1 ? "it" : "them"} to your draft's ${esc(listOf(CITE.headingOf(styleOf(state.tasks[W.tid], w), styleFmt(styleOf(state.tasks[W.tid], w)))))}?</span><span class="ws-row"><button type="button" class="btn small primary" data-ws-doffer="${esc(ids.join(","))}" ${W.busy ? "disabled" : ""}>Add ${ids.length === 1 ? "It" : "Them"}</button><button type="button" class="link-btn" data-ws-doffno>Not Now</button></span></div>`;
+}
 function alsoHtml(t){
   if (!W.also || !W.also.ids.length) return "";
   const ps = otherPapers(t); if (!ps.length) return "";
@@ -1566,7 +1572,7 @@ function sourcesHtml(t, w){
   return `${goalHtml(t, w)}<div class="ws-add"><label class="f ws-grow"><span class="lh">Add a source</span><input type="text" data-ws-in placeholder="Paste a DOI, arXiv ID, ISBN or link" value="${esc(W.inp || "")}" autocomplete="off" spellcheck="false" data-noenter></label>
       <button type="button" class="btn primary" data-ws-add ${W.busy ? "disabled" : ""}>${W.busy === "add" ? "Looking Up…" : "Add"}</button></div>
     <div class="ws-row ws-src-row"><button type="button" class="btn small ws-zbtn" data-ws-zot>${ZICON} ${z ? "From Zotero" : "Connect Zotero"}</button><button type="button" class="btn small" data-ws-imp>Import File</button><button type="button" class="btn small" data-ws-manual>Add by Hand</button>${lib ? `<button type="button" class="btn small" data-ws-lib>My Library <span class="ws-n">${lib}</span></button>` : ""}${files.length ? `<select data-ws-file aria-label="Add a PDF in Studyboard as a source"><option value="">Add a PDF from Studyboard…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
-    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}${alsoHtml(t)}
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}${draftOfferHtml(w, inList)}${alsoHtml(t)}
     ${W.engErr === st ? `<p class="mini ws-err">Couldn't load ${esc(styleName(st))}. ${BUILT_FMT[st] ? "Reload Studyboard and try again." : "It's fetched from zotero.org the first time: check your connection."}</p>` : ""}
     ${B.entries.length ? `<h3 class="fsec ws-bibh">${esc(heading)} <span class="mini">${esc(styleName(st))}${B.ready ? "" : " · formatting…"}</span></h3><ol class="ws-refs${B.hang ? " hang" : ""}">${B.entries.map(e => { const s = w.src.find(y => y.id === e.id); if (!s) return ""; const pdf = s.fid && state.files[s.fid]; return `<li class="ws-ref">
         <p class="ws-cite">${citeHtml(e.runs)}</p>
@@ -2467,7 +2473,7 @@ function wire(t){
   const on = (sel, ev, fn) => { const el = q(sel); if (el) el.addEventListener(ev, fn); return el; };
   const vback = q("[data-ws-vback]"); if (vback) vback.addEventListener("click", () => { W.view = ""; W.err = ""; draw(true); });
   // a toast about the last tab (e.g. "Started an outline · Undo") goes with it
-  const goTab = (k, focus) => { if (k !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = k; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; W.also = null; W.show = null; draw(true); if (focus) { const b = R.querySelector(`[data-ws-tab="${W.tab}"]`); if (b) b.focus(focus === "mouse" ? {preventScroll: true, focusVisible: false} : undefined); } };
+  const goTab = (k, focus) => { if (k !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = k; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; W.also = null; W.dOffer = null; W.show = null; draw(true); if (focus) { const b = R.querySelector(`[data-ws-tab="${W.tab}"]`); if (b) b.focus(focus === "mouse" ? {preventScroll: true, focusVisible: false} : undefined); } };
   // a click keeps focus on the tab (for the arrow keys) without the keyboard focus ring; arrow keys still show it
   qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsTab, "mouse")));
   qa("[data-ws-go]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsGo, false)));
@@ -2627,6 +2633,8 @@ function wire(t){
   qa("[data-ws-fix]").forEach(b => b.addEventListener("click", async () => { const w = ws(), res = usage(cur(), w).res, x = res && res.issues[Number(b.dataset.wsFix)]; if (!x || !x.edits) return; b.disabled = true; await fixDraft(cur(), x.edits); }));
   on("[data-ws-fixall]", "click", async e => { e.currentTarget.disabled = true; await fixAll(cur()); });
   on("[data-ws-refadd]", "click", async e => { e.currentTarget.disabled = true; W.err = ""; await addToDraftRefs(cur()); });
+  on("[data-ws-doffer]", "click", async e => { const ids = e.currentTarget.dataset.wsDoffer.split(","); e.currentTarget.disabled = true; W.dOffer = null; W.err = ""; await addToDraftRefs(cur(), ids); });
+  on("[data-ws-doffno]", "click", () => { W.dOffer = null; draw(); });
   qa("[data-ws-refadd1]").forEach(b => b.addEventListener("click", async () => { b.disabled = true; W.err = ""; await addToDraftRefs(cur(), [b.dataset.wsRefadd1]); }));
   // My Doc
   on("[data-ws-ldg]", "click", async () => {

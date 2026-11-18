@@ -149,6 +149,15 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   ok(/Added 1 source to your draft's list, in order \(2 were already there\)/.test(await page.textContent("#dlg[open]")), "Add All adds the rest, and says what it did");
   await page.click("#dlg[open] [data-ws-refadd]"); await page.waitForTimeout(700);
   ok(await draftOf() === d3 && /already in your draft's list/.test(await page.textContent("#dlg[open]")), "adding again changes nothing");
+  // a source just added to a paper with a draft: one tap puts it in the draft's list too (never on its own)
+  await page.fill("#dlg[open] [data-ws-in]", "10.1037/0003-066x.59.1.29"); await page.click("#dlg[open] [data-ws-add]");
+  await page.waitForSelector("#dlg[open] [data-ws-doffer]", {timeout: 15000});
+  ok(/Also add it to your draft's References list\?/.test(await page.textContent("#dlg[open] .ws-offer")) && !/Ray/.test(await draftOf()), "adding a source offers to put it in the draft's list (and doesn't, until asked)");
+  await page.click("#dlg[open] [data-ws-doffer]"); await page.waitForTimeout(900);
+  const l4 = ((await draftOf()).split(/\n(?:References|Bibliography)\n/)[1] || "").split("\n");
+  ok(l4.length === 4 && /^Ray, O\./.test(l4[2]) && !(await page.locator("#dlg[open] [data-ws-doffer]").count()), "Add It: into the list, in order, and the offer goes: " + JSON.stringify(l4.map(x => x.slice(0, 20))));
+  await page.click("#toastUndo"); await page.waitForTimeout(500);
+  ok(!/Ray, O\./.test(await draftOf()), "Undo takes it back out of the draft");
   // a draft from a note: the note itself is fixed (so checking again, which reads the note, keeps the fix)
   const N = "Heat essay\nCities are warming fast (Smith & Lee 2021) and parks help.\n\nReferences\nSmith, J. A., & Lee, K. (2021). The urban heat island effect and green infrastructure. Urban Climate, 38(2), 100–118.";
   await page.evaluate(n => { const s = window.__sbProStudy.state(); s.notes.n9 = {id: "n9", text: n, courseId: "c2", x: 0, y: 0, z: 9, created: 9}; const t = s.tasks.t1; t.ws.draft = {t: n, from: "Heat essay", nid: "n9", at: Date.now(), h: "x"}; t.ws.chk = null; }, N);
