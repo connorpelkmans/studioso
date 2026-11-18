@@ -86,9 +86,7 @@
 /* The big view of one piece, over the buy sheet */
 /* shown in the sheet's body in place of its usual content */
 .sbc-sheet.zoomed .sheet-body > :not(.sbc-zoom){display:none!important}
-.sbc-zoom{display:grid;gap:4px;animation:sbcZoomIn .18s ease-out}
-@keyframes sbcZoomIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.sbc-zoom{animation:none}}
+.sbc-zoom{display:grid;gap:4px}
 .sbc-zoom-h{display:flex;align-items:center;gap:12px;padding:0 0 12px;border-bottom:1px solid var(--line)}
 .sbc-zoom-h b{font:800 1.05rem var(--display)}
 .sbc-zoom-b{padding:14px 0 0;display:grid;gap:14px;align-content:start}

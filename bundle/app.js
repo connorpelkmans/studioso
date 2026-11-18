@@ -72429,6 +72429,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function redrawOpen(){
     try {
       const s = dlg.open && dlg.querySelector(".sbc-sheet");
+      if (s && s.classList.contains("zoomed")) return; // a redraw would drop the big view the person is looking at
       if (s && s.dataset.kind) buySheet(s.dataset.kind, s.dataset.id);
       else if (s) packsSheet();
       else if (shopOpen()) styleShop();
