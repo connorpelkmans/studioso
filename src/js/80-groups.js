@@ -249,8 +249,8 @@
   /*GK-START*/
   const GK = (() => {
     const TABS = {
-      study: [["study", "Study"], ["sessions", "Sessions"], ["challenge", "Challenge"], ["boards", "Whiteboards"], ["chat", "Chat"], ["members", "Members"]],
-      project: [["overview", "Overview"], ["tasks", "Tasks"], ["files", "Files"], ["meetings", "Meetings"], ["boards", "Whiteboards"], ["chat", "Chat"], ["members", "Members"]]
+      study: [["study", "Study"], ["sessions", "Sessions"], ["challenge", "Challenge"], ["boards", "Shared"], ["chat", "Chat"], ["members", "Members"]],
+      project: [["overview", "Overview"], ["tasks", "Tasks"], ["files", "Files"], ["meetings", "Meetings"], ["boards", "Shared"], ["chat", "Chat"], ["members", "Members"]]
     };
     const ROLES = [["lead", "Lead"], ["researcher", "Researcher"], ["editor", "Editor"], ["presenter", "Presenter"], ["designer", "Designer"]];
     const LIM = {question: 300, detail: 1000, answer: 1000, linkTitle: 120, linkNote: 200, minutes: 2000, actions: 12, peerNote: 300};
@@ -1195,8 +1195,8 @@
   // Each kind of group has its own sections, one tab at a time
   const GFEAT = {
     study: [["decks", "Shared Decks"], ["quizzes", "Practice Quizzes"], ["qa", "Questions and Answers"], ["deadlines", "Deadlines"],
-            ["sessions", "Sessions"], ["together", "Study Together"], ["findtime", "Find a Time"], ["boards", "Whiteboards"], ["chat", "Chat"]],
-    project: [["tasks", "Tasks"], ["files", "Files and Links"], ["meetings", "Meetings"], ["findtime", "Find a Time"], ["boards", "Whiteboards"], ["chat", "Chat"]]
+            ["sessions", "Sessions"], ["together", "Study Together"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"], ["chat", "Chat"]],
+    project: [["tasks", "Tasks"], ["files", "Files and Links"], ["meetings", "Meetings"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"], ["chat", "Chat"]]
   };
   // Pro group features, in the same list with a PRO badge
   const GXFEAT = {

@@ -1,6 +1,6 @@
 /* ===== module: 99-concept-map-groups.js ===== */
 /* Live concept maps in study groups, the way live whiteboards work (99-whiteboard-share.js):
-   - Share: a map's ⋯ > Share With a Group…, or a group's Whiteboards tab > Share a Concept Map. The group gets its own copy of
+   - Share: a map's ⋯ > Share With a Group…, or a group's Shared tab > Share a Concept Map. The group gets its own copy of
      what's on the map (ideas, connections, places, styles, Map Style, embeds and pictures). Boxes that open the sharer's own notes,
      decks, files, exams or classes go as plain ideas, by name only (or are left out, if the sharer ticks that): what's in them,
      and the links to them, never leave the device. Ideas' links to PDF pages, lecture moments and cards stay private too.
@@ -478,7 +478,7 @@ function panelHtml(o){
     const a = ACC.get(g.bid), ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me())), ed = editingNow(g.gid);
     return `<div class="cm-gpanel"><div class="cm-row cm-ttl"><b>Shared with ${esc(g.gn || "your study group")}</b><span class="mini">Live: what anyone here changes shows up for everyone as it happens.${ed.length ? ` ${esc(ed.join(", "))} ${ed.length === 1 ? "is" : "are"} editing now.` : ""}</span><span class="spacer"></span>${G() && G().openBoards ? `<button type="button" class="btn small" data-cm="g-go">Go to Group</button>` : ""}<button type="button" class="icon-btn cm-pclose" data-cm="g-who-x" aria-label="Done" title="Done">${CLOSE}</button></div>
       <ul class="wbg-people cm-gpeople">${ids.map(id => `<li>${faceOf(g.gid, id)}${esc(memberName(g.gid, id))}</li>`).join("")}</ul>
-      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Whiteboards tab. Undo only takes back your own changes. Deleting your copy only removes yours.</p></div>`;
+      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Shared tab. Undo only takes back your own changes. Deleting your copy only removes yours.</p></div>`;
   }
   return "";
 }
@@ -550,7 +550,7 @@ async function makeLive(cid, mid, gid, gname, drop){
   quietSave(courseWith(cid, ms => ms.concat([copy])));
   enqueue(row.id, gid, CMG.steps({}, copy).after); await send(row.id);
   await addMe(row.id, gid); previewSoon(row.id, true); GB.delete(gid);
-  toast(`Shared with ${gname}. Everyone in the group can add it from the group's Whiteboards tab.`);
+  toast(`Shared with ${gname}. Everyone in the group can add it from the group's Shared tab.`);
   if (dlg.open) dlg.close();
   B.open("course", cid, copy.id);
 }

@@ -201,7 +201,7 @@
       return;
     }
     openSheet(`<form class="sheet">${head("Share With a Study Group")}<div class="sheet-body">
-      <p style="margin:0">“${esc(W.boardName(n))}” shows up in the group's Whiteboards tab. Whoever adds it can draw on it with you, and what anyone draws or writes shows up for everyone as it happens.</p>
+      <p style="margin:0">“${esc(W.boardName(n))}” shows up in the group's Shared tab. Whoever adds it can draw on it with you, and what anyone draws or writes shows up for everyone as it happens.</p>
       <fieldset class="wb-grp-pick"><legend>Group</legend>${groups.map((g, i) => `<label class="mi-check"><input type="radio" name="gid" value="${esc(g.id)}"${i ? "" : " checked"}> ${esc(g.name)}</label>`).join("")}</fieldset>
       <p class="mini" style="margin:0">Everyone in the group sees the board's pictures too, so only add pictures you have the right to share. Each person's copy is their own: deleting yours doesn't delete anyone else's.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Share</button></div></form>`, fd => {
@@ -226,7 +226,7 @@
       if (L.q.length) await send(L);
     }
     await addMe(row.id, gid); previewSoon(nid, true); GB.delete(gid);
-    toast(`Shared with ${gname}. Everyone in the group can add it from the group's Whiteboards tab.`);
+    toast(`Shared with ${gname}. Everyone in the group can add it from the group's Shared tab.`);
     render();
   }
   // A shared board joins your Whiteboards when you add it from the group
@@ -260,7 +260,7 @@
     return `<span class="wbg-av" style="--c:${esc((m && /^#[0-9A-F]{6}$/i.test(m.color || "")) ? m.color : "#7A8494")}"${titled ? ` title="${esc(nm)}"` : ""}>${esc(real.trim().charAt(0).toUpperCase() || "?")}</span>`; };
   const memberName = (gid, id) => { if (id === me()) return "You"; const m = ((G() && G().members) ? G().members(gid) : []).find(x => x.id === id); return (m && m.name) || "A member"; };
   const whoText = (gid, ids) => { const names = [...new Set(ids)].sort((a, b) => (b === me()) - (a === me())).map(id => memberName(gid, id)); return !names.length ? "Nobody has added it yet" : names.length <= 3 ? names.join(", ").replace(/, ([^,]*)$/, " and $1") + (names.length === 1 && names[0] !== "You" ? " has it" : " have it") : `${names.slice(0, 2).join(", ")} and ${names.length - 2} others have it`; };
-  // a small picture of the board for the group's Whiteboards tab, kept fresh while people draw
+  // a small picture of the board for the group's Shared tab, kept fresh while people draw
   const PV = new Map();
   function previewSoon(nid, now){
     const n = state.notes[nid], g = live(n); if (!g || !online()) return;
@@ -327,7 +327,7 @@
     const mine = W.boards().filter(n => !live(n));
     if (!mine.length) { toast("Make a whiteboard first (Notes > Whiteboard), then share it here."); return; }
     openSheet(`<form class="sheet">${head("Share a Whiteboard")}<div class="sheet-body">
-      <p style="margin:0">Pick a board to share with ${esc(gname)}. It shows up in the group's Whiteboards tab, and whoever adds it can draw on it with you, live.</p>
+      <p style="margin:0">Pick a board to share with ${esc(gname)}. It shows up in the group's Shared tab, and whoever adds it can draw on it with you, live.</p>
       <fieldset class="wb-grp-pick"><legend>Board</legend>${mine.map((n, i) => `<label class="mi-check"><input type="radio" name="nid" value="${esc(n.id)}"${i ? "" : " checked"}> ${esc(W.boardName(n))}</label>`).join("")}</fieldset></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="submit" class="btn primary" data-submit>Share</button></div></form>`, fd => {
       const nid = String(fd.get("nid") || ""); if (!state.notes[nid]) return false;
@@ -354,7 +354,7 @@
       return `<div class="wbg-from"><span class="wbg-from-t"><span class="mini">Shared from</span><b>${esc(g.gn || "your study group")}</b></span>${G() && G().openBoards ? `<button type="button" class="btn small" id="wbGoGroup">Go to Group</button>` : ""}</div>
       <p style="margin:0">Live: what anyone here draws or writes shows up for everyone as it happens.</p>
       <ul class="wbg-people">${ids.map(id => `<li>${faceOf(g.gid, id)}${esc(memberName(g.gid, id))}</li>`).join("")}</ul>
-      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Whiteboards tab. Deleting your copy only removes yours.</p>`; };
+      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Shared tab. Deleting your copy only removes yours.</p>`; };
     const fetch = () => Promise.all([access(g.bid, true), G() && G().loadMembers ? G().loadMembers(g.gid) : null]).then(r => r[0]).catch(() => ACC.get(g.bid));
     // Open once, with everything: cached people show at once, otherwise wait briefly for them
     if (accessSheet.busy) return; accessSheet.busy = true;
