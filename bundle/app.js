@@ -108782,6 +108782,12 @@ function open(kind, id, map){
   // a map with nothing connected yet starts with the course's notes, decks and files on show, ready to connect
   if (!same && !M.loose && M.g && !M.g.edges.length && M.g.loose.length) { M.loose = true; rebuild(); }
   requestAnimationFrame(() => { fit(); paint(); });
+  // Safari on iPhone can leave slices of the boxes where they were while the window slid up (it doesn't repaint the drawing after it
+  // moves), so the map is drawn again once the window has arrived
+  const el0 = M.el, again = () => { if (M.el === el0 && el0.isConnected && !el0.querySelector(".cm-svg .is-drag") && !(document.activeElement && el0.contains(document.activeElement) && /^(INPUT|TEXTAREA)$|^true$/.test(document.activeElement.isContentEditable ? "true" : document.activeElement.tagName))) paint(); };
+  let settled = false; const onEnd = e => { if (e.target === dlg || (e.target.contains && e.target.contains(el0))) settle(); };
+  const settle = () => { if (settled) return; settled = true; dlg.removeEventListener("animationend", onEnd); again(); };
+  dlg.addEventListener("animationend", onEnd); setTimeout(settle, 650);
   wireCanvas();
   paint();
 }
@@ -110251,7 +110257,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:var(--surface);touch-action:none}
 .cm-dots{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;color:color-mix(in srgb,var(--ink) 11%,transparent)}
 .cm-canvas.cm-pk .cm-dots{display:none}
-.cm-svg{position:relative;width:100%;height:100%;display:block;cursor:grab;user-select:none;-webkit-user-select:none}
+.cm-svg{position:relative;width:100%;height:100%;display:block;transform:translateZ(0);cursor:grab;user-select:none;-webkit-user-select:none}
 .cm-svg:active{cursor:grabbing}
 .cm-line{stroke:color-mix(in srgb,var(--ink) 28%,transparent);stroke-width:1.6}
 .cm-hit{stroke:transparent;stroke-width:14;cursor:pointer}
