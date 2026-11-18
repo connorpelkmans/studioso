@@ -2062,6 +2062,9 @@ dialog.tour::backdrop{background:transparent}
 /* ===== Style Shop v2 ===== */
 body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:var(--bgpos,var(--gx,0) 0);background-attachment:var(--bgatt,scroll)}
 /* The page scrollbar sits on the grid: its track draws the same grid instead of a plain strip */
+/* Firefox and Safari: the space is always reserved, so the page never shifts; the strip beside the grid is plain there. Safari before 18.2 lacks scrollbar-gutter, so it always shows its scrollbar track instead */
+@supports not (scrollbar-gutter:stable){html:not(.desk){overflow-y:scroll}}
+@supports (-moz-appearance:none){html:not(.desk){scrollbar-color:color-mix(in srgb,var(--muted,#7A8599) 45%,transparent) transparent}}
 html:not(.desk)::-webkit-scrollbar{width:14px}
 html:not(.desk)::-webkit-scrollbar-track{background-color:var(--paper);background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:0 0}
 html:not(.desk)::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted,#7A8599) 45%,transparent);border:3px solid transparent;border-radius:8px;background-clip:content-box}
