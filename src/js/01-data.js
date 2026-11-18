@@ -18,8 +18,8 @@ function fmtTime(t){ const [h,m] = t.split(":").map(Number); const d = new Date(
 /* Recently Deleted and Export My Data */
 const TB = (() => {
   const DAY = 864e5, KEEP_DAYS = 30, MAX_ENTRIES = 400, MAX_BYTES = 12e6, BULK_AFTER = 40, SYNC_MAX = 1.5e6;
-  const KINDS = ["course", "task", "note", "deck", "file", "event", "card", "quiz", "bulk"];
-  const KIND_TITLE = {course: "Courses", task: "Tasks", note: "Notes", deck: "Flashcard Decks", card: "Flashcards", quiz: "Quizzes", file: "Files", event: "Events", bulk: "Bulk Deletions"};
+  const KINDS = ["course", "task", "note", "deck", "file", "event", "card", "quiz", "cmap", "bulk"];
+  const KIND_TITLE = {course: "Courses", task: "Tasks", note: "Notes", deck: "Flashcard Decks", card: "Flashcards", quiz: "Quizzes", cmap: "Concept Maps", file: "Files", event: "Events", bulk: "Bulk Deletions"};
   const cl = o => o == null ? o : JSON.parse(JSON.stringify(o));
   const sizeOf = o => { try { return JSON.stringify(o).length; } catch (e) { return 0; } };
   const cut = (s, n) => { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
@@ -34,9 +34,11 @@ const TB = (() => {
     if (kind === "event") return cut(d.title, 70) || "Event";
     if (kind === "card") return cut(d.front, 60) || "Flashcard";
     if (kind === "quiz") return cut(d.title, 60) || "Quiz";
+    if (kind === "cmap") return cut(d.name, 60) || "Concept map";
     return "Item";
   }
-  const isSub = k => k === "card" || k === "quiz";
+  // kept inside something else: cards and quizzes in a deck, a concept map in its course
+  const isSub = k => k === "card" || k === "quiz" || k === "cmap";
   function normEntry(e){
     e = Object.assign({id: "", kind: "bulk", label: "", detail: "", deletedAt: 0, items: []}, e && typeof e === "object" ? e : {});
     e.id = String(e.id || ""); if (!KINDS.includes(e.kind)) e.kind = "bulk";
@@ -48,7 +50,7 @@ const TB = (() => {
   }
   const countsText = items => {
     const c = {}; items.forEach(i => { c[i.kind] = (c[i.kind] || 0) + 1; });
-    const nm = {course: "course", task: "task", note: "note", deck: "deck", file: "file", event: "event", card: "card", quiz: "quiz"};
+    const nm = {course: "course", task: "task", note: "note", deck: "deck", file: "file", event: "event", card: "card", quiz: "quiz", cmap: "concept map"};
     return KINDS.filter(k => c[k] && nm[k]).map(k => plural(c[k], nm[k])).join(", ");
   };
   function makeEntries(deleted, now, newId, opts){
@@ -74,8 +76,8 @@ const TB = (() => {
     const subs = rest.length > BULK_AFTER ? [] : rest.filter(d => isSub(d.kind));
     const byDeck = new Map(); subs.forEach(s => { const k = s.kind + ":" + (s.parent && s.parent.id); (byDeck.get(k) || byDeck.set(k, []).get(k)).push(s); });
     byDeck.forEach(list => {
-      const kind = list[0].kind, dn = (list[0].parent && list[0].parent.name) || "a deck";
-      mk(kind, list.length === 1 ? labelFor(kind, list[0].data) : plural(list.length, kind === "card" ? "flashcard" : "quiz").replace("quizs", "quizzes") + " from " + dn, list, "From " + dn);
+      const kind = list[0].kind, dn = (list[0].parent && list[0].parent.name) || (kind === "cmap" ? "a course" : "a deck");
+      mk(kind, list.length === 1 ? labelFor(kind, list[0].data) : plural(list.length, kind === "card" ? "flashcard" : kind === "cmap" ? "concept map" : "quiz").replace("quizs", "quizzes") + " from " + dn, list, "From " + dn);
     });
     return out;
   }
@@ -112,8 +114,16 @@ const TB = (() => {
       }
       d.courseId = ""; notes.push(`${labelFor("task", d)} went to No Course because its course is gone`);
     };
-    const decksTouched = {};
+    const decksTouched = {}, coursesTouched = {};
     items.forEach(i => {
+      // a concept map goes back into its course (as a copy, if one with its id is there now); a course that's gone: it can't come back alone
+      if (i.kind === "cmap") {
+        const pid = i.parent && i.parent.id, c = coursesTouched[pid] || (pid && ctx.getCourse && ctx.getCourse(pid) ? cl(ctx.getCourse(pid)) : null);
+        if (!c) { notes.push(`${labelFor("cmap", i.data)} couldn't come back: its course is gone. Restore the course first`); return; }
+        coursesTouched[pid] = c; c.maps = Array.isArray(c.maps) ? c.maps : [];
+        const d = cl(i.data); if (c.maps.some(m => m.id === d.id)) { d.id = ctx.newId(); d.name = (d.name || "Concept map") + " (restored)"; }
+        c.maps.push(d); return;
+      }
       if (isSub(i.kind)) {
         const pid = i.parent && i.parent.id;
         let deck = decksTouched[pid] || (pid && ctx.getDeck(pid) ? cl(ctx.getDeck(pid)) : null);
@@ -133,6 +143,7 @@ const TB = (() => {
       changes.push({kind: i.kind, id: d.id, after: d});
     });
     Object.keys(decksTouched).forEach(k => { const d = decksTouched[k]; if (!changes.some(c => c.kind === "deck" && c.id === d.id)) changes.push({kind: "deck", id: d.id, after: d}); });
+    Object.keys(coursesTouched).forEach(k => { const c = coursesTouched[k]; changes.push({kind: "course", id: c.id, after: c}); });
     return {changes, notes: [...new Set(notes)], entries: [...new Set(entries)]};
   }
 
@@ -735,6 +746,11 @@ function trashCapture(changes, label){
       (cur.cards || []).filter(x => !keepC.has(x.id) && !inDecks.has(x.id)).slice(0, 2000).forEach(x => deleted.push({kind: "card", id: x.id, data: clone(x), parent: par}));
       (cur.aiQuizzes || []).filter(x => !keepQ.has(x.id)).forEach(x => deleted.push({kind: "quiz", id: x.id, data: clone(x), parent: par}));
     }
+    // a concept map taken off its course
+    else if (c.kind === "course" && Array.isArray(cur.maps)) {
+      const keep = new Set((c.after.maps || []).map(x => x.id)), par = {kind: "course", id: cur.id, name: cur.name || cur.code || "a course"};
+      cur.maps.filter(x => x && x.id && !keep.has(x.id)).forEach(x => deleted.push({kind: "cmap", id: x.id, data: clone(x), parent: par}));
+    }
   });
   if (!deleted.length) return [];
   const entries = TB.makeEntries(deleted, Date.now(), uid, {batch: uid(), bulkLabel: label || ""});
@@ -743,11 +759,12 @@ function trashCapture(changes, label){
   return entries.map(e => e.id).filter(id => state.trash[id]);
 }
 // always: shown even with nothing deleted, so Recently Deleted stays easy to find (the Task Board)
-const trashBtn = (kind, always) => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && TB.isSub(e.kind))).length; return n || always ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted${n ? ` (${n})` : ""}" title="Recently Deleted${n ? ` (${n})` : ""}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>${n ? `<span>${n}</span>` : ""}</button>` : ""; };
+const trashBtn = (kind, always) => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && (e.kind === "card" || e.kind === "quiz"))).length; return n || always ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted${n ? ` (${n})` : ""}" title="Recently Deleted${n ? ` (${n})` : ""}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>${n ? `<span>${n}</span>` : ""}</button>` : ""; };
 const plural0 = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const trashExists = (kind, id, parent) => {
   if (kind === "card") { const d = state.decks[parent && parent.id]; return !!(d && d.cards.some(c => c.id === id)); }
   if (kind === "quiz") { const d = state.decks[parent && parent.id]; return !!(d && (d.aiQuizzes || []).some(c => c.id === id)); }
+  if (kind === "cmap") { const c = state.courses[parent && parent.id]; return !!(c && Array.isArray(c.maps) && c.maps.some(m => m.id === id)); }
   const m = mapOf(kind); return !!(m && m[id]);
 };
 // What shows in the bin
@@ -756,7 +773,7 @@ const trashVisible = () => trashList().filter(e => e.items.length && Date.now() 
 function trashRestore(ids){
   const entries = ids.map(id => state.trash[id]).filter(Boolean);
   if (!entries.length) return {count: 0, notes: []};
-  const ctx = {exists: (k, id) => trashExists(k, id), newId: uid, getDeck: id => state.decks[id],
+  const ctx = {exists: (k, id) => trashExists(k, id), newId: uid, getDeck: id => state.decks[id], getCourse: id => state.courses[id],
     folderOk: (fid, cid) => foldersOf(cid).some(f => f.id === fid),
     binCourse: cid => trashList().find(x => !ids.includes(x.id) && x.items.some(i => i.kind === "course" && i.id === cid)) || null};
   const changes = [], notes = [], consumed = new Set(), seenKey = new Set();

@@ -118,5 +118,19 @@ ok(TB.crc32(new Uint8Array(0)) === 0, "crc32 empty");
   const py = cp.execSync(`python3 - <<'PY'\nimport zipfile,json\nz=zipfile.ZipFile("${file}")\nassert z.testzip() is None\nd=json.loads(z.read("studyboard-export.json"))\nprint(d["export"]["schema"], len(z.read("bin.dat")))\nPY`).toString().trim();
   ok(py === "studyboard-export 70000", "python reads it back: " + py);
   fs.rmSync(dir, {recursive: true});
-  console.log(`trash-export: ${n} checks passed`);
+  /* a concept map: kept inside its course. It's an entry of its own, and goes back into its course (as a copy if its id is taken) */
+{
+  const mapA = {id: "m1", name: "Cell map", nodes: []}, mapB = {id: "m2", name: "Other", nodes: []};
+  const es = TB.makeEntries([{kind: "cmap", id: "m1", data: mapA, parent: {kind: "course", id: "c1", name: "Biology"}}], NOW, newId, {});
+  ok(es.length === 1 && es[0].kind === "cmap" && es[0].label === "Cell map" && es[0].detail === "From Biology" && TB.KIND_TITLE.cmap === "Concept Maps", "a deleted concept map is an entry of its own, from its course");
+  const course = {id: "c1", name: "Biology", maps: [mapB]};
+  let pl = TB.restorePlan(TB.normEntry(es[0]), {exists: () => false, newId, getCourse: id => id === "c1" ? course : null, getDeck: () => null, folderOk: () => true, binCourse: () => null});
+  ok(pl.changes.length === 1 && pl.changes[0].kind === "course" && pl.changes[0].after.maps.map(m => m.id).join() === "m2,m1" && course.maps.length === 1, "restored: back into its course (the course's other maps kept)");
+  pl = TB.restorePlan(TB.normEntry(es[0]), {exists: () => false, newId, getCourse: () => ({id: "c1", maps: [{id: "m1", name: "Cell map"}]}), getDeck: () => null, folderOk: () => true, binCourse: () => null});
+  ok(pl.changes[0].after.maps.length === 2 && pl.changes[0].after.maps[1].id !== "m1" && /\(restored\)/.test(pl.changes[0].after.maps[1].name), "its id taken: it comes back as a copy");
+  pl = TB.restorePlan(TB.normEntry(es[0]), {exists: () => false, newId, getCourse: () => null, getDeck: () => null, folderOk: () => true, binCourse: () => null});
+  ok(!pl.changes.length && /its course is gone/.test(pl.notes.join()), "its course gone: it says so, nothing changes");
+  ok(TB.superseded(TB.normEntry(es[0]), (k, id, par) => k === "cmap" && id === "m1" && par.id === "c1"), "back in its course: the entry is done");
+}
+console.log(`trash-export: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

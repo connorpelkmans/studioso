@@ -1837,7 +1837,12 @@ function popHtml(t, w){
     return `<div class="ws-pop-h">${P.mode === "quote" ? "Add Quote" : "Cite Here"}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button></div><p class="mini ws-pop-how">${esc(how)}</p>${P.mode === "cite" ? `<p class="ws-pop-ctx" aria-live="polite">${ctx(srcs[0].id)}</p>` : ""}<div class="ws-pop-list">${rows}</div>`;
   }
   if (P.mode === "after") { const s = w.src.find(x => x.id === P.sid), f = s ? citeForms(t, w, s.id) : null, pl = f ? CITE.citePlace(d.t, P.b, f) : null; return f && !note ? `<span class="mini">Cite it here too?</span><button type="button" class="btn small primary" data-ws-pops="${esc(s.id)}" data-ws-popc>${esc(pl.kind === "mid" ? f.narr : f.paren)}</button><button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>` : ""; }
-  return `${!note ? `<button type="button" class="btn small primary" data-ws-popm="cite">${sel ? "Cite After It" : "Cite Here"}</button>` : ""}${sel.length >= 3 ? `<button type="button" class="btn small${note ? " primary" : ""}" data-ws-popm="quote">Add Quote</button>` : ""}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>`;
+  if (P.mode === "qhere") {
+    const qs = w.q.filter(x => x.t && w.src.some(s => s.id === x.sid));
+    if (!qs.length) return `<div class="ws-pop-h">Quote Here<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button></div><p class="mini">No quotes yet. Select a passage in a source's PDF, or in your paper, and keep it as a quote.</p><button type="button" class="btn small" data-ws-go="quotes">Go to Quotes</button>`;
+    return `<div class="ws-pop-h">Quote Here<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button></div><p class="mini ws-pop-how">The quote goes in with its citation${note ? "" : " (and its page)"}</p><div class="ws-pop-list">${qs.map(x => { const sr = w.src.find(s => s.id === x.sid); return `<button type="button" class="ws-pop-s" data-ws-qhere="${esc(x.id)}"><b>“${esc(cut(x.t, 90))}”</b><span class="mini">${esc(CITE.runsText(citeOf(t, w, x.sid, x.p || "")))}${sr && sr.title ? " · " + esc(cut(sr.title, 40)) : ""}</span></button>`; }).join("")}</div>`;
+  }
+  return `${!note ? `<button type="button" class="btn small primary" data-ws-popm="cite">${sel ? "Cite After It" : "Cite Here"}</button>` : ""}${!sel ? `<button type="button" class="btn small" data-ws-popm="qhere">Quote Here</button>` : ""}${sel.length >= 3 ? `<button type="button" class="btn small${note ? " primary" : ""}" data-ws-popm="quote">Add Quote</button>` : ""}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>`;
 }
 // Cite Here: the citation in the paper (the draft, its note, or its linked doc, as a fix is), then checked again
 async function citeHere(t, sid){
@@ -1846,6 +1851,18 @@ async function citeHere(t, sid){
   W.pop = null;
   const n = await fixDraft(state.tasks[t.id], [pl.edit], `Added ${what} to your paper`);
   if (n) W.okMsg = `Added ${what} ${pl.kind === "mid" ? "in the sentence" : pl.quote ? "after the quotation" : "at the end of the sentence"}${l ? `, in ${l.name || "your " + ldName(l)}` : ""}.`;
+  if (shown()) draw();
+}
+// Quote Here: a saved quote put in at the place clicked, in quotation marks, with its citation (and page) right after it
+async function quoteHere(t, qid){
+  const w = wsOf(state.tasks[t.id]), P = W.pop, x = w.q.find(y => y.id === qid); if (!w.draft || !P || !x) return;
+  const text = w.draft.t, WD = /[\p{L}\p{N}'’-]/u; let p = P.b; while (p > 0 && WD.test(text[p - 1]) && WD.test(text[p] || "")) p--;
+  const note = styleFmt(styleOf(state.tasks[t.id], w)) === "note", paren = note ? "" : CITE.runsText(citeOf(state.tasks[t.id], w, x.sid, x.p || "")).trim();
+  const body = `“${String(x.t).trim().replace(/^["“‘']+|["”’']+$/g, "")}”${paren ? " " + paren : ""}`;
+  const pre = p > 0 && !/[\s(\[“"‘—-]/.test(text[p - 1]) ? " " : "", post = WD.test(text[p] || "") ? " " : "";
+  W.pop = null;
+  const n = await fixDraft(state.tasks[t.id], [{at: p, len: 0, from: "", to: pre + body + post}], "Added a quote to your paper");
+  if (n) W.okMsg = `Added the quote${paren ? " with " + paren : ""}.`;
   if (shown()) draw();
 }
 // Add Quote: the selected passage, kept as a quote from that source (and then Cite After It is one tap)
@@ -2395,7 +2412,7 @@ async function ldFix(t, count, rounds){
     else W.err = ldErrText(e);
     if (shown()) draw(); return 0;
   }
-  W.busy = ""; W.ldKey = (W.ldKey || 0) + 1;
+  W.busy = ""; W.ldKey = (W.ldKey || 0) + 1; if (W.ldSeen) delete W.ldSeen[l.id];
   keepLay(t.id, out.raw, out.lay);
   const w = ldSetDraft(t, out.raw, l, (w0.draft.fx || 0) + count), inv = ldInverse(base, rounds), fixed = w.draft ? w.draft.t : "";
   W.okMsg = `${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}, ${l.name}.${LIVEDOC.norm(out.raw).text === out.want ? "" : " It was being changed at the same time, so check what it says."}${l.p === "file" ? " Download it to get the fixed file." : ""}`;
@@ -2437,6 +2454,30 @@ async function ldWordList(q, dir){
   if (!r.ok) throw await ldApiErr(r, "OneDrive");
   const j = await r.json().catch(() => null), seen = new Set(), rows = (j && Array.isArray(j.value) ? j.value : []).map(ldRow).filter(x => x.id && !seen.has(x.id) && seen.add(x.id));
   return {folders: qq ? [] : rows.filter(x => x.folder).sort((a, b) => a.name.localeCompare(b.name)), items: rows.filter(x => !x.folder && /\.docx$/i.test(x.name)).sort((a, b) => b.at - a.at).slice(0, 60)};
+}
+// Kept up to date: while My Doc shows a linked doc, its version is asked for every few seconds (one small request); when it changes (you
+// wrote in it, here or in Google Docs or Word), it's read again, shown and checked. A hidden window or a fix in progress waits its turn.
+const ldVersion = async l => {
+  const C = ldCloud();
+  if (l.p === "google") { const r = await C.docApi("google", "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(l.id) + "?fields=version&supportsAllDrives=true", null, "raw"); if (!r.ok) return ""; const j = await r.json().catch(() => ({})); return String(j.version || ""); }
+  const j = await C.docApi("microsoft", ldItem(l) + "?$select=cTag,eTag", null, "maybe"); return j ? String(j.cTag || j.eTag || "") : "";
+};
+function ldWatch(t){
+  const w0 = wsOf(state.tasks[t.id]), l = ldOf(w0); if (!l || l.p === "file" || W.ldTimer) return;
+  W.ldSeen = W.ldSeen || {};
+  const stop = () => { clearInterval(W.ldTimer); W.ldTimer = 0; };
+  const tick = async () => {
+    const tt = state.tasks[t.id], ww = tt && wsOf(tt), lw = ww && ldOf(ww);
+    if (!shown() || W.hub || W.tid !== t.id || W.tab !== "doc" || W.view || !lw || lw.id !== l.id) { stop(); return; }
+    if (document.hidden || W.busy || W.ldTick) return;
+    W.ldTick = true;
+    try {
+      const v = await ldVersion(l);
+      if (v && W.ldSeen[l.id] && v !== W.ldSeen[l.id] && !W.busy) { W.ldSeen[l.id] = v; W.pop = null; await doCheck(state.tasks[t.id], {quiet: true}); if (shown() && W.tab === "doc") draw(); }
+      else if (v) W.ldSeen[l.id] = v;
+    } catch (e) {} finally { W.ldTick = false; }
+  };
+  W.ldTimer = setInterval(tick, l.p === "google" ? 3000 : 5000); tick();
 }
 // Word shows a file inside another page only as a preview; Microsoft's preview address, when it's one the app may show
 async function ldPreview(l){
@@ -2629,7 +2670,7 @@ function reviewHtml(){
     return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
       <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button>
-      <button type="button" class="btn small" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></li>`;
+      <button type="button" class="btn small primary" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></li>`;
   };
   const started = list.filter(hasData), next = list.filter(t => !hasData(t));
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
@@ -2816,7 +2857,7 @@ function wire(t){
     const paint = () => {
       let pop = wrap.querySelector(".ws-pop"); if (!W.pop) { if (pop) pop.remove(); const mk0 = wrap.querySelector(".ws-marks"); if (mk0) mk0.remove(); return; }
       if (!pop) { pop = document.createElement("div"); pop.className = "ws-pop"; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Cite or quote"); wrap.appendChild(pop); }
-      pop.innerHTML = popHtml(cur(), ws()); pop.classList.toggle("is-list", W.pop.mode === "cite" || W.pop.mode === "quote");
+      pop.innerHTML = popHtml(cur(), ws()); pop.classList.toggle("is-list", W.pop.mode === "cite" || W.pop.mode === "quote" || W.pop.mode === "qhere");
       // where you are: a blinking caret at the place clicked, or the selection kept marked
       let mk = wrap.querySelector(".ws-marks"); if (!mk) { mk = document.createElement("div"); mk.className = "ws-marks"; mk.setAttribute("aria-hidden", "true"); wrap.insertBefore(mk, pop); }
       mk.innerHTML = (W.pop.marks || []).map(m => `<span class="${m.w ? "ws-selm" : "ws-caret"}" style="left:${m.x}px;top:${m.y}px;height:${m.h}px${m.w ? `;width:${m.w}px` : ""}"></span>`).join("");
@@ -2825,6 +2866,7 @@ function wire(t){
       pop.querySelectorAll("[data-ws-popm]").forEach(b => b.addEventListener("click", () => { W.pop.mode = b.dataset.wsPopm; paint(); }));
       pop.querySelectorAll("[data-ws-popx]").forEach(b => b.addEventListener("click", () => { W.pop = null; paint(); }));
       pop.querySelectorAll("[data-ws-go]").forEach(b => b.addEventListener("click", () => { W.pop = null; W.tab = b.dataset.wsGo; draw(true); }));
+      pop.querySelectorAll("[data-ws-qhere]").forEach(b => b.addEventListener("click", () => quoteHere(cur(), b.dataset.wsQhere)));
       pop.querySelectorAll("[data-ws-pops]").forEach(b => b.addEventListener("click", () => { const sid = b.dataset.wsPops; if (W.pop.mode === "quote") quoteFromSel(cur(), sid); else citeHere(cur(), sid); }));
     };
     const pick = () => {
@@ -2871,6 +2913,7 @@ function wire(t){
     try { const b = await idbGet(ldKey(l)); if (!b) throw 0; if (await noteFileSave(l.name || "Draft.docx", new Uint8Array(await b.arrayBuffer()), DOCX)) toast(`Saved ${l.name}`); }
     catch (e) { W.err = `${l.name || "That Word file"} isn't on this device. Upload it again (Upload Draft).`; draw(); }
   });
+  if (W.tab === "doc" && !W.view) ldWatch(cur());
   on("[data-ws-ldshow]", "click", () => { W.ldShow = !W.ldShow; draw(); });
   on("[data-ws-ldoff]", "click", () => { const w = ws(), l = w.ld; if (!l) return; w.ld = null; if (w.draft && w.draft.ld) w.draft.ld = false; save(cur(), w, `Unlinked ${l.name || ldName(l)}`); W.okMsg = ""; W.err = ""; draw(); });
   on("[data-ws-ldcheck]", "click", async () => { const w = ws(); W.err = ""; W.okMsg = ""; if (ldOf(w)) await doCheck(cur(), {}); else if (w.ld) await ldLink(cur(), w.ld); if (shown()) draw(); });
@@ -3198,7 +3241,7 @@ svg.ws-zic{display:block;flex:none}
 .wsr-peekb{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;border:0;cursor:pointer;overflow:hidden;background:repeating-linear-gradient(0deg,transparent 0 13px,color-mix(in srgb,var(--c) 10%,transparent) 13px 14px),linear-gradient(160deg,color-mix(in srgb,var(--c) 16%,var(--surface)),color-mix(in srgb,var(--c) 5%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
 .wsr-page,.wsr-back{position:absolute;left:0;right:0;margin:0 auto;top:40px;width:min(62%,230px);height:calc(100% + 6px);border-radius:6px 6px 0 0;background:color-mix(in srgb,#fff 88%,var(--c));box-shadow:0 2px 10px -3px color-mix(in srgb,var(--c) 45%,rgb(0 0 0/.25))}
 .wsr-back{rotate:-4deg;top:44px;background:color-mix(in srgb,#fff 70%,var(--c));opacity:.75}
-.wsr-page{rotate:1.5deg;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:5px;text-align:left;overflow:hidden;color:#2B2F3A;transition:translate .2s steps(4,end);will-change:translate;-webkit-font-smoothing:antialiased;backface-visibility:hidden}
+.wsr-page{rotate:1.5deg;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:5px;text-align:left;overflow:hidden;color:#2B2F3A;transition:translate .3s cubic-bezier(.2,.8,.2,1);will-change:translate;-webkit-font-smoothing:antialiased;backface-visibility:hidden}
 .wsr-page::after{content:"";position:absolute;right:0;top:0;width:16px;height:16px;background:linear-gradient(225deg,color-mix(in srgb,var(--c) 28%,var(--surface)) 50%,color-mix(in srgb,#000 10%,#fff) 50%);border-bottom-left-radius:4px}
 .wsr-card:hover .wsr-page{translate:0 -4px}
 .wsr-ph{font:700 .6rem/1.25 Georgia,"Times New Roman",serif;text-align:center;color:#1E2230;padding:0 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex:none}

@@ -1880,7 +1880,7 @@ function renameSheet(cid, mid){
 function delMap(cid, mid){
   const c = state.courses[cid], m = mapsOf(c).find(x => x.id === mid); if (!m) return;
   const after = Object.assign(clone(c), {maps: mapsOf(c).filter(x => x.id !== mid)}); delete after.cmap;
-  confirmSheet(`Delete ${m.name}?`, "The map's ideas, connections and styles are deleted. Your notes, decks and files stay as they are.", "Delete Map", () => applyChanges([{kind: "course", id: c.id, after}], `Deleted the map ${m.name}`, null, {quiet: true}));
+  confirmSheet(`Delete ${m.name}?`, "It goes to Recently Deleted (the bin by Sort) for 30 days, where you can restore it. Your notes, decks and files stay as they are.", "Delete Map", () => applyChanges([{kind: "course", id: c.id, after}], `Deleted the map ${m.name}`, null, {quiet: true}));
 }
 const ago = t => { if (!t) return ""; const d = Math.round((Date.now() - t) / 864e5); return d <= 0 ? "edited today" : d === 1 ? "edited yesterday" : d < 7 ? `edited ${d} days ago` : `edited ${new Date(t).toLocaleDateString(undefined, {month: "short", day: "numeric"})}`; };
 // counts for a map's card, without drawing it
@@ -1953,7 +1953,11 @@ function listHtml(){
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
   const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"]];
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
-  return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}</div>
+  // like Quizzes': Share With a Group (maps can be shared live with a study group), then Recently Deleted
+  const grpIc = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3 2.3 3 5"/></svg>';
+  const grpBtn = `<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share a map with a study group: everyone works on it together, live (a map's ⋯ menu > Share With a Group)">${grpIc}<span class="sm-lbl">Share With a Group</span></button>`;
+  const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
+  return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }

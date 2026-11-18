@@ -215,6 +215,12 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   ok((await draftOf()).includes("many blocks of the city in July (Ng, 2019).\n"), "one tap: cited after it, before the full stop");
   await page.click("#toastUndo"); await page.waitForTimeout(500);
   ok((await draftOf()).includes("in July.\n") && !(await draftOf()).includes("in July (Ng"), "Undo takes the citation back out");
+  // Quote Here: a saved quote put in where you click, in quotation marks, with its citation
+  await selectIn("Parks cool cities", 0, 0);
+  await page.waitForSelector("#dlg[open] .ws-pop [data-ws-popm=qhere]"); await page.click("#dlg[open] .ws-pop [data-ws-popm=qhere]"); await page.waitForSelector("#dlg[open] [data-ws-qhere]");
+  ok(/measured it across many blocks/.test(await page.textContent("#dlg[open] .ws-pop-list")), "Quote Here lists the saved quotes");
+  await page.click('#dlg[open] .ws-pop-s:has-text("measured it across")'); await page.waitForTimeout(800);
+  ok((await draftOf()).startsWith("“measured it across many blocks of the city in July” (Ng, 2019) Parks cool cities"), "the quote goes in at the place, quoted, with its citation: " + JSON.stringify((await draftOf()).slice(0, 90)));
   ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
   await browser.close(); server.close();
   console.log(`writing-studio-fix.e2e: ${n} passed`);
