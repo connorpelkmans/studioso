@@ -625,7 +625,17 @@ const CITE = (() => {
       const ttX = X.substr(tX, tt.length), ttE = E.substr(tE, tt.length), caps = x => (x.match(/\p{Lu}/gu) || []).length;
       // sentence case is only asked for when the entry's title is clearly Title Case: a name like New York keeps its capitals
       const titled = x => { const w = x.match(/[\p{L}][\p{L}'’-]{3,}/gu) || []; return w.length >= 2 && w.filter(v => /^\p{Lu}/u.test(v)).length / w.length >= 0.75; };
-      if (ttX !== ttE && lo(ttX) === lo(ttE)) { if (caps(ttX) > caps(ttE)) out.push(`Capitalize the main words of the title: ${ttX}`); else if (titled(ttE)) out.push(`Use sentence case for the title (a capital only for the first word, the first word after a colon, and names): ${ttX}`); }
+      // which words differ, and how: the whole title in Title Case only when the style wants that; otherwise the very words the source
+      // capitalizes (a name like Pseudomonas keeps its capital in sentence case too)
+      if (ttX !== ttE && lo(ttX) === lo(ttE)) {
+        const wX = ttX.match(/[\p{L}][\p{L}'’-]*/gu) || [], wE = ttE.match(/[\p{L}][\p{L}'’-]*/gu) || [], up = [], down = [];
+        wX.forEach((x, i) => { const e = wE[i]; if (!e || x === e || x.toLowerCase() !== e.toLowerCase()) return; if (/^\p{Lu}/u.test(x) && !/^\p{Lu}/u.test(e)) up.push(x); else if (!/^\p{Lu}/u.test(x) && /^\p{Lu}/u.test(e)) down.push(e); });
+        const list = a => a.length === 1 ? `“${a[0]}”` : a.slice(0, -1).map(x => `“${x}”`).join(", ") + ` and “${a[a.length - 1]}”`;
+        if (titled(ttX) && caps(ttX) > caps(ttE)) out.push(`Capitalize the main words of the title: ${ttX}`);
+        else if (titled(ttE) && !titled(ttX)) out.push(`Use sentence case for the title (a capital only for the first word, the first word after a colon, and names): ${ttX}`);
+        else if (up.length && !down.length && up.length <= 4) out.push(`In the title, capitalize ${list(up)}${up.every((x, i) => wX.indexOf(x) > 0) ? " (a name keeps its capital)" : ""}: ${ttX}`);
+        // a capital the source lacks may be a name (New York), so a word is never asked to lose its capital on its own
+      }
       const qX = /["']\s*$/.test(X.slice(0, tX)), qE = /["']\s*$/.test(E.slice(0, tE));
       if (qX && !qE) out.push(`Put the title in quotation marks: “${ttX}”`);
       else if (!qX && qE) out.push("Take the quotation marks off the title");
