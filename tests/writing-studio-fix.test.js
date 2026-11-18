@@ -155,4 +155,14 @@ const sameOutside = (a, b, from, to) => b.startsWith(a.slice(0, from)) && b.ends
   const o = CITE.check("As Smyth (2021) says, it's so.\n\nReferences\nSmyth, J. (2021). X.", [CITE.clean({id: "s", type: "book", title: "Y", author: [{family: "Smith", given: "J"}], issued: {"date-parts": [[2020]]}})], APA).issues.map(x => x.t);
   ok(!o.some(t => /spelling/.test(t)), "a different year: another author, not a misspelling");
 }
+/* a title's capitals: the advice names what's actually different (APA's sentence case keeps a name's capital), never Title Case advice for APA */
+{
+  const S = [CITE.clean({id: "x", type: "article-journal", title: "Nitric-oxide-driven oxygen release in anoxic Pseudomonas aeruginosa", author: [{family: "Lichtenberg", given: "M"}], "container-title": "iScience", issued: {"date-parts": [[2021]]}})];
+  const R = {x: "Lichtenberg, M. (2021). Nitric-oxide-driven oxygen release in anoxic Pseudomonas aeruginosa. iScience."};
+  const say = t => CITE.check("Bacteria release oxygen (Lichtenberg, 2021).\n\nReferences\nLichtenberg, M. (2021). " + t + ". iScience.", S, Object.assign({}, APA, {refs: R})).issues.filter(x => /fix the entry/.test(x.t)).map(x => x.d).join(" ");
+  const a = say("Nitric-oxide-driven oxygen release in anoxic pseudomonas aeruginosa");
+  ok(/In the title, capitalize “Pseudomonas” \(a name keeps its capital\)/.test(a) && !/main words/.test(a), "a name in small letters: capitalize that name, not the main words: " + a);
+  ok(/Use sentence case for the title/.test(say("Nitric-Oxide-Driven Oxygen Release in Anoxic Pseudomonas Aeruginosa")), "Title Case in APA: sentence case");
+  ok(!say("Nitric-oxide-driven Oxygen release in anoxic Pseudomonas aeruginosa").includes("title"), "one capital the source doesn't have isn't questioned (it may be a name, like New York)");
+}
 console.log(`writing-studio-fix.test: ${n} passed`);

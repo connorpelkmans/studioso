@@ -135,12 +135,29 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await page.evaluate(() => { const s = window.__sbProStudy.state(), t = JSON.parse(JSON.stringify(s.tasks.t1)); t.ws.src.push({id: "s3", type: "report", title: "Heat action plans", author: [{literal: "City of Phoenix"}], publisher: "City of Phoenix", issued: {"date-parts": [[2022]]}}); window.__sbProStudy.applyChanges ? window.__sbProStudy.applyChanges([{kind: "task", id: "t1", after: t}], null) : null; });
   if (!(await task(page, "t1")).ws.src.some(x => x.id === "s3")) { await page.evaluate(() => { const s = window.__sbProStudy.state(); s.tasks.t1.ws.src.push({id: "s3", type: "report", title: "Heat action plans", author: [{literal: "City of Phoenix"}], publisher: "City of Phoenix", issued: {"date-parts": [[2022]]}}); }); }
   await page.keyboard.press("Escape"); await page.waitForTimeout(200); await openWS(); await page.click('#dlg[open] [data-ws-tab="sources"]'); await page.waitForSelector("#dlg[open] [data-ws-refadd]");
+  ok(await page.textContent("#dlg[open] [data-ws-refadd]") === "Add All to My Draft", "the footer says Add All to My Draft");
+  // one source at a time: each source not in the draft's list has its own Add to My Draft
+  await page.waitForSelector("#dlg[open] [data-ws-refadd1]", {timeout: 10000});
+  ok(await page.locator("#dlg[open] [data-ws-refadd1]").count() === 2 && /In your list ✓/.test(await page.textContent("#dlg[open] .ws-refs")), "each source not in the list has its own Add to My Draft (Ng, already there, doesn't)");
+  await page.click('#dlg[open] [data-ws-refadd1="s3"]'); await page.waitForTimeout(900);
+  const l2 = (await draftOf()).split(/\n(?:References|Bibliography)\n/)[1].split("\n");
+  ok(l2.length === 2 && /^City of Phoenix\. \(2022\)/.test(l2[0]) && /^Ng, M\./.test(l2[1]), "one source added on its own, in order: " + JSON.stringify(l2));
+  ok(await page.locator("#dlg[open] [data-ws-refadd1]").count() === 1, "and its button is gone");
   await page.click("#dlg[open] [data-ws-refadd]"); await page.waitForTimeout(900);
   const d3 = await draftOf(), l3 = d3.split(/\n(?:References|Bibliography)\n/)[1].split("\n");
   ok(l3.length === 3 && /^City of Phoenix\. \(2022\)/.test(l3[0]) && /^Ng, M\./.test(l3[1]) && /^Smith, J\. A\./.test(l3[2]), "Add to My Draft: Phoenix and Smith & Lee in alphabetical order, Ng not doubled: " + JSON.stringify(l3));
-  ok(/Added 2 sources to your draft's list, in order \(1 was already there\)/.test(await page.textContent("#dlg[open]")), "and it says what it did");
+  ok(/Added 1 source to your draft's list, in order \(2 were already there\)/.test(await page.textContent("#dlg[open]")), "Add All adds the rest, and says what it did");
   await page.click("#dlg[open] [data-ws-refadd]"); await page.waitForTimeout(700);
   ok(await draftOf() === d3 && /already in your draft's list/.test(await page.textContent("#dlg[open]")), "adding again changes nothing");
+  // a source just added to a paper with a draft: one tap puts it in the draft's list too (never on its own)
+  await page.fill("#dlg[open] [data-ws-in]", "10.1037/0003-066x.59.1.29"); await page.click("#dlg[open] [data-ws-add]");
+  await page.waitForSelector("#dlg[open] [data-ws-doffer]", {timeout: 15000});
+  ok(/Also add it to your draft's References list\?/.test(await page.textContent("#dlg[open] .ws-offer")) && !/Ray/.test(await draftOf()), "adding a source offers to put it in the draft's list (and doesn't, until asked)");
+  await page.click("#dlg[open] [data-ws-doffer]"); await page.waitForTimeout(900);
+  const l4 = ((await draftOf()).split(/\n(?:References|Bibliography)\n/)[1] || "").split("\n");
+  ok(l4.length === 4 && /^Ray, O\./.test(l4[2]) && !(await page.locator("#dlg[open] [data-ws-doffer]").count()), "Add It: into the list, in order, and the offer goes: " + JSON.stringify(l4.map(x => x.slice(0, 20))));
+  await page.click("#toastUndo"); await page.waitForTimeout(500);
+  ok(!/Ray, O\./.test(await draftOf()), "Undo takes it back out of the draft");
   // a draft from a note: the note itself is fixed (so checking again, which reads the note, keeps the fix)
   const N = "Heat essay\nCities are warming fast (Smith & Lee 2021) and parks help.\n\nReferences\nSmith, J. A., & Lee, K. (2021). The urban heat island effect and green infrastructure. Urban Climate, 38(2), 100–118.";
   await page.evaluate(n => { const s = window.__sbProStudy.state(); s.notes.n9 = {id: "n9", text: n, courseId: "c2", x: 0, y: 0, z: 9, created: 9}; const t = s.tasks.t1; t.ws.draft = {t: n, from: "Heat essay", nid: "n9", at: Date.now(), h: "x"}; t.ws.chk = null; }, N);
@@ -163,6 +180,38 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   ok(!(await page.locator('#dlg[open] .ws-is:has-text("Lindová")').count()) && !(await page.locator('#dlg[open] .ws-is:has-text("(2013)")').count()), "and the check no longer flags them (Flegr (2013) found by its name too)");
   await page.click("#toastUndo"); await page.waitForTimeout(500);
   ok((await task(page, "t1")).ws.src.length === nSrc, "one Undo takes them all off Sources");
+  /* My Doc: click where a citation goes (the form for the place), select a passage to keep it as a quote */
+  await page.click('#dlg[open] [data-ws-tab="doc"]'); await page.click("#dlg[open] [data-ws-redo]");
+  await page.fill("[data-ws-draft]", "Parks cool cities in summer and the effect is large. The study by measured it across many blocks of the city in July.\n\nReferences\nNg, M. (2019). Cities and climate change. Routledge.\nSmith, J. A., & Lee, K. (2021). The urban heat island effect and green infrastructure. Urban Climate, 38(2), 100–118.");
+  await page.click("[data-ws-check]"); await page.waitForSelector("#dlg[open] .ws-res"); await page.click('#dlg[open] [data-ws-tab="doc"]'); await page.waitForSelector("#dlg[open] [data-ws-rd]");
+  // a place in the paper: a real click (just before "." after "large"), or a selection set exactly, then the mouse let go
+  const xyOf = (frag, k) => page.evaluate(([f, k]) => { const p = [...document.querySelectorAll("#dlg[open] [data-ws-rd] p")].find(x => x.textContent.includes(f)), n = p.firstChild, i = p.textContent.indexOf(f) + k, r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1); const b = r.getBoundingClientRect(); return [b.left + 0.5, b.top + b.height / 2]; }, [frag, k]);
+  const selectIn = (frag, from, to) => page.evaluate(([f, a, b]) => { const p = [...document.querySelectorAll("#dlg[open] [data-ws-rd] p")].find(x => x.textContent.includes(f)), n = p.firstChild, i = p.textContent.indexOf(f), r = document.createRange(); r.setStart(n, i + a); r.setEnd(n, i + b); const s = getSelection(); s.removeAllRanges(); s.addRange(r); p.dispatchEvent(new MouseEvent("mouseup", {bubbles: true})); }, [frag, from, to]);
+  const [cx, cy] = await xyOf("large.", 5); await page.mouse.click(cx, cy);
+  await page.waitForSelector("#dlg[open] .ws-pop [data-ws-popm=cite]"); ok(!(await page.locator("#dlg[open] .ws-pop [data-ws-popm=quote]").count()), "a click opens Cite Here (no selection: no Add Quote)");
+  await page.click("#dlg[open] .ws-pop [data-ws-popm=cite]"); await page.waitForSelector("#dlg[open] .ws-pop-s");
+  if (process.env.SHOT) await page.screenshot({path: process.env.SHOT + "mydoc-cite.png"});
+  const opts = await page.$$eval("#dlg[open] .ws-pop-s b", x => x.map(e => e.textContent));
+  ok(opts.includes("(Smith & Lee, 2021)") && opts.includes("(Ng, 2019)") && /end of a sentence/.test(await page.textContent("#dlg[open] .ws-pop-how")), "at the end of a sentence: each source's citation in brackets: " + opts.join(" | "));
+  await page.click('#dlg[open] .ws-pop-s:has-text("Smith & Lee")'); await page.waitForTimeout(800);
+  ok((await draftOf()).startsWith("Parks cool cities in summer and the effect is large (Smith & Lee, 2021). The study"), "it goes in before the full stop: " + JSON.stringify((await draftOf()).slice(0, 90)));
+  ok(/Added \(Smith & Lee, 2021\) at the end of the sentence/.test(await page.textContent("#dlg[open] .ws-ok")), "and it says where");
+  await selectIn("The study by measured", 13, 13);
+  await page.click("#dlg[open] .ws-pop [data-ws-popm=cite]"); await page.waitForSelector("#dlg[open] .ws-pop-s");
+  ok((await page.$$eval("#dlg[open] .ws-pop-s b", x => x.map(e => e.textContent))).includes("Ng (2019)") && /middle of a sentence/.test(await page.textContent("#dlg[open] .ws-pop-how")), "in the middle of a sentence: the authors in it");
+  await page.click('#dlg[open] .ws-pop-s:has-text("Ng (2019)")'); await page.waitForTimeout(800);
+  ok((await draftOf()).includes("The study by Ng (2019) measured it across"), "it goes in before the word: " + JSON.stringify((await draftOf()).slice(60, 130)));
+  // a selection: Add Quote (then Cite After It is one tap)
+  await selectIn("measured it across many blocks of the city in July", 0, 50);
+  await page.waitForSelector("#dlg[open] .ws-pop [data-ws-popm=quote]"); ok(/Cite After It/.test(await page.textContent("#dlg[open] .ws-pop")), "a selection: Cite After It and Add Quote");
+  await page.click("#dlg[open] .ws-pop [data-ws-popm=quote]"); await page.click('#dlg[open] .ws-pop-s:has-text("Ng")'); await page.waitForTimeout(500);
+  const qq = (await task(page, "t1")).ws.q, nq = qq[qq.length - 1];
+  ok(nq.t === "measured it across many blocks of the city in July" && nq.sid === "s2", "Add Quote keeps the passage as a quote from that source");
+  ok(/Cite it here too/.test(await page.textContent("#dlg[open] .ws-pop")) && /\(Ng, 2019\)/.test(await page.textContent("#dlg[open] .ws-pop")), "and offers its citation right there");
+  await page.click("#dlg[open] .ws-pop [data-ws-popc]"); await page.waitForTimeout(800);
+  ok((await draftOf()).includes("many blocks of the city in July (Ng, 2019).\n"), "one tap: cited after it, before the full stop");
+  await page.click("#toastUndo"); await page.waitForTimeout(500);
+  ok((await draftOf()).includes("in July.\n") && !(await draftOf()).includes("in July (Ng"), "Undo takes the citation back out");
   ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
   await browser.close(); server.close();
   console.log(`writing-studio-fix.e2e: ${n} passed`);

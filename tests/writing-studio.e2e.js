@@ -110,7 +110,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   ok(await page.locator('#dlg[open] [data-act="ws-open"]').count() === 0, "no Writing Studio on an exam");
   await act(page, "edit-task", "t1"); await page.waitForSelector('#dlg[open] [data-act="ws-open"]');
   ok(/Writing Studio/.test(await page.textContent('#dlg[open] [data-act="ws-open"]')), "a paper has Writing Studio in its actions");
-  await page.click('#dlg[open] [data-act="ws-open"]'); await page.waitForSelector("#dlg[open] .ws-refs");
+  await page.click('#dlg[open] [data-act="ws-open"]'); await page.waitForSelector("#dlg[open] .ws-tabs"); ok(/^My Doc/.test(await page.textContent('#dlg[open] .ws-tab[aria-selected="true"]')), "it opens on My Doc"); await page.click('#dlg[open] [data-ws-tab="sources"]'); await page.waitForSelector("#dlg[open] .ws-refs");
   if (!NO_CP) {
     await page.waitForFunction(() => !/formatting/.test(document.querySelector(".ws-bibh").textContent), null, {timeout: 20000});
     const R = await refs(page);
@@ -303,9 +303,9 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
 
   /* ---------- Phone ---------- */
   const pctx = await mkCtx({key: true}, {width: 390, height: 844}), pp = await open(pctx);
-  await act(pp, "ws-open", "t1"); await pp.waitForSelector("#dlg[open] .ws-refs");
+  await act(pp, "ws-open", "t1", {wsTo: "sources"}); await pp.waitForSelector("#dlg[open] .ws-refs");
   ok(await fits(pp), "Sources fit at 390px");
-  for (const tab of ["quotes", "outline", "check"]) { await pp.click(`[data-ws-tab="${tab}"]`); await pp.waitForTimeout(150); ok(await fits(pp), `${tab} fits at 390px`); }
+  for (const tab of ["quotes", "outline", "check", "doc"]) { await pp.click(`[data-ws-tab="${tab}"]`); await pp.waitForTimeout(150); ok(await fits(pp), `${tab} fits at 390px`); }
   await pp.click('[data-ws-tab="sources"]'); await pp.click('[data-ws-edit="s1"]'); await pp.waitForSelector('[data-wf="y"]');
   const ys = await Promise.all(['[data-wf="y"]', '[data-wf="m"]', '[data-wf="d"]'].map(s => pp.locator(s).boundingBox()));
   ok(Math.abs(ys[0].y - ys[2].y) < 2, "year, month and day share a row on a phone");

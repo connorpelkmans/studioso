@@ -79,7 +79,7 @@ const DOI_CSL = {DOI: "10.1037/0003-066x.59.1.29", type: "journal-article", titl
   }
   ok(await fits(page), "a milestone's task sheet still fits at 1280px");
   await page.click(stepBtn); await page.waitForSelector('#dlg[open] .ws-tab[aria-selected="true"]');
-  ok(await page.textContent('#dlg[open] .ws-tab[aria-selected="true"]') === "Check My Doc" && /Research paper: urban heat/.test(await page.textContent("#dlg[open] .sheet-head")), "and the button opens it there");
+  ok(await page.textContent('#dlg[open] .ws-tab[aria-selected="true"]') === "Check" && /Research paper: urban heat/.test(await page.textContent("#dlg[open] .sheet-head")), "and the button opens it there");
   await page.keyboard.press("Escape"); await page.waitForTimeout(200);
   await act(page, "edit-task", "m9"); await page.waitForSelector("#dlg[open] .sheet-foot");
   ok(await page.locator(stepBtn).count() === 0, "an exam's study step has no Writing Studio");
