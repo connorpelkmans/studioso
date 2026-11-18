@@ -105436,7 +105436,9 @@ function sourcesHtml(t, w){
   const files = Object.values(state.files).filter(f => isPdfFile(f) && (f.taskIds.includes(t.id) || (t.courseId && f.courseId === t.courseId)) && !w.src.some(s => s.fid === f.id)).slice(0, 40);
   const B = bibOf(t, w), st = B.st, z = zcred(), lib = library(t.id).filter(s => !CITE.dupOf(s, w.src)).length, U = usage(t, w);
   const heading = CITE.headingOf(st, styleFmt(st));
-  const useTxt = s => { const n = w.q.filter(q => q.sid === s.id).length; return [n ? `Quoted ${n === 1 ? "once" : n + " times"}` : "No quotes yet", w.draft ? (U.cited.has(s.id) ? '<span class="ws-yes">Cited in draft ✓</span>' : '<span class="ws-no">Not cited yet</span>') : ""].filter(Boolean).join(" · "); };
+  // which sources the draft's list already has (so each other one can be added to it on its own)
+  const inList = w.draft && B.ready ? (() => { try { return new Set(CITE.refAdd(w.draft.t, w.src, refsMap(t, w), {num: styleFmt(st) === "numeric"}).already); } catch (e) { return null; } })() : null;
+  const useTxt = s => { const n = w.q.filter(q => q.sid === s.id).length; return [n ? `Quoted ${n === 1 ? "once" : n + " times"}` : "No quotes yet", w.draft ? (U.cited.has(s.id) ? '<span class="ws-yes">Cited in draft ✓</span>' : '<span class="ws-no">Not cited yet</span>') : "", inList ? (inList.has(s.id) ? '<span class="ws-yes">In your list ✓</span>' : '<span class="ws-no">Not in your list</span>') : ""].filter(Boolean).join(" · "); };
   return `${goalHtml(t, w)}<div class="ws-add"><label class="f ws-grow"><span class="lh">Add a source</span><input type="text" data-ws-in placeholder="Paste a DOI, arXiv ID, ISBN or link" value="${esc(W.inp || "")}" autocomplete="off" spellcheck="false" data-noenter></label>
       <button type="button" class="btn primary" data-ws-add ${W.busy ? "disabled" : ""}>${W.busy === "add" ? "Looking Up…" : "Add"}</button></div>
     <div class="ws-row ws-src-row"><button type="button" class="btn small ws-zbtn" data-ws-zot>${ZICON} ${z ? "From Zotero" : "Connect Zotero"}</button><button type="button" class="btn small" data-ws-imp>Import File</button><button type="button" class="btn small" data-ws-manual>Add by Hand</button>${lib ? `<button type="button" class="btn small" data-ws-lib>My Library <span class="ws-n">${lib}</span></button>` : ""}${files.length ? `<select data-ws-file aria-label="Add a PDF in Studyboard as a source"><option value="">Add a PDF from Studyboard…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
@@ -105447,7 +105449,7 @@ function sourcesHtml(t, w){
         <p class="mini ws-info">${CITE.keyName(s) ? "" : '<b class="ws-need">Needs a title and author</b> · '}${esc(typeName(s.type))}${s.zkey ? " · Zotero" : ""}${pdf ? " · PDF in Studyboard" : ""} · In text: ${citeHtml(citeOf(t, w, s.id, ""))}</p>
         <p class="mini ws-use">${useTxt(s)}</p>
         ${s.rv ? `<p class="mini ws-rv">Read from your draft's list, so check its details. <button type="button" class="link-btn" data-ws-edit="${esc(s.id)}">Check Details</button></p>` : ""}
-        <div class="ws-acts"><button type="button" class="ws-act" data-ws-copy="${esc(s.id)}">Copy</button><button type="button" class="ws-act" data-ws-ccopy="${esc(s.id)}">Copy In-Text</button><button type="button" class="ws-act" data-ws-edit="${esc(s.id)}">Edit</button>${pdf ? `<button type="button" class="ws-act" data-ws-openf="${esc(s.fid)}">Highlight PDF</button>` : `<button type="button" class="ws-act" data-ws-attach="${esc(s.id)}">Attach PDF</button>`}${s.URL || s.DOI ? `<a class="ws-act" href="${esc(s.DOI ? "https://doi.org/" + s.DOI : s.URL)}" target="_blank" rel="noopener noreferrer">Open Link</a>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-rm="${esc(s.id)}" aria-label="Remove ${esc(String(s.title || "this source").slice(0, 60))}" title="Remove">${TRASH}</button></div></li>`; }).join("")}</ol>
+        <div class="ws-acts">${inList && !inList.has(s.id) ? `<button type="button" class="ws-act ws-act-add" data-ws-refadd1="${esc(s.id)}" ${W.busy ? "disabled" : ""}>Add to My Draft</button>` : ""}<button type="button" class="ws-act" data-ws-copy="${esc(s.id)}">Copy</button><button type="button" class="ws-act" data-ws-ccopy="${esc(s.id)}">Copy In-Text</button><button type="button" class="ws-act" data-ws-edit="${esc(s.id)}">Edit</button>${pdf ? `<button type="button" class="ws-act" data-ws-openf="${esc(s.fid)}">Highlight PDF</button>` : `<button type="button" class="ws-act" data-ws-attach="${esc(s.id)}">Attach PDF</button>`}${s.URL || s.DOI ? `<a class="ws-act" href="${esc(s.DOI ? "https://doi.org/" + s.DOI : s.URL)}" target="_blank" rel="noopener noreferrer">Open Link</a>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-rm="${esc(s.id)}" aria-label="Remove ${esc(String(s.title || "this source").slice(0, 60))}" title="Remove">${TRASH}</button></div></li>`; }).join("")}</ol>
         ${w.src.some(s => s.zkey) && z ? `<p class="mini" style="margin:0"><button type="button" class="link-btn" data-ws-zsync>Update From Zotero</button> refreshes the ${w.src.filter(s => s.zkey).length} source${w.src.filter(s => s.zkey).length === 1 ? "" : "s"} that came from Zotero.</p>` : ""}`
       : `<div class="ws-empty"><b>No sources yet.</b><p class="mini">Paste a DOI (10.1037/…), an ISBN or a link above, pull them from Zotero, or import a BibTeX or RIS file. ${w.draft ? "Or check your draft: the sources in its list can be added in one go." : `Your citations and ${esc(heading)} list build themselves.`}</p>${w.draft ? `<button type="button" class="btn small" data-ws-go="check">Check My Draft</button>` : ""}</div>`}
     <p class="mini ws-priv">DOIs are looked up at doi.org and ISBNs with Open Library; only the number is sent. Citations are made on this device with citeproc-js and CSL, the engine and styles Zotero uses.</p>`;
@@ -105739,7 +105741,7 @@ function footHtml(t, w){
   if (W.view === "library") return cancel + `<button type="button" class="btn primary" data-wl-add>Add Selected</button>`;
   if (W.view) return cancel;
   if (W.tab === "sources" && W.edit) return `<button type="button" class="btn" data-ws-cancel>Cancel</button><span class="spacer"></span><button type="button" class="btn primary" data-ws-esave>Save Source</button>`;
-  if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button>${w.draft ? `<button type="button" class="btn" data-ws-refadd title="Put these sources in your draft's ${esc(listOf(CITE.headingOf(styleOf(t, w), styleFmt(styleOf(t, w)))))} (made if there isn't one)">Add to My Draft</button>` : ""}<button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
+  if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button>${w.draft ? `<button type="button" class="btn" data-ws-refadd title="Put every source in your draft's ${esc(listOf(CITE.headingOf(styleOf(t, w), styleFmt(styleOf(t, w)))))} (made if there isn't one)">Add All to My Draft</button>` : ""}<button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
   if (W.tab === "quotes" && W.hlPick) return `<button type="button" class="btn" data-ws-hlcancel>Cancel</button><span class="spacer"></span>${W.hlPick.length ? `<button type="button" class="btn primary" data-ws-hladd ${W.busy ? "disabled" : ""}>${W.busy === "hl" ? "Adding…" : "Add Quotes"}</button>` : ""}`;
   if (W.tab === "outline") return back + (w.out.length || w.q.length ? `<button type="button" class="btn primary" data-ws-export>Export…</button>` : "");
   if (W.tab === "check") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
@@ -105965,12 +105967,12 @@ async function fixAll(t){
   if (shown()) draw();
 }
 // Sources tab: Add to My Draft puts these sources' entries in the draft's list (in order), or makes the list
-async function addToDraftRefs(t){
+async function addToDraftRefs(t, ids){
   let w = wsOf(state.tasks[t.id]); if (!w.draft) return;
   const st0 = styleOf(state.tasks[t.id], w); if (!engNow(st0, w.src, w.lang)) { try { await engineFor(st0, w.src, w.lang); } catch (e) {} }
   w = wsOf(state.tasks[t.id]); const refs = refsMap(state.tasks[t.id], w);
   if (!refs) { W.err = "The citation style is still loading. Try again in a moment."; draw(); return; }
-  const a = CITE.refAdd(w.draft.t, w.src, refs, {num: styleFmt(st0) === "numeric", head: CITE.headingOf(st0, styleFmt(st0))});
+  const a = CITE.refAdd(w.draft.t, ids ? w.src.filter(s => ids.includes(s.id)) : w.src, refs, {num: styleFmt(st0) === "numeric", head: CITE.headingOf(st0, styleFmt(st0))});
   if (a.numbered) { W.err = "Your list is numbered in the order you cite each source, so add these by hand (Copy List gives you each entry)."; draw(); return; }
   if (!a.edits.length) { W.okMsg = a.already.length ? "Every source is already in your draft's list." : "No sources to add yet."; draw(); return; }
   const n = await fixDraft(state.tasks[t.id], a.edits, a.made ? "Added a reference list to your draft" : `Added ${plural(a.added.length, "source")} to your draft's list`);
@@ -106501,6 +106503,7 @@ function wire(t){
   qa("[data-ws-fix]").forEach(b => b.addEventListener("click", async () => { const w = ws(), res = usage(cur(), w).res, x = res && res.issues[Number(b.dataset.wsFix)]; if (!x || !x.edits) return; b.disabled = true; await fixDraft(cur(), x.edits); }));
   on("[data-ws-fixall]", "click", async e => { e.currentTarget.disabled = true; await fixAll(cur()); });
   on("[data-ws-refadd]", "click", async e => { e.currentTarget.disabled = true; W.err = ""; await addToDraftRefs(cur()); });
+  qa("[data-ws-refadd1]").forEach(b => b.addEventListener("click", async () => { b.disabled = true; W.err = ""; await addToDraftRefs(cur(), [b.dataset.wsRefadd1]); }));
   // My Doc
   on("[data-ws-ldg]", "click", async () => {
     const C = window.SBCLOUD; W.err = "";

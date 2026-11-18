@@ -135,10 +135,18 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   await page.evaluate(() => { const s = window.__sbProStudy.state(), t = JSON.parse(JSON.stringify(s.tasks.t1)); t.ws.src.push({id: "s3", type: "report", title: "Heat action plans", author: [{literal: "City of Phoenix"}], publisher: "City of Phoenix", issued: {"date-parts": [[2022]]}}); window.__sbProStudy.applyChanges ? window.__sbProStudy.applyChanges([{kind: "task", id: "t1", after: t}], null) : null; });
   if (!(await task(page, "t1")).ws.src.some(x => x.id === "s3")) { await page.evaluate(() => { const s = window.__sbProStudy.state(); s.tasks.t1.ws.src.push({id: "s3", type: "report", title: "Heat action plans", author: [{literal: "City of Phoenix"}], publisher: "City of Phoenix", issued: {"date-parts": [[2022]]}}); }); }
   await page.keyboard.press("Escape"); await page.waitForTimeout(200); await openWS(); await page.click('#dlg[open] [data-ws-tab="sources"]'); await page.waitForSelector("#dlg[open] [data-ws-refadd]");
+  ok(await page.textContent("#dlg[open] [data-ws-refadd]") === "Add All to My Draft", "the footer says Add All to My Draft");
+  // one source at a time: each source not in the draft's list has its own Add to My Draft
+  await page.waitForSelector("#dlg[open] [data-ws-refadd1]", {timeout: 10000});
+  ok(await page.locator("#dlg[open] [data-ws-refadd1]").count() === 2 && /In your list ✓/.test(await page.textContent("#dlg[open] .ws-refs")), "each source not in the list has its own Add to My Draft (Ng, already there, doesn't)");
+  await page.click('#dlg[open] [data-ws-refadd1="s3"]'); await page.waitForTimeout(900);
+  const l2 = (await draftOf()).split(/\n(?:References|Bibliography)\n/)[1].split("\n");
+  ok(l2.length === 2 && /^City of Phoenix\. \(2022\)/.test(l2[0]) && /^Ng, M\./.test(l2[1]), "one source added on its own, in order: " + JSON.stringify(l2));
+  ok(await page.locator("#dlg[open] [data-ws-refadd1]").count() === 1, "and its button is gone");
   await page.click("#dlg[open] [data-ws-refadd]"); await page.waitForTimeout(900);
   const d3 = await draftOf(), l3 = d3.split(/\n(?:References|Bibliography)\n/)[1].split("\n");
   ok(l3.length === 3 && /^City of Phoenix\. \(2022\)/.test(l3[0]) && /^Ng, M\./.test(l3[1]) && /^Smith, J\. A\./.test(l3[2]), "Add to My Draft: Phoenix and Smith & Lee in alphabetical order, Ng not doubled: " + JSON.stringify(l3));
-  ok(/Added 2 sources to your draft's list, in order \(1 was already there\)/.test(await page.textContent("#dlg[open]")), "and it says what it did");
+  ok(/Added 1 source to your draft's list, in order \(2 were already there\)/.test(await page.textContent("#dlg[open]")), "Add All adds the rest, and says what it did");
   await page.click("#dlg[open] [data-ws-refadd]"); await page.waitForTimeout(700);
   ok(await draftOf() === d3 && /already in your draft's list/.test(await page.textContent("#dlg[open]")), "adding again changes nothing");
   // a draft from a note: the note itself is fixed (so checking again, which reads the note, keeps the fix)
