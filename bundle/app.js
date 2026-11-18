@@ -36133,8 +36133,21 @@ hook("boot", boot);
   const PROSEC = new Set(["weak", "challenge"]);
   const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };
   const featOn = (g, k) => !hiddenOf(g).has(k) && (!PROSEC.has(k) || proSecOk(g));
-  // Whiteboards tab
-  const wbPaneHtml = g => fire("grp-boards", g).filter(Boolean).join("") || `<section class="card grp-sec"><h3 class="fsec">Whiteboards</h3><p class="empty mini">Shared whiteboards show up here.</p></section>`;
+  // Shared tab: whiteboards and concept maps, and how many more the group can share (3, or 10 in a Pro group: the server's count)
+  const ROOM = {};
+  function roomLine(g){
+    const r = ROOM[g.id];
+    if (!r || Date.now() - r.at > 15000) { ROOM[g.id] = Object.assign({}, r || {}, {at: Date.now()});
+      api.sharedRoom(g.id).then(x => { if (!x || !Number(x.max)) return; ROOM[g.id] = {at: Date.now(), used: Number(x.used) || 0, max: Number(x.max), pro: !!x.pro};
+        document.querySelectorAll(`.grp-room[data-gid="${CSS.escape(g.id)}"]`).forEach(el => { el.outerHTML = roomHtml(g.id); }); }).catch(() => {}); }
+    return roomHtml(g.id);
+  }
+  function roomHtml(gid){
+    const r = ROOM[gid]; if (!r || r.max == null) return `<p class="mini grp-room" data-gid="${esc(gid)}" hidden></p>`;
+    const full = r.used >= r.max;
+    return `<p class="mini grp-room${full ? " is-full" : ""}" data-gid="${esc(gid)}">${r.used} of ${r.max} shared${full ? `: take one off the group to share another${r.pro ? "" : ", or a member with Pro can make it a Pro group for up to 10"}` : r.pro ? "" : " · Pro groups can share up to 10"}</p>`;
+  }
+  const wbPaneHtml = g => roomLine(g) + (fire("grp-boards", g).filter(Boolean).join("") || `<section class="card grp-sec"><h3 class="fsec">Whiteboards</h3><p class="empty mini">Shared whiteboards show up here.</p></section>`);
   function panesHtml(g){
     const P = (k, html) => `<div class="grp-pane" data-pane="${k}" id="grpPane-${k}" role="tabpanel" aria-labelledby="grpTab-${k}"${paneOn(g, k)}>${html}</div>`, on = k => featOn(g, k);
     const owner = isOwner(g), none = `<p class="empty mini grp-feat-none">${owner ? "Every feature here is turned off. Turn them on in Edit Group, under Features." : "Nothing is turned on here yet."}</p>`;
@@ -38852,6 +38865,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   const GX_MAX = 5, gxMine = () => (S.groups || []).filter(x => S.gpro[x.id] && S.gpro[x.id].by && S.gpro[x.id].by === myId()).length;
   const gxWhy = "This is part of Pro groups. When a member with Pro assigns Pro to the group, everyone in it gets this.";
   api.groupPro = ids => q(cli().rpc("group_pro_status", {p_groups: ids}));
+  api.sharedRoom = gid => q(cli().rpc("group_shared_room", {p_group: gid}));
   api.setGroupPro = (gid, on) => q(cli().rpc("group_pro_set", {p_group: gid, p_on: on}));
   api.setBadge = on => q(cli().rpc("set_supporter_badge", {p_on: on}));
   // Members with their badge
@@ -99166,6 +99180,8 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
         const rows = await q(cli().from("group_board_ops").insert({board_id: x.bid, group_id: x.gid, ch: part, tag: TAG}).select("id"));
         (Array.isArray(rows) ? rows : rows ? [rows] : []).forEach(r => { x.sent.add(r.id); seqSet(x.bid, r.id); });
       } catch (e) {
+        // the board's history is full (sbg_item_cap): stop sending, say so once; what you drew stays on your copy
+        if (/SB_(ITEM|OWNER)_FULL/.test(String(e && e.message))) { x.full = true; x.q = []; toast(String(e.message).replace(/^SB_[A-Z_]+:\s*/, "")); return; }
         x.q.unshift(...list.slice(i)); x.timer = setTimeout(() => send(x), 4000);
         if (Date.now() - errShown > 60000) { errShown = Date.now(); toast("The group board isn't getting your changes right now. They'll be sent when you're back online."); }
         return;
@@ -99176,6 +99192,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   }
   W.onLive((t, id, v) => {
     const x = L; if (!x || W.curId() !== x.nid) return;
+    if (x.full) return;
     x.q.push({t, id, v}); clearTimeout(x.timer); x.timer = setTimeout(() => send(x), 250);
   });
 
@@ -99208,7 +99225,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const n = state.notes[nid]; if (!n) return;
     let row;
     try { row = await q(cli().from("group_boards").insert({group_id: gid, name: W.boardName(n).slice(0, 60), tpl: n.wb.tpl || "blank"}).select().single()); }
-    catch (e) { toast(/does not exist|schema cache/i.test(String(e && e.message)) ? "Live group boards need the newest supabase-groups.sql on the server." : ((e && e.message) || "Couldn't share the board. Try again.")); return; }
+    catch (e) { toast(/does not exist|schema cache/i.test(String(e && e.message)) ? "Live group boards need the newest supabase-groups.sql on the server." : ((e && String(e.message || "").replace(/^SB_[A-Z_]+:\s*/, "")) || "Couldn't share the board. Try again.")); return; }
     if (!row || !row.id) { toast("Couldn't share the board. Try again."); return; }
     const cur = state.notes[nid]; if (!cur) return;
     const after = clone(cur); after.wb = Object.assign({}, after.wb, {g: {gid, bid: row.id, seq: 0, gn: cut(gname, 80)}});
@@ -110616,7 +110633,7 @@ const pendingKey = (bid, t, id) => !!(Q[bid] && Q[bid].q.some(o => o.t === t && 
 const KEYSEQ = new Map();   // bid|t id -> the newest change the group holds for that item (a late arrival of an older one is skipped)
 const ksGet = (bid, o) => KEYSEQ.get(bid + "|" + o.t + " " + o.id) || 0;
 const ksSet = (bid, o, id) => { const k = bid + "|" + o.t + " " + o.id; if ((KEYSEQ.get(k) || 0) < id) KEYSEQ.set(k, id); };
-const SENT = new Set(), SEEN = new Set(), TIMERS = {}, BUSY = new Set();
+const SENT = new Set(), SEEN = new Set(), TIMERS = {}, BUSY = new Set(), FULL = new Set();   // FULL: maps whose history reached its size limit this session
 function enqueue(bid, gid, ops){
   if (!ops.length) return;
   const x = Q[bid] = Q[bid] || {gid, q: []}; x.gid = gid;
@@ -110648,7 +110665,7 @@ const wire = ops => Promise.all(ops.map(async o => {
 }));
 let errShown = 0;
 async function send(bid){
-  const x = Q[bid]; if (!x || !x.q.length) { delete Q[bid]; qSave(); return; }
+  const x = Q[bid]; if (!x || !x.q.length || FULL.has(bid)) { delete Q[bid]; qSave(); return; }
   if (BUSY.has(bid)) { clearTimeout(TIMERS[bid]); TIMERS[bid] = setTimeout(() => send(bid), 400); return; }
   if (!online() || (navigator.onLine === false)) { toolsChip(); return; }
   BUSY.add(bid); clearTimeout(TIMERS[bid]);
@@ -110667,6 +110684,8 @@ async function send(bid){
   } catch (e) {
     BUSY.delete(bid);
     if (denied(e)) { const h = byBid(bid); delete Q[bid]; qSave(); if (h) await detach(bid, `You're no longer in ${h.rec.g.gn || "that group"}, so “${h.rec.name}” is now just your own map.`); return; }
+    // the map's history is full (sbg_item_cap): stop sending, say so once; your changes stay on your copy
+    if (/SB_(ITEM|OWNER)_FULL/.test(String(e && e.message))) { delete Q[bid]; qSave(); FULL.add(bid); toast(String(e.message).replace(/^SB_[A-Z_]+:\s*/, "")); toolsChip(); return; }
     TIMERS[bid] = setTimeout(() => send(bid), 4000);
     if (Date.now() - errShown > 60000) { errShown = Date.now(); toast("The group map isn't getting your changes right now. They'll be sent when you're back online."); }
     toolsChip(); return;
@@ -110930,7 +110949,7 @@ async function makeLive(cid, mid, gid, gname, drop){
   const {rec: shared} = CMG.privatize(pk.g, pk.pos, rec, {newId: uid, name: rec.name, drop});
   let row;
   try { row = await q(cli().from("group_maps").insert({group_id: gid, name: cut(rec.name || "Concept Map", 80), course: cut(c.code || c.name || "", 40)}).select().single()); }
-  catch (e) { toast(missing(e) ? "Live group maps need the newest supabase-groups.sql on the server." : ((e && e.message) || "Couldn't share the map. Try again.")); return; }
+  catch (e) { toast(missing(e) ? "Live group maps need the newest supabase-groups.sql on the server." : ((e && String(e.message || "").replace(/^SB_[A-Z_]+:\s*/, "")) || "Couldn't share the map. Try again.")); return; }
   if (!row || !row.id) { toast("Couldn't share the map. Try again."); return; }
   const now = Date.now(), copy = Object.assign(shared, {id: uid(), name: rec.name || "Concept Map", auto: false, created: now, at: now, g: {gid, bid: row.id, gn: cut(gname, 80)}});
   if (/^[\w-]{1,40}$/.test(String(rec.pack || ""))) copy.pack = rec.pack;

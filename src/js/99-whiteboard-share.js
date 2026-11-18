@@ -172,6 +172,8 @@
         const rows = await q(cli().from("group_board_ops").insert({board_id: x.bid, group_id: x.gid, ch: part, tag: TAG}).select("id"));
         (Array.isArray(rows) ? rows : rows ? [rows] : []).forEach(r => { x.sent.add(r.id); seqSet(x.bid, r.id); });
       } catch (e) {
+        // the board's history is full (sbg_item_cap): stop sending, say so once; what you drew stays on your copy
+        if (/SB_(ITEM|OWNER)_FULL/.test(String(e && e.message))) { x.full = true; x.q = []; toast(String(e.message).replace(/^SB_[A-Z_]+:\s*/, "")); return; }
         x.q.unshift(...list.slice(i)); x.timer = setTimeout(() => send(x), 4000);
         if (Date.now() - errShown > 60000) { errShown = Date.now(); toast("The group board isn't getting your changes right now. They'll be sent when you're back online."); }
         return;
@@ -182,6 +184,7 @@
   }
   W.onLive((t, id, v) => {
     const x = L; if (!x || W.curId() !== x.nid) return;
+    if (x.full) return;
     x.q.push({t, id, v}); clearTimeout(x.timer); x.timer = setTimeout(() => send(x), 250);
   });
 
@@ -214,7 +217,7 @@
     const n = state.notes[nid]; if (!n) return;
     let row;
     try { row = await q(cli().from("group_boards").insert({group_id: gid, name: W.boardName(n).slice(0, 60), tpl: n.wb.tpl || "blank"}).select().single()); }
-    catch (e) { toast(/does not exist|schema cache/i.test(String(e && e.message)) ? "Live group boards need the newest supabase-groups.sql on the server." : ((e && e.message) || "Couldn't share the board. Try again.")); return; }
+    catch (e) { toast(/does not exist|schema cache/i.test(String(e && e.message)) ? "Live group boards need the newest supabase-groups.sql on the server." : ((e && String(e.message || "").replace(/^SB_[A-Z_]+:\s*/, "")) || "Couldn't share the board. Try again.")); return; }
     if (!row || !row.id) { toast("Couldn't share the board. Try again."); return; }
     const cur = state.notes[nid]; if (!cur) return;
     const after = clone(cur); after.wb = Object.assign({}, after.wb, {g: {gid, bid: row.id, seq: 0, gn: cut(gname, 80)}});
