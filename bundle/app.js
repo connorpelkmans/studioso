@@ -90591,7 +90591,7 @@ var SBEARLY = null;
    can't be written), the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
 (() => {
   const KEY = "studyboard:discordInvite", FIRST_RUN = "studyboard:firstRun";
-  const LINK = "https://discord.gg/REPLACE_ME";
+  const LINK = "https://discord.gg/pcJJjfkZEP";
   /*DISCORD-START*/
   const DISCORD = (() => {
     const SPLIT = Date.UTC(2026, 10, 18);   // started before this: an existing user, who sees it right away
