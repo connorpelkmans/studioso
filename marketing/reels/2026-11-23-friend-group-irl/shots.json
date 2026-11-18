@@ -1,0 +1,6 @@
+{"xf": 0.2, "shots": [
+ {"clip": "../_broll/shaking.mp4", "in": 6.5, "dur": 2.0},
+ {"clip": "../_broll/phonebed2.mp4", "in": 2.0, "dur": 2.0, "pre": "crop=iw:ih*0.8:0:ih*0.08"},
+ {"clip": "../_broll/asleep.mp4", "in": 1.0, "dur": 2.0, "pre": "crop=iw*0.7:ih*0.7:iw*0.22:ih*0.02,eq=brightness=0.08:gamma=1.25"},
+ {"clip": "../_broll/tired.mp4", "in": 3.6, "dur": 2.0}
+]}

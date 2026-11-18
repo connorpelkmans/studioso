@@ -1,0 +1,73 @@
+<!-- SHORT CSS -->
+.hd{position:absolute;left:0;right:0;top:600px;display:flex;justify-content:center;align-items:center;gap:16px;font:700 40px var(--display);color:#fff}
+.hd img{width:60px;height:60px;border-radius:15px}
+.grid{position:absolute;left:70px;top:690px;width:940px}
+.dh{display:flex;gap:12px;margin:0 0 12px 168px;font:600 30px var(--display);color:rgba(255,255,255,.55)}
+.dh span{width:98px;text-align:center}
+.wk{display:flex;align-items:center;gap:12px;height:96px;margin-bottom:12px;position:relative}
+.wl{width:156px;font:600 34px var(--display);color:rgba(255,255,255,.75)}
+.c{width:98px;height:96px;border-radius:18px;background:rgba(207,235,221,.18);flex:none}
+.glow{position:absolute;left:156px;right:-12px;top:-10px;bottom:-10px;border-radius:26px;outline:6px solid #FF6B57;box-shadow:0 0 60px 12px rgba(228,81,59,.8);opacity:0}
+.chip{position:absolute;display:flex;align-items:center;gap:14px;background:#fff;color:#0F1F3D;border-radius:20px;padding:18px 26px;font:700 40px var(--display);box-shadow:0 18px 40px -10px rgba(0,0,0,.6);white-space:nowrap;opacity:0}
+.chip i{width:20px;height:20px;border-radius:50%}
+.chip em{font-style:normal;font-weight:600;color:var(--tomato);font-size:32px}
+.c{position:relative}
+.dot{position:absolute;left:31px;top:30px;width:36px;height:36px;border-radius:50%;border:5px solid #fff;transform:scale(0);box-shadow:0 4px 12px rgba(0,0,0,.35)}
+.badge{position:absolute;left:0;right:0;top:1262px;text-align:center;opacity:0}
+.badge span{display:inline-block;font:700 44px var(--display);color:#fff;background:var(--leaf);padding:20px 34px;border-radius:22px;box-shadow:0 20px 50px -12px rgba(30,158,116,.7)}
+<!-- /SHORT CSS -->
+
+<!-- SHORT HTML -->
+<div class="scene navybg" id="sc-cal"><div class="hd"><img src="{{ROOT}}/icon-512.png" alt="">My term</div><div class="grid" id="pg"></div><div id="chips"></div></div>
+<div class="scene navybg" id="sc-fix"><div class="hd"><img src="{{ROOT}}/icon-512.png" alt="">My term</div><div class="grid" id="fg"></div><div id="fchips"></div><div class="badge" id="fb"><span>✓ Study time spread over 3 weeks</span></div></div>
+<!-- /SHORT HTML -->
+
+<!-- SHORT JS -->
+// The outlier's structure (person, proof, worse, worst) with the Studyboard calendar as the proof shot, then a 2.4 s fix that loops back.
+const WEEKS = [8, 9, 10, 11, 12], CR = 3;
+const STOPS = [[0, [207, 235, 221]], [.45, [255, 228, 92]], [.72, [255, 160, 70]], [1, [228, 81, 59]]];
+const heat = v => { v = clamp(v); for (let i = 1; i < STOPS.length; i++) if (v <= STOPS[i][0]) { const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], k = (v - a) / (b - a); return `rgb(${ca.map((c, j) => Math.round(c + (cb[j] - c) * k)).join(",")})`; } return "rgb(228,81,59)"; };
+const grid = p => `<div class="dh">${"MTWTFSS".split("").map(d => `<span>${d}</span>`).join("")}</div>` +
+  WEEKS.map((w, r) => `<div class="wk"><span class="wl">Week ${w}</span>${[0,1,2,3,4,5,6].map(d => `<span class="c" id="${p}${r}_${d}"></span>`).join("")}${r === CR ? `<span class="glow" id="${p}g"></span>` : ""}</div>`).join("");
+$("pg").innerHTML = grid("p"); $("fg").innerHTML = grid("f");
+[1, 2, 3, 4].forEach(d => { $(`f${CR}_${d}`).innerHTML = `<i class="dot" id="fd${d}"></i>`; });
+const rowY = r => 690 + 54 + r * 108;
+const CHIPS = [["Bio midterm", "Tue", "#1E9E74", 60, -190, -5], ["Chem exam", "Wed", "#7A4FD6", 500, -175, 5], ["Calc exam", "Thu", "#E4513B", 150, -70, 3], ["Lab report", "Fri", "#1F6FEB", 540, -55, -4]];
+const chipHTML = p => CHIPS.map((c, i) => `<div class="chip" id="${p}${i}"><i style="background:${c[2]}"></i>${c[0]}<em>${c[1]}</em></div>`).join("");
+$("chips").innerHTML = chipHTML("ch"); $("fchips").innerHTML = chipHTML("fc");
+const HEAT = [.35, .9, 1, 1, .95, .5, .55];
+// Exams keep their dates: the chips settle into Week 11 while the *study load* (the heat) moves into Weeks 9 and 10
+const DEST = [[3, 0], [3, 230], [3, 460], [3, 690]];
+REEL = {
+  end: 10.0, cover: .3, capY: 270,
+  caps: [[0, 8.0, "How every exam I have this semester landed in <b>the exact same week</b>"],
+         [8.1, 10.0, "Plot twist: Studyboard <b>saw it coming</b>!"]],
+  shots: [{t: 0}, {t: 2, scene: "cal"}, {t: 4}, {t: 6}, {t: 8, scene: "fix"}],
+  scenes: {
+    cal: lt => {
+      CHIPS.forEach((c, i) => { const el = $("ch" + i); el.style.left = (70 + c[3]) + "px"; el.style.top = (rowY(CR) + c[4]) + "px";
+        el.style.transform = slam(el, lt, .15 + i * .38) + ` rotate(${c[5]}deg)`; });
+      [0,1,2,3,4,5,6].forEach(d => { const k = P(lt, .15, 1.4); $(`p${CR}_${d}`).style.background = k > 0 ? heat(.18 + (HEAT[d] - .18) * k) : ""; });
+      $("pg").style.transform = `scale(${1 + .05 * ioCubic(P(lt, 1.3, 1.9))})`;
+      $("pg").style.transformOrigin = `470px ${rowY(CR) - 690}px`;
+      document.getElementById("pg").querySelector(".glow").style.opacity = P(lt, 1.3, 1.45) * (.7 + .3 * Math.abs(Math.sin(lt * 3.4)));
+    },
+    fix: lt => {
+      const k = ioCubic(P(lt, .25, .9));
+      // Exams keep their dates: each chip shrinks into a dot on its own day in Week 11 while the study load moves earlier
+      CHIPS.forEach((c, i) => { const el = $("fc" + i), kk = ioCubic(P(lt, .1 + i * .06, .5 + i * .06)), d = i + 1;
+        el.style.left = (70 + c[3]) + "px"; el.style.top = (rowY(CR) + c[4]) + "px";
+        el.style.opacity = 1 - kk; el.style.transform = `rotate(${c[5]}deg) scale(${1 - .5 * kk})`;
+        const dot = $(`fd${d}`); dot.style.background = c[2]; dot.style.transform = `scale(${oBack(P(lt, .4 + i * .06, .65 + i * .06))})`; });
+      [0,1,2,3,4,5,6].forEach(d => {
+        $(`f${CR}_${d}`).style.background = heat(HEAT[d] + ([.3, .4, .45, .4, .35, .1, .1][d] - HEAT[d]) * k);
+        $(`f1_${d}`).style.background = heat([.25, .35, .3, .3, .25, 0, 0][d] * ioCubic(P(lt, .6, 1.0)));
+        $(`f2_${d}`).style.background = heat([.2, .25, .2, .2, .2, 0, 0][d] * ioCubic(P(lt, .7, 1.1))); });
+      const g = $("fg").querySelector(".glow"); g.style.opacity = 1;
+      g.style.outlineColor = k > .5 ? "#1E9E74" : ""; g.style.boxShadow = k > .5 ? "0 0 54px 10px rgba(30,158,116,.6)" : "";
+      rise($("fb"), lt, 1.0, .35, 50);
+    },
+  },
+  lockup: 8.9, lockText: "free planner",
+};
+<!-- /SHORT JS -->

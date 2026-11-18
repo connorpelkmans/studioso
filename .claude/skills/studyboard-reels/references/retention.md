@@ -108,6 +108,20 @@ Refresh these with vidIQ outlier search each batch (see `tools.md`).
 
 How we apply it: `marketing/reels/2026-11-16-same-week/` (stock b-roll of a stressed student → the Studyboard calendar as the "proof" shot → a punchline shot, cut on owned music hits).
 
+## Short format (default since Nov 18, 2026)
+
+**Why:** reel D's insights showed 5 s average watch on a 17.3 s reel, with views flat after the first hour. The hook held; the body didn't. The body was a slow listicle of small slides that started at 2.5 s, which set an expectation the hook hadn't. Instagram's top-ranked signal is watch time, measured in both seconds and percentage (Mosseri), so a reel people watch 5 s of should *be* about 8 s long. The top student-niche outlier was 7.2 s, a real person at frame 0, one caption, a cut on each beat, then a loop (see "Live outlier patterns").
+
+**Recipe** (`assets/short-template.html` + `scripts/make_short.py`; `build_bg.py` with `{"xf": 0.2, ...}`):
+1. **8 s** (10 s when a 2 s product fix is added). Four shots of 2.0 s, cut on the hits of `dramatic.wav` from 33.0, so the loop lands on a hit as well.
+2. **Real people at frame 0, full-bleed.** Google/Kantar's ABCDs: open with people, framed tight. Nothing small floating in empty space.
+3. **One persistent caption** for the whole reel (white Inter with a black outline, native style). Nothing has to be read against the clock, and the hook stays on screen when the viewer decides.
+4. **Each shot is worse, funnier or later than the last** (escalation); the last shot pays off the setup ("4 · the worst", "7:58, exam at 8", "94%?!").
+5. Optional short **per-shot labels** (≤ 5 words) or **lock-screen timestamps** to carry the joke.
+6. **The product is the proof, not an appendix**: the Studyboard calendar or card is one of the four shots (the outlier's "evidence" beat), or a 2 s fix after the punchline that loops back.
+7. **Sign-off** = a small icon + "Studyboard" line over the last shot (about 1.2 s); a full end card only if there's time.
+8. Cuts dissolve over 0.2 s centred on each hit: native rhythm without harsh cuts.
+
 ## Post caption template
 
 ```

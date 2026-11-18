@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studyboard short reel</title>
+<!--
+  The short format (8-10 s), built on what held attention in the data (see references/retention.md, "Short format"):
+    - Real people from frame 0, a new shot on every music hit (every 2.0 s with dramatic.wav from 33.0), each shot
+      bigger or worse than the last, and the loop's payoff ("the worst one") in the final shot.
+    - ONE persistent caption for the whole reel (native style: white Inter, black outline), so nothing has to be
+      read against the clock. Short per-shot labels (<= 5 words) add the joke for each shot.
+    - Content fills the frame: footage is full-bleed; drawn scenes (the Studyboard "proof" shot) are big and centred.
+    - Cuts dissolve over 0.2 s centred on the hit (build_bg.py with {"xf": 0.2}); overlays fade on the same window.
+    - Ends so it loops: the last shot flows back into frame 0 on the next hit.
+  Fill the three blocks with make_short.py: SHORT CSS, SHORT HTML (drawn scenes: <div class="scene" id="sc-NAME">),
+  SHORT JS (sets REEL, see below). Footage: build_bg.py shots.json bg.mp4, then render.js <folder> --footage bg.mp4.
+
+  REEL = {
+    end: 8.0, cover: 0.25,
+    cap: "Persistent caption with one <b>yellow</b> phrase", capY: 300,       // or caps: [[t0, t1, html], ...]
+    shots: [{t: 0, label: "Label", num: 1, time: "11:02 PM", scene: "NAME"}, ...],   // t = the cut (music hit)
+    scenes: {NAME: (lt, t) => {...}},                                           // draws a scene; lt = time since its cut
+    lockup: 6.6,                                                                 // small icon + Studyboard from this time
+    end_card: null,                                                              // or a time: full navy end card from then
+  }
+-->
+<style>
+@font-face{font-family:"Lexend";font-weight:500;src:url({{ROOT}}/website/assets/fonts/lexend-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:600;src:url({{ROOT}}/website/assets/fonts/lexend-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:700;src:url({{ROOT}}/website/assets/fonts/lexend-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Lexend";font-weight:800;src:url({{ROOT}}/website/assets/fonts/lexend-latin-800-normal.woff2) format("woff2")}
+:root{--navy:#0E2A56;--ink:#0F1F3D;--muted:#5A6A86;--accent:#3988FE;--mark:#FFE45C;--tomato:#E4513B;--leaf:#1E9E74;--plum:#7A4FD6;
+  --display:"Lexend",system-ui,sans-serif;--shadow:0 2px 4px rgba(14,42,86,.06),0 30px 70px -14px rgba(14,42,86,.32)}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;color:#fff;-webkit-font-smoothing:antialiased}
+.navybg{background-image:linear-gradient(rgba(255,255,255,.045) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.045) 2px,transparent 2px),radial-gradient(120% 70% at 80% 0%,#1B4A8F 0%,#0E2A56 55%,#0A1F42 100%);background-size:54px 54px,54px 54px,auto}
+.scene{position:absolute;inset:0;visibility:hidden;opacity:0}
+.out{font-family:"Inter",system-ui,sans-serif;color:#fff;-webkit-text-stroke:10px #000;paint-order:stroke fill;text-shadow:0 4px 18px rgba(0,0,0,.35)}
+.out b{color:var(--mark);font-weight:900}
+#cap{position:absolute;left:90px;width:900px;text-align:center;z-index:10;font-weight:800;font-size:66px;line-height:1.16;letter-spacing:-.01em}
+#lab{position:absolute;left:130px;width:820px;top:1100px;text-align:center;z-index:10;opacity:0}
+#lab .n{display:inline-block;font:800 44px var(--display);color:var(--navy);background:var(--mark);border-radius:16px;padding:6px 22px;margin-bottom:16px;
+  -webkit-text-stroke:0;text-shadow:none;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#lab .l{font-weight:900;font-size:78px;line-height:1.1;letter-spacing:-.015em}
+#clock{position:absolute;left:0;right:0;top:250px;text-align:center;z-index:9;opacity:0;font-family:"Inter",system-ui,sans-serif;text-shadow:0 4px 30px rgba(0,0,0,.45)}
+#clock .d{font-weight:600;font-size:42px;opacity:.92}
+#clock .h{font-weight:700;font-size:210px;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+#lock{position:absolute;left:0;right:0;top:1405px;display:flex;justify-content:center;align-items:center;gap:16px;z-index:11;opacity:0}
+#lock img{width:70px;height:70px;border-radius:17px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#lock span{font:800 50px var(--display);letter-spacing:-.02em;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.6)}
+#lock em{font:600 32px var(--display);font-style:normal;color:#fff;background:rgba(14,42,86,.75);padding:8px 16px;border-radius:12px}
+#endc{z-index:12;text-align:center}
+#endc .i{position:absolute;left:440px;top:560px;width:200px;height:200px}
+#endc .i img{width:100%;height:100%;border-radius:46px;box-shadow:0 26px 60px rgba(0,0,0,.45)}
+#endc .w{position:absolute;left:0;right:0;top:795px;font:800 116px/1 var(--display);letter-spacing:-.025em;color:#fff}
+#endc .s{position:absolute;left:0;right:0;top:960px;font:600 44px var(--display);color:#C9D7F2}
+.card{background:#fff;color:var(--ink);border-radius:32px;box-shadow:var(--shadow)}
+/* ===== SHORT CSS ===== */
+#gc{position:absolute;left:100px;width:880px;top:560px;overflow:hidden}
+#gc .band{display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,#1E9E74,#4DBF97);color:#fff;font:700 34px var(--display);letter-spacing:.06em;padding:22px 34px}
+#gc .band img{width:46px;height:46px;border-radius:11px}
+#gc .rows{padding:12px 34px 4px}
+#gc .r{display:flex;justify-content:space-between;font:500 40px var(--display);padding:12px 0;border-bottom:2px solid #EEF2F8}
+#gc .r b{font-weight:700}
+#gc .r .w{color:var(--muted);font-weight:500;margin-left:12px;font-size:32px}
+#gc .so{display:flex;justify-content:space-between;align-items:baseline;padding:14px 34px 6px;font:700 40px var(--display)}
+#gc .so .n{font:800 56px var(--display);color:var(--amber,#B86A00)}
+#gc .need{margin:10px 24px 26px;background:#FFF1EE;border-radius:22px;padding:20px 26px;font:600 38px/1.3 var(--display);text-align:center;opacity:0}
+#gc .need .big{display:block;font:800 150px/1.05 var(--display);color:var(--tomato);letter-spacing:-.03em}
+/* ===== /SHORT CSS ===== */
+</style>
+</head>
+<body>
+<div id="stage">
+<!-- ===== SHORT HTML ===== -->
+<div class="scene navybg" id="sc-grade"><div class="card" id="gc">
+  <div class="band"><img src="{{ROOT}}/icon-512.png" alt="">BIO 101 · GRADES</div>
+  <div class="rows">
+    <div class="r"><span>Quizzes<span class="w">20%</span></span><b>62%</b></div>
+    <div class="r"><span>Midterm<span class="w">30%</span></span><b>48%</b></div>
+    <div class="r"><span>Labs<span class="w">15%</span></span><b>70%</b></div>
+    <div class="r"><span>Final exam<span class="w">35%</span></span><b style="color:var(--muted)">to come</b></div>
+  </div>
+  <div class="so"><span>So far</span><span class="n" id="so">0.0%</span></div>
+  <div class="need" id="need">To finish with 70%, you need<span class="big" id="big">94%</span>on the final.</div>
+</div></div>
+<!-- ===== /SHORT HTML ===== -->
+  <div id="clock"><div class="d" id="clockD"></div><div class="h" id="clockH"></div></div>
+  <div id="cap" class="out"></div>
+  <div id="lab" class="out"><div class="n" id="labN"></div><div class="l" id="labL"></div></div>
+  <div id="lock"><img src="{{ROOT}}/icon-512.png" alt=""><span>Studyboard</span><em id="lockE"></em></div>
+  <div class="scene navybg" id="endc"><div class="i"><img src="{{ROOT}}/icon-512.png" alt=""></div><div class="w">Studyboard</div><div class="s" id="endS">Free student planner</div></div>
+</div>
+<script>
+["500 100px Lexend","600 100px Lexend","700 100px Lexend","800 100px Lexend","800 100px Inter","900 100px Inter","700 100px Inter"].forEach(f => document.fonts.load(f));
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const oCubic = x => 1 - Math.pow(1 - x, 3);
+const ioCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const oBack = (x, c = 1.7) => { const d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const set = (el, tf, op) => { el.style.transform = tf; if (op != null) el.style.opacity = op; };
+const rise = (el, t, t0, d = .35, dist = 60) => { const k = oBack(P(t, t0, t0 + d), 1.3); set(el, `translateY(${(1 - k) * dist}px)`, clamp(P(t, t0, t0 + d) * 2.5)); };
+const pop = (el, t, t0, d = .3, from = .6) => { const k = P(t, t0, t0 + d); set(el, `scale(${lerp(from, 1, oBack(k))})`, clamp(k * 3)); };
+const slam = (el, t, t0, dy = -260) => { const k = oCubic(P(t, t0 - .14, t0)); el.style.opacity = k > 0 ? 1 : 0; return `translateY(${(1 - k) * dy}px) scale(${1 + (1 - oBack(P(t, t0, t0 + .3))) * .25})`; };
+const XF = .2;
+let REEL = {};
+/* ===== SHORT JS ===== */
+// Math: so far = (0.2*62 + 0.3*48 + 0.15*70) / 0.65 = 57.4%. For 70% overall: (70 - 37.3) / 0.35 = 93.4 -> 94% on the final.
+REEL = {
+  end: 8.0, cover: .3, capY: 270,
+  cap: "Checking what I need on the final to <b>keep my scholarship</b>",
+  shots: [{t: 0}, {t: 2}, {t: 4, scene: "grade"}, {t: 6, label: "<b>94%?!</b>", labY: 1150}],
+  scenes: {grade: lt => {
+    rise($("gc"), lt, 0, .3, 60);
+    $("so").textContent = (57.4 * oCubic(P(lt, .25, .7))).toFixed(1) + "%";
+    pop($("need"), lt, .8, .3, .85);
+    const k = P(lt, .95, 1.15); $("big").style.display = "block"; $("big").style.transform = `scale(${lerp(1.8, 1, oBack(k, 2.2))})`; $("big").style.opacity = k;
+  }},
+  lockup: 6.7, lockText: "Grade Tracker · free",
+};
+/* ===== /SHORT JS ===== */
+const R = Object.assign({end: 8, cover: .25, capY: 300, shots: [], scenes: {}, lockup: null, lockText: "free planner", end_card: null, endText: "Free student planner"}, REEL);
+const CAPS = R.caps || (R.cap ? [[0, R.end, R.cap]] : []);
+$("cap").style.top = R.capY + "px";
+$("lockE").textContent = R.lockText; $("endS").textContent = R.endText;
+const shotAt = t => { let k = 0; R.shots.forEach((s, i) => { if (t >= s.t) k = i; }); return k; };
+const shotEnd = i => i + 1 < R.shots.length ? R.shots[i + 1].t : R.end;
+// Opacity of shot i: dissolves in over [t - XF/2, t + XF/2] and out over the next cut's window (the first shot is in at 0; the last stays)
+const shotOp = (i, t) => { const a = R.shots[i].t, b = shotEnd(i);
+  const inK = a <= 0 ? 1 : ioCubic(P(t, a - XF / 2, a + XF / 2)), outK = b >= R.end ? 0 : ioCubic(P(t, b - XF / 2, b + XF / 2));
+  return Math.min(inK, 1 - outK); };
+function render(t) {
+  const c = CAPS.find(([a, b]) => t >= a && t < b);
+  $("cap").innerHTML = c ? c[2] : "";
+  $("cap").style.opacity = c ? Math.min(c[0] <= 0 ? 1 : P(t, c[0], c[0] + .2), c[1] >= R.end ? 1 : 1 - P(t, c[1] - .15, c[1])) : 0;
+  // Drawn scenes
+  document.querySelectorAll(".scene").forEach(el => { if (el.id !== "endc") { el.style.visibility = "hidden"; el.style.opacity = 0; } });
+  R.shots.forEach((s, i) => { if (!s.scene) return; const o = shotOp(i, t), el = $("sc-" + s.scene);
+    if (o <= 0) return; el.style.visibility = "visible"; el.style.opacity = o; R.scenes[s.scene] && R.scenes[s.scene](t - s.t, t); });
+  // Per-shot label (number badge + short line): pops on its hit, fades with the shot
+  const i = shotAt(t), s = R.shots[i] || {};
+  const nxt = R.shots[i + 1], into = nxt && t > nxt.t - XF / 2;
+  const cur = into ? nxt : s, ci = into ? i + 1 : i;
+  if (cur && (cur.label || cur.num)) {
+    $("labN").textContent = cur.num != null ? cur.num : ""; $("labN").style.display = cur.num != null ? "inline-block" : "none";
+    $("labL").innerHTML = cur.label || "";
+    const lt = t - cur.t, k = cur.t <= 0 ? 1 : P(lt, -.06, .22);
+    $("lab").style.top = (cur.labY || R.labY || 1100) + "px";
+    $("lab").style.opacity = Math.min(clamp(k * 1.6), shotOp(ci, t) > .5 ? 1 : shotOp(ci, t) * 2);
+    $("lab").style.transform = `scale(${cur.t <= 0 ? 1 : lerp(.82, 1, oBack(k, 2.4))})`;
+  } else $("lab").style.opacity = 0;
+  // Lock-screen clock
+  if (cur && cur.time) { $("clock").style.opacity = 1; $("clockH").textContent = cur.time; $("clockD").textContent = cur.date || ""; }
+  else $("clock").style.opacity = 0;
+  // Small lockup (sign-off) and optional end card
+  const lk = R.lockup == null ? 0 : P(t, R.lockup, R.lockup + .3);
+  $("lock").style.opacity = lk; $("lock").style.transform = `translateY(${(1 - oBack(lk, 1.3)) * 30}px)`;
+  const e = R.end_card == null ? 0 : ioCubic(P(t, R.end_card - XF / 2, R.end_card + XF / 2));
+  $("endc").style.visibility = e > 0 ? "visible" : "hidden"; $("endc").style.opacity = e;
+  if (e > 0) { const lt = t - R.end_card; pop($("endc").querySelector(".i"), lt, 0, .35, .5); rise($("endc").querySelector(".w"), lt, .08); rise($("endc").querySelector(".s"), lt, .16); }
+}
+window.render = render; window.END = R.end; window.COVER = R.cover;
+render(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{"xf": 0.2, "shots": [
+ {"clip": "../_broll/notebook.mp4", "in": 8.0, "dur": 2.0},
+ {"clip": "../_broll/writing.mp4", "in": 7.5, "dur": 2.0},
+ {"color": "#0E2A56", "dur": 2.0},
+ {"clip": "../_broll/shaking.mp4", "in": 4.0, "dur": 2.0}
+]}
