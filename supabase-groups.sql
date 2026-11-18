@@ -177,6 +177,31 @@ revoke all on public.study_profiles, public.shared_decks, public.study_groups, p
 revoke truncate, references, trigger on public.study_profiles, public.shared_decks, public.study_groups, public.group_members, public.group_items, public.group_messages from authenticated;
 
 -- Triggers: names and times are filled in by the database, not the app
+-- Decks and quizzes each person shares in a group: 5 of each on the free plan, 50 of each with Pro (studyboard_config limits ->
+-- free/pro -> groupDecks, groupQuizzes). A shared deck or quiz is about 10 KB; every person's shared group items also stay under
+-- the 50 MB cap (sbg_size_cap), which picture-heavy decks meet first.
+create or replace function public.sbg_share_count_check(p_group uuid, p_user uuid, p_kind text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare pro boolean := true; lim bigint; nm text := case when p_kind = 'quiz' then 'quizzes' else 'decks' end; key text := case when p_kind = 'quiz' then 'groupQuizzes' else 'groupDecks' end;
+begin
+  if p_user is null then return; end if;
+  if to_regproc('public.studyboard_paywall') is not null and to_regproc('public.studyboard_limits_pro') is not null then
+    execute 'select not public.studyboard_paywall() or public.studyboard_limits_pro($1)' into pro using p_user;
+  end if;
+  if to_regproc('public.studyboard_limit') is not null then execute 'select public.studyboard_limit($1, $2)' into lim using p_user, key; end if;
+  if pro and to_regproc('public.studyboard_paywall') is not null then
+    execute 'select case when public.studyboard_paywall() then $1 else null end' into lim using lim;   -- paywall off: Pro's number
+  end if;
+  lim := coalesce(lim, case when pro then 50 else 5 end);
+  perform pg_advisory_xact_lock(hashtextextended('sbg-share:' || p_group::text || ':' || p_user::text || ':' || nm, 0));
+  if (select count(*) from public.group_items where group_id = p_group and user_id = p_user and kind = p_kind) >= lim then
+    raise exception '%', case when pro then format('You''ve shared %s %s in this group, the most you can. Remove one you shared first.', lim, nm)
+      else format('You''ve shared %s %s in this group, the most on the free plan. Remove one you shared first, or go Pro to share up to 50.', lim, nm) end
+      using errcode = 'P0001';
+  end if;
+end $$;
+revoke all on function public.sbg_share_count_check(uuid, uuid, text) from public, anon, authenticated;
+
 create or replace function public.sbg_stamp() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -189,6 +214,7 @@ begin
       if (select count(*) from public.group_items where group_id = new.group_id and user_id = new.user_id) >= 500 then
         raise exception 'This group already holds 500 of your shared items. Remove some first.';
       end if;
+      if new.kind in ('deck', 'quiz') then perform public.sbg_share_count_check(new.group_id, new.user_id, new.kind); end if;
     end if;
     if tg_table_name = 'group_messages' then
       new.pinned := false;
