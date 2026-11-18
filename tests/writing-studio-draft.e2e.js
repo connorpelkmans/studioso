@@ -111,21 +111,16 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   /* Check first: the attached draft is offered */
   await act(page, "ws-open", "t1"); await page.waitForSelector("#dlg[open] .ws-tab");
   ok(/^Check/.test(await selTab(page)), "a paper with no sources opens on Check");
-  ok((await page.$$eval("#dlg[open] .ws-tab", x => x.map(e => e.textContent.replace(/\s*\d+$/, "").trim()))).join() === "Check,Sources,Quotes,Outline", "the tabs: Check, Sources, Quotes, Outline");
+  ok((await page.$$eval("#dlg[open] .ws-tab", x => x.map(e => e.textContent.replace(/\s*\d+$/, "").trim()))).join() === "Check My Doc,Sources,Quotes,Outline", "the tabs: Check My Doc, Sources, Quotes, Outline");
   ok(/Use Essay draft\.txt\?/.test(await page.textContent("#dlg[open] .ws-offer")), "the draft attached to the assignment is offered");
   ok(/0 sources · 0 quotes · 0 placed · no draft yet/.test((await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ")), "the strip: " + (await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ").trim());
   await page.click("#dlg[open] .ws-offer [data-ws-dsel]"); await page.waitForSelector("#dlg[open] .ws-found");
   let t1 = await task(page, "t1");
   ok(t1.ws.draft && t1.ws.draft.from === "Essay draft.txt" && t1.ws.draft.fid === "fd" && /Others disagree/.test(t1.ws.draft.t) && t1.ws.chk && t1.ws.chk.h === t1.ws.draft.h, "Use It keeps the draft on the paper and checks it");
-  await page.waitForFunction(() => !/Looking up/.test(document.querySelector("#dlg[open] .ws-found").textContent), null, {timeout: 15000});
-  const found = await page.textContent("#dlg[open] .ws-found");
-  ok(/4 entries in your References list aren't sources here yet/.test(found) && await page.locator("[data-wf-ref]").count() === 4, "Found in Your Draft: the four entries in its list");
-  ok(/How the mind hurts and heals the body.*Found by DOI ✓/.test(found) && /Thinking, Fast and Slow.*Found by ISBN ✓/.test(found) && /Cities and climate change.*Read from your list: check it/.test(found), "a DOI and an ISBN are looked up, the rest read from the list");
+  // the draft's list: its four entries go onto Sources by themselves (a DOI and an ISBN looked up, the rest read from the list)
+  await page.waitForFunction(() => window.__sbProStudy.state().tasks.t1.ws.src.length === 4, null, {timeout: 15000}); await page.waitForTimeout(400);
+  ok(/Added 4 sources from your draft's list to Sources\. The ones read from your list \(no DOI or ISBN\) are marked there/.test(await page.textContent("#dlg[open]")), "the four entries in its list are added to Sources by themselves, and it says so");
   ok(ctx.calls.length === 2 && ctx.calls.every(u => /doi\.org\/10\.1037\/0003-066X\.59\.1\.29$|openlibrary\.org\/api\/books\?bibkeys=ISBN:9780374275631&/.test(u)), "only the identifiers are sent: " + ctx.calls.join(" | "));
-  ok(/Add 4 Sources/.test(await page.textContent("[data-wf-addrefs]")), "Add 4 Sources");
-  await page.uncheck("[data-wf-ref] >> nth=1"); ok(/Add 3 Sources/.test(await page.textContent("[data-wf-addrefs]")), "unticking one updates the count");
-  await page.check("[data-wf-ref] >> nth=1");
-  await page.click("[data-wf-addrefs]"); await page.waitForFunction(() => window.__sbProStudy.state().tasks.t1.ws.src.length === 4);
   t1 = await task(page, "t1");
   const bySrc = s => t1.ws.src.find(x => x.title && x.title.toLowerCase().startsWith(s.toLowerCase()));
   ok(bySrc("How the mind").DOI === "10.1037/0003-066x.59.1.29" && !bySrc("How the mind").rv && bySrc("Cities and climate").rv === "1" && bySrc("The urban heat").rv === "1", "looked-up sources come in whole, the others marked to check");
@@ -217,6 +212,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   ok((await task(page, "m4")).status === "done" && (await task(page, "m5")).status !== "done", "a step only about the citations is ticked once the check finds nothing to fix; one that also says submit isn't");
   await page.click('nav.tabs [data-tab="flashcards"]'); await page.waitForTimeout(300);
   await act(page, "rv-view", "writing"); await page.waitForSelector(".wsr-card");
+  if (process.env.SHOT) { await page.waitForTimeout(400); await page.screenshot({path: process.env.SHOT + "wsr-cards.png"}); }
   const cards = await page.$$eval(".wsr-card .wsr-t", x => x.map(e => e.textContent));
   ok(cards.includes("Research paper: urban heat") && cards.includes("Policy brief") && cards.includes("Reflection essay"), "Review's Writing view lists the papers: " + cards.join(", "));
   ok(/\d+ sources · \d+ quotes · last check/.test(await page.textContent(".wsr-list")), "with their counts and last check");
