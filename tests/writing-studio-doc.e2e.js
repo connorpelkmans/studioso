@@ -147,7 +147,7 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
       init = init || {}; const m = init.method || "GET";
       if (p === "google") {
         F.g.calls.push(m + " " + url.replace(/\?.*/, ""));
-        if (m === "GET" && /drive\/v3/.test(url)) return res(404, {error: {message: "File not found: nope42."}});
+        if (m === "GET" && /drive\/v3/.test(url)) return /gdoc123/.test(url) ? res(200, {version: String(F.g.rev)}) : res(404, {error: {message: "File not found: nope42."}});
         if (m === "GET") return /gdoc123/.test(url) ? gdoc() : res(404, {error: {message: "Requested entity was not found.", status: "NOT_FOUND"}});
         const b = JSON.parse(init.body);
         if (b.writeControl.requiredRevisionId !== "rev" + F.g.rev) return res(400, {error: {message: "revision"}});
@@ -222,6 +222,11 @@ const cap = s => String(s || "").replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\
   await page.waitForFunction(() => !window.__fake.g.raw.includes("(Smith & Lee 2021)"), null, {timeout: 15000});
   ok((await G()).includes("fast (Smith & Lee, 2021). Ng") && (await G()).includes("Bibliography"), "one Fix: only that citation, in the doc");
   ok(!(await page.locator("#dlg[open] [data-ws-dcopy]").count()), "no Copy Fixed Draft: the doc is already fixed");
+  // writing in the Google Doc (here, in Google's editor): My Doc shows it within a few seconds, and checks it
+  await page.click('#dlg[open] [data-ws-tab="doc"]'); await page.waitForTimeout(3500);
+  await page.evaluate(() => { const F = window.__fake; F.g.raw = F.g.raw.replace("Parks are cooler", "Green parks are cooler"); F.g.rev++; });
+  await page.waitForFunction(() => /Green parks are cooler/.test((document.querySelector("#dlg[open] [data-ws-rd]") || {}).textContent || ""), null, {timeout: 9000});
+  ok(/Green parks are cooler/.test(await draftOf()), "writing in the Google Doc shows up in My Doc within seconds, and is the draft");
   // Cite Here in a linked Google Doc: into the doc itself, while it stays open (not loaded again)
   await page.click('#dlg[open] [data-ws-tab="doc"]'); await page.waitForSelector("#dlg[open] .ws-ldf"); await page.evaluate(() => { document.querySelector("#dlg[open] .ws-ldf").__mark = 1; });
   await page.evaluate(() => { const p = [...document.querySelectorAll("#dlg[open] [data-ws-rd] p")].find(x => x.textContent.includes("must plan for heat")), n = p.firstChild, i = p.textContent.indexOf("plan for heat") + 13, r = document.createRange(); r.setStart(n, i); r.setEnd(n, i); const s = getSelection(); s.removeAllRanges(); s.addRange(r); p.dispatchEvent(new MouseEvent("mouseup", {bubbles: true})); });

@@ -740,8 +740,8 @@ function fmtTime(t){ const [h,m] = t.split(":").map(Number); const d = new Date(
 /* Recently Deleted and Export My Data */
 const TB = (() => {
   const DAY = 864e5, KEEP_DAYS = 30, MAX_ENTRIES = 400, MAX_BYTES = 12e6, BULK_AFTER = 40, SYNC_MAX = 1.5e6;
-  const KINDS = ["course", "task", "note", "deck", "file", "event", "card", "quiz", "bulk"];
-  const KIND_TITLE = {course: "Courses", task: "Tasks", note: "Notes", deck: "Flashcard Decks", card: "Flashcards", quiz: "Quizzes", file: "Files", event: "Events", bulk: "Bulk Deletions"};
+  const KINDS = ["course", "task", "note", "deck", "file", "event", "card", "quiz", "cmap", "bulk"];
+  const KIND_TITLE = {course: "Courses", task: "Tasks", note: "Notes", deck: "Flashcard Decks", card: "Flashcards", quiz: "Quizzes", cmap: "Concept Maps", file: "Files", event: "Events", bulk: "Bulk Deletions"};
   const cl = o => o == null ? o : JSON.parse(JSON.stringify(o));
   const sizeOf = o => { try { return JSON.stringify(o).length; } catch (e) { return 0; } };
   const cut = (s, n) => { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
@@ -756,9 +756,11 @@ const TB = (() => {
     if (kind === "event") return cut(d.title, 70) || "Event";
     if (kind === "card") return cut(d.front, 60) || "Flashcard";
     if (kind === "quiz") return cut(d.title, 60) || "Quiz";
+    if (kind === "cmap") return cut(d.name, 60) || "Concept map";
     return "Item";
   }
-  const isSub = k => k === "card" || k === "quiz";
+  // kept inside something else: cards and quizzes in a deck, a concept map in its course
+  const isSub = k => k === "card" || k === "quiz" || k === "cmap";
   function normEntry(e){
     e = Object.assign({id: "", kind: "bulk", label: "", detail: "", deletedAt: 0, items: []}, e && typeof e === "object" ? e : {});
     e.id = String(e.id || ""); if (!KINDS.includes(e.kind)) e.kind = "bulk";
@@ -770,7 +772,7 @@ const TB = (() => {
   }
   const countsText = items => {
     const c = {}; items.forEach(i => { c[i.kind] = (c[i.kind] || 0) + 1; });
-    const nm = {course: "course", task: "task", note: "note", deck: "deck", file: "file", event: "event", card: "card", quiz: "quiz"};
+    const nm = {course: "course", task: "task", note: "note", deck: "deck", file: "file", event: "event", card: "card", quiz: "quiz", cmap: "concept map"};
     return KINDS.filter(k => c[k] && nm[k]).map(k => plural(c[k], nm[k])).join(", ");
   };
   function makeEntries(deleted, now, newId, opts){
@@ -796,8 +798,8 @@ const TB = (() => {
     const subs = rest.length > BULK_AFTER ? [] : rest.filter(d => isSub(d.kind));
     const byDeck = new Map(); subs.forEach(s => { const k = s.kind + ":" + (s.parent && s.parent.id); (byDeck.get(k) || byDeck.set(k, []).get(k)).push(s); });
     byDeck.forEach(list => {
-      const kind = list[0].kind, dn = (list[0].parent && list[0].parent.name) || "a deck";
-      mk(kind, list.length === 1 ? labelFor(kind, list[0].data) : plural(list.length, kind === "card" ? "flashcard" : "quiz").replace("quizs", "quizzes") + " from " + dn, list, "From " + dn);
+      const kind = list[0].kind, dn = (list[0].parent && list[0].parent.name) || (kind === "cmap" ? "a course" : "a deck");
+      mk(kind, list.length === 1 ? labelFor(kind, list[0].data) : plural(list.length, kind === "card" ? "flashcard" : kind === "cmap" ? "concept map" : "quiz").replace("quizs", "quizzes") + " from " + dn, list, "From " + dn);
     });
     return out;
   }
@@ -834,8 +836,16 @@ const TB = (() => {
       }
       d.courseId = ""; notes.push(`${labelFor("task", d)} went to No Course because its course is gone`);
     };
-    const decksTouched = {};
+    const decksTouched = {}, coursesTouched = {};
     items.forEach(i => {
+      // a concept map goes back into its course (as a copy, if one with its id is there now); a course that's gone: it can't come back alone
+      if (i.kind === "cmap") {
+        const pid = i.parent && i.parent.id, c = coursesTouched[pid] || (pid && ctx.getCourse && ctx.getCourse(pid) ? cl(ctx.getCourse(pid)) : null);
+        if (!c) { notes.push(`${labelFor("cmap", i.data)} couldn't come back: its course is gone. Restore the course first`); return; }
+        coursesTouched[pid] = c; c.maps = Array.isArray(c.maps) ? c.maps : [];
+        const d = cl(i.data); if (c.maps.some(m => m.id === d.id)) { d.id = ctx.newId(); d.name = (d.name || "Concept map") + " (restored)"; }
+        c.maps.push(d); return;
+      }
       if (isSub(i.kind)) {
         const pid = i.parent && i.parent.id;
         let deck = decksTouched[pid] || (pid && ctx.getDeck(pid) ? cl(ctx.getDeck(pid)) : null);
@@ -855,6 +865,7 @@ const TB = (() => {
       changes.push({kind: i.kind, id: d.id, after: d});
     });
     Object.keys(decksTouched).forEach(k => { const d = decksTouched[k]; if (!changes.some(c => c.kind === "deck" && c.id === d.id)) changes.push({kind: "deck", id: d.id, after: d}); });
+    Object.keys(coursesTouched).forEach(k => { const c = coursesTouched[k]; changes.push({kind: "course", id: c.id, after: c}); });
     return {changes, notes: [...new Set(notes)], entries: [...new Set(entries)]};
   }
 
@@ -1457,6 +1468,11 @@ function trashCapture(changes, label){
       (cur.cards || []).filter(x => !keepC.has(x.id) && !inDecks.has(x.id)).slice(0, 2000).forEach(x => deleted.push({kind: "card", id: x.id, data: clone(x), parent: par}));
       (cur.aiQuizzes || []).filter(x => !keepQ.has(x.id)).forEach(x => deleted.push({kind: "quiz", id: x.id, data: clone(x), parent: par}));
     }
+    // a concept map taken off its course
+    else if (c.kind === "course" && Array.isArray(cur.maps)) {
+      const keep = new Set((c.after.maps || []).map(x => x.id)), par = {kind: "course", id: cur.id, name: cur.name || cur.code || "a course"};
+      cur.maps.filter(x => x && x.id && !keep.has(x.id)).forEach(x => deleted.push({kind: "cmap", id: x.id, data: clone(x), parent: par}));
+    }
   });
   if (!deleted.length) return [];
   const entries = TB.makeEntries(deleted, Date.now(), uid, {batch: uid(), bulkLabel: label || ""});
@@ -1465,11 +1481,12 @@ function trashCapture(changes, label){
   return entries.map(e => e.id).filter(id => state.trash[id]);
 }
 // always: shown even with nothing deleted, so Recently Deleted stays easy to find (the Task Board)
-const trashBtn = (kind, always) => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && TB.isSub(e.kind))).length; return n || always ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted${n ? ` (${n})` : ""}" title="Recently Deleted${n ? ` (${n})` : ""}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>${n ? `<span>${n}</span>` : ""}</button>` : ""; };
+const trashBtn = (kind, always) => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && (e.kind === "card" || e.kind === "quiz"))).length; return n || always ? `<button class="btn small trash-btn" data-act="trash-open" data-kind="${kind}" aria-label="Recently Deleted${n ? ` (${n})` : ""}" title="Recently Deleted${n ? ` (${n})` : ""}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>${n ? `<span>${n}</span>` : ""}</button>` : ""; };
 const plural0 = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const trashExists = (kind, id, parent) => {
   if (kind === "card") { const d = state.decks[parent && parent.id]; return !!(d && d.cards.some(c => c.id === id)); }
   if (kind === "quiz") { const d = state.decks[parent && parent.id]; return !!(d && (d.aiQuizzes || []).some(c => c.id === id)); }
+  if (kind === "cmap") { const c = state.courses[parent && parent.id]; return !!(c && Array.isArray(c.maps) && c.maps.some(m => m.id === id)); }
   const m = mapOf(kind); return !!(m && m[id]);
 };
 // What shows in the bin
@@ -1478,7 +1495,7 @@ const trashVisible = () => trashList().filter(e => e.items.length && Date.now() 
 function trashRestore(ids){
   const entries = ids.map(id => state.trash[id]).filter(Boolean);
   if (!entries.length) return {count: 0, notes: []};
-  const ctx = {exists: (k, id) => trashExists(k, id), newId: uid, getDeck: id => state.decks[id],
+  const ctx = {exists: (k, id) => trashExists(k, id), newId: uid, getDeck: id => state.decks[id], getCourse: id => state.courses[id],
     folderOk: (fid, cid) => foldersOf(cid).some(f => f.id === fid),
     binCourse: cid => trashList().find(x => !ids.includes(x.id) && x.items.some(i => i.kind === "course" && i.id === cid)) || null};
   const changes = [], notes = [], consumed = new Set(), seenKey = new Set();
@@ -105775,7 +105792,12 @@ function popHtml(t, w){
     return `<div class="ws-pop-h">${P.mode === "quote" ? "Add Quote" : "Cite Here"}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button></div><p class="mini ws-pop-how">${esc(how)}</p>${P.mode === "cite" ? `<p class="ws-pop-ctx" aria-live="polite">${ctx(srcs[0].id)}</p>` : ""}<div class="ws-pop-list">${rows}</div>`;
   }
   if (P.mode === "after") { const s = w.src.find(x => x.id === P.sid), f = s ? citeForms(t, w, s.id) : null, pl = f ? CITE.citePlace(d.t, P.b, f) : null; return f && !note ? `<span class="mini">Cite it here too?</span><button type="button" class="btn small primary" data-ws-pops="${esc(s.id)}" data-ws-popc>${esc(pl.kind === "mid" ? f.narr : f.paren)}</button><button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>` : ""; }
-  return `${!note ? `<button type="button" class="btn small primary" data-ws-popm="cite">${sel ? "Cite After It" : "Cite Here"}</button>` : ""}${sel.length >= 3 ? `<button type="button" class="btn small${note ? " primary" : ""}" data-ws-popm="quote">Add Quote</button>` : ""}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>`;
+  if (P.mode === "qhere") {
+    const qs = w.q.filter(x => x.t && w.src.some(s => s.id === x.sid));
+    if (!qs.length) return `<div class="ws-pop-h">Quote Here<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button></div><p class="mini">No quotes yet. Select a passage in a source's PDF, or in your paper, and keep it as a quote.</p><button type="button" class="btn small" data-ws-go="quotes">Go to Quotes</button>`;
+    return `<div class="ws-pop-h">Quote Here<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button></div><p class="mini ws-pop-how">The quote goes in with its citation${note ? "" : " (and its page)"}</p><div class="ws-pop-list">${qs.map(x => { const sr = w.src.find(s => s.id === x.sid); return `<button type="button" class="ws-pop-s" data-ws-qhere="${esc(x.id)}"><b>“${esc(cut(x.t, 90))}”</b><span class="mini">${esc(CITE.runsText(citeOf(t, w, x.sid, x.p || "")))}${sr && sr.title ? " · " + esc(cut(sr.title, 40)) : ""}</span></button>`; }).join("")}</div>`;
+  }
+  return `${!note ? `<button type="button" class="btn small primary" data-ws-popm="cite">${sel ? "Cite After It" : "Cite Here"}</button>` : ""}${!sel ? `<button type="button" class="btn small" data-ws-popm="qhere">Quote Here</button>` : ""}${sel.length >= 3 ? `<button type="button" class="btn small${note ? " primary" : ""}" data-ws-popm="quote">Add Quote</button>` : ""}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>`;
 }
 // Cite Here: the citation in the paper (the draft, its note, or its linked doc, as a fix is), then checked again
 async function citeHere(t, sid){
@@ -105784,6 +105806,18 @@ async function citeHere(t, sid){
   W.pop = null;
   const n = await fixDraft(state.tasks[t.id], [pl.edit], `Added ${what} to your paper`);
   if (n) W.okMsg = `Added ${what} ${pl.kind === "mid" ? "in the sentence" : pl.quote ? "after the quotation" : "at the end of the sentence"}${l ? `, in ${l.name || "your " + ldName(l)}` : ""}.`;
+  if (shown()) draw();
+}
+// Quote Here: a saved quote put in at the place clicked, in quotation marks, with its citation (and page) right after it
+async function quoteHere(t, qid){
+  const w = wsOf(state.tasks[t.id]), P = W.pop, x = w.q.find(y => y.id === qid); if (!w.draft || !P || !x) return;
+  const text = w.draft.t, WD = /[\p{L}\p{N}'’-]/u; let p = P.b; while (p > 0 && WD.test(text[p - 1]) && WD.test(text[p] || "")) p--;
+  const note = styleFmt(styleOf(state.tasks[t.id], w)) === "note", paren = note ? "" : CITE.runsText(citeOf(state.tasks[t.id], w, x.sid, x.p || "")).trim();
+  const body = `“${String(x.t).trim().replace(/^["“‘']+|["”’']+$/g, "")}”${paren ? " " + paren : ""}`;
+  const pre = p > 0 && !/[\s(\[“"‘—-]/.test(text[p - 1]) ? " " : "", post = WD.test(text[p] || "") ? " " : "";
+  W.pop = null;
+  const n = await fixDraft(state.tasks[t.id], [{at: p, len: 0, from: "", to: pre + body + post}], "Added a quote to your paper");
+  if (n) W.okMsg = `Added the quote${paren ? " with " + paren : ""}.`;
   if (shown()) draw();
 }
 // Add Quote: the selected passage, kept as a quote from that source (and then Cite After It is one tap)
@@ -106333,7 +106367,7 @@ async function ldFix(t, count, rounds){
     else W.err = ldErrText(e);
     if (shown()) draw(); return 0;
   }
-  W.busy = ""; W.ldKey = (W.ldKey || 0) + 1;
+  W.busy = ""; W.ldKey = (W.ldKey || 0) + 1; if (W.ldSeen) delete W.ldSeen[l.id];
   keepLay(t.id, out.raw, out.lay);
   const w = ldSetDraft(t, out.raw, l, (w0.draft.fx || 0) + count), inv = ldInverse(base, rounds), fixed = w.draft ? w.draft.t : "";
   W.okMsg = `${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}, ${l.name}.${LIVEDOC.norm(out.raw).text === out.want ? "" : " It was being changed at the same time, so check what it says."}${l.p === "file" ? " Download it to get the fixed file." : ""}`;
@@ -106375,6 +106409,30 @@ async function ldWordList(q, dir){
   if (!r.ok) throw await ldApiErr(r, "OneDrive");
   const j = await r.json().catch(() => null), seen = new Set(), rows = (j && Array.isArray(j.value) ? j.value : []).map(ldRow).filter(x => x.id && !seen.has(x.id) && seen.add(x.id));
   return {folders: qq ? [] : rows.filter(x => x.folder).sort((a, b) => a.name.localeCompare(b.name)), items: rows.filter(x => !x.folder && /\.docx$/i.test(x.name)).sort((a, b) => b.at - a.at).slice(0, 60)};
+}
+// Kept up to date: while My Doc shows a linked doc, its version is asked for every few seconds (one small request); when it changes (you
+// wrote in it, here or in Google Docs or Word), it's read again, shown and checked. A hidden window or a fix in progress waits its turn.
+const ldVersion = async l => {
+  const C = ldCloud();
+  if (l.p === "google") { const r = await C.docApi("google", "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(l.id) + "?fields=version&supportsAllDrives=true", null, "raw"); if (!r.ok) return ""; const j = await r.json().catch(() => ({})); return String(j.version || ""); }
+  const j = await C.docApi("microsoft", ldItem(l) + "?$select=cTag,eTag", null, "maybe"); return j ? String(j.cTag || j.eTag || "") : "";
+};
+function ldWatch(t){
+  const w0 = wsOf(state.tasks[t.id]), l = ldOf(w0); if (!l || l.p === "file" || W.ldTimer) return;
+  W.ldSeen = W.ldSeen || {};
+  const stop = () => { clearInterval(W.ldTimer); W.ldTimer = 0; };
+  const tick = async () => {
+    const tt = state.tasks[t.id], ww = tt && wsOf(tt), lw = ww && ldOf(ww);
+    if (!shown() || W.hub || W.tid !== t.id || W.tab !== "doc" || W.view || !lw || lw.id !== l.id) { stop(); return; }
+    if (document.hidden || W.busy || W.ldTick) return;
+    W.ldTick = true;
+    try {
+      const v = await ldVersion(l);
+      if (v && W.ldSeen[l.id] && v !== W.ldSeen[l.id] && !W.busy) { W.ldSeen[l.id] = v; W.pop = null; await doCheck(state.tasks[t.id], {quiet: true}); if (shown() && W.tab === "doc") draw(); }
+      else if (v) W.ldSeen[l.id] = v;
+    } catch (e) {} finally { W.ldTick = false; }
+  };
+  W.ldTimer = setInterval(tick, l.p === "google" ? 3000 : 5000); tick();
 }
 // Word shows a file inside another page only as a preview; Microsoft's preview address, when it's one the app may show
 async function ldPreview(l){
@@ -106567,7 +106625,7 @@ function reviewHtml(){
     return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
       <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button>
-      <button type="button" class="btn small" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></li>`;
+      <button type="button" class="btn small primary" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></li>`;
   };
   const started = list.filter(hasData), next = list.filter(t => !hasData(t));
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
@@ -106754,7 +106812,7 @@ function wire(t){
     const paint = () => {
       let pop = wrap.querySelector(".ws-pop"); if (!W.pop) { if (pop) pop.remove(); const mk0 = wrap.querySelector(".ws-marks"); if (mk0) mk0.remove(); return; }
       if (!pop) { pop = document.createElement("div"); pop.className = "ws-pop"; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Cite or quote"); wrap.appendChild(pop); }
-      pop.innerHTML = popHtml(cur(), ws()); pop.classList.toggle("is-list", W.pop.mode === "cite" || W.pop.mode === "quote");
+      pop.innerHTML = popHtml(cur(), ws()); pop.classList.toggle("is-list", W.pop.mode === "cite" || W.pop.mode === "quote" || W.pop.mode === "qhere");
       // where you are: a blinking caret at the place clicked, or the selection kept marked
       let mk = wrap.querySelector(".ws-marks"); if (!mk) { mk = document.createElement("div"); mk.className = "ws-marks"; mk.setAttribute("aria-hidden", "true"); wrap.insertBefore(mk, pop); }
       mk.innerHTML = (W.pop.marks || []).map(m => `<span class="${m.w ? "ws-selm" : "ws-caret"}" style="left:${m.x}px;top:${m.y}px;height:${m.h}px${m.w ? `;width:${m.w}px` : ""}"></span>`).join("");
@@ -106763,6 +106821,7 @@ function wire(t){
       pop.querySelectorAll("[data-ws-popm]").forEach(b => b.addEventListener("click", () => { W.pop.mode = b.dataset.wsPopm; paint(); }));
       pop.querySelectorAll("[data-ws-popx]").forEach(b => b.addEventListener("click", () => { W.pop = null; paint(); }));
       pop.querySelectorAll("[data-ws-go]").forEach(b => b.addEventListener("click", () => { W.pop = null; W.tab = b.dataset.wsGo; draw(true); }));
+      pop.querySelectorAll("[data-ws-qhere]").forEach(b => b.addEventListener("click", () => quoteHere(cur(), b.dataset.wsQhere)));
       pop.querySelectorAll("[data-ws-pops]").forEach(b => b.addEventListener("click", () => { const sid = b.dataset.wsPops; if (W.pop.mode === "quote") quoteFromSel(cur(), sid); else citeHere(cur(), sid); }));
     };
     const pick = () => {
@@ -106809,6 +106868,7 @@ function wire(t){
     try { const b = await idbGet(ldKey(l)); if (!b) throw 0; if (await noteFileSave(l.name || "Draft.docx", new Uint8Array(await b.arrayBuffer()), DOCX)) toast(`Saved ${l.name}`); }
     catch (e) { W.err = `${l.name || "That Word file"} isn't on this device. Upload it again (Upload Draft).`; draw(); }
   });
+  if (W.tab === "doc" && !W.view) ldWatch(cur());
   on("[data-ws-ldshow]", "click", () => { W.ldShow = !W.ldShow; draw(); });
   on("[data-ws-ldoff]", "click", () => { const w = ws(), l = w.ld; if (!l) return; w.ld = null; if (w.draft && w.draft.ld) w.draft.ld = false; save(cur(), w, `Unlinked ${l.name || ldName(l)}`); W.okMsg = ""; W.err = ""; draw(); });
   on("[data-ws-ldcheck]", "click", async () => { const w = ws(); W.err = ""; W.okMsg = ""; if (ldOf(w)) await doCheck(cur(), {}); else if (w.ld) await ldLink(cur(), w.ld); if (shown()) draw(); });
@@ -109651,7 +109711,7 @@ function renameSheet(cid, mid){
 function delMap(cid, mid){
   const c = state.courses[cid], m = mapsOf(c).find(x => x.id === mid); if (!m) return;
   const after = Object.assign(clone(c), {maps: mapsOf(c).filter(x => x.id !== mid)}); delete after.cmap;
-  confirmSheet(`Delete ${m.name}?`, "The map's ideas, connections and styles are deleted. Your notes, decks and files stay as they are.", "Delete Map", () => applyChanges([{kind: "course", id: c.id, after}], `Deleted the map ${m.name}`, null, {quiet: true}));
+  confirmSheet(`Delete ${m.name}?`, "It goes to Recently Deleted (the bin by Sort) for 30 days, where you can restore it. Your notes, decks and files stay as they are.", "Delete Map", () => applyChanges([{kind: "course", id: c.id, after}], `Deleted the map ${m.name}`, null, {quiet: true}));
 }
 const ago = t => { if (!t) return ""; const d = Math.round((Date.now() - t) / 864e5); return d <= 0 ? "edited today" : d === 1 ? "edited yesterday" : d < 7 ? `edited ${d} days ago` : `edited ${new Date(t).toLocaleDateString(undefined, {month: "short", day: "numeric"})}`; };
 // counts for a map's card, without drawing it
@@ -109724,7 +109784,11 @@ function listHtml(){
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
   const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"]];
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
-  return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}</div>
+  // like Quizzes': Share With a Group (maps can be shared live with a study group), then Recently Deleted
+  const grpIc = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3 2.3 3 5"/></svg>';
+  const grpBtn = `<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share a map with a study group: everyone works on it together, live (a map's ⋯ menu > Share With a Group)">${grpIc}<span class="sm-lbl">Share With a Group</span></button>`;
+  const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
+  return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
