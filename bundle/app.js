@@ -10471,12 +10471,6 @@ const AI_ACTS = {
   "note-photo": () => photoNoteSheet(),
   "ask-course": el => askSheet(el.dataset.id || "")
 };
-
-/* The scrollbar track is not zoomed with the page, so scale its grid by the browser zoom to keep it lined up */
-(function(){
-  const set = () => { try { const z = window.outerWidth > 0 && innerWidth > 0 ? outerWidth / innerWidth : 1; document.documentElement.style.setProperty("--zf", String(Math.min(5, Math.max(.25, Math.round(z * 100) / 100)))); } catch(e) {} };
-  set(); addEventListener("resize", set);
-})();
 /* ===== module: 01-helpers.js: the app's core, backups, helpers, workload and shared pieces ===== */
 // Quick Capture (the C window, photo and screenshot capture, share sheet, links and its Settings) is switched off for now.
 // Set to false to bring it all back. The add bar's sentence reading (same parser) stays on either way.
