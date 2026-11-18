@@ -764,8 +764,10 @@ function open(kind, id, map){
   openSheet(`<div class="sheet cm-sheet sm-skip" style="--c:${esc(c ? c.color : "#2F6FE4")}"><div class="cm-top"><span class="cm-hic" aria-hidden="true">${ICON.replace('width="16" height="16"', 'width="18" height="18"')}</span>
     <div class="cm-tt"><span class="cm-kick">Concept Map${BETA ? ' <span class="sb-beta" title="Beta: still being improved">Beta</span>' : ""}</span><h2 class="cm-name">${esc(mp ? mp.name : ownerObj(o).title)}</h2></div>
     <div class="cm-tools" role="toolbar" aria-label="Concept map tools"></div><button type="button" class="icon-btn cm-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
-    <div class="cm-canvas" tabindex="-1"><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div><div class="cm-panel" aria-live="polite"></div></div></div>`);
+    <div class="cm-canvas" tabindex="-1"><canvas class="cm-dots" aria-hidden="true"></canvas><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div><div class="cm-panel" aria-live="polite"></div></div></div>`);
   M.el = dlg.querySelector(".cm-sheet");
+  // the dots follow the map's size (a phone turning, the window resizing)
+  const dc = M.el.querySelector(".cm-dots"); if (dc && window.ResizeObserver) new ResizeObserver(dotsSoon).observe(dc);
   rebuild();
   // a map with nothing connected yet starts with the course's notes, decks and files on show, ready to connect
   if (!same && !M.loose && M.g && !M.g.edges.length && M.g.loose.length) { M.loose = true; rebuild(); }
@@ -1483,12 +1485,27 @@ function drawHandles(){
   w.insertAdjacentHTML("beforeend", `<g class="cm-hdls" transform="translate(${p[0]},${p[1]})"><rect class="cm-rsz" x="${-bw / 2}" y="${-bh / 2}" width="${bw}" height="${bh}" rx="6" style="stroke-width:${1.5 / k}" hidden/>`
     + HANDLES.map(([d, dx, dy]) => `<rect class="cm-hdl h-${d}" data-hdl="${d}" x="${dx * bw / 2 - r}" y="${dy * bh / 2 - r}" width="${r * 2}" height="${r * 2}" rx="${d === "se" ? r : r * 0.5}" style="stroke-width:${1.5 / k}"><title>Drag to resize</title></rect>`).join("") + `</g>`);
 }
-// the map's place and zoom; the dotted background moves and scales with it (as on the notes board)
+// the map's place and zoom; the dotted background moves and scales with it (as on the notes board). The dots are drawn on a canvas at their
+// exact places: a repeating CSS background with a tile size like 31.37px is rounded to whole pixels tile by tile on iPhone, so the dots
+// jittered and shifted while the map moved
+function dotsDraw(){
+  M.dotsRaf = 0;
+  const cv = M.el && M.el.querySelector(".cm-canvas"), c = cv && cv.querySelector(".cm-dots"); if (!c || (M.pk && !M.pk.native)) return;
+  const w = c.clientWidth, h = c.clientHeight, dpr = Math.min(3, window.devicePixelRatio || 1); if (!w || !h) return;
+  const W = Math.round(w * dpr), H = Math.round(h * dpr); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const x = c.getContext("2d"); if (!x) return;
+  const k = M.view.k || 1; let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
+  x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h); x.fillStyle = getComputedStyle(c).color;
+  const ox = ((M.view.x % step) + step) % step, oy = ((M.view.y % step) + step) % step;
+  x.beginPath();
+  for (let py = oy - step; py < h + step; py += step) for (let px = ox - step; px < w + step; px += step) { x.moveTo(px + r, py); x.arc(px, py, r, 0, 6.2832); }
+  x.fill();
+  c.dataset.x = ox.toFixed(1); c.dataset.g = step.toFixed(2);
+}
+const dotsSoon = () => { if (!M.dotsRaf) M.dotsRaf = requestAnimationFrame(dotsDraw); };
 function viewT(){
   const cv = M.el && M.el.querySelector(".cm-canvas"), k = M.view.k || 1;
-  if (cv) { let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
-    cv.style.setProperty("--cmg", step.toFixed(2) + "px"); cv.style.setProperty("--cmr", r.toFixed(2) + "px");
-    cv.style.setProperty("--cmx", (M.view.x % step).toFixed(1) + "px"); cv.style.setProperty("--cmy", (M.view.y % step).toFixed(1) + "px");
+  if (cv) { dotsSoon();
     if (M.pk && !M.pk.native) { const tw = M.pk.tile.w * k, th = M.pk.tile.h * k; cv.style.setProperty("--pkw", tw.toFixed(2) + "px"); cv.style.setProperty("--pkh", th.toFixed(2) + "px"); cv.style.setProperty("--pkx", (((M.view.x % tw) + tw) % tw).toFixed(1) + "px"); cv.style.setProperty("--pky", (((M.view.y % th) + th) % th).toFixed(1) + "px"); } }
   return `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`;
 }
@@ -2221,8 +2238,10 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-ms{display:none}
 .cm-tog{display:flex;align-items:center;gap:6px;font-size:.88rem;white-space:nowrap}
 .cm-qt{font-size:.95rem}
-.cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:radial-gradient(circle,color-mix(in srgb,var(--ink) 11%,transparent) var(--cmr,1px),transparent calc(var(--cmr,1px) + .5px)) var(--cmx,0) var(--cmy,0)/var(--cmg,22px) var(--cmg,22px),var(--surface);touch-action:none}
-.cm-svg{width:100%;height:100%;display:block;cursor:grab;user-select:none;-webkit-user-select:none}
+.cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:var(--surface);touch-action:none}
+.cm-dots{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;color:color-mix(in srgb,var(--ink) 11%,transparent)}
+.cm-canvas.cm-pk .cm-dots{display:none}
+.cm-svg{position:relative;width:100%;height:100%;display:block;cursor:grab;user-select:none;-webkit-user-select:none}
 .cm-svg:active{cursor:grabbing}
 .cm-line{stroke:color-mix(in srgb,var(--ink) 28%,transparent);stroke-width:1.6}
 .cm-hit{stroke:transparent;stroke-width:14;cursor:pointer}
