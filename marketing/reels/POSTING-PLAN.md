@@ -4,7 +4,7 @@
 
 | When (PT) | Version | Hook | Metricool post |
 |---|---|---|---|
-| Tue Nov 17, 5:50 PM | D | "The final is cumulative?!" (Mochi) | 431858461 |
+| Tue Nov 17, 6:41 PM | D, **posted as a regular Reel** (the Trial Reel failed: follower minimum) | "The final is cumulative?!" (Mochi) | 432261430 |
 | Wed Nov 18, 5:50 PM | E | "“I work better under pressure”" (Packy) | 431891247 |
 
 Trial Reels don't auto-share to followers (`shareTrialAutomatically: false`). After ~72 h, compare each one's skip rate and 3-second hold with the original Nov 15 post; share the winner to the main grid from Instagram and use its hook style going forward.

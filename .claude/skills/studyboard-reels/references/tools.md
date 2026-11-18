@@ -30,7 +30,7 @@ Credits are limited (the plan had 150 a month in Nov 2026): check `vidiq_balance
 
 - Scheduling publishes on the user's behalf, so **always show the plan (reel, caption, date and time, network, regular or Trial) and get an explicit yes** before calling `createScheduledPost`. Never schedule unasked.
 - Media needs a public URL. Host the MP4 with `vidiq_video_upload` (`localFile`, free) and pass the returned `videoUrl`. Upload just before scheduling, because signed URLs expire.
-- Instagram: `instagramData.type` = `REEL`, or `TRIAL_REEL` for a hook test (it's shown to non-followers first). `audioConfiguration.audioId` can attach a song from Instagram's library by name on Business accounts linked to a Facebook Page. Ask the user which track (or suggest one that matches the reel's mood) rather than guessing.
+- Instagram: `instagramData.type` = `REEL`, or `TRIAL_REEL` for a hook test (shown to non-followers first). **Trial Reels need a follower minimum**; below it Instagram rejects them at publish time ("does not meet the trial reel follower requirement"), so small accounts should test hooks as regular Reels on separate days. `audioConfiguration.audioId` can attach a song from Instagram's library by name on Business accounts linked to a Facebook Page. Ask the user which track (or suggest one that matches the reel's mood) rather than guessing.
 - Use `videoCoverMilliseconds` to set the cover at the hook frame.
 - Put the comment-prompt in `firstCommentText` when it adds something beyond the caption.
 - `getScheduledPosts` to confirm, and give the user the `plannerUrl`s.
