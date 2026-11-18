@@ -212,7 +212,10 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   ok((await task(page, "m4")).status === "done" && (await task(page, "m5")).status !== "done", "a step only about the citations is ticked once the check finds nothing to fix; one that also says submit isn't");
   await page.click('nav.tabs [data-tab="flashcards"]'); await page.waitForTimeout(300);
   await act(page, "rv-view", "writing"); await page.waitForSelector(".wsr-card");
-  if (process.env.SHOT) { await page.waitForTimeout(400); await page.screenshot({path: process.env.SHOT + "wsr-cards.png"}); }
+  if (process.env.SHOT) {
+    await page.evaluate(() => { const s = window.__sbProStudy.state(), t = Object.values(s.tasks).find(x => x.ws && x.ws.draft); t.ws.draft.t = "Connor Pelkmans (53918363)\nSCIE 113 214\nPhilip Stamp\n3/12/2021\nHow does Toxoplasma gondii affect human behavior?\nEver since the first connection was made between infection with the protozoan parasite Toxoplasma gondii and behaviour in rodents (Webster, 2007), researchers have asked whether the same is true of people. Flegr (2013) argued it is."; window.__sbProStudy.render(); });
+    await page.waitForTimeout(500); await page.screenshot({path: process.env.SHOT + "wsr-cards.png"});
+  }
   // the paper on a card stays crisp when it lifts under the pointer: the same pixels at rest, part way and lifted (it moves in whole pixels, not tilting)
   {
     const pg = page.locator(".wsr-card .wsr-ph").first(); await page.mouse.move(5, 5); await page.waitForTimeout(300);

@@ -106305,6 +106305,35 @@ function drawHub(fresh){
   qa("[data-wh-add]").forEach(b => b.addEventListener("click", () => { const t = target(); if (!t) return; const x = Object.assign({}, library("")[Number(b.dataset.whAdd)]); delete x.from; delete x.id; const r = addItems(t, [x], `Added to ${t.title}`); if (!r.added) toast(`Already in ${t.title}`); }));
   wireZot(R, target, () => draw());
 }
+/* A paper's opening lines, read as a reader would: the header (student, teacher, course, date: MLA's, before the title) or a title page
+   (the title first, then the lines under it), the title, then where the body starts. Short lines before the first real paragraph are the
+   front matter; a date, a course code, a teacher's title (Dr., Prof., Ms.…) and a person's name are told apart, and the title is the line
+   after the date (MLA) or the one that's none of those. */
+const PM = "jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec";
+const P_DATE = new RegExp(`^(?:\\w+,\\s+)?(?:\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}|\\d{4}-\\d{2}-\\d{2}|(?:${PM})[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+\\d{4}|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${PM})[a-z]*\\.?,?\\s+\\d{4})$`, "i");
+const P_COURSE = /\b[A-Z]{2,5}\s?-?\d{2,4}[A-Z]?\b|\b(course|class|section|period|module|seminar|lecture)\b/;
+const P_TEACH = /^(dr|prof|professor|mr|mrs|ms|mx|miss|sir|madam|instructor|teacher|tutor|lecturer)\b\.?/i;
+const P_NAME = /^(?!(?:the|a|an|on|in|of|why|how|what|when|where|who|is|are|do|does|my|our)\b)[\p{Lu}][\p{L}'’-]+(?:\s+(?:[\p{Lu}][\p{L}'’.-]*|de|van|von|da|di|le|la)){1,3}(?:,?\s*[(\[]?[\w-]*\d{4,}[\w-]*[)\]]?)?$/iu;
+const P_SCHOOL = /\b(university|college|school|department|institute|faculty|academy)\b/i;
+function paperParts(raw){
+  const lines = String(raw || "").split("\n").map(l => l.replace(/\s+/g, " ").trim()); const head = []; let i = 0, n = 0;
+  for (; i < lines.length && n < 9; i++) {
+    const l = lines[i]; if (!l) continue; n++;
+    if (/^\d{1,3}$/.test(l) || /^(running head|page \d)/i.test(l)) continue;
+    if (l.length > 110 || (l.split(/\s+/).length > 14 && /[.!?]["”’)]?$/.test(l))) break;
+    head.push({t: l});
+  }
+  if (!head.length || head.length > 7 || i >= lines.length) return {head: [], title: "", body: lines.join(" ").replace(/\s+/g, " ").trim(), page: false};
+  let named = 0;
+  head.forEach(h => { const l = h.t; h.k = P_DATE.test(l) ? "date" : P_TEACH.test(l) ? "teacher" : P_SCHOOL.test(l) ? "school" : P_NAME.test(l) && !P_COURSE.test(l) ? (named++ ? "teacher" : "name") : P_COURSE.test(l) && l.split(/\s+/).length <= 6 ? "course" : "other"; });
+  const d = head.findIndex(h => h.k === "date");
+  // MLA: the title is the line after the date. A title page (APA) starts with the title, and its date (if any) is last
+  let ti = d >= 0 && d < head.length - 1 ? d + 1 : -1;
+  if (ti < 0 && head.length > 1 && head[0].k === "other") ti = 0;
+  if (ti < 0) { const o = head.map((h, k) => h.k === "other" ? k : -1).filter(k => k >= 0); ti = o.length ? o[o.length - 1] : head.length === 1 ? 0 : -1; }
+  const title = ti >= 0 ? head[ti].t : "", rest = head.filter((h, k) => k !== ti);
+  return {head: rest, title, body: lines.slice(i).filter(Boolean).join(" "), page: ti === 0 && rest.length > 0};
+}
 // The Writing view in Review: papers with Writing Studio, and essays and reports coming up
 function reviewHtml(){
   const today = todayISO(), f = typeof ui !== "undefined" && ui.filter && ui.filter !== "all" ? ui.filter : "";
@@ -106317,9 +106346,13 @@ function reviewHtml(){
     const w = wsOf(t), c = courseOf(t.courseId), ck = w.chk && w.draft && w.chk.h === w.draft.h ? w.chk : null, open = `data-act="ws-open" data-id="${esc(t.id)}"`;
     const line = hasData(t) ? [plural(w.src.length, "source"), plural(w.q.length, "quote"), !w.draft ? "no draft yet" : !ck ? "not checked yet" : ck.err ? `last check: ${ck.err} to fix` : "last check: all good"].join(" · ") : "Not started in Writing Studio";
     const badge = !hasData(t) ? ["new", "Not Started"] : !w.draft ? ["none", "No Draft Yet"] : !ck ? ["wait", "Not Checked"] : ck.err ? ["bad", `${ck.err} to Fix`] : ck.warn ? ["warn", `${ck.warn} to Look At`] : ["good", "All Good ✓"];
-    const snip = w.draft ? esc(cut(String(w.draft.t).replace(/\s+/g, " "), 340)).replace(/\([^()]{2,70}?(?:1[5-9]\d\d|20\d\d|n\.d\.)[a-z]?(?:,[^()]{0,20})?\)/g, m => `<mark>${m}</mark>`) : "";
+    const PP = w.draft ? paperParts(w.draft.t) : null;
+    const snip = PP ? esc(cut(PP.body, 340)).replace(/\([^()]{2,70}?(?:1[5-9]\d\d|20\d\d|n\.d\.)[a-z]?(?:,[^()]{0,20})?\)/g, m => `<mark>${m}</mark>`) : "";
     const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
-    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ph">${esc(cut(t.title, 60))}</span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
+    // laid out like the paper: MLA's header lines at the top left then the title centred, or a title page (the title, then its lines, centred)
+    const hd = PP && PP.head.length ? `<span class="wsr-hd${PP.page ? " is-tp" : ""}">${PP.head.map(h => `<span class="k-${h.k}">${esc(cut(h.t, 48))}</span>`).join("")}</span>` : "";
+    const ttl = `<span class="wsr-ph">${esc(cut(PP && PP.title ? PP.title : t.title, 70))}</span>`;
+    const page = `<span class="wsr-page${PP && PP.page ? " is-tp" : ""}" aria-hidden="true">${PP && PP.page ? ttl + hd : hd + ttl}${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
     return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
       <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button>
@@ -106834,7 +106867,11 @@ svg.ws-zic{display:block;flex:none}
 .wsr-page{rotate:1.5deg;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:5px;text-align:left;overflow:hidden;color:#2B2F3A;transition:translate .2s steps(4,end);will-change:translate;-webkit-font-smoothing:antialiased;backface-visibility:hidden}
 .wsr-page::after{content:"";position:absolute;right:0;top:0;width:16px;height:16px;background:linear-gradient(225deg,color-mix(in srgb,var(--c) 28%,var(--surface)) 50%,color-mix(in srgb,#000 10%,#fff) 50%);border-bottom-left-radius:4px}
 .wsr-card:hover .wsr-page{translate:0 -4px}
-.wsr-ph{font:700 .62rem/1.25 Georgia,"Times New Roman",serif;text-align:center;color:#1E2230;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 10px}
+.wsr-ph{font:700 .6rem/1.25 Georgia,"Times New Roman",serif;text-align:center;color:#1E2230;padding:0 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex:none}
+.wsr-hd{display:grid;gap:0;font:.45rem/1.45 Georgia,"Times New Roman",serif;color:#3A3F4C;flex:none}
+.wsr-hd > span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wsr-hd.is-tp{text-align:center;margin-top:2px}
+.wsr-page.is-tp .wsr-ph{margin-top:6px}
 .wsr-pt{font:.5rem/1.55 Georgia,"Times New Roman",serif;color:#4A5060;text-indent:1.4em;-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
 .wsr-pt mark{background:color-mix(in srgb,var(--c) 26%,#fff);color:inherit;border-radius:2px;padding:0 1px}
 .wsr-pl{flex:1;background:repeating-linear-gradient(180deg,#D9DCE3 0 3px,transparent 3px 9px);margin:4px 2px 0;opacity:.8;-webkit-mask-image:linear-gradient(90deg,#000 70%,transparent 96%),linear-gradient(#000 50%,transparent);mask-image:linear-gradient(#000 50%,transparent)}
