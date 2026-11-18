@@ -18513,11 +18513,11 @@ const nbColor = b => { const c = b && b.courseId && courseOf(b.courseId); return
 function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
-  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
+  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}"${id ? ` data-sort-id="${esc(id)}"` : ""} data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
   // Only the tabs are in the tab list; the board's options and New Note Board come just after it (a list of tabs holding other
   // buttons reads as broken tabs). The list is display:contents, so the row looks the same.
   const opts = cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : "";
-  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
+  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards" data-sortable="noteboards" title="Drag a board's tab to move it">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Note Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
@@ -22933,16 +22933,19 @@ function applyTheme(){
 }
 function setTheme(p){ try { if (p === "system") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, p); } catch(e) {} applyTheme(); }
 // The window buttons' strip matches what's under it
+// The window buttons sit on the app (no strip of their own, nothing white across the top): their background is see-through, and their
+// symbols are dark on a light theme and light on a dark one (what's at the top of the page: its paper colour)
 function deskTint(){
   try {
-    const wide = innerWidth >= 980;
-    const hex = c => { const m = String(c).match(/\d+(\.\d+)?/g); if (!m || m.length < 3) return ""; return "#" + m.slice(0, 3).map(x => Math.round(+x).toString(16).padStart(2, "0")).join(""); };
-    let col = wide ? hex(getComputedStyle(document.body).backgroundColor) : "";
-    if (!col || col === "#000000" && /,\s*0\)$/.test(getComputedStyle(document.body).backgroundColor)) col = getComputedStyle(document.documentElement).getPropertyValue("--spine").trim() || "#0E2A56";
-    const v = parseInt(col.slice(1, 7), 16), lum = ((v >> 16 & 255) * .299 + (v >> 8 & 255) * .587 + (v & 255) * .114) / 255;
-    DESK.setTitleBar(col, lum > .6 ? "#1F2937" : "#FFFFFF");
+    const cs = getComputedStyle(document.documentElement), m = String(getComputedStyle(document.body).backgroundColor).match(/\d+(\.\d+)?/g);
+    let rgb = m && m.length >= 3 && !(m.length > 3 && +m[3] === 0) ? m.slice(0, 3).map(Number) : null;
+    if (!rgb) { const pc = (cs.getPropertyValue("--paper") || cs.getPropertyValue("--bg")).trim(), h = /^#([0-9a-f]{6})/i.exec(pc); rgb = h ? [0, 2, 4].map(i => parseInt(h[1].slice(i, i + 2), 16)) : (isDark() ? [20, 24, 36] : [240, 242, 248]); }
+    const lum = (rgb[0] * .299 + rgb[1] * .587 + rgb[2] * .114) / 255;
+    DESK.setTitleBar("#00000000", lum > .55 ? "#1F2937" : "#FFFFFF");
   } catch(e) {}
 }
+// at the top the strip is see-through; once the page scrolls under the window buttons, a light frosted strip comes in behind them
+if (DESK) { let sc = false; const onSc = () => { const y = (document.scrollingElement || document.documentElement).scrollTop || 0, v = y > 4; if (v !== sc) { sc = v; document.body.classList.toggle("desk-sc", v); } }; window.addEventListener("scroll", onSc, {passive: true}); }
 let deskTintT = 0;
 if (DESK) window.addEventListener("resize", () => { clearTimeout(deskTintT); deskTintT = setTimeout(deskTint, 150); });
 if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (themePref() === "system") applyTheme(); });
@@ -24338,10 +24341,23 @@ window.__sbPlanObj = () => PLAN;
   const siteLinks = () => document.querySelectorAll("a[data-site-link]").forEach(a => { if (siteLinkOk()) { a.href = siteBase() + "/"; a.setAttribute("aria-label", "Studyboard website"); } else { a.removeAttribute("href"); a.removeAttribute("title"); } });
   document.addEventListener("click", e => { const a = e.target.closest && e.target.closest("a[data-site-link]"); if (!a) return; e.preventDefault(); if (window.matchMedia && matchMedia("(max-width:639px)").matches) return; if (siteLinkOk()) openExternal(siteUrl("/", {})); });
   siteLinks(); window.addEventListener("load", siteLinks); setTimeout(siteLinks, 4000);
-  function openExternal(url){
+  // held: a tab opened at the tap (holdTab), sent to the address now
+  function openExternal(url, held){
+    if (held && !held.closed) { try { held.location.replace(url); return; } catch (e) {} }
     try { const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser; if (B && B.open) { B.open({url}); return; } } catch (e) {}
     window.open(url, "_blank", "noopener");
   }
+  // A checkout's address comes from the server a moment after the tap, and by then the browser no longer counts the tap and blocks a new tab
+  // ("Pop-ups blocked"). So in a browser the tab is opened at the tap, showing "Opening checkout…", and sent to the checkout once its address
+  // arrives (or closed if there's none). The apps open checkout their own way.
+  function holdTab(){
+    if (DESK || nativeShell()) return null;
+    let w = null; try { w = window.open("", "_blank"); } catch (e) { w = null; }
+    if (!w) return null;
+    try { w.opener = null; w.document.title = "Opening checkout…"; w.document.body.style.cssText = "margin:0;display:grid;place-items:center;min-height:100vh;font:600 16px system-ui,sans-serif;color:#475569;background:#F8FAFC"; w.document.body.textContent = "Opening checkout…"; } catch (e) {}
+    return w;
+  }
+  const dropTab = w => { try { if (w && !w.closed) w.close(); } catch (e) {} };
   const WATCH_MS = 2 * 60000, AWAIT_MS = 30 * 60000;
   let pollUntil = 0, pollT = 0;
   function watchPurchase(){
@@ -24489,10 +24505,12 @@ window.__sbPlanObj = () => PLAN;
     }
     if (sb && sbUser && !sbUser.is_anonymous && !P.buying) {
       P.buying = true; toast("Opening checkout…");
+      const held = holdTab();
       directCheckout(period).then(r => {
-        if (r && r.url) { openExternal(r.url); toast("Finish in the checkout page that just opened. Pro turns on here by itself."); watchPurchase(); return; }
+        if (!(r && r.url) && !(!(r && r.message) && siteReady())) dropTab(held);
+        if (r && r.url) { openExternal(r.url, held); toast("Finish in the checkout page that just opened. Pro turns on here by itself."); watchPurchase(); return; }
         if (r && r.message) { toast(r.message); return; }
-        if (siteReady()) { openExternal(siteUrl("/account", {plan: period})); toast("Finish in the page that just opened, then come back here. Pro turns on by itself."); watchPurchase(); return; }
+        if (siteReady()) { openExternal(siteUrl("/account", {plan: period}), held); toast("Finish in the page that just opened, then come back here. Pro turns on by itself."); watchPurchase(); return; }
         toast("Couldn't open checkout. Check your connection and try again.");
       }).finally(() => { P.buying = false; });
       return true;
@@ -24823,7 +24841,7 @@ window.__sbPlanObj = () => PLAN;
     // the semester plan when it's on sale here: its price, and whether it's paid once (App Store, Google Play) or renews (website)
     semester: () => { try { return semesterOn() ? {price: semPrice(), once: !!semOnce()} : null; } catch (e) { return null; } },
     devicesSheet: () => devicesSheet(false),
-    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, plusNow, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, plusNow, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, holdTab, dropTab, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,
@@ -72372,8 +72390,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
         if (was !== JSON.stringify([C.balance, C.owned])) {
           if (before && C.balance > before.balance) {
             const got = C.balance - before.balance;
+            const bought = !!pending;
             if (pending) { added = {credits: got, balance: C.balance}; pending = null; }
-            if (!(dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])"))) toast(`${got} credits added. You have ${C.balance}.`);
+            // bought credits arrive in a burst of light, like a new companion prop (anything else just says so)
+            if (bought) { const bal = C.balance; setTimeout(() => burst(got, bal), 120); } // after the Credits sheet is drawn again, so it sits on top
+            else if (!(dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])"))) toast(`${got} credits added. You have ${C.balance}.`);
           }
           try { applySkin(); } catch (e) {}
           scheduleRender(); redrawOpen();
@@ -72390,7 +72411,17 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const tick = () => { if (Date.now() > watchUntil) return; load(); watchT = setTimeout(tick, 8000); };
     watchT = setTimeout(tick, 5000);
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() < watchUntil) load(); });
+  // The balance is the server's: it's asked again whenever you come back to Studyboard (at most every 20 seconds), so a balance that changed
+  // elsewhere (a refund, another tab or device) never shows an old number
+  let lastBack = 0;
+  const backAgain = () => { if (document.hidden || !enabled() || !signedIn()) return; if (Date.now() < watchUntil || Date.now() - lastBack > 20000) { lastBack = Date.now(); load(); } };
+  document.addEventListener("visibilitychange", backAgain);
+  window.addEventListener("focus", backAgain);
+  // another Studyboard tab saved a newer balance: show it here too
+  window.addEventListener("storage", e => {
+    if (e.key !== K || !e.newValue) return;
+    try { const n = JSON.parse(e.newValue), u = usr(); if (!n || !u || n.uid !== u.id) return; C = n; rebuild(); try { applySkin(); } catch (x) {} scheduleRender(); redrawOpen(); } catch (x) {}
+  });
 
   /* ---------- Sheets ---------- */
   let backToShop = false;
@@ -72562,16 +72593,18 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!planOk() || !PLAN.checkoutCall) return;
     const all = dlg.querySelectorAll(".sbc-pack"); all.forEach(b => { b.disabled = true; });
     if (btn) btn.classList.add("busy");
+    const held = PLAN.holdTab ? PLAN.holdTab() : null;
     const r = await PLAN.checkoutCall({pack: id});
     all.forEach(b => { if (b.isConnected) b.disabled = false; });
     if (btn && btn.isConnected) btn.classList.remove("busy");
     if (r && r.url) {
       const pk = ((mine() || {}).packs || []).find(x => x.id === id) || {};
       pending = {pack: id, credits: +pk.credits || 0, url: r.url, at: Date.now(), from: balance()}; added = null;
-      PLAN.openExternal(r.url); watch();
+      PLAN.openExternal(r.url, held); watch();
       if (dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])")) packsSheet();
       return;
     }
+    if (PLAN.dropTab) PLAN.dropTab(held);
     toast((r && r.message) || "Couldn't open checkout. Check your connection and try again.");
   }
 
@@ -72617,7 +72650,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
      button. Hidden from Pro subscribers, who have every item, unless they've bought credits or still have some. */
   const bought = () => { const m = mine(); return !!(m && m.bought); };
   const showBar = () => enabled() && (!PLAN.isPro() || bought() || balance() > 0);
-  const origShop = styleShop;
+  const origShop = styleShop; let shopAsked = 0;
   styleShop = function(){
     const r = origShop.apply(this, arguments);
     try {
@@ -72630,6 +72663,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
         hd.classList.add("has-cr");
       }
       label(dlg);
+      // the shop asks for the balance as it opens (it redraws if the number changed)
+      if (enabled() && signedIn() && Date.now() - shopAsked > 5000) { shopAsked = Date.now(); load(); }
     } catch (e) { console.warn("credits pill", e); }
     return r;
   };
@@ -72645,7 +72680,52 @@ You can also DO things in Studyboard, but only when the student asks or what the
   // Rows the shop fills in later (collections, See All) get their prices too
   try { new MutationObserver(() => { if (dlg.open && dlg.querySelector('[data-act="shop-unlock"]:not([data-cr])')) label(dlg); }).observe(dlg, {childList: true, subtree: true}); } catch (e) {}
 
-  window.SBCREDITS = {owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
+  /* Credits you bought: shown in the middle of the screen in a burst of light, the number counting up in the middle (the same look as a new
+     companion prop, 98-companion.css .cpu) */
+  const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/></svg>';
+  const calm = () => { try { return (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
+  function burst(got, bal){
+    got = Math.max(0, Math.round(+got || 0)); if (!got) return;
+    const old = document.querySelector(".cpu.sbc-burst"); if (old) old.remove();
+    const still = calm(), o = document.createElement("div");
+    o.className = "cpu sbc-burst" + (still ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "sbcBurstName"); o.setAttribute("aria-describedby", "sbcBurstHow");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
+    const n = got.toLocaleString();
+    o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
+      <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
+        ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
+        <span class="cpu-prop sbc-bnum"><b data-sbc-count style="font-size:${n.length > 5 ? 2.1 : n.length > 4 ? 2.5 : 3}rem">${still ? n : "0"}</b><small>credits</small></span></div>
+      <span class="cpu-kick">Credits Added!</span><h2 class="cpu-name" id="sbcBurstName">+${n} Credits</h2>
+      <p class="cpu-how" id="sbcBurstHow">Thanks for your purchase. You have ${(+bal || 0).toLocaleString()} credits to spend.</p>
+      <div class="cpu-acts"><button type="button" class="btn cpu-wear" data-sbc-burst="ok">Got It</button></div></div>`;
+    // inside an open window (the Credits sheet): a modal window leaves everything outside it untouchable
+    (dlg.open ? dlg : document.body).appendChild(o);
+    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
+    // the number counts up as the disc pops in
+    const el = o.querySelector("[data-sbc-count]");
+    if (!still) { const t0 = performance.now() + 250, dur = Math.min(1400, 600 + got * 2);
+      const step = now => { if (!o.isConnected) return; const f = Math.max(0, Math.min(1, (now - t0) / dur)), e = 1 - Math.pow(1 - f, 3); el.textContent = Math.round(got * e).toLocaleString(); if (f < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step); }
+    const back = document.activeElement;
+    setTimeout(() => { const b = o.querySelector("[data-sbc-burst]"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    let closed = false;
+    const close = () => {
+      if (closed) return; closed = true; o.classList.add("cpu-out");
+      setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); }, still ? 0 : 260);
+      try { if (back && back.isConnected && back.focus) back.focus({preventScroll: true}); } catch (e) {}
+    };
+    o.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-sbc-burst]")) close(); });
+    o.addEventListener("keydown", e => { if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); if (e.key === "Escape") close(); } });
+  }
+  if (!document.getElementById("sbc-burst-css")) { const st = document.createElement("style"); st.id = "sbc-burst-css";
+    st.textContent = `.sbc-bnum{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:0;color:#7A4A00;font-family:var(--display)}
+.sbc-bnum b{font:900 3rem/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.02em;text-shadow:0 2px 0 rgba(255,255,255,.7)}
+.sbc-bnum small{margin-top:2px;font:800 .78rem/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:#A0670A}
+.sbc-bnum b:not(:only-child){max-width:136px;overflow:hidden}`;
+    document.head.appendChild(st); }
+  window.SBCREDITS = {burst, owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
     // For tests: what this device remembers
     state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
   if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), pending: () => pending, added: () => added, comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
@@ -80511,6 +80591,17 @@ function decorateDeck(){
       const ch = ids.map((id, i) => state.courses[id] && state.courses[id].order !== i * 10 ? {kind: "course", id, after: Object.assign(clone(state.courses[id]), {order: i * 10})} : null).filter(Boolean);
       if (ch.length) applyChanges(ch, "Courses reordered");
     } else if (kind === "groups") { try { localStorage.setItem("studyboard:grpOrder", JSON.stringify(ids)); } catch (e) {} }
+    // note boards: the order of their tabs (My Notes stays first)
+    else if (kind === "noteboards") {
+      const all = Array.isArray(state.settings && state.settings.noteBoards) ? state.settings.noteBoards : [], by = new Map(all.map(b => [b && b.id, b]));
+      const list = ids.map(id => by.get(id)).filter(Boolean).concat(all.filter(b => b && !ids.includes(b.id)));
+      if (list.some((b, i) => b !== all[i])) { state.settings = Object.assign({}, state.settings, {noteBoards: list}); saveSettings(); render(); }
+    }
+    // whiteboards: each keeps its place in the tabs (one change, so Undo puts them back)
+    else if (kind === "wb") {
+      const ch = ids.map((id, i) => state.notes[id] && state.notes[id].wbOrd !== i ? {kind: "note", id, after: Object.assign(clone(state.notes[id]), {wbOrd: i})} : null).filter(Boolean);
+      if (ch.length) applyChanges(ch, "Whiteboards reordered");
+    }
   };
   const begin = () => {
     const r = st.item.getBoundingClientRect();
@@ -80522,6 +80613,8 @@ function decorateDeck(){
     // Where it will land: a dashed outline the card's size, as on Flashcards and Quizzes (the card itself waits, hidden, until the drop)
     const ph = document.createElement("div"); ph.className = "placeholder sort-ph"; ph.dataset.sortId = st.item.dataset.sortId;
     ph.style.height = r.height + "px";
+    // a tab in a row of tabs keeps its width too
+    if (st.box.classList.contains("nb-tlist")) { ph.style.width = r.width + "px"; ph.style.flex = "none"; }
     // the card's corners (a course's wrapper has none of its own: the card inside it is the rounded one)
     const kid = st.item.firstElementChild, rad = getComputedStyle(st.item).borderTopLeftRadius;
     ph.style.borderRadius = parseFloat(rad) || !kid ? rad : getComputedStyle(kid).borderTopLeftRadius;
@@ -96933,7 +97026,12 @@ var SBWB = null;
 
   /* Boards */
   const isBoard = n => !!(n && n.wb && !n.archived);
-  const boards = () => Object.values(state.notes || {}).filter(isBoard).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
+  // in the order they were made (a new one goes at the end), or as dragged: editing one doesn't move it
+  const boards = () => Object.values(state.notes || {}).filter(isBoard).sort((a, b) => ord(a) - ord(b) || (a.created || 0) - (b.created || 0) || String(a.id).localeCompare(String(b.id)));
+  // where it was dragged to in the tabs (wbOrd), else after those, in the order made
+  const ord = b => typeof b.wbOrd === "number" ? b.wbOrd : 1e6;
+  // the one to open on: the last one written on
+  const lastEdited = () => Object.values(state.notes || {}).filter(isBoard).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
   const boardName = n => String((n && n.text) || "").split("\n")[0].trim() || "Untitled Whiteboard";
   ui.notesView = ui.notesView || (lsGet(K_VIEW) === "wb" ? "wb" : "board");
   const on = () => ui.notesView === "wb";
@@ -96942,7 +97040,7 @@ var SBWB = null;
     const ok = id => id && isBoard(state.notes[id]);
     if (ok(ui.wbCur)) return ui.wbCur;
     const s = lsGet(K_CUR); if (ok(s)) return (ui.wbCur = s);
-    const b = boards()[0]; return (ui.wbCur = b ? b.id : "");
+    const b = lastEdited()[0]; return (ui.wbCur = b ? b.id : "");
   }
   function create(name, tpl, courseId, extra){
     const now = Date.now();
@@ -97908,10 +98006,10 @@ var SBWB = null;
     const list = boards(), cur = curId();
     const extra = fire("wb-head", cur).filter(Boolean).join("");
     const DOTS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>';
-    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>`; };
+    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" data-sort-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>`; };
     // (the options button follows the tab list rather than sitting inside it among the tabs)
     const opts = list.some(b => b.id === cur) ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options">${DOTS}</button>` : "";
-    const strip = list.length ? `<div class="nb-boards wb-boards"><div class="nb-tlist" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>${opts}</div>` : "";
+    const strip = list.length ? `<div class="nb-boards wb-boards"><div class="nb-tlist" role="tablist" aria-label="Whiteboards" data-sortable="wb" title="Drag a whiteboard's tab to move it">${list.map(tab).join("")}</div>${opts}</div>` : "";
     const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all" aria-label="All Whiteboards" title="All Whiteboards">All</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
     if (!list.length) return headHtml + `<div class="wb-empty"><div class="wb-empty-in"><h3>Start a Whiteboard</h3><p>Sketch, write and plan with markers on a big board you can zoom around.</p>
       <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Whiteboard</b><span class="mini">Start from a clean white board</span></span></button>
@@ -107133,7 +107231,10 @@ css.textContent = `
 dialog:has(.ws-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px);height:min(92dvh,1000px)}
 .ws-sheet{display:flex;flex-direction:column;height:100%;max-height:inherit}
 .ws-sheet > .ws-body{flex:1 1 auto}
-@media (max-width:640px){dialog:has(.ws-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}}
+@media (max-width:640px){dialog:has(.ws-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}
+  /* full screen on a phone: the header starts below the status bar and the Dynamic Island, with its colour carried up behind them */
+  .ws-sheet{padding-top:env(safe-area-inset-top,0px);box-sizing:border-box}
+  .ws-sheet>.g2-sheet-head::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:env(safe-area-inset-top,0px);background:linear-gradient(120deg,color-mix(in srgb,var(--c) 90%,#000),color-mix(in srgb,var(--c) 60%,var(--surface)));pointer-events:none}}
 .ws-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 20px 0;border-bottom:1px solid var(--line)}
 /* Zotero's Z: its red, centred on the label beside it */
 svg.ws-zic{display:block;flex:none}
@@ -108299,7 +108400,7 @@ const CMAP = (() => {
   }
   /* Embeds (Pro): a link from a site that's made to be embedded becomes a player on the map.
      Only these hosts can be framed (the app's Content-Security-Policy lists the same EMBED_HOSTS); anything else stays a link. */
-  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com"];
+  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com", "studyboardapp.com"];
   // exact sites only (no wildcards: the app's security policy frames named sites, never a whole domain such as every school's sharepoint.com)
   const hostOk = host => EMBED_HOSTS.includes(host);
   const PROVIDERS = {youtube: "YouTube", vimeo: "Vimeo", loom: "Loom", gdoc: "Google Docs", gslides: "Google Slides", gsheet: "Google Sheets", gdrive: "Google Drive", desmos: "Desmos", geogebra: "GeoGebra", phet: "PhET Simulation", spotify: "Spotify", ted: "TED Talk", canva: "Canva", mword: "Word", mexcel: "Excel", mppt: "PowerPoint", m365: "Microsoft 365"};
@@ -108747,18 +108848,26 @@ function open(kind, id, map){
   Object.assign(M, {own: o, sel: "", selE: "", connect: "", quiz: null, sug: null, err: "", busy: false, menu: "", looks: false, lookScrolled: false, styleOpen: false, cardsOpen: false, made: null, pick: "", lastTap: null});
   if (!same) { M.loose = false; M.know = o.kind === "exam" && !isLocked(); M.undoS = []; M.redoS = []; }
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
-  const mp = mapOf(o);
+  const mp = mapOf(o); M.imgTry = {};
   // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
   // sm-skip: the app's fade-in for new content stays out of the map (it would fade every redraw, menu and the video player)
   openSheet(`<div class="sheet cm-sheet sm-skip" style="--c:${esc(c ? c.color : "#2F6FE4")}"><div class="cm-top"><span class="cm-hic" aria-hidden="true">${ICON.replace('width="16" height="16"', 'width="18" height="18"')}</span>
     <div class="cm-tt"><span class="cm-kick">Concept Map${BETA ? ' <span class="sb-beta" title="Beta: still being improved">Beta</span>' : ""}</span><h2 class="cm-name">${esc(mp ? mp.name : ownerObj(o).title)}</h2></div>
     <div class="cm-tools" role="toolbar" aria-label="Concept map tools"></div><button type="button" class="icon-btn cm-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
-    <div class="cm-canvas" tabindex="-1"><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div><div class="cm-panel" aria-live="polite"></div></div></div>`);
+    <div class="cm-canvas" tabindex="-1"><canvas class="cm-dots" aria-hidden="true"></canvas><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div><div class="cm-panel" aria-live="polite"></div></div></div>`);
   M.el = dlg.querySelector(".cm-sheet");
+  // the dots follow the map's size (a phone turning, the window resizing)
+  const dc = M.el.querySelector(".cm-dots"); if (dc && window.ResizeObserver) new ResizeObserver(dotsSoon).observe(dc);
   rebuild();
   // a map with nothing connected yet starts with the course's notes, decks and files on show, ready to connect
   if (!same && !M.loose && M.g && !M.g.edges.length && M.g.loose.length) { M.loose = true; rebuild(); }
   requestAnimationFrame(() => { fit(); paint(); });
+  // Safari on iPhone can leave slices of the boxes where they were while the window slid up (it doesn't repaint the drawing after it
+  // moves), so the map is drawn again once the window has arrived
+  const el0 = M.el, again = () => { if (M.el === el0 && el0.isConnected && !el0.querySelector(".cm-svg .is-drag") && !(document.activeElement && el0.contains(document.activeElement) && /^(INPUT|TEXTAREA)$|^true$/.test(document.activeElement.isContentEditable ? "true" : document.activeElement.tagName))) paint(); };
+  let settled = false; const onEnd = e => { if (e.target === dlg || (e.target.contains && e.target.contains(el0))) settle(); };
+  const settle = () => { if (settled) return; settled = true; dlg.removeEventListener("animationend", onEnd); again(); };
+  dlg.addEventListener("animationend", onEnd); setTimeout(settle, 650);
   wireCanvas();
   paint();
 }
@@ -108774,10 +108883,18 @@ function nodeColor(n, know){
 }
 // a box's outline: w x h centred on 0,0
 // a picture's address on this device (from the same store as picture cards), loaded the first time it's drawn
+// A picture that couldn't be had yet (the map drawn before signing in had finished, or the download failed) is asked for again a little later,
+// a few times, instead of staying a grey box until the app is opened again
 function imgUrl(k){
-  if (M.imgs[k] !== undefined) return M.imgs[k];
-  M.imgs[k] = "";
-  Promise.resolve(window.SBPRO && SBPRO.imageBlob ? SBPRO.imageBlob(k) : null).then(b => { M.imgs[k] = b ? URL.createObjectURL(b) : ""; if (b && shown()) paint(); }).catch(() => {});
+  if (M.imgs[k]) return M.imgs[k];
+  const F = M.imgTry || (M.imgTry = {}), f = F[k] || (F[k] = {n: 0, busy: false, at: 0});
+  if (f.busy || f.n >= 8 || Date.now() < f.at) return "";
+  f.busy = true; f.n++;
+  const fail = () => { f.busy = false; f.at = Date.now() + Math.min(30000, 1500 * Math.pow(2, f.n - 1)); if (f.n < 8) setTimeout(() => { if (shown() && !M.imgs[k]) paint(); }, f.at - Date.now() + 50); };
+  Promise.resolve(window.SBPRO && SBPRO.imageBlob ? SBPRO.imageBlob(k) : null).then(b => {
+    if (!b) { fail(); return; }
+    f.busy = false; M.imgs[k] = URL.createObjectURL(b); if (shown()) paint();
+  }).catch(fail);
   return "";
 }
 async function smallJpeg(file, max){
@@ -108794,6 +108911,16 @@ const GOOGLE = new Set(["gdoc", "gslides", "gsheet", "gdrive"]);
 const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with the link can view (or File, Share, Publish to web).";
 // Word, Excel and PowerPoint: a personal OneDrive file shows from its Embed code; a school or work file shows to people signed in to that school's Microsoft 365
 const MS365 = new Set(["mword", "mexcel", "mppt", "m365"]);
+// In the iPhone and desktop apps a YouTube video plays inside a small page on the Studyboard website (yt-embed.html), which holds the player:
+// YouTube refuses a player whose page is an app address (capacitor://localhost, app://studioso; "Error 153"), and an app can't change what
+// its frames send. The web version frames YouTube directly.
+const NATIVE_APP = () => (typeof DESK !== "undefined" && DESK) || !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
+const ytRef = (src, native = NATIVE_APP()) => {
+  const m = /^https:\/\/www\.youtube-nocookie\.com\/embed\/([\w-]{11})(?:\?(.*))?$/.exec(String(src || ""));
+  if (!native || !m) return src;
+  const q = new URLSearchParams(m[2] || ""), t = parseInt(q.get("start") || "0", 10) || 0;
+  return "https://studyboardapp.com/yt-embed.html?v=" + m[1] + (t > 0 ? "&t=" + t : "") + (q.get("autoplay") === "1" ? "&ap=1" : "");
+};
 const MS_TIP = "From OneDrive: File, Share, Embed, then paste the code here. A school or work file shows to anyone signed in to that Microsoft 365 who can open it.";
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
@@ -108823,7 +108950,7 @@ function player(id){
   closePlayer();
   const n = M.byId[id]; if (!n || !n.emb || !CMAP.embedOk(n.emb.e)) return;
   const e = n.emb, name = n.label || embInfo(e).tt || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
-  const src = e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e;
+  const src = ytRef(e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e);
   cv.insertAdjacentHTML("beforeend", `<div class="cm-player${vid && e.p !== "spotify" ? " is-video" : e.p === "spotify" ? " is-audio" : ""}" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><span class="cm-embdot" style="background:${EMB_COL[e.p] || "#475569"}"></span><b>${esc(name)}</b><span class="spacer"></span><a class="btn small" href="${esc(e.u)}" target="_blank" rel="noopener noreferrer">Open in ${esc(CMAP.PROVIDERS[e.p] || "Browser")}</a><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">×</button></div>
     ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}${e.p === "spotify" ? `<p class="mini cm-player-tip">Spotify plays whole songs and episodes here only when you're signed in to Spotify in this browser; otherwise it plays a 30-second preview. Open in Spotify plays the whole thing.</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; storage-access" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div></div>`);
   const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
@@ -108885,7 +109012,7 @@ function liveSync(){
   if (!phone && shown()) {
     const R = cv.getBoundingClientRect();
     cv.querySelectorAll(".cm-emb.is-live").forEach(g => {
-      const src = g.dataset.src, r = g.firstElementChild.getBoundingClientRect(), nd = g.closest(".cm-node");
+      const src = ytRef(g.dataset.src), r = g.firstElementChild.getBoundingClientRect(), nd = g.closest(".cm-node");
       if (want.length >= LIVE_MAX || !CMAP.embedOk(src) || !nd || r.width < 90 || r.right < R.left || r.left > R.right || r.bottom < R.top || r.top > R.bottom) return;
       want.push({k: nd.dataset.n + " " + src, src, x: r.left - R.left, y: r.top - R.top, w: r.width, h: r.height});
     });
@@ -109219,7 +109346,7 @@ function styleHtml(n){
   const fs = n.size || (n.root ? 15 : 13), sc = n.scale || 1;
   const pkd = M.pk && !M.pk.native && !M.know && !n.img && !n.emb;
   return `${pkd ? `<p class="mini cm-pknote">This map's style draws the boxes. Colours, fonts and text still change here.</p>` : ""}<div class="cm-row cm-style"${pkd ? " hidden" : ""}><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
-    <div class="cm-row cm-style">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
+    <div class="cm-row cm-style cm-style2">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
       <label class="cm-font"><span class="sr">Font</span><select data-cm="font" aria-label="Font">${CMAP.FONTS.map(f => `<option value="${f}" ${(n.font || "") === f ? "selected" : ""} style="${FONT_STACK[f] ? `font-family:${esc(FONT_STACK[f])}` : ""}">${FONT_NAMES[f]}</option>`).join("")}</select></label>
       <span class="cm-step cm-bi" role="group" aria-label="Bold and Italic"><button type="button" class="cm-stb cm-b" data-cm="bold" aria-pressed="${n.b === 1 || (n.root && n.b !== -1)}" title="Bold" aria-label="Bold">B</button><button type="button" class="cm-stb cm-i" data-cm="ital" aria-pressed="${!!n.i}" title="Italic" aria-label="Italic">I</button></span>
       <span class="cm-step" role="group" aria-label="Text size"><button type="button" class="cm-stb" data-cm="tsize" data-v="-1" aria-label="Smaller text">A−</button><span class="cm-stv" title="Text Size">${fs}</span><button type="button" class="cm-stb" data-cm="tsize" data-v="1" aria-label="Bigger text">A+</button></span>
@@ -109462,12 +109589,27 @@ function drawHandles(){
   w.insertAdjacentHTML("beforeend", `<g class="cm-hdls" transform="translate(${p[0]},${p[1]})"><rect class="cm-rsz" x="${-bw / 2}" y="${-bh / 2}" width="${bw}" height="${bh}" rx="6" style="stroke-width:${1.5 / k}" hidden/>`
     + HANDLES.map(([d, dx, dy]) => `<rect class="cm-hdl h-${d}" data-hdl="${d}" x="${dx * bw / 2 - r}" y="${dy * bh / 2 - r}" width="${r * 2}" height="${r * 2}" rx="${d === "se" ? r : r * 0.5}" style="stroke-width:${1.5 / k}"><title>Drag to resize</title></rect>`).join("") + `</g>`);
 }
-// the map's place and zoom; the dotted background moves and scales with it (as on the notes board)
+// the map's place and zoom; the dotted background moves and scales with it (as on the notes board). The dots are drawn on a canvas at their
+// exact places: a repeating CSS background with a tile size like 31.37px is rounded to whole pixels tile by tile on iPhone, so the dots
+// jittered and shifted while the map moved
+function dotsDraw(){
+  M.dotsRaf = 0;
+  const cv = M.el && M.el.querySelector(".cm-canvas"), c = cv && cv.querySelector(".cm-dots"); if (!c || (M.pk && !M.pk.native)) return;
+  const w = c.clientWidth, h = c.clientHeight, dpr = Math.min(3, window.devicePixelRatio || 1); if (!w || !h) return;
+  const W = Math.round(w * dpr), H = Math.round(h * dpr); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const x = c.getContext("2d"); if (!x) return;
+  const k = M.view.k || 1; let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
+  x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h); x.fillStyle = getComputedStyle(c).color;
+  const ox = ((M.view.x % step) + step) % step, oy = ((M.view.y % step) + step) % step;
+  x.beginPath();
+  for (let py = oy - step; py < h + step; py += step) for (let px = ox - step; px < w + step; px += step) { x.moveTo(px + r, py); x.arc(px, py, r, 0, 6.2832); }
+  x.fill();
+  c.dataset.x = ox.toFixed(1); c.dataset.g = step.toFixed(2);
+}
+const dotsSoon = () => { if (!M.dotsRaf) M.dotsRaf = requestAnimationFrame(dotsDraw); };
 function viewT(){
   const cv = M.el && M.el.querySelector(".cm-canvas"), k = M.view.k || 1;
-  if (cv) { let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
-    cv.style.setProperty("--cmg", step.toFixed(2) + "px"); cv.style.setProperty("--cmr", r.toFixed(2) + "px");
-    cv.style.setProperty("--cmx", (M.view.x % step).toFixed(1) + "px"); cv.style.setProperty("--cmy", (M.view.y % step).toFixed(1) + "px");
+  if (cv) { dotsSoon();
     if (M.pk && !M.pk.native) { const tw = M.pk.tile.w * k, th = M.pk.tile.h * k; cv.style.setProperty("--pkw", tw.toFixed(2) + "px"); cv.style.setProperty("--pkh", th.toFixed(2) + "px"); cv.style.setProperty("--pkx", (((M.view.x % tw) + tw) % tw).toFixed(1) + "px"); cv.style.setProperty("--pky", (((M.view.y % th) + th) % th).toFixed(1) + "px"); } }
   return `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`;
 }
@@ -110200,8 +110342,10 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-ms{display:none}
 .cm-tog{display:flex;align-items:center;gap:6px;font-size:.88rem;white-space:nowrap}
 .cm-qt{font-size:.95rem}
-.cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:radial-gradient(circle,color-mix(in srgb,var(--ink) 11%,transparent) var(--cmr,1px),transparent calc(var(--cmr,1px) + .5px)) var(--cmx,0) var(--cmy,0)/var(--cmg,22px) var(--cmg,22px),var(--surface);touch-action:none}
-.cm-svg{width:100%;height:100%;display:block;cursor:grab;user-select:none;-webkit-user-select:none}
+.cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:var(--surface);touch-action:none}
+.cm-dots{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;color:color-mix(in srgb,var(--ink) 11%,transparent)}
+.cm-canvas.cm-pk .cm-dots{display:none}
+.cm-svg{position:relative;width:100%;height:100%;display:block;transform:translateZ(0);cursor:grab;user-select:none;-webkit-user-select:none}
 .cm-svg:active{cursor:grabbing}
 .cm-line{stroke:color-mix(in srgb,var(--ink) 28%,transparent);stroke-width:1.6}
 .cm-hit{stroke:transparent;stroke-width:14;cursor:pointer}
@@ -110534,10 +110678,33 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-acts .btn.small{padding:5px 10px;font-size:.84rem}
   .cm-tools .cm-shaky{display:none}
   .cm-tools>[data-cm="looks"]{display:none}
-  .cm-acts [data-cm="style"] .cm-ml,.cm-acts .cm-mw .cm-ml,.cm-acts [data-cm="connect"] .cm-ml{display:none}}
+  .cm-acts [data-cm="style"] .cm-ml,.cm-acts .cm-mw .cm-ml,.cm-acts [data-cm="connect"] .cm-ml{display:none}
+  /* the idea panel on a phone: every row spans the panel, in even columns */
+  .cm-acts{gap:6px}
+  .cm-acts>.btn.small,.cm-acts>.cm-mw,.cm-acts>.cm-delb{flex:1 1 auto;min-width:44px;height:38px;justify-content:center}
+  .cm-acts>.btn.small{padding-left:10px;padding-right:10px}
+  .cm-acts:not(:has(.cm-gob,[data-cm="study"],[data-cm="open"],[data-cm="play"])){flex-wrap:nowrap}
+  .cm-acts:not(:has(.cm-gob,[data-cm="study"],[data-cm="open"],[data-cm="play"]))>*{min-width:0}
+  .cm-acts>.cm-mw>.btn{width:100%;height:100%;justify-content:center}
+  .cm-acts>.cm-gob,.cm-acts>[data-cm="study"]{flex:1 1 100%}
+  .cm-acts .cm-delb{width:auto;border-radius:999px}
+  .cm-style:has(.cm-shapes){display:block}
+  .cm-shapes{display:flex;width:100%;flex-wrap:nowrap}
+  .cm-shapes .cm-segb{flex:1 1 0;width:auto;min-width:0;height:36px}
+  .cm-style2{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px}
+  .cm-style2>*{grid-column:span 4;min-width:0}
+  .cm-style2>.cm-font{grid-column:span 5}
+  .cm-style2>.cm-bi{grid-column:span 3}
+  .cm-style2 .cm-pickb{justify-content:center;padding:0 8px;height:36px}
+  .cm-style2 .cm-font select{width:100%;max-width:none;height:36px}
+  .cm-style2 .cm-step{width:100%;height:36px}
+  .cm-style2 .cm-step .cm-stb{flex:1 1 0;min-width:0;padding:0 4px}
+  .cm-style2 .cm-step .cm-stv{flex:1 1 0;min-width:0}
+  .cm-style2>.link-btn{grid-column:span 8;justify-self:start}
+  .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:440px){.cm-chiptog .cm-ms{display:none}.cm-chiptog{padding:6px 10px}.cm-tools .cm-undo{width:34px;height:34px}}
-@media (max-width:380px){.cm-tools .cm-ml{display:none}}
+@media (max-width:380px){.cm-tools .cm-ml{display:none}.cm-acts>.btn.small{padding-left:8px;padding-right:8px}}
 `;
 document.head.appendChild(css);
 

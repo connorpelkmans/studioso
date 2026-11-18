@@ -310,7 +310,7 @@ const CMAP = (() => {
   }
   /* Embeds (Pro): a link from a site that's made to be embedded becomes a player on the map.
      Only these hosts can be framed (the app's Content-Security-Policy lists the same EMBED_HOSTS); anything else stays a link. */
-  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com"];
+  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com", "studyboardapp.com"];
   // exact sites only (no wildcards: the app's security policy frames named sites, never a whole domain such as every school's sharepoint.com)
   const hostOk = host => EMBED_HOSTS.includes(host);
   const PROVIDERS = {youtube: "YouTube", vimeo: "Vimeo", loom: "Loom", gdoc: "Google Docs", gslides: "Google Slides", gsheet: "Google Sheets", gdrive: "Google Drive", desmos: "Desmos", geogebra: "GeoGebra", phet: "PhET Simulation", spotify: "Spotify", ted: "TED Talk", canva: "Canva", mword: "Word", mexcel: "Excel", mppt: "PowerPoint", m365: "Microsoft 365"};
@@ -758,18 +758,26 @@ function open(kind, id, map){
   Object.assign(M, {own: o, sel: "", selE: "", connect: "", quiz: null, sug: null, err: "", busy: false, menu: "", looks: false, lookScrolled: false, styleOpen: false, cardsOpen: false, made: null, pick: "", lastTap: null});
   if (!same) { M.loose = false; M.know = o.kind === "exam" && !isLocked(); M.undoS = []; M.redoS = []; }
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
-  const mp = mapOf(o);
+  const mp = mapOf(o); M.imgTry = {};
   // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
   // sm-skip: the app's fade-in for new content stays out of the map (it would fade every redraw, menu and the video player)
   openSheet(`<div class="sheet cm-sheet sm-skip" style="--c:${esc(c ? c.color : "#2F6FE4")}"><div class="cm-top"><span class="cm-hic" aria-hidden="true">${ICON.replace('width="16" height="16"', 'width="18" height="18"')}</span>
     <div class="cm-tt"><span class="cm-kick">Concept Map${BETA ? ' <span class="sb-beta" title="Beta: still being improved">Beta</span>' : ""}</span><h2 class="cm-name">${esc(mp ? mp.name : ownerObj(o).title)}</h2></div>
     <div class="cm-tools" role="toolbar" aria-label="Concept map tools"></div><button type="button" class="icon-btn cm-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
-    <div class="cm-canvas" tabindex="-1"><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div><div class="cm-panel" aria-live="polite"></div></div></div>`);
+    <div class="cm-canvas" tabindex="-1"><canvas class="cm-dots" aria-hidden="true"></canvas><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div><div class="cm-panel" aria-live="polite"></div></div></div>`);
   M.el = dlg.querySelector(".cm-sheet");
+  // the dots follow the map's size (a phone turning, the window resizing)
+  const dc = M.el.querySelector(".cm-dots"); if (dc && window.ResizeObserver) new ResizeObserver(dotsSoon).observe(dc);
   rebuild();
   // a map with nothing connected yet starts with the course's notes, decks and files on show, ready to connect
   if (!same && !M.loose && M.g && !M.g.edges.length && M.g.loose.length) { M.loose = true; rebuild(); }
   requestAnimationFrame(() => { fit(); paint(); });
+  // Safari on iPhone can leave slices of the boxes where they were while the window slid up (it doesn't repaint the drawing after it
+  // moves), so the map is drawn again once the window has arrived
+  const el0 = M.el, again = () => { if (M.el === el0 && el0.isConnected && !el0.querySelector(".cm-svg .is-drag") && !(document.activeElement && el0.contains(document.activeElement) && /^(INPUT|TEXTAREA)$|^true$/.test(document.activeElement.isContentEditable ? "true" : document.activeElement.tagName))) paint(); };
+  let settled = false; const onEnd = e => { if (e.target === dlg || (e.target.contains && e.target.contains(el0))) settle(); };
+  const settle = () => { if (settled) return; settled = true; dlg.removeEventListener("animationend", onEnd); again(); };
+  dlg.addEventListener("animationend", onEnd); setTimeout(settle, 650);
   wireCanvas();
   paint();
 }
@@ -785,10 +793,18 @@ function nodeColor(n, know){
 }
 // a box's outline: w x h centred on 0,0
 // a picture's address on this device (from the same store as picture cards), loaded the first time it's drawn
+// A picture that couldn't be had yet (the map drawn before signing in had finished, or the download failed) is asked for again a little later,
+// a few times, instead of staying a grey box until the app is opened again
 function imgUrl(k){
-  if (M.imgs[k] !== undefined) return M.imgs[k];
-  M.imgs[k] = "";
-  Promise.resolve(window.SBPRO && SBPRO.imageBlob ? SBPRO.imageBlob(k) : null).then(b => { M.imgs[k] = b ? URL.createObjectURL(b) : ""; if (b && shown()) paint(); }).catch(() => {});
+  if (M.imgs[k]) return M.imgs[k];
+  const F = M.imgTry || (M.imgTry = {}), f = F[k] || (F[k] = {n: 0, busy: false, at: 0});
+  if (f.busy || f.n >= 8 || Date.now() < f.at) return "";
+  f.busy = true; f.n++;
+  const fail = () => { f.busy = false; f.at = Date.now() + Math.min(30000, 1500 * Math.pow(2, f.n - 1)); if (f.n < 8) setTimeout(() => { if (shown() && !M.imgs[k]) paint(); }, f.at - Date.now() + 50); };
+  Promise.resolve(window.SBPRO && SBPRO.imageBlob ? SBPRO.imageBlob(k) : null).then(b => {
+    if (!b) { fail(); return; }
+    f.busy = false; M.imgs[k] = URL.createObjectURL(b); if (shown()) paint();
+  }).catch(fail);
   return "";
 }
 async function smallJpeg(file, max){
@@ -805,6 +821,16 @@ const GOOGLE = new Set(["gdoc", "gslides", "gsheet", "gdrive"]);
 const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with the link can view (or File, Share, Publish to web).";
 // Word, Excel and PowerPoint: a personal OneDrive file shows from its Embed code; a school or work file shows to people signed in to that school's Microsoft 365
 const MS365 = new Set(["mword", "mexcel", "mppt", "m365"]);
+// In the iPhone and desktop apps a YouTube video plays inside a small page on the Studyboard website (yt-embed.html), which holds the player:
+// YouTube refuses a player whose page is an app address (capacitor://localhost, app://studioso; "Error 153"), and an app can't change what
+// its frames send. The web version frames YouTube directly.
+const NATIVE_APP = () => (typeof DESK !== "undefined" && DESK) || !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
+const ytRef = (src, native = NATIVE_APP()) => {
+  const m = /^https:\/\/www\.youtube-nocookie\.com\/embed\/([\w-]{11})(?:\?(.*))?$/.exec(String(src || ""));
+  if (!native || !m) return src;
+  const q = new URLSearchParams(m[2] || ""), t = parseInt(q.get("start") || "0", 10) || 0;
+  return "https://studyboardapp.com/yt-embed.html?v=" + m[1] + (t > 0 ? "&t=" + t : "") + (q.get("autoplay") === "1" ? "&ap=1" : "");
+};
 const MS_TIP = "From OneDrive: File, Share, Embed, then paste the code here. A school or work file shows to anyone signed in to that Microsoft 365 who can open it.";
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
@@ -834,7 +860,7 @@ function player(id){
   closePlayer();
   const n = M.byId[id]; if (!n || !n.emb || !CMAP.embedOk(n.emb.e)) return;
   const e = n.emb, name = n.label || embInfo(e).tt || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
-  const src = e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e;
+  const src = ytRef(e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e);
   cv.insertAdjacentHTML("beforeend", `<div class="cm-player${vid && e.p !== "spotify" ? " is-video" : e.p === "spotify" ? " is-audio" : ""}" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><span class="cm-embdot" style="background:${EMB_COL[e.p] || "#475569"}"></span><b>${esc(name)}</b><span class="spacer"></span><a class="btn small" href="${esc(e.u)}" target="_blank" rel="noopener noreferrer">Open in ${esc(CMAP.PROVIDERS[e.p] || "Browser")}</a><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">×</button></div>
     ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}${e.p === "spotify" ? `<p class="mini cm-player-tip">Spotify plays whole songs and episodes here only when you're signed in to Spotify in this browser; otherwise it plays a 30-second preview. Open in Spotify plays the whole thing.</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; storage-access" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div></div>`);
   const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
@@ -896,7 +922,7 @@ function liveSync(){
   if (!phone && shown()) {
     const R = cv.getBoundingClientRect();
     cv.querySelectorAll(".cm-emb.is-live").forEach(g => {
-      const src = g.dataset.src, r = g.firstElementChild.getBoundingClientRect(), nd = g.closest(".cm-node");
+      const src = ytRef(g.dataset.src), r = g.firstElementChild.getBoundingClientRect(), nd = g.closest(".cm-node");
       if (want.length >= LIVE_MAX || !CMAP.embedOk(src) || !nd || r.width < 90 || r.right < R.left || r.left > R.right || r.bottom < R.top || r.top > R.bottom) return;
       want.push({k: nd.dataset.n + " " + src, src, x: r.left - R.left, y: r.top - R.top, w: r.width, h: r.height});
     });
@@ -1230,7 +1256,7 @@ function styleHtml(n){
   const fs = n.size || (n.root ? 15 : 13), sc = n.scale || 1;
   const pkd = M.pk && !M.pk.native && !M.know && !n.img && !n.emb;
   return `${pkd ? `<p class="mini cm-pknote">This map's style draws the boxes. Colours, fonts and text still change here.</p>` : ""}<div class="cm-row cm-style"${pkd ? " hidden" : ""}><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
-    <div class="cm-row cm-style">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
+    <div class="cm-row cm-style cm-style2">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
       <label class="cm-font"><span class="sr">Font</span><select data-cm="font" aria-label="Font">${CMAP.FONTS.map(f => `<option value="${f}" ${(n.font || "") === f ? "selected" : ""} style="${FONT_STACK[f] ? `font-family:${esc(FONT_STACK[f])}` : ""}">${FONT_NAMES[f]}</option>`).join("")}</select></label>
       <span class="cm-step cm-bi" role="group" aria-label="Bold and Italic"><button type="button" class="cm-stb cm-b" data-cm="bold" aria-pressed="${n.b === 1 || (n.root && n.b !== -1)}" title="Bold" aria-label="Bold">B</button><button type="button" class="cm-stb cm-i" data-cm="ital" aria-pressed="${!!n.i}" title="Italic" aria-label="Italic">I</button></span>
       <span class="cm-step" role="group" aria-label="Text size"><button type="button" class="cm-stb" data-cm="tsize" data-v="-1" aria-label="Smaller text">A−</button><span class="cm-stv" title="Text Size">${fs}</span><button type="button" class="cm-stb" data-cm="tsize" data-v="1" aria-label="Bigger text">A+</button></span>
@@ -1473,12 +1499,27 @@ function drawHandles(){
   w.insertAdjacentHTML("beforeend", `<g class="cm-hdls" transform="translate(${p[0]},${p[1]})"><rect class="cm-rsz" x="${-bw / 2}" y="${-bh / 2}" width="${bw}" height="${bh}" rx="6" style="stroke-width:${1.5 / k}" hidden/>`
     + HANDLES.map(([d, dx, dy]) => `<rect class="cm-hdl h-${d}" data-hdl="${d}" x="${dx * bw / 2 - r}" y="${dy * bh / 2 - r}" width="${r * 2}" height="${r * 2}" rx="${d === "se" ? r : r * 0.5}" style="stroke-width:${1.5 / k}"><title>Drag to resize</title></rect>`).join("") + `</g>`);
 }
-// the map's place and zoom; the dotted background moves and scales with it (as on the notes board)
+// the map's place and zoom; the dotted background moves and scales with it (as on the notes board). The dots are drawn on a canvas at their
+// exact places: a repeating CSS background with a tile size like 31.37px is rounded to whole pixels tile by tile on iPhone, so the dots
+// jittered and shifted while the map moved
+function dotsDraw(){
+  M.dotsRaf = 0;
+  const cv = M.el && M.el.querySelector(".cm-canvas"), c = cv && cv.querySelector(".cm-dots"); if (!c || (M.pk && !M.pk.native)) return;
+  const w = c.clientWidth, h = c.clientHeight, dpr = Math.min(3, window.devicePixelRatio || 1); if (!w || !h) return;
+  const W = Math.round(w * dpr), H = Math.round(h * dpr); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const x = c.getContext("2d"); if (!x) return;
+  const k = M.view.k || 1; let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
+  x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h); x.fillStyle = getComputedStyle(c).color;
+  const ox = ((M.view.x % step) + step) % step, oy = ((M.view.y % step) + step) % step;
+  x.beginPath();
+  for (let py = oy - step; py < h + step; py += step) for (let px = ox - step; px < w + step; px += step) { x.moveTo(px + r, py); x.arc(px, py, r, 0, 6.2832); }
+  x.fill();
+  c.dataset.x = ox.toFixed(1); c.dataset.g = step.toFixed(2);
+}
+const dotsSoon = () => { if (!M.dotsRaf) M.dotsRaf = requestAnimationFrame(dotsDraw); };
 function viewT(){
   const cv = M.el && M.el.querySelector(".cm-canvas"), k = M.view.k || 1;
-  if (cv) { let step = 22 * k; while (step < 12) step *= 2; const r = Math.max(0.7, Math.min(2.2, 1.1 * Math.sqrt(k)));
-    cv.style.setProperty("--cmg", step.toFixed(2) + "px"); cv.style.setProperty("--cmr", r.toFixed(2) + "px");
-    cv.style.setProperty("--cmx", (M.view.x % step).toFixed(1) + "px"); cv.style.setProperty("--cmy", (M.view.y % step).toFixed(1) + "px");
+  if (cv) { dotsSoon();
     if (M.pk && !M.pk.native) { const tw = M.pk.tile.w * k, th = M.pk.tile.h * k; cv.style.setProperty("--pkw", tw.toFixed(2) + "px"); cv.style.setProperty("--pkh", th.toFixed(2) + "px"); cv.style.setProperty("--pkx", (((M.view.x % tw) + tw) % tw).toFixed(1) + "px"); cv.style.setProperty("--pky", (((M.view.y % th) + th) % th).toFixed(1) + "px"); } }
   return `translate(${M.view.x},${M.view.y}) scale(${M.view.k})`;
 }
@@ -2211,8 +2252,10 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-ms{display:none}
 .cm-tog{display:flex;align-items:center;gap:6px;font-size:.88rem;white-space:nowrap}
 .cm-qt{font-size:.95rem}
-.cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:radial-gradient(circle,color-mix(in srgb,var(--ink) 11%,transparent) var(--cmr,1px),transparent calc(var(--cmr,1px) + .5px)) var(--cmx,0) var(--cmy,0)/var(--cmg,22px) var(--cmg,22px),var(--surface);touch-action:none}
-.cm-svg{width:100%;height:100%;display:block;cursor:grab;user-select:none;-webkit-user-select:none}
+.cm-canvas{position:relative;flex:1 1 auto;min-height:260px;overflow:hidden;background:var(--surface);touch-action:none}
+.cm-dots{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;color:color-mix(in srgb,var(--ink) 11%,transparent)}
+.cm-canvas.cm-pk .cm-dots{display:none}
+.cm-svg{position:relative;width:100%;height:100%;display:block;transform:translateZ(0);cursor:grab;user-select:none;-webkit-user-select:none}
 .cm-svg:active{cursor:grabbing}
 .cm-line{stroke:color-mix(in srgb,var(--ink) 28%,transparent);stroke-width:1.6}
 .cm-hit{stroke:transparent;stroke-width:14;cursor:pointer}
@@ -2545,10 +2588,33 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-acts .btn.small{padding:5px 10px;font-size:.84rem}
   .cm-tools .cm-shaky{display:none}
   .cm-tools>[data-cm="looks"]{display:none}
-  .cm-acts [data-cm="style"] .cm-ml,.cm-acts .cm-mw .cm-ml,.cm-acts [data-cm="connect"] .cm-ml{display:none}}
+  .cm-acts [data-cm="style"] .cm-ml,.cm-acts .cm-mw .cm-ml,.cm-acts [data-cm="connect"] .cm-ml{display:none}
+  /* the idea panel on a phone: every row spans the panel, in even columns */
+  .cm-acts{gap:6px}
+  .cm-acts>.btn.small,.cm-acts>.cm-mw,.cm-acts>.cm-delb{flex:1 1 auto;min-width:44px;height:38px;justify-content:center}
+  .cm-acts>.btn.small{padding-left:10px;padding-right:10px}
+  .cm-acts:not(:has(.cm-gob,[data-cm="study"],[data-cm="open"],[data-cm="play"])){flex-wrap:nowrap}
+  .cm-acts:not(:has(.cm-gob,[data-cm="study"],[data-cm="open"],[data-cm="play"]))>*{min-width:0}
+  .cm-acts>.cm-mw>.btn{width:100%;height:100%;justify-content:center}
+  .cm-acts>.cm-gob,.cm-acts>[data-cm="study"]{flex:1 1 100%}
+  .cm-acts .cm-delb{width:auto;border-radius:999px}
+  .cm-style:has(.cm-shapes){display:block}
+  .cm-shapes{display:flex;width:100%;flex-wrap:nowrap}
+  .cm-shapes .cm-segb{flex:1 1 0;width:auto;min-width:0;height:36px}
+  .cm-style2{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px}
+  .cm-style2>*{grid-column:span 4;min-width:0}
+  .cm-style2>.cm-font{grid-column:span 5}
+  .cm-style2>.cm-bi{grid-column:span 3}
+  .cm-style2 .cm-pickb{justify-content:center;padding:0 8px;height:36px}
+  .cm-style2 .cm-font select{width:100%;max-width:none;height:36px}
+  .cm-style2 .cm-step{width:100%;height:36px}
+  .cm-style2 .cm-step .cm-stb{flex:1 1 0;min-width:0;padding:0 4px}
+  .cm-style2 .cm-step .cm-stv{flex:1 1 0;min-width:0}
+  .cm-style2>.link-btn{grid-column:span 8;justify-self:start}
+  .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:440px){.cm-chiptog .cm-ms{display:none}.cm-chiptog{padding:6px 10px}.cm-tools .cm-undo{width:34px;height:34px}}
-@media (max-width:380px){.cm-tools .cm-ml{display:none}}
+@media (max-width:380px){.cm-tools .cm-ml{display:none}.cm-acts>.btn.small{padding-left:8px;padding-right:8px}}
 `;
 document.head.appendChild(css);
 

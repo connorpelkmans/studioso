@@ -59,7 +59,9 @@ const mainHosts = eval((main.match(/const EMBED_HOSTS = (\[[^\]]+\])/) || [])[1]
 ok(mainHosts.map(h => "https://" + h).sort().join(" ") === want, "the desktop app frames exactly the embed sites");
 ok(/"frame-src " \+ EMBED_HOSTS\.map/.test(main) && /will-frame-navigate[\s\S]{0,400}isEmbedUrl\(url\)[\s\S]{0,200}preventDefault/.test(main), "the desktop app stops any other frame (and never opens it in the browser)");
 // every policy the website sends must let the players load: an explicit frame-src (else frames fall back to default-src, which is 'self')
-const pol = [...hdr.matchAll(/^\s*Content-Security-Policy:\s*(.+)$/gm)].map(m => m[1]);
+// (the YouTube page for the apps, yt-embed.html, frames only YouTube's player: checked below)
+const ytBlocks = hdr.split(/\n\s*\n/).filter(b => /^\/yt-embed/m.test(b));
+const pol = [...hdr.split(/\n\s*\n/).filter(b => !/^\/yt-embed/m.test(b)).join("\n\n").matchAll(/^\s*Content-Security-Policy:\s*(.+)$/gm)].map(m => m[1]);
 ok(pol.length >= 1 && pol.every(p => { const f = (/(?:^|;)\s*frame-src ([^;]+)/.exec(p) || [])[1]; return f && CMAP.EMBED_HOSTS.every(h => f.trim().split(/\s+/).includes("https://" + h)); }), `every website policy (${pol.length}) lets the embed sites load in a frame`);
 const pp = (/^\s*Permissions-Policy:\s*(.+)$/m.exec(hdr) || [])[1] || "";
 ok(["autoplay", "fullscreen"].every(f => { const m = new RegExp(f + "=\\(([^)]*)\\)").exec(pp); return m && CMAP.EMBED_HOSTS.every(h => m[1].includes('"https://' + h + '"')); }), "the website lets the players autoplay and go fullscreen");
@@ -79,4 +81,17 @@ ok(fo.th === "https://i.vimeocdn.com/video/1-d_295x166" && fo.tt === "A talk", "
 for (const bad of ["data:image/png;base64,AAAA", "blob:https://x/1", "http://i.vimeocdn.com/x.jpg", "javascript:alert(1)", 'https://x.com/"onload="1', "https://x.com/" + "a".repeat(700)]) ok(!CMAP.fromOembed({thumbnail_url: bad}).th && !CMAP.thumbOk(bad), "never kept as a picture: " + bad.slice(0, 40));
 const g3 = CMAP.graph({root: {label: "Map"}, blank: true, user: {add: [{id: "v", label: "", emb: {p: "vimeo", e: "https://player.vimeo.com/video/76979871", th: "data:image/png;base64,AAAA", tt: "T"}}, {id: "w", label: "", emb: {p: "vimeo", e: "https://player.vimeo.com/video/76979871", th: "https://i.vimeocdn.com/v.jpg"}}]}});
 ok(g3.nodes.find(x => x.id === "idea:v").emb.th === "" && g3.nodes.find(x => x.id === "idea:v").emb.tt === "T" && g3.nodes.find(x => x.id === "idea:w").emb.th === "https://i.vimeocdn.com/v.jpg", "a saved map keeps only an https picture address (a data: picture is dropped when read)");
+// the desktop app: an embed asked for from the app names the Studyboard website as its page (YouTube's Error 153 otherwise)
+ok(/onBeforeSendHeaders\(\{ urls: EMBED_HOSTS\.map\(h => `https:\/\/\$\{h\}\/\*`\) \}/.test(main) && /EMBED_REFERRER = "https:\/\/studyboardapp\.com\/"/.test(main) && /if \(!ref \|\| \/\^app:\/i\.test\(ref\)\)/.test(main), "desktop: embed requests from the app send the website as the referrer (only when there's none, or it's the app's)");
+// the iPhone and desktop apps: a YouTube video plays inside yt-embed.html on the website (an app address gets Error 153 from YouTube)
+const cmSrc = fs.readFileSync(path.join(root, "src/js/99-concept-map.js"), "utf8");
+const ytRef = eval("(" + (/const ytRef = (\(src, native = NATIVE_APP\(\)\) => \{[\s\S]*?\n\});/.exec(cmSrc) || [])[1].replace("native = NATIVE_APP()", "native") + ")");
+ok(ytRef("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&start=42&autoplay=1", true) === "https://studyboardapp.com/yt-embed.html?v=dQw4w9WgXcQ&t=42&ap=1", "apps: a YouTube player becomes the website's video page, keeping the start and autoplay");
+ok(ytRef("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0", true) === "https://studyboardapp.com/yt-embed.html?v=dQw4w9WgXcQ", "apps: no start, no autoplay");
+ok(ytRef("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0", false) === "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0" && ytRef("https://player.vimeo.com/video/1", true) === "https://player.vimeo.com/video/1", "the web version and other players are unchanged");
+ok(CMAP.embedOk("https://studyboardapp.com/yt-embed.html?v=dQw4w9WgXcQ"), "the website's video page may be framed");
+const build = fs.readFileSync(path.join(root, "scripts/build-site.js"), "utf8"), yj = fs.readFileSync(path.join(root, "yt-embed.js"), "utf8"), yh = fs.readFileSync(path.join(root, "yt-embed.html"), "utf8");
+ok(/"yt-embed\.html", "yt-embed\.js"/.test(build) && /<script src="yt-embed\.js"><\/script>/.test(yh), "the video page is published with the website");
+ok(ytBlocks.length === 2 && ytBlocks.every(b => /! X-Frame-Options/.test(b) && /frame-src https:\/\/www\.youtube-nocookie\.com;/.test(b) && /frame-ancestors 'self' capacitor:\/\/localhost app:\/\/studioso$/m.test(b) && /script-src 'self';/.test(b)), "the video page frames only YouTube and only Studyboard's apps and site may frame it");
+ok(/\^\[\\w-\]\{11\}\$/.test(yj) && /youtube-nocookie\.com\/embed\//.test(yj) && !/innerHTML/.test(yj), "the video page takes only an 11-character video id and builds the player safely");
 console.log(`embeds: ${n} checks passed`);

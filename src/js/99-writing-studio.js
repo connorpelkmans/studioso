@@ -3026,7 +3026,10 @@ css.textContent = `
 dialog:has(.ws-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px);height:min(92dvh,1000px)}
 .ws-sheet{display:flex;flex-direction:column;height:100%;max-height:inherit}
 .ws-sheet > .ws-body{flex:1 1 auto}
-@media (max-width:640px){dialog:has(.ws-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}}
+@media (max-width:640px){dialog:has(.ws-sheet){width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0}
+  /* full screen on a phone: the header starts below the status bar and the Dynamic Island, with its colour carried up behind them */
+  .ws-sheet{padding-top:env(safe-area-inset-top,0px);box-sizing:border-box}
+  .ws-sheet>.g2-sheet-head::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:env(safe-area-inset-top,0px);background:linear-gradient(120deg,color-mix(in srgb,var(--c) 90%,#000),color-mix(in srgb,var(--c) 60%,var(--surface)));pointer-events:none}}
 .ws-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 20px 0;border-bottom:1px solid var(--line)}
 /* Zotero's Z: its red, centred on the label beside it */
 svg.ws-zic{display:block;flex:none}
