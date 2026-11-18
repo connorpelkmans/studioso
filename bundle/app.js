@@ -109258,7 +109258,7 @@ function styleHtml(n){
   const fs = n.size || (n.root ? 15 : 13), sc = n.scale || 1;
   const pkd = M.pk && !M.pk.native && !M.know && !n.img && !n.emb;
   return `${pkd ? `<p class="mini cm-pknote">This map's style draws the boxes. Colours, fonts and text still change here.</p>` : ""}<div class="cm-row cm-style"${pkd ? " hidden" : ""}><div class="cm-seg cm-shapes" role="group" aria-label="Box shape">${CMAP.SHAPES.map(v => `<button type="button" class="cm-segb" data-cm="shape" data-v="${v}" aria-pressed="${CMAP.shapeOf(n) === v}" title="${SHAPE_NAMES[v]}" aria-label="${SHAPE_NAMES[v]}">${ic(SHAPE_IC[v])}</button>`).join("")}</div></div>
-    <div class="cm-row cm-style">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
+    <div class="cm-row cm-style cm-style2">${chip("fill", "Fill", n.fill || n.color)}${chip("stroke", "Outline", n.stroke || n.color)}${chip("text", "Text", n.text)}
       <label class="cm-font"><span class="sr">Font</span><select data-cm="font" aria-label="Font">${CMAP.FONTS.map(f => `<option value="${f}" ${(n.font || "") === f ? "selected" : ""} style="${FONT_STACK[f] ? `font-family:${esc(FONT_STACK[f])}` : ""}">${FONT_NAMES[f]}</option>`).join("")}</select></label>
       <span class="cm-step cm-bi" role="group" aria-label="Bold and Italic"><button type="button" class="cm-stb cm-b" data-cm="bold" aria-pressed="${n.b === 1 || (n.root && n.b !== -1)}" title="Bold" aria-label="Bold">B</button><button type="button" class="cm-stb cm-i" data-cm="ital" aria-pressed="${!!n.i}" title="Italic" aria-label="Italic">I</button></span>
       <span class="cm-step" role="group" aria-label="Text size"><button type="button" class="cm-stb" data-cm="tsize" data-v="-1" aria-label="Smaller text">A−</button><span class="cm-stv" title="Text Size">${fs}</span><button type="button" class="cm-stb" data-cm="tsize" data-v="1" aria-label="Bigger text">A+</button></span>
@@ -110590,10 +110590,33 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-acts .btn.small{padding:5px 10px;font-size:.84rem}
   .cm-tools .cm-shaky{display:none}
   .cm-tools>[data-cm="looks"]{display:none}
-  .cm-acts [data-cm="style"] .cm-ml,.cm-acts .cm-mw .cm-ml,.cm-acts [data-cm="connect"] .cm-ml{display:none}}
+  .cm-acts [data-cm="style"] .cm-ml,.cm-acts .cm-mw .cm-ml,.cm-acts [data-cm="connect"] .cm-ml{display:none}
+  /* the idea panel on a phone: every row spans the panel, in even columns */
+  .cm-acts{gap:6px}
+  .cm-acts>.btn.small,.cm-acts>.cm-mw,.cm-acts>.cm-delb{flex:1 1 auto;min-width:44px;height:38px;justify-content:center}
+  .cm-acts>.btn.small{padding-left:10px;padding-right:10px}
+  .cm-acts:not(:has(.cm-gob,[data-cm="study"],[data-cm="open"],[data-cm="play"])){flex-wrap:nowrap}
+  .cm-acts:not(:has(.cm-gob,[data-cm="study"],[data-cm="open"],[data-cm="play"]))>*{min-width:0}
+  .cm-acts>.cm-mw>.btn{width:100%;height:100%;justify-content:center}
+  .cm-acts>.cm-gob,.cm-acts>[data-cm="study"]{flex:1 1 100%}
+  .cm-acts .cm-delb{width:auto;border-radius:999px}
+  .cm-style:has(.cm-shapes){display:block}
+  .cm-shapes{display:flex;width:100%;flex-wrap:nowrap}
+  .cm-shapes .cm-segb{flex:1 1 0;width:auto;min-width:0;height:36px}
+  .cm-style2{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px}
+  .cm-style2>*{grid-column:span 4;min-width:0}
+  .cm-style2>.cm-font{grid-column:span 5}
+  .cm-style2>.cm-bi{grid-column:span 3}
+  .cm-style2 .cm-pickb{justify-content:center;padding:0 8px;height:36px}
+  .cm-style2 .cm-font select{width:100%;max-width:none;height:36px}
+  .cm-style2 .cm-step{width:100%;height:36px}
+  .cm-style2 .cm-step .cm-stb{flex:1 1 0;min-width:0;padding:0 4px}
+  .cm-style2 .cm-step .cm-stv{flex:1 1 0;min-width:0}
+  .cm-style2>.link-btn{grid-column:span 8;justify-self:start}
+  .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:440px){.cm-chiptog .cm-ms{display:none}.cm-chiptog{padding:6px 10px}.cm-tools .cm-undo{width:34px;height:34px}}
-@media (max-width:380px){.cm-tools .cm-ml{display:none}}
+@media (max-width:380px){.cm-tools .cm-ml{display:none}.cm-acts>.btn.small{padding-left:8px;padding-right:8px}}
 `;
 document.head.appendChild(css);
 
