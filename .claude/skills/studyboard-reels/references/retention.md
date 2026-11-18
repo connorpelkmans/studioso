@@ -108,7 +108,25 @@ Refresh these with vidIQ outlier search each batch (see `tools.md`).
 
 How we apply it: `marketing/reels/2026-11-16-same-week/` (stock b-roll of a stressed student → the Studyboard calendar as the "proof" shot → a punchline shot, cut on owned music hits).
 
-## Short format (default since Nov 18, 2026)
+## Native, not an ad (default since Nov 18, 2026)
+
+**Why:** Connor: "the music and the way it's set up feels like an ad". The outlier search for the format of student posts that broke out (vidIQ, Sep to Nov 2026, North American students) found the same thing in nearly every one, e.g. @eesa.inoon 208K at 133x their median, @biologyforhealth 945K at 615x, @my_unaestheticlife 1.8M at 370x, @hannurselife 702K at 237x, @studywithaddy1 802K:
+- **One shot, static camera, low visual change.** No cuts on beats, no zooms, no slams.
+- **One static block of text in the app's own style**, hyper-specific and first-person or "pov:", written lowercase like a student types it. Never animated.
+- **Music only, no sound effects** (`sfx_present: false` across the board): a trending pop/hip-hop or chill track. No orchestral hits, thuds or dings.
+- **Phone-filmed or a real screen**: the study-app posts that worked showed the app itself on a phone or tablet with an aspirational or relatable line ("pov: you memorized a whole chapter in 30 minutes because ..."), music only, looped.
+- 7–12 s, looped.
+
+What made ours read as ads: dramatic orchestral music with hits, sound effects on every beat, huge outlined text slamming in, motion graphics, logo lockups and end cards, cuts every 2 s. Those are the grammar of paid ads.
+
+**Recipe** (`assets/native-template.html`; `marketing/reels/_tools/screenrec.js` records the real app at phone size with the sample semester):
+1. **The hook is the sentence**, not the effects. Make it specific and in a student's voice: "you're telling me this app just tells you what you need on the final?? 😭", "pov: your planner warns you which week is going to be rough before it even starts". It's on screen at frame 0, and the screen is already moving (a slow scroll).
+2. **The product is just there**: the real app's screen recording, with its own logo in its own header. That's the whole pitch. One small line later at most ("free btw").
+3. **Music only**: a calm or trending track, no sound effects. Best of all, post with a trending sound picked in the Instagram app.
+4. **Entertainment posts**: one stock shot plus one static text block (`statusBar: false`).
+5. No end card, no lockup, no "link in bio" on screen. The caption carries the link and the CTA.
+
+## Short format (Nov 18, 2026; superseded by "Native, not an ad" for most posts)
 
 **Why:** reel D's insights showed 5 s average watch on a 17.3 s reel, with views flat after the first hour. The hook held; the body didn't. The body was a slow listicle of small slides that started at 2.5 s, which set an expectation the hook hadn't. Instagram's top-ranked signal is watch time, measured in both seconds and percentage (Mosseri), so a reel people watch 5 s of should *be* about 8 s long. The top student-niche outlier was 7.2 s, a real person at frame 0, one caption, a cut on each beat, then a loop (see "Live outlier patterns").
 

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studyboard native reel overlay</title>
+<!--
+  The native format (see references/retention.md, "Native, not an ad"): a real screen recording of the app (or one
+  phone-style shot), one static text block in the platforms' own text style, music only, no sound effects, no logo
+  card, no motion graphics. Render with render.js <folder> --footage rec.mp4.
+  REEL = {end: 7.5, cover: .3, y: 330, text: "pov: ...", later: [[3.2, "(free btw)"]], statusBar: true, time: "9:41"}
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;-webkit-font-smoothing:antialiased;font-family:"Inter",system-ui,sans-serif}
+#sb{position:absolute;left:0;right:0;top:0;height:60px;display:flex;align-items:center;justify-content:space-between;padding:4px 64px 0 78px;color:#000;font-weight:600;font-size:34px;letter-spacing:-.01em}
+#sb .r{display:flex;align-items:center;gap:14px}
+#sb .bars{display:flex;align-items:flex-end;gap:4px;height:24px}
+#sb .bars i{width:6px;background:#000;border-radius:2px}
+#sb .bat{width:52px;height:24px;border:3px solid rgba(0,0,0,.4);border-radius:8px;padding:2px;position:relative}
+#sb .bat::after{content:"";position:absolute;right:-7px;top:6px;width:3px;height:8px;background:rgba(0,0,0,.4);border-radius:0 2px 2px 0}
+#sb .bat b{display:block;height:100%;width:70%;background:#000;border-radius:4px}
+#txt{position:absolute;left:70px;right:70px;text-align:center;z-index:5}
+/* The in-app text style: white rounded "background" text, black, centred. One block, no animation. */
+.blk{display:inline;background:#000;color:#fff;font-weight:600;font-size:52px;line-height:1.42;padding:6px 16px;border-radius:14px;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;box-shadow:none}
+#later{position:absolute;left:70px;right:70px;text-align:center;z-index:5;opacity:0}
+#later .blk{font-size:42px}
+/* ===== NATIVE CSS ===== */
+/* ===== /NATIVE CSS ===== */
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="sb"><span id="sbt">9:41</span><span class="r"><span class="bars"><i style="height:9px"></i><i style="height:13px"></i><i style="height:18px"></i><i style="height:23px"></i></span><span style="font-size:30px">5G</span><span class="bat"><b></b></span></span></div>
+  <div id="txt"><span class="blk" id="txtB"></span></div>
+  <div id="later"><span class="blk" id="laterB"></span></div>
+</div>
+<script>
+document.fonts.load("600 52px Inter");
+const $ = id => document.getElementById(id);
+let REEL = {};
+/* ===== NATIVE JS ===== */
+/* ===== /NATIVE JS ===== */
+const R = Object.assign({end: 7.5, cover: .3, y: 330, text: "", later: [], statusBar: true, time: "9:41"}, REEL);
+$("txtB").innerHTML = R.text; $("txt").style.top = R.y + "px"; $("sbt").textContent = R.time; $("sb").style.display = R.statusBar ? "flex" : "none";
+function render(t) {
+  const l = R.later.filter(([a]) => t >= a).pop();
+  // A later line simply appears (as when a creator adds a second text at a time), no animation
+  $("later").style.opacity = l ? 1 : 0; if (l) { $("laterB").innerHTML = l[1]; $("later").style.top = (l[2] || R.y + $("txt").offsetHeight + 34) + "px"; }
+}
+window.render = render; window.END = R.end; window.COVER = R.cover;
+render(0);
+</script>
+</body>
+</html>

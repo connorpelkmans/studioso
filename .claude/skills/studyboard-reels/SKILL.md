@@ -34,7 +34,9 @@ Don't stall on questions. If the request is "make a reel about Quick Add", decid
 
 ### 1b. Pick the reel type
 
-**Default to the short format** (8–10 s, real people, one persistent caption, a cut on each hit, escalation, the product as the proof shot): see "Short format" in `references/retention.md`, and build with `assets/short-template.html` via `scripts/make_short.py`. Examples: `marketing/reels/2026-11-23-friend-group-irl/` to `2026-11-26-one-episode-short/`. Reel D's data (5 s average watch on 17 s) is why. Use the longer types below only when a story truly needs the time.
+**Default to the native format** (see "Native, not an ad" in `references/retention.md`): a real screen recording of the app (`marketing/reels/_tools/screenrec.js`) or one phone-style shot, one static text block in the in-app style, music only, no sound effects, no end card. Build with `assets/native-template.html` via `scripts/make_short.py` (a config with a `NATIVE JS` block). Examples: `marketing/reels/2026-11-27-native-what-you-need/` to `2026-11-30-native-one-episode/`. Connor's verdict on the effects-heavy versions was "feels like an ad".
+
+The **short format**, still available (8–10 s, real people, one persistent caption, a cut on each hit, escalation, the product as the proof shot): see "Short format" in `references/retention.md`, and build with `assets/short-template.html` via `scripts/make_short.py`. Examples: `marketing/reels/2026-11-23-friend-group-irl/` to `2026-11-26-one-episode-short/`. Reel D's data (5 s average watch on 17 s) is why. Use the longer types below only when a story truly needs the time.
 
 
 Live research (Nov 2026) shows two kinds of reel work for this audience, and a healthy feed mixes them about 2:1:
