@@ -115,7 +115,17 @@
     const tick = () => { if (Date.now() > watchUntil) return; load(); watchT = setTimeout(tick, 8000); };
     watchT = setTimeout(tick, 5000);
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() < watchUntil) load(); });
+  // The balance is the server's: it's asked again whenever you come back to Studyboard (at most every 20 seconds), so a balance that changed
+  // elsewhere (a refund, another tab or device) never shows an old number
+  let lastBack = 0;
+  const backAgain = () => { if (document.hidden || !enabled() || !signedIn()) return; if (Date.now() < watchUntil || Date.now() - lastBack > 20000) { lastBack = Date.now(); load(); } };
+  document.addEventListener("visibilitychange", backAgain);
+  window.addEventListener("focus", backAgain);
+  // another Studyboard tab saved a newer balance: show it here too
+  window.addEventListener("storage", e => {
+    if (e.key !== K || !e.newValue) return;
+    try { const n = JSON.parse(e.newValue), u = usr(); if (!n || !u || n.uid !== u.id) return; C = n; rebuild(); try { applySkin(); } catch (x) {} scheduleRender(); redrawOpen(); } catch (x) {}
+  });
 
   /* ---------- Sheets ---------- */
   let backToShop = false;
@@ -344,7 +354,7 @@
      button. Hidden from Pro subscribers, who have every item, unless they've bought credits or still have some. */
   const bought = () => { const m = mine(); return !!(m && m.bought); };
   const showBar = () => enabled() && (!PLAN.isPro() || bought() || balance() > 0);
-  const origShop = styleShop;
+  const origShop = styleShop; let shopAsked = 0;
   styleShop = function(){
     const r = origShop.apply(this, arguments);
     try {
@@ -357,6 +367,8 @@
         hd.classList.add("has-cr");
       }
       label(dlg);
+      // the shop asks for the balance as it opens (it redraws if the number changed)
+      if (enabled() && signedIn() && Date.now() - shopAsked > 5000) { shopAsked = Date.now(); load(); }
     } catch (e) { console.warn("credits pill", e); }
     return r;
   };

@@ -213,6 +213,16 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     ok(/\$2\.99/.test(plusTxt) && /Studyboard AI/.test(plusTxt), "the Pro sheet offers Studyboard Plus at $2.99 without Studyboard AI");
     ok(/Not in Plus/.test(await page.textContent(".plan-compare")), "the comparison says Studyboard AI isn't in Plus");
 
+    // A balance that changed on the server (a refund taking credits back) shows when the shop opens, not the remembered one
+    const stale = await page.evaluate(async () => {
+      const srv = window.__crSrv; if (document.querySelector("dialog[open]")) document.querySelector("dialog[open]").close();
+      await new Promise(r => setTimeout(r, 5200)); srv.balance = 7; srv.bought = true;
+      const k = Object.keys(localStorage).find(x => { try { const v = JSON.parse(localStorage.getItem(x)); return v && typeof v === "object" && "balance" in v && Array.isArray(v.owned); } catch (e) { return false; } });
+      return k || "";
+    });
+    await page.evaluate(() => window.SBCREDITS.shop());
+    await page.waitForFunction(() => { const p = document.querySelector(".sbc-pill b"); return p && p.textContent.trim() === "7"; }, null, {timeout: 6000}).catch(() => {});
+    ok(stale && (await page.textContent(".sbc-pill b")).trim() === "7", "opening the Style Shop asks for the balance again, so a refund's change shows at once");
     ok(errs.length === 0, "no page errors" + (errs.length ? ": " + errs[0] : ""));
     console.log("\ncredits: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
