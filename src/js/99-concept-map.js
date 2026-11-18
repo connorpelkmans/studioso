@@ -995,9 +995,20 @@ const skinOk = sk => typeof SKINS === "undefined" || SKINS.some(x => x.id === sk
 // the 14 plain-colour themes' styles are free for everyone; every other style (themes, subjects) is Pro
 const FREE_SKINS = ["classic", "paper", "slate", "sand", "blush", "lavender", "sky", "sage", "peach", "butter", "teal", "mocha", "plum", "indigo"];
 const packFree = pk => !!pk && FREE_SKINS.some(sk => CMPACK.THEME_OF[sk] === pk.id);
+// the style a map without one of its own gets: the default picked in the Style Shop's Build Your Look, else Match My Theme
+const defPack = () => { try { const v = typeof styleCfg === "function" ? styleCfg().cmPack : ""; return v && (v === "plain" || v === "theme" || (window.CMPACK && CMPACK.get(v))) ? v : "theme"; } catch (e) { return "theme"; } };
+// For the Style Shop: the map styles, their names, small pictures and whether each is free
+window.SBCMSTYLE = {
+  ids: () => window.CMPACK ? ["theme", "plain"].concat(CMPACK.SUBJECTS) : [],
+  name: id => id === "theme" ? "Match My Theme" : id === "plain" ? "Plain" : ((window.CMPACK && CMPACK.get(id)) || {}).name || "",
+  pic: (id, skin) => { if (!window.CMPACK) return ""; const pk = id === "theme" ? themePack(skin || skinNow()) : id === "plain" ? null : CMPACK.get(id);
+    return pk ? CMPACK.preview(pk, FONT_STACK) : `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.4"/><rect x="101" y="14" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/><rect x="101" y="62" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/></svg>`; },
+  free: id => !id || id === "theme" || id === "plain" || (window.CMPACK && packFree(CMPACK.get(id))),
+  current: defPack
+};
 function packOf(){
   // a map with no style chosen follows the theme in use (Match My Theme); Plain is kept as "plain"
-  const id = M.own ? metaOf(M.own).pack || "theme" : ""; if (!id || id === "plain" || !window.CMPACK) return null;
+  const id = M.own ? metaOf(M.own).pack || defPack() : ""; if (!id || id === "plain" || !window.CMPACK) return null;
   const pk = id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? (skinOk(id.slice(2)) ? themePack(id.slice(2)) : null) : CMPACK.get(id);
   return pk && (!isLocked() || packFree(pk)) ? pk : null;
 }
@@ -1277,7 +1288,7 @@ const lookFree = id => !id || packFree(id === "theme" ? themePack(skinNow()) : C
 // Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
 function looksPanel(){
   const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
-  const cur = metaOf(M.own).pack === "plain" ? "" : metaOf(M.own).pack || "theme", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
+  const cur = (metaOf(M.own).pack || defPack()) === "plain" ? "" : metaOf(M.own).pack || defPack(), locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
   const plain = `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><g fill="var(--muted)" opacity=".35">${Array.from({length: 28}, (_, i) => `<circle cx="${8 + (i % 7) * 25}" cy="${10 + Math.floor(i / 7) * 25}" r="1"/>`).join("")}</g><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.6"/><rect x="101" y="13" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/><rect x="101" y="61" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/></svg>`;
   const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked && !lookFree(id) ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
   const grid = ids => `<div class="cm-lookg">${ids.map(id => { const k = CMPACK.P[id]; return tile(id, k.name, CMPACK.preview(k, FONT_STACK), k.desc); }).join("")}</div>`;
@@ -1576,7 +1587,7 @@ async function onClick(e){
     case "looks": M.looks = !(M.looks && !M.sel && !M.selE && !M.quiz); M.lookScrolled = false; if (M.looks) { M.sel = ""; M.selE = ""; M.styleOpen = false; M.cardsOpen = false; M.made = null; lite(); } tools(); panel(); return;
     case "looks-x": M.looks = false; tools(); panel(); return;
     case "look": {
-      const v = b.dataset.v || "", pk0 = metaOf(M.own).pack, cur = pk0 === "plain" ? "" : pk0 || "theme"; if (v === cur) return;
+      const v = b.dataset.v || "", pk0 = metaOf(M.own).pack || defPack(), cur = pk0 === "plain" ? "" : pk0; if (v === cur) return;
       if (isLocked() && !lookFree(v)) { PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
       const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : /^t-/.test(v) ? skinName(v.slice(2)) : (CMPACK.P[v] || {}).name || v;
       saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || "plain"}); paint(); return;

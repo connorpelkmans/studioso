@@ -1447,7 +1447,7 @@ function cleanFile(r) {
       return {data: fromFeed(text, "feed")};
     } catch(e) {
       console.warn(P.id, e);
-      if (String(e && e.message) === "nocloud") return {error: "nocloud", text: `A ${P.name} calendar link needs a free Studyboard account. Sign in or create one in Settings, Account and Sync, or import a downloaded calendar file instead.`};
+      if (String(e && e.message) === "nocloud") return {error: "nocloud", text: `A ${P.name} calendar link needs a free Studyboard account. Sign in or create one in Settings, Account, or import a downloaded calendar file instead.`};
       return {error: String(e && e.message || e), text: errText(e && e.message || e)};
     }
   }

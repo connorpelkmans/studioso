@@ -93,7 +93,7 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
         await p.click('#dlg .us-cat[data-us="appearance"]'); await wait(300);
         const pane = await p.evaluate(() => { const l = document.querySelector("#usPane-appearance .menu-list.on, #usPane-appearance .menu-list"), rows = [...l.children].filter(r => r.offsetHeight); return {group: parseFloat(getComputedStyle(l).borderTopLeftRadius), rowBorders: rows.map(r => getComputedStyle(r).borderTopWidth), lines: rows.slice(1).every(r => /inset/.test(getComputedStyle(r).boxShadow))}; });
         ok(pane.group >= 16 && pane.rowBorders.every(b => b === "0px") && pane.lines, `09 (${tag}): a category's rows sit in one group with hairlines between them: ` + JSON.stringify(pane));
-        ok(await p.evaluate(() => !!document.querySelector("#usPane-appearance .us-subs")), `09 (${tag}): the section switch inside a category stays`);
+        ok(await p.evaluate(() => document.querySelectorAll("#usPane-appearance .us-gh").length > 1), `09 (${tag}): a category's groups show under their own headings`);
         await p.click("#dlg .us-back"); await wait(200);
         const g = await box(p, "#dlg .us-sheet .sheet-head h2");
         await p.mouse.move(g.x + 2, g.y + 4); await p.mouse.down(); await p.mouse.move(g.x + 2, g.y + 70, {steps: 5}); await p.mouse.move(g.x + 2, g.y + 160, {steps: 5}); await p.mouse.up(); await wait(300);
