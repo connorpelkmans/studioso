@@ -2,6 +2,7 @@
 
 Rebuilt after reel D's insights (5 s average watch on 17.3 s; views flat after the first hour). All four follow "Short format" in `.claude/skills/studyboard-reels/references/retention.md`:
 - 8–10 s, with real people full-frame from frame 0.
+- **A cold open on the climax**: huge 3–5 word text, an impact sound by 0.3–0.5 s and a snap zoom.
 - One persistent caption.
 - A cut on every music hit (every 2 s), with each shot escalating.
 - The payoff in the last shot, then a loop.
@@ -10,8 +11,8 @@ Rebuilt after reel D's insights (5 s average watch on 17.3 s; views flat after t
 |---|---|---|---|---|
 | 1 | `2026-11-23-friend-group-irl/` | 8 s | "Every friend group during **finals week**". Four real friends, ending on "4 · the worst" | Soft sign-off only (entertainment) |
 | 2 | `2026-11-24-same-week-short/` | 10 s | "How every exam I have this semester landed in **the exact same week**" | The Studyboard calendar is the proof shot; a 2 s fix spreads the study load, then it loops |
-| 3 | `2026-11-25-need-on-final/` | 8 s | "Checking what I need on the final to **keep my scholarship**" | The Grade Tracker card is the punchline ("94%") |
-| 4 | `2026-11-26-one-episode-short/` | 8 s | "“Just one episode, **then I'll study**”" with lock-screen times 11:02 → 7:58 | Soft sign-off only (entertainment) |
+| 3 | `2026-11-25-need-on-final/` | 8 s | **Cold open:** "I need **WHAT** on the final?!" as 94% slams onto the Grade Tracker card at 0.3 s. Then the reaction, the despair, "Day 1 of actually studying" | The Grade Tracker card is the punchline ("94%") |
+| 4 | `2026-11-26-one-episode-short/` | 8 s | **Cold open:** the alarm, 7:58: "My final is in **2 minutes**". Then a rewind: 11:02 → 12:47 → 2:31, "“Just one episode, then I'll study”", looping into the alarm | Soft sign-off only (entertainment) |
 
 Suggested order: **#1 first** (the direct rebuild of D, so the comparison is clean), then 2, 4, 3, one per day at the Metricool peaks. Compare average watch time and percentage watched against D (5 s, 29%).
 

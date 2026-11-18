@@ -1,6 +1,6 @@
 {"xf": 0.2, "shots": [
- {"clip": "../_broll/stressed.mp4", "in": 3.4, "dur": 2.0},
  {"color": "#0E2A56", "dur": 2.0},
+ {"clip": "../_broll/stressed.mp4", "in": 3.4, "dur": 2.0, "zoom": [1.0, 1.1, 2.0]},
  {"clip": "../_broll/shaking.mp4", "in": 4.0, "dur": 2.0},
  {"clip": "../_broll/tired.mp4", "in": 3.6, "dur": 2.0},
  {"color": "#0E2A56", "dur": 2.0}

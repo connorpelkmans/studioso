@@ -1,5 +1,5 @@
 <!-- SHORT CSS -->
-#gc{position:absolute;left:100px;width:880px;top:560px;overflow:hidden}
+#gc{position:absolute;left:100px;width:880px;top:610px;overflow:hidden}
 #gc .band{display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,#1E9E74,#4DBF97);color:#fff;font:700 34px var(--display);letter-spacing:.06em;padding:22px 34px}
 #gc .band img{width:46px;height:46px;border-radius:11px}
 #gc .rows{padding:12px 34px 4px}
@@ -28,15 +28,19 @@
 
 <!-- SHORT JS -->
 // Math: so far = (0.2*62 + 0.3*48 + 0.15*70) / 0.65 = 57.4%. For 70% overall: (70 - 37.3) / 0.35 = 93.4 -> 94% on the final.
+// Cold open on the punchline: the card is already on screen, the 94% slams in at 0.3 s with a thud. Then the reaction, the despair, and back to work; loops to the card.
 REEL = {
-  end: 8.0, cover: .3, capY: 270,
-  cap: "Checking what I need on the final to <b>keep my scholarship</b>",
-  shots: [{t: 0}, {t: 2}, {t: 4, scene: "grade"}, {t: 6, label: "<b>94%?!</b>", labY: 1150}],
-  scenes: {grade: lt => {
-    rise($("gc"), lt, 0, .3, 60);
-    $("so").textContent = (57.4 * oCubic(P(lt, .25, .7))).toFixed(1) + "%";
-    pop($("need"), lt, .8, .3, .85);
-    const k = P(lt, .95, 1.15); $("big").style.display = "block"; $("big").style.transform = `scale(${lerp(1.8, 1, oBack(k, 2.2))})`; $("big").style.opacity = k;
+  end: 8.0, cover: .45, capY: 270,
+  hook: {t1: 2.0, y: 290, lines: [[0, "I need <b>WHAT</b>"], [.3, "on the final?!"]]},
+  caps: [[2.0, 8.0, "Me checking what I need to <b>keep my scholarship</b>"]],
+  shots: [{t: 0, scene: "grade"}, {t: 2}, {t: 4}, {t: 6, label: "Day 1 of <b>actually studying</b>", labY: 1120}],
+  scenes: {grade: (lt, t) => {
+    if (t >= 2) return;
+    $("gc").style.opacity = 1; $("gc").style.transform = `scale(${1 + .08 * (1 - oCubic(P(lt, 0, .35)))})`;
+    $("so").textContent = "57.4%";
+    $("need").style.opacity = 1; $("need").style.transform = "";
+    const k = P(lt, .28, .4); $("big").style.display = "block"; $("big").style.opacity = k > 0 ? 1 : 0;
+    $("big").style.transform = `scale(${lerp(2.2, 1, oBack(P(lt, .3, .58), 2.2))})`;
   }},
   lockup: 6.7, lockText: "Grade Tracker · free",
 };

@@ -5,6 +5,7 @@
 
 shots.json is a list of segments, in order:
   {"clip": "path/to/clip.mp4", "in": 3.4, "dur": 2.6, "speed": 1.0, "pre": "eq=brightness=0.05"}   # footage (scaled + cropped to 9:16; "pre" optional)
+  optional "zoom": [1.25, 1.0, 0.35] on a clip: a snap zoom from 1.25x to 1x over 0.35 s (motion at frame 0 for hooks)
   {"color": "#0E2A56", "dur": 3.0}                                     # placeholder: reel.html draws its own scene here
 
 Paths are relative to the JSON file. Output is 1080x1920, 30 fps, H.264, no audio. Then render the overlay with
@@ -32,6 +33,10 @@ for i, s in enumerate(shots):
         pre = (s["pre"] + ",") if s.get("pre") else ""   # optional ffmpeg filters first, e.g. a crop to punch in or eq= to brighten
         vf = (f"{pre}setpts=PTS/{speed},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
               f"fps={FPS},setsar=1,trim=duration={d},setpts=PTS-STARTPTS")
+        if s.get("zoom"):   # [from, to, seconds]: a snap zoom, e.g. [1.25, 1.0, 0.35] snaps out; [1.0, 1.12, 2.0] pushes in
+            z0, z1, zd = s["zoom"]
+            z = f"({z1}+({z0}-{z1})*pow(max(0\\,1-t/{zd})\\,3))"
+            vf += f",scale=w='trunc({W}*{z}/2)*2':h='trunc({H}*{z}/2)*2':eval=frame,crop={W}:{H}"
         cmd = ["ffmpeg", "-loglevel", "error", "-y", "-ss", str(s.get("in", 0)), "-i", os.path.join(base, s["clip"]),
                "-an", "-vf", vf, "-t", str(d)]
     else:

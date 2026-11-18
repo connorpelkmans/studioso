@@ -1,13 +1,17 @@
+<!-- SHORT CSS -->
+#hook .n4{font-size:230px;line-height:1}
+<!-- /SHORT CSS -->
 <!-- SHORT JS -->
-// Real people, one persistent caption, a new friend on every hit, ending on "the worst one" (the open loop pays off on screen).
+// Cold open on the worst one (head hits the books at 0.3 s, with a thud), then count 1-3 and loop back to #4.
 REEL = {
-  end: 8.0, cover: .3, capY: 270,
-  cap: "Every friend group during <b>finals week</b>",
+  end: 8.0, cover: .35, capY: 270,
+  hook: {t1: 2.0, y: 280, lines: [[0, "Every friend group has a"], [.3, "<b>#4</b>", "n4"], [1.0, "(opened the textbook once)", "sm"]]},
+  caps: [[2.0, 8.0, "Every friend group during <b>finals week</b>"]],
   shots: [
-    {t: 0, num: "1", label: "Just found out it's <b>cumulative</b>"},
-    {t: 2, num: "2", label: "“I work better <b>under pressure</b>”"},
-    {t: 4, num: "3", label: "Lives in the <b>library</b> now"},
-    {t: 6, num: "4 · the worst", label: "Opened the textbook <b>once</b>"},
+    {t: 0},
+    {t: 2, num: "1", label: "Just found out it's <b>cumulative</b>"},
+    {t: 4, num: "2", label: "“I work better <b>under pressure</b>”"},
+    {t: 6, num: "3", label: "Lives in the <b>library</b> now"},
   ],
   lockup: 6.9, lockText: "which one are you?",
 };

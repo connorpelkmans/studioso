@@ -20,6 +20,8 @@
     cap: "Persistent caption with one <b>yellow</b> phrase", capY: 300,       // or caps: [[t0, t1, html], ...]
     shots: [{t: 0, label: "Label", num: 1, time: "11:02 PM", scene: "NAME"}, ...],   // t = the cut (music hit)
     scenes: {NAME: (lt, t) => {...}},                                           // draws a scene; lt = time since its cut
+    hook: {t1: 2.0, y: 300, lines: [[0, "Big 3-5 words"], [.6, "<b>second hit</b>"]]},  // cold-open text: each line
+                                                                                 // slams in at its time (t = 0 is fully formed at frame 0)
     lockup: 6.6,                                                                 // small icon + Studyboard from this time
     end_card: null,                                                              // or a time: full navy end card from then
   }
@@ -56,6 +58,9 @@ html,body{margin:0;background:#000}
 #endc .w{position:absolute;left:0;right:0;top:795px;font:800 116px/1 var(--display);letter-spacing:-.025em;color:#fff}
 #endc .s{position:absolute;left:0;right:0;top:960px;font:600 44px var(--display);color:#C9D7F2}
 .card{background:#fff;color:var(--ink);border-radius:32px;box-shadow:var(--shadow)}
+#hook{position:absolute;left:50px;width:980px;text-align:center;z-index:13;font-weight:900;font-size:120px;line-height:1.04;letter-spacing:-.025em}
+#hook>div{opacity:0}
+#hook .sm{font-size:76px;line-height:1.15}
 /* ===== SHORT CSS ===== */
 
 /* ===== /SHORT CSS ===== */
@@ -68,6 +73,7 @@ html,body{margin:0;background:#000}
 <!-- ===== /SHORT HTML ===== -->
   <div id="clock"><div class="d" id="clockD"></div><div class="h" id="clockH"></div></div>
   <div id="cap" class="out"></div>
+  <div id="hook" class="out"></div>
   <div id="lab" class="out"><div class="n" id="labN"></div><div class="l" id="labL"></div></div>
   <div id="lock"><img src="{{ROOT}}/icon-512.png" alt=""><span>Studyboard</span><em id="lockE"></em></div>
   <div class="scene navybg" id="endc"><div class="i"><img src="{{ROOT}}/icon-512.png" alt=""></div><div class="w">Studyboard</div><div class="s" id="endS">Free student planner</div></div>
@@ -88,15 +94,16 @@ const slam = (el, t, t0, dy = -260) => { const k = oCubic(P(t, t0 - .14, t0)); e
 const XF = .2;
 let REEL = {};
 /* ===== SHORT JS ===== */
-// Lock-screen timestamps carry the story; the caption never changes. Ends on the alarm with the exam in 2 minutes.
+// Flash-forward cold open: the alarm, 7:58, the exam at 8. Then rewind to 11:02 PM; the last shot (2:31) loops into the alarm.
 REEL = {
   end: 8.0, cover: .3, capY: 1120,
-  cap: "“Just one episode,<br><b>then I'll study</b>”",
+  hook: {t1: 2.0, y: 640, lines: [[0, "My final is in"], [.45, "<b>2 minutes</b>"]]},
+  caps: [[2.0, 8.0, "“Just one episode,<br><b>then I'll study</b>”"]],
   shots: [
-    {t: 0, time: "11:02", date: "Wednesday, December 9"},
-    {t: 2, time: "12:47", date: "Thursday, December 10"},
-    {t: 4, time: "2:31", date: "Thursday, December 10"},
-    {t: 6, time: "7:58", date: "Final exam · 8:00 AM", label: "", labY: 1300},
+    {t: 0, time: "7:58", date: "Final exam · 8:00 AM"},
+    {t: 2, time: "11:02", date: "The night before"},
+    {t: 4, time: "12:47", date: "The night before"},
+    {t: 6, time: "2:31", date: "The night before"},
   ],
   lockup: 6.8, lockText: "free planner",
 };
@@ -104,6 +111,7 @@ REEL = {
 const R = Object.assign({end: 8, cover: .25, capY: 300, shots: [], scenes: {}, lockup: null, lockText: "free planner", end_card: null, endText: "Free student planner"}, REEL);
 const CAPS = R.caps || (R.cap ? [[0, R.end, R.cap]] : []);
 $("cap").style.top = R.capY + "px";
+if (R.hook) $("hook").innerHTML = R.hook.lines.map(l => `<div class="${l[2] || ""}">${l[1]}</div>`).join("");
 $("lockE").textContent = R.lockText; $("endS").textContent = R.endText;
 const shotAt = t => { let k = 0; R.shots.forEach((s, i) => { if (t >= s.t) k = i; }); return k; };
 const shotEnd = i => i + 1 < R.shots.length ? R.shots[i + 1].t : R.end;
@@ -112,6 +120,12 @@ const shotOp = (i, t) => { const a = R.shots[i].t, b = shotEnd(i);
   const inK = a <= 0 ? 1 : ioCubic(P(t, a - XF / 2, a + XF / 2)), outK = b >= R.end ? 0 : ioCubic(P(t, b - XF / 2, b + XF / 2));
   return Math.min(inK, 1 - outK); };
 function render(t) {
+  // Cold-open hook text: huge, abrupt onsets on the hits, gone by the first cut
+  if (R.hook) { const H = R.hook, out = ioCubic(P(t, H.t1 - .12, H.t1 + .08));
+    $("hook").style.top = (H.y || 300) + "px"; $("hook").style.opacity = 1 - out;
+    [...$("hook").children].forEach((el, i) => { const t0 = H.lines[i][0];
+      if (t0 <= 0) { el.style.opacity = 1; el.style.transform = `scale(${1 + .07 * (1 - oCubic(P(t, 0, .3)))})`; }
+      else { const k = P(t, t0 - .02, t0 + .1); el.style.opacity = k > 0 ? 1 : 0; el.style.transform = `scale(${lerp(1.6, 1, oBack(P(t, t0, t0 + .28), 1.4))})`; } }); }
   const c = CAPS.find(([a, b]) => t >= a && t < b);
   $("cap").innerHTML = c ? c[2] : "";
   $("cap").style.opacity = c ? Math.min(c[0] <= 0 ? 1 : P(t, c[0], c[0] + .2), c[1] >= R.end ? 1 : 1 - P(t, c[1] - .15, c[1])) : 0;
