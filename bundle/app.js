@@ -36133,8 +36133,21 @@ hook("boot", boot);
   const PROSEC = new Set(["weak", "challenge"]);
   const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };
   const featOn = (g, k) => !hiddenOf(g).has(k) && (!PROSEC.has(k) || proSecOk(g));
-  // Whiteboards tab
-  const wbPaneHtml = g => fire("grp-boards", g).filter(Boolean).join("") || `<section class="card grp-sec"><h3 class="fsec">Whiteboards</h3><p class="empty mini">Shared whiteboards show up here.</p></section>`;
+  // Shared tab: whiteboards and concept maps, and how many more the group can share (3, or 10 in a Pro group: the server's count)
+  const ROOM = {};
+  function roomLine(g){
+    const r = ROOM[g.id];
+    if (!r || Date.now() - r.at > 15000) { ROOM[g.id] = Object.assign({}, r || {}, {at: Date.now()});
+      api.sharedRoom(g.id).then(x => { if (!x || !Number(x.max)) return; ROOM[g.id] = {at: Date.now(), used: Number(x.used) || 0, max: Number(x.max), pro: !!x.pro};
+        document.querySelectorAll(`.grp-room[data-gid="${CSS.escape(g.id)}"]`).forEach(el => { el.outerHTML = roomHtml(g.id); }); }).catch(() => {}); }
+    return roomHtml(g.id);
+  }
+  function roomHtml(gid){
+    const r = ROOM[gid]; if (!r || r.max == null) return `<p class="mini grp-room" data-gid="${esc(gid)}" hidden></p>`;
+    const full = r.used >= r.max;
+    return `<p class="mini grp-room${full ? " is-full" : ""}" data-gid="${esc(gid)}">${r.used} of ${r.max} shared${full ? `: take one off the group to share another${r.pro ? "" : ", or a member with Pro can make it a Pro group for up to 10"}` : r.pro ? "" : " · Pro groups can share up to 10"}</p>`;
+  }
+  const wbPaneHtml = g => (fire("grp-boards", g).filter(Boolean).join("") || `<section class="card grp-sec"><h3 class="fsec">Whiteboards</h3><p class="empty mini">Shared whiteboards show up here.</p></section>`) + roomLine(g);
   function panesHtml(g){
     const P = (k, html) => `<div class="grp-pane" data-pane="${k}" id="grpPane-${k}" role="tabpanel" aria-labelledby="grpTab-${k}"${paneOn(g, k)}>${html}</div>`, on = k => featOn(g, k);
     const owner = isOwner(g), none = `<p class="empty mini grp-feat-none">${owner ? "Every feature here is turned off. Turn them on in Edit Group, under Features." : "Nothing is turned on here yet."}</p>`;
@@ -38852,6 +38865,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   const GX_MAX = 5, gxMine = () => (S.groups || []).filter(x => S.gpro[x.id] && S.gpro[x.id].by && S.gpro[x.id].by === myId()).length;
   const gxWhy = "This is part of Pro groups. When a member with Pro assigns Pro to the group, everyone in it gets this.";
   api.groupPro = ids => q(cli().rpc("group_pro_status", {p_groups: ids}));
+  api.sharedRoom = gid => q(cli().rpc("group_shared_room", {p_group: gid}));
   api.setGroupPro = (gid, on) => q(cli().rpc("group_pro_set", {p_group: gid, p_on: on}));
   api.setBadge = on => q(cli().rpc("set_supporter_badge", {p_on: on}));
   // Members with their badge
@@ -90569,6 +90583,117 @@ var SBEARLY = null;
   // Looks a few seconds after the app opens (so an account's flags from its other devices have arrived), then now and then
   setTimeout(() => { check(); if (!shown && !timer) timer = setInterval(check, 30000); }, 6000);
 })();
+/* ===== module: 99-discord-invite.js ===== */
+/* "Join the Studyboard Discord": a one-time popup with a link to the community server.
+   - People who started using Studyboard before 18 Nov 2026 see it once, the next time the app is quiet.
+   - Everyone who starts later sees it once, 7 days after they started.
+   "Once" is kept three ways, as in 99-ai-intro.js: the flag is written before the popup is drawn (and the popup is skipped if it
+   can't be written), the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
+(() => {
+  const KEY = "studyboard:discordInvite", FIRST_RUN = "studyboard:firstRun";
+  const LINK = "https://discord.gg/pcJJjfkZEP";
+  /*DISCORD-START*/
+  const DISCORD = (() => {
+    const SPLIT = Date.UTC(2026, 10, 18);   // started before this: an existing user, who sees it right away
+    const DELAY = 7 * 864e5;                // started on or after it: a new user, who waits a week
+    // joined: when the person started, in ms (0 = from before the first-run date was kept); null = unknown
+    const due = (joined, now) => {
+      if (!(now > 0)) return false;
+      if (joined == null || !(joined >= 0)) return false;
+      if (joined < SPLIT) return true;
+      return now >= joined + DELAY;
+    };
+    return {due, SPLIT, DELAY};
+  })();
+  /*DISCORD-END*/
+
+  const T = () => window.__discordTest || null;
+  const now = () => { const t = T(); return t && t.now ? t.now() : Date.now(); };
+  const rd = k => { try { return localStorage.getItem(k); } catch (e) { return undefined; } };
+  const wr = (k, v) => { try { localStorage.setItem(k, v); return localStorage.getItem(k) === v; } catch (e) { return false; } };
+  const uiSyncSeen = () => { try { const b = state.settings && state.settings.uiSync; return !!(b && b[KEY] && b[KEY].v); } catch (e) { return false; } };
+  const seen = () => rd(KEY) === undefined || !!rd(KEY) || uiSyncSeen();   // storage that can't be read counts as seen: never risk a second time
+
+  // When this person started: their account's date, or for someone with no account, the first time this device ran the app
+  // (0 when the device already had a planner before the first-run date was kept). Shares the first-run date with 99-ai-intro.js.
+  function joined(){
+    try {
+      if (typeof sbUser !== "undefined" && sbUser && !sbUser.is_anonymous) { const t = Date.parse(sbUser.created_at || ""); if (t > 0) return t; }
+    } catch (e) {}
+    let f = rd(FIRST_RUN);
+    if (f === undefined) return null;
+    if (f === null) {
+      const had = rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed");
+      f = had ? "0" : String(now());
+      wr(FIRST_RUN, f);
+    }
+    const n = Number(f);
+    return n >= 0 ? n : null;
+  }
+
+  let shown = false, timer = 0;
+  const quiet = () => {
+    try {
+      if (document.hidden || dlg.open || document.getElementById("qod") || document.querySelector("dialog[open]")) return false;
+      if (window.SBOB && SBOB.pending()) return false;
+      if (window.SBTOUR && SBTOUR.active()) return false;
+      if (window.SBEXAM && SBEXAM.current && SBEXAM.current()) return false;
+      if (typeof pomo !== "undefined" && pomo && pomo.running && pomo.mode === "focus") return false;
+    } catch (e) { return false; }
+    return true;
+  };
+
+  const CHECK = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  const CHAT = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4h0A2.5 2.5 0 0 1 4 13.5z" fill="currentColor" fill-opacity=".18"/><circle cx="9" cy="9.5" r="1" fill="currentColor"/><circle cx="12" cy="9.5" r="1" fill="currentColor"/><circle cx="15" cy="9.5" r="1" fill="currentColor"/></svg>';
+  const POINTS = [
+    ["Ask questions", "and get answers from the person who makes Studyboard"],
+    ["Get support", "when something isn't working"],
+    ["Chat with other students", "who use Studyboard, and share tips and wins"]
+  ];
+
+  function html(){
+    const li = ([b, s]) => `<li><span class="aii-tick">${CHECK}</span><span><b>${esc(b)}</b> ${esc(s)}</span></li>`;
+    return `<div class="aii-badge dci-badge" aria-hidden="true">${CHAT}</div>
+      <div class="qod-eyebrow">New</div>
+      <h2 id="qodT">Join the Studyboard Discord</h2>
+      <p class="aii-sub">There's now a Discord server for everyone who uses Studyboard.</p>
+      <ul class="aii-list">${POINTS.map(li).join("")}</ul>
+      <div class="qod-foot"><button type="button" class="btn" data-qod-close>Maybe Later</button><button type="button" class="btn primary dci-join" data-qod-close data-act="discord-join">Join the Server</button></div>
+      <p class="aii-fine">It's free to join.</p>`;
+  }
+
+  function show(){
+    if (shown) return false;
+    // The flag first, and only go on if it really was written: a popup that can't be remembered is never shown
+    if (!wr(KEY, String(now()))) { shown = true; return false; }
+    shown = true; stop();
+    qodPop(html(), "aii dci qod-plain");
+    return true;
+  }
+
+  function check(){
+    if (shown) return stop();
+    if (seen()) { shown = true; return stop(); }
+    if (navigator.webdriver && !T()) return;
+    try { if (inPreview()) return; } catch (e) {}
+    const j = joined();
+    if (j == null) return;
+    if (!DISCORD.due(j, now())) return;
+    if (!quiet()) return;
+    show();
+  }
+  function stop(){ clearInterval(timer); timer = 0; }
+
+  hook("act", act => {
+    if (act !== "discord-join") return false;
+    openOutside(LINK);
+    return true;
+  });
+
+  window.SBDISCORD = {due: DISCORD.due, check, seen: () => seen(), LINK};
+  // Looks a few seconds after the app opens (so an account's flags from its other devices have arrived), then now and then
+  setTimeout(() => { check(); if (!shown && !timer) timer = setInterval(check, 30000); }, 8000);
+})();
 /* ===== module: 99-linked.js ===== */
 /* Linked items: one compact row of chips on a task (its edit sheet) and on a deck page */
 (() => {
@@ -99166,6 +99291,8 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
         const rows = await q(cli().from("group_board_ops").insert({board_id: x.bid, group_id: x.gid, ch: part, tag: TAG}).select("id"));
         (Array.isArray(rows) ? rows : rows ? [rows] : []).forEach(r => { x.sent.add(r.id); seqSet(x.bid, r.id); });
       } catch (e) {
+        // the board's history is full (sbg_item_cap): stop sending, say so once; what you drew stays on your copy
+        if (/SB_(ITEM|OWNER)_FULL/.test(String(e && e.message))) { x.full = true; x.q = []; toast(String(e.message).replace(/^SB_[A-Z_]+:\s*/, "")); return; }
         x.q.unshift(...list.slice(i)); x.timer = setTimeout(() => send(x), 4000);
         if (Date.now() - errShown > 60000) { errShown = Date.now(); toast("The group board isn't getting your changes right now. They'll be sent when you're back online."); }
         return;
@@ -99176,6 +99303,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   }
   W.onLive((t, id, v) => {
     const x = L; if (!x || W.curId() !== x.nid) return;
+    if (x.full) return;
     x.q.push({t, id, v}); clearTimeout(x.timer); x.timer = setTimeout(() => send(x), 250);
   });
 
@@ -99208,7 +99336,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const n = state.notes[nid]; if (!n) return;
     let row;
     try { row = await q(cli().from("group_boards").insert({group_id: gid, name: W.boardName(n).slice(0, 60), tpl: n.wb.tpl || "blank"}).select().single()); }
-    catch (e) { toast(/does not exist|schema cache/i.test(String(e && e.message)) ? "Live group boards need the newest supabase-groups.sql on the server." : ((e && e.message) || "Couldn't share the board. Try again.")); return; }
+    catch (e) { toast(/does not exist|schema cache/i.test(String(e && e.message)) ? "Live group boards need the newest supabase-groups.sql on the server." : ((e && String(e.message || "").replace(/^SB_[A-Z_]+:\s*/, "")) || "Couldn't share the board. Try again.")); return; }
     if (!row || !row.id) { toast("Couldn't share the board. Try again."); return; }
     const cur = state.notes[nid]; if (!cur) return;
     const after = clone(cur); after.wb = Object.assign({}, after.wb, {g: {gid, bid: row.id, seq: 0, gn: cut(gname, 80)}});
@@ -110649,7 +110777,7 @@ const pendingKey = (bid, t, id) => !!(Q[bid] && Q[bid].q.some(o => o.t === t && 
 const KEYSEQ = new Map();   // bid|t id -> the newest change the group holds for that item (a late arrival of an older one is skipped)
 const ksGet = (bid, o) => KEYSEQ.get(bid + "|" + o.t + " " + o.id) || 0;
 const ksSet = (bid, o, id) => { const k = bid + "|" + o.t + " " + o.id; if ((KEYSEQ.get(k) || 0) < id) KEYSEQ.set(k, id); };
-const SENT = new Set(), SEEN = new Set(), TIMERS = {}, BUSY = new Set();
+const SENT = new Set(), SEEN = new Set(), TIMERS = {}, BUSY = new Set(), FULL = new Set();   // FULL: maps whose history reached its size limit this session
 function enqueue(bid, gid, ops){
   if (!ops.length) return;
   const x = Q[bid] = Q[bid] || {gid, q: []}; x.gid = gid;
@@ -110681,7 +110809,7 @@ const wire = ops => Promise.all(ops.map(async o => {
 }));
 let errShown = 0;
 async function send(bid){
-  const x = Q[bid]; if (!x || !x.q.length) { delete Q[bid]; qSave(); return; }
+  const x = Q[bid]; if (!x || !x.q.length || FULL.has(bid)) { delete Q[bid]; qSave(); return; }
   if (BUSY.has(bid)) { clearTimeout(TIMERS[bid]); TIMERS[bid] = setTimeout(() => send(bid), 400); return; }
   if (!online() || (navigator.onLine === false)) { toolsChip(); return; }
   BUSY.add(bid); clearTimeout(TIMERS[bid]);
@@ -110700,6 +110828,8 @@ async function send(bid){
   } catch (e) {
     BUSY.delete(bid);
     if (denied(e)) { const h = byBid(bid); delete Q[bid]; qSave(); if (h) await detach(bid, `You're no longer in ${h.rec.g.gn || "that group"}, so “${h.rec.name}” is now just your own map.`); return; }
+    // the map's history is full (sbg_item_cap): stop sending, say so once; your changes stay on your copy
+    if (/SB_(ITEM|OWNER)_FULL/.test(String(e && e.message))) { delete Q[bid]; qSave(); FULL.add(bid); toast(String(e.message).replace(/^SB_[A-Z_]+:\s*/, "")); toolsChip(); return; }
     TIMERS[bid] = setTimeout(() => send(bid), 4000);
     if (Date.now() - errShown > 60000) { errShown = Date.now(); toast("The group map isn't getting your changes right now. They'll be sent when you're back online."); }
     toolsChip(); return;
@@ -110963,7 +111093,7 @@ async function makeLive(cid, mid, gid, gname, drop){
   const {rec: shared} = CMG.privatize(pk.g, pk.pos, rec, {newId: uid, name: rec.name, drop});
   let row;
   try { row = await q(cli().from("group_maps").insert({group_id: gid, name: cut(rec.name || "Concept Map", 80), course: cut(c.code || c.name || "", 40)}).select().single()); }
-  catch (e) { toast(missing(e) ? "Live group maps need the newest supabase-groups.sql on the server." : ((e && e.message) || "Couldn't share the map. Try again.")); return; }
+  catch (e) { toast(missing(e) ? "Live group maps need the newest supabase-groups.sql on the server." : ((e && String(e.message || "").replace(/^SB_[A-Z_]+:\s*/, "")) || "Couldn't share the map. Try again.")); return; }
   if (!row || !row.id) { toast("Couldn't share the map. Try again."); return; }
   const now = Date.now(), copy = Object.assign(shared, {id: uid(), name: rec.name || "Concept Map", auto: false, created: now, at: now, g: {gid, bid: row.id, gn: cut(gname, 80)}});
   if (/^[\w-]{1,40}$/.test(String(rec.pack || ""))) copy.pack = rec.pack;
@@ -112491,7 +112621,7 @@ const AUTOPILOT = (() => {
   /* Dismissals and light/dark follow you between devices */
   const UI_KEYS = new Set(["studioso:theme", "studioso:nudge", "studioso:lastExport", "studyboard:crunch", "studyboard:roughWeekHidden", "studyboard:grpNudge",
     "studyboard:semester", "studyboard:review:snooze", "studyboard:fgs:cards", "studyboard:streak:said", "studyboard:heads:hide", "studyboard:gradeAsked",
-    "studyboard:gradeCheer", "studyboard:scrapToastAt", "studyboard:aiIntro"]);
+    "studyboard:gradeCheer", "studyboard:scrapToastAt", "studyboard:aiIntro", "studyboard:discordInvite"]);
   const AT = "studyboard:uiSyncAt";
   const atMap = () => { try { const m = JSON.parse(rawGet.call(ls, AT) || "{}"); return m && typeof m === "object" ? m : {}; } catch (e) { return {}; } };
   const putAt = m => { try { rawSet.call(ls, AT, JSON.stringify(m)); } catch (e) {} };

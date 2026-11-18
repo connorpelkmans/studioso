@@ -229,7 +229,7 @@ const pendingKey = (bid, t, id) => !!(Q[bid] && Q[bid].q.some(o => o.t === t && 
 const KEYSEQ = new Map();   // bid|t id -> the newest change the group holds for that item (a late arrival of an older one is skipped)
 const ksGet = (bid, o) => KEYSEQ.get(bid + "|" + o.t + " " + o.id) || 0;
 const ksSet = (bid, o, id) => { const k = bid + "|" + o.t + " " + o.id; if ((KEYSEQ.get(k) || 0) < id) KEYSEQ.set(k, id); };
-const SENT = new Set(), SEEN = new Set(), TIMERS = {}, BUSY = new Set();
+const SENT = new Set(), SEEN = new Set(), TIMERS = {}, BUSY = new Set(), FULL = new Set();   // FULL: maps whose history reached its size limit this session
 function enqueue(bid, gid, ops){
   if (!ops.length) return;
   const x = Q[bid] = Q[bid] || {gid, q: []}; x.gid = gid;
@@ -261,7 +261,7 @@ const wire = ops => Promise.all(ops.map(async o => {
 }));
 let errShown = 0;
 async function send(bid){
-  const x = Q[bid]; if (!x || !x.q.length) { delete Q[bid]; qSave(); return; }
+  const x = Q[bid]; if (!x || !x.q.length || FULL.has(bid)) { delete Q[bid]; qSave(); return; }
   if (BUSY.has(bid)) { clearTimeout(TIMERS[bid]); TIMERS[bid] = setTimeout(() => send(bid), 400); return; }
   if (!online() || (navigator.onLine === false)) { toolsChip(); return; }
   BUSY.add(bid); clearTimeout(TIMERS[bid]);
@@ -280,6 +280,8 @@ async function send(bid){
   } catch (e) {
     BUSY.delete(bid);
     if (denied(e)) { const h = byBid(bid); delete Q[bid]; qSave(); if (h) await detach(bid, `You're no longer in ${h.rec.g.gn || "that group"}, so “${h.rec.name}” is now just your own map.`); return; }
+    // the map's history is full (sbg_item_cap): stop sending, say so once; your changes stay on your copy
+    if (/SB_(ITEM|OWNER)_FULL/.test(String(e && e.message))) { delete Q[bid]; qSave(); FULL.add(bid); toast(String(e.message).replace(/^SB_[A-Z_]+:\s*/, "")); toolsChip(); return; }
     TIMERS[bid] = setTimeout(() => send(bid), 4000);
     if (Date.now() - errShown > 60000) { errShown = Date.now(); toast("The group map isn't getting your changes right now. They'll be sent when you're back online."); }
     toolsChip(); return;
@@ -543,7 +545,7 @@ async function makeLive(cid, mid, gid, gname, drop){
   const {rec: shared} = CMG.privatize(pk.g, pk.pos, rec, {newId: uid, name: rec.name, drop});
   let row;
   try { row = await q(cli().from("group_maps").insert({group_id: gid, name: cut(rec.name || "Concept Map", 80), course: cut(c.code || c.name || "", 40)}).select().single()); }
-  catch (e) { toast(missing(e) ? "Live group maps need the newest supabase-groups.sql on the server." : ((e && e.message) || "Couldn't share the map. Try again.")); return; }
+  catch (e) { toast(missing(e) ? "Live group maps need the newest supabase-groups.sql on the server." : ((e && String(e.message || "").replace(/^SB_[A-Z_]+:\s*/, "")) || "Couldn't share the map. Try again.")); return; }
   if (!row || !row.id) { toast("Couldn't share the map. Try again."); return; }
   const now = Date.now(), copy = Object.assign(shared, {id: uid(), name: rec.name || "Concept Map", auto: false, created: now, at: now, g: {gid, bid: row.id, gn: cut(gname, 80)}});
   if (/^[\w-]{1,40}$/.test(String(rec.pack || ""))) copy.pack = rec.pack;
