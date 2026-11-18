@@ -108666,6 +108666,9 @@ const GOOGLE = new Set(["gdoc", "gslides", "gsheet", "gdrive"]);
 const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with the link can view (or File, Share, Publish to web).";
 // Word, Excel and PowerPoint: a personal OneDrive file shows from its Embed code; a school or work file shows to people signed in to that school's Microsoft 365
 const MS365 = new Set(["mword", "mexcel", "mppt", "m365"]);
+// In the desktop app a YouTube player also names the Studyboard website as the page it's on (YouTube's widget_referrer): the app's own
+// app:// address isn't one YouTube accepts (Error 153), and the app sends the site as the referrer too
+const ytRef = src => typeof DESK !== "undefined" && DESK && /^https:\/\/www\.youtube-nocookie\.com\/embed\//.test(String(src || "")) && !/[?&]widget_referrer=/.test(src) ? src + (src.includes("?") ? "&" : "?") + "widget_referrer=" + encodeURIComponent("https://studyboardapp.com/") : src;
 const MS_TIP = "From OneDrive: File, Share, Embed, then paste the code here. A school or work file shows to anyone signed in to that Microsoft 365 who can open it.";
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
@@ -108695,7 +108698,7 @@ function player(id){
   closePlayer();
   const n = M.byId[id]; if (!n || !n.emb || !CMAP.embedOk(n.emb.e)) return;
   const e = n.emb, name = n.label || embInfo(e).tt || embName(e), cv = M.el.querySelector(".cm-canvas"), vid = EMB_VIDEO.has(e.p);
-  const src = e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e;
+  const src = ytRef(e.p === "youtube" ? e.e + (e.e.includes("?") ? "&" : "?") + "autoplay=1" : e.e);
   cv.insertAdjacentHTML("beforeend", `<div class="cm-player${vid && e.p !== "spotify" ? " is-video" : e.p === "spotify" ? " is-audio" : ""}" role="dialog" aria-label="${esc(name)}"><div class="cm-player-head"><span class="cm-embdot" style="background:${EMB_COL[e.p] || "#475569"}"></span><b>${esc(name)}</b><span class="spacer"></span><a class="btn small" href="${esc(e.u)}" target="_blank" rel="noopener noreferrer">Open in ${esc(CMAP.PROVIDERS[e.p] || "Browser")}</a><button type="button" class="icon-btn" data-cm="unplay" aria-label="Close">×</button></div>
     ${GOOGLE.has(e.p) && !/\/d\/e\//.test(e.e) ? `<p class="mini cm-player-tip">${esc(GOOGLE_TIP)}</p>` : ""}${e.p === "spotify" ? `<p class="mini cm-player-tip">Spotify plays whole songs and episodes here only when you're signed in to Spotify in this browser; otherwise it plays a 30-second preview. Open in Spotify plays the whole thing.</p>` : ""}<div class="cm-player-box"><iframe src="${esc(src)}" title="${esc(name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; storage-access" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms allow-storage-access-by-user-activation"></iframe></div></div>`);
   const b = cv.querySelector(".cm-player [data-cm=unplay]"); if (b) b.focus();
@@ -108757,7 +108760,7 @@ function liveSync(){
   if (!phone && shown()) {
     const R = cv.getBoundingClientRect();
     cv.querySelectorAll(".cm-emb.is-live").forEach(g => {
-      const src = g.dataset.src, r = g.firstElementChild.getBoundingClientRect(), nd = g.closest(".cm-node");
+      const src = ytRef(g.dataset.src), r = g.firstElementChild.getBoundingClientRect(), nd = g.closest(".cm-node");
       if (want.length >= LIVE_MAX || !CMAP.embedOk(src) || !nd || r.width < 90 || r.right < R.left || r.left > R.right || r.bottom < R.top || r.top > R.bottom) return;
       want.push({k: nd.dataset.n + " " + src, src, x: r.left - R.left, y: r.top - R.top, w: r.width, h: r.height});
     });
