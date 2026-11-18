@@ -22933,16 +22933,19 @@ function applyTheme(){
 }
 function setTheme(p){ try { if (p === "system") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, p); } catch(e) {} applyTheme(); }
 // The window buttons' strip matches what's under it
+// The window buttons sit on the app (no strip of their own, nothing white across the top): their background is see-through, and their
+// symbols are dark on a light theme and light on a dark one (what's at the top of the page: its paper colour)
 function deskTint(){
   try {
-    const wide = innerWidth >= 980;
-    const hex = c => { const m = String(c).match(/\d+(\.\d+)?/g); if (!m || m.length < 3) return ""; return "#" + m.slice(0, 3).map(x => Math.round(+x).toString(16).padStart(2, "0")).join(""); };
-    let col = wide ? hex(getComputedStyle(document.body).backgroundColor) : "";
-    if (!col || col === "#000000" && /,\s*0\)$/.test(getComputedStyle(document.body).backgroundColor)) col = getComputedStyle(document.documentElement).getPropertyValue("--spine").trim() || "#0E2A56";
-    const v = parseInt(col.slice(1, 7), 16), lum = ((v >> 16 & 255) * .299 + (v >> 8 & 255) * .587 + (v & 255) * .114) / 255;
-    DESK.setTitleBar(col, lum > .6 ? "#1F2937" : "#FFFFFF");
+    const cs = getComputedStyle(document.documentElement), m = String(getComputedStyle(document.body).backgroundColor).match(/\d+(\.\d+)?/g);
+    let rgb = m && m.length >= 3 && !(m.length > 3 && +m[3] === 0) ? m.slice(0, 3).map(Number) : null;
+    if (!rgb) { const pc = (cs.getPropertyValue("--paper") || cs.getPropertyValue("--bg")).trim(), h = /^#([0-9a-f]{6})/i.exec(pc); rgb = h ? [0, 2, 4].map(i => parseInt(h[1].slice(i, i + 2), 16)) : (isDark() ? [20, 24, 36] : [240, 242, 248]); }
+    const lum = (rgb[0] * .299 + rgb[1] * .587 + rgb[2] * .114) / 255;
+    DESK.setTitleBar("#00000000", lum > .55 ? "#1F2937" : "#FFFFFF");
   } catch(e) {}
 }
+// at the top the strip is see-through; once the page scrolls under the window buttons, a light frosted strip comes in behind them
+if (DESK) { let sc = false; const onSc = () => { const y = (document.scrollingElement || document.documentElement).scrollTop || 0, v = y > 4; if (v !== sc) { sc = v; document.body.classList.toggle("desk-sc", v); } }; window.addEventListener("scroll", onSc, {passive: true}); }
 let deskTintT = 0;
 if (DESK) window.addEventListener("resize", () => { clearTimeout(deskTintT); deskTintT = setTimeout(deskTint, 150); });
 if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (themePref() === "system") applyTheme(); });

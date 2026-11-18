@@ -262,7 +262,8 @@ function createWindow(hidden) {
     backgroundColor: spine(), show: false,
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 14, y: 10 },
-    titleBarOverlay: process.platform === "darwin" ? undefined : { color: spine(), symbolColor: "#FFFFFF", height: 34 },
+    // the window buttons sit on the app itself (no strip of their own): transparent, their symbols set by the page to suit what's under them
+    titleBarOverlay: process.platform === "darwin" ? undefined : { color: "#00000000", symbolColor: nativeTheme.shouldUseDarkColors ? "#FFFFFF" : "#1F2937", height: 34 },
     webPreferences: { ...SAFE_PREFS, preload: path.join(__dirname, "preload.js"), additionalArguments: ["--studioso-version=" + app.getVersion(), "--studioso-store=" + STORE], spellcheck: true }
   });
   if (st.maximized) { if (hidden) pendingMax = true; else win.maximize(); }
