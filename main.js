@@ -1120,7 +1120,7 @@ function loadScriptHashes() {
   if (!IS_DEV && !(scriptHashes && scriptHashes.length)) mainReport("csp-hashes", new Error("csp-hashes.json missing or invalid in a packaged build"), { type: "CspHashes" });
 }
 // Concept map embeds (Pro): the only sites the app may show in a frame. Keep in step with EMBED_HOSTS in src/js/99-concept-map.js (tests/embeds.test.js checks).
-const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com"];
+const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com", "studyboardapp.com"];
 const embedHostOk = h => EMBED_HOSTS.includes(h);
 // the page an embed says it's on (the app's own app:// address isn't one YouTube accepts)
 const EMBED_REFERRER = "https://studyboardapp.com/";

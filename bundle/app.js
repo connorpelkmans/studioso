@@ -108320,7 +108320,7 @@ const CMAP = (() => {
   }
   /* Embeds (Pro): a link from a site that's made to be embedded becomes a player on the map.
      Only these hosts can be framed (the app's Content-Security-Policy lists the same EMBED_HOSTS); anything else stays a link. */
-  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com"];
+  const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com", "studyboardapp.com"];
   // exact sites only (no wildcards: the app's security policy frames named sites, never a whole domain such as every school's sharepoint.com)
   const hostOk = host => EMBED_HOSTS.includes(host);
   const PROVIDERS = {youtube: "YouTube", vimeo: "Vimeo", loom: "Loom", gdoc: "Google Docs", gslides: "Google Slides", gsheet: "Google Sheets", gdrive: "Google Drive", desmos: "Desmos", geogebra: "GeoGebra", phet: "PhET Simulation", spotify: "Spotify", ted: "TED Talk", canva: "Canva", mword: "Word", mexcel: "Excel", mppt: "PowerPoint", m365: "Microsoft 365"};
@@ -108815,9 +108815,16 @@ const GOOGLE = new Set(["gdoc", "gslides", "gsheet", "gdrive"]);
 const GOOGLE_TIP = "If it asks you to sign in, share it in Google as Anyone with the link can view (or File, Share, Publish to web).";
 // Word, Excel and PowerPoint: a personal OneDrive file shows from its Embed code; a school or work file shows to people signed in to that school's Microsoft 365
 const MS365 = new Set(["mword", "mexcel", "mppt", "m365"]);
-// In the desktop app a YouTube player also names the Studyboard website as the page it's on (YouTube's widget_referrer): the app's own
-// app:// address isn't one YouTube accepts (Error 153), and the app sends the site as the referrer too
-const ytRef = src => typeof DESK !== "undefined" && DESK && /^https:\/\/www\.youtube-nocookie\.com\/embed\//.test(String(src || "")) && !/[?&]widget_referrer=/.test(src) ? src + (src.includes("?") ? "&" : "?") + "widget_referrer=" + encodeURIComponent("https://studyboardapp.com/") : src;
+// In the iPhone and desktop apps a YouTube video plays inside a small page on the Studyboard website (yt-embed.html), which holds the player:
+// YouTube refuses a player whose page is an app address (capacitor://localhost, app://studioso; "Error 153"), and an app can't change what
+// its frames send. The web version frames YouTube directly.
+const NATIVE_APP = () => (typeof DESK !== "undefined" && DESK) || !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
+const ytRef = (src, native = NATIVE_APP()) => {
+  const m = /^https:\/\/www\.youtube-nocookie\.com\/embed\/([\w-]{11})(?:\?(.*))?$/.exec(String(src || ""));
+  if (!native || !m) return src;
+  const q = new URLSearchParams(m[2] || ""), t = parseInt(q.get("start") || "0", 10) || 0;
+  return "https://studyboardapp.com/yt-embed.html?v=" + m[1] + (t > 0 ? "&t=" + t : "") + (q.get("autoplay") === "1" ? "&ap=1" : "");
+};
 const MS_TIP = "From OneDrive: File, Share, Embed, then paste the code here. A school or work file shows to anyone signed in to that Microsoft 365 who can open it.";
 function addEmbed(raw, ontoId){
   if (window.SBPRO && SBPRO.locked()) { PLAN.openSheet("Videos and embeds in concept maps are part of Studyboard Pro."); return false; }
