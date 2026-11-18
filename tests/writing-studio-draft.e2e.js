@@ -110,8 +110,8 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   const ctx = await mkCtx(), page = await open(ctx);
   /* Check first: the attached draft is offered */
   await act(page, "ws-open", "t1"); await page.waitForSelector("#dlg[open] .ws-tab");
-  ok(/^Check/.test(await selTab(page)), "a paper with no sources opens on Check");
-  ok((await page.$$eval("#dlg[open] .ws-tab", x => x.map(e => e.textContent.replace(/\s*\d+$/, "").trim()))).join() === "Check My Doc,Sources,Quotes,Outline", "the tabs: Check My Doc, Sources, Quotes, Outline");
+  ok(/^My Doc/.test(await selTab(page)), "a paper opens on My Doc");
+  ok((await page.$$eval("#dlg[open] .ws-tab", x => x.map(e => e.textContent.replace(/\s*\d+$/, "").trim()))).join() === "My Doc,Check,Sources,Quotes,Outline", "the tabs: My Doc, Check, Sources, Quotes, Outline");
   ok(/Use Essay draft\.txt\?/.test(await page.textContent("#dlg[open] .ws-offer")), "the draft attached to the assignment is offered");
   ok(/0 sources · 0 quotes · 0 placed · no draft yet/.test((await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ")), "the strip: " + (await page.textContent("#dlg[open] .ws-strip")).replace(/\s+/g, " ").trim());
   await page.click("#dlg[open] .ws-offer [data-ws-dsel]"); await page.waitForSelector("#dlg[open] .ws-found");
@@ -119,7 +119,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   ok(t1.ws.draft && t1.ws.draft.from === "Essay draft.txt" && t1.ws.draft.fid === "fd" && /Others disagree/.test(t1.ws.draft.t) && t1.ws.chk && t1.ws.chk.h === t1.ws.draft.h, "Use It keeps the draft on the paper and checks it");
   // the draft's list: its four entries go onto Sources by themselves (a DOI and an ISBN looked up, the rest read from the list)
   await page.waitForFunction(() => window.__sbProStudy.state().tasks.t1.ws.src.length === 4, null, {timeout: 15000}); await page.waitForTimeout(400);
-  ok(/Added 4 sources from your draft's list to Sources\. The ones read from your list \(no DOI or ISBN\) are marked there/.test(await page.textContent("#dlg[open]")), "the four entries in its list are added to Sources by themselves, and it says so");
+  ok(/Added 4 sources from your draft's list to Sources, and 2 quotes from your paper to Quotes\. The sources read from your list \(no DOI or ISBN\) are marked there/.test(await page.textContent("#dlg[open]")), "the four entries in its list go onto Sources by themselves, its two quotes onto Quotes, and it says so");
   ok(ctx.calls.length === 2 && ctx.calls.every(u => /doi\.org\/10\.1037\/0003-066X\.59\.1\.29$|openlibrary\.org\/api\/books\?bibkeys=ISBN:9780374275631&/.test(u)), "only the identifiers are sent: " + ctx.calls.join(" | "));
   t1 = await task(page, "t1");
   const bySrc = s => t1.ws.src.find(x => x.title && x.title.toLowerCase().startsWith(s.toLowerCase()));
@@ -127,13 +127,10 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   ok((await task(page, "m1")).status === "done", "the Break It Down step “Find 4 sources” is ticked done");
   await page.waitForSelector("#dlg[open] .ws-diff");
   ok(/Since your last check: \d+ fixed/.test(await page.textContent("#dlg[open] .ws-diff")), "what changed since the last check: " + await page.textContent("#dlg[open] .ws-diff"));
-  // quotes in the draft, tied to their source and page
-  const qrows = await page.$$eval("#dlg[open] .ws-fq li", x => x.map(e => e.textContent.replace(/\s+/g, " ")));
-  ok(qrows.length === 2 && /four degrees cooler/.test(qrows[0]) && /p\. 104/.test(qrows[0]), "two quoted passages offered as quotes");
-  ok(await page.inputValue("[data-wf-qs] >> nth=0") === bySrc("The urban heat").id && await page.inputValue("[data-wf-qs] >> nth=1") === bySrc("How the mind").id, "each tied to its source");
-  await page.click("[data-wf-addq]"); await page.waitForFunction(() => (window.__sbProStudy.state().tasks.t1.ws.q || []).length === 2);
+  // quotes in the draft, tied to their source and page: on the Quotes tab by themselves
+  await page.waitForFunction(() => (window.__sbProStudy.state().tasks.t1.ws.q || []).length === 2, null, {timeout: 10000});
   t1 = await task(page, "t1");
-  ok(t1.ws.q[0].p === "104" && t1.ws.q[0].sid === bySrc("The urban heat").id && t1.ws.q[1].p === "31", "quotes added with their pages");
+  ok(/four degrees cooler/.test(t1.ws.q[0].t) && t1.ws.q[0].p === "104" && t1.ws.q[0].sid === bySrc("The urban heat").id && t1.ws.q[1].p === "31" && t1.ws.q[1].sid === bySrc("How the mind").id, "its two quoted passages are quotes, each tied to its source, with its page");
   ok(await page.locator("#dlg[open] .ws-fq").count() === 0, "and they're not offered again");
   // an issue shown in the draft
   const jb = page.locator("#dlg[open] .ws-is-b", {hasText: "Johnson"}); await jb.click(); await page.waitForSelector("#dlg[open] .ws-dv .ws-mark");
@@ -145,7 +142,9 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   await page.focus('#dlg[open] [data-ws-tab="check"]'); await page.keyboard.press("ArrowRight");
   ok(/^Sources/.test(await selTab(page)) && await page.evaluate(() => document.activeElement.dataset.wsTab) === "sources", "Arrow Right goes from Check to Sources");
   await page.keyboard.press("ArrowLeft"); await page.keyboard.press("ArrowLeft");
-  ok(/^Outline/.test(await selTab(page)), "and Arrow Left wraps from Check to Outline");
+  ok(/^My Doc/.test(await selTab(page)), "Arrow Left goes back through Check to My Doc");
+  await page.keyboard.press("ArrowLeft");
+  ok(/^Outline/.test(await selTab(page)), "and wraps from My Doc to Outline");
   await page.click('#dlg[open] .ws-strip [data-ws-go="sources"]'); await page.waitForSelector("#dlg[open] .ws-refs");
   const srcTxt = (await page.textContent("#dlg[open] .ws-refs")).replace(/\s+/g, " ");
   ok(/Quoted once · Cited in draft ✓/.test(srcTxt) && /No quotes yet · Cited in draft ✓/.test(srcTxt), "sources show their use");
@@ -163,7 +162,9 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   // reopening lands on Check, with the last check
   await page.keyboard.press("Escape"); await page.waitForTimeout(300);
   await act(page, "ws-open", "t1"); await page.waitForSelector("#dlg[open] .ws-tab");
-  ok(/^Check/.test(await selTab(page)) && /Checked today/.test(await page.textContent("#dlg[open] .ws-draft")), "opening again: Check, with the saved draft and its last check");
+  ok(/^My Doc/.test(await selTab(page)) && await page.locator("#dlg[open] [data-ws-rd]").count() === 1, "opening again: My Doc, with the saved paper");
+  await page.click('#dlg[open] [data-ws-tab="check"]');
+  ok(/Checked today/.test(await page.textContent("#dlg[open] .ws-draft")), "and Check has its last check");
   // Replace: the picker, a note as the draft
   await page.click("[data-ws-redo]"); await page.click("[data-ws-dpick]"); await page.waitForSelector("#dlg[open] .ws-flist");
   const heads = await page.$$eval("#dlg[open] .ws-body h3.fsec", x => x.map(e => e.textContent));
@@ -239,7 +240,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
 
   /* Citation format, MLA (the user's example): a comma before the page, a year, the heading, an entry, each shown in the draft */
   { const mctx = await mkCtx(), mp = await open(mctx);
-    await act(mp, "ws-open", "t5"); await mp.waitForSelector("#dlg[open] .ws-res");
+    await act(mp, "ws-open", "t5", {wsTo: "check"}); await mp.waitForSelector("#dlg[open] .ws-res");
     // citeproc loads, then the entries are checked against MLA's own version of them
     await mp.waitForFunction(() => /Works Cited: fix the entry/.test(document.querySelector("#dlg[open] .ws-res").textContent), null, {timeout: 15000});
     const res = (await mp.textContent("#dlg[open] .ws-res")).replace(/\s+/g, " ");
@@ -261,7 +262,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
     ok(mp.errs.length === 0, "no console errors (format): " + mp.errs.join(" | "));
     await mctx.close();
     const qctx = await mkCtx({width: 390, height: 844}), qp = await open(qctx);
-    await act(qp, "ws-open", "t5"); await qp.waitForSelector("#dlg[open] .ws-res");
+    await act(qp, "ws-open", "t5", {wsTo: "check"}); await qp.waitForSelector("#dlg[open] .ws-res");
     await qp.waitForFunction(() => /Works Cited: fix the entry/.test(document.querySelector("#dlg[open] .ws-res").textContent), null, {timeout: 15000});
     await qp.locator("#dlg[open] .ws-is-b", {hasText: "comma between the author and the page"}).click(); await qp.waitForSelector("#dlg[open] .ws-dv .ws-mark");
     ok(await fits(qp), "Check with format issues fits at 390px");
@@ -276,9 +277,9 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   const pctx = await mkCtx({width: 390, height: 844}), pp = await open(pctx);
   await act(pp, "ws-open", "t1"); await pp.waitForSelector("#dlg[open] .ws-offer");
   ok(await fits(pp), "Check with the offer fits at 390px");
-  await pp.click("#dlg[open] .ws-offer [data-ws-dsel]"); await pp.waitForSelector("#dlg[open] .ws-found");
-  await pp.waitForFunction(() => !/Looking up/.test(document.querySelector("#dlg[open] .ws-found").textContent), null, {timeout: 15000});
-  ok(await fits(pp), "Found in Your Draft fits at 390px");
+  await pp.click("#dlg[open] .ws-offer [data-ws-dsel]"); await pp.waitForSelector("#dlg[open] .ws-res");
+  await pp.waitForFunction(() => window.__sbProStudy.state().tasks.t1.ws.src.length === 4, null, {timeout: 15000}); await pp.waitForTimeout(400);
+  ok(await fits(pp), "Check, with the draft's sources added, fits at 390px");
   await pp.locator("#dlg[open] .ws-is-b", {hasText: "Johnson"}).click(); await pp.waitForSelector("#dlg[open] .ws-dv .ws-mark");
   ok(await fits(pp), "the draft view fits at 390px");
   await pp.click('#dlg[open] [data-ws-go="sources"]'); await pp.waitForTimeout(200);
@@ -292,7 +293,7 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   const fctx = await mkCtx(); await fctx.addInitScript(() => { try { localStorage.setItem("studyboard:paywall-test", "1"); } catch (e) {} });
   const fp = await open(fctx);
   await fp.click('nav.tabs [data-tab="flashcards"]'); await fp.waitForTimeout(300); await act(fp, "rv-view", "writing"); await fp.waitForSelector(".wsr-card");
-  ok(/PRO/.test(await fp.textContent(".wsr-card .btn")), "free accounts see PRO in Review's Writing view");
+  ok(/^Pro$/i.test((await fp.textContent(".wsr-card .wsr-badge")).trim()) && !/PRO/.test(await fp.textContent(".wsr-card .btn")), "free accounts see PRO in the card's corner (not on Open)");
   await fp.click(".wsr-card .btn >> nth=0"); await fp.waitForSelector("#dlg[open] .plan-sheet");
   ok(/Writing Studio is part of Studyboard Pro/.test(await fp.textContent("#dlg[open]")), "which opens the Pro sheet");
   await fctx.close();

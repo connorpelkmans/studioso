@@ -104993,7 +104993,45 @@ const CITE = (() => {
   }
   return {TYPES, LABEL, CONT, NAMES, names, namesText, person, familyOf, date, parseDate, dateParts, yearOf, isoOf, clean, mapType, parseId, isbnOk, fromOpenLibrary, fromHtml, hostOf, keyName,
     parseBibTeX, parseRIS, parseCslJson, parseAny, toBibTeX, toRIS, toCslJson, dupOf, runs, runsHtml, runsText, engine, styleInfo, plain, check, rules, headingOf, detex, sentenceCase, looksTitleCase,
-    diffIssues, issueKeys, hash, capDraft, applyEdits, refAdd, sentenceAt, refEntries, refEntriesAt, parseRef, authorsOf, segs, quotesIn, refSection, parseCite, profileOf, refDiff};
+    diffIssues, issueKeys, hash, capDraft, applyEdits, refAdd, sentenceAt, refEntries, refEntriesAt, parseRef, authorsOf, segs, quotesIn, refSection, parseCite, profileOf, refDiff,
+    narrOf, citePlace};
+  /* Cite Here: a citation where the student clicked. The style's own citation is the one in brackets, "(Lingam et al., 2024)"; in the middle
+     of a sentence the authors are part of it, "Lingam et al. (2024)" (APA, Harvard, Chicago), or just named, "Lingam et al." (MLA, which
+     keeps its page for the end); numbered styles look the same either way. */
+  function narrOf(paren){
+    const p = String(paren || "").trim();
+    if (!/^\(/.test(p)) return p;
+    const m = /^\((.+?),?\s+((?:1[5-9]\d\d|20\d\d)[a-z]?|n\.\s?d\.)((?:,\s*[^)]*)?)\)$/.exec(p);
+    if (m) return `${m[1].replace(/\s&\s/g, " and ")} (${m[2]}${m[3]})`;
+    const n = /^\(([^()\d]+?)(?:\s+\d[\d–-]*)?\)$/.exec(p);
+    return n ? n[1].replace(/\s&\s/g, " and ") : p;
+  }
+  // Where it goes and which form: at the end of a sentence (next to its full stop, in its last word, or at the end of a paragraph) the one in
+  // brackets, before the full stop; right after a quotation, the one in brackets just after the closing quote mark; anywhere else the one in
+  // the sentence, at the start of the word clicked in. o: {paren, narr}; at: the place (or the end of what was selected).
+  function citePlace(textIn, at, o){
+    const text = String(textIn || ""), W_ = /[\p{L}\p{N}'’-]/u, END = /[.?!]/, CQ = /["”’»]/;
+    let p = Math.max(0, Math.min(at, text.length));
+    const lineEnd = (i => i < 0 ? text.length : i)(text.indexOf("\n", p));
+    let w = p; while (w < lineEnd && W_.test(text[w])) w++;
+    let k = w; while (k < lineEnd && text[k] === " ") k++;
+    let j = p; while (j > 0 && text[j - 1] === " ") j--;
+    const paren = o.paren, sp = i => i > 0 && !/[\s(\[“"‘]/.test(text[i - 1]) ? " " : "";
+    // right after a quotation (the caret before or after its closing mark): after the mark
+    if (CQ.test(text[p] || "") && !W_.test(text[p + 1] || "") && /\S/.test(text[p - 1] || "")) return {kind: "end", quote: true, edit: {at: p + 1, len: 0, from: "", to: " " + paren}};
+    if (CQ.test(text[j - 1] || "") && j === p && j > 1 && !W_.test(text[j] || "") && (END.test(text[j - 2]) ? false : true)) return {kind: "end", quote: true, edit: {at: j, len: 0, from: "", to: " " + paren}};
+    // a full stop inside the closing quote ("…heals.") moves after the citation: …heals" (Ray, 2004).
+    const qd = CQ.test(text[j - 1] || "") && END.test(text[j - 2] || "") ? j : CQ.test(text[k] || "") && END.test(text[k - 1] || "") ? k + 1 : -1;
+    if (qd > 0) return {kind: "end", quote: true, edit: {at: qd - 2, len: 2, from: text.slice(qd - 2, qd), to: text[qd - 1] + " " + paren + text[qd - 2]}};
+    // the end of a sentence: its full stop just after (the rest of the word clicked in, then the stop), or just before, or the paragraph's end
+    if (END.test(text[k] || "") && (k === w || /^ *$/.test(text.slice(w, k)))) return {kind: "end", edit: {at: w, len: 0, from: "", to: " " + paren}};
+    if (END.test(text[j - 1] || "") && !W_.test(text[p] || "")) { let e = j - 1; while (e > 0 && END.test(text[e - 1])) e--; return {kind: "end", edit: {at: e, len: 0, from: "", to: (sp(e) ? " " : "") + paren}}; }
+    if (k >= lineEnd && w > 0 && W_.test(text[w - 1] || "")) return {kind: "end", edit: {at: w, len: 0, from: "", to: " " + paren}};
+    // the middle of a sentence: at the start of the word clicked in
+    let s0 = p; while (s0 > 0 && W_.test(text[s0 - 1])) s0--;
+    const pre = sp(s0), post = W_.test(text[s0] || "") ? " " : "";
+    return {kind: "mid", edit: {at: s0, len: 0, from: "", to: pre + o.narr + post}};
+  }
 })();
 /*CITE-END*/
 
@@ -105307,7 +105345,7 @@ function open(id, tab){
   Object.assign(W, {view: "", edit: null, err: "", busy: "", hlPick: null, imp: null, find: null, pick: null});
   // Check comes first, and feeds the other tabs; a paper with sources but no draft yet opens on its Sources
   if (tab) W.tab = tab;
-  else { const w = wsOf(t); W.tab = w.src.length && !w.draft ? "sources" : "check"; }
+  else W.tab = "doc";
   draw(true);
 }
 
@@ -105393,10 +105431,10 @@ const cut = (s, n) => (s = String(s || "")).length > n ? s.slice(0, n - 1) + "�
 const wordsIn = s => (String(s || "").match(/\S+/g) || []).length;
 const ago = ms => { const d = Math.floor((Date.now() - ms) / 864e5); return !ms ? "" : d <= 0 ? "today" : d === 1 ? "yesterday" : d < 14 ? `${d} days ago` : "on " + new Date(ms).toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
 const normText = s => String(s || "").toLowerCase().replace(/[‘’“”"']/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-const TABS = ["check", "sources", "quotes", "outline"];
+const TABS = ["doc", "check", "sources", "quotes", "outline"];
 function tabsHtml(w){
   const tb = (k, l, n) => `<button type="button" role="tab" class="ws-tab" data-ws-tab="${k}" aria-selected="${W.tab === k}" ${W.tab === k ? "" : 'tabindex="-1"'}>${l}${n != null ? ` <span class="ws-n">${n}</span>` : ""}</button>`;
-  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("check", "Check My Doc")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
+  return `<div class="ws-tabs" role="tablist" aria-label="Writing Studio">${tb("doc", "My Doc")}${tb("check", "Check")}${tb("sources", "Sources", w.src.length)}${tb("quotes", "Quotes", w.q.length)}${tb("outline", "Outline")}</div>`;
 }
 function styleSel(st){
   const ext = extStyles(), ids = BUILT.map(b => b[0]).concat(Object.keys(ext).filter(k => !BUILT_FMT[k]));
@@ -105609,11 +105647,75 @@ function foundHtml(t, w){
       <div class="ws-row"><button type="button" class="btn small primary" data-wf-addq ${nQ ? "" : "disabled"}>Add ${nQ} Quote${nQ === 1 ? "" : "s"}</button></div>` : ""}
   </section>`;
 }
+// My Doc: the paper itself. Added here (pasted, uploaded, chosen from Studyboard, or a linked Google Doc or Word file), then shown as a page:
+// a click puts a citation there, a selection keeps a quote
+function docTabHtml(t, w){
+  const d = w.draft;
+  if (!d || W.redo) return pickHtml(t, w, `<p style="margin:0">Your paper. Paste it, upload it, choose it from Studyboard, or link the Google Doc or Word file you're writing. Then click where a citation goes, or select a passage to keep it as a quote.</p>`);
+  return `${ldLinkedHtml(t, w)}
+    ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "fix" ? `<p class="mini" role="status">Adding it to your paper…</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
+    ${readerHtml(t, w)}`;
+}
+// The paper as a page: each line its own paragraph, holding just its text, so a click or a selection maps to a place in the draft
+function readerHtml(t, w){
+  const d = w.draft; let o = 0;
+  const paras = d.t.split("\n").map(line => { const at = o; o += line.length + 1; return `<p data-o="${at}"${line ? "" : ' class="ws-rd-gap"'}>${esc(line)}</p>`; }).join("");
+  const note = styleFmt(styleOf(t, w)) === "note";
+  return `<div class="ws-rdbar"><span class="mini ws-grow">${note ? "Select a passage to keep it as a quote. (This style cites in footnotes: add those in your document.)" : "Click where a citation goes, or select a passage to keep it as a quote."}</span>
+      <span class="mini">${esc(d.from && d.from !== "Pasted" ? d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words</span><button type="button" class="ws-act" data-ws-redo>Replace</button><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your paper from Writing Studio" title="Remove">${TRASH}</button></div>
+    <div class="ws-rdwrap"><div class="ws-rd" data-ws-rd aria-label="Your paper: click to cite, select to quote">${paras}</div></div>`;
+}
+// The citations a click can put in: each source's own (in brackets) and the form for the middle of a sentence
+function citeForms(t, w, sid){ const paren = CITE.runsText(citeOf(t, w, sid, "")).trim(); return {paren, narr: CITE.narrOf(paren)}; }
+// the menu at a click or a selection: Cite Here (or Cite After It), Add Quote; then which source, each showing exactly what goes in
+function popHtml(t, w){
+  const P = W.pop; if (!P) return "";
+  const d = w.draft, sel = P.b > P.a ? d.t.slice(P.a, P.b).trim() : "", note = styleFmt(styleOf(t, w)) === "note";
+  const srcs = w.src.filter(s => CITE.keyName(s));
+  if (P.mode === "cite" || P.mode === "quote") {
+    if (!srcs.length) return `<div class="ws-pop-h">No sources yet</div><p class="mini">Add your sources on the Sources tab first.</p><button type="button" class="btn small" data-ws-go="sources">Go to Sources</button>`;
+    const rows = srcs.map(s => {
+      const f = citeForms(t, w, s.id), pl = P.mode === "cite" ? CITE.citePlace(d.t, P.b, f) : null;
+      return `<button type="button" class="ws-pop-s" data-ws-pops="${esc(s.id)}"><b>${esc(pl ? (pl.kind === "mid" ? f.narr : f.paren) : CITE.keyName(s) + (CITE.yearOf(s) ? ` (${CITE.yearOf(s)})` : ""))}</b><span class="mini">${esc(cut(s.title || "", 70))}</span></button>`;
+    }).join("");
+    const how = P.mode === "quote" ? "Which source is it from?" : CITE.citePlace(d.t, P.b, {paren: "(A)", narr: "A"}).kind === "mid" ? "In the middle of a sentence: the authors go in it" : "At the end of a sentence: in brackets, before the full stop";
+    return `<div class="ws-pop-h">${P.mode === "quote" ? "Add Quote" : "Cite Here"}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button></div><p class="mini ws-pop-how">${esc(how)}</p><div class="ws-pop-list">${rows}</div>`;
+  }
+  if (P.mode === "after") { const s = w.src.find(x => x.id === P.sid), f = s ? citeForms(t, w, s.id) : null, pl = f ? CITE.citePlace(d.t, P.b, f) : null; return f && !note ? `<span class="mini">Cite it here too?</span><button type="button" class="btn small primary" data-ws-pops="${esc(s.id)}" data-ws-popc>${esc(pl.kind === "mid" ? f.narr : f.paren)}</button><button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>` : ""; }
+  return `${!note ? `<button type="button" class="btn small primary" data-ws-popm="cite">${sel ? "Cite After It" : "Cite Here"}</button>` : ""}${sel.length >= 3 ? `<button type="button" class="btn small${note ? " primary" : ""}" data-ws-popm="quote">Add Quote</button>` : ""}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>`;
+}
+// Cite Here: the citation in the paper (the draft, its note, or its linked doc, as a fix is), then checked again
+async function citeHere(t, sid){
+  const w = wsOf(state.tasks[t.id]), P = W.pop; if (!w.draft || !P) return;
+  const f = citeForms(t, w, sid), pl = CITE.citePlace(w.draft.t, P.b, f), what = pl.kind === "mid" ? f.narr : f.paren, l = ldOf(w);
+  W.pop = null;
+  const n = await fixDraft(state.tasks[t.id], [pl.edit], `Added ${what} to your paper`);
+  if (n) W.okMsg = `Added ${what} ${pl.kind === "mid" ? "in the sentence" : pl.quote ? "after the quotation" : "at the end of the sentence"}${l ? `, in ${l.name || "your " + ldName(l)}` : ""}.`;
+  if (shown()) draw();
+}
+// Add Quote: the selected passage, kept as a quote from that source (and then Cite After It is one tap)
+function quoteFromSel(t, sid){
+  const w = wsOf(state.tasks[t.id]), P = W.pop; if (!w.draft || !P) return;
+  const q = w.draft.t.slice(P.a, P.b).replace(/\s+/g, " ").trim().replace(/^["“‘']+|["”’']+$/g, "");
+  if (!q) return;
+  if (w.q.some(x => normText(x.t) === normText(q) && x.sid === sid)) { W.okMsg = "That quote is already on the Quotes tab."; W.pop = null; draw(); return; }
+  w.q.push({id: uid(), sid, t: q.slice(0, 2000), p: "", sec: "", at: Date.now()});
+  save(state.tasks[t.id], w, "Added a quote");
+  const s = w.src.find(x => x.id === sid);
+  W.okMsg = `Kept as a quote from ${s ? CITE.keyName(s) : "your source"} (on the Quotes tab).`;
+  W.pop = Object.assign({}, P, {mode: "after", sid});
+  draw();
+}
 function checkHtml(t, w){
-  const req = CITE.rules(reqText(t)), st = styleOf(t, w), d = w.draft, editing = !d || W.redo;
-  let h = `<p style="margin:0">Check your draft's citations against your sources before you hand it in. It runs on this device, and fixes what has one right answer when you tap Fix.</p>
+  const req = CITE.rules(reqText(t)), st = styleOf(t, w), d = w.draft;
+  let h = `<p style="margin:0">Check your paper's citations against your sources before you hand it in. It runs on this device, and fixes what has one right answer when you tap Fix.</p>
     ${req.style || req.min ? `<p class="mini ws-note">From the assignment: ${esc([req.style ? styleName(req.style) : "", req.min ? `at least ${req.min}${req.scholarly ? " scholarly" : ""} sources` : ""].filter(Boolean).join(", "))}.</p>` : ""}`;
-  if (editing) {
+  if (!d || W.redo) return pickHtml(t, w, h);
+  return checkResHtml(t, w, h);
+}
+function pickHtml(t, w, h){
+  const st = styleOf(t, w), d = w.draft;
+  {
     const off = !d && !W.offerOff ? draftOffer(t, w) : null, words = wordsIn(W.paste);
     h += `${off ? `<div class="ws-offer" role="note"><span>Use <b>${esc(off.name)}</b>? It's attached to this assignment.</span><span class="ws-row"><button type="button" class="btn small primary" data-ws-dsel="f:${esc(off.id)}">Use It</button><button type="button" class="link-btn" data-ws-offno>Not Now</button></span></div>` : ""}
       <label class="f"><span class="lh">Your Draft <span class="hint" data-ws-wc>${words ? `about ${words} words` : ""}</span></span><textarea data-ws-draft rows="7" data-noenter placeholder="Paste your draft, with its ${esc(CITE.headingOf(st, styleFmt(st)))} list">${esc(W.paste)}</textarea></label>
@@ -105622,8 +105724,9 @@ function checkHtml(t, w){
       ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "read" ? `<p class="mini" role="status">Reading your draft…</p>` : ""}`;
     return h;
   }
-  const c = w.chk, stale = !c || c.h !== d.h, r = usage(t, w).res;
-  h += ldLinkedHtml(t, w);
+}
+function checkResHtml(t, w, h){
+  const d = w.draft, c = w.chk, stale = !c || c.h !== d.h, r = usage(t, w).res;
   h += `<div class="ws-draft"><div class="ws-draft-t"><b>Your Draft</b><span class="mini">${esc(d.from && d.from !== "Pasted" ? "From " + d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words · saved ${esc(ago(d.at))}</span>
       <span class="mini${stale ? " ws-no" : ""}">${!c ? "Not checked yet" : stale ? `Changed since the last check (${esc(ago(c.at))})` : `Checked ${esc(ago(c.at))}: ${c.err} to fix · ${c.warn} to look at`}</span></div>
     <div class="ws-acts"><button type="button" class="ws-act" data-ws-dview aria-expanded="${W.show === "all"}">${W.show === "all" ? "Hide Draft" : "View Draft"}</button><button type="button" class="ws-act" data-ws-redo>Replace</button>${d.fx && !d.nid && !d.ld ? `<button type="button" class="ws-act" data-ws-dcopy>Copy Fixed Draft</button>` : ""}<span class="spacer"></span><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your draft from Writing Studio" title="Remove">${TRASH}</button></div>
@@ -105750,7 +105853,7 @@ function footHtml(t, w){
   if (W.tab === "sources") return back + (w.src.length ? `<button type="button" class="btn" data-ws-bibcopy>Copy List</button>${w.draft ? `<button type="button" class="btn" data-ws-refadd title="Put every source in your draft's ${esc(listOf(CITE.headingOf(styleOf(t, w), styleFmt(styleOf(t, w)))))} (made if there isn't one)">Add All to My Draft</button>` : ""}<button type="button" class="btn primary" data-ws-export>Export…</button>` : `<button type="button" class="btn primary" data-act="close">Done</button>`);
   if (W.tab === "quotes" && W.hlPick) return `<button type="button" class="btn" data-ws-hlcancel>Cancel</button><span class="spacer"></span>${W.hlPick.length ? `<button type="button" class="btn primary" data-ws-hladd ${W.busy ? "disabled" : ""}>${W.busy === "hl" ? "Adding…" : "Add Quotes"}</button>` : ""}`;
   if (W.tab === "outline") return back + (w.out.length || w.q.length ? `<button type="button" class="btn primary" data-ws-export>Export…</button>` : "");
-  if (W.tab === "check") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
+  if (W.tab === "check" || W.tab === "doc") return back + (w.draft && W.redo ? `<button type="button" class="btn" data-ws-redono>Cancel</button>` : "") + `<button type="button" class="btn primary" data-ws-check ${W.busy ? "disabled" : ""}>${w.draft && !W.redo ? "Check Again" : "Check My Citations"}</button>`;
   return back + `<button type="button" class="btn primary" data-act="close">Done</button>`;
 }
 function draw(fresh){
@@ -105759,13 +105862,13 @@ function draw(fresh){
   const w = wsOf(t), st = styleOf(t, w);
   const VIEW = {zotero: ["Zotero", () => zotHtml(t, w)], import: ["Import Sources", impHtml], library: ["My Library", () => libHtml(t, w)], styles: ["More Styles", findHtml],
     drafts: ["Choose Your Draft", () => draftsHtml(t)], attach: ["Attach a PDF", () => pdfPickHtml(t, w, "attach")], hlpdf: ["Open a PDF to Highlight", () => pdfPickHtml(t, w, "hlpdf")], ldword: ["Choose a Word File", ldWordHtml]}[W.view];
-  if (!TABS.includes(W.tab)) W.tab = "check";
-  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
+  if (!TABS.includes(W.tab)) W.tab = "doc";
+  const body = VIEW ? VIEW[1]() : W.tab === "quotes" ? quotesHtml(t, w) : W.tab === "outline" ? outlineHtml(t, w) : W.tab === "check" ? checkHtml(t, w) : W.tab === "doc" ? docTabHtml(t, w) : W.edit ? editHtml(t, w) : sourcesHtml(t, w);
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
     ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
   // My Doc's document stays open while the rest is drawn again (drawing it again would load it again, and lose your place in it)
-  const keep = shown() && !VIEW && W.tab === "check" ? W.el.querySelector(".ws-ldwrap") : null, tmp = keep ? document.createElement("div") : null;
+  const keep = shown() && !VIEW && W.tab === "doc" ? W.el.querySelector(".ws-ldwrap") : null, tmp = keep ? document.createElement("div") : null;
   if (tmp) tmp.innerHTML = inner;
   const nw = tmp && tmp.querySelector(".ws-ldwrap"), ob = keep && W.el.querySelector(".ws-body"), nb = tmp && tmp.querySelector(".ws-body");
   if (nw && keep.dataset.k === nw.dataset.k && ob && nb && keep.firstChild) {
@@ -106150,7 +106253,7 @@ async function ldLink(t, l){
     const w = wsOf(state.tasks[t.id]); w.ld = link;
     const w2 = ldSetDraft(t, R.raw, link, 0, w); w2.style = w2.style || styleOf(state.tasks[t.id], w2);
     save(state.tasks[t.id], w2, `Linked ${link.name}`);
-    Object.assign(W, {busy: "", view: "", tab: "check", redo: false, pick: null, ldList: null, ldShow: link.p === "google", okMsg: w2.draft ? "" : `${link.name} is empty: write in it, then tap Check My Citations.`});
+    Object.assign(W, {busy: "", view: "", tab: "doc", redo: false, pick: null, ldList: null, ldShow: false, okMsg: w2.draft ? "" : `${link.name} is empty: write in it, then tap Check My Citations.`});
     if (w2.draft) await doCheck(state.tasks[t.id], {first: true, w: w2, label: null}); else draw(true);
   } catch (e) { W.busy = ""; W.err = ldErrText(e); draw(); }
 }
@@ -106220,15 +106323,19 @@ function foundQuotes(t, F){
 // The draft's reference list becomes the paper's sources by itself: each entry that isn't a source yet is added (with its full details when its
 // DOI or ISBN could be looked up), once per version of the draft, as one change with Undo. Then the draft is checked against them.
 function autoAdd(tid, F){
-  const t = state.tasks[tid]; if (!t || W.found !== F) return;
-  const w = wsOf(t), picks = F.refs.filter(r => !r.dup && !CITE.dupOf(r.it, w.src)); if (!picks.length) return;
+  const t = state.tasks[tid]; if (!t || W.found !== F || !wsOf(t).draft) return;
+  const w = wsOf(t), picks = F.refs.filter(r => !r.dup && !CITE.dupOf(r.it, w.src));
   // added and checked as one change (so one Undo takes them all back)
   let n = 0; picks.forEach(r => { r.dup = true; F.sel.delete(r.k); if (w.src.length >= MAX_SRC || CITE.dupOf(r.it, w.src)) return; w.src.push(Object.assign(CITE.clean(Object.assign({}, r.it, r.st === "ok" ? {} : {rv: "1"})), {id: uid()})); n++; });
-  if (!n) return;
   w.style = w.style || styleOf(t, w);
-  const rv = picks.some(r => r.st !== "ok");
-  if (W.tid === tid) W.okMsg = `Added ${plural(n, "source")} from your draft's list to Sources${rv ? ". The ones read from your list (no DOI or ISBN) are marked there: check their details" : ""}.`;
-  doCheck(t, {quiet: true, w, label: `Added ${plural(n, "source")} from your draft's list`});
+  // and the quotations the paper already has, with the citation after them saying whose they are, go onto the Quotes tab (with their page)
+  const have = w.q.map(x => normText(x.t)).filter(Boolean), order = styleFmt(styleOf(t, w)) === "numeric" ? bibOf(t, w).entries.map(e => e.id) : null, now = Date.now();
+  const qs = CITE.quotesIn(w.draft.t, w.src, {order}).filter(x => x.sid && w.src.some(y => y.id === x.sid)).filter(x => { const nt = normText(x.t); return nt && !have.some(h => nt.includes(h) || h.includes(nt)) && have.push(nt); });
+  qs.forEach(x => { if (w.q.length >= MAX_Q) return; const sr = w.src.find(y => y.id === x.sid); w.q.push({id: uid(), sid: sr.id, t: x.t.slice(0, 1200), p: String(x.p || "").slice(0, 12), fid: sr.fid || "", hl: "", sec: "", at: now}); });
+  if (!n && !qs.length) return;
+  const rv = picks.some(r => r.st !== "ok"), parts = [n ? plural(n, "source") + " from your draft's list to Sources" : "", qs.length ? plural(qs.length, "quote") + " from your paper to Quotes" : ""].filter(Boolean);
+  if (W.tid === tid) W.okMsg = `Added ${parts.join(", and ")}${rv && n ? ". The sources read from your list (no DOI or ISBN) are marked there: check their details" : ""}.`;
+  doCheck(t, {quiet: true, w, label: `Added ${parts.map(x => x.replace(/ from your .*/, "")).join(" and ")} from your paper`});
 }
 async function lookups(tid, F){
   const todo = F.refs.filter(r => r.st === "look" && !r.dup); let i = 0;
@@ -106345,7 +106452,7 @@ function reviewHtml(){
   const card = t => {
     const w = wsOf(t), c = courseOf(t.courseId), ck = w.chk && w.draft && w.chk.h === w.draft.h ? w.chk : null, open = `data-act="ws-open" data-id="${esc(t.id)}"`;
     const line = hasData(t) ? [plural(w.src.length, "source"), plural(w.q.length, "quote"), !w.draft ? "no draft yet" : !ck ? "not checked yet" : ck.err ? `last check: ${ck.err} to fix` : "last check: all good"].join(" · ") : "Not started in Writing Studio";
-    const badge = !hasData(t) ? ["new", "Not Started"] : !w.draft ? ["none", "No Draft Yet"] : !ck ? ["wait", "Not Checked"] : ck.err ? ["bad", `${ck.err} to Fix`] : ck.warn ? ["warn", `${ck.warn} to Look At`] : ["good", "All Good ✓"];
+    const badge = pro ? ["pro", "Pro"] : !hasData(t) ? ["new", "Not Started"] : !w.draft ? ["none", "No Draft Yet"] : !ck ? ["wait", "Not Checked"] : ck.err ? ["bad", `${ck.err} to Fix`] : ck.warn ? ["warn", `${ck.warn} to Look At`] : ["good", "All Good ✓"];
     const PP = w.draft ? paperParts(w.draft.t) : null;
     const snip = PP ? esc(cut(PP.body, 340)).replace(/\([^()]{2,70}?(?:1[5-9]\d\d|20\d\d|n\.d\.)[a-z]?(?:,[^()]{0,20})?\)/g, m => `<mark>${m}</mark>`) : "";
     const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
@@ -106354,7 +106461,7 @@ function reviewHtml(){
     return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
       <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button>
-      <button type="button" class="btn small" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open${pro}</button></div></li>`;
+      <button type="button" class="btn small" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></li>`;
   };
   const started = list.filter(hasData), next = list.filter(t => !hasData(t));
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
@@ -106380,7 +106487,7 @@ function wire(t){
   const on = (sel, ev, fn) => { const el = q(sel); if (el) el.addEventListener(ev, fn); return el; };
   const vback = q("[data-ws-vback]"); if (vback) vback.addEventListener("click", () => { W.view = ""; W.err = ""; draw(true); });
   // a toast about the last tab (e.g. "Started an outline · Undo") goes with it
-  const goTab = (k, focus) => { if (k !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = k; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; W.also = null; W.dOffer = null; W.show = null; draw(true); if (focus) { const b = R.querySelector(`[data-ws-tab="${W.tab}"]`); if (b) b.focus(focus === "mouse" ? {preventScroll: true, focusVisible: false} : undefined); } };
+  const goTab = (k, focus) => { if (k !== W.tab) { try { toastHide(); } catch (e) {} } W.tab = k; W.edit = null; W.err = ""; W.okMsg = ""; W.hlPick = null; W.qform = false; W.also = null; W.dOffer = null; W.pop = null; W.show = null; draw(true); if (focus) { const b = R.querySelector(`[data-ws-tab="${W.tab}"]`); if (b) b.focus(focus === "mouse" ? {preventScroll: true, focusVisible: false} : undefined); } };
   // a click keeps focus on the tab (for the arrow keys) without the keyboard focus ring; arrow keys still show it
   qa("[data-ws-tab]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsTab, "mouse")));
   qa("[data-ws-go]").forEach(b => b.addEventListener("click", () => goTab(b.dataset.wsGo, false)));
@@ -106532,7 +106639,35 @@ function wire(t){
   on("[data-ws-dpick]", "click", () => { W.view = "drafts"; W.pick = {q: ""}; W.err = ""; draw(true); const i = q("[data-wp-q]") || W.el.querySelector("[data-wp-q]"); if (i && !matchMedia("(max-width:560px)").matches) i.focus(); });
   qa("[data-ws-dsel]").forEach(b => b.addEventListener("click", () => pickDraft(t.id, b.dataset.wsDsel)));
   on("[data-ws-offno]", "click", () => { W.offerOff = true; draw(); });
-  on("[data-ws-redo]", "click", () => { W.redo = true; W.paste = ""; W.show = null; W.err = ""; draw(); });
+  on("[data-ws-redo]", "click", () => { W.redo = true; W.paste = ""; W.show = null; W.err = ""; W.pop = null; W.tab = "doc"; draw(true); });
+  // My Doc: a click or a selection in the paper opens its menu there
+  const rd = q("[data-ws-rd]");
+  if (rd) {
+    const wrap = rd.parentNode;
+    const offAt = (node, off) => { const el = node.nodeType === 3 ? node.parentNode : node, p = el && el.closest ? el.closest("p[data-o]") : null; if (!p || !rd.contains(p)) return null; return Number(p.dataset.o) + (node.nodeType === 3 ? off : off ? p.textContent.length : 0); };
+    const paint = () => {
+      let pop = wrap.querySelector(".ws-pop"); if (!W.pop) { if (pop) pop.remove(); return; }
+      if (!pop) { pop = document.createElement("div"); pop.className = "ws-pop"; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Cite or quote"); wrap.appendChild(pop); }
+      pop.innerHTML = popHtml(cur(), ws()); pop.classList.toggle("is-list", W.pop.mode === "cite" || W.pop.mode === "quote");
+      const ww = wrap.clientWidth, pw = Math.min(pop.offsetWidth || 300, ww - 8); pop.style.left = Math.max(4, Math.min(W.pop.x - pw / 2, ww - pw - 4)) + "px"; pop.style.top = W.pop.y + "px";
+      pop.querySelectorAll("[data-ws-popm]").forEach(b => b.addEventListener("click", () => { W.pop.mode = b.dataset.wsPopm; paint(); }));
+      pop.querySelectorAll("[data-ws-popx]").forEach(b => b.addEventListener("click", () => { W.pop = null; paint(); }));
+      pop.querySelectorAll("[data-ws-go]").forEach(b => b.addEventListener("click", () => { W.pop = null; W.tab = b.dataset.wsGo; draw(true); }));
+      pop.querySelectorAll("[data-ws-pops]").forEach(b => b.addEventListener("click", () => { const sid = b.dataset.wsPops; if (W.pop.mode === "quote") quoteFromSel(cur(), sid); else citeHere(cur(), sid); }));
+    };
+    const pick = () => {
+      const sel = getSelection(); if (!sel || !sel.rangeCount) return;
+      const r = sel.getRangeAt(0); if (!rd.contains(r.startContainer) || !rd.contains(r.endContainer)) return;
+      const a = offAt(r.startContainer, r.startOffset), b = offAt(r.endContainer, r.endOffset); if (a == null || b == null) return;
+      const rc = (r.getClientRects().length ? r.getClientRects()[r.getClientRects().length - 1] : r.getBoundingClientRect()), wc = wrap.getBoundingClientRect();
+      W.pop = {a: Math.min(a, b), b: Math.max(a, b), mode: "main", x: rc.right - wc.left, y: rc.bottom - wc.top + 8};
+      paint();
+    };
+    rd.addEventListener("mouseup", () => setTimeout(pick, 0));
+    rd.addEventListener("keyup", e => { if (/^(Arrow|Home|End|Shift)/.test(e.key)) pick(); });
+    wrap.addEventListener("keydown", e => { if (e.key === "Escape" && W.pop) { e.stopPropagation(); W.pop = null; paint(); } });
+    if (W.pop) paint();
+  }
   on("[data-ws-redono]", "click", () => { W.redo = false; W.err = ""; draw(); });
   on("[data-ws-drm]", "click", () => { const w = ws(); w.draft = null; w.chk = null; save(cur(), w, "Draft removed from Writing Studio"); Object.assign(W, {found: null, show: null, diff: null, redo: false}); draw(); });
   on("[data-ws-dview]", "click", () => { W.show = W.show === "all" ? null : "all"; draw(); });
@@ -106566,7 +106701,7 @@ function wire(t){
   on("[data-ws-ldshow]", "click", () => { W.ldShow = !W.ldShow; draw(); });
   on("[data-ws-ldoff]", "click", () => { const w = ws(), l = w.ld; if (!l) return; w.ld = null; if (w.draft && w.draft.ld) w.draft.ld = false; save(cur(), w, `Unlinked ${l.name || ldName(l)}`); W.okMsg = ""; W.err = ""; draw(); });
   on("[data-ws-ldcheck]", "click", async () => { const w = ws(); W.err = ""; W.okMsg = ""; if (ldOf(w)) await doCheck(cur(), {}); else if (w.ld) await ldLink(cur(), w.ld); if (shown()) draw(); });
-  { const w = ws(); if (W.tab === "check" && W.ldShow && !W.view && w.ld && w.ld.p === "microsoft" && (!W.ldPrev || W.ldPrev.id !== w.ld.id) && W.ldPrevFor !== w.ld.id) { const l = w.ld; W.ldPrevFor = l.id; ldPreview(l).then(u => { W.ldPrev = {id: l.id, u}; W.ldPrevFor = ""; if (shown() && W.tab === "check") draw(); }); } }
+  { const w = ws(); if (W.tab === "doc" && W.ldShow && !W.view && w.ld && w.ld.p === "microsoft" && (!W.ldPrev || W.ldPrev.id !== w.ld.id) && W.ldPrevFor !== w.ld.id) { const l = w.ld; W.ldPrevFor = l.id; ldPreview(l).then(u => { W.ldPrev = {id: l.id, u}; W.ldPrevFor = ""; if (shown() && W.tab === "doc") draw(); }); } }
   on("[data-ws-dcopy]", "click", async () => { const d = ws().draft; if (!d) return; try { await navigator.clipboard.writeText(d.t); toast("Copied your fixed draft. Paste it into your document."); } catch (e) { toast("Couldn't copy: select the draft under View Draft and copy it."); } });
   on("[data-ws-check]", "click", () => {
     const w = ws();
@@ -106574,6 +106709,7 @@ function wire(t){
       if (wordsIn(W.paste) < 30) { W.err = W.paste.trim() ? "Your draft is too short to check. Paste at least a paragraph, upload it or choose it from Studyboard." : "Add your draft first: paste it, upload it or choose it from Studyboard."; draw(); return; }
       useDraft(t.id, W.paste, {from: "Pasted"}); return;
     }
+    if (W.tab === "doc") W.tab = "check";
     doCheck(cur(), {reread: true});
   });
   // where the draft is marked, scroll it into view inside its box
@@ -106709,6 +106845,22 @@ svg.ws-zic{display:block;flex:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.ws-err,.ws-need){color:#FF8A80}}
 .ws-ok{margin:0;color:color-mix(in srgb,#1D6B3D 85%,var(--ink))}
 .ws-ldc{display:grid;gap:8px}
+/* My Doc: the paper as a page (click to cite, select to quote), and the menu that opens there */
+.ws-rdbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0 8px}
+.ws-rdwrap{position:relative}
+.ws-rd{max-width:760px;margin:0 auto;padding:28px clamp(16px,6%,56px) 40px;background:color-mix(in srgb,#fff 94%,var(--surface));color:#20242E;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 22px -14px rgb(0 0 0/.35);font:1rem/1.75 Georgia,"Times New Roman",serif;cursor:text;user-select:text;-webkit-user-select:text}
+.ws-rd p{margin:0;white-space:pre-wrap;word-break:break-word}
+.ws-rd p.ws-rd-gap{height:.9em}
+.ws-rd ::selection{background:color-mix(in srgb,var(--accent,#2F6FE4) 28%,transparent)}
+.ws-pop{position:absolute;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:0 12px 30px -10px rgb(0 0 0/.35);max-width:min(380px,calc(100% - 8px));font:inherit}
+.ws-pop.is-list{display:grid;gap:4px;width:min(380px,calc(100% - 8px));padding:8px}
+.ws-pop-h{display:flex;align-items:center;justify-content:space-between;font-weight:700}
+.ws-pop-how{margin:0 0 2px}
+.ws-pop-list{display:grid;gap:2px;max-height:260px;overflow:auto}
+.ws-pop-s{display:grid;gap:1px;text-align:left;border:0;background:none;padding:6px 8px;border-radius:8px;cursor:pointer;color:inherit;font:inherit}
+.ws-pop-s:hover,.ws-pop-s:focus-visible{background:var(--soft)}
+.ws-pop-x{border:0;background:none;font-size:1.2rem;line-height:1;padding:2px 6px;cursor:pointer;color:var(--muted);border-radius:6px}
+.ws-pop-x:hover{background:var(--soft)}
 .ws-ldrow .btn{display:inline-flex;gap:6px;align-items:center}.ws-ldrow .btn svg,.ws-ldrow .btn img{width:16px;height:16px;flex:none}
 .ws-ldcr{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.92rem}
 .ws-ldk,.ws-ldh{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px}
@@ -106871,6 +107023,7 @@ svg.ws-zic{display:block;flex:none}
 .wsr-pl{flex:1;background:repeating-linear-gradient(180deg,#D9DCE3 0 3px,transparent 3px 9px);margin:4px 2px 0;opacity:.8;-webkit-mask-image:linear-gradient(90deg,#000 70%,transparent 96%),linear-gradient(#000 50%,transparent);mask-image:linear-gradient(#000 50%,transparent)}
 .wsr-chip{z-index:1;max-width:calc(100% - 128px)}
 .wsr-badge{position:absolute;right:10px;top:10px;z-index:1;font:800 .62rem var(--display);letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--surface);color:var(--muted);box-shadow:0 1px 3px rgb(0 0 0/.12)}
+.wsr-badge.k-pro{background:linear-gradient(135deg,#FFB443,#FF5C8A);color:#fff;letter-spacing:.08em}
 .wsr-badge.k-bad{background:#FDE7E5;color:#B42318}.wsr-badge.k-good{background:#E3F5EA;color:#1D6B3D}.wsr-badge.k-warn,.wsr-badge.k-wait{background:#FFF3D6;color:#8A5A00}
 .wsr-ld{position:absolute;right:10px;bottom:8px;z-index:1;display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.15)}
 .wsr-foot{display:flex;align-items:center;gap:10px;padding:10px 12px 12px}
