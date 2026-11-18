@@ -177,6 +177,31 @@ revoke all on public.study_profiles, public.shared_decks, public.study_groups, p
 revoke truncate, references, trigger on public.study_profiles, public.shared_decks, public.study_groups, public.group_members, public.group_items, public.group_messages from authenticated;
 
 -- Triggers: names and times are filled in by the database, not the app
+-- Decks and quizzes each person shares in a group: 5 of each on the free plan (studyboard_config limits -> free -> groupDecks,
+-- groupQuizzes); no count with Pro or in a Pro group. Everyone's shared group items also stay under the 50 MB cap (sbg_size_cap):
+-- a shared deck or quiz is about 10 KB, so that cap is what limits Pro.
+create or replace function public.sbg_share_count_check(p_group uuid, p_user uuid, p_kind text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare pro boolean := true; lim bigint; nm text := case when p_kind = 'quiz' then 'quizzes' else 'decks' end; key text := case when p_kind = 'quiz' then 'groupQuizzes' else 'groupDecks' end;
+begin
+  if p_user is null then return; end if;
+  if to_regproc('public.studyboard_paywall') is not null and to_regproc('public.studyboard_limits_pro') is not null then
+    execute 'select not public.studyboard_paywall() or public.studyboard_limits_pro($1)' into pro using p_user;
+  end if;
+  if not pro and to_regproc('public.plans_group_is_pro') is not null then execute 'select public.plans_group_is_pro($1)' into pro using p_group; end if;
+  if pro then return; end if;
+  if to_regclass('public.studyboard_config') is not null then
+    execute 'select (value -> ''free'' ->> $1)::bigint from public.studyboard_config where key = ''limits''' into lim using key;
+  end if;
+  lim := coalesce(lim, 5);
+  perform pg_advisory_xact_lock(hashtextextended('sbg-share:' || p_group::text || ':' || p_user::text || ':' || nm, 0));
+  if (select count(*) from public.group_items where group_id = p_group and user_id = p_user and kind = p_kind) >= lim then
+    raise exception '%', format('You''ve shared %s %s in this group, the most on the free plan. Remove one you shared first, or go Pro (or share it in a Pro group) to share as many as you like.', lim, nm)
+      using errcode = 'P0001';
+  end if;
+end $$;
+revoke all on function public.sbg_share_count_check(uuid, uuid, text) from public, anon, authenticated;
+
 create or replace function public.sbg_stamp() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -189,6 +214,7 @@ begin
       if (select count(*) from public.group_items where group_id = new.group_id and user_id = new.user_id) >= 500 then
         raise exception 'This group already holds 500 of your shared items. Remove some first.';
       end if;
+      if new.kind in ('deck', 'quiz') then perform public.sbg_share_count_check(new.group_id, new.user_id, new.kind); end if;
     end if;
     if tg_table_name = 'group_messages' then
       new.pinned := false;
@@ -1063,7 +1089,9 @@ end $$;
 create index if not exists group_items_user_idx on public.group_items (user_id);
 create or replace function public.sbg_size_cap() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare who uuid; total bigint; cap constant bigint := 52428800;   -- 50 MB
+-- shared deck links: 50 MB each person. Shared group items: 50 MB with Pro, 5 MB on the free plan (studyboard_config limits ->
+-- free/pro -> groupItemsMB)
+declare who uuid; total bigint; cap bigint := 52428800; pro boolean := true; mb numeric;
 begin
   if tg_op = 'UPDATE' and pg_column_size(new.data) <= pg_column_size(old.data) then return new; end if;
   if tg_table_name = 'shared_decks' then
@@ -1075,10 +1103,18 @@ begin
     end if;
   else
     who := new.user_id;
+    if to_regproc('public.studyboard_paywall') is not null and to_regproc('public.studyboard_limits_pro') is not null then
+      execute 'select not public.studyboard_paywall() or public.studyboard_limits_pro($1)' into pro using who;
+    end if;
+    if to_regclass('public.studyboard_config') is not null then
+      execute 'select (value -> $1 ->> ''groupItemsMB'')::numeric from public.studyboard_config where key = ''limits''' into mb using case when pro then 'pro' else 'free' end;
+    end if;
+    cap := (coalesce(mb, case when pro then 50 else 5 end) * 1048576)::bigint;
     perform pg_advisory_xact_lock(hashtextextended('sbg-size:i:' || who::text, 0));
     select coalesce(sum(pg_column_size(i.data)), 0) into total from public.group_items i where i.user_id = who and i.id is distinct from new.id;
     if total + pg_column_size(new.data) > cap then
-      raise exception 'Your shared group items are over the 50 MB storage limit. Remove some you shared first.' using errcode = 'P0001';
+      raise exception '%', format('Your shared group items are over the %s MB storage limit%s. Remove some you shared first%s.', round(cap / 1048576.0),
+        case when pro then '' else ' of the free plan' end, case when pro then '' else ', or go Pro for 50 MB' end) using errcode = 'P0001';
     end if;
   end if;
   return new;
