@@ -2932,11 +2932,11 @@ svg.ws-zic{display:block;flex:none}
 /* a card like Concept Maps': the paper peeking out on its course's colour, then its title and how it stands */
 .wsr-card{position:relative;display:flex;flex-direction:column;min-width:0;border-radius:18px;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 26%,var(--line));box-shadow:0 1px 2px rgb(0 0 0/.05),0 6px 18px -10px color-mix(in srgb,var(--c) 45%,transparent);overflow:hidden}
 .wsr-peekb{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;border:0;cursor:pointer;overflow:hidden;background:repeating-linear-gradient(0deg,transparent 0 13px,color-mix(in srgb,var(--c) 10%,transparent) 13px 14px),linear-gradient(160deg,color-mix(in srgb,var(--c) 16%,var(--surface)),color-mix(in srgb,var(--c) 5%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
-.wsr-page,.wsr-back{position:absolute;left:50%;top:40px;width:min(62%,230px);height:calc(100% + 6px);translate:-50% 0;border-radius:6px 6px 0 0;background:color-mix(in srgb,#fff 88%,var(--c));box-shadow:0 2px 10px -3px color-mix(in srgb,var(--c) 45%,rgb(0 0 0/.25))}
+.wsr-page,.wsr-back{position:absolute;left:0;right:0;margin:0 auto;top:40px;width:min(62%,230px);height:calc(100% + 6px);border-radius:6px 6px 0 0;background:color-mix(in srgb,#fff 88%,var(--c));box-shadow:0 2px 10px -3px color-mix(in srgb,var(--c) 45%,rgb(0 0 0/.25))}
 .wsr-back{rotate:-4deg;top:44px;background:color-mix(in srgb,#fff 70%,var(--c));opacity:.75}
-.wsr-page{rotate:1.5deg;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:5px;text-align:left;overflow:hidden;color:#2B2F3A;transition:rotate .3s cubic-bezier(.2,.8,.2,1),translate .3s cubic-bezier(.2,.8,.2,1)}
+.wsr-page{rotate:1.5deg;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:5px;text-align:left;overflow:hidden;color:#2B2F3A;transition:translate .2s steps(4,end);will-change:translate;-webkit-font-smoothing:antialiased;backface-visibility:hidden}
 .wsr-page::after{content:"";position:absolute;right:0;top:0;width:16px;height:16px;background:linear-gradient(225deg,color-mix(in srgb,var(--c) 28%,var(--surface)) 50%,color-mix(in srgb,#000 10%,#fff) 50%);border-bottom-left-radius:4px}
-.wsr-card:hover .wsr-page{rotate:0deg;translate:-50% -4px}
+.wsr-card:hover .wsr-page{translate:0 -4px}
 .wsr-ph{font:700 .62rem/1.25 Georgia,"Times New Roman",serif;text-align:center;color:#1E2230;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 10px}
 .wsr-pt{font:.5rem/1.55 Georgia,"Times New Roman",serif;color:#4A5060;text-indent:1.4em;-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
 .wsr-pt mark{background:color-mix(in srgb,var(--c) 26%,#fff);color:inherit;border-radius:2px;padding:0 1px}
@@ -2947,7 +2947,7 @@ svg.ws-zic{display:block;flex:none}
 .wsr-ld{position:absolute;right:10px;bottom:8px;z-index:1;display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.15)}
 .wsr-foot{display:flex;align-items:center;gap:10px;padding:10px 12px 12px}
 .wsr-main{flex:1 1 auto;min-width:0;border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:grid;gap:2px}
-@media (prefers-reduced-motion:reduce){.wsr-page{transition:none}.wsr-card:hover .wsr-page{rotate:1.5deg;translate:-50% 0}}
+@media (prefers-reduced-motion:reduce){.wsr-page{transition:none}.wsr-card:hover .wsr-page{translate:none}}
 .wsr-t{font-weight:700;word-break:break-word}
 .wsr-l.bad{color:#B42318}
 @media (max-width:560px){.ws-strip{padding:5px 12px;font-size:.8rem}.ws-sp{padding:3px 4px}}

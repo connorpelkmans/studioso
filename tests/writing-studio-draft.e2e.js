@@ -213,6 +213,15 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   await page.click('nav.tabs [data-tab="flashcards"]'); await page.waitForTimeout(300);
   await act(page, "rv-view", "writing"); await page.waitForSelector(".wsr-card");
   if (process.env.SHOT) { await page.waitForTimeout(400); await page.screenshot({path: process.env.SHOT + "wsr-cards.png"}); }
+  // the paper on a card stays crisp when it lifts under the pointer: the same pixels at rest, part way and lifted (it moves in whole pixels, not tilting)
+  {
+    const pg = page.locator(".wsr-card .wsr-ph").first(); await page.mouse.move(5, 5); await page.waitForTimeout(300);
+    const rest = await pg.screenshot(); await pg.hover({position: {x: 20, y: 10}});
+    const shots = []; for (const ms of [40, 60, 60, 300]) { await page.waitForTimeout(ms); shots.push(await pg.screenshot()); }
+    ok(shots.every(b => Buffer.compare(b, rest) === 0), "a card's paper looks exactly the same while it lifts and once lifted: " + shots.map(b => Buffer.compare(b, rest)).join(","));
+    ok((await page.evaluate(() => getComputedStyle(document.querySelector(".wsr-card .wsr-page")).translate)) === "0px -4px", "and it is lifted");
+    await page.mouse.move(5, 5);
+  }
   const cards = await page.$$eval(".wsr-card .wsr-t", x => x.map(e => e.textContent));
   ok(cards.includes("Research paper: urban heat") && cards.includes("Policy brief") && cards.includes("Reflection essay"), "Review's Writing view lists the papers: " + cards.join(", "));
   ok(/\d+ sources · \d+ quotes · last check/.test(await page.textContent(".wsr-list")), "with their counts and last check");
