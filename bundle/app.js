@@ -108771,7 +108771,7 @@ function open(kind, id, map){
   Object.assign(M, {own: o, sel: "", selE: "", connect: "", quiz: null, sug: null, err: "", busy: false, menu: "", looks: false, lookScrolled: false, styleOpen: false, cardsOpen: false, made: null, pick: "", lastTap: null});
   if (!same) { M.loose = false; M.know = o.kind === "exam" && !isLocked(); M.undoS = []; M.redoS = []; }
   const c = courseOf(o.kind === "course" ? o.id : ownerObj(o).courseId);
-  const mp = mapOf(o);
+  const mp = mapOf(o); M.imgTry = {};
   // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
   // sm-skip: the app's fade-in for new content stays out of the map (it would fade every redraw, menu and the video player)
   openSheet(`<div class="sheet cm-sheet sm-skip" style="--c:${esc(c ? c.color : "#2F6FE4")}"><div class="cm-top"><span class="cm-hic" aria-hidden="true">${ICON.replace('width="16" height="16"', 'width="18" height="18"')}</span>
@@ -108806,10 +108806,18 @@ function nodeColor(n, know){
 }
 // a box's outline: w x h centred on 0,0
 // a picture's address on this device (from the same store as picture cards), loaded the first time it's drawn
+// A picture that couldn't be had yet (the map drawn before signing in had finished, or the download failed) is asked for again a little later,
+// a few times, instead of staying a grey box until the app is opened again
 function imgUrl(k){
-  if (M.imgs[k] !== undefined) return M.imgs[k];
-  M.imgs[k] = "";
-  Promise.resolve(window.SBPRO && SBPRO.imageBlob ? SBPRO.imageBlob(k) : null).then(b => { M.imgs[k] = b ? URL.createObjectURL(b) : ""; if (b && shown()) paint(); }).catch(() => {});
+  if (M.imgs[k]) return M.imgs[k];
+  const F = M.imgTry || (M.imgTry = {}), f = F[k] || (F[k] = {n: 0, busy: false, at: 0});
+  if (f.busy || f.n >= 8 || Date.now() < f.at) return "";
+  f.busy = true; f.n++;
+  const fail = () => { f.busy = false; f.at = Date.now() + Math.min(30000, 1500 * Math.pow(2, f.n - 1)); if (f.n < 8) setTimeout(() => { if (shown() && !M.imgs[k]) paint(); }, f.at - Date.now() + 50); };
+  Promise.resolve(window.SBPRO && SBPRO.imageBlob ? SBPRO.imageBlob(k) : null).then(b => {
+    if (!b) { fail(); return; }
+    f.busy = false; M.imgs[k] = URL.createObjectURL(b); if (shown()) paint();
+  }).catch(fail);
   return "";
 }
 async function smallJpeg(file, max){
