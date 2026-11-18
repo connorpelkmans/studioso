@@ -114,6 +114,6 @@
 .sbc-pack.busy{opacity:.7;cursor:progress}
 
 /* Get Pro, beside the main button, in the PRO badge's colours */
-.btn.sbc-getpro{background:linear-gradient(135deg,#FFB443,#FF5C8A);border-color:transparent;color:#fff;font-weight:800}
+.btn.sbc-getpro{background:linear-gradient(135deg,#FFB443,#FF5C8A) border-box;border-color:transparent;color:#fff;font-weight:800}
 .btn.sbc-getpro:hover{filter:brightness(1.06)}
 .btn.sbc-getpro:focus-visible{outline:3px solid color-mix(in srgb,#FF5C8A 55%,transparent);outline-offset:2px}
