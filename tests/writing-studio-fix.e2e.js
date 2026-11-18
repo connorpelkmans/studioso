@@ -189,10 +189,13 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   const selectIn = (frag, from, to) => page.evaluate(([f, a, b]) => { const p = [...document.querySelectorAll("#dlg[open] [data-ws-rd] p")].find(x => x.textContent.includes(f)), n = p.firstChild, i = p.textContent.indexOf(f), r = document.createRange(); r.setStart(n, i + a); r.setEnd(n, i + b); const s = getSelection(); s.removeAllRanges(); s.addRange(r); p.dispatchEvent(new MouseEvent("mouseup", {bubbles: true})); }, [frag, from, to]);
   const [cx, cy] = await xyOf("large.", 5); await page.mouse.click(cx, cy);
   await page.waitForSelector("#dlg[open] .ws-pop [data-ws-popm=cite]"); ok(!(await page.locator("#dlg[open] .ws-pop [data-ws-popm=quote]").count()), "a click opens Cite Here (no selection: no Add Quote)");
+  ok(await page.locator("#dlg[open] .ws-marks .ws-caret").count() === 1 && Math.abs((await page.locator("#dlg[open] .ws-caret").boundingBox()).x - cx) < 4, "a caret marks the place clicked");
   await page.click("#dlg[open] .ws-pop [data-ws-popm=cite]"); await page.waitForSelector("#dlg[open] .ws-pop-s");
   if (process.env.SHOT) await page.screenshot({path: process.env.SHOT + "mydoc-cite.png"});
   const opts = await page.$$eval("#dlg[open] .ws-pop-s b", x => x.map(e => e.textContent));
   ok(opts.includes("(Smith & Lee, 2021)") && opts.includes("(Ng, 2019)") && /end of a sentence/.test(await page.textContent("#dlg[open] .ws-pop-how")), "at the end of a sentence: each source's citation in brackets: " + opts.join(" | "));
+  ok(/the effect is large\(Smith & Lee, 2021\)\. The study/.test((await page.textContent("#dlg[open] .ws-pop-ctx")).replace("large (", "large(")) && (await page.textContent("#dlg[open] .ws-pop-ctx ins")).trim() === "(Smith & Lee, 2021)", "the menu shows the line with the citation in its place: " + await page.textContent("#dlg[open] .ws-pop-ctx"));
+  await page.hover('#dlg[open] .ws-pop-s:has-text("Ng, 2019")'); ok((await page.textContent("#dlg[open] .ws-pop-ctx ins")).trim() === "(Ng, 2019)", "pointing at another source shows it there instead");
   await page.click('#dlg[open] .ws-pop-s:has-text("Smith & Lee")'); await page.waitForTimeout(800);
   ok((await draftOf()).startsWith("Parks cool cities in summer and the effect is large (Smith & Lee, 2021). The study"), "it goes in before the full stop: " + JSON.stringify((await draftOf()).slice(0, 90)));
   ok(/Added \(Smith & Lee, 2021\) at the end of the sentence/.test(await page.textContent("#dlg[open] .ws-ok")), "and it says where");
@@ -203,7 +206,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
   ok((await draftOf()).includes("The study by Ng (2019) measured it across"), "it goes in before the word: " + JSON.stringify((await draftOf()).slice(60, 130)));
   // a selection: Add Quote (then Cite After It is one tap)
   await selectIn("measured it across many blocks of the city in July", 0, 50);
-  await page.waitForSelector("#dlg[open] .ws-pop [data-ws-popm=quote]"); ok(/Cite After It/.test(await page.textContent("#dlg[open] .ws-pop")), "a selection: Cite After It and Add Quote");
+  await page.waitForSelector("#dlg[open] .ws-pop [data-ws-popm=quote]"); ok(await page.locator("#dlg[open] .ws-marks .ws-selm").count() >= 1, "a selection stays marked"); ok(/Cite After It/.test(await page.textContent("#dlg[open] .ws-pop")), "a selection: Cite After It and Add Quote");
   await page.click("#dlg[open] .ws-pop [data-ws-popm=quote]"); await page.click('#dlg[open] .ws-pop-s:has-text("Ng")'); await page.waitForTimeout(500);
   const qq = (await task(page, "t1")).ws.q, nq = qq[qq.length - 1];
   ok(nq.t === "measured it across many blocks of the city in July" && nq.sid === "s2", "Add Quote keeps the passage as a quote from that source");

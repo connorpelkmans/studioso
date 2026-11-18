@@ -1780,14 +1780,44 @@ function docTabHtml(t, w){
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.busy === "fix" ? `<p class="mini" role="status">Adding it to your paper…</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
     ${readerHtml(t, w)}`;
 }
-// The paper as a page: each line its own paragraph, holding just its text, so a click or a selection maps to a place in the draft
+// The paper as a page: each line its own paragraph (a click or a selection maps to a place in the draft by the paragraph's start and the text
+// before it). A linked Google Doc or Word file is laid out as it looks there: its fonts and sizes, bold, italic and underline, alignment,
+// indents, line spacing, space above, title and headings
+const SERIF = /times|georgia|garamond|cambria|palatino|book antiqua|baskerville|merriweather|lora|playfair|serif/i;
+const fontCss = f => { if (!f) return ""; const fb = /calibri/i.test(f) ? "Carlito, " : /^arial$/i.test(f) ? "Arimo, \"Liberation Sans\", " : /times new roman/i.test(f) ? "Tinos, \"Liberation Serif\", " : ""; return `"${String(f).replace(/["\;{}<>]/g, "")}", ${fb}${SERIF.test(f) ? "serif" : "sans-serif"}`; };
+function layHtml(text, L){
+  const N = LIVEDOC.norm(L.raw); if (N.text !== text) return "";
+  const paras = L.lay.paras.slice().sort((a, b) => a.at - b.at), px = n => Math.round(n * 10) / 10;
+  const paraAt = r => { let lo = 0, hi = paras.length - 1, best = paras[0]; while (lo <= hi) { const m = (lo + hi) >> 1; if (paras[m].at <= r) { best = paras[m]; lo = m + 1; } else hi = m - 1; } return best; };
+  const runStyle = rn => !rn ? "" : [rn.font && rn.font !== L.lay.base.font ? `font-family:${fontCss(rn.font)}` : "", rn.size && rn.size !== L.lay.base.size ? `font-size:${px(rn.size * 4 / 3)}px` : "", rn.b ? "font-weight:700" : "", rn.i ? "font-style:italic" : "", rn.u ? "text-decoration:underline" : ""].filter(Boolean).join(";");
+  let o = 0;
+  return text.split("\n").map(line => {
+    const at = o; o += line.length + 1;
+    if (!line) return `<p data-o="${at}" class="ws-rd-gap"></p>`;
+    const P = paraAt(N.map[at]) || {runs: []}, runs = P.runs || [];
+    let html = "", cur = null, buf = "", ri = 0;
+    for (let k = 0; k < line.length; k++) {
+      const r = N.map[at + k]; while (ri < runs.length - 1 && runs[ri].at + runs[ri].n <= r) ri++;
+      const rn = runs[ri] && r >= runs[ri].at && r < runs[ri].at + runs[ri].n ? runs[ri] : null, st = runStyle(rn);
+      if (st !== cur) { if (buf) html += cur ? `<span style="${esc(cur)}">${esc(buf)}</span>` : esc(buf); buf = ""; cur = st; }
+      buf += line[k];
+    }
+    if (buf) html += cur ? `<span style="${esc(cur)}">${esc(buf)}</span>` : esc(buf);
+    const ps = [`text-align:${P.align || "left"}`, P.left || P.hang ? `padding-left:${px((P.left || 0) + (P.hang || 0))}px` : "", P.first || P.hang ? `text-indent:${px((P.first || 0) - (P.hang || 0))}px` : "", P.line ? `line-height:${px(Math.max(1, P.line) * 1.2)}` : "", P.above ? `margin-top:${px(P.above)}px` : ""].filter(Boolean).join(";");
+    return `<p data-o="${at}"${P.kind ? ` data-k="${esc(P.kind)}"` : ""} style="${esc(ps)}">${html}</p>`;
+  }).join("");
+}
 function readerHtml(t, w){
-  const d = w.draft; let o = 0;
-  const paras = d.t.split("\n").map(line => { const at = o; o += line.length + 1; return `<p data-o="${at}"${line ? "" : ' class="ws-rd-gap"'}>${esc(line)}</p>`; }).join("");
+  const d = w.draft;
+  // what the linked doc looks like, from when it was last read (on this device)
+  if (w.ld && !(LAY[t.id] && LAY[t.id].h === d.h) && !LAY["?" + t.id]) { LAY["?" + t.id] = 1; idbGet("wslay:" + t.id).then(v => { const dd = wsOf(state.tasks[t.id]).draft; if (v && dd && v.h === dd.h) { LAY[t.id] = v; if (shown() && W.tab === "doc") draw(); } }).catch(() => {}); }
+  const L = w.ld && LAY[t.id] && LAY[t.id].h === d.h ? LAY[t.id] : null, laid = L ? layHtml(d.t, L) : "";
+  let o = 0;
+  const paras = laid || d.t.split("\n").map(line => { const at = o; o += line.length + 1; return `<p data-o="${at}"${line ? "" : ' class="ws-rd-gap"'}>${esc(line)}</p>`; }).join("");
   const note = styleFmt(styleOf(t, w)) === "note";
   return `<div class="ws-rdbar"><span class="mini ws-grow">${note ? "Select a passage to keep it as a quote. (This style cites in footnotes: add those in your document.)" : "Click where a citation goes, or select a passage to keep it as a quote."}</span>
       <span class="mini">${esc(d.from && d.from !== "Pasted" ? d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words</span><button type="button" class="ws-act" data-ws-redo>Replace</button><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your paper from Writing Studio" title="Remove">${TRASH}</button></div>
-    <div class="ws-rdwrap"><div class="ws-rd" data-ws-rd aria-label="Your paper: click to cite, select to quote">${paras}</div></div>`;
+    <div class="ws-rdwrap"><div class="ws-rd${laid ? " is-doc" : ""}" data-ws-rd aria-label="Your paper: click to cite, select to quote"${laid ? ` style="${esc(`font-family:${fontCss(L.lay.base.font)};font-size:${Math.round(L.lay.base.size * 4 / 3 * 10) / 10}px`)}"` : ""}>${paras}</div></div>`;
 }
 // The citations a click can put in: each source's own (in brackets) and the form for the middle of a sentence
 function citeForms(t, w, sid){ const paren = CITE.runsText(citeOf(t, w, sid, "")).trim(); return {paren, narr: CITE.narrOf(paren)}; }
@@ -1798,12 +1828,13 @@ function popHtml(t, w){
   const srcs = w.src.filter(s => CITE.keyName(s));
   if (P.mode === "cite" || P.mode === "quote") {
     if (!srcs.length) return `<div class="ws-pop-h">No sources yet</div><p class="mini">Add your sources on the Sources tab first.</p><button type="button" class="btn small" data-ws-go="sources">Go to Sources</button>`;
+    const ctx = sid => { const s0 = srcs.find(x => x.id === sid), f = citeForms(t, w, s0.id), pl = CITE.citePlace(d.t, P.b, f), e = pl.edit, a0 = Math.max(0, e.at - 48), b0 = Math.min(d.t.length, e.at + e.len + 36), cl = x => esc(x.replace(/\s+/g, " ")); return `${a0 > 0 ? "…" : ""}${cl(d.t.slice(a0, e.at))}${e.len ? `<del>${cl(d.t.slice(e.at, e.at + e.len))}</del>` : ""}<ins>${cl(e.to)}</ins>${cl(d.t.slice(e.at + e.len, b0))}${b0 < d.t.length ? "…" : ""}`; };
     const rows = srcs.map(s => {
       const f = citeForms(t, w, s.id), pl = P.mode === "cite" ? CITE.citePlace(d.t, P.b, f) : null;
-      return `<button type="button" class="ws-pop-s" data-ws-pops="${esc(s.id)}"><b>${esc(pl ? (pl.kind === "mid" ? f.narr : f.paren) : CITE.keyName(s) + (CITE.yearOf(s) ? ` (${CITE.yearOf(s)})` : ""))}</b><span class="mini">${esc(cut(s.title || "", 70))}</span></button>`;
+      return `<button type="button" class="ws-pop-s" data-ws-pops="${esc(s.id)}"${pl ? ` data-ctx="${esc(ctx(s.id))}"` : ""}><b>${esc(pl ? (pl.kind === "mid" ? f.narr : f.paren) : CITE.keyName(s) + (CITE.yearOf(s) ? ` (${CITE.yearOf(s)})` : ""))}</b><span class="mini">${esc(cut(s.title || "", 70))}</span></button>`;
     }).join("");
     const how = P.mode === "quote" ? "Which source is it from?" : CITE.citePlace(d.t, P.b, {paren: "(A)", narr: "A"}).kind === "mid" ? "In the middle of a sentence: the authors go in it" : "At the end of a sentence: in brackets, before the full stop";
-    return `<div class="ws-pop-h">${P.mode === "quote" ? "Add Quote" : "Cite Here"}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button></div><p class="mini ws-pop-how">${esc(how)}</p><div class="ws-pop-list">${rows}</div>`;
+    return `<div class="ws-pop-h">${P.mode === "quote" ? "Add Quote" : "Cite Here"}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button></div><p class="mini ws-pop-how">${esc(how)}</p>${P.mode === "cite" ? `<p class="ws-pop-ctx" aria-live="polite">${ctx(srcs[0].id)}</p>` : ""}<div class="ws-pop-list">${rows}</div>`;
   }
   if (P.mode === "after") { const s = w.src.find(x => x.id === P.sid), f = s ? citeForms(t, w, s.id) : null, pl = f ? CITE.citePlace(d.t, P.b, f) : null; return f && !note ? `<span class="mini">Cite it here too?</span><button type="button" class="btn small primary" data-ws-pops="${esc(s.id)}" data-ws-popc>${esc(pl.kind === "mid" ? f.narr : f.paren)}</button><button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>` : ""; }
   return `${!note ? `<button type="button" class="btn small primary" data-ws-popm="cite">${sel ? "Cite After It" : "Cite Here"}</button>` : ""}${sel.length >= 3 ? `<button type="button" class="btn small${note ? " primary" : ""}" data-ws-popm="quote">Add Quote</button>` : ""}<button type="button" class="ws-pop-x" data-ws-popx aria-label="Close">×</button>`;
@@ -2229,6 +2260,16 @@ const ldItem = l => l.drive ? `${LDU.graph}/drives/${encodeURIComponent(l.drive)
 class LdErr extends Error { constructor(msg, code){ super(msg); this.code = code || ""; } }
 const ldCloud = () => { const C = window.SBCLOUD; if (!C || !C.docApi) throw new LdErr("Google Drive and OneDrive aren't available here. Sign in to your Studyboard account first."); return C; };
 const ldErrText = e => (e && e.message) || "Couldn't reach your document. Check your connection.";
+// a Word file's look (its styles.xml too, when it has one)
+function ldWLay(dom, parts){
+  try { const sx = parts && parts["word/styles.xml"], st = sx ? new DOMParser().parseFromString(new TextDecoder().decode(sx), "application/xml") : null; return LIVEDOC.wLayout(dom, st && !st.getElementsByTagName("parsererror").length ? st : null); } catch (e) { return null; }
+}
+// what a linked doc looks like, kept with the text it goes with (on this device: a draft that came from elsewhere is shown plainly)
+const LAY = {};
+function keepLay(tid, raw, lay){
+  if (!lay) return; const N = LIVEDOC.norm(raw), h = CITE.hash(CITE.capDraft(N.text, MAX_DRAFT));
+  LAY[tid] = {h, raw, lay}; idbSet("wslay:" + tid, {h, raw, lay}).catch(() => {});
+}
 async function ldDocx(buf){
   const big = [], parts = await unzipBytes(buf, () => true, {big, max: 60e6, entries: 4000});
   if (big.length || !parts["word/document.xml"]) throw new LdErr("Couldn't read that Word file.");
@@ -2241,7 +2282,7 @@ async function ldRead(l){
     const b = await idbGet(ldKey(l)).catch(() => null);
     if (!b) throw new LdErr(`${l.name || "That Word file"} is kept on the device it was uploaded from. Upload it again here (Upload Draft).`);
     const X = await ldDocx(await b.arrayBuffer());
-    return {raw: LIVEDOC.wIndex(X.dom).raw, dom: X.dom, parts: X.parts, ver: "", name: l.name, url: ""};
+    return {raw: LIVEDOC.wIndex(X.dom).raw, dom: X.dom, parts: X.parts, ver: "", name: l.name, url: "", lay: ldWLay(X.dom, X.parts)};
   }
   const C = ldCloud();
   if (l.p === "google") {
@@ -2250,7 +2291,8 @@ async function ldRead(l){
     if (!r.ok) throw await ldApiErr(r, "Google Docs");
     const j = await r.json().catch(() => null);
     if (!j || !j.body) throw new LdErr("Google didn't send the document. Check that it's still in your Drive.");
-    const G = LIVEDOC.gText(j); return {raw: G.raw, G, ver: String(j.revisionId || ""), name: String(j.title || l.name || "")};
+    const G = LIVEDOC.gText(j); let lay = null; try { lay = LIVEDOC.gLayout(j); } catch (e) {}
+    return {raw: G.raw, G, ver: String(j.revisionId || ""), name: String(j.title || l.name || ""), lay};
   }
   const mr = await C.docApi("microsoft", ldItem(l) + "?$select=id,name,eTag,webUrl,size", null, "raw");
   if (!mr.ok) throw await ldApiErr(mr, "OneDrive");
@@ -2260,7 +2302,7 @@ async function ldRead(l){
   const r = await C.docApi("microsoft", ldItem(l) + "/content", null, "raw");
   if (!r || !r.ok) throw new LdErr(`OneDrive didn't send the file (${r ? r.status : "no answer"}).`);
   const {dom, parts} = await ldDocx(await r.arrayBuffer());
-  return {raw: LIVEDOC.wIndex(dom).raw, dom, parts, ver: String(meta.eTag || ""), name: String(meta.name || l.name || ""), url: String(meta.webUrl || "")};
+  return {raw: LIVEDOC.wIndex(dom).raw, dom, parts, ver: String(meta.eTag || ""), name: String(meta.name || l.name || ""), url: String(meta.webUrl || ""), lay: ldWLay(dom, parts)};
 }
 // an API's refusal, in its own words (Google's and Microsoft's errors both say what's wrong)
 async function ldApiErr(r, who){
@@ -2294,7 +2336,7 @@ async function ldPush(l, base, rounds){
       if (!r.ok) throw await ldApiErr(r, "Google Docs");
       text = A.text;
     }
-    const R = await ldRead(l); return {raw: R.raw, ver: R.ver, want: text};
+    const R = await ldRead(l); return {raw: R.raw, ver: R.ver, want: text, lay: R.lay};
   }
   const R = await ldRead(l); let text = base;
   if (LIVEDOC.norm(R.raw).text !== text) throw ldChanged(l);
@@ -2305,13 +2347,13 @@ async function ldPush(l, base, rounds){
   let xml = new XMLSerializer().serializeToString(R.dom); if (!/^<\?xml/.test(xml)) xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + xml;
   R.parts["word/document.xml"] = new TextEncoder().encode(xml);
   const body = zipMany(Object.keys(R.parts).map(name => ({name, data: R.parts[name]})));
-  if (l.p === "file") { await idbSet(ldKey(l), new Blob([body], {type: DOCX})); return {raw: LIVEDOC.wIndex(R.dom).raw, ver: "", want: text}; }
+  if (l.p === "file") { await idbSet(ldKey(l), new Blob([body], {type: DOCX})); return {raw: LIVEDOC.wIndex(R.dom).raw, ver: "", want: text, lay: ldWLay(R.dom, R.parts)}; }
   const r = await C.docApi("microsoft", ldItem(l) + "/content", {method: "PUT", headers: {"Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "If-Match": R.ver}, body}, "raw");
   if (r.status === 412) throw ldChanged(l);
   if (r.status === 423) throw new LdErr("Word has the file locked right now. Wait a moment, or close it in Word, then fix again.");
   if (!r.ok) throw await ldApiErr(r, "OneDrive");
   const j = await r.json().catch(() => ({}));
-  return {raw: LIVEDOC.wIndex(R.dom).raw, ver: String(j.eTag || ""), want: text};
+  return {raw: LIVEDOC.wIndex(R.dom).raw, ver: String(j.eTag || ""), want: text, lay: ldWLay(R.dom, R.parts)};
 }
 // what puts rounds of fixes back: the same places, the other way round, last round first
 function ldInverse(base, rounds){
@@ -2335,7 +2377,7 @@ async function ldRefresh(t){
   let w = wsOf(state.tasks[t.id]); const l = ldOf(w); if (!l) return w;
   W.busy = "read"; if (shown()) draw();
   try {
-    const R = await ldRead(l); W.busy = "";
+    const R = await ldRead(l); W.busy = ""; keepLay(t.id, R.raw, R.lay);
     if (R.name && R.name !== l.name) w.ld = Object.assign({}, l, {name: R.name});
     if (LIVEDOC.norm(R.raw).text !== w.draft.t || R.name !== l.name) { w = ldSetDraft(t, R.raw, w.ld, w.draft.fx); if (!w.draft) { save(state.tasks[t.id], w, null); W.err = `Your ${ldName(l)} is empty. Write in it, then check again.`; if (shown()) draw(); return null; } }
     return w;
@@ -2354,13 +2396,14 @@ async function ldFix(t, count, rounds){
     if (shown()) draw(); return 0;
   }
   W.busy = ""; W.ldKey = (W.ldKey || 0) + 1;
+  keepLay(t.id, out.raw, out.lay);
   const w = ldSetDraft(t, out.raw, l, (w0.draft.fx || 0) + count), inv = ldInverse(base, rounds), fixed = w.draft ? w.draft.t : "";
   W.okMsg = `${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}, ${l.name}.${LIVEDOC.norm(out.raw).text === out.want ? "" : " It was being changed at the same time, so check what it says."}${l.p === "file" ? " Download it to get the fixed file." : ""}`;
   await doCheck(state.tasks[t.id], {quiet: true, w, label: null});
   const msg = W.okMsg;
   toast(`${count === 1 ? "Fixed 1 thing" : `Fixed ${count} things`} in your ${ldName(l)}`, async () => {
     try {
-      const back = await ldPush(l, fixed, inv); W.ldKey++;
+      const back = await ldPush(l, fixed, inv); W.ldKey++; keepLay(t.id, back.raw, back.lay);
       const w2 = ldSetDraft(t, back.raw, l, Math.max(0, (wsOf(state.tasks[t.id]).draft || {fx: 0}).fx - count));
       W.okMsg = `Put ${l.name} back as it was.`; await doCheck(state.tasks[t.id], {quiet: true, w: w2, label: null}); toast(`Put your ${ldName(l)} back`);
     } catch (e) { toast(e.code === "changed" ? `Your ${ldName(l)} has changed since, so it wasn't put back. Its version history has the earlier version.` : ldErrText(e), null, null, {error: true}); }
@@ -2372,7 +2415,8 @@ async function ldFix(t, count, rounds){
 async function ldLink(t, l){
   W.busy = "link"; W.err = ""; W.okMsg = ""; draw();
   try {
-    const R = await ldRead(l), link = ldNorm(Object.assign({}, l, {name: R.name || l.name, url: R.url || l.url}));
+    const R = await ldRead(l); keepLay(t.id, R.raw, R.lay);
+    const link = ldNorm(Object.assign({}, l, {name: R.name || l.name, url: R.url || l.url}));
     if (!link) throw new LdErr("Couldn't link that document.");
     const w = wsOf(state.tasks[t.id]); w.ld = link;
     const w2 = ldSetDraft(t, R.raw, link, 0, w); w2.style = w2.style || styleOf(state.tasks[t.id], w2);
@@ -2768,11 +2812,15 @@ function wire(t){
   const rd = q("[data-ws-rd]");
   if (rd) {
     const wrap = rd.parentNode;
-    const offAt = (node, off) => { const el = node.nodeType === 3 ? node.parentNode : node, p = el && el.closest ? el.closest("p[data-o]") : null; if (!p || !rd.contains(p)) return null; return Number(p.dataset.o) + (node.nodeType === 3 ? off : off ? p.textContent.length : 0); };
+    const offAt = (node, off) => { const el = node.nodeType === 3 ? node.parentNode : node, p = el && el.closest ? el.closest("p[data-o]") : null; if (!p || !rd.contains(p)) return null; const r = document.createRange(); r.setStart(p, 0); try { r.setEnd(node, off); } catch (e) { return null; } return Number(p.dataset.o) + r.toString().length; };
     const paint = () => {
-      let pop = wrap.querySelector(".ws-pop"); if (!W.pop) { if (pop) pop.remove(); return; }
+      let pop = wrap.querySelector(".ws-pop"); if (!W.pop) { if (pop) pop.remove(); const mk0 = wrap.querySelector(".ws-marks"); if (mk0) mk0.remove(); return; }
       if (!pop) { pop = document.createElement("div"); pop.className = "ws-pop"; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Cite or quote"); wrap.appendChild(pop); }
       pop.innerHTML = popHtml(cur(), ws()); pop.classList.toggle("is-list", W.pop.mode === "cite" || W.pop.mode === "quote");
+      // where you are: a blinking caret at the place clicked, or the selection kept marked
+      let mk = wrap.querySelector(".ws-marks"); if (!mk) { mk = document.createElement("div"); mk.className = "ws-marks"; mk.setAttribute("aria-hidden", "true"); wrap.insertBefore(mk, pop); }
+      mk.innerHTML = (W.pop.marks || []).map(m => `<span class="${m.w ? "ws-selm" : "ws-caret"}" style="left:${m.x}px;top:${m.y}px;height:${m.h}px${m.w ? `;width:${m.w}px` : ""}"></span>`).join("");
+      pop.querySelectorAll("[data-ctx]").forEach(b => { const show = () => { const c = pop.querySelector(".ws-pop-ctx"); if (c) c.innerHTML = b.dataset.ctx; }; b.addEventListener("mouseenter", show); b.addEventListener("focus", show); });
       const ww = wrap.clientWidth, pw = Math.min(pop.offsetWidth || 300, ww - 8); pop.style.left = Math.max(4, Math.min(W.pop.x - pw / 2, ww - pw - 4)) + "px"; pop.style.top = W.pop.y + "px";
       pop.querySelectorAll("[data-ws-popm]").forEach(b => b.addEventListener("click", () => { W.pop.mode = b.dataset.wsPopm; paint(); }));
       pop.querySelectorAll("[data-ws-popx]").forEach(b => b.addEventListener("click", () => { W.pop = null; paint(); }));
@@ -2784,7 +2832,8 @@ function wire(t){
       const r = sel.getRangeAt(0); if (!rd.contains(r.startContainer) || !rd.contains(r.endContainer)) return;
       const a = offAt(r.startContainer, r.startOffset), b = offAt(r.endContainer, r.endOffset); if (a == null || b == null) return;
       const rc = (r.getClientRects().length ? r.getClientRects()[r.getClientRects().length - 1] : r.getBoundingClientRect()), wc = wrap.getBoundingClientRect();
-      W.pop = {a: Math.min(a, b), b: Math.max(a, b), mode: "main", x: rc.right - wc.left, y: rc.bottom - wc.top + 8};
+      const marks = r.collapsed ? [{x: rc.left - wc.left, y: rc.top - wc.top, h: Math.max(14, rc.height)}] : [...r.getClientRects()].filter(q => q.width > 0.5).map(q => ({x: q.left - wc.left, y: q.top - wc.top, h: q.height, w: q.width}));
+      W.pop = {a: Math.min(a, b), b: Math.max(a, b), mode: "main", x: rc.right - wc.left, y: rc.bottom - wc.top + 8, marks};
       paint();
     };
     rd.addEventListener("mouseup", () => setTimeout(pick, 0));
@@ -2976,6 +3025,17 @@ svg.ws-zic{display:block;flex:none}
 .ws-rd p{margin:0;white-space:pre-wrap;word-break:break-word}
 .ws-rd p.ws-rd-gap{height:.9em}
 .ws-rd ::selection{background:color-mix(in srgb,var(--accent,#2F6FE4) 28%,transparent)}
+.ws-rd.is-doc{color:#000;line-height:1.38}
+.ws-rd.is-doc p[data-k="title"]{font-size:2em}.ws-rd.is-doc p[data-k="subtitle"]{font-size:1.25em;color:#555}
+.ws-marks{position:absolute;inset:0;pointer-events:none;z-index:4}
+.ws-caret{position:absolute;width:2px;margin-left:-1px;background:var(--accent,#2F6FE4);border-radius:1px;animation:wsBlink 1s steps(1) infinite}
+.ws-caret::before{content:"";position:absolute;left:-3px;top:-4px;width:8px;height:8px;border-radius:50%;background:inherit}
+.ws-selm{position:absolute;background:color-mix(in srgb,var(--accent,#2F6FE4) 22%,transparent);border-radius:2px}
+@keyframes wsBlink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.ws-caret{animation:none}}
+.ws-pop-ctx{margin:0;padding:6px 8px;border-radius:8px;background:color-mix(in srgb,#fff 70%,var(--soft));color:#2B2F3A;font:.86rem/1.45 Georgia,"Times New Roman",serif}
+.ws-pop-ctx ins{text-decoration:none;background:color-mix(in srgb,var(--accent,#2F6FE4) 18%,transparent);color:inherit;border-radius:3px;padding:0 2px;font-weight:700}
+.ws-pop-ctx del{color:#B42318}
 .ws-pop{position:absolute;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:0 12px 30px -10px rgb(0 0 0/.35);max-width:min(380px,calc(100% - 8px));font:inherit}
 .ws-pop.is-list{display:grid;gap:4px;width:min(380px,calc(100% - 8px));padding:8px}
 .ws-pop-h{display:flex;align-items:center;justify-content:space-between;font-weight:700}
