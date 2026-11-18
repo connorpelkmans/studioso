@@ -2060,14 +2060,7 @@ dialog.tour::backdrop{background:transparent}
 
 
 /* ===== Style Shop v2 ===== */
-body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:var(--bgpos,var(--gx,0) 0);background-attachment:var(--bgatt,fixed)}
-/* The page scrollbar sits on the grid: its track draws the same grid instead of a plain strip */
-/* Firefox and Safari: the space is always reserved, so the page never shifts; the strip beside the grid is plain there. the scrollbar track is always shown, so it never appears or disappears */
-@media (hover:hover) and (pointer:fine){html:not(.desk){overflow-y:scroll}}
-@supports (-moz-appearance:none){html:not(.desk){scrollbar-color:color-mix(in srgb,var(--muted,#7A8599) 45%,transparent) transparent}}
-html:not(.desk)::-webkit-scrollbar{width:14px}
-html:not(.desk)::-webkit-scrollbar-track{background-color:var(--paper);background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px));background-size:var(--bgsize,calc(24px * var(--zf,1)) calc(24px * var(--zf,1)));background-position:0 0}
-html:not(.desk)::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted,#7A8599) 45%,transparent);border:3px solid transparent;border-radius:8px;background-clip:content-box}
+body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:var(--bgpos,var(--gx,0) 0);background-attachment:var(--bgatt,scroll)}
 .motion-tog,.anim-tog{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}
 /* On/off settings are switches, with On or Off beside them to match (the label's own "On" stays as the checkbox's name) */
 .anim-tog:has(> input[type=checkbox]){font-size:0;gap:0}
@@ -2473,7 +2466,7 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .aii-list li{display:flex;gap:10px;align-items:flex-start}
 .aii-tick{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent)}
 .aii-tick svg{width:14px;height:14px}
-.aii .btn.aii-pro{background:linear-gradient(135deg,#FFB443,#FF5C8A);border-color:transparent;color:#fff}
+.aii .btn.aii-pro{background:linear-gradient(135deg,#FFB443,#FF5C8A) border-box;border-color:transparent;color:#fff}
 .aii-fine{margin:12px 0 0;text-align:center;font-size:.66rem;color:var(--muted);opacity:.85}
 @media (prefers-reduced-motion:reduce){.qod-wrap,.qod{transition:none}}
 /* Heads Up (automatic AI) */

@@ -46,7 +46,8 @@
   "99-math.css",
   "99-class-sessions.css",
   "99-replay.css",
-  "99-calculator.css"
+  "99-calculator.css",
+  "99-shop-home.css"
  ],
  "js": [
   "00-core.js",
@@ -203,6 +204,7 @@
   "98-companion-tab.js",
   "98-photo.js",
   "97-credits.js",
+  "99-shop-home.js",
   "98-rooms.js",
   "98-scrap-art.js",
   "98-scrapbook.js",

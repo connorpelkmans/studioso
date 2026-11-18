@@ -67,6 +67,9 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     ok((await page.textContent(".sbc-pill")).includes("350"), "the Style Shop's header shows the balance");
     const pillFixed = await page.evaluate(() => { const b = document.querySelector(".shop-wrap > .sheet-body, .sheet.shop .sheet-body"); const p = document.querySelector(".sbc-pill"); const y0 = p.getBoundingClientRect().top; b.scrollTop = 2000; return Math.abs(p.getBoundingClientRect().top - y0) < 1 && b.scrollTop > 0; });
     ok(pillFixed, "the balance stays in view while the shop's list scrolls");
+    // the Shop home lists prices on its tiles; a See All page has the Unlock buttons
+    await page.waitForFunction(() => [...document.querySelectorAll(".sbh-tag.cost")].some(t => /credits/.test(t.textContent)), null, {timeout: 10000});
+    await page.click('.sbh-types [data-act="sbh-go"][data-id="themes"]');
     await page.waitForFunction(() => [...document.querySelectorAll('[data-act="shop-unlock"]')].some(b => /Credits/.test(b.textContent)), null, {timeout: 10000});
     ok(true, "locked items show their price in credits");
 

@@ -8319,7 +8319,7 @@ const STICKER_PACKS = [
     smile: `${GR("gsmile", "#FFE56B", "#FFBE1A")}<circle cx="32" cy="32" r="25" fill="url(#gsmile)" ${SO}/>${EYES(24, 40, 27, 3.2)}<path d="M21 37q11 11 22 0" fill="none" stroke="#2B2233" stroke-width="3" stroke-linecap="round"/>${BLUSH(17, 47, 36)}${SHINE(20, 17, 5, 3)}`,
     rainbow: `<path d="M8 46a24 24 0 0 1 48 0" fill="none" stroke="#FF5C5C" stroke-width="6"/><path d="M14 46a18 18 0 0 1 36 0" fill="none" stroke="#FFB443" stroke-width="6"/><path d="M20 46a12 12 0 0 1 24 0" fill="none" stroke="#4CC38A" stroke-width="6"/><path d="M26 46a6 6 0 0 1 12 0" fill="none" stroke="#4A8CFF" stroke-width="5"/><path d="M2 50a7 7 0 0 1 9-8 7 7 0 0 1 12 4 5 5 0 0 1-1 9H6a5 5 0 0 1-4-5z" fill="#fff" ${SO}/><path d="M41 50a7 7 0 0 1 9-8 7 7 0 0 1 12 4 5 5 0 0 1-1 9H45a5 5 0 0 1-4-5z" fill="#fff" ${SO}/>`,
     bolt: `${GR("gbolt", "#FFE56B", "#FFA800")}<path d="M37 3L11 37h17l-6 24 27-35H32z" fill="url(#gbolt)" ${SO}/>`,
-    moon: `<path d="M40 7a25 25 0 1 0 17 39A21 21 0 0 1 40 7z" fill="#FFE8A3" ${SO}/><path d="M24 34q3 3 6 0M35 38q2.5 2.5 5 0" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/>${BLUSH(22, 41, 40)}`,
+    moon: `<path d="M40 7a25 25 0 1 0 17 39A21 21 0 0 1 40 7z" fill="#FFE8A3" ${SO}/><path d="M14.5 32q2.5 2.5 5 0M23 35.5q2.5 2.5 5 0" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="17" cy="39" rx="3" ry="2" fill="#FF8FA8" opacity=".75"/><ellipse cx="28" cy="42" rx="3" ry="2" fill="#FF8FA8" opacity=".75"/>`,
     sun: `<g stroke="#FF9F1C" stroke-width="4.5" stroke-linecap="round"><path d="M32 3v8M32 53v8M3 32h8M53 32h8M11 11l6 6M47 47l6 6M11 53l6-6M47 17l6-6"/></g><circle cx="32" cy="32" r="15" fill="#FFD23F" ${SO}/>${EYES(27, 37, 30, 2.2)}${SMILE(32, 35, 3)}`,
     cloud: `<path d="M16 50h32a12 12 0 0 0 1-24 16 16 0 0 0-30-4 13 13 0 0 0-3 28z" fill="#fff" ${SO}/>${EYES(27, 39, 37, 2.2)}${BLUSH(23, 44, 42)}`,
     flower: `<g fill="#FF9EC7" ${SO}><circle cx="32" cy="15" r="10"/><circle cx="48" cy="27" r="10"/><circle cx="42" cy="46" r="10"/><circle cx="22" cy="46" r="10"/><circle cx="16" cy="27" r="10"/></g><circle cx="32" cy="32" r="9" fill="#FFD23F" ${SO}/>`
@@ -10471,12 +10471,6 @@ const AI_ACTS = {
   "note-photo": () => photoNoteSheet(),
   "ask-course": el => askSheet(el.dataset.id || "")
 };
-
-/* The scrollbar track is not zoomed with the page, so scale its grid by the browser zoom to keep it lined up */
-(function(){
-  const set = () => { try { const z = window.outerWidth > 0 && innerWidth > 0 ? outerWidth / innerWidth : 1; document.documentElement.style.setProperty("--zf", String(Math.min(5, Math.max(.25, Math.round(z * 100) / 100)))); } catch(e) {} };
-  set(); addEventListener("resize", set);
-})();
 /* ===== module: 01-helpers.js: the app's core, backups, helpers, workload and shared pieces ===== */
 // Quick Capture (the C window, photo and screenshot capture, share sheet, links and its Settings) is switched off for now.
 // Set to false to bring it all back. The add bar's sentence reading (same parser) stays on either way.
@@ -72435,6 +72429,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function redrawOpen(){
     try {
       const s = dlg.open && dlg.querySelector(".sbc-sheet");
+      if (s && s.classList.contains("zoomed")) return; // a redraw would drop the big view the person is looking at
       if (s && s.dataset.kind) buySheet(s.dataset.kind, s.dataset.id);
       else if (s) packsSheet();
       else if (shopOpen()) styleShop();
@@ -72735,6 +72730,318 @@ You can also DO things in Studyboard, but only when the student asks or what the
     // For tests: what this device remembers
     state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
   if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), pending: () => pending, added: () => added, comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
+})();
+/* ===== module: 99-shop-home.js ===== */
+/* The Style Shop's front: a Shop home (a featured Collection, Build Your Look, and a row of each kind of item with See All),
+   Yours (what the student owns and what their board is wearing now) and Build Your Look (the student's own board in a
+   theme, with a companion, a sticker pack and a flashcard style tried on, before buying or wearing it). The shop's
+   category pages (Themes, Collections, Flashcards…) stay as they were and are now the See All pages, with a way back.
+   Opening the shop starts on the home; a redraw while it's open (after buying or using something) stays where it was. */
+(() => {
+  const OURS = ["home", "yours", "look"];
+  const NAMES = {themes: "Themes", collections: "Collections", cards: "Flashcard Styles", notes: "Note Shapes", pins: "Pins", stickers: "Stickers", companions: "Companions"};
+  const SUBS = {themes: "Plain colors, scenes and seasons for your whole board", collections: "A theme with everything that matches it", cards: "How your cards look while you study", notes: "The shape of your sticky notes", pins: "What holds your notes to the board", stickers: "Drag them onto your sticky notes", companions: "They live on your board and cheer you on"};
+  let VIEW = "home", Q = "", LOOK = null, OPEN = "", LDARK = null;
+
+  /* ---------- What's in the shop ---------- */
+  const T = () => window.SBTP || null;
+  const CR = () => window.SBCREDITS || null;
+  const dark = () => { try { return isDark(); } catch (e) { return false; } };
+  const cfg = () => styleCfg();
+  const compKey = th => { try { return window.SBCOMP && SBCOMP.themes().includes(th) ? th : "plain"; } catch (e) { return "plain"; } };
+  const compsOf = th => { try { return window.SBCOMP ? SBCOMP.list(compKey(th)).map(c => c.id) : []; } catch (e) { return []; } };
+  const allComps = () => { try { return window.SBCOMP && SBCOMP.all ? SBCOMP.all() : []; } catch (e) { return []; } };
+  const compName = id => (allComps().find(c => c.id === id) || {}).name || "";
+  const curComp = () => { try { return window.SBCOMP && SBCOMP.current ? SBCOMP.current() || "" : ""; } catch (e) { return ""; } };
+  const tpThemes = () => { try { return T() && T().ordered ? T().ordered() : []; } catch (e) { return []; } };
+  const rec = th => { try { return T() && T().rec ? T().rec(th) : null; } catch (e) { return null; } };
+  const LIST = {skin: () => SKINS.filter(s => !s.photo), card: () => CARD_STYLES.filter(c => c.id !== "theme"), note: () => NOTE_SHAPES, pin: () => PINS, sticker: () => STICKER_PACKS, comp: () => allComps()};
+  const find = (kind, id) => (LIST[kind] ? LIST[kind]() : []).find(x => x.id === id) || null;
+  const nameOf = (kind, id) => kind === "comp" ? compName(id) : String((find(kind, id) || {}).name || "").replace(/\s*\(Default\)\s*$/i, "");
+  const tierOf = (kind, id) => { try { return itemTier(kind, id); } catch (e) { return "free"; } };
+  const inUse = (kind, id) => {
+    const c = cfg();
+    if (kind === "skin") return c.skin === id;
+    if (kind === "card") return cardStyleOf(null) === id;
+    if (kind === "note") return noteShapeOf(null) === id;
+    if (kind === "pin") return notePinOf(null) === id;
+    if (kind === "comp") return curComp() === id;
+    return false;
+  };
+  const price = (kind, id) => { try { return CR() && CR().enabled && CR().enabled() ? CR().priceOf(kind, id) : 0; } catch (e) { return 0; } };
+  const yours = (kind, id) => STORE.paywall ? owns(kind, id) : tierOf(kind, id) === "free";
+  // The little label on a tile: In Use, Yours, Free, a price, or Pro
+  function tag(kind, id){
+    if (inUse(kind, id)) return `<em class="sbh-tag on">In Use</em>`;
+    const tier = tierOf(kind, id);
+    if (!STORE.paywall) return tier === "pro" ? PRO_BADGE : `<em class="sbh-tag free">Free</em>`;
+    if (owns(kind, id) && tier === "pro") return `<em class="sbh-tag own">Yours</em>`;
+    if (tier !== "pro") return `<em class="sbh-tag free">Free</em>`;
+    const p = price(kind, id);
+    return p ? `<em class="sbh-tag cost">${p} credits</em>` : PRO_BADGE;
+  }
+
+  /* ---------- Pictures ---------- */
+  const compPic = id => {
+    try {
+      const h = window.SBCOMP && SBCOMP.head ? SBCOMP.head(id) : "";
+      if (h) return `<img class="sbh-comp" alt="" src="data:image/svg+xml,${encodeURIComponent(h.includes("xmlns=") ? h : h.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" '))}">`;
+    } catch (e) {}
+    return `<span class="sbh-comp sbh-comp-none"></span>`;
+  };
+  const stkPic = keys => window.SBUI && SBUI.stkCell ? `<span class="sbh-stks">${keys.slice(0, 4).map(k => SBUI.stkCell(k)).join("")}</span>` : "";
+  const cardPic = id => `<div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`;
+  function pic(kind, id, i){
+    if (kind === "skin") { const s = SKINS.find(x => x.id === id); return s ? skinPreview(s, dark()) : ""; }
+    if (kind === "card") return cardPic(id);
+    if (kind === "note") return noteDemo(id, notePinOf(null), (i || 0) + 1);
+    if (kind === "pin") return noteDemo(noteShapeOf(null), id, (i || 0) + 1);
+    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? stkPic(Object.keys(p.items)) : ""; }
+    if (kind === "comp") return compPic(id);
+    return "";
+  }
+  // A tile: tapping a theme, companion, sticker pack or flashcard style tries it on; a pin or note shape is used (or unlocked)
+  const TRY = {skin: 1, comp: 1, sticker: 1, card: 1};
+  function tile(kind, id, i){
+    const n = nameOf(kind, id); if (!n) return "";
+    const act = TRY[kind] ? `data-act="sbh-try"` : `data-act="shop-use"`;
+    return `<button type="button" class="sbh-tile sbh-k-${kind}${inUse(kind, id) ? " on" : ""}" ${act} data-kind="${kind}" data-id="${esc(id)}" aria-label="${esc(n)}${TRY[kind] ? ": try it on" : ""}">
+      <span class="sbh-pic">${pic(kind, id, i)}</span><span class="sbh-meta"><b>${esc(n)}</b>${tag(kind, id)}</span></button>`;
+  }
+
+  /* ---------- Home ---------- */
+  const ROWS = [
+    ["collections", "skin", () => tpThemes()],
+    ["themes", "skin", () => SKINS.filter(s => !s.photo && (s.group || "plain") === "plain").map(s => s.id), "Free Themes", "Plain colors, ready to use"],
+    ["companions", "comp", () => { const cur = curComp(), l = allComps().map(c => c.id); return cur ? [cur].concat(l.filter(x => x !== cur)) : l; }],
+    ["stickers", "sticker", () => STICKER_PACKS.filter(p => !p.theme).map(p => p.id).concat(STICKER_PACKS.filter(p => p.theme).map(p => p.id))],
+    ["cards", "card", () => LIST.card().map(c => c.id)],
+    ["pins", "pin", () => PINS.map(p => p.id)],
+    ["notes", "note", () => NOTE_SHAPES.map(n => n.id)]
+  ];
+  // The featured Collection changes each week, and skips ones already owned when there are others
+  function featured(){
+    const ths = tpThemes(); if (!ths.length) return "";
+    const wk = Math.floor(Date.now() / (7 * 864e5)), order = ths.map((_, i) => ths[(i + wk) % ths.length]);
+    return order.find(th => !STORE.paywall || !owns("skin", th)) || order[0];
+  }
+  // A peek at what a Collection brings: its companions' faces and a few of its stickers
+  function inside(th){
+    const r = rec(th), cs = compsOf(th).slice(0, 3), p = r && r.pack && STICKER_PACKS.find(x => x.id === r.pack);
+    const ks = p ? Object.keys(p.items).slice(0, 4) : [];
+    if (!cs.length && !ks.length) return "";
+    return `<div class="sbh-inside" aria-hidden="true">${cs.map(compPic).join("")}${ks.length && window.SBUI && SBUI.stkCell ? ks.map(k => SBUI.stkCell(k)).join("") : ""}</div>`;
+  }
+  function heroHtml(){
+    const th = featured(), s = th && SKINS.find(x => x.id === th);
+    const what = th && CR() && CR().contents ? CR().contents(th).slice(1).map(x => x.replace(/^Its /, "").replace(/:.*$/, "")).join(", ") : "";
+    const own = !th || owns("skin", th), p = th ? price("skin", th) : 0;
+    const feat = s ? `<div class="sbh-hero">
+        <div class="sbh-hero-pic">${skinPreview(s, true)}</div>
+        <div class="sbh-hero-t"><span class="sbh-eyebrow">Featured Collection</span><b>${esc(s.name)}</b>${what ? `<span>${esc("Comes with " + what)}</span>` : ""}
+          ${inside(th)}
+          <div class="sbh-hero-acts">${own ? `<button type="button" class="btn sbh-light" data-act="sbh-try" data-kind="skin" data-id="${esc(th)}">Try It On</button>${inUse("skin", th) ? `<span class="sbh-hero-p">In use</span>` : `<button type="button" class="btn sbh-ghost" data-act="shop-use" data-kind="skin" data-id="${esc(th)}">Use It</button>`}`
+            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button><button type="button" class="btn sbh-ghost" data-act="sbh-try" data-kind="skin" data-id="${esc(th)}">Try It On</button>`}</div></div></div>` : "";
+    const sk = SKINS.find(x => x.id === cfg().skin) || SKINS[0], cp = curComp();
+    const build = `<button type="button" class="sbh-build" data-act="sbh-go" data-id="look">
+        <span class="sbh-build-pics" aria-hidden="true"><span class="sbh-mini">${skinPreview(sk, dark())}</span>${cp ? compPic(cp) : ""}</span>
+        <b>Build Your Look</b><span>Start from any theme, then try a companion, stickers and a flashcard style on your own board.</span>
+        <em>Start Building</em></button>`;
+    return `<div class="sbh-top${feat ? "" : " solo"}">${feat}${build}</div>`;
+  }
+  function rowHtml([tab, kind, ids, title, sub]){
+    const list = ids().filter(id => nameOf(kind, id)).slice(0, 6); if (!list.length) return "";
+    return `<section class="sbh-row" data-row="${tab}"><div class="sbh-row-h"><h3>${esc(title || NAMES[tab])}</h3><span class="mini">${esc(sub || SUBS[tab])}</span><button type="button" class="link-btn" data-act="sbh-go" data-id="${tab}">See All ›</button></div>
+      <div class="sbh-grid">${list.map((id, i) => tile(kind, id, i)).join("")}</div></section>`;
+  }
+  const TYPES = [["themes", "Themes"], ["collections", "Collections"], ["companions", "Companions"], ["stickers", "Stickers"], ["cards", "Flashcards"], ["pins", "Pins"], ["notes", "Note Shapes"]];
+  function homeHtml(){
+    return `<div class="sbh-bar"><div class="ui-shop-q" role="search"><input type="search" id="sbhQ" data-noenter placeholder="Search themes, stickers, companions…" aria-label="Search the Style Shop" autocomplete="off" spellcheck="false" enterkeyhint="search" maxlength="40" value="${esc(Q)}"></div>
+      <div class="sbh-types" role="group" aria-label="Browse">${TYPES.map(([k, l]) => `<button type="button" class="ui-chip" data-act="sbh-go" data-id="${k}">${l}</button>`).join("")}</div></div>
+      <div class="sbh-res" id="sbhRes"${Q ? "" : " hidden"}>${Q ? resultsHtml(Q) : ""}</div>
+      <div class="sbh-home"${Q ? " hidden" : ""}>${heroHtml()}${ROWS.map(rowHtml).join("")}</div>`;
+  }
+  // Searching from the home looks through everything, by name (and a theme's group)
+  function resultsHtml(q){
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean), hit = t => words.every(w => t.includes(w));
+    const out = [];
+    [["skin", LIST.skin()], ["comp", allComps()], ["sticker", STICKER_PACKS], ["card", LIST.card()], ["pin", PINS], ["note", NOTE_SHAPES]].forEach(([kind, list]) => list.forEach(x => {
+      const text = [x.name, x.desc, x.group, x.theme && (SKINS.find(s => s.id === x.theme) || {}).name, kind === "comp" ? "companion" : kind === "sticker" ? "stickers" : kind === "card" ? "flashcard" : kind].join(" ").toLowerCase();
+      if (hit(text)) out.push([kind, x.id]);
+    }));
+    if (!out.length) return `<p class="ui-none">Nothing matches “${esc(q.slice(0, 24))}”. Try another word.</p>`;
+    return `<p class="mini sbh-n">${out.length} ${out.length === 1 ? "match" : "matches"}${out.length > 36 ? ", the first 36 shown" : ""}</p><div class="sbh-grid wrap">${out.slice(0, 36).map(([k, id], i) => tile(k, id, i)).join("")}</div>`;
+  }
+
+  /* ---------- Yours ---------- */
+  function yoursHtml(){
+    const c = cfg(), cp = curComp();
+    const now = [["skin", c.skin, "Theme"], ["comp", cp, "Companion"], ["card", cardStyleOf(null), "Flashcards"], ["note", noteShapeOf(null), "Note Shape"], ["pin", notePinOf(null), "Pin"]].filter(([k, id]) => id && nameOf(k, id));
+    const strip = `<div class="sbh-now"><div class="sbh-now-t"><b>Your Look Now</b><span class="mini">What your board is wearing</span></div>
+      <div class="sbh-now-l">${now.map(([k, id, l], i) => `<div class="sbh-now-i sbh-k-${k}"><span class="sbh-pic">${pic(k, id, i)}</span><span><em>${l}</em><b>${esc(nameOf(k, id))}</b></span></div>`).join("")}</div>
+      <button type="button" class="btn primary" data-act="sbh-go" data-id="look">Change My Look</button></div>`;
+    if (!STORE.paywall) return strip + `<p class="sbh-note">While Studyboard is in early access, everything in the shop is yours to use. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`;
+    const groups = [["themes", "skin", LIST.skin().map(s => s.id).concat(SKINS.filter(s => s.photo).map(s => s.id))], ["companions", "comp", allComps().map(x => x.id)], ["stickers", "sticker", STICKER_PACKS.map(p => p.id)], ["cards", "card", LIST.card().map(x => x.id)], ["pins", "pin", PINS.map(x => x.id)], ["notes", "note", NOTE_SHAPES.map(x => x.id)]];
+    const kindName = {themes: "Themes", companions: "Companions", stickers: "Sticker Packs", cards: "Flashcard Styles", pins: "Pins", notes: "Note Shapes"};
+    const rows = groups.map(([tab, kind, ids]) => {
+      const mine = ids.filter(id => owns(kind, id) && (tierOf(kind, id) === "pro" || inUse(kind, id) || kind === "skin" && String(id).indexOf("ph-") === 0));
+      if (!mine.length) return "";
+      return `<section class="sbh-row"><div class="sbh-row-h"><h3>${kindName[tab]}</h3><span class="mini">${mine.length} yours</span></div><div class="sbh-grid wrap">${mine.map((id, i) => kind === "skin" || kind === "card" ? tile(kind, id, i).replace(/data-act="sbh-try"/, 'data-act="shop-use"').replace(/: try it on"/, '"') : tile(kind, id, i)).join("")}</div></section>`;
+    }).join("");
+    return strip + (rows || `<p class="sbh-note">Nothing bought yet. Free items are always yours, and anything you get with credits or Pro shows up here. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`);
+  }
+
+  /* ---------- Build Your Look ---------- */
+  // Starting from a theme fills in its own companion, sticker pack and flashcard style
+  function matchTo(th){
+    const r = rec(th), cs = compsOf(th);
+    LOOK.skin = th;
+    LOOK.comp = cs.includes(LOOK.comp) ? LOOK.comp : cs[0] || "";
+    if (r && r.pack) LOOK.pack = r.pack;
+    if (r && r.card) LOOK.card = r.card;
+  }
+  function startLook(kind, id){
+    if (!LOOK) {
+      const c = cfg(), r = rec(c.skin);
+      LOOK = {skin: c.skin, comp: curComp(), pack: (r && r.pack) || ((STICKER_PACKS.find(p => !p.theme && yours("sticker", p.id)) || STICKER_PACKS[0] || {}).id || ""), card: cardStyleOf(null)};
+      if (LOOK.card === "theme") LOOK.card = (r && r.card) || "index";
+    }
+    if (kind === "skin") matchTo(id);
+    else if (kind === "comp") { const c = allComps().find(x => x.id === id); if (c && c.theme && c.theme !== "plain" && SKINS.some(s => s.id === c.theme) && c.theme !== LOOK.skin) matchTo(c.theme); LOOK.comp = id; }
+    else if (kind === "sticker") LOOK.pack = id;
+    else if (kind === "card") LOOK.card = id;
+    OPEN = kind === "sticker" ? "pack" : kind || OPEN;
+  }
+  const SLOTS = [["skin", "skin", "Theme"], ["comp", "comp", "Companion"], ["pack", "sticker", "Stickers"], ["card", "card", "Flashcard Style"]];
+  function options(slot){
+    const th = LOOK.skin, r = rec(th), mine = (k, ids) => ids.filter(id => nameOf(k, id));
+    const lead = (first, rest) => [...new Set(first.filter(Boolean).concat(rest))];
+    if (slot === "skin") return mine("skin", lead([th, cfg().skin], tpThemes().concat(SKINS.filter(s => !s.photo).map(s => s.id))));
+    if (slot === "comp") return mine("comp", compsOf(th));
+    if (slot === "pack") return mine("sticker", lead([r && r.pack], STICKER_PACKS.filter(p => !p.theme).map(p => p.id).concat(STICKER_PACKS.map(p => p.id))));
+    return mine("card", lead([r && r.card, LOOK.card], LIST.card().map(c => c.id)));
+  }
+  function stageHtml(){
+    const s = SKINS.find(x => x.id === LOOK.skin) || SKINS[0], dk = LDARK == null ? dark() : LDARK;
+    const p = STICKER_PACKS.find(x => x.id === LOOK.pack), stk = p ? Object.keys(p.items) : [];
+    return `<div class="sbh-stage" aria-label="Preview of your board in this look" role="img">
+      <div class="sbh-stage-in">${skinPreview(s, dk)}</div>
+      <div class="sbh-st-note">${noteDemo(noteShapeOf(null), notePinOf(null), 2, stk[0] || "")}</div>
+      ${stk.length ? `<div class="sbh-st-stk">${stkPic(stk.slice(1, 4))}</div>` : ""}
+      <div class="sbh-st-card">${cardPic(LOOK.card)}</div>
+      ${LOOK.comp ? `<div class="sbh-st-comp">${compPic(LOOK.comp)}</div>` : ""}</div>`;
+  }
+  function lookHtml(){
+    const dk = LDARK == null ? dark() : LDARK, th = LOOK.skin, ths = SKINS.find(x => x.id === th);
+    const pieces = SLOTS.map(([slot, kind]) => [slot, kind, LOOK[slot]]).filter(([, k, id]) => id && nameOf(k, id));
+    const need = pieces.filter(([, k, id]) => !owns(k, id));
+    const cost = need.reduce((n, [, k, id]) => n + price(k, id), 0);
+    const col = rec(th) && !owns("skin", th) ? price("skin", th) : 0;
+    const inCol = need.filter(([, k, id]) => k === "skin" || (find(k, id) || {}).theme === th || (k === "comp" && compsOf(th).includes(id)));
+    const slots = SLOTS.map(([slot, kind, label]) => {
+      const id = LOOK[slot], n = id ? nameOf(kind, id) : "", open = OPEN === slot;
+      const opts = open ? options(slot) : [];
+      return `<div class="sbh-slot${open ? " open" : ""}">
+        <button type="button" class="sbh-slot-h" data-act="sbh-slot" data-id="${slot}" aria-expanded="${open}"><span class="sbh-pic sbh-k-${kind}">${id ? pic(kind, id, 1) : ""}</span><span class="sbh-slot-t"><em>${label}</em><b>${n ? esc(n) : "None"}</b></span>${id ? tag(kind, id) : ""}</button>
+        ${open ? `<div class="sbh-opts">${slot === "comp" && !opts.length ? `<p class="mini">This theme has no companions of its own.</p>` : ""}${opts.slice(0, 30).map(o => `<button type="button" class="sbh-opt sbh-k-${kind}${o === id ? " on" : ""}" data-act="sbh-pick" data-slot="${slot}" data-id="${esc(o)}" aria-pressed="${o === id}" title="${esc(nameOf(kind, o))}" aria-label="${esc(nameOf(kind, o))}">${pic(kind, o, 1)}</button>`).join("")}</div>
+          ${opts.length > 30 ? `<button type="button" class="link-btn sbh-more" data-act="sbh-go" data-id="${({skin: "themes", pack: "stickers", card: "cards", comp: "companions"})[slot]}">See All ${NAMES[({skin: "themes", pack: "stickers", card: "cards", comp: "companions"})[slot]]}</button>` : ""}` : ""}
+      </div>`;
+    }).join("");
+    const sum = !need.length ? `<p class="sbh-sum ok">Everything here is yours. Wear it whenever you like.</p>`
+      : `<div class="sbh-sum">${cost ? `<div><span>${need.length === 1 ? "The piece" : `The ${need.length} pieces`} you don't have</span><b>${cost} credits</b></div>` : ""}${col && inCol.length ? `<div class="col"><span>The whole ${esc(ths ? ths.name : "")} Collection</span><b>${col} credits</b></div><p class="mini">The Collection has the theme, its companions, stickers, pins and flashcard style.</p>` : ""}${!cost && !col ? `<p class="mini">${need.map(([, k, id]) => esc(nameOf(k, id))).join(", ")} ${need.length === 1 ? "comes" : "come"} with Studyboard Pro.</p>` : ""}</div>`;
+    const acts = `<div class="sbh-acts">
+        ${col && inCol.length ? `<button type="button" class="btn primary" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">Get the Collection</button>` : need.length === 1 ? `<button type="button" class="btn primary" data-act="shop-unlock" data-kind="${need[0][1]}" data-id="${esc(need[0][2])}">Get ${esc(nameOf(need[0][1], need[0][2]))}</button>` : ""}
+        ${need.length > (col && inCol.length ? 0 : 1) ? `<div class="sbh-getrow">${need.filter(([, k, id]) => !(col && inCol.some(x => x[2] === id))).map(([, k, id]) => `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${k}" data-id="${esc(id)}">Get ${esc(nameOf(k, id))}</button>`).join("")}</div>` : ""}
+        ${need.length && !cost && !(col && inCol.length) && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn primary" data-act="plan-open">Get Studyboard Pro</button>` : ""}
+        <button type="button" class="btn${need.length ? "" : " primary"}" data-act="sbh-wear"${need.length === pieces.length ? " disabled" : ""}>${need.length ? "Wear What I Have" : "Wear This Look"}</button></div>`;
+    return `<div class="sbh-look">
+      <div class="sbh-look-l"><div class="sbh-look-h"><button type="button" class="link-btn" data-act="sbh-go" data-id="home">‹ Shop</button><h3>Build Your Look</h3>
+        <div class="segb sbh-dk" role="group" aria-label="Preview in"><button type="button" data-act="sbh-dark" data-id="0" aria-pressed="${!dk}">Light</button><button type="button" data-act="sbh-dark" data-id="1" aria-pressed="${dk}">Dark</button></div></div>
+        ${stageHtml()}<p class="mini">Your board in this look. Nothing changes until you wear it.</p></div>
+      <div class="sbh-look-r">${slots}<div class="sbh-spacer"></div>${sum}${acts}</div></div>`;
+  }
+  // Wear: every piece the student has goes on; the rest is left as it was
+  function wear(){
+    const c = cfg(), patch = {};
+    const skinOk = owns("skin", LOOK.skin);
+    if (skinOk && c.skin !== LOOK.skin) patch.skin = LOOK.skin;
+    if (LOOK.card && owns("card", LOOK.card)) { patch.card = LOOK.card; patch.cardAuto = false; }
+    if (Object.keys(patch).length) { saveStyle(patch); if (patch.skin) try { applySkin(); } catch (e) {} }
+    const slot = compsOf(LOOK.skin).indexOf(LOOK.comp);
+    if (skinOk && LOOK.comp && slot >= 0 && owns("comp", LOOK.comp)) run("comp-theme", {skin: LOOK.skin, slot: String(slot)});
+    render(); toast("Your new look is on");
+    draw();
+  }
+  const run = (act, data) => { const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = act; Object.assign(b.dataset, data || {}); document.body.appendChild(b); try { b.click(); } finally { b.remove(); } };
+
+  /* ---------- Putting it on the sheet ---------- */
+  const sheetOf = () => dlg.querySelector(".sheet.shop");
+  function frame(){
+    const sheet = sheetOf(); if (!sheet) return null;
+    sheet.classList.add("sbh-on");
+    const band = sheet.querySelector(".sheet-head");
+    if (band && !band.querySelector(".sbh-seg")) {
+      const h2 = band.querySelector("h2");
+      const seg = `<div class="sbh-seg" role="group" aria-label="Style Shop"><button type="button" data-act="sbh-go" data-id="home">Shop</button><button type="button" data-act="sbh-go" data-id="yours">Yours</button></div>`;
+      if (h2) h2.insertAdjacentHTML("afterend", seg); else band.insertAdjacentHTML("afterbegin", seg);
+    }
+    band && band.querySelectorAll(".sbh-seg [data-id]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === "yours" ? VIEW === "yours" : VIEW !== "yours")));
+    return sheet.querySelector(".sheet-body");
+  }
+  function draw(){
+    const body = frame(); if (!body) return;
+    const y = body.dataset.sbh === VIEW ? body.scrollTop : 0;
+    body.dataset.sbh = VIEW; body.dataset.uiTab = VIEW;
+    body.classList.add("sbh-body");
+    body.innerHTML = VIEW === "yours" ? yoursHtml() : VIEW === "look" ? lookHtml() : homeHtml();
+    body.scrollTop = y;
+    fit();
+    const q = body.querySelector("#sbhQ");
+    if (q) q.addEventListener("input", () => { Q = q.value; const r = body.querySelector("#sbhRes"), h = body.querySelector(".sbh-home"), t = Q.trim(); r.hidden = !t; h.hidden = !!t; r.innerHTML = t ? resultsHtml(t) : ""; });
+  }
+  // The board preview is drawn small and scaled up to fill its box
+  function fit(){
+    const st = dlg.querySelector(".sbh-stage"); if (!st) return;
+    const w = st.clientWidth; if (w) st.style.setProperty("--k", (w / 320).toFixed(3));
+  }
+  addEventListener("resize", () => { if (VIEW === "look") fit(); });
+  // A category page (See All): a way back to the Shop, with the page's name
+  function dress(tab){
+    const sheet = sheetOf(), body = frame(); if (!sheet || !body) return;
+    body.classList.remove("sbh-body"); delete body.dataset.sbh;
+    if (body.querySelector(".sbh-back")) return;
+    body.insertAdjacentHTML("afterbegin", `<div class="sbh-back"><button type="button" class="link-btn" data-act="sbh-go" data-id="home">‹ Shop</button><h3>${esc(NAMES[tab] || "")}</h3><span class="mini">${esc(SUBS[tab] || "")}</span></div>`);
+  }
+
+  const prev = styleShop;
+  styleShop = function(tab){
+    const open = dlg.open && !!dlg.querySelector(".sheet.shop, .sbc-sheet");
+    const t = tab || (open ? VIEW : "home");
+    if (!open && !tab) { Q = ""; LOOK = null; OPEN = ""; LDARK = null; }
+    VIEW = t;
+    if (OURS.includes(t)) {
+      const r = prev.call(this, "notes");
+      ui.shopTab = t;
+      if (t === "look" && !LOOK) startLook("", "");
+      try { draw(); } catch (e) { console.warn("shop home", e); }
+      return r;
+    }
+    const r = prev.apply(this, arguments);
+    try { dress(t); } catch (e) { console.warn("shop see all", e); }
+    return r;
+  };
+
+  hook("act", (act, el) => {
+    if (!el || !el.dataset) return false;
+    if (act === "sbh-go") { const id = el.dataset.id; if (id === "look" && !LOOK) startLook("", ""); styleShop(id); return true; }
+    if (act === "sbh-try") { startLook(el.dataset.kind, el.dataset.id); styleShop("look"); return true; }
+    if (act === "sbh-slot") { OPEN = OPEN === el.dataset.id ? "" : el.dataset.id; draw(); return true; }
+    if (act === "sbh-pick") { const s = el.dataset.slot, id = el.dataset.id; if (s === "skin") matchTo(id); else LOOK[s] = id; draw(); return true; }
+    if (act === "sbh-dark") { LDARK = el.dataset.id === "1"; draw(); return true; }
+    if (act === "sbh-wear") { wear(); return true; }
+    return false;
+  });
+  window.SBSHOPHOME = {view: () => VIEW, look: () => (LOOK ? Object.assign({}, LOOK) : null)};
 })();
 /* ===== module: 98-rooms.js ===== */
 /* Studyboard 1.11 */
@@ -110096,7 +110403,7 @@ function listHtml(){
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
+    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
 if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
