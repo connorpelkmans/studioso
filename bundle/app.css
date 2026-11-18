@@ -2643,6 +2643,8 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .cc-custom.locked input[type=color]{pointer-events:none!important}
 .note.note-dark{color:#fff}
 .note.note-dark .note-empty{color:rgba(255,255,255,.75)}
+.dci-badge{background:linear-gradient(135deg,#5865F2,color-mix(in srgb,#5865F2 60%,var(--accent)))}
+.dci .btn.dci-join{background:#5865F2;border-color:transparent;color:#fff}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -3839,7 +3841,7 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .grp-pend{color:var(--accent);font-weight:600}
 .grp-react.is-pending,.btn.is-pending{outline:2px dashed color-mix(in srgb,var(--accent) 60%,transparent);outline-offset:1px}
 /* the Shared tab's count: how many whiteboards and concept maps are shared, of how many the group can have */
-.grp-room{margin:0 2px 10px;color:var(--muted)}
+.grp-room{margin:4px 2px 0;color:var(--muted)}
 .grp-room.is-full{color:color-mix(in srgb,#C2410C 75%,var(--ink));font-weight:600}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
