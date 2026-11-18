@@ -165,6 +165,11 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.evaluate(async () => { window.__crSrv.balance += 100; await window.SBCREDITS.load(); });
     await page.waitForSelector(".sbc-done", {timeout: 5000});
     ok(/100 credits added/.test(await page.textContent(".sbc-done")), "when the payment lands the sheet shows the credits added");
+    await page.waitForSelector(".cpu.sbc-burst", {timeout: 3000}); await page.waitForTimeout(1800);
+    ok(await page.textContent(".sbc-burst [data-sbc-count]") === "100" && /\+100 Credits/.test(await page.textContent(".sbc-burst .cpu-name")) && /Credits Added/i.test(await page.textContent(".sbc-burst .cpu-kick")), "bought credits arrive in a burst of light, the number counting up to 100 in the middle");
+    if (process.env.SHOTS) await page.screenshot({path: require("path").join(process.env.SHOTS, "credits-burst.png")});
+    await page.click('.sbc-burst [data-sbc-burst="ok"]'); await page.waitForTimeout(400);
+    ok(await page.locator(".sbc-burst").count() === 0 && await page.locator(".sbc-done").count() === 1, "Got It closes it, back to the Credits sheet");
     await page.click('.sbc-sheet [data-act="sbc-back"]');
     await page.evaluate(async () => { window.__crSrv.balance -= 100; await window.SBCREDITS.load(); });
 
