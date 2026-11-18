@@ -1208,8 +1208,21 @@
   const PROSEC = new Set(["weak", "challenge"]);
   const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };
   const featOn = (g, k) => !hiddenOf(g).has(k) && (!PROSEC.has(k) || proSecOk(g));
-  // Whiteboards tab
-  const wbPaneHtml = g => fire("grp-boards", g).filter(Boolean).join("") || `<section class="card grp-sec"><h3 class="fsec">Whiteboards</h3><p class="empty mini">Shared whiteboards show up here.</p></section>`;
+  // Shared tab: whiteboards and concept maps, and how many more the group can share (3, or 10 in a Pro group: the server's count)
+  const ROOM = {};
+  function roomLine(g){
+    const r = ROOM[g.id];
+    if (!r || Date.now() - r.at > 15000) { ROOM[g.id] = Object.assign({}, r || {}, {at: Date.now()});
+      api.sharedRoom(g.id).then(x => { if (!x || !Number(x.max)) return; ROOM[g.id] = {at: Date.now(), used: Number(x.used) || 0, max: Number(x.max), pro: !!x.pro};
+        document.querySelectorAll(`.grp-room[data-gid="${CSS.escape(g.id)}"]`).forEach(el => { el.outerHTML = roomHtml(g.id); }); }).catch(() => {}); }
+    return roomHtml(g.id);
+  }
+  function roomHtml(gid){
+    const r = ROOM[gid]; if (!r || r.max == null) return `<p class="mini grp-room" data-gid="${esc(gid)}" hidden></p>`;
+    const full = r.used >= r.max;
+    return `<p class="mini grp-room${full ? " is-full" : ""}" data-gid="${esc(gid)}">${r.used} of ${r.max} shared${full ? `: take one off the group to share another${r.pro ? "" : ", or a member with Pro can make it a Pro group for up to 10"}` : r.pro ? "" : " · Pro groups can share up to 10"}</p>`;
+  }
+  const wbPaneHtml = g => roomLine(g) + (fire("grp-boards", g).filter(Boolean).join("") || `<section class="card grp-sec"><h3 class="fsec">Whiteboards</h3><p class="empty mini">Shared whiteboards show up here.</p></section>`);
   function panesHtml(g){
     const P = (k, html) => `<div class="grp-pane" data-pane="${k}" id="grpPane-${k}" role="tabpanel" aria-labelledby="grpTab-${k}"${paneOn(g, k)}>${html}</div>`, on = k => featOn(g, k);
     const owner = isOwner(g), none = `<p class="empty mini grp-feat-none">${owner ? "Every feature here is turned off. Turn them on in Edit Group, under Features." : "Nothing is turned on here yet."}</p>`;
@@ -3927,6 +3940,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   const GX_MAX = 5, gxMine = () => (S.groups || []).filter(x => S.gpro[x.id] && S.gpro[x.id].by && S.gpro[x.id].by === myId()).length;
   const gxWhy = "This is part of Pro groups. When a member with Pro assigns Pro to the group, everyone in it gets this.";
   api.groupPro = ids => q(cli().rpc("group_pro_status", {p_groups: ids}));
+  api.sharedRoom = gid => q(cli().rpc("group_shared_room", {p_group: gid}));
   api.setGroupPro = (gid, on) => q(cli().rpc("group_pro_set", {p_group: gid, p_on: on}));
   api.setBadge = on => q(cli().rpc("set_supporter_badge", {p_on: on}));
   // Members with their badge
