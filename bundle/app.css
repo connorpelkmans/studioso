@@ -26,7 +26,7 @@
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:inherit}
-html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);overscroll-behavior-y:none}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);scrollbar-gutter:stable;overscroll-behavior-y:none}
 /* no bounce past the top or bottom (Chrome on Windows and Mac touchpads) */
 body{overscroll-behavior-y:none}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:1rem/1.5 var(--body);-webkit-font-smoothing:antialiased}
@@ -2061,6 +2061,10 @@ dialog.tour::backdrop{background:transparent}
 
 /* ===== Style Shop v2 ===== */
 body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:var(--bgpos,var(--gx,0) 0);background-attachment:var(--bgatt,scroll)}
+/* The page scrollbar sits on the grid: its track draws the same grid instead of a plain strip */
+html:not(.desk)::-webkit-scrollbar{width:14px}
+html:not(.desk)::-webkit-scrollbar-track{background-color:var(--paper);background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:0 0}
+html:not(.desk)::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted,#7A8599) 45%,transparent);border:3px solid transparent;border-radius:8px;background-clip:content-box}
 .motion-tog,.anim-tog{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}
 /* On/off settings are switches, with On or Off beside them to match (the label's own "On" stays as the checkbox's name) */
 .anim-tog:has(> input[type=checkbox]){font-size:0;gap:0}
