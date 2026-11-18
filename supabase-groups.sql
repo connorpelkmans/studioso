@@ -1089,7 +1089,9 @@ end $$;
 create index if not exists group_items_user_idx on public.group_items (user_id);
 create or replace function public.sbg_size_cap() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare who uuid; total bigint; cap constant bigint := 52428800;   -- 50 MB
+-- shared deck links: 50 MB each person. Shared group items: 50 MB with Pro, 5 MB on the free plan (studyboard_config limits ->
+-- free/pro -> groupItemsMB)
+declare who uuid; total bigint; cap bigint := 52428800; pro boolean := true; mb numeric;
 begin
   if tg_op = 'UPDATE' and pg_column_size(new.data) <= pg_column_size(old.data) then return new; end if;
   if tg_table_name = 'shared_decks' then
@@ -1101,10 +1103,18 @@ begin
     end if;
   else
     who := new.user_id;
+    if to_regproc('public.studyboard_paywall') is not null and to_regproc('public.studyboard_limits_pro') is not null then
+      execute 'select not public.studyboard_paywall() or public.studyboard_limits_pro($1)' into pro using who;
+    end if;
+    if to_regclass('public.studyboard_config') is not null then
+      execute 'select (value -> $1 ->> ''groupItemsMB'')::numeric from public.studyboard_config where key = ''limits''' into mb using case when pro then 'pro' else 'free' end;
+    end if;
+    cap := (coalesce(mb, case when pro then 50 else 5 end) * 1048576)::bigint;
     perform pg_advisory_xact_lock(hashtextextended('sbg-size:i:' || who::text, 0));
     select coalesce(sum(pg_column_size(i.data)), 0) into total from public.group_items i where i.user_id = who and i.id is distinct from new.id;
     if total + pg_column_size(new.data) > cap then
-      raise exception 'Your shared group items are over the 50 MB storage limit. Remove some you shared first.' using errcode = 'P0001';
+      raise exception '%', format('Your shared group items are over the %s MB storage limit%s. Remove some you shared first%s.', round(cap / 1048576.0),
+        case when pro then '' else ' of the free plan' end, case when pro then '' else ', or go Pro for 50 MB' end) using errcode = 'P0001';
     end if;
   end if;
   return new;
