@@ -123,4 +123,20 @@ const parse = x => new DOMParser().parseFromString(x, "text/xml");
   L.wApply(t, [{at: 3, len: 1, from: "\t", to: " "}]);
   ok(L.wIndex(t).raw === "One Two", "a tab replaced by a space");
 }
+/* how the document looks: a Google Doc's named styles and runs, a Word file's styles, defaults and runs */
+{
+  const g = {namedStyles: {styles: [{namedStyleType: "NORMAL_TEXT", textStyle: {weightedFontFamily: {fontFamily: "Times New Roman"}, fontSize: {magnitude: 12, unit: "PT"}}, paragraphStyle: {lineSpacing: 200}}, {namedStyleType: "TITLE", textStyle: {fontSize: {magnitude: 26, unit: "PT"}}, paragraphStyle: {alignment: "CENTER"}}]},
+    body: {content: [{sectionBreak: {}, endIndex: 1}, {paragraph: {paragraphStyle: {namedStyleType: "TITLE"}, elements: [{startIndex: 1, endIndex: 7, textRun: {content: "Title\n"}}]}},
+      {paragraph: {paragraphStyle: {namedStyleType: "NORMAL_TEXT", indentFirstLine: {magnitude: 36, unit: "PT"}}, elements: [{startIndex: 7, endIndex: 12, textRun: {content: "Body ", textStyle: {}}}, {startIndex: 12, endIndex: 17, textRun: {content: "bold\n", textStyle: {bold: true, italic: true}}}]}}]}};
+  const G = L.gLayout(g);
+  ok(G.base.font === "Times New Roman" && G.base.size === 12, "Google: the document's own font and size");
+  ok(G.paras[0].kind === "title" && G.paras[0].align === "center" && G.paras[0].runs[0].size === 26 && G.paras[0].at === 0, "a Title paragraph: centred, its named style's size");
+  ok(G.paras[1].first === 48 && G.paras[1].line === 2 && G.paras[1].at === 6 && G.paras[1].runs[1].b && G.paras[1].runs[1].i && !G.paras[1].runs[0].b && G.paras[1].runs[1].at === 11, "a body paragraph: first-line indent (36pt = 48px), double spacing, a bold italic run where it is");
+  const sty = parse(`<w:styles ${NS}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:spacing w:before="240"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style></w:styles>`);
+  const d = parse(`<w:document ${NS}><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/><w:jc w:val="center"/></w:pPr><w:r><w:t>Head</w:t></w:r></w:p><w:p><w:pPr><w:ind w:left="720" w:hanging="720"/><w:spacing w:line="480" w:lineRule="auto"/></w:pPr><w:r><w:rPr><w:i/></w:rPr><w:t>Ref</w:t></w:r><w:r><w:t> entry</w:t></w:r></w:p></w:body></w:document>`);
+  const X = L.wLayout(d, sty);
+  ok(X.base.font === "Calibri" && X.base.size === 11, "Word: the document's default font and size");
+  ok(X.paras[0].kind === "h1" && X.paras[0].align === "center" && X.paras[0].runs[0].b && X.paras[0].runs[0].size === 16 && X.paras[0].above === 16, "a Heading 1: its style's bold, size and space above, centred");
+  ok(X.paras[1].hang === 48 && X.paras[1].left === 48 && X.paras[1].line === 2 && X.paras[1].at === 5 && X.paras[1].runs[0].i && !X.paras[1].runs[1].i, "a hanging indent, double spacing, an italic run then a plain one");
+}
 console.log(`livedoc: ${n} checks passed`);

@@ -161,6 +161,68 @@ const LIVEDOC = (() => {
   }
   function wApply(doc, rawPlan){ rawPlan.forEach(e => wEdit(doc, e)); return wIndex(doc).raw; }
 
-  return {norm, toRaw, gText, gRequests, wIndex, wApply, W};
+  /* How the document looks, so Writing Studio's page of it can look the same: for each paragraph (at: where it starts in the raw text) its
+     alignment, indents (px), line spacing (a multiple of single), space above (px) and kind (title, heading 1–6), and its runs of text (at, n)
+     with their font, size (pt), bold, italic and underline; base: the document's own font and size. A Google Doc's paragraphs take their named
+     style's settings (Normal text, Title, Heading 1…) under their own; a Word file's, its style's (and the style it's based on) and the
+     document's defaults. */
+  const PT = 4 / 3;
+  const ALIGN = {START: "left", CENTER: "center", END: "right", JUSTIFIED: "justify", left: "left", start: "left", center: "center", right: "right", end: "right", both: "justify", distribute: "justify"};
+  const KIND = {TITLE: "title", SUBTITLE: "subtitle", HEADING_1: "h1", HEADING_2: "h2", HEADING_3: "h3", HEADING_4: "h4", HEADING_5: "h5", HEADING_6: "h6"};
+  function gLayout(doc){
+    const named = {}; ((doc && doc.namedStyles && doc.namedStyles.styles) || []).forEach(x => { named[x.namedStyleType] = x; });
+    const N = named.NORMAL_TEXT || {}, mag = v => v && typeof v.magnitude === "number" ? v.magnitude : null;
+    const tsOf = (base, ts) => { const t = Object.assign({}, base || {}, ts || {}); return {font: (t.weightedFontFamily && t.weightedFontFamily.fontFamily) || "", size: mag(t.fontSize) || 0, b: !!t.bold, i: !!t.italic, u: !!t.underline}; };
+    const paras = []; let text = 0;
+    const walk = content => (content || []).forEach(el => {
+      if (el.paragraph) {
+        const P = el.paragraph, ps0 = P.paragraphStyle || {}, st = named[ps0.namedStyleType] || N, ps = Object.assign({}, N.paragraphStyle || {}, st.paragraphStyle || {}, ps0);
+        const par = {at: text, align: ALIGN[ps.alignment] || "left", first: (mag(ps.indentFirstLine) || 0) * PT, left: (mag(ps.indentStart) || 0) * PT, hang: 0, line: ps.lineSpacing ? ps.lineSpacing / 100 : 1.15, above: (mag(ps.spaceAbove) || 0) * PT, kind: KIND[ps0.namedStyleType] || "", runs: []};
+        par.first -= par.left; if (par.first < 0) { par.hang = -par.first; par.first = 0; }
+        (P.elements || []).forEach(pe => { const tr = pe.textRun; if (!tr || typeof tr.content !== "string") return; const c = tr.content; const ts = tsOf(Object.assign({}, N.textStyle || {}, st.textStyle || {}), tr.textStyle); par.runs.push(Object.assign({at: text, n: c.length}, ts)); text += c.length; });
+        paras.push(par);
+      }
+      else if (el.table) (el.table.tableRows || []).forEach(r => (r.tableCells || []).forEach(c => walk(c.content)));
+      else if (el.tableOfContents) walk(el.tableOfContents.content);
+    });
+    walk(doc && doc.body && doc.body.content);
+    const base = tsOf(N.textStyle, null);
+    return {paras, base: {font: base.font || "Arial", size: base.size || 11}};
+  }
+  // Word: document.xml's paragraphs and runs, with styles.xml's styles and defaults (when the file has them)
+  function wLayout(doc, styles){
+    const one = (el, name) => { if (!el) return null; for (let c = el.firstChild; c; c = c.nextSibling) if (isW(c, name)) return c; return null; };
+    const val = (el, a) => el ? el.getAttributeNS(W, a) || el.getAttribute("w:" + a) || "" : "";
+    const on = el => !!el && !/^(0|false|off|none)$/i.test(val(el, "val"));
+    const rp = (rPr, into) => { if (!rPr) return into; const o = Object.assign({}, into); const f = one(rPr, "rFonts"); if (f && (val(f, "ascii") || val(f, "hAnsi"))) o.font = val(f, "ascii") || val(f, "hAnsi"); const z = one(rPr, "sz"); if (z && +val(z, "val")) o.size = +val(z, "val") / 2; ["b", "i"].forEach(k => { const e = one(rPr, k); if (e) o[k] = on(e); }); const u = one(rPr, "u"); if (u) o.u = on(u); return o; };
+    const pp = (pPr, into) => { if (!pPr) return into; const o = Object.assign({}, into); const j = one(pPr, "jc"); if (j) o.align = ALIGN[val(j, "val")] || o.align; const ind = one(pPr, "ind"); if (ind) { const tw = a => (+val(ind, a) || 0) / 20 * PT; if (val(ind, "left") || val(ind, "start")) o.left = tw(val(ind, "left") ? "left" : "start"); if (val(ind, "firstLine")) { o.first = tw("firstLine"); o.hang = 0; } if (val(ind, "hanging")) { o.hang = tw("hanging"); o.first = 0; } } const sp = one(pPr, "spacing"); if (sp) { if (+val(sp, "line") && (!val(sp, "lineRule") || val(sp, "lineRule") === "auto")) o.line = +val(sp, "line") / 240; if (val(sp, "before")) o.above = (+val(sp, "before") || 0) / 20 * PT; } return o; };
+    // the styles: defaults, then each style (with the one it's based on)
+    let dR = {font: "", size: 0, b: false, i: false, u: false}, dP = {align: "left", first: 0, hang: 0, left: 0, line: 1.08, above: 0};
+    const S = {};
+    if (styles) {
+      const dd = styles.getElementsByTagNameNS(W, "docDefaults")[0];
+      if (dd) { const r0 = dd.getElementsByTagNameNS(W, "rPr")[0], p0 = dd.getElementsByTagNameNS(W, "pPr")[0]; dR = rp(r0, dR); dP = pp(p0, dP); }
+      Array.from(styles.getElementsByTagNameNS(W, "style")).forEach(st => { const id = val(st, "styleId"), nm = val(one(st, "name"), "val"), bo = val(one(st, "basedOn"), "val"); S[id] = {nm, bo, r: one(st, "rPr"), p: one(st, "pPr")}; });
+    }
+    const chain = id => { const out = []; for (let k = 0, x = S[id]; x && k < 6; k++, x = S[x.bo]) out.unshift(x); return out; };
+    const kindOf = id => { const nm = String((S[id] || {}).nm || id || "").toLowerCase(); return nm === "title" ? "title" : nm === "subtitle" ? "subtitle" : (/^heading\s?([1-6])$/.exec(nm) || [])[1] ? "h" + /^heading\s?([1-6])$/.exec(nm)[1] : ""; };
+    const I = wIndex(doc), byP = new Map();
+    I.segs.forEach(sg => {
+      if (!byP.has(sg.p)) {
+        const pPr = one(sg.p, "pPr"), sid = val(one(pPr, "pStyle"), "val"), ch = chain(sid);
+        let P = Object.assign({}, dP), R = Object.assign({}, dR); ch.forEach(x => { P = pp(x.p, P); R = rp(x.r, R); }); P = pp(pPr, P);
+        const kind = kindOf(sid);
+        if (!ch.length && /^(title|heading)/i.test(sid)) { R.b = true; R.size = R.size || 0; }
+        byP.set(sg.p, Object.assign({at: sg.t, kind, runs: [], R}, P));
+      }
+      const par = byP.get(sg.p);
+      if (sg.k === "p") return;
+      const r = sg.node.parentNode && isW(sg.node.parentNode, "r") ? sg.node.parentNode : null, st = rp(r ? one(r, "rPr") : null, par.R);
+      par.runs.push(Object.assign({at: sg.t, n: sg.n}, {font: st.font, size: st.size, b: !!st.b, i: !!st.i, u: !!st.u}));
+    });
+    const paras = [...byP.values()].map(p => { const o = Object.assign({}, p); delete o.R; return o; });
+    return {paras, base: {font: dR.font || "Calibri", size: dR.size || 11}};
+  }
+  return {norm, toRaw, gText, gRequests, wIndex, wApply, W, gLayout, wLayout};
 })();
 /*LIVEDOC-END*/
