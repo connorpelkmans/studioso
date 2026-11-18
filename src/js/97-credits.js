@@ -284,16 +284,18 @@
     if (!planOk() || !PLAN.checkoutCall) return;
     const all = dlg.querySelectorAll(".sbc-pack"); all.forEach(b => { b.disabled = true; });
     if (btn) btn.classList.add("busy");
+    const held = PLAN.holdTab ? PLAN.holdTab() : null;
     const r = await PLAN.checkoutCall({pack: id});
     all.forEach(b => { if (b.isConnected) b.disabled = false; });
     if (btn && btn.isConnected) btn.classList.remove("busy");
     if (r && r.url) {
       const pk = ((mine() || {}).packs || []).find(x => x.id === id) || {};
       pending = {pack: id, credits: +pk.credits || 0, url: r.url, at: Date.now(), from: balance()}; added = null;
-      PLAN.openExternal(r.url); watch();
+      PLAN.openExternal(r.url, held); watch();
       if (dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])")) packsSheet();
       return;
     }
+    if (PLAN.dropTab) PLAN.dropTab(held);
     toast((r && r.message) || "Couldn't open checkout. Check your connection and try again.");
   }
 

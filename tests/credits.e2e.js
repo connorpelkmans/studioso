@@ -138,6 +138,23 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     ok(zooms.comps && zooms.comps.items >= 1 && zooms.stk && zooms.stk.items >= 8 && zooms.card && zooms.card.items === 1 && zooms.pins && zooms.pins.items >= 1, "every piece opens bigger: companions, all stickers, the flashcard, the pins");
     ok(Object.values(zooms).every(z => z.closed), "Back and Escape close the big view and keep the buy sheet open");
 
+    // The checkout tab opens at the tap, so the browser doesn't block it, even when the checkout address takes a moment to come back
+    await page.context().route("https://checkout.stripe.com/**", r => r.fulfill({status: 200, contentType: "text/html", body: "<title>Stripe test</title>checkout"}));
+    await page.evaluate(() => { const P = window.__sbPlanObj(); P.checkoutCall = async () => ({message: "Checkout isn't available right now."}); window.SBCREDITS.packsSheet(); });
+    await page.waitForSelector('.sbc-pack[data-id="credits_100"]');
+    const pop2P = page.context().waitForEvent("page", {timeout: 3000});
+    await page.click('.sbc-pack[data-id="credits_100"]');
+    const pop2 = await pop2P; await page.waitForTimeout(400);
+    ok(pop2.isClosed(), "when checkout can't open, the tab opened at the tap closes again");
+    await page.evaluate(() => { const P = window.__sbPlanObj(); P.__cc = P.checkoutCall; P.checkoutCall = async () => { await new Promise(r => setTimeout(r, 1500)); return {url: "https://checkout.stripe.com/c/pay/slow"}; }; window.SBCREDITS.packsSheet(); });
+    await page.waitForSelector('.sbc-pack[data-id="credits_100"]');
+    const popP = page.context().waitForEvent("page", {timeout: 5000});
+    await page.click('.sbc-pack[data-id="credits_100"]');
+    const pop = await popP; await pop.waitForURL(/checkout\.stripe\.com\/c\/pay\/slow/, {timeout: 6000});
+    ok(/checkout\.stripe\.com\/c\/pay\/slow/.test(pop.url()) && await pop.evaluate(() => window.opener === null), "a slow checkout still opens: its tab opens at the tap and goes to Stripe when the address arrives (with no link back to the app)");
+    await pop.close();
+    await page.click('[data-act="sbc-cancel"]'); await page.waitForTimeout(200);
+
     // Checkout waits in the Credits sheet (not a toast), then shows the credits arriving
     await page.evaluate(() => { const P = window.__sbPlanObj(); P.checkoutCall = async () => ({url: "https://checkout.stripe.com/c/pay/test"}); P.openExternal = () => {}; window.SBCREDITS.packsSheet(); });
     await page.waitForSelector('.sbc-pack[data-id="credits_100"]');
