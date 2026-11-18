@@ -2058,3 +2058,9 @@ const AI_ACTS = {
   "note-photo": () => photoNoteSheet(),
   "ask-course": el => askSheet(el.dataset.id || "")
 };
+
+/* The scrollbar track is not zoomed with the page, so scale its grid by the browser zoom to keep it lined up */
+(function(){
+  const set = () => { try { const z = window.outerWidth > 0 && innerWidth > 0 ? outerWidth / innerWidth : 1; document.documentElement.style.setProperty("--zf", String(Math.min(5, Math.max(.25, Math.round(z * 100) / 100)))); } catch(e) {} };
+  set(); addEventListener("resize", set);
+})();
