@@ -138,6 +138,23 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     ok(zooms.comps && zooms.comps.items >= 1 && zooms.stk && zooms.stk.items >= 8 && zooms.card && zooms.card.items === 1 && zooms.pins && zooms.pins.items >= 1, "every piece opens bigger: companions, all stickers, the flashcard, the pins");
     ok(Object.values(zooms).every(z => z.closed), "Back and Escape close the big view and keep the buy sheet open");
 
+    // The checkout tab opens at the tap, so the browser doesn't block it, even when the checkout address takes a moment to come back
+    await page.context().route("https://checkout.stripe.com/**", r => r.fulfill({status: 200, contentType: "text/html", body: "<title>Stripe test</title>checkout"}));
+    await page.evaluate(() => { const P = window.__sbPlanObj(); P.checkoutCall = async () => ({message: "Checkout isn't available right now."}); window.SBCREDITS.packsSheet(); });
+    await page.waitForSelector('.sbc-pack[data-id="credits_100"]');
+    const pop2P = page.context().waitForEvent("page", {timeout: 3000});
+    await page.click('.sbc-pack[data-id="credits_100"]');
+    const pop2 = await pop2P; await page.waitForTimeout(400);
+    ok(pop2.isClosed(), "when checkout can't open, the tab opened at the tap closes again");
+    await page.evaluate(() => { const P = window.__sbPlanObj(); P.__cc = P.checkoutCall; P.checkoutCall = async () => { await new Promise(r => setTimeout(r, 1500)); return {url: "https://checkout.stripe.com/c/pay/slow"}; }; window.SBCREDITS.packsSheet(); });
+    await page.waitForSelector('.sbc-pack[data-id="credits_100"]');
+    const popP = page.context().waitForEvent("page", {timeout: 5000});
+    await page.click('.sbc-pack[data-id="credits_100"]');
+    const pop = await popP; await pop.waitForURL(/checkout\.stripe\.com\/c\/pay\/slow/, {timeout: 6000});
+    ok(/checkout\.stripe\.com\/c\/pay\/slow/.test(pop.url()) && await pop.evaluate(() => window.opener === null), "a slow checkout still opens: its tab opens at the tap and goes to Stripe when the address arrives (with no link back to the app)");
+    await pop.close();
+    await page.click('[data-act="sbc-cancel"]'); await page.waitForTimeout(200);
+
     // Checkout waits in the Credits sheet (not a toast), then shows the credits arriving
     await page.evaluate(() => { const P = window.__sbPlanObj(); P.checkoutCall = async () => ({url: "https://checkout.stripe.com/c/pay/test"}); P.openExternal = () => {}; window.SBCREDITS.packsSheet(); });
     await page.waitForSelector('.sbc-pack[data-id="credits_100"]');
@@ -148,6 +165,11 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.evaluate(async () => { window.__crSrv.balance += 100; await window.SBCREDITS.load(); });
     await page.waitForSelector(".sbc-done", {timeout: 5000});
     ok(/100 credits added/.test(await page.textContent(".sbc-done")), "when the payment lands the sheet shows the credits added");
+    await page.waitForSelector(".cpu.sbc-burst", {timeout: 3000}); await page.waitForTimeout(1800);
+    ok(await page.textContent(".sbc-burst [data-sbc-count]") === "100" && /\+100 Credits/.test(await page.textContent(".sbc-burst .cpu-name")) && /Credits Added/i.test(await page.textContent(".sbc-burst .cpu-kick")), "bought credits arrive in a burst of light, the number counting up to 100 in the middle");
+    if (process.env.SHOTS) await page.screenshot({path: require("path").join(process.env.SHOTS, "credits-burst.png")});
+    await page.click('.sbc-burst [data-sbc-burst="ok"]'); await page.waitForTimeout(400);
+    ok(await page.locator(".sbc-burst").count() === 0 && await page.locator(".sbc-done").count() === 1, "Got It closes it, back to the Credits sheet");
     await page.click('.sbc-sheet [data-act="sbc-back"]');
     await page.evaluate(async () => { window.__crSrv.balance -= 100; await window.SBCREDITS.load(); });
 
@@ -191,6 +213,16 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     ok(/\$2\.99/.test(plusTxt) && /Studyboard AI/.test(plusTxt), "the Pro sheet offers Studyboard Plus at $2.99 without Studyboard AI");
     ok(/Not in Plus/.test(await page.textContent(".plan-compare")), "the comparison says Studyboard AI isn't in Plus");
 
+    // A balance that changed on the server (a refund taking credits back) shows when the shop opens, not the remembered one
+    const stale = await page.evaluate(async () => {
+      const srv = window.__crSrv; if (document.querySelector("dialog[open]")) document.querySelector("dialog[open]").close();
+      await new Promise(r => setTimeout(r, 5200)); srv.balance = 7; srv.bought = true;
+      const k = Object.keys(localStorage).find(x => { try { const v = JSON.parse(localStorage.getItem(x)); return v && typeof v === "object" && "balance" in v && Array.isArray(v.owned); } catch (e) { return false; } });
+      return k || "";
+    });
+    await page.evaluate(() => window.SBCREDITS.shop());
+    await page.waitForFunction(() => { const p = document.querySelector(".sbc-pill b"); return p && p.textContent.trim() === "7"; }, null, {timeout: 6000}).catch(() => {});
+    ok(stale && (await page.textContent(".sbc-pill b")).trim() === "7", "opening the Style Shop asks for the balance again, so a refund's change shows at once");
     ok(errs.length === 0, "no page errors" + (errs.length ? ": " + errs[0] : ""));
     console.log("\ncredits: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }

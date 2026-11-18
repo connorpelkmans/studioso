@@ -2081,12 +2081,15 @@ label.anim-tog > input[type=checkbox]:disabled{opacity:.5;cursor:default}
 .skin-prev .sp-main{position:relative;z-index:1}
 body::after{content:"";position:fixed;left:0;right:0;top:calc(var(--sb-full-h,100lvh) - var(--scene-h,0px));height:var(--scene-h,0px);background:var(--scene,none) center bottom/100% 100% no-repeat;pointer-events:none;z-index:-1}
 nav.tabs{background:var(--spine-bg,var(--spine))}
-body.desk::before{background:var(--spine-bg,var(--spine))}
+/* the window's top strip (where it's dragged, and the window buttons sit) is see-through: the theme runs to the top. Once the page scrolls
+   under it, a light frosted strip fades in so nothing reads through the buttons */
+html body.desk::before{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;transition:background-color .2s ease}
+html body.desk.desk-sc::before{background:color-mix(in srgb,var(--paper,var(--bg)) 72%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.15);backdrop-filter:blur(14px) saturate(1.15)}
 /* A wide window */
 @media (min-width:980px){
   body.desk nav.tabs{top:0}
   body.desk.mac nav.tabs{padding-top:calc(var(--tb) + 8px)}
-  html body.desk::before{z-index:5;background:color-mix(in srgb,var(--paper,var(--bg)) 88%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.15);backdrop-filter:blur(14px) saturate(1.15)}
+  html body.desk::before{z-index:5}
 }
 .btn.primary,.fab{background:var(--btn-bg,var(--accent))}
 .btn.primary{border-color:transparent}
@@ -2643,6 +2646,8 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .cc-custom.locked input[type=color]{pointer-events:none!important}
 .note.note-dark{color:#fff}
 .note.note-dark .note-empty{color:rgba(255,255,255,.75)}
+.dci-badge{background:linear-gradient(135deg,#5865F2,color-mix(in srgb,#5865F2 60%,var(--accent)))}
+.dci .btn.dci-join{background:#5865F2;border-color:transparent;color:#fff}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}

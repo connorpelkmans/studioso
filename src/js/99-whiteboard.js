@@ -281,7 +281,12 @@ var SBWB = null;
 
   /* Boards */
   const isBoard = n => !!(n && n.wb && !n.archived);
-  const boards = () => Object.values(state.notes || {}).filter(isBoard).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
+  // in the order they were made (a new one goes at the end), or as dragged: editing one doesn't move it
+  const boards = () => Object.values(state.notes || {}).filter(isBoard).sort((a, b) => ord(a) - ord(b) || (a.created || 0) - (b.created || 0) || String(a.id).localeCompare(String(b.id)));
+  // where it was dragged to in the tabs (wbOrd), else after those, in the order made
+  const ord = b => typeof b.wbOrd === "number" ? b.wbOrd : 1e6;
+  // the one to open on: the last one written on
+  const lastEdited = () => Object.values(state.notes || {}).filter(isBoard).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
   const boardName = n => String((n && n.text) || "").split("\n")[0].trim() || "Untitled Whiteboard";
   ui.notesView = ui.notesView || (lsGet(K_VIEW) === "wb" ? "wb" : "board");
   const on = () => ui.notesView === "wb";
@@ -290,7 +295,7 @@ var SBWB = null;
     const ok = id => id && isBoard(state.notes[id]);
     if (ok(ui.wbCur)) return ui.wbCur;
     const s = lsGet(K_CUR); if (ok(s)) return (ui.wbCur = s);
-    const b = boards()[0]; return (ui.wbCur = b ? b.id : "");
+    const b = lastEdited()[0]; return (ui.wbCur = b ? b.id : "");
   }
   function create(name, tpl, courseId, extra){
     const now = Date.now();
@@ -1256,10 +1261,10 @@ var SBWB = null;
     const list = boards(), cur = curId();
     const extra = fire("wb-head", cur).filter(Boolean).join("");
     const DOTS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>';
-    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>`; };
+    const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" data-sort-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>`; };
     // (the options button follows the tab list rather than sitting inside it among the tabs)
     const opts = list.some(b => b.id === cur) ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options">${DOTS}</button>` : "";
-    const strip = list.length ? `<div class="nb-boards wb-boards"><div class="nb-tlist" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>${opts}</div>` : "";
+    const strip = list.length ? `<div class="nb-boards wb-boards"><div class="nb-tlist" role="tablist" aria-label="Whiteboards" data-sortable="wb" title="Drag a whiteboard's tab to move it">${list.map(tab).join("")}</div>${opts}</div>` : "";
     const headHtml = `<div class="tl-controls f-title wb-head"><h2>Whiteboard</h2>${list.length ? `${picker(list, cur)}<button class="btn small" data-act="wb-all" aria-label="All Whiteboards" title="All Whiteboards">All</button>${extra}<button class="btn small" data-act="wb-export">Export</button><button class="btn small wb-optbtn" data-act="wb-opts" aria-label="Whiteboard options" title="Whiteboard options"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg></button>` : ""}</div>${strip}`;
     if (!list.length) return headHtml + `<div class="wb-empty"><div class="wb-empty-in"><h3>Start a Whiteboard</h3><p>Sketch, write and plan with markers on a big board you can zoom around.</p>
       <button type="button" class="wb-blank-go" data-act="wb-quick" data-id="blank"><span class="wb-tpv"></span><span><b>Blank Whiteboard</b><span class="mini">Start from a clean white board</span></span></button>

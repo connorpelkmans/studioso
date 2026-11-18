@@ -94,8 +94,11 @@
         if (was !== JSON.stringify([C.balance, C.owned])) {
           if (before && C.balance > before.balance) {
             const got = C.balance - before.balance;
+            const bought = !!pending;
             if (pending) { added = {credits: got, balance: C.balance}; pending = null; }
-            if (!(dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])"))) toast(`${got} credits added. You have ${C.balance}.`);
+            // bought credits arrive in a burst of light, like a new companion prop (anything else just says so)
+            if (bought) { const bal = C.balance; setTimeout(() => burst(got, bal), 120); } // after the Credits sheet is drawn again, so it sits on top
+            else if (!(dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])"))) toast(`${got} credits added. You have ${C.balance}.`);
           }
           try { applySkin(); } catch (e) {}
           scheduleRender(); redrawOpen();
@@ -112,7 +115,17 @@
     const tick = () => { if (Date.now() > watchUntil) return; load(); watchT = setTimeout(tick, 8000); };
     watchT = setTimeout(tick, 5000);
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() < watchUntil) load(); });
+  // The balance is the server's: it's asked again whenever you come back to Studyboard (at most every 20 seconds), so a balance that changed
+  // elsewhere (a refund, another tab or device) never shows an old number
+  let lastBack = 0;
+  const backAgain = () => { if (document.hidden || !enabled() || !signedIn()) return; if (Date.now() < watchUntil || Date.now() - lastBack > 20000) { lastBack = Date.now(); load(); } };
+  document.addEventListener("visibilitychange", backAgain);
+  window.addEventListener("focus", backAgain);
+  // another Studyboard tab saved a newer balance: show it here too
+  window.addEventListener("storage", e => {
+    if (e.key !== K || !e.newValue) return;
+    try { const n = JSON.parse(e.newValue), u = usr(); if (!n || !u || n.uid !== u.id) return; C = n; rebuild(); try { applySkin(); } catch (x) {} scheduleRender(); redrawOpen(); } catch (x) {}
+  });
 
   /* ---------- Sheets ---------- */
   let backToShop = false;
@@ -284,16 +297,18 @@
     if (!planOk() || !PLAN.checkoutCall) return;
     const all = dlg.querySelectorAll(".sbc-pack"); all.forEach(b => { b.disabled = true; });
     if (btn) btn.classList.add("busy");
+    const held = PLAN.holdTab ? PLAN.holdTab() : null;
     const r = await PLAN.checkoutCall({pack: id});
     all.forEach(b => { if (b.isConnected) b.disabled = false; });
     if (btn && btn.isConnected) btn.classList.remove("busy");
     if (r && r.url) {
       const pk = ((mine() || {}).packs || []).find(x => x.id === id) || {};
       pending = {pack: id, credits: +pk.credits || 0, url: r.url, at: Date.now(), from: balance()}; added = null;
-      PLAN.openExternal(r.url); watch();
+      PLAN.openExternal(r.url, held); watch();
       if (dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])")) packsSheet();
       return;
     }
+    if (PLAN.dropTab) PLAN.dropTab(held);
     toast((r && r.message) || "Couldn't open checkout. Check your connection and try again.");
   }
 
@@ -339,7 +354,7 @@
      button. Hidden from Pro subscribers, who have every item, unless they've bought credits or still have some. */
   const bought = () => { const m = mine(); return !!(m && m.bought); };
   const showBar = () => enabled() && (!PLAN.isPro() || bought() || balance() > 0);
-  const origShop = styleShop;
+  const origShop = styleShop; let shopAsked = 0;
   styleShop = function(){
     const r = origShop.apply(this, arguments);
     try {
@@ -352,6 +367,8 @@
         hd.classList.add("has-cr");
       }
       label(dlg);
+      // the shop asks for the balance as it opens (it redraws if the number changed)
+      if (enabled() && signedIn() && Date.now() - shopAsked > 5000) { shopAsked = Date.now(); load(); }
     } catch (e) { console.warn("credits pill", e); }
     return r;
   };
@@ -367,7 +384,52 @@
   // Rows the shop fills in later (collections, See All) get their prices too
   try { new MutationObserver(() => { if (dlg.open && dlg.querySelector('[data-act="shop-unlock"]:not([data-cr])')) label(dlg); }).observe(dlg, {childList: true, subtree: true}); } catch (e) {}
 
-  window.SBCREDITS = {owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
+  /* Credits you bought: shown in the middle of the screen in a burst of light, the number counting up in the middle (the same look as a new
+     companion prop, 98-companion.css .cpu) */
+  const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/></svg>';
+  const calm = () => { try { return (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
+  function burst(got, bal){
+    got = Math.max(0, Math.round(+got || 0)); if (!got) return;
+    const old = document.querySelector(".cpu.sbc-burst"); if (old) old.remove();
+    const still = calm(), o = document.createElement("div");
+    o.className = "cpu sbc-burst" + (still ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "sbcBurstName"); o.setAttribute("aria-describedby", "sbcBurstHow");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
+    const n = got.toLocaleString();
+    o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
+      <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
+        ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
+        <span class="cpu-prop sbc-bnum"><b data-sbc-count style="font-size:${n.length > 5 ? 2.1 : n.length > 4 ? 2.5 : 3}rem">${still ? n : "0"}</b><small>credits</small></span></div>
+      <span class="cpu-kick">Credits Added!</span><h2 class="cpu-name" id="sbcBurstName">+${n} Credits</h2>
+      <p class="cpu-how" id="sbcBurstHow">Thanks for your purchase. You have ${(+bal || 0).toLocaleString()} credits to spend.</p>
+      <div class="cpu-acts"><button type="button" class="btn cpu-wear" data-sbc-burst="ok">Got It</button></div></div>`;
+    // inside an open window (the Credits sheet): a modal window leaves everything outside it untouchable
+    (dlg.open ? dlg : document.body).appendChild(o);
+    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
+    // the number counts up as the disc pops in
+    const el = o.querySelector("[data-sbc-count]");
+    if (!still) { const t0 = performance.now() + 250, dur = Math.min(1400, 600 + got * 2);
+      const step = now => { if (!o.isConnected) return; const f = Math.max(0, Math.min(1, (now - t0) / dur)), e = 1 - Math.pow(1 - f, 3); el.textContent = Math.round(got * e).toLocaleString(); if (f < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step); }
+    const back = document.activeElement;
+    setTimeout(() => { const b = o.querySelector("[data-sbc-burst]"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    let closed = false;
+    const close = () => {
+      if (closed) return; closed = true; o.classList.add("cpu-out");
+      setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); }, still ? 0 : 260);
+      try { if (back && back.isConnected && back.focus) back.focus({preventScroll: true}); } catch (e) {}
+    };
+    o.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-sbc-burst]")) close(); });
+    o.addEventListener("keydown", e => { if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); if (e.key === "Escape") close(); } });
+  }
+  if (!document.getElementById("sbc-burst-css")) { const st = document.createElement("style"); st.id = "sbc-burst-css";
+    st.textContent = `.sbc-bnum{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:0;color:#7A4A00;font-family:var(--display)}
+.sbc-bnum b{font:900 3rem/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.02em;text-shadow:0 2px 0 rgba(255,255,255,.7)}
+.sbc-bnum small{margin-top:2px;font:800 .78rem/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:#A0670A}
+.sbc-bnum b:not(:only-child){max-width:136px;overflow:hidden}`;
+    document.head.appendChild(st); }
+  window.SBCREDITS = {burst, owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
     // For tests: what this device remembers
     state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
   if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), pending: () => pending, added: () => added, comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});

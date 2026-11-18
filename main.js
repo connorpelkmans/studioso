@@ -262,7 +262,8 @@ function createWindow(hidden) {
     backgroundColor: spine(), show: false,
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 14, y: 10 },
-    titleBarOverlay: process.platform === "darwin" ? undefined : { color: spine(), symbolColor: "#FFFFFF", height: 34 },
+    // the window buttons sit on the app itself (no strip of their own): transparent, their symbols set by the page to suit what's under them
+    titleBarOverlay: process.platform === "darwin" ? undefined : { color: "#00000000", symbolColor: nativeTheme.shouldUseDarkColors ? "#FFFFFF" : "#1F2937", height: 34 },
     webPreferences: { ...SAFE_PREFS, preload: path.join(__dirname, "preload.js"), additionalArguments: ["--studioso-version=" + app.getVersion(), "--studioso-store=" + STORE], spellcheck: true }
   });
   if (st.maximized) { if (hidden) pendingMax = true; else win.maximize(); }
@@ -1119,8 +1120,10 @@ function loadScriptHashes() {
   if (!IS_DEV && !(scriptHashes && scriptHashes.length)) mainReport("csp-hashes", new Error("csp-hashes.json missing or invalid in a packaged build"), { type: "CspHashes" });
 }
 // Concept map embeds (Pro): the only sites the app may show in a frame. Keep in step with EMBED_HOSTS in src/js/99-concept-map.js (tests/embeds.test.js checks).
-const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com"];
+const EMBED_HOSTS = ["www.youtube-nocookie.com", "player.vimeo.com", "www.loom.com", "docs.google.com", "drive.google.com", "www.desmos.com", "www.geogebra.org", "phet.colorado.edu", "open.spotify.com", "embed.ted.com", "www.canva.com", "onedrive.live.com", "view.officeapps.live.com", "studyboardapp.com"];
 const embedHostOk = h => EMBED_HOSTS.includes(h);
+// the page an embed says it's on (the app's own app:// address isn't one YouTube accepts)
+const EMBED_REFERRER = "https://studyboardapp.com/";
 const isEmbedUrl = raw => { try { const u = new URL(String(raw)); return u.protocol === "https:" && embedHostOk(u.hostname); } catch (e) { return false; } };
 function appCsp() {
   const scripts = scriptHashes && scriptHashes.length ? scriptHashes.map(h => `'${h}'`).join(" ") : IS_DEV ? "'unsafe-inline'" : "";
@@ -1135,6 +1138,14 @@ function lockSession(ses) {
   ses.setDevicePermissionHandler(() => false);
   try { ses.setDisplayMediaRequestHandler((req, cb) => cb({})); } catch (e) {}
   ses.webRequest.onBeforeRequest({ urls: ["http://*/*", "ws://*/*", "ftp://*/*"] }, (d, cb) => cb({ cancel: true }));
+  // Embeds (concept maps, Writing Studio): YouTube refuses a player whose page it can't name ("Error 153: Video player configuration
+  // error"), and the app's own address (app://studioso) isn't one it accepts. So an embed asked for from the app names the Studyboard
+  // website instead, as the web version does by itself. Only the embed sites the app may show, and only when the referrer is empty or the app's.
+  ses.webRequest.onBeforeSendHeaders({ urls: EMBED_HOSTS.map(h => `https://${h}/*`) }, (d, cb) => {
+    const h = Object.assign({}, d.requestHeaders), key = Object.keys(h).find(k => /^referer$/i.test(k)), ref = key ? String(h[key]) : "";
+    if (!ref || /^app:/i.test(ref)) { if (key) delete h[key]; h.Referer = EMBED_REFERRER; }
+    cb({ requestHeaders: h });
+  });
   ses.webRequest.onHeadersReceived({ urls: ["app://*/*", "file://*/*"] }, (d, cb) => {
     const h = Object.assign({}, d.responseHeaders);
     for (const k of Object.keys(h)) if (/^content-security-policy$/i.test(k)) delete h[k];

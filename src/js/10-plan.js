@@ -497,10 +497,23 @@ window.__sbPlanObj = () => PLAN;
   const siteLinks = () => document.querySelectorAll("a[data-site-link]").forEach(a => { if (siteLinkOk()) { a.href = siteBase() + "/"; a.setAttribute("aria-label", "Studyboard website"); } else { a.removeAttribute("href"); a.removeAttribute("title"); } });
   document.addEventListener("click", e => { const a = e.target.closest && e.target.closest("a[data-site-link]"); if (!a) return; e.preventDefault(); if (window.matchMedia && matchMedia("(max-width:639px)").matches) return; if (siteLinkOk()) openExternal(siteUrl("/", {})); });
   siteLinks(); window.addEventListener("load", siteLinks); setTimeout(siteLinks, 4000);
-  function openExternal(url){
+  // held: a tab opened at the tap (holdTab), sent to the address now
+  function openExternal(url, held){
+    if (held && !held.closed) { try { held.location.replace(url); return; } catch (e) {} }
     try { const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser; if (B && B.open) { B.open({url}); return; } } catch (e) {}
     window.open(url, "_blank", "noopener");
   }
+  // A checkout's address comes from the server a moment after the tap, and by then the browser no longer counts the tap and blocks a new tab
+  // ("Pop-ups blocked"). So in a browser the tab is opened at the tap, showing "Opening checkout…", and sent to the checkout once its address
+  // arrives (or closed if there's none). The apps open checkout their own way.
+  function holdTab(){
+    if (DESK || nativeShell()) return null;
+    let w = null; try { w = window.open("", "_blank"); } catch (e) { w = null; }
+    if (!w) return null;
+    try { w.opener = null; w.document.title = "Opening checkout…"; w.document.body.style.cssText = "margin:0;display:grid;place-items:center;min-height:100vh;font:600 16px system-ui,sans-serif;color:#475569;background:#F8FAFC"; w.document.body.textContent = "Opening checkout…"; } catch (e) {}
+    return w;
+  }
+  const dropTab = w => { try { if (w && !w.closed) w.close(); } catch (e) {} };
   const WATCH_MS = 2 * 60000, AWAIT_MS = 30 * 60000;
   let pollUntil = 0, pollT = 0;
   function watchPurchase(){
@@ -648,10 +661,12 @@ window.__sbPlanObj = () => PLAN;
     }
     if (sb && sbUser && !sbUser.is_anonymous && !P.buying) {
       P.buying = true; toast("Opening checkout…");
+      const held = holdTab();
       directCheckout(period).then(r => {
-        if (r && r.url) { openExternal(r.url); toast("Finish in the checkout page that just opened. Pro turns on here by itself."); watchPurchase(); return; }
+        if (!(r && r.url) && !(!(r && r.message) && siteReady())) dropTab(held);
+        if (r && r.url) { openExternal(r.url, held); toast("Finish in the checkout page that just opened. Pro turns on here by itself."); watchPurchase(); return; }
         if (r && r.message) { toast(r.message); return; }
-        if (siteReady()) { openExternal(siteUrl("/account", {plan: period})); toast("Finish in the page that just opened, then come back here. Pro turns on by itself."); watchPurchase(); return; }
+        if (siteReady()) { openExternal(siteUrl("/account", {plan: period}), held); toast("Finish in the page that just opened, then come back here. Pro turns on by itself."); watchPurchase(); return; }
         toast("Couldn't open checkout. Check your connection and try again.");
       }).finally(() => { P.buying = false; });
       return true;
@@ -982,7 +997,7 @@ window.__sbPlanObj = () => PLAN;
     // the semester plan when it's on sale here: its price, and whether it's paid once (App Store, Google Play) or renews (website)
     semester: () => { try { return semesterOn() ? {price: semPrice(), once: !!semOnce()} : null; } catch (e) { return null; } },
     devicesSheet: () => devicesSheet(false),
-    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, plusNow, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
+    limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, plusNow, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, holdTab, dropTab, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
     label: planLabel, siteUrl: () => siteBase(),
     deviceId,

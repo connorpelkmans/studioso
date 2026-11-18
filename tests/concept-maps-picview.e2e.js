@@ -25,9 +25,12 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: 
     await page.goto(base); await page.waitForFunction(() => window.__sbProStudy && window.SBCMAP); await page.waitForTimeout(400);
     await page.evaluate(async () => { const c = document.createElement("canvas"); c.width = 400; c.height = 300; const g = c.getContext("2d"); g.fillStyle = "#1E3A8A"; g.fillRect(0, 0, 400, 300); g.fillStyle = "#F2B83A"; g.beginPath(); g.arc(200, 150, 90, 0, 7); g.fill();
       const b = await new Promise(r => c.toBlob(r, "image/jpeg", .9)); await window.__sbProStudy.idbSet("cimg:k1", b); });
+    // the picture can't be had the first time (as when the map is drawn before signing in has finished): it shows once it can
+    await page.evaluate(() => { const real = SBPRO.imageBlob; let n = 0; SBPRO.imageBlob = k => ++n === 1 ? Promise.reject(new Error("not signed in")) : real(k); });
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "cm-open"; b.dataset.id = "c1"; b.dataset.kind = "course"; b.dataset.map = "m1"; b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); });
     await page.waitForSelector('.cm-node[data-n="idea:p1"] image.cm-img', {timeout: 8000}); await page.waitForTimeout(400);
     const tag = vp.width + "px";
+    ok(true, tag + ": a picture that couldn't be loaded at first shows once it can");
     const im = await page.locator('.cm-node[data-n="idea:p1"] image.cm-img').boundingBox();
     await page.mouse.click(im.x + im.width / 2, im.y + im.height / 2); await page.waitForTimeout(300);
     ok(await page.locator(".cm-picview img").count() === 1, tag + ": a tap on the picture shows it big");

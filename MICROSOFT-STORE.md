@@ -75,7 +75,24 @@ Quick Capture is switched off for now (`CAPTURE_OFF`), so the text below leaves 
   > Optional AI features (Google Gemini, Anthropic Claude or OpenAI ChatGPT) use your own API key: they summarize files, answer questions about your own notes, plan your day and make flashcards. AI answers are written by the model you choose from what you send it, can be wrong, and can be reported from the answer itself or in Settings, AI Features. Studyboard Pro is an optional subscription bought on the Studyboard website.
 
 * Features (short lines): Task board and Today's Plan · Courses, grades and syllabus import · Flashcards and practice quizzes · Study groups and shared decks · Brightspace, Canvas and Blackboard sync (read-only) · Reminders, tray icon and a Today widget · Optional AI with your own key.
-* **Screenshots:** `build-resources/msstore-listing/screenshots/`, numbered in upload order: `00-banner.png` (3840×2160) and nine 1920×1080 app screens, each in its own theme (Classic, Sakura, Galaxy, Ocean Waves, Northern Lights, Spring, Synthwave, Classic, Evergreen) with the app tour's sample semester. After the app's look changes, run `node tools/capture-store-screens.js` to make them all again (add file names such as `03-timeline` to redo only those). The banner's layout is `tools/store-banner.html`.
+* **Screenshots:** the Store takes at most **10 desktop screenshots**, so the upload set is the banner and nine app screens, in `build-resources/msstore-listing/screenshots/`, numbered in upload order. All are 1920×1080 except the banner (3840×2160), each in its own theme, with the app tour's sample semester on Tuesday, Oct 20:
+
+  | File | Screen | Theme |
+  |---|---|---|
+  | `00-banner.png` | Banner (`tools/store-banner.html`, made from `01-today.png`) | — |
+  | `01-today.png` | Board > Today's Plan | Classic (light) |
+  | `02-taskboard.png` | Board > Task Board | Sakura (light) |
+  | `03-timeline.png` | Calendar > Due Dates, Timeline, Term | Galaxy (dark) |
+  | `04-notes.png` | Notes > Notes (the cork board) | Spring (light) |
+  | `05-whiteboards.png` | Notes > Whiteboard: an Anatomy diagram of blood flow through the heart | Candy Land (light) |
+  | `06-concept-maps.png` | Review > Concept Maps: the Cardiovascular System map, Medicine & Nursing map style, with a video box | Neon Dusk (dark) |
+  | `07-writing-studio.png` | Writing Studio on the Check tab: the research essay in APA, with two citations to fix | Reading Nook (light) |
+  | `08-calculator.png` | The calculator over Today's Plan (the Nernst equation for a nerve cell) | Cozy Café (light) |
+  | `09-grades.png` | Courses > Grades | Synthwave (dark) |
+
+  Four more screens, each in a theme of its own, are in `screenshots/alternates/` to swap in for any of the nine (keep the upload at 10): `schedule.png` (Calendar > Schedule, Ocean Waves), `crunch.png` (Calendar > Crunch, Northern Lights, dark), `courses.png` (Courses > Courses, Sunset Beach) and `companion.png` (Companion, Evergreen).
+
+  After the app's look changes, run `node tools/capture-store-screens.js` to make them all again (add names such as `03-timeline` or `crunch` to redo only those, and `00-banner` for the banner). Nothing is sent anywhere: there's no AI key, and the video box's picture and the one DOI lookup are answered by the script itself.
 * **Store logos:** `build-resources/msstore-listing/BoxArt-1080x1080.png` (1:1), `Poster-720x1080.png` (2:3) and `Logo-300x300.png`.
 
 **Notes for certification** (paste into the submission's notes field):

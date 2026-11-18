@@ -283,10 +283,10 @@ function SEED(){
     const m1 = async () => (await course(pu, "c2")).maps.find(m => m.id === "m1");
     ok(await und() && await red(), "a freshly opened map: Undo and Redo are greyed out");
     // the dotted background moves and zooms with the map
-    const bg = () => pu.evaluate(() => { const c = document.querySelector(".cm-canvas"), cs = getComputedStyle(c); return {x: cs.getPropertyValue("--cmx"), g: parseFloat(cs.getPropertyValue("--cmg"))}; });
+    const bg = () => pu.evaluate(() => new Promise(res => requestAnimationFrame(() => requestAnimationFrame(() => { const c = document.querySelector(".cm-dots"), x = c.getContext("2d"), d = x.getImageData(0, 0, c.width, c.height).data; let ink = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) ink++; res({x: c.dataset.x, g: parseFloat(c.dataset.g), ink, w: c.width}); }))));
     const b0 = await bg(), cvb = await pu.locator(".cm-canvas").boundingBox();
     await pu.mouse.move(cvb.x + cvb.width - 60, cvb.y + cvb.height - 60); await pu.mouse.down(); for (let i = 1; i <= 5; i++) await pu.mouse.move(cvb.x + cvb.width - 60 - i * 7, cvb.y + cvb.height - 60 - i * 3); await pu.mouse.up(); await pu.waitForTimeout(150);
-    const b1 = await bg(); ok(b1.x !== b0.x, `dragging the map moves the dots with it (${b0.x} to ${b1.x})`);
+    const b1 = await bg(); ok(b0.ink > 50 && b0.w > 100, `the dots are drawn on the map (${b0.ink} pixels)`); ok(b1.x !== b0.x, `dragging the map moves the dots with it (${b0.x} to ${b1.x})`);
     await pu.click('[data-cm="in"]'); await pu.waitForTimeout(150); const b2 = await bg();
     ok(b2.g > b1.g, `zooming in spreads the dots out (${b1.g} to ${b2.g}px)`);
     await pu.click('[data-cm="out"]'); await pu.waitForTimeout(150);
