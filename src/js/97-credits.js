@@ -257,9 +257,10 @@
       : storeApp() ? `<p style="margin:0">Buying credits isn't available in this app. Credits you already have work here.</p>`
       : !packs ? `<p class="mini" style="margin:0">Loading…</p>`
       : `<div class="sbc-packs">${packs.map(p => {
-          // how many more credits each dollar buys than in the smallest pack (the badge's "% Bonus" says the same, worked out here so it can't go stale)
-          const bonus = base ? Math.round((base / (p.cents / p.credits) - 1) * 100) : 0, badge = p.badge && /%\s*bonus/i.test(p.badge) ? (bonus >= 1 ? `${bonus}% Bonus` : "") : p.badge;
-          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${badge ? `<span class="pp-flag">${esc(badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 1 ? `<span class="mini">${bonus}% more credits than the ${esc(Number(packs[0].credits).toLocaleString())} pack</span>` : ""}</button>`; }).join("")}</div>
+          // the extra credits against buying the same money's worth at the smallest pack's rate (a "Bonus" badge from the server
+          // is worked out the same way here, so it can't go stale)
+          const bonus = base ? Math.round(p.credits - p.cents / base) : 0, badge = p.badge && /bonus/i.test(p.badge) ? (bonus >= 1 ? `+${bonus.toLocaleString()} Bonus Credits` : "") : p.badge;
+          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${badge ? `<span class="pp-flag">${esc(badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 1 ? `<span class="mini">${bonus.toLocaleString()} bonus credits compared with the ${esc(Number(packs[0].credits).toLocaleString())} pack</span>` : ""}</button>`; }).join("")}</div>
         <p class="mini" style="margin:0">A Theme Collection is ${prices().skin} credits (with its companions, stickers, pins and flashcard style), a sticker pack or flashcard style ${prices().sticker}, a pin ${prices().pin}. Credits don't expire, and what you keep stays yours even without Pro. You'll pay securely with Stripe on the Studyboard website.</p>`;
     openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Credits")}
       <div class="sheet-body">

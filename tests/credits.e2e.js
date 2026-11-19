@@ -105,8 +105,8 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.waitForSelector(".sbc-pack", {timeout: 5000});
     const packs = await page.$$eval(".sbc-pack", els => els.map(e => e.textContent.replace(/\s+/g, " ").trim()));
     ok(packs.length === 4 && /1,300 credits/.test(packs[3]) && /\$9\.99/.test(packs[3]) && /\$0\.99/.test(packs[0]), "the four credit packs show with their prices");
-    // bonuses against the 100 pack ($0.99 here): 600 for $4.99 is 19% more credits per dollar, 1,300 for $9.99 is 29%; the server's "20% Bonus" badge is worked out again
-    ok(/19% Bonus/.test(packs[2]) && /19% more credits than the 100 pack/.test(packs[2]) && /29% more credits than the 100 pack/.test(packs[3]) && !/more credits/.test(packs[1]) && !/20% Bonus/.test(packs.join()), "each pack's bonus is measured against the 100-credit pack: " + packs.join(" | "));
+    // bonus credits against the 100 pack's rate ($0.99 here): $4.99 there buys 504, so 600 is 96 extra; $9.99 buys 1,009, so 1,300 is 291 extra; 300 for $2.99 is 2 under. The server's "20% Bonus" badge is worked out again
+    ok(/\+96 Bonus Credits/.test(packs[2]) && /96 bonus credits compared with the 100 pack/.test(packs[2]) && /291 bonus credits compared with the 100 pack/.test(packs[3]) && !/bonus credits/.test(packs[1]) && !/%/.test(packs.join()), "each pack's bonus is in credits, against the 100-credit pack: " + packs.join(" | "));
     const sent = await page.evaluate(async () => { let body = null; const P = window.__sbPlanObj(); P.checkoutCall = async b => { body = b; return {message: "test"}; }; document.querySelector('.sbc-pack[data-id="credits_600"]').click(); await new Promise(r => setTimeout(r, 200)); return body; });
     ok(sent && sent.pack === "credits_600" && !("price" in sent) && !("credits" in sent), "buying a pack sends only the pack id (the server sets the price)");
 
