@@ -9990,6 +9990,12 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .sbh-now-i.sbh-k-cm .sbh-pic{height:auto;aspect-ratio:168/96}
 /* Page headers: an icon-only trash button is the same round 2.3rem button on every tab (Concept Maps had none of the rules Flashcards and Quizzes get from their archive button) */
 .pg-right > .btn.small.trash-btn:not(:has(> span)),.view-head > .btn.small.trash-btn:not(:has(> span)){width:2.3rem;height:2.3rem;min-height:0;padding:0!important;display:inline-flex;align-items:center;justify-content:center;align-self:center}
+/* Theme pictures fill their box: the scene and the preview reach 1px past the rounded clip, so an edge that lands between
+   pixels shows the picture, not a light line of the background behind it */
+.sheet.shop .skin-prev .sp-art,.sbh-stage .skin-prev .sp-art{inset:-1px -1px -1px 18px!important}
+.sheet.shop .sbh-pic > .skin-prev{margin:-1px;width:calc(100% + 2px)!important;height:calc(100% + 2px)!important}
+.sheet.shop :is(.sbh-pic,.sbh-opt){background:color-mix(in srgb,var(--ink) 70%,var(--surface))}
+.sheet.shop :is(.sbh-pic,.sbh-opt):not(:has(> .skin-prev)){background:linear-gradient(180deg,var(--soft),color-mix(in srgb,var(--soft) 60%,var(--surface)))}
 /* ===== module: 99-settings.css ===== */
 /* Settings, rebuilt: each category is one page of headed groups (no tabs to hunt behind), each group one rounded card
    of rows split by hairlines, a compact page title instead of the banner, and a colour per category */
