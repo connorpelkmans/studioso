@@ -37,9 +37,9 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-19 | marketing/reels/2026-12-05-search-history | (brand only) | Set 3: animated search bar | "my search history this week 😭" | 5.6 s | | | | | | | Typing from frame 0; autocomplete escalates |
 | 2026-11-19 | marketing/reels/2026-12-06-ten-seconds | (plans the week) | Set 4: countdown | "you have 8 seconds to plan finals week. go." | 9.0 s | | | | | | | dramatic 33.0 |
 | 2026-11-19 | marketing/reels/2026-12-07-guess-the-hours | Crunch Forecast | Set 4: guess | "guess how many hours of work this week is 👀" | 8.4 s | | | | | | | quirky |
-| 2026-11-19 | marketing/reels/2026-12-08-wheel-decides | Do This Next | Set 4: spinning wheel | "letting a wheel pick what i study tonight 🎡" | 8.2 s | | | | | | | lofi beat |
-| 2026-11-19 | marketing/reels/2026-12-09-text-from-september | (none) | Set 4: suspense | "a text from me in september:" | 6.8 s | | | | | | | slowed lofi |
-| 2026-11-19 | marketing/reels/2026-12-10-wait-for-friday | Crunch Forecast | Set 4: escalation | "my finals week gets worse every day. wait for friday 💀" | 7.6 s | | | | | | | dramatic 8.8 |
+| 2026-11-19 | marketing/reels/2026-12-08-wheel-decides | Do This Next | Set 4: spinning wheel | "letting a wheel pick what i study tonight 🎡" | 8.2 s | Scheduled Thu Nov 19 9:50 AM PT (Metricool 433712217); Connor: "this one is funny" | | | | | | lofi beat |
+| 2026-11-19 | marketing/reels/2026-12-09-text-from-september | (none) | Set 4: suspense | "a text from me in september:" | 6.8 s | Scheduled Fri Nov 20 9:50 AM PT (Metricool 433712531) | | | | | | slowed lofi |
+| 2026-11-19 | marketing/reels/2026-12-10-wait-for-friday | Crunch Forecast | Set 4: escalation | "my finals week gets worse every day. wait for friday 💀" | 7.6 s | Scheduled Sat Nov 21 9:50 AM PT (Metricool 433713195) | | | | | | dramatic 8.8 |
 
 ## What we've learned
 
