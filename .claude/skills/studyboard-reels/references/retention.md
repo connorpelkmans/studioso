@@ -113,6 +113,8 @@ How we apply it: `marketing/reels/2026-11-16-same-week/` (stock b-roll of a stre
 - **No stock footage of real people.** Animate everything ourselves: phone-UI formats (a lock screen, a group chat, a search bar, notes), the companions, or the real app recorded with `_tools/screenrec.js` (our own product, not stock).
 - **The first 2 seconds:** something is already landing at frame 0 (a notification, a message, a half-typed query), with a new onset every 0.3–0.5 s until about 2 s, and the hook sentence readable in about 1.5 s. Phone-UI formats are ideal: everyone reads a notification or a chat bubble instantly, and each new one is an abrupt onset (Yantis & Jonides).
 - **Something to react to**: every reel has a built-in reason to comment or send (an honest question, a "that's us" group chat, a punchline). The first native post got zero organic engagement because a demo gives nothing to respond to.
+- **Open zoomed in on the most alarming detail** (1.7–2.2x on the exam notification, the "23h", the "ONLY worth 40%" message), then pull back over about 1 s to reveal the whole situation as more lands. Hook lines are a challenge, a number shock or a confession ("rate my lock screen 1–10", "23 hours of work in one week. would you survive?", "my search history is a cry for help"), not a label ("finals week lock screen"). Connor: the label versions "are not attention grabbing".
+- **A different track for every reel** (Connor): vary the track and section, and prefer a trending sound attached at posting.
 - **The product appears as part of the story**: Studyboard's own notification on the lock screen, a friend's message in the chat, or the real app answering. Never an end card.
 
 ## Native, not an ad (default since Nov 18, 2026)

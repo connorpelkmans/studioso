@@ -18,7 +18,7 @@ html,body{margin:0;background:#000}
 #gname{font-size:44px;font-weight:600}
 #gsub{font-size:28px;color:#8A8A90;margin-top:4px}
 #txt{position:absolute;left:70px;right:70px;top:380px;text-align:center;z-index:5}
-.blk{display:inline;background:#000;color:#fff;font-weight:600;font-size:50px;line-height:1.42;padding:6px 16px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.blk{display:inline;background:#000;color:#fff;font-weight:700;font-size:62px;line-height:1.38;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 #msgs{position:absolute;left:0;right:0;top:560px;bottom:200px;overflow:hidden}
 #inner{position:absolute;left:0;right:0;top:0}
 .m{position:relative;margin:0 40px 18px;display:flex;flex-direction:column;opacity:0}
@@ -28,14 +28,17 @@ html,body{margin:0;background:#000}
 .m.me .who{display:none}
 .typing .b{display:flex;gap:12px;padding:30px 36px}
 .typing .b i{width:20px;height:20px;border-radius:50%;background:#9A9AA0}
+#cam{position:absolute;inset:0;transform-origin:30px 700px}
+#txt{z-index:20}
 </style>
 </head>
 <body>
 <div id="stage">
-  <div id="top"><div id="av"><i style="background:#F2A33A">J</i><i style="background:#7A4FD6">M</i><i style="background:#1E9E74">S</i><i style="background:#E4513B">A</i></div>
+  <div id="cam"><div id="top"><div id="av"><i style="background:#F2A33A">J</i><i style="background:#7A4FD6">M</i><i style="background:#1E9E74">S</i><i style="background:#E4513B">A</i></div>
     <div id="gname">bio final group 📚</div><div id="gsub">4 people</div></div>
-  <div id="txt"><span class="blk">every group chat during finals week</span></div>
   <div id="msgs"><div id="inner"></div></div>
+</div>
+  <div id="txt"><span class="blk">pov: the prof says the final is “only” 40%</span></div>
 </div>
 <script>
 document.fonts.load("600 50px Inter"); document.fonts.load("400 46px Inter");
@@ -58,6 +61,8 @@ $("inner").innerHTML = M.map((m, i) => `<div class="m ${m[1] === "me" ? "me" : "
   (i ? `<div class="m typing ${m[1] === "me" ? "me" : ""}" id="t${i}"><div class="b"><i></i><i></i><i></i></div></div>` : "")).join("");
 const END = 5.4;
 function render(t) {
+  // Hook: open zoomed in on the most alarming detail, then pull back to reveal everything flooding in
+  { const k = P(t, 0.45, 1.2), e = k < .5 ? 4*k*k*k : 1 - Math.pow(-2*k + 2, 3) / 2; $("cam").style.transform = `scale(${1.75 - (1.75 - 1) * e})`; }
   // which elements are "in": a message from its time, a typing bubble from 0.35 s before until its message lands
   let y = 0; const H = [];
   M.forEach((m, i) => {

@@ -12,7 +12,7 @@
 html,body{margin:0;background:#000}
 #stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;background:#F7F8FA;color:#1A1C20;-webkit-font-smoothing:antialiased}
 #txt{position:absolute;left:70px;right:70px;top:260px;text-align:center;z-index:5}
-.blk{display:inline;background:#000;color:#fff;font-weight:600;font-size:52px;line-height:1.42;padding:6px 16px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.blk{display:inline;background:#000;color:#fff;font-weight:700;font-size:62px;line-height:1.38;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 #bar{position:absolute;left:50px;right:50px;top:560px;height:150px;border-radius:75px;background:#fff;box-shadow:0 6px 30px rgba(20,30,60,.12);display:flex;align-items:center;padding:0 44px;gap:26px}
 #bar svg{flex:none}
 #q{font-size:58px;white-space:nowrap;overflow:hidden}
@@ -21,14 +21,17 @@ html,body{margin:0;background:#000}
 .s{display:flex;align-items:center;gap:28px;padding:34px 44px;font-size:50px;border-top:2px solid #F0F1F4;opacity:0}
 .s:first-child{border-top:0}
 .s b{font-weight:700}
+#cam{position:absolute;inset:0;transform-origin:40px 640px}
+#txt{z-index:20}
 </style>
 </head>
 <body>
 <div id="stage">
-  <div id="txt"><span class="blk">my search history this week 😭</span></div>
-  <div id="bar"><svg width="52" height="52" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="#7A7F8A" stroke-width="2.4"/><path d="M15.5 15.5 21 21" stroke="#7A7F8A" stroke-width="2.4" stroke-linecap="round"/></svg>
+  <div id="txt"><span class="blk">my search history is a cry for help 😭</span></div>
+  <div id="cam"><div id="bar"><svg width="52" height="52" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="#7A7F8A" stroke-width="2.4"/><path d="M15.5 15.5 21 21" stroke="#7A7F8A" stroke-width="2.4" stroke-linecap="round"/></svg>
     <div id="q"></div></div>
   <div id="sugg"></div>
+</div>
 </div>
 <script>
 document.fonts.load("600 52px Inter"); document.fonts.load("400 50px Inter"); document.fonts.load("700 44px Inter");
@@ -43,6 +46,8 @@ const PH = [
 ];
 const END = 5.6;
 function render(t) {
+  // Hook: open zoomed in on the most alarming detail, then pull back to reveal everything flooding in
+  { const k = P(t, 0.4, 1.05), e = k < .5 ? 4*k*k*k : 1 - Math.pow(-2*k + 2, 3) / 2; $("cam").style.transform = `scale(${1.6 - (1.6 - 1) * e})`; }
   const ph = t < PH[1].t0 ? PH[0] : PH[1];
   let q;
   if (ph === PH[0]) {

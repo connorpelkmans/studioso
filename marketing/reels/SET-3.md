@@ -13,11 +13,11 @@
 ## The set
 | # | Reel | Hook (first 2 s) | Why someone reacts | Studyboard's role |
 |---|---|---|---|---|
-| 1 | `2026-12-01-type-it-like-a-text/` (real app) | Typing "bio midterm thursday 2pm worth 25%" from frame 0; "wait you can just type it like a text?? 😭" | "Wait, what": discovery, sent to a friend | It *is* the product: "Will add: Midterm · Thu 2 PM · BIOL 1200" |
-| 2 | `2026-12-02-would-you-survive/` (real app) | "be honest. would you survive this week? 💀" over "Heavy · 23h of work" | An honest yes or no in the comments | The real Crunch week is the evidence |
-| 3 | `2026-12-03-lock-screen/` (animated) | Five notifications in 1.6 s at 2:47 AM: final tomorrow, group chat, screen time, Mom, a 2:44 AM food order | "This is literally my phone": a send | Studyboard's notification lands as the calm one: "Do this next: bio review, 25 min" |
-| 4 | `2026-12-04-group-chat/` (animated) | "prof just said the final is ONLY worth 40%" on screen at frame 0, then replies every 0.5 s | Tag the group chat | A friend: "i put the final in studyboard…" → "who are you" |
-| 5 | `2026-12-05-search-history/` (animated) | "how to pass a final" with autocomplete escalating by 1 s | "Too real": a send | None on screen; the caption carries it |
+| 1 | `2026-12-01-type-it-like-a-text/` (real app) | Opens zoomed 1.9x on the typing; "stop filling in 6 boxes for every assignment 😭" | "Wait, what": discovery, sent to a friend | It *is* the product: "Will add: Midterm · Thu 2 PM · BIOL 1200" |
+| 2 | `2026-12-02-would-you-survive/` (real app) | Opens zoomed 2.2x on a huge **23h**; "23 hours of work in one week. would you survive? 💀" | An honest yes or no in the comments | The real Crunch week is the evidence |
+| 3 | `2026-12-03-lock-screen/` (animated) | Opens zoomed on "Final Exam · BIOL 1200 · Tomorrow, 8:00 AM", then pulls back as five notifications flood in; "rate my lock screen 1–10 💀": final tomorrow, group chat, screen time, Mom, a 2:44 AM food order | "This is literally my phone": a send | Studyboard's notification lands as the calm one: "Do this next: bio review, 25 min" |
+| 4 | `2026-12-04-group-chat/` (animated) | Opens zoomed on "prof just said the final is ONLY worth 40%", then pulls back as replies flood in; "pov: the prof says the final is “only” 40%" | Tag the group chat | A friend: "i put the final in studyboard…" → "who are you" |
+| 5 | `2026-12-05-search-history/` (animated) | Opens zoomed on "how to pass a…" being typed; "my search history is a cry for help 😭" | "Too real": a send | None on screen; the caption carries it |
 
 **Order:** 3 → 1 → 4 → 2 → 5, one a day at about 9:50 AM PT, with a trending sound picked in the app. Judge each by skip rate and average watch as a share of length, plus organic sends and comments.
 
@@ -27,3 +27,14 @@
 3. `the 2:44am food order is the most relatable part` · `send this to whoever's notifications look like this` · #studytok #finalsweek #collegelife #studentlife #relatable
 4. `tag your group chat 😭 (maya is the friend we all need)` · #studytok #finalsweek #groupchat #college #studentlife
 5. `the last one is a joke. mostly.` · #studytok #finalsweek #college #studentmemes #relatable
+
+## Music (each reel is different)
+| Reel | Track | Why |
+|---|---|---|
+| Lock screen | `dramatic.wav` from 11.0 s: rising tension, hit at 2.0 s | 2:47 AM dread |
+| Type it like a text | `lofi.wav` from 21.0 s: warm beat | Relief |
+| Group chat | `quirky.wav` from 24.0 s: playful pizzicato | Sitcom energy |
+| Would you survive | `dramatic.wav` from 33.0 s: a hit every 2 s | Countdown pressure |
+| Search history | `lofi.wav` intro, slowed with reverb | The sad "slowed + reverb" sound |
+
+We own only three tracks (vidIQ has 2 credits left until Dec 15, and a new track costs 25). For real variety, attach a trending Instagram sound per reel when scheduling (Metricool's `audioConfiguration`, Business accounts linked to a Facebook Page), or pick one in the app.
