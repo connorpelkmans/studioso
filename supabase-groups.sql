@@ -1780,3 +1780,9 @@ end $$;
 grant execute on function public.sbg_is_member(uuid), public.sbg_is_owner(uuid) to authenticated;
 
 notify pgrst, 'reload schema';
+
+-- Presentation practice: a shared presentation, each member's latest practice, live rehearsals
+alter table public.group_items drop constraint if exists group_items_kind_check;
+alter table public.group_items add constraint group_items_kind_check
+  check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'avail', 'topics', 'topic', 'gfile', 'battle', 'pres', 'presrun', 'preslive'));
+notify pgrst, 'reload schema';

@@ -628,7 +628,7 @@ function taskForm(t, preset = {}){
       <fieldset><legend id="prioLbl">Priority</legend>${seg("priority", [["low","Low"],["med","Medium"],["high","High"],["urgent","Urgent"]], t.priority)}</fieldset>
       <label class="f" id="pctWrap" ${isNew ? "hidden" : ""}><span><span class="lbl" id="pctLbl">Progress</span> <span class="hint" id="pctOut">${t.pct}%</span></span><input type="range" name="pct" min="0" max="100" step="10" value="${t.pct}"><span class="mini" id="pctHint"></span></label>
       <p class="mini" id="pctFromCl" hidden style="margin:0"></p>
-      ${!isNew && window.SBPREP ? SBPREP.formHtml(t) : ""}
+      ${!isNew && window.SBPREP ? SBPREP.formHtml(t) : ""}${!isNew && window.SBPRESENT && SBPRESENT.taskHtml ? SBPRESENT.taskHtml(t) : ""}
       <label class="f"><span class="lbl" id="notesLbl">Notes</span><textarea name="notes" maxlength="5000">${esc(t.notes)}</textarea></label>
       ${window.SBDOCS ? SBDOCS.formHtml(t) : ""}
       ${!isNew && window.SBLMS_TASK ? SBLMS_TASK(t) : ""}

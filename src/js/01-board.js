@@ -967,10 +967,10 @@ function focusHtml(){
   let extraHtml = "";
   if (ui.focusOpen) {
     const fcN = allDueCount(), parts = [];
-    const prepH = window.SBPREP ? SBPREP.todayHtml() : "", headH = headsHtml(), insH = insightsHtml();
+    const prepH = window.SBPREP ? SBPREP.todayHtml() : "", presH = window.SBPRESENT && SBPRESENT.todayHtml ? SBPRESENT.todayHtml() : "", headH = headsHtml(), insH = insightsHtml();
     const fcH = fcN ? `<div class="plan-fc">${FC_ICON}<span><b>${fcN}</b> flashcard${fcN === 1 ? "" : "s"} due for review</span><button class="btn small" data-act="fc-review-all">Review</button></div>` : "";
-    if (prepH) parts.push("Exam Prep"); if (headH) parts.push("Heads Up"); if (insH) parts.push("Suggestions"); if (fcH) parts.push(fcN + " Flashcard" + (fcN === 1 ? "" : "s") + " Due");
-    if (parts.length) extraHtml = `<details class="plan-extra" id="planExtra"${ui.planExtraOpen ? " open" : ""}><summary><span class="pe-t">More for Today<i class="pe-dot" aria-hidden="true" style="margin-left:7px"></i></span><span class="pe-s">${esc(parts.join(", "))}</span></summary><div class="pe-b">${fcH}${prepH}${headH}${insH}</div></details>`;
+    if (prepH) parts.push("Exam Prep"); if (presH) parts.push("Presentation Practice"); if (headH) parts.push("Heads Up"); if (insH) parts.push("Suggestions"); if (fcH) parts.push(fcN + " Flashcard" + (fcN === 1 ? "" : "s") + " Due");
+    if (parts.length) extraHtml = `<details class="plan-extra" id="planExtra"${ui.planExtraOpen ? " open" : ""}><summary><span class="pe-t">More for Today<i class="pe-dot" aria-hidden="true" style="margin-left:7px"></i></span><span class="pe-s">${esc(parts.join(", "))}</span></summary><div class="pe-b">${fcH}${prepH}${presH ? `<div class="pp-today prg-todays">${presH}</div>` : ""}${headH}${insH}</div></details>`;
   }
   const planH = todayList.reduce((s, x) => s + x.alloc, 0), freeMin = F.avail && F.avail.show && F.avail.res ? (F.avail.res.windows || []).reduce((s, w) => s + (w.min || 0), 0) : null;
   const hoursTitle = F.doneToday >= 0.25 ? `${fmtMins(F.doneToday * 60)} done so far, ${fmtHM(F.th)} left` : planH && Math.abs(planH - F.thSet) >= 0.25 ? `${fmtHM(planH)} of tasks planned` : "";
