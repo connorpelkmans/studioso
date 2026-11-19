@@ -1962,18 +1962,20 @@ function countsOf(x){ const p = mapPeek(x); return p ? {items: p.items, links: p
 function peekSvg(p, col){
   if (!p || p.g.nodes.length < 2) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g><rect class="pk-root" x="-48" y="-16" width="96" height="32" rx="16" fill="${esc(col)}"/></svg>`;
   const ns = p.g.nodes.slice(0, 40), keep = new Set(ns.map(n => n.id)), P = p.pos;
-  const xs = ns.map(n => (P[n.id] || [0])[0]), ys = ns.map(n => (P[n.id] || [0, 0])[1]);
-  let x0 = Math.min(...xs) - 110, x1 = Math.max(...xs) + 110, y0 = Math.min(...ys) - 50, y1 = Math.max(...ys) + 50;
+  const xs = ns.map(n => (P[n.id] || [0])[0]);
   // text grows with the map's spread, so a big map's labels stay readable at card size
-  const fs = Math.max(17, Math.min(44, (x1 - x0) / 34));
-  // keep a wide card shape: pad the short side so nodes aren't squashed
-  const wantH = (x1 - x0) * 0.42; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
+  const fs = Math.max(17, Math.min(44, (Math.max(...xs) - Math.min(...xs) + 220) / 34));
   const ok = c => /^#[0-9a-f]{3,8}$/i.test(String(c || "")) ? c : "";
   // each box's outline (the same sizes the boxes are drawn with), so the lines stop at the edges instead of running under the boxes
   const geo = {};
   ns.forEach(n => { const lab = String(n.label || ""), max = n.root ? 18 : 16, t = lab.length > max ? lab.slice(0, max - 1) + "…" : lab, f = n.root ? fs * 1.12 : fs, sh = CMAP.shapeOf(n);
     const w = n.img || n.emb ? fs * 8 : Math.max(fs * 3, t.length * f * 0.58 + f * 1.6), h = f * 2;
     geo[n.id] = n.root ? ["rounded", w, h] : sh === "text" ? ["box", w * 0.7, 10] : n.img || n.emb ? ["box", w, fs * 5.2] : sh === "circle" || sh === "cloud" ? ["circle", w, h + 12] : sh === "diamond" ? ["diamond", w, h + 16] : ["box", w, h]; });
+  // the picture holds every box whole: their outer edges, plus room for the outline and a little air
+  const pad = fs * 0.6, ext = (n, i, s) => { const g = geo[n.id] || ["box", 0, 0], [x, y] = P[n.id] || [0, 0]; return i ? y + s * (g[2] / 2 + pad) : x + s * (g[1] / 2 + pad); };
+  let x0 = Math.min(...ns.map(n => ext(n, 0, -1))), x1 = Math.max(...ns.map(n => ext(n, 0, 1))), y0 = Math.min(...ns.map(n => ext(n, 1, -1))), y1 = Math.max(...ns.map(n => ext(n, 1, 1)));
+  // keep a wide card shape: pad the short side so nodes aren't squashed
+  const wantH = (x1 - x0) * 0.42; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
   const cut = (id, dx, dy) => { const g = geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
   const lines = p.g.edges.filter(e => keep.has(e.a) && keep.has(e.b)).map(e => { const a = P[e.a], b = P[e.b]; if (!a || !b) return "";
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ra = cut(e.a, dx, dy), rb = cut(e.b, -dx, -dy); if (L <= ra + rb) return "";
