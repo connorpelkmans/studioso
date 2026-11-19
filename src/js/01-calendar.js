@@ -1312,8 +1312,18 @@ function pageHeadUp(v){
   // The page's buttons sit level with the tabs, at the right: they come after the tabs for the keyboard too (Tab reaches the
   // page's own Notes / Whiteboard or Flashcards / Quizzes switch first, as it's read left to right)
   const r = !phone && !tabs.matches(".bview-row") && pg.querySelector(":scope > .pg-right");
-  if (r) { const w = document.createElement("div"); w.className = "pg-rwrap"; w.appendChild(r); tabs.after(w); }
+  if (r) { const w = document.createElement("div"); w.className = "pg-rwrap"; w.appendChild(r); tabs.after(w); requestAnimationFrame(pgFit); }
 }
+// The page's buttons sit level with the tabs at the right; where the window is too narrow for both, they'd cover the tabs, so
+// they move to their own line under the tabs instead
+function pgFit(){
+  const w = document.querySelector("#view > .pg-rwrap"), r = w && w.querySelector(".pg-right"), t = w && w.previousElementSibling;
+  if (!w || !r || !t) return;
+  w.classList.remove("pg-below");
+  const tr = (t.querySelector(".pg-tabs") || t).getBoundingClientRect(), rr = r.getBoundingClientRect();
+  if (rr.width && tr.right + 12 > rr.left) w.classList.add("pg-below");
+}
+addEventListener("resize", () => requestAnimationFrame(pgFit));
 // Pages without tabs: the same big title, then the content
 function soloHeadUp(v, phone){
   const head = v.firstElementChild;

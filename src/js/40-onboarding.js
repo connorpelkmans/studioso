@@ -108,8 +108,7 @@
     return `${hero(IC.courses)}
       <h2 class="ob-h" id="obH" tabindex="-1">What Do You Study?</h2>
       <p class="ob-lead">Pick your area so Studyboard can tailor task types, example tasks, typical hours and its AI helpers to it. Change it any time in Settings.</p>
-      ${SBAREA.chips((a.text || "").trim() ? "" : a.id, "data-ob-area")}
-      <label class="f ob-area-text"><span class="lbl">Your Major or Program <span class="hint">optional</span></span><input type="text" id="obAreaText" maxlength="60" value="${esc(a.text || "")}" placeholder="e.g. Marine Biology" autocomplete="off" data-noenter></label>`;
+      ${SBAREA.chips((a.text || "").trim() ? "" : a.id, "data-ob-area", a.text || "", "obAreaText")}`;
   }
 
   const mineTask = t => t && !t.breakdownOf && !t.prepFor;
@@ -123,17 +122,17 @@
     const wait = queue.length ? `<p class="ob-queue mini">${queue.length} more syllabus${queue.length === 1 ? " is" : "i are"} waiting. Next: ${esc(queue[0].name)} <button type="button" class="link-btn" data-ob="q-next">Read It Now</button></p>` : "";
     return `${hero(IC.courses)}
       <h2 class="ob-h" id="obH" tabindex="-1">Your Courses and Deadlines</h2>
-      <p class="ob-lead">A syllabus adds the course and its dated work in one go. It's read here on your device.</p>
-      <div class="ob-src main" id="obDrop">
-        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
-        <span class="ob-alt-t"><b>Syllabus PDFs</b><span class="mini">One per course, or all at once.</span></span>
-        <button type="button" class="btn primary" data-ob="pdf">Choose PDFs</button>
-        <input type="file" id="obPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOk ? ",image/*" : ""}" aria-label="Choose syllabus PDFs">
-      </div>
-      <div class="ob-src">
+      <p class="ob-lead">Connect your school's site to bring in every course and its due dates, or add a syllabus for each course.</p>
+      <div class="ob-src main">
         <span class="ob-alt-ic" aria-hidden="true">${IC.board}</span>
         <span class="ob-alt-t"><b>Your School's Site</b><span class="mini">Brightspace, Canvas or Blackboard. Studyboard only reads from it.</span></span>
-        <button type="button" class="btn" data-ob="lms">Connect</button>
+        <button type="button" class="btn primary" data-ob="lms">Connect</button>
+      </div>
+      <div class="ob-src" id="obDrop">
+        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
+        <span class="ob-alt-t"><b>Syllabus PDFs</b><span class="mini">One per course, or all at once. Read here on your device.</span></span>
+        <button type="button" class="btn" data-ob="pdf">Choose PDFs</button>
+        <input type="file" id="obPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOk ? ",image/*" : ""}" aria-label="Choose syllabus PDFs">
       </div>
       ${wait}
       ${list}
@@ -142,7 +141,7 @@
       <p class="ob-or" aria-hidden="true">or type a course</p>
       <div class="ob-cadd">
         <div class="ob-cfields">
-          <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. ${esc(courseEx()[0])}" autocomplete="off" data-noenter></label>
+          <div class="f ob-code"><label for="obCode">Course Code</label><span class="ob-codebox"><span class="ob-colpick" style="--c:${esc(nextColor())}" title="Course colour"><input type="color" name="obColor" value="${esc(nextColor())}" aria-label="Course colour"></span><input type="text" id="obCode" maxlength="30" placeholder="e.g. ${esc(courseEx()[0])}" autocomplete="off" data-noenter></span></div>
           <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. ${esc(courseEx()[1])}" autocomplete="off" data-noenter></label>
           <button type="button" class="btn" data-ob="add-course">Add</button>
         </div>
@@ -409,10 +408,10 @@
     form.addEventListener("change", e => {
       if (e.target.id === "obPdf") { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) queueFiles(fs); return; }
       if (e.target.id === "obIcs") { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; if (f.size > 8e6) { say("That calendar file is too big (over 8 MB)."); return; } f.text().then(t => leaveTo(() => icsImportSheet(t, f.name))).catch(() => say("Couldn't read that file.")); return; }
-      if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") {
+      if (e.target.name === "obColor") { newColor = e.target.value; const d = e.target.closest(".ob-colpick"); if (d) d.style.setProperty("--c", newColor); } if (e.target.id === "obAreaText") {
         // your own field, or one from the list, never both: typing unpicks the field; emptying the box leaves nothing picked
         const a = SBAREA.get(), v = e.target.value;
-        if (v.trim()) { SBAREA.set("other", v); dlg.querySelectorAll("[data-ob-area]").forEach(x => { x.classList.remove("on"); x.setAttribute("aria-checked", "false"); }); }
+        if (v.trim()) { SBAREA.set("other", v); dlg.querySelectorAll("[data-ob-area]").forEach(x => { x.classList.remove("on"); x.setAttribute("aria-checked", "false"); }); const o = dlg.querySelector(".area-other"); if (o) o.classList.add("on"); }
         else if (a && a.text) SBAREA.set(null);
       } });
   }
@@ -478,6 +477,8 @@
     queue = queue.concat(ok).slice(0, 12);
     nextSyllabus();
   }
+  // the colour the next course gets: the one picked with the dot, else the next unused one
+  function nextColor(){ const used = coursesArr().map(c => c.color); return newColor || COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length]; }
   function nextSyllabus(){ const f = queue.shift(); if (f) leaveTo(() => importSheet("", f)); }
   // quiet: on the way to another step, so nothing is said or redrawn
   function addCourse(quiet){
