@@ -9756,7 +9756,7 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .rv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:12px}
 .rv-card{position:relative;display:flex;flex-direction:column;border-radius:18px;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 26%,var(--line));box-shadow:0 1px 2px rgb(0 0 0/.05),0 6px 18px -10px color-mix(in srgb,var(--c) 45%,transparent);overflow:hidden;transition:translate .18s ease,box-shadow .18s ease;-webkit-touch-callout:none}
 .rv-card:hover{translate:0 -2px;box-shadow:0 2px 4px rgb(0 0 0/.06),0 14px 28px -14px color-mix(in srgb,var(--c) 60%,transparent)}
-.rv-peek{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;margin:0;border:0;border-radius:0;cursor:pointer;overflow:hidden;font:inherit;color:inherit;background:radial-gradient(circle,color-mix(in srgb,var(--c) 30%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 14%,var(--surface)),color-mix(in srgb,var(--c) 5%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
+.rv-peek{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;margin:0;border:0;border-radius:0;cursor:pointer;overflow:hidden;font:inherit;color:inherit;background:radial-gradient(circle,color-mix(in srgb,var(--c) 16%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 14%,var(--surface)),color-mix(in srgb,var(--c) 5%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
 .rv-peek:focus-visible{outline:2px solid var(--accent,#2F6FE4);outline-offset:-3px}
 /* the course and the count, on top of the cover */
 .rv-chip{position:absolute;left:10px;top:10px;z-index:3;display:inline-flex;align-items:center;gap:6px;max-width:calc(100% - 96px);padding:3px 10px 3px 4px;border-radius:999px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:color-mix(in srgb,var(--c) 70%,var(--ink));box-shadow:0 1px 3px rgb(0 0 0/.08);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -9785,17 +9785,20 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .rv-opt{display:flex;align-items:center;gap:6px;min-width:0;font-size:.66rem;color:#5A4A55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rv-opt i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--c);flex:none}
 .rv-ln{display:block;height:1px;margin-top:12px;background:#E3DCE0}
-.rv-stamp{position:absolute;right:10px;bottom:10px;z-index:2;display:grid;place-items:center;width:54px;height:54px;border-radius:50%;border:3px solid var(--c);color:color-mix(in srgb,var(--c) 85%,var(--ink));background:color-mix(in srgb,var(--surface) 78%,transparent);font:800 .92rem/1 var(--display);rotate:-14deg;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
-.rv-stamp.new{border-color:color-mix(in srgb,var(--muted) 70%,transparent);color:var(--muted);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase}
+.rv-stamp{position:absolute;right:8px;bottom:8px;z-index:2;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:2.5px solid var(--c);color:color-mix(in srgb,var(--c) 85%,var(--ink));background:color-mix(in srgb,var(--surface) 78%,transparent);font:800 .78rem/1 var(--display);rotate:-14deg;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.rv-stamp.new{border-color:color-mix(in srgb,var(--muted) 70%,transparent);color:var(--muted);font-size:.6rem;letter-spacing:.06em;text-transform:uppercase}
 .rv-quiz:hover .rv-board{transform:translateY(-5px);rotate:-1.5deg}
 .rv-quiz:hover .rv-stamp{transform:scale(1.06)}
 /* the footer, as on a concept map card */
-.rv-foot{display:flex;align-items:center;gap:6px;padding:10px 10px 12px 14px}
-.rv-info{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:0;margin:0;border:0;background:none;text-align:start;cursor:pointer;color:inherit;font:inherit}
-.rv-title{font:700 1rem/1.25 var(--display);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.rv-info .mini{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;color:var(--muted)}
+.rv-foot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px 14px}
+.rv-info{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:0;margin:0;border:0;background:none;text-align:start;cursor:pointer;color:inherit;font:inherit}
+.rv-title{font:700 1rem/1.25 var(--display);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+/* the buttons sit along the bottom, with the due count or score beside them, so the title gets the whole width above */
+.rv-row{display:flex;align-items:center;gap:6px;margin-top:auto}
+.rv-sub{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px;color:var(--muted)}
+.rv-sub.mini,.rv-sub .mini{color:var(--muted);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .rv-due b{color:color-mix(in srgb,var(--accent,#2F6FE4) 85%,var(--ink))}
-.rv-info .mastery{width:100%;max-width:160px;height:5px;margin-top:3px}
+.rv-sub .mastery{width:100%;max-width:160px;height:5px;margin-top:3px}
 .rv-cacts{display:flex;align-items:center;gap:2px;flex:none}
 .rv-ib{width:34px;height:34px;color:var(--muted)}
 .rv-ib:hover,.rv-ib:focus-visible{color:var(--ink)}
