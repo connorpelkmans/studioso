@@ -17,7 +17,7 @@
 .rv-fan .rv-f1{transform:translateY(11px);box-shadow:0 8px 18px rgb(0 0 0/.14)}
 .rv-fan .rv-f2{width:53%;transform:translate(12px,15px) rotate(4deg);filter:brightness(.96);box-shadow:0 4px 10px rgb(0 0 0/.08)}
 .rv-fan .rv-f3{width:53%;transform:translate(-14px,17px) rotate(-6deg);filter:brightness(.93);box-shadow:0 4px 10px rgb(0 0 0/.08)}
-.rv-fan .rv-f .face-text{font:700 .95rem/1.25 var(--display);max-width:100%;max-height:none;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;text-align:center}
+.rv-fan .rv-f .face-text{font:700 .78rem/1.25 var(--display);max-width:100%;max-height:none;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;text-align:center}
 .rv-fan .rv-blank{font-size:.8rem;opacity:.6}
 .rv-fan.cs-chalk .face{border-width:6px}
 .rv-fan.cs-polaroid .face{border-width:6px;border-bottom-width:20px}
@@ -38,6 +38,8 @@
 .rv-stamp.new{border-color:color-mix(in srgb,var(--muted) 70%,transparent);color:var(--muted);font-size:.6rem;letter-spacing:.06em;text-transform:uppercase}
 .rv-quiz:hover .rv-board{transform:translateY(-5px);rotate:-1.5deg}
 .rv-quiz:hover .rv-stamp{transform:scale(1.06)}
+/* the moving parts stay on their own layer, so their text doesn't jump a pixel when an animation ends */
+.rv-card,.rv-fan .face.rv-f,.rv-board,.rv-stamp{will-change:transform,translate;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 /* the footer, as on a concept map card */
 .rv-foot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px 14px}
 .rv-info{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:0;margin:0;border:0;background:none;text-align:start;cursor:pointer;color:inherit;font:inherit}
