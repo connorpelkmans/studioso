@@ -19220,6 +19220,7 @@ hook("render", () => {
   const txt = n > 99 ? "99+" : String(n); if (dot.textContent !== txt) dot.textContent = txt;
   b.setAttribute("aria-label", `${tr("nav.flashcards", "Review")}, ${n} card${n === 1 ? "" : "s"} due`);
 });
+const RV_SHARE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>';
 const dueWords = n => `${n.due} due${n.fresh ? ` + ${n.fresh} new` : ""}`;
 const reviewDecks = course => decksArr().filter(d => (!course || course === "all" || d.courseId === course) && d.cards.some(c => !c.draft && cardDue(c))).map(d => d.id);
 // Flashcard styles grouped for choosing
@@ -19295,18 +19296,33 @@ function viewQuizDetail(d, qz){
     <section class="c2-card2 c2-box qzd-card${hide ? " qzd-hidden" : ""}" style="--c:${esc(colorOf(d.courseId))}"><div class="qzd-head">${c2Head("goals", "Questions", qz.questions.length)}<button type="button" class="btn small" data-act="qz-hide" aria-pressed="${hide}">${hide ? "Show Answers" : "Hide Answers"}</button></div>
       ${hide ? `<p class="mini qzd-hint">Answers are hidden. Tap one to check it.</p>` : ""}<ol class="qzd-list">${qs}</ol></section>`;
 }
+// A quiz's cover: its first question on the sheet, with empty answer bubbles. The right answer is never marked, and never listed first
+function qzSheet(qz){
+  const q = (qz.questions || [])[0] || {}, n = (qz.questions || []).length;
+  let opts = Array.isArray(q.options) ? q.options.map((o, i) => [String(o), i]) : [];
+  if (opts.length > 1 && (q.correct || []).includes(opts[0][1])) opts = opts.slice(1).concat(opts.slice(0, 1));
+  const lines = q.type === "short" || !opts.length ? `<i class="rv-ln"></i><i class="rv-ln"></i>` : opts.slice(0, 3).map(([o]) => `<span class="rv-opt"><i></i>${esc(o.replace(/\s+/g, " ").slice(0, 60))}</span>`).join("");
+  return `<span class="rv-sheet"><span class="rv-qn">Question 1 of ${n}</span><span class="rv-q">${esc(String(q.stem || "").replace(/\s+/g, " ").slice(0, 110))}</span>${lines}</span>`;
+}
 function viewQuizzes(){
   if (ui.qzOpen) { const f = qzFind(ui.qzOpen); if (f && !f.qz.archived) return viewQuizDetail(f.d, f.qz); ui.qzOpen = null; }
   const q = ui.q.trim().toLowerCase(), all = quizzesAll();
   const list = all.filter(({d}) => ui.filter === "all" || d.courseId === ui.filter).filter(({d, qz}) => !q || [qz.title, d.name, qz.style].join(" ").toLowerCase().includes(q));
-  const cards = list.map(({d, qz}) => { const c = courseOf(d.courseId), res = qz.results || [], last = res[res.length - 1], n = qz.questions.length;
-    return `<article class="qz-card" data-rv="${esc(d.id + ":" + qz.id)}" style="--c:${esc(colorOf(d.courseId))}">
-      <div class="qz-band"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span>${qz.kind === "case" ? `<span class="qz-pill">Case Study</span>` : ""}</div>
-      <button class="qz-body" data-act="qz-open" data-id="${esc(d.id + ":" + qz.id)}"><b class="qz-title">${esc(qz.title || "Practice Quiz")}</b><span class="mini">${n} question${n === 1 ? "" : "s"} · from ${esc(quizFrom(d, qz))}${last ? ` · last score ${last.score}/${last.total}` : ""}</span></button>
-      <div class="qz-acts"><button class="btn small primary" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Start</button><button class="btn small" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">Share</button><span class="spacer"></span><button class="btn small deck-arch" data-act="qz-archive" data-id="${esc(d.id + ":" + qz.id)}" title="Put this quiz away" aria-label="Archive ${esc(qz.title || "quiz")}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div></article>`; }).join("");
+  const cards = list.map(({d, qz}) => { const c = courseOf(d.courseId), res = qz.results || [], last = res[res.length - 1], n = qz.questions.length, nm = esc(qz.title || "Practice Quiz"), key = esc(d.id + ":" + qz.id);
+    const best = res.length ? Math.round(res.reduce((m, r) => Math.max(m, r.total ? r.score / r.total : 0), 0) * 100) : null, lastPct = last && last.total ? Math.round(last.score / last.total * 100) : null;
+    const meta = best != null ? `Best ${best}% · last ${lastPct}%` : `${n} question${n === 1 ? "" : "s"} · from ${esc(quizFrom(d, qz))}`;
+    return `<article class="rv-card rv-quiz" data-rv="${key}" style="--c:${esc(colorOf(d.courseId))}">
+      <button class="rv-peek rv-clip" data-act="qz-open" data-id="${key}" aria-label="Open ${nm}">
+        <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
+        <span class="rv-board" aria-hidden="true"><i class="rv-clamp"></i>${qzSheet(qz)}</span>
+        <span class="rv-stamp${best == null ? " new" : ""}" aria-hidden="true">${best == null ? "New" : best + "%"}</span>
+        <span class="rv-count">${qz.kind === "case" ? "Case Study" : `${n} question${n === 1 ? "" : "s"}`}</span>
+      </button>
+      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title">${nm}</b><span class="mini">${meta}</span></button>
+      <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="qz-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt("quizzes")}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
+    ${list.length ? `<div class="qz-grid rv-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt("quizzes")}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
       <div class="grp-strip-btns"><button class="btn small" data-act="grp-page">Study Groups</button></div></section>`;
 }
@@ -19362,7 +19378,7 @@ function reviewHeroHtml(){
     <span class="rv-stack" aria-hidden="true"><i></i><i></i><i></i></span>
     <div class="rv-t"><h3>${esc(title)}</h3><p>${subHtml}</p></div>
     ${reviewWeekHtml()}
-    <div class="rv-acts">${ready ? `<button class="btn primary rv-go" data-act="fc-review-start" data-course="${esc(course)}">Start Review</button>` : ""}${more}</div>
+    <div class="rv-cacts">${ready ? `<button class="btn primary rv-go" data-act="fc-review-start" data-course="${esc(course)}">Start Review</button>` : ""}${more}</div>
   </section>`;
 }
 function viewFlashcards(){
@@ -19377,27 +19393,30 @@ function viewFlashcards(){
   const ds = decksShown().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
   const tiles = ds.map(d => {
     const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";
-    return `<article class="deck deck-fc cs-${esc(cardStyleOf(d))}" data-rv="${esc(d.id)}" style="--c:${esc(colorOf(d.courseId))}">
-      <span class="deck-lay l3" aria-hidden="true"><span class="face"></span></span><span class="deck-lay l2" aria-hidden="true"><span class="face"></span></span>
-      <span class="deck-tab">${esc(c ? courseLabel(c) : "General")}</span>
-      <span class="deck-count" role="img" aria-label="${st.total} card${st.total === 1 ? "" : "s"}" title="${st.total} card${st.total === 1 ? "" : "s"}">${st.total} card${st.total === 1 ? "" : "s"}</span>
-      <div class="face deck-face">
-      <span class="fc-band" aria-hidden="true"><span class="fc-ic">${c ? courseRingHtml(c) : GENERAL_ICON}</span><span class="g2-kick">${esc(c ? courseLabel(c) : "General")}</span></span>
-      <button class="deck-main" data-act="fc-open" data-id="${esc(d.id)}">
-        <span class="deck-name">${esc(d.name)}</span>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}
-        <span class="deck-due mini${st.due ? " on" : ""}">${st.due || st.fresh ? `${st.due} due · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
+    const cs = cardStyleOf(d), first = d.cards.find(x => !x.draft && String(x.front || "").trim()), nm = esc(d.name);
+    const term = first ? esc(String(first.front).replace(/\s+/g, " ").trim().slice(0, 90)) : "";
+    return `<article class="rv-card rv-deck" data-rv="${esc(d.id)}" style="--c:${esc(colorOf(d.courseId))}">
+      <button class="rv-peek rv-fan cs-${esc(cs)}" data-act="fc-open" data-id="${esc(d.id)}" aria-label="Open ${nm}">
+        <span class="face rv-f rv-f3" aria-hidden="true"></span><span class="face rv-f rv-f2" aria-hidden="true"></span>
+        <span class="face rv-f rv-f1" aria-hidden="true">${term ? `<span class="face-text">${term}</span>` : `<span class="face-text rv-blank">${st.total ? "" : "No cards yet"}</span>`}</span>
+        <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
+        <span class="rv-count">${st.total} card${st.total === 1 ? "" : "s"}</span>
+      </button>
+      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}">
+        <b class="rv-title">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}
+        <span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
         <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span>
       </button>
-      <div class="deck-actions"><button class="btn small primary" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button><button class="btn small" data-act="fc-share" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Share</button><button class="btn small deck-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${esc(d.name)}">${ARCHIVE.replace('width="26" height="26"', 'width="16" height="16"')}</button></div>
-    </div></article>`;
+      <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="fc-share" data-id="${esc(d.id)}" aria-label="Share ${nm}" title="Share" ${st.total ? "" : "disabled"}>${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button></div></div>
+    </article>`;
   }).join("");
   return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Flashcards</h2>
       ${window.SBSHARE ? SBSHARE.libBtn() : ""}<button class="btn small sm-btn" data-act="grp-share-menu" aria-label="Share or Import" title="Share or Import">${QZ_GROUP_IC}<span class="sm-lbl">Share or Import</span></button>${archBtn()}${trashBtn("deck") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="deck" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
+    ${ds.length ? `<div class="deck-grid rv-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
-const RV_TILE = ".deck-grid > .deck-fc[data-rv], .qz-grid > .qz-card[data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
+const RV_TILE = ".rv-grid > .rv-card[data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
 // The decks in the order the list shows them: yours once you've moved one, else the exam's course first
 function decksShown(){ const ds = deckListArr(); return window.SBEXAM && !ds.some(hasOrd) ? SBEXAM.sortDecks(ds) : ds; }
 // Saves the order of the tiles shown; ones a course filter or search hides keep their places among the rest
@@ -110566,18 +110585,20 @@ function countsOf(x){ const p = mapPeek(x); return p ? {items: p.items, links: p
 function peekSvg(p, col){
   if (!p || p.g.nodes.length < 2) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g><rect class="pk-root" x="-48" y="-16" width="96" height="32" rx="16" fill="${esc(col)}"/></svg>`;
   const ns = p.g.nodes.slice(0, 40), keep = new Set(ns.map(n => n.id)), P = p.pos;
-  const xs = ns.map(n => (P[n.id] || [0])[0]), ys = ns.map(n => (P[n.id] || [0, 0])[1]);
-  let x0 = Math.min(...xs) - 110, x1 = Math.max(...xs) + 110, y0 = Math.min(...ys) - 50, y1 = Math.max(...ys) + 50;
+  const xs = ns.map(n => (P[n.id] || [0])[0]);
   // text grows with the map's spread, so a big map's labels stay readable at card size
-  const fs = Math.max(17, Math.min(44, (x1 - x0) / 34));
-  // keep a wide card shape: pad the short side so nodes aren't squashed
-  const wantH = (x1 - x0) * 0.42; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
+  const fs = Math.max(17, Math.min(44, (Math.max(...xs) - Math.min(...xs) + 220) / 34));
   const ok = c => /^#[0-9a-f]{3,8}$/i.test(String(c || "")) ? c : "";
   // each box's outline (the same sizes the boxes are drawn with), so the lines stop at the edges instead of running under the boxes
   const geo = {};
   ns.forEach(n => { const lab = String(n.label || ""), max = n.root ? 18 : 16, t = lab.length > max ? lab.slice(0, max - 1) + "…" : lab, f = n.root ? fs * 1.12 : fs, sh = CMAP.shapeOf(n);
     const w = n.img || n.emb ? fs * 8 : Math.max(fs * 3, t.length * f * 0.58 + f * 1.6), h = f * 2;
     geo[n.id] = n.root ? ["rounded", w, h] : sh === "text" ? ["box", w * 0.7, 10] : n.img || n.emb ? ["box", w, fs * 5.2] : sh === "circle" || sh === "cloud" ? ["circle", w, h + 12] : sh === "diamond" ? ["diamond", w, h + 16] : ["box", w, h]; });
+  // the picture holds every box whole: their outer edges, plus room for the outline and a little air
+  const pad = fs * 0.6, ext = (n, i, s) => { const g = geo[n.id] || ["box", 0, 0], [x, y] = P[n.id] || [0, 0]; return i ? y + s * (g[2] / 2 + pad) : x + s * (g[1] / 2 + pad); };
+  let x0 = Math.min(...ns.map(n => ext(n, 0, -1))), x1 = Math.max(...ns.map(n => ext(n, 0, 1))), y0 = Math.min(...ns.map(n => ext(n, 1, -1))), y1 = Math.max(...ns.map(n => ext(n, 1, 1)));
+  // keep a wide card shape: pad the short side so nodes aren't squashed
+  const wantH = (x1 - x0) * 0.42; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
   const cut = (id, dx, dy) => { const g = geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
   const lines = p.g.edges.filter(e => keep.has(e.a) && keep.has(e.b)).map(e => { const a = P[e.a], b = P[e.b]; if (!a || !b) return "";
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ra = cut(e.a, dx, dy), rb = cut(e.b, -dx, -dy); if (L <= ra + rb) return "";

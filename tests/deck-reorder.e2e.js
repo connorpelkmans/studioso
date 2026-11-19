@@ -23,8 +23,8 @@ const seed = s => {
 };
 const show = (p, view, filter) => p.evaluate(([v, f]) => { const S = window.__sbSync; document.querySelectorAll("dialog[open]").forEach(d => d.close()); S.ui.tab = "flashcards"; S.ui.fc = null; S.ui.deckId = null; S.ui.qzOpen = null; S.ui.rvView = v; S.ui.filter = f || "all"; S.ui.q = ""; S.render(); }, [view, filter]);
 const names = (p, sel) => p.evaluate(s => [...document.querySelectorAll(s)].map(e => e.textContent.trim()), sel);
-const decks = p => names(p, ".deck-grid > .deck-fc .deck-name");
-const quizzes = p => names(p, ".qz-grid > .qz-card .qz-title");
+const decks = p => names(p, ".deck-grid > .rv-card .rv-title");
+const quizzes = p => names(p, ".qz-grid > .rv-card .rv-title");
 const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).decks);
 // Mouse drag from the middle of one tile to a point on another
 async function drag(p, from, to, side){

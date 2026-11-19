@@ -86,7 +86,7 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       await setTask(page, "lab4", {status: "todo", doneAt: null}); await setTask(page, "ess", {status: "todo", doneAt: null});
 
       await page.evaluate(() => { const S = window.__sbSync; S.ui.tab = "flashcards"; S.ui.deckId = null; S.ui.fc = null; S.render(); }); await page.waitForTimeout(200);
-      const decks = await page.evaluate(() => [...document.querySelectorAll(".deck-grid .deck")].map(d => ({name: d.querySelector(".deck-name").innerText, tag: (d.querySelector(".exm-tag") || {}).innerText || ""})));
+      const decks = await page.evaluate(() => [...document.querySelectorAll(".deck-grid .rv-deck")].map(d => ({name: d.querySelector(".rv-title").innerText, tag: (d.querySelector(".exm-tag") || {}).innerText || ""})));
       ok(decks.length === 2 && decks[0].name === "Cell Biology" && decks[1].name === "Reform Era", "the BIO deck sorts first: " + decks.map(d => d.name));
       ok(decks[0].tag === "Exam in 2 days" && !decks[1].tag, "with an Exam in 2 days tag, only on that course's deck");
       await page.screenshot({path: path.join(OUT, `decks-${W}.png`)});
