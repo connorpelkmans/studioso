@@ -786,3 +786,7 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 .dtl-c.ev{border:1px solid color-mix(in srgb,var(--c) 40%,var(--line));border-left:4px solid var(--c)}
 .dtl-c.ev:is(.now,.next){box-shadow:none;border:2px solid var(--c);border-left-width:5px;padding-left:9px}
 .dtl-c.tk:is(.now,.next){box-shadow:none;border:2px solid var(--c,var(--accent))}
+
+/* Where the page's buttons would cover the tabs, the tabs use their short names */
+#view.pg-short .rv-tabs .rv-long{display:none}
+#view.pg-short .rv-tabs .rv-short{display:inline}

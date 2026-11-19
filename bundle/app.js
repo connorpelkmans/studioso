@@ -14996,9 +14996,10 @@ function pageHeadUp(v){
 function pgFit(){
   const w = document.querySelector("#view > .pg-rwrap"), r = w && w.querySelector(".pg-right"), t = w && w.previousElementSibling;
   if (!w || !r || !t) return;
-  w.classList.remove("pg-below");
-  const tr = (t.querySelector(".pg-tabs") || t).getBoundingClientRect(), rr = r.getBoundingClientRect();
-  if (rr.width && tr.right + 12 > rr.left) w.classList.add("pg-below");
+  // first the tabs take their short names (Maps, Writing); only if that's still too wide do the buttons go under them
+  const v = document.getElementById("view"), over = () => { const tr = (t.querySelector(".pg-tabs") || t).getBoundingClientRect(), rr = r.getBoundingClientRect(); return rr.width && tr.right + 12 > rr.left; };
+  w.classList.remove("pg-below"); v.classList.remove("pg-short");
+  if (over()) { v.classList.add("pg-short"); if (over()) w.classList.add("pg-below"); }
 }
 addEventListener("resize", () => requestAnimationFrame(pgFit));
 // Pages without tabs: the same big title, then the content
