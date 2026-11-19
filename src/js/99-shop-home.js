@@ -78,7 +78,7 @@
     if (kind === "pin") return noteDemo(noteShapeOf(null), id, (i || 0) + 1);
     if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? stkPic(Object.keys(p.items)) : ""; }
     if (kind === "comp") return compPic(id);
-    if (kind === "cm") return CM() ? `<span class="sbh-cm">${String(CM().pic(id, LOOK ? LOOK.skin : cfg().skin)).replace("<svg ", '<svg preserveAspectRatio="xMidYMid slice" ')}</span>` : "";
+    if (kind === "cm") return CM() ? `<span class="sbh-cm">${CM().pic(id, LOOK ? LOOK.skin : cfg().skin)}</span>` : "";
     return "";
   }
   // A tile: tapping a theme, companion, sticker pack or flashcard style tries it on; a pin or note shape is used (or unlocked)
