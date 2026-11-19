@@ -62,3 +62,7 @@
 .us-pane .menu-list.us-group > button.plan-row{display:flex!important;grid-template:none!important;align-items:center;justify-content:flex-start!important;gap:14px;border-top:0}
 .us-pane .menu-list.us-group > button.plan-row > span:not(.plan-row-ic){flex:1;min-width:0;text-align:start;font-weight:700}
 .us-pane .menu-list.us-group > button.plan-row .plan-row-ic{width:36px;height:36px}
+
+/* The emoji before each row's title */
+.us-ttl{display:block!important}
+.us-emo{display:inline-block!important;width:1.45em;margin-inline-end:.15em;text-align:center;font-style:normal;font-weight:400}

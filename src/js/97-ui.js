@@ -70,6 +70,29 @@
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
     "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet knowt todoist notion csv another app switch", "export-full": "files zip",
     "new-term": "semester archive", "trash-open": "recently deleted trash bin restore undo recover deleted", "export-data": "export csv json zip spreadsheet excel portability download my data gdpr", "clear-all": "delete reset erase"};
+  // An emoji before each row's title, by the row's key (rows that bring their own emoji or icon keep theirs)
+  const EMO = {"sb-signin": "🔑", "sb-connect": "☁️", "sb-signout": "🚪", "un-edit": "🙂", "acct-email": "✉️", "acct-pass": "🔒", "sb-issues": "🔀", "sbc-packs": "🪙", "plan-restore": "♻️", "acct-delete": "🗑️",
+    "theme-set": "🌗", shop: "🛍️", "scene-moment": "🌅", "comp-open": "🌱", "comp-set": "📌", "anim-mode": "🎞️", "daily-quote": "📖",
+    "text-size": "🔠", "a11y-contrast": "👓", "lang-set": "🌐", "spell-set": "🔤",
+    "area-open": "🎓", dailyIn: "⏱️", capIn: "📆", "avail-open": "🗓️", "acc-toggle": "📈", "exm-toggle": "📝", "ap-mode": "✈️", "ap-pro": "✈️", "g-grades": "💯", "wkr-open": "🗒️", "fgs-open": "🔥", "sbk-open": "📔", "snd-settings": "🎧",
+    "ai-setup": "✨", "aivault-open": "🔐", "sx-settings": "🔍", "bd-new-course": "🧩", "calc-open": "🧮", "pro-pr-open": "🖨️",
+    "sem-open": "🏫", "lms-open": "🔗", "import-syllabus": "📄", "school-open": "🍎", "cal-export": "🔄", "cal-sync": "🔄", "grp-page": "👥", "room-notices": "📣",
+    "rm-open": "🔔", "tz-shift": "🌍", "cap-try": "⚡", "sbw-open": "🧱", "pwa-install": "📲", install: "📲", "desk-version": "💻",
+    "cbk-go": "☁️", "cbk-now": "☁️", "cbk-stop": "☁️", "fsb-choose": "📁", "fsb-resume": "📁", "fsb-stop": "📁", "desk-open": "📁", "desk-choose": "📁", folder: "📁", "backup-now": "💾", "storage-protect": "🛡️", restore: "⏪",
+    export: "📤", "export-json": "📤", "export-full": "🗜️", import: "📥", "ia-open": "🔁", "export-data": "📊", "new-term": "🆕", "archive-open": "🗄️", "trash-open": "🗑️", "clear-all": "⚠️",
+    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
+  const PICTO = /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})/u;
+  function addEmoji(r){
+    if (r.classList.contains("plan-row") || r.querySelector(".us-emo, .plan-row-ic")) return;
+    const e = rowKey(r).map(k => EMO[k]).find(Boolean); if (!e) return;
+    // the title: the first element that starts with its own words (before its .sub line)
+    const t = [r].concat([...r.querySelectorAll("span, b, strong, label")]).find(x => !x.classList.contains("sub") && x.firstChild && x.firstChild.nodeType === 3 && x.firstChild.data.trim());
+    if (!t || PICTO.test(t.firstChild.data)) return;
+    // the emoji and the title's words go in one box, so rows that stack the title and its line keep the emoji on the title's line
+    const box = document.createElement("span"); box.className = "us-ttl";
+    box.innerHTML = `<span class="us-emo" aria-hidden="true">${e}</span>`;
+    t.insertBefore(box, t.firstChild); box.appendChild(box.nextSibling);
+  }
   const KEY_CAT = {};
   Object.entries(ORDER).forEach(([c, ks]) => ks.forEach(k => { KEY_CAT[k] = c; }));
   const ALIAS = {account: "account", sync: "account", plan: "account", pro: "account", devices: "account",
@@ -125,7 +148,7 @@
     if (!list || body.querySelector(".us")) return;
     const note = body.querySelector(":scope > p.summary-sub");
     const buckets = Object.fromEntries(CATS.map(c => [c.k, []]));
-    [...list.children].forEach((r, i) => { const c = catOf(r); r.dataset.usCat = c; buckets[c].push({r, i, n: rankOf(r, c)}); });
+    [...list.children].forEach((r, i) => { const c = catOf(r); r.dataset.usCat = c; buckets[c].push({r, i, n: rankOf(r, c)}); try { addEmoji(r); } catch (e) {} });
     const cats = CATS.filter(c => buckets[c.k].length);
     sheet.classList.add("us-sheet");
     const wrap = document.createElement("div");
