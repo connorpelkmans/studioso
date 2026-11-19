@@ -54433,6 +54433,8 @@ var TP_DATA = [];
     const box = document.createElement("span"); box.className = "us-ttl";
     box.innerHTML = `<span class="us-emo" aria-hidden="true">${e}</span>`;
     t.insertBefore(box, t.firstChild); box.appendChild(box.nextSibling);
+    // a PRO (or similar) badge right after the title stays on the title's line
+    while (box.nextSibling && (box.nextSibling.nodeType === 3 ? !box.nextSibling.data.trim() : box.nextSibling.nodeType === 1 && !box.nextSibling.classList.contains("sub") && /badge|pro|tag|pill/i.test(box.nextSibling.className))) box.appendChild(box.nextSibling);
   }
   const KEY_CAT = {};
   Object.entries(ORDER).forEach(([c, ks]) => ks.forEach(k => { KEY_CAT[k] = c; }));
