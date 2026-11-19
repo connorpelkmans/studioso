@@ -10110,3 +10110,4 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .ob-colpick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
 .ob-colpick:focus-within{outline:2px solid var(--accent);outline-offset:4px}
 .ob-code > label{font:600 14.08px/21.12px var(--body);margin-bottom:5px}
+.ob-code > label{padding-inline-start:38px}
