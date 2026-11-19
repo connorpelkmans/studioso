@@ -47,7 +47,8 @@
   "99-class-sessions.css",
   "99-replay.css",
   "99-calculator.css",
-  "99-shop-home.css"
+  "99-shop-home.css",
+  "99-settings.css"
  ],
  "js": [
   "00-core.js",

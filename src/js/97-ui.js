@@ -6,10 +6,12 @@
   const ICONS = {
     account: svg(`<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>`),
     appearance: svg(`<path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.5-1.2-1.8-1.2-3s.9-2 2.2-2H17a4 4 0 0 0 4-4c0-4-4-7-9-7z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/>`),
+    access: svg(`<circle cx="12" cy="4.5" r="2"/><path d="M5 8.5l7 1.5 7-1.5M12 10v4.5M12 14.5 9 21M12 14.5l3 6.5"/>`),
     study: svg(`<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8.5 7.5h6M8.5 11h4"/>`),
-    capture: svg(`<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>`),
+    ai: svg(`<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>`),
     school: svg(`<path d="M3 9.5 12 5l9 4.5-9 4.5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5M21 9.5V15"/>`),
-    app: svg(`<path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z"/><path d="M10 19a2 2 0 0 0 4 0"/>`),
+    capture: svg(`<path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z"/><path d="M10 19a2 2 0 0 0 4 0"/>`),
+    app: svg(`<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7M12 17.2v.1"/>`),
     data: svg(`<ellipse cx="12" cy="6" rx="7.5" ry="2.8"/><path d="M4.5 6v6c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6M4.5 12v6c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-6"/>`)
   };
   const SEARCH_IC = svg(`<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>`);
@@ -17,49 +19,49 @@
   const CHEV = svg(`<path d="M9 5l7 7-7 7"/>`);
   const safe = (fn, d) => { try { return fn(); } catch (e) { return d; } };
   const CATS = [
-    {k: "account", t: "Account and Sync",
-      lead: "Sign in to keep your work in sync on every device.",
+    {k: "account", t: "Account",
+      lead: "Your sign-in, sync and Studyboard Pro.",
       sum: () => safe(() => inPreview() ? "Saved to your Claude account" : sbUser ? `Signed in as ${sbUser.email || "you"}` : sbConfig() ? "Not signed in yet" : "Saved on this device only", "Sign in and sync")},
     {k: "appearance", t: "Appearance",
-      lead: "How Studyboard looks and moves.",
-      sum: () => safe(() => { const s = SKINS.find(x => x.id === styleCfg().skin) || SKINS[0], p = themePref(); return `${s.name} theme, ${p === "system" ? "matches your device" : p === "dark" ? "dark mode" : "light mode"}`; }, "Theme, dark mode and animations")},
-    {k: "study", t: "Study and AI",
-      lead: "Your study time, grades, search and AI helpers.",
-      sum: () => safe(() => `${dailyHours()} h a day, AI ${aiReady() ? "on" : "off"}`, "Study hours, grades and AI")},
-    {k: "capture", t: "Quick Capture",
-      lead: "Add a task in seconds: type it, say it, share it or snap a photo.",
-      sum: () => "Shortcuts, share sheet, photos and links"},
-    {k: "school", t: "School and Groups",
+      lead: "Your theme, your companion and how Studyboard moves.",
+      sum: () => safe(() => { const s = SKINS.find(x => x.id === styleCfg().skin) || SKINS[0], p = themePref(); return `${s.name}, ${p === "system" ? "matches your device" : p === "dark" ? "dark" : "light"}`; }, "Theme, dark mode and animations")},
+    {k: "access", t: "Accessibility",
+      lead: "Text size, contrast, language and spelling.",
+      sum: () => "Text size, contrast and language"},
+    {k: "study", t: "Study Plan",
+      lead: "How Today's Plan fits your work into your week.",
+      sum: () => safe(() => `${dailyHours()} h a day`, "Study hours and planning")},
+    {k: "ai", t: "AI and Tools",
+      lead: "AI helpers, search, the calculator and printing.",
+      sum: () => safe(() => `AI ${aiReady() ? "on" : "off"}`, "AI, search and tools")},
+    {k: "school", t: "School and Calendar",
       lead: "Bring in your school's deadlines, sync your calendar and study with classmates.",
-      sum: () => "School sites, calendar sync, syllabus and study groups"},
-    {k: "app", t: "App and Notifications",
-      lead: "Reminders, widgets and getting the most out of the app.",
-      sum: () => "Reminders, widgets, install and the welcome setup"},
+      sum: () => "School sites, syllabi, calendar and groups"},
+    {k: "capture", t: "Notifications and Widgets",
+      lead: "Reminders, widgets, quick ways to add tasks, and installing the app.",
+      sum: () => "Reminders, widgets and quick capture"},
     {k: "data", t: "Data and Backups",
-      lead: "Keep a copy of your work safe, and start fresh each term.",
-      sum: () => "Backups, restore, new term and archive"}
+      lead: "Keep a copy of your work safe, bring work in, and start fresh each term.",
+      sum: () => "Backups, import, export and cleanup"},
+    {k: "app", t: "Help and About",
+      lead: "Getting started, feedback, and the small print.",
+      sum: () => "Tour, shortcuts, feedback and legal"}
   ];
   const CAT = Object.fromEntries(CATS.map(c => [c.k, c]));
-  // Where each row goes, by its data-act (or input id)
-  const ORDER = {
-    account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open", "plan-restore"],
-    appearance: ["theme-set", "shop", "scene-moment", "anim-toggle", "daily-quote", "comp-open", "comp-set", "anim-mode", "text-size", "a11y-contrast", "lang-set", "spell-set"],
-    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "sbk-open", "snd-settings", "ai-setup", "aivault-open", "sx-settings", "calc-open", "pro-pr-open"],
-    capture: ["cap-try"],
-    school: ["sem-open", "lms-open", "cal-export", "cal-sync", "school-open", "import-syllabus", "grp-page"],
-    app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "tips-set", "kbd-help", "bug-open", "errrep-toggle", "legal-about", "legal-privacy", "legal-terms"],
-    data: ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "storage-protect", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
-  };
-  // Sub-tabs inside a category with many rows. Every row's key belongs here: an unlisted row goes to the first sub-tab, with a warning
+  // Each category's groups, in order, by each row's data-act (or input id). A row's key decides its place; a row nobody
+  // listed goes to its data-group's category (or a best guess) and the end of that category's first group
   const SUBS = {
-    appearance: [["Look", ["theme-set", "shop", "scene-moment", "anim-toggle", "daily-quote", "comp-open", "comp-set"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode"]], ["Language", ["lang-set", "spell-set"]]],
-    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]], ["Tools and AI", ["ai-setup", "aivault-open", "sx-settings", "calc-open", "pro-pr-open"]]],
-    school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync", "school-open"]], ["Groups", ["grp-page", "room-notices"]]],
-    app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "tips-set", "kbd-help", "bug-open", "errrep-toggle", "legal-about", "legal-privacy", "legal-terms"]]],
-    // Both ways to restore (a backup file, a copy kept on this device) sit together under Import and Export
-    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "storage-protect"]], ["Import and Export", ["restore", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
+    account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
+    appearance: [["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
+    access: [["Reading", ["text-size", "a11y-contrast"]], ["Language", ["lang-set", "spell-set"]]],
+    study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
+    ai: [["AI", ["ai-setup", "aivault-open"]], ["Tools", ["sx-settings", "bd-new-course", "calc-open", "pro-pr-open"]]],
+    school: [["School", ["sem-open", "lms-open", "import-syllabus", "school-open"]], ["Calendar", ["cal-export", "cal-sync"]], ["Study Groups", ["grp-page", "room-notices"]]],
+    capture: [["Reminders", ["rm-open", "tz-shift"]], ["Quick Capture and Widgets", ["cap-try", "sbw-open"]], ["Install", ["pwa-install", "install", "desk-version"]]],
+    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "storage-protect", "restore"]], ["Import and Export", ["export", "export-json", "export-full", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open"]], ["Start Over", ["clear-all"]]],
+    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
   };
-  const SUB_MIN = 5;
+  const ORDER = Object.fromEntries(Object.entries(SUBS).map(([c, gs]) => [c, gs.flatMap(g => g[1])]));
   // Extra words people might search for, per row
   const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
@@ -71,13 +73,14 @@
   const KEY_CAT = {};
   Object.entries(ORDER).forEach(([c, ks]) => ks.forEach(k => { KEY_CAT[k] = c; }));
   const ALIAS = {account: "account", sync: "account", plan: "account", pro: "account", devices: "account",
-    appearance: "appearance", style: "appearance", theme: "appearance", look: "appearance",
-    study: "study", ai: "study", grades: "study", focus: "study", search: "study",
-    capture: "capture", school: "school", calendar: "school", lms: "school", groups: "school",
-    app: "app", notifications: "app", reminders: "app", widgets: "app", help: "app",
+    appearance: "appearance", style: "appearance", theme: "appearance", look: "appearance", access: "access", language: "access",
+    study: "study", grades: "study", focus: "study", ai: "ai", search: "ai", tools: "ai",
+    capture: "capture", notifications: "capture", reminders: "capture", widgets: "capture",
+    school: "school", calendar: "school", lms: "school", groups: "school",
+    app: "app", help: "app", about: "app",
     data: "data", backups: "data", backup: "data"};
   const PREFIX = [[/^(sb|plan|dev|acct|pro)-/, "account"], [/^(fsb|desk|backup)-/, "data"], [/^(bs|cv|canvas|bb|lms|cal|grp)-/, "school"],
-    [/^(rm|sbw|ob|pwa)-/, "app"], [/^(pomo|sx|ai)-/, "study"], [/^(scene|shop|anim|theme|style)-/, "appearance"]];
+    [/^(rm|sbw|pwa|cap)-/, "capture"], [/^(ob|tour|legal|bug)-/, "app"], [/^(sx|ai|calc)-/, "ai"], [/^(pomo|g|ap|wkr)-/, "study"], [/^(scene|shop|anim|theme|style|comp)-/, "appearance"], [/^(lang|spell|a11y|text)-/, "access"]];
   function rowKey(r){
     const acts = [r.dataset.act].concat([...r.querySelectorAll("[data-act]")].map(x => x.dataset.act)).filter(Boolean);
     const inp = r.querySelector("input[id]");
@@ -93,10 +96,10 @@
     return keys;
   }
   function catOf(r){
-    const g = r.dataset.group || safe(() => r.querySelector("[data-group]").dataset.group, "");
-    if (g && ALIAS[String(g).toLowerCase()]) return ALIAS[String(g).toLowerCase()];
     const keys = rowKey(r);
     for (const k of keys) if (KEY_CAT[k]) return KEY_CAT[k];
+    const g = r.dataset.group || safe(() => r.querySelector("[data-group]").dataset.group, "");
+    if (g && ALIAS[String(g).toLowerCase()]) return ALIAS[String(g).toLowerCase()];
     for (const k of keys) for (const [re, c] of PREFIX) if (re.test(k)) return c;
     const t = (r.textContent || "").toLowerCase();
     if (/backup|restore/.test(t)) return "data";
@@ -145,19 +148,20 @@
       const sorted = all.filter(({r}) => !r.dataset.usTop);
       sorted.forEach(({r}) => { if (r.dataset.act === "clear-all" || r.querySelector('[data-act="clear-all"]')) r.classList.add("us-danger"); });
       const spec = SUBS[c.k];
-      if (spec && sorted.length >= SUB_MIN) {
+      if (spec) {
         const groups = spec.map(([name, keys]) => ({name, keys, rows: []}));
         sorted.forEach(({r}) => {
           const ks = rowKey(r); let g = groups.find(x => ks.some(k => x.keys.includes(k)));
           if (!g) { g = groups[0]; console.warn("Settings row not in SUBS." + c.k + ", shown under " + g.name + ":", ks.join(",") || (r.textContent || "").trim().slice(0, 40)); }
           g.rows.push(r);
         });
+        // Every group shows at once, each under its own heading, so nothing hides behind a tab
         const live = groups.filter(g => g.rows.length);
-        if (live.length > 1) {
-          sec.classList.add("has-subs");
-          sec.insertAdjacentHTML("beforeend", `<div class="us-subs" role="tablist" aria-label="${esc(c.t)} sections">${live.map((g, i) => `<button type="button" role="tab" class="us-sub-tab" data-sub="${i}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}">${esc(g.name)}</button>`).join("")}</div>`);
-          live.forEach((g, i) => { const ml = document.createElement("div"); ml.className = "menu-list us-sub" + (i === 0 ? " on" : ""); ml.dataset.sub = i; g.rows.forEach(r => ml.appendChild(r)); sec.appendChild(ml); });
-        } else { const ml = document.createElement("div"); ml.className = "menu-list"; sorted.forEach(({r}) => ml.appendChild(r)); sec.appendChild(ml); }
+        live.forEach((g, i) => {
+          const ml = document.createElement("div"); ml.className = "menu-list us-group" + (/^(Delete Account|Start Over)$/.test(g.name) ? " us-danger-g" : ""); ml.dataset.sub = i;
+          if (live.length > 1) { const h = document.createElement("h4"); h.className = "us-gh"; h.id = `usG-${c.k}-${i}`; h.textContent = g.name; ml.setAttribute("aria-labelledby", h.id); ml.setAttribute("role", "group"); sec.appendChild(h); }
+          g.rows.forEach(r => ml.appendChild(r)); sec.appendChild(ml);
+        });
       } else { const ml = document.createElement("div"); ml.className = "menu-list"; sorted.forEach(({r}) => ml.appendChild(r)); sec.appendChild(ml); }
       if (c.k === "data" && note) sec.appendChild(note);
       main.appendChild(sec);
@@ -190,7 +194,7 @@
           const hit = !words.length || words.every(w => hay.includes(w));
           r.classList.toggle("us-miss", !hit); if (hit) n++;
         });
-        p.querySelectorAll(":scope > .menu-list.us-sub").forEach(l => l.classList.toggle("us-miss", !!words.length && ![...l.children].some(r => !r.classList.contains("us-miss"))));
+        p.querySelectorAll(":scope > .menu-list.us-group").forEach(l => { const miss = !!words.length && ![...l.children].some(r => !r.classList.contains("us-miss")); l.classList.toggle("us-miss", miss); const h = l.previousElementSibling; if (h && h.classList.contains("us-gh")) h.classList.toggle("us-miss", miss); });
         const hitPane = !!words.length && n > 0;
         p.classList.toggle("us-hit", hitPane); if (hitPane) any = true;
         const tab = wrap.querySelector(`.us-cat[data-us="${p.dataset.us}"]`); if (tab) tab.classList.toggle("us-has", hitPane);
