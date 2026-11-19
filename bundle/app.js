@@ -24752,7 +24752,7 @@ window.__sbPlanObj = () => PLAN;
   }
 
   /* Guards */
-  const KIND_NAME = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin", sticker: "sticker pack", comp: "companion", prop: "accessory"};
+  const KIND_NAME = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin", sticker: "sticker pack", comp: "companion", prop: "accessory", cm: "concept map style"};
   const origUnlock = shopUnlock;
   shopUnlock = function (kind, id){
     if (!paywall()) return origUnlock.apply(this, arguments);
@@ -53990,6 +53990,8 @@ var TP_DATA = [];
     return h;
   };
   window.SBUI = Object.assign(window.SBUI, {cacheGet, cacheSet});
+  // The scene picture itself (not its cached bitmap), for a preview drawn large (Build Your Look)
+  window.SBUI.thumbOrig = (id, dark) => { try { const m = String(origThumb(id, dark) || "").match(/<img[^>]*\ssrc="([^"]+)"/); return m ? m[1] : ""; } catch (e) { return ""; } };
   window.SBUI = Object.assign(window.SBUI, {thumbReady: async () => { await thLoad(); SKINS.filter(s => !s.photo).forEach(s => { artThumb(s.id, false); artThumb(s.id, true); }); while (thQueue.length) { const k = thQueue.shift(); try { await thRaster(k); } catch (e) {} } return TH.size; }});
 
   // The Stickers tab, drawn here (with cached sticker images) instead of by the app
@@ -72308,7 +72310,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
    Switched on with studyboard_config.item_purchases (see CREDITS-GUIDE.md). */
 (() => {
   const K = "studyboard:credits";
-  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin", note: "Note Shape"};
+  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin", note: "Note Shape", cm: "Concept Map Style"};
   // Shown until the server has answered once; the server's own prices always win when buying
   const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50, note: 100};
   // The Studyboard Credits coin (build-resources/credits-art: the gold coin, 96 px WebP)
@@ -72447,6 +72449,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (kind === "card") return `<div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`;
     if (kind === "pin") return noteDemo(noteShapeOf(null), id, 1);
     if (kind === "note") return noteDemo(id, notePinOf(null), 1);
+    if (kind === "cm") return window.SBCMSTYLE ? `<div class="sbc-cm">${SBCMSTYLE.pic(id)}</div>` : "";
     return "";
   }
   const CHEV = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -72767,9 +72770,9 @@ You can also DO things in Studyboard, but only when the student asks or what the
    category pages (Themes, Collections, Flashcards…) stay as they were and are now the See All pages, with a way back.
    Opening the shop starts on the home; a redraw while it's open (after buying or using something) stays where it was. */
 (() => {
-  const OURS = ["home", "yours", "look"];
-  const NAMES = {themes: "Themes", collections: "Collections", cards: "Flashcard Styles", notes: "Note Shapes", pins: "Pins", stickers: "Stickers", companions: "Companions"};
-  const SUBS = {themes: "Plain colors, scenes and seasons for your whole board", collections: "A theme with everything that matches it", cards: "How your cards look while you study", notes: "The shape of your sticky notes", pins: "What holds your notes to the board", stickers: "Drag them onto your sticky notes", companions: "They live on your board and cheer you on"};
+  const OURS = ["home", "yours", "look", "maps"];
+  const NAMES = {themes: "Themes", collections: "Collections", cards: "Flashcard Styles", notes: "Note Shapes", pins: "Pins", stickers: "Stickers", companions: "Companions", maps: "Concept Map Styles"};
+  const SUBS = {themes: "Plain colors, scenes and seasons for your whole board", collections: "A theme with everything that matches it", cards: "How your cards look while you study", notes: "The shape of your sticky notes", pins: "What holds your notes to the board", stickers: "Drag them onto your sticky notes", companions: "They live on your board and cheer you on", maps: "A look for your concept maps: background, boxes and lines"};
   const KEEP = {};
   let VIEW = "home", Q = "", LOOK = null, OPEN = "", LDARK = null;
 
@@ -72785,9 +72788,13 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const curComp = () => { try { return window.SBCOMP && SBCOMP.current ? SBCOMP.current() || "" : ""; } catch (e) { return ""; } };
   const tpThemes = () => { try { return T() && T().ordered ? T().ordered() : []; } catch (e) { return []; } };
   const rec = th => { try { return T() && T().rec ? T().rec(th) : null; } catch (e) { return null; } };
-  const LIST = {skin: () => SKINS.filter(s => !s.photo), card: () => CARD_STYLES.filter(c => c.id !== "theme"), note: () => NOTE_SHAPES, pin: () => PINS, sticker: () => STICKER_PACKS, comp: () => allComps()};
+  // A theme collection's piece shows only while its theme is in the shop (the same rule as the shop's own lists); a hidden
+  // theme's pieces would otherwise read as free and owned
+  const shown = x => { if (!x || !x.theme) return true; try { return T() && T().themes ? T().themes().includes(x.theme) : SKINS.some(s => s.id === x.theme); } catch (e) { return false; } };
+  const LIST = {skin: () => SKINS.filter(s => !s.photo), card: () => CARD_STYLES.filter(c => c.id !== "theme" && shown(c)), note: () => NOTE_SHAPES, pin: () => PINS.filter(shown), sticker: () => STICKER_PACKS.filter(shown), comp: () => allComps()};
   const CM = () => window.SBCMSTYLE || null;
-  const cmOwns = id => !!CM() && (CM().free(id) || !STORE.paywall || (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro()));
+  const cmOwns = id => !!CM() && !!(CM().owned ? CM().owned(id) : CM().free(id));
+  const cmSale = () => CM() ? CM().ids().filter(id => id !== "theme" && id !== "plain") : [];
   const find = (kind, id) => (LIST[kind] ? LIST[kind]() : []).find(x => x.id === id) || null;
   const nameOf = (kind, id) => kind === "cm" ? (CM() ? CM().name(id) : "") : kind === "comp" ? compName(id) : String((find(kind, id) || {}).name || "").replace(/\s*\(Default\)\s*$/i, "");
   const tierOf = (kind, id) => { try { return itemTier(kind, id); } catch (e) { return "free"; } };
@@ -72807,7 +72814,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const has = (kind, id) => kind === "cm" ? cmOwns(id) : owns(kind, id);
   function tag(kind, id){
     if (inUse(kind, id)) return `<em class="sbh-tag on">In Use</em>`;
-    if (kind === "cm") return CM() && CM().free(id) ? `<em class="sbh-tag free">Free</em>` : STORE.paywall && cmOwns(id) ? `<em class="sbh-tag own">Yours</em>` : PRO_BADGE;
+    if (kind === "cm") { if (CM() && CM().free(id)) return `<em class="sbh-tag free">Free</em>`; if (STORE.paywall && cmOwns(id)) return `<em class="sbh-tag own">Yours</em>`; if (!STORE.paywall) return PRO_BADGE; const p = price("cm", id); return p ? `<em class="sbh-tag cost">${p} credits</em>` : PRO_BADGE; }
     const tier = tierOf(kind, id);
     if (!STORE.paywall) return tier === "pro" ? PRO_BADGE : `<em class="sbh-tag free">Free</em>`;
     if (owns(kind, id) && tier === "pro") return `<em class="sbh-tag own">Yours</em>`;
@@ -72840,7 +72847,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     return "";
   }
   // A tile: tapping a theme, companion, sticker pack or flashcard style tries it on; a pin or note shape is used (or unlocked)
-  const TRY = {skin: 1, comp: 1, card: 1};
+  const TRY = {skin: 1, comp: 1, card: 1, cm: 1};
   function tile(kind, id, i){
     const n = nameOf(kind, id); if (!n) return "";
     const act = TRY[kind] ? `data-act="sbh-try"` : `data-act="shop-use"`;
@@ -72852,11 +72859,12 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const ROWS = [
     ["collections", "skin", () => tpThemes()],
     ["themes", "skin", () => SKINS.filter(s => !s.photo && (s.group || "plain") === "plain").map(s => s.id), "Free Themes", "Plain colors, ready to use"],
-    ["companions", "comp", () => { const cur = curComp(), l = allComps().map(c => c.id); return cur ? [cur].concat(l.filter(x => x !== cur)) : l; }],
-    ["stickers", "sticker", () => STICKER_PACKS.filter(p => !p.theme).map(p => p.id).concat(STICKER_PACKS.filter(p => p.theme).map(p => p.id))],
+    ["stickers", "sticker", () => LIST.sticker().filter(p => !p.theme).map(p => p.id).concat(LIST.sticker().filter(p => p.theme).map(p => p.id))],
     ["cards", "card", () => LIST.card().map(c => c.id)],
-    ["pins", "pin", () => PINS.map(p => p.id)],
+    ["pins", "pin", () => LIST.pin().map(p => p.id)],
     ["notes", "note", () => NOTE_SHAPES.map(n => n.id)]
+  ,
+    ["maps", "cm", () => cmSale()]
   ];
   // The featured Collection changes each week, and skips ones already owned when there are others
   function featured(){
@@ -72880,11 +72888,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
         <div class="sbh-hero-t"><span class="sbh-eyebrow">Featured Collection</span><b>${esc(s.name)}</b>${what ? `<span>${esc("Comes with " + what)}</span>` : ""}
           ${inside(th)}
           <div class="sbh-hero-acts">${own ? `<button type="button" class="btn sbh-light" data-act="sbh-try" data-kind="skin" data-id="${esc(th)}">Try It On</button>${inUse("skin", th) ? `<span class="sbh-hero-p">In use</span>` : `<button type="button" class="btn sbh-ghost" data-act="shop-use" data-kind="skin" data-id="${esc(th)}">Use It</button>`}`
-            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button>${typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-ghost" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
+            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button>${typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
     const sk = SKINS.find(x => x.id === cfg().skin) || SKINS[0], cp = curComp();
     const build = `<button type="button" class="sbh-build" data-act="sbh-go" data-id="look">
         <span class="sbh-build-pics" aria-hidden="true"><span class="sbh-mini">${skinPreview(sk, dark())}</span>${cp ? compPic(cp) : ""}</span>
-        <b>Build Your Look</b><span>Start from any theme, then try a companion, flashcard style, note shape, pin and map style on your own board.</span>
+        <b>Build Your Look</b><span>Start from any theme, then try its companions, a flashcard style, a pin and a map style on your own board.</span>
         <em>Start Building</em></button>`;
     return `<div class="sbh-top${feat ? "" : " solo"}">${feat}${build}</div>`;
   }
@@ -72893,7 +72901,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     return `<section class="sbh-row" data-row="${tab}"><div class="sbh-row-h"><h3>${esc(title || NAMES[tab])}</h3><span class="mini">${esc(sub || SUBS[tab])}</span><button type="button" class="link-btn" data-act="sbh-go" data-id="${tab}">See All ›</button></div>
       <div class="sbh-grid">${list.map((id, i) => tile(kind, id, i)).join("")}</div></section>`;
   }
-  const TYPES = [["themes", "Themes"], ["collections", "Collections"], ["companions", "Companions"], ["stickers", "Stickers"], ["cards", "Flashcards"], ["pins", "Pins"], ["notes", "Note Shapes"]];
+  const TYPES = [["themes", "Themes"], ["collections", "Collections"], ["stickers", "Stickers"], ["cards", "Flashcards"], ["pins", "Pins"], ["notes", "Note Shapes"], ["maps", "Map Styles"]];
   // A redraw while the student is part way down the page (they used something) draws every row, so the place holds
   let EAGER = false;
   function homeHtml(){
@@ -72906,12 +72914,19 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function resultsHtml(q){
     const words = q.toLowerCase().split(/\s+/).filter(Boolean), hit = t => words.every(w => t.includes(w));
     const out = [];
-    [["skin", LIST.skin()], ["comp", allComps()], ["sticker", STICKER_PACKS], ["card", LIST.card()], ["pin", PINS], ["note", NOTE_SHAPES]].forEach(([kind, list]) => list.forEach(x => {
+    [["skin", LIST.skin()], ["sticker", LIST.sticker()], ["card", LIST.card()], ["pin", LIST.pin()], ["note", NOTE_SHAPES]].forEach(([kind, list]) => list.forEach(x => {
       const text = [x.name, x.desc, x.group, x.theme && (SKINS.find(s => s.id === x.theme) || {}).name, kind === "comp" ? "companion" : kind === "sticker" ? "stickers" : kind === "card" ? "flashcard" : kind].join(" ").toLowerCase();
       if (hit(text)) out.push([kind, x.id]);
     }));
     if (!out.length) return `<p class="ui-none">Nothing matches “${esc(q.slice(0, 24))}”. Try another word.</p>`;
-    return `<p class="mini sbh-n">${out.length} ${out.length === 1 ? "match" : "matches"}${out.length > 36 ? ", the first 36 shown" : ""}</p><div class="sbh-grid wrap">${out.slice(0, 36).map(([k, id], i) => tile(k, id, i)).join("")}</div>`;
+    return `<p class="mini sbh-n">${out.length} ${out.length === 1 ? "match" : "matches"}${out.length > 36 ? ", the first 36 shown" : ""}</p><div class="sbh-grid sbh-wrap">${out.slice(0, 36).map(([k, id], i) => tile(k, id, i)).join("")}</div>`;
+  }
+
+  // See All for concept map styles: they live in the concept map module, so this page is drawn here
+  function mapsHtml(){
+    const ids = (CM() ? ["theme", "plain"] : []).concat(cmSale());
+    return `<div class="sbh-back"><button type="button" class="link-btn" data-act="sbh-go" data-id="home">‹ Shop</button><h3>${NAMES.maps}</h3><span class="mini">${SUBS.maps}. Tap one to try it on.</span></div>
+      <div class="sbh-grid sbh-wrap">${ids.map((id, i) => tile("cm", id, i)).join("")}</div>`;
   }
 
   /* ---------- Yours ---------- */
@@ -72920,15 +72935,15 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const cur = {skin: c.skin, comp: cp, card: cardStyleOf(null), note: noteShapeOf(null), pin: notePinOf(null), cm: CM() ? CM().current() : ""};
     const now = SLOTS.map(([slot, k, l]) => [k, cur[slot], l]).filter(([k, id]) => id && nameOf(k, id));
     const strip = `<div class="sbh-now"><div class="sbh-now-t"><b>Your Look Now</b><span class="mini">What your board is wearing. Tap one to change it.</span></div>
-      <div class="sbh-now-l">${now.map(([k, id, l], i) => { const tab = {skin: "themes", comp: "companions", card: "cards", note: "notes", pin: "pins"}[k], inner = `<span class="sbh-pic">${pic(k, id, i)}</span><span><em>${l}</em><b>${esc(nameOf(k, id))}</b></span>`;
+      <div class="sbh-now-l">${now.map(([k, id, l], i) => { const tab = {skin: "themes", comp: "look", card: "cards", note: "notes", pin: "pins", cm: "maps"}[k], inner = `<span class="sbh-pic">${pic(k, id, i)}</span><span><em>${l}</em><b>${esc(nameOf(k, id))}</b></span>`;
         return tab ? `<button type="button" class="sbh-now-i sbh-k-${k}" data-act="sbh-go" data-id="${tab}" aria-label="${esc(l)}: ${esc(nameOf(k, id))}. Change it">${inner}</button>` : `<div class="sbh-now-i sbh-k-${k}">${inner}</div>`; }).join("")}</div></div>`;
     if (!STORE.paywall) return strip + `<p class="sbh-note">While Studyboard is in early access, everything in the shop is yours to use. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`;
-    const groups = [["themes", "skin", LIST.skin().map(s => s.id).concat(SKINS.filter(s => s.photo).map(s => s.id))], ["companions", "comp", allComps().map(x => x.id)], ["stickers", "sticker", STICKER_PACKS.map(p => p.id)], ["cards", "card", LIST.card().map(x => x.id)], ["pins", "pin", PINS.map(x => x.id)], ["notes", "note", NOTE_SHAPES.map(x => x.id)]];
-    const kindName = {themes: "Themes", companions: "Companions", stickers: "Sticker Packs", cards: "Flashcard Styles", pins: "Pins", notes: "Note Shapes"};
+    const groups = [["themes", "skin", LIST.skin().map(s => s.id).concat(SKINS.filter(s => s.photo).map(s => s.id))], ["stickers", "sticker", LIST.sticker().map(p => p.id)], ["cards", "card", LIST.card().map(x => x.id)], ["pins", "pin", LIST.pin().map(x => x.id)], ["notes", "note", NOTE_SHAPES.map(x => x.id)], ["maps", "cm", cmSale()]];
+    const kindName = {themes: "Themes", companions: "Companions", stickers: "Sticker Packs", cards: "Flashcard Styles", pins: "Pins", notes: "Note Shapes", maps: "Concept Map Styles"};
     const rows = groups.map(([tab, kind, ids]) => {
-      const mine = ids.filter(id => owns(kind, id) && nameOf(kind, id)).sort((a, b) => (inUse(kind, b) - inUse(kind, a)) || ((tierOf(kind, b) === "pro") - (tierOf(kind, a) === "pro")));
+      const mine = ids.filter(id => has(kind, id) && nameOf(kind, id)).sort((a, b) => (inUse(kind, b) - inUse(kind, a)) || ((tierOf(kind, b) === "pro") - (tierOf(kind, a) === "pro")));
       if (!mine.length) return "";
-      return `<section class="sbh-row"><div class="sbh-row-h"><h3>${kindName[tab]}</h3><span class="mini">${mine.length} yours</span><button type="button" class="link-btn" data-act="sbh-go" data-id="${tab}">Shop ${kindName[tab]} ›</button></div><div class="sbh-grid wrap">${mine.map((id, i) => kind === "skin" || kind === "card" ? tile(kind, id, i).replace(/data-act="sbh-try"/, 'data-act="shop-use"').replace(/: try it on"/, '"') : tile(kind, id, i)).join("")}</div></section>`;
+      return `<section class="sbh-row"><div class="sbh-row-h"><h3>${kindName[tab]}</h3><span class="mini">${mine.length} yours</span><button type="button" class="link-btn" data-act="sbh-go" data-id="${tab}">Shop ${kindName[tab]} ›</button></div><div class="sbh-grid sbh-wrap">${mine.map((id, i) => kind === "skin" || kind === "card" ? tile(kind, id, i).replace(/data-act="sbh-try"/, 'data-act="shop-use"').replace(/: try it on"/, '"') : tile(kind, id, i)).join("")}</div></section>`;
     }).join("");
     return strip + (rows || `<p class="sbh-note">Nothing bought yet. Free items are always yours, and anything you get with credits or Pro shows up here. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`);
   }
@@ -72953,26 +72968,32 @@ You can also DO things in Studyboard, but only when the student asks or what the
     else if (kind === "card") LOOK.card = id;
     else if (kind === "note") LOOK.note = id;
     else if (kind === "pin") LOOK.pin = id;
+    else if (kind === "cm") LOOK.cm = id;
     OPEN = kind || OPEN;
   }
   // Stickers aren't a slot: any pack can go on any note, whatever the theme
-  const SLOTS = [["skin", "skin", "Theme"], ["comp", "comp", "Companion"], ["card", "card", "Flashcard Style"], ["note", "note", "Note Shape"], ["pin", "pin", "Pin"], ["cm", "cm", "Concept Map Style"]];
+  const SLOTS = [["skin", "skin", "Theme"], ["comp", "comp", "Companion"], ["card", "card", "Flashcard Style"], ["pin", "pin", "Pin"], ["cm", "cm", "Concept Map Style"]];
   function options(slot){
     const th = LOOK.skin, r = rec(th), mine = (k, ids) => ids.filter(id => nameOf(k, id));
     const lead = (first, rest) => [...new Set(first.filter(Boolean).concat(rest))];
     if (slot === "skin") return mine("skin", lead([th, cfg().skin], tpThemes().concat(SKINS.filter(s => !s.photo).map(s => s.id))));
     if (slot === "comp") return mine("comp", compsOf(th));
     if (slot === "note") return mine("note", lead([LOOK.note], NOTE_SHAPES.map(n => n.id)));
-    if (slot === "pin") return mine("pin", lead((r && r.pins || []).concat(LOOK.pin), PINS.map(p => p.id)));
+    if (slot === "pin") return mine("pin", lead((r && r.pins || []).concat(LOOK.pin), LIST.pin().map(p => p.id)));
     if (slot === "cm") return CM() ? lead([LOOK.cm], CM().ids()) : [];
     return mine("card", lead([r && r.card, LOOK.card], LIST.card().map(c => c.id)));
+  }
+  // The large preview uses the scene's own picture, not the small bitmap kept for tiles, so it stays sharp
+  function sharpPrev(s, dk){
+    const h = skinPreview(s, dk), big = window.SBUI && SBUI.thumbOrig ? SBUI.thumbOrig(s.id, dk) : "";
+    return big ? h.replace(/(<span class="sp-art[^"]*"[^>]*>\s*<img[^>]*\ssrc=")[^"]+"/, `$1${big}"`) : h;
   }
   function stageHtml(){
     const s = SKINS.find(x => x.id === LOOK.skin) || SKINS[0], dk = LDARK == null ? dark() : LDARK;
     return `<div class="sbh-stage" aria-label="Preview of your board in this look" role="img">
-      <div class="sbh-stage-in">${skinPreview(s, dk)}</div>
+      <div class="sbh-stage-in">${sharpPrev(s, dk)}</div>
       <div class="sbh-st-note">${noteDemo(LOOK.note || noteShapeOf(null), LOOK.pin || notePinOf(null), 2, "")}</div>
-      ${LOOK.cm && CM() ? `<div class="sbh-st-cm">${CM().pic(LOOK.cm, LOOK.skin)}</div>` : ""}
+      ${LOOK.cm && CM() ? `<div class="sbh-st-cm">${String(CM().pic(LOOK.cm, LOOK.skin)).replace("<svg ", '<svg preserveAspectRatio="xMidYMid slice" ')}</div>` : ""}
       <div class="sbh-st-card">${cardPic(LOOK.card)}</div>
       ${LOOK.comp ? `<div class="sbh-st-comp">${compPic(LOOK.comp, false, true)}</div>` : ""}</div>`;
   }
@@ -72984,20 +73005,30 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const col = rec(th) && !owns("skin", th) ? price("skin", th) : 0;
     const inCol = need.filter(([, k, id]) => k === "skin" || (find(k, id) || {}).theme === th || (k === "comp" && compsOf(th).includes(id)));
     const slots = SLOTS.map(([slot, kind, label]) => {
-      const id = LOOK[slot], n = id ? nameOf(kind, id) : "", open = OPEN === slot;
+      const id = LOOK[slot], open = OPEN === slot;
+      // Companions: every one of the theme's comes with it; the pick is only which one sits on the board
+      const cs = slot === "comp" ? compsOf(th).filter(c => compName(c)) : [];
+      // Pins likewise: with one of the theme's own pins picked, all of its pins come with it
+      const tp = slot === "pin" && rec(th) && (rec(th).pins || []).includes(id) ? rec(th).pins.filter(p => nameOf("pin", p)) : [];
+      const n = cs.length > 1 ? cs.map(compName).join(", ") : tp.length > 1 ? tp.map(p => nameOf("pin", p)).join(", ") : id ? nameOf(kind, id) : "";
+      if (cs.length > 1) label = `All ${cs.length} Companions`;
+      if (tp.length > 1) label = `All ${tp.length} Pins`;
+      const themeTag = `<em class="sbh-tag theme">${esc((ths ? ths.name : "Theme") + " Theme")}</em>`;
       const opts = open ? options(slot) : [];
       return `<div class="sbh-slot${open ? " open" : ""}">
-        <button type="button" class="sbh-slot-h" data-act="sbh-slot" data-id="${slot}" aria-expanded="${open}"><span class="sbh-pic sbh-k-${kind}">${id ? pic(kind, id, 1) : ""}</span><span class="sbh-slot-t"><em>${label}</em><b>${n ? esc(n) : "None"}</b></span>${id ? tag(kind, id) : ""}</button>
+        <button type="button" class="sbh-slot-h" data-act="sbh-slot" data-id="${slot}" aria-expanded="${open}"><span class="sbh-pic sbh-k-${kind}">${id ? pic(kind, id, 1) : ""}</span><span class="sbh-slot-t"><em>${label}</em><b>${n ? esc(n) : "None"}</b></span>${!id ? "" : kind === "comp" || (tp.length && !has("pin", id)) ? themeTag : tag(kind, id)}</button>
+        ${open && cs.length > 1 ? `<p class="mini sbh-opt-note">All ${cs.length} come with the ${esc(ths ? ths.name : "")} theme. Pick the one on your board:</p>` : ""}
+        ${open && tp.length > 1 ? `<p class="mini sbh-opt-note">All ${tp.length} come with the ${esc(ths ? ths.name : "")} theme. Pick the one your notes use, or any other pin:</p>` : ""}
         ${open ? `<div class="sbh-opts">${slot === "comp" && !opts.length ? `<p class="mini">This theme has no companions of its own.</p>` : ""}${opts.slice(0, 30).map(o => `<button type="button" class="sbh-opt sbh-k-${kind}${o === id ? " on" : ""}" data-act="sbh-pick" data-slot="${slot}" data-id="${esc(o)}" aria-pressed="${o === id}" title="${esc(nameOf(kind, o))}" aria-label="${esc(nameOf(kind, o))}">${pic(kind, o, 1)}</button>`).join("")}</div>
           ${opts.length > 30 && slot !== "cm" ? `<button type="button" class="link-btn sbh-more" data-act="sbh-go" data-id="${({skin: "themes", card: "cards", comp: "companions", note: "notes", pin: "pins"})[slot] || "themes"}">See All ${NAMES[({skin: "themes", card: "cards", comp: "companions", note: "notes", pin: "pins"})[slot] || "themes"]}</button>` : ""}` : ""}
       </div>`;
     }).join("");
     // A bundle: the theme (with its whole Collection) plus the flashcard style, note shape and pin picked, for one Collection price
-    const SELL = {card: 1, pin: 1, note: 1};
+    const SELL = {card: 1, pin: 1, cm: 1};
     const credits = !!(CR() && CR().enabled && CR().enabled() && CR().buyBundle);
     const extras = need.filter(([, k, id]) => SELL[k] && !(k === "card" && rec(th) && rec(th).card === id) && !(k === "pin" && rec(th) && (rec(th).pins || []).includes(id))).slice(0, 5);
     const bundle = credits && col > 0;
-    const proOnly = need.filter(([, k, id]) => k === "cm" || (!price(k, id) && k !== "skin" && k !== "comp"));
+    const proOnly = need.filter(([, k, id]) => !price(k, id) && k !== "skin" && k !== "comp");
     const names = l => l.map(([, k, id]) => esc(nameOf(k, id))).join(", ");
     let sum, main = "";
     if (!need.length) sum = `<p class="sbh-sum ok">Everything here is yours. Wear it whenever you like.</p>`;
@@ -73058,7 +73089,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     EAGER = y > 0;
     body.dataset.sbh = VIEW; body.dataset.uiTab = VIEW;
     body.classList.add("sbh-body");
-    body.innerHTML = VIEW === "yours" ? yoursHtml() : VIEW === "look" ? lookHtml() : homeHtml();
+    body.innerHTML = VIEW === "yours" ? yoursHtml() : VIEW === "look" ? lookHtml() : VIEW === "maps" ? mapsHtml() : homeHtml();
     lazyRows(body);
     body.scrollTop = y; requestAnimationFrame(() => { if (body.isConnected && Math.abs(body.scrollTop - y) > 2) body.scrollTop = y; });
     body.addEventListener("scroll", () => { KEEP[VIEW] = body.scrollTop; }, {passive: true});
@@ -73097,7 +73128,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   styleShop = function(tab){
     const open = dlg.open && !!dlg.querySelector(".sheet.shop, .sbc-sheet");
     const t = tab || (open ? VIEW : "home");
-    if (!open && !tab) { Q = ""; LOOK = null; OPEN = ""; LDARK = null; Object.keys(KEEP).forEach(k => delete KEEP[k]); }
+    if (!open && !tab) { Q = ""; LDARK = null; Object.keys(KEEP).forEach(k => delete KEEP[k]); }
     VIEW = t;
     if (OURS.includes(t)) {
       const r = prev.call(this, "notes");
@@ -73123,7 +73154,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       if (!LOOK || !CR() || !CR().buyBundle) return true;
       if (CR().signedIn && !CR().signedIn()) { toast("Sign in first to buy with credits."); return true; }
       const r = rec(LOOK.skin) || {}, mine = (k, id) => (k === "card" && r.card === id) || (k === "pin" && (r.pins || []).includes(id));
-      const items = [["card", LOOK.card], ["note", LOOK.note], ["pin", LOOK.pin]].filter(([k, id]) => id && !owns(k, id) && price(k, id) && !mine(k, id));
+      const items = [["card", LOOK.card], ["pin", LOOK.pin], ["cm", LOOK.cm]].filter(([k, id]) => id && !has(k, id) && price(k, id) && !mine(k, id));
       CR().buyBundle(LOOK.skin, items.slice(0, 5), el).then(ok => { if (ok) { wear(); } });
       return true;
     }
@@ -108475,12 +108506,12 @@ const CMPACK = (() => {
   function preview(pk, fonts){
     if (!pk) return "";
     const W = 168, H = 96, defs = (pk.defs || "") + `<pattern id="pv-${pk.id}" width="${pk.tile.w}" height="${pk.tile.h}" patternUnits="userSpaceOnUse" patternTransform="scale(.6)">${pk.tile.svg.replace(/^<svg[^>]*>|<\/svg>$/g, "")}</pattern>`;
-    const R = {x: 46, y: 48, w: 62, h: 26, root: true, i: 0, t: "Main"}, K = [{x: 128, y: 24, w: 54, h: 22, i: 0, t: "Idea"}, {x: 128, y: 72, w: 54, h: 22, i: 1, t: "Idea"}];
+    const R = {x: 46, y: 48, w: 62, h: 26, root: true, i: 0, t: "Main"}, K = [{x: 128, y: 24, w: 62, h: 24, i: 0, t: "Idea"}, {x: 128, y: 72, w: 62, h: 24, i: 1, t: "Idea"}];
     if (pk.round) { if (pk.round === true) R.w = R.h = 40; K.forEach(k => { k.w = k.h = 34; }); K[0].y = 26; K[1].y = 70; }
     const fit = n => { const b = pk.box(Object.assign({}, n)); return b; };
     const lines = K.map((k, i) => { const x1 = R.x + R.w / 2, x2 = k.x - k.w / 2 - 2, p = [[x1, R.y], [x1 + (x2 - x1) * 0.5, R.y], [x2 - (x2 - x1) * 0.5, k.y], [x2, k.y]], L = pk.line(p, i); return `${L.pre || ""}<path d="${L.d || D(p)}" style="fill:none;${L.st}"/>${L.post || ""}`; }).join("");
-    const boxes = [R].concat(K).map(n => { const b = fit(n), t = b.t || {}, sz = (n.root ? 9 : 8) * (t.sz || 1), fam = fonts && t.font ? fonts[t.font] || "" : ""; const tx = n.x + (t.dx || 0) * 0.5;
-      return `<g transform="translate(${n.x} ${n.y})">${b.pre || ""}${b.o}${b.post || ""}</g><text x="${f1(tx)}" y="${f1(n.y + sz * 0.36 + (t.dy || 0) * 0.5)}" text-anchor="middle" font-size="${f1(sz)}" font-weight="${t.fw || 700}" fill="${t.ink || "#222"}"${fam ? ` font-family='${fam}'` : ""}${t.up ? "" : ""}${t.fx ? ` filter="${t.fx}"` : ""}>${t.up ? n.t.toUpperCase() : n.t}</text>`; }).join("");
+    const boxes = [R].concat(K).map(n => { const b = fit(n), t = b.t || {}, sz = (n.root ? 9 : 8) * (t.sz || 1), fam = fonts && t.font ? fonts[t.font] || "" : ""; const tx = n.x + (t.dx || 0);
+      return `<g transform="translate(${n.x} ${n.y})">${b.pre || ""}${b.o}${b.post || ""}</g><text x="${f1(tx)}" y="${f1(n.y + sz * 0.36 + (t.dy || 0))}" text-anchor="middle" font-size="${f1(sz)}" font-weight="${t.fw || 700}" fill="${t.ink || "#222"}"${fam ? ` font-family='${fam}'` : ""}${t.up ? "" : ""}${t.fx ? ` filter="${t.fx}"` : ""}>${t.up ? n.t.toUpperCase() : n.t}</text>`; }).join("");
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><defs>${defs}</defs><rect width="${W}" height="${H}" fill="${pk.base}"/><rect width="${W}" height="${H}" fill="url(#pv-${pk.id})"/>${lines}${boxes}</svg>`;
   }
   const tileUrl = pk => `url("data:image/svg+xml,${encodeURIComponent(pk.tile.svg)}")`;
@@ -109486,6 +109517,14 @@ const skinOk = sk => typeof SKINS === "undefined" || SKINS.some(x => x.id === sk
 // the 14 plain-colour themes' styles are free for everyone; every other style (themes, subjects) is Pro
 const FREE_SKINS = ["classic", "paper", "slate", "sand", "blush", "lavender", "sky", "sage", "peach", "butter", "teal", "mocha", "plum", "indigo"];
 const packFree = pk => !!pk && FREE_SKINS.some(sk => CMPACK.THEME_OF[sk] === pk.id);
+// a style the student may use without Pro: a free one, a subject style bought with credits (kind "cm"), or the style of a
+// theme they own (bought with credits, its Theme Collection)
+const cmSold = id => typeof STYLE_LISTS !== "undefined" && (STYLE_LISTS.cm || []).some(x => x.id === id);
+const packOk = pk => !!pk && (packFree(pk) || (typeof owns === "function" && typeof STORE !== "undefined" && !!STORE.paywall && ((cmSold(pk.id) && owns("cm", pk.id))
+  || Object.keys(CMPACK.THEME_OF).some(sk => CMPACK.THEME_OF[sk] === pk.id && owns("skin", sk))
+  || (/^t-/.test(pk.id) && owns("skin", pk.id.slice(2))))));
+// Subject styles are sold with credits, 100 each (97-credits.js reads STYLE_LISTS for names and tiers)
+if (typeof STYLE_LISTS !== "undefined" && window.CMPACK) STYLE_LISTS.cm = CMPACK.SUBJECTS.map(id => ({id, name: CMPACK.P[id].name, tier: packFree(CMPACK.P[id]) ? "free" : "pro"}));
 // the style a map without one of its own gets: the default picked in the Style Shop's Build Your Look, else Match My Theme
 const defPack = () => { try { const v = typeof styleCfg === "function" ? styleCfg().cmPack : ""; return v && (v === "plain" || v === "theme" || (window.CMPACK && CMPACK.get(v))) ? v : "theme"; } catch (e) { return "theme"; } };
 // For the Style Shop: the map styles, their names, small pictures and whether each is free
@@ -109495,13 +109534,14 @@ window.SBCMSTYLE = {
   pic: (id, skin) => { if (!window.CMPACK) return ""; const pk = id === "theme" ? themePack(skin || skinNow()) : id === "plain" ? null : CMPACK.get(id);
     return pk ? CMPACK.preview(pk, FONT_STACK) : `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.4"/><rect x="101" y="14" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/><rect x="101" y="62" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/></svg>`; },
   free: id => !id || id === "theme" || id === "plain" || (window.CMPACK && packFree(CMPACK.get(id))),
+  owned: id => !id || id === "theme" || id === "plain" || (window.CMPACK && packOk(CMPACK.get(id))),
   current: defPack
 };
 function packOf(){
   // a map with no style chosen follows the theme in use (Match My Theme); Plain is kept as "plain"
   const id = M.own ? metaOf(M.own).pack || defPack() : ""; if (!id || id === "plain" || !window.CMPACK) return null;
   const pk = id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? (skinOk(id.slice(2)) ? themePack(id.slice(2)) : null) : CMPACK.get(id);
-  return pk && (!isLocked() || packFree(pk)) ? pk : null;
+  return pk && (!isLocked() || packOk(pk)) ? pk : null;
 }
 // the outline a style drew becomes the box's shape (lines meet it, and it shows selection); the box's own colours still win
 const pkOutline = (o, col, n) => o.replace(/^<(\w+)/, '<$1 class="cm-shape pk-o"').replace(/style="([^"]*)"/, (m, st) => `style="--c:${col};${st}${n.fill ? `;fill:${n.fill}` : ""}${n.stroke ? `;stroke:${n.stroke}` : ""}"`);
@@ -109775,7 +109815,7 @@ function themeGrids(tile){
     return `<p class="cm-lookh">${title}</p><div class="cm-lookg">${list.map(s => { const own = CMPACK.THEME_OF[s.id], pk = themePack(s.id), id = own || "t-" + s.id; return tile(id, s.name, CMPACK.preview(pk, FONT_STACK), own ? pk.desc : `${s.name}'s colours${pk.tile.svg.includes("<path") ? " and motif" : ""}`); }).join("")}</div>`; }).join("");
 }
 // whether a style in the picker is free: Plain, a plain-colour theme's, or Match My Theme while on a plain-colour theme
-const lookFree = id => !id || packFree(id === "theme" ? themePack(skinNow()) : CMPACK.get(id));
+const lookFree = id => !id || packOk(id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? themePack(id.slice(2)) : CMPACK.get(id));
 // Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
 function looksPanel(){
   const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
@@ -110079,7 +110119,7 @@ async function onClick(e){
     case "looks-x": M.looks = false; tools(); panel(); return;
     case "look": {
       const v = b.dataset.v || "", pk0 = metaOf(M.own).pack || defPack(), cur = pk0 === "plain" ? "" : pk0; if (v === cur) return;
-      if (isLocked() && !lookFree(v)) { PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
+      if (isLocked() && !lookFree(v)) { if (cmSold(v) && typeof shopUnlock === "function" && window.SBCREDITS && SBCREDITS.enabled() && SBCREDITS.priceOf("cm", v)) shopUnlock("cm", v); else PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
       const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : /^t-/.test(v) ? skinName(v.slice(2)) : (CMPACK.P[v] || {}).name || v;
       saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || "plain"}); paint(); return;
     }

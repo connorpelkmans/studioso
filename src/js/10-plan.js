@@ -908,7 +908,7 @@ window.__sbPlanObj = () => PLAN;
   }
 
   /* Guards */
-  const KIND_NAME = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin", sticker: "sticker pack", comp: "companion", prop: "accessory"};
+  const KIND_NAME = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin", sticker: "sticker pack", comp: "companion", prop: "accessory", cm: "concept map style"};
   const origUnlock = shopUnlock;
   shopUnlock = function (kind, id){
     if (!paywall()) return origUnlock.apply(this, arguments);

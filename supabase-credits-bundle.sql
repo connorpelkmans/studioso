@@ -1,14 +1,24 @@
--- Studyboard Credits: Build Your Look bundles. A theme (with its Theme Collection: its companions, sticker pack, pins and
--- flashcard style) plus up to 5 more pieces from any collection (flashcard styles, note shapes, pins), for the price
--- of one Theme Collection. Safe to run again. Run after supabase-credits.sql.
+-- Studyboard Credits, part 2. Safe to run again. Run after supabase-credits.sql.
+--   1. Concept map styles for sale: 100 credits each (kind 'cm', the subject styles; a theme's own map style comes with it).
+--   2. Build Your Look bundles: a theme (with its Theme Collection: its companions, sticker pack, pins and flashcard
+--      style) plus up to 5 more pieces (flashcard styles, pins, concept map styles; note shapes are sold on their own), for the price of one
+--      Theme Collection.
 --
 -- The server decides the price (studyboard_credit_item_prices, kind 'skin'). The app only says which theme and pieces.
 -- Companions aren't listed: a theme's own companions come with its Collection, and no other companion can be added.
--- Concept map styles aren't sold with credits (they come with Studyboard Pro), so they can't be in a bundle either.
 --
 -- Refunds: the theme is recorded at the full price, so a reversed credits payment takes the theme back first
 -- (credits_settle). The extra pieces are recorded at 0 credits with source 'bundle' and stay.
 
+/* ---------- Concept map styles ---------- */
+alter table public.studyboard_credit_item_prices drop constraint if exists studyboard_credit_item_prices_kind_check;
+alter table public.studyboard_credit_item_prices add constraint studyboard_credit_item_prices_kind_check check (kind in ('skin', 'sticker', 'card', 'pin', 'note', 'cm'));
+alter table public.studyboard_owned_items drop constraint if exists studyboard_owned_items_kind_check;
+alter table public.studyboard_owned_items add constraint studyboard_owned_items_kind_check check (kind in ('skin', 'sticker', 'card', 'pin', 'note', 'cm'));
+-- Only inserted when missing, so a price you change later in the SQL Editor is kept
+insert into public.studyboard_credit_item_prices (kind, credits) values ('cm', 100) on conflict (kind) do nothing;
+
+/* ---------- Build Your Look bundles ---------- */
 create or replace function public.studyboard_buy_bundle(p_theme text, p_items jsonb) returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
 declare me uuid := auth.uid(); cost integer; b integer; on_ boolean; it jsonb; k text; i text; ref text;
@@ -21,7 +31,7 @@ begin
   for it in select value from jsonb_array_elements(p_items) loop
     if jsonb_typeof(it) <> 'array' then return jsonb_build_object('error', 'bad_item'); end if;
     k := it ->> 0; i := it ->> 1;
-    if k is null or k not in ('card', 'pin', 'note') or i is null or i !~ '^[A-Za-z0-9_-]{1,64}$' then return jsonb_build_object('error', 'bad_item'); end if;
+    if k is null or k not in ('card', 'pin', 'cm') or i is null or i !~ '^[A-Za-z0-9_-]{1,64}$' then return jsonb_build_object('error', 'bad_item'); end if;
   end loop;
   select credits into cost from public.studyboard_credit_item_prices where kind = 'skin';
   if cost is null then return jsonb_build_object('error', 'bad_item'); end if;

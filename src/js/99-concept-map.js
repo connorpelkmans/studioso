@@ -995,6 +995,14 @@ const skinOk = sk => typeof SKINS === "undefined" || SKINS.some(x => x.id === sk
 // the 14 plain-colour themes' styles are free for everyone; every other style (themes, subjects) is Pro
 const FREE_SKINS = ["classic", "paper", "slate", "sand", "blush", "lavender", "sky", "sage", "peach", "butter", "teal", "mocha", "plum", "indigo"];
 const packFree = pk => !!pk && FREE_SKINS.some(sk => CMPACK.THEME_OF[sk] === pk.id);
+// a style the student may use without Pro: a free one, a subject style bought with credits (kind "cm"), or the style of a
+// theme they own (bought with credits, its Theme Collection)
+const cmSold = id => typeof STYLE_LISTS !== "undefined" && (STYLE_LISTS.cm || []).some(x => x.id === id);
+const packOk = pk => !!pk && (packFree(pk) || (typeof owns === "function" && typeof STORE !== "undefined" && !!STORE.paywall && ((cmSold(pk.id) && owns("cm", pk.id))
+  || Object.keys(CMPACK.THEME_OF).some(sk => CMPACK.THEME_OF[sk] === pk.id && owns("skin", sk))
+  || (/^t-/.test(pk.id) && owns("skin", pk.id.slice(2))))));
+// Subject styles are sold with credits, 100 each (97-credits.js reads STYLE_LISTS for names and tiers)
+if (typeof STYLE_LISTS !== "undefined" && window.CMPACK) STYLE_LISTS.cm = CMPACK.SUBJECTS.map(id => ({id, name: CMPACK.P[id].name, tier: packFree(CMPACK.P[id]) ? "free" : "pro"}));
 // the style a map without one of its own gets: the default picked in the Style Shop's Build Your Look, else Match My Theme
 const defPack = () => { try { const v = typeof styleCfg === "function" ? styleCfg().cmPack : ""; return v && (v === "plain" || v === "theme" || (window.CMPACK && CMPACK.get(v))) ? v : "theme"; } catch (e) { return "theme"; } };
 // For the Style Shop: the map styles, their names, small pictures and whether each is free
@@ -1004,13 +1012,14 @@ window.SBCMSTYLE = {
   pic: (id, skin) => { if (!window.CMPACK) return ""; const pk = id === "theme" ? themePack(skin || skinNow()) : id === "plain" ? null : CMPACK.get(id);
     return pk ? CMPACK.preview(pk, FONT_STACK) : `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.4"/><rect x="101" y="14" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/><rect x="101" y="62" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/></svg>`; },
   free: id => !id || id === "theme" || id === "plain" || (window.CMPACK && packFree(CMPACK.get(id))),
+  owned: id => !id || id === "theme" || id === "plain" || (window.CMPACK && packOk(CMPACK.get(id))),
   current: defPack
 };
 function packOf(){
   // a map with no style chosen follows the theme in use (Match My Theme); Plain is kept as "plain"
   const id = M.own ? metaOf(M.own).pack || defPack() : ""; if (!id || id === "plain" || !window.CMPACK) return null;
   const pk = id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? (skinOk(id.slice(2)) ? themePack(id.slice(2)) : null) : CMPACK.get(id);
-  return pk && (!isLocked() || packFree(pk)) ? pk : null;
+  return pk && (!isLocked() || packOk(pk)) ? pk : null;
 }
 // the outline a style drew becomes the box's shape (lines meet it, and it shows selection); the box's own colours still win
 const pkOutline = (o, col, n) => o.replace(/^<(\w+)/, '<$1 class="cm-shape pk-o"').replace(/style="([^"]*)"/, (m, st) => `style="--c:${col};${st}${n.fill ? `;fill:${n.fill}` : ""}${n.stroke ? `;stroke:${n.stroke}` : ""}"`);
@@ -1284,7 +1293,7 @@ function themeGrids(tile){
     return `<p class="cm-lookh">${title}</p><div class="cm-lookg">${list.map(s => { const own = CMPACK.THEME_OF[s.id], pk = themePack(s.id), id = own || "t-" + s.id; return tile(id, s.name, CMPACK.preview(pk, FONT_STACK), own ? pk.desc : `${s.name}'s colours${pk.tile.svg.includes("<path") ? " and motif" : ""}`); }).join("")}</div>`; }).join("");
 }
 // whether a style in the picker is free: Plain, a plain-colour theme's, or Match My Theme while on a plain-colour theme
-const lookFree = id => !id || packFree(id === "theme" ? themePack(skinNow()) : CMPACK.get(id));
+const lookFree = id => !id || packOk(id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? themePack(id.slice(2)) : CMPACK.get(id));
 // Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
 function looksPanel(){
   const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
@@ -1588,7 +1597,7 @@ async function onClick(e){
     case "looks-x": M.looks = false; tools(); panel(); return;
     case "look": {
       const v = b.dataset.v || "", pk0 = metaOf(M.own).pack || defPack(), cur = pk0 === "plain" ? "" : pk0; if (v === cur) return;
-      if (isLocked() && !lookFree(v)) { PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
+      if (isLocked() && !lookFree(v)) { if (cmSold(v) && typeof shopUnlock === "function" && window.SBCREDITS && SBCREDITS.enabled() && SBCREDITS.priceOf("cm", v)) shopUnlock("cm", v); else PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
       const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : /^t-/.test(v) ? skinName(v.slice(2)) : (CMPACK.P[v] || {}).name || v;
       saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || "plain"}); paint(); return;
     }

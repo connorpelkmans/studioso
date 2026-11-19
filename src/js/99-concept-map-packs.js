@@ -593,12 +593,12 @@ const CMPACK = (() => {
   function preview(pk, fonts){
     if (!pk) return "";
     const W = 168, H = 96, defs = (pk.defs || "") + `<pattern id="pv-${pk.id}" width="${pk.tile.w}" height="${pk.tile.h}" patternUnits="userSpaceOnUse" patternTransform="scale(.6)">${pk.tile.svg.replace(/^<svg[^>]*>|<\/svg>$/g, "")}</pattern>`;
-    const R = {x: 46, y: 48, w: 62, h: 26, root: true, i: 0, t: "Main"}, K = [{x: 128, y: 24, w: 54, h: 22, i: 0, t: "Idea"}, {x: 128, y: 72, w: 54, h: 22, i: 1, t: "Idea"}];
+    const R = {x: 46, y: 48, w: 62, h: 26, root: true, i: 0, t: "Main"}, K = [{x: 128, y: 24, w: 62, h: 24, i: 0, t: "Idea"}, {x: 128, y: 72, w: 62, h: 24, i: 1, t: "Idea"}];
     if (pk.round) { if (pk.round === true) R.w = R.h = 40; K.forEach(k => { k.w = k.h = 34; }); K[0].y = 26; K[1].y = 70; }
     const fit = n => { const b = pk.box(Object.assign({}, n)); return b; };
     const lines = K.map((k, i) => { const x1 = R.x + R.w / 2, x2 = k.x - k.w / 2 - 2, p = [[x1, R.y], [x1 + (x2 - x1) * 0.5, R.y], [x2 - (x2 - x1) * 0.5, k.y], [x2, k.y]], L = pk.line(p, i); return `${L.pre || ""}<path d="${L.d || D(p)}" style="fill:none;${L.st}"/>${L.post || ""}`; }).join("");
-    const boxes = [R].concat(K).map(n => { const b = fit(n), t = b.t || {}, sz = (n.root ? 9 : 8) * (t.sz || 1), fam = fonts && t.font ? fonts[t.font] || "" : ""; const tx = n.x + (t.dx || 0) * 0.5;
-      return `<g transform="translate(${n.x} ${n.y})">${b.pre || ""}${b.o}${b.post || ""}</g><text x="${f1(tx)}" y="${f1(n.y + sz * 0.36 + (t.dy || 0) * 0.5)}" text-anchor="middle" font-size="${f1(sz)}" font-weight="${t.fw || 700}" fill="${t.ink || "#222"}"${fam ? ` font-family='${fam}'` : ""}${t.up ? "" : ""}${t.fx ? ` filter="${t.fx}"` : ""}>${t.up ? n.t.toUpperCase() : n.t}</text>`; }).join("");
+    const boxes = [R].concat(K).map(n => { const b = fit(n), t = b.t || {}, sz = (n.root ? 9 : 8) * (t.sz || 1), fam = fonts && t.font ? fonts[t.font] || "" : ""; const tx = n.x + (t.dx || 0);
+      return `<g transform="translate(${n.x} ${n.y})">${b.pre || ""}${b.o}${b.post || ""}</g><text x="${f1(tx)}" y="${f1(n.y + sz * 0.36 + (t.dy || 0))}" text-anchor="middle" font-size="${f1(sz)}" font-weight="${t.fw || 700}" fill="${t.ink || "#222"}"${fam ? ` font-family='${fam}'` : ""}${t.up ? "" : ""}${t.fx ? ` filter="${t.fx}"` : ""}>${t.up ? n.t.toUpperCase() : n.t}</text>`; }).join("");
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><defs>${defs}</defs><rect width="${W}" height="${H}" fill="${pk.base}"/><rect width="${W}" height="${H}" fill="url(#pv-${pk.id})"/>${lines}${boxes}</svg>`;
   }
   const tileUrl = pk => `url("data:image/svg+xml,${encodeURIComponent(pk.tile.svg)}")`;

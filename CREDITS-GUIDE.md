@@ -17,7 +17,8 @@ Both are **switched off** until you turn them on (see "Launch" below). While the
 | Pin | 50 | $0.50 |
 | Note shape | 100 | $1 |
 
-| Build Your Look | 300 | $3. A Theme Collection plus up to 5 more flashcard styles, note shapes or pins picked in the Style Shop's Build Your Look (needs `supabase-credits-bundle.sql`) |
+| Concept map style | 100 | $1. A subject map style (a theme's own map style comes with its Collection). Needs `supabase-credits-bundle.sql` |
+| Build Your Look | 300 | $3. A Theme Collection plus up to 5 more flashcard styles, pins or map styles picked in the Style Shop's Build Your Look (needs `supabase-credits-bundle.sql`) |
 
 Only Pro items can be bought; free items and companion accessories can't. A companion opens its Theme Collection. A pin, sticker pack or flashcard style that belongs to a collection also points to the whole collection.
 
@@ -73,7 +74,7 @@ The price ids live in Supabase, in `studyboard_credit_packs`, not in secrets. Th
 
 ### Still To Do (Owner)
 
-0. **Turn on Build Your Look bundles:** run `supabase-credits-bundle.sql` in the SQL Editor (after `supabase-credits.sql`). It adds `studyboard_buy_bundle(theme, items)`: the theme with its Collection plus up to 5 flashcard styles, note shapes or pins, for the Collection price. Until it's run, the app says bundles aren't available yet and still sells the Collection and each piece.
+0. **Turn on map styles and Build Your Look bundles:** run `supabase-credits-bundle.sql` in the SQL Editor (after `supabase-credits.sql`). It lets concept map styles be sold (kind `cm`, 100 credits) and adds `studyboard_buy_bundle(theme, items)`: the theme with its Collection plus up to 5 flashcard styles, pins or map styles (note shapes are sold on their own), for the Collection price. Until it's run, the app says bundles aren't available yet and still sells the Collection and each piece.
 1. **Deploy the two functions** (from the repository root, Supabase CLI signed in):
    ```bash
    npx supabase functions deploy create-checkout billing-webhook --project-ref pivcmrqcjseycjkbocmc

@@ -231,6 +231,8 @@
     return h;
   };
   window.SBUI = Object.assign(window.SBUI, {cacheGet, cacheSet});
+  // The scene picture itself (not its cached bitmap), for a preview drawn large (Build Your Look)
+  window.SBUI.thumbOrig = (id, dark) => { try { const m = String(origThumb(id, dark) || "").match(/<img[^>]*\ssrc="([^"]+)"/); return m ? m[1] : ""; } catch (e) { return ""; } };
   window.SBUI = Object.assign(window.SBUI, {thumbReady: async () => { await thLoad(); SKINS.filter(s => !s.photo).forEach(s => { artThumb(s.id, false); artThumb(s.id, true); }); while (thQueue.length) { const k = thQueue.shift(); try { await thRaster(k); } catch (e) {} } return TH.size; }});
 
   // The Stickers tab, drawn here (with cached sticker images) instead of by the app
