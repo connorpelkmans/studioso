@@ -267,7 +267,8 @@
   "101-phone-v2.js",
   "102-qol.js",
   "99-motion-a11y-tz.js",
-  "99-smooth.js"
+  "99-smooth.js",
+  "99-feature-intros.js"
  ],
  "lazy": {
   "scenes.js": [
