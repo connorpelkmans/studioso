@@ -6,7 +6,7 @@
    Switched on with studyboard_config.item_purchases (see CREDITS-GUIDE.md). */
 (() => {
   const K = "studyboard:credits";
-  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin", note: "Note Shape"};
+  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin", note: "Note Shape", cm: "Concept Map Style"};
   // Shown until the server has answered once; the server's own prices always win when buying
   const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50, note: 100};
   // The Studyboard Credits coin (build-resources/credits-art: the gold coin, 96 px WebP)
@@ -145,6 +145,7 @@
     if (kind === "card") return `<div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`;
     if (kind === "pin") return noteDemo(noteShapeOf(null), id, 1);
     if (kind === "note") return noteDemo(id, notePinOf(null), 1);
+    if (kind === "cm") return window.SBCMSTYLE ? `<div class="sbc-cm">${SBCMSTYLE.pic(id)}</div>` : "";
     return "";
   }
   const CHEV = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -255,8 +256,11 @@
     const body = !signedIn() ? `<p style="margin:0">Credits belong to your account. Sign in or create a free account first.</p>`
       : storeApp() ? `<p style="margin:0">Buying credits isn't available in this app. Credits you already have work here.</p>`
       : !packs ? `<p class="mini" style="margin:0">Loading…</p>`
-      : `<div class="sbc-packs">${packs.map(p => { const bonus = base ? Math.round((1 - p.cents / p.credits / base) * 100) : 0;
-          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${p.badge ? `<span class="pp-flag">${esc(p.badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 5 && !p.badge ? `<span class="mini">${bonus}% more per dollar</span>` : ""}</button>`; }).join("")}</div>
+      : `<div class="sbc-packs">${packs.map(p => {
+          // the extra credits against buying the same money's worth at the smallest pack's rate (a "Bonus" badge from the server
+          // is worked out the same way here, so it can't go stale)
+          const bonus = base ? Math.round(p.credits - p.cents / base) : 0, badge = p.badge && /bonus/i.test(p.badge) ? (bonus >= 1 ? `+${bonus.toLocaleString()} Bonus Credits` : "") : p.badge;
+          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${badge ? `<span class="pp-flag">${esc(badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 1 ? `<span class="mini">${bonus.toLocaleString()} bonus credits compared with the ${esc(Number(packs[0].credits).toLocaleString())} pack</span>` : ""}</button>`; }).join("")}</div>
         <p class="mini" style="margin:0">A Theme Collection is ${prices().skin} credits (with its companions, stickers, pins and flashcard style), a sticker pack or flashcard style ${prices().sticker}, a pin ${prices().pin}. Credits don't expire, and what you keep stays yours even without Pro. You'll pay securely with Stripe on the Studyboard website.</p>`;
     openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Credits")}
       <div class="sheet-body">
