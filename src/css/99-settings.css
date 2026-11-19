@@ -57,3 +57,8 @@
 }
 .us-cat .us-ic{border-radius:10px!important}
 .us-empty{margin:24px 6px;color:var(--muted)}
+/* Studyboard Pro: its row shares the plan-row class with Today's Plan (a grid), so it's laid out here: the Pro icon,
+   the name and line beside it, the chevron at the end */
+.us-pane .menu-list.us-group > button.plan-row{display:flex!important;grid-template:none!important;align-items:center;justify-content:flex-start!important;gap:14px;border-top:0}
+.us-pane .menu-list.us-group > button.plan-row > span:not(.plan-row-ic){flex:1;min-width:0;text-align:start;font-weight:700}
+.us-pane .menu-list.us-group > button.plan-row .plan-row-ic{width:36px;height:36px}

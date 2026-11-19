@@ -132,7 +132,7 @@
     wrap.className = "us";
     wrap.innerHTML = `<div class="us-nav">
         <label class="us-search">${SEARCH_IC}<input type="search" class="us-q" placeholder="Search Settings" aria-label="Search settings" autocomplete="off" data-noenter></label>
-        <div class="us-cats" role="tablist" aria-label="Settings categories" aria-orientation="vertical">${cats.map(c => `<button type="button" role="tab" class="us-cat" data-us="${c.k}" id="usTab-${c.k}" aria-controls="usPane-${c.k}" aria-selected="false" title="${esc(c.t)}"><span class="us-ic">${ICONS[c.k]}</span><span class="us-ct"><b>${esc(c.t)}</b><span class="us-cs">${esc(c.sum())}</span></span><span class="us-chev">${CHEV}</span></button>`).join("")}</div>
+        <div class="us-cats" role="tablist" aria-label="Settings categories" aria-orientation="vertical">${cats.map(c => `<button type="button" role="tab" class="us-cat" data-us="${c.k}" id="usTab-${c.k}" aria-controls="usPane-${c.k}" aria-selected="false"><span class="us-ic">${ICONS[c.k]}</span><span class="us-ct"><b>${esc(c.t)}</b><span class="us-cs">${esc(c.sum())}</span></span><span class="us-chev">${CHEV}</span></button>`).join("")}</div>
       </div>
       <div class="us-main"><p class="us-empty" hidden>Nothing matches that. Try another word, like “backup” or “dark”.</p></div>`;
     const main = wrap.querySelector(".us-main");
