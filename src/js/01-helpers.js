@@ -442,6 +442,7 @@ const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, M
 // extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once.
 // opts.view: the toast (and its buttons) goes away when the page changes, for buttons that only make sense on this page
 const toastViewKey = () => { try { return ui.tab + "|" + (ui.courseId || ""); } catch (e) { return ""; } };
+let toastSeq = 0;
 function toastHide(){ clearTimeout(toastT); const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
 // The top-most open modal (focus is kept inside it), so a toast is never hidden behind a pop-up
 function toastHost(){
@@ -489,7 +490,11 @@ function toast(msg, undoFn, extra, opts){
   const host = toastHost();
   if (t.parentNode !== host) host.appendChild(t);
   toastView = opts && opts.view ? toastViewKey() : null;
-  t.classList.add("show");
+  // a pop-up still moving into place (its entrance animation) carries the toast with it, so it would show in the wrong spot and
+  // then jump: wait until the pop-up has settled
+  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
+  if (moving.length) { t.classList.remove("show"); const seq = ++toastSeq; Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) t.classList.add("show"); }); }
+  else { ++toastSeq; t.classList.add("show"); }
   toastMs = toastLen(msg, undoFn, more.length); toastAt = Date.now();
   if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
   try { document.documentElement.style.setProperty("--toast-h", t.offsetHeight + "px"); } catch(e) {}

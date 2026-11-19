@@ -10913,6 +10913,7 @@ const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, M
 // extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once.
 // opts.view: the toast (and its buttons) goes away when the page changes, for buttons that only make sense on this page
 const toastViewKey = () => { try { return ui.tab + "|" + (ui.courseId || ""); } catch (e) { return ""; } };
+let toastSeq = 0;
 function toastHide(){ clearTimeout(toastT); const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
 // The top-most open modal (focus is kept inside it), so a toast is never hidden behind a pop-up
 function toastHost(){
@@ -10960,7 +10961,11 @@ function toast(msg, undoFn, extra, opts){
   const host = toastHost();
   if (t.parentNode !== host) host.appendChild(t);
   toastView = opts && opts.view ? toastViewKey() : null;
-  t.classList.add("show");
+  // a pop-up still moving into place (its entrance animation) carries the toast with it, so it would show in the wrong spot and
+  // then jump: wait until the pop-up has settled
+  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
+  if (moving.length) { t.classList.remove("show"); const seq = ++toastSeq; Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) t.classList.add("show"); }); }
+  else { ++toastSeq; t.classList.add("show"); }
   toastMs = toastLen(msg, undoFn, more.length); toastAt = Date.now();
   if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
   try { document.documentElement.style.setProperty("--toast-h", t.offsetHeight + "px"); } catch(e) {}
@@ -73029,6 +73034,15 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
 
   /* ---------- Yours ---------- */
+  let YROWS = [];
+  // a kind's tiles in Yours: the first ones now, the rest in batches just after, so a long list (every theme, on Pro) opens at once
+  const YT = {}, YBATCH = 12;
+  const ytile = (kind, id, i) => kind === "skin" || kind === "card" ? tile(kind, id, i).replace(/data-act="sbh-try"/, 'data-act="shop-use"').replace(/: try it on"/, '"') : tile(kind, id, i);
+  function ytiles(kind, ids, from){
+    const end = EAGER ? ids.length : Math.min(ids.length, from + YBATCH), key = kind;
+    YT[key] = {kind, ids};
+    return ids.slice(from, end).map((id, k) => ytile(kind, id, from + k)).join("") + (end < ids.length ? `<span class="sbh-tw" data-wait="t${key}:${end}"></span>` : "");
+  }
   function yoursHtml(){
     const c = cfg(), cp = curComp();
     const cur = {skin: c.skin, comp: cp, card: cardStyleOf(null), note: noteShapeOf(null), pin: notePinOf(null), cm: CM() ? CM().current() : ""};
@@ -73039,11 +73053,13 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!STORE.paywall) return strip + `<p class="sbh-note">While Studyboard is in early access, everything in the shop is yours to use. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`;
     const groups = [["themes", "skin", LIST.skin().map(s => s.id).concat(SKINS.filter(s => s.photo).map(s => s.id))], ["stickers", "sticker", LIST.sticker().map(p => p.id)], ["cards", "card", LIST.card().map(x => x.id)], ["pins", "pin", LIST.pin().map(x => x.id)], ["notes", "note", NOTE_SHAPES.map(x => x.id)], ["maps", "cm", cmSale()]];
     const kindName = {themes: "Themes", companions: "Companions", stickers: "Sticker Packs", cards: "Flashcard Styles", pins: "Pins", notes: "Note Shapes", maps: "Concept Map Styles"};
-    const rows = groups.map(([tab, kind, ids]) => {
+    YROWS = groups.map(([tab, kind, ids]) => {
       const mine = ids.filter(id => has(kind, id) && nameOf(kind, id)).sort((a, b) => (inUse(kind, b) - inUse(kind, a)) || ((tierOf(kind, b) === "pro") - (tierOf(kind, a) === "pro")));
-      if (!mine.length) return "";
-      return `<section class="sbh-row"><div class="sbh-row-h"><h3>${kindName[tab]}</h3><span class="mini">${mine.length} yours</span><button type="button" class="link-btn" data-act="sbh-go" data-id="${tab}">Shop ${kindName[tab]} ›</button></div><div class="sbh-grid sbh-wrap">${mine.map((id, i) => kind === "skin" || kind === "card" ? tile(kind, id, i).replace(/data-act="sbh-try"/, 'data-act="shop-use"').replace(/: try it on"/, '"') : tile(kind, id, i)).join("")}</div></section>`;
-    }).join("");
+      if (!mine.length) return null;
+      return () => `<section class="sbh-row"><div class="sbh-row-h"><h3>${kindName[tab]}</h3><span class="mini">${mine.length} yours</span><button type="button" class="link-btn" data-act="sbh-go" data-id="${tab}">Shop ${kindName[tab]} ›</button></div><div class="sbh-grid sbh-wrap">${ytiles(kind, mine, 0)}</div></section>`;
+    }).filter(Boolean);
+    // the first two kinds now, the rest just before they scroll into view (as on the Shop page)
+    const rows = YROWS.map((f, i) => i < 2 || EAGER ? f() : `<section class="sbh-row sbh-wait" data-wait="y${i}"></section>`).join("");
     return strip + (rows || `<p class="sbh-note">Nothing bought yet. Free items are always yours, and anything you get with credits or Pro shows up here. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`);
   }
 
@@ -73198,7 +73214,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   // Rows further down are drawn just before they scroll into view, or in a quiet moment, so the shop opens at once
   let rowIO = null;
-  function fillRow(el){ if (!el.isConnected || !el.dataset.wait) return; const r = ROWS[+el.dataset.wait]; el.removeAttribute("data-wait"); const h = rowHtml(r); if (h) el.outerHTML = h; else el.remove(); }
+  function fillRow(el){ if (!el.isConnected || !el.dataset.wait) return; const w = el.dataset.wait; el.removeAttribute("data-wait"); const h = w[0] === "t" ? (([k, n]) => YT[k] ? ytiles(YT[k].kind, YT[k].ids, +n) : "")(w.slice(1).split(":")) : w[0] === "y" ? (YROWS[+w.slice(1)] || (() => ""))() : rowHtml(ROWS[+w]); if (h) el.outerHTML = h; else el.remove(); }
   function lazyRows(body){
     const waits = [...body.querySelectorAll("[data-wait]")]; if (!waits.length) return;
     if (rowIO) rowIO.disconnect();
@@ -73230,6 +73246,10 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!open && !tab) { Q = ""; LDARK = null; Object.keys(KEEP).forEach(k => delete KEEP[k]); }
     VIEW = t;
     if (OURS.includes(t)) {
+      // already showing one of ours (Shop, Yours, Build Your Look, map styles): just redraw the body, without building the
+      // whole old shop again behind it, so switching is instant
+      const sh = open && sheetOf();
+      if (sh && sh.classList.contains("sbh-on") && tab) { ui.shopTab = t; if (t === "look" && !LOOK) startLook("", ""); try { draw(); } catch (e) { console.warn("shop home", e); } return; }
       const r = prev.call(this, "notes");
       ui.shopTab = t;
       if (t === "look" && !LOOK) startLook("", "");
@@ -85658,8 +85678,8 @@ var SBPRO = null;
       case "pro-recap-hide": { const T = recapTerm(); if (T) markSeen(T.key); scheduleRender(); toast("Hidden. Your recap stays in Settings, Studyboard Pro."); return true; }
       case "pro-recap-step": if (RC) { const n = RC.i + (Number(id) || 1); RC.i = n >= RC.slides.length ? 0 : Math.max(0, n); drawRecap(); } return true;
       case "pro-recap-img": recapImage(); return true;
-      case "pro-early": setS({early: !S().early}); toast(S().early ? "Preview features are on. Thanks for trying them!" : "Preview features are off."); redrawPlan(); scheduleRender(); return true;
-      case "pro-badge": setS({badge: !S().badge}); toast(S().badge ? "Your supporter badge shows in your groups." : "Your supporter badge is hidden."); redrawPlan(); fire("pro-badge", !!S().badge); return true;
+      case "pro-early": setS({early: !S().early}); redrawPlan(); scheduleRender(); toast(S().early ? "Preview features are on. Thanks for trying them!" : "Preview features are off."); return true;
+      case "pro-badge": setS({badge: !S().badge}); redrawPlan(); fire("pro-badge", !!S().badge); toast(S().badge ? "Your supporter badge shows in your groups." : "Your supporter badge is hidden."); return true;
     }
     return false;
   });

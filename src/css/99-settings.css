@@ -70,10 +70,10 @@
 
 /* Focus timer (Style A): a big round play button between round Reset and Skip, the session count in the ring, and the
    routine picker drawn like the Focus / Short Break / Long Break switch above it */
-.pomo-ctl{gap:22px!important;margin-top:4px;align-items:center!important;justify-content:center}
-.pomo-ctl > .btn.pomo-rd{width:52px;height:52px;min-height:0;padding:0!important;border-radius:50%!important;display:grid;place-items:center;color:var(--muted)}
-.pomo-ctl > .btn.pomo-go{width:84px;height:84px;min-height:0;padding:0!important;border-radius:50%!important;display:grid;place-items:center;box-shadow:0 10px 24px color-mix(in srgb,var(--btn-bg,var(--accent)) 38%,transparent)}
-.pomo-ctl > .btn.pomo-go svg{width:32px;height:32px}
+.pomo-ctl{gap:20px!important;margin:-8px 0 -6px;align-items:center!important;justify-content:center}
+.pomo-ctl > .btn.pomo-rd{width:48px;height:48px;min-height:0;padding:0!important;border-radius:50%!important;display:grid;place-items:center;color:var(--muted)}
+.pomo-ctl > .btn.pomo-go{width:72px;height:72px;min-height:0;padding:0!important;border-radius:50%!important;display:grid;place-items:center;box-shadow:0 10px 24px color-mix(in srgb,var(--btn-bg,var(--accent)) 38%,transparent)}
+.pomo-ctl > .btn.pomo-go svg{width:28px;height:28px}
 /* the play triangle is already drawn with its middle on the button's middle, so it needs no nudge */
 .pomo-ctl > .btn.pomo-rd svg,.pomo-ctl > .btn.pomo-go svg{display:block;margin:0}
 .pomo-read .pomo-mode-lbl{font-weight:700}
