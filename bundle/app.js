@@ -3200,7 +3200,7 @@ function sbSignInSheet(mode, email, note){
   const body = {
     hello: sbWelcomeHtml(),
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${sbOAuthHtml()}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
+    signup: `${sbOAuthHtml()}<label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi!</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
@@ -3221,8 +3221,7 @@ function sbSignInSheet(mode, email, note){
     forgot: `<span class="spacer"></span><button type="button" class="btn primary" data-submit>Send Code</button>`,
     reset: `<span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Password</button>`
   }[mode];
-  const custom = (sbCustom() ? `<p class="mini" style="margin:0"><button type="button" class="link-btn" id="sbServer">Custom Server</button></p>` : "")
-    + ((mode === "signin" || mode === "signup" || mode === "hello") && window.SBLEGAL ? SBLEGAL.line() : "");
+  const custom = ((mode === "signin" || mode === "signup" || mode === "hello") && window.SBLEGAL ? SBLEGAL.line() : "");
   let busy = false;
   const say = t => { const m = $("#sbMsg"); if (m) m.textContent = t; };
   const done = t => { try { localStorage.setItem("studioso:welcomed", "1"); } catch(e) {} if (dlg.open) dlg.close(); toast(t); };
@@ -3338,16 +3337,15 @@ function sbWelcomeHtml(){
   return `<div class="sb-welc">
     <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
     <h3>Hi! I'm Mochi.<br>Let's plan your semester.</h3>
-    <p>Studyboard turns your syllabi into a calm plan for every day. Setting up takes about a minute, and you can skip anything.</p>
+    <p>Studyboard turns your assignments into a calm plan for every day. Setting up takes about a minute, and you can skip anything.</p>
     <ul>
       <li>${ic('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>')}Add courses and deadlines in minutes</li>
-      <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next, today</li>
+      <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next</li>
       <li>${ic('<path d="M12 20v-7"/><path d="M12 13c0-3.5-2.5-6-6.5-6 0 3.6 2.6 6 6.5 6zM12 11c0-3 2.2-5.5 6.5-5.5 0 3.2-2.4 5.5-6.5 5.5z"/>')}Works offline, no account needed</li>
     </ul>
     <button type="button" class="btn primary sb-welc-go" id="sbSignUp" data-sbm="signup">Sign Up</button>
     <button type="button" class="btn sb-welc-skip" data-act="close">Continue Without an Account</button>
     <button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button>
-    <p class="mini sb-welc-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
   </div>`;
 }
 // "Not Now", or closing the first welcome or sign-in sheet
@@ -14991,8 +14989,19 @@ function pageHeadUp(v){
   // The page's buttons sit level with the tabs, at the right: they come after the tabs for the keyboard too (Tab reaches the
   // page's own Notes / Whiteboard or Flashcards / Quizzes switch first, as it's read left to right)
   const r = !phone && !tabs.matches(".bview-row") && pg.querySelector(":scope > .pg-right");
-  if (r) { const w = document.createElement("div"); w.className = "pg-rwrap"; w.appendChild(r); tabs.after(w); }
+  if (r) { const w = document.createElement("div"); w.className = "pg-rwrap"; w.appendChild(r); tabs.after(w); requestAnimationFrame(pgFit); }
 }
+// The page's buttons sit level with the tabs at the right; where the window is too narrow for both, they'd cover the tabs, so
+// they move to their own line under the tabs instead
+function pgFit(){
+  const w = document.querySelector("#view > .pg-rwrap"), r = w && w.querySelector(".pg-right"), t = w && w.previousElementSibling;
+  if (!w || !r || !t) return;
+  // first the tabs take their short names (Maps, Writing); only if that's still too wide do the buttons go under them
+  const v = document.getElementById("view"), over = () => { const tr = (t.querySelector(".pg-tabs") || t).getBoundingClientRect(), rr = r.getBoundingClientRect(); return rr.width && tr.right + 12 > rr.left; };
+  w.classList.remove("pg-below"); v.classList.remove("pg-short");
+  if (over()) { v.classList.add("pg-short"); if (over()) w.classList.add("pg-below"); }
+}
+addEventListener("resize", () => requestAnimationFrame(pgFit));
 // Pages without tabs: the same big title, then the content
 function soloHeadUp(v, phone){
   const head = v.firstElementChild;
@@ -30423,7 +30432,7 @@ var SBAREA = (() => {
     {id: "health", name: "Nursing and Health", blurb: "Nursing, Pre-Med, Pharmacy, Therapy", skin: "nursing", ctx: "nursing or health sciences", ex: "pharm exam thu 9am worth 20%", types: T("Exam", "Quiz", "Study", "Assignment", "Lab", "Reading", "Project", "Other"), hrs: {Exam: 10, Quiz: 2.5, Study: 1.5}},
     {id: "business", name: "Business and Economics", blurb: "Finance, Marketing, Accounting", skin: "business", ctx: "business and economics", ex: "marketing case study due wed 5pm", types: T("Assignment", "Project", "Exam", "Quiz", "Reading", "Study", "Lab", "Other"), hrs: {Project: 11, Reading: 1.5}},
     {id: "social", name: "Psychology and Social Sciences", blurb: "Psychology, Sociology, Politics", skin: "psych", ctx: "psychology and social sciences", ex: "psych paper draft fri 11:59pm", types: T("Reading", "Assignment", "Exam", "Quiz", "Project", "Study", "Lab", "Other"), hrs: {Reading: 2.5, Assignment: 4}},
-    {id: "humanities", name: "Humanities, Languages and Writing", blurb: "Literature, History, Philosophy, Languages", skin: "writing", ctx: "humanities, languages and writing", ex: "read ch 4 and essay outline tue", types: T("Reading", "Assignment", "Project", "Exam", "Quiz", "Study", "Lab", "Other"), hrs: {Reading: 3, Assignment: 5, Project: 12}},
+    {id: "humanities", name: "Humanities and Writing", blurb: "Literature, History, Philosophy", skin: "writing", ctx: "humanities, languages and writing", ex: "read ch 4 and essay outline tue", types: T("Reading", "Assignment", "Project", "Exam", "Quiz", "Study", "Lab", "Other"), hrs: {Reading: 3, Assignment: 5, Project: 12}},
     {id: "arts", name: "Arts and Design", blurb: "Studio, Music, Film, Architecture", skin: "concert", ctx: "arts and design", ex: "portfolio piece critique mon 2pm", types: T("Project", "Assignment", "Reading", "Exam", "Quiz", "Lab", "Study", "Other"), hrs: {Project: 12, Assignment: 4.5}},
     {id: "education", name: "Education", blurb: "Teaching, Early Childhood, Counselling", skin: "education", ctx: "education", ex: "lesson plan due thu 4pm", types: T("Assignment", "Project", "Reading", "Exam", "Quiz", "Study", "Lab", "Other"), hrs: {Assignment: 4, Project: 10}},
     {id: "law", name: "Law and Public Policy", blurb: "Law, Criminal Justice, Government", skin: "justice", ctx: "law and public policy", ex: "contracts brief due mon 9am", types: T("Reading", "Assignment", "Exam", "Project", "Quiz", "Study", "Lab", "Other"), hrs: {Reading: 3, Exam: 10, Assignment: 5}},
@@ -30493,7 +30502,25 @@ var SBAREA = (() => {
   // One line for AI prompts; "" when the student hasn't said
   const aiLine = () => { const d = def(); if (!d) return ""; const t = (get().text || "").replace(/[^\w\s,&'’.\-]/g, "").trim(); return t ? `The student studies ${t}${d.ctx ? " (" + d.ctx + ")" : ""}.` : d.ctx ? `The student is studying ${d.ctx}.` : ""; };
   const aiSystem = s => { const l = aiLine(); return l && typeof s === "string" && !s.includes(l) ? s + " " + l : s; };
-  const chips = (sel, attr) => `<div class="area-grid" role="radiogroup" aria-label="Area of study">${AREAS.map(a => `<button type="button" class="area-chip${a.id === sel ? " on" : ""}" role="radio" aria-checked="${a.id === sel}" ${attr}="${a.id}"><b>${esc(a.name)}</b><span>${esc(a.blurb)}</span></button>`).join("")}</div>`;
+  // Each field's icon and colour
+  const IC = {
+    stem: ["#16A34A", '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/>'],
+    eng: ["#EA580C", '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/>'],
+    cs: ["#2563EB", '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'],
+    health: ["#DC2626", '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M8.5 12h2l1-2 1.5 4 1-2h1.5"/>'],
+    business: ["#0891B2", '<path d="M4 20V10M10 20V5M16 20v-7M22 20H2"/>'],
+    social: ["#7C3AED", '<circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 5.5a3 3 0 0 1 0 5.5M18 14c2 .6 3 2.3 3 5"/>'],
+    humanities: ["#B45309", '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8.5 7.5h6M8.5 11h4"/>'],
+    arts: ["#DB2777", '<path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.5-1.2-1.8-1.2-3s.9-2 2.2-2H17a4 4 0 0 0 4-4c0-4-4-7-9-7z"/><circle cx="7.5" cy="11" r="1.1"/><circle cx="10.5" cy="7" r="1.1"/><circle cx="15" cy="7.5" r="1.1"/>'],
+    education: ["#CA8A04", '<path d="M3 9.5L12 5l9 4.5-9 4.5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5"/>'],
+    law: ["#475569", '<path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/>'],
+    other: ["#4F46E5", '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>']
+  };
+  const icon = id => { const [c, d] = IC[id] || IC.other; return `<span class="area-ic" style="--ac:${c}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`; };
+  // The fields, then Something Else across the whole width: a box to type your own field straight into (picking a field above
+  // empties it; typing in it unpicks the field)
+  const chips = (sel, attr, text, boxId) => `<div class="area-grid" role="radiogroup" aria-label="Area of study">${AREAS.filter(a => a.id !== "other").map(a => `<button type="button" class="area-chip${a.id === sel ? " on" : ""}" role="radio" aria-checked="${a.id === sel}" ${attr}="${a.id}">${icon(a.id)}<span class="area-t"><b>${esc(a.name)}</b><span>${esc(a.blurb)}</span></span></button>`).join("")}
+    <label class="area-chip area-other${(text || "").trim() ? " on" : ""}">${icon("other")}<span class="area-t"><b>Something Else</b><input type="text" id="${boxId || "areaText"}" maxlength="60" value="${esc(text || "")}" placeholder="Type your major or program, e.g. Marine Biology" autocomplete="off" data-noenter aria-label="Something else: your major or program"></span></label></div>`;
   function sheet(){
     const a = get() || {id: "", text: ""};
     // one or the other: a field picked from the list, or your own typed in (saved as Something Else, tuned by the AI). Picking a
@@ -30501,21 +30528,21 @@ var SBAREA = (() => {
     const typed = !!(a.text || "").trim();
     openSheet(`<form class="sheet">${head("Area of Study")}<div class="sheet-body">
       <p class="mini" style="margin:0">Studyboard uses this to tailor task types, example tasks, typical hours and its AI helpers to your field. Change it any time.</p>
-      ${chips(typed ? "" : a.id, "data-area")}
-      <label class="f"><span class="lbl">Your Major or Program <span class="hint">optional</span></span><input type="text" id="areaText" maxlength="60" value="${esc(a.text || "")}" placeholder="e.g. Marine Biology" data-noenter></label>
+      ${chips(typed ? "" : a.id, "data-area", a.text || "", "areaText")}
       <p class="mini" style="margin:0">${aiReady() ? "Type your own field and the AI tunes task types, example tasks, typical hours and the theme to it, just like the fields above." : "Turn on AI Features in Settings and your own field is tuned the same way as the fields above."}</p>
       </div><div class="sheet-foot">${a.id ? `<button type="button" class="btn" data-area-clear>Clear</button>` : ""}<span class="spacer"></span><button type="button" class="btn primary" data-area-save ${a.id || a.text ? "" : "disabled"}>Save</button></div></form>`);
     let sel = typed ? "" : a.id;
     const form = dlg.querySelector("form"), box = form.querySelector("#areaText"), save = form.querySelector("[data-area-save]");
-    const mark = id => form.querySelectorAll(".area-chip").forEach(x => { const on = x.dataset.area === id; x.classList.toggle("on", on); x.setAttribute("aria-checked", String(on)); });
+    const mark = id => form.querySelectorAll(".area-chip[data-area]").forEach(x => { const on = x.dataset.area === id; x.classList.toggle("on", on); x.setAttribute("aria-checked", String(on)); });
     form.addEventListener("input", e => {
       if (e.target.id !== "areaText") return;
       if (e.target.value.trim() && sel) { sel = ""; mark(""); }
+      form.querySelector(".area-other").classList.toggle("on", !!e.target.value.trim());
       save.disabled = !sel && !e.target.value.trim();
     });
     form.addEventListener("click", e => {
       const b = e.target.closest("[data-area]");
-      if (b) { sel = b.dataset.area; mark(sel); box.value = ""; save.disabled = false; return; }
+      if (b) { sel = b.dataset.area; mark(sel); box.value = ""; form.querySelector(".area-other").classList.remove("on"); save.disabled = false; return; }
       if (e.target.closest("[data-area-clear]")) { set(null); dlg.close(); toast("Area of study cleared"); return; }
       if (e.target.closest("[data-area-save]")) { const t = box.value.trim(); set(t ? "other" : sel, t); dlg.close(); toast(`Area of study: ${label() || "Something else"}`); }
     });
@@ -30533,8 +30560,14 @@ var SBAREA = (() => {
 window.SBAREA = SBAREA;
 const AREA_CSS = document.createElement("style");
 AREA_CSS.textContent = `.area-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
-.area-chip{display:grid;gap:2px;text-align:left;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;min-height:56px}
-.area-chip b{font:700 .92rem var(--display)}.area-chip span{font-size:.78rem;color:var(--muted)}
+.area-chip{display:flex;align-items:center;gap:11px;text-align:left;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;min-height:56px}
+.area-t{display:grid;gap:2px;min-width:0;flex:1}
+.area-chip b{font:700 .92rem var(--display)}.area-t > span{font-size:.78rem;color:var(--muted)}
+.area-ic{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:11px;color:var(--ac);background:color-mix(in srgb,var(--ac) 14%,var(--surface))}
+.area-ic svg{width:20px;height:20px}
+.area-chip.area-other{grid-column:1/-1;cursor:text}
+.area-other input{width:100%;box-sizing:border-box;margin-top:4px;min-height:38px;border:1px solid var(--line);border-radius:9px;background:var(--field,var(--surface));padding:6px 10px;font:inherit;font-size:.9rem;color:var(--ink)}
+.area-other input:focus{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:0;border-color:var(--accent)}
 .area-chip:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .area-chip.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface));box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}`;
 document.head.appendChild(AREA_CSS);
@@ -30637,7 +30670,6 @@ document.head.appendChild(AREA_CSS);
     return `<div class="ob-logo" aria-hidden="true"></div>
       <h2 class="ob-h" id="obH" tabindex="-1">Welcome to Studyboard</h2>
       <p class="ob-lead">Your courses, deadlines and study time in one calm place. Setting up takes about a minute, and you can skip anything.</p>
-      <p class="mini ob-crash">Studyboard can send anonymous crash reports (never your tasks, notes or account details) so bugs get fixed. Turn them off any time in Settings.</p>
       <ul class="ob-points">
         <li><span class="ob-pi">${IC.board}</span><span><b>Every Deadline in One Place</b><span>See assignments, exams and labs for all your courses on a board, a timeline and a weekly schedule.</span></span></li>
         <li><span class="ob-pi">${IC.plan}</span><span><b>A Plan for Today</b><span>Today's Plan picks what to do next and fits your work into the hours you have.</span></span></li>
@@ -30651,8 +30683,7 @@ document.head.appendChild(AREA_CSS);
     return `${hero(IC.courses)}
       <h2 class="ob-h" id="obH" tabindex="-1">What Do You Study?</h2>
       <p class="ob-lead">Pick your area so Studyboard can tailor task types, example tasks, typical hours and its AI helpers to it. Change it any time in Settings.</p>
-      ${SBAREA.chips((a.text || "").trim() ? "" : a.id, "data-ob-area")}
-      <label class="f ob-area-text"><span class="lbl">Your Major or Program <span class="hint">optional</span></span><input type="text" id="obAreaText" maxlength="60" value="${esc(a.text || "")}" placeholder="e.g. Marine Biology" autocomplete="off" data-noenter></label>`;
+      ${SBAREA.chips((a.text || "").trim() ? "" : a.id, "data-ob-area", a.text || "", "obAreaText")}`;
   }
 
   const mineTask = t => t && !t.breakdownOf && !t.prepFor;
@@ -30666,17 +30697,17 @@ document.head.appendChild(AREA_CSS);
     const wait = queue.length ? `<p class="ob-queue mini">${queue.length} more syllabus${queue.length === 1 ? " is" : "i are"} waiting. Next: ${esc(queue[0].name)} <button type="button" class="link-btn" data-ob="q-next">Read It Now</button></p>` : "";
     return `${hero(IC.courses)}
       <h2 class="ob-h" id="obH" tabindex="-1">Your Courses and Deadlines</h2>
-      <p class="ob-lead">A syllabus adds the course and its dated work in one go. It's read here on your device.</p>
-      <div class="ob-src main" id="obDrop">
-        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
-        <span class="ob-alt-t"><b>Syllabus PDFs</b><span class="mini">One per course, or all at once.</span></span>
-        <button type="button" class="btn primary" data-ob="pdf">Choose PDFs</button>
-        <input type="file" id="obPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOk ? ",image/*" : ""}" aria-label="Choose syllabus PDFs">
-      </div>
-      <div class="ob-src">
+      <p class="ob-lead">Connect your school's site to bring in every course and its due dates, or add a syllabus for each course.</p>
+      <div class="ob-src main">
         <span class="ob-alt-ic" aria-hidden="true">${IC.board}</span>
         <span class="ob-alt-t"><b>Your School's Site</b><span class="mini">Brightspace, Canvas or Blackboard. Studyboard only reads from it.</span></span>
-        <button type="button" class="btn" data-ob="lms">Connect</button>
+        <button type="button" class="btn primary" data-ob="lms">Connect</button>
+      </div>
+      <div class="ob-src" id="obDrop">
+        <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
+        <span class="ob-alt-t"><b>Syllabus PDFs</b><span class="mini">One per course, or all at once. Read here on your device.</span></span>
+        <button type="button" class="btn" data-ob="pdf">Choose PDFs</button>
+        <input type="file" id="obPdf" class="sr" tabindex="-1" multiple accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain${aiOk ? ",image/*" : ""}" aria-label="Choose syllabus PDFs">
       </div>
       ${wait}
       ${list}
@@ -30685,7 +30716,7 @@ document.head.appendChild(AREA_CSS);
       <p class="ob-or" aria-hidden="true">or type a course</p>
       <div class="ob-cadd">
         <div class="ob-cfields">
-          <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. ${esc(courseEx()[0])}" autocomplete="off" data-noenter></label>
+          <div class="f ob-code"><label for="obCode">Course Code</label><span class="ob-codebox"><span class="ob-colpick" style="--c:${esc(nextColor())}" title="Course colour"><input type="color" name="obColor" value="${esc(nextColor())}" aria-label="Course colour"></span><input type="text" id="obCode" maxlength="30" placeholder="e.g. ${esc(courseEx()[0])}" autocomplete="off" data-noenter></span></div>
           <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. ${esc(courseEx()[1])}" autocomplete="off" data-noenter></label>
           <button type="button" class="btn" data-ob="add-course">Add</button>
         </div>
@@ -30952,10 +30983,10 @@ document.head.appendChild(AREA_CSS);
     form.addEventListener("change", e => {
       if (e.target.id === "obPdf") { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) queueFiles(fs); return; }
       if (e.target.id === "obIcs") { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; if (f.size > 8e6) { say("That calendar file is too big (over 8 MB)."); return; } f.text().then(t => leaveTo(() => icsImportSheet(t, f.name))).catch(() => say("Couldn't read that file.")); return; }
-      if (e.target.name === "obColor") newColor = e.target.value; if (e.target.id === "obAreaText") {
+      if (e.target.name === "obColor") { newColor = e.target.value; const d = e.target.closest(".ob-colpick"); if (d) d.style.setProperty("--c", newColor); } if (e.target.id === "obAreaText") {
         // your own field, or one from the list, never both: typing unpicks the field; emptying the box leaves nothing picked
         const a = SBAREA.get(), v = e.target.value;
-        if (v.trim()) { SBAREA.set("other", v); dlg.querySelectorAll("[data-ob-area]").forEach(x => { x.classList.remove("on"); x.setAttribute("aria-checked", "false"); }); }
+        if (v.trim()) { SBAREA.set("other", v); dlg.querySelectorAll("[data-ob-area]").forEach(x => { x.classList.remove("on"); x.setAttribute("aria-checked", "false"); }); const o = dlg.querySelector(".area-other"); if (o) o.classList.add("on"); }
         else if (a && a.text) SBAREA.set(null);
       } });
   }
@@ -31021,6 +31052,8 @@ document.head.appendChild(AREA_CSS);
     queue = queue.concat(ok).slice(0, 12);
     nextSyllabus();
   }
+  // the colour the next course gets: the one picked with the dot, else the next unused one
+  function nextColor(){ const used = coursesArr().map(c => c.color); return newColor || COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length]; }
   function nextSyllabus(){ const f = queue.shift(); if (f) leaveTo(() => importSheet("", f)); }
   // quiet: on the way to another step, so nothing is said or redrawn
   function addCourse(quiet){
@@ -31707,27 +31740,23 @@ const ERRCORE = (() => {
   // Kept to the 8 features that matter most on day one; the rest show up as students need them.
   const POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
-    {id: "welcome", title: "Welcome to Studyboard", tab: "board",
+    {id: "welcome", title: "Welcome to Studyboard!", tab: "board",
       text: () => "A one-minute tour with example courses and tasks. Skip any time."},
     {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
       text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
-    {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
+    {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".next-up", ".focus.plan", ".bview-tabs", NAV("board")],
       text: () => "What to work on next and for how long, fitted around your classes."},
-    {id: "timeline", title: "Calendar", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
+    {id: "timeline", title: "Due Dates", tab: "timeline", sel: [".tl-scroll", ".pview-tabs", NAV("plan")],
       text: () => "Every deadline on a timeline or calendar. Schedule shows your classes; Crunch shows heavy weeks ahead."},
-    {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".pview-tabs", NAV("flashcards")],
+    {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".deck-grid > .deck", ".pview-tabs", NAV("flashcards")],
       text: () => "Make decks by hand or with AI from your notes. Reviews come back at the right time."},
-    {id: "courses", title: "Courses and School Sites", tab: "courses", go: () => { ui.courseTab = ""; }, sel: [".cf-tabs", NAV("courses")],
-      text: () => "Each course keeps its classes, tasks and files. Connect your school site in Settings to bring in deadlines and grades."},
-    {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".cf-tabs", ".gp-hero", NAV("courses")],
+    {id: "notes", title: "Notes Board", tab: "notes", go: () => { ui.notesView = "board"; }, sel: ["#nbBoard", ".nb-board", NAV("notes")],
+      text: () => "Sticky notes on a corkboard, one board per course or topic. Drag them around, add stickers and pin what matters."},
+    {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".gp-hero", ".cf-tabs", NAV("courses")],
       text: () => "Your marks in each course, and what you need on the rest to hit your target."},
-    {id: "focus", title: "Focus Timer", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
-      text: () => "Short bursts of focused work with breaks between. Time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ".",
-      more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
-    {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
-      // phones have no Ctrl or Cmd key: point at the search button instead
-      text: () => phone() ? "Find anything from anywhere with the search button at the top, or Ask With AI about your material." : "Find anything from anywhere (Ctrl or Cmd K), or Ask With AI about your material."},
-    {id: "done", title: "You're Ready", tab: "board",
+    {id: "shop", title: "Style Shop", panel: "shop", has: ['nav.tabs [data-act="shop"]', '[data-act="shop"]'], sel: ["#dlg .sbh-top", "#dlg .sheet.shop"],
+      text: () => "Make Studyboard yours: themes, companions, stickers, flashcard styles and more. Open it any time from Style in the sidebar."},
+    {id: "done", title: "You're Ready! 🎉", tab: "board",
       text: () => "Add your first task and Today's Plan takes it from there. Replay this tour from Settings."}
   ];
 
@@ -31780,7 +31809,8 @@ const ERRCORE = (() => {
   const press = list => { const b = findIn(list); if (b) b.click(); };
   const PANELS = {
     pomo: {dlg: () => $("#pomoDlg"), open: () => press(POMO)},
-    search: {dlg: () => $("#sxDlg"), open: () => press(SEARCH)}
+    search: {dlg: () => $("#sxDlg"), open: () => press(SEARCH)},
+    shop: {dlg: () => dlg, open: () => styleShop()}
   };
   function closePanel(){
     if (!panel) return;
@@ -72939,7 +72969,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
         <div class="sbh-hero-t"><span class="sbh-eyebrow">Featured Collection</span><b>${esc(s.name)}</b>${what ? `<span>${esc("Comes with " + what)}</span>` : ""}
           ${inside(th)}
           <div class="sbh-hero-acts">${own ? `<button type="button" class="btn sbh-light" data-act="sbh-try" data-kind="skin" data-id="${esc(th)}">Try It On</button>${inUse("skin", th) ? `<span class="sbh-hero-p">In use</span>` : `<button type="button" class="btn sbh-ghost" data-act="shop-use" data-kind="skin" data-id="${esc(th)}">Use It</button>`}`
-            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button>${typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
+            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button>${p && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
     const sk = SKINS.find(x => x.id === cfg().skin) || SKINS[0], cp = curComp();
     const build = `<button type="button" class="sbh-build" data-act="sbh-go" data-id="look">
         <span class="sbh-build-pics" aria-hidden="true"><span class="sbh-mini">${skinPreview(sk, dark())}</span>${cp ? compPic(cp) : ""}</span>
@@ -115064,5 +115094,107 @@ ui._day = todayISO();
     }
   });
   const watch = () => mo.observe(document.body, {subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ["hidden", "open", "class"]});
+})();
+/* ===== module: 99-feature-intros.js ===== */
+/* New for you: once a week, starting a week after someone starts using Studyboard, a short popup introduces one feature
+   they haven't tried yet: the Focus Timer, then Whiteboards, then Concept Maps. One a week at most, never over another
+   sheet, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
+(() => {
+  const K_START = "studyboard:introAt", K_SEEN = "studyboard:introSeen", WEEK = 7 * 864e5;
+  const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
+  const seen = () => { try { return JSON.parse(ls(K_SEEN) || "{}") || {}; } catch (e) { return {}; } };
+  const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  const FEATURES = [
+    {id: "focus", color: "#E5533D", title: "Meet the Focus Timer",
+      icon: () => (typeof TOMATO !== "undefined" ? TOMATO : svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/>')),
+      lead: "Short bursts of focused work with breaks in between, the Pomodoro way.",
+      points: ["Pick a task and press play: 25 minutes of focus, then a 5 minute break", "Time you focus counts toward that task, so Today's Plan knows what's left", "Choose a routine, like Deep Work or Exam Cram, or make your own"],
+      // ever finished a focus session (the synced stats, else this device's count)
+      used: () => { try { return (typeof SBSTATS !== "undefined" && SBSTATS.focusSessions() > 0) || (typeof pomo !== "undefined" && !!pomo && pomo.sessions > 0); } catch (e) { return false; } },
+      go: () => { const b = document.createElement("button"); b.dataset.act = "pomo-open"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }},
+    {id: "whiteboard", color: "#0E9AA7", title: "Try a Whiteboard",
+      icon: () => svg('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21l4-4 4 4M7 13l3-3 2 2 4-4"/>'),
+      lead: "A big board to sketch, write and plan on, with markers, shapes and sticky notes.",
+      points: ["Draw out a problem, a diagram or a study plan", "Start blank or from a template, one board per course or topic", "Share with your study group"],
+      // ever made a whiteboard and drawn on it
+      used: () => { try { return Object.values(state.notes || {}).some(n => n && n.wb && ((n.wbInk || []).length || (n.wbItems || []).length)); } catch (e) { return false; } },
+      go: () => { ui.tab = "notes"; ui.notesView = "wb"; try { localStorage.setItem("studyboard:notesView", "wb"); } catch (e) {} render(); window.scrollTo(0, 0); }},
+    {id: "maps", color: "#7C3AED", title: "See It All With Concept Maps",
+      icon: () => svg('<rect x="2.5" y="10" width="7" height="5" rx="2.5"/><rect x="14.5" y="4" width="7" height="5" rx="2.5"/><rect x="14.5" y="15" width="7" height="5" rx="2.5"/><path d="M9.5 12.5c2.5 0 2.5-6 5-6M9.5 12.5c2.5 0 2.5 5 5 5"/>'),
+      lead: "Map how a course fits together, from the notes, decks and exam topics you've already linked.",
+      points: ["Studyboard builds a first map for you, ready to rearrange", "Link ideas to cards, notes and lecture moments", "Quiz yourself by hiding labels and filling them back in"],
+      // ever made a concept map or added an idea to one
+      used: () => { try { const has = x => !!x && typeof x === "object" && ((x.add || []).length > 0); return Object.values(state.courses || {}).some(c => c && ((Array.isArray(c.maps) && c.maps.length) || has(c.cmap))) || Object.values(state.tasks || {}).some(t => t && has(t.cmap)); } catch (e) { return false; } },
+      go: () => { ui.tab = "flashcards"; ui.rvView = "maps"; render(); window.scrollTo(0, 0); }}
+  ];
+  // The one due now: week n after the start brings the nth feature not seen yet (skipping ones already in use)
+  function due(now){
+    const t = now || Date.now(), start = Number(ls(K_START)) || 0; if (!start) return null;
+    const s = seen(), weeks = Math.floor((t - start) / WEEK);
+    // each popup shown uses up a week (a feature already in use is skipped without one), and a week passes between popups
+    const shownAt = Object.values(s).filter(x => x && x.at).map(x => x.at), last = shownAt.length ? Math.max(...shownAt) : 0;
+    if (last && t - last < WEEK - 3600e3) return null;
+    if (weeks < shownAt.length + 1) return null;
+    for (const f of FEATURES) {
+      if (s[f.id]) continue;
+      if (f.used()) { s[f.id] = {skipped: true}; ls(K_SEEN, JSON.stringify(s)); continue; }
+      return f;
+    }
+    return null;
+  }
+  function html(f, i){
+    return `<div class="sheet fi-sheet" style="--fc:${f.color}">
+      <div class="fi-hero"><button type="button" class="icon-btn fi-x" data-fi="later" aria-label="Close">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button><span class="fi-ic">${f.icon()}</span></div>
+      <div class="sheet-body fi-body">
+        <span class="fi-eyebrow">New for You</span>
+        <h2 class="fi-t">${esc(f.title)}</h2>
+        <p class="fi-lead">${esc(f.lead)}</p>
+        <ul class="fi-pts">${f.points.map(p => `<li><span class="fi-tick" aria-hidden="true">${svg('<path d="M5 12.5l4.2 4.2L19 7"/>')}</span><span>${esc(p)}</span></li>`).join("")}</ul>
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-fi="later">Maybe Later</button><span class="spacer"></span><button type="button" class="btn primary fi-go" data-fi="go">Try It</button></div></div>`;
+  }
+  function show(f){
+    const i = FEATURES.indexOf(f), s = seen(); s[f.id] = {at: Date.now()}; ls(K_SEEN, JSON.stringify(s));
+    openSheet(html(f, i));
+    const sheet = dlg.querySelector(".fi-sheet"); if (!sheet) return;
+    sheet.addEventListener("click", e => {
+      const b = e.target.closest("[data-fi]"); if (!b) return;
+      e.preventDefault(); dlg.close();
+      if (b.dataset.fi === "go") setTimeout(() => { try { f.go(); } catch (x) { console.warn(x); } }, 60);
+    });
+    const go = sheet.querySelector(".fi-go"); if (go) try { go.focus({preventScroll: true}); } catch (e) {}
+  }
+  // Quietly, a little after the app opens and only when nothing else is open
+  let tries = 0;
+  function check(){
+    if (!ls("sb:onboarded") && !ls("studyboard:tour")) return;
+    if (!ls(K_START)) { ls(K_START, String(Date.now())); return; }
+    if (dlg.open || document.querySelector("dialog[open]") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 6) setTimeout(check, 20000); return; }
+    const f = due(); if (f) show(f);
+  }
+  hook("boot", () => setTimeout(check, 8000));
+  window.SBINTROS = {due, show: id => { const f = FEATURES.find(x => x.id === id); if (f) show(f); }, list: () => FEATURES.map(f => f.id)};
+
+  const css = document.createElement("style");
+  css.textContent = `
+dialog:has(> .fi-sheet){width:min(440px,calc(100% - 32px))!important;max-width:440px!important}
+.fi-sheet{width:100%;overflow:hidden}
+.fi-hero{position:relative;display:grid;place-items:center;height:150px;background:radial-gradient(120% 120% at 50% 0%,color-mix(in srgb,var(--fc) 34%,var(--surface)),color-mix(in srgb,var(--fc) 12%,var(--surface)) 70%)}
+.fi-hero::before,.fi-hero::after{content:"";position:absolute;border-radius:50%;background:color-mix(in srgb,var(--fc) 18%,transparent)}
+.fi-hero::before{width:120px;height:120px;left:-30px;top:-40px}.fi-hero::after{width:90px;height:90px;right:-20px;bottom:-30px}
+.fi-ic{position:relative;z-index:1;display:grid;place-items:center;width:84px;height:84px;border-radius:26px;background:var(--surface);color:var(--fc);box-shadow:0 10px 26px color-mix(in srgb,var(--fc) 30%,transparent)}
+.fi-ic svg{width:44px!important;height:44px!important}
+.fi-x{position:absolute;top:12px;right:12px;z-index:2;background:color-mix(in srgb,var(--surface) 80%,transparent)!important}
+.fi-body{display:grid;gap:8px;padding:18px 22px 6px!important;text-align:center;justify-items:center}
+.fi-eyebrow{font:800 .72rem/1 var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--fc)}
+.fi-t{margin:2px 0 0;font:800 1.45rem/1.2 var(--display)}
+.fi-lead{margin:0;color:var(--muted);max-width:34ch}
+.fi-pts{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:9px;text-align:left;width:100%}
+.fi-pts li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--fc) 7%,var(--surface));font-size:.92rem}
+.fi-tick{flex:none;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--fc);color:#fff;margin-top:1px}
+.fi-tick svg{width:14px;height:14px;stroke-width:3}
+.fi-sheet .sheet-foot .fi-go{background:var(--fc)!important;border-color:var(--fc)!important;color:#fff!important;min-width:120px}
+`;
+  document.head.appendChild(css);
 })();
 })();

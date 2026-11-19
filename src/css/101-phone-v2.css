@@ -288,6 +288,8 @@
   #view > .pg-rwrap{position:relative;height:0;margin:0!important;padding:0}
   #view > .pg-rwrap > .pg-right{position:absolute;inset-inline-end:0;bottom:calc(100% + 16px);align-items:flex-end;flex-wrap:nowrap;z-index:2}
   #view > .pg-rwrap + *{margin-top:0!important}
+  #view > .pg-rwrap.pg-below{height:auto;margin:-4px 0 12px!important}
+  #view > .pg-rwrap.pg-below > .pg-right{position:static;justify-content:flex-end;flex-wrap:wrap}
 }
 #view .tl-controls.tl-tools > :not(.pro-tab-btn) + .pro-tab-btn{margin-inline-start:auto}
 /* Task Board: the tab line runs the full width, Group By sits on it like the other page buttons */
@@ -784,3 +786,7 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 .dtl-c.ev{border:1px solid color-mix(in srgb,var(--c) 40%,var(--line));border-left:4px solid var(--c)}
 .dtl-c.ev:is(.now,.next){box-shadow:none;border:2px solid var(--c);border-left-width:5px;padding-left:9px}
 .dtl-c.tk:is(.now,.next){box-shadow:none;border:2px solid var(--c,var(--accent))}
+
+/* Where the page's buttons would cover the tabs, the tabs use their short names */
+#view.pg-short .rv-tabs .rv-long{display:none}
+#view.pg-short .rv-tabs .rv-short{display:inline}

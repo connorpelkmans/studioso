@@ -29,7 +29,7 @@ const day = k => { const d = new Date(); d.setDate(d.getDate() + k); return d.to
     /* Skip Setup */
     {
       const {ctx, page} = await fresh();
-      ok(/about a minute/.test(await page.textContent(".sb-welc")) && /crash reports/.test(await page.textContent(".sb-welc")), "Mochi's welcome says how long setup takes and mentions crash reports");
+      ok(/about a minute/.test(await page.textContent(".sb-welc")) && !/crash reports|Custom Server/.test(await page.textContent(".sb-welc")), "Mochi's welcome says how long setup takes, with no crash report or server note");
       await page.click('dialog[open] .sheet-head [data-act="close"]'); await page.waitForSelector(".sheet.ob", {timeout: 10000});
       ok(await page.getAttribute(".sheet.ob", "data-step") === "area" && /Step 1 of 3/.test(await page.textContent(".ob-count")), "setup starts at step 1 of 3, What Do You Study");
       await page.click('[data-ob="skip"]'); await page.waitForTimeout(300);

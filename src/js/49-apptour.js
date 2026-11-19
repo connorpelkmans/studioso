@@ -14,27 +14,23 @@
   // Kept to the 8 features that matter most on day one; the rest show up as students need them.
   const POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
-    {id: "welcome", title: "Welcome to Studyboard", tab: "board",
+    {id: "welcome", title: "Welcome to Studyboard!", tab: "board",
       text: () => "A one-minute tour with example courses and tasks. Skip any time."},
     {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
       text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
-    {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".bview-tabs", ".focus.plan", NAV("board")],
+    {id: "today", title: "Today's Plan", tab: "board", go: () => { ui.bview = "plan"; }, sel: [".next-up", ".focus.plan", ".bview-tabs", NAV("board")],
       text: () => "What to work on next and for how long, fitted around your classes."},
-    {id: "timeline", title: "Calendar", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
+    {id: "timeline", title: "Due Dates", tab: "timeline", sel: [".tl-scroll", ".pview-tabs", NAV("plan")],
       text: () => "Every deadline on a timeline or calendar. Schedule shows your classes; Crunch shows heavy weeks ahead."},
-    {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".pview-tabs", NAV("flashcards")],
+    {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".deck-grid > .deck", ".pview-tabs", NAV("flashcards")],
       text: () => "Make decks by hand or with AI from your notes. Reviews come back at the right time."},
-    {id: "courses", title: "Courses and School Sites", tab: "courses", go: () => { ui.courseTab = ""; }, sel: [".cf-tabs", NAV("courses")],
-      text: () => "Each course keeps its classes, tasks and files. Connect your school site in Settings to bring in deadlines and grades."},
-    {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".cf-tabs", ".gp-hero", NAV("courses")],
+    {id: "notes", title: "Notes Board", tab: "notes", go: () => { ui.notesView = "board"; }, sel: ["#nbBoard", ".nb-board", NAV("notes")],
+      text: () => "Sticky notes on a corkboard, one board per course or topic. Drag them around, add stickers and pin what matters."},
+    {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".gp-hero", ".cf-tabs", NAV("courses")],
       text: () => "Your marks in each course, and what you need on the rest to hit your target."},
-    {id: "focus", title: "Focus Timer", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
-      text: () => "Short bursts of focused work with breaks between. Time counts toward the task" + (STREAK_HIDDEN ? "" : " and your streak") + ".",
-      more: {label: "How the Pomodoro Method Works", html: POMO_HOW}},
-    {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
-      // phones have no Ctrl or Cmd key: point at the search button instead
-      text: () => phone() ? "Find anything from anywhere with the search button at the top, or Ask With AI about your material." : "Find anything from anywhere (Ctrl or Cmd K), or Ask With AI about your material."},
-    {id: "done", title: "You're Ready", tab: "board",
+    {id: "shop", title: "Style Shop", panel: "shop", has: ['nav.tabs [data-act="shop"]', '[data-act="shop"]'], sel: ["#dlg .sbh-top", "#dlg .sheet.shop"],
+      text: () => "Make Studyboard yours: themes, companions, stickers, flashcard styles and more. Open it any time from Style in the sidebar."},
+    {id: "done", title: "You're Ready! 🎉", tab: "board",
       text: () => "Add your first task and Today's Plan takes it from there. Replay this tour from Settings."}
   ];
 
@@ -87,7 +83,8 @@
   const press = list => { const b = findIn(list); if (b) b.click(); };
   const PANELS = {
     pomo: {dlg: () => $("#pomoDlg"), open: () => press(POMO)},
-    search: {dlg: () => $("#sxDlg"), open: () => press(SEARCH)}
+    search: {dlg: () => $("#sxDlg"), open: () => press(SEARCH)},
+    shop: {dlg: () => dlg, open: () => styleShop()}
   };
   function closePanel(){
     if (!panel) return;
