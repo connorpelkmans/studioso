@@ -42,7 +42,7 @@
 .rv-card,.rv-fan .face.rv-f,.rv-board,.rv-stamp{will-change:transform,translate;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 /* the footer, as on a concept map card */
 .rv-foot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px 14px}
-.rv-info{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:0;margin:0;border:0;background:none;text-align:start;cursor:pointer;color:inherit;font:inherit}
+.rv-info{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:0;margin:0;border:0;background:none;text-align:start;cursor:pointer;color:inherit;font:inherit;margin-top:auto}
 .rv-title{font:700 1rem/1.25 var(--display);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 /* the buttons sit along the bottom, with the due count or score beside them, so the title gets the whole width above */
 .rv-row{display:flex;align-items:center;gap:6px;margin-top:auto}

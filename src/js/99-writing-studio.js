@@ -3266,7 +3266,7 @@ svg.ws-zic{display:block;flex:none}
 .wsr-foot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px 14px}
 .wsr-row{display:flex;align-items:center;gap:10px;margin-top:auto}
 .wsr-sub{flex:1 1 auto;min-width:0;display:grid;gap:2px;color:var(--muted)}
-.wsr-main{border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:grid;gap:2px}
+.wsr-main{border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:grid;gap:2px;margin-top:auto}
 @media (prefers-reduced-motion:reduce){.wsr-page{transition:none}.wsr-card:hover .wsr-page{translate:none}}
 .wsr-t{font-weight:700;font-size:1rem;line-height:1.25;word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .wsr-l.bad{color:#B42318}
