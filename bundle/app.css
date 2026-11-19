@@ -8843,6 +8843,8 @@ dialog > .sheet:has(> :is(.occv-band,.g2-sheet-head):first-child){border-radius:
 .es-ring{fill:var(--bg);stroke:color-mix(in srgb,var(--ink) 40%,var(--surface));stroke-width:1.8}
 .es-cell{fill:color-mix(in srgb,var(--ink) 9%,var(--surface))}.es-circle{fill:none;stroke:var(--late);stroke-width:2.2}.es-dot{fill:color-mix(in srgb,var(--ink) 30%,var(--surface))}.es-band{fill:#fff;opacity:.45}.es-cardfill{fill:var(--surface)}
 .es-pole{stroke:color-mix(in srgb,var(--ink) 40%,var(--surface));stroke-width:2;stroke-linecap:round}
+.es-link{fill:none;stroke:color-mix(in srgb,var(--accent) 50%,var(--surface));stroke-width:2.6;stroke-linecap:round}
+.es-q{fill:#fff;font:800 38px/1 Georgia,"Times New Roman",serif}
 .es-txt{fill:var(--accent);font:800 34px/1 var(--display,system-ui),system-ui,sans-serif}
 .es-folder{fill:#F7DE8E}.es-folder-b{fill:#FBEBB8}
 .es-sy{fill:#FBE38B}.es-sp{fill:#F9C1CF}.es-sb{fill:#BFDDF8}.es-sline{fill:#000;opacity:.12}

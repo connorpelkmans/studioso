@@ -11099,6 +11099,18 @@ function emptyArt(kind){
       ${[66, 88, 112, 134].map(x => `<rect class="es-ring" x="${x - 3}" y="12" width="6" height="16" rx="3"/>`).join("")}
       ${[0, 1, 2].map(r => [0, 1, 2, 3, 4, 5].map(c => { const k = r * 6 + c; return `<rect class="${k === 4 ? "es-acc" : k === 9 ? "es-gold" : k === 13 ? "es-ok" : "es-cell"}" x="${52 + c * 17}" y="${52 + r * 16}" width="12" height="10" rx="3"/>`; }).join("")).join("")}
       <circle class="es-circle" cx="58" cy="57" r="10"/>${star(176, 34, 7, "es-star")}${star(24, 30, 5, "es-star2")}`,
+    maps: () => `<path class="es-link" d="M84 40Q60 40 52 28M84 40Q66 52 54 70M116 40Q140 40 150 26M116 40Q136 52 148 70"/>
+      <rect class="es-card" x="18" y="16" width="48" height="22" rx="11"/><rect class="es-line" x="28" y="25" width="28" height="4" rx="2"/>
+      <rect class="es-okf" x="22" y="60" width="50" height="22" rx="11"/><rect class="es-band" x="32" y="69" width="30" height="4" rx="2"/>
+      <rect class="es-card" x="134" y="14" width="48" height="22" rx="11"/><rect class="es-line" x="144" y="23" width="28" height="4" rx="2"/>
+      <rect class="es-goldsoft" x="128" y="60" width="50" height="22" rx="11"/><rect class="es-band" x="138" y="69" width="30" height="4" rx="2"/>
+      <rect class="es-hl" x="70" y="27" width="60" height="26" rx="13"/><rect class="es-band" x="84" y="38" width="32" height="5" rx="2.5"/>
+      ${star(176, 104, 6, "es-star")}${star(24, 104, 5, "es-star2")}`,
+    papers: () => `<g transform="rotate(-4 100 52)"><rect class="es-card" x="62" y="8" width="78" height="92" rx="9"/><rect class="es-hl2" x="72" y="20" width="38" height="7" rx="3.5"/>
+      <rect class="es-line" x="72" y="35" width="58" height="4" rx="2"/><rect class="es-line" x="72" y="45" width="50" height="4" rx="2"/><rect class="es-line" x="72" y="55" width="56" height="4" rx="2"/><rect class="es-line" x="72" y="65" width="40" height="4" rx="2"/></g>
+      <rect class="es-hl" x="20" y="34" width="46" height="34" rx="11"/><path class="es-hl" d="M54 66l8 12l-18-12z"/><text class="es-q" x="43" y="66" text-anchor="middle">\u201C</text>
+      <rect class="es-okf" x="136" y="52" width="48" height="24" rx="12"/><circle class="es-ok" cx="149" cy="64" r="7"/>${tick(149, 64.5, 3)}<rect class="es-band" x="160" y="62" width="16" height="4" rx="2"/>
+      ${star(172, 26, 7, "es-star")}${star(28, 104, 5, "es-star2")}`,
     pages: () => `<g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
     <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>${stars()}`
   };
@@ -107318,7 +107330,7 @@ function reviewHtml(){
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}
     ${list.length ? `${started.length ? `<ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
-      : `<div class="empty" style="margin-top:14px"><strong>No papers yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
+      : `<div class="empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("papers") : ""}<strong>No Papers Yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
 }
 // Today's Plan: on the due date or the day before, a saved draft that hasn't been checked since it changed gets one gentle row
 function planNote(inView){
@@ -110542,7 +110554,7 @@ function listHtml(){
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
+    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
 if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
