@@ -124,7 +124,8 @@ What made ours read as ads: dramatic orchestral music with hits, sound effects o
 2. **The product is just there**: the real app's screen recording, with its own logo in its own header. That's the whole pitch. One small line later at most ("free btw").
 3. **Music only**: a calm or trending track, no sound effects. Best of all, post with a trending sound picked in the Instagram app.
 4. **Entertainment posts**: one stock shot plus one static text block (`statusBar: false`).
-5. No end card, no lockup, no "link in bio" on screen. The caption carries the link and the CTA.
+5. **Readable payoff at frame 0; hook ≤ 10 words; 6 s.** From the first native post: 4 s average watch was exactly the reading time of a 14-word hook, and the answer (79.9%) only scrolled into view after people had left. Record the app at `"vw": 360, "dsf": 3` so its UI reads about 20% bigger, and start on the screen that already shows the answer.
+6. No end card, no lockup, no "link in bio" on screen. The caption carries the link and the CTA.
 
 ## Short format (Nov 18, 2026; superseded by "Native, not an ad" for most posts)
 

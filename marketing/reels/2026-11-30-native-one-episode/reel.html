@@ -42,9 +42,7 @@ document.fonts.load("600 52px Inter");
 const $ = id => document.getElementById(id);
 let REEL = {};
 /* ===== NATIVE JS ===== */
-// One shot, one static text block, music only: the format the biggest student outliers used.
-REEL = {end: 7.5, cover: .3, y: 300, statusBar: false,
-  text: "“just one episode then i'll study”<br>me at 2:31am with a final at 8 am"};
+REEL = {end: 6.0, cover: .3, y: 300, statusBar: false, text: "2:31am. final at 8.<br>“just one episode” 🙂"};
 /* ===== /NATIVE JS ===== */
 const R = Object.assign({end: 7.5, cover: .3, y: 330, text: "", later: [], statusBar: true, time: "9:41"}, REEL);
 $("txtB").innerHTML = R.text; $("txt").style.top = R.y + "px"; $("sbt").textContent = R.time; $("sb").style.display = R.statusBar ? "flex" : "none";

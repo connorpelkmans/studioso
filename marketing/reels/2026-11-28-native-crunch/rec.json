@@ -1,1 +1,1 @@
-{"vh": 744, "tab": "plan", "steps": [{"press": "Crunch"}, {"hold": 0.5}, {"scroll": "window", "to": 560, "dur": 4.0}, {"hold": 3.0}]}
+{"vw": 360, "vh": 620, "dsf": 3, "tab": "plan", "steps": [{"press": "Crunch"}, {"scroll": "window", "to": 70, "dur": 0.04}, {"hold": 2.6}, {"scroll": "window", "to": 520, "dur": 2.4}, {"hold": 1.0}]}

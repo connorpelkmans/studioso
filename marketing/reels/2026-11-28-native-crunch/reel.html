@@ -42,9 +42,8 @@ document.fonts.load("600 52px Inter");
 const $ = id => document.getElementById(id);
 let REEL = {};
 /* ===== NATIVE JS ===== */
-REEL = {end: 7.5, cover: .3, y: 270,
-  text: "pov: your planner warns you which week is going to be rough before it even starts",
-  later: [[3.6, "it's free btw", 1520]]};
+// v2 after the first native post (4 s average watch): a 7-word hook, the payoff (Heavy · 23h) readable at frame 0, 6 s total.
+REEL = {end: 6.0, cover: .3, y: 250, text: "pov: your planner saw this week coming 😭", later: [[2.8, "free btw", 1560]]};
 /* ===== /NATIVE JS ===== */
 const R = Object.assign({end: 7.5, cover: .3, y: 330, text: "", later: [], statusBar: true, time: "9:41"}, REEL);
 $("txtB").innerHTML = R.text; $("txt").style.top = R.y + "px"; $("sbt").textContent = R.time; $("sb").style.display = R.statusBar ? "flex" : "none";

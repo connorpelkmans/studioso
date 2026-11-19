@@ -18,7 +18,7 @@ const FPS = 30; let n = 0;
 const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 (async () => {
   await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath});
-  const ctx = await browser.newContext({viewport: {width: 432, height: spec.vh || 768}, deviceScaleFactor: 2.5, isMobile: true, hasTouch: true, colorScheme: spec.scheme || "light", serviceWorkers: "block",
+  const ctx = await browser.newContext({viewport: {width: spec.vw || 432, height: spec.vh || 768}, deviceScaleFactor: spec.dsf || 2.5, isMobile: true, hasTouch: true, colorScheme: spec.scheme || "light", serviceWorkers: "block",
     userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"});
   await ctx.clock.setFixedTime(NOW);
   const seed = JSON.parse(JSON.stringify(SEED)); seed.settings.style = {skin: spec.skin || "classic"}; seed.settings.owned = ["skin:" + (spec.skin || "classic")];
