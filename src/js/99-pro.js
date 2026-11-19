@@ -5117,7 +5117,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       const on = async e => {
         if (e.origin !== location.origin || e.source !== w) return;
         const m = e.data; if (!m) return;
-        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files === "gdoc" ? "gdoc" : files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
+        if (m.sbPicker === "ready") { try { const access = await token("google"); w.postMessage({sbPicker: "go", token: access, key: pk.key, appId: pk.appId, mode: files === "gdoc" ? "gdoc" : files === "gslides" ? "gslides" : files ? "files" : "folder"}, location.origin); } catch (err) { try { w.close(); } catch (x) {} end(reject, err); } }
         else if (m.sbPicker === "done" && files && Array.isArray(m.docs)) end(resolve, m.docs.slice(0, 20).filter(d => d && d.id).map(d => ({id: String(d.id), name: String(d.name || "File").slice(0, 200), type: String(d.mimeType || ""), url: /^https:\/\//.test(String(d.url || "")) ? String(d.url) : "", size: Number(d.size) || 0})));
         else if (m.sbPicker === "done" && m.id) end(resolve, {id: String(m.id), name: String(m.name || "Folder").slice(0, 120)});
         else if (m.sbPicker === "cancel") end(resolve, null);
@@ -5415,9 +5415,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const pickFiles = () => pickGoogleFolder(true);
   // Writing Studio's linked document: one Google Doc picked in Google's window (drive.file covers it), and calls to Google's and Microsoft's APIs
   const pickGoogleDoc = () => pickGoogleFolder("gdoc").then(d => Array.isArray(d) ? d[0] || null : d);
+  // Presentation practice: one Google Slides deck, picked the same way
+  const pickGoogleSlides = () => pickGoogleFolder("gslides").then(d => Array.isArray(d) ? d[0] || null : d);
   const docApi = (p, url, init, mode) => api(p, url, init, mode);
   const pickerApp = () => { try { return String((cache().picker || {}).appId || ""); } catch (e) { return ""; } };
-  window.SBCLOUD = {canPickFiles, pickFiles, pickGoogleDoc, docApi, pickerApp, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  window.SBCLOUD = {canPickFiles, pickFiles, pickGoogleDoc, pickGoogleSlides, docApi, pickerApp, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
