@@ -142,12 +142,6 @@ const FAKE = me => {
   // the task sheet links to its presentation
   const th = await A.evaluate(() => window.SBPRESENT.taskHtml(window.__sbSync.state.tasks.t1));
   ok(/Teen Sleep Talk/.test(th) && /pr-practise/.test(th) && /shared with Sleep Project/.test(th), "the task sheet links to its presentation");
-  // the group's Shared tab lists it with everyone's progress
-  await A.evaluate(() => { const S = window.__sbSync; if (document.querySelector("#prStage")) document.querySelector("#prStage").remove(); S.ui.tab = "flashcards"; S.ui.rvView = "present"; S.render(); });
-  await A.waitForTimeout(400);
-  const gsec = await A.evaluate(async () => { await window.SBPRESENT._groups.load(true); const h = window.SBPRESENT._groups.secHtml("g1"); const el = document.createElement("section"); el.className = "card grp-sec prg-gsec"; el.style.cssText = "margin:16px 0;max-width:640px"; el.innerHTML = h; document.querySelector("#view").prepend(el); return el.textContent; });
-  ok(/Teen Sleep Talk/.test(gsec) && /Maya ✓|Maya/.test(gsec) && /Sam/.test(gsec), "the group's Shared tab lists the presentation and each speaker's progress: " + gsec.replace(/\s+/g, " ").slice(0, 160));
-  await A.screenshot({path: OUT + "-groupsec.png"});
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log("present-groups.e2e: done" + (process.exitCode ? "" : ", all passed"));

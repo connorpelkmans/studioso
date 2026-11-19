@@ -112820,7 +112820,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
    - Everyone sees the team's progress: each member's latest practice of their own section against their target ("presrun").
    - Rehearse Together: one person leads a live rehearsal ("preslive", with a secret only the group can read) and the others
      follow on their own devices; the run goes into everyone's history.
-   - The group's Shared tab lists its presentations; Today's Plan suggests practising before a linked task is due; a task's
+   - Today's Plan suggests practising before a linked task is due; a task's
      sheet offers its presentation. */
 (() => {
   const PS = window.SBPRESENT; if (!PS || !PS.px) return;
@@ -112860,7 +112860,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     try { await C.busy; } finally { C.busy = null; }
     const sig = C.items.map(i => i.id + i.updated_at).join("|");
     const changed = sig !== C.sig; C.sig = sig;
-    if (changed) { X.rerenderList(); fillSecs(); X.refreshReady(); }
+    if (changed) { X.rerenderList(); X.refreshReady(); }
     return changed;
   }
   // a linked copy follows the group's plan, speakers and name (unless it's your own)
@@ -113133,25 +113133,6 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (!p && !it.data.path) toast("Add your copy of the slides, then you'll join the rehearsal.");
   }
 
-  /* ---------- the group's Shared tab ---------- */
-  hook("grp-boards", g => {
-    if (!g || !g.id) return "";
-    load().catch(() => {});
-    return `<section class="card grp-sec prg-gsec" data-prg="${esc(g.id)}">${secHtml(g.id)}</section>`;
-  });
-  function secHtml(gid){
-    const list = pres().filter(it => it.group_id === gid);
-    const rows = list.map(it => {
-      const p = localOf(it.id), live = liveOf(it.id), d = it.data, sp = Array.isArray(d.sp) ? d.sp : [];
-      const prog = sp.map(s => { const r = runsOf(it.id).find(x => x.user_id === s.id), rd = r && r.data, ok = rd && rd.b ? rd.t <= rd.b * 1.1 + 3000 : false; return `<span class="prg-chip ${rd ? (ok ? "ok" : "warn") : ""}" style="--sp:${esc(okColor(s.c) || "#7A8494")}" title="${esc(rd ? `${X.fmt(rd.t)} of ${X.fmt(rd.b)}` : "Not practised yet")}"><i></i>${esc(str(s.name, 20))}${rd ? (ok ? " ✓" : " " + X.fmt(rd.t)) : ""}</span>`; }).join("");
-      const act = live && live.user_id !== me() ? `<button type="button" class="btn small primary" data-act="prg-join" data-id="${esc(live.id)}">Join Live</button>`
-        : p ? `<button type="button" class="btn small primary" data-act="pr-practise" data-id="${esc(p.id)}">Practise</button>` : `<button type="button" class="btn small primary" data-act="prg-add" data-id="${esc(it.id)}">${d.path ? "Add" : "Add My Copy"}</button>`;
-      return `<li class="prg-gi"><div class="prg-gi-t"><b>${esc(it.title)}</b>${live ? `<span class="prg-badge live sm">Live now</span>` : ""}<span class="mini">${Number(d.slides) || "?"} slides · target ${X.fmt((Number(d.plan && d.plan.target) || 0) * 1000)}${d.due ? ` · due ${esc(fmtShort(d.due))}` : ""} · shared by ${esc(it.user_id === me() ? "you" : it.author_name || "a member")}</span><span class="prg-chips">${prog}</span></div>${act}</li>`;
-    }).join("");
-    return `<h3 class="fsec">Presentations</h3>${rows ? `<ul class="prg-glist">${rows}</ul>` : `<p class="empty mini">Share a presentation from Review, Presentations, and everyone can practise their part, see the team's progress and rehearse together.</p>`}`;
-  }
-  function fillSecs(){ document.querySelectorAll(".prg-gsec[data-prg]").forEach(el => { const h = secHtml(el.dataset.prg); if (el.innerHTML !== h) el.innerHTML = h; }); }
-
   /* ---------- Today's Plan and tasks ---------- */
   const dueOf = p => { const t = p.taskId && state.tasks[p.taskId]; return t && t.status !== "done" ? t.due : p.due || ""; };
   hook("pr-today", () => {
@@ -113183,11 +113164,11 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     }
     return false;
   });
-  if (window.__SB_TEST) PS._groups = {secHtml, load, items: () => C.items, slimPptx, mediaBytes};
+  if (window.__SB_TEST) PS._groups = {load, items: () => C.items, slimPptx, mediaBytes};
   setInterval(() => {
     if (document.hidden || !online()) return;
-    const onList = ui.tab === "flashcards" && ui.rvView === "present", onGroups = ui.tab === "groups" && document.querySelector(".prg-gsec"), ready = X.stage() && !X.stage().started && X.stage().p.share;
-    if (onList || onGroups || ready) load(true).catch(() => {});
+    const onList = ui.tab === "flashcards" && ui.rvView === "present", ready = X.stage() && !X.stage().started && X.stage().p.share;
+    if (onList || ready) load(true).catch(() => {});
   }, 20000);
 })();
 /* ===== module: 99-concept-map-groups.js ===== */
