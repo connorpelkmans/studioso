@@ -10205,6 +10205,23 @@ button.pr-stat{cursor:pointer}
 .pr-vadd-in select,.pr-vadd-in input{padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font:inherit;width:80px}
 .pr-vadd-in select option{color:#111}
 @media (prefers-reduced-motion:reduce){.pr-slide .ofc-a>*,.pr-slide .ofc-p{transition:none}}
+
+/* ===== Canva in the add sheet ===== */
+@media (min-width:521px){.pr-src{grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}}
+.pr-srcb.on{border-color:#7D2AE8;box-shadow:0 0 0 3px color-mix(in srgb,#7D2AE8 18%,transparent)}
+.pr-canva{display:grid;gap:10px;padding:12px;border-radius:14px;border:1px solid var(--line);background:var(--field)}
+.pr-cv-h{display:flex;align-items:center;gap:8px}.pr-cv-h .mini{margin-left:auto}
+.pr-cv-find{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pr-cv-find input{min-width:0;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+.pr-cv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;max-height:300px;overflow:auto;padding:2px}
+.pr-cv-i{display:grid;gap:4px;padding:6px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer}
+.pr-cv-i:hover,.pr-cv-i:focus-visible{border-color:#7D2AE8}
+.pr-cv-i b{font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr-cv-th{display:block;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.pr-cv-th img{width:100%;height:100%;object-fit:cover;display:block}
+.pr-cv-how summary{cursor:pointer;font-size:.85rem;font-weight:700}
+@media (max-width:520px){.pr-cv-find{grid-template-columns:1fr}}
+.pr-canva>.btn{justify-self:start}
 /* ===== module: 99-shop-home.css ===== */
 /* The Style Shop's front: Shop home, Yours, Build Your Look, and the way back from a See All page */
 .sheet.shop.sbh-on .shop-rail{display:none}

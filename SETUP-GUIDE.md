@@ -783,6 +783,30 @@ Checks without any network: `node --experimental-strip-types supabase-functions/
 
 ---
 
+## Canva (presentation practice)
+
+**Practise a Presentation > Canva** lists a student's Canva designs (searchable; a pasted Canva link works too). The one they pick comes in like Google Slides: a PDF export for exactly how it looks, plus a PowerPoint export for its speaker notes, its clicks (counted) and its videos' lengths. **Get Latest From Canva** fetches it again. Without a connection, or when it isn't set up, the sheet tells the student how to download the design from Canva (Share, Download, PDF Standard or PPTX) and upload it.
+
+Canva's API only answers servers, so the `cloud-files` function does the work: it keeps the sign-in (encrypted, like Google and Microsoft), lists designs and runs the exports with the student's own token, and passes the file back. The browser never gets a Canva token. Scopes are read only: `design:meta:read`, `design:content:read`, `profile:read` (the name on the "Connect?" page).
+
+### One-time setup
+
+1. **Database:** run `supabase-cloud.sql` again (it allows the `canva` provider), then `supabase-lean.sql` again.
+2. **Canva integration:** at [canva.com/developers](https://www.canva.com/developers/integrations/connect-api), **Create an integration** (a Public one, so any Canva user can connect). Under **Scopes**, tick **design:meta** (read), **design:content** (read) and **profile** (read). Under **Authentication**, add the same `cloud-files` return address as Google and Microsoft (your site's `/functions/v1/cloud-files`). Generate a client secret.
+3. **Secrets** (Edge Functions > Secrets): `CANVA_CLIENT_ID` and `CANVA_CLIENT_SECRET`. Redeploy `cloud-files` if it doesn't pick them up.
+4. **Review:** a Public integration works for your own Canva team straight away; Canva reviews it before other people can connect. Until then, students see "Connect Canva" fail with Canva's own message, and can still download and upload.
+5. **Try it:** signed in, **Review > Presentations > Add Presentation > Canva > Connect Canva**, finish in Canva, come back, and pick a design.
+
+Checks without any network: `node --experimental-strip-types supabase-functions/tools/test-cloud-files.mjs` (Canva's sign-in with PKCE, single-use refresh tokens, designs and exports), and in the browser `node tests/present-canva.e2e.js`.
+
+| What you see | What to do |
+|---|---|
+| "Connecting Canva isn't set up on this Studyboard server yet" | Step 3: `CANVA_CLIENT_ID` / `CANVA_CLIENT_SECRET` are missing, or `cloud-files` isn't deployed. |
+| Canva says the redirect isn't allowed | Step 2: the return address must match exactly. |
+| "Canva didn't let Studyboard open that design" | The design isn't in the connected Canva account and isn't shared with it. |
+
+---
+
 ## OneNote
 
 **Import From Another App > OneNote** (or Search Everywhere, "OneNote") connects a Microsoft account's OneNote, as its own connection beside OneDrive (it asks only for notes, `Notes.ReadWrite`). Then:

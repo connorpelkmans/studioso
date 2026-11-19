@@ -44,6 +44,7 @@
     prev: svg('<path d="M15 5l-7 7 7 7"/>', 22), next: svg('<path d="M9 5l7 7-7 7"/>', 26),
     trash: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
     upload: svg('<path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>', 22),
+    canva: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="4" width="19" height="14" rx="3" fill="#7D2AE8"/><path d="M7 15l3.2-4 2.4 2.8 1.8-2.1L17 15z" fill="#fff"/><circle cx="15.5" cy="8.3" r="1.4" fill="#fff"/><path d="M9 20.5h6" stroke="#7D2AE8" stroke-width="1.8" stroke-linecap="round"/></svg>',
     gslides: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#F4B400"/><path d="M14 2v5h5z" fill="#FADB8A"/><rect x="7.5" y="10.5" width="9" height="6.5" rx="1" fill="#fff"/></svg>',
     folder: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', 22),
     history: svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 8v4l3 2"/>'),
@@ -389,9 +390,10 @@
         <div class="pr-src" role="group" aria-label="Where your slides are">
           <label class="pr-srcb">${IC.upload}<b>Upload</b><span>PowerPoint or PDF</span><input type="file" id="prFile" accept=".pptx,.ppsx,.pptm,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="sr"></label>
           <button type="button" class="pr-srcb" data-act="pr-gslides">${IC.gslides}<b>Google Slides</b><span>${canG ? "Pick from your Drive" : "Connect Google Drive first"}</span></button>
+          <button type="button" class="pr-srcb${A.canva ? " on" : ""}" data-act="pr-canva" aria-expanded="${!!A.canva}">${IC.canva}<b>Canva</b><span>Your designs</span></button>
           <label class="pr-srcb">${IC.folder}<b>From a course</b><span>${files.length ? `${files.length} slide file${files.length === 1 ? "" : "s"}` : "No slide files yet"}</span><select id="prCF" ${files.length ? "" : "disabled"} aria-label="A slides file from your courses"><option value="">Choose…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(fileNameOf(f))}</option>`).join("")}</select></label>
         </div>
-        ${canG ? "" : `<p class="mini">To use Google Slides, connect Google Drive in Settings, Files and Cloud.</p>`}
+        ${A.canva ? canvaHtml(A) : canG ? "" : `<p class="mini">To use Google Slides, connect Google Drive in Settings, Files and Cloud.</p>`}
         ${busy}${err}${picked}
         <label class="f">Name<input name="name" id="prName" value="${esc(A.title || "")}" placeholder="e.g. Essay 2 presentation" maxlength="120"></label>
         <label class="f">Course<select name="courseId" id="prCourse">${courseSelectHtml(A.courseId)}</select></label>
@@ -402,6 +404,7 @@
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="pr-create" ${A.deck && !A.busy ? "" : "disabled"}>Continue</button></div></form>`);
     const fi = dlg.querySelector("#prFile"); if (fi) fi.addEventListener("change", () => { const f = fi.files && fi.files[0]; if (f) fromBlob(f, f.name); });
+    canvaBind(A);
     const cf = dlg.querySelector("#prCF"); if (cf) cf.addEventListener("change", () => { const f = state.files[cf.value]; if (f) fromCourseFile(f); });
     const nm = dlg.querySelector("#prName"); if (nm) nm.addEventListener("input", () => { A.title = nm.value; });
     const co = dlg.querySelector("#prCourse"); if (co) co.addEventListener("change", () => { A.courseId = co.value; });
@@ -522,7 +525,7 @@
     const A = ADD; if (!A || !A.deck) return;
     const nm = (dlg.querySelector("#prName") || {}).value, co = (dlg.querySelector("#prCourse") || {}).value;
     const p = {id: uid(), name: String(nm || A.title || "Presentation").trim().slice(0, 120) || "Presentation", title: A.first || "", courseId: co || "", kind: A.kind, source: A.source || "upload",
-      gid: A.gid || "", fileId: A.fileId || "", slides: A.deck.n, target: A.target || A.deck.n * 60, split: "even", notesArr: A.kind === "pdf" && A.notesArr ? A.notesArr : null,
+      gid: A.gid || "", cid: A.cid || "", fileId: A.fileId || "", slides: A.deck.n, target: A.target || A.deck.n * 60, split: "even", notesArr: A.kind === "pdf" && A.notesArr ? A.notesArr : null,
       rec: !locked(), notes: true, nudge: true, qa: false, runs: [], created: Date.now(), updated: Date.now(), taskId: A.taskId || ((dlg.querySelector("#prTask") || {}).value) || "",
       pages: A.pages || null, pagesAuto: A.pages || null, steps: A.steps || null, vids: A.vids || {}};
     if (fitVideos(p, A.deck)) p.vfit = true;
@@ -544,17 +547,122 @@
     LIST.unshift(p); save();
     return p;
   }
-  async function refreshGoogle(p){
-    const S = STG; if (!S) return;
-    S.note = "Getting the latest from Google Slides…"; paintReady();
+  /* ---------- Canva: your designs, through Studyboard's server (Canva's API doesn't answer browsers) ----------
+     A design comes as a PDF (exactly as it looks) and a PowerPoint copy (its speaker notes, clicks and videos' lengths), as
+     Google Slides does. A Canva link pasted in works too. Without a connection, the sheet says how to download it from Canva. */
+  const CANVA_LINK = /canva\.com\/design\/([A-Za-z0-9_-]{5,60})/i;
+  const cfOn = () => !!(window.__SB_TEST && window.__cfTransport) || (typeof sbActive === "function" && sbActive());
+  async function cfCall(body){
+    if (window.__SB_TEST && window.__cfTransport) return window.__cfTransport(body);
+    if (!cfOn()) return {ok: false, status: 401, data: {}};
     try {
-      const g = await googleDeck(p.gid), d = await openDeck(g.bytes, "pdf", g.notes);
+      const {data, error} = await sb.functions.invoke("cloud-files", {body});
+      if (!error) return {ok: true, status: 200, data};
+      let status = 0, j = {}; try { status = error.context.status; j = await error.context.json(); } catch (e) {}
+      return {ok: false, status, data: j || {}};
+    } catch (e) { return {ok: false, status: 0, data: {}}; }
+  }
+  async function canvaOpen(){
+    const A = ADD; if (!A) return;
+    A.canva = {state: "", busy: "Checking Canva…", items: null, q: "", cont: "", err: "", url: "", account: ""};
+    drawNew(); await canvaStatus(A);
+  }
+  async function canvaStatus(A){
+    const C = A.canva; if (!C) return;
+    if (!cfOn()) { Object.assign(C, {state: "signin", busy: ""}); drawNew(); return; }
+    C.busy = C.busy || "Checking Canva…"; drawNew();
+    const r = await cfCall({action: "status"});
+    if (ADD !== A || A.canva !== C) return;
+    const acc = r.ok ? ((r.data && r.data.accounts) || []).find(a => a.provider === "canva") : null, offered = r.ok && !!((r.data && r.data.providers) || {}).canva;
+    if (acc && acc.status === "ok") { Object.assign(C, {state: "on", account: acc.account || "", busy: ""}); drawNew(); if (!C.items) canvaList(A); return; }
+    if (!offered) { Object.assign(C, {state: "off", busy: ""}); drawNew(); return; }
+    const st = await cfCall({action: "start", provider: "canva"});
+    if (ADD !== A || A.canva !== C) return;
+    Object.assign(C, {state: acc ? "reauth" : "connect", busy: "", url: st.ok && st.data && /^https:\/\//.test(st.data.url || "") ? st.data.url : ""});
+    drawNew();
+  }
+  async function canvaList(A, more){
+    const C = A.canva; if (!C) return;
+    C.loading = true; drawNew();
+    const r = await cfCall({action: "canva", provider: "canva", op: "designs", query: C.q, continuation: more ? C.cont : ""});
+    if (ADD !== A || A.canva !== C) return;
+    C.loading = false;
+    if (r.ok) { C.items = (more ? C.items || [] : []).concat(((r.data && r.data.items) || []).slice(0, 60)); C.cont = (r.data && r.data.continuation) || ""; C.err = ""; }
+    else if (r.status === 409) { C.items = null; C.state = "reauth"; canvaStatus(A); return; }
+    else C.err = r.status === 429 ? "Canva is busy. Try again in a minute." : "Couldn't load your Canva designs. Try again.";
+    drawNew();
+  }
+  // a design as a file: Canva makes it, then Studyboard's server passes it on (asking again while Canva is still working)
+  async function canvaExport(id, format){
+    let body = {action: "canva", provider: "canva", op: "export", design: id, format};
+    for (let i = 0; i < 8; i++) {
+      const r = await cfCall(body);
+      if (r.ok && r.data instanceof Blob) return new Uint8Array(await r.data.arrayBuffer());
+      if (r.ok && r.data && r.data.job) { body = {action: "canva", provider: "canva", op: "export", job: r.data.job, format}; continue; }
+      throw new Error(r.status === 404 ? "Canva didn't let Studyboard open that design. Check it's in the Canva account you connected, or ask its owner to share it with you."
+        : r.status === 422 ? "Canva couldn't make a PDF of that design." : r.status === 409 ? "Canva needs you to connect it again." : r.status === 429 ? "Canva is busy. Try again in a minute." : "Couldn't get it from Canva. Check your connection and try again.");
+    }
+    throw new Error("Canva is taking a long time. Try again in a minute.");
+  }
+  async function canvaDeck(id){
+    const pdf = await canvaExport(id, "pdf");
+    let ex = {notes: []};
+    try { const px = await canvaExport(id, "pptx"); ex = Object.assign({notes: await pptxNotes(px)}, await pptxClicks(px)); } catch (e) {}
+    return {bytes: pdf, notes: ex.notes || [], steps: ex.steps || null, vids: ex.vids || null};
+  }
+  async function fromCanva(id, title){
+    const A = ADD; if (!A || !/^[A-Za-z0-9_-]{5,60}$/.test(String(id))) return;
+    A.busy = "Getting it from Canva…"; A.err = ""; drawNew();
+    try {
+      const g = await canvaDeck(id); if (ADD !== A) return;
+      A.canva = null;
+      await useBytes(g.bytes, (String(title || "").trim() || "Canva presentation") + ".pdf", {source: "canva", cid: id, notesArr: g.notes, steps: g.steps, vids: g.vids});
+    } catch (e) { if (ADD === A) { A.busy = ""; A.err = String((e && e.message) || "Couldn't get it from Canva.").slice(0, 240); drawNew(); } }
+  }
+  const CANVA_HOW = `In Canva, open the presentation and choose <b>Share</b>, then <b>Download</b>. Pick <b>PDF Standard</b> to keep exactly how it looks, or <b>PPTX</b> to keep your speaker notes and animations, then add the file with <b>Upload</b>.`;
+  function canvaHtml(A){
+    const C = A.canva, t = s => new Date(s * 1000).toLocaleDateString(undefined, {month: "short", day: "numeric"});
+    let body;
+    if (C.busy) body = `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>${esc(C.busy)}</p>`;
+    else if (C.state === "signin" || C.state === "off") body = `<p class="mini">${CANVA_HOW}</p><p class="mini">${C.state === "signin" ? "Sign in to Studyboard to connect Canva and pick your designs straight from it." : "Connecting Canva isn't set up on this Studyboard server yet."}</p>`;
+    else if (C.state === "connect" || C.state === "reauth") body = `<p class="mini">${C.state === "reauth" ? "Canva stopped accepting Studyboard's access. Connect it again to pick your designs." : "Connect your Canva account to pick a presentation straight from it. Studyboard can only read your designs: it can't change or share anything."}</p>
+        ${C.url ? `<a class="btn primary small" href="${esc(C.url)}" target="_blank" rel="noopener noreferrer" data-pr-cv-go="1">${C.state === "reauth" ? "Connect Canva Again" : "Connect Canva"}</a>` : `<button type="button" class="btn small" data-act="pr-cv-retry">Try Again</button>`}
+        ${C.wait ? `<p class="mini" role="status">Finish in the Canva tab, then come back here.</p>` : ""}<details class="pr-cv-how"><summary>Or download it from Canva</summary><p class="mini">${CANVA_HOW}</p></details>`;
+    else {
+      const items = C.items || [];
+      body = `<div class="pr-cv-find"><input id="prCvQ" type="search" placeholder="Search your designs" value="${esc(C.q)}" aria-label="Search your Canva designs"><input id="prCvLink" type="url" placeholder="Or paste a Canva link" aria-label="A Canva design link"></div>
+        ${C.err ? `<p class="pr-err">${esc(C.err)}</p>` : ""}
+        ${C.items ? items.length ? `<div class="pr-cv-list">${items.map(x => `<button type="button" class="pr-cv-i" data-act="pr-cv-pick" data-id="${esc(x.id)}" data-t="${esc(x.title)}"><span class="pr-cv-th">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}</span><b>${esc(x.title || "Untitled design")}</b><span class="mini">${x.pages ? `${x.pages} page${x.pages === 1 ? "" : "s"} · ` : ""}${x.updated ? esc(t(x.updated)) : ""}</span></button>`).join("")}</div>${C.cont ? `<button type="button" class="link-btn" data-act="pr-cv-more">Show More</button>` : ""}` : `<p class="mini">${C.q ? "No designs match." : "No designs in this Canva account yet."}</p>` : ""}
+        ${C.loading ? `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>Loading your designs…</p>` : ""}`;
+    }
+    return `<section class="pr-canva" aria-label="Canva"><div class="pr-cv-h">${IC.canva}<b>Canva</b>${C.account ? `<span class="mini">${esc(C.account)}</span>` : ""}</div>${body}</section>`;
+  }
+  function canvaBind(A){
+    const C = A.canva; if (!C) return;
+    const q = dlg.querySelector("#prCvQ");
+    if (q) { let tm = 0; q.addEventListener("input", () => { clearTimeout(tm); tm = setTimeout(() => { C.q = q.value.trim(); canvaList(A).then(() => { const q2 = dlg.querySelector("#prCvQ"); if (q2) { q2.focus(); q2.setSelectionRange(q2.value.length, q2.value.length); } }); }, 450); }); }
+    const ln = dlg.querySelector("#prCvLink");
+    if (ln) ln.addEventListener("change", () => { const m = CANVA_LINK.exec(ln.value || ""); if (m) { C.err = ""; fromCanva(m[1], ""); } else if (ln.value.trim()) { C.err = "That isn't a Canva design link. It looks like canva.com/design/…"; drawNew(); } });
+    const go = dlg.querySelector("[data-pr-cv-go]");
+    if (go) go.addEventListener("click", () => {
+      C.wait = Date.now(); setTimeout(drawNew, 50);
+      clearInterval(C.poll); C.poll = setInterval(() => { if (ADD !== A || A.canva !== C || C.state === "on" || Date.now() - C.wait > 4 * 60000) { clearInterval(C.poll); return; } if (!document.hidden) canvaStatus(A); }, 5000);
+    });
+  }
+  window.addEventListener("focus", () => { const A = ADD; if (A && A.canva && A.canva.wait && A.canva.state !== "on") canvaStatus(A); });
+
+  async function refreshGoogle(p, from){
+    const S = STG; if (!S) return;
+    const cv = from === "canva", nm = cv ? "Canva" : "Google Slides";
+    S.note = `Getting the latest from ${nm}…`; paintReady();
+    try {
+      const g = cv ? await canvaDeck(p.cid) : await googleDeck(p.gid), d = await openDeck(g.bytes, "pdf", g.notes);
       await put("deck:" + p.id, g.bytes);
       dropDeck(); d.id = p.id; DECK = d;
       if (d.n !== p.slides) { p.custom = null; if (p.group) splitEvenlyN(p, d.n); }
       Object.assign(p, {kind: "pdf", notesArr: g.notes, slides: d.n, steps: g.steps || null, updated: Date.now()}); save();
-      if (STG === S) { S.d = d; S.note = "Up to date with Google Slides."; S.i = 0; S.sec = null; plan(S); stageBuild(); }
-    } catch (e) { if (STG === S) { S.note = String((e && e.message) || "Couldn't reach Google Slides.").slice(0, 200); paintReady(); } }
+      if (STG === S) { S.d = d; S.note = `Up to date with ${nm}.`; S.i = 0; S.k = 0; S.sec = null; plan(S); stageBuild(); }
+    } catch (e) { if (STG === S) { S.note = String((e && e.message) || `Couldn't reach ${nm}.`).slice(0, 200); paintReady(); } }
   }
   const splitEvenlyN = (p, n) => { p.slides = n; splitEvenly(p); };
 
@@ -657,6 +765,7 @@
         ${fire("pr-ready-extra", p, S).filter(Boolean).join("")}
         <button type="button" class="btn small pr-plan-btn" data-act="pr-remote">${IC.phone} Use Your Phone as the Remote${lk ? ` ${PRO_BADGE}` : ""}</button>
         ${p.source === "gslides" && p.gid ? `<button type="button" class="btn small" data-act="pr-gfresh">Get Latest From Google Slides</button>` : ""}
+        ${p.source === "canva" && p.cid ? `<button type="button" class="btn small" data-act="pr-cfresh">Get Latest From Canva</button>` : ""}
         ${S.note ? `<p class="mini pr-card-note">${esc(S.note)}</p>` : ""}
         <button type="button" class="pr-play" data-act="pr-play" aria-label="Start: the clock starts now">${IC.play}</button>
         <span class="pr-card-sub">The clock starts when you press play. Space or → for the next slide.</span>
@@ -1447,6 +1556,11 @@
       case "pr-sp-split": if (inPlan() && STG.p.group) { splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } return true;
       case "pr-sp-next": if (inPlan()) { const g = STG.p.group, i = Number(d.i) || 0; if (g && g.sp.length) { g.by = g.by && g.by.length === STG.d.n ? g.by : Array(STG.d.n).fill(g.sp[0].id); const k = g.sp.findIndex(s => s.id === g.by[i]); g.by[i] = g.sp[(k + 1) % g.sp.length].id; save(); refreshPlan(); } } return true;
       case "pr-gfresh": if (inPlan()) refreshGoogle(STG.p); return true;
+      case "pr-cfresh": if (inPlan()) refreshGoogle(STG.p, "canva"); return true;
+      case "pr-canva": if (ADD) { if (ADD.canva) { ADD.canva = null; drawNew(); } else canvaOpen(); } return true;
+      case "pr-cv-pick": if (ADD) fromCanva(id, d.t || ""); return true;
+      case "pr-cv-more": if (ADD && ADD.canva) canvaList(ADD, true); return true;
+      case "pr-cv-retry": if (ADD && ADD.canva) canvaStatus(ADD); return true;
       case "pr-play": play(); return true;
       case "pr-pp": if (STG) { if (STG.running) pause(); else play(); } return true;
       case "pr-next": next(); return true;

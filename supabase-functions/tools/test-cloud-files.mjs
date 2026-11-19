@@ -15,6 +15,7 @@ function world(opts = {}) {
   const db = { accounts: new Map(), allowed: opts.allowed !== false };
   const g = { refresh: "g-refresh-1", refreshes: 0, revoked: [], badGrant: false, scope: opts.gScope };
   const ms = { refreshes: 0, n: 1 };
+  const cv = { challenge: "", rt: "c-refresh-1", n: 1, exports: [], polls: 0, slow: opts.canvaSlow || 0, revoked: [] };
   const logs = [];
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
   const key = (u, p) => u + "|" + p;
@@ -53,10 +54,31 @@ function world(opts = {}) {
       if (f.get("grant_type") === "refresh_token") { ms.refreshes++; ms.n++; }
       return json({ access_token: "m-access-" + ms.refreshes, refresh_token: "m-refresh-" + ms.n, expires_in: 3600, id_token: "h." + Buffer.from(JSON.stringify({ email: "student@outlook.com" })).toString("base64url") + ".s" });
     }
+    if (u.host === "api.canva.com") {
+      const p = u.pathname.replace("/rest/v1", "");
+      if (p === "/oauth/token" || p === "/oauth/revoke") {
+        assert.equal(init.headers.Authorization, "Basic " + Buffer.from("cv-id:cv-secret").toString("base64"), "Canva's token calls use the client's own credentials");
+        const f = new URLSearchParams(init.body);
+        if (p === "/oauth/revoke") { cv.revoked.push(f.get("token")); return json({}); }
+        if (f.get("grant_type") === "authorization_code") {
+          const ch = Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(f.get("code_verifier")))).toString("base64url");
+          assert.equal(ch, cv.challenge, "the verifier matches the challenge sent to Canva");
+          return json({ access_token: "c-access-0", refresh_token: cv.rt, expires_in: 14400, scope: opts.cvScope ?? "design:meta:read design:content:read profile:read" });
+        }
+        if (f.get("grant_type") === "refresh_token") { assert.equal(f.get("refresh_token"), cv.rt, "a Canva refresh token is used once"); cv.n++; cv.rt = "c-refresh-" + cv.n; return json({ access_token: "c-access-" + cv.n, refresh_token: cv.rt, expires_in: 14400 }); }
+      }
+      assert.ok(/^Bearer c-access-/.test(init.headers.Authorization));
+      if (p === "/users/me/profile") return json({ profile: { display_name: "Maya Chen" } });
+      if (p === "/designs") { cv.query = u.searchParams.get("query"); return json({ items: [{ id: "DAF1aBcD2eF", title: "Sleep Talk", page_count: 8, updated_at: 1790000000, thumbnail: { url: "https://document-export.canva.com/x.png" } }, { id: "../evil", title: "x" }], continuation: "next-1" }); }
+      if (p === "/exports" && m === "POST") { const b = JSON.parse(init.body); cv.exports.push(b); return json({ job: { id: "job-" + b.format.type, status: "in_progress" } }); }
+      if (p.startsWith("/exports/")) { cv.polls++; if (cv.slow > 0) { cv.slow--; return json({ job: { id: p.slice(9), status: "in_progress" } }); } return json({ job: { id: p.slice(9), status: "success", urls: [opts.badUrl || "https://export-download.canva.com/" + p.slice(9) + ".bin?sig=1"] } }); }
+    }
+    if (u.host === "export-download.canva.com") return new Response(new TextEncoder().encode("FILE:" + u.pathname), { status: 200 });
     throw new Error("unexpected " + m + " " + url);
   };
   const env = k => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "svc", SUPABASE_ANON_KEY: "anon", CLOUD_KEY: opts.key ?? SECRET, CLOUD_REDIRECT: opts.redirect || "",
-    GOOGLE_CLIENT_ID: opts.gId || "g-id", GOOGLE_CLIENT_SECRET: "g-secret", GOOGLE_PICKER_API_KEY: opts.pKey || "", GOOGLE_PICKER_APP_ID: opts.pApp || "", MS_CLIENT_ID: opts.noMs ? "" : "m-id", MS_CLIENT_SECRET: opts.noMs ? "" : "m-secret" }[k] ?? "");
+    GOOGLE_CLIENT_ID: opts.gId || "g-id", GOOGLE_CLIENT_SECRET: "g-secret", GOOGLE_PICKER_API_KEY: opts.pKey || "", GOOGLE_PICKER_APP_ID: opts.pApp || "", MS_CLIENT_ID: opts.noMs ? "" : "m-id", MS_CLIENT_SECRET: opts.noMs ? "" : "m-secret",
+    CANVA_CLIENT_ID: opts.noCanva ? "" : "cv-id", CANVA_CLIENT_SECRET: opts.noCanva ? "" : "cv-secret" }[k] ?? "");
   const deps = { env, fetch, now: () => now, log: (...a) => logs.push(a.join(" ")) };
   const call = async (body, jwt = "user-jwt") => { const r = await F.handle(new Request(FN_URL, { method: "POST", headers: { authorization: "Bearer " + jwt, "content-type": "application/json" }, body: JSON.stringify(body) }), deps); return { status: r.status, body: await r.json() }; };
   const get = async (qs, cookie, via) => { const r = await F.handle(new Request(FN_URL + "?" + qs, { headers: { ...(cookie ? { cookie } : {}), ...(via ? { "x-studyboard-via": "site" } : {}) } }), deps); return { status: r.status, text: await r.text(), csp: r.headers.get("content-security-policy"), location: r.headers.get("location"), cookie: (r.headers.get("set-cookie") || "").split(";")[0] }; };
@@ -65,12 +87,14 @@ function world(opts = {}) {
     const s = await call({ action: "start", provider });
     const b = await get(new URL(s.body.url).search.slice(1));
     const st = new URL(b.location).searchParams.get("state");
+    if (provider === "canva") cv.challenge = new URL(b.location).searchParams.get("code_challenge");
     const c = await get(new URLSearchParams({ code: "good-code", state: st }).toString(), b.cookie);
     const box = (/name="confirm" value="([^"]+)"/.exec(c.text) || [])[1];
     const done = box ? await post({ confirm: box.replace(/&amp;/g, "&") }, b.cookie) : c;
     return Object.assign(done, { begin: b, confirmPage: c, state: st, box });
   };
-  return { db, g, ms, logs, call, get, post, connect, tick: s => { now += s * 1000; } };
+  const raw = async (body) => { const r = await F.handle(new Request(FN_URL, { method: "POST", headers: { authorization: "Bearer user-jwt", "content-type": "application/json" }, body: JSON.stringify(body) }), deps); return r; };
+  return { db, g, ms, cv, logs, call, raw, get, post, connect, tick: s => { now += s * 1000; } };
 }
 
 await test("not signed in, not Pro, not set up, unknown provider", async () => {
@@ -79,7 +103,8 @@ await test("not signed in, not Pro, not set up, unknown provider", async () => {
   assert.equal((await world({ allowed: false }).call({ action: "token", provider: "google" })).status, 402, "no token without Pro");
   assert.equal((await world({ key: "short" }).call({ action: "status" })).status, 501);
   const w = world({ noMs: true });
-  assert.deepEqual((await w.call({ action: "status" })).body.providers, { google: true, microsoft: false, classroom: true, onenote: false, onenote_class: false });
+  assert.deepEqual((await w.call({ action: "status" })).body.providers, { google: true, microsoft: false, classroom: true, onenote: false, onenote_class: false, canva: true });
+  assert.equal((await world({ noCanva: true }).call({ action: "start", provider: "canva" })).status, 501);
   assert.equal((await w.call({ action: "start", provider: "microsoft" })).status, 501);
   assert.equal((await w.call({ action: "start", provider: "dropbox" })).status, 400);
 });
@@ -258,5 +283,38 @@ await test("a school Microsoft account that needs admin approval gets the try-ag
   assert.ok(/Not connected/.test((await back("microsoft", { error: "access_denied", error_description: "AADSTS65004: User declined to consent to access the app." })).text), "someone who just said no gets the usual page");
   assert.ok(/Not connected/.test((await back("google", blocked)).text), "Google isn't affected");
   assert.ok(w.logs.some(l => /cb_school_blocked/.test(l)), "logged, so you can see how often it happens");
+});
+
+await test("Canva: PKCE sign-in, read-only scopes, the person's name, single-use refresh tokens", async () => {
+  const w = world();
+  const page = await w.connect("canva");
+  const u = new URL(page.begin.location);
+  assert.equal(u.host, "www.canva.com");
+  assert.equal(u.searchParams.get("scope"), "design:meta:read design:content:read profile:read", "read only");
+  assert.equal(u.searchParams.get("code_challenge_method"), "s256"); assert.ok(/^[A-Za-z0-9_-]{43}$/.test(u.searchParams.get("code_challenge")));
+  assert.ok(!u.search.includes("code_verifier"), "the verifier never leaves the server");
+  assert.ok(/Connect <b>Maya Chen<\/b> to the Studyboard account/.test(page.confirmPage.text) && /can't change or share anything in Canva/.test(page.confirmPage.text));
+  assert.equal(page.status, 200); assert.ok(/Connected to Canva/.test(page.text));
+  const a = w.db.accounts.get(UID + "|canva");
+  assert.equal(await F.unseal(SECRET, a.refresh_enc, UID, "canva"), "c-refresh-2", "the confirm step's refresh token replaces the used one");
+  assert.equal((await w.call({ action: "token", provider: "canva" })).status, 400, "no Canva token for the browser");
+  // a scope left out doesn't connect
+  const w2 = world({ cvScope: "design:meta:read profile:read" });
+  assert.equal((await w2.connect("canva")).status, 400); assert.equal(w2.db.accounts.size, 0);
+});
+await test("Canva: designs (searched, a page at a time) and exports streamed back; nothing from elsewhere", async () => {
+  const w = world(); await w.connect("canva");
+  const d = await w.call({ action: "canva", provider: "canva", op: "designs", query: " sleep " });
+  assert.equal(d.status, 200); assert.equal(w.cv.query, "sleep");
+  assert.deepEqual(d.body.items, [{ id: "DAF1aBcD2eF", title: "Sleep Talk", pages: 8, thumb: "https://document-export.canva.com/x.png", updated: 1790000000 }], "odd ids are dropped");
+  assert.equal(d.body.continuation, "next-1");
+  const r = await w.raw({ action: "canva", provider: "canva", op: "export", design: "DAF1aBcD2eF", format: "pptx" });
+  assert.equal(r.status, 200); assert.equal(r.headers.get("content-type"), "application/octet-stream");
+  assert.equal(await r.text(), "FILE:/job-pptx.bin"); assert.deepEqual(w.cv.exports[0], { design_id: "DAF1aBcD2eF", format: { type: "pptx" } });
+  assert.equal((await w.call({ action: "canva", provider: "canva", op: "export", design: "../x", format: "pdf" })).status, 400);
+  assert.equal((await w.call({ action: "canva", provider: "canva", op: "export", design: "DAF1aBcD2eF", format: "mp4" })).status, 400);
+  const w3 = world({ badUrl: "https://evil.example/x.pdf" }); await w3.connect("canva");
+  assert.equal((await w3.call({ action: "canva", provider: "canva", op: "export", design: "DAF1aBcD2eF", format: "pdf" })).status, 502, "a download from anywhere but Canva is refused");
+  assert.equal((await world().call({ action: "canva", provider: "canva", op: "designs" })).status, 404, "not connected");
 });
 console.log(`\ncloud-files: ${passed} checks passed`);
