@@ -18525,11 +18525,11 @@ const nbColor = b => { const c = b && b.courseId && courseOf(b.courseId); return
 function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
-  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}"${id ? ` data-sort-id="${esc(id)}"` : ""} data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
+  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-sort-id="${esc(id || "__home")}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
   // Only the tabs are in the tab list; the board's options and New Note Board come just after it (a list of tabs holding other
   // buttons reads as broken tabs). The list is display:contents, so the row looks the same.
   const opts = cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : "";
-  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards" data-sortable="noteboards" title="Drag a board's tab to move it">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
+  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards" data-sortable="noteboards" title="Drag a board's tab to move it">${(() => { const ts = noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))), at = Math.max(0, Math.min(ts.length, Number((state.settings || {}).nbHomeAt) || 0)); ts.splice(at, 0, tab("", "My Notes", "var(--muted)", count(""))); return ts.join(""); })()}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Note Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
@@ -81063,11 +81063,12 @@ function decorateDeck(){
       const ch = ids.map((id, i) => state.courses[id] && state.courses[id].order !== i * 10 ? {kind: "course", id, after: Object.assign(clone(state.courses[id]), {order: i * 10})} : null).filter(Boolean);
       if (ch.length) applyChanges(ch, "Courses reordered");
     } else if (kind === "groups") { try { localStorage.setItem("studyboard:grpOrder", JSON.stringify(ids)); } catch (e) {} }
-    // note boards: the order of their tabs (My Notes stays first)
+    // note boards: the order of their tabs, My Notes included (its place is kept as nbHomeAt)
     else if (kind === "noteboards") {
       const all = Array.isArray(state.settings && state.settings.noteBoards) ? state.settings.noteBoards : [], by = new Map(all.map(b => [b && b.id, b]));
       const list = ids.map(id => by.get(id)).filter(Boolean).concat(all.filter(b => b && !ids.includes(b.id)));
-      if (list.some((b, i) => b !== all[i])) { state.settings = Object.assign({}, state.settings, {noteBoards: list}); saveSettings(); render(); }
+      const home = Math.max(0, ids.indexOf("__home")), was = Number((state.settings || {}).nbHomeAt) || 0;
+      if (list.some((b, i) => b !== all[i]) || home !== was) { state.settings = Object.assign({}, state.settings, {noteBoards: list, nbHomeAt: home}); saveSettings(); render(); }
     }
     // whiteboards: each keeps its place in the tabs (one change, so Undo puts them back)
     else if (kind === "wb") {
