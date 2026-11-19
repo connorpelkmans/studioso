@@ -19318,8 +19318,9 @@ function viewQuizzes(){
         <span class="rv-stamp${best == null ? " new" : ""}" aria-hidden="true">${best == null ? "New" : best + "%"}</span>
         <span class="rv-count">${qz.kind === "case" ? "Case Study" : `${n} question${n === 1 ? "" : "s"}`}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title">${nm}</b><span class="mini">${meta}</span></button>
-      <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></article>`; }).join("");
+      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title">${nm}</b></button>
+      <div class="rv-row"><span class="mini rv-sub">${meta}</span>
+      <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid rv-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt("quizzes")}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
@@ -19402,12 +19403,10 @@ function viewFlashcards(){
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
         <span class="rv-count">${st.total} card${st.total === 1 ? "" : "s"}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}">
-        <b class="rv-title">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}
-        <span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
-        <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span>
-      </button>
-      <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="fc-share" data-id="${esc(d.id)}" aria-label="Share ${nm}" title="Share" ${st.total ? "" : "disabled"}>${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button></div></div>
+      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}"><b class="rv-title">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}</button>
+        <div class="rv-row"><div class="rv-sub"><span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
+        <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span></div>
+      <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="fc-share" data-id="${esc(d.id)}" aria-label="Share ${nm}" title="Share" ${st.total ? "" : "disabled"}>${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button></div></div></div>
     </article>`;
   }).join("");
   return reviewSwitchHtml() + `<div class="view-head" data-fc-list><h2>Flashcards</h2>
@@ -107412,8 +107411,9 @@ function reviewHtml(){
     const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ph">${esc(cut(PP && PP.title ? PP.title : t.title, 70))}</span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
     return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
-      <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></button>
-      <button type="button" class="btn small primary" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></li>`;
+      <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span></button>
+      <div class="wsr-row"><span class="wsr-sub"><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></span>
+      <button type="button" class="btn small primary" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></div></li>`;
   };
   const started = list.filter(hasData), next = list.filter(t => !hasData(t));
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
@@ -107985,7 +107985,7 @@ svg.ws-zic{display:block;flex:none}
 .wsr-list{list-style:none;margin:12px 0 18px;padding:0;display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}
 /* a card like Concept Maps': the paper peeking out on its course's colour, then its title and how it stands */
 .wsr-card{position:relative;display:flex;flex-direction:column;min-width:0;border-radius:18px;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 26%,var(--line));box-shadow:0 1px 2px rgb(0 0 0/.05),0 6px 18px -10px color-mix(in srgb,var(--c) 45%,transparent);overflow:hidden}
-.wsr-peekb{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;border:0;cursor:pointer;overflow:hidden;background:repeating-linear-gradient(0deg,transparent 0 13px,color-mix(in srgb,var(--c) 10%,transparent) 13px 14px),linear-gradient(160deg,color-mix(in srgb,var(--c) 16%,var(--surface)),color-mix(in srgb,var(--c) 5%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
+.wsr-peekb{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;border:0;cursor:pointer;overflow:hidden;background:repeating-linear-gradient(0deg,transparent 0 13px,color-mix(in srgb,var(--c) 6%,transparent) 13px 14px),linear-gradient(160deg,color-mix(in srgb,var(--c) 16%,var(--surface)),color-mix(in srgb,var(--c) 5%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
 .wsr-page,.wsr-back{position:absolute;left:0;right:0;margin:0 auto;top:40px;width:min(62%,230px);height:calc(100% + 6px);border-radius:6px 6px 0 0;background:color-mix(in srgb,#fff 88%,var(--c));box-shadow:0 2px 10px -3px color-mix(in srgb,var(--c) 45%,rgb(0 0 0/.25))}
 .wsr-back{rotate:-4deg;top:44px;background:color-mix(in srgb,#fff 70%,var(--c));opacity:.75}
 .wsr-page{rotate:1.5deg;padding:10px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:5px;text-align:left;overflow:hidden;color:#2B2F3A;transition:translate .3s cubic-bezier(.2,.8,.2,1);will-change:translate;-webkit-font-smoothing:antialiased;backface-visibility:hidden}
@@ -108000,10 +108000,12 @@ svg.ws-zic{display:block;flex:none}
 .wsr-badge.k-pro{background:linear-gradient(135deg,#FFB443,#FF5C8A);color:#fff;letter-spacing:.08em}
 .wsr-badge.k-bad{background:#FDE7E5;color:#B42318}.wsr-badge.k-good{background:#E3F5EA;color:#1D6B3D}.wsr-badge.k-warn,.wsr-badge.k-wait{background:#FFF3D6;color:#8A5A00}
 .wsr-ld{position:absolute;right:10px;bottom:8px;z-index:1;display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--surface);box-shadow:0 1px 3px rgb(0 0 0/.15)}
-.wsr-foot{display:flex;align-items:center;gap:10px;padding:10px 12px 12px}
-.wsr-main{flex:1 1 auto;min-width:0;border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:grid;gap:2px}
+.wsr-foot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px 14px}
+.wsr-row{display:flex;align-items:center;gap:10px;margin-top:auto}
+.wsr-sub{flex:1 1 auto;min-width:0;display:grid;gap:2px;color:var(--muted)}
+.wsr-main{border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:grid;gap:2px}
 @media (prefers-reduced-motion:reduce){.wsr-page{transition:none}.wsr-card:hover .wsr-page{translate:none}}
-.wsr-t{font-weight:700;word-break:break-word}
+.wsr-t{font-weight:700;font-size:1rem;line-height:1.25;word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .wsr-l.bad{color:#B42318}
 @media (max-width:560px){.ws-strip{padding:5px 12px;font-size:.8rem}.ws-sp{padding:3px 4px}}
 @media (max-width:560px){.ws-bar{padding:4px 12px 0}.ws-tab{padding:9px 6px}.ws-tabs{flex:1 1 100%}.ws-style select{max-width:160px}.ws-add{flex-wrap:wrap}.ws-oq{flex-wrap:wrap}.ws-oq select{max-width:100%;flex:1 1 100%}}
@@ -110632,8 +110634,9 @@ function listHtml(){
     const ic = (d, w) => `<svg viewBox="0 0 24 24" width="${w || 17}" height="${w || 17}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
     return `${head}<article class="cm-mapcard" style="--c:${esc(colorOf(x.cid))}">
       <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
-      <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b><span class="mini">${esc(meta)}</span></button>
-      <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div>
+      <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b></button>
+      <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
+      <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
     </article>`;
   }).join("");
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
@@ -111037,7 +111040,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-grid .cm-grp{grid-column:1/-1;margin:8px 0 -4px}
 .cm-mapcard{position:relative;display:flex;flex-direction:column;border-radius:18px;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 26%,var(--line));box-shadow:0 1px 2px rgb(0 0 0/.05),0 6px 18px -10px color-mix(in srgb,var(--c) 45%,transparent);overflow:hidden;transition:transform .18s ease,box-shadow .18s ease}
 .cm-mapcard:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgb(0 0 0/.06),0 14px 28px -14px color-mix(in srgb,var(--c) 60%,transparent)}
-.cm-peekb{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;border:0;cursor:pointer;background:radial-gradient(circle,color-mix(in srgb,var(--c) 30%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 12%,var(--surface)),color-mix(in srgb,var(--c) 4%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
+.cm-peekb{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;border:0;cursor:pointer;background:radial-gradient(circle,color-mix(in srgb,var(--c) 16%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 12%,var(--surface)),color-mix(in srgb,var(--c) 4%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
 .cm-peek{position:absolute;inset:10px 12px 8px;width:calc(100% - 24px);height:calc(100% - 18px);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .cm-mapcard:hover .cm-peek{transform:scale(1.04)}
 .cm-peek .pk-e line{stroke:color-mix(in srgb,var(--c) 55%,var(--ink));stroke-opacity:.45;stroke-width:5;vector-effect:non-scaling-stroke;stroke-width:1.4}
@@ -111159,9 +111162,11 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-cchip .fc-ic{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--c);color:#fff;flex:none}
 .cm-cchip .fc-ic svg{width:12px;height:12px}
 .cm-exam{position:absolute;right:10px;top:10px;padding:3px 9px;border-radius:999px;background:var(--c);color:#fff;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
-.cm-cfoot{display:flex;align-items:center;gap:8px;padding:10px 10px 10px 14px}
-.cm-cinfo{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:0;border:0;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit}
-.cm-ctitle{font-size:1rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.cm-cfoot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px 14px}
+.cm-crow{display:flex;align-items:center;gap:6px;margin-top:auto}
+.cm-csub{flex:1 1 auto;min-width:0;color:var(--muted);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cm-cinfo{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:0;border:0;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.cm-ctitle{font-size:1rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .cm-cinfo .mini{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cm-cacts{display:flex;align-items:center;gap:2px;flex:none}
 .cm-cacts .icon-btn{width:34px;height:34px;opacity:.7}

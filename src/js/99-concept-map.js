@@ -2009,8 +2009,9 @@ function listHtml(){
     const ic = (d, w) => `<svg viewBox="0 0 24 24" width="${w || 17}" height="${w || 17}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
     return `${head}<article class="cm-mapcard" style="--c:${esc(colorOf(x.cid))}">
       <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
-      <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b><span class="mini">${esc(meta)}</span></button>
-      <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div>
+      <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b></button>
+      <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
+      <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
     </article>`;
   }).join("");
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
@@ -2414,7 +2415,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-grid .cm-grp{grid-column:1/-1;margin:8px 0 -4px}
 .cm-mapcard{position:relative;display:flex;flex-direction:column;border-radius:18px;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 26%,var(--line));box-shadow:0 1px 2px rgb(0 0 0/.05),0 6px 18px -10px color-mix(in srgb,var(--c) 45%,transparent);overflow:hidden;transition:transform .18s ease,box-shadow .18s ease}
 .cm-mapcard:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgb(0 0 0/.06),0 14px 28px -14px color-mix(in srgb,var(--c) 60%,transparent)}
-.cm-peekb{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;border:0;cursor:pointer;background:radial-gradient(circle,color-mix(in srgb,var(--c) 30%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 12%,var(--surface)),color-mix(in srgb,var(--c) 4%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
+.cm-peekb{position:relative;display:block;width:100%;aspect-ratio:2.3/1;padding:0;border:0;cursor:pointer;background:radial-gradient(circle,color-mix(in srgb,var(--c) 16%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 12%,var(--surface)),color-mix(in srgb,var(--c) 4%,var(--surface)));border-bottom:1px solid color-mix(in srgb,var(--c) 18%,var(--line))}
 .cm-peek{position:absolute;inset:10px 12px 8px;width:calc(100% - 24px);height:calc(100% - 18px);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .cm-mapcard:hover .cm-peek{transform:scale(1.04)}
 .cm-peek .pk-e line{stroke:color-mix(in srgb,var(--c) 55%,var(--ink));stroke-opacity:.45;stroke-width:5;vector-effect:non-scaling-stroke;stroke-width:1.4}
@@ -2536,9 +2537,11 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-cchip .fc-ic{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--c);color:#fff;flex:none}
 .cm-cchip .fc-ic svg{width:12px;height:12px}
 .cm-exam{position:absolute;right:10px;top:10px;padding:3px 9px;border-radius:999px;background:var(--c);color:#fff;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
-.cm-cfoot{display:flex;align-items:center;gap:8px;padding:10px 10px 10px 14px}
-.cm-cinfo{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:0;border:0;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit}
-.cm-ctitle{font-size:1rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.cm-cfoot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px 14px}
+.cm-crow{display:flex;align-items:center;gap:6px;margin-top:auto}
+.cm-csub{flex:1 1 auto;min-width:0;color:var(--muted);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cm-cinfo{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:0;border:0;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.cm-ctitle{font-size:1rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .cm-cinfo .mini{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cm-cacts{display:flex;align-items:center;gap:2px;flex:none}
 .cm-cacts .icon-btn{width:34px;height:34px;opacity:.7}
