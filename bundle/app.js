@@ -19225,7 +19225,7 @@ hook("render", () => {
   const txt = n > 99 ? "99+" : String(n); if (dot.textContent !== txt) dot.textContent = txt;
   b.setAttribute("aria-label", `${tr("nav.flashcards", "Review")}, ${n} card${n === 1 ? "" : "s"} due`);
 });
-const RV_SHARE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>';
+const RV_SHARE = '<svg viewBox="1.5 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>';
 const dueWords = n => `${n.due} due${n.fresh ? ` + ${n.fresh} new` : ""}`;
 const reviewDecks = course => decksArr().filter(d => (!course || course === "all" || d.courseId === course) && d.cards.some(c => !c.draft && cardDue(c))).map(d => d.id);
 // Flashcard styles grouped for choosing
