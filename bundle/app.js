@@ -72819,8 +72819,10 @@ You can also DO things in Studyboard, but only when the student asks or what the
   /* ---------- Pictures ---------- */
   // A companion: the cached bitmap the companion shop keeps (made in quiet moments, swapped in when ready); its
   // first drawing carries its own styles, so the eyes and lids look right even before the bitmap is made
-  const compPic = (id, face) => {
+  const compPic = (id, face, big) => {
     try {
+      // big (the Build Your Look preview): the drawing itself, so it stays sharp at any size
+      if (big && window.SBCOMP && SBCOMP.stillUrl) { const u = SBCOMP.stillUrl(id); if (u) return `<span class="sbh-comp" aria-hidden="true"><img class="cp-still" src="${esc(u)}" alt="" decoding="async" draggable="false"></span>`; }
       if (window.SBCOMP && SBCOMP.stillHtml) { const h = SBCOMP.stillHtml(id, face ? 40 : 64); if (h) return `<span class="sbh-comp${face ? " face" : ""}" aria-hidden="true">${h}</span>`; }
     } catch (e) {}
     return `<span class="sbh-comp sbh-comp-none"></span>`;
@@ -72834,7 +72836,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (kind === "pin") return noteDemo(noteShapeOf(null), id, (i || 0) + 1);
     if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? stkPic(Object.keys(p.items)) : ""; }
     if (kind === "comp") return compPic(id);
-    if (kind === "cm") return CM() ? `<span class="sbh-cm">${CM().pic(id, LOOK ? LOOK.skin : cfg().skin)}</span>` : "";
+    if (kind === "cm") return CM() ? `<span class="sbh-cm">${String(CM().pic(id, LOOK ? LOOK.skin : cfg().skin)).replace("<svg ", '<svg preserveAspectRatio="xMidYMid slice" ')}</span>` : "";
     return "";
   }
   // A tile: tapping a theme, companion, sticker pack or flashcard style tries it on; a pin or note shape is used (or unlocked)
@@ -72972,7 +72974,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       <div class="sbh-st-note">${noteDemo(LOOK.note || noteShapeOf(null), LOOK.pin || notePinOf(null), 2, "")}</div>
       ${LOOK.cm && CM() ? `<div class="sbh-st-cm">${CM().pic(LOOK.cm, LOOK.skin)}</div>` : ""}
       <div class="sbh-st-card">${cardPic(LOOK.card)}</div>
-      ${LOOK.comp ? `<div class="sbh-st-comp">${compPic(LOOK.comp)}</div>` : ""}</div>`;
+      ${LOOK.comp ? `<div class="sbh-st-comp">${compPic(LOOK.comp, false, true)}</div>` : ""}</div>`;
   }
   function lookHtml(){
     const dk = LDARK == null ? dark() : LDARK, th = LOOK.skin, ths = SKINS.find(x => x.id === th);

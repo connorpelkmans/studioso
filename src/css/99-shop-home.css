@@ -25,7 +25,7 @@
 .sbh-hero-pic .skin-prev{height:172px;border-radius:0}
 .sbh-hero-t{position:relative;z-index:1}
 .sbh-inside{display:flex;align-items:center;gap:4px;margin-top:2px}
-.sbh-inside .sbh-comp{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);padding:2px;box-sizing:border-box}
+.sbh-inside .sbh-comp{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.14);padding:2px;box-sizing:border-box}
 .sbh-inside .stk-cell{width:30px;height:30px}
 .btn.sbh-gold{background:linear-gradient(180deg,#FFD978,#F5A623);color:#3A2200;border:0;box-shadow:0 6px 16px rgba(245,166,35,.4)}
 .btn.sbh-gold:hover{filter:brightness(1.05)}
@@ -82,7 +82,7 @@
 .sbh-comp{position:relative;overflow:visible;display:grid;place-items:center}
 .sbh-comp > img.cp-still{width:100%!important;height:100%!important;margin:0!important;transform:scale(1.3);object-fit:contain}
 .sbh-comp.face{overflow:hidden;border-radius:50%}
-.sbh-comp.face > img.cp-still{transform:scale(2.3) translateY(16%)}
+.sbh-comp.face > img.cp-still{transform:scale(1.18) translateY(3%)}
 .sbh-comp-none{border-radius:50%;background:var(--line)}
 
 /* Yours */
@@ -208,3 +208,6 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .sheet.shop.sbh-on .shop-inuse{background:color-mix(in srgb,var(--accent) 14%,var(--surface))!important;color:var(--accent)!important;border-color:transparent!important;opacity:1!important}
 .sheet.shop.sbh-on .shop-pack .pack-grid{border-radius:12px;background:var(--soft);padding:8px}
 .sheet.shop.sbh-on .pro-badge,.sheet.shop.sbh-on .free-badge{border-radius:999px}
+/* Note shape and pin choices: the whole note, scaled into the small button */
+.sbh-opt .ns-demo{position:absolute;left:50%;top:50%;width:200px;height:170px;margin:0;transform:translate(-50%,-50%) scale(.3);background:none!important;border-radius:0}
+.sbh-opt.sbh-k-note,.sbh-opt.sbh-k-pin{background:var(--soft)}
