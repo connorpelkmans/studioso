@@ -9929,7 +9929,7 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 /* See All pages, restyled to match the Shop home */
 .sheet.shop.sbh-on .sheet-body:not(.sbh-body){padding-top:16px}
 .sheet.shop.sbh-on .sbh-back{margin-bottom:10px}
-.sheet.shop.sbh-on .ui-shop-bar{gap:10px}
+.sheet.shop.sbh-on .ui-shop-bar{gap:10px;top:-16px}
 .sheet.shop.sbh-on .ui-shop-q input{border-radius:999px}
 .sheet.shop.sbh-on .ui-chip{border-radius:999px}
 .sheet.shop.sbh-on .shop-mode{padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
@@ -9976,6 +9976,10 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .sbh-now-i .sbh-pic{--ms:.38}
 .sbh-opt{--ms:.46}
 .sbh-slot .sbh-opt-note{margin:0 12px 8px;color:var(--muted)}
+/* Collection cards: the price on its own row, Preview and See All side by side under it, never squeezed */
+.sheet.shop.sbh-on .ui-col-act{flex-wrap:wrap;gap:8px}
+.sheet.shop.sbh-on .ui-col-act .btn.small{flex:1 1 auto;width:auto;min-width:0;white-space:nowrap;padding-inline:12px}
+.sheet.shop.sbh-on .ui-col-act > .btn:first-child{flex-basis:100%}
 /* ===== module: 99-settings.css ===== */
 /* Settings, rebuilt: each category is one page of headed groups (no tabs to hunt behind), each group one rounded card
    of rows split by hairlines, a compact page title instead of the banner, and a colour per category */
