@@ -1671,6 +1671,7 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .cap-shot select{flex:none;min-width:150px}
 .qa-bar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
 .qa-ic{flex:none;font:700 1.2rem var(--display);color:var(--muted);display:grid;place-items:center;width:20px}
+.qa-ic:has(.cp-ai-face){margin-inline-start:-6px}
 .qa-bar input{flex:1;min-width:0;border:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;padding:8px 2px;font-size:1rem}
 .qa-preview{margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;gap:8px;box-shadow:var(--shadow)}
 .qa-preview>p{margin:0}

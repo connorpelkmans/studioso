@@ -341,8 +341,8 @@ var SBPRO = null;
       case "pro-recap-hide": { const T = recapTerm(); if (T) markSeen(T.key); scheduleRender(); toast("Hidden. Your recap stays in Settings, Studyboard Pro."); return true; }
       case "pro-recap-step": if (RC) { const n = RC.i + (Number(id) || 1); RC.i = n >= RC.slides.length ? 0 : Math.max(0, n); drawRecap(); } return true;
       case "pro-recap-img": recapImage(); return true;
-      case "pro-early": setS({early: !S().early}); toast(S().early ? "Preview features are on. Thanks for trying them!" : "Preview features are off."); redrawPlan(); scheduleRender(); return true;
-      case "pro-badge": setS({badge: !S().badge}); toast(S().badge ? "Your supporter badge shows in your groups." : "Your supporter badge is hidden."); redrawPlan(); fire("pro-badge", !!S().badge); return true;
+      case "pro-early": setS({early: !S().early}); redrawPlan(); scheduleRender(); toast(S().early ? "Preview features are on. Thanks for trying them!" : "Preview features are off."); return true;
+      case "pro-badge": setS({badge: !S().badge}); redrawPlan(); fire("pro-badge", !!S().badge); toast(S().badge ? "Your supporter badge shows in your groups." : "Your supporter badge is hidden."); return true;
     }
     return false;
   });

@@ -17,13 +17,22 @@ const card = (id, f, b, o) => Object.assign({id, front: f, back: b, box: 0, due:
 let qn = 0; const mcq = (stem, options, k) => ({id: "qq" + (++qn), type: "single", stem, options, correct: [k]});
 const QUIZ = (id, title, qs, o) => Object.assign({id, title, created: 1, style: "", results: [], questions: qs}, o || {});
 const SEED = {v: 2,
-  courses: [{id: "bio", name: "Biology", code: "BIO 201", color: "#1E9E74"}, {id: "nur", name: "Adult Health Nursing", code: "NURS 310", color: "#1F6FEB"}, {id: "eng", name: "Composition", code: "ENGL 102", color: "#7A4FD6"}, {id: "chem", name: "Organic Chemistry", code: "CHEM 221", color: "#E4513B"}, {id: "stat", name: "Statistics", code: "STAT 200", color: "#B86A00"}],
+  courses: [{id: "bio", name: "Biology", code: "BIO 201", color: "#1E9E74", maps: [{id: "m1", name: "Cell Respiration", auto: false, created: 1, at: 1,
+    add: [{id: "i1", label: "Glycolysis"}, {id: "i2", label: "Krebs cycle"}, {id: "i3", label: "Electron transport chain"}, {id: "i4", label: "ATP"}, {id: "i5", label: "Mitochondria"}, {id: "i6", label: "Pyruvate"}],
+    links: [{a: "root", b: "idea:i1", label: "starts with"}, {a: "idea:i1", b: "idea:i6", label: "makes"}, {a: "idea:i6", b: "idea:i2", label: "feeds"}, {a: "idea:i2", b: "idea:i3", label: "powers"}, {a: "idea:i3", b: "idea:i4", label: "makes most"}, {a: "idea:i2", b: "idea:i5", label: "happens in"}],
+    pos: {"root": [0, 0], "idea:i1": [330, 0], "idea:i6": [330, 190], "idea:i2": [0, 190], "idea:i3": [-330, 190], "idea:i4": [-330, 0], "idea:i5": [0, 360]}}]}, {id: "nur", name: "Adult Health Nursing", code: "NURS 310", color: "#1F6FEB"}, {id: "eng", name: "Composition", code: "ENGL 102", color: "#7A4FD6"}, {id: "chem", name: "Organic Chemistry", code: "CHEM 221", color: "#E4513B"}, {id: "stat", name: "Statistics", code: "STAT 200", color: "#B86A00"}],
   tasks: [
     {id: "t1", title: "Lab Report 4: Enzyme Kinetics", courseId: "bio", type: "Assignment", due: plus(1), weight: 10, hours: 3, status: "doing", pct: 65},
     {id: "t2", title: "Exam 2: Cardiac & Respiratory", courseId: "nur", type: "Exam", due: plus(4), time: "09:00", weight: 20, hours: 6, status: "todo", start: plus(4)},
     {id: "t3", title: "Read Ch. 7-8, Rhetorical Situations", courseId: "eng", type: "Reading", due: plus(0), hours: 1, status: "todo"},
     {id: "t4", title: "Problem Set 5", courseId: "chem", type: "Assignment", due: plus(0), weight: 5, hours: 2, status: "todo"},
-    {id: "t5", title: "Essay 2 outline", courseId: "eng", type: "Assignment", due: plus(6), weight: 8, hours: 2, status: "doing", pct: 30},
+    {id: "t5", title: "Essay 2: Social Media and Teen Sleep", courseId: "eng", type: "Assignment", due: plus(6), weight: 8, hours: 2, status: "doing", pct: 30,
+      ws: {style: "apa", src: [
+        {id: "s1", type: "article-journal", title: "Screen time and sleep among adolescents", author: [{family: "Hale", given: "Lauren"}, {family: "Guan", given: "Stanford"}], "container-title": "Sleep Medicine Reviews", volume: "21", page: "50–58", issued: {"date-parts": [[2015]]}, DOI: "10.1016/j.smrv.2014.07.007"},
+        {id: "s2", type: "article-journal", title: "Social media use and sleep in young people", author: [{family: "Woods", given: "Heather"}, {family: "Scott", given: "Holly"}], "container-title": "Journal of Adolescence", volume: "51", page: "41–49", issued: {"date-parts": [[2016]]}},
+        {id: "s3", type: "book", title: "Why we sleep", author: [{family: "Walker", given: "Matthew"}], publisher: "Scribner", issued: {"date-parts": [[2017]]}}],
+        q: [{id: "q1", sid: "s2", t: "Overall and night-time-specific social media use were associated with poorer sleep quality.", p: "44", sec: "", at: 1}], out: [],
+        draft: {t: "Social Media and Teen Sleep\n\nMost teenagers now fall asleep with a phone in reach, and the cost shows up the next morning. Teens who spend more time on screens sleep less and later (Hale & Guan, 2015). The problem is not only the hours online but when they happen: night-time social media use is linked to poorer sleep quality (Woods & Scott, 2016). Because sleep shapes memory and mood (Walker, 2017), schools should teach students to put their phones away an hour before bed.\n\nReferences\nHale, L., & Guan, S. (2015). Screen time and sleep among adolescents. Sleep Medicine Reviews, 21, 50–58.\nWalker, M. (2017). Why we sleep. Scribner.\nWoods, H., & Scott, H. (2016). Social media use and sleep in young people. Journal of Adolescence, 51, 41–49.", from: "Pasted", at: 1}}},
     {id: "t6", title: "Quiz 4: Hypothesis Testing", courseId: "stat", type: "Quiz", due: plus(5), time: "11:00", weight: 5, hours: 1, status: "todo"},
     {id: "t7", title: "Clinical reflection", courseId: "nur", type: "Assignment", due: plus(7), weight: 6, hours: 2, status: "todo"},
     {id: "t8", title: "Care plan draft", courseId: "nur", type: "Assignment", due: plus(-6), weight: 8, status: "done", pct: 100},
@@ -51,7 +60,7 @@ const withComp = id => { const s = JSON.parse(JSON.stringify(SEED)); s.settings.
 const dismiss = async page => {
   for (let i = 0; i < 4; i++) {
     await page.evaluate(() => {
-      [...document.querySelectorAll("button")].filter(b => /^(Not now|No Thanks|Dismiss|Later|Not This Week)$/i.test(b.textContent.trim())).forEach(b => b.click());
+      [...document.querySelectorAll("button")].filter(b => /^(Not now|No Thanks|Dismiss|Later|Not This Week|Got It)$/i.test(b.textContent.trim())).forEach(b => b.click());
       const h = [...document.querySelectorAll("div,section,aside")].find(e => /^Heavy week ahead/.test(e.textContent.trim()) && e.querySelector("button") && e.textContent.length < 260);
       if (h) { const bs = h.querySelectorAll("button"); bs[bs.length - 1].click(); }
     });
@@ -61,7 +70,7 @@ const dismiss = async page => {
 async function capture(browser, scheme, compId) {
   const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, colorScheme: scheme, deviceScaleFactor: SCALE, serviceWorkers: "block"});
   await ctx.clock.setFixedTime(NOW);
-  await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) {
+  await ctx.addInitScript(([seed, scheme]) => { window.__SB_TEST = true; try { if (!localStorage.getItem("coursework:v2")) {
     localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); localStorage.setItem("studyboard:tips", "off");
     localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaSyDEMO-NOT-A-REAL-KEY-FOR-SCREENSHOTS"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, [compId ? withComp(compId) : SEED, scheme]);
   const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(2500);
@@ -79,7 +88,7 @@ async function capture(browser, scheme, compId) {
     b.style.left = left + "px"; b.style.top = top + "px"; b.dataset.x = left; b.dataset.y = top;
     document.querySelectorAll(".cp-bubble.on").forEach(x => x.classList.remove("on"));
   });
-  const shot = async name => { await page.waitForTimeout(700); await homeComp(); await page.waitForTimeout(80); await page.screenshot({path: path.join(OUT, `${name}-${scheme}.png`)}); console.log("saved", `${name}-${scheme}.png`); };
+  const shot = async name => { await dismiss(page); await page.waitForTimeout(700); await homeComp(); await page.waitForTimeout(80); await page.screenshot({path: path.join(OUT, `${name}-${scheme}.png`)}); console.log("saved", `${name}-${scheme}.png`); };
   const tab = async label => { await page.evaluate(l => { const b = [...document.querySelectorAll("button")].find(e => e.closest("nav,aside,#nav,.side") && e.textContent.trim().replace(/\d+$/, "") === l); b && b.click(); }, label); await page.waitForTimeout(1200); };
   if (compId) { await tab("Companion"); await shot("companion-" + compId.replace("plain-", "")); await ctx.close(); return; }
   await shot("plan");
@@ -90,8 +99,19 @@ async function capture(browser, scheme, compId) {
   await tab("Notes"); await shot("notes");
   await tab("Courses"); await shot("courses");
   await tab("Companion"); await shot("companion");
+  // Review: Concept Maps (an open map) and Writing Studio
+  const rv = async v => { await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close())); await tab("Review"); await page.evaluate(v => { const b = document.querySelector(`.rv-tabs [data-id="${v}"]`); b && b.click(); }, v); await page.waitForTimeout(900); };
+  await rv("maps"); await page.waitForTimeout(800); await page.evaluate(() => { const b = document.querySelector('.cm-mapcard [data-act="cm-open"]'); b && b.click(); }); await page.waitForTimeout(2200); await shot("maps");
+  await page.keyboard.press("Escape").catch(() => {}); await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close())); await page.waitForTimeout(400);
+  // Writing Studio is part of Pro: shown as a Pro member sees it
+  await page.evaluate(() => { const P = window.__sbPlanObj && window.__sbPlanObj(); if (P) { window.__planIsPro = P.isPro; P.isPro = () => true; } });
+  await rv("writing"); await page.waitForTimeout(800); await page.evaluate(() => { const b = document.querySelector('.wsr-card [data-act="ws-open"]'); b && b.click(); }); await page.waitForTimeout(2000); await shot("writing");
+  await page.evaluate(() => { const P = window.__sbPlanObj && window.__sbPlanObj(); if (P && window.__planIsPro) P.isPro = window.__planIsPro; });
+  await page.keyboard.press("Escape").catch(() => {}); await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close())); await page.waitForTimeout(400);
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "pomo-open"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(1200); await shot("focus");
+  await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close())); await page.waitForTimeout(400);
   await page.evaluate(() => document.querySelector('[data-act="shop"]').click()); await page.waitForTimeout(1200);
-  await page.evaluate(() => { const t = document.querySelector('.sheet [data-act="shop-tab"][data-id="collections"]'); t && t.click(); }); await shot("style");
+  await shot("style");
   await ctx.close();
 }
 var THEMES = ["japan", "italy", "sakura", "forest", "galaxy", "sunset", "ocean", "nursing", "compsci"];

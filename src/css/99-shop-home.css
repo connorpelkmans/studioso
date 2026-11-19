@@ -53,6 +53,7 @@
 .sbh-row{display:flex;flex-direction:column;gap:10px;min-width:0}
 .sheet-body.sbh-body > *{min-width:0}
 .sbh-row.sbh-wait{min-height:170px}
+.sbh-tw{grid-column:1/-1;display:block;height:1px}
 .sbh-row-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px}
 .sbh-row-h h3{margin:0;font:800 1.15rem var(--display)}
 .sbh-row-h .link-btn{margin-left:auto;font-weight:800}

@@ -296,3 +296,53 @@
 .s3 .ca-eqk{transform:translateY(1.5px);box-shadow:0 0 0 #16336f}
 .ca-tag{position:absolute;left:14px;bottom:14px;opacity:0;transform:translateY(8px)}
 .s1 .ca-tag{opacity:1;transform:none}
+
+/* Concept maps: ideas branch out from the course, a link gets its label, then the links turn into flashcards */
+.cx-lines{position:absolute;inset:0;width:100%;height:100%}
+.cx-l{stroke:color-mix(in srgb,var(--accent) 55%,var(--ink));stroke-opacity:.5;stroke-width:1.6;vector-effect:non-scaling-stroke;stroke-dasharray:140;stroke-dashoffset:140}
+.s1 .cx-l.a,.s2 .cx-l.b{stroke-dashoffset:0}
+.cx-n{position:absolute;transform:translate(-50%,-50%) scale(.6);opacity:0;padding:5px 11px;border-radius:999px;background:var(--surface);border:1.5px solid color-mix(in srgb,var(--accent) 45%,var(--line));font:700 .74rem var(--display);white-space:nowrap;box-shadow:var(--shadow)}
+.cx-root{left:50%;top:40%;transform:translate(-50%,-50%);opacity:1;background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#fff);font-size:.8rem}
+.cx-n.n1{left:21%;top:15%}.cx-n.n2{left:79%;top:15%}.cx-n.n3{left:24%;top:64%}.cx-n.n4{left:78%;top:62%}
+.s1 .cx-a,.s2 .cx-b{opacity:1;transform:translate(-50%,-50%)}
+.cx-lab{position:absolute;left:37%;top:52%;transform:translate(-50%,-50%);padding:1px 6px;border-radius:6px;background:var(--paper);font:700 .62rem var(--display);color:var(--muted);opacity:0}
+.s2 .cx-lab{opacity:1}
+.cx-pill{position:absolute;left:50%;bottom:10px;transform:translate(-50%,8px);opacity:0;white-space:nowrap;color:var(--leaf)}
+.s3 .cx-pill{opacity:1;transform:translate(-50%,0)}
+
+/* Writing Studio: a quote is highlighted, its citation goes in, and the citation check comes back clean */
+.ws-paper{position:absolute;left:14px;top:12px;bottom:-8px;width:60%;padding:12px 14px 0;border-radius:6px;background:#fff;color:#1D2433;box-shadow:0 6px 18px rgba(14,42,86,.16);display:grid;gap:7px;align-content:start}
+.ws-t{font:700 .72rem Georgia,"Times New Roman",serif;text-align:center}
+.ws-ln{display:block;height:5px;border-radius:3px;background:#D9DEE8}
+.ws-ln.w1{width:96%}.ws-ln.w2{width:88%}.ws-ln.w3{width:46%;flex:none}.ws-ln.w4{width:92%}.ws-ln.w5{width:70%}
+.ws-row{display:flex;align-items:center;gap:5px}
+.ws-cite{font:700 .62rem var(--body);color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);border-radius:4px;padding:1px 4px;white-space:nowrap;opacity:0;transform:translateX(-6px)}
+.s2 .ws-cite{opacity:1;transform:none}
+.ws-q{position:relative}
+.ws-q::after{content:"";position:absolute;left:-3px;top:-4px;height:13px;width:0;border-radius:3px;background:rgba(255,214,0,.55)}
+.s1 .ws-q::after{width:calc(100% + 6px)}
+.ws-src{position:absolute;right:12px;top:14px;width:calc(40% - 40px);min-width:96px;display:grid;gap:5px;font:600 .62rem var(--body);color:var(--muted)}
+.ws-src b{font:700 .7rem var(--display);color:var(--ink)}
+.ws-src span{padding:5px 7px;border-radius:7px;background:var(--surface);border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s2 .ws-src .ws-on{border-color:var(--accent);color:var(--ink);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent)}
+.ws-ok{position:absolute;right:10px;bottom:12px;opacity:0;transform:translateY(8px);color:var(--leaf)}
+.s3 .ws-ok{opacity:1;transform:none}
+
+/* Style Shop: a theme collection is picked, pieces from other collections join it, and the board is wearing it */
+.sx-themes{position:absolute;left:12px;top:14px;width:54%;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.sx-t{position:relative;display:block;height:96px;border-radius:10px;border:2px solid var(--line);box-shadow:var(--shadow);overflow:hidden}
+.sx-t b{position:absolute;left:0;right:0;bottom:0;padding:3px 0;background:color-mix(in srgb,var(--surface) 88%,transparent);font:700 .62rem var(--display);text-align:center;color:var(--ink)}
+.sx-t.t1{background:linear-gradient(180deg,#CFE3F7,#F4F8FD 60%,#E1ECF7)}
+.sx-t.t2{background:radial-gradient(circle at 30% 30%,#FFD1E1 0 6px,transparent 7px),radial-gradient(circle at 70% 45%,#FFC2D6 0 5px,transparent 6px),linear-gradient(180deg,#FBE3EC,#FFF5F8)}
+.sx-t.t3{background:linear-gradient(180deg,#BDE8F0,#E9F8FB 55%,#7CCFDD)}
+.s1 .sx-t.t2{border-color:#E8688A;transform:translateY(-3px);box-shadow:0 0 0 3px rgba(232,104,138,.22),var(--shadow-lg)}
+.sx-look{position:absolute;right:12px;top:14px;width:calc(46% - 34px);min-width:104px;padding:8px;border-radius:12px;background:var(--surface);border:1px dashed color-mix(in srgb,#E8688A 55%,var(--line));display:grid;gap:5px}
+.sx-look b{font:700 .7rem var(--display)}
+.sx-p{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:7px;background:color-mix(in srgb,#E8688A 8%,var(--paper));font:600 .62rem var(--body);white-space:nowrap;opacity:0;transform:translateX(12px)}
+.s2 .sx-p{opacity:1;transform:none}
+.s2 .sx-p.p2{transition-delay:.12s}.s2 .sx-p.p3{transition-delay:.24s}
+.sx-card{width:16px;height:11px;border-radius:2px;background:#FFFDF2;border:1px solid #C9B98A;box-shadow:inset 0 3px 0 -2px #E05A4F}
+.sx-pin{width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FFE38A,#C99A1E)}
+.sx-map{width:16px;height:11px;background:radial-gradient(circle,#E8688A 0 2px,transparent 2.5px) 2px 2px/7px 7px}
+.sx-ok{position:absolute;right:10px;bottom:12px;opacity:0;transform:translateY(8px);color:var(--leaf)}
+.s3 .sx-ok{opacity:1;transform:none}

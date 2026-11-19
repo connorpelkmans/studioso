@@ -44,6 +44,10 @@ stubs = '''
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const owns = () => true;
+  // the website shows every companion in its own colours: no tints or patterns chosen in the app's settings
+  const tintsNow = () => ({});
+  const patsNow = () => ({});
+  const wearColor = c => (c && c.wearColor) || "#1F6FEB";
 '''
 head = "/* Studyboard companion drawing and animation, copied from the app (module 98-companion). Do not edit by hand: run tools/make-website-assets.py. */\n/* global COMP_EXTRA, SBThemes */\nwindow.SBCOMPW = (function () {\n"
 tail = "\n  return {REG, BYID, rigSvg, actor, GENERIC, partSvg};\n})();\n"
