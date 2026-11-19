@@ -292,6 +292,29 @@
     if (wasShop) setTimeout(() => { try { styleShop(); } catch (e) {} }, 120);
     load();
   }
+  // Build Your Look: a theme (with its Collection) plus up to 5 more pieces, for the price of one Collection
+  // (studyboard_buy_bundle in supabase-credits-bundle.sql). items: [[kind, id], ...] of cards, pins and note shapes
+  async function buyBundle(th, items, btn){
+    if (busy) return false; busy = true;
+    if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+    let r = null, missing = false;
+    try { const {data, error} = await cl().rpc("studyboard_buy_bundle", {p_theme: th, p_items: items}); if (error) { missing = /PGRST202|could not find the function/i.test((error.code || "") + " " + (error.message || "")); r = {error: missing ? "off" : "network"}; } else r = data; } catch (e) { r = {error: "network"}; }
+    busy = false;
+    if (btn && btn.isConnected) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
+    const ERR = {off: "Building your own look isn't available yet. You can still get the Collection or each piece.", sign_in: "Sign in first, then try again.", bad_item: "One of those pieces can't be bought with credits.",
+      own_theme: "You already have this theme. Get the other pieces one by one.", slow_down: "That's a lot of purchases. Wait a little, then try again.", network: "Couldn't reach Studyboard. Check your connection and try again."};
+    if (!r || !r.ok) {
+      if (r && r.error === "not_enough") { if (C && typeof r.balance === "number") { C.balance = r.balance; save(); } packsSheet(); return false; }
+      toast(ERR[r && r.error] || ERR.network); return false;
+    }
+    C = Object.assign({}, mine() || {uid: usr().id, owned: []}, {balance: typeof r.balance === "number" ? r.balance : balance()});
+    C.owned = (C.owned || []).concat([["skin", th]], items); save(); rebuild();
+    try { applySkin(); } catch (e) {}
+    scheduleRender();
+    toast(`Your ${themeName(th)} look is yours for good. ${C.balance} credit${C.balance === 1 ? "" : "s"} left.`);
+    load();
+    return true;
+  }
   // A checkout that's open in another tab: {pack, credits, url, at, from}. The Credits sheet shows it until the credits arrive.
   let pending = null, added = null;
   async function buyPack(id, btn){
@@ -430,7 +453,7 @@
 .sbc-bnum small{margin-top:2px;font:800 .78rem/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:#A0670A}
 .sbc-bnum b:not(:only-child){max-width:136px;overflow:hidden}`;
     document.head.appendChild(st); }
-  window.SBCREDITS = {burst, owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
+  window.SBCREDITS = {burst, owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents, buyBundle, signedIn: () => signedIn(),
     // For tests: what this device remembers
     state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
   if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), pending: () => pending, added: () => added, comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});

@@ -72594,6 +72594,29 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (wasShop) setTimeout(() => { try { styleShop(); } catch (e) {} }, 120);
     load();
   }
+  // Build Your Look: a theme (with its Collection) plus up to 5 more pieces, for the price of one Collection
+  // (studyboard_buy_bundle in supabase-credits-bundle.sql). items: [[kind, id], ...] of cards, pins and note shapes
+  async function buyBundle(th, items, btn){
+    if (busy) return false; busy = true;
+    if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+    let r = null, missing = false;
+    try { const {data, error} = await cl().rpc("studyboard_buy_bundle", {p_theme: th, p_items: items}); if (error) { missing = /PGRST202|could not find the function/i.test((error.code || "") + " " + (error.message || "")); r = {error: missing ? "off" : "network"}; } else r = data; } catch (e) { r = {error: "network"}; }
+    busy = false;
+    if (btn && btn.isConnected) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
+    const ERR = {off: "Building your own look isn't available yet. You can still get the Collection or each piece.", sign_in: "Sign in first, then try again.", bad_item: "One of those pieces can't be bought with credits.",
+      own_theme: "You already have this theme. Get the other pieces one by one.", slow_down: "That's a lot of purchases. Wait a little, then try again.", network: "Couldn't reach Studyboard. Check your connection and try again."};
+    if (!r || !r.ok) {
+      if (r && r.error === "not_enough") { if (C && typeof r.balance === "number") { C.balance = r.balance; save(); } packsSheet(); return false; }
+      toast(ERR[r && r.error] || ERR.network); return false;
+    }
+    C = Object.assign({}, mine() || {uid: usr().id, owned: []}, {balance: typeof r.balance === "number" ? r.balance : balance()});
+    C.owned = (C.owned || []).concat([["skin", th]], items); save(); rebuild();
+    try { applySkin(); } catch (e) {}
+    scheduleRender();
+    toast(`Your ${themeName(th)} look is yours for good. ${C.balance} credit${C.balance === 1 ? "" : "s"} left.`);
+    load();
+    return true;
+  }
   // A checkout that's open in another tab: {pack, credits, url, at, from}. The Credits sheet shows it until the credits arrive.
   let pending = null, added = null;
   async function buyPack(id, btn){
@@ -72732,7 +72755,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .sbc-bnum small{margin-top:2px;font:800 .78rem/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:#A0670A}
 .sbc-bnum b:not(:only-child){max-width:136px;overflow:hidden}`;
     document.head.appendChild(st); }
-  window.SBCREDITS = {burst, owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
+  window.SBCREDITS = {burst, owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents, buyBundle, signedIn: () => signedIn(),
     // For tests: what this device remembers
     state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
   if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), pending: () => pending, added: () => added, comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
@@ -72894,9 +72917,9 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const c = cfg(), cp = curComp();
     const cur = {skin: c.skin, comp: cp, card: cardStyleOf(null), note: noteShapeOf(null), pin: notePinOf(null), cm: CM() ? CM().current() : ""};
     const now = SLOTS.map(([slot, k, l]) => [k, cur[slot], l]).filter(([k, id]) => id && nameOf(k, id));
-    const strip = `<div class="sbh-now"><div class="sbh-now-t"><b>Your Look Now</b><span class="mini">What your board is wearing</span></div>
-      <div class="sbh-now-l">${now.map(([k, id, l], i) => `<div class="sbh-now-i sbh-k-${k}"><span class="sbh-pic">${pic(k, id, i)}</span><span><em>${l}</em><b>${esc(nameOf(k, id))}</b></span></div>`).join("")}</div>
-      <button type="button" class="btn primary" data-act="sbh-go" data-id="look">Change My Look</button></div>`;
+    const strip = `<div class="sbh-now"><div class="sbh-now-t"><b>Your Look Now</b><span class="mini">What your board is wearing. Tap one to change it.</span></div>
+      <div class="sbh-now-l">${now.map(([k, id, l], i) => { const tab = {skin: "themes", comp: "companions", card: "cards", note: "notes", pin: "pins"}[k], inner = `<span class="sbh-pic">${pic(k, id, i)}</span><span><em>${l}</em><b>${esc(nameOf(k, id))}</b></span>`;
+        return tab ? `<button type="button" class="sbh-now-i sbh-k-${k}" data-act="sbh-go" data-id="${tab}" aria-label="${esc(l)}: ${esc(nameOf(k, id))}. Change it">${inner}</button>` : `<div class="sbh-now-i sbh-k-${k}">${inner}</div>`; }).join("")}</div></div>`;
     if (!STORE.paywall) return strip + `<p class="sbh-note">While Studyboard is in early access, everything in the shop is yours to use. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`;
     const groups = [["themes", "skin", LIST.skin().map(s => s.id).concat(SKINS.filter(s => s.photo).map(s => s.id))], ["companions", "comp", allComps().map(x => x.id)], ["stickers", "sticker", STICKER_PACKS.map(p => p.id)], ["cards", "card", LIST.card().map(x => x.id)], ["pins", "pin", PINS.map(x => x.id)], ["notes", "note", NOTE_SHAPES.map(x => x.id)]];
     const kindName = {themes: "Themes", companions: "Companions", stickers: "Sticker Packs", cards: "Flashcard Styles", pins: "Pins", notes: "Note Shapes"};
@@ -72967,12 +72990,28 @@ You can also DO things in Studyboard, but only when the student asks or what the
           ${opts.length > 30 && slot !== "cm" ? `<button type="button" class="link-btn sbh-more" data-act="sbh-go" data-id="${({skin: "themes", card: "cards", comp: "companions", note: "notes", pin: "pins"})[slot] || "themes"}">See All ${NAMES[({skin: "themes", card: "cards", comp: "companions", note: "notes", pin: "pins"})[slot] || "themes"]}</button>` : ""}` : ""}
       </div>`;
     }).join("");
-    const sum = !need.length ? `<p class="sbh-sum ok">Everything here is yours. Wear it whenever you like.</p>`
-      : `<div class="sbh-sum">${cost ? `<div><span>${need.length === 1 ? "The piece" : `The ${need.length} pieces`} you don't have</span><b>${cost} credits</b></div>` : ""}${col && inCol.length ? `<div class="sbh-col"><span>The whole ${esc(ths ? ths.name : "")} Collection</span><b>${col} credits</b></div><p class="mini">The Collection has the theme, its companions, stickers, pins and flashcard style.</p>` : ""}${!cost && !col ? `<p class="mini">${need.map(([, k, id]) => esc(nameOf(k, id))).join(", ")} ${need.length === 1 ? "comes" : "come"} with Studyboard Pro.</p>` : ""}</div>`;
-    const acts = `<div class="sbh-acts">
-        ${col && inCol.length ? `<button type="button" class="btn primary" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">Get the Collection</button>` : need.length === 1 && need[0][1] !== "cm" ? `<button type="button" class="btn primary" data-act="shop-unlock" data-kind="${need[0][1]}" data-id="${esc(need[0][2])}">Get ${esc(nameOf(need[0][1], need[0][2]))}</button>` : ""}
-        ${need.length > (col && inCol.length ? 0 : 1) ? `<div class="sbh-getrow">${need.filter(([, k, id]) => !(col && inCol.some(x => x[2] === id))).map(([, k, id]) => (k === "cm" ? `<button type="button" class="btn small" data-act="plan-open">${esc(nameOf(k, id))} comes with Pro</button>` : `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${k}" data-id="${esc(id)}">Get ${esc(nameOf(k, id))}</button>`)).join("")}</div>` : ""}
-        ${need.length && !cost && !(col && inCol.length) && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn primary" data-act="plan-open">Get Studyboard Pro</button>` : ""}
+    // A bundle: the theme (with its whole Collection) plus the flashcard style, note shape and pin picked, for one Collection price
+    const SELL = {card: 1, pin: 1, note: 1};
+    const credits = !!(CR() && CR().enabled && CR().enabled() && CR().buyBundle);
+    const extras = need.filter(([, k, id]) => SELL[k] && !(k === "card" && rec(th) && rec(th).card === id) && !(k === "pin" && rec(th) && (rec(th).pins || []).includes(id))).slice(0, 5);
+    const bundle = credits && col > 0;
+    const proOnly = need.filter(([, k, id]) => k === "cm" || (!price(k, id) && k !== "skin" && k !== "comp"));
+    const names = l => l.map(([, k, id]) => esc(nameOf(k, id))).join(", ");
+    let sum, main = "";
+    if (!need.length) sum = `<p class="sbh-sum ok">Everything here is yours. Wear it whenever you like.</p>`;
+    else if (bundle) {
+      const apart = col + extras.reduce((n, [, k, id]) => n + price(k, id), 0);
+      sum = `<div class="sbh-sum">${apart > col ? `<div class="sbh-apart"><span>Bought one by one</span><s>${apart} credits</s></div>` : ""}<div class="sbh-col"><span>This look, together</span><b>${col} credits</b></div>
+        <p class="mini">The ${esc(ths ? ths.name : "")} theme with its whole Collection${extras.length ? `, plus ${names(extras)}` : ""}.${proOnly.length ? ` ${names(proOnly)} ${proOnly.length === 1 ? "comes" : "come"} with Studyboard Pro.` : ""}</p></div>`;
+      main = `<button type="button" class="btn primary sbh-buy" data-act="sbh-bundle">Get This Look · ${col} credits</button>`;
+    } else {
+      sum = `<div class="sbh-sum">${cost ? `<div><span>${need.length === 1 ? "The piece" : `The ${need.length} pieces`} you don't have</span><b>${cost} credits</b></div>` : ""}${!cost ? `<p class="mini">${names(need)} ${need.length === 1 ? "comes" : "come"} with Studyboard Pro.</p>` : ""}</div>`;
+      const buyable = need.filter(([, k, id]) => price(k, id));
+      main = buyable.map(([, k, id]) => `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${k}" data-id="${esc(id)}">Get ${esc(nameOf(k, id))}</button>`).join("");
+      if (main) main = `<div class="sbh-getrow">${main}</div>`;
+      if (!buyable.length && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro()) main = `<button type="button" class="btn primary" data-act="plan-open">Get Studyboard Pro</button>`;
+    }
+    const acts = `<div class="sbh-acts">${main}
         <button type="button" class="btn${need.length ? "" : " primary"}" data-act="sbh-wear"${need.length === pieces.length ? " disabled" : ""}>${need.length ? "Wear What I Have" : "Wear This Look"}</button></div>`;
     return `<div class="sbh-look">
       <div class="sbh-look-l"><div class="sbh-look-h"><button type="button" class="link-btn" data-act="sbh-go" data-id="home">‹ Shop</button><h3>Build Your Look</h3>
@@ -73078,6 +73117,14 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (act === "sbh-pick") { const s = el.dataset.slot, id = el.dataset.id; if (s === "skin") matchTo(id); else LOOK[s] = id; draw(); return true; }
     if (act === "sbh-dark") { LDARK = el.dataset.id === "1"; draw(); return true; }
     if (act === "sbh-wear") { wear(); return true; }
+    if (act === "sbh-bundle") {
+      if (!LOOK || !CR() || !CR().buyBundle) return true;
+      if (CR().signedIn && !CR().signedIn()) { toast("Sign in first to buy with credits."); return true; }
+      const r = rec(LOOK.skin) || {}, mine = (k, id) => (k === "card" && r.card === id) || (k === "pin" && (r.pins || []).includes(id));
+      const items = [["card", LOOK.card], ["note", LOOK.note], ["pin", LOOK.pin]].filter(([k, id]) => id && !owns(k, id) && price(k, id) && !mine(k, id));
+      CR().buyBundle(LOOK.skin, items.slice(0, 5), el).then(ok => { if (ok) { wear(); } });
+      return true;
+    }
     return false;
   });
   window.SBSHOPHOME = {view: () => VIEW, look: () => (LOOK ? Object.assign({}, LOOK) : null)};
