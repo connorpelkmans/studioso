@@ -10150,17 +10150,12 @@ button.pr-stat{cursor:pointer}
 .prg-dot{width:10px;height:10px;border-radius:50%;background:#D93A42;animation:prgPulse 1.6s ease-in-out infinite;flex:none}
 .prg-new{margin:0 0 14px}
 .prg-new-list{display:grid;gap:8px}
-.prg-new-i,.prg-gi{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.prg-new-t,.prg-gi-t{flex:1;min-width:0;display:grid;gap:3px}
-.prg-glist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.prg-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
-.prg-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;background:var(--field);font-size:.76rem;font-weight:600}
-.prg-chip i{width:8px;height:8px;border-radius:50%;background:var(--sp)}
-.prg-chip.ok{background:rgba(30,158,116,.14)}.prg-chip.warn{background:rgba(245,166,35,.18)}
+.prg-new-i{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.prg-new-t{flex:1;min-width:0;display:grid;gap:3px}
 .prg-today .pp-today-t{display:flex;align-items:center;gap:8px;flex:1 1 200px;min-width:0}
 .prg-today .pp-today-t svg{width:20px;height:20px;flex:none}
 .prg-todays{display:grid;gap:8px;margin-top:8px}
-@media (max-width:560px){.prg-new-i,.prg-gi{flex-wrap:wrap}.prg-new-i .btn,.prg-gi>.btn{flex:1 1 100%}}
+@media (max-width:560px){.prg-new-i{flex-wrap:wrap}.prg-new-i .btn{flex:1 1 100%}}
 
 /* ===== builds (click by click) and videos ===== */
 .pr-slide-wrap{position:relative}
