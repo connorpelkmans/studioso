@@ -12,19 +12,22 @@
       icon: () => (typeof TOMATO !== "undefined" ? TOMATO : svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/>')),
       lead: "Short bursts of focused work with breaks in between, the Pomodoro way.",
       points: ["Pick a task and press play: 25 minutes of focus, then a 5 minute break", "Time you focus counts toward that task, so Today's Plan knows what's left", "Choose a routine, like Deep Work or Exam Cram, or make your own"],
-      used: () => { try { return typeof pomo !== "undefined" && !!pomo && (pomo.cycle > 0 || pomo.sessions > 0 || pomo.running); } catch (e) { return false; } },
+      // ever finished a focus session (the synced stats, else this device's count)
+      used: () => { try { return (typeof SBSTATS !== "undefined" && SBSTATS.focusSessions() > 0) || (typeof pomo !== "undefined" && !!pomo && pomo.sessions > 0); } catch (e) { return false; } },
       go: () => { const b = document.createElement("button"); b.dataset.act = "pomo-open"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }},
     {id: "whiteboard", color: "#0E9AA7", title: "Try a Whiteboard",
       icon: () => svg('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21l4-4 4 4M7 13l3-3 2 2 4-4"/>'),
       lead: "A big board to sketch, write and plan on, with markers, shapes and sticky notes.",
-      points: ["Draw out a problem, a diagram or a study plan", "Zoom around a board as big as you need", "Start blank or from a template, one board per course or topic"],
-      used: () => { try { return notesArr().some(n => n && n.wb); } catch (e) { return false; } },
+      points: ["Draw out a problem, a diagram or a study plan", "Start blank or from a template, one board per course or topic", "Share with your study group"],
+      // ever made a whiteboard and drawn on it
+      used: () => { try { return Object.values(state.notes || {}).some(n => n && n.wb && ((n.wbInk || []).length || (n.wbItems || []).length)); } catch (e) { return false; } },
       go: () => { ui.tab = "notes"; ui.notesView = "wb"; try { localStorage.setItem("studyboard:notesView", "wb"); } catch (e) {} render(); window.scrollTo(0, 0); }},
     {id: "maps", color: "#7C3AED", title: "See It All With Concept Maps",
       icon: () => svg('<rect x="2.5" y="10" width="7" height="5" rx="2.5"/><rect x="14.5" y="4" width="7" height="5" rx="2.5"/><rect x="14.5" y="15" width="7" height="5" rx="2.5"/><path d="M9.5 12.5c2.5 0 2.5-6 5-6M9.5 12.5c2.5 0 2.5 5 5 5"/>'),
       lead: "Map how a course fits together, from the notes, decks and exam topics you've already linked.",
       points: ["Studyboard builds a first map for you, ready to rearrange", "Link ideas to cards, notes and lecture moments", "Quiz yourself by hiding labels and filling them back in"],
-      used: () => { try { return !!window.SBCMAP && coursesArr().some(c => (SBCMAP.mapsOf(c) || []).some(m => m && !m.auto)); } catch (e) { return false; } },
+      // ever made a concept map or added an idea to one
+      used: () => { try { const has = x => !!x && typeof x === "object" && ((x.add || []).length > 0); return Object.values(state.courses || {}).some(c => c && ((Array.isArray(c.maps) && c.maps.length) || has(c.cmap))) || Object.values(state.tasks || {}).some(t => t && has(t.cmap)); } catch (e) { return false; } },
       go: () => { ui.tab = "flashcards"; ui.rvView = "maps"; render(); window.scrollTo(0, 0); }}
   ];
   // The one due now: week n after the start brings the nth feature not seen yet (skipping ones already in use)
@@ -46,7 +49,7 @@
     return `<div class="sheet fi-sheet" style="--fc:${f.color}">
       <div class="fi-hero"><button type="button" class="icon-btn fi-x" data-fi="later" aria-label="Close">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button><span class="fi-ic">${f.icon()}</span></div>
       <div class="sheet-body fi-body">
-        <span class="fi-eyebrow">New for You${i != null ? ` · ${i + 1} of ${FEATURES.length}` : ""}</span>
+        <span class="fi-eyebrow">New for You</span>
         <h2 class="fi-t">${esc(f.title)}</h2>
         <p class="fi-lead">${esc(f.lead)}</p>
         <ul class="fi-pts">${f.points.map(p => `<li><span class="fi-tick" aria-hidden="true">${svg('<path d="M5 12.5l4.2 4.2L19 7"/>')}</span><span>${esc(p)}</span></li>`).join("")}</ul>
