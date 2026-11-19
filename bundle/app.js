@@ -31740,7 +31740,7 @@ const ERRCORE = (() => {
   // Kept to the 8 features that matter most on day one; the rest show up as students need them.
   const POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
-    {id: "welcome", title: "Welcome to Studyboard", tab: "board",
+    {id: "welcome", title: "Welcome to Studyboard!", tab: "board",
       text: () => "A one-minute tour with example courses and tasks. Skip any time."},
     {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
       text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
