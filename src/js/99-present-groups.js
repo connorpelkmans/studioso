@@ -76,13 +76,16 @@
       if (!p.group.by) X.splitEvenly(p);
     }
     if (d.due && /^\d{4}-\d{2}-\d{2}$/.test(d.due)) p.due = d.due;
+    if (Array.isArray(d.steps) && d.steps.length === n) p.steps = d.steps.map(x => Math.max(0, Math.min(60, Math.round(Number(x) || 0))));
+    if (d.vids && typeof d.vids === "object") p.vids = cleanVids(d.vids);
     if (!p.taskId && d.taskTitle) { const t = tasksArr().find(x => x.status !== "done" && String(x.title).trim().toLowerCase() === String(d.taskTitle).trim().toLowerCase()); if (t) p.taskId = t.id; }
   }
   const itemData = p => {
     const c = courseOf(p.courseId), t = p.taskId && state.tasks[p.taskId], g = X.grp(p);
     return {v: 1, name: p.name, title: p.title || "", slides: p.slides, kind: p.kind, path: (p.share && p.share.path) || "", notes: p.kind === "pdf" && Array.isArray(p.notesArr) ? p.notesArr.map(x => str(x, 3000)) : null,
       plan: {target: p.target, split: p.split || "even", custom: Array.isArray(p.custom) ? p.custom : null}, sp: g ? g.sp : [], by: g ? (g.by || []) : [],
-      due: (t && t.due) || p.due || "", taskTitle: t ? str(t.title, 200) : "", course: c ? {code: str(c.code, 40), name: str(c.name, 120)} : null, secret: (p.share && p.share.secret) || ""};
+      due: (t && t.due) || p.due || "", taskTitle: t ? str(t.title, 200) : "", course: c ? {code: str(c.code, 40), name: str(c.name, 120)} : null, secret: (p.share && p.share.secret) || "",
+      steps: Array.isArray(p.steps) ? p.steps.slice(0, 500) : null, pages: Array.isArray(p.pages) ? p.pages.slice(0, 500) : null, vids: cleanVids(p.vids)};
   };
 
   /* ---------- Share With a Group ---------- */
@@ -90,7 +93,8 @@
   async function shareSheet(pid){
     const p = X.byId(pid); if (!p) return;
     if (!online()) { toast("Sign in to share with a study group or group project.", null, window.SBGUEST && SBGUEST.signUp ? {label: "Sign In", fn: () => SBGUEST.signUp()} : undefined); return; }
-    SH = {pid, gid: "", members: [], picked: new Set(), busy: "", err: ""};
+    SH = {pid, gid: "", members: [], picked: new Set(), busy: "", err: "", file: true, size: 0, vsize: 0};
+    try { const b = await X.get("deck:" + p.id); SH.size = b ? b.byteLength : 0; if (b && p.kind === "pptx") SH.vsize = await mediaBytes(b); } catch (e) {}
     openSheet(`<div class="sheet">${head("Share With a Group")}<div class="sheet-body"><p class="mini" role="status">Loading your groups…</p></div></div>`);
     try { C.groups = (await q(cli().from("study_groups").select("id,name,kind"))) || []; } catch (e) { SH.err = "Couldn't load your groups. Check your connection."; }
     if (!SH || SH.pid !== pid) return;
@@ -117,10 +121,12 @@
         ${S.members.length ? S.members.map(m => `<label class="mi-check prg-m">${av(m)}<input type="checkbox" value="${esc(m.id)}" ${S.picked.has(m.id) ? "checked" : ""}> ${esc(m.id === me() ? (m.name || "You") + " (you)" : m.name || "A member")}</label>`).join("") : `<p class="mini">Loading members…</p>`}
       </fieldset>
       <p class="mini" style="margin:0">The slides are split evenly between the speakers to start with. Change who presents which slide in the Plan. ${p.taskId && state.tasks[p.taskId] ? `It's for “${esc(state.tasks[p.taskId].title)}”, due ${esc(fmtShort(state.tasks[p.taskId].due))}.` : ""}</p>
-      <p class="mini" style="margin:0">In a Pro group the slides are shared too. In other groups each member adds their own copy of the same slides. Recordings are never shared.</p>
+      ${S.size ? `<label class="mi-check prg-file"><input type="checkbox" id="prgFile" ${S.file ? "checked" : ""}> <span>Share the slides too <b>(${esc(mb(S.size - S.vsize))})</b>: they count in your own file storage.${S.vsize ? ` Their videos stay on your device (they'd take ${esc(mb(S.vsize))}): everyone else gets each video's length, and can skip it.` : ""}</span></label>` : ""}
+      <p class="mini" style="margin:0">${S.file && S.size ? "Members open the slides straight away." : "Each member adds their own copy of the same slides."} Recordings are never shared.</p>
       ${S.err ? `<p class="pr-err">${esc(S.err)}</p>` : ""}${S.busy ? `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>${esc(S.busy)}</p>` : ""}</div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-act="prg-share-go" ${S.busy ? "disabled" : ""}>Share</button></div></form>`);
     const sel = dlg.querySelector("#prgGroup"); if (sel) sel.addEventListener("change", () => pickGroup(sel.value));
+    const fl = dlg.querySelector("#prgFile"); if (fl) fl.addEventListener("change", () => { S.file = fl.checked; drawShare(); });
     dlg.querySelectorAll(".prg-spk input").forEach(cb => cb.addEventListener("change", () => { if (cb.checked) { if (S.picked.size >= 6) { cb.checked = false; toast("Up to 6 speakers."); return; } S.picked.add(cb.value); } else S.picked.delete(cb.value); }));
   }
   async function shareGo(){
@@ -130,14 +136,17 @@
     S.busy = "Sharing…"; S.err = ""; drawShare();
     const ext = p.kind === "pdf" ? "pdf" : "pptx", type = p.kind === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     let path = "", note = "";
-    try {
-      const bytes = await X.get("deck:" + p.id);
+    if (S.file) try {
+      let bytes = await X.get("deck:" + p.id);
+      if (bytes && p.kind === "pptx" && S.vsize) { S.busy = "Leaving out the videos…"; drawShare(); const sl = await slimPptx(bytes); if (sl && sl.byteLength < bytes.byteLength) bytes = sl; }
+      if (bytes && bytes.byteLength > 50 * 1048576) throw new Error("SB_TOO_BIG");
       if (bytes && cli().storage) {
+        S.busy = `Uploading the slides (${mb(bytes.byteLength)})…`; drawShare();
         const pth = `${me()}/g/${S.gid}/pres-${p.id}.${ext}`;
         const {error} = await cli().storage.from(SB_BUCKET).upload(pth, new Blob([bytes], {type}), {contentType: type, upsert: true});
         if (error) throw error; path = pth;
       }
-    } catch (e) { const m = String((e && e.message) || e); note = /SB_GROUP_PRO/.test(m) ? "This isn't a Pro group, so the slides weren't shared: each member adds their own copy." : /SB_GROUP_STORAGE/.test(m) ? "The group's uploads are full, so each member adds their own copy of the slides." : "The slides couldn't be uploaded, so each member adds their own copy."; }
+    } catch (e) { const m = String((e && e.message) || e); note = /SB_STORAGE_LIMIT/.test(m) ? "Your file storage is full, so the slides weren't shared: each member adds their own copy." : /SB_TOO_BIG/.test(m) ? "The slides are over 50 MB, so each member adds their own copy." : /SB_GROUP_PRO/.test(m) ? "Sharing slides with this group needs the newest supabase-plans.sql on the server, so each member adds their own copy." : /SB_GROUP_STORAGE/.test(m) ? "The group's uploads are full (2 GB), so each member adds their own copy of the slides." : "The slides couldn't be uploaded, so each member adds their own copy."; }
     const sp = chosen.slice(0, 6).map((m, k) => ({id: m.id, name: str(m.name || (m.id === me() ? "You" : "Member"), 40), c: okColor(m.color) || SP_COLORS[k % 6]}));
     p.group = {on: true, sp, by: null}; X.splitEvenly(p);
     const secret = b64u(crypto.getRandomValues(new Uint8Array(18)));
@@ -154,6 +163,12 @@
     toast(`Shared with ${gname(S.gid)}.${note ? " " + note : ""}`);
     X.refreshReady(); X.rerenderList();
   }
+  // videos, as the group gets them: lengths and where they are (never anyone's file)
+  function cleanVids(v){
+    const out = {}; let n = 0;
+    Object.keys(v || {}).forEach(k => { if (!/^\d{1,3}$/.test(k)) return; const list = (Array.isArray(v[k]) ? v[k] : []).slice(0, 6).map(x => ({id: str(x.id, 40) || uid(), kind: /^(file|link|manual)$/.test(x.kind) ? x.kind : "manual", dur: Math.max(0, Math.min(7200, Math.round(Number(x.dur) || 0))), spid: /^\d{1,9}$/.test(String(x.spid || "")) ? String(x.spid) : "", path: /^ppt\/media\/[\w.\-]{1,120}$/.test(String(x.path || "")) ? x.path : "", url: /^https:\/\//i.test(String(x.url || "")) ? str(x.url, 500) : "", name: str(x.name, 80), audio: !!x.audio, play: !!x.play, pg: Number.isInteger(x.pg) ? x.pg : undefined})); if (list.length && n++ < 200) out[k] = list; });
+    return out;
+  }
   // the owner's plan changes reach the group (a moment after the last one)
   let upT = 0;
   hook("pr-plan-changed", p => {
@@ -163,6 +178,30 @@
     }, 1500);
   });
   hook("pr-open", p => { if (p && p.share && online()) return load(true).catch(() => {}); });
+
+  // a PowerPoint's video and sound files (they can be big); the slides shared without them
+  const MEDIA_RX = /^ppt\/media\/[^/]+\.(mp4|m4v|mov|webm|ogv|mpg|mpeg|wmv|avi|mkv|mp3|m4a|wav|wma|aac|ogg)$/i;
+  const mb = n => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
+  async function mediaBytes(u8){
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength); let eocd = -1;
+    for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) return 0;
+    let p = dv.getUint32(eocd + 16, true), sum = 0; const n = dv.getUint16(eocd + 10, true), dec = new TextDecoder();
+    for (let k = 0; k < n && p + 46 <= u8.length; k++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      const cs = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true);
+      if (MEDIA_RX.test(dec.decode(u8.subarray(p + 46, p + 46 + nl)))) sum += cs;
+      p += 46 + nl + xl + cl;
+    }
+    return sum;
+  }
+  async function slimPptx(u8){
+    try {
+      let cut = 0; const all = await unzipBytes(new Blob([u8]), n => { if (MEDIA_RX.test(n)) { cut++; return false; } return true; }, {max: 100 * 1048576});
+      if (!cut) return null;
+      return new Uint8Array(await (await TB.zipBlob(Object.keys(all).map(name => ({name, data: all[name]})))).arrayBuffer());
+    } catch (e) { return null; }
+  }
 
   /* ---------- adding a group's presentation ---------- */
   async function addFromGroup(iid, then){
@@ -174,7 +213,7 @@
       toast("Getting the slides…");
       try {
         const blob = await sbDownload(d.path, cli()), bytes = new Uint8Array(await blob.arrayBuffer());
-        const p = await X.createFrom(bytes, d.kind === "pdf" ? "pdf" : "pptx", {name: link.title, courseId: matchC || ""}, Array.isArray(d.notes) ? d.notes : null);
+        const p = await X.createFrom(bytes, d.kind === "pdf" ? "pdf" : "pptx", {name: link.title, courseId: matchC || "", pages: Array.isArray(d.pages) ? d.pages : null}, Array.isArray(d.notes) ? d.notes : null);
         linkTo(p, it); X.save(); X.rerenderList(); toast(`Added ${p.name}`);
         if (then) then(p);
         return p;
@@ -330,7 +369,7 @@
     }
     return false;
   });
-  if (window.__SB_TEST) PS._groups = {secHtml, load, items: () => C.items};
+  if (window.__SB_TEST) PS._groups = {secHtml, load, items: () => C.items, slimPptx, mediaBytes};
   setInterval(() => {
     if (document.hidden || !online()) return;
     const onList = ui.tab === "flashcards" && ui.rvView === "present", onGroups = ui.tab === "groups" && document.querySelector(".prg-gsec"), ready = X.stage() && !X.stage().started && X.stage().p.share;

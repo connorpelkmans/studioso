@@ -32,6 +32,8 @@ body.long{box-shadow:inset 0 0 0 4px var(--warn)}body.vlong{box-shadow:inset 0 0
 button{font:inherit;color:inherit;border:0;border-radius:18px;background:rgba(255,255,255,.08);min-height:72px;font-weight:700;font-size:1rem;cursor:pointer;touch-action:manipulation}
 button.go{background:var(--acc);color:#fff;font-size:1.25rem}
 button:active{transform:scale(.97)}
+.vrow{display:flex;align-items:center;gap:8px;padding:8px 10px}.vrow span{flex:1;font-weight:700}
+button.sm{min-height:44px;padding:0 14px;font-size:.9rem;border-radius:12px}
 .msg{flex:1;display:grid;place-items:center;text-align:center;color:var(--soft);padding:20px}
 [hidden]{display:none!important}
 </style></head>
@@ -43,6 +45,7 @@ button:active{transform:scale(.97)}
   <div class="chips"><span class="chip" id="pace" hidden></span><span class="chip sp" id="sp" hidden><i></i><span></span></span></div>
   <div class="card"><div class="slide"><b id="title"></b><span id="st"></span></div><div class="bar"><i id="bar"></i></div></div>
   <div class="card notes" id="notes" aria-label="Speaker notes"></div>
+  <div class="vrow card" id="vrow" hidden><span id="vtxt"></span><button id="vplay" class="sm">Play</button><button id="vskip" class="sm go">Skip</button></div>
   <div class="next" id="next"></div>
   <div class="btns"><button id="prev" aria-label="Previous slide">◀</button><button id="pp" aria-label="Pause">❚❚</button><button class="go" id="nextb">Next ▶</button></div>
 </div>

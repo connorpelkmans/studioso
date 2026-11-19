@@ -343,3 +343,52 @@ button.pr-stat{cursor:pointer}
 .prg-today .pp-today-t svg{width:20px;height:20px;flex:none}
 .prg-todays{display:grid;gap:8px;margin-top:8px}
 @media (max-width:560px){.prg-new-i,.prg-gi{flex-wrap:wrap}.prg-new-i .btn,.prg-gi>.btn{flex:1 1 100%}}
+
+/* ===== builds (click by click) and videos ===== */
+.pr-slide-wrap{position:relative}
+.pr-slide .ofc-a>*,.pr-slide .ofc-p{transition:opacity .35s ease}
+.pr-slide .ofc-a.pr-off>*,.pr-slide .ofc-p.pr-off{opacity:0}
+.pr-over{position:absolute;pointer-events:none;z-index:2}
+.pr-over>*{pointer-events:auto}
+.pr-steps{position:absolute;left:50%;bottom:-11px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;background:#1A2340;border:1px solid rgba(255,255,255,.18);box-shadow:0 6px 18px rgba(0,0,0,.35);pointer-events:none}
+.pr-steps i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.28);transition:background .2s,transform .2s}
+.pr-steps i.on{background:#B9A2FF;transform:scale(1.15)}
+.pr-steps b{font-size:.72rem;color:#EEF2FA;margin-left:2px}
+.pr-steps em{font-style:normal;font-size:.7rem;color:#9AA7C2;margin-left:3px}
+.pr-mv{position:absolute;display:grid;place-items:center}
+.pr-mv.on{background:#000;border-radius:4px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.pr-mv video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
+.pr-mv audio{width:100%;align-self:end}
+.pr-mv-play{width:58px;height:58px;border-radius:50%;border:0;display:grid;place-items:center;background:rgba(16,23,42,.72);color:#fff;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.35);transition:transform .15s,background .15s}
+.pr-mv-play:hover{transform:scale(1.06);background:#7A4FD6}
+.pr-mv-play svg{width:26px;height:26px;margin-left:3px}
+.pr-vchip{position:absolute;top:-16px;left:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:calc(100% - 20px);padding:5px 6px 5px 10px;border-radius:999px;background:rgba(16,23,42,.86);color:#EEF2FA;font-size:.8rem;box-shadow:0 6px 18px rgba(0,0,0,.3);backdrop-filter:blur(6px)}
+.pr-vt{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.pr-vt svg{width:15px;height:15px;flex:none}
+.pr-vn{opacity:.7}
+.pr-vb{border:0;border-radius:999px;padding:4px 10px;font:inherit;font-weight:700;font-size:.76rem;background:rgba(255,255,255,.14);color:inherit;cursor:pointer;text-decoration:none;white-space:nowrap}
+.pr-vb:hover{background:rgba(255,255,255,.24)}
+.pr-vb.pr-vskip{background:#7A4FD6}.pr-vb.pr-vskip:hover{background:#8B63E6}
+.pr-inqa .pr-over{display:none}
+.pr-found{display:block;margin-top:4px;color:var(--ink)}
+.pr-pl-t{display:flex;align-items:center;gap:6px;min-width:0}
+.pr-pl-tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr-pl-b{flex:none;display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:999px;background:rgba(185,162,255,.18);color:#D6C9FF;font-size:.7rem;font-weight:700;white-space:nowrap}
+.pr-pl-b svg{width:12px;height:12px}
+.pr-pl-b.vid{background:rgba(95,212,154,.16);color:#9BE8C2}.pr-pl-b.warn{background:rgba(245,185,74,.2);color:#FFD27A}
+.pr-pl-fit{flex:none;font-size:.74rem}
+.pr-plan-pages{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.05)}
+.pr-plan-pages .mini{flex:1 1 220px}
+.pr-plan-vids{display:grid;gap:8px}
+.pr-plan-vids ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pr-plan-vids li{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.05)}
+.pr-plan-vids li>span{flex:1;min-width:0}
+.pr-plan-vids li svg{width:16px;height:16px;flex:none;color:#9BE8C2}
+.pr-vlen{width:64px;padding:5px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font:inherit;text-align:center}
+.pr-vlen-f{font-variant-numeric:tabular-nums}
+.pr-vadd summary{cursor:pointer;font-size:.85rem;font-weight:700;color:#C9B8FF}
+.pr-vadd-in{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-top:8px}
+.pr-vadd-in label{display:grid;gap:3px}
+.pr-vadd-in select,.pr-vadd-in input{padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font:inherit;width:80px}
+.pr-vadd-in select option{color:#111}
+@media (prefers-reduced-motion:reduce){.pr-slide .ofc-a>*,.pr-slide .ofc-p{transition:none}}

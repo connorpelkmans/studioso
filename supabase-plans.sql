@@ -1090,9 +1090,8 @@ begin
     raise exception 'SB_STORAGE_PATH: Files are stored in your own folder.' using errcode = 'P0001';
   end if;
   if auth.uid() is not null and not public.sbg_is_member(gid) then raise exception 'You''re not in that group' using errcode = 'P0001'; end if;
-  if not public.plans_group_is_pro(gid) then
-    raise exception 'SB_GROUP_PRO: Uploading files to a group is part of Pro groups.' using errcode = 'P0001';
-  end if;
+  -- Every group can take uploads, free groups too. Each file counts in its uploader's own storage
+  -- (plans_storage_quota, by the folder it's in), and a group holds up to 2 GB in all.
   delta := coalesce((new.metadata ->> 'size')::bigint, 0) - case when tg_op = 'UPDATE' then coalesce((old.metadata ->> 'size')::bigint, 0) else 0 end;
   if delta <= 0 then return new; end if;
   select coalesce(sum((o.metadata ->> 'size')::bigint), 0) into used from storage.objects o

@@ -2,7 +2,7 @@
    names an encrypted live channel: both sides derive the channel's name and an AES-GCM key from it, so only someone holding the code
    can read or send on it, and the code never leaves this page (it's after the #, so it isn't sent to any server).
      laptop -> phone  "s": the clock, the slide, your notes, the next slide, pace and speaker
-     phone -> laptop  "c": {cmd: "next" | "prev" | "pp" | "hello"} */
+     phone -> laptop  "c": {cmd: "next" | "prev" | "pp" | "vplay" | "vskip" | "hello"} */
 (function(){
   "use strict";
   var $ = function(id){ return document.getElementById(id); };
@@ -26,7 +26,7 @@
     if (s.n == null) return;
     $("msg").hidden = true; $("ui").hidden = false;
     $("name").textContent = s.name || "Presentation";
-    $("cnt").hidden = false; $("cnt").textContent = s.qa ? "Q&A" : (s.i + 1) + " / " + s.n;
+    $("cnt").hidden = false; $("cnt").textContent = s.qa ? "Q&A" : (s.i + 1) + " / " + s.n + (s.kn ? " · click " + (s.k || 0) + "/" + s.kn : "");
     $("clock").textContent = fmt(s.el); $("tgt").textContent = "of " + fmt(s.tg);
     var pc = $("pace"); pc.hidden = !s.go || !s.pace; pc.className = "chip " + (s.pc || ""); pc.textContent = s.pace || "";
     var sp = $("sp"); sp.hidden = !s.sp || !!s.qa; if (s.sp) { sp.style.setProperty("--spc", s.spc || "#fff"); sp.lastChild.textContent = s.sp; }
@@ -38,7 +38,16 @@
       document.body.classList.toggle("long", s.go && r > 1 && r <= 1.5); document.body.classList.toggle("vlong", s.go && r > 1.5);
       $("notes").textContent = s.nt || "";
       $("next").innerHTML = ""; var lb = document.createTextNode("Next: "), nb = document.createElement("b"); nb.textContent = s.nx || ""; $("next").appendChild(lb); $("next").appendChild(nb);
-      $("nextb").textContent = s.go ? "Next ▶" : "Start ▶";
+      $("nextb").textContent = !s.go ? "Start ▶" : s.kn && (s.k || 0) < s.kn ? "Click ▶" : "Next ▶";
+    }
+    // a video on this slide: play it on the laptop, or skip it (its length still counts)
+    var vr = $("vrow"), has = !s.qa && s.vd != null && s.vs !== "done";
+    vr.hidden = !has && !(s.vs === "done" && !s.qa);
+    if (s.vs === "done") { $("vtxt").textContent = "✓ Video counted"; $("vplay").hidden = true; $("vskip").hidden = true; }
+    else if (has) {
+      $("vtxt").textContent = s.vs === "play" ? "Video playing" : "Video" + (s.vd ? " · " + fmt(s.vd) : "");
+      $("vplay").hidden = !s.vp || s.vs === "play"; $("vskip").hidden = !s.go || (!s.vd && s.vs !== "play");
+      $("vskip").textContent = s.vs === "play" ? "Skip the Rest" : "Skip" + (s.vd ? " · adds " + fmt(s.vd) : "");
     }
     $("pp").textContent = s.run ? "❚❚" : "▶"; $("pp").setAttribute("aria-label", s.run ? "Pause" : "Resume");
     if (s.buzz && s.buzz !== lastBuzz) buzz(s.buzz === "vlong" ? [120, 80, 120] : s.buzz === "wrap" ? [60, 60, 60, 60, 60] : [90]);
@@ -47,6 +56,8 @@
   $("nextb").addEventListener("click", function(){ send("next"); wake(); });
   $("prev").addEventListener("click", function(){ send("prev"); });
   $("pp").addEventListener("click", function(){ send("pp"); });
+  $("vplay").addEventListener("click", function(){ send("vplay"); });
+  $("vskip").addEventListener("click", function(){ send("vskip"); });
   setInterval(function(){ if (last && Date.now() - last > 6000) { $("dot").classList.remove("on"); } }, 2000);
   Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-pres-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-pres-key:" + code))]).then(function(h){
     return crypto.subtle.importKey("raw", h[1], "AES-GCM", false, ["encrypt", "decrypt"]).then(function(k){
