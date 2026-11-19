@@ -108,6 +108,17 @@ Refresh these with vidIQ outlier search each batch (see `tools.md`).
 
 How we apply it: `marketing/reels/2026-11-16-same-week/` (stock b-roll of a stressed student → the Studyboard calendar as the "proof" shot → a punchline shot, cut on owned music hits).
 
+## Set 4: every reel needs a "wait for it" device (Connor, Nov 19: the hook must "actually grab attention and maintain it")
+
+A hook only earns the first second. What keeps people to the end is an **open loop they can see**: something visibly unfinished whose ending they want. Use one per reel (Loewenstein's information gap, made visual):
+- **Countdown**: a big timer ticking toward zero (`2026-12-06-ten-seconds`)
+- **Guess**: a hidden answer with options and "revealing in 3…" (`2026-12-07-guess-the-hours`); it also fills the comments with guesses
+- **Spinning wheel or slot**: nobody leaves mid-spin (`2026-12-08-wheel-decides`). Blur it while it's fast; above about 30° a frame it strobes at 30 fps.
+- **Suspense**: typing dots before the reply (`2026-12-09-text-from-september`)
+- **Escalation to a promised climax**: "wait for friday", with each beat worse (`2026-12-10-wait-for-friday`)
+
+Something must change at least every 0.5–1 s until the payoff, the payoff lands in the last ~2 s (on a music hit where possible), and then the reel loops.
+
 ## Set 3 rules (Connor, Nov 19, 2026)
 
 - **No stock footage of real people.** Animate everything ourselves: phone-UI formats (a lock screen, a group chat, a search bar, notes), the companions, or the real app recorded with `_tools/screenrec.js` (our own product, not stock).
