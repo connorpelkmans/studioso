@@ -11099,6 +11099,10 @@ function emptyArt(kind){
       ${[66, 88, 112, 134].map(x => `<rect class="es-ring" x="${x - 3}" y="12" width="6" height="16" rx="3"/>`).join("")}
       ${[0, 1, 2].map(r => [0, 1, 2, 3, 4, 5].map(c => { const k = r * 6 + c; return `<rect class="${k === 4 ? "es-acc" : k === 9 ? "es-gold" : k === 13 ? "es-ok" : "es-cell"}" x="${52 + c * 17}" y="${52 + r * 16}" width="12" height="10" rx="3"/>`; }).join("")).join("")}
       <circle class="es-circle" cx="58" cy="57" r="10"/>${star(176, 34, 7, "es-star")}${star(24, 30, 5, "es-star2")}`,
+    crunch: () => `<rect class="es-card" x="26" y="10" width="148" height="76" rx="12"/>
+      ${[[44, 24, "es-okf"], [66, 16, "es-okf"], [88, 34, "es-goldsoft"], [112, 46, "es-hl2"], [134, 30, "es-goldsoft"], [156, 14, "es-okf"]].map(([x, h, c]) => `<rect class="${c}" x="${x - 7}" y="${76 - h}" width="14" height="${h}" rx="4"/>`).join("")}
+      <path class="es-grid" d="M36 77h128"/><circle class="es-hl2" cx="112" cy="20" r="6.5"/><rect class="es-band" x="110.9" y="15.5" width="2.2" height="5.5" rx="1.1"/><circle class="es-band" cx="112" cy="24" r="1.2"/>
+      ${star(184, 24, 6, "es-star")}${star(18, 100, 5, "es-star2")}`,
     maps: () => `<path class="es-link" d="M84 40Q60 40 52 28M84 40Q66 52 54 70M116 40Q140 40 150 26M116 40Q136 52 148 70"/>
       <rect class="es-card" x="18" y="16" width="48" height="22" rx="11"/><rect class="es-line" x="28" y="25" width="28" height="4" rx="2"/>
       <rect class="es-okf" x="22" y="60" width="50" height="22" rx="11"/><rect class="es-band" x="32" y="69" width="30" height="4" rx="2"/>
@@ -15035,7 +15039,8 @@ function scheduleRender(){
   focusStale(); renderAsk++;
   if (renderQueued) return;
   renderQueued = true;
-  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } renderQueued = false; if (renderSkip === renderAsk) return; renderGo = true; try { render(); } finally { renderGo = false; } };
+  // a redraw waits while a card or tab is being dragged to reorder it (it would remove the item being dragged)
+  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } if (document.body.classList.contains("sorting")) { setTimeout(() => requestAnimationFrame(go), 120); return; } renderQueued = false; if (renderSkip === renderAsk) return; renderGo = true; try { render(); } finally { renderGo = false; } };
   requestAnimationFrame(go);
 }
 // A finished check pops before the list redraws (phones, when motion is on)
@@ -18525,11 +18530,11 @@ const nbColor = b => { const c = b && b.courseId && courseOf(b.courseId); return
 function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
-  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}"${id ? ` data-sort-id="${esc(id)}"` : ""} data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
+  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-sort-id="${esc(id || "__home")}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
   // Only the tabs are in the tab list; the board's options and New Note Board come just after it (a list of tabs holding other
   // buttons reads as broken tabs). The list is display:contents, so the row looks the same.
   const opts = cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : "";
-  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards" data-sortable="noteboards" title="Drag a board's tab to move it">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
+  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards" data-sortable="noteboards" title="Drag a board's tab to move it">${(() => { const ts = noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))), at = Math.max(0, Math.min(ts.length, Number((state.settings || {}).nbHomeAt) || 0)); ts.splice(at, 0, tab("", "My Notes", "var(--muted)", count(""))); return ts.join(""); })()}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Note Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
@@ -20434,7 +20439,7 @@ function renderPomoBits(){
   const nav = $("#navPomo");
   nav.className = `nav-focus m-${pomo.mode} ${active ? "active" : ""} ${pomo.running ? "run" : ""}`;
   nav.setAttribute("aria-label", btn.getAttribute("aria-label"));
-  nav.innerHTML = `${TOMATO}<span class="nf-l" ${active ? "data-pomo-time" : ""}>${active ? fmtClock(pomoLeft()) : esc(tr("nav.focus", "Focus"))}</span>${active ? `<span class="nf-m">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : ", paused"}</span>` : ""}`;
+  nav.innerHTML = `${TOMATO}<span class="nf-l" ${active ? "data-pomo-time" : ""}>${active ? fmtClock(pomoLeft()) : esc(tr("nav.focus", "Focus"))}</span>${active ? `<span class="nf-m">${pomo.running ? esc(MODE_LABEL[pomo.mode]) : "Paused"}</span>` : ""}`;
   try { islandSync(); } catch (e) {}
   // the timer started, paused, stopped or changed task (not every tick): the Home Screen widgets show it (70-widgets.js)
   try { const sig = [pomo.running, pomo.mode, pomo.endAt, pomo.left, pomo.taskId].join("|"); if (sig !== focusSig) { focusSig = sig; fire("focus-state"); } } catch (e) {}
@@ -20560,6 +20565,12 @@ function pomoIslandNote(){
   }, () => {});
 }
 hook("stats-focus", () => { const p = $("#pomoDlg .pomo-today"); if (p) p.innerHTML = pomoTodayHtml(); });
+const POMO_IC = {
+  play: '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.5"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.5"/></svg>',
+  reset: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+  skip: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4.5l10 7.5-10 7.5z"/><path d="M19 5v14"/></svg>'
+};
 function renderPomo(){
   const cfg = pomoCfg(), d = $("#pomoDlg");
   pomoToday();
@@ -20576,13 +20587,13 @@ function renderPomo(){
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
-        <div class="pomo-read"><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : pomo.left > 0 ? ", paused" : ""}</span></div>
+        <div class="pomo-read"><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
-      <div class="pomo-cycle" aria-label="${inCycle} of ${every} focus sessions done before a long break">${Array.from({length: every}, (_, i) => `<i class="${i < inCycle ? "on" : ""}"></i>`).join("")}<span>${inCycle} of ${every} before a long break</span></div>
+      <p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
-        <button class="btn" data-act="pomo-reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>Reset</button>
-        <button class="btn primary big" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : pomo.mode === "focus" ? `Start ${esc(MODE_LABEL[pomo.mode])}` : esc(MODE_LABEL[pomo.mode])}</button>
-        <button class="btn" data-act="pomo-skip">Skip</button>
+        <button class="btn pomo-rd" data-act="pomo-reset" title="Reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>${POMO_IC.reset}<span class="sr">Reset</span></button>
+        <button class="btn primary big pomo-go" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? POMO_IC.pause : POMO_IC.play}<span class="sr">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : pomo.mode === "focus" ? `Start ${esc(MODE_LABEL[pomo.mode])}` : esc(MODE_LABEL[pomo.mode])}</span></button>
+        <button class="btn pomo-rd" data-act="pomo-skip" title="Skip">${POMO_IC.skip}<span class="sr">Skip</span></button>
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
       <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
@@ -54433,6 +54444,8 @@ var TP_DATA = [];
     const box = document.createElement("span"); box.className = "us-ttl";
     box.innerHTML = `<span class="us-emo" aria-hidden="true">${e}</span>`;
     t.insertBefore(box, t.firstChild); box.appendChild(box.nextSibling);
+    // a PRO (or similar) badge right after the title stays on the title's line
+    while (box.nextSibling && (box.nextSibling.nodeType === 3 ? !box.nextSibling.data.trim() : box.nextSibling.nodeType === 1 && !box.nextSibling.classList.contains("sub") && /badge|pro|tag|pill/i.test(box.nextSibling.className))) box.appendChild(box.nextSibling);
   }
   const KEY_CAT = {};
   Object.entries(ORDER).forEach(([c, ks]) => ks.forEach(k => { KEY_CAT[k] = c; }));
@@ -72598,8 +72611,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
       : `<div class="sbc-packs">${packs.map(p => {
           // the extra credits against buying the same money's worth at the smallest pack's rate (a "Bonus" badge from the server
           // is worked out the same way here, so it can't go stale)
-          const bonus = base ? Math.round(p.credits - p.cents / base) : 0, badge = p.badge && /bonus/i.test(p.badge) ? (bonus >= 1 ? `+${bonus.toLocaleString()} Bonus Credits` : "") : p.badge;
-          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${badge ? `<span class="pp-flag">${esc(badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 1 ? `<span class="mini">${bonus.toLocaleString()} bonus credits compared with the ${esc(Number(packs[0].credits).toLocaleString())} pack</span>` : ""}</button>`; }).join("")}</div>
+          const bonus = base ? Math.round(p.credits - p.cents / base) : 0, bonusTag = bonus >= 1 ? `+${bonus.toLocaleString()} Bonus Credits` : "", badge = !p.badge || /bonus/i.test(p.badge) ? bonusTag : p.badge;
+          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${badge ? `<span class="pp-flag">${esc(badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 1 && badge !== bonusTag ? `<span class="mini">${bonus.toLocaleString()} bonus credits compared with the ${esc(Number(packs[0].credits).toLocaleString())} pack</span>` : ""}</button>`; }).join("")}</div>
         <p class="mini" style="margin:0">A Theme Collection is ${prices().skin} credits (with its companions, stickers, pins and flashcard style), a sticker pack or flashcard style ${prices().sticker}, a pin ${prices().pin}. Credits don't expire, and what you keep stays yours even without Pro. You'll pay securely with Stripe on the Studyboard website.</p>`;
     openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Credits")}
       <div class="sheet-body">
@@ -77461,7 +77474,7 @@ function typeCounts(W){
 }
 function viewCrunch(){
   const m = modelNow(), today = todayISO();
-  if (m.empty) return `<section class="cr" aria-label="Crunch Forecast"><div class="empty cr-empty"><strong>Nothing Due Yet</strong>Add tasks with due dates to see which weeks ahead get heavy.<div style="margin-top:12px"><button class="btn primary" data-act="new-task">Add a Task</button></div></div></section>`;
+  if (m.empty) return `<section class="cr" aria-label="Crunch Forecast"><div class="empty cr-empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("crunch") : ""}<strong>Nothing to Show Yet</strong>Add tasks with due dates to see which weeks ahead get heavy.<div class="row-actions" style="justify-content:center"><button class="btn primary" data-act="new-task">Add a Task</button></div></div></section>`;
   const hv = C.heaviest(m, 0);
   let call;
   if (hv && hv.levelIdx >= 2) call = `<div class="cr-call"><div class="cr-ct"><span class="cr-pill lv${hv.levelIdx}">${LV_WORD[hv.levelIdx]}</span> <b>Heaviest week: ${esc(rangeLabel(hv.start, hv.end))}, ${esc(awayText(today, hv.start))}</b><br><span class="mini">${esc(cap1(hv.headline || "Steady work"))} · about ${ratioText(hv.score)} your usual study time</span></div><button class="btn${hv.levelIdx >= 3 ? " primary" : ""}" data-act="cr-week" data-id="${hv.start}">See the Week</button></div>`;
@@ -81061,11 +81074,12 @@ function decorateDeck(){
       const ch = ids.map((id, i) => state.courses[id] && state.courses[id].order !== i * 10 ? {kind: "course", id, after: Object.assign(clone(state.courses[id]), {order: i * 10})} : null).filter(Boolean);
       if (ch.length) applyChanges(ch, "Courses reordered");
     } else if (kind === "groups") { try { localStorage.setItem("studyboard:grpOrder", JSON.stringify(ids)); } catch (e) {} }
-    // note boards: the order of their tabs (My Notes stays first)
+    // note boards: the order of their tabs, My Notes included (its place is kept as nbHomeAt)
     else if (kind === "noteboards") {
       const all = Array.isArray(state.settings && state.settings.noteBoards) ? state.settings.noteBoards : [], by = new Map(all.map(b => [b && b.id, b]));
       const list = ids.map(id => by.get(id)).filter(Boolean).concat(all.filter(b => b && !ids.includes(b.id)));
-      if (list.some((b, i) => b !== all[i])) { state.settings = Object.assign({}, state.settings, {noteBoards: list}); saveSettings(); render(); }
+      const home = Math.max(0, ids.indexOf("__home")), was = Number((state.settings || {}).nbHomeAt) || 0;
+      if (list.some((b, i) => b !== all[i]) || home !== was) { state.settings = Object.assign({}, state.settings, {noteBoards: list, nbHomeAt: home}); saveSettings(); render(); }
     }
     // whiteboards: each keeps its place in the tabs (one change, so Undo puts them back)
     else if (kind === "wb") {
@@ -85760,7 +85774,7 @@ var SBPRO = null;
       blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk || tagPro() ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
         <button type="button" class="pro-sw" role="switch" aria-checked="${cfg.on && !lk}" data-act="pro-blk-on" aria-label="Block distracting sites during focus sessions"><i></i></button></div>`;
     }
-    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
+    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips segb" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
   // Routines open from the Focus timer: closing the sheet (after Add, Remove or Close) goes back to the timer, so the setup isn't lost
   let rtBack = false;

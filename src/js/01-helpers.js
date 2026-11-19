@@ -626,6 +626,10 @@ function emptyArt(kind){
       ${[66, 88, 112, 134].map(x => `<rect class="es-ring" x="${x - 3}" y="12" width="6" height="16" rx="3"/>`).join("")}
       ${[0, 1, 2].map(r => [0, 1, 2, 3, 4, 5].map(c => { const k = r * 6 + c; return `<rect class="${k === 4 ? "es-acc" : k === 9 ? "es-gold" : k === 13 ? "es-ok" : "es-cell"}" x="${52 + c * 17}" y="${52 + r * 16}" width="12" height="10" rx="3"/>`; }).join("")).join("")}
       <circle class="es-circle" cx="58" cy="57" r="10"/>${star(176, 34, 7, "es-star")}${star(24, 30, 5, "es-star2")}`,
+    crunch: () => `<rect class="es-card" x="26" y="10" width="148" height="76" rx="12"/>
+      ${[[44, 24, "es-okf"], [66, 16, "es-okf"], [88, 34, "es-goldsoft"], [112, 46, "es-hl2"], [134, 30, "es-goldsoft"], [156, 14, "es-okf"]].map(([x, h, c]) => `<rect class="${c}" x="${x - 7}" y="${76 - h}" width="14" height="${h}" rx="4"/>`).join("")}
+      <path class="es-grid" d="M36 77h128"/><circle class="es-hl2" cx="112" cy="20" r="6.5"/><rect class="es-band" x="110.9" y="15.5" width="2.2" height="5.5" rx="1.1"/><circle class="es-band" cx="112" cy="24" r="1.2"/>
+      ${star(184, 24, 6, "es-star")}${star(18, 100, 5, "es-star2")}`,
     maps: () => `<path class="es-link" d="M84 40Q60 40 52 28M84 40Q66 52 54 70M116 40Q140 40 150 26M116 40Q136 52 148 70"/>
       <rect class="es-card" x="18" y="16" width="48" height="22" rx="11"/><rect class="es-line" x="28" y="25" width="28" height="4" rx="2"/>
       <rect class="es-okf" x="22" y="60" width="50" height="22" rx="11"/><rect class="es-band" x="32" y="69" width="30" height="4" rx="2"/>

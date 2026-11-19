@@ -3925,6 +3925,8 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 /* on phones the title is hidden (.ph-dup), so there is nothing to centre on */
 @media (max-width:639px){.pview-tabs + .view-head:has(> h2.ph-dup) > .btn,.pview-tabs + .gp > .view-head:has(> h2.ph-dup) > .btn{margin-block:0}}
 .pview-tabs + .view-head + :is(.course-list,.empty){margin-top:16px}
+/* the gap between rows of course cards matches the gap between the tabs and the first card */
+@media (min-width:640px){#view .course-list{row-gap:16px}}
 .pview-tabs + .gp > .view-head + *{margin-top:4px}
 /* Timeline, Schedule and Crunch too */
 .pview-tabs + .view-head,.pview-tabs + .tl-controls{row-gap:16px}
@@ -6455,21 +6457,21 @@ html:not([data-motion="static"]) :is(.segb button,.chip,.ui-chip,.cf-pick,[role=
 html #view :is(.g2-head .g2-band .btn.primary, .c2-head .g2-band .btn.primary){color:color-mix(in srgb,var(--c,var(--accent)) 52%,#000)!important;border-color:#fff}
 html #view :is(.g2-head .g2-band .btn.primary, .c2-head .g2-band .btn.primary)::before{background:#fff;opacity:1}
 
-/* At rest, every card in Review (decks, quizzes, concept maps, Writing) and every study group's card has the same faint glow in its own
+/* At rest, every card in Review (decks, quizzes, concept maps, Writing), every course card and every study group's card has the same faint glow in its own
    colour, with an edge tinted to match: concept map and Writing cards have it in their own styles, the rest get it here */
-html body .qz-card,html body .grp-card.g2-card{border-color:color-mix(in srgb,var(--c,#2F6FE4) 26%,var(--line));box-shadow:0 1px 2px rgb(0 0 0/.05),0 6px 18px -10px color-mix(in srgb,var(--c,#2F6FE4) 45%,transparent)}
+html body .qz-card,html body .grp-card.g2-card,html body #view .course-card.c2-card{border-color:color-mix(in srgb,var(--c,#2F6FE4) 26%,var(--line));box-shadow:0 1px 2px rgb(0 0 0/.05),0 6px 18px -10px color-mix(in srgb,var(--c,#2F6FE4) 45%,transparent)}
 html body .deck.deck-fc{filter:drop-shadow(0 1px 2px rgb(0 0 0/.05)) drop-shadow(0 10px 9px color-mix(in srgb,var(--c,#2F6FE4) 20%,transparent))}
 /* Review's cards (decks, quizzes, Writing) and study groups' cards rise a little under the pointer, as concept map cards do; translate (not transform) so a deck
    being dragged to reorder keeps its own transform */
 @media (hover:hover){
-  html:not([data-motion="static"]) .deck.deck-fc,html:not([data-motion="static"]) .qz-card,html:not([data-motion="static"]) .wsr-card,html:not([data-motion="static"]) .grp-card.g2-card{transition:translate .18s ease,box-shadow .18s ease}
-  html:not([data-motion="static"]) .deck.deck-fc:hover,html:not([data-motion="static"]) .qz-card:hover,html:not([data-motion="static"]) .wsr-card:hover,html:not([data-motion="static"]) .grp-card.g2-card:hover{translate:0 -2px;box-shadow:0 2px 4px rgb(0 0 0/.06),0 14px 28px -14px color-mix(in srgb,var(--c,#2F6FE4) 60%,transparent)}
+  html:not([data-motion="static"]) .deck.deck-fc,html:not([data-motion="static"]) .qz-card,html:not([data-motion="static"]) .wsr-card,html:not([data-motion="static"]) .grp-card.g2-card,html:not([data-motion="static"]) body #view .course-card.c2-card{transition:translate .18s ease,box-shadow .18s ease}
+  html:not([data-motion="static"]) .deck.deck-fc:hover,html:not([data-motion="static"]) .qz-card:hover,html:not([data-motion="static"]) .wsr-card:hover,html:not([data-motion="static"]) .grp-card.g2-card:hover,html:not([data-motion="static"]) body #view .course-card.c2-card:hover{translate:0 -2px;box-shadow:0 2px 4px rgb(0 0 0/.06),0 14px 28px -14px color-mix(in srgb,var(--c,#2F6FE4) 60%,transparent)}
   /* a deck is a stack of card faces in a see-through wrapper (its own shadow is off), so its glow follows the stack's shape instead */
   /* at rest the same two shadows, invisible and already in the course colour: fading from no filter at all started the glow grey */
   html:not([data-motion="static"]) .deck.deck-fc{transition:translate .18s ease,filter .18s ease;filter:drop-shadow(0 1px 2px rgb(0 0 0/.05)) drop-shadow(0 10px 9px color-mix(in srgb,var(--c,#2F6FE4) 20%,transparent))}
   html:not([data-motion="static"]) .deck.deck-fc:hover{filter:drop-shadow(0 1px 2px rgb(0 0 0/.06)) drop-shadow(0 10px 9px color-mix(in srgb,var(--c,#2F6FE4) 48%,transparent))}
 }
-@media (prefers-reduced-motion:reduce){.deck.deck-fc:hover,.qz-card:hover,.wsr-card:hover,.grp-card.g2-card:hover{translate:none}}
+@media (prefers-reduced-motion:reduce){.deck.deck-fc:hover,.qz-card:hover,.wsr-card:hover,.grp-card.g2-card:hover,#view .course-card.c2-card:hover{translate:none}}
 /* Autopilot (99-autopilot.js): the one line on Today's Plan, What Changed, and Day Off */
 .ap-line{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:.9rem}
 .ap-line .ap-t{flex:1 1 220px;min-width:0}
@@ -9923,7 +9925,7 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .sbh-cm{display:block;width:100%;height:100%}
 .sbh-cm > svg{display:block;width:100%;height:100%}
 .sbh-pic .sbh-cm,.sbh-opt .sbh-cm{position:absolute;inset:0}
-.sbh-st-cm{position:absolute;left:24%;top:39%;width:24%;aspect-ratio:168/96;border-radius:10px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.22);border:2px solid #fff}
+.sbh-st-cm{position:absolute;left:30%;top:39%;width:24%;aspect-ratio:168/96;border-radius:10px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.22);border:2px solid #fff}
 .sbh-st-cm > svg{display:block;width:100%;height:100%}
 
 /* See All pages, restyled to match the Shop home */
@@ -9990,6 +9992,12 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .sbh-now-i.sbh-k-cm .sbh-pic{height:auto;aspect-ratio:168/96}
 /* Page headers: an icon-only trash button is the same round 2.3rem button on every tab (Concept Maps had none of the rules Flashcards and Quizzes get from their archive button) */
 .pg-right > .btn.small.trash-btn:not(:has(> span)),.view-head > .btn.small.trash-btn:not(:has(> span)){width:2.3rem;height:2.3rem;min-height:0;padding:0!important;display:inline-flex;align-items:center;justify-content:center;align-self:center}
+/* Theme pictures fill their box: the scene and the preview reach 1px past the rounded clip, so an edge that lands between
+   pixels shows the picture, not a light line of the background behind it */
+.sheet.shop .skin-prev .sp-art,.sbh-stage .skin-prev .sp-art{inset:-1px -1px -1px 18px!important}
+.sheet.shop .sbh-pic > .skin-prev{margin:-1px;width:calc(100% + 2px)!important;height:calc(100% + 2px)!important}
+.sheet.shop :is(.sbh-pic,.sbh-opt){background:color-mix(in srgb,var(--ink) 70%,var(--surface))}
+.sheet.shop :is(.sbh-pic,.sbh-opt):not(:has(> .skin-prev)){background:linear-gradient(180deg,var(--soft),color-mix(in srgb,var(--soft) 60%,var(--surface)))}
 /* ===== module: 99-settings.css ===== */
 /* Settings, rebuilt: each category is one page of headed groups (no tabs to hunt behind), each group one rounded card
    of rows split by hairlines, a compact page title instead of the banner, and a colour per category */
@@ -10058,3 +10066,22 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 /* The emoji before each row's title */
 .us-ttl{display:block!important}
 .us-emo{display:inline-block!important;width:1.45em;margin-inline-end:.15em;text-align:center;font-style:normal;font-weight:400}
+.us-ttl > :is(.pro-badge,.free-badge){margin-inline-start:8px;vertical-align:2px}
+
+/* Focus timer (Style A): a big round play button between round Reset and Skip, the session count in the ring, and the
+   routine picker drawn like the Focus / Short Break / Long Break switch above it */
+.pomo-ctl{gap:22px!important;margin-top:4px}
+.pomo-ctl > .btn.pomo-rd{width:52px;height:52px;min-height:0;padding:0!important;border-radius:50%!important;display:grid;place-items:center;color:var(--muted)}
+.pomo-ctl > .btn.pomo-go{width:84px;height:84px;min-height:0;padding:0!important;border-radius:50%!important;display:grid;place-items:center;box-shadow:0 10px 24px color-mix(in srgb,var(--btn-bg,var(--accent)) 38%,transparent)}
+.pomo-ctl > .btn.pomo-go svg{width:32px;height:32px}
+.pomo-ctl > .btn.pomo-go[data-act="pomo-start"] svg{margin-left:4px}
+.pomo-read .pomo-mode-lbl{font-weight:700}
+.pr-chips.segb{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);overflow:visible;padding:3px!important;border-radius:999px}
+.pr-chips.segb > .pr-chip{min-height:0;border:0!important;border-radius:999px!important;padding:6px 8px!important;justify-items:center;text-align:center;box-shadow:none}
+.pr-chips.segb > .pr-chip:not(.on){background:transparent!important}
+.pr-chips.segb > .pr-chip b{justify-content:center;font-size:.86rem}
+.pr-chips.segb > .pr-chip span{font-size:.72rem}
+.pr-chips.segb > .pr-chip.pr-new{border:0!important}
+.pr-chips.segb > .pr-chip.pr-new b{color:var(--accent)}
+/* Reordering board tabs: the drop outline is the tab's own size, so the tab row doesn't grow while dragging */
+.nb-tlist > .sort-ph{min-height:0!important;margin:0;align-self:center}
