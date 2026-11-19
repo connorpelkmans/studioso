@@ -123,7 +123,7 @@
         <div class="sbh-hero-t"><span class="sbh-eyebrow">Featured Collection</span><b>${esc(s.name)}</b>${what ? `<span>${esc("Comes with " + what)}</span>` : ""}
           ${inside(th)}
           <div class="sbh-hero-acts">${own ? `<button type="button" class="btn sbh-light" data-act="sbh-try" data-kind="skin" data-id="${esc(th)}">Try It On</button>${inUse("skin", th) ? `<span class="sbh-hero-p">In use</span>` : `<button type="button" class="btn sbh-ghost" data-act="shop-use" data-kind="skin" data-id="${esc(th)}">Use It</button>`}`
-            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button>${typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
+            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button>${p && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
     const sk = SKINS.find(x => x.id === cfg().skin) || SKINS[0], cp = curComp();
     const build = `<button type="button" class="sbh-build" data-act="sbh-go" data-id="look">
         <span class="sbh-build-pics" aria-hidden="true"><span class="sbh-mini">${skinPreview(sk, dark())}</span>${cp ? compPic(cp) : ""}</span>

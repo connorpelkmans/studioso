@@ -28,6 +28,8 @@
       text: () => "Sticky notes on a corkboard, one board per course or topic. Drag them around, add stickers and pin what matters."},
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".gp-hero", ".cf-tabs", NAV("courses")],
       text: () => "Your marks in each course, and what you need on the rest to hit your target."},
+    {id: "shop", title: "Style Shop", panel: "shop", has: ['nav.tabs [data-act="shop"]', '[data-act="shop"]'], sel: ["#dlg .sbh-top", "#dlg .sheet.shop"],
+      text: () => "Make Studyboard yours: themes, companions, stickers, flashcard styles and more. Open it any time from Style in the sidebar."},
     {id: "done", title: "You're Ready! 🎉", tab: "board",
       text: () => "Add your first task and Today's Plan takes it from there. Replay this tour from Settings."}
   ];
@@ -81,7 +83,8 @@
   const press = list => { const b = findIn(list); if (b) b.click(); };
   const PANELS = {
     pomo: {dlg: () => $("#pomoDlg"), open: () => press(POMO)},
-    search: {dlg: () => $("#sxDlg"), open: () => press(SEARCH)}
+    search: {dlg: () => $("#sxDlg"), open: () => press(SEARCH)},
+    shop: {dlg: () => dlg, open: () => styleShop()}
   };
   function closePanel(){
     if (!panel) return;
