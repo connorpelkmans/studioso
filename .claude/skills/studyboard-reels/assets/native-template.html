@@ -7,7 +7,7 @@
   The native format (see references/retention.md, "Native, not an ad"): a real screen recording of the app (or one
   phone-style shot), one static text block in the platforms' own text style, music only, no sound effects, no logo
   card, no motion graphics. Render with render.js <folder> --footage rec.mp4.
-  REEL = {end: 7.5, cover: .3, y: 330, text: "pov: ...", later: [[3.2, "(free btw)"]], statusBar: true, time: "9:41"}
+  REEL = {end: 7.5, cover: .3, y: 330, text: "pov: ...", later: [[3.2, "(free btw)"]], swaps: [[2.0, "new text"]], statusBar: true, time: "9:41"}
 -->
 <style>
 *{box-sizing:border-box}
@@ -45,6 +45,8 @@ let REEL = {};
 const R = Object.assign({end: 7.5, cover: .3, y: 330, text: "", later: [], statusBar: true, time: "9:41"}, REEL);
 $("txtB").innerHTML = R.text; $("txt").style.top = R.y + "px"; $("sbt").textContent = R.time; $("sb").style.display = R.statusBar ? "flex" : "none";
 function render(t) {
+  // Text that changes at set times (as a creator adds a new text block): swaps = [[t, html], ...]
+  if (R.swaps) { const w = R.swaps.filter(([a]) => t >= a).pop(); const h = w ? w[1] : R.text; if ($("txtB").innerHTML !== h) $("txtB").innerHTML = h; }
   const l = R.later.filter(([a]) => t >= a).pop();
   // A later line simply appears (as when a creator adds a second text at a time), no animation
   $("later").style.opacity = l ? 1 : 0; if (l) { $("laterB").innerHTML = l[1]; $("later").style.top = (l[2] || R.y + $("txt").offsetHeight + 34) + "px"; }

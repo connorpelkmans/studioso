@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search history during finals</title>
+<!--
+  Set 3, fully animated. A search bar: typing is already under way at frame 0, autocomplete suggestions pop in by
+  1.0 s and get darker, then the query is deleted and retyped as something worse. Entertainment; brand in the caption.
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;background:#F7F8FA;color:#1A1C20;-webkit-font-smoothing:antialiased}
+#txt{position:absolute;left:70px;right:70px;top:260px;text-align:center;z-index:5}
+.blk{display:inline;background:#000;color:#fff;font-weight:600;font-size:52px;line-height:1.42;padding:6px 16px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+#bar{position:absolute;left:50px;right:50px;top:560px;height:150px;border-radius:75px;background:#fff;box-shadow:0 6px 30px rgba(20,30,60,.12);display:flex;align-items:center;padding:0 44px;gap:26px}
+#bar svg{flex:none}
+#q{font-size:58px;white-space:nowrap;overflow:hidden}
+#cur{display:inline-block;width:4px;height:56px;background:#1F6FEB;vertical-align:-10px;margin-left:3px}
+#sugg{position:absolute;left:50px;right:50px;top:735px;background:#fff;border-radius:40px;box-shadow:0 6px 30px rgba(20,30,60,.10);overflow:hidden}
+.s{display:flex;align-items:center;gap:28px;padding:34px 44px;font-size:50px;border-top:2px solid #F0F1F4;opacity:0}
+.s:first-child{border-top:0}
+.s b{font-weight:700}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="txt"><span class="blk">my search history this week 😭</span></div>
+  <div id="bar"><svg width="52" height="52" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="#7A7F8A" stroke-width="2.4"/><path d="M15.5 15.5 21 21" stroke="#7A7F8A" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <div id="q"></div></div>
+  <div id="sugg"></div>
+</div>
+<script>
+document.fonts.load("600 52px Inter"); document.fonts.load("400 50px Inter"); document.fonts.load("700 44px Inter");
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const oBack = (x, c = 1.4) => { const d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+// Phases: [start, end-of-typing, text typed, typed-from (chars already there at start), suggestions]
+const PH = [
+  {t0: 0, t1: .45, text: "how to pass a final", from: 13, sugg: ["how to pass a final <b>in one night</b>", "how to pass a final <b>without studying</b>", "how to pass a final <b>you didn't study for</b>", "how to pass a final <b>when you're cooked</b>"]},
+  {t0: 2.7, t1: 3.6, text: "how to drop a class", from: 0, del: [2.35, 2.7], sugg: ["how to drop a class <b>in week 12</b>", "how to drop a class <b>after the deadline</b>", "how to drop a class <b>without my parents knowing</b>"]},
+];
+const END = 5.6;
+function render(t) {
+  const ph = t < PH[1].t0 ? PH[0] : PH[1];
+  let q;
+  if (ph === PH[0]) {
+    const n = Math.round(ph.from + (ph.text.length - ph.from) * P(t, ph.t0, ph.t1));
+    q = ph.text.slice(0, n);
+    // delete the first query before the second (backspace run)
+    const d = PH[1].del; if (t >= d[0]) q = ph.text.slice(0, Math.round(ph.text.length * (1 - P(t, d[0], d[1]))));
+  } else q = ph.text.slice(0, Math.round(ph.text.length * P(t, ph.t0, ph.t1)));
+  $("q").innerHTML = q.replace(/ /g, "&nbsp;") + '<span id="cur"></span>';
+  $("cur").style.opacity = (t % .8) < .5 ? 1 : 0;
+  // suggestions appear one by one once the query is typed, and vanish while deleting
+  const showing = ph === PH[0] ? (t < PH[1].del[0] ? ph : null) : (t >= ph.t1 - .1 ? ph : null);
+  const base = showing === PH[0] ? .3 : PH[1].t1 - .1;
+  $("sugg").style.display = showing ? "block" : "none";
+  if (showing) {
+    if ($("sugg").dataset.ph !== String(PH.indexOf(showing))) { $("sugg").dataset.ph = PH.indexOf(showing);
+      $("sugg").innerHTML = showing.sugg.map(s => `<div class="s"><svg width="44" height="44" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="#9AA0AA" stroke-width="2.2"/><path d="M15.5 15.5 21 21" stroke="#9AA0AA" stroke-width="2.2" stroke-linecap="round"/></svg><span>${s}</span></div>`).join(""); }
+    [...$("sugg").children].forEach((el, i) => { const k = P(t, base + i * .22, base + i * .22 + .16); el.style.opacity = k; el.style.display = k > 0 ? "flex" : "none"; el.style.transform = `translateY(${(1 - oBack(k)) * 20}px)`; });
+  }
+}
+window.render = render; window.END = END; window.COVER = 1.6;
+render(0);
+</script>
+</body>
+</html>

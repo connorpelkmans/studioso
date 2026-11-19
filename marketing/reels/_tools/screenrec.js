@@ -47,6 +47,9 @@ const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
       for (let i = 1; i <= frames; i++) { const y = from + (s.to - from) * ease(i / frames);
         await page.evaluate(([sel, y]) => { const e = sel === "window" ? document.scrollingElement : document.querySelector(sel); if (e) e.scrollTop = y; }, [s.scroll, y]); await shot(); } }
     if (s.snap) await shot();
+    // Type into a field one character at a time, a frame or two per character, like a person typing
+    if (s.type) { await page.click(s.type); for (const ch of s.text) { await page.keyboard.type(ch); await page.waitForTimeout(30); await shot(); if (s.slow) await shot(); } }
+    if (s.key) { await page.keyboard.press(s.key); await page.waitForTimeout(s.wait != null ? s.wait * 1000 : 900); await dismiss(); }
   }
   await browser.close(); server.close(); console.log(`${n} frames (${(n / FPS).toFixed(2)} s) in ${OUT}`);
 })().catch(e => { console.error(e); process.exit(1); });

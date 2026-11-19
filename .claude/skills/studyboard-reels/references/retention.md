@@ -4,7 +4,7 @@ What's here comes from the platforms' own statements where they exist, and from 
 
 ## What the platforms reward
 
-- **Instagram** (Adam Mosseri, January 2025): the top three ranking signals are **watch time, likes and sends**. Creators should track **average watch time, likes per reach and sends per reach**. Sends matter slightly more for reaching people who don't follow you; likes slightly more for followers. Watch time counts both as a percentage and in seconds.
+- **Instagram** (Adam Mosseri, January 2025): the top three ranking signals are **watch time, likes and sends**. Creators should track **average watch time, likes per reach and sends per reach**. Sends matter slightly more for reaching people who don't follow you; likes slightly more for followers. Instagram's own ranking explainer (2023) names "how likely you are to watch a reel **all the way through**" as a Reels signal (completion), and Insights show average watch time in seconds plus **skip rate** (the share who swipe away in the first 3 s). Whether "watch time" is also scored as a percentage hasn't been published; don't claim it.
 - **TikTok** (its creative guidance, as quoted by ad platforms): put the hook and the point in the **first 3 seconds**, design for sound off with text on screen, shoot native 9:16.
 - **YouTube Shorts**: Studio shows **Viewed vs. Swiped Away** (did the first second work?) and **average percentage viewed** (did the rest hold?). A low "viewed" rate means fix the hook; a good "viewed" rate with a low percentage means fix the pacing or payoff.
 
@@ -107,6 +107,13 @@ Refresh these with vidIQ outlier search each batch (see `tools.md`).
 - Ends on the highest-energy shot and loops straight back to the calm opener. The contrast is what makes it rewatchable.
 
 How we apply it: `marketing/reels/2026-11-16-same-week/` (stock b-roll of a stressed student → the Studyboard calendar as the "proof" shot → a punchline shot, cut on owned music hits).
+
+## Set 3 rules (Connor, Nov 19, 2026)
+
+- **No stock footage of real people.** Animate everything ourselves: phone-UI formats (a lock screen, a group chat, a search bar, notes), the companions, or the real app recorded with `_tools/screenrec.js` (our own product, not stock).
+- **The first 2 seconds:** something is already landing at frame 0 (a notification, a message, a half-typed query), with a new onset every 0.3–0.5 s until about 2 s, and the hook sentence readable in about 1.5 s. Phone-UI formats are ideal: everyone reads a notification or a chat bubble instantly, and each new one is an abrupt onset (Yantis & Jonides).
+- **Something to react to**: every reel has a built-in reason to comment or send (an honest question, a "that's us" group chat, a punchline). The first native post got zero organic engagement because a demo gives nothing to respond to.
+- **The product appears as part of the story**: Studyboard's own notification on the lock screen, a friend's message in the chat, or the real app answering. Never an end card.
 
 ## Native, not an ad (default since Nov 18, 2026)
 
