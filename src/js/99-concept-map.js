@@ -995,11 +995,31 @@ const skinOk = sk => typeof SKINS === "undefined" || SKINS.some(x => x.id === sk
 // the 14 plain-colour themes' styles are free for everyone; every other style (themes, subjects) is Pro
 const FREE_SKINS = ["classic", "paper", "slate", "sand", "blush", "lavender", "sky", "sage", "peach", "butter", "teal", "mocha", "plum", "indigo"];
 const packFree = pk => !!pk && FREE_SKINS.some(sk => CMPACK.THEME_OF[sk] === pk.id);
+// a style the student may use without Pro: a free one, a subject style bought with credits (kind "cm"), or the style of a
+// theme they own (bought with credits, its Theme Collection)
+const cmSold = id => typeof STYLE_LISTS !== "undefined" && (STYLE_LISTS.cm || []).some(x => x.id === id);
+const packOk = pk => !!pk && (packFree(pk) || (typeof owns === "function" && typeof STORE !== "undefined" && !!STORE.paywall && ((cmSold(pk.id) && owns("cm", pk.id))
+  || Object.keys(CMPACK.THEME_OF).some(sk => CMPACK.THEME_OF[sk] === pk.id && owns("skin", sk))
+  || (/^t-/.test(pk.id) && owns("skin", pk.id.slice(2))))));
+// Subject styles are sold with credits, 100 each (97-credits.js reads STYLE_LISTS for names and tiers)
+if (typeof STYLE_LISTS !== "undefined" && window.CMPACK) STYLE_LISTS.cm = CMPACK.SUBJECTS.map(id => ({id, name: CMPACK.P[id].name, tier: packFree(CMPACK.P[id]) ? "free" : "pro"}));
+// the style a map without one of its own gets: the default picked in the Style Shop's Build Your Look, else Match My Theme
+const defPack = () => { try { const v = typeof styleCfg === "function" ? styleCfg().cmPack : ""; return v && (v === "plain" || v === "theme" || (window.CMPACK && CMPACK.get(v))) ? v : "theme"; } catch (e) { return "theme"; } };
+// For the Style Shop: the map styles, their names, small pictures and whether each is free
+window.SBCMSTYLE = {
+  ids: () => window.CMPACK ? ["theme", "plain"].concat(CMPACK.SUBJECTS) : [],
+  name: id => id === "theme" ? "Match My Theme" : id === "plain" ? "Plain" : ((window.CMPACK && CMPACK.get(id)) || {}).name || "",
+  pic: (id, skin) => { if (!window.CMPACK) return ""; const pk = id === "theme" ? themePack(skin || skinNow()) : id === "plain" ? null : CMPACK.get(id);
+    return pk ? CMPACK.preview(pk, FONT_STACK) : `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.4"/><rect x="101" y="14" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/><rect x="101" y="62" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/></svg>`; },
+  free: id => !id || id === "theme" || id === "plain" || (window.CMPACK && packFree(CMPACK.get(id))),
+  owned: id => !id || id === "theme" || id === "plain" || (window.CMPACK && packOk(CMPACK.get(id))),
+  current: defPack
+};
 function packOf(){
   // a map with no style chosen follows the theme in use (Match My Theme); Plain is kept as "plain"
-  const id = M.own ? metaOf(M.own).pack || "theme" : ""; if (!id || id === "plain" || !window.CMPACK) return null;
+  const id = M.own ? metaOf(M.own).pack || defPack() : ""; if (!id || id === "plain" || !window.CMPACK) return null;
   const pk = id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? (skinOk(id.slice(2)) ? themePack(id.slice(2)) : null) : CMPACK.get(id);
-  return pk && (!isLocked() || packFree(pk)) ? pk : null;
+  return pk && (!isLocked() || packOk(pk)) ? pk : null;
 }
 // the outline a style drew becomes the box's shape (lines meet it, and it shows selection); the box's own colours still win
 const pkOutline = (o, col, n) => o.replace(/^<(\w+)/, '<$1 class="cm-shape pk-o"').replace(/style="([^"]*)"/, (m, st) => `style="--c:${col};${st}${n.fill ? `;fill:${n.fill}` : ""}${n.stroke ? `;stroke:${n.stroke}` : ""}"`);
@@ -1273,11 +1293,11 @@ function themeGrids(tile){
     return `<p class="cm-lookh">${title}</p><div class="cm-lookg">${list.map(s => { const own = CMPACK.THEME_OF[s.id], pk = themePack(s.id), id = own || "t-" + s.id; return tile(id, s.name, CMPACK.preview(pk, FONT_STACK), own ? pk.desc : `${s.name}'s colours${pk.tile.svg.includes("<path") ? " and motif" : ""}`); }).join("")}</div>`; }).join("");
 }
 // whether a style in the picker is free: Plain, a plain-colour theme's, or Match My Theme while on a plain-colour theme
-const lookFree = id => !id || packFree(id === "theme" ? themePack(skinNow()) : CMPACK.get(id));
+const lookFree = id => !id || packOk(id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? themePack(id.slice(2)) : CMPACK.get(id));
 // Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
 function looksPanel(){
   const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
-  const cur = metaOf(M.own).pack === "plain" ? "" : metaOf(M.own).pack || "theme", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
+  const cur = (metaOf(M.own).pack || defPack()) === "plain" ? "" : metaOf(M.own).pack || defPack(), locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
   const plain = `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><g fill="var(--muted)" opacity=".35">${Array.from({length: 28}, (_, i) => `<circle cx="${8 + (i % 7) * 25}" cy="${10 + Math.floor(i / 7) * 25}" r="1"/>`).join("")}</g><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.6"/><rect x="101" y="13" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/><rect x="101" y="61" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/></svg>`;
   const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked && !lookFree(id) ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
   const grid = ids => `<div class="cm-lookg">${ids.map(id => { const k = CMPACK.P[id]; return tile(id, k.name, CMPACK.preview(k, FONT_STACK), k.desc); }).join("")}</div>`;
@@ -1576,8 +1596,8 @@ async function onClick(e){
     case "looks": M.looks = !(M.looks && !M.sel && !M.selE && !M.quiz); M.lookScrolled = false; if (M.looks) { M.sel = ""; M.selE = ""; M.styleOpen = false; M.cardsOpen = false; M.made = null; lite(); } tools(); panel(); return;
     case "looks-x": M.looks = false; tools(); panel(); return;
     case "look": {
-      const v = b.dataset.v || "", pk0 = metaOf(M.own).pack, cur = pk0 === "plain" ? "" : pk0 || "theme"; if (v === cur) return;
-      if (isLocked() && !lookFree(v)) { PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
+      const v = b.dataset.v || "", pk0 = metaOf(M.own).pack || defPack(), cur = pk0 === "plain" ? "" : pk0; if (v === cur) return;
+      if (isLocked() && !lookFree(v)) { if (cmSold(v) && typeof shopUnlock === "function" && window.SBCREDITS && SBCREDITS.enabled() && SBCREDITS.priceOf("cm", v)) shopUnlock("cm", v); else PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
       const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : /^t-/.test(v) ? skinName(v.slice(2)) : (CMPACK.P[v] || {}).name || v;
       saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || "plain"}); paint(); return;
     }
@@ -2000,7 +2020,7 @@ function listHtml(){
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
+    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
 if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 

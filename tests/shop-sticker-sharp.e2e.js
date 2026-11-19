@@ -15,7 +15,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await p.goto(FILE); await p.waitForTimeout(1200);
       await p.evaluate(() => { const x = document.createElement("button"); x.dataset.act = "shop"; document.body.appendChild(x); x.click(); x.remove(); });
       await p.waitForTimeout(600);
-      await p.locator('dialog[open] [data-act="shop-tab"][data-id="stickers"]').first().click(); await p.waitForTimeout(400);
+      await p.locator('dialog[open] .sbh-types [data-id="stickers"]').first().click(); await p.waitForTimeout(400);
       // scroll through so every pack is drawn
       await p.evaluate(async () => { const b = document.querySelector("dialog[open] .sheet-body"); for (let y = 0; y < b.scrollHeight; y += 500) { b.scrollTop = y; await new Promise(r => setTimeout(r, 60)); } b.scrollTop = 0; });
       const check = () => p.evaluate(async () => {

@@ -867,7 +867,7 @@ nav.tabs .in button[aria-current="page"] svg{color:var(--accent-2)}
 }
 /* Desktop: the navy notebook spine */
 @media (min-width:980px){
-  body{padding-inline-start:236px}
+  body{padding-inline-start:236px;--gx:20px}
   nav.tabs{top:0;bottom:0;inset-inline:0 auto;width:236px;border-radius:0;padding:22px 14px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:18px;box-shadow:none;overflow-y:auto}
   nav.tabs::after{content:"";position:absolute;top:0;bottom:0;inset-inline-end:7px;border-inline-end:2px dashed rgba(255,255,255,.09);pointer-events:none}
   .nav-brand{display:block;padding:2px 8px 10px}
@@ -1213,7 +1213,7 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
 @media (prefers-reduced-motion:reduce){.tl-bg .today-line.flash,.tl-d.is-today.flash{animation:none}}
 .nav-date,.nav-focus,.nav-foot,nav.tabs .in .nav-focus{display:none}
 @media (min-width:980px){
-  body{padding-inline-start:112px}
+  body{padding-inline-start:112px;--gx:16px}
   header.top{display:none}
   #toolbar{padding-top:18px}
   #toolbar:has(#searchRow[hidden]){padding-top:8px}
@@ -1263,7 +1263,7 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
 .bk-ico .brand-lg{display:block;width:16px;height:auto}
 .bk-ico img.brand-lg{width:19px}
 @media (min-width:980px){
-  body{padding-inline-start:136px}
+  body{padding-inline-start:136px;--gx:16px}
   nav.tabs{width:136px;padding-inline:12px}
   .nav-brand{gap:6px}
   .nav-brand img{width:112px}
@@ -2060,7 +2060,7 @@ dialog.tour::backdrop{background:transparent}
 
 
 /* ===== Style Shop v2 ===== */
-body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:var(--bgpos,0 0);background-attachment:var(--bgatt,scroll)}
+body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:var(--bgpos,var(--gx,0) 0);background-attachment:var(--bgatt,scroll)}
 .motion-tog,.anim-tog{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}
 /* On/off settings are switches, with On or Off beside them to match (the label's own "On" stays as the checkbox's name) */
 .anim-tog:has(> input[type=checkbox]){font-size:0;gap:0}
@@ -2466,7 +2466,7 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .aii-list li{display:flex;gap:10px;align-items:flex-start}
 .aii-tick{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent)}
 .aii-tick svg{width:14px;height:14px}
-.aii .btn.aii-pro{background:linear-gradient(135deg,#FFB443,#FF5C8A);border-color:transparent;color:#fff}
+.aii .btn.aii-pro{background:linear-gradient(135deg,#FFB443,#FF5C8A) border-box;border-color:transparent;color:#fff}
 .aii-fine{margin:12px 0 0;text-align:center;font-size:.66rem;color:var(--muted);opacity:.85}
 @media (prefers-reduced-motion:reduce){.qod-wrap,.qod{transition:none}}
 /* Heads Up (automatic AI) */

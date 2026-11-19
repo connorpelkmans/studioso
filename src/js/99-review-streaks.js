@@ -708,7 +708,7 @@ hook("act", (a, el) => {
     case "wkr-ai": aiRecap(); return true;
     case "fgs-open": openStreak(); return true;
     case "fgs-on": turnOn(); return true;
-    case "fgs-no": lsw(FGS_CHOICE, "no"); setStg("gentle", {intro: true}); scheduleRender(); toast(tr("streak.toast.no", "No problem. You can turn it on any time in Settings, under Study and AI.")); return true;
+    case "fgs-no": lsw(FGS_CHOICE, "no"); setStg("gentle", {intro: true}); scheduleRender(); toast(tr("streak.toast.no", "No problem. You can turn it on any time in Settings, under Study Plan.")); return true;
     case "fgs-toggle": if (el.checked) turnOn(); else turnOff(); drawStreak(); return true;
     case "fgs-rpw": setStg("gentle", {rpw: Number(id)}); GMEMO = {k: "", v: null}; scheduleRender(); drawStreak(); return true;
     case "fgs-wd": {

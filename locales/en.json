@@ -676,7 +676,7 @@
   "streak.sum.pause": "A pause is fine. Your next study day picks up from here.",
   "streak.sum.run": "{n} study day in a row.|{n} study days in a row.",
   "streak.title": "Study Streak",
-  "streak.toast.no": "No problem. You can turn it on any time in Settings, under Study and AI.",
+  "streak.toast.no": "No problem. You can turn it on any time in Settings, under Study Plan.",
   "streak.toast.off": "Gentle streak is off. Your progress is kept if you turn it back on.",
   "streak.toast.on": "Gentle streak is on. Rest days never break it.",
   "streak.today.rest": "Take Today as a Rest Day",

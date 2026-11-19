@@ -8319,7 +8319,7 @@ const STICKER_PACKS = [
     smile: `${GR("gsmile", "#FFE56B", "#FFBE1A")}<circle cx="32" cy="32" r="25" fill="url(#gsmile)" ${SO}/>${EYES(24, 40, 27, 3.2)}<path d="M21 37q11 11 22 0" fill="none" stroke="#2B2233" stroke-width="3" stroke-linecap="round"/>${BLUSH(17, 47, 36)}${SHINE(20, 17, 5, 3)}`,
     rainbow: `<path d="M8 46a24 24 0 0 1 48 0" fill="none" stroke="#FF5C5C" stroke-width="6"/><path d="M14 46a18 18 0 0 1 36 0" fill="none" stroke="#FFB443" stroke-width="6"/><path d="M20 46a12 12 0 0 1 24 0" fill="none" stroke="#4CC38A" stroke-width="6"/><path d="M26 46a6 6 0 0 1 12 0" fill="none" stroke="#4A8CFF" stroke-width="5"/><path d="M2 50a7 7 0 0 1 9-8 7 7 0 0 1 12 4 5 5 0 0 1-1 9H6a5 5 0 0 1-4-5z" fill="#fff" ${SO}/><path d="M41 50a7 7 0 0 1 9-8 7 7 0 0 1 12 4 5 5 0 0 1-1 9H45a5 5 0 0 1-4-5z" fill="#fff" ${SO}/>`,
     bolt: `${GR("gbolt", "#FFE56B", "#FFA800")}<path d="M37 3L11 37h17l-6 24 27-35H32z" fill="url(#gbolt)" ${SO}/>`,
-    moon: `<path d="M40 7a25 25 0 1 0 17 39A21 21 0 0 1 40 7z" fill="#FFE8A3" ${SO}/><path d="M24 34q3 3 6 0M35 38q2.5 2.5 5 0" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/>${BLUSH(22, 41, 40)}`,
+    moon: `<path d="M40 7a25 25 0 1 0 17 39A21 21 0 0 1 40 7z" fill="#FFE8A3" ${SO}/><path d="M14.5 32q2.5 2.5 5 0M23 35.5q2.5 2.5 5 0" fill="none" stroke="#2B2233" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="17" cy="39" rx="3" ry="2" fill="#FF8FA8" opacity=".75"/><ellipse cx="28" cy="42" rx="3" ry="2" fill="#FF8FA8" opacity=".75"/>`,
     sun: `<g stroke="#FF9F1C" stroke-width="4.5" stroke-linecap="round"><path d="M32 3v8M32 53v8M3 32h8M53 32h8M11 11l6 6M47 47l6 6M11 53l6-6M47 17l6-6"/></g><circle cx="32" cy="32" r="15" fill="#FFD23F" ${SO}/>${EYES(27, 37, 30, 2.2)}${SMILE(32, 35, 3)}`,
     cloud: `<path d="M16 50h32a12 12 0 0 0 1-24 16 16 0 0 0-30-4 13 13 0 0 0-3 28z" fill="#fff" ${SO}/>${EYES(27, 39, 37, 2.2)}${BLUSH(23, 44, 42)}`,
     flower: `<g fill="#FF9EC7" ${SO}><circle cx="32" cy="15" r="10"/><circle cx="48" cy="27" r="10"/><circle cx="42" cy="46" r="10"/><circle cx="22" cy="46" r="10"/><circle cx="16" cy="27" r="10"/></g><circle cx="32" cy="32" r="9" fill="#FFD23F" ${SO}/>`
@@ -11099,6 +11099,22 @@ function emptyArt(kind){
       ${[66, 88, 112, 134].map(x => `<rect class="es-ring" x="${x - 3}" y="12" width="6" height="16" rx="3"/>`).join("")}
       ${[0, 1, 2].map(r => [0, 1, 2, 3, 4, 5].map(c => { const k = r * 6 + c; return `<rect class="${k === 4 ? "es-acc" : k === 9 ? "es-gold" : k === 13 ? "es-ok" : "es-cell"}" x="${52 + c * 17}" y="${52 + r * 16}" width="12" height="10" rx="3"/>`; }).join("")).join("")}
       <circle class="es-circle" cx="58" cy="57" r="10"/>${star(176, 34, 7, "es-star")}${star(24, 30, 5, "es-star2")}`,
+    crunch: () => `<rect class="es-card" x="26" y="10" width="148" height="76" rx="12"/>
+      ${[[44, 24, "es-okf"], [66, 16, "es-okf"], [88, 34, "es-goldsoft"], [112, 46, "es-hl2"], [134, 30, "es-goldsoft"], [156, 14, "es-okf"]].map(([x, h, c]) => `<rect class="${c}" x="${x - 7}" y="${76 - h}" width="14" height="${h}" rx="4"/>`).join("")}
+      <path class="es-grid" d="M36 77h128"/><circle class="es-hl2" cx="112" cy="20" r="6.5"/><rect class="es-band" x="110.9" y="15.5" width="2.2" height="5.5" rx="1.1"/><circle class="es-band" cx="112" cy="24" r="1.2"/>
+      ${star(184, 24, 6, "es-star")}${star(18, 100, 5, "es-star2")}`,
+    maps: () => `<path class="es-link" d="M84 40Q60 40 52 28M84 40Q66 52 54 70M116 40Q140 40 150 26M116 40Q136 52 148 70"/>
+      <rect class="es-card" x="18" y="16" width="48" height="22" rx="11"/><rect class="es-line" x="28" y="25" width="28" height="4" rx="2"/>
+      <rect class="es-okf" x="22" y="60" width="50" height="22" rx="11"/><rect class="es-band" x="32" y="69" width="30" height="4" rx="2"/>
+      <rect class="es-card" x="134" y="14" width="48" height="22" rx="11"/><rect class="es-line" x="144" y="23" width="28" height="4" rx="2"/>
+      <rect class="es-goldsoft" x="128" y="60" width="50" height="22" rx="11"/><rect class="es-band" x="138" y="69" width="30" height="4" rx="2"/>
+      <rect class="es-hl" x="70" y="27" width="60" height="26" rx="13"/><rect class="es-band" x="84" y="38" width="32" height="5" rx="2.5"/>
+      ${star(176, 104, 6, "es-star")}${star(24, 104, 5, "es-star2")}`,
+    papers: () => `<g transform="rotate(-4 100 52)"><rect class="es-card" x="62" y="8" width="78" height="92" rx="9"/><rect class="es-hl2" x="72" y="20" width="38" height="7" rx="3.5"/>
+      <rect class="es-line" x="72" y="35" width="58" height="4" rx="2"/><rect class="es-line" x="72" y="45" width="50" height="4" rx="2"/><rect class="es-line" x="72" y="55" width="56" height="4" rx="2"/><rect class="es-line" x="72" y="65" width="40" height="4" rx="2"/></g>
+      <rect class="es-hl" x="20" y="34" width="46" height="34" rx="11"/><path class="es-hl" d="M54 66l8 12l-18-12z"/><text class="es-q" x="43" y="66" text-anchor="middle">\u201C</text>
+      <rect class="es-okf" x="136" y="52" width="48" height="24" rx="12"/><circle class="es-ok" cx="149" cy="64" r="7"/>${tick(149, 64.5, 3)}<rect class="es-band" x="160" y="62" width="16" height="4" rx="2"/>
+      ${star(172, 26, 7, "es-star")}${star(28, 104, 5, "es-star2")}`,
     pages: () => `<g transform="rotate(-8 73 78)"><rect class="es-card" x="34" y="30" width="78" height="96" rx="10"/><rect class="es-hl2" x="44" y="46" width="40" height="7" rx="3.5"/><rect class="es-line" x="44" y="62" width="58" height="5" rx="2.5"/><rect class="es-line" x="44" y="74" width="46" height="5" rx="2.5"/><rect class="es-line" x="44" y="86" width="52" height="5" rx="2.5"/></g>
     <g transform="rotate(7 127 70)"><rect class="es-card" x="88" y="22" width="78" height="96" rx="10"/><rect class="es-hl" x="98" y="38" width="44" height="7" rx="3.5"/><rect class="es-line" x="98" y="54" width="58" height="5" rx="2.5"/><rect class="es-line" x="98" y="66" width="50" height="5" rx="2.5"/><rect class="es-line" x="98" y="78" width="54" height="5" rx="2.5"/></g>${stars()}`
   };
@@ -15023,7 +15039,8 @@ function scheduleRender(){
   focusStale(); renderAsk++;
   if (renderQueued) return;
   renderQueued = true;
-  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } renderQueued = false; if (renderSkip === renderAsk) return; renderGo = true; try { render(); } finally { renderGo = false; } };
+  // a redraw waits while a card or tab is being dragged to reorder it (it would remove the item being dragged)
+  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } if (document.body.classList.contains("sorting")) { setTimeout(() => requestAnimationFrame(go), 120); return; } renderQueued = false; if (renderSkip === renderAsk) return; renderGo = true; try { render(); } finally { renderGo = false; } };
   requestAnimationFrame(go);
 }
 // A finished check pops before the list redraws (phones, when motion is on)
@@ -18513,11 +18530,11 @@ const nbColor = b => { const c = b && b.courseId && courseOf(b.courseId); return
 function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
-  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}"${id ? ` data-sort-id="${esc(id)}"` : ""} data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
+  const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-sort-id="${esc(id || "__home")}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>`;
   // Only the tabs are in the tab list; the board's options and New Note Board come just after it (a list of tabs holding other
   // buttons reads as broken tabs). The list is display:contents, so the row looks the same.
   const opts = cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : "";
-  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards" data-sortable="noteboards" title="Drag a board's tab to move it">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
+  return `<div class="nb-boards"><div class="nb-tlist" role="tablist" aria-label="Note boards" data-sortable="noteboards" title="Drag a board's tab to move it">${(() => { const ts = noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))), at = Math.max(0, Math.min(ts.length, Number((state.settings || {}).nbHomeAt) || 0)); ts.splice(at, 0, tab("", "My Notes", "var(--muted)", count(""))); return ts.join(""); })()}</div>${opts}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Note Board</button></div>`
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Note Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
@@ -20422,7 +20439,7 @@ function renderPomoBits(){
   const nav = $("#navPomo");
   nav.className = `nav-focus m-${pomo.mode} ${active ? "active" : ""} ${pomo.running ? "run" : ""}`;
   nav.setAttribute("aria-label", btn.getAttribute("aria-label"));
-  nav.innerHTML = `${TOMATO}<span class="nf-l" ${active ? "data-pomo-time" : ""}>${active ? fmtClock(pomoLeft()) : esc(tr("nav.focus", "Focus"))}</span>${active ? `<span class="nf-m">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : ", paused"}</span>` : ""}`;
+  nav.innerHTML = `${TOMATO}<span class="nf-l" ${active ? "data-pomo-time" : ""}>${active ? fmtClock(pomoLeft()) : esc(tr("nav.focus", "Focus"))}</span>${active ? `<span class="nf-m">${pomo.running ? esc(MODE_LABEL[pomo.mode]) : "Paused"}</span>` : ""}`;
   try { islandSync(); } catch (e) {}
   // the timer started, paused, stopped or changed task (not every tick): the Home Screen widgets show it (70-widgets.js)
   try { const sig = [pomo.running, pomo.mode, pomo.endAt, pomo.left, pomo.taskId].join("|"); if (sig !== focusSig) { focusSig = sig; fire("focus-state"); } } catch (e) {}
@@ -20548,6 +20565,12 @@ function pomoIslandNote(){
   }, () => {});
 }
 hook("stats-focus", () => { const p = $("#pomoDlg .pomo-today"); if (p) p.innerHTML = pomoTodayHtml(); });
+const POMO_IC = {
+  play: '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.5"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.5"/></svg>',
+  reset: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+  skip: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4.5l10 7.5-10 7.5z"/><path d="M19 5v14"/></svg>'
+};
 function renderPomo(){
   const cfg = pomoCfg(), d = $("#pomoDlg");
   pomoToday();
@@ -20564,13 +20587,13 @@ function renderPomo(){
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
-        <div class="pomo-read"><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${esc(MODE_LABEL[pomo.mode])}${pomo.running ? "" : pomo.left > 0 ? ", paused" : ""}</span></div>
+        <div class="pomo-read"><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
-      <div class="pomo-cycle" aria-label="${inCycle} of ${every} focus sessions done before a long break">${Array.from({length: every}, (_, i) => `<i class="${i < inCycle ? "on" : ""}"></i>`).join("")}<span>${inCycle} of ${every} before a long break</span></div>
+      <p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
-        <button class="btn" data-act="pomo-reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>Reset</button>
-        <button class="btn primary big" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : pomo.mode === "focus" ? `Start ${esc(MODE_LABEL[pomo.mode])}` : esc(MODE_LABEL[pomo.mode])}</button>
-        <button class="btn" data-act="pomo-skip">Skip</button>
+        <button class="btn pomo-rd" data-act="pomo-reset" title="Reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>${POMO_IC.reset}<span class="sr">Reset</span></button>
+        <button class="btn primary big pomo-go" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? POMO_IC.pause : POMO_IC.play}<span class="sr">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : pomo.mode === "focus" ? `Start ${esc(MODE_LABEL[pomo.mode])}` : esc(MODE_LABEL[pomo.mode])}</span></button>
+        <button class="btn pomo-rd" data-act="pomo-skip" title="Skip">${POMO_IC.skip}<span class="sr">Skip</span></button>
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
       <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
@@ -24752,7 +24775,7 @@ window.__sbPlanObj = () => PLAN;
   }
 
   /* Guards */
-  const KIND_NAME = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin", sticker: "sticker pack", comp: "companion", prop: "accessory"};
+  const KIND_NAME = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin", sticker: "sticker pack", comp: "companion", prop: "accessory", cm: "concept map style"};
   const origUnlock = shopUnlock;
   shopUnlock = function (kind, id){
     if (!paywall()) return origUnlock.apply(this, arguments);
@@ -44607,7 +44630,7 @@ function cleanFile(r) {
       return {data: fromFeed(text, "feed")};
     } catch(e) {
       console.warn(P.id, e);
-      if (String(e && e.message) === "nocloud") return {error: "nocloud", text: `A ${P.name} calendar link needs a free Studyboard account. Sign in or create one in Settings, Account and Sync, or import a downloaded calendar file instead.`};
+      if (String(e && e.message) === "nocloud") return {error: "nocloud", text: `A ${P.name} calendar link needs a free Studyboard account. Sign in or create one in Settings, Account, or import a downloaded calendar file instead.`};
       return {error: String(e && e.message || e), text: errText(e && e.message || e)};
     }
   }
@@ -53990,6 +54013,8 @@ var TP_DATA = [];
     return h;
   };
   window.SBUI = Object.assign(window.SBUI, {cacheGet, cacheSet});
+  // The scene picture itself (not its cached bitmap), for a preview drawn large (Build Your Look)
+  window.SBUI.thumbOrig = (id, dark) => { try { const m = String(origThumb(id, dark) || "").match(/<img[^>]*\ssrc="([^"]+)"/); return m ? m[1] : ""; } catch (e) { return ""; } };
   window.SBUI = Object.assign(window.SBUI, {thumbReady: async () => { await thLoad(); SKINS.filter(s => !s.photo).forEach(s => { artThumb(s.id, false); artThumb(s.id, true); }); while (thQueue.length) { const k = thQueue.shift(); try { await thRaster(k); } catch (e) {} } return TH.size; }});
 
   // The Stickers tab, drawn here (with cached sticker images) instead of by the app
@@ -54333,10 +54358,12 @@ var TP_DATA = [];
   const ICONS = {
     account: svg(`<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>`),
     appearance: svg(`<path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.5-1.2-1.8-1.2-3s.9-2 2.2-2H17a4 4 0 0 0 4-4c0-4-4-7-9-7z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/>`),
+    access: svg(`<circle cx="12" cy="4.5" r="2"/><path d="M5 8.5l7 1.5 7-1.5M12 10v4.5M12 14.5 9 21M12 14.5l3 6.5"/>`),
     study: svg(`<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8.5 7.5h6M8.5 11h4"/>`),
-    capture: svg(`<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>`),
+    ai: svg(`<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>`),
     school: svg(`<path d="M3 9.5 12 5l9 4.5-9 4.5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5M21 9.5V15"/>`),
-    app: svg(`<path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z"/><path d="M10 19a2 2 0 0 0 4 0"/>`),
+    capture: svg(`<path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z"/><path d="M10 19a2 2 0 0 0 4 0"/>`),
+    app: svg(`<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7M12 17.2v.1"/>`),
     data: svg(`<ellipse cx="12" cy="6" rx="7.5" ry="2.8"/><path d="M4.5 6v6c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6M4.5 12v6c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-6"/>`)
   };
   const SEARCH_IC = svg(`<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>`);
@@ -54344,49 +54371,49 @@ var TP_DATA = [];
   const CHEV = svg(`<path d="M9 5l7 7-7 7"/>`);
   const safe = (fn, d) => { try { return fn(); } catch (e) { return d; } };
   const CATS = [
-    {k: "account", t: "Account and Sync",
-      lead: "Sign in to keep your work in sync on every device.",
+    {k: "account", t: "Account",
+      lead: "Your sign-in, sync and Studyboard Pro.",
       sum: () => safe(() => inPreview() ? "Saved to your Claude account" : sbUser ? `Signed in as ${sbUser.email || "you"}` : sbConfig() ? "Not signed in yet" : "Saved on this device only", "Sign in and sync")},
     {k: "appearance", t: "Appearance",
-      lead: "How Studyboard looks and moves.",
-      sum: () => safe(() => { const s = SKINS.find(x => x.id === styleCfg().skin) || SKINS[0], p = themePref(); return `${s.name} theme, ${p === "system" ? "matches your device" : p === "dark" ? "dark mode" : "light mode"}`; }, "Theme, dark mode and animations")},
-    {k: "study", t: "Study and AI",
-      lead: "Your study time, grades, search and AI helpers.",
-      sum: () => safe(() => `${dailyHours()} h a day, AI ${aiReady() ? "on" : "off"}`, "Study hours, grades and AI")},
-    {k: "capture", t: "Quick Capture",
-      lead: "Add a task in seconds: type it, say it, share it or snap a photo.",
-      sum: () => "Shortcuts, share sheet, photos and links"},
-    {k: "school", t: "School and Groups",
+      lead: "Your theme, your companion and how Studyboard moves.",
+      sum: () => safe(() => { const s = SKINS.find(x => x.id === styleCfg().skin) || SKINS[0], p = themePref(); return `${s.name}, ${p === "system" ? "matches your device" : p === "dark" ? "dark" : "light"}`; }, "Theme, dark mode and animations")},
+    {k: "access", t: "Accessibility",
+      lead: "Text size, contrast, language and spelling.",
+      sum: () => "Text size, contrast and language"},
+    {k: "study", t: "Study Plan",
+      lead: "How Today's Plan fits your work into your week.",
+      sum: () => safe(() => `${dailyHours()} h a day`, "Study hours and planning")},
+    {k: "ai", t: "AI and Tools",
+      lead: "AI helpers, search, the calculator and printing.",
+      sum: () => safe(() => `AI ${aiReady() ? "on" : "off"}`, "AI, search and tools")},
+    {k: "school", t: "School and Calendar",
       lead: "Bring in your school's deadlines, sync your calendar and study with classmates.",
-      sum: () => "School sites, calendar sync, syllabus and study groups"},
-    {k: "app", t: "App and Notifications",
-      lead: "Reminders, widgets and getting the most out of the app.",
-      sum: () => "Reminders, widgets, install and the welcome setup"},
+      sum: () => "School sites, syllabi, calendar and groups"},
+    {k: "capture", t: "Notifications and Widgets",
+      lead: "Reminders, widgets, quick ways to add tasks, and installing the app.",
+      sum: () => "Reminders, widgets and quick capture"},
     {k: "data", t: "Data and Backups",
-      lead: "Keep a copy of your work safe, and start fresh each term.",
-      sum: () => "Backups, restore, new term and archive"}
+      lead: "Keep a copy of your work safe, bring work in, and start fresh each term.",
+      sum: () => "Backups, import, export and cleanup"},
+    {k: "app", t: "Help and About",
+      lead: "Getting started, feedback, and the small print.",
+      sum: () => "Tour, shortcuts, feedback and legal"}
   ];
   const CAT = Object.fromEntries(CATS.map(c => [c.k, c]));
-  // Where each row goes, by its data-act (or input id)
-  const ORDER = {
-    account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open", "plan-restore"],
-    appearance: ["theme-set", "shop", "scene-moment", "anim-toggle", "daily-quote", "comp-open", "comp-set", "anim-mode", "text-size", "a11y-contrast", "lang-set", "spell-set"],
-    study: ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "sbk-open", "snd-settings", "ai-setup", "aivault-open", "sx-settings", "calc-open", "pro-pr-open"],
-    capture: ["cap-try"],
-    school: ["sem-open", "lms-open", "cal-export", "cal-sync", "school-open", "import-syllabus", "grp-page"],
-    app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "tips-set", "kbd-help", "bug-open", "errrep-toggle", "legal-about", "legal-privacy", "legal-terms"],
-    data: ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "storage-protect", "restore", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
-  };
-  // Sub-tabs inside a category with many rows. Every row's key belongs here: an unlisted row goes to the first sub-tab, with a warning
+  // Each category's groups, in order, by each row's data-act (or input id). A row's key decides its place; a row nobody
+  // listed goes to its data-group's category (or a best guess) and the end of that category's first group
   const SUBS = {
-    appearance: [["Look", ["theme-set", "shop", "scene-moment", "anim-toggle", "daily-quote", "comp-open", "comp-set"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode"]], ["Language", ["lang-set", "spell-set"]]],
-    study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "ap-mode", "ap-pro", "g-grades", "bd-new-course", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]], ["Tools and AI", ["ai-setup", "aivault-open", "sx-settings", "calc-open", "pro-pr-open"]]],
-    school: [["School Sites", ["sem-open", "lms-open", "import-syllabus"]], ["Calendar", ["cal-export", "cal-sync", "school-open"]], ["Groups", ["grp-page", "room-notices"]]],
-    app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "tips-set", "kbd-help", "bug-open", "errrep-toggle", "legal-about", "legal-privacy", "legal-terms"]]],
-    // Both ways to restore (a backup file, a copy kept on this device) sit together under Import and Export
-    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "export", "export-json", "export-full", "backup-now", "storage-protect"]], ["Import and Export", ["restore", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
+    account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
+    appearance: [["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
+    access: [["Reading", ["text-size", "a11y-contrast"]], ["Language", ["lang-set", "spell-set"]]],
+    study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
+    ai: [["AI", ["ai-setup", "aivault-open"]], ["Tools", ["sx-settings", "bd-new-course", "calc-open", "pro-pr-open"]]],
+    school: [["School", ["sem-open", "lms-open", "import-syllabus", "school-open"]], ["Calendar", ["cal-export", "cal-sync"]], ["Study Groups", ["grp-page", "room-notices"]]],
+    capture: [["Reminders", ["rm-open", "tz-shift"]], ["Quick Capture and Widgets", ["cap-try", "sbw-open"]], ["Install", ["pwa-install", "install", "desk-version"]]],
+    data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "storage-protect", "restore"]], ["Import and Export", ["export", "export-json", "export-full", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open"]], ["Start Over", ["clear-all"]]],
+    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
   };
-  const SUB_MIN = 5;
+  const ORDER = Object.fromEntries(Object.entries(SUBS).map(([c, gs]) => [c, gs.flatMap(g => g[1])]));
   // Extra words people might search for, per row
   const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
@@ -54395,16 +54422,42 @@ var TP_DATA = [];
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
     "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet knowt todoist notion csv another app switch", "export-full": "files zip",
     "new-term": "semester archive", "trash-open": "recently deleted trash bin restore undo recover deleted", "export-data": "export csv json zip spreadsheet excel portability download my data gdpr", "clear-all": "delete reset erase"};
+  // An emoji before each row's title, by the row's key (rows that bring their own emoji or icon keep theirs)
+  const EMO = {"sb-signin": "🔑", "sb-connect": "☁️", "sb-signout": "🚪", "un-edit": "🙂", "acct-email": "✉️", "acct-pass": "🔒", "sb-issues": "🔀", "sbc-packs": "🪙", "plan-restore": "♻️", "acct-delete": "🗑️",
+    "theme-set": "🌗", shop: "🛍️", "scene-moment": "🌅", "comp-open": "🌱", "comp-set": "📌", "anim-mode": "🎞️", "daily-quote": "📖",
+    "text-size": "🔠", "a11y-contrast": "👓", "lang-set": "🌐", "spell-set": "🔤",
+    "area-open": "🎓", dailyIn: "⏱️", capIn: "📆", "avail-open": "🗓️", "acc-toggle": "📈", "exm-toggle": "📝", "ap-mode": "✈️", "ap-pro": "✈️", "g-grades": "💯", "wkr-open": "🗒️", "fgs-open": "🔥", "sbk-open": "📔", "snd-settings": "🎧",
+    "ai-setup": "✨", "aivault-open": "🔐", "sx-settings": "🔍", "bd-new-course": "🧩", "calc-open": "🧮", "pro-pr-open": "🖨️",
+    "sem-open": "🏫", "lms-open": "🔗", "import-syllabus": "📄", "school-open": "🍎", "cal-export": "🔄", "cal-sync": "🔄", "grp-page": "👥", "room-notices": "📣",
+    "rm-open": "🔔", "tz-shift": "🌍", "cap-try": "⚡", "sbw-open": "🧱", "pwa-install": "📲", install: "📲", "desk-version": "💻",
+    "cbk-go": "☁️", "cbk-now": "☁️", "cbk-stop": "☁️", "fsb-choose": "📁", "fsb-resume": "📁", "fsb-stop": "📁", "desk-open": "📁", "desk-choose": "📁", folder: "📁", "backup-now": "💾", "storage-protect": "🛡️", restore: "⏪",
+    export: "📤", "export-json": "📤", "export-full": "🗜️", import: "📥", "ia-open": "🔁", "export-data": "📊", "new-term": "🆕", "archive-open": "🗄️", "trash-open": "🗑️", "clear-all": "⚠️",
+    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
+  const PICTO = /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})/u;
+  function addEmoji(r){
+    if (r.classList.contains("plan-row") || r.querySelector(".us-emo, .plan-row-ic")) return;
+    const e = rowKey(r).map(k => EMO[k]).find(Boolean); if (!e) return;
+    // the title: the first element that starts with its own words (before its .sub line)
+    const t = [r].concat([...r.querySelectorAll("span, b, strong, label")]).find(x => !x.classList.contains("sub") && x.firstChild && x.firstChild.nodeType === 3 && x.firstChild.data.trim());
+    if (!t || PICTO.test(t.firstChild.data)) return;
+    // the emoji and the title's words go in one box, so rows that stack the title and its line keep the emoji on the title's line
+    const box = document.createElement("span"); box.className = "us-ttl";
+    box.innerHTML = `<span class="us-emo" aria-hidden="true">${e}</span>`;
+    t.insertBefore(box, t.firstChild); box.appendChild(box.nextSibling);
+    // a PRO (or similar) badge right after the title stays on the title's line
+    while (box.nextSibling && (box.nextSibling.nodeType === 3 ? !box.nextSibling.data.trim() : box.nextSibling.nodeType === 1 && !box.nextSibling.classList.contains("sub") && /badge|pro|tag|pill/i.test(box.nextSibling.className))) box.appendChild(box.nextSibling);
+  }
   const KEY_CAT = {};
   Object.entries(ORDER).forEach(([c, ks]) => ks.forEach(k => { KEY_CAT[k] = c; }));
   const ALIAS = {account: "account", sync: "account", plan: "account", pro: "account", devices: "account",
-    appearance: "appearance", style: "appearance", theme: "appearance", look: "appearance",
-    study: "study", ai: "study", grades: "study", focus: "study", search: "study",
-    capture: "capture", school: "school", calendar: "school", lms: "school", groups: "school",
-    app: "app", notifications: "app", reminders: "app", widgets: "app", help: "app",
+    appearance: "appearance", style: "appearance", theme: "appearance", look: "appearance", access: "access", language: "access",
+    study: "study", grades: "study", focus: "study", ai: "ai", search: "ai", tools: "ai",
+    capture: "capture", notifications: "capture", reminders: "capture", widgets: "capture",
+    school: "school", calendar: "school", lms: "school", groups: "school",
+    app: "app", help: "app", about: "app",
     data: "data", backups: "data", backup: "data"};
   const PREFIX = [[/^(sb|plan|dev|acct|pro)-/, "account"], [/^(fsb|desk|backup)-/, "data"], [/^(bs|cv|canvas|bb|lms|cal|grp)-/, "school"],
-    [/^(rm|sbw|ob|pwa)-/, "app"], [/^(pomo|sx|ai)-/, "study"], [/^(scene|shop|anim|theme|style)-/, "appearance"]];
+    [/^(rm|sbw|pwa|cap)-/, "capture"], [/^(ob|tour|legal|bug)-/, "app"], [/^(sx|ai|calc)-/, "ai"], [/^(pomo|g|ap|wkr)-/, "study"], [/^(scene|shop|anim|theme|style|comp)-/, "appearance"], [/^(lang|spell|a11y|text)-/, "access"]];
   function rowKey(r){
     const acts = [r.dataset.act].concat([...r.querySelectorAll("[data-act]")].map(x => x.dataset.act)).filter(Boolean);
     const inp = r.querySelector("input[id]");
@@ -54420,10 +54473,10 @@ var TP_DATA = [];
     return keys;
   }
   function catOf(r){
-    const g = r.dataset.group || safe(() => r.querySelector("[data-group]").dataset.group, "");
-    if (g && ALIAS[String(g).toLowerCase()]) return ALIAS[String(g).toLowerCase()];
     const keys = rowKey(r);
     for (const k of keys) if (KEY_CAT[k]) return KEY_CAT[k];
+    const g = r.dataset.group || safe(() => r.querySelector("[data-group]").dataset.group, "");
+    if (g && ALIAS[String(g).toLowerCase()]) return ALIAS[String(g).toLowerCase()];
     for (const k of keys) for (const [re, c] of PREFIX) if (re.test(k)) return c;
     const t = (r.textContent || "").toLowerCase();
     if (/backup|restore/.test(t)) return "data";
@@ -54449,14 +54502,14 @@ var TP_DATA = [];
     if (!list || body.querySelector(".us")) return;
     const note = body.querySelector(":scope > p.summary-sub");
     const buckets = Object.fromEntries(CATS.map(c => [c.k, []]));
-    [...list.children].forEach((r, i) => { const c = catOf(r); r.dataset.usCat = c; buckets[c].push({r, i, n: rankOf(r, c)}); });
+    [...list.children].forEach((r, i) => { const c = catOf(r); r.dataset.usCat = c; buckets[c].push({r, i, n: rankOf(r, c)}); try { addEmoji(r); } catch (e) {} });
     const cats = CATS.filter(c => buckets[c.k].length);
     sheet.classList.add("us-sheet");
     const wrap = document.createElement("div");
     wrap.className = "us";
     wrap.innerHTML = `<div class="us-nav">
         <label class="us-search">${SEARCH_IC}<input type="search" class="us-q" placeholder="Search Settings" aria-label="Search settings" autocomplete="off" data-noenter></label>
-        <div class="us-cats" role="tablist" aria-label="Settings categories" aria-orientation="vertical">${cats.map(c => `<button type="button" role="tab" class="us-cat" data-us="${c.k}" id="usTab-${c.k}" aria-controls="usPane-${c.k}" aria-selected="false" title="${esc(c.t)}"><span class="us-ic">${ICONS[c.k]}</span><span class="us-ct"><b>${esc(c.t)}</b><span class="us-cs">${esc(c.sum())}</span></span><span class="us-chev">${CHEV}</span></button>`).join("")}</div>
+        <div class="us-cats" role="tablist" aria-label="Settings categories" aria-orientation="vertical">${cats.map(c => `<button type="button" role="tab" class="us-cat" data-us="${c.k}" id="usTab-${c.k}" aria-controls="usPane-${c.k}" aria-selected="false"><span class="us-ic">${ICONS[c.k]}</span><span class="us-ct"><b>${esc(c.t)}</b><span class="us-cs">${esc(c.sum())}</span></span><span class="us-chev">${CHEV}</span></button>`).join("")}</div>
       </div>
       <div class="us-main"><p class="us-empty" hidden>Nothing matches that. Try another word, like “backup” or “dark”.</p></div>`;
     const main = wrap.querySelector(".us-main");
@@ -54472,19 +54525,20 @@ var TP_DATA = [];
       const sorted = all.filter(({r}) => !r.dataset.usTop);
       sorted.forEach(({r}) => { if (r.dataset.act === "clear-all" || r.querySelector('[data-act="clear-all"]')) r.classList.add("us-danger"); });
       const spec = SUBS[c.k];
-      if (spec && sorted.length >= SUB_MIN) {
+      if (spec) {
         const groups = spec.map(([name, keys]) => ({name, keys, rows: []}));
         sorted.forEach(({r}) => {
           const ks = rowKey(r); let g = groups.find(x => ks.some(k => x.keys.includes(k)));
           if (!g) { g = groups[0]; console.warn("Settings row not in SUBS." + c.k + ", shown under " + g.name + ":", ks.join(",") || (r.textContent || "").trim().slice(0, 40)); }
           g.rows.push(r);
         });
+        // Every group shows at once, each under its own heading, so nothing hides behind a tab
         const live = groups.filter(g => g.rows.length);
-        if (live.length > 1) {
-          sec.classList.add("has-subs");
-          sec.insertAdjacentHTML("beforeend", `<div class="us-subs" role="tablist" aria-label="${esc(c.t)} sections">${live.map((g, i) => `<button type="button" role="tab" class="us-sub-tab" data-sub="${i}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}">${esc(g.name)}</button>`).join("")}</div>`);
-          live.forEach((g, i) => { const ml = document.createElement("div"); ml.className = "menu-list us-sub" + (i === 0 ? " on" : ""); ml.dataset.sub = i; g.rows.forEach(r => ml.appendChild(r)); sec.appendChild(ml); });
-        } else { const ml = document.createElement("div"); ml.className = "menu-list"; sorted.forEach(({r}) => ml.appendChild(r)); sec.appendChild(ml); }
+        live.forEach((g, i) => {
+          const ml = document.createElement("div"); ml.className = "menu-list us-group" + (/^(Delete Account|Start Over)$/.test(g.name) ? " us-danger-g" : ""); ml.dataset.sub = i;
+          if (live.length > 1) { const h = document.createElement("h4"); h.className = "us-gh"; h.id = `usG-${c.k}-${i}`; h.textContent = g.name; ml.setAttribute("aria-labelledby", h.id); ml.setAttribute("role", "group"); sec.appendChild(h); }
+          g.rows.forEach(r => ml.appendChild(r)); sec.appendChild(ml);
+        });
       } else { const ml = document.createElement("div"); ml.className = "menu-list"; sorted.forEach(({r}) => ml.appendChild(r)); sec.appendChild(ml); }
       if (c.k === "data" && note) sec.appendChild(note);
       main.appendChild(sec);
@@ -54517,7 +54571,7 @@ var TP_DATA = [];
           const hit = !words.length || words.every(w => hay.includes(w));
           r.classList.toggle("us-miss", !hit); if (hit) n++;
         });
-        p.querySelectorAll(":scope > .menu-list.us-sub").forEach(l => l.classList.toggle("us-miss", !!words.length && ![...l.children].some(r => !r.classList.contains("us-miss"))));
+        p.querySelectorAll(":scope > .menu-list.us-group").forEach(l => { const miss = !!words.length && ![...l.children].some(r => !r.classList.contains("us-miss")); l.classList.toggle("us-miss", miss); const h = l.previousElementSibling; if (h && h.classList.contains("us-gh")) h.classList.toggle("us-miss", miss); });
         const hitPane = !!words.length && n > 0;
         p.classList.toggle("us-hit", hitPane); if (hitPane) any = true;
         const tab = wrap.querySelector(`.us-cat[data-us="${p.dataset.us}"]`); if (tab) tab.classList.toggle("us-has", hitPane);
@@ -69864,7 +69918,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     },
     // For tools/companion-wear-review.js
     fit: id => { const c = BYID[id]; return c ? JSON.parse(JSON.stringify({anchors: c.anchors, eyes: c.eyes, mouth: c.mouth, neck: c.neck, head: !!partSvg(c.parts.head), hatTop: !!c.hatTop})) : null; },
-    check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
+    check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", stillHtml: (id, px) => BYID[id] ? stillHtml(BYID[id], px || 64) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker
     all: () => Object.keys(REG).flatMap(k => REG[k].list.map(c => ({id: c.id, name: c.name, kind: c.kind || "", theme: k, owned: canComp(c)}))),
@@ -70673,14 +70727,16 @@ Pages (the sidebar; keys 1 to 7 switch pages):
 - Study Groups: share decks, quizzes and deadlines, plan sessions together, and a weekly challenge.
 Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text inside files, and can answer with AI; the Focus timer (pomodoro sessions on a task); the Calculator (sidebar; its corner button reads an equation selected anywhere on screen and solves it); the Style Shop (themes, flashcard styles, note shapes, pins and stickers); ? lists keyboard shortcuts; Ctrl+Z undoes.
 Settings, by section:
-- Account and Sync: sign in to keep everything in sync across devices; Studyboard Pro; Restore Purchases.
-- Appearance: Light, Dark or System; Style Shop; animations; text size; language; high contrast; daily quote; spelling; page tips; the study companion.
-- Study and AI: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Break Down an Assignment (milestones backward from the due date); Weekly Review; ${STREAK_HIDDEN ? "" : "Gentle Study Streak; "}AI Features (set up AI); Search Everywhere; Term Scrapbook (milestone stickers); Print or Save as PDF (Pro).
-- Quick Capture: add right away when sure; keep photos with tasks; use AI to read photos; the Quick Capture window; share sheet; Siri, Gemini, Bixby and Shortcuts.
-- School and Groups: Set Up Your Semester; Brightspace, Canvas, Blackboard and Moodle (due dates, grades and announcements); Import a Syllabus (a PDF becomes a course and its deadlines); Calendar Sync (Apple, Google or Outlook, live link or file); Study Groups; School Days (holidays, reading week, rotating Day 1 to 6 or A/B schedules).
-- App and Notifications: Reminders and Notifications; widgets; replay the welcome setup; the app tour; report a bug; crash reports; keyboard shortcuts; time zone; AI keys on all devices.
+- Account: sign in to keep everything in sync across devices; profile; change email or password; Studyboard Pro; Studyboard Credits; Restore Purchases; delete account.
+- Appearance: Light, Dark or System; Style Shop; the study companion; animations; daily quote.
+- Accessibility: text size; high contrast and calm backgrounds; language; spelling.
+- Study Plan: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Weekly Review; ${STREAK_HIDDEN ? "" : "Gentle Study Streak; "}Term Scrapbook.
+- AI and Tools: AI Features; AI keys on all devices; Search Everywhere; Break Down an Assignment (milestones backward from the due date); Calculator; Print or Save as PDF.
+- School and Calendar: Set Up Your Semester; Brightspace, Canvas, Blackboard and Moodle (due dates, grades and announcements); Import a Syllabus (a PDF becomes a course and its deadlines); School Days (holidays, reading week, rotating Day 1 to 6 or A/B schedules); Calendar Sync (Apple, Google or Outlook, live link or file); Study Groups.
+- Notifications and Widgets: Reminders and Notifications; time zone; Quick Capture (share sheet, photos, Siri, Gemini, Bixby and Shortcuts); widgets; installing the app.
 - Data and Backups: automatic backups to Google Drive or OneDrive (with an account); export a backup file; restore; import from Anki, Quizlet, Knowt, Todoist or Notion; export my data; Start a New Term; Archive; Recently Deleted (kept 30 days); clear all data.
-AI: free with a Google Gemini key (Settings, Study and AI, AI Features), or Studyboard AI, included with paid Pro. AI makes flashcards and quizzes from slides and readings, reads syllabi and photos, explains, plans exam prep and grades practice answers.
+- Help and About: replay the welcome setup; the app tour; page tips; keyboard shortcuts; report a bug or send feedback; crash reports; about, privacy and terms.
+AI: free with a Google Gemini key (Settings, AI and Tools, AI Features), or Studyboard AI, included with paid Pro. AI makes flashcards and quizzes from slides and readings, reads syllabi and photos, explains, plans exam prep and grades practice answers.
 Ask (here or the companion's bubble) can itself find and open anything, change things and settings, and add tasks; the student confirms each change.
 If you're not sure a feature exists, say where in Settings to look rather than inventing steps.`;
   const APPQ = /\b(how (do|can|to|would)|where (is|are|do|can|did)|can (i|you|studyboard)|is there|does (it|studyboard|the app)|feature|setting|settings|studyboard|app|button|tab|page|turn (on|off)|set ?up|import|export|sync|share|widget|calculator|whiteboard|focus timer|pomodoro|streak|pro\b|subscription|backup|restore|theme|dark mode|shortcut|keyboard|notification|remind|canvas|brightspace|moodle|blackboard|syllabus|archive|delete|undo|companion|wardrobe|scrapbook|exam mode|autopilot|group)/i;
@@ -72302,7 +72358,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
    Switched on with studyboard_config.item_purchases (see CREDITS-GUIDE.md). */
 (() => {
   const K = "studyboard:credits";
-  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin", note: "Note Shape"};
+  const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin", note: "Note Shape", cm: "Concept Map Style"};
   // Shown until the server has answered once; the server's own prices always win when buying
   const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50, note: 100};
   // The Studyboard Credits coin (build-resources/credits-art: the gold coin, 96 px WebP)
@@ -72429,6 +72485,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function redrawOpen(){
     try {
       const s = dlg.open && dlg.querySelector(".sbc-sheet");
+      if (s && s.classList.contains("zoomed")) return; // a redraw would drop the big view the person is looking at
       if (s && s.dataset.kind) buySheet(s.dataset.kind, s.dataset.id);
       else if (s) packsSheet();
       else if (shopOpen()) styleShop();
@@ -72440,6 +72497,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (kind === "card") return `<div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`;
     if (kind === "pin") return noteDemo(noteShapeOf(null), id, 1);
     if (kind === "note") return noteDemo(id, notePinOf(null), 1);
+    if (kind === "cm") return window.SBCMSTYLE ? `<div class="sbc-cm">${SBCMSTYLE.pic(id)}</div>` : "";
     return "";
   }
   const CHEV = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -72550,8 +72608,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const body = !signedIn() ? `<p style="margin:0">Credits belong to your account. Sign in or create a free account first.</p>`
       : storeApp() ? `<p style="margin:0">Buying credits isn't available in this app. Credits you already have work here.</p>`
       : !packs ? `<p class="mini" style="margin:0">Loading…</p>`
-      : `<div class="sbc-packs">${packs.map(p => { const bonus = base ? Math.round((1 - p.cents / p.credits / base) * 100) : 0;
-          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${p.badge ? `<span class="pp-flag">${esc(p.badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 5 && !p.badge ? `<span class="mini">${bonus}% more per dollar</span>` : ""}</button>`; }).join("")}</div>
+      : `<div class="sbc-packs">${packs.map(p => {
+          // the extra credits against buying the same money's worth at the smallest pack's rate (a "Bonus" badge from the server
+          // is worked out the same way here, so it can't go stale)
+          const bonus = base ? Math.round(p.credits - p.cents / base) : 0, bonusTag = bonus >= 1 ? `+${bonus.toLocaleString()} Bonus Credits` : "", badge = !p.badge || /bonus/i.test(p.badge) ? bonusTag : p.badge;
+          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${badge ? `<span class="pp-flag">${esc(badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 1 && badge !== bonusTag ? `<span class="mini">${bonus.toLocaleString()} bonus credits compared with the ${esc(Number(packs[0].credits).toLocaleString())} pack</span>` : ""}</button>`; }).join("")}</div>
         <p class="mini" style="margin:0">A Theme Collection is ${prices().skin} credits (with its companions, stickers, pins and flashcard style), a sticker pack or flashcard style ${prices().sticker}, a pin ${prices().pin}. Credits don't expire, and what you keep stays yours even without Pro. You'll pay securely with Stripe on the Studyboard website.</p>`;
     openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Credits")}
       <div class="sheet-body">
@@ -72586,6 +72647,29 @@ You can also DO things in Studyboard, but only when the student asks or what the
     else toast(`${nameOf(kind, id)} is yours for good. ${left}`);
     if (wasShop) setTimeout(() => { try { styleShop(); } catch (e) {} }, 120);
     load();
+  }
+  // Build Your Look: a theme (with its Collection) plus up to 5 more pieces, for the price of one Collection
+  // (studyboard_buy_bundle in supabase-credits-bundle.sql). items: [[kind, id], ...] of cards, pins and note shapes
+  async function buyBundle(th, items, btn){
+    if (busy) return false; busy = true;
+    if (btn) { btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+    let r = null, missing = false;
+    try { const {data, error} = await cl().rpc("studyboard_buy_bundle", {p_theme: th, p_items: items}); if (error) { missing = /PGRST202|could not find the function/i.test((error.code || "") + " " + (error.message || "")); r = {error: missing ? "off" : "network"}; } else r = data; } catch (e) { r = {error: "network"}; }
+    busy = false;
+    if (btn && btn.isConnected) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
+    const ERR = {off: "Building your own look isn't available yet. You can still get the Collection or each piece.", sign_in: "Sign in first, then try again.", bad_item: "One of those pieces can't be bought with credits.",
+      own_theme: "You already have this theme. Get the other pieces one by one.", slow_down: "That's a lot of purchases. Wait a little, then try again.", network: "Couldn't reach Studyboard. Check your connection and try again."};
+    if (!r || !r.ok) {
+      if (r && r.error === "not_enough") { if (C && typeof r.balance === "number") { C.balance = r.balance; save(); } packsSheet(); return false; }
+      toast(ERR[r && r.error] || ERR.network); return false;
+    }
+    C = Object.assign({}, mine() || {uid: usr().id, owned: []}, {balance: typeof r.balance === "number" ? r.balance : balance()});
+    C.owned = (C.owned || []).concat([["skin", th]], items); save(); rebuild();
+    try { applySkin(); } catch (e) {}
+    scheduleRender();
+    toast(`Your ${themeName(th)} look is yours for good. ${C.balance} credit${C.balance === 1 ? "" : "s"} left.`);
+    load();
+    return true;
   }
   // A checkout that's open in another tab: {pack, credits, url, at, from}. The Credits sheet shows it until the credits arrive.
   let pending = null, added = null;
@@ -72725,10 +72809,409 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .sbc-bnum small{margin-top:2px;font:800 .78rem/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:#A0670A}
 .sbc-bnum b:not(:only-child){max-width:136px;overflow:hidden}`;
     document.head.appendChild(st); }
-  window.SBCREDITS = {burst, owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents,
+  window.SBCREDITS = {burst, owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents, buyBundle, signedIn: () => signedIn(),
     // For tests: what this device remembers
     state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
   if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), pending: () => pending, added: () => added, comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
+})();
+/* ===== module: 99-shop-home.js ===== */
+/* The Style Shop's front: a Shop home (a featured Collection, Build Your Look, and a row of each kind of item with See All),
+   Yours (what the student owns and what their board is wearing now) and Build Your Look (the student's own board in a
+   theme, with a companion, a sticker pack and a flashcard style tried on, before buying or wearing it). The shop's
+   category pages (Themes, Collections, Flashcards…) stay as they were and are now the See All pages, with a way back.
+   Opening the shop starts on the home; a redraw while it's open (after buying or using something) stays where it was. */
+(() => {
+  const OURS = ["home", "yours", "look", "maps"];
+  const NAMES = {themes: "Themes", collections: "Collections", cards: "Flashcard Styles", notes: "Note Shapes", pins: "Pins", stickers: "Stickers", companions: "Companions", maps: "Concept Map Styles"};
+  const SUBS = {themes: "Plain colors, scenes and seasons for your whole board", collections: "A theme with everything that matches it", cards: "How your cards look while you study", notes: "The shape of your sticky notes", pins: "What holds your notes to the board", stickers: "Drag them onto your sticky notes", companions: "They live on your board and cheer you on", maps: "A look for your concept maps: background, boxes and lines"};
+  const KEEP = {};
+  let VIEW = "home", Q = "", LOOK = null, OPEN = "", LDARK = null;
+
+  /* ---------- What's in the shop ---------- */
+  const T = () => window.SBTP || null;
+  const CR = () => window.SBCREDITS || null;
+  const dark = () => { try { return isDark(); } catch (e) { return false; } };
+  const cfg = () => styleCfg();
+  const compKey = th => { try { return window.SBCOMP && SBCOMP.themes().includes(th) ? th : "plain"; } catch (e) { return "plain"; } };
+  const compsOf = th => { try { return window.SBCOMP ? SBCOMP.list(compKey(th)).map(c => c.id) : []; } catch (e) { return []; } };
+  const allComps = () => { try { return window.SBCOMP && SBCOMP.all ? SBCOMP.all() : []; } catch (e) { return []; } };
+  const compName = id => (allComps().find(c => c.id === id) || {}).name || "";
+  const curComp = () => { try { return window.SBCOMP && SBCOMP.current ? SBCOMP.current() || "" : ""; } catch (e) { return ""; } };
+  const tpThemes = () => { try { return T() && T().ordered ? T().ordered() : []; } catch (e) { return []; } };
+  const rec = th => { try { return T() && T().rec ? T().rec(th) : null; } catch (e) { return null; } };
+  // A theme collection's piece shows only while its theme is in the shop (the same rule as the shop's own lists); a hidden
+  // theme's pieces would otherwise read as free and owned
+  const shown = x => { if (!x || !x.theme) return true; try { return T() && T().themes ? T().themes().includes(x.theme) : SKINS.some(s => s.id === x.theme); } catch (e) { return false; } };
+  const LIST = {skin: () => SKINS.filter(s => !s.photo), card: () => CARD_STYLES.filter(c => c.id !== "theme" && shown(c)), note: () => NOTE_SHAPES, pin: () => PINS.filter(shown), sticker: () => STICKER_PACKS.filter(shown), comp: () => allComps()};
+  const CM = () => window.SBCMSTYLE || null;
+  const cmOwns = id => !!CM() && !!(CM().owned ? CM().owned(id) : CM().free(id));
+  const cmSale = () => CM() ? CM().ids().filter(id => id !== "theme" && id !== "plain") : [];
+  const find = (kind, id) => (LIST[kind] ? LIST[kind]() : []).find(x => x.id === id) || null;
+  const nameOf = (kind, id) => kind === "cm" ? (CM() ? CM().name(id) : "") : kind === "comp" ? compName(id) : String((find(kind, id) || {}).name || "").replace(/\s*\(Default\)\s*$/i, "");
+  const tierOf = (kind, id) => { try { return itemTier(kind, id); } catch (e) { return "free"; } };
+  const inUse = (kind, id) => {
+    const c = cfg();
+    if (kind === "skin") return c.skin === id;
+    if (kind === "card") return cardStyleOf(null) === id;
+    if (kind === "note") return noteShapeOf(null) === id;
+    if (kind === "pin") return notePinOf(null) === id;
+    if (kind === "comp") return curComp() === id;
+    if (kind === "cm") return !!CM() && CM().current() === id;
+    return false;
+  };
+  const price = (kind, id) => { try { return CR() && CR().enabled && CR().enabled() ? CR().priceOf(kind, id) : 0; } catch (e) { return 0; } };
+  const yours = (kind, id) => STORE.paywall ? owns(kind, id) : tierOf(kind, id) === "free";
+  // The little label on a tile: In Use, Yours, Free, a price, or Pro
+  const has = (kind, id) => kind === "cm" ? cmOwns(id) : owns(kind, id);
+  function tag(kind, id){
+    if (inUse(kind, id)) return `<em class="sbh-tag on">In Use</em>`;
+    if (kind === "cm") { if (CM() && CM().free(id)) return `<em class="sbh-tag free">Free</em>`; if (STORE.paywall && cmOwns(id)) return `<em class="sbh-tag own">Yours</em>`; if (!STORE.paywall) return PRO_BADGE; const p = price("cm", id); return p ? `<em class="sbh-tag cost">${p} credits</em>` : PRO_BADGE; }
+    const tier = tierOf(kind, id);
+    if (!STORE.paywall) return tier === "pro" ? PRO_BADGE : `<em class="sbh-tag free">Free</em>`;
+    if (owns(kind, id) && tier === "pro") return `<em class="sbh-tag own">Yours</em>`;
+    if (tier !== "pro") return `<em class="sbh-tag free">Free</em>`;
+    const p = price(kind, id);
+    return p ? `<em class="sbh-tag cost">${p} credits</em>` : PRO_BADGE;
+  }
+
+  /* ---------- Pictures ---------- */
+  // A companion: the cached bitmap the companion shop keeps (made in quiet moments, swapped in when ready); its
+  // first drawing carries its own styles, so the eyes and lids look right even before the bitmap is made
+  const compPic = (id, face, big) => {
+    try {
+      // big (the Build Your Look preview): the drawing itself, so it stays sharp at any size
+      if (big && window.SBCOMP && SBCOMP.stillUrl) { const u = SBCOMP.stillUrl(id); if (u) return `<span class="sbh-comp" aria-hidden="true"><img class="cp-still" src="${esc(u)}" alt="" decoding="async" draggable="false"></span>`; }
+      if (window.SBCOMP && SBCOMP.stillHtml) { const h = SBCOMP.stillHtml(id, face ? 40 : 64); if (h) return `<span class="sbh-comp${face ? " face" : ""}" aria-hidden="true">${h}</span>`; }
+    } catch (e) {}
+    return `<span class="sbh-comp sbh-comp-none"></span>`;
+  };
+  const stkPic = keys => window.SBUI && SBUI.stkCell ? `<span class="sbh-stks">${keys.slice(0, 4).map(k => SBUI.stkCell(k)).join("")}</span>` : "";
+  const cardPic = id => `<div class="cs-demo cs-${esc(id)}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>`;
+  function pic(kind, id, i){
+    if (kind === "skin") { const s = SKINS.find(x => x.id === id); return s ? skinPreview(s, dark()) : ""; }
+    if (kind === "card") return cardPic(id);
+    if (kind === "note") return noteDemo(id, notePinOf(null), (i || 0) + 1);
+    if (kind === "pin") return noteDemo(noteShapeOf(null), id, (i || 0) + 1);
+    if (kind === "sticker") { const p = STICKER_PACKS.find(x => x.id === id); return p ? stkPic(Object.keys(p.items)) : ""; }
+    if (kind === "comp") return compPic(id);
+    if (kind === "cm") return CM() ? `<span class="sbh-cm">${CM().pic(id, LOOK ? LOOK.skin : cfg().skin)}</span>` : "";
+    return "";
+  }
+  // A tile: tapping a theme, companion, sticker pack or flashcard style tries it on; a pin or note shape is used (or unlocked)
+  const TRY = {skin: 1, comp: 1, card: 1, cm: 1};
+  function tile(kind, id, i){
+    const n = nameOf(kind, id); if (!n) return "";
+    const act = TRY[kind] ? `data-act="sbh-try"` : `data-act="shop-use"`;
+    return `<button type="button" class="sbh-tile sbh-k-${kind}${inUse(kind, id) ? " on" : ""}" ${act} data-kind="${kind}" data-id="${esc(id)}" aria-label="${esc(n)}${TRY[kind] ? ": try it on" : ""}">
+      <span class="sbh-pic">${pic(kind, id, i)}</span><span class="sbh-meta"><b>${esc(n)}</b>${tag(kind, id)}</span></button>`;
+  }
+
+  /* ---------- Home ---------- */
+  const ROWS = [
+    ["collections", "skin", () => tpThemes()],
+    ["themes", "skin", () => SKINS.filter(s => !s.photo && (s.group || "plain") === "plain").map(s => s.id), "Free Themes", "Plain colors, ready to use"],
+    ["stickers", "sticker", () => LIST.sticker().filter(p => !p.theme).map(p => p.id).concat(LIST.sticker().filter(p => p.theme).map(p => p.id))],
+    ["cards", "card", () => LIST.card().map(c => c.id)],
+    ["pins", "pin", () => LIST.pin().map(p => p.id)],
+    ["notes", "note", () => NOTE_SHAPES.map(n => n.id)]
+  ,
+    ["maps", "cm", () => cmSale()]
+  ];
+  // The featured Collection changes each week, and skips ones already owned when there are others
+  function featured(){
+    const ths = tpThemes(); if (!ths.length) return "";
+    const wk = Math.floor(Date.now() / (7 * 864e5)), order = ths.map((_, i) => ths[(i + wk) % ths.length]);
+    return order.find(th => !STORE.paywall || !owns("skin", th)) || order[0];
+  }
+  // A peek at what a Collection brings: its companions' faces and a few of its stickers
+  function inside(th){
+    const r = rec(th), cs = compsOf(th).slice(0, 3), p = r && r.pack && STICKER_PACKS.find(x => x.id === r.pack);
+    const ks = p ? Object.keys(p.items).slice(0, 4) : [];
+    if (!cs.length && !ks.length) return "";
+    return `<div class="sbh-inside" aria-hidden="true">${cs.map(c => compPic(c, true)).join("")}${ks.length && window.SBUI && SBUI.stkCell ? ks.map(k => SBUI.stkCell(k)).join("") : ""}</div>`;
+  }
+  function heroHtml(){
+    const th = featured(), s = th && SKINS.find(x => x.id === th);
+    const what = th && CR() && CR().contents ? CR().contents(th).slice(1).map(x => x.replace(/^Its /, "").replace(/:.*$/, "")).join(", ") : "";
+    const own = !th || owns("skin", th), p = th ? price("skin", th) : 0;
+    const feat = s ? `<div class="sbh-hero">
+        <div class="sbh-hero-pic">${skinPreview(s, true)}</div>
+        <div class="sbh-hero-t"><span class="sbh-eyebrow">Featured Collection</span><b>${esc(s.name)}</b>${what ? `<span>${esc("Comes with " + what)}</span>` : ""}
+          ${inside(th)}
+          <div class="sbh-hero-acts">${own ? `<button type="button" class="btn sbh-light" data-act="sbh-try" data-kind="skin" data-id="${esc(th)}">Try It On</button>${inUse("skin", th) ? `<span class="sbh-hero-p">In use</span>` : `<button type="button" class="btn sbh-ghost" data-act="shop-use" data-kind="skin" data-id="${esc(th)}">Use It</button>`}`
+            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button>${typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
+    const sk = SKINS.find(x => x.id === cfg().skin) || SKINS[0], cp = curComp();
+    const build = `<button type="button" class="sbh-build" data-act="sbh-go" data-id="look">
+        <span class="sbh-build-pics" aria-hidden="true"><span class="sbh-mini">${skinPreview(sk, dark())}</span>${cp ? compPic(cp) : ""}</span>
+        <b>Build Your Look</b><span>Start from any theme, then try its companions, a flashcard style, a pin and a map style on your own board.</span>
+        <em>Start Building</em></button>`;
+    return `<div class="sbh-top${feat ? "" : " solo"}">${feat}${build}</div>`;
+  }
+  function rowHtml([tab, kind, ids, title, sub]){
+    const list = ids().filter(id => nameOf(kind, id)).slice(0, 6); if (!list.length) return "";
+    return `<section class="sbh-row" data-row="${tab}"><div class="sbh-row-h"><h3>${esc(title || NAMES[tab])}</h3><span class="mini">${esc(sub || SUBS[tab])}</span><button type="button" class="link-btn" data-act="sbh-go" data-id="${tab}">See All ›</button></div>
+      <div class="sbh-grid">${list.map((id, i) => tile(kind, id, i)).join("")}</div></section>`;
+  }
+  const TYPES = [["themes", "Themes"], ["collections", "Collections"], ["stickers", "Stickers"], ["cards", "Flashcards"], ["pins", "Pins"], ["notes", "Note Shapes"], ["maps", "Map Styles"]];
+  // A redraw while the student is part way down the page (they used something) draws every row, so the place holds
+  let EAGER = false;
+  function homeHtml(){
+    return `<div class="sbh-bar"><div class="ui-shop-q" role="search"><input type="search" id="sbhQ" data-noenter placeholder="Search themes, stickers, companions…" aria-label="Search the Style Shop" autocomplete="off" spellcheck="false" enterkeyhint="search" maxlength="40" value="${esc(Q)}"></div>
+      <div class="sbh-types" role="group" aria-label="Browse">${TYPES.map(([k, l]) => `<button type="button" class="ui-chip" data-act="sbh-go" data-id="${k}">${l}</button>`).join("")}</div></div>
+      <div class="sbh-res" id="sbhRes"${Q ? "" : " hidden"}>${Q ? resultsHtml(Q) : ""}</div>
+      <div class="sbh-home"${Q ? " hidden" : ""}>${heroHtml()}${ROWS.map((r, i) => i < 2 || EAGER ? rowHtml(r) : `<section class="sbh-row sbh-wait" data-wait="${i}"></section>`).join("")}</div>`;
+  }
+  // Searching from the home looks through everything, by name (and a theme's group)
+  function resultsHtml(q){
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean), hit = t => words.every(w => t.includes(w));
+    const out = [];
+    [["skin", LIST.skin()], ["sticker", LIST.sticker()], ["card", LIST.card()], ["pin", LIST.pin()], ["note", NOTE_SHAPES]].forEach(([kind, list]) => list.forEach(x => {
+      const text = [x.name, x.desc, x.group, x.theme && (SKINS.find(s => s.id === x.theme) || {}).name, kind === "comp" ? "companion" : kind === "sticker" ? "stickers" : kind === "card" ? "flashcard" : kind].join(" ").toLowerCase();
+      if (hit(text)) out.push([kind, x.id]);
+    }));
+    if (!out.length) return `<p class="ui-none">Nothing matches “${esc(q.slice(0, 24))}”. Try another word.</p>`;
+    return `<p class="mini sbh-n">${out.length} ${out.length === 1 ? "match" : "matches"}${out.length > 36 ? ", the first 36 shown" : ""}</p><div class="sbh-grid sbh-wrap">${out.slice(0, 36).map(([k, id], i) => tile(k, id, i)).join("")}</div>`;
+  }
+
+  // See All for concept map styles: they live in the concept map module, so this page is drawn here
+  function mapsHtml(){
+    const ids = (CM() ? ["theme", "plain"] : []).concat(cmSale());
+    return `<div class="sbh-back"><button type="button" class="link-btn" data-act="sbh-go" data-id="home">‹ Shop</button><h3>${NAMES.maps}</h3><span class="mini">${SUBS.maps}. Tap one to try it on.</span></div>
+      <div class="sbh-grid sbh-wrap">${ids.map((id, i) => tile("cm", id, i)).join("")}</div>`;
+  }
+
+  /* ---------- Yours ---------- */
+  function yoursHtml(){
+    const c = cfg(), cp = curComp();
+    const cur = {skin: c.skin, comp: cp, card: cardStyleOf(null), note: noteShapeOf(null), pin: notePinOf(null), cm: CM() ? CM().current() : ""};
+    const now = SLOTS.map(([slot, k, l]) => [k, cur[slot], l]).filter(([k, id]) => id && nameOf(k, id));
+    const strip = `<div class="sbh-now"><div class="sbh-now-t"><b>Your Look Now</b><span class="mini">What your board is wearing. Tap one to change it.</span></div>
+      <div class="sbh-now-l">${now.map(([k, id, l], i) => { const tab = {skin: "themes", comp: "look", card: "cards", note: "notes", pin: "pins", cm: "maps"}[k], inner = `<span class="sbh-pic">${pic(k, id, i)}</span><span><em>${l}</em><b>${esc(nameOf(k, id))}</b></span>`;
+        return tab ? `<button type="button" class="sbh-now-i sbh-k-${k}" data-act="sbh-go" data-id="${tab}" aria-label="${esc(l)}: ${esc(nameOf(k, id))}. Change it">${inner}</button>` : `<div class="sbh-now-i sbh-k-${k}">${inner}</div>`; }).join("")}</div></div>`;
+    if (!STORE.paywall) return strip + `<p class="sbh-note">While Studyboard is in early access, everything in the shop is yours to use. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`;
+    const groups = [["themes", "skin", LIST.skin().map(s => s.id).concat(SKINS.filter(s => s.photo).map(s => s.id))], ["stickers", "sticker", LIST.sticker().map(p => p.id)], ["cards", "card", LIST.card().map(x => x.id)], ["pins", "pin", LIST.pin().map(x => x.id)], ["notes", "note", NOTE_SHAPES.map(x => x.id)], ["maps", "cm", cmSale()]];
+    const kindName = {themes: "Themes", companions: "Companions", stickers: "Sticker Packs", cards: "Flashcard Styles", pins: "Pins", notes: "Note Shapes", maps: "Concept Map Styles"};
+    const rows = groups.map(([tab, kind, ids]) => {
+      const mine = ids.filter(id => has(kind, id) && nameOf(kind, id)).sort((a, b) => (inUse(kind, b) - inUse(kind, a)) || ((tierOf(kind, b) === "pro") - (tierOf(kind, a) === "pro")));
+      if (!mine.length) return "";
+      return `<section class="sbh-row"><div class="sbh-row-h"><h3>${kindName[tab]}</h3><span class="mini">${mine.length} yours</span><button type="button" class="link-btn" data-act="sbh-go" data-id="${tab}">Shop ${kindName[tab]} ›</button></div><div class="sbh-grid sbh-wrap">${mine.map((id, i) => kind === "skin" || kind === "card" ? tile(kind, id, i).replace(/data-act="sbh-try"/, 'data-act="shop-use"').replace(/: try it on"/, '"') : tile(kind, id, i)).join("")}</div></section>`;
+    }).join("");
+    return strip + (rows || `<p class="sbh-note">Nothing bought yet. Free items are always yours, and anything you get with credits or Pro shows up here. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`);
+  }
+
+  /* ---------- Build Your Look ---------- */
+  // Starting from a theme fills in its own companion, sticker pack and flashcard style
+  function matchTo(th){
+    const r = rec(th), cs = compsOf(th);
+    LOOK.skin = th;
+    LOOK.comp = cs.includes(LOOK.comp) ? LOOK.comp : cs[0] || "";
+    if (r && r.card) LOOK.card = r.card;
+    if (r && r.pins && r.pins.length) LOOK.pin = r.pins[0];
+  }
+  function startLook(kind, id){
+    if (!LOOK) {
+      const c = cfg(), r = rec(c.skin);
+      LOOK = {skin: c.skin, comp: curComp(), card: cardStyleOf(null), note: noteShapeOf(null), pin: notePinOf(null), cm: CM() ? CM().current() : ""};
+      if (LOOK.card === "theme") LOOK.card = (r && r.card) || "index";
+    }
+    if (kind === "skin") matchTo(id);
+    else if (kind === "comp") { const c = allComps().find(x => x.id === id); if (c && c.theme && c.theme !== "plain" && SKINS.some(s => s.id === c.theme) && c.theme !== LOOK.skin) matchTo(c.theme); LOOK.comp = id; }
+    else if (kind === "card") LOOK.card = id;
+    else if (kind === "note") LOOK.note = id;
+    else if (kind === "pin") LOOK.pin = id;
+    else if (kind === "cm") LOOK.cm = id;
+    OPEN = kind || OPEN;
+  }
+  // Stickers aren't a slot: any pack can go on any note, whatever the theme
+  const SLOTS = [["skin", "skin", "Theme"], ["comp", "comp", "Companion"], ["card", "card", "Flashcard Style"], ["pin", "pin", "Pin"], ["cm", "cm", "Concept Map Style"]];
+  function options(slot){
+    const th = LOOK.skin, r = rec(th), mine = (k, ids) => ids.filter(id => nameOf(k, id));
+    const lead = (first, rest) => [...new Set(first.filter(Boolean).concat(rest))];
+    if (slot === "skin") return mine("skin", lead([th, cfg().skin], tpThemes().concat(SKINS.filter(s => !s.photo).map(s => s.id))));
+    if (slot === "comp") return mine("comp", compsOf(th));
+    if (slot === "note") return mine("note", lead([LOOK.note], NOTE_SHAPES.map(n => n.id)));
+    if (slot === "pin") return mine("pin", lead((r && r.pins || []).concat(LOOK.pin), LIST.pin().map(p => p.id)));
+    if (slot === "cm") return CM() ? lead([LOOK.cm], CM().ids()) : [];
+    return mine("card", lead([r && r.card, LOOK.card], LIST.card().map(c => c.id)));
+  }
+  // The large preview uses the scene's own picture, not the small bitmap kept for tiles, so it stays sharp
+  function sharpPrev(s, dk){
+    const h = skinPreview(s, dk), big = window.SBUI && SBUI.thumbOrig ? SBUI.thumbOrig(s.id, dk) : "";
+    return big ? h.replace(/(<span class="sp-art[^"]*"[^>]*>\s*<img[^>]*\ssrc=")[^"]+"/, `$1${big}"`) : h;
+  }
+  function stageHtml(){
+    const s = SKINS.find(x => x.id === LOOK.skin) || SKINS[0], dk = LDARK == null ? dark() : LDARK;
+    return `<div class="sbh-stage" aria-label="Preview of your board in this look" role="img">
+      <div class="sbh-stage-in">${sharpPrev(s, dk)}</div>
+      <div class="sbh-st-note">${noteDemo(LOOK.note || noteShapeOf(null), LOOK.pin || notePinOf(null), 2, "")}</div>
+      ${LOOK.cm && CM() ? `<div class="sbh-st-cm">${String(CM().pic(LOOK.cm, LOOK.skin)).replace("<svg ", '<svg preserveAspectRatio="xMidYMid slice" ')}</div>` : ""}
+      <div class="sbh-st-card">${cardPic(LOOK.card)}</div>
+      ${LOOK.comp ? `<div class="sbh-st-comp">${compPic(LOOK.comp, false, true)}</div>` : ""}</div>`;
+  }
+  function lookHtml(){
+    const dk = LDARK == null ? dark() : LDARK, th = LOOK.skin, ths = SKINS.find(x => x.id === th);
+    const pieces = SLOTS.map(([slot, kind]) => [slot, kind, LOOK[slot]]).filter(([, k, id]) => id && nameOf(k, id));
+    const need = pieces.filter(([, k, id]) => !has(k, id));
+    const cost = need.reduce((n, [, k, id]) => n + price(k, id), 0);
+    const col = rec(th) && !owns("skin", th) ? price("skin", th) : 0;
+    const inCol = need.filter(([, k, id]) => k === "skin" || (find(k, id) || {}).theme === th || (k === "comp" && compsOf(th).includes(id)));
+    const slots = SLOTS.map(([slot, kind, label]) => {
+      const id = LOOK[slot], open = OPEN === slot;
+      // Companions: every one of the theme's comes with it; the pick is only which one sits on the board
+      const cs = slot === "comp" ? compsOf(th).filter(c => compName(c)) : [];
+      // Pins likewise: with one of the theme's own pins picked, all of its pins come with it
+      const tp = slot === "pin" && rec(th) && (rec(th).pins || []).includes(id) ? rec(th).pins.filter(p => nameOf("pin", p)) : [];
+      const n = cs.length > 1 ? cs.map(compName).join(", ") : tp.length > 1 ? tp.map(p => nameOf("pin", p)).join(", ") : id ? nameOf(kind, id) : "";
+      if (cs.length > 1) label = `All ${cs.length} Companions`;
+      if (tp.length > 1) label = `All ${tp.length} Pins`;
+      const themeTag = `<em class="sbh-tag theme">${esc((ths ? ths.name : "Theme") + " Theme")}</em>`;
+      const opts = open ? options(slot) : [];
+      return `<div class="sbh-slot${open ? " open" : ""}">
+        <button type="button" class="sbh-slot-h" data-act="sbh-slot" data-id="${slot}" aria-expanded="${open}"><span class="sbh-pic sbh-k-${kind}">${id ? pic(kind, id, 1) : ""}</span><span class="sbh-slot-t"><em>${label}</em><b>${n ? esc(n) : "None"}</b></span>${!id ? "" : kind === "comp" || (tp.length && !has("pin", id)) ? themeTag : tag(kind, id)}</button>
+        ${open && cs.length > 1 ? `<p class="mini sbh-opt-note">All ${cs.length} come with the ${esc(ths ? ths.name : "")} theme. Pick the one on your board:</p>` : ""}
+        ${open && tp.length > 1 ? `<p class="mini sbh-opt-note">All ${tp.length} come with the ${esc(ths ? ths.name : "")} theme. Pick the one your notes use, or any other pin:</p>` : ""}
+        ${open ? `<div class="sbh-opts">${slot === "comp" && !opts.length ? `<p class="mini">This theme has no companions of its own.</p>` : ""}${opts.slice(0, 30).map(o => `<button type="button" class="sbh-opt sbh-k-${kind}${o === id ? " on" : ""}" data-act="sbh-pick" data-slot="${slot}" data-id="${esc(o)}" aria-pressed="${o === id}" title="${esc(nameOf(kind, o))}" aria-label="${esc(nameOf(kind, o))}">${pic(kind, o, 1)}</button>`).join("")}</div>
+          ${opts.length > 30 && slot !== "cm" ? `<button type="button" class="link-btn sbh-more" data-act="sbh-go" data-id="${({skin: "themes", card: "cards", comp: "companions", note: "notes", pin: "pins"})[slot] || "themes"}">See All ${NAMES[({skin: "themes", card: "cards", comp: "companions", note: "notes", pin: "pins"})[slot] || "themes"]}</button>` : ""}` : ""}
+      </div>`;
+    }).join("");
+    // A bundle: the theme (with its whole Collection) plus the flashcard style, note shape and pin picked, for one Collection price
+    const SELL = {card: 1, pin: 1, cm: 1};
+    const credits = !!(CR() && CR().enabled && CR().enabled() && CR().buyBundle);
+    const extras = need.filter(([, k, id]) => SELL[k] && !(k === "card" && rec(th) && rec(th).card === id) && !(k === "pin" && rec(th) && (rec(th).pins || []).includes(id))).slice(0, 5);
+    const bundle = credits && col > 0;
+    const proOnly = need.filter(([, k, id]) => !price(k, id) && k !== "skin" && k !== "comp");
+    const names = l => l.map(([, k, id]) => esc(nameOf(k, id))).join(", ");
+    let sum, main = "";
+    if (!need.length) sum = `<p class="sbh-sum ok">Everything here is yours. Wear it whenever you like.</p>`;
+    else if (bundle) {
+      const apart = col + extras.reduce((n, [, k, id]) => n + price(k, id), 0);
+      sum = `<div class="sbh-sum">${apart > col ? `<div class="sbh-apart"><span>Bought one by one</span><s>${apart} credits</s></div>` : ""}<div class="sbh-col"><span>This look, together</span><b>${col} credits</b></div>
+        <p class="mini">The ${esc(ths ? ths.name : "")} theme with its whole Collection${extras.length ? `, plus ${names(extras)}` : ""}.${proOnly.length ? ` ${names(proOnly)} ${proOnly.length === 1 ? "comes" : "come"} with Studyboard Pro.` : ""}</p></div>`;
+      main = `<button type="button" class="btn primary sbh-buy" data-act="sbh-bundle">Get This Look · ${col} credits</button>`;
+    } else {
+      sum = `<div class="sbh-sum">${cost ? `<div><span>${need.length === 1 ? "The piece" : `The ${need.length} pieces`} you don't have</span><b>${cost} credits</b></div>` : ""}${!cost ? `<p class="mini">${names(need)} ${need.length === 1 ? "comes" : "come"} with Studyboard Pro.</p>` : ""}</div>`;
+      const buyable = need.filter(([, k, id]) => price(k, id));
+      main = buyable.map(([, k, id]) => `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${k}" data-id="${esc(id)}">Get ${esc(nameOf(k, id))}</button>`).join("");
+      if (main) main = `<div class="sbh-getrow">${main}</div>`;
+      if (!buyable.length && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro()) main = `<button type="button" class="btn primary" data-act="plan-open">Get Studyboard Pro</button>`;
+    }
+    const acts = `<div class="sbh-acts">${main}
+        <button type="button" class="btn${need.length ? "" : " primary"}" data-act="sbh-wear"${need.length === pieces.length ? " disabled" : ""}>${need.length ? "Wear What I Have" : "Wear This Look"}</button></div>`;
+    return `<div class="sbh-look">
+      <div class="sbh-look-l"><div class="sbh-look-h"><button type="button" class="link-btn" data-act="sbh-go" data-id="home">‹ Shop</button><h3>Build Your Look</h3>
+        <div class="segb sbh-dk" role="group" aria-label="Preview in"><button type="button" data-act="sbh-dark" data-id="0" aria-pressed="${!dk}">Light</button><button type="button" data-act="sbh-dark" data-id="1" aria-pressed="${dk}">Dark</button></div></div>
+        ${stageHtml()}<p class="mini">Your board in this look. Nothing changes until you wear it.</p></div>
+      <div class="sbh-look-r">${slots}<div class="sbh-spacer"></div>${sum}${acts}</div></div>`;
+  }
+  // Wear: every piece the student has goes on; the rest is left as it was
+  function wear(){
+    const c = cfg(), patch = {};
+    const skinOk = owns("skin", LOOK.skin);
+    if (skinOk && c.skin !== LOOK.skin) patch.skin = LOOK.skin;
+    if (LOOK.card && owns("card", LOOK.card)) { patch.card = LOOK.card; patch.cardAuto = false; }
+    if (LOOK.note && owns("note", LOOK.note)) { patch.note = LOOK.note; patch.noteAuto = false; patch.notePicked = true; }
+    if (LOOK.pin && owns("pin", LOOK.pin)) { patch.pin = LOOK.pin; patch.pinAuto = false; patch.pinPicked = true; }
+    if (LOOK.cm && cmOwns(LOOK.cm)) patch.cmPack = LOOK.cm;
+    if (Object.keys(patch).length) { saveStyle(patch); if (patch.skin) try { applySkin(); } catch (e) {} }
+    const slot = compsOf(LOOK.skin).indexOf(LOOK.comp);
+    if (skinOk && LOOK.comp && slot >= 0 && owns("comp", LOOK.comp)) run("comp-theme", {skin: LOOK.skin, slot: String(slot)});
+    render(); toast("Your new look is on");
+    draw();
+  }
+  const run = (act, data) => { const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = act; Object.assign(b.dataset, data || {}); document.body.appendChild(b); try { b.click(); } finally { b.remove(); } };
+
+  /* ---------- Putting it on the sheet ---------- */
+  const sheetOf = () => dlg.querySelector(".sheet.shop");
+  function frame(){
+    const sheet = sheetOf(); if (!sheet) return null;
+    sheet.classList.add("sbh-on");
+    const band = sheet.querySelector(".sheet-head");
+    if (band && !band.querySelector(".sbh-seg")) {
+      const h2 = band.querySelector("h2");
+      const seg = `<div class="sbh-seg" role="group" aria-label="Style Shop"><button type="button" data-act="sbh-go" data-id="home">Shop</button><button type="button" data-act="sbh-go" data-id="yours">Yours</button></div>`;
+      if (h2) h2.insertAdjacentHTML("afterend", seg); else band.insertAdjacentHTML("afterbegin", seg);
+    }
+    band && band.querySelectorAll(".sbh-seg [data-id]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === "yours" ? VIEW === "yours" : VIEW !== "yours")));
+    return sheet.querySelector(".sheet-body");
+  }
+  function draw(){
+    const body = frame(); if (!body) return;
+    const y = body.dataset.sbh === VIEW ? body.scrollTop : KEEP[VIEW] || 0;
+    EAGER = y > 0;
+    body.dataset.sbh = VIEW; body.dataset.uiTab = VIEW;
+    body.classList.add("sbh-body");
+    body.innerHTML = VIEW === "yours" ? yoursHtml() : VIEW === "look" ? lookHtml() : VIEW === "maps" ? mapsHtml() : homeHtml();
+    lazyRows(body);
+    body.scrollTop = y; requestAnimationFrame(() => { if (body.isConnected && Math.abs(body.scrollTop - y) > 2) body.scrollTop = y; });
+    body.addEventListener("scroll", () => { KEEP[VIEW] = body.scrollTop; }, {passive: true});
+    fit();
+    const q = body.querySelector("#sbhQ");
+    if (q) q.addEventListener("input", () => { Q = q.value; const r = body.querySelector("#sbhRes"), h = body.querySelector(".sbh-home"), t = Q.trim(); r.hidden = !t; h.hidden = !!t; r.innerHTML = t ? resultsHtml(t) : ""; });
+  }
+  // Rows further down are drawn just before they scroll into view, or in a quiet moment, so the shop opens at once
+  let rowIO = null;
+  function fillRow(el){ if (!el.isConnected || !el.dataset.wait) return; const r = ROWS[+el.dataset.wait]; el.removeAttribute("data-wait"); const h = rowHtml(r); if (h) el.outerHTML = h; else el.remove(); }
+  function lazyRows(body){
+    const waits = [...body.querySelectorAll("[data-wait]")]; if (!waits.length) return;
+    if (rowIO) rowIO.disconnect();
+    if (!window.IntersectionObserver) { waits.forEach(fillRow); return; }
+    rowIO = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { rowIO.unobserve(e.target); fillRow(e.target); } }), {root: body, rootMargin: "500px 0px"});
+    waits.forEach(w => rowIO.observe(w));
+    const idle = window.requestIdleCallback || (f => setTimeout(() => f({timeRemaining: () => 8}), 60));
+    const step = () => idle(d => { const w = body.querySelector("[data-wait]"); if (!w || !body.isConnected) return; if (d.timeRemaining() > 6) { rowIO.unobserve(w); fillRow(w); } step(); }, {timeout: 1500});
+    setTimeout(step, 400);
+  }
+  // The board preview is drawn small and scaled up to fill its box
+  function fit(){
+    const st = dlg.querySelector(".sbh-stage"); if (!st) return;
+    const w = st.clientWidth; if (w) st.style.setProperty("--k", (w / 320).toFixed(3));
+  }
+  addEventListener("resize", () => { if (VIEW === "look") fit(); });
+  // A category page (See All): a way back to the Shop, with the page's name
+  function dress(tab){
+    const sheet = sheetOf(), body = frame(); if (!sheet || !body) return;
+    body.classList.remove("sbh-body"); delete body.dataset.sbh;
+    if (body.querySelector(".sbh-back")) return;
+    body.insertAdjacentHTML("afterbegin", `<div class="sbh-back"><button type="button" class="link-btn" data-act="sbh-go" data-id="home">‹ Shop</button><h3>${esc(NAMES[tab] || "")}</h3><span class="mini">${esc(SUBS[tab] || "")}</span></div>`);
+  }
+
+  const prev = styleShop;
+  styleShop = function(tab){
+    const open = dlg.open && !!dlg.querySelector(".sheet.shop, .sbc-sheet");
+    const t = tab || (open ? VIEW : "home");
+    if (!open && !tab) { Q = ""; LDARK = null; Object.keys(KEEP).forEach(k => delete KEEP[k]); }
+    VIEW = t;
+    if (OURS.includes(t)) {
+      const r = prev.call(this, "notes");
+      ui.shopTab = t;
+      if (t === "look" && !LOOK) startLook("", "");
+      try { draw(); } catch (e) { console.warn("shop home", e); }
+      return r;
+    }
+    const r = prev.apply(this, arguments);
+    try { dress(t); } catch (e) { console.warn("shop see all", e); }
+    return r;
+  };
+
+  hook("act", (act, el) => {
+    if (!el || !el.dataset) return false;
+    if (act === "sbh-go") { const id = el.dataset.id; if (id !== VIEW) KEEP[id] = 0; if (id === "look" && !LOOK) startLook("", ""); styleShop(id); return true; }
+    if (act === "sbh-try") { startLook(el.dataset.kind, el.dataset.id); styleShop("look"); return true; }
+    if (act === "sbh-slot") { OPEN = OPEN === el.dataset.id ? "" : el.dataset.id; draw(); return true; }
+    if (act === "sbh-pick") { const s = el.dataset.slot, id = el.dataset.id; if (s === "skin") matchTo(id); else LOOK[s] = id; draw(); return true; }
+    if (act === "sbh-dark") { LDARK = el.dataset.id === "1"; draw(); return true; }
+    if (act === "sbh-wear") { wear(); return true; }
+    if (act === "sbh-bundle") {
+      if (!LOOK || !CR() || !CR().buyBundle) return true;
+      if (CR().signedIn && !CR().signedIn()) { toast("Sign in first to buy with credits."); return true; }
+      const r = rec(LOOK.skin) || {}, mine = (k, id) => (k === "card" && r.card === id) || (k === "pin" && (r.pins || []).includes(id));
+      const items = [["card", LOOK.card], ["pin", LOOK.pin], ["cm", LOOK.cm]].filter(([k, id]) => id && !has(k, id) && price(k, id) && !mine(k, id));
+      CR().buyBundle(LOOK.skin, items.slice(0, 5), el).then(ok => { if (ok) { wear(); } });
+      return true;
+    }
+    return false;
+  });
+  window.SBSHOPHOME = {view: () => VIEW, look: () => (LOOK ? Object.assign({}, LOOK) : null)};
 })();
 /* ===== module: 98-rooms.js ===== */
 /* Studyboard 1.11 */
@@ -76991,7 +77474,7 @@ function typeCounts(W){
 }
 function viewCrunch(){
   const m = modelNow(), today = todayISO();
-  if (m.empty) return `<section class="cr" aria-label="Crunch Forecast"><div class="empty cr-empty"><strong>Nothing Due Yet</strong>Add tasks with due dates to see which weeks ahead get heavy.<div style="margin-top:12px"><button class="btn primary" data-act="new-task">Add a Task</button></div></div></section>`;
+  if (m.empty) return `<section class="cr" aria-label="Crunch Forecast"><div class="empty cr-empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("crunch") : ""}<strong>Nothing to Show Yet</strong>Add tasks with due dates to see which weeks ahead get heavy.<div class="row-actions" style="justify-content:center"><button class="btn primary" data-act="new-task">Add a Task</button></div></div></section>`;
   const hv = C.heaviest(m, 0);
   let call;
   if (hv && hv.levelIdx >= 2) call = `<div class="cr-call"><div class="cr-ct"><span class="cr-pill lv${hv.levelIdx}">${LV_WORD[hv.levelIdx]}</span> <b>Heaviest week: ${esc(rangeLabel(hv.start, hv.end))}, ${esc(awayText(today, hv.start))}</b><br><span class="mini">${esc(cap1(hv.headline || "Steady work"))} · about ${ratioText(hv.score)} your usual study time</span></div><button class="btn${hv.levelIdx >= 3 ? " primary" : ""}" data-act="cr-week" data-id="${hv.start}">See the Week</button></div>`;
@@ -80591,11 +81074,12 @@ function decorateDeck(){
       const ch = ids.map((id, i) => state.courses[id] && state.courses[id].order !== i * 10 ? {kind: "course", id, after: Object.assign(clone(state.courses[id]), {order: i * 10})} : null).filter(Boolean);
       if (ch.length) applyChanges(ch, "Courses reordered");
     } else if (kind === "groups") { try { localStorage.setItem("studyboard:grpOrder", JSON.stringify(ids)); } catch (e) {} }
-    // note boards: the order of their tabs (My Notes stays first)
+    // note boards: the order of their tabs, My Notes included (its place is kept as nbHomeAt)
     else if (kind === "noteboards") {
       const all = Array.isArray(state.settings && state.settings.noteBoards) ? state.settings.noteBoards : [], by = new Map(all.map(b => [b && b.id, b]));
       const list = ids.map(id => by.get(id)).filter(Boolean).concat(all.filter(b => b && !ids.includes(b.id)));
-      if (list.some((b, i) => b !== all[i])) { state.settings = Object.assign({}, state.settings, {noteBoards: list}); saveSettings(); render(); }
+      const home = Math.max(0, ids.indexOf("__home")), was = Number((state.settings || {}).nbHomeAt) || 0;
+      if (list.some((b, i) => b !== all[i]) || home !== was) { state.settings = Object.assign({}, state.settings, {noteBoards: list, nbHomeAt: home}); saveSettings(); render(); }
     }
     // whiteboards: each keeps its place in the tabs (one change, so Undo puts them back)
     else if (kind === "wb") {
@@ -83325,7 +83809,7 @@ hook("act", (a, el) => {
     case "wkr-ai": aiRecap(); return true;
     case "fgs-open": openStreak(); return true;
     case "fgs-on": turnOn(); return true;
-    case "fgs-no": lsw(FGS_CHOICE, "no"); setStg("gentle", {intro: true}); scheduleRender(); toast(tr("streak.toast.no", "No problem. You can turn it on any time in Settings, under Study and AI.")); return true;
+    case "fgs-no": lsw(FGS_CHOICE, "no"); setStg("gentle", {intro: true}); scheduleRender(); toast(tr("streak.toast.no", "No problem. You can turn it on any time in Settings, under Study Plan.")); return true;
     case "fgs-toggle": if (el.checked) turnOn(); else turnOff(); drawStreak(); return true;
     case "fgs-rpw": setStg("gentle", {rpw: Number(id)}); GMEMO = {k: "", v: null}; scheduleRender(); drawStreak(); return true;
     case "fgs-wd": {
@@ -83447,7 +83931,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <li><b>Get a copy of your data (access and portability):</b> Settings, Data and Backups, Export My Data makes a ZIP with one JSON file and spreadsheet (CSV) files of your tasks, notes, grades, flashcards, courses, schedule and study sessions. It is made on your device, works offline, and never includes AI keys, access tokens, school calendar links, sign-in details or device ids.</li>
 <li><b>Deleted by mistake:</b> things you delete wait in Settings, Data and Backups, Recently Deleted for 30 days (synced with your account like the rest of your data), then are removed for good.</li>
 <li><b>Delete everything on this device:</b> Settings, Data and Backups, Clear All Data. Clearing your browser's site data also removes it.</li>
-<li><b>Delete your account and online data:</b> Settings, Account and Sync, Delete My Account and Data. This removes your account, synced data, uploaded files, reminders, devices, calendar links and calendar connections, your Studyboard email address and plan record from our server, and cancels a card subscription for you. Study groups you own pass to another member, or are deleted if nobody else is in them, and your group messages are deleted. Subscriptions bought through the App Store or Google Play must be cancelled by you in your store account, because we cannot cancel them. You can also email us from the address on the account to ask for deletion.</li>
+<li><b>Delete your account and online data:</b> Settings, Account, Delete My Account and Data. This removes your account, synced data, uploaded files, reminders, devices, calendar links and calendar connections, your Studyboard email address and plan record from our server, and cancels a card subscription for you. Study groups you own pass to another member, or are deleted if nobody else is in them, and your group messages are deleted. Subscriptions bought through the App Store or Google Play must be cancelled by you in your store account, because we cannot cancel them. You can also email us from the address on the account to ask for deletion.</li>
 <li><b>Your rights:</b> depending on where you live (for example the EU, UK or California) you may have the right to access, correct, delete or port your data and to object to its use. Use the steps above, or contact us.</li>
 </ul>
 
@@ -85290,7 +85774,7 @@ var SBPRO = null;
       blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk || tagPro() ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
         <button type="button" class="pro-sw" role="switch" aria-checked="${cfg.on && !lk}" data-act="pro-blk-on" aria-label="Block distracting sites during focus sessions"><i></i></button></div>`;
     }
-    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
+    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips segb" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
   // Routines open from the Focus timer: closing the sheet (after Add, Remove or Close) goes back to the timer, so the setup isn't lost
   let rtBack = false;
@@ -106886,7 +107370,7 @@ function reviewHtml(){
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}
     ${list.length ? `${started.length ? `<ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
-      : `<div class="empty" style="margin-top:14px"><strong>No papers yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
+      : `<div class="empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("papers") : ""}<strong>No Papers Yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
 }
 // Today's Plan: on the due date or the day before, a saved draft that hasn't been checked since it changed gets one gentle row
 function planNote(inView){
@@ -108074,12 +108558,12 @@ const CMPACK = (() => {
   function preview(pk, fonts){
     if (!pk) return "";
     const W = 168, H = 96, defs = (pk.defs || "") + `<pattern id="pv-${pk.id}" width="${pk.tile.w}" height="${pk.tile.h}" patternUnits="userSpaceOnUse" patternTransform="scale(.6)">${pk.tile.svg.replace(/^<svg[^>]*>|<\/svg>$/g, "")}</pattern>`;
-    const R = {x: 46, y: 48, w: 62, h: 26, root: true, i: 0, t: "Main"}, K = [{x: 128, y: 24, w: 54, h: 22, i: 0, t: "Idea"}, {x: 128, y: 72, w: 54, h: 22, i: 1, t: "Idea"}];
+    const R = {x: 46, y: 48, w: 62, h: 26, root: true, i: 0, t: "Main"}, K = [{x: 128, y: 24, w: 62, h: 24, i: 0, t: "Idea"}, {x: 128, y: 72, w: 62, h: 24, i: 1, t: "Idea"}];
     if (pk.round) { if (pk.round === true) R.w = R.h = 40; K.forEach(k => { k.w = k.h = 34; }); K[0].y = 26; K[1].y = 70; }
     const fit = n => { const b = pk.box(Object.assign({}, n)); return b; };
     const lines = K.map((k, i) => { const x1 = R.x + R.w / 2, x2 = k.x - k.w / 2 - 2, p = [[x1, R.y], [x1 + (x2 - x1) * 0.5, R.y], [x2 - (x2 - x1) * 0.5, k.y], [x2, k.y]], L = pk.line(p, i); return `${L.pre || ""}<path d="${L.d || D(p)}" style="fill:none;${L.st}"/>${L.post || ""}`; }).join("");
-    const boxes = [R].concat(K).map(n => { const b = fit(n), t = b.t || {}, sz = (n.root ? 9 : 8) * (t.sz || 1), fam = fonts && t.font ? fonts[t.font] || "" : ""; const tx = n.x + (t.dx || 0) * 0.5;
-      return `<g transform="translate(${n.x} ${n.y})">${b.pre || ""}${b.o}${b.post || ""}</g><text x="${f1(tx)}" y="${f1(n.y + sz * 0.36 + (t.dy || 0) * 0.5)}" text-anchor="middle" font-size="${f1(sz)}" font-weight="${t.fw || 700}" fill="${t.ink || "#222"}"${fam ? ` font-family='${fam}'` : ""}${t.up ? "" : ""}${t.fx ? ` filter="${t.fx}"` : ""}>${t.up ? n.t.toUpperCase() : n.t}</text>`; }).join("");
+    const boxes = [R].concat(K).map(n => { const b = fit(n), t = b.t || {}, sz = (n.root ? 9 : 8) * (t.sz || 1), fam = fonts && t.font ? fonts[t.font] || "" : ""; const tx = n.x + (t.dx || 0);
+      return `<g transform="translate(${n.x} ${n.y})">${b.pre || ""}${b.o}${b.post || ""}</g><text x="${f1(tx)}" y="${f1(n.y + sz * 0.36 + (t.dy || 0))}" text-anchor="middle" font-size="${f1(sz)}" font-weight="${t.fw || 700}" fill="${t.ink || "#222"}"${fam ? ` font-family='${fam}'` : ""}${t.up ? "" : ""}${t.fx ? ` filter="${t.fx}"` : ""}>${t.up ? n.t.toUpperCase() : n.t}</text>`; }).join("");
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><defs>${defs}</defs><rect width="${W}" height="${H}" fill="${pk.base}"/><rect width="${W}" height="${H}" fill="url(#pv-${pk.id})"/>${lines}${boxes}</svg>`;
   }
   const tileUrl = pk => `url("data:image/svg+xml,${encodeURIComponent(pk.tile.svg)}")`;
@@ -109085,11 +109569,31 @@ const skinOk = sk => typeof SKINS === "undefined" || SKINS.some(x => x.id === sk
 // the 14 plain-colour themes' styles are free for everyone; every other style (themes, subjects) is Pro
 const FREE_SKINS = ["classic", "paper", "slate", "sand", "blush", "lavender", "sky", "sage", "peach", "butter", "teal", "mocha", "plum", "indigo"];
 const packFree = pk => !!pk && FREE_SKINS.some(sk => CMPACK.THEME_OF[sk] === pk.id);
+// a style the student may use without Pro: a free one, a subject style bought with credits (kind "cm"), or the style of a
+// theme they own (bought with credits, its Theme Collection)
+const cmSold = id => typeof STYLE_LISTS !== "undefined" && (STYLE_LISTS.cm || []).some(x => x.id === id);
+const packOk = pk => !!pk && (packFree(pk) || (typeof owns === "function" && typeof STORE !== "undefined" && !!STORE.paywall && ((cmSold(pk.id) && owns("cm", pk.id))
+  || Object.keys(CMPACK.THEME_OF).some(sk => CMPACK.THEME_OF[sk] === pk.id && owns("skin", sk))
+  || (/^t-/.test(pk.id) && owns("skin", pk.id.slice(2))))));
+// Subject styles are sold with credits, 100 each (97-credits.js reads STYLE_LISTS for names and tiers)
+if (typeof STYLE_LISTS !== "undefined" && window.CMPACK) STYLE_LISTS.cm = CMPACK.SUBJECTS.map(id => ({id, name: CMPACK.P[id].name, tier: packFree(CMPACK.P[id]) ? "free" : "pro"}));
+// the style a map without one of its own gets: the default picked in the Style Shop's Build Your Look, else Match My Theme
+const defPack = () => { try { const v = typeof styleCfg === "function" ? styleCfg().cmPack : ""; return v && (v === "plain" || v === "theme" || (window.CMPACK && CMPACK.get(v))) ? v : "theme"; } catch (e) { return "theme"; } };
+// For the Style Shop: the map styles, their names, small pictures and whether each is free
+window.SBCMSTYLE = {
+  ids: () => window.CMPACK ? ["theme", "plain"].concat(CMPACK.SUBJECTS) : [],
+  name: id => id === "theme" ? "Match My Theme" : id === "plain" ? "Plain" : ((window.CMPACK && CMPACK.get(id)) || {}).name || "",
+  pic: (id, skin) => { if (!window.CMPACK) return ""; const pk = id === "theme" ? themePack(skin || skinNow()) : id === "plain" ? null : CMPACK.get(id);
+    return pk ? CMPACK.preview(pk, FONT_STACK) : `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.4"/><rect x="101" y="14" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/><rect x="101" y="62" width="52" height="20" rx="7" fill="var(--surface)" stroke="var(--muted)"/></svg>`; },
+  free: id => !id || id === "theme" || id === "plain" || (window.CMPACK && packFree(CMPACK.get(id))),
+  owned: id => !id || id === "theme" || id === "plain" || (window.CMPACK && packOk(CMPACK.get(id))),
+  current: defPack
+};
 function packOf(){
   // a map with no style chosen follows the theme in use (Match My Theme); Plain is kept as "plain"
-  const id = M.own ? metaOf(M.own).pack || "theme" : ""; if (!id || id === "plain" || !window.CMPACK) return null;
+  const id = M.own ? metaOf(M.own).pack || defPack() : ""; if (!id || id === "plain" || !window.CMPACK) return null;
   const pk = id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? (skinOk(id.slice(2)) ? themePack(id.slice(2)) : null) : CMPACK.get(id);
-  return pk && (!isLocked() || packFree(pk)) ? pk : null;
+  return pk && (!isLocked() || packOk(pk)) ? pk : null;
 }
 // the outline a style drew becomes the box's shape (lines meet it, and it shows selection); the box's own colours still win
 const pkOutline = (o, col, n) => o.replace(/^<(\w+)/, '<$1 class="cm-shape pk-o"').replace(/style="([^"]*)"/, (m, st) => `style="--c:${col};${st}${n.fill ? `;fill:${n.fill}` : ""}${n.stroke ? `;stroke:${n.stroke}` : ""}"`);
@@ -109363,11 +109867,11 @@ function themeGrids(tile){
     return `<p class="cm-lookh">${title}</p><div class="cm-lookg">${list.map(s => { const own = CMPACK.THEME_OF[s.id], pk = themePack(s.id), id = own || "t-" + s.id; return tile(id, s.name, CMPACK.preview(pk, FONT_STACK), own ? pk.desc : `${s.name}'s colours${pk.tile.svg.includes("<path") ? " and motif" : ""}`); }).join("")}</div>`; }).join("");
 }
 // whether a style in the picker is free: Plain, a plain-colour theme's, or Match My Theme while on a plain-colour theme
-const lookFree = id => !id || packFree(id === "theme" ? themePack(skinNow()) : CMPACK.get(id));
+const lookFree = id => !id || packOk(id === "theme" ? themePack(skinNow()) : /^t-/.test(id) ? themePack(id.slice(2)) : CMPACK.get(id));
 // Map Style: Plain, Match My Theme, then every subject's and theme's style, each shown as a small picture of a map in it
 function looksPanel(){
   const P = M.el.querySelector(".cm-panel"); if (!P || !window.CMPACK) return;
-  const cur = metaOf(M.own).pack === "plain" ? "" : metaOf(M.own).pack || "theme", locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
+  const cur = (metaOf(M.own).pack || defPack()) === "plain" ? "" : metaOf(M.own).pack || defPack(), locked = !!(window.SBPRO && SBPRO.locked()), sk = skinNow(), mine = themePack(sk);
   const plain = `<svg viewBox="0 0 168 96" aria-hidden="true"><rect width="168" height="96" fill="var(--surface)"/><g fill="var(--muted)" opacity=".35">${Array.from({length: 28}, (_, i) => `<circle cx="${8 + (i % 7) * 25}" cy="${10 + Math.floor(i / 7) * 25}" r="1"/>`).join("")}</g><path d="M77 48L101 24M77 48L101 72" stroke="var(--muted)" stroke-width="1.6"/><rect x="15" y="35" width="62" height="26" rx="9" fill="color-mix(in srgb,var(--accent) 22%,var(--surface))" stroke="var(--accent)" stroke-width="1.6"/><rect x="101" y="13" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/><rect x="101" y="61" width="54" height="22" rx="8" fill="color-mix(in srgb,var(--accent) 12%,var(--surface))" stroke="color-mix(in srgb,var(--accent) 60%,var(--line))" stroke-width="1.4"/></svg>`;
   const tile = (id, name, pic, sub) => `<button type="button" class="cm-look${cur === id ? " on" : ""}" data-cm="look" data-v="${esc(id)}" aria-pressed="${cur === id}" title="${esc(sub || name)}">${pic}<span class="cm-lookn">${esc(name)}${id && locked && !lookFree(id) ? ' <i class="pro-badge">PRO</i>' : ""}</span></button>`;
   const grid = ids => `<div class="cm-lookg">${ids.map(id => { const k = CMPACK.P[id]; return tile(id, k.name, CMPACK.preview(k, FONT_STACK), k.desc); }).join("")}</div>`;
@@ -109666,8 +110170,8 @@ async function onClick(e){
     case "looks": M.looks = !(M.looks && !M.sel && !M.selE && !M.quiz); M.lookScrolled = false; if (M.looks) { M.sel = ""; M.selE = ""; M.styleOpen = false; M.cardsOpen = false; M.made = null; lite(); } tools(); panel(); return;
     case "looks-x": M.looks = false; tools(); panel(); return;
     case "look": {
-      const v = b.dataset.v || "", pk0 = metaOf(M.own).pack, cur = pk0 === "plain" ? "" : pk0 || "theme"; if (v === cur) return;
-      if (isLocked() && !lookFree(v)) { PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
+      const v = b.dataset.v || "", pk0 = metaOf(M.own).pack || defPack(), cur = pk0 === "plain" ? "" : pk0; if (v === cur) return;
+      if (isLocked() && !lookFree(v)) { if (cmSold(v) && typeof shopUnlock === "function" && window.SBCREDITS && SBCREDITS.enabled() && SBCREDITS.priceOf("cm", v)) shopUnlock("cm", v); else PLAN.openSheet("This map style is part of Studyboard Pro. The plain colour styles (Classic to Indigo) are free."); return; }
       const nm = !v ? "Plain" : v === "theme" ? "Match My Theme" : /^t-/.test(v) ? skinName(v.slice(2)) : (CMPACK.P[v] || {}).name || v;
       saveUser(userOf(M.own), `Changed the map style to ${nm}`, {pack: v || "plain"}); paint(); return;
     }
@@ -110090,7 +110594,7 @@ function listHtml(){
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px"><strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div style="margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
+    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
 if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 

@@ -1,0 +1,255 @@
+/* ===== module: 99-shop-home.css ===== */
+/* The Style Shop's front: Shop home, Yours, Build Your Look, and the way back from a See All page */
+.sheet.shop.sbh-on .shop-rail{display:none}
+.sheet.shop.sbh-on .shop-wrap{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.sbh-seg{display:inline-flex;gap:3px;margin-top:10px;padding:3px;border-radius:999px;background:rgba(255,255,255,.18)}
+.sbh-seg button{min-height:34px;padding:0 16px;border:0;border-radius:999px;background:transparent;color:#fff;font:800 .9rem/1 var(--display);cursor:pointer}
+.sbh-seg button[aria-pressed="true"]{background:#fff;color:var(--accent-band,var(--accent))}
+.sbh-seg button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+.sheet-body.sbh-body{display:flex;flex-direction:column;gap:22px;padding-top:16px;overflow-x:hidden}
+.sbh-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.sbh-bar .ui-shop-q{flex:1 1 260px;min-width:0;margin:0}
+.sbh-bar .ui-shop-q input{width:100%}
+.sbh-types{display:flex;flex-wrap:wrap;gap:6px}
+.sbh-home{display:flex;flex-direction:column;gap:24px}
+.sbh-res{display:flex;flex-direction:column;gap:10px}
+.sbh-n{margin:0}
+
+/* The featured Collection and Build Your Look */
+.sbh-top{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px}
+.sbh-top.solo{grid-template-columns:minmax(0,1fr)}
+.sbh-hero{position:relative;display:flex;align-items:center;gap:22px;padding:22px;border-radius:22px;background:radial-gradient(120% 140% at 100% 0%,#5A3FB0 0%,#2E2266 45%,#1C1540 100%);color:#fff;min-width:0;overflow:hidden;box-shadow:0 14px 34px rgba(40,24,110,.28)}
+.sbh-hero::after{content:"";position:absolute;inset:0;background:radial-gradient(2px 2px at 82% 18%,rgba(255,255,255,.8),transparent 60%),radial-gradient(1.5px 1.5px at 70% 70%,rgba(255,255,255,.55),transparent 60%),radial-gradient(1.5px 1.5px at 93% 56%,rgba(255,255,255,.6),transparent 60%);pointer-events:none}
+.sbh-hero-pic{flex:0 0 min(44%,290px);border-radius:16px;overflow:hidden;box-shadow:0 12px 28px rgba(0,0,0,.35);transform:rotate(-1.5deg)}
+.sbh-hero-pic .skin-prev{height:172px;border-radius:0}
+.sbh-hero-t{position:relative;z-index:1}
+.sbh-inside{display:flex;align-items:center;gap:4px;margin-top:2px}
+.sbh-inside .sbh-comp{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.14);padding:2px;box-sizing:border-box}
+.sbh-inside .stk-cell{width:30px;height:30px}
+.btn.sbh-gold{background:linear-gradient(180deg,#FFD978,#F5A623);color:#3A2200;border:0;box-shadow:0 6px 16px rgba(245,166,35,.4)}
+.btn.sbh-gold:hover{filter:brightness(1.05)}
+.sbh-hero-t{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sbh-eyebrow{font:800 .72rem/1 var(--display);letter-spacing:.1em;text-transform:uppercase;color:#FFD45C}
+.sbh-hero-t > b{font:800 1.7rem/1.1 var(--display)}
+.sbh-hero-t > span:not(.sbh-eyebrow){font-size:.9rem;opacity:.9;overflow-wrap:anywhere}
+.sbh-hero-acts{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:6px}
+.sbh-hero-acts .btn{min-height:42px;border-radius:999px;padding:0 18px;font-weight:800}
+.btn.sbh-light{background:#fff;color:#2A1F5C;border-color:#fff}
+.btn.sbh-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.6)}
+.sbh-hero-p{font-weight:800}
+.sbh-build{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:20px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:22px;background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 11%,var(--surface)),var(--surface) 70%);color:var(--ink);text-align:left;font:inherit;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.sbh-build:hover{border-color:var(--accent);box-shadow:0 6px 18px rgba(14,42,86,.1)}
+.sbh-build:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sbh-build b{font:800 1.2rem/1.2 var(--display)}
+.sbh-build > span:not(.sbh-build-pics){font-size:.88rem;color:var(--muted)}
+.sbh-build em{margin-top:auto;font:800 .9rem var(--display);font-style:normal;color:var(--accent)}
+.sbh-build-pics{display:flex;align-items:center;gap:8px}
+.sbh-mini{width:76px;border-radius:9px;overflow:hidden;border:1px solid var(--line)}
+.sbh-mini .skin-prev{height:48px;border-radius:0}
+.sbh-build-pics .sbh-comp{width:48px;height:48px}
+
+/* Rows of tiles */
+.sbh-row{display:flex;flex-direction:column;gap:10px;min-width:0}
+.sheet-body.sbh-body > *{min-width:0}
+.sbh-row.sbh-wait{min-height:170px}
+.sbh-row-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px}
+.sbh-row-h h3{margin:0;font:800 1.15rem var(--display)}
+.sbh-row-h .link-btn{margin-left:auto;font-weight:800}
+.sbh-grid{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(128px,1fr);gap:12px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:thin}
+.sbh-grid.sbh-wrap{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));overflow:visible}
+.sbh-tile{display:flex;flex-direction:column;gap:8px;min-width:0;padding:8px 8px 10px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer;box-shadow:0 1px 2px rgba(14,42,86,.05);transition:border-color .15s,transform .15s,box-shadow .15s}
+.sbh-tile:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));transform:translateY(-2px);box-shadow:0 10px 22px rgba(14,42,86,.12)}
+.sbh-tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sbh-tile.on{border:2px solid var(--accent);padding:7px}
+.sbh-meta{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}
+.sbh-meta b{max-width:100%;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbh-tag{flex:none;display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;font:800 .66rem/1 var(--display);font-style:normal;letter-spacing:.02em;white-space:nowrap}
+.sbh-tag.free{color:#17734C;background:#DDF5EA}.sbh-tag.own,.sbh-tag.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}.sbh-tag.cost{color:#7A4700;background:#FFF0CC}
+.sbh-tag.cost::before{content:"";width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FFE9A3,#E9A21C);box-shadow:inset 0 0 0 1px rgba(150,90,0,.35)}
+:root[data-theme="dark"] .sbh-tag.free{color:#7FE3B5;background:rgba(95,211,160,.14)}:root[data-theme="dark"] .sbh-tag.cost{color:#FFD27A;background:rgba(242,182,90,.15)}
+.sbh-meta .pro-badge{flex:none}
+
+/* The pictures, each kind sized to its box */
+.sbh-pic{position:relative;display:grid;place-items:center;height:92px;border-radius:11px;overflow:hidden;background:linear-gradient(180deg,var(--soft),color-mix(in srgb,var(--soft) 60%,var(--surface)))}
+.sbh-pic .skin-prev{width:100%;height:100%;border-radius:0}
+.sbh-pic .cs-demo,.sbh-opt .cs-demo{position:absolute;left:50%;top:50%;width:150px;margin:0;transform:translate(-50%,-50%) scale(var(--s,.62))}
+.sbh-pic .ns-demo{position:absolute;left:50%;top:50%;width:200px;height:170px;margin:0;transform:translate(-50%,-50%) scale(var(--s,.5));background:none;border-radius:0}
+.sbh-stage .sp-mode,.sbh-opt .sp-mode,.sbh-slot-h .sp-mode,.sbh-now-i .sp-mode,.sbh-mini .sp-mode{display:none}
+.sbh-pic .sbh-stks{display:grid;grid-template-columns:repeat(2,34px);gap:4px}
+.sbh-pic .sbh-stks .stk-cell{width:34px;height:34px}
+.sbh-comp{width:70px;height:70px;display:block;flex:none}
+.sbh-comp{position:relative;overflow:visible;display:grid;place-items:center}
+.sbh-comp > img.cp-still{width:100%!important;height:100%!important;margin:0!important;transform:scale(1.3);object-fit:contain}
+.sbh-comp.face{overflow:hidden;border-radius:50%}
+.sbh-comp.face > img.cp-still{transform:scale(1.18) translateY(3%)}
+.sbh-comp-none{border-radius:50%;background:var(--line)}
+
+/* Yours */
+.sbh-now{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:16px;border:1px solid var(--line);border-radius:20px;background:var(--surface)}
+.sbh-now-t{display:flex;flex-direction:column;gap:2px;flex:0 0 170px}
+.sbh-now-t b{font:800 1.15rem var(--display)}
+.sbh-now-l{display:flex;flex-wrap:wrap;gap:10px;flex:1 1 400px;min-width:0}
+.sbh-now-i{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border:1px solid transparent;border-radius:12px;background:var(--soft);min-width:0;color:var(--ink);font:inherit;text-align:left}
+button.sbh-now-i{cursor:pointer;transition:border-color .15s,background .15s}
+button.sbh-now-i:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:var(--surface)}
+button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sbh-apart{color:var(--muted)}
+.sbh-apart s{white-space:nowrap}
+.btn.sbh-buy{background:linear-gradient(180deg,#FFD978,#F5A623)!important;color:#3A2200!important;border:0!important;box-shadow:0 6px 16px rgba(245,166,35,.35)}
+.sbh-now-i .sbh-pic{width:56px;height:44px;flex:none;background:var(--surface)}
+.sbh-now-i .sbh-pic{--s:.3}
+.sbh-now-i .sbh-comp{width:40px;height:40px}
+.sbh-now-i > span:last-child{display:flex;flex-direction:column;min-width:0}
+.sbh-now-i em{font:800 .66rem/1.2 var(--display);font-style:normal;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sbh-now-i b{font-size:.88rem}
+.sbh-now > .btn{border-radius:999px;min-height:42px;padding:0 18px}
+.sbh-note{margin:0;padding:14px 16px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
+
+/* Build Your Look */
+.sbh-look{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+.sbh-look-l{display:flex;flex-direction:column;gap:10px;min-width:0;position:sticky;top:0}
+.sbh-look-l > .mini{margin:0}
+.sbh-look-h{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
+.sbh-look-h h3{margin:0;flex:1;font:800 1.3rem var(--display)}
+.sbh-dk button{min-height:36px}
+.sbh-stage{position:relative;aspect-ratio:16/10;border-radius:18px;overflow:hidden;box-shadow:0 10px 28px rgba(14,42,86,.16);background:var(--soft)}
+.sbh-stage-in{position:absolute;left:0;top:0;width:320px;height:200px;transform:scale(var(--k,2));transform-origin:0 0}
+.sbh-stage-in .skin-prev{width:320px;height:200px;border-radius:0}
+.sbh-st-note{position:absolute;left:24%;bottom:4%;width:200px;height:170px;transform:scale(calc(var(--k,2) * .38));transform-origin:0 100%}
+.sbh-st-note .ns-demo{background:none;width:200px;height:170px}
+.sbh-st-stk{position:absolute;right:4%;top:6%;transform:scale(calc(var(--k,2) * .5));transform-origin:100% 0}
+.sbh-st-stk .sbh-stks{display:flex;gap:4px}
+.sbh-st-stk .stk-cell{width:34px;height:34px}
+.sbh-st-card{position:absolute;left:52%;bottom:8%;width:150px;transform:scale(calc(var(--k,2) * .42));transform-origin:0 100%}
+.sbh-st-card .cs-demo{width:150px;margin:0}
+.sbh-st-comp{position:absolute;right:3%;bottom:3%;width:22%;aspect-ratio:1}
+.sbh-st-comp .sbh-comp{width:100%;height:100%;filter:drop-shadow(0 4px 8px rgba(0,0,0,.25))}
+.sbh-look-r{display:flex;flex-direction:column;gap:10px;min-width:0}
+.sbh-slot{border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
+.sbh-slot.open{border:2px solid var(--accent)}
+.sbh-slot-h{display:flex;align-items:center;gap:10px;width:100%;min-height:58px;padding:8px 12px 8px 8px;border:0;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.sbh-slot-h:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.sbh-slot-h .sbh-pic{width:52px;height:42px;flex:none}
+.sbh-slot-h .sbh-pic{--s:.3}
+.sbh-slot-h .sbh-pic .sbh-comp{width:40px;height:40px}
+.sbh-slot-h .sbh-pic .sbh-stks{grid-template-columns:repeat(2,18px);gap:2px}
+.sbh-slot-h .sbh-pic .stk-cell{width:18px;height:18px}
+.sbh-slot-t{display:flex;flex-direction:column;flex:1;min-width:0}
+.sbh-slot-t em{font:800 .66rem/1.2 var(--display);font-style:normal;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sbh-slot-t b{font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbh-opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:2px 10px 10px;max-height:236px;overflow-y:auto}
+.sbh-opt{position:relative;display:grid;place-items:center;height:52px;padding:0;border:2px solid var(--line);border-radius:10px;background:var(--soft);overflow:hidden;cursor:pointer}
+.sbh-opt.on{border-color:var(--accent)}
+.sbh-opt:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sbh-opt .skin-prev{width:100%;height:100%;border-radius:0}
+.sbh-opt{--s:.36}
+.sbh-opt .sbh-comp{width:44px;height:44px}
+.sbh-opt .sbh-stks{grid-template-columns:repeat(2,20px);gap:2px}
+.sbh-opt .stk-cell{width:20px;height:20px}
+.sbh-more{margin:0 10px 10px;font-weight:800}
+.sbh-slot .mini{grid-column:1/-1;margin:0}
+.sbh-spacer{height:4px}
+.sbh-sum{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
+.sbh-sum > div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:.92rem}
+.sbh-sum > div > b{white-space:nowrap}
+.sbh-sum > div.sbh-col{color:var(--accent);font-weight:700}
+.sbh-sum .mini{margin:0}
+.sbh-sum.ok{margin:0;font-weight:700}
+.sbh-acts{display:flex;flex-direction:column;gap:8px}
+.sbh-acts > .btn{min-height:46px;border-radius:14px;font-weight:800}
+.sbh-getrow{display:flex;flex-wrap:wrap;gap:6px}
+
+/* A See All page: back to the Shop */
+.sbh-back{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin:0 0 4px}
+.sbh-back h3{margin:0;font:800 1.3rem var(--display)}
+.sbh-back .link-btn{font-weight:800}
+
+@media (max-width:760px){
+  .sbh-top{grid-template-columns:minmax(0,1fr)}
+  .sbh-hero{flex-direction:column;align-items:stretch;padding:16px}
+  .sbh-hero-pic{flex:none}
+  .sbh-look{grid-template-columns:minmax(0,1fr)}
+  .sbh-look-l{position:static}
+  .sbh-types{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;width:100%}
+  .sbh-types .ui-chip{flex:none}
+  .sbh-now-t{flex-basis:100%}
+}
+
+/* Concept map styles: a small picture of a map */
+.sbh-cm{display:block;width:100%;height:100%}
+.sbh-cm > svg{display:block;width:100%;height:100%}
+.sbh-pic .sbh-cm,.sbh-opt .sbh-cm{position:absolute;inset:0}
+.sbh-st-cm{position:absolute;left:30%;top:39%;width:24%;aspect-ratio:168/96;border-radius:10px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.22);border:2px solid #fff}
+.sbh-st-cm > svg{display:block;width:100%;height:100%}
+
+/* See All pages, restyled to match the Shop home */
+.sheet.shop.sbh-on .sheet-body:not(.sbh-body){padding-top:16px}
+.sheet.shop.sbh-on .sbh-back{margin-bottom:10px}
+.sheet.shop.sbh-on .ui-shop-bar{gap:10px;top:-16px}
+.sheet.shop.sbh-on .ui-shop-q input{border-radius:999px}
+.sheet.shop.sbh-on .ui-chip{border-radius:999px}
+.sheet.shop.sbh-on .shop-mode{padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.sheet.shop.sbh-on .sheet-body:not(.sbh-body) > p.mini{margin:4px 2px 0!important;color:var(--muted)}
+.sheet.shop.sbh-on .ui-sec{margin-top:18px}
+.sheet.shop.sbh-on .ui-sec-btn{padding:4px 2px}
+.sheet.shop.sbh-on .ui-sec-t{font:800 1.15rem var(--display)}
+.sheet.shop.sbh-on .ui-n{font:800 .72rem var(--display);padding:3px 8px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.sheet.shop.sbh-on .shop-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))!important;gap:12px!important}
+.sheet.shop.sbh-on :is(.shop-tile,.shop-pack,.ui-col){padding:10px!important;border:1px solid var(--line)!important;border-radius:16px!important;background:var(--surface)!important;box-shadow:0 1px 2px rgba(14,42,86,.05)!important;transition:border-color .15s,transform .15s,box-shadow .15s}
+.sheet.shop.sbh-on :is(.shop-tile,.ui-col):hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))!important;transform:translateY(-2px);box-shadow:0 10px 22px rgba(14,42,86,.12)!important}
+.sheet.shop.sbh-on .shop-tile.on{border:2px solid var(--accent)!important;padding:9px!important}
+.sheet.shop.sbh-on .shop-tile > :is(.skin-prev,.cs-demo,.ns-demo):first-child,.sheet.shop.sbh-on .ui-col-prev{border-radius:11px;overflow:hidden}
+.sheet.shop.sbh-on .shop-tile .shop-name b,.sheet.shop.sbh-on .shop-pack .shop-name b{font:800 .95rem var(--display)}
+.sheet.shop.sbh-on .shop-tile p.mini{color:var(--muted);font-size:.78rem;line-height:1.35;margin:2px 0 8px}
+.sheet.shop.sbh-on :is(.shop-tile,.ui-col-act) .btn.small{width:100%;min-height:38px;border-radius:999px;font-weight:800}
+.sheet.shop.sbh-on .ui-col-act{display:flex;gap:8px}
+.sheet.shop.sbh-on .ui-col-act .btn.small{flex:1}
+.sheet.shop.sbh-on .shop-inuse{background:color-mix(in srgb,var(--accent) 14%,var(--surface))!important;color:var(--accent)!important;border-color:transparent!important;opacity:1!important}
+.sheet.shop.sbh-on .shop-pack .pack-grid{border-radius:12px;background:var(--soft);padding:8px}
+.sheet.shop.sbh-on .pro-badge,.sheet.shop.sbh-on .free-badge{border-radius:999px}
+/* Note shape and pin choices: the whole note, scaled into the small button */
+.sbh-opt .ns-demo{position:absolute;left:50%;top:50%;width:200px;height:170px;margin:0;transform:translate(-50%,-50%) scale(.3);background:none!important;border-radius:0}
+.sbh-opt.sbh-k-note,.sbh-opt.sbh-k-pin{background:var(--soft)}
+
+/* The companion row in Build Your Look names the theme it comes with */
+.sbh-tag.theme{color:var(--muted);background:var(--soft)}
+
+/* Header: a bigger title with Shop and Yours beside it, so the band stays short */
+.sheet.shop.sbh-on .shop-band h2{display:inline-block;vertical-align:middle;font-size:1.8rem!important;line-height:1.1}
+.sheet.shop.sbh-on .shop-band .sbh-seg{margin:0 0 0 18px;vertical-align:middle}
+.sheet.shop.sbh-on .shop-band .shop-sub{margin-top:6px}
+@media (max-width:600px){.sheet.shop.sbh-on .shop-band h2{font-size:1.45rem!important}.sheet.shop.sbh-on .shop-band .sbh-seg{margin-left:10px}}
+/* Get Pro on the featured banner, in the Pro gradient */
+.btn.sbh-pro{background:linear-gradient(135deg,#FFB443,#FF5C8A) border-box!important;color:#fff!important;border:0!important;box-shadow:0 6px 16px rgba(255,92,138,.35)}
+.btn.sbh-pro:hover{filter:brightness(1.05)}
+
+/* Theme pictures: crop the cached picture's soft outer pixel so no shaded edge shows inside the preview */
+:is(.sheet.shop,.sbh-stage) .sp-art img{transform:scale(1.04);transform-origin:center}
+
+/* Small theme pictures (Build Your Look rows and choices, Your Look Now): the whole preview, shrunk, not a clipped corner */
+:is(.sbh-slot-h,.sbh-now-i) .sbh-pic .skin-prev,.sbh-opt .skin-prev{position:absolute;left:50%;top:50%;width:150px!important;height:100px!important;transform:translate(-50%,-50%) scale(var(--ms,.4));border-radius:12px!important}
+.sbh-slot-h .sbh-pic{--ms:.36}
+.sbh-now-i .sbh-pic{--ms:.38}
+.sbh-opt{--ms:.46}
+.sbh-slot .sbh-opt-note{margin:0 12px 8px;color:var(--muted)}
+/* Collection cards: the price on its own row, Preview and See All side by side under it, never squeezed */
+.sheet.shop.sbh-on .ui-col-act{flex-wrap:wrap;gap:8px}
+.sheet.shop.sbh-on .ui-col-act .btn.small{flex:1 1 auto;width:auto;min-width:0;white-space:nowrap;padding-inline:12px}
+.sheet.shop.sbh-on .ui-col-act > .btn:first-child{flex-basis:100%}
+/* Note shape and pin tiles on a See All page: the whole shape fits (hearts and clouds reach past the note itself) */
+.sheet.shop.sbh-on .shop-tile .ns-demo .note{scale:.72}
+
+/* Map styles: each box takes the picture's own shape (168 by 96), so the whole map shows with no strips or cropping */
+.sbh-tile.sbh-k-cm .sbh-pic{height:auto;aspect-ratio:168/96}
+.sbh-opt.sbh-k-cm{height:auto;aspect-ratio:168/96}
+.sbh-slot-h .sbh-pic.sbh-k-cm{height:auto;aspect-ratio:168/96}
+.sbh-now-i.sbh-k-cm .sbh-pic{height:auto;aspect-ratio:168/96}
+/* Page headers: an icon-only trash button is the same round 2.3rem button on every tab (Concept Maps had none of the rules Flashcards and Quizzes get from their archive button) */
+.pg-right > .btn.small.trash-btn:not(:has(> span)),.view-head > .btn.small.trash-btn:not(:has(> span)){width:2.3rem;height:2.3rem;min-height:0;padding:0!important;display:inline-flex;align-items:center;justify-content:center;align-self:center}
+/* Theme pictures fill their box: the scene and the preview reach 1px past the rounded clip, so an edge that lands between
+   pixels shows the picture, not a light line of the background behind it */
+.sheet.shop .skin-prev .sp-art,.sbh-stage .skin-prev .sp-art{inset:-1px -1px -1px 18px!important}
+.sheet.shop .sbh-pic > .skin-prev{margin:-1px;width:calc(100% + 2px)!important;height:calc(100% + 2px)!important}
+.sheet.shop :is(.sbh-pic,.sbh-opt){background:color-mix(in srgb,var(--ink) 70%,var(--surface))}
+.sheet.shop :is(.sbh-pic,.sbh-opt):not(:has(> .skin-prev)){background:linear-gradient(180deg,var(--soft),color-mix(in srgb,var(--soft) 60%,var(--surface)))}

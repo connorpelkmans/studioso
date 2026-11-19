@@ -1,0 +1,87 @@
+/* ===== module: 99-settings.css ===== */
+/* Settings, rebuilt: each category is one page of headed groups (no tabs to hunt behind), each group one rounded card
+   of rows split by hairlines, a compact page title instead of the banner, and a colour per category */
+.us-cat[data-us="account"],#usPane-account{--uc:#2563EB}
+.us-cat[data-us="appearance"],#usPane-appearance{--uc:#7C3AED}
+.us-cat[data-us="access"],#usPane-access{--uc:#0891B2}
+.us-cat[data-us="study"],#usPane-study{--uc:#16A34A}
+.us-cat[data-us="ai"],#usPane-ai{--uc:#DB2777}
+.us-cat[data-us="school"],#usPane-school{--uc:#CA8A04}
+.us-cat[data-us="capture"],#usPane-capture{--uc:#EA580C}
+.us-cat[data-us="data"],#usPane-data{--uc:#475569}
+.us-cat[data-us="app"],#usPane-app{--uc:#8B5E34}
+
+/* The page title: small coloured tile, name and one line, no banner */
+.us-pane > .us-title{position:static!important;display:flex;align-items:center;gap:14px;margin:0 0 6px!important;padding:4px 2px 0!important;min-height:0!important;background:none!important}
+.us-pane > .us-title .us-ic{position:static!important;width:46px!important;height:46px!important;border-radius:14px!important;background:var(--uc,var(--accent))!important;color:#fff!important;box-shadow:0 6px 16px color-mix(in srgb,var(--uc,var(--accent)) 30%,transparent)!important}
+.us-pane > .us-title .us-ic svg{width:24px!important;height:24px!important}
+.us-pane > .us-title h3{margin:0;font:800 1.4rem/1.15 var(--display)!important;color:var(--ink)}
+.us-pane > .us-title p{margin:3px 0 0;font-size:.86rem!important;color:var(--muted)}
+@media (min-width:720px){
+  .us-main{padding:22px 26px 28px!important}
+  .us.searching .us-pane > .us-title{margin-top:18px!important}
+  .us.searching .us-pane.us-hit:first-of-type > .us-title{margin-top:0!important}
+}
+
+@media (min-width:720px){.us-pane > .us-title{display:flex!important}}
+/* Group headings and the cards they head */
+.us-gh{margin:20px 6px 8px;font:800 .72rem/1.2 var(--display);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.us-pane > .us-title + .us-gh,.us-pane > .us-title + .menu-list{margin-top:16px}
+.us-pane .menu-list.us-group,.us-pane .menu-list.us-top{gap:0!important;margin:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(14,42,86,.05)}
+.us-pane .menu-list.us-top{margin-top:16px}
+.us-pane .menu-list.us-group > :is(button,.cap-row,label,div),.us-pane .menu-list.us-top > :is(button,.cap-row,label,div){margin:0;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:13px 16px!important;min-height:56px;box-sizing:border-box}
+.us-pane .menu-list:is(.us-group,.us-top) > :is(button,.cap-row,label,div) + :is(button,.cap-row,label,div){box-shadow:inset 0 1px 0 var(--line)!important}
+.us-pane .menu-list.us-group > button:hover{background:color-mix(in srgb,var(--uc,var(--accent)) 6%,transparent)!important}
+.us-pane .menu-list.us-group > button:focus-visible{outline:2px solid var(--uc,var(--accent));outline-offset:-2px}
+.us-pane .menu-list.us-group > button > span:first-child{font-weight:700}
+.us-pane .menu-list.us-group .sub{color:var(--muted)}
+/* A row that opens something gets a chevron; rows with their own switch, field or choice don't */
+.us-pane .menu-list.us-group > button[data-act]:not(:has(input,select,.segb,.seg,.anim-tog))::after{content:"";flex:none;width:8px;height:8px;margin-inline-start:12px;border:solid color-mix(in srgb,var(--muted) 80%,transparent);border-width:2px 2px 0 0;transform:rotate(45deg);align-self:center}
+.us-pane .menu-list.us-group > button[data-act]{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:start}
+/* Delete Account and Start Over: set apart, in red */
+.us-pane .menu-list.us-danger-g{border-color:color-mix(in srgb,var(--late,#C0392B) 35%,var(--line))}
+.us-pane .menu-list.us-danger-g > *,.us-pane .menu-list.us-danger-g > * > span:first-child{color:var(--late,#C0392B)!important}
+.us-pane .us-danger{margin-top:0!important;border-top:0!important}
+
+/* The category list on the left */
+@media (min-width:720px){
+  dialog:has(.us-sheet){width:min(960px,calc(100% - 32px))!important}
+  .us{grid-template-columns:292px minmax(0,1fr)!important}
+  .us-nav{padding:16px 12px!important}
+  .us-cats{gap:2px!important}
+  .us-cat{min-height:46px;padding:7px 10px!important;border-radius:12px!important}
+  .us-cat .us-ic{width:32px!important;height:32px!important;border-radius:10px!important}
+  .us-cat .us-ic svg{width:17px;height:17px}
+  .us-cat b{font-size:.93rem!important}
+  .us-cat[aria-selected="true"]{background:var(--surface)!important}
+}
+.us-cat .us-ic{border-radius:10px!important}
+.us-empty{margin:24px 6px;color:var(--muted)}
+/* Studyboard Pro: its row shares the plan-row class with Today's Plan (a grid), so it's laid out here: the Pro icon,
+   the name and line beside it, the chevron at the end */
+.us-pane .menu-list.us-group > button.plan-row{display:flex!important;grid-template:none!important;align-items:center;justify-content:flex-start!important;gap:14px;border-top:0}
+.us-pane .menu-list.us-group > button.plan-row > span:not(.plan-row-ic){flex:1;min-width:0;text-align:start;font-weight:700}
+.us-pane .menu-list.us-group > button.plan-row .plan-row-ic{width:36px;height:36px}
+
+/* The emoji before each row's title */
+.us-ttl{display:block!important}
+.us-emo{display:inline-block!important;width:1.45em;margin-inline-end:.15em;text-align:center;font-style:normal;font-weight:400}
+.us-ttl > :is(.pro-badge,.free-badge){margin-inline-start:8px;vertical-align:2px}
+
+/* Focus timer (Style A): a big round play button between round Reset and Skip, the session count in the ring, and the
+   routine picker drawn like the Focus / Short Break / Long Break switch above it */
+.pomo-ctl{gap:22px!important;margin-top:4px}
+.pomo-ctl > .btn.pomo-rd{width:52px;height:52px;min-height:0;padding:0!important;border-radius:50%!important;display:grid;place-items:center;color:var(--muted)}
+.pomo-ctl > .btn.pomo-go{width:84px;height:84px;min-height:0;padding:0!important;border-radius:50%!important;display:grid;place-items:center;box-shadow:0 10px 24px color-mix(in srgb,var(--btn-bg,var(--accent)) 38%,transparent)}
+.pomo-ctl > .btn.pomo-go svg{width:32px;height:32px}
+.pomo-ctl > .btn.pomo-go[data-act="pomo-start"] svg{margin-left:4px}
+.pomo-read .pomo-mode-lbl{font-weight:700}
+.pr-chips.segb{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);overflow:visible;padding:3px!important;border-radius:999px}
+.pr-chips.segb > .pr-chip{min-height:0;border:0!important;border-radius:999px!important;padding:6px 8px!important;justify-items:center;text-align:center;box-shadow:none}
+.pr-chips.segb > .pr-chip:not(.on){background:transparent!important}
+.pr-chips.segb > .pr-chip b{justify-content:center;font-size:.86rem}
+.pr-chips.segb > .pr-chip span{font-size:.72rem}
+.pr-chips.segb > .pr-chip.pr-new{border:0!important}
+.pr-chips.segb > .pr-chip.pr-new b{color:var(--accent)}
+/* Reordering board tabs: the drop outline is the tab's own size, so the tab row doesn't grow while dragging */
+.nb-tlist > .sort-ph{min-height:0!important;margin:0;align-self:center}

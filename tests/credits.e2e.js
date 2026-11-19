@@ -67,6 +67,9 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     ok((await page.textContent(".sbc-pill")).includes("350"), "the Style Shop's header shows the balance");
     const pillFixed = await page.evaluate(() => { const b = document.querySelector(".shop-wrap > .sheet-body, .sheet.shop .sheet-body"); const p = document.querySelector(".sbc-pill"); const y0 = p.getBoundingClientRect().top; b.scrollTop = 2000; return Math.abs(p.getBoundingClientRect().top - y0) < 1 && b.scrollTop > 0; });
     ok(pillFixed, "the balance stays in view while the shop's list scrolls");
+    // the Shop home lists prices on its tiles; a See All page has the Unlock buttons
+    await page.waitForFunction(() => [...document.querySelectorAll(".sbh-tag.cost")].some(t => /credits/.test(t.textContent)), null, {timeout: 10000});
+    await page.click('.sbh-types [data-act="sbh-go"][data-id="themes"]');
     await page.waitForFunction(() => [...document.querySelectorAll('[data-act="shop-unlock"]')].some(b => /Credits/.test(b.textContent)), null, {timeout: 10000});
     ok(true, "locked items show their price in credits");
 
@@ -102,6 +105,8 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.waitForSelector(".sbc-pack", {timeout: 5000});
     const packs = await page.$$eval(".sbc-pack", els => els.map(e => e.textContent.replace(/\s+/g, " ").trim()));
     ok(packs.length === 4 && /1,300 credits/.test(packs[3]) && /\$9\.99/.test(packs[3]) && /\$0\.99/.test(packs[0]), "the four credit packs show with their prices");
+    // bonus credits against the 100 pack's rate ($0.99 here): $4.99 there buys 504, so 600 is 96 extra; $9.99 buys 1,009, so 1,300 is 291 extra; 300 for $2.99 is 2 under. The server's "20% Bonus" badge is worked out again
+    ok(/\+96 Bonus Credits/.test(packs[2]) && !/compared with/.test(packs[2]) && /Best Value/.test(packs[3]) && /291 bonus credits compared with the 100 pack/.test(packs[3]) && !/Bonus/i.test(packs[0]) && !/%/.test(packs.join()), "each pack's bonus is in credits, against the 100-credit pack, as a tag (or a line under Best Value): " + packs.join(" | "));
     const sent = await page.evaluate(async () => { let body = null; const P = window.__sbPlanObj(); P.checkoutCall = async b => { body = b; return {message: "test"}; }; document.querySelector('.sbc-pack[data-id="credits_600"]').click(); await new Promise(r => setTimeout(r, 200)); return body; });
     ok(sent && sent.pack === "credits_600" && !("price" in sent) && !("credits" in sent), "buying a pack sends only the pack id (the server sets the price)");
 

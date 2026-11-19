@@ -42,6 +42,7 @@ const scenesAsked = () => asked.filter(p => p === "/bundle/scenes.js").length;
     ok(scenesAsked() === 0 && !(await page.evaluate(() => window.__libAtStart)), "with a plain theme, the scene library isn't fetched");
 
     await act("shop"); await page.waitForSelector("dialog[open] .sheet.shop");
+    await act("shop-tab", {id: "themes"}); await page.waitForSelector("dialog[open] .sheet.shop .sbh-back");
     await page.waitForFunction(() => document.querySelectorAll(".sc-thumb img").length > 10 && !document.querySelector("img[data-scn-thumb]"), null, {timeout: 30000});
     ok(scenesAsked() === 1, "opening the Style Shop loads the library once");
     ok(await page.evaluate(() => [...document.querySelectorAll(".sc-thumb img")].every(i => /^(blob:|data:image\/svg)/.test(i.getAttribute("src") || ""))), "every scene preview is drawn once it has loaded");

@@ -59,13 +59,13 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
 
       await act(p, "menu");
       await p.evaluate(() => document.querySelector('.us-cat[data-us="data"]').click()); await p.waitForTimeout(200);
-      const subs = await p.$$eval(".us-pane.on .us-sub-tab", b => b.map(x => x.textContent));
-      ok(subs.join() === "Backups,Import and Export,Cleanup", "Data and Backups has sub-tabs: " + subs.join());
-      await p.evaluate(() => document.querySelectorAll(".us-pane.on .us-sub-tab")[2].click()); await p.waitForTimeout(150);
-      ok(await vis('.us-pane.on [data-act="clear-all"]') && !(await vis('.us-pane.on [data-act="backup-now"]')), "choosing a sub-tab shows only its rows");
+      const subs = await p.$$eval(".us-pane.on .us-gh", b => b.map(x => x.textContent));
+      ok(subs.join() === "Backups,Import and Export,Cleanup,Start Over", "Data and Backups shows its groups under headings: " + subs.join());
+      ok(await p.$$eval(".us-pane.on .us-sub-tab", b => b.length) === 0, "no sub-tabs to hunt behind");
+      ok(await p.evaluate(() => !!document.querySelector('.us-pane.on .us-danger-g [data-act="clear-all"]')), "Clear All Data is set apart under Start Over");
       if (W < 720) { await p.click(".us-back"); await p.waitForTimeout(150); }
       await p.fill(".us-q", "backup"); await p.waitForTimeout(250);
-      ok(await vis('.us-pane [data-act="backup-now"]'), "searching shows matching rows from every sub-tab");
+      ok(await vis('.us-pane [data-act="backup-now"]'), "searching shows matching rows");
       await p.fill(".us-q", "");
 
       await p.evaluate(() => document.querySelector('.us-cat[data-us="study"]').click()); await p.waitForTimeout(200);

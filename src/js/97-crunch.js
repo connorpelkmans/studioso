@@ -484,7 +484,7 @@ function typeCounts(W){
 }
 function viewCrunch(){
   const m = modelNow(), today = todayISO();
-  if (m.empty) return `<section class="cr" aria-label="Crunch Forecast"><div class="empty cr-empty"><strong>Nothing Due Yet</strong>Add tasks with due dates to see which weeks ahead get heavy.<div style="margin-top:12px"><button class="btn primary" data-act="new-task">Add a Task</button></div></div></section>`;
+  if (m.empty) return `<section class="cr" aria-label="Crunch Forecast"><div class="empty cr-empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("crunch") : ""}<strong>Nothing to Show Yet</strong>Add tasks with due dates to see which weeks ahead get heavy.<div class="row-actions" style="justify-content:center"><button class="btn primary" data-act="new-task">Add a Task</button></div></div></section>`;
   const hv = C.heaviest(m, 0);
   let call;
   if (hv && hv.levelIdx >= 2) call = `<div class="cr-call"><div class="cr-ct"><span class="cr-pill lv${hv.levelIdx}">${LV_WORD[hv.levelIdx]}</span> <b>Heaviest week: ${esc(rangeLabel(hv.start, hv.end))}, ${esc(awayText(today, hv.start))}</b><br><span class="mini">${esc(cap1(hv.headline || "Steady work"))} · about ${ratioText(hv.score)} your usual study time</span></div><button class="btn${hv.levelIdx >= 3 ? " primary" : ""}" data-act="cr-week" data-id="${hv.start}">See the Week</button></div>`;

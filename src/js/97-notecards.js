@@ -589,11 +589,12 @@ function decorateDeck(){
       const ch = ids.map((id, i) => state.courses[id] && state.courses[id].order !== i * 10 ? {kind: "course", id, after: Object.assign(clone(state.courses[id]), {order: i * 10})} : null).filter(Boolean);
       if (ch.length) applyChanges(ch, "Courses reordered");
     } else if (kind === "groups") { try { localStorage.setItem("studyboard:grpOrder", JSON.stringify(ids)); } catch (e) {} }
-    // note boards: the order of their tabs (My Notes stays first)
+    // note boards: the order of their tabs, My Notes included (its place is kept as nbHomeAt)
     else if (kind === "noteboards") {
       const all = Array.isArray(state.settings && state.settings.noteBoards) ? state.settings.noteBoards : [], by = new Map(all.map(b => [b && b.id, b]));
       const list = ids.map(id => by.get(id)).filter(Boolean).concat(all.filter(b => b && !ids.includes(b.id)));
-      if (list.some((b, i) => b !== all[i])) { state.settings = Object.assign({}, state.settings, {noteBoards: list}); saveSettings(); render(); }
+      const home = Math.max(0, ids.indexOf("__home")), was = Number((state.settings || {}).nbHomeAt) || 0;
+      if (list.some((b, i) => b !== all[i]) || home !== was) { state.settings = Object.assign({}, state.settings, {noteBoards: list, nbHomeAt: home}); saveSettings(); render(); }
     }
     // whiteboards: each keeps its place in the tabs (one change, so Undo puts them back)
     else if (kind === "wb") {
