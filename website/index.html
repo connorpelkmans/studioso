@@ -185,6 +185,26 @@
           </div>
           <h3>Whiteboards</h3><p>Sketch diagrams and work through problems with markers, then share a board with your group.</p>
         </div>
+        <div class="feat fx" data-fx="cmap" data-ms="900,1200,1200,1900">
+          <div class="fx-stage s1 s2 s3" aria-hidden="true">
+            <svg class="cx-lines" viewBox="0 0 100 100" preserveAspectRatio="none"><line class="cx-l a" x1="50" y1="40" x2="21" y2="15"/><line class="cx-l a" x1="50" y1="40" x2="79" y2="15"/><line class="cx-l b" x1="50" y1="40" x2="24" y2="64"/><line class="cx-l b" x1="79" y1="15" x2="78" y2="62"/></svg>
+            <span class="cx-n cx-root">Cell Respiration</span>
+            <span class="cx-n cx-a n1">Glycolysis</span><span class="cx-n cx-a n2">Krebs cycle</span>
+            <span class="cx-n cx-b n3">ATP</span><span class="cx-n cx-b n4">Mitochondria</span>
+            <span class="cx-lab">makes</span>
+            <span class="fx-pill cx-pill">✓ 4 flashcards from your links</span>
+          </div>
+          <h3>Concept Maps</h3><p>Map how a course fits together from your notes, decks and exam topics, study the links as flashcards, and build one live with your group.</p>
+        </div>
+        <div class="feat fx" data-fx="write" data-ms="900,1300,1300,1900">
+          <div class="fx-stage s1 s2 s3" aria-hidden="true">
+            <div class="ws-paper"><b class="ws-t">Social Media and Teen Sleep</b>
+              <i class="ws-ln w1"></i><i class="ws-ln w2"></i><span class="ws-row"><i class="ws-ln w3"></i><span class="ws-cite">(Woods, 2016)</span></span><i class="ws-ln w4 ws-q"></i><i class="ws-ln w5"></i></div>
+            <div class="ws-src"><b>Sources</b><span>Hale &amp; Guan, 2015</span><span class="ws-on">Woods &amp; Scott, 2016</span><span>Walker, 2017</span></div>
+            <span class="fx-pill ws-ok">✓ Citation check: all good</span>
+          </div>
+          <h3>Writing Studio</h3><p>Sources, quotes from your highlights and a citation check that fixes your Google Doc or Word file. Part of Pro.</p>
+        </div>
         <div class="feat fx" data-fx="group" data-ms="900,1100,1100,1900">
           <div class="fx-stage s1 s2 s3" aria-hidden="true">
             <div class="gp-av"><i class="c-leaf" data-head="plain-sum">A</i><i class="c-plum" data-head="plain-packy">J</i><i class="c-tomato" data-head="plain-inky">M</i><i class="c-blue" data-head="plain-mochi">You</i></div>
@@ -194,7 +214,7 @@
               <b>6 PM</b><i></i><i class="f1 f2"></i><i class="f1"></i><i class="f2"></i><i class="f1"></i></div>
             <div class="gp-pick">✓ Thu 4 PM works for everyone</div>
           </div>
-          <h3>Study Groups</h3><p>Share decks, chat, and find a time that works for everyone.</p>
+          <h3>Study Groups</h3><p>Share decks and quizzes, work on whiteboards and concept maps together, chat, and find a time that works for everyone.</p>
         </div>
         <div class="feat fx" data-fx="pdf" data-ms="800,1200,1300,1900">
           <div class="fx-stage s1 s2 s3" aria-hidden="true">
@@ -221,6 +241,14 @@
             <span class="fx-pill ca-tag">Calc Snip</span>
           </div>
           <h3>Calculator</h3><p>A scientific calculator, and Calc Snip reads an equation from anywhere on your screen.</p>
+        </div>
+        <div class="feat fx" data-fx="shop" data-ms="900,1200,1200,1900">
+          <div class="fx-stage s1 s2 s3" aria-hidden="true">
+            <div class="sx-themes"><i class="sx-t t1"><b>Winter</b></i><i class="sx-t t2"><b>Sakura</b></i><i class="sx-t t3"><b>Ocean</b></i></div>
+            <div class="sx-look"><b>Your Look</b><span class="sx-p p1"><i class="sx-card"></i>Index Card</span><span class="sx-p p2"><i class="sx-pin"></i>Gold Pin</span><span class="sx-p p3"><i class="sx-map"></i>Map Style</span></div>
+            <span class="fx-pill sx-ok">✓ Wearing Sakura</span>
+          </div>
+          <h3>Style Shop</h3><p>Pick a theme collection, see everything that's yours, and mix in flashcard styles, pins and map styles with Build Your Look.</p>
         </div>
     </div>
   </div>
@@ -266,8 +294,11 @@
       <button type="button" role="tab" id="gt-calendar" aria-controls="gp-calendar" aria-selected="false" tabindex="-1">Timeline</button>
       <button type="button" role="tab" id="gt-flashcards" aria-controls="gp-flashcards" aria-selected="false" tabindex="-1">Flashcards</button>
       <button type="button" role="tab" id="gt-quizzes" aria-controls="gp-quizzes" aria-selected="false" tabindex="-1">Quizzes</button>
+      <button type="button" role="tab" id="gt-maps" aria-controls="gp-maps" aria-selected="false" tabindex="-1">Concept Maps</button>
+      <button type="button" role="tab" id="gt-writing" aria-controls="gp-writing" aria-selected="false" tabindex="-1">Writing Studio</button>
       <button type="button" role="tab" id="gt-notes" aria-controls="gp-notes" aria-selected="false" tabindex="-1">Notes</button>
       <button type="button" role="tab" id="gt-courses" aria-controls="gp-courses" aria-selected="false" tabindex="-1">Courses</button>
+      <button type="button" role="tab" id="gt-focus" aria-controls="gp-focus" aria-selected="false" tabindex="-1">Focus</button>
       <button type="button" role="tab" id="gt-companion" aria-controls="gp-companion" aria-selected="false" tabindex="-1">Companion</button>
       <button type="button" role="tab" id="gt-style" aria-controls="gp-style" aria-selected="false" tabindex="-1">Style Shop</button>
     </div>
@@ -285,11 +316,19 @@
     </div>
     <div class="gpanel" role="tabpanel" id="gp-flashcards" aria-labelledby="gt-flashcards" hidden>
       <div class="shot"><img class="logo-l" src="assets/screens/flashcards-light.webp" alt="The Studyboard Review tab with flashcard decks" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/flashcards-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
-      <p class="cap">Spaced-repetition decks in the Review tab. Study, play Match, or publish a deck so classmates in your course can find it.</p>
+      <p class="cap">Spaced-repetition decks in the Review tab, each showing its first card in the deck's own style. Study, play Match, or publish a deck so classmates in your course can find it.</p>
     </div>
     <div class="gpanel" role="tabpanel" id="gp-quizzes" aria-labelledby="gt-quizzes" hidden>
       <div class="shot"><img class="logo-l" src="assets/screens/quizzes-light.webp" alt="The Studyboard Review tab with practice quizzes" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/quizzes-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
-      <p class="cap">Practice quizzes and case studies made from your decks or your notes. Tap one to see its questions, share it with a group, or archive it.</p>
+      <p class="cap">Practice quizzes and case studies made from your decks or your notes, with your best score stamped on each. Tap one to see its questions, share it with a group, or archive it.</p>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-maps" aria-labelledby="gt-maps" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/maps-light.webp" alt="A Studyboard concept map of cell respiration, with labelled links between ideas" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/maps-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">Concept maps for every course and exam. Drag ideas, label the links, colour them by how well you know them, study the links as flashcards, or export the map as a PDF, picture or Word file.</p>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-writing" aria-labelledby="gt-writing" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/writing-light.webp" alt="Studyboard's Writing Studio with an essay, its sources and a citation check" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/writing-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">Writing Studio keeps a paper's sources, quotes and outline together, and its citation check finds what to fix in your Google Doc or Word file. Part of Pro.</p>
     </div>
     <div class="gpanel" role="tabpanel" id="gp-notes" aria-labelledby="gt-notes" hidden>
       <div class="shot"><img class="logo-l" src="assets/screens/notes-light.webp" alt="The Studyboard Notes screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/notes-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
@@ -299,13 +338,17 @@
       <div class="shot"><img class="logo-l" src="assets/screens/courses-light.webp" alt="The Studyboard Courses screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/courses-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
       <p class="cap">Every course with its own icon, progress, grades, emails, files and recorded lectures in one place.</p>
     </div>
+    <div class="gpanel" role="tabpanel" id="gp-focus" aria-labelledby="gt-focus" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/focus-light.webp" alt="The Studyboard Focus Timer with a 25 minute session and routines" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/focus-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">Focus sessions with Classic, Deep Work and Exam Cram routines, or your own. Pick the task you're working on and Studyboard counts the time.</p>
+    </div>
     <div class="gpanel" role="tabpanel" id="gp-companion" aria-labelledby="gt-companion" hidden>
       <div class="shot"><img class="logo-l" src="assets/screens/companion-light.webp" alt="The Studyboard Companion screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/companion-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
       <p class="cap">Ask your companion what to work on next, what is due, or to quiz you on a deck.</p>
     </div>
     <div class="gpanel" role="tabpanel" id="gp-style" aria-labelledby="gt-style" hidden>
       <div class="shot"><img class="logo-l" src="assets/screens/style-light.webp" alt="The Studyboard Style Shop screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/style-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
-      <p class="cap">Pick a theme, or try a Pro collection free for five minutes.</p>
+      <p class="cap">The Style Shop: featured collections, everything that's yours in one place, and Build Your Look to try a theme with flashcard styles, pins and map styles from other collections.</p>
     </div>
   </div>
 </section>
@@ -328,9 +371,10 @@
         <figure class="tile" data-scene="nursing" data-comp="nursing-heart"><img class="logo-l" src="assets/screens/theme-nursing-light.webp" alt="The Studyboard Task Board with the Night Shift theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-nursing-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Night Shift<small>Study Fields</small></figcaption></figure>
         <figure class="tile" data-scene="compsci" data-comp="compsci-duck"><img class="logo-l" src="assets/screens/theme-compsci-light.webp" alt="The Studyboard Task Board with the Code Night theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-compsci-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Code Night<small>Study Fields</small></figcaption></figure>
     </div>
-    <p class="muted mt16">Every scene theme comes with its own stickers, pins and flashcard style.</p>
+    <p class="muted mt16">Every scene theme comes with its own companions, stickers, pins, flashcard style and concept map style.</p>
     <ul class="perks mt16">
       <li>Try 3 Pro collections free for 5 minutes each, right in the Style Shop.</li>
+      <li>See everything that's yours in one place, and use Build Your Look to try a theme with flashcard styles, pins and map styles from other collections.</li>
       <li>Turn your own photo into a full theme with matching colors.</li>
       <li>A term scrapbook fills with stickers for real milestones: grades, finished work and focus hours.</li>
       <li>Made to be readable: Atkinson Hyperlegible type, screen reader labels and calm motion when you ask for it.</li>
@@ -405,7 +449,7 @@
         <tr><th scope="row">Cloud file storage</th><td>20 MB</td><td>10 GB</td></tr>
         <tr><th scope="row">Synced data</th><td>20 MB</td><td>250 MB</td></tr>
         <tr><th scope="row">Themes and styles</th><td>14 plain themes, plus 3 free 5-minute previews of Pro collections</td><td>All 68 animated themes and every premium flashcard style, pin and sticker pack</td></tr>
-        <tr><th scope="row">Study group size and history</th><td>5 members, 60 days of messages</td><td>Up to 5 Pro groups, each with 100 members and unlimited history</td></tr>
+        <tr><th scope="row">Study group size and history</th><td>5 members, 60 days of messages, 3 shared whiteboards and concept maps</td><td>Up to 5 Pro groups, each with 100 members, unlimited history and 10 shared whiteboards and concept maps</td></tr>
         <tr><th scope="row">Google Drive and OneDrive (files and hourly backups)</th><td>Included</td><td>Included</td></tr>
         <tr><th scope="row">Online backup history</th><td>Backups stay on your device</td><td>30 days online</td></tr>
         <tr><th scope="row">Studyboard AI, built in</th><td>Use your own free Gemini key</td><td>Included, with a usage allowance</td></tr>
@@ -444,7 +488,7 @@
     <details class="faq"><summary>Is there a web version?</summary><p>Yes. Open Studyboard in any modern browser and it works right away. Use your browser's install option, or Add to Home Screen on a phone, to open it like an app.</p></details>
     <details class="faq"><summary>When can I download the apps?</summary><p>The iPhone and iPad app is on the <a href="https://apps.apple.com/us/app/studyboard-student-planner/id6828721365">App Store</a>, and the Windows app is on the Microsoft Store. The Mac, Linux and Android apps are being prepared. The School Sync extension is in the Chrome Web Store, Microsoft Edge Add-ons and Firefox Add-ons. Those buttons switch on as soon as each one is published, and your account and data work the same everywhere.</p></details>
     <details class="faq"><summary>Does it work with Siri?</summary><p>Yes, on iPhone and iPad. Ask Siri to add a task, what's due, when something is due, your grade in a course, your class times or today's plan, mark a task done, or start, pause and stop a focus session. A running focus session shows on the Lock Screen and in the Dynamic Island.</p></details>
-    <details class="faq"><summary>Is the planner really free?</summary><p>Yes. The whole planner, flashcards with smart scheduling, quizzes, Match, Grade Tracker, Today's Plan, Focus, Search Everywhere, study groups of 5 and Google Drive and OneDrive are free, with no ads and no time limit. Pro adds Studyboard AI, the PDF editor and Scan to PDF, lecture recording, unlimited Quiz Me, Teach It Back and Rubric Check, Autopilot, Smart Reminders, Insights, Version History, two-way calendar sync, unlimited devices, more storage, bigger groups, every Focus sound and every theme.</p></details>
+    <details class="faq"><summary>Is the planner really free?</summary><p>Yes. The whole planner, flashcards with smart scheduling, quizzes, Match, concept maps, whiteboards, Grade Tracker, Today's Plan, Focus, Search Everywhere, study groups of 5 and Google Drive and OneDrive are free, with no ads and no time limit. Pro adds Studyboard AI, Writing Studio, the PDF editor and Scan to PDF, lecture recording, unlimited Quiz Me, Teach It Back and Rubric Check, Autopilot, Smart Reminders, Insights, Version History, two-way calendar sync, unlimited devices, more storage, bigger groups, every Focus sound and every theme.</p></details>
     <details class="faq"><summary>Can I find flashcards for my course?</summary><p>Yes. The <a href="/flashcards">Flashcards</a> and <a href="/quizzes">Quizzes</a> pages hold sets shared by students, plus sample sets from @studyboard made from public course materials. Search by course code or school, then study online or add a set to Studyboard in one tap.</p></details>
     <details class="faq"><summary>Do I need an account?</summary><p>You need one Studyboard account to sync between devices and to buy Pro. Create it in the app or on the <a href="account/">account page</a> with your email, or sign in with Apple, Google or Microsoft. The same sign-in works on every device, so an account you made with Apple on your iPhone also works on a Windows computer.</p></details>
     <details class="faq"><summary>How does the AI work?</summary><p>AI is optional and off until you turn it on. With a paid Pro plan, Studyboard AI is included: it runs on Anthropic's Claude through Studyboard's server, within a usage allowance, and Settings shows how much of it you've used. On any plan you can add your own free Gemini key (or a Claude or ChatGPT key) instead, and then the content for a request goes straight from your device to the company you chose. Your companion is the face of those features.</p></details>
