@@ -9,7 +9,8 @@ function scheduleRender(){
   focusStale(); renderAsk++;
   if (renderQueued) return;
   renderQueued = true;
-  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } renderQueued = false; if (renderSkip === renderAsk) return; renderGo = true; try { render(); } finally { renderGo = false; } };
+  // a redraw waits while a card or tab is being dragged to reorder it (it would remove the item being dragged)
+  const go = () => { const w = renderHold - Date.now(); if (w > 0) { setTimeout(() => requestAnimationFrame(go), w); return; } if (document.body.classList.contains("sorting")) { setTimeout(() => requestAnimationFrame(go), 120); return; } renderQueued = false; if (renderSkip === renderAsk) return; renderGo = true; try { render(); } finally { renderGo = false; } };
   requestAnimationFrame(go);
 }
 // A finished check pops before the list redraws (phones, when motion is on)

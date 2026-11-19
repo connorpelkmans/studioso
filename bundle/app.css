@@ -10081,3 +10081,5 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .pr-chips.segb > .pr-chip span{font-size:.72rem}
 .pr-chips.segb > .pr-chip.pr-new{border:0!important}
 .pr-chips.segb > .pr-chip.pr-new b{color:var(--accent)}
+/* Reordering board tabs: the drop outline is the tab's own size, so the tab row doesn't grow while dragging */
+.nb-tlist > .sort-ph{min-height:0!important;margin:0;align-self:center}
