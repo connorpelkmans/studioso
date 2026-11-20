@@ -478,9 +478,11 @@ function panelHtml(o){
   if (M.gRights && g) return `<div class="cm-gpanel"><p style="margin:0"><b>Pictures on a group map</b> <span class="mini">Everyone in ${esc(g.gn || "the group")} sees the pictures on this map. Only add pictures you took or made yourself, or have permission to share.</span></p>${G() && G().rightsBox ? G().rightsBox("pic") : ""}<div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="g-rights-x">Cancel</button><button type="button" class="btn small primary" data-cm="g-rights-ok">Continue</button></div></div>`;
   if (M.gWho && g && !M.sel && !M.selE) {
     const a = ACC.get(g.bid), ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me())), ed = editingNow(g.gid);
-    return `<div class="cm-gpanel"><div class="cm-row cm-ttl"><b>Shared with ${esc(g.gn || "your study group")}</b><span class="mini">Live: what anyone here changes shows up for everyone as it happens.${ed.length ? ` ${esc(ed.join(", "))} ${ed.length === 1 ? "is" : "are"} editing now.` : ""}</span><span class="spacer"></span>${G() && G().openBoards ? `<button type="button" class="btn small" data-cm="g-go">Go to Group</button>` : ""}<button type="button" class="icon-btn cm-pclose" data-cm="g-who-x" aria-label="Done" title="Done">${CLOSE}</button></div>
+    // the title with Done beside it, what Live means, who has it, and Go to Group at the end
+    return `<div class="cm-gpanel"><div class="cm-gp-h"><b>Shared with ${esc(g.gn || "your study group")}</b><button type="button" class="icon-btn cm-pclose" data-cm="g-who-x" aria-label="Done" title="Done">${CLOSE}</button></div>
+      <p class="mini cm-gp-live">Live: what anyone here changes shows up for everyone as it happens.${ed.length ? ` ${esc(ed.join(", "))} ${ed.length === 1 ? "is" : "are"} editing now.` : ""}</p>
       <ul class="wbg-people cm-gpeople">${ids.map(id => `<li>${faceOf(g.gid, id)}${esc(memberName(g.gid, id))}</li>`).join("")}</ul>
-      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Shared tab. Undo only takes back your own changes. Deleting your copy only removes yours.</p></div>`;
+      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Shared tab. Undo only takes back your own changes. Deleting your copy only removes yours.</p>${G() && G().openBoards ? `<div class="cm-gp-acts"><button type="button" class="btn small" data-cm="g-go">Go to Group</button></div>` : ""}</div>`;
   }
   return "";
 }
@@ -707,7 +709,11 @@ html[data-theme=dark] .cm-glive{color:#7FE3A6}
 .cm-node.cm-peer .cm-shape,.cm-node.cm-peer rect:first-child{stroke:var(--peer)!important;stroke-width:3.2px!important}
 .cm-node.cm-peer{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--peer) 55%,transparent))}
 .cm-peertag{font:700 11px var(--display,system-ui);fill:var(--peer);paint-order:stroke;stroke:var(--surface);stroke-width:3px;pointer-events:none}
-.cm-gpanel{display:grid;gap:8px}.cm-gpeople{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.cm-gpanel{display:grid;gap:8px}
+.cm-gp-h{display:flex;align-items:center;gap:10px}.cm-gp-h > b{flex:1 1 auto;min-width:0;font-size:1.05rem}
+.cm-gp-live{margin:0}
+.cm-gp-acts{display:flex;justify-content:flex-end;margin-top:2px}
+@media (max-width:640px){.cm-gp-acts > .btn{flex:1 1 auto;justify-content:center}}.cm-gpeople{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .cm-gpriv{display:grid;gap:6px}
 .cmg-pv{background:radial-gradient(circle,color-mix(in srgb,var(--c) 30%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 12%,var(--surface)),color-mix(in srgb,var(--c) 4%,var(--surface)))}
 .cmg-card .cm-csub.cmg-who{display:flex;align-items:center;gap:8px;overflow:visible;-webkit-line-clamp:unset}
