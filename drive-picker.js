@@ -4,7 +4,8 @@
      app -> picker  {sbPicker: "go", token, key, appId}      (the short-lived Drive token, never put in the address)
      picker -> app  {sbPicker: "ready"} then {sbPicker: "done", id, name} or {sbPicker: "cancel"} or {sbPicker: "error", message}
    With mode "files" (a class's notes and slides) it picks up to 20 files instead: {sbPicker: "done", docs: [{id, name, mimeType, url, size}]}
-   With mode "gdoc" (Writing Studio's linked document) it picks one Google Doc, answered the same way
+   With mode "gdoc" (Writing Studio's linked document) it picks one Google Doc, answered the same way, and with mode "gslides"
+   (presentation practice) one Google Slides presentation
    Only the page that opened this one, on the same site, is listened to or answered. */
 (function(){
   "use strict";
@@ -16,16 +17,16 @@
   function load(src){ return new Promise(function(ok, no){ var s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = function(){ no(new Error("Couldn't load Google's picker. Check your connection.")); }; document.head.appendChild(s); }); }
   function show(a){
     var g = window.google;
-    var gdoc = a.mode === "gdoc", files = a.mode === "files" || gdoc;
+    var slides = a.mode === "gslides", gdoc = a.mode === "gdoc" || slides, files = a.mode === "files" || gdoc;
     var view = files && !gdoc ? new g.picker.DocsView(g.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false)
       : new g.picker.DocsView(g.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes("application/vnd.google-apps.folder");
-    var b = new g.picker.PickerBuilder().setAppId(a.appId).setDeveloperKey(a.key).setOAuthToken(a.token).setOrigin(location.origin).setTitle(gdoc ? "Choose your Google Doc" : files ? "Choose files for this class" : "Choose a folder for Studyboard");
+    var b = new g.picker.PickerBuilder().setAppId(a.appId).setDeveloperKey(a.key).setOAuthToken(a.token).setOrigin(location.origin).setTitle(slides ? "Choose your Google Slides presentation" : gdoc ? "Choose your Google Doc" : files ? "Choose files for this class" : "Choose a folder for Studyboard");
     // a Google Doc: a list of every doc first (with their dates, and Google's search box), then the same by folder, shared, starred and on
     // shared drives; each tab is tried on its own, so an option an older Picker doesn't know just leaves that tab plain
     if (gdoc) {
-      var DOC = "application/vnd.google-apps.document";
+      var DOC = slides ? "application/vnd.google-apps.presentation" : "application/vnd.google-apps.document";
       var docs = function(o){
-        var v = new g.picker.DocsView(g.picker.ViewId.DOCUMENTS).setMimeTypes(DOC).setSelectFolderEnabled(false).setIncludeFolders(!!o.folders);
+        var v = new g.picker.DocsView(slides ? g.picker.ViewId.PRESENTATIONS : g.picker.ViewId.DOCUMENTS).setMimeTypes(DOC).setSelectFolderEnabled(false).setIncludeFolders(!!o.folders);
         try { v.setMode(g.picker.DocsViewMode.LIST); } catch (e) {}
         if (o.folders) try { v.setParent("root"); } catch (e) {}
         if (o.owned != null) try { v.setOwnedByMe(o.owned); } catch (e) {}
@@ -34,7 +35,7 @@
         try { v.setLabel(o.label); } catch (e) {}
         return v;
       };
-      b.addView(docs({label: "All My Docs"})).addView(docs({label: "Folders", folders: true})).addView(docs({label: "Shared with Me", owned: false})).addView(docs({label: "Starred", starred: true}));
+      b.addView(docs({label: slides ? "All My Presentations" : "All My Docs"})).addView(docs({label: "Folders", folders: true})).addView(docs({label: "Shared with Me", owned: false})).addView(docs({label: "Starred", starred: true}));
       try { b.enableFeature(g.picker.Feature.SUPPORT_DRIVES); b.addView(docs({label: "Shared Drives", drives: true})); } catch (e) {}
       try { b.addView(new g.picker.View(g.picker.ViewId.RECENTLY_PICKED).setMimeTypes(DOC)); } catch (e) {}
       try { b.setSize(Math.min(1051, window.innerWidth - 24), Math.min(650, window.innerHeight - 24)); } catch (e) {}

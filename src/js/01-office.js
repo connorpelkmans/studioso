@@ -135,8 +135,8 @@ const OFFICE = (() => {
   const on = (e, attr) => !e ? undefined : !/^(0|false|off|none)$/i.test(at(e, attr) == null ? "1" : at(e, attr));
 
   /* ---------- the zip, read a part at a time within a total budget ---------- */
-  async function openZip(u8){
-    if (u8.byteLength > ZIP_MAX_IN) throw err("big", "That file is too big to show here. Export it as a PDF instead.");
+  async function openZip(u8, maxIn){
+    if (u8.byteLength > Math.max(ZIP_MAX_IN, maxIn || 0)) throw err("big", "That file is too big to show here. Export it as a PDF instead.");
     const blob = new Blob([u8]), names = [];
     try { await unzipBytes(blob, n => { if (names.length < 5000) names.push(n); return false; }); }
     catch (e) { throw err("bad", "This file looks damaged, so Studyboard can't show it."); }
@@ -921,8 +921,9 @@ const OFFICE = (() => {
     }
     const lists = [...T.lists, kid(tx, "a:lstStyle")], th = T.th;
     const cnt = [];
-    let html = "";
+    let html = "", pi = -1;
     for (const p of kids(tx, "a:p")) {
+      pi++;
       const ppr = kid(p, "a:pPr"), lvl = clamp(num(at(ppr, "lvl")), 0, 8), P = {};
       for (const l of lists) if (l) mergeP(P, aPara(lvlEl(l, lvl), th));
       mergeP(P, aPara(ppr, th));
@@ -969,7 +970,7 @@ const OFFICE = (() => {
         if (ind < 0) mc.push(`min-width:${R(-ind)}px`);
         mk = `<span class="ofc-li" style="${qa(mc.join(";"))}">${esc(marker)}${ind < 0 ? "" : " "}</span>`;
       }
-      html += `<div class="ofc-p" style="${qa(s.join(";"))}">${mk}${inner || "<br>"}</div>`;
+      html += `<div class="ofc-p" data-pi="${pi}" style="${qa(s.join(";"))}">${mk}${inner || "<br>"}</div>`;
       if (T.out) T.out.push((marker ? marker + " " : "") + text);
     }
     const ins = (k, d) => R(clamp(emu(bp[k] != null ? bp[k] : d), 0, 2000));
@@ -1239,7 +1240,12 @@ const OFFICE = (() => {
           env.diagram = (gd, xf) => diagrams.get(gd) ? diagrams.get(gd)(env, xf) : "";
         }
         env.count = counter;
-        return flat(tree).map(c => /^(sp|pic|grpSp|graphicFrame|cxnSp)$/.test(ln(c.n)) ? pShape(c, env, baseXf) : "").join("");
+        return flat(tree).map(c => {
+          if (!/^(sp|pic|grpSp|graphicFrame|cxnSp)$/.test(ln(c.n))) return "";
+          const h = pShape(c, env, baseXf); if (!h || layer !== "slide") return h;
+          const nv = kid(c, "p:nvSpPr") || kid(c, "p:nvPicPr") || kid(c, "p:nvGraphicFramePr") || kid(c, "p:nvCxnSpPr") || kid(c, "p:nvGrpSpPr"), id = at(kid(nv, "p:cNvPr"), "id");
+          return id && /^\d{1,9}$/.test(id) ? `<div class="ofc-a" data-sp="${id}" style="display:contents">${h}</div>` : h;
+        }).join("");
       };
       const counter = {n: 0};
       // SmartArt: its saved drawing
@@ -1647,7 +1653,7 @@ const OFFICE = (() => {
     const to = /^(ppt|pps|pot|odp|key)$/.test(ext) ? ".pptx" : /^(xls|xlt|xlsb|ods|numbers)$/.test(ext) ? ".xlsx" : ".docx";
     return err("legacy", `Studyboard can't show ${what} here. Save it as ${to} or PDF and upload it again.`);
   }
-  async function open(bytes, name, type){
+  async function open(bytes, name, type, maxIn){
     const u8 = toU8(bytes);
     let kind = kindOf(name, type);
     const zip = u8[0] === 0x50 && u8[1] === 0x4B, ole = u8[0] === 0xD0 && u8[1] === 0xCF && u8[2] === 0x11 && u8[3] === 0xE0;
@@ -1658,7 +1664,7 @@ const OFFICE = (() => {
       if (kind) throw err("bad", "This file looks damaged, so Studyboard can't show it.");
       throw err("unsupported", "Studyboard can't show this kind of file.");
     }
-    const z = await openZip(u8);
+    const z = await openZip(u8, maxIn);
     if (!kind || kind === "legacy") {
       const k = z.has("word/document.xml") ? "docx" : z.has("ppt/presentation.xml") ? "pptx" : z.has("xl/workbook.xml") ? "xlsx" : "";
       if (!k) { if (kind === "legacy") throw legacyErr(name); throw err("unsupported", "Studyboard can't show this kind of file."); }
@@ -1675,7 +1681,7 @@ const OFFICE = (() => {
   const live = new WeakMap();
   async function render(bytes, name, opts){
     opts = opts || {};
-    const ctx = newCtx(false), o = await open(bytes, name, opts.type);
+    const ctx = newCtx(false), o = await open(bytes, name, opts.type, opts.maxIn);
     try {
       const M = await model(o, ctx);
       if (o.z) await loadImgs(o.z, ctx);

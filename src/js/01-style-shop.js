@@ -2036,7 +2036,7 @@ document.addEventListener("change", e => {
 });
 
 const AI_ACTS = {
-  "cf-view": el => { const v = el.dataset.id; if (dlg.open && dlg.contains(el)) dlg.close(); ui.tab = v === "files" ? "files" : v === "emails" ? "emails" : "courses"; ui.courseId = null; ui.courseTab = v === "grades" ? "grades" : ""; ui.courseTabFor = null; render(); window.scrollTo(0, 0); },
+  "cf-view": el => { const v = el.dataset.id; if (dlg.open && dlg.contains(el)) dlg.close(); ui.tab = v === "files" ? "files" : v === "emails" ? "emails" : "courses"; ui.courseId = null; ui.courseTab = v === "grades" ? "grades" : v === "writing" ? "writing" : ""; ui.courseTabFor = null; render(); window.scrollTo(0, 0); },
   "plan-view": el => { const t = el.dataset.id === "schedule" || el.dataset.id === "crunch" ? el.dataset.id : "timeline"; if (t === "timeline" && ui.tab !== "timeline") ui.tlJump = true; ui.tab = t; render(); window.scrollTo(0, 0); },
   "bview": el => { ui.bview = el.dataset.id; try { localStorage.setItem("studyboard:bview", ui.bview); } catch(e) {} render(); window.scrollTo(0, 0); },
   "qa-add": () => qaAdd(), "qa-full": () => qaFull(), "qa-cancel": () => { ui.qa = null; render(); },

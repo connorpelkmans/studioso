@@ -26,11 +26,11 @@ function popDone(el){
 function fabConfig(){
   if ((VIEWS[ui.tab] && ui.tab !== "groups") || ui.tab === "archive") return null;
   if (ui.tab === "courses" && ui.courseId && ui.courseTab === "lectures" && ui.courseTabFor === ui.courseId && window.SBLEC && SBLEC.canAdd()) return {act: "fab-lecture", label: "Add Lecture"};
-  if (ui.tab === "courses") return ui.courseId || ui.courseTab === "grades" ? null : {act: "fab-course", label: "Add Course"};
+  if (ui.tab === "courses") return ui.courseId || ui.courseTab === "grades" || ui.courseTab === "writing" ? null : {act: "fab-course", label: "Add Course"};
   if (ui.tab === "files") return {act: "fab-file", label: "Add File"};
   if (ui.tab === "schedule") return {act: "sch-add", label: "Add Event"};
   if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "New Whiteboard"} : {act: "fab-note", label: "Add Note"};
-  if (ui.tab === "flashcards") { const dk = $("#view [data-fc-deck]"); return dk ? {act: "fc-add", label: "Add Card", id: dk.dataset.fcDeck} : $("#view [data-fc-list]") ? {act: "fab-deck", label: "Add Deck"} : $("#view [data-qz-list]") ? {act: "qz-add", label: "Add Quiz"} : $("#view [data-cm-list]") ? {act: "cm-new", label: "Add Map"} : null; }
+  if (ui.tab === "flashcards") { const dk = $("#view [data-fc-deck]"); return dk ? {act: "fc-add", label: "Add Card", id: dk.dataset.fcDeck} : $("#view [data-fc-list]") ? {act: "fab-deck", label: "Add Deck"} : $("#view [data-qz-list]") ? {act: "qz-add", label: "Add Quiz"} : $("#view [data-cm-list]") ? {act: "cm-new", label: "Add Map"} : $("#view [data-pr-list]") ? {act: "pr-new", label: "Add Presentation"} : null; }
   if (ui.tab === "groups") return $("#view [data-grp-list]") ? {act: "fab-group", label: "Add Group"} : (window.SBGRPFAB && window.SBGRPFAB()) || null;
   return {act: "new-task", label: "Add Task"};
 }
@@ -628,7 +628,7 @@ function taskForm(t, preset = {}){
       <fieldset><legend id="prioLbl">Priority</legend>${seg("priority", [["low","Low"],["med","Medium"],["high","High"],["urgent","Urgent"]], t.priority)}</fieldset>
       <label class="f" id="pctWrap" ${isNew ? "hidden" : ""}><span><span class="lbl" id="pctLbl">Progress</span> <span class="hint" id="pctOut">${t.pct}%</span></span><input type="range" name="pct" min="0" max="100" step="10" value="${t.pct}"><span class="mini" id="pctHint"></span></label>
       <p class="mini" id="pctFromCl" hidden style="margin:0"></p>
-      ${!isNew && window.SBPREP ? SBPREP.formHtml(t) : ""}
+      ${!isNew && window.SBPREP ? SBPREP.formHtml(t) : ""}${!isNew && window.SBPRESENT && SBPRESENT.taskHtml ? SBPRESENT.taskHtml(t) : ""}
       <label class="f"><span class="lbl" id="notesLbl">Notes</span><textarea name="notes" maxlength="5000">${esc(t.notes)}</textarea></label>
       ${window.SBDOCS ? SBDOCS.formHtml(t) : ""}
       ${!isNew && window.SBLMS_TASK ? SBLMS_TASK(t) : ""}

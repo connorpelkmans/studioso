@@ -1105,6 +1105,8 @@
   viewCourses = function(){
     const html = origCourses.apply(this, arguments);
     if (ui.courseId) return html;
+    // Writing Studio sits in Courses, beside Files
+    if (ui.courseTab === "writing" && typeof rvWriting === "function" && rvWriting()) return SBWRITE.reviewHtml();
     if (!coursesArr().length) return html;
     if (ui.courseTab === "grades") { try { return gradesPage(); } catch (err) { console.warn("grades: page", err); return html; } }
     return html;

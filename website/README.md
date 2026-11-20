@@ -38,3 +38,24 @@ screen, stop when it is off screen or the tab is hidden, and respect "reduce mot
 The tiles and the hero use real-interface pictures: `assets/screens/ui-<theme>-<light|dark>.webp` (the app's interface on a transparent background, with the scene and the companion taken out) and
 `assets/screens/hero-*.webp`, plus `assets/tile-geo.js`, which says where the scene and the companion sit. Make them again with `node tools/capture-site-screens.js --overlays <folder> --scale 2`, convert the PNGs
 to WebP, and copy the numbers from `geometry.json` into `tile-geo.js`. Only the companion on the first screen (the hero) speaks; the others just move.
+
+## Test site (before the real site)
+
+Every push to a branch other than `main` builds the whole site (the web app at `/` and this website at `/website/`) and puts it at an
+unlisted test address, without touching the real site:
+
+- **Test site:** https://test-studioso.connor-pelkmans.workers.dev/website/ (the app: https://test-studioso.connor-pelkmans.workers.dev/)
+- **Real site:** https://studyboardapp.com, which only changes when something is merged into `main`.
+
+How it works: the `studioso` Worker in Cloudflare has two Workers Builds triggers. The one for `main` runs `npx wrangler deploy` (the real
+site). The second, "Test site (every branch except main)", runs `npx wrangler versions upload --preview-alias test`, which uploads a
+preview version under the fixed `test` alias instead of deploying it. Each build also prints a one-off preview URL for that exact version.
+Both are in Cloudflare: Workers & Pages, studioso, Settings, Build.
+
+Good to know:
+- The test address is the newest push to any non-`main` branch, so two branches pushed close together replace each other there.
+- Test pages answer with `X-Robots-Tag: noindex`, so search engines leave them out. Anyone with the link can still open them.
+- It uses the same Supabase project, server functions and accounts as the real site: signing in, buying, sharing and syncing there are real.
+- Links in sign-in emails and Google or Apple sign-in return to the address Supabase allows (the real site) unless the test address is
+  added to Supabase's Redirect URLs (Authentication, URL Configuration). Email and password sign-in works on the test site as it is.
+- To publish: merge the branch into `main`. To turn the test site off, delete or pause the second trigger in Cloudflare.

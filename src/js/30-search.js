@@ -216,6 +216,7 @@
     add("Import a Calendar", "From Apple Calendar, Google Calendar or Outlook", tabAct("schedule", "sch-ics"), "ics");
     add("Review Due Flashcards", "Study every card that's due today", act("fc-review-all"), "study spaced");
     add("Focus Timer", "Pomodoro timer for a study session", act("pomo-open"), "pomodoro study");
+    add("Practice a Presentation", "Time yourself on your slides, slide by slide, and record a run", act("pr-new"), "presentation speech talk slides powerpoint google slides rehearse practice timer");
     if (!inPreview()) {
       add("Create Flashcards with AI", "Make cards and practice questions from your slides or notes", tabAct("flashcards", "fc-ai"), "study set quiz generate");
       add("Photo to Note", "Turn a photo of the board or a slide into a note", tabAct("notes", "note-photo"), "camera picture");

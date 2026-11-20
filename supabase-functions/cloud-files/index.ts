@@ -1,10 +1,11 @@
-// Studyboard: cloud-files (Supabase Edge Function) · Google Drive, OneDrive, Google Classroom (read-only, for school sync), OneNote and OneNote Class Notebooks
+// Studyboard: cloud-files (Supabase Edge Function) · Google Drive, OneDrive, Google Classroom (read-only, for school sync), OneNote, OneNote Class Notebooks
+// and Canva (read-only: your designs, exported as PDF and PowerPoint for presentation practice)
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
-export type Provider = "google" | "microsoft" | "classroom" | "onenote" | "onenote_class";
+export type Provider = "google" | "microsoft" | "classroom" | "onenote" | "onenote_class" | "canva";
 
-const PROVIDERS: Provider[] = ["google", "microsoft", "classroom", "onenote", "onenote_class"];
+const PROVIDERS: Provider[] = ["google", "microsoft", "classroom", "onenote", "onenote_class", "canva"];
 const FN = "cloud-files";
 const enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -50,13 +51,13 @@ export async function readState(secret: string, s: string, nowMs: number): Promi
 /* ================= Google and Microsoft sign-in ================= */
 export class ProviderError extends Error { status: number; reauth: boolean; constructor(status: number, reauth = false, msg = "") { super(msg || "provider " + status); this.status = status; this.reauth = reauth; } }
 type Adapter = {
-  configured(): boolean; authUrl(state: string, redirect: string): string;
-  exchange(code: string, redirect: string): Promise<{ refresh: string; access: string; expires: number; account: string }>;
+  configured(): boolean; authUrl(state: string, redirect: string): string | Promise<string>;
+  exchange(code: string, redirect: string, state: string): Promise<{ refresh: string; access: string; expires: number; account: string }>;
   refresh(rt: string): Promise<{ access: string; expires: number; refresh?: string }>;
   revoke(rt: string): Promise<void>;
 };
-async function tokenCall(d: Deps, url: string, form: Record<string, string>): Promise<any> {
-  const r = await d.fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(form).toString() });
+async function tokenCall(d: Deps, url: string, form: Record<string, string>, auth = ""): Promise<any> {
+  const r = await d.fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", ...(auth ? { Authorization: auth } : {}) }, body: new URLSearchParams(form).toString() });
   const j = await r.json().catch(() => ({})) as any;
   if (!r.ok) throw new ProviderError(r.status, j && (j.error === "invalid_grant" || j.error === "interaction_required" || j.error === "consent_required"));
   return j;
@@ -108,7 +109,37 @@ export function microsoft(d: Deps, scope = MS_SCOPE): Adapter {
     async revoke() { },
   };
 }
-export const adapters = (d: Deps): Record<Provider, Adapter> => ({ google: google(d), microsoft: microsoft(d), classroom: google(d, CLASSROOM_SCOPE, "classroom.coursework.me"), onenote: microsoft(d, ONENOTE_SCOPE), onenote_class: microsoft(d, ONENOTE_CLASS_SCOPE) });
+// Canva Connect: read your designs (to list them) and their content (to export them), and your name (to show which account).
+// Canva requires PKCE. The verifier is made from the signed state with the server's own key, so only this server can redeem the code.
+export const CANVA_SCOPE = "design:meta:read design:content:read profile:read";
+export const CANVA_API = "https://api.canva.com/rest/v1";
+export async function pkce(secret: string, state: string): Promise<{ verifier: string; challenge: string }> {
+  const verifier = b64u(await crypto.subtle.sign("HMAC", (await keys(secret)).mac, enc.encode("canva-pkce|" + state)));
+  return { verifier, challenge: b64u(await crypto.subtle.digest("SHA-256", enc.encode(verifier))) };
+}
+export function canva(d: Deps): Adapter {
+  const id = d.env("CANVA_CLIENT_ID"), secret = d.env("CANVA_CLIENT_SECRET"), basic = () => "Basic " + btoa(id + ":" + secret);
+  return {
+    configured: () => !!id && !!secret,
+    async authUrl(state, redirect) {
+      const { challenge } = await pkce(secretOf(d), state);
+      return "https://www.canva.com/api/oauth/authorize?" + new URLSearchParams({ code_challenge: challenge, code_challenge_method: "s256", scope: CANVA_SCOPE, response_type: "code", client_id: id, state, redirect_uri: redirect }).toString();
+    },
+    async exchange(code, redirect, state) {
+      const { verifier } = await pkce(secretOf(d), state);
+      const j = await tokenCall(d, `${CANVA_API}/oauth/token`, { grant_type: "authorization_code", code, code_verifier: verifier, redirect_uri: redirect }, basic());
+      if (!j.refresh_token || !j.access_token) throw new ProviderError(400, false, "no refresh token");
+      if (typeof j.scope === "string" && !j.scope.includes("design:content:read")) throw new ProviderError(403, false, "scope not allowed");
+      let account = "";
+      try { const r = await d.fetch(`${CANVA_API}/users/me/profile`, { headers: { Authorization: `Bearer ${j.access_token}` } }); const me = await r.json() as any; account = String(me && me.profile && me.profile.display_name || ""); } catch (_e) { }
+      return { refresh: j.refresh_token, access: j.access_token, expires: secs(j.expires_in), account };
+    },
+    // Canva's refresh tokens are single-use: each refresh hands back the next one
+    async refresh(rt) { const j = await tokenCall(d, `${CANVA_API}/oauth/token`, { grant_type: "refresh_token", refresh_token: rt }, basic()); return { access: j.access_token, expires: secs(j.expires_in), refresh: j.refresh_token }; },
+    async revoke(rt) { try { await d.fetch(`${CANVA_API}/oauth/revoke`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: basic() }, body: new URLSearchParams({ token: rt }).toString() }); } catch (_e) { } },
+  };
+}
+export const adapters = (d: Deps): Record<Provider, Adapter> => ({ google: google(d), microsoft: microsoft(d), classroom: google(d, CLASSROOM_SCOPE, "classroom.coursework.me"), onenote: microsoft(d, ONENOTE_SCOPE), onenote_class: microsoft(d, ONENOTE_CLASS_SCOPE), canva: canva(d) });
 
 /* ================= Plumbing ================= */
 const CORS: Record<string, string> = {
@@ -159,7 +190,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
   for (const c of chunks) { all.set(c, o); o += c.byteLength; }
   return dec.decode(all);
 }
-const NAME: Record<Provider, string> = { google: "Google Drive", microsoft: "OneDrive", classroom: "Google Classroom", onenote: "OneNote", onenote_class: "OneNote Class Notebooks" };
+const NAME: Record<Provider, string> = { google: "Google Drive", microsoft: "OneDrive", classroom: "Google Classroom", onenote: "OneNote", onenote_class: "OneNote Class Notebooks", canva: "Canva" };
 const HTML_HEAD = (title: string) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0E2A56;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#0E2A56}main{background:#fff;border-radius:18px;padding:28px 26px;max-width:440px;margin:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}h1,b.t{display:block;font-size:1.25rem;margin:8px 0}i{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:50%;color:#fff;font-style:normal;font-size:1.6rem}p{margin:6px 0 18px;color:#40506B}button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 22px;background:#2563EB;color:#fff;cursor:pointer}</style></head>`;
 const SAFE_HEADERS = (formOk: boolean) => ({ "Content-Type": "text/html; charset=utf-8", "X-Studyboard-Page": "html", "Cache-Control": "no-store", "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'; ${formOk ? "form-action 'self'; " : ""}frame-ancestors 'none'`, "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" });
@@ -187,7 +218,7 @@ async function begin(req: Request, url: URL, d: Deps, A: Record<Provider, Adapte
     log("begin_to_site");
     return new Response(null, { status: 302, headers: { Location: `${redirectOf(d)}?begin=${encodeURIComponent(raw)}`, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   }
-  return new Response(null, { status: 302, headers: { Location: A[st.p].authUrl(raw, redirectOf(d)), "Set-Cookie": setCookie(st.n, 900), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+  return new Response(null, { status: 302, headers: { Location: await A[st.p].authUrl(raw, redirectOf(d)), "Set-Cookie": setCookie(st.n, 900), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
 }
 async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Adapter>, log: Log): Promise<Response> {
   const secret = secretOf(d);
@@ -200,7 +231,7 @@ async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Ada
   }
   const code = url.searchParams.get("code") || ""; if (!code || code.length > 2000) return page("Not connected", "Something was missing. Try again from Studyboard.", false);
   try {
-    const t = await A[st.p].exchange(code, redirectOf(d));
+    const t = await A[st.p].exchange(code, redirectOf(d), url.searchParams.get("state") || "");
     const box = await seal(secret, JSON.stringify({ u: st.u, p: st.p, n: st.n, rt: t.refresh, a: t.account.slice(0, 200), e: Math.floor(d.now() / 1000) + 600 }), "confirm", FN);
     const sb = await studyboardEmail(d, st.u);
     log("cb_confirm", { provider: st.p });
@@ -208,11 +239,12 @@ async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Ada
       : st.p === "classroom" ? "Studyboard reads your classes, your classwork with its due dates, whether you've turned it in and your grades, and announcements. It can't change or turn in anything."
       : st.p === "onenote" ? "Studyboard reads the notebook sections you choose, to bring their pages in as notes, and adds a page when you choose Save to OneNote. It never changes or deletes your pages."
       : st.p === "onenote_class" ? "Studyboard reads the names of your class teams and the OneNote Class Notebooks shared with you, to bring the sections you choose in as notes. It can't change anything in them."
+      : st.p === "canva" ? "Studyboard lists your designs and downloads the presentations you choose to practise, as a PDF and a PowerPoint copy. It can't change or share anything in Canva."
       : "Studyboard saves into a folder called “Studyboard” (or one you choose) and reads only the folders you ask it to watch. It never deletes anything.";
     return confirmPage(`Connect ${NAME[st.p]}?`, `Connect <b>${htmlEsc(t.account || NAME[st.p])}</b> to the Studyboard account <b>${htmlEsc(sb || "(no email address)")}</b>? ${what}<br><br><b>Only continue if this is your Studyboard account.</b> If someone sent you this link, close this page.`, box);
   } catch (e) {
     log("cb_error", { provider: st.p, status: e instanceof ProviderError ? e.status : 0 });
-    return page("Not connected", e instanceof ProviderError && e.status === 403 ? (st.p === "classroom" ? "Studyboard needs permission to see your classwork. Try again from Studyboard and leave those boxes ticked." : st.p === "onenote" ? "Studyboard needs permission to read and add OneNote pages. Try again from Studyboard and leave that box ticked." : st.p === "onenote_class" ? "Studyboard needs permission to see your class teams and their notebooks. Try again from Studyboard and leave those boxes ticked." : `Studyboard needs permission to save files in ${NAME[st.p]}. Try again from Studyboard and leave that box ticked.`) : `${NAME[st.p]} didn't finish connecting. Try again from Studyboard.`, false);
+    return page("Not connected", e instanceof ProviderError && e.status === 403 ? (st.p === "classroom" ? "Studyboard needs permission to see your classwork. Try again from Studyboard and leave those boxes ticked." : st.p === "onenote" ? "Studyboard needs permission to read and add OneNote pages. Try again from Studyboard and leave that box ticked." : st.p === "onenote_class" ? "Studyboard needs permission to see your class teams and their notebooks. Try again from Studyboard and leave those boxes ticked." : st.p === "canva" ? "Studyboard needs permission to read your designs. Try again from Studyboard and allow it." : `Studyboard needs permission to save files in ${NAME[st.p]}. Try again from Studyboard and leave that box ticked.`) : `${NAME[st.p]} didn't finish connecting. Try again from Studyboard.`, false);
   }
 }
 async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log: Log): Promise<Response> {
@@ -257,6 +289,57 @@ async function token(uid: string, prov: Provider, d: Deps, A: Record<Provider, A
   return reply({ access: t.access, expires_in: t.expires, account: acct.account || "" }, 200);
 }
 
+/* Canva: its API answers servers only, so listing designs and exporting one come through here, with the person's own token.
+   designs: your designs, newest first (a search, and a page at a time); export: a design as a PDF or a PowerPoint, its file
+   streamed back (or {job} to ask again, when Canva takes longer than a request should wait) */
+const CANVA_ID = /^[A-Za-z0-9_-]{5,60}$/;
+export const canvaFileOk = (u: string) => { try { const x = new URL(u); return x.protocol === "https:" && /(^|\.)canva\.com$/i.test(x.hostname); } catch (_e) { return false; } };
+async function canvaCall(uid: string, b: any, d: Deps, A: Record<Provider, Adapter>, log: Log): Promise<Response> {
+  const t = await token(uid, "canva", d, A, log);
+  if (t.status !== 200) return t;
+  const access = String(((await t.json()) as any).access || ""), H = { Authorization: `Bearer ${access}` };
+  const fail = async (r: Response, what: string) => { log("canva_error", { op: what, status: r.status }); return reply({ error: r.status === 403 || r.status === 404 ? "no_access" : r.status === 429 ? "too many requests" : "provider" }, r.status === 403 || r.status === 404 ? 404 : r.status === 429 ? 429 : 502); };
+  if (b.op === "designs") {
+    const q = new URLSearchParams({ ownership: "any", sort_by: "modified_descending", limit: "40" });
+    if (typeof b.query === "string" && b.query.trim()) q.set("query", b.query.trim().slice(0, 100));
+    if (typeof b.continuation === "string" && b.continuation && b.continuation.length < 600) q.set("continuation", b.continuation);
+    const r = await d.fetch(`${CANVA_API}/designs?${q}`, { headers: H });
+    if (!r.ok) return fail(r, "designs");
+    const j = await r.json() as any;
+    const items = (Array.isArray(j.items) ? j.items : []).filter((x: any) => x && CANVA_ID.test(String(x.id))).map((x: any) => ({ id: String(x.id), title: String(x.title || "").slice(0, 200), pages: Number(x.page_count) || 0,
+      thumb: x.thumbnail && canvaFileOk(String(x.thumbnail.url || "")) ? String(x.thumbnail.url) : "", updated: Number(x.updated_at) || 0 }));
+    log("canva_designs", { n: items.length });
+    return reply({ items, continuation: typeof j.continuation === "string" ? j.continuation : "" }, 200);
+  }
+  if (b.op === "export") {
+    let job = typeof b.job === "string" && CANVA_ID.test(b.job) ? b.job : "";
+    if (!job) {
+      if (!CANVA_ID.test(String(b.design || "")) || !["pdf", "pptx"].includes(b.format)) return reply({ error: "bad request" }, 400);
+      const r = await d.fetch(`${CANVA_API}/exports`, { method: "POST", headers: { ...H, "Content-Type": "application/json" }, body: JSON.stringify({ design_id: b.design, format: { type: b.format } }) });
+      if (!r.ok) return fail(r, "export");
+      job = String(((await r.json()) as any)?.job?.id || ""); if (!CANVA_ID.test(job)) return reply({ error: "provider" }, 502);
+    }
+    // wait a little while for Canva to finish; past that, the app asks again with {job}
+    for (let i = 0; i < 12; i++) {
+      const r = await d.fetch(`${CANVA_API}/exports/${encodeURIComponent(job)}`, { headers: H });
+      if (!r.ok) return fail(r, "export_job");
+      const j = ((await r.json()) as any)?.job || {};
+      if (j.status === "failed") { log("canva_export_failed", { code: String(j.error?.code || "") }); return reply({ error: "export_failed", code: String(j.error?.code || "").slice(0, 60) }, 422); }
+      if (j.status === "success") {
+        const url = String((Array.isArray(j.urls) ? j.urls : [])[0] || "");
+        if (!canvaFileOk(url)) return reply({ error: "provider" }, 502);
+        const f = await d.fetch(url);
+        if (!f.ok || !f.body) return reply({ error: "provider" }, 502);
+        log("canva_export", { format: b.format || "" });
+        return new Response(f.body, { status: 200, headers: { "Content-Type": "application/octet-stream", "Cache-Control": "no-store", ...CORS } });
+      }
+      await new Promise(res => setTimeout(res, i < 4 ? 1000 : 2000));
+    }
+    return reply({ job }, 202);
+  }
+  return reply({ error: "bad request" }, 400);
+}
+
 export async function handle(req: Request, d: Deps): Promise<Response> {
   const t0 = d.now(), url = new URL(req.url);
   const log: Log = (outcome, extra = {}) => d.log(JSON.stringify({ fn: FN, outcome, ms: d.now() - t0, ...extra }));
@@ -275,7 +358,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (text === null) return reply({ error: "bad request" }, 400);
     let b: any; try { b = JSON.parse(text || "{}"); } catch (_e) { b = null; }
     if (!b || typeof b !== "object") return reply({ error: "bad request" }, 400);
-    const providers = { google: A.google.configured(), microsoft: A.microsoft.configured(), classroom: A.classroom.configured(), onenote: A.onenote.configured(), onenote_class: A.onenote_class.configured() };
+    const providers = { google: A.google.configured(), microsoft: A.microsoft.configured(), classroom: A.classroom.configured(), onenote: A.onenote.configured(), onenote_class: A.onenote_class.configured(), canva: A.canva.configured() };
     // The Google Picker's browser key and app (project) number. Both are public by design; they just have to be set as secrets.
     // The app ID must be the project number of the Google client the Drive sign-in uses, or Google gives Studyboard no access to the files
     // chosen (each one then reads as not found). A Google client ID starts with that number, so it's taken from there when it can be.
@@ -299,8 +382,13 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       return reply({ url: `${redirectOf(d)}?begin=${encodeURIComponent(state)}` }, 200);
     }
     if (b.action === "token") {
+      if (prov === "canva") return reply({ error: "bad request" }, 400);
       if (!(await rpc(d, "cloud_touch", { p_uid: uid, p_provider: prov }))) { log("throttled", { provider: prov }); return reply({ error: "too many requests" }, 429); }
       return await token(uid, prov, d, A, log);
+    }
+    if (b.action === "canva" && prov === "canva") {
+      if (!(await rpc(d, "cloud_touch", { p_uid: uid, p_provider: prov }))) { log("throttled", { provider: prov }); return reply({ error: "too many requests" }, 429); }
+      return await canvaCall(uid, b, d, A, log);
     }
     return reply({ error: "bad request" }, 400);
   } catch (e) {

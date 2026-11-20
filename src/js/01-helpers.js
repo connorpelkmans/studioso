@@ -635,6 +635,8 @@ function emptyArt(kind){
       ${[[44, 24, "es-okf"], [66, 16, "es-okf"], [88, 34, "es-goldsoft"], [112, 46, "es-hl2"], [134, 30, "es-goldsoft"], [156, 14, "es-okf"]].map(([x, h, c]) => `<rect class="${c}" x="${x - 7}" y="${76 - h}" width="14" height="${h}" rx="4"/>`).join("")}
       <path class="es-grid" d="M36 77h128"/><circle class="es-hl2" cx="112" cy="20" r="6.5"/><rect class="es-band" x="110.9" y="15.5" width="2.2" height="5.5" rx="1.1"/><circle class="es-band" cx="112" cy="24" r="1.2"/>
       ${star(184, 24, 6, "es-star")}${star(18, 100, 5, "es-star2")}`,
+    present: () => `<rect class="es-card" x="30" y="14" width="118" height="74" rx="8"/><rect class="es-hl2" x="42" y="26" width="58" height="8" rx="4"/><rect class="es-line" x="42" y="42" width="80" height="5" rx="2.5"/><rect class="es-line" x="42" y="54" width="64" height="5" rx="2.5"/><rect class="es-okf" x="112" y="56" width="10" height="20" rx="2"/><rect class="es-goldsoft" x="126" y="46" width="10" height="30" rx="2"/>
+      <path class="es-pole" d="M89 88v22M74 116l15-6 15 6"/><circle class="es-clockface" cx="160" cy="92" r="18"/><path class="es-hand" d="M160 82v10l7 5"/><rect class="es-band" x="155" y="70" width="10" height="5" rx="2.5"/>${star(26, 26, 6, "es-star")}${star(178, 30, 5, "es-star2")}`,
     maps: () => `<path class="es-link" d="M84 40Q60 40 52 28M84 40Q66 52 54 70M116 40Q140 40 150 26M116 40Q136 52 148 70"/>
       <rect class="es-card" x="18" y="16" width="48" height="22" rx="11"/><rect class="es-line" x="28" y="25" width="28" height="4" rx="2"/>
       <rect class="es-okf" x="22" y="60" width="50" height="22" rx="11"/><rect class="es-band" x="32" y="69" width="30" height="4" rx="2"/>

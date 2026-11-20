@@ -459,7 +459,8 @@
     body.querySelectorAll(".ui-sec").forEach(sec => {
       sec.hidden = pick && sec.dataset.f !== f && !(tierPick && sec.dataset.f === "mixed");
       const saved = S.c[sec.dataset.key];
-      setOpen(sec, pick ? true : f === "owned" ? true : saved != null ? !!saved : sec.dataset.f !== "collections");
+      // every section, Theme Collections too, starts open (one you closed yourself stays closed)
+      setOpen(sec, pick ? true : f === "owned" ? true : saved != null ? !!saved : true);
     });
     body.querySelectorAll(".ui-col").forEach(c => { c.hidden = pick && c.dataset.f !== f; });
     body.querySelectorAll(".shop-tile, .shop-pack, .ui-col").forEach(t => t.classList.toggle("ui-gone", f === "owned" && !!t.querySelector(':scope > [data-act="shop-unlock"], :scope > .shop-name [data-act="shop-unlock"], :scope > .ui-col-act [data-act="shop-unlock"]')));
