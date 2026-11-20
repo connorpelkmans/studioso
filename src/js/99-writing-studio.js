@@ -1609,7 +1609,7 @@ function sourcesHtml(t, w){
   const useTxt = s => { const n = w.q.filter(q => q.sid === s.id).length; return [n ? `Quoted ${n === 1 ? "once" : n + " times"}` : "No quotes yet", w.draft ? (U.cited.has(s.id) ? '<span class="ws-yes">Cited in draft ✓</span>' : '<span class="ws-no">Not cited yet</span>') : "", inList ? (inList.has(s.id) ? '<span class="ws-yes">In your list ✓</span>' : '<span class="ws-no">Not in your list</span>') : ""].filter(Boolean).join(" · "); };
   return `${goalHtml(t, w)}<div class="ws-add"><label class="f ws-grow"><span class="lh">Add a source</span><input type="text" data-ws-in placeholder="Paste a DOI, arXiv ID, ISBN or link" value="${esc(W.inp || "")}" autocomplete="off" spellcheck="false" data-noenter></label>
       <button type="button" class="btn primary" data-ws-add ${W.busy ? "disabled" : ""}>${W.busy === "add" ? "Looking Up…" : "Add"}</button></div>
-    <div class="ws-row ws-src-row"><button type="button" class="btn small ws-zbtn" data-ws-zot>${ZICON} ${z ? "From Zotero" : "Connect Zotero"}</button><button type="button" class="btn small" data-ws-imp>Import File</button><button type="button" class="btn small" data-ws-manual>Add by Hand</button>${lib ? `<button type="button" class="btn small" data-ws-lib>My Library <span class="ws-n">${lib}</span></button>` : ""}${files.length ? `<select data-ws-file aria-label="Add a PDF in Studyboard as a source"><option value="">Add a PDF from Studyboard…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
+    <div class="ws-row ws-src-row"><button type="button" class="btn small ws-zbtn" data-ws-zot aria-label="${z ? "From Zotero" : "Connect Zotero"}">${ZICON} <span class="ws-l">${z ? "From Zotero" : "Connect Zotero"}</span><span class="ws-s">Zotero</span></button><button type="button" class="btn small" data-ws-imp aria-label="Import File"><span class="ws-l">Import File</span><span class="ws-s">Import</span></button><button type="button" class="btn small" data-ws-manual>Add by Hand</button>${lib ? `<button type="button" class="btn small" data-ws-lib>My Library <span class="ws-n">${lib}</span></button>` : ""}${files.length ? `<select data-ws-file aria-label="Add a PDF in Studyboard as a source"><option value="">Add a PDF from Studyboard…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}${draftOfferHtml(w, inList)}${alsoHtml(t)}
     ${W.engErr === st ? `<p class="mini ws-err">Couldn't load ${esc(styleName(st))}. ${BUILT_FMT[st] ? "Reload Studyboard and try again." : "It's fetched from zotero.org the first time: check your connection."}</p>` : ""}
     ${B.entries.length ? `<h3 class="fsec ws-bibh">${esc(heading)} <span class="mini">${esc(styleName(st))}${B.ready ? "" : " · formatting…"}</span></h3><ol class="ws-refs${B.hang ? " hang" : ""}">${B.entries.map(e => { const s = w.src.find(y => y.id === e.id); if (!s) return ""; const pdf = s.fid && state.files[s.fid]; return `<li class="ws-ref">
@@ -3060,6 +3060,14 @@ svg.ws-zic{display:block;flex:none}
 .ws-add{display:flex;gap:8px;align-items:flex-end}
 .ws-grow{flex:1 1 auto;min-width:0}
 .ws-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
+/* Add a source: on phones the three ways share one line, with short names (Zotero, Import, Add by Hand) */
+.ws-src-row .ws-s{display:none}
+@media (max-width:520px){
+  .ws-src-row{gap:6px}
+  .ws-src-row > .btn{flex:1 1 auto;min-width:0;justify-content:center;white-space:nowrap;padding-left:10px;padding-right:10px}
+  .ws-src-row .ws-l{display:none}.ws-src-row .ws-s{display:inline}
+  .ws-src-row > select{flex:1 1 100%}
+}
 .ws-row select{min-width:0;max-width:100%;flex:1 1 200px}
 .ws-zbtn svg{vertical-align:-2px;color:#CC2936}
 .ws-priv{margin:0}
