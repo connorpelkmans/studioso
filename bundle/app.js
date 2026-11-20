@@ -5064,41 +5064,124 @@ async function aiSourceFromFile(file){
 const aiSourceBytes = s => s.part.inline_data ? s.part.inline_data.data.length : s.part.text.length;
 
 /* Study sets: flashcards and quizzes from your material */
-const AI_STYLE_GROUPS = ["General Exam Style", "Question Format", "Focus", "Healthcare Exams", "Standardized Exams"];
-const AI_STYLES = [
-  ["Mixed (multiple choice, true/false, short answer)", "A deliberate mix of question types: about 45% single best answer, 15% true/false, 15% select all that apply, 15% short answer and 10% put-in-order.", 0],
-  ["University Midterm", "A typical university midterm: a balanced mix of multiple choice, true/false, a few select-all-that-apply and short-answer questions, ordered from straightforward recall to application.", 0],
-  ["Multiple Choice", "Only single best answer multiple choice, 4 options each, with plausible distractors built from common mistakes. No 'all of the above' or 'none of the above'.", 1],
-  ["True / False", "True or false statements, half true and half false. For each false statement the rationale gives the corrected true statement. Avoid trick wording and absolutes like 'always' and 'never'.", 1],
-  ["Select All That Apply", "Mostly select-all-that-apply questions: 5 or 6 options, 2 to 4 correct, no 'all of the above'. Each option stands alone, and the rationale covers every option.", 1],
-  ["Fill in the Blank", "Cloze-style: flashcard fronts are sentences with a ____ gap, and quiz questions are short-answer questions where the student types the missing term. Blank out the key term, never a trivial word.", 1],
-  ["Short Answer", "Short-answer questions that need a 1 to 3 sentence explanation. The expected answer lists the key points a good answer must include.", 1],
-  ["Put in Order", "Include put-the-steps-in-order questions for processes, pathways, procedures and sequences (4 to 6 steps), plus some single-answer questions about why the order matters.", 1],
-  ["Conceptual (Why / How)", "Conceptual questions: why something happens, how it works, what would change if a variable changed, compare and contrast, and predict the effect. Avoid pure recall. Rationales explain the reasoning.", 1],
-  ["Calculation Problems", "Numerical problem-solving: give all the values in the stem, make the student calculate (short answer with the number and its units), vary the numbers, and show the worked steps in the rationale. Include unit conversions and, where relevant, rates, concentrations or other applied calculations.", 1],
-  ["Scenario / Case-Based", "Each question starts with a short realistic scenario (a business situation, a lab result, a client, a design problem), then asks for the best next step, the most likely cause or the key risk. Test application of the material, not recall.", 1],
-  ["Definitions", "Short term-and-definition flashcards and straightforward recall questions.", 2],
-  ["Common Mistakes", "Target common misconceptions and look-alike concepts: write distractors from the mistakes students really make, and explain each misconception in the rationale.", 2],
-  ["Harder, Applied", "Application and analysis level questions that require combining ideas from different parts of the material, not just recall.", 2],
-  ["Pharmacology (Drugs)", "Focus on drug class, mechanism of action, indications, key side effects and adverse effects, contraindications, clinical considerations, monitoring and patient counseling. Compare drugs within a class and flag high-alert medications.", 2],
-  ["NCLEX-RN", "NCLEX-RN style: client-centered stems about what the nurse should do, with prioritization (first, priority, most important, next), safety, delegation, infection control and therapeutic communication. Use NCLEX wording and include select-all-that-apply items. Every option plausible, and a rationale for why the right answer is right and the others are wrong.", 3],
-  ["NCLEX-RN Case Study (NGN)", "Next Generation NCLEX unfolding case study style: start each question with a short client scenario that includes chart data (age, history, vital signs, lab values, nurses' notes), then ask what the nurse should do, following the clinical judgment model: recognize cues (what findings matter), analyze cues (what they suggest), prioritize hypotheses (what is the likely problem), generate solutions (what to do), take action (what to do first) and evaluate outcomes (what shows it worked). Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each.", 3],
-  ["HESI / ATI Nursing", "HESI or ATI nursing exam style: application-level, single best answer questions with 4 options on priority actions, delegation, safe medication administration and patient teaching, mixed with some select-all-that-apply items and short dosage calculations.", 3],
-  ["USMLE Vignettes", "USMLE Step 1 and 2 style: a 3 to 6 sentence clinical vignette (age, sex, presentation, vital signs, exam and lab findings), then a question such as most likely diagnosis, underlying mechanism, best next step or most likely adverse effect. One best answer from 5 plausible options of the same category. Prefer second- and third-order reasoning (what the finding means, then what to do) over recall. Explain every option in the rationale.", 3],
-  ["MCAT Passages", "MCAT style: begin each question with a 100 to 150 word passage (an experiment, a data set described in words, or an argument), then a question that needs reasoning from the passage plus the course concepts, with 4 options. Include data interpretation, experimental design and 'what would happen if' questions. Test reasoning, not recall.", 4],
-  ["AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide: the key points a full-credit answer must make.", 4],
-  ["Bar Exam", "Bar exam style: a short fact pattern (a paragraph), then a question applying the rule of law: which party prevails, which claim or defense is strongest, or what the court is most likely to hold. Multiple choice with 4 options of plausible legal conclusions, rationales that state the governing rule and apply it to the facts, plus a few short-answer issue-spotting prompts.", 4],
-  ["CPA Exam", "CPA exam style: multiple-choice questions with 4 options on accounting, auditing, tax and business concepts, plus task-based simulations expressed as short-answer calculations or journal-entry questions with the numbers in the stem. Rationales show the worked steps.", 4],
-  ["SAT", "SAT style (digital SAT): single best answer multiple choice with exactly 4 options labeled A, B, C, D and one correct answer, no 'all of the above'. Reading and Writing questions each use a short passage of 25 to 150 words (a literary, science, history or social-science excerpt, or notes) followed by one question on central idea, details, inference, vocabulary in context, evidence, transitions, rhetorical synthesis or standard English conventions (grammar, punctuation, sentence structure). Math questions are multiple choice or short-answer ('student-produced response': a number in 'answer') on algebra, advanced math, problem-solving and data analysis, or geometry and trigonometry, with the numbers in the stem, a short real-world context where natural, and rationales that show the worked steps. Use the mix of reading and writing and math that fits the material, and spread difficulty from easy to hard. Never type letters in the option text (the app adds A, B, C, D).", 4],
-  ["ACT", "ACT style: single best answer multiple choice with exactly 4 options per question (the real test labels them A, B, C, D on English, Reading and Science and alternates A, B, C, D with F, G, H, J on Math; the app adds the letters, so never type letters in the option text). English: a passage with an underlined portion, then options that rewrite it, where the first option is 'NO CHANGE', testing grammar, usage, punctuation, rhetorical skills, organization and style. Reading: a 150 to 250 word passage (prose fiction, social science, humanities or natural science) followed by detail, inference, main idea, vocabulary and author's purpose questions. Science: a described experiment, data table or pair of conflicting viewpoints, then data interpretation, investigation design and evaluation of models. Math: pre-algebra through trigonometry with the numbers in the stem and worked steps in the rationale. Use the mix of these sections that fits the material.", 4],
-  ["Engineering FE", "FE (Fundamentals of Engineering) exam style: concise problem-solving questions with 4 options, numerical answers with units, standard formulas and reference-handbook style data given in the stem. Rationales show the worked solution and common unit or sign errors.", 4]
+/* Style picks, suited to the student's field (Area of Study, or the course's name): Question Formats (any number), one Focus, and
+   one Exam Style (general ones, then the exams of that field only). Each pick adds its instruction to what the student typed. */
+const AI_FORMATS = [
+  ["mc", "Multiple Choice", "Single best answer multiple choice, 4 options each, with plausible distractors built from common mistakes. No 'all of the above' or 'none of the above'."],
+  ["tf", "True / False", "True or false statements, half true and half false. For each false statement the rationale gives the corrected true statement. Avoid trick wording and absolutes like 'always' and 'never'."],
+  ["sata", "Select All That Apply", "Select-all-that-apply questions: 5 or 6 options, 2 to 4 correct, no 'all of the above'. Each option stands alone, and the rationale covers every option."],
+  ["blank", "Fill in the Blank", "Cloze-style: flashcard fronts are sentences with a ____ gap, and quiz questions are short-answer questions where the student types the missing term. Blank out the key term, never a trivial word."],
+  ["short", "Short Answer", "Short-answer questions that need a 1 to 3 sentence explanation. The expected answer lists the key points a good answer must include."],
+  ["order", "Put in Order", "Put-the-steps-in-order questions for processes, procedures and sequences (4 to 6 steps), plus some single-answer questions about why the order matters."],
+  ["why", "Conceptual (Why / How)", "Conceptual questions: why something happens, how it works, what would change if a variable changed, compare and contrast, and predict the effect. Avoid pure recall. Rationales explain the reasoning."],
+  ["calc", "Calculations", "Numerical problem-solving: give all the values in the stem, make the student calculate (short answer with the number and its units), vary the numbers, and show the worked steps in the rationale."],
+  ["case", "Scenario-Based", "Each question starts with a short realistic scenario from the course's field, then asks for the best next step, the most likely cause or the key risk. Test application of the material, not recall."]
 ];
-// Builds the style text sent to the AI
+const AI_FOCUS_ALL = [
+  ["defs", "Definitions", "Short term-and-definition flashcards and straightforward recall questions."],
+  ["mistakes", "Common Mistakes", "Target common misconceptions and look-alike concepts: write distractors from the mistakes students really make, and explain each misconception in the rationale."],
+  ["applied", "Harder, Applied", "Application and analysis level questions that require combining ideas from different parts of the material, not just recall."]
+];
+// Field id -> its own focuses and exams. Fields: health, stem, eng, cs, business, social, humanities, arts, education, law, other
+const AI_FIELD = {
+  health: {name: "Health and Nursing",
+    focus: [["pharm", "Pharmacology (Drugs)", "Focus on drug class, mechanism of action, indications, key side effects and adverse effects, contraindications, monitoring and patient counseling. Compare drugs within a class and flag high-alert medications."],
+      ["patho", "Pathophysiology", "Focus on disease mechanisms: what goes wrong in the body, how it causes the signs and symptoms, and how findings and treatments follow from it."],
+      ["labs", "Labs and Vital Signs", "Focus on normal ranges, what abnormal lab values and vital signs mean, and what to do about them."]],
+    exams: [["nclex", "NCLEX-RN", "NCLEX-RN style: client-centered stems about what the nurse should do, with prioritization (first, priority, most important, next), safety, delegation, infection control and therapeutic communication. Use NCLEX wording and include select-all-that-apply items. Every option plausible, and rationales explain why each option is right or wrong.", "nurse"],
+      ["ngn", "NCLEX Case Study (NGN)", "Next Generation NCLEX unfolding case study style: start each question with a short client scenario that includes chart data (age, history, vital signs, lab values, nurses' notes), then ask what the nurse should do, following the clinical judgment model: recognize cues, analyze cues, prioritize hypotheses, generate solutions, take action and evaluate outcomes.", "nurse"],
+      ["hesi", "HESI / ATI", "HESI or ATI nursing exam style: application-level, single best answer questions with 4 options on priority actions, delegation, safe medication administration and patient teaching, mixed with some select-all-that-apply items and short dosage calculations.", "nurse"],
+      ["step1", "USMLE Step 1", "USMLE Step 1 style: a 3 to 6 sentence clinical vignette (age, sex, presentation, vital signs, exam and lab findings), then a question on the underlying mechanism, pathophysiology, pharmacology or microbiology. One best answer from 5 plausible options; rationales explain each option."],
+      ["step2", "USMLE Step 2 CK", "USMLE Step 2 CK style: a clinical vignette, then a question on the most likely diagnosis, the best next step in management, the most appropriate test or treatment, or prevention. One best answer from 5 plausible options; rationales explain each option."],
+      ["comlex", "COMLEX", "COMLEX-USA style: clinical vignettes like USMLE, with one best answer from 5 options, plus some questions that bring in osteopathic principles and manipulative treatment where the material covers them."],
+      ["mcat", "MCAT", "MCAT style: begin each question with a 100 to 150 word passage (an experiment, a data set described in words, or an argument), then a question that needs reasoning from the passage plus the course concepts, with 4 options. Include data interpretation and experimental design."],
+      ["naplex", "NAPLEX (Pharmacy)", "NAPLEX style: patient-based pharmacy questions on drug therapy, dosing and calculations, interactions, adverse effects, monitoring and counseling, with 4 or 5 options and some select-all-that-apply items."],
+      ["dat", "DAT (Dental)", "DAT style: biology, general chemistry and organic chemistry questions with 5 options, concise stems and rationales that explain the concept tested."]]},
+  stem: {name: "Science and Math",
+    focus: [["exp", "Experiments and Data", "Focus on experimental design, controls and variables, and interpreting results and graphs described in words."], ["proofs", "Problem Solving", "Focus on solving problems step by step: set up the problem, apply the right formula or theorem, and check the answer."]],
+    exams: [["ap", "AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide."],
+      ["mcat", "MCAT", "MCAT style: begin each question with a 100 to 150 word passage (an experiment, a data set described in words, or an argument), then a question that needs reasoning from the passage plus the course concepts, with 4 options. Include data interpretation and experimental design."],
+      ["gre", "GRE Subject Test", "GRE Subject Test style: challenging multiple choice with 5 options covering the breadth of an undergraduate course, with concise stems and rationales."]]},
+  eng: {name: "Engineering",
+    focus: [["units", "Problem Solving with Units", "Focus on worked engineering problems with given values, standard formulas, unit conversions and sanity checks; rationales flag common unit and sign errors."], ["design", "Design Trade-Offs", "Focus on design decisions: constraints, safety factors, materials and the trade-offs between options."]],
+    exams: [["fe", "FE Exam", "FE (Fundamentals of Engineering) exam style: concise problem-solving questions with 4 options, numerical answers with units, standard formulas and reference-handbook style data given in the stem. Rationales show the worked solution and common unit or sign errors."],
+      ["pe", "PE Exam", "PE (Principles and Practice of Engineering) exam style: longer applied problems from professional practice, with the data in the stem, 4 options, and rationales that show the full worked solution."],
+      ["ap", "AP Exam", "AP exam style: stimulus-based multiple choice with 4 options, plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide."]]},
+  cs: {name: "Computer Science",
+    focus: [["trace", "Code Tracing", "Focus on reading code: give a short code snippet and ask what it prints, returns or how a variable changes. Keep snippets under 15 lines and language-appropriate."], ["debug", "Debugging", "Focus on finding and fixing bugs: give short code with a mistake and ask what goes wrong and how to fix it."], ["bigo", "Complexity (Big-O)", "Focus on time and space complexity: ask for the Big-O of algorithms and code, and compare approaches."]],
+    exams: [["interview", "Coding Interview", "Technical interview style: problem-solving questions on data structures and algorithms, asking for the best approach, its complexity, edge cases and what a short code snippet does."],
+      ["apcs", "AP Computer Science A", "AP Computer Science A style: Java code-reading multiple choice with 4 options (what the code prints or returns, which change fixes it) plus free-response style short answers about writing a method."],
+      ["cert", "IT Certification", "IT certification exam style (like CompTIA or AWS): scenario-based multiple choice and select-all-that-apply questions on concepts, tools and best practices, with 4 options."]]},
+  business: {name: "Business and Economics",
+    focus: [["fin", "Financial Calculations", "Focus on calculations: ratios, present and future value, break-even, margins and similar, with the numbers in the stem and worked steps in the rationale."], ["graphs", "Graphs and Models", "Focus on economic models and graphs described in words: shifts, equilibria and what changes when a variable changes."]],
+    exams: [["cpa", "CPA Exam", "CPA exam style: multiple-choice questions with 4 options on accounting, auditing, tax and business concepts, plus task-based simulations expressed as short-answer calculations or journal-entry questions with the numbers in the stem. Rationales show the worked steps."],
+      ["cfa", "CFA Level I", "CFA Level I style: concise multiple choice with 3 options on ethics, financial reporting, quantitative methods, economics, corporate finance and investments, with calculations where they fit."],
+      ["gmat", "GMAT", "GMAT style: quantitative reasoning and data insights questions with 5 options, plus critical reasoning questions on business arguments."]]},
+  social: {name: "Psychology and Social Sciences",
+    focus: [["methods", "Research Methods", "Focus on research methods: study designs, variables, sampling, validity, ethics and interpreting results."], ["theories", "Theories and Thinkers", "Focus on the main theories and who proposed them, how they differ, and how each explains real examples."]],
+    exams: [["ap", "AP Exam", "AP exam style (Psychology, Government, Human Geography and similar): stimulus-based multiple choice with 4 options, plus free-response prompts as short-answer questions whose expected answer reads like a scoring guide."],
+      ["mcatps", "MCAT Psych/Soc", "MCAT Psychological, Social and Biological Foundations of Behavior style: a short passage on a study or scenario, then a question that applies psychology and sociology concepts, with 4 options."],
+      ["gre", "GRE Psychology", "GRE Psychology Subject Test style: multiple choice with 5 options across the breadth of psychology, with concise stems and rationales."]]},
+  humanities: {name: "Humanities and Writing",
+    focus: [["reading", "Close Reading", "Focus on close reading: give a short passage or quotation and ask about meaning, tone, technique and the author's purpose."], ["context", "Context and Themes", "Focus on historical and cultural context, main themes and how works and events connect."]],
+    exams: [["ap", "AP Exam", "AP exam style (Literature, Language, History and similar): stimulus-based multiple choice with 4 options from a short passage or source, plus free-response prompts as short-answer questions whose expected answer reads like a scoring guide."],
+      ["dbq", "Document-Based Question", "Document-based question style: give short source excerpts, then ask the student to analyze, compare and use them as evidence for an argument; expected answers list the points a strong answer makes."]]},
+  arts: {name: "Arts and Design",
+    focus: [["works", "Works and Artists", "Focus on identifying works, artists, periods and movements, and what makes each recognizable."], ["technique", "Techniques and Terms", "Focus on techniques, materials and the vocabulary of the field, and when each is used."]],
+    exams: [["ap", "AP Exam", "AP exam style (Art History, Music Theory and similar): stimulus-based multiple choice with 4 options from a described work or excerpt, plus short free-response prompts whose expected answer reads like a scoring guide."]]},
+  education: {name: "Education",
+    focus: [["classroom", "Classroom Scenarios", "Focus on classroom scenarios: a teaching situation, then the best response, strategy or next step, grounded in the course's theories."], ["theory", "Learning Theories", "Focus on learning and development theories, who proposed them, and how they apply in the classroom."]],
+    exams: [["praxis", "Praxis", "Praxis exam style: selected-response questions with 4 options on content and teaching practice, plus scenario-based questions about instruction, assessment and classroom management."]]},
+  law: {name: "Law and Public Policy",
+    focus: [["rules", "Rules and Elements", "Focus on black-letter rules: the elements of each claim or defense, exceptions, and how they apply to short facts."], ["cases", "Key Cases", "Focus on the leading cases: their facts, holdings and reasoning, and how they apply to new facts."]],
+    exams: [["bar", "Bar Exam (MBE)", "Bar exam style: a short fact pattern (a paragraph), then a question applying the rule of law: which party prevails, which claim or defense is strongest, or what the court is most likely to hold. Multiple choice with 4 options of plausible legal conclusions, rationales that state the rule."],
+      ["lsat", "LSAT", "LSAT style: logical reasoning questions on short arguments (assumptions, flaws, strengthen and weaken) with 5 options, using the course's material as the content."],
+      ["mpre", "MPRE", "MPRE style: professional responsibility questions about what a lawyer may or must do in a short scenario, with 4 options and rationales that state the rule."]]},
+  custom: {name: "General", focus: [], exams: []},
+  other: {name: "Standardized Tests", focus: [],
+    exams: [["sat", "SAT", "SAT style (digital SAT): single best answer multiple choice with exactly 4 options and one correct answer. Reading and Writing questions each use a short passage of 25 to 150 words; Math questions are concise and some ask the student to type the answer."],
+      ["act", "ACT", "ACT style: single best answer multiple choice with exactly 4 options per question (the app adds the letters, so never type letters in the option text), covering English, Math, Reading and Science reasoning with short passages and data."],
+      ["ap", "AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide."],
+      ["gre", "GRE", "GRE General style: verbal reasoning (text completion and reading comprehension) and quantitative reasoning questions using the course's material."]]}
+};
+const AI_GENERAL_EXAMS = [
+  ["midterm", "University Midterm", "A typical university midterm: a balanced mix of multiple choice, true/false, a few select-all-that-apply and short-answer questions, ordered from straightforward recall to application."],
+  ["final", "Cumulative Final", "A cumulative final exam: questions across the whole material, weighted toward the main ideas, with more application and questions that connect topics."]
+];
+// The student's field: their Area of Study, or what their own typed field (or the course's name) points to
+const AI_FIELD_RX = [["health", /\b(nurs|nclex|bsn|lpn|rn|pre-?med|medic|pharm|health|dental|dentist|physio|therap|kinesi|paramedic|midwi|clinical|anatom|physiolog|patho)/i],
+  ["law", /\b(law|legal|paralegal|criminal|justice|policy|politic|government)/i], ["business", /\b(business|account|financ|market|econ|manag|commerce|mba)/i],
+  ["cs", /\b(comput|software|programm|coding|data science|information tech|cyber|\bit\b)/i], ["eng", /\bengineer/i],
+  ["stem", /\b(bio|chem|physic|math|calc|stat|science|geolog|astro|ecolog)/i], ["social", /\b(psych|sociolog|anthropolog|social)/i],
+  ["education", /\b(educat|teach|pedagog)/i], ["arts", /\b(art|music|design|film|architect|theat|danc|photograph)/i],
+  ["humanities", /\b(history|english|literat|philosoph|languag|writing|classics|religio)/i]];
+function aiField(courseName){
+  const a = window.SBAREA && SBAREA.get ? SBAREA.get() : null, id = a && a.id && a.id !== "other" ? a.id : "";
+  if (id && AI_FIELD[id]) return id;
+  // a field the student typed themselves gets the general options only (no field's exams or focuses are assumed)
+  if (a && (a.text || "").trim()) return "custom";
+  const t = [(a && a.text) || "", courseName || ""].join(" ");
+  const hit = AI_FIELD_RX.find(([, rx]) => rx.test(t));
+  return hit ? hit[0] : "other";
+}
+// Nursing exams only for nursing: the typed field or the course name says so, or the Health area with nothing typed (it covers nursing)
+const AI_NURSE_RX = /\b(nurs|nclex|hesi|bsn|lpn|med[- ]?surg)|\b(rn|ati)\b/i;
+function aiFieldOpts(courseName){
+  const f = aiField(courseName), F = AI_FIELD[f] || AI_FIELD.other, a = window.SBAREA && SBAREA.get ? SBAREA.get() : null;
+  const txt = [(a && a.text) || "", courseName || ""].join(" "), nurse = f !== "custom" && (AI_NURSE_RX.test(txt) || (f === "health" && !(a && a.text)));
+  const exams = F.exams.filter(x => x[3] !== "nurse" || nurse);
+  return {field: f, name: F.name, focus: AI_FOCUS_ALL.concat(F.focus || []), exams};
+}
+// Builds the style text sent to the AI from the picks: {formats: [ids], focus: id, exam: id}
 function aiComposeStyle(custom, picks){
   custom = String(custom || "").trim();
-  const ps = (picks || []).map(i => AI_STYLES[i]).filter(Boolean);
-  const style = [custom].concat(ps.map(x => x[1])).filter(Boolean).join(" ");
-  const name = custom ? custom.split(/[.:;\n]/)[0].trim().slice(0, 60) : ps.slice(0, 2).map(x => x[0]).join(" and ");
+  picks = picks || {};
+  const all = [].concat(AI_FORMATS, AI_FOCUS_ALL, AI_GENERAL_EXAMS, ...Object.values(AI_FIELD).map(F => (F.focus || []).concat(F.exams))), find = id => all.find(x => x[0] === id);
+  const fm = (picks.formats || []).map(id => AI_FORMATS.find(x => x[0] === id)).filter(Boolean);
+  const ex = picks.exam ? find(picks.exam) : null, fo = picks.focus ? find(picks.focus) : null;
+  const fmText = fm.length > 1 ? `Use a mix of these question formats: ${fm.map(x => x[1]).join(", ")}. ` + fm.map(x => x[2]).join(" ") : fm.length ? fm[0][2] : "";
+  const style = [custom, ex && ex[2], fmText, fo && fo[2]].filter(Boolean).join(" ");
+  const name = custom ? custom.split(/[.:;\n]/)[0].trim().slice(0, 60) : [ex && ex[1], fm.length === 1 ? fm[0][1] : fm.length > 1 ? "Mixed Formats" : "", fo && fo[1]].filter(Boolean).slice(0, 2).join(" and ");
   return {style, name};
 }
 // Custom styles the student typed before, newest first, to reuse next time
@@ -5186,6 +5269,26 @@ async function aiMakeStudySet(opts, onStatus){
   return out;
 }
 
+// Question Formats (any number, as chips), then one Exam Style and one Focus, suited to the student's field
+function aiStylePickHtml(courseName, keep){
+  const o = aiFieldOpts(courseName), k = keep || {formats: [], exam: "", focus: ""};
+  const opt = (x, cur) => `<option value="${x[0]}"${x[0] === cur ? " selected" : ""} title="${esc(x[2])}">${esc(x[1])}</option>`;
+  const exams = o.exams.length ? `<optgroup label="${esc(o.name)}">${o.exams.map(x => opt(x, k.exam)).join("")}</optgroup>` : "";
+  return `<div class="f ai-fmts-f"><span class="lh">Question Formats <span class="hint">pick any, or none for a mix</span></span>
+      <div class="ai-fmts" role="group" aria-label="Question formats">${AI_FORMATS.map(x => `<button type="button" class="ai-fmt" data-fmt="${x[0]}" aria-pressed="${k.formats.includes(x[0])}" title="${esc(x[2])}">${esc(x[1])}</button>`).join("")}</div></div>
+    <div class="two ai-style-two"><label class="f"><span class="lbl">Exam Style</span><select id="aiExam"><option value="">None</option><optgroup label="General">${AI_GENERAL_EXAMS.map(x => opt(x, k.exam)).join("")}</optgroup>${exams}</select></label>
+      <label class="f"><span class="lbl">Focus</span><select id="aiFocus"><option value="">None</option>${o.focus.map(x => opt(x, k.focus)).join("")}</select></label></div>
+    <p class="mini" style="margin:0">${o.field === "custom" ? "General styles and focuses, for any field."
+      : o.field === "other" ? "Set your Area of Study (in the menu) and the exam styles and focuses suit your field." : `Exam styles and focuses for ${esc(o.name)}, from your ${window.SBAREA && SBAREA.get && SBAREA.get() ? "Area of Study" : "course"}.`} They add to what you wrote.</p>`;
+}
+const aiStylePicks = root => ({formats: [...root.querySelectorAll(".ai-fmt[aria-pressed=true]")].map(b => b.dataset.fmt), exam: (root.querySelector("#aiExam") || {}).value || "", focus: (root.querySelector("#aiFocus") || {}).value || ""});
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".ai-fmt"); if (b) b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); });
+document.addEventListener("change", e => {
+  if (!e.target || e.target.id !== "aiCourse") return;
+  const box = document.getElementById("aiStylePick"); if (!box) return;
+  box.innerHTML = aiStylePickHtml((courseOf(e.target.value) || {}).name || "", aiStylePicks(box));
+  const cs = document.getElementById("aiCaseStyle"); if (cs) { const v = cs.value, t = document.createElement("div"); t.innerHTML = caseStyleSelect("aiCaseStyle", (courseOf(e.target.value) || {}).name || ""); const n = t.firstElementChild; if ([...n.options].some(o => o.value === v)) n.value = v; cs.replaceWith(n); }
+});
 function aiStudySheet(deckId, mode){
   if (inPreview()) { toast("AI features work in the Studyboard app and on your website, not in this preview"); return; }
   const keyK = "ai-create:" + (deckId || "");
@@ -5209,13 +5312,12 @@ function aiStudySheet(deckId, mode){
       <fieldset><legend>Make</legend>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCards" checked> Flashcards</label>${seg("aiCardN", [["auto", "Auto"], ["10", "10"], ["20", "20"], ["30", "30"], ["50", "50"]], "auto")}</div>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiQuiz" checked> Practice quiz</label>${seg("aiQuizN", [["5", "5"], ["10", "10"], ["20", "20"], ["30", "30"]], "10")}</div>
-        <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}${caseStyleSelect("aiCaseStyle")}<span class="mini">Realistic scenarios that unfold step by step and test how you apply the material. NCLEX format is only used for nursing or when you pick it.</span></div>
+        <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}${caseStyleSelect("aiCaseStyle", (courseOf(courseId) || {}).name || "")}<span class="mini">Realistic scenarios from your field that unfold step by step and test how you apply the material.</span></div>
       </fieldset>
       <fieldset><legend>Style</legend>
         <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. AP-style multiple choice with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
         <div class="chips ai-recent" id="aiRecent" role="group" aria-label="Your recent styles"></div>
-        <div class="ai-style-sels">${AI_STYLE_GROUPS.map((g, gi) => `<label class="f"><span class="lbl">${esc(g)}</span><select class="ai-style-sel" data-group="${gi}"><option value="">None</option>${AI_STYLES.map((x, i) => x[2] === gi ? `<option value="${i}" title="${esc(x[1])}">${esc(x[0])}</option>` : "").join("")}</select></label>`).join("")}</div>
-        <p class="mini" style="margin:8px 0 0">Pick a ready-made style from any of these. They add to what you wrote.</p>
+        <div id="aiStylePick">${aiStylePickHtml((courseOf(courseId) || {}).name || "")}</div>
       </fieldset>
       <fieldset><legend>Difficulty</legend>${seg("aiDiff", [["mixed", "Mixed"], ["easier", "Easier"], ["harder", "Harder"]], "mixed")}</fieldset>
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
@@ -5285,7 +5387,7 @@ function aiStudySheet(deckId, mode){
     const wantCards = $("#aiCards").checked, wantQuiz = $("#aiQuiz").checked, wantCase = $("#aiCase").checked;
     if (!wantCards && !wantQuiz && !wantCase) { status.textContent = "Pick flashcards, a quiz, case studies, or a mix."; return; }
     const val = n => (dlg.querySelector(`input[name=${n}]:checked`) || {}).value;
-    const custom = $("#aiStyle").value.trim(), picks = $$(".ai-style-sel", dlg).map(s => s.value).filter(v => v !== "").map(Number);
+    const custom = $("#aiStyle").value.trim(), picks = aiStylePicks(dlg);
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
     job.busy = true; const go = $("#aiGo"), goWas = go.innerHTML; go.disabled = true; go.classList.add("busy", "ai-going");
@@ -6783,24 +6885,33 @@ function weakSheet(deckIds){
 
 /* Case studies */
 const CASE_STYLES = [
-  ["auto", "Match my course", ""],
-  ["general", "General scenario", "Case style: a realistic scenario from the course's own field that unfolds in stages, with a mix of single best answer, select-all-that-apply and put-in-order questions about what matters, why, and what to do next."],
-  ["business", "Business case", "Case style: a business case (a company, a market, a decision with numbers such as revenue, costs, timelines and stakeholder views). Questions ask the student to identify the key issue, analyze the data, weigh options and trade-offs, recommend an action and evaluate the result. Mix single best answer with a few short-answer questions."],
-  ["legal", "Legal fact pattern", "Case style: a legal fact pattern (parties, events, key facts, procedural history). Questions ask for the issue, the governing rule, how it applies to the facts, the strongest argument for each side and the likely outcome. Mix single best answer with short-answer issue-spotting questions; rationales state the rule and apply it."],
-  ["clinical", "Clinical vignette (not nursing)", "Case style: a clinical vignette for a health science, medicine, pharmacy or similar course (patient age, presentation, history, findings, results) that unfolds as new findings arrive. Questions ask for the likely diagnosis, mechanism, best next step, treatment choice and monitoring. Do not use nurse-specific or NCLEX wording."],
-  ["short", "Short-answer case", "Case style: a scenario followed by questions that the student answers in their own words ('short' questions, 1 to 3 sentences, with the key points a full answer needs in 'answer'). Use at most one or two multiple choice questions."],
-  ["analysis", "Analysis (data / argument)", "Case style: an analysis case. Give the student a source, data set described in words, experiment, argument or design problem, then ask them to interpret it, find the flaw or assumption, compare explanations, justify a conclusion and propose what to check next. Mix single best answer and short-answer questions."],
-  ["nclex", "NCLEX-style (nursing)", "Case style: NCLEX Next Generation unfolding nursing case study. The client scenario includes chart data (age, history, vital signs, lab values, nurses' notes), and the questions follow the clinical judgment model: recognize cues, analyze cues, prioritize hypotheses, generate solutions, take action, evaluate outcomes. Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each."]
+  ["auto", "Match My Course", ""],
+  ["general", "General Scenario", "Case style: a realistic scenario from the course's own field that unfolds in stages, with a mix of single best answer, select-all-that-apply and put-in-order questions about what matters, why, and what to do next."],
+  ["business", "Business Case", "Case style: a business case (a company, a market, a decision with numbers such as revenue, costs, timelines and stakeholder views). Questions ask the student to identify the key issue, analyze the data, weigh options and trade-offs, recommend an action and evaluate the result. Mix single best answer with a few short-answer questions."],
+  ["legal", "Legal Fact Pattern", "Case style: a legal fact pattern (parties, events, key facts, procedural history). Questions ask for the issue, the governing rule, how it applies to the facts, the strongest argument for each side and the likely outcome. Mix single best answer with short-answer issue-spotting questions; rationales state the rule and apply it."],
+  ["clinical", "Clinical Vignette", "Case style: a clinical vignette for a health science, medicine, pharmacy or similar course (patient age, presentation, history, findings, results) that unfolds as new findings arrive. Questions ask for the likely diagnosis, mechanism, best next step, treatment choice and monitoring. Do not use nurse-specific or NCLEX wording."],
+  ["short", "Short-Answer Case", "Case style: a scenario followed by questions that the student answers in their own words ('short' questions, 1 to 3 sentences, with the key points a full answer needs in 'answer'). Use at most one or two multiple choice questions."],
+  ["analysis", "Analysis (Data or Argument)", "Case style: an analysis case. Give the student a source, data set described in words, experiment, argument or design problem, then ask them to interpret it, find the flaw or assumption, compare explanations, justify a conclusion and propose what to check next. Mix single best answer and short-answer questions."],
+  ["nclex", "NCLEX Case (Nursing)", "Case style: NCLEX Next Generation unfolding nursing case study. The client scenario includes chart data (age, history, vital signs, lab values, nurses' notes), and the questions follow the clinical judgment model: recognize cues, analyze cues, prioritize hypotheses, generate solutions, take action, evaluate outcomes. Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each."]
 ];
 const CASE_NURSING_RX = /\b(nursing|nclex|hesi|bsn|lpn|med[- ]?surg)\b|\b(rn|ati)\b/i;
 function aiCaseStyleText(key, courseName){
   const k = CASE_STYLES.some(x => x[0] === key) ? key : "auto";
-  if (k === "auto") return CASE_NURSING_RX.test(String(courseName || ""))
+  const ar = window.SBAREA && SBAREA.get ? SBAREA.get() : null;
+  if (k === "auto") return !(ar && (ar.text || "").trim()) && CASE_NURSING_RX.test(String(courseName || ""))
     ? CASE_STYLES.find(x => x[0] === "nclex")[2]
     : "Case style: choose the realistic case format that fits the course's field (business, legal, scientific, historical, technical, clinical or general). Do NOT use the NCLEX or nursing format.";
   return CASE_STYLES.find(x => x[0] === k)[2];
 }
-const caseStyleSelect = id => `<select id="${id}" aria-label="Case study style">${CASE_STYLES.map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join("")}</select>`;
+// Only the case styles that fit the student's field (aiField, 01-ai.js): clinical ones for health (NCLEX only for nursing),
+// a business case for business, a legal fact pattern for law; general, short-answer and analysis for everyone
+const CASE_FOR = {clinical: ["health"], nclex: ["nurse"], business: ["business"], legal: ["law"]};
+function caseStylesFor(courseName){
+  const f = typeof aiField === "function" ? aiField(courseName) : "other", a = window.SBAREA && SBAREA.get ? SBAREA.get() : null;
+  const nurse = f !== "custom" && (CASE_NURSING_RX.test([(a && a.text) || "", courseName || ""].join(" ")) || (f === "health" && !(a && a.text)));
+  return CASE_STYLES.filter(x => !CASE_FOR[x[0]] || CASE_FOR[x[0]].includes(f) || (CASE_FOR[x[0]].includes("nurse") && nurse));
+}
+const caseStyleSelect = (id, courseName) => `<select id="${id}" aria-label="Case study style">${caseStylesFor(courseName).map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join("")}</select>`;
 const CASE_SCHEMA = {type: "OBJECT", properties: {cases: {type: "ARRAY", items: {type: "OBJECT", properties: {
   title: {type: "STRING"}, scenario: {type: "STRING", description: "The opening situation: who, where, history, first findings. 3 to 6 sentences."},
   questions: {type: "ARRAY", items: {type: "OBJECT", properties: {
@@ -6820,7 +6931,7 @@ function caseStyleSheet(deckId){
   const d = state.decks[deckId]; if (!d) return;
   if (!aiReady()) { aiSetupSheet(true); return; }
   if (sheetResume("case:" + deckId)) return;
-  openSheet(`<form class="sheet">${head("Case Study from Cards")}<div class="sheet-body"><label class="f">Case study style${caseStyleSelect("csStyle")}</label><p class="mini" style="margin:0">“Match my course” uses the NCLEX format only for nursing courses. Pick another style for anything else.</p></div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="csGo">${AI_ICON} Write It</button></div></form>`);
+  openSheet(`<form class="sheet">${head("Case Study from Cards")}<div class="sheet-body"><label class="f">Case study style${caseStyleSelect("csStyle", (courseOf(d.courseId) || {}).name || "")}</label><p class="mini" style="margin:0">“Match My Course” picks the case format that fits your course and field.</p></div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="csGo">${AI_ICON} Write It</button></div></form>`);
   $("#csGo").addEventListener("click", () => caseFromDeck(deckId, $("#csStyle").value));
 }
 async function caseFromDeck(deckId, caseStyle){

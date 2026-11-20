@@ -2692,3 +2692,22 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:not(:disabled):is(:hover,
 dialog .sheet-body > .menu-list:not(.fm-list) > button > span:first-of-type{font-weight:700}
 dialog .sheet-body > .menu-list:not(.fm-list) > button .sub{margin-top:2px}
 dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;cursor:default}
+/* AI study sets: each "Make" row is a card, its count a roomy switch; the case study style and its note sit under it */
+.ai-sheet .ai-make{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 14px;margin:0 0 10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.ai-sheet .ai-make .mi-check{min-width:0;margin:0;font-weight:600}
+.ai-sheet .ai-make > .seg,.ai-sheet .ai-make > .segb{justify-self:end}
+.ai-sheet .ai-make .seg label span{min-width:40px;min-height:34px;padding:0 10px;display:inline-grid;place-items:center;font-size:.88rem}
+.ai-sheet .ai-make > select{grid-column:1/-1;margin:2px 0 0}
+.ai-sheet .ai-make > .mini{grid-column:1/-1;margin:0}
+/* Question Formats: chips to tap on and off */
+.ai-fmts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.ai-fmt{min-height:38px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:.88rem;font-weight:600;cursor:pointer}
+.ai-fmt:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.ai-fmt[aria-pressed="true"]{background:var(--sel,var(--accent));border-color:transparent;color:var(--sel-ink,#fff)}
+.ai-fmt[aria-pressed="true"]::before{content:"✓ ";font-weight:800}
+.ai-style-two{margin-top:12px}
+#aiStylePick{display:grid;gap:4px}
+/* the Question Formats heading looks like the labels beside it (it heads a row of chips, so it isn't a <label>) */
+.ai-fmts-f{display:grid;gap:5px}
+.ai-fmts-f > .lh{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;font-size:.88rem;font-weight:600}
+.ai-fmts-f > .lh .hint{font-weight:400;color:var(--muted)}
