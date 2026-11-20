@@ -39,15 +39,30 @@ button.pp.paused i{border-color:var(--ok);background:rgba(95,212,154,.14);color:
 button:active{transform:scale(.97)}
 .vrow{display:flex;align-items:center;gap:8px;padding:8px 10px}.vrow span{flex:1;font-weight:700}
 button.sm{min-height:44px;padding:0 14px;font-size:.9rem;border-radius:12px}
+.pic{padding:0;overflow:hidden;background:#fff}.pic img{display:block;width:100%;height:auto}
+.txt{display:grid;gap:4px;background:#F7F8FB;color:#14213D}.txt b{font-size:1.05rem}.txt p{margin:0;font-size:.9rem}
+.join{flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px;max-width:420px;width:100%;margin:0 auto}
+.join .jt{font-size:1.4rem}.join p{margin:0;color:var(--soft)}
+.join label{display:grid;gap:6px;font-weight:700;font-size:.9rem}
+.join input{font:inherit;font-size:1.1rem;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+#jcode{letter-spacing:.2em;text-transform:uppercase;font-weight:800;font-size:1.4rem;text-align:center}
+.jerr{color:var(--over)!important;min-height:1.2em}
+body.friend .notes{max-height:22vh}
 .msg{flex:1;display:grid;place-items:center;text-align:center;color:var(--soft);padding:20px}
 [hidden]{display:none!important}
 </style></head>
 <body>
 <div class="top"><span class="dot" id="dot" aria-hidden="true"></span><b id="name">Studyboard Remote</b><span class="chip" id="cnt" hidden></span></div>
 <div class="msg" id="msg" aria-live="polite">Connecting to your presentation…</div>
+<form class="join" id="join" hidden><b class="jt">Join a Rehearsal</b><p>Type the code your friend sent you.</p>
+  <label>Code<input id="jcode" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="K7QM4PXA" inputmode="text"></label>
+  <label>Your name<input id="jname" maxlength="40" placeholder="So they know who joined" autocomplete="given-name"></label>
+  <p class="jerr" id="jerr" role="alert"></p><button class="go" type="submit">Join</button></form>
 <div id="ui" hidden style="display:contents">
   <div class="clock"><b id="clock">0:00</b><span id="tgt"></span></div>
   <div class="chips"><span class="chip" id="pace" hidden></span><span class="chip sp" id="sp" hidden><i></i><span></span></span></div>
+  <div class="card pic" id="pic" hidden><img id="picImg" alt="The current slide"></div>
+  <div class="card txt" id="txt" hidden></div>
   <div class="card"><div class="slide"><b id="title"></b><span id="st"></span></div><div class="bar"><i id="bar"></i></div></div>
   <div class="card notes" id="notes" aria-label="Speaker notes"></div>
   <div class="vrow card" id="vrow" hidden><span id="vtxt"></span><button id="vplay" class="sm">Play</button><button id="vskip" class="sm go">Skip</button></div>

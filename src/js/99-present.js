@@ -384,7 +384,7 @@
   function listHtml(){
     const f = ui.filter && ui.filter !== "all" ? ui.filter : "", q = String(ui.q || "").trim().toLowerCase();
     const list = LIST.filter(p => !f || p.courseId === f).filter(p => !q || [p.name, p.title, (courseOf(p.courseId) || {}).name].join(" ").toLowerCase().includes(q)).sort((a, b) => (b.updated || 0) - (a.updated || 0));
-    const head = `<div class="view-head" data-pr-list><h2>Presentations</h2></div>${typeof chipsHtml === "function" ? chipsHtml() : ""}`;
+    const head = `<div class="view-head" data-pr-list><h2>Presentations</h2><button class="btn small sm-btn" data-act="pr-join-code" title="Join a friend's rehearsal with the code they sent">${IC.users}<span class="sm-lbl">Join With a Code</span></button></div>${typeof chipsHtml === "function" ? chipsHtml() : ""}`;
     if (!LOADED) return head;
     const extra = fire("pr-list-extra").filter(Boolean).join("");
     if (!list.length) return head + extra + `<div class="empty${LIST.length ? "" : " sb-es"}" style="margin-top:14px">${LIST.length ? "" : emptyArt("present")}<strong>${LIST.length ? "No Presentations Match" : "No Presentations Yet"}</strong>${LIST.length ? "Try another course or search." : "Add your slides and set a target time. Studyboard times each slide as you practice, and can record you so you can listen back and read what you said."}${LIST.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="pr-new">Practice a Presentation</button></div>`}</div>`;
@@ -824,6 +824,7 @@
         <label class="pr-tog"><span><b>Pace Nudges</b><em>A glow when a slide runs long, and a wrap-up warning</em></span><input type="checkbox" id="prNudgeOn" ${S.nudge ? "checked" : ""}></label>
         ${S.sec ? "" : `<label class="pr-tog"><span><b>Q&amp;A After the Last Slide</b><em>Your companion asks 3 questions an audience might</em></span><input type="checkbox" id="prQaOn" ${S.qaOn ? "checked" : ""}></label>`}
         ${fire("pr-ready-extra", p, S).filter(Boolean).join("")}
+        <button type="button" class="btn small pr-plan-btn" data-act="pr-friend">${IC.users} Rehearse With a Friend</button>
         <button type="button" class="btn small pr-plan-btn" data-act="pr-remote">${IC.phone} Use Your Phone as the Remote${lk ? ` ${PRO_BADGE}` : ""}</button>
         ${p.source === "gslides" && p.gid ? `<button type="button" class="btn small" data-act="pr-gfresh">Get Latest From Google Slides</button>` : ""}
         ${p.source === "canva" && p.cid ? `<button type="button" class="btn small" data-act="pr-cfresh">Get Latest From Canva</button>` : ""}
@@ -1372,15 +1373,21 @@
   const hexOf = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
   async function seal(key, obj){ const iv = crypto.getRandomValues(new Uint8Array(12)); const ct = await crypto.subtle.encrypt({name: "AES-GCM", iv}, key, new TextEncoder().encode(JSON.stringify(obj))); return {iv: b64u(iv), ct: b64u(new Uint8Array(ct))}; }
   async function unseal(key, m){ try { const pt = await crypto.subtle.decrypt({name: "AES-GCM", iv: unb64u(m.iv)}, key, unb64u(m.ct)); return JSON.parse(new TextDecoder().decode(pt)); } catch (e) { return null; } }
-  async function remoteStart(){
+  // friend: rehearse with someone who isn't in a group (no account needed): a short code to type or a link, the slide itself
+  // for a PDF (its words for a PowerPoint), and anyone who joins can move the slides. Free, and several people can join.
+  const FRIEND_ABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const friendCode = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), x => FRIEND_ABC[x % FRIEND_ABC.length]).join("");
+  async function remoteStart(mode){
     const S = STG; if (!S) return;
-    if (locked()) { proWhy("Using your phone as a remote is part of Studyboard Pro: the clock, your notes and the next slide in your hand."); return; }
-    if (RM) { remotePanel(); return; }
-    const R = RM = {linked: false, err: "", url: ""};
+    const friend = mode === "friend";
+    if (!friend && locked()) { proWhy("Using your phone as a remote is part of Studyboard Pro: the clock, your notes and the next slide in your hand."); return; }
+    if (RM && !!RM.friend === friend) { RM.hide = false; remotePanel(); return; }
+    if (RM) remoteEnd();
+    const R = RM = {linked: false, err: "", url: "", friend, people: new Map()};
     remotePanel();
     try {
       if (!window.crypto || !crypto.subtle) throw new Error("This browser can't make a secure link.");
-      const code = b64u(crypto.getRandomValues(new Uint8Array(18))), te = new TextEncoder();
+      const code = friend ? friendCode() : b64u(crypto.getRandomValues(new Uint8Array(18))), te = new TextEncoder(); R.code = code;
       const [idH, kH] = await Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-pres-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-pres-key:" + code))]);
       R.topic = "sbpres-" + hexOf(idH).slice(0, 40); R.key = await crypto.subtle.importKey("raw", kH, "AES-GCM", false, ["encrypt", "decrypt"]);
       R.url = SITE() + "/present-remote.html#" + code;
@@ -1393,7 +1400,12 @@
   }
   function remoteCmd(c){
     const R = RM, S = STG; if (!R) return;
-    if (!R.linked) { R.linked = true; remotePanel(); toast("Your phone is connected"); }
+    if (R.friend) {
+      const who = String(c.who || "A friend").slice(0, 40), isNew = !R.people.has(who); R.people.set(who, Date.now());
+      if (isNew) { R.linked = true; remotePanel(); toast(`${who} joined your rehearsal`); R.imgKey = ""; }
+      if (c.cmd === "hello" || c.cmd === "hi") { remotePanel(); remoteSend(); return; }
+    }
+    else if (!R.linked) { R.linked = true; remotePanel(); toast("Your phone is connected"); }
     if (!S) return;
     if (c.cmd === "next") next(); else if (c.cmd === "prev") prev(); else if (c.cmd === "pp") { if (!S.started) play(); else if (S.running) pause(); else play(); }
     else if (c.cmd === "vskip" || c.cmd === "vplay") { const j = vidsOf(S.p, S.i).findIndex(v => !S.vdone[v.id]); if (j >= 0) { if (c.cmd === "vskip") vSkip(S, j); else vPlay(S, j); } }
@@ -1410,15 +1422,40 @@
         nt: String(S.d.notes[S.i] || "").slice(0, 1500), el: Math.round(S.qa ? S.qaStart : clockMs(S)), tg: Math.round(S.tgt), st: Math.round(t[S.i] || 0), sb: Math.round(S.b[S.i] || 0),
         run: S.running, go: S.started, pace: S.paceTxt || "", pc: S.paceCls || "", sp: sp ? sp.name : "", spc: sp ? sp.c : "", qa: S.qa ? S.qa.qs[S.qa.i] : "",
         k: S.k, kn: stepsOf(S.p, S.d, S.i)});
+      if (R.friend) { msg.fr = 1; msg.host = myName() !== "Someone" ? myName() : ""; msg.tx = String(texts[S.i] || "").split(/\s{2,}/).map(x => x.trim()).filter(Boolean).slice(0, 7).map(x => x.slice(0, 160)); friendImg(S, R); }
       const vs = vidsOf(S.p, S.i), j = vs.findIndex(v => !S.vdone[v.id]);
       if (vs.length && !S.qa) Object.assign(msg, {vd: j >= 0 ? Math.round((Number(vs[j].dur) || 0) * 1000) : 0, vs: j < 0 ? "done" : S.vp && S.vp.i === S.i ? "play" : "", vp: j >= 0 && playable(S, vs[j])});
     }
     try { R.ch.send({type: "broadcast", event: "s", payload: await seal(R.key, msg)}); } catch (e) {}
   }
+  // the current slide as a small picture for friends (a PDF's page, drawn as it shows here); a PowerPoint sends its words instead
+  async function friendImg(S, R){
+    const key = S.i + ":" + (S.d.pc ? S.k : 0); if (R.imgKey === key || S.d.kind !== "pdf" || !R.ch) return; R.imgKey = key;
+    try {
+      const box = document.createElement("div"); box.style.cssText = "position:fixed;left:-9999px;top:0;width:560px";
+      document.body.appendChild(box); await drawSlide(S.d, S.i, box, 560, S.d.pc ? S.k : null);
+      const c = box.querySelector("canvas"), url = c ? c.toDataURL("image/jpeg", 0.68) : ""; box.remove();
+      if (!url || RM !== R || R.imgKey !== key || url.length > 180000) return;
+      R.ch.send({type: "broadcast", event: "i", payload: await seal(R.key, {k: key, img: url})});
+    } catch (e) {}
+  }
   function remotePanel(){
     const S = STG, R = RM; if (!S) return; const box = S.el.querySelector("#prRemote"); if (!box) return;
     if (!R || R.hide) { box.hidden = true; return; }
     box.hidden = false;
+    if (R.friend) {
+      const ppl = [...R.people.entries()].filter(([, at]) => Date.now() - at < 20000).map(([n]) => n);
+      box.innerHTML = `<div class="pr-rm-card pr-fr-card"><button type="button" class="pr-x pr-rm-x" data-act="pr-remote-hide" aria-label="Hide">×</button>
+        <b>Rehearse With a Friend</b>
+        ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.url ? `<p class="mini">Send them this code. They open the link (or ${esc(SITE().replace(/^https?:\/\//, ""))}/present-remote.html) and type it in: no account needed.</p>
+          <div class="pr-fr-code" aria-label="Code ${esc(R.code.split("").join(" "))}">${esc(R.code.slice(0, 4))}<span>${esc(R.code.slice(4))}</span></div>
+          <div class="pr-fr-acts"><button type="button" class="btn small" data-act="pr-fr-copy">Copy Link</button>${navigator.share ? `<button type="button" class="btn small" data-act="pr-fr-share">Share</button>` : ""}</div>
+          <div class="pr-rm-qr pr-fr-qr" data-link="${esc(R.url)}">${QR.svg(R.url, "QR code to join the rehearsal")}</div>
+          <p class="mini" role="status">${ppl.length ? `${IC.check} ${esc(ppl.join(", "))} ${ppl.length === 1 ? "is" : "are"} with you. Anyone can move the slides.` : "Waiting for your friend to join…"}</p>
+          <button type="button" class="btn small pr-rm-off" data-act="pr-remote-off">End Sharing</button>`
+        : `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>Setting up…</p>`}</div>`;
+      return;
+    }
     box.innerHTML = `<div class="pr-rm-card"><button type="button" class="pr-x pr-rm-x" data-act="pr-remote-hide" aria-label="Hide">×</button>
       <b>Phone Remote</b>
       ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.linked ? `<p class="pr-rm-ok">${IC.check} Your phone is connected. Use it to move through your slides.</p><button type="button" class="btn small pr-rm-off" data-act="pr-remote-off">Disconnect</button>`
@@ -1682,13 +1719,17 @@
       case "pr-coach": coach(); return true;
       case "pr-pro-stats": proWhy("Pace and filler words are part of Studyboard Pro: words a minute and every um, like and so, slide by slide."); return true;
       case "pr-remote": remoteStart(); return true;
+      case "pr-friend": remoteStart("friend"); return true;
+      case "pr-join-code": { const w = window.open(SITE() + "/present-remote.html", "_blank", "noopener"); if (!w) location.href = SITE() + "/present-remote.html"; return true; }
+      case "pr-fr-copy": if (RM && RM.url) { try { navigator.clipboard.writeText(`Join my presentation rehearsal: ${RM.url} (code ${RM.code})`).then(() => toast("Link copied"), () => toast("Couldn't copy it. The code is " + RM.code)); } catch (e) { toast("The code is " + RM.code); } } return true;
+      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
       case "pr-remote-hide": if (RM) { RM.hide = true; remotePanel(); } return true;
       case "pr-remote-off": remoteEnd(); remotePanel(); return true;
     }
     return false;
   });
   // the remote button shows the panel again once hidden
-  const _rs = remoteStart; remoteStart = async () => { if (RM && RM.hide) { RM.hide = false; remotePanel(); return; } return _rs(); };
+  const _rs = remoteStart; remoteStart = async mode => { if (RM && RM.hide && !!RM.friend === (mode === "friend")) { RM.hide = false; remotePanel(); return; } return _rs(mode); };
   window.addEventListener("keydown", e => {
     if (!document.getElementById("prStage") || dlg.open) return;
     const tg = e.target, typing = tg && (tg.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName));
