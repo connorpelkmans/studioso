@@ -108,7 +108,7 @@ async function uploadFiles(list, opts){
       try {
         let r;
         const from = opts.origin ? {origin: opts.origin, untrusted: true} : {};
-        try { r = await assets.upload(f, Object.assign({type, courseId: opts.courseId || "", folderId: opts.folderId || "other"}, from)); }
+        try { r = await assets.upload(f, Object.assign({type, courseId: opts.courseId || "", folderId: opts.folderId || "other"}, opts.cls ? {cls: opts.cls} : {}, from)); }
         catch(e) { if (e && e.code === "store_unavailable") { await sleep(1200); r = await assets.upload(f, Object.assign({type}, from)); } else throw e; }
         const file = normFile(Object.assign({id: uid(), name: f.name, courseId: opts.courseId || "", folderId: opts.folderId || "other", kind: "file",
           revs: [Object.assign({assetId: r.id, size: r.sizeBytes, type: r.contentType, at: Date.now(), name: f.name}, r.localRel ? {localRel: r.localRel} : {})], taskIds: opts.taskId ? [opts.taskId] : [], created: Date.now()}, opts.ftype ? {ftype: opts.ftype} : {}));

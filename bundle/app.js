@@ -17808,7 +17808,7 @@ async function uploadFiles(list, opts){
       try {
         let r;
         const from = opts.origin ? {origin: opts.origin, untrusted: true} : {};
-        try { r = await assets.upload(f, Object.assign({type, courseId: opts.courseId || "", folderId: opts.folderId || "other"}, from)); }
+        try { r = await assets.upload(f, Object.assign({type, courseId: opts.courseId || "", folderId: opts.folderId || "other"}, opts.cls ? {cls: opts.cls} : {}, from)); }
         catch(e) { if (e && e.code === "store_unavailable") { await sleep(1200); r = await assets.upload(f, Object.assign({type}, from)); } else throw e; }
         const file = normFile(Object.assign({id: uid(), name: f.name, courseId: opts.courseId || "", folderId: opts.folderId || "other", kind: "file",
           revs: [Object.assign({assetId: r.id, size: r.sizeBytes, type: r.contentType, at: Date.now(), name: f.name}, r.localRel ? {localRel: r.localRel} : {})], taskIds: opts.taskId ? [opts.taskId] : [], created: Date.now()}, opts.ftype ? {ftype: opts.ftype} : {}));
@@ -21050,7 +21050,8 @@ async function runFolderBackup(quiet){
         try {
           const c = courseOf(f.courseId), fo = foldersOf(f.courseId).find(x => x.id === f.folderId);
           const d1 = await filesDir.getDirectoryHandle(safeName(c ? courseLabel(c) : "General"), {create: true});
-          const d2 = await d1.getDirectoryHandle(safeName(fo ? fo.name : "Other"), {create: true});
+          let d2 = await d1.getDirectoryHandle(safeName(fo ? fo.name : "Other"), {create: true});
+          const cd = clsDirOf(f.courseId, f.folderId, f.cls); if (cd) d2 = await d2.getDirectoryHandle(cd, {create: true});
           const base = safeName(r.name || f.name), fname = f.revs.length > 1 ? base.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(i)})$1`) : base;
           const bytes = await assetBytes(r.assetId);
           const fh = await d2.getFileHandle(fname, {create: true}); const w = await fh.createWritable(); await w.write(bytes); await w.close();
@@ -21121,12 +21122,15 @@ function deskDir(rel, name){
 }
 const deskDone = () => { try { return JSON.parse(localStorage.getItem("studioso:fsFiles") || "{}"); } catch(e) { return {}; } };
 function deskMarkDone(id){ const d = deskDone(); d[id] = 1; try { localStorage.setItem("studioso:fsFiles", JSON.stringify(d)); } catch(e) {} }
+// A class's own folder inside Lecture Notes ("2026-10-05 Lecture 7"), for a file linked to a class (from 99-class-sessions.js)
+const clsDirOf = (cid, fid, key) => { if (fid !== "notes" || !key || !window.SBCLS || !SBCLS.dirOf) return ""; try { return safeName(SBCLS.dirOf(cid, key)); } catch(e) { return ""; } };
 function deskMirrorRel(f, i, courseId, folderId){
   const cid = courseId != null ? courseId : f.courseId, fid = folderId != null ? folderId : f.folderId;
   const c = courseOf(cid) || state.courses[cid], fo = foldersOf(cid).find(x => x.id === fid);
   const r = f.revs ? f.revs[i] : null, nm = safeName((r && r.name) || f.name);
   const fname = f.revs && f.revs.length > 1 ? nm.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(i)})$1`) : nm;
-  return `Files/${safeName(c ? courseLabel(c) : "General")}/${safeName(fo ? fo.name : "Other")}/${fname}`;
+  const cd = clsDirOf(cid, fid, f.cls);
+  return `Files/${safeName(c ? courseLabel(c) : "General")}/${safeName(fo ? fo.name : "Other")}/${cd ? cd + "/" : ""}${fname}`;
 }
 function deskRevOf(id){
   for (const f of Object.values(state.files)) { const i = (f.revs || []).findIndex(r => r.assetId === id); if (i >= 0) return {f, i}; }
@@ -21142,7 +21146,7 @@ const deskAssets = {
   upload: async (file, o = {}) => {
     const type = o.type || file.type || "application/octet-stream";
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const rel = await deskUniqueRel(deskMirrorRel({name: file.name, courseId: o.courseId || "", folderId: o.folderId || "other"}, 0, o.courseId || "", o.folderId || "other"));
+    const rel = await deskUniqueRel(deskMirrorRel({name: file.name, courseId: o.courseId || "", folderId: o.folderId || "other", cls: o.cls || ""}, 0, o.courseId || "", o.folderId || "other"));
     await DESK.write(rel, bytes, o.untrusted || o.origin ? {untrusted: true, origin: o.origin || ""} : undefined);
     let id = "local:" + uid();
     if (sbActive() && cloud.on && navigator.onLine !== false) { try { id = (await sbAssets.upload(file, {type})).id; } catch(e) {} }
@@ -90240,7 +90244,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     return {ai: {google: !!(c.ai && c.ai.google), microsoft: !!(c.ai && c.ai.microsoft)}, save: ["google", "microsoft"].includes(c.save) ? c.save : "studyboard", msFolder: c.msFolder && c.msFolder.id ? c.msFolder : null,
       gCourse: Object.fromEntries(Object.entries(c.gCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
       msCourse: Object.fromEntries(Object.entries(c.msCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
-      watch: Array.isArray(c.watch) ? c.watch.filter(w => w && w.id).slice(0, 5) : [], hide: Array.isArray(c.hide) ? c.hide.slice(-500) : []};
+      watch: Array.isArray(c.watch) ? c.watch.filter(w => w && w.id).slice(0, 5) : [], hide: Array.isArray(c.hide) ? c.hide.slice(-500) : [],
+      // a class's uploads kept in Studyboard also get a copy in the student's Drive or OneDrive: "auto" (the one connected), "off", or a provider
+      copy: ["off", "google", "microsoft"].includes(c.copy) ? c.copy : "auto"};
   };
   const setPrefs = patch => { state.settings = Object.assign({}, state.settings, {cloud: Object.assign(prefs(), patch)}); saveSettings(); };
   const target = () => { const s = prefs().save; return s !== "studyboard" && connected().includes(s) ? s : ""; };
@@ -90362,6 +90368,36 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     try { return await msUpload(blob, name, type, segsFor(o || {}), cf); }
     catch (e) { if (e && e.code === "net") throw e; toast(`Couldn't use the OneDrive folder “${cf.name}” for this course, so it went to Studyboard's folder instead.`); return msUpload(blob, name, type, segsFor(o || {})); }
   }
+  /* Class uploads kept in Studyboard: a copy also goes to the student's Google Drive or OneDrive, in <course>/Lectures/<date> <class>
+     (or the course's own chosen folder). Studyboard's file stays the one shown in Files; the copy is noted on it (f.copy) and
+     hidden from watched-folder checks so it doesn't come back as a second file. */
+  const copyTo = courseId => {
+    const pr = prefs(), conn = connected(); if (pr.copy === "off" || target() || !conn.length) return "";
+    if (pr.copy !== "auto") return conn.includes(pr.copy) ? pr.copy : "";
+    if (conn.length === 1) return conn[0];
+    return courseId && pr.msCourse[courseId] && !pr.gCourse[courseId] ? "microsoft" : "google";
+  };
+  async function copyUploads(made, list, opts){
+    const p = copyTo(opts && opts.courseId); if (!p || !made || !made.length) return 0;
+    const pool = (list || []).slice(), ch = [], hide = [];
+    for (const f of made) {
+      if (!f || f.kind !== "file") continue;
+      let i = pool.findIndex(b => b && b.name === f.name); if (i < 0 && made.length === 1 && pool.length === 1) i = 0; if (i < 0) continue;
+      const blob = pool.splice(i, 1)[0];
+      try {
+        const rec = await saveBlob(p, blob, f.name, {courseId: f.courseId, folderId: f.folderId, sub: opts.sub, type: (f.revs[0] && f.revs[0].type) || blob.type});
+        const cur = state.files[f.id]; if (!cur) continue;
+        ch.push({kind: "file", id: f.id, after: Object.assign(clone(cur), {copy: {p, id: rec.id, url: rec.url}})}); hide.push(String(rec.id));
+      } catch (e) { toast(`${(e && e.message) || "Couldn't reach " + NM[p] + "."} ${f.name} is still saved in Studyboard.`); }
+    }
+    if (hide.length) setPrefs({hide: prefs().hide.concat(hide).slice(-500)});
+    if (ch.length) { applyChanges(ch, ""); toast(ch.length === 1 ? `A copy is in your ${NM[p]} too.` : `Copies of ${ch.length} files are in your ${NM[p]} too.`); }
+    return ch.length;
+  }
+  // OneDrive: what's in a folder, for choosing files (Files.ReadWrite covers the whole drive)
+  const canPickOneDrive = () => { try { return connected().includes("microsoft"); } catch (e) { return false; } };
+  const msList = id => msChildren(id || "root", false);
+  const msFile = it => msItem(it, null, "");
   const MAX_UP = 250 * 1048576;
   async function uploadFiles(list, opts, forced){
     const p = forced || target(), made = [], back = [], invs = [];
@@ -90611,6 +90647,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const rad = (v, label) => `<label><input type="radio" name="clSave" value="${v}"${curSave === v ? " checked" : ""}${v !== "studyboard" && !conn.includes(v) ? " disabled" : ""}> ${label}</label>`;
     const saveSet = conn.length ? `<fieldset class="cl-set"><legend>Save New Uploads In</legend><div class="cl-rad">${rad("studyboard", "Studyboard")}${PROVS.filter(p => conn.includes(p)).map(p => rad(p, NM[p])).join("")}</div>
       <p class="mini">Uploads in Files and task attachments go there, sorted into a folder per course. Lecture recordings ask where to keep them. Word, PowerPoint and Excel files are fine in the cloud.</p>
+      ${curSave === "studyboard" ? `<label class="cl-copy"><span>Copy class uploads to</span><select data-cl-copy aria-label="Where a copy of class uploads goes">${[["auto", conn.length === 1 ? NM[conn[0]] : "Google Drive or OneDrive"], ["off", "Don't copy"]].concat(conn.length > 1 ? PROVS.filter(p => conn.includes(p)).map(p => [p, NM[p]]) : []).map(([v, n]) => `<option value="${v}"${pr.copy === v ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
+      <p class="mini">Files uploaded to a class are kept in Studyboard, with a copy in your cloud under the course's Lectures folder.</p>` : ""}
       ${ms ? `<p class="mini">OneDrive folder: <b>${esc(pr.msFolder ? pr.msFolder.name : "Studyboard")}</b> <button type="button" class="link-btn" data-act="cl-browse" data-mode="save">Change</button>${pr.msFolder ? ` <button type="button" class="link-btn" data-act="cl-save-default">Use Studyboard</button>` : ""}</p>` : ""}</fieldset>` : "";
     const watch = ms ? `<fieldset class="cl-set"><legend>Watched OneDrive Folders</legend>
       ${pr.watch.length ? `<ul class="cl-watch">${pr.watch.map(w => `<li><span class="cl-wn">${FOLDER}<b>${esc(w.name)}</b><span class="mini">${Object.values(state.files).filter(f => f.cloud && f.cloud.w === w.id).length} files</span></span>
@@ -90727,6 +90765,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   document.addEventListener("change", e => {
     const t = e.target; if (!t || !t.closest || !t.closest("#clBody")) return;
     if (t.dataset.clFc !== undefined) { U.fc = t.value; paint(); return; }
+    if (t.dataset.clCopy !== undefined) { setPrefs({copy: t.value}); toast(t.value === "off" ? "Class uploads stay in Studyboard only" : "Class uploads get a copy in your cloud too"); return; }
     if (t.name === "clSave") { setPrefs({save: t.value}); toast(t.value === "studyboard" ? "New uploads stay in Studyboard" : `New uploads go to ${NM[t.value]}`); render(); }
     else if (t.dataset.clWc) { setPrefs({watch: prefs().watch.map(w => w.id === t.dataset.clWc ? Object.assign({}, w, {courseId: t.value}) : w)}); U.scanAt = 0; scan({quiet: true}); toast("Saved"); }
   });
@@ -90840,7 +90879,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const pickGoogleSlides = () => pickGoogleFolder("gslides").then(d => Array.isArray(d) ? d[0] || null : d);
   const docApi = (p, url, init, mode) => api(p, url, init, mode);
   const pickerApp = () => { try { return String((cache().picker || {}).appId || ""); } catch (e) { return ""; } };
-  window.SBCLOUD = {canPickFiles, pickFiles, pickGoogleDoc, pickGoogleSlides, docApi, pickerApp, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  window.SBCLOUD = {canPickFiles, pickFiles, canPickOneDrive, msList, msFile, copyTo, copyUploads, pickGoogleDoc, pickGoogleSlides, docApi, pickerApp, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
   window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
@@ -90861,6 +90900,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .cl-set p{margin:0}
 .cl-rad{display:flex;gap:6px 16px;flex-wrap:wrap}
 .cl-rad label{display:flex;gap:6px;align-items:center}
+.cl-copy{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-weight:600}
+.cl-copy select{flex:0 1 auto;min-width:0}
 .cl-watch{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .cl-watch li{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .cl-wn{display:flex;gap:6px;align-items:center;flex:1 1 160px;min-width:0}
@@ -101040,6 +101081,10 @@ var SBCLS = null;
     folder: p => SV('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', p)
   };
   const DRIVE = () => (window.SBCLOUD && SBCLOUD.icons && SBCLOUD.icons.google) || IC.file(16);
+  // OneDrive's cloud logo, drawn (the shared logo is a small picture that blurs at button size). Its viewBox is trimmed to the
+  // cloud itself so it sits centred in the button like Google Drive's
+  const ONEDRIVE = () => '<svg class="od-lg" viewBox="1.4 4 29.9 22" aria-hidden="true" focusable="false"><path d="M12.2 11.19l6.72 4.03 4-1.69A6.48 6.48 0 0 1 25.5 13c.15 0 .29 0 .44.02a10 10 0 0 0-18.04-3.02L8 10a7.96 7.96 0 0 1 4.2 1.19z" fill="#0364b8"/><path d="M12.2 11.19A7.96 7.96 0 0 0 8 10h-.1a8 8 0 0 0-6.46 12.57l5.92-2.49 2.64-1.11 5.86-2.47 3.06-1.29z" fill="#0078d4"/><path d="M25.94 13.02A6.6 6.6 0 0 0 25.5 13a6.48 6.48 0 0 0-2.58.53l-4 1.69 1.16.7 3.81 2.27 1.66 1 5.68 3.4a6.5 6.5 0 0 0-5.29-9.57z" fill="#1490df"/><path d="M25.55 19.18l-1.66-.99-3.81-2.28-1.16-.7-3.06 1.29-5.86 2.47-2.64 1.11-5.92 2.49A7.99 7.99 0 0 0 8 26h17.5a6.5 6.5 0 0 0 5.72-3.41z" fill="#28a8ea"/></svg>';
+  const BRAND = p => p === "google" ? DRIVE() : p === "microsoft" ? ONEDRIVE() : "";
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const isLec = f => !!f && f.folderId === "lectures";
   const dOf = ms => { const d = new Date(Number(ms) || Date.now()); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
@@ -101236,7 +101281,7 @@ var SBCLS = null;
   let OPEN = null;
   const noteName = n => (String(n.text || "").split("\n").map(l => l.replace(/\[\[|\]\]/g, "").trim()).find(Boolean) || "Untitled note").slice(0, 90);
   const notePeek = n => String(n.text || "").split("\n").slice(1).join(" ").replace(/\[\[|\]\]/g, "").replace(/\s+/g, " ").trim().slice(0, 140);
-  const srcTag = f => f.kind === "cloud" ? `<span class="cls-src">${f.cloud && f.cloud.p === "google" ? DRIVE() : ""}${esc(CLOUD_NAMES[f.cloud && f.cloud.p] || "Cloud")}</span>` : f.kind === "link" ? `<span class="cls-src">Link</span>` : "";
+  const srcTag = f => f.kind === "cloud" ? `<span class="cls-src">${BRAND(f.cloud && f.cloud.p)}${esc(CLOUD_NAMES[f.cloud && f.cloud.p] || "Cloud")}</span>` : f.kind === "link" ? `<span class="cls-src">Link</span>` : "";
   function pageHtml(x){
     const c = courseOf(x.cid), I = itemsOf(x.cid, x.key), all = classesOf(c).filter(y => y.kind === x.kind && (!y.skipped || y.key === x.key));
     const i = all.findIndex(y => y.key === x.key), prev = i > 0 ? all[i - 1] : null, next = i >= 0 && i < all.length - 1 ? all[i + 1] : null;
@@ -101246,7 +101291,7 @@ var SBCLS = null;
     const recLi = f => `<li class="cls-it k-rec">${IC.mic(16)}<button type="button" class="cls-it-main" data-act="lec-view" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${esc([f.dur && window.SBLEC ? SBLEC.clock(f.dur * 1000) : "", f.tr && f.tr.text ? "Transcript" : "", hasSum(f) ? "Summary" : ""].filter(Boolean).join(" · ") || "Recording")}</span></button>${hasSum(f) ? `<button type="button" class="btn small" data-act="cls-sum" data-id="${esc(f.id)}">Summary</button>` : ""}</li>`;
     const nowish = x.date === todayISO() && minOfDay(Date.now()) >= tMin(x.start) - 20 && minOfDay(Date.now()) <= tMin(x.end) + 10;
     const recOk = window.SBLEC && SBLEC.canAdd && SBLEC.canAdd();
-    const nav = (y, dir) => y ? `<button type="button" class="btn small cls-nav" data-act="cls-go" data-key="${esc(y.key)}" aria-label="${dir === "p" ? "Previous" : "Next"} class: ${esc(y.title)}, ${esc(day(y.date))}">${dir === "p" ? IC.prev(16) : ""}<span>${esc(y.title)}</span>${dir === "n" ? IC.next(16) : ""}</button>` : `<span></span>`;
+    const nav = (y, dir) => y ? `<button type="button" class="btn small cls-nav is-${dir === "p" ? "prev" : "next"}" data-act="cls-go" data-key="${esc(y.key)}" aria-label="${dir === "p" ? "Previous" : "Next"} class: ${esc(y.title)}, ${esc(day(y.date))}">${dir === "p" ? IC.prev(16) : ""}<span>${esc(y.title)}</span>${dir === "n" ? IC.next(16) : ""}</button>` : `<span></span>`;
     return `<div class="sheet occv cls-sheet" style="--c:${esc(c ? c.color : "var(--accent)")}">
       <div class="occv-band">${c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : ""}<button type="button" class="icon-btn occv-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
       <div class="sheet-body occv-body">
@@ -101258,7 +101303,7 @@ var SBCLS = null;
 
         <section class="cls-sec"><h3><span>${esc(x.kind || "Class")} Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
           ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Upload the slides before class." : "Nothing for this class yet."}</p>`}
-          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-newnote">${IC.plus(16)}New Note</button><button type="button" class="btn small" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
+          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button><button type="button" class="btn small cls-cloud" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small cls-cloud" data-act="cls-onedrive">${ONEDRIVE()}OneDrive</button></div>
         </section>
 
         <section class="cls-sec"><h3><span>Recording</span></h3>
@@ -101277,7 +101322,22 @@ var SBCLS = null;
     openSheet(pageHtml(x));
     dlg.addEventListener("close", () => { if (OPEN && OPEN.cid === cid && OPEN.key === key && !dlg.querySelector(".cls-sheet")) OPEN = null; }, {once: true});
   }
-  const redraw = () => { if (!OPEN || !dlg.open || !dlg.querySelector(".cls-sheet")) return; const x = classOf(OPEN.cid, OPEN.key); if (!x) return; const st = dlg.querySelector(".sheet-body").scrollTop; dlg.querySelector(".cls-sheet").outerHTML = pageHtml(x); const b = dlg.querySelector(".sheet-body"); if (b) b.scrollTop = st; };
+  /* The arrows to the previous or next class swap the page in place: closing and opening the sheet again made it slide down
+     and back up on phones. The sheet keeps its height (it only grows if the next class has more in it), and the arrow keeps focus */
+  function step(cid, key, dir){
+    const x = classOf(cid, key), old = dlg.open && dlg.querySelector(".cls-sheet");
+    if (!x) { toast("That class isn't on the schedule any more."); return; }
+    if (!old) { openClass(cid, key); return; }
+    const h = old.getBoundingClientRect().height;
+    OPEN = {cid, key};
+    old.outerHTML = pageHtml(x);
+    const now = dlg.querySelector(".cls-sheet"), b = now && now.querySelector(".sheet-body");
+    if (now && h) now.style.minHeight = Math.round(h) + "px";
+    if (b) b.scrollTop = 0;
+    const f = dlg.querySelector(`.cls-nav.is-${dir === "n" ? "next" : "prev"}`) || dlg.querySelector(".cls-nav");
+    if (f) { try { f.focus({preventScroll: true}); } catch (e) {} }
+  }
+  const redraw = () => { if (!OPEN || !dlg.open || !dlg.querySelector(".cls-sheet")) return; const x = classOf(OPEN.cid, OPEN.key); if (!x) return; const st = dlg.querySelector(".sheet-body").scrollTop, mh = dlg.querySelector(".cls-sheet").style.minHeight; dlg.querySelector(".cls-sheet").outerHTML = pageHtml(x); if (mh) dlg.querySelector(".cls-sheet").style.minHeight = mh; const b = dlg.querySelector(".sheet-body"); if (b) b.scrollTop = st; };
 
   /* Adding to a class */
   const subFor = x => ["Lectures", `${x.date} ${x.title}`];
@@ -101289,33 +101349,78 @@ var SBCLS = null;
     const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
     inp.addEventListener("change", async () => {
       const list = [...(inp.files || [])]; inp.remove(); if (!list.length) return;
-      const made = await uploadFiles(list, {courseId: x.cid, folderId: "notes", cloud: true, sub: subFor(x)});
-      if (made && made.length) tag("file", made.map(f => f.id), x.key, "");
-      redraw();
+      await uploadTo(x.cid, x.key, list, ""); redraw();
     });
     document.body.appendChild(inp); inp.click();
+  }
+  // Files picked in Google Drive or OneDrive: linked into the class (they stay in the cloud), shown in Files > Lecture Notes
+  function addCloud(x, p, items){
+    const now = Date.now(), ch = items.map(d => { const f = normFile({id: uid(), name: d.name, courseId: x.cid, folderId: "notes", kind: "cloud",
+      url: d.url || (p === "google" ? `https://drive.google.com/file/d/${encodeURIComponent(d.id)}/view` : ""),
+      cloud: Object.assign({p, id: d.id, name: d.name, size: d.size || 0, type: d.type || "", mod: d.mod || new Date(now).toISOString(), url: d.url || ""}, p === "microsoft" ? {pin: true} : {}), cls: x.key, created: now});
+      return {kind: "file", id: f.id, after: f}; });
+    if (ch.length) applyChanges(ch, `Added ${plural(ch.length, "file")} from ${CLOUD_NAMES[p]} to ${x.title}`);
+    return ch.length;
   }
   async function drive(x){
     const CL = window.SBCLOUD;
     if (CL && CL.canPickFiles && CL.canPickFiles()) {
       let docs = null; try { toast("Choose the files in the Google Drive window"); docs = await CL.pickFiles(); } catch (e) { toast((e && e.message) || "Couldn't open Google Drive."); return; }
       if (!docs || !docs.length) return;
-      const now = Date.now(), ch = docs.map(d => { const f = normFile({id: uid(), name: d.name, courseId: x.cid, folderId: "notes", kind: "cloud", url: d.url || `https://drive.google.com/file/d/${encodeURIComponent(d.id)}/view`,
-        cloud: {p: "google", id: d.id, name: d.name, size: d.size || 0, type: d.type || "", mod: new Date(now).toISOString(), url: d.url || ""}, cls: x.key, created: now}); return {kind: "file", id: f.id, after: f}; });
-      applyChanges(ch, `Added ${plural(ch.length, "file")} from Google Drive to ${x.title}`);
+      addCloud(x, "google", docs);
       redraw(); return;
     }
     // Not connected, or the picker isn't set up on this server: a Drive link works anywhere
-    linkSheet(x, CL && CL.connected && !CL.connected().includes("google"));
+    linkSheet(x, "google", CL && CL.connected && !CL.connected().includes("google"));
   }
-  function linkSheet(x, offerConnect){
-    openSheet(`<form class="sheet">${head("Add From Google Drive")}<div class="sheet-body">
-      <p class="mini" style="margin:0 0 10px">Paste the Share link of a Google Doc, Slides file, PDF or folder for ${esc(x.title)}.${offerConnect ? ` Or connect Google Drive to pick files there.` : ""}</p>
-      <label class="f"><span class="lh">Link</span><input type="url" name="url" required inputmode="url" placeholder="https://docs.google.com/…" autofocus></label>
+  /* OneDrive: browse the student's OneDrive here and tick the files for this class (ticks are kept while moving between folders) */
+  const OD = {x: null, id: "root", trail: [], sel: new Map(), list: null, err: "", tok: 0};
+  function oneDrive(x){
+    const CL = window.SBCLOUD;
+    if (!(CL && CL.canPickOneDrive && CL.canPickOneDrive() && CL.msList)) { linkSheet(x, "microsoft", !!(CL && CL.connected && !CL.connected().includes("microsoft"))); return; }
+    Object.assign(OD, {x, id: "root", trail: [], sel: new Map()});
+    openSheet(`<div class="sheet cls-od">${head("Add From OneDrive")}<div class="sheet-body" id="clsOdBody"></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button><span class="spacer"></span><button type="button" class="btn primary" data-act="cls-od-add" id="clsOdAdd" disabled>Add</button></div></div>`);
+    odGo("root");
+  }
+  async function odGo(id){
+    const t = ++OD.tok; OD.id = id; OD.list = null; OD.err = ""; odPaint();
+    try { OD.list = await SBCLOUD.msList(id); if (!OD.list) OD.err = "That folder isn't in your OneDrive any more."; }
+    catch (e) { OD.err = (e && e.message) || "Couldn't open OneDrive."; }
+    if (t === OD.tok) odPaint();
+  }
+  function odPaint(){
+    const b = document.getElementById("clsOdBody"); if (!b || !OD.x) return;
+    const crumbs = `<nav class="cls-od-crumbs" aria-label="Folder">${[{id: "root", name: "OneDrive"}].concat(OD.trail).map((c, i, a) => i === a.length - 1 ? `<b>${esc(c.name)}</b>` : `<button type="button" class="link-btn" data-act="cls-od-to" data-i="${i}">${esc(c.name)}</button>`).join('<span aria-hidden="true">›</span>')}</nav>`;
+    let body;
+    if (OD.err) body = `<p class="cl-warn">${esc(OD.err)}</p>`;
+    else if (!OD.list) body = `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Opening…</p>`;
+    else {
+      const items = OD.list.filter(it => it.folder || (it.file && !/^(~\$|\.)/.test(it.name || ""))).sort((a, b) => (b.folder ? 1 : 0) - (a.folder ? 1 : 0) || String(a.name).localeCompare(String(b.name)));
+      body = items.length ? `<ul class="cls-od-list">${items.slice(0, 300).map(it => it.folder
+        ? `<li><button type="button" class="cls-od-row" data-act="cls-od-dir" data-id="${esc(it.id)}" data-name="${esc(it.name)}">${IC.folder(18)}<span class="cls-od-n">${esc(it.name)}</span><span class="mini">${it.folder.childCount != null ? plural(it.folder.childCount, "item") : ""}</span>${IC.next(16)}</button></li>`
+        : `<li><label class="cls-od-row"><input type="checkbox" data-od-file="${esc(it.id)}"${OD.sel.has(String(it.id)) ? " checked" : ""}>${IC.file(18)}<span class="cls-od-n">${esc(it.name)}</span><span class="mini">${it.size ? esc(fmtSize(it.size)) : ""}</span></label></li>`).join("")}</ul>`
+        : `<p class="mini">This folder is empty.</p>`;
+    }
+    b.innerHTML = `<p class="mini" style="margin:0">Tick the files that go with ${esc(OD.x.title)}, ${esc(day(OD.x.date))}. They stay in your OneDrive and open from Studyboard.</p>${crumbs}${body}`;
+    odCount();
+  }
+  function odCount(){ const a = document.getElementById("clsOdAdd"); if (a) { a.disabled = !OD.sel.size; a.textContent = OD.sel.size ? `Add ${plural(OD.sel.size, "File")}` : "Add"; } }
+  dlg.addEventListener("change", e => {
+    const i = e.target && e.target.closest && e.target.closest("[data-od-file]"); if (!i || !OD.list) return;
+    const it = OD.list.find(z => String(z.id) === i.dataset.odFile); if (!it) return;
+    if (i.checked) OD.sel.set(String(it.id), it); else OD.sel.delete(String(it.id));
+    odCount();
+  });
+  function linkSheet(x, p, offerConnect){
+    const G = p === "google", nmP = CLOUD_NAMES[p];
+    openSheet(`<form class="sheet">${head("Add From " + nmP)}<div class="sheet-body">
+      <p class="mini" style="margin:0 0 10px">Paste the Share link of ${G ? "a Google Doc, Slides file, PDF or folder" : "a file or folder in OneDrive"} for ${esc(x.title)}.${offerConnect ? ` Or connect ${nmP} to pick files there.` : ""}</p>
+      <label class="f"><span class="lh">Link</span><input type="url" name="url" required inputmode="url" placeholder="${G ? "https://docs.google.com/…" : "https://1drv.ms/…"}" autofocus></label>
       <label class="f"><span class="lh">Name <span class="hint">optional</span></span><input type="text" name="name" maxlength="120" placeholder="e.g. Week 5 slides"></label>
-      </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button>${offerConnect ? `<button type="button" class="btn" data-act="cls-connect">Connect Google Drive</button>` : ""}<span class="spacer"></span><button class="btn primary" data-submit>Add</button></div></form>`, fd => {
+      </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button>${offerConnect ? `<button type="button" class="btn cls-cloud" data-act="cls-connect">${BRAND(p)}Connect ${nmP}</button>` : ""}<span class="spacer"></span><button class="btn primary" data-submit>Add</button></div></form>`, fd => {
       const url = safeUrl(String(fd.get("url") || "").trim()); if (!url || !/^https:\/\//.test(url)) { toast("That doesn't look like a link."); return false; }
-      let nm = String(fd.get("name") || "").trim(); if (!nm) { try { const u = new URL(url); nm = /docs\.google\.com/.test(u.hostname) ? ({document: "Google Doc", presentation: "Google Slides", spreadsheets: "Google Sheet"}[u.pathname.split("/")[1]] || "Google Drive file") : /drive\.google\.com/.test(u.hostname) ? "Google Drive file" : u.hostname.replace(/^www\./, ""); } catch (e) { nm = "Link"; } }
+      let nm = String(fd.get("name") || "").trim(); if (!nm) { try { const u = new URL(url); nm = /docs\.google\.com/.test(u.hostname) ? ({document: "Google Doc", presentation: "Google Slides", spreadsheets: "Google Sheet"}[u.pathname.split("/")[1]] || "Google Drive file") : /drive\.google\.com/.test(u.hostname) ? "Google Drive file" : /(^|\.)(1drv\.ms|onedrive\.live\.com|sharepoint\.com)$/.test(u.hostname) ? "OneDrive file" : u.hostname.replace(/^www\./, ""); } catch (e) { nm = "Link"; } }
       const f = normFile({id: uid(), name: nm.slice(0, 120), courseId: x.cid, folderId: "notes", kind: "link", url, cls: x.key, created: Date.now()});
       applyChanges([{kind: "file", id: f.id, after: f}], `Added ${nm} to ${x.title}`);
       setTimeout(() => openClass(x.cid, x.key), 0);
@@ -101330,7 +101435,7 @@ var SBCLS = null;
     const item = (k, o, nm) => { const w = where(o.cls); return `<label class="mi-check"><input type="checkbox" data-cls="${k}:${esc(o.id)}"${o.cls === x.key ? " checked" : ""}> <span><b>${esc(nm)}</b>${w ? ` <span class="mini">now in ${esc(w)}</span>` : ""}</span></label>`; };
     openSheet(`<div class="sheet">${head("Add Files From Studyboard")}<div class="sheet-body">
       <p class="mini" style="margin:0">Pick the files from this course's Files that go with ${esc(x.title)}, ${esc(day(x.date))}.</p>
-      ${files.length ? `<div class="check-list">${files.map(f => item("file", f, f.name)).join("")}</div>` : `<p>This course has no files yet. Use Upload or Google Drive instead.</p>`}
+      ${files.length ? `<div class="check-list">${files.map(f => item("file", f, f.name)).join("")}</div>` : `<p>This course has no files yet. Use Upload, Google Drive or OneDrive instead.</p>`}
       </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button><span class="spacer"></span><button type="button" class="btn primary" id="clsPickOk">Done</button></div></div>`);
     $("#clsPickOk").addEventListener("click", () => {
       const ch = [];
@@ -101409,11 +101514,19 @@ var SBCLS = null;
     return {html, n: fs.length, crumb: ""};
   }
   // Upload into a class's folder: the files go in Lecture Notes, linked to the class
-  async function uploadTo(cid, key, list){
+  // Upload into a class: kept in Studyboard (or in the cloud when uploads are set to go there) and shown in Files > Lecture Notes
+  // under the class. On the desktop app the file is written to Files/<course>/Lecture Notes/<date> <class>; with Google Drive or
+  // OneDrive connected (and uploads kept in Studyboard) a copy also goes to <course>/Lectures/<date> <class> there
+  async function uploadTo(cid, key, list, msg){
     const x = classOf(cid, key) || looseClass(cid, key);
-    const made = await uploadFiles(list, {courseId: cid, folderId: "notes", cloud: true, sub: subFor(x)});
-    if (made && made.length) tag("file", made.map(f => f.id), key, `Added to ${x.title}`);
+    const made = await uploadFiles(list, {courseId: cid, folderId: "notes", cloud: true, sub: subFor(x), cls: key});
+    if (!made || !made.length) return;
+    tag("file", made.map(f => f.id), key, msg == null ? `Added to ${x.title}` : msg);
+    const CL = window.SBCLOUD, mine = made.filter(f => f.kind === "file");
+    if (mine.length && CL && CL.copyUploads) { try { await CL.copyUploads(mine, list, {courseId: cid, sub: subFor(x)}); } catch (e) {} }
   }
+  // The name of a class's own folder: "2026-10-05 Lecture 7"
+  const dirOf = (cid, key) => { const x = classOf(cid, key) || looseClass(cid, key); return x ? `${x.date} ${x.title}` : String(key || "").split("|")[0]; };
   function pickUpload(cid, key){
     const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
     inp.addEventListener("change", () => { const list = [...(inp.files || [])]; inp.remove(); if (list.length) uploadTo(cid, key, list); });
@@ -101430,7 +101543,7 @@ var SBCLS = null;
     if (!o || !(o.type === "meet" || (o.type === "event" && isClassEvent(o.ev)))) return [];
     const cid = courseIdOf(o), key = classKey(o), x = findClass(cid, key); if (!x) return [];
     const I = itemsOf(cid, key), rows = [];
-    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(key)}">${I.n ? "Open Class Notes" : "Start Notes for This Class"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
+    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(key)}">${I.n ? "Open Class Notes" : "Add Notes for This Class"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
     return rows;
   }
 
@@ -101439,18 +101552,17 @@ var SBCLS = null;
     const cur = () => OPEN && classOf(OPEN.cid, OPEN.key);
     switch (act) {
       case "cls-open": { const cid = el.dataset.cid, key = el.dataset.key; setTimeout(() => openClass(cid, key), 0); return true; }
-      case "cls-go": { if (OPEN) openClass(OPEN.cid, el.dataset.key); return true; }
+      case "cls-go": { if (OPEN) step(OPEN.cid, el.dataset.key, el.classList.contains("is-next") ? "n" : "p"); return true; }
       case "cls-back": { if (OPEN) { const o = OPEN; setTimeout(() => openClass(o.cid, o.key), 0); } return true; }
       case "cls-kind": { ui.clsKind = Object.assign({}, ui.clsKind, {[el.dataset.cid]: el.dataset.k}); render(); return true; }
       case "cls-dates": datesSheet(el.dataset.cid); return true;
       case "cls-upload": { const x = cur(); if (x) upload(x); return true; }
-      // a typed note already tagged to this class, opened to write in
-      case "cls-newnote": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); if (noteEditing) saveNoteText();
-        const n = addNoteText(`${x.title} notes, ${day(x.date, {month: "short", day: "numeric"})}\n`, x.cid, "", {cls: x.key});
-        noteEditing = n.id; ui.tab = "notes"; render(); window.scrollTo(0, 0);
-        setTimeout(() => { const t = $("#noteText"); if (t) { try { t.focus({preventScroll: true}); t.setSelectionRange(t.value.length, t.value.length); } catch (e) {} } }, 60);
-        return true; }
       case "cls-drive": { const x = cur(); if (x) drive(x); return true; }
+      case "cls-onedrive": { const x = cur(); if (x) oneDrive(x); return true; }
+      case "cls-od-dir": { OD.trail = OD.trail.concat({id: el.dataset.id, name: el.dataset.name || "Folder"}); odGo(el.dataset.id); return true; }
+      case "cls-od-to": { const i = Number(el.dataset.i) || 0; OD.trail = OD.trail.slice(0, i); odGo(i ? OD.trail[i - 1].id : "root"); return true; }
+      case "cls-od-add": { const x = OD.x; if (!x || !OD.sel.size) return true;
+        addCloud(x, "microsoft", [...OD.sel.values()].map(it => SBCLOUD.msFile(it))); OD.sel.clear(); setTimeout(() => openClass(x.cid, x.key), 0); return true; }
       case "cls-connect": { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); return true; }
       case "cls-pick": { const x = cur(); if (x) pickSheet(x); return true; }
       case "cls-unlink": { const x = cur(); if (!x) return true; tag(el.dataset.k, [id], "", `Taken off ${x.title}`); return true; }
@@ -101520,7 +101632,7 @@ var SBCLS = null;
     hook("render", soon);
   }
 
-  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
+  SBCLS = window.SBCLS = {dirOf, classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();
 /* ===== module: 99-replay.js: Lecture Replay, notes and transcript linked to the recording ===== */
 /* Lecture Replay (Pro, like Record a Lecture). A saved lecture's recording plays from any moment: tap a transcript paragraph, a ★ mark,

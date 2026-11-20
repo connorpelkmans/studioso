@@ -74,15 +74,44 @@ const shot = async (page, name, sel) => { if (!SHOTS) return; await page.waitFor
   ok(/Glycolysis/.test(await page.$eval("#dlg .lec-docv", el => el.textContent)), "Summary opens the recording's summary");
   await wed.click().catch(() => {}); await page.evaluate(() => document.querySelector("#dlg").close());
   await act(page, "cls-open", "", {cid: "c1", key: "2026-09-30|10:00|Lecture"}); await page.waitForSelector("#dlg .cls-sheet");
+  // once the sheet has finished opening (its top stops moving)
+  const top0 = await page.evaluate(async () => { let a = -1, b = -2; for (let i = 0; i < 60 && a !== b; i++) { b = a; await new Promise(r => setTimeout(r, 60)); a = document.querySelector("#dlg .cls-sheet").getBoundingClientRect().top; } return a; });
+  await page.evaluate(() => { window.__clsClosed = 0; document.querySelector("#dlg").addEventListener("close", () => window.__clsClosed++); });
   await page.click('#dlg [data-act="cls-go"]:has-text("Lecture 9")'); await page.waitForTimeout(200);
   ok(/Monday, October 5/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "the arrows step to the next class");
+  ok(await page.evaluate(() => window.__clsClosed) === 0 && Math.abs(await page.$eval("#dlg .cls-sheet", el => el.getBoundingClientRect().top) - top0) < 1, "stepping to the next class swaps the page in place: the sheet doesn't close or move (" + top0 + ")");
+  ok(await page.evaluate(() => document.activeElement && document.activeElement.classList.contains("is-next")), "the next arrow keeps focus");
+  await page.click('#dlg [data-act="cls-go"].is-prev'); await page.waitForTimeout(200);
+  ok(/Wednesday, September 30/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)) && Math.abs(await page.$eval("#dlg .cls-sheet", el => el.getBoundingClientRect().top) - top0) < 1, "and back again, still in place");
+  await page.click('#dlg [data-act="cls-go"].is-next'); await page.waitForTimeout(200);
   // add a Google Drive file (no Drive connected on this device: a Share link)
   await page.click('#dlg [data-act="cls-drive"]'); await page.waitForSelector('#dlg input[name="url"]');
   await page.fill('#dlg input[name="url"]', "https://docs.google.com/presentation/d/abc123/edit"); await page.click("#dlg [data-submit]"); await page.waitForSelector("#dlg .cls-sheet");
   ok(/Google Slides/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "a Google Drive link is added to the class");
-  // The section is named for the kind of class; New Note (tagged to this class) leads, then Upload
+  // OneDrive, not connected: a share link works the same way
+  await page.click('#dlg [data-act="cls-onedrive"]'); await page.waitForSelector('#dlg input[name="url"]');
+  ok(await page.locator('#dlg [data-act="cls-connect"] svg.od-lg').count() === 1, "OneDrive's link sheet offers Connect OneDrive, with its logo");
+  await page.fill('#dlg input[name="url"]', "https://1drv.ms/b/s!abc123"); await page.click("#dlg [data-submit]"); await page.waitForSelector("#dlg .cls-sheet");
+  ok(/OneDrive file/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "a OneDrive link is added to the class");
+  // OneDrive, connected: browse folders, tick files (ticks kept between folders) and add them as OneDrive files of the class
+  await page.evaluate(() => { const C = window.SBCLOUD, I = {root: [{id: "d1", name: "BIO 101", folder: {childCount: 1}}, {id: "a1", name: "Syllabus.docx", size: 2048, file: {mimeType: "x"}, webUrl: "https://onedrive.live.com/a1"}], d1: [{id: "a2", name: "Week 5.pptx", size: 4096, file: {mimeType: "y"}, webUrl: "https://onedrive.live.com/a2"}]};
+    window.__odSave = [C.canPickOneDrive, C.msList]; C.canPickOneDrive = () => true; C.msList = async id => I[id] || []; });
+  await page.click('#dlg [data-act="cls-onedrive"]'); await page.waitForSelector('#dlg [data-od-file="a1"]');
+  await page.check('#dlg [data-od-file="a1"]'); await page.click('#dlg [data-act="cls-od-dir"][data-id="d1"]'); await page.waitForSelector('#dlg [data-od-file="a2"]');
+  await page.check('#dlg [data-od-file="a2"]');
+  ok(await page.$eval("#clsOdAdd", b => b.textContent) === "Add 2 Files", "ticks are kept while moving between OneDrive folders");
+  await page.click("#clsOdAdd"); await page.waitForSelector("#dlg .cls-sheet");
+  { const s0 = await store(page), od = s0.files.filter(f => f.kind === "cloud" && f.cloud.p === "microsoft");
+    ok(od.length === 2 && od.every(f => f.cls === TODAYKEY && f.folderId === "notes" && f.courseId === "c1" && f.cloud.pin), "picked OneDrive files belong to the class, in Lecture Notes"); }
+  ok(await page.locator("#dlg .cls-items .cls-src svg.od-lg").count() === 2, "they show OneDrive's logo on the class page");
+  await page.evaluate(() => { const C = window.SBCLOUD; [C.canPickOneDrive, C.msList] = window.__odSave;
+    const P = window.__sbProStudy, st = P.state(); P.applyChanges(Object.values(st.files).filter(f => f.kind === "cloud" && f.cloud.p === "microsoft" || f.kind === "link" && /1drv/.test(f.url)).map(f => ({kind: "file", id: f.id, after: null})), null); });
+  await page.waitForTimeout(150);
+  // The section is named for the kind of class; Upload leads
   const sec = await page.$eval("#dlg .cls-sec h3", el => el.textContent);
-  ok(/^Lecture Notes and Files/.test(sec) && await page.locator('#dlg .btn.primary[data-act="cls-newnote"]').count() === 1 && await page.locator('#dlg [data-act="cls-upload"]').count() === 1, "Lecture Notes and Files, with New Note highlighted and Upload: " + sec);
+  ok(/^Lecture Notes and Files/.test(sec) && await page.locator('#dlg .btn.primary[data-act="cls-upload"]').count() === 1 && await page.locator('#dlg [data-act="cls-newnote"]').count() === 0, "Lecture Notes and Files, with Upload highlighted and no New Note: " + sec);
+  const acts = await page.$$eval('#dlg .cls-sec:first-of-type .cls-acts .btn', bs => bs.map(b => b.dataset.act));
+  ok(acts.join() === "cls-upload,cls-pick,cls-drive,cls-onedrive", "Upload and From Studyboard on top, Google Drive and OneDrive below: " + acts.join());
   // From Studyboard: lists the course's files, not notes; the syllabus goes with today's class
   await page.click('#dlg [data-act="cls-pick"]'); await page.waitForSelector('#dlg [data-cls="file:f2"]');
   ok(await page.locator('#dlg [data-cls^="note:"]').count() === 0, "From Studyboard lists files, not notes from the note board");
@@ -151,7 +180,7 @@ const shot = async (page, name, sel) => { if (!SHOTS) return; await page.waitFor
   ok(/NK1 Module 8, Class 3/.test(nk) && /NK 1 Module 9, Class 1/.test(nk) && /Clinical orientation/.test(nk) && /Lecture 3/.test(nk), "each shows its own title and is numbered");
   ok(!/Pizza night|Reading week/.test(nk), "a social event and an all-day event aren't classes");
   await act(page, "sch-occ", "e3", {type: "event", key: "2026-10-09"}); await page.waitForSelector("#dlg .occv-rows");
-  ok(/Start Notes for This Class/.test(await page.$eval("#dlg .occv-rows", el => el.textContent)), "the Schedule's sheet for a calendar lecture links its class page");
+  ok(/Add Notes for This Class/.test(await page.$eval("#dlg .occv-rows", el => el.textContent)), "the Schedule's sheet for a calendar lecture links its class page");
   await page.click('#dlg [data-act="cls-open"]'); await page.waitForSelector("#dlg .cls-sheet");
   ok(/NK 1 Module 9, Class 1/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "and opens it, with the lecture's title");
   await shot(page, "5-calendar-lectures", "#dlg .sheet");

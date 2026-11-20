@@ -9395,9 +9395,14 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .cls-it-main:hover b,.cls-it-main:focus-visible b{text-decoration:underline;text-underline-offset:2px}
 .cls-src{display:inline-flex;align-items:center;gap:3px}
 .cls-src svg{width:12px;height:12px}
+.cls-src svg.od-lg{width:15px}
 .cls-acts{display:flex;flex-wrap:wrap;gap:6px}
 .cls-acts .btn{display:inline-flex;align-items:center;gap:5px}
 .cls-acts .btn svg{width:16px;height:16px;flex:none}
+/* Google Drive's and OneDrive's logos: the same optical size, centred on the label (OneDrive's cloud is wider than tall) */
+.cls-cloud{gap:7px!important}
+.cls-cloud svg.brand-lg{width:18px!important;height:16px!important}
+.cls-cloud svg.od-lg{width:22px!important;height:15px!important;margin-top:1px}
 .cls-sheet .sheet-foot .btn{display:inline-flex;align-items:center;gap:6px}
 .occv-link{padding:0;font:inherit;font-weight:700;text-align:start}
 
