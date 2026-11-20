@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Guess the hours</title>
+<!--
+  Set 4 · retention device: a GUESS (people commit to an answer, then stay for the reveal; the comments fill with guesses).
+  0.0  "guess how many hours of work this week is 👀" + the week's items stacking in every 0.45 s, the total hidden as ??h
+  2.6  three options A/B/C; 4.6 a "revealing in 3·2·1" bar; 6.4 the answer slams in (23h) and C lights up
+  Music: quirky.wav from 0.
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;background:#FFF6E9;color:#0F1F3D;-webkit-font-smoothing:antialiased}
+#txt{position:absolute;left:60px;right:60px;top:230px;text-align:center;z-index:20}
+.blk{display:inline;background:#000;color:#fff;font-weight:800;font-size:64px;line-height:1.36;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+#card{position:absolute;left:60px;right:60px;top:450px;border-radius:44px;background:#fff;box-shadow:0 24px 60px -16px rgba(120,70,0,.35);overflow:hidden}
+#card .band{background:linear-gradient(90deg,#E4713B,#F2A33A);color:#fff;font-weight:800;font-size:38px;letter-spacing:.06em;padding:26px 40px}
+#items{padding:16px 40px 6px}
+.it{display:flex;justify-content:space-between;align-items:center;font-size:46px;font-weight:600;padding:18px 0;border-bottom:3px solid #F3EEE6;opacity:0}
+.it b{font-weight:800;color:#B86A00}
+#tot{display:flex;justify-content:space-between;align-items:center;padding:24px 40px 34px;font-weight:800;font-size:54px}
+#num{font-size:120px;letter-spacing:-.03em;color:#E4513B;display:inline-block}
+#opts{position:absolute;left:60px;right:60px;top:1330px;display:flex;gap:24px}
+.o{flex:1;text-align:center;padding:30px 0;border-radius:30px;background:#fff;font-weight:800;font-size:58px;box-shadow:0 10px 30px rgba(120,70,0,.18);opacity:0}
+#bar{position:absolute;left:120px;right:120px;top:1530px;height:22px;border-radius:11px;background:#F1E4D0;opacity:0;overflow:hidden}
+#bar i{display:block;height:100%;width:0;background:#E4513B}
+#rev{position:absolute;left:0;right:0;top:1575px;text-align:center;font-weight:700;font-size:40px;opacity:0;color:#7A5A2A}
+#tag{position:absolute;left:0;right:0;top:1575px;text-align:center;font-weight:700;font-size:38px;opacity:0;color:#5A6A86}
+#tag img{width:48px;height:48px;border-radius:12px;vertical-align:-12px;margin-right:10px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="card"><div class="band">THIS WEEK · DEC 7–13</div><div id="items"></div>
+    <div id="tot"><span>Total work</span><span id="num">??h</span></div></div>
+  <div id="opts"><div class="o" id="o0">A · 12h</div><div class="o" id="o1">B · 17h</div><div class="o" id="o2">C · 23h</div></div>
+  <div id="bar"><i id="barI"></i></div><div id="rev">revealing in 3…</div>
+  <div id="tag"><img src="{{ROOT}}/icon-512.png" alt="">counted by Studyboard's Crunch Forecast</div>
+  <div id="txt"><span class="blk">guess how many hours of work this week is 👀</span></div>
+</div>
+<script src="{{ROOT}}/marketing/reels/_shared/kit.js"></script>
+<script>
+const IT = [["Bio midterm", "prep"], ["Chem final", "prep"], ["Psych quiz", "prep"], ["Essay (2,500 words)", "draft"], ["Lab report", "write-up"]];
+$("items").innerHTML = IT.map((x, i) => `<div class="it" id="i${i}"><span>${x[0]}</span><b>?h</b></div>`).join("");
+const REV = 6.4, END = 8.4;
+function render(t) {
+  IT.forEach((_, i) => { const el = $("i" + i), t0 = i ? i * .42 : -1; const k = P(t, t0, t0 + .25);
+    el.style.opacity = t0 < 0 ? 1 : clamp(k * 3); el.style.transform = `translateX(${(1 - oBack(k)) * -60}px)`; });
+  // hidden total: a scrambling number until the reveal
+  const n = $("num");
+  if (t < REV) { n.textContent = t < 2.2 ? "??h" : (Math.floor(t * 17) % 30 + 5) + "h"; n.style.filter = t < 2.2 ? "" : "blur(10px)"; n.style.transform = ""; }
+  else { n.textContent = "23h"; n.style.filter = ""; n.style.transform = `scale(${lerp(1.9, 1, oBack(P(t, REV, REV + .3), 2))})`; }
+  ["o0", "o1", "o2"].forEach((id, i) => { popIn($(id), t, 2.5 + i * .25, .6);
+    const win = i === 2 && t >= REV, lose = i < 2 && t >= REV;
+    $(id).style.background = win ? "#1E9E74" : ""; $(id).style.color = win ? "#fff" : ""; if (lose) $(id).style.opacity = .35; });
+  $("bar").style.opacity = t >= 4.4 && t < REV ? 1 : 0; $("barI").style.width = (P(t, 4.4, REV) * 100) + "%";
+  $("rev").style.opacity = t >= 4.4 && t < REV ? 1 : 0; $("rev").textContent = "revealing in " + Math.max(1, Math.ceil((REV - t) / .67)) + "…";
+  $("tag").style.opacity = P(t, REV + .5, REV + .8);
+  $("card").style.transform = `translateX(${nudge(t, REV, 16)}px)`;
+}
+window.render = render; window.END = END; window.COVER = 1.6;
+render(0);
+</script>
+</body>
+</html>

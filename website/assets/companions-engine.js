@@ -15,6 +15,8 @@ window.SBCOMPW = (function () {
   const tintsNow = () => ({});
   const patsNow = () => ({});
   const wearColor = c => (c && c.wearColor) || "#1F6FEB";
+  const withPat = art => art;   // no patterns on the website (patsNow is empty), so a pattern never wraps the art
+  const CALM = 1.17;
   const VB = 120, INK = "#2B2233";
   const DATA = typeof COMP_DATA !== "undefined" ? COMP_DATA : [];
   const GREET_KEY = "studyboard:comp:greeted";

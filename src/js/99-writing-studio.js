@@ -2694,13 +2694,18 @@ function reviewHtml(){
     ${list.length ? `${started.length ? `<ul class="wsr-list" data-rv-kind="writing">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list" data-rv-kind="writing">${next.map(card).join("")}</ul>` : ""}`
       : `<div class="empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("papers") : ""}<strong>No Papers Yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
 }
-// Today's Plan: on the due date or the day before, a saved draft that hasn't been checked since it changed gets one gentle row
+// Today's Plan: from 3 days before the due date, a saved draft that hasn't been checked since it changed gets one gentle row (the
+// soonest paper first). Early enough to find a missing source; on the due date itself it's a last look.
+const CHECK_DAYS = 3;
 function planNote(inView){
-  const today = todayISO(), tmr = addDays(today, 1);
-  const t = allTasks().filter(x => x.status !== "done" && (x.due === today || x.due === tmr) && eligible(x) && (!inView || inView(x))).find(x => { const w = wsOf(x); return w.draft && (!w.chk || w.chk.h !== w.draft.h); });
+  const today = todayISO(), last = addDays(today, CHECK_DAYS);
+  const t = allTasks().filter(x => x.status !== "done" && x.due && x.due >= today && x.due <= last && eligible(x) && (!inView || inView(x))).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0))
+    .find(x => { const w = wsOf(x); return w.draft && (!w.chk || w.chk.h !== w.draft.h); });
   if (!t) return null;
-  const w = wsOf(t);
-  return {k: "ready", main: `<b>${esc(t.title)}</b> is due ${t.due === today ? "today" : "tomorrow"}. Your saved draft ${w.chk ? "has changed since its last citation check" : "hasn't had a citation check yet"}: a quick one catches a missing reference.`,
+  const w = wsOf(t), n = dayDiff(today, t.due), when = n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
+  const what = w.chk ? "has changed since its last citation check" : "hasn't had a citation check yet";
+  const why = n === 0 ? "a last look catches a missing reference before you hand it in." : "checking now leaves time to find a missing source or fix a reference.";
+  return {k: "ready", main: `<b>${esc(t.title)}</b> is due ${when}. Your saved draft ${what}: ${why}`,
     acts: `<button class="btn small primary" data-act="ws-open" data-id="${esc(t.id)}" data-ws-to="check">Check Citations</button>`};
 }
 

@@ -34,6 +34,13 @@ Don't stall on questions. If the request is "make a reel about Quick Add", decid
 
 ### 1b. Pick the reel type
 
+**Never use stock footage of real people** (Connor, Nov 19): animate everything (phone-UI formats such as a lock screen, group chat or search bar; the companions; or the real app via `marketing/reels/_tools/screenrec.js`). See "Set 3 rules" in `references/retention.md` for the first-2-seconds rule. Examples: `marketing/reels/2026-12-01-type-it-like-a-text/` to `2026-12-05-search-history/`.
+
+**Default to the native format** (see "Native, not an ad" in `references/retention.md`): a real screen recording of the app (`marketing/reels/_tools/screenrec.js`) or one phone-style shot, one static text block in the in-app style, music only, no sound effects, no end card. Build with `assets/native-template.html` via `scripts/make_short.py` (a config with a `NATIVE JS` block). Examples: `marketing/reels/2026-11-27-native-what-you-need/` to `2026-11-30-native-one-episode/`. Connor's verdict on the effects-heavy versions was "feels like an ad".
+
+The **short format**, still available (8–10 s, real people, one persistent caption, a cut on each hit, escalation, the product as the proof shot): see "Short format" in `references/retention.md`, and build with `assets/short-template.html` via `scripts/make_short.py`. Examples: `marketing/reels/2026-11-23-friend-group-irl/` to `2026-11-26-one-episode-short/`. Reel D's data (5 s average watch on 17 s) is why. Use the longer types below only when a story truly needs the time.
+
+
 Live research (Nov 2026) shows two kinds of reel work for this audience, and a healthy feed mixes them about 2:1:
 - **Relatable** (reach): modelled on the top outlier. A real person at frame 0 (stock b-roll), one persistent native caption (white bold Inter, black outline), the Studyboard calendar as the "proof" shot cut on a music hit, a punchline shot, and a loop. Then, unlike a creator's meme, **always a short payoff**: a turn line ("plot twist: you can see it coming"), about 2 s of Studyboard fixing the exact problem from the hook, and a 1.4 s end card (name, "free · no account needed", URL). A business reel that never shows the product gets views but no users. Keep the opening native: the brand appears only after the hook has earned attention. The template paces it at 18.0 s: 4 s hook, 4 s problem, 3 s punchline, 5 s fix, 2 s end card. These get sent and are how a new account reaches people who don't follow it. Example: `marketing/reels/2026-11-16-same-week/`.
 - **The fix** (conversion): hook → payoff demo → URL. Example: `marketing/reels/2026-11-15-crunch-week/`.

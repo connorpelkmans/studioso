@@ -1,0 +1,1 @@
+{"vw": 360, "vh": 620, "dsf": 3, "tab": "board", "steps": [{"press": "Today's Plan"}, {"scroll": "window", "to": 150, "dur": 0.04}, {"hold": 2.8}, {"scroll": "window", "to": 210, "dur": 1.2}, {"hold": 2.0}]}

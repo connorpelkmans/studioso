@@ -1,6 +1,8 @@
 // Browser test: the last exam reflection sets the next prep plan's defaults, and whiteboards are found by Search and [[links]]
 const path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
+// a new plan first asks how to plan; these checks are about the planner, so pick it
+const auto = async page => { if (await page.locator('#ppBody [data-pp="pick-auto"]').count()) { await page.click('#ppBody [data-pp="pick-auto"]'); await page.waitForTimeout(300); } };
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const NOW = new Date(2026, 9, 4, 10, 0, 0);
@@ -35,7 +37,7 @@ const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("cours
   await page.goto(FILE); await page.waitForTimeout(1500);
 
   // 1. Plan My Prep reads the last reflection
-  await act(page, "exam-plan", "ex1"); await page.waitForSelector("#ppBody .pp-lesson");
+  await act(page, "exam-plan", "ex1"); await page.waitForSelector("#ppBody [data-pp=pick-auto]"); await auto(page); await page.waitForSelector("#ppBody .pp-lesson");
   const lesson = await page.$eval("#ppBody .pp-lesson", el => el.textContent);
   ok(/Quiz 1/.test(lesson) && /night before/.test(lesson), "the plan says it starts early because last time started the night before: " + lesson.slice(0, 160));
   ok(/Shaky/.test(lesson) && /85%/.test(lesson) && /62%/.test(lesson), "and that topics start at Shaky after feeling more ready than the mark");

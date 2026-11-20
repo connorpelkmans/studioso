@@ -315,6 +315,8 @@ function normPrep(p){
   const o = {v: 1, topics: [], intensity: Math.max(15, Math.min(300, Math.round(Number(p.intensity)) || 90)), style: [], styleText: str(p.styleText, 200), days: null, rest: !!p.rest, light: p.light !== false, start: isDate(p.start) ? p.start : "",
     ai: p.ai !== false, examDue: isDate(p.examDue) ? p.examDue : "", createdAt: Number(p.createdAt) || 0, updatedAt: Number(p.updatedAt) || 0};
   if (p.archived) o.archived = true;
+  // made by hand (97-examprep.js, I'll Make My Own), not spread by the planner
+  if (p.manual) o.manual = true;
   // What the last exam reflection changed in this plan (97-examprep.js, lessonFor)
   if (p.lesson && typeof p.lesson === "object" && !Array.isArray(p.lesson)) {
     const L = p.lesson, pc = v => v === null || v === "" || v === undefined || !Number.isFinite(Number(v)) ? null : Math.max(0, Math.min(100, Math.round(Number(v)))), l = {from: str(L.from, 40), title: str(L.title, 120)};

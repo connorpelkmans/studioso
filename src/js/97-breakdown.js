@@ -655,7 +655,7 @@ function sheetHtml(S){
   const isNew = S.mode === "new", replan = S.mode === "replan";
   const courseOpts = `<option value="">No course</option>` + coursesArr().map(c => `<option value="${esc(c.id)}" ${c.id === S.courseId ? "selected" : ""}>${esc(c.name)}</option>`).join("");
   const kindOpts = BD.ORDER.map(k => `<option value="${k}" ${k === S.kind ? "selected" : ""}>${esc(BD.KINDS[k].label)}</option>`).join("");
-  return `<form class="sheet bd-sheet" aria-label="${replan ? (S.catchup ? "Catch up plan" : "Re-plan milestones") : "Break It Down"}">${head(replan ? (S.catchup ? "Catch-up Plan" : "Re-plan Milestones") : "Break It Down")}
+  return `<form class="sheet bd-sheet" aria-label="${replan ? (S.catchup ? "Catch up plan" : "Re-plan milestones") : "Break It Down"}">${head(replan ? (S.catchup ? "Catch-up Plan" : "Re-Plan Milestones") : "Break It Down")}
     <div class="sheet-body">
       ${isNew ? `<div id="bdIn" class="bd-in">
         <p class="mini" style="margin:0">Paste the assignment prompt or rubric, or add the assignment sheet as a PDF${aiReady() ? " or photo" : ""}. The plan is made on this device; AI is only used if you've turned it on.</p>
@@ -908,7 +908,7 @@ function formHtml(t, isNew){
     return `<div class="bd-panel"><div class="bd-ph"><b>${esc(pr.text)}</b><span class="bd-bar" aria-hidden="true"><i style="width:${Math.round(pr.frac * 100)}%"></i></span></div>
       ${re ? `<p class="bd-w" role="status">The due date changed from ${esc(fmtShort(t.bdDue))} to ${esc(fmtShort(t.due))}. Re-plan the open milestones?</p>` : ""}${late.length ? `<p class="bd-w" role="status">${late.length} milestone${late.length === 1 ? " is" : "s are"} overdue. A catch-up plan spreads what's left from today.</p>` : ""}
       ${pr.all && t.status !== "done" ? `<p class="mini" style="margin:0">Every milestone is done.</p>` : ""}
-      <div class="bd-pb">${t.status !== "done" ? `<button type="button" class="btn small ${re ? "primary" : ""}" data-act="bd-open" data-id="${esc(t.id)}">${re ? "Re-plan Milestones" : "Edit Milestones"}</button>${late.length ? `<button type="button" class="btn small" data-act="bd-catchup" data-id="${esc(t.id)}">Catch-up Plan</button>` : ""}${pr.all ? `<button type="button" class="btn small primary" data-act="bd-complete" data-id="${esc(t.id)}">Mark Complete</button>` : ""}` : ""}<button type="button" class="btn small" data-act="bd-remove" data-id="${esc(t.id)}">Remove Milestones</button></div>
+      <div class="bd-pb">${t.status !== "done" ? `<button type="button" class="btn small ${re ? "primary" : ""}" data-act="bd-open" data-id="${esc(t.id)}">${re ? "Re-Plan Milestones" : "Edit Milestones"}</button>${late.length ? `<button type="button" class="btn small" data-act="bd-catchup" data-id="${esc(t.id)}">Catch-up Plan</button>` : ""}${pr.all ? `<button type="button" class="btn small primary" data-act="bd-complete" data-id="${esc(t.id)}">Mark Complete</button>` : ""}` : ""}<button type="button" class="btn small" data-act="bd-remove" data-id="${esc(t.id)}">Remove Milestones</button></div>
       <ul class="bd-kids">${kids.map(k => `<li class="${k.status === "done" ? "is-done" : ""}"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(k.id)}">${esc(k.step || "")} ${esc(k.title)}</button><span class="mini">${esc(fmtShort(k.due))}${k.status === "done" ? " · done" : k.due < today ? " · overdue" : ""}</span></li>`).join("")}</ul></div>`;
   }
   if (!bigBtnTypes[t.type] || t.status === "done" || t.prepFor) return "";
@@ -936,7 +936,7 @@ function rowBtn(t){
 }
 function rowMeta(t){
   if (t.breakdownOf) { const p = state.tasks[t.breakdownOf]; return p ? `<span class="bd-tag">Step ${esc(t.step || "")} · ${esc(String(p.title).slice(0, 28))}${p.title.length > 28 ? "…" : ""}</span>` : `<span class="bd-tag">Step ${esc(t.step || "")}</span>`; }
-  if (t.breakdownParent) { const k = kidsOfTask(t.id); if (k.length) { const pr = BD.progressOf(k); return `<span class="bd-tag">${esc(pr.text)}</span>${BD.needsReplan(t, k) ? `<span class="late">Re-plan?</span>` : ""}`; } }
+  if (t.breakdownParent) { const k = kidsOfTask(t.id); if (k.length) { const pr = BD.progressOf(k); return `<span class="bd-tag">${esc(pr.text)}</span>${BD.needsReplan(t, k) ? `<span class="late">Re-Plan?</span>` : ""}`; } }
   return "";
 }
 // The Suggestions tray
@@ -992,7 +992,7 @@ hook("changed", changes => {
       } else if (a.breakdownParent) delete offered.kids[a.id];
       if (a.breakdownParent && a.status !== "done") {
         const kids = kidsOfTask(a.id);
-        if (BD.needsReplan(a, kids) && offered.replan[a.id] !== a.due) { offered.replan[a.id] = a.due; setTimeout(() => toast(`The due date moved. Re-plan the ${kids.filter(k => k.status !== "done").length} open milestones?`, null, {label: "Re-plan", fn: () => openFor(a.id)}), 900); }
+        if (BD.needsReplan(a, kids) && offered.replan[a.id] !== a.due) { offered.replan[a.id] = a.due; setTimeout(() => toast(`The due date moved. Re-plan the ${kids.filter(k => k.status !== "done").length} open milestones?`, null, {label: "Re-Plan", fn: () => openFor(a.id)}), 900); }
       }
       if (!a.breakdownOf && !a.breakdownParent && a.created && Date.now() - a.created < 30000 && (changes.filter(x => x.kind === "task" && x.after).length <= 2) && BD.isBig(a) && a.due && BD.diff(today, a.due) >= 5 && !lmsOf(a)) {
         const mem = bdMem(); mem.asked = mem.asked || {};

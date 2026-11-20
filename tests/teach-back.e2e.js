@@ -15,7 +15,7 @@ const REPLY = {right: [{point: "Final velocity is the starting velocity plus acc
   confidence: "weak", reason: "You have the main equation but mixed up speed and velocity."};
 const EXPLAIN = "Kinematics is about how things move. Velocity is just how fast something goes, its speed. If something speeds up, the final velocity is the starting velocity plus acceleration times time, so v equals u plus a t.";
 const dlgText = page => page.evaluate(() => (document.querySelector("dialog[open]") || {}).innerText || "");
-const openTopic = async (page, tid) => { await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(400); await page.click(`#ppBody [data-act="tb-open"][data-topic="${tid}"]`); await page.waitForTimeout(300); };
+const openTopic = async (page, tid) => { await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(400); await page.click(`#ppBody .pp-covs [data-act="tb-open"][data-topic="${tid}"]`); await page.waitForTimeout(300); };
 // Other AI features may call on load; only count Teach It Back's own calls
 const tbCalls = ctx => ctx.aiCalls.filter(c => /<explanation>/.test(JSON.stringify(c)));
 const topicConf = async (page, tid) => (await F.exam(page)).prep.topics.find(t => t.id === tid).conf;
@@ -33,7 +33,7 @@ const topicConf = async (page, tid) => (await F.exam(page)).prep.topics.find(t =
       ok(await page.locator('#ppBody [data-act="tb-open"] .pro-badge').count() === 0, "no PRO badge for Pro");
       ok(await F.noHScroll(page) && await F.dlgScroll(page), "no horizontal scroll in the Prep Plan");
       await page.screenshot({path: path.join(OUT, `prep-${W}.png`)});
-      await page.click('#ppBody [data-act="tb-open"][data-topic="t1"]'); await page.waitForTimeout(300);
+      await page.click('#ppBody .pp-covs [data-act="tb-open"][data-topic="t1"]'); await page.waitForTimeout(300);
       ok(/Teach It Back/.test(await page.locator("#dlg .sheet-head h2").textContent()) && /Kinematics/.test(await dlgText(page)), "the sheet opens on the topic");
       ok(/Deck: Mechanics \(3 cards\)/.test(await dlgText(page)) && /Note: Motion definitions/.test(await dlgText(page)), "it says what the explanation is checked against");
       await page.fill("#tbText", "Kinematics is motion."); await page.click('[data-tb="check"]'); await page.waitForTimeout(200);
@@ -85,6 +85,31 @@ const topicConf = async (page, tid) => (await F.exam(page)).prep.topics.find(t =
       await F.act(page, "edit-task", "s2", {edit: "1"}); await page.waitForTimeout(400);
       ok(await page.locator('#dlg [data-act="tb-open"]').count() === 0, "a flashcard session's sheet doesn't");
       await F.act(page, "close"); await page.waitForTimeout(200);
+      ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
+      await ctx.close();
+    }
+
+    // A teach-back session's main button is Teach It Back, and a check counts as doing the session
+    {
+      const {ctx, page} = await F.mk(browser, 1280, 800, {ai: true});
+      ctx.aiReply = REPLY;
+      await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
+      const sb = page.locator('#ppBody .pp-sess [data-act="tb-open"][data-sess="s1"]');
+      ok(await sb.count() === 1 && /Teach It Back/.test(await sb.textContent()), "in the Prep Plan, the teach-back session's button is Teach It Back");
+      ok(await page.locator('#ppBody .pp-sess [data-act="prep-open-mat"][data-id="s1"]').count() === 0 && await page.locator('#ppBody .pp-sess [data-act="prep-open-mat"][data-id="s2"]').count() === 1, "it replaces the material button there; a flashcards session keeps Open Deck");
+      ok(await page.evaluate(() => /data-sess="s1"/.test(SBPREP.matBtn(SBPREP.sessions("ex1").find(t => t.id === "s1")))), "the same button wherever the session shows (Today's Plan, Next Up)");
+      // opened from a topic link, a check doesn't tick a session that isn't due yet
+      await page.click('#ppBody .pp-covs [data-act="tb-open"][data-topic="t1"]'); await page.waitForTimeout(300);
+      await page.fill("#tbText", EXPLAIN); await page.click('[data-tb="check"]'); await page.waitForSelector(".tb-sug", {timeout: 8000});
+      ok((await F.store(page)).tasks.find(t => t.id === "s1").status === "todo", "from a topic link, tomorrow's session stays to do");
+      await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+      // from the session itself, the check completes it
+      await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
+      await page.click('#ppBody .pp-sess [data-act="tb-open"][data-sess="s1"]'); await page.waitForTimeout(300);
+      if (await page.locator('[data-tb="again"]').count()) { await page.click('[data-tb="again"]'); await page.waitForTimeout(200); }
+      await page.fill("#tbText", EXPLAIN); await page.click('[data-tb="check"]'); await page.waitForSelector(".tb-sug", {timeout: 8000}); await page.waitForTimeout(300);
+      ok((await F.store(page)).tasks.find(t => t.id === "s1").status === "done", "opened from the session, a check marks it done");
+      ok(/Completed/.test(await page.locator("#toastMsg").textContent()) && await page.locator("#toastUndo").count() === 1, "with the usual Completed toast and Undo");
       ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
       await ctx.close();
     }
@@ -157,8 +182,8 @@ const topicConf = async (page, tid) => (await F.exam(page)).prep.topics.find(t =
       ok(/3 free this week/.test(await page.locator('#ppBody [data-act="tb-open"]').first().textContent()), "free: Teach It Back says how many free checks are left this week");
       await page.evaluate(() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); const p = n => String(n).padStart(2, "0"); const st = window.__sbProStudy.state(); st.settings = Object.assign({}, st.settings, {freeRuns: {wk: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, teach: 3}}); });
       await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
-      ok(await page.locator('#ppBody [data-act="tb-open"] .pro-badge').count() === 3, "free: with this week's checks used, each Teach It Back shows a PRO badge");
-      await page.click('#ppBody [data-act="tb-open"][data-topic="t1"]'); await page.waitForTimeout(600);
+      ok(await page.locator('#ppBody [data-act="tb-open"] .pro-badge').count() === 4, "free: with this week's checks used, each Teach It Back (3 topics and the teach-back session) shows a PRO badge");
+      await page.click('#ppBody .pp-covs [data-act="tb-open"][data-topic="t1"]'); await page.waitForTimeout(600);
       ok(/used this week's 3 free Teach It Back checks/.test(await dlgText(page)) && await page.locator("#tbText").count() === 0, "free: it opens the Pro sheet with the reason");
       ok(tbCalls(ctx).length === 0, "free: no AI call");
       ok(page.errs.length === 0, "no console errors (free): " + page.errs.join(" | "));

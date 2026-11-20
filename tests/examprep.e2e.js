@@ -1,6 +1,8 @@
 // Browser test for the Exam Prep Planner
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
 const {chromium, executablePath} = require("./pw");
+// a new plan first asks how to plan; these checks are about the planner, so pick it
+const auto = async page => { if (await page.locator('#ppBody [data-pp="pick-auto"]').count()) { await page.click('#ppBody [data-pp="pick-auto"]'); await page.waitForTimeout(300); } };
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
 const OUT = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "sbprep-"));
 fs.mkdirSync(OUT, {recursive: true});
@@ -70,6 +72,8 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       ok(await page.evaluate(() => ![...document.querySelectorAll("#view li.task")].some(li => /Midterm/.test(li.textContent)) && document.querySelectorAll('#view [data-act="exam-plan"]').length === 1), "the exam is listed once, with one Plan My Prep");
       await page.screenshot({path: path.join(OUT, `course-${tag}.png`)});
       await page.click('.pp-exams [data-act="exam-plan"]'); await page.waitForTimeout(500);
+      ok(await page.locator('#ppBody [data-pp="pick-auto"]').count() === 1 && await page.locator('#ppBody [data-pp="pick-manual"]').count() === 1, "a new plan first asks: Plan It for Me, or I'll Make My Own");
+      await auto(page);
       ok(await vis(page, "#ppBody"), "the planner sheet opens from the exam");
       ok((await txt(page, "#ppTitle")) === "Exam Prep", "title");
       const tn = await page.evaluate(() => [...document.querySelectorAll("[data-pn]")].map(i => i.value));
@@ -113,7 +117,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await page.click("#toastUndo"); await page.waitForTimeout(300);
       ok((await sessions(page)).length === 0 && (await store(page)).tasks.length === nBefore, "one Undo removes every session and nothing else");
       ok(!(await exam(page)).prep, "and the plan settings");
-      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
+      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(400); await auto(page);
       ok(await vis(page, "#ppBody") && (await txt(page, "#ppTitle")) === "Exam Prep", "re-opening after Undo starts a fresh plan");
       await page.click("[data-pp=suggest]"); await page.waitForTimeout(100);
       await page.click(`[data-pp=conf][data-id="${await page.evaluate(() => [...document.querySelectorAll("[data-pn]")].find(i => i.value === "Cardiac Drugs").dataset.pn)}"][data-v=weak]`);
@@ -121,7 +125,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       const ss2 = await sessions(page); ok(ss2.length >= 8, "plan created again: " + ss2.length);
       const kinds = new Set(ss2.map(t => t.kind)); ok(["learn", "cards", "questions", "recap", "light"].every(k => kinds.has(k)), "session types: " + [...kinds].join(", "));
       // no duplicates
-      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(400);
+      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(400); await auto(page);
       ok((await txt(page, "#ppTitle")) === "Prep Plan" && await vis(page, ".pp-agenda"), "planning an exam that already has a plan opens it");
       ok(await vis(page, "[data-pp=replan]"), "and offers Re-plan");
       ok((await sessions(page)).length === ss2.length, "nothing duplicated");
@@ -140,7 +144,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await goBoard(page);
       ok(await vis(page, ".plan-row .pp-open, .next-up .pp-open"), "Today's Plan shows prep sessions as Study tasks with an Open Deck or Open Note button");
       await page.evaluate(() => { const e = document.querySelector(".plan-row .pp-open, .next-up .pp-open"); if (e) e.scrollIntoView({block: "center"}); }); await page.waitForTimeout(200); await page.screenshot({path: path.join(OUT, `today-${tag}.png`)});
-      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(300);
+      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(300); await auto(page);
       const deckBtn = await page.evaluate(() => { const b = [...document.querySelectorAll(".pp-sess")].find(s => /Cardiac Drugs: flashcards/.test(s.innerText) && s.querySelector(".pp-open")); return b ? b.querySelector(".pp-open").dataset.id : ""; });
       ok(deckBtn, "a flashcards session has an Open Deck button");
       await page.click(`#ppBody .pp-open[data-id="${deckBtn}"]`); await page.waitForTimeout(500);
@@ -148,7 +152,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       const studying = await page.evaluate(() => /Beta blocker|ACE inhibitor|Statin|Digoxin|Show Answer|Reveal|Flip/i.test(document.body.innerText) && !!document.querySelector("#view"));
       ok(studying, "the linked deck opens in study mode");
       await page.screenshot({path: path.join(OUT, `study-${tag}.png`)});
-      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(300);
+      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(300); await auto(page);
       const firstDone = await page.evaluate(() => document.querySelector(".pp-day .pp-check").dataset.id);
       const covBefore = await page.evaluate(() => [...document.querySelectorAll(".pp-cov-top .mini:last-child")].map(e => e.innerText).join("|"));
       await page.click(`.pp-check[data-id="${firstDone}"]`); await page.waitForTimeout(400);
@@ -165,7 +169,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       ok(/2 of \d+ sessions/.test(await txt(page, ".pp-exams")), "the exam on the course page says how many sessions are done: " + await txt(page, ".pp-exams"));
       // old entry points
       const count = (await sessions(page)).length;
-      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(300); ok(await vis(page, "#ppBody") && !(await vis(page, "#epBody")), "the old exam-plan action opens the new planner"); await page.keyboard.press("Escape");
+      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(300); await auto(page); ok(await vis(page, "#ppBody") && !(await vis(page, "#epBody")), "the old exam-plan action opens the new planner"); await page.keyboard.press("Escape");
       await act(page, "prep-plan"); await page.waitForTimeout(300); ok(await vis(page, "#ppBody"), "Search Everywhere's 'Plan My Exam Prep' opens it too"); await page.keyboard.press("Escape");
       ok((await sessions(page)).length === count, "still the same sessions");
       // missed days (fake clock) -> banner and catch up
@@ -202,7 +206,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       ok((await exam(page)).prep.examDue === plus(16), "the plan remembers the new date");
       ok(re.length === new Set(re.map(t => t.id)).size && re.filter(t => t.status !== "done").length === new Set(re.filter(t => t.status !== "done").map(t => t.kind + "|" + t.topicId + "|" + t.due)).size, "no duplicate sessions");
       // no material -> the generator offer; no AI -> offline plan
-      await act(page, "exam-plan", "ex3"); await page.waitForTimeout(400);
+      await act(page, "exam-plan", "ex3"); await page.waitForTimeout(400); await auto(page);
       ok(await vis(page, "#ppBody"), "a second exam opens a fresh planner");
       await page.fill("#ppAdd", "Impressionism\nBaroque"); await page.click("[data-pp=add]"); await page.waitForTimeout(100);
       ok(/No material for Impressionism: make flashcards from your notes/.test(await txt(page, ".pp-offer")), "unmatched topics get an offer: " + (await txt(page, ".pp-offer")).slice(0, 90));
@@ -210,7 +214,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await page.click("#ppCreate"); await page.waitForTimeout(500);
       const s3 = await sessions(page, "ex3"); ok(s3.length >= 4 && ctx.aiCalls.length === nAi, "offline: plan made with no AI call");
       ok(s3.every(t => t.notes && t.notes.length > 10), "with a one-line instruction on each");
-      await act(page, "exam-plan", "ex3"); await page.waitForTimeout(300);
+      await act(page, "exam-plan", "ex3"); await page.waitForTimeout(300); await auto(page);
       await page.click(".pp-cov [data-pp=gen]"); await page.waitForTimeout(500);
       ok(!(await vis(page, "#ppBody")) && /Create|Flashcards|study set|Make/i.test(await page.evaluate(() => document.body.innerText)), "the offer opens the existing card generator (no automatic spend)");
       ok(ctx.aiCalls.length === nAi, "and made no AI call");
@@ -223,7 +227,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
     if (!process.env.ONLY) {
       console.log("== AI stub");
       const {ctx, page} = await mk(browser, 1280, 800, {ai: true});
-      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(500);
+      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(500); await auto(page);
       ok(await vis(page, "[data-pp=aifind]") && await vis(page, "[data-pp=ai]"), "AI controls appear when AI is set up");
       const first = await page.evaluate(() => [...document.querySelectorAll("[data-pn]")].map(i => i.value));
       ctx.aiReply = {sessions: []};
@@ -255,7 +259,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       ok(cap && cap.type === "Exam" && cap.time === "09:00", "captured: " + JSON.stringify(cap && [cap.title, cap.type, cap.due, cap.time]));
       ok(!(await vis(page, "dialog[open] [data-rx]")), "adding the exam doesn't ask where it's taken (exams are assumed in person)");
       ok(await vis(page, "#toast.show") && /Plan My Prep/.test(await txt(page, "#toastExtra")), "the toast still offers Plan My Prep after creating the exam");
-      await page.click("#toastExtra"); await page.waitForTimeout(500);
+      await page.click("#toastExtra"); await page.waitForTimeout(500); await auto(page);
       ok(await vis(page, "#ppBody") && /Exam Prep/.test(await txt(page, "#ppTitle")) && (await page.evaluate(() => SBPREP._state().exId)) === cap.id, "which opens the planner on that exam");
       ok((await page.evaluate(() => document.querySelector("#ppDue").value)) === "2026-10-28" && (await page.evaluate(() => document.querySelector("#ppTime").value)) === "09:00", "prefilled with the captured date and time");
       await page.keyboard.press("Escape");
@@ -268,7 +272,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       ok(/Midterm/.test(await txt(page, ".pp-today")) && /Plan My Prep/.test(await txt(page, ".pp-today")), "Today offers the planner once for an exam within 21 days with no plan: " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 120));
       await page.click(".pp-today [data-act=prep-dismiss]"); await page.waitForTimeout(300);
       ok(!/Midterm/.test(await txt(page, ".pp-today")), "Not now silences it for that exam");
-      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(400); await page.click("#ppCreate"); await page.waitForTimeout(500);
+      await act(page, "exam-plan", "ex1"); await page.waitForTimeout(400); await auto(page); await page.click("#ppCreate"); await page.waitForTimeout(500);
       ok((await sessions(page)).length >= 4, "a plan for the exam: " + (await sessions(page)).length);
       await ctx.clock.setSystemTime(new Date(2026, 9, 16, 10, 0, 0)); await page.reload(); await page.waitForTimeout(1500);
       await goBoard(page); await openPrep(page, "passed", 8000);
