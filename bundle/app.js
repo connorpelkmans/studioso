@@ -39656,7 +39656,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // open a group on its Whiteboards tab
     openBoards: gid => { if (!gid) return; S.tab[gid] = "boards"; openGroup(gid); },
     // load a group's members (names, colours, companions) when the group page hasn't yet
-    loadMembers: async gid => { if (!gid || !online()) return false; if ((S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
+    // force: ask again even when the list is already here (someone may have joined since)
+    loadMembers: async (gid, force) => { if (!gid || !online()) return false; if (!force && (S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
   hook("boot", () => {
     try {
@@ -112535,7 +112536,12 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   /* ---------- finishing a run ---------- */
   async function finish(){
     const S = STG; if (!S) return;
-    if (S.follow) { stageClose(); return; }
+    // someone following leaves partway: they still see how the rehearsal went up to now (not counted)
+    if (S.follow) {
+      if (S.fGo && clockMs(S) >= 2000) { const t = slideTimes(S); clearInterval(tick); followDone(S, {total: Math.round(clockMs(S)), times: t, budgets: S.b, target: Math.round(S.tgt / 1000), seg: [], at: Date.now() - Math.round(clockMs(S)), early: true}); }
+      else stageClose();
+      return;
+    }
     if (!S.started || clockMs(S) < 2000) { liveEnd(S, null); stageClose(); return; }
     if (S.running) { S.acc = clockMs(S); S.running = false; }
     if (S.open) { S.seg.push({i: S.open.i, a: S.open.a, b: S.acc}); S.open = null; }
@@ -112629,10 +112635,13 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   }
   function liveEnd(S, run){
     const L = S && S.lv; if (!L || !L.C || S.follow) return;
-    L.C.send("d", run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at, early: !!run.early} : {v: 1, cancelled: true});
+    const msg = run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at, early: !!run.early} : {v: 1, cancelled: true};
+    // sent a few times, so a dropped message doesn't leave anyone without their summary (each follower uses the first)
+    [0, 1200, 3000].forEach(ms => setTimeout(() => { try { L.C.send("d", msg); } catch (e) {} }, ms));
+    setTimeout(() => { try { L.C.close(); } catch (e) {} }, 6000);
     fire("pr-live-end", S.p, L.meta);
   }
-  function liveClose(S){ const L = S && S.lv; if (!L) return; S.lv = null; setTimeout(() => { if (L.C) L.C.close(); }, 600); }
+  function liveClose(S){ const L = S && S.lv; if (!L) return; S.lv = null; setTimeout(() => { if (L.C) L.C.close(); }, S.follow ? 600 : 3500); }
   function liveCmd(S, cmd){ const L = S && S.lv; if (L && L.C) L.C.send("c", {cmd, who: myName()}); }
   // someone in the group follows along on their own copy of the slides
   async function follow(pid, secret, host){
@@ -112965,7 +112974,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       case "pr-plan": if (inPlan()) { STG.planOpen = !STG.planOpen; paintReady(); } return true;
       case "pr-sec-on": if (inPlan()) { const a = Number((STG.el.querySelector("#prSecA") || {}).value) || 0, b = Number((STG.el.querySelector("#prSecB") || {}).value); const lo = Math.min(a, b), hi = Math.max(a, b); STG.sec = lo === 0 && hi === STG.d.n - 1 ? null : [lo, hi]; STG.secTgt = 0; STG.i = STG.sec ? lo : 0; plan(STG); stageBuild(); } return true;
       case "pr-sec-off": if (inPlan()) { STG.sec = null; STG.secTgt = 0; STG.i = 0; plan(STG); stageBuild(); } return true;
-      case "pr-sp-add": if (inPlan()) { const g = STG.p.group; if (g && g.sp.length < 6) { g.sp.push({id: uid(), name: "Speaker " + (g.sp.length + 1), c: SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6]}); splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
+      case "pr-sp-add": if (inPlan() && fire("pr-sp-add", STG.p).some(Boolean)) return true; if (inPlan()) { const g = STG.p.group; if (g && g.sp.length < 6) { g.sp.push({id: uid(), name: "Speaker " + (g.sp.length + 1), c: SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6]}); splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
       case "pr-sp-rm": if (inPlan()) { const g = STG.p.group; if (g) { g.sp = g.sp.filter(s => s.id !== id); if (!g.sp.length) g.on = false; else splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
       case "pr-sp-split": if (inPlan() && STG.p.group) { splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } return true;
       case "pr-sp-next": if (inPlan()) { const g = STG.p.group, i = Number(d.i) || 0; if (g && g.sp.length) { g.by = g.by && g.by.length === STG.d.n ? g.by : Array(STG.d.n).fill(g.sp[0].id); const k = g.sp.findIndex(s => s.id === g.by[i]); g.by[i] = g.sp[(k + 1) % g.sp.length].id; save(); refreshPlan(); } } return true;
@@ -113032,7 +113041,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   }
   window.SBPRESENT = {listHtml, open: stageOpen, add: newSheet, list: () => LIST.slice(), loaded: () => LOADED, todayHtml: () => fire("pr-today").filter(Boolean).join(""), taskHtml: t => fire("pr-task", t).filter(Boolean).join(""),
     // for 99-present-groups.js
-    px: {byId, all: () => LIST, save, get, put, del, fmt, IC, tone, baseSecs, spOf, grp, splitEvenly, openDeck, createFrom, stageOpen, reviewOpen, historyOpen, newSheet, follow, liveHost, stage: () => STG, review: () => RV, refreshReady: () => { if (STG && !STG.started) { plan(STG); paintReady(); paint(); } }, rerenderList: () => { if (ui.tab === "flashcards" && ui.rvView === "present") render(); }, kindOfName, titleOf, textsOf, deckFor},
+    px: {byId, all: () => LIST, save, refreshPlan: () => { if (STG) refreshPlan(); }, get, put, del, fmt, IC, tone, baseSecs, spOf, grp, splitEvenly, openDeck, createFrom, stageOpen, reviewOpen, historyOpen, newSheet, follow, liveHost, stage: () => STG, review: () => RV, refreshReady: () => { if (STG && !STG.started) { plan(STG); paintReady(); paint(); } }, rerenderList: () => { if (ui.tab === "flashcards" && ui.rvView === "present") render(); }, kindOfName, titleOf, textsOf, deckFor},
     _: {notesCheck, fillers, baseSecs, setSlideSecs}};
 })();
 /* ===== module: 99-present-groups.js ===== */
@@ -113290,12 +113299,48 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       return {s, d, ok, txt: d ? `${X.fmt(d.t)} of ${X.fmt(d.b)} · ${ago(Number(d.at) || Date.parse(r.updated_at))}${d.live ? " · together" : ""}` : "Not practiced yet", live};
     });
   }
+  /* ---------- speakers from the group: members who joined later, and Add a Speaker ---------- */
+  // the group's members who aren't presenting yet (the list is asked for again now and then: people join)
+  const memAsked = {};
+  function freshMembers(gid){ if (!gid || !online() || Date.now() - (memAsked[gid] || 0) < 30000) return; memAsked[gid] = Date.now(); G().loadMembers(gid, true).then(ch => { if (ch) { X.refreshReady(); X.refreshPlan(); if (X.review()) X.rerenderReview && X.rerenderReview(); } }).catch(() => {}); }
+  function nonSpeakers(p){
+    const gid = p.share && p.share.gid; if (!gid) return [];
+    let ms = []; try { ms = G().members(gid) || []; } catch (e) {}
+    const g = X.grp(p), ids = new Set(g ? g.sp.map(s => s.id) : []);
+    return ms.filter(m => m && m.id && !ids.has(m.id));
+  }
+  const freeColor = g => SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6];
+  function addSpeaker(p, m){
+    p.group = p.group && p.group.sp ? p.group : {on: true, sp: [], by: null}; const g = p.group; g.on = true;
+    if (g.sp.length >= 6) { toast("Up to 6 speakers."); return; }
+    g.sp.push(m ? {id: m.id, name: str(m.name || "Member", 40), c: okColor(m.color) && !g.sp.some(s => s.c === m.color) ? m.color : freeColor(g)} : {id: uid(), name: "Speaker " + (g.sp.length + 1), c: freeColor(g)});
+    X.splitEvenly(p); X.save(); X.refreshPlan(); X.refreshReady();
+    toast(m ? `${str(m.name || "They", 40)} is a speaker now. The slides were split evenly again: change them in the Plan.` : "Added a speaker. Name them in the Plan.");
+  }
+  // Add a Speaker, on a presentation shared with a group: someone in the group, or an extra speaker who isn't
+  hook("pr-sp-add", p => {
+    if (!p || !p.share || !p.share.gid || !online()) return false;
+    (async () => {
+      try { await G().loadMembers(p.share.gid, true); memAsked[p.share.gid] = Date.now(); } catch (e) {}
+      const list = nonSpeakers(p), gname = p.share.gname || gname0(p.share.gid);
+      const av = m => { let h = ""; try { h = G().avatar(p.share.gid, m.id, m.name); } catch (e) {} return h ? `<span class="prg-face">${h}</span>` : `<span class="prg-av" style="--c:${esc(okColor(m.color) || "#7A8494")}">${esc((m.name || "?").charAt(0).toUpperCase())}</span>`; };
+      openSheet(`<div class="sheet">${head("Add a Speaker")}<div class="sheet-body">
+        ${list.length ? `<p class="mini" style="margin:0">From ${esc(gname)}:</p><div class="prg-pick">${list.map(m => `<button type="button" class="prg-pick-i prg-pick-m" data-act="prg-sp-mem" data-id="${esc(m.id)}" data-pid="${esc(p.id)}">${av(m)}<span><b>${esc(m.id === me() ? (m.name || "You") + " (you)" : m.name || "A member")}</b><span class="mini">Gets their slides and target, and their practice shows in the team</span></span></button>`).join("")}</div>`
+          : `<p class="mini" style="margin:0">Everyone in ${esc(gname)} is already a speaker.</p>`}
+        <button type="button" class="prg-pick-i" data-act="prg-sp-extra" data-pid="${esc(p.id)}"><b>An Extra Speaker</b><span class="mini">Someone who isn't in the group, like a guest. You name them.</span></button>
+        </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+    })();
+    return true;
+  });
+  const gname0 = gid => (C.groups.find(g => g.id === gid) || {}).name || "the group";
   function teamHtml(p, compact){
+    if (p && p.share) freshMembers(p.share.gid);
     const rows = teamRows(p); if (!rows.length) return "";
     const gid = p.share && p.share.gid, ready = rows.filter(r => r.ok).length;
     const av = s => { let h = ""; try { h = gid ? G().avatar(gid, s.id, s.name) : ""; } catch (e) {} return h ? `<span class="prg-face">${h}</span>` : `<span class="prg-av" style="--c:${esc(s.c)}">${esc((s.name || "?").charAt(0).toUpperCase())}</span>`; };
     return `<div class="prg-team${compact ? " sm" : ""}"><div class="prg-team-h"><b>The Team</b><span class="mini">${ready} of ${rows.length} on target</span></div>
-      <ul>${rows.map(r => `<li style="--sp:${esc(r.s.c)}">${av(r.s)}<span class="prg-tn">${esc(r.s.id === me() ? r.s.name + " (you)" : r.s.name)}</span><span class="prg-tt ${r.d ? (r.ok ? "ok" : "warn") : "none"}">${r.d ? (r.ok ? "✓ " : "") : ""}${esc(r.txt)}</span></li>`).join("")}</ul></div>`;
+      <ul>${rows.map(r => `<li style="--sp:${esc(r.s.c)}">${av(r.s)}<span class="prg-tn">${esc(r.s.id === me() ? r.s.name + " (you)" : r.s.name)}</span><span class="prg-tt ${r.d ? (r.ok ? "ok" : "warn") : "none"}">${r.d ? (r.ok ? "✓ " : "") : ""}${esc(r.txt)}</span></li>`).join("")}
+      ${nonSpeakers(p).slice(0, 8).map(m => `<li class="prg-ns" style="--sp:transparent">${av({id: m.id, name: m.name || "?", c: okColor(m.color) || "#7A8494"})}<span class="prg-tn">${esc(m.id === me() ? (m.name || "You") + " (you)" : m.name || "A member")}</span>${p.share && p.share.own && !compact ? "" : `<span class="prg-tt none">Not presenting yet</span>`}${p.share && p.share.own ? `<button type="button" class="btn small prg-ns-add" data-act="prg-sp-mem" data-id="${esc(m.id)}" data-pid="${esc(p.id)}">Add as Speaker</button>` : ""}</li>`).join("")}</ul></div>`;
   }
 
   /* ---------- in presentation practice: the Ready card, the review, the cards and the list ---------- */
@@ -113446,6 +113491,8 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     switch (act) {
       case "prg-share": shareSheet(id); return true;
       case "prg-share-pick": sharePick(id); return true;
+      case "prg-sp-mem": { const p = X.byId(el.dataset.pid), m = p && nonSpeakers(p).find(x => x.id === id); if (dlg.open) dlg.close(); if (p && m) addSpeaker(p, m); return true; }
+      case "prg-sp-extra": { const p = X.byId(el.dataset.pid); if (dlg.open) dlg.close(); if (p) addSpeaker(p, null); return true; }
       case "prg-share-to": shareSheet(id, el.dataset.g || ""); return true;
       case "prg-share-go": shareGo(); return true;
       case "prg-groups": if (dlg.open) dlg.close(); ui.tab = "groups"; render(); window.scrollTo(0, 0); return true;

@@ -41,7 +41,7 @@ const FAKE = me => {
     then(res, rej){ return window.__db(JSON.stringify(q)).then(x => JSON.parse(x)).then(res, rej); }}; return o; };
   window.__fakeCli = {from: B, storage: {from: () => ({upload: async () => ({error: {message: "SB_GROUP_PRO: uploads need a Pro group"}})})}};
   window.__installFake = () => Object.assign(window.SBGROUPS.share, {online: () => true, cli: () => window.__fakeCli, myId: () => window.__me, myName: () => ({u1: "Maya", u2: "Sam"})[window.__me],
-    loadMembers: async () => true, members: () => [{id: "u1", name: "Maya", color: "#E07A2E"}, {id: "u2", name: "Sam", color: "#1E9E74"}], avatar: () => "", matchCourse: () => "c1"});
+    loadMembers: async () => true, members: () => [{id: "u1", name: "Maya", color: "#E07A2E"}, {id: "u2", name: "Sam", color: "#1E9E74"}].concat(window.__priya ? [{id: "u3", name: "Priya", color: "#2F6FE4"}] : []), avatar: () => "", matchCourse: () => "c1"});
 };
 (async () => {
   await new Promise(r => server.listen(0, "127.0.0.1", r));
@@ -154,6 +154,19 @@ const FAKE = me => {
   await A.waitForSelector(".prg-pick-i");
   ok(/already shared here/.test(await A.textContent(".prg-pick")), "Share a Presentation lists yours, marking the one already shared");
   await A.evaluate(() => document.querySelector("dialog[open]").close());
+  // someone joins the group after it was shared: the team shows them, and the sharer can make them a speaker
+  await A.evaluate(() => { window.__priya = true; const st = document.getElementById("prStage"); if (st) st.remove(); if (document.querySelector("dialog[open]")) document.querySelector("dialog[open]").close(); const x = window.SBPRESENT.list().find(q => q.share); window.SBPRESENT.open(x.id); });
+  await A.waitForSelector("#prStage .prg-team", {timeout: 15000}); await A.waitForTimeout(400);
+  ok(/Priya/.test(await A.textContent("#prStage .prg-team")) && await A.locator('#prStage .prg-ns [data-act="prg-sp-mem"]').count() === 1, "a member who joined later shows in the team, with Add as Speaker");
+  await A.screenshot({path: OUT + "-joined.png"});
+  await A.click('#prStage .prg-ns [data-act="prg-sp-mem"]'); await A.waitForTimeout(2300);
+  const sp3 = DB.items.find(i => i.kind === "pres").data.sp.map(x => x.name).join();
+  ok(sp3 === "Maya,Sam,Priya", "they're a speaker now, and the group's plan has them: " + sp3);
+  await A.click('#prStage [data-act="pr-plan"]'); await A.waitForSelector(".pr-plan-grp"); await A.click('[data-act="pr-sp-add"]'); await A.waitForSelector("dialog[open] .prg-pick-i", {timeout: 5000});
+  const pick = await A.textContent("dialog[open]");
+  ok(/already a speaker/.test(pick) && /An Extra Speaker/.test(pick), "Add a Speaker asks: someone in the group, or an extra speaker");
+  await A.click('dialog[open] [data-act="prg-sp-extra"]'); await A.waitForTimeout(400);
+  ok(await A.evaluate(() => window.SBPRESENT.list().find(q => q.share).group.sp.length) === 4, "an extra speaker can still be added");
   // the task sheet links to its presentation
   const th = await A.evaluate(() => window.SBPRESENT.taskHtml(window.__sbSync.state.tasks.t1));
   ok(/Teen Sleep Talk/.test(th) && /pr-practice/.test(th) && /shared with Sleep Project/.test(th), "the task sheet links to its presentation");

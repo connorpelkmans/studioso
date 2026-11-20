@@ -1200,7 +1200,12 @@
   /* ---------- finishing a run ---------- */
   async function finish(){
     const S = STG; if (!S) return;
-    if (S.follow) { stageClose(); return; }
+    // someone following leaves partway: they still see how the rehearsal went up to now (not counted)
+    if (S.follow) {
+      if (S.fGo && clockMs(S) >= 2000) { const t = slideTimes(S); clearInterval(tick); followDone(S, {total: Math.round(clockMs(S)), times: t, budgets: S.b, target: Math.round(S.tgt / 1000), seg: [], at: Date.now() - Math.round(clockMs(S)), early: true}); }
+      else stageClose();
+      return;
+    }
     if (!S.started || clockMs(S) < 2000) { liveEnd(S, null); stageClose(); return; }
     if (S.running) { S.acc = clockMs(S); S.running = false; }
     if (S.open) { S.seg.push({i: S.open.i, a: S.open.a, b: S.acc}); S.open = null; }
@@ -1294,10 +1299,13 @@
   }
   function liveEnd(S, run){
     const L = S && S.lv; if (!L || !L.C || S.follow) return;
-    L.C.send("d", run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at, early: !!run.early} : {v: 1, cancelled: true});
+    const msg = run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at, early: !!run.early} : {v: 1, cancelled: true};
+    // sent a few times, so a dropped message doesn't leave anyone without their summary (each follower uses the first)
+    [0, 1200, 3000].forEach(ms => setTimeout(() => { try { L.C.send("d", msg); } catch (e) {} }, ms));
+    setTimeout(() => { try { L.C.close(); } catch (e) {} }, 6000);
     fire("pr-live-end", S.p, L.meta);
   }
-  function liveClose(S){ const L = S && S.lv; if (!L) return; S.lv = null; setTimeout(() => { if (L.C) L.C.close(); }, 600); }
+  function liveClose(S){ const L = S && S.lv; if (!L) return; S.lv = null; setTimeout(() => { if (L.C) L.C.close(); }, S.follow ? 600 : 3500); }
   function liveCmd(S, cmd){ const L = S && S.lv; if (L && L.C) L.C.send("c", {cmd, who: myName()}); }
   // someone in the group follows along on their own copy of the slides
   async function follow(pid, secret, host){
@@ -1630,7 +1638,7 @@
       case "pr-plan": if (inPlan()) { STG.planOpen = !STG.planOpen; paintReady(); } return true;
       case "pr-sec-on": if (inPlan()) { const a = Number((STG.el.querySelector("#prSecA") || {}).value) || 0, b = Number((STG.el.querySelector("#prSecB") || {}).value); const lo = Math.min(a, b), hi = Math.max(a, b); STG.sec = lo === 0 && hi === STG.d.n - 1 ? null : [lo, hi]; STG.secTgt = 0; STG.i = STG.sec ? lo : 0; plan(STG); stageBuild(); } return true;
       case "pr-sec-off": if (inPlan()) { STG.sec = null; STG.secTgt = 0; STG.i = 0; plan(STG); stageBuild(); } return true;
-      case "pr-sp-add": if (inPlan()) { const g = STG.p.group; if (g && g.sp.length < 6) { g.sp.push({id: uid(), name: "Speaker " + (g.sp.length + 1), c: SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6]}); splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
+      case "pr-sp-add": if (inPlan() && fire("pr-sp-add", STG.p).some(Boolean)) return true; if (inPlan()) { const g = STG.p.group; if (g && g.sp.length < 6) { g.sp.push({id: uid(), name: "Speaker " + (g.sp.length + 1), c: SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6]}); splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
       case "pr-sp-rm": if (inPlan()) { const g = STG.p.group; if (g) { g.sp = g.sp.filter(s => s.id !== id); if (!g.sp.length) g.on = false; else splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
       case "pr-sp-split": if (inPlan() && STG.p.group) { splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } return true;
       case "pr-sp-next": if (inPlan()) { const g = STG.p.group, i = Number(d.i) || 0; if (g && g.sp.length) { g.by = g.by && g.by.length === STG.d.n ? g.by : Array(STG.d.n).fill(g.sp[0].id); const k = g.sp.findIndex(s => s.id === g.by[i]); g.by[i] = g.sp[(k + 1) % g.sp.length].id; save(); refreshPlan(); } } return true;
@@ -1697,6 +1705,6 @@
   }
   window.SBPRESENT = {listHtml, open: stageOpen, add: newSheet, list: () => LIST.slice(), loaded: () => LOADED, todayHtml: () => fire("pr-today").filter(Boolean).join(""), taskHtml: t => fire("pr-task", t).filter(Boolean).join(""),
     // for 99-present-groups.js
-    px: {byId, all: () => LIST, save, get, put, del, fmt, IC, tone, baseSecs, spOf, grp, splitEvenly, openDeck, createFrom, stageOpen, reviewOpen, historyOpen, newSheet, follow, liveHost, stage: () => STG, review: () => RV, refreshReady: () => { if (STG && !STG.started) { plan(STG); paintReady(); paint(); } }, rerenderList: () => { if (ui.tab === "flashcards" && ui.rvView === "present") render(); }, kindOfName, titleOf, textsOf, deckFor},
+    px: {byId, all: () => LIST, save, refreshPlan: () => { if (STG) refreshPlan(); }, get, put, del, fmt, IC, tone, baseSecs, spOf, grp, splitEvenly, openDeck, createFrom, stageOpen, reviewOpen, historyOpen, newSheet, follow, liveHost, stage: () => STG, review: () => RV, refreshReady: () => { if (STG && !STG.started) { plan(STG); paintReady(); paint(); } }, rerenderList: () => { if (ui.tab === "flashcards" && ui.rvView === "present") render(); }, kindOfName, titleOf, textsOf, deckFor},
     _: {notesCheck, fillers, baseSecs, setSlideSecs}};
 })();

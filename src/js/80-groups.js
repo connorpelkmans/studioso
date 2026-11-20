@@ -4615,7 +4615,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // open a group on its Whiteboards tab
     openBoards: gid => { if (!gid) return; S.tab[gid] = "boards"; openGroup(gid); },
     // load a group's members (names, colours, companions) when the group page hasn't yet
-    loadMembers: async gid => { if (!gid || !online()) return false; if ((S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
+    // force: ask again even when the list is already here (someone may have joined since)
+    loadMembers: async (gid, force) => { if (!gid || !online()) return false; if (!force && (S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
   hook("boot", () => {
     try {

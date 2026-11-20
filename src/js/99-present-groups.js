@@ -253,12 +253,48 @@
       return {s, d, ok, txt: d ? `${X.fmt(d.t)} of ${X.fmt(d.b)} · ${ago(Number(d.at) || Date.parse(r.updated_at))}${d.live ? " · together" : ""}` : "Not practiced yet", live};
     });
   }
+  /* ---------- speakers from the group: members who joined later, and Add a Speaker ---------- */
+  // the group's members who aren't presenting yet (the list is asked for again now and then: people join)
+  const memAsked = {};
+  function freshMembers(gid){ if (!gid || !online() || Date.now() - (memAsked[gid] || 0) < 30000) return; memAsked[gid] = Date.now(); G().loadMembers(gid, true).then(ch => { if (ch) { X.refreshReady(); X.refreshPlan(); if (X.review()) X.rerenderReview && X.rerenderReview(); } }).catch(() => {}); }
+  function nonSpeakers(p){
+    const gid = p.share && p.share.gid; if (!gid) return [];
+    let ms = []; try { ms = G().members(gid) || []; } catch (e) {}
+    const g = X.grp(p), ids = new Set(g ? g.sp.map(s => s.id) : []);
+    return ms.filter(m => m && m.id && !ids.has(m.id));
+  }
+  const freeColor = g => SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6];
+  function addSpeaker(p, m){
+    p.group = p.group && p.group.sp ? p.group : {on: true, sp: [], by: null}; const g = p.group; g.on = true;
+    if (g.sp.length >= 6) { toast("Up to 6 speakers."); return; }
+    g.sp.push(m ? {id: m.id, name: str(m.name || "Member", 40), c: okColor(m.color) && !g.sp.some(s => s.c === m.color) ? m.color : freeColor(g)} : {id: uid(), name: "Speaker " + (g.sp.length + 1), c: freeColor(g)});
+    X.splitEvenly(p); X.save(); X.refreshPlan(); X.refreshReady();
+    toast(m ? `${str(m.name || "They", 40)} is a speaker now. The slides were split evenly again: change them in the Plan.` : "Added a speaker. Name them in the Plan.");
+  }
+  // Add a Speaker, on a presentation shared with a group: someone in the group, or an extra speaker who isn't
+  hook("pr-sp-add", p => {
+    if (!p || !p.share || !p.share.gid || !online()) return false;
+    (async () => {
+      try { await G().loadMembers(p.share.gid, true); memAsked[p.share.gid] = Date.now(); } catch (e) {}
+      const list = nonSpeakers(p), gname = p.share.gname || gname0(p.share.gid);
+      const av = m => { let h = ""; try { h = G().avatar(p.share.gid, m.id, m.name); } catch (e) {} return h ? `<span class="prg-face">${h}</span>` : `<span class="prg-av" style="--c:${esc(okColor(m.color) || "#7A8494")}">${esc((m.name || "?").charAt(0).toUpperCase())}</span>`; };
+      openSheet(`<div class="sheet">${head("Add a Speaker")}<div class="sheet-body">
+        ${list.length ? `<p class="mini" style="margin:0">From ${esc(gname)}:</p><div class="prg-pick">${list.map(m => `<button type="button" class="prg-pick-i prg-pick-m" data-act="prg-sp-mem" data-id="${esc(m.id)}" data-pid="${esc(p.id)}">${av(m)}<span><b>${esc(m.id === me() ? (m.name || "You") + " (you)" : m.name || "A member")}</b><span class="mini">Gets their slides and target, and their practice shows in the team</span></span></button>`).join("")}</div>`
+          : `<p class="mini" style="margin:0">Everyone in ${esc(gname)} is already a speaker.</p>`}
+        <button type="button" class="prg-pick-i" data-act="prg-sp-extra" data-pid="${esc(p.id)}"><b>An Extra Speaker</b><span class="mini">Someone who isn't in the group, like a guest. You name them.</span></button>
+        </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+    })();
+    return true;
+  });
+  const gname0 = gid => (C.groups.find(g => g.id === gid) || {}).name || "the group";
   function teamHtml(p, compact){
+    if (p && p.share) freshMembers(p.share.gid);
     const rows = teamRows(p); if (!rows.length) return "";
     const gid = p.share && p.share.gid, ready = rows.filter(r => r.ok).length;
     const av = s => { let h = ""; try { h = gid ? G().avatar(gid, s.id, s.name) : ""; } catch (e) {} return h ? `<span class="prg-face">${h}</span>` : `<span class="prg-av" style="--c:${esc(s.c)}">${esc((s.name || "?").charAt(0).toUpperCase())}</span>`; };
     return `<div class="prg-team${compact ? " sm" : ""}"><div class="prg-team-h"><b>The Team</b><span class="mini">${ready} of ${rows.length} on target</span></div>
-      <ul>${rows.map(r => `<li style="--sp:${esc(r.s.c)}">${av(r.s)}<span class="prg-tn">${esc(r.s.id === me() ? r.s.name + " (you)" : r.s.name)}</span><span class="prg-tt ${r.d ? (r.ok ? "ok" : "warn") : "none"}">${r.d ? (r.ok ? "✓ " : "") : ""}${esc(r.txt)}</span></li>`).join("")}</ul></div>`;
+      <ul>${rows.map(r => `<li style="--sp:${esc(r.s.c)}">${av(r.s)}<span class="prg-tn">${esc(r.s.id === me() ? r.s.name + " (you)" : r.s.name)}</span><span class="prg-tt ${r.d ? (r.ok ? "ok" : "warn") : "none"}">${r.d ? (r.ok ? "✓ " : "") : ""}${esc(r.txt)}</span></li>`).join("")}
+      ${nonSpeakers(p).slice(0, 8).map(m => `<li class="prg-ns" style="--sp:transparent">${av({id: m.id, name: m.name || "?", c: okColor(m.color) || "#7A8494"})}<span class="prg-tn">${esc(m.id === me() ? (m.name || "You") + " (you)" : m.name || "A member")}</span>${p.share && p.share.own && !compact ? "" : `<span class="prg-tt none">Not presenting yet</span>`}${p.share && p.share.own ? `<button type="button" class="btn small prg-ns-add" data-act="prg-sp-mem" data-id="${esc(m.id)}" data-pid="${esc(p.id)}">Add as Speaker</button>` : ""}</li>`).join("")}</ul></div>`;
   }
 
   /* ---------- in presentation practice: the Ready card, the review, the cards and the list ---------- */
@@ -409,6 +445,8 @@
     switch (act) {
       case "prg-share": shareSheet(id); return true;
       case "prg-share-pick": sharePick(id); return true;
+      case "prg-sp-mem": { const p = X.byId(el.dataset.pid), m = p && nonSpeakers(p).find(x => x.id === id); if (dlg.open) dlg.close(); if (p && m) addSpeaker(p, m); return true; }
+      case "prg-sp-extra": { const p = X.byId(el.dataset.pid); if (dlg.open) dlg.close(); if (p) addSpeaker(p, null); return true; }
       case "prg-share-to": shareSheet(id, el.dataset.g || ""); return true;
       case "prg-share-go": shareGo(); return true;
       case "prg-groups": if (dlg.open) dlg.close(); ui.tab = "groups"; render(); window.scrollTo(0, 0); return true;
