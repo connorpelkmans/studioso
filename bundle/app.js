@@ -116520,6 +116520,8 @@ const AUTOPILOT = (() => {
   const tipText = el => {
     if (el.dataset && el.dataset.why) return {why: el.dataset.why};
     if (el.dataset && el.dataset.tip) return el.dataset.tip;
+    // the companion speaks for itself: its long screen-reader label isn't shown as a hover message
+    if (el.closest && el.closest(".cp, [data-notip]")) return "";
     // icon-only: no visible letters or digits (an icon, or a sign like − or ×)
     if (!el.matches("button,a[href],[role=button],[role=tab]") || /[\p{L}\p{N}]/u.test(el.innerText || "")) return "";
     return (el.getAttribute("aria-label") || "").trim();
