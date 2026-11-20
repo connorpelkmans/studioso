@@ -2653,6 +2653,10 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .note.note-dark .note-empty{color:rgba(255,255,255,.75)}
 .dci-badge{background:linear-gradient(135deg,#5865F2,color-mix(in srgb,#5865F2 60%,var(--accent)))}
 .dci .btn.dci-join{background:#5865F2;border-color:transparent;color:#fff}
+/* a PRO badge inside a segmented tab: small enough to sit beside the label */
+.segb .cs-pro{font-size:.58rem;padding:1px 5px;margin-left:5px;vertical-align:1px;line-height:1.3}
+/* Calendar Sync's tabs on a phone: shorter words, so all four fit */
+@media (max-width:520px){.cs-tabs .cs-long{display:none}.cs-sheet .cs-tabs.segb button{padding-left:7px;padding-right:7px}}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}

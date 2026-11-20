@@ -4698,11 +4698,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   window.addEventListener("sb:secrets-wiped", () => { try { localStorage.removeItem(LS); } catch (e) {} });
 
   /* Calendar Sync > Two-Way */
+  // what two-way sync is, in short: unlike the read-only live link, edits flow both ways
+  const TWO_WAY_WHAT = `<p style="margin:0">Connects your Google or Outlook account. Your deadlines, exams and classes go into a calendar there called “Studyboard”, and it works both ways: move or edit something in either place and the other updates. Your own events can come in too, so your plan works around them.</p>`;
   const ago = s => { if (!s) return "not yet"; const m = Math.round((Date.now() - Date.parse(s)) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
-  function tabHtml(){ return P.locked() || !P.isPro() ? "" : `<button type="button" data-cs-tab="two" aria-pressed="false">Two-Way</button>`; }
+  // shown to everyone: on the free plan it carries a small PRO badge, and its pane explains what Pro adds
+  function tabHtml(){ return `<button type="button" data-cs-tab="two" aria-pressed="false">Two-Way${P.locked() ? ` <span class="pro-badge cs-pro">PRO</span>` : ""}</button>`; }
   const reads = p => { const r = cache().reads || {}; return r[p] !== false; };
   function paneHtml(){
-    if (P.locked()) return `<p>Two-way sync is part of Studyboard Pro.</p><button type="button" class="btn small" data-act="csy-pro">See Studyboard Pro</button>`;
+    if (P.locked()) return `${TWO_WAY_WHAT}<p class="mini" style="margin:0">Two-way sync is part of Studyboard Pro.</p><div class="cs-row"><button type="button" class="btn small primary" data-act="csy-pro">See Studyboard Pro</button></div>`;
     const c = cache(), pr = prefs();
     if (!ready()) return `<div class="cs-note"><b class="cs-note-t">Sign In First</b><p>Two-way sync connects your Studyboard account to Google Calendar or Outlook. Sign in to your Studyboard account to use it.</p></div>`;
     const provs = PROVS.filter(p => (c.providers || {})[p]);
@@ -4720,7 +4723,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     };
     const chk = (k, label, sub) => `<label class="csy-chk"><input type="checkbox" data-csy-send="${k}"${pr.send[k] !== false ? " checked" : ""}><span><b>${label}</b><span class="mini">${sub}</span></span></label>`;
     const rad = (v, label) => `<label><input type="radio" name="csyBring" value="${v}"${pr.bring === v ? " checked" : ""}> ${label}</label>`;
-    return `<p style="margin:0">Studyboard keeps a calendar called “Studyboard” in your Google or Outlook account up to date. Move something there and it moves here too.</p>
+    return `${TWO_WAY_WHAT}
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="csy-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : provs.map(card).join("")}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}

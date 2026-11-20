@@ -32713,11 +32713,9 @@ function csLivePane(){
   if (cs.phase === "notable" && SB_HOSTED && !sbCustom()) return csNote("Live Link Unavailable", `<p>${esc(srvSetup("Live calendar links", "calendar-feed.sql"))} Until then, use <b>Download a File</b>.</p><div class="cs-row"><button type="button" class="btn small" data-cs="retry">Check Again</button></div>`);
   if (cs.phase === "notable") return csNote("One-Time Setup Needed", `<p>Your server needs a small table and a calendar function before it can make live links. It takes about 5 minutes.</p>${csSetupSteps(false)}<div class="cs-row"><button type="button" class="btn small" data-cs="retry">Check Again</button></div>`);
   const how = `<ul class="help-list cs-list">
-      <li>Calendar apps check the link on their own schedule, so changes you make here show up a little later.</li>
-      <li><b>Apple Calendar</b> checks as often as you choose (every 15 minutes to once a week). <b>Outlook</b> checks every few hours.</li>
-      <li><b>Google Calendar</b> can take several hours, sometimes up to a day. That's Google's timing and can't be sped up.</li>
-      <li>It's read-only: edit things in Studyboard, not in your calendar app.</li></ul>`;
-  if (cs.phase === "off") return `<p style="margin:0">Turn this on to get a private link that Apple Calendar, Google Calendar and Outlook can subscribe to. Your deadlines, exams and classes then appear in your calendar and stay up to date on their own.</p>
+      <li>Changes show up after your calendar app next checks: <b>Apple Calendar</b> as often as you set (15 minutes to weekly), <b>Outlook</b> every few hours, <b>Google Calendar</b> within a day.</li>
+      <li>Read-only: make changes in Studyboard.</li></ul>`;
+  if (cs.phase === "off") return `<p style="margin:0">Turn this on for a private link that Apple Calendar, Google Calendar or Outlook can subscribe to. Your deadlines, exams and classes show up there and stay up to date.</p>
     ${how}${csOptsHtml(o, false)}
     <div class="cs-row"><button type="button" class="btn primary" data-cs="on" ${cs.busy ? "disabled" : ""}>${cs.busy ? "Turning On…" : "Turn On Live Calendar"}</button></div>`;
   const url = csFeedUrl(cs.row.token);
@@ -32822,7 +32820,7 @@ function calSyncSheet(tab){
   cs.tab = tab || (cs.phase === "on" || !csWhyNot() ? "live" : cs.tab || "live"); cs.confirm = ""; cs.saved = "";
   openSheet(`<div class="sheet cs-sheet">${head("Calendar Sync")}<div class="sheet-body" id="csRoot">
     <p style="margin:0">See your deadlines, exams and classes in Apple Calendar, Google Calendar or Outlook.</p>
-    <div class="segb cs-tabs" role="group" aria-label="How to add to your calendar"><button type="button" data-cs-tab="live" aria-pressed="true">Live Link</button><button type="button" data-cs-tab="upload" aria-pressed="false">Upload a File</button><button type="button" data-cs-tab="file" aria-pressed="false">Download a File</button>${window.SBPRO && SBPRO.calTab ? SBPRO.calTab() : ""}</div>
+    <div class="segb cs-tabs" role="group" aria-label="How to add to your calendar"><button type="button" data-cs-tab="live" aria-pressed="true">Live Link</button>${window.SBPRO && SBPRO.calTab ? SBPRO.calTab() : ""}<button type="button" data-cs-tab="upload" aria-pressed="false" aria-label="Upload a File">Upload<span class="cs-long"> a File</span></button><button type="button" data-cs-tab="file" aria-pressed="false" aria-label="Download a File">Download<span class="cs-long"> a File</span></button></div>
     <div id="csPane" class="cs-pane"></div>
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
   const root = document.getElementById("csRoot");
@@ -90079,11 +90077,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   window.addEventListener("sb:secrets-wiped", () => { try { localStorage.removeItem(LS); } catch (e) {} });
 
   /* Calendar Sync > Two-Way */
+  // what two-way sync is, in short: unlike the read-only live link, edits flow both ways
+  const TWO_WAY_WHAT = `<p style="margin:0">Connects your Google or Outlook account. Your deadlines, exams and classes go into a calendar there called “Studyboard”, and it works both ways: move or edit something in either place and the other updates. Your own events can come in too, so your plan works around them.</p>`;
   const ago = s => { if (!s) return "not yet"; const m = Math.round((Date.now() - Date.parse(s)) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
-  function tabHtml(){ return P.locked() || !P.isPro() ? "" : `<button type="button" data-cs-tab="two" aria-pressed="false">Two-Way</button>`; }
+  // shown to everyone: on the free plan it carries a small PRO badge, and its pane explains what Pro adds
+  function tabHtml(){ return `<button type="button" data-cs-tab="two" aria-pressed="false">Two-Way${P.locked() ? ` <span class="pro-badge cs-pro">PRO</span>` : ""}</button>`; }
   const reads = p => { const r = cache().reads || {}; return r[p] !== false; };
   function paneHtml(){
-    if (P.locked()) return `<p>Two-way sync is part of Studyboard Pro.</p><button type="button" class="btn small" data-act="csy-pro">See Studyboard Pro</button>`;
+    if (P.locked()) return `${TWO_WAY_WHAT}<p class="mini" style="margin:0">Two-way sync is part of Studyboard Pro.</p><div class="cs-row"><button type="button" class="btn small primary" data-act="csy-pro">See Studyboard Pro</button></div>`;
     const c = cache(), pr = prefs();
     if (!ready()) return `<div class="cs-note"><b class="cs-note-t">Sign In First</b><p>Two-way sync connects your Studyboard account to Google Calendar or Outlook. Sign in to your Studyboard account to use it.</p></div>`;
     const provs = PROVS.filter(p => (c.providers || {})[p]);
@@ -90101,7 +90102,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     };
     const chk = (k, label, sub) => `<label class="csy-chk"><input type="checkbox" data-csy-send="${k}"${pr.send[k] !== false ? " checked" : ""}><span><b>${label}</b><span class="mini">${sub}</span></span></label>`;
     const rad = (v, label) => `<label><input type="radio" name="csyBring" value="${v}"${pr.bring === v ? " checked" : ""}> ${label}</label>`;
-    return `<p style="margin:0">Studyboard keeps a calendar called “Studyboard” in your Google or Outlook account up to date. Move something there and it moves here too.</p>
+    return `${TWO_WAY_WHAT}
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="csy-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : provs.map(card).join("")}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
