@@ -1880,7 +1880,7 @@ function quoteFromSel(t, sid){
 }
 function checkHtml(t, w){
   const req = CITE.rules(reqText(t)), st = styleOf(t, w), d = w.draft;
-  let h = `<p style="margin:0">Check your paper's citations against your sources before you hand it in. It runs on this device, and fixes what has one right answer when you tap Fix.</p>
+  let h = `<p style="margin:0">Checks your citations against your sources before you hand it in. Fix corrects anything with one right answer.</p>
     ${req.style || req.min ? `<p class="mini ws-note">From the assignment: ${esc([req.style ? styleName(req.style) : "", req.min ? `at least ${req.min}${req.scholarly ? " scholarly" : ""} sources` : ""].filter(Boolean).join(", "))}.</p>` : ""}`;
   if (!d || W.redo) return pickHtml(t, w, h);
   return checkResHtml(t, w, h);
@@ -1906,7 +1906,7 @@ function checkResHtml(t, w, h){
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
     ${W.diff ? `<p class="ws-diff" role="status">${W.diff.fixed || W.diff.fresh ? `Since your last check: <b>${W.diff.fixed} fixed</b>, ${W.diff.fresh} new.` : "Nothing changed since your last check."}</p>` : ""}
     ${foundHtml(t, w)}
-    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at${(() => { const f = r.issues.filter(x => x.edits && x.edits.length).length; return f ? `<button type="button" class="btn small primary ws-fixall" data-ws-fixall>Fix All${f > 1 ? ` (${f})` : ""}</button>` : ""; })()}</p>
+    <div class="ws-res"><p class="ws-sum"><span class="ws-sum-t"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at</span>${(() => { const f = r.issues.filter(x => x.edits && x.edits.length).length; return f ? `<button type="button" class="btn small primary ws-fixall" data-ws-fixall>Fix All${f > 1 ? ` (${f})` : ""}</button>` : ""; })()}</p>
       <ul class="ws-issues">${r.issues.map((x, i) => issueHtml(x, i, d.t)).join("")}</ul></div>`;
   return h;
 }
@@ -3046,6 +3046,10 @@ svg.ws-zic{display:block;flex:none}
 .ws-tab:focus:not(:focus-visible){outline:none}
 .ws-fixb{display:inline-flex;margin-top:6px;width:max-content}
 .ws-sum .ws-fixall{margin-left:10px;vertical-align:middle}
+.ws-res > .ws-sum{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+.ws-res > .ws-sum .ws-fixall{margin:0;flex:none}
+.ws-sum-t{min-width:0}
+.ws-acts > .spacer{flex:1 1 auto}
 .ws-tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .ws-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent,#2F6FE4)}
 .ws-n{display:inline-block;min-width:1.4em;font-size:.72rem;border-radius:9px;padding:0 5px;background:var(--soft,#EEF1F6);color:var(--muted);text-align:center}
