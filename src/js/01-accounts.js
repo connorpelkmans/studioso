@@ -171,10 +171,22 @@ function sbUrlSessionOk(url, params){
   setTimeout(() => toast("That sign-in link wasn't used, to keep this device's data safe. Sign in with your email and password, or the 6-digit code from the email."), 1500);
   return false;
 }
+// Back from signing in on the web (Google, Apple or Microsoft, or an email link): the address carries the sign-in. Someone who'd
+// been using Studyboard without an account still gets signed in then, rather than having to press Sign In a second time.
+function sbReturning(){
+  try {
+    const h = location.hash || "", q = location.search || "";
+    if (/[#&](access_token|refresh_token|error_description|sb_ms)=/.test(h)) return true;
+    if (!/[?&]code=/.test(q)) return false;
+    const t = JSON.parse(localStorage.getItem(SB_OAUTH_TRIED) || "null");
+    return !!(t && Date.now() - t.at < 30 * 60000);
+  } catch (e) { return false; }
+}
 async function initSupabase(ask){
-  const cfg = sbConfig() || (ask && SB_HOSTED ? SB_DEFAULT : null);
+  const back = !ask && SB_HOSTED && sbReturning();
+  const cfg = sbConfig() || ((ask || back) && SB_HOSTED ? SB_DEFAULT : null);
   if (!cfg) { syncLabel(); if (!sbLocalOnly() || ask) setTimeout(() => { if (!dlg.open || ask) sbSetupSheet(); }, ask ? 0 : 400); return; }
-  if (sbLocalOnly() && !ask) { syncLabel(); return; }
+  if (sbLocalOnly() && !ask && !back) { syncLabel(); return; }
   if (!window.supabase) {
     try { await loadSupabaseLib(); }
     catch(e) {
