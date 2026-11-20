@@ -112116,7 +112116,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       box.innerHTML = `<div class="pr-ready-in"><div class="pr-card" role="group" aria-label="Rehearsing together"><b class="pr-card-h">Rehearsing Together</b>
         <p class="pr-card-sub">${esc(S.follow.host || "Someone in your group")} is leading. The slides and the clock follow them, and you can move the slides when it's your turn.</p>
         <p class="pr-card-note mini" id="prFollowState">${S.fSeen ? "Waiting for the rehearsal to start…" : "Connecting…"}</p>
-        <button type="button" class="pr-play" data-act="pr-play" aria-label="Start the rehearsal for everyone">${IC.play}</button><span class="pr-card-sub">Anyone can start it.</span></div></div>`;
+        <div class="pr-card-go"><button type="button" class="pr-play" data-act="pr-play" aria-label="Start the rehearsal for everyone">${IC.play}</button><span class="pr-card-sub">Anyone can start it.</span></div></div></div>`;
       return;
     }
     const p = S.p, lk = locked(), canRec = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof window.MediaRecorder === "function");
@@ -112127,7 +112127,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
         <b class="pr-card-h">Ready When You Are</b>
         ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the whole talk instead</button>`
           : `<div class="pr-card-row"><span>Time Goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
-        <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides${g ? ` · ${g.sp.length} speakers` : ""}</span>
+        <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides</span>
         <button type="button" class="btn small pr-plan-btn pr-hero" data-act="pr-plan" aria-expanded="${S.planOpen}">${S.planOpen ? "Hide the Plan" : "Plan: Slide Times, Speakers, Sections"}</button>
         <label class="pr-tog"><span><b>Record Me${lk ? ` ${PRO_BADGE}` : ""}</b><em>Listen back, read what you said, and get feedback</em></span><input type="checkbox" id="prRecOn" ${S.rec ? "checked" : ""} ${canRec ? "" : "disabled"}></label>
         <label class="pr-tog"><span><b>Speaker Notes</b><em>${hasNotes ? "Below each slide, only for you" : "These slides have none"}</em></span><input type="checkbox" id="prNotesOn" ${S.showNotes && hasNotes ? "checked" : ""} ${hasNotes ? "" : "disabled"}></label>
@@ -112138,8 +112138,8 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
         ${p.source === "gslides" && p.gid ? `<button type="button" class="btn small" data-act="pr-gfresh">Get Latest From Google Slides</button>` : ""}
         ${p.source === "canva" && p.cid ? `<button type="button" class="btn small" data-act="pr-cfresh">Get Latest From Canva</button>` : ""}
         ${S.note ? `<p class="mini pr-card-note">${esc(S.note)}</p>` : ""}
-        <button type="button" class="pr-play" data-act="pr-play" aria-label="Start: the clock starts now">${IC.play}</button>
-        <span class="pr-card-sub">The clock starts when you press play. Space or → for the next slide.</span>
+        <div class="pr-card-go"><button type="button" class="pr-play" data-act="pr-play" aria-label="Start: the clock starts now">${IC.play}</button>
+        <span class="pr-card-sub">The clock starts when you press play. Space or → for the next slide.</span></div>
       </div>
       <div class="pr-plan" id="prPlan" ${S.planOpen ? "" : "hidden"}></div></div>`;
     const bind = (sel, fn) => { const x = box.querySelector(sel); if (x) x.addEventListener("change", () => fn(x)); };

@@ -463,3 +463,9 @@ button.pr-stat{cursor:pointer}
 .pr-rm-ok svg{flex:none;width:18px;height:18px;margin-top:1px}
 /* the card is always drawn as one layer, so its lift on hover never redraws the slide's text at a different sharpness */
 .rv-pres{will-change:translate}
+/* play is always in view: it (and its hint) stays pinned to the bottom of the Ready card, and anything that doesn't fit scrolls behind it */
+.pr-card-go{position:sticky;bottom:-22px;z-index:2;margin:0 -22px -22px;padding:10px 22px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;background:linear-gradient(to bottom,transparent,#1A2340 18px);border-radius:0 0 20px 20px}
+.pr-card-go .pr-play{margin-top:0}
+@media (max-height:780px){.pr-card-go{bottom:-14px;margin-bottom:-14px;padding-bottom:12px}}
+/* narrow screens: the whole Ready panel scrolls (not the card), so play pins to the bottom of the screen */
+@media (max-width:860px){.pr-card{overflow:visible}.pr-card-go{bottom:-20px}}
