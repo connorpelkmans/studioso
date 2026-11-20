@@ -111700,7 +111700,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
         </div>
         ${A.canva ? canvaHtml(A) : canG ? "" : `<p class="mini">To use Google Slides, connect Google Drive in Settings, Files and Cloud.</p>`}
         ${busy}${err}${picked}
-        <label class="f">Name<input name="name" id="prName" value="${esc(A.title || "")}" placeholder="e.g. Essay 2 presentation" maxlength="120"></label>
+        <label class="f">Name<input type="text" name="name" id="prName" value="${esc(A.title || "")}" placeholder="e.g. Essay 2 presentation" maxlength="120"></label>
         <label class="f">Course<select name="courseId" id="prCourse">${courseSelectHtml(A.courseId)}</select></label>
         ${taskOpts(A.taskId) ? `<label class="f">For a Task <span class="hint">reminds you to practise before it's due</span><select id="prTask"><option value="">None</option>${taskOpts(A.taskId)}</select></label>` : ""}
         ${A.link ? `<p class="mini pr-linknote">${IC.users} This is your copy of <b>${esc(A.link.title)}</b> from ${esc(A.link.gname || "your group")}. Its plan and speakers come from the group.</p>` : ""}
