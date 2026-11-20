@@ -588,6 +588,7 @@ function openMaterial(t){
 }
 const matLabel = t => !t || !t.matKind ? "" : t.matKind === "deck" ? "Open Deck" : t.matKind === "quiz" ? "Open Quiz" : t.matKind === "note" ? "Open Note" : "Open File";
 function matBtn(t){
+  if (t && t.prepFor && t.status !== "done" && window.SBTEACH && SBTEACH.sessionBtn) { const tb = SBTEACH.sessionBtn(t); if (tb) return tb; }
   if (!t || !t.prepFor || t.status === "done" || !t.matKind) return "";
   const ok = t.matKind === "deck" ? state.decks[t.matId] : t.matKind === "quiz" ? state.decks[t.matDeck] : t.matKind === "note" ? state.notes[t.matId] : state.files[t.matId];
   return ok ? `<button type="button" class="btn small pp-open" data-act="prep-open-mat" data-id="${esc(t.id)}">${matLabel(t)}</button>` : "";
@@ -786,7 +787,7 @@ function drawView(){
       <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div>
     ${past ? "" : forecastHtml(ex)}</div>
     ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-Plan to the New Date</button></p>` : ""}
-    ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> No problem: spread them over the days that are left. <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
+    ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> ${P.manual ? "Move them to the days that are left, as you planned them." : "No problem: spread them over the days that are left."} <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
     ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add My Mark and Wrap Up</button></p>` : ""}
     <h3 class="fsec">Day by Day</h3><ol class="pp-agenda">${agenda}</ol>
     <h3 class="fsec">Topics</h3>${window.SBEXAMSHEET ? SBEXAMSHEET.btn(ex) : ""}${window.SBCMAP ? SBCMAP.examBtn(ex) : ""}<ul class="pp-covs">${topicRows}</ul>`;
@@ -1003,8 +1004,35 @@ async function create(ex, b){
   if (S === me && dlg.open && dlg.querySelector("#ppBody")) { S = null; dlg.close(); } else sheetDrop("prep:" + me.exId);
   applyPlan(cur, P, topics, due, time, out, {replan, courseId});
 }
+/* A plan the student made by hand keeps its sessions as they are: a missed one (or one now on or after a moved exam) moves to the
+   least-loaded free day left before the exam, keeping its kind, topic, minutes and note. Catch Up and Autopilot both use this. */
+function manualMoves(ex){
+  const today = todayISO(); if (!ex || !ex.due || ex.due < today) return {moved: [], changes: []};
+  const last = lastDay(ex), open = sessionsOf(ex.id).filter(t => t.status !== "done"), late = open.filter(t => t.due < today || t.due > last);
+  const off = d => { try { return typeof dayIsOff === "function" && dayIsOff(d); } catch (e) { return false; } };
+  const load = {}; for (let d = today, i = 0; d <= last && i < 400; d = addDays(d, 1), i++) if (!off(d)) load[d] = 0;
+  if (!Object.keys(load).length) load[last] = 0;
+  open.forEach(t => { if (!late.includes(t) && load[t.due] != null) load[t.due] += minOf(t); });
+  const days = Object.keys(load).sort(), moved = [], changes = [];
+  late.slice().sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0)).forEach(t => {
+    let best = days[0]; days.forEach(d => { if (load[d] < load[best]) best = d; });
+    load[best] += minOf(t); moved.push({id: t.id, from: t.due, to: best});
+    changes.push({kind: "task", id: t.id, after: normTask(Object.assign(clone(t), {due: best, start: best, slot: ""}))});
+  });
+  // the plan now matches the exam's date, so it stops asking to re-plan
+  if (ex.prep && ex.prep.examDue !== ex.due) changes.push({kind: "task", id: ex.id, after: normTask(Object.assign(clone(ex), {prep: Object.assign({}, ex.prep, {examDue: ex.due, updatedAt: Date.now()})}))});
+  return {moved, changes};
+}
 function catchUp(id){
   const ex = state.tasks[id]; if (!ex) return;
+  if (prepOf(ex).manual) {
+    const r = manualMoves(ex);
+    if (!r.changes.length) { toast("Nothing to move: your sessions are all still ahead."); return; }
+    const n = r.moved.length;
+    applyChanges(r.changes, n ? `Caught up: moved ${n} session${n === 1 ? "" : "s"} to the days left, as you planned ${n === 1 ? "it" : "them"}` : `${ex.title}'s plan now matches its date`);
+    if (dlg.open && S && S.step === "view") draw();
+    return;
+  }
   const P = prepOf(ex), topics = P.topics; if (!topics.length) { open(id, {edit: true}); return; }
   const out = EXAMPREP.plan(inputFor(ex, P, topics, ex.due));
   if (out.err || !out.sessions.length) { toast((out.warnings && out.warnings[0]) || "There's no room left before the exam."); return; }
@@ -1015,7 +1043,9 @@ function catchUp(id){
 // The same re-spread as Catch Up, worked out without applying it (Autopilot puts it in its own batch)
 function replanChanges(id){
   const ex = state.tasks[id]; if (!ex || !ex.due) return null;
-  const P = prepOf(ex), topics = P.topics; if (!topics.length) return null;
+  const P = prepOf(ex);
+  if (P.manual) { const r = manualMoves(ex); return {out: {sessions: r.moved, warnings: []}, changes: r.changes}; }
+  const topics = P.topics; if (!topics.length) return null;
   const out = EXAMPREP.plan(inputFor(ex, P, topics, ex.due));
   if (out.err || !out.sessions.length) return {out, changes: []};
   return {out, changes: applyPlan(ex, Object.assign({}, P, {ai: false}), topics, ex.due, ex.time, out, {replan: true, dry: true}).changes};

@@ -203,6 +203,11 @@ const OL = {"ISBN:9780374275631": {title: "Thinking, Fast and Slow", authors: [{
   ok(/data-act="ws-open"/.test(await page.evaluate(() => SBWRITE.chip(window.__sbProStudy.state().tasks.t4))) && await page.evaluate(() => SBWRITE.chip(window.__sbProStudy.state().tasks.t3 && Object.assign({}, window.__sbProStudy.state().tasks.t3, {ws: null}))) === "", "a chip only for papers with Writing Studio data");
   await act(page, "bview", "board"); await page.waitForTimeout(300);
   ok(await page.locator('.card .ws-chip[data-id="t4"]').count() === 1 && await page.locator('.card .ws-chip[data-id="m1"]').count() === 0, "the Board card has the chip");
+  // offered from 3 days before the due date, so there's time to find a missing source
+  const noteAt = k => page.evaluate(d => { const t = window.__sbProStudy.state().tasks.t4, was = t.due; t.due = d; try { const r = SBWRITE.planNote(); return r ? r.main : null; } finally { t.due = was; } }, day(k));
+  ok(/due in 3 days.*leaves time to find a missing source/.test(await noteAt(3) || ""), "a paper due in 3 days already gets Check Citations: " + await noteAt(3));
+  ok(await noteAt(4) === null, "not 4 days out");
+  ok(/due today.*a last look/.test(await noteAt(0) || ""), "on the due date it's a last look");
   await act(page, "bview", "plan"); await page.waitForTimeout(300);
   const row = page.locator('.plan-notes [data-act="ws-open"][data-id="t4"][data-ws-to="check"]');
   ok(await row.count() === 1 && /Policy brief.*due tomorrow.*hasn't had a citation check/.test(await page.textContent(".plan-notes")), "Today's Plan: a paper due tomorrow with an unchecked draft gets Check Citations");

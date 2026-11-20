@@ -78,6 +78,7 @@ function open(id, back){
       <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">A minute now makes your next exam easier to prepare for.</span></p>
       ${compareHtml(s.felt, s.measured, mark)}
       <p class="ewr-read">${esc(readOf(s.felt, s.measured, mark))}</p>
+      ${patternHtml(id)}
       <fieldset class="ewr-fs"><legend>How did you study? <span class="hint">pick all that apply</span></legend>
         <div class="ewr-groups">${METHOD_GROUPS.map(([g, ks]) => `<div class="ewr-g" role="group" aria-label="${esc(g)}"><span class="ewr-gl">${esc(g)}</span><div class="ewr-chips ewr-grid3">${ks.map(k => METHODS.find(x => x[0] === k)).filter(Boolean).map(([k, l]) => `<label class="ewr-chip"><input type="checkbox" name="m" value="${k}"${picked.has(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></div>`).join("")}</div>
         <p class="ewr-tip" id="ewrTip" aria-live="polite"></p></fieldset>
@@ -110,6 +111,38 @@ function lastWrap(ex){
   return all.find(t => ex.courseId && t.courseId === ex.courseId) || all[0] || null;
 }
 const pctTxt = v => v == null ? "not measured" : v + "%";
+/* Patterns across reflections: with 3 or more marked reflections (the last 8, any course), at most two plain lines, each only
+   when the numbers really differ (5 points or more between groups, at least 2 exams in a group, or 10 points of over- or
+   under-confidence). Each line says how many exams it's from, so a pattern from 3 exams doesn't sound like a law. */
+const LATE = new Set(["short", "night"]), TESTING = new Set(["practice", "cards", "explain"]);
+const avg = xs => Math.round(xs.reduce((a, x) => a + x, 0) / xs.length);
+const nEx = n => n + " exam" + (n === 1 ? "" : "s");
+function patternsOf(exceptId){
+  const ws = Object.values(state.tasks || {}).filter(t => t.id !== exceptId && isExam(t) && t.wrap && Number(t.wrap.at) > 0 && isNum(t.wrap.mark)).sort((a, b) => b.wrap.at - a.wrap.at).slice(0, 8).map(t => t.wrap);
+  if (ws.length < 3) return [];
+  const out = [], marks = list => list.map(w => Number(w.mark));
+  // when they started
+  const withStart = ws.filter(w => STARTS.some(x => x[0] === w.start)), late = withStart.filter(w => LATE.has(w.start)), early = withStart.filter(w => !LATE.has(w.start));
+  if (late.length >= 2 && early.length >= 1) {
+    const a = avg(marks(early)), b = avg(marks(late));
+    if (a - b >= 5) out.push({w: a - b, text: `You started 1 or 2 days before (or the night before) on ${late.length} of your last ${nEx(withStart.length)}. Those averaged ${b}%; the ${nEx(early.length)} you started 3 or more days early averaged ${a}%.`});
+  } else if (late.length >= 3 && late.length === withStart.length) out.push({w: 4, text: `You started 1 or 2 days before (or the night before) on all of your last ${nEx(late.length)}. Starting a few days earlier, even with short sessions, is the change most likely to raise your marks.`});
+  // testing yourself, or going over it
+  const withM = ws.filter(w => (w.methods || []).length), tested = withM.filter(w => w.methods.some(k => TESTING.has(k))), not = withM.filter(w => !w.methods.some(k => TESTING.has(k)));
+  if (tested.length >= 2 && not.length >= 2) {
+    const a = avg(marks(tested)), b = avg(marks(not));
+    if (a - b >= 5) out.push({w: a - b, text: `When you tested yourself (practice questions, flashcards or explaining it), you averaged ${a}% over ${nEx(tested.length)}; when you only went over your notes, ${b}% over ${nEx(not.length)}.`});
+  }
+  // how ready they felt, next to the mark
+  const felt = ws.filter(w => isNum(w.felt));
+  if (felt.length >= 3) {
+    const gap = avg(felt.map(w => Number(w.felt) - Number(w.mark)));
+    if (gap >= 10) out.push({w: gap, text: `On your last ${nEx(felt.length)} you felt about ${gap} points more ready than your mark showed. Your flashcard and quiz scores are a better guide than the feeling.`});
+    else if (gap <= -10) out.push({w: -gap, text: `On your last ${nEx(felt.length)} you did about ${-gap} points better than you felt you would. You're more ready than you think.`});
+  }
+  return out.sort((a, b) => b.w - a.w).slice(0, 2).map(x => x.text);
+}
+const patternHtml = exceptId => { const ls = patternsOf(exceptId); return ls.length ? `<div class="ewr-pat" role="note"><b>Your pattern</b>${ls.map(l => `<span>${esc(l)}</span>`).join("")}</div>` : ""; };
 function lastHtml(prev){
   const w = prev.wrap, ms = (w.methods || []).map(k => (METHODS.find(x => x[0] === k) || [])[1]).filter(Boolean);
   return `<div class="ewr-last" role="note"><b>Last time: ${esc(prev.title)}</b><span>You felt ${esc(pctTxt(w.felt))} ready, your practice scores said ${esc(pctTxt(w.measured))}, and you got ${esc(pctTxt(w.mark))}.</span>${ms.length ? `<span>You studied by: ${esc(ms.join(", ").toLowerCase())}.</span>` : ""}${w.next ? `<span>You said next time you'd: <i>${esc(w.next)}</i></span>` : ""}</div>`;
@@ -117,7 +150,7 @@ function lastHtml(prev){
 // In an exam's view: before it, what you wrote last time; after it, your reflection (or a way to add one)
 function viewHtml(t){
   if (!isExam(t)) return "";
-  if (t.status !== "done") { const prev = lastWrap(t); return prev ? lastHtml(prev) : ""; }
+  if (t.status !== "done") { const prev = lastWrap(t); return (prev ? lastHtml(prev) : "") + patternHtml(t.id); }
   if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your practice scores said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
@@ -166,5 +199,5 @@ hook("act", (act, el, id) => {
   if (act === "xr-decks") { if (dlg.open) dlg.close(); setTimeout(() => decksSheet(id), 30); return true; }
   if (act === "ewr-skip") { skip(id); scheduleRender(); toast("Skipped. You can still reflect from the exam's details."); return true; }
 });
-window.SBWRAP = {open, should, viewHtml, lastWrap, readOf, tipOf, pending, markOf, METHODS};
+window.SBWRAP = {open, should, viewHtml, lastWrap, patternsOf, readOf, tipOf, pending, markOf, METHODS};
 })();

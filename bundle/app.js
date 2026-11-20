@@ -79726,6 +79726,7 @@ function openMaterial(t){
 }
 const matLabel = t => !t || !t.matKind ? "" : t.matKind === "deck" ? "Open Deck" : t.matKind === "quiz" ? "Open Quiz" : t.matKind === "note" ? "Open Note" : "Open File";
 function matBtn(t){
+  if (t && t.prepFor && t.status !== "done" && window.SBTEACH && SBTEACH.sessionBtn) { const tb = SBTEACH.sessionBtn(t); if (tb) return tb; }
   if (!t || !t.prepFor || t.status === "done" || !t.matKind) return "";
   const ok = t.matKind === "deck" ? state.decks[t.matId] : t.matKind === "quiz" ? state.decks[t.matDeck] : t.matKind === "note" ? state.notes[t.matId] : state.files[t.matId];
   return ok ? `<button type="button" class="btn small pp-open" data-act="prep-open-mat" data-id="${esc(t.id)}">${matLabel(t)}</button>` : "";
@@ -79924,7 +79925,7 @@ function drawView(){
       <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div>
     ${past ? "" : forecastHtml(ex)}</div>
     ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-Plan to the New Date</button></p>` : ""}
-    ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> No problem: spread them over the days that are left. <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
+    ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> ${P.manual ? "Move them to the days that are left, as you planned them." : "No problem: spread them over the days that are left."} <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
     ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add My Mark and Wrap Up</button></p>` : ""}
     <h3 class="fsec">Day by Day</h3><ol class="pp-agenda">${agenda}</ol>
     <h3 class="fsec">Topics</h3>${window.SBEXAMSHEET ? SBEXAMSHEET.btn(ex) : ""}${window.SBCMAP ? SBCMAP.examBtn(ex) : ""}<ul class="pp-covs">${topicRows}</ul>`;
@@ -80141,8 +80142,35 @@ async function create(ex, b){
   if (S === me && dlg.open && dlg.querySelector("#ppBody")) { S = null; dlg.close(); } else sheetDrop("prep:" + me.exId);
   applyPlan(cur, P, topics, due, time, out, {replan, courseId});
 }
+/* A plan the student made by hand keeps its sessions as they are: a missed one (or one now on or after a moved exam) moves to the
+   least-loaded free day left before the exam, keeping its kind, topic, minutes and note. Catch Up and Autopilot both use this. */
+function manualMoves(ex){
+  const today = todayISO(); if (!ex || !ex.due || ex.due < today) return {moved: [], changes: []};
+  const last = lastDay(ex), open = sessionsOf(ex.id).filter(t => t.status !== "done"), late = open.filter(t => t.due < today || t.due > last);
+  const off = d => { try { return typeof dayIsOff === "function" && dayIsOff(d); } catch (e) { return false; } };
+  const load = {}; for (let d = today, i = 0; d <= last && i < 400; d = addDays(d, 1), i++) if (!off(d)) load[d] = 0;
+  if (!Object.keys(load).length) load[last] = 0;
+  open.forEach(t => { if (!late.includes(t) && load[t.due] != null) load[t.due] += minOf(t); });
+  const days = Object.keys(load).sort(), moved = [], changes = [];
+  late.slice().sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0)).forEach(t => {
+    let best = days[0]; days.forEach(d => { if (load[d] < load[best]) best = d; });
+    load[best] += minOf(t); moved.push({id: t.id, from: t.due, to: best});
+    changes.push({kind: "task", id: t.id, after: normTask(Object.assign(clone(t), {due: best, start: best, slot: ""}))});
+  });
+  // the plan now matches the exam's date, so it stops asking to re-plan
+  if (ex.prep && ex.prep.examDue !== ex.due) changes.push({kind: "task", id: ex.id, after: normTask(Object.assign(clone(ex), {prep: Object.assign({}, ex.prep, {examDue: ex.due, updatedAt: Date.now()})}))});
+  return {moved, changes};
+}
 function catchUp(id){
   const ex = state.tasks[id]; if (!ex) return;
+  if (prepOf(ex).manual) {
+    const r = manualMoves(ex);
+    if (!r.changes.length) { toast("Nothing to move: your sessions are all still ahead."); return; }
+    const n = r.moved.length;
+    applyChanges(r.changes, n ? `Caught up: moved ${n} session${n === 1 ? "" : "s"} to the days left, as you planned ${n === 1 ? "it" : "them"}` : `${ex.title}'s plan now matches its date`);
+    if (dlg.open && S && S.step === "view") draw();
+    return;
+  }
   const P = prepOf(ex), topics = P.topics; if (!topics.length) { open(id, {edit: true}); return; }
   const out = EXAMPREP.plan(inputFor(ex, P, topics, ex.due));
   if (out.err || !out.sessions.length) { toast((out.warnings && out.warnings[0]) || "There's no room left before the exam."); return; }
@@ -80153,7 +80181,9 @@ function catchUp(id){
 // The same re-spread as Catch Up, worked out without applying it (Autopilot puts it in its own batch)
 function replanChanges(id){
   const ex = state.tasks[id]; if (!ex || !ex.due) return null;
-  const P = prepOf(ex), topics = P.topics; if (!topics.length) return null;
+  const P = prepOf(ex);
+  if (P.manual) { const r = manualMoves(ex); return {out: {sessions: r.moved, warnings: []}, changes: r.changes}; }
+  const topics = P.topics; if (!topics.length) return null;
   const out = EXAMPREP.plan(inputFor(ex, P, topics, ex.due));
   if (out.err || !out.sessions.length) return {out, changes: []};
   return {out, changes: applyPlan(ex, Object.assign({}, P, {ai: false}), topics, ex.due, ex.time, out, {replan: true, dry: true}).changes};
@@ -80631,6 +80661,7 @@ function open(id, back){
       <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">A minute now makes your next exam easier to prepare for.</span></p>
       ${compareHtml(s.felt, s.measured, mark)}
       <p class="ewr-read">${esc(readOf(s.felt, s.measured, mark))}</p>
+      ${patternHtml(id)}
       <fieldset class="ewr-fs"><legend>How did you study? <span class="hint">pick all that apply</span></legend>
         <div class="ewr-groups">${METHOD_GROUPS.map(([g, ks]) => `<div class="ewr-g" role="group" aria-label="${esc(g)}"><span class="ewr-gl">${esc(g)}</span><div class="ewr-chips ewr-grid3">${ks.map(k => METHODS.find(x => x[0] === k)).filter(Boolean).map(([k, l]) => `<label class="ewr-chip"><input type="checkbox" name="m" value="${k}"${picked.has(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></div>`).join("")}</div>
         <p class="ewr-tip" id="ewrTip" aria-live="polite"></p></fieldset>
@@ -80663,6 +80694,38 @@ function lastWrap(ex){
   return all.find(t => ex.courseId && t.courseId === ex.courseId) || all[0] || null;
 }
 const pctTxt = v => v == null ? "not measured" : v + "%";
+/* Patterns across reflections: with 3 or more marked reflections (the last 8, any course), at most two plain lines, each only
+   when the numbers really differ (5 points or more between groups, at least 2 exams in a group, or 10 points of over- or
+   under-confidence). Each line says how many exams it's from, so a pattern from 3 exams doesn't sound like a law. */
+const LATE = new Set(["short", "night"]), TESTING = new Set(["practice", "cards", "explain"]);
+const avg = xs => Math.round(xs.reduce((a, x) => a + x, 0) / xs.length);
+const nEx = n => n + " exam" + (n === 1 ? "" : "s");
+function patternsOf(exceptId){
+  const ws = Object.values(state.tasks || {}).filter(t => t.id !== exceptId && isExam(t) && t.wrap && Number(t.wrap.at) > 0 && isNum(t.wrap.mark)).sort((a, b) => b.wrap.at - a.wrap.at).slice(0, 8).map(t => t.wrap);
+  if (ws.length < 3) return [];
+  const out = [], marks = list => list.map(w => Number(w.mark));
+  // when they started
+  const withStart = ws.filter(w => STARTS.some(x => x[0] === w.start)), late = withStart.filter(w => LATE.has(w.start)), early = withStart.filter(w => !LATE.has(w.start));
+  if (late.length >= 2 && early.length >= 1) {
+    const a = avg(marks(early)), b = avg(marks(late));
+    if (a - b >= 5) out.push({w: a - b, text: `You started 1 or 2 days before (or the night before) on ${late.length} of your last ${nEx(withStart.length)}. Those averaged ${b}%; the ${nEx(early.length)} you started 3 or more days early averaged ${a}%.`});
+  } else if (late.length >= 3 && late.length === withStart.length) out.push({w: 4, text: `You started 1 or 2 days before (or the night before) on all of your last ${nEx(late.length)}. Starting a few days earlier, even with short sessions, is the change most likely to raise your marks.`});
+  // testing yourself, or going over it
+  const withM = ws.filter(w => (w.methods || []).length), tested = withM.filter(w => w.methods.some(k => TESTING.has(k))), not = withM.filter(w => !w.methods.some(k => TESTING.has(k)));
+  if (tested.length >= 2 && not.length >= 2) {
+    const a = avg(marks(tested)), b = avg(marks(not));
+    if (a - b >= 5) out.push({w: a - b, text: `When you tested yourself (practice questions, flashcards or explaining it), you averaged ${a}% over ${nEx(tested.length)}; when you only went over your notes, ${b}% over ${nEx(not.length)}.`});
+  }
+  // how ready they felt, next to the mark
+  const felt = ws.filter(w => isNum(w.felt));
+  if (felt.length >= 3) {
+    const gap = avg(felt.map(w => Number(w.felt) - Number(w.mark)));
+    if (gap >= 10) out.push({w: gap, text: `On your last ${nEx(felt.length)} you felt about ${gap} points more ready than your mark showed. Your flashcard and quiz scores are a better guide than the feeling.`});
+    else if (gap <= -10) out.push({w: -gap, text: `On your last ${nEx(felt.length)} you did about ${-gap} points better than you felt you would. You're more ready than you think.`});
+  }
+  return out.sort((a, b) => b.w - a.w).slice(0, 2).map(x => x.text);
+}
+const patternHtml = exceptId => { const ls = patternsOf(exceptId); return ls.length ? `<div class="ewr-pat" role="note"><b>Your pattern</b>${ls.map(l => `<span>${esc(l)}</span>`).join("")}</div>` : ""; };
 function lastHtml(prev){
   const w = prev.wrap, ms = (w.methods || []).map(k => (METHODS.find(x => x[0] === k) || [])[1]).filter(Boolean);
   return `<div class="ewr-last" role="note"><b>Last time: ${esc(prev.title)}</b><span>You felt ${esc(pctTxt(w.felt))} ready, your practice scores said ${esc(pctTxt(w.measured))}, and you got ${esc(pctTxt(w.mark))}.</span>${ms.length ? `<span>You studied by: ${esc(ms.join(", ").toLowerCase())}.</span>` : ""}${w.next ? `<span>You said next time you'd: <i>${esc(w.next)}</i></span>` : ""}</div>`;
@@ -80670,7 +80733,7 @@ function lastHtml(prev){
 // In an exam's view: before it, what you wrote last time; after it, your reflection (or a way to add one)
 function viewHtml(t){
   if (!isExam(t)) return "";
-  if (t.status !== "done") { const prev = lastWrap(t); return prev ? lastHtml(prev) : ""; }
+  if (t.status !== "done") { const prev = lastWrap(t); return (prev ? lastHtml(prev) : "") + patternHtml(t.id); }
   if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your practice scores said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
@@ -80719,7 +80782,7 @@ hook("act", (act, el, id) => {
   if (act === "xr-decks") { if (dlg.open) dlg.close(); setTimeout(() => decksSheet(id), 30); return true; }
   if (act === "ewr-skip") { skip(id); scheduleRender(); toast("Skipped. You can still reflect from the exam's details."); return true; }
 });
-window.SBWRAP = {open, should, viewHtml, lastWrap, readOf, tipOf, pending, markOf, METHODS};
+window.SBWRAP = {open, should, viewHtml, lastWrap, patternsOf, readOf, tipOf, pending, markOf, METHODS};
 })();
 /* ===== module: 97-notecards.js ===== */
 /* Notes to Flashcards (see the comment above the UI code below). The pure engine is between NOTECARDS-START and NOTECARDS-END and is unit-tested in tests/notecards.test.js. */
@@ -104521,6 +104584,7 @@ async function check(){
     me.res = Object.assign(parse(r && r.data, items), {general: me.general, at: Date.now(), text: me.text, unread});
     LAST.set(kk, me.res); DRAFT.set(kk, me.text);
     if (locked() && PLAN.useRun) PLAN.useRun("teach");
+    try { finishSession(me); } catch (e) {}
   } catch (e) {
     if (me.dropped) return;
     me.msg = e && e.code === "cancelled" ? "" : (e && e.message) || "The AI couldn't check that right now. Try again.";
@@ -104639,14 +104703,14 @@ function onClick(e){
     case "src": { const list = b.dataset.l === "r" ? TB.res.right : TB.res.missed; openSource(list[Number(b.dataset.i)]); return; }
   }
 }
-function open(exId, topicId, name){
+function open(exId, topicId, name, sess){
   if (locked() && left() <= 0) { if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.runsGone("teach", WHY.replace(/^[^:]*: /, "Teach It Back: ")); return; }
   const ex = state.tasks[exId], t = ex && findTopic(ex, topicId, name);
   if (!t) { toast("That topic isn't in the exam's plan any more."); return; }
   micStop();
   const kk = "teach:" + exId + "|" + t.id;
   if (sheetResume(kk)) return;
-  TB = {exId, topicId: t.id, k: kk, text: "", general: false, busy: false, res: null, msg: "", made: 0, sr: null, el: null, ac: null, dropped: false};
+  TB = {exId, topicId: t.id, sess: sess || "", k: kk, text: "", general: false, busy: false, res: null, msg: "", made: 0, sr: null, el: null, ac: null, dropped: false};
   TB.text = DRAFT.get(key()) || "";
   const last = LAST.get(key()); if (last && Date.now() - last.at < 3 * 3600000) { TB.res = last; TB.general = last.general; }
   openSheet(`<form class="sheet ai-sheet tb-sheet">${head("Teach It Back")}<div class="sheet-body" id="tbBody"></div><div class="sheet-foot" id="tbFoot"></div></form>`);
@@ -104671,6 +104735,20 @@ function btn(ex, t){
   if (!ex || !t || ex.status === "done" || !ex.due || ex.due < todayISO()) return "";
   return `<button type="button" class="link-btn tb-go" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">Teach It Back${badge()}</button>`;
 }
+// A teach-back or recall session's main button (Today's Plan, Next Up, the Prep Plan): explaining it is the session
+function sessionBtn(s){
+  if (!s || !s.prepFor || s.status === "done" || !(s.kind === "teach" || s.kind === "recall")) return "";
+  const ex = state.tasks[s.prepFor], t = ex && findTopic(ex, s.topicId, s.topic); if (!t || ex.status === "done" || !ex.due || ex.due < todayISO()) return "";
+  return `<button type="button" class="btn small ai-btn pp-open tb-sess" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}" data-sess="${esc(s.id)}">${AI_ICON} Teach It Back${badge()}</button>`;
+}
+// A check that came back counts as doing the session: the one it was opened from, else this topic's teach-back or recall
+// session that's due (today or missed). One at most, through the usual Completed toast with its Undo.
+function finishSession(me){
+  if (me.finished) return; me.finished = true;
+  const today = todayISO(), mine = me.sess && state.tasks[me.sess];
+  const s = mine && mine.status !== "done" ? mine : tasksArr().filter(x => x.prepFor === me.exId && x.topicId === me.topicId && x.status !== "done" && (x.kind === "teach" || x.kind === "recall") && x.due && x.due <= today).sort((a, b) => (a.due < b.due ? -1 : 1))[0];
+  if (s && typeof toggleTask === "function") toggleTask(s.id);
+}
 // A teach-back or recall session's own sheet
 function taskHtml(s){
   if (!s || !s.prepFor || s.status === "done" || !(s.kind === "teach" || s.kind === "recall")) return "";
@@ -104678,12 +104756,12 @@ function taskHtml(s){
   return `<div class="pp-form"><div><b>Teach It Back</b><span class="mini"> Explain ${esc(t.name)} in your own words, and AI checks it against your linked material.</span></div><button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">${AI_ICON} Teach It Back${badge()}</button></div>`;
 }
 hook("act", (act, el, id) => {
-  if (act === "tb-open") { open(id, el && el.dataset ? el.dataset.topic : "", el && el.dataset ? el.dataset.name : ""); return true; }
+  if (act === "tb-open") { open(id, el && el.dataset ? el.dataset.topic : "", el && el.dataset ? el.dataset.name : "", el && el.dataset ? el.dataset.sess : ""); return true; }
   return false;
 });
 hook("changed", changes => { try { if (TB && TB.res && (changes || []).some(c => c.kind === "task" && c.id === TB.exId)) draw(); } catch (e) {} });
 if (window.SBPRO) SBPRO.addFeature({id: "teachback", name: "Teach It Back", where: "In an exam's Prep Plan, on each topic: explain it in your own words and AI checks it against your own material (needs AI)", icon: '<path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/>'});
-window.SBTEACH = {open, btn, taskHtml, parse, _state: () => TB};
+window.SBTEACH = {open, btn, sessionBtn, taskHtml, parse, _state: () => TB};
 
 const css = document.createElement("style");
 css.textContent = `
@@ -107627,13 +107705,18 @@ function reviewHtml(){
     ${list.length ? `${started.length ? `<ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
       : `<div class="empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("papers") : ""}<strong>No Papers Yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
 }
-// Today's Plan: on the due date or the day before, a saved draft that hasn't been checked since it changed gets one gentle row
+// Today's Plan: from 3 days before the due date, a saved draft that hasn't been checked since it changed gets one gentle row (the
+// soonest paper first). Early enough to find a missing source; on the due date itself it's a last look.
+const CHECK_DAYS = 3;
 function planNote(inView){
-  const today = todayISO(), tmr = addDays(today, 1);
-  const t = allTasks().filter(x => x.status !== "done" && (x.due === today || x.due === tmr) && eligible(x) && (!inView || inView(x))).find(x => { const w = wsOf(x); return w.draft && (!w.chk || w.chk.h !== w.draft.h); });
+  const today = todayISO(), last = addDays(today, CHECK_DAYS);
+  const t = allTasks().filter(x => x.status !== "done" && x.due && x.due >= today && x.due <= last && eligible(x) && (!inView || inView(x))).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0))
+    .find(x => { const w = wsOf(x); return w.draft && (!w.chk || w.chk.h !== w.draft.h); });
   if (!t) return null;
-  const w = wsOf(t);
-  return {k: "ready", main: `<b>${esc(t.title)}</b> is due ${t.due === today ? "today" : "tomorrow"}. Your saved draft ${w.chk ? "has changed since its last citation check" : "hasn't had a citation check yet"}: a quick one catches a missing reference.`,
+  const w = wsOf(t), n = dayDiff(today, t.due), when = n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
+  const what = w.chk ? "has changed since its last citation check" : "hasn't had a citation check yet";
+  const why = n === 0 ? "a last look catches a missing reference before you hand it in." : "checking now leaves time to find a missing source or fix a reference.";
+  return {k: "ready", main: `<b>${esc(t.title)}</b> is due ${when}. Your saved draft ${what}: ${why}`,
     acts: `<button class="btn small primary" data-act="ws-open" data-id="${esc(t.id)}" data-ws-to="check">Check Citations</button>`};
 }
 

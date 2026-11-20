@@ -16,7 +16,9 @@ const prepTasks = async page => (await F.store(page)).tasks.filter(t => t.prepFo
   try {
     for (const [W, H] of [[1280, 800], [390, 844]]) {
       console.log("== " + W + " wide");
-      const {page} = await F.mk(browser, W, H, {seed: SEED()});
+      // at 1280 Autopilot is on (the default for Pro) and moves missed sessions overnight; at 390 it's off, so Catch Up does it
+      const ap = W === 1280, seed = SEED(); if (!ap) seed.settings.autopilot = {mode: "off"};
+      const {page} = await F.mk(browser, W, H, {seed});
       await F.act(page, "exam-plan", "ex1"); await page.waitForTimeout(500);
       ok(await page.locator('#ppBody [data-pp="pick-auto"]').count() === 1 && await page.locator('#ppBody [data-pp="pick-manual"]').count() === 1, "a new plan asks how to plan first");
       ok(await F.noHScroll(page) && await F.dlgScroll(page), "no horizontal scroll on the choice");
@@ -64,6 +66,24 @@ const prepTasks = async page => (await F.store(page)).tasks.filter(t => t.prepFo
       await page.fill("#ppmTopic", "Waves"); await page.click('[data-pp="madd"]'); await page.waitForTimeout(200);
       await page.click("#ppmCreate"); await page.waitForTimeout(600);
       ok((await prepTasks(page)).length === 4 && (await F.store(page)).tasks.find(t => t.id === "ex1").prep.topics.length === 3, "adding more keeps the first three and adds the topic");
+      // two days later, the first two sessions were missed: they move to the days left, as the student planned them
+      await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+      const before = await prepTasks(page);
+      await page.clock.fastForward("48:00:00"); await page.waitForTimeout(ap ? 1500 : 300);
+      if (ap) {
+        const run = (((await F.store(page)).settings || {}).autopilot || {}).run || {};
+        ok(run.day === F.plus(2) && run.n >= 2, "Autopilot ran on the new day and moved the missed sessions: " + JSON.stringify({day: run.day, n: run.n}));
+      } else {
+        ok((await prepTasks(page)).filter(t => t.due < F.plus(2)).length === 2, "with Autopilot off, two sessions are now missed");
+        const rp = await page.evaluate(() => { const r = SBPREP.replanChanges("ex1"); return {gone: r.changes.filter(c => !c.after).length, moved: r.out.sessions.length}; });
+        ok(rp.moved === 2 && rp.gone === 0, "the re-plan for a hand-made plan moves the 2 missed sessions and removes none: " + JSON.stringify(rp));
+        await F.act(page, "prep-catch", "ex1"); await page.waitForTimeout(400);
+        ok(/Caught up: moved 2 sessions/.test(await txt(page, "#toastMsg")), "Catch Up says what it did: " + await txt(page, "#toastMsg"));
+      }
+      const after = await prepTasks(page), byId = Object.fromEntries(after.map(t => [t.id, t]));
+      ok(after.length === before.length && before.every(b => byId[b.id] && byId[b.id].kind === b.kind && byId[b.id].topic === b.topic && byId[b.id].hours === b.hours && byId[b.id].notes === b.notes), "every session keeps its kind, topic, minutes and note");
+      ok(after.every(t => t.due >= F.plus(2) && t.due <= F.plus(9)), "and is now between today and the day before the exam: " + after.map(t => t.due).join(", "));
+      ok(before.filter(b => b.due >= F.plus(2)).every(b => byId[b.id].due === b.due), "sessions still ahead stay on their days");
       ok(page.errs.length === 0, "no page errors: " + page.errs.join(" | "));
       await page.context().close();
     }
