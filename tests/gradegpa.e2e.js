@@ -85,7 +85,7 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
     ok(st.courses.find(c => c.id === "c1").credits === 3, "credits kept");
     ok(/up to 3% bonus \(1% earned\)/.test(await text(".gr-need")), "the bonus is listed with the rules");
     const top = await text(".gr-top");
-    ok(/Projected Final\s*86%/.test(top) && /Possible range 52% to 94%/.test(top), "projection counts the drop, earned bonus and bonus still possible: " + top);
+    ok(/Current Grade\s*86%/.test(top) && !/Projected Final/.test(top) && /could finish between 52% and 94%/.test(top), "projection (the same 86%, so not shown twice) counts the drop, earned bonus and bonus still possible: " + top);
 
     // What If still works with rules
     await page.fill('[data-wi]', "100"); await page.waitForTimeout(150);

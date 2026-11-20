@@ -4330,6 +4330,9 @@ input.w-est-in{color:var(--late,#d64545);font-weight:700;border-color:color-mix(
 .xc-ask .xc-chk{display:flex;margin-top:6px;font-weight:600}
 @media (max-width:520px){.xc-row{grid-template-columns:minmax(0,1fr) auto}.xc-t{grid-column:1/-1}}
 .xc-sum b{color:inherit;font-weight:800}
+/* Current Grade and Pass Mark alone (Projected Final hidden while it matches the current grade): two equal boxes */
+.gr-top:not(:has(> :nth-child(3))){grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:600px){.gr-top:not(:has(> :nth-child(3))) .gr-pass{grid-column:auto;flex-direction:column;align-items:stretch;gap:2px}}
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
 .est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:0}
