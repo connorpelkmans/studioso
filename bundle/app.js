@@ -112243,7 +112243,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   }
   const buzz = pat => { try { if (navigator.vibrate) navigator.vibrate(pat); } catch (e) {} };
   let tick = 0, remTick = 0;
-  const loop = () => { clearInterval(tick); tick = setInterval(() => { if (!STG || !STG.el.isConnected) { clearInterval(tick); return; } paint(); if (++remTick % 4 === 0) remoteSend(); }, 250); };
+  const loop = () => { clearInterval(tick); tick = setInterval(() => { if (!STG || !STG.el.isConnected) { clearInterval(tick); return; } paint(); srKeep(STG); if (++remTick % 4 === 0) remoteSend(); }, 250); };
   async function play(){
     const S = STG; if (!S || S.running) return;
     if (S.follow) { liveCmd(S, "start"); return; }
@@ -112455,6 +112455,9 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       mr.ondataavailable = e => { if (e.data && e.data.size) S.chunks.push(e.data); };
       mr.start(1000);
       Object.assign(S, {mr, stream, recOn: true, srOn: !!SRC()});
+      // the microphone can stop partway (unplugged, or another app took it): say so, rather than recording silence
+      stream.getAudioTracks().forEach(t => t.addEventListener("ended", () => { if (STG === S && S.recOn && !S.micGone) { S.micGone = true; srStop(S); S.srOn = false; toast("The microphone stopped (it was unplugged or another app took it), so the recording ends here. Your times keep counting."); } }));
+      mr.onerror = () => { if (STG === S && !S.micGone) { S.micGone = true; toast("The recording stopped working. Your times keep counting."); } };
       if (!SRC()) toast("Recording. This browser can't make a transcript, so you'll have the audio only.");
     } catch (e) {
       S.recOn = false;
@@ -112474,10 +112477,23 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
         else S.interim = s;
       }
     };
-    sr.onerror = e => { if (e && /not-allowed|service-not-allowed/.test(e.error)) S.srOn = false; };
-    sr.onend = () => { if (S.sr === sr) S.sr = null; if (STG === S && S.running && S.srOn) setTimeout(() => srRun(S), 150); };
-    S.sr = sr; try { sr.start(); } catch (e) { S.sr = null; }
+    // the browser's speech recognition stops by itself (a pause in speaking, about a minute of talk, a network blip): keep what it
+    // heard so far, and start it again. If it keeps failing straight away (no connection to the speech service), the
+    // transcript stops and the audio carries on.
+    sr.onerror = e => { const er = String((e && e.error) || ""); if (/not-allowed|service-not-allowed|language-not-supported/.test(er)) S.srOn = false; if (er && er !== "no-speech" && er !== "aborted") S.srErr = er; };
+    sr.onend = () => {
+      if (S.interim && STG === S) { const t0 = at == null ? clockMs(S) : at; S.tr.push({t: Math.round(t0), e: Math.round(clockMs(S)), s: S.interim}); S.interim = ""; at = null; }
+      if (S.sr === sr) S.sr = null;
+      const quick = Date.now() - S.srAt < 1500;
+      S.srFails = quick ? (S.srFails || 0) + 1 : 0;
+      if (S.srFails >= 6) { S.srOn = false; if (STG === S) toast(S.srErr === "network" ? "The transcript stopped: the speech service can't be reached. Your audio is still recording." : "The transcript stopped working. Your audio is still recording."); return; }
+      if (STG === S && S.running && S.srOn) setTimeout(() => srRun(S), quick ? 400 * S.srFails : 150);
+    };
+    S.sr = sr; S.srAt = Date.now();
+    try { sr.start(); } catch (e) { S.sr = null; }
   }
+  // a watchdog (from the clock's tick): if the transcript isn't running when it should be, start it again
+  function srKeep(S){ if (S && S.running && S.recOn && S.srOn && !S.sr && Date.now() - (S.srAt || 0) > 2500) srRun(S); }
   function srStop(S){ const sr = S.sr; S.sr = null; S.interim = ""; if (sr) try { sr.stop(); } catch (e) {} }
   function recStop(S){
     return new Promise(res => {
