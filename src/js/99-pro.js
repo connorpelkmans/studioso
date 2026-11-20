@@ -2466,7 +2466,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* On a commute */
   function commuteHtml(){
     if (P.locked() || !TTS()) return "";
-    let occ = []; try { occ = availOccs(todayISO(), todayISO()).filter(o => o.avail && o.avail.kind === "travel" && !o.skipped && !o.allDay && o.start); } catch (e) { return ""; }
+    // Your commute: the travel time before and after a shift or other commitment (and any old Commute blocks)
+    const hm = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0"), mn = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    let occ = []; try { availOccs(todayISO(), todayISO()).forEach(o => {
+      if (!o.avail || o.skipped || o.allDay || !o.start) return;
+      if (o.avail.kind === "travel") { occ.push(o); return; }
+      const v = o.avail;
+      if (v.bufB && v.seg !== "tail") { const s = mn(o.start); if (s - v.bufB >= 0) occ.push({title: "Travel to " + o.title, start: hm(s - v.bufB), end: o.start}); }
+      if (v.bufA && v.seg !== "head" && o.end) { const e = mn(o.end); if (e + v.bufA < 1440) occ.push({title: "Travel from " + o.title, start: o.end, end: hm(e + v.bufA)}); }
+    }); } catch (e) { return ""; }
     if (!occ.length) return "";
     const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes(), tm = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
     const o = occ.find(x => nowM >= tm(x.start) - 30 && nowM < tm(x.end)); if (!o) return "";

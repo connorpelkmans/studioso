@@ -777,7 +777,8 @@ const AVAIL = (() => {
     if (o.from && o.until && o.from > o.until) { const t = o.from; o.from = o.until; o.until = t; }
     o.every = clampInt(b.every, 1, 8, 1);
     o.anchor = isDate(b.anchor) ? b.anchor : "";
-    o.bufB = clampInt(b.bufB, 0, 240, 0); o.bufA = clampInt(b.bufA, 0, 240, 0);
+    // null travel means "use my usual travel time" (Settings), so changing the usual time updates every block left on it
+    o.bufB = b.bufB == null || b.bufB === "u" ? null : clampInt(b.bufB, 0, 240, 0); o.bufA = b.bufA == null || b.bufA === "u" ? null : clampInt(b.bufA, 0, 240, 0);
     if (o.type === "protected" || o.type === "travel") { o.bufB = 0; o.bufA = 0; }
     o.skip = {};
     if (b.skip && typeof b.skip === "object" && !Array.isArray(b.skip)) {
@@ -840,12 +841,13 @@ const AVAIL = (() => {
     });
     return out;
   }
+  const liveCfg = () => { try { return typeof availCfg === "function" ? availCfg() : null; } catch (e) { return null; } };
   function occurrences(blocks, from, to){
     const out = [];
     raw(blocks, addD(from, -1), to).forEach(o => {
       const b = o.b, inR = d => d >= from && d <= to;
       const base = {type: "avail", id: b.id, key: o.key, orig: o.key, moved: o.moved, skipped: o.skipped, color: b.color, title: b.title, label: TYPES[b.type].label, where: "", cls: "k-av k-av-" + b.type,
-        allDay: o.allDay, avail: {kind: b.type, block: b, overnight: o.overnight, seg: "whole", bufB: b.bufB, bufA: b.bufA, fullStart: toT(o.s), fullEnd: o.allDay ? "23:59" : toT(o.e % 1440)}};
+        allDay: o.allDay, avail: {kind: b.type, block: b, overnight: o.overnight, seg: "whole", bufB: bufOf(b.bufB, liveCfg()), bufA: bufOf(b.bufA, liveCfg()), fullStart: toT(o.s), fullEnd: o.allDay ? "23:59" : toT(o.e % 1440)}};
       if (o.allDay) { if (inR(o.date)) out.push(Object.assign({}, base, {date: o.date, start: "", end: ""})); return; }
       if (!o.overnight) { if (inR(o.date)) out.push(Object.assign({}, base, {date: o.date, start: toT(o.s), end: toT(o.e)})); return; }
       if (inR(o.date)) out.push(Object.assign({}, base, {date: o.date, start: toT(o.s), end: "23:59", avail: Object.assign({}, base.avail, {seg: "head"})}));
@@ -862,6 +864,7 @@ const AVAIL = (() => {
   }
   const CLINICAL = /clinical|practicum|placement|internship|co-?op|field ?work|preceptor|\bshift\b|practice (day|experience)|hospital|sim(ulation)? lab|site visit/i;
 
+  const bufOf = (v, cfg) => v == null ? (cfg && cfg.defBuf || 0) : v;
   function busy(date, blocks, cfg, ext, done){
     const cap = Math.max(1440, cfg && cfg.dayEnd || 0), iv = [], add = (s, e, kind, title) => { s = Math.max(0, s); e = Math.min(cap, e); if (e > s) iv.push({s, e, kind, title: title || TYPES[kind] && TYPES[kind].label || kind}); };
     const dn = dnum(date);
@@ -870,8 +873,9 @@ const AVAIL = (() => {
       const off = (dnum(o.date) - dn) * 1440, b = o.b;
       if (o.allDay) { if (off === 0 && b.type !== "travel") add(0, 1440, b.type, b.title); return; }
       add(o.s + off, o.e + off, b.type, b.title);
-      if (b.bufB) add(o.s + off - b.bufB, o.s + off, "travel", "Travel to " + b.title);
-      if (b.bufA) add(o.e + off, o.e + off + b.bufA, "travel", "Travel from " + b.title);
+      const tb = bufOf(b.bufB, cfg), ta = bufOf(b.bufA, cfg);
+      if (tb) add(o.s + off - tb, o.s + off, "travel", "Travel to " + b.title);
+      if (ta) add(o.e + off, o.e + off + ta, "travel", "Travel from " + b.title);
       if (cfg.recover && o.overnight && (b.type === "shift" || b.type === "work") && (o.e - 1440) < 720) add(o.e + off, 1440 + 720 + off, "recovery", "Recovery after " + b.title);
     });
     (ext || []).forEach(x => {
@@ -879,6 +883,8 @@ const AVAIL = (() => {
       if (!isT(x.start)) return;
       const s = toMin(x.start), e = isT(x.end) ? toMin(x.end) : s;
       if (e > s) add(s, e, "class", x.title || x.label || "Class");
+      // A calendar event (synced or your own) has no travel time of its own, so it gets your usual travel time, unless it's online
+      if (e > s && x.travel && cfg.defBuf) { add(s - cfg.defBuf, s, "travel", "Travel to " + (x.title || "event")); add(e, e + cfg.defBuf, "travel", "Travel from " + (x.title || "event")); }
     });
     (done || []).forEach(x => add(x.s, x.e, "done", "Focus session"));
     return iv;
@@ -996,7 +1002,7 @@ const AVAIL = (() => {
     const lead = s.match(/^\s*(?:add\s+|new\s+)?(work|job|shift|shifts|placement|clinical|practicum|class|lecture|commute|travel|appointment|practice|training|meeting|lunch|dinner|sleep|gym|workout|exercise|rehearsal|club)\b/i);
     if (!lead) return null;
     const w = lead[1].toLowerCase();
-    const type = /^(work|job)$/.test(w) ? "work" : /^(shift|shifts|placement|clinical|practicum)$/.test(w) ? "shift" : /^(class|lecture)$/.test(w) ? "class" : /^(commute|travel)$/.test(w) ? "travel" : /^(lunch|dinner|sleep)$/.test(w) ? "protected" : "other";
+    const type = /^(work|job)$/.test(w) ? "work" : /^(shift|shifts|placement|clinical|practicum)$/.test(w) ? "shift" : /^(class|lecture)$/.test(w) ? "class" : /^(lunch|dinner|sleep)$/.test(w) ? "protected" : "other";
     s = s.replace(lead[0], " ");
     let time = null;
     const tr = s.match(/(\d{1,2})(?::([0-5]\d))?\s*(?:(a\.?m\.?|p\.?m\.?|a|p)(?![a-z]))?\s*(?:-|–|to|until)\s*(\d{1,2})(?::([0-5]\d))?\s*(?:(a\.?m\.?|p\.?m\.?|a|p)(?![a-z]))?(?![\d:])/i);
@@ -1133,11 +1139,12 @@ function availOccs(from, to){
   });
 }
 // Timed things other than availability blocks (classes, events) per date, for the engine
+const ONLINE_RE = /\b(online|zoom|teams|google meet|meet\.google|webex|virtual|remote|livestream|webinar)\b/i;
 function availExtMap(from, to){
   const m = {};
   schOccurrences(from, to).forEach(o => {
     if (o.type === "avail" || o.skipped || (o.type === "meet" && o.m && o.m.kind === "Office Hours")) return;
-    (m[o.date] = m[o.date] || []).push({start: o.start, end: o.end, allDay: !!o.allDay, title: o.title, label: o.label});
+    (m[o.date] = m[o.date] || []).push({start: o.start, end: o.end, allDay: !!o.allDay, title: o.title, label: o.label, travel: o.type === "event" && !ONLINE_RE.test((o.where || "") + " " + (o.title || ""))});
   });
   // A timed exam or quiz you sit in person is busy time too, so nothing is planned on top of it
   tasksArr().forEach(t => {
@@ -1237,7 +1244,8 @@ function availSummary(b){
   const days = b.days.length === 7 ? "Every day" : WEEK_ORDER.filter(d => b.days.includes(d)).map(d => parse("2024-01-0" + (d === 0 ? 7 : d)).toLocaleDateString(undefined, {weekday: "short"})).join(", ");
   const when = b.dates.length ? (b.dates.length === 1 ? fmtDate(b.dates[0]) : `${b.dates.length} dates, ${fmtShort(b.dates[0])} to ${fmtShort(b.dates[b.dates.length - 1])}`) : days + (b.every > 1 ? `, every ${b.every} weeks` : "") + (b.from || b.until ? `, ${b.from ? "from " + fmtShort(b.from) : ""}${b.until ? " until " + fmtShort(b.until) : ""}` : "");
   const t = b.allDay ? "All day" : `${fmtTime(b.start)}–${fmtTime(b.end)}${b.end <= b.start ? " (overnight)" : ""}`;
-  return `${when} · ${t}${b.bufB || b.bufA ? ` · travel ${b.bufB || 0}/${b.bufA || 0} min` : ""}`;
+  const c = availCfg(), tb = b.bufB == null ? c.defBuf : b.bufB, ta = b.bufA == null ? c.defBuf : b.bufA;
+  return `${when} · ${t}${!b.allDay && (tb || ta) ? ` · travel ${tb || 0}/${ta || 0} min` : ""}`;
 }
 function availManager(){
   const a = availState(), c = a.cfg;
@@ -1253,7 +1261,7 @@ function availManager(){
         <div class="two"><label class="f">Day starts<input type="time" name="dayStart" value="${esc(AVAIL.toT(c.dayStart))}" required></label><label class="f">Day ends<input type="time" name="dayEnd" value="${esc(AVAIL.toT(c.dayEnd % 1440))}" required></label></div>
         <p class="mini" style="margin:-2px 0 6px">Working late? An end after midnight (like 1:00 AM) is fine, as long as it's before your day starts again.</p>
         <div class="two"><label class="f">Shortest useful gap (min)<input type="number" name="minChunk" min="5" max="180" step="5" value="${c.minChunk}"></label><label class="f">Longest single session (min)<input type="number" name="maxSession" min="15" max="240" step="5" value="${c.maxSession}"></label></div>
-        <div class="two"><label class="f">Break between sessions (min)<input type="number" name="breakMin" min="0" max="60" step="5" value="${c.breakMin}"></label><label class="f">Usual travel time (min)<input type="number" name="defBuf" min="0" max="120" step="5" value="${c.defBuf}"></label></div>
+        <div class="two"><label class="f">Break between sessions (min)<input type="number" name="breakMin" min="0" max="60" step="5" value="${c.breakMin}"></label><label class="f">Usual travel time (min) <span class="hint">used for shifts and calendar events without their own</span><input type="number" name="defBuf" min="0" max="120" step="5" value="${c.defBuf}"></label></div>
         <label class="mi-check"><input type="checkbox" name="recover" ${c.recover ? "checked" : ""}> Recover the morning after a night shift (no study before noon)</label>
         <p class="mini" style="margin:6px 0 0">Gaps shorter than the shortest useful gap are ignored. Your Study Hours per Day in Settings still sets how much you want to do; free time only caps it.</p>
       </fieldset>
@@ -1271,15 +1279,15 @@ function availManager(){
 function availForm(block, preset){
   const cfg = availCfg(), today = todayISO(), isNew = !block || !availBlocks().some(x => x.id === block.id);
   let b = block ? clone(block) : null;
-  if (!b || isNew) b = Object.assign({id: uid(), type: "work", title: "", days: [], dates: [], start: "16:00", end: "21:00", allDay: false, every: 1, from: "", until: "", anchor: "", bufB: cfg.defBuf, bufA: cfg.defBuf, skip: {}}, b || {}, preset || {});
+  if (!b || isNew) b = Object.assign({id: uid(), type: "work", title: "", days: [], dates: [], start: "16:00", end: "21:00", allDay: false, every: 1, from: "", until: "", anchor: "", bufB: null, bufA: null, skip: {}}, b || {}, preset || {});
   const mode0 = preset && preset.roster ? "dates" : b.dates.length ? (b.dates.length === 1 && !b.days.length ? "one" : "dates") : "weekly";
   const pat0 = (() => { if (b.every < 2 || !b.anchor) return 0; return (((AVAIL.monN(b.anchor) - AVAIL.monN(today)) / 7) % b.every + b.every) % b.every; })();
   let color = b.color || AVAIL.TYPES[b.type].color, colorTouched = !!b.color && b.color !== AVAIL.TYPES[b.type].color, days = b.days.slice(), dates = b.dates.slice(), calM = (dates[0] || today).slice(0, 7);
-  const bufOpts = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120].concat([b.bufB, b.bufA]).filter((v, i, arr) => arr.indexOf(v) === i).sort((x, y) => x - y);
-  const sel = (name, val) => `<select name="${name}">${bufOpts.map(v => `<option value="${v}" ${v === val ? "selected" : ""}>${v ? v + " min" : "None"}</option>`).join("")}</select>`;
+  const bufOpts = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120].concat([b.bufB, b.bufA].filter(v => v != null)).filter((v, i, arr) => arr.indexOf(v) === i).sort((x, y) => x - y);
+  const sel = (name, val) => `<select name="${name}"><option value="u" ${val == null ? "selected" : ""}>Usual (${cfg.defBuf ? cfg.defBuf + " min" : "none set"})</option>${bufOpts.map(v => `<option value="${v}" ${v === val ? "selected" : ""}>${v ? v + " min" : "None"}</option>`).join("")}</select>`;
   openSheet(`<form class="sheet av-form">${head(isNew ? "Add Shift or Work" : "Edit Availability")}
     <div class="sheet-body">${REQ_NOTE}
-      <label class="f"><span class="lh">Type</span><select name="type">${AV_ORDER.map(k => `<option value="${k}" ${k === b.type ? "selected" : ""}>${esc(AVAIL.TYPES[k].label)}</option>`).join("")}</select></label>
+      <label class="f"><span class="lh">Type</span><select name="type">${AV_ORDER.filter(k => k !== "travel" || b.type === "travel").map(k => `<option value="${k}" ${k === b.type ? "selected" : ""}>${esc(AVAIL.TYPES[k].label)}</option>`).join("")}</select></label>
       <p class="mini av-help" id="avHelp" style="margin:-4px 0 8px">${esc(AV_HELP[b.type])}</p>
       <div class="av-tc">
         <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="80" value="${esc(b.title)}" autofocus placeholder="e.g. Hospital placement, Cafe shift, Soccer practice"></label>
@@ -1321,7 +1329,7 @@ function availForm(block, preset){
     const type = AVAIL.TYPES[fd.get("type")] ? String(fd.get("type")) : "work", allDay = !!fd.get("allDay"), start = String(fd.get("start") || ""), end = String(fd.get("end") || ""), mode = String(fd.get("mode") || "weekly");
     const title = String(fd.get("title") || "").trim() || AVAIL.TYPES[type].label;
     if (!allDay && (!AVAIL.isT(start) || !AVAIL.isT(end) || start === end)) { toast("Pick a start and an end time that are different"); return false; }
-    const n = Object.assign(clone(b), {type, title, color: String(fd.get("color") || ""), allDay, start: allDay ? "00:00" : start, end: allDay ? "23:59" : end, bufB: Number(fd.get("bufB")) || 0, bufA: Number(fd.get("bufA")) || 0, created: b.created || Date.now()});
+    const n = Object.assign(clone(b), {type, title, color: String(fd.get("color") || ""), allDay, start: allDay ? "00:00" : start, end: allDay ? "23:59" : end, bufB: fd.get("bufB") === "u" ? null : Number(fd.get("bufB")) || 0, bufA: fd.get("bufA") === "u" ? null : Number(fd.get("bufA")) || 0, created: b.created || Date.now()});
     if (mode === "weekly") {
       if (!days.length) { toast("Pick the days of the week"); return false; }
       const every = Number(fd.get("every")) || 1, pat = Math.min(every - 1, Number(fd.get("pat")) || 0);
