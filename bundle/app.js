@@ -15472,6 +15472,14 @@ dlg.addEventListener("close", () => {
   if (!KEEP || dlg.open) return;
   if (away && dlg.contains(KEEP.node)) keepPark(); else keepLetGo();
 });
+// A sheet's one-line band title that doesn't fit (a long name on a phone) is made smaller until it does, down to 70%, rather than cut off
+function fitSheetTitle(){
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const h = dlg.open && dlg.querySelector(".g2-sheet-head:not(.sh-big) .sh-t h2"); if (!h) return;
+    h.style.fontSize = ""; const base = parseFloat(getComputedStyle(h).fontSize) || 20;
+    for (let f = base; h.scrollWidth > h.clientWidth + 1 && f > base * 0.7; ) { f -= 1; h.style.fontSize = f + "px"; }
+  }));
+}
 function openSheet(html, onSubmit){
   // another sheet opening over one with work in it sets that one aside; one just closed in code (its close event still to come) is let go
   if (keepShown() || (KEEP && keepAway)) keepPark(); else keepLetGo();
@@ -15480,6 +15488,7 @@ function openSheet(html, onSubmit){
   if (inSheet) document.body.appendChild(tt);
   dlg.innerHTML = html;
   if (inSheet) dlg.appendChild(tt);
+  fitSheetTitle();
   const form = dlg.querySelector("form");
   if (form) form.addEventListener("submit", e => e.preventDefault());
   if (form && onSubmit) {
@@ -16319,6 +16328,7 @@ function todayWatch(el){
 }
 addEventListener("resize", () => requestAnimationFrame(todayFit));
 try { document.fonts && document.fonts.ready.then(todayFit); } catch (e) {}
+addEventListener("resize", () => { if (dlg.open) fitSheetTitle(); });
 /* ===== module: 01-math.js: math, chemistry and light formatting in notes, cards, quizzes, whiteboards and the reader ===== */
 /* Text keeps plain marks, so it syncs, searches, exports and shares as it is:
      $x^2$ or \(x^2\) inline, $$...$$ or \[...\] on a line of its own, \ce{H2O} (or $\ce{...}$) for chemistry,
