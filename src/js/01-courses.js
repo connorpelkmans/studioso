@@ -523,7 +523,7 @@ function courseMoreSheet(c){
       <button data-act="bd-new-course" data-course="${esc(c.id)}"><span>Break Down an Assignment<span class="sub">Paste a prompt or rubric and get milestones scheduled backward from the due date</span></span></button>
       <button data-act="edit-course" data-id="${esc(c.id)}"><span>Edit Course<span class="sub">Name, color, schedule, instructor and links</span></span></button>
     </div></div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+    </div>`);
 }
 // A titled card on a course page: icon, title and count inside the box, like a group's sections
 const c2Ic = d => `<svg class="c2-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;

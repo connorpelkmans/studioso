@@ -686,7 +686,7 @@ const SBDOCS = (() => {
     const ds = list(t); if (!ds.length) return;
     if (ds.length === 1) { openOutside(ds[0].url); return; }
     openSheet(`<div class="sheet dl-pick">${head("Documents")}<div class="sheet-body"><div class="menu-list">${ds.map(d => `<button type="button" data-act="dl-url" data-url="${esc(d.url)}">${badge(d.app)}<span>${esc(DOCLINK.shown(d))}<span class="sub">${esc(DOCLINK.label(d.app))}</span></span></button>`).join("")}</div></div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
+      </div>`);
   }
   hook("act", (act, el, id) => {
     if (act === "dl-go") { const t = state.tasks[id]; if (t) pick(t); return true; }
@@ -12790,7 +12790,7 @@ function courseMoreSheet(c){
       <button data-act="bd-new-course" data-course="${esc(c.id)}"><span>Break Down an Assignment<span class="sub">Paste a prompt or rubric and get milestones scheduled backward from the due date</span></span></button>
       <button data-act="edit-course" data-id="${esc(c.id)}"><span>Edit Course<span class="sub">Name, color, schedule, instructor and links</span></span></button>
     </div></div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+    </div>`);
 }
 // A titled card on a course page: icon, title and count inside the box, like a group's sections
 const c2Ic = d => `<svg class="c2-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -19669,7 +19669,7 @@ function reviewSheet(){
       <button data-act="fc-review-all" data-course="${esc(course)}" ${n.due ? "" : "disabled"}><span>Flashcards Due${n.due ? ` (${dueWords(n)})` : ""}<span class="sub">${n.due ? `Study every card that is due today${n.fresh ? `, plus ${n.fresh} new one${n.fresh === 1 ? "" : "s"}` : ""}` : "Nothing is due right now"}</span></span></button>
       <button data-act="fc-weak" ${w.n ? "" : "disabled"}><span>Weak Spots${w.n ? ` (${w.n})` : ""}<span class="sub">${w.n ? "Practice the cards and questions you keep missing" : "Study or take a quiz first, and anything you keep missing shows up here"}</span></span></button>
     </div></div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+    </div>`);
 }
 function addCardSheet(d){
   openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, "var(--accent-band,var(--accent))", esc(d.name))}
