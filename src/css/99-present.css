@@ -479,4 +479,5 @@ button.pr-stat{cursor:pointer}
 .pr-fr-code{font:800 2rem/1 var(--display);letter-spacing:.14em;color:#EEF2FA;padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.25);font-variant-numeric:tabular-nums}
 .pr-fr-code span{margin-left:.4em}
 .pr-fr-acts{display:flex;gap:8px}
-.pr-fr-qr svg{width:120px;height:120px}
+.pr-fr-qr{width:auto;display:grid;place-items:center;align-self:center;line-height:0}
+.pr-fr-qr svg{width:140px;height:140px}

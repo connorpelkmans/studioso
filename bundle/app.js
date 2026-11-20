@@ -85195,7 +85195,7 @@ window.SBSEM = {
         ${pubHtml}
         <section class="sd-sec"><h3 class="fsec">Class Schedule</h3>
           <p class="mini sd-why">Do your classes follow the day of the week, or a rotation like Day 1 to 6 or A/B days?</p>
-          ${seg("sdMode", [["week", "Same every week"], ["cycle", "Rotates by school day"]], draft.on ? "cycle" : "week")}
+          ${seg("sdMode", [["week", "Same Every Week"], ["cycle", "Rotates by School Day"]], draft.on ? "cycle" : "week")}
           <div class="sd-cycle" id="sdCycle"${draft.on ? "" : " hidden"}>
             <p class="mini" style="margin:0">The cycle moves one step each school day and pauses on weekends and days off.</p>
             <div class="two">
