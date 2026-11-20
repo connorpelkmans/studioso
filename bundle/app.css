@@ -10676,3 +10676,6 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .ob-colpick:focus-within{outline:2px solid var(--accent);outline-offset:4px}
 .ob-code > label{font:600 14.08px/21.12px var(--body);margin-bottom:5px}
 .ob-code > label{padding-inline-start:38px}
+/* The timer button slims to its time (a pause mark when paused) only when the menu is too short for it to stay full */
+nav.tabs[data-pill="slim"] .in .nav-focus.active .nf-m{display:none}
+nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content:"\275A\275A";font-size:.55em;letter-spacing:-.1em;margin-inline-end:.45em;vertical-align:.12em;opacity:.8}
