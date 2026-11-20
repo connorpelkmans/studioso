@@ -112518,12 +112518,21 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     S.el.innerHTML = `<p class="pr-wait"><span class="ai-spin" aria-hidden="true"></span>Saving your run…</p>`;
     const blob = S.recOn ? await recStop(S) : null;
     const t = Array(S.d.n).fill(0); S.seg.forEach(g => { t[g.i] += g.b - g.a; });
+    // ended early (before its last slide, or the section's): the summary still shows, but it isn't kept or counted
+    const last = S.sec ? S.sec[1] : S.d.n - 1, early = !S.qa && !S.seg.some(g => g.i === last);
     const total = S.qa ? S.qaStart : S.acc, g = grp(S.p);
     const run = {id: uid(), at: S.startedAt || Date.now(), total: Math.round(total), times: t.map(Math.round), budgets: S.b.map(Math.round), target: Math.round(S.tgt / 1000),
       seg: S.seg.map(x => [x.i, Math.round(x.a), Math.round(x.b)]), tr: S.tr, audio: false, mime: blob ? blob.type : "", sec: S.sec ? S.sec.slice() : null,
       sp: g ? {sp: g.sp.map(s => ({id: s.id, name: s.name, c: s.c})), by: (g.by || []).slice()} : null,
       qa: S.qa ? {qs: S.qa.qs.slice(), seg: S.qa.seg.map(x => [x.q, Math.round(x.a), Math.round(x.b == null ? S.acc : x.b)])} : null,
-      vskip: S.vskip.length ? S.vskip.slice(0, 100) : null};
+      vskip: S.vskip.length ? S.vskip.slice(0, 100) : null, early: early || undefined};
+    if (early) {
+      if (S.lv) run.live = true;
+      liveEnd(S, run);
+      STG = null;
+      reviewOpen(S.p.id, run.id, S.el, {run, blob});
+      return;
+    }
     if (blob) { try { await put("audio:" + run.id, blob); run.audio = true; } catch (e) { toast("There wasn't room on this device for the recording. Your times are saved.", null, null, {error: true}); } }
     if (S.lv) run.live = true;
     liveEnd(S, run);
@@ -112592,7 +112601,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   }
   function liveEnd(S, run){
     const L = S && S.lv; if (!L || !L.C || S.follow) return;
-    L.C.send("d", run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at} : {v: 1, cancelled: true});
+    L.C.send("d", run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at, early: !!run.early} : {v: 1, cancelled: true});
     fire("pr-live-end", S.p, L.meta);
   }
   function liveClose(S){ const L = S && S.lv; if (!L) return; S.lv = null; setTimeout(() => { if (L.C) L.C.close(); }, 600); }
@@ -112634,6 +112643,8 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       sp: grp(p) ? {sp: grp(p).sp.map(s2 => ({id: s2.id, name: s2.name, c: s2.c})), by: (grp(p).by || []).slice()} : null, qa: null};
     if (S.lv && S.lv.hb) clearInterval(S.lv.hb);
     liveClose(S);
+    // the leader ended early: everyone sees the summary, nobody keeps it
+    if (x.early) { run.early = true; STG = null; clearInterval(tick); wake(false); reviewOpen(p.id, run.id, S.el, {run, blob: null}); return; }
     p.runs = [run].concat(p.runs || []).slice(0, 30); p.updated = Date.now(); save();
     fire("pr-finish", p, run);
     STG = null; clearInterval(tick); wake(false);
@@ -112711,17 +112722,19 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (!el) { el = document.createElement("div"); el.id = "prStage"; el.className = "pr-stage"; courseTint(el, cid); el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); document.body.appendChild(el); document.body.classList.add("pr-on"); }
     el.className = "pr-stage pr-light"; el.setAttribute("aria-label", label); return el;
   }
-  async function reviewOpen(pid, runId, reuse){
-    const p = byId(pid); if (!p || !(p.runs || []).length) return;
+  async function reviewOpen(pid, runId, reuse, temp){
+    const p = byId(pid); if (!p || (!temp && !(p.runs || []).length)) return;
     reviewStop(); remoteEnd();
     const el = lightStage(reuse, "How your run went", p.courseId);
-    const run = p.runs.find(r => r.id === runId) || p.runs[0];
+    const run = temp ? temp.run : p.runs.find(r => r.id === runId) || p.runs[0];
     const idx = run.times.map((_, i) => i).filter(i => !run.sec || (i >= run.sec[0] && i <= run.sec[1]));
     const worst = idx.reduce((m, k) => run.times[k] - run.budgets[k] > run.times[m] - run.budgets[m] ? k : m, idx[0]);
     const R = RV = {p, run, idx, i: worst, el, d: null, qi: -1};
     try { R.d = await deckFor(p); textsOf(R.d).then(() => { if (RV === R) detailDraw(); }).catch(() => {}); } catch (e) {}
     if (RV !== R) return;
-    if (run.audio) { const b = await get("audio:" + run.id); if (RV !== R) return; if (b) { R.url = URL.createObjectURL(b); R.audio = new Audio(); R.audio.preload = "auto"; R.audio.src = R.url; R.audio.addEventListener("timeupdate", audioTick); R.audio.addEventListener("ended", () => { R.playing = false; paintAudio(); }); } }
+    if (temp && temp.blob) { run.audio = true; R.url = URL.createObjectURL(temp.blob); R.audio = new Audio(); R.audio.preload = "auto"; R.audio.src = R.url; R.audio.addEventListener("timeupdate", audioTick); R.audio.addEventListener("ended", () => { R.playing = false; paintAudio(); }); }
+    R.temp = !!temp;
+    if (!R.audio && run.audio) { const b = await get("audio:" + run.id); if (RV !== R) return; if (b) { R.url = URL.createObjectURL(b); R.audio = new Audio(); R.audio.preload = "auto"; R.audio.src = R.url; R.audio.addEventListener("timeupdate", audioTick); R.audio.addEventListener("ended", () => { R.playing = false; paintAudio(); }); } }
     reviewDraw();
   }
   const segsOf = (run, i) => (run.seg || []).filter(g => g[0] === i);
@@ -112743,9 +112756,9 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const spRows = sp ? sp.sp.map(s => { const ks = idx.filter(k => (sp.by[k] || sp.sp[0].id) === s.id), t = ks.reduce((a, k) => a + run.times[k], 0), b = ks.reduce((a, k) => a + run.budgets[k], 0); return {s, t, b}; }).filter(x => x.b > 0) : [];
     const spMax = Math.max(1, ...spRows.map(x => Math.max(x.t, x.b))) * 1.05;
     R.el.innerHTML = `<div class="pr-rtop">
-        <div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · Run ${num}${run.sec ? ` · slides ${run.sec[0] + 1} to ${run.sec[1] + 1}` : ""} · ${esc(when.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(when.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><b>${fmt(run.total)} <span>of ${fmt(run.target * 1000)} ${run.sec ? "section target" : "target"}</span></b></div>
-        <span class="pr-chip c-${chip[0]}">${chip[1]}</span>
-        <button type="button" class="btn" data-act="pr-hist" data-id="${esc(p.id)}">${IC.history} History</button>
+        <div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · ${run.early ? "Ended early, not counted" : `Run ${num}`}${run.sec ? ` · slides ${run.sec[0] + 1} to ${run.sec[1] + 1}` : ""} · ${esc(when.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(when.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><b>${fmt(run.total)} <span>of ${fmt(run.target * 1000)} ${run.sec ? "section target" : "target"}</span></b></div>
+        ${run.early ? `<span class="pr-chip c-early" title="It ended before the last slide, so it isn't in your history or best time">Ended early</span>` : `<span class="pr-chip c-${chip[0]}">${chip[1]}</span>`}
+        ${(p.runs || []).length ? `<button type="button" class="btn" data-act="pr-hist" data-id="${esc(p.id)}">${IC.history} History</button>` : ""}
         <button type="button" class="btn" data-act="pr-close">Close</button>
         <button type="button" class="btn primary pr-hero" data-act="pr-again">${run.sec ? "Practice This Section Again" : "Practice Again"}</button>
       </div>

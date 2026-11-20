@@ -9962,7 +9962,7 @@ p.pr-wait{flex-direction:row}
 .pr-rtitle b{font:700 1.7rem var(--display)}
 .pr-rtitle b span{font-size:1.05rem;font-weight:600;color:var(--muted)}
 .pr-chip{padding:7px 14px;border-radius:999px;font:700 .85rem var(--display)}
-.pr-chip.c-ok{background:#E3F5EA;color:#1D6B3D}.pr-chip.c-warn{background:#FFF3D6;color:#8A5A00}.pr-chip.c-over{background:#FDE7E5;color:#B42318}
+.pr-chip.c-ok{background:#E3F5EA;color:#1D6B3D}.pr-chip.c-warn{background:#FFF3D6;color:#8A5A00}.pr-chip.c-over{background:#FDE7E5;color:#B42318}.pr-chip.c-early{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
 .pr-runsel select{height:40px;border-radius:999px;padding:0 12px}
 .pr-rbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:start}
 .pr-rbars,.pr-rdetail{border-radius:18px;background:var(--surface);border:1px solid var(--line);padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}

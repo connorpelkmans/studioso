@@ -93,6 +93,7 @@ const FAKE = me => {
   // 3: Maya practices: her own slides' time against her target goes to the group
   await A.click('#prStage [data-act="pr-play"]'); await A.waitForTimeout(1200);
   for (let k = 0; k < 2; k++) { await A.keyboard.press("ArrowRight"); await A.waitForTimeout(600); }
+  await A.click('#prStage .pr-th[data-i="5"]'); await A.waitForTimeout(300);
   await A.click('#prStage [data-act="pr-end"]'); await A.waitForTimeout(1500);
   const run1 = DB.items.find(i => i.kind === "presrun" && i.user_id === "u1");
   ok(run1 && run1.data.b === 195000 && run1.data.t > 1000, "Maya's practice of her part goes to the group: " + (run1 && JSON.stringify(run1.data)));
@@ -133,6 +134,7 @@ const FAKE = me => {
   ok(await Bp.evaluate(() => window.SBPRESENT.px.stage().i) === 1, "and his own follows");
   await Bp.screenshot({path: OUT + "-follow.png"});
   await A.keyboard.press("ArrowRight"); await A.waitForTimeout(1200);
+  await A.click('#prStage .pr-th[data-i="5"]'); await A.waitForTimeout(800);
   await A.click('#prStage [data-act="pr-end"]'); await A.waitForTimeout(3500);
   const bRuns = await Bp.evaluate(() => (window.SBPRESENT.list()[0].runs || []).map(r => ({live: r.live, ledBy: r.ledBy, n: r.times.length})));
   ok(bRuns.length === 1 && bRuns[0].live && bRuns[0].ledBy === "Maya", "Sam gets the run in his history: " + JSON.stringify(bRuns));

@@ -101,6 +101,7 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   ok((await stage()).i === 4 && /Skip · adds 2:00/.test(await p.textContent("#prVChip")), "a video added by hand can be skipped for its length");
   const a1 = (await stage()).acc; await p.click('#prVChip [data-act="pr-vskip"]'); await p.waitForTimeout(200);
   ok((await stage()).acc - a1 === 120000, "skipping adds exactly its 2:00");
+  await p.keyboard.press("ArrowRight"); await p.waitForTimeout(300);
   await p.click('#prStage [data-act="pr-end"]'); await p.waitForTimeout(1500);
   const run = await p.evaluate(() => window.SBPRESENT.list()[0].runs[0]);
   ok(run && Array.isArray(run.vskip) && run.vskip.length === 2 && run.times[4] >= 120000, "the run keeps the skipped video time on its slides: " + JSON.stringify(run && run.vskip));

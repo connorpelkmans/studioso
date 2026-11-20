@@ -48,6 +48,8 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(400);
   await p.keyboard.press("p"); await p.waitForTimeout(1500); await p.keyboard.press("p");
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(800);
+  // reaching the last slide (straight from slide 4, so slide 5 stays at 0) is what makes the run count
+  await p.click('#prStage .pr-th[data-i="5"]'); await p.waitForTimeout(300);
   await p.click('#prStage [data-act="pr-end"]');
   await p.waitForSelector(".pr-rrow", {timeout: 15000}); await p.waitForTimeout(700);
   const st = await p.evaluate(() => { const L = window.SBPRESENT.list(); const r = L[0].runs[0]; return {n: L[0].runs.length, total: r.total, sum: r.times.reduce((a, b) => a + b, 0), times: r.times, audio: r.audio}; });
@@ -74,6 +76,13 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   await p.screenshot({path: OUT + "-8-pdf-ready.png"});
   await p.keyboard.press("Escape"); await p.waitForTimeout(500);
   ok(await p.locator("#prStage").count() === 0 && await p.locator(".rv-pres").count() === 2, "Escape before starting closes without a run; two presentations listed");
+  // ending early: the summary shows, but the run isn't kept, counted or a best time
+  await p.evaluate(() => { const x = window.SBPRESENT.list().find(q => q.kind === "pdf"); window.SBPRESENT.open(x.id); }); await p.waitForSelector("#prStage .pr-play", {timeout: 15000});
+  await p.click('#prStage [data-act="pr-play"]'); await p.waitForTimeout(2600); await p.keyboard.press("ArrowRight"); await p.waitForTimeout(600);
+  await p.click('#prStage [data-act="pr-end"]'); await p.waitForSelector(".pr-rrow", {timeout: 15000}); await p.waitForTimeout(500);
+  const early = await p.evaluate(() => ({runs: window.SBPRESENT.list().find(q => q.kind === "pdf").runs.length, chip: (document.querySelector(".pr-chip.c-early") || {}).textContent || "", eyebrow: document.querySelector(".pr-eyebrow").textContent}));
+  ok(early.runs === 0 && early.chip === "Ended early" && /Ended early, not counted/.test(early.eyebrow), "ending before the last slide shows the summary but keeps nothing: " + JSON.stringify(early));
+  await p.keyboard.press("Escape"); await p.waitForTimeout(400);
   const tr = await p.evaluate(() => { const r = window.SBPRESENT.list().find(x => x.runs.length).runs[0]; return {n: r.tr.length, first: r.tr[0], seg: r.seg}; }); ok(tr.n > 3 && tr.first && tr.first.t >= 0, "the transcript is kept with the time of each phrase");
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   console.log("present.e2e: done" + (process.exitCode ? " with failures" : ", all passed"));
