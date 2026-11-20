@@ -9839,7 +9839,7 @@ html[data-motion="static"] .rv-quiz:hover .rv-stamp{transform:none}
 .pr-tl{position:absolute;left:14px;right:74px;bottom:7px;height:6px;display:flex;gap:2px;border-radius:3px;overflow:hidden}
 .pr-tl i{flex:1 1 0;min-width:2px;background:color-mix(in srgb,var(--ink) 14%,transparent)}
 .pr-tl i.t-ok{background:#2E9E6B}.pr-tl i.t-warn{background:#E8A33A}.pr-tl i.t-over{background:#E0565B}
-.pr-tl::after{content:"";position:absolute;inset:0;width:0;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--c) 70%,#fff));opacity:.85;transition:width 1.1s ease}
+.pr-tl::after{content:"";position:absolute;inset:0;width:0;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--c) 70%,#fff));opacity:.85;transition:width .5s ease-out}
 .rv-pres:hover .pr-tl::after{width:100%}
 .rv-pres:hover .pr-scr{translate:-50% -4px}
 @media (prefers-reduced-motion:reduce){.pr-scr,.pr-tl::after{transition:none}.rv-pres:hover .pr-scr{translate:-50% 0}.rv-pres:hover .pr-tl::after{width:0}}
