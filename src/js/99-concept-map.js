@@ -1999,12 +1999,20 @@ function peekSvg(p, col){
   }).join("");
   return `<svg class="cm-peek" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
 }
+// Dragging map cards (01-flashcards.js SBRV): each map's key, the whole list in the order shown, and My Order once you've moved one
+const rvKey = x => x.exam ? "e:" + x.id : x.cid + ":" + x.id;
+let rvFull = [];
+if (window.SBRV) SBRV.reg("maps", {full: () => rvFull, name: k => { const x = allMaps().find(m => rvKey(m) === k); return x ? x.name : "the map"; },
+  after: () => { if (ui.cmSort === "mine") return; ui.cmSort = "mine"; try { localStorage.setItem("studyboard:cmSort", "mine"); } catch (e) {} render(); }});
 function listHtml(){
   const sort = ui.cmSort || (() => { try { return localStorage.getItem("studyboard:cmSort") || "recent"; } catch (e) { return "recent"; } })();
   const q = String(ui.q || "").trim().toLowerCase(), all = allMaps();
-  const list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
+  let list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
   const cl = x => { const c = courseOf(x.cid); return c && !isGen(c) ? courseLabel(c) : "General"; };
-  list.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name));
+  const byMode = (a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name);
+  // My Order: the order you dragged them into (new maps first); the whole list's order is kept for a drag to save
+  const inMine = arr => sort === "mine" && window.SBRV ? SBRV.order("maps", arr.slice().sort((a, b) => (b.at - a.at) || a.name.localeCompare(b.name)), rvKey) : arr.slice().sort(byMode);
+  list = inMine(list); rvFull = inMine(all).map(rvKey);
   const pro = ""; // maps are free; Pro parts are marked inside the map
   let lastCourse = "";
   const cards = list.map(x => {
@@ -2012,7 +2020,7 @@ function listHtml(){
     const open = `data-act="cm-open" data-kind="${x.exam ? "exam" : "course"}" data-id="${esc(x.exam ? x.id : x.cid)}" data-map="${esc(x.exam ? "" : x.id)}"`;
     const meta = [n ? `${n.items} idea${n.items === 1 ? "" : "s"} · ${n.links} link${n.links === 1 ? "" : "s"}` : "", x.exam ? "from the Prep Plan" : "", ago(x.at)].filter(Boolean).join(" · ");
     const ic = (d, w) => `<svg viewBox="0 0 24 24" width="${w || 17}" height="${w || 17}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-    return `${head}<article class="cm-mapcard" style="--c:${esc(colorOf(x.cid))}">
+    return `${head}<article class="cm-mapcard" data-rv="${esc(rvKey(x))}" style="--c:${esc(colorOf(x.cid))}">
       <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c && !isGen(c) ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
       <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b></button>
       <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
@@ -2020,7 +2028,7 @@ function listHtml(){
     </article>`;
   }).join("");
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
-  const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"]];
+  const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"], ["mine", "My Order"]];
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
   // like Quizzes': Share With a Group (maps can be shared live with a study group), then Recently Deleted
   const grpIc = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3 2.3 3 5"/></svg>';
@@ -2028,7 +2036,7 @@ function listHtml(){
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
+    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}" data-rv-kind="maps">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
 if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
@@ -2644,13 +2652,14 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
 /* a button whose label is hidden on phones keeps its icon in the middle */
-.cm-sheet .btn.small{display:inline-flex;justify-content:center;align-items:center}
-.cm-sheet .btn.small > svg{display:block;flex:none;margin:0}
+.cm-acts > .btn.small,.cm-acts > .cm-mw > .btn.small{display:inline-flex;justify-content:center;align-items:center}
+.cm-acts .btn.small > svg{display:block;flex:none;margin:0}
 /* phones: the toolbar always stays one line. With a group's Live chip as well, Add and Study become icons and Live
    shows just its dot and how many are on (its name is in its label and on tap) */
 @media (max-width:640px){
   .cm-tools{flex-wrap:nowrap!important;min-width:0}
   .cm-tools:has(.cm-glive) .cm-ml{display:none}
+  @media (max-width:430px){.cm-tools .cm-mw .cm-ml{display:none}}
   .cm-tools:has(.cm-glive) .cm-glive{gap:4px;padding-left:9px;padding-right:9px}
   .cm-tools:has(.cm-glive) .cm-glive .cm-ms{display:none!important}
   .cm-tools:has(.cm-glive) .cm-glive :is(.cm-gsep,.cm-ged,.cm-gwait){display:none}

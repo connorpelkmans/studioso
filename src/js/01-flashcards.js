@@ -359,7 +359,7 @@ function viewFlashcards(){
     ${ds.length ? `<div class="deck-grid rv-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
-const RV_TILE = ".rv-grid > .rv-card[data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
+const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
 // The decks in the order the list shows them: yours once you've moved one, else the exam's course first
 function decksShown(){ const ds = deckListArr(); return window.SBEXAM && !ds.some(hasOrd) ? SBEXAM.sortDecks(ds) : ds; }
 // Saves the order of the tiles shown; ones a course filter or search hides keep their places among the rest
@@ -378,11 +378,38 @@ function rvSave(isQuiz, shownKeys, label){
 }
 const rvName = (isQuiz, key) => { if (!isQuiz) return (state.decks[key] || {}).name || "the deck"; const f = qzFind(key); return (f && f.qz.title) || "the quiz"; };
 const rvMoved = (isQuiz, keys, key) => `Moved ${rvName(isQuiz, key)} to ${keys.indexOf(key) + 1} of ${keys.length}`;
+/* Other card lists (Concept Maps, Presentations, Writing Studio) drag the same way: their grid has data-rv-kind and each card data-rv.
+   The order is kept in settings.rvOrder[kind] (it syncs), and a list asks SBRV.order for it. full() gives every key in the order now
+   shown (cards a filter hides keep their places among the rest); after() runs once it's saved (Concept Maps switch to My Order). */
+const RV_KINDS = {};
+window.SBRV = {
+  reg: (kind, o) => { RV_KINDS[kind] = o; },
+  // items in your order: ones you've placed first in that order, newer ones (not placed yet) ahead of them, as the list had them
+  order: (kind, items, keyOf) => {
+    const saved = ((state.settings || {}).rvOrder || {})[kind]; if (!Array.isArray(saved) || !saved.length) return items;
+    const at = new Map(saved.map((k, i) => [k, i])), fresh = items.filter(x => !at.has(keyOf(x))), placed = items.filter(x => at.has(keyOf(x))).sort((a, b) => at.get(keyOf(a)) - at.get(keyOf(b)));
+    return fresh.concat(placed);
+  },
+  has: kind => !!(((state.settings || {}).rvOrder || {})[kind] || []).length
+};
+function rvKindSave(kind, shownKeys, key){
+  const K = RV_KINDS[kind]; if (!K) return;
+  const full = K.full(), shown = new Set(shownKeys);
+  let k = 0; const keys = full.map(x => shown.has(x) ? shownKeys[k++] : x);
+  const prev = (((state.settings || {}).rvOrder || {})[kind] || []).slice();
+  if (keys.join("|") === full.join("|") && prev.length) return;
+  const put = v => { state.settings.rvOrder = Object.assign({}, state.settings.rvOrder || {}, {[kind]: v}); saveSettings(); render(); };
+  put(keys);
+  const nm = K.name ? K.name(key) : "it";
+  toast(`Moved ${nm} to ${keys.indexOf(key) + 1} of ${keys.length}`, () => { put(prev); toast("Undone"); });
+}
 const rvCalm = () => window.SBMotion ? SBMotion.level() === "static" : !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 let rvDrag = null;
 document.addEventListener("pointerdown", e => {
-  if (rvDrag || ui.tab !== "flashcards" || (e.pointerType === "mouse" && e.button !== 0)) return;
+  if (rvDrag || (e.pointerType === "mouse" && e.button !== 0)) return;
   const el = e.target.closest && e.target.closest(RV_TILE); if (!el) return;
+  if (ui.tab !== "flashcards" && !el.parentNode.dataset.rvKind) return;
+  if (el.parentNode.dataset.rvKind && e.target.closest("input, select, textarea, a[href], [contenteditable]")) return;
   rvDrag = {el, grid: el.parentNode, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, pid: e.pointerId, touch: e.pointerType !== "mouse", started: false};
   if (rvDrag.touch) rvDrag.timer = setTimeout(() => { if (rvDrag && !rvDrag.started) rvStart(); }, 350);
 });
@@ -459,10 +486,11 @@ function rvEnd(ok){
   suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
   document.body.classList.remove("rv-dragging");
   d.ghost.remove();
-  const isQuiz = d.grid.classList.contains("qz-grid"), key = d.el.dataset.rv;
+  const isQuiz = d.grid.classList.contains("qz-grid"), key = d.el.dataset.rv, kind = d.grid.dataset.rvKind;
   const keys = [...d.grid.children].filter(n => n === d.ph || (n !== d.el && n.matches(RV_TILE))).map(n => n === d.ph ? key : n.dataset.rv);
   if (ok && d.ph.parentNode) d.ph.replaceWith(d.el); else d.ph.remove();
   d.el.style.display = "";
+  if (ok && kind) { const K = RV_KINDS[kind]; rvKindSave(kind, keys, key); if (K && K.after) K.after(); return; }
   if (ok) rvSave(isQuiz, keys, rvMoved(isQuiz, keys, key));
 }
 // Keyboard: Alt + Arrow keys move the focused tile one place

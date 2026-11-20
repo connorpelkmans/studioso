@@ -19513,7 +19513,7 @@ function viewFlashcards(){
     ${ds.length ? `<div class="deck-grid rv-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
-const RV_TILE = ".rv-grid > .rv-card[data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
+const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
 // The decks in the order the list shows them: yours once you've moved one, else the exam's course first
 function decksShown(){ const ds = deckListArr(); return window.SBEXAM && !ds.some(hasOrd) ? SBEXAM.sortDecks(ds) : ds; }
 // Saves the order of the tiles shown; ones a course filter or search hides keep their places among the rest
@@ -19532,11 +19532,38 @@ function rvSave(isQuiz, shownKeys, label){
 }
 const rvName = (isQuiz, key) => { if (!isQuiz) return (state.decks[key] || {}).name || "the deck"; const f = qzFind(key); return (f && f.qz.title) || "the quiz"; };
 const rvMoved = (isQuiz, keys, key) => `Moved ${rvName(isQuiz, key)} to ${keys.indexOf(key) + 1} of ${keys.length}`;
+/* Other card lists (Concept Maps, Presentations, Writing Studio) drag the same way: their grid has data-rv-kind and each card data-rv.
+   The order is kept in settings.rvOrder[kind] (it syncs), and a list asks SBRV.order for it. full() gives every key in the order now
+   shown (cards a filter hides keep their places among the rest); after() runs once it's saved (Concept Maps switch to My Order). */
+const RV_KINDS = {};
+window.SBRV = {
+  reg: (kind, o) => { RV_KINDS[kind] = o; },
+  // items in your order: ones you've placed first in that order, newer ones (not placed yet) ahead of them, as the list had them
+  order: (kind, items, keyOf) => {
+    const saved = ((state.settings || {}).rvOrder || {})[kind]; if (!Array.isArray(saved) || !saved.length) return items;
+    const at = new Map(saved.map((k, i) => [k, i])), fresh = items.filter(x => !at.has(keyOf(x))), placed = items.filter(x => at.has(keyOf(x))).sort((a, b) => at.get(keyOf(a)) - at.get(keyOf(b)));
+    return fresh.concat(placed);
+  },
+  has: kind => !!(((state.settings || {}).rvOrder || {})[kind] || []).length
+};
+function rvKindSave(kind, shownKeys, key){
+  const K = RV_KINDS[kind]; if (!K) return;
+  const full = K.full(), shown = new Set(shownKeys);
+  let k = 0; const keys = full.map(x => shown.has(x) ? shownKeys[k++] : x);
+  const prev = (((state.settings || {}).rvOrder || {})[kind] || []).slice();
+  if (keys.join("|") === full.join("|") && prev.length) return;
+  const put = v => { state.settings.rvOrder = Object.assign({}, state.settings.rvOrder || {}, {[kind]: v}); saveSettings(); render(); };
+  put(keys);
+  const nm = K.name ? K.name(key) : "it";
+  toast(`Moved ${nm} to ${keys.indexOf(key) + 1} of ${keys.length}`, () => { put(prev); toast("Undone"); });
+}
 const rvCalm = () => window.SBMotion ? SBMotion.level() === "static" : !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 let rvDrag = null;
 document.addEventListener("pointerdown", e => {
-  if (rvDrag || ui.tab !== "flashcards" || (e.pointerType === "mouse" && e.button !== 0)) return;
+  if (rvDrag || (e.pointerType === "mouse" && e.button !== 0)) return;
   const el = e.target.closest && e.target.closest(RV_TILE); if (!el) return;
+  if (ui.tab !== "flashcards" && !el.parentNode.dataset.rvKind) return;
+  if (el.parentNode.dataset.rvKind && e.target.closest("input, select, textarea, a[href], [contenteditable]")) return;
   rvDrag = {el, grid: el.parentNode, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, pid: e.pointerId, touch: e.pointerType !== "mouse", started: false};
   if (rvDrag.touch) rvDrag.timer = setTimeout(() => { if (rvDrag && !rvDrag.started) rvStart(); }, 350);
 });
@@ -19613,10 +19640,11 @@ function rvEnd(ok){
   suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
   document.body.classList.remove("rv-dragging");
   d.ghost.remove();
-  const isQuiz = d.grid.classList.contains("qz-grid"), key = d.el.dataset.rv;
+  const isQuiz = d.grid.classList.contains("qz-grid"), key = d.el.dataset.rv, kind = d.grid.dataset.rvKind;
   const keys = [...d.grid.children].filter(n => n === d.ph || (n !== d.el && n.matches(RV_TILE))).map(n => n === d.ph ? key : n.dataset.rv);
   if (ok && d.ph.parentNode) d.ph.replaceWith(d.el); else d.ph.remove();
   d.el.style.display = "";
+  if (ok && kind) { const K = RV_KINDS[kind]; rvKindSave(kind, keys, key); if (K && K.after) K.after(); return; }
   if (ok) rvSave(isQuiz, keys, rvMoved(isQuiz, keys, key));
 }
 // Keyboard: Alt + Arrow keys move the focused tile one place
@@ -107747,10 +107775,16 @@ function paperParts(raw){
   return {head: rest, title, body: lines.slice(i).filter(Boolean).join(" "), page: ti === 0 && rest.length > 0};
 }
 // The Writing view in Review: papers with Writing Studio, and essays and reports coming up
+let rvFull = [];
+if (window.SBRV) SBRV.reg("writing", {full: () => rvFull, name: id => (state.tasks[id] || {}).title || "the paper"});
 function reviewHtml(){
   const today = todayISO(), f = typeof ui !== "undefined" && ui.filter && ui.filter !== "all" ? ui.filter : "";
-  const list = allTasks().filter(t => eligible(t) && (!f || t.courseId === f) && (hasData(t) ? t.status !== "done" || (t.due && t.due >= addDays(today, -14)) : t.status !== "done" && t.due && t.due >= today && t.due <= addDays(today, 45)))
+  const listAll = allTasks().filter(t => eligible(t) && (hasData(t) ? t.status !== "done" || (t.due && t.due >= addDays(today, -14)) : t.status !== "done" && t.due && t.due >= today && t.due <= addDays(today, 45)))
     .sort((a, b) => (hasData(b) - hasData(a)) || String(a.due || "9").localeCompare(String(b.due || "9"))).slice(0, 40);
+  const list = listAll.filter(t => !f || t.courseId === f);
+  // in the order you've dragged them into (01-flashcards.js SBRV), within each list; the whole order is kept for a drag to save
+  const ord = arr => window.SBRV ? SBRV.order("writing", arr, t => t.id) : arr;
+  rvFull = ord(listAll.filter(hasData)).concat(ord(listAll.filter(t => !hasData(t)))).map(t => t.id);
   const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
   // a card like Concept Maps': a peek at the paper itself (its draft's opening words on a page, citations marked), its course, how its
   // check stands and its linked doc; then its title, when it's due and how far along it is
@@ -107763,16 +107797,16 @@ function reviewHtml(){
     const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
     // the paper's own title (its name, teacher, course and date lines left out), then its body
     const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ph">${esc(cut(PP && PP.title ? PP.title : t.title, 70))}</span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
-    return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}">
+    return `<li class="wsr-card" data-rv="${esc(t.id)}" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
       <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span></button>
       <div class="wsr-row"><span class="wsr-sub"><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></span>
       <button type="button" class="btn small primary" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></div></li>`;
   };
-  const started = list.filter(hasData), next = list.filter(t => !hasData(t));
+  const started = ord(list.filter(hasData)), next = ord(list.filter(t => !hasData(t)));
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}
-    ${list.length ? `${started.length ? `<ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
+    ${list.length ? `${started.length ? `<ul class="wsr-list" data-rv-kind="writing">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list" data-rv-kind="writing">${next.map(card).join("")}</ul>` : ""}`
       : `<div class="empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("papers") : ""}<strong>No Papers Yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
 }
 // Today's Plan: on the due date or the day before, a saved draft that hasn't been checked since it changed gets one gentle row
@@ -111001,12 +111035,20 @@ function peekSvg(p, col){
   }).join("");
   return `<svg class="cm-peek" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
 }
+// Dragging map cards (01-flashcards.js SBRV): each map's key, the whole list in the order shown, and My Order once you've moved one
+const rvKey = x => x.exam ? "e:" + x.id : x.cid + ":" + x.id;
+let rvFull = [];
+if (window.SBRV) SBRV.reg("maps", {full: () => rvFull, name: k => { const x = allMaps().find(m => rvKey(m) === k); return x ? x.name : "the map"; },
+  after: () => { if (ui.cmSort === "mine") return; ui.cmSort = "mine"; try { localStorage.setItem("studyboard:cmSort", "mine"); } catch (e) {} render(); }});
 function listHtml(){
   const sort = ui.cmSort || (() => { try { return localStorage.getItem("studyboard:cmSort") || "recent"; } catch (e) { return "recent"; } })();
   const q = String(ui.q || "").trim().toLowerCase(), all = allMaps();
-  const list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
+  let list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
   const cl = x => { const c = courseOf(x.cid); return c && !isGen(c) ? courseLabel(c) : "General"; };
-  list.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name));
+  const byMode = (a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name);
+  // My Order: the order you dragged them into (new maps first); the whole list's order is kept for a drag to save
+  const inMine = arr => sort === "mine" && window.SBRV ? SBRV.order("maps", arr.slice().sort((a, b) => (b.at - a.at) || a.name.localeCompare(b.name)), rvKey) : arr.slice().sort(byMode);
+  list = inMine(list); rvFull = inMine(all).map(rvKey);
   const pro = ""; // maps are free; Pro parts are marked inside the map
   let lastCourse = "";
   const cards = list.map(x => {
@@ -111014,7 +111056,7 @@ function listHtml(){
     const open = `data-act="cm-open" data-kind="${x.exam ? "exam" : "course"}" data-id="${esc(x.exam ? x.id : x.cid)}" data-map="${esc(x.exam ? "" : x.id)}"`;
     const meta = [n ? `${n.items} idea${n.items === 1 ? "" : "s"} · ${n.links} link${n.links === 1 ? "" : "s"}` : "", x.exam ? "from the Prep Plan" : "", ago(x.at)].filter(Boolean).join(" · ");
     const ic = (d, w) => `<svg viewBox="0 0 24 24" width="${w || 17}" height="${w || 17}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-    return `${head}<article class="cm-mapcard" style="--c:${esc(colorOf(x.cid))}">
+    return `${head}<article class="cm-mapcard" data-rv="${esc(rvKey(x))}" style="--c:${esc(colorOf(x.cid))}">
       <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c && !isGen(c) ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
       <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b></button>
       <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
@@ -111022,7 +111064,7 @@ function listHtml(){
     </article>`;
   }).join("");
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
-  const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"]];
+  const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"], ["mine", "My Order"]];
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
   // like Quizzes': Share With a Group (maps can be shared live with a study group), then Recently Deleted
   const grpIc = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3 2.3 3 5"/></svg>';
@@ -111030,7 +111072,7 @@ function listHtml(){
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
+    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}" data-rv-kind="maps">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
 if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
@@ -111646,13 +111688,14 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
 /* a button whose label is hidden on phones keeps its icon in the middle */
-.cm-sheet .btn.small{display:inline-flex;justify-content:center;align-items:center}
-.cm-sheet .btn.small > svg{display:block;flex:none;margin:0}
+.cm-acts > .btn.small,.cm-acts > .cm-mw > .btn.small{display:inline-flex;justify-content:center;align-items:center}
+.cm-acts .btn.small > svg{display:block;flex:none;margin:0}
 /* phones: the toolbar always stays one line. With a group's Live chip as well, Add and Study become icons and Live
    shows just its dot and how many are on (its name is in its label and on tap) */
 @media (max-width:640px){
   .cm-tools{flex-wrap:nowrap!important;min-width:0}
   .cm-tools:has(.cm-glive) .cm-ml{display:none}
+  @media (max-width:430px){.cm-tools .cm-mw .cm-ml{display:none}}
   .cm-tools:has(.cm-glive) .cm-glive{gap:4px;padding-left:9px;padding-right:9px}
   .cm-tools:has(.cm-glive) .cm-glive .cm-ms{display:none!important}
   .cm-tools:has(.cm-glive) .cm-glive :is(.cm-gsep,.cm-ged,.cm-gwait){display:none}
@@ -112027,7 +112070,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const c = courseOf(p.courseId), runs = p.runs || [], best = bestOf(p), nm = esc(p.name || "Presentation"), tgt = (p.target || 0) * 1000;
     const meta = runs.length ? `${best != null ? `Best ${fmt(best)} · ` : ""}target ${fmt(tgt)}` : `Target ${fmt(tgt)} · not practiced yet`;
     const stamp = best == null ? "New" : fmt(best), good = best != null && best <= tgt + 10000, g = grp(p);
-    return `<article class="rv-card rv-pres" style="--c:${esc(colorOf(p.courseId))}">
+    return `<article class="rv-card rv-pres" data-rv="${esc(p.id)}" style="--c:${esc(colorOf(p.courseId))}">
       <button class="rv-peek pr-peek" data-act="pr-open" data-id="${esc(p.id)}" aria-label="Open ${nm}">
         <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
@@ -112050,14 +112093,19 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (segs.length > 40) { const k = Math.ceil(segs.length / 40), out = []; for (let i = 0; i < segs.length; i += k) { const g = segs.slice(i, i + k), rank = {over: 3, warn: 2, ok: 1, "": 0}; out.push({w: g.reduce((a, x) => a + x.w, 0), t: g.reduce((a, x) => rank[x.t] > rank[a] ? x.t : a, "")}); } segs = out; }
     return `<span class="pr-tl" aria-hidden="true">${segs.map(x => `<i class="${x.t ? "t-" + x.t : ""}" style="flex-grow:${Math.round(x.w * 10) / 10}"></i>`).join("")}</span>`;
   }
+  let rvFull = [];
+  if (window.SBRV) SBRV.reg("pres", {full: () => rvFull, name: id => { const p = LIST.find(x => x.id === id); return p ? (p.name || p.title || "the presentation") : "the presentation"; }});
   function listHtml(){
     const f = ui.filter && ui.filter !== "all" ? ui.filter : "", q = String(ui.q || "").trim().toLowerCase();
-    const list = LIST.filter(p => !f || p.courseId === f).filter(p => !q || [p.name, p.title, (courseOf(p.courseId) || {}).name].join(" ").toLowerCase().includes(q)).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    // newest first, or the order you've dragged them into (01-flashcards.js SBRV); the whole list's order is kept for a drag to save
+    const inOrder = arr => { const s = arr.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0)); return window.SBRV ? SBRV.order("pres", s, p => p.id) : s; };
+    const list = inOrder(LIST.filter(p => !f || p.courseId === f).filter(p => !q || [p.name, p.title, (courseOf(p.courseId) || {}).name].join(" ").toLowerCase().includes(q)));
+    rvFull = inOrder(LIST).map(p => p.id);
     const head = `<div class="view-head" data-pr-list><h2>Presentations</h2><button class="btn small sm-btn" data-act="pr-join-code" title="Join a friend's rehearsal with the code they sent">${IC.users}<span class="sm-lbl">Join With a Code</span></button></div>${typeof chipsHtml === "function" ? chipsHtml() : ""}`;
     if (!LOADED) return head;
     const extra = fire("pr-list-extra").filter(Boolean).join("");
     if (!list.length) return head + extra + `<div class="empty${LIST.length ? "" : " sb-es"}" style="margin-top:14px">${LIST.length ? "" : emptyArt("present")}<strong>${LIST.length ? "No Presentations Match" : "No Presentations Yet"}</strong>${LIST.length ? "Try another course or search." : "Add your slides and set a target time. Studyboard times each slide as you practice, and can record you so you can listen back and read what you said."}${LIST.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="pr-new">Practice a Presentation</button></div>`}</div>`;
-    return head + extra + `<div class="rv-grid pr-grid">${list.map(cardHtml).join("")}</div>`;
+    return head + extra + `<div class="rv-grid pr-grid" data-rv-kind="pres">${list.map(cardHtml).join("")}</div>`;
   }
 
   /* ---------- adding slides ---------- */
