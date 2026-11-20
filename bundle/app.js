@@ -106878,8 +106878,8 @@ function readerHtml(t, w){
   let o = 0;
   const paras = laid || d.t.split("\n").map(line => { const at = o; o += line.length + 1; return `<p data-o="${at}"${line ? "" : ' class="ws-rd-gap"'}>${esc(line)}</p>`; }).join("");
   const note = styleFmt(styleOf(t, w)) === "note";
-  return `<div class="ws-rdbar"><span class="mini ws-grow">${note ? "Select a passage to keep it as a quote. (This style cites in footnotes: add those in your document.)" : "Click where a citation goes, or select a passage to keep it as a quote."}</span>
-      <span class="mini">${esc(d.from && d.from !== "Pasted" ? d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words</span><button type="button" class="ws-act" data-ws-redo>Replace</button><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your paper from Writing Studio" title="Remove">${TRASH}</button></div>
+  return `<div class="ws-rdbar"><span class="mini ws-rdhint">${note ? "Select a passage to keep it as a quote. (This style cites in footnotes: add those in your document.)" : "Click where a citation goes, or select a passage to keep it as a quote."}</span>
+      <span class="ws-rdmeta"><span class="mini ws-rdname">${esc(d.from && d.from !== "Pasted" ? d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words</span><button type="button" class="ws-act" data-ws-redo>Replace</button><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your paper from Writing Studio" title="Remove">${TRASH}</button></span></div>
     <div class="ws-rdwrap"><div class="ws-rd${laid ? " is-doc" : ""}" data-ws-rd aria-label="Your paper: click to cite, select to quote"${laid ? ` style="${esc(`font-family:${fontCss(L.lay.base.font)};font-size:${Math.round(L.lay.base.size * 4 / 3 * 10) / 10}px`)}"` : ""}>${paras}</div></div>`;
 }
 // The citations a click can put in: each source's own (in brackets) and the form for the middle of a sentence
@@ -107048,10 +107048,10 @@ function ldLinkedHtml(t, w){
   const open = l.p === "google" ? `https://docs.google.com/document/d/${encodeURIComponent(l.id)}/edit` : l.url;
   const src = !W.ldShow ? "" : l.p === "google" ? open : W.ldPrev && W.ldPrev.id === l.id ? W.ldPrev.u : "";
   const word = W.ldShow && l.p === "microsoft" ? `<p class="mini ws-note">${src ? "Word for the web shows it here to read. To write in it, open it in Word for the web: Check and Fix work on the file either way." : W.ldPrev && W.ldPrev.id === l.id ? "Microsoft doesn't let Word for the web open inside another app for this account, so open it in Word to write. Check and Fix still work on the file here." : "Loading Word's preview…"}</p>` : "";
-  if (l.p === "file") return `<div class="ws-ldtop"><div class="ws-ldh">${WORD_ICON}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your Word file, kept on this device: each Fix goes into it, and Download gives you the fixed file</span></span><span class="spacer"></span>
-      <button type="button" class="btn small primary" data-ws-lddl>${w.draft.fx ? "Download Fixed File" : "Download"}</button><button type="button" class="link-btn" data-ws-ldoff>Unlink</button></div></div>`;
-  return `<div class="ws-ldtop"><div class="ws-ldh">${ic}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your ${ldName(l)}, linked: Check reads it, and each Fix goes straight into it</span></span><span class="spacer"></span>
-      <button type="button" class="btn small" data-ws-ldshow aria-expanded="${!!W.ldShow}">${W.ldShow ? "Hide It" : l.p === "google" ? "Write in It Here" : "Show It Here"}</button>${open ? `<a class="btn small" href="${esc(open)}" target="_blank" rel="noopener noreferrer">Open in ${ldApp(l)}</a>` : ""}<button type="button" class="link-btn" data-ws-ldoff>Unlink</button></div>${word}</div>
+  if (l.p === "file") return `<div class="ws-ldtop"><div class="ws-ldh">${WORD_ICON}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your Word file, kept on this device: each Fix goes into it, and Download gives you the fixed file</span></span></div>
+      <div class="ws-ldacts"><button type="button" class="btn small primary" data-ws-lddl>${w.draft.fx ? "Download Fixed File" : "Download"}</button><span class="spacer"></span><button type="button" class="ws-act" data-ws-ldoff>Unlink</button></div></div>`;
+  return `<div class="ws-ldtop"><div class="ws-ldh">${ic}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your ${ldName(l)}, linked: Check reads it, and each Fix goes straight into it</span></span></div>
+      <div class="ws-ldacts"><button type="button" class="btn small" data-ws-ldshow aria-expanded="${!!W.ldShow}">${W.ldShow ? "Hide It" : l.p === "google" ? "Write in It Here" : "Show It Here"}</button>${open ? `<a class="btn small" href="${esc(open)}" target="_blank" rel="noopener noreferrer">Open in ${ldApp(l)}</a>` : ""}<span class="spacer"></span><button type="button" class="ws-act" data-ws-ldoff>Unlink</button></div>${word}</div>
     ${W.ldShow ? `<div class="ws-ldwrap" data-k="${esc(src + (l.p === "microsoft" ? "#" + (W.ldKey || 0) : ""))}">${src ? `<iframe class="ws-ldf" src="${esc(src)}" title="${esc(l.name || ldName(l))} in ${ldApp(l)}" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>` : ""}</div>` : ""}`;
 }
 function ldWordHtml(){
@@ -108135,7 +108135,16 @@ svg.ws-zic{display:block;flex:none}
 .ws-ldc{display:grid;gap:8px}
 .rbx-in{display:grid;gap:10px}
 /* My Doc: the paper as a page (click to cite, select to quote), and the menu that opens there */
-.ws-rdbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0 8px}
+.ws-rdbar{display:grid;gap:4px;margin:4px 0 8px}
+.ws-rdhint{color:var(--muted)}
+.ws-rdmeta{display:flex;align-items:center;gap:4px;min-width:0}
+.ws-rdname{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ws-rdmeta .ws-act{flex:none}
+.ws-ldacts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ws-ldacts > a.btn{color:var(--ink)}
+.ws-ldacts .ws-act{color:var(--muted)}
+.ws-ldacts .ws-act:hover{color:var(--ink)}
+@media (max-width:520px){.ws-ldacts > .btn{flex:1 1 0;justify-content:center;white-space:nowrap}.ws-ldacts .spacer{display:none}}
 .ws-rdwrap{position:relative}
 .ws-rd{max-width:760px;margin:0 auto;padding:28px clamp(16px,6%,56px) 40px;background:color-mix(in srgb,#fff 94%,var(--surface));color:#20242E;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 22px -14px rgb(0 0 0/.35);font:1rem/1.75 Georgia,"Times New Roman",serif;cursor:text;user-select:text;-webkit-user-select:text}
 .ws-rd p{margin:0;white-space:pre-wrap;word-break:break-word}
