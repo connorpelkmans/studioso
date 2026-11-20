@@ -620,7 +620,8 @@ function taskForm(t, preset = {}){
         <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
         ${canRepeat ? `<label class="f" id="repeatWrap">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="1">Every day</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="m">Every month</option></select></label>` : ""}
       </div>
-      <div class="two"><label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label></div>
+      <div class="two"><label class="f"><span class="lh"><span id="wLab">${t.xc ? "Extra Credit Weight" : "Grade Weight"}</span> ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint" id="wHint">${t.xc ? "% it can add on top" : "% of course grade"}</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label></div>
+      <div class="w-est-note xc-ask" id="xcAsk"${t.xc ? "" : " hidden"} role="status" aria-live="polite"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><span id="xcAskT"></span><label class="mi-check xc-chk"><input type="checkbox" name="xc" ${t.xc ? "checked" : ""}> It's Extra Credit</label></span></div>
       ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
       ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
       <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
@@ -689,6 +690,8 @@ function taskForm(t, preset = {}){
       checklist: items.filter(i => i.text.trim()).map(i => ({id: i.id, text: i.text.trim(), done: !!i.done})),
       pct: Number(fd.get("pct") || 0), dependsOn: deps.slice(),
       weight: isNum(fd.get("weight")) && Number(fd.get("weight")) > 0 ? Math.min(100, Number(fd.get("weight"))) : null,
+      // extra credit: the weight is what it can add on top of 100% (normTask keeps it only with a weight)
+      xc: !!fd.get("xc"),
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
       latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link,
@@ -850,6 +853,22 @@ function taskForm(t, preset = {}){
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   // typing a weight over an estimated one makes it yours: no longer red
+  // Weights over 100%: when this task's weight takes its course past 100%, ask whether it's extra credit (its weight then
+  // being what it can add on top); ticked, the field is its extra-credit weight
+  { const w = tForm.elements.weight, xc = tForm.elements.xc, box = $("#xcAsk"), txt = $("#xcAskT");
+    if (w && xc && box && txt) {
+      const check = () => {
+        const cid = tForm.elements.courseId ? tForm.elements.courseId.value : t.courseId, v = Number(String(w.value).replace(",", "."));
+        const others = cid ? tasksArr().filter(x => x.courseId === cid && x.id !== t.id && !x.prepFor && x.xc !== true && hasWeight(x) && !x.excused).reduce((s, x) => s + Number(x.weight), 0) : 0;
+        const tot = Math.round((others + (v > 0 ? v : 0)) * 10) / 10, over = !!cid && v > 0 && tot > 100.5;
+        box.hidden = !(over || xc.checked);
+        txt.textContent = xc.checked ? `Extra credit: up to ${v > 0 ? v : 0}% on top of ${courseOf(cid) ? courseLabel(courseOf(cid)) : "the course"}'s 100%. ` : over ? `With this, weights in ${courseLabel(courseOf(cid))} add up to ${tot}%, more than 100%. Is this extra credit? ` : "";
+        const lab = $("#wLab"), hint = $("#wHint"); if (lab) lab.textContent = xc.checked ? "Extra Credit Weight" : "Grade Weight"; if (hint) hint.textContent = xc.checked ? "% it can add on top" : "% of course grade";
+      };
+      ["input", "change"].forEach(ev => { w.addEventListener(ev, check); xc.addEventListener(ev, check); });
+      if (tForm.elements.courseId) tForm.elements.courseId.addEventListener("change", check);
+      check();
+    } }
   { const w = tForm.elements.weight; if (w && w.classList.contains("w-est-in")) w.addEventListener("input", () => { w.classList.remove("w-est-in"); w.removeAttribute("aria-describedby"); const tip = $("#wEstTip"); if (tip) tip.remove(); const pl = $("#wEstPill"); if (pl) pl.outerHTML = `<span class="hint">% of course grade</span>`; }, {once: true}); }
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
   $("#tfAdv").addEventListener("toggle", e => { ui.advOpen = e.target.open; });

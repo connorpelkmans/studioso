@@ -48,7 +48,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 75, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 83.5, w: 3.4},
         cheeks: {lx: 37.5, rx: 82.5, y: 83, w: 5.6, h: 3.4},
-        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 72, 92], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 72, 92], bow: [60, 96.5, 0.95, 0], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
           pet: ["Hehe, extra squishy happy!", "More pats? Yes please, yes please!"],

@@ -421,3 +421,20 @@ input.w-est-in{color:var(--late,#d64545);font-weight:700;border-color:color-mix(
 .gp-past-n{display:grid;flex:1;min-width:0}
 .gp-past-g{display:flex;align-items:baseline;gap:6px}
 .gp-past-c .btn{margin-top:8px}
+/* Extra credit */
+.pill.gr-xc-pill{font-size:.72em;vertical-align:middle;background:color-mix(in srgb,var(--ok,#1f9d55) 14%,transparent);color:color-mix(in srgb,var(--ok,#1f9d55) 80%,var(--ink));border:1px solid color-mix(in srgb,var(--ok,#1f9d55) 35%,transparent)}
+.gr-over-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.xc-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.xc-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.xc-row.is-xc{border-color:color-mix(in srgb,var(--ok,#1f9d55) 50%,var(--line));background:color-mix(in srgb,var(--ok,#1f9d55) 6%,var(--surface))}
+.xc-t{display:grid;gap:2px;min-width:0}
+.xc-t b{overflow-wrap:anywhere}
+.xc-on{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600;white-space:nowrap;cursor:pointer}
+.xc-on[hidden]{display:none}
+.xc-w{display:inline-flex;align-items:center;gap:4px}
+.xc-w input{width:76px;min-height:38px;text-align:end}
+.xc-sum{margin:0;font-size:.9rem}
+.xc-sum.xc-over{color:var(--danger,#c0392b)}
+.xc-ask .xc-chk{display:flex;margin-top:6px;font-weight:600}
+@media (max-width:520px){.xc-row{grid-template-columns:minmax(0,1fr) auto}.xc-t{grid-column:1/-1}}
+.xc-sum b{color:inherit;font-weight:800}
