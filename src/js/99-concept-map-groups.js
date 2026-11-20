@@ -714,9 +714,9 @@ html[data-theme=dark] .cm-glive{color:#7FE3A6}
 .cmg-avs{display:inline-flex;flex:none;padding:2px 0 2px 2px}
 .cmg-avs-pk{position:absolute;left:10px;bottom:8px;z-index:2;pointer-events:none}
 /* the faces are on the map, so the title and the buttons share one line */
-.cmg-card .cm-cfoot{flex-direction:row;align-items:center;gap:8px}
+.cmg-card .cm-cfoot{flex-direction:row;align-items:center;gap:8px;padding:11px 10px 11px 14px}
 .cmg-card .cm-cinfo{flex:1 1 auto;min-width:0;margin-top:0}
-.cmg-card .cm-ctitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.cmg-card .cm-ctitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;position:relative;top:-1px}
 .cmg-card .cmg-row{flex:none;margin-top:0}
 .cmg-card .cmg-row .cm-csub{flex:0 0 0;width:0;overflow:hidden}
 .cmg-avs-pk>*{box-shadow:0 0 0 2px var(--surface),0 2px 6px rgb(0 0 0/.15)}
