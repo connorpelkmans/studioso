@@ -296,7 +296,8 @@ async function runFolderBackup(quiet){
         try {
           const c = courseOf(f.courseId), fo = foldersOf(f.courseId).find(x => x.id === f.folderId);
           const d1 = await filesDir.getDirectoryHandle(safeName(c ? courseLabel(c) : "General"), {create: true});
-          const d2 = await d1.getDirectoryHandle(safeName(fo ? fo.name : "Other"), {create: true});
+          let d2 = await d1.getDirectoryHandle(safeName(fo ? fo.name : "Other"), {create: true});
+          const cd = clsDirOf(f.courseId, f.folderId, f.cls); if (cd) d2 = await d2.getDirectoryHandle(cd, {create: true});
           const base = safeName(r.name || f.name), fname = f.revs.length > 1 ? base.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(i)})$1`) : base;
           const bytes = await assetBytes(r.assetId);
           const fh = await d2.getFileHandle(fname, {create: true}); const w = await fh.createWritable(); await w.write(bytes); await w.close();
@@ -367,12 +368,15 @@ function deskDir(rel, name){
 }
 const deskDone = () => { try { return JSON.parse(localStorage.getItem("studioso:fsFiles") || "{}"); } catch(e) { return {}; } };
 function deskMarkDone(id){ const d = deskDone(); d[id] = 1; try { localStorage.setItem("studioso:fsFiles", JSON.stringify(d)); } catch(e) {} }
+// A class's own folder inside Lecture Notes ("2026-10-05 Lecture 7"), for a file linked to a class (from 99-class-sessions.js)
+const clsDirOf = (cid, fid, key) => { if (fid !== "notes" || !key || !window.SBCLS || !SBCLS.dirOf) return ""; try { return safeName(SBCLS.dirOf(cid, key)); } catch(e) { return ""; } };
 function deskMirrorRel(f, i, courseId, folderId){
   const cid = courseId != null ? courseId : f.courseId, fid = folderId != null ? folderId : f.folderId;
   const c = courseOf(cid) || state.courses[cid], fo = foldersOf(cid).find(x => x.id === fid);
   const r = f.revs ? f.revs[i] : null, nm = safeName((r && r.name) || f.name);
   const fname = f.revs && f.revs.length > 1 ? nm.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(i)})$1`) : nm;
-  return `Files/${safeName(c ? courseLabel(c) : "General")}/${safeName(fo ? fo.name : "Other")}/${fname}`;
+  const cd = clsDirOf(cid, fid, f.cls);
+  return `Files/${safeName(c ? courseLabel(c) : "General")}/${safeName(fo ? fo.name : "Other")}/${cd ? cd + "/" : ""}${fname}`;
 }
 function deskRevOf(id){
   for (const f of Object.values(state.files)) { const i = (f.revs || []).findIndex(r => r.assetId === id); if (i >= 0) return {f, i}; }
@@ -388,7 +392,7 @@ const deskAssets = {
   upload: async (file, o = {}) => {
     const type = o.type || file.type || "application/octet-stream";
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const rel = await deskUniqueRel(deskMirrorRel({name: file.name, courseId: o.courseId || "", folderId: o.folderId || "other"}, 0, o.courseId || "", o.folderId || "other"));
+    const rel = await deskUniqueRel(deskMirrorRel({name: file.name, courseId: o.courseId || "", folderId: o.folderId || "other", cls: o.cls || ""}, 0, o.courseId || "", o.folderId || "other"));
     await DESK.write(rel, bytes, o.untrusted || o.origin ? {untrusted: true, origin: o.origin || ""} : undefined);
     let id = "local:" + uid();
     if (sbActive() && cloud.on && navigator.onLine !== false) { try { id = (await sbAssets.upload(file, {type})).id; } catch(e) {} }
