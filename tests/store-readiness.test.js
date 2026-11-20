@@ -54,7 +54,7 @@ const dateApp = (app.match(/const UPDATED = "([^"]+)"/) || [])[1], dateWeb = (we
 ok(dateApp && dateApp === dateWeb, `effective date must match (app ${dateApp}, website ${dateWeb})`);
 const FACTS = [/supabase auth/, /salted hash/, /gemini/, /anthropic/, /openai/, /your own key/, /improve its products/, /not pass through our servers|does not pass through/, /anonymous crash report/, /send anonymous crash reports/, /not linked to you/, /export my data/, /recently deleted/, /capture token/,
   /bug report/, /stays on your device/, /stripe/, /app store/, /only your plan status|we receive only your plan status/, /email delivery provider/, /support@your-domain|support@studyboardapp\.com|your-domain/, /45 days/, /30 days/, /13 and over/, /up to 16/, /international transfers/, /standard contractual clauses/,
-  /delete my account and data/, /export a backup file/, /cancel/, /no analytics, no ads, no tracking/, /your rights/];
+  /delete my account and data/, /export a backup file/, /cancel/, /no ads, no tracking/, /no third-party analytics/, /daily version check/, /does not keep your ip address/, /only the totals are kept/, /your rights/];
 // The terms: same sections and date in the app and on the website, with the copyright rules
 {
   const appTerms = app.slice(app.indexOf("const TERMS = () =>"), app.indexOf("const ABOUT = () =>"));

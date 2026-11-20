@@ -4,7 +4,7 @@
   const VERSION = "1.15.8";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "November 16, 2026", TERMS_UPDATED = "November 16, 2026";
+  const UPDATED = "November 20, 2026", TERMS_UPDATED = "November 16, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -19,8 +19,14 @@
 <p>You can use Studyboard without an account. Then your courses, tasks, notes, flashcards, grades and settings are saved only on the device you use (in the browser's storage on the website, or in the app's folder on desktop and phone), and nothing leaves it except through the optional features below. With a free account they are also kept in your account on our servers (see Your account and synced data, below), so they are the same on every device you sign in on, and a copy stays on each device so Studyboard keeps working offline. Either way, what always stays on your device and is never sent to us: your daily backups, your AI keys (unless you choose to share them between your devices, described below), and your school-site connections, including a school calendar link or a Canvas access token. If you turn on folder backups, copies are also written to the folder you pick.</p>
 <p>On the website, Studyboard asks your browser to keep its storage permanently, so the browser does not clear it on its own to free up space or after a while without a visit. Most browsers agree once Studyboard is installed as an app or added to the Home Screen, and Settings shows whether yours has. Clearing your browser's site data removes this device's copy and its daily backups. Without an account that is everything, so make an account or export a backup now and then; with one, what is in your account stays and comes back when you sign in again (changes made offline that hadn't synced yet are lost). Access tokens and similar secrets are kept locked (encrypted) in the device's secure storage: the system keychain in the apps, and an encrypted store in the browser on the website.</p>
 
-<h3>No analytics, no ads, no tracking</h3>
-<p>Studyboard has no analytics, advertising or tracking tools, and it sets no tracking cookies. We do not track you across other apps or websites, and we do not sell or share your data for advertising. The only things stored in your browser are the ones needed to work: your data, settings and sign-in. Apart from syncing your planner to your account if you have one, Studyboard sends only two things on its own: anonymous crash reports, described next, and anonymous upgrade counts.</p>
+<h3>No ads, no tracking</h3>
+<p>Studyboard has no third-party analytics, advertising or tracking tools, and it sets no tracking cookies. We do not track you across other apps or websites, and we do not sell or share your data for advertising. The only things stored in your browser are the ones needed to work: your data, settings and sign-in. Apart from syncing your planner to your account if you have one, Studyboard sends only three things on its own: anonymous crash reports, described next, anonymous upgrade counts, and the daily version check.</p>
+<h3>The daily version check and usage totals</h3>
+<p>Once a day, the app asks our server whether your version of Studyboard is still OK, so we can ask you to update if a version has a problem (for example, pausing syncing on a version that could lose changes). It sends the app version and the kind of device (website, installed app, desktop, iPhone or iPad, or Android), and nothing else. The server adds one to that day's total for that kind of device, signed in or not. It does not keep your IP address, a device ID or anything else that could identify you or your device: we can see how many devices used Studyboard on a day, not whose they were.</p>
+<p>If you have an account, we also count how many accounts used Studyboard each day, and how many of each day's new accounts come back later. The note that your account was active today is deleted when that night's count is made; only the totals are kept.</p>
+<h3>Invite links</h3>
+<p>Your invite link carries a short code tied to your account. When someone makes an account from it, we record that they joined from your invite, so that once 3 friends have joined you get a free month of Pro. You see how many friends joined, not who they are, and they don't see anything about you beyond what you put in your message.</p>
+
 
 <h3>Anonymous upgrade counts</h3>
 <p>When the free plan shows a Studyboard Pro offer, the app adds one to a daily total for that offer (for example "Insights are part of Studyboard Pro: shown"), and does the same when a price is tapped and when Pro is bought after that. Only the offer's wording and the date are counted, with numbers and names taken out. Nothing identifies you or your device, and nothing is stored per person. It tells us which Pro features people want, and it stops whenever Pro isn't on sale.</p>
