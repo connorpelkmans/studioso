@@ -1,6 +1,8 @@
 // Integration: Exam Prep Planner + take-home gate (remoteexams) + big assignment breakdown
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
 const {chromium, executablePath} = require("./pw");
+// a new plan first asks how to plan; these checks are about the planner, so pick it
+const auto = async page => { if (await page.locator('#ppBody [data-pp="pick-auto"]').count()) { await page.click('#ppBody [data-pp="pick-auto"]'); await page.waitForTimeout(300); } };
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
 const OUT = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "sbint-"));
 fs.mkdirSync(OUT, {recursive: true});
@@ -37,7 +39,7 @@ const vis = (page, sel) => page.evaluate(s => { const e = document.querySelector
       ok(await vis(page, ".pp-form") && /Plan My Prep/.test(await page.evaluate(() => document.querySelector(".pp-form").innerText)), "and the prep block, in the same sheet");
       ok(await page.evaluate(() => document.querySelector("#dlg").scrollWidth <= document.querySelector("#dlg").clientWidth + 1), "no horizontal overflow in the edit sheet");
       await page.screenshot({path: path.join(OUT, `edit-${W}.png`)});
-      await page.click(".pp-form [data-act=exam-plan]"); await page.waitForTimeout(500);
+      await page.click(".pp-form [data-act=exam-plan]"); await page.waitForTimeout(500); await auto(page);
       ok(await vis(page, "#ppBody"), "Plan My Prep opens the planner for the in-person exam");
       await page.fill("#ppAdd", "Cardiac drugs\nRenal physiology\nAcid base"); await page.click("[data-pp=add]");
       await page.click("#ppCreate"); await page.waitForTimeout(600);

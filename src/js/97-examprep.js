@@ -410,7 +410,7 @@ const EXAMPREP = (() => {
     return Object.keys(out).length ? out : null;
   }
 
-  return {plan, lessonOf, readiness, matchTopic, flatLinks, suggestTopics, parseTopics, chaptersIn, tokens, keyOf, cleanName, headingsOf, textFor, KIND_LABEL, STYLES, INTENSITY, HORIZON, SHAKY, GAPS, add, diff, dow, isDate, simplePlace};
+  return {plan, lessonOf, readiness, matchTopic, flatLinks, suggestTopics, parseTopics, chaptersIn, tokens, keyOf, cleanName, headingsOf, textFor, matOf, KIND_LABEL, STYLES, INTENSITY, HORIZON, SHAKY, GAPS, add, diff, dow, isDate, simplePlace};
 })();
 /*EXAMPREP-END*/
 
@@ -466,7 +466,7 @@ function prepOf(ex){
   const p = ex.prep && typeof ex.prep === "object" ? ex.prep : {};
   const topics = (Array.isArray(p.topics) && p.topics.length ? p.topics : (ex.planTopics || []).map(t => ({name: t.name, conf: t.conf}))).map(t => ({id: t.id || uid(), name: t.name, conf: t.conf || "ok", weight: t.weight == null ? null : t.weight, done: !!t.done, links: t.links || [], edited: !!t.edited}));
   return {topics, intensity: p.intensity || intensityDefault(), style: p.style || [], styleText: p.styleText || "", days: p.days || null, rest: !!p.rest, light: p.light !== false, start: p.start || "", ai: p.ai !== false, examDue: p.examDue || "", createdAt: p.createdAt || 0,
-    lesson: p.lesson || null};
+    lesson: p.lesson || null, manual: !!p.manual};
 }
 /* The last exam reflection, turned into this plan's defaults (EXAMPREP.lessonOf): only for a plan that doesn't exist yet,
    and only from a reflection in the last year. Same course first, any course otherwise (SBWRAP.lastWrap). */
@@ -588,6 +588,7 @@ function openMaterial(t){
 }
 const matLabel = t => !t || !t.matKind ? "" : t.matKind === "deck" ? "Open Deck" : t.matKind === "quiz" ? "Open Quiz" : t.matKind === "note" ? "Open Note" : "Open File";
 function matBtn(t){
+  if (t && t.prepFor && t.status !== "done" && window.SBTEACH && SBTEACH.sessionBtn) { const tb = SBTEACH.sessionBtn(t); if (tb) return tb; }
   if (!t || !t.prepFor || t.status === "done" || !t.matKind) return "";
   const ok = t.matKind === "deck" ? state.decks[t.matId] : t.matKind === "quiz" ? state.decks[t.matDeck] : t.matKind === "note" ? state.notes[t.matId] : state.files[t.matId];
   return ok ? `<button type="button" class="btn small pp-open" data-act="prep-open-mat" data-id="${esc(t.id)}">${matLabel(t)}</button>` : "";
@@ -744,7 +745,7 @@ function drawPlan(){
     <p class="status-msg" id="ppStatus" style="margin:0" aria-live="polite"></p>`;
   const n = out && !out.err ? out.sessions.length : 0;
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${have.length && !S.replan ? `<button type="button" class="btn" data-pp="view">Back to Plan</button>` : ""}<button type="button" class="btn primary" id="ppCreate" data-pp="create" ${n ? "" : "disabled"}>${have.length ? `Re-plan ${n} Session${n === 1 ? "" : "s"}` : `Create Plan (${n} Session${n === 1 ? "" : "s"})`}</button>`;
-  const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan Exam Prep" : "Exam Prep";
+  const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-Plan Exam Prep" : "Exam Prep";
 }
 /* What the last reflection changed, one line each, each with its own Undo */
 const LATE = {night: "last time you started the night before", short: "last time you started 1 or 2 days before", cram: "last time it came down to one long session the night before"};
@@ -785,27 +786,123 @@ function drawView(){
       ${r.gate ? `<p class="mini" style="margin:0">Readiness is worked out from ${esc(evTxt)}.</p>` : `<p class="mini" style="margin:0">Readiness shows once you finish a session, progress on a linked deck or score a quiz.</p>`}
       <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div>
     ${past ? "" : forecastHtml(ex)}</div>
-    ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-plan to the New Date</button></p>` : ""}
-    ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> No problem: spread them over the days that are left. <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
+    ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-Plan to the New Date</button></p>` : ""}
+    ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> ${P.manual ? "Move them to the days that are left, as you planned them." : "No problem: spread them over the days that are left."} <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
     ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add My Mark and Wrap Up</button></p>` : ""}
     <h3 class="fsec">Day by Day</h3><ol class="pp-agenda">${agenda}</ol>
     <h3 class="fsec">Topics</h3>${window.SBEXAMSHEET ? SBEXAMSHEET.btn(ex) : ""}${window.SBCMAP ? SBCMAP.examBtn(ex) : ""}<ul class="pp-covs">${topicRows}</ul>`;
-  foot.innerHTML = `<button type="button" class="btn" data-act="close">Close</button><span class="spacer"></span><button type="button" class="btn" data-pp="edit">Edit Topics</button>${sm.missed && !past ? `<button type="button" class="btn" data-pp="catch">Catch Up</button>` : ""}<button type="button" class="btn primary" data-pp="replan">Re-plan</button>`;
+  foot.innerHTML = `<button type="button" class="btn" data-act="close">Close</button><span class="spacer"></span>${P.manual ? "" : `<button type="button" class="btn" data-pp="edit">Edit Topics</button>`}${sm.missed && !past ? `<button type="button" class="btn" data-pp="catch">Catch Up</button>` : ""}${P.manual ? `<button type="button" class="btn" data-pp="replan">Let Studyboard Plan It</button><button type="button" class="btn primary" data-pp="manual">Add Sessions</button>` : `<button type="button" class="btn primary" data-pp="replan">Re-Plan</button>`}`;
   const t = $("#ppTitle"); if (t) t.textContent = "Prep Plan";
 }
-function draw(){ if (!S) return; if (S.step === "view") drawView(); else drawPlan(); }
+/* First, for an exam with no plan yet: Studyboard plans it, or the student makes their own */
+function drawChoose(){
+  const ex = exOf(); if (!ex) { dlg.close(); return; }
+  const body = $("#ppBody"), foot = $("#ppFoot"); if (!body) return;
+  const days = dayDiff(todayISO(), ex.due);
+  body.innerHTML = `<p class="pp-exam"><b>${esc(examName(ex))}</b><span class="mini"> · ${esc(fmtDate(ex.due))}, ${days} day${days === 1 ? "" : "s"} to go</span></p>
+    <p style="margin:0">How do you want to plan your studying?</p>
+    <div class="pp-pick" role="group" aria-label="How to plan">
+      <button type="button" class="pp-pick-o" data-pp="pick-auto"><b>Plan It for Me</b><span>Tell Studyboard the topics and how much time you have. It spreads study sessions over the days before the exam, with your decks and notes, and moves them if you fall behind.</span></button>
+      <button type="button" class="pp-pick-o" data-pp="pick-manual"><b>I'll Make My Own</b><span>Add your own study sessions: pick the day, the topic, what kind of studying and how long. They show up in Today's Plan like any task.</span></button>
+    </div>`;
+  foot.innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button>`;
+  const t = $("#ppTitle"); if (t) t.textContent = "Exam Prep";
+}
+/* Making your own plan: add sessions one at a time, then create them all */
+const MKINDS = ["learn", "cards", "questions", "teach", "recall", "recap", "past", "light"];
+const noTopic = k => k === "past" || k === "light";
+function lastDay(ex){ const d = addDays(ex.due, -1), t = todayISO(); return d < t ? t : d; }
+function manualState(ex){
+  const t = todayISO(), last = lastDay(ex), have = sessionsOf(ex.id).filter(s => s.due >= t).map(s => s.due).sort();
+  const next = have.length ? addDays(have[have.length - 1], 1) : t;
+  return {rows: [], date: next > last ? last : next, topic: "", kind: "learn", min: 30, note: "", msg: ""};
+}
+function readManual(){
+  const M = S && S.m; if (!M) return;
+  const g = id => document.getElementById(id);
+  const d = g("ppmDate"); if (d && isDate(d.value)) M.date = d.value;
+  const tp = g("ppmTopic"); if (tp) M.topic = tp.value.trim().slice(0, 80);
+  const mn = g("ppmMin"); if (mn) M.min = clamp(Math.round(Number(mn.value) || 0), 0, 600);
+  const nt = g("ppmNote"); if (nt) M.note = nt.value.trim().slice(0, 300);
+}
+function manualTopicNames(ex){
+  const seen = new Set(), out = [], put = n => { n = String(n || "").trim(); const k = n.toLowerCase(); if (n && !seen.has(k)) { seen.add(k); out.push(n); } };
+  prepOf(ex).topics.forEach(t => put(t.name)); S.m.rows.forEach(r => put(r.topic));
+  try { suggestFor(ex, ex.courseId || "").forEach(x => put(x.name)); } catch (e) {}
+  return out.slice(0, 40);
+}
+const kindName = k => EXAMPREP.KIND_LABEL[k] || k;
+function rowLabel(r){ return noTopic(r.kind) ? kindName(r.kind) : `${r.topic}: ${KLOW[r.kind] || r.kind}`; }
+function drawManual(){
+  const ex = exOf(); if (!ex) { dlg.close(); return; }
+  const body = $("#ppBody"), foot = $("#ppFoot"); if (!body) return;
+  const M = S.m, today = todayISO(), last = lastDay(ex), names = manualTopicNames(ex), have = sessionsOf(ex.id).length;
+  const byDate = {}; M.rows.forEach((r, i) => { (byDate[r.date] = byDate[r.date] || []).push([r, i]); });
+  const list = M.rows.length ? `<ol class="pp-agenda">${Object.keys(byDate).sort().map(d => `<li class="pp-day"><div class="ep-day-head"><b>${esc(fmtDate(d))}</b><span class="mini">${fmtHM(byDate[d].reduce((a, [r]) => a + r.min, 0) / 60)}</span></div>
+      <ul>${byDate[d].map(([r, i]) => `<li class="pp-sess" style="--c:${esc(colorOf(ex.courseId))}"><div class="pp-sess-top"><span class="pp-sess-t"><b>${esc(rowLabel(r))}</b><span class="mini">${r.min} min</span></span><button type="button" class="x-btn" data-pp="mrm" data-i="${i}" aria-label="Remove ${esc(rowLabel(r))} on ${esc(fmtDate(d))}">${CLOSE}</button></div>${r.note ? `<p class="pp-sess-x">${esc(r.note)}</p>` : ""}</li>`).join("")}</ul></li>`).join("")}</ol>`
+    : `<p class="mini pp-m-empty">No sessions yet. Add your first one above.</p>`;
+  body.innerHTML = `<p class="pp-exam"><b>${esc(examName(ex))}</b><span class="mini"> · ${esc(fmtDate(ex.due))}${have ? ` · ${have} session${have === 1 ? "" : "s"} already planned` : ""}</span></p>
+    <fieldset class="pp-m-add"><legend>Add a Study Session</legend>
+      <div class="two"><label class="f">Day<input type="date" id="ppmDate" value="${esc(M.date)}" min="${esc(today)}" max="${esc(last)}"></label>
+        <label class="f">Minutes<input type="number" id="ppmMin" value="${esc(String(M.min))}" min="5" max="600" step="5" inputmode="numeric"></label></div>
+      <div><span class="lh">What Kind</span><div class="ep-days pp-m-kinds" role="group" aria-label="What kind of studying">${MKINDS.map(k => `<button type="button" data-pp="mkind" data-v="${k}" aria-pressed="${M.kind === k}">${esc(kindName(k))}</button>`).join("")}</div></div>
+      ${noTopic(M.kind) ? "" : `<label class="f">Topic<input type="text" id="ppmTopic" value="${esc(M.topic)}" maxlength="80" list="ppmTopics" placeholder="e.g. Kinematics" autocomplete="off"><datalist id="ppmTopics">${names.map(n => `<option value="${esc(n)}"></option>`).join("")}</datalist></label>`}
+      <label class="f"><span class="lh">Note <span class="hint">optional</span></span><input type="text" id="ppmNote" value="${esc(M.note)}" maxlength="300" placeholder="What you'll do, e.g. chapter 4 problems 1 to 10"></label>
+      <div class="ep-find"><button type="button" class="btn small primary" data-pp="madd">Add Session</button><span class="mini" id="ppmMsg" role="status" aria-live="polite">${esc(M.msg)}</span></div>
+    </fieldset>
+    <h3 class="fsec">Your Sessions${M.rows.length ? ` <span class="mini">${M.rows.length} · ${fmtHM(M.rows.reduce((a, r) => a + r.min, 0) / 60)}</span>` : ""}</h3>${list}`;
+  const n = M.rows.length;
+  foot.innerHTML = `<button type="button" class="btn" data-pp="${have ? "view" : "choose"}">Back</button><span class="spacer"></span><button type="button" class="btn primary" id="ppmCreate" data-pp="mcreate" ${n ? "" : "disabled"}>${have ? `Add ${n || ""} Session${n === 1 ? "" : "s"}` : `Create Plan${n ? ` (${n} Session${n === 1 ? "" : "s"})` : ""}`}</button>`;
+  const t = $("#ppTitle"); if (t) t.textContent = have ? "Add Sessions" : "Make Your Own Plan";
+}
+function manualAdd(ex){
+  readManual(); const M = S.m;
+  if (!isDate(M.date) || M.date < todayISO() || M.date > lastDay(ex)) { M.msg = `Pick a day before the exam (${fmtDate(ex.due)}).`; return; }
+  if (!noTopic(M.kind) && !M.topic) { M.msg = "Type a topic, or pick one from the list."; return; }
+  if (!(M.min >= 5)) { M.msg = "Give it at least 5 minutes."; return; }
+  const row = {date: M.date, kind: M.kind, topic: noTopic(M.kind) ? "" : M.topic, min: M.min, note: M.note};
+  M.rows.push(row); M.rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  M.msg = `Added ${rowLabel(row)} on ${fmtDate(row.date)}.`;
+  // ready for the next one: the next day, the same kind of session
+  const nx = addDays(M.date, 1); if (nx <= lastDay(ex)) M.date = nx;
+  M.topic = ""; M.note = "";
+}
+function manualCreate(ex){
+  readManual(); const M = S.m; if (!M.rows.length) return;
+  const P = prepOf(ex), topics = P.topics.slice(), byKey = new Map(topics.map(t => [t.name.toLowerCase(), t])), courseId = ex.courseId || "";
+  M.rows.forEach(r => { if (noTopic(r.kind)) return; const k = r.topic.toLowerCase(); if (!byKey.has(k)) { const t = {id: uid(), name: r.topic, conf: "ok", weight: null, done: false, links: autoLinksFor(r.topic, courseId), edited: false}; topics.push(t); byKey.set(k, t); } });
+  let order = nextOrder("todo");
+  const changes = M.rows.map(r => {
+    const tp = noTopic(r.kind) ? null : byKey.get(r.topic.toLowerCase()), live = tp ? Object.assign({}, tp, {links: liveLinks(tp.links)}) : null;
+    let text = r.note; if (!text) { try { text = EXAMPREP.textFor(r.kind, live, {style: P.style || [], names: topics.map(t => t.name).slice(0, 3)}); } catch (e) { text = ""; } }
+    const s = {date: r.date, min: r.min, kind: r.kind, topic: tp ? tp.name : "", topicIds: tp ? [tp.id] : [], text: text || "", mat: live ? EXAMPREP.matOf(r.kind, live) : null};
+    const t = newTask(Object.assign({}, taskFields(ex, s, tp, topics), {order, status: "todo"})); order += 10;
+    return {kind: "task", id: t.id, after: t};
+  });
+  const old = ex.prep && typeof ex.prep === "object" ? ex.prep : null;
+  const prep = Object.assign({v: 1, intensity: P.intensity, style: P.style, styleText: P.styleText, days: P.days, rest: P.rest, light: false, start: "", ai: false, lesson: null, examDue: ex.due, createdAt: Date.now()}, old || {}, {
+    topics: topics.map(t => ({id: t.id, name: t.name, conf: t.conf, weight: t.weight, done: !!t.done, links: (t.links || []).slice(0, 8).map(l => ({k: l.k, id: l.id, title: l.title, deckId: l.deckId || "", cardIds: l.cardIds || null, total: l.total || 0})), edited: !!t.edited})),
+    manual: old ? !!old.manual || !hasPlan(ex) : true, examDue: ex.due, updatedAt: Date.now()});
+  const ne = Object.assign(clone(state.tasks[ex.id]), {prep, planTopics: topics.map(t => ({name: t.name, conf: t.conf})), planAt: Date.now()});
+  changes.push({kind: "task", id: ex.id, after: normTask(ne)});
+  const n = M.rows.length;
+  applyChanges(changes, `Added ${n} prep session${n === 1 ? "" : "s"} for ${ex.title}`);
+  S.m = null; S.step = "view"; draw();
+}
+function draw(){ if (!S) return; if (S.step === "view") drawView(); else if (S.step === "choose") drawChoose(); else if (S.step === "manual") drawManual(); else drawPlan(); }
 function sheet(){
   openSheet(`<form class="sheet ai-sheet ep pp"><div class="sheet-head"><h2 id="ppTitle">Exam Prep</h2><button type="button" class="icon-btn" data-act="close" aria-label="Close">${CLOSE}</button></div><div class="sheet-body" id="ppBody"></div><div class="sheet-foot" id="ppFoot"></div></form>`);
   const form = dlg.querySelector("form");
   form.addEventListener("click", onClick); form.addEventListener("change", onChange);
-  form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "ppAdd" && !e.shiftKey) { e.preventDefault(); onClick({target: {closest: () => ({dataset: {pp: "add"}})}}); } });
+  form.addEventListener("keydown", e => { if (e.key === "Enter" && /^ppm(Topic|Note|Min|Date)$/.test(e.target.id)) { e.preventDefault(); onClick({target: {closest: () => ({dataset: {pp: "madd"}})}}); return; }
+    if (e.key === "Enter" && e.target.id === "ppAdd" && !e.shiftKey) { e.preventDefault(); onClick({target: {closest: () => ({dataset: {pp: "add"}})}}); } });
   // a plan you've started editing (or AI still finding topics or wording it) is set aside when you tap away; Cancel or Create clears it
   form.addEventListener("input", () => { if (S && S.step === "plan") S.touched = true; });
   form.addEventListener("click", e => { if (S && S.step === "plan" && e.target.closest && e.target.closest("[data-pp]:not([data-pp=view]):not([data-pp=create])")) S.touched = true; }, true);
   const arm = () => dlg.addEventListener("close", () => { S = null; }, {once: true});
   arm();
   let held = null;
-  sheetKeep("prep:" + S.exId, {name: "Exam Prep", dirty: () => { held = S; return !!S && S.step === "plan" && !!S.touched; }, busy: () => { held = held || S; return !!(S && S.busy); },
+  sheetKeep("prep:" + S.exId, {name: "Exam Prep", dirty: () => { held = S; return !!S && ((S.step === "plan" && !!S.touched) || (S.step === "manual" && !!S.m && S.m.rows.length > 0)); }, busy: () => { held = held || S; return !!(S && S.busy); },
     drop: () => { const h = held || S; if (h) h.dropped = true; }, resume: () => { if (held) S = held; arm(); draw(); }});
 }
 function onChange(e){
@@ -829,6 +926,16 @@ async function onClick(e){
   const b = e.target.closest && e.target.closest("[data-pp]"); if (!b || !S) return;
   const a = b.dataset.pp, id = b.dataset.id, ex = exOf(); if (!ex) return;
   if (a === "view") { S.step = "view"; draw(); return; }
+  if (a === "choose") { S.m = null; S.step = "choose"; draw(); return; }
+  if (a === "pick-auto") { S.step = "plan"; autoSeed(ex); draw(); return; }
+  if (a === "pick-manual" || a === "manual") { S.m = manualState(ex); S.step = "manual"; draw(); const f = $("#ppmTopic") || $("#ppmDate"); if (f && a === "pick-manual") f.focus(); return; }
+  if (S.step === "manual") {
+    if (a === "mkind") { readManual(); S.m.kind = b.dataset.v; S.m.msg = ""; draw(); return; }
+    if (a === "madd") { manualAdd(ex); draw(); const f = $("#ppmTopic") || $("#ppmDate"); if (f && !/^Pick|^Type|^Give/.test(S.m.msg)) f.focus(); return; }
+    if (a === "mrm") { readManual(); S.m.rows.splice(Number(b.dataset.i), 1); S.m.msg = ""; draw(); return; }
+    if (a === "mcreate") { manualCreate(ex); return; }
+    return;
+  }
   if (a === "edit") { S = Object.assign(stateFor(ex, prepOf(ex)), {replan: false}); autoSeed(ex); draw(); return; }
   if (a === "replan") { S = Object.assign(stateFor(ex, prepOf(ex)), {replan: true}); autoSeed(ex); draw(); return; }
   if (a === "catch") { catchUp(ex.id); return; }
@@ -897,8 +1004,35 @@ async function create(ex, b){
   if (S === me && dlg.open && dlg.querySelector("#ppBody")) { S = null; dlg.close(); } else sheetDrop("prep:" + me.exId);
   applyPlan(cur, P, topics, due, time, out, {replan, courseId});
 }
+/* A plan the student made by hand keeps its sessions as they are: a missed one (or one now on or after a moved exam) moves to the
+   least-loaded free day left before the exam, keeping its kind, topic, minutes and note. Catch Up and Autopilot both use this. */
+function manualMoves(ex){
+  const today = todayISO(); if (!ex || !ex.due || ex.due < today) return {moved: [], changes: []};
+  const last = lastDay(ex), open = sessionsOf(ex.id).filter(t => t.status !== "done"), late = open.filter(t => t.due < today || t.due > last);
+  const off = d => { try { return typeof dayIsOff === "function" && dayIsOff(d); } catch (e) { return false; } };
+  const load = {}; for (let d = today, i = 0; d <= last && i < 400; d = addDays(d, 1), i++) if (!off(d)) load[d] = 0;
+  if (!Object.keys(load).length) load[last] = 0;
+  open.forEach(t => { if (!late.includes(t) && load[t.due] != null) load[t.due] += minOf(t); });
+  const days = Object.keys(load).sort(), moved = [], changes = [];
+  late.slice().sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0)).forEach(t => {
+    let best = days[0]; days.forEach(d => { if (load[d] < load[best]) best = d; });
+    load[best] += minOf(t); moved.push({id: t.id, from: t.due, to: best});
+    changes.push({kind: "task", id: t.id, after: normTask(Object.assign(clone(t), {due: best, start: best, slot: ""}))});
+  });
+  // the plan now matches the exam's date, so it stops asking to re-plan
+  if (ex.prep && ex.prep.examDue !== ex.due) changes.push({kind: "task", id: ex.id, after: normTask(Object.assign(clone(ex), {prep: Object.assign({}, ex.prep, {examDue: ex.due, updatedAt: Date.now()})}))});
+  return {moved, changes};
+}
 function catchUp(id){
   const ex = state.tasks[id]; if (!ex) return;
+  if (prepOf(ex).manual) {
+    const r = manualMoves(ex);
+    if (!r.changes.length) { toast("Nothing to move: your sessions are all still ahead."); return; }
+    const n = r.moved.length;
+    applyChanges(r.changes, n ? `Caught up: moved ${n} session${n === 1 ? "" : "s"} to the days left, as you planned ${n === 1 ? "it" : "them"}` : `${ex.title}'s plan now matches its date`);
+    if (dlg.open && S && S.step === "view") draw();
+    return;
+  }
   const P = prepOf(ex), topics = P.topics; if (!topics.length) { open(id, {edit: true}); return; }
   const out = EXAMPREP.plan(inputFor(ex, P, topics, ex.due));
   if (out.err || !out.sessions.length) { toast((out.warnings && out.warnings[0]) || "There's no room left before the exam."); return; }
@@ -909,7 +1043,9 @@ function catchUp(id){
 // The same re-spread as Catch Up, worked out without applying it (Autopilot puts it in its own batch)
 function replanChanges(id){
   const ex = state.tasks[id]; if (!ex || !ex.due) return null;
-  const P = prepOf(ex), topics = P.topics; if (!topics.length) return null;
+  const P = prepOf(ex);
+  if (P.manual) { const r = manualMoves(ex); return {out: {sessions: r.moved, warnings: []}, changes: r.changes}; }
+  const topics = P.topics; if (!topics.length) return null;
   const out = EXAMPREP.plan(inputFor(ex, P, topics, ex.due));
   if (out.err || !out.sessions.length) return {out, changes: []};
   return {out, changes: applyPlan(ex, Object.assign({}, P, {ai: false}), topics, ex.due, ex.time, out, {replan: true, dry: true}).changes};
@@ -937,6 +1073,7 @@ function open(id, o){
   if (ex.due <= todayISO() && !have) { toast("That exam is today or has passed, so there's nothing left to plan before it."); S = null; return; }
   sheet();
   if (have && !o.edit) { S.step = "view"; drawView(); }
+  else if (!have && !o.edit) { S.step = "choose"; drawChoose(); }
   else { if (have) S.replan = true; autoSeed(ex); drawPlan(); }
 }
 
@@ -953,7 +1090,7 @@ function todayItems(){
     if (ex.status === "done") return;
     if (days < 0) { if (!(ex.prep && ex.prep.archived)) out.push({id: ex.id, kind: "passed", text: `${nm} has passed. How did it go?`, btn: "Wrap Up", act: "prep-wrap"}); return; }
     if ((sm.moved || sm.missed) && window.SBAUTOPILOT && SBAUTOPILOT.handles()) return;
-    if (sm.moved) out.push({id: ex.id, kind: "moved", text: `${nm} moved to ${fmtDate(ex.due)}. Re-spread your prep sessions to match?`, btn: "Re-plan", act: "prep-catch"});
+    if (sm.moved) out.push({id: ex.id, kind: "moved", text: `${nm} moved to ${fmtDate(ex.due)}. Re-spread your prep sessions to match?`, btn: "Re-Plan", act: "prep-catch"});
     else if (sm.missed) out.push({id: ex.id, kind: "behind", text: `${sm.missed} prep session${sm.missed === 1 ? "" : "s"} for ${nm} slipped. Spread ${sm.missed === 1 ? "it" : "them"} over the days that are left?`, btn: "Catch Up", act: "prep-catch"});
   });
   return out.slice(0, 2);
@@ -1019,7 +1156,7 @@ hook("changed", changes => {
     (changes || []).forEach(c => {
       const t = c.kind === "task" && c.after; if (!t || !MILESTONE(t.type) || !t.prep || t.status === "done" || !t.prep.examDue || t.prep.examDue === t.due || t.due <= todayISO()) return;
       const k = t.id + "|" + t.due; if (MOVED_ASKED.has(k) || !hasPlan(t)) return; MOVED_ASKED.add(k);
-      setTimeout(() => { const cur = state.tasks[t.id]; if (cur && cur.due === t.due && cur.prep && cur.prep.examDue !== cur.due && !(dlg.open && S)) toast(`${cur.title} moved to ${fmtShort(cur.due)}. Re-plan your prep?`, null, {label: "Re-plan", fn: () => catchUp(t.id)}); }, 600);
+      setTimeout(() => { const cur = state.tasks[t.id]; if (cur && cur.due === t.due && cur.prep && cur.prep.examDue !== cur.due && !(dlg.open && S)) toast(`${cur.title} moved to ${fmtShort(cur.due)}. Re-plan your prep?`, null, {label: "Re-Plan", fn: () => catchUp(t.id)}); }, 600);
     });
   } catch (e) { console.warn("prep changed", e); }
 });

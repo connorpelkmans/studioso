@@ -378,7 +378,7 @@ function sectionExams(rows){
 }
 function ideaText(s, plan){
   const title = cut(s.title, 50);
-  if (s.kind === "slipped") return tr("review.idea.slipped", "Pick one of the dates that passed, \"{title}\", and give it a day. Small steps count.", {title});
+  if (s.kind === "slipped") return tr("review.idea.slipped", "\"{title}\" is past its date and not done yet. Pick a new day for it. Small steps count.", {title});
   if (s.kind === "prep") return tr("review.idea.prep", "\"{title}\" is coming up and has no study plan yet. Exam Prep can make one in a minute.", {title});
   if (s.kind === "early") return tr("review.idea.early", "The week ahead looks like {level}. Starting \"{title}\" a little early would give you room.", {title, level: levelWord(plan ? plan.level : 3)});
   if (s.kind === "first") return tr("review.idea.first", "Choose \"{title}\" as your first task for the week so it is easy to begin.", {title});

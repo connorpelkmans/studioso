@@ -34,6 +34,8 @@ a0 = find("  const VB = 120", m)
 tiers = find("  /* ---------- Tiers:", m); draw = find("  /* ---------- Drawing ---------- */", m); sett = find("  /* ---------- Settings ---------- */", m)
 actor0 = find("  /* ---------- An actor: animations on one rendered rig ---------- */", m); front0 = find("  /* ---------- The companion on screen:", m)
 parts = [rng(a0, tiers), rng(draw, sett), rng(actor0, front0)]
+# constants the copied parts use from sections that aren't copied: carried over as the app has them
+calm = find("  const CALM =", m)
 stubs = '''
   // The app's settings and conditions, reduced to what the website needs.
   const STREAK_HIDDEN = true;   // the app's switch (00-core.js): streaks are hidden for now
@@ -48,8 +50,9 @@ stubs = '''
   const tintsNow = () => ({});
   const patsNow = () => ({});
   const wearColor = c => (c && c.wearColor) || "#1F6FEB";
+  const withPat = art => art;   // no patterns on the website (patsNow is empty), so a pattern never wraps the art
 '''
 head = "/* Studyboard companion drawing and animation, copied from the app (module 98-companion). Do not edit by hand: run tools/make-website-assets.py. */\n/* global COMP_EXTRA, SBThemes */\nwindow.SBCOMPW = (function () {\n"
 tail = "\n  return {REG, BYID, rigSvg, actor, GENERIC, partSvg};\n})();\n"
-open("website/assets/companions-engine.js", "w", encoding="utf-8").write(head + stubs + parts[0] + parts[1] + parts[2] + tail)
+open("website/assets/companions-engine.js", "w", encoding="utf-8").write(head + stubs + src[calm] + "\n" + parts[0] + parts[1] + parts[2] + tail)
 print("ok")

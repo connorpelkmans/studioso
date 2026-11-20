@@ -569,6 +569,8 @@ h2.sec.c2-bh{align-items:center}
 .g2-sheet-head .sh-ring svg{width:50%!important;height:50%!important}
 .sh-big .sh-kick{position:absolute;left:116px;top:16px;color:#fff;font:800 1.3rem var(--display);letter-spacing:.02em;text-shadow:0 1px 2px rgba(0,0,0,.25)}
 .sh-big h2.sh-name{font:800 1.45rem/1.2 var(--display);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* The head grows to fit a name on two lines (at most two, then …): a long sheet body must not squeeze it back to its min-height */
+.g2-sheet-head{flex-shrink:0}
 @media (max-width:600px){.sh-big .sh-kick{left:96px;top:22px}.sh-big h2.sh-name{font-size:1.2rem}}
 /* Sheets without a task name */
 .g2-sheet-head:not(.sh-big) .sh-t h2{position:absolute;left:116px;right:64px;top:0;height:62px;display:flex;align-items:center;color:#fff;font:800 1.5rem/1.1 var(--display);text-shadow:0 1px 2px rgba(0,0,0,.25);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

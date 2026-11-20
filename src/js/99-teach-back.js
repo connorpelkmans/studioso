@@ -106,6 +106,7 @@ async function check(){
     me.res = Object.assign(parse(r && r.data, items), {general: me.general, at: Date.now(), text: me.text, unread});
     LAST.set(kk, me.res); DRAFT.set(kk, me.text);
     if (locked() && PLAN.useRun) PLAN.useRun("teach");
+    try { finishSession(me); } catch (e) {}
   } catch (e) {
     if (me.dropped) return;
     me.msg = e && e.code === "cancelled" ? "" : (e && e.message) || "The AI couldn't check that right now. Try again.";
@@ -224,14 +225,14 @@ function onClick(e){
     case "src": { const list = b.dataset.l === "r" ? TB.res.right : TB.res.missed; openSource(list[Number(b.dataset.i)]); return; }
   }
 }
-function open(exId, topicId, name){
+function open(exId, topicId, name, sess){
   if (locked() && left() <= 0) { if (dlg.open) dlg.close(); if (typeof PLAN !== "undefined" && PLAN) PLAN.runsGone("teach", WHY.replace(/^[^:]*: /, "Teach It Back: ")); return; }
   const ex = state.tasks[exId], t = ex && findTopic(ex, topicId, name);
   if (!t) { toast("That topic isn't in the exam's plan any more."); return; }
   micStop();
   const kk = "teach:" + exId + "|" + t.id;
   if (sheetResume(kk)) return;
-  TB = {exId, topicId: t.id, k: kk, text: "", general: false, busy: false, res: null, msg: "", made: 0, sr: null, el: null, ac: null, dropped: false};
+  TB = {exId, topicId: t.id, sess: sess || "", k: kk, text: "", general: false, busy: false, res: null, msg: "", made: 0, sr: null, el: null, ac: null, dropped: false};
   TB.text = DRAFT.get(key()) || "";
   const last = LAST.get(key()); if (last && Date.now() - last.at < 3 * 3600000) { TB.res = last; TB.general = last.general; }
   openSheet(`<form class="sheet ai-sheet tb-sheet">${head("Teach It Back")}<div class="sheet-body" id="tbBody"></div><div class="sheet-foot" id="tbFoot"></div></form>`);
@@ -256,6 +257,20 @@ function btn(ex, t){
   if (!ex || !t || ex.status === "done" || !ex.due || ex.due < todayISO()) return "";
   return `<button type="button" class="link-btn tb-go" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">Teach It Back${badge()}</button>`;
 }
+// A teach-back or recall session's main button (Today's Plan, Next Up, the Prep Plan): explaining it is the session
+function sessionBtn(s){
+  if (!s || !s.prepFor || s.status === "done" || !(s.kind === "teach" || s.kind === "recall")) return "";
+  const ex = state.tasks[s.prepFor], t = ex && findTopic(ex, s.topicId, s.topic); if (!t || ex.status === "done" || !ex.due || ex.due < todayISO()) return "";
+  return `<button type="button" class="btn small ai-btn pp-open tb-sess" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}" data-sess="${esc(s.id)}">${AI_ICON} Teach It Back${badge()}</button>`;
+}
+// A check that came back counts as doing the session: the one it was opened from, else this topic's teach-back or recall
+// session that's due (today or missed). One at most, through the usual Completed toast with its Undo.
+function finishSession(me){
+  if (me.finished) return; me.finished = true;
+  const today = todayISO(), mine = me.sess && state.tasks[me.sess];
+  const s = mine && mine.status !== "done" ? mine : tasksArr().filter(x => x.prepFor === me.exId && x.topicId === me.topicId && x.status !== "done" && (x.kind === "teach" || x.kind === "recall") && x.due && x.due <= today).sort((a, b) => (a.due < b.due ? -1 : 1))[0];
+  if (s && typeof toggleTask === "function") toggleTask(s.id);
+}
 // A teach-back or recall session's own sheet
 function taskHtml(s){
   if (!s || !s.prepFor || s.status === "done" || !(s.kind === "teach" || s.kind === "recall")) return "";
@@ -263,12 +278,12 @@ function taskHtml(s){
   return `<div class="pp-form"><div><b>Teach It Back</b><span class="mini"> Explain ${esc(t.name)} in your own words, and AI checks it against your linked material.</span></div><button type="button" class="btn small ai-btn" data-act="tb-open" data-id="${esc(ex.id)}" data-topic="${esc(t.id)}" data-name="${esc(t.name)}">${AI_ICON} Teach It Back${badge()}</button></div>`;
 }
 hook("act", (act, el, id) => {
-  if (act === "tb-open") { open(id, el && el.dataset ? el.dataset.topic : "", el && el.dataset ? el.dataset.name : ""); return true; }
+  if (act === "tb-open") { open(id, el && el.dataset ? el.dataset.topic : "", el && el.dataset ? el.dataset.name : "", el && el.dataset ? el.dataset.sess : ""); return true; }
   return false;
 });
 hook("changed", changes => { try { if (TB && TB.res && (changes || []).some(c => c.kind === "task" && c.id === TB.exId)) draw(); } catch (e) {} });
 if (window.SBPRO) SBPRO.addFeature({id: "teachback", name: "Teach It Back", where: "In an exam's Prep Plan, on each topic: explain it in your own words and AI checks it against your own material (needs AI)", icon: '<path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/>'});
-window.SBTEACH = {open, btn, taskHtml, parse, _state: () => TB};
+window.SBTEACH = {open, btn, sessionBtn, taskHtml, parse, _state: () => TB};
 
 const css = document.createElement("style");
 css.textContent = `
