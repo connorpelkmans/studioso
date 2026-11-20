@@ -23,7 +23,7 @@ const STUB = () => {
   window.supabase = {createClient: () => ({
     auth: {getSession: async () => ({data: {session: {user, access_token: "t"}}}), onAuthStateChange: () => ({data: {subscription: {unsubscribe() {}}}}),
       signOut: async () => ({}), getUser: async () => ({data: {user}}), refreshSession: async () => ({data: {session: {user, access_token: "t"}}})},
-    from: t => t === "studyboard_own_key_access" && window.__OWN_GRANT ? granted() : empty(), rpc: async () => ({data: null, error: null}),
+    from: t => t === "studyboard_own_key_access" && window.__OWN_GRANT ? granted() : empty(), rpc: async fn => ({data: fn === "my_age" ? 20 : null, error: null}),
     channel: () => { const ch = {on() { return ch; }, subscribe() { return ch; }}; return ch; }, removeChannel() {},
     storage: {from: () => ({upload: async () => ({error: {message: "no storage"}}), remove: async () => ({}), download: async () => ({error: {message: "no storage"}})})},
     functions: {invoke: async () => ({data: null, error: {message: "none"}})}
