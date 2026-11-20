@@ -2684,6 +2684,7 @@ dialog .sheet-body{scrollbar-gutter:auto}
 .av-form .av-tc{margin-top:2px}
 .cs-short-p{display:none}
 @media (max-width:520px){.cs-long-p{display:none}.cs-short-p{display:block}}
+.deck-archived .da-btns{display:flex;gap:6px;flex:none;margin-left:auto}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}

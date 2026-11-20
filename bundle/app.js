@@ -12901,7 +12901,7 @@ function archRow(t){
   return `<li class="arch-row" style="--c:${esc(colorOf(t.courseId))}">
     <span class="arch-st st-${esc(t.status)}">${esc(lab)}</span>
     <button class="arch-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="arch-t">${esc(t.title)}</span><span class="mini">${esc(meta.join(" · "))}</span></button>
-    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Progress</button></span></li>`;
+    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Progress</button><button class="btn small danger" data-act="delete-task" data-id="${esc(t.id)}" aria-label="Delete ${esc(t.title)}">Delete</button></span></li>`;
 }
 function viewArchive(){
   const q = t => matchesQ(t) && inFilter(t);
@@ -19294,12 +19294,18 @@ function qzSetArchived(ref, on){
   if (on && ui.qzOpen === ref) ui.qzOpen = null;
   saveDeck(d, on ? `Archived ${f.qz.title || "the quiz"}` : `Restored ${f.qz.title || "the quiz"}`);
 }
+function qzDelete(ref){
+  const f = qzFind(ref); if (!f) return;
+  const d = clone(f.d); d.aiQuizzes = d.aiQuizzes.filter(x => x.id !== f.qz.id); d.updated = Date.now();
+  if (ui.qzOpen === ref) ui.qzOpen = null;
+  saveDeck(d, `Deleted ${f.qz.title || "the quiz"}`);
+}
 function archivedQuizzesSheet(){
   const list = quizzesAll(true);
   openSheet(`<div class="sheet fc-arch-sheet">${head("Archived Quizzes")}<div class="sheet-body">
     <p class="mini" style="margin:0 0 10px">${list.length ? "Quizzes you archived stay here, out of your quiz list, until you restore them." : "No archived quizzes. Use a quiz's Archive button to put it away here without deleting it."}</p>
     ${list.length ? `<div class="deck-archived"><ul>${list.map(({d, qz}) => { const c = courseOf(d.courseId);
-      return `<li><span class="da-name"><b>${esc(qz.title || "Practice Quiz")}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${qz.questions.length} question${qz.questions.length === 1 ? "" : "s"}</span></span><button class="btn small" data-act="qz-unarchive" data-id="${esc(d.id + ":" + qz.id)}">Restore</button></li>`; }).join("")}</ul></div>` : ""}</div>
+      return `<li><span class="da-name"><b>${esc(qz.title || "Practice Quiz")}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${qz.questions.length} question${qz.questions.length === 1 ? "" : "s"}</span></span><span class="da-btns"><button class="btn small" data-act="qz-unarchive" data-id="${esc(d.id + ":" + qz.id)}">Restore</button><button class="btn small danger" data-act="qz-arch-del" data-id="${esc(d.id + ":" + qz.id)}" aria-label="Delete ${esc(qz.title || "Practice Quiz")}">Delete</button></span></li>`; }).join("")}</ul></div>` : ""}</div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
 }
 // One quiz: its questions with the answers (and why), and what you can do with it
@@ -19575,7 +19581,7 @@ function archivedDecksSheet(){
   openSheet(`<div class="sheet fc-arch-sheet">${head("Archived Decks")}<div class="sheet-body">
     <p class="mini" style="margin:0 0 10px">${list.length ? "Decks you archived stay here, out of your deck list and reviews, until you restore them." : "No archived decks. Open a deck and choose Archive to put it away here without deleting it."}</p>
     ${list.length ? `<div class="deck-archived"><ul>${list.map(d => { const c = courseOf(d.courseId);
-      return `<li><span class="da-name"><b>${esc(d.name)}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${d.cards.length} card${d.cards.length === 1 ? "" : "s"}</span></span><button class="btn small" data-act="fc-unarchive" data-id="${esc(d.id)}">Restore</button></li>`; }).join("")}</ul></div>` : ""}</div>
+      return `<li><span class="da-name"><b>${esc(d.name)}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${d.cards.length} card${d.cards.length === 1 ? "" : "s"}</span></span><span class="da-btns"><button class="btn small" data-act="fc-unarchive" data-id="${esc(d.id)}">Restore</button><button class="btn small danger" data-act="fc-arch-del" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.name)}">Delete</button></span></li>`; }).join("")}</ul></div>` : ""}</div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
 }
 function viewDeck(d){
@@ -20079,6 +20085,8 @@ function fcAction(act, el){
     case "fc-archive": { const d = state.decks[id]; if (d) applyChanges([{kind: "deck", id, after: Object.assign(clone(d), {archived: "Archived", updated: Date.now()})}], `Archived ${d.name}`); return true; }
     case "fc-unarchive": { const d = state.decks[id]; if (d) applyChanges([{kind: "deck", id, after: Object.assign(clone(d), {archived: null, updated: Date.now()})}], `Restored ${d.name}`); if (dlg.open && dlg.querySelector(".fc-arch-sheet")) { if (archivedDecks().length) archivedDecksSheet(); else dlg.close(); } return true; }
     case "fc-arch-open": archivedDecksSheet(); return true;
+    // deleting from the archive: gone for good, with Undo in the message
+    case "fc-arch-del": { const d = state.decks[id]; if (d) { applyChanges([{kind: "deck", id, after: null}], `Deleted ${d.name}`); if (dlg.open) archivedDecksSheet(); } return true; }
     case "fc-card": if (ui.deckId && state.decks[ui.deckId]) cardSheet(state.decks[ui.deckId], id); return true;
     case "fc-study": startStudy([id]); return true;
     case "fc-review-menu": reviewSheet(); return true;
@@ -23368,6 +23376,7 @@ document.addEventListener("click", e => {
     case "qz-archive": qzSetArchived(id, true); break;
     case "qz-unarchive": qzSetArchived(id, false); if (dlg.open) archivedQuizzesSheet(); break;
     case "qz-arch-open": archivedQuizzesSheet(); break;
+    case "qz-arch-del": qzDelete(id); if (dlg.open) archivedQuizzesSheet(); break;
     case "fc-share": case "qz-share": toast(`Sharing ${act === "fc-share" ? "decks" : "quizzes"} is done through a study group. Open Groups to start or join one.`, null, {label: "Groups", fn: () => { const b = document.querySelector('nav [data-tab="groups"]'); if (b) b.click(); }}); break;
     case "fab-group": fabMenu("Add Group", [["grp-new", "Create Group", "Start a study group or a group project", "group"], ["grp-code", "Enter a Code", "Join a group a classmate invited you to", "code"]]); break;
     case "f-link": linkSheet(); break;

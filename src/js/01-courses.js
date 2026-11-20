@@ -634,7 +634,7 @@ function archRow(t){
   return `<li class="arch-row" style="--c:${esc(colorOf(t.courseId))}">
     <span class="arch-st st-${esc(t.status)}">${esc(lab)}</span>
     <button class="arch-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="arch-t">${esc(t.title)}</span><span class="mini">${esc(meta.join(" · "))}</span></button>
-    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Progress</button></span></li>`;
+    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Progress</button><button class="btn small danger" data-act="delete-task" data-id="${esc(t.id)}" aria-label="Delete ${esc(t.title)}">Delete</button></span></li>`;
 }
 function viewArchive(){
   const q = t => matchesQ(t) && inFilter(t);
