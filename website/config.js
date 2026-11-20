@@ -24,8 +24,8 @@ window.STUDYBOARD_SITE = {
 
   // Where each installer lives
   DOWNLOADS: {
-    // store: the Microsoft Store page
-    windows:  { label: "Windows",              store: "https://apps.microsoft.com/detail/9N8PHL54N3SN?ocid=pdpshare", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.4/Studyboard-Setup-1.14.4.exe", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 and 11" },
+    // store: the Microsoft Store page. Windows is only on the Microsoft Store now (no direct .exe download), so there's no url
+    windows:  { label: "Windows",              store: "https://apps.microsoft.com/detail/9N8PHL54N3SN?ocid=pdpshare", needs: "Windows 10 and 11" },
     macArm:   { label: "Mac (Apple M-series)", url: "https://github.com/connorpelkmans/installers/releases/latest/download/Studyboard-mac-universal.dmg", file: "Studyboard-mac-universal.dmg", needs: "Macs with an M1 chip or newer" },
     macIntel: { label: "Mac (Intel)",          url: "https://github.com/connorpelkmans/installers/releases/latest/download/Studyboard-mac-universal.dmg", file: "Studyboard-mac-universal.dmg", needs: "Macs with an Intel processor" },
     linux:    { label: "Linux",                url: "", file: "Studyboard-{version}.AppImage",        needs: "64-bit Linux, runs as an AppImage" },
