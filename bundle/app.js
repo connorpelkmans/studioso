@@ -111421,8 +111421,11 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       const div = document.createElement("div");
       // each paragraph on its own (two spaces between them), so words from separate text boxes never run together
       d.texts = d.res.pages.map(pg => { div.innerHTML = pg.html; div.querySelectorAll("img,svg,style").forEach(x => x.remove());
-        const ps = [...div.querySelectorAll(".ofc-p")].map(p => String(p.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean);
-        return (ps.length ? ps.join("  ") : String(div.textContent || "").replace(/\s+/g, " ").trim()).slice(0, 1500); });
+        // the slide's title goes first: its biggest text (a title is set larger than the rest)
+        const ps = [...div.querySelectorAll(".ofc-p")].map(p => { const t = String(p.textContent || "").replace(/\s+/g, " ").trim(); let sz = parseFloat(p.style.fontSize) || 0; p.querySelectorAll("span[style]").forEach(r => { sz = Math.max(sz, parseFloat(r.style.fontSize) || 0); }); return {t, sz}; }).filter(x => x.t);
+        if (!ps.length) return String(div.textContent || "").replace(/\s+/g, " ").trim().slice(0, 1500);
+        const top = ps.reduce((m, x) => x.sz > m.sz + 0.5 ? x : m, ps[0]);
+        return [top.t].concat(ps.filter(x => x !== top).map(x => x.t)).join("  ").slice(0, 1500); });
     } else {
       const pt = await pageTexts(d);
       d.texts = d.pg ? d.pg.map((s0, i) => pt[s0 + d.pc[i] - 1] || "") : pt.slice(0, d.n);
@@ -111537,8 +111540,18 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   async function pageTexts(d){
     if (d.ptexts) return d.ptexts;
     const out = [], n = d.np || d.n;
-    for (let i = 1; i <= Math.min(n, 300); i++) { try { const tc = await (await d.doc.getPage(i)).getTextContent(); out.push(tc.items.map(x => x.str || "").join(" ").replace(/\s+/g, " ").trim().slice(0, 1500)); } catch (e) { out.push(""); } }
+    for (let i = 1; i <= Math.min(n, 300); i++) { try { const tc = await (await d.doc.getPage(i)).getTextContent(); out.push(pdfPageText(tc.items)); } catch (e) { out.push(""); } }
     return (d.ptexts = out);
+  }
+  // a PDF page's words, title first: the run of text in the page's largest type (lines joined, then the rest)
+  function pdfPageText(items){
+    const it = (items || []).filter(x => x && typeof x.str === "string"), sz = x => Math.round(Math.abs((x.transform && (x.transform[3] || x.transform[0])) || x.height || 0) * 2) / 2;
+    const all = it.map(x => x.str + (x.hasEOL ? "\n" : " ")).join("").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "  ").trim();
+    const max = it.reduce((m, x) => x.str.trim() ? Math.max(m, sz(x)) : m, 0); if (!max) return all.slice(0, 1500);
+    let s = -1, e = -1; it.forEach((x, k) => { if (!x.str.trim()) return; if (sz(x) >= max - 0.5) { if (s < 0) s = k; if (e === -1 || e === k - 1 || it.slice(e + 1, k).every(y => !y.str.trim())) e = k; } });
+    const title = s < 0 ? "" : it.slice(s, e + 1).map(x => x.str).join(" ").replace(/\s+/g, " ").trim();
+    const rest = all.replace(title, "").replace(/\s{3,}/g, "  ").trim();
+    return (title ? title + (rest ? "  " + rest : "") : all).slice(0, 1500);
   }
   async function pdfBuilds(d){
     const pt = await pageTexts(d); if (pt.length < 2 || pt.length < (d.np || d.n)) return null;
