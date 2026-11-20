@@ -2643,6 +2643,18 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-style2>.link-btn{grid-column:span 8;justify-self:start}
   .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
+/* phones: the toolbar always stays one line. With a group's Live chip as well, Add and Study become icons and Live
+   shows just its dot and how many are on (its name is in its label and on tap) */
+@media (max-width:640px){
+  .cm-tools{flex-wrap:nowrap!important;min-width:0}
+  .cm-tools:has(.cm-glive) .cm-ml{display:none}
+  .cm-tools:has(.cm-glive) .cm-glive{gap:4px;padding-left:9px;padding-right:9px}
+  .cm-tools:has(.cm-glive) .cm-glive .cm-ms{display:none!important}
+  .cm-tools:has(.cm-glive) .cm-glive :is(.cm-gsep,.cm-ged,.cm-gwait){display:none}
+  .cm-tools:has(.cm-glive) .cm-chiptog{padding:6px 8px}
+  .cm-tools > *{flex:none}
+  .cm-tools .spacer{flex:1 1 0;min-width:0}
+}
 @media (max-width:440px){.cm-chiptog .cm-ms{display:none}.cm-chiptog{padding:6px 10px}.cm-tools .cm-undo{width:34px;height:34px}}
 @media (max-width:380px){.cm-tools .cm-ml{display:none}.cm-acts>.btn.small{padding-left:8px;padding-right:8px}}
 `;

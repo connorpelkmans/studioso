@@ -111623,6 +111623,18 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-style2>.link-btn{grid-column:span 8;justify-self:start}
   .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
+/* phones: the toolbar always stays one line. With a group's Live chip as well, Add and Study become icons and Live
+   shows just its dot and how many are on (its name is in its label and on tap) */
+@media (max-width:640px){
+  .cm-tools{flex-wrap:nowrap!important;min-width:0}
+  .cm-tools:has(.cm-glive) .cm-ml{display:none}
+  .cm-tools:has(.cm-glive) .cm-glive{gap:4px;padding-left:9px;padding-right:9px}
+  .cm-tools:has(.cm-glive) .cm-glive .cm-ms{display:none!important}
+  .cm-tools:has(.cm-glive) .cm-glive :is(.cm-gsep,.cm-ged,.cm-gwait){display:none}
+  .cm-tools:has(.cm-glive) .cm-chiptog{padding:6px 8px}
+  .cm-tools > *{flex:none}
+  .cm-tools .spacer{flex:1 1 0;min-width:0}
+}
 @media (max-width:440px){.cm-chiptog .cm-ms{display:none}.cm-chiptog{padding:6px 10px}.cm-tools .cm-undo{width:34px;height:34px}}
 @media (max-width:380px){.cm-tools .cm-ml{display:none}.cm-acts>.btn.small{padding-left:8px;padding-right:8px}}
 `;
@@ -114309,7 +114321,7 @@ function chipHtml(o){
   const a = ACC.get(g.bid), k = a ? new Set(a.ids.concat(me())).size : 0, on = !!(L && L.bid === g.bid && L.on) && navigator.onLine !== false && online();
   const waiting = Q[g.bid] && Q[g.bid].q.length, ed = editingNow(g.gid);
   const tip = !on ? "Offline: your changes stay here and are sent when you're back online" : ed.length ? `${ed.join(", ")} ${ed.length === 1 ? "is" : "are"} editing` : "Who has this map";
-  return `<button type="button" class="btn small cm-glive${on ? " on" : ""}" data-cm="g-who" title="${esc(tip)}" aria-label="${esc((on ? "Live with " : "Offline, shared with ") + (g.gn || "your group") + (k ? `, ${k} ${k === 1 ? "person" : "people"}` : "") + (ed.length ? `. ${tip}` : ""))}"><span class="dot" aria-hidden="true"></span><span class="cm-ml">${on ? "Live with" : "Offline ·"} ${esc(cut(g.gn || "your group", 30))}</span><span class="cm-ms">${on ? "Live" : "Offline"}</span>${k ? `<span class="cm-gn"> · ${k}</span>` : ""}${waiting && !on ? `<span class="cm-gwait"> · ${waiting} to send</span>` : ""}${ed.length && on ? `<span class="cm-ged"> · ${esc(ed[0])}${ed.length > 1 ? ` +${ed.length - 1}` : ""} editing</span>` : ""}</button>`;
+  return `<button type="button" class="btn small cm-glive${on ? " on" : ""}" data-cm="g-who" title="${esc(tip)}" aria-label="${esc((on ? "Live with " : "Offline, shared with ") + (g.gn || "your group") + (k ? `, ${k} ${k === 1 ? "person" : "people"}` : "") + (ed.length ? `. ${tip}` : ""))}"><span class="dot" aria-hidden="true"></span><span class="cm-ml">${on ? "Live with" : "Offline ·"} ${esc(cut(g.gn || "your group", 30))}</span><span class="cm-ms">${on ? "Live" : "Offline"}</span>${k ? `<span class="cm-gn"><span class="cm-gsep"> · </span>${k}</span>` : ""}${waiting && !on ? `<span class="cm-gwait"> · ${waiting} to send</span>` : ""}${ed.length && on ? `<span class="cm-ged"> · ${esc(ed[0])}${ed.length > 1 ? ` +${ed.length - 1}` : ""} editing</span>` : ""}</button>`;
 }
 function toolsChip(){ const M = B.state(); if (!B.shown() || !M.el) return; const el = M.el.querySelector(".cm-glive"), h = chipHtml(M.own); if (el && h) { const t = document.createElement("div"); t.innerHTML = h; el.replaceWith(t.firstElementChild); } }
 hook("cm-tools", o => chipHtml(o));
