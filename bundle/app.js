@@ -108219,7 +108219,7 @@ svg.ws-zic{display:block;flex:none}
 .ws-ldk>svg,.ws-ldh>svg{width:22px;height:22px;flex:none}.ws-ldk>img,.ws-ldh>img{width:24px;height:auto;flex:none}
 .ws-ldk-t{display:grid;gap:2px;flex:1 1 180px;min-width:0}
 .ws-ldk-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ws-ldtop{display:grid;gap:8px}
+.ws-ldtop{display:grid;gap:8px;margin-top:8px}
 .ws-ldsum{margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ws-ldsum .ws-fixall{margin-left:0}
 .ws-ldwrap:not(:empty){margin-top:10px}
