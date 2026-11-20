@@ -20,6 +20,21 @@
   function send(cmd){ if (!ch) return; seal({cmd: cmd}).then(function(p){ ch.send({type: "broadcast", event: "c", payload: p}); }); }
   function buzz(p){ try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
   var wl = null; function wake(){ try { if (navigator.wakeLock && !wl) navigator.wakeLock.request("screen").then(function(l){ wl = l; l.addEventListener("release", function(){ wl = null; }); }).catch(function(){}); } catch (e) {} }
+  // the clock keeps counting between the laptop's updates (about one a second), from the latest time it sent
+  var base = null;
+  function clockNow(){ return base ? base.el + (base.run ? performance.now() - base.at : 0) : 0; }
+  function slideNow(){ return base ? base.st + (base.run ? performance.now() - base.at : 0) : 0; }
+  function paintClock(){
+    if (!base) return;
+    $("clock").textContent = fmt(clockNow());
+    if (!base.qa && base.sb != null) {
+      var st = slideNow(), r = base.sb ? st / base.sb : 0, b = $("bar");
+      $("st").textContent = fmt(st) + " of " + fmt(base.sb);
+      b.style.width = Math.min(100, r * 100) + "%"; b.className = r > 1.5 ? "over" : r > 1 ? "warn" : "";
+      document.body.classList.toggle("long", base.go && r > 1 && r <= 1.5); document.body.classList.toggle("vlong", base.go && r > 1.5);
+    }
+  }
+  setInterval(paintClock, 200);
   function show(s){
     last = Date.now(); $("dot").classList.add("on");
     if (s.done) { say("That run is over. Your results are on the laptop."); return; }
@@ -27,15 +42,14 @@
     $("msg").hidden = true; $("ui").hidden = false;
     $("name").textContent = s.name || "Presentation";
     $("cnt").hidden = false; $("cnt").textContent = s.qa ? "Q&A" : (s.i + 1) + " / " + s.n + (s.kn ? " · click " + (s.k || 0) + "/" + s.kn : "");
-    $("clock").textContent = fmt(s.el); $("tgt").textContent = "of " + fmt(s.tg);
+    base = {el: Number(s.el) || 0, st: Number(s.st) || 0, sb: s.sb, at: performance.now(), run: !!(s.run && s.go && !s.qa), go: !!s.go, qa: !!s.qa};
+    $("tgt").textContent = "of " + fmt(s.tg);
     var pc = $("pace"); pc.hidden = !s.go || !s.pace; pc.className = "chip " + (s.pc || ""); pc.textContent = s.pace || "";
     var sp = $("sp"); sp.hidden = !s.sp || !!s.qa; if (s.sp) { sp.style.setProperty("--spc", s.spc || "#fff"); sp.lastChild.textContent = s.sp; }
     if (s.qa) { $("title").textContent = "Question"; $("st").textContent = ""; $("notes").textContent = s.qa; $("notes").classList.add("qa"); $("next").textContent = ""; $("nextb").textContent = "Next ▶"; }
     else {
       $("notes").classList.remove("qa");
-      $("title").textContent = s.t || ""; $("st").textContent = fmt(s.st) + " of " + fmt(s.sb);
-      var r = s.sb ? s.st / s.sb : 0, b = $("bar"); b.style.width = Math.min(100, r * 100) + "%"; b.className = r > 1.5 ? "over" : r > 1 ? "warn" : "";
-      document.body.classList.toggle("long", s.go && r > 1 && r <= 1.5); document.body.classList.toggle("vlong", s.go && r > 1.5);
+      $("title").textContent = s.t || "";
       $("notes").textContent = s.nt || "";
       $("next").innerHTML = ""; var lb = document.createTextNode("Next: "), nb = document.createElement("b"); nb.textContent = s.nx || ""; $("next").appendChild(lb); $("next").appendChild(nb);
       $("nextb").textContent = !s.go ? "Start ▶" : s.kn && (s.k || 0) < s.kn ? "Click ▶" : "Next ▶";
@@ -49,6 +63,7 @@
       $("vplay").hidden = !s.vp || s.vs === "play"; $("vskip").hidden = !s.go || (!s.vd && s.vs !== "play");
       $("vskip").textContent = s.vs === "play" ? "Skip the Rest" : "Skip" + (s.vd ? " · adds " + fmt(s.vd) : "");
     }
+    paintClock();
     $("pp").textContent = s.run ? "❚❚" : "▶"; $("pp").setAttribute("aria-label", s.run ? "Pause" : "Resume");
     if (s.buzz && s.buzz !== lastBuzz) buzz(s.buzz === "vlong" ? [120, 80, 120] : s.buzz === "wrap" ? [60, 60, 60, 60, 60] : [90]);
     lastBuzz = s.buzz || "";

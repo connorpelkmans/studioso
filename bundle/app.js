@@ -112677,7 +112677,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.hidden = false;
     box.innerHTML = `<div class="pr-rm-card"><button type="button" class="pr-x pr-rm-x" data-act="pr-remote-hide" aria-label="Hide">×</button>
       <b>Phone Remote</b>
-      ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.linked ? `<p class="pr-rm-ok">${IC.check} Your phone is connected. Use it to move through your slides.</p><button type="button" class="btn small" data-act="pr-remote-off">Disconnect</button>`
+      ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.linked ? `<p class="pr-rm-ok">${IC.check} Your phone is connected. Use it to move through your slides.</p><button type="button" class="btn small pr-rm-off" data-act="pr-remote-off">Disconnect</button>`
         : R.url ? `<p class="mini">Scan this with your phone's camera. It shows the clock, your notes and the next slide.</p><div class="pr-rm-qr" data-link="${esc(R.url)}">${QR.svg(R.url, "QR code to use your phone as the remote")}</div><p class="mini">${R.ready ? "Waiting for your phone…" : "Setting up the link…"}</p>`
         : `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>Setting up…</p>`}</div>`;
   }
