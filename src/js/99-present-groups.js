@@ -257,7 +257,7 @@
     const rows = teamRows(p); if (!rows.length) return "";
     const gid = p.share && p.share.gid, ready = rows.filter(r => r.ok).length;
     const av = s => { let h = ""; try { h = gid ? G().avatar(gid, s.id, s.name) : ""; } catch (e) {} return h ? `<span class="prg-face">${h}</span>` : `<span class="prg-av" style="--c:${esc(s.c)}">${esc((s.name || "?").charAt(0).toUpperCase())}</span>`; };
-    return `<div class="prg-team${compact ? " sm" : ""}"><div class="prg-team-h"><b>The team</b><span class="mini">${ready} of ${rows.length} on target</span></div>
+    return `<div class="prg-team${compact ? " sm" : ""}"><div class="prg-team-h"><b>The Team</b><span class="mini">${ready} of ${rows.length} on target</span></div>
       <ul>${rows.map(r => `<li style="--sp:${esc(r.s.c)}">${av(r.s)}<span class="prg-tn">${esc(r.s.id === me() ? r.s.name + " (you)" : r.s.name)}</span><span class="prg-tt ${r.d ? (r.ok ? "ok" : "warn") : "none"}">${r.d ? (r.ok ? "✓ " : "") : ""}${esc(r.txt)}</span></li>`).join("")}</ul></div>`;
   }
 
@@ -351,7 +351,7 @@
           <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(d.title || it.title || "")}</b><i></i><i></i></span></span>
           ${sp.length ? `<span class="pr-tl" aria-hidden="true">${strip}</span>` : ""}
           <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
-          <span class="rv-count">${sp.length ? `${sp.length} speakers · ` : ""}${n} slide${n === 1 ? "" : "s"}</span>
+          <span class="rv-count">${n} slide${n === 1 ? "" : "s"}</span>
           ${live ? `<span class="prg-badge prg-cbadge live" title="Live rehearsal now">${X.IC.users}<span class="sr">Live rehearsal now</span></span>` : ""}
           ${sp.length ? `<span class="rv-stamp pr-stamp${ready === sp.length ? " good" : ""}" aria-hidden="true" title="${ready} of ${sp.length} on target">${ready}/${sp.length}</span>` : ""}
         </button>
@@ -399,9 +399,9 @@
     if (!t || !t.id) return "";
     const p = X.all().find(x => x.taskId === t.id);
     if (p) { const runs = (p.runs || []).filter(r => !r.sec), best = runs.length ? Math.min(...runs.map(r => r.total)) : null;
-      return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> ${esc(p.name)} · ${best != null ? `best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : "not practiced yet"}${p.share ? ` · shared with ${esc(p.share.gname || "your group")}` : ""}</span></div><button type="button" class="btn small primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div>`; }
+      return `<div class="pp-form prg-task"><div><b>Presentation Practice</b><span class="mini"> ${esc(p.name)} · ${best != null ? `best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : "not practiced yet"}${p.share ? ` · shared with ${esc(p.share.gname || "your group")}` : ""}</span></div><button type="button" class="btn small primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div>`; }
     if (t.status === "done" || !PRES_RX.test(t.title || "")) return "";
-    return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> Add your slides to time yourself, slide by slide, before it's due.</span></div><button type="button" class="btn small" data-act="prg-task-new" data-id="${esc(t.id)}">Practice It</button></div>`;
+    return `<div class="pp-form prg-task"><div><b>Presentation Practice</b><span class="mini"> Add your slides to time yourself, slide by slide, before it's due.</span></div><button type="button" class="btn small" data-act="prg-task-new" data-id="${esc(t.id)}">Practice It</button></div>`;
   });
 
   /* ---------- actions; refreshing while it matters ---------- */

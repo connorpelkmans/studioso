@@ -350,7 +350,7 @@
         <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
-        <span class="rv-count">${g ? `${g.sp.length} speakers · ` : ""}${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
+        <span class="rv-count">${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
         ${fire("pr-card-badge", p).filter(Boolean).join("")}
         <span class="rv-stamp pr-stamp${best == null ? " new" : good ? " good" : ""}" aria-hidden="true">${stamp}</span>
       </button>
@@ -403,7 +403,7 @@
           <label class="pr-srcb">${IC.upload}<b>Upload</b><span>PowerPoint or PDF</span><input type="file" id="prFile" accept=".pptx,.ppsx,.pptm,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="sr"></label>
           <button type="button" class="pr-srcb" data-act="pr-gslides">${IC.gslides}<b>Google Slides</b><span>${canG ? "Pick from your Drive" : "Connect Google Drive first"}</span></button>
           <button type="button" class="pr-srcb${A.canva ? " on" : ""}" data-act="pr-canva" aria-expanded="${!!A.canva}">${IC.canva}<b>Canva</b><span>Your designs</span></button>
-          <label class="pr-srcb">${IC.folder}<b>From a course</b><span>${files.length ? `${files.length} slide file${files.length === 1 ? "" : "s"}` : "No slide files yet"}</span><select id="prCF" ${files.length ? "" : "disabled"} aria-label="A slides file from your courses"><option value="">Choose…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(fileNameOf(f))}</option>`).join("")}</select></label>
+          <label class="pr-srcb">${IC.folder}<b>From a Course</b><span>${files.length ? `${files.length} slide file${files.length === 1 ? "" : "s"}` : "No slide files yet"}</span><select id="prCF" ${files.length ? "" : "disabled"} aria-label="A slides file from your courses"><option value="">Choose…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(fileNameOf(f))}</option>`).join("")}</select></label>
         </div>
         ${A.canva ? canvaHtml(A) : canG ? "" : `<p class="mini">To use Google Slides, connect Google Drive in Settings, Files and Cloud.</p>`}
         ${busy}${err}${picked}
@@ -705,7 +705,8 @@
   function courseTint(el, cid){
     const c = courseOf(cid), hex = c && /^#[0-9A-F]{6}$/i.test(c.color || "") ? c.color : "";
     // no course (General): the theme's own accent and the text colour it pairs with
-    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); return; }
+    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); el.style.setProperty("--pc-grad", "var(--btn-bg,var(--accent,#7A4FD6))"); return; }
+    el.style.removeProperty("--pc-grad");
     const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
     const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     el.style.setProperty("--pc", hex);
@@ -789,7 +790,7 @@
     if (S.started) { box.hidden = true; box.innerHTML = ""; return; }
     if (S.follow) {
       box.hidden = false;
-      box.innerHTML = `<div class="pr-ready-in"><div class="pr-card" role="group" aria-label="Rehearsing together"><b class="pr-card-h">Rehearsing together</b>
+      box.innerHTML = `<div class="pr-ready-in"><div class="pr-card" role="group" aria-label="Rehearsing together"><b class="pr-card-h">Rehearsing Together</b>
         <p class="pr-card-sub">${esc(S.follow.host || "Someone in your group")} is leading. The slides and the clock follow them, and you can move the slides when it's your turn.</p>
         <p class="pr-card-note mini" id="prFollowState">${S.fSeen ? "Waiting for the rehearsal to start…" : "Connecting…"}</p>
         <button type="button" class="pr-play" data-act="pr-play" aria-label="Start the rehearsal for everyone">${IC.play}</button><span class="pr-card-sub">Anyone can start it.</span></div></div>`;
@@ -800,15 +801,15 @@
     box.hidden = false;
     box.innerHTML = `<div class="pr-ready-in">
       <div class="pr-card" role="group" aria-label="Ready to practice">
-        <b class="pr-card-h">Ready when you are</b>
+        <b class="pr-card-h">Ready When You Are</b>
         ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the whole talk instead</button>`
-          : `<div class="pr-card-row"><span>Time goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
+          : `<div class="pr-card-row"><span>Time Goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
         <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides${g ? ` · ${g.sp.length} speakers` : ""}</span>
         <button type="button" class="btn small pr-plan-btn pr-hero" data-act="pr-plan" aria-expanded="${S.planOpen}">${S.planOpen ? "Hide the Plan" : "Plan: Slide Times, Speakers, Sections"}</button>
-        <label class="pr-tog"><span><b>Record me${lk ? ` ${PRO_BADGE}` : ""}</b><em>Listen back, read what you said, and get feedback</em></span><input type="checkbox" id="prRecOn" ${S.rec ? "checked" : ""} ${canRec ? "" : "disabled"}></label>
-        <label class="pr-tog"><span><b>Speaker notes</b><em>${hasNotes ? "Below each slide, only for you" : "These slides have none"}</em></span><input type="checkbox" id="prNotesOn" ${S.showNotes && hasNotes ? "checked" : ""} ${hasNotes ? "" : "disabled"}></label>
-        <label class="pr-tog"><span><b>Pace nudges</b><em>A glow when a slide runs long, and a wrap-up warning</em></span><input type="checkbox" id="prNudgeOn" ${S.nudge ? "checked" : ""}></label>
-        ${S.sec ? "" : `<label class="pr-tog"><span><b>Q&amp;A after the last slide</b><em>Your companion asks 3 questions an audience might</em></span><input type="checkbox" id="prQaOn" ${S.qaOn ? "checked" : ""}></label>`}
+        <label class="pr-tog"><span><b>Record Me${lk ? ` ${PRO_BADGE}` : ""}</b><em>Listen back, read what you said, and get feedback</em></span><input type="checkbox" id="prRecOn" ${S.rec ? "checked" : ""} ${canRec ? "" : "disabled"}></label>
+        <label class="pr-tog"><span><b>Speaker Notes</b><em>${hasNotes ? "Below each slide, only for you" : "These slides have none"}</em></span><input type="checkbox" id="prNotesOn" ${S.showNotes && hasNotes ? "checked" : ""} ${hasNotes ? "" : "disabled"}></label>
+        <label class="pr-tog"><span><b>Pace Nudges</b><em>A glow when a slide runs long, and a wrap-up warning</em></span><input type="checkbox" id="prNudgeOn" ${S.nudge ? "checked" : ""}></label>
+        ${S.sec ? "" : `<label class="pr-tog"><span><b>Q&amp;A After the Last Slide</b><em>Your companion asks 3 questions an audience might</em></span><input type="checkbox" id="prQaOn" ${S.qaOn ? "checked" : ""}></label>`}
         ${fire("pr-ready-extra", p, S).filter(Boolean).join("")}
         <button type="button" class="btn small pr-plan-btn" data-act="pr-remote">${IC.phone} Use Your Phone as the Remote${lk ? ` ${PRO_BADGE}` : ""}</button>
         ${p.source === "gslides" && p.gid ? `<button type="button" class="btn small" data-act="pr-gfresh">Get Latest From Google Slides</button>` : ""}
@@ -832,11 +833,11 @@
     const spTotals = spOn ? g.sp.map(s => ({s, t: secs.reduce((a, x, i) => a + ((spOf(p, i) || {}).id === s.id ? x : 0), 0), n: Array.from({length: d.n}, (_, i) => i).filter(i => (spOf(p, i) || {}).id === s.id).length})) : [];
     const opt = (v, sel) => Array.from({length: d.n}, (_, i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${i + 1}</option>`).join("");
     box.innerHTML = `<div class="pr-plan-h"><b>Plan</b><span class="mini">Total ${fmt(secs.reduce((a, b) => a + b, 0) * 1000)}</span>${p.split === "custom" ? `<button type="button" class="link-btn" data-act="pr-even">Make Them Even</button>` : ""}</div>
-      <div class="pr-plan-sec"><span class="mini">Practice one section</span><label><span class="sr">From slide</span><select id="prSecA">${opt(0, S.sec ? S.sec[0] : 0)}</select></label><span class="mini">to</span><label><span class="sr">To slide</span><select id="prSecB">${opt(0, S.sec ? S.sec[1] : d.n - 1)}</select></label><button type="button" class="btn small" data-act="pr-sec-on">${S.sec ? "Update Section" : "Practice These"}</button></div>
+      <div class="pr-plan-sec"><span class="mini">Practice One Section</span><label><span class="sr">From slide</span><select id="prSecA">${opt(0, S.sec ? S.sec[0] : 0)}</select></label><span class="mini">to</span><label><span class="sr">To slide</span><select id="prSecB">${opt(0, S.sec ? S.sec[1] : d.n - 1)}</select></label><button type="button" class="btn small" data-act="pr-sec-on">${S.sec ? "Update Section" : "Practice These"}</button></div>
       ${d.kind === "pdf" && (d.pc || p.pagesAuto) ? `<div class="pr-plan-pages"><span class="mini">${d.pc ? `${d.np} pages, practiced as ${d.n} slides: pages that build up a slide step by step are its clicks.` : `Every page is its own slide.`}</span><button type="button" class="link-btn" data-act="pr-pages">${d.pc ? "Show Every Page" : "Put Build-Up Pages Together"}</button></div>` : ""}
       ${vplanHtml(p, d)}
       <div class="pr-plan-grp">
-        <label class="pr-tog pr-tog-sm"><span><b>Group presentation</b><em>Give each slide a speaker</em></span><input type="checkbox" id="prGrpOn" ${g.on ? "checked" : ""}></label>
+        <label class="pr-tog pr-tog-sm"><span><b>Group Presentation</b><em>Give each slide a speaker</em></span><input type="checkbox" id="prGrpOn" ${g.on ? "checked" : ""}></label>
         ${g.on ? `<div class="pr-spks">${g.sp.map(s => `<span class="pr-spk-ed" style="--sp:${esc(s.c)}"><i></i><input value="${esc(s.name)}" data-sp="${esc(s.id)}" aria-label="Speaker name" maxlength="40"><button type="button" class="pr-x" data-act="pr-sp-rm" data-id="${esc(s.id)}" aria-label="Remove ${esc(s.name)}">×</button></span>`).join("")}${g.sp.length < 6 ? `<button type="button" class="btn small" data-act="pr-sp-add">Add a Speaker</button>` : ""}${g.sp.length > 1 ? `<button type="button" class="link-btn" data-act="pr-sp-split">Split the Slides Evenly</button>` : ""}</div>
           ${spTotals.length ? `<div class="pr-sptot">${spTotals.map(x => `<span style="--sp:${esc(x.s.c)}"><i></i><b>${esc(x.s.name)}</b> ${fmt(x.t * 1000)} · ${x.n} slide${x.n === 1 ? "" : "s"}</span>`).join("")}</div>` : ""}` : ""}
       </div>
@@ -866,7 +867,7 @@
     const kindTxt = v => v.kind === "manual" ? "added by you" : v.kind === "link" ? (/youtu/.test(v.url || "") ? "YouTube link" : /vimeo/.test(v.url || "") ? "Vimeo link" : "video link") : v.audio ? "sound in the slides" : "in the slides";
     const opt = Array.from({length: d.n}, (_, i) => `<option value="${i}">${i + 1}</option>`).join("");
     return `<div class="pr-plan-vids">${rows.length ? `<ul>${rows.map(({i, v}) => `<li>${IC.film}<span><b>Slide ${i + 1}</b> · ${esc(kindTxt(v))}</span>${v.kind === "file" && v.dur > 0 ? `<b class="pr-vlen-f">${fmt(v.dur * 1000)}</b>` : `<input class="pr-vlen" data-vid="${esc(v.id)}" value="${v.dur > 0 ? fmt(v.dur * 1000) : ""}" placeholder="m:ss" inputmode="numeric" aria-label="Length of the video on slide ${i + 1}">`}${v.kind === "manual" ? `<button type="button" class="pr-x" data-act="pr-vdel" data-id="${esc(v.id)}" aria-label="Remove the video on slide ${i + 1}">×</button>` : ""}</li>`).join("")}</ul>` : ""}
-      <details class="pr-vadd"><summary>${rows.length ? "Add another video" : "Does your talk play a video? Add it"}</summary><div class="pr-vadd-in"><label><span class="mini">Slide</span><select id="prVSlide">${opt}</select></label><label><span class="mini">Length</span><input id="prVLen" placeholder="1:30" inputmode="numeric" maxlength="8"></label><button type="button" class="btn small" data-act="pr-vadd">Add</button></div><p class="mini">During practice you can play it or skip it, and its length still counts.</p></details></div>`;
+      <details class="pr-vadd"><summary>${rows.length ? "Add Another Video" : "Does Your Talk Play a Video? Add It"}</summary><div class="pr-vadd-in"><label><span class="mini">Slide</span><select id="prVSlide">${opt}</select></label><label><span class="mini">Length</span><input id="prVLen" placeholder="1:30" inputmode="numeric" maxlength="8"></label><button type="button" class="btn small" data-act="pr-vadd">Add</button></div><p class="mini">During practice you can play it or skip it, and its length still counts.</p></details></div>`;
   }
   function refreshPlan(){ const S = STG; if (!S) return; fire("pr-plan-changed", S.p); plan(S); paintReady(); paint(); S.el.querySelectorAll(".pr-th").forEach(b => { const i = Number(b.dataset.i), sp = spOf(S.p, i); if (sp) b.style.setProperty("--sp", sp.c); else b.style.removeProperty("--sp"); }); const top = S.el.querySelector(".pr-clock span"); if (top) top.textContent = "of " + fmt(S.tgt); }
 
@@ -1454,15 +1455,15 @@
         <button type="button" class="btn" data-act="pr-close">Close</button>
         <button type="button" class="btn primary pr-hero" data-act="pr-again">${run.sec ? "Practice This Section Again" : "Practice Again"}</button>
       </div>
-      ${hasTr ? `<div class="pr-stats">${lk ? `<button type="button" class="pr-stat pr-stat-pro" data-act="pr-pro-stats"><b>Pace and filler words</b><span>See words a minute and every um, like and so, slide by slide ${PRO_BADGE}</span></button>`
+      ${hasTr ? `<div class="pr-stats">${lk ? `<button type="button" class="pr-stat pr-stat-pro" data-act="pr-pro-stats"><b>Pace and Filler Words</b><span>See words a minute and every um, like and so, slide by slide ${PRO_BADGE}</span></button>`
         : `<div class="pr-stat"><span>Pace</span><b>${st.wpm ? st.wpm + " wpm" : "—"}</b><em>${st.wpm > 175 ? "Quite fast. Try pausing between points." : st.wpm && st.wpm < 110 ? "On the slow side" : st.wpm ? "A comfortable speed" : ""}</em></div><div class="pr-stat"><span>Filler words</span><b>${fillN(st.fill)}</b><em>${esc(fillTxt(st.fill) || "None picked up")}</em></div><div class="pr-stat"><span>Words</span><b>${st.wc}</b><em>${run.qa ? "Before Q&amp;A" : "In the whole run"}</em></div>`}
         <button type="button" class="pr-stat pr-coach-btn" data-act="pr-coach">${IC.spark}<b>${run.coach ? "Coach Feedback" : "Get Coach Feedback"}</b><span>${lk ? `Clarity, rushed slides and what to cut ${PRO_BADGE}` : run.coach ? "Clarity, rushed slides and what to cut" : "AI reads your run and suggests what to change"}</span></button></div>` : ""}
       <div class="pr-coach" id="prCoach" ${run.coach ? "" : "hidden"}></div>
       ${fire("pr-review-extra", p, run).filter(Boolean).join("")}
       <div class="pr-rbody">
         <section class="pr-rbars" aria-label="Time on each slide">
-          ${spRows.length ? `<div class="pr-rh"><b>Each speaker</b></div><div class="pr-spbars">${spRows.map(x => `<div class="pr-spbar" style="--sp:${esc(x.s.c)}"><span class="pr-spbar-n"><i></i>${esc(x.s.name)}</span><span class="pr-rbar"><i class="t-${tone(x.t, x.b)}" style="width:${(x.t / spMax * 100).toFixed(1)}%"></i><em style="left:${(x.b / spMax * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(x.t)} <small>of ${fmt(x.b)}</small></span></div>`).join("")}</div>` : ""}
-          <div class="pr-rh"><b>Time on each slide</b><span class="mini"><i class="pr-aim-key"></i>target</span></div>
+          ${spRows.length ? `<div class="pr-rh"><b>Each Speaker</b></div><div class="pr-spbars">${spRows.map(x => `<div class="pr-spbar" style="--sp:${esc(x.s.c)}"><span class="pr-spbar-n"><i></i>${esc(x.s.name)}</span><span class="pr-rbar"><i class="t-${tone(x.t, x.b)}" style="width:${(x.t / spMax * 100).toFixed(1)}%"></i><em style="left:${(x.b / spMax * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(x.t)} <small>of ${fmt(x.b)}</small></span></div>`).join("")}</div>` : ""}
+          <div class="pr-rh"><b>Time on Each Slide</b><span class="mini"><i class="pr-aim-key"></i>target</span></div>
           <div class="pr-rlist">${idx.map(k => { const t = run.times[k], s = sp ? sp.sp.find(x => x.id === (sp.by[k] || sp.sp[0].id)) : null; return `<button type="button" class="pr-rrow${k === R.i ? " on" : ""}" data-act="pr-rsel" data-i="${k}" aria-pressed="${k === R.i}"${s ? ` style="--sp:${esc(s.c)}"` : ""}><span class="pr-rn">${k + 1}</span><span class="pr-rbar"><i class="t-${tone(t, run.budgets[k])}" style="width:${(t / max * 100).toFixed(1)}%"></i><em style="left:${(run.budgets[k] / max * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(t)}</span></button>`; }).join("")}
             ${run.qa ? `<button type="button" class="pr-rrow pr-rqa${R.qi >= 0 ? " on" : ""}" data-act="pr-rqa" data-i="0"><span class="pr-rn">Q</span><span class="pr-rqa-t">Q&amp;A practice · ${run.qa.qs.length} questions</span><span class="pr-rt">${fmt(run.qa.seg.reduce((a, g) => a + (g[2] - g[1]), 0))}</span></button>` : ""}</div>
           <p class="mini">Green is within a little of the target, amber up to half again, red more.</p>
@@ -1490,8 +1491,8 @@
     box.innerHTML = `<div class="pr-dtop"><div class="pr-dpic" id="prDPic"></div>
         <div class="pr-dinfo"><span class="pr-eyebrow">Slide ${i + 1} of ${run.times.length}${sp ? ` · ${esc(sp.name)}` : ""}</span><b class="pr-dt t-${tone(t, b)}">${fmt(t)}${t ? `, ${Math.abs(diff) < 3000 ? "right on target" : diff > 0 ? `${fmt(diff)} over the target` : `${fmt(-diff)} under the target`}` : ", skipped"}</b><span class="mini">Target ${fmt(b)}${wc && !lk ? ` · ${wc} words${wpm ? ` · ${wpm} a minute` : ""}${fillN(fm) ? ` · ${fillTxt(fm)}` : ""}` : ""}</span></div></div>
       ${run.audio && R.audio ? `<div class="pr-player"><button type="button" class="pr-pbtn" data-act="pr-aplay" aria-label="Play slide ${i + 1}">${IC.play}</button><div class="pr-pbar"><i id="prPBar"></i></div><span class="pr-ptime" id="prPTime">0:00 / ${fmt(t)}</span></div>` : run.audio ? `<p class="mini">The recording isn't on this device.</p>` : ""}
-      ${chk.length ? `<div class="pr-check"><b>Your notes</b><ul>${chk.map(c => `<li class="${c.ok ? "ok" : "miss"}">${c.ok ? IC.check : IC.miss}<span>${esc(c.pt)}</span>${c.ok ? "" : `<em>Missed</em>`}</li>`).join("")}</ul></div>` : ""}
-      <div class="pr-trans"><b>What you said</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${run.audio ? "No words were picked up on this slide." : "Turn on Record Me before your next run to see what you said on each slide."}</p>`}</div>`;
+      ${chk.length ? `<div class="pr-check"><b>Your Notes</b><ul>${chk.map(c => `<li class="${c.ok ? "ok" : "miss"}">${c.ok ? IC.check : IC.miss}<span>${esc(c.pt)}</span>${c.ok ? "" : `<em>Missed</em>`}</li>`).join("")}</ul></div>` : ""}
+      <div class="pr-trans"><b>What You Said</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${run.audio ? "No words were picked up on this slide." : "Turn on Record Me before your next run to see what you said on each slide."}</p>`}</div>`;
     const pic = box.querySelector("#prDPic"); if (pic && R.d) drawSlide(R.d, i, pic, pic.clientWidth || 260).catch(() => {});
     paintAudio();
   }
@@ -1500,7 +1501,7 @@
     box.innerHTML = `<div class="pr-qa-tabs" role="group" aria-label="Questions">${Q.qs.map((q, n) => `<button type="button" data-act="pr-rqa" data-i="${n}" aria-pressed="${n === k}">Question ${n + 1}</button>`).join("")}</div>
       <p class="pr-qa-q sm">${esc(Q.qs[k])}</p><span class="mini">You answered for ${fmt(g[2] - g[1])}</span>
       ${R.run.audio && R.audio ? `<div class="pr-player"><button type="button" class="pr-pbtn" data-act="pr-aplay" aria-label="Play your answer">${IC.play}</button><div class="pr-pbar"><i id="prPBar"></i></div><span class="pr-ptime" id="prPTime">0:00 / ${fmt(g[2] - g[1])}</span></div>` : ""}
-      <div class="pr-trans"><b>Your answer</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${R.run.audio ? "No words were picked up." : "Turn on Record Me to hear your answers back."}</p>`}</div>`;
+      <div class="pr-trans"><b>Your Answer</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${R.run.audio ? "No words were picked up." : "Turn on Record Me to hear your answers back."}</p>`}</div>`;
     paintAudio();
   }
   // what's playing: the selected slide's stretch of the run (every visit to it), or one Q&A answer
@@ -1563,9 +1564,9 @@
     box.hidden = false;
     box.innerHTML = `<div class="pr-coach-h">${IC.spark}<b>Coach Feedback</b><span class="mini">From AI, based on your recording</span></div>
       <p>${esc(c.summary)}</p><p><b>Clarity.</b> ${esc(c.clarity)}</p>
-      ${c.rushed.length ? `<div class="pr-coach-l"><b>Felt rushed</b><ul>${c.rushed.map(x => `<li>${sl(x.slide)} ${esc(x.why)}</li>`).join("")}</ul></div>` : ""}
-      ${c.cuts.length ? `<div class="pr-coach-l"><b>What to cut where you ran long</b><ul>${c.cuts.map(x => `<li>${sl(x.slide)} ${esc(x.cut)}</li>`).join("")}</ul></div>` : ""}
-      ${c.tip ? `<p class="pr-coach-tip"><b>Next time.</b> ${esc(c.tip)}</p>` : ""}`;
+      ${c.rushed.length ? `<div class="pr-coach-l"><b>Felt Rushed</b><ul>${c.rushed.map(x => `<li>${sl(x.slide)} ${esc(x.why)}</li>`).join("")}</ul></div>` : ""}
+      ${c.cuts.length ? `<div class="pr-coach-l"><b>What to Cut Where You Ran Long</b><ul>${c.cuts.map(x => `<li>${sl(x.slide)} ${esc(x.cut)}</li>`).join("")}</ul></div>` : ""}
+      ${c.tip ? `<p class="pr-coach-tip"><b>Next Time</b> ${esc(c.tip)}</p>` : ""}`;
   }
 
   /* ---------- history: every run of a presentation ---------- */
@@ -1579,7 +1580,7 @@
     const best = bestOf(p);
     el.innerHTML = `<div class="pr-rtop"><div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · History</span><b>${runs.length} run${runs.length === 1 ? "" : "s"}${best != null ? ` <span>· best ${fmt(best)} of ${fmt(tg)}</span>` : ""}</b></div>
         <button type="button" class="btn" data-act="pr-close">Close</button><button type="button" class="btn primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice Again</button></div>
-      ${chart ? `<section class="pr-hcard"><b>Full runs over time</b>${chart}</section>` : ""}
+      ${chart ? `<section class="pr-hcard"><b>Full Runs Over Time</b>${chart}</section>` : ""}
       <section class="pr-hcard"><ol class="pr-hlist">${runs.map((r, k) => { const dd = new Date(r.at), diff = r.total - r.target * 1000; return `<li><button type="button" data-act="pr-hrun" data-id="${esc(r.id)}"><span class="pr-hn">Run ${runs.length - k}</span><span class="pr-hd">${esc(dd.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(dd.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><span class="pr-hk">${r.sec ? `Slides ${r.sec[0] + 1}–${r.sec[1] + 1}` : "Whole talk"}${r.audio ? " · recorded" : ""}${r.qa ? " · Q&amp;A" : ""}${r.coach ? " · coached" : ""}</span><b class="t-${tone(r.total, r.target * 1000)}">${fmt(r.total)}</b><span class="pr-hdiff">${Math.abs(diff) < 5000 ? "on time" : (diff > 0 ? "+" : "−") + fmt(Math.abs(diff))}</span></button><button type="button" class="pr-x" data-act="pr-hdel" data-id="${esc(r.id)}" aria-label="Delete run ${runs.length - k}">×</button></li>`; }).join("")}</ol></section>`;
   }
   function delRun(rid){

@@ -3537,6 +3537,21 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const g = groupOf(ui.grp);
     switch (act) {
       case "grp-page": openGroup(null); return true;
+      // Share With a Group (on Quizzes and Concept Maps): which group, then what to share with it
+      case "grp-share-any": {
+        const kind = el.dataset.kind === "map" ? "map" : "quiz", what = kind === "map" ? "concept maps" : "quizzes";
+        const go = gg => { if (dlg.open) dlg.close(); if (kind === "quiz") shareQuizSheet(gg); else fire("act", "grp-cm-share", Object.assign(document.createElement("button"), {dataset: {}}), gg.id); };
+        if (!online()) { toast(`Sign in to share ${what} with a study group.`); return true; }
+        if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }
+        const gs = S.groups || [];
+        if (!gs.length) { toast(`Join or start a study group to share ${what}.`, null, {label: "Study Groups", fn: () => openGroup(null)}); return true; }
+        if (gs.length === 1) { go(gs[0]); return true; }
+        openSheet(`<div class="sheet">${head("Share With a Group")}<div class="sheet-body"><p class="mini" style="margin:0">Which group should get it?</p>
+          <div class="sm-opts grp-pick-g">${gs.map(gg => `<button type="button" class="sm-opt" data-act="grp-share-any-to" data-id="${esc(gg.id)}" data-kind="${kind}"><b>${esc(gg.name)}</b><span class="mini">${isProj(gg) ? "Group project" : "Study group"}${gg.course ? " · " + esc(gg.course) : ""}</span></button>`).join("")}</div></div>
+          <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+        return true;
+      }
+      case "grp-share-any-to": { const gg = groupOf(el.dataset.id); if (!gg) return true; if (dlg.open) dlg.close(); if (el.dataset.kind === "map") fire("act", "grp-cm-share", el, gg.id); else shareQuizSheet(gg); return true; }
       case "grp-to-decks": ui.tab = "flashcards"; ui.fc = null; ui.deckId = null; render(); window.scrollTo(0, 0); return true;
       case "grp-open": openGroup(id); return true;
       case "grp-open-ref": openGroup(id); return true;

@@ -19329,7 +19329,7 @@ function viewQuizzes(){
       <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title">${nm}</b></button>
       <div class="rv-row"><span class="mini rv-sub">${meta}</span>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></div></article>`; }).join("");
-  return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+  return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-share-any" data-kind="quiz" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid rv-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt("quizzes")}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
@@ -38566,6 +38566,21 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const g = groupOf(ui.grp);
     switch (act) {
       case "grp-page": openGroup(null); return true;
+      // Share With a Group (on Quizzes and Concept Maps): which group, then what to share with it
+      case "grp-share-any": {
+        const kind = el.dataset.kind === "map" ? "map" : "quiz", what = kind === "map" ? "concept maps" : "quizzes";
+        const go = gg => { if (dlg.open) dlg.close(); if (kind === "quiz") shareQuizSheet(gg); else fire("act", "grp-cm-share", Object.assign(document.createElement("button"), {dataset: {}}), gg.id); };
+        if (!online()) { toast(`Sign in to share ${what} with a study group.`); return true; }
+        if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }
+        const gs = S.groups || [];
+        if (!gs.length) { toast(`Join or start a study group to share ${what}.`, null, {label: "Study Groups", fn: () => openGroup(null)}); return true; }
+        if (gs.length === 1) { go(gs[0]); return true; }
+        openSheet(`<div class="sheet">${head("Share With a Group")}<div class="sheet-body"><p class="mini" style="margin:0">Which group should get it?</p>
+          <div class="sm-opts grp-pick-g">${gs.map(gg => `<button type="button" class="sm-opt" data-act="grp-share-any-to" data-id="${esc(gg.id)}" data-kind="${kind}"><b>${esc(gg.name)}</b><span class="mini">${isProj(gg) ? "Group project" : "Study group"}${gg.course ? " · " + esc(gg.course) : ""}</span></button>`).join("")}</div></div>
+          <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+        return true;
+      }
+      case "grp-share-any-to": { const gg = groupOf(el.dataset.id); if (!gg) return true; if (dlg.open) dlg.close(); if (el.dataset.kind === "map") fire("act", "grp-cm-share", el, gg.id); else shareQuizSheet(gg); return true; }
       case "grp-to-decks": ui.tab = "flashcards"; ui.fc = null; ui.deckId = null; render(); window.scrollTo(0, 0); return true;
       case "grp-open": openGroup(id); return true;
       case "grp-open-ref": openGroup(id); return true;
@@ -110680,7 +110695,7 @@ function listHtml(){
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
   // like Quizzes': Share With a Group (maps can be shared live with a study group), then Recently Deleted
   const grpIc = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3 2.3 3 5"/></svg>';
-  const grpBtn = `<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share a map with a study group: everyone works on it together, live (a map's ⋯ menu > Share With a Group)">${grpIc}<span class="sm-lbl">Share With a Group</span></button>`;
+  const grpBtn = `<button class="btn small sm-btn" data-act="grp-share-any" data-kind="map" aria-label="Share With a Group" title="Share a map with a study group: everyone works on it together, live (a map's ⋯ menu > Share With a Group)">${grpIc}<span class="sm-lbl">Share With a Group</span></button>`;
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
@@ -111658,7 +111673,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
         <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
-        <span class="rv-count">${g ? `${g.sp.length} speakers · ` : ""}${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
+        <span class="rv-count">${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
         ${fire("pr-card-badge", p).filter(Boolean).join("")}
         <span class="rv-stamp pr-stamp${best == null ? " new" : good ? " good" : ""}" aria-hidden="true">${stamp}</span>
       </button>
@@ -111711,7 +111726,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
           <label class="pr-srcb">${IC.upload}<b>Upload</b><span>PowerPoint or PDF</span><input type="file" id="prFile" accept=".pptx,.ppsx,.pptm,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="sr"></label>
           <button type="button" class="pr-srcb" data-act="pr-gslides">${IC.gslides}<b>Google Slides</b><span>${canG ? "Pick from your Drive" : "Connect Google Drive first"}</span></button>
           <button type="button" class="pr-srcb${A.canva ? " on" : ""}" data-act="pr-canva" aria-expanded="${!!A.canva}">${IC.canva}<b>Canva</b><span>Your designs</span></button>
-          <label class="pr-srcb">${IC.folder}<b>From a course</b><span>${files.length ? `${files.length} slide file${files.length === 1 ? "" : "s"}` : "No slide files yet"}</span><select id="prCF" ${files.length ? "" : "disabled"} aria-label="A slides file from your courses"><option value="">Choose…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(fileNameOf(f))}</option>`).join("")}</select></label>
+          <label class="pr-srcb">${IC.folder}<b>From a Course</b><span>${files.length ? `${files.length} slide file${files.length === 1 ? "" : "s"}` : "No slide files yet"}</span><select id="prCF" ${files.length ? "" : "disabled"} aria-label="A slides file from your courses"><option value="">Choose…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(fileNameOf(f))}</option>`).join("")}</select></label>
         </div>
         ${A.canva ? canvaHtml(A) : canG ? "" : `<p class="mini">To use Google Slides, connect Google Drive in Settings, Files and Cloud.</p>`}
         ${busy}${err}${picked}
@@ -112013,7 +112028,8 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   function courseTint(el, cid){
     const c = courseOf(cid), hex = c && /^#[0-9A-F]{6}$/i.test(c.color || "") ? c.color : "";
     // no course (General): the theme's own accent and the text colour it pairs with
-    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); return; }
+    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); el.style.setProperty("--pc-grad", "var(--btn-bg,var(--accent,#7A4FD6))"); return; }
+    el.style.removeProperty("--pc-grad");
     const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
     const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     el.style.setProperty("--pc", hex);
@@ -112097,7 +112113,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (S.started) { box.hidden = true; box.innerHTML = ""; return; }
     if (S.follow) {
       box.hidden = false;
-      box.innerHTML = `<div class="pr-ready-in"><div class="pr-card" role="group" aria-label="Rehearsing together"><b class="pr-card-h">Rehearsing together</b>
+      box.innerHTML = `<div class="pr-ready-in"><div class="pr-card" role="group" aria-label="Rehearsing together"><b class="pr-card-h">Rehearsing Together</b>
         <p class="pr-card-sub">${esc(S.follow.host || "Someone in your group")} is leading. The slides and the clock follow them, and you can move the slides when it's your turn.</p>
         <p class="pr-card-note mini" id="prFollowState">${S.fSeen ? "Waiting for the rehearsal to start…" : "Connecting…"}</p>
         <button type="button" class="pr-play" data-act="pr-play" aria-label="Start the rehearsal for everyone">${IC.play}</button><span class="pr-card-sub">Anyone can start it.</span></div></div>`;
@@ -112108,15 +112124,15 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.hidden = false;
     box.innerHTML = `<div class="pr-ready-in">
       <div class="pr-card" role="group" aria-label="Ready to practice">
-        <b class="pr-card-h">Ready when you are</b>
+        <b class="pr-card-h">Ready When You Are</b>
         ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the whole talk instead</button>`
-          : `<div class="pr-card-row"><span>Time goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
+          : `<div class="pr-card-row"><span>Time Goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
         <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides${g ? ` · ${g.sp.length} speakers` : ""}</span>
         <button type="button" class="btn small pr-plan-btn pr-hero" data-act="pr-plan" aria-expanded="${S.planOpen}">${S.planOpen ? "Hide the Plan" : "Plan: Slide Times, Speakers, Sections"}</button>
-        <label class="pr-tog"><span><b>Record me${lk ? ` ${PRO_BADGE}` : ""}</b><em>Listen back, read what you said, and get feedback</em></span><input type="checkbox" id="prRecOn" ${S.rec ? "checked" : ""} ${canRec ? "" : "disabled"}></label>
-        <label class="pr-tog"><span><b>Speaker notes</b><em>${hasNotes ? "Below each slide, only for you" : "These slides have none"}</em></span><input type="checkbox" id="prNotesOn" ${S.showNotes && hasNotes ? "checked" : ""} ${hasNotes ? "" : "disabled"}></label>
-        <label class="pr-tog"><span><b>Pace nudges</b><em>A glow when a slide runs long, and a wrap-up warning</em></span><input type="checkbox" id="prNudgeOn" ${S.nudge ? "checked" : ""}></label>
-        ${S.sec ? "" : `<label class="pr-tog"><span><b>Q&amp;A after the last slide</b><em>Your companion asks 3 questions an audience might</em></span><input type="checkbox" id="prQaOn" ${S.qaOn ? "checked" : ""}></label>`}
+        <label class="pr-tog"><span><b>Record Me${lk ? ` ${PRO_BADGE}` : ""}</b><em>Listen back, read what you said, and get feedback</em></span><input type="checkbox" id="prRecOn" ${S.rec ? "checked" : ""} ${canRec ? "" : "disabled"}></label>
+        <label class="pr-tog"><span><b>Speaker Notes</b><em>${hasNotes ? "Below each slide, only for you" : "These slides have none"}</em></span><input type="checkbox" id="prNotesOn" ${S.showNotes && hasNotes ? "checked" : ""} ${hasNotes ? "" : "disabled"}></label>
+        <label class="pr-tog"><span><b>Pace Nudges</b><em>A glow when a slide runs long, and a wrap-up warning</em></span><input type="checkbox" id="prNudgeOn" ${S.nudge ? "checked" : ""}></label>
+        ${S.sec ? "" : `<label class="pr-tog"><span><b>Q&amp;A After the Last Slide</b><em>Your companion asks 3 questions an audience might</em></span><input type="checkbox" id="prQaOn" ${S.qaOn ? "checked" : ""}></label>`}
         ${fire("pr-ready-extra", p, S).filter(Boolean).join("")}
         <button type="button" class="btn small pr-plan-btn" data-act="pr-remote">${IC.phone} Use Your Phone as the Remote${lk ? ` ${PRO_BADGE}` : ""}</button>
         ${p.source === "gslides" && p.gid ? `<button type="button" class="btn small" data-act="pr-gfresh">Get Latest From Google Slides</button>` : ""}
@@ -112140,11 +112156,11 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const spTotals = spOn ? g.sp.map(s => ({s, t: secs.reduce((a, x, i) => a + ((spOf(p, i) || {}).id === s.id ? x : 0), 0), n: Array.from({length: d.n}, (_, i) => i).filter(i => (spOf(p, i) || {}).id === s.id).length})) : [];
     const opt = (v, sel) => Array.from({length: d.n}, (_, i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${i + 1}</option>`).join("");
     box.innerHTML = `<div class="pr-plan-h"><b>Plan</b><span class="mini">Total ${fmt(secs.reduce((a, b) => a + b, 0) * 1000)}</span>${p.split === "custom" ? `<button type="button" class="link-btn" data-act="pr-even">Make Them Even</button>` : ""}</div>
-      <div class="pr-plan-sec"><span class="mini">Practice one section</span><label><span class="sr">From slide</span><select id="prSecA">${opt(0, S.sec ? S.sec[0] : 0)}</select></label><span class="mini">to</span><label><span class="sr">To slide</span><select id="prSecB">${opt(0, S.sec ? S.sec[1] : d.n - 1)}</select></label><button type="button" class="btn small" data-act="pr-sec-on">${S.sec ? "Update Section" : "Practice These"}</button></div>
+      <div class="pr-plan-sec"><span class="mini">Practice One Section</span><label><span class="sr">From slide</span><select id="prSecA">${opt(0, S.sec ? S.sec[0] : 0)}</select></label><span class="mini">to</span><label><span class="sr">To slide</span><select id="prSecB">${opt(0, S.sec ? S.sec[1] : d.n - 1)}</select></label><button type="button" class="btn small" data-act="pr-sec-on">${S.sec ? "Update Section" : "Practice These"}</button></div>
       ${d.kind === "pdf" && (d.pc || p.pagesAuto) ? `<div class="pr-plan-pages"><span class="mini">${d.pc ? `${d.np} pages, practiced as ${d.n} slides: pages that build up a slide step by step are its clicks.` : `Every page is its own slide.`}</span><button type="button" class="link-btn" data-act="pr-pages">${d.pc ? "Show Every Page" : "Put Build-Up Pages Together"}</button></div>` : ""}
       ${vplanHtml(p, d)}
       <div class="pr-plan-grp">
-        <label class="pr-tog pr-tog-sm"><span><b>Group presentation</b><em>Give each slide a speaker</em></span><input type="checkbox" id="prGrpOn" ${g.on ? "checked" : ""}></label>
+        <label class="pr-tog pr-tog-sm"><span><b>Group Presentation</b><em>Give each slide a speaker</em></span><input type="checkbox" id="prGrpOn" ${g.on ? "checked" : ""}></label>
         ${g.on ? `<div class="pr-spks">${g.sp.map(s => `<span class="pr-spk-ed" style="--sp:${esc(s.c)}"><i></i><input value="${esc(s.name)}" data-sp="${esc(s.id)}" aria-label="Speaker name" maxlength="40"><button type="button" class="pr-x" data-act="pr-sp-rm" data-id="${esc(s.id)}" aria-label="Remove ${esc(s.name)}">×</button></span>`).join("")}${g.sp.length < 6 ? `<button type="button" class="btn small" data-act="pr-sp-add">Add a Speaker</button>` : ""}${g.sp.length > 1 ? `<button type="button" class="link-btn" data-act="pr-sp-split">Split the Slides Evenly</button>` : ""}</div>
           ${spTotals.length ? `<div class="pr-sptot">${spTotals.map(x => `<span style="--sp:${esc(x.s.c)}"><i></i><b>${esc(x.s.name)}</b> ${fmt(x.t * 1000)} · ${x.n} slide${x.n === 1 ? "" : "s"}</span>`).join("")}</div>` : ""}` : ""}
       </div>
@@ -112174,7 +112190,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const kindTxt = v => v.kind === "manual" ? "added by you" : v.kind === "link" ? (/youtu/.test(v.url || "") ? "YouTube link" : /vimeo/.test(v.url || "") ? "Vimeo link" : "video link") : v.audio ? "sound in the slides" : "in the slides";
     const opt = Array.from({length: d.n}, (_, i) => `<option value="${i}">${i + 1}</option>`).join("");
     return `<div class="pr-plan-vids">${rows.length ? `<ul>${rows.map(({i, v}) => `<li>${IC.film}<span><b>Slide ${i + 1}</b> · ${esc(kindTxt(v))}</span>${v.kind === "file" && v.dur > 0 ? `<b class="pr-vlen-f">${fmt(v.dur * 1000)}</b>` : `<input class="pr-vlen" data-vid="${esc(v.id)}" value="${v.dur > 0 ? fmt(v.dur * 1000) : ""}" placeholder="m:ss" inputmode="numeric" aria-label="Length of the video on slide ${i + 1}">`}${v.kind === "manual" ? `<button type="button" class="pr-x" data-act="pr-vdel" data-id="${esc(v.id)}" aria-label="Remove the video on slide ${i + 1}">×</button>` : ""}</li>`).join("")}</ul>` : ""}
-      <details class="pr-vadd"><summary>${rows.length ? "Add another video" : "Does your talk play a video? Add it"}</summary><div class="pr-vadd-in"><label><span class="mini">Slide</span><select id="prVSlide">${opt}</select></label><label><span class="mini">Length</span><input id="prVLen" placeholder="1:30" inputmode="numeric" maxlength="8"></label><button type="button" class="btn small" data-act="pr-vadd">Add</button></div><p class="mini">During practice you can play it or skip it, and its length still counts.</p></details></div>`;
+      <details class="pr-vadd"><summary>${rows.length ? "Add Another Video" : "Does Your Talk Play a Video? Add It"}</summary><div class="pr-vadd-in"><label><span class="mini">Slide</span><select id="prVSlide">${opt}</select></label><label><span class="mini">Length</span><input id="prVLen" placeholder="1:30" inputmode="numeric" maxlength="8"></label><button type="button" class="btn small" data-act="pr-vadd">Add</button></div><p class="mini">During practice you can play it or skip it, and its length still counts.</p></details></div>`;
   }
   function refreshPlan(){ const S = STG; if (!S) return; fire("pr-plan-changed", S.p); plan(S); paintReady(); paint(); S.el.querySelectorAll(".pr-th").forEach(b => { const i = Number(b.dataset.i), sp = spOf(S.p, i); if (sp) b.style.setProperty("--sp", sp.c); else b.style.removeProperty("--sp"); }); const top = S.el.querySelector(".pr-clock span"); if (top) top.textContent = "of " + fmt(S.tgt); }
 
@@ -112762,15 +112778,15 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
         <button type="button" class="btn" data-act="pr-close">Close</button>
         <button type="button" class="btn primary pr-hero" data-act="pr-again">${run.sec ? "Practice This Section Again" : "Practice Again"}</button>
       </div>
-      ${hasTr ? `<div class="pr-stats">${lk ? `<button type="button" class="pr-stat pr-stat-pro" data-act="pr-pro-stats"><b>Pace and filler words</b><span>See words a minute and every um, like and so, slide by slide ${PRO_BADGE}</span></button>`
+      ${hasTr ? `<div class="pr-stats">${lk ? `<button type="button" class="pr-stat pr-stat-pro" data-act="pr-pro-stats"><b>Pace and Filler Words</b><span>See words a minute and every um, like and so, slide by slide ${PRO_BADGE}</span></button>`
         : `<div class="pr-stat"><span>Pace</span><b>${st.wpm ? st.wpm + " wpm" : "—"}</b><em>${st.wpm > 175 ? "Quite fast. Try pausing between points." : st.wpm && st.wpm < 110 ? "On the slow side" : st.wpm ? "A comfortable speed" : ""}</em></div><div class="pr-stat"><span>Filler words</span><b>${fillN(st.fill)}</b><em>${esc(fillTxt(st.fill) || "None picked up")}</em></div><div class="pr-stat"><span>Words</span><b>${st.wc}</b><em>${run.qa ? "Before Q&amp;A" : "In the whole run"}</em></div>`}
         <button type="button" class="pr-stat pr-coach-btn" data-act="pr-coach">${IC.spark}<b>${run.coach ? "Coach Feedback" : "Get Coach Feedback"}</b><span>${lk ? `Clarity, rushed slides and what to cut ${PRO_BADGE}` : run.coach ? "Clarity, rushed slides and what to cut" : "AI reads your run and suggests what to change"}</span></button></div>` : ""}
       <div class="pr-coach" id="prCoach" ${run.coach ? "" : "hidden"}></div>
       ${fire("pr-review-extra", p, run).filter(Boolean).join("")}
       <div class="pr-rbody">
         <section class="pr-rbars" aria-label="Time on each slide">
-          ${spRows.length ? `<div class="pr-rh"><b>Each speaker</b></div><div class="pr-spbars">${spRows.map(x => `<div class="pr-spbar" style="--sp:${esc(x.s.c)}"><span class="pr-spbar-n"><i></i>${esc(x.s.name)}</span><span class="pr-rbar"><i class="t-${tone(x.t, x.b)}" style="width:${(x.t / spMax * 100).toFixed(1)}%"></i><em style="left:${(x.b / spMax * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(x.t)} <small>of ${fmt(x.b)}</small></span></div>`).join("")}</div>` : ""}
-          <div class="pr-rh"><b>Time on each slide</b><span class="mini"><i class="pr-aim-key"></i>target</span></div>
+          ${spRows.length ? `<div class="pr-rh"><b>Each Speaker</b></div><div class="pr-spbars">${spRows.map(x => `<div class="pr-spbar" style="--sp:${esc(x.s.c)}"><span class="pr-spbar-n"><i></i>${esc(x.s.name)}</span><span class="pr-rbar"><i class="t-${tone(x.t, x.b)}" style="width:${(x.t / spMax * 100).toFixed(1)}%"></i><em style="left:${(x.b / spMax * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(x.t)} <small>of ${fmt(x.b)}</small></span></div>`).join("")}</div>` : ""}
+          <div class="pr-rh"><b>Time on Each Slide</b><span class="mini"><i class="pr-aim-key"></i>target</span></div>
           <div class="pr-rlist">${idx.map(k => { const t = run.times[k], s = sp ? sp.sp.find(x => x.id === (sp.by[k] || sp.sp[0].id)) : null; return `<button type="button" class="pr-rrow${k === R.i ? " on" : ""}" data-act="pr-rsel" data-i="${k}" aria-pressed="${k === R.i}"${s ? ` style="--sp:${esc(s.c)}"` : ""}><span class="pr-rn">${k + 1}</span><span class="pr-rbar"><i class="t-${tone(t, run.budgets[k])}" style="width:${(t / max * 100).toFixed(1)}%"></i><em style="left:${(run.budgets[k] / max * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(t)}</span></button>`; }).join("")}
             ${run.qa ? `<button type="button" class="pr-rrow pr-rqa${R.qi >= 0 ? " on" : ""}" data-act="pr-rqa" data-i="0"><span class="pr-rn">Q</span><span class="pr-rqa-t">Q&amp;A practice · ${run.qa.qs.length} questions</span><span class="pr-rt">${fmt(run.qa.seg.reduce((a, g) => a + (g[2] - g[1]), 0))}</span></button>` : ""}</div>
           <p class="mini">Green is within a little of the target, amber up to half again, red more.</p>
@@ -112798,8 +112814,8 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.innerHTML = `<div class="pr-dtop"><div class="pr-dpic" id="prDPic"></div>
         <div class="pr-dinfo"><span class="pr-eyebrow">Slide ${i + 1} of ${run.times.length}${sp ? ` · ${esc(sp.name)}` : ""}</span><b class="pr-dt t-${tone(t, b)}">${fmt(t)}${t ? `, ${Math.abs(diff) < 3000 ? "right on target" : diff > 0 ? `${fmt(diff)} over the target` : `${fmt(-diff)} under the target`}` : ", skipped"}</b><span class="mini">Target ${fmt(b)}${wc && !lk ? ` · ${wc} words${wpm ? ` · ${wpm} a minute` : ""}${fillN(fm) ? ` · ${fillTxt(fm)}` : ""}` : ""}</span></div></div>
       ${run.audio && R.audio ? `<div class="pr-player"><button type="button" class="pr-pbtn" data-act="pr-aplay" aria-label="Play slide ${i + 1}">${IC.play}</button><div class="pr-pbar"><i id="prPBar"></i></div><span class="pr-ptime" id="prPTime">0:00 / ${fmt(t)}</span></div>` : run.audio ? `<p class="mini">The recording isn't on this device.</p>` : ""}
-      ${chk.length ? `<div class="pr-check"><b>Your notes</b><ul>${chk.map(c => `<li class="${c.ok ? "ok" : "miss"}">${c.ok ? IC.check : IC.miss}<span>${esc(c.pt)}</span>${c.ok ? "" : `<em>Missed</em>`}</li>`).join("")}</ul></div>` : ""}
-      <div class="pr-trans"><b>What you said</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${run.audio ? "No words were picked up on this slide." : "Turn on Record Me before your next run to see what you said on each slide."}</p>`}</div>`;
+      ${chk.length ? `<div class="pr-check"><b>Your Notes</b><ul>${chk.map(c => `<li class="${c.ok ? "ok" : "miss"}">${c.ok ? IC.check : IC.miss}<span>${esc(c.pt)}</span>${c.ok ? "" : `<em>Missed</em>`}</li>`).join("")}</ul></div>` : ""}
+      <div class="pr-trans"><b>What You Said</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${run.audio ? "No words were picked up on this slide." : "Turn on Record Me before your next run to see what you said on each slide."}</p>`}</div>`;
     const pic = box.querySelector("#prDPic"); if (pic && R.d) drawSlide(R.d, i, pic, pic.clientWidth || 260).catch(() => {});
     paintAudio();
   }
@@ -112808,7 +112824,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.innerHTML = `<div class="pr-qa-tabs" role="group" aria-label="Questions">${Q.qs.map((q, n) => `<button type="button" data-act="pr-rqa" data-i="${n}" aria-pressed="${n === k}">Question ${n + 1}</button>`).join("")}</div>
       <p class="pr-qa-q sm">${esc(Q.qs[k])}</p><span class="mini">You answered for ${fmt(g[2] - g[1])}</span>
       ${R.run.audio && R.audio ? `<div class="pr-player"><button type="button" class="pr-pbtn" data-act="pr-aplay" aria-label="Play your answer">${IC.play}</button><div class="pr-pbar"><i id="prPBar"></i></div><span class="pr-ptime" id="prPTime">0:00 / ${fmt(g[2] - g[1])}</span></div>` : ""}
-      <div class="pr-trans"><b>Your answer</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${R.run.audio ? "No words were picked up." : "Turn on Record Me to hear your answers back."}</p>`}</div>`;
+      <div class="pr-trans"><b>Your Answer</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${R.run.audio ? "No words were picked up." : "Turn on Record Me to hear your answers back."}</p>`}</div>`;
     paintAudio();
   }
   // what's playing: the selected slide's stretch of the run (every visit to it), or one Q&A answer
@@ -112871,9 +112887,9 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.hidden = false;
     box.innerHTML = `<div class="pr-coach-h">${IC.spark}<b>Coach Feedback</b><span class="mini">From AI, based on your recording</span></div>
       <p>${esc(c.summary)}</p><p><b>Clarity.</b> ${esc(c.clarity)}</p>
-      ${c.rushed.length ? `<div class="pr-coach-l"><b>Felt rushed</b><ul>${c.rushed.map(x => `<li>${sl(x.slide)} ${esc(x.why)}</li>`).join("")}</ul></div>` : ""}
-      ${c.cuts.length ? `<div class="pr-coach-l"><b>What to cut where you ran long</b><ul>${c.cuts.map(x => `<li>${sl(x.slide)} ${esc(x.cut)}</li>`).join("")}</ul></div>` : ""}
-      ${c.tip ? `<p class="pr-coach-tip"><b>Next time.</b> ${esc(c.tip)}</p>` : ""}`;
+      ${c.rushed.length ? `<div class="pr-coach-l"><b>Felt Rushed</b><ul>${c.rushed.map(x => `<li>${sl(x.slide)} ${esc(x.why)}</li>`).join("")}</ul></div>` : ""}
+      ${c.cuts.length ? `<div class="pr-coach-l"><b>What to Cut Where You Ran Long</b><ul>${c.cuts.map(x => `<li>${sl(x.slide)} ${esc(x.cut)}</li>`).join("")}</ul></div>` : ""}
+      ${c.tip ? `<p class="pr-coach-tip"><b>Next Time</b> ${esc(c.tip)}</p>` : ""}`;
   }
 
   /* ---------- history: every run of a presentation ---------- */
@@ -112887,7 +112903,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const best = bestOf(p);
     el.innerHTML = `<div class="pr-rtop"><div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · History</span><b>${runs.length} run${runs.length === 1 ? "" : "s"}${best != null ? ` <span>· best ${fmt(best)} of ${fmt(tg)}</span>` : ""}</b></div>
         <button type="button" class="btn" data-act="pr-close">Close</button><button type="button" class="btn primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice Again</button></div>
-      ${chart ? `<section class="pr-hcard"><b>Full runs over time</b>${chart}</section>` : ""}
+      ${chart ? `<section class="pr-hcard"><b>Full Runs Over Time</b>${chart}</section>` : ""}
       <section class="pr-hcard"><ol class="pr-hlist">${runs.map((r, k) => { const dd = new Date(r.at), diff = r.total - r.target * 1000; return `<li><button type="button" data-act="pr-hrun" data-id="${esc(r.id)}"><span class="pr-hn">Run ${runs.length - k}</span><span class="pr-hd">${esc(dd.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(dd.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><span class="pr-hk">${r.sec ? `Slides ${r.sec[0] + 1}–${r.sec[1] + 1}` : "Whole talk"}${r.audio ? " · recorded" : ""}${r.qa ? " · Q&amp;A" : ""}${r.coach ? " · coached" : ""}</span><b class="t-${tone(r.total, r.target * 1000)}">${fmt(r.total)}</b><span class="pr-hdiff">${Math.abs(diff) < 5000 ? "on time" : (diff > 0 ? "+" : "−") + fmt(Math.abs(diff))}</span></button><button type="button" class="pr-x" data-act="pr-hdel" data-id="${esc(r.id)}" aria-label="Delete run ${runs.length - k}">×</button></li>`; }).join("")}</ol></section>`;
   }
   function delRun(rid){
@@ -113266,7 +113282,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const rows = teamRows(p); if (!rows.length) return "";
     const gid = p.share && p.share.gid, ready = rows.filter(r => r.ok).length;
     const av = s => { let h = ""; try { h = gid ? G().avatar(gid, s.id, s.name) : ""; } catch (e) {} return h ? `<span class="prg-face">${h}</span>` : `<span class="prg-av" style="--c:${esc(s.c)}">${esc((s.name || "?").charAt(0).toUpperCase())}</span>`; };
-    return `<div class="prg-team${compact ? " sm" : ""}"><div class="prg-team-h"><b>The team</b><span class="mini">${ready} of ${rows.length} on target</span></div>
+    return `<div class="prg-team${compact ? " sm" : ""}"><div class="prg-team-h"><b>The Team</b><span class="mini">${ready} of ${rows.length} on target</span></div>
       <ul>${rows.map(r => `<li style="--sp:${esc(r.s.c)}">${av(r.s)}<span class="prg-tn">${esc(r.s.id === me() ? r.s.name + " (you)" : r.s.name)}</span><span class="prg-tt ${r.d ? (r.ok ? "ok" : "warn") : "none"}">${r.d ? (r.ok ? "✓ " : "") : ""}${esc(r.txt)}</span></li>`).join("")}</ul></div>`;
   }
 
@@ -113360,7 +113376,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
           <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(d.title || it.title || "")}</b><i></i><i></i></span></span>
           ${sp.length ? `<span class="pr-tl" aria-hidden="true">${strip}</span>` : ""}
           <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
-          <span class="rv-count">${sp.length ? `${sp.length} speakers · ` : ""}${n} slide${n === 1 ? "" : "s"}</span>
+          <span class="rv-count">${n} slide${n === 1 ? "" : "s"}</span>
           ${live ? `<span class="prg-badge prg-cbadge live" title="Live rehearsal now">${X.IC.users}<span class="sr">Live rehearsal now</span></span>` : ""}
           ${sp.length ? `<span class="rv-stamp pr-stamp${ready === sp.length ? " good" : ""}" aria-hidden="true" title="${ready} of ${sp.length} on target">${ready}/${sp.length}</span>` : ""}
         </button>
@@ -113408,9 +113424,9 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (!t || !t.id) return "";
     const p = X.all().find(x => x.taskId === t.id);
     if (p) { const runs = (p.runs || []).filter(r => !r.sec), best = runs.length ? Math.min(...runs.map(r => r.total)) : null;
-      return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> ${esc(p.name)} · ${best != null ? `best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : "not practiced yet"}${p.share ? ` · shared with ${esc(p.share.gname || "your group")}` : ""}</span></div><button type="button" class="btn small primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div>`; }
+      return `<div class="pp-form prg-task"><div><b>Presentation Practice</b><span class="mini"> ${esc(p.name)} · ${best != null ? `best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : "not practiced yet"}${p.share ? ` · shared with ${esc(p.share.gname || "your group")}` : ""}</span></div><button type="button" class="btn small primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div>`; }
     if (t.status === "done" || !PRES_RX.test(t.title || "")) return "";
-    return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> Add your slides to time yourself, slide by slide, before it's due.</span></div><button type="button" class="btn small" data-act="prg-task-new" data-id="${esc(t.id)}">Practice It</button></div>`;
+    return `<div class="pp-form prg-task"><div><b>Presentation Practice</b><span class="mini"> Add your slides to time yourself, slide by slide, before it's due.</span></div><button type="button" class="btn small" data-act="prg-task-new" data-id="${esc(t.id)}">Practice It</button></div>`;
   });
 
   /* ---------- actions; refreshing while it matters ---------- */

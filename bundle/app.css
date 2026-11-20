@@ -9827,7 +9827,7 @@ html[data-motion="static"] .rv-quiz:hover .rv-stamp{transform:none}
 
 /* ---------- cards: a fan of slides with the first slide's title on top ---------- */
 /* the card: a slide on a small projector screen, and a strip with a piece per slide (its target; its colour from the last run) */
-.pr-scr{position:absolute;left:0;right:0;margin:0 auto;bottom:21px;width:40%;max-width:150px;display:flex;flex-direction:column;align-items:center;transition:bottom .3s cubic-bezier(.2,.8,.2,1)}
+.pr-scr{position:absolute;left:0;right:0;margin:0 auto;bottom:21px;width:40%;max-width:150px;display:flex;flex-direction:column;align-items:center}
 .pr-rod{width:112%;height:7px;border-radius:4px;background:linear-gradient(#4A556B,#2B3448);box-shadow:0 2px 4px rgb(0 0 0/.18);position:relative;z-index:1}
 .pr-pane{width:100%;aspect-ratio:16/9;margin-top:-2px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:5px;padding:8px 11px;border-radius:0 0 7px 7px;background:#fff;border-top:4px solid var(--c);color:#1D2433;text-align:start;box-shadow:0 10px 20px rgb(0 0 0/.14)}
 .pr-pane b{font:700 .7rem/1.2 var(--display);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -9839,9 +9839,6 @@ html[data-motion="static"] .rv-quiz:hover .rv-stamp{transform:none}
 .pr-tl{position:absolute;left:14px;right:74px;bottom:7px;height:6px;display:flex;gap:2px;border-radius:3px;overflow:hidden}
 .pr-tl i{flex:1 1 0;min-width:2px;background:color-mix(in srgb,var(--ink) 14%,transparent)}
 .pr-tl i.t-ok{background:#2E9E6B}.pr-tl i.t-warn{background:#E8A33A}.pr-tl i.t-over{background:#E0565B}
-.rv-pres:hover .pr-scr{bottom:25px}
-@media (prefers-reduced-motion:reduce){.pr-scr{transition:none}.rv-pres:hover .pr-scr{bottom:21px}}
-html[data-motion="static"] .rv-pres:hover .pr-scr{bottom:21px}
 .pr-stamp.good{border-color:var(--leaf,#2E9E5B);color:color-mix(in srgb,var(--leaf,#2E9E5B) 85%,var(--ink))}
 .pr-stamp{font-size:.74rem}
 @media (prefers-reduced-motion:reduce){.pr-peek .pr-sh{transition:none}.rv-pres:hover .pr-sh.s1{transform:translateY(11px)}.rv-pres:hover .pr-sh.s2{transform:translate(12px,15px) rotate(4deg)}.rv-pres:hover .pr-sh.s3{transform:translate(-14px,17px) rotate(-6deg)}}
@@ -10138,7 +10135,7 @@ button.pr-stat{cursor:pointer}
 .pr-linknote{margin:0;padding:8px 12px;border-radius:12px;background:var(--field);font-size:.88rem}
 .prg-badge{position:absolute;top:8px;left:8px;z-index:3;max-width:calc(100% - 16px);padding:3px 9px;border-radius:999px;background:rgba(16,23,42,.78);color:#fff;font-size:.72rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .prg-badge.live{background:#D93A42}
-.prg-cbadge{top:auto;bottom:8px;width:28px;height:28px;padding:0;display:grid;place-items:center;border-radius:50%;background:rgba(16,23,42,.7)}
+.prg-cbadge{top:auto;bottom:21px;width:28px;height:28px;padding:0;display:grid;place-items:center;border-radius:50%;background:rgba(16,23,42,.7)}
 .prg-cbadge svg{width:16px;height:16px}
 .prg-cbadge.live{box-shadow:0 0 0 0 rgba(217,58,66,.5);animation:prgRing 1.8s ease-out infinite}
 @keyframes prgRing{70%{box-shadow:0 0 0 7px rgba(217,58,66,0)}100%{box-shadow:0 0 0 0 rgba(217,58,66,0)}}
@@ -10287,6 +10284,8 @@ button.pr-stat{cursor:pointer}
 .pr-rm-card .btn.pr-rm-off:hover{background:rgba(255,107,107,.16)}
 .pr-rm-ok{font-size:.92rem;line-height:1.35;align-items:flex-start}
 .pr-rm-ok svg{flex:none;width:18px;height:18px;margin-top:1px}
+/* the card is always drawn as one layer, so its lift on hover never redraws the slide's text at a different sharpness */
+.rv-pres{will-change:translate}
 /* ===== module: 99-shop-home.css ===== */
 /* The Style Shop's front: Shop home, Yours, Build Your Look, and the way back from a See All page */
 .sheet.shop.sbh-on .shop-rail{display:none}

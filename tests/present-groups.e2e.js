@@ -84,7 +84,7 @@ const FAKE = me => {
   ok(pres && pres.data.sp.length === 2 && pres.data.by.length === 6 && pres.data.sp[0].id === "u1" && pres.data.secret, "the group gets the presentation with two speakers and who presents each slide");
   ok(pres && pres.data.taskTitle === "Final Presentation" && pres.data.due === iso(2), "the shared presentation carries the task and its due date");
   ok(pres && pres.data.path === "", "the slides weren't uploaded: this stand-in server says the group needs the newest SQL");
-  ok(/The team/.test(await A.textContent("#prStage .pr-ready")), "the Ready card shows the team");
+  ok(/The Team/.test(await A.textContent("#prStage .pr-ready")), "the Ready card shows the team");
   // the owner's plan change reaches the group
   await A.click('[data-act="pr-plan"]'); await A.waitForSelector(".pr-plan-list .pr-pl"); await A.click('[data-act="pr-slide-t"][data-i="0"][data-d="15"]'); await A.waitForTimeout(2200);
   ok(DB.items.find(i => i.kind === "pres").data.plan.custom && DB.items.find(i => i.kind === "pres").data.plan.custom[0] === 75, "changing the plan updates the group's copy");
