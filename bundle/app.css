@@ -8581,6 +8581,8 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   .cf-row:has(> .cf-acts .pro-badge) > .cf-acts{flex:1 1 100%}
   .cf-row:has(> .cf-acts .pro-badge) > .cf-acts > .btn{flex:1 1 0;justify-content:center}
 }
+/* keyboard up over the page (not a sheet): room below the page so a box near the bottom can be scrolled above the keyboard */
+@media (max-width:639px){html.kb-open:not(.kb-native):not(:has(dialog[open])) #view{padding-bottom:calc(var(--kb-h,0px) + 24px)}}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
