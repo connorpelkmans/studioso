@@ -1,12 +1,12 @@
 /* ===== module: 99-present-groups.js ===== */
-/* Presentation practice with a study group or a group project (99-present.js does the practising).
+/* Presentation practice with a study group or a group project (99-present.js does the practicing).
    - Share With a Group: the presentation goes to the group (group_items, kind "pres"), with its plan and a speaker for each
      slide, chosen from the group's members. In a Pro group the slides go too (the group's own uploads); otherwise each member
      adds their own copy of the same slides, and gets the plan and speakers from the group.
    - Everyone sees the team's progress: each member's latest practice of their own section against their target ("presrun").
    - Rehearse Together: one person leads a live rehearsal ("preslive", with a secret only the group can read) and the others
      follow on their own devices; the run goes into everyone's history.
-   - Today's Plan suggests practising before a linked task is due; a task's
+   - Today's Plan suggests practicing before a linked task is due; a task's
      sheet offers its presentation. */
 (() => {
   const PS = window.SBPRESENT; if (!PS || !PS.px) return;
@@ -109,7 +109,7 @@
   function drawShare(){
     const S = SH; if (!S) return; const p = X.byId(S.pid); if (!p) return;
     if (!C.groups.length) {
-      openSheet(`<div class="sheet">${head("Share With a Group")}<div class="sheet-body"><p style="margin:0">${S.err ? esc(S.err) : "Join or start a study group or a group project first. Then everyone in it can practise their part, see the team's progress and rehearse together."}</p></div>
+      openSheet(`<div class="sheet">${head("Share With a Group")}<div class="sheet-body"><p style="margin:0">${S.err ? esc(S.err) : "Join or start a study group or a group project first. Then everyone in it can practice their part, see the team's progress and rehearse together."}</p></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button><button type="button" class="btn primary" data-act="prg-groups">Groups</button></div></div>`);
       return;
     }
@@ -250,7 +250,7 @@
     const runs = runsOf(iid), live = liveOf(iid);
     return g.sp.map(s => {
       const r = runs.find(x => x.user_id === s.id), d = r && r.data, ok = d && d.b ? d.t <= d.b * 1.1 + 3000 : false;
-      return {s, d, ok, txt: d ? `${X.fmt(d.t)} of ${X.fmt(d.b)} · ${ago(Number(d.at) || Date.parse(r.updated_at))}${d.live ? " · together" : ""}` : "Not practised yet", live};
+      return {s, d, ok, txt: d ? `${X.fmt(d.t)} of ${X.fmt(d.b)} · ${ago(Number(d.at) || Date.parse(r.updated_at))}${d.live ? " · together" : ""}` : "Not practiced yet", live};
     });
   }
   function teamHtml(p, compact){
@@ -269,8 +269,8 @@
     const live = liveOf(p.share.iid), mineLive = live && live.user_id === me();
     const owner = p.share.own ? "" : `<p class="mini pr-card-note">Shared in ${esc(p.share.gname || gname(p.share.gid))}. The plan and speakers come from the group.</p>`;
     const btn = S && S.lv ? `<p class="mini pr-card-note">${X.IC.users} Rehearsing together: everyone in the group can join now.</p>`
-      : live && !mineLive ? `<button type="button" class="btn small pr-plan-btn prg-joinbtn" data-act="prg-join" data-id="${esc(live.id)}">Join ${esc(live.author_name || "the group")}'s Live Rehearsal</button>`
-      : `<button type="button" class="btn small pr-plan-btn" data-act="prg-live" data-id="${esc(p.id)}">${X.IC.users} Rehearse Together</button>`;
+      : live && !mineLive ? `<button type="button" class="btn small pr-plan-btn prg-joinbtn pr-hero" data-act="prg-join" data-id="${esc(live.id)}">Join ${esc(live.author_name || "the group")}'s Live Rehearsal</button>`
+      : `<button type="button" class="btn small pr-plan-btn pr-hero" data-act="prg-live" data-id="${esc(p.id)}">${X.IC.users} Rehearse Together</button>`;
     return owner + teamHtml(p, true) + btn;
   });
   hook("pr-review-extra", p => p && p.share ? teamHtml(p) : "");
@@ -325,16 +325,16 @@
     const today = todayISO(), soon = addDays(today, 7);
     const rows = X.all().map(p => ({p, due: dueOf(p)})).filter(x => x.due && x.due >= today && x.due <= soon).filter(x => { const last = (x.p.runs || [])[0]; return !last || Date.now() - last.at > 36 * 3600000 || x.due <= addDays(today, 1); }).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 3);
     return rows.map(({p, due}) => { const runs = (p.runs || []).filter(r => !r.sec), best = runs.length ? Math.min(...runs.map(r => r.total)) : null;
-      return `<div class="pp-today-row prg-today"><span class="pp-today-t">${X.IC.present}<span>Practise <b>${esc(p.name)}</b>, due ${esc(due === today ? "today" : due === addDays(today, 1) ? "tomorrow" : fmtShort(due))}${best != null ? ` · best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : " · not practised yet"}</span></span><span class="pp-today-a"><button type="button" class="btn small primary" data-act="pr-practise" data-id="${esc(p.id)}">Practise</button></span></div>`; }).join("");
+      return `<div class="pp-today-row prg-today"><span class="pp-today-t">${X.IC.present}<span>Practice <b>${esc(p.name)}</b>, due ${esc(due === today ? "today" : due === addDays(today, 1) ? "tomorrow" : fmtShort(due))}${best != null ? ` · best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : " · not practiced yet"}</span></span><span class="pp-today-a"><button type="button" class="btn small primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></span></div>`; }).join("");
   });
   const PRES_RX = /present|talk|speech|pitch|slides|defen[cs]e|seminar|poster/i;
   hook("pr-task", t => {
     if (!t || !t.id) return "";
     const p = X.all().find(x => x.taskId === t.id);
     if (p) { const runs = (p.runs || []).filter(r => !r.sec), best = runs.length ? Math.min(...runs.map(r => r.total)) : null;
-      return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> ${esc(p.name)} · ${best != null ? `best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : "not practised yet"}${p.share ? ` · shared with ${esc(p.share.gname || "your group")}` : ""}</span></div><button type="button" class="btn small primary" data-act="pr-practise" data-id="${esc(p.id)}">Practise</button></div>`; }
+      return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> ${esc(p.name)} · ${best != null ? `best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : "not practiced yet"}${p.share ? ` · shared with ${esc(p.share.gname || "your group")}` : ""}</span></div><button type="button" class="btn small primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div>`; }
     if (t.status === "done" || !PRES_RX.test(t.title || "")) return "";
-    return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> Add your slides to time yourself, slide by slide, before it's due.</span></div><button type="button" class="btn small" data-act="prg-task-new" data-id="${esc(t.id)}">Practise It</button></div>`;
+    return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> Add your slides to time yourself, slide by slide, before it's due.</span></div><button type="button" class="btn small" data-act="prg-task-new" data-id="${esc(t.id)}">Practice It</button></div>`;
   });
 
   /* ---------- actions; refreshing while it matters ---------- */

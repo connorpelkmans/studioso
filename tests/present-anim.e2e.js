@@ -2,7 +2,7 @@
 // A PowerPoint's bullets appear one click at a time (Next shows the next bullet before the next slide; Back goes back a click,
 // and back onto the previous slide finished); its embedded video plays on the slide when its click comes, and can be skipped, its
 // length still counting; a video added by hand nudges the plan to fit it. A PDF that prints each step of a build on its own page
-// is practised as one slide with clicks (and can be shown page by page again); its YouTube link counts as a video once it has a
+// is practiced as one slide with clicks (and can be shown page by page again); its YouTube link counts as a video once it has a
 // length. (tests/fixtures/make-present-anim.py makes the PowerPoint.)
 const {chromium, executablePath} = require("./pw");
 const path = require("path"), fs = require("fs"), http = require("http");
@@ -60,7 +60,7 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   ok(await p.textContent('.pr-pl:nth-child(5) .pr-pl-tm b') === "2:15", "Fit the Video gives the slide the video's length and a moment more");
   await p.click('[data-act="pr-plan"]'); await p.waitForTimeout(200);
 
-  // practising: bullets appear click by click
+  // practicing: bullets appear click by click
   await p.click('#prStage [data-act="pr-play"]'); await p.waitForTimeout(500);
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(500);
   let st = await stage(); let off = await offs();

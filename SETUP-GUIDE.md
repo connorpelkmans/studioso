@@ -785,7 +785,7 @@ Checks without any network: `node --experimental-strip-types supabase-functions/
 
 ## Canva (presentation practice)
 
-**Practise a Presentation > Canva** lists a student's Canva designs (searchable; a pasted Canva link works too). The one they pick comes in like Google Slides: a PDF export for exactly how it looks, plus a PowerPoint export for its speaker notes, its clicks (counted) and its videos' lengths. **Get Latest From Canva** fetches it again. Without a connection, or when it isn't set up, the sheet tells the student how to download the design from Canva (Share, Download, PDF Standard or PPTX) and upload it.
+**Practice a Presentation > Canva** lists a student's Canva designs (searchable; a pasted Canva link works too). The one they pick comes in like Google Slides: a PDF export for exactly how it looks, plus a PowerPoint export for its speaker notes, its clicks (counted) and its videos' lengths. **Get Latest From Canva** fetches it again. Without a connection, or when it isn't set up, the sheet tells the student how to download the design from Canva (Share, Download, PDF Standard or PPTX) and upload it.
 
 Canva's API only answers servers, so the `cloud-files` function does the work: it keeps the sign-in (encrypted, like Google and Microsoft), lists designs and runs the exports with the student's own token, and passes the file back. The browser never gets a Canva token. Scopes are read only: `design:meta:read`, `design:content:read`, `profile:read` (the name on the "Connect?" page).
 

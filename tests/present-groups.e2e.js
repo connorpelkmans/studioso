@@ -1,6 +1,6 @@
 // node tests/present-groups.e2e.js: presentation practice with a group project. Two members (two browsers) share one group,
 // stood in for here by a small in-memory server (group_items with kinds pres, presrun and preslive). Maya links a presentation to
-// a task, shares it with the group (speakers from the members; a free group, so no slides upload), practises her part; Sam adds
+// a task, shares it with the group (speakers from the members; a free group, so no slides upload), practices her part; Sam adds
 // his own copy and gets the plan and speakers, sees Maya's progress; Maya leads a live rehearsal over the real encrypted channel,
 // Sam joins and moves the slides from his device, and both get the run; Today's Plan and the task sheet offer the practice.
 const {chromium, executablePath} = require("./pw");
@@ -65,7 +65,7 @@ const FAKE = me => {
 
   // 5: the task sheet offers presentation practice for a presentation task
   const taskBtn = await A.evaluate(() => window.SBPRESENT.taskHtml(window.__sbSync.state.tasks.t1));
-  ok(/Practise It/.test(taskBtn), "the task sheet offers to practise a presentation task");
+  ok(/Practice It/.test(taskBtn), "the task sheet offers to practice a presentation task");
   await A.evaluate(() => { const S = window.__sbSync; S.ui.tab = "flashcards"; S.ui.rvView = "present"; S.render(); });
   await A.waitForTimeout(400);
   await A.evaluate(() => { const d = document.createElement("button"); d.dataset.act = "prg-task-new"; d.dataset.id = "t1"; d.id = "__tb"; document.body.appendChild(d); });
@@ -90,7 +90,7 @@ const FAKE = me => {
   ok(DB.items.find(i => i.kind === "pres").data.plan.custom && DB.items.find(i => i.kind === "pres").data.plan.custom[0] === 75, "changing the plan updates the group's copy");
   await A.click('[data-act="pr-plan"]'); await A.waitForTimeout(200);
 
-  // 3: Maya practises: her own slides' time against her target goes to the group
+  // 3: Maya practices: her own slides' time against her target goes to the group
   await A.click('#prStage [data-act="pr-play"]'); await A.waitForTimeout(1200);
   for (let k = 0; k < 2; k++) { await A.keyboard.press("ArrowRight"); await A.waitForTimeout(600); }
   await A.click('#prStage [data-act="pr-end"]'); await A.waitForTimeout(1500);
@@ -109,11 +109,11 @@ const FAKE = me => {
   await Bp.click('[data-act="pr-create"]'); await Bp.waitForSelector("#prStage .pr-play", {timeout: 15000}); await Bp.waitForTimeout(800);
   const sp = await Bp.evaluate(() => { const p = window.SBPRESENT.list()[0]; return {name: p.name, g: p.group, share: p.share, custom: p.custom}; });
   ok(sp.name === "Teen Sleep Talk" && sp.g && sp.g.sp.map(s => s.name).join() === "Maya,Sam" && sp.share && !sp.share.own && sp.custom && sp.custom[0] === 75, "Sam's copy has the group's name, plan and speakers");
-  ok(/Maya/.test(await Bp.textContent("#prStage .prg-team")) && /Not practised yet/.test(await Bp.textContent("#prStage .prg-team")), "Sam sees Maya's time and that he hasn't practised");
+  ok(/Maya/.test(await Bp.textContent("#prStage .prg-team")) && /Not practiced yet/.test(await Bp.textContent("#prStage .prg-team")), "Sam sees Maya's time and that he hasn't practiced");
   ok(/Shared in Sleep Project/.test(await Bp.textContent("#prStage .pr-ready")), "his Ready card says the plan comes from the group");
   await Bp.screenshot({path: OUT + "-team.png"});
   const todayB = await Bp.evaluate(() => window.SBPRESENT.todayHtml());
-  ok(/Practise <b>Teen Sleep Talk<\/b>, due/.test(todayB) && /not practised yet/.test(todayB), "Today's Plan suggests Sam practise before it's due: " + todayB.replace(/<[^>]+>/g, "").trim());
+  ok(/Practice <b>Teen Sleep Talk<\/b>, due/.test(todayB) && /not practiced yet/.test(todayB), "Today's Plan suggests Sam practice before it's due: " + todayB.replace(/<[^>]+>/g, "").trim());
   await Bp.keyboard.press("Escape"); await Bp.waitForTimeout(500);
 
   // 4: live rehearsal: Maya leads, Sam joins and moves the slides
@@ -141,7 +141,7 @@ const FAKE = me => {
 
   // the task sheet links to its presentation
   const th = await A.evaluate(() => window.SBPRESENT.taskHtml(window.__sbSync.state.tasks.t1));
-  ok(/Teen Sleep Talk/.test(th) && /pr-practise/.test(th) && /shared with Sleep Project/.test(th), "the task sheet links to its presentation");
+  ok(/Teen Sleep Talk/.test(th) && /pr-practice/.test(th) && /shared with Sleep Project/.test(th), "the task sheet links to its presentation");
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log("present-groups.e2e: done" + (process.exitCode ? "" : ", all passed"));

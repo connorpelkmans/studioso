@@ -26,7 +26,7 @@ function popDone(el){
 function fabConfig(){
   if ((VIEWS[ui.tab] && ui.tab !== "groups") || ui.tab === "archive") return null;
   if (ui.tab === "courses" && ui.courseId && ui.courseTab === "lectures" && ui.courseTabFor === ui.courseId && window.SBLEC && SBLEC.canAdd()) return {act: "fab-lecture", label: "Add Lecture"};
-  if (ui.tab === "courses") return ui.courseId || ui.courseTab === "grades" ? null : {act: "fab-course", label: "Add Course"};
+  if (ui.tab === "courses") return ui.courseId || ui.courseTab === "grades" || ui.courseTab === "writing" ? null : {act: "fab-course", label: "Add Course"};
   if (ui.tab === "files") return {act: "fab-file", label: "Add File"};
   if (ui.tab === "schedule") return {act: "sch-add", label: "Add Event"};
   if (ui.tab === "notes") return window.SBWB && SBWB.on() ? {act: "wb-new", label: "New Whiteboard"} : {act: "fab-note", label: "Add Note"};

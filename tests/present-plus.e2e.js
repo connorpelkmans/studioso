@@ -1,5 +1,5 @@
 // node tests/present-plus.e2e.js: presentation practice, the rest: per-slide targets, group presentations, pace nudges, Q&A practice,
-// stats and coach (Pro), the notes check, history, practising one section, and the phone remote's panel and page.
+// stats and coach (Pro), the notes check, history, practicing one section, and the phone remote's panel and page.
 // (was: presentation practice.) A PowerPoint and a PDF open as slides; the clock starts on play; each slide's time
 // follows the slide changes (going back adds to a slide, a pause doesn't count); a recording and a transcript (speech recognition
 // stood in for here) are kept per slide; the run shows afterwards with playback; Escape before starting saves nothing.
@@ -49,7 +49,7 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   ok(/Maya/.test(tot) && /3 slides/.test(tot), "each speaker shows their own target and slides: " + tot.replace(/\s+/g, " "));
   await p.check("#prQaOn"); await p.waitForTimeout(150);
   await p.screenshot({path: OUT + "-plan.png"});
-  // practising: a long slide glows, the speaker shows
+  // practicing: a long slide glows, the speaker shows
   await p.click('#prStage [data-act="pr-play"]'); await p.waitForTimeout(6300);
   ok(await p.evaluate(() => document.getElementById("prStage").classList.contains("pr-long")), "a slide past its aim glows (pace nudge)");
   ok(/Maya/.test(await p.textContent("#prSpk")), "the current speaker shows: " + (await p.textContent("#prSpk")));
@@ -78,7 +78,7 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   await p.click('.pr-hlist [data-act="pr-hrun"]'); await p.waitForSelector(".pr-rrow"); await p.waitForTimeout(400);
   ok(await p.locator(".pr-coach:not([hidden])").count() === 1 && /Pause after each study/.test(await p.textContent(".pr-coach")), "a saved coach summary shows with the run");
   await p.screenshot({path: OUT + "-coach.png"});
-  // practise one section, with its own mini target
+  // practice one section, with its own mini target
   await p.click('[data-act="pr-again"]'); await p.waitForSelector("#prStage .pr-play"); await p.waitForTimeout(400);
   await p.click('[data-act="pr-plan"]'); await p.waitForSelector("#prSecA");
   await p.selectOption("#prSecA", {value: "1"}); await p.selectOption("#prSecB", {value: "2"}); await p.click('[data-act="pr-sec-on"]'); await p.waitForSelector("#prStage .pr-play"); await p.waitForTimeout(400);
@@ -96,7 +96,7 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   ok(await p.locator(".pr-hlist li").count() === 2 && /Slides 2–3/.test(await p.textContent(".pr-hlist")), "History tells whole talks and sections apart");
   await p.screenshot({path: OUT + "-history.png"});
   // the phone remote: a QR code, and the phone page
-  await p.click('#prStage [data-act="pr-practise"]'); await p.waitForSelector("#prStage .pr-play"); await p.waitForTimeout(300);
+  await p.click('#prStage [data-act="pr-practice"]'); await p.waitForSelector("#prStage .pr-play"); await p.waitForTimeout(300);
   await p.click('.pr-card [data-act="pr-remote"]'); await p.waitForSelector(".pr-rm-qr svg", {timeout: 15000});
   ok(true, "the remote panel shows a QR code");
   await p.screenshot({path: OUT + "-remote.png"});
