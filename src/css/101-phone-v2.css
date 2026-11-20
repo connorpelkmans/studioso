@@ -697,7 +697,7 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 .qm-add{display:flex;justify-content:center;margin-top:12px}
 
 /* Log Time and time worked by day */
-.lt-sheet{width:min(520px,100%)}
+.lt-sheet{width:100%}
 .lt-task{margin:0 0 4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;overflow-wrap:anywhere}
 .lt-f{border:0;padding:0;margin:0;display:grid;gap:8px;min-width:0}
 .lt-f > legend{font-weight:700;margin-bottom:6px;padding:0}
