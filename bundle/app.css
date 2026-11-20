@@ -8567,6 +8567,17 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
   .cf-acts.ph-many .btn.small::after{content:none!important}
   .cf-acts.ph-many .btn.small svg{width:18px;height:18px}
 }
+/* Courses tabs on phones: Writing Studio is just "Studio", so Courses, Studio and Files fit */
+.ws-tab-short{display:none}
+@media (max-width:639px){.cf-tabs .ws-tab-long{display:none}.cf-tabs .ws-tab-short{display:inline}}
+/* when the buttons beside the course picker have words (Writing Studio: My Library, Zotero), they move to their own line
+   rather than squeezing the picker down to a letter */
+@media (max-width:639px){
+  .cf-row:has(> .cf-acts .pro-badge),.cf-row:has(> .cf-acts > .btn:nth-child(2):not(.trash-btn)):not(:has(> .cf-acts.ph-many)){flex-wrap:wrap}
+  .cf-row:has(> .cf-acts .pro-badge) > .cf-pick{min-width:min(160px,45%)}
+  .cf-row:has(> .cf-acts .pro-badge) > .cf-acts{flex:1 1 100%}
+  .cf-row:has(> .cf-acts .pro-badge) > .cf-acts > .btn{flex:1 1 0;justify-content:center}
+}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
