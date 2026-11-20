@@ -1769,6 +1769,16 @@ body.cap-drag::after{content:"Drop a photo to capture its tasks";position:fixed;
 .pp-fc-next{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0}
 .pp-fc-next > span{flex:1;min-width:10em}
 .pp-bar.big{height:12px}
+/* Exam Prep: plan it for me, or make my own */
+.pp-pick{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:600px){.pp-pick{grid-template-columns:1fr}}
+.pp-pick-o{display:grid;gap:6px;align-content:start;text-align:start;padding:16px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.pp-pick-o b{font:700 1.05rem var(--display)}
+.pp-pick-o span{color:var(--muted);font-size:.9rem;line-height:1.4}
+.pp-pick-o:hover,.pp-pick-o:focus-visible{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.pp-m-add{display:grid;gap:10px}
+.pp-m-kinds{margin-top:6px}
+.pp-m-empty{margin:0;padding:12px;border:1px dashed var(--line);border-radius:12px;text-align:center}
 .pp-note{margin:0;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--warn) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line))}
 .pp-covs,.pp-agenda{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .pp-cov{display:grid;gap:4px}
@@ -7102,6 +7112,8 @@ h2.sec.c2-bh{align-items:center}
 .g2-sheet-head .sh-ring svg{width:50%!important;height:50%!important}
 .sh-big .sh-kick{position:absolute;left:116px;top:16px;color:#fff;font:800 1.3rem var(--display);letter-spacing:.02em;text-shadow:0 1px 2px rgba(0,0,0,.25)}
 .sh-big h2.sh-name{font:800 1.45rem/1.2 var(--display);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* The head grows to fit a name on two lines (at most two, then …): a long sheet body must not squeeze it back to its min-height */
+.g2-sheet-head{flex-shrink:0}
 @media (max-width:600px){.sh-big .sh-kick{left:96px;top:22px}.sh-big h2.sh-name{font-size:1.2rem}}
 /* Sheets without a task name */
 .g2-sheet-head:not(.sh-big) .sh-t h2{position:absolute;left:116px;right:64px;top:0;height:62px;display:flex;align-items:center;color:#fff;font:800 1.5rem/1.1 var(--display);text-shadow:0 1px 2px rgba(0,0,0,.25);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

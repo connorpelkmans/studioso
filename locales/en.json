@@ -425,7 +425,7 @@
   "review.idea.h": "One gentle idea",
   "review.idea.prep": "\"{title}\" is coming up and has no study plan yet. Exam Prep can make one in a minute.",
   "review.idea.rest": "Enjoy the quiet. Nothing is pressing, so resting is a fine plan.",
-  "review.idea.slipped": "Pick one of the dates that passed, \"{title}\", and give it a day. Small steps count.",
+  "review.idea.slipped": "\"{title}\" is past its date and not done yet. Pick a new day for it. Small steps count.",
   "review.less": "Show Fewer",
   "review.lv.0": "a light week",
   "review.lv.1": "a steady week",
