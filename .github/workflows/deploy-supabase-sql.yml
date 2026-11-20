@@ -40,18 +40,59 @@ jobs:
             exit 1
           fi
 
-      - name: Run the SQL files
+      - name: Connect to the database
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_REGION: ${{ vars.SUPABASE_REGION || 'us-east-1' }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+          # GitHub's runners have no IPv6, and Supabase's direct host (db.<ref>.supabase.co) is IPv6 only,
+          # so a direct connection string fails with "Network is unreachable". The session pooler
+          # (aws-N-<region>.pooler.supabase.com:5432, user postgres.<ref>, same password) works over IPv4
+          # and supports everything these files do. Use the secret as is if it connects, else the pooler.
+          CANDIDATES="$(python3 - <<'PY'
+          import os, re, urllib.parse as u
+          url = os.environ["SUPABASE_DB_URL"].strip()
+          print(url)
+          p = u.urlsplit(url)
+          m = re.fullmatch(r"db\.([a-z0-9]+)\.supabase\.co", p.hostname or "")
+          if m:
+              ref, region = m.group(1), os.environ["SUPABASE_REGION"]
+              user = p.username or "postgres"
+              if "." not in user: user = f"{user}.{ref}"
+              cred = u.quote(user, safe="") + (":" + p.password if p.password is not None else "")
+              for n in range(3):
+                  print(u.urlunsplit((p.scheme, f"{cred}@aws-{n}-{region}.pooler.supabase.com:5432", p.path or "/postgres", p.query, "")))
+          PY
+          )"
+          DB_URL=""
+          while IFS= read -r c; do
+            [ -z "$c" ] && continue
+            echo "::add-mask::$c"
+            if PGCONNECT_TIMEOUT=10 psql "$c" -X -q -t -c 'select 1' >/dev/null 2>err.txt; then DB_URL="$c"; break; fi
+            echo "Could not connect: $(sed 's/:\/\/[^@]*@/:\/\/***@/' err.txt | head -1)"
+          done <<< "$CANDIDATES"
+          rm -f err.txt
+          if [ -z "$DB_URL" ]; then
+            echo "::error::Could not connect with SUPABASE_DB_URL, directly or through the session pooler. Use the Session pooler connection string (Supabase > Connect)."
+            exit 1
+          fi
+          echo "Connected."
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+
+      - name: Run the SQL files
+        env:
           INPUT_FILES: ${{ github.event.inputs.files }}
         run: |
           set -euo pipefail
           # Same order as "Run the SQL files in this order" in SETUP-GUIDE.md
           ORDER="supabase-setup.sql supabase-groups.sql supabase-moderation.sql supabase-calendar-feed.sql
             supabase-rooms.sql supabase-bug-reports.sql supabase-error-reports.sql supabase-app-flags.sql
-            supabase-plans.sql supabase-credits.sql supabase-usernames.sql supabase-sharing.sql supabase-lean.sql
+            supabase-plans.sql supabase-credits.sql supabase-credits-bundle.sql supabase-usernames.sql supabase-sharing.sql
+            supabase-takedowns.sql supabase-lean.sql
             supabase-capture.sql supabase-sync-conflicts.sql supabase-calsync.sql supabase-theme-access.sql
-            supabase-cloud.sql supabase-lms-districts.sql supabase-lms-find.sql supabase-apple-signin.sql
+            supabase-own-keys.sql supabase-cloud.sql supabase-lms-districts.sql supabase-lms-find.sql supabase-apple-signin.sql
             supabase-apple-external.sql"
 
           if [ -n "$INPUT_FILES" ]; then
@@ -70,9 +111,8 @@ jobs:
           done
           if [ -z "$RUN" ]; then echo "Nothing to run."; exit 0; fi
 
-          sudo apt-get install -y -qq postgresql-client >/dev/null
           for f in $RUN; do
             echo "::group::$f"
-            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f "$f"
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 --single-transaction -f "$f"
             echo "::endgroup::"
           done
