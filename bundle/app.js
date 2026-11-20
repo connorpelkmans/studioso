@@ -87207,11 +87207,13 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .pr-lbl{font-weight:700;font-size:.92rem}
 .pr-opts{display:grid;gap:2px}
 .pr-tip{max-width:60%}
-.pr-prev{height:300px;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#E9EDF3;position:relative}
-.gx-rep-sheet .pr-prev{height:auto;max-height:62vh;overflow:auto;padding:12px 0}
+/* the whole page shows in the preview, scaled down (the sheet scrolls if it needs to); a printout of several pages scrolls inside it */
+.pr-prev{flex:none;height:auto;min-height:min(500px,80vh);max-height:max(500px,72vh);overflow:auto;padding:12px 0;border:1px solid var(--line);border-radius:10px;background:#E9EDF3;position:relative}
+.gx-rep-sheet .pr-prev{height:auto;min-height:0;max-height:62vh;overflow:auto;padding:12px 0}
 .gx-rep-sheet .pr-scale{position:static;transform:none;zoom:.6;margin:0 auto}
 @media (max-width:600px){.gx-rep-sheet .pr-scale{zoom:.4}}
-.pr-scale{position:absolute;left:50%;top:10px;width:816px;transform:translateX(-50%) scale(.4);transform-origin:top center;background:#fff;box-shadow:0 4px 14px rgba(14,42,86,.15)}
+.pr-scale{position:static;width:816px;zoom:.45;margin:0 auto;background:#fff;box-shadow:0 4px 14px rgba(14,42,86,.15)}
+@media (max-width:600px){.pr-scale{zoom:.38}.pr-prev{min-height:min(425px,80vh);max-height:max(425px,72vh)}}
 .pr-scale.a4{width:794px}
 .pr-scale .pp-page{min-height:1000px}
 #sbPrint{display:none}
