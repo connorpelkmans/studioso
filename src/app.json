@@ -50,7 +50,8 @@
   "99-rv-cards.css",
   "99-present.css",
   "99-shop-home.css",
-  "99-settings.css"
+  "99-settings.css",
+  "99-launch.css"
  ],
  "js": [
   "00-core.js",
@@ -229,6 +230,7 @@
   "99-review-streaks.js",
   "99-release.js",
   "99-review-ask.js",
+  "99-launch.js",
   "96-semester.js",
   "96-school.js",
   "97-getting-started.js",

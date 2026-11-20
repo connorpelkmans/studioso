@@ -7,6 +7,7 @@ let syncError = false, syncRetryT = 0, syncRetryN = 0;
 // Saves that ran out of quick retries where there's no offline outbox (key -> {ref, data}); they're sent again later
 const syncLater = new Map();
 function syncRetryRun(){
+  if (window.__sbSyncPaused) return;
   syncLater.forEach((j, key) => { syncLater.delete(key); if (queue.has(key)) return; const e = {running: false, next: {data: j.data}, ref: j.ref}; queue.set(key, e); intended.set(key, j.data); runQueue(key, e); });
   flushOutbox();
 }
@@ -34,6 +35,7 @@ function syncLabel(){
     el.textContent = !sb ? (n ? "Offline, changes will sync" : "Offline") : !sbUser ? (n ? "Not signed in, changes kept here" : "Not signed in") : n ? "Offline, changes will sync" : "Connecting…";
   }
   else if (!cloud.on) el.textContent = "Saved on this device";
+  else if (syncPaused()) el.textContent = "Sync paused, update Studyboard";
   else if (queue.size) el.textContent = "Saving…";
   else if (syncError) el.textContent = syncRetryT || flushing || syncLater.size && queue.size ? "Not saved, retrying" : "Not saved";
   else el.textContent = "Saved";
@@ -49,11 +51,14 @@ function syncLabel(){
     else { side.setAttribute("aria-hidden", "true"); side.removeAttribute("role"); side.removeAttribute("tabindex"); delete side.dataset.act; side.removeAttribute("aria-label"); }
   }
 }
+// The update switch (99-launch.js): a version the server says is broken keeps every change in the outbox, unsent, until it's updated
+const syncPaused = () => !!window.__sbSyncPaused;
 function queueWrite(kind, id, data){
   if (demoDrawing) return;
-  if (cloud.on && cloud.noteBase && !inPreview()) { try { cloud.noteBase(kind, kind === "meta" ? "planner" : id); } catch(e) {} }
+  if (cloud.on && cloud.noteBase && !inPreview() && !syncPaused()) { try { cloud.noteBase(kind, kind === "meta" ? "planner" : id); } catch(e) {} }
   outboxAdd(kind, id, data);
   if (!cloud.on) return;
+  if (syncPaused()) { syncLabel(); return; }
   if (kind === "trash" && !cloud.trash) return;
   const key = kind + ":" + id;
   syncLater.delete(key);
@@ -252,7 +257,7 @@ function outboxDone(key, data){
 }
 let flushing = false;
 async function flushOutbox(){
-  if (flushing || !cloud.on) return;
+  if (flushing || !cloud.on || syncPaused()) return;
   const o = outboxGet(), keys = Object.keys(o);
   if (!keys.length) { if (syncError && !queue.size && !syncLater.size) { syncError = false; syncRetryN = 0; syncLabel(); } return; }
   flushing = true;

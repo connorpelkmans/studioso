@@ -432,7 +432,8 @@
   };
   const webBase = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : ((state.settings || {}).webUrl || "");
   const myFirst = () => { const n = String(S.name || (() => { try { return localStorage.getItem(NAMEK()) || ""; } catch (e) { return ""; } })() || "").trim(); return n ? n.split(/\s+/)[0].slice(0, 24) : ""; };
-  const linkFor = (kind, code, from) => { const b = webBase(); return b ? `${b}?${kind}=${encodeURIComponent(code)}${from ? "&from=" + encodeURIComponent(from) : ""}` : ""; };
+  // the sender's invite code (99-launch.js) rides along, so a friend who joins from it counts toward their free month of Pro
+  const linkFor = (kind, code, from) => { const b = webBase(), ref = window.SBINVITE ? SBINVITE.myCode() : ""; return b ? `${b}?${kind}=${encodeURIComponent(code)}${from ? "&from=" + encodeURIComponent(from) : ""}${ref ? "&ref=" + encodeURIComponent(ref) : ""}` : ""; };
   const fromParam = v => String(v || "").replace(/[<>"&\u0000-\u001f]/g, "").trim().slice(0, 24);
   // Remember the website address so links made in the desktop app point to it
   function rememberWebUrl(){
@@ -4602,7 +4603,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
+  window.SBGROUPS = {myName: () => myFirst(), known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
     // a shared deck, note or quiz link is waiting to open: the welcome sheet waits for it (01-accounts.js), so a first-time
     // visitor sees what was shared first, then the welcome and setup
     sharePending: () => { const p = takePending(); return !!p && (p.kind === "deck" || p.kind === "share") && !!window.SBSHARE && SBSHARE.can(); }};
