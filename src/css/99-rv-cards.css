@@ -46,6 +46,11 @@
 .rv-title{font:700 1rem/1.25 var(--display);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 /* the buttons sit along the bottom, with the due count or score beside them, so the title gets the whole width above */
 .rv-row{display:flex;align-items:center;gap:6px;margin-top:auto}
+/* when a taller card beside it stretches this one, most of the extra room goes above the title (3 parts) rather than between
+   the title and the buttons (1 part), so they stay close; the tallest card is unchanged */
+.rv-foot::before{content:"";flex:3 1 0;margin-bottom:-8px}
+.rv-foot>.rv-info{margin-top:0;flex:1 1 auto;justify-content:flex-start}
+.rv-foot>.rv-row{margin-top:0}
 .rv-sub{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px;color:var(--muted)}
 .rv-sub.mini,.rv-sub .mini{color:var(--muted);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .rv-due b{color:color-mix(in srgb,var(--accent,#2F6FE4) 85%,var(--ink))}
