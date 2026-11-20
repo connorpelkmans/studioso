@@ -394,7 +394,7 @@
     const busy = A.busy ? `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>${esc(A.busy)}</p>` : "";
     const err = A.err ? `<p class="pr-err" role="alert">${esc(A.err)}</p>` : "";
     const tgt = A.target || (A.deck ? A.deck.n * 60 : 300);
-    openSheet(`<form class="sheet pr-sheet">${bandHead("Practice a Presentation", IC.present, "#7A4FD6")}
+    openSheet(`<form class="sheet pr-sheet">${bandHead("Practice a Presentation", IC.present, "var(--accent)")}
       <div class="sheet-body">
         <div class="pr-src" role="group" aria-label="Where your slides are">
           <label class="pr-srcb">${IC.upload}<b>Upload</b><span>PowerPoint or PDF</span><input type="file" id="prFile" accept=".pptx,.ppsx,.pptm,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="sr"></label>
@@ -700,7 +700,9 @@
 
   // the course's colour on the main buttons (Plan, play, Next, Practice Again): a gradient of it, with text that stays readable
   function courseTint(el, cid){
-    const c = courseOf(cid), hex = c && /^#[0-9A-F]{6}$/i.test(c.color || "") ? c.color : "#7A4FD6";
+    const c = courseOf(cid), hex = c && /^#[0-9A-F]{6}$/i.test(c.color || "") ? c.color : "";
+    // no course (General): the theme's own accent and the text colour it pairs with
+    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); return; }
     const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
     const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     el.style.setProperty("--pc", hex);

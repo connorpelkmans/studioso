@@ -111702,7 +111702,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const busy = A.busy ? `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>${esc(A.busy)}</p>` : "";
     const err = A.err ? `<p class="pr-err" role="alert">${esc(A.err)}</p>` : "";
     const tgt = A.target || (A.deck ? A.deck.n * 60 : 300);
-    openSheet(`<form class="sheet pr-sheet">${bandHead("Practice a Presentation", IC.present, "#7A4FD6")}
+    openSheet(`<form class="sheet pr-sheet">${bandHead("Practice a Presentation", IC.present, "var(--accent)")}
       <div class="sheet-body">
         <div class="pr-src" role="group" aria-label="Where your slides are">
           <label class="pr-srcb">${IC.upload}<b>Upload</b><span>PowerPoint or PDF</span><input type="file" id="prFile" accept=".pptx,.ppsx,.pptm,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="sr"></label>
@@ -112008,7 +112008,9 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
 
   // the course's colour on the main buttons (Plan, play, Next, Practice Again): a gradient of it, with text that stays readable
   function courseTint(el, cid){
-    const c = courseOf(cid), hex = c && /^#[0-9A-F]{6}$/i.test(c.color || "") ? c.color : "#7A4FD6";
+    const c = courseOf(cid), hex = c && /^#[0-9A-F]{6}$/i.test(c.color || "") ? c.color : "";
+    // no course (General): the theme's own accent and the text colour it pairs with
+    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); return; }
     const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
     const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     el.style.setProperty("--pc", hex);
@@ -113321,7 +113323,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       const go = live && live.user_id !== me() ? {act: "prg-join", id: live.id, label: "Join Live"} : p ? {act: "pr-practice", id: p.id, label: "Practice"} : {act: "prg-add", id: it.id, label: d.path ? "Add" : "Add My Copy"};
       const meta = [`target ${X.fmt((Number(d.plan && d.plan.target) || 0) * 1000)}`, d.due ? `due ${fmtShort(d.due)}` : "", it.user_id === me() ? "shared by you" : `shared by ${it.author_name || "a member"}`].filter(Boolean).join(" · ");
       const nm = esc(it.title || "Presentation");
-      return `<article class="rv-card rv-pres prg-gcard" style="--c:${esc(c ? colorOf(cid) : "#7A4FD6")}">
+      return `<article class="rv-card rv-pres prg-gcard" style="--c:${esc(colorOf(cid || ""))}">
         <button class="rv-peek pr-peek" data-act="${go.act}" data-id="${esc(go.id)}" aria-label="${esc(go.label)}: ${nm}">
           <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(d.title || it.title || "")}</b><i></i><i></i></span></span>
           ${sp.length ? `<span class="pr-tl" aria-hidden="true">${strip}</span>` : ""}
@@ -113336,7 +113338,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       </article>`;
     }).join("")}</div>`;
   }
-  const courseColorOf = d => { const id = G() && G().matchCourse ? G().matchCourse(d.course) : ""; return id ? colorOf(id) : "#7A4FD6"; };
+  const courseColorOf = d => { const id = G() && G().matchCourse ? G().matchCourse(d.course) : ""; return colorOf(id || ""); };
   function fillSecs(){ document.querySelectorAll(".prg-gsec[data-prg]").forEach(el => { const b = el.querySelector(".prg-gbody"); if (!b) return; const h = secBody(el.dataset.prg); if (b.innerHTML !== h) b.innerHTML = h; }); }
   // Share a Presentation, from the group: pick one of yours
   function sharePick(gid){
@@ -114018,9 +114020,9 @@ function paneBody(gid){
     const pv = CMG.readPreview(r.preview), pic = pv && B.peekSvg ? B.peekSvg(pv, col) : `<span class="wbg-ph">Concept Map</span>`;
     const canOff = r.created_by && r.created_by === me(), act = have ? "grp-cm-open" : "grp-cm-add";
     return `<article class="cm-mapcard cmg-card" style="--c:${esc(col)}">
-      <button class="cm-peekb" data-act="grp-cm-open" data-id="${esc(r.id)}" data-g="${esc(gid)}" aria-label="${have ? "Open" : "Add and open"} ${esc(r.name)}">${pic}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${crs ? courseRingHtml(crs) : GENERAL_ICON}</span>${esc(crs ? courseLabel(crs) : "General")}</span><span class="cm-exam cm-grpb">Group</span></button>
+      <button class="cm-peekb" data-act="grp-cm-open" data-id="${esc(r.id)}" data-g="${esc(gid)}" aria-label="${have ? "Open" : "Add and open"} ${esc(r.name)}">${pic}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${crs ? courseRingHtml(crs) : GENERAL_ICON}</span>${esc(crs ? courseLabel(crs) : "General")}</span><span class="cm-exam cm-grpb">Group</span>${dots ? `<span class="cmg-avs cmg-avs-pk" aria-hidden="true" title="${esc(who)}">${dots}</span>` : ""}</button>
       <div class="cm-cfoot"><button class="cm-cinfo" data-act="grp-cm-open" data-id="${esc(r.id)}" data-g="${esc(gid)}"><b class="cm-ctitle">${esc(r.name)}</b></button>
-      <div class="cm-crow"><span class="mini cm-csub wbg-who"><span class="wbg-avs" aria-hidden="true">${dots}</span>${esc(who)}</span>
+      <div class="cm-crow cmg-row"><span class="mini cm-csub cmg-who"><span class="sr">${esc(who)}</span></span>
       <div class="cm-cacts"><details class="grp-more g2-mm grp-rep"><summary class="g2-dots" aria-label="More for ${esc(r.name)}">⋯</summary><div class="grp-menu"><button type="button" class="btn" data-act="grp-cm-report" data-id="${esc(r.id)}" data-g="${esc(gid)}">Report</button>${canOff ? `<button type="button" class="btn" data-act="grp-cm-off" data-id="${esc(r.id)}" data-g="${esc(gid)}">Take Off the Group</button>` : ""}</div></details><button class="btn small primary cm-openb" data-act="${act}" data-id="${esc(r.id)}" data-g="${esc(gid)}">${have ? "Open" : "Add"}</button></div></div></div>
     </article>`; }).join("")}</div>`;
 }
@@ -114113,6 +114115,22 @@ html[data-theme=dark] .cm-glive{color:#7FE3A6}
 .cm-gpanel{display:grid;gap:8px}.cm-gpeople{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .cm-gpriv{display:grid;gap:6px}
 .cmg-pv{background:radial-gradient(circle,color-mix(in srgb,var(--c) 30%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 12%,var(--surface)),color-mix(in srgb,var(--c) 4%,var(--surface)))}
+.cmg-card .cm-csub.cmg-who{display:flex;align-items:center;gap:8px;overflow:visible;-webkit-line-clamp:unset}
+.cmg-avs{display:inline-flex;flex:none;padding:2px 0 2px 2px}
+.cmg-avs-pk{position:absolute;left:10px;bottom:8px;z-index:2;pointer-events:none}
+/* the faces are on the map, so the title and the buttons share one line */
+.cmg-card .cm-cfoot{flex-direction:row;align-items:center;gap:8px}
+.cmg-card .cm-cinfo{flex:1 1 auto;min-width:0;margin-top:0}
+.cmg-card .cm-ctitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.cmg-card .cmg-row{flex:none;margin-top:0}
+.cmg-card .cmg-row .cm-csub{flex:0 0 0;width:0;overflow:hidden}
+.cmg-avs-pk>*{box-shadow:0 0 0 2px var(--surface),0 2px 6px rgb(0 0 0/.15)}
+.cmg-avs>*{flex:none;width:24px;height:24px;border-radius:50%;display:inline-grid;place-items:center;box-shadow:0 0 0 2px var(--surface);font:700 .66rem var(--display);color:#fff}
+.cmg-avs>.wbg-av{background:var(--c,#8A94A6)}
+.cmg-avs>*+*{margin-left:-7px}
+.cmg-avs .grp-av{width:24px;height:24px;font-size:.62rem;box-shadow:none;margin:0}
+.cmg-avs .wbg-face>*:not(.grp-av){max-width:24px;max-height:24px}
+.cmg-wt{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
 .cmg-pv .cm-peek{inset:8px;width:calc(100% - 16px);height:calc(100% - 16px)}
 .cm-grpb{background:#178A4A!important;color:#fff!important}
 `;

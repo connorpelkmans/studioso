@@ -346,7 +346,7 @@
       const go = live && live.user_id !== me() ? {act: "prg-join", id: live.id, label: "Join Live"} : p ? {act: "pr-practice", id: p.id, label: "Practice"} : {act: "prg-add", id: it.id, label: d.path ? "Add" : "Add My Copy"};
       const meta = [`target ${X.fmt((Number(d.plan && d.plan.target) || 0) * 1000)}`, d.due ? `due ${fmtShort(d.due)}` : "", it.user_id === me() ? "shared by you" : `shared by ${it.author_name || "a member"}`].filter(Boolean).join(" · ");
       const nm = esc(it.title || "Presentation");
-      return `<article class="rv-card rv-pres prg-gcard" style="--c:${esc(c ? colorOf(cid) : "#7A4FD6")}">
+      return `<article class="rv-card rv-pres prg-gcard" style="--c:${esc(colorOf(cid || ""))}">
         <button class="rv-peek pr-peek" data-act="${go.act}" data-id="${esc(go.id)}" aria-label="${esc(go.label)}: ${nm}">
           <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(d.title || it.title || "")}</b><i></i><i></i></span></span>
           ${sp.length ? `<span class="pr-tl" aria-hidden="true">${strip}</span>` : ""}
@@ -361,7 +361,7 @@
       </article>`;
     }).join("")}</div>`;
   }
-  const courseColorOf = d => { const id = G() && G().matchCourse ? G().matchCourse(d.course) : ""; return id ? colorOf(id) : "#7A4FD6"; };
+  const courseColorOf = d => { const id = G() && G().matchCourse ? G().matchCourse(d.course) : ""; return colorOf(id || ""); };
   function fillSecs(){ document.querySelectorAll(".prg-gsec[data-prg]").forEach(el => { const b = el.querySelector(".prg-gbody"); if (!b) return; const h = secBody(el.dataset.prg); if (b.innerHTML !== h) b.innerHTML = h; }); }
   // Share a Presentation, from the group: pick one of yours
   function sharePick(gid){
