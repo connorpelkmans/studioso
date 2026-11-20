@@ -152,7 +152,7 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ""}
 <link rel="apple-touch-icon" href="/website/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/website/assets/fonts.css">
 <link rel="stylesheet" href="/website/assets/site.css">
-<link rel="stylesheet" href="/website/assets/public.css?v=4">
+<link rel="stylesheet" href="/website/assets/public.css?v=6">
 ${(ld || []).map(jsonLd).join("\n")}
 </head>
 <body class="pub">
@@ -166,7 +166,7 @@ ${body}
   <p><a href="/flashcards">All flashcards</a> · <a href="/quizzes">All quizzes</a> · <a href="/website/privacy">Privacy</a> · <a href="/website/terms">Terms</a></p>
 </div></footer>
 <script src="/website/assets/site.js" defer></script>
-<script src="/website/assets/public.js" defer></script>
+<script src="/website/assets/public.js?v=3" defer></script>
 </body>
 </html>`;
 }
@@ -271,6 +271,18 @@ async function coursePage(env, section, slug, url, origin){
 }
 
 const LETTER = i => String.fromCharCode(65 + i);
+/* Getting a reader into Studyboard: one tap to share the page (the phone's share sheet, or the link copied), a call to action
+   that names the set after its content, and on phones the same button kept in view at the bottom while reading */
+const SHARE_IC = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
+const shareBtn = (url, title) => `<button type="button" class="pdh-btn pdh-share" data-pub-share data-url="${esc(url)}" data-title="${esc(title)}">${SHARE_IC}<span>Share</span></button>`;
+function setCta(kind, name, link){
+  const quiz = kind !== "deck";
+  return `<aside class="pub-cta pub-cta-set"><div><b>${quiz ? "Take this quiz free in Studyboard" : "Study this set free in Studyboard"}</b><span>${quiz
+    ? `Get scored as you go, see why each answer is right, and retake what you missed. ${esc(name)} is saved to your account.`
+    : `Spaced repetition brings each card of ${esc(name)} back just before you'd forget it. Add it in one tap and study on any device.`} Free, and it works in any browser.</span></div>
+    <a class="btn primary" href="${esc(link)}">${quiz ? "Take the Quiz Free" : "Study This Free"}</a></aside>
+    <div class="pub-stick" aria-hidden="false"><a class="btn primary" href="${esc(link)}">${quiz ? "Take This Quiz Free in Studyboard" : "Study This Free in Studyboard"}</a></div>`;
+}
 function quizAnswerText(q){
   const o = Array.isArray(q.options) ? q.options : [], c = Array.isArray(q.correct) ? q.correct : [];
   if (q.type === "short") return String(q.answer || "");
@@ -302,13 +314,14 @@ async function itemPage(env, section, slug, code, origin){
     const chips = [`<b>${esc(String(cards.length))}</b> ${esc(cards.length === 1 ? K.unit : K.unit + "s")}`, school && esc(school), row.sharer_name && "by " + esc(row.sharer_name), row.updated_at && "Updated " + esc(monthYear(row.updated_at))].filter(Boolean);
     body = `${crumbs(cr)}<header class="pdh pc${L.color}"><div class="pdh-band"><span class="pdh-kick">${esc(label || "General")} · Flashcards</span></div>
       <div class="pdh-low"><span class="pdh-ring" aria-hidden="true">${L.icon}</span><div class="pdh-txt"><h1>${esc(row.name)}</h1><p class="pdh-chips">${chips.map(x => `<span>${x}</span>`).join("")}</p></div></div>
-      <div class="pdh-acts"><a class="pdh-btn primary" href="#study" data-pub-study>Study Flashcards</a><a class="pdh-btn" href="${esc(appLink)}">Add to Studyboard</a></div></header>
+      <div class="pdh-acts"><a class="pdh-btn primary" href="${esc(appLink)}">Study This Free in Studyboard</a><a class="pdh-btn" href="#study" data-pub-study>Flip Through Here</a>${shareBtn(canonical, row.name)}</div></header>
       ${official ? `<p class="pub-official">A study set written by the Studyboard team for the topics in this course's published outline. It isn't official course material from ${esc(school || "the school")} and doesn't contain real exam questions.</p>` : ""}
       <section id="study" class="pub-study" hidden aria-label="Study these flashcards"><button type="button" class="pub-card" data-pub-card aria-live="polite"></button>
         <div class="pub-nav"><button type="button" class="btn" data-pub-prev>Previous</button><span data-pub-pos></span><button type="button" class="btn" data-pub-next>Next</button><button type="button" class="btn" data-pub-shuffle>Shuffle</button></div></section>
       <section class="pub-sec"><h2>Terms in this set (${cards.length})</h2>
       <ol class="pub-terms pcards">${cards.map(c => `<li data-front="${esc(plainText(c.front))}" data-back="${esc(plainText(c.back))}"><span class="t">${richText(c.front)}</span><span class="d">${richText(c.back)}</span></li>`).join("")}</ol>
-      ${pics ? `<p class="pub-official">This set also has ${esc(plural(pics, "picture card"))}. Picture cards come with the set when you add it to Studyboard, free.</p>` : ""}</section>`;
+      ${pics ? `<p class="pub-official">This set also has ${esc(plural(pics, "picture card"))}. Picture cards come with the set when you add it to Studyboard, free.</p>` : ""}</section>
+      ${setCta("deck", row.name, appLink)}`;
     ld = [{"@context": "https://schema.org", "@type": "Quiz", name: row.name, about: {"@type": "Thing", name: label || row.name}, educationalLevel: "University",
       ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name, ...(school ? {affiliation: {"@type": "CollegeOrUniversity", name: school}} : {})}} : {}), ...(school ? {sourceOrganization: {"@type": "CollegeOrUniversity", name: school}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
       hasPart: cards.slice(0, 500).map(c => ({"@type": "Question", eduQuestionType: "Flashcard", text: clip(plainText(c.front), 600), acceptedAnswer: {"@type": "Answer", text: clip(plainText(c.back), 1200)}}))}];
@@ -321,12 +334,13 @@ async function itemPage(env, section, slug, code, origin){
     const chips = [`<b>${esc(String(qs.length))}</b> ${esc(qs.length === 1 ? K.unit : K.unit + "s")}`, school && esc(school), row.sharer_name && "by " + esc(row.sharer_name), row.updated_at && "Updated " + esc(monthYear(row.updated_at))].filter(Boolean);
     body = `${crumbs(cr)}<header class="pdh pc${L.color}"><div class="pdh-band"><span class="pdh-kick">${esc(label || "General")} · Practice Quiz</span></div>
       <div class="pdh-low"><span class="pdh-ring" aria-hidden="true">${L.icon}</span><div class="pdh-txt"><h1>${esc(row.name)}</h1><p class="pdh-chips">${chips.map(x => `<span>${x}</span>`).join("")}</p></div></div>
-      <div class="pdh-acts"><a class="pdh-btn primary" href="${esc(appLink)}">Take the Quiz in Studyboard</a></div></header>
+      <div class="pdh-acts"><a class="pdh-btn primary" href="${esc(appLink)}">Take This Quiz Free in Studyboard</a>${shareBtn(canonical, row.name)}</div></header>
       ${qz.kind === "case" && qz.scenario ? `<section class="pub-sec pub-case"><h2>Case</h2><p>${esc(qz.scenario)}</p></section>` : ""}
       <section class="pub-sec"><h2>Questions (${qs.length})</h2><ol class="pub-qs">${qs.map((q, i) => {
         const o = Array.isArray(q.options) ? q.options : [];
         return `<li class="pub-q"><p class="stem">${richText(q.stem)}</p>${o.length && q.type !== "short" ? `<ol class="opts" type="A">${o.map(x => `<li>${richText(x)}</li>`).join("")}</ol>` : ""}
-          <details><summary>Show answer</summary><p class="ans"><b>${richText(quizAnswerText(q))}</b></p>${q.rationale ? `<p class="why">${richText(q.rationale)}</p>` : ""}</details></li>`; }).join("")}</ol></section>`;
+          <details><summary>Show answer</summary><p class="ans"><b>${richText(quizAnswerText(q))}</b></p>${q.rationale ? `<p class="why">${richText(q.rationale)}</p>` : ""}</details></li>`; }).join("")}</ol></section>
+      ${setCta("quiz", row.name, appLink)}`;
     ld = [{"@context": "https://schema.org", "@type": "Quiz", name: row.name, about: {"@type": "Thing", name: label || row.name}, educationalLevel: "University",
       ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name, ...(school ? {affiliation: {"@type": "CollegeOrUniversity", name: school}} : {})}} : {}), ...(school ? {sourceOrganization: {"@type": "CollegeOrUniversity", name: school}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
       hasPart: qs.slice(0, 300).map(q => {

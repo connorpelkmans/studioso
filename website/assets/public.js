@@ -62,3 +62,25 @@
     });
   }).catch(function () {});
 })();
+// Share: the phone's share sheet where there is one, else the link copied (the button says so for a moment)
+(function () {
+  "use strict";
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-pub-share]"); if (!b) return;
+    e.preventDefault();
+    var url = b.getAttribute("data-url") || location.href, title = b.getAttribute("data-title") || document.title;
+    var text = "Study " + title + " free on Studyboard";
+    var said = function (t) { var s = b.querySelector("span"); if (!s) return; var was = s.getAttribute("data-was") || s.textContent; s.setAttribute("data-was", was); s.textContent = t; setTimeout(function () { s.textContent = was; }, 1800); };
+    if (navigator.share) { navigator.share({title: title, text: text, url: url}).catch(function () {}); return; }
+    var copy = function () { var a = document.createElement("textarea"); a.value = url; a.style.position = "fixed"; a.style.opacity = "0"; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); said("Link Copied"); } catch (x) { said("Copy the address bar"); } a.remove(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function () { said("Link Copied"); }, copy); else copy();
+  });
+})();
+// The phone bar with the set's main button: in view once the set's own buttons have scrolled away
+(function () {
+  "use strict";
+  var bar = document.querySelector(".pub-stick"), acts = document.querySelector(".pdh-acts");
+  if (!bar) return;
+  if (!acts || !("IntersectionObserver" in window)) { bar.classList.add("on"); return; }
+  new IntersectionObserver(function (es) { es.forEach(function (e) { bar.classList.toggle("on", !e.isIntersecting && e.boundingClientRect.top < 0); }); }).observe(acts);
+})();

@@ -153,3 +153,20 @@
 }
 
 @media (prefers-reduced-motion:reduce){.pub-card,.pub-item{transition:none}}
+/* Share in a set's header, and the call to action after its content */
+.pdh-share svg{flex:none;margin-right:7px}
+.pub-cta-set{border-color:color-mix(in srgb,var(--c,#3B6FE0) 40%,var(--line));background:color-mix(in srgb,var(--c,#3B6FE0) 7%,var(--surface))}
+/* phones: the main button stays in view at the bottom while reading (sticky to the end of the page, so it never covers the footer) */
+.pub-stick{display:none}
+@media (max-width:640px){
+  .pub-stick{display:block;position:sticky;bottom:0;z-index:5;margin:18px -16px 0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--bg,#fff) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+  .pub-stick .btn{display:flex;justify-content:center;width:100%;min-height:48px;box-sizing:border-box}
+  .pdh .pdh-acts{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
+  .pdh .pdh-acts > .pdh-btn{min-width:0;width:auto;margin:0;white-space:normal;text-align:center;line-height:1.2}
+  .pdh .pdh-acts > .pdh-btn.primary{grid-column:1/-1}
+  .pdh .pdh-acts > .pdh-btn:only-child{grid-column:1/-1}
+  .pdh .pdh-acts > .pdh-btn.primary + .pdh-share:last-child{grid-column:1/-1}
+  /* shown once the set's own buttons have scrolled away, so it never sits under them */
+  .pub-stick{transform:translateY(110%);opacity:0;transition:transform .25s ease,opacity .25s ease;pointer-events:none}
+  .pub-stick.on{transform:none;opacity:1;pointer-events:auto}
+}
