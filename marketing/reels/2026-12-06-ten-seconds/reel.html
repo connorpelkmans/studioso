@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>8 seconds to plan finals week</title>
+<!--
+  Set 4 · retention device: a visible COUNTDOWN (people stay until zero).
+  0.0  huge timer already ticking + a challenge line; tasks fly in every 0.35 s and pile up (chaos rises)
+  4.9  with 3 s left, every task snaps into a neat week (Studyboard), the timer stops green: "done with 3 seconds left"
+  Music: dramatic.wav from 33.0 (hits every 2 s).
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;color:#fff;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(100% 60% at 50% 30%,#1C2E5C 0%,#0B1226 70%)}
+#txt{position:absolute;left:60px;right:60px;top:230px;text-align:center;z-index:20}
+.blk{display:inline;background:#fff;color:#000;font-weight:800;font-size:64px;line-height:1.36;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+#timer{position:absolute;left:0;right:0;top:430px;text-align:center;font-weight:800;font-size:250px;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+#sub{position:absolute;left:0;right:0;top:700px;text-align:center;font-weight:700;font-size:46px;opacity:0;color:#7CF0B5}
+.chip{position:absolute;left:0;top:0;padding:22px 30px;border-radius:24px;background:#fff;color:#0F1F3D;font-weight:700;font-size:44px;white-space:nowrap;box-shadow:0 16px 40px rgba(0,0,0,.45);display:flex;gap:16px;align-items:center}
+.chip i{width:22px;height:22px;border-radius:50%}
+#week{position:absolute;left:30px;right:30px;top:760px;height:860px;border-radius:40px;background:rgba(255,255,255,.06);opacity:0}
+#week .h{display:flex;align-items:center;gap:14px;padding:26px 32px;font-weight:700;font-size:40px}
+#week .h img{width:56px;height:56px;border-radius:14px}
+.col{position:absolute;left:30px;width:110px;font-weight:800;font-size:36px;opacity:.75}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="week"><div class="h"><img src="{{ROOT}}/icon-512.png" alt="">Studyboard · finals week</div></div>
+  <div id="timer">0:08</div>
+  <div id="sub">✓ planned with 3 seconds left</div>
+  <div id="chips"></div>
+  <div id="txt"><span class="blk">you have 8 seconds to plan finals week. go.</span></div>
+</div>
+<script src="{{ROOT}}/marketing/reels/_shared/kit.js"></script>
+<script>
+const C = ["#1E9E74", "#7A4FD6", "#E4513B", "#1F6FEB", "#F2A33A", "#D9468F"];
+const T = ["Bio midterm", "Chem lab report", "Calc problem set", "Essay draft", "Psych quiz", "Group project", "Read ch. 7–9", "Flashcards", "Work shift", "Office hours", "Laundry", "Sleep??"];
+// where each lands in the chaos pile (x, y, rotation), and in the week (day 0-6, slot)
+const PILE = T.map((_, i) => [80 + ((i * 263) % 560), 820 + ((i * 181) % 640), ((i * 37) % 30) - 15]);
+const DAY = [[1, 0], [3, 0], [0, 0], [4, 0], [2, 0], [5, 0], [0, 1], [2, 1], [6, 0], [1, 1], [6, 1], [3, 1]];
+$("chips").innerHTML = T.map((t, i) => `<div class="chip" id="c${i}"><i style="background:${C[i % 6]}"></i>${t}</div>`).join("");
+$("week").innerHTML += ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => `<div class="col" style="top:${128 + i * 104}px">${d}</div>`).join("");
+const SNAP = 4.9, END = 9.0;
+function render(t) {
+  // the timer: whole seconds left, a pulse on every tick, red under 4, green once planned
+  const left = Math.max(0, 8 - Math.floor(t)), stopped = t >= SNAP + .6;
+  const shown = stopped ? 3 : left;
+  $("timer").textContent = "0:0" + shown;
+  const tick = stopped ? 0 : 1 - P(t % 1, 0, .25);
+  $("timer").style.transform = `scale(${1 + .08 * tick})`;
+  $("timer").style.color = stopped ? "#7CF0B5" : (shown <= 4 ? "#FF5A47" : "#fff");
+  $("sub").style.opacity = P(t, SNAP + .6, SNAP + .8);
+  // the week board fades in as the tasks snap into it
+  $("week").style.opacity = P(t, SNAP - .1, SNAP + .3);
+  T.forEach((_, i) => {
+    const el = $("c" + i), t0 = -0.3 + i * .38, k = oBack(P(t, t0, t0 + .3), 1.2);
+    const from = [i % 2 ? 1300 : -700, 600 + (i * 97) % 900];
+    const [px, py, pr] = PILE[i];
+    // chaos: a slow drift while piled up
+    const drift = Math.sin(t * 2 + i) * 6;
+    let x = lerp(from[0], px, k), y = lerp(from[1], py, k) + drift, r = pr, s = 1;
+    // snap into the week grid (one column per day, two slots)
+    const ks = io(P(t, SNAP + i * .03, SNAP + .45 + i * .03));
+    if (ks > 0) { const [d, slot] = DAY[i]; x = lerp(x, 170 + slot * 420, ks); y = lerp(y, 760 + 110 + d * 104, ks); r = lerp(r, 0, ks); s = lerp(1, .8, ks); }
+    el.style.opacity = t >= t0 ? 1 : 0;
+    el.style.transform = `translate(${x}px,${y}px) rotate(${r}deg) scale(${s})`;
+    el.style.transformOrigin = "0 0";
+  });
+}
+window.render = render; window.END = END; window.COVER = 1.2;
+render(0);
+</script>
+</body>
+</html>

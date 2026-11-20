@@ -1,0 +1,1 @@
+{"vw": 360, "vh": 620, "dsf": 3, "tab": "board", "steps": [{"press": "Task Board"}, {"hold": 0.1}, {"type": "#qaIn", "text": "bio midterm thursday 2pm worth 25%", "slow": true}, {"hold": 1.3}, {"key": "Enter", "wait": 1.0}, {"hold": 2.6}]}

@@ -1,0 +1,47 @@
+<!-- SHORT CSS -->
+#gc{position:absolute;left:100px;width:880px;top:610px;overflow:hidden}
+#gc .band{display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,#1E9E74,#4DBF97);color:#fff;font:700 34px var(--display);letter-spacing:.06em;padding:22px 34px}
+#gc .band img{width:46px;height:46px;border-radius:11px}
+#gc .rows{padding:12px 34px 4px}
+#gc .r{display:flex;justify-content:space-between;font:500 40px var(--display);padding:12px 0;border-bottom:2px solid #EEF2F8}
+#gc .r b{font-weight:700}
+#gc .r .w{color:var(--muted);font-weight:500;margin-left:12px;font-size:32px}
+#gc .so{display:flex;justify-content:space-between;align-items:baseline;padding:14px 34px 6px;font:700 40px var(--display)}
+#gc .so .n{font:800 56px var(--display);color:var(--amber,#B86A00)}
+#gc .need{margin:10px 24px 26px;background:#FFF1EE;border-radius:22px;padding:20px 26px;font:600 38px/1.3 var(--display);text-align:center;opacity:0}
+#gc .need .big{display:block;font:800 150px/1.05 var(--display);color:var(--tomato);letter-spacing:-.03em}
+<!-- /SHORT CSS -->
+
+<!-- SHORT HTML -->
+<div class="scene navybg" id="sc-grade"><div class="card" id="gc">
+  <div class="band"><img src="{{ROOT}}/icon-512.png" alt="">BIO 101 · GRADES</div>
+  <div class="rows">
+    <div class="r"><span>Quizzes<span class="w">20%</span></span><b>62%</b></div>
+    <div class="r"><span>Midterm<span class="w">30%</span></span><b>48%</b></div>
+    <div class="r"><span>Labs<span class="w">15%</span></span><b>70%</b></div>
+    <div class="r"><span>Final exam<span class="w">35%</span></span><b style="color:var(--muted)">to come</b></div>
+  </div>
+  <div class="so"><span>So far</span><span class="n" id="so">0.0%</span></div>
+  <div class="need" id="need">To finish with 70%, you need<span class="big" id="big">94%</span>on the final.</div>
+</div></div>
+<!-- /SHORT HTML -->
+
+<!-- SHORT JS -->
+// Math: so far = (0.2*62 + 0.3*48 + 0.15*70) / 0.65 = 57.4%. For 70% overall: (70 - 37.3) / 0.35 = 93.4 -> 94% on the final.
+// Cold open on the punchline: the card is already on screen, the 94% slams in at 0.3 s with a thud. Then the reaction, the despair, and back to work; loops to the card.
+REEL = {
+  end: 8.0, cover: .45, capY: 270,
+  hook: {t1: 2.0, y: 290, lines: [[0, "I need <b>WHAT</b>"], [.3, "on the final?!"]]},
+  caps: [[2.0, 8.0, "Me checking what I need to <b>keep my scholarship</b>"]],
+  shots: [{t: 0, scene: "grade"}, {t: 2}, {t: 4}, {t: 6, label: "Day 1 of <b>actually studying</b>", labY: 1120}],
+  scenes: {grade: (lt, t) => {
+    if (t >= 2) return;
+    $("gc").style.opacity = 1; $("gc").style.transform = `scale(${1 + .08 * (1 - oCubic(P(lt, 0, .35)))})`;
+    $("so").textContent = "57.4%";
+    $("need").style.opacity = 1; $("need").style.transform = "";
+    const k = P(lt, .28, .4); $("big").style.display = "block"; $("big").style.opacity = k > 0 ? 1 : 0;
+    $("big").style.transform = `scale(${lerp(2.2, 1, oBack(P(lt, .3, .58), 2.2))})`;
+  }},
+  lockup: 6.7, lockText: "Grade Tracker · free",
+};
+<!-- /SHORT JS -->

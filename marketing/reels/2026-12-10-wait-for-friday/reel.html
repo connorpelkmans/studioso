@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wait for Friday</title>
+<!--
+  Set 4 · retention device: ESCALATION with a promised climax ("wait for friday").
+  0.0  Monday already on screen; a new day lands every 0.9 s, each worse (emoji faces degrade)
+  4.2  FRIDAY slams in red on the music's hit: "3 EXAMS"; 5.4 the turn: Studyboard flagged this week in October
+  Music: dramatic.wav from 8.8 (tension, hit lands at 4.2).
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;background:#111318;color:#fff;-webkit-font-smoothing:antialiased}
+#txt{position:absolute;left:60px;right:60px;top:230px;text-align:center;z-index:20}
+.blk{display:inline;background:#fff;color:#000;font-weight:800;font-size:64px;line-height:1.36;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.d{position:absolute;left:60px;right:60px;height:170px;border-radius:34px;background:#1E2230;display:flex;align-items:center;padding:0 40px;gap:30px;opacity:0}
+.d .n{width:150px;font-weight:900;font-size:50px;color:#8A93A8}
+.d .w{flex:1;font-weight:700;font-size:50px}
+.d .e{font-size:76px}
+#fri{background:#E4513B;height:300px}
+#fri .n{color:#fff}
+#fri .w{font-size:96px;font-weight:900;letter-spacing:-.02em}
+#sb{position:absolute;left:60px;right:60px;top:1570px;padding:28px 36px;border-radius:32px;background:#fff;color:#0F1F3D;display:flex;gap:24px;align-items:center;opacity:0}
+#sb img{width:80px;height:80px;border-radius:18px}
+#sb div{font-weight:700;font-size:40px;line-height:1.25}
+#sb span{color:#E4713B}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="d" id="d0" style="top:470px"><span class="n">MON</span><span class="w">1 quiz</span><span class="e">🙂</span></div>
+  <div class="d" id="d1" style="top:660px"><span class="n">TUE</span><span class="w">lab report due</span><span class="e">😐</span></div>
+  <div class="d" id="d2" style="top:850px"><span class="n">WED</span><span class="w">2 exams</span><span class="e">😬</span></div>
+  <div class="d" id="d3" style="top:1040px"><span class="n">THU</span><span class="w">essay + exam</span><span class="e">😵</span></div>
+  <div class="d" id="fri" style="top:1230px"><span class="n">FRI</span><span class="w">3 EXAMS</span><span class="e">💀</span></div>
+  <div id="sb"><img src="{{ROOT}}/icon-512.png" alt=""><div>Studyboard flagged this week<br><span>back in October.</span></div></div>
+  <div id="txt"><span class="blk">my finals week gets worse every day. wait for friday 💀</span></div>
+</div>
+<script src="{{ROOT}}/marketing/reels/_shared/kit.js"></script>
+<script>
+const DAYS = [-1, .9, 1.8, 2.7], FRI = 4.2, END = 7.6;
+function render(t) {
+  DAYS.forEach((t0, i) => { const el = $("d" + i); const k = P(t, t0, t0 + .28);
+    el.style.opacity = t0 < 0 ? 1 : clamp(k * 3); el.style.transform = `translateX(${t0 < 0 ? 0 : (1 - oBack(k)) * 140}px)`; });
+  const f = P(t, FRI - .12, FRI); $("fri").style.opacity = f > 0 ? 1 : 0;
+  $("fri").style.transform = `translateY(${(1 - oCubic(f)) * -300}px) scale(${1 + (1 - oBack(P(t, FRI, FRI + .3), 2)) * .25})`;
+  // everything above jolts once when Friday lands
+  const j = nudge(t, FRI, 18); DAYS.forEach((_, i) => { if (t >= FRI) $("d" + i).style.transform = `translateY(${j}px)`; });
+  const s = P(t, 5.4, 5.75); $("sb").style.opacity = s; $("sb").style.transform = `translateY(${(1 - oBack(s, 1.3)) * 80}px)`;
+}
+window.render = render; window.END = END; window.COVER = 4.6;
+render(0);
+</script>
+</body>
+</html>
