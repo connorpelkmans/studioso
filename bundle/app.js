@@ -13541,21 +13541,21 @@ function availForm(block, preset){
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Type</span><select name="type">${AV_ORDER.map(k => `<option value="${k}" ${k === b.type ? "selected" : ""}>${esc(AVAIL.TYPES[k].label)}</option>`).join("")}</select></label>
       <p class="mini av-help" id="avHelp" style="margin:-4px 0 8px">${esc(AV_HELP[b.type])}</p>
-      <div class="two">
+      <div class="av-tc">
         <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="80" value="${esc(b.title)}" autofocus placeholder="e.g. Hospital placement, Cafe shift, Soccer practice"></label>
-        <label class="f">Color<input type="color" name="color" value="${esc(/^#[0-9a-f]{6}$/i.test(color) ? color : AVAIL.TYPES[b.type].color)}"></label>
+        <label class="f av-col"><span class="lh">Color</span><input type="color" name="color" aria-label="Color" value="${esc(/^#[0-9a-f]{6}$/i.test(color) ? color : AVAIL.TYPES[b.type].color)}"></label>
       </div>
       <fieldset class="av-when"><legend>When</legend>
-        ${seg("mode", [["weekly", "Every week"], ["dates", "Specific dates"], ["one", "One day"]], mode0)}
+        ${seg("mode", [["weekly", "Every Week"], ["dates", "Specific Dates"], ["one", "One Day"]], mode0)}
         <div class="av-pane" data-pane="weekly">
           <div class="meet-days" role="group" aria-label="Days of the week" id="avDays">${WEEK_ORDER.map(d => `<button type="button" data-day="${d}" aria-pressed="${days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div>
           <div class="two">
-            <label class="f">Repeats<select name="every">${[1, 2, 3, 4].map(n => `<option value="${n}" ${b.every === n ? "selected" : ""}>${n === 1 ? "Every week" : "Every " + n + " weeks"}</option>`).join("")}</select></label>
-            <label class="f av-pat">Which weeks<select name="pat"></select></label>
+            <label class="f"><span class="lh">Repeats</span><select name="every">${[1, 2, 3, 4].map(n => `<option value="${n}" ${b.every === n ? "selected" : ""}>${n === 1 ? "Every week" : "Every " + n + " weeks"}</option>`).join("")}</select></label>
+            <label class="f av-pat"><span class="lh">Which Weeks</span><select name="pat"></select></label>
           </div>
           <div class="two">
-            <label class="f">Term starts <span class="hint">optional</span><input type="date" name="from" value="${esc(b.from)}"></label>
-            <label class="f">Term ends <span class="hint">optional</span><input type="date" name="until" value="${esc(b.until)}"></label>
+            <label class="f"><span class="lh">Term Starts <span class="hint">optional</span></span><input type="date" name="from" value="${esc(b.from)}"></label>
+            <label class="f"><span class="lh">Term Ends <span class="hint">optional</span></span><input type="date" name="until" value="${esc(b.until)}"></label>
           </div>
         </div>
         <div class="av-pane" data-pane="dates">

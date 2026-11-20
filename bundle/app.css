@@ -2657,6 +2657,18 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .segb .cs-pro{font-size:.58rem;padding:1px 5px;margin-left:5px;vertical-align:1px;line-height:1.3}
 /* Calendar Sync's tabs on a phone: shorter words, so all four fit */
 @media (max-width:520px){.cs-tabs .cs-long{display:none}.cs-sheet .cs-tabs.segb button{padding-left:7px;padding-right:7px}}
+/* Add Shift or Work: the title takes the row, the color is a small round swatch beside it; steady spacing in When */
+.av-form .av-tc{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end}
+.av-form .av-col{justify-items:center}
+.av-form .av-tc label.f.av-col input[type=color]{width:36px;height:36px;min-height:0;margin-bottom:4px;padding:0;border:0;border-radius:50%;overflow:hidden;cursor:pointer;background:none;box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--line);-webkit-appearance:none;appearance:none}
+.av-form .av-col input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+.av-form .av-col input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+.av-form .av-col input[type=color]::-moz-color-swatch{border:0;border-radius:50%}
+.av-form .av-col input[type=color]:focus-visible{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent);outline:none}
+.av-form .av-pane{display:grid;gap:14px}
+.av-form .av-pane .meet-days{margin:4px 0 0}
+.av-form .av-pane .two{margin:0}
+.av-form .av-pane[hidden]{display:none}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
