@@ -19380,7 +19380,7 @@ function viewQuizzes(){
         <span class="rv-stamp${best == null ? " new" : ""}" aria-hidden="true">${best == null ? "New" : best + "%"}</span>
         <span class="rv-count">${qz.kind === "case" ? "Case Study" : `${n} question${n === 1 ? "" : "s"}`}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title">${nm}</b></button>
+      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title" title="${nm}">${nm}</b></button>
       <div class="rv-row"><span class="mini rv-sub">${meta}</span>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-share-any" data-kind="quiz" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
@@ -19465,7 +19465,7 @@ function viewFlashcards(){
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
         <span class="rv-count">${st.total} card${st.total === 1 ? "" : "s"}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}"><b class="rv-title">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}</button>
+      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}"><b class="rv-title" title="${nm}">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}</button>
         <div class="rv-row"><div class="rv-sub"><span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
         <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span></div>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="fc-share" data-id="${esc(d.id)}" aria-label="Share ${nm}" title="Share" ${st.total ? "" : "disabled"}>${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button></div></div></div>
@@ -111351,7 +111351,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-crow{display:flex;align-items:center;gap:6px;margin-top:auto}
 .cm-csub{flex:1 1 auto;min-width:0;color:var(--muted);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cm-cinfo{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:0;border:0;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit;margin-top:auto}
-.cm-ctitle{font-size:1rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.cm-ctitle{font-size:1rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .cm-cinfo .mini{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cm-cacts{display:flex;align-items:center;gap:2px;flex:none}
 .cm-cacts .icon-btn{width:34px;height:34px;opacity:.7}
