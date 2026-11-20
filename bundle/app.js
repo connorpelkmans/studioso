@@ -35700,7 +35700,9 @@ hook("boot", boot);
     return {kind, code: x.length === 8 ? x.slice(0, 4) + "-" + x.slice(4) : ""};
   };
   const webBase = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : ((state.settings || {}).webUrl || "");
-  const linkFor = (kind, code) => { const b = webBase(); return b ? `${b}?${kind}=${encodeURIComponent(code)}` : ""; };
+  const myFirst = () => { const n = String(S.name || (() => { try { return localStorage.getItem(NAMEK()) || ""; } catch (e) { return ""; } })() || "").trim(); return n ? n.split(/\s+/)[0].slice(0, 24) : ""; };
+  const linkFor = (kind, code, from) => { const b = webBase(); return b ? `${b}?${kind}=${encodeURIComponent(code)}${from ? "&from=" + encodeURIComponent(from) : ""}` : ""; };
+  const fromParam = v => String(v || "").replace(/[<>"&\u0000-\u001f]/g, "").trim().slice(0, 24);
   // Remember the website address so links made in the desktop app point to it
   function rememberWebUrl(){
     if (!/^https:$/.test(location.protocol) || /^(localhost|127\.)/.test(location.hostname)) return;
@@ -38374,7 +38376,7 @@ hook("boot", boot);
       const wqBox = $("#grpWithQ"); if (wqBox && !changed) wqBox.addEventListener("change", () => { $("#grpUpd").hidden = wqBox.checked === withQ; });
       const cl = $("#grpCopyLink"); if (cl) cl.addEventListener("click", () => copyText(link, "Link copied"));
       const li = $("#grpLinkIn"); if (li) li.addEventListener("focus", () => li.select());
-      const sd = $("#grpSend"); if (sd) sd.addEventListener("click", () => sendText(d.name, `Study my Studyboard deck "${d.name}". Code: ${row.code}`, link));
+      const sd = $("#grpSend"); if (sd) sd.addEventListener("click", () => sendText(d.name, `${myFirst() ? myFirst() + " shared" : "Here are"} the flashcards "${d.name}" (${plural(d.cards.length, "card")}) on Studyboard. Study them free${link ? "" : ` with the code ${row.code}`}${link ? ` (or use the code ${row.code})` : ""}.`, link));
       $("#grpUpd").addEventListener("click", e => { const wq = !!($("#grpWithQ") || {}).checked; if (!$("#shRights")) { openSheet(`<form class="sheet">${head("Update Shared Copy")}<div class="sheet-body">${picNote(d, "link")}${rightsBox()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpUpd2">Update</button></div></form>`, () => { if (!rightsOk()) return false; doShare(d, wq, $("#grpUpd2")); return false; }); return; } if (!rightsOk()) return; doShare(d, wq, e.currentTarget); });
       $("#grpStop").addEventListener("click", () => confirmSheet("Stop Sharing?", stopText(d.name, row.code), "Stop Sharing", () => stopShare(row.code)));
     });
@@ -38487,10 +38489,11 @@ hook("boot", boot);
       previewSheet({p, sharer: r.sharer_name, isMine: r.is_mine, code: r.code, meta: {code: r.code, by: r.sharer_name, v: r.updated_at}});
     } catch(e) { codeSheet(code, e.message); }
   }
-  function groupPreviewSheet(pv, code){
+  function groupPreviewSheet(pv, code, from){
     // a group project's invite says so, and what a project team shares (an older server sends no kind: a study group)
     const proj = pv.kind === "project", what = proj ? "Group Project" : "Study Group";
     openSheet(`<form class="sheet">${head("Join a " + what)}<div class="sheet-body">
+      ${from && !pv.is_member ? `<p class="grp-inv-from"><b>${esc(fromParam(from))}</b> invited you to join</p>` : ""}
       <div class="grp-prev" style="--c:${esc(grpColor(pv))}"><span class="deck-tab">${esc(pv.course ? pv.course + " · " + what : what)}</span><b class="grp-prev-name">${esc(pv.name)}</b>
         <span class="mini">${plural(pv.member_count, "member")}${pv.owner_name ? ` · Started by ${esc(pv.owner_name)}` : ""}${proj && GTL.isDay(pv.project_due) ? ` · Due ${esc(fmtShort(pv.project_due))}` : ""}</span></div>
       <p style="margin:0">${pv.is_member ? `You're already in this ${proj ? "project" : "group"}.` : proj ? "Members see each other's display names, the project's tasks and who's doing them, files and links, meetings and the chat. You can leave any time." : "Members see each other's display names, shared decks, quizzes, deadlines, study sessions, weekly stats and the message board. You can leave any time."}</p></div>
@@ -38504,13 +38507,13 @@ hook("boot", boot);
       return false;
     });
   }
-  async function openGroupCode(code){
+  async function openGroupCode(code, from){
     loadingSheet("Join a Study Group");
     try {
       const pv = await api.preview(code);
       if (!dlg.open) return;
       if (!pv) { codeSheet(code, "That code didn't match a study group. The owner may have made a new one. Check it and try again."); return; }
-      groupPreviewSheet(pv, code);
+      groupPreviewSheet(pv, code, from);
     } catch(e) { codeSheet(code, e.message); }
   }
   function codeSheet(val, msg){
@@ -38694,7 +38697,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   function inviteSheet(g){
     if (!g) return;
     rememberWebUrl();
-    const link = linkFor("group", g.invite_code);
+    const me = myFirst(), link = linkFor("group", g.invite_code, me);
     const fk = freeGrpKind(g);
     if (fk === "upgrade" && PLAN.limitNote && (S.members[g.id] || []).length >= freeGrpLim("groupMembers"))
       setTimeout(() => PLAN.limitNote("group", `${g.name} has ${freeGrpLim("groupMembers")} members, the most a free group holds. Upgrade to Pro for groups of up to ${PLAN.proLimits().groupMembers}.`, {reason: `Pro groups hold up to ${PLAN.proLimits().groupMembers} members.`}), 300);
@@ -38704,7 +38707,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
       <div class="grp-code-big" aria-label="Invite code">${esc(g.invite_code)}</div>
       ${link ? `<div class="grp-link"><input type="text" readonly value="${esc(link)}" aria-label="Invite link" id="grpInvLink"><button type="button" class="btn small" id="grpInvCopy">Copy Link</button></div>` : `<p class="mini" style="margin:0">They can type the code in Studyboard: Groups, then Enter a Code.</p>`}</div>
       <div class="sheet-foot"><button type="button" class="btn" id="grpInvCode">Copy Code</button><span class="spacer"></span><button type="button" class="btn primary" id="grpInvSend">Send Invite</button></div></div>`);
-    const text = `Join my ${isProj(g) ? "group project" : "study group"} "${g.name}" on Studyboard. Code: ${g.invite_code}`;
+    const what = isProj(g) ? "a group project" : "a study group", forC = g.course ? ` for ${g.course}` : "";
+    const why = isProj(g) ? "We split the tasks, share files and see who's done what." : "We share flashcards and quizzes and keep each other on track.";
+    const text = `${me ? me + " invited you" : "You're invited"} to ${g.name}, ${what}${forC} on Studyboard. ${why} Join free${link ? "" : ` with the code ${g.invite_code}`}${link ? ` (or use the code ${g.invite_code})` : ""}.`;
     const ic = $("#grpInvCopy"); if (ic) ic.addEventListener("click", () => copyText(link, "Invite link copied"));
     $("#grpInvCode").addEventListener("click", () => copyText(g.invite_code, "Code copied"));
     $("#grpInvSend").addEventListener("click", () => sendText(isProj(g) ? "Group Project Invite" : "Study Group Invite", text, link));
@@ -39101,7 +39106,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (pub) { if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} SBSHARE.open(p.code); } }
     else if (p) {
       if (online()) {
-        if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} if (p.kind === "group") openGroupCode(p.code); else openDeckCode(p.code); }
+        if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} if (p.kind === "group") openGroupCode(p.code, p.from); else openDeckCode(p.code); }
       } else {
         const local = (!sbConfig() && sbLocalOnly()) || inPreview();
         // Signed out: ask once, after sign-in has had a moment to finish, and keep the invite so it opens once you're in
@@ -39889,11 +39894,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
   hook("boot", () => {
     try {
-      const u = new URL(location.href), dk = u.searchParams.get("deck"), gp = u.searchParams.get("group"), sh = u.searchParams.get("shared");
+      const u = new URL(location.href), dk = u.searchParams.get("deck"), gp = u.searchParams.get("group"), sh = u.searchParams.get("shared"), fr = fromParam(u.searchParams.get("from"));
       if (dk || gp || sh) {
         const {code} = normCode(dk || gp || sh);
-        if (code) localStorage.setItem(PEND, JSON.stringify({kind: dk ? "deck" : sh ? "share" : "group", code, at: Date.now()}));
-        u.searchParams.delete("deck"); u.searchParams.delete("group"); u.searchParams.delete("shared");
+        if (code) localStorage.setItem(PEND, JSON.stringify(Object.assign({kind: dk ? "deck" : sh ? "share" : "group", code, at: Date.now()}, fr ? {from: fr} : {})));
+        u.searchParams.delete("deck"); u.searchParams.delete("group"); u.searchParams.delete("shared"); u.searchParams.delete("from");
         history.replaceState(history.state, "", u.pathname + u.search + u.hash);
       }
     } catch(e) {}
@@ -113557,7 +113562,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       case "pr-friend": remoteStart("friend"); return true;
       case "pr-join-code": { const w = window.open(SITE() + "/present-remote.html", "_blank", "noopener"); if (!w) location.href = SITE() + "/present-remote.html"; return true; }
       case "pr-fr-copy": if (RM && RM.url) { try { navigator.clipboard.writeText(`Join my presentation rehearsal: ${RM.url} (code ${RM.code})`).then(() => toast("Link copied"), () => toast("Couldn't copy it. The code is " + RM.code)); } catch (e) { toast("The code is " + RM.code); } } return true;
-      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
+      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Help me rehearse${(() => { const x = STG && STG.p ? (STG.p.name || STG.p.title || "") : ""; return x ? ` "${x}"` : " my presentation"; })()} on Studyboard: you see the slides, the clock and my notes on your phone, and can run the slides for me. No account needed. Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
       case "pr-remote-hide": if (RM) { RM.hide = true; remotePanel(); } return true;
       case "pr-remote-off": remoteEnd(); remotePanel(); return true;
     }

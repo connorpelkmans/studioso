@@ -56,7 +56,7 @@ function stubInit(opts){
       Object.assign(r, {last_correct: a.p_correct, last_total: a.p_total, attempts: r.attempts + 1}); if (a.p_shown) r.shown = a.p_shown; return {data: null}; },
     set_quiz_score_shown(a) { if (a.p_shown === "none") DB.group_quiz_scores = DB.group_quiz_scores.filter(x => !(x.item_id === a.p_item && x.user_id === me.id));
       else DB.group_quiz_scores.filter(x => x.item_id === a.p_item && x.user_id === me.id).forEach(x => { x.shown = a.p_shown; }); return {data: null}; },
-    group_preview(a) { const g = DB.study_groups.find(x => x.invite_code === a.p_code); return {data: g ? [{id: g.id, name: g.name, course: g.course, member_count: 3, is_member: true, kind: g.kind}] : []}; },
+    group_preview(a) { const g = DB.study_groups.find(x => x.invite_code === a.p_code); return {data: g ? [{id: g.id, name: g.name, course: g.course, member_count: 3, is_member: !sessionStorage.getItem("__guest"), owner_name: "Connor", kind: g.kind}] : []}; },
     create_task_list(a) { const r = {id: id("L"), group_id: a.p_group, title: String(a.p_title).trim(), course_code: a.p_course || "", created_by: me.id, created_at: nowIso(), archived: false}; DB.group_task_lists.push(r); return {data: r}; },
     add_group_task(a) { const l = DB.group_task_lists.find(x => x.id === a.p_list); if (!l) return E("That list isn't in one of your groups");
       const r = {id: id("T"), list_id: l.id, group_id: l.group_id, title: String(a.p_title).trim(), notes: a.p_notes || "", status: "todo", assignee_id: a.p_assignee || null, due_at: a.p_due || null, priority: a.p_priority || null,
@@ -204,6 +204,13 @@ async function quizShare(browser){
   await page.evaluate(() => { const g = window.__DB.study_groups.find(x => x.id === "g1"); g.course = "CHEM 110"; });
   await act(page, "grp-page"); await openGroup(page, "g1");
   ok(await gcol() === "#8E4EC6", "with no matching course, the owner's colour: " + await gcol());
+  // the invite says who's inviting, what the group is and why to join, with the code (and the link, when there is one)
+  await page.evaluate(() => { window.__shared = null; navigator.share = d => { window.__shared = d; return Promise.resolve(); }; });
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "grp-invite"; b.dataset.id = "g1"; document.body.appendChild(b); b.click(); b.remove(); });
+  await sheet(page, "#grpInvSend"); await page.click("#grpInvSend"); await page.waitForTimeout(200);
+  const inv = await page.evaluate(() => window.__shared);
+  ok(inv && /^Connor invited you to Bio Squad, a study group for CHEM 110 on Studyboard\. We share flashcards and quizzes and keep each other on track\. Join free/.test(inv.text) && /ABCD-EFGH/.test(inv.text), "the invite says who, what and why, with the code: " + (inv && inv.text));
+  await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
   await page.evaluate(() => document.querySelector('[data-act="grp-edit"]').click()); await sheet(page, ".gc-grid");
   ok(await page.getAttribute('dialog .gc-grid [data-gc="#8E4EC6"]', "aria-pressed") === "true", "Edit Group starts on the saved colour");
   ok(await page.isVisible("dialog .gc-free") && !(await page.isVisible("dialog .gc-auto")), "with a course you don't have, the owner picks any colour");
@@ -519,13 +526,26 @@ async function examChipAndMenus(browser){
   await ctx.close();
 }
 
+// Opening someone's invite link (?group=CODE&from=Maya): the join screen says who invited you
+async function inviteLink(browser){
+  const {ctx, page, errs} = await boot(browser, 390, {me: "u2"});
+  await page.evaluate(() => sessionStorage.setItem("__guest", "1"));
+  await page.goto("file://" + file + "?group=ABCD-EFGH&from=Maya"); await page.waitForTimeout(1800);
+  await page.waitForSelector("dialog[open] .grp-inv-from", {timeout: 8000});
+  ok(/Maya invited you to join/.test(await txt(page, "dialog[open] .grp-inv-from")), "the invite link's join screen says who invited you");
+  ok(!/from=/.test(await page.evaluate(() => location.search)), "and the from= is taken off the address");
+  await page.screenshot({path: path.join(shots, "invite-join.png")});
+  ok(!errs.length, "no errors (invite link): " + errs.join(" | "));
+  await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch({executablePath});
   try {
     for (const w of [1280, 390]) { await studyGroup(browser, w); await projectGroup(browser, w); }
     await quizShare(browser);
     await examChipAndMenus(browser);
-    await memberView(browser); await overdueAndSetup(browser); await createProject(browser); await hideFeatures(browser); await fromTemplate(browser);
+    await memberView(browser); await overdueAndSetup(browser); await createProject(browser); await hideFeatures(browser); await fromTemplate(browser); await inviteLink(browser);
   } finally { await browser.close(); }
   console.log(`groupkinds.e2e.js: ${checks} checks passed. Screenshots in ${shots}`);
 })().catch(e => { console.error("FAILED:", e.message.split("\n")[0], (e.stack.match(/groupkinds.e2e.js:\d+/g) || []).join(" ")); process.exit(1); });

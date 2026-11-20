@@ -3909,6 +3909,9 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 /* the Shared tab's count: how many whiteboards and concept maps are shared, of how many the group can have */
 .grp-room{margin:4px 2px 0;color:var(--muted)}
 .grp-room.is-full{color:color-mix(in srgb,#C2410C 75%,var(--ink));font-weight:600}
+/* who invited you, above the group you're joining */
+.grp-inv-from{margin:0 0 2px;font-size:1rem;color:var(--ink)}
+.grp-inv-from b{font-weight:800}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}

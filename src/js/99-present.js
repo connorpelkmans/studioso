@@ -1727,7 +1727,7 @@
       case "pr-friend": remoteStart("friend"); return true;
       case "pr-join-code": { const w = window.open(SITE() + "/present-remote.html", "_blank", "noopener"); if (!w) location.href = SITE() + "/present-remote.html"; return true; }
       case "pr-fr-copy": if (RM && RM.url) { try { navigator.clipboard.writeText(`Join my presentation rehearsal: ${RM.url} (code ${RM.code})`).then(() => toast("Link copied"), () => toast("Couldn't copy it. The code is " + RM.code)); } catch (e) { toast("The code is " + RM.code); } } return true;
-      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
+      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Help me rehearse${(() => { const x = STG && STG.p ? (STG.p.name || STG.p.title || "") : ""; return x ? ` "${x}"` : " my presentation"; })()} on Studyboard: you see the slides, the clock and my notes on your phone, and can run the slides for me. No account needed. Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
       case "pr-remote-hide": if (RM) { RM.hide = true; remotePanel(); } return true;
       case "pr-remote-off": remoteEnd(); remotePanel(); return true;
     }
