@@ -447,7 +447,7 @@ function chipHtml(o){
   const a = ACC.get(g.bid), k = a ? new Set(a.ids.concat(me())).size : 0, on = !!(L && L.bid === g.bid && L.on) && navigator.onLine !== false && online();
   const waiting = Q[g.bid] && Q[g.bid].q.length, ed = editingNow(g.gid);
   const tip = !on ? "Offline: your changes stay here and are sent when you're back online" : ed.length ? `${ed.join(", ")} ${ed.length === 1 ? "is" : "are"} editing` : "Who has this map";
-  return `<button type="button" class="btn small cm-glive${on ? " on" : ""}" data-cm="g-who" title="${esc(tip)}" aria-label="${esc((on ? "Live with " : "Offline, shared with ") + (g.gn || "your group") + (k ? `, ${k} ${k === 1 ? "person" : "people"}` : "") + (ed.length ? `. ${tip}` : ""))}"><span class="dot" aria-hidden="true"></span><span class="cm-ml">${on ? "Live with" : "Offline ·"} ${esc(cut(g.gn || "your group", 30))}</span><span class="cm-ms">${on ? "Live" : "Offline"}</span>${k ? `<span class="cm-gn"> · ${k}</span>` : ""}${waiting && !on ? `<span class="cm-gwait"> · ${waiting} to send</span>` : ""}${ed.length && on ? `<span class="cm-ged"> · ${esc(ed[0])}${ed.length > 1 ? ` +${ed.length - 1}` : ""} editing</span>` : ""}</button>`;
+  return `<button type="button" class="btn small cm-glive${on ? " on" : ""}" data-cm="g-who" title="${esc(tip)}" aria-label="${esc((on ? "Live with " : "Offline, shared with ") + (g.gn || "your group") + (k ? `, ${k} ${k === 1 ? "person" : "people"}` : "") + (ed.length ? `. ${tip}` : ""))}"><span class="dot" aria-hidden="true"></span><span class="cm-ml">${on ? "Live with" : "Offline ·"} ${esc(cut(g.gn || "your group", 30))}</span><span class="cm-ms">${on ? "Live" : "Offline"}</span>${k ? `<span class="cm-gn"><span class="cm-gsep"> · </span>${k}</span>` : ""}${waiting && !on ? `<span class="cm-gwait"> · ${waiting} to send</span>` : ""}${ed.length && on ? `<span class="cm-ged"> · ${esc(ed[0])}${ed.length > 1 ? ` +${ed.length - 1}` : ""} editing</span>` : ""}</button>`;
 }
 function toolsChip(){ const M = B.state(); if (!B.shown() || !M.el) return; const el = M.el.querySelector(".cm-glive"), h = chipHtml(M.own); if (el && h) { const t = document.createElement("div"); t.innerHTML = h; el.replaceWith(t.firstElementChild); } }
 hook("cm-tools", o => chipHtml(o));
@@ -478,9 +478,11 @@ function panelHtml(o){
   if (M.gRights && g) return `<div class="cm-gpanel"><p style="margin:0"><b>Pictures on a group map</b> <span class="mini">Everyone in ${esc(g.gn || "the group")} sees the pictures on this map. Only add pictures you took or made yourself, or have permission to share.</span></p>${G() && G().rightsBox ? G().rightsBox("pic") : ""}<div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="g-rights-x">Cancel</button><button type="button" class="btn small primary" data-cm="g-rights-ok">Continue</button></div></div>`;
   if (M.gWho && g && !M.sel && !M.selE) {
     const a = ACC.get(g.bid), ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me())), ed = editingNow(g.gid);
-    return `<div class="cm-gpanel"><div class="cm-row cm-ttl"><b>Shared with ${esc(g.gn || "your study group")}</b><span class="mini">Live: what anyone here changes shows up for everyone as it happens.${ed.length ? ` ${esc(ed.join(", "))} ${ed.length === 1 ? "is" : "are"} editing now.` : ""}</span><span class="spacer"></span>${G() && G().openBoards ? `<button type="button" class="btn small" data-cm="g-go">Go to Group</button>` : ""}<button type="button" class="icon-btn cm-pclose" data-cm="g-who-x" aria-label="Done" title="Done">${CLOSE}</button></div>
+    // the title with Done beside it, what Live means, who has it, and Go to Group at the end
+    return `<div class="cm-gpanel"><div class="cm-gp-h"><b>Shared with ${esc(g.gn || "your study group")}</b><button type="button" class="icon-btn cm-pclose" data-cm="g-who-x" aria-label="Done" title="Done">${CLOSE}</button></div>
+      <p class="mini cm-gp-live">Live: what anyone here changes shows up for everyone as it happens.${ed.length ? ` ${esc(ed.join(", "))} ${ed.length === 1 ? "is" : "are"} editing now.` : ""}</p>
       <ul class="wbg-people cm-gpeople">${ids.map(id => `<li>${faceOf(g.gid, id)}${esc(memberName(g.gid, id))}</li>`).join("")}</ul>
-      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Shared tab. Undo only takes back your own changes. Deleting your copy only removes yours.</p></div>`;
+      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Shared tab. Undo only takes back your own changes. Deleting your copy only removes yours.</p>${G() && G().openBoards ? `<div class="cm-gp-acts"><button type="button" class="btn small" data-cm="g-go">Go to Group</button></div>` : ""}</div>`;
   }
   return "";
 }
@@ -561,7 +563,7 @@ async function makeLive(cid, mid, gid, gname, drop){
 async function addCopy(row, gname, gid){
   const have = byBid(row.id); if (have) return have;
   const G0 = G(), grp = (G0 && G0.groups ? G0.groups() : []).find(x => x.id === gid) || {};
-  const cs = Object.values(state.courses || {}).filter(c => c && !c.archived);
+  const cs = Object.values(state.courses || {}).filter(c => c && !c.archived && !c.gen);
   let cid = (G0 && G0.matchCourse && (G0.matchCourse(row.course) || G0.matchCourse(grp.course))) || (cs.length === 1 ? cs[0].id : "");
   if (!cid && cs.length) cid = await pickCourse(cs, row);
   if (cid === null) return null;
@@ -707,7 +709,11 @@ html[data-theme=dark] .cm-glive{color:#7FE3A6}
 .cm-node.cm-peer .cm-shape,.cm-node.cm-peer rect:first-child{stroke:var(--peer)!important;stroke-width:3.2px!important}
 .cm-node.cm-peer{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--peer) 55%,transparent))}
 .cm-peertag{font:700 11px var(--display,system-ui);fill:var(--peer);paint-order:stroke;stroke:var(--surface);stroke-width:3px;pointer-events:none}
-.cm-gpanel{display:grid;gap:8px}.cm-gpeople{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.cm-gpanel{display:grid;gap:8px}
+.cm-gp-h{display:flex;align-items:center;gap:10px}.cm-gp-h > b{flex:1 1 auto;min-width:0;font-size:1.05rem}
+.cm-gp-live{margin:0}
+.cm-gp-acts{display:flex;justify-content:flex-end;margin-top:2px}
+@media (max-width:640px){.cm-gp-acts > .btn{flex:1 1 auto;justify-content:center}}.cm-gpeople{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .cm-gpriv{display:grid;gap:6px}
 .cmg-pv{background:radial-gradient(circle,color-mix(in srgb,var(--c) 30%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 12%,var(--surface)),color-mix(in srgb,var(--c) 4%,var(--surface)))}
 .cmg-card .cm-csub.cmg-who{display:flex;align-items:center;gap:8px;overflow:visible;-webkit-line-clamp:unset}

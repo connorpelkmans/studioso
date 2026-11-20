@@ -107,7 +107,7 @@
   window.SBAllDot = (sel, o) => {
     if (!state.courses || !o || !(o.value === "all" || /^all\b/i.test((o.textContent || "").trim()))) return "";
     if (![...sel.options].some(x => state.courses[x.dataset.course || x.value])) return "";
-    const cs = Object.values(state.courses).filter(c => c && c.color).slice(0, 6); if (!cs.length) return "";
+    const cs = Object.values(state.courses).filter(c => c && c.color && !c.gen).slice(0, 6); if (!cs.length) return "";
     return "conic-gradient(" + cs.map((c, i, a) => c.color + " " + Math.round(i / a.length * 100) + "% " + Math.round((i + 1) / a.length * 100) + "%").join(",") + ")";
   };
   window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: effPref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};

@@ -86,10 +86,10 @@ function SEED(){
 
     // Focus timer: routines and Focus History
     await act(page, "pomo-open"); await page.waitForTimeout(400);
-    ok(await page.locator('#pomoDlg .pr-chip[data-act="pro-rt"]').count() === 3, "the Focus timer offers three routines");
-    await page.click('#pomoDlg .pr-chip[data-id="deep"]'); await page.waitForTimeout(300);
+    ok(await page.locator('#pomoDlg .rt-chip[data-act="pro-rt"]').count() === 3, "the Focus timer offers three routines");
+    await page.click('#pomoDlg .rt-chip[data-id="deep"]'); await page.waitForTimeout(300);
     ok(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("coursework:v2")).settings; return s.pomo.focus === 50 && s.pomo.every === 3 && s.routine === "deep"; }), "Deep Work sets 50 minute sessions, a long break after 3");
-    ok(await page.locator('#pomoDlg .pr-chip.on[data-id="deep"]').count() === 1 && /50:00/.test(await page.locator("#pomoDlg .pomo-time").textContent()), "the dial shows 50:00 and Deep Work is marked");
+    ok(await page.locator('#pomoDlg .rt-chip.on[data-id="deep"]').count() === 1 && /50:00/.test(await page.locator("#pomoDlg .pomo-time").textContent()), "the dial shows 50:00 and Deep Work is marked");
     await page.click('#pomoDlg [data-act="pro-rt-new"]'); await page.waitForTimeout(300);
     await page.fill('#dlg input[name="name"]', "Reading"); await page.fill('#dlg input[name="focus"]', "35");
     await page.click('#dlg [data-submit]'); await page.waitForTimeout(300);
@@ -185,17 +185,17 @@ function SEED(){
     await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
     await act(p3, "pomo-open"); await p3.waitForTimeout(400);
     const nOwn = await p3.evaluate(() => ((JSON.parse(localStorage.getItem("coursework:v2")).settings || {}).routines || []).length);
-    ok(await p3.locator('#pomoDlg .pr-chip:is([data-id="classic"],[data-id="deep"],[data-id="cram"]) .pro-badge').count() === 0 && await p3.locator('#pomoDlg .pr-chip.pr-new .pro-badge').count() === (nOwn ? 1 : 0), "free: Classic, Deep Work and Exam Cram are free, and so is one routine of your own");
-    await p3.click('#pomoDlg .pr-chip[data-id="deep"]'); await p3.waitForTimeout(400);
-    ok(await p3.locator("#dlg[open] .plan-sheet").count() === 0 && await p3.locator('#pomoDlg .pr-chip.on[data-id="deep"]').count() === 1, "free: Deep Work just switches the timer to it");
+    ok(await p3.locator('#pomoDlg .rt-chip:is([data-id="classic"],[data-id="deep"],[data-id="cram"]) .pro-badge').count() === 0 && await p3.locator('#pomoDlg .rt-chip.pr-new .pro-badge').count() === (nOwn ? 1 : 0), "free: Classic, Deep Work and Exam Cram are free, and so is one routine of your own");
+    await p3.click('#pomoDlg .rt-chip[data-id="deep"]'); await p3.waitForTimeout(400);
+    ok(await p3.locator("#dlg[open] .plan-sheet").count() === 0 && await p3.locator('#pomoDlg .rt-chip.on[data-id="deep"]').count() === 1, "free: Deep Work just switches the timer to it");
     if (!nOwn) {
-      await p3.click('#pomoDlg .pr-chip.pr-new'); await p3.waitForTimeout(400);
+      await p3.click('#pomoDlg .rt-chip.pr-new'); await p3.waitForTimeout(400);
       ok(await p3.locator('#dlg[open] input[name="name"]').count() === 1, "free: the first routine of your own can be made without Pro");
       await p3.fill('#dlg input[name="name"]', "Free One"); await p3.click('#dlg [data-submit]'); await p3.waitForTimeout(400);
       if (!(await p3.locator("#pomoDlg").evaluate(d => d.open))) { await act(p3, "pomo-open"); await p3.waitForTimeout(400); }
-      ok(await p3.locator('#pomoDlg .pr-chip.on .pro-badge').count() === 0 && await p3.locator('#pomoDlg .pr-chip.pr-new .pro-badge').count() === 1, "free: it's saved and in use, and New now carries the PRO badge");
+      ok(await p3.locator('#pomoDlg .rt-chip.on .pro-badge').count() === 0 && await p3.locator('#pomoDlg .rt-chip.pr-new .pro-badge').count() === 1, "free: it's saved and in use, and New now carries the PRO badge");
     }
-    await p3.click('#pomoDlg .pr-chip.pr-new'); await p3.waitForTimeout(400);
+    await p3.click('#pomoDlg .rt-chip.pr-new'); await p3.waitForTimeout(400);
     ok(await p3.locator('#dlg[open] input[name="name"]').count() === 0 && await p3.locator('#dlg[open] [data-act="pro-rt-more"]').count() === 1, "free: a second routine of your own isn't offered, Get More With Pro is");
     await p3.click('#dlg [data-act="pro-rt-more"]'); await p3.waitForTimeout(400);
     ok(await p3.locator("#dlg[open] .plan-sheet").count() === 1, "free: Get More With Pro opens the Pro sheet");

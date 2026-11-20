@@ -117,24 +117,33 @@ function weakSheet(deckIds){
 
 /* Case studies */
 const CASE_STYLES = [
-  ["auto", "Match my course", ""],
-  ["general", "General scenario", "Case style: a realistic scenario from the course's own field that unfolds in stages, with a mix of single best answer, select-all-that-apply and put-in-order questions about what matters, why, and what to do next."],
-  ["business", "Business case", "Case style: a business case (a company, a market, a decision with numbers such as revenue, costs, timelines and stakeholder views). Questions ask the student to identify the key issue, analyze the data, weigh options and trade-offs, recommend an action and evaluate the result. Mix single best answer with a few short-answer questions."],
-  ["legal", "Legal fact pattern", "Case style: a legal fact pattern (parties, events, key facts, procedural history). Questions ask for the issue, the governing rule, how it applies to the facts, the strongest argument for each side and the likely outcome. Mix single best answer with short-answer issue-spotting questions; rationales state the rule and apply it."],
-  ["clinical", "Clinical vignette (not nursing)", "Case style: a clinical vignette for a health science, medicine, pharmacy or similar course (patient age, presentation, history, findings, results) that unfolds as new findings arrive. Questions ask for the likely diagnosis, mechanism, best next step, treatment choice and monitoring. Do not use nurse-specific or NCLEX wording."],
-  ["short", "Short-answer case", "Case style: a scenario followed by questions that the student answers in their own words ('short' questions, 1 to 3 sentences, with the key points a full answer needs in 'answer'). Use at most one or two multiple choice questions."],
-  ["analysis", "Analysis (data / argument)", "Case style: an analysis case. Give the student a source, data set described in words, experiment, argument or design problem, then ask them to interpret it, find the flaw or assumption, compare explanations, justify a conclusion and propose what to check next. Mix single best answer and short-answer questions."],
-  ["nclex", "NCLEX-style (nursing)", "Case style: NCLEX Next Generation unfolding nursing case study. The client scenario includes chart data (age, history, vital signs, lab values, nurses' notes), and the questions follow the clinical judgment model: recognize cues, analyze cues, prioritize hypotheses, generate solutions, take action, evaluate outcomes. Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each."]
+  ["auto", "Match My Course", ""],
+  ["general", "General Scenario", "Case style: a realistic scenario from the course's own field that unfolds in stages, with a mix of single best answer, select-all-that-apply and put-in-order questions about what matters, why, and what to do next."],
+  ["business", "Business Case", "Case style: a business case (a company, a market, a decision with numbers such as revenue, costs, timelines and stakeholder views). Questions ask the student to identify the key issue, analyze the data, weigh options and trade-offs, recommend an action and evaluate the result. Mix single best answer with a few short-answer questions."],
+  ["legal", "Legal Fact Pattern", "Case style: a legal fact pattern (parties, events, key facts, procedural history). Questions ask for the issue, the governing rule, how it applies to the facts, the strongest argument for each side and the likely outcome. Mix single best answer with short-answer issue-spotting questions; rationales state the rule and apply it."],
+  ["clinical", "Clinical Vignette", "Case style: a clinical vignette for a health science, medicine, pharmacy or similar course (patient age, presentation, history, findings, results) that unfolds as new findings arrive. Questions ask for the likely diagnosis, mechanism, best next step, treatment choice and monitoring. Do not use nurse-specific or NCLEX wording."],
+  ["short", "Short-Answer Case", "Case style: a scenario followed by questions that the student answers in their own words ('short' questions, 1 to 3 sentences, with the key points a full answer needs in 'answer'). Use at most one or two multiple choice questions."],
+  ["analysis", "Analysis (Data or Argument)", "Case style: an analysis case. Give the student a source, data set described in words, experiment, argument or design problem, then ask them to interpret it, find the flaw or assumption, compare explanations, justify a conclusion and propose what to check next. Mix single best answer and short-answer questions."],
+  ["nclex", "NCLEX Case (Nursing)", "Case style: NCLEX Next Generation unfolding nursing case study. The client scenario includes chart data (age, history, vital signs, lab values, nurses' notes), and the questions follow the clinical judgment model: recognize cues, analyze cues, prioritize hypotheses, generate solutions, take action, evaluate outcomes. Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each."]
 ];
 const CASE_NURSING_RX = /\b(nursing|nclex|hesi|bsn|lpn|med[- ]?surg)\b|\b(rn|ati)\b/i;
 function aiCaseStyleText(key, courseName){
   const k = CASE_STYLES.some(x => x[0] === key) ? key : "auto";
-  if (k === "auto") return CASE_NURSING_RX.test(String(courseName || ""))
+  const ar = window.SBAREA && SBAREA.get ? SBAREA.get() : null;
+  if (k === "auto") return !(ar && (ar.text || "").trim()) && CASE_NURSING_RX.test(String(courseName || ""))
     ? CASE_STYLES.find(x => x[0] === "nclex")[2]
     : "Case style: choose the realistic case format that fits the course's field (business, legal, scientific, historical, technical, clinical or general). Do NOT use the NCLEX or nursing format.";
   return CASE_STYLES.find(x => x[0] === k)[2];
 }
-const caseStyleSelect = id => `<select id="${id}" aria-label="Case study style">${CASE_STYLES.map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join("")}</select>`;
+// Only the case styles that fit the student's field (aiField, 01-ai.js): clinical ones for health (NCLEX only for nursing),
+// a business case for business, a legal fact pattern for law; general, short-answer and analysis for everyone
+const CASE_FOR = {clinical: ["health"], nclex: ["nurse"], business: ["business"], legal: ["law"]};
+function caseStylesFor(courseName){
+  const f = typeof aiField === "function" ? aiField(courseName) : "other", a = window.SBAREA && SBAREA.get ? SBAREA.get() : null;
+  const nurse = f !== "custom" && (CASE_NURSING_RX.test([(a && a.text) || "", courseName || ""].join(" ")) || (f === "health" && !(a && a.text)));
+  return CASE_STYLES.filter(x => !CASE_FOR[x[0]] || CASE_FOR[x[0]].includes(f) || (CASE_FOR[x[0]].includes("nurse") && nurse));
+}
+const caseStyleSelect = (id, courseName) => `<select id="${id}" aria-label="Case study style">${caseStylesFor(courseName).map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join("")}</select>`;
 const CASE_SCHEMA = {type: "OBJECT", properties: {cases: {type: "ARRAY", items: {type: "OBJECT", properties: {
   title: {type: "STRING"}, scenario: {type: "STRING", description: "The opening situation: who, where, history, first findings. 3 to 6 sentences."},
   questions: {type: "ARRAY", items: {type: "OBJECT", properties: {
@@ -154,7 +163,7 @@ function caseStyleSheet(deckId){
   const d = state.decks[deckId]; if (!d) return;
   if (!aiReady()) { aiSetupSheet(true); return; }
   if (sheetResume("case:" + deckId)) return;
-  openSheet(`<form class="sheet">${head("Case Study from Cards")}<div class="sheet-body"><label class="f">Case study style${caseStyleSelect("csStyle")}</label><p class="mini" style="margin:0">“Match my course” uses the NCLEX format only for nursing courses. Pick another style for anything else.</p></div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="csGo">${AI_ICON} Write It</button></div></form>`);
+  openSheet(`<form class="sheet">${head("Case Study from Cards")}<div class="sheet-body"><label class="f">Case study style${caseStyleSelect("csStyle", (courseOf(d.courseId) || {}).name || "")}</label><p class="mini" style="margin:0">“Match My Course” picks the case format that fits your course and field.</p></div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="csGo">${AI_ICON} Write It</button></div></form>`);
   $("#csGo").addEventListener("click", () => caseFromDeck(deckId, $("#csStyle").value));
 }
 async function caseFromDeck(deckId, caseStyle){

@@ -421,7 +421,12 @@ const ownerObj = o => o && (o.kind === "course" ? state.courses[o.id] : state.ta
 /* A course's maps: c.maps = [{id, name, auto (from the course's material) or blank, created, at, and the overlay: pos, hide, add, links, cut, names, styles}].
    The course's first map, from before there could be several, was c.cmap: it reads as the map "main" until it's saved again. */
 const MAX_MAPS = 30;
-const courseName = c => c ? (c.code || c.name || "Course") : "Course";
+/* Maps with no course ("General") live on a hidden course record (gen: true) so they sync, undo and go to Recently Deleted
+   like any other map; course lists skip it (allCourses) */
+const GEN_ID = "general";
+const isGen = c => !!(c && (c.gen || c.id === GEN_ID));
+const genRec = () => ({id: GEN_ID, gen: true, name: "General", code: "", color: "#8A94A6", created: Date.now(), instructor: "", schedule: "", room: "", office: "", meetings: [], notes: "", links: [], maps: []});
+const courseName = c => isGen(c) ? "General" : c ? (c.code || c.name || "Course") : "Course";
 function mapsOf(c){
   if (!c) return [];
   const list = (Array.isArray(c.maps) ? c.maps : []).filter(m => m && m.id).map(m => Object.assign({name: "Untitled Map", auto: true}, m));
@@ -435,7 +440,7 @@ const userOf = o => { if (o && o.kind === "course") return overlay(mapOf(o)); co
 const refOf = o => o.kind === "course" ? `c:${o.id}:${o.map || "main"}` : `e:${o.id}`;
 const refParse = r => { const m = /^c:([^:]+):(.+)$/.exec(String(r || "")), e = /^e:(.+)$/.exec(String(r || "")); return m ? {kind: "course", id: m[1], map: m[2]} : e ? {kind: "exam", id: e[1]} : null; };
 const metaOf = o => (o.kind === "course" ? mapOf(o) : (ownerObj(o) || {}).cmap) || {};
-const courseIdOf = o => o.kind === "course" ? o.id : (ownerObj(o) || {}).courseId || "";
+const courseIdOf = o => o.kind === "course" ? (o.id === GEN_ID ? "" : o.id) : (ownerObj(o) || {}).courseId || "";
 const mapDeck = o => { const d = state.decks[metaOf(o).deck]; return d && !d.archived ? d : null; };
 // every result for this map's course: each card (right and wrong) and each quiz question (tries and misses)
 function evidence(o){
@@ -1768,7 +1773,7 @@ hook("act", (act, el, id) => {
   return false;
 });
 document.addEventListener("change", e => { const s = e.target && e.target.closest && e.target.closest("[data-cm-sort]"); if (!s) return; ui.cmSort = s.value; try { localStorage.setItem("studyboard:cmSort", s.value); } catch (er) {} render(); });
-const coursesLive = () => Object.values(state.courses || {}).filter(c => c && !c.archived).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
+const coursesLive = () => Object.values(state.courses || {}).filter(c => c && !c.archived && !isGen(c)).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
 // a template's little preview, drawn from its own layout
 // A template's preview: its real layout, small. Boxes take the template's colours, softly filled to suit light and dark mode,
 // with a short bar where the words go; the middle idea is solid
@@ -1792,14 +1797,14 @@ function tplThumb(t){
 }
 function newMapSheet(cid, o){
   o = o || {};
-  const cs = coursesLive();
-  if (!cs.length) { toast("Add a course first: each map belongs to a course."); return; }
-  const pick = cs.find(c => c.id === cid) || cs[0], n = mapsOf(pick).length, start = o.start || "auto";
+  // General (no course) is always offered, after the courses; with no courses it's the only choice
+  const cs = coursesLive().concat([state.courses[GEN_ID] || genRec()]);
+  const pick = cs.find(c => c.id === cid) || (cid === GEN_ID ? cs[cs.length - 1] : cs[0]), n = mapsOf(pick).length, start = o.start || (isGen(pick) ? "blank" : "auto");
   const opt = (v, t, d) => `<label class="cm-opt"><input type="radio" name="cmStart" value="${v}" ${start === v ? "checked" : ""}><span><b>${t}</b><span class="mini">${d}</span></span></label>`;
   openSheet(`<form class="sheet cm-new-sheet">${bandHead("New Concept Map", ICON.replace('width="16" height="16"', ""), pick.color || "#2F6FE4")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" value="${esc(o.name != null ? o.name : n ? "" : `${courseName(pick)} Map`)}" placeholder="e.g. Cell respiration, Unit 3, Essay plan" autocomplete="off"></label>
-      <label class="f"><span class="lh">Course</span><select id="cmCourse">${cs.map(c => `<option value="${esc(c.id)}" ${c.id === pick.id ? "selected" : ""}>${esc(courseLabel(c))}</option>`).join("")}</select></label>
+      <label class="f"><span class="lh">Course</span><select id="cmCourse">${cs.map(c => `<option value="${esc(c.id)}" ${c.id === pick.id ? "selected" : ""}>${esc(isGen(c) ? "General (No Course)" : courseLabel(c))}</option>`).join("")}</select></label>
       <fieldset class="f cm-start-pick"><legend class="lh">Start From</legend>
         ${opt("blank", "A Blank Page", "Just your own ideas and connections.")}
         ${opt("auto", "My Course Material", "Exam topics, notes, decks and files you've linked draw themselves in.")}
@@ -1858,7 +1863,7 @@ function newMapSheet(cid, o){
 async function createFromSheet(){
   const root = dlg.querySelector(".cm-new-sheet"); if (!root) return;
   const err = m => { const e = root.querySelector("[data-cm-err]"); e.textContent = m; e.hidden = !m; };
-  const c = state.courses[root.querySelector("#cmCourse").value]; if (!c) return;
+  const pickV = root.querySelector("#cmCourse").value, c = state.courses[pickV] || (pickV === GEN_ID ? genRec() : null); if (!c) return;
   const start = (root.querySelector('[name="cmStart"]:checked') || {}).value || "auto", desc = String((root.querySelector("#cmDesc") || {}).value || "").trim();
   let name = String(root.querySelector("#cmName").value || "").trim().slice(0, 80);
   const ms = mapsOf(c); if (ms.length >= MAX_MAPS) { err(`A course can hold ${MAX_MAPS} maps.`); return; }
@@ -1882,7 +1887,7 @@ async function createFromSheet(){
   let mat = null;
   if (start === "auto") { const box = root.querySelector(".cm-matbox"), ids = matChosen(box); if (box._n && !ids.length) { err("Tick at least one item, or start from a blank page."); return; } if (ids.length < (box._n || 0)) mat = ids; }
   const rec = Object.assign({id: uid(), name, auto: start === "auto", created: Date.now(), at: Date.now()}, start === "auto" || start === "blank" ? {} : ov, mat ? {mat} : {});
-  const cur = state.courses[c.id], after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
+  const cur = state.courses[c.id] || c, after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
   applyChanges([{kind: "course", id: c.id, after}], `Made the map ${name}`, null, {quiet: true});
   if (dlg.open) dlg.close();
   setTimeout(() => open("course", c.id, rec.id), 0);
@@ -1994,12 +1999,20 @@ function peekSvg(p, col){
   }).join("");
   return `<svg class="cm-peek" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
 }
+// Dragging map cards (01-flashcards.js SBRV): each map's key, the whole list in the order shown, and My Order once you've moved one
+const rvKey = x => x.exam ? "e:" + x.id : x.cid + ":" + x.id;
+let rvFull = [];
+if (window.SBRV) SBRV.reg("maps", {full: () => rvFull, name: k => { const x = allMaps().find(m => rvKey(m) === k); return x ? x.name : "the map"; },
+  after: () => { if (ui.cmSort === "mine") return; ui.cmSort = "mine"; try { localStorage.setItem("studyboard:cmSort", "mine"); } catch (e) {} render(); }});
 function listHtml(){
   const sort = ui.cmSort || (() => { try { return localStorage.getItem("studyboard:cmSort") || "recent"; } catch (e) { return "recent"; } })();
   const q = String(ui.q || "").trim().toLowerCase(), all = allMaps();
-  const list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
-  const cl = x => { const c = courseOf(x.cid); return c ? courseLabel(c) : "General"; };
-  list.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name));
+  let list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
+  const cl = x => { const c = courseOf(x.cid); return c && !isGen(c) ? courseLabel(c) : "General"; };
+  const byMode = (a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name);
+  // My Order: the order you dragged them into (new maps first); the whole list's order is kept for a drag to save
+  const inMine = arr => sort === "mine" && window.SBRV ? SBRV.order("maps", arr.slice().sort((a, b) => (b.at - a.at) || a.name.localeCompare(b.name)), rvKey) : arr.slice().sort(byMode);
+  list = inMine(list); rvFull = inMine(all).map(rvKey);
   const pro = ""; // maps are free; Pro parts are marked inside the map
   let lastCourse = "";
   const cards = list.map(x => {
@@ -2007,15 +2020,15 @@ function listHtml(){
     const open = `data-act="cm-open" data-kind="${x.exam ? "exam" : "course"}" data-id="${esc(x.exam ? x.id : x.cid)}" data-map="${esc(x.exam ? "" : x.id)}"`;
     const meta = [n ? `${n.items} idea${n.items === 1 ? "" : "s"} · ${n.links} link${n.links === 1 ? "" : "s"}` : "", x.exam ? "from the Prep Plan" : "", ago(x.at)].filter(Boolean).join(" · ");
     const ic = (d, w) => `<svg viewBox="0 0 24 24" width="${w || 17}" height="${w || 17}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-    return `${head}<article class="cm-mapcard" style="--c:${esc(colorOf(x.cid))}">
-      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
+    return `${head}<article class="cm-mapcard" data-rv="${esc(rvKey(x))}" style="--c:${esc(colorOf(x.cid))}">
+      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c && !isGen(c) ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
       <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b></button>
       <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
       <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
     </article>`;
   }).join("");
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
-  const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"]];
+  const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"], ["mine", "My Order"]];
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
   // like Quizzes': Share With a Group (maps can be shared live with a study group), then Recently Deleted
   const grpIc = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3 2.3 3 5"/></svg>';
@@ -2023,7 +2036,7 @@ function listHtml(){
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
+    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}" data-rv-kind="maps">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
 if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
@@ -2638,6 +2651,22 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-style2>.link-btn{grid-column:span 8;justify-self:start}
   .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
+/* a button whose label is hidden on phones keeps its icon in the middle */
+.cm-acts > .btn.small,.cm-acts > .cm-mw > .btn.small{display:inline-flex;justify-content:center;align-items:center}
+.cm-acts .btn.small > svg{display:block;flex:none;margin:0}
+/* phones: the toolbar always stays one line. With a group's Live chip as well, Add and Study become icons and Live
+   shows just its dot and how many are on (its name is in its label and on tap) */
+@media (max-width:640px){
+  .cm-tools{flex-wrap:nowrap!important;min-width:0}
+  .cm-tools:has(.cm-glive) .cm-ml{display:none}
+  @media (max-width:430px){.cm-tools .cm-mw .cm-ml{display:none}}
+  .cm-tools:has(.cm-glive) .cm-glive{gap:4px;padding-left:9px;padding-right:9px}
+  .cm-tools:has(.cm-glive) .cm-glive .cm-ms{display:none!important}
+  .cm-tools:has(.cm-glive) .cm-glive :is(.cm-gsep,.cm-ged,.cm-gwait){display:none}
+  .cm-tools:has(.cm-glive) .cm-chiptog{padding:6px 8px}
+  .cm-tools > *{flex:none}
+  .cm-tools .spacer{flex:1 1 0;min-width:0}
+}
 @media (max-width:440px){.cm-chiptog .cm-ms{display:none}.cm-chiptog{padding:6px 10px}.cm-tools .cm-undo{width:34px;height:34px}}
 @media (max-width:380px){.cm-tools .cm-ml{display:none}.cm-acts>.btn.small{padding-left:8px;padding-right:8px}}
 `;

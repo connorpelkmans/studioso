@@ -106,7 +106,8 @@ const allTasks = () => Object.values(state.tasks);
 const tasksArr = () => allTasks().filter(t => !isArchived(t));
 // Courses keep the order you dragged them into (order), then the order they were added
 const courseOrd = c => typeof c.order === "number" ? c.order : 1e15 + (c.created || 0);
-const allCourses = () => Object.values(state.courses).sort((a, b) => (courseOrd(a) - courseOrd(b)) || String(a.name).localeCompare(String(b.name)));
+// c.gen: the hidden "General" record that holds concept maps with no course; it is never listed as a course
+const allCourses = () => Object.values(state.courses).filter(c => c && !c.gen).sort((a, b) => (courseOrd(a) - courseOrd(b)) || String(a.name).localeCompare(String(b.name)));
 const coursesArr = () => allCourses().filter(c => !c.archived);
 const courseOf = id => id ? state.courses[id] : null;
 const colorOf = id => { const c = courseOf(id); return c ? c.color : "#8A94A6"; };

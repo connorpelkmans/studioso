@@ -1212,3 +1212,5 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
    rainbow and takes the tap */
 html.sb-apple .cc-custom{position:relative}
 html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:pointer;-webkit-appearance:none;appearance:none;border:0;padding:0;margin:0}
+/* a block being dragged shows its time label above it (overflow visible), so its coloured band keeps the block's rounded top itself */
+.sch-b.dragging > .sch-band{border-radius:9px 9px 0 0}

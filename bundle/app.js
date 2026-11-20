@@ -5066,41 +5066,124 @@ async function aiSourceFromFile(file){
 const aiSourceBytes = s => s.part.inline_data ? s.part.inline_data.data.length : s.part.text.length;
 
 /* Study sets: flashcards and quizzes from your material */
-const AI_STYLE_GROUPS = ["General Exam Style", "Question Format", "Focus", "Healthcare Exams", "Standardized Exams"];
-const AI_STYLES = [
-  ["Mixed (multiple choice, true/false, short answer)", "A deliberate mix of question types: about 45% single best answer, 15% true/false, 15% select all that apply, 15% short answer and 10% put-in-order.", 0],
-  ["University Midterm", "A typical university midterm: a balanced mix of multiple choice, true/false, a few select-all-that-apply and short-answer questions, ordered from straightforward recall to application.", 0],
-  ["Multiple Choice", "Only single best answer multiple choice, 4 options each, with plausible distractors built from common mistakes. No 'all of the above' or 'none of the above'.", 1],
-  ["True / False", "True or false statements, half true and half false. For each false statement the rationale gives the corrected true statement. Avoid trick wording and absolutes like 'always' and 'never'.", 1],
-  ["Select All That Apply", "Mostly select-all-that-apply questions: 5 or 6 options, 2 to 4 correct, no 'all of the above'. Each option stands alone, and the rationale covers every option.", 1],
-  ["Fill in the Blank", "Cloze-style: flashcard fronts are sentences with a ____ gap, and quiz questions are short-answer questions where the student types the missing term. Blank out the key term, never a trivial word.", 1],
-  ["Short Answer", "Short-answer questions that need a 1 to 3 sentence explanation. The expected answer lists the key points a good answer must include.", 1],
-  ["Put in Order", "Include put-the-steps-in-order questions for processes, pathways, procedures and sequences (4 to 6 steps), plus some single-answer questions about why the order matters.", 1],
-  ["Conceptual (Why / How)", "Conceptual questions: why something happens, how it works, what would change if a variable changed, compare and contrast, and predict the effect. Avoid pure recall. Rationales explain the reasoning.", 1],
-  ["Calculation Problems", "Numerical problem-solving: give all the values in the stem, make the student calculate (short answer with the number and its units), vary the numbers, and show the worked steps in the rationale. Include unit conversions and, where relevant, rates, concentrations or other applied calculations.", 1],
-  ["Scenario / Case-Based", "Each question starts with a short realistic scenario (a business situation, a lab result, a client, a design problem), then asks for the best next step, the most likely cause or the key risk. Test application of the material, not recall.", 1],
-  ["Definitions", "Short term-and-definition flashcards and straightforward recall questions.", 2],
-  ["Common Mistakes", "Target common misconceptions and look-alike concepts: write distractors from the mistakes students really make, and explain each misconception in the rationale.", 2],
-  ["Harder, Applied", "Application and analysis level questions that require combining ideas from different parts of the material, not just recall.", 2],
-  ["Pharmacology (Drugs)", "Focus on drug class, mechanism of action, indications, key side effects and adverse effects, contraindications, clinical considerations, monitoring and patient counseling. Compare drugs within a class and flag high-alert medications.", 2],
-  ["NCLEX-RN", "NCLEX-RN style: client-centered stems about what the nurse should do, with prioritization (first, priority, most important, next), safety, delegation, infection control and therapeutic communication. Use NCLEX wording and include select-all-that-apply items. Every option plausible, and a rationale for why the right answer is right and the others are wrong.", 3],
-  ["NCLEX-RN Case Study (NGN)", "Next Generation NCLEX unfolding case study style: start each question with a short client scenario that includes chart data (age, history, vital signs, lab values, nurses' notes), then ask what the nurse should do, following the clinical judgment model: recognize cues (what findings matter), analyze cues (what they suggest), prioritize hypotheses (what is the likely problem), generate solutions (what to do), take action (what to do first) and evaluate outcomes (what shows it worked). Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each.", 3],
-  ["HESI / ATI Nursing", "HESI or ATI nursing exam style: application-level, single best answer questions with 4 options on priority actions, delegation, safe medication administration and patient teaching, mixed with some select-all-that-apply items and short dosage calculations.", 3],
-  ["USMLE Vignettes", "USMLE Step 1 and 2 style: a 3 to 6 sentence clinical vignette (age, sex, presentation, vital signs, exam and lab findings), then a question such as most likely diagnosis, underlying mechanism, best next step or most likely adverse effect. One best answer from 5 plausible options of the same category. Prefer second- and third-order reasoning (what the finding means, then what to do) over recall. Explain every option in the rationale.", 3],
-  ["MCAT Passages", "MCAT style: begin each question with a 100 to 150 word passage (an experiment, a data set described in words, or an argument), then a question that needs reasoning from the passage plus the course concepts, with 4 options. Include data interpretation, experimental design and 'what would happen if' questions. Test reasoning, not recall.", 4],
-  ["AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide: the key points a full-credit answer must make.", 4],
-  ["Bar Exam", "Bar exam style: a short fact pattern (a paragraph), then a question applying the rule of law: which party prevails, which claim or defense is strongest, or what the court is most likely to hold. Multiple choice with 4 options of plausible legal conclusions, rationales that state the governing rule and apply it to the facts, plus a few short-answer issue-spotting prompts.", 4],
-  ["CPA Exam", "CPA exam style: multiple-choice questions with 4 options on accounting, auditing, tax and business concepts, plus task-based simulations expressed as short-answer calculations or journal-entry questions with the numbers in the stem. Rationales show the worked steps.", 4],
-  ["SAT", "SAT style (digital SAT): single best answer multiple choice with exactly 4 options labeled A, B, C, D and one correct answer, no 'all of the above'. Reading and Writing questions each use a short passage of 25 to 150 words (a literary, science, history or social-science excerpt, or notes) followed by one question on central idea, details, inference, vocabulary in context, evidence, transitions, rhetorical synthesis or standard English conventions (grammar, punctuation, sentence structure). Math questions are multiple choice or short-answer ('student-produced response': a number in 'answer') on algebra, advanced math, problem-solving and data analysis, or geometry and trigonometry, with the numbers in the stem, a short real-world context where natural, and rationales that show the worked steps. Use the mix of reading and writing and math that fits the material, and spread difficulty from easy to hard. Never type letters in the option text (the app adds A, B, C, D).", 4],
-  ["ACT", "ACT style: single best answer multiple choice with exactly 4 options per question (the real test labels them A, B, C, D on English, Reading and Science and alternates A, B, C, D with F, G, H, J on Math; the app adds the letters, so never type letters in the option text). English: a passage with an underlined portion, then options that rewrite it, where the first option is 'NO CHANGE', testing grammar, usage, punctuation, rhetorical skills, organization and style. Reading: a 150 to 250 word passage (prose fiction, social science, humanities or natural science) followed by detail, inference, main idea, vocabulary and author's purpose questions. Science: a described experiment, data table or pair of conflicting viewpoints, then data interpretation, investigation design and evaluation of models. Math: pre-algebra through trigonometry with the numbers in the stem and worked steps in the rationale. Use the mix of these sections that fits the material.", 4],
-  ["Engineering FE", "FE (Fundamentals of Engineering) exam style: concise problem-solving questions with 4 options, numerical answers with units, standard formulas and reference-handbook style data given in the stem. Rationales show the worked solution and common unit or sign errors.", 4]
+/* Style picks, suited to the student's field (Area of Study, or the course's name): Question Formats (any number), one Focus, and
+   one Exam Style (general ones, then the exams of that field only). Each pick adds its instruction to what the student typed. */
+const AI_FORMATS = [
+  ["mc", "Multiple Choice", "Single best answer multiple choice, 4 options each, with plausible distractors built from common mistakes. No 'all of the above' or 'none of the above'."],
+  ["tf", "True / False", "True or false statements, half true and half false. For each false statement the rationale gives the corrected true statement. Avoid trick wording and absolutes like 'always' and 'never'."],
+  ["sata", "Select All That Apply", "Select-all-that-apply questions: 5 or 6 options, 2 to 4 correct, no 'all of the above'. Each option stands alone, and the rationale covers every option."],
+  ["blank", "Fill in the Blank", "Cloze-style: flashcard fronts are sentences with a ____ gap, and quiz questions are short-answer questions where the student types the missing term. Blank out the key term, never a trivial word."],
+  ["short", "Short Answer", "Short-answer questions that need a 1 to 3 sentence explanation. The expected answer lists the key points a good answer must include."],
+  ["order", "Put in Order", "Put-the-steps-in-order questions for processes, procedures and sequences (4 to 6 steps), plus some single-answer questions about why the order matters."],
+  ["why", "Conceptual (Why / How)", "Conceptual questions: why something happens, how it works, what would change if a variable changed, compare and contrast, and predict the effect. Avoid pure recall. Rationales explain the reasoning."],
+  ["calc", "Calculations", "Numerical problem-solving: give all the values in the stem, make the student calculate (short answer with the number and its units), vary the numbers, and show the worked steps in the rationale."],
+  ["case", "Scenario-Based", "Each question starts with a short realistic scenario from the course's field, then asks for the best next step, the most likely cause or the key risk. Test application of the material, not recall."]
 ];
-// Builds the style text sent to the AI
+const AI_FOCUS_ALL = [
+  ["defs", "Definitions", "Short term-and-definition flashcards and straightforward recall questions."],
+  ["mistakes", "Common Mistakes", "Target common misconceptions and look-alike concepts: write distractors from the mistakes students really make, and explain each misconception in the rationale."],
+  ["applied", "Harder, Applied", "Application and analysis level questions that require combining ideas from different parts of the material, not just recall."]
+];
+// Field id -> its own focuses and exams. Fields: health, stem, eng, cs, business, social, humanities, arts, education, law, other
+const AI_FIELD = {
+  health: {name: "Health and Nursing",
+    focus: [["pharm", "Pharmacology (Drugs)", "Focus on drug class, mechanism of action, indications, key side effects and adverse effects, contraindications, monitoring and patient counseling. Compare drugs within a class and flag high-alert medications."],
+      ["patho", "Pathophysiology", "Focus on disease mechanisms: what goes wrong in the body, how it causes the signs and symptoms, and how findings and treatments follow from it."],
+      ["labs", "Labs and Vital Signs", "Focus on normal ranges, what abnormal lab values and vital signs mean, and what to do about them."]],
+    exams: [["nclex", "NCLEX-RN", "NCLEX-RN style: client-centered stems about what the nurse should do, with prioritization (first, priority, most important, next), safety, delegation, infection control and therapeutic communication. Use NCLEX wording and include select-all-that-apply items. Every option plausible, and rationales explain why each option is right or wrong.", "nurse"],
+      ["ngn", "NCLEX Case Study (NGN)", "Next Generation NCLEX unfolding case study style: start each question with a short client scenario that includes chart data (age, history, vital signs, lab values, nurses' notes), then ask what the nurse should do, following the clinical judgment model: recognize cues, analyze cues, prioritize hypotheses, generate solutions, take action and evaluate outcomes.", "nurse"],
+      ["hesi", "HESI / ATI", "HESI or ATI nursing exam style: application-level, single best answer questions with 4 options on priority actions, delegation, safe medication administration and patient teaching, mixed with some select-all-that-apply items and short dosage calculations.", "nurse"],
+      ["step1", "USMLE Step 1", "USMLE Step 1 style: a 3 to 6 sentence clinical vignette (age, sex, presentation, vital signs, exam and lab findings), then a question on the underlying mechanism, pathophysiology, pharmacology or microbiology. One best answer from 5 plausible options; rationales explain each option."],
+      ["step2", "USMLE Step 2 CK", "USMLE Step 2 CK style: a clinical vignette, then a question on the most likely diagnosis, the best next step in management, the most appropriate test or treatment, or prevention. One best answer from 5 plausible options; rationales explain each option."],
+      ["comlex", "COMLEX", "COMLEX-USA style: clinical vignettes like USMLE, with one best answer from 5 options, plus some questions that bring in osteopathic principles and manipulative treatment where the material covers them."],
+      ["mcat", "MCAT", "MCAT style: begin each question with a science passage of about 200 to 300 words (an experiment with its methods and results described in words, or a research summary), then a question that needs reasoning from the passage plus the course concepts, with exactly 4 options. Include data interpretation, experimental design and questions that test the concepts behind the passage."],
+      ["naplex", "NAPLEX (Pharmacy)", "NAPLEX style: patient-based pharmacy questions on drug therapy, dosing and calculations, interactions, adverse effects, monitoring and counseling, with 4 or 5 options and some select-all-that-apply items."],
+      ["dat", "DAT (Dental)", "DAT style: biology, general chemistry and organic chemistry questions with 5 options, concise stems and rationales that explain the concept tested."]]},
+  stem: {name: "Science and Math",
+    focus: [["exp", "Experiments and Data", "Focus on experimental design, controls and variables, and interpreting results and graphs described in words."], ["proofs", "Problem Solving", "Focus on solving problems step by step: set up the problem, apply the right formula or theorem, and check the answer."]],
+    exams: [["ap", "AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide."],
+      ["mcat", "MCAT", "MCAT style: begin each question with a science passage of about 200 to 300 words (an experiment with its methods and results described in words, or a research summary), then a question that needs reasoning from the passage plus the course concepts, with exactly 4 options. Include data interpretation, experimental design and questions that test the concepts behind the passage."],
+      ["gre", "GRE Subject Test", "GRE Subject Test style: challenging multiple choice with 5 options covering the breadth of an undergraduate course, with concise stems and rationales."]]},
+  eng: {name: "Engineering",
+    focus: [["units", "Problem Solving with Units", "Focus on worked engineering problems with given values, standard formulas, unit conversions and sanity checks; rationales flag common unit and sign errors."], ["design", "Design Trade-Offs", "Focus on design decisions: constraints, safety factors, materials and the trade-offs between options."]],
+    exams: [["fe", "FE Exam", "FE (Fundamentals of Engineering) exam style: concise problem-solving questions with 4 options, numerical answers with units, standard formulas and reference-handbook style data given in the stem. Rationales show the worked solution and common unit or sign errors."],
+      ["pe", "PE Exam", "PE (Principles and Practice of Engineering) exam style: longer applied problems from professional practice, with the data in the stem, 4 options, and rationales that show the full worked solution."],
+      ["ap", "AP Exam", "AP exam style: stimulus-based multiple choice with 4 options, plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide."]]},
+  cs: {name: "Computer Science",
+    focus: [["trace", "Code Tracing", "Focus on reading code: give a short code snippet and ask what it prints, returns or how a variable changes. Keep snippets under 15 lines and language-appropriate."], ["debug", "Debugging", "Focus on finding and fixing bugs: give short code with a mistake and ask what goes wrong and how to fix it."], ["bigo", "Complexity (Big-O)", "Focus on time and space complexity: ask for the Big-O of algorithms and code, and compare approaches."]],
+    exams: [["interview", "Coding Interview", "Technical interview style: problem-solving questions on data structures and algorithms, asking for the best approach, its complexity, edge cases and what a short code snippet does."],
+      ["apcs", "AP Computer Science A", "AP Computer Science A style: Java code-reading multiple choice (what the code prints or returns, which change fixes it, which code segment works) plus free-response style short answers about writing a method."],
+      ["cert", "IT Certification", "IT certification exam style (like CompTIA or AWS): scenario-based multiple choice and select-all-that-apply questions on concepts, tools and best practices, with 4 options."]]},
+  business: {name: "Business and Economics",
+    focus: [["fin", "Financial Calculations", "Focus on calculations: ratios, present and future value, break-even, margins and similar, with the numbers in the stem and worked steps in the rationale."], ["graphs", "Graphs and Models", "Focus on economic models and graphs described in words: shifts, equilibria and what changes when a variable changes."]],
+    exams: [["cpa", "CPA Exam", "CPA exam style: multiple-choice questions with 4 options on accounting, auditing, tax and business concepts, plus task-based simulations expressed as short-answer calculations or journal-entry questions with the numbers in the stem. Rationales show the worked steps."],
+      ["cfa", "CFA Level I", "CFA Level I style: concise multiple choice with 3 options on ethics, financial reporting, quantitative methods, economics, corporate finance and investments, with calculations where they fit."],
+      ["gmat", "GMAT", "GMAT style: quantitative reasoning and data insights questions with 5 options, plus critical reasoning questions on business arguments."]]},
+  social: {name: "Psychology and Social Sciences",
+    focus: [["methods", "Research Methods", "Focus on research methods: study designs, variables, sampling, validity, ethics and interpreting results."], ["theories", "Theories and Thinkers", "Focus on the main theories and who proposed them, how they differ, and how each explains real examples."]],
+    exams: [["ap", "AP Exam", "AP exam style (Psychology, Government, Human Geography and similar): stimulus-based multiple choice with 4 options, plus free-response prompts as short-answer questions whose expected answer reads like a scoring guide."],
+      ["mcatps", "MCAT Psych/Soc", "MCAT Psychological, Social and Biological Foundations of Behavior style: a short passage on a study or scenario, then a question that applies psychology and sociology concepts, with 4 options."],
+      ["gre", "GRE Psychology", "GRE Psychology Subject Test style: multiple choice with 5 options across the breadth of psychology, with concise stems and rationales."]]},
+  humanities: {name: "Humanities and Writing",
+    focus: [["reading", "Close Reading", "Focus on close reading: give a short passage or quotation and ask about meaning, tone, technique and the author's purpose."], ["context", "Context and Themes", "Focus on historical and cultural context, main themes and how works and events connect."]],
+    exams: [["ap", "AP Exam", "AP exam style (Literature, Language, History and similar): stimulus-based multiple choice with 4 options from a short passage or source, plus free-response prompts as short-answer questions whose expected answer reads like a scoring guide."],
+      ["dbq", "Document-Based Question", "Document-based question style: give short source excerpts, then ask the student to analyze, compare and use them as evidence for an argument; expected answers list the points a strong answer makes."]]},
+  arts: {name: "Arts and Design",
+    focus: [["works", "Works and Artists", "Focus on identifying works, artists, periods and movements, and what makes each recognizable."], ["technique", "Techniques and Terms", "Focus on techniques, materials and the vocabulary of the field, and when each is used."]],
+    exams: [["ap", "AP Exam", "AP exam style (Art History, Music Theory and similar): stimulus-based multiple choice with 4 options from a described work or excerpt, plus short free-response prompts whose expected answer reads like a scoring guide."]]},
+  education: {name: "Education",
+    focus: [["classroom", "Classroom Scenarios", "Focus on classroom scenarios: a teaching situation, then the best response, strategy or next step, grounded in the course's theories."], ["theory", "Learning Theories", "Focus on learning and development theories, who proposed them, and how they apply in the classroom."]],
+    exams: [["praxis", "Praxis", "Praxis exam style: selected-response questions with 4 options on content and teaching practice, plus scenario-based questions about instruction, assessment and classroom management."]]},
+  law: {name: "Law and Public Policy",
+    focus: [["rules", "Rules and Elements", "Focus on black-letter rules: the elements of each claim or defense, exceptions, and how they apply to short facts."], ["cases", "Key Cases", "Focus on the leading cases: their facts, holdings and reasoning, and how they apply to new facts."]],
+    exams: [["bar", "Bar Exam (MBE)", "Bar exam style: a short fact pattern (a paragraph), then a question applying the rule of law: which party prevails, which claim or defense is strongest, or what the court is most likely to hold. Multiple choice with 4 options of plausible legal conclusions, rationales that state the rule."],
+      ["lsat", "LSAT", "LSAT style: logical reasoning questions on short arguments (assumptions, flaws, strengthen and weaken) with 5 options, using the course's material as the content."],
+      ["mpre", "MPRE", "MPRE style: professional responsibility questions about what a lawyer may or must do in a short scenario, with 4 options and rationales that state the rule."]]},
+  custom: {name: "General", focus: [], exams: []},
+  other: {name: "Standardized Tests", focus: [],
+    exams: [["sat", "SAT", "SAT style (digital SAT): single best answer multiple choice with exactly 4 options and one correct answer. Reading and Writing questions each use a short passage of 25 to 150 words; Math questions are concise and some ask the student to type the answer."],
+      ["act", "ACT", "ACT style: single best answer multiple choice with exactly 4 options per question (the app adds the letters, so never type letters in the option text), covering English, Math, Reading and Science reasoning with short passages and data."],
+      ["ap", "AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide."],
+      ["gre", "GRE", "GRE General style: verbal reasoning (text completion and reading comprehension) and quantitative reasoning questions using the course's material."]]}
+};
+const AI_GENERAL_EXAMS = [
+  ["midterm", "University Midterm", "A typical university midterm: a balanced mix of multiple choice, true/false, a few select-all-that-apply and short-answer questions, ordered from straightforward recall to application."],
+  ["final", "Cumulative Final", "A cumulative final exam: questions across the whole material, weighted toward the main ideas, with more application and questions that connect topics."]
+];
+// The student's field: their Area of Study, or what their own typed field (or the course's name) points to
+const AI_FIELD_RX = [["health", /\b(nurs|nclex|bsn|lpn|rn|pre-?med|medic|pharm|health|dental|dentist|physio|therap|kinesi|paramedic|midwi|clinical|anatom|physiolog|patho)/i],
+  ["law", /\b(law|legal|paralegal|criminal|justice|policy|politic|government)/i], ["business", /\b(business|account|financ|market|econ|manag|commerce|mba)/i],
+  ["cs", /\b(comput|software|programm|coding|data science|information tech|cyber|\bit\b)/i], ["eng", /\bengineer/i],
+  ["stem", /\b(bio|chem|physic|math|calc|stat|science|geolog|astro|ecolog)/i], ["social", /\b(psych|sociolog|anthropolog|social)/i],
+  ["education", /\b(educat|teach|pedagog)/i], ["arts", /\b(art|music|design|film|architect|theat|danc|photograph)/i],
+  ["humanities", /\b(history|english|literat|philosoph|languag|writing|classics|religio)/i]];
+function aiField(courseName){
+  const a = window.SBAREA && SBAREA.get ? SBAREA.get() : null, id = a && a.id && a.id !== "other" ? a.id : "";
+  if (id && AI_FIELD[id]) return id;
+  // a field the student typed themselves gets the general options only (no field's exams or focuses are assumed)
+  if (a && (a.text || "").trim()) return "custom";
+  const t = [(a && a.text) || "", courseName || ""].join(" ");
+  const hit = AI_FIELD_RX.find(([, rx]) => rx.test(t));
+  return hit ? hit[0] : "other";
+}
+// Nursing exams only for nursing: the typed field or the course name says so, or the Health area with nothing typed (it covers nursing)
+const AI_NURSE_RX = /\b(nurs|nclex|hesi|bsn|lpn|med[- ]?surg)|\b(rn|ati)\b/i;
+function aiFieldOpts(courseName){
+  const f = aiField(courseName), F = AI_FIELD[f] || AI_FIELD.other, a = window.SBAREA && SBAREA.get ? SBAREA.get() : null;
+  const txt = [(a && a.text) || "", courseName || ""].join(" "), nurse = f !== "custom" && (AI_NURSE_RX.test(txt) || (f === "health" && !(a && a.text)));
+  const exams = F.exams.filter(x => x[3] !== "nurse" || nurse);
+  return {field: f, name: F.name, focus: AI_FOCUS_ALL.concat(F.focus || []), exams};
+}
+// Builds the style text sent to the AI from the picks: {formats: [ids], focus: id, exam: id}
 function aiComposeStyle(custom, picks){
   custom = String(custom || "").trim();
-  const ps = (picks || []).map(i => AI_STYLES[i]).filter(Boolean);
-  const style = [custom].concat(ps.map(x => x[1])).filter(Boolean).join(" ");
-  const name = custom ? custom.split(/[.:;\n]/)[0].trim().slice(0, 60) : ps.slice(0, 2).map(x => x[0]).join(" and ");
+  picks = picks || {};
+  const all = [].concat(AI_FORMATS, AI_FOCUS_ALL, AI_GENERAL_EXAMS, ...Object.values(AI_FIELD).map(F => (F.focus || []).concat(F.exams))), find = id => all.find(x => x[0] === id);
+  const fm = (picks.formats || []).map(id => AI_FORMATS.find(x => x[0] === id)).filter(Boolean);
+  const ex = picks.exam ? find(picks.exam) : null, fo = picks.focus ? find(picks.focus) : null;
+  const fmText = fm.length > 1 ? `Use a mix of these question formats: ${fm.map(x => x[1]).join(", ")}. ` + fm.map(x => x[2]).join(" ") : fm.length ? fm[0][2] : "";
+  const style = [custom, ex && ex[2], fmText, fo && fo[2]].filter(Boolean).join(" ");
+  const name = custom ? custom.split(/[.:;\n]/)[0].trim().slice(0, 60) : [ex && ex[1], fm.length === 1 ? fm[0][1] : fm.length > 1 ? "Mixed Formats" : "", fo && fo[1]].filter(Boolean).slice(0, 2).join(" and ");
   return {style, name};
 }
 // Custom styles the student typed before, newest first, to reuse next time
@@ -5188,6 +5271,26 @@ async function aiMakeStudySet(opts, onStatus){
   return out;
 }
 
+// Question Formats (any number, as chips), then one Exam Style and one Focus, suited to the student's field
+function aiStylePickHtml(courseName, keep){
+  const o = aiFieldOpts(courseName), k = keep || {formats: [], exam: "", focus: ""};
+  const opt = (x, cur) => `<option value="${x[0]}"${x[0] === cur ? " selected" : ""} title="${esc(x[2])}">${esc(x[1])}</option>`;
+  const exams = o.exams.length ? `<optgroup label="${esc(o.name)}">${o.exams.map(x => opt(x, k.exam)).join("")}</optgroup>` : "";
+  return `<div class="f ai-fmts-f"><span class="lh">Question Formats <span class="hint">pick any, or none for a mix</span></span>
+      <div class="ai-fmts" role="group" aria-label="Question formats">${AI_FORMATS.map(x => `<button type="button" class="ai-fmt" data-fmt="${x[0]}" aria-pressed="${k.formats.includes(x[0])}" title="${esc(x[2])}">${esc(x[1])}</button>`).join("")}</div></div>
+    <div class="two ai-style-two"><label class="f"><span class="lbl">Exam Style</span><select id="aiExam"><option value="">None</option><optgroup label="General">${AI_GENERAL_EXAMS.map(x => opt(x, k.exam)).join("")}</optgroup>${exams}</select></label>
+      <label class="f"><span class="lbl">Focus</span><select id="aiFocus"><option value="">None</option>${o.focus.map(x => opt(x, k.focus)).join("")}</select></label></div>
+    <p class="mini" style="margin:0">${o.field === "custom" ? "General styles and focuses, for any field."
+      : o.field === "other" ? "Set your Area of Study (in the menu) and the exam styles and focuses suit your field." : `Exam styles and focuses for ${esc(o.name)}, from your ${window.SBAREA && SBAREA.get && SBAREA.get() ? "Area of Study" : "course"}.`} They add to what you wrote.</p>`;
+}
+const aiStylePicks = root => ({formats: [...root.querySelectorAll(".ai-fmt[aria-pressed=true]")].map(b => b.dataset.fmt), exam: (root.querySelector("#aiExam") || {}).value || "", focus: (root.querySelector("#aiFocus") || {}).value || ""});
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".ai-fmt"); if (b) b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); });
+document.addEventListener("change", e => {
+  if (!e.target || e.target.id !== "aiCourse") return;
+  const box = document.getElementById("aiStylePick"); if (!box) return;
+  box.innerHTML = aiStylePickHtml((courseOf(e.target.value) || {}).name || "", aiStylePicks(box));
+  const cs = document.getElementById("aiCaseStyle"); if (cs) { const v = cs.value, t = document.createElement("div"); t.innerHTML = caseStyleSelect("aiCaseStyle", (courseOf(e.target.value) || {}).name || ""); const n = t.firstElementChild; if ([...n.options].some(o => o.value === v)) n.value = v; cs.replaceWith(n); }
+});
 function aiStudySheet(deckId, mode){
   if (inPreview()) { toast("AI features work in the Studyboard app and on your website, not in this preview"); return; }
   const keyK = "ai-create:" + (deckId || "");
@@ -5211,13 +5314,12 @@ function aiStudySheet(deckId, mode){
       <fieldset><legend>Make</legend>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCards" checked> Flashcards</label>${seg("aiCardN", [["auto", "Auto"], ["10", "10"], ["20", "20"], ["30", "30"], ["50", "50"]], "auto")}</div>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiQuiz" checked> Practice quiz</label>${seg("aiQuizN", [["5", "5"], ["10", "10"], ["20", "20"], ["30", "30"]], "10")}</div>
-        <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}${caseStyleSelect("aiCaseStyle")}<span class="mini">Realistic scenarios that unfold step by step and test how you apply the material. NCLEX format is only used for nursing or when you pick it.</span></div>
+        <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}${caseStyleSelect("aiCaseStyle", (courseOf(courseId) || {}).name || "")}<span class="mini">Realistic scenarios from your field that unfold step by step and test how you apply the material.</span></div>
       </fieldset>
       <fieldset><legend>Style</legend>
         <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. AP-style multiple choice with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
         <div class="chips ai-recent" id="aiRecent" role="group" aria-label="Your recent styles"></div>
-        <div class="ai-style-sels">${AI_STYLE_GROUPS.map((g, gi) => `<label class="f"><span class="lbl">${esc(g)}</span><select class="ai-style-sel" data-group="${gi}"><option value="">None</option>${AI_STYLES.map((x, i) => x[2] === gi ? `<option value="${i}" title="${esc(x[1])}">${esc(x[0])}</option>` : "").join("")}</select></label>`).join("")}</div>
-        <p class="mini" style="margin:8px 0 0">Pick a ready-made style from any of these. They add to what you wrote.</p>
+        <div id="aiStylePick">${aiStylePickHtml((courseOf(courseId) || {}).name || "")}</div>
       </fieldset>
       <fieldset><legend>Difficulty</legend>${seg("aiDiff", [["mixed", "Mixed"], ["easier", "Easier"], ["harder", "Harder"]], "mixed")}</fieldset>
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
@@ -5287,7 +5389,7 @@ function aiStudySheet(deckId, mode){
     const wantCards = $("#aiCards").checked, wantQuiz = $("#aiQuiz").checked, wantCase = $("#aiCase").checked;
     if (!wantCards && !wantQuiz && !wantCase) { status.textContent = "Pick flashcards, a quiz, case studies, or a mix."; return; }
     const val = n => (dlg.querySelector(`input[name=${n}]:checked`) || {}).value;
-    const custom = $("#aiStyle").value.trim(), picks = $$(".ai-style-sel", dlg).map(s => s.value).filter(v => v !== "").map(Number);
+    const custom = $("#aiStyle").value.trim(), picks = aiStylePicks(dlg);
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     if (viaLink) { SBLINKCARDS.run({deck, courseId: cId, mode, job, keepKey: keyK, files: job.sources.slice(), pasted, style, styleName, custom, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10"}); return; }
     job.busy = true; const go = $("#aiGo"), goWas = go.innerHTML; go.disabled = true; go.classList.add("busy", "ai-going");
@@ -5428,6 +5530,8 @@ function aiFinish(){
   if (total > 0 && right / total >= 0.8) { try { celebrate("check"); } catch (e) {} }
   sbHaptic(total > 0 && right / total >= 0.8 ? "success" : "tap");
   if (quizPasses(right, total) && !(!qz || f.qs.length !== qz.questions.length)) earnBump("q");
+  // passing a whole quiz (5+ questions, 80%+) is a good moment to ask for a review (99-review-ask.js decides whether)
+  if (quizPasses(right, total)) fire("good-moment", "quiz");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
 }
 function viewAiQuiz(){
@@ -6785,24 +6889,33 @@ function weakSheet(deckIds){
 
 /* Case studies */
 const CASE_STYLES = [
-  ["auto", "Match my course", ""],
-  ["general", "General scenario", "Case style: a realistic scenario from the course's own field that unfolds in stages, with a mix of single best answer, select-all-that-apply and put-in-order questions about what matters, why, and what to do next."],
-  ["business", "Business case", "Case style: a business case (a company, a market, a decision with numbers such as revenue, costs, timelines and stakeholder views). Questions ask the student to identify the key issue, analyze the data, weigh options and trade-offs, recommend an action and evaluate the result. Mix single best answer with a few short-answer questions."],
-  ["legal", "Legal fact pattern", "Case style: a legal fact pattern (parties, events, key facts, procedural history). Questions ask for the issue, the governing rule, how it applies to the facts, the strongest argument for each side and the likely outcome. Mix single best answer with short-answer issue-spotting questions; rationales state the rule and apply it."],
-  ["clinical", "Clinical vignette (not nursing)", "Case style: a clinical vignette for a health science, medicine, pharmacy or similar course (patient age, presentation, history, findings, results) that unfolds as new findings arrive. Questions ask for the likely diagnosis, mechanism, best next step, treatment choice and monitoring. Do not use nurse-specific or NCLEX wording."],
-  ["short", "Short-answer case", "Case style: a scenario followed by questions that the student answers in their own words ('short' questions, 1 to 3 sentences, with the key points a full answer needs in 'answer'). Use at most one or two multiple choice questions."],
-  ["analysis", "Analysis (data / argument)", "Case style: an analysis case. Give the student a source, data set described in words, experiment, argument or design problem, then ask them to interpret it, find the flaw or assumption, compare explanations, justify a conclusion and propose what to check next. Mix single best answer and short-answer questions."],
-  ["nclex", "NCLEX-style (nursing)", "Case style: NCLEX Next Generation unfolding nursing case study. The client scenario includes chart data (age, history, vital signs, lab values, nurses' notes), and the questions follow the clinical judgment model: recognize cues, analyze cues, prioritize hypotheses, generate solutions, take action, evaluate outcomes. Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each."]
+  ["auto", "Match My Course", ""],
+  ["general", "General Scenario", "Case style: a realistic scenario from the course's own field that unfolds in stages, with a mix of single best answer, select-all-that-apply and put-in-order questions about what matters, why, and what to do next."],
+  ["business", "Business Case", "Case style: a business case (a company, a market, a decision with numbers such as revenue, costs, timelines and stakeholder views). Questions ask the student to identify the key issue, analyze the data, weigh options and trade-offs, recommend an action and evaluate the result. Mix single best answer with a few short-answer questions."],
+  ["legal", "Legal Fact Pattern", "Case style: a legal fact pattern (parties, events, key facts, procedural history). Questions ask for the issue, the governing rule, how it applies to the facts, the strongest argument for each side and the likely outcome. Mix single best answer with short-answer issue-spotting questions; rationales state the rule and apply it."],
+  ["clinical", "Clinical Vignette", "Case style: a clinical vignette for a health science, medicine, pharmacy or similar course (patient age, presentation, history, findings, results) that unfolds as new findings arrive. Questions ask for the likely diagnosis, mechanism, best next step, treatment choice and monitoring. Do not use nurse-specific or NCLEX wording."],
+  ["short", "Short-Answer Case", "Case style: a scenario followed by questions that the student answers in their own words ('short' questions, 1 to 3 sentences, with the key points a full answer needs in 'answer'). Use at most one or two multiple choice questions."],
+  ["analysis", "Analysis (Data or Argument)", "Case style: an analysis case. Give the student a source, data set described in words, experiment, argument or design problem, then ask them to interpret it, find the flaw or assumption, compare explanations, justify a conclusion and propose what to check next. Mix single best answer and short-answer questions."],
+  ["nclex", "NCLEX Case (Nursing)", "Case style: NCLEX Next Generation unfolding nursing case study. The client scenario includes chart data (age, history, vital signs, lab values, nurses' notes), and the questions follow the clinical judgment model: recognize cues, analyze cues, prioritize hypotheses, generate solutions, take action, evaluate outcomes. Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each."]
 ];
 const CASE_NURSING_RX = /\b(nursing|nclex|hesi|bsn|lpn|med[- ]?surg)\b|\b(rn|ati)\b/i;
 function aiCaseStyleText(key, courseName){
   const k = CASE_STYLES.some(x => x[0] === key) ? key : "auto";
-  if (k === "auto") return CASE_NURSING_RX.test(String(courseName || ""))
+  const ar = window.SBAREA && SBAREA.get ? SBAREA.get() : null;
+  if (k === "auto") return !(ar && (ar.text || "").trim()) && CASE_NURSING_RX.test(String(courseName || ""))
     ? CASE_STYLES.find(x => x[0] === "nclex")[2]
     : "Case style: choose the realistic case format that fits the course's field (business, legal, scientific, historical, technical, clinical or general). Do NOT use the NCLEX or nursing format.";
   return CASE_STYLES.find(x => x[0] === k)[2];
 }
-const caseStyleSelect = id => `<select id="${id}" aria-label="Case study style">${CASE_STYLES.map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join("")}</select>`;
+// Only the case styles that fit the student's field (aiField, 01-ai.js): clinical ones for health (NCLEX only for nursing),
+// a business case for business, a legal fact pattern for law; general, short-answer and analysis for everyone
+const CASE_FOR = {clinical: ["health"], nclex: ["nurse"], business: ["business"], legal: ["law"]};
+function caseStylesFor(courseName){
+  const f = typeof aiField === "function" ? aiField(courseName) : "other", a = window.SBAREA && SBAREA.get ? SBAREA.get() : null;
+  const nurse = f !== "custom" && (CASE_NURSING_RX.test([(a && a.text) || "", courseName || ""].join(" ")) || (f === "health" && !(a && a.text)));
+  return CASE_STYLES.filter(x => !CASE_FOR[x[0]] || CASE_FOR[x[0]].includes(f) || (CASE_FOR[x[0]].includes("nurse") && nurse));
+}
+const caseStyleSelect = (id, courseName) => `<select id="${id}" aria-label="Case study style">${caseStylesFor(courseName).map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join("")}</select>`;
 const CASE_SCHEMA = {type: "OBJECT", properties: {cases: {type: "ARRAY", items: {type: "OBJECT", properties: {
   title: {type: "STRING"}, scenario: {type: "STRING", description: "The opening situation: who, where, history, first findings. 3 to 6 sentences."},
   questions: {type: "ARRAY", items: {type: "OBJECT", properties: {
@@ -6822,7 +6935,7 @@ function caseStyleSheet(deckId){
   const d = state.decks[deckId]; if (!d) return;
   if (!aiReady()) { aiSetupSheet(true); return; }
   if (sheetResume("case:" + deckId)) return;
-  openSheet(`<form class="sheet">${head("Case Study from Cards")}<div class="sheet-body"><label class="f">Case study style${caseStyleSelect("csStyle")}</label><p class="mini" style="margin:0">“Match my course” uses the NCLEX format only for nursing courses. Pick another style for anything else.</p></div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="csGo">${AI_ICON} Write It</button></div></form>`);
+  openSheet(`<form class="sheet">${head("Case Study from Cards")}<div class="sheet-body"><label class="f">Case study style${caseStyleSelect("csStyle", (courseOf(d.courseId) || {}).name || "")}</label><p class="mini" style="margin:0">“Match My Course” picks the case format that fits your course and field.</p></div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="csGo">${AI_ICON} Write It</button></div></form>`);
   $("#csGo").addEventListener("click", () => caseFromDeck(deckId, $("#csStyle").value));
 }
 async function caseFromDeck(deckId, caseStyle){
@@ -10593,7 +10706,8 @@ const allTasks = () => Object.values(state.tasks);
 const tasksArr = () => allTasks().filter(t => !isArchived(t));
 // Courses keep the order you dragged them into (order), then the order they were added
 const courseOrd = c => typeof c.order === "number" ? c.order : 1e15 + (c.created || 0);
-const allCourses = () => Object.values(state.courses).sort((a, b) => (courseOrd(a) - courseOrd(b)) || String(a.name).localeCompare(String(b.name)));
+// c.gen: the hidden "General" record that holds concept maps with no course; it is never listed as a course
+const allCourses = () => Object.values(state.courses).filter(c => c && !c.gen).sort((a, b) => (courseOrd(a) - courseOrd(b)) || String(a.name).localeCompare(String(b.name)));
 const coursesArr = () => allCourses().filter(c => !c.archived);
 const courseOf = id => id ? state.courses[id] : null;
 const colorOf = id => { const c = courseOf(id); return c ? c.color : "#8A94A6"; };
@@ -11241,6 +11355,8 @@ function section(title, ts, cls = "", opts){
   if (!ts.length) return "";
   return `<h2 class="sec ${cls}"><span class="t">${esc(title)}</span><span class="n">${ts.length}</span></h2>${taskList(ts, opts)}`;
 }
+// A day-plan card's time: it only breaks after its dash (never between a time and its AM or PM), and only when it doesn't fit
+const dtlWhen = w => esc(w).replace(/ (AM|PM)\b/g, "\u00A0$1").replace(/([–-])/g, "$1<wbr>");
 /* ===== module: 01-board.js: the app's core, the Board, the focus engine and what the planner knows ===== */
 /* Board */
 function card(t){
@@ -12027,9 +12143,9 @@ function dayTimelineHtml(F, todayList, heroId){
     const past = x.e <= nowM, on = x.s <= nowM && nowM < x.e, when = availRange(x.s, x.e), len = fmtHM((x.k === "tk" ? x.min : x.e - x.s) / 60) || "";
     const cls = " dtl-c" + (past ? " past" : "") + (on ? " now" : ""), at = i === anchor ? " data-anchor" : "";
     if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}" style="--m:${x.e - x.s}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
-    if (x.k === "ev") return `<div class="${cls.trim()} ev" style="--c:${esc(x.color)};--m:${x.e - x.s}"${at}><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
+    if (x.k === "ev") return `<div class="${cls.trim()} ev" style="--c:${esc(x.color)};--m:${x.e - x.s}"${at}><span class="dtl-t">${dtlWhen(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
     const hero = x.t.id === heroId;
-    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))};--cb:${esc(courseSolid(colorOf(x.t.courseId)))};--m:${x.e - x.s}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${esc(when)}</span><b class="dtl-n">${esc(x.t.title)}</b><span class="dtl-m"><span>${esc(len)}</span>${on ? `<span class="dtl-badge">Now</span>` : hero ? `<span class="dtl-badge">Next</span>` : ""}</span></button>`;
+    return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))};--cb:${esc(courseSolid(colorOf(x.t.courseId)))};--m:${x.e - x.s}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${dtlWhen(when)}</span><b class="dtl-n">${esc(x.t.title)}</b><span class="dtl-m"><span>${esc(len)}</span>${on ? `<span class="dtl-badge">Now</span>` : hero ? `<span class="dtl-badge">Next</span>` : ""}</span></button>`;
   }).join("");
   return `<div class="dtl" role="group" aria-label="Today's schedule"><div class="dtl-rail">${cards}</div></div>`;
 }
@@ -15072,7 +15188,7 @@ function planSwitchHtml(){
 const isCfTab = t => t === "courses" || t === "files" || t === "emails";
 function cfSwitchHtml(){
   const t = ui.tab, g = t === "courses" && ui.courseTab === "grades", w = t === "courses" && ui.courseTab === "writing", hasCourses = typeof coursesArr === "function" && coursesArr().length > 0;
-  return `<div class="pview-tabs cf-tabs" role="tablist" aria-label="Courses, Grades, Emails, Writing Studio and Files"><button role="tab" data-act="cf-view" data-id="courses" aria-selected="${t === "courses" && !g && !w}">Courses</button>${hasCourses ? `<button role="tab" data-act="cf-view" data-id="grades" aria-selected="${g}">Grades</button>` : ""}${t === "emails" || (window.SBEMAIL && SBEMAIL.available()) ? `<button role="tab" data-act="cf-view" data-id="emails" aria-selected="${t === "emails"}">Emails</button>` : ""}${typeof rvWriting === "function" && rvWriting() ? `<button role="tab" data-act="cf-view" data-id="writing" aria-selected="${w}">Writing Studio</button>` : ""}<button role="tab" data-act="cf-view" data-id="files" aria-selected="${t === "files"}">Files</button></div>`;
+  return `<div class="pview-tabs cf-tabs" role="tablist" aria-label="Courses, Grades, Emails, Writing Studio and Files"><button role="tab" data-act="cf-view" data-id="courses" aria-selected="${t === "courses" && !g && !w}">Courses</button>${hasCourses ? `<button role="tab" data-act="cf-view" data-id="grades" aria-selected="${g}">Grades</button>` : ""}${t === "emails" || (window.SBEMAIL && SBEMAIL.available()) ? `<button role="tab" data-act="cf-view" data-id="emails" aria-selected="${t === "emails"}">Emails</button>` : ""}${typeof rvWriting === "function" && rvWriting() ? `<button role="tab" data-act="cf-view" data-id="writing" aria-selected="${w}" aria-label="Writing Studio"><span class="ws-tab-long">Writing Studio</span><span class="ws-tab-short">Studio</span></button>` : ""}<button role="tab" data-act="cf-view" data-id="files" aria-selected="${t === "files"}">Files</button></div>`;
 }
 
 /* ===== module: 01-render.js: the app's core, render and dialogs ===== */
@@ -15473,6 +15589,14 @@ dlg.addEventListener("close", () => {
   if (!KEEP || dlg.open) return;
   if (away && dlg.contains(KEEP.node)) keepPark(); else keepLetGo();
 });
+// A sheet's one-line band title that doesn't fit (a long name on a phone) is made smaller until it does, down to 70%, rather than cut off
+function fitSheetTitle(){
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const h = dlg.open && dlg.querySelector(".g2-sheet-head:not(.sh-big) .sh-t h2"); if (!h) return;
+    h.style.fontSize = ""; const base = parseFloat(getComputedStyle(h).fontSize) || 20;
+    for (let f = base; h.scrollWidth > h.clientWidth + 1 && f > base * 0.7; ) { f -= 1; h.style.fontSize = f + "px"; }
+  }));
+}
 function openSheet(html, onSubmit){
   // another sheet opening over one with work in it sets that one aside; one just closed in code (its close event still to come) is let go
   if (keepShown() || (KEEP && keepAway)) keepPark(); else keepLetGo();
@@ -15481,6 +15605,7 @@ function openSheet(html, onSubmit){
   if (inSheet) document.body.appendChild(tt);
   dlg.innerHTML = html;
   if (inSheet) dlg.appendChild(tt);
+  fitSheetTitle();
   const form = dlg.querySelector("form");
   if (form) form.addEventListener("submit", e => e.preventDefault());
   if (form && onSubmit) {
@@ -16320,6 +16445,7 @@ function todayWatch(el){
 }
 addEventListener("resize", () => requestAnimationFrame(todayFit));
 try { document.fonts && document.fonts.ready.then(todayFit); } catch (e) {}
+addEventListener("resize", () => { if (dlg.open) fitSheetTitle(); });
 /* ===== module: 01-math.js: math, chemistry and light formatting in notes, cards, quizzes, whiteboards and the reader ===== */
 /* Text keeps plain marks, so it syncs, searches, exports and shares as it is:
      $x^2$ or \(x^2\) inline, $$...$$ or \[...\] on a line of its own, \ce{H2O} (or $\ce{...}$) for chemistry,
@@ -19121,6 +19247,28 @@ function dlgKbFit(){
   } else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }
+/* Keyboard open on the page itself (a quiz's typed answer, a search box): once the keyboard has finished opening, the box being
+   typed in, with its form's buttons (like Check), is brought above it in one smooth scroll. It waits for the visible area to stop
+   changing (iOS slides the page itself first), and only scrolls when something is still hidden, so it never fights the system. */
+function pageKbKeep(){
+  clearTimeout(pageKbKeep.t);
+  pageKbKeep.t = setTimeout(() => {
+    if (!matchMedia("(max-width:639px)").matches) return;
+    const a = document.activeElement;
+    if (!a || !a.closest || a.closest("dialog, .note, .wb-stage, .cpt-chat, [data-kb-own]") || !(a.matches('textarea, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=button]):not([type=submit]):not([type=file]):not([type=color])') || a.isContentEditable)) return;
+    const vv = window.visualViewport, top = (vv ? vv.offsetTop : 0) + 70, bottom = (vv ? vv.offsetTop + vv.height : innerHeight) - 14;
+    const box = a.closest("form, .written, .f, label") || a, r = box.getBoundingClientRect(), ra = a.getBoundingClientRect();
+    // the whole form when it fits, else just the box; never pushes the box itself above the top
+    let dy = Math.min(r.bottom - bottom, ra.top - top);
+    if (dy <= 2 && ra.bottom > bottom) dy = ra.bottom - bottom;
+    if (dy > 2) window.scrollBy({top: dy, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+  }, 140);
+}
+document.addEventListener("focusin", e => { if (e.target && !(e.target.closest && e.target.closest("dialog"))) { pageKbKeep.focusAt = Date.now(); pageKbKeep(); } });
+// the visible area settling after the keyboard opens (or the iPhone app shrinking itself): check again, for a second after a focus
+const pageKbAgain = () => { if (Date.now() - (pageKbKeep.focusAt || 0) < 1200) pageKbKeep(); };
+if (window.visualViewport) visualViewport.addEventListener("resize", pageKbAgain);
+addEventListener("resize", pageKbAgain);
 /* ===== module: 01-flashcards.js: the app's core, flashcards: decks, spaced repetition, quizzes ===== */
 /* Flashcards: decks, spaced-repetition study and auto-generated quizzes */
 const BOX_DAYS = [0, 1, 3, 7, 14, 30];
@@ -19482,7 +19630,7 @@ function viewFlashcards(){
     ${ds.length ? `<div class="deck-grid rv-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
-const RV_TILE = ".rv-grid > .rv-card[data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
+const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
 // The decks in the order the list shows them: yours once you've moved one, else the exam's course first
 function decksShown(){ const ds = deckListArr(); return window.SBEXAM && !ds.some(hasOrd) ? SBEXAM.sortDecks(ds) : ds; }
 // Saves the order of the tiles shown; ones a course filter or search hides keep their places among the rest
@@ -19501,11 +19649,38 @@ function rvSave(isQuiz, shownKeys, label){
 }
 const rvName = (isQuiz, key) => { if (!isQuiz) return (state.decks[key] || {}).name || "the deck"; const f = qzFind(key); return (f && f.qz.title) || "the quiz"; };
 const rvMoved = (isQuiz, keys, key) => `Moved ${rvName(isQuiz, key)} to ${keys.indexOf(key) + 1} of ${keys.length}`;
+/* Other card lists (Concept Maps, Presentations, Writing Studio) drag the same way: their grid has data-rv-kind and each card data-rv.
+   The order is kept in settings.rvOrder[kind] (it syncs), and a list asks SBRV.order for it. full() gives every key in the order now
+   shown (cards a filter hides keep their places among the rest); after() runs once it's saved (Concept Maps switch to My Order). */
+const RV_KINDS = {};
+window.SBRV = {
+  reg: (kind, o) => { RV_KINDS[kind] = o; },
+  // items in your order: ones you've placed first in that order, newer ones (not placed yet) ahead of them, as the list had them
+  order: (kind, items, keyOf) => {
+    const saved = ((state.settings || {}).rvOrder || {})[kind]; if (!Array.isArray(saved) || !saved.length) return items;
+    const at = new Map(saved.map((k, i) => [k, i])), fresh = items.filter(x => !at.has(keyOf(x))), placed = items.filter(x => at.has(keyOf(x))).sort((a, b) => at.get(keyOf(a)) - at.get(keyOf(b)));
+    return fresh.concat(placed);
+  },
+  has: kind => !!(((state.settings || {}).rvOrder || {})[kind] || []).length
+};
+function rvKindSave(kind, shownKeys, key){
+  const K = RV_KINDS[kind]; if (!K) return;
+  const full = K.full(), shown = new Set(shownKeys);
+  let k = 0; const keys = full.map(x => shown.has(x) ? shownKeys[k++] : x);
+  const prev = (((state.settings || {}).rvOrder || {})[kind] || []).slice();
+  if (keys.join("|") === full.join("|") && prev.length) return;
+  const put = v => { state.settings.rvOrder = Object.assign({}, state.settings.rvOrder || {}, {[kind]: v}); saveSettings(); render(); };
+  put(keys);
+  const nm = K.name ? K.name(key) : "it";
+  toast(`Moved ${nm} to ${keys.indexOf(key) + 1} of ${keys.length}`, () => { put(prev); toast("Undone"); });
+}
 const rvCalm = () => window.SBMotion ? SBMotion.level() === "static" : !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 let rvDrag = null;
 document.addEventListener("pointerdown", e => {
-  if (rvDrag || ui.tab !== "flashcards" || (e.pointerType === "mouse" && e.button !== 0)) return;
+  if (rvDrag || (e.pointerType === "mouse" && e.button !== 0)) return;
   const el = e.target.closest && e.target.closest(RV_TILE); if (!el) return;
+  if (ui.tab !== "flashcards" && !el.parentNode.dataset.rvKind) return;
+  if (el.parentNode.dataset.rvKind && e.target.closest("input, select, textarea, a[href], [contenteditable]")) return;
   rvDrag = {el, grid: el.parentNode, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, pid: e.pointerId, touch: e.pointerType !== "mouse", started: false};
   if (rvDrag.touch) rvDrag.timer = setTimeout(() => { if (rvDrag && !rvDrag.started) rvStart(); }, 350);
 });
@@ -19582,10 +19757,11 @@ function rvEnd(ok){
   suppressClick = true; setTimeout(() => { suppressClick = false; }, 400);
   document.body.classList.remove("rv-dragging");
   d.ghost.remove();
-  const isQuiz = d.grid.classList.contains("qz-grid"), key = d.el.dataset.rv;
+  const isQuiz = d.grid.classList.contains("qz-grid"), key = d.el.dataset.rv, kind = d.grid.dataset.rvKind;
   const keys = [...d.grid.children].filter(n => n === d.ph || (n !== d.el && n.matches(RV_TILE))).map(n => n === d.ph ? key : n.dataset.rv);
   if (ok && d.ph.parentNode) d.ph.replaceWith(d.el); else d.ph.remove();
   d.el.style.display = "";
+  if (ok && kind) { const K = RV_KINDS[kind]; rvKindSave(kind, keys, key); if (K && K.after) K.after(); return; }
   if (ok) rvSave(isQuiz, keys, rvMoved(isQuiz, keys, key));
 }
 // Keyboard: Alt + Arrow keys move the focused tile one place
@@ -19840,6 +20016,8 @@ function viewStudy(){
   if (!it) {
     // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
+    // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
+    if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
     return `<div class="view-head"><h2>Study Session Done</h2></div>
       <section class="done-card">
         <p class="big-num">${cards}<span> card${cards === 1 ? "" : "s"} studied</span></p>
@@ -20025,7 +20203,7 @@ function finishQuiz(){
   const sc = Object.values(byDeck).reduce((a, r) => a + r.score, 0), tot = Object.values(byDeck).reduce((a, r) => a + r.total, 0);
   if (tot > 0 && sc / tot >= 0.8) { try { celebrate("check"); } catch (e) {} }
   sbHaptic(tot > 0 && sc / tot >= 0.8 ? "success" : "tap");
-  if (quizPasses(sc, tot)) earnBump("q");
+  if (quizPasses(sc, tot)) { earnBump("q"); fire("good-moment", "quiz"); }
 }
 function viewQuiz(){
   const f = ui.fc, q = f.qs[f.i], a = f.ans[f.i];
@@ -32570,7 +32748,7 @@ let csSaveTimer = null;
 // The calendar link uses the HOME zone
 const csTz = () => { try { const h = window.SBTZ && SBTZ.schoolZone(); if (h && SBICS.validTz(h)) return h; const z = Intl.DateTimeFormat().resolvedOptions().timeZone; return SBICS.validTz(z) ? z : "America/Vancouver"; } catch (e) { return "America/Vancouver"; } };
 const csAppUrl = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : "";
-const csCourses = () => Object.values(state.courses || {}).filter(c => c && !c.archived).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
+const csCourses = () => Object.values(state.courses || {}).filter(c => c && !c.archived && !c.gen).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
 const csHasImported = () => Object.values(state.events || {}).some(e => e && e.src === "ics");
 const csStudyList = () => { const s = state.settings || {}; const l = s.studyPlan && typeof s.studyPlan === "object" ? s.studyPlan.sessions : s.studySessions; return Array.isArray(l) ? l : l && typeof l === "object" ? Object.values(l) : []; };
 // A guess at when classes end
@@ -35524,7 +35702,9 @@ hook("boot", boot);
     return {kind, code: x.length === 8 ? x.slice(0, 4) + "-" + x.slice(4) : ""};
   };
   const webBase = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : ((state.settings || {}).webUrl || "");
-  const linkFor = (kind, code) => { const b = webBase(); return b ? `${b}?${kind}=${encodeURIComponent(code)}` : ""; };
+  const myFirst = () => { const n = String(S.name || (() => { try { return localStorage.getItem(NAMEK()) || ""; } catch (e) { return ""; } })() || "").trim(); return n ? n.split(/\s+/)[0].slice(0, 24) : ""; };
+  const linkFor = (kind, code, from) => { const b = webBase(); return b ? `${b}?${kind}=${encodeURIComponent(code)}${from ? "&from=" + encodeURIComponent(from) : ""}` : ""; };
+  const fromParam = v => String(v || "").replace(/[<>"&\u0000-\u001f]/g, "").trim().slice(0, 24);
   // Remember the website address so links made in the desktop app point to it
   function rememberWebUrl(){
     if (!/^https:$/.test(location.protocol) || /^(localhost|127\.)/.test(location.hostname)) return;
@@ -38198,7 +38378,7 @@ hook("boot", boot);
       const wqBox = $("#grpWithQ"); if (wqBox && !changed) wqBox.addEventListener("change", () => { $("#grpUpd").hidden = wqBox.checked === withQ; });
       const cl = $("#grpCopyLink"); if (cl) cl.addEventListener("click", () => copyText(link, "Link copied"));
       const li = $("#grpLinkIn"); if (li) li.addEventListener("focus", () => li.select());
-      const sd = $("#grpSend"); if (sd) sd.addEventListener("click", () => sendText(d.name, `Study my Studyboard deck "${d.name}". Code: ${row.code}`, link));
+      const sd = $("#grpSend"); if (sd) sd.addEventListener("click", () => sendText(d.name, `${myFirst() ? myFirst() + " shared" : "Here are"} the flashcards "${d.name}" (${plural(d.cards.length, "card")}) on Studyboard. Study them free${link ? "" : ` with the code ${row.code}`}${link ? ` (or use the code ${row.code})` : ""}.`, link));
       $("#grpUpd").addEventListener("click", e => { const wq = !!($("#grpWithQ") || {}).checked; if (!$("#shRights")) { openSheet(`<form class="sheet">${head("Update Shared Copy")}<div class="sheet-body">${picNote(d, "link")}${rightsBox()}</div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpUpd2">Update</button></div></form>`, () => { if (!rightsOk()) return false; doShare(d, wq, $("#grpUpd2")); return false; }); return; } if (!rightsOk()) return; doShare(d, wq, e.currentTarget); });
       $("#grpStop").addEventListener("click", () => confirmSheet("Stop Sharing?", stopText(d.name, row.code), "Stop Sharing", () => stopShare(row.code)));
     });
@@ -38311,10 +38491,11 @@ hook("boot", boot);
       previewSheet({p, sharer: r.sharer_name, isMine: r.is_mine, code: r.code, meta: {code: r.code, by: r.sharer_name, v: r.updated_at}});
     } catch(e) { codeSheet(code, e.message); }
   }
-  function groupPreviewSheet(pv, code){
+  function groupPreviewSheet(pv, code, from){
     // a group project's invite says so, and what a project team shares (an older server sends no kind: a study group)
     const proj = pv.kind === "project", what = proj ? "Group Project" : "Study Group";
     openSheet(`<form class="sheet">${head("Join a " + what)}<div class="sheet-body">
+      ${from && !pv.is_member ? `<p class="grp-inv-from"><b>${esc(fromParam(from))}</b> invited you to join</p>` : ""}
       <div class="grp-prev" style="--c:${esc(grpColor(pv))}"><span class="deck-tab">${esc(pv.course ? pv.course + " · " + what : what)}</span><b class="grp-prev-name">${esc(pv.name)}</b>
         <span class="mini">${plural(pv.member_count, "member")}${pv.owner_name ? ` · Started by ${esc(pv.owner_name)}` : ""}${proj && GTL.isDay(pv.project_due) ? ` · Due ${esc(fmtShort(pv.project_due))}` : ""}</span></div>
       <p style="margin:0">${pv.is_member ? `You're already in this ${proj ? "project" : "group"}.` : proj ? "Members see each other's display names, the project's tasks and who's doing them, files and links, meetings and the chat. You can leave any time." : "Members see each other's display names, shared decks, quizzes, deadlines, study sessions, weekly stats and the message board. You can leave any time."}</p></div>
@@ -38328,13 +38509,13 @@ hook("boot", boot);
       return false;
     });
   }
-  async function openGroupCode(code){
+  async function openGroupCode(code, from){
     loadingSheet("Join a Study Group");
     try {
       const pv = await api.preview(code);
       if (!dlg.open) return;
       if (!pv) { codeSheet(code, "That code didn't match a study group. The owner may have made a new one. Check it and try again."); return; }
-      groupPreviewSheet(pv, code);
+      groupPreviewSheet(pv, code, from);
     } catch(e) { codeSheet(code, e.message); }
   }
   function codeSheet(val, msg){
@@ -38518,7 +38699,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   function inviteSheet(g){
     if (!g) return;
     rememberWebUrl();
-    const link = linkFor("group", g.invite_code);
+    const me = myFirst(), link = linkFor("group", g.invite_code, me);
     const fk = freeGrpKind(g);
     if (fk === "upgrade" && PLAN.limitNote && (S.members[g.id] || []).length >= freeGrpLim("groupMembers"))
       setTimeout(() => PLAN.limitNote("group", `${g.name} has ${freeGrpLim("groupMembers")} members, the most a free group holds. Upgrade to Pro for groups of up to ${PLAN.proLimits().groupMembers}.`, {reason: `Pro groups hold up to ${PLAN.proLimits().groupMembers} members.`}), 300);
@@ -38528,7 +38709,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
       <div class="grp-code-big" aria-label="Invite code">${esc(g.invite_code)}</div>
       ${link ? `<div class="grp-link"><input type="text" readonly value="${esc(link)}" aria-label="Invite link" id="grpInvLink"><button type="button" class="btn small" id="grpInvCopy">Copy Link</button></div>` : `<p class="mini" style="margin:0">They can type the code in Studyboard: Groups, then Enter a Code.</p>`}</div>
       <div class="sheet-foot"><button type="button" class="btn" id="grpInvCode">Copy Code</button><span class="spacer"></span><button type="button" class="btn primary" id="grpInvSend">Send Invite</button></div></div>`);
-    const text = `Join my ${isProj(g) ? "group project" : "study group"} "${g.name}" on Studyboard. Code: ${g.invite_code}`;
+    const what = isProj(g) ? "a group project" : "a study group", forC = g.course ? ` for ${g.course}` : "";
+    const why = isProj(g) ? "We split the tasks, share files and see who's done what." : "We share flashcards and quizzes and keep each other on track.";
+    const text = `${me ? me + " invited you" : "You're invited"} to ${g.name}, ${what}${forC} on Studyboard. ${why} Join free${link ? "" : ` with the code ${g.invite_code}`}${link ? ` (or use the code ${g.invite_code})` : ""}.`;
     const ic = $("#grpInvCopy"); if (ic) ic.addEventListener("click", () => copyText(link, "Invite link copied"));
     $("#grpInvCode").addEventListener("click", () => copyText(g.invite_code, "Code copied"));
     $("#grpInvSend").addEventListener("click", () => sendText(isProj(g) ? "Group Project Invite" : "Study Group Invite", text, link));
@@ -38925,7 +39108,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (pub) { if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} SBSHARE.open(p.code); } }
     else if (p) {
       if (online()) {
-        if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} if (p.kind === "group") openGroupCode(p.code); else openDeckCode(p.code); }
+        if (!dlg.open) { try { localStorage.removeItem(PEND); } catch(e) {} if (p.kind === "group") openGroupCode(p.code, p.from); else openDeckCode(p.code); }
       } else {
         const local = (!sbConfig() && sbLocalOnly()) || inPreview();
         // Signed out: ask once, after sign-in has had a moment to finish, and keep the invite so it opens once you're in
@@ -39713,11 +39896,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
   hook("boot", () => {
     try {
-      const u = new URL(location.href), dk = u.searchParams.get("deck"), gp = u.searchParams.get("group"), sh = u.searchParams.get("shared");
+      const u = new URL(location.href), dk = u.searchParams.get("deck"), gp = u.searchParams.get("group"), sh = u.searchParams.get("shared"), fr = fromParam(u.searchParams.get("from"));
       if (dk || gp || sh) {
         const {code} = normCode(dk || gp || sh);
-        if (code) localStorage.setItem(PEND, JSON.stringify({kind: dk ? "deck" : sh ? "share" : "group", code, at: Date.now()}));
-        u.searchParams.delete("deck"); u.searchParams.delete("group"); u.searchParams.delete("shared");
+        if (code) localStorage.setItem(PEND, JSON.stringify(Object.assign({kind: dk ? "deck" : sh ? "share" : "group", code, at: Date.now()}, fr ? {from: fr} : {})));
+        u.searchParams.delete("deck"); u.searchParams.delete("group"); u.searchParams.delete("shared"); u.searchParams.delete("from");
         history.replaceState(history.state, "", u.pathname + u.search + u.hash);
       }
     } catch(e) {}
@@ -41744,13 +41927,15 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // extra credit is listed with the rest, under Marked or Still to Mark, with its own pill
     const marked = gr.ts.concat(gr.xc).filter(t => markPct(t) != null), unmarked = gr.ts.concat(gr.xc).filter(t => markPct(t) == null && !excused(t));
     const need = needLines(gr), sw = biggestSwing(gr), gg = goalGap(gr);
+    // Projected Final is shown only when it says something the current grade doesn't (they're usually the same)
+    const projSame = gr.projected == null || gr.current == null || fmtP(gr.projected) === fmtP(gr.current);
     if (sw) need.push(`<b>Biggest swing:</b> ${esc(sw.t.title)} is worth ${fmtW(sw.share)} of the course. Every 10 points on it moves your final grade by ${r1(sw.per10)}.`);
     if (gr.R.drops.length || gr.R.bonus.pts > 0) need.push(`<b>Grading rules:</b> ${esc(rulesText(gr.R))}. ${gr.ruled ? "These numbers already count them." : "They start counting once there are more items than the rule drops."} <button type="button" class="link-btn" data-act="g-course-set" data-id="${esc(c.id)}">Change</button>`);
     return `<section class="gr-card${gr.risk ? " gr-" + gr.risk : ""}" aria-label="Grades">
       <div class="gr-headrow"><h3>Where You Stand</h3>${riskPill(gr.risk)}<span class="spacer"></span>${settingsBtn}</div>
       <div class="gr-top">
-        <div class="gr-stat"><span class="gr-k">Current Grade</span>${gr.current != null ? `<span class="gr-v">${fmtP(gr.current)}${L(gr.current) ? ` <span class="gr-l">${esc(L(gr.current))}</span>` : ""}</span><span class="mini">on ${fmtW(gr.wMarked)} of the course marked so far${gr.ruled && gr.R.bonus.got > 0 && gr.base != null ? `, with your ${fmtW(gr.R.bonus.got)} bonus (${fmtP(gr.base)} + ${fmtW(gr.R.bonus.got)})` : ""}</span>` : `<span class="gr-v gr-none">No Marks Yet</span><span class="mini">Add a mark below</span>`}</div>
-        <div class="gr-stat"><span class="gr-k">Projected Final</span>${gr.projected != null ? `<span class="gr-v">${fmtP(gr.projected)}${L(gr.projected) ? ` <span class="gr-l">${esc(L(gr.projected))}</span>` : ""}</span><span class="mini">${gr.done ? "all work marked" : `if you keep this up. Possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}`}</span>` : `<span class="gr-v gr-none">Not Yet</span><span class="mini">Needs a first mark</span>`}</div>
+        <div class="gr-stat"><span class="gr-k">Current Grade</span>${gr.current != null ? `<span class="gr-v">${fmtP(gr.current)}${L(gr.current) ? ` <span class="gr-l">${esc(L(gr.current))}</span>` : ""}</span><span class="mini">on ${fmtW(gr.wMarked)} of the course marked so far${gr.ruled && gr.R.bonus.got > 0 && gr.base != null ? `, with your ${fmtW(gr.R.bonus.got)} bonus (${fmtP(gr.base)} + ${fmtW(gr.R.bonus.got)})` : ""}${projSame && !gr.done && gr.current != null ? `. You could finish between ${fmtP(gr.minFinal)} and ${fmtP(gr.maxFinal)}` : ""}</span>` : `<span class="gr-v gr-none">No Marks Yet</span><span class="mini">Add a mark below</span>`}</div>
+        ${projSame ? "" : `<div class="gr-stat"><span class="gr-k">Projected Final</span>${gr.projected != null ? `<span class="gr-v">${fmtP(gr.projected)}${L(gr.projected) ? ` <span class="gr-l">${esc(L(gr.projected))}</span>` : ""}</span><span class="mini">${gr.done ? "all work marked" : `if you keep this up. Possible range ${fmtP(gr.minFinal)} to ${fmtP(gr.maxFinal)}`}</span>` : `<span class="gr-v gr-none">Not Yet</span><span class="mini">Needs a first mark</span>`}</div>`}
         <div class="gr-stat gr-pass"><span class="gr-k">Pass Mark</span><span class="gr-v">${fmtP(g.pass)}${L(g.pass) ? ` <span class="gr-l">${esc(L(g.pass))}</span>` : ""}</span><span class="mini">${g.goal != null && gg ? `<b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></div>
       </div>
       ${ptsNote(gr)}
@@ -84830,7 +85015,8 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
    The system's own prompt (Apple's and Google's, through @capacitor-community/in-app-review): no custom "Enjoying Studyboard?" screen
    first, because both stores forbid sending only happy people to the review page. Apple shows it at most 3 times a year anyway and
    may skip it; Google decides too. Nothing tells the app whether it showed or what was given.
-   When: right after a good moment (Today's Plan cleared, a Focus of 20 minutes or more finished, a good grade, a new best Match time),
+   When: right after a good moment (Today's Plan cleared, a Focus of 20 minutes or more finished, a good grade, a new best Match time,
+   a quiz passed (5+ questions, 80%+), or a flashcard session of 15+ cards with most of them known),
    once the moment's own sheet or celebration is gone, the moment still holds (no Undo since), and the student has stopped tapping
    and typing for a few seconds, so the prompt never lands under a finger or over half-typed text.
    Only for someone who has used the app for a while (a week, 5 days of use, 10 tasks done).
@@ -86163,19 +86349,19 @@ var SBPRO = null;
   /* In the Focus timer */
   function pomoHtml(){
     const cur = current(), lk = P.locked();
-    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) && !(tagPro() && !(r.free || custom().findIndex(x => x.id === r.id) < FREE_OWN)) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
+    const chip = r => `<button type="button" class="rt-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) && !(tagPro() && !(r.free || custom().findIndex(x => x.id === r.id) < FREE_OWN)) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
     let blk = "";
     if (BK.available) {
       const cfg = blockCfg(), active = BK.until > Date.now();
       blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk || tagPro() ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
         <button type="button" class="pro-sw" role="switch" aria-checked="${cfg.on && !lk}" data-act="pro-blk-on" aria-label="Block distracting sites during focus sessions"><i></i></button></div>`;
     }
-    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips segb" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
+    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips segb" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="rt-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
   // Routines open from the Focus timer: closing the sheet (after Add, Remove or Close) goes back to the timer, so the setup isn't lost
   let rtBack = false;
   dlg.addEventListener("close", () => { if (rtBack) setTimeout(() => { if (!rtBack || dlg.open) return; rtBack = false; const pd = $("#pomoDlg"); renderPomo(); if (!pd.open) pd.showModal();
-    const on = pd.querySelector(".pr-chip.on"); if (on) try { on.scrollIntoView({block: "nearest", inline: "nearest"}); } catch (e) {} }, 0); });
+    const on = pd.querySelector(".rt-chip.on"); if (on) try { on.scrollIntoView({block: "nearest", inline: "nearest"}); } catch (e) {} }, 0); });
   function routineSheet(){
     const pd = $("#pomoDlg"); if (pd && pd.open) { pd.close(); rtBack = true; }
     const mine = custom(), more = !canAdd();
@@ -86256,15 +86442,26 @@ var SBPRO = null;
 .pr-lbl{font-weight:700;font-size:.92rem}
 .pr-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .pr-chips::-webkit-scrollbar{display:none}   /* it still scrolls by swiping; a bar under the chips only got in the way */
-.pr-chips .pr-chip{flex:none;min-height:44px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 12px;display:grid;gap:1px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
-.pr-chips .pr-chip b{font-size:.9rem;display:flex;align-items:center;gap:5px}
-.pr-chips .pr-chip span{font-size:.75rem;color:var(--muted)}
+.pr-chips .rt-chip{flex:none;min-height:44px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 12px;display:grid;gap:1px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+.pr-chips .rt-chip b{font-size:.9rem;display:flex;align-items:center;gap:5px}
+.pr-chips .rt-chip span{font-size:.75rem;color:var(--muted)}
 /* the chosen routine wears the theme's button colour, like Start Focus (the timer's red stays on its band and ring) */
-.pr-chips .pr-chip.on{background:var(--btn-bg,var(--accent));border-color:transparent;color:var(--accent-ink,#fff)}
-.pr-chips .pr-chip.on span{color:inherit;opacity:.8}
-.pr-chips .pr-chip.pr-new{border-style:dashed}
-.pr-chips .pr-chip .pro-badge{color:#fff;font-size:.62rem;opacity:1}
-.pr-chips .pr-chip::before{display:none}
+.pr-chips .rt-chip.on{background:var(--btn-bg,var(--accent));border-color:transparent;color:var(--accent-ink,#fff)}
+.pr-chips .rt-chip.on span{color:inherit;opacity:.8}
+.pr-chips .rt-chip.pr-new{border-style:dashed}
+.pr-chips .rt-chip .pro-badge{color:#fff;font-size:.62rem;opacity:1}
+.pr-chips .rt-chip::before{display:none}
+/* phones: the routines look like the Focus / Short Break / Long Break switch above them, the chosen one on a white pill
+   (the switch's own pill, 103-phone-design.css, here as tall as these two-line buttons) */
+@media (max-width:639px){
+  .pr-chips.segb{gap:2px!important;padding:3px!important}
+  .pr-chips.segb > .rt-chip{min-height:52px;padding:6px 14px!important;border:0!important;background:transparent!important;color:color-mix(in srgb,var(--muted) 70%,var(--ink))!important;text-align:center;justify-items:center}
+  .pr-chips.segb > .rt-chip::before{display:block!important;inset:0!important;width:auto!important;height:auto!important}
+  .pr-chips.segb > .rt-chip.on{color:var(--ink)!important}
+  .pr-chips.segb > .rt-chip.on span{color:var(--muted);opacity:1}
+  .pr-chips.segb > .rt-chip.pr-new{border:0!important;color:var(--accent)!important}
+  .pr-chips.segb > .rt-chip .pro-badge{color:#fff}
+}
 .pr-block{display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 12px}
 .pr-bt{display:grid;gap:2px;flex:1;min-width:0}
 .pr-bt b{display:flex;align-items:center;gap:6px;font-size:.92rem}
@@ -106837,7 +107034,7 @@ function sourcesHtml(t, w){
   const useTxt = s => { const n = w.q.filter(q => q.sid === s.id).length; return [n ? `Quoted ${n === 1 ? "once" : n + " times"}` : "No quotes yet", w.draft ? (U.cited.has(s.id) ? '<span class="ws-yes">Cited in draft ✓</span>' : '<span class="ws-no">Not cited yet</span>') : "", inList ? (inList.has(s.id) ? '<span class="ws-yes">In your list ✓</span>' : '<span class="ws-no">Not in your list</span>') : ""].filter(Boolean).join(" · "); };
   return `${goalHtml(t, w)}<div class="ws-add"><label class="f ws-grow"><span class="lh">Add a source</span><input type="text" data-ws-in placeholder="Paste a DOI, arXiv ID, ISBN or link" value="${esc(W.inp || "")}" autocomplete="off" spellcheck="false" data-noenter></label>
       <button type="button" class="btn primary" data-ws-add ${W.busy ? "disabled" : ""}>${W.busy === "add" ? "Looking Up…" : "Add"}</button></div>
-    <div class="ws-row ws-src-row"><button type="button" class="btn small ws-zbtn" data-ws-zot>${ZICON} ${z ? "From Zotero" : "Connect Zotero"}</button><button type="button" class="btn small" data-ws-imp>Import File</button><button type="button" class="btn small" data-ws-manual>Add by Hand</button>${lib ? `<button type="button" class="btn small" data-ws-lib>My Library <span class="ws-n">${lib}</span></button>` : ""}${files.length ? `<select data-ws-file aria-label="Add a PDF in Studyboard as a source"><option value="">Add a PDF from Studyboard…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
+    <div class="ws-row ws-src-row"><button type="button" class="btn small ws-zbtn" data-ws-zot aria-label="${z ? "From Zotero" : "Connect Zotero"}">${ZICON} <span class="ws-l">${z ? "From Zotero" : "Connect Zotero"}</span><span class="ws-s">Zotero</span></button><button type="button" class="btn small" data-ws-imp aria-label="Import File"><span class="ws-l">Import File</span><span class="ws-s">Import</span></button><button type="button" class="btn small" data-ws-manual>Add by Hand</button>${lib ? `<button type="button" class="btn small" data-ws-lib>My Library <span class="ws-n">${lib}</span></button>` : ""}${files.length ? `<select data-ws-file aria-label="Add a PDF in Studyboard as a source"><option value="">Add a PDF from Studyboard…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}${draftOfferHtml(w, inList)}${alsoHtml(t)}
     ${W.engErr === st ? `<p class="mini ws-err">Couldn't load ${esc(styleName(st))}. ${BUILT_FMT[st] ? "Reload Studyboard and try again." : "It's fetched from zotero.org the first time: check your connection."}</p>` : ""}
     ${B.entries.length ? `<h3 class="fsec ws-bibh">${esc(heading)} <span class="mini">${esc(styleName(st))}${B.ready ? "" : " · formatting…"}</span></h3><ol class="ws-refs${B.hang ? " hang" : ""}">${B.entries.map(e => { const s = w.src.find(y => y.id === e.id); if (!s) return ""; const pdf = s.fid && state.files[s.fid]; return `<li class="ws-ref">
@@ -106935,7 +107132,7 @@ function quotesHtml(t, w){
       ${pick.length ? `<div class="ws-hls">${pick.map(g => `<fieldset class="ws-hlf"><legend><b>${esc(g.name)}</b></legend>${g.hl.map(h => `<label class="ws-hl"><input type="checkbox" data-ws-hl="${esc(g.fid)}:${esc(h.id)}" checked><span>“${esc(h.t.slice(0, 300))}${h.t.length > 300 ? "…" : ""}” <span class="mini">p. ${esc(String(h.p))}</span></span></label>`).join("")}</fieldset>`).join("")}</div>`
         : `<div class="ws-empty"><b>No new highlights.</b><p class="mini">Open a PDF to highlight: each passage you highlight can go straight in as a quote.</p><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button></div>`}`;
   }
-  return `<div class="ws-row"><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button><button type="button" class="btn small" data-ws-hlpick>Add From Highlights</button><button type="button" class="btn small" data-ws-qnew>Add a Quote</button></div>
+  return `<div class="ws-row ws-qrow"><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button><button type="button" class="btn small" data-ws-hlpick>Add From Highlights</button><button type="button" class="btn small" data-ws-qnew>Add a Quote</button></div>
     ${W.qform ? `<div class="ws-qform"><label class="f"><span class="lh">Quote</span><textarea data-wq-t rows="3" data-noenter></textarea></label>
       <div class="ws-row"><select data-wq-s aria-label="Source">${w.src.length ? w.src.map(s => `<option value="${esc(s.id)}">${esc(srcLabel(s))}</option>`).join("") : `<option value="">Add a source first</option>`}</select><label class="ws-pg"><span class="mini">Page</span><input type="text" data-wq-p inputmode="numeric" size="5"></label><button type="button" class="btn small primary" data-wq-save ${w.src.length ? "" : "disabled"}>Save Quote</button></div></div>` : ""}
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
@@ -107043,8 +107240,8 @@ function readerHtml(t, w){
   let o = 0;
   const paras = laid || d.t.split("\n").map(line => { const at = o; o += line.length + 1; return `<p data-o="${at}"${line ? "" : ' class="ws-rd-gap"'}>${esc(line)}</p>`; }).join("");
   const note = styleFmt(styleOf(t, w)) === "note";
-  return `<div class="ws-rdbar"><span class="mini ws-grow">${note ? "Select a passage to keep it as a quote. (This style cites in footnotes: add those in your document.)" : "Click where a citation goes, or select a passage to keep it as a quote."}</span>
-      <span class="mini">${esc(d.from && d.from !== "Pasted" ? d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words</span><button type="button" class="ws-act" data-ws-redo>Replace</button><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your paper from Writing Studio" title="Remove">${TRASH}</button></div>
+  return `<div class="ws-rdbar"><span class="mini ws-rdhint">${note ? "Select a passage to keep it as a quote. (This style cites in footnotes: add those in your document.)" : "Click where a citation goes, or select a passage to keep it as a quote."}</span>
+      <span class="ws-rdmeta"><span class="mini ws-rdname">${esc(d.from && d.from !== "Pasted" ? d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words</span><button type="button" class="ws-act" data-ws-redo>Replace</button><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your paper from Writing Studio" title="Remove">${TRASH}</button></span></div>
     <div class="ws-rdwrap"><div class="ws-rd${laid ? " is-doc" : ""}" data-ws-rd aria-label="Your paper: click to cite, select to quote"${laid ? ` style="${esc(`font-family:${fontCss(L.lay.base.font)};font-size:${Math.round(L.lay.base.size * 4 / 3 * 10) / 10}px`)}"` : ""}>${paras}</div></div>`;
 }
 // The citations a click can put in: each source's own (in brackets) and the form for the middle of a sentence
@@ -107108,7 +107305,7 @@ function quoteFromSel(t, sid){
 }
 function checkHtml(t, w){
   const req = CITE.rules(reqText(t)), st = styleOf(t, w), d = w.draft;
-  let h = `<p style="margin:0">Check your paper's citations against your sources before you hand it in. It runs on this device, and fixes what has one right answer when you tap Fix.</p>
+  let h = `<p style="margin:0">Checks your citations against your sources before you hand it in. Fix corrects anything with one right answer.</p>
     ${req.style || req.min ? `<p class="mini ws-note">From the assignment: ${esc([req.style ? styleName(req.style) : "", req.min ? `at least ${req.min}${req.scholarly ? " scholarly" : ""} sources` : ""].filter(Boolean).join(", "))}.</p>` : ""}`;
   if (!d || W.redo) return pickHtml(t, w, h);
   return checkResHtml(t, w, h);
@@ -107134,7 +107331,7 @@ function checkResHtml(t, w, h){
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
     ${W.diff ? `<p class="ws-diff" role="status">${W.diff.fixed || W.diff.fresh ? `Since your last check: <b>${W.diff.fixed} fixed</b>, ${W.diff.fresh} new.` : "Nothing changed since your last check."}</p>` : ""}
     ${foundHtml(t, w)}
-    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at${(() => { const f = r.issues.filter(x => x.edits && x.edits.length).length; return f ? `<button type="button" class="btn small primary ws-fixall" data-ws-fixall>Fix All${f > 1 ? ` (${f})` : ""}</button>` : ""; })()}</p>
+    <div class="ws-res"><p class="ws-sum"><span class="ws-sum-t"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at</span>${(() => { const f = r.issues.filter(x => x.edits && x.edits.length).length; return f ? `<button type="button" class="btn small primary ws-fixall" data-ws-fixall>Fix All${f > 1 ? ` (${f})` : ""}</button>` : ""; })()}</p>
       <ul class="ws-issues">${r.issues.map((x, i) => issueHtml(x, i, d.t)).join("")}</ul></div>`;
   return h;
 }
@@ -107213,10 +107410,10 @@ function ldLinkedHtml(t, w){
   const open = l.p === "google" ? `https://docs.google.com/document/d/${encodeURIComponent(l.id)}/edit` : l.url;
   const src = !W.ldShow ? "" : l.p === "google" ? open : W.ldPrev && W.ldPrev.id === l.id ? W.ldPrev.u : "";
   const word = W.ldShow && l.p === "microsoft" ? `<p class="mini ws-note">${src ? "Word for the web shows it here to read. To write in it, open it in Word for the web: Check and Fix work on the file either way." : W.ldPrev && W.ldPrev.id === l.id ? "Microsoft doesn't let Word for the web open inside another app for this account, so open it in Word to write. Check and Fix still work on the file here." : "Loading Word's preview…"}</p>` : "";
-  if (l.p === "file") return `<div class="ws-ldtop"><div class="ws-ldh">${WORD_ICON}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your Word file, kept on this device: each Fix goes into it, and Download gives you the fixed file</span></span><span class="spacer"></span>
-      <button type="button" class="btn small primary" data-ws-lddl>${w.draft.fx ? "Download Fixed File" : "Download"}</button><button type="button" class="link-btn" data-ws-ldoff>Unlink</button></div></div>`;
-  return `<div class="ws-ldtop"><div class="ws-ldh">${ic}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your ${ldName(l)}, linked: Check reads it, and each Fix goes straight into it</span></span><span class="spacer"></span>
-      <button type="button" class="btn small" data-ws-ldshow aria-expanded="${!!W.ldShow}">${W.ldShow ? "Hide It" : l.p === "google" ? "Write in It Here" : "Show It Here"}</button>${open ? `<a class="btn small" href="${esc(open)}" target="_blank" rel="noopener noreferrer">Open in ${ldApp(l)}</a>` : ""}<button type="button" class="link-btn" data-ws-ldoff>Unlink</button></div>${word}</div>
+  if (l.p === "file") return `<div class="ws-ldtop"><div class="ws-ldh">${WORD_ICON}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your Word file, kept on this device: each Fix goes into it, and Download gives you the fixed file</span></span></div>
+      <div class="ws-ldacts"><button type="button" class="btn small primary" data-ws-lddl>${w.draft.fx ? "Download Fixed File" : "Download"}</button><span class="spacer"></span><button type="button" class="ws-act" data-ws-ldoff>Unlink</button></div></div>`;
+  return `<div class="ws-ldtop"><div class="ws-ldh">${ic}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your ${ldName(l)}, linked: Check reads it, and each Fix goes straight into it</span></span></div>
+      <div class="ws-ldacts"><button type="button" class="btn small" data-ws-ldshow aria-expanded="${!!W.ldShow}">${W.ldShow ? "Hide It" : l.p === "google" ? "Write in It Here" : "Show It Here"}</button>${open ? `<a class="btn small" href="${esc(open)}" target="_blank" rel="noopener noreferrer">Open in ${ldApp(l)}</a>` : ""}<span class="spacer"></span><button type="button" class="ws-act" data-ws-ldoff>Unlink</button></div>${word}</div>
     ${W.ldShow ? `<div class="ws-ldwrap" data-k="${esc(src + (l.p === "microsoft" ? "#" + (W.ldKey || 0) : ""))}">${src ? `<iframe class="ws-ldf" src="${esc(src)}" title="${esc(l.name || ldName(l))} in ${ldApp(l)}" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>` : ""}</div>` : ""}`;
 }
 function ldWordHtml(){
@@ -107271,6 +107468,8 @@ function draw(fresh){
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
     ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
+  // the tab strip scrolls sideways on phones: it keeps its place when drawn again, and the chosen tab is kept in view
+  const tx = shown() ? (W.el.querySelector(".ws-tabs") || {}).scrollLeft || 0 : 0;
   // My Doc's document stays open while the rest is drawn again (drawing it again would load it again, and lose your place in it)
   const keep = shown() && !VIEW && W.tab === "doc" ? W.el.querySelector(".ws-ldwrap") : null, tmp = keep ? document.createElement("div") : null;
   if (tmp) tmp.innerHTML = inner;
@@ -107284,6 +107483,8 @@ function draw(fresh){
   } else if (shown()) W.el.innerHTML = inner;
   else { openSheet(`<div class="sheet ws-sheet">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
   const b = W.el.querySelector(".ws-body"); if (b && y) b.scrollTop = y;
+  { const tabs = W.el.querySelector(".ws-tabs"), on = tabs && tabs.querySelector('[aria-selected="true"]');
+    if (tabs) { tabs.scrollLeft = tx; if (on) { const r = on.getBoundingClientRect(), R0 = tabs.getBoundingClientRect(); if (r.right > R0.right - 4) tabs.scrollLeft += r.right - R0.right + 12; else if (r.left < R0.left + 4) tabs.scrollLeft -= R0.left - r.left + 12; } } }
   wire(t);
   if (RB) SBRUBRIC.tabWire(W.el, t); else if (window.SBRUBRIC && SBRUBRIC.tabOff) SBRUBRIC.tabOff();
 }
@@ -107884,10 +108085,16 @@ function paperParts(raw){
   return {head: rest, title, body: lines.slice(i).filter(Boolean).join(" "), page: ti === 0 && rest.length > 0};
 }
 // The Writing view in Review: papers with Writing Studio, and essays and reports coming up
+let rvFull = [];
+if (window.SBRV) SBRV.reg("writing", {full: () => rvFull, name: id => (state.tasks[id] || {}).title || "the paper"});
 function reviewHtml(){
   const today = todayISO(), f = typeof ui !== "undefined" && ui.filter && ui.filter !== "all" ? ui.filter : "";
-  const list = allTasks().filter(t => eligible(t) && (!f || t.courseId === f) && (hasData(t) ? t.status !== "done" || (t.due && t.due >= addDays(today, -14)) : t.status !== "done" && t.due && t.due >= today && t.due <= addDays(today, 45)))
+  const listAll = allTasks().filter(t => eligible(t) && (hasData(t) ? t.status !== "done" || (t.due && t.due >= addDays(today, -14)) : t.status !== "done" && t.due && t.due >= today && t.due <= addDays(today, 45)))
     .sort((a, b) => (hasData(b) - hasData(a)) || String(a.due || "9").localeCompare(String(b.due || "9"))).slice(0, 40);
+  const list = listAll.filter(t => !f || t.courseId === f);
+  // in the order you've dragged them into (01-flashcards.js SBRV), within each list; the whole order is kept for a drag to save
+  const ord = arr => window.SBRV ? SBRV.order("writing", arr, t => t.id) : arr;
+  rvFull = ord(listAll.filter(hasData)).concat(ord(listAll.filter(t => !hasData(t)))).map(t => t.id);
   const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
   // a card like Concept Maps': a peek at the paper itself (its draft's opening words on a page, citations marked), its course, how its
   // check stands and its linked doc; then its title, when it's due and how far along it is
@@ -107900,16 +108107,16 @@ function reviewHtml(){
     const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
     // the paper's own title (its name, teacher, course and date lines left out), then its body
     const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ph">${esc(cut(PP && PP.title ? PP.title : t.title, 70))}</span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
-    return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}">
+    return `<li class="wsr-card" data-rv="${esc(t.id)}" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
       <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span></button>
       <div class="wsr-row"><span class="wsr-sub"><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></span>
       <button type="button" class="btn small primary" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></div></li>`;
   };
-  const started = list.filter(hasData), next = list.filter(t => !hasData(t));
+  const started = ord(list.filter(hasData)), next = ord(list.filter(t => !hasData(t)));
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}
-    ${list.length ? `${started.length ? `<ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
+    ${list.length ? `${started.length ? `<ul class="wsr-list" data-rv-kind="writing">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list" data-rv-kind="writing">${next.map(card).join("")}</ul>` : ""}`
       : `<div class="empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("papers") : ""}<strong>No Papers Yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
 }
 // Today's Plan: from 3 days before the due date, a saved draft that hasn't been checked since it changed gets one gentle row (the
@@ -108279,6 +108486,10 @@ svg.ws-zic{display:block;flex:none}
 .ws-tab:focus:not(:focus-visible){outline:none}
 .ws-fixb{display:inline-flex;margin-top:6px;width:max-content}
 .ws-sum .ws-fixall{margin-left:10px;vertical-align:middle}
+.ws-res > .ws-sum{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+.ws-res > .ws-sum .ws-fixall{margin:0;flex:none}
+.ws-sum-t{min-width:0}
+.ws-acts > .spacer{flex:1 1 auto}
 .ws-tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .ws-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent,#2F6FE4)}
 .ws-n{display:inline-block;min-width:1.4em;font-size:.72rem;border-radius:9px;padding:0 5px;background:var(--soft,#EEF1F6);color:var(--muted);text-align:center}
@@ -108289,6 +108500,16 @@ svg.ws-zic{display:block;flex:none}
 .ws-add{display:flex;gap:8px;align-items:flex-end}
 .ws-grow{flex:1 1 auto;min-width:0}
 .ws-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
+/* Add a source: on phones the three ways share one line, with short names (Zotero, Import, Add by Hand) */
+/* Quotes on phones: Open a PDF to Highlight across the top, the two ways to add one side by side under it */
+@media (max-width:520px){.ws-qrow{gap:8px}.ws-qrow > .btn{flex:1 1 0;min-width:0;justify-content:center;white-space:nowrap;padding-left:10px;padding-right:10px}.ws-qrow > .btn.primary{flex:1 1 100%}}
+.ws-src-row .ws-s{display:none}
+@media (max-width:520px){
+  .ws-src-row{gap:6px}
+  .ws-src-row > .btn{flex:1 1 auto;min-width:0;justify-content:center;white-space:nowrap;padding-left:10px;padding-right:10px}
+  .ws-src-row .ws-l{display:none}.ws-src-row .ws-s{display:inline}
+  .ws-src-row > select{flex:1 1 100%}
+}
 .ws-row select{min-width:0;max-width:100%;flex:1 1 200px}
 .ws-zbtn svg{vertical-align:-2px;color:#CC2936}
 .ws-priv{margin:0}
@@ -108305,7 +108526,16 @@ svg.ws-zic{display:block;flex:none}
 .ws-ldc{display:grid;gap:8px}
 .rbx-in{display:grid;gap:10px}
 /* My Doc: the paper as a page (click to cite, select to quote), and the menu that opens there */
-.ws-rdbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0 8px}
+.ws-rdbar{display:grid;gap:4px;margin:4px 0 8px}
+.ws-rdhint{color:var(--muted)}
+.ws-rdmeta{display:flex;align-items:center;gap:4px;min-width:0}
+.ws-rdname{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ws-rdmeta .ws-act{flex:none}
+.ws-ldacts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ws-ldacts > a.btn{color:var(--ink)}
+.ws-ldacts .ws-act{color:var(--muted)}
+.ws-ldacts .ws-act:hover{color:var(--ink)}
+@media (max-width:520px){.ws-ldacts > .btn{flex:1 1 0;justify-content:center;white-space:nowrap}.ws-ldacts .spacer{display:none}}
 .ws-rdwrap{position:relative}
 .ws-rd{max-width:760px;margin:0 auto;padding:28px clamp(16px,6%,56px) 40px;background:color-mix(in srgb,#fff 94%,var(--surface));color:#20242E;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 22px -14px rgb(0 0 0/.35);font:1rem/1.75 Georgia,"Times New Roman",serif;cursor:text;user-select:text;-webkit-user-select:text}
 .ws-rd p{margin:0;white-space:pre-wrap;word-break:break-word}
@@ -108338,7 +108568,7 @@ svg.ws-zic{display:block;flex:none}
 .ws-ldk>svg,.ws-ldh>svg{width:22px;height:22px;flex:none}.ws-ldk>img,.ws-ldh>img{width:24px;height:auto;flex:none}
 .ws-ldk-t{display:grid;gap:2px;flex:1 1 180px;min-width:0}
 .ws-ldk-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ws-ldtop{display:grid;gap:8px}
+.ws-ldtop{display:grid;gap:8px;margin-top:8px}
 .ws-ldsum{margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ws-ldsum .ws-fixall{margin-left:0}
 .ws-ldwrap:not(:empty){margin-top:10px}
@@ -109542,7 +109772,12 @@ const ownerObj = o => o && (o.kind === "course" ? state.courses[o.id] : state.ta
 /* A course's maps: c.maps = [{id, name, auto (from the course's material) or blank, created, at, and the overlay: pos, hide, add, links, cut, names, styles}].
    The course's first map, from before there could be several, was c.cmap: it reads as the map "main" until it's saved again. */
 const MAX_MAPS = 30;
-const courseName = c => c ? (c.code || c.name || "Course") : "Course";
+/* Maps with no course ("General") live on a hidden course record (gen: true) so they sync, undo and go to Recently Deleted
+   like any other map; course lists skip it (allCourses) */
+const GEN_ID = "general";
+const isGen = c => !!(c && (c.gen || c.id === GEN_ID));
+const genRec = () => ({id: GEN_ID, gen: true, name: "General", code: "", color: "#8A94A6", created: Date.now(), instructor: "", schedule: "", room: "", office: "", meetings: [], notes: "", links: [], maps: []});
+const courseName = c => isGen(c) ? "General" : c ? (c.code || c.name || "Course") : "Course";
 function mapsOf(c){
   if (!c) return [];
   const list = (Array.isArray(c.maps) ? c.maps : []).filter(m => m && m.id).map(m => Object.assign({name: "Untitled Map", auto: true}, m));
@@ -109556,7 +109791,7 @@ const userOf = o => { if (o && o.kind === "course") return overlay(mapOf(o)); co
 const refOf = o => o.kind === "course" ? `c:${o.id}:${o.map || "main"}` : `e:${o.id}`;
 const refParse = r => { const m = /^c:([^:]+):(.+)$/.exec(String(r || "")), e = /^e:(.+)$/.exec(String(r || "")); return m ? {kind: "course", id: m[1], map: m[2]} : e ? {kind: "exam", id: e[1]} : null; };
 const metaOf = o => (o.kind === "course" ? mapOf(o) : (ownerObj(o) || {}).cmap) || {};
-const courseIdOf = o => o.kind === "course" ? o.id : (ownerObj(o) || {}).courseId || "";
+const courseIdOf = o => o.kind === "course" ? (o.id === GEN_ID ? "" : o.id) : (ownerObj(o) || {}).courseId || "";
 const mapDeck = o => { const d = state.decks[metaOf(o).deck]; return d && !d.archived ? d : null; };
 // every result for this map's course: each card (right and wrong) and each quiz question (tries and misses)
 function evidence(o){
@@ -110889,7 +111124,7 @@ hook("act", (act, el, id) => {
   return false;
 });
 document.addEventListener("change", e => { const s = e.target && e.target.closest && e.target.closest("[data-cm-sort]"); if (!s) return; ui.cmSort = s.value; try { localStorage.setItem("studyboard:cmSort", s.value); } catch (er) {} render(); });
-const coursesLive = () => Object.values(state.courses || {}).filter(c => c && !c.archived).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
+const coursesLive = () => Object.values(state.courses || {}).filter(c => c && !c.archived && !isGen(c)).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
 // a template's little preview, drawn from its own layout
 // A template's preview: its real layout, small. Boxes take the template's colours, softly filled to suit light and dark mode,
 // with a short bar where the words go; the middle idea is solid
@@ -110913,14 +111148,14 @@ function tplThumb(t){
 }
 function newMapSheet(cid, o){
   o = o || {};
-  const cs = coursesLive();
-  if (!cs.length) { toast("Add a course first: each map belongs to a course."); return; }
-  const pick = cs.find(c => c.id === cid) || cs[0], n = mapsOf(pick).length, start = o.start || "auto";
+  // General (no course) is always offered, after the courses; with no courses it's the only choice
+  const cs = coursesLive().concat([state.courses[GEN_ID] || genRec()]);
+  const pick = cs.find(c => c.id === cid) || (cid === GEN_ID ? cs[cs.length - 1] : cs[0]), n = mapsOf(pick).length, start = o.start || (isGen(pick) ? "blank" : "auto");
   const opt = (v, t, d) => `<label class="cm-opt"><input type="radio" name="cmStart" value="${v}" ${start === v ? "checked" : ""}><span><b>${t}</b><span class="mini">${d}</span></span></label>`;
   openSheet(`<form class="sheet cm-new-sheet">${bandHead("New Concept Map", ICON.replace('width="16" height="16"', ""), pick.color || "#2F6FE4")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" value="${esc(o.name != null ? o.name : n ? "" : `${courseName(pick)} Map`)}" placeholder="e.g. Cell respiration, Unit 3, Essay plan" autocomplete="off"></label>
-      <label class="f"><span class="lh">Course</span><select id="cmCourse">${cs.map(c => `<option value="${esc(c.id)}" ${c.id === pick.id ? "selected" : ""}>${esc(courseLabel(c))}</option>`).join("")}</select></label>
+      <label class="f"><span class="lh">Course</span><select id="cmCourse">${cs.map(c => `<option value="${esc(c.id)}" ${c.id === pick.id ? "selected" : ""}>${esc(isGen(c) ? "General (No Course)" : courseLabel(c))}</option>`).join("")}</select></label>
       <fieldset class="f cm-start-pick"><legend class="lh">Start From</legend>
         ${opt("blank", "A Blank Page", "Just your own ideas and connections.")}
         ${opt("auto", "My Course Material", "Exam topics, notes, decks and files you've linked draw themselves in.")}
@@ -110979,7 +111214,7 @@ function newMapSheet(cid, o){
 async function createFromSheet(){
   const root = dlg.querySelector(".cm-new-sheet"); if (!root) return;
   const err = m => { const e = root.querySelector("[data-cm-err]"); e.textContent = m; e.hidden = !m; };
-  const c = state.courses[root.querySelector("#cmCourse").value]; if (!c) return;
+  const pickV = root.querySelector("#cmCourse").value, c = state.courses[pickV] || (pickV === GEN_ID ? genRec() : null); if (!c) return;
   const start = (root.querySelector('[name="cmStart"]:checked') || {}).value || "auto", desc = String((root.querySelector("#cmDesc") || {}).value || "").trim();
   let name = String(root.querySelector("#cmName").value || "").trim().slice(0, 80);
   const ms = mapsOf(c); if (ms.length >= MAX_MAPS) { err(`A course can hold ${MAX_MAPS} maps.`); return; }
@@ -111003,7 +111238,7 @@ async function createFromSheet(){
   let mat = null;
   if (start === "auto") { const box = root.querySelector(".cm-matbox"), ids = matChosen(box); if (box._n && !ids.length) { err("Tick at least one item, or start from a blank page."); return; } if (ids.length < (box._n || 0)) mat = ids; }
   const rec = Object.assign({id: uid(), name, auto: start === "auto", created: Date.now(), at: Date.now()}, start === "auto" || start === "blank" ? {} : ov, mat ? {mat} : {});
-  const cur = state.courses[c.id], after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
+  const cur = state.courses[c.id] || c, after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
   applyChanges([{kind: "course", id: c.id, after}], `Made the map ${name}`, null, {quiet: true});
   if (dlg.open) dlg.close();
   setTimeout(() => open("course", c.id, rec.id), 0);
@@ -111115,12 +111350,20 @@ function peekSvg(p, col){
   }).join("");
   return `<svg class="cm-peek" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
 }
+// Dragging map cards (01-flashcards.js SBRV): each map's key, the whole list in the order shown, and My Order once you've moved one
+const rvKey = x => x.exam ? "e:" + x.id : x.cid + ":" + x.id;
+let rvFull = [];
+if (window.SBRV) SBRV.reg("maps", {full: () => rvFull, name: k => { const x = allMaps().find(m => rvKey(m) === k); return x ? x.name : "the map"; },
+  after: () => { if (ui.cmSort === "mine") return; ui.cmSort = "mine"; try { localStorage.setItem("studyboard:cmSort", "mine"); } catch (e) {} render(); }});
 function listHtml(){
   const sort = ui.cmSort || (() => { try { return localStorage.getItem("studyboard:cmSort") || "recent"; } catch (e) { return "recent"; } })();
   const q = String(ui.q || "").trim().toLowerCase(), all = allMaps();
-  const list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
-  const cl = x => { const c = courseOf(x.cid); return c ? courseLabel(c) : "General"; };
-  list.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name));
+  let list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
+  const cl = x => { const c = courseOf(x.cid); return c && !isGen(c) ? courseLabel(c) : "General"; };
+  const byMode = (a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name);
+  // My Order: the order you dragged them into (new maps first); the whole list's order is kept for a drag to save
+  const inMine = arr => sort === "mine" && window.SBRV ? SBRV.order("maps", arr.slice().sort((a, b) => (b.at - a.at) || a.name.localeCompare(b.name)), rvKey) : arr.slice().sort(byMode);
+  list = inMine(list); rvFull = inMine(all).map(rvKey);
   const pro = ""; // maps are free; Pro parts are marked inside the map
   let lastCourse = "";
   const cards = list.map(x => {
@@ -111128,15 +111371,15 @@ function listHtml(){
     const open = `data-act="cm-open" data-kind="${x.exam ? "exam" : "course"}" data-id="${esc(x.exam ? x.id : x.cid)}" data-map="${esc(x.exam ? "" : x.id)}"`;
     const meta = [n ? `${n.items} idea${n.items === 1 ? "" : "s"} · ${n.links} link${n.links === 1 ? "" : "s"}` : "", x.exam ? "from the Prep Plan" : "", ago(x.at)].filter(Boolean).join(" · ");
     const ic = (d, w) => `<svg viewBox="0 0 24 24" width="${w || 17}" height="${w || 17}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-    return `${head}<article class="cm-mapcard" style="--c:${esc(colorOf(x.cid))}">
-      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
+    return `${head}<article class="cm-mapcard" data-rv="${esc(rvKey(x))}" style="--c:${esc(colorOf(x.cid))}">
+      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c && !isGen(c) ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
       <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b></button>
       <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
       <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
     </article>`;
   }).join("");
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
-  const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"]];
+  const SORTS = [["recent", "Recently Edited"], ["name", "Name"], ["course", "Course"], ["mine", "My Order"]];
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
   // like Quizzes': Share With a Group (maps can be shared live with a study group), then Recently Deleted
   const grpIc = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3 2.3 3 5"/></svg>';
@@ -111144,7 +111387,7 @@ function listHtml(){
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
-    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
+    ${list.length ? `<div class="cm-grid${sort === "course" ? " by-course" : ""}" data-rv-kind="maps">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length || typeof emptyArt !== "function" ? "" : emptyArt("maps")}<strong>${all.length ? "No Maps Match" : "No Concept Maps Yet"}</strong>${all.length ? "Try another course or search." : "Map how a course fits together: start from the notes, decks and exam topics you've linked, or from a blank page."}${all.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="cm-new">Create a Map${pro}</button></div>`}</div>`}`;
 }
 if (window.SBPRO) SBPRO.addFeature({id: "cmap", name: "Concept Maps", free: "Maps, 14 Plain Styles", pro: "Every Style and Extra", where: "Concept maps are free. Pro adds every theme and subject style, pictures, videos and embeds, any colour, links to PDF pages and lecture moments, Scan a Drawing and Colour by Knowledge", icon: '<circle cx="12" cy="12" r="2.6"/><circle cx="4.5" cy="6" r="2"/><circle cx="19.5" cy="6" r="2"/><circle cx="5.5" cy="19" r="2"/><circle cx="18.5" cy="18.5" r="2"/><path d="M6.3 7l3.6 3.4M17.7 7l-3.6 3.4M7.2 17.8l2.9-3.9M16.9 17.2l-2.9-3.2"/>'});
 
@@ -111759,6 +112002,22 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-style2>.link-btn{grid-column:span 8;justify-self:start}
   .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
+/* a button whose label is hidden on phones keeps its icon in the middle */
+.cm-acts > .btn.small,.cm-acts > .cm-mw > .btn.small{display:inline-flex;justify-content:center;align-items:center}
+.cm-acts .btn.small > svg{display:block;flex:none;margin:0}
+/* phones: the toolbar always stays one line. With a group's Live chip as well, Add and Study become icons and Live
+   shows just its dot and how many are on (its name is in its label and on tap) */
+@media (max-width:640px){
+  .cm-tools{flex-wrap:nowrap!important;min-width:0}
+  .cm-tools:has(.cm-glive) .cm-ml{display:none}
+  @media (max-width:430px){.cm-tools .cm-mw .cm-ml{display:none}}
+  .cm-tools:has(.cm-glive) .cm-glive{gap:4px;padding-left:9px;padding-right:9px}
+  .cm-tools:has(.cm-glive) .cm-glive .cm-ms{display:none!important}
+  .cm-tools:has(.cm-glive) .cm-glive :is(.cm-gsep,.cm-ged,.cm-gwait){display:none}
+  .cm-tools:has(.cm-glive) .cm-chiptog{padding:6px 8px}
+  .cm-tools > *{flex:none}
+  .cm-tools .spacer{flex:1 1 0;min-width:0}
+}
 @media (max-width:440px){.cm-chiptog .cm-ms{display:none}.cm-chiptog{padding:6px 10px}.cm-tools .cm-undo{width:34px;height:34px}}
 @media (max-width:380px){.cm-tools .cm-ml{display:none}.cm-acts>.btn.small{padding-left:8px;padding-right:8px}}
 `;
@@ -112126,7 +112385,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const c = courseOf(p.courseId), runs = p.runs || [], best = bestOf(p), nm = esc(p.name || "Presentation"), tgt = (p.target || 0) * 1000;
     const meta = runs.length ? `${best != null ? `Best ${fmt(best)} · ` : ""}target ${fmt(tgt)}` : `Target ${fmt(tgt)} · not practiced yet`;
     const stamp = best == null ? "New" : fmt(best), good = best != null && best <= tgt + 10000, g = grp(p);
-    return `<article class="rv-card rv-pres" style="--c:${esc(colorOf(p.courseId))}">
+    return `<article class="rv-card rv-pres" data-rv="${esc(p.id)}" style="--c:${esc(colorOf(p.courseId))}">
       <button class="rv-peek pr-peek" data-act="pr-open" data-id="${esc(p.id)}" aria-label="Open ${nm}">
         <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
@@ -112149,14 +112408,19 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (segs.length > 40) { const k = Math.ceil(segs.length / 40), out = []; for (let i = 0; i < segs.length; i += k) { const g = segs.slice(i, i + k), rank = {over: 3, warn: 2, ok: 1, "": 0}; out.push({w: g.reduce((a, x) => a + x.w, 0), t: g.reduce((a, x) => rank[x.t] > rank[a] ? x.t : a, "")}); } segs = out; }
     return `<span class="pr-tl" aria-hidden="true">${segs.map(x => `<i class="${x.t ? "t-" + x.t : ""}" style="flex-grow:${Math.round(x.w * 10) / 10}"></i>`).join("")}</span>`;
   }
+  let rvFull = [];
+  if (window.SBRV) SBRV.reg("pres", {full: () => rvFull, name: id => { const p = LIST.find(x => x.id === id); return p ? (p.name || p.title || "the presentation") : "the presentation"; }});
   function listHtml(){
     const f = ui.filter && ui.filter !== "all" ? ui.filter : "", q = String(ui.q || "").trim().toLowerCase();
-    const list = LIST.filter(p => !f || p.courseId === f).filter(p => !q || [p.name, p.title, (courseOf(p.courseId) || {}).name].join(" ").toLowerCase().includes(q)).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    // newest first, or the order you've dragged them into (01-flashcards.js SBRV); the whole list's order is kept for a drag to save
+    const inOrder = arr => { const s = arr.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0)); return window.SBRV ? SBRV.order("pres", s, p => p.id) : s; };
+    const list = inOrder(LIST.filter(p => !f || p.courseId === f).filter(p => !q || [p.name, p.title, (courseOf(p.courseId) || {}).name].join(" ").toLowerCase().includes(q)));
+    rvFull = inOrder(LIST).map(p => p.id);
     const head = `<div class="view-head" data-pr-list><h2>Presentations</h2><button class="btn small sm-btn" data-act="pr-join-code" title="Join a friend's rehearsal with the code they sent">${IC.users}<span class="sm-lbl">Join With a Code</span></button></div>${typeof chipsHtml === "function" ? chipsHtml() : ""}`;
     if (!LOADED) return head;
     const extra = fire("pr-list-extra").filter(Boolean).join("");
     if (!list.length) return head + extra + `<div class="empty${LIST.length ? "" : " sb-es"}" style="margin-top:14px">${LIST.length ? "" : emptyArt("present")}<strong>${LIST.length ? "No Presentations Match" : "No Presentations Yet"}</strong>${LIST.length ? "Try another course or search." : "Add your slides and set a target time. Studyboard times each slide as you practice, and can record you so you can listen back and read what you said."}${LIST.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="pr-new">Practice a Presentation</button></div>`}</div>`;
-    return head + extra + `<div class="rv-grid pr-grid">${list.map(cardHtml).join("")}</div>`;
+    return head + extra + `<div class="rv-grid pr-grid" data-rv-kind="pres">${list.map(cardHtml).join("")}</div>`;
   }
 
   /* ---------- adding slides ---------- */
@@ -113490,7 +113754,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       case "pr-friend": remoteStart("friend"); return true;
       case "pr-join-code": { const w = window.open(SITE() + "/present-remote.html", "_blank", "noopener"); if (!w) location.href = SITE() + "/present-remote.html"; return true; }
       case "pr-fr-copy": if (RM && RM.url) { try { navigator.clipboard.writeText(`Join my presentation rehearsal: ${RM.url} (code ${RM.code})`).then(() => toast("Link copied"), () => toast("Couldn't copy it. The code is " + RM.code)); } catch (e) { toast("The code is " + RM.code); } } return true;
-      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
+      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Help me rehearse${(() => { const x = STG && STG.p ? (STG.p.name || STG.p.title || "") : ""; return x ? ` "${x}"` : " my presentation"; })()} on Studyboard: you see the slides, the clock and my notes on your phone, and can run the slides for me. No account needed. Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
       case "pr-remote-hide": if (RM) { RM.hide = true; remotePanel(); } return true;
       case "pr-remote-off": remoteEnd(); remotePanel(); return true;
     }
@@ -114445,7 +114709,7 @@ function chipHtml(o){
   const a = ACC.get(g.bid), k = a ? new Set(a.ids.concat(me())).size : 0, on = !!(L && L.bid === g.bid && L.on) && navigator.onLine !== false && online();
   const waiting = Q[g.bid] && Q[g.bid].q.length, ed = editingNow(g.gid);
   const tip = !on ? "Offline: your changes stay here and are sent when you're back online" : ed.length ? `${ed.join(", ")} ${ed.length === 1 ? "is" : "are"} editing` : "Who has this map";
-  return `<button type="button" class="btn small cm-glive${on ? " on" : ""}" data-cm="g-who" title="${esc(tip)}" aria-label="${esc((on ? "Live with " : "Offline, shared with ") + (g.gn || "your group") + (k ? `, ${k} ${k === 1 ? "person" : "people"}` : "") + (ed.length ? `. ${tip}` : ""))}"><span class="dot" aria-hidden="true"></span><span class="cm-ml">${on ? "Live with" : "Offline ·"} ${esc(cut(g.gn || "your group", 30))}</span><span class="cm-ms">${on ? "Live" : "Offline"}</span>${k ? `<span class="cm-gn"> · ${k}</span>` : ""}${waiting && !on ? `<span class="cm-gwait"> · ${waiting} to send</span>` : ""}${ed.length && on ? `<span class="cm-ged"> · ${esc(ed[0])}${ed.length > 1 ? ` +${ed.length - 1}` : ""} editing</span>` : ""}</button>`;
+  return `<button type="button" class="btn small cm-glive${on ? " on" : ""}" data-cm="g-who" title="${esc(tip)}" aria-label="${esc((on ? "Live with " : "Offline, shared with ") + (g.gn || "your group") + (k ? `, ${k} ${k === 1 ? "person" : "people"}` : "") + (ed.length ? `. ${tip}` : ""))}"><span class="dot" aria-hidden="true"></span><span class="cm-ml">${on ? "Live with" : "Offline ·"} ${esc(cut(g.gn || "your group", 30))}</span><span class="cm-ms">${on ? "Live" : "Offline"}</span>${k ? `<span class="cm-gn"><span class="cm-gsep"> · </span>${k}</span>` : ""}${waiting && !on ? `<span class="cm-gwait"> · ${waiting} to send</span>` : ""}${ed.length && on ? `<span class="cm-ged"> · ${esc(ed[0])}${ed.length > 1 ? ` +${ed.length - 1}` : ""} editing</span>` : ""}</button>`;
 }
 function toolsChip(){ const M = B.state(); if (!B.shown() || !M.el) return; const el = M.el.querySelector(".cm-glive"), h = chipHtml(M.own); if (el && h) { const t = document.createElement("div"); t.innerHTML = h; el.replaceWith(t.firstElementChild); } }
 hook("cm-tools", o => chipHtml(o));
@@ -114476,9 +114740,11 @@ function panelHtml(o){
   if (M.gRights && g) return `<div class="cm-gpanel"><p style="margin:0"><b>Pictures on a group map</b> <span class="mini">Everyone in ${esc(g.gn || "the group")} sees the pictures on this map. Only add pictures you took or made yourself, or have permission to share.</span></p>${G() && G().rightsBox ? G().rightsBox("pic") : ""}<div class="cm-row"><span class="spacer"></span><button type="button" class="btn small" data-cm="g-rights-x">Cancel</button><button type="button" class="btn small primary" data-cm="g-rights-ok">Continue</button></div></div>`;
   if (M.gWho && g && !M.sel && !M.selE) {
     const a = ACC.get(g.bid), ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me())), ed = editingNow(g.gid);
-    return `<div class="cm-gpanel"><div class="cm-row cm-ttl"><b>Shared with ${esc(g.gn || "your study group")}</b><span class="mini">Live: what anyone here changes shows up for everyone as it happens.${ed.length ? ` ${esc(ed.join(", "))} ${ed.length === 1 ? "is" : "are"} editing now.` : ""}</span><span class="spacer"></span>${G() && G().openBoards ? `<button type="button" class="btn small" data-cm="g-go">Go to Group</button>` : ""}<button type="button" class="icon-btn cm-pclose" data-cm="g-who-x" aria-label="Done" title="Done">${CLOSE}</button></div>
+    // the title with Done beside it, what Live means, who has it, and Go to Group at the end
+    return `<div class="cm-gpanel"><div class="cm-gp-h"><b>Shared with ${esc(g.gn || "your study group")}</b><button type="button" class="icon-btn cm-pclose" data-cm="g-who-x" aria-label="Done" title="Done">${CLOSE}</button></div>
+      <p class="mini cm-gp-live">Live: what anyone here changes shows up for everyone as it happens.${ed.length ? ` ${esc(ed.join(", "))} ${ed.length === 1 ? "is" : "are"} editing now.` : ""}</p>
       <ul class="wbg-people cm-gpeople">${ids.map(id => `<li>${faceOf(g.gid, id)}${esc(memberName(g.gid, id))}</li>`).join("")}</ul>
-      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Shared tab. Undo only takes back your own changes. Deleting your copy only removes yours.</p></div>`;
+      <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Shared tab. Undo only takes back your own changes. Deleting your copy only removes yours.</p>${G() && G().openBoards ? `<div class="cm-gp-acts"><button type="button" class="btn small" data-cm="g-go">Go to Group</button></div>` : ""}</div>`;
   }
   return "";
 }
@@ -114559,7 +114825,7 @@ async function makeLive(cid, mid, gid, gname, drop){
 async function addCopy(row, gname, gid){
   const have = byBid(row.id); if (have) return have;
   const G0 = G(), grp = (G0 && G0.groups ? G0.groups() : []).find(x => x.id === gid) || {};
-  const cs = Object.values(state.courses || {}).filter(c => c && !c.archived);
+  const cs = Object.values(state.courses || {}).filter(c => c && !c.archived && !c.gen);
   let cid = (G0 && G0.matchCourse && (G0.matchCourse(row.course) || G0.matchCourse(grp.course))) || (cs.length === 1 ? cs[0].id : "");
   if (!cid && cs.length) cid = await pickCourse(cs, row);
   if (cid === null) return null;
@@ -114705,7 +114971,11 @@ html[data-theme=dark] .cm-glive{color:#7FE3A6}
 .cm-node.cm-peer .cm-shape,.cm-node.cm-peer rect:first-child{stroke:var(--peer)!important;stroke-width:3.2px!important}
 .cm-node.cm-peer{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--peer) 55%,transparent))}
 .cm-peertag{font:700 11px var(--display,system-ui);fill:var(--peer);paint-order:stroke;stroke:var(--surface);stroke-width:3px;pointer-events:none}
-.cm-gpanel{display:grid;gap:8px}.cm-gpeople{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.cm-gpanel{display:grid;gap:8px}
+.cm-gp-h{display:flex;align-items:center;gap:10px}.cm-gp-h > b{flex:1 1 auto;min-width:0;font-size:1.05rem}
+.cm-gp-live{margin:0}
+.cm-gp-acts{display:flex;justify-content:flex-end;margin-top:2px}
+@media (max-width:640px){.cm-gp-acts > .btn{flex:1 1 auto;justify-content:center}}.cm-gpeople{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .cm-gpriv{display:grid;gap:6px}
 .cmg-pv{background:radial-gradient(circle,color-mix(in srgb,var(--c) 30%,transparent) 1px,transparent 1.5px) 0 0/14px 14px,linear-gradient(160deg,color-mix(in srgb,var(--c) 12%,var(--surface)),color-mix(in srgb,var(--c) 4%,var(--surface)))}
 .cmg-card .cm-csub.cmg-who{display:flex;align-items:center;gap:8px;overflow:visible;-webkit-line-clamp:unset}
@@ -116364,8 +116634,8 @@ const AUTOPILOT = (() => {
         view.insertBefore(pill, view.firstChild);
       }
       const sel = view.querySelector(":scope > .pview-tabs [aria-selected=true], :scope > .pview-tabs.ph-solo > .ph-solo-t");
-      const same = new Set([norm(t), sel ? norm(sel.textContent) : "", tab === "courses" ? "your courses" : "", tab === "flashcards" ? "your decks" : "", tab === "flashcards" ? "your quizzes" : "", "study " + norm(t)].filter(Boolean));
       const selT = sel ? norm(sel.textContent) : "";
+      const same = new Set([norm(t), sel ? norm(sel.textContent) : "", tab === "courses" ? "your courses" : "", tab === "flashcards" ? "your decks" : "", tab === "flashcards" ? "your quizzes" : "", tab === "flashcards" && /maps$/.test(selT) ? "concept maps" : "", /(writing|studio)$/.test(selT) ? "writing studio" : "", tab === "flashcards" && /^present/.test(selT) ? "presentations" : "", "study " + norm(t)].filter(Boolean));
       view.querySelectorAll(":scope > .view-head > h2, :scope > .tl-controls > h2, :scope > * > .view-head > h2").forEach(h => { const x = norm(h.textContent); h.classList.toggle("ph-dup", same.has(x) || (!!selT && x.startsWith(selT + " "))); });
       view.querySelectorAll(":scope > .view-head, :scope > section > .view-head").forEach(v => { const h = v.querySelector(":scope > h2.ph-dup"), rest = [...v.children].filter(c => c !== h); v.classList.toggle("ph-btns", !!h && rest.length > 0 && rest.length <= 3 && rest.every(c => c.matches("button.btn"))); });
       const row = view.querySelector(":scope > .cf-row");
@@ -116419,7 +116689,9 @@ const AUTOPILOT = (() => {
         if (tbs.length) {
           const box = document.createElement("div"); box.className = "cf-acts";
           const rest = [...rvh.children].filter(c => !c.matches("h2, .trash-btn") && c.getClientRects().length);
-          if (rest.length === 1) box.appendChild(rest[0]);
+          // every button joins the course row (Concept Maps has Sort and Import too); with more than one besides the bin they go icon-only
+          if (rvh.matches("[data-cm-list]")) { rest.forEach(b => box.appendChild(b)); if (rest.length > 1) box.classList.add("ph-many"); }
+          else if (rest.length === 1) box.appendChild(rest[0]);
           tbs.forEach(b => box.appendChild(b)); rcf.appendChild(box);
           rvh.classList.add("ph-fill");
           if (![...rvh.children].some(c => !c.matches("h2") && c.getClientRects().length)) rvh.classList.add("ph-moved");
@@ -117090,7 +117362,7 @@ const AUTOPILOT = (() => {
   window.SBAllDot = (sel, o) => {
     if (!state.courses || !o || !(o.value === "all" || /^all\b/i.test((o.textContent || "").trim()))) return "";
     if (![...sel.options].some(x => state.courses[x.dataset.course || x.value])) return "";
-    const cs = Object.values(state.courses).filter(c => c && c.color).slice(0, 6); if (!cs.length) return "";
+    const cs = Object.values(state.courses).filter(c => c && c.color && !c.gen).slice(0, 6); if (!cs.length) return "";
     return "conic-gradient(" + cs.map((c, i, a) => c.color + " " + Math.round(i / a.length * 100) + "% " + Math.round((i + 1) / a.length * 100) + "%").join(",") + ")";
   };
   window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: effPref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};

@@ -3,7 +3,8 @@
    The system's own prompt (Apple's and Google's, through @capacitor-community/in-app-review): no custom "Enjoying Studyboard?" screen
    first, because both stores forbid sending only happy people to the review page. Apple shows it at most 3 times a year anyway and
    may skip it; Google decides too. Nothing tells the app whether it showed or what was given.
-   When: right after a good moment (Today's Plan cleared, a Focus of 20 minutes or more finished, a good grade, a new best Match time),
+   When: right after a good moment (Today's Plan cleared, a Focus of 20 minutes or more finished, a good grade, a new best Match time,
+   a quiz passed (5+ questions, 80%+), or a flashcard session of 15+ cards with most of them known),
    once the moment's own sheet or celebration is gone, the moment still holds (no Undo since), and the student has stopped tapping
    and typing for a few seconds, so the prompt never lands under a finger or over half-typed text.
    Only for someone who has used the app for a while (a week, 5 days of use, 10 tasks done).

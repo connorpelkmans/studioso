@@ -358,7 +358,7 @@
     const c = courseOf(p.courseId), runs = p.runs || [], best = bestOf(p), nm = esc(p.name || "Presentation"), tgt = (p.target || 0) * 1000;
     const meta = runs.length ? `${best != null ? `Best ${fmt(best)} · ` : ""}target ${fmt(tgt)}` : `Target ${fmt(tgt)} · not practiced yet`;
     const stamp = best == null ? "New" : fmt(best), good = best != null && best <= tgt + 10000, g = grp(p);
-    return `<article class="rv-card rv-pres" style="--c:${esc(colorOf(p.courseId))}">
+    return `<article class="rv-card rv-pres" data-rv="${esc(p.id)}" style="--c:${esc(colorOf(p.courseId))}">
       <button class="rv-peek pr-peek" data-act="pr-open" data-id="${esc(p.id)}" aria-label="Open ${nm}">
         <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
@@ -381,14 +381,19 @@
     if (segs.length > 40) { const k = Math.ceil(segs.length / 40), out = []; for (let i = 0; i < segs.length; i += k) { const g = segs.slice(i, i + k), rank = {over: 3, warn: 2, ok: 1, "": 0}; out.push({w: g.reduce((a, x) => a + x.w, 0), t: g.reduce((a, x) => rank[x.t] > rank[a] ? x.t : a, "")}); } segs = out; }
     return `<span class="pr-tl" aria-hidden="true">${segs.map(x => `<i class="${x.t ? "t-" + x.t : ""}" style="flex-grow:${Math.round(x.w * 10) / 10}"></i>`).join("")}</span>`;
   }
+  let rvFull = [];
+  if (window.SBRV) SBRV.reg("pres", {full: () => rvFull, name: id => { const p = LIST.find(x => x.id === id); return p ? (p.name || p.title || "the presentation") : "the presentation"; }});
   function listHtml(){
     const f = ui.filter && ui.filter !== "all" ? ui.filter : "", q = String(ui.q || "").trim().toLowerCase();
-    const list = LIST.filter(p => !f || p.courseId === f).filter(p => !q || [p.name, p.title, (courseOf(p.courseId) || {}).name].join(" ").toLowerCase().includes(q)).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    // newest first, or the order you've dragged them into (01-flashcards.js SBRV); the whole list's order is kept for a drag to save
+    const inOrder = arr => { const s = arr.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0)); return window.SBRV ? SBRV.order("pres", s, p => p.id) : s; };
+    const list = inOrder(LIST.filter(p => !f || p.courseId === f).filter(p => !q || [p.name, p.title, (courseOf(p.courseId) || {}).name].join(" ").toLowerCase().includes(q)));
+    rvFull = inOrder(LIST).map(p => p.id);
     const head = `<div class="view-head" data-pr-list><h2>Presentations</h2><button class="btn small sm-btn" data-act="pr-join-code" title="Join a friend's rehearsal with the code they sent">${IC.users}<span class="sm-lbl">Join With a Code</span></button></div>${typeof chipsHtml === "function" ? chipsHtml() : ""}`;
     if (!LOADED) return head;
     const extra = fire("pr-list-extra").filter(Boolean).join("");
     if (!list.length) return head + extra + `<div class="empty${LIST.length ? "" : " sb-es"}" style="margin-top:14px">${LIST.length ? "" : emptyArt("present")}<strong>${LIST.length ? "No Presentations Match" : "No Presentations Yet"}</strong>${LIST.length ? "Try another course or search." : "Add your slides and set a target time. Studyboard times each slide as you practice, and can record you so you can listen back and read what you said."}${LIST.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="pr-new">Practice a Presentation</button></div>`}</div>`;
-    return head + extra + `<div class="rv-grid pr-grid">${list.map(cardHtml).join("")}</div>`;
+    return head + extra + `<div class="rv-grid pr-grid" data-rv-kind="pres">${list.map(cardHtml).join("")}</div>`;
   }
 
   /* ---------- adding slides ---------- */
@@ -1722,7 +1727,7 @@
       case "pr-friend": remoteStart("friend"); return true;
       case "pr-join-code": { const w = window.open(SITE() + "/present-remote.html", "_blank", "noopener"); if (!w) location.href = SITE() + "/present-remote.html"; return true; }
       case "pr-fr-copy": if (RM && RM.url) { try { navigator.clipboard.writeText(`Join my presentation rehearsal: ${RM.url} (code ${RM.code})`).then(() => toast("Link copied"), () => toast("Couldn't copy it. The code is " + RM.code)); } catch (e) { toast("The code is " + RM.code); } } return true;
-      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
+      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Help me rehearse${(() => { const x = STG && STG.p ? (STG.p.name || STG.p.title || "") : ""; return x ? ` "${x}"` : " my presentation"; })()} on Studyboard: you see the slides, the clock and my notes on your phone, and can run the slides for me. No account needed. Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
       case "pr-remote-hide": if (RM) { RM.hide = true; remotePanel(); } return true;
       case "pr-remote-off": remoteEnd(); remotePanel(); return true;
     }

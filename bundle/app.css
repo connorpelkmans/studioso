@@ -2702,6 +2702,25 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:not(:disabled):is(:hover,
 dialog .sheet-body > .menu-list:not(.fm-list) > button > span:first-of-type{font-weight:700}
 dialog .sheet-body > .menu-list:not(.fm-list) > button .sub{margin-top:2px}
 dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;cursor:default}
+/* AI study sets: each "Make" row is a card, its count a roomy switch; the case study style and its note sit under it */
+.ai-sheet .ai-make{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 14px;margin:0 0 10px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.ai-sheet .ai-make .mi-check{min-width:0;margin:0;font-weight:600}
+.ai-sheet .ai-make > .seg,.ai-sheet .ai-make > .segb{justify-self:end}
+.ai-sheet .ai-make .seg label span{min-width:40px;min-height:34px;padding:0 10px;display:inline-grid;place-items:center;font-size:.88rem}
+.ai-sheet .ai-make > select{grid-column:1/-1;margin:2px 0 0}
+.ai-sheet .ai-make > .mini{grid-column:1/-1;margin:0}
+/* Question Formats: chips to tap on and off */
+.ai-fmts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.ai-fmt{min-height:38px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:.88rem;font-weight:600;cursor:pointer}
+.ai-fmt:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.ai-fmt[aria-pressed="true"]{background:var(--sel,var(--accent));border-color:transparent;color:var(--sel-ink,#fff)}
+.ai-fmt[aria-pressed="true"]::before{content:"✓ ";font-weight:800}
+.ai-style-two{margin-top:12px}
+#aiStylePick{display:grid;gap:4px}
+/* the Question Formats heading looks like the labels beside it (it heads a row of chips, so it isn't a <label>) */
+.ai-fmts-f{display:grid;gap:5px}
+.ai-fmts-f > .lh{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;font-size:.88rem;font-weight:600}
+.ai-fmts-f > .lh .hint{font-weight:400;color:var(--muted)}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -3900,6 +3919,9 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 /* the Shared tab's count: how many whiteboards and concept maps are shared, of how many the group can have */
 .grp-room{margin:4px 2px 0;color:var(--muted)}
 .grp-room.is-full{color:color-mix(in srgb,#C2410C 75%,var(--ink));font-weight:600}
+/* who invited you, above the group you're joining */
+.grp-inv-from{margin:0 0 2px;font-size:1rem;color:var(--ink)}
+.grp-inv-from b{font-weight:800}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
@@ -4340,6 +4362,9 @@ input.w-est-in{color:var(--late,#d64545);font-weight:700;border-color:color-mix(
 .xc-ask .xc-chk{display:flex;margin-top:6px;font-weight:600}
 @media (max-width:520px){.xc-row{grid-template-columns:minmax(0,1fr) auto}.xc-t{grid-column:1/-1}}
 .xc-sum b{color:inherit;font-weight:800}
+/* Current Grade and Pass Mark alone (Projected Final hidden while it matches the current grade): two equal boxes */
+.gr-top:not(:has(> :nth-child(3))){grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:600px){.gr-top:not(:has(> :nth-child(3))) .gr-pass{grid-column:auto;flex-direction:column;align-items:stretch;gap:2px}}
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
 .est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:0}
@@ -7780,6 +7805,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
    rainbow and takes the tap */
 html.sb-apple .cc-custom{position:relative}
 html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:pointer;-webkit-appearance:none;appearance:none;border:0;padding:0;margin:0}
+/* a block being dragged shows its time label above it (overflow visible), so its coloured band keeps the block's rounded top itself */
+.sch-b.dragging > .sch-band{border-radius:9px 9px 0 0}
 /* ===== module: 101-phone-v2.css ===== */
 /* a file row's ⋯ menu is for phones; computers keep the row's own buttons */
 .fr-more{display:none}
@@ -8572,6 +8599,26 @@ html[data-plan-top="week"] .bview-row > .bv-hours{display:none}
 /* Where the page's buttons would cover the tabs, the tabs use their short names */
 #view.pg-short .rv-tabs .rv-long{display:none}
 #view.pg-short .rv-tabs .rv-short{display:inline}
+/* several buttons beside the course picker (Concept Maps: Sort, Import, Recently Deleted): round icon buttons, all on one line */
+@media (max-width:639px){
+  .cf-acts.ph-many .btn.small{width:40px;padding:0!important;gap:0}
+  .cf-acts.ph-many .btn.small .sm-lbl,.cf-acts.ph-many .btn.small.cm-sortb .sm-lbl{display:none!important}
+  .cf-acts.ph-many .btn.small::after{content:none!important}
+  .cf-acts.ph-many .btn.small svg{width:18px;height:18px}
+}
+/* Courses tabs on phones: Writing Studio is just "Studio", so Courses, Studio and Files fit */
+.ws-tab-short{display:none}
+@media (max-width:639px){.cf-tabs .ws-tab-long{display:none}.cf-tabs .ws-tab-short{display:inline}}
+/* when the buttons beside the course picker have words (Writing Studio: My Library, Zotero), they move to their own line
+   rather than squeezing the picker down to a letter */
+@media (max-width:639px){
+  .cf-row:has(> .cf-acts .pro-badge),.cf-row:has(> .cf-acts > .btn:nth-child(2):not(.trash-btn)):not(:has(> .cf-acts.ph-many)){flex-wrap:wrap}
+  .cf-row:has(> .cf-acts .pro-badge) > .cf-pick{min-width:min(160px,45%)}
+  .cf-row:has(> .cf-acts .pro-badge) > .cf-acts{flex:1 1 100%}
+  .cf-row:has(> .cf-acts .pro-badge) > .cf-acts > .btn{flex:1 1 0;justify-content:center}
+}
+/* keyboard up over the page (not a sheet): room below the page so a box near the bottom can be scrolled above the keyboard */
+@media (max-width:639px){html.kb-open:not(.kb-native):not(:has(dialog[open])) #view{padding-bottom:calc(var(--kb-h,0px) + 24px)}}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */

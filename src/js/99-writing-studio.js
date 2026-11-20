@@ -1609,7 +1609,7 @@ function sourcesHtml(t, w){
   const useTxt = s => { const n = w.q.filter(q => q.sid === s.id).length; return [n ? `Quoted ${n === 1 ? "once" : n + " times"}` : "No quotes yet", w.draft ? (U.cited.has(s.id) ? '<span class="ws-yes">Cited in draft ✓</span>' : '<span class="ws-no">Not cited yet</span>') : "", inList ? (inList.has(s.id) ? '<span class="ws-yes">In your list ✓</span>' : '<span class="ws-no">Not in your list</span>') : ""].filter(Boolean).join(" · "); };
   return `${goalHtml(t, w)}<div class="ws-add"><label class="f ws-grow"><span class="lh">Add a source</span><input type="text" data-ws-in placeholder="Paste a DOI, arXiv ID, ISBN or link" value="${esc(W.inp || "")}" autocomplete="off" spellcheck="false" data-noenter></label>
       <button type="button" class="btn primary" data-ws-add ${W.busy ? "disabled" : ""}>${W.busy === "add" ? "Looking Up…" : "Add"}</button></div>
-    <div class="ws-row ws-src-row"><button type="button" class="btn small ws-zbtn" data-ws-zot>${ZICON} ${z ? "From Zotero" : "Connect Zotero"}</button><button type="button" class="btn small" data-ws-imp>Import File</button><button type="button" class="btn small" data-ws-manual>Add by Hand</button>${lib ? `<button type="button" class="btn small" data-ws-lib>My Library <span class="ws-n">${lib}</span></button>` : ""}${files.length ? `<select data-ws-file aria-label="Add a PDF in Studyboard as a source"><option value="">Add a PDF from Studyboard…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
+    <div class="ws-row ws-src-row"><button type="button" class="btn small ws-zbtn" data-ws-zot aria-label="${z ? "From Zotero" : "Connect Zotero"}">${ZICON} <span class="ws-l">${z ? "From Zotero" : "Connect Zotero"}</span><span class="ws-s">Zotero</span></button><button type="button" class="btn small" data-ws-imp aria-label="Import File"><span class="ws-l">Import File</span><span class="ws-s">Import</span></button><button type="button" class="btn small" data-ws-manual>Add by Hand</button>${lib ? `<button type="button" class="btn small" data-ws-lib>My Library <span class="ws-n">${lib}</span></button>` : ""}${files.length ? `<select data-ws-file aria-label="Add a PDF in Studyboard as a source"><option value="">Add a PDF from Studyboard…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>` : ""}</div>
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}${draftOfferHtml(w, inList)}${alsoHtml(t)}
     ${W.engErr === st ? `<p class="mini ws-err">Couldn't load ${esc(styleName(st))}. ${BUILT_FMT[st] ? "Reload Studyboard and try again." : "It's fetched from zotero.org the first time: check your connection."}</p>` : ""}
     ${B.entries.length ? `<h3 class="fsec ws-bibh">${esc(heading)} <span class="mini">${esc(styleName(st))}${B.ready ? "" : " · formatting…"}</span></h3><ol class="ws-refs${B.hang ? " hang" : ""}">${B.entries.map(e => { const s = w.src.find(y => y.id === e.id); if (!s) return ""; const pdf = s.fid && state.files[s.fid]; return `<li class="ws-ref">
@@ -1707,7 +1707,7 @@ function quotesHtml(t, w){
       ${pick.length ? `<div class="ws-hls">${pick.map(g => `<fieldset class="ws-hlf"><legend><b>${esc(g.name)}</b></legend>${g.hl.map(h => `<label class="ws-hl"><input type="checkbox" data-ws-hl="${esc(g.fid)}:${esc(h.id)}" checked><span>“${esc(h.t.slice(0, 300))}${h.t.length > 300 ? "…" : ""}” <span class="mini">p. ${esc(String(h.p))}</span></span></label>`).join("")}</fieldset>`).join("")}</div>`
         : `<div class="ws-empty"><b>No new highlights.</b><p class="mini">Open a PDF to highlight: each passage you highlight can go straight in as a quote.</p><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button></div>`}`;
   }
-  return `<div class="ws-row"><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button><button type="button" class="btn small" data-ws-hlpick>Add From Highlights</button><button type="button" class="btn small" data-ws-qnew>Add a Quote</button></div>
+  return `<div class="ws-row ws-qrow"><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button><button type="button" class="btn small" data-ws-hlpick>Add From Highlights</button><button type="button" class="btn small" data-ws-qnew>Add a Quote</button></div>
     ${W.qform ? `<div class="ws-qform"><label class="f"><span class="lh">Quote</span><textarea data-wq-t rows="3" data-noenter></textarea></label>
       <div class="ws-row"><select data-wq-s aria-label="Source">${w.src.length ? w.src.map(s => `<option value="${esc(s.id)}">${esc(srcLabel(s))}</option>`).join("") : `<option value="">Add a source first</option>`}</select><label class="ws-pg"><span class="mini">Page</span><input type="text" data-wq-p inputmode="numeric" size="5"></label><button type="button" class="btn small primary" data-wq-save ${w.src.length ? "" : "disabled"}>Save Quote</button></div></div>` : ""}
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
@@ -1815,8 +1815,8 @@ function readerHtml(t, w){
   let o = 0;
   const paras = laid || d.t.split("\n").map(line => { const at = o; o += line.length + 1; return `<p data-o="${at}"${line ? "" : ' class="ws-rd-gap"'}>${esc(line)}</p>`; }).join("");
   const note = styleFmt(styleOf(t, w)) === "note";
-  return `<div class="ws-rdbar"><span class="mini ws-grow">${note ? "Select a passage to keep it as a quote. (This style cites in footnotes: add those in your document.)" : "Click where a citation goes, or select a passage to keep it as a quote."}</span>
-      <span class="mini">${esc(d.from && d.from !== "Pasted" ? d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words</span><button type="button" class="ws-act" data-ws-redo>Replace</button><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your paper from Writing Studio" title="Remove">${TRASH}</button></div>
+  return `<div class="ws-rdbar"><span class="mini ws-rdhint">${note ? "Select a passage to keep it as a quote. (This style cites in footnotes: add those in your document.)" : "Click where a citation goes, or select a passage to keep it as a quote."}</span>
+      <span class="ws-rdmeta"><span class="mini ws-rdname">${esc(d.from && d.from !== "Pasted" ? d.from : "Pasted")} · about ${wordsIn(d.t).toLocaleString()} words</span><button type="button" class="ws-act" data-ws-redo>Replace</button><button type="button" class="ws-act ws-rm" data-ws-drm aria-label="Remove your paper from Writing Studio" title="Remove">${TRASH}</button></span></div>
     <div class="ws-rdwrap"><div class="ws-rd${laid ? " is-doc" : ""}" data-ws-rd aria-label="Your paper: click to cite, select to quote"${laid ? ` style="${esc(`font-family:${fontCss(L.lay.base.font)};font-size:${Math.round(L.lay.base.size * 4 / 3 * 10) / 10}px`)}"` : ""}>${paras}</div></div>`;
 }
 // The citations a click can put in: each source's own (in brackets) and the form for the middle of a sentence
@@ -1880,7 +1880,7 @@ function quoteFromSel(t, sid){
 }
 function checkHtml(t, w){
   const req = CITE.rules(reqText(t)), st = styleOf(t, w), d = w.draft;
-  let h = `<p style="margin:0">Check your paper's citations against your sources before you hand it in. It runs on this device, and fixes what has one right answer when you tap Fix.</p>
+  let h = `<p style="margin:0">Checks your citations against your sources before you hand it in. Fix corrects anything with one right answer.</p>
     ${req.style || req.min ? `<p class="mini ws-note">From the assignment: ${esc([req.style ? styleName(req.style) : "", req.min ? `at least ${req.min}${req.scholarly ? " scholarly" : ""} sources` : ""].filter(Boolean).join(", "))}.</p>` : ""}`;
   if (!d || W.redo) return pickHtml(t, w, h);
   return checkResHtml(t, w, h);
@@ -1906,7 +1906,7 @@ function checkResHtml(t, w, h){
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
     ${W.diff ? `<p class="ws-diff" role="status">${W.diff.fixed || W.diff.fresh ? `Since your last check: <b>${W.diff.fixed} fixed</b>, ${W.diff.fresh} new.` : "Nothing changed since your last check."}</p>` : ""}
     ${foundHtml(t, w)}
-    <div class="ws-res"><p class="ws-sum"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at${(() => { const f = r.issues.filter(x => x.edits && x.edits.length).length; return f ? `<button type="button" class="btn small primary ws-fixall" data-ws-fixall>Fix All${f > 1 ? ` (${f})` : ""}</button>` : ""; })()}</p>
+    <div class="ws-res"><p class="ws-sum"><span class="ws-sum-t"><b>${r.total ? `${r.cited} of ${r.total} source${r.total === 1 ? "" : "s"} cited` : "No sources to check against"}</b> · ${r.issues.filter(x => x.k === "err").length} to fix · ${r.issues.filter(x => x.k === "warn").length} to look at</span>${(() => { const f = r.issues.filter(x => x.edits && x.edits.length).length; return f ? `<button type="button" class="btn small primary ws-fixall" data-ws-fixall>Fix All${f > 1 ? ` (${f})` : ""}</button>` : ""; })()}</p>
       <ul class="ws-issues">${r.issues.map((x, i) => issueHtml(x, i, d.t)).join("")}</ul></div>`;
   return h;
 }
@@ -1985,10 +1985,10 @@ function ldLinkedHtml(t, w){
   const open = l.p === "google" ? `https://docs.google.com/document/d/${encodeURIComponent(l.id)}/edit` : l.url;
   const src = !W.ldShow ? "" : l.p === "google" ? open : W.ldPrev && W.ldPrev.id === l.id ? W.ldPrev.u : "";
   const word = W.ldShow && l.p === "microsoft" ? `<p class="mini ws-note">${src ? "Word for the web shows it here to read. To write in it, open it in Word for the web: Check and Fix work on the file either way." : W.ldPrev && W.ldPrev.id === l.id ? "Microsoft doesn't let Word for the web open inside another app for this account, so open it in Word to write. Check and Fix still work on the file here." : "Loading Word's preview…"}</p>` : "";
-  if (l.p === "file") return `<div class="ws-ldtop"><div class="ws-ldh">${WORD_ICON}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your Word file, kept on this device: each Fix goes into it, and Download gives you the fixed file</span></span><span class="spacer"></span>
-      <button type="button" class="btn small primary" data-ws-lddl>${w.draft.fx ? "Download Fixed File" : "Download"}</button><button type="button" class="link-btn" data-ws-ldoff>Unlink</button></div></div>`;
-  return `<div class="ws-ldtop"><div class="ws-ldh">${ic}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your ${ldName(l)}, linked: Check reads it, and each Fix goes straight into it</span></span><span class="spacer"></span>
-      <button type="button" class="btn small" data-ws-ldshow aria-expanded="${!!W.ldShow}">${W.ldShow ? "Hide It" : l.p === "google" ? "Write in It Here" : "Show It Here"}</button>${open ? `<a class="btn small" href="${esc(open)}" target="_blank" rel="noopener noreferrer">Open in ${ldApp(l)}</a>` : ""}<button type="button" class="link-btn" data-ws-ldoff>Unlink</button></div>${word}</div>
+  if (l.p === "file") return `<div class="ws-ldtop"><div class="ws-ldh">${WORD_ICON}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your Word file, kept on this device: each Fix goes into it, and Download gives you the fixed file</span></span></div>
+      <div class="ws-ldacts"><button type="button" class="btn small primary" data-ws-lddl>${w.draft.fx ? "Download Fixed File" : "Download"}</button><span class="spacer"></span><button type="button" class="ws-act" data-ws-ldoff>Unlink</button></div></div>`;
+  return `<div class="ws-ldtop"><div class="ws-ldh">${ic}<span class="ws-ldk-t"><b>${esc(l.name || ldName(l))}</b><span class="mini">Your ${ldName(l)}, linked: Check reads it, and each Fix goes straight into it</span></span></div>
+      <div class="ws-ldacts"><button type="button" class="btn small" data-ws-ldshow aria-expanded="${!!W.ldShow}">${W.ldShow ? "Hide It" : l.p === "google" ? "Write in It Here" : "Show It Here"}</button>${open ? `<a class="btn small" href="${esc(open)}" target="_blank" rel="noopener noreferrer">Open in ${ldApp(l)}</a>` : ""}<span class="spacer"></span><button type="button" class="ws-act" data-ws-ldoff>Unlink</button></div>${word}</div>
     ${W.ldShow ? `<div class="ws-ldwrap" data-k="${esc(src + (l.p === "microsoft" ? "#" + (W.ldKey || 0) : ""))}">${src ? `<iframe class="ws-ldf" src="${esc(src)}" title="${esc(l.name || ldName(l))} in ${ldApp(l)}" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>` : ""}</div>` : ""}`;
 }
 function ldWordHtml(){
@@ -2043,6 +2043,8 @@ function draw(fresh){
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
     ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
+  // the tab strip scrolls sideways on phones: it keeps its place when drawn again, and the chosen tab is kept in view
+  const tx = shown() ? (W.el.querySelector(".ws-tabs") || {}).scrollLeft || 0 : 0;
   // My Doc's document stays open while the rest is drawn again (drawing it again would load it again, and lose your place in it)
   const keep = shown() && !VIEW && W.tab === "doc" ? W.el.querySelector(".ws-ldwrap") : null, tmp = keep ? document.createElement("div") : null;
   if (tmp) tmp.innerHTML = inner;
@@ -2056,6 +2058,8 @@ function draw(fresh){
   } else if (shown()) W.el.innerHTML = inner;
   else { openSheet(`<div class="sheet ws-sheet">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
   const b = W.el.querySelector(".ws-body"); if (b && y) b.scrollTop = y;
+  { const tabs = W.el.querySelector(".ws-tabs"), on = tabs && tabs.querySelector('[aria-selected="true"]');
+    if (tabs) { tabs.scrollLeft = tx; if (on) { const r = on.getBoundingClientRect(), R0 = tabs.getBoundingClientRect(); if (r.right > R0.right - 4) tabs.scrollLeft += r.right - R0.right + 12; else if (r.left < R0.left + 4) tabs.scrollLeft -= R0.left - r.left + 12; } } }
   wire(t);
   if (RB) SBRUBRIC.tabWire(W.el, t); else if (window.SBRUBRIC && SBRUBRIC.tabOff) SBRUBRIC.tabOff();
 }
@@ -2656,10 +2660,16 @@ function paperParts(raw){
   return {head: rest, title, body: lines.slice(i).filter(Boolean).join(" "), page: ti === 0 && rest.length > 0};
 }
 // The Writing view in Review: papers with Writing Studio, and essays and reports coming up
+let rvFull = [];
+if (window.SBRV) SBRV.reg("writing", {full: () => rvFull, name: id => (state.tasks[id] || {}).title || "the paper"});
 function reviewHtml(){
   const today = todayISO(), f = typeof ui !== "undefined" && ui.filter && ui.filter !== "all" ? ui.filter : "";
-  const list = allTasks().filter(t => eligible(t) && (!f || t.courseId === f) && (hasData(t) ? t.status !== "done" || (t.due && t.due >= addDays(today, -14)) : t.status !== "done" && t.due && t.due >= today && t.due <= addDays(today, 45)))
+  const listAll = allTasks().filter(t => eligible(t) && (hasData(t) ? t.status !== "done" || (t.due && t.due >= addDays(today, -14)) : t.status !== "done" && t.due && t.due >= today && t.due <= addDays(today, 45)))
     .sort((a, b) => (hasData(b) - hasData(a)) || String(a.due || "9").localeCompare(String(b.due || "9"))).slice(0, 40);
+  const list = listAll.filter(t => !f || t.courseId === f);
+  // in the order you've dragged them into (01-flashcards.js SBRV), within each list; the whole order is kept for a drag to save
+  const ord = arr => window.SBRV ? SBRV.order("writing", arr, t => t.id) : arr;
+  rvFull = ord(listAll.filter(hasData)).concat(ord(listAll.filter(t => !hasData(t)))).map(t => t.id);
   const pro = window.SBPRO && SBPRO.locked() ? ' <span class="pro-badge">PRO</span>' : "";
   // a card like Concept Maps': a peek at the paper itself (its draft's opening words on a page, citations marked), its course, how its
   // check stands and its linked doc; then its title, when it's due and how far along it is
@@ -2672,16 +2682,16 @@ function reviewHtml(){
     const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
     // the paper's own title (its name, teacher, course and date lines left out), then its body
     const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ph">${esc(cut(PP && PP.title ? PP.title : t.title, 70))}</span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
-    return `<li class="wsr-card" style="--c:${esc(colorOf(t.courseId))}">
+    return `<li class="wsr-card" data-rv="${esc(t.id)}" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
       <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span></button>
       <div class="wsr-row"><span class="wsr-sub"><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></span>
       <button type="button" class="btn small primary" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></div></li>`;
   };
-  const started = list.filter(hasData), next = list.filter(t => !hasData(t));
+  const started = ord(list.filter(hasData)), next = ord(list.filter(t => !hasData(t)));
   return `<div class="view-head"><h2>Writing Studio</h2><button class="btn small" data-act="ws-lib">My Library${pro}</button><button class="btn small" data-act="ws-zot">${ZICON} Zotero${pro}</button></div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}
-    ${list.length ? `${started.length ? `<ul class="wsr-list">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list">${next.map(card).join("")}</ul>` : ""}`
+    ${list.length ? `${started.length ? `<ul class="wsr-list" data-rv-kind="writing">${started.map(card).join("")}</ul>` : ""}${next.length ? `<h3 class="plan-sub">Coming Up</h3><ul class="wsr-list" data-rv-kind="writing">${next.map(card).join("")}</ul>` : ""}`
       : `<div class="empty sb-es" style="margin-top:14px">${typeof emptyArt === "function" ? emptyArt("papers") : ""}<strong>No Papers Yet</strong>Essays, reports and projects with a due date show up here, ready for their sources, quotes and a citation check.</div>`}`;
 }
 // Today's Plan: from 3 days before the due date, a saved draft that hasn't been checked since it changed gets one gentle row (the
@@ -3051,6 +3061,10 @@ svg.ws-zic{display:block;flex:none}
 .ws-tab:focus:not(:focus-visible){outline:none}
 .ws-fixb{display:inline-flex;margin-top:6px;width:max-content}
 .ws-sum .ws-fixall{margin-left:10px;vertical-align:middle}
+.ws-res > .ws-sum{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+.ws-res > .ws-sum .ws-fixall{margin:0;flex:none}
+.ws-sum-t{min-width:0}
+.ws-acts > .spacer{flex:1 1 auto}
 .ws-tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .ws-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent,#2F6FE4)}
 .ws-n{display:inline-block;min-width:1.4em;font-size:.72rem;border-radius:9px;padding:0 5px;background:var(--soft,#EEF1F6);color:var(--muted);text-align:center}
@@ -3061,6 +3075,16 @@ svg.ws-zic{display:block;flex:none}
 .ws-add{display:flex;gap:8px;align-items:flex-end}
 .ws-grow{flex:1 1 auto;min-width:0}
 .ws-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
+/* Add a source: on phones the three ways share one line, with short names (Zotero, Import, Add by Hand) */
+/* Quotes on phones: Open a PDF to Highlight across the top, the two ways to add one side by side under it */
+@media (max-width:520px){.ws-qrow{gap:8px}.ws-qrow > .btn{flex:1 1 0;min-width:0;justify-content:center;white-space:nowrap;padding-left:10px;padding-right:10px}.ws-qrow > .btn.primary{flex:1 1 100%}}
+.ws-src-row .ws-s{display:none}
+@media (max-width:520px){
+  .ws-src-row{gap:6px}
+  .ws-src-row > .btn{flex:1 1 auto;min-width:0;justify-content:center;white-space:nowrap;padding-left:10px;padding-right:10px}
+  .ws-src-row .ws-l{display:none}.ws-src-row .ws-s{display:inline}
+  .ws-src-row > select{flex:1 1 100%}
+}
 .ws-row select{min-width:0;max-width:100%;flex:1 1 200px}
 .ws-zbtn svg{vertical-align:-2px;color:#CC2936}
 .ws-priv{margin:0}
@@ -3077,7 +3101,16 @@ svg.ws-zic{display:block;flex:none}
 .ws-ldc{display:grid;gap:8px}
 .rbx-in{display:grid;gap:10px}
 /* My Doc: the paper as a page (click to cite, select to quote), and the menu that opens there */
-.ws-rdbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0 8px}
+.ws-rdbar{display:grid;gap:4px;margin:4px 0 8px}
+.ws-rdhint{color:var(--muted)}
+.ws-rdmeta{display:flex;align-items:center;gap:4px;min-width:0}
+.ws-rdname{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ws-rdmeta .ws-act{flex:none}
+.ws-ldacts{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ws-ldacts > a.btn{color:var(--ink)}
+.ws-ldacts .ws-act{color:var(--muted)}
+.ws-ldacts .ws-act:hover{color:var(--ink)}
+@media (max-width:520px){.ws-ldacts > .btn{flex:1 1 0;justify-content:center;white-space:nowrap}.ws-ldacts .spacer{display:none}}
 .ws-rdwrap{position:relative}
 .ws-rd{max-width:760px;margin:0 auto;padding:28px clamp(16px,6%,56px) 40px;background:color-mix(in srgb,#fff 94%,var(--surface));color:#20242E;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 22px -14px rgb(0 0 0/.35);font:1rem/1.75 Georgia,"Times New Roman",serif;cursor:text;user-select:text;-webkit-user-select:text}
 .ws-rd p{margin:0;white-space:pre-wrap;word-break:break-word}
@@ -3110,7 +3143,7 @@ svg.ws-zic{display:block;flex:none}
 .ws-ldk>svg,.ws-ldh>svg{width:22px;height:22px;flex:none}.ws-ldk>img,.ws-ldh>img{width:24px;height:auto;flex:none}
 .ws-ldk-t{display:grid;gap:2px;flex:1 1 180px;min-width:0}
 .ws-ldk-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ws-ldtop{display:grid;gap:8px}
+.ws-ldtop{display:grid;gap:8px;margin-top:8px}
 .ws-ldsum{margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ws-ldsum .ws-fixall{margin-left:0}
 .ws-ldwrap:not(:empty){margin-top:10px}

@@ -67,6 +67,29 @@ const waitAsk = async (p, ms) => { const end = Date.now() + ms; while (Date.now(
       ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
       await ctx.close();
     }
+    { // passing a quiz is a good moment (5 questions, all right); failing one isn't
+      const Q = Array.from({length: 5}, (_, i) => ({id: "q" + i, type: "single", stem: "Question " + (i + 1) + "?", options: ["Right", "Wrong"], correct: [0], rationale: "Because.", notes: [], topic: "", source: ""}));
+      const play = async (p, right) => {
+        await p.evaluate(() => { const S = window.__sbSync; S.ui.tab = "flashcards"; S.ui.rvView = "quizzes"; S.render(); }); await p.waitForTimeout(300);
+        await p.click('.rv-quiz [data-act="ai-quiz-start"]'); await p.waitForTimeout(300);
+        for (let i = 0; i < 5; i++) {
+          const c = await p.evaluate(() => { const f = window.__sbSync.ui.fc, q = f.qs[f.i]; return q.correct[0]; });
+          await p.click(`[data-act="ai-pick"][data-i="${right ? c : 1 - c}"]`); await p.waitForTimeout(150);
+          await p.click("#aiNext"); await p.waitForTimeout(200);
+        }
+      };
+      const deckLs = JSON.stringify(Object.assign(seed(), {tasks: seed().tasks.filter(t => t.id !== "last"), decks: [{id: "dq", name: "Cells", courseId: "c1", created: 1, cards: [], aiQuizzes: [{id: "z1", title: "Cell Quiz", created: 1, results: [], questions: Q}]}]}));
+      let o = await open(b, {ls: {"coursework:v2": deckLs}});
+      await play(o.p, false); await o.p.waitForTimeout(6000);
+      ok((await asks(o.p)) === 0, "failing a quiz doesn't ask for a review");
+      await o.ctx.close();
+      o = await open(b, {ls: {"coursework:v2": deckLs}});
+      await play(o.p, true);
+      ok(await waitAsk(o.p, 20000), "passing a quiz (5 questions, 80%+) brings up the review prompt once things settle");
+      ok((await o.p.evaluate(() => window.__sbReviewAsk.rec())).lastKind === "quiz", "remembered as a quiz moment");
+      ok(!o.p.errs.length, "no page errors: " + o.p.errs.join(" | "));
+      await o.ctx.close();
+    }
     { // new to the app
       const {ctx, p} = await open(b, {fresh: true});
       ok((await why(p)) === "used for less than a week", "someone who started two days ago isn't asked");

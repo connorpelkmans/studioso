@@ -1398,3 +1398,25 @@ function dlgKbFit(){
   } else if (d.classList.contains("kb-open")) dlgKbFit.t = setTimeout(() => { if (innerHeight - visualViewport.height <= 150) d.classList.remove("kb-open"); }, 60);
 }
 if (window.visualViewport) { visualViewport.addEventListener("resize", dlgKbFit); visualViewport.addEventListener("scroll", dlgKbFit); }
+/* Keyboard open on the page itself (a quiz's typed answer, a search box): once the keyboard has finished opening, the box being
+   typed in, with its form's buttons (like Check), is brought above it in one smooth scroll. It waits for the visible area to stop
+   changing (iOS slides the page itself first), and only scrolls when something is still hidden, so it never fights the system. */
+function pageKbKeep(){
+  clearTimeout(pageKbKeep.t);
+  pageKbKeep.t = setTimeout(() => {
+    if (!matchMedia("(max-width:639px)").matches) return;
+    const a = document.activeElement;
+    if (!a || !a.closest || a.closest("dialog, .note, .wb-stage, .cpt-chat, [data-kb-own]") || !(a.matches('textarea, input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=button]):not([type=submit]):not([type=file]):not([type=color])') || a.isContentEditable)) return;
+    const vv = window.visualViewport, top = (vv ? vv.offsetTop : 0) + 70, bottom = (vv ? vv.offsetTop + vv.height : innerHeight) - 14;
+    const box = a.closest("form, .written, .f, label") || a, r = box.getBoundingClientRect(), ra = a.getBoundingClientRect();
+    // the whole form when it fits, else just the box; never pushes the box itself above the top
+    let dy = Math.min(r.bottom - bottom, ra.top - top);
+    if (dy <= 2 && ra.bottom > bottom) dy = ra.bottom - bottom;
+    if (dy > 2) window.scrollBy({top: dy, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+  }, 140);
+}
+document.addEventListener("focusin", e => { if (e.target && !(e.target.closest && e.target.closest("dialog"))) { pageKbKeep.focusAt = Date.now(); pageKbKeep(); } });
+// the visible area settling after the keyboard opens (or the iPhone app shrinking itself): check again, for a second after a focus
+const pageKbAgain = () => { if (Date.now() - (pageKbKeep.focusAt || 0) < 1200) pageKbKeep(); };
+if (window.visualViewport) visualViewport.addEventListener("resize", pageKbAgain);
+addEventListener("resize", pageKbAgain);
