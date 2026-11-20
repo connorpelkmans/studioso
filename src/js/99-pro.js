@@ -498,19 +498,19 @@ var SBPRO = null;
   /* In the Focus timer */
   function pomoHtml(){
     const cur = current(), lk = P.locked();
-    const chip = r => `<button type="button" class="pr-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) && !(tagPro() && !(r.free || custom().findIndex(x => x.id === r.id) < FREE_OWN)) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
+    const chip = r => `<button type="button" class="rt-chip${cur && cur.id === r.id ? " on" : ""}" data-act="pro-rt" data-id="${esc(r.id)}" aria-pressed="${!!(cur && cur.id === r.id)}"><b>${esc(r.name)}${usable(r) && !(tagPro() && !(r.free || custom().findIndex(x => x.id === r.id) < FREE_OWN)) ? "" : " " + PRO_BADGE}</b><span>${r.focus} / ${r.short} × ${r.every}</span></button>`;
     let blk = "";
     if (BK.available) {
       const cfg = blockCfg(), active = BK.until > Date.now();
       blk = `<div class="pr-block"><span class="pr-bt"><b>Block Distracting Sites${lk || tagPro() ? " " + PRO_BADGE : ""}</b><span class="mini">${active ? `Blocked until ${esc(hhmm(BK.until))}. ` : BK.until ? "A block from an earlier session is still on. " : ""}${esc(cfg.sites.slice(0, 2).join(", "))}${cfg.sites.length > 2 ? ` +${cfg.sites.length - 2}` : ""} while you focus. <button type="button" class="link-btn" data-act="pro-blk-sites">Edit</button>${BK.until ? ` · <button type="button" class="link-btn" data-act="pro-blk-clear">Unblock Now</button>` : ""}</span></span>
         <button type="button" class="pro-sw" role="switch" aria-checked="${cfg.on && !lk}" data-act="pro-blk-on" aria-label="Block distracting sites during focus sessions"><i></i></button></div>`;
     }
-    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips segb" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="pr-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
+    return `<div class="pr-wrap"><div class="pr-lbl">Routine</div><div class="pr-chips segb" role="group" aria-label="Focus routines">${all().map(chip).join("")}<button type="button" class="rt-chip pr-new" data-act="pro-rt-new"><b>New${canAdd() && !(tagPro() && custom().length >= FREE_OWN) ? "" : " " + PRO_BADGE}</b><span>Your own</span></button></div>${blk}</div>`;
   }
   // Routines open from the Focus timer: closing the sheet (after Add, Remove or Close) goes back to the timer, so the setup isn't lost
   let rtBack = false;
   dlg.addEventListener("close", () => { if (rtBack) setTimeout(() => { if (!rtBack || dlg.open) return; rtBack = false; const pd = $("#pomoDlg"); renderPomo(); if (!pd.open) pd.showModal();
-    const on = pd.querySelector(".pr-chip.on"); if (on) try { on.scrollIntoView({block: "nearest", inline: "nearest"}); } catch (e) {} }, 0); });
+    const on = pd.querySelector(".rt-chip.on"); if (on) try { on.scrollIntoView({block: "nearest", inline: "nearest"}); } catch (e) {} }, 0); });
   function routineSheet(){
     const pd = $("#pomoDlg"); if (pd && pd.open) { pd.close(); rtBack = true; }
     const mine = custom(), more = !canAdd();
@@ -591,15 +591,26 @@ var SBPRO = null;
 .pr-lbl{font-weight:700;font-size:.92rem}
 .pr-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .pr-chips::-webkit-scrollbar{display:none}   /* it still scrolls by swiping; a bar under the chips only got in the way */
-.pr-chips .pr-chip{flex:none;min-height:44px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 12px;display:grid;gap:1px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
-.pr-chips .pr-chip b{font-size:.9rem;display:flex;align-items:center;gap:5px}
-.pr-chips .pr-chip span{font-size:.75rem;color:var(--muted)}
+.pr-chips .rt-chip{flex:none;min-height:44px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 12px;display:grid;gap:1px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+.pr-chips .rt-chip b{font-size:.9rem;display:flex;align-items:center;gap:5px}
+.pr-chips .rt-chip span{font-size:.75rem;color:var(--muted)}
 /* the chosen routine wears the theme's button colour, like Start Focus (the timer's red stays on its band and ring) */
-.pr-chips .pr-chip.on{background:var(--btn-bg,var(--accent));border-color:transparent;color:var(--accent-ink,#fff)}
-.pr-chips .pr-chip.on span{color:inherit;opacity:.8}
-.pr-chips .pr-chip.pr-new{border-style:dashed}
-.pr-chips .pr-chip .pro-badge{color:#fff;font-size:.62rem;opacity:1}
-.pr-chips .pr-chip::before{display:none}
+.pr-chips .rt-chip.on{background:var(--btn-bg,var(--accent));border-color:transparent;color:var(--accent-ink,#fff)}
+.pr-chips .rt-chip.on span{color:inherit;opacity:.8}
+.pr-chips .rt-chip.pr-new{border-style:dashed}
+.pr-chips .rt-chip .pro-badge{color:#fff;font-size:.62rem;opacity:1}
+.pr-chips .rt-chip::before{display:none}
+/* phones: the routines look like the Focus / Short Break / Long Break switch above them, the chosen one on a white pill
+   (the switch's own pill, 103-phone-design.css, here as tall as these two-line buttons) */
+@media (max-width:639px){
+  .pr-chips.segb{gap:2px!important;padding:3px!important}
+  .pr-chips.segb > .rt-chip{min-height:52px;padding:6px 14px!important;border:0!important;background:transparent!important;color:color-mix(in srgb,var(--muted) 70%,var(--ink))!important;text-align:center;justify-items:center}
+  .pr-chips.segb > .rt-chip::before{display:block!important;inset:0!important;width:auto!important;height:auto!important}
+  .pr-chips.segb > .rt-chip.on{color:var(--ink)!important}
+  .pr-chips.segb > .rt-chip.on span{color:var(--muted);opacity:1}
+  .pr-chips.segb > .rt-chip.pr-new{border:0!important;color:var(--accent)!important}
+  .pr-chips.segb > .rt-chip .pro-badge{color:#fff}
+}
 .pr-block{display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 12px}
 .pr-bt{display:grid;gap:2px;flex:1;min-width:0}
 .pr-bt b{display:flex;align-items:center;gap:6px;font-size:.92rem}
