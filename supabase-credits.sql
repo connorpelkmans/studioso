@@ -31,8 +31,7 @@ create table if not exists public.studyboard_credit_item_prices (
 -- Prices: a Theme Collection 300 ($3), a sticker pack 100 ($1), a flashcard style 100 ($1), a note shape 100 ($1), a pin 50 ($0.50),
 -- a concept map style 100 ($1) (kind 'cm').
 -- Only inserted when missing, so changes you make later in the SQL Editor are kept.
-insert into public.studyboard_credit_item_prices (kind, credits) values ('skin', 300), ('sticker', 100), ('card', 100), ('pin', 50), ('note', 100), ('cm', 100)
-on conflict (kind) do nothing;
+-- (The insert is further down, after the kind check is widened on databases made before 'note' and 'cm' existed.)
 -- Live Stripe prices (product "Studyboard Credits", prod_VdRSF2ExXrjwfx)
 insert into public.studyboard_credit_packs (pack_id, credits, price_cents, stripe_price_id, label, badge, sort) values
   ('credits_100', 100, 99, 'price_1UcAZKFT8I9EapuBLOohFJvw', '100 Credits', null, 1),
@@ -80,12 +79,13 @@ create table if not exists public.studyboard_credit_orders (
   reversed_at timestamptz
 );
 
--- Databases made before note shapes could be bought: widen the kind checks
+-- Databases made before note shapes and concept map styles could be bought: widen the kind checks
 alter table public.studyboard_credit_item_prices drop constraint if exists studyboard_credit_item_prices_kind_check;
 alter table public.studyboard_credit_item_prices add constraint studyboard_credit_item_prices_kind_check check (kind in ('skin', 'sticker', 'card', 'pin', 'note', 'cm'));
 alter table public.studyboard_owned_items drop constraint if exists studyboard_owned_items_kind_check;
 alter table public.studyboard_owned_items add constraint studyboard_owned_items_kind_check check (kind in ('skin', 'sticker', 'card', 'pin', 'note', 'cm'));
-insert into public.studyboard_credit_item_prices (kind, credits) values ('note', 100) on conflict (kind) do nothing;
+insert into public.studyboard_credit_item_prices (kind, credits) values ('skin', 300), ('sticker', 100), ('card', 100), ('pin', 50), ('note', 100), ('cm', 100)
+on conflict (kind) do nothing;
 
 alter table public.studyboard_credit_packs enable row level security;
 alter table public.studyboard_credit_item_prices enable row level security;
