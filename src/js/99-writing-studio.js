@@ -1707,7 +1707,7 @@ function quotesHtml(t, w){
       ${pick.length ? `<div class="ws-hls">${pick.map(g => `<fieldset class="ws-hlf"><legend><b>${esc(g.name)}</b></legend>${g.hl.map(h => `<label class="ws-hl"><input type="checkbox" data-ws-hl="${esc(g.fid)}:${esc(h.id)}" checked><span>“${esc(h.t.slice(0, 300))}${h.t.length > 300 ? "…" : ""}” <span class="mini">p. ${esc(String(h.p))}</span></span></label>`).join("")}</fieldset>`).join("")}</div>`
         : `<div class="ws-empty"><b>No new highlights.</b><p class="mini">Open a PDF to highlight: each passage you highlight can go straight in as a quote.</p><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button></div>`}`;
   }
-  return `<div class="ws-row"><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button><button type="button" class="btn small" data-ws-hlpick>Add From Highlights</button><button type="button" class="btn small" data-ws-qnew>Add a Quote</button></div>
+  return `<div class="ws-row ws-qrow"><button type="button" class="btn small primary" data-ws-hlpdf>Open a PDF to Highlight</button><button type="button" class="btn small" data-ws-hlpick>Add From Highlights</button><button type="button" class="btn small" data-ws-qnew>Add a Quote</button></div>
     ${W.qform ? `<div class="ws-qform"><label class="f"><span class="lh">Quote</span><textarea data-wq-t rows="3" data-noenter></textarea></label>
       <div class="ws-row"><select data-wq-s aria-label="Source">${w.src.length ? w.src.map(s => `<option value="${esc(s.id)}">${esc(srcLabel(s))}</option>`).join("") : `<option value="">Add a source first</option>`}</select><label class="ws-pg"><span class="mini">Page</span><input type="text" data-wq-p inputmode="numeric" size="5"></label><button type="button" class="btn small primary" data-wq-save ${w.src.length ? "" : "disabled"}>Save Quote</button></div></div>` : ""}
     ${W.err ? `<p class="mini ws-err" role="alert">${esc(W.err)}</p>` : W.okMsg ? `<p class="mini ws-ok" role="status">${esc(W.okMsg)}</p>` : ""}
@@ -3061,6 +3061,8 @@ svg.ws-zic{display:block;flex:none}
 .ws-grow{flex:1 1 auto;min-width:0}
 .ws-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
 /* Add a source: on phones the three ways share one line, with short names (Zotero, Import, Add by Hand) */
+/* Quotes on phones: Open a PDF to Highlight across the top, the two ways to add one side by side under it */
+@media (max-width:520px){.ws-qrow{gap:8px}.ws-qrow > .btn{flex:1 1 0;min-width:0;justify-content:center;white-space:nowrap;padding-left:10px;padding-right:10px}.ws-qrow > .btn.primary{flex:1 1 100%}}
 .ws-src-row .ws-s{display:none}
 @media (max-width:520px){
   .ws-src-row{gap:6px}
