@@ -124,4 +124,12 @@ if (flat) {
   else console.warn("prepare: build-resources/appx missing; a Microsoft Store build would use electron-builder's sample tiles");
 }
 console.log("Build id " + (/const BUILD_ID = "([^"]+)"/.exec(parts.length ? AF.inline(html, readPart) : html) || [])[1] + ".");
+// No secret key may ship inside the desktop or phone app (only the Supabase publishable key belongs there)
+{
+  const guard = path.join(root, "scripts", "check-secrets.js");
+  if (fs.existsSync(guard)) {
+    try { require(guard).assertClean([out].concat(flat ? [path.join(root, "widget")] : []), "prepare"); }
+    catch (e) { fs.rmSync(out, { recursive: true, force: true }); console.error(e.message); process.exit(1); }
+  }
+}
 console.log("Prepared app/ from", src, `(${inline.length} inline scripts hashed for the CSP)`);
