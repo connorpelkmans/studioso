@@ -1852,7 +1852,7 @@ function cleanFile(r) {
             <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
-        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring in your Canvas inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
+        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring In Your Canvas Inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
         <p class="mini bs-legal" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);

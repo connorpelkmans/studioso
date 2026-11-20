@@ -1391,7 +1391,7 @@
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
         ${ptsNote(gr)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
-        ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
+        ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the Syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
     const low = tn ? `<button type="button" class="gp-need" data-act="gp-toggle" data-id="${esc(tn.gr.c.id)}"><span class="gr-k">What Do I Need?</span><span class="gp-need-t">${tn.msg}</span></button>` : "";

@@ -817,7 +817,7 @@ function quizSheet(deckIds){
         <label class="mi-check"><input type="checkbox" name="qt" value="mc"${last.qt.includes("mc") ? " checked" : ""}> Multiple choice</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="written"${last.qt.includes("written") ? " checked" : ""}> Written answer</label></div></fieldset>
-      <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, answer back"], ["rev", "Back, answer front"], ["mix", "Mixed"]], last.qd)}</fieldset>
+      <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, Answer Back"], ["rev", "Back, Answer Front"], ["mix", "Mixed"]], last.qd)}</fieldset>
       <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
       <p class="status-msg" id="mqStatus" style="margin:0" aria-live="polite"></p>
     </div>

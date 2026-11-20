@@ -815,7 +815,7 @@
     box.innerHTML = `<div class="pr-ready-in">
       <div class="pr-card" role="group" aria-label="Ready to practice">
         <b class="pr-card-h">Ready When You Are</b>
-        ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the whole talk instead</button>`
+        ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the Whole Talk Instead</button>`
           : `<div class="pr-card-row"><span>Time Goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
         <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides</span>
         <button type="button" class="btn small pr-plan-btn pr-hero" data-act="pr-plan" aria-expanded="${S.planOpen}">${S.planOpen ? "Hide the Plan" : "Plan: Slide Times, Speakers, Sections"}</button>

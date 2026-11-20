@@ -15682,7 +15682,7 @@ function taskForm(t, preset = {}){
       ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
       ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
       <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
-      <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From home"], ["no", "In person"], ["", "Not sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
+      <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From Home"], ["no", "In Person"], ["", "Not Sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
       <fieldset><legend id="prioLbl">Priority</legend>${seg("priority", [["low","Low"],["med","Medium"],["high","High"],["urgent","Urgent"]], t.priority)}</fieldset>
       <label class="f" id="pctWrap" ${isNew ? "hidden" : ""}><span><span class="lbl" id="pctLbl">Progress</span> <span class="hint" id="pctOut">${t.pct}%</span></span><input type="range" name="pct" min="0" max="100" step="10" value="${t.pct}"><span class="mini" id="pctHint"></span></label>
       <p class="mini" id="pctFromCl" hidden style="margin:0"></p>
@@ -19899,7 +19899,7 @@ function quizSheet(deckIds){
         <label class="mi-check"><input type="checkbox" name="qt" value="mc"${last.qt.includes("mc") ? " checked" : ""}> Multiple choice</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="written"${last.qt.includes("written") ? " checked" : ""}> Written answer</label></div></fieldset>
-      <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, answer back"], ["rev", "Back, answer front"], ["mix", "Mixed"]], last.qd)}</fieldset>
+      <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, Answer Back"], ["rev", "Back, Answer Front"], ["mix", "Mixed"]], last.qd)}</fieldset>
       <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
       <p class="status-msg" id="mqStatus" style="margin:0" aria-live="polite"></p>
     </div>
@@ -36808,15 +36808,15 @@ hook("boot", boot);
     const live = x ? (act => x.tasks.filter(t => act.has(t.list_id)))(new Set(x.lists.filter(l => !l.archived).map(l => l.id))) : [];
     const ov = x ? GK.overview(live, ms, today) : null;
     const lateTasks = live.filter(t => !t.deleted && t.status !== "done" && GTL.due(t.due_at, today).late).sort((a, b) => String(a.due_at).localeCompare(String(b.due_at)));
-    const dueLine = GTL.isDay(g.project_due) ? `Due ${esc(parse(g.project_due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}` : (isOwner(g) ? `<button class="link-btn" data-act="grp-edit" data-id="${esc(g.id)}">Set a due date</button> so everyone sees the countdown` : "The owner hasn't set a due date yet");
+    const dueLine = GTL.isDay(g.project_due) ? `Due ${esc(parse(g.project_due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}` : (isOwner(g) ? `<button class="link-btn" data-act="grp-edit" data-id="${esc(g.id)}">Set a Due Date</button> so everyone sees the countdown` : "The owner hasn't set a due date yet");
     const hero = `<div class="gk-hero k-${cd.k}"><div class="gk-hero-main"><span class="gk-eyebrow">Project deadline</span><b class="gk-big">${esc(cd.label)}</b><span class="mini">${dueLine}</span></div>
       <div class="gk-hero-prog">${ov ? `<div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ov.progress.pct}" aria-label="Project progress"><i style="width:${ov.progress.pct}%"></i></div><span class="mini"><b>${ov.progress.pct}%</b> · ${ov.progress.done} of ${ov.progress.total} tasks done</span>` : `<span class="mini">${wait}</span>`}</div></div>`;
     const roles = `<div class="gk-roles" role="group" aria-label="Your role">${GK.ROLES.map(([k, l]) => `<button type="button" class="pt-f${mine === k ? " on" : ""}" data-act="grp-role-set" data-r="${k}" aria-pressed="${mine === k}">${esc(l)}</button>`).join("")}</div>`;
     const myCard = `<div class="gk-card"><h4>${I_CUBE}My Part</h4><p class="mini">${mine ? `You're the <b>${esc(roleName(g.id, me))}</b>. Tap it again to clear it.` : "Pick what you're covering so the team knows who to ask."}</p>${roles}
       <form class="gk-role-custom" id="gkRoleForm" data-gid="${esc(g.id)}" autocomplete="off"><input type="text" name="role" maxlength="30" placeholder="Or type your own role" aria-label="Your own role title" value="${mine === "custom" ? esc(roleName(g.id, me)) : ""}"><button type="submit" class="btn small">${mine === "custom" ? "Change" : "Set Role"}</button>${mine === "custom" ? `<button type="button" class="btn small" data-act="grp-role-set" data-r="">Clear</button>` : ""}</form></div>`;
-    const behind = !ov ? `<p class="mini">${wait}</p>` : !ov.progress.total ? `<p class="grp-none">No tasks yet. <button class="link-btn" data-act="grp-pt-plan">Start from a plan</button> or add your own in <button class="link-btn" data-act="grp-tab" data-t="tasks">Tasks</button>.</p>`
+    const behind = !ov ? `<p class="mini">${wait}</p>` : !ov.progress.total ? `<p class="grp-none">No tasks yet. <button class="link-btn" data-act="grp-pt-plan">Start From a Plan</button> or add your own in <button class="link-btn" data-act="grp-tab" data-t="tasks">Tasks</button>.</p>`
       : (lateTasks.length ? `<ul class="gk-behind">${lateTasks.slice(0, 6).map(t => { const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : ""; return `<li>${who ? av(mName(g.id, who), who) : ""}<span class="gk-behind-t"><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}">${esc(t.title)}</button><span class="mini"><span class="late">${esc(ptDueTxt(t.due_at))}</span> · ${who ? esc(who === me ? "You" : mName(g.id, who)) : "Unassigned"}</span></span></li>`; }).join("")}</ul>${lateTasks.length > 6 ? `<button class="link-btn" data-act="grp-tab" data-t="tasks">${lateTasks.length - 6} more in Tasks</button>` : ""}` : `<p class="gk-ok">${I_CHECK} Nothing is overdue. The team is on track.</p>`)
-        + (ov.unassigned ? `<p class="mini">${plural(ov.unassigned, "open task")} nobody has claimed. <button class="link-btn" data-act="grp-pt-claim-one">Claim one</button></p>` : "") + (ov.uneven ? `<p class="mini pt-uneven">${esc(ov.uneven.hi)} has ${ov.uneven.gap} more open tasks than ${esc(ov.uneven.lo)}.</p>` : "");
+        + (ov.unassigned ? `<p class="mini">${plural(ov.unassigned, "open task")} nobody has claimed. <button class="link-btn" data-act="grp-pt-claim-one">Claim One</button></p>` : "") + (ov.uneven ? `<p class="mini pt-uneven">${esc(ov.uneven.hi)} has ${ov.uneven.gap} more open tasks than ${esc(ov.uneven.lo)}.</p>` : "");
     const team = `<div class="gk-card"><h4>${ICON_GROUP}Roles</h4><ul class="gk-team">${ms.map(m => { const r = roleOf(g.id, m.user_id); return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.user_id === me ? "You" : m.display_name || "Member")}</span>${r ? `<span class="pill gk-role">${esc(roleName(g.id, m.user_id))}</span>` : `<span class="mini">No role yet</span>`}</li>`; }).join("")}</ul></div>`;
     return `<section class="grp-sec" id="grpOverview">${hero}<div class="gk-grid">${myCard}<div class="gk-card"><h4>${I_CHECK}What's Behind</h4>${behind}</div>${team}</div></section>`;
   }
@@ -42064,7 +42064,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
         ${ptsNote(gr)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
-        ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
+        ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the Syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
     const low = tn ? `<button type="button" class="gp-need" data-act="gp-toggle" data-id="${esc(tn.gr.c.id)}"><span class="gr-k">What Do I Need?</span><span class="gp-need-t">${tn.msg}</span></button>` : "";
@@ -45127,7 +45127,7 @@ function cleanFile(r) {
             <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
-        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring in your Canvas inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
+        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring In Your Canvas Inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
         <p class="mini bs-legal" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
@@ -78190,7 +78190,7 @@ async function capProcess(rows, d){
   }
   function html(){
     const signed = ready() || (typeof sbActive === "function" && sbActive());
-    if (!signed) return siriBox(false) + `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign in</button>`;
+    if (!signed) return siriBox(false) + `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign In</button>`;
     if (S.missing) return `<p class="capv-warn mini" style="margin:0">${esc(srvSetup("Voice capture", "supabase-capture.sql"))}</p>`;
     const toks = (S.tokens || []).filter(t => !t.revoked_at), url = endpoint();
     return siriBox(true) + `
@@ -79140,7 +79140,7 @@ const EXAMPREP = (() => {
   const HORIZON = 21, HORIZON_EARLY = 28, LEARN_BY = 3, LEARN_BY_EARLY = 5, MAX_TOPICS = 3, MIN_SESSION = 10;
   const KIND_LABEL = {learn: "Learn", cards: "Flashcards", questions: "Practice questions", teach: "Teach-back", recall: "Recall", recap: "Final recap", past: "Timed practice", light: "Light review"};
   const KIND_RANK = {cards: 0, recap: 1, recall: 2, learn: 3, teach: 4, questions: 5, past: 6, light: 7};
-  const STYLES = [["mc", "Multiple choice"], ["short", "Short answer"], ["calc", "Calculation"], ["essay", "Essay"], ["practical", "Practical"]];
+  const STYLES = [["mc", "Multiple Choice"], ["short", "Short Answer"], ["calc", "Calculation"], ["essay", "Essay"], ["practical", "Practical"]];
 
   /* words: normalise, light stemming, aliases */
   const STOP = new Set("a an the of and or to in on for with from by at as is are be vs about this that my your our review study studying exam exams midterm midterms final finals quiz quizzes test tests notes note lecture lectures lec slides slide deck decks flashcards flashcard cards card pdf docx pptx txt copy draft part".split(" "));
@@ -95667,7 +95667,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const nb = Number($("#pdeCmpB").value), openB = f.revs[nb].assetId === E.rev;
       out.innerHTML = `<p><b>${hunks.length} change${hunks.length === 1 ? "" : "s"}</b> on ${new Set(hunks.map(x => x.n)).size} page${new Set(hunks.map(x => x.n)).size === 1 ? "" : "s"}.</p>
         <ol class="pde-diff">${hunks.slice(0, 300).map(x => { const o = x.old.join(" "), w = x.nw.join(" "), pre = x.pre.length ? "…" + esc(x.pre.join(" ")) + " " : "", post = x.post.length ? " " + esc(x.post.join(" ")) + "…" : "";
-          return `<li><div class="mini">Page ${x.n}${openB ? ` <button type="button" class="link-btn" data-act="pde-cmp-page" data-id="${x.n}">Go to page</button>` : ""}</div><div class="pde-diffline">${pre}${o && w ? wordsHtml(o, w) : o ? `<del>${esc(o)}</del>` : `<ins>${esc(w)}</ins>`}${post}</div></li>`; }).join("")}</ol>`;
+          return `<li><div class="mini">Page ${x.n}${openB ? ` <button type="button" class="link-btn" data-act="pde-cmp-page" data-id="${x.n}">Go to Page</button>` : ""}</div><div class="pde-diffline">${pre}${o && w ? wordsHtml(o, w) : o ? `<del>${esc(o)}</del>` : `<ins>${esc(w)}</ins>`}${post}</div></li>`; }).join("")}</ol>`;
     } catch (err) { out.innerHTML = `<p class="mini">Couldn't open one of the versions here${navigator.onLine === false ? " (you're offline)" : ""}.</p>`; }
   }
 
@@ -96143,7 +96143,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <div class="pde-pb">
         <label class="f"><span class="lh">Task</span><select id="pdeTiTask"><option value="">No task</option>${linked.length ? `<optgroup label="Attached to this file">${linked.map(t => `<option value="${esc(t.id)}"${t === first ? " selected" : ""}>${esc(t.title)}${t.due ? " · due " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>` : ""}${others.length ? `<optgroup label="This course">${others.map(t => `<option value="${esc(t.id)}">${esc(t.title)}${t.due ? " · due " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>` : ""}</select></label>
         <label class="f"><span class="lh">File name</span><input type="text" id="pdeTiName" maxlength="120" value="${esc(E.tiName)}"></label>
-        <label class="pde-chk"><input type="checkbox" id="pdeTiHead"${m.name ? " checked" : ""}> My name, class and date at the top${m.name ? "" : ` <button type="button" class="link-btn" data-act="pde-me">Add your details…</button>`}</label>
+        <label class="pde-chk"><input type="checkbox" id="pdeTiHead"${m.name ? " checked" : ""}> My name, class and date at the top${m.name ? "" : ` <button type="button" class="link-btn" data-act="pde-me">Add Your Details…</button>`}</label>
         <label class="pde-chk"><input type="checkbox" id="pdeTiNum" checked> Page numbers</label>
         <label class="pde-chk"><input type="checkbox" id="pdeTiFlat" checked> Lock it (answers and markup can't be changed)</label>
         ${hasMarks() ? `<label class="pde-chk"><input type="checkbox" id="pdeTiMarks"> Include my highlights and comments</label>` : ""}
@@ -96244,7 +96244,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     panel(`${panelHead("Study From This PDF", ok ? `Makes study material from this reading. The text of the pages you pick (or your highlights) is sent to ${esc(W.company)} ${esc(W.product)}.` : "With AI Features set up, this makes flashcards, a quiz or an outline from the reading. Without them, it makes flashcards from highlights you commented on.")}
       <div class="pde-pb">
         ${stuck ? `<div class="pde-st-stuck" role="note"><p style="margin:0"><b>Nothing to make it from yet.</b> There are two ways to start:</p>
-          <div class="pde-st-ways">${inPreview() ? "" : `<button type="button" class="btn ai-btn" data-act="ai-setup">${AI_ICON} Set Up AI</button>`}<button type="button" class="btn" data-act="pde-st-mark">Highlight and comment on some text first</button></div>
+          <div class="pde-st-ways">${inPreview() ? "" : `<button type="button" class="btn ai-btn" data-act="ai-setup">${AI_ICON} Set Up AI</button>`}<button type="button" class="btn" data-act="pde-st-mark">Highlight and Comment on Some Text First</button></div>
           <p class="mini" style="margin:0">Each highlight you comment on becomes a card: your comment on the front, the highlighted words on the back.</p></div>` : ""}
         <fieldset class="pde-radios"><legend class="lh">Make</legend>
           <label class="pde-chk"><input type="radio" name="pdeStMake" value="cards" checked> Flashcards</label>
@@ -112156,7 +112156,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.innerHTML = `<div class="pr-ready-in">
       <div class="pr-card" role="group" aria-label="Ready to practice">
         <b class="pr-card-h">Ready When You Are</b>
-        ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the whole talk instead</button>`
+        ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the Whole Talk Instead</button>`
           : `<div class="pr-card-row"><span>Time Goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
         <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides</span>
         <button type="button" class="btn small pr-plan-btn pr-hero" data-act="pr-plan" aria-expanded="${S.planOpen}">${S.planOpen ? "Hide the Plan" : "Plan: Slide Times, Speakers, Sections"}</button>
