@@ -19804,7 +19804,7 @@ const undoBtn = (f, small) => `<button class="btn${small ? " small" : ""} fc-und
 function viewStudy(){
   const f = ui.fc, it = f.q[f.i];
   const deckNames = f.deckIds.map(id => state.decks[id] && state.decks[id].name).filter(Boolean);
-  const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} decks`;
+  const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} Decks`;
   if (!it) {
     // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
@@ -39364,7 +39364,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const meetings = kindItems(g.id, "minutes").length;
     const html = `<div class="pp-page"><div class="pp-head"><div><h1>Contribution Report</h1><p>${esc(g.name)}${g.course ? " · " + esc(g.course) : ""}</p></div><div class="pp-box">${real ? `Due ${esc(fmtShort(real))}<br>` : ""}${tasks.filter(t => !t.deleted).length} tasks · ${meetings} meeting note${meetings === 1 ? "" : "s"}</div></div>
       <section class="pp-gc"><table><thead><tr><th>Member</th><th>Role</th><th>Tasks done</th><th>On time</th>${meetings ? "<th>Meetings</th>" : ""}</tr></thead><tbody>${rows.map(r => `<tr><td><b>${esc(r.name)}</b></td><td>${esc(roleName(g.id, r.id) || "")}</td><td>${r.done} of ${r.assigned}</td><td>${r.onTime}</td>${meetings ? `<td>${r.meetings}</td>` : ""}</tr>`).join("")}</tbody></table></section>
-      <h2>What each person finished</h2><div class="pp-plan">${rows.map(r => `<div class="pp-pd"><b>${esc(r.name)}</b><span>${esc(r.titles.slice(0, 14).join(" · ") || "Nothing marked done yet")}</span></div>`).join("")}</div>
+      <h2>What Each Person Finished</h2><div class="pp-plan">${rows.map(r => `<div class="pp-pd"><b>${esc(r.name)}</b><span>${esc(r.titles.slice(0, 14).join(" · ") || "Nothing marked done yet")}</span></div>`).join("")}</div>
       <div class="pp-foot"><span>Made by Studyboard from the group's own tasks and meeting notes. Every member can see this report.</span><span>${esc(new Date().toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"}))}</span></div></div>`;
     if (!(window.SBPRO && SBPRO.printRaw)) { toast("Printing isn't available here."); return; }
     const name = `Contribution Report - ${g.name}`.slice(0, 80);
@@ -84146,7 +84146,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <p>A calm student planner for courses, deadlines, study sessions and flashcards. It works without an account and without internet.</p>
     <p class="mini">© ${year()} Connor Pelkmans (Studyboard). All rights reserved.</p>
     <p class="mini">Build ${esc(typeof BUILD_ID === "string" ? BUILD_ID : "")}. Anonymous crash reports are ${window.SBERR && SBERR.enabled() ? "on" : "off"}; change this in Settings, Send Anonymous Crash Reports.</p>
-    <h3>Learn more</h3>
+    <h3>Learn More</h3>
     <div class="menu-list about-links">
       <button type="button" data-act="legal-privacy"><span>Privacy Policy</span></button>
       <button type="button" data-act="legal-terms"><span>Terms of Service</span></button>
@@ -84309,7 +84309,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     openSheet(`<div class="sheet" id="delDone">${head("Your Account Was Deleted")}
       <div class="sheet-body">
         <p style="margin:0" role="status"><b>Done.</b> Your Studyboard account and its online data were permanently deleted${fallback ? " (using the server's fallback method)" : ""}.</p>
-        <h3 class="fsec">What was removed</h3>
+        <h3 class="fsec">What Was Removed</h3>
         <ul class="legal-list">${deletedList(data, wiped).map(t => `<li>${esc(t)}</li>`).join("")}</ul>
         <h3 class="fsec">What we keep, and for how long</h3>
         <ul class="legal-list">${keep.map(t => `<li>${esc(t).replace(APPLE_SUBS, `<a href="${APPLE_SUBS}" target="_blank" rel="noopener">${APPLE_SUBS}</a>`)}</li>`).join("")}</ul>
@@ -117229,7 +117229,7 @@ function bootStuck(){
   const info = `Studyboard ${(window.studiosoDesktop && window.studiosoDesktop.version) || ""} ${navigator.userAgent}\n${bootErr || "Starting up didn't finish."}`;
   const box = document.createElement("div"); box.id = "bootFail"; box.setAttribute("role", "alert");
   box.style.cssText = "position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(10,20,40,.55);font:15px/1.45 system-ui,sans-serif";
-  box.innerHTML = `<div style="max-width:520px;width:100%;background:#fff;color:#1d2433;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35)"><h2 style="margin:0 0 8px;font-size:20px">Studyboard didn't finish starting</h2><p style="margin:0 0 12px">Your data is safe. Try again, and if this keeps happening, copy the details and send them to support@studyboardapp.com.</p><pre style="max-height:160px;overflow:auto;background:#f2f4f8;border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap;margin:0 0 14px"></pre><div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" data-b="copy" style="padding:9px 16px;border-radius:999px;border:1px solid #c9d1e0;background:#fff;font:inherit;cursor:pointer">Copy Details</button><button type="button" data-b="again" style="padding:9px 16px;border-radius:999px;border:0;background:#1d5fd1;color:#fff;font:inherit;font-weight:600;cursor:pointer">Try Again</button></div></div>`;
+  box.innerHTML = `<div style="max-width:520px;width:100%;background:#fff;color:#1d2433;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35)"><h2 style="margin:0 0 8px;font-size:20px">Studyboard Didn't Finish Starting</h2><p style="margin:0 0 12px">Your data is safe. Try again, and if this keeps happening, copy the details and send them to support@studyboardapp.com.</p><pre style="max-height:160px;overflow:auto;background:#f2f4f8;border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap;margin:0 0 14px"></pre><div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" data-b="copy" style="padding:9px 16px;border-radius:999px;border:1px solid #c9d1e0;background:#fff;font:inherit;cursor:pointer">Copy Details</button><button type="button" data-b="again" style="padding:9px 16px;border-radius:999px;border:0;background:#1d5fd1;color:#fff;font:inherit;font-weight:600;cursor:pointer">Try Again</button></div></div>`;
   box.querySelector("pre").textContent = info;
   box.querySelector('[data-b="copy"]').onclick = ev => { try { navigator.clipboard.writeText(info); ev.target.textContent = "Copied"; } catch (e) {} };
   box.querySelector('[data-b="again"]').onclick = () => location.reload();

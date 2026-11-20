@@ -707,7 +707,7 @@ const undoBtn = (f, small) => `<button class="btn${small ? " small" : ""} fc-und
 function viewStudy(){
   const f = ui.fc, it = f.q[f.i];
   const deckNames = f.deckIds.map(id => state.decks[id] && state.decks[id].name).filter(Boolean);
-  const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} decks`;
+  const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} Decks`;
   if (!it) {
     // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
