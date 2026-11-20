@@ -13544,7 +13544,7 @@ function availForm(block, preset){
   const pat0 = (() => { if (b.every < 2 || !b.anchor) return 0; return (((AVAIL.monN(b.anchor) - AVAIL.monN(today)) / 7) % b.every + b.every) % b.every; })();
   let color = b.color || AVAIL.TYPES[b.type].color, colorTouched = !!b.color && b.color !== AVAIL.TYPES[b.type].color, days = b.days.slice(), dates = b.dates.slice(), calM = (dates[0] || today).slice(0, 7);
   const bufOpts = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120].concat([b.bufB, b.bufA].filter(v => v != null)).filter((v, i, arr) => arr.indexOf(v) === i).sort((x, y) => x - y);
-  const sel = (name, val) => `<select name="${name}"><option value="u" ${val == null ? "selected" : ""}>Usual (${cfg.defBuf ? cfg.defBuf + " min" : "none set"})</option>${bufOpts.map(v => `<option value="${v}" ${v === val ? "selected" : ""}>${v ? v + " min" : "None"}</option>`).join("")}</select>`;
+  const sel = (name, val) => `<select name="${name}"><option value="u" ${val == null ? "selected" : ""}>Usual${cfg.defBuf ? " · " + cfg.defBuf + " min" : ": None"}</option>${bufOpts.map(v => `<option value="${v}" ${v === val ? "selected" : ""}>${v ? v + " min" : "None"}</option>`).join("")}</select>`;
   openSheet(`<form class="sheet av-form">${head(isNew ? "Add Shift or Work" : "Edit Availability")}
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Type</span><select name="type">${AV_ORDER.filter(k => k !== "travel" || b.type === "travel").map(k => `<option value="${k}" ${k === b.type ? "selected" : ""}>${esc(AVAIL.TYPES[k].label)}</option>`).join("")}</select></label>
@@ -13575,13 +13575,13 @@ function availForm(block, preset){
         <div class="av-pane" data-pane="one"><label class="f">Date<input type="date" name="date" value="${esc(b.dates[0] || today)}"></label></div>
       </fieldset>
       <fieldset class="av-time"><legend>Time</legend>
-        <label class="mi-check"><input type="checkbox" name="allDay" ${b.allDay ? "checked" : ""}> All day</label>
+        <label class="mi-check"><input type="checkbox" name="allDay" ${b.allDay ? "checked" : ""}> All Day</label>
         <div class="two av-times">
           <label class="f">Starts<input type="time" name="start" value="${esc(b.allDay ? "09:00" : b.start)}"></label>
           <label class="f">Ends<input type="time" name="end" value="${esc(b.allDay ? "17:00" : b.end)}"></label>
         </div>
-        <p class="mini av-ovn" id="avOvn" role="status" aria-live="polite" style="margin:0 0 8px"></p>
-        <div class="two av-buf"><label class="f">Travel before${sel("bufB", b.bufB)}</label><label class="f">Travel after${sel("bufA", b.bufA)}</label></div>
+        <p class="mini av-ovn" id="avOvn" role="status" aria-live="polite"></p>
+        <div class="two av-buf"><label class="f">Travel Before${sel("bufB", b.bufB)}</label><label class="f">Travel After${sel("bufA", b.bufA)}</label></div>
       </fieldset>
     </div>
     <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" id="avDel">Delete</button><button type="button" class="btn" id="avDup">Duplicate</button>`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Add" : "Save"}</button></div>
