@@ -179,7 +179,7 @@
     <p>A calm student planner for courses, deadlines, study sessions and flashcards. It works without an account and without internet.</p>
     <p class="mini">© ${year()} Connor Pelkmans (Studyboard). All rights reserved.</p>
     <p class="mini">Build ${esc(typeof BUILD_ID === "string" ? BUILD_ID : "")}. Anonymous crash reports are ${window.SBERR && SBERR.enabled() ? "on" : "off"}; change this in Settings, Send Anonymous Crash Reports.</p>
-    <h3>Learn more</h3>
+    <h3>Learn More</h3>
     <div class="menu-list about-links">
       <button type="button" data-act="legal-privacy"><span>Privacy Policy</span></button>
       <button type="button" data-act="legal-terms"><span>Terms of Service</span></button>
@@ -342,7 +342,7 @@
     openSheet(`<div class="sheet" id="delDone">${head("Your Account Was Deleted")}
       <div class="sheet-body">
         <p style="margin:0" role="status"><b>Done.</b> Your Studyboard account and its online data were permanently deleted${fallback ? " (using the server's fallback method)" : ""}.</p>
-        <h3 class="fsec">What was removed</h3>
+        <h3 class="fsec">What Was Removed</h3>
         <ul class="legal-list">${deletedList(data, wiped).map(t => `<li>${esc(t)}</li>`).join("")}</ul>
         <h3 class="fsec">What we keep, and for how long</h3>
         <ul class="legal-list">${keep.map(t => `<li>${esc(t).replace(APPLE_SUBS, `<a href="${APPLE_SUBS}" target="_blank" rel="noopener">${APPLE_SUBS}</a>`)}</li>`).join("")}</ul>

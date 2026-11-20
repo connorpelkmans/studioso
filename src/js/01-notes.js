@@ -108,7 +108,7 @@ async function uploadFiles(list, opts){
       try {
         let r;
         const from = opts.origin ? {origin: opts.origin, untrusted: true} : {};
-        try { r = await assets.upload(f, Object.assign({type, courseId: opts.courseId || "", folderId: opts.folderId || "other"}, from)); }
+        try { r = await assets.upload(f, Object.assign({type, courseId: opts.courseId || "", folderId: opts.folderId || "other"}, opts.cls ? {cls: opts.cls} : {}, from)); }
         catch(e) { if (e && e.code === "store_unavailable") { await sleep(1200); r = await assets.upload(f, Object.assign({type}, from)); } else throw e; }
         const file = normFile(Object.assign({id: uid(), name: f.name, courseId: opts.courseId || "", folderId: opts.folderId || "other", kind: "file",
           revs: [Object.assign({assetId: r.id, size: r.sizeBytes, type: r.contentType, at: Date.now(), name: f.name}, r.localRel ? {localRel: r.localRel} : {})], taskIds: opts.taskId ? [opts.taskId] : [], created: Date.now()}, opts.ftype ? {ftype: opts.ftype} : {}));
@@ -130,6 +130,9 @@ async function uploadFiles(list, opts){
     toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`), opts.noUndo ? null : () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
   }
   storageLimit(held, opts, why);
+  // Uploads a student makes (Files, a class, a task, Quick Add) also get a copy in their connected Google Drive or OneDrive,
+  // in the background (99-pro.js copyUploads decides where, or that none is needed)
+  if ((opts.cloud || opts.copy) && made.length && window.SBCLOUD && SBCLOUD.copyUploads) setTimeout(() => { SBCLOUD.copyUploads(made, list, opts).catch(() => {}); }, 0);
   return made;
 }
 function cleanupAssets(ids, delay = 0){

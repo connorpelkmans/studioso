@@ -238,6 +238,7 @@ document.addEventListener("click", e => {
     case "qz-archive": qzSetArchived(id, true); break;
     case "qz-unarchive": qzSetArchived(id, false); if (dlg.open) archivedQuizzesSheet(); break;
     case "qz-arch-open": archivedQuizzesSheet(); break;
+    case "qz-arch-del": qzDelete(id); if (dlg.open) archivedQuizzesSheet(); break;
     case "fc-share": case "qz-share": toast(`Sharing ${act === "fc-share" ? "decks" : "quizzes"} is done through a study group. Open Groups to start or join one.`, null, {label: "Groups", fn: () => { const b = document.querySelector('nav [data-tab="groups"]'); if (b) b.click(); }}); break;
     case "fab-group": fabMenu("Add Group", [["grp-new", "Create Group", "Start a study group or a group project", "group"], ["grp-code", "Enter a Code", "Join a group a classmate invited you to", "code"]]); break;
     case "f-link": linkSheet(); break;

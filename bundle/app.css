@@ -2694,6 +2694,14 @@ dialog .sheet-body{scrollbar-gutter:auto}
 .av-form .av-tc{margin-top:2px}
 .cs-short-p{display:none}
 @media (max-width:520px){.cs-long-p{display:none}.cs-short-p{display:block}}
+.deck-archived .da-btns{display:flex;gap:6px;flex:none;margin-left:auto}
+/* Option menus in pop-ups (Review, Grade Options, Share Deck...): each choice is a card, as in Share or Import */
+dialog .sheet-body > .menu-list:not(.fm-list){gap:8px}
+dialog .sheet-body > .menu-list:not(.fm-list) > :is(button,label.mi){min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;transition:border-color .15s}
+dialog .sheet-body > .menu-list:not(.fm-list) > button:not(:disabled):is(:hover,:focus-visible){border-color:var(--accent)}
+dialog .sheet-body > .menu-list:not(.fm-list) > button > span:first-of-type{font-weight:700}
+dialog .sheet-body > .menu-list:not(.fm-list) > button .sub{margin-top:2px}
+dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;cursor:default}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -9400,9 +9408,14 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .cls-it-main:hover b,.cls-it-main:focus-visible b{text-decoration:underline;text-underline-offset:2px}
 .cls-src{display:inline-flex;align-items:center;gap:3px}
 .cls-src svg{width:12px;height:12px}
+.cls-src svg.od-lg{width:15px}
 .cls-acts{display:flex;flex-wrap:wrap;gap:6px}
 .cls-acts .btn{display:inline-flex;align-items:center;gap:5px}
 .cls-acts .btn svg{width:16px;height:16px;flex:none}
+/* Google Drive's and OneDrive's logos: the same optical size, centred on the label (OneDrive's cloud is wider than tall) */
+.cls-cloud{gap:7px!important}
+.cls-cloud svg.brand-lg{width:18px!important;height:16px!important}
+.cls-cloud svg.od-lg{width:22px!important;height:15px!important;margin-top:1px}
 .cls-sheet .sheet-foot .btn{display:inline-flex;align-items:center;gap:6px}
 .occv-link{padding:0;font:inherit;font-weight:700;text-align:start}
 

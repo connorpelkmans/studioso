@@ -197,12 +197,18 @@ function qzSetArchived(ref, on){
   if (on && ui.qzOpen === ref) ui.qzOpen = null;
   saveDeck(d, on ? `Archived ${f.qz.title || "the quiz"}` : `Restored ${f.qz.title || "the quiz"}`);
 }
+function qzDelete(ref){
+  const f = qzFind(ref); if (!f) return;
+  const d = clone(f.d); d.aiQuizzes = d.aiQuizzes.filter(x => x.id !== f.qz.id); d.updated = Date.now();
+  if (ui.qzOpen === ref) ui.qzOpen = null;
+  saveDeck(d, `Deleted ${f.qz.title || "the quiz"}`);
+}
 function archivedQuizzesSheet(){
   const list = quizzesAll(true);
   openSheet(`<div class="sheet fc-arch-sheet">${head("Archived Quizzes")}<div class="sheet-body">
     <p class="mini" style="margin:0 0 10px">${list.length ? "Quizzes you archived stay here, out of your quiz list, until you restore them." : "No archived quizzes. Use a quiz's Archive button to put it away here without deleting it."}</p>
     ${list.length ? `<div class="deck-archived"><ul>${list.map(({d, qz}) => { const c = courseOf(d.courseId);
-      return `<li><span class="da-name"><b>${esc(qz.title || "Practice Quiz")}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${qz.questions.length} question${qz.questions.length === 1 ? "" : "s"}</span></span><button class="btn small" data-act="qz-unarchive" data-id="${esc(d.id + ":" + qz.id)}">Restore</button></li>`; }).join("")}</ul></div>` : ""}</div>
+      return `<li><span class="da-name"><b>${esc(qz.title || "Practice Quiz")}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${qz.questions.length} question${qz.questions.length === 1 ? "" : "s"}</span></span><span class="da-btns"><button class="btn small" data-act="qz-unarchive" data-id="${esc(d.id + ":" + qz.id)}">Restore</button><button class="btn small danger" data-act="qz-arch-del" data-id="${esc(d.id + ":" + qz.id)}" aria-label="Delete ${esc(qz.title || "Practice Quiz")}">Delete</button></span></li>`; }).join("")}</ul></div>` : ""}</div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
 }
 // One quiz: its questions with the answers (and why), and what you can do with it
@@ -478,7 +484,7 @@ function archivedDecksSheet(){
   openSheet(`<div class="sheet fc-arch-sheet">${head("Archived Decks")}<div class="sheet-body">
     <p class="mini" style="margin:0 0 10px">${list.length ? "Decks you archived stay here, out of your deck list and reviews, until you restore them." : "No archived decks. Open a deck and choose Archive to put it away here without deleting it."}</p>
     ${list.length ? `<div class="deck-archived"><ul>${list.map(d => { const c = courseOf(d.courseId);
-      return `<li><span class="da-name"><b>${esc(d.name)}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${d.cards.length} card${d.cards.length === 1 ? "" : "s"}</span></span><button class="btn small" data-act="fc-unarchive" data-id="${esc(d.id)}">Restore</button></li>`; }).join("")}</ul></div>` : ""}</div>
+      return `<li><span class="da-name"><b>${esc(d.name)}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${d.cards.length} card${d.cards.length === 1 ? "" : "s"}</span></span><span class="da-btns"><button class="btn small" data-act="fc-unarchive" data-id="${esc(d.id)}">Restore</button><button class="btn small danger" data-act="fc-arch-del" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.name)}">Delete</button></span></li>`; }).join("")}</ul></div>` : ""}</div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
 }
 function viewDeck(d){
@@ -566,7 +572,7 @@ function reviewSheet(){
       <button data-act="fc-review-all" data-course="${esc(course)}" ${n.due ? "" : "disabled"}><span>Flashcards Due${n.due ? ` (${dueWords(n)})` : ""}<span class="sub">${n.due ? `Study every card that is due today${n.fresh ? `, plus ${n.fresh} new one${n.fresh === 1 ? "" : "s"}` : ""}` : "Nothing is due right now"}</span></span></button>
       <button data-act="fc-weak" ${w.n ? "" : "disabled"}><span>Weak Spots${w.n ? ` (${w.n})` : ""}<span class="sub">${w.n ? "Practice the cards and questions you keep missing" : "Study or take a quiz first, and anything you keep missing shows up here"}</span></span></button>
     </div></div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+    </div>`);
 }
 function addCardSheet(d){
   openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, "var(--accent-band,var(--accent))", esc(d.name))}
@@ -707,7 +713,7 @@ const undoBtn = (f, small) => `<button class="btn${small ? " small" : ""} fc-und
 function viewStudy(){
   const f = ui.fc, it = f.q[f.i];
   const deckNames = f.deckIds.map(id => state.decks[id] && state.decks[id].name).filter(Boolean);
-  const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} decks`;
+  const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} Decks`;
   if (!it) {
     // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
@@ -982,6 +988,8 @@ function fcAction(act, el){
     case "fc-archive": { const d = state.decks[id]; if (d) applyChanges([{kind: "deck", id, after: Object.assign(clone(d), {archived: "Archived", updated: Date.now()})}], `Archived ${d.name}`); return true; }
     case "fc-unarchive": { const d = state.decks[id]; if (d) applyChanges([{kind: "deck", id, after: Object.assign(clone(d), {archived: null, updated: Date.now()})}], `Restored ${d.name}`); if (dlg.open && dlg.querySelector(".fc-arch-sheet")) { if (archivedDecks().length) archivedDecksSheet(); else dlg.close(); } return true; }
     case "fc-arch-open": archivedDecksSheet(); return true;
+    // deleting from the archive: gone for good, with Undo in the message
+    case "fc-arch-del": { const d = state.decks[id]; if (d) { applyChanges([{kind: "deck", id, after: null}], `Deleted ${d.name}`); if (dlg.open) archivedDecksSheet(); } return true; }
     case "fc-card": if (ui.deckId && state.decks[ui.deckId]) cardSheet(state.decks[ui.deckId], id); return true;
     case "fc-study": startStudy([id]); return true;
     case "fc-review-menu": reviewSheet(); return true;

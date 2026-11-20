@@ -2694,3 +2694,11 @@ dialog .sheet-body{scrollbar-gutter:auto}
 .av-form .av-tc{margin-top:2px}
 .cs-short-p{display:none}
 @media (max-width:520px){.cs-long-p{display:none}.cs-short-p{display:block}}
+.deck-archived .da-btns{display:flex;gap:6px;flex:none;margin-left:auto}
+/* Option menus in pop-ups (Review, Grade Options, Share Deck...): each choice is a card, as in Share or Import */
+dialog .sheet-body > .menu-list:not(.fm-list){gap:8px}
+dialog .sheet-body > .menu-list:not(.fm-list) > :is(button,label.mi){min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;transition:border-color .15s}
+dialog .sheet-body > .menu-list:not(.fm-list) > button:not(:disabled):is(:hover,:focus-visible){border-color:var(--accent)}
+dialog .sheet-body > .menu-list:not(.fm-list) > button > span:first-of-type{font-weight:700}
+dialog .sheet-body > .menu-list:not(.fm-list) > button .sub{margin-top:2px}
+dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;cursor:default}

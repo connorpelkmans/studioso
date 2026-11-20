@@ -4310,7 +4310,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const meetings = kindItems(g.id, "minutes").length;
     const html = `<div class="pp-page"><div class="pp-head"><div><h1>Contribution Report</h1><p>${esc(g.name)}${g.course ? " · " + esc(g.course) : ""}</p></div><div class="pp-box">${real ? `Due ${esc(fmtShort(real))}<br>` : ""}${tasks.filter(t => !t.deleted).length} tasks · ${meetings} meeting note${meetings === 1 ? "" : "s"}</div></div>
       <section class="pp-gc"><table><thead><tr><th>Member</th><th>Role</th><th>Tasks done</th><th>On time</th>${meetings ? "<th>Meetings</th>" : ""}</tr></thead><tbody>${rows.map(r => `<tr><td><b>${esc(r.name)}</b></td><td>${esc(roleName(g.id, r.id) || "")}</td><td>${r.done} of ${r.assigned}</td><td>${r.onTime}</td>${meetings ? `<td>${r.meetings}</td>` : ""}</tr>`).join("")}</tbody></table></section>
-      <h2>What each person finished</h2><div class="pp-plan">${rows.map(r => `<div class="pp-pd"><b>${esc(r.name)}</b><span>${esc(r.titles.slice(0, 14).join(" · ") || "Nothing marked done yet")}</span></div>`).join("")}</div>
+      <h2>What Each Person Finished</h2><div class="pp-plan">${rows.map(r => `<div class="pp-pd"><b>${esc(r.name)}</b><span>${esc(r.titles.slice(0, 14).join(" · ") || "Nothing marked done yet")}</span></div>`).join("")}</div>
       <div class="pp-foot"><span>Made by Studyboard from the group's own tasks and meeting notes. Every member can see this report.</span><span>${esc(new Date().toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"}))}</span></div></div>`;
     if (!(window.SBPRO && SBPRO.printRaw)) { toast("Printing isn't available here."); return; }
     const name = `Contribution Report - ${g.name}`.slice(0, 80);

@@ -151,7 +151,7 @@ const SBDOCS = (() => {
     const ds = list(t); if (!ds.length) return;
     if (ds.length === 1) { openOutside(ds[0].url); return; }
     openSheet(`<div class="sheet dl-pick">${head("Documents")}<div class="sheet-body"><div class="menu-list">${ds.map(d => `<button type="button" data-act="dl-url" data-url="${esc(d.url)}">${badge(d.app)}<span>${esc(DOCLINK.shown(d))}<span class="sub">${esc(DOCLINK.label(d.app))}</span></span></button>`).join("")}</div></div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
+      </div>`);
   }
   hook("act", (act, el, id) => {
     if (act === "dl-go") { const t = state.tasks[id]; if (t) pick(t); return true; }
