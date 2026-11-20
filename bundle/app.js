@@ -10591,7 +10591,8 @@ const allTasks = () => Object.values(state.tasks);
 const tasksArr = () => allTasks().filter(t => !isArchived(t));
 // Courses keep the order you dragged them into (order), then the order they were added
 const courseOrd = c => typeof c.order === "number" ? c.order : 1e15 + (c.created || 0);
-const allCourses = () => Object.values(state.courses).sort((a, b) => (courseOrd(a) - courseOrd(b)) || String(a.name).localeCompare(String(b.name)));
+// c.gen: the hidden "General" record that holds concept maps with no course; it is never listed as a course
+const allCourses = () => Object.values(state.courses).filter(c => c && !c.gen).sort((a, b) => (courseOrd(a) - courseOrd(b)) || String(a.name).localeCompare(String(b.name)));
 const coursesArr = () => allCourses().filter(c => !c.archived);
 const courseOf = id => id ? state.courses[id] : null;
 const colorOf = id => { const c = courseOf(id); return c ? c.color : "#8A94A6"; };
@@ -32568,7 +32569,7 @@ let csSaveTimer = null;
 // The calendar link uses the HOME zone
 const csTz = () => { try { const h = window.SBTZ && SBTZ.schoolZone(); if (h && SBICS.validTz(h)) return h; const z = Intl.DateTimeFormat().resolvedOptions().timeZone; return SBICS.validTz(z) ? z : "America/Vancouver"; } catch (e) { return "America/Vancouver"; } };
 const csAppUrl = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : "";
-const csCourses = () => Object.values(state.courses || {}).filter(c => c && !c.archived).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
+const csCourses = () => Object.values(state.courses || {}).filter(c => c && !c.archived && !c.gen).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
 const csHasImported = () => Object.values(state.events || {}).some(e => e && e.src === "ics");
 const csStudyList = () => { const s = state.settings || {}; const l = s.studyPlan && typeof s.studyPlan === "object" ? s.studyPlan.sessions : s.studySessions; return Array.isArray(l) ? l : l && typeof l === "object" ? Object.values(l) : []; };
 // A guess at when classes end
@@ -109350,7 +109351,12 @@ const ownerObj = o => o && (o.kind === "course" ? state.courses[o.id] : state.ta
 /* A course's maps: c.maps = [{id, name, auto (from the course's material) or blank, created, at, and the overlay: pos, hide, add, links, cut, names, styles}].
    The course's first map, from before there could be several, was c.cmap: it reads as the map "main" until it's saved again. */
 const MAX_MAPS = 30;
-const courseName = c => c ? (c.code || c.name || "Course") : "Course";
+/* Maps with no course ("General") live on a hidden course record (gen: true) so they sync, undo and go to Recently Deleted
+   like any other map; course lists skip it (allCourses) */
+const GEN_ID = "general";
+const isGen = c => !!(c && (c.gen || c.id === GEN_ID));
+const genRec = () => ({id: GEN_ID, gen: true, name: "General", code: "", color: "#8A94A6", created: Date.now(), instructor: "", schedule: "", room: "", office: "", meetings: [], notes: "", links: [], maps: []});
+const courseName = c => isGen(c) ? "General" : c ? (c.code || c.name || "Course") : "Course";
 function mapsOf(c){
   if (!c) return [];
   const list = (Array.isArray(c.maps) ? c.maps : []).filter(m => m && m.id).map(m => Object.assign({name: "Untitled Map", auto: true}, m));
@@ -109364,7 +109370,7 @@ const userOf = o => { if (o && o.kind === "course") return overlay(mapOf(o)); co
 const refOf = o => o.kind === "course" ? `c:${o.id}:${o.map || "main"}` : `e:${o.id}`;
 const refParse = r => { const m = /^c:([^:]+):(.+)$/.exec(String(r || "")), e = /^e:(.+)$/.exec(String(r || "")); return m ? {kind: "course", id: m[1], map: m[2]} : e ? {kind: "exam", id: e[1]} : null; };
 const metaOf = o => (o.kind === "course" ? mapOf(o) : (ownerObj(o) || {}).cmap) || {};
-const courseIdOf = o => o.kind === "course" ? o.id : (ownerObj(o) || {}).courseId || "";
+const courseIdOf = o => o.kind === "course" ? (o.id === GEN_ID ? "" : o.id) : (ownerObj(o) || {}).courseId || "";
 const mapDeck = o => { const d = state.decks[metaOf(o).deck]; return d && !d.archived ? d : null; };
 // every result for this map's course: each card (right and wrong) and each quiz question (tries and misses)
 function evidence(o){
@@ -110697,7 +110703,7 @@ hook("act", (act, el, id) => {
   return false;
 });
 document.addEventListener("change", e => { const s = e.target && e.target.closest && e.target.closest("[data-cm-sort]"); if (!s) return; ui.cmSort = s.value; try { localStorage.setItem("studyboard:cmSort", s.value); } catch (er) {} render(); });
-const coursesLive = () => Object.values(state.courses || {}).filter(c => c && !c.archived).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
+const coursesLive = () => Object.values(state.courses || {}).filter(c => c && !c.archived && !isGen(c)).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
 // a template's little preview, drawn from its own layout
 // A template's preview: its real layout, small. Boxes take the template's colours, softly filled to suit light and dark mode,
 // with a short bar where the words go; the middle idea is solid
@@ -110721,14 +110727,14 @@ function tplThumb(t){
 }
 function newMapSheet(cid, o){
   o = o || {};
-  const cs = coursesLive();
-  if (!cs.length) { toast("Add a course first: each map belongs to a course."); return; }
-  const pick = cs.find(c => c.id === cid) || cs[0], n = mapsOf(pick).length, start = o.start || "auto";
+  // General (no course) is always offered, after the courses; with no courses it's the only choice
+  const cs = coursesLive().concat([state.courses[GEN_ID] || genRec()]);
+  const pick = cs.find(c => c.id === cid) || (cid === GEN_ID ? cs[cs.length - 1] : cs[0]), n = mapsOf(pick).length, start = o.start || (isGen(pick) ? "blank" : "auto");
   const opt = (v, t, d) => `<label class="cm-opt"><input type="radio" name="cmStart" value="${v}" ${start === v ? "checked" : ""}><span><b>${t}</b><span class="mini">${d}</span></span></label>`;
   openSheet(`<form class="sheet cm-new-sheet">${bandHead("New Concept Map", ICON.replace('width="16" height="16"', ""), pick.color || "#2F6FE4")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" value="${esc(o.name != null ? o.name : n ? "" : `${courseName(pick)} Map`)}" placeholder="e.g. Cell respiration, Unit 3, Essay plan" autocomplete="off"></label>
-      <label class="f"><span class="lh">Course</span><select id="cmCourse">${cs.map(c => `<option value="${esc(c.id)}" ${c.id === pick.id ? "selected" : ""}>${esc(courseLabel(c))}</option>`).join("")}</select></label>
+      <label class="f"><span class="lh">Course</span><select id="cmCourse">${cs.map(c => `<option value="${esc(c.id)}" ${c.id === pick.id ? "selected" : ""}>${esc(isGen(c) ? "General (No Course)" : courseLabel(c))}</option>`).join("")}</select></label>
       <fieldset class="f cm-start-pick"><legend class="lh">Start From</legend>
         ${opt("blank", "A Blank Page", "Just your own ideas and connections.")}
         ${opt("auto", "My Course Material", "Exam topics, notes, decks and files you've linked draw themselves in.")}
@@ -110787,7 +110793,7 @@ function newMapSheet(cid, o){
 async function createFromSheet(){
   const root = dlg.querySelector(".cm-new-sheet"); if (!root) return;
   const err = m => { const e = root.querySelector("[data-cm-err]"); e.textContent = m; e.hidden = !m; };
-  const c = state.courses[root.querySelector("#cmCourse").value]; if (!c) return;
+  const pickV = root.querySelector("#cmCourse").value, c = state.courses[pickV] || (pickV === GEN_ID ? genRec() : null); if (!c) return;
   const start = (root.querySelector('[name="cmStart"]:checked') || {}).value || "auto", desc = String((root.querySelector("#cmDesc") || {}).value || "").trim();
   let name = String(root.querySelector("#cmName").value || "").trim().slice(0, 80);
   const ms = mapsOf(c); if (ms.length >= MAX_MAPS) { err(`A course can hold ${MAX_MAPS} maps.`); return; }
@@ -110811,7 +110817,7 @@ async function createFromSheet(){
   let mat = null;
   if (start === "auto") { const box = root.querySelector(".cm-matbox"), ids = matChosen(box); if (box._n && !ids.length) { err("Tick at least one item, or start from a blank page."); return; } if (ids.length < (box._n || 0)) mat = ids; }
   const rec = Object.assign({id: uid(), name, auto: start === "auto", created: Date.now(), at: Date.now()}, start === "auto" || start === "blank" ? {} : ov, mat ? {mat} : {});
-  const cur = state.courses[c.id], after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
+  const cur = state.courses[c.id] || c, after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
   applyChanges([{kind: "course", id: c.id, after}], `Made the map ${name}`, null, {quiet: true});
   if (dlg.open) dlg.close();
   setTimeout(() => open("course", c.id, rec.id), 0);
@@ -110927,7 +110933,7 @@ function listHtml(){
   const sort = ui.cmSort || (() => { try { return localStorage.getItem("studyboard:cmSort") || "recent"; } catch (e) { return "recent"; } })();
   const q = String(ui.q || "").trim().toLowerCase(), all = allMaps();
   const list = all.filter(x => ui.filter === "all" || !ui.filter || x.cid === ui.filter).filter(x => !q || [x.name, (courseOf(x.cid) || {}).name, (courseOf(x.cid) || {}).code].join(" ").toLowerCase().includes(q));
-  const cl = x => { const c = courseOf(x.cid); return c ? courseLabel(c) : "General"; };
+  const cl = x => { const c = courseOf(x.cid); return c && !isGen(c) ? courseLabel(c) : "General"; };
   list.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "course" ? cl(a).localeCompare(cl(b)) || (a.exam - b.exam) || a.name.localeCompare(b.name) : (b.at - a.at) || (a.exam - b.exam) || a.name.localeCompare(b.name));
   const pro = ""; // maps are free; Pro parts are marked inside the map
   let lastCourse = "";
@@ -110937,7 +110943,7 @@ function listHtml(){
     const meta = [n ? `${n.items} idea${n.items === 1 ? "" : "s"} · ${n.links} link${n.links === 1 ? "" : "s"}` : "", x.exam ? "from the Prep Plan" : "", ago(x.at)].filter(Boolean).join(" · ");
     const ic = (d, w) => `<svg viewBox="0 0 24 24" width="${w || 17}" height="${w || 17}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
     return `${head}<article class="cm-mapcard" style="--c:${esc(colorOf(x.cid))}">
-      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
+      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c && !isGen(c) ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
       <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b></button>
       <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
       <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
@@ -114367,7 +114373,7 @@ async function makeLive(cid, mid, gid, gname, drop){
 async function addCopy(row, gname, gid){
   const have = byBid(row.id); if (have) return have;
   const G0 = G(), grp = (G0 && G0.groups ? G0.groups() : []).find(x => x.id === gid) || {};
-  const cs = Object.values(state.courses || {}).filter(c => c && !c.archived);
+  const cs = Object.values(state.courses || {}).filter(c => c && !c.archived && !c.gen);
   let cid = (G0 && G0.matchCourse && (G0.matchCourse(row.course) || G0.matchCourse(grp.course))) || (cs.length === 1 ? cs[0].id : "");
   if (!cid && cs.length) cid = await pickCourse(cs, row);
   if (cid === null) return null;
@@ -116900,7 +116906,7 @@ const AUTOPILOT = (() => {
   window.SBAllDot = (sel, o) => {
     if (!state.courses || !o || !(o.value === "all" || /^all\b/i.test((o.textContent || "").trim()))) return "";
     if (![...sel.options].some(x => state.courses[x.dataset.course || x.value])) return "";
-    const cs = Object.values(state.courses).filter(c => c && c.color).slice(0, 6); if (!cs.length) return "";
+    const cs = Object.values(state.courses).filter(c => c && c.color && !c.gen).slice(0, 6); if (!cs.length) return "";
     return "conic-gradient(" + cs.map((c, i, a) => c.color + " " + Math.round(i / a.length * 100) + "% " + Math.round((i + 1) / a.length * 100) + "%").join(",") + ")";
   };
   window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, warm, flash, pref: effPref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};

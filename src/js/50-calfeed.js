@@ -481,7 +481,7 @@ let csSaveTimer = null;
 // The calendar link uses the HOME zone
 const csTz = () => { try { const h = window.SBTZ && SBTZ.schoolZone(); if (h && SBICS.validTz(h)) return h; const z = Intl.DateTimeFormat().resolvedOptions().timeZone; return SBICS.validTz(z) ? z : "America/Vancouver"; } catch (e) { return "America/Vancouver"; } };
 const csAppUrl = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : "";
-const csCourses = () => Object.values(state.courses || {}).filter(c => c && !c.archived).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
+const csCourses = () => Object.values(state.courses || {}).filter(c => c && !c.archived && !c.gen).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
 const csHasImported = () => Object.values(state.events || {}).some(e => e && e.src === "ics");
 const csStudyList = () => { const s = state.settings || {}; const l = s.studyPlan && typeof s.studyPlan === "object" ? s.studyPlan.sessions : s.studySessions; return Array.isArray(l) ? l : l && typeof l === "object" ? Object.values(l) : []; };
 // A guess at when classes end

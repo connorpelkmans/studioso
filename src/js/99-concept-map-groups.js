@@ -561,7 +561,7 @@ async function makeLive(cid, mid, gid, gname, drop){
 async function addCopy(row, gname, gid){
   const have = byBid(row.id); if (have) return have;
   const G0 = G(), grp = (G0 && G0.groups ? G0.groups() : []).find(x => x.id === gid) || {};
-  const cs = Object.values(state.courses || {}).filter(c => c && !c.archived);
+  const cs = Object.values(state.courses || {}).filter(c => c && !c.archived && !c.gen);
   let cid = (G0 && G0.matchCourse && (G0.matchCourse(row.course) || G0.matchCourse(grp.course))) || (cs.length === 1 ? cs[0].id : "");
   if (!cid && cs.length) cid = await pickCourse(cs, row);
   if (cid === null) return null;
