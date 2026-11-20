@@ -53856,7 +53856,9 @@ var TP_DATA = [];
       if (!wide()) { if (nav.dataset.fit) delete nav.dataset.fit; nav.style.removeProperty("--nb-min"); nav.style.removeProperty("--nb-g"); return; }
       let lvl = 0;
       nav.style.removeProperty("--nb-min"); nav.style.removeProperty("--nb-g");
-      nav.dataset.fit = "0";
+      nav.dataset.fit = "0"; delete nav.dataset.pill;
+      // A running or paused timer makes its button taller: slim that button first, before the menu's labels are dropped
+      if (nav.scrollHeight > nav.clientHeight + 1 && nav.querySelector(".nav-focus.active")) nav.dataset.pill = "slim";
       while (nav.scrollHeight > nav.clientHeight + 1 && lvl < MAX) nav.dataset.fit = String(++lvl);
       stretch(lvl);
     } finally { busy = false; }
