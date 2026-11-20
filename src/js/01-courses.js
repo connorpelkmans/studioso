@@ -1254,7 +1254,7 @@ function availManager(){
         <p class="mini" style="margin:-2px 0 6px">Working late? An end after midnight (like 1:00 AM) is fine, as long as it's before your day starts again.</p>
         <div class="two"><label class="f">Shortest useful gap (min)<input type="number" name="minChunk" min="5" max="180" step="5" value="${c.minChunk}"></label><label class="f">Longest single session (min)<input type="number" name="maxSession" min="15" max="240" step="5" value="${c.maxSession}"></label></div>
         <div class="two"><label class="f">Break between sessions (min)<input type="number" name="breakMin" min="0" max="60" step="5" value="${c.breakMin}"></label><label class="f">Usual travel time for new shifts and work (min)<input type="number" name="defBuf" min="0" max="120" step="5" value="${c.defBuf}"></label></div>
-        <label class="mi-check"><input type="checkbox" name="recover" ${c.recover ? "checked" : ""}> Treat the morning after an overnight shift as recovery (no study before noon)</label>
+        <label class="mi-check"><input type="checkbox" name="recover" ${c.recover ? "checked" : ""}> Recover the morning after a night shift (no study before noon)</label>
         <p class="mini" style="margin:6px 0 0">Gaps shorter than the shortest useful gap are ignored. Your Study Hours per Day in Settings still sets how much you want to do; free time only caps it.</p>
       </fieldset>
     </div>
