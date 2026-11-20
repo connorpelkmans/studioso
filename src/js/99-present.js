@@ -83,7 +83,10 @@
     if (d.texts) return d.texts;
     if (d.kind === "pptx") {
       const div = document.createElement("div");
-      d.texts = d.res.pages.map(pg => { div.innerHTML = pg.html; div.querySelectorAll("img,svg,style").forEach(x => x.remove()); return String(div.textContent || "").replace(/\s+/g, " ").trim().slice(0, 1500); });
+      // each paragraph on its own (two spaces between them), so words from separate text boxes never run together
+      d.texts = d.res.pages.map(pg => { div.innerHTML = pg.html; div.querySelectorAll("img,svg,style").forEach(x => x.remove());
+        const ps = [...div.querySelectorAll(".ofc-p")].map(p => String(p.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean);
+        return (ps.length ? ps.join("  ") : String(div.textContent || "").replace(/\s+/g, " ").trim()).slice(0, 1500); });
     } else {
       const pt = await pageTexts(d);
       d.texts = d.pg ? d.pg.map((s0, i) => pt[s0 + d.pc[i] - 1] || "") : pt.slice(0, d.n);

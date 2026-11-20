@@ -20,6 +20,14 @@
   function send(cmd){ if (!ch) return; seal({cmd: cmd}).then(function(p){ ch.send({type: "broadcast", event: "c", payload: p}); }); }
   function buzz(p){ try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
   var wl = null; function wake(){ try { if (navigator.wakeLock && !wl) navigator.wakeLock.request("screen").then(function(l){ wl = l; l.addEventListener("release", function(){ wl = null; }); }).catch(function(){}); } catch (e) {} }
+  // play and pause: a round button with a pause sign or a play sign, so it never looks like Back
+  var PP = {pause: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.4"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.4"/></svg>',
+    play: '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M8.5 5.6v12.8a1 1 0 0 0 1.5.86l10-6.4a1 1 0 0 0 0-1.72l-10-6.4a1 1 0 0 0-1.5.86z"/></svg>'}, ppWas = null;
+  function ppIcon(run){
+    if (ppWas === run) return; ppWas = run;
+    var b = $("pp"); b.innerHTML = "<i>" + (run ? PP.pause : PP.play) + "</i>"; b.classList.toggle("paused", !run); b.setAttribute("aria-label", run ? "Pause" : "Resume");
+  }
+  ppIcon(true);
   // the clock keeps counting between the laptop's updates (about one a second), from the latest time it sent
   var base = null;
   function clockNow(){ return base ? base.el + (base.run ? performance.now() - base.at : 0) : 0; }
@@ -64,7 +72,7 @@
       $("vskip").textContent = s.vs === "play" ? "Skip the Rest" : "Skip" + (s.vd ? " · adds " + fmt(s.vd) : "");
     }
     paintClock();
-    $("pp").textContent = s.run ? "❚❚" : "▶"; $("pp").setAttribute("aria-label", s.run ? "Pause" : "Resume");
+    ppIcon(!!s.run);
     if (s.buzz && s.buzz !== lastBuzz) buzz(s.buzz === "vlong" ? [120, 80, 120] : s.buzz === "wrap" ? [60, 60, 60, 60, 60] : [90]);
     lastBuzz = s.buzz || "";
   }
