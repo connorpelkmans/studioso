@@ -5528,6 +5528,8 @@ function aiFinish(){
   if (total > 0 && right / total >= 0.8) { try { celebrate("check"); } catch (e) {} }
   sbHaptic(total > 0 && right / total >= 0.8 ? "success" : "tap");
   if (quizPasses(right, total) && !(!qz || f.qs.length !== qz.questions.length)) earnBump("q");
+  // passing a whole quiz (5+ questions, 80%+) is a good moment to ask for a review (99-review-ask.js decides whether)
+  if (quizPasses(right, total)) fire("good-moment", "quiz");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
 }
 function viewAiQuiz(){
@@ -20012,6 +20014,8 @@ function viewStudy(){
   if (!it) {
     // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
+    // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
+    if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
     return `<div class="view-head"><h2>Study Session Done</h2></div>
       <section class="done-card">
         <p class="big-num">${cards}<span> card${cards === 1 ? "" : "s"} studied</span></p>
@@ -20197,7 +20201,7 @@ function finishQuiz(){
   const sc = Object.values(byDeck).reduce((a, r) => a + r.score, 0), tot = Object.values(byDeck).reduce((a, r) => a + r.total, 0);
   if (tot > 0 && sc / tot >= 0.8) { try { celebrate("check"); } catch (e) {} }
   sbHaptic(tot > 0 && sc / tot >= 0.8 ? "success" : "tap");
-  if (quizPasses(sc, tot)) earnBump("q");
+  if (quizPasses(sc, tot)) { earnBump("q"); fire("good-moment", "quiz"); }
 }
 function viewQuiz(){
   const f = ui.fc, q = f.qs[f.i], a = f.ans[f.i];
@@ -84834,7 +84838,8 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
    The system's own prompt (Apple's and Google's, through @capacitor-community/in-app-review): no custom "Enjoying Studyboard?" screen
    first, because both stores forbid sending only happy people to the review page. Apple shows it at most 3 times a year anyway and
    may skip it; Google decides too. Nothing tells the app whether it showed or what was given.
-   When: right after a good moment (Today's Plan cleared, a Focus of 20 minutes or more finished, a good grade, a new best Match time),
+   When: right after a good moment (Today's Plan cleared, a Focus of 20 minutes or more finished, a good grade, a new best Match time,
+   a quiz passed (5+ questions, 80%+), or a flashcard session of 15+ cards with most of them known),
    once the moment's own sheet or celebration is gone, the moment still holds (no Undo since), and the student has stopped tapping
    and typing for a few seconds, so the prompt never lands under a finger or over half-typed text.
    Only for someone who has used the app for a while (a week, 5 days of use, 10 tasks done).

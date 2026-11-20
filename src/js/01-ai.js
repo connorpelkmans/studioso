@@ -1574,6 +1574,8 @@ function aiFinish(){
   if (total > 0 && right / total >= 0.8) { try { celebrate("check"); } catch (e) {} }
   sbHaptic(total > 0 && right / total >= 0.8 ? "success" : "tap");
   if (quizPasses(right, total) && !(!qz || f.qs.length !== qz.questions.length)) earnBump("q");
+  // passing a whole quiz (5+ questions, 80%+) is a good moment to ask for a review (99-review-ask.js decides whether)
+  if (quizPasses(right, total)) fire("good-moment", "quiz");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
 }
 function viewAiQuiz(){
