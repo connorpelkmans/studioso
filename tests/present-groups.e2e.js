@@ -139,6 +139,19 @@ const FAKE = me => {
   ok(DB.items.some(i => i.kind === "preslive" && i.data.ended), "ending the run ends the live rehearsal");
   ok(DB.items.some(i => i.kind === "presrun" && i.user_id === "u2" && i.data.live), "Sam's part of the rehearsal goes to the team's progress");
 
+  // a group project's Shared tab: a Presentations card with the team's progress; the section with something shared goes on top
+  const gs = await A.evaluate(async () => { const G = window.SBPRESENT._groups; await G.load(true); const h = G.secBody("g1"); const d = document.createElement("div"); d.innerHTML = h;
+    return {cards: d.querySelectorAll(".rv-card").length, text: d.textContent.replace(/\s+/g, " "), practice: !!d.querySelector('.rv-cacts [data-act="pr-practice"]')}; });
+  ok(gs.cards === 1 && /Teen Sleep Talk/.test(gs.text) && /Maya/.test(gs.text) && /Sam/.test(gs.text) && gs.practice, "the group's Shared tab has a Presentations card with each speaker's progress: " + gs.text.slice(0, 160));
+  const ord = await A.evaluate(() => { const pane = document.createElement("div"); pane.className = "grp-pane"; pane.dataset.pane = "boards";
+    pane.innerHTML = `<section class="grp-sec" id="wb"><p class="empty">none</p></section><section class="grp-sec" id="cm"><p class="empty">none</p></section><section class="grp-sec" id="pr"><div class="wbg-card"></div></section><p class="grp-room">0 of 10</p>`;
+    window.SBPRESENT._groups.orderShared(pane); const a = [...pane.children].map(x => x.id || x.className).join(",");
+    pane.querySelector("#cm").innerHTML = `<div class="wbg-card"></div>`; window.SBPRESENT._groups.orderShared(pane); return [a, [...pane.children].map(x => x.id || x.className).join(",")]; });
+  ok(ord[0] === "pr,wb,cm,grp-room" && ord[1] === "cm,pr,wb,grp-room", "a section with something shared moves to the top; the rest keep their order: " + ord.join(" | "));
+  await A.evaluate(() => { const st = document.getElementById("prStage"); if (st) st.remove(); const b = document.createElement("button"); b.dataset.act = "prg-share-pick"; b.dataset.id = "g1"; b.id = "__sp"; document.body.appendChild(b); b.click(); });
+  await A.waitForSelector(".prg-pick-i");
+  ok(/already shared here/.test(await A.textContent(".prg-pick")), "Share a Presentation lists yours, marking the one already shared");
+  await A.evaluate(() => document.querySelector("dialog[open]").close());
   // the task sheet links to its presentation
   const th = await A.evaluate(() => window.SBPRESENT.taskHtml(window.__sbSync.state.tasks.t1));
   ok(/Teen Sleep Talk/.test(th) && /pr-practice/.test(th) && /shared with Sleep Project/.test(th), "the task sheet links to its presentation");

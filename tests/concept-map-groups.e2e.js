@@ -170,7 +170,7 @@ const SEED_B = () => ({v: 2, updated: 1, settings: {}, tasks: [], decks: [], fil
     ok(BL && BL.cid === "cb" && BL.m.add.length === 4 && BL.m.add.some(i => i.label === "My private lecture notes") && BL.m.links.length === 4, "Add to My Maps files it under her matching course (BIO 101), with everything on it");
     ok(DB.group_map_people.some(r => r.map_id === "map1" && r.user_id === "u2") && /You and Connor have it/.test(await B.page.locator(".cmg-card .wbg-who").textContent()), "it records that she has it");
     if (SHOTS) { await B.page.locator(".grp-cms").scrollIntoViewIfNeeded(); await B.page.screenshot({path: path.join(SHOTS, "group-page-desktop.png")}); }
-    await B.page.click(".cmg-card .cmg-pv"); await B.page.waitForSelector(".cm-sheet .cm-node"); await settle(400);
+    await B.page.click(".cmg-card .cm-peekb"); await B.page.waitForSelector(".cm-sheet .cm-node"); await settle(400);
     ok(await B.page.locator(".cm-node", {hasText: "Maya's own note"}).count() === 0 && await B.page.locator(".cm-node").count() === 5, "it opens in her map editor, without her own notes on it");
     ok(/^Live · 2/.test(await chip(B.page)) && /Live with Bio Squad, 2 people/.test(await B.page.locator(".cm-glive").getAttribute("aria-label")), "her chip shows it's live, with 2 people");
 
@@ -236,7 +236,7 @@ const SEED_B = () => ({v: 2, updated: 1, settings: {}, tasks: [], decks: [], fil
       await act(P.page, "grp-page"); await P.page.waitForSelector('[data-act="grp-open"][data-id="g1"]'); await P.page.click('[data-act="grp-open"][data-id="g1"]'); await P.page.waitForSelector("#grpDetail");
       await P.page.click('[data-act="grp-tab"][data-t="boards"]'); await P.page.waitForSelector(".cmg-card"); await settle(500); await P.page.locator(".grp-cms").scrollIntoViewIfNeeded();
       await P.page.screenshot({path: path.join(SHOTS, "group-page-phone.png")});
-      await P.page.click(".cmg-card .cmg-pv"); await P.page.waitForSelector(".cm-sheet .cm-node"); await settle(500);
+      await P.page.click(".cmg-card .cm-peekb"); await P.page.waitForSelector(".cm-sheet .cm-node"); await settle(500);
       await drag(A.page, "Pyruvate", 80, 40); await settle(900);
       await P.page.screenshot({path: path.join(SHOTS, "two-editing-phone.png")});
       ok(await P.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "at phone width nothing scrolls sideways");

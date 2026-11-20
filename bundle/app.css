@@ -9839,12 +9839,9 @@ html[data-motion="static"] .rv-quiz:hover .rv-stamp{transform:none}
 .pr-tl{position:absolute;left:14px;right:74px;bottom:7px;height:6px;display:flex;gap:2px;border-radius:3px;overflow:hidden}
 .pr-tl i{flex:1 1 0;min-width:2px;background:color-mix(in srgb,var(--ink) 14%,transparent)}
 .pr-tl i.t-ok{background:#2E9E6B}.pr-tl i.t-warn{background:#E8A33A}.pr-tl i.t-over{background:#E0565B}
-.pr-tl::after{content:"";position:absolute;inset:0;width:0;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--c) 70%,#fff));opacity:.85;transition:width .5s ease-out}
-.rv-pres:hover .pr-tl::after{width:100%}
 .rv-pres:hover .pr-scr{translate:-50% -4px}
-@media (prefers-reduced-motion:reduce){.pr-scr,.pr-tl::after{transition:none}.rv-pres:hover .pr-scr{translate:-50% 0}.rv-pres:hover .pr-tl::after{width:0}}
+@media (prefers-reduced-motion:reduce){.pr-scr{transition:none}.rv-pres:hover .pr-scr{translate:-50% 0}}
 html[data-motion="static"] .rv-pres:hover .pr-scr{translate:-50% 0}
-html[data-motion="static"] .rv-pres:hover .pr-tl::after{width:0}
 .pr-stamp.good{border-color:var(--leaf,#2E9E5B);color:color-mix(in srgb,var(--leaf,#2E9E5B) 85%,var(--ink))}
 .pr-stamp{font-size:.74rem}
 @media (prefers-reduced-motion:reduce){.pr-peek .pr-sh{transition:none}.rv-pres:hover .pr-sh.s1{transform:translateY(11px)}.rv-pres:hover .pr-sh.s2{transform:translate(12px,15px) rotate(4deg)}.rv-pres:hover .pr-sh.s3{transform:translate(-14px,17px) rotate(-6deg)}}
@@ -10264,6 +10261,23 @@ button.pr-stat{cursor:pointer}
 .pr-stage .pr-play,.pr-stage .pr-nav-next{background:var(--pc-grad);color:var(--pc-ink);box-shadow:0 12px 28px color-mix(in srgb,var(--pc) 50%,transparent)}
 .pr-pl-tv{flex:none;padding:2px 4px;min-width:3.6ch;text-align:center}
 .pr-pl-tv .pr-tgt-in{width:4.8ch!important;font-size:.95rem!important}
+
+/* a group project's Shared tab: presentations, as cards like its whiteboards and maps */
+.prg-pv{flex-direction:column;justify-content:center;gap:0;background:color-mix(in srgb,var(--c) 10%,var(--surface))}
+.prg-pv-rod{width:62%;height:6px;border-radius:3px;background:linear-gradient(#4A556B,#2B3448);position:relative;z-index:1}
+.prg-pv-pane{width:56%;aspect-ratio:16/9;margin-top:-2px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:7px 9px;border-radius:0 0 6px 6px;background:#fff;border-top:3px solid var(--c);color:#1D2433;text-align:start;box-shadow:0 8px 16px rgb(0 0 0/.12)}
+.prg-pv-pane b{font:700 .7rem/1.2 var(--display);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.prg-pv-pane i{display:block;height:3px;border-radius:2px;background:#DCE2EC;width:78%}.prg-pv-pane i+i{width:52%}
+.prg-pv-live{position:absolute;top:8px;left:8px}
+.prg-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+.prg-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;background:var(--field);font-size:.74rem;font-weight:600}
+.prg-chip i{width:8px;height:8px;border-radius:50%;background:var(--sp)}
+.prg-chip.ok{background:rgba(30,158,116,.14)}.prg-chip.warn{background:rgba(245,166,35,.18)}
+.prg-pick{display:grid;gap:8px;margin-top:10px}
+.prg-pick-i{display:grid;gap:2px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer}
+.prg-pick-i:hover,.prg-pick-i:focus-visible{border-color:var(--accent)}
+.prg-ggrid{margin-top:2px}
+.prg-gcard .prg-chips{margin:-2px 0 0}
 /* ===== module: 99-shop-home.css ===== */
 /* The Style Shop's front: Shop home, Yours, Build Your Look, and the way back from a See All page */
 .sheet.shop.sbh-on .shop-rail{display:none}

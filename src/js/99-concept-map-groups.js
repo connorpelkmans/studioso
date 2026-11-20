@@ -606,17 +606,20 @@ function paneBody(gid){
   if (!c || !c.rows) return `<p class="empty mini" role="status">Loading the group's concept maps…</p>`;
   if (c.err && !c.rows.length) return `<p class="empty mini">${esc(c.err)}</p>`;
   if (!c.rows.length) return `<p class="empty mini">No concept maps here yet. Share one, and everyone in the group can add it and work on it with you, live.</p>`;
-  const col = grpCol(gid);
-  return `<div class="wbg-grid">${c.rows.map(r => {
+  const col = grpCol(gid), g = ((G() && G().groups ? G().groups() : []).find(x => x.id === gid)) || {};
+  const cid = G() && G().matchCourse ? G().matchCourse(g.course) : "", crs = cid && typeof courseOf === "function" ? courseOf(cid) : null;
+  // the same card as Review > Concept Maps: the map's own picture, the course, then the title, who's on it and Open / Add
+  return `<div class="cm-grid cmg-grid">${c.rows.map(r => {
     const have = byBid(r.id), ids = c.people.get(r.id) || [], all = have ? [me()].concat(ids) : ids, who = whoText(gid, all);
     const dots = [...new Set(all)].slice(0, 5).map(id => faceOf(gid, id, true)).join("");
     const pv = CMG.readPreview(r.preview), pic = pv && B.peekSvg ? B.peekSvg(pv, col) : `<span class="wbg-ph">Concept Map</span>`;
-    const canOff = r.created_by && r.created_by === me();
-    return `<div class="wbg-card cmg-card">
-      <button type="button" class="wbg-pv cmg-pv" style="--c:${esc(col)}" data-act="grp-cm-open" data-id="${esc(r.id)}" data-g="${esc(gid)}" aria-label="${have ? "Open" : "Add and open"} ${esc(r.name)}">${pic}</button>
-      <div class="wbg-meta"><b>${esc(r.name)}</b><span class="wbg-who"><span class="wbg-avs" aria-hidden="true">${dots}</span>${esc(who)}</span></div>
-      <div class="wbg-acts">${have ? `<button type="button" class="btn small" data-act="grp-cm-open" data-id="${esc(r.id)}" data-g="${esc(gid)}">Open</button>` : `<button type="button" class="btn small primary" data-act="grp-cm-add" data-id="${esc(r.id)}" data-g="${esc(gid)}">Add to My Maps</button>`}<details class="grp-more g2-mm grp-rep"><summary class="g2-dots" aria-label="More for ${esc(r.name)}">⋯</summary><div class="grp-menu"><button type="button" class="btn" data-act="grp-cm-report" data-id="${esc(r.id)}" data-g="${esc(gid)}">Report</button>${canOff ? `<button type="button" class="btn" data-act="grp-cm-off" data-id="${esc(r.id)}" data-g="${esc(gid)}">Take Off the Group</button>` : ""}</div></details></div>
-    </div>`; }).join("")}</div>`;
+    const canOff = r.created_by && r.created_by === me(), act = have ? "grp-cm-open" : "grp-cm-add";
+    return `<article class="cm-mapcard cmg-card" style="--c:${esc(col)}">
+      <button class="cm-peekb" data-act="grp-cm-open" data-id="${esc(r.id)}" data-g="${esc(gid)}" aria-label="${have ? "Open" : "Add and open"} ${esc(r.name)}">${pic}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${crs ? courseRingHtml(crs) : GENERAL_ICON}</span>${esc(crs ? courseLabel(crs) : "General")}</span><span class="cm-exam cm-grpb">Group</span></button>
+      <div class="cm-cfoot"><button class="cm-cinfo" data-act="grp-cm-open" data-id="${esc(r.id)}" data-g="${esc(gid)}"><b class="cm-ctitle">${esc(r.name)}</b></button>
+      <div class="cm-crow"><span class="mini cm-csub wbg-who"><span class="wbg-avs" aria-hidden="true">${dots}</span>${esc(who)}</span>
+      <div class="cm-cacts"><details class="grp-more g2-mm grp-rep"><summary class="g2-dots" aria-label="More for ${esc(r.name)}">⋯</summary><div class="grp-menu"><button type="button" class="btn" data-act="grp-cm-report" data-id="${esc(r.id)}" data-g="${esc(gid)}">Report</button>${canOff ? `<button type="button" class="btn" data-act="grp-cm-off" data-id="${esc(r.id)}" data-g="${esc(gid)}">Take Off the Group</button>` : ""}</div></details><button class="btn small primary cm-openb" data-act="${act}" data-id="${esc(r.id)}" data-g="${esc(gid)}">${have ? "Open" : "Add"}</button></div></div></div>
+    </article>`; }).join("")}</div>`;
 }
 function fillPanes(){ document.querySelectorAll(".grp-cms[data-gid]").forEach(el => { const b = el.querySelector(".grp-cms-body"); if (b) { const h = paneBody(el.dataset.gid); if (b.innerHTML !== h) b.innerHTML = h; } }); }
 hook("grp-boards", g => g && g.id ? `<section class="card grp-sec grp-cms" data-gid="${esc(g.id)}"><div class="grp-wbs-head"><h3 class="fsec">Concept Maps</h3><button type="button" class="btn small" data-act="grp-cm-share" data-id="${esc(g.id)}">Share a Concept Map</button></div>

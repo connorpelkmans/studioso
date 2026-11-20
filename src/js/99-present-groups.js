@@ -46,7 +46,7 @@
     try { await C.busy; } finally { C.busy = null; }
     const sig = C.items.map(i => i.id + i.updated_at).join("|");
     const changed = sig !== C.sig; C.sig = sig;
-    if (changed) { X.rerenderList(); X.refreshReady(); }
+    if (changed) { X.rerenderList(); X.refreshReady(); fillSecs(); }
     return changed;
   }
   // a linked copy follows the group's plan, speakers and name (unless it's your own)
@@ -90,7 +90,7 @@
 
   /* ---------- Share With a Group ---------- */
   let SH = null;
-  async function shareSheet(pid){
+  async function shareSheet(pid, gid0){
     const p = X.byId(pid); if (!p) return;
     if (!online()) { toast("Sign in to share with a study group or group project.", null, window.SBGUEST && SBGUEST.signUp ? {label: "Sign In", fn: () => SBGUEST.signUp()} : undefined); return; }
     SH = {pid, gid: "", members: [], picked: new Set(), busy: "", err: "", file: true, size: 0, vsize: 0};
@@ -98,7 +98,7 @@
     openSheet(`<div class="sheet">${head("Share With a Group")}<div class="sheet-body"><p class="mini" role="status">Loading your groups…</p></div></div>`);
     try { C.groups = (await q(cli().from("study_groups").select("id,name,kind"))) || []; } catch (e) { SH.err = "Couldn't load your groups. Check your connection."; }
     if (!SH || SH.pid !== pid) return;
-    SH.gid = (C.groups.find(g => g.kind === "project") || C.groups[0] || {}).id || "";
+    SH.gid = (gid0 && C.groups.find(g => g.id === gid0) ? gid0 : "") || (C.groups.find(g => g.kind === "project") || C.groups[0] || {}).id || "";
     await pickGroup(SH.gid);
   }
   async function pickGroup(gid){
@@ -319,6 +319,73 @@
     if (!p && !it.data.path) toast("Add your copy of the slides, then you'll join the rehearsal.");
   }
 
+  /* ---------- a group project's Shared tab: its presentations, beside Whiteboards and Concept Maps ---------- */
+  const isProject = g => !!g && (g.kind === "project" || (C.groups.find(x => x.id === g.id) || {}).kind === "project");
+  hook("grp-boards", g => {
+    if (!g || !g.id || !isProject(g)) return "";
+    load().catch(() => {});
+    return `<section class="card grp-sec prg-gsec" data-prg="${esc(g.id)}"><div class="grp-wbs-head"><h3 class="fsec">Presentations</h3><button type="button" class="btn small" data-act="prg-share-pick" data-id="${esc(g.id)}">Share a Presentation</button></div>
+      <p class="mini" style="margin:0 0 10px">Presentations shared here come with their plan and speakers: add one to practice your part, see the team's progress and rehearse together.</p><div class="prg-gbody">${secBody(g.id)}</div></section>`;
+  });
+  function secBody(gid){
+    if (!online()) return `<p class="empty mini">Sign in to share presentations with your group.</p>`;
+    if (!C.at) return `<p class="empty mini" role="status">Loading the group's presentations…</p>`;
+    if (C.err && !pres().length) return `<p class="empty mini">${esc(C.err)}</p>`;
+    const list = pres().filter(it => it.group_id === gid);
+    if (!list.length) return `<p class="empty mini">No presentations here yet. Share one, and everyone in the group gets its plan and speakers, can practice their part and rehearse together.</p>`;
+    return `<div class="rv-grid pr-grid prg-ggrid">${list.map(it => {
+      const p = localOf(it.id), live = liveOf(it.id), d = it.data || {}, sp = Array.isArray(d.sp) ? d.sp : [], n = Math.max(1, Number(d.slides) || 1);
+      const cid = G() && G().matchCourse ? G().matchCourse(d.course) : "", c = cid ? courseOf(cid) : null;
+      const runOf = s2 => { const r = runsOf(it.id).find(x => x.user_id === s2.id); return r && r.data; };
+      const okOf = rd => !!(rd && rd.b && rd.t <= rd.b * 1.1 + 3000);
+      const ready = sp.filter(s2 => okOf(runOf(s2))).length;
+      // the strip: who presents each slide, in their colour (faded until they've practiced)
+      const by = Array.isArray(d.by) ? d.by : [], strip = Array.from({length: Math.min(n, 40)}, (_, i) => { const s2 = sp.find(x => x.id === by[i]) || sp[0]; return s2 ? `<i style="background:${esc(okColor(s2.c) || "#7A8494")};opacity:${runOf(s2) ? 1 : .35}" title="${esc(s2.name)}"></i>` : "<i></i>"; }).join("");
+      const prog = sp.map(s2 => { const rd = runOf(s2), ok = okOf(rd);
+        return `<span class="prg-chip ${rd ? (ok ? "ok" : "warn") : ""}" style="--sp:${esc(okColor(s2.c) || "#7A8494")}" title="${esc(rd ? `${s2.name}: ${X.fmt(rd.t)} of ${X.fmt(rd.b)}` : `${s2.name}: not practiced yet`)}"><i></i>${esc(str(s2.name, 16))}${rd ? (ok ? " ✓" : " " + X.fmt(rd.t)) : ""}</span>`; }).join("");
+      const go = live && live.user_id !== me() ? {act: "prg-join", id: live.id, label: "Join Live"} : p ? {act: "pr-practice", id: p.id, label: "Practice"} : {act: "prg-add", id: it.id, label: d.path ? "Add" : "Add My Copy"};
+      const meta = [`target ${X.fmt((Number(d.plan && d.plan.target) || 0) * 1000)}`, d.due ? `due ${fmtShort(d.due)}` : "", it.user_id === me() ? "shared by you" : `shared by ${it.author_name || "a member"}`].filter(Boolean).join(" · ");
+      const nm = esc(it.title || "Presentation");
+      return `<article class="rv-card rv-pres prg-gcard" style="--c:${esc(c ? colorOf(cid) : "#7A4FD6")}">
+        <button class="rv-peek pr-peek" data-act="${go.act}" data-id="${esc(go.id)}" aria-label="${esc(go.label)}: ${nm}">
+          <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(d.title || it.title || "")}</b><i></i><i></i></span></span>
+          ${sp.length ? `<span class="pr-tl" aria-hidden="true">${strip}</span>` : ""}
+          <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
+          <span class="rv-count">${sp.length ? `${sp.length} speakers · ` : ""}${n} slide${n === 1 ? "" : "s"}</span>
+          ${live ? `<span class="prg-badge prg-cbadge live" title="Live rehearsal now">${X.IC.users}<span class="sr">Live rehearsal now</span></span>` : ""}
+          ${sp.length ? `<span class="rv-stamp pr-stamp${ready === sp.length ? " good" : ""}" aria-hidden="true" title="${ready} of ${sp.length} on target">${ready}/${sp.length}</span>` : ""}
+        </button>
+        <div class="rv-foot"><button class="rv-info" data-act="${go.act}" data-id="${esc(go.id)}"><b class="rv-title">${nm}</b></button>
+          ${prog ? `<span class="prg-chips">${prog}</span>` : ""}
+          <div class="rv-row"><span class="mini rv-sub">${esc(meta)}</span><div class="rv-cacts"><button class="btn small primary rv-go" data-act="${go.act}" data-id="${esc(go.id)}">${esc(go.label)}</button></div></div></div>
+      </article>`;
+    }).join("")}</div>`;
+  }
+  const courseColorOf = d => { const id = G() && G().matchCourse ? G().matchCourse(d.course) : ""; return id ? colorOf(id) : "#7A4FD6"; };
+  function fillSecs(){ document.querySelectorAll(".prg-gsec[data-prg]").forEach(el => { const b = el.querySelector(".prg-gbody"); if (!b) return; const h = secBody(el.dataset.prg); if (b.innerHTML !== h) b.innerHTML = h; }); }
+  // Share a Presentation, from the group: pick one of yours
+  function sharePick(gid){
+    const mine = X.all().slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    if (!mine.length) { toast("Add a presentation first (Review, Presentations), then share it here."); return; }
+    const gn = (C.groups.find(g => g.id === gid) || {}).name || "the group";
+    openSheet(`<div class="sheet">${head("Share a Presentation")}<div class="sheet-body"><p class="mini" style="margin:0">Pick one of yours to share with ${esc(gn)}.</p>
+      <div class="prg-pick">${mine.map(p => { const here = p.share && p.share.gid === gid; return `<button type="button" class="prg-pick-i" data-act="${here ? "pr-practice" : "prg-share-to"}" data-id="${esc(p.id)}" data-g="${esc(gid)}"><b>${esc(p.name)}</b><span class="mini">${p.slides} slides · target ${X.fmt(p.target * 1000)}${here ? " · already shared here" : p.share ? ` · shared with ${esc(p.share.gname || "another group")}` : ""}</span></button>`; }).join("")}</div></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+  }
+  // the Shared tab: whatever has something shared goes on top (Whiteboards, Concept Maps, Presentations otherwise keep their order)
+  const filled = sec => !!sec.querySelector(".wbg-card, .rv-card, .cm-mapcard");
+  function orderShared(pane){
+    const secs = [...pane.querySelectorAll(":scope > section.grp-sec")]; if (secs.length < 2) return;
+    secs.forEach((x, i) => { if (!x.dataset.ord) x.dataset.ord = String(i); });
+    const want = secs.slice().sort((a, b) => (filled(b) - filled(a)) || (Number(a.dataset.ord) - Number(b.dataset.ord)));
+    if (want.every((x, i) => x === secs[i])) return;
+    const anchor = secs[secs.length - 1].nextSibling;
+    want.forEach(x => pane.insertBefore(x, anchor));
+  }
+  let ordQ = 0;
+  new MutationObserver(() => { if (ordQ || ui.tab !== "groups") return; ordQ = requestAnimationFrame(() => { ordQ = 0; document.querySelectorAll('.grp-pane[data-pane="boards"]').forEach(orderShared); }); })
+    .observe(document.body, {childList: true, subtree: true});
+
   /* ---------- Today's Plan and tasks ---------- */
   const dueOf = p => { const t = p.taskId && state.tasks[p.taskId]; return t && t.status !== "done" ? t.due : p.due || ""; };
   hook("pr-today", () => {
@@ -341,6 +408,8 @@
   hook("act", (act, el, id) => {
     switch (act) {
       case "prg-share": shareSheet(id); return true;
+      case "prg-share-pick": sharePick(id); return true;
+      case "prg-share-to": shareSheet(id, el.dataset.g || ""); return true;
       case "prg-share-go": shareGo(); return true;
       case "prg-groups": if (dlg.open) dlg.close(); ui.tab = "groups"; render(); window.scrollTo(0, 0); return true;
       case "prg-add": addFromGroup(id); return true;
@@ -350,10 +419,10 @@
     }
     return false;
   });
-  if (window.__SB_TEST) PS._groups = {load, items: () => C.items, slimPptx, mediaBytes};
+  if (window.__SB_TEST) PS._groups = {secBody, orderShared, load, items: () => C.items, slimPptx, mediaBytes};
   setInterval(() => {
     if (document.hidden || !online()) return;
-    const onList = ui.tab === "flashcards" && ui.rvView === "present", ready = X.stage() && !X.stage().started && X.stage().p.share;
-    if (onList || ready) load(true).catch(() => {});
+    const onList = ui.tab === "flashcards" && ui.rvView === "present", onGroups = ui.tab === "groups" && !!document.querySelector(".prg-gsec"), ready = X.stage() && !X.stage().started && X.stage().p.share;
+    if (onList || onGroups || ready) load(true).catch(() => {});
   }, 20000);
 })();
