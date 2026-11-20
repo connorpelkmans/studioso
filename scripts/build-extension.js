@@ -94,6 +94,9 @@ function build() {
   const made = {};
   for (const target of ["chrome", "firefox", "safari"]) {
     const fl = files(target);
+    // No secret key may ship in the extension
+    const leaks = Object.entries(fl).filter(([, data]) => typeof data === "string" || Buffer.isBuffer(data)).flatMap(([name, data]) => require("./check-secrets").scanText(String(data)).map(h => `  ${target}/${name}: ${h.what} (${h.sample})`));
+    if (leaks.length) throw new Error("build-extension: a secret is in the extension. Nothing was packaged.\n" + leaks.join("\n"));
     for (const [name, data] of Object.entries(fl)) { const f = path.join(OUT, target, name); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, data); }
     const z = path.join(DIST, `studyboard-school-sync-${version}-${target}.zip`); fs.writeFileSync(z, zip(fl)); made[target] = z;
   }
