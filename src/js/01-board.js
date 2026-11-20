@@ -30,11 +30,18 @@ const groupBoardRows = status => window.SBGROUPTASKS ? window.SBGROUPTASKS.board
 // a group task's course here (matched by its course code)
 const groupRowCourse = r => { const k = String(r && r.courseCode || "").replace(/\s+/g, "").toLowerCase(); const c = k ? coursesArr().find(x => (x.code || "").replace(/\s+/g, "").toLowerCase() === k) : null; return c ? c.id : ""; };
 const groupBoardShown = status => groupBoardRows(status).filter(r => ui.filter === "all" || groupRowCourse(r) === ui.filter);
+// A group project's task wears a group icon where a course task wears its course's (styled like the course icons: white lines, soft fills)
+const GROUP_CARD_ICONS = {
+  pair: `<svg class="ci-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="a" cx="9" cy="8" r="3.4"/><path class="a" d="M2.8 19.5c.6-3.4 3.1-5.4 6.2-5.4s5.6 2 6.2 5.4z"/><circle class="b" cx="16.6" cy="9" r="2.8"/><path d="M15.4 14.2c.4-.1.8-.1 1.2-.1 2.6 0 4.5 1.7 5 4.6"/></svg>`,
+  trio: `<svg class="ci-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.2" cy="9.6" r="2.3"/><circle cx="18.8" cy="9.6" r="2.3"/><path d="M1.6 18.6c.3-2.4 1.8-3.8 3.6-3.8 1 0 1.8.3 2.4.9M22.4 18.6c-.3-2.4-1.8-3.8-3.6-3.8-1 0-1.8.3-2.4.9"/><circle class="a" cx="12" cy="8" r="3.2"/><path class="a" d="M6.6 20c.5-3.4 2.7-5.3 5.4-5.3s4.9 1.9 5.4 5.3z"/></svg>`,
+  board: `<svg class="ci-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect class="a" x="3" y="3.5" width="18" height="12.5" rx="2"/><path d="M8 20.5l4-4.5 4 4.5"/><path d="M7 8h6M7 11.5h4"/><circle class="b" cx="16.5" cy="9.5" r="1.8"/></svg>`
+};
+const GROUP_CARD_ICON = () => GROUP_CARD_ICONS[window.__sbGroupIcon] || GROUP_CARD_ICONS.trio;
 function groupBoardCard(r){
   const p = {id: r.id, due: r.due, status: r.status, time: ""}, today = todayISO(), late = r.status !== "done" && r.due && r.due < today, sb = soonBadge(p);
   const prio = r.priority && r.priority !== "med" && r.priority !== "" ? prioBadge(r.priority) : "";
   return `<div class="card has-tab gcard ${r.status === "done" ? "is-done" : ""}" role="button" tabindex="0" data-act="grp-pt-open" data-g="${esc(r.gid)}" data-l="${esc(r.listId)}" data-id="${esc(r.id)}" data-gt="${esc(r.id)}" style="--c:#C9702B">
-    <div class="card-course">${esc(r.groupName || "Group project")}</div>
+    <div class="card-course"><span class="cc-ic" aria-hidden="true">${GROUP_CARD_ICON()}</span>${esc(r.groupName || "Group project")}</div>
     <div class="card-title">${esc(r.title)}</div>
     <div class="card-foot">${prio}${r.due ? (late ? `<span class="soon late">${esc(relDue(p))}</span>` : sb) : ""}<span>Group Task</span>${r.due && !late && !sb ? `<span>${esc(relDue(p).replace(/^Due /, ""))}</span>` : ""}</div></div>`;
 }
