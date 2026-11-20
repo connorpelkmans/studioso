@@ -2043,6 +2043,8 @@ function draw(fresh){
   const inner = `${(VIEW ? x => x : betaHead)(bandHead(VIEW ? VIEW[0] : "Writing Studio", ICON.replace('width="16" height="16"', ""), t.courseId ? colorOf(t.courseId) : "#2F6FE4", "", esc(t.title)))}
     ${VIEW ? "" : `<div class="ws-bar">${tabsHtml(w)}${styleSel(st)}</div>${stripHtml(t, w)}`}<div class="sheet-body ws-body" role="${VIEW ? "region" : "tabpanel"}">${body}</div><div class="sheet-foot">${footHtml(t, w)}</div>`;
   const y = !fresh && shown() ? (W.el.querySelector(".ws-body") || {}).scrollTop || 0 : 0;
+  // the tab strip scrolls sideways on phones: it keeps its place when drawn again, and the chosen tab is kept in view
+  const tx = shown() ? (W.el.querySelector(".ws-tabs") || {}).scrollLeft || 0 : 0;
   // My Doc's document stays open while the rest is drawn again (drawing it again would load it again, and lose your place in it)
   const keep = shown() && !VIEW && W.tab === "doc" ? W.el.querySelector(".ws-ldwrap") : null, tmp = keep ? document.createElement("div") : null;
   if (tmp) tmp.innerHTML = inner;
@@ -2056,6 +2058,8 @@ function draw(fresh){
   } else if (shown()) W.el.innerHTML = inner;
   else { openSheet(`<div class="sheet ws-sheet">${inner}</div>`); W.el = dlg.querySelector(".ws-sheet"); }
   const b = W.el.querySelector(".ws-body"); if (b && y) b.scrollTop = y;
+  { const tabs = W.el.querySelector(".ws-tabs"), on = tabs && tabs.querySelector('[aria-selected="true"]');
+    if (tabs) { tabs.scrollLeft = tx; if (on) { const r = on.getBoundingClientRect(), R0 = tabs.getBoundingClientRect(); if (r.right > R0.right - 4) tabs.scrollLeft += r.right - R0.right + 12; else if (r.left < R0.left + 4) tabs.scrollLeft -= R0.left - r.left + 12; } } }
   wire(t);
   if (RB) SBRUBRIC.tabWire(W.el, t); else if (window.SBRUBRIC && SBRUBRIC.tabOff) SBRUBRIC.tabOff();
 }
