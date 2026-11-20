@@ -3054,7 +3054,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const nb = Number($("#pdeCmpB").value), openB = f.revs[nb].assetId === E.rev;
       out.innerHTML = `<p><b>${hunks.length} change${hunks.length === 1 ? "" : "s"}</b> on ${new Set(hunks.map(x => x.n)).size} page${new Set(hunks.map(x => x.n)).size === 1 ? "" : "s"}.</p>
         <ol class="pde-diff">${hunks.slice(0, 300).map(x => { const o = x.old.join(" "), w = x.nw.join(" "), pre = x.pre.length ? "…" + esc(x.pre.join(" ")) + " " : "", post = x.post.length ? " " + esc(x.post.join(" ")) + "…" : "";
-          return `<li><div class="mini">Page ${x.n}${openB ? ` <button type="button" class="link-btn" data-act="pde-cmp-page" data-id="${x.n}">Go to page</button>` : ""}</div><div class="pde-diffline">${pre}${o && w ? wordsHtml(o, w) : o ? `<del>${esc(o)}</del>` : `<ins>${esc(w)}</ins>`}${post}</div></li>`; }).join("")}</ol>`;
+          return `<li><div class="mini">Page ${x.n}${openB ? ` <button type="button" class="link-btn" data-act="pde-cmp-page" data-id="${x.n}">Go to Page</button>` : ""}</div><div class="pde-diffline">${pre}${o && w ? wordsHtml(o, w) : o ? `<del>${esc(o)}</del>` : `<ins>${esc(w)}</ins>`}${post}</div></li>`; }).join("")}</ol>`;
     } catch (err) { out.innerHTML = `<p class="mini">Couldn't open one of the versions here${navigator.onLine === false ? " (you're offline)" : ""}.</p>`; }
   }
 
@@ -3530,7 +3530,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <div class="pde-pb">
         <label class="f"><span class="lh">Task</span><select id="pdeTiTask"><option value="">No task</option>${linked.length ? `<optgroup label="Attached to this file">${linked.map(t => `<option value="${esc(t.id)}"${t === first ? " selected" : ""}>${esc(t.title)}${t.due ? " · due " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>` : ""}${others.length ? `<optgroup label="This course">${others.map(t => `<option value="${esc(t.id)}">${esc(t.title)}${t.due ? " · due " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>` : ""}</select></label>
         <label class="f"><span class="lh">File name</span><input type="text" id="pdeTiName" maxlength="120" value="${esc(E.tiName)}"></label>
-        <label class="pde-chk"><input type="checkbox" id="pdeTiHead"${m.name ? " checked" : ""}> My name, class and date at the top${m.name ? "" : ` <button type="button" class="link-btn" data-act="pde-me">Add your details…</button>`}</label>
+        <label class="pde-chk"><input type="checkbox" id="pdeTiHead"${m.name ? " checked" : ""}> My name, class and date at the top${m.name ? "" : ` <button type="button" class="link-btn" data-act="pde-me">Add Your Details…</button>`}</label>
         <label class="pde-chk"><input type="checkbox" id="pdeTiNum" checked> Page numbers</label>
         <label class="pde-chk"><input type="checkbox" id="pdeTiFlat" checked> Lock it (answers and markup can't be changed)</label>
         ${hasMarks() ? `<label class="pde-chk"><input type="checkbox" id="pdeTiMarks"> Include my highlights and comments</label>` : ""}
@@ -3631,7 +3631,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     panel(`${panelHead("Study From This PDF", ok ? `Makes study material from this reading. The text of the pages you pick (or your highlights) is sent to ${esc(W.company)} ${esc(W.product)}.` : "With AI Features set up, this makes flashcards, a quiz or an outline from the reading. Without them, it makes flashcards from highlights you commented on.")}
       <div class="pde-pb">
         ${stuck ? `<div class="pde-st-stuck" role="note"><p style="margin:0"><b>Nothing to make it from yet.</b> There are two ways to start:</p>
-          <div class="pde-st-ways">${inPreview() ? "" : `<button type="button" class="btn ai-btn" data-act="ai-setup">${AI_ICON} Set Up AI</button>`}<button type="button" class="btn" data-act="pde-st-mark">Highlight and comment on some text first</button></div>
+          <div class="pde-st-ways">${inPreview() ? "" : `<button type="button" class="btn ai-btn" data-act="ai-setup">${AI_ICON} Set Up AI</button>`}<button type="button" class="btn" data-act="pde-st-mark">Highlight and Comment on Some Text First</button></div>
           <p class="mini" style="margin:0">Each highlight you comment on becomes a card: your comment on the front, the highlighted words on the back.</p></div>` : ""}
         <fieldset class="pde-radios"><legend class="lh">Make</legend>
           <label class="pde-chk"><input type="radio" name="pdeStMake" value="cards" checked> Flashcards</label>

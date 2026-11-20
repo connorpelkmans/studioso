@@ -1769,15 +1769,15 @@
     const live = x ? (act => x.tasks.filter(t => act.has(t.list_id)))(new Set(x.lists.filter(l => !l.archived).map(l => l.id))) : [];
     const ov = x ? GK.overview(live, ms, today) : null;
     const lateTasks = live.filter(t => !t.deleted && t.status !== "done" && GTL.due(t.due_at, today).late).sort((a, b) => String(a.due_at).localeCompare(String(b.due_at)));
-    const dueLine = GTL.isDay(g.project_due) ? `Due ${esc(parse(g.project_due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}` : (isOwner(g) ? `<button class="link-btn" data-act="grp-edit" data-id="${esc(g.id)}">Set a due date</button> so everyone sees the countdown` : "The owner hasn't set a due date yet");
+    const dueLine = GTL.isDay(g.project_due) ? `Due ${esc(parse(g.project_due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}` : (isOwner(g) ? `<button class="link-btn" data-act="grp-edit" data-id="${esc(g.id)}">Set a Due Date</button> so everyone sees the countdown` : "The owner hasn't set a due date yet");
     const hero = `<div class="gk-hero k-${cd.k}"><div class="gk-hero-main"><span class="gk-eyebrow">Project deadline</span><b class="gk-big">${esc(cd.label)}</b><span class="mini">${dueLine}</span></div>
       <div class="gk-hero-prog">${ov ? `<div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ov.progress.pct}" aria-label="Project progress"><i style="width:${ov.progress.pct}%"></i></div><span class="mini"><b>${ov.progress.pct}%</b> · ${ov.progress.done} of ${ov.progress.total} tasks done</span>` : `<span class="mini">${wait}</span>`}</div></div>`;
     const roles = `<div class="gk-roles" role="group" aria-label="Your role">${GK.ROLES.map(([k, l]) => `<button type="button" class="pt-f${mine === k ? " on" : ""}" data-act="grp-role-set" data-r="${k}" aria-pressed="${mine === k}">${esc(l)}</button>`).join("")}</div>`;
     const myCard = `<div class="gk-card"><h4>${I_CUBE}My Part</h4><p class="mini">${mine ? `You're the <b>${esc(roleName(g.id, me))}</b>. Tap it again to clear it.` : "Pick what you're covering so the team knows who to ask."}</p>${roles}
       <form class="gk-role-custom" id="gkRoleForm" data-gid="${esc(g.id)}" autocomplete="off"><input type="text" name="role" maxlength="30" placeholder="Or type your own role" aria-label="Your own role title" value="${mine === "custom" ? esc(roleName(g.id, me)) : ""}"><button type="submit" class="btn small">${mine === "custom" ? "Change" : "Set Role"}</button>${mine === "custom" ? `<button type="button" class="btn small" data-act="grp-role-set" data-r="">Clear</button>` : ""}</form></div>`;
-    const behind = !ov ? `<p class="mini">${wait}</p>` : !ov.progress.total ? `<p class="grp-none">No tasks yet. <button class="link-btn" data-act="grp-pt-plan">Start from a plan</button> or add your own in <button class="link-btn" data-act="grp-tab" data-t="tasks">Tasks</button>.</p>`
+    const behind = !ov ? `<p class="mini">${wait}</p>` : !ov.progress.total ? `<p class="grp-none">No tasks yet. <button class="link-btn" data-act="grp-pt-plan">Start From a Plan</button> or add your own in <button class="link-btn" data-act="grp-tab" data-t="tasks">Tasks</button>.</p>`
       : (lateTasks.length ? `<ul class="gk-behind">${lateTasks.slice(0, 6).map(t => { const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : ""; return `<li>${who ? av(mName(g.id, who), who) : ""}<span class="gk-behind-t"><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}">${esc(t.title)}</button><span class="mini"><span class="late">${esc(ptDueTxt(t.due_at))}</span> · ${who ? esc(who === me ? "You" : mName(g.id, who)) : "Unassigned"}</span></span></li>`; }).join("")}</ul>${lateTasks.length > 6 ? `<button class="link-btn" data-act="grp-tab" data-t="tasks">${lateTasks.length - 6} more in Tasks</button>` : ""}` : `<p class="gk-ok">${I_CHECK} Nothing is overdue. The team is on track.</p>`)
-        + (ov.unassigned ? `<p class="mini">${plural(ov.unassigned, "open task")} nobody has claimed. <button class="link-btn" data-act="grp-pt-claim-one">Claim one</button></p>` : "") + (ov.uneven ? `<p class="mini pt-uneven">${esc(ov.uneven.hi)} has ${ov.uneven.gap} more open tasks than ${esc(ov.uneven.lo)}.</p>` : "");
+        + (ov.unassigned ? `<p class="mini">${plural(ov.unassigned, "open task")} nobody has claimed. <button class="link-btn" data-act="grp-pt-claim-one">Claim One</button></p>` : "") + (ov.uneven ? `<p class="mini pt-uneven">${esc(ov.uneven.hi)} has ${ov.uneven.gap} more open tasks than ${esc(ov.uneven.lo)}.</p>` : "");
     const team = `<div class="gk-card"><h4>${ICON_GROUP}Roles</h4><ul class="gk-team">${ms.map(m => { const r = roleOf(g.id, m.user_id); return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.user_id === me ? "You" : m.display_name || "Member")}</span>${r ? `<span class="pill gk-role">${esc(roleName(g.id, m.user_id))}</span>` : `<span class="mini">No role yet</span>`}</li>`; }).join("")}</ul></div>`;
     return `<section class="grp-sec" id="grpOverview">${hero}<div class="gk-grid">${myCard}<div class="gk-card"><h4>${I_CHECK}What's Behind</h4>${behind}</div>${team}</div></section>`;
   }
@@ -3537,6 +3537,21 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const g = groupOf(ui.grp);
     switch (act) {
       case "grp-page": openGroup(null); return true;
+      // Share With a Group (on Quizzes and Concept Maps): which group, then what to share with it
+      case "grp-share-any": {
+        const kind = el.dataset.kind === "map" ? "map" : "quiz", what = kind === "map" ? "concept maps" : "quizzes";
+        const go = gg => { if (dlg.open) dlg.close(); if (kind === "quiz") shareQuizSheet(gg); else fire("act", "grp-cm-share", Object.assign(document.createElement("button"), {dataset: {}}), gg.id); };
+        if (!online()) { toast(`Sign in to share ${what} with a study group.`); return true; }
+        if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }
+        const gs = S.groups || [];
+        if (!gs.length) { toast(`Join or start a study group to share ${what}.`, null, {label: "Study Groups", fn: () => openGroup(null)}); return true; }
+        if (gs.length === 1) { go(gs[0]); return true; }
+        openSheet(`<div class="sheet">${head("Share With a Group")}<div class="sheet-body"><p class="mini" style="margin:0">Which group should get it?</p>
+          <div class="sm-opts grp-pick-g">${gs.map(gg => `<button type="button" class="sm-opt" data-act="grp-share-any-to" data-id="${esc(gg.id)}" data-kind="${kind}"><b>${esc(gg.name)}</b><span class="mini">${isProj(gg) ? "Group project" : "Study group"}${gg.course ? " · " + esc(gg.course) : ""}</span></button>`).join("")}</div></div>
+          <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+        return true;
+      }
+      case "grp-share-any-to": { const gg = groupOf(el.dataset.id); if (!gg) return true; if (dlg.open) dlg.close(); if (el.dataset.kind === "map") fire("act", "grp-cm-share", el, gg.id); else shareQuizSheet(gg); return true; }
       case "grp-to-decks": ui.tab = "flashcards"; ui.fc = null; ui.deckId = null; render(); window.scrollTo(0, 0); return true;
       case "grp-open": openGroup(id); return true;
       case "grp-open-ref": openGroup(id); return true;
@@ -4295,7 +4310,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const meetings = kindItems(g.id, "minutes").length;
     const html = `<div class="pp-page"><div class="pp-head"><div><h1>Contribution Report</h1><p>${esc(g.name)}${g.course ? " · " + esc(g.course) : ""}</p></div><div class="pp-box">${real ? `Due ${esc(fmtShort(real))}<br>` : ""}${tasks.filter(t => !t.deleted).length} tasks · ${meetings} meeting note${meetings === 1 ? "" : "s"}</div></div>
       <section class="pp-gc"><table><thead><tr><th>Member</th><th>Role</th><th>Tasks done</th><th>On time</th>${meetings ? "<th>Meetings</th>" : ""}</tr></thead><tbody>${rows.map(r => `<tr><td><b>${esc(r.name)}</b></td><td>${esc(roleName(g.id, r.id) || "")}</td><td>${r.done} of ${r.assigned}</td><td>${r.onTime}</td>${meetings ? `<td>${r.meetings}</td>` : ""}</tr>`).join("")}</tbody></table></section>
-      <h2>What each person finished</h2><div class="pp-plan">${rows.map(r => `<div class="pp-pd"><b>${esc(r.name)}</b><span>${esc(r.titles.slice(0, 14).join(" · ") || "Nothing marked done yet")}</span></div>`).join("")}</div>
+      <h2>What Each Person Finished</h2><div class="pp-plan">${rows.map(r => `<div class="pp-pd"><b>${esc(r.name)}</b><span>${esc(r.titles.slice(0, 14).join(" · ") || "Nothing marked done yet")}</span></div>`).join("")}</div>
       <div class="pp-foot"><span>Made by Studyboard from the group's own tasks and meeting notes. Every member can see this report.</span><span>${esc(new Date().toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"}))}</span></div></div>`;
     if (!(window.SBPRO && SBPRO.printRaw)) { toast("Printing isn't available here."); return; }
     const name = `Contribution Report - ${g.name}`.slice(0, 80);
@@ -4600,7 +4615,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // open a group on its Whiteboards tab
     openBoards: gid => { if (!gid) return; S.tab[gid] = "boards"; openGroup(gid); },
     // load a group's members (names, colours, companions) when the group page hasn't yet
-    loadMembers: async gid => { if (!gid || !online()) return false; if ((S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
+    // force: ask again even when the list is already here (someone may have joined since)
+    loadMembers: async (gid, force) => { if (!gid || !online()) return false; if (!force && (S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
   hook("boot", () => {
     try {

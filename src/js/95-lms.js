@@ -498,7 +498,8 @@ function cleanFile(r) {
   const WORKISH = /\b(quiz|test|exam|midterm|final|assignment|journal|reflection|discussion|post|report|paper|essay|presentation|project|submission|dropbox|care plan|case study|lab|worksheet|homework|module quiz|check-?in|portfolio)\b/i;
   const typeFor = (title, hint) => {
     const g = guessTaskType(title);
-    if (hint === "quiz") return g === "Exam" ? "Exam" : NOT_SITTING.test(title) ? "Assignment" : "Quiz";
+    // A quiz in the course's quiz tool is a quiz, even a practice or review one (it just isn't an exam you sit)
+    if (hint === "quiz") return g === "Exam" && !NOT_SITTING.test(title) ? "Exam" : "Quiz";
     if (isExamSitting(title) && /\b(exam|examination|midterm|mid-term|final)\b/i.test(title)) return "Exam";
     return g;
   };
@@ -659,10 +660,11 @@ function cleanFile(r) {
     const addQuiz = (ou, q, at) => {
       const sameDay = q.start && q.end && localDT(q.start).date === localDT(q.end).date;
       const staleDue = q.due && q.start && Date.parse(q.due) < Date.parse(q.start);
-      const due = at || localDT(!staleDue && q.due || (sameDay ? q.start : q.end || q.start)); if (!due) return;
       const opens = localDT(q.start);
+      // at === "open": it only opens, with no due date or end (a practice quiz you can take any time), so it has no deadline to be late for
+      const due = at === "open" ? {date: "", time: ""} : at || localDT(!staleDue && q.due || (sameDay ? q.start : q.end || q.start)); if (!due) return;
       const notes = [q.text, q.limit ? `Time limit: ${q.limit} minutes.` : "", opens && opens.date !== due.date ? `Opens ${fmtDate(opens.date)}${opens.time ? " at " + fmtTime(opens.time) : ""}.` : ""].filter(Boolean).join("\n");
-      add({ou, asRead: [q.due && "due " + q.due, q.start && "opens " + q.start, q.end && "closes " + q.end, q.done === true ? "sat" : q.done === false ? "not sat" : "sat: unknown", q.why].filter(Boolean).join("; "), pid: "q" + q.id, title: cleanTitle(q.name).title, type: typeFor(q.name, "quiz"), due: due.date, time: due.time, start: "", notes, url: absUrl(origin, `/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${q.id}&ou=${ou}`), gid: q.gid || "", done: q.done === true, sub: q.done === true ? "yes" : q.done === false ? "no" : "", sure: true, lateUntil: q.due && !staleDue ? lateWin(q.due, q.end) : "", rx: {k: "quiz", tl: q.limit, ul: q.start, ll: q.end}, st: q.st || null, doneAt: q.at || ""});
+      add({ou, asRead: [q.due && "due " + q.due, q.start && "opens " + q.start, q.end && "closes " + q.end, q.done === true ? "sat" : q.done === false ? "not sat" : "sat: unknown", q.why].filter(Boolean).join("; "), pid: "q" + q.id, title: cleanTitle(q.name).title, type: typeFor(q.name, "quiz"), due: due.date, time: due.time, start: at === "open" && opens ? opens.date : "", notes, url: absUrl(origin, `/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${q.id}&ou=${ou}`), gid: q.gid || "", done: q.done === true, sub: q.done === true ? "yes" : q.done === false ? "no" : "", sure: true, lateUntil: q.due && !staleDue ? lateWin(q.due, q.end) : "", rx: {k: "quiz", tl: q.limit, ul: q.start, ll: q.end}, st: q.st || null, doneAt: q.at || ""});
     };
     const notOurs = notThisCourse(h);
     (h.courses || []).forEach(c => {
@@ -678,6 +680,8 @@ function cleanFile(r) {
         if (e.assoc && e.eid && (/quiz/i.test(e.kind || "") || (!/dropbox|assignment|discussion|topic/i.test(e.kind || "") && qIds.has(String(e.eid))))) qCal[e.eid] = e; });
       (c.quizzes || []).forEach(q => {
         if (!q.end && (!q.due || (q.start && Date.parse(q.due) <= Date.parse(q.start) + 60000))) {
+          // a practice or review quiz that only opens is there to use any time: not an exam on that day, and never late
+          if (NOT_SITTING.test(q.name)) { q.why = "opens only, no due date (practice)"; addQuiz(c.ou, q, "open"); return; }
           // its calendar entry, tied to the quiz itself, gives its day (an exam is often only "available on" a date, with the day on the calendar)
           const ev = qCal[q.id], s = ev && localDT(ev.start);
           if (s && (!q.start || s.date >= localDT(q.start).date)) { q.why = "dated by its calendar entry"; addQuiz(c.ou, q, ev.allDay ? {date: s.date, time: ""} : s); return; }
@@ -1852,7 +1856,7 @@ function cleanFile(r) {
             <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
-        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring in your Canvas inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
+        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring In Your Canvas Inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
         <p class="mini bs-legal" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);

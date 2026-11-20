@@ -1,8 +1,12 @@
 /* ===== module: 92-estimates.css ===== */
 /* Estimate Times */
-.est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
-.est-bar .spacer{flex:1}
-.est-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.est-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:0}
+.est-bar .segb{flex:1 1 100%}
+.est-bar .segb > button{flex:1;justify-content:center}
+.est-bar .spacer{display:none}
+.est-bar .btn.small{flex:1 1 0;justify-content:center;white-space:nowrap}
+.est-body .status-msg:empty{display:none}
+.est-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .est-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t sug" "p p";align-items:center;gap:6px 12px;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:12px;background:var(--surface);transition:background .15s,border-color .15s}
 .est-row.set{background:color-mix(in srgb,var(--accent) 7%,var(--surface));border-color:color-mix(in srgb,var(--accent) 35%,var(--line));border-left-color:var(--c,var(--accent))}
 .est-t{grid-area:t;display:grid;gap:2px;min-width:0}

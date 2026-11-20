@@ -686,7 +686,7 @@ const SBDOCS = (() => {
     const ds = list(t); if (!ds.length) return;
     if (ds.length === 1) { openOutside(ds[0].url); return; }
     openSheet(`<div class="sheet dl-pick">${head("Documents")}<div class="sheet-body"><div class="menu-list">${ds.map(d => `<button type="button" data-act="dl-url" data-url="${esc(d.url)}">${badge(d.app)}<span>${esc(DOCLINK.shown(d))}<span class="sub">${esc(DOCLINK.label(d.app))}</span></span></button>`).join("")}</div></div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
+      </div>`);
   }
   hook("act", (act, el, id) => {
     if (act === "dl-go") { const t = state.tasks[id]; if (t) pick(t); return true; }
@@ -2373,10 +2373,22 @@ function sbUrlSessionOk(url, params){
   setTimeout(() => toast("That sign-in link wasn't used, to keep this device's data safe. Sign in with your email and password, or the 6-digit code from the email."), 1500);
   return false;
 }
+// Back from signing in on the web (Google, Apple or Microsoft, or an email link): the address carries the sign-in. Someone who'd
+// been using Studyboard without an account still gets signed in then, rather than having to press Sign In a second time.
+function sbReturning(){
+  try {
+    const h = location.hash || "", q = location.search || "";
+    if (/[#&](access_token|refresh_token|error_description|sb_ms)=/.test(h)) return true;
+    if (!/[?&]code=/.test(q)) return false;
+    const t = JSON.parse(localStorage.getItem(SB_OAUTH_TRIED) || "null");
+    return !!(t && Date.now() - t.at < 30 * 60000);
+  } catch (e) { return false; }
+}
 async function initSupabase(ask){
-  const cfg = sbConfig() || (ask && SB_HOSTED ? SB_DEFAULT : null);
+  const back = !ask && SB_HOSTED && sbReturning();
+  const cfg = sbConfig() || ((ask || back) && SB_HOSTED ? SB_DEFAULT : null);
   if (!cfg) { syncLabel(); if (!sbLocalOnly() || ask) setTimeout(() => { if (!dlg.open || ask) sbSetupSheet(); }, ask ? 0 : 400); return; }
-  if (sbLocalOnly() && !ask) { syncLabel(); return; }
+  if (sbLocalOnly() && !ask && !back) { syncLabel(); return; }
   if (!window.supabase) {
     try { await loadSupabaseLib(); }
     catch(e) {
@@ -7248,7 +7260,7 @@ async function autoPlan(a){
   const B = F.busy || {m: {}, what: {}};
   const week = [0, 1, 2, 3].map(i => { const d = addDays(today, i), h = B.m[d] || 0; let items = []; try { items = schOccurrences(d, d).filter(o => !o.skipped && !(o.type === "meet" && o.m && o.m.kind === "Office Hours")).map(o => `${o.label ? o.label + " " : ""}${o.title}${o.start ? " " + o.start + (o.end ? "-" + o.end : "") : " all day"}`).slice(0, 6); } catch(e) {} const sdx = (() => { try { const x = schoolDayText(d); return x ? ` (${window.SBSCHOOL && SBSCHOOL.off(schoolCfg(), d) ? x + ", no school" : x})` : ""; } catch (e) { return ""; } })();
     return `${i === 0 ? "Today" : parse(d).toLocaleDateString("en-US", {weekday: "long"})} ${d}${sdx}: ${items.length ? items.join("; ") : "nothing scheduled"}${h ? ` (${fmtHM(h)} scheduled, about ${fmtHM(F.day && F.day[i] != null ? F.day[i] : F.dh)} left for study)` : ""}`; }).join("\n");
-  const standings = coursesArr().map(c => { const g = courseRisk(c.id); if (!g || !g.marked || !g.marked.length || g.current == null) return ""; return `${courseLabel(c)}: ${Math.round(g.current)}% so far on ${Math.round(g.wMarked)}% of the grade, pass mark ${g.g.pass}%${g.risk ? ` (${g.risk === "risk" ? "at risk" : g.risk === "out" ? "can't reach the pass mark on paper" : "worth watching"})` : ""}`; }).filter(Boolean).join("; ") || "no marks yet";
+  const standings = coursesArr().map(c => { const g = courseRisk(c.id); if (!g || !g.marked || !g.marked.length || g.current == null) return ""; return `${courseLabel(c)}: ${Math.round(g.current)}% average on the work marked so far (that work is ${Math.round(g.wMarked)}% of the course grade, so ${Math.max(0, 100 - Math.round(g.wMarked))}% is still to come), pass mark ${g.g.pass}%${g.risk ? ` (${g.risk === "risk" ? "at risk" : g.risk === "out" ? "can't reach the pass mark on paper" : "worth watching"})` : ""}`; }).filter(Boolean).join("; ") || "no marks yet";
   let news = []; try { news = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; } catch(e) {}
   const newsTxt = news.map(n => { const c = courseOf(n.courseId); return `- ${c ? courseLabel(c) : ""} (${String(n.date || "").slice(0, 10)}): ${n.title}. ${String(n.text || "").replace(/\s+/g, " ").slice(0, 220)}`; }).join("\n") || "none";
   // by type, where it differs: "Lab: about 1.4x the estimate (6 finished)"
@@ -7260,7 +7272,7 @@ async function autoPlan(a){
   const skipped = Object.entries(fbw.type).filter(e => e[1] <= -1.5).map(e => e[0]), liked = Object.entries(fbw.type).filter(e => e[1] >= 1.5).map(e => e[0]);
   const doneTodayN = allTasks().filter(t => t.status === "done" && t.doneAt && t.doneAt >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()).length;
   const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${paceBy}${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}${gLines ? `\n\nGroup project tasks assigned to this student (teammates are waiting on them; they use the same study time as the tasks above; they have refs g1, g2... which must never appear in "next" or anywhere else in your answer):\n${gLines}` : ""}`}],
-    system: (gLines ? "The student also has group project tasks (GROUP TASK lines). They can't be picked for 'next', but count them as real work that competes for today's time: when one is due today or tomorrow, favor shorter tasks for 'next' so there is time for it, and in the reasons you may say a group task is due soon. " : "") + "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that cites the evidence in the data (due day, grade weight, hours left, what it unblocks; never just repeat the title or say it is merely important), a concrete first step, and sensible session minutes (an exam or quiz may be chosen only if its line says TAKE-HOME; a line saying FIXED EVENT happens in person at a set time, so never choose it, pick its study tasks instead, and still judge its readiness); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. Every heads-up must name the specific task, course, day or number it is based on (for example 'Bio lab pre-quiz is due Wed, a day before the report') and must never be general advice like 'stay organized' or 'plan ahead'. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
+    system: (gLines ? "The student also has group project tasks (GROUP TASK lines). They can't be picked for 'next', but count them as real work that competes for today's time: when one is due today or tomorrow, favor shorter tasks for 'next' so there is time for it, and in the reasons you may say a group task is due soon. " : "") + "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that cites the evidence in the data (due day, grade weight, hours left, what it unblocks; never just repeat the title or say it is merely important), a concrete first step, and sensible session minutes (an exam or quiz may be chosen only if its line says TAKE-HOME; a line saying FIXED EVENT happens in person at a set time, so never choose it, pick its study tasks instead, and still judge its readiness); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. Word a grade heads-up in plain language a student gets at a glance, in one or two short sentences: say what the mark is, what is still to come and what it means for the next exam, for example 'You have 23% in BSNC 1020 so far, and 41% of the grade is still to come, including the final on Nov 26. You need a strong exam to reach the pass mark.' Never write 'standing', 'on 59% of grade' or other shorthand. Every heads-up must name the specific task, course, day or number it is based on (for example 'Bio lab pre-quiz is due Wed, a day before the report') and must never be general advice like 'stay organized' or 'plan ahead'. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
   const d = r.data || {}, changes = [];
   const qctx = {titles: open.map(t => t.title), courses: coursesArr().map(c => courseLabel(c))};
   const next = autoCleanNext(d.next, back, id => { const t = state.tasks[id]; return !!t && t.status !== "done" && canDoNow(t) && !blockers(t).length; }, (id, why, step) => AINS.cleanPickText(why, step, (state.tasks[id] || {}).title, qctx));
@@ -11257,11 +11269,18 @@ const groupBoardRows = status => window.SBGROUPTASKS ? window.SBGROUPTASKS.board
 // a group task's course here (matched by its course code)
 const groupRowCourse = r => { const k = String(r && r.courseCode || "").replace(/\s+/g, "").toLowerCase(); const c = k ? coursesArr().find(x => (x.code || "").replace(/\s+/g, "").toLowerCase() === k) : null; return c ? c.id : ""; };
 const groupBoardShown = status => groupBoardRows(status).filter(r => ui.filter === "all" || groupRowCourse(r) === ui.filter);
+// A group project's task wears a group icon where a course task wears its course's (styled like the course icons: white lines, soft fills)
+const GROUP_CARD_ICONS = {
+  pair: `<svg class="ci-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="a" cx="9" cy="8" r="3.4"/><path class="a" d="M2.8 19.5c.6-3.4 3.1-5.4 6.2-5.4s5.6 2 6.2 5.4z"/><circle class="b" cx="16.6" cy="9" r="2.8"/><path d="M15.4 14.2c.4-.1.8-.1 1.2-.1 2.6 0 4.5 1.7 5 4.6"/></svg>`,
+  trio: `<svg class="ci-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.2" cy="9.6" r="2.3"/><circle cx="18.8" cy="9.6" r="2.3"/><path d="M1.6 18.6c.3-2.4 1.8-3.8 3.6-3.8 1 0 1.8.3 2.4.9M22.4 18.6c-.3-2.4-1.8-3.8-3.6-3.8-1 0-1.8.3-2.4.9"/><circle class="a" cx="12" cy="8" r="3.2"/><path class="a" d="M6.6 20c.5-3.4 2.7-5.3 5.4-5.3s4.9 1.9 5.4 5.3z"/></svg>`,
+  board: `<svg class="ci-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect class="a" x="3" y="3.5" width="18" height="12.5" rx="2"/><path d="M8 20.5l4-4.5 4 4.5"/><path d="M7 8h6M7 11.5h4"/><circle class="b" cx="16.5" cy="9.5" r="1.8"/></svg>`
+};
+const GROUP_CARD_ICON = () => GROUP_CARD_ICONS[window.__sbGroupIcon] || GROUP_CARD_ICONS.trio;
 function groupBoardCard(r){
   const p = {id: r.id, due: r.due, status: r.status, time: ""}, today = todayISO(), late = r.status !== "done" && r.due && r.due < today, sb = soonBadge(p);
   const prio = r.priority && r.priority !== "med" && r.priority !== "" ? prioBadge(r.priority) : "";
   return `<div class="card has-tab gcard ${r.status === "done" ? "is-done" : ""}" role="button" tabindex="0" data-act="grp-pt-open" data-g="${esc(r.gid)}" data-l="${esc(r.listId)}" data-id="${esc(r.id)}" data-gt="${esc(r.id)}" style="--c:#C9702B">
-    <div class="card-course">${esc(r.groupName || "Group project")}</div>
+    <div class="card-course"><span class="cc-ic" aria-hidden="true">${GROUP_CARD_ICON()}</span>${esc(r.groupName || "Group project")}</div>
     <div class="card-title">${esc(r.title)}</div>
     <div class="card-foot">${prio}${r.due ? (late ? `<span class="soon late">${esc(relDue(p))}</span>` : sb) : ""}<span>Group Task</span>${r.due && !late && !sb ? `<span>${esc(relDue(p).replace(/^Due /, ""))}</span>` : ""}</div></div>`;
 }
@@ -12771,7 +12790,7 @@ function courseMoreSheet(c){
       <button data-act="bd-new-course" data-course="${esc(c.id)}"><span>Break Down an Assignment<span class="sub">Paste a prompt or rubric and get milestones scheduled backward from the due date</span></span></button>
       <button data-act="edit-course" data-id="${esc(c.id)}"><span>Edit Course<span class="sub">Name, color, schedule, instructor and links</span></span></button>
     </div></div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+    </div>`);
 }
 // A titled card on a course page: icon, title and count inside the box, like a group's sections
 const c2Ic = d => `<svg class="c2-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -12882,7 +12901,7 @@ function archRow(t){
   return `<li class="arch-row" style="--c:${esc(colorOf(t.courseId))}">
     <span class="arch-st st-${esc(t.status)}">${esc(lab)}</span>
     <button class="arch-main" data-act="edit-task" data-id="${esc(t.id)}"><span class="arch-t">${esc(t.title)}</span><span class="mini">${esc(meta.join(" · "))}</span></button>
-    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Progress</button></span></li>`;
+    <span class="arch-acts"><span class="mini">Move to</span><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="todo">To Do</button><button class="btn small" data-act="arch-restore" data-id="${esc(t.id)}" data-status="doing">In Progress</button><button class="btn small danger" data-act="delete-task" data-id="${esc(t.id)}" aria-label="Delete ${esc(t.title)}">Delete</button></span></li>`;
 }
 function viewArchive(){
   const q = t => matchesQ(t) && inFilter(t);
@@ -13025,7 +13044,8 @@ const AVAIL = (() => {
     if (o.from && o.until && o.from > o.until) { const t = o.from; o.from = o.until; o.until = t; }
     o.every = clampInt(b.every, 1, 8, 1);
     o.anchor = isDate(b.anchor) ? b.anchor : "";
-    o.bufB = clampInt(b.bufB, 0, 240, 0); o.bufA = clampInt(b.bufA, 0, 240, 0);
+    // null travel means "use my usual travel time" (Settings), so changing the usual time updates every block left on it
+    o.bufB = b.bufB == null || b.bufB === "u" ? null : clampInt(b.bufB, 0, 240, 0); o.bufA = b.bufA == null || b.bufA === "u" ? null : clampInt(b.bufA, 0, 240, 0);
     if (o.type === "protected" || o.type === "travel") { o.bufB = 0; o.bufA = 0; }
     o.skip = {};
     if (b.skip && typeof b.skip === "object" && !Array.isArray(b.skip)) {
@@ -13088,12 +13108,13 @@ const AVAIL = (() => {
     });
     return out;
   }
+  const liveCfg = () => { try { return typeof availCfg === "function" ? availCfg() : null; } catch (e) { return null; } };
   function occurrences(blocks, from, to){
     const out = [];
     raw(blocks, addD(from, -1), to).forEach(o => {
       const b = o.b, inR = d => d >= from && d <= to;
       const base = {type: "avail", id: b.id, key: o.key, orig: o.key, moved: o.moved, skipped: o.skipped, color: b.color, title: b.title, label: TYPES[b.type].label, where: "", cls: "k-av k-av-" + b.type,
-        allDay: o.allDay, avail: {kind: b.type, block: b, overnight: o.overnight, seg: "whole", bufB: b.bufB, bufA: b.bufA, fullStart: toT(o.s), fullEnd: o.allDay ? "23:59" : toT(o.e % 1440)}};
+        allDay: o.allDay, avail: {kind: b.type, block: b, overnight: o.overnight, seg: "whole", bufB: bufOf(b.bufB, liveCfg()), bufA: bufOf(b.bufA, liveCfg()), fullStart: toT(o.s), fullEnd: o.allDay ? "23:59" : toT(o.e % 1440)}};
       if (o.allDay) { if (inR(o.date)) out.push(Object.assign({}, base, {date: o.date, start: "", end: ""})); return; }
       if (!o.overnight) { if (inR(o.date)) out.push(Object.assign({}, base, {date: o.date, start: toT(o.s), end: toT(o.e)})); return; }
       if (inR(o.date)) out.push(Object.assign({}, base, {date: o.date, start: toT(o.s), end: "23:59", avail: Object.assign({}, base.avail, {seg: "head"})}));
@@ -13110,6 +13131,7 @@ const AVAIL = (() => {
   }
   const CLINICAL = /clinical|practicum|placement|internship|co-?op|field ?work|preceptor|\bshift\b|practice (day|experience)|hospital|sim(ulation)? lab|site visit/i;
 
+  const bufOf = (v, cfg) => v == null ? (cfg && cfg.defBuf || 0) : v;
   function busy(date, blocks, cfg, ext, done){
     const cap = Math.max(1440, cfg && cfg.dayEnd || 0), iv = [], add = (s, e, kind, title) => { s = Math.max(0, s); e = Math.min(cap, e); if (e > s) iv.push({s, e, kind, title: title || TYPES[kind] && TYPES[kind].label || kind}); };
     const dn = dnum(date);
@@ -13118,8 +13140,9 @@ const AVAIL = (() => {
       const off = (dnum(o.date) - dn) * 1440, b = o.b;
       if (o.allDay) { if (off === 0 && b.type !== "travel") add(0, 1440, b.type, b.title); return; }
       add(o.s + off, o.e + off, b.type, b.title);
-      if (b.bufB) add(o.s + off - b.bufB, o.s + off, "travel", "Travel to " + b.title);
-      if (b.bufA) add(o.e + off, o.e + off + b.bufA, "travel", "Travel from " + b.title);
+      const tb = bufOf(b.bufB, cfg), ta = bufOf(b.bufA, cfg);
+      if (tb) add(o.s + off - tb, o.s + off, "travel", "Travel to " + b.title);
+      if (ta) add(o.e + off, o.e + off + ta, "travel", "Travel from " + b.title);
       if (cfg.recover && o.overnight && (b.type === "shift" || b.type === "work") && (o.e - 1440) < 720) add(o.e + off, 1440 + 720 + off, "recovery", "Recovery after " + b.title);
     });
     (ext || []).forEach(x => {
@@ -13127,6 +13150,8 @@ const AVAIL = (() => {
       if (!isT(x.start)) return;
       const s = toMin(x.start), e = isT(x.end) ? toMin(x.end) : s;
       if (e > s) add(s, e, "class", x.title || x.label || "Class");
+      // A calendar event (synced or your own) has no travel time of its own, so it gets your usual travel time, unless it's online
+      if (e > s && x.travel && cfg.defBuf) { add(s - cfg.defBuf, s, "travel", "Travel to " + (x.title || "event")); add(e, e + cfg.defBuf, "travel", "Travel from " + (x.title || "event")); }
     });
     (done || []).forEach(x => add(x.s, x.e, "done", "Focus session"));
     return iv;
@@ -13244,7 +13269,7 @@ const AVAIL = (() => {
     const lead = s.match(/^\s*(?:add\s+|new\s+)?(work|job|shift|shifts|placement|clinical|practicum|class|lecture|commute|travel|appointment|practice|training|meeting|lunch|dinner|sleep|gym|workout|exercise|rehearsal|club)\b/i);
     if (!lead) return null;
     const w = lead[1].toLowerCase();
-    const type = /^(work|job)$/.test(w) ? "work" : /^(shift|shifts|placement|clinical|practicum)$/.test(w) ? "shift" : /^(class|lecture)$/.test(w) ? "class" : /^(commute|travel)$/.test(w) ? "travel" : /^(lunch|dinner|sleep)$/.test(w) ? "protected" : "other";
+    const type = /^(work|job)$/.test(w) ? "work" : /^(shift|shifts|placement|clinical|practicum)$/.test(w) ? "shift" : /^(class|lecture)$/.test(w) ? "class" : /^(lunch|dinner|sleep)$/.test(w) ? "protected" : "other";
     s = s.replace(lead[0], " ");
     let time = null;
     const tr = s.match(/(\d{1,2})(?::([0-5]\d))?\s*(?:(a\.?m\.?|p\.?m\.?|a|p)(?![a-z]))?\s*(?:-|–|to|until)\s*(\d{1,2})(?::([0-5]\d))?\s*(?:(a\.?m\.?|p\.?m\.?|a|p)(?![a-z]))?(?![\d:])/i);
@@ -13381,11 +13406,12 @@ function availOccs(from, to){
   });
 }
 // Timed things other than availability blocks (classes, events) per date, for the engine
+const ONLINE_RE = /\b(online|zoom|teams|google meet|meet\.google|webex|virtual|remote|livestream|webinar)\b/i;
 function availExtMap(from, to){
   const m = {};
   schOccurrences(from, to).forEach(o => {
     if (o.type === "avail" || o.skipped || (o.type === "meet" && o.m && o.m.kind === "Office Hours")) return;
-    (m[o.date] = m[o.date] || []).push({start: o.start, end: o.end, allDay: !!o.allDay, title: o.title, label: o.label});
+    (m[o.date] = m[o.date] || []).push({start: o.start, end: o.end, allDay: !!o.allDay, title: o.title, label: o.label, travel: o.type === "event" && !ONLINE_RE.test((o.where || "") + " " + (o.title || ""))});
   });
   // A timed exam or quiz you sit in person is busy time too, so nothing is planned on top of it
   tasksArr().forEach(t => {
@@ -13485,7 +13511,8 @@ function availSummary(b){
   const days = b.days.length === 7 ? "Every day" : WEEK_ORDER.filter(d => b.days.includes(d)).map(d => parse("2024-01-0" + (d === 0 ? 7 : d)).toLocaleDateString(undefined, {weekday: "short"})).join(", ");
   const when = b.dates.length ? (b.dates.length === 1 ? fmtDate(b.dates[0]) : `${b.dates.length} dates, ${fmtShort(b.dates[0])} to ${fmtShort(b.dates[b.dates.length - 1])}`) : days + (b.every > 1 ? `, every ${b.every} weeks` : "") + (b.from || b.until ? `, ${b.from ? "from " + fmtShort(b.from) : ""}${b.until ? " until " + fmtShort(b.until) : ""}` : "");
   const t = b.allDay ? "All day" : `${fmtTime(b.start)}–${fmtTime(b.end)}${b.end <= b.start ? " (overnight)" : ""}`;
-  return `${when} · ${t}${b.bufB || b.bufA ? ` · travel ${b.bufB || 0}/${b.bufA || 0} min` : ""}`;
+  const c = availCfg(), tb = b.bufB == null ? c.defBuf : b.bufB, ta = b.bufA == null ? c.defBuf : b.bufA;
+  return `${when} · ${t}${!b.allDay && (tb || ta) ? ` · travel ${tb || 0}/${ta || 0} min` : ""}`;
 }
 function availManager(){
   const a = availState(), c = a.cfg;
@@ -13501,8 +13528,8 @@ function availManager(){
         <div class="two"><label class="f">Day starts<input type="time" name="dayStart" value="${esc(AVAIL.toT(c.dayStart))}" required></label><label class="f">Day ends<input type="time" name="dayEnd" value="${esc(AVAIL.toT(c.dayEnd % 1440))}" required></label></div>
         <p class="mini" style="margin:-2px 0 6px">Working late? An end after midnight (like 1:00 AM) is fine, as long as it's before your day starts again.</p>
         <div class="two"><label class="f">Shortest useful gap (min)<input type="number" name="minChunk" min="5" max="180" step="5" value="${c.minChunk}"></label><label class="f">Longest single session (min)<input type="number" name="maxSession" min="15" max="240" step="5" value="${c.maxSession}"></label></div>
-        <div class="two"><label class="f">Break between sessions (min)<input type="number" name="breakMin" min="0" max="60" step="5" value="${c.breakMin}"></label><label class="f">Usual travel time for new shifts and work (min)<input type="number" name="defBuf" min="0" max="120" step="5" value="${c.defBuf}"></label></div>
-        <label class="mi-check"><input type="checkbox" name="recover" ${c.recover ? "checked" : ""}> Treat the morning after an overnight shift as recovery (no study before noon)</label>
+        <div class="two"><label class="f">Break between sessions (min)<input type="number" name="breakMin" min="0" max="60" step="5" value="${c.breakMin}"></label><label class="f">Usual travel time (min) <span class="hint">used for shifts and calendar events without their own</span><input type="number" name="defBuf" min="0" max="120" step="5" value="${c.defBuf}"></label></div>
+        <label class="mi-check"><input type="checkbox" name="recover" ${c.recover ? "checked" : ""}> Recover the morning after a night shift (no study before noon)</label>
         <p class="mini" style="margin:6px 0 0">Gaps shorter than the shortest useful gap are ignored. Your Study Hours per Day in Settings still sets how much you want to do; free time only caps it.</p>
       </fieldset>
     </div>
@@ -13519,31 +13546,31 @@ function availManager(){
 function availForm(block, preset){
   const cfg = availCfg(), today = todayISO(), isNew = !block || !availBlocks().some(x => x.id === block.id);
   let b = block ? clone(block) : null;
-  if (!b || isNew) b = Object.assign({id: uid(), type: "work", title: "", days: [], dates: [], start: "16:00", end: "21:00", allDay: false, every: 1, from: "", until: "", anchor: "", bufB: cfg.defBuf, bufA: cfg.defBuf, skip: {}}, b || {}, preset || {});
+  if (!b || isNew) b = Object.assign({id: uid(), type: "work", title: "", days: [], dates: [], start: "16:00", end: "21:00", allDay: false, every: 1, from: "", until: "", anchor: "", bufB: null, bufA: null, skip: {}}, b || {}, preset || {});
   const mode0 = preset && preset.roster ? "dates" : b.dates.length ? (b.dates.length === 1 && !b.days.length ? "one" : "dates") : "weekly";
   const pat0 = (() => { if (b.every < 2 || !b.anchor) return 0; return (((AVAIL.monN(b.anchor) - AVAIL.monN(today)) / 7) % b.every + b.every) % b.every; })();
   let color = b.color || AVAIL.TYPES[b.type].color, colorTouched = !!b.color && b.color !== AVAIL.TYPES[b.type].color, days = b.days.slice(), dates = b.dates.slice(), calM = (dates[0] || today).slice(0, 7);
-  const bufOpts = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120].concat([b.bufB, b.bufA]).filter((v, i, arr) => arr.indexOf(v) === i).sort((x, y) => x - y);
-  const sel = (name, val) => `<select name="${name}">${bufOpts.map(v => `<option value="${v}" ${v === val ? "selected" : ""}>${v ? v + " min" : "None"}</option>`).join("")}</select>`;
+  const bufOpts = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120].concat([b.bufB, b.bufA].filter(v => v != null)).filter((v, i, arr) => arr.indexOf(v) === i).sort((x, y) => x - y);
+  const sel = (name, val) => `<select name="${name}"><option value="u" ${val == null ? "selected" : ""}>Usual${cfg.defBuf ? " · " + cfg.defBuf + " min" : ": None"}</option>${bufOpts.map(v => `<option value="${v}" ${v === val ? "selected" : ""}>${v ? v + " min" : "None"}</option>`).join("")}</select>`;
   openSheet(`<form class="sheet av-form">${head(isNew ? "Add Shift or Work" : "Edit Availability")}
     <div class="sheet-body">${REQ_NOTE}
-      <label class="f"><span class="lh">Type</span><select name="type">${AV_ORDER.map(k => `<option value="${k}" ${k === b.type ? "selected" : ""}>${esc(AVAIL.TYPES[k].label)}</option>`).join("")}</select></label>
+      <label class="f"><span class="lh">Type</span><select name="type">${AV_ORDER.filter(k => k !== "travel" || b.type === "travel").map(k => `<option value="${k}" ${k === b.type ? "selected" : ""}>${esc(AVAIL.TYPES[k].label)}</option>`).join("")}</select></label>
       <p class="mini av-help" id="avHelp" style="margin:-4px 0 8px">${esc(AV_HELP[b.type])}</p>
-      <div class="two">
+      <div class="av-tc">
         <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="80" value="${esc(b.title)}" autofocus placeholder="e.g. Hospital placement, Cafe shift, Soccer practice"></label>
-        <label class="f">Color<input type="color" name="color" value="${esc(/^#[0-9a-f]{6}$/i.test(color) ? color : AVAIL.TYPES[b.type].color)}"></label>
+        <label class="f av-col"><span class="lh">Color</span><input type="color" name="color" aria-label="Color" value="${esc(/^#[0-9a-f]{6}$/i.test(color) ? color : AVAIL.TYPES[b.type].color)}"></label>
       </div>
       <fieldset class="av-when"><legend>When</legend>
-        ${seg("mode", [["weekly", "Every week"], ["dates", "Specific dates"], ["one", "One day"]], mode0)}
+        ${seg("mode", [["weekly", "Every Week"], ["dates", "Specific Dates"], ["one", "One Day"]], mode0)}
         <div class="av-pane" data-pane="weekly">
           <div class="meet-days" role="group" aria-label="Days of the week" id="avDays">${WEEK_ORDER.map(d => `<button type="button" data-day="${d}" aria-pressed="${days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div>
           <div class="two">
-            <label class="f">Repeats<select name="every">${[1, 2, 3, 4].map(n => `<option value="${n}" ${b.every === n ? "selected" : ""}>${n === 1 ? "Every week" : "Every " + n + " weeks"}</option>`).join("")}</select></label>
-            <label class="f av-pat">Which weeks<select name="pat"></select></label>
+            <label class="f"><span class="lh">Repeats</span><select name="every">${[1, 2, 3, 4].map(n => `<option value="${n}" ${b.every === n ? "selected" : ""}>${n === 1 ? "Every week" : "Every " + n + " weeks"}</option>`).join("")}</select></label>
+            <label class="f av-pat"><span class="lh">Which Weeks</span><select name="pat"></select></label>
           </div>
           <div class="two">
-            <label class="f">Term starts <span class="hint">optional</span><input type="date" name="from" value="${esc(b.from)}"></label>
-            <label class="f">Term ends <span class="hint">optional</span><input type="date" name="until" value="${esc(b.until)}"></label>
+            <label class="f"><span class="lh">Term Starts <span class="hint">optional</span></span><input type="date" name="from" value="${esc(b.from)}"></label>
+            <label class="f"><span class="lh">Term Ends <span class="hint">optional</span></span><input type="date" name="until" value="${esc(b.until)}"></label>
           </div>
         </div>
         <div class="av-pane" data-pane="dates">
@@ -13555,13 +13582,13 @@ function availForm(block, preset){
         <div class="av-pane" data-pane="one"><label class="f">Date<input type="date" name="date" value="${esc(b.dates[0] || today)}"></label></div>
       </fieldset>
       <fieldset class="av-time"><legend>Time</legend>
-        <label class="mi-check"><input type="checkbox" name="allDay" ${b.allDay ? "checked" : ""}> All day</label>
+        <label class="mi-check"><input type="checkbox" name="allDay" ${b.allDay ? "checked" : ""}> All Day</label>
         <div class="two av-times">
           <label class="f">Starts<input type="time" name="start" value="${esc(b.allDay ? "09:00" : b.start)}"></label>
           <label class="f">Ends<input type="time" name="end" value="${esc(b.allDay ? "17:00" : b.end)}"></label>
         </div>
-        <p class="mini av-ovn" id="avOvn" role="status" aria-live="polite" style="margin:0 0 8px"></p>
-        <div class="two av-buf"><label class="f">Travel before${sel("bufB", b.bufB)}</label><label class="f">Travel after${sel("bufA", b.bufA)}</label></div>
+        <p class="mini av-ovn" id="avOvn" role="status" aria-live="polite"></p>
+        <div class="two av-buf"><label class="f">Travel Before${sel("bufB", b.bufB)}</label><label class="f">Travel After${sel("bufA", b.bufA)}</label></div>
       </fieldset>
     </div>
     <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" id="avDel">Delete</button><button type="button" class="btn" id="avDup">Duplicate</button>`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Add" : "Save"}</button></div>
@@ -13569,7 +13596,7 @@ function availForm(block, preset){
     const type = AVAIL.TYPES[fd.get("type")] ? String(fd.get("type")) : "work", allDay = !!fd.get("allDay"), start = String(fd.get("start") || ""), end = String(fd.get("end") || ""), mode = String(fd.get("mode") || "weekly");
     const title = String(fd.get("title") || "").trim() || AVAIL.TYPES[type].label;
     if (!allDay && (!AVAIL.isT(start) || !AVAIL.isT(end) || start === end)) { toast("Pick a start and an end time that are different"); return false; }
-    const n = Object.assign(clone(b), {type, title, color: String(fd.get("color") || ""), allDay, start: allDay ? "00:00" : start, end: allDay ? "23:59" : end, bufB: Number(fd.get("bufB")) || 0, bufA: Number(fd.get("bufA")) || 0, created: b.created || Date.now()});
+    const n = Object.assign(clone(b), {type, title, color: String(fd.get("color") || ""), allDay, start: allDay ? "00:00" : start, end: allDay ? "23:59" : end, bufB: fd.get("bufB") === "u" ? null : Number(fd.get("bufB")) || 0, bufA: fd.get("bufA") === "u" ? null : Number(fd.get("bufA")) || 0, created: b.created || Date.now()});
     if (mode === "weekly") {
       if (!days.length) { toast("Pick the days of the week"); return false; }
       const every = Number(fd.get("every")) || 1, pat = Math.min(every - 1, Number(fd.get("pat")) || 0);
@@ -15670,7 +15697,7 @@ function taskForm(t, preset = {}){
       ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
       ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
       <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
-      <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From home"], ["no", "In person"], ["", "Not sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
+      <fieldset data-fld="remote" id="rxFs" ${MILESTONE(t.type) ? "" : "hidden"}><legend>Where is this taken?</legend>${seg("remote", [["yes", "From Home"], ["no", "In Person"], ["", "Not Sure"]], rxInit)}<p class="mini rx-note" id="rxNote" aria-live="polite"></p></fieldset>
       <fieldset><legend id="prioLbl">Priority</legend>${seg("priority", [["low","Low"],["med","Medium"],["high","High"],["urgent","Urgent"]], t.priority)}</fieldset>
       <label class="f" id="pctWrap" ${isNew ? "hidden" : ""}><span><span class="lbl" id="pctLbl">Progress</span> <span class="hint" id="pctOut">${t.pct}%</span></span><input type="range" name="pct" min="0" max="100" step="10" value="${t.pct}"><span class="mini" id="pctHint"></span></label>
       <p class="mini" id="pctFromCl" hidden style="margin:0"></p>
@@ -17781,7 +17808,7 @@ async function uploadFiles(list, opts){
       try {
         let r;
         const from = opts.origin ? {origin: opts.origin, untrusted: true} : {};
-        try { r = await assets.upload(f, Object.assign({type, courseId: opts.courseId || "", folderId: opts.folderId || "other"}, from)); }
+        try { r = await assets.upload(f, Object.assign({type, courseId: opts.courseId || "", folderId: opts.folderId || "other"}, opts.cls ? {cls: opts.cls} : {}, from)); }
         catch(e) { if (e && e.code === "store_unavailable") { await sleep(1200); r = await assets.upload(f, Object.assign({type}, from)); } else throw e; }
         const file = normFile(Object.assign({id: uid(), name: f.name, courseId: opts.courseId || "", folderId: opts.folderId || "other", kind: "file",
           revs: [Object.assign({assetId: r.id, size: r.sizeBytes, type: r.contentType, at: Date.now(), name: f.name}, r.localRel ? {localRel: r.localRel} : {})], taskIds: opts.taskId ? [opts.taskId] : [], created: Date.now()}, opts.ftype ? {ftype: opts.ftype} : {}));
@@ -17803,6 +17830,9 @@ async function uploadFiles(list, opts){
     toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`), opts.noUndo ? null : () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
   }
   storageLimit(held, opts, why);
+  // Uploads a student makes (Files, a class, a task, Quick Add) also get a copy in their connected Google Drive or OneDrive,
+  // in the background (99-pro.js copyUploads decides where, or that none is needed)
+  if ((opts.cloud || opts.copy) && made.length && window.SBCLOUD && SBCLOUD.copyUploads) setTimeout(() => { SBCLOUD.copyUploads(made, list, opts).catch(() => {}); }, 0);
   return made;
 }
 function cleanupAssets(ids, delay = 0){
@@ -19267,12 +19297,18 @@ function qzSetArchived(ref, on){
   if (on && ui.qzOpen === ref) ui.qzOpen = null;
   saveDeck(d, on ? `Archived ${f.qz.title || "the quiz"}` : `Restored ${f.qz.title || "the quiz"}`);
 }
+function qzDelete(ref){
+  const f = qzFind(ref); if (!f) return;
+  const d = clone(f.d); d.aiQuizzes = d.aiQuizzes.filter(x => x.id !== f.qz.id); d.updated = Date.now();
+  if (ui.qzOpen === ref) ui.qzOpen = null;
+  saveDeck(d, `Deleted ${f.qz.title || "the quiz"}`);
+}
 function archivedQuizzesSheet(){
   const list = quizzesAll(true);
   openSheet(`<div class="sheet fc-arch-sheet">${head("Archived Quizzes")}<div class="sheet-body">
     <p class="mini" style="margin:0 0 10px">${list.length ? "Quizzes you archived stay here, out of your quiz list, until you restore them." : "No archived quizzes. Use a quiz's Archive button to put it away here without deleting it."}</p>
     ${list.length ? `<div class="deck-archived"><ul>${list.map(({d, qz}) => { const c = courseOf(d.courseId);
-      return `<li><span class="da-name"><b>${esc(qz.title || "Practice Quiz")}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${qz.questions.length} question${qz.questions.length === 1 ? "" : "s"}</span></span><button class="btn small" data-act="qz-unarchive" data-id="${esc(d.id + ":" + qz.id)}">Restore</button></li>`; }).join("")}</ul></div>` : ""}</div>
+      return `<li><span class="da-name"><b>${esc(qz.title || "Practice Quiz")}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${qz.questions.length} question${qz.questions.length === 1 ? "" : "s"}</span></span><span class="da-btns"><button class="btn small" data-act="qz-unarchive" data-id="${esc(d.id + ":" + qz.id)}">Restore</button><button class="btn small danger" data-act="qz-arch-del" data-id="${esc(d.id + ":" + qz.id)}" aria-label="Delete ${esc(qz.title || "Practice Quiz")}">Delete</button></span></li>`; }).join("")}</ul></div>` : ""}</div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
 }
 // One quiz: its questions with the answers (and why), and what you can do with it
@@ -19329,7 +19365,7 @@ function viewQuizzes(){
       <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title">${nm}</b></button>
       <div class="rv-row"><span class="mini rv-sub">${meta}</span>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></div></article>`; }).join("");
-  return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
+  return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-share-any" data-kind="quiz" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
     ${chipsHtml()}${q ? `<div class="search-note">Showing quizzes that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${list.length ? `<div class="qz-grid rv-grid">${cards}</div>` : `<div class="empty${all.length ? "" : " sb-es"}" style="margin-top:14px">${all.length ? "" : emptyArt("quizzes")}<strong>${all.length ? "No Quizzes Match" : "No Quizzes Yet"}</strong>${all.length ? "Try another course or search." : (inPreview() ? "Make a quiz from one of your flashcard decks." : "Upload your slides, notes or readings and " + esc(aiWho("AI")) + " writes a practice quiz. Or make one from a flashcard deck, or write your own.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px">${inPreview() || all.length ? "" : `<button class="btn primary ai-btn" data-act="qz-ai">${AI_ICON} From Slides or Notes</button>`}<button class="btn${inPreview() ? " primary" : ""}" data-act="qz-from-deck">From a Deck</button><button class="btn" data-act="qz-write">Write Your Own</button></div></div>`}
     <section class="grp-strip"><div class="grp-strip-txt">${QZ_GROUP_IC}<span><b>Study Together</b><span class="mini">Share quizzes with a study group: everyone takes them in their own app and sees the best scores.</span></span></div>
@@ -19548,7 +19584,7 @@ function archivedDecksSheet(){
   openSheet(`<div class="sheet fc-arch-sheet">${head("Archived Decks")}<div class="sheet-body">
     <p class="mini" style="margin:0 0 10px">${list.length ? "Decks you archived stay here, out of your deck list and reviews, until you restore them." : "No archived decks. Open a deck and choose Archive to put it away here without deleting it."}</p>
     ${list.length ? `<div class="deck-archived"><ul>${list.map(d => { const c = courseOf(d.courseId);
-      return `<li><span class="da-name"><b>${esc(d.name)}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${d.cards.length} card${d.cards.length === 1 ? "" : "s"}</span></span><button class="btn small" data-act="fc-unarchive" data-id="${esc(d.id)}">Restore</button></li>`; }).join("")}</ul></div>` : ""}</div>
+      return `<li><span class="da-name"><b>${esc(d.name)}</b><span class="mini">${esc(c ? courseLabel(c) : "General")} · ${d.cards.length} card${d.cards.length === 1 ? "" : "s"}</span></span><span class="da-btns"><button class="btn small" data-act="fc-unarchive" data-id="${esc(d.id)}">Restore</button><button class="btn small danger" data-act="fc-arch-del" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.name)}">Delete</button></span></li>`; }).join("")}</ul></div>` : ""}</div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
 }
 function viewDeck(d){
@@ -19636,7 +19672,7 @@ function reviewSheet(){
       <button data-act="fc-review-all" data-course="${esc(course)}" ${n.due ? "" : "disabled"}><span>Flashcards Due${n.due ? ` (${dueWords(n)})` : ""}<span class="sub">${n.due ? `Study every card that is due today${n.fresh ? `, plus ${n.fresh} new one${n.fresh === 1 ? "" : "s"}` : ""}` : "Nothing is due right now"}</span></span></button>
       <button data-act="fc-weak" ${w.n ? "" : "disabled"}><span>Weak Spots${w.n ? ` (${w.n})` : ""}<span class="sub">${w.n ? "Practice the cards and questions you keep missing" : "Study or take a quiz first, and anything you keep missing shows up here"}</span></span></button>
     </div></div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+    </div>`);
 }
 function addCardSheet(d){
   openSheet(`<form class="sheet fc-add" id="fcAdd" data-id="${esc(d.id)}">${bandHead("Add Card", SH_IC.card, "var(--accent-band,var(--accent))", esc(d.name))}
@@ -19777,7 +19813,7 @@ const undoBtn = (f, small) => `<button class="btn${small ? " small" : ""} fc-und
 function viewStudy(){
   const f = ui.fc, it = f.q[f.i];
   const deckNames = f.deckIds.map(id => state.decks[id] && state.decks[id].name).filter(Boolean);
-  const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} decks`;
+  const title = deckNames.length === 1 ? deckNames[0] : `${deckNames.length} Decks`;
   if (!it) {
     // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
@@ -19887,7 +19923,7 @@ function quizSheet(deckIds){
         <label class="mi-check"><input type="checkbox" name="qt" value="mc"${last.qt.includes("mc") ? " checked" : ""}> Multiple choice</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="written"${last.qt.includes("written") ? " checked" : ""}> Written answer</label></div></fieldset>
-      <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, answer back"], ["rev", "Back, answer front"], ["mix", "Mixed"]], last.qd)}</fieldset>
+      <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, Answer Back"], ["rev", "Back, Answer Front"], ["mix", "Mixed"]], last.qd)}</fieldset>
       <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
       <p class="status-msg" id="mqStatus" style="margin:0" aria-live="polite"></p>
     </div>
@@ -20052,6 +20088,8 @@ function fcAction(act, el){
     case "fc-archive": { const d = state.decks[id]; if (d) applyChanges([{kind: "deck", id, after: Object.assign(clone(d), {archived: "Archived", updated: Date.now()})}], `Archived ${d.name}`); return true; }
     case "fc-unarchive": { const d = state.decks[id]; if (d) applyChanges([{kind: "deck", id, after: Object.assign(clone(d), {archived: null, updated: Date.now()})}], `Restored ${d.name}`); if (dlg.open && dlg.querySelector(".fc-arch-sheet")) { if (archivedDecks().length) archivedDecksSheet(); else dlg.close(); } return true; }
     case "fc-arch-open": archivedDecksSheet(); return true;
+    // deleting from the archive: gone for good, with Undo in the message
+    case "fc-arch-del": { const d = state.decks[id]; if (d) { applyChanges([{kind: "deck", id, after: null}], `Deleted ${d.name}`); if (dlg.open) archivedDecksSheet(); } return true; }
     case "fc-card": if (ui.deckId && state.decks[ui.deckId]) cardSheet(state.decks[ui.deckId], id); return true;
     case "fc-study": startStudy([id]); return true;
     case "fc-review-menu": reviewSheet(); return true;
@@ -21015,7 +21053,8 @@ async function runFolderBackup(quiet){
         try {
           const c = courseOf(f.courseId), fo = foldersOf(f.courseId).find(x => x.id === f.folderId);
           const d1 = await filesDir.getDirectoryHandle(safeName(c ? courseLabel(c) : "General"), {create: true});
-          const d2 = await d1.getDirectoryHandle(safeName(fo ? fo.name : "Other"), {create: true});
+          let d2 = await d1.getDirectoryHandle(safeName(fo ? fo.name : "Other"), {create: true});
+          const cd = clsDirOf(f.courseId, f.folderId, f.cls); if (cd) d2 = await d2.getDirectoryHandle(cd, {create: true});
           const base = safeName(r.name || f.name), fname = f.revs.length > 1 ? base.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(i)})$1`) : base;
           const bytes = await assetBytes(r.assetId);
           const fh = await d2.getFileHandle(fname, {create: true}); const w = await fh.createWritable(); await w.write(bytes); await w.close();
@@ -21086,12 +21125,15 @@ function deskDir(rel, name){
 }
 const deskDone = () => { try { return JSON.parse(localStorage.getItem("studioso:fsFiles") || "{}"); } catch(e) { return {}; } };
 function deskMarkDone(id){ const d = deskDone(); d[id] = 1; try { localStorage.setItem("studioso:fsFiles", JSON.stringify(d)); } catch(e) {} }
+// A class's own folder inside Lecture Notes ("2026-10-05 Lecture 7"), for a file linked to a class (from 99-class-sessions.js)
+const clsDirOf = (cid, fid, key) => { if (fid !== "notes" || !key || !window.SBCLS || !SBCLS.dirOf) return ""; try { return safeName(SBCLS.dirOf(cid, key)); } catch(e) { return ""; } };
 function deskMirrorRel(f, i, courseId, folderId){
   const cid = courseId != null ? courseId : f.courseId, fid = folderId != null ? folderId : f.folderId;
   const c = courseOf(cid) || state.courses[cid], fo = foldersOf(cid).find(x => x.id === fid);
   const r = f.revs ? f.revs[i] : null, nm = safeName((r && r.name) || f.name);
   const fname = f.revs && f.revs.length > 1 ? nm.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(i)})$1`) : nm;
-  return `Files/${safeName(c ? courseLabel(c) : "General")}/${safeName(fo ? fo.name : "Other")}/${fname}`;
+  const cd = clsDirOf(cid, fid, f.cls);
+  return `Files/${safeName(c ? courseLabel(c) : "General")}/${safeName(fo ? fo.name : "Other")}/${cd ? cd + "/" : ""}${fname}`;
 }
 function deskRevOf(id){
   for (const f of Object.values(state.files)) { const i = (f.revs || []).findIndex(r => r.assetId === id); if (i >= 0) return {f, i}; }
@@ -21107,7 +21149,7 @@ const deskAssets = {
   upload: async (file, o = {}) => {
     const type = o.type || file.type || "application/octet-stream";
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const rel = await deskUniqueRel(deskMirrorRel({name: file.name, courseId: o.courseId || "", folderId: o.folderId || "other"}, 0, o.courseId || "", o.folderId || "other"));
+    const rel = await deskUniqueRel(deskMirrorRel({name: file.name, courseId: o.courseId || "", folderId: o.folderId || "other", cls: o.cls || ""}, 0, o.courseId || "", o.folderId || "other"));
     await DESK.write(rel, bytes, o.untrusted || o.origin ? {untrusted: true, origin: o.origin || ""} : undefined);
     let id = "local:" + uid();
     if (sbActive() && cloud.on && navigator.onLine !== false) { try { id = (await sbAssets.upload(file, {type})).id; } catch(e) {} }
@@ -23341,6 +23383,7 @@ document.addEventListener("click", e => {
     case "qz-archive": qzSetArchived(id, true); break;
     case "qz-unarchive": qzSetArchived(id, false); if (dlg.open) archivedQuizzesSheet(); break;
     case "qz-arch-open": archivedQuizzesSheet(); break;
+    case "qz-arch-del": qzDelete(id); if (dlg.open) archivedQuizzesSheet(); break;
     case "fc-share": case "qz-share": toast(`Sharing ${act === "fc-share" ? "decks" : "quizzes"} is done through a study group. Open Groups to start or join one.`, null, {label: "Groups", fn: () => { const b = document.querySelector('nav [data-tab="groups"]'); if (b) b.click(); }}); break;
     case "fab-group": fabMenu("Add Group", [["grp-new", "Create Group", "Start a study group or a group project", "group"], ["grp-code", "Enter a Code", "Join a group a classmate invited you to", "code"]]); break;
     case "f-link": linkSheet(); break;
@@ -32701,11 +32744,9 @@ function csLivePane(){
   if (cs.phase === "notable" && SB_HOSTED && !sbCustom()) return csNote("Live Link Unavailable", `<p>${esc(srvSetup("Live calendar links", "calendar-feed.sql"))} Until then, use <b>Download a File</b>.</p><div class="cs-row"><button type="button" class="btn small" data-cs="retry">Check Again</button></div>`);
   if (cs.phase === "notable") return csNote("One-Time Setup Needed", `<p>Your server needs a small table and a calendar function before it can make live links. It takes about 5 minutes.</p>${csSetupSteps(false)}<div class="cs-row"><button type="button" class="btn small" data-cs="retry">Check Again</button></div>`);
   const how = `<ul class="help-list cs-list">
-      <li>Calendar apps check the link on their own schedule, so changes you make here show up a little later.</li>
-      <li><b>Apple Calendar</b> checks as often as you choose (every 15 minutes to once a week). <b>Outlook</b> checks every few hours.</li>
-      <li><b>Google Calendar</b> can take several hours, sometimes up to a day. That's Google's timing and can't be sped up.</li>
-      <li>It's read-only: edit things in Studyboard, not in your calendar app.</li></ul>`;
-  if (cs.phase === "off") return `<p style="margin:0">Turn this on to get a private link that Apple Calendar, Google Calendar and Outlook can subscribe to. Your deadlines, exams and classes then appear in your calendar and stay up to date on their own.</p>
+      <li>Changes show up after your calendar app next checks: <b>Apple Calendar</b> as often as you set (15 minutes to weekly), <b>Outlook</b> every few hours, <b>Google Calendar</b> within a day.</li>
+      <li>Read-only: make changes in Studyboard.</li></ul>`;
+  if (cs.phase === "off") return `<p style="margin:0">Turn this on for a private link that Apple Calendar, Google Calendar or Outlook can subscribe to. Your deadlines, exams and classes show up there and stay up to date.</p>
     ${how}${csOptsHtml(o, false)}
     <div class="cs-row"><button type="button" class="btn primary" data-cs="on" ${cs.busy ? "disabled" : ""}>${cs.busy ? "Turning On…" : "Turn On Live Calendar"}</button></div>`;
   const url = csFeedUrl(cs.row.token);
@@ -32810,7 +32851,7 @@ function calSyncSheet(tab){
   cs.tab = tab || (cs.phase === "on" || !csWhyNot() ? "live" : cs.tab || "live"); cs.confirm = ""; cs.saved = "";
   openSheet(`<div class="sheet cs-sheet">${head("Calendar Sync")}<div class="sheet-body" id="csRoot">
     <p style="margin:0">See your deadlines, exams and classes in Apple Calendar, Google Calendar or Outlook.</p>
-    <div class="segb cs-tabs" role="group" aria-label="How to add to your calendar"><button type="button" data-cs-tab="live" aria-pressed="true">Live Link</button><button type="button" data-cs-tab="upload" aria-pressed="false">Upload a File</button><button type="button" data-cs-tab="file" aria-pressed="false">Download a File</button>${window.SBPRO && SBPRO.calTab ? SBPRO.calTab() : ""}</div>
+    <div class="segb cs-tabs" role="group" aria-label="How to add to your calendar"><button type="button" data-cs-tab="live" aria-pressed="true">Live Link</button>${window.SBPRO && SBPRO.calTab ? SBPRO.calTab() : ""}<button type="button" data-cs-tab="upload" aria-pressed="false" aria-label="Upload a File">Upload<span class="cs-long"> a File</span></button><button type="button" data-cs-tab="file" aria-pressed="false" aria-label="Download a File">Download<span class="cs-long"> a File</span></button></div>
     <div id="csPane" class="cs-pane"></div>
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
   const root = document.getElementById("csRoot");
@@ -36798,15 +36839,15 @@ hook("boot", boot);
     const live = x ? (act => x.tasks.filter(t => act.has(t.list_id)))(new Set(x.lists.filter(l => !l.archived).map(l => l.id))) : [];
     const ov = x ? GK.overview(live, ms, today) : null;
     const lateTasks = live.filter(t => !t.deleted && t.status !== "done" && GTL.due(t.due_at, today).late).sort((a, b) => String(a.due_at).localeCompare(String(b.due_at)));
-    const dueLine = GTL.isDay(g.project_due) ? `Due ${esc(parse(g.project_due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}` : (isOwner(g) ? `<button class="link-btn" data-act="grp-edit" data-id="${esc(g.id)}">Set a due date</button> so everyone sees the countdown` : "The owner hasn't set a due date yet");
+    const dueLine = GTL.isDay(g.project_due) ? `Due ${esc(parse(g.project_due).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}` : (isOwner(g) ? `<button class="link-btn" data-act="grp-edit" data-id="${esc(g.id)}">Set a Due Date</button> so everyone sees the countdown` : "The owner hasn't set a due date yet");
     const hero = `<div class="gk-hero k-${cd.k}"><div class="gk-hero-main"><span class="gk-eyebrow">Project deadline</span><b class="gk-big">${esc(cd.label)}</b><span class="mini">${dueLine}</span></div>
       <div class="gk-hero-prog">${ov ? `<div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ov.progress.pct}" aria-label="Project progress"><i style="width:${ov.progress.pct}%"></i></div><span class="mini"><b>${ov.progress.pct}%</b> · ${ov.progress.done} of ${ov.progress.total} tasks done</span>` : `<span class="mini">${wait}</span>`}</div></div>`;
     const roles = `<div class="gk-roles" role="group" aria-label="Your role">${GK.ROLES.map(([k, l]) => `<button type="button" class="pt-f${mine === k ? " on" : ""}" data-act="grp-role-set" data-r="${k}" aria-pressed="${mine === k}">${esc(l)}</button>`).join("")}</div>`;
     const myCard = `<div class="gk-card"><h4>${I_CUBE}My Part</h4><p class="mini">${mine ? `You're the <b>${esc(roleName(g.id, me))}</b>. Tap it again to clear it.` : "Pick what you're covering so the team knows who to ask."}</p>${roles}
       <form class="gk-role-custom" id="gkRoleForm" data-gid="${esc(g.id)}" autocomplete="off"><input type="text" name="role" maxlength="30" placeholder="Or type your own role" aria-label="Your own role title" value="${mine === "custom" ? esc(roleName(g.id, me)) : ""}"><button type="submit" class="btn small">${mine === "custom" ? "Change" : "Set Role"}</button>${mine === "custom" ? `<button type="button" class="btn small" data-act="grp-role-set" data-r="">Clear</button>` : ""}</form></div>`;
-    const behind = !ov ? `<p class="mini">${wait}</p>` : !ov.progress.total ? `<p class="grp-none">No tasks yet. <button class="link-btn" data-act="grp-pt-plan">Start from a plan</button> or add your own in <button class="link-btn" data-act="grp-tab" data-t="tasks">Tasks</button>.</p>`
+    const behind = !ov ? `<p class="mini">${wait}</p>` : !ov.progress.total ? `<p class="grp-none">No tasks yet. <button class="link-btn" data-act="grp-pt-plan">Start From a Plan</button> or add your own in <button class="link-btn" data-act="grp-tab" data-t="tasks">Tasks</button>.</p>`
       : (lateTasks.length ? `<ul class="gk-behind">${lateTasks.slice(0, 6).map(t => { const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : ""; return `<li>${who ? av(mName(g.id, who), who) : ""}<span class="gk-behind-t"><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}">${esc(t.title)}</button><span class="mini"><span class="late">${esc(ptDueTxt(t.due_at))}</span> · ${who ? esc(who === me ? "You" : mName(g.id, who)) : "Unassigned"}</span></span></li>`; }).join("")}</ul>${lateTasks.length > 6 ? `<button class="link-btn" data-act="grp-tab" data-t="tasks">${lateTasks.length - 6} more in Tasks</button>` : ""}` : `<p class="gk-ok">${I_CHECK} Nothing is overdue. The team is on track.</p>`)
-        + (ov.unassigned ? `<p class="mini">${plural(ov.unassigned, "open task")} nobody has claimed. <button class="link-btn" data-act="grp-pt-claim-one">Claim one</button></p>` : "") + (ov.uneven ? `<p class="mini pt-uneven">${esc(ov.uneven.hi)} has ${ov.uneven.gap} more open tasks than ${esc(ov.uneven.lo)}.</p>` : "");
+        + (ov.unassigned ? `<p class="mini">${plural(ov.unassigned, "open task")} nobody has claimed. <button class="link-btn" data-act="grp-pt-claim-one">Claim One</button></p>` : "") + (ov.uneven ? `<p class="mini pt-uneven">${esc(ov.uneven.hi)} has ${ov.uneven.gap} more open tasks than ${esc(ov.uneven.lo)}.</p>` : "");
     const team = `<div class="gk-card"><h4>${ICON_GROUP}Roles</h4><ul class="gk-team">${ms.map(m => { const r = roleOf(g.id, m.user_id); return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.user_id === me ? "You" : m.display_name || "Member")}</span>${r ? `<span class="pill gk-role">${esc(roleName(g.id, m.user_id))}</span>` : `<span class="mini">No role yet</span>`}</li>`; }).join("")}</ul></div>`;
     return `<section class="grp-sec" id="grpOverview">${hero}<div class="gk-grid">${myCard}<div class="gk-card"><h4>${I_CHECK}What's Behind</h4>${behind}</div>${team}</div></section>`;
   }
@@ -38566,6 +38607,21 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const g = groupOf(ui.grp);
     switch (act) {
       case "grp-page": openGroup(null); return true;
+      // Share With a Group (on Quizzes and Concept Maps): which group, then what to share with it
+      case "grp-share-any": {
+        const kind = el.dataset.kind === "map" ? "map" : "quiz", what = kind === "map" ? "concept maps" : "quizzes";
+        const go = gg => { if (dlg.open) dlg.close(); if (kind === "quiz") shareQuizSheet(gg); else fire("act", "grp-cm-share", Object.assign(document.createElement("button"), {dataset: {}}), gg.id); };
+        if (!online()) { toast(`Sign in to share ${what} with a study group.`); return true; }
+        if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }
+        const gs = S.groups || [];
+        if (!gs.length) { toast(`Join or start a study group to share ${what}.`, null, {label: "Study Groups", fn: () => openGroup(null)}); return true; }
+        if (gs.length === 1) { go(gs[0]); return true; }
+        openSheet(`<div class="sheet">${head("Share With a Group")}<div class="sheet-body"><p class="mini" style="margin:0">Which group should get it?</p>
+          <div class="sm-opts grp-pick-g">${gs.map(gg => `<button type="button" class="sm-opt" data-act="grp-share-any-to" data-id="${esc(gg.id)}" data-kind="${kind}"><b>${esc(gg.name)}</b><span class="mini">${isProj(gg) ? "Group project" : "Study group"}${gg.course ? " · " + esc(gg.course) : ""}</span></button>`).join("")}</div></div>
+          <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+        return true;
+      }
+      case "grp-share-any-to": { const gg = groupOf(el.dataset.id); if (!gg) return true; if (dlg.open) dlg.close(); if (el.dataset.kind === "map") fire("act", "grp-cm-share", el, gg.id); else shareQuizSheet(gg); return true; }
       case "grp-to-decks": ui.tab = "flashcards"; ui.fc = null; ui.deckId = null; render(); window.scrollTo(0, 0); return true;
       case "grp-open": openGroup(id); return true;
       case "grp-open-ref": openGroup(id); return true;
@@ -39324,7 +39380,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const meetings = kindItems(g.id, "minutes").length;
     const html = `<div class="pp-page"><div class="pp-head"><div><h1>Contribution Report</h1><p>${esc(g.name)}${g.course ? " · " + esc(g.course) : ""}</p></div><div class="pp-box">${real ? `Due ${esc(fmtShort(real))}<br>` : ""}${tasks.filter(t => !t.deleted).length} tasks · ${meetings} meeting note${meetings === 1 ? "" : "s"}</div></div>
       <section class="pp-gc"><table><thead><tr><th>Member</th><th>Role</th><th>Tasks done</th><th>On time</th>${meetings ? "<th>Meetings</th>" : ""}</tr></thead><tbody>${rows.map(r => `<tr><td><b>${esc(r.name)}</b></td><td>${esc(roleName(g.id, r.id) || "")}</td><td>${r.done} of ${r.assigned}</td><td>${r.onTime}</td>${meetings ? `<td>${r.meetings}</td>` : ""}</tr>`).join("")}</tbody></table></section>
-      <h2>What each person finished</h2><div class="pp-plan">${rows.map(r => `<div class="pp-pd"><b>${esc(r.name)}</b><span>${esc(r.titles.slice(0, 14).join(" · ") || "Nothing marked done yet")}</span></div>`).join("")}</div>
+      <h2>What Each Person Finished</h2><div class="pp-plan">${rows.map(r => `<div class="pp-pd"><b>${esc(r.name)}</b><span>${esc(r.titles.slice(0, 14).join(" · ") || "Nothing marked done yet")}</span></div>`).join("")}</div>
       <div class="pp-foot"><span>Made by Studyboard from the group's own tasks and meeting notes. Every member can see this report.</span><span>${esc(new Date().toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"}))}</span></div></div>`;
     if (!(window.SBPRO && SBPRO.printRaw)) { toast("Printing isn't available here."); return; }
     const name = `Contribution Report - ${g.name}`.slice(0, 80);
@@ -39629,7 +39685,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // open a group on its Whiteboards tab
     openBoards: gid => { if (!gid) return; S.tab[gid] = "boards"; openGroup(gid); },
     // load a group's members (names, colours, companions) when the group page hasn't yet
-    loadMembers: async gid => { if (!gid || !online()) return false; if ((S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
+    // force: ask again even when the list is already here (someone may have joined since)
+    loadMembers: async (gid, force) => { if (!gid || !online()) return false; if (!force && (S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
   hook("boot", () => {
     try {
@@ -42038,7 +42095,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         <div class="gp-calc-out" aria-live="polite">${res}</div></section>`;
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
         ${ptsNote(gr)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
-        ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the syllabus</button> to fill in the rest.</p>` : ""}</section>`;
+        ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the Syllabus</button> to fill in the rest.</p>` : ""}</section>`;
       return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
     };
     const low = tn ? `<button type="button" class="gp-need" data-act="gp-toggle" data-id="${esc(tn.gr.c.id)}"><span class="gr-k">What Do I Need?</span><span class="gp-need-t">${tn.msg}</span></button>` : "";
@@ -42148,7 +42205,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const p = found.pass != null ? found.pass : gset().pass;
       prevBox.innerHTML = `<div id="goLetters">${editing ? `<div id="goRows" class="gr-scale-rows">${found.scale.map(x => scaleRow(x[0], Number(x[1]))).join("")}</div>` : scaleChips(found.scale)}</div>
         ${editing ? "" : `<button type="button" class="link-btn" id="goEdit" style="justify-self:start">${esc(tr("gr.school.editL", "Change Letters"))}</button>`}
-        <label class="go-pass"><span>${esc(tr("gr.school.passLbl", "Pass mark"))}</span><input type="number" id="goPass" min="1" max="100" step="0.5" inputmode="decimal" value="${esc(r1(p))}" data-noenter> %</label>
+        <label class="go-pass"><span>${esc(tr("gr.school.passLbl", "Pass Mark"))}</span><input type="number" id="goPass" min="1" max="100" step="0.5" inputmode="decimal" value="${esc(r1(p))}" data-noenter> %</label>
         <p class="mini go-pass-note" id="goPassNote" role="note">${esc(passNote(found.scale, p))}</p>
         <div class="gr-scale-acts"><button type="button" class="btn small primary" id="goUse">${esc(tr("gr.school.useAll", "Use for All My Courses"))}</button></div>`;
       $("#goUse").addEventListener("click", useFound);
@@ -42197,8 +42254,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         : esc(tr("gr.school.web", "Found on {host}. Make sure that's {school}'s own website, and check it against your course outline.", {school: found.school || tr("gr.school.yours", "your school"), host: found.host}))} ${safeUrl(found.url) ? `<a href="${esc(safeUrl(found.url))}" target="_blank" rel="noopener noreferrer">${esc(found.host)}</a>` : ""}</p>`;
       else if (sg) top = `<p class="mini" style="margin:0">${esc(tr("gr.school.sug", "Studyboard found a grade scale for {school} on {host}. Is this your school?", {school: sg.school || tr("gr.school.yours", "your school"), host: sg.host}))}</p><div class="gr-scale-acts"><button type="button" class="btn small primary" id="gsSugYes">${esc(tr("gr.school.use", "Use It"))}</button><button type="button" class="btn small" id="gsSugNo">${esc(tr("gr.school.no", "Not My School"))}</button></div>`;
       else if (hosts.length) top = `<p class="mini" style="margin:0">${esc(tr("gr.school.know2", "Studyboard can ask the AI for the grade scale and pass mark at your school ({host}), or at your program if it has its own. The AI answers from memory, so check the result against your course outline.", {host: hosts[0].host}))}</p>`;
-      else top = `<label class="f"><span class="lh">${esc(tr("gr.school.name", "Your school"))} <span class="hint">${esc(tr("gr.school.nameHint", "The AI fills in its grade scale and pass mark from what it knows"))}</span></span><input type="text" id="gsSchoolName" maxlength="80" autocomplete="off" value="${esc((gs.school && gs.school.name) || "")}" placeholder="${esc(tr("gr.school.ph", "e.g. University of Alberta"))}" data-noenter></label>`;
-      block.innerHTML = top + (ask ? `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your program"))} <span class="hint">${esc(tr("gr.school.progHint", "optional. Some programs have their own scale, and the school's is the fallback"))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label><div class="gr-scale-acts"><button type="button" class="btn small ai-btn${found ? "" : " primary"}" id="gsFind"${busy ? " disabled" : ""}>${AI_ICON} ${esc(goLbl())}</button></div>` : "");
+      else top = `<label class="f"><span class="lh">${esc(tr("gr.school.name", "Your School"))} <span class="hint">${esc(tr("gr.school.nameHint", "The AI fills in its grade scale and pass mark from what it knows."))}</span></span><input type="text" id="gsSchoolName" maxlength="80" autocomplete="off" value="${esc((gs.school && gs.school.name) || "")}" placeholder="${esc(tr("gr.school.ph", "e.g. University of Alberta"))}" data-noenter></label>`;
+      block.innerHTML = top + (ask ? `<label class="f"><span class="lh">${esc(tr("gr.school.prog", "Your Program"))} <span class="hint">${esc(tr("gr.school.progHint", "Optional. Some programs have their own scale; otherwise the school's is used."))}</span></span><input type="text" id="gsProgram" maxlength="80" autocomplete="off" value="${esc(prog)}" placeholder="${esc(tr("gr.school.progPh", "e.g. Nursing"))}" data-noenter></label><div class="gr-scale-acts"><button type="button" class="btn small ai-btn${found ? "" : " primary"}" id="gsFind"${busy ? " disabled" : ""}>${AI_ICON} ${esc(goLbl())}</button></div>` : "");
       const fb = $("#gsFind"); if (fb) fb.addEventListener("click", find);
       const pin = $("#gsProgram");
       if (pin) {
@@ -43747,7 +43804,8 @@ function cleanFile(r) {
   const WORKISH = /\b(quiz|test|exam|midterm|final|assignment|journal|reflection|discussion|post|report|paper|essay|presentation|project|submission|dropbox|care plan|case study|lab|worksheet|homework|module quiz|check-?in|portfolio)\b/i;
   const typeFor = (title, hint) => {
     const g = guessTaskType(title);
-    if (hint === "quiz") return g === "Exam" ? "Exam" : NOT_SITTING.test(title) ? "Assignment" : "Quiz";
+    // A quiz in the course's quiz tool is a quiz, even a practice or review one (it just isn't an exam you sit)
+    if (hint === "quiz") return g === "Exam" && !NOT_SITTING.test(title) ? "Exam" : "Quiz";
     if (isExamSitting(title) && /\b(exam|examination|midterm|mid-term|final)\b/i.test(title)) return "Exam";
     return g;
   };
@@ -43908,10 +43966,11 @@ function cleanFile(r) {
     const addQuiz = (ou, q, at) => {
       const sameDay = q.start && q.end && localDT(q.start).date === localDT(q.end).date;
       const staleDue = q.due && q.start && Date.parse(q.due) < Date.parse(q.start);
-      const due = at || localDT(!staleDue && q.due || (sameDay ? q.start : q.end || q.start)); if (!due) return;
       const opens = localDT(q.start);
+      // at === "open": it only opens, with no due date or end (a practice quiz you can take any time), so it has no deadline to be late for
+      const due = at === "open" ? {date: "", time: ""} : at || localDT(!staleDue && q.due || (sameDay ? q.start : q.end || q.start)); if (!due) return;
       const notes = [q.text, q.limit ? `Time limit: ${q.limit} minutes.` : "", opens && opens.date !== due.date ? `Opens ${fmtDate(opens.date)}${opens.time ? " at " + fmtTime(opens.time) : ""}.` : ""].filter(Boolean).join("\n");
-      add({ou, asRead: [q.due && "due " + q.due, q.start && "opens " + q.start, q.end && "closes " + q.end, q.done === true ? "sat" : q.done === false ? "not sat" : "sat: unknown", q.why].filter(Boolean).join("; "), pid: "q" + q.id, title: cleanTitle(q.name).title, type: typeFor(q.name, "quiz"), due: due.date, time: due.time, start: "", notes, url: absUrl(origin, `/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${q.id}&ou=${ou}`), gid: q.gid || "", done: q.done === true, sub: q.done === true ? "yes" : q.done === false ? "no" : "", sure: true, lateUntil: q.due && !staleDue ? lateWin(q.due, q.end) : "", rx: {k: "quiz", tl: q.limit, ul: q.start, ll: q.end}, st: q.st || null, doneAt: q.at || ""});
+      add({ou, asRead: [q.due && "due " + q.due, q.start && "opens " + q.start, q.end && "closes " + q.end, q.done === true ? "sat" : q.done === false ? "not sat" : "sat: unknown", q.why].filter(Boolean).join("; "), pid: "q" + q.id, title: cleanTitle(q.name).title, type: typeFor(q.name, "quiz"), due: due.date, time: due.time, start: at === "open" && opens ? opens.date : "", notes, url: absUrl(origin, `/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${q.id}&ou=${ou}`), gid: q.gid || "", done: q.done === true, sub: q.done === true ? "yes" : q.done === false ? "no" : "", sure: true, lateUntil: q.due && !staleDue ? lateWin(q.due, q.end) : "", rx: {k: "quiz", tl: q.limit, ul: q.start, ll: q.end}, st: q.st || null, doneAt: q.at || ""});
     };
     const notOurs = notThisCourse(h);
     (h.courses || []).forEach(c => {
@@ -43927,6 +43986,8 @@ function cleanFile(r) {
         if (e.assoc && e.eid && (/quiz/i.test(e.kind || "") || (!/dropbox|assignment|discussion|topic/i.test(e.kind || "") && qIds.has(String(e.eid))))) qCal[e.eid] = e; });
       (c.quizzes || []).forEach(q => {
         if (!q.end && (!q.due || (q.start && Date.parse(q.due) <= Date.parse(q.start) + 60000))) {
+          // a practice or review quiz that only opens is there to use any time: not an exam on that day, and never late
+          if (NOT_SITTING.test(q.name)) { q.why = "opens only, no due date (practice)"; addQuiz(c.ou, q, "open"); return; }
           // its calendar entry, tied to the quiz itself, gives its day (an exam is often only "available on" a date, with the day on the calendar)
           const ev = qCal[q.id], s = ev && localDT(ev.start);
           if (s && (!q.start || s.date >= localDT(q.start).date)) { q.why = "dated by its calendar entry"; addQuiz(c.ou, q, ev.allDay ? {date: s.date, time: ""} : s); return; }
@@ -45101,7 +45162,7 @@ function cleanFile(r) {
             <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
-        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring in your Canvas inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
+        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring In Your Canvas Inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
         <p class="mini bs-legal" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
@@ -53828,7 +53889,9 @@ var TP_DATA = [];
       if (!wide()) { if (nav.dataset.fit) delete nav.dataset.fit; nav.style.removeProperty("--nb-min"); nav.style.removeProperty("--nb-g"); return; }
       let lvl = 0;
       nav.style.removeProperty("--nb-min"); nav.style.removeProperty("--nb-g");
-      nav.dataset.fit = "0";
+      nav.dataset.fit = "0"; delete nav.dataset.pill;
+      // A running or paused timer makes its button taller: slim that button first, before the menu's labels are dropped
+      if (nav.scrollHeight > nav.clientHeight + 1 && nav.querySelector(".nav-focus.active")) nav.dataset.pill = "slim";
       while (nav.scrollHeight > nav.clientHeight + 1 && lvl < MAX) nav.dataset.fit = String(++lvl);
       stretch(lvl);
     } finally { busy = false; }
@@ -78162,7 +78225,7 @@ async function capProcess(rows, d){
   }
   function html(){
     const signed = ready() || (typeof sbActive === "function" && sbActive());
-    if (!signed) return siriBox(false) + `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign in</button>`;
+    if (!signed) return siriBox(false) + `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign In</button>`;
     if (S.missing) return `<p class="capv-warn mini" style="margin:0">${esc(srvSetup("Voice capture", "supabase-capture.sql"))}</p>`;
     const toks = (S.tokens || []).filter(t => !t.revoked_at), url = endpoint();
     return siriBox(true) + `
@@ -79112,7 +79175,7 @@ const EXAMPREP = (() => {
   const HORIZON = 21, HORIZON_EARLY = 28, LEARN_BY = 3, LEARN_BY_EARLY = 5, MAX_TOPICS = 3, MIN_SESSION = 10;
   const KIND_LABEL = {learn: "Learn", cards: "Flashcards", questions: "Practice questions", teach: "Teach-back", recall: "Recall", recap: "Final recap", past: "Timed practice", light: "Light review"};
   const KIND_RANK = {cards: 0, recap: 1, recall: 2, learn: 3, teach: 4, questions: 5, past: 6, light: 7};
-  const STYLES = [["mc", "Multiple choice"], ["short", "Short answer"], ["calc", "Calculation"], ["essay", "Essay"], ["practical", "Practical"]];
+  const STYLES = [["mc", "Multiple Choice"], ["short", "Short Answer"], ["calc", "Calculation"], ["essay", "Essay"], ["practical", "Practical"]];
 
   /* words: normalise, light stemming, aliases */
   const STOP = new Set("a an the of and or to in on for with from by at as is are be vs about this that my your our review study studying exam exams midterm midterms final finals quiz quizzes test tests notes note lecture lectures lec slides slide deck decks flashcards flashcard cards card pdf docx pptx txt copy draft part".split(" "));
@@ -82946,7 +83009,7 @@ const QADD = (() => {
     });
     const all = [];
     await Promise.all([...groups.values()].map(async g => {
-      const made = await uploadFiles(g.files, {courseId: g.courseId, folderId: g.folderId, qkind: g.kind, ftype: g.kind});
+      const made = await uploadFiles(g.files, {courseId: g.courseId, folderId: g.folderId, qkind: g.kind, ftype: g.kind, copy: true});
       if (made && made.length) all.push(...made);
     }));
     if (!all.length) return;
@@ -84099,7 +84162,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <p>A calm student planner for courses, deadlines, study sessions and flashcards. It works without an account and without internet.</p>
     <p class="mini">© ${year()} Connor Pelkmans (Studyboard). All rights reserved.</p>
     <p class="mini">Build ${esc(typeof BUILD_ID === "string" ? BUILD_ID : "")}. Anonymous crash reports are ${window.SBERR && SBERR.enabled() ? "on" : "off"}; change this in Settings, Send Anonymous Crash Reports.</p>
-    <h3>Learn more</h3>
+    <h3>Learn More</h3>
     <div class="menu-list about-links">
       <button type="button" data-act="legal-privacy"><span>Privacy Policy</span></button>
       <button type="button" data-act="legal-terms"><span>Terms of Service</span></button>
@@ -84262,7 +84325,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     openSheet(`<div class="sheet" id="delDone">${head("Your Account Was Deleted")}
       <div class="sheet-body">
         <p style="margin:0" role="status"><b>Done.</b> Your Studyboard account and its online data were permanently deleted${fallback ? " (using the server's fallback method)" : ""}.</p>
-        <h3 class="fsec">What was removed</h3>
+        <h3 class="fsec">What Was Removed</h3>
         <ul class="legal-list">${deletedList(data, wiped).map(t => `<li>${esc(t)}</li>`).join("")}</ul>
         <h3 class="fsec">What we keep, and for how long</h3>
         <ul class="legal-list">${keep.map(t => `<li>${esc(t).replace(APPLE_SUBS, `<a href="${APPLE_SUBS}" target="_blank" rel="noopener">${APPLE_SUBS}</a>`)}</li>`).join("")}</ul>
@@ -85165,7 +85228,7 @@ window.SBSEM = {
         ${pubHtml}
         <section class="sd-sec"><h3 class="fsec">Class Schedule</h3>
           <p class="mini sd-why">Do your classes follow the day of the week, or a rotation like Day 1 to 6 or A/B days?</p>
-          ${seg("sdMode", [["week", "Same every week"], ["cycle", "Rotates by school day"]], draft.on ? "cycle" : "week")}
+          ${seg("sdMode", [["week", "Same Every Week"], ["cycle", "Rotates by School Day"]], draft.on ? "cycle" : "week")}
           <div class="sd-cycle" id="sdCycle"${draft.on ? "" : " hidden"}>
             <p class="mini" style="margin:0">The cycle moves one step each school day and pauses on weekends and days off.</p>
             <div class="two">
@@ -87179,11 +87242,13 @@ button.oc-n{border:0;padding:0;cursor:pointer}
 .pr-lbl{font-weight:700;font-size:.92rem}
 .pr-opts{display:grid;gap:2px}
 .pr-tip{max-width:60%}
-.pr-prev{height:300px;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#E9EDF3;position:relative}
-.gx-rep-sheet .pr-prev{height:auto;max-height:62vh;overflow:auto;padding:12px 0}
+/* the whole page shows in the preview, scaled down (the sheet scrolls if it needs to); a printout of several pages scrolls inside it */
+.pr-prev{flex:none;height:auto;min-height:min(500px,80vh);max-height:max(500px,72vh);overflow:auto;padding:12px 0;border:1px solid var(--line);border-radius:10px;background:#E9EDF3;position:relative}
+.gx-rep-sheet .pr-prev{height:auto;min-height:0;max-height:62vh;overflow:auto;padding:12px 0}
 .gx-rep-sheet .pr-scale{position:static;transform:none;zoom:.6;margin:0 auto}
 @media (max-width:600px){.gx-rep-sheet .pr-scale{zoom:.4}}
-.pr-scale{position:absolute;left:50%;top:10px;width:816px;transform:translateX(-50%) scale(.4);transform-origin:top center;background:#fff;box-shadow:0 4px 14px rgba(14,42,86,.15)}
+.pr-scale{position:static;width:816px;zoom:.45;margin:0 auto;background:#fff;box-shadow:0 4px 14px rgba(14,42,86,.15)}
+@media (max-width:600px){.pr-scale{zoom:.38}.pr-prev{min-height:min(425px,80vh);max-height:max(425px,72vh)}}
 .pr-scale.a4{width:794px}
 .pr-scale .pp-page{min-height:1000px}
 #sbPrint{display:none}
@@ -87815,7 +87880,15 @@ button.oc-n{border:0;padding:0;cursor:pointer}
   /* On a commute */
   function commuteHtml(){
     if (P.locked() || !TTS()) return "";
-    let occ = []; try { occ = availOccs(todayISO(), todayISO()).filter(o => o.avail && o.avail.kind === "travel" && !o.skipped && !o.allDay && o.start); } catch (e) { return ""; }
+    // Your commute: the travel time before and after a shift or other commitment (and any old Commute blocks)
+    const hm = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0"), mn = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    let occ = []; try { availOccs(todayISO(), todayISO()).forEach(o => {
+      if (!o.avail || o.skipped || o.allDay || !o.start) return;
+      if (o.avail.kind === "travel") { occ.push(o); return; }
+      const v = o.avail;
+      if (v.bufB && v.seg !== "tail") { const s = mn(o.start); if (s - v.bufB >= 0) occ.push({title: "Travel to " + o.title, start: hm(s - v.bufB), end: o.start}); }
+      if (v.bufA && v.seg !== "head" && o.end) { const e = mn(o.end); if (e + v.bufA < 1440) occ.push({title: "Travel from " + o.title, start: o.end, end: hm(e + v.bufA)}); }
+    }); } catch (e) { return ""; }
     if (!occ.length) return "";
     const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes(), tm = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
     const o = occ.find(x => nowM >= tm(x.start) - 30 && nowM < tm(x.end)); if (!o) return "";
@@ -90047,11 +90120,15 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   window.addEventListener("sb:secrets-wiped", () => { try { localStorage.removeItem(LS); } catch (e) {} });
 
   /* Calendar Sync > Two-Way */
+  // what two-way sync is, in short: unlike the read-only live link, edits flow both ways
+  // Phones get the short version (cs-long / cs-short swap at 520px, as on the tabs)
+  const TWO_WAY_WHAT = `<p style="margin:0" class="cs-long-p">Connects your Google or Outlook account. Your deadlines, exams and classes go into a calendar there called “Studyboard”, and it works both ways: move or edit something in either place and the other updates. Your own events can come in too, so your plan works around them.</p><p style="margin:0" class="cs-short-p">Your work goes into a “Studyboard” calendar in Google or Outlook. Change it in either place and the other updates.</p>`;
   const ago = s => { if (!s) return "not yet"; const m = Math.round((Date.now() - Date.parse(s)) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
-  function tabHtml(){ return P.locked() || !P.isPro() ? "" : `<button type="button" data-cs-tab="two" aria-pressed="false">Two-Way</button>`; }
+  // shown to everyone: on the free plan it carries a small PRO badge, and its pane explains what Pro adds
+  function tabHtml(){ return `<button type="button" data-cs-tab="two" aria-pressed="false">Two-Way${P.locked() ? ` <span class="pro-badge cs-pro">PRO</span>` : ""}</button>`; }
   const reads = p => { const r = cache().reads || {}; return r[p] !== false; };
   function paneHtml(){
-    if (P.locked()) return `<p>Two-way sync is part of Studyboard Pro.</p><button type="button" class="btn small" data-act="csy-pro">See Studyboard Pro</button>`;
+    if (P.locked()) return `${TWO_WAY_WHAT}<p class="mini" style="margin:0">Two-Way sync is part of Studyboard Pro.</p><div class="cs-row"><button type="button" class="btn small primary" data-act="csy-pro">See Studyboard Pro</button></div>`;
     const c = cache(), pr = prefs();
     if (!ready()) return `<div class="cs-note"><b class="cs-note-t">Sign In First</b><p>Two-way sync connects your Studyboard account to Google Calendar or Outlook. Sign in to your Studyboard account to use it.</p></div>`;
     const provs = PROVS.filter(p => (c.providers || {})[p]);
@@ -90069,7 +90146,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     };
     const chk = (k, label, sub) => `<label class="csy-chk"><input type="checkbox" data-csy-send="${k}"${pr.send[k] !== false ? " checked" : ""}><span><b>${label}</b><span class="mini">${sub}</span></span></label>`;
     const rad = (v, label) => `<label><input type="radio" name="csyBring" value="${v}"${pr.bring === v ? " checked" : ""}> ${label}</label>`;
-    return `<p style="margin:0">Studyboard keeps a calendar called “Studyboard” in your Google or Outlook account up to date. Move something there and it moves here too.</p>
+    return `${TWO_WAY_WHAT}
       ${U.err ? `<div class="cs-note warn"><p>${esc(U.err)}</p><div class="cs-row"><button type="button" class="btn small" data-act="csy-reload">Try Again</button></div></div>` : ""}
       ${U.loading && !provs.length ? `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>` : provs.map(card).join("")}
       ${U.wait ? `<p class="mini" aria-live="polite">Finish in the page that opened, then come back here.</p>` : ""}
@@ -90170,7 +90247,9 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     return {ai: {google: !!(c.ai && c.ai.google), microsoft: !!(c.ai && c.ai.microsoft)}, save: ["google", "microsoft"].includes(c.save) ? c.save : "studyboard", msFolder: c.msFolder && c.msFolder.id ? c.msFolder : null,
       gCourse: Object.fromEntries(Object.entries(c.gCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
       msCourse: Object.fromEntries(Object.entries(c.msCourse || {}).filter(([k, v]) => k && v && v.id).slice(0, 200)),
-      watch: Array.isArray(c.watch) ? c.watch.filter(w => w && w.id).slice(0, 5) : [], hide: Array.isArray(c.hide) ? c.hide.slice(-500) : []};
+      watch: Array.isArray(c.watch) ? c.watch.filter(w => w && w.id).slice(0, 5) : [], hide: Array.isArray(c.hide) ? c.hide.slice(-500) : [],
+      // a class's uploads kept in Studyboard also get a copy in the student's Drive or OneDrive: "auto" (the one connected), "off", or a provider
+      copy: ["off", "google", "microsoft"].includes(c.copy) ? c.copy : "auto"};
   };
   const setPrefs = patch => { state.settings = Object.assign({}, state.settings, {cloud: Object.assign(prefs(), patch)}); saveSettings(); };
   const target = () => { const s = prefs().save; return s !== "studyboard" && connected().includes(s) ? s : ""; };
@@ -90292,6 +90371,41 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     try { return await msUpload(blob, name, type, segsFor(o || {}), cf); }
     catch (e) { if (e && e.code === "net") throw e; toast(`Couldn't use the OneDrive folder “${cf.name}” for this course, so it went to Studyboard's folder instead.`); return msUpload(blob, name, type, segsFor(o || {})); }
   }
+  /* Uploads kept in Studyboard: a copy also goes to the student's Google Drive or OneDrive, in <course> (a class's in
+     <course>/Lectures/<date> <class>), or the course's own chosen folder. Studyboard's file stays the one shown in Files; the copy
+     is noted on it (f.copy) and hidden from watched-folder checks so it doesn't come back as a second file.
+     No copy when the Studyboard folder on this computer is already inside that cloud's synced folder: it would be there twice. */
+  const SYNCED = {microsoft: /onedrive/i, google: /google ?drive|my drive|googledrive/i};
+  const localIn = p => { try { return typeof FSB === "object" && !!FSB.where && (!!DESK || FSB.status === "on" || FSB.status === "paused") && SYNCED[p].test(String(FSB.where)); } catch (e) { return false; } };
+  const copyTo = courseId => {
+    const pr = prefs(), conn = connected(); if (pr.copy === "off" || target() || !conn.length) return "";
+    if (pr.copy !== "auto") return conn.includes(pr.copy) && !localIn(pr.copy) ? pr.copy : "";
+    if (conn.some(localIn)) return "";
+    if (conn.length === 1) return conn[0];
+    return courseId && pr.msCourse[courseId] && !pr.gCourse[courseId] ? "microsoft" : "google";
+  };
+  async function copyUploads(made, list, opts){
+    made = (made || []).filter(f => f && f.kind === "file");
+    const p = copyTo(opts && opts.courseId); if (!p || !made.length) return 0;
+    const pool = (list || []).slice(), ch = [], hide = [];
+    for (const f of made) {
+      if (!f || f.kind !== "file") continue;
+      let i = pool.findIndex(b => b && b.name === f.name); if (i < 0 && made.length === 1 && pool.length === 1) i = 0; if (i < 0) continue;
+      const blob = pool.splice(i, 1)[0];
+      try {
+        const rec = await saveBlob(p, blob, f.name, {courseId: f.courseId, folderId: f.folderId, sub: opts.sub, type: (f.revs[0] && f.revs[0].type) || blob.type});
+        const cur = state.files[f.id]; if (!cur) continue;
+        ch.push({kind: "file", id: f.id, after: Object.assign(clone(cur), {copy: {p, id: rec.id, url: rec.url}})}); hide.push(String(rec.id));
+      } catch (e) { toast(`${(e && e.message) || "Couldn't reach " + NM[p] + "."} ${f.name} is still saved in Studyboard.`); }
+    }
+    if (hide.length) setPrefs({hide: prefs().hide.concat(hide).slice(-500)});
+    if (ch.length) { applyChanges(ch, ""); toast(ch.length === 1 ? `A copy is in your ${NM[p]} too.` : `Copies of ${ch.length} files are in your ${NM[p]} too.`); }
+    return ch.length;
+  }
+  // OneDrive: what's in a folder, for choosing files (Files.ReadWrite covers the whole drive)
+  const canPickOneDrive = () => { try { return connected().includes("microsoft"); } catch (e) { return false; } };
+  const msList = id => msChildren(id || "root", false);
+  const msFile = it => msItem(it, null, "");
   const MAX_UP = 250 * 1048576;
   async function uploadFiles(list, opts, forced){
     const p = forced || target(), made = [], back = [], invs = [];
@@ -90541,6 +90655,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const rad = (v, label) => `<label><input type="radio" name="clSave" value="${v}"${curSave === v ? " checked" : ""}${v !== "studyboard" && !conn.includes(v) ? " disabled" : ""}> ${label}</label>`;
     const saveSet = conn.length ? `<fieldset class="cl-set"><legend>Save New Uploads In</legend><div class="cl-rad">${rad("studyboard", "Studyboard")}${PROVS.filter(p => conn.includes(p)).map(p => rad(p, NM[p])).join("")}</div>
       <p class="mini">Uploads in Files and task attachments go there, sorted into a folder per course. Lecture recordings ask where to keep them. Word, PowerPoint and Excel files are fine in the cloud.</p>
+      ${curSave === "studyboard" ? `<label class="cl-copy"><span>Copy uploads to</span><select data-cl-copy aria-label="Where a copy of your uploads goes">${[["auto", conn.length === 1 ? NM[conn[0]] : "Google Drive or OneDrive"], ["off", "Don't copy"]].concat(conn.length > 1 ? PROVS.filter(p => conn.includes(p)).map(p => [p, NM[p]]) : []).map(([v, n]) => `<option value="${v}"${pr.copy === v ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
+      <p class="mini">${conn.some(localIn) && pr.copy !== "off" ? `Your Studyboard folder on this computer is already in ${esc(NM[conn.find(localIn)])}, so uploads are there without an extra copy.` : "Uploads are kept in Studyboard, with a copy in your cloud in a folder per course. A class's files go in the course's Lectures folder."}</p>` : ""}
       ${ms ? `<p class="mini">OneDrive folder: <b>${esc(pr.msFolder ? pr.msFolder.name : "Studyboard")}</b> <button type="button" class="link-btn" data-act="cl-browse" data-mode="save">Change</button>${pr.msFolder ? ` <button type="button" class="link-btn" data-act="cl-save-default">Use Studyboard</button>` : ""}</p>` : ""}</fieldset>` : "";
     const watch = ms ? `<fieldset class="cl-set"><legend>Watched OneDrive Folders</legend>
       ${pr.watch.length ? `<ul class="cl-watch">${pr.watch.map(w => `<li><span class="cl-wn">${FOLDER}<b>${esc(w.name)}</b><span class="mini">${Object.values(state.files).filter(f => f.cloud && f.cloud.w === w.id).length} files</span></span>
@@ -90657,6 +90773,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   document.addEventListener("change", e => {
     const t = e.target; if (!t || !t.closest || !t.closest("#clBody")) return;
     if (t.dataset.clFc !== undefined) { U.fc = t.value; paint(); return; }
+    if (t.dataset.clCopy !== undefined) { setPrefs({copy: t.value}); toast(t.value === "off" ? "Uploads stay in Studyboard only" : "Uploads get a copy in your cloud too"); return; }
     if (t.name === "clSave") { setPrefs({save: t.value}); toast(t.value === "studyboard" ? "New uploads stay in Studyboard" : `New uploads go to ${NM[t.value]}`); render(); }
     else if (t.dataset.clWc) { setPrefs({watch: prefs().watch.map(w => w.id === t.dataset.clWc ? Object.assign({}, w, {courseId: t.value}) : w)}); U.scanAt = 0; scan({quiet: true}); toast("Saved"); }
   });
@@ -90770,8 +90887,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const pickGoogleSlides = () => pickGoogleFolder("gslides").then(d => Array.isArray(d) ? d[0] || null : d);
   const docApi = (p, url, init, mode) => api(p, url, init, mode);
   const pickerApp = () => { try { return String((cache().picker || {}).appId || ""); } catch (e) { return ""; } };
-  window.SBCLOUD = {canPickFiles, pickFiles, pickGoogleDoc, pickGoogleSlides, docApi, pickerApp, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
-  window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
+  window.SBCLOUD = {canPickFiles, pickFiles, canPickOneDrive, msList, msFile, copyTo, copyUploads, pickGoogleDoc, pickGoogleSlides, docApi, pickerApp, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
+  window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, FSB, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
   css.textContent = `
@@ -90791,6 +90908,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 .cl-set p{margin:0}
 .cl-rad{display:flex;gap:6px 16px;flex-wrap:wrap}
 .cl-rad label{display:flex;gap:6px;align-items:center}
+.cl-copy{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-weight:600}
+.cl-copy select{flex:0 1 auto;min-width:0}
 .cl-watch{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .cl-watch li{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .cl-wn{display:flex;gap:6px;align-items:center;flex:1 1 160px;min-width:0}
@@ -95634,7 +95753,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       const nb = Number($("#pdeCmpB").value), openB = f.revs[nb].assetId === E.rev;
       out.innerHTML = `<p><b>${hunks.length} change${hunks.length === 1 ? "" : "s"}</b> on ${new Set(hunks.map(x => x.n)).size} page${new Set(hunks.map(x => x.n)).size === 1 ? "" : "s"}.</p>
         <ol class="pde-diff">${hunks.slice(0, 300).map(x => { const o = x.old.join(" "), w = x.nw.join(" "), pre = x.pre.length ? "…" + esc(x.pre.join(" ")) + " " : "", post = x.post.length ? " " + esc(x.post.join(" ")) + "…" : "";
-          return `<li><div class="mini">Page ${x.n}${openB ? ` <button type="button" class="link-btn" data-act="pde-cmp-page" data-id="${x.n}">Go to page</button>` : ""}</div><div class="pde-diffline">${pre}${o && w ? wordsHtml(o, w) : o ? `<del>${esc(o)}</del>` : `<ins>${esc(w)}</ins>`}${post}</div></li>`; }).join("")}</ol>`;
+          return `<li><div class="mini">Page ${x.n}${openB ? ` <button type="button" class="link-btn" data-act="pde-cmp-page" data-id="${x.n}">Go to Page</button>` : ""}</div><div class="pde-diffline">${pre}${o && w ? wordsHtml(o, w) : o ? `<del>${esc(o)}</del>` : `<ins>${esc(w)}</ins>`}${post}</div></li>`; }).join("")}</ol>`;
     } catch (err) { out.innerHTML = `<p class="mini">Couldn't open one of the versions here${navigator.onLine === false ? " (you're offline)" : ""}.</p>`; }
   }
 
@@ -96110,7 +96229,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
       <div class="pde-pb">
         <label class="f"><span class="lh">Task</span><select id="pdeTiTask"><option value="">No task</option>${linked.length ? `<optgroup label="Attached to this file">${linked.map(t => `<option value="${esc(t.id)}"${t === first ? " selected" : ""}>${esc(t.title)}${t.due ? " · due " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>` : ""}${others.length ? `<optgroup label="This course">${others.map(t => `<option value="${esc(t.id)}">${esc(t.title)}${t.due ? " · due " + esc(fmtShort(t.due)) : ""}</option>`).join("")}</optgroup>` : ""}</select></label>
         <label class="f"><span class="lh">File name</span><input type="text" id="pdeTiName" maxlength="120" value="${esc(E.tiName)}"></label>
-        <label class="pde-chk"><input type="checkbox" id="pdeTiHead"${m.name ? " checked" : ""}> My name, class and date at the top${m.name ? "" : ` <button type="button" class="link-btn" data-act="pde-me">Add your details…</button>`}</label>
+        <label class="pde-chk"><input type="checkbox" id="pdeTiHead"${m.name ? " checked" : ""}> My name, class and date at the top${m.name ? "" : ` <button type="button" class="link-btn" data-act="pde-me">Add Your Details…</button>`}</label>
         <label class="pde-chk"><input type="checkbox" id="pdeTiNum" checked> Page numbers</label>
         <label class="pde-chk"><input type="checkbox" id="pdeTiFlat" checked> Lock it (answers and markup can't be changed)</label>
         ${hasMarks() ? `<label class="pde-chk"><input type="checkbox" id="pdeTiMarks"> Include my highlights and comments</label>` : ""}
@@ -96211,7 +96330,7 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
     panel(`${panelHead("Study From This PDF", ok ? `Makes study material from this reading. The text of the pages you pick (or your highlights) is sent to ${esc(W.company)} ${esc(W.product)}.` : "With AI Features set up, this makes flashcards, a quiz or an outline from the reading. Without them, it makes flashcards from highlights you commented on.")}
       <div class="pde-pb">
         ${stuck ? `<div class="pde-st-stuck" role="note"><p style="margin:0"><b>Nothing to make it from yet.</b> There are two ways to start:</p>
-          <div class="pde-st-ways">${inPreview() ? "" : `<button type="button" class="btn ai-btn" data-act="ai-setup">${AI_ICON} Set Up AI</button>`}<button type="button" class="btn" data-act="pde-st-mark">Highlight and comment on some text first</button></div>
+          <div class="pde-st-ways">${inPreview() ? "" : `<button type="button" class="btn ai-btn" data-act="ai-setup">${AI_ICON} Set Up AI</button>`}<button type="button" class="btn" data-act="pde-st-mark">Highlight and Comment on Some Text First</button></div>
           <p class="mini" style="margin:0">Each highlight you comment on becomes a card: your comment on the front, the highlighted words on the back.</p></div>` : ""}
         <fieldset class="pde-radios"><legend class="lh">Make</legend>
           <label class="pde-chk"><input type="radio" name="pdeStMake" value="cards" checked> Flashcards</label>
@@ -100970,6 +101089,10 @@ var SBCLS = null;
     folder: p => SV('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', p)
   };
   const DRIVE = () => (window.SBCLOUD && SBCLOUD.icons && SBCLOUD.icons.google) || IC.file(16);
+  // OneDrive's cloud logo, drawn (the shared logo is a small picture that blurs at button size). Its viewBox is trimmed to the
+  // cloud itself so it sits centred in the button like Google Drive's
+  const ONEDRIVE = () => '<svg class="od-lg" viewBox="1.4 4 29.9 22" aria-hidden="true" focusable="false"><path d="M12.2 11.19l6.72 4.03 4-1.69A6.48 6.48 0 0 1 25.5 13c.15 0 .29 0 .44.02a10 10 0 0 0-18.04-3.02L8 10a7.96 7.96 0 0 1 4.2 1.19z" fill="#0364b8"/><path d="M12.2 11.19A7.96 7.96 0 0 0 8 10h-.1a8 8 0 0 0-6.46 12.57l5.92-2.49 2.64-1.11 5.86-2.47 3.06-1.29z" fill="#0078d4"/><path d="M25.94 13.02A6.6 6.6 0 0 0 25.5 13a6.48 6.48 0 0 0-2.58.53l-4 1.69 1.16.7 3.81 2.27 1.66 1 5.68 3.4a6.5 6.5 0 0 0-5.29-9.57z" fill="#1490df"/><path d="M25.55 19.18l-1.66-.99-3.81-2.28-1.16-.7-3.06 1.29-5.86 2.47-2.64 1.11-5.92 2.49A7.99 7.99 0 0 0 8 26h17.5a6.5 6.5 0 0 0 5.72-3.41z" fill="#28a8ea"/></svg>';
+  const BRAND = p => p === "google" ? DRIVE() : p === "microsoft" ? ONEDRIVE() : "";
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const isLec = f => !!f && f.folderId === "lectures";
   const dOf = ms => { const d = new Date(Number(ms) || Date.now()); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
@@ -101166,7 +101289,7 @@ var SBCLS = null;
   let OPEN = null;
   const noteName = n => (String(n.text || "").split("\n").map(l => l.replace(/\[\[|\]\]/g, "").trim()).find(Boolean) || "Untitled note").slice(0, 90);
   const notePeek = n => String(n.text || "").split("\n").slice(1).join(" ").replace(/\[\[|\]\]/g, "").replace(/\s+/g, " ").trim().slice(0, 140);
-  const srcTag = f => f.kind === "cloud" ? `<span class="cls-src">${f.cloud && f.cloud.p === "google" ? DRIVE() : ""}${esc(CLOUD_NAMES[f.cloud && f.cloud.p] || "Cloud")}</span>` : f.kind === "link" ? `<span class="cls-src">Link</span>` : "";
+  const srcTag = f => f.kind === "cloud" ? `<span class="cls-src">${BRAND(f.cloud && f.cloud.p)}${esc(CLOUD_NAMES[f.cloud && f.cloud.p] || "Cloud")}</span>` : f.kind === "link" ? `<span class="cls-src">Link</span>` : "";
   function pageHtml(x){
     const c = courseOf(x.cid), I = itemsOf(x.cid, x.key), all = classesOf(c).filter(y => y.kind === x.kind && (!y.skipped || y.key === x.key));
     const i = all.findIndex(y => y.key === x.key), prev = i > 0 ? all[i - 1] : null, next = i >= 0 && i < all.length - 1 ? all[i + 1] : null;
@@ -101176,7 +101299,7 @@ var SBCLS = null;
     const recLi = f => `<li class="cls-it k-rec">${IC.mic(16)}<button type="button" class="cls-it-main" data-act="lec-view" data-id="${esc(f.id)}"><b>${esc(f.name)}</b><span class="mini">${esc([f.dur && window.SBLEC ? SBLEC.clock(f.dur * 1000) : "", f.tr && f.tr.text ? "Transcript" : "", hasSum(f) ? "Summary" : ""].filter(Boolean).join(" · ") || "Recording")}</span></button>${hasSum(f) ? `<button type="button" class="btn small" data-act="cls-sum" data-id="${esc(f.id)}">Summary</button>` : ""}</li>`;
     const nowish = x.date === todayISO() && minOfDay(Date.now()) >= tMin(x.start) - 20 && minOfDay(Date.now()) <= tMin(x.end) + 10;
     const recOk = window.SBLEC && SBLEC.canAdd && SBLEC.canAdd();
-    const nav = (y, dir) => y ? `<button type="button" class="btn small cls-nav" data-act="cls-go" data-key="${esc(y.key)}" aria-label="${dir === "p" ? "Previous" : "Next"} class: ${esc(y.title)}, ${esc(day(y.date))}">${dir === "p" ? IC.prev(16) : ""}<span>${esc(y.title)}</span>${dir === "n" ? IC.next(16) : ""}</button>` : `<span></span>`;
+    const nav = (y, dir) => y ? `<button type="button" class="btn small cls-nav is-${dir === "p" ? "prev" : "next"}" data-act="cls-go" data-key="${esc(y.key)}" aria-label="${dir === "p" ? "Previous" : "Next"} class: ${esc(y.title)}, ${esc(day(y.date))}">${dir === "p" ? IC.prev(16) : ""}<span>${esc(y.title)}</span>${dir === "n" ? IC.next(16) : ""}</button>` : `<span></span>`;
     return `<div class="sheet occv cls-sheet" style="--c:${esc(c ? c.color : "var(--accent)")}">
       <div class="occv-band">${c ? `<span class="occv-ic" aria-hidden="true">${courseRingHtml(c)}</span><b>${esc(courseLabel(c))}</b>` : ""}<button type="button" class="icon-btn occv-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
       <div class="sheet-body occv-body">
@@ -101188,7 +101311,7 @@ var SBCLS = null;
 
         <section class="cls-sec"><h3><span>${esc(x.kind || "Class")} Notes and Files</span><span class="n">${I.notes.length + I.files.length || ""}</span></h3>
           ${I.notes.length + I.files.length ? `<ul class="cls-items">${I.notes.map(noteLi).join("")}${I.files.map(fileLi).join("")}</ul>` : `<p class="mini cls-empty">${x.date > todayISO() ? "Nothing yet. Upload the slides before class." : "Nothing for this class yet."}</p>`}
-          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-newnote">${IC.plus(16)}New Note</button><button type="button" class="btn small" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button></div>
+          <div class="cls-acts"><button type="button" class="btn small primary" data-act="cls-upload">${IC.up(16)}Upload</button><button type="button" class="btn small" data-act="cls-pick">${IC.link(16)}From Studyboard</button><button type="button" class="btn small cls-cloud" data-act="cls-drive">${DRIVE()}Google Drive</button><button type="button" class="btn small cls-cloud" data-act="cls-onedrive">${ONEDRIVE()}OneDrive</button></div>
         </section>
 
         <section class="cls-sec"><h3><span>Recording</span></h3>
@@ -101207,7 +101330,22 @@ var SBCLS = null;
     openSheet(pageHtml(x));
     dlg.addEventListener("close", () => { if (OPEN && OPEN.cid === cid && OPEN.key === key && !dlg.querySelector(".cls-sheet")) OPEN = null; }, {once: true});
   }
-  const redraw = () => { if (!OPEN || !dlg.open || !dlg.querySelector(".cls-sheet")) return; const x = classOf(OPEN.cid, OPEN.key); if (!x) return; const st = dlg.querySelector(".sheet-body").scrollTop; dlg.querySelector(".cls-sheet").outerHTML = pageHtml(x); const b = dlg.querySelector(".sheet-body"); if (b) b.scrollTop = st; };
+  /* The arrows to the previous or next class swap the page in place: closing and opening the sheet again made it slide down
+     and back up on phones. The sheet keeps its height (it only grows if the next class has more in it), and the arrow keeps focus */
+  function step(cid, key, dir){
+    const x = classOf(cid, key), old = dlg.open && dlg.querySelector(".cls-sheet");
+    if (!x) { toast("That class isn't on the schedule any more."); return; }
+    if (!old) { openClass(cid, key); return; }
+    const h = old.getBoundingClientRect().height;
+    OPEN = {cid, key};
+    old.outerHTML = pageHtml(x);
+    const now = dlg.querySelector(".cls-sheet"), b = now && now.querySelector(".sheet-body");
+    if (now && h) now.style.minHeight = Math.round(h) + "px";
+    if (b) b.scrollTop = 0;
+    const f = dlg.querySelector(`.cls-nav.is-${dir === "n" ? "next" : "prev"}`) || dlg.querySelector(".cls-nav");
+    if (f) { try { f.focus({preventScroll: true}); } catch (e) {} }
+  }
+  const redraw = () => { if (!OPEN || !dlg.open || !dlg.querySelector(".cls-sheet")) return; const x = classOf(OPEN.cid, OPEN.key); if (!x) return; const st = dlg.querySelector(".sheet-body").scrollTop, mh = dlg.querySelector(".cls-sheet").style.minHeight; dlg.querySelector(".cls-sheet").outerHTML = pageHtml(x); if (mh) dlg.querySelector(".cls-sheet").style.minHeight = mh; const b = dlg.querySelector(".sheet-body"); if (b) b.scrollTop = st; };
 
   /* Adding to a class */
   const subFor = x => ["Lectures", `${x.date} ${x.title}`];
@@ -101219,33 +101357,78 @@ var SBCLS = null;
     const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
     inp.addEventListener("change", async () => {
       const list = [...(inp.files || [])]; inp.remove(); if (!list.length) return;
-      const made = await uploadFiles(list, {courseId: x.cid, folderId: "notes", cloud: true, sub: subFor(x)});
-      if (made && made.length) tag("file", made.map(f => f.id), x.key, "");
-      redraw();
+      await uploadTo(x.cid, x.key, list, ""); redraw();
     });
     document.body.appendChild(inp); inp.click();
+  }
+  // Files picked in Google Drive or OneDrive: linked into the class (they stay in the cloud), shown in Files > Lecture Notes
+  function addCloud(x, p, items){
+    const now = Date.now(), ch = items.map(d => { const f = normFile({id: uid(), name: d.name, courseId: x.cid, folderId: "notes", kind: "cloud",
+      url: d.url || (p === "google" ? `https://drive.google.com/file/d/${encodeURIComponent(d.id)}/view` : ""),
+      cloud: Object.assign({p, id: d.id, name: d.name, size: d.size || 0, type: d.type || "", mod: d.mod || new Date(now).toISOString(), url: d.url || ""}, p === "microsoft" ? {pin: true} : {}), cls: x.key, created: now});
+      return {kind: "file", id: f.id, after: f}; });
+    if (ch.length) applyChanges(ch, `Added ${plural(ch.length, "file")} from ${CLOUD_NAMES[p]} to ${x.title}`);
+    return ch.length;
   }
   async function drive(x){
     const CL = window.SBCLOUD;
     if (CL && CL.canPickFiles && CL.canPickFiles()) {
       let docs = null; try { toast("Choose the files in the Google Drive window"); docs = await CL.pickFiles(); } catch (e) { toast((e && e.message) || "Couldn't open Google Drive."); return; }
       if (!docs || !docs.length) return;
-      const now = Date.now(), ch = docs.map(d => { const f = normFile({id: uid(), name: d.name, courseId: x.cid, folderId: "notes", kind: "cloud", url: d.url || `https://drive.google.com/file/d/${encodeURIComponent(d.id)}/view`,
-        cloud: {p: "google", id: d.id, name: d.name, size: d.size || 0, type: d.type || "", mod: new Date(now).toISOString(), url: d.url || ""}, cls: x.key, created: now}); return {kind: "file", id: f.id, after: f}; });
-      applyChanges(ch, `Added ${plural(ch.length, "file")} from Google Drive to ${x.title}`);
+      addCloud(x, "google", docs);
       redraw(); return;
     }
     // Not connected, or the picker isn't set up on this server: a Drive link works anywhere
-    linkSheet(x, CL && CL.connected && !CL.connected().includes("google"));
+    linkSheet(x, "google", CL && CL.connected && !CL.connected().includes("google"));
   }
-  function linkSheet(x, offerConnect){
-    openSheet(`<form class="sheet">${head("Add From Google Drive")}<div class="sheet-body">
-      <p class="mini" style="margin:0 0 10px">Paste the Share link of a Google Doc, Slides file, PDF or folder for ${esc(x.title)}.${offerConnect ? ` Or connect Google Drive to pick files there.` : ""}</p>
-      <label class="f"><span class="lh">Link</span><input type="url" name="url" required inputmode="url" placeholder="https://docs.google.com/…" autofocus></label>
+  /* OneDrive: browse the student's OneDrive here and tick the files for this class (ticks are kept while moving between folders) */
+  const OD = {x: null, id: "root", trail: [], sel: new Map(), list: null, err: "", tok: 0};
+  function oneDrive(x){
+    const CL = window.SBCLOUD;
+    if (!(CL && CL.canPickOneDrive && CL.canPickOneDrive() && CL.msList)) { linkSheet(x, "microsoft", !!(CL && CL.connected && !CL.connected().includes("microsoft"))); return; }
+    Object.assign(OD, {x, id: "root", trail: [], sel: new Map()});
+    openSheet(`<div class="sheet cls-od">${head("Add From OneDrive")}<div class="sheet-body" id="clsOdBody"></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button><span class="spacer"></span><button type="button" class="btn primary" data-act="cls-od-add" id="clsOdAdd" disabled>Add</button></div></div>`);
+    odGo("root");
+  }
+  async function odGo(id){
+    const t = ++OD.tok; OD.id = id; OD.list = null; OD.err = ""; odPaint();
+    try { OD.list = await SBCLOUD.msList(id); if (!OD.list) OD.err = "That folder isn't in your OneDrive any more."; }
+    catch (e) { OD.err = (e && e.message) || "Couldn't open OneDrive."; }
+    if (t === OD.tok) odPaint();
+  }
+  function odPaint(){
+    const b = document.getElementById("clsOdBody"); if (!b || !OD.x) return;
+    const crumbs = `<nav class="cls-od-crumbs" aria-label="Folder">${[{id: "root", name: "OneDrive"}].concat(OD.trail).map((c, i, a) => i === a.length - 1 ? `<b>${esc(c.name)}</b>` : `<button type="button" class="link-btn" data-act="cls-od-to" data-i="${i}">${esc(c.name)}</button>`).join('<span aria-hidden="true">›</span>')}</nav>`;
+    let body;
+    if (OD.err) body = `<p class="cl-warn">${esc(OD.err)}</p>`;
+    else if (!OD.list) body = `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Opening…</p>`;
+    else {
+      const items = OD.list.filter(it => it.folder || (it.file && !/^(~\$|\.)/.test(it.name || ""))).sort((a, b) => (b.folder ? 1 : 0) - (a.folder ? 1 : 0) || String(a.name).localeCompare(String(b.name)));
+      body = items.length ? `<ul class="cls-od-list">${items.slice(0, 300).map(it => it.folder
+        ? `<li><button type="button" class="cls-od-row" data-act="cls-od-dir" data-id="${esc(it.id)}" data-name="${esc(it.name)}">${IC.folder(18)}<span class="cls-od-n">${esc(it.name)}</span><span class="mini">${it.folder.childCount != null ? plural(it.folder.childCount, "item") : ""}</span>${IC.next(16)}</button></li>`
+        : `<li><label class="cls-od-row"><input type="checkbox" data-od-file="${esc(it.id)}"${OD.sel.has(String(it.id)) ? " checked" : ""}>${IC.file(18)}<span class="cls-od-n">${esc(it.name)}</span><span class="mini">${it.size ? esc(fmtSize(it.size)) : ""}</span></label></li>`).join("")}</ul>`
+        : `<p class="mini">This folder is empty.</p>`;
+    }
+    b.innerHTML = `<p class="mini" style="margin:0">Tick the files that go with ${esc(OD.x.title)}, ${esc(day(OD.x.date))}. They stay in your OneDrive and open from Studyboard.</p>${crumbs}${body}`;
+    odCount();
+  }
+  function odCount(){ const a = document.getElementById("clsOdAdd"); if (a) { a.disabled = !OD.sel.size; a.textContent = OD.sel.size ? `Add ${plural(OD.sel.size, "File")}` : "Add"; } }
+  dlg.addEventListener("change", e => {
+    const i = e.target && e.target.closest && e.target.closest("[data-od-file]"); if (!i || !OD.list) return;
+    const it = OD.list.find(z => String(z.id) === i.dataset.odFile); if (!it) return;
+    if (i.checked) OD.sel.set(String(it.id), it); else OD.sel.delete(String(it.id));
+    odCount();
+  });
+  function linkSheet(x, p, offerConnect){
+    const G = p === "google", nmP = CLOUD_NAMES[p];
+    openSheet(`<form class="sheet">${head("Add From " + nmP)}<div class="sheet-body">
+      <p class="mini" style="margin:0 0 10px">Paste the Share link of ${G ? "a Google Doc, Slides file, PDF or folder" : "a file or folder in OneDrive"} for ${esc(x.title)}.${offerConnect ? ` Or connect ${nmP} to pick files there.` : ""}</p>
+      <label class="f"><span class="lh">Link</span><input type="url" name="url" required inputmode="url" placeholder="${G ? "https://docs.google.com/…" : "https://1drv.ms/…"}" autofocus></label>
       <label class="f"><span class="lh">Name <span class="hint">optional</span></span><input type="text" name="name" maxlength="120" placeholder="e.g. Week 5 slides"></label>
-      </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button>${offerConnect ? `<button type="button" class="btn" data-act="cls-connect">Connect Google Drive</button>` : ""}<span class="spacer"></span><button class="btn primary" data-submit>Add</button></div></form>`, fd => {
+      </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button>${offerConnect ? `<button type="button" class="btn cls-cloud" data-act="cls-connect">${BRAND(p)}Connect ${nmP}</button>` : ""}<span class="spacer"></span><button class="btn primary" data-submit>Add</button></div></form>`, fd => {
       const url = safeUrl(String(fd.get("url") || "").trim()); if (!url || !/^https:\/\//.test(url)) { toast("That doesn't look like a link."); return false; }
-      let nm = String(fd.get("name") || "").trim(); if (!nm) { try { const u = new URL(url); nm = /docs\.google\.com/.test(u.hostname) ? ({document: "Google Doc", presentation: "Google Slides", spreadsheets: "Google Sheet"}[u.pathname.split("/")[1]] || "Google Drive file") : /drive\.google\.com/.test(u.hostname) ? "Google Drive file" : u.hostname.replace(/^www\./, ""); } catch (e) { nm = "Link"; } }
+      let nm = String(fd.get("name") || "").trim(); if (!nm) { try { const u = new URL(url); nm = /docs\.google\.com/.test(u.hostname) ? ({document: "Google Doc", presentation: "Google Slides", spreadsheets: "Google Sheet"}[u.pathname.split("/")[1]] || "Google Drive file") : /drive\.google\.com/.test(u.hostname) ? "Google Drive file" : /(^|\.)(1drv\.ms|onedrive\.live\.com|sharepoint\.com)$/.test(u.hostname) ? "OneDrive file" : u.hostname.replace(/^www\./, ""); } catch (e) { nm = "Link"; } }
       const f = normFile({id: uid(), name: nm.slice(0, 120), courseId: x.cid, folderId: "notes", kind: "link", url, cls: x.key, created: Date.now()});
       applyChanges([{kind: "file", id: f.id, after: f}], `Added ${nm} to ${x.title}`);
       setTimeout(() => openClass(x.cid, x.key), 0);
@@ -101260,7 +101443,7 @@ var SBCLS = null;
     const item = (k, o, nm) => { const w = where(o.cls); return `<label class="mi-check"><input type="checkbox" data-cls="${k}:${esc(o.id)}"${o.cls === x.key ? " checked" : ""}> <span><b>${esc(nm)}</b>${w ? ` <span class="mini">now in ${esc(w)}</span>` : ""}</span></label>`; };
     openSheet(`<div class="sheet">${head("Add Files From Studyboard")}<div class="sheet-body">
       <p class="mini" style="margin:0">Pick the files from this course's Files that go with ${esc(x.title)}, ${esc(day(x.date))}.</p>
-      ${files.length ? `<div class="check-list">${files.map(f => item("file", f, f.name)).join("")}</div>` : `<p>This course has no files yet. Use Upload or Google Drive instead.</p>`}
+      ${files.length ? `<div class="check-list">${files.map(f => item("file", f, f.name)).join("")}</div>` : `<p>This course has no files yet. Use Upload, Google Drive or OneDrive instead.</p>`}
       </div><div class="sheet-foot"><button type="button" class="btn" data-act="cls-back">Back</button><span class="spacer"></span><button type="button" class="btn primary" id="clsPickOk">Done</button></div></div>`);
     $("#clsPickOk").addEventListener("click", () => {
       const ch = [];
@@ -101339,11 +101522,18 @@ var SBCLS = null;
     return {html, n: fs.length, crumb: ""};
   }
   // Upload into a class's folder: the files go in Lecture Notes, linked to the class
-  async function uploadTo(cid, key, list){
+  // Upload into a class (from its page, or its folder in Files): kept in Studyboard (or in the cloud when uploads are set to go
+  // there), linked to the class, so it shows on the class page in the Lectures tab and in Files > Lecture Notes. On the desktop app
+  // it's written to Files/<course>/Lecture Notes/<date> <class>; with Google Drive or OneDrive connected a copy also goes to
+  // <course>/Lectures/<date> <class> there (uploadFiles asks for it)
+  async function uploadTo(cid, key, list, msg){
     const x = classOf(cid, key) || looseClass(cid, key);
-    const made = await uploadFiles(list, {courseId: cid, folderId: "notes", cloud: true, sub: subFor(x)});
-    if (made && made.length) tag("file", made.map(f => f.id), key, `Added to ${x.title}`);
+    const made = await uploadFiles(list, {courseId: cid, folderId: "notes", cloud: true, sub: subFor(x), cls: key});
+    if (!made || !made.length) return;
+    tag("file", made.map(f => f.id), key, msg == null ? `Added to ${x.title}` : msg);
   }
+  // The name of a class's own folder: "2026-10-05 Lecture 7"
+  const dirOf = (cid, key) => { const x = classOf(cid, key) || looseClass(cid, key); return x ? `${x.date} ${x.title}` : String(key || "").split("|")[0]; };
   function pickUpload(cid, key){
     const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.style.display = "none";
     inp.addEventListener("change", () => { const list = [...(inp.files || [])]; inp.remove(); if (list.length) uploadTo(cid, key, list); });
@@ -101360,7 +101550,7 @@ var SBCLS = null;
     if (!o || !(o.type === "meet" || (o.type === "event" && isClassEvent(o.ev)))) return [];
     const cid = courseIdOf(o), key = classKey(o), x = findClass(cid, key); if (!x) return [];
     const I = itemsOf(cid, key), rows = [];
-    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(key)}">${I.n ? "Open Class Notes" : "Start Notes for This Class"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
+    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(key)}">${I.n ? "Open Class Notes" : "Add Lecture Notes"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
     return rows;
   }
 
@@ -101369,18 +101559,17 @@ var SBCLS = null;
     const cur = () => OPEN && classOf(OPEN.cid, OPEN.key);
     switch (act) {
       case "cls-open": { const cid = el.dataset.cid, key = el.dataset.key; setTimeout(() => openClass(cid, key), 0); return true; }
-      case "cls-go": { if (OPEN) openClass(OPEN.cid, el.dataset.key); return true; }
+      case "cls-go": { if (OPEN) step(OPEN.cid, el.dataset.key, el.classList.contains("is-next") ? "n" : "p"); return true; }
       case "cls-back": { if (OPEN) { const o = OPEN; setTimeout(() => openClass(o.cid, o.key), 0); } return true; }
       case "cls-kind": { ui.clsKind = Object.assign({}, ui.clsKind, {[el.dataset.cid]: el.dataset.k}); render(); return true; }
       case "cls-dates": datesSheet(el.dataset.cid); return true;
       case "cls-upload": { const x = cur(); if (x) upload(x); return true; }
-      // a typed note already tagged to this class, opened to write in
-      case "cls-newnote": { const x = cur(); if (!x) return true; if (dlg.open) dlg.close(); if (noteEditing) saveNoteText();
-        const n = addNoteText(`${x.title} notes, ${day(x.date, {month: "short", day: "numeric"})}\n`, x.cid, "", {cls: x.key});
-        noteEditing = n.id; ui.tab = "notes"; render(); window.scrollTo(0, 0);
-        setTimeout(() => { const t = $("#noteText"); if (t) { try { t.focus({preventScroll: true}); t.setSelectionRange(t.value.length, t.value.length); } catch (e) {} } }, 60);
-        return true; }
       case "cls-drive": { const x = cur(); if (x) drive(x); return true; }
+      case "cls-onedrive": { const x = cur(); if (x) oneDrive(x); return true; }
+      case "cls-od-dir": { OD.trail = OD.trail.concat({id: el.dataset.id, name: el.dataset.name || "Folder"}); odGo(el.dataset.id); return true; }
+      case "cls-od-to": { const i = Number(el.dataset.i) || 0; OD.trail = OD.trail.slice(0, i); odGo(i ? OD.trail[i - 1].id : "root"); return true; }
+      case "cls-od-add": { const x = OD.x; if (!x || !OD.sel.size) return true;
+        addCloud(x, "microsoft", [...OD.sel.values()].map(it => SBCLOUD.msFile(it))); OD.sel.clear(); setTimeout(() => openClass(x.cid, x.key), 0); return true; }
       case "cls-connect": { if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); return true; }
       case "cls-pick": { const x = cur(); if (x) pickSheet(x); return true; }
       case "cls-unlink": { const x = cur(); if (!x) return true; tag(el.dataset.k, [id], "", `Taken off ${x.title}`); return true; }
@@ -101450,7 +101639,7 @@ var SBCLS = null;
     hook("render", soon);
   }
 
-  SBCLS = window.SBCLS = {classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
+  SBCLS = window.SBCLS = {dirOf, classesOf, classOf, itemsOf, termOf, endOf, overOf, listHtml, looseRecs, folderHtml, lecFolders, uploadTo, occRows, open: openClass, recKeyOf};
 })();
 /* ===== module: 99-replay.js: Lecture Replay, notes and transcript linked to the recording ===== */
 /* Lecture Replay (Pro, like Record a Lecture). A saved lecture's recording plays from any moment: tap a transcript paragraph, a ★ mark,
@@ -110680,7 +110869,7 @@ function listHtml(){
   const sortSel = `<label class="btn small sm-btn cm-sortb" title="Sort: ${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/></svg><span class="sm-lbl">${(SORTS.find(x => x[0] === sort) || SORTS[0])[1]}</span><select data-cm-sort aria-label="Sort maps">${SORTS.map(([k, l]) => `<option value="${k}" ${k === sort ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
   // like Quizzes': Share With a Group (maps can be shared live with a study group), then Recently Deleted
   const grpIc = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3 2.3 3 5"/></svg>';
-  const grpBtn = `<button class="btn small sm-btn" data-act="grp-page" aria-label="Share With a Group" title="Share a map with a study group: everyone works on it together, live (a map's ⋯ menu > Share With a Group)">${grpIc}<span class="sm-lbl">Share With a Group</span></button>`;
+  const grpBtn = `<button class="btn small sm-btn" data-act="grp-share-any" data-kind="map" aria-label="Share With a Group" title="Share a map with a study group: everyone works on it together, live (a map's ⋯ menu > Share With a Group)">${grpIc}<span class="sm-lbl">Share With a Group</span></button>`;
   const binBtn = typeof trashBtn === "function" ? trashBtn("cmap", true) : "";
   return `<div class="view-head" data-cm-list><h2>Concept Maps</h2>${all.length > 1 ? sortSel : ""}${grpBtn}${binBtn}</div>
     ${typeof chipsHtml === "function" ? chipsHtml() : ""}${q ? `<div class="search-note">Showing maps that match “${esc(String(ui.q).trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
@@ -111391,7 +111580,13 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (d.texts) return d.texts;
     if (d.kind === "pptx") {
       const div = document.createElement("div");
-      d.texts = d.res.pages.map(pg => { div.innerHTML = pg.html; div.querySelectorAll("img,svg,style").forEach(x => x.remove()); return String(div.textContent || "").replace(/\s+/g, " ").trim().slice(0, 1500); });
+      // each paragraph on its own (two spaces between them), so words from separate text boxes never run together
+      d.texts = d.res.pages.map(pg => { div.innerHTML = pg.html; div.querySelectorAll("img,svg,style").forEach(x => x.remove());
+        // the slide's title goes first: its biggest text (a title is set larger than the rest)
+        const ps = [...div.querySelectorAll(".ofc-p")].map(p => { const t = String(p.textContent || "").replace(/\s+/g, " ").trim(); let sz = parseFloat(p.style.fontSize) || 0; p.querySelectorAll("span[style]").forEach(r => { sz = Math.max(sz, parseFloat(r.style.fontSize) || 0); }); return {t, sz}; }).filter(x => x.t);
+        if (!ps.length) return String(div.textContent || "").replace(/\s+/g, " ").trim().slice(0, 1500);
+        const top = ps.reduce((m, x) => x.sz > m.sz + 0.5 ? x : m, ps[0]);
+        return [top.t].concat(ps.filter(x => x !== top).map(x => x.t)).join("  ").slice(0, 1500); });
     } else {
       const pt = await pageTexts(d);
       d.texts = d.pg ? d.pg.map((s0, i) => pt[s0 + d.pc[i] - 1] || "") : pt.slice(0, d.n);
@@ -111506,8 +111701,18 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   async function pageTexts(d){
     if (d.ptexts) return d.ptexts;
     const out = [], n = d.np || d.n;
-    for (let i = 1; i <= Math.min(n, 300); i++) { try { const tc = await (await d.doc.getPage(i)).getTextContent(); out.push(tc.items.map(x => x.str || "").join(" ").replace(/\s+/g, " ").trim().slice(0, 1500)); } catch (e) { out.push(""); } }
+    for (let i = 1; i <= Math.min(n, 300); i++) { try { const tc = await (await d.doc.getPage(i)).getTextContent(); out.push(pdfPageText(tc.items)); } catch (e) { out.push(""); } }
     return (d.ptexts = out);
+  }
+  // a PDF page's words, title first: the run of text in the page's largest type (lines joined, then the rest)
+  function pdfPageText(items){
+    const it = (items || []).filter(x => x && typeof x.str === "string"), sz = x => Math.round(Math.abs((x.transform && (x.transform[3] || x.transform[0])) || x.height || 0) * 2) / 2;
+    const all = it.map(x => x.str + (x.hasEOL ? "\n" : " ")).join("").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "  ").trim();
+    const max = it.reduce((m, x) => x.str.trim() ? Math.max(m, sz(x)) : m, 0); if (!max) return all.slice(0, 1500);
+    let s = -1, e = -1; it.forEach((x, k) => { if (!x.str.trim()) return; if (sz(x) >= max - 0.5) { if (s < 0) s = k; if (e === -1 || e === k - 1 || it.slice(e + 1, k).every(y => !y.str.trim())) e = k; } });
+    const title = s < 0 ? "" : it.slice(s, e + 1).map(x => x.str).join(" ").replace(/\s+/g, " ").trim();
+    const rest = all.replace(title, "").replace(/\s{3,}/g, "  ").trim();
+    return (title ? title + (rest ? "  " + rest : "") : all).slice(0, 1500);
   }
   async function pdfBuilds(d){
     const pt = await pageTexts(d); if (pt.length < 2 || pt.length < (d.np || d.n)) return null;
@@ -111655,7 +111860,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
         <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
-        <span class="rv-count">${g ? `${g.sp.length} speakers · ` : ""}${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
+        <span class="rv-count">${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
         ${fire("pr-card-badge", p).filter(Boolean).join("")}
         <span class="rv-stamp pr-stamp${best == null ? " new" : good ? " good" : ""}" aria-hidden="true">${stamp}</span>
       </button>
@@ -111676,7 +111881,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   function listHtml(){
     const f = ui.filter && ui.filter !== "all" ? ui.filter : "", q = String(ui.q || "").trim().toLowerCase();
     const list = LIST.filter(p => !f || p.courseId === f).filter(p => !q || [p.name, p.title, (courseOf(p.courseId) || {}).name].join(" ").toLowerCase().includes(q)).sort((a, b) => (b.updated || 0) - (a.updated || 0));
-    const head = `<div class="view-head" data-pr-list><h2>Presentations</h2></div>${typeof chipsHtml === "function" ? chipsHtml() : ""}`;
+    const head = `<div class="view-head" data-pr-list><h2>Presentations</h2><button class="btn small sm-btn" data-act="pr-join-code" title="Join a friend's rehearsal with the code they sent">${IC.users}<span class="sm-lbl">Join With a Code</span></button></div>${typeof chipsHtml === "function" ? chipsHtml() : ""}`;
     if (!LOADED) return head;
     const extra = fire("pr-list-extra").filter(Boolean).join("");
     if (!list.length) return head + extra + `<div class="empty${LIST.length ? "" : " sb-es"}" style="margin-top:14px">${LIST.length ? "" : emptyArt("present")}<strong>${LIST.length ? "No Presentations Match" : "No Presentations Yet"}</strong>${LIST.length ? "Try another course or search." : "Add your slides and set a target time. Studyboard times each slide as you practice, and can record you so you can listen back and read what you said."}${LIST.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="pr-new">Practice a Presentation</button></div>`}</div>`;
@@ -111708,7 +111913,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
           <label class="pr-srcb">${IC.upload}<b>Upload</b><span>PowerPoint or PDF</span><input type="file" id="prFile" accept=".pptx,.ppsx,.pptm,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="sr"></label>
           <button type="button" class="pr-srcb" data-act="pr-gslides">${IC.gslides}<b>Google Slides</b><span>${canG ? "Pick from your Drive" : "Connect Google Drive first"}</span></button>
           <button type="button" class="pr-srcb${A.canva ? " on" : ""}" data-act="pr-canva" aria-expanded="${!!A.canva}">${IC.canva}<b>Canva</b><span>Your designs</span></button>
-          <label class="pr-srcb">${IC.folder}<b>From a course</b><span>${files.length ? `${files.length} slide file${files.length === 1 ? "" : "s"}` : "No slide files yet"}</span><select id="prCF" ${files.length ? "" : "disabled"} aria-label="A slides file from your courses"><option value="">Choose…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(fileNameOf(f))}</option>`).join("")}</select></label>
+          <label class="pr-srcb">${IC.folder}<b>From a Course</b><span>${files.length ? `${files.length} slide file${files.length === 1 ? "" : "s"}` : "No slide files yet"}</span><select id="prCF" ${files.length ? "" : "disabled"} aria-label="A slides file from your courses"><option value="">Choose…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(fileNameOf(f))}</option>`).join("")}</select></label>
         </div>
         ${A.canva ? canvaHtml(A) : canG ? "" : `<p class="mini">To use Google Slides, connect Google Drive in Settings, Files and Cloud.</p>`}
         ${busy}${err}${picked}
@@ -112010,7 +112215,8 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   function courseTint(el, cid){
     const c = courseOf(cid), hex = c && /^#[0-9A-F]{6}$/i.test(c.color || "") ? c.color : "";
     // no course (General): the theme's own accent and the text colour it pairs with
-    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); return; }
+    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); el.style.setProperty("--pc-grad", "var(--btn-bg,var(--accent,#7A4FD6))"); return; }
+    el.style.removeProperty("--pc-grad");
     const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
     const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     el.style.setProperty("--pc", hex);
@@ -112094,10 +112300,10 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (S.started) { box.hidden = true; box.innerHTML = ""; return; }
     if (S.follow) {
       box.hidden = false;
-      box.innerHTML = `<div class="pr-ready-in"><div class="pr-card" role="group" aria-label="Rehearsing together"><b class="pr-card-h">Rehearsing together</b>
+      box.innerHTML = `<div class="pr-ready-in"><div class="pr-card" role="group" aria-label="Rehearsing together"><b class="pr-card-h">Rehearsing Together</b>
         <p class="pr-card-sub">${esc(S.follow.host || "Someone in your group")} is leading. The slides and the clock follow them, and you can move the slides when it's your turn.</p>
         <p class="pr-card-note mini" id="prFollowState">${S.fSeen ? "Waiting for the rehearsal to start…" : "Connecting…"}</p>
-        <button type="button" class="pr-play" data-act="pr-play" aria-label="Start the rehearsal for everyone">${IC.play}</button><span class="pr-card-sub">Anyone can start it.</span></div></div>`;
+        <div class="pr-card-go"><button type="button" class="pr-play" data-act="pr-play" aria-label="Start the rehearsal for everyone">${IC.play}</button><span class="pr-card-sub">Anyone can start it.</span></div></div></div>`;
       return;
     }
     const p = S.p, lk = locked(), canRec = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof window.MediaRecorder === "function");
@@ -112105,22 +112311,23 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.hidden = false;
     box.innerHTML = `<div class="pr-ready-in">
       <div class="pr-card" role="group" aria-label="Ready to practice">
-        <b class="pr-card-h">Ready when you are</b>
-        ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the whole talk instead</button>`
-          : `<div class="pr-card-row"><span>Time goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
-        <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides${g ? ` · ${g.sp.length} speakers` : ""}</span>
+        <b class="pr-card-h">Ready When You Are</b>
+        ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the Whole Talk Instead</button>`
+          : `<div class="pr-card-row"><span>Time Goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
+        <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides</span>
         <button type="button" class="btn small pr-plan-btn pr-hero" data-act="pr-plan" aria-expanded="${S.planOpen}">${S.planOpen ? "Hide the Plan" : "Plan: Slide Times, Speakers, Sections"}</button>
-        <label class="pr-tog"><span><b>Record me${lk ? ` ${PRO_BADGE}` : ""}</b><em>Listen back, read what you said, and get feedback</em></span><input type="checkbox" id="prRecOn" ${S.rec ? "checked" : ""} ${canRec ? "" : "disabled"}></label>
-        <label class="pr-tog"><span><b>Speaker notes</b><em>${hasNotes ? "Below each slide, only for you" : "These slides have none"}</em></span><input type="checkbox" id="prNotesOn" ${S.showNotes && hasNotes ? "checked" : ""} ${hasNotes ? "" : "disabled"}></label>
-        <label class="pr-tog"><span><b>Pace nudges</b><em>A glow when a slide runs long, and a wrap-up warning</em></span><input type="checkbox" id="prNudgeOn" ${S.nudge ? "checked" : ""}></label>
-        ${S.sec ? "" : `<label class="pr-tog"><span><b>Q&amp;A after the last slide</b><em>Your companion asks 3 questions an audience might</em></span><input type="checkbox" id="prQaOn" ${S.qaOn ? "checked" : ""}></label>`}
+        <label class="pr-tog"><span><b>Record Me${lk ? ` ${PRO_BADGE}` : ""}</b><em>Listen back, read what you said, and get feedback</em></span><input type="checkbox" id="prRecOn" ${S.rec ? "checked" : ""} ${canRec ? "" : "disabled"}></label>
+        <label class="pr-tog"><span><b>Speaker Notes</b><em>${hasNotes ? "Below each slide, only for you" : "These slides have none"}</em></span><input type="checkbox" id="prNotesOn" ${S.showNotes && hasNotes ? "checked" : ""} ${hasNotes ? "" : "disabled"}></label>
+        <label class="pr-tog"><span><b>Pace Nudges</b><em>A glow when a slide runs long, and a wrap-up warning</em></span><input type="checkbox" id="prNudgeOn" ${S.nudge ? "checked" : ""}></label>
+        ${S.sec ? "" : `<label class="pr-tog"><span><b>Q&amp;A After the Last Slide</b><em>Your companion asks 3 questions an audience might</em></span><input type="checkbox" id="prQaOn" ${S.qaOn ? "checked" : ""}></label>`}
         ${fire("pr-ready-extra", p, S).filter(Boolean).join("")}
+        <button type="button" class="btn small pr-plan-btn" data-act="pr-friend">${IC.users} Rehearse With a Friend</button>
         <button type="button" class="btn small pr-plan-btn" data-act="pr-remote">${IC.phone} Use Your Phone as the Remote${lk ? ` ${PRO_BADGE}` : ""}</button>
         ${p.source === "gslides" && p.gid ? `<button type="button" class="btn small" data-act="pr-gfresh">Get Latest From Google Slides</button>` : ""}
         ${p.source === "canva" && p.cid ? `<button type="button" class="btn small" data-act="pr-cfresh">Get Latest From Canva</button>` : ""}
         ${S.note ? `<p class="mini pr-card-note">${esc(S.note)}</p>` : ""}
-        <button type="button" class="pr-play" data-act="pr-play" aria-label="Start: the clock starts now">${IC.play}</button>
-        <span class="pr-card-sub">The clock starts when you press play. Space or → for the next slide.</span>
+        <div class="pr-card-go"><button type="button" class="pr-play" data-act="pr-play" aria-label="Start: the clock starts now">${IC.play}</button>
+        <span class="pr-card-sub">The clock starts when you press play. Space or → for the next slide.</span></div>
       </div>
       <div class="pr-plan" id="prPlan" ${S.planOpen ? "" : "hidden"}></div></div>`;
     const bind = (sel, fn) => { const x = box.querySelector(sel); if (x) x.addEventListener("change", () => fn(x)); };
@@ -112137,11 +112344,11 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const spTotals = spOn ? g.sp.map(s => ({s, t: secs.reduce((a, x, i) => a + ((spOf(p, i) || {}).id === s.id ? x : 0), 0), n: Array.from({length: d.n}, (_, i) => i).filter(i => (spOf(p, i) || {}).id === s.id).length})) : [];
     const opt = (v, sel) => Array.from({length: d.n}, (_, i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${i + 1}</option>`).join("");
     box.innerHTML = `<div class="pr-plan-h"><b>Plan</b><span class="mini">Total ${fmt(secs.reduce((a, b) => a + b, 0) * 1000)}</span>${p.split === "custom" ? `<button type="button" class="link-btn" data-act="pr-even">Make Them Even</button>` : ""}</div>
-      <div class="pr-plan-sec"><span class="mini">Practice one section</span><label><span class="sr">From slide</span><select id="prSecA">${opt(0, S.sec ? S.sec[0] : 0)}</select></label><span class="mini">to</span><label><span class="sr">To slide</span><select id="prSecB">${opt(0, S.sec ? S.sec[1] : d.n - 1)}</select></label><button type="button" class="btn small" data-act="pr-sec-on">${S.sec ? "Update Section" : "Practice These"}</button></div>
+      <div class="pr-plan-sec"><span class="mini">Practice One Section</span><label><span class="sr">From slide</span><select id="prSecA">${opt(0, S.sec ? S.sec[0] : 0)}</select></label><span class="mini">to</span><label><span class="sr">To slide</span><select id="prSecB">${opt(0, S.sec ? S.sec[1] : d.n - 1)}</select></label><button type="button" class="btn small" data-act="pr-sec-on">${S.sec ? "Update Section" : "Practice These"}</button></div>
       ${d.kind === "pdf" && (d.pc || p.pagesAuto) ? `<div class="pr-plan-pages"><span class="mini">${d.pc ? `${d.np} pages, practiced as ${d.n} slides: pages that build up a slide step by step are its clicks.` : `Every page is its own slide.`}</span><button type="button" class="link-btn" data-act="pr-pages">${d.pc ? "Show Every Page" : "Put Build-Up Pages Together"}</button></div>` : ""}
       ${vplanHtml(p, d)}
       <div class="pr-plan-grp">
-        <label class="pr-tog pr-tog-sm"><span><b>Group presentation</b><em>Give each slide a speaker</em></span><input type="checkbox" id="prGrpOn" ${g.on ? "checked" : ""}></label>
+        <label class="pr-tog pr-tog-sm"><span><b>Group Presentation</b><em>Give each slide a speaker</em></span><input type="checkbox" id="prGrpOn" ${g.on ? "checked" : ""}></label>
         ${g.on ? `<div class="pr-spks">${g.sp.map(s => `<span class="pr-spk-ed" style="--sp:${esc(s.c)}"><i></i><input value="${esc(s.name)}" data-sp="${esc(s.id)}" aria-label="Speaker name" maxlength="40"><button type="button" class="pr-x" data-act="pr-sp-rm" data-id="${esc(s.id)}" aria-label="Remove ${esc(s.name)}">×</button></span>`).join("")}${g.sp.length < 6 ? `<button type="button" class="btn small" data-act="pr-sp-add">Add a Speaker</button>` : ""}${g.sp.length > 1 ? `<button type="button" class="link-btn" data-act="pr-sp-split">Split the Slides Evenly</button>` : ""}</div>
           ${spTotals.length ? `<div class="pr-sptot">${spTotals.map(x => `<span style="--sp:${esc(x.s.c)}"><i></i><b>${esc(x.s.name)}</b> ${fmt(x.t * 1000)} · ${x.n} slide${x.n === 1 ? "" : "s"}</span>`).join("")}</div>` : ""}` : ""}
       </div>
@@ -112171,7 +112378,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const kindTxt = v => v.kind === "manual" ? "added by you" : v.kind === "link" ? (/youtu/.test(v.url || "") ? "YouTube link" : /vimeo/.test(v.url || "") ? "Vimeo link" : "video link") : v.audio ? "sound in the slides" : "in the slides";
     const opt = Array.from({length: d.n}, (_, i) => `<option value="${i}">${i + 1}</option>`).join("");
     return `<div class="pr-plan-vids">${rows.length ? `<ul>${rows.map(({i, v}) => `<li>${IC.film}<span><b>Slide ${i + 1}</b> · ${esc(kindTxt(v))}</span>${v.kind === "file" && v.dur > 0 ? `<b class="pr-vlen-f">${fmt(v.dur * 1000)}</b>` : `<input class="pr-vlen" data-vid="${esc(v.id)}" value="${v.dur > 0 ? fmt(v.dur * 1000) : ""}" placeholder="m:ss" inputmode="numeric" aria-label="Length of the video on slide ${i + 1}">`}${v.kind === "manual" ? `<button type="button" class="pr-x" data-act="pr-vdel" data-id="${esc(v.id)}" aria-label="Remove the video on slide ${i + 1}">×</button>` : ""}</li>`).join("")}</ul>` : ""}
-      <details class="pr-vadd"><summary>${rows.length ? "Add another video" : "Does your talk play a video? Add it"}</summary><div class="pr-vadd-in"><label><span class="mini">Slide</span><select id="prVSlide">${opt}</select></label><label><span class="mini">Length</span><input id="prVLen" placeholder="1:30" inputmode="numeric" maxlength="8"></label><button type="button" class="btn small" data-act="pr-vadd">Add</button></div><p class="mini">During practice you can play it or skip it, and its length still counts.</p></details></div>`;
+      <details class="pr-vadd"><summary>${rows.length ? "Add Another Video" : "Does Your Talk Play a Video? Add It"}</summary><div class="pr-vadd-in"><label><span class="mini">Slide</span><select id="prVSlide">${opt}</select></label><label><span class="mini">Length</span><input id="prVLen" placeholder="1:30" inputmode="numeric" maxlength="8"></label><button type="button" class="btn small" data-act="pr-vadd">Add</button></div><p class="mini">During practice you can play it or skip it, and its length still counts.</p></details></div>`;
   }
   function refreshPlan(){ const S = STG; if (!S) return; fire("pr-plan-changed", S.p); plan(S); paintReady(); paint(); S.el.querySelectorAll(".pr-th").forEach(b => { const i = Number(b.dataset.i), sp = spOf(S.p, i); if (sp) b.style.setProperty("--sp", sp.c); else b.style.removeProperty("--sp"); }); const top = S.el.querySelector(".pr-clock span"); if (top) top.textContent = "of " + fmt(S.tgt); }
 
@@ -112240,7 +112447,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   }
   const buzz = pat => { try { if (navigator.vibrate) navigator.vibrate(pat); } catch (e) {} };
   let tick = 0, remTick = 0;
-  const loop = () => { clearInterval(tick); tick = setInterval(() => { if (!STG || !STG.el.isConnected) { clearInterval(tick); return; } paint(); if (++remTick % 4 === 0) remoteSend(); }, 250); };
+  const loop = () => { clearInterval(tick); tick = setInterval(() => { if (!STG || !STG.el.isConnected) { clearInterval(tick); return; } paint(); srKeep(STG); if (++remTick % 4 === 0) remoteSend(); }, 250); };
   async function play(){
     const S = STG; if (!S || S.running) return;
     if (S.follow) { liveCmd(S, "start"); return; }
@@ -112452,6 +112659,9 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       mr.ondataavailable = e => { if (e.data && e.data.size) S.chunks.push(e.data); };
       mr.start(1000);
       Object.assign(S, {mr, stream, recOn: true, srOn: !!SRC()});
+      // the microphone can stop partway (unplugged, or another app took it): say so, rather than recording silence
+      stream.getAudioTracks().forEach(t => t.addEventListener("ended", () => { if (STG === S && S.recOn && !S.micGone) { S.micGone = true; srStop(S); S.srOn = false; toast("The microphone stopped (it was unplugged or another app took it), so the recording ends here. Your times keep counting."); } }));
+      mr.onerror = () => { if (STG === S && !S.micGone) { S.micGone = true; toast("The recording stopped working. Your times keep counting."); } };
       if (!SRC()) toast("Recording. This browser can't make a transcript, so you'll have the audio only.");
     } catch (e) {
       S.recOn = false;
@@ -112471,10 +112681,23 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
         else S.interim = s;
       }
     };
-    sr.onerror = e => { if (e && /not-allowed|service-not-allowed/.test(e.error)) S.srOn = false; };
-    sr.onend = () => { if (S.sr === sr) S.sr = null; if (STG === S && S.running && S.srOn) setTimeout(() => srRun(S), 150); };
-    S.sr = sr; try { sr.start(); } catch (e) { S.sr = null; }
+    // the browser's speech recognition stops by itself (a pause in speaking, about a minute of talk, a network blip): keep what it
+    // heard so far, and start it again. If it keeps failing straight away (no connection to the speech service), the
+    // transcript stops and the audio carries on.
+    sr.onerror = e => { const er = String((e && e.error) || ""); if (/not-allowed|service-not-allowed|language-not-supported/.test(er)) S.srOn = false; if (er && er !== "no-speech" && er !== "aborted") S.srErr = er; };
+    sr.onend = () => {
+      if (S.interim && STG === S) { const t0 = at == null ? clockMs(S) : at; S.tr.push({t: Math.round(t0), e: Math.round(clockMs(S)), s: S.interim}); S.interim = ""; at = null; }
+      if (S.sr === sr) S.sr = null;
+      const quick = Date.now() - S.srAt < 1500;
+      S.srFails = quick ? (S.srFails || 0) + 1 : 0;
+      if (S.srFails >= 6) { S.srOn = false; if (STG === S) toast(S.srErr === "network" ? "The transcript stopped: the speech service can't be reached. Your audio is still recording." : "The transcript stopped working. Your audio is still recording."); return; }
+      if (STG === S && S.running && S.srOn) setTimeout(() => srRun(S), quick ? 400 * S.srFails : 150);
+    };
+    S.sr = sr; S.srAt = Date.now();
+    try { sr.start(); } catch (e) { S.sr = null; }
   }
+  // a watchdog (from the clock's tick): if the transcript isn't running when it should be, start it again
+  function srKeep(S){ if (S && S.running && S.recOn && S.srOn && !S.sr && Date.now() - (S.srAt || 0) > 2500) srRun(S); }
   function srStop(S){ const sr = S.sr; S.sr = null; S.interim = ""; if (sr) try { sr.stop(); } catch (e) {} }
   function recStop(S){
     return new Promise(res => {
@@ -112488,7 +112711,12 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   /* ---------- finishing a run ---------- */
   async function finish(){
     const S = STG; if (!S) return;
-    if (S.follow) { stageClose(); return; }
+    // someone following leaves partway: they still see how the rehearsal went up to now (not counted)
+    if (S.follow) {
+      if (S.fGo && clockMs(S) >= 2000) { const t = slideTimes(S); clearInterval(tick); followDone(S, {total: Math.round(clockMs(S)), times: t, budgets: S.b, target: Math.round(S.tgt / 1000), seg: [], at: Date.now() - Math.round(clockMs(S)), early: true}); }
+      else stageClose();
+      return;
+    }
     if (!S.started || clockMs(S) < 2000) { liveEnd(S, null); stageClose(); return; }
     if (S.running) { S.acc = clockMs(S); S.running = false; }
     if (S.open) { S.seg.push({i: S.open.i, a: S.open.a, b: S.acc}); S.open = null; }
@@ -112499,12 +112727,21 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     S.el.innerHTML = `<p class="pr-wait"><span class="ai-spin" aria-hidden="true"></span>Saving your run…</p>`;
     const blob = S.recOn ? await recStop(S) : null;
     const t = Array(S.d.n).fill(0); S.seg.forEach(g => { t[g.i] += g.b - g.a; });
+    // ended early (before its last slide, or the section's): the summary still shows, but it isn't kept or counted
+    const last = S.sec ? S.sec[1] : S.d.n - 1, early = !S.qa && !S.seg.some(g => g.i === last);
     const total = S.qa ? S.qaStart : S.acc, g = grp(S.p);
     const run = {id: uid(), at: S.startedAt || Date.now(), total: Math.round(total), times: t.map(Math.round), budgets: S.b.map(Math.round), target: Math.round(S.tgt / 1000),
       seg: S.seg.map(x => [x.i, Math.round(x.a), Math.round(x.b)]), tr: S.tr, audio: false, mime: blob ? blob.type : "", sec: S.sec ? S.sec.slice() : null,
       sp: g ? {sp: g.sp.map(s => ({id: s.id, name: s.name, c: s.c})), by: (g.by || []).slice()} : null,
       qa: S.qa ? {qs: S.qa.qs.slice(), seg: S.qa.seg.map(x => [x.q, Math.round(x.a), Math.round(x.b == null ? S.acc : x.b)])} : null,
-      vskip: S.vskip.length ? S.vskip.slice(0, 100) : null};
+      vskip: S.vskip.length ? S.vskip.slice(0, 100) : null, early: early || undefined};
+    if (early) {
+      if (S.lv) run.live = true;
+      liveEnd(S, run);
+      STG = null;
+      reviewOpen(S.p.id, run.id, S.el, {run, blob});
+      return;
+    }
     if (blob) { try { await put("audio:" + run.id, blob); run.audio = true; } catch (e) { toast("There wasn't room on this device for the recording. Your times are saved.", null, null, {error: true}); } }
     if (S.lv) run.live = true;
     liveEnd(S, run);
@@ -112573,10 +112810,13 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   }
   function liveEnd(S, run){
     const L = S && S.lv; if (!L || !L.C || S.follow) return;
-    L.C.send("d", run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at} : {v: 1, cancelled: true});
+    const msg = run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at, early: !!run.early} : {v: 1, cancelled: true};
+    // sent a few times, so a dropped message doesn't leave anyone without their summary (each follower uses the first)
+    [0, 1200, 3000].forEach(ms => setTimeout(() => { try { L.C.send("d", msg); } catch (e) {} }, ms));
+    setTimeout(() => { try { L.C.close(); } catch (e) {} }, 6000);
     fire("pr-live-end", S.p, L.meta);
   }
-  function liveClose(S){ const L = S && S.lv; if (!L) return; S.lv = null; setTimeout(() => { if (L.C) L.C.close(); }, 600); }
+  function liveClose(S){ const L = S && S.lv; if (!L) return; S.lv = null; setTimeout(() => { if (L.C) L.C.close(); }, S.follow ? 600 : 3500); }
   function liveCmd(S, cmd){ const L = S && S.lv; if (L && L.C) L.C.send("c", {cmd, who: myName()}); }
   // someone in the group follows along on their own copy of the slides
   async function follow(pid, secret, host){
@@ -112615,6 +112855,8 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       sp: grp(p) ? {sp: grp(p).sp.map(s2 => ({id: s2.id, name: s2.name, c: s2.c})), by: (grp(p).by || []).slice()} : null, qa: null};
     if (S.lv && S.lv.hb) clearInterval(S.lv.hb);
     liveClose(S);
+    // the leader ended early: everyone sees the summary, nobody keeps it
+    if (x.early) { run.early = true; STG = null; clearInterval(tick); wake(false); reviewOpen(p.id, run.id, S.el, {run, blob: null}); return; }
     p.runs = [run].concat(p.runs || []).slice(0, 30); p.updated = Date.now(); save();
     fire("pr-finish", p, run);
     STG = null; clearInterval(tick); wake(false);
@@ -112628,15 +112870,21 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   const hexOf = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
   async function seal(key, obj){ const iv = crypto.getRandomValues(new Uint8Array(12)); const ct = await crypto.subtle.encrypt({name: "AES-GCM", iv}, key, new TextEncoder().encode(JSON.stringify(obj))); return {iv: b64u(iv), ct: b64u(new Uint8Array(ct))}; }
   async function unseal(key, m){ try { const pt = await crypto.subtle.decrypt({name: "AES-GCM", iv: unb64u(m.iv)}, key, unb64u(m.ct)); return JSON.parse(new TextDecoder().decode(pt)); } catch (e) { return null; } }
-  async function remoteStart(){
+  // friend: rehearse with someone who isn't in a group (no account needed): a short code to type or a link, the slide itself
+  // for a PDF (its words for a PowerPoint), and anyone who joins can move the slides. Free, and several people can join.
+  const FRIEND_ABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const friendCode = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), x => FRIEND_ABC[x % FRIEND_ABC.length]).join("");
+  async function remoteStart(mode){
     const S = STG; if (!S) return;
-    if (locked()) { proWhy("Using your phone as a remote is part of Studyboard Pro: the clock, your notes and the next slide in your hand."); return; }
-    if (RM) { remotePanel(); return; }
-    const R = RM = {linked: false, err: "", url: ""};
+    const friend = mode === "friend";
+    if (!friend && locked()) { proWhy("Using your phone as a remote is part of Studyboard Pro: the clock, your notes and the next slide in your hand."); return; }
+    if (RM && !!RM.friend === friend) { RM.hide = false; remotePanel(); return; }
+    if (RM) remoteEnd();
+    const R = RM = {linked: false, err: "", url: "", friend, people: new Map()};
     remotePanel();
     try {
       if (!window.crypto || !crypto.subtle) throw new Error("This browser can't make a secure link.");
-      const code = b64u(crypto.getRandomValues(new Uint8Array(18))), te = new TextEncoder();
+      const code = friend ? friendCode() : b64u(crypto.getRandomValues(new Uint8Array(18))), te = new TextEncoder(); R.code = code;
       const [idH, kH] = await Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-pres-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-pres-key:" + code))]);
       R.topic = "sbpres-" + hexOf(idH).slice(0, 40); R.key = await crypto.subtle.importKey("raw", kH, "AES-GCM", false, ["encrypt", "decrypt"]);
       R.url = SITE() + "/present-remote.html#" + code;
@@ -112649,7 +112897,12 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   }
   function remoteCmd(c){
     const R = RM, S = STG; if (!R) return;
-    if (!R.linked) { R.linked = true; remotePanel(); toast("Your phone is connected"); }
+    if (R.friend) {
+      const who = String(c.who || "A friend").slice(0, 40), isNew = !R.people.has(who); R.people.set(who, Date.now());
+      if (isNew) { R.linked = true; remotePanel(); toast(`${who} joined your rehearsal`); R.imgKey = ""; }
+      if (c.cmd === "hello" || c.cmd === "hi") { remotePanel(); remoteSend(); return; }
+    }
+    else if (!R.linked) { R.linked = true; remotePanel(); toast("Your phone is connected"); }
     if (!S) return;
     if (c.cmd === "next") next(); else if (c.cmd === "prev") prev(); else if (c.cmd === "pp") { if (!S.started) play(); else if (S.running) pause(); else play(); }
     else if (c.cmd === "vskip" || c.cmd === "vplay") { const j = vidsOf(S.p, S.i).findIndex(v => !S.vdone[v.id]); if (j >= 0) { if (c.cmd === "vskip") vSkip(S, j); else vPlay(S, j); } }
@@ -112666,18 +112919,43 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
         nt: String(S.d.notes[S.i] || "").slice(0, 1500), el: Math.round(S.qa ? S.qaStart : clockMs(S)), tg: Math.round(S.tgt), st: Math.round(t[S.i] || 0), sb: Math.round(S.b[S.i] || 0),
         run: S.running, go: S.started, pace: S.paceTxt || "", pc: S.paceCls || "", sp: sp ? sp.name : "", spc: sp ? sp.c : "", qa: S.qa ? S.qa.qs[S.qa.i] : "",
         k: S.k, kn: stepsOf(S.p, S.d, S.i)});
+      if (R.friend) { msg.fr = 1; msg.host = myName() !== "Someone" ? myName() : ""; msg.tx = String(texts[S.i] || "").split(/\s{2,}/).map(x => x.trim()).filter(Boolean).slice(0, 7).map(x => x.slice(0, 160)); friendImg(S, R); }
       const vs = vidsOf(S.p, S.i), j = vs.findIndex(v => !S.vdone[v.id]);
       if (vs.length && !S.qa) Object.assign(msg, {vd: j >= 0 ? Math.round((Number(vs[j].dur) || 0) * 1000) : 0, vs: j < 0 ? "done" : S.vp && S.vp.i === S.i ? "play" : "", vp: j >= 0 && playable(S, vs[j])});
     }
     try { R.ch.send({type: "broadcast", event: "s", payload: await seal(R.key, msg)}); } catch (e) {}
   }
+  // the current slide as a small picture for friends (a PDF's page, drawn as it shows here); a PowerPoint sends its words instead
+  async function friendImg(S, R){
+    const key = S.i + ":" + (S.d.pc ? S.k : 0); if (R.imgKey === key || S.d.kind !== "pdf" || !R.ch) return; R.imgKey = key;
+    try {
+      const box = document.createElement("div"); box.style.cssText = "position:fixed;left:-9999px;top:0;width:560px";
+      document.body.appendChild(box); await drawSlide(S.d, S.i, box, 560, S.d.pc ? S.k : null);
+      const c = box.querySelector("canvas"), url = c ? c.toDataURL("image/jpeg", 0.68) : ""; box.remove();
+      if (!url || RM !== R || R.imgKey !== key || url.length > 180000) return;
+      R.ch.send({type: "broadcast", event: "i", payload: await seal(R.key, {k: key, img: url})});
+    } catch (e) {}
+  }
   function remotePanel(){
     const S = STG, R = RM; if (!S) return; const box = S.el.querySelector("#prRemote"); if (!box) return;
     if (!R || R.hide) { box.hidden = true; return; }
     box.hidden = false;
+    if (R.friend) {
+      const ppl = [...R.people.entries()].filter(([, at]) => Date.now() - at < 20000).map(([n]) => n);
+      box.innerHTML = `<div class="pr-rm-card pr-fr-card"><button type="button" class="pr-x pr-rm-x" data-act="pr-remote-hide" aria-label="Hide">×</button>
+        <b>Rehearse With a Friend</b>
+        ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.url ? `<p class="mini">Send them this code. They open the link (or ${esc(SITE().replace(/^https?:\/\//, ""))}/present-remote.html) and type it in: no account needed.</p>
+          <div class="pr-fr-code" aria-label="Code ${esc(R.code.split("").join(" "))}">${esc(R.code.slice(0, 4))}<span>${esc(R.code.slice(4))}</span></div>
+          <div class="pr-fr-acts"><button type="button" class="btn small" data-act="pr-fr-copy">Copy Link</button>${navigator.share ? `<button type="button" class="btn small" data-act="pr-fr-share">Share</button>` : ""}</div>
+          <div class="pr-rm-qr pr-fr-qr" data-link="${esc(R.url)}">${QR.svg(R.url, "QR code to join the rehearsal")}</div>
+          <p class="mini" role="status">${ppl.length ? `${IC.check} ${esc(ppl.join(", "))} ${ppl.length === 1 ? "is" : "are"} with you. Anyone can move the slides.` : "Waiting for your friend to join…"}</p>
+          <button type="button" class="btn small pr-rm-off" data-act="pr-remote-off">End Sharing</button>`
+        : `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>Setting up…</p>`}</div>`;
+      return;
+    }
     box.innerHTML = `<div class="pr-rm-card"><button type="button" class="pr-x pr-rm-x" data-act="pr-remote-hide" aria-label="Hide">×</button>
       <b>Phone Remote</b>
-      ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.linked ? `<p class="pr-rm-ok">${IC.check} Your phone is connected. Use it to move through your slides.</p><button type="button" class="btn small" data-act="pr-remote-off">Disconnect</button>`
+      ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.linked ? `<p class="pr-rm-ok">${IC.check} Your phone is connected. Use it to move through your slides.</p><button type="button" class="btn small pr-rm-off" data-act="pr-remote-off">Disconnect</button>`
         : R.url ? `<p class="mini">Scan this with your phone's camera. It shows the clock, your notes and the next slide.</p><div class="pr-rm-qr" data-link="${esc(R.url)}">${QR.svg(R.url, "QR code to use your phone as the remote")}</div><p class="mini">${R.ready ? "Waiting for your phone…" : "Setting up the link…"}</p>`
         : `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>Setting up…</p>`}</div>`;
   }
@@ -112692,17 +112970,19 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (!el) { el = document.createElement("div"); el.id = "prStage"; el.className = "pr-stage"; courseTint(el, cid); el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); document.body.appendChild(el); document.body.classList.add("pr-on"); }
     el.className = "pr-stage pr-light"; el.setAttribute("aria-label", label); return el;
   }
-  async function reviewOpen(pid, runId, reuse){
-    const p = byId(pid); if (!p || !(p.runs || []).length) return;
+  async function reviewOpen(pid, runId, reuse, temp){
+    const p = byId(pid); if (!p || (!temp && !(p.runs || []).length)) return;
     reviewStop(); remoteEnd();
     const el = lightStage(reuse, "How your run went", p.courseId);
-    const run = p.runs.find(r => r.id === runId) || p.runs[0];
+    const run = temp ? temp.run : p.runs.find(r => r.id === runId) || p.runs[0];
     const idx = run.times.map((_, i) => i).filter(i => !run.sec || (i >= run.sec[0] && i <= run.sec[1]));
     const worst = idx.reduce((m, k) => run.times[k] - run.budgets[k] > run.times[m] - run.budgets[m] ? k : m, idx[0]);
     const R = RV = {p, run, idx, i: worst, el, d: null, qi: -1};
     try { R.d = await deckFor(p); textsOf(R.d).then(() => { if (RV === R) detailDraw(); }).catch(() => {}); } catch (e) {}
     if (RV !== R) return;
-    if (run.audio) { const b = await get("audio:" + run.id); if (RV !== R) return; if (b) { R.url = URL.createObjectURL(b); R.audio = new Audio(); R.audio.preload = "auto"; R.audio.src = R.url; R.audio.addEventListener("timeupdate", audioTick); R.audio.addEventListener("ended", () => { R.playing = false; paintAudio(); }); } }
+    if (temp && temp.blob) { run.audio = true; R.url = URL.createObjectURL(temp.blob); R.audio = new Audio(); R.audio.preload = "auto"; R.audio.src = R.url; R.audio.addEventListener("timeupdate", audioTick); R.audio.addEventListener("ended", () => { R.playing = false; paintAudio(); }); }
+    R.temp = !!temp;
+    if (!R.audio && run.audio) { const b = await get("audio:" + run.id); if (RV !== R) return; if (b) { R.url = URL.createObjectURL(b); R.audio = new Audio(); R.audio.preload = "auto"; R.audio.src = R.url; R.audio.addEventListener("timeupdate", audioTick); R.audio.addEventListener("ended", () => { R.playing = false; paintAudio(); }); } }
     reviewDraw();
   }
   const segsOf = (run, i) => (run.seg || []).filter(g => g[0] === i);
@@ -112724,21 +113004,21 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const spRows = sp ? sp.sp.map(s => { const ks = idx.filter(k => (sp.by[k] || sp.sp[0].id) === s.id), t = ks.reduce((a, k) => a + run.times[k], 0), b = ks.reduce((a, k) => a + run.budgets[k], 0); return {s, t, b}; }).filter(x => x.b > 0) : [];
     const spMax = Math.max(1, ...spRows.map(x => Math.max(x.t, x.b))) * 1.05;
     R.el.innerHTML = `<div class="pr-rtop">
-        <div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · Run ${num}${run.sec ? ` · slides ${run.sec[0] + 1} to ${run.sec[1] + 1}` : ""} · ${esc(when.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(when.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><b>${fmt(run.total)} <span>of ${fmt(run.target * 1000)} ${run.sec ? "section target" : "target"}</span></b></div>
-        <span class="pr-chip c-${chip[0]}">${chip[1]}</span>
-        <button type="button" class="btn" data-act="pr-hist" data-id="${esc(p.id)}">${IC.history} History</button>
+        <div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · ${run.early ? "Ended early, not counted" : `Run ${num}`}${run.sec ? ` · slides ${run.sec[0] + 1} to ${run.sec[1] + 1}` : ""} · ${esc(when.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(when.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><b>${fmt(run.total)} <span>of ${fmt(run.target * 1000)} ${run.sec ? "section target" : "target"}</span></b></div>
+        ${run.early ? `<span class="pr-chip c-early" title="It ended before the last slide, so it isn't in your history or best time">Ended early</span>` : `<span class="pr-chip c-${chip[0]}">${chip[1]}</span>`}
+        ${(p.runs || []).length ? `<button type="button" class="btn" data-act="pr-hist" data-id="${esc(p.id)}">${IC.history} History</button>` : ""}
         <button type="button" class="btn" data-act="pr-close">Close</button>
         <button type="button" class="btn primary pr-hero" data-act="pr-again">${run.sec ? "Practice This Section Again" : "Practice Again"}</button>
       </div>
-      ${hasTr ? `<div class="pr-stats">${lk ? `<button type="button" class="pr-stat pr-stat-pro" data-act="pr-pro-stats"><b>Pace and filler words</b><span>See words a minute and every um, like and so, slide by slide ${PRO_BADGE}</span></button>`
+      ${hasTr ? `<div class="pr-stats">${lk ? `<button type="button" class="pr-stat pr-stat-pro" data-act="pr-pro-stats"><b>Pace and Filler Words</b><span>See words a minute and every um, like and so, slide by slide ${PRO_BADGE}</span></button>`
         : `<div class="pr-stat"><span>Pace</span><b>${st.wpm ? st.wpm + " wpm" : "—"}</b><em>${st.wpm > 175 ? "Quite fast. Try pausing between points." : st.wpm && st.wpm < 110 ? "On the slow side" : st.wpm ? "A comfortable speed" : ""}</em></div><div class="pr-stat"><span>Filler words</span><b>${fillN(st.fill)}</b><em>${esc(fillTxt(st.fill) || "None picked up")}</em></div><div class="pr-stat"><span>Words</span><b>${st.wc}</b><em>${run.qa ? "Before Q&amp;A" : "In the whole run"}</em></div>`}
         <button type="button" class="pr-stat pr-coach-btn" data-act="pr-coach">${IC.spark}<b>${run.coach ? "Coach Feedback" : "Get Coach Feedback"}</b><span>${lk ? `Clarity, rushed slides and what to cut ${PRO_BADGE}` : run.coach ? "Clarity, rushed slides and what to cut" : "AI reads your run and suggests what to change"}</span></button></div>` : ""}
       <div class="pr-coach" id="prCoach" ${run.coach ? "" : "hidden"}></div>
       ${fire("pr-review-extra", p, run).filter(Boolean).join("")}
       <div class="pr-rbody">
         <section class="pr-rbars" aria-label="Time on each slide">
-          ${spRows.length ? `<div class="pr-rh"><b>Each speaker</b></div><div class="pr-spbars">${spRows.map(x => `<div class="pr-spbar" style="--sp:${esc(x.s.c)}"><span class="pr-spbar-n"><i></i>${esc(x.s.name)}</span><span class="pr-rbar"><i class="t-${tone(x.t, x.b)}" style="width:${(x.t / spMax * 100).toFixed(1)}%"></i><em style="left:${(x.b / spMax * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(x.t)} <small>of ${fmt(x.b)}</small></span></div>`).join("")}</div>` : ""}
-          <div class="pr-rh"><b>Time on each slide</b><span class="mini"><i class="pr-aim-key"></i>target</span></div>
+          ${spRows.length ? `<div class="pr-rh"><b>Each Speaker</b></div><div class="pr-spbars">${spRows.map(x => `<div class="pr-spbar" style="--sp:${esc(x.s.c)}"><span class="pr-spbar-n"><i></i>${esc(x.s.name)}</span><span class="pr-rbar"><i class="t-${tone(x.t, x.b)}" style="width:${(x.t / spMax * 100).toFixed(1)}%"></i><em style="left:${(x.b / spMax * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(x.t)} <small>of ${fmt(x.b)}</small></span></div>`).join("")}</div>` : ""}
+          <div class="pr-rh"><b>Time on Each Slide</b><span class="mini"><i class="pr-aim-key"></i>target</span></div>
           <div class="pr-rlist">${idx.map(k => { const t = run.times[k], s = sp ? sp.sp.find(x => x.id === (sp.by[k] || sp.sp[0].id)) : null; return `<button type="button" class="pr-rrow${k === R.i ? " on" : ""}" data-act="pr-rsel" data-i="${k}" aria-pressed="${k === R.i}"${s ? ` style="--sp:${esc(s.c)}"` : ""}><span class="pr-rn">${k + 1}</span><span class="pr-rbar"><i class="t-${tone(t, run.budgets[k])}" style="width:${(t / max * 100).toFixed(1)}%"></i><em style="left:${(run.budgets[k] / max * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(t)}</span></button>`; }).join("")}
             ${run.qa ? `<button type="button" class="pr-rrow pr-rqa${R.qi >= 0 ? " on" : ""}" data-act="pr-rqa" data-i="0"><span class="pr-rn">Q</span><span class="pr-rqa-t">Q&amp;A practice · ${run.qa.qs.length} questions</span><span class="pr-rt">${fmt(run.qa.seg.reduce((a, g) => a + (g[2] - g[1]), 0))}</span></button>` : ""}</div>
           <p class="mini">Green is within a little of the target, amber up to half again, red more.</p>
@@ -112766,8 +113046,8 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.innerHTML = `<div class="pr-dtop"><div class="pr-dpic" id="prDPic"></div>
         <div class="pr-dinfo"><span class="pr-eyebrow">Slide ${i + 1} of ${run.times.length}${sp ? ` · ${esc(sp.name)}` : ""}</span><b class="pr-dt t-${tone(t, b)}">${fmt(t)}${t ? `, ${Math.abs(diff) < 3000 ? "right on target" : diff > 0 ? `${fmt(diff)} over the target` : `${fmt(-diff)} under the target`}` : ", skipped"}</b><span class="mini">Target ${fmt(b)}${wc && !lk ? ` · ${wc} words${wpm ? ` · ${wpm} a minute` : ""}${fillN(fm) ? ` · ${fillTxt(fm)}` : ""}` : ""}</span></div></div>
       ${run.audio && R.audio ? `<div class="pr-player"><button type="button" class="pr-pbtn" data-act="pr-aplay" aria-label="Play slide ${i + 1}">${IC.play}</button><div class="pr-pbar"><i id="prPBar"></i></div><span class="pr-ptime" id="prPTime">0:00 / ${fmt(t)}</span></div>` : run.audio ? `<p class="mini">The recording isn't on this device.</p>` : ""}
-      ${chk.length ? `<div class="pr-check"><b>Your notes</b><ul>${chk.map(c => `<li class="${c.ok ? "ok" : "miss"}">${c.ok ? IC.check : IC.miss}<span>${esc(c.pt)}</span>${c.ok ? "" : `<em>Missed</em>`}</li>`).join("")}</ul></div>` : ""}
-      <div class="pr-trans"><b>What you said</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${run.audio ? "No words were picked up on this slide." : "Turn on Record Me before your next run to see what you said on each slide."}</p>`}</div>`;
+      ${chk.length ? `<div class="pr-check"><b>Your Notes</b><ul>${chk.map(c => `<li class="${c.ok ? "ok" : "miss"}">${c.ok ? IC.check : IC.miss}<span>${esc(c.pt)}</span>${c.ok ? "" : `<em>Missed</em>`}</li>`).join("")}</ul></div>` : ""}
+      <div class="pr-trans"><b>What You Said</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${run.audio ? "No words were picked up on this slide." : "Turn on Record Me before your next run to see what you said on each slide."}</p>`}</div>`;
     const pic = box.querySelector("#prDPic"); if (pic && R.d) drawSlide(R.d, i, pic, pic.clientWidth || 260).catch(() => {});
     paintAudio();
   }
@@ -112776,7 +113056,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.innerHTML = `<div class="pr-qa-tabs" role="group" aria-label="Questions">${Q.qs.map((q, n) => `<button type="button" data-act="pr-rqa" data-i="${n}" aria-pressed="${n === k}">Question ${n + 1}</button>`).join("")}</div>
       <p class="pr-qa-q sm">${esc(Q.qs[k])}</p><span class="mini">You answered for ${fmt(g[2] - g[1])}</span>
       ${R.run.audio && R.audio ? `<div class="pr-player"><button type="button" class="pr-pbtn" data-act="pr-aplay" aria-label="Play your answer">${IC.play}</button><div class="pr-pbar"><i id="prPBar"></i></div><span class="pr-ptime" id="prPTime">0:00 / ${fmt(g[2] - g[1])}</span></div>` : ""}
-      <div class="pr-trans"><b>Your answer</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${R.run.audio ? "No words were picked up." : "Turn on Record Me to hear your answers back."}</p>`}</div>`;
+      <div class="pr-trans"><b>Your Answer</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${R.run.audio ? "No words were picked up." : "Turn on Record Me to hear your answers back."}</p>`}</div>`;
     paintAudio();
   }
   // what's playing: the selected slide's stretch of the run (every visit to it), or one Q&A answer
@@ -112839,9 +113119,9 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     box.hidden = false;
     box.innerHTML = `<div class="pr-coach-h">${IC.spark}<b>Coach Feedback</b><span class="mini">From AI, based on your recording</span></div>
       <p>${esc(c.summary)}</p><p><b>Clarity.</b> ${esc(c.clarity)}</p>
-      ${c.rushed.length ? `<div class="pr-coach-l"><b>Felt rushed</b><ul>${c.rushed.map(x => `<li>${sl(x.slide)} ${esc(x.why)}</li>`).join("")}</ul></div>` : ""}
-      ${c.cuts.length ? `<div class="pr-coach-l"><b>What to cut where you ran long</b><ul>${c.cuts.map(x => `<li>${sl(x.slide)} ${esc(x.cut)}</li>`).join("")}</ul></div>` : ""}
-      ${c.tip ? `<p class="pr-coach-tip"><b>Next time.</b> ${esc(c.tip)}</p>` : ""}`;
+      ${c.rushed.length ? `<div class="pr-coach-l"><b>Felt Rushed</b><ul>${c.rushed.map(x => `<li>${sl(x.slide)} ${esc(x.why)}</li>`).join("")}</ul></div>` : ""}
+      ${c.cuts.length ? `<div class="pr-coach-l"><b>What to Cut Where You Ran Long</b><ul>${c.cuts.map(x => `<li>${sl(x.slide)} ${esc(x.cut)}</li>`).join("")}</ul></div>` : ""}
+      ${c.tip ? `<p class="pr-coach-tip"><b>Next Time</b> ${esc(c.tip)}</p>` : ""}`;
   }
 
   /* ---------- history: every run of a presentation ---------- */
@@ -112855,7 +113135,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     const best = bestOf(p);
     el.innerHTML = `<div class="pr-rtop"><div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · History</span><b>${runs.length} run${runs.length === 1 ? "" : "s"}${best != null ? ` <span>· best ${fmt(best)} of ${fmt(tg)}</span>` : ""}</b></div>
         <button type="button" class="btn" data-act="pr-close">Close</button><button type="button" class="btn primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice Again</button></div>
-      ${chart ? `<section class="pr-hcard"><b>Full runs over time</b>${chart}</section>` : ""}
+      ${chart ? `<section class="pr-hcard"><b>Full Runs Over Time</b>${chart}</section>` : ""}
       <section class="pr-hcard"><ol class="pr-hlist">${runs.map((r, k) => { const dd = new Date(r.at), diff = r.total - r.target * 1000; return `<li><button type="button" data-act="pr-hrun" data-id="${esc(r.id)}"><span class="pr-hn">Run ${runs.length - k}</span><span class="pr-hd">${esc(dd.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(dd.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><span class="pr-hk">${r.sec ? `Slides ${r.sec[0] + 1}–${r.sec[1] + 1}` : "Whole talk"}${r.audio ? " · recorded" : ""}${r.qa ? " · Q&amp;A" : ""}${r.coach ? " · coached" : ""}</span><b class="t-${tone(r.total, r.target * 1000)}">${fmt(r.total)}</b><span class="pr-hdiff">${Math.abs(diff) < 5000 ? "on time" : (diff > 0 ? "+" : "−") + fmt(Math.abs(diff))}</span></button><button type="button" class="pr-x" data-act="pr-hdel" data-id="${esc(r.id)}" aria-label="Delete run ${runs.length - k}">×</button></li>`; }).join("")}</ol></section>`;
   }
   function delRun(rid){
@@ -112905,7 +113185,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       case "pr-plan": if (inPlan()) { STG.planOpen = !STG.planOpen; paintReady(); } return true;
       case "pr-sec-on": if (inPlan()) { const a = Number((STG.el.querySelector("#prSecA") || {}).value) || 0, b = Number((STG.el.querySelector("#prSecB") || {}).value); const lo = Math.min(a, b), hi = Math.max(a, b); STG.sec = lo === 0 && hi === STG.d.n - 1 ? null : [lo, hi]; STG.secTgt = 0; STG.i = STG.sec ? lo : 0; plan(STG); stageBuild(); } return true;
       case "pr-sec-off": if (inPlan()) { STG.sec = null; STG.secTgt = 0; STG.i = 0; plan(STG); stageBuild(); } return true;
-      case "pr-sp-add": if (inPlan()) { const g = STG.p.group; if (g && g.sp.length < 6) { g.sp.push({id: uid(), name: "Speaker " + (g.sp.length + 1), c: SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6]}); splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
+      case "pr-sp-add": if (inPlan() && fire("pr-sp-add", STG.p).some(Boolean)) return true; if (inPlan()) { const g = STG.p.group; if (g && g.sp.length < 6) { g.sp.push({id: uid(), name: "Speaker " + (g.sp.length + 1), c: SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6]}); splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
       case "pr-sp-rm": if (inPlan()) { const g = STG.p.group; if (g) { g.sp = g.sp.filter(s => s.id !== id); if (!g.sp.length) g.on = false; else splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
       case "pr-sp-split": if (inPlan() && STG.p.group) { splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } return true;
       case "pr-sp-next": if (inPlan()) { const g = STG.p.group, i = Number(d.i) || 0; if (g && g.sp.length) { g.by = g.by && g.by.length === STG.d.n ? g.by : Array(STG.d.n).fill(g.sp[0].id); const k = g.sp.findIndex(s => s.id === g.by[i]); g.by[i] = g.sp[(k + 1) % g.sp.length].id; save(); refreshPlan(); } } return true;
@@ -112936,13 +113216,17 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       case "pr-coach": coach(); return true;
       case "pr-pro-stats": proWhy("Pace and filler words are part of Studyboard Pro: words a minute and every um, like and so, slide by slide."); return true;
       case "pr-remote": remoteStart(); return true;
+      case "pr-friend": remoteStart("friend"); return true;
+      case "pr-join-code": { const w = window.open(SITE() + "/present-remote.html", "_blank", "noopener"); if (!w) location.href = SITE() + "/present-remote.html"; return true; }
+      case "pr-fr-copy": if (RM && RM.url) { try { navigator.clipboard.writeText(`Join my presentation rehearsal: ${RM.url} (code ${RM.code})`).then(() => toast("Link copied"), () => toast("Couldn't copy it. The code is " + RM.code)); } catch (e) { toast("The code is " + RM.code); } } return true;
+      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
       case "pr-remote-hide": if (RM) { RM.hide = true; remotePanel(); } return true;
       case "pr-remote-off": remoteEnd(); remotePanel(); return true;
     }
     return false;
   });
   // the remote button shows the panel again once hidden
-  const _rs = remoteStart; remoteStart = async () => { if (RM && RM.hide) { RM.hide = false; remotePanel(); return; } return _rs(); };
+  const _rs = remoteStart; remoteStart = async mode => { if (RM && RM.hide && !!RM.friend === (mode === "friend")) { RM.hide = false; remotePanel(); return; } return _rs(mode); };
   window.addEventListener("keydown", e => {
     if (!document.getElementById("prStage") || dlg.open) return;
     const tg = e.target, typing = tg && (tg.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName));
@@ -112972,7 +113256,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
   }
   window.SBPRESENT = {listHtml, open: stageOpen, add: newSheet, list: () => LIST.slice(), loaded: () => LOADED, todayHtml: () => fire("pr-today").filter(Boolean).join(""), taskHtml: t => fire("pr-task", t).filter(Boolean).join(""),
     // for 99-present-groups.js
-    px: {byId, all: () => LIST, save, get, put, del, fmt, IC, tone, baseSecs, spOf, grp, splitEvenly, openDeck, createFrom, stageOpen, reviewOpen, historyOpen, newSheet, follow, liveHost, stage: () => STG, review: () => RV, refreshReady: () => { if (STG && !STG.started) { plan(STG); paintReady(); paint(); } }, rerenderList: () => { if (ui.tab === "flashcards" && ui.rvView === "present") render(); }, kindOfName, titleOf, textsOf, deckFor},
+    px: {byId, all: () => LIST, save, refreshPlan: () => { if (STG) refreshPlan(); }, get, put, del, fmt, IC, tone, baseSecs, spOf, grp, splitEvenly, openDeck, createFrom, stageOpen, reviewOpen, historyOpen, newSheet, follow, liveHost, stage: () => STG, review: () => RV, refreshReady: () => { if (STG && !STG.started) { plan(STG); paintReady(); paint(); } }, rerenderList: () => { if (ui.tab === "flashcards" && ui.rvView === "present") render(); }, kindOfName, titleOf, textsOf, deckFor},
     _: {notesCheck, fillers, baseSecs, setSlideSecs}};
 })();
 /* ===== module: 99-present-groups.js ===== */
@@ -113230,12 +113514,48 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
       return {s, d, ok, txt: d ? `${X.fmt(d.t)} of ${X.fmt(d.b)} · ${ago(Number(d.at) || Date.parse(r.updated_at))}${d.live ? " · together" : ""}` : "Not practiced yet", live};
     });
   }
+  /* ---------- speakers from the group: members who joined later, and Add a Speaker ---------- */
+  // the group's members who aren't presenting yet (the list is asked for again now and then: people join)
+  const memAsked = {};
+  function freshMembers(gid){ if (!gid || !online() || Date.now() - (memAsked[gid] || 0) < 30000) return; memAsked[gid] = Date.now(); G().loadMembers(gid, true).then(ch => { if (ch) { X.refreshReady(); X.refreshPlan(); if (X.review()) X.rerenderReview && X.rerenderReview(); } }).catch(() => {}); }
+  function nonSpeakers(p){
+    const gid = p.share && p.share.gid; if (!gid) return [];
+    let ms = []; try { ms = G().members(gid) || []; } catch (e) {}
+    const g = X.grp(p), ids = new Set(g ? g.sp.map(s => s.id) : []);
+    return ms.filter(m => m && m.id && !ids.has(m.id));
+  }
+  const freeColor = g => SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6];
+  function addSpeaker(p, m){
+    p.group = p.group && p.group.sp ? p.group : {on: true, sp: [], by: null}; const g = p.group; g.on = true;
+    if (g.sp.length >= 6) { toast("Up to 6 speakers."); return; }
+    g.sp.push(m ? {id: m.id, name: str(m.name || "Member", 40), c: okColor(m.color) && !g.sp.some(s => s.c === m.color) ? m.color : freeColor(g)} : {id: uid(), name: "Speaker " + (g.sp.length + 1), c: freeColor(g)});
+    X.splitEvenly(p); X.save(); X.refreshPlan(); X.refreshReady();
+    toast(m ? `${str(m.name || "They", 40)} is a speaker now. The slides were split evenly again: change them in the Plan.` : "Added a speaker. Name them in the Plan.");
+  }
+  // Add a Speaker, on a presentation shared with a group: someone in the group, or an extra speaker who isn't
+  hook("pr-sp-add", p => {
+    if (!p || !p.share || !p.share.gid || !online()) return false;
+    (async () => {
+      try { await G().loadMembers(p.share.gid, true); memAsked[p.share.gid] = Date.now(); } catch (e) {}
+      const list = nonSpeakers(p), gname = p.share.gname || gname0(p.share.gid);
+      const av = m => { let h = ""; try { h = G().avatar(p.share.gid, m.id, m.name); } catch (e) {} return h ? `<span class="prg-face">${h}</span>` : `<span class="prg-av" style="--c:${esc(okColor(m.color) || "#7A8494")}">${esc((m.name || "?").charAt(0).toUpperCase())}</span>`; };
+      openSheet(`<div class="sheet">${head("Add a Speaker")}<div class="sheet-body">
+        ${list.length ? `<p class="mini" style="margin:0">From ${esc(gname)}:</p><div class="prg-pick">${list.map(m => `<button type="button" class="prg-pick-i prg-pick-m" data-act="prg-sp-mem" data-id="${esc(m.id)}" data-pid="${esc(p.id)}">${av(m)}<span><b>${esc(m.id === me() ? (m.name || "You") + " (you)" : m.name || "A member")}</b><span class="mini">Gets their slides and target, and their practice shows in the team</span></span></button>`).join("")}</div>`
+          : `<p class="mini" style="margin:0">Everyone in ${esc(gname)} is already a speaker.</p>`}
+        <button type="button" class="prg-pick-i" data-act="prg-sp-extra" data-pid="${esc(p.id)}"><b>An Extra Speaker</b><span class="mini">Someone who isn't in the group, like a guest. You name them.</span></button>
+        </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button></div></div>`);
+    })();
+    return true;
+  });
+  const gname0 = gid => (C.groups.find(g => g.id === gid) || {}).name || "the group";
   function teamHtml(p, compact){
+    if (p && p.share) freshMembers(p.share.gid);
     const rows = teamRows(p); if (!rows.length) return "";
     const gid = p.share && p.share.gid, ready = rows.filter(r => r.ok).length;
     const av = s => { let h = ""; try { h = gid ? G().avatar(gid, s.id, s.name) : ""; } catch (e) {} return h ? `<span class="prg-face">${h}</span>` : `<span class="prg-av" style="--c:${esc(s.c)}">${esc((s.name || "?").charAt(0).toUpperCase())}</span>`; };
-    return `<div class="prg-team${compact ? " sm" : ""}"><div class="prg-team-h"><b>The team</b><span class="mini">${ready} of ${rows.length} on target</span></div>
-      <ul>${rows.map(r => `<li style="--sp:${esc(r.s.c)}">${av(r.s)}<span class="prg-tn">${esc(r.s.id === me() ? r.s.name + " (you)" : r.s.name)}</span><span class="prg-tt ${r.d ? (r.ok ? "ok" : "warn") : "none"}">${r.d ? (r.ok ? "✓ " : "") : ""}${esc(r.txt)}</span></li>`).join("")}</ul></div>`;
+    return `<div class="prg-team${compact ? " sm" : ""}"><div class="prg-team-h"><b>The Team</b><span class="mini">${ready} of ${rows.length} on target</span></div>
+      <ul>${rows.map(r => `<li style="--sp:${esc(r.s.c)}">${av(r.s)}<span class="prg-tn">${esc(r.s.id === me() ? r.s.name + " (you)" : r.s.name)}</span><span class="prg-tt ${r.d ? (r.ok ? "ok" : "warn") : "none"}">${r.d ? (r.ok ? "✓ " : "") : ""}${esc(r.txt)}</span></li>`).join("")}
+      ${nonSpeakers(p).slice(0, 8).map(m => `<li class="prg-ns" style="--sp:transparent">${av({id: m.id, name: m.name || "?", c: okColor(m.color) || "#7A8494"})}<span class="prg-tn">${esc(m.id === me() ? (m.name || "You") + " (you)" : m.name || "A member")}</span>${p.share && p.share.own && !compact ? "" : `<span class="prg-tt none">Not presenting yet</span>`}${p.share && p.share.own ? `<button type="button" class="btn small prg-ns-add" data-act="prg-sp-mem" data-id="${esc(m.id)}" data-pid="${esc(p.id)}">Add as Speaker</button>` : ""}</li>`).join("")}</ul></div>`;
   }
 
   /* ---------- in presentation practice: the Ready card, the review, the cards and the list ---------- */
@@ -113328,7 +113648,7 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
           <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(d.title || it.title || "")}</b><i></i><i></i></span></span>
           ${sp.length ? `<span class="pr-tl" aria-hidden="true">${strip}</span>` : ""}
           <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
-          <span class="rv-count">${sp.length ? `${sp.length} speakers · ` : ""}${n} slide${n === 1 ? "" : "s"}</span>
+          <span class="rv-count">${n} slide${n === 1 ? "" : "s"}</span>
           ${live ? `<span class="prg-badge prg-cbadge live" title="Live rehearsal now">${X.IC.users}<span class="sr">Live rehearsal now</span></span>` : ""}
           ${sp.length ? `<span class="rv-stamp pr-stamp${ready === sp.length ? " good" : ""}" aria-hidden="true" title="${ready} of ${sp.length} on target">${ready}/${sp.length}</span>` : ""}
         </button>
@@ -113376,9 +113696,9 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     if (!t || !t.id) return "";
     const p = X.all().find(x => x.taskId === t.id);
     if (p) { const runs = (p.runs || []).filter(r => !r.sec), best = runs.length ? Math.min(...runs.map(r => r.total)) : null;
-      return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> ${esc(p.name)} · ${best != null ? `best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : "not practiced yet"}${p.share ? ` · shared with ${esc(p.share.gname || "your group")}` : ""}</span></div><button type="button" class="btn small primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div>`; }
+      return `<div class="pp-form prg-task"><div><b>Presentation Practice</b><span class="mini"> ${esc(p.name)} · ${best != null ? `best ${X.fmt(best)} of ${X.fmt(p.target * 1000)}` : "not practiced yet"}${p.share ? ` · shared with ${esc(p.share.gname || "your group")}` : ""}</span></div><button type="button" class="btn small primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div>`; }
     if (t.status === "done" || !PRES_RX.test(t.title || "")) return "";
-    return `<div class="pp-form prg-task"><div><b>Presentation practice</b><span class="mini"> Add your slides to time yourself, slide by slide, before it's due.</span></div><button type="button" class="btn small" data-act="prg-task-new" data-id="${esc(t.id)}">Practice It</button></div>`;
+    return `<div class="pp-form prg-task"><div><b>Presentation Practice</b><span class="mini"> Add your slides to time yourself, slide by slide, before it's due.</span></div><button type="button" class="btn small" data-act="prg-task-new" data-id="${esc(t.id)}">Practice It</button></div>`;
   });
 
   /* ---------- actions; refreshing while it matters ---------- */
@@ -113386,6 +113706,8 @@ window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtm
     switch (act) {
       case "prg-share": shareSheet(id); return true;
       case "prg-share-pick": sharePick(id); return true;
+      case "prg-sp-mem": { const p = X.byId(el.dataset.pid), m = p && nonSpeakers(p).find(x => x.id === id); if (dlg.open) dlg.close(); if (p && m) addSpeaker(p, m); return true; }
+      case "prg-sp-extra": { const p = X.byId(el.dataset.pid); if (dlg.open) dlg.close(); if (p) addSpeaker(p, null); return true; }
       case "prg-share-to": shareSheet(id, el.dataset.g || ""); return true;
       case "prg-share-go": shareGo(); return true;
       case "prg-groups": if (dlg.open) dlg.close(); ui.tab = "groups"; render(); window.scrollTo(0, 0); return true;
@@ -116334,6 +116656,8 @@ const AUTOPILOT = (() => {
   const tipText = el => {
     if (el.dataset && el.dataset.why) return {why: el.dataset.why};
     if (el.dataset && el.dataset.tip) return el.dataset.tip;
+    // the companion speaks for itself: its long screen-reader label isn't shown as a hover message
+    if (el.closest && el.closest(".cp, [data-notip]")) return "";
     // icon-only: no visible letters or digits (an icon, or a sign like − or ×)
     if (!el.matches("button,a[href],[role=button],[role=tab]") || /[\p{L}\p{N}]/u.test(el.innerText || "")) return "";
     return (el.getAttribute("aria-label") || "").trim();
@@ -117033,7 +117357,7 @@ function bootStuck(){
   const info = `Studyboard ${(window.studiosoDesktop && window.studiosoDesktop.version) || ""} ${navigator.userAgent}\n${bootErr || "Starting up didn't finish."}`;
   const box = document.createElement("div"); box.id = "bootFail"; box.setAttribute("role", "alert");
   box.style.cssText = "position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(10,20,40,.55);font:15px/1.45 system-ui,sans-serif";
-  box.innerHTML = `<div style="max-width:520px;width:100%;background:#fff;color:#1d2433;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35)"><h2 style="margin:0 0 8px;font-size:20px">Studyboard didn't finish starting</h2><p style="margin:0 0 12px">Your data is safe. Try again, and if this keeps happening, copy the details and send them to support@studyboardapp.com.</p><pre style="max-height:160px;overflow:auto;background:#f2f4f8;border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap;margin:0 0 14px"></pre><div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" data-b="copy" style="padding:9px 16px;border-radius:999px;border:1px solid #c9d1e0;background:#fff;font:inherit;cursor:pointer">Copy Details</button><button type="button" data-b="again" style="padding:9px 16px;border-radius:999px;border:0;background:#1d5fd1;color:#fff;font:inherit;font-weight:600;cursor:pointer">Try Again</button></div></div>`;
+  box.innerHTML = `<div style="max-width:520px;width:100%;background:#fff;color:#1d2433;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35)"><h2 style="margin:0 0 8px;font-size:20px">Studyboard Didn't Finish Starting</h2><p style="margin:0 0 12px">Your data is safe. Try again, and if this keeps happening, copy the details and send them to support@studyboardapp.com.</p><pre style="max-height:160px;overflow:auto;background:#f2f4f8;border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap;margin:0 0 14px"></pre><div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" data-b="copy" style="padding:9px 16px;border-radius:999px;border:1px solid #c9d1e0;background:#fff;font:inherit;cursor:pointer">Copy Details</button><button type="button" data-b="again" style="padding:9px 16px;border-radius:999px;border:0;background:#1d5fd1;color:#fff;font:inherit;font-weight:600;cursor:pointer">Try Again</button></div></div>`;
   box.querySelector("pre").textContent = info;
   box.querySelector('[data-b="copy"]').onclick = ev => { try { navigator.clipboard.writeText(info); ev.target.textContent = "Copied"; } catch (e) {} };
   box.querySelector('[data-b="again"]').onclick = () => location.reload();

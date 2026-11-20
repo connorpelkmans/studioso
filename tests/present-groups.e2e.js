@@ -41,7 +41,7 @@ const FAKE = me => {
     then(res, rej){ return window.__db(JSON.stringify(q)).then(x => JSON.parse(x)).then(res, rej); }}; return o; };
   window.__fakeCli = {from: B, storage: {from: () => ({upload: async () => ({error: {message: "SB_GROUP_PRO: uploads need a Pro group"}})})}};
   window.__installFake = () => Object.assign(window.SBGROUPS.share, {online: () => true, cli: () => window.__fakeCli, myId: () => window.__me, myName: () => ({u1: "Maya", u2: "Sam"})[window.__me],
-    loadMembers: async () => true, members: () => [{id: "u1", name: "Maya", color: "#E07A2E"}, {id: "u2", name: "Sam", color: "#1E9E74"}], avatar: () => "", matchCourse: () => "c1"});
+    loadMembers: async () => true, members: () => [{id: "u1", name: "Maya", color: "#E07A2E"}, {id: "u2", name: "Sam", color: "#1E9E74"}].concat(window.__priya ? [{id: "u3", name: "Priya", color: "#2F6FE4"}] : []), avatar: () => "", matchCourse: () => "c1"});
 };
 (async () => {
   await new Promise(r => server.listen(0, "127.0.0.1", r));
@@ -84,7 +84,7 @@ const FAKE = me => {
   ok(pres && pres.data.sp.length === 2 && pres.data.by.length === 6 && pres.data.sp[0].id === "u1" && pres.data.secret, "the group gets the presentation with two speakers and who presents each slide");
   ok(pres && pres.data.taskTitle === "Final Presentation" && pres.data.due === iso(2), "the shared presentation carries the task and its due date");
   ok(pres && pres.data.path === "", "the slides weren't uploaded: this stand-in server says the group needs the newest SQL");
-  ok(/The team/.test(await A.textContent("#prStage .pr-ready")), "the Ready card shows the team");
+  ok(/The Team/.test(await A.textContent("#prStage .pr-ready")), "the Ready card shows the team");
   // the owner's plan change reaches the group
   await A.click('[data-act="pr-plan"]'); await A.waitForSelector(".pr-plan-list .pr-pl"); await A.click('[data-act="pr-slide-t"][data-i="0"][data-d="15"]'); await A.waitForTimeout(2200);
   ok(DB.items.find(i => i.kind === "pres").data.plan.custom && DB.items.find(i => i.kind === "pres").data.plan.custom[0] === 75, "changing the plan updates the group's copy");
@@ -93,6 +93,7 @@ const FAKE = me => {
   // 3: Maya practices: her own slides' time against her target goes to the group
   await A.click('#prStage [data-act="pr-play"]'); await A.waitForTimeout(1200);
   for (let k = 0; k < 2; k++) { await A.keyboard.press("ArrowRight"); await A.waitForTimeout(600); }
+  await A.click('#prStage .pr-th[data-i="5"]'); await A.waitForTimeout(300);
   await A.click('#prStage [data-act="pr-end"]'); await A.waitForTimeout(1500);
   const run1 = DB.items.find(i => i.kind === "presrun" && i.user_id === "u1");
   ok(run1 && run1.data.b === 195000 && run1.data.t > 1000, "Maya's practice of her part goes to the group: " + (run1 && JSON.stringify(run1.data)));
@@ -133,6 +134,7 @@ const FAKE = me => {
   ok(await Bp.evaluate(() => window.SBPRESENT.px.stage().i) === 1, "and his own follows");
   await Bp.screenshot({path: OUT + "-follow.png"});
   await A.keyboard.press("ArrowRight"); await A.waitForTimeout(1200);
+  await A.click('#prStage .pr-th[data-i="5"]'); await A.waitForTimeout(800);
   await A.click('#prStage [data-act="pr-end"]'); await A.waitForTimeout(3500);
   const bRuns = await Bp.evaluate(() => (window.SBPRESENT.list()[0].runs || []).map(r => ({live: r.live, ledBy: r.ledBy, n: r.times.length})));
   ok(bRuns.length === 1 && bRuns[0].live && bRuns[0].ledBy === "Maya", "Sam gets the run in his history: " + JSON.stringify(bRuns));
@@ -152,6 +154,19 @@ const FAKE = me => {
   await A.waitForSelector(".prg-pick-i");
   ok(/already shared here/.test(await A.textContent(".prg-pick")), "Share a Presentation lists yours, marking the one already shared");
   await A.evaluate(() => document.querySelector("dialog[open]").close());
+  // someone joins the group after it was shared: the team shows them, and the sharer can make them a speaker
+  await A.evaluate(() => { window.__priya = true; const st = document.getElementById("prStage"); if (st) st.remove(); if (document.querySelector("dialog[open]")) document.querySelector("dialog[open]").close(); const x = window.SBPRESENT.list().find(q => q.share); window.SBPRESENT.open(x.id); });
+  await A.waitForSelector("#prStage .prg-team", {timeout: 15000}); await A.waitForTimeout(400);
+  ok(/Priya/.test(await A.textContent("#prStage .prg-team")) && await A.locator('#prStage .prg-ns [data-act="prg-sp-mem"]').count() === 1, "a member who joined later shows in the team, with Add as Speaker");
+  await A.screenshot({path: OUT + "-joined.png"});
+  await A.click('#prStage .prg-ns [data-act="prg-sp-mem"]'); await A.waitForTimeout(2300);
+  const sp3 = DB.items.find(i => i.kind === "pres").data.sp.map(x => x.name).join();
+  ok(sp3 === "Maya,Sam,Priya", "they're a speaker now, and the group's plan has them: " + sp3);
+  await A.click('#prStage [data-act="pr-plan"]'); await A.waitForSelector(".pr-plan-grp"); await A.click('[data-act="pr-sp-add"]'); await A.waitForSelector("dialog[open] .prg-pick-i", {timeout: 5000});
+  const pick = await A.textContent("dialog[open]");
+  ok(/already a speaker/.test(pick) && /An Extra Speaker/.test(pick), "Add a Speaker asks: someone in the group, or an extra speaker");
+  await A.click('dialog[open] [data-act="prg-sp-extra"]'); await A.waitForTimeout(400);
+  ok(await A.evaluate(() => window.SBPRESENT.list().find(q => q.share).group.sp.length) === 4, "an extra speaker can still be added");
   // the task sheet links to its presentation
   const th = await A.evaluate(() => window.SBPRESENT.taskHtml(window.__sbSync.state.tasks.t1));
   ok(/Teen Sleep Talk/.test(th) && /pr-practice/.test(th) && /shared with Sleep Project/.test(th), "the task sheet links to its presentation");

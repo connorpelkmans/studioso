@@ -285,7 +285,7 @@ async function capProcess(rows, d){
   }
   function html(){
     const signed = ready() || (typeof sbActive === "function" && sbActive());
-    if (!signed) return siriBox(false) + `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign in</button>`;
+    if (!signed) return siriBox(false) + `<p style="margin:0">Sign in first. Voice capture drops tasks into your account's inbox, so it needs an account.</p><button type="button" class="btn primary" data-capx="signin">Sign In</button>`;
     if (S.missing) return `<p class="capv-warn mini" style="margin:0">${esc(srvSetup("Voice capture", "supabase-capture.sql"))}</p>`;
     const toks = (S.tokens || []).filter(t => !t.revoked_at), url = endpoint();
     return siriBox(true) + `

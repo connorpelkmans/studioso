@@ -2411,19 +2411,23 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .av-chip:hover,.av-chip:focus-visible{border-color:var(--accent)}
 .pr-slot{grid-area:slot;font-size:.84rem;color:var(--muted);padding:0 0 4px;min-width:0;overflow-wrap:anywhere}
 .pr-slot b,.nu-slot b{color:var(--ink);font-weight:600}
-.av-form fieldset{border:1px solid var(--line);border-radius:10px;padding:8px 12px 12px;margin:10px 0 0;min-width:0;min-inline-size:0}
+.av-form .two{align-items:start;row-gap:14px}
+.av-form label.f{align-content:start}
+.av-form label.f input:not([type=checkbox]):not([type=radio]),.av-form label.f select{box-sizing:border-box;height:44px}
+.av-form fieldset{border:1px solid var(--line);border-radius:10px;padding:6px 12px 10px;margin:4px 0 0;min-width:0;min-inline-size:0}
 .av-form legend{padding:0 6px}
 .av-form .seg span{padding:11px 4px}
 .av-form .meet-days{gap:6px;flex-wrap:wrap}
 .av-form .meet-days button{min-height:40px;min-width:40px;width:auto;padding:0 8px}
 .av-form input[type=color]{width:100%;min-height:44px;padding:3px;border-radius:10px}
 .av-form textarea{min-height:60px}
-.av-list{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px}
+.av-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .av-row{display:grid;gap:6px;padding:8px 10px;border:1px solid var(--line);border-left:6px solid var(--c);border-radius:10px;min-width:0}
 .av-dot{display:none}
 .av-rt{min-width:0;overflow-wrap:anywhere}
 .av-ra{display:flex;gap:6px;flex-wrap:wrap}
-.av-none{padding:8px 0}
+.av-none{padding:0;margin:0}
+.av-form > .sheet-body{gap:10px}
 .av-rrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}
 .av-cal{margin-top:8px}
 .av-cal-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
@@ -2649,3 +2653,42 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .note.note-dark .note-empty{color:rgba(255,255,255,.75)}
 .dci-badge{background:linear-gradient(135deg,#5865F2,color-mix(in srgb,#5865F2 60%,var(--accent)))}
 .dci .btn.dci-join{background:#5865F2;border-color:transparent;color:#fff}
+/* a PRO badge inside a segmented tab: small enough to sit beside the label */
+.segb .cs-pro{font-size:.58rem;padding:1px 5px;margin-left:5px;vertical-align:1px;line-height:1.3}
+/* Calendar Sync's tabs on a phone: shorter words, so all four fit */
+@media (max-width:520px){.cs-tabs .cs-long{display:none}.cs-sheet .cs-tabs.segb button{padding-left:7px;padding-right:7px}}
+/* Add Shift or Work: the title takes the row, the color is a small round swatch beside it; steady spacing in When */
+.av-form .av-tc{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end}
+.av-form .av-col{justify-items:center}
+.av-form .av-tc label.f.av-col input[type=color]{width:36px;height:36px;min-height:0;margin-bottom:4px;padding:0;border:0;border-radius:50%;overflow:hidden;cursor:pointer;background:none;box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--line);-webkit-appearance:none;appearance:none}
+.av-form .av-col input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+.av-form .av-col input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+.av-form .av-col input[type=color]::-moz-color-swatch{border:0;border-radius:50%}
+.av-form .av-col input[type=color]:focus-visible{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent);outline:none}
+.av-form .av-pane{display:grid;gap:14px}
+.av-form .av-pane .meet-days{margin:4px 0 0}
+.av-form .av-pane .two{margin:0}
+.av-form .av-pane[hidden]{display:none}
+/* Scrollbars inside popups: thin, no arrow buttons, a soft thumb on a clear track, so they never sit as a grey bar over a coloured header or button */
+dialog,dialog *{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--ink) 24%,transparent) transparent}
+dialog .sheet-body{scrollbar-gutter:auto}
+/* Add Shift or Work: even rhythm inside each section, seven equal day buttons that never wrap */
+.av-form .av-when,.av-form .av-time{display:grid;gap:14px;padding:12px 14px 16px}
+.av-form .av-time .two{margin:0}
+.av-form .av-time .mi-check{margin:0}
+.av-form .av-ovn{margin:-6px 0 0}
+.av-form .av-ovn:empty{display:none}
+.av-form .av-when .meet-days,.av-form .av-pane .meet-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin:0;max-width:420px}
+.av-form .meet-days button{min-width:0;width:auto;padding:0}
+.av-form .av-when .seg label{white-space:nowrap}
+.av-form .av-tc{margin-top:2px}
+.cs-short-p{display:none}
+@media (max-width:520px){.cs-long-p{display:none}.cs-short-p{display:block}}
+.deck-archived .da-btns{display:flex;gap:6px;flex:none;margin-left:auto}
+/* Option menus in pop-ups (Review, Grade Options, Share Deck...): each choice is a card, as in Share or Import */
+dialog .sheet-body > .menu-list:not(.fm-list){gap:8px}
+dialog .sheet-body > .menu-list:not(.fm-list) > :is(button,label.mi){min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;transition:border-color .15s}
+dialog .sheet-body > .menu-list:not(.fm-list) > button:not(:disabled):is(:hover,:focus-visible){border-color:var(--accent)}
+dialog .sheet-body > .menu-list:not(.fm-list) > button > span:first-of-type{font-weight:700}
+dialog .sheet-body > .menu-list:not(.fm-list) > button .sub{margin-top:2px}
+dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;cursor:default}

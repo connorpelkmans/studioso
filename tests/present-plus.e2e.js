@@ -102,7 +102,8 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   await p.screenshot({path: OUT + "-remote.png"});
   const ph = await ctx.newPage(); await ph.setViewportSize({width: 390, height: 844});
   await ph.goto("http://127.0.0.1:" + port + "/present-remote.html#bad");
-  ok(/scanning the QR code/.test(await ph.textContent("#msg")), "the phone page explains itself without a code");
+  await ph.waitForSelector("#join:not([hidden])", {timeout: 5000}).catch(() => {});
+  ok(/isn't complete/.test(await ph.textContent("#jerr")) && await ph.locator("#jcode").count() === 1, "the phone page asks for a code when the link is broken");
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   console.log("present-plus.e2e: done" + (process.exitCode ? " with failures" : ", all passed"));
   await b.close(); server.close();

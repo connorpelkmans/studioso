@@ -4,7 +4,7 @@
 
 /* ---------- cards: a fan of slides with the first slide's title on top ---------- */
 /* the card: a slide on a small projector screen, and a strip with a piece per slide (its target; its colour from the last run) */
-.pr-scr{position:absolute;left:0;right:0;margin:0 auto;bottom:21px;width:40%;max-width:150px;display:flex;flex-direction:column;align-items:center;transition:bottom .3s cubic-bezier(.2,.8,.2,1)}
+.pr-scr{position:absolute;left:0;right:0;margin:0 auto;bottom:21px;width:40%;max-width:150px;display:flex;flex-direction:column;align-items:center}
 .pr-rod{width:112%;height:7px;border-radius:4px;background:linear-gradient(#4A556B,#2B3448);box-shadow:0 2px 4px rgb(0 0 0/.18);position:relative;z-index:1}
 .pr-pane{width:100%;aspect-ratio:16/9;margin-top:-2px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:5px;padding:8px 11px;border-radius:0 0 7px 7px;background:#fff;border-top:4px solid var(--c);color:#1D2433;text-align:start;box-shadow:0 10px 20px rgb(0 0 0/.14)}
 .pr-pane b{font:700 .7rem/1.2 var(--display);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -16,9 +16,6 @@
 .pr-tl{position:absolute;left:14px;right:74px;bottom:7px;height:6px;display:flex;gap:2px;border-radius:3px;overflow:hidden}
 .pr-tl i{flex:1 1 0;min-width:2px;background:color-mix(in srgb,var(--ink) 14%,transparent)}
 .pr-tl i.t-ok{background:#2E9E6B}.pr-tl i.t-warn{background:#E8A33A}.pr-tl i.t-over{background:#E0565B}
-.rv-pres:hover .pr-scr{bottom:25px}
-@media (prefers-reduced-motion:reduce){.pr-scr{transition:none}.rv-pres:hover .pr-scr{bottom:21px}}
-html[data-motion="static"] .rv-pres:hover .pr-scr{bottom:21px}
 .pr-stamp.good{border-color:var(--leaf,#2E9E5B);color:color-mix(in srgb,var(--leaf,#2E9E5B) 85%,var(--ink))}
 .pr-stamp{font-size:.74rem}
 @media (prefers-reduced-motion:reduce){.pr-peek .pr-sh{transition:none}.rv-pres:hover .pr-sh.s1{transform:translateY(11px)}.rv-pres:hover .pr-sh.s2{transform:translate(12px,15px) rotate(4deg)}.rv-pres:hover .pr-sh.s3{transform:translate(-14px,17px) rotate(-6deg)}}
@@ -114,8 +111,8 @@ p.pr-wait{flex-direction:row}
 .pr-tog>span>b{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .pr-tog em{font-style:normal;font-size:.76rem;color:#9AA7C2}
 .pr-tog input{width:20px;height:20px;accent-color:var(--pc,var(--pc,var(--accent,#7A4FD6)));flex:none}
-.pr-play{align-self:center;flex:none;width:84px;height:84px;min-width:84px;min-height:84px;aspect-ratio:1;padding:0;box-sizing:border-box;margin-top:4px;border-radius:50%;border:0;background:var(--pc,var(--accent,#7A4FD6));color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 12px 28px color-mix(in srgb,var(--pc,var(--accent,#7A4FD6)) 50%,transparent)}
-.pr-play svg{display:block;margin-left:-1px}
+.pr-play{align-self:center;flex:none;width:64px;height:64px;min-width:64px;min-height:64px;aspect-ratio:1;padding:0;box-sizing:border-box;margin-top:4px;border-radius:50%;border:0;background:var(--pc,var(--accent,#7A4FD6));color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 12px 28px color-mix(in srgb,var(--pc,var(--accent,#7A4FD6)) 50%,transparent)}
+.pr-play svg{display:block;margin-left:-1px;width:24px;height:24px}
 @media (max-width:700px){
   .pr-stage{padding-left:12px;padding-right:12px;gap:10px}
   .pr-nav{display:none}
@@ -139,7 +136,7 @@ p.pr-wait{flex-direction:row}
 .pr-rtitle b{font:700 1.7rem var(--display)}
 .pr-rtitle b span{font-size:1.05rem;font-weight:600;color:var(--muted)}
 .pr-chip{padding:7px 14px;border-radius:999px;font:700 .85rem var(--display)}
-.pr-chip.c-ok{background:#E3F5EA;color:#1D6B3D}.pr-chip.c-warn{background:#FFF3D6;color:#8A5A00}.pr-chip.c-over{background:#FDE7E5;color:#B42318}
+.pr-chip.c-ok{background:#E3F5EA;color:#1D6B3D}.pr-chip.c-warn{background:#FFF3D6;color:#8A5A00}.pr-chip.c-over{background:#FDE7E5;color:#B42318}.pr-chip.c-early{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
 .pr-runsel select{height:40px;border-radius:999px;padding:0 12px}
 .pr-rbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:start}
 .pr-rbars,.pr-rdetail{border-radius:18px;background:var(--surface);border:1px solid var(--line);padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -315,7 +312,7 @@ button.pr-stat{cursor:pointer}
 .pr-linknote{margin:0;padding:8px 12px;border-radius:12px;background:var(--field);font-size:.88rem}
 .prg-badge{position:absolute;top:8px;left:8px;z-index:3;max-width:calc(100% - 16px);padding:3px 9px;border-radius:999px;background:rgba(16,23,42,.78);color:#fff;font-size:.72rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .prg-badge.live{background:#D93A42}
-.prg-cbadge{top:auto;bottom:8px;width:28px;height:28px;padding:0;display:grid;place-items:center;border-radius:50%;background:rgba(16,23,42,.7)}
+.prg-cbadge{top:auto;bottom:21px;width:28px;height:28px;padding:0;display:grid;place-items:center;border-radius:50%;background:rgba(16,23,42,.7)}
 .prg-cbadge svg{width:16px;height:16px}
 .prg-cbadge.live{box-shadow:0 0 0 0 rgba(217,58,66,.5);animation:prgRing 1.8s ease-out infinite}
 @keyframes prgRing{70%{box-shadow:0 0 0 7px rgba(217,58,66,0)}100%{box-shadow:0 0 0 0 rgba(217,58,66,0)}}
@@ -431,11 +428,11 @@ button.pr-stat{cursor:pointer}
 
 /* the course's colour on the main buttons (set by courseTint: --pc, and --pc-ink for the text) */
 .pr-stage{--pc:var(--accent,#7A4FD6);--pc-ink:var(--accent-ink,#fff);--pc-grad:linear-gradient(135deg,color-mix(in srgb,var(--pc) 78%,#fff) 0%,var(--pc) 48%,color-mix(in srgb,var(--pc) 74%,#000) 100%)}
-.pr-stage .pr-hero,.pr-stage .pr-hero.btn{background:var(--pc-grad);color:var(--pc-ink);border-color:transparent;box-shadow:0 8px 22px color-mix(in srgb,var(--pc) 40%,transparent)}
+.pr-stage .pr-hero,.pr-stage .pr-hero.btn{background:var(--pc-grad) border-box no-repeat;color:var(--pc-ink);border-color:transparent;box-shadow:0 8px 22px color-mix(in srgb,var(--pc) 40%,transparent)}
 .pr-stage .pr-hero:hover{filter:brightness(1.07)}
 .pr-stage .pr-hero:focus-visible{outline:3px solid color-mix(in srgb,var(--pc) 60%,#fff);outline-offset:2px}
 .pr-stage .pr-hero svg{color:currentColor}
-.pr-stage .pr-play,.pr-stage .pr-nav-next{background:var(--pc-grad);color:var(--pc-ink);box-shadow:0 12px 28px color-mix(in srgb,var(--pc) 50%,transparent)}
+.pr-stage .pr-play,.pr-stage .pr-nav-next{background:var(--pc-grad) border-box no-repeat;color:var(--pc-ink);box-shadow:0 12px 28px color-mix(in srgb,var(--pc) 50%,transparent)}
 .pr-pl-tv{flex:none;padding:2px 4px;min-width:3.6ch;text-align:center}
 .pr-pl-tv .pr-tgt-in{width:4.8ch!important;font-size:.95rem!important}
 
@@ -455,3 +452,32 @@ button.pr-stat{cursor:pointer}
 .prg-pick-i:hover,.prg-pick-i:focus-visible{border-color:var(--accent)}
 .prg-ggrid{margin-top:2px}
 .prg-gcard .prg-chips{margin:-2px 0 0}
+/* shorter screens: the Ready card's rows sit a little closer, so it all fits without scrolling */
+@media (max-height:780px){.pr-card{gap:8px;padding-top:14px;padding-bottom:14px}.pr-tog{padding:7px 12px}.pr-card-h{font-size:1.1rem}.pr-tgt-v{font-size:1.6rem}.pr-step{width:38px;height:38px}}
+/* the phone remote panel sits on the dark stage: its buttons are light text on a see-through fill */
+.pr-rm-card .btn{background:rgba(255,255,255,.1);color:#EEF2FA;border-color:rgba(255,255,255,.22)}
+.pr-rm-card .btn:hover{background:rgba(255,255,255,.18)}
+.pr-rm-card .btn.pr-rm-off{color:#FFB3B3;border-color:rgba(255,107,107,.45)}
+.pr-rm-card .btn.pr-rm-off:hover{background:rgba(255,107,107,.16)}
+.pr-rm-ok{font-size:.92rem;line-height:1.35;align-items:flex-start}
+.pr-rm-ok svg{flex:none;width:18px;height:18px;margin-top:1px}
+/* the card is always drawn as one layer, so its lift on hover never redraws the slide's text at a different sharpness */
+.rv-pres{will-change:translate}
+/* play is always in view: it (and its hint) stays pinned to the bottom of the Ready card, and anything that doesn't fit scrolls behind it */
+.pr-card-go{position:sticky;bottom:-22px;z-index:2;margin:0 -22px -22px;padding:10px 22px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;background:linear-gradient(to bottom,transparent,#1A2340 18px);border-radius:0 0 20px 20px}
+.pr-card-go .pr-play{margin-top:0}
+@media (max-height:780px){.pr-card-go{bottom:-14px;margin-bottom:-14px;padding-bottom:12px}}
+/* narrow screens: the whole Ready panel scrolls (not the card), so play pins to the bottom of the screen */
+@media (max-width:860px){.pr-card{overflow:visible}.pr-card-go{bottom:-20px}}
+.prg-team li.prg-ns{border-left-style:dashed;border-left-color:color-mix(in srgb,currentColor 25%,transparent);opacity:.92}
+.prg-ns-add{padding:4px 10px;font-size:.76rem;min-height:0;flex:none}
+.pr-card .prg-ns-add{background:rgba(255,255,255,.1);color:#EEF2FA;border-color:rgba(255,255,255,.22)}
+.prg-pick-m{display:flex;align-items:center;gap:10px;grid-template-columns:none}
+.prg-pick-m>span{display:grid;gap:2px}
+/* Rehearse With a Friend: the code to send, big and easy to read out */
+.pr-fr-card{width:300px}
+.pr-fr-code{font:800 2rem/1 var(--display);letter-spacing:.14em;color:#EEF2FA;padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.25);font-variant-numeric:tabular-nums}
+.pr-fr-code span{margin-left:.4em}
+.pr-fr-acts{display:flex;gap:8px}
+.pr-fr-qr{width:auto;display:grid;place-items:center;align-self:center;line-height:0}
+.pr-fr-qr svg{width:140px;height:140px}

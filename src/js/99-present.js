@@ -83,7 +83,13 @@
     if (d.texts) return d.texts;
     if (d.kind === "pptx") {
       const div = document.createElement("div");
-      d.texts = d.res.pages.map(pg => { div.innerHTML = pg.html; div.querySelectorAll("img,svg,style").forEach(x => x.remove()); return String(div.textContent || "").replace(/\s+/g, " ").trim().slice(0, 1500); });
+      // each paragraph on its own (two spaces between them), so words from separate text boxes never run together
+      d.texts = d.res.pages.map(pg => { div.innerHTML = pg.html; div.querySelectorAll("img,svg,style").forEach(x => x.remove());
+        // the slide's title goes first: its biggest text (a title is set larger than the rest)
+        const ps = [...div.querySelectorAll(".ofc-p")].map(p => { const t = String(p.textContent || "").replace(/\s+/g, " ").trim(); let sz = parseFloat(p.style.fontSize) || 0; p.querySelectorAll("span[style]").forEach(r => { sz = Math.max(sz, parseFloat(r.style.fontSize) || 0); }); return {t, sz}; }).filter(x => x.t);
+        if (!ps.length) return String(div.textContent || "").replace(/\s+/g, " ").trim().slice(0, 1500);
+        const top = ps.reduce((m, x) => x.sz > m.sz + 0.5 ? x : m, ps[0]);
+        return [top.t].concat(ps.filter(x => x !== top).map(x => x.t)).join("  ").slice(0, 1500); });
     } else {
       const pt = await pageTexts(d);
       d.texts = d.pg ? d.pg.map((s0, i) => pt[s0 + d.pc[i] - 1] || "") : pt.slice(0, d.n);
@@ -198,8 +204,18 @@
   async function pageTexts(d){
     if (d.ptexts) return d.ptexts;
     const out = [], n = d.np || d.n;
-    for (let i = 1; i <= Math.min(n, 300); i++) { try { const tc = await (await d.doc.getPage(i)).getTextContent(); out.push(tc.items.map(x => x.str || "").join(" ").replace(/\s+/g, " ").trim().slice(0, 1500)); } catch (e) { out.push(""); } }
+    for (let i = 1; i <= Math.min(n, 300); i++) { try { const tc = await (await d.doc.getPage(i)).getTextContent(); out.push(pdfPageText(tc.items)); } catch (e) { out.push(""); } }
     return (d.ptexts = out);
+  }
+  // a PDF page's words, title first: the run of text in the page's largest type (lines joined, then the rest)
+  function pdfPageText(items){
+    const it = (items || []).filter(x => x && typeof x.str === "string"), sz = x => Math.round(Math.abs((x.transform && (x.transform[3] || x.transform[0])) || x.height || 0) * 2) / 2;
+    const all = it.map(x => x.str + (x.hasEOL ? "\n" : " ")).join("").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "  ").trim();
+    const max = it.reduce((m, x) => x.str.trim() ? Math.max(m, sz(x)) : m, 0); if (!max) return all.slice(0, 1500);
+    let s = -1, e = -1; it.forEach((x, k) => { if (!x.str.trim()) return; if (sz(x) >= max - 0.5) { if (s < 0) s = k; if (e === -1 || e === k - 1 || it.slice(e + 1, k).every(y => !y.str.trim())) e = k; } });
+    const title = s < 0 ? "" : it.slice(s, e + 1).map(x => x.str).join(" ").replace(/\s+/g, " ").trim();
+    const rest = all.replace(title, "").replace(/\s{3,}/g, "  ").trim();
+    return (title ? title + (rest ? "  " + rest : "") : all).slice(0, 1500);
   }
   async function pdfBuilds(d){
     const pt = await pageTexts(d); if (pt.length < 2 || pt.length < (d.np || d.n)) return null;
@@ -347,7 +363,7 @@
         <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
-        <span class="rv-count">${g ? `${g.sp.length} speakers · ` : ""}${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
+        <span class="rv-count">${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
         ${fire("pr-card-badge", p).filter(Boolean).join("")}
         <span class="rv-stamp pr-stamp${best == null ? " new" : good ? " good" : ""}" aria-hidden="true">${stamp}</span>
       </button>
@@ -368,7 +384,7 @@
   function listHtml(){
     const f = ui.filter && ui.filter !== "all" ? ui.filter : "", q = String(ui.q || "").trim().toLowerCase();
     const list = LIST.filter(p => !f || p.courseId === f).filter(p => !q || [p.name, p.title, (courseOf(p.courseId) || {}).name].join(" ").toLowerCase().includes(q)).sort((a, b) => (b.updated || 0) - (a.updated || 0));
-    const head = `<div class="view-head" data-pr-list><h2>Presentations</h2></div>${typeof chipsHtml === "function" ? chipsHtml() : ""}`;
+    const head = `<div class="view-head" data-pr-list><h2>Presentations</h2><button class="btn small sm-btn" data-act="pr-join-code" title="Join a friend's rehearsal with the code they sent">${IC.users}<span class="sm-lbl">Join With a Code</span></button></div>${typeof chipsHtml === "function" ? chipsHtml() : ""}`;
     if (!LOADED) return head;
     const extra = fire("pr-list-extra").filter(Boolean).join("");
     if (!list.length) return head + extra + `<div class="empty${LIST.length ? "" : " sb-es"}" style="margin-top:14px">${LIST.length ? "" : emptyArt("present")}<strong>${LIST.length ? "No Presentations Match" : "No Presentations Yet"}</strong>${LIST.length ? "Try another course or search." : "Add your slides and set a target time. Studyboard times each slide as you practice, and can record you so you can listen back and read what you said."}${LIST.length ? "" : `<div class="row-actions" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="pr-new">Practice a Presentation</button></div>`}</div>`;
@@ -400,7 +416,7 @@
           <label class="pr-srcb">${IC.upload}<b>Upload</b><span>PowerPoint or PDF</span><input type="file" id="prFile" accept=".pptx,.ppsx,.pptm,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" class="sr"></label>
           <button type="button" class="pr-srcb" data-act="pr-gslides">${IC.gslides}<b>Google Slides</b><span>${canG ? "Pick from your Drive" : "Connect Google Drive first"}</span></button>
           <button type="button" class="pr-srcb${A.canva ? " on" : ""}" data-act="pr-canva" aria-expanded="${!!A.canva}">${IC.canva}<b>Canva</b><span>Your designs</span></button>
-          <label class="pr-srcb">${IC.folder}<b>From a course</b><span>${files.length ? `${files.length} slide file${files.length === 1 ? "" : "s"}` : "No slide files yet"}</span><select id="prCF" ${files.length ? "" : "disabled"} aria-label="A slides file from your courses"><option value="">Choose…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(fileNameOf(f))}</option>`).join("")}</select></label>
+          <label class="pr-srcb">${IC.folder}<b>From a Course</b><span>${files.length ? `${files.length} slide file${files.length === 1 ? "" : "s"}` : "No slide files yet"}</span><select id="prCF" ${files.length ? "" : "disabled"} aria-label="A slides file from your courses"><option value="">Choose…</option>${files.map(f => `<option value="${esc(f.id)}">${esc(fileNameOf(f))}</option>`).join("")}</select></label>
         </div>
         ${A.canva ? canvaHtml(A) : canG ? "" : `<p class="mini">To use Google Slides, connect Google Drive in Settings, Files and Cloud.</p>`}
         ${busy}${err}${picked}
@@ -702,7 +718,8 @@
   function courseTint(el, cid){
     const c = courseOf(cid), hex = c && /^#[0-9A-F]{6}$/i.test(c.color || "") ? c.color : "";
     // no course (General): the theme's own accent and the text colour it pairs with
-    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); return; }
+    if (!hex) { el.style.setProperty("--pc", "var(--accent,#7A4FD6)"); el.style.setProperty("--pc-ink", "var(--accent-ink,#fff)"); el.style.setProperty("--pc-grad", "var(--btn-bg,var(--accent,#7A4FD6))"); return; }
+    el.style.removeProperty("--pc-grad");
     const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
     const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     el.style.setProperty("--pc", hex);
@@ -786,10 +803,10 @@
     if (S.started) { box.hidden = true; box.innerHTML = ""; return; }
     if (S.follow) {
       box.hidden = false;
-      box.innerHTML = `<div class="pr-ready-in"><div class="pr-card" role="group" aria-label="Rehearsing together"><b class="pr-card-h">Rehearsing together</b>
+      box.innerHTML = `<div class="pr-ready-in"><div class="pr-card" role="group" aria-label="Rehearsing together"><b class="pr-card-h">Rehearsing Together</b>
         <p class="pr-card-sub">${esc(S.follow.host || "Someone in your group")} is leading. The slides and the clock follow them, and you can move the slides when it's your turn.</p>
         <p class="pr-card-note mini" id="prFollowState">${S.fSeen ? "Waiting for the rehearsal to start…" : "Connecting…"}</p>
-        <button type="button" class="pr-play" data-act="pr-play" aria-label="Start the rehearsal for everyone">${IC.play}</button><span class="pr-card-sub">Anyone can start it.</span></div></div>`;
+        <div class="pr-card-go"><button type="button" class="pr-play" data-act="pr-play" aria-label="Start the rehearsal for everyone">${IC.play}</button><span class="pr-card-sub">Anyone can start it.</span></div></div></div>`;
       return;
     }
     const p = S.p, lk = locked(), canRec = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof window.MediaRecorder === "function");
@@ -797,22 +814,23 @@
     box.hidden = false;
     box.innerHTML = `<div class="pr-ready-in">
       <div class="pr-card" role="group" aria-label="Ready to practice">
-        <b class="pr-card-h">Ready when you are</b>
-        ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the whole talk instead</button>`
-          : `<div class="pr-card-row"><span>Time goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
-        <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides${g ? ` · ${g.sp.length} speakers` : ""}</span>
+        <b class="pr-card-h">Ready When You Are</b>
+        ${S.sec ? `<div class="pr-card-row"><span>Section: slides ${S.sec[0] + 1} to ${S.sec[1] + 1}</span>${stepper(S.secTgt, "pr-sectgt", "prSecT", "this section")}</div><button type="button" class="link-btn pr-card-link" data-act="pr-sec-off">Practice the Whole Talk Instead</button>`
+          : `<div class="pr-card-row"><span>Time Goal</span>${stepper(p.target, "pr-tgt", "prTgtS")}</div>`}
+        <span class="pr-card-sub">${p.split === "custom" ? "Your own time for each slide" : `Each slide: ${fmt(p.target * 1000 / S.d.n)}`} · ${S.d.n} slides</span>
         <button type="button" class="btn small pr-plan-btn pr-hero" data-act="pr-plan" aria-expanded="${S.planOpen}">${S.planOpen ? "Hide the Plan" : "Plan: Slide Times, Speakers, Sections"}</button>
-        <label class="pr-tog"><span><b>Record me${lk ? ` ${PRO_BADGE}` : ""}</b><em>Listen back, read what you said, and get feedback</em></span><input type="checkbox" id="prRecOn" ${S.rec ? "checked" : ""} ${canRec ? "" : "disabled"}></label>
-        <label class="pr-tog"><span><b>Speaker notes</b><em>${hasNotes ? "Below each slide, only for you" : "These slides have none"}</em></span><input type="checkbox" id="prNotesOn" ${S.showNotes && hasNotes ? "checked" : ""} ${hasNotes ? "" : "disabled"}></label>
-        <label class="pr-tog"><span><b>Pace nudges</b><em>A glow when a slide runs long, and a wrap-up warning</em></span><input type="checkbox" id="prNudgeOn" ${S.nudge ? "checked" : ""}></label>
-        ${S.sec ? "" : `<label class="pr-tog"><span><b>Q&amp;A after the last slide</b><em>Your companion asks 3 questions an audience might</em></span><input type="checkbox" id="prQaOn" ${S.qaOn ? "checked" : ""}></label>`}
+        <label class="pr-tog"><span><b>Record Me${lk ? ` ${PRO_BADGE}` : ""}</b><em>Listen back, read what you said, and get feedback</em></span><input type="checkbox" id="prRecOn" ${S.rec ? "checked" : ""} ${canRec ? "" : "disabled"}></label>
+        <label class="pr-tog"><span><b>Speaker Notes</b><em>${hasNotes ? "Below each slide, only for you" : "These slides have none"}</em></span><input type="checkbox" id="prNotesOn" ${S.showNotes && hasNotes ? "checked" : ""} ${hasNotes ? "" : "disabled"}></label>
+        <label class="pr-tog"><span><b>Pace Nudges</b><em>A glow when a slide runs long, and a wrap-up warning</em></span><input type="checkbox" id="prNudgeOn" ${S.nudge ? "checked" : ""}></label>
+        ${S.sec ? "" : `<label class="pr-tog"><span><b>Q&amp;A After the Last Slide</b><em>Your companion asks 3 questions an audience might</em></span><input type="checkbox" id="prQaOn" ${S.qaOn ? "checked" : ""}></label>`}
         ${fire("pr-ready-extra", p, S).filter(Boolean).join("")}
+        <button type="button" class="btn small pr-plan-btn" data-act="pr-friend">${IC.users} Rehearse With a Friend</button>
         <button type="button" class="btn small pr-plan-btn" data-act="pr-remote">${IC.phone} Use Your Phone as the Remote${lk ? ` ${PRO_BADGE}` : ""}</button>
         ${p.source === "gslides" && p.gid ? `<button type="button" class="btn small" data-act="pr-gfresh">Get Latest From Google Slides</button>` : ""}
         ${p.source === "canva" && p.cid ? `<button type="button" class="btn small" data-act="pr-cfresh">Get Latest From Canva</button>` : ""}
         ${S.note ? `<p class="mini pr-card-note">${esc(S.note)}</p>` : ""}
-        <button type="button" class="pr-play" data-act="pr-play" aria-label="Start: the clock starts now">${IC.play}</button>
-        <span class="pr-card-sub">The clock starts when you press play. Space or → for the next slide.</span>
+        <div class="pr-card-go"><button type="button" class="pr-play" data-act="pr-play" aria-label="Start: the clock starts now">${IC.play}</button>
+        <span class="pr-card-sub">The clock starts when you press play. Space or → for the next slide.</span></div>
       </div>
       <div class="pr-plan" id="prPlan" ${S.planOpen ? "" : "hidden"}></div></div>`;
     const bind = (sel, fn) => { const x = box.querySelector(sel); if (x) x.addEventListener("change", () => fn(x)); };
@@ -829,11 +847,11 @@
     const spTotals = spOn ? g.sp.map(s => ({s, t: secs.reduce((a, x, i) => a + ((spOf(p, i) || {}).id === s.id ? x : 0), 0), n: Array.from({length: d.n}, (_, i) => i).filter(i => (spOf(p, i) || {}).id === s.id).length})) : [];
     const opt = (v, sel) => Array.from({length: d.n}, (_, i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${i + 1}</option>`).join("");
     box.innerHTML = `<div class="pr-plan-h"><b>Plan</b><span class="mini">Total ${fmt(secs.reduce((a, b) => a + b, 0) * 1000)}</span>${p.split === "custom" ? `<button type="button" class="link-btn" data-act="pr-even">Make Them Even</button>` : ""}</div>
-      <div class="pr-plan-sec"><span class="mini">Practice one section</span><label><span class="sr">From slide</span><select id="prSecA">${opt(0, S.sec ? S.sec[0] : 0)}</select></label><span class="mini">to</span><label><span class="sr">To slide</span><select id="prSecB">${opt(0, S.sec ? S.sec[1] : d.n - 1)}</select></label><button type="button" class="btn small" data-act="pr-sec-on">${S.sec ? "Update Section" : "Practice These"}</button></div>
+      <div class="pr-plan-sec"><span class="mini">Practice One Section</span><label><span class="sr">From slide</span><select id="prSecA">${opt(0, S.sec ? S.sec[0] : 0)}</select></label><span class="mini">to</span><label><span class="sr">To slide</span><select id="prSecB">${opt(0, S.sec ? S.sec[1] : d.n - 1)}</select></label><button type="button" class="btn small" data-act="pr-sec-on">${S.sec ? "Update Section" : "Practice These"}</button></div>
       ${d.kind === "pdf" && (d.pc || p.pagesAuto) ? `<div class="pr-plan-pages"><span class="mini">${d.pc ? `${d.np} pages, practiced as ${d.n} slides: pages that build up a slide step by step are its clicks.` : `Every page is its own slide.`}</span><button type="button" class="link-btn" data-act="pr-pages">${d.pc ? "Show Every Page" : "Put Build-Up Pages Together"}</button></div>` : ""}
       ${vplanHtml(p, d)}
       <div class="pr-plan-grp">
-        <label class="pr-tog pr-tog-sm"><span><b>Group presentation</b><em>Give each slide a speaker</em></span><input type="checkbox" id="prGrpOn" ${g.on ? "checked" : ""}></label>
+        <label class="pr-tog pr-tog-sm"><span><b>Group Presentation</b><em>Give each slide a speaker</em></span><input type="checkbox" id="prGrpOn" ${g.on ? "checked" : ""}></label>
         ${g.on ? `<div class="pr-spks">${g.sp.map(s => `<span class="pr-spk-ed" style="--sp:${esc(s.c)}"><i></i><input value="${esc(s.name)}" data-sp="${esc(s.id)}" aria-label="Speaker name" maxlength="40"><button type="button" class="pr-x" data-act="pr-sp-rm" data-id="${esc(s.id)}" aria-label="Remove ${esc(s.name)}">×</button></span>`).join("")}${g.sp.length < 6 ? `<button type="button" class="btn small" data-act="pr-sp-add">Add a Speaker</button>` : ""}${g.sp.length > 1 ? `<button type="button" class="link-btn" data-act="pr-sp-split">Split the Slides Evenly</button>` : ""}</div>
           ${spTotals.length ? `<div class="pr-sptot">${spTotals.map(x => `<span style="--sp:${esc(x.s.c)}"><i></i><b>${esc(x.s.name)}</b> ${fmt(x.t * 1000)} · ${x.n} slide${x.n === 1 ? "" : "s"}</span>`).join("")}</div>` : ""}` : ""}
       </div>
@@ -863,7 +881,7 @@
     const kindTxt = v => v.kind === "manual" ? "added by you" : v.kind === "link" ? (/youtu/.test(v.url || "") ? "YouTube link" : /vimeo/.test(v.url || "") ? "Vimeo link" : "video link") : v.audio ? "sound in the slides" : "in the slides";
     const opt = Array.from({length: d.n}, (_, i) => `<option value="${i}">${i + 1}</option>`).join("");
     return `<div class="pr-plan-vids">${rows.length ? `<ul>${rows.map(({i, v}) => `<li>${IC.film}<span><b>Slide ${i + 1}</b> · ${esc(kindTxt(v))}</span>${v.kind === "file" && v.dur > 0 ? `<b class="pr-vlen-f">${fmt(v.dur * 1000)}</b>` : `<input class="pr-vlen" data-vid="${esc(v.id)}" value="${v.dur > 0 ? fmt(v.dur * 1000) : ""}" placeholder="m:ss" inputmode="numeric" aria-label="Length of the video on slide ${i + 1}">`}${v.kind === "manual" ? `<button type="button" class="pr-x" data-act="pr-vdel" data-id="${esc(v.id)}" aria-label="Remove the video on slide ${i + 1}">×</button>` : ""}</li>`).join("")}</ul>` : ""}
-      <details class="pr-vadd"><summary>${rows.length ? "Add another video" : "Does your talk play a video? Add it"}</summary><div class="pr-vadd-in"><label><span class="mini">Slide</span><select id="prVSlide">${opt}</select></label><label><span class="mini">Length</span><input id="prVLen" placeholder="1:30" inputmode="numeric" maxlength="8"></label><button type="button" class="btn small" data-act="pr-vadd">Add</button></div><p class="mini">During practice you can play it or skip it, and its length still counts.</p></details></div>`;
+      <details class="pr-vadd"><summary>${rows.length ? "Add Another Video" : "Does Your Talk Play a Video? Add It"}</summary><div class="pr-vadd-in"><label><span class="mini">Slide</span><select id="prVSlide">${opt}</select></label><label><span class="mini">Length</span><input id="prVLen" placeholder="1:30" inputmode="numeric" maxlength="8"></label><button type="button" class="btn small" data-act="pr-vadd">Add</button></div><p class="mini">During practice you can play it or skip it, and its length still counts.</p></details></div>`;
   }
   function refreshPlan(){ const S = STG; if (!S) return; fire("pr-plan-changed", S.p); plan(S); paintReady(); paint(); S.el.querySelectorAll(".pr-th").forEach(b => { const i = Number(b.dataset.i), sp = spOf(S.p, i); if (sp) b.style.setProperty("--sp", sp.c); else b.style.removeProperty("--sp"); }); const top = S.el.querySelector(".pr-clock span"); if (top) top.textContent = "of " + fmt(S.tgt); }
 
@@ -932,7 +950,7 @@
   }
   const buzz = pat => { try { if (navigator.vibrate) navigator.vibrate(pat); } catch (e) {} };
   let tick = 0, remTick = 0;
-  const loop = () => { clearInterval(tick); tick = setInterval(() => { if (!STG || !STG.el.isConnected) { clearInterval(tick); return; } paint(); if (++remTick % 4 === 0) remoteSend(); }, 250); };
+  const loop = () => { clearInterval(tick); tick = setInterval(() => { if (!STG || !STG.el.isConnected) { clearInterval(tick); return; } paint(); srKeep(STG); if (++remTick % 4 === 0) remoteSend(); }, 250); };
   async function play(){
     const S = STG; if (!S || S.running) return;
     if (S.follow) { liveCmd(S, "start"); return; }
@@ -1144,6 +1162,9 @@
       mr.ondataavailable = e => { if (e.data && e.data.size) S.chunks.push(e.data); };
       mr.start(1000);
       Object.assign(S, {mr, stream, recOn: true, srOn: !!SRC()});
+      // the microphone can stop partway (unplugged, or another app took it): say so, rather than recording silence
+      stream.getAudioTracks().forEach(t => t.addEventListener("ended", () => { if (STG === S && S.recOn && !S.micGone) { S.micGone = true; srStop(S); S.srOn = false; toast("The microphone stopped (it was unplugged or another app took it), so the recording ends here. Your times keep counting."); } }));
+      mr.onerror = () => { if (STG === S && !S.micGone) { S.micGone = true; toast("The recording stopped working. Your times keep counting."); } };
       if (!SRC()) toast("Recording. This browser can't make a transcript, so you'll have the audio only.");
     } catch (e) {
       S.recOn = false;
@@ -1163,10 +1184,23 @@
         else S.interim = s;
       }
     };
-    sr.onerror = e => { if (e && /not-allowed|service-not-allowed/.test(e.error)) S.srOn = false; };
-    sr.onend = () => { if (S.sr === sr) S.sr = null; if (STG === S && S.running && S.srOn) setTimeout(() => srRun(S), 150); };
-    S.sr = sr; try { sr.start(); } catch (e) { S.sr = null; }
+    // the browser's speech recognition stops by itself (a pause in speaking, about a minute of talk, a network blip): keep what it
+    // heard so far, and start it again. If it keeps failing straight away (no connection to the speech service), the
+    // transcript stops and the audio carries on.
+    sr.onerror = e => { const er = String((e && e.error) || ""); if (/not-allowed|service-not-allowed|language-not-supported/.test(er)) S.srOn = false; if (er && er !== "no-speech" && er !== "aborted") S.srErr = er; };
+    sr.onend = () => {
+      if (S.interim && STG === S) { const t0 = at == null ? clockMs(S) : at; S.tr.push({t: Math.round(t0), e: Math.round(clockMs(S)), s: S.interim}); S.interim = ""; at = null; }
+      if (S.sr === sr) S.sr = null;
+      const quick = Date.now() - S.srAt < 1500;
+      S.srFails = quick ? (S.srFails || 0) + 1 : 0;
+      if (S.srFails >= 6) { S.srOn = false; if (STG === S) toast(S.srErr === "network" ? "The transcript stopped: the speech service can't be reached. Your audio is still recording." : "The transcript stopped working. Your audio is still recording."); return; }
+      if (STG === S && S.running && S.srOn) setTimeout(() => srRun(S), quick ? 400 * S.srFails : 150);
+    };
+    S.sr = sr; S.srAt = Date.now();
+    try { sr.start(); } catch (e) { S.sr = null; }
   }
+  // a watchdog (from the clock's tick): if the transcript isn't running when it should be, start it again
+  function srKeep(S){ if (S && S.running && S.recOn && S.srOn && !S.sr && Date.now() - (S.srAt || 0) > 2500) srRun(S); }
   function srStop(S){ const sr = S.sr; S.sr = null; S.interim = ""; if (sr) try { sr.stop(); } catch (e) {} }
   function recStop(S){
     return new Promise(res => {
@@ -1180,7 +1214,12 @@
   /* ---------- finishing a run ---------- */
   async function finish(){
     const S = STG; if (!S) return;
-    if (S.follow) { stageClose(); return; }
+    // someone following leaves partway: they still see how the rehearsal went up to now (not counted)
+    if (S.follow) {
+      if (S.fGo && clockMs(S) >= 2000) { const t = slideTimes(S); clearInterval(tick); followDone(S, {total: Math.round(clockMs(S)), times: t, budgets: S.b, target: Math.round(S.tgt / 1000), seg: [], at: Date.now() - Math.round(clockMs(S)), early: true}); }
+      else stageClose();
+      return;
+    }
     if (!S.started || clockMs(S) < 2000) { liveEnd(S, null); stageClose(); return; }
     if (S.running) { S.acc = clockMs(S); S.running = false; }
     if (S.open) { S.seg.push({i: S.open.i, a: S.open.a, b: S.acc}); S.open = null; }
@@ -1191,12 +1230,21 @@
     S.el.innerHTML = `<p class="pr-wait"><span class="ai-spin" aria-hidden="true"></span>Saving your run…</p>`;
     const blob = S.recOn ? await recStop(S) : null;
     const t = Array(S.d.n).fill(0); S.seg.forEach(g => { t[g.i] += g.b - g.a; });
+    // ended early (before its last slide, or the section's): the summary still shows, but it isn't kept or counted
+    const last = S.sec ? S.sec[1] : S.d.n - 1, early = !S.qa && !S.seg.some(g => g.i === last);
     const total = S.qa ? S.qaStart : S.acc, g = grp(S.p);
     const run = {id: uid(), at: S.startedAt || Date.now(), total: Math.round(total), times: t.map(Math.round), budgets: S.b.map(Math.round), target: Math.round(S.tgt / 1000),
       seg: S.seg.map(x => [x.i, Math.round(x.a), Math.round(x.b)]), tr: S.tr, audio: false, mime: blob ? blob.type : "", sec: S.sec ? S.sec.slice() : null,
       sp: g ? {sp: g.sp.map(s => ({id: s.id, name: s.name, c: s.c})), by: (g.by || []).slice()} : null,
       qa: S.qa ? {qs: S.qa.qs.slice(), seg: S.qa.seg.map(x => [x.q, Math.round(x.a), Math.round(x.b == null ? S.acc : x.b)])} : null,
-      vskip: S.vskip.length ? S.vskip.slice(0, 100) : null};
+      vskip: S.vskip.length ? S.vskip.slice(0, 100) : null, early: early || undefined};
+    if (early) {
+      if (S.lv) run.live = true;
+      liveEnd(S, run);
+      STG = null;
+      reviewOpen(S.p.id, run.id, S.el, {run, blob});
+      return;
+    }
     if (blob) { try { await put("audio:" + run.id, blob); run.audio = true; } catch (e) { toast("There wasn't room on this device for the recording. Your times are saved.", null, null, {error: true}); } }
     if (S.lv) run.live = true;
     liveEnd(S, run);
@@ -1265,10 +1313,13 @@
   }
   function liveEnd(S, run){
     const L = S && S.lv; if (!L || !L.C || S.follow) return;
-    L.C.send("d", run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at} : {v: 1, cancelled: true});
+    const msg = run ? {v: 1, total: run.total, times: run.times, budgets: run.budgets, target: run.target, seg: run.seg, at: run.at, early: !!run.early} : {v: 1, cancelled: true};
+    // sent a few times, so a dropped message doesn't leave anyone without their summary (each follower uses the first)
+    [0, 1200, 3000].forEach(ms => setTimeout(() => { try { L.C.send("d", msg); } catch (e) {} }, ms));
+    setTimeout(() => { try { L.C.close(); } catch (e) {} }, 6000);
     fire("pr-live-end", S.p, L.meta);
   }
-  function liveClose(S){ const L = S && S.lv; if (!L) return; S.lv = null; setTimeout(() => { if (L.C) L.C.close(); }, 600); }
+  function liveClose(S){ const L = S && S.lv; if (!L) return; S.lv = null; setTimeout(() => { if (L.C) L.C.close(); }, S.follow ? 600 : 3500); }
   function liveCmd(S, cmd){ const L = S && S.lv; if (L && L.C) L.C.send("c", {cmd, who: myName()}); }
   // someone in the group follows along on their own copy of the slides
   async function follow(pid, secret, host){
@@ -1307,6 +1358,8 @@
       sp: grp(p) ? {sp: grp(p).sp.map(s2 => ({id: s2.id, name: s2.name, c: s2.c})), by: (grp(p).by || []).slice()} : null, qa: null};
     if (S.lv && S.lv.hb) clearInterval(S.lv.hb);
     liveClose(S);
+    // the leader ended early: everyone sees the summary, nobody keeps it
+    if (x.early) { run.early = true; STG = null; clearInterval(tick); wake(false); reviewOpen(p.id, run.id, S.el, {run, blob: null}); return; }
     p.runs = [run].concat(p.runs || []).slice(0, 30); p.updated = Date.now(); save();
     fire("pr-finish", p, run);
     STG = null; clearInterval(tick); wake(false);
@@ -1320,15 +1373,21 @@
   const hexOf = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("");
   async function seal(key, obj){ const iv = crypto.getRandomValues(new Uint8Array(12)); const ct = await crypto.subtle.encrypt({name: "AES-GCM", iv}, key, new TextEncoder().encode(JSON.stringify(obj))); return {iv: b64u(iv), ct: b64u(new Uint8Array(ct))}; }
   async function unseal(key, m){ try { const pt = await crypto.subtle.decrypt({name: "AES-GCM", iv: unb64u(m.iv)}, key, unb64u(m.ct)); return JSON.parse(new TextDecoder().decode(pt)); } catch (e) { return null; } }
-  async function remoteStart(){
+  // friend: rehearse with someone who isn't in a group (no account needed): a short code to type or a link, the slide itself
+  // for a PDF (its words for a PowerPoint), and anyone who joins can move the slides. Free, and several people can join.
+  const FRIEND_ABC = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const friendCode = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), x => FRIEND_ABC[x % FRIEND_ABC.length]).join("");
+  async function remoteStart(mode){
     const S = STG; if (!S) return;
-    if (locked()) { proWhy("Using your phone as a remote is part of Studyboard Pro: the clock, your notes and the next slide in your hand."); return; }
-    if (RM) { remotePanel(); return; }
-    const R = RM = {linked: false, err: "", url: ""};
+    const friend = mode === "friend";
+    if (!friend && locked()) { proWhy("Using your phone as a remote is part of Studyboard Pro: the clock, your notes and the next slide in your hand."); return; }
+    if (RM && !!RM.friend === friend) { RM.hide = false; remotePanel(); return; }
+    if (RM) remoteEnd();
+    const R = RM = {linked: false, err: "", url: "", friend, people: new Map()};
     remotePanel();
     try {
       if (!window.crypto || !crypto.subtle) throw new Error("This browser can't make a secure link.");
-      const code = b64u(crypto.getRandomValues(new Uint8Array(18))), te = new TextEncoder();
+      const code = friend ? friendCode() : b64u(crypto.getRandomValues(new Uint8Array(18))), te = new TextEncoder(); R.code = code;
       const [idH, kH] = await Promise.all([crypto.subtle.digest("SHA-256", te.encode("sb-pres-id:" + code)), crypto.subtle.digest("SHA-256", te.encode("sb-pres-key:" + code))]);
       R.topic = "sbpres-" + hexOf(idH).slice(0, 40); R.key = await crypto.subtle.importKey("raw", kH, "AES-GCM", false, ["encrypt", "decrypt"]);
       R.url = SITE() + "/present-remote.html#" + code;
@@ -1341,7 +1400,12 @@
   }
   function remoteCmd(c){
     const R = RM, S = STG; if (!R) return;
-    if (!R.linked) { R.linked = true; remotePanel(); toast("Your phone is connected"); }
+    if (R.friend) {
+      const who = String(c.who || "A friend").slice(0, 40), isNew = !R.people.has(who); R.people.set(who, Date.now());
+      if (isNew) { R.linked = true; remotePanel(); toast(`${who} joined your rehearsal`); R.imgKey = ""; }
+      if (c.cmd === "hello" || c.cmd === "hi") { remotePanel(); remoteSend(); return; }
+    }
+    else if (!R.linked) { R.linked = true; remotePanel(); toast("Your phone is connected"); }
     if (!S) return;
     if (c.cmd === "next") next(); else if (c.cmd === "prev") prev(); else if (c.cmd === "pp") { if (!S.started) play(); else if (S.running) pause(); else play(); }
     else if (c.cmd === "vskip" || c.cmd === "vplay") { const j = vidsOf(S.p, S.i).findIndex(v => !S.vdone[v.id]); if (j >= 0) { if (c.cmd === "vskip") vSkip(S, j); else vPlay(S, j); } }
@@ -1358,18 +1422,43 @@
         nt: String(S.d.notes[S.i] || "").slice(0, 1500), el: Math.round(S.qa ? S.qaStart : clockMs(S)), tg: Math.round(S.tgt), st: Math.round(t[S.i] || 0), sb: Math.round(S.b[S.i] || 0),
         run: S.running, go: S.started, pace: S.paceTxt || "", pc: S.paceCls || "", sp: sp ? sp.name : "", spc: sp ? sp.c : "", qa: S.qa ? S.qa.qs[S.qa.i] : "",
         k: S.k, kn: stepsOf(S.p, S.d, S.i)});
+      if (R.friend) { msg.fr = 1; msg.host = myName() !== "Someone" ? myName() : ""; msg.tx = String(texts[S.i] || "").split(/\s{2,}/).map(x => x.trim()).filter(Boolean).slice(0, 7).map(x => x.slice(0, 160)); friendImg(S, R); }
       const vs = vidsOf(S.p, S.i), j = vs.findIndex(v => !S.vdone[v.id]);
       if (vs.length && !S.qa) Object.assign(msg, {vd: j >= 0 ? Math.round((Number(vs[j].dur) || 0) * 1000) : 0, vs: j < 0 ? "done" : S.vp && S.vp.i === S.i ? "play" : "", vp: j >= 0 && playable(S, vs[j])});
     }
     try { R.ch.send({type: "broadcast", event: "s", payload: await seal(R.key, msg)}); } catch (e) {}
   }
+  // the current slide as a small picture for friends (a PDF's page, drawn as it shows here); a PowerPoint sends its words instead
+  async function friendImg(S, R){
+    const key = S.i + ":" + (S.d.pc ? S.k : 0); if (R.imgKey === key || S.d.kind !== "pdf" || !R.ch) return; R.imgKey = key;
+    try {
+      const box = document.createElement("div"); box.style.cssText = "position:fixed;left:-9999px;top:0;width:560px";
+      document.body.appendChild(box); await drawSlide(S.d, S.i, box, 560, S.d.pc ? S.k : null);
+      const c = box.querySelector("canvas"), url = c ? c.toDataURL("image/jpeg", 0.68) : ""; box.remove();
+      if (!url || RM !== R || R.imgKey !== key || url.length > 180000) return;
+      R.ch.send({type: "broadcast", event: "i", payload: await seal(R.key, {k: key, img: url})});
+    } catch (e) {}
+  }
   function remotePanel(){
     const S = STG, R = RM; if (!S) return; const box = S.el.querySelector("#prRemote"); if (!box) return;
     if (!R || R.hide) { box.hidden = true; return; }
     box.hidden = false;
+    if (R.friend) {
+      const ppl = [...R.people.entries()].filter(([, at]) => Date.now() - at < 20000).map(([n]) => n);
+      box.innerHTML = `<div class="pr-rm-card pr-fr-card"><button type="button" class="pr-x pr-rm-x" data-act="pr-remote-hide" aria-label="Hide">×</button>
+        <b>Rehearse With a Friend</b>
+        ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.url ? `<p class="mini">Send them this code. They open the link (or ${esc(SITE().replace(/^https?:\/\//, ""))}/present-remote.html) and type it in: no account needed.</p>
+          <div class="pr-fr-code" aria-label="Code ${esc(R.code.split("").join(" "))}">${esc(R.code.slice(0, 4))}<span>${esc(R.code.slice(4))}</span></div>
+          <div class="pr-fr-acts"><button type="button" class="btn small" data-act="pr-fr-copy">Copy Link</button>${navigator.share ? `<button type="button" class="btn small" data-act="pr-fr-share">Share</button>` : ""}</div>
+          <div class="pr-rm-qr pr-fr-qr" data-link="${esc(R.url)}">${QR.svg(R.url, "QR code to join the rehearsal")}</div>
+          <p class="mini" role="status">${ppl.length ? `${IC.check} ${esc(ppl.join(", "))} ${ppl.length === 1 ? "is" : "are"} with you. Anyone can move the slides.` : "Waiting for your friend to join…"}</p>
+          <button type="button" class="btn small pr-rm-off" data-act="pr-remote-off">End Sharing</button>`
+        : `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>Setting up…</p>`}</div>`;
+      return;
+    }
     box.innerHTML = `<div class="pr-rm-card"><button type="button" class="pr-x pr-rm-x" data-act="pr-remote-hide" aria-label="Hide">×</button>
       <b>Phone Remote</b>
-      ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.linked ? `<p class="pr-rm-ok">${IC.check} Your phone is connected. Use it to move through your slides.</p><button type="button" class="btn small" data-act="pr-remote-off">Disconnect</button>`
+      ${R.err ? `<p class="pr-err">${esc(R.err)}</p>` : R.linked ? `<p class="pr-rm-ok">${IC.check} Your phone is connected. Use it to move through your slides.</p><button type="button" class="btn small pr-rm-off" data-act="pr-remote-off">Disconnect</button>`
         : R.url ? `<p class="mini">Scan this with your phone's camera. It shows the clock, your notes and the next slide.</p><div class="pr-rm-qr" data-link="${esc(R.url)}">${QR.svg(R.url, "QR code to use your phone as the remote")}</div><p class="mini">${R.ready ? "Waiting for your phone…" : "Setting up the link…"}</p>`
         : `<p class="pr-busy"><span class="ai-spin" aria-hidden="true"></span>Setting up…</p>`}</div>`;
   }
@@ -1384,17 +1473,19 @@
     if (!el) { el = document.createElement("div"); el.id = "prStage"; el.className = "pr-stage"; courseTint(el, cid); el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); document.body.appendChild(el); document.body.classList.add("pr-on"); }
     el.className = "pr-stage pr-light"; el.setAttribute("aria-label", label); return el;
   }
-  async function reviewOpen(pid, runId, reuse){
-    const p = byId(pid); if (!p || !(p.runs || []).length) return;
+  async function reviewOpen(pid, runId, reuse, temp){
+    const p = byId(pid); if (!p || (!temp && !(p.runs || []).length)) return;
     reviewStop(); remoteEnd();
     const el = lightStage(reuse, "How your run went", p.courseId);
-    const run = p.runs.find(r => r.id === runId) || p.runs[0];
+    const run = temp ? temp.run : p.runs.find(r => r.id === runId) || p.runs[0];
     const idx = run.times.map((_, i) => i).filter(i => !run.sec || (i >= run.sec[0] && i <= run.sec[1]));
     const worst = idx.reduce((m, k) => run.times[k] - run.budgets[k] > run.times[m] - run.budgets[m] ? k : m, idx[0]);
     const R = RV = {p, run, idx, i: worst, el, d: null, qi: -1};
     try { R.d = await deckFor(p); textsOf(R.d).then(() => { if (RV === R) detailDraw(); }).catch(() => {}); } catch (e) {}
     if (RV !== R) return;
-    if (run.audio) { const b = await get("audio:" + run.id); if (RV !== R) return; if (b) { R.url = URL.createObjectURL(b); R.audio = new Audio(); R.audio.preload = "auto"; R.audio.src = R.url; R.audio.addEventListener("timeupdate", audioTick); R.audio.addEventListener("ended", () => { R.playing = false; paintAudio(); }); } }
+    if (temp && temp.blob) { run.audio = true; R.url = URL.createObjectURL(temp.blob); R.audio = new Audio(); R.audio.preload = "auto"; R.audio.src = R.url; R.audio.addEventListener("timeupdate", audioTick); R.audio.addEventListener("ended", () => { R.playing = false; paintAudio(); }); }
+    R.temp = !!temp;
+    if (!R.audio && run.audio) { const b = await get("audio:" + run.id); if (RV !== R) return; if (b) { R.url = URL.createObjectURL(b); R.audio = new Audio(); R.audio.preload = "auto"; R.audio.src = R.url; R.audio.addEventListener("timeupdate", audioTick); R.audio.addEventListener("ended", () => { R.playing = false; paintAudio(); }); } }
     reviewDraw();
   }
   const segsOf = (run, i) => (run.seg || []).filter(g => g[0] === i);
@@ -1416,21 +1507,21 @@
     const spRows = sp ? sp.sp.map(s => { const ks = idx.filter(k => (sp.by[k] || sp.sp[0].id) === s.id), t = ks.reduce((a, k) => a + run.times[k], 0), b = ks.reduce((a, k) => a + run.budgets[k], 0); return {s, t, b}; }).filter(x => x.b > 0) : [];
     const spMax = Math.max(1, ...spRows.map(x => Math.max(x.t, x.b))) * 1.05;
     R.el.innerHTML = `<div class="pr-rtop">
-        <div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · Run ${num}${run.sec ? ` · slides ${run.sec[0] + 1} to ${run.sec[1] + 1}` : ""} · ${esc(when.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(when.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><b>${fmt(run.total)} <span>of ${fmt(run.target * 1000)} ${run.sec ? "section target" : "target"}</span></b></div>
-        <span class="pr-chip c-${chip[0]}">${chip[1]}</span>
-        <button type="button" class="btn" data-act="pr-hist" data-id="${esc(p.id)}">${IC.history} History</button>
+        <div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · ${run.early ? "Ended early, not counted" : `Run ${num}`}${run.sec ? ` · slides ${run.sec[0] + 1} to ${run.sec[1] + 1}` : ""} · ${esc(when.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(when.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><b>${fmt(run.total)} <span>of ${fmt(run.target * 1000)} ${run.sec ? "section target" : "target"}</span></b></div>
+        ${run.early ? `<span class="pr-chip c-early" title="It ended before the last slide, so it isn't in your history or best time">Ended early</span>` : `<span class="pr-chip c-${chip[0]}">${chip[1]}</span>`}
+        ${(p.runs || []).length ? `<button type="button" class="btn" data-act="pr-hist" data-id="${esc(p.id)}">${IC.history} History</button>` : ""}
         <button type="button" class="btn" data-act="pr-close">Close</button>
         <button type="button" class="btn primary pr-hero" data-act="pr-again">${run.sec ? "Practice This Section Again" : "Practice Again"}</button>
       </div>
-      ${hasTr ? `<div class="pr-stats">${lk ? `<button type="button" class="pr-stat pr-stat-pro" data-act="pr-pro-stats"><b>Pace and filler words</b><span>See words a minute and every um, like and so, slide by slide ${PRO_BADGE}</span></button>`
+      ${hasTr ? `<div class="pr-stats">${lk ? `<button type="button" class="pr-stat pr-stat-pro" data-act="pr-pro-stats"><b>Pace and Filler Words</b><span>See words a minute and every um, like and so, slide by slide ${PRO_BADGE}</span></button>`
         : `<div class="pr-stat"><span>Pace</span><b>${st.wpm ? st.wpm + " wpm" : "—"}</b><em>${st.wpm > 175 ? "Quite fast. Try pausing between points." : st.wpm && st.wpm < 110 ? "On the slow side" : st.wpm ? "A comfortable speed" : ""}</em></div><div class="pr-stat"><span>Filler words</span><b>${fillN(st.fill)}</b><em>${esc(fillTxt(st.fill) || "None picked up")}</em></div><div class="pr-stat"><span>Words</span><b>${st.wc}</b><em>${run.qa ? "Before Q&amp;A" : "In the whole run"}</em></div>`}
         <button type="button" class="pr-stat pr-coach-btn" data-act="pr-coach">${IC.spark}<b>${run.coach ? "Coach Feedback" : "Get Coach Feedback"}</b><span>${lk ? `Clarity, rushed slides and what to cut ${PRO_BADGE}` : run.coach ? "Clarity, rushed slides and what to cut" : "AI reads your run and suggests what to change"}</span></button></div>` : ""}
       <div class="pr-coach" id="prCoach" ${run.coach ? "" : "hidden"}></div>
       ${fire("pr-review-extra", p, run).filter(Boolean).join("")}
       <div class="pr-rbody">
         <section class="pr-rbars" aria-label="Time on each slide">
-          ${spRows.length ? `<div class="pr-rh"><b>Each speaker</b></div><div class="pr-spbars">${spRows.map(x => `<div class="pr-spbar" style="--sp:${esc(x.s.c)}"><span class="pr-spbar-n"><i></i>${esc(x.s.name)}</span><span class="pr-rbar"><i class="t-${tone(x.t, x.b)}" style="width:${(x.t / spMax * 100).toFixed(1)}%"></i><em style="left:${(x.b / spMax * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(x.t)} <small>of ${fmt(x.b)}</small></span></div>`).join("")}</div>` : ""}
-          <div class="pr-rh"><b>Time on each slide</b><span class="mini"><i class="pr-aim-key"></i>target</span></div>
+          ${spRows.length ? `<div class="pr-rh"><b>Each Speaker</b></div><div class="pr-spbars">${spRows.map(x => `<div class="pr-spbar" style="--sp:${esc(x.s.c)}"><span class="pr-spbar-n"><i></i>${esc(x.s.name)}</span><span class="pr-rbar"><i class="t-${tone(x.t, x.b)}" style="width:${(x.t / spMax * 100).toFixed(1)}%"></i><em style="left:${(x.b / spMax * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(x.t)} <small>of ${fmt(x.b)}</small></span></div>`).join("")}</div>` : ""}
+          <div class="pr-rh"><b>Time on Each Slide</b><span class="mini"><i class="pr-aim-key"></i>target</span></div>
           <div class="pr-rlist">${idx.map(k => { const t = run.times[k], s = sp ? sp.sp.find(x => x.id === (sp.by[k] || sp.sp[0].id)) : null; return `<button type="button" class="pr-rrow${k === R.i ? " on" : ""}" data-act="pr-rsel" data-i="${k}" aria-pressed="${k === R.i}"${s ? ` style="--sp:${esc(s.c)}"` : ""}><span class="pr-rn">${k + 1}</span><span class="pr-rbar"><i class="t-${tone(t, run.budgets[k])}" style="width:${(t / max * 100).toFixed(1)}%"></i><em style="left:${(run.budgets[k] / max * 100).toFixed(1)}%"></em></span><span class="pr-rt">${fmt(t)}</span></button>`; }).join("")}
             ${run.qa ? `<button type="button" class="pr-rrow pr-rqa${R.qi >= 0 ? " on" : ""}" data-act="pr-rqa" data-i="0"><span class="pr-rn">Q</span><span class="pr-rqa-t">Q&amp;A practice · ${run.qa.qs.length} questions</span><span class="pr-rt">${fmt(run.qa.seg.reduce((a, g) => a + (g[2] - g[1]), 0))}</span></button>` : ""}</div>
           <p class="mini">Green is within a little of the target, amber up to half again, red more.</p>
@@ -1458,8 +1549,8 @@
     box.innerHTML = `<div class="pr-dtop"><div class="pr-dpic" id="prDPic"></div>
         <div class="pr-dinfo"><span class="pr-eyebrow">Slide ${i + 1} of ${run.times.length}${sp ? ` · ${esc(sp.name)}` : ""}</span><b class="pr-dt t-${tone(t, b)}">${fmt(t)}${t ? `, ${Math.abs(diff) < 3000 ? "right on target" : diff > 0 ? `${fmt(diff)} over the target` : `${fmt(-diff)} under the target`}` : ", skipped"}</b><span class="mini">Target ${fmt(b)}${wc && !lk ? ` · ${wc} words${wpm ? ` · ${wpm} a minute` : ""}${fillN(fm) ? ` · ${fillTxt(fm)}` : ""}` : ""}</span></div></div>
       ${run.audio && R.audio ? `<div class="pr-player"><button type="button" class="pr-pbtn" data-act="pr-aplay" aria-label="Play slide ${i + 1}">${IC.play}</button><div class="pr-pbar"><i id="prPBar"></i></div><span class="pr-ptime" id="prPTime">0:00 / ${fmt(t)}</span></div>` : run.audio ? `<p class="mini">The recording isn't on this device.</p>` : ""}
-      ${chk.length ? `<div class="pr-check"><b>Your notes</b><ul>${chk.map(c => `<li class="${c.ok ? "ok" : "miss"}">${c.ok ? IC.check : IC.miss}<span>${esc(c.pt)}</span>${c.ok ? "" : `<em>Missed</em>`}</li>`).join("")}</ul></div>` : ""}
-      <div class="pr-trans"><b>What you said</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${run.audio ? "No words were picked up on this slide." : "Turn on Record Me before your next run to see what you said on each slide."}</p>`}</div>`;
+      ${chk.length ? `<div class="pr-check"><b>Your Notes</b><ul>${chk.map(c => `<li class="${c.ok ? "ok" : "miss"}">${c.ok ? IC.check : IC.miss}<span>${esc(c.pt)}</span>${c.ok ? "" : `<em>Missed</em>`}</li>`).join("")}</ul></div>` : ""}
+      <div class="pr-trans"><b>What You Said</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${run.audio ? "No words were picked up on this slide." : "Turn on Record Me before your next run to see what you said on each slide."}</p>`}</div>`;
     const pic = box.querySelector("#prDPic"); if (pic && R.d) drawSlide(R.d, i, pic, pic.clientWidth || 260).catch(() => {});
     paintAudio();
   }
@@ -1468,7 +1559,7 @@
     box.innerHTML = `<div class="pr-qa-tabs" role="group" aria-label="Questions">${Q.qs.map((q, n) => `<button type="button" data-act="pr-rqa" data-i="${n}" aria-pressed="${n === k}">Question ${n + 1}</button>`).join("")}</div>
       <p class="pr-qa-q sm">${esc(Q.qs[k])}</p><span class="mini">You answered for ${fmt(g[2] - g[1])}</span>
       ${R.run.audio && R.audio ? `<div class="pr-player"><button type="button" class="pr-pbtn" data-act="pr-aplay" aria-label="Play your answer">${IC.play}</button><div class="pr-pbar"><i id="prPBar"></i></div><span class="pr-ptime" id="prPTime">0:00 / ${fmt(g[2] - g[1])}</span></div>` : ""}
-      <div class="pr-trans"><b>Your answer</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${R.run.audio ? "No words were picked up." : "Turn on Record Me to hear your answers back."}</p>`}</div>`;
+      <div class="pr-trans"><b>Your Answer</b>${said ? `<p>${esc(said)}</p>` : `<p class="mini">${R.run.audio ? "No words were picked up." : "Turn on Record Me to hear your answers back."}</p>`}</div>`;
     paintAudio();
   }
   // what's playing: the selected slide's stretch of the run (every visit to it), or one Q&A answer
@@ -1531,9 +1622,9 @@
     box.hidden = false;
     box.innerHTML = `<div class="pr-coach-h">${IC.spark}<b>Coach Feedback</b><span class="mini">From AI, based on your recording</span></div>
       <p>${esc(c.summary)}</p><p><b>Clarity.</b> ${esc(c.clarity)}</p>
-      ${c.rushed.length ? `<div class="pr-coach-l"><b>Felt rushed</b><ul>${c.rushed.map(x => `<li>${sl(x.slide)} ${esc(x.why)}</li>`).join("")}</ul></div>` : ""}
-      ${c.cuts.length ? `<div class="pr-coach-l"><b>What to cut where you ran long</b><ul>${c.cuts.map(x => `<li>${sl(x.slide)} ${esc(x.cut)}</li>`).join("")}</ul></div>` : ""}
-      ${c.tip ? `<p class="pr-coach-tip"><b>Next time.</b> ${esc(c.tip)}</p>` : ""}`;
+      ${c.rushed.length ? `<div class="pr-coach-l"><b>Felt Rushed</b><ul>${c.rushed.map(x => `<li>${sl(x.slide)} ${esc(x.why)}</li>`).join("")}</ul></div>` : ""}
+      ${c.cuts.length ? `<div class="pr-coach-l"><b>What to Cut Where You Ran Long</b><ul>${c.cuts.map(x => `<li>${sl(x.slide)} ${esc(x.cut)}</li>`).join("")}</ul></div>` : ""}
+      ${c.tip ? `<p class="pr-coach-tip"><b>Next Time</b> ${esc(c.tip)}</p>` : ""}`;
   }
 
   /* ---------- history: every run of a presentation ---------- */
@@ -1547,7 +1638,7 @@
     const best = bestOf(p);
     el.innerHTML = `<div class="pr-rtop"><div class="pr-rtitle"><span class="pr-eyebrow">${esc(p.name)} · History</span><b>${runs.length} run${runs.length === 1 ? "" : "s"}${best != null ? ` <span>· best ${fmt(best)} of ${fmt(tg)}</span>` : ""}</b></div>
         <button type="button" class="btn" data-act="pr-close">Close</button><button type="button" class="btn primary" data-act="pr-practice" data-id="${esc(p.id)}">Practice Again</button></div>
-      ${chart ? `<section class="pr-hcard"><b>Full runs over time</b>${chart}</section>` : ""}
+      ${chart ? `<section class="pr-hcard"><b>Full Runs Over Time</b>${chart}</section>` : ""}
       <section class="pr-hcard"><ol class="pr-hlist">${runs.map((r, k) => { const dd = new Date(r.at), diff = r.total - r.target * 1000; return `<li><button type="button" data-act="pr-hrun" data-id="${esc(r.id)}"><span class="pr-hn">Run ${runs.length - k}</span><span class="pr-hd">${esc(dd.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}, ${esc(dd.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}</span><span class="pr-hk">${r.sec ? `Slides ${r.sec[0] + 1}–${r.sec[1] + 1}` : "Whole talk"}${r.audio ? " · recorded" : ""}${r.qa ? " · Q&amp;A" : ""}${r.coach ? " · coached" : ""}</span><b class="t-${tone(r.total, r.target * 1000)}">${fmt(r.total)}</b><span class="pr-hdiff">${Math.abs(diff) < 5000 ? "on time" : (diff > 0 ? "+" : "−") + fmt(Math.abs(diff))}</span></button><button type="button" class="pr-x" data-act="pr-hdel" data-id="${esc(r.id)}" aria-label="Delete run ${runs.length - k}">×</button></li>`; }).join("")}</ol></section>`;
   }
   function delRun(rid){
@@ -1597,7 +1688,7 @@
       case "pr-plan": if (inPlan()) { STG.planOpen = !STG.planOpen; paintReady(); } return true;
       case "pr-sec-on": if (inPlan()) { const a = Number((STG.el.querySelector("#prSecA") || {}).value) || 0, b = Number((STG.el.querySelector("#prSecB") || {}).value); const lo = Math.min(a, b), hi = Math.max(a, b); STG.sec = lo === 0 && hi === STG.d.n - 1 ? null : [lo, hi]; STG.secTgt = 0; STG.i = STG.sec ? lo : 0; plan(STG); stageBuild(); } return true;
       case "pr-sec-off": if (inPlan()) { STG.sec = null; STG.secTgt = 0; STG.i = 0; plan(STG); stageBuild(); } return true;
-      case "pr-sp-add": if (inPlan()) { const g = STG.p.group; if (g && g.sp.length < 6) { g.sp.push({id: uid(), name: "Speaker " + (g.sp.length + 1), c: SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6]}); splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
+      case "pr-sp-add": if (inPlan() && fire("pr-sp-add", STG.p).some(Boolean)) return true; if (inPlan()) { const g = STG.p.group; if (g && g.sp.length < 6) { g.sp.push({id: uid(), name: "Speaker " + (g.sp.length + 1), c: SP_COLORS.find(c => !g.sp.some(s => s.c === c)) || SP_COLORS[g.sp.length % 6]}); splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
       case "pr-sp-rm": if (inPlan()) { const g = STG.p.group; if (g) { g.sp = g.sp.filter(s => s.id !== id); if (!g.sp.length) g.on = false; else splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } } return true;
       case "pr-sp-split": if (inPlan() && STG.p.group) { splitEvenlyN(STG.p, STG.d.n); save(); refreshPlan(); } return true;
       case "pr-sp-next": if (inPlan()) { const g = STG.p.group, i = Number(d.i) || 0; if (g && g.sp.length) { g.by = g.by && g.by.length === STG.d.n ? g.by : Array(STG.d.n).fill(g.sp[0].id); const k = g.sp.findIndex(s => s.id === g.by[i]); g.by[i] = g.sp[(k + 1) % g.sp.length].id; save(); refreshPlan(); } } return true;
@@ -1628,13 +1719,17 @@
       case "pr-coach": coach(); return true;
       case "pr-pro-stats": proWhy("Pace and filler words are part of Studyboard Pro: words a minute and every um, like and so, slide by slide."); return true;
       case "pr-remote": remoteStart(); return true;
+      case "pr-friend": remoteStart("friend"); return true;
+      case "pr-join-code": { const w = window.open(SITE() + "/present-remote.html", "_blank", "noopener"); if (!w) location.href = SITE() + "/present-remote.html"; return true; }
+      case "pr-fr-copy": if (RM && RM.url) { try { navigator.clipboard.writeText(`Join my presentation rehearsal: ${RM.url} (code ${RM.code})`).then(() => toast("Link copied"), () => toast("Couldn't copy it. The code is " + RM.code)); } catch (e) { toast("The code is " + RM.code); } } return true;
+      case "pr-fr-share": if (RM && RM.url && navigator.share) navigator.share({title: "Rehearse my presentation with me", text: `Join with the code ${RM.code}`, url: RM.url}).catch(() => {}); return true;
       case "pr-remote-hide": if (RM) { RM.hide = true; remotePanel(); } return true;
       case "pr-remote-off": remoteEnd(); remotePanel(); return true;
     }
     return false;
   });
   // the remote button shows the panel again once hidden
-  const _rs = remoteStart; remoteStart = async () => { if (RM && RM.hide) { RM.hide = false; remotePanel(); return; } return _rs(); };
+  const _rs = remoteStart; remoteStart = async mode => { if (RM && RM.hide && !!RM.friend === (mode === "friend")) { RM.hide = false; remotePanel(); return; } return _rs(mode); };
   window.addEventListener("keydown", e => {
     if (!document.getElementById("prStage") || dlg.open) return;
     const tg = e.target, typing = tg && (tg.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName));
@@ -1664,6 +1759,6 @@
   }
   window.SBPRESENT = {listHtml, open: stageOpen, add: newSheet, list: () => LIST.slice(), loaded: () => LOADED, todayHtml: () => fire("pr-today").filter(Boolean).join(""), taskHtml: t => fire("pr-task", t).filter(Boolean).join(""),
     // for 99-present-groups.js
-    px: {byId, all: () => LIST, save, get, put, del, fmt, IC, tone, baseSecs, spOf, grp, splitEvenly, openDeck, createFrom, stageOpen, reviewOpen, historyOpen, newSheet, follow, liveHost, stage: () => STG, review: () => RV, refreshReady: () => { if (STG && !STG.started) { plan(STG); paintReady(); paint(); } }, rerenderList: () => { if (ui.tab === "flashcards" && ui.rvView === "present") render(); }, kindOfName, titleOf, textsOf, deckFor},
+    px: {byId, all: () => LIST, save, refreshPlan: () => { if (STG) refreshPlan(); }, get, put, del, fmt, IC, tone, baseSecs, spOf, grp, splitEvenly, openDeck, createFrom, stageOpen, reviewOpen, historyOpen, newSheet, follow, liveHost, stage: () => STG, review: () => RV, refreshReady: () => { if (STG && !STG.started) { plan(STG); paintReady(); paint(); } }, rerenderList: () => { if (ui.tab === "flashcards" && ui.rvView === "present") render(); }, kindOfName, titleOf, textsOf, deckFor},
     _: {notesCheck, fillers, baseSecs, setSlideSecs}};
 })();

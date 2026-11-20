@@ -2,14 +2,27 @@
    names an encrypted live channel: both sides derive the channel's name and an AES-GCM key from it, so only someone holding the code
    can read or send on it, and the code never leaves this page (it's after the #, so it isn't sent to any server).
      laptop -> phone  "s": the clock, the slide, your notes, the next slide, pace and speaker
-     phone -> laptop  "c": {cmd: "next" | "prev" | "pp" | "vplay" | "vskip" | "hello"} */
+     phone -> laptop  "c": {cmd: "next" | "prev" | "pp" | "vplay" | "vskip" | "hello" | "hi", who}
+   Rehearse With a Friend uses the same page with a short code (8 letters and numbers, typed in or from a link): the friend also
+   gets the slide itself ("i": a PDF slide's picture; a PowerPoint's words come in "s") and says who they are. No account needed. */
 (function(){
   "use strict";
   var $ = function(id){ return document.getElementById(id); };
-  var code = String(location.hash || "").slice(1), key = null, ch = null, last = 0, lastBuzz = "";
+  var code = String(location.hash || "").slice(1).replace(/[\s-]/g, ""), key = null, ch = null, last = 0, lastBuzz = "", friend = /^[A-HJ-NP-Z2-9]{8}$/i.test(code), who = "";
+  if (friend) code = code.toUpperCase();
   function fmt(ms){ var s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
   function say(t){ $("msg").hidden = false; $("ui").hidden = true; $("msg").textContent = t; }
-  if (!/^[A-Za-z0-9_-]{20,40}$/.test(code)) { say("Open this page by scanning the QR code in Studyboard's presentation practice."); return; }
+  // no code yet: type the one your friend sent (and your name, so they know who joined)
+  function askCode(err){
+    $("msg").hidden = true; $("ui").hidden = true; $("join").hidden = false; $("jerr").textContent = err || "";
+    try { $("jname").value = localStorage.getItem("sbfr:name") || ""; } catch (e) {}
+    $("join").onsubmit = function(e){ e.preventDefault(); var c = String($("jcode").value || "").replace(/[\s-]/g, "").toUpperCase(), n = String($("jname").value || "").trim().slice(0, 40);
+      if (!/^[A-HJ-NP-Z2-9]{8}$/.test(c)) { $("jerr").textContent = "That code should be 8 letters and numbers, like K7QM 4PXA."; return; }
+      try { localStorage.setItem("sbfr:name", n); } catch (e2) {} location.hash = c; location.reload(); };
+    $("jcode").focus();
+  }
+  if (!friend && !/^[A-Za-z0-9_-]{20,40}$/.test(code)) { askCode(code ? "That link isn't complete. Type the code instead." : ""); return; }
+  if (friend) { try { who = localStorage.getItem("sbfr:name") || ""; } catch (e) {} if (!who) { askCode(""); $("jcode").value = code; $("jname").focus(); return; } $("join").hidden = true; document.body.classList.add("friend"); }
   if (!window.crypto || !crypto.subtle || !window.supabase) { say("This browser can't open a secure link. Try your phone's main browser."); return; }
   var te = new TextEncoder();
   function b64u(u8){ return btoa(String.fromCharCode.apply(null, Array.from(u8))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
@@ -17,25 +30,54 @@
   function hex(b){ return Array.from(new Uint8Array(b)).map(function(x){ return x.toString(16).padStart(2, "0"); }).join(""); }
   function seal(obj){ var iv = crypto.getRandomValues(new Uint8Array(12)); return crypto.subtle.encrypt({name: "AES-GCM", iv: iv}, key, te.encode(JSON.stringify(obj))).then(function(ct){ return {iv: b64u(iv), ct: b64u(new Uint8Array(ct))}; }); }
   function unseal(m){ return crypto.subtle.decrypt({name: "AES-GCM", iv: unb64u(m.iv)}, key, unb64u(m.ct)).then(function(pt){ return JSON.parse(new TextDecoder().decode(pt)); }).catch(function(){ return null; }); }
-  function send(cmd){ if (!ch) return; seal({cmd: cmd}).then(function(p){ ch.send({type: "broadcast", event: "c", payload: p}); }); }
+  function send(cmd){ if (!ch) return; var m = {cmd: cmd}; if (friend) m.who = who || "A friend"; seal(m).then(function(p){ ch.send({type: "broadcast", event: "c", payload: p}); }); }
   function buzz(p){ try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
   var wl = null; function wake(){ try { if (navigator.wakeLock && !wl) navigator.wakeLock.request("screen").then(function(l){ wl = l; l.addEventListener("release", function(){ wl = null; }); }).catch(function(){}); } catch (e) {} }
+  // play and pause: a round button with a pause sign or a play sign, so it never looks like Back
+  var PP = {pause: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.4"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.4"/></svg>',
+    play: '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M8.5 5.6v12.8a1 1 0 0 0 1.5.86l10-6.4a1 1 0 0 0 0-1.72l-10-6.4a1 1 0 0 0-1.5.86z"/></svg>'}, ppWas = null;
+  function ppIcon(run){
+    if (ppWas === run) return; ppWas = run;
+    var b = $("pp"); b.innerHTML = "<i>" + (run ? PP.pause : PP.play) + "</i>"; b.classList.toggle("paused", !run); b.setAttribute("aria-label", run ? "Pause" : "Resume");
+  }
+  ppIcon(true);
+  // the clock keeps counting between the laptop's updates (about one a second), from the latest time it sent
+  var base = null, pic = null, lastS = null;
+  function clockNow(){ return base ? base.el + (base.run ? performance.now() - base.at : 0) : 0; }
+  function slideNow(){ return base ? base.st + (base.run ? performance.now() - base.at : 0) : 0; }
+  function paintClock(){
+    if (!base) return;
+    $("clock").textContent = fmt(clockNow());
+    if (!base.qa && base.sb != null) {
+      var st = slideNow(), r = base.sb ? st / base.sb : 0, b = $("bar");
+      $("st").textContent = fmt(st) + " of " + fmt(base.sb);
+      b.style.width = Math.min(100, r * 100) + "%"; b.className = r > 1.5 ? "over" : r > 1 ? "warn" : "";
+      document.body.classList.toggle("long", base.go && r > 1 && r <= 1.5); document.body.classList.toggle("vlong", base.go && r > 1.5);
+    }
+  }
+  setInterval(paintClock, 200);
   function show(s){
     last = Date.now(); $("dot").classList.add("on");
-    if (s.done) { say("That run is over. Your results are on the laptop."); return; }
+    if (s.done) { say(friend ? "That run is over. The results are on " + (s.host || "your friend") + "'s screen." : "That run is over. Your results are on the laptop."); return; }
     if (s.n == null) return;
     $("msg").hidden = true; $("ui").hidden = false;
-    $("name").textContent = s.name || "Presentation";
+    $("name").textContent = (s.name || "Presentation") + (s.fr && s.host ? " · with " + s.host : "");
+    // a friend sees the slide: its picture (a PDF), or its words (a PowerPoint)
+    if (s.fr && !s.qa) {
+      var have = pic && String(pic.k).split(":")[0] === String(s.i);
+      $("pic").hidden = !have; if (have && $("picImg").getAttribute("src") !== pic.img) $("picImg").setAttribute("src", pic.img);
+      var tx = Array.isArray(s.tx) ? s.tx : [], tb = $("txt"); tb.hidden = have || !tx.length;
+      if (!have) { tb.innerHTML = ""; tx.forEach(function(line, k){ var el = document.createElement(k ? "p" : "b"); el.textContent = line; tb.appendChild(el); }); }
+    } else { $("pic").hidden = true; $("txt").hidden = true; }
     $("cnt").hidden = false; $("cnt").textContent = s.qa ? "Q&A" : (s.i + 1) + " / " + s.n + (s.kn ? " · click " + (s.k || 0) + "/" + s.kn : "");
-    $("clock").textContent = fmt(s.el); $("tgt").textContent = "of " + fmt(s.tg);
+    base = {el: Number(s.el) || 0, st: Number(s.st) || 0, sb: s.sb, at: performance.now(), run: !!(s.run && s.go && !s.qa), go: !!s.go, qa: !!s.qa};
+    $("tgt").textContent = "of " + fmt(s.tg);
     var pc = $("pace"); pc.hidden = !s.go || !s.pace; pc.className = "chip " + (s.pc || ""); pc.textContent = s.pace || "";
     var sp = $("sp"); sp.hidden = !s.sp || !!s.qa; if (s.sp) { sp.style.setProperty("--spc", s.spc || "#fff"); sp.lastChild.textContent = s.sp; }
     if (s.qa) { $("title").textContent = "Question"; $("st").textContent = ""; $("notes").textContent = s.qa; $("notes").classList.add("qa"); $("next").textContent = ""; $("nextb").textContent = "Next ▶"; }
     else {
       $("notes").classList.remove("qa");
-      $("title").textContent = s.t || ""; $("st").textContent = fmt(s.st) + " of " + fmt(s.sb);
-      var r = s.sb ? s.st / s.sb : 0, b = $("bar"); b.style.width = Math.min(100, r * 100) + "%"; b.className = r > 1.5 ? "over" : r > 1 ? "warn" : "";
-      document.body.classList.toggle("long", s.go && r > 1 && r <= 1.5); document.body.classList.toggle("vlong", s.go && r > 1.5);
+      $("title").textContent = s.t || "";
       $("notes").textContent = s.nt || "";
       $("next").innerHTML = ""; var lb = document.createTextNode("Next: "), nb = document.createElement("b"); nb.textContent = s.nx || ""; $("next").appendChild(lb); $("next").appendChild(nb);
       $("nextb").textContent = !s.go ? "Start ▶" : s.kn && (s.k || 0) < s.kn ? "Click ▶" : "Next ▶";
@@ -49,7 +91,8 @@
       $("vplay").hidden = !s.vp || s.vs === "play"; $("vskip").hidden = !s.go || (!s.vd && s.vs !== "play");
       $("vskip").textContent = s.vs === "play" ? "Skip the Rest" : "Skip" + (s.vd ? " · adds " + fmt(s.vd) : "");
     }
-    $("pp").textContent = s.run ? "❚❚" : "▶"; $("pp").setAttribute("aria-label", s.run ? "Pause" : "Resume");
+    paintClock();
+    ppIcon(!!s.run);
     if (s.buzz && s.buzz !== lastBuzz) buzz(s.buzz === "vlong" ? [120, 80, 120] : s.buzz === "wrap" ? [60, 60, 60, 60, 60] : [90]);
     lastBuzz = s.buzz || "";
   }
@@ -65,9 +108,10 @@
       var cfg = window.STUDYBOARD_SITE || {};
       var cli = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {auth: {persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "sb-present-remote"}});
       ch = cli.channel("sbpres-" + hex(h[0]).slice(0, 40), {config: {broadcast: {self: false, ack: false}}});
-      ch.on("broadcast", {event: "s"}, function(m){ unseal((m && m.payload) || {}).then(function(s){ if (s) show(s); }); });
+      ch.on("broadcast", {event: "s"}, function(m){ unseal((m && m.payload) || {}).then(function(s){ if (s) { lastS = s; show(s); } }); });
+      ch.on("broadcast", {event: "i"}, function(m){ unseal((m && m.payload) || {}).then(function(x){ if (x && typeof x.img === "string" && /^data:image\/jpeg;base64,/.test(x.img)) { pic = x; if (lastS) show(lastS); } }); });
       ch.subscribe(function(st){
-        if (st === "SUBSCRIBED") { say("Connected. Waiting for your laptop…"); send("hello"); wake(); }
+        if (st === "SUBSCRIBED") { say(friend ? "Connected. Waiting for your friend's slides…" : "Connected. Waiting for your laptop…"); send("hello"); wake(); if (friend) setInterval(function(){ send("hi"); }, 5000); }
         else if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") say("Couldn't connect. Check your connection, then scan the code again.");
       });
     });

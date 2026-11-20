@@ -678,11 +678,9 @@ function csLivePane(){
   if (cs.phase === "notable" && SB_HOSTED && !sbCustom()) return csNote("Live Link Unavailable", `<p>${esc(srvSetup("Live calendar links", "calendar-feed.sql"))} Until then, use <b>Download a File</b>.</p><div class="cs-row"><button type="button" class="btn small" data-cs="retry">Check Again</button></div>`);
   if (cs.phase === "notable") return csNote("One-Time Setup Needed", `<p>Your server needs a small table and a calendar function before it can make live links. It takes about 5 minutes.</p>${csSetupSteps(false)}<div class="cs-row"><button type="button" class="btn small" data-cs="retry">Check Again</button></div>`);
   const how = `<ul class="help-list cs-list">
-      <li>Calendar apps check the link on their own schedule, so changes you make here show up a little later.</li>
-      <li><b>Apple Calendar</b> checks as often as you choose (every 15 minutes to once a week). <b>Outlook</b> checks every few hours.</li>
-      <li><b>Google Calendar</b> can take several hours, sometimes up to a day. That's Google's timing and can't be sped up.</li>
-      <li>It's read-only: edit things in Studyboard, not in your calendar app.</li></ul>`;
-  if (cs.phase === "off") return `<p style="margin:0">Turn this on to get a private link that Apple Calendar, Google Calendar and Outlook can subscribe to. Your deadlines, exams and classes then appear in your calendar and stay up to date on their own.</p>
+      <li>Changes show up after your calendar app next checks: <b>Apple Calendar</b> as often as you set (15 minutes to weekly), <b>Outlook</b> every few hours, <b>Google Calendar</b> within a day.</li>
+      <li>Read-only: make changes in Studyboard.</li></ul>`;
+  if (cs.phase === "off") return `<p style="margin:0">Turn this on for a private link that Apple Calendar, Google Calendar or Outlook can subscribe to. Your deadlines, exams and classes show up there and stay up to date.</p>
     ${how}${csOptsHtml(o, false)}
     <div class="cs-row"><button type="button" class="btn primary" data-cs="on" ${cs.busy ? "disabled" : ""}>${cs.busy ? "Turning On…" : "Turn On Live Calendar"}</button></div>`;
   const url = csFeedUrl(cs.row.token);
@@ -787,7 +785,7 @@ function calSyncSheet(tab){
   cs.tab = tab || (cs.phase === "on" || !csWhyNot() ? "live" : cs.tab || "live"); cs.confirm = ""; cs.saved = "";
   openSheet(`<div class="sheet cs-sheet">${head("Calendar Sync")}<div class="sheet-body" id="csRoot">
     <p style="margin:0">See your deadlines, exams and classes in Apple Calendar, Google Calendar or Outlook.</p>
-    <div class="segb cs-tabs" role="group" aria-label="How to add to your calendar"><button type="button" data-cs-tab="live" aria-pressed="true">Live Link</button><button type="button" data-cs-tab="upload" aria-pressed="false">Upload a File</button><button type="button" data-cs-tab="file" aria-pressed="false">Download a File</button>${window.SBPRO && SBPRO.calTab ? SBPRO.calTab() : ""}</div>
+    <div class="segb cs-tabs" role="group" aria-label="How to add to your calendar"><button type="button" data-cs-tab="live" aria-pressed="true">Live Link</button>${window.SBPRO && SBPRO.calTab ? SBPRO.calTab() : ""}<button type="button" data-cs-tab="upload" aria-pressed="false" aria-label="Upload a File">Upload<span class="cs-long"> a File</span></button><button type="button" data-cs-tab="file" aria-pressed="false" aria-label="Download a File">Download<span class="cs-long"> a File</span></button></div>
     <div id="csPane" class="cs-pane"></div>
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
   const root = document.getElementById("csRoot");

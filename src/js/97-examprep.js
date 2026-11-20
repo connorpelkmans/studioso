@@ -23,7 +23,7 @@ const EXAMPREP = (() => {
   const HORIZON = 21, HORIZON_EARLY = 28, LEARN_BY = 3, LEARN_BY_EARLY = 5, MAX_TOPICS = 3, MIN_SESSION = 10;
   const KIND_LABEL = {learn: "Learn", cards: "Flashcards", questions: "Practice questions", teach: "Teach-back", recall: "Recall", recap: "Final recap", past: "Timed practice", light: "Light review"};
   const KIND_RANK = {cards: 0, recap: 1, recall: 2, learn: 3, teach: 4, questions: 5, past: 6, light: 7};
-  const STYLES = [["mc", "Multiple choice"], ["short", "Short answer"], ["calc", "Calculation"], ["essay", "Essay"], ["practical", "Practical"]];
+  const STYLES = [["mc", "Multiple Choice"], ["short", "Short Answer"], ["calc", "Calculation"], ["essay", "Essay"], ["practical", "Practical"]];
 
   /* words: normalise, light stemming, aliases */
   const STOP = new Set("a an the of and or to in on for with from by at as is are be vs about this that my your our review study studying exam exams midterm midterms final finals quiz quizzes test tests notes note lecture lectures lec slides slide deck decks flashcards flashcard cards card pdf docx pptx txt copy draft part".split(" "));

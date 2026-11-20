@@ -381,7 +381,7 @@ async function memberView(browser){
   ok(!/Contribution Check-in/.test(await txt(page, "#grpDetail")), "member: no contribution check-in");
   ok(/Owner|owner/.test(await txt(page, "#grpMembers")), "member: members list");
   await tab(page, "overview"); ok(/30 days left/.test(await txt(page, "#grpOverview .gk-hero")), "member: countdown");
-  ok(!/Set a due date/.test(await txt(page, "#grpOverview")), "member: no owner prompts");
+  ok(!/Set a due date/i.test(await txt(page, "#grpOverview")), "member: no owner prompts");
   ok(errs.length === 0, "member: no page errors " + errs.join(" | "));
   await ctx.close();
 }
