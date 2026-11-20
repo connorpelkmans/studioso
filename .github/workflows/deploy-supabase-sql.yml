@@ -94,6 +94,7 @@ jobs:
             supabase-capture.sql supabase-sync-conflicts.sql supabase-calsync.sql supabase-theme-access.sql
             supabase-own-keys.sql supabase-cloud.sql supabase-lms-districts.sql supabase-lms-find.sql supabase-apple-signin.sql
             supabase-apple-external.sql"
+          ORDER="$(echo $ORDER)"   # one line, single spaces, so the " $f " matches below work for every name
 
           if [ -n "$INPUT_FILES" ]; then
             WANTED="$INPUT_FILES"
