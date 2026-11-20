@@ -10297,6 +10297,12 @@ button.pr-stat{cursor:pointer}
 .pr-card .prg-ns-add{background:rgba(255,255,255,.1);color:#EEF2FA;border-color:rgba(255,255,255,.22)}
 .prg-pick-m{display:flex;align-items:center;gap:10px;grid-template-columns:none}
 .prg-pick-m>span{display:grid;gap:2px}
+/* Rehearse With a Friend: the code to send, big and easy to read out */
+.pr-fr-card{width:300px}
+.pr-fr-code{font:800 2rem/1 var(--display);letter-spacing:.14em;color:#EEF2FA;padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.25);font-variant-numeric:tabular-nums}
+.pr-fr-code span{margin-left:.4em}
+.pr-fr-acts{display:flex;gap:8px}
+.pr-fr-qr svg{width:120px;height:120px}
 /* ===== module: 99-shop-home.css ===== */
 /* The Style Shop's front: Shop home, Yours, Build Your Look, and the way back from a See All page */
 .sheet.shop.sbh-on .shop-rail{display:none}
