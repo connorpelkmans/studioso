@@ -50,7 +50,9 @@ const SEED = {v: 2,
     {id: "n4", text: "Study group Sunday 3pm, library room 204", x: 90, y: 250, rot: 2, color: "green", z: 4}],
   files: [], events: [], settings: {capacity: 15, dailyHours: 3, style: {skin: "classic"},
     // Packy is the companion the website shows
-    comp: {pick: {plain: 4}}, focusDays: Object.fromEntries(Array.from({length: 12}, (_, i) => [plus(-1 - i), 180]))}, updated: 1};
+    comp: {pick: {plain: 4}},
+    // Sum and Packy are earned (20 quizzes passed, 200 cards reviewed): this student has, so each can be shown
+    earn: {q: 20, c: 200}, focusDays: Object.fromEntries(Array.from({length: 12}, (_, i) => [plus(-1 - i), 180]))}, updated: 1};
 
 // The six default (plain theme) companions
 const PLAIN = ["plain-mochi", "plain-inky", "plain-owl", "plain-hilo", "plain-sum", "plain-packy"];
@@ -70,11 +72,13 @@ const dismiss = async page => {
 async function capture(browser, scheme, compId) {
   const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, colorScheme: scheme, deviceScaleFactor: SCALE, serviceWorkers: "block"});
   await ctx.clock.setFixedTime(NOW);
+  // a "New prop unlocked" celebration (.cpu) would cover the shot: it never shows here
+  await ctx.addInitScript(() => { new MutationObserver(() => document.querySelectorAll(".cpu").forEach(x => { try { x.hidePopover(); } catch (e) {} x.remove(); })).observe(document, {childList: true, subtree: true}); });
   await ctx.addInitScript(([seed, scheme]) => { window.__SB_TEST = true; try { if (!localStorage.getItem("coursework:v2")) {
     localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); localStorage.setItem("studyboard:tips", "off");
     localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaSyDEMO-NOT-A-REAL-KEY-FOR-SCREENSHOTS"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, [compId ? withComp(compId) : SEED, scheme]);
   const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(2500);
-  await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
+  await page.addStyleTag({content: ".toast,#toast,.cpu{display:none!important}"});
   await page.evaluate(() => { document.querySelectorAll("dialog[open] [data-act=close], dialog[open] .x").forEach(b => b.click()); });
   await page.keyboard.press("Escape").catch(() => {});
   await dismiss(page);
@@ -120,9 +124,11 @@ const WINDOW = {width: 1200, height: 750}, SHRINK = 1000 / 1200;
 async function openSeeded(browser, scheme, seed, viewport) {
   const ctx = await browser.newContext({viewport, colorScheme: scheme, deviceScaleFactor: SHRINK * SCALE, serviceWorkers: "block"});
   await ctx.clock.setFixedTime(NOW);
+  // a "New prop unlocked" celebration (.cpu) would cover the shot: it never shows here
+  await ctx.addInitScript(() => { new MutationObserver(() => document.querySelectorAll(".cpu").forEach(x => { try { x.hidePopover(); } catch (e) {} x.remove(); })).observe(document, {childList: true, subtree: true}); });
   await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); } } catch (e) {} }, [seed, scheme]);
   const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/?pro=off"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);
-  await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
+  await page.addStyleTag({content: ".toast,#toast,.cpu{display:none!important}"});
   await dismiss(page);
   return {ctx, page};
 }
