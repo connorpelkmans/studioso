@@ -111623,6 +111623,9 @@ path.cm-line,path.cm-hit{fill:none}
   .cm-style2>.link-btn{grid-column:span 8;justify-self:start}
   .cm-style2 .cm-font select{padding:0 26px 0 10px;text-overflow:ellipsis}}
 .cm-sname{flex:none;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
+/* a button whose label is hidden on phones keeps its icon in the middle */
+.cm-sheet .btn.small{display:inline-flex;justify-content:center;align-items:center}
+.cm-sheet .btn.small > svg{display:block;flex:none;margin:0}
 /* phones: the toolbar always stays one line. With a group's Live chip as well, Add and Study become icons and Live
    shows just its dot and how many are on (its name is in its label and on tap) */
 @media (max-width:640px){
