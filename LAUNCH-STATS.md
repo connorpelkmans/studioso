@@ -52,6 +52,32 @@ On the website the button reloads the page to the newest version. The phone apps
 - Every 3 friends who count add **a month of Pro's features**: the same as a "month" promo code, so no Studyboard AI and the free plan's storage. The limit is 6 months in any 365 days. The rule is `studyboard_ref_rule()`.
 - A month already in progress is extended, not replaced.
 
+### Stopping people from inviting themselves
+
+A join is recorded but **never counts** when:
+
+| Trick | How it's caught |
+|---|---|
+| Your own address in disguise (`maya+2@gmail.com`, `m.aya@gmail.com`, `googlemail.com`) | Addresses are compared without dots (Gmail), +tags and case |
+| Any address with a +tag, or a second account for an address that already has one | Same comparison |
+| A new account made on your phone or laptop | Your devices are remembered (scrambled) when you open Invite Friends, and checked against the Devices list |
+| Several "friends" made on one device | Two joins from the same device only count once |
+| Empty accounts that never get used | A friend must make 3 or more tasks, courses, decks, notes or events, confirm their email and come back on another day, all within 30 days |
+| Throwaway email services | `studyboard_trial_blocked_domains` |
+
+What's left (someone with several real email addresses, several devices or private windows, filling each account with 3 things and coming back the next day) is a lot of work for a month of themes. The 6-months-a-year cap limits what anyone can get, and the reward includes no AI and no storage, so the most an abuser can cost you is themes.
+
+To check and act:
+
+```sql
+-- inviters worth a look: most held joins first (alias, same_device)
+select * from public.studyboard_ref_review(30);
+-- take back the invite months from someone who gamed it (their promo end date moves back; promo codes are untouched)
+select public.studyboard_ref_revoke('someone@example.com');
+```
+
+For more protection against scripted sign-ups, turn on **CAPTCHA protection** in Supabase (Authentication > Attack Protection). The app's sign-in form would then need a CAPTCHA widget added; ask for it if you see automated sign-ups.
+
 ```sql
 -- who invited the most (for thanking people; there's no public leaderboard)
 select r.referrer, u.email, count(*) joined, count(*) filter (where r.qualified_at is not null) counted

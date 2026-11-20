@@ -12,6 +12,8 @@
   const DAY_KEY = "studyboard:checkinDay", POL_KEY = "studyboard:versionPolicy", REF_KEY = "studyboard:ref", MYREF_KEY = "studyboard:myRef",
     REW_KEY = "studyboard:refRewards", NEW_KEY = "studyboard:whatsNew", NUDGE_KEY = "studyboard:nudgeSeen";
   const EVERY = 6 * 36e5, SITE = "https://studyboardapp.com/";
+  // this device's id (the same one Settings > Devices uses); the server keeps only a scrambled form of it, with invites
+  const devId = () => { let id = ls.get("studyboard:deviceId"); if (!id) { id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2); ls.set("studyboard:deviceId", id); } return id; };
   const plural = (k, w) => `${k} ${w}${k === 1 ? "" : "s"}`;
   const ls = {get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} },
     del: k => { try { localStorage.removeItem(k); } catch (e) {} }, json: k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }};
@@ -130,7 +132,7 @@
     if (!p || claiming || !signedIn() || quiet()) return;
     if (!(Date.now() - Number(p.at) < 14 * 864e5)) { ls.del(REF_KEY); return; }
     claiming = true;
-    try { const {error} = await sb.rpc("studyboard_claim_invite", {p_code: p.code, p_via: p.via || "link"}); if (!error) ls.del(REF_KEY); } catch (e) {}
+    try { const {error} = await sb.rpc("studyboard_claim_invite", {p_code: p.code, p_via: p.via || "link", p_device: devId()}); if (!error) ls.del(REF_KEY); } catch (e) {}
     claiming = false;
   }
   function gotRewards(n){
@@ -157,7 +159,7 @@
     }
     openSheet(`<form class="sheet inv-sheet">${head("Invite Friends, Get Pro Free")}<div class="sheet-body"><p class="mini">Loading your invite link…</p></div></form>`);
     let d = null;
-    try { const {data, error} = await sb.rpc("studyboard_my_invites"); if (!error) d = data; } catch (e) {}
+    try { const {data, error} = await sb.rpc("studyboard_my_invites", {p_device: devId()}); if (!error) d = data; } catch (e) {}
     const body = dlg.querySelector(".inv-sheet .sheet-body"); if (!body) return;
     if (!d || !d.code) { body.innerHTML = `<p>Invites aren't available right now. Check your connection and try again.</p>`; return; }
     ls.set(MYREF_KEY, d.code);
@@ -172,7 +174,7 @@
         ${waiting ? `<li>${plural(waiting, "friend")} joined and ${waiting === 1 ? "counts" : "count"} once they come back on another day.</li>` : ""}
         ${months ? `<li>You've earned ${plural(months, "free month")} so far${until && until > new Date() ? `. Pro is on until ${esc(until.toLocaleDateString(undefined, {month: "long", day: "numeric"}))}` : ""}.</li>` : ""}
         ${capped ? `<li>You've reached the most free months for this year (${Number(d.cap) || 6}). Thanks for sharing so much!</li>` : ""}
-        <li class="mini">The free month has Pro's themes and features. Studyboard AI and extra storage aren't included.</li>
+        <li class="mini">The free month has Pro's themes and features. Studyboard AI and extra storage aren't included. Friends need their own account, made on their own device, and need to really use Studyboard.</li>
       </ul>
       <label class="f"><span class="lbl">Your Link</span><input id="invLink" readonly value="${esc(link)}"></label>`;
     const foot = document.createElement("div"); foot.className = "sheet-foot";
@@ -188,7 +190,7 @@
   // links other parts of the app share (group invites, decks) carry your code once you've opened Invite Friends
   window.SBINVITE = {open: inviteSheet, myCode: () => ls.get(MYREF_KEY) || "", checkin: () => checkin(true), claim, verdict, cmp};
   // fetch your code quietly once signed in, so the first group invite already carries it
-  setTimeout(async () => { if (!ls.get(MYREF_KEY) && signedIn() && !quiet()) { try { const {data} = await sb.rpc("studyboard_my_invites"); if (data && data.code) ls.set(MYREF_KEY, data.code); } catch (e) {} } }, 8000);
+  setTimeout(async () => { if (!ls.get(MYREF_KEY) && signedIn() && !quiet()) { try { const {data} = await sb.rpc("studyboard_my_invites", {p_device: devId()}); if (data && data.code) ls.set(MYREF_KEY, data.code); } catch (e) {} } }, 8000);
 
   hook("menu", () => `<button data-act="invite-friends" data-group="app"><span>Invite Friends, Get Pro Free<span class="sub">3 friends join from your link and you get a month of Pro</span></span></button>`);
 

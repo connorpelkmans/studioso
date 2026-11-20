@@ -58,6 +58,22 @@ create table if not exists public.studyboard_referrals (
   rewarded boolean not null default false
 );
 create index if not exists studyboard_referrals_referrer_idx on public.studyboard_referrals (referrer);
+-- Against farming (making accounts to invite yourself): a scrambled code for the device each invite was opened on, and
+-- the reason a join didn't count. The referrer's own devices are kept with their code.
+alter table public.studyboard_referrals add column if not exists device text;
+alter table public.studyboard_referrals add column if not exists hold text;
+alter table public.studyboard_ref_codes add column if not exists devices text[] not null default '{}';
+-- The same person behind two addresses: lower case, no +tag, and Gmail ignores dots (and googlemail.com is gmail.com)
+create or replace function public.studyboard_email_key(p text) returns text language sql immutable set search_path = '' as $$
+  select case when position('@' in coalesce(p, '')) = 0 then lower(coalesce(p, '')) else
+    (case when split_part(lower(p), '@', 2) in ('gmail.com', 'googlemail.com') then replace(split_part(split_part(lower(p), '@', 1), '+', 1), '.', '')
+          else split_part(split_part(lower(p), '@', 1), '+', 1) end)
+    || '@' || (case when split_part(lower(p), '@', 2) = 'googlemail.com' then 'gmail.com' else split_part(lower(p), '@', 2) end) end
+$$;
+-- A device code is hashed before it's kept, so the table never holds the app's own device id
+create or replace function public.studyboard_dev_hash(p text) returns text language sql immutable set search_path = '' as $$
+  select case when coalesce(p, '') ~ '^[A-Za-z0-9-]{8,80}$' then encode(sha256(convert_to('sbref:' || p, 'UTF8')), 'hex') end
+$$;
 create table if not exists public.studyboard_ref_rewards (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -87,7 +103,7 @@ begin
   loop
     if (select count(*) from public.studyboard_ref_rewards r where r.user_id = p_referrer and r.created_at > now() - interval '365 days') >= cap then exit; end if;
     select array_agg(referred) into ids from (select f.referred from public.studyboard_referrals f
-      where f.referrer = p_referrer and f.qualified_at is not null and not f.rewarded order by f.qualified_at limit need) x;
+      where f.referrer = p_referrer and f.qualified_at is not null and f.hold is null and not f.rewarded order by f.qualified_at limit need) x;
     if coalesce(array_length(ids, 1), 0) < need then exit; end if;
     select e.promo_until into cur from public.studyboard_entitlements e where e.user_id = p_referrer;
     until := greatest(coalesce(cur, now()), now()) + interval '1 month';
@@ -117,8 +133,11 @@ begin
     insert into public.studyboard_active_days (user_id, day) values (me, current_date) on conflict do nothing;
     -- a friend who joined from someone's link, back on a later day: they count toward that person's reward
     select * into f from public.studyboard_referrals where referred = me;
-    if found and f.qualified_at is null and current_date > f.first_day
-       and exists (select 1 from auth.users u where u.id = me and u.email_confirmed_at is not null) then
+    -- counts once they're back on a later day (within 30 days), with a confirmed email, having really used Studyboard
+    -- (3 or more tasks, courses, decks, notes or events of their own), and not held as an alias or the same device
+    if found and f.qualified_at is null and f.hold is null and current_date > f.first_day and current_date <= f.first_day + 30
+       and exists (select 1 from auth.users u where u.id = me and u.email_confirmed_at is not null)
+       and (select count(*) from (select 1 from public.items i where i.user_id = me and i.kind in ('task', 'course', 'deck', 'note', 'event') limit 3) x) >= 3 then
       update public.studyboard_referrals set qualified_at = now() where referred = me;
       perform public.studyboard_ref_settle(f.referrer);
     end if;
@@ -132,7 +151,8 @@ grant execute on function public.studyboard_checkin(text, text, boolean) to anon
 -- ---------------------------------------------------------------------------------------------------------------------------
 -- 3. Invite rewards: your code and progress, and claiming a friend's link
 -- ---------------------------------------------------------------------------------------------------------------------------
-create or replace function public.studyboard_my_invites() returns jsonb
+drop function if exists public.studyboard_my_invites();
+create or replace function public.studyboard_my_invites(p_device text default null) returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
 declare me uuid := auth.uid(); c text; abc constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; i int;
         rule jsonb := public.studyboard_ref_rule(); pu timestamptz;
@@ -144,23 +164,30 @@ begin
     begin insert into public.studyboard_ref_codes (user_id, code) values (me, c);
     exception when unique_violation then c := null; end;
   end loop;
+  -- the devices you invite from: an account made on one of them doesn't count as a friend
+  if public.studyboard_dev_hash(p_device) is not null then
+    update public.studyboard_ref_codes set devices = (select array_agg(distinct x) from unnest(devices || public.studyboard_dev_hash(p_device)) x)
+      where user_id = me and not (public.studyboard_dev_hash(p_device) = any(devices)) and cardinality(devices) < 20;
+  end if;
   select e.promo_until into pu from public.studyboard_entitlements e where e.user_id = me;
   return jsonb_build_object('code', c, 'need', rule -> 'need', 'cap', rule -> 'cap',
     'joined', (select count(*) from public.studyboard_referrals f where f.referrer = me),
     'qualified', (select count(*) from public.studyboard_referrals f where f.referrer = me and f.qualified_at is not null),
-    'toward', (select count(*) from public.studyboard_referrals f where f.referrer = me and f.qualified_at is not null and not f.rewarded),
-    'waiting', (select count(*) from public.studyboard_referrals f where f.referrer = me and f.qualified_at is null),
+    'toward', (select count(*) from public.studyboard_referrals f where f.referrer = me and f.qualified_at is not null and f.hold is null and not f.rewarded),
+    'waiting', (select count(*) from public.studyboard_referrals f where f.referrer = me and f.qualified_at is null and f.hold is null and current_date <= f.first_day + 30),
     'rewards', (select count(*) from public.studyboard_ref_rewards r where r.user_id = me),
     'year', (select count(*) from public.studyboard_ref_rewards r where r.user_id = me and r.created_at > now() - interval '365 days'),
     'promo_until', case when pu > now() then pu end);
 end $$;
-revoke all on function public.studyboard_my_invites() from public, anon;
-grant execute on function public.studyboard_my_invites() to authenticated;
+revoke all on function public.studyboard_my_invites(text) from public, anon;
+grant execute on function public.studyboard_my_invites(text) to authenticated;
 
 -- A new account (made in the last 14 days) records who invited it. Only once, never yourself, never a throwaway email.
-create or replace function public.studyboard_claim_invite(p_code text, p_via text default 'link') returns jsonb
+drop function if exists public.studyboard_claim_invite(text, text);
+create or replace function public.studyboard_claim_invite(p_code text, p_via text default 'link', p_device text default null) returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
-declare me uuid := auth.uid(); who uuid; made timestamptz; em text; via text := lower(coalesce(p_via, 'link'));
+declare me uuid := auth.uid(); who uuid; made timestamptz; em text; key text; via text := lower(coalesce(p_via, 'link'));
+        dev text := public.studyboard_dev_hash(p_device); hold text;
 begin
   if me is null then return jsonb_build_object('error', 'signin'); end if;
   if via not in ('link', 'group', 'deck', 'map', 'rehearse') then via := 'link'; end if;
@@ -171,11 +198,52 @@ begin
   select u.created_at, lower(u.email) into made, em from auth.users u where u.id = me;
   if made < now() - interval '14 days' then return jsonb_build_object('error', 'not_new'); end if;
   if exists (select 1 from public.studyboard_trial_blocked_domains d where d.domain = split_part(em, '@', 2)) then return jsonb_build_object('error', 'blocked'); end if;
-  insert into public.studyboard_referrals (referred, referrer, via) values (me, who, via) on conflict do nothing;
+  key := public.studyboard_email_key(em);
+  -- the inviter's own address in disguise (maya+2@, m.aya@gmail.com), or an address with a +tag, or a second account
+  -- for an address that already has one: recorded, never counted
+  if key = (select public.studyboard_email_key(u.email) from auth.users u where u.id = who) then hold := 'alias';
+  elsif split_part(split_part(em, '@', 1), '+', 2) <> '' then hold := 'alias';
+  elsif exists (select 1 from auth.users u where u.id <> me and public.studyboard_email_key(u.email) = key) then hold := 'alias';
+  -- made on a device the inviter uses, or on the same device as another friend they invited
+  elsif dev is not null and (exists (select 1 from public.studyboard_ref_codes c where c.user_id = who and dev = any(c.devices))
+       or exists (select 1 from public.studyboard_devices d where d.user_id = who and public.studyboard_dev_hash(d.device_id) = dev)
+       or exists (select 1 from public.studyboard_referrals f where f.referrer = who and f.device = dev)) then hold := 'same_device';
+  end if;
+  insert into public.studyboard_referrals (referred, referrer, via, device, hold) values (me, who, via, dev, hold) on conflict do nothing;
   return jsonb_build_object('ok', true);
 end $$;
-revoke all on function public.studyboard_claim_invite(text, text) from public, anon;
-grant execute on function public.studyboard_claim_invite(text, text) to authenticated;
+revoke all on function public.studyboard_claim_invite(text, text, text) from public, anon;
+grant execute on function public.studyboard_claim_invite(text, text, text) to authenticated;
+
+-- For you, in the SQL editor: inviters worth a look (several joins held, or many joins in a short time)
+create or replace function public.studyboard_ref_review(p_days int default 30) returns table (inviter text, joined bigint, counted bigint, held bigint, months bigint, last_join timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  perform public.plans_deny_clients();
+  return query select u.email::text, count(*), count(*) filter (where f.qualified_at is not null), count(*) filter (where f.hold is not null),
+      (select count(*) from public.studyboard_ref_rewards r where r.user_id = f.referrer), max(f.created_at)
+    from public.studyboard_referrals f join auth.users u on u.id = f.referrer
+    where f.created_at > now() - make_interval(days => greatest(p_days, 1))
+    group by f.referrer, u.email order by count(*) filter (where f.hold is not null) desc, count(*) desc limit 50;
+end $$;
+revoke all on function public.studyboard_ref_review(int) from public, anon, authenticated;
+-- Takes back invite months from someone who gamed it: their unrewarded joins stop counting, and the months they got from
+-- invites come off their promo end date (a promo code they redeemed is untouched)
+create or replace function public.studyboard_ref_revoke(p_email text) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid; n int;
+begin
+  perform public.plans_deny_clients();
+  select id into uid from auth.users where lower(email) = lower(btrim(p_email));
+  if uid is null then return 'No account uses ' || coalesce(p_email, '(nothing)'); end if;
+  select count(*) into n from public.studyboard_ref_rewards where user_id = uid;
+  update public.studyboard_entitlements set promo_until = case when promo_until - make_interval(months => n) > now() then promo_until - make_interval(months => n) end, updated_at = now()
+    where user_id = uid and promo_until is not null;
+  update public.studyboard_referrals set hold = 'revoked' where referrer = uid and not rewarded;
+  delete from public.studyboard_ref_rewards where user_id = uid;
+  return 'Took back ' || n || ' invite month(s) from ' || p_email;
+end $$;
+revoke all on function public.studyboard_ref_revoke(text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------------------------------------
 -- 2. Launch stats (totals only)
