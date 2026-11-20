@@ -116227,7 +116227,9 @@ const AUTOPILOT = (() => {
         if (tbs.length) {
           const box = document.createElement("div"); box.className = "cf-acts";
           const rest = [...rvh.children].filter(c => !c.matches("h2, .trash-btn") && c.getClientRects().length);
-          if (rest.length === 1) box.appendChild(rest[0]);
+          // every button joins the course row (Concept Maps has Sort and Import too); with more than one besides the bin they go icon-only
+          if (rvh.matches("[data-cm-list]")) { rest.forEach(b => box.appendChild(b)); if (rest.length > 1) box.classList.add("ph-many"); }
+          else if (rest.length === 1) box.appendChild(rest[0]);
           tbs.forEach(b => box.appendChild(b)); rcf.appendChild(box);
           rvh.classList.add("ph-fill");
           if (![...rvh.children].some(c => !c.matches("h2") && c.getClientRects().length)) rvh.classList.add("ph-moved");
