@@ -2682,3 +2682,5 @@ dialog .sheet-body{scrollbar-gutter:auto}
 .av-form .meet-days button{min-width:0;width:auto;padding:0}
 .av-form .av-when .seg label{white-space:nowrap}
 .av-form .av-tc{margin-top:2px}
+.cs-short-p{display:none}
+@media (max-width:520px){.cs-long-p{display:none}.cs-short-p{display:block}}

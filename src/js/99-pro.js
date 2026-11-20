@@ -4707,13 +4707,14 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
 
   /* Calendar Sync > Two-Way */
   // what two-way sync is, in short: unlike the read-only live link, edits flow both ways
-  const TWO_WAY_WHAT = `<p style="margin:0">Connects your Google or Outlook account. Your deadlines, exams and classes go into a calendar there called “Studyboard”, and it works both ways: move or edit something in either place and the other updates. Your own events can come in too, so your plan works around them.</p>`;
+  // Phones get the short version (cs-long / cs-short swap at 520px, as on the tabs)
+  const TWO_WAY_WHAT = `<p style="margin:0" class="cs-long-p">Connects your Google or Outlook account. Your deadlines, exams and classes go into a calendar there called “Studyboard”, and it works both ways: move or edit something in either place and the other updates. Your own events can come in too, so your plan works around them.</p><p style="margin:0" class="cs-short-p">Your work goes into a “Studyboard” calendar in Google or Outlook. Change it in either place and the other updates.</p>`;
   const ago = s => { if (!s) return "not yet"; const m = Math.round((Date.now() - Date.parse(s)) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
   // shown to everyone: on the free plan it carries a small PRO badge, and its pane explains what Pro adds
   function tabHtml(){ return `<button type="button" data-cs-tab="two" aria-pressed="false">Two-Way${P.locked() ? ` <span class="pro-badge cs-pro">PRO</span>` : ""}</button>`; }
   const reads = p => { const r = cache().reads || {}; return r[p] !== false; };
   function paneHtml(){
-    if (P.locked()) return `${TWO_WAY_WHAT}<p class="mini" style="margin:0">Two-way sync is part of Studyboard Pro.</p><div class="cs-row"><button type="button" class="btn small primary" data-act="csy-pro">See Studyboard Pro</button></div>`;
+    if (P.locked()) return `${TWO_WAY_WHAT}<p class="mini" style="margin:0">Two-Way sync is part of Studyboard Pro.</p><div class="cs-row"><button type="button" class="btn small primary" data-act="csy-pro">See Studyboard Pro</button></div>`;
     const c = cache(), pr = prefs();
     if (!ready()) return `<div class="cs-note"><b class="cs-note-t">Sign In First</b><p>Two-way sync connects your Studyboard account to Google Calendar or Outlook. Sign in to your Studyboard account to use it.</p></div>`;
     const provs = PROVS.filter(p => (c.providers || {})[p]);
