@@ -17830,6 +17830,9 @@ async function uploadFiles(list, opts){
     toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`), opts.noUndo ? null : () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
   }
   storageLimit(held, opts, why);
+  // Uploads a student makes (Files, a class, a task, Quick Add) also get a copy in their connected Google Drive or OneDrive,
+  // in the background (99-pro.js copyUploads decides where, or that none is needed)
+  if ((opts.cloud || opts.copy) && made.length && window.SBCLOUD && SBCLOUD.copyUploads) setTimeout(() => { SBCLOUD.copyUploads(made, list, opts).catch(() => {}); }, 0);
   return made;
 }
 function cleanupAssets(ids, delay = 0){
@@ -83006,7 +83009,7 @@ const QADD = (() => {
     });
     const all = [];
     await Promise.all([...groups.values()].map(async g => {
-      const made = await uploadFiles(g.files, {courseId: g.courseId, folderId: g.folderId, qkind: g.kind, ftype: g.kind});
+      const made = await uploadFiles(g.files, {courseId: g.courseId, folderId: g.folderId, qkind: g.kind, ftype: g.kind, copy: true});
       if (made && made.length) all.push(...made);
     }));
     if (!all.length) return;
@@ -90368,17 +90371,22 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     try { return await msUpload(blob, name, type, segsFor(o || {}), cf); }
     catch (e) { if (e && e.code === "net") throw e; toast(`Couldn't use the OneDrive folder “${cf.name}” for this course, so it went to Studyboard's folder instead.`); return msUpload(blob, name, type, segsFor(o || {})); }
   }
-  /* Class uploads kept in Studyboard: a copy also goes to the student's Google Drive or OneDrive, in <course>/Lectures/<date> <class>
-     (or the course's own chosen folder). Studyboard's file stays the one shown in Files; the copy is noted on it (f.copy) and
-     hidden from watched-folder checks so it doesn't come back as a second file. */
+  /* Uploads kept in Studyboard: a copy also goes to the student's Google Drive or OneDrive, in <course> (a class's in
+     <course>/Lectures/<date> <class>), or the course's own chosen folder. Studyboard's file stays the one shown in Files; the copy
+     is noted on it (f.copy) and hidden from watched-folder checks so it doesn't come back as a second file.
+     No copy when the Studyboard folder on this computer is already inside that cloud's synced folder: it would be there twice. */
+  const SYNCED = {microsoft: /onedrive/i, google: /google ?drive|my drive|googledrive/i};
+  const localIn = p => { try { return typeof FSB === "object" && !!FSB.where && (!!DESK || FSB.status === "on" || FSB.status === "paused") && SYNCED[p].test(String(FSB.where)); } catch (e) { return false; } };
   const copyTo = courseId => {
     const pr = prefs(), conn = connected(); if (pr.copy === "off" || target() || !conn.length) return "";
-    if (pr.copy !== "auto") return conn.includes(pr.copy) ? pr.copy : "";
+    if (pr.copy !== "auto") return conn.includes(pr.copy) && !localIn(pr.copy) ? pr.copy : "";
+    if (conn.some(localIn)) return "";
     if (conn.length === 1) return conn[0];
     return courseId && pr.msCourse[courseId] && !pr.gCourse[courseId] ? "microsoft" : "google";
   };
   async function copyUploads(made, list, opts){
-    const p = copyTo(opts && opts.courseId); if (!p || !made || !made.length) return 0;
+    made = (made || []).filter(f => f && f.kind === "file");
+    const p = copyTo(opts && opts.courseId); if (!p || !made.length) return 0;
     const pool = (list || []).slice(), ch = [], hide = [];
     for (const f of made) {
       if (!f || f.kind !== "file") continue;
@@ -90647,8 +90655,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     const rad = (v, label) => `<label><input type="radio" name="clSave" value="${v}"${curSave === v ? " checked" : ""}${v !== "studyboard" && !conn.includes(v) ? " disabled" : ""}> ${label}</label>`;
     const saveSet = conn.length ? `<fieldset class="cl-set"><legend>Save New Uploads In</legend><div class="cl-rad">${rad("studyboard", "Studyboard")}${PROVS.filter(p => conn.includes(p)).map(p => rad(p, NM[p])).join("")}</div>
       <p class="mini">Uploads in Files and task attachments go there, sorted into a folder per course. Lecture recordings ask where to keep them. Word, PowerPoint and Excel files are fine in the cloud.</p>
-      ${curSave === "studyboard" ? `<label class="cl-copy"><span>Copy class uploads to</span><select data-cl-copy aria-label="Where a copy of class uploads goes">${[["auto", conn.length === 1 ? NM[conn[0]] : "Google Drive or OneDrive"], ["off", "Don't copy"]].concat(conn.length > 1 ? PROVS.filter(p => conn.includes(p)).map(p => [p, NM[p]]) : []).map(([v, n]) => `<option value="${v}"${pr.copy === v ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
-      <p class="mini">Files uploaded to a class are kept in Studyboard, with a copy in your cloud under the course's Lectures folder.</p>` : ""}
+      ${curSave === "studyboard" ? `<label class="cl-copy"><span>Copy uploads to</span><select data-cl-copy aria-label="Where a copy of your uploads goes">${[["auto", conn.length === 1 ? NM[conn[0]] : "Google Drive or OneDrive"], ["off", "Don't copy"]].concat(conn.length > 1 ? PROVS.filter(p => conn.includes(p)).map(p => [p, NM[p]]) : []).map(([v, n]) => `<option value="${v}"${pr.copy === v ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
+      <p class="mini">${conn.some(localIn) && pr.copy !== "off" ? `Your Studyboard folder on this computer is already in ${esc(NM[conn.find(localIn)])}, so uploads are there without an extra copy.` : "Uploads are kept in Studyboard, with a copy in your cloud in a folder per course. A class's files go in the course's Lectures folder."}</p>` : ""}
       ${ms ? `<p class="mini">OneDrive folder: <b>${esc(pr.msFolder ? pr.msFolder.name : "Studyboard")}</b> <button type="button" class="link-btn" data-act="cl-browse" data-mode="save">Change</button>${pr.msFolder ? ` <button type="button" class="link-btn" data-act="cl-save-default">Use Studyboard</button>` : ""}</p>` : ""}</fieldset>` : "";
     const watch = ms ? `<fieldset class="cl-set"><legend>Watched OneDrive Folders</legend>
       ${pr.watch.length ? `<ul class="cl-watch">${pr.watch.map(w => `<li><span class="cl-wn">${FOLDER}<b>${esc(w.name)}</b><span class="mini">${Object.values(state.files).filter(f => f.cloud && f.cloud.w === w.id).length} files</span></span>
@@ -90765,7 +90773,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   document.addEventListener("change", e => {
     const t = e.target; if (!t || !t.closest || !t.closest("#clBody")) return;
     if (t.dataset.clFc !== undefined) { U.fc = t.value; paint(); return; }
-    if (t.dataset.clCopy !== undefined) { setPrefs({copy: t.value}); toast(t.value === "off" ? "Class uploads stay in Studyboard only" : "Class uploads get a copy in your cloud too"); return; }
+    if (t.dataset.clCopy !== undefined) { setPrefs({copy: t.value}); toast(t.value === "off" ? "Uploads stay in Studyboard only" : "Uploads get a copy in your cloud too"); return; }
     if (t.name === "clSave") { setPrefs({save: t.value}); toast(t.value === "studyboard" ? "New uploads stay in Studyboard" : `New uploads go to ${NM[t.value]}`); render(); }
     else if (t.dataset.clWc) { setPrefs({watch: prefs().watch.map(w => w.id === t.dataset.clWc ? Object.assign({}, w, {courseId: t.value}) : w)}); U.scanAt = 0; scan({quiet: true}); toast("Saved"); }
   });
@@ -90880,7 +90888,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const docApi = (p, url, init, mode) => api(p, url, init, mode);
   const pickerApp = () => { try { return String((cache().picker || {}).appId || ""); } catch (e) { return ""; } };
   window.SBCLOUD = {canPickFiles, pickFiles, canPickOneDrive, msList, msFile, copyTo, copyUploads, pickGoogleDoc, pickGoogleSlides, docApi, pickerApp, CloudErr, aiOk, backup, storageFull, icons: {google: GDRIVE_ICON, microsoft: ONEDRIVE_ICON}, target, choices, connected, uploadFiles, saveBlob, bytes, move, remove, infoHtml, moveHtml, filesBtn, scan, open: openSheetCl, prefs, setPrefs};
-  window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
+  window.__sbCloud = {T, U, cache, setCache, TOK, matchCourse, guessFolder, ridOf, scan, prefs, FSB, core: {fileBytes, readableFile, fileHref, clone, applyChanges}};
 
   const css = document.createElement("style");
   css.textContent = `
@@ -101514,16 +101522,15 @@ var SBCLS = null;
     return {html, n: fs.length, crumb: ""};
   }
   // Upload into a class's folder: the files go in Lecture Notes, linked to the class
-  // Upload into a class: kept in Studyboard (or in the cloud when uploads are set to go there) and shown in Files > Lecture Notes
-  // under the class. On the desktop app the file is written to Files/<course>/Lecture Notes/<date> <class>; with Google Drive or
-  // OneDrive connected (and uploads kept in Studyboard) a copy also goes to <course>/Lectures/<date> <class> there
+  // Upload into a class (from its page, or its folder in Files): kept in Studyboard (or in the cloud when uploads are set to go
+  // there), linked to the class, so it shows on the class page in the Lectures tab and in Files > Lecture Notes. On the desktop app
+  // it's written to Files/<course>/Lecture Notes/<date> <class>; with Google Drive or OneDrive connected a copy also goes to
+  // <course>/Lectures/<date> <class> there (uploadFiles asks for it)
   async function uploadTo(cid, key, list, msg){
     const x = classOf(cid, key) || looseClass(cid, key);
     const made = await uploadFiles(list, {courseId: cid, folderId: "notes", cloud: true, sub: subFor(x), cls: key});
     if (!made || !made.length) return;
     tag("file", made.map(f => f.id), key, msg == null ? `Added to ${x.title}` : msg);
-    const CL = window.SBCLOUD, mine = made.filter(f => f.kind === "file");
-    if (mine.length && CL && CL.copyUploads) { try { await CL.copyUploads(mine, list, {courseId: cid, sub: subFor(x)}); } catch (e) {} }
   }
   // The name of a class's own folder: "2026-10-05 Lecture 7"
   const dirOf = (cid, key) => { const x = classOf(cid, key) || looseClass(cid, key); return x ? `${x.date} ${x.title}` : String(key || "").split("|")[0]; };
@@ -101543,7 +101550,7 @@ var SBCLS = null;
     if (!o || !(o.type === "meet" || (o.type === "event" && isClassEvent(o.ev)))) return [];
     const cid = courseIdOf(o), key = classKey(o), x = findClass(cid, key); if (!x) return [];
     const I = itemsOf(cid, key), rows = [];
-    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(key)}">${I.n ? "Open Class Notes" : "Add Notes for This Class"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
+    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(key)}">${I.n ? "Open Class Notes" : "Add Lecture Notes"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
     return rows;
   }
 

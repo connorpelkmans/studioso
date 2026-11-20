@@ -130,6 +130,9 @@ async function uploadFiles(list, opts){
     toast((made.length === 1 ? `Uploaded ${made[0].name}.` : `Uploaded ${made.length} files.`), opts.noUndo ? null : () => { invs.slice().reverse().forEach(inv => applyChanges(inv, null)); cleanupAssets(made.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
   }
   storageLimit(held, opts, why);
+  // Uploads a student makes (Files, a class, a task, Quick Add) also get a copy in their connected Google Drive or OneDrive,
+  // in the background (99-pro.js copyUploads decides where, or that none is needed)
+  if ((opts.cloud || opts.copy) && made.length && window.SBCLOUD && SBCLOUD.copyUploads) setTimeout(() => { SBCLOUD.copyUploads(made, list, opts).catch(() => {}); }, 0);
   return made;
 }
 function cleanupAssets(ids, delay = 0){

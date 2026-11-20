@@ -180,7 +180,7 @@ const shot = async (page, name, sel) => { if (!SHOTS) return; await page.waitFor
   ok(/NK1 Module 8, Class 3/.test(nk) && /NK 1 Module 9, Class 1/.test(nk) && /Clinical orientation/.test(nk) && /Lecture 3/.test(nk), "each shows its own title and is numbered");
   ok(!/Pizza night|Reading week/.test(nk), "a social event and an all-day event aren't classes");
   await act(page, "sch-occ", "e3", {type: "event", key: "2026-10-09"}); await page.waitForSelector("#dlg .occv-rows");
-  ok(/Add Notes for This Class/.test(await page.$eval("#dlg .occv-rows", el => el.textContent)), "the Schedule's sheet for a calendar lecture links its class page");
+  ok(/Add Lecture Notes/.test(await page.$eval("#dlg .occv-rows", el => el.textContent)), "the Schedule's sheet for a calendar lecture links its class page");
   await page.click('#dlg [data-act="cls-open"]'); await page.waitForSelector("#dlg .cls-sheet");
   ok(/NK 1 Module 9, Class 1/.test(await page.$eval("#dlg .cls-sheet", el => el.textContent)), "and opens it, with the lecture's title");
   await shot(page, "5-calendar-lectures", "#dlg .sheet");

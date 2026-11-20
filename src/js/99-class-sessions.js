@@ -461,16 +461,15 @@ var SBCLS = null;
     return {html, n: fs.length, crumb: ""};
   }
   // Upload into a class's folder: the files go in Lecture Notes, linked to the class
-  // Upload into a class: kept in Studyboard (or in the cloud when uploads are set to go there) and shown in Files > Lecture Notes
-  // under the class. On the desktop app the file is written to Files/<course>/Lecture Notes/<date> <class>; with Google Drive or
-  // OneDrive connected (and uploads kept in Studyboard) a copy also goes to <course>/Lectures/<date> <class> there
+  // Upload into a class (from its page, or its folder in Files): kept in Studyboard (or in the cloud when uploads are set to go
+  // there), linked to the class, so it shows on the class page in the Lectures tab and in Files > Lecture Notes. On the desktop app
+  // it's written to Files/<course>/Lecture Notes/<date> <class>; with Google Drive or OneDrive connected a copy also goes to
+  // <course>/Lectures/<date> <class> there (uploadFiles asks for it)
   async function uploadTo(cid, key, list, msg){
     const x = classOf(cid, key) || looseClass(cid, key);
     const made = await uploadFiles(list, {courseId: cid, folderId: "notes", cloud: true, sub: subFor(x), cls: key});
     if (!made || !made.length) return;
     tag("file", made.map(f => f.id), key, msg == null ? `Added to ${x.title}` : msg);
-    const CL = window.SBCLOUD, mine = made.filter(f => f.kind === "file");
-    if (mine.length && CL && CL.copyUploads) { try { await CL.copyUploads(mine, list, {courseId: cid, sub: subFor(x)}); } catch (e) {} }
   }
   // The name of a class's own folder: "2026-10-05 Lecture 7"
   const dirOf = (cid, key) => { const x = classOf(cid, key) || looseClass(cid, key); return x ? `${x.date} ${x.title}` : String(key || "").split("|")[0]; };
@@ -490,7 +489,7 @@ var SBCLS = null;
     if (!o || !(o.type === "meet" || (o.type === "event" && isClassEvent(o.ev)))) return [];
     const cid = courseIdOf(o), key = classKey(o), x = findClass(cid, key); if (!x) return [];
     const I = itemsOf(cid, key), rows = [];
-    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(key)}">${I.n ? "Open Class Notes" : "Add Notes for This Class"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
+    rows.push([IC.note(18), `<button type="button" class="link-btn occv-link" data-act="cls-open" data-cid="${esc(cid)}" data-key="${esc(key)}">${I.n ? "Open Class Notes" : "Add Lecture Notes"}</button>`, esc(I.n ? `${x.title} · ${hasLine(I)}` : `${x.title} · notes, files and the recording in one place`)]);
     return rows;
   }
 

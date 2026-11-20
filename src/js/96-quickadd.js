@@ -367,7 +367,7 @@ const QADD = (() => {
     });
     const all = [];
     await Promise.all([...groups.values()].map(async g => {
-      const made = await uploadFiles(g.files, {courseId: g.courseId, folderId: g.folderId, qkind: g.kind, ftype: g.kind});
+      const made = await uploadFiles(g.files, {courseId: g.courseId, folderId: g.folderId, qkind: g.kind, ftype: g.kind, copy: true});
       if (made && made.length) all.push(...made);
     }));
     if (!all.length) return;
