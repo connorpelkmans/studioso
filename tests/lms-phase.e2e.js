@@ -411,13 +411,16 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
         courses: [{ou: "1000", code: "BSNC1000", name: "Nursing Knowledge", grades: [], news: [],
           folders: [{id: "51", name: "Midterm Clinical Evaluation", due: at(6), end: null, sub: false, files: []}],
           quizzes: [{id: "52", name: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", due: at(4), start: null, end: null, done: false},
-                    {id: "53", name: "Practice Midterm Exam Questions", due: at(30), start: null, end: null, done: false}],
-          events: [{id: "e5", title: "NK1 Midterm Exam Review", start: at(4), end: at(4.06), allDay: false, assoc: false, where: "NW4 1072/76/78", url: ""}]}]});
-      return {recs: d.recs.map(r => [r.title, r.type]), evs: d.evs.map(e => e.title)};
+                    {id: "53", name: "Practice Midterm Exam Questions", due: at(30), start: null, end: null, done: false},
+                    {id: "54", name: "Practice Final Exam", due: null, start: at(-20), end: null, done: false}],
+          events: [{id: "e6", title: "Practice Final Exam - Availability Starts", start: at(-20), end: at(-20), allDay: false, assoc: true, eid: "54", kind: "Quiz", url: ""}, {id: "e5", title: "NK1 Midterm Exam Review", start: at(4), end: at(4.06), allDay: false, assoc: false, where: "NW4 1072/76/78", url: ""}]}]});
+      return {recs: d.recs.map(r => [r.title, r.type, r.due, r.start]), evs: d.evs.map(e => e.title)};
     });
     const tyOf = t => (ty.recs.find(r => r[0] === t) || [])[1];
     ok(!ty.recs.some(r => /Exam Review/.test(r[0])) && ty.evs.includes("NK1 Midterm Exam Review"), "an exam review session is a calendar event, not a task: " + JSON.stringify(ty));
-    ok(tyOf("Midterm Clinical Evaluation") === "Exam" && tyOf("BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser") === "Exam" && tyOf("Practice Midterm Exam Questions") === "Assignment", "real exams stay exams; practice questions are work: " + JSON.stringify(ty.recs));
+    const pf = ty.recs.find(r => r[0] === "Practice Final Exam") || [];
+    ok(pf[1] === "Quiz" && pf[2] === "" && !!pf[3], "a practice quiz that only opens is a quiz with no due date (never late), starting when it opens: " + JSON.stringify(pf));
+    ok(tyOf("Midterm Clinical Evaluation") === "Exam" && tyOf("BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser") === "Exam" && tyOf("Practice Midterm Exam Questions") === "Quiz", "real exams stay exams; a practice quiz is a quiz, not an exam: " + JSON.stringify(ty.recs));
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     await app.evaluate(() => window.postMessage({source: "studyboard-ext", type: "data", version: "1.0.3", schools: [{id: "brightspace", origin: "https://learn.example.edu", state: "ok", at: Date.now()}], list: []}, location.origin));
     await app.waitForTimeout(200);
