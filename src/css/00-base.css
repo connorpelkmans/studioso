@@ -2669,3 +2669,6 @@ html[dir="rtl"] svg:has(> path:is([d^="M15 6l-6 6"],[d^="M9 6l6 6"],[d^="M9 5l7 
 .av-form .av-pane .meet-days{margin:4px 0 0}
 .av-form .av-pane .two{margin:0}
 .av-form .av-pane[hidden]{display:none}
+/* Scrollbars inside popups: thin, no arrow buttons, a soft thumb on a clear track, so they never sit as a grey bar over a coloured header or button */
+dialog,dialog *{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--ink) 24%,transparent) transparent}
+dialog .sheet-body{scrollbar-gutter:auto}
