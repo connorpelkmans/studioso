@@ -1,0 +1,1 @@
+[{"clip": "../_broll/phonebed.mp4", "in": 8.5, "dur": 6.0, "pre": "crop=iw/1.6:ih/1.6:(iw-iw/1.6)*0.43:(ih-ih/1.6)*0.7,eq=brightness=0.07:gamma=1.35:saturation=1.1"}]

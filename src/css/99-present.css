@@ -481,3 +481,13 @@ button.pr-stat{cursor:pointer}
 .pr-fr-acts{display:flex;gap:8px}
 .pr-fr-qr{width:auto;display:grid;place-items:center;align-self:center;line-height:0}
 .pr-fr-qr svg{width:140px;height:140px}
+/* hover: the screen lifts a little and the timer stamp grows, as the quiz card's clipboard does. Kept on their own layer
+   (will-change, no backface) so the slide's text stays sharp, and one transition both ways so it settles back without a stutter */
+.rv-pres .pr-scr{transition:transform .32s cubic-bezier(.2,.8,.2,1);will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.rv-pres:hover .pr-scr{transform:translateY(-6px)}
+.rv-pres .pr-pane{transition:box-shadow .32s ease}
+.rv-pres:hover .pr-pane{box-shadow:0 16px 26px rgb(0 0 0/.18)}
+.rv-pres .rv-stamp{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+.rv-pres:hover .rv-stamp{transform:scale(1.06)}
+@media (prefers-reduced-motion:reduce){.rv-pres .pr-scr,.rv-pres .rv-stamp{transition:none}.rv-pres:hover .pr-scr,.rv-pres:hover .rv-stamp{transform:none}}
+html[data-motion="static"] .rv-pres:hover .pr-scr,html[data-motion="static"] .rv-pres:hover .rv-stamp{transform:none}

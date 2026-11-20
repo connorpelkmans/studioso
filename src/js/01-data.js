@@ -175,7 +175,7 @@ const TB = (() => {
       f["grades.csv"] = csv(["course", "assessment", "type", "weight_percent", "score", "out_of", "percent", "date"], gt.map(t => [cname(courses, t.courseId), t.title, t.type, nz(t.weight), t.mark.got, t.mark.outOf, pctOf(t), t.due]));
       const by = {}; gt.forEach(t => { (by[t.courseId || ""] = by[t.courseId || ""] || []).push(t); });
       f["grades-summary.csv"] = csv(["course", "graded_items", "graded_weight_percent", "current_percent", "goal_percent"], Object.keys(by).map(cid => {
-        const l = by[cid], wt = l.filter(t => Number(t.weight) > 0), tw = wt.reduce((s, t) => s + Number(t.weight), 0);
+        const l = by[cid], wt = l.filter(t => Number(t.weight) > 0 && t.xc !== true), tw = wt.reduce((s, t) => s + Number(t.weight), 0);
         const cur = wt.length ? wt.reduce((s, t) => s + pctOf(t) * Number(t.weight), 0) / tw : l.reduce((s, t) => s + pctOf(t), 0) / l.length;
         const g = courses[cid] && courses[cid].grading;
         return [cname(courses, cid), l.length, tw ? Math.round(tw * 10) / 10 : "", Math.round(cur * 10) / 10, g ? nz(g.goal) : ""];
@@ -291,6 +291,8 @@ function normTask(t){
   if (t.due || typeof t.dueBad !== "string") delete t.dueBad; else t.dueBad = t.dueBad.slice(0, 10);
   if (!realDate(t.start)) t.start = "";
   delete t.earned; delete t.possible;
+  // extra credit (its weight is what it can add on top of 100%): only with a weight
+  if (t.xc === true && Number(t.weight) > 0) t.xc = true; else delete t.xc;
   if (t.prep != null) t.prep = normPrep(t.prep);
   if (t.docs != null) { t.docs = DOCLINK.norm(t.docs); if (!t.docs.length) delete t.docs; }
   ["breakdownOf", "step", "bdKind"].forEach(k => { if (typeof t[k] !== "string" || !t[k]) delete t[k]; });

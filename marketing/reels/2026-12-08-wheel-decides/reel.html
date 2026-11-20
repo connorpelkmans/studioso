@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The wheel decides</title>
+<!--
+  Set 4 · retention device: a SPINNING WHEEL (nobody scrolls away before it stops).
+  0.0  the wheel is already spinning fast; "letting a wheel pick what i study tonight 🎡"
+  4.6  it slows and lands on "cry"; 5.3 the turn: Studyboard's "Do this next" card rises ("ok fine. the planner picks")
+  Music: lofi.wav from 21.0.
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;background:#EAF2FF;color:#0F1F3D;-webkit-font-smoothing:antialiased}
+#txt{position:absolute;left:60px;right:60px;top:230px;text-align:center;z-index:20}
+.blk{display:inline;background:#000;color:#fff;font-weight:800;font-size:64px;line-height:1.36;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+#wheelBox{position:absolute;left:90px;top:520px;width:900px;height:900px}
+#wheel{width:900px;height:900px;border-radius:50%;box-shadow:0 30px 80px -20px rgba(20,40,90,.45);border:14px solid #fff}
+#ptr{position:absolute;left:50%;top:-30px;margin-left:-44px;width:0;height:0;border-left:44px solid transparent;border-right:44px solid transparent;border-top:90px solid #0F1F3D;z-index:3;transform-origin:50% 0}
+#hub{position:absolute;left:390px;top:390px;width:120px;height:120px;border-radius:50%;background:#fff;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+#res{position:absolute;left:0;right:0;top:1470px;text-align:center;font-weight:900;font-size:110px;opacity:0;color:#E4513B}
+#sb{position:absolute;left:60px;right:60px;top:1410px;padding:34px 40px;border-radius:40px;background:#fff;box-shadow:0 24px 60px -14px rgba(14,42,86,.4);display:flex;gap:28px;align-items:center;opacity:0}
+#sb img{width:96px;height:96px;border-radius:22px}
+#sb .a{font-weight:800;font-size:34px;letter-spacing:.06em;color:#E4713B}
+#sb .b{font-weight:800;font-size:54px}
+#sb .c{font-weight:600;font-size:36px;color:#5A6A86}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="wheelBox"><div id="ptr"></div><svg id="wheel" viewBox="-100 -100 200 200"></svg><div id="hub"></div></div>
+  <div id="res">cry. 😭</div>
+  <div id="sb"><img src="{{ROOT}}/icon-512.png" alt=""><div><div class="a">DO THIS NEXT</div><div class="b">Bio review · 25 min</div><div class="c">then you're done for tonight</div></div></div>
+  <div id="txt"><span class="blk" id="txtB">letting a wheel pick what i study tonight 🎡</span></div>
+</div>
+<script src="{{ROOT}}/marketing/reels/_shared/kit.js"></script>
+<script>
+const SEG = [["bio", "#1E9E74"], ["chem", "#7A4FD6"], ["calc", "#1F6FEB"], ["essay", "#F2A33A"], ["sleep", "#5AC8FA"], ["cry", "#E4513B"]];
+const N = SEG.length, A = 360 / N;
+const arc = (a0, a1) => { const r = 92, p = a => [r * Math.sin(a * Math.PI / 180), -r * Math.cos(a * Math.PI / 180)];
+  const [x0, y0] = p(a0), [x1, y1] = p(a1); return `M0 0 L${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1} Z`; };
+$("wheel").innerHTML = SEG.map(([n, c], i) => { const mid = i * A + A / 2;
+  return `<path d="${arc(i * A, (i + 1) * A)}" fill="${c}"/><text x="0" y="-58" transform="rotate(${mid})" text-anchor="middle" font-family="Inter" font-weight="800" font-size="15" fill="#fff">${n}</text>`; }).join("");
+const STOP = 4.6, END = 8.2;
+// the wheel's angle: fast at frame 0, easing out to land "cry" (segment 5) under the pointer at STOP
+const target = 360 * 3 + (360 - (5 * A + A / 2)) + 8;
+function render(t) {
+  const k = P(t, 0, STOP), ang = target * (1 - Math.pow(1 - k, 3)) + (t < 0 ? 0 : 0);
+  $("wheel").style.transform = `rotate(${ang}deg)`;
+  // motion blur while it's fast, so the segments don't strobe at 30 fps
+  const v = 3 * target * Math.pow(1 - k, 2) / STOP; $("wheel").style.filter = k < 1 ? `blur(${Math.min(7, v / 140).toFixed(2)}px)` : "";
+  // the pointer flicks as segments pass (smoothly; amplitude falls as it slows)
+  const speed = target * 3 * Math.pow(1 - k, 2) / STOP, phase = (ang % A) / A;
+  $("ptr").style.transform = `rotate(${k < 1 ? -Math.max(0, Math.sin(phase * Math.PI)) * Math.min(18, speed / 60) : 0}deg)`;
+  const r = P(t, STOP + .05, STOP + .3); $("res").style.opacity = t < 5.3 ? r : 1 - P(t, 5.3, 5.5);
+  $("res").style.transform = `scale(${lerp(1.6, 1, oBack(r))})`;
+  $("wheelBox").style.transform = `translateX(${nudge(t, STOP, 14)}px) scale(${1 - .12 * io(P(t, 5.2, 5.7))}) translateY(${-60 * io(P(t, 5.2, 5.7))}px)`;
+  const s = P(t, 5.4, 5.75); $("sb").style.opacity = s; $("sb").style.transform = `translateY(${(1 - oBack(s, 1.3)) * 120}px)`;
+  const b = t >= 5.4 ? "ok fine. my planner picks 🙂" : "letting a wheel pick what i study tonight 🎡";
+  if ($("txtB").textContent !== b) $("txtB").textContent = b;
+}
+window.render = render; window.END = END; window.COVER = 1.0;
+render(0);
+</script>
+</body>
+</html>

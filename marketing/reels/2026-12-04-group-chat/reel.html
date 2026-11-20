@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Group chat during finals</title>
+<!--
+  Set 3, fully animated. A study-group chat: the first message is already landing at frame 0 and is the hook
+  ("prof said the final is ONLY worth 40%"); replies pop in every ~0.5 s with typing dots between; the product turn is one
+  friend's message ("i put it in studyboard..."), and the punchline ("who are you") closes the loop. Music only.
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;background:#fff;color:#000;-webkit-font-smoothing:antialiased}
+#top{position:absolute;left:0;right:0;top:0;height:350px;background:rgba(246,246,248,.96);border-bottom:2px solid #E3E3E8;text-align:center;padding-top:96px;z-index:3}
+#av{display:flex;justify-content:center;margin-bottom:12px}
+#av i{width:100px;height:100px;border-radius:50%;margin:0 -12px;border:4px solid #F6F6F8;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:38px;font-weight:700;color:#fff}
+#gname{font-size:44px;font-weight:600}
+#gsub{font-size:28px;color:#8A8A90;margin-top:4px}
+#txt{position:absolute;left:70px;right:70px;top:380px;text-align:center;z-index:5}
+.blk{display:inline;background:#000;color:#fff;font-weight:700;font-size:62px;line-height:1.38;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+#msgs{position:absolute;left:0;right:0;top:560px;bottom:200px;overflow:hidden}
+#inner{position:absolute;left:0;right:0;top:0}
+.m{position:relative;margin:0 40px 18px;display:flex;flex-direction:column;opacity:0}
+.m .who{font-size:32px;color:#8A8A90;margin:0 0 6px 30px}
+.b{max-width:840px;padding:26px 38px;border-radius:48px;font-size:54px;line-height:1.25;background:#E9E9EB;align-self:flex-start}
+.m.me .b{background:#1F8BFF;color:#fff;align-self:flex-end}
+.m.me .who{display:none}
+.typing .b{display:flex;gap:12px;padding:30px 36px}
+.typing .b i{width:20px;height:20px;border-radius:50%;background:#9A9AA0}
+#cam{position:absolute;inset:0;transform-origin:30px 700px}
+#txt{z-index:20}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="cam"><div id="top"><div id="av"><i style="background:#F2A33A">J</i><i style="background:#7A4FD6">M</i><i style="background:#1E9E74">S</i><i style="background:#E4513B">A</i></div>
+    <div id="gname">bio final group 📚</div><div id="gsub">4 people</div></div>
+  <div id="msgs"><div id="inner"></div></div>
+</div>
+  <div id="txt"><span class="blk">pov: the prof says the final is “only” 40%</span></div>
+</div>
+<script>
+document.fonts.load("600 50px Inter"); document.fonts.load("400 46px Inter");
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const P = (t, a, b) => clamp((t - a) / (b - a));
+const oBack = (x, c = 1.6) => { const d = c + 1; return 1 + d * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const io = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+// [time, who ("me" = blue), text]; a typing bubble shows for 0.35 s before each message after the first
+const M = [
+  [-0.3, "Jess", "prof just said the final is ONLY worth 40%"],
+  [0.55, "Maya", "ONLY??"],
+  [1.05, "Sam", "40% of my grade is not an “only” 😭"],
+  [1.65, "Jess", "has anyone started"],
+  [2.25, "me", "define started"],
+  [3.0, "Maya", "ok i put the final in studyboard and it split it into 25 min sessions. we're fine 🫡"],
+  [4.1, "Sam", "who are you"],
+];
+$("inner").innerHTML = M.map((m, i) => `<div class="m ${m[1] === "me" ? "me" : ""}" id="m${i}"><div class="who">${m[1]}</div><div class="b">${m[2]}</div></div>` +
+  (i ? `<div class="m typing ${m[1] === "me" ? "me" : ""}" id="t${i}"><div class="b"><i></i><i></i><i></i></div></div>` : "")).join("");
+const END = 5.4;
+function render(t) {
+  // Hook: open zoomed in on the most alarming detail, then pull back to reveal everything flooding in
+  { const k = P(t, 0.45, 1.2), e = k < .5 ? 4*k*k*k : 1 - Math.pow(-2*k + 2, 3) / 2; $("cam").style.transform = `scale(${1.75 - (1.75 - 1) * e})`; }
+  // which elements are "in": a message from its time, a typing bubble from 0.35 s before until its message lands
+  let y = 0; const H = [];
+  M.forEach((m, i) => {
+    const el = $("m" + i), ty = i ? $("t" + i) : null;
+    const tin = m[0], typingOn = ty && t >= tin - .38 && t < tin;
+    if (ty) { ty.style.display = typingOn ? "flex" : "none"; ty.style.opacity = 1;
+      ty.querySelectorAll("i").forEach((d, j) => d.style.opacity = .35 + .65 * Math.max(0, Math.sin((t * 9) - j * .9))); }
+    el.style.display = t >= tin ? "flex" : "none";
+    if (t >= tin) { const k = P(t, tin, tin + .22); el.style.opacity = clamp(k * 3);
+      el.style.transform = `translateY(${(1 - io(k)) * 40}px) scale(${.85 + .15 * oBack(k)})`;
+      el.querySelector(".b").style.transformOrigin = m[1] === "me" ? "100% 100%" : "0% 100%"; }
+  });
+  // keep the newest message in view: scroll the list up smoothly when it overflows
+  const inner = $("inner"), box = $("msgs").offsetHeight, h = inner.scrollHeight;
+  const target = Math.max(0, h - box);
+  inner._y = inner._y == null ? target : inner._y; // first frame
+  inner.style.transform = `translateY(${-target}px)`;
+}
+window.render = render; window.END = END; window.COVER = 1.2;
+render(0);
+</script>
+</body>
+</html>

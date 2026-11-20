@@ -4,7 +4,7 @@ What's here comes from the platforms' own statements where they exist, and from 
 
 ## What the platforms reward
 
-- **Instagram** (Adam Mosseri, January 2025): the top three ranking signals are **watch time, likes and sends**. Creators should track **average watch time, likes per reach and sends per reach**. Sends matter slightly more for reaching people who don't follow you; likes slightly more for followers. Watch time counts both as a percentage and in seconds.
+- **Instagram** (Adam Mosseri, January 2025): the top three ranking signals are **watch time, likes and sends**. Creators should track **average watch time, likes per reach and sends per reach**. Sends matter slightly more for reaching people who don't follow you; likes slightly more for followers. Instagram's own ranking explainer (2023) names "how likely you are to watch a reel **all the way through**" as a Reels signal (completion), and Insights show average watch time in seconds plus **skip rate** (the share who swipe away in the first 3 s). Whether "watch time" is also scored as a percentage hasn't been published; don't claim it.
 - **TikTok** (its creative guidance, as quoted by ad platforms): put the hook and the point in the **first 3 seconds**, design for sound off with text on screen, shoot native 9:16.
 - **YouTube Shorts**: Studio shows **Viewed vs. Swiped Away** (did the first second work?) and **average percentage viewed** (did the rest hold?). A low "viewed" rate means fix the hook; a good "viewed" rate with a low percentage means fix the pacing or payoff.
 
@@ -107,6 +107,61 @@ Refresh these with vidIQ outlier search each batch (see `tools.md`).
 - Ends on the highest-energy shot and loops straight back to the calm opener. The contrast is what makes it rewatchable.
 
 How we apply it: `marketing/reels/2026-11-16-same-week/` (stock b-roll of a stressed student → the Studyboard calendar as the "proof" shot → a punchline shot, cut on owned music hits).
+
+## Set 4: every reel needs a "wait for it" device (Connor, Nov 19: the hook must "actually grab attention and maintain it")
+
+A hook only earns the first second. What keeps people to the end is an **open loop they can see**: something visibly unfinished whose ending they want. Use one per reel (Loewenstein's information gap, made visual):
+- **Countdown**: a big timer ticking toward zero (`2026-12-06-ten-seconds`)
+- **Guess**: a hidden answer with options and "revealing in 3…" (`2026-12-07-guess-the-hours`); it also fills the comments with guesses
+- **Spinning wheel or slot**: nobody leaves mid-spin (`2026-12-08-wheel-decides`). Blur it while it's fast; above about 30° a frame it strobes at 30 fps.
+- **Suspense**: typing dots before the reply (`2026-12-09-text-from-september`)
+- **Escalation to a promised climax**: "wait for friday", with each beat worse (`2026-12-10-wait-for-friday`)
+
+Something must change at least every 0.5–1 s until the payoff, the payoff lands in the last ~2 s (on a music hit where possible), and then the reel loops.
+
+## Set 3 rules (Connor, Nov 19, 2026)
+
+- **No stock footage of real people.** Animate everything ourselves: phone-UI formats (a lock screen, a group chat, a search bar, notes), the companions, or the real app recorded with `_tools/screenrec.js` (our own product, not stock).
+- **The first 2 seconds:** something is already landing at frame 0 (a notification, a message, a half-typed query), with a new onset every 0.3–0.5 s until about 2 s, and the hook sentence readable in about 1.5 s. Phone-UI formats are ideal: everyone reads a notification or a chat bubble instantly, and each new one is an abrupt onset (Yantis & Jonides).
+- **Something to react to**: every reel has a built-in reason to comment or send (an honest question, a "that's us" group chat, a punchline). The first native post got zero organic engagement because a demo gives nothing to respond to.
+- **Open zoomed in on the most alarming detail** (1.7–2.2x on the exam notification, the "23h", the "ONLY worth 40%" message), then pull back over about 1 s to reveal the whole situation as more lands. Hook lines are a challenge, a number shock or a confession ("rate my lock screen 1–10", "23 hours of work in one week. would you survive?", "my search history is a cry for help"), not a label ("finals week lock screen"). Connor: the label versions "are not attention grabbing".
+- **A different track for every reel** (Connor): vary the track and section, and prefer a trending sound attached at posting.
+- **The product appears as part of the story**: Studyboard's own notification on the lock screen, a friend's message in the chat, or the real app answering. Never an end card.
+
+## Native, not an ad (default since Nov 18, 2026)
+
+**Why:** Connor: "the music and the way it's set up feels like an ad". The outlier search for the format of student posts that broke out (vidIQ, Sep to Nov 2026, North American students) found the same thing in nearly every one, e.g. @eesa.inoon 208K at 133x their median, @biologyforhealth 945K at 615x, @my_unaestheticlife 1.8M at 370x, @hannurselife 702K at 237x, @studywithaddy1 802K:
+- **One shot, static camera, low visual change.** No cuts on beats, no zooms, no slams.
+- **One static block of text in the app's own style**, hyper-specific and first-person or "pov:", written lowercase like a student types it. Never animated.
+- **Music only, no sound effects** (`sfx_present: false` across the board): a trending pop/hip-hop or chill track. No orchestral hits, thuds or dings.
+- **Phone-filmed or a real screen**: the study-app posts that worked showed the app itself on a phone or tablet with an aspirational or relatable line ("pov: you memorized a whole chapter in 30 minutes because ..."), music only, looped.
+- 7–12 s, looped.
+
+What made ours read as ads: dramatic orchestral music with hits, sound effects on every beat, huge outlined text slamming in, motion graphics, logo lockups and end cards, cuts every 2 s. Those are the grammar of paid ads.
+
+**Recipe** (`assets/native-template.html`; `marketing/reels/_tools/screenrec.js` records the real app at phone size with the sample semester):
+1. **The hook is the sentence**, not the effects. Make it specific and in a student's voice: "you're telling me this app just tells you what you need on the final?? 😭", "pov: your planner warns you which week is going to be rough before it even starts". It's on screen at frame 0, and the screen is already moving (a slow scroll).
+2. **The product is just there**: the real app's screen recording, with its own logo in its own header. That's the whole pitch. One small line later at most ("free btw").
+3. **Music only**: a calm or trending track, no sound effects. Best of all, post with a trending sound picked in the Instagram app.
+4. **Entertainment posts**: one stock shot plus one static text block (`statusBar: false`).
+5. **Readable payoff at frame 0; hook ≤ 10 words; 6 s.** From the first native post: 4 s average watch was exactly the reading time of a 14-word hook, and the answer (79.9%) only scrolled into view after people had left. Record the app at `"vw": 360, "dsf": 3` so its UI reads about 20% bigger, and start on the screen that already shows the answer.
+6. No end card, no lockup, no "link in bio" on screen. The caption carries the link and the CTA.
+
+## Short format (Nov 18, 2026; superseded by "Native, not an ad" for most posts)
+
+**Why:** reel D's insights showed 5 s average watch on a 17.3 s reel, with views flat after the first hour. The hook held; the body didn't. The body was a slow listicle of small slides that started at 2.5 s, which set an expectation the hook hadn't. Instagram's top-ranked signal is watch time, measured in both seconds and percentage (Mosseri), so a reel people watch 5 s of should *be* about 8 s long. The top student-niche outlier was 7.2 s, a real person at frame 0, one caption, a cut on each beat, then a loop (see "Live outlier patterns").
+
+**Cold open on the climax (Connor, Nov 18: "none of these have a hook that gets you in the first few seconds").** The first cut of this batch opened on a calm person under a two-line explanatory caption, and the payoff came at 6 s. Now shot 1 *is* the payoff: the head hitting the books, the 94%, the 7:58 alarm, the exams slamming into one week. It has 3–5 huge words (120 px, `REEL.hook`), an abrupt onset with an impact sound by 0.3–0.5 s, and a snap zoom (`"zoom": [1.22, 1, 0.4]` in shots.json). Then the story rewinds, and the last shot loops back into the climax. Support: Google's ABCDs ("jump in", start with the action); abrupt onsets capture attention (Yantis & Jonides); an incomplete first line ("Every friend group has a…") opens a specific information gap that the next onset closes 0.3 s later (Loewenstein).
+
+**Recipe** (`assets/short-template.html` + `scripts/make_short.py`; `build_bg.py` with `{"xf": 0.2, ...}`):
+1. **8 s** (10 s when a 2 s product fix is added). Four shots of 2.0 s, cut on the hits of `dramatic.wav` from 33.0, so the loop lands on a hit as well.
+2. **Real people at frame 0, full-bleed.** Google/Kantar's ABCDs: open with people, framed tight. Nothing small floating in empty space.
+3. **One persistent caption** for the whole reel (white Inter with a black outline, native style). Nothing has to be read against the clock, and the hook stays on screen when the viewer decides.
+4. **Each shot is worse, funnier or later than the last** (escalation); the last shot pays off the setup ("4 · the worst", "7:58, exam at 8", "94%?!").
+5. Optional short **per-shot labels** (≤ 5 words) or **lock-screen timestamps** to carry the joke.
+6. **The product is the proof, not an appendix**: the Studyboard calendar or card is one of the four shots (the outlier's "evidence" beat), or a 2 s fix after the punchline that loops back.
+7. **Sign-off** = a small icon + "Studyboard" line over the last shot (about 1.2 s); a full end card only if there's time.
+8. Cuts dissolve over 0.2 s centred on each hit: native rhythm without harsh cuts.
 
 ## Post caption template
 

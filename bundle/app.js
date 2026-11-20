@@ -897,7 +897,7 @@ const TB = (() => {
       f["grades.csv"] = csv(["course", "assessment", "type", "weight_percent", "score", "out_of", "percent", "date"], gt.map(t => [cname(courses, t.courseId), t.title, t.type, nz(t.weight), t.mark.got, t.mark.outOf, pctOf(t), t.due]));
       const by = {}; gt.forEach(t => { (by[t.courseId || ""] = by[t.courseId || ""] || []).push(t); });
       f["grades-summary.csv"] = csv(["course", "graded_items", "graded_weight_percent", "current_percent", "goal_percent"], Object.keys(by).map(cid => {
-        const l = by[cid], wt = l.filter(t => Number(t.weight) > 0), tw = wt.reduce((s, t) => s + Number(t.weight), 0);
+        const l = by[cid], wt = l.filter(t => Number(t.weight) > 0 && t.xc !== true), tw = wt.reduce((s, t) => s + Number(t.weight), 0);
         const cur = wt.length ? wt.reduce((s, t) => s + pctOf(t) * Number(t.weight), 0) / tw : l.reduce((s, t) => s + pctOf(t), 0) / l.length;
         const g = courses[cid] && courses[cid].grading;
         return [cname(courses, cid), l.length, tw ? Math.round(tw * 10) / 10 : "", Math.round(cur * 10) / 10, g ? nz(g.goal) : ""];
@@ -1013,6 +1013,8 @@ function normTask(t){
   if (t.due || typeof t.dueBad !== "string") delete t.dueBad; else t.dueBad = t.dueBad.slice(0, 10);
   if (!realDate(t.start)) t.start = "";
   delete t.earned; delete t.possible;
+  // extra credit (its weight is what it can add on top of 100%): only with a weight
+  if (t.xc === true && Number(t.weight) > 0) t.xc = true; else delete t.xc;
   if (t.prep != null) t.prep = normPrep(t.prep);
   if (t.docs != null) { t.docs = DOCLINK.norm(t.docs); if (!t.docs.length) delete t.docs; }
   ["breakdownOf", "step", "bdKind"].forEach(k => { if (typeof t[k] !== "string" || !t[k]) delete t[k]; });
@@ -15695,7 +15697,8 @@ function taskForm(t, preset = {}){
         <label class="f" data-fld="start"><span class="lbl">Start Date</span><input type="date" name="start" value="${esc(isNew ? t.start : (t.start || startOf(t) || ""))}"></label>
         ${canRepeat ? `<label class="f" id="repeatWrap">Repeat<select name="repeat"><option value="">Doesn't repeat</option><option value="1">Every day</option><option value="7">Every week</option><option value="14">Every 2 weeks</option><option value="m">Every month</option></select></label>` : ""}
       </div>
-      <div class="two"><label class="f"><span class="lh">Grade Weight ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint">% of course grade</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label></div>
+      <div class="two"><label class="f"><span class="lh"><span id="wLab">${t.xc ? "Extra Credit Weight" : "Grade Weight"}</span> ${weightGuessed(t) ? `<span class="w-est-pill" id="wEstPill">Estimated</span>` : `<span class="hint" id="wHint">${t.xc ? "% it can add on top" : "% of course grade"}</span>`}</span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"${weightGuessed(t) ? ` class="w-est-in" aria-describedby="wEstTip"` : ""}></label></div>
+      <div class="w-est-note xc-ask" id="xcAsk"${t.xc ? "" : " hidden"} role="status" aria-live="polite"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><span id="xcAskT"></span><label class="mi-check xc-chk"><input type="checkbox" name="xc" ${t.xc ? "checked" : ""}> It's Extra Credit</label></span></div>
       ${weightGuessed(t) ? `<p class="w-est-tip" id="wEstTip"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg><span>${esc(WEIGHT_GUESS_TIP)}</span></p>` : ""}
       ${canRepeat ? `<label class="f" id="untilWrap" hidden><span class="lh">Repeat Until <span class="hint" id="untilHint"></span></span><input type="date" name="until"></label>` : ""}
       <fieldset id="statusFs" ${isNew ? "hidden" : ""}><legend>Status</legend><div id="statusSeg">${seg("status", STATUSES.map(x => [x[0], statusLabels(t.type)[x[0]]]), t.status)}</div></fieldset>
@@ -15764,6 +15767,8 @@ function taskForm(t, preset = {}){
       checklist: items.filter(i => i.text.trim()).map(i => ({id: i.id, text: i.text.trim(), done: !!i.done})),
       pct: Number(fd.get("pct") || 0), dependsOn: deps.slice(),
       weight: isNum(fd.get("weight")) && Number(fd.get("weight")) > 0 ? Math.min(100, Number(fd.get("weight"))) : null,
+      // extra credit: the weight is what it can add on top of 100% (normTask keeps it only with a weight)
+      xc: !!fd.get("xc"),
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
       latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link,
@@ -15925,6 +15930,22 @@ function taskForm(t, preset = {}){
   };
   tForm.addEventListener("input", planHint); tForm.addEventListener("change", planHint);
   // typing a weight over an estimated one makes it yours: no longer red
+  // Weights over 100%: when this task's weight takes its course past 100%, ask whether it's extra credit (its weight then
+  // being what it can add on top); ticked, the field is its extra-credit weight
+  { const w = tForm.elements.weight, xc = tForm.elements.xc, box = $("#xcAsk"), txt = $("#xcAskT");
+    if (w && xc && box && txt) {
+      const check = () => {
+        const cid = tForm.elements.courseId ? tForm.elements.courseId.value : t.courseId, v = Number(String(w.value).replace(",", "."));
+        const others = cid ? tasksArr().filter(x => x.courseId === cid && x.id !== t.id && !x.prepFor && x.xc !== true && hasWeight(x) && !x.excused).reduce((s, x) => s + Number(x.weight), 0) : 0;
+        const tot = Math.round((others + (v > 0 ? v : 0)) * 10) / 10, over = !!cid && v > 0 && tot > 100.5;
+        box.hidden = !(over || xc.checked);
+        txt.textContent = xc.checked ? `Extra credit: up to ${v > 0 ? v : 0}% on top of ${courseOf(cid) ? courseLabel(courseOf(cid)) : "the course"}'s 100%. ` : over ? `With this, weights in ${courseLabel(courseOf(cid))} add up to ${tot}%, more than 100%. Is this extra credit? ` : "";
+        const lab = $("#wLab"), hint = $("#wHint"); if (lab) lab.textContent = xc.checked ? "Extra Credit Weight" : "Grade Weight"; if (hint) hint.textContent = xc.checked ? "% it can add on top" : "% of course grade";
+      };
+      ["input", "change"].forEach(ev => { w.addEventListener(ev, check); xc.addEventListener(ev, check); });
+      if (tForm.elements.courseId) tForm.elements.courseId.addEventListener("change", check);
+      check();
+    } }
   { const w = tForm.elements.weight; if (w && w.classList.contains("w-est-in")) w.addEventListener("input", () => { w.classList.remove("w-est-in"); w.removeAttribute("aria-describedby"); const tip = $("#wEstTip"); if (tip) tip.remove(); const pl = $("#wEstPill"); if (pl) pl.outerHTML = `<span class="hint">% of course grade</span>`; }, {once: true}); }
   tForm.addEventListener("input", advSummary); tForm.addEventListener("change", advSummary);
   $("#tfAdv").addEventListener("toggle", e => { ui.advOpen = e.target.open; });
@@ -19364,7 +19385,7 @@ function viewQuizzes(){
         <span class="rv-stamp${best == null ? " new" : ""}" aria-hidden="true">${best == null ? "New" : best + "%"}</span>
         <span class="rv-count">${qz.kind === "case" ? "Case Study" : `${n} question${n === 1 ? "" : "s"}`}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title">${nm}</b></button>
+      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title" title="${nm}">${nm}</b></button>
       <div class="rv-row"><span class="mini rv-sub">${meta}</span>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-share-any" data-kind="quiz" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
@@ -19449,7 +19470,7 @@ function viewFlashcards(){
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
         <span class="rv-count">${st.total} card${st.total === 1 ? "" : "s"}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}"><b class="rv-title">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}</button>
+      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}"><b class="rv-title" title="${nm}">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}</button>
         <div class="rv-row"><div class="rv-sub"><span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
         <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span></div>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="fc-share" data-id="${esc(d.id)}" aria-label="Share ${nm}" title="Share" ${st.total ? "" : "disabled"}>${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button></div></div></div>
@@ -40949,9 +40970,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   let EFFW = new Map();
   const howOf = t => (EFFW.get(t.id) || {}).how || "";
   const inPts = t => howOf(t) === "pts";
+  // Extra credit (t.xc, set by you): its weight is what it can add on top of 100%, not a share of the course
+  const isXc = t => !!t && t.xc === true && hasWeight(t);
   const wOf = t => EFFW.has(t.id) ? EFFW.get(t.id).w : hasWeight(t) ? Number(t.weight) : null;
   function pointsShares(c){
-    const all = allTasks().filter(t => t.courseId === c.id && !t.prepFor);
+    const all = allTasks().filter(t => t.courseId === c.id && !t.prepFor && !isXc(t));
     if (all.some(t => hasWeight(t) && !weightGuessed(t))) return null;
     const pts = all.filter(t => ptsOf(t) > 0 && !bonusItem(t) && !excused(t));
     if (!pts.length || !(all.some(weightGuessed) || pts.length >= 3)) return null;
@@ -40979,11 +41002,13 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     return m;
   }
   // a points course says so once, above its marks, instead of counting "estimated weights"
-  const ptsNote = gr => gr.unw ? unwNote(gr) : gr.pts ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>Graded by points.</b> Your school site doesn't show weights for this course, so each item counts by its share of all the points (${gr.ts.length} ${gr.ts.length === 1 ? "item" : "items"} with points so far). If your syllabus gives weights, tap an item to type in the real one.</span></div>` : weightGuessNote(gr.ts);
+  // Weights over 100%: said in the warning style, with the question that usually explains it (extra credit)
+  const overNote = gr => gr.wAll > 100.5 ? `<div class="w-est-note gr-over-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>Weights add up to ${fmtW(gr.wAll)}.</b> A course is out of 100%, so for now each item is scaled down to fit. Is some of it extra credit? <span class="gr-over-acts"><button type="button" class="btn small" data-act="g-xc" data-id="${esc(gr.c.id)}">Yes, Some Is Extra Credit</button><button type="button" class="btn small" data-act="${gr.cats.length ? "g-course-set" : "g-xc-fix"}" data-id="${esc(gr.c.id)}">No, Fix the Weights</button></span></span></div>` : "";
+  const ptsNote = gr => overNote(gr) + (gr.unw ? unwNote(gr) : gr.pts ? `<div class="w-est-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>Graded by points.</b> Your school site doesn't show weights for this course, so each item counts by its share of all the points (${gr.ts.length} ${gr.ts.length === 1 ? "item" : "items"} with points so far). If your syllabus gives weights, tap an item to type in the real one.</span></div>` : weightGuessNote(gr.ts));
   const unwNote = gr => `<div class="w-est-note gr-unw-note" role="note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/></svg><span><b>Unweighted average.</b> Nothing in this course has a grade weight yet, so ${gr.unw === 1 ? "your one mark counts" : `each of your ${gr.unw} marks counts`} the same. Add the weights from your course outline (in Grade Settings, or on each task) to make it exact. <button type="button" class="link-btn" data-act="g-course-set" data-id="${esc(gr.c.id)}">Add Weights</button></span></div>`;
   function courseGrade(c, asOf, pretend){
     const g = gradingOf(c), R = rulesOf(c), cats = catsOf(c);
-    const mine = allTasks().filter(t => t.courseId === c.id && !t.prepFor);
+    const all0 = allTasks().filter(t => t.courseId === c.id && !t.prepFor), xcs = all0.filter(t => isXc(t) && !excused(t)), mine = all0.filter(t => !isXc(t));
     allTasks().forEach(t => { if (t.courseId === c.id) EFFW.delete(t.id); });
     const share = cats.length ? null : pointsShares(c);
     if (share) share.forEach((w, id) => EFFW.set(id, {w, how: "pts"}));
@@ -41008,7 +41033,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const remaining = Math.max(0, D - wMarked - wZ), unlisted = Math.max(0, 100 - wAll - wExc);
     const items = ts.map(t => ({id: t.id, w: wOf(t), cat: t.type, fin: /\bfinal\b/i.test(t.title || ""), pct: pm.get(t.id), z: zs.has(t.id)}));
     if (unlisted > 0.001) items.push({id: "", w: unlisted, cat: "", fin: false, pct: null});
-    const ruled = GRULES.active(items, R), cu = GRULES.current(items, R);
+    // extra credit counts like the course's bonus: what's earned is added to the grade, what's still open can still be earned
+    const xcGot = xcs.reduce((s, t) => { const p = pctOf(t); return s + (p != null ? Number(t.weight) * p / 100 : 0); }, 0);
+    const xcOpen = xcs.filter(t => pctOf(t) == null && !(asOf instanceof Set) && !closed(t)).reduce((s, t) => s + Number(t.weight), 0);
+    const RU = xcs.length ? Object.assign({}, R, {bonus: {pts: R.bonus.pts + xcGot + xcOpen, got: R.bonus.got + xcGot, src: R.bonus.src}}) : R;
+    const ruled = GRULES.active(items, RU), cu = GRULES.current(items, RU);
     let current, minFinal, maxFinal, need, projected;
     if (!ruled) {
       current = wMarked > 0 ? earned / wMarked * 100 : null;
@@ -41017,13 +41046,13 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       projected = current == null ? null : remaining > 0.01 ? (earned + current / 100 * remaining) / D * 100 : minFinal;
     } else {
       // bonus you've already earned is part of your grade now, as it is of the final
-      current = cu.pct == null ? null : cu.pct + R.bonus.got;
-      minFinal = GRULES.finalWith(items, R, D, 0); maxFinal = GRULES.finalWith(items, R, D, 100) + R.bonus.pts - R.bonus.got;
-      need = target => remaining > 0.01 ? GRULES.need(items, R, D, target) : null;
-      projected = cu.pct == null ? null : remaining > 0.01 ? GRULES.finalWith(items, R, D, cu.pct) : minFinal;
+      current = cu.pct == null ? null : cu.pct + RU.bonus.got;
+      minFinal = GRULES.finalWith(items, RU, D, 0); maxFinal = GRULES.finalWith(items, RU, D, 100) + RU.bonus.pts - RU.bonus.got;
+      need = target => remaining > 0.01 ? GRULES.need(items, RU, D, target) : null;
+      projected = cu.pct == null ? null : remaining > 0.01 ? GRULES.finalWith(items, RU, D, cu.pct) : minFinal;
     }
     const loose = mine.filter(t => wOf(t) == null && !excused(t) && markPct(t) != null);
-    const gr = {c, g, R, ruled, dropped: cu.out, ew: cu.ew, pm, items, ts, loose, marked, open, missed, exc: mine.filter(excused), wExc, cats, pts: !!share, unw: unw.length,
+    const gr = {c, g, R, xc: xcs, xcGot, xcOpen, ruled, dropped: cu.out, ew: cu.ew, pm, items, ts, loose, marked, open, missed, exc: mine.filter(excused), wExc, cats, pts: !!share, unw: unw.length,
       wMarked: wMarked / D * 100, earned, wAll, D, remaining: remaining / D * 100, wMissed: wZ / D * 100, unlisted, current, base: cu.pct, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
     // an unweighted average says where you are, not what's left: there's no total to finish
     if (gr.unw) Object.assign(gr, {done: false, need: () => null, projected: null, remaining: 0, minFinal: 0, maxFinal: 100});
@@ -41218,8 +41247,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const have = mine(), hit = new Set();
       let sum = 0;
       items.forEach((it, i) => { const x = dlg.querySelector(`[data-pg-on="${i}"]`); if (!x || !x.checked) return; const t = have.find(y => key(y.title) === key(it.name)), w = weightOf(i);
-        if (t) hit.add(t.id); sum += w > 0 ? w : t && hasWeight(t) ? Number(t.weight) : 0; });
-      have.forEach(t => { if (!hit.has(t.id) && hasWeight(t)) sum += Number(t.weight); });
+        if (t) hit.add(t.id); sum += w > 0 ? w : t && hasWeight(t) && !isXc(t) ? Number(t.weight) : 0; });
+      have.forEach(t => { if (!hit.has(t.id) && hasWeight(t) && !isXc(t)) sum += Number(t.weight); });
       return sum;
     };
     const sumLine = () => {
@@ -41395,7 +41424,6 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     else if ((inDanger(gr) || !hold || hold.th <= g.pass || !(hold.n <= 100))) out.push(`To pass (${fmtP(g.pass)}), you need an average of <b>${fmtN(np)}</b> on ${remTxt}.${gr.risk === "risk" || gr.risk === "watch" ? " Today's Plan is moving this course's graded work up a little." : ""}`);
     out.push(...mustTxt);
     for (let k = out.length - 1; k >= 0; k--) if (!out[k]) out.splice(k, 1);
-    if (gr.wAll > 100.5) out.push(`<span class="mini gr-kind">Your graded tasks add up to ${fmtW(gr.wAll)}, more than 100%, so each one is scaled down to fit. Check the weights against your course outline.</span>`);
     if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
     return out;
   }
@@ -41606,6 +41634,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     return {feedback: !!(fb && ((fb.c || []).some(m => !m.mine) || (fb.ra || []).length)), rubric: !!L.rub}; };
   // How an item counts, under its title: its own weight, its share of a category or of the points, or the same as every other mark
   function wText(t){
+    if (isXc(t)) return `extra credit, up to ${fmtW(Number(t.weight))} on top`;
     const e = EFFW.get(t.id) || {};
     if (e.how === "unw") return `<span class="w-est" title="Nothing in this course has a weight yet, so every mark counts the same.">counted equally</span>`;
     if (e.how === "cat") return `worth ${fmtW(e.w)} <span class="mini">(a share of ${esc(e.cat === "Final" ? "the Final Exam" : typePl(e.cat))})</span>`;
@@ -41619,7 +41648,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
       const nw = p != null && wOf(t) == null && !bonusItem(t) && !ex, bon = p != null && wOf(t) == null && bonusItem(t);
-      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : bon ? ` <span class="pill gr-nw-pill" title="Bonus on top of 100%: it counts toward the course's bonus, not as a weighted item">Bonus</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${ex ? "not counted" : bon ? "counts toward the course's bonus" : wText(t)}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}${ex ? ` <span class="pill gr-exc" title="Left out of your grade. The rest of the course makes up its share.">Excused</span>` : ""}${mz ? ` <span class="pill gr-missed" title="It can't be handed in any more, so it counts as 0 until it has a mark">Missed, counted as 0</span>` : ""}</span></button>
+      return `<li class="${fbk ? "gr-has-drop" : ""}${nw ? " gr-nw" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${t.markNew && t.mark ? `<span class="gr-newmark" title="New mark from your last sync" aria-label="New mark"></span>` : ""}${esc(t.title)}${isXc(t) ? ` <span class="pill gr-xc-pill" title="Extra credit: what you earn on it is added on top of your course grade">Extra Credit</span>` : nw ? ` <span class="pill gr-nw-pill" title="Shown, but not counted in the course grade until it has a weight">No weight yet</span>` : bon ? ` <span class="pill gr-nw-pill" title="Bonus on top of 100%: it counts toward the course's bonus, not as a weighted item">Bonus</span>` : ""}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, ${ex ? "not counted" : bon ? "counts toward the course's bonus" : wText(t)}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${p != null ? vsPill(t) : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}${dropped && dropped.has(t.id) ? ` <span class="pill gr-dropped">Dropped</span>` : ""}${ex ? ` <span class="pill gr-exc" title="Left out of your grade. The rest of the course makes up its share.">Excused</span>` : ""}${mz ? ` <span class="pill gr-missed" title="It can't be handed in any more, so it counts as 0 until it has a mark">Missed, counted as 0</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 || t.mark.letter || t.mark.pf || isNum(t.mark.before) ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
           : ex ? `<button class="btn small" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Change excused for ${esc(t.title)}">Excused</button>`
           : mz ? `<span class="gr-mz-acts"><button class="btn small" data-act="g-handed" data-id="${esc(t.id)}">I Still Handed It In</button><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">Mark</button></span>`
@@ -41712,7 +41741,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <div class="gr-sub"><h4>Marked <span class="n">${gr.ts.length + exc.length}</span></h4><ul class="gr-work">${gradeRows(gr.ts)}${excRows}</ul></div>
     </section>`;
     if (!gr.ts.length) return `<section class="gr-card gr-empty" aria-label="Grades"><p style="margin:0">Add a <b>Grade Weight</b> to assignments, quizzes and exams (in Advanced Settings on each task) to track your grade and see what you need on the rest. Pass mark: <b>${fmtP(g.pass)}</b>.</p><div class="gr-acts">${settingsBtn}</div></section>`;
-    const marked = gr.ts.filter(t => markPct(t) != null), unmarked = gr.ts.filter(t => markPct(t) == null);
+    // extra credit is listed with the rest, under Marked or Still to Mark, with its own pill
+    const marked = gr.ts.concat(gr.xc).filter(t => markPct(t) != null), unmarked = gr.ts.concat(gr.xc).filter(t => markPct(t) == null && !excused(t));
     const need = needLines(gr), sw = biggestSwing(gr), gg = goalGap(gr);
     if (sw) need.push(`<b>Biggest swing:</b> ${esc(sw.t.title)} is worth ${fmtW(sw.share)} of the course. Every 10 points on it moves your final grade by ${r1(sw.per10)}.`);
     if (gr.R.drops.length || gr.R.bonus.pts > 0) need.push(`<b>Grading rules:</b> ${esc(rulesText(gr.R))}. ${gr.ruled ? "These numbers already count them." : "They start counting once there are more items than the rule drops."} <button type="button" class="link-btn" data-act="g-course-set" data-id="${esc(c.id)}">Change</button>`);
@@ -42454,6 +42484,53 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   }
   const gsave = () => (state.settings && state.settings.grades) || {};
   const scaleRow = (l, v) => `<div class="gr-scale-row"><label><span class="sr">${esc(tr("gr.sc.letter", "Letter"))}</span><input type="text" name="sl" maxlength="4" value="${esc(l)}" placeholder="A" autocomplete="off" autocapitalize="characters" spellcheck="false" data-noenter></label><label><span class="sr">${esc(tr("gr.sc.pct", "Lowest percent"))}</span><input type="number" name="sp" min="0" max="100" step="0.5" inputmode="decimal" value="${v == null ? "" : esc(r1(v))}" placeholder="90" data-noenter></label><button type="button" class="icon-btn gr-scale-del" aria-label="${esc(tr("gr.sc.remove", "Remove this letter"))}" title="${esc(tr("gr.sc.remove", "Remove this letter"))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+  /* Weights over 100%: tick the work that's extra credit and give each one its extra-credit weight (what it can add on top of
+     100%), or ("fix") just correct the weights. Only work with its own weight is listed (a category's share is set in Grade Settings). */
+  function xcSheet(cid, fix){
+    const c = courseOf(cid); if (!c) return;
+    const cats = catsOf(c), catW = cats.reduce((s, k) => s + k.w, 0), inCat = t => !!cats.length && !isXc(t) && !!catKey(t, cats);
+    const rows = allTasks().filter(t => t.courseId === cid && !t.prepFor && !excused(t) && hasWeight(t) && !inCat(t))
+      .sort((a, b) => Number(b.weight) - Number(a.weight) || String(a.title).localeCompare(String(b.title)));
+    const row = t => `<li class="xc-row${isXc(t) ? " is-xc" : ""}" data-id="${esc(t.id)}"><span class="xc-t"><b>${esc(t.title)}</b><span class="mini">${esc(t.type)}${t.due ? " · " + esc(fmtShort(t.due)) : ""}</span></span>
+      <label class="xc-on"${fix ? " hidden" : ""}><input type="checkbox" data-xc="on" ${isXc(t) ? "checked" : ""}> Extra Credit</label>
+      <label class="xc-w"><span class="sr" data-xc-lab>${isXc(t) ? "Extra credit weight" : "Weight"} for ${esc(t.title)}</span><input type="number" data-xc="w" min="0.5" max="100" step="0.5" inputmode="decimal" value="${esc(String(Number(t.weight)))}"><span class="xc-pct" aria-hidden="true">%</span></label></li>`;
+    openSheet(`<form class="sheet xc-sheet">${head(fix ? "Fix the Weights" : "Which Is Extra Credit?")}<div class="sheet-body">
+      <p style="margin:0">${fix ? "Check each weight against your course outline. Together they should add up to 100%." : "Check the work that's extra credit, then set its <b>extra-credit weight</b>: the most it can add on top of your grade (an extra-credit quiz worth 2% adds up to 2%). The rest should add up to 100%."}</p>
+      ${rows.length ? `<ul class="xc-list">${rows.map(row).join("")}</ul>` : `<p class="mini" style="margin:0">Nothing in ${esc(courseLabel(c))} has its own weight. Its weights come from the categories in Grade Settings.</p>`}
+      ${cats.length ? `<p class="mini" style="margin:0">Categories in Grade Settings add ${fmtW(catW)}. <button type="button" class="link-btn" data-act="g-course-set" data-id="${esc(cid)}">Change Them</button></p>` : ""}
+      <p class="xc-sum" id="xcSum" role="status" aria-live="polite"></p></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit>Save</button></div></form>`, () => {
+      const changes = [];
+      let bad = false;
+      dlg.querySelectorAll(".xc-row").forEach(li => {
+        const t = state.tasks[li.dataset.id]; if (!t) return;
+        const on = !!li.querySelector('[data-xc="on"]').checked, w = Number(String(li.querySelector('[data-xc="w"]').value).replace(",", "."));
+        if (!(isNum(w) && w > 0 && w <= 100)) { bad = true; return; }
+        if (on === isXc(t) && w === Number(t.weight)) return;
+        const nt = clone(t); nt.weight = w; if (on) nt.xc = true; else delete nt.xc;
+        changes.push({kind: "task", id: t.id, after: nt});
+      });
+      if (bad) { toast("Enter a weight from 0.5 to 100 for each item"); return false; }
+      if (!changes.length) return;
+      const nx = changes.filter(x => x.after.xc).length;
+      applyChanges(changes, nx ? `${nx} marked as extra credit in ${courseLabel(c)}` : `Weights updated in ${courseLabel(c)}`);
+    });
+    const form = dlg.querySelector(".xc-sheet");
+    const sum = () => {
+      let reg = catW, xc = 0, bad = false;
+      form.querySelectorAll(".xc-row").forEach(li => {
+        const on = li.querySelector('[data-xc="on"]').checked, w = Number(String(li.querySelector('[data-xc="w"]').value).replace(",", "."));
+        li.classList.toggle("is-xc", on);
+        const lab = li.querySelector("[data-xc-lab]"); if (lab) lab.textContent = (on ? "Extra credit weight" : "Weight") + " for " + li.querySelector(".xc-t b").textContent;
+        if (!(isNum(w) && w > 0 && w <= 100)) { bad = true; return; }
+        if (on) xc += w; else reg += w;
+      });
+      const el = form.querySelector("#xcSum"); if (!el) return;
+      el.className = "xc-sum" + (reg > 100.5 ? " xc-over" : reg < 99.5 ? " xc-under" : " xc-ok");
+      el.innerHTML = (bad ? "Enter a weight from 0.5 to 100 for each item. " : "") + `Regular work adds up to <b>${fmtW(reg)}</b>${reg > 100.5 ? ", still more than 100%" : reg < 99.5 ? ` (the other ${fmtW(100 - reg)} counts as work still to come)` : ""}.${xc ? ` Extra credit can add up to <b>${fmtW(xc)}</b> on top.` : ""}`;
+    };
+    form.addEventListener("input", sum); form.addEventListener("change", sum); sum();
+  }
   function courseGradeSheet(id){
     const c = courseOf(id); if (!c) return;
     const g = gradingOf(c, true);
@@ -42955,6 +43032,8 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
     switch (act) {
       case "g-mark": { const back = el.dataset.back === "grades" ? gradesSheet : null; markSheet(id, back); return true; }
       case "g-course-set": courseGradeSheet(id); return true;
+      case "g-xc": xcSheet(id, false); return true;
+      case "g-xc-fix": xcSheet(id, true); return true;
       case "g-paste": pasteGradesSheet(id); return true;
       // missed work the student did hand in: it's done (waiting for a mark), not a 0
       case "g-handed": { const t = state.tasks[id]; if (!t) return true; const n = clone(t); n.status = "done"; n.doneAt = Date.now(); n.pct = 100; applyChanges([{kind: "task", id, after: n}], "Marked as handed in. It's waiting for a mark now, not counted as 0."); return true; }
@@ -54865,7 +54944,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 47, rx: 73, y: 75, r: 5.2, style: "dot"},
         mouth: {x: 60, y: 83.5, w: 3.4},
         cheeks: {lx: 37.5, rx: 82.5, y: 83, w: 5.6, h: 3.4},
-        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 72, 92], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
+        anchors: {top: [60, 42.5, 1.05, 0], neck: [60, 92.5, 1.1, 0, 72, 92], bow: [60, 96.5, 0.95, 0], chest: [80, 99, 0.6], back: [92, 80, 0.95], hands: [60, 101, 0.9]},
         lines: {
           tap: ["Squish! Hi friend, I'm so happy you're here!", "You're doing so well today!", "Every tiny step counts, and you're taking them!", "I'm so proud of you, truly!", "Deep breath! You've totally got this.", "Water, snack, then back to being awesome?", "Your notes look amazing today!"],
           pet: ["Hehe, extra squishy happy!", "More pats? Yes please, yes please!"],
@@ -111583,7 +111662,7 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-crow{display:flex;align-items:center;gap:6px;margin-top:auto}
 .cm-csub{flex:1 1 auto;min-width:0;color:var(--muted);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cm-cinfo{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:0;border:0;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit;margin-top:auto}
-.cm-ctitle{font-size:1rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.cm-ctitle{font-size:1rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .cm-cinfo .mini{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cm-cacts{display:flex;align-items:center;gap:2px;flex:none}
 .cm-cacts .icon-btn{width:34px;height:34px;opacity:.7}
