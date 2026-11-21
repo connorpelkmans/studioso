@@ -4533,14 +4533,26 @@ function aiCopied(text, idx){
 const aiCopiedCardsIndex = cards => aiCopyIndex((cards || []).filter(c => c && c.copied).map(c => `${c.front || ""}\n${c.back || ""}`));
 const aiDropCopiedQs = (qs, idx) => idx ? qs.filter(q => ![q.stem, q.answer, q.rationale].concat(q.options || [], q.notes || []).some(t => aiCopied(t, idx))) : qs;
 // Flashcard quality gate
+// A back that sends the student to the material instead of answering ("The notes explain this", "See slide 4", "As described in
+// the reading"): not a flashcard. Only a back that is mostly that pointer is caught; a real answer that also names its source stays.
+const AI_DEFERS = [/\b(see|refer to|check|consult|look at|review)\b.{0,30}\b(notes?|slides?|material|lecture|textbook|reading|page|section|part|chapter)\b/i,
+  /\b(the|your|these|this|that)\s+(notes?|slides?|material|lecture|reading|textbook|section|part|chapter)\b.{0,40}\b(explains?|describes?|covers?|says|discuss(es)?|mentions?|lists?|shows?|outlines?|details?)\b/i,
+  /\bas (described|explained|shown|discussed|mentioned|covered|outlined) (in|on|by|above|below|earlier)\b/i, /\b(described|explained|covered) (above|below|earlier|elsewhere)\b/i];
+function aiDefers(back){
+  const t = String(back || "").trim(); if (!t || !AI_DEFERS.some(r => r.test(t))) return false;
+  // what's left once the pointer is taken out: a real answer leaves several content words
+  const rest = AI_DEFERS.reduce((x, r) => x.replace(new RegExp(r.source, "gi"), " "), t).replace(/\b(the|a|an|of|for|this|that|it|is|in|on|and|to|stage|step|part|section|notes?|slides?|material|respiration)\b/gi, " ");
+  return (rest.match(/[\p{L}\p{N}]{3,}/gu) || []).length < 4;
+}
 function aiGateCards(list, opts){
-  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0, copied: 0};
+  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0, copied: 0, vague: 0};
   (Array.isArray(list) ? list : []).forEach(c => {
     if (!c || typeof c !== "object") { dropped.empty++; return; }
     const front = aiTidyText(c.front), back = aiTidyText(c.back), source = aiTidyText(c.source).slice(0, 60);
     const ft = aiKeyTokens(front), same = aiKeyTokens(front).join(" ") === aiKeyTokens(back).join(" ");
     if (front.length < 3 || !back || same) { dropped.empty++; return; }
     if (front.length > 300 || back.length > 700) { dropped.long++; return; }
+    if (aiDefers(back)) { dropped.vague++; return; }
     if (aiCopied(front, opts.copy) || aiCopied(back, opts.copy)) { dropped.copied++; return; }
     const key = ft.slice().sort().join(" ");
     if (keys.has(key) || seen.some(x => aiJaccard(ft, x.ft) >= 0.8 || (x.back === back.toLowerCase() && aiJaccard(ft, x.ft) >= 0.3))) { dropped.dup++; return; }
@@ -5294,12 +5306,12 @@ async function aiCardsBySection(o){
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
     if (o.onStatus) o.onStatus(`Making flashcards: ${++done} of ${n} parts done`);
-    return {cards: g.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated};
+    return {cards: g.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
   if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't make cards from that. Try again.");
   const missed = res.length - ok.length;
-  return {data: {cards: ok.flatMap(x => x.cards), deckTitle: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed};
+  return {data: {cards: ok.flatMap(x => x.cards), deckTitle: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed, vague: ok.reduce((m, x) => m + (x.vague || 0), 0)};
 }
 async function aiQuizBySection(o){
   const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length; let done = 0;
@@ -5370,6 +5382,8 @@ async function aiMakeStudySet(opts, onStatus){
   if (missedParts) out.notes.push(`${missedParts} part${missedParts === 1 ? "" : "s"} of your material couldn't be turned into cards or questions this time.`);
   if (cards) { const r = res[k++], g = aiGateCards(r.data.cards, {max: nCards ? Math.ceil(nCards * 1.2) : 60, corpus, copy}); out.cards = g.cards; out.title = aiTidyText(r.data.deckTitle); out.truncated = out.truncated || r.truncated;
     const dr = []; if (g.dropped.dup) dr.push(g.dropped.dup + " repeated"); if (g.dropped.long) dr.push(g.dropped.long + " too long for one card"); if (g.dropped.empty) dr.push(g.dropped.empty + " incomplete"); if (dr.length) out.notes.push("Left out " + dr.join(", ") + " flashcard" + (g.dropped.dup + g.dropped.long + g.dropped.empty === 1 ? "" : "s") + ".");
+    const vague = g.dropped.vague + (r.vague || 0);
+    if (vague) out.notes.push(`Left out ${vague} flashcard${vague === 1 ? "" : "s"} that pointed to your notes instead of giving the answer.`);
     if (g.dropped.copied) out.notes.push(`Left out ${g.dropped.copied} flashcard${g.dropped.copied === 1 ? "" : "s"} that copied your material word for word instead of restating it.`); }
   if (quiz) { const r = res[k++], g = aiGateQuestions(aiCleanQuestions(r.data.questions), {max: Math.ceil(nQuiz * 1.2), corpus, copy}); out.questions = g.questions; out.quizTitle = aiTidyText(r.data.title); out.truncated = out.truncated || r.truncated;
     if (g.dropped.dup + g.dropped.bad) out.notes.push(`Left out ${g.dropped.dup + g.dropped.bad} repeated or malformed question${g.dropped.dup + g.dropped.bad === 1 ? "" : "s"}.`);

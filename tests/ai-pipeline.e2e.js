@@ -52,7 +52,10 @@ async function makePdf(){
         const want = Number((/Make exactly (\d+) flashcard/.exec(text) || [])[1]) || 3, thin = route.request().url().includes("thin") || (globalThis.__thinOnce && part && /Krebs/.test(part[3]) && !/too few usable/.test(text));
         const qs = ["What is the main job of", "Where does it happen in", "What goes into", "What comes out of", "Which enzyme drives", "Why does it matter for", "What controls", "How fast is"];
         out = {deckTitle: "Cellular Respiration", cards: thin ? [{front: "x", back: ""}] : [{front: "What molecule stores energy for the cell?", back: "ATP, the energy currency of the cell."}].concat(
-          Array.from({length: Math.max(0, want - 1)}, (_, k) => ({front: `${qs[k % qs.length]} ${topic}${k >= qs.length ? " (" + k + ")" : ""}?`, back: `The ${topic} part of the notes explains this for stage ${k + 1} of respiration.`})))};
+          Array.from({length: Math.max(0, want - 1)}, (_, k) => ({front: `${qs[k % qs.length]} ${topic}${k >= qs.length ? " (" + k + ")" : ""}?`,
+            back: `${topic} ${["breaks glucose into two pyruvate and nets 2 ATP", "happens in a specific compartment of the cell", "takes in its starting molecule and electron carriers", "releases carbon dioxide and loads NADH", "is driven by its key enzymes", "supplies the energy the cell runs on"][k % 6]}.`}))).concat(
+          // a lazy card that only points to the notes: must never reach the student
+          [{front: `Summarize ${topic}.`, back: `The ${topic} part of the notes explains this for this stage of respiration.`}])};
       }
       await route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(out)}]}, finishReason: "STOP"}]})});
     });
@@ -86,6 +89,8 @@ async function makePdf(){
     const asked = R.sent.reduce((n, x) => n + Number((/Make exactly (\d+) flashcard/.exec(x.text) || [])[1] || 0), 0);
     ok(asked === 10, "the 10 cards asked for are shared across the sections: " + R.sent.map(x => (/Make exactly (\d+)/.exec(x.text) || [])[1]).join("+"));
     ok(R.cards.length === 8, "10 cards, less the 2 repeats of the card every section wrote (kept once): " + R.cards.length);
+    ok(!R.cards.some(c => /notes explains|Summarize/.test(c.src)), "cards whose back only points to the notes are left out");
+    ok(/pointed to your notes instead of giving the answer/.test(await R.p.evaluate(() => (document.querySelector("dialog[open]") || {}).innerText || "")), "and the review says so");
     ok(R.cards.every(c => /Glycolysis|Krebs Cycle|Electron Transport Chain/.test(c.src)), "each card says which section it came from");
     ok(R.cards.filter(c => /stores energy/.test(c.front)).length === 1, "the repeat is gone");
     await R.p.screenshot({path: path.join(SHOTS, "pipeline-review.png")});
