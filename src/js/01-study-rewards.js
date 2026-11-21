@@ -146,6 +146,7 @@ function studyDoneHtml(f, cards, total, again){
       ${next ? `<div class="sd-next"><div class="sd-next-t"><b>${esc(buddyName())}'s ${esc(next.name)}</b><span class="mini">${next.left === 0 ? "Ready to wear" : `${next.left} card${next.left === 1 ? "" : "s"} to go`}</span></div><div class="sd-bar"><i style="width:${Math.round(next.v / next.n * 100)}%"></i></div></div>` : ""}
       ${again ? `<p class="mini">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
       <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.${f.hinted ? ` You used ${f.hinted} hint${f.hinted === 1 ? "" : "s"}.` : ""}</p>
+      ${keepSafeHtml()}
       <div class="row-actions"><button class="btn primary" data-act="fc-quiz-from-study">Take a Quiz</button><button class="btn" data-act="fc-study-again">Study Again</button>${undoBtn(f)}<button class="btn" data-act="fc-exit">Done</button></div>
     </section>`;
 }
@@ -197,7 +198,57 @@ function aiQuizHintHtml(f, q){
   return `<div class="fc-buddy">${face}<button type="button" class="btn small fc-hint-btn" data-act="qz-hint" title="${esc(name)} gives a nudge, not the answer">Hint</button></div>`;
 }
 
+/* ---------- 6. The first deck, before any account ---------- */
+// The welcome's "Make Flashcards From My Notes": cards from the student's own material first; the semester setup waits on the
+// Board ("Set Up Your Semester"), and an account is offered after the first session, as a way to keep the cards
+function firstDeckSheet(){
+  const tile = (act, ic, t, s) => `<button type="button" class="fd-tile" data-act="${act}"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg><b>${t}</b><span>${s}</span></button>`;
+  openSheet(`<form class="sheet fd-sheet">${head("Make Your First Deck")}<div class="sheet-body">
+    <div class="fd-hi"><span class="fc-buddy-face" aria-hidden="true">${buddyFace()}</span><p>What are you studying right now? Give ${esc(buddyName())} your notes and get flashcards in about a minute.</p></div>
+    <div class="fd-grid">
+      ${tile("fd-ai", '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', "Photo of Notes", "Handwriting or a whiteboard")}
+      ${tile("fd-ai", '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/>', "PDF or Slides", "Lecture slides, readings")}
+      ${tile("fd-ai", '<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M10 9.5v5l4-2.5z"/>', "YouTube or a Link", "A lecture video or article")}
+      ${tile("fd-paste", '<path d="M5 6h14M5 11h14M5 16h9"/>', "Paste a List", "Term, then definition")}
+    </div>
+    <button type="button" class="fd-row" data-act="fd-import"><span><b>Bring Your Cards Over</b> from Quizlet, Knowt or Anki</span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+    <p class="mini" style="margin:4px 0 0">Free, no account needed. Studyboard says what's sent to the AI before anything is sent.</p>
+  </div></form>`);
+}
+function firstDeckGo(){
+  // the planner setup steps aside (the Board keeps its Set Up Your Semester card); this was the student's choice
+  try { localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:firstDeck", "1"); } catch (e) {}
+  if (dlg.open) dlg.close();
+  setTimeout(() => { ui.tab = "flashcards"; ui.rvView = ""; ui.deckId = null; ui.fc = null; render(); firstDeckSheet(); }, 80);
+}
+function firstDeckPaste(){
+  // a deck to paste into: taken back out again if nothing was pasted
+  const id = uid(), d = normDeck({id, created: Date.now(), name: "My First Deck", courseId: ui.filter && ui.filter !== "all" ? ui.filter : "", cards: []});
+  applyChanges([{kind: "deck", id, after: d}], null);
+  if (dlg.open) dlg.close();
+  setTimeout(() => {
+    bulkSheet(state.decks[id]);
+    const gone = () => { dlg.removeEventListener("close", gone); setTimeout(() => { const x = state.decks[id]; if (x && !x.cards.length) applyChanges([{kind: "deck", id, after: null}], null); }, 300); };
+    dlg.addEventListener("close", gone);
+  }, 60);
+}
+// After the first study session on a device without an account: keep these cards, with a free account (or keep going)
+function keepSafeHtml(){
+  try {
+    if (typeof sbUser !== "undefined" && sbUser) return "";
+    if (!(window.SBGUEST && SBGUEST.is()) || localStorage.getItem("studyboard:keepSafe")) return "";
+  } catch (e) { return ""; }
+  const n = decksArr().reduce((s, d) => s + d.cards.length, 0);
+  return `<div class="keep-safe"><b>Keep your ${n} cards safe</b><p class="mini">A free account backs them up and puts them on your phone and laptop. Everything stays here either way.</p>
+    <div class="row-actions"><button type="button" class="btn primary" data-act="keep-safe-yes">Save With a Free Account</button><button type="button" class="btn" data-act="keep-safe-no">Keep Going Without One</button></div></div>`;
+}
+
 hook("act", act => {
+  if (act === "first-deck") { firstDeckGo(); return true; }
+  if (act === "fd-ai") { if (dlg.open) dlg.close(); setTimeout(() => aiStudySheet(null), 60); return true; }
+  if (act === "fd-paste") { firstDeckPaste(); return true; }
+  if (act === "fd-import") { if (dlg.open) dlg.close(); setTimeout(() => fire("act", "grp-share-menu", document.body, ""), 60); return true; }
+  if (act === "keep-safe-yes" || act === "keep-safe-no") { try { localStorage.setItem("studyboard:keepSafe", "1"); } catch (e) {} if (act === "keep-safe-yes") { if (typeof sbAsk === "function") sbAsk(); } else render(); return true; }
   if (act === "goal-open") { dailyGoalSheet(); return true; }
   if (act === "fc-hint") { fcHint(); return true; }
   if (act === "qz-hint") { aiQuizHint(); return true; }

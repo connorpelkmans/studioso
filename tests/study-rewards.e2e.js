@@ -128,6 +128,39 @@ const SEED = {v: 2, updated: 1, tasks: [{id: "t1", title: "Bio Exam", courseId: 
     await ctx.close();
   }
 
+  // A brand-new student: the welcome offers flashcards first, no account needed; a pasted list becomes a deck; after the
+  // first session, keeping the cards with a free account is offered (and "Keep Going Without One" puts it away)
+  for (const w of [390, 1100]) {
+    const tag = w + "px new student: ";
+    const ctx = await b.newContext({viewport: {width: w, height: w < 600 ? 844 : 900}, serviceWorkers: "block"});
+    await ctx.addInitScript(() => { window.__SB_TEST = true; localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "1.15.8"})); });
+    const p = await ctx.newPage(); p.errs = []; p.on("pageerror", e => p.errs.push(e.message));
+    await p.goto(`http://127.0.0.1:${port}/index.html`); await p.waitForFunction(() => window.__sbSync, null, {timeout: 20000});
+    await p.waitForSelector("dialog[open] .sb-welc", {timeout: 15000});
+    const welc = (await text(p, "dialog[open] .sb-welc")).replace(/\s+/g, " ");
+    ok(/What are you studying/.test(welc) && /Make Flashcards From My Notes/.test(welc) && /Plan My Semester/.test(welc) && /Sign Up/.test(welc), tag + "the welcome leads with flashcards, the account is optional: " + welc.slice(0, 120));
+    await p.screenshot({path: path.join(SHOTS, `rewards-welcome-${w < 600 ? "phone" : "desk"}.png`)});
+    await p.click("dialog[open] .sb-welc-cards"); await p.waitForSelector("dialog[open] .fd-sheet");
+    ok(await p.locator("dialog[open] .fd-tile").count() === 4 && /Bring Your Cards Over/.test(await text(p, "dialog[open] .fd-sheet")), tag + "Make Your First Deck: photo, PDF, link, paste, or bring cards over");
+    ok(await p.evaluate(() => !document.querySelector("dialog[open] .ob")), tag + "the semester setup doesn't jump in on top");
+    await p.waitForTimeout(700); await p.screenshot({path: path.join(SHOTS, `rewards-firstdeck-${w < 600 ? "phone" : "desk"}.png`)});
+    await p.click('dialog[open] [data-act="fd-paste"]'); await p.waitForSelector("dialog[open] #bkText");
+    await p.fill("#bkText", "Mitochondria - makes most of the cell's ATP\nRibosome - builds proteins\nNucleus - holds the DNA");
+    await p.click("dialog[open] .sheet-foot .btn.primary"); await p.waitForTimeout(500);
+    const deck = await p.evaluate(() => Object.values(window.__sbSync.state.decks).map(d => d.name + ":" + d.cards.length));
+    ok(deck.join() === "My First Deck:3", tag + "the pasted list is a deck of 3: " + deck.join());
+    await p.evaluate(() => { const S = window.__sbSync; if (document.querySelector("dialog[open]")) document.querySelector("#dlg").close(); S.ui.tab = "flashcards"; S.ui.deckId = null; S.render(); });
+    await p.click('[data-act="fc-review-start"]'); await p.waitForSelector(".flip");
+    for (let k = 0; k < 6 && await p.$(".flip"); k++) { if (!(await p.$(".rate-btn"))) await p.click('[data-act="fc-flip"]'); await p.click(".rate-btn.good"); await p.waitForTimeout(60); }
+    await p.waitForSelector(".keep-safe");
+    ok(/Keep your 3 cards safe/.test(await text(p, ".keep-safe")), tag + "after the first session: keep your cards with a free account");
+    await p.screenshot({path: path.join(SHOTS, `rewards-keepsafe-${w < 600 ? "phone" : "desk"}.png`)});
+    await p.click('[data-act="keep-safe-no"]'); await p.waitForTimeout(150);
+    ok(!(await p.$(".keep-safe")), tag + "Keep Going Without One puts it away for good");
+    ok(!p.errs.length, tag + "no page errors: " + p.errs.join(" | "));
+    await ctx.close();
+  }
+
   await b.close(); server.close();
   console.log(fails ? `study-rewards.e2e: ${fails} of ${n} FAILED` : `study-rewards.e2e: ${n} checks passed`);
   process.exitCode = fails ? 1 : 0;

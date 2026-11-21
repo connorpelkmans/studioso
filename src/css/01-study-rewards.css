@@ -62,3 +62,21 @@
 .qz-added{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 2px;padding:10px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));font-size:.92rem;text-align:left}
 
 @media (prefers-reduced-motion:reduce){.fc-chip.run,.fc-bubble{animation:none}}
+
+/* The first deck */
+.fd-hi{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.fd-hi p{margin:0;line-height:1.45}
+.fd-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fd-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:104px;padding:12px 8px;border-radius:18px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;text-align:center}
+.fd-tile:first-child{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#fff)}
+.fd-tile svg{color:var(--accent)}
+.fd-tile:first-child svg{color:inherit}
+.fd-tile b{font-size:.95rem}
+.fd-tile span{font-size:.78rem;opacity:.8}
+.fd-tile:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.fd-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin-top:10px;min-height:52px;padding:0 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.sb-welc-acct{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted)}
+/* Keep these cards: after the first session without an account */
+.keep-safe{width:100%;max-width:460px;box-sizing:border-box;padding:16px;border-radius:18px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 6%,var(--surface));text-align:left}
+.keep-safe p{margin:6px 0 10px}
+.keep-safe .row-actions{justify-content:flex-start}
