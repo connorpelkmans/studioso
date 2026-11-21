@@ -175,7 +175,7 @@ const LINKCARDS = (() => {
       fetched = await devPageText(L.url, signal);
       if (fetched.status !== "ok") {
         const st = fetched.status === "paywall" ? "paywall" : fetched.status === "empty" ? "empty" : "unreachable";
-        const msg = fetched.status === "pdf" ? "That link is a PDF. Download it and add it with Add Files instead." : fetched.status === "busy" ? "Too many pages in a short time. Wait a minute and try again." : fetched.status === "offline" ? "Couldn't reach the page. Check your connection and try again." : fetched.status === "not_page" ? "That link isn't a web page (it may be a picture or a download)." : failMsg(st, L);
+        const msg = fetched.status === "blocked" ? "That site doesn't let apps read its pages. Copy the article's text and use Paste the Text Instead." : fetched.status === "needs_js" ? "That page builds its text in your browser, so Studyboard can't read it from the link. Copy the article's text and use Paste the Text Instead." : fetched.status === "pdf" ? "That link is a PDF. Download it and add it with Add Files instead." : fetched.status === "busy" ? "Too many pages in a short time. Wait a minute and try again." : fetched.status === "offline" ? "Couldn't reach the page. Check your connection and try again." : fetched.status === "not_page" ? "That link isn't a web page (it may be a picture or a download)." : failMsg(st, L);
         throw Object.assign(aiErr("link-" + st, msg), {link: true, st});
       }
       pasted = fetched.text; if (onStatus) onStatus("Read the page. Writing study notes…");

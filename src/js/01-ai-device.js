@@ -212,7 +212,7 @@ async function devPageText(url, signal){
     if (H && typeof H.get === "function") {
       const r = await H.get({url: u.href, headers: {"Accept": "text/html,text/plain;q=0.9"}, responseType: "text", connectTimeout: 10000, readTimeout: 10000});
       const type = String((r.headers && (r.headers["Content-Type"] || r.headers["content-type"])) || "");
-      if (r.status === 401 || r.status === 402 || r.status === 403) return {status: "paywall", url: r.url || u.href};
+      if (r.status === 401 || r.status === 402) return {status: "paywall", url: r.url || u.href};
       if (r.status >= 200 && r.status < 300 && typeof r.data === "string") {
         if (/application\/pdf/i.test(type)) return {status: "pdf"};
         const x = /text\/plain/i.test(type) ? {status: SBPAGE.words(r.data) >= 40 ? "ok" : "empty", title: "", text: r.data.slice(0, SBPAGE.MAX_TEXT)} : SBPAGE.extract(r.data.slice(0, SBPAGE.MAX_HTML), r.url || u.href);

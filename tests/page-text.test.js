@@ -9,7 +9,7 @@ const ARTICLE = `<!doctype html><html><head><title>Active transport | Khan Acade
 <body><header class="site-header"><nav><a href="/">Home</a> <a href="/courses">Courses</a></nav></header>
 <div id="cookie-banner">We use cookies. Accept all cookies?</div>
 <main><article><h1>Active transport</h1>${para(4, "Primary")}<h2>Secondary &amp; coupled transport</h2><ul><li>Symporters move two things the same way</li><li>Antiporters move them in opposite directions</li></ul>${para(3, "Secondary")}
-<figure><img src="pump.png"><figcaption>Figure 1</figcaption></figure><p>Temperature is 37&deg;C &mdash; normal body heat. &#x3b1;-helix &lt;tag&gt;</p></article>
+<figure><img src="pump.png"><figcaption>Figure 1</figcaption></figure><p>Temperature is 37&deg;C &mdash; normal body heat. &#x3b1;-helix &lt;tag&gt; matter here.</p></article>
 <aside class="related-articles"><h3>Related</h3><p>Ten other articles you might like about cells and membranes and many more things.</p></aside></main>
 <div class="share-bar"><button>Share</button></div><footer>© Khan Academy · Terms · Privacy</footer></body></html>`;
 
@@ -28,8 +28,15 @@ ok(r2.status === "ok" && /^## Osmosis/.test(r2.text) && !/Menu|Deep link|Contact
 // walls and empty pages
 ok(P.extract(`<html><title>Subscribe</title><body><h1>Subscribe to continue reading</h1><p>Already a subscriber? Sign in.</p></body></html>`).status === "paywall", "a paywall page is recognised");
 ok(P.extract(`<html><body><p>Please enable JavaScript to continue.</p></body></html>`).status === "paywall", "a page that needs JavaScript (no content without it) says so, no made-up text");
-ok(P.extract(`<html><body><div id="root"></div></body></html>`).status === "empty", "an empty page is empty");
+ok(P.extract(`<html><body><div class="content"></div></body></html>`).status === "empty", "an empty page is empty");
 ok(P.extract(`<html><body><p>Hi.</p></body></html>`).text === "", "and nothing is returned for it");
+// pages that can't be read without a browser, said plainly
+ok(P.extract(`<html><head><title>Just a moment...</title></head><body><div id="cf-chl-widget"></div></body></html>`).status === "blocked", "a bot check is 'blocked'");
+ok(P.extract(`<html><head><title>Biology 2e</title><script src="/app.js"></script></head><body><div id="root"></div><script>window.__NEXT_DATA__={}</script></body></html>`).status === "needs_js", "a page built by JavaScript is 'needs_js'");
+// Wikipedia's furniture
+const wiki = `<html><body><main id="content"><div class="shortdescription">Movement of molecules</div><div role="note" class="hatnote">For other uses, see X.</div><div class="mw-parser-output"><p><b>Osmosis</b> <span class="rt-commentedText"><span class="IPA">/ɒzˈmoʊsɪs/</span></span>,<sup class="reference"><a>[1]</a></sup> is the spontaneous net movement of water across a membrane toward the side with more solute.[2] ${"It matters for cells because water follows solute. ".repeat(12)}</p><h2>References<span class="mw-editsection">[edit]</span></h2><ol class="references"><li>Smith 2020</li></ol></div><div id="catlinks" class="catlinks">Categories: Membrane biology</div></main></body></html>`;
+const rw = P.extract(wiki);
+ok(/^Osmosis,? is the spontaneous net movement/.test(rw.text) && !/\[\d\]|ɒz|For other uses|Movement of molecules|Smith 2020|Categories|edit\]/.test(rw.text), "Wikipedia: no citation marks, pronunciation, notes, references or categories: " + rw.text.slice(0, 80));
 // size
 const huge = `<html><body><article>${para(4000, "Long")}</article></body></html>`;
 const t0 = process.hrtime.bigint(); const rh = P.extract(huge); const ms = Number(process.hrtime.bigint() - t0) / 1e6;
