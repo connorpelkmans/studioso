@@ -53,6 +53,9 @@ function fake(o){
     ok(/Free AI, runs on your computer: Chrome's built-in AI/.test(bar.text) && !bar.select, "the Model row names the AI on this computer, with no empty menu: " + bar.text.replace(/\n/g, " "));
     const warm = await R.p.evaluate(() => window.__log.creates.filter(c => /^You make flashcards/.test(c.system)).length);
     ok(warm === 1, "opening the sheet gets the model ready with the card instructions, before Create is pressed");
+    const est0 = await R.p.evaluate(() => { const e = document.querySelector("#aiEst"); return e && !e.hidden ? e.textContent : ""; });
+    ok(/first set shows how fast/.test(est0), "before any set, the sheet says the first one shows this computer's speed: " + est0);
+    await R.p.evaluate(() => { window.__liveBefore = 0; new MutationObserver(() => { if (!document.querySelector("#arSave")) window.__liveBefore = Math.max(window.__liveBefore, document.querySelectorAll(".ai-live-card").length); }).observe(document.body, {subtree: true, childList: true}); });
     await R.p.evaluate(() => { window.__status = []; const s = document.querySelector("#aiStatus"); new MutationObserver(() => window.__status.push(s.textContent)).observe(s, {childList: true, subtree: true, characterData: true}); });
     await R.p.evaluate(t => { const d = document.querySelector("#dlg details"); if (d) d.open = true; const a = document.querySelector("#aiPaste"); a.value = t; a.dispatchEvent(new Event("input", {bubbles: true})); }, NOTES);
     await R.p.evaluate(() => { const q = document.querySelector("#aiQuiz"); if (q && q.checked) q.click(); });
@@ -66,6 +69,16 @@ function fake(o){
     ok(L.facts === 0, "cards alone take one request a part (no separate list of facts)");
     ok(L.status.some(s => /writing \d+ words?/.test(s)), "the student sees the answer being written: " + (L.status.find(s => /writing/.test(s)) || "none"));
     ok(L.status.some(s => /\d+ cards? so far, part \d+ of \d+/.test(s)), "and how many cards are done: " + (L.status.find(s => /cards? so far/.test(s)) || "none"));
+    const live = await R.p.evaluate(() => window.__liveBefore);
+    ok(live >= 3, `cards show up to study while the rest are made (${live} before Review opened)`);
+    // the next time, the sheet says how long it takes on this computer, for what's picked
+    await R.p.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
+    await sheet(R.p); await R.p.waitForSelector("#dlg[open] #aiGo");
+    const est1 = await R.p.evaluate(() => (document.querySelector("#aiEst") || {}).textContent || "");
+    ok(/^On this computer: .+ for Auto flashcards/.test(est1), "after a set, the sheet estimates the next one on this computer: " + est1);
+    await R.p.evaluate(() => { const s = JSON.parse(localStorage.getItem("studyboard:devSpeed")); s.card.per = 9; localStorage.setItem("studyboard:devSpeed", JSON.stringify(s)); const r = document.querySelector('input[name=aiCardN][value="50"]'); r.checked = true; r.dispatchEvent(new Event("change", {bubbles: true})); });
+    const est2 = await R.p.evaluate(() => (document.querySelector("#aiEst") || {}).textContent || "");
+    ok(/for 50 flashcards/.test(est2) && /long wait here: Auto \(about 30 cards\) is quicker/.test(est2) && /tap outside this window/.test(est2), "a long one says so, points to Auto and to finishing in the background: " + est2);
     ok(!R.p.errs.length, "no page errors: " + R.p.errs.join(" | "));
     await R.ctx.close(); }
 

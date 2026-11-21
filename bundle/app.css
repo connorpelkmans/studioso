@@ -2721,6 +2721,17 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;curs
 .ai-fmts-f{display:grid;gap:5px}
 .ai-fmts-f > .lh{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;font-size:.88rem;font-weight:600}
 .ai-fmts-f > .lh .hint{font-weight:400;color:var(--muted)}
+
+/* On-device AI: cards to study while the rest are made, and how long a set takes on this computer */
+.ai-sheet .ai-est{margin:2px 2px 0;color:var(--muted)}
+.ai-live{display:grid;gap:8px;margin-top:4px}
+.ai-live-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.ai-live-card{width:100%;min-height:72px;display:flex;flex-direction:column;gap:6px;justify-content:center;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;animation:aiLiveIn .25s ease both}
+.ai-live-card .f{font-weight:700}
+.ai-live-card .b{color:var(--muted);border-top:1px dashed var(--line);padding-top:6px}
+.ai-live-card[aria-expanded="true"]{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+@keyframes aiLiveIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.ai-live-card{animation:none}}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}

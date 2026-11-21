@@ -5497,6 +5497,22 @@ async function aiDevFactQuiz(x, o){
   }).filter(Boolean);
   return {questions: out, title: b.data.title, truncated: F.truncated || b.truncated};
 }
+/* How fast the AI on THIS computer is, learned from the sets it made: seconds per card (or question) and per part, averaged over
+   the last few sets. It's what the "On this computer: about 2 minutes" estimate is made from. Kept on this device only. */
+const AI_SPEED_KEY = "studyboard:devSpeed";
+function aiDevSpeed(){ try { return JSON.parse(localStorage.getItem(AI_SPEED_KEY) || "{}") || {}; } catch (e) { return {}; } }
+function aiDevSpeedNote(kind, secs, items, parts){
+  try { const S = aiDevSpeed(), per = Math.max(0.3, (secs - parts * 2) / items), old = S[kind];
+    S[kind] = {per: old ? old.per * 0.6 + per * 0.4 : per, part: 2, n: (old ? old.n : 0) + 1, engine: (DEVAI && DEVAI.kind) || ""};
+    localStorage.setItem(AI_SPEED_KEY, JSON.stringify(S)); } catch (e) {}
+}
+// Seconds for n cards and q questions on this computer, or null before it has made a set
+function aiDevEstimate(n, q, parts){
+  const S = aiDevSpeed(); if (!S.card && !S.question) return null;
+  const c = S.card ? S.card.per : S.question.per * 0.8, qq = S.question ? S.question.per : c * 1.6;
+  return Math.round((n || 0) * c + (q || 0) * qq + (parts || 4) * 2 * ((n ? 1 : 0) + (q ? 1 : 0)));
+}
+const aiDur = s => s < 50 ? `${Math.max(10, Math.round(s / 10) * 10)} seconds` : s < 90 ? "about a minute" : s < 150 ? "about 2 minutes" : `about ${Math.round(s / 60)} minutes`;
 async function aiCardsBySection(o){
   const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0, made = 0;
   // On the device, "Auto" aims for the whole set in about a minute: after each part, the parts still to do get as many cards as
@@ -5516,7 +5532,7 @@ async function aiCardsBySection(o){
     if (dev) x.terms = aiKeyTerms(x.section.text, Math.max(1, x.count));
     if (dev && i === 0) tell();
     if (dev && DEV_STEPS.facts && o.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
-      if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
+      if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); if (o.onCards) try { o.onCards(f.cards); } catch (e) {} return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
     const gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
@@ -5535,15 +5551,17 @@ async function aiCardsBySection(o){
     if (dev && DEV_STEPS.check && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
     done++; made += cards.length;
     if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`);
+    if (o.onCards && cards.length) try { o.onCards(cards); } catch (e) {}
     return {cards: cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
   if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't make cards from that. Try again.");
+  if (dev && made >= 4) aiDevSpeedNote("card", (Date.now() - t0) / 1000, made, n);
   const missed = res.length - ok.length;
   return {data: {cards: ok.flatMap(x => x.cards), deckTitle: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed, vague: ok.reduce((m, x) => m + (x.vague || 0), 0), unsup: ok.reduce((m, x) => m + (x.unsup || 0), 0), fixed: ok.reduce((m, x) => m + (x.fixed || 0), 0)};
 }
 async function aiQuizBySection(o){
-  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0;
+  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(), qt0 = Date.now(); let done = 0;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 9000, schema: QUIZ_SCHEMA, system: AI_QUIZ_SYSTEM + " " + AI_GROUND,
     parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Write exactly ${x.count} practice question${x.count === 1 ? "" : "s"} from this part only. Every question must be answerable from this part, and its rationale must say where.${aiFigAsk(x)}${again ? " Your last answer had too few usable questions: write complete questions with their options, correct answers and rationales." : ""}`})}));
   const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
@@ -5561,6 +5579,7 @@ async function aiQuizBySection(o){
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
   if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't write a quiz from that. Try again.");
+  if (dev) { const nq = ok.reduce((m, x) => m + (x.questions || []).length, 0); if (nq >= 3) aiDevSpeedNote("question", (Date.now() - qt0) / 1000, nq, n); }
   return {data: {questions: ok.flatMap(x => x.questions), title: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed: res.length - ok.length, wrong: ok.reduce((m, x) => m + (x.wrong || 0), 0)};
 }
 // A PDF read on this device, page by page: each page's lines with their font size (headings are bigger), and, when figures are
@@ -5685,7 +5704,7 @@ async function aiMakeStudySet(opts, onStatus){
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
   if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
   // A new student's first set: made free by Studyboard's cloud AI (01-ai-first.js); the device makes it if that isn't available
-  const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus, facts: !!quiz}) : null;
+  const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus, facts: !!quiz, onCards: opts.onCards}) : null;
   let fromCloud = false;
   if (cards && opts.first && !(style && style !== "Clear, exam-focused study material.") && aiOnDevice() && aiFirstDeckOk()) jobs.push(aiFirstDeck({sources, courseName, count: nCards, signal, onStatus}).then(f => { if (!f) return cardsJob() || cardsOne(); fromCloud = true; return {data: {cards: f.cards, deckTitle: f.deckTitle}, truncated: false}; }));
   else if (cards && secs) jobs.push(cardsJob());
@@ -5763,6 +5782,7 @@ function aiStudySheet(deckId, mode){
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCards" checked> Flashcards</label>${seg("aiCardN", [["auto", "Auto"], ["10", "10"], ["20", "20"], ["30", "30"], ["50", "50"]], "auto")}</div>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiQuiz" checked> Practice quiz</label>${seg("aiQuizN", [["5", "5"], ["10", "10"], ["20", "20"], ["30", "30"]], "10")}</div>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}${caseStyleSelect("aiCaseStyle", (courseOf(courseId) || {}).name || "")}<span class="mini">Realistic scenarios from your field that unfold step by step and test how you apply the material.</span></div>
+      <p class="mini ai-est" id="aiEst" aria-live="polite" hidden></p>
       </fieldset>
       <fieldset><legend>Style</legend>
         <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. AP-style multiple choice with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
@@ -5775,12 +5795,31 @@ function aiStudySheet(deckId, mode){
       ${aiFirstDeckNote()}
       <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private or sensitive information. " : ""}AI can make mistakes; you can review everything before it's saved.</p>
       <p class="status-msg" id="aiStatus" style="margin:0" aria-live="polite"></p>
+      <div class="ai-live" id="aiLive" hidden><p class="mini" style="margin:0"><b>Study while you wait:</b> tap a card to see its answer. They all go to Review when the set is done.</p><ul class="ai-live-list"></ul></div>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
   </form>`);
   const sheetEl = dlg.querySelector(".ai-sheet"), inS = q => sheetEl.querySelector(q);
   // the AI on this computer loads (and reads its card instructions) while the student adds their material
   devPrewarm(DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE);
+  // On this computer: how long the set will take, from the speed of the sets it made before
+  const est = () => {
+    const el = inS("#aiEst"); if (!el) return;
+    if (!aiOnDevice()) { el.hidden = true; return; }
+    const pick = n => (sheetEl.querySelector(`input[name=${n}]:checked`) || {}).value;
+    const wc = inS("#aiCards") && inS("#aiCards").checked, wq = inS("#aiQuiz") && inS("#aiQuiz").checked, cv = pick("aiCardN") || "auto";
+    const nc = wc ? (cv === "auto" ? 30 : Number(cv) || 30) : 0, nq = wq ? Number(pick("aiQuizN")) || 10 : 0;
+    if (!nc && !nq) { el.hidden = true; return; }
+    let secs = aiDevEstimate(nc, nq, Math.max(2, Math.ceil(Math.max(nc, nq) / 8)));
+    if (secs == null) { el.hidden = false; el.textContent = "Your first set shows how fast the AI on this computer is, so Studyboard can tell you how long the next ones take."; return; }
+    if (wc && cv === "auto") secs = Math.min(secs, (wq ? secs - aiDevEstimate(nc, 0, 4) : 0) + 75);
+    const what = [nc && (cv === "auto" ? "Auto flashcards" : `${nc} flashcards`), nq && `${nq} quiz questions`].filter(Boolean).join(" and ");
+    el.hidden = false;
+    el.innerHTML = `On this computer: <b>${aiDur(secs)}</b> for ${esc(what)}.` + (secs > 180 ? ` That's a long wait here${wc && cv !== "auto" ? ": Auto (about 30 cards) is quicker" : ""}. You can tap outside this window and keep using Studyboard while it works; you'll be told when it's ready.` : "");
+  };
+  sheetEl.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".ai-live-card"); if (!b) return; const on = b.getAttribute("aria-expanded") !== "true"; b.setAttribute("aria-expanded", String(on)); b.querySelector(".b").hidden = !on; });
+  sheetEl.addEventListener("change", e => { if (/^(aiCardN|aiQuizN)$/.test(e.target.name || "") || /^(aiCards|aiQuiz)$/.test(e.target.id || "")) est(); });
+  est();
   sheetKeep(keyK, {name: aiWho("AI"), busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) try { job.ac.abort(); } catch (e) {} },
     dirty: () => job.busy || job.sources.length > 0 || !!(inS("#aiPaste") && inS("#aiPaste").value.trim()) || !!(inS("#aiLink") && inS("#aiLink").value.trim()) || !!(inS("#aiStyle") && inS("#aiStyle").value.trim() && !(deck && inS("#aiStyle").value.trim() === String(deck.aiStyle || "").trim()))});
   if (mode === "cards" || mode === "quiz") {
@@ -5854,7 +5893,14 @@ function aiStudySheet(deckId, mode){
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(brand)} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     aiShowStatus(status);
     try {
-      const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal, first: true}, m => { status.textContent = m; });
+      const live = inS("#aiLive"), liveList = live && live.querySelector(".ai-live-list");
+      if (liveList) liveList.innerHTML = "";
+      const onCards = aiOnDevice() && wantCards && liveList ? list => {
+        // the first cards: scrolled into view once, so the student sees they can start
+        if (live.hidden) { live.hidden = false; try { live.scrollIntoView({block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); } catch (e) {} }
+        list.forEach(c => { if (liveList.children.length >= 80) return; const li = document.createElement("li"); li.innerHTML = `<button type="button" class="ai-live-card" aria-expanded="false"><span class="f">${esc(c.front)}</span><span class="b" hidden>${esc(c.back)}</span></button>`; liveList.appendChild(li); });
+      } : null;
+      const r = await aiMakeStudySet({onCards, sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal, first: true}, m => { status.textContent = m; });
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
       aiRememberStyle(custom);
