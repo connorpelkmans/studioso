@@ -1442,21 +1442,55 @@ const DEV_FACT_CARDS_SCHEMA = {type: "OBJECT", properties: {deckTitle: {type: "S
   n: {type: "INTEGER"}, front: {type: "STRING"}, back: {type: "STRING"}, hint: {type: "STRING", description: "A one-sentence nudge that helps recall the back without using its words"}}, required: ["n", "front", "back"]}}}, required: ["cards"]};
 const DEV_FACTS_SYSTEM = "You list the facts in a student's notes. Each fact is one short, complete sentence that makes sense on its own: name what it is about (never start with 'it' or 'this'). Include definitions, numbers, names, dates, causes and effects, steps, comparisons and examples. Keep the notes' order. Leave out filler such as titles, page numbers and 'in this lecture'. Use only what the notes say.";
 const DEV_FACT_CARDS_SYSTEM = "You turn facts into flashcards. For each numbered fact, write one card with the same number. front: a specific question that the fact answers, at most 15 words, that doesn't contain the answer. back: just the answer, short, in your own words. Example: fact \"Glycolysis takes place in the cytoplasm and does not need oxygen.\" gives front \"Where in the cell does glycolysis happen?\" and back \"In the cytoplasm (it doesn't need oxygen).\"";
+// The facts in one part of the notes, checked against it, without repeats, spread across the part. Listed once per part and
+// shared by its cards and its quiz questions
+function aiDevFacts(x, o, cap){
+  // (the request is shared: cards and quiz for the same part wait for the same list)
+  if (!x.section.factsP) x.section.factsP = (async () => {
+    const label = SBSECT.label(x.section);
+    const a = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 1500, schema: DEV_FACTS_SCHEMA, system: DEV_FACTS_SYSTEM,
+      parts: [{text: `Notes${label ? ` (${label})` : ""}:\n${x.section.text}\n\nList the facts in these notes, at most ${SBSECT.SIZES.small.perSection + 7}.`}]}));
+    let unsup = 0; const seen = [];
+    const facts = (a.data.facts || []).map(f => aiTidyText(f)).filter(f => f.length > 12 && f.length < 400).filter(f => { if (!aiBasisOk(f, x.section.text)) { unsup++; return false; } const t = aiKeyTokens(f); if (seen.some(s2 => aiJaccard(t, s2) >= 0.7)) return false; seen.push(t); return true; });
+    return {facts, unsup, truncated: a.truncated};
+  })().catch(e => { x.section.factsP = null; throw e; });
+  // as many as asked for, spread across the part (for "Auto", all of them up to the cap)
+  return x.section.factsP.then(F => { let facts = F.facts; if (facts.length > cap) { const k = facts.length / cap; facts = Array.from({length: cap}, (_, i) => facts[Math.floor(i * k)]); } return Object.assign({}, F, {facts}); });
+}
 async function aiDevFactCards(x, o, corpus){
   const label = SBSECT.label(x.section), auto = !o.n, cap = auto ? SBSECT.SIZES.small.perSection + 3 : Math.max(x.count, 1);
-  const a = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 1500, schema: DEV_FACTS_SCHEMA, system: DEV_FACTS_SYSTEM,
-    parts: [{text: `Notes${label ? ` (${label})` : ""}:\n${x.section.text}\n\nList the facts in these notes, at most ${Math.max(cap + 4, Math.ceil(cap * 1.5))}.`}]}));
-  // only facts that are really in the notes, without repeats
-  let unsup = 0; const seen = [];
-  let facts = (a.data.facts || []).map(f => aiTidyText(f)).filter(f => f.length > 12 && f.length < 400).filter(f => { if (!aiBasisOk(f, x.section.text)) { unsup++; return false; } const t = aiKeyTokens(f); if (seen.some(s2 => aiJaccard(t, s2) >= 0.7)) return false; seen.push(t); return true; });
-  // as many as asked for, spread across the part (for "Auto", all of them up to the cap)
-  if (facts.length > cap) { const k = facts.length / cap; facts = Array.from({length: cap}, (_, i) => facts[Math.floor(i * k)]); }
+  const F = await aiDevFacts(x, o, cap), facts = F.facts, unsup = F.unsup, a = {truncated: F.truncated};
   if (!facts.length) return null;
   const b = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_CARDS_SCHEMA, system: DEV_FACT_CARDS_SYSTEM,
     parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one card for each of the ${facts.length} facts, numbered the same.`}]}));
   const list = (b.data.cards || []).filter(c => c && Number(c.n) >= 1 && Number(c.n) <= facts.length);
   const g = aiGateCards(list, {max: cap + 2, corpus, copy: o.copy});
   return {cards: g.cards, title: b.data.deckTitle, truncated: a.truncated || b.truncated, vague: g.dropped.vague, unsup};
+}
+/* Quiz questions for a small model, from the same facts: it writes the question, the right answer, three wrong ones and why; Studyboard
+   shuffles the options and records which one is right, so the answer key can't come out wrong (small models often mix up option
+   numbers). Then the model takes its own quiz (aiDevCheckQuiz) as before. */
+const DEV_FACT_QUIZ_SCHEMA = {type: "OBJECT", properties: {title: {type: "STRING"}, questions: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  n: {type: "INTEGER"}, stem: {type: "STRING"}, answer: {type: "STRING"}, wrong: {type: "ARRAY", items: {type: "STRING"}}, why: {type: "STRING"}}, required: ["n", "stem", "answer", "wrong", "why"]}}}, required: ["questions"]};
+const DEV_FACT_QUIZ_SYSTEM = "You write multiple-choice practice questions from facts. For each numbered fact, write one question with the same number. stem: a clear question that the fact answers, without giving the answer away. answer: the correct answer, short. wrong: three wrong answers that a student who hasn't studied could believe: the same kind of thing and about the same length as the answer, but clearly wrong according to the facts. why: one sentence on why the answer is right. Example: fact \"Glycolysis takes place in the cytoplasm.\" gives stem \"Where in the cell does glycolysis take place?\", answer \"The cytoplasm\", wrong [\"The mitochondrial matrix\", \"The nucleus\", \"The inner mitochondrial membrane\"], why \"Glycolysis happens in the cytoplasm, before anything enters the mitochondria.\"";
+async function aiDevFactQuiz(x, o){
+  const F = await aiDevFacts(x, o, Math.max(x.count, 1)), facts = F.facts.slice(0, Math.max(x.count, 1));
+  if (!facts.length) return null;
+  const label = SBSECT.label(x.section);
+  const b = await aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_QUIZ_SCHEMA, system: DEV_FACT_QUIZ_SYSTEM,
+    parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one question for each of the ${facts.length} facts, numbered the same.`}]}));
+  const key = t => aiKeyTokens(t).join(" ") || String(t).toLowerCase().trim();
+  const out = (b.data.questions || []).map(q => {
+    const n = Number(q.n), answer = aiTidyText(q.answer || ""), stem = aiTidyText(q.stem || "");
+    if (!stem || !answer || !(n >= 1 && n <= facts.length)) return null;
+    const wrong = []; (Array.isArray(q.wrong) ? q.wrong : []).map(w => aiTidyText(w || "")).forEach(w => { if (w && key(w) !== key(answer) && !wrong.some(v => key(v) === key(w))) wrong.push(w); });
+    if (wrong.length < 2) return null;
+    // the right answer's place, from the stem (stable, and different from question to question)
+    const options = wrong.slice(0, 3), at = [...stem].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % (options.length + 1);
+    options.splice(at, 0, answer);
+    return {type: "single", stem, options, correct: [at], rationale: aiTidyText(q.why || "") || facts[n - 1], source: x.section.title.slice(0, 60)};
+  }).filter(Boolean);
+  return {questions: out, title: b.data.title, truncated: F.truncated || b.truncated};
 }
 async function aiCardsBySection(o){
   const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0;
@@ -1487,8 +1521,12 @@ async function aiQuizBySection(o){
     parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Write exactly ${x.count} practice question${x.count === 1 ? "" : "s"} from this part only. Every question must be answerable from this part, and its rationale must say where.${aiFigAsk(x)}${again ? " Your last answer had too few usable questions: write complete questions with their options, correct answers and rationales." : ""}`})}));
   const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
     const corpus = aiCorpus([x.section.text]), gate = r => aiGateQuestions(aiCleanQuestions(r.data.questions), {max: x.count + 1, corpus, copy: o.copy});
-    let r = await ask(x, i), g = gate(r);
-    if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
+    let r = null, g = null;
+    // a small model: the facts, then one question per fact (aiDevFactQuiz); the usual way if that gives too few
+    if (dev && DEV_STEPS.facts) { const f = await aiDevFactQuiz(x, o).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+      if (f) { const fr = {data: {questions: f.questions, title: f.title}, truncated: f.truncated}, fg = gate(fr); if (fg.questions.length >= Math.min(2, x.count)) { r = fr; g = fg; } } }
+    if (!r) { r = await ask(x, i); g = gate(r); }
+    if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2 && !(dev && DEV_STEPS.facts)) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
     let keep = g.questions, wrong = 0;
     if (dev && DEV_STEPS.solve && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
