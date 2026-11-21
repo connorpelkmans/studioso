@@ -147,6 +147,29 @@ function fakeChrome(opts){
     ok(await R2.p.evaluate(() => window.__sbDevAI.cfg().provider !== "device"), "test runs without the opt-in never use it");
     await R2.ctx.close(); }
 
+  // 6. The iPhone app: Apple's on-device model through the StudyboardOnDeviceAI plugin (stood in for here). The page sends a
+  //    complete request with the schema's field order spelled out, and retries shorter when the model's context is full
+  { const ctx = await b.newContext({viewport: {width: 390, height: 844}, serviceWorkers: "block"});
+    await ctx.addInitScript(() => { window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true;
+      const log = window.__appleLog = {calls: []}; let full = true;
+      const plugin = {availability: async () => ({status: "available", contextSize: 4096, images: false}),
+        generate: async o => { log.calls.push(o); if (full && o.prompt.length > 3000) { full = false; throw Object.assign(new Error("context"), {code: "context"}); } return {json: JSON.stringify({answer: "from Apple", n: o.prompt.length})}; }};
+      window.Capacitor = {isNativePlatform: () => true, getPlatform: () => "ios", isPluginAvailable: n => n === "StudyboardOnDeviceAI", Plugins: {StudyboardOnDeviceAI: plugin}, registerPlugin: () => ({})};
+      localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "1.15.8"})); });
+    const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));
+    await p.goto(`http://127.0.0.1:${port}/index.html`); await p.waitForFunction(() => window.__sbDevAI, null, {timeout: 20000}); await p.waitForTimeout(500);
+    const c = await p.evaluate(() => { const c = window.__sbDevAI.cfg(); return c.provider + "/" + c.model; });
+    ok(c === "device/apple", "in the iPhone app with no key, Apple's on-device model is the engine: " + c);
+    const r = await p.evaluate(async t => { const x = await window.__sbDevAI.call({system: "Make cards.", parts: [{text: t}], schema: {type: "OBJECT", properties: {cards: {type: "ARRAY", items: {type: "OBJECT", properties: {basis: {type: "STRING"}, front: {type: "STRING"}, back: {type: "STRING"}}}}}}}); return {data: x.data, truncated: x.truncated, calls: window.__appleLog.calls}; }, NOTES);
+    ok(r.data.answer === "from Apple", "the answer comes back from the plugin");
+    const first = r.calls[0] || {};
+    ok(JSON.stringify(first.schema.properties.cards.items.propertyOrder) === '["basis","front","back"]', "the field order is spelled out for Swift: " + JSON.stringify((first.schema.properties.cards.items || {}).propertyOrder));
+    ok(first.schema.type === "object" && /suitable for a school student/.test(first.system), "JSON Schema in lowercase, and the same instructions as on Chrome");
+    ok(r.calls.length === 2 && r.calls[1].prompt.length < r.calls[0].prompt.length && r.truncated, `a full context is retried shorter (${r.calls[0].prompt.length} then ${r.calls[1].prompt.length} characters)`);
+    ok(first.prompt.length < 4096 * 3.3, "the request is cut to fit Apple's context to begin with: " + first.prompt.length);
+    ok(!errs.length, "no page errors: " + errs.join(" | "));
+    await ctx.close(); }
+
   await b.close(); server.close();
   console.log(fails ? `ai-device.e2e: ${fails} of ${n} FAILED` : `ai-device.e2e: ${n} checks passed`);
   process.exitCode = fails ? 1 : 0;

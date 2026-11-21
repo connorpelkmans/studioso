@@ -81,6 +81,11 @@ function devFit(parts, room){
   }
   return cut;
 }
+// The iPhone plugin gets each object's field order spelled out (Swift dictionaries have none, and the order is the order the model
+// writes in: a card's source sentence before the card)
+const devOrdered = s => { if (!s || typeof s !== "object") return s; if (Array.isArray(s)) return s.map(devOrdered);
+  const o = Object.assign({}, s); if (o.properties) { o.propertyOrder = Object.keys(o.properties); o.properties = Object.fromEntries(Object.entries(o.properties).map(([k, v]) => [k, devOrdered(v)])); }
+  if (o.items) o.items = devOrdered(o.items); return o; };
 const DEV_TAIL = "\n\nAnswer with JSON only, in exactly the requested format. Everything you write must be suitable for a school student.";
 // One request at a time: these models answer one thing at a time anyway, and progress lines stay true
 let devQueue = Promise.resolve();
@@ -96,7 +101,7 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   parts = parts.map(p => p && typeof p.text === "string" ? {text: p.text} : p);
   const sys = String(system || "") + DEV_TAIL, json = toJsonSchema(schema || {type: "OBJECT"});
   const out = Math.min(Number(maxTokens) || 1500, 1800);
-  if (DEVAI.kind === "apple") return devApple({sys, parts, json, out, temperature, signal, auto});
+  if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
   return devChrome({sys, parts, json, out, signal, onStatus, auto, pics: pics.length > 0});
 }
 async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){

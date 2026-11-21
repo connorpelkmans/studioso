@@ -6056,6 +6056,7 @@ function aiSetupSheet(fromFeature, opts){
       ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : " The first time you use it, Chrome downloads it once."}</p>
         <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can look things up on the web.</p></div>` : ""}
+      ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
       ${fromFeature && !pro && c.provider !== "device" ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
@@ -6495,6 +6496,11 @@ function devFit(parts, room){
   }
   return cut;
 }
+// The iPhone plugin gets each object's field order spelled out (Swift dictionaries have none, and the order is the order the model
+// writes in: a card's source sentence before the card)
+const devOrdered = s => { if (!s || typeof s !== "object") return s; if (Array.isArray(s)) return s.map(devOrdered);
+  const o = Object.assign({}, s); if (o.properties) { o.propertyOrder = Object.keys(o.properties); o.properties = Object.fromEntries(Object.entries(o.properties).map(([k, v]) => [k, devOrdered(v)])); }
+  if (o.items) o.items = devOrdered(o.items); return o; };
 const DEV_TAIL = "\n\nAnswer with JSON only, in exactly the requested format. Everything you write must be suitable for a school student.";
 // One request at a time: these models answer one thing at a time anyway, and progress lines stay true
 let devQueue = Promise.resolve();
@@ -6510,7 +6516,7 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   parts = parts.map(p => p && typeof p.text === "string" ? {text: p.text} : p);
   const sys = String(system || "") + DEV_TAIL, json = toJsonSchema(schema || {type: "OBJECT"});
   const out = Math.min(Number(maxTokens) || 1500, 1800);
-  if (DEVAI.kind === "apple") return devApple({sys, parts, json, out, temperature, signal, auto});
+  if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
   return devChrome({sys, parts, json, out, signal, onStatus, auto, pics: pics.length > 0});
 }
 async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
