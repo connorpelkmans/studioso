@@ -1692,6 +1692,10 @@
   // 3. what the AI remembers, said plainly as unchecked.
   const SEARCH_OFF = "schoolNoSearch";
   async function findSchool({host, name, program}){
+    // The AI on this device can't search, and a small model "remembering" a school's grading rules makes them up (on the stand-in
+    // model it named a real university for an address it couldn't know). A wrong pass mark is worse than none: the student is
+    // asked for a screenshot or the scale itself instead
+    if (aiCfg().provider === "device") return null;
     const text = `Learning site address: ${host || "(not given)"}.${name ? ` The student calls their school: ${name}.` : ""}${program ? ` The student's program: ${program}.` : ""}`;
     const WEB_RULES = "If a program is given, look for that program's own letter scale and minimum passing grade, and set scope to \"program\" when the numbers you give are the program's own; otherwise give the school's general undergraduate scale and set scope to \"school\". Only give numbers a page actually states, and put that page's address in url. If the pages don't state them, answer found false. ";
     const ask = (mode, urls) => aiCall({task: "school", auto: false, maxTokens: mode === "memory" ? 3000 : 4000, temperature: 0, search: mode === "search", urlContext: mode === "pages",

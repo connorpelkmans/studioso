@@ -6076,6 +6076,22 @@ function aiSylRules(r){
   const b = Number(r.bonus), bonus = b > 0 && b <= 10 ? {pts: Math.round(b * 100) / 100, got: 0, src: "syllabus"} : null;
   return drops.length || bonus ? {drops, bonus} : null;
 }
+/* A small model reading a syllabus invents weights and works dates out wrongly (on the stand-in model: "next week" a week late, a
+   10% weight that wasn't there). On the device, every weight must be in the syllabus, or follow from one there ("Quizzes 20%"
+   over 10 quizzes is 2%), else it's left blank; every date not written in the syllabus is marked to double-check. */
+function aiDevCheckSyllabus(items, text){
+  if (!text || text.length < 40) return;
+  const t = text.toLowerCase(), nums = (t.replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || []).map(Number);
+  const pct = new Set(nums);
+  const weightOk = w => pct.has(w) || nums.some(p => p > w && p <= 100 && [...Array(30).keys()].some(k => k >= 2 && Math.abs(p / k - w) < 0.15));
+  const MON = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  const dateIn = iso => { const [y, m, d] = iso.split("-").map(Number); if (!m || !d) return false; const mn = MON[m - 1], ab = mn.slice(0, 3);
+    return new RegExp(`\\b(${mn}|${ab}\\.?)\\s+${d}(st|nd|rd|th)?\\b|\\b${d}(st|nd|rd|th)?\\s+(of\\s+)?(${mn}|${ab})\\b|\\b0?${m}[/.-]0?${d}\\b|\\b${y}-0?${m}-0?${d}\\b`, "i").test(t); };
+  items.forEach(i => {
+    if (i.weight != null && !weightOk(i.weight)) i.weight = null;
+    if (i.due && !dateIn(i.due) && i.source !== "ai-low") i.source = "ai-low";
+  });
+}
 async function aiReadSyllabus(parts, onStatus, signal){
   const today = todayISO();
   const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, signal, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
@@ -6099,6 +6115,7 @@ Return JSON only.`});
   const items = (Array.isArray(d.items) ? d.items : []).map(i => ({title: String(i.title || "").trim(), type: TYPES.includes(i.type) ? i.type : "Other", due: isDate(i.due) ? i.due : "", start: isDate(i.start) ? i.start : "", time: isTime(i.time) ? i.time : "",
     weight: Number(i.weight) > 0 && Number(i.weight) <= 100 ? Math.round(Number(i.weight) * 10) / 10 : null, hours: Number(i.hours) > 0 && Number(i.hours) < 200 ? Math.round(Number(i.hours) * 4) / 4 : null, source: i.sure === false ? "ai-low" : "ai", note: String(i.note || i.title || "").slice(0, 300), hasDue: true,
     location: String(i.location || "").trim(), reading: String(i.reading || "").trim()})).filter(i => i.title);
+  if (aiOnDevice()) aiDevCheckSyllabus(items, parts.filter(p => p && typeof p.text === "string").map(p => p.text).join("\n"));
   const gate = aiGateSyllabus(items, today); items.length = 0; gate.items.forEach(i => items.push(i));
   items.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
   const gateNote = [gate.fixed ? `${gate.fixed} date${gate.fixed === 1 ? " looked" : "s looked"} wrong (far from the rest) and ${gate.fixed === 1 ? "was" : "were"} left blank for you to fill in.` : "", gate.dups ? `${gate.dups} repeated item${gate.dups === 1 ? " was" : "s were"} merged.` : ""].filter(Boolean).join(" ");
@@ -43999,6 +44016,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   // 3. what the AI remembers, said plainly as unchecked.
   const SEARCH_OFF = "schoolNoSearch";
   async function findSchool({host, name, program}){
+    // The AI on this device can't search, and a small model "remembering" a school's grading rules makes them up (on the stand-in
+    // model it named a real university for an address it couldn't know). A wrong pass mark is worse than none: the student is
+    // asked for a screenshot or the scale itself instead
+    if (aiCfg().provider === "device") return null;
     const text = `Learning site address: ${host || "(not given)"}.${name ? ` The student calls their school: ${name}.` : ""}${program ? ` The student's program: ${program}.` : ""}`;
     const WEB_RULES = "If a program is given, look for that program's own letter scale and minimum passing grade, and set scope to \"program\" when the numbers you give are the program's own; otherwise give the school's general undergraduate scale and set scope to \"school\". Only give numbers a page actually states, and put that page's address in url. If the pages don't state them, answer found false. ";
     const ask = (mode, urls) => aiCall({task: "school", auto: false, maxTokens: mode === "memory" ? 3000 : 4000, temperature: 0, search: mode === "search", urlContext: mode === "pages",
@@ -81457,7 +81478,10 @@ async function aiWords(ex, out, P, status){
     parts: [{text: `Course: ${c ? c.name : "not given"}\nExam: ${ex.title}\nFormat: ${[P.style.join(", "), P.styleText].filter(Boolean).join("; ") || "not given"}\nWhat it covers (student's notes): ${ex.notes || "not given"}\nSessions (id | kind | topic | minutes | material):\n${list.map(s => `${s.id} | ${s.kind} | ${s.topic || "all topics"} | ${s.min}m | ${s.mat ? s.mat.title : "none"}`).join("\n")}`}],
     system: "You word one-line instructions for a student's exam study sessions. The app already chose every date, length and material; never change them. For each session id, write one concrete active-learning instruction (draw it from memory, work problems, teach it aloud, compare similar ideas; never just 'reread'), specific to the topic and the named material when there is one, under 160 characters, plain text. Use only the topics given. Return JSON only."});
   const ok = new Map(list.map(s => [s.id, s])); let n = 0;
-  ((r.data || {}).sessions || []).forEach(x => { const s = ok.get(String(x.id)); if (!s) return; const t = AINS.clean(x.text, 170); if (t.length < 15 || AINS.generic(t) || /^(re-?read|review|study|go over|look over)\b[^,.;:]{0,30}$/i.test(t)) return; s.text = t; n++; });
+  // the AI on this device: an instruction naming something that isn't in the exam's material (a topic it made up) is left out
+  const known = aiOnDevice() ? [ex.title, ex.notes, (c || {}).name, P.styleText].concat(list.map(s => JSON.stringify(s))).join(" ").toLowerCase() : "";
+  ((r.data || {}).sessions || []).forEach(x => { const s = ok.get(String(x.id)); if (!s) return; const t = AINS.clean(x.text, 170);
+    if (known && (t.match(/(?<=[a-z,;:] )[A-Z][\p{L}'-]{3,}/gu) || []).some(nm => !known.includes(nm.toLowerCase().slice(0, 5)))) return; if (t.length < 15 || AINS.generic(t) || /^(re-?read|review|study|go over|look over)\b[^,.;:]{0,30}$/i.test(t)) return; s.text = t; n++; });
   return n;
 }
 
