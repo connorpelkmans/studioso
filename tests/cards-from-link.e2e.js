@@ -1,5 +1,5 @@
 // node tests/cards-from-link.e2e.js
-// Cards From a Link: a YouTube video (Gemini file_data) or a web page (url context / web fetch) becomes draft cards through the usual
+// Cards From a Link: a YouTube video (its pasted transcript: Gemini no longer watches videos) or a web page (url context / web fetch) becomes draft cards through the usual
 // review step and a summary note that credits the source. Gemini and Claude are mocked.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -104,21 +104,23 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
   const status = page => page.evaluate(() => document.getElementById("aiStatus").textContent);
   const fits = page => page.evaluate(() => { const d = document.getElementById("dlg"); return {dlg: d.scrollWidth - d.clientWidth, page: document.documentElement.scrollWidth - innerWidth}; });
   try {
-    /* A YouTube video, with Gemini */
+    /* A YouTube video: the student pastes its transcript (Gemini no longer watches videos: its terms rule out apps under-18s use) */
     const page = await mkPage();
     await openCreate(page);
     ok(await page.locator("#aiLinkD summary").textContent() === "Or From a YouTube Video or Web Page", "Create with AI has one more input: a link, folded away");
     await useLink(page, "https://youtu.be/aBcDeFgHiJk?si=share123");
-    ok(/YouTube video\. Gemini watches it/.test(await page.textContent("#aiLinkHint")), "the link is recognised as it's typed");
+    ok(/YouTube video\. Paste its transcript below/.test(await page.textContent("#aiLinkHint")), "the link is recognised as it's typed, and its transcript asked for");
+    ok(await page.evaluate(() => !document.getElementById("aiYtTrBox").hidden && !document.querySelector('input[name="aiYtWay"]')), "the transcript box is shown straight away, with no Watch with Gemini choice");
+    await page.fill("#aiYtTr", TRANSCRIPT);
     await page.selectOption("#aiCourse", "c1");
     let f = await fits(page); ok(f.dlg <= 1 && f.page <= 0, "the sheet fits at 1280px: " + JSON.stringify(f));
     await page.click("#aiGo");
     await page.waitForSelector("#arSave", {timeout: 15000});
-    ok(page.context().gem.length === 2, "two AI requests: the video into notes, then the notes into cards");
+    ok(page.context().gem.length === 2, "two AI requests: the transcript into notes, then the notes into cards");
     const r1 = JSON.parse(page.context().gem[0]);
     const fd = r1.contents[0].parts.find(p => p.file_data);
-    ok(fd && fd.file_data.file_uri === "https://www.youtube.com/watch?v=aBcDeFgHiJk" && fd.file_data.mime_type === "video/*", "the video goes to Gemini as file_data with file_uri (the link made plain): " + JSON.stringify(fd));
-    ok(r1.generationConfig.mediaResolution === "MEDIA_RESOLUTION_LOW" && r1.generationConfig.responseMimeType === "application/json", "at low media resolution (longer videos fit), as JSON");
+    ok(!fd && /The student pasted its transcript/.test(JSON.stringify(r1)) && /Today: osmosis/.test(JSON.stringify(r1)), "the transcript goes as text, and the video itself is never sent");
+    ok(r1.generationConfig.responseMimeType === "application/json", "as JSON");
     const sys1 = r1.systemInstruction.parts[0].text;
     ok(/own words/.test(sys1) && /never copy its sentences/.test(sys1) && /very short exact term/.test(sys1) && /Never invent or guess content you couldn't see/.test(sys1), "the AI must write in its own words, quote only short terms, and never invent");
     const r2 = page.context().gem[1];
@@ -177,30 +179,15 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     }
     ok(page.context().gem.length === sentBefore, "no request for an invalid link");
 
-    /* A private video and a very long one */
-    await page.fill("#aiLink", "https://www.youtube.com/watch?v=BOOMBOOMBOO"); await page.click("#aiGo");
-    await page.waitForFunction(() => /couldn't watch/.test(document.getElementById("aiStatus").textContent), null, {timeout: 15000});
-    ok(/private, age-restricted, members-only or removed/.test(await status(page)) && await page.locator('#aiStatus [data-cl="paste"]').count() === 1, "an AI error on a video is explained plainly, with the paste option");
-    await page.fill("#aiLink", "https://www.youtube.com/shorts/LongLongLon"); await page.click("#aiGo");
-    await page.waitForFunction(() => /too long/.test(document.getElementById("aiStatus").textContent), null, {timeout: 15000});
-    ok(/too long to cover in one go/.test(await status(page)), "a video over the limit is explained: " + await status(page));
-    await page.click('#aiStatus [data-cl="paste"]');
-    ok(await page.evaluate(() => document.querySelector('input[name="aiYtWay"][value="paste"]').checked && !document.getElementById("aiYtTrBox").hidden && document.activeElement && document.activeElement.id === "aiYtTr"), "Paste the Transcript Instead switches the video to Paste the Transcript and focuses its box");
-    ok(/reads the transcript you paste instead of Gemini watching the video, so it uses much less/.test(await page.textContent("#aiLinkHint")) && /only shown on screen/.test(await page.textContent("#aiLinkHint")), "the hint says it's cheaper and loses what's only shown on screen");
-    /* Paste the Transcript: the AI reads the text, the video isn't sent */
-    await page.click("#aiGo"); await page.waitForTimeout(150);
-    ok(/Paste the video's transcript first/.test(await status(page)), "choosing Paste with nothing pasted asks for the transcript");
-    { const before = page.context().gem.length;
-      await page.fill("#aiLink", "https://www.youtube.com/watch?v=aBcDeFgHiJk"); await page.fill("#aiYtTr", TRANSCRIPT);
-      await page.click("#aiGo"); await page.waitForSelector("#arSave", {timeout: 15000});
-      const sent = page.context().gem.slice(before), j = sent.join(" ");
-      ok(sent.length && !/file_data|fileData|file_uri/.test(j) && /The student pasted its transcript/.test(j) && /Today: osmosis/.test(j), "the pasted transcript goes to the AI as text and the video itself isn't sent");
-      await page.click("#arSave"); await page.waitForTimeout(500); }
-    /* Gemini Watches It is the default and hides the box */
-    await openCreate(page); await useLink(page, "https://www.youtube.com/watch?v=aBcDeFgHiJk");
-    ok(await page.evaluate(() => document.querySelector('input[name="aiYtWay"][value="watch"]').checked && !document.getElementById("aiYtWay").hidden && document.getElementById("aiYtTrBox").hidden), "a YouTube link offers the choice, Gemini Watches It first");
+    /* YouTube is transcript only */
+    await openCreate(page); await useLink(page, "https://www.youtube.com/shorts/LongLongLon");
+    ok(await page.evaluate(() => !document.getElementById("aiYtWay").hidden && !document.getElementById("aiYtTrBox").hidden && !document.querySelector('input[name="aiYtWay"]')), "a YouTube Short shows the transcript box too");
+    ok(/\(a Short\)/.test(await page.textContent("#aiLinkHint")) && /only shown on screen/.test(await page.textContent("#aiLinkHint")), "the hint says what's only shown on screen won't be in the cards");
+    { const before = page.context().gem.length; await page.click("#aiGo"); await page.waitForTimeout(150);
+      ok(/Paste the video's transcript first\.$/.test(await status(page)) && page.context().gem.length === before, "with nothing pasted it asks for the transcript and sends nothing"); }
     await page.fill("#aiLink", "https://www.khanacademy.org/science/biology"); await page.waitForTimeout(50);
-    ok(await page.evaluate(() => document.getElementById("aiYtWay").hidden), "a web page doesn't show the video choice");
+    ok(await page.evaluate(() => document.getElementById("aiYtWay").hidden), "a web page doesn't show the transcript box");
+    ok(!page.context().gem.some(b => /file_uri|file_data|fileData/.test(b)), "no video was ever sent to Gemini");
     ok(page.errs.length === 0, "no console errors: " + page.errs.join(" | "));
     await page.context().close();
 
@@ -208,10 +195,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     const pc = await mkPage({claude: true});
     await openCreate(pc);
     await useLink(pc, "https://www.youtube.com/watch?v=aBcDeFgHiJk&t=30s");
-    ok(/Only Google's Gemini can watch YouTube videos/.test(await pc.textContent("#aiLinkHint")), "with Claude, the hint says YouTube needs Gemini");
-    await pc.click("#aiGo"); await pc.waitForTimeout(150);
-    ok(/YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using Claude/.test(await status(pc)) && /Show Transcript/.test(await status(pc)) && pc.context().claude.length === 0, "Create explains it plainly and sends nothing");
-    await pc.click('#aiStatus [data-cl="paste"]');
+    ok(/Paste its transcript below/.test(await pc.textContent("#aiLinkHint")), "with Claude too, a YouTube link asks for its transcript");
     await pc.fill("#aiYtTr", TRANSCRIPT);
     await pc.selectOption("#aiCourse", "c1");
     await pc.click("#aiGo"); await pc.waitForSelector("#arSave", {timeout: 15000});
@@ -250,7 +234,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     ok(await pp.locator("#aiLinkD").count() === 0, "Make a Quiz with AI doesn't offer links (cards only)");
     await openCreate(pp, "fc-ai-cards");
     await useLink(pp, "https://www.youtube.com/watch?v=BOOMBOOMBOO"); await pp.click("#aiGo");
-    await pp.waitForFunction(() => /couldn't watch/.test(document.getElementById("aiStatus").textContent), null, {timeout: 15000});
+    await pp.waitForFunction(() => /Paste the video's transcript first/.test(document.getElementById("aiStatus").textContent), null, {timeout: 15000});
     f = await fits(pp); ok(f.dlg <= 1 && f.page <= 0, "at 390px the sheet with a link and an error fits: " + JSON.stringify(f));
     ok(pp.errs.length === 0, "no console errors (phone): " + pp.errs.join(" | "));
     await pp.context().close();

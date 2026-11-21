@@ -3,7 +3,7 @@
 Students on a **paid** Pro plan get AI with nothing to set up. Every AI feature runs on **Claude Haiku 5.5**:
 
 - **Claude:** reached through **Cloudflare AI Gateway with Unified Billing**. Cloudflare's own provider keys make the calls and Cloudflare bills your Cloudflare credits, so no Anthropic account or key of yours is involved.
-- **YouTube links:** go to Google's Gemini through the same gateway. Gemini watches the video and writes its transcript, then Haiku makes the notes and cards.
+- **YouTube links:** OFF (`YOUTUBE_OFF` is `"1"`), and the app no longer asks for them. Google's Gemini API terms (effective March 23, 2026) say it can't be used in an app "directed towards or is likely to be accessed by individuals under the age of 18", and that rule isn't limited to free use. Students paste the video's transcript instead, and Claude makes the notes and cards from it. When it was on, Gemini watched the video and wrote its transcript, then Haiku made the notes and cards.
 - **Lecture audio:** Whisper on Workers AI.
 - **Search by meaning:** bge-m3 on Workers AI.
 

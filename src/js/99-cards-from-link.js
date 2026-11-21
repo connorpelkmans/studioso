@@ -74,9 +74,8 @@ const LINKCARDS = (() => {
     if (inPreview()) return "";
     return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
       <div class="cl-in"><label class="f"><span class="lh">Link</span><input type="url" id="aiLink" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="https://www.youtube.com/watch?v=… or an article's address" data-noenter></label>
-      <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key.</p>
-      <div class="cl-yt" id="aiYtWay" hidden><div class="seg" role="radiogroup" aria-label="How to read the video">
-        <label><input type="radio" name="aiYtWay" value="watch" checked><span>Watch with Gemini</span></label><label><input type="radio" name="aiYtWay" value="paste"><span>Paste Transcript</span></label></div>
+      <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. For a YouTube video, you paste its transcript.</p>
+      <div class="cl-yt" id="aiYtWay" hidden>
         <div id="aiYtTrBox" hidden><p class="mini" style="margin:6px 0">On YouTube, open the video's description and tap <b>Show transcript</b>, then copy it and paste it here.</p>
         <textarea id="aiYtTr" rows="5" maxlength="150000" placeholder="Paste the video's transcript" data-noenter></textarea></div></div></div></details>`;
   }
@@ -85,9 +84,10 @@ const LINKCARDS = (() => {
     const d = e.target; if (!d || d.id !== "aiLinkD" || !d.open || !locked()) return;
     d.open = false; proWhy();
   }, true);
-  // A YouTube link: Gemini watches the video (speech and what's shown on screen), or the student pastes its transcript and their own
-  // AI (Studyboard AI, not Gemini) reads only that: far cheaper, but anything only shown on screen isn't in it
-  const ytPaste = () => { const r = document.querySelector('input[name="aiYtWay"]:checked'); return !!(r && r.value === "paste"); };
+  // A YouTube link: the student pastes the video's transcript, and their AI reads only that. Gemini no longer watches videos: Google's
+  // Gemini API terms don't allow it in an app that students under 18 use (paid or free), so there's no Watch with Gemini any more.
+  // Anything only shown on screen isn't in a transcript. (The old watching code below stays for now, but nothing reaches it.)
+  const ytPaste = () => true;
   document.addEventListener("change", e => { if (e.target && e.target.name === "aiYtWay") { linkHint(); if (ytPaste()) { const t = document.getElementById("aiYtTr"); if (t) t.focus(); } } });
   document.addEventListener("input", e => { if (e.target && e.target.id === "aiLink") linkHint(); });
   function linkHint(){
@@ -98,7 +98,7 @@ const LINKCARDS = (() => {
     if (yt && ytPaste()) {
       const who = prov === "studyboard" ? "Studyboard AI" : aiWho("Your AI");
       h.classList.remove("cl-bad", "cl-warn");
-      h.textContent = `${who} reads the transcript you paste instead of Gemini watching the video, so it uses much less${prov === "studyboard" ? " of your Studyboard AI" : ""}. It only knows what's said: slides, equations or anything only shown on screen won't be in your cards.`;
+      h.textContent = `YouTube video${L.shorts ? " (a Short)" : ""}. Paste its transcript below and ${who} makes the cards from it. It only knows what's said: slides, equations or anything only shown on screen won't be in your cards.`;
       return;
     }
     h.classList.toggle("cl-bad", !!v && !L.ok);
@@ -236,7 +236,7 @@ const LINKCARDS = (() => {
     let pasted = String(o.pasted || "").trim(); const prov = aiCfg().provider;
     if (L.kind === "youtube" && ytPaste()) {
       const tr = String((document.getElementById("aiYtTr") || {}).value || "").trim();
-      if (tr.length < 40) { say("Paste the video's transcript first, or choose Watch with Gemini."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
+      if (tr.length < 40) { say("Paste the video's transcript first."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
       pasted = tr;
     }
     if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }

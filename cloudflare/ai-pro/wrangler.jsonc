@@ -38,8 +38,9 @@
     "PRO_AI_OFF": "",
     "WHISPER_OFF": "",
     // The owner's usage summary (GET /v1/owner/usage) needs the OWNER_TOKEN secret: at least 24 random characters
-    // YouTube links go to Google's Gemini through the same gateway; "1" turns them off
-    "YOUTUBE_OFF": "",
+    // YouTube links go to Google's Gemini through the same gateway; "1" turns them off. Off: Google's Gemini API terms don't allow
+    // it in an app that people under 18 use (paid or free). The app asks students to paste the video's transcript instead
+    "YOUTUBE_OFF": "1",
     // YouTube videos each paid Pro student can turn into notes and cards a month (at most 100; "0" turns them off)
     "YOUTUBE_MONTHLY": "10"
   }
