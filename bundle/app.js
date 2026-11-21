@@ -5281,13 +5281,20 @@ async function aiSectionsOf(sources, kind){
   const list = [];
   for (const s of sources) {
     if (s.part && typeof s.part.text === "string") { list.push({name: s.name, text: s.part.text}); continue; }
-    if (s.pdfBytes) { const pages = await aiPdfPages(s.pdfBytes); const w = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
+    if (s.pdfBytes) { const pages = await aiPdfPages(s.pdfBytes, {figures: kind !== "small"}); const w = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
       // a scanned PDF (little or no text layer) is read by the AI itself
-      if (!pages.length || w < pages.length * 25) return null; list.push({name: s.name, pdf: pages}); continue; }
+      if (!pages.length || w < pages.length * 25) return null;
+      // page numbers made unique across files (file k's page n is k * 1000 + n), so each figure finds its own section
+      const base = list.length * 1000; list.push({name: s.name, pdf: pages.map(p => Object.assign({}, p, {n: base + p.n}))}); continue; }
     return null;
   }
   const secs = SBSECT.fromSources(list, kind), total = secs.reduce((n, x) => n + x.words, 0);
-  return SBSECT.worth(secs, total, kind) ? secs : null;
+  if (!SBSECT.worth(secs, total, kind)) return null;
+  // each figure page goes with its section (the clearest few per section), in page order
+  const figs = {}; list.forEach(src => (src.pdf || []).forEach(p => { if (p.figure && p.img) figs[p.n] = p; }));
+  SBSECT.figuresTo(secs, Object.keys(figs).map(Number)).forEach(([pg, k]) => { (secs[k].figs = secs[k].figs || []).push(figs[pg]); });
+  secs.forEach(x => { if (x.figs) x.figs = x.figs.sort((a, b) => b.score - a.score).slice(0, AI_FIG.perSection).sort((a, b) => a.n - b.n); });
+  return secs;
 }
 // Run jobs a few at a time, in order; a job that fails gives null (the others carry on); an abort stops what hasn't started
 async function aiPool(items, width, fn, signal){
@@ -5297,10 +5304,13 @@ async function aiPool(items, width, fn, signal){
   return out;
 }
 const AI_PART = (x, i, n) => `Part ${i + 1} of ${n} of the material${SBSECT.label(x.section) ? `: ${SBSECT.label(x.section)}` : ""}\n\n${x.section.text}`;
+// The pictures of a section's figure pages, each named by its page, and a line asking the AI to use them
+const aiFigParts = x => (x.section.figs || []).flatMap(p => [{text: `Page ${p.n % 1000} of the material (a figure in this part):`}, {inline_data: {mime_type: "image/jpeg", data: p.img}}]);
+const aiFigAsk = x => (x.section.figs || []).length ? " Pictures of this part's pages with figures are attached: where they matter, include what the figures show (labels, parts, steps, trends), described in words so each card works without the picture." : "";
 async function aiCardsBySection(o){
   const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length; let done = 0;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: CARD_SCHEMA, system: o.system,
-    parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`}]}));
+    parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
   const res = await aiPool(plan, 3, async (x, i) => {
     const corpus = aiCorpus([x.section.text]), gate = r => aiGateCards(r.data.cards, {max: x.count + 2, corpus, copy: o.copy});
     let r = await ask(x, i), g = gate(r);
@@ -5316,7 +5326,7 @@ async function aiCardsBySection(o){
 async function aiQuizBySection(o){
   const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length; let done = 0;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 9000, schema: QUIZ_SCHEMA, system: AI_QUIZ_SYSTEM + " " + AI_GROUND,
-    parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}\n\nWrite exactly ${x.count} practice question${x.count === 1 ? "" : "s"} from this part only. Every question must be answerable from this part, and its rationale must say where.${again ? " Your last answer had too few usable questions: write complete questions with their options, correct answers and rationales." : ""}`}]}));
+    parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Write exactly ${x.count} practice question${x.count === 1 ? "" : "s"} from this part only. Every question must be answerable from this part, and its rationale must say where.${aiFigAsk(x)}${again ? " Your last answer had too few usable questions: write complete questions with their options, correct answers and rationales." : ""}`})}));
   const res = await aiPool(plan, 3, async (x, i) => {
     const corpus = aiCorpus([x.section.text]), gate = r => aiGateQuestions(aiCleanQuestions(r.data.questions), {max: x.count + 1, corpus, copy: o.copy});
     let r = await ask(x, i), g = gate(r);
@@ -5328,14 +5338,22 @@ async function aiQuizBySection(o){
   if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't write a quiz from that. Try again.");
   return {data: {questions: ok.flatMap(x => x.questions), title: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed: res.length - ok.length};
 }
-// A PDF's text, read on this device, page by page and line by line, with each line's font size (headings are bigger)
-async function aiPdfPages(u8){
+// A PDF read on this device, page by page: each page's lines with their font size (headings are bigger), and, when figures are
+// wanted (an engine that can see pictures), which pages hold a real figure (a diagram, chart or labelled picture), rendered as a
+// picture to send with that page's section. Only those pages are sent as pictures: text pages stay text.
+//   A figure: images covering 12%+ of the page (a picture-only page: 5%+), or a dense vector drawing (120+ shapes). Not a
+//   figure: a logo or background that sits in the same place on half the pages or more, or a small icon.
+const AI_FIG = {area: 0.12, areaBare: 0.05, paths: 120, perPdf: 16, perSection: 4, px: 1100, quality: 0.8};
+async function aiPdfPages(u8, opts){
+  opts = opts || {};
   try {
     if (typeof loadPdfJs !== "function") return [];
     await loadPdfJs();
-    const doc = await window.pdfjsLib.getDocument({data: u8.slice(), ...PDF_OPTS}).promise, pages = [];
+    const lib = window.pdfjsLib, OPS = lib.OPS || {}, doc = await lib.getDocument({data: u8.slice(), ...PDF_OPTS}).promise, pages = [];
+    const mul = (m, t) => [t[0] * m[0] + t[1] * m[2], t[0] * m[1] + t[1] * m[3], t[2] * m[0] + t[3] * m[2], t[2] * m[1] + t[3] * m[3], t[4] * m[0] + t[5] * m[2] + m[4], t[4] * m[1] + t[5] * m[3] + m[5]];
+    const IMG = new Set([OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject, OPS.paintImageXObjectRepeat].filter(x => x != null));
     for (let i = 1; i <= Math.min(doc.numPages, 300); i++) {
-      const tc = await (await doc.getPage(i)).getTextContent(), lines = [];
+      const page = await doc.getPage(i), tc = await page.getTextContent(), lines = [];
       let cur = null;
       tc.items.forEach(it => {
         const str = it.str || "", y = it.transform ? it.transform[5] : 0, size = it.transform ? Math.hypot(it.transform[2], it.transform[3]) || it.height || 0 : it.height || 0;
@@ -5345,12 +5363,54 @@ async function aiPdfPages(u8){
         if (it.hasEOL) { if (cur.text.trim()) lines.push({text: cur.text.replace(/\s+/g, " ").trim(), size: cur.size}); cur = null; }
       });
       if (cur && cur.text.trim()) lines.push({text: cur.text.replace(/\s+/g, " ").trim(), size: cur.size});
-      pages.push({n: i, lines});
+      const pg = {n: i, lines, imgs: [], paths: 0};
+      if (opts.figures) {
+        // where each image lands on the page: the transform in force when it's painted, applied to the image's unit square
+        try {
+          const ol = await page.getOperatorList(), v = page.view || [0, 0, 612, 792], area = Math.abs((v[2] - v[0]) * (v[3] - v[1])) || 1;
+          let m = [1, 0, 0, 1, 0, 0]; const stack = [];
+          for (let k = 0; k < ol.fnArray.length; k++) {
+            const fn = ol.fnArray[k], a = ol.argsArray[k];
+            if (fn === OPS.save) stack.push(m);
+            else if (fn === OPS.restore) m = stack.pop() || m;
+            else if (fn === OPS.transform && a) m = mul(m, a);
+            else if (fn === OPS.paintFormXObjectBegin) { stack.push(m); if (a && Array.isArray(a[0]) && a[0].length === 6) m = mul(m, a[0]); }
+            else if (fn === OPS.paintFormXObjectEnd) m = stack.pop() || m;
+            else if (fn === OPS.constructPath) pg.paths++;
+            else if (IMG.has(fn)) { const f = Math.abs(m[0] * m[3] - m[1] * m[2]) / area; if (f > 0.002) pg.imgs.push({f: Math.min(1, f), at: Math.round(m[4] / 20) + "," + Math.round(m[5] / 20) + ":" + Math.round(f * 50)}); }
+          }
+        } catch (e) {}
+      }
+      pages.push(pg);
+      try { page.cleanup && page.cleanup(); } catch (e) {}
+    }
+    if (opts.figures) {
+      // the same picture in the same place on half the pages or more: a logo or a slide background, never a figure
+      const seen = {}; pages.forEach(p => new Set(p.imgs.map(x => x.at)).forEach(k => { seen[k] = (seen[k] || 0) + 1; }));
+      const rep = k => pages.length >= 3 && seen[k] >= pages.length * 0.5;
+      pages.forEach(p => {
+        const f = Math.min(1, p.imgs.filter(x => !rep(x.at)).reduce((n, x) => n + x.f, 0)), bare = p.lines.reduce((n, l) => n + SBSECT.words(l.text), 0) < 15;
+        p.score = f + Math.min(0.5, p.paths / 400);
+        p.figure = f >= AI_FIG.area || (bare && f >= AI_FIG.areaBare) || p.paths >= AI_FIG.paths;
+      });
+      // the clearest figures first, at most perPdf of them, rendered on this device
+      const pick = pages.filter(p => p.figure).sort((a, b) => b.score - a.score).slice(0, AI_FIG.perPdf);
+      for (const p of pick) {
+        try {
+          const page = await doc.getPage(p.n), v0 = page.getViewport({scale: 1}), sc = AI_FIG.px / Math.max(v0.width, v0.height), vp = page.getViewport({scale: sc});
+          const cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+          const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+          await page.render({canvasContext: cx, viewport: vp}).promise;
+          p.img = cv.toDataURL("image/jpeg", AI_FIG.quality).split(",")[1] || "";
+          cv.width = cv.height = 0;
+        } catch (e) { p.img = ""; }
+      }
     }
     try { doc.destroy(); } catch (e) {}
-    return pages;
+    return pages.map(p => ({n: p.n, lines: p.lines, figure: !!p.figure, score: p.score || 0, img: p.img || ""}));
   } catch (e) { return []; }
 }
+if (window.__SB_TEST) window.__sbPdfPages = aiPdfPages;
 async function aiMakeStudySet(opts, onStatus){
   const {sources, style, difficulty, cards, quiz, cases, caseCount, caseStyle, cardCount, quizCount, courseName, signal} = opts;
   const diff = difficulty === "easier" ? "Keep it approachable: core facts and main ideas." : difficulty === "harder" ? "Make it challenging: application, analysis and tricky distinctions." : "Mix easier recall with harder application.";
@@ -20990,7 +21050,8 @@ const SBSECT = (() => {
   function blocksFromLines(lines, opts){
     opts = opts || {};
     const out = [], path = [];
-    let cur = {title: opts.title || "", path: opts.title ? [opts.title] : [], lines: []};
+    let cur = {title: opts.title || "", path: opts.title ? [opts.title] : [], lines: [], pages: []};
+    const onPage = (b, i) => { const pg = opts.pageAt ? opts.pageAt(i) : null; if (pg != null && !b.pages.includes(pg)) b.pages.push(pg); };
     const push = () => { if (cur.lines.some(l => l.trim()) || cur.title) out.push(cur); };
     lines.forEach((raw, i) => {
       const line = String(raw == null ? "" : raw).replace(/\s+$/, "");
@@ -20998,16 +21059,17 @@ const SBSECT = (() => {
       const h = opts.headingAt ? opts.headingAt(i, line, next) : headingOf(line, next);
       if (h) {
         push();
-        if (h.slide != null) { const title = String(next || "").trim().slice(0, 90); path.length = 0; cur = {title: title || "Slide " + h.slide, path: [title || "Slide " + h.slide], lines: [], slide: h.slide, skipFirst: !!title}; return; }
+        if (h.slide != null) { const title = String(next || "").trim().slice(0, 90); path.length = 0; cur = {title: title || "Slide " + h.slide, path: [title || "Slide " + h.slide], lines: [], pages: [], slide: h.slide, skipFirst: !!title}; return; }
         path.length = Math.min(path.length, h.level - 1); path[h.level - 1] = h.title;
-        cur = {title: h.title, path: path.filter(Boolean).slice(), lines: []};
+        cur = {title: h.title, path: path.filter(Boolean).slice(), lines: [], pages: []};
+        onPage(cur, i);
         return;
       }
       if (cur.skipFirst && line.trim()) { cur.skipFirst = false; return; }
-      cur.lines.push(line);
+      cur.lines.push(line); if (line.trim()) onPage(cur, i);
     });
     push();
-    return out.map(b => ({title: b.title, path: b.path.length ? b.path : (b.title ? [b.title] : []), text: b.lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), slide: b.slide}));
+    return out.map(b => ({title: b.title, path: b.path.length ? b.path : (b.title ? [b.title] : []), text: b.lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), slide: b.slide, pages: b.pages.slice().sort((x, y) => x - y)}));
   }
   // A PDF's pages, read on the device: [{n, lines: [{text, size}]}]. Headings are lines clearly bigger than the body text.
   function blocksFromPdf(pages, opts){
@@ -21028,13 +21090,25 @@ const SBSECT = (() => {
     const rep = new Set(Object.keys(seen).filter(t => seen[t] >= Math.max(3, pages.length * 0.5)));
     const keep = lines.map((t, i) => rep.has(t) ? null : i).filter(i => i != null);
     const L = keep.map(i => lines[i]), M = keep.map(i => marks[i]);
-    return blocksFromLines(L, Object.assign({}, opts, {headingAt: (i, line, next) => M[i] && M[i].big ? {level: M[i].lvl, title: line} : headingOf(line, next)}));
+    return blocksFromLines(L, Object.assign({}, opts, {headingAt: (i, line, next) => M[i] && M[i].big ? {level: M[i].lvl, title: line} : headingOf(line, next), pageAt: i => M[i] ? M[i].page : null}));
+  }
+  const union = (a, b) => [...new Set((a || []).concat(b || []))].sort((x, y) => x - y);
+  // Which section each figure page goes with: the section that has text from that page, else the one just before it (a
+  // diagram-only page belongs to the topic it follows), else the first one after it. figPages: page numbers; returns
+  // [[page, sectionIndex]], each page once
+  function figuresTo(secs, figPages){
+    return (figPages || []).map(pg => {
+      let k = secs.findIndex(s => (s.pages || []).includes(pg));
+      if (k < 0) for (let i = secs.length - 1; i >= 0; i--) if ((secs[i].pages || []).some(x => x < pg)) { k = i; break; }
+      if (k < 0) k = secs.findIndex(s => (s.pages || []).some(x => x > pg));
+      return [pg, k];
+    }).filter(x => x[1] >= 0);
   }
   // Blocks → sections of a useful size: tiny ones join their neighbour, long ones split at paragraphs; fluff is left out
   function sections(blocks, kind){
     const S = SIZES[kind] || SIZES.cloud;
     let list = blocks.filter(b => !FLUFF.test(String(b.title || "").replace(/^[\d.\s]+/, "").trim()) && words(b.text) >= 3)
-      .map(b => ({title: b.title, path: b.path, text: b.text, words: words(b.text)}));
+      .map(b => ({title: b.title, path: b.path, text: b.text, words: words(b.text), pages: (b.pages || []).slice()}));
     // split the long ones at blank lines, then at sentences
     const out = [];
     list.forEach(b => {
@@ -21042,7 +21116,7 @@ const SBSECT = (() => {
       const paras = b.text.split(/\n\s*\n|\n(?=\s*[-•*▪●◦–]\s)/).filter(x => x.trim());
       const units = paras.flatMap(p => words(p) > S.max ? p.split(/(?<=[.!?])\s+(?=[A-Z0-9“"(])/) : [p]);
       let cur = [], n = 0, part = 1;
-      const flush = () => { if (!cur.length) return; out.push({title: b.title + (part > 1 ? ` (part ${part})` : ""), path: b.path, text: cur.join("\n\n"), words: n}); part++; cur = []; n = 0; };
+      const flush = () => { if (!cur.length) return; out.push({title: b.title + (part > 1 ? ` (part ${part})` : ""), path: b.path, text: cur.join("\n\n"), words: n, pages: b.pages.slice()}); part++; cur = []; n = 0; };
       units.forEach(u => { const w = words(u); if (n && n + w > S.max) flush(); cur.push(u.trim()); n += w; });
       flush();
     });
@@ -21053,6 +21127,7 @@ const SBSECT = (() => {
       if (last && (last.words < S.min || s.words < S.min / 2) && last.words + s.words <= S.max) {
         last.text = last.text + "\n\n" + (s.title && s.title !== last.title ? s.title + "\n" : "") + s.text; last.words += s.words + words(s.title);
         if (s.title && s.title !== last.title && last.title.length < 70) last.title = last.title ? last.title + " · " + s.title : s.title;
+        last.pages = union(last.pages, s.pages);
       } else merged.push(Object.assign({}, s));
     });
     // at most maxSections: the two smallest neighbours join until it fits
@@ -21060,7 +21135,7 @@ const SBSECT = (() => {
       let k = 0, best = Infinity;
       for (let i = 0; i < merged.length - 1; i++) { const w = merged[i].words + merged[i + 1].words; if (w < best) { best = w; k = i; } }
       const a = merged[k], b = merged[k + 1];
-      merged.splice(k, 2, {title: a.title && b.title && a.title !== b.title ? `${a.title} · ${b.title}`.slice(0, 120) : (a.title || b.title), path: a.path, text: a.text + "\n\n" + (b.title ? b.title + "\n" : "") + b.text, words: a.words + b.words});
+      merged.splice(k, 2, {title: a.title && b.title && a.title !== b.title ? `${a.title} · ${b.title}`.slice(0, 120) : (a.title || b.title), path: a.path, text: a.text + "\n\n" + (b.title ? b.title + "\n" : "") + b.text, words: a.words + b.words, pages: union(a.pages, b.pages)});
     }
     return merged.filter(s => s.words >= 15);
   }
@@ -21100,7 +21175,7 @@ const SBSECT = (() => {
     });
     return sections(blocks, kind);
   }
-  return {words, headingOf, blocksFromLines, blocksFromPdf, sections, weight, plan, worth, label, fromSources, SIZES, FLUFF};
+  return {words, headingOf, blocksFromLines, blocksFromPdf, sections, weight, plan, worth, label, fromSources, figuresTo, SIZES, FLUFF};
 })();
 /*SECTIONS-END*/
 window.SBSECT = SBSECT;

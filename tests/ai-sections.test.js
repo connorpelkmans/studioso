@@ -42,6 +42,16 @@ eq(ps.map(s => s.title), ["Photosynthesis", "Light Reactions", "Calvin Cycle"], 
 ok(!ps.some(s => /BIO 110 Notes|^\d$/m.test(s.text)), "the running header and page numbers are gone");
 eq(S.label(ps[1]), "Photosynthesis › Light Reactions", "and the outline comes from the sizes too");
 
+/* Pages: each PDF section knows its pages, so a page's diagram goes with the right section */
+eq(ps.map(s => s.pages), [[1], [2], [3]], "each section knows the pages its text came from");
+eq(S.figuresTo(ps, [2]), [[2, 1]], "a diagram on a page with text goes with that page's section");
+eq(S.figuresTo(ps, [4]), [[4, 2]], "a diagram-only page after the last section goes with the topic it follows");
+const later = [{pages: [3]}, {pages: [5]}];
+eq(S.figuresTo(later, [1]), [[1, 0]], "a diagram before any text goes with the first section after it");
+eq(S.figuresTo(ps, []), [], "no figures, nothing to attach");
+const twoPage = S.fromSources([{name: "x.pdf", pdf: [P(1, [["Membranes", 20], ...para("Membrane", 4).split(/(?<=\.)\s/).map(t => [t, 10])]), P(2, para("Membrane more", 4).split(/(?<=\.)\s/).map(t => [t, 10]))]}], "cloud");
+eq(twoPage[0].pages, [1, 2], "a section that runs over two pages has both");
+
 /* Size: long sections split at paragraphs, never mid-sentence; the number of sections is capped */
 const long = `## Membranes\n${Array.from({length: 8}, (_, i) => para("Membrane " + i, 6)).join("\n\n")}`;
 const ls = S.fromSources([{text: long}], "cloud");

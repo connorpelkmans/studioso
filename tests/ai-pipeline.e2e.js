@@ -33,8 +33,41 @@ async function makePdf(){
   return Buffer.from(await doc.save());
 }
 
+// A small PNG, drawn here: coloured blocks (a "diagram") or a plain square (a "logo")
+function png(w, h, paint){
+  const zlib = require("zlib"), raw = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) { raw[y * (w * 3 + 1)] = 0; for (let x = 0; x < w; x++) { const [r, g, b] = paint(x, y); const o = y * (w * 3 + 1) + 1 + x * 3; raw[o] = r; raw[o + 1] = g; raw[o + 2] = b; } }
+  const crc = buf => { let c, t = []; for (let n = 0; n < 256; n++) { c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } let x = 0xffffffff; for (const v of buf) x = t[(x ^ v) & 0xff] ^ (x >>> 8); return (x ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([len, td, c]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+async function makeFigurePdf(){
+  const ctx = {console}; ctx.self = ctx; ctx.window = ctx; ctx.globalThis = ctx; vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, "vendor", "pdflib", "pdf-lib.min.js"), "utf8"), ctx);
+  const U8 = vm.runInContext("Uint8Array", ctx), bytes = b => new U8(b);
+  const {PDFDocument, StandardFonts} = ctx.PDFLib, doc = await PDFDocument.create(), reg = await doc.embedFont(StandardFonts.Helvetica), bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const logo = await doc.embedPng(bytes(png(40, 40, () => [200, 30, 40])));
+  const diagram = await doc.embedPng(bytes(png(320, 220, (x, y) => x < 150 ? [60, 120, 220] : y < 110 ? [240, 180, 40] : [40, 170, 110])));
+  const textPage = (title, keys, fig) => {
+    const p = doc.addPage(); p.setSize(612, 792); let y = 740;
+    p.drawImage(logo, {x: 540, y: 740, width: 36, height: 36});
+    p.drawText(title, {x: 50, y, size: 22, font: bold}); y -= 34;
+    const words = body(title, keys).split(" "); let line = "";
+    words.forEach(w => { if ((line + " " + w).length > 88) { p.drawText(line.trim(), {x: 50, y, size: 11, font: reg}); y -= 16; line = ""; } line += " " + w; });
+    if (line.trim()) { p.drawText(line.trim(), {x: 50, y, size: 11, font: reg}); y -= 16; }
+    if (fig) p.drawImage(diagram, {x: 90, y: 40, width: 420, height: 290});
+  };
+  textPage("Glycolysis", "glucose pyruvate cytoplasm", false);
+  textPage("Krebs Cycle", "citrate oxaloacetate matrix", true);
+  textPage("Electron Transport Chain", "cristae oxygen gradient", false);
+  // a diagram on a page of its own, after the topic it belongs to
+  const p4 = doc.addPage(); p4.setSize(612, 792); p4.drawImage(logo, {x: 540, y: 740, width: 36, height: 36}); p4.drawImage(diagram, {x: 60, y: 200, width: 480, height: 330});
+  return Buffer.from(await doc.save());
+}
+
 (async () => {
-  const pdf = await makePdf(); fs.writeFileSync(path.join(SHOTS, "pipeline-test.pdf"), pdf);
+  const pdf = await makePdf(); fs.writeFileSync(path.join(SHOTS, "pipeline-figures.pdf"), await makeFigurePdf()); fs.writeFileSync(path.join(SHOTS, "pipeline-test.pdf"), pdf);
   await new Promise(r => server.listen(0, "127.0.0.1", r));
   const port = server.address().port, b = await chromium.launch({executablePath});
   const run = async ({file, paste, quiz, cardN}) => {
@@ -95,6 +128,40 @@ async function makePdf(){
     ok(R.cards.filter(c => /stores energy/.test(c.front)).length === 1, "the repeat is gone");
     await R.p.screenshot({path: path.join(SHOTS, "pipeline-review.png")});
     ok(!R.p.errs.length, "no page errors: " + R.p.errs.join(" | "));
+    await R.ctx.close(); }
+
+  // 1b. A PDF with figures: only the pages with real figures go as pictures, each with its own section; the logo never does
+  { const R = await run({file: path.join(SHOTS, "pipeline-figures.pdf"), cardN: 10, quiz: false});
+    const by = t => R.sent.find(x => x.part && x.part.label.split(" › ").pop() === t), imgs = x => (x.text.match(/"inline_data"/g) || []).length;
+    const g = by("Glycolysis"), k = by("Krebs Cycle"), e = by("Electron Transport Chain");
+    ok(g && k && e && R.sent.length === 3, "three sections, one request each: " + R.sent.length);
+    ok(imgs(g) === 0, "Glycolysis (text only, plus the logo) gets no picture");
+    ok(imgs(k) === 1 && /Page 2 of the material \(a figure in this part\)/.test(k.text), "Krebs Cycle gets the picture of its own page, page 2");
+    ok(imgs(e) === 1 && /Page 4 of the material/.test(e.text), "the diagram-only page 4 goes with the topic it follows, Electron Transport Chain");
+    ok(R.sent.reduce((n, x) => n + imgs(x), 0) === 2, "two pictures in all: the logo on every page never counts");
+    ok(/Pictures of this part's pages with figures are attached/.test(k.text) && !/Pictures of this part/.test(g.text), "the sections with figures are asked to use them; the others aren't");
+    const b64 = (/"data":"([A-Za-z0-9+/=]{200,})"/.exec(k.text) || [])[1] || "";
+    ok(b64.startsWith("/9j/"), "the picture is a JPEG of the page, rendered on this device");
+    if (b64) fs.writeFileSync(path.join(SHOTS, "pipeline-figure-page2.jpg"), Buffer.from(b64, "base64"));
+    ok(!R.sent.some(x => /application\/pdf/.test(x.text)), "the PDF file itself is never sent");
+    ok(!R.p.errs.length, "no page errors: " + R.p.errs.join(" | "));
+    await R.ctx.close(); }
+
+  // 1c. What counts as a figure: a vector chart drawn with shapes does; a small icon doesn't; text pages don't
+  { const ctxv = {console}; ctxv.self = ctxv; ctxv.window = ctxv; ctxv.globalThis = ctxv; vm.createContext(ctxv);
+    vm.runInContext(fs.readFileSync(path.join(ROOT, "vendor", "pdflib", "pdf-lib.min.js"), "utf8"), ctxv);
+    const U8 = vm.runInContext("Uint8Array", ctxv), {PDFDocument, StandardFonts, rgb} = ctxv.PDFLib, doc = await PDFDocument.create(), reg = await doc.embedFont(StandardFonts.Helvetica);
+    const icon = await doc.embedPng(new U8(png(24, 24, () => [20, 20, 200])));
+    const p1 = doc.addPage(); p1.setSize(612, 792); p1.drawText("Plain text page with a small icon.", {x: 50, y: 700, size: 12, font: reg}); p1.drawImage(icon, {x: 50, y: 650, width: 20, height: 20});
+    const p2 = doc.addPage(); p2.setSize(612, 792); p2.drawText("Enzyme activity by temperature", {x: 50, y: 740, size: 14, font: reg});
+    for (let i = 0; i < 140; i++) p2.drawRectangle({x: 60 + (i % 35) * 14, y: 200 + Math.floor(i / 35) * 90, width: 10, height: 20 + (i * 7) % 60, color: rgb(0.2, 0.4, 0.8)});
+    const bytes = [...Buffer.from(await doc.save())];
+    const R = await run({});
+    const pages = await R.p.evaluate(async b => (await window.__sbPdfPages(new Uint8Array(b), {figures: true})).map(p => ({n: p.n, figure: p.figure, img: !!p.img})), bytes);
+    ok(pages.length === 2 && !pages[0].figure && !pages[0].img, "a text page with a small icon isn't a figure page");
+    ok(pages[1].figure && pages[1].img, "a chart drawn with shapes (no image at all) is a figure page, and is rendered");
+    const noFig = await R.p.evaluate(async b => (await window.__sbPdfPages(new Uint8Array(b), {})).every(p => !p.figure && !p.img), bytes);
+    ok(noFig, "an engine that can't see pictures (on-device models) gets text only: nothing is looked for or rendered");
     await R.ctx.close(); }
 
   // 2. Long pasted notes with headings, cards and a quiz: both go section by section

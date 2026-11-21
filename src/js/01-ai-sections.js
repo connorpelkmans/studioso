@@ -37,7 +37,8 @@ const SBSECT = (() => {
   function blocksFromLines(lines, opts){
     opts = opts || {};
     const out = [], path = [];
-    let cur = {title: opts.title || "", path: opts.title ? [opts.title] : [], lines: []};
+    let cur = {title: opts.title || "", path: opts.title ? [opts.title] : [], lines: [], pages: []};
+    const onPage = (b, i) => { const pg = opts.pageAt ? opts.pageAt(i) : null; if (pg != null && !b.pages.includes(pg)) b.pages.push(pg); };
     const push = () => { if (cur.lines.some(l => l.trim()) || cur.title) out.push(cur); };
     lines.forEach((raw, i) => {
       const line = String(raw == null ? "" : raw).replace(/\s+$/, "");
@@ -45,16 +46,17 @@ const SBSECT = (() => {
       const h = opts.headingAt ? opts.headingAt(i, line, next) : headingOf(line, next);
       if (h) {
         push();
-        if (h.slide != null) { const title = String(next || "").trim().slice(0, 90); path.length = 0; cur = {title: title || "Slide " + h.slide, path: [title || "Slide " + h.slide], lines: [], slide: h.slide, skipFirst: !!title}; return; }
+        if (h.slide != null) { const title = String(next || "").trim().slice(0, 90); path.length = 0; cur = {title: title || "Slide " + h.slide, path: [title || "Slide " + h.slide], lines: [], pages: [], slide: h.slide, skipFirst: !!title}; return; }
         path.length = Math.min(path.length, h.level - 1); path[h.level - 1] = h.title;
-        cur = {title: h.title, path: path.filter(Boolean).slice(), lines: []};
+        cur = {title: h.title, path: path.filter(Boolean).slice(), lines: [], pages: []};
+        onPage(cur, i);
         return;
       }
       if (cur.skipFirst && line.trim()) { cur.skipFirst = false; return; }
-      cur.lines.push(line);
+      cur.lines.push(line); if (line.trim()) onPage(cur, i);
     });
     push();
-    return out.map(b => ({title: b.title, path: b.path.length ? b.path : (b.title ? [b.title] : []), text: b.lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), slide: b.slide}));
+    return out.map(b => ({title: b.title, path: b.path.length ? b.path : (b.title ? [b.title] : []), text: b.lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), slide: b.slide, pages: b.pages.slice().sort((x, y) => x - y)}));
   }
   // A PDF's pages, read on the device: [{n, lines: [{text, size}]}]. Headings are lines clearly bigger than the body text.
   function blocksFromPdf(pages, opts){
@@ -75,13 +77,25 @@ const SBSECT = (() => {
     const rep = new Set(Object.keys(seen).filter(t => seen[t] >= Math.max(3, pages.length * 0.5)));
     const keep = lines.map((t, i) => rep.has(t) ? null : i).filter(i => i != null);
     const L = keep.map(i => lines[i]), M = keep.map(i => marks[i]);
-    return blocksFromLines(L, Object.assign({}, opts, {headingAt: (i, line, next) => M[i] && M[i].big ? {level: M[i].lvl, title: line} : headingOf(line, next)}));
+    return blocksFromLines(L, Object.assign({}, opts, {headingAt: (i, line, next) => M[i] && M[i].big ? {level: M[i].lvl, title: line} : headingOf(line, next), pageAt: i => M[i] ? M[i].page : null}));
+  }
+  const union = (a, b) => [...new Set((a || []).concat(b || []))].sort((x, y) => x - y);
+  // Which section each figure page goes with: the section that has text from that page, else the one just before it (a
+  // diagram-only page belongs to the topic it follows), else the first one after it. figPages: page numbers; returns
+  // [[page, sectionIndex]], each page once
+  function figuresTo(secs, figPages){
+    return (figPages || []).map(pg => {
+      let k = secs.findIndex(s => (s.pages || []).includes(pg));
+      if (k < 0) for (let i = secs.length - 1; i >= 0; i--) if ((secs[i].pages || []).some(x => x < pg)) { k = i; break; }
+      if (k < 0) k = secs.findIndex(s => (s.pages || []).some(x => x > pg));
+      return [pg, k];
+    }).filter(x => x[1] >= 0);
   }
   // Blocks → sections of a useful size: tiny ones join their neighbour, long ones split at paragraphs; fluff is left out
   function sections(blocks, kind){
     const S = SIZES[kind] || SIZES.cloud;
     let list = blocks.filter(b => !FLUFF.test(String(b.title || "").replace(/^[\d.\s]+/, "").trim()) && words(b.text) >= 3)
-      .map(b => ({title: b.title, path: b.path, text: b.text, words: words(b.text)}));
+      .map(b => ({title: b.title, path: b.path, text: b.text, words: words(b.text), pages: (b.pages || []).slice()}));
     // split the long ones at blank lines, then at sentences
     const out = [];
     list.forEach(b => {
@@ -89,7 +103,7 @@ const SBSECT = (() => {
       const paras = b.text.split(/\n\s*\n|\n(?=\s*[-•*▪●◦–]\s)/).filter(x => x.trim());
       const units = paras.flatMap(p => words(p) > S.max ? p.split(/(?<=[.!?])\s+(?=[A-Z0-9“"(])/) : [p]);
       let cur = [], n = 0, part = 1;
-      const flush = () => { if (!cur.length) return; out.push({title: b.title + (part > 1 ? ` (part ${part})` : ""), path: b.path, text: cur.join("\n\n"), words: n}); part++; cur = []; n = 0; };
+      const flush = () => { if (!cur.length) return; out.push({title: b.title + (part > 1 ? ` (part ${part})` : ""), path: b.path, text: cur.join("\n\n"), words: n, pages: b.pages.slice()}); part++; cur = []; n = 0; };
       units.forEach(u => { const w = words(u); if (n && n + w > S.max) flush(); cur.push(u.trim()); n += w; });
       flush();
     });
@@ -100,6 +114,7 @@ const SBSECT = (() => {
       if (last && (last.words < S.min || s.words < S.min / 2) && last.words + s.words <= S.max) {
         last.text = last.text + "\n\n" + (s.title && s.title !== last.title ? s.title + "\n" : "") + s.text; last.words += s.words + words(s.title);
         if (s.title && s.title !== last.title && last.title.length < 70) last.title = last.title ? last.title + " · " + s.title : s.title;
+        last.pages = union(last.pages, s.pages);
       } else merged.push(Object.assign({}, s));
     });
     // at most maxSections: the two smallest neighbours join until it fits
@@ -107,7 +122,7 @@ const SBSECT = (() => {
       let k = 0, best = Infinity;
       for (let i = 0; i < merged.length - 1; i++) { const w = merged[i].words + merged[i + 1].words; if (w < best) { best = w; k = i; } }
       const a = merged[k], b = merged[k + 1];
-      merged.splice(k, 2, {title: a.title && b.title && a.title !== b.title ? `${a.title} · ${b.title}`.slice(0, 120) : (a.title || b.title), path: a.path, text: a.text + "\n\n" + (b.title ? b.title + "\n" : "") + b.text, words: a.words + b.words});
+      merged.splice(k, 2, {title: a.title && b.title && a.title !== b.title ? `${a.title} · ${b.title}`.slice(0, 120) : (a.title || b.title), path: a.path, text: a.text + "\n\n" + (b.title ? b.title + "\n" : "") + b.text, words: a.words + b.words, pages: union(a.pages, b.pages)});
     }
     return merged.filter(s => s.words >= 15);
   }
@@ -147,7 +162,7 @@ const SBSECT = (() => {
     });
     return sections(blocks, kind);
   }
-  return {words, headingOf, blocksFromLines, blocksFromPdf, sections, weight, plan, worth, label, fromSources, SIZES, FLUFF};
+  return {words, headingOf, blocksFromLines, blocksFromPdf, sections, weight, plan, worth, label, fromSources, figuresTo, SIZES, FLUFF};
 })();
 /*SECTIONS-END*/
 window.SBSECT = SBSECT;
