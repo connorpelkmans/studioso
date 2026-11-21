@@ -40,8 +40,8 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-19 | marketing/reels/2026-12-08-wheel-decides | Do This Next | Set 4: spinning wheel | "letting a wheel pick what i study tonight 🎡" | 8.2 s | Scheduled Thu Nov 19 9:50 AM PT (Metricool 433712217); Connor: "this one is funny" | | | | | | lofi beat |
 | 2026-11-19 | marketing/reels/2026-12-09-text-from-september | (none) | Set 4: suspense | "a text from me in september:" | 6.8 s | Scheduled Fri Nov 20 9:50 AM PT (Metricool 433712531) | | | | | | slowed lofi |
 | 2026-11-19 | marketing/reels/2026-12-10-wait-for-friday | Crunch Forecast | Set 4: escalation | "my finals week gets worse every day. wait for friday 💀" | 7.6 s | Scheduled Sat Nov 21 9:50 AM PT (Metricool 433713195) | | | | | | dramatic 8.8 |
-| 2026-11-21 | marketing/reels/2026-12-11-slot-machine | Crunch Forecast (soft) | Set 5: game, slot machine | "spinning for my finals schedule 🎰" → JACKPOT: 3 exams, same day | 7.4 s | | | | | | | dramatic 33.0 |
-| 2026-11-21 | marketing/reels/2026-12-12-plinko | (none) | Set 5: game, Plinko | "letting plinko decide my night" → lands on study, "rigged 😐" | 6.4 s | | | | | | | quirky 24.0 |
+| 2026-11-21 | marketing/reels/2026-12-11-slot-machine | Crunch Forecast (soft) | Set 5: game, slot machine | "spinning for my finals schedule 🎰" → JACKPOT: 3 exams, same day | 7.4 s | IG + TikTok Sun Nov 22 9:50 AM (437003697); YouTube Sun 3:50 PM (437003783) | | | | | | dramatic 33.0 |
+| 2026-11-21 | marketing/reels/2026-12-12-plinko | (none) | Set 5: game, Plinko | "letting plinko decide my night" → lands on study, "rigged 😐" | 6.4 s | YouTube Sat Nov 21 3:50 PM (436984267); IG + TikTok Sat 5:50 PM (437003282) | | | | | | quirky 24.0 |
 | 2026-11-21 | marketing/reels/2026-12-13-falling-blocks | Crunch Forecast (spread) | Set 5: falling blocks | "my assignments when week 11 hits" → stack clears into weeks 9–10 | 7.2 s | | | | | | | lofi 21.0 |
 | 2026-11-21 | marketing/reels/2026-12-14-claw-machine | (none) | Set 5: claw machine | "trying to grab some motivation at 2am" → drops it, grabs snacks | 7.4 s | | | | | | | slowed lofi |
 
