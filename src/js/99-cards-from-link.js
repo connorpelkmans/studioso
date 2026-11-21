@@ -53,6 +53,7 @@ const LINKCARDS = (() => {
     const line = x => String(x == null ? "" : x).replace(/\s+/g, " ").trim();
     const title = line(d && d.title) || line(src.title) || src.host || "Source";
     const L = [title, `${src.kind === "youtube" ? "From the YouTube video" : "From the web page"} “${title}”, summarized in AI's own words.`, `Source: ${title}, ${src.url}`];
+    if (src.archived && src.archived.url) L.push(`Read from the Internet Archive's copy of ${src.archived.date}: ${src.archived.url}`);
     if (deckName) L.push(`Flashcards: [[${String(deckName).replace(/[[\]\n]/g, "").trim()}]]`);
     if (d && line(d.overview)) L.push("", line(d.overview));
     (Array.isArray(d && d.sections) ? d.sections : []).forEach(s => { const pts = (Array.isArray(s && s.points) ? s.points : []).map(line).filter(Boolean); if (pts.length) L.push("", line(s.heading) || "Key Points", ...pts.map(p => "• " + p)); });
@@ -139,6 +140,7 @@ const LINKCARDS = (() => {
       const d = document.getElementById("aiPasteD"), t = document.getElementById("aiPaste"); if (d) d.open = true; if (t) { t.focus(); t.scrollIntoView({block: "center"}); } }
   });
 
+  const aiArchDate = iso => { try { return new Date(iso + "T12:00:00Z").toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"}); } catch (e) { return iso; } };
   /* Reading the link */
   const NOTE_SCHEMA = {type: "OBJECT", properties: {
     status: {type: "STRING", enum: ["ok", "unreachable", "paywall", "empty", "too_long"], description: "ok only when you could actually see the content"},
@@ -192,7 +194,9 @@ const LINKCARDS = (() => {
         const msg = fetched.status === "blocked" ? "That site doesn't let apps read its pages. Open it, select all (Ctrl or ⌘ A) and copy, then come back and paste it." : fetched.status === "needs_js" ? "That page builds its text in your browser, so Studyboard can't read it from the link. Open it, select all (Ctrl or ⌘ A) and copy, then come back and paste it." : fetched.status === "pdf" ? "That link is a PDF. Download it and add it with Add Files instead." : fetched.status === "busy" ? "Too many pages in a short time. Wait a minute and try again." : fetched.status === "offline" ? "Couldn't reach the page. Check your connection and try again." : fetched.status === "not_page" ? "That link isn't a web page (it may be a picture or a download)." : failMsg(st, L);
         throw Object.assign(aiErr("link-" + st, msg), {link: true, st: /^(blocked|needs_js)$/.test(fetched.status) ? fetched.status : st});
       }
-      pasted = fetched.text; if (onStatus) onStatus("Read the page. Writing study notes…");
+      pasted = fetched.text;
+      // the site turns readers away, so the website read the Internet Archive's copy: said, with its date
+      if (onStatus) onStatus(fetched.archived ? `That site doesn't let apps read it, so this is the Internet Archive's copy from ${aiArchDate(fetched.archived.date)}. Writing study notes…` : "Read the page. Writing study notes…");
     }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: 8000, temperature: 0.2, onStatus, system: SYS()};
@@ -253,7 +257,7 @@ const LINKCARDS = (() => {
     else if (st === "ok" || !st || (st === "empty" && bodyLen >= 200)) st = bodyLen < 80 ? "empty" : "ok";
     if (st !== "ok") { const why = String(d.reason || "").replace(/\s+/g, " ").trim().slice(0, 200); throw Object.assign(aiErr("link-" + st, failMsg(st, L) + (why ? ` (${aiWho("The AI")} said: ${why.replace(/\.$/, "")}.)` : "")), {link: true, st}); }
     // Pasted text: no point that repeats it word for word
-    if (fetched) d.pageText = fetched.text;
+    if (fetched) { d.pageText = fetched.text; if (fetched.archived) d.archived = fetched.archived; }
     if (pasted) { const idx = aiCopyIndex(pasted); (d.sections || []).forEach(s => { if (s && Array.isArray(s.points)) s.points = s.points.filter(p => !aiCopied(p, idx)); }); d.terms = (d.terms || []).filter(t => t && !aiCopied(t.definition, idx)); if (aiCopied(d.overview, idx)) d.overview = ""; }
     return d;
   }
@@ -289,7 +293,7 @@ const LINKCARDS = (() => {
       const d = await readLink(L, pasted, ac && ac.signal, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;
       const title = String(d.title || "").replace(/\s+/g, " ").trim().slice(0, 140) || L.host;
-      const src = {kind: L.kind, url: L.url, title, host: L.host};
+      const src = {kind: L.kind, url: L.url, title, host: L.host, archived: d.archived || null};
       const notes = LINKCARDS.noteText(Object.assign({}, d, {title}), src, "");
       spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`, "Step 2 of 2:");
       // the AI on this device makes its cards from the page's own text, in its own sections (the notes are a summary of it, and a
@@ -301,6 +305,7 @@ const LINKCARDS = (() => {
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that source. Try another link, or paste the text instead.");
       if (!r.title) r.title = title;
+      if (d.archived) (r.notes = r.notes || []).unshift(`Made from the Internet Archive's copy of this page from ${aiArchDate(d.archived.date)}, because the site doesn't let apps read it. It may be a little out of date.`);
       try { aiRememberStyle(o.custom); } catch (e) {}
       job.busy = false;
       const show = ctx => o.keepKey ? sheetReady(o.keepKey, () => aiReviewSheet(r, ctx), aiReadyMsg(r)) : aiReviewSheet(r, ctx);

@@ -4,6 +4,9 @@
 // Guards: only Studyboard's own pages and apps may call it (Origin), a rate limit per visitor (the PAGE_LIMIT binding, when set up),
 // only ordinary public web addresses (checked again at every redirect, at most 5), only HTML or plain text, at most 2 MB read, 10
 // seconds, no cookies sent or kept. Answers are cached for an hour. Nothing is logged or stored.
+// A site that turns readers away (or a page built in the browser) may be read from the Internet Archive's copy instead, labelled
+// with its date: only on a student's request, one page, through the Wayback Machine's lookup, never for a page behind a login or
+// paywall, and never a copy marked as paid content. ARCHIVE_OFF = "1" turns this off.
 import "../../src/js/01-page-text.js";
 const P = globalThis.SBPAGE;
 export const PAGE_ORIGINS = ["https://studyboardapp.com", "https://www.studyboardapp.com", "capacitor://localhost", "app://studioso"];
@@ -25,6 +28,31 @@ const NEVER = "script,style,noscript,template,svg,canvas,iframe,object,embed,sel
 function lean(res){
   if (typeof HTMLRewriter === "undefined") return res;
   try { return new HTMLRewriter().on(NEVER, {element(e){ e.remove(); }}).on("*", {comments(c){ c.remove(); }}).transform(res); } catch (e) { return res; }
+}
+// The Internet Archive's most recent copy of a page, read the same way (no toolbar: the id_ form is the page as it was captured)
+const ARCHIVE_HOSTS = new Set(["web.archive.org", "archive.org"]);
+const PAID = /"isAccessibleForFree"\s*:\s*"?false"?|isAccessibleForFree["']?\s+content=["']false|<meta[^>]+(content_tier|article:content_tier)["'][^>]*content=["'](locked|metered|premium)/i;
+async function fromArchive(u, fetchFn, signal){
+  const look = await fetchFn("https://archive.org/wayback/available?url=" + encodeURIComponent(u.href), {signal, headers: {"user-agent": UA, "accept": "application/json"}});
+  if (!look.ok) return null;
+  const snap = (((await look.json().catch(() => ({}))) || {}).archived_snapshots || {}).closest;
+  if (!snap || !snap.available || !/^\d{14}$/.test(String(snap.timestamp || "")) || String(snap.status || "200") !== "200") return null;
+  // a copy older than three years is too likely to be out of date to study from
+  const ts = String(snap.timestamp), when = Date.UTC(+ts.slice(0, 4), +ts.slice(4, 6) - 1, +ts.slice(6, 8));
+  if (Date.now() - when > 3 * 365 * 864e5) return null;
+  let a = new URL(`https://web.archive.org/web/${ts}id_/${u.href}`), res;
+  for (let hop = 0; ; hop++) {
+    res = await fetchFn(a.href, {redirect: "manual", signal, headers: {"user-agent": UA, "accept": "text/html,application/xhtml+xml"}});
+    if (res.status >= 300 && res.status < 400 && res.headers.get("location") && hop < 3) { const n = new URL(res.headers.get("location"), a); if (!ARCHIVE_HOSTS.has(n.hostname)) return null; a = n; continue; }
+    break;
+  }
+  if (!res.ok || !/text\/html|xhtml/i.test(res.headers.get("content-type") || "text/html")) return null;
+  // read whole (not pre-stripped): whether it's paid content is in its metadata and structured data, which stripping removes
+  const body = await readCapped(res, P.MAX_HTML), raw = body.text;
+  if (PAID.test(raw)) return null;
+  const r = P.extract(raw, u.href);
+  if (r.status !== "ok") return null;
+  return Object.assign({}, r, {cut: r.cut || body.big, archived: {date: new Date(when).toISOString().slice(0, 10), url: `https://web.archive.org/web/${ts}/${u.href}`}});
 }
 export async function handlePageText(request, env, ctx, fetchFn = fetch){
   const origin = request.headers.get("origin") || "", allowed = PAGE_ORIGINS.includes(origin) || (env && env.PAGE_TEXT_DEV_ORIGIN && origin === env.PAGE_TEXT_DEV_ORIGIN);
@@ -55,7 +83,14 @@ export async function handlePageText(request, env, ctx, fetchFn = fetch){
   } catch (e) { clearTimeout(timer); return out({status: "unreachable", why: ac.signal.aborted ? "timeout" : "fetch"}, 200, allowed ? origin : ""); }
   // 401 and 402: a login or paywall. 403 and 429: the site turns automated readers away (Britannica, Investopedia and others do)
   if (res.status === 401 || res.status === 402) { clearTimeout(timer); return out({status: "paywall", http: res.status}, 200, allowed ? origin : ""); }
-  if (res.status === 403 || res.status === 429) { clearTimeout(timer); return out({status: "blocked", http: res.status}, 200, allowed ? origin : ""); }
+  const archiveOn = !(env && String(env.ARCHIVE_OFF || "") === "1");
+  const tryArchive = async (fallback) => {
+    clearTimeout(timer);
+    const ac2 = new AbortController(), t2 = setTimeout(() => ac2.abort(), 10000);
+    if (archiveOn) { try { const a = await fromArchive(u, fetchFn, ac2.signal).finally(() => clearTimeout(t2)); if (a) { clearTimeout(timer); const resp = out(Object.assign({}, a, {url: u.href}), 200, allowed ? origin : ""); if (cache) { try { const c = new Response(JSON.stringify(Object.assign({}, a, {url: u.href})), {headers: {"content-type": "application/json; charset=utf-8", "cache-control": "max-age=3600"}}); (ctx && ctx.waitUntil ? ctx.waitUntil.bind(ctx) : p => p)(cache.put(key, c)); } catch (e) {} } return resp; } } catch (e) {} }
+    clearTimeout(t2); return out(fallback, 200, allowed ? origin : "");
+  };
+  if (res.status === 403 || res.status === 429) return tryArchive({status: "blocked", http: res.status});
   if (!res.ok) { clearTimeout(timer); return out({status: "unreachable", http: res.status}, 200, allowed ? origin : ""); }
   const type = (res.headers.get("content-type") || "").toLowerCase();
   if (/application\/pdf/.test(type)) { clearTimeout(timer); return out({status: "pdf"}, 200, allowed ? origin : ""); }
@@ -67,6 +102,8 @@ export async function handlePageText(request, env, ctx, fetchFn = fetch){
   try { body = await readCapped(/text\/html|xhtml/.test(type) ? lean(res) : res, P.MAX_HTML); } catch (e) { clearTimeout(timer); return out({status: "unreachable", why: "read"}, 200, allowed ? origin : ""); }
   clearTimeout(timer);
   const r = /text\/plain/.test(type) ? (t => ({status: P.words(t) >= 40 ? "ok" : "empty", title: "", text: t.slice(0, P.MAX_TEXT), words: P.words(t), cut: t.length > P.MAX_TEXT}))(body.text) : P.extract(body.text, u.href);
+  // a bot check or a page built in the browser: the archive's copy, when there's a good one (never for a paywall)
+  if (r.status === "blocked" || r.status === "needs_js") return tryArchive({status: r.status, url: u.href});
   const result = Object.assign({}, r, {url: u.href, cut: r.cut || body.big});
   const resp = out(result, 200, allowed ? origin : "");
   if (cache && result.status === "ok") { const c = new Response(JSON.stringify(result), {headers: {"content-type": "application/json; charset=utf-8", "cache-control": "max-age=3600"}}); try { (ctx && ctx.waitUntil ? ctx.waitUntil.bind(ctx) : p => p)(cache.put(key, c)); } catch (e) {} }

@@ -85854,7 +85854,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, or Apple Intelligence in the iPhone and iPad app): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. The one exception is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, or Apple Intelligence in the iPhone and iPad app): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. The one exception is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>
@@ -117194,6 +117194,7 @@ const LINKCARDS = (() => {
     const line = x => String(x == null ? "" : x).replace(/\s+/g, " ").trim();
     const title = line(d && d.title) || line(src.title) || src.host || "Source";
     const L = [title, `${src.kind === "youtube" ? "From the YouTube video" : "From the web page"} “${title}”, summarized in AI's own words.`, `Source: ${title}, ${src.url}`];
+    if (src.archived && src.archived.url) L.push(`Read from the Internet Archive's copy of ${src.archived.date}: ${src.archived.url}`);
     if (deckName) L.push(`Flashcards: [[${String(deckName).replace(/[[\]\n]/g, "").trim()}]]`);
     if (d && line(d.overview)) L.push("", line(d.overview));
     (Array.isArray(d && d.sections) ? d.sections : []).forEach(s => { const pts = (Array.isArray(s && s.points) ? s.points : []).map(line).filter(Boolean); if (pts.length) L.push("", line(s.heading) || "Key Points", ...pts.map(p => "• " + p)); });
@@ -117280,6 +117281,7 @@ const LINKCARDS = (() => {
       const d = document.getElementById("aiPasteD"), t = document.getElementById("aiPaste"); if (d) d.open = true; if (t) { t.focus(); t.scrollIntoView({block: "center"}); } }
   });
 
+  const aiArchDate = iso => { try { return new Date(iso + "T12:00:00Z").toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"}); } catch (e) { return iso; } };
   /* Reading the link */
   const NOTE_SCHEMA = {type: "OBJECT", properties: {
     status: {type: "STRING", enum: ["ok", "unreachable", "paywall", "empty", "too_long"], description: "ok only when you could actually see the content"},
@@ -117333,7 +117335,9 @@ const LINKCARDS = (() => {
         const msg = fetched.status === "blocked" ? "That site doesn't let apps read its pages. Open it, select all (Ctrl or ⌘ A) and copy, then come back and paste it." : fetched.status === "needs_js" ? "That page builds its text in your browser, so Studyboard can't read it from the link. Open it, select all (Ctrl or ⌘ A) and copy, then come back and paste it." : fetched.status === "pdf" ? "That link is a PDF. Download it and add it with Add Files instead." : fetched.status === "busy" ? "Too many pages in a short time. Wait a minute and try again." : fetched.status === "offline" ? "Couldn't reach the page. Check your connection and try again." : fetched.status === "not_page" ? "That link isn't a web page (it may be a picture or a download)." : failMsg(st, L);
         throw Object.assign(aiErr("link-" + st, msg), {link: true, st: /^(blocked|needs_js)$/.test(fetched.status) ? fetched.status : st});
       }
-      pasted = fetched.text; if (onStatus) onStatus("Read the page. Writing study notes…");
+      pasted = fetched.text;
+      // the site turns readers away, so the website read the Internet Archive's copy: said, with its date
+      if (onStatus) onStatus(fetched.archived ? `That site doesn't let apps read it, so this is the Internet Archive's copy from ${aiArchDate(fetched.archived.date)}. Writing study notes…` : "Read the page. Writing study notes…");
     }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: 8000, temperature: 0.2, onStatus, system: SYS()};
@@ -117394,7 +117398,7 @@ const LINKCARDS = (() => {
     else if (st === "ok" || !st || (st === "empty" && bodyLen >= 200)) st = bodyLen < 80 ? "empty" : "ok";
     if (st !== "ok") { const why = String(d.reason || "").replace(/\s+/g, " ").trim().slice(0, 200); throw Object.assign(aiErr("link-" + st, failMsg(st, L) + (why ? ` (${aiWho("The AI")} said: ${why.replace(/\.$/, "")}.)` : "")), {link: true, st}); }
     // Pasted text: no point that repeats it word for word
-    if (fetched) d.pageText = fetched.text;
+    if (fetched) { d.pageText = fetched.text; if (fetched.archived) d.archived = fetched.archived; }
     if (pasted) { const idx = aiCopyIndex(pasted); (d.sections || []).forEach(s => { if (s && Array.isArray(s.points)) s.points = s.points.filter(p => !aiCopied(p, idx)); }); d.terms = (d.terms || []).filter(t => t && !aiCopied(t.definition, idx)); if (aiCopied(d.overview, idx)) d.overview = ""; }
     return d;
   }
@@ -117430,7 +117434,7 @@ const LINKCARDS = (() => {
       const d = await readLink(L, pasted, ac && ac.signal, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;
       const title = String(d.title || "").replace(/\s+/g, " ").trim().slice(0, 140) || L.host;
-      const src = {kind: L.kind, url: L.url, title, host: L.host};
+      const src = {kind: L.kind, url: L.url, title, host: L.host, archived: d.archived || null};
       const notes = LINKCARDS.noteText(Object.assign({}, d, {title}), src, "");
       spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`, "Step 2 of 2:");
       // the AI on this device makes its cards from the page's own text, in its own sections (the notes are a summary of it, and a
@@ -117442,6 +117446,7 @@ const LINKCARDS = (() => {
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that source. Try another link, or paste the text instead.");
       if (!r.title) r.title = title;
+      if (d.archived) (r.notes = r.notes || []).unshift(`Made from the Internet Archive's copy of this page from ${aiArchDate(d.archived.date)}, because the site doesn't let apps read it. It may be a little out of date.`);
       try { aiRememberStyle(o.custom); } catch (e) {}
       job.busy = false;
       const show = ctx => o.keepKey ? sheetReady(o.keepKey, () => aiReviewSheet(r, ctx), aiReadyMsg(r)) : aiReviewSheet(r, ctx);

@@ -8,7 +8,10 @@ const ROOT = path.join(__dirname, "..");
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".png": "image/png"};
 const para = (k, topic) => Array.from({length: k}, (_, i) => `<p>${topic} fact ${i + 1}: the sodium potassium pump moves three sodium ions out of the cell and two potassium ions in for every ATP it uses, which keeps the membrane potential steady.</p>`).join("");
 const ARTICLE = `<html><head><title>Active transport | Khan Academy</title><script>window.x=1</script></head><body><nav><a>Home</a></nav><main><article><h1>Active transport</h1><h2>Primary active transport</h2>${para(5, "Primary")}<h2>Secondary active transport</h2>${para(5, "Secondary")}</article></main><footer>Terms</footer></body></html>`;
-const WEB = {"https://www.khanacademy.org/active": [200, "text/html", ARTICLE], "https://news.com/locked": [402, "text/html", ""], "https://files.com/a.pdf": [200, "application/pdf", "%PDF"],
+const ARCH_TS = new Date(Date.now() - 10 * 864e5).toISOString().replace(/\D/g, "").slice(0, 14);
+const WEB = {"https://www.investopedia.com/terms/e/elasticity.asp": [403, "text/html", ""],
+  ["https://archive.org/wayback/available?url=" + encodeURIComponent("https://www.investopedia.com/terms/e/elasticity.asp")]: [200, "application/json", JSON.stringify({archived_snapshots: {closest: {available: true, status: "200", timestamp: ARCH_TS}}})],
+  [`https://web.archive.org/web/${ARCH_TS}id_/https://www.investopedia.com/terms/e/elasticity.asp`]: [200, "text/html", ARTICLE.replace(/Active transport/g, "Price elasticity")],"https://www.khanacademy.org/active": [200, "text/html", ARTICLE], "https://news.com/locked": [402, "text/html", ""], "https://files.com/a.pdf": [200, "application/pdf", "%PDF"],
   "https://www.britannica.com/science/osmosis": [403, "text/html", "<html><title>Access denied</title></html>"], "https://openstax.org/books/bio/5-3": [200, "text/html", '<html><head><title>5.3 Active Transport</title></head><body><div id="root"></div><script>window.__NEXT_DATA__={}</script></body></html>']};
 // what a student copies with Select All on that page: the menu and footer come along with the article
 const COPIED = ["Skip to content", "Home", "Courses", "Donate", "Log in", "Sign up", "Search",
@@ -22,7 +25,7 @@ const server = http.createServer(async (req, res) => {
     apiCalls++;
     const r = await handlePageText(new Request("https://studyboardapp.com" + req.url, {headers: {"sec-fetch-site": req.headers["sec-fetch-site"] || "", origin: req.headers.origin || ""}}), {}, null,
       async url => { const w = WEB[url]; return w ? new Response(w[2], {status: w[0], headers: {"content-type": w[1]}}) : new Response("", {status: 404}); });
-    res.writeHead(r.status, Object.fromEntries(r.headers)); res.end(await r.text()); return;
+    const bodyTxt = await r.text(); if (process.env.DBG) console.log("API", req.url.slice(0, 90), bodyTxt.slice(-200)); res.writeHead(r.status, Object.fromEntries(r.headers)); res.end(bodyTxt); return;
   }
   const f = path.join(ROOT, p); if (!f.startsWith(ROOT + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"});
@@ -84,6 +87,12 @@ const fake = () => {
     ok(/behind a login or paywall/.test(x.status) && x.log.length === before, "a paywalled page is explained, and nothing goes to the model: " + x.status.slice(0, 90));
     x = await go(R.p, "https://files.com/a.pdf");
     ok(/That link is a PDF\. Download it and add it with Add Files instead/.test(x.status), "a link to a PDF says how to add it");
+    // a site that turns readers away, with a recent copy in the Internet Archive: that copy, said and dated
+    await reopen(R.p);
+    { const z = await go(R.p, "https://www.investopedia.com/terms/e/elasticity.asp");
+      const all = await R.p.evaluate(() => (document.querySelector("dialog[open]") || {}).innerText || "");
+      ok(z.cards >= 1 && /Made from the Internet Archive's copy of this page from [A-Z][a-z]+ \d{1,2}, \d{4}, because the site doesn't let apps read it/.test(all), "a site that turns readers away: cards from the Internet Archive's copy, and the review says so with its date");
+      await reopen(R.p); }
     // a site that turns readers away: open it, copy, and paste it back with one tap
     await R.ctx.grantPermissions(["clipboard-read", "clipboard-write"]);
     x = await go(R.p, "https://www.britannica.com/science/osmosis");
@@ -97,8 +106,9 @@ const fake = () => {
     await reopen(R.p);
     x = await go(R.p, "https://openstax.org/books/bio/5-3");
     ok(/builds its text in your browser/.test(x.status), "a page built by JavaScript says so: " + x.status.slice(0, 80));
+    const nBefore = (await R.p.evaluate(() => window.__devLog.length));
     x = await go(R.p, "http://192.168.0.10/notes");
-    ok(!/read from the page/.test(x.log.slice(before).join(" ")), "a private address never gets fetched: " + x.status.slice(0, 90));
+    ok(x.log.length === nBefore, "a private address never gets fetched: " + x.status.slice(0, 90));
     ok(!R.p.errs.length, "no page errors: " + R.p.errs.join(" | "));
     await R.ctx.close(); }
 
