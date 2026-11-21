@@ -1359,7 +1359,8 @@ const aiFigAsk = x => (x.section.figs || []).length ? " Pictures of this part's 
    notes, and a question whose answer key it disagrees with is left out. */
 // Which extra steps small models get. check (a second pass judging each card) is off: on the stand-in model it called every card
 // "drop", good ones included, and cost a third of the time
-const DEV_STEPS = {check: false, solve: true};
+// facts: cards in two easy steps (list the facts, then one card per fact) instead of one hard one (aiDevFactCards)
+const DEV_STEPS = {check: false, solve: true, facts: true};
 const aiOnDevice = () => { try { return aiCfg().provider === "device"; } catch (e) { return false; } };
 const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
   deckTitle: {type: "STRING", description: "Short name for these cards, 2 to 6 words"},
@@ -1425,6 +1426,31 @@ async function aiDevCheckQuiz(section, qs, signal){
     return {questions: qs.filter((q, i) => !bad.has(i)), dropped: bad.size};
   } catch (e) { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return {questions: qs, dropped: 0}; }
 }
+/* Cards for a small model in two easy steps. 1) List the part's facts, one short standalone sentence each: small models extract well,
+   and every fact is checked against the notes (an invented one is dropped). 2) One card per fact: turning a given sentence into a
+   question and answer is nearly mechanical. Before this, asking a small model for "N cards" in one go covered about half of the key
+   facts on the stand-in model. */
+const DEV_FACTS_SCHEMA = {type: "OBJECT", properties: {facts: {type: "ARRAY", items: {type: "STRING"}}}, required: ["facts"]};
+const DEV_FACT_CARDS_SCHEMA = {type: "OBJECT", properties: {deckTitle: {type: "STRING", description: "Short name for these cards, 2 to 6 words"}, cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  n: {type: "INTEGER"}, front: {type: "STRING"}, back: {type: "STRING"}, hint: {type: "STRING", description: "A one-sentence nudge that helps recall the back without using its words"}}, required: ["n", "front", "back"]}}}, required: ["cards"]};
+const DEV_FACTS_SYSTEM = "You list the facts in a student's notes. Each fact is one short, complete sentence that makes sense on its own: name what it is about (never start with 'it' or 'this'). Include definitions, numbers, names, dates, causes and effects, steps, comparisons and examples. Keep the notes' order. Leave out filler such as titles, page numbers and 'in this lecture'. Use only what the notes say.";
+const DEV_FACT_CARDS_SYSTEM = "You turn facts into flashcards. For each numbered fact, write one card with the same number. front: a specific question that the fact answers, at most 15 words, that doesn't contain the answer. back: just the answer, short, in your own words. Example: fact \"Glycolysis takes place in the cytoplasm and does not need oxygen.\" gives front \"Where in the cell does glycolysis happen?\" and back \"In the cytoplasm (it doesn't need oxygen).\"";
+async function aiDevFactCards(x, o, corpus){
+  const label = SBSECT.label(x.section), auto = !o.n, cap = auto ? SBSECT.SIZES.small.perSection + 3 : Math.max(x.count, 1);
+  const a = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 1500, schema: DEV_FACTS_SCHEMA, system: DEV_FACTS_SYSTEM,
+    parts: [{text: `Notes${label ? ` (${label})` : ""}:\n${x.section.text}\n\nList the facts in these notes, at most ${Math.max(cap + 4, Math.ceil(cap * 1.5))}.`}]}));
+  // only facts that are really in the notes, without repeats
+  let unsup = 0; const seen = [];
+  let facts = (a.data.facts || []).map(f => aiTidyText(f)).filter(f => f.length > 12 && f.length < 400).filter(f => { if (!aiBasisOk(f, x.section.text)) { unsup++; return false; } const t = aiKeyTokens(f); if (seen.some(s2 => aiJaccard(t, s2) >= 0.7)) return false; seen.push(t); return true; });
+  // as many as asked for, spread across the part (for "Auto", all of them up to the cap)
+  if (facts.length > cap) { const k = facts.length / cap; facts = Array.from({length: cap}, (_, i) => facts[Math.floor(i * k)]); }
+  if (!facts.length) return null;
+  const b = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_CARDS_SCHEMA, system: DEV_FACT_CARDS_SYSTEM,
+    parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one card for each of the ${facts.length} facts, numbered the same.`}]}));
+  const list = (b.data.cards || []).filter(c => c && Number(c.n) >= 1 && Number(c.n) <= facts.length);
+  const g = aiGateCards(list, {max: cap + 2, corpus, copy: o.copy});
+  return {cards: g.cards, title: b.data.deckTitle, truncated: a.truncated || b.truncated, vague: g.dropped.vague, unsup};
+}
 async function aiCardsBySection(o){
   const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE : o.system,
@@ -1432,7 +1458,10 @@ async function aiCardsBySection(o){
       : [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
   const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
     let unsup = 0;
-    const corpus = aiCorpus([x.section.text]), gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
+    const corpus = aiCorpus([x.section.text]);
+    if (dev && DEV_STEPS.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+      if (f && f.cards.length >= Math.min(2, x.count)) { if (o.onStatus) o.onStatus(`Making flashcards: ${++done} of ${n} parts done`); return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
+    const gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
     let cards = g.cards, checked = {fixed: 0, dropped: 0};
