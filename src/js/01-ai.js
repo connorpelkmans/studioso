@@ -633,7 +633,9 @@ function aiGateSyllabus(items, today){
   return {items: out, dups, fixed};
 }
 // Answers cite sources like [2]
-function aiCleanCites(text, n){ return String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "").trim(); }
+function aiCleanCites(text, n){ return aiNoFieldEcho(String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "")).trim(); }
+// A small model sometimes writes another field of its answer into the text ("Found: false. There are no notes..."): taken out
+const aiNoFieldEcho = t => String(t || "").replace(/^\s*(found|answer|response|reply|status)\s*[:=]\s*(true|false|yes|no|ok)?\s*[.,;:-]?\s*/i, "");
 // Quick add: true when reading the sentence on this device is enough
 function qaConfident(text, t){
   const s = String(text || "");

@@ -29,4 +29,9 @@ ok(!items[0].source && !items[1].source && !items[2].source, "dates written in t
 ok(items[3].source === "ai-low" && items[3].due === "2026-12-10", "a date the AI worked out ('the last week of term') is kept but marked to double-check");
 ok(items[4].source === "ai-low", "and so is one that isn't there at all");
 
+// an answer field written into the answer text by a small model ("Found: false. There are no notes...") is taken out
+eval(src.match(/const aiNoFieldEcho = [^\n]+/)[0].replace("const ", "var "));
+ok(aiNoFieldEcho("Found: false. There are no notes about that.") === "There are no notes about that.", "'Found: false.' is taken out of an answer");
+ok(aiNoFieldEcho("Answer: The Krebs cycle makes NADH.") === "The Krebs cycle makes NADH.", "'Answer:' too");
+ok(aiNoFieldEcho("Found in your notes: the Krebs cycle.") === "Found in your notes: the Krebs cycle.", "but ordinary sentences are left alone");
 console.log(`ai-device-checks: ${n} checks passed`);

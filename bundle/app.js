@@ -4596,7 +4596,9 @@ function aiGateSyllabus(items, today){
   return {items: out, dups, fixed};
 }
 // Answers cite sources like [2]
-function aiCleanCites(text, n){ return String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "").trim(); }
+function aiCleanCites(text, n){ return aiNoFieldEcho(String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "")).trim(); }
+// A small model sometimes writes another field of its answer into the text ("Found: false. There are no notes..."): taken out
+const aiNoFieldEcho = t => String(t || "").replace(/^\s*(found|answer|response|reply|status)\s*[:=]\s*(true|false|yes|no|ok)?\s*[.,;:-]?\s*/i, "");
 // Quick add: true when reading the sentence on this device is enough
 function qaConfident(text, t){
   const s = String(text || "");
@@ -72268,7 +72270,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   }
   function resolve(d, refs){
     d = d || {};
-    const show = (Array.isArray(d.show) ? d.show : []).map(r => refs.get(String(r || "").trim().toUpperCase())).filter(t => t && exists(t)).slice(0, 5).map(t => Object.assign({}, t, {label: labelOf(t)}));
+    // (a reference as asked, else one written inside the text, "show N1", else the item named by its title: small models do all three)
+    const byLabel = r => { const q = String(r || "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 24); if (q.length < 4) return null; for (const t of refs.values()) { try { if (t && labelOf(t).toLowerCase().startsWith(q)) return t; } catch (e) {} } return null; };
+    const refOf = r => { const s2 = String(r || "").trim(), k = s2.toUpperCase(); if (refs.has(k)) return refs.get(k); const m = k.match(/\b[A-Z]{1,3}\d{1,4}\b/g) || []; for (const x of m) if (refs.has(x)) return refs.get(x); return byLabel(s2); };
+    const show = [...new Set((Array.isArray(d.show) ? d.show : []).concat(/^\s*(show|open|go to|see)\s+[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(String(d.answer || "")) ? [d.answer] : []).map(refOf))].filter(t => t && exists(t)).slice(0, 5).map(t => Object.assign({}, t, {label: labelOf(t)}));
     const seen = new Set(), changes = [];
     (Array.isArray(d.changes) ? d.changes : []).slice(0, 20).forEach(c => { const x = check(c, refs); if (!x) return; const k = JSON.stringify([x.t.kind, x.t.id, x.t.key, x.field, x.setting]); if (seen.has(k)) return; seen.add(k); changes.push(x); });
     (Array.isArray(d.newTasks) ? d.newTasks : []).slice(0, 25).forEach(x => {
@@ -72586,7 +72591,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       return {answer: `I couldn't get an answer because ${why}. Ask me again in a moment?`, show: [], changes: [], local: true};
     }
     const d = r.data || {};
-    return Object.assign({answer: clip(d.answer, 1200)}, resolve(d, cat.refs));
+    // an answer that's only a command ("show N1") or a reference: said in words instead, naming what was found
+    const out = Object.assign({answer: clip(d.answer, 1200)}, resolve(d, cat.refs));
+    if (/^\s*((show|open|go to|see)\s+)?[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(out.answer) || junk(out.answer)) out.answer = out.show && out.show.length ? `Here it is: ${out.show[0].label}.` : out.changes && out.changes.length ? "Here's what I'd change." : "I couldn't find that. Try asking another way?";
+    return out;
   }
   // Show what was found and offer the changes (the bubble does both at once)
   // o.shown: called once the app is there (the bubble speaks then, as going there redraws the page)
