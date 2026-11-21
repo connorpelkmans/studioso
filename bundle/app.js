@@ -6309,7 +6309,8 @@ function aiSetupSheet(fromFeature, opts){
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
       ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : DEVAI.kind === "webllm" ? ` The first time you use it, Studyboard asks before downloading it once (about ${DEVAI.web ? DEVAI.web.gb : 3} GB).` : ` The first time you use it, ${devBrowser()} downloads it once.`}</p>
-        <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can look things up on the web.</p></div>` : ""}
+        <label class="mi-check" style="margin:0"><input type="checkbox" id="aiWebLookup" ${(() => { try { return localStorage.getItem("studyboard:webLookupOff") === "1" ? "" : "checked"; } catch (e) { return "checked"; } })()}><span>Look Things Up on Wikipedia<span class="sub">For general questions, and features that need the web. Only the search words go to Wikipedia.</span></span></label>
+        <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can search the whole web.</p></div>` : ""}
       ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
         <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
       ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
@@ -6674,6 +6675,8 @@ function aiPlannerFacts(need){
 // Tests and ml/ (the custom model's data generator and scorer) use the app's own quality checks, never a copy of them
 if (window.__SB_TEST) window.__sbAIGates = {parse: aiParseJson, corpus: aiCorpus, copyIndex: aiCopyIndex, copied: aiCopied, basis: aiBasisOk, defers: aiDefers,
   cards: (list, o) => aiGateCards(list, o), questions: (list, o) => aiGateQuestions(aiCleanQuestions(list), o), cleanQuestions: aiCleanQuestions};
+
+document.addEventListener("change", e => { if (e.target && e.target.id === "aiWebLookup") { try { localStorage.setItem("studyboard:webLookupOff", e.target.checked ? "" : "1"); } catch (x) {} } });
 /* ===== module: 01-page-text.js: a web page's readable text, from its HTML ===== */
 /* One copy, used in two places (like 01-ai-policy.js):
    - the website's Worker (cloudflare/site/page-text.js) fetches a page for the website, which browsers can't do across sites, and
@@ -6944,13 +6947,42 @@ const devOrdered = s => { if (!s || typeof s !== "object") return s; if (Array.i
   const o = Object.assign({}, s); if (o.properties) { o.propertyOrder = Object.keys(o.properties); o.properties = Object.fromEntries(Object.entries(o.properties).map(([k, v]) => [k, devOrdered(v)])); }
   if (o.items) o.items = devOrdered(o.items); return o; };
 const DEV_TAIL = "\n\nAnswer with JSON only, in exactly the requested format. Finish every sentence you start. Everything you write must be suitable for a school student.";
+async function devLookup({system, parts, search, urlContext, signal, onStatus}){
+  const text = parts.filter(p => p && typeof p.text === "string").map(p => p.text).join("\n"), out = [];
+  if (urlContext) {
+    const urls = [...new Set((text.match(/https?:\/\/[^\s"'<>)\]]+/g) || []).map(u => u.replace(/[.,;:]+$/, "")))].slice(0, 3);
+    for (const u of urls) {
+      if (onStatus) onStatus("Reading " + u.replace(/^https?:\/\//, "").slice(0, 60) + "…");
+      try { const r = await devPageText(u, signal); if (r && r.text && r.text.length > 200) out.push(`[Page] ${r.title || u} (${u})\n${String(r.text).slice(0, 6000)}`); } catch (e) { if (signal && signal.aborted) throw e; }
+    }
+  }
+  if (search && window.SBTRUTH) {
+    let q = "";
+    try {
+      const r = await devRun({system: "You write web search queries. Reply with JSON: {\"query\": \"a short search query of 2 to 8 words that finds what the request needs\"}.", parts: [{text: `Instructions the request came with: ${String(system || "").slice(0, 600)}\n\nThe request:\n${text.slice(0, 2500)}`}], schema: {type: "OBJECT", properties: {query: {type: "STRING"}}, required: ["query"]}, maxTokens: 120, temperature: 0, signal});
+      q = String((r.data || {}).query || "").slice(0, 120);
+    } catch (e) { if (signal && signal.aborted) throw e; }
+    if (!q) q = text.replace(/\s+/g, " ").slice(-160);
+    if (onStatus) onStatus(`Looking up "${q}" on Wikipedia…`);
+    const w = await SBTRUTH.web(q, {n: 3, chars: 1800});
+    if (w.length) out.push(SBTRUTH.webText(w));
+  }
+  return out.length ? "WEB SOURCES (found for this request):\n\n" + out.join("\n\n") : "";
+}
 // One request at a time: these models answer one thing at a time anyway, and progress lines stay true
 let devQueue = Promise.resolve();
 function devCall(o){ const run = devQueue.then(() => devRun(o)); devQueue = run.catch(() => {}); return run; }
 async function devRun({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, auto}){
   if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
   const L = devLabel();
-  if (search || urlContext) throw aiErr("device-web", `${L} works offline, so it can't look things up on the web. Studyboard AI or an AI key in Settings, AI Features can.`);
+  // The web, for a model that can't browse: pages named in the request are read by Studyboard's page reader, and a search is
+  // looked up on Wikipedia (98-truth.js) from a short query the model writes first. What's found goes in as sources.
+  if (search || urlContext) {
+    const found = await devLookup({system, parts, search, urlContext, signal, onStatus});
+    if (!found) throw aiErr("device-web", `${L} couldn't find anything on the web for that. Studyboard AI or an AI key in Settings, AI Features can search the whole web.`);
+    parts = parts.concat({text: found});
+    system = String(system || "") + " Use the WEB SOURCES given (and say where a fact comes from); if they don't answer it, say so instead of guessing.";
+  }
   if (parts.some(p => p && p.file_data)) throw aiErr("device-files", `${L} can't watch videos. Studyboard AI or an AI key in Settings, AI Features can.`);
   // Photos and PDFs: their words are read on this device first (01-ocr.js), so the model gets text
   parts = await devReadParts(parts, {onStatus, signal, auto});
@@ -73064,12 +73096,33 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   const VISUAL = /\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit|wrote|written|graph|chart|map)\b/i;
   async function ask(q, o){
     o = o || {};
+    // The AI on the device (98-truth.js): a request with several things to do goes one at a time, and planner facts (what's due,
+    // grades, when something is) come from the app itself, exact, with no model involved
+    const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH;
+    if (dev && TR && !o.oneStep) {
+      const parts = TR.steps(q);
+      if (parts.length > 1) {
+        const outs = [];
+        for (const p of parts) { try { outs.push(await ask(p, Object.assign({}, o, {oneStep: true}))); } catch (e) { outs.push({answer: "", show: [], changes: []}); } }
+        return {answer: outs.map(x => x.answer).filter(Boolean).join(" "), show: outs.flatMap(x => x.show || []).slice(0, 5), changes: outs.flatMap(x => x.changes || []), timer: Math.max(0, ...outs.map(x => x.timer || 0)), steps: parts.length};
+      }
+      const f = TR.facts(q);
+      if (f) return {answer: f.answer, show: (f.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true};
+    }
     if (VISUAL.test(q)) await Promise.race([describeBoards(3, null, true), wait(9000)]);
     const cur = o.screen === false ? null : current();
     const cat = await catalog(q);
+    // a general question ("what is osmosis?") on the device: their own notes first, then Wikipedia, as sources to answer from
+    let sources = "";
+    if (dev && TR && TR.general(q)) {
+      const [mine, web] = await Promise.all([window.SBSEARCH ? SBSEARCH.retrieve(q, {max: 4, chars: 700, wait: 600, readWait: 1, semWait: 2000}).catch(() => null) : null, TR.web(q).catch(() => [])]);
+      if (mine && mine.text) sources += `\n\nFROM THE STUDENT'S OWN NOTES AND FILES (use these first):\n${mine.text}`;
+      if (web.length) sources += `\n\nFROM THE WEB (Wikipedia; say "according to Wikipedia" when you use it):\n${TR.webText(web)}`;
+      o.web = web;
+    }
     const me = window.SBCOMP && SBCOMP.tab && SBCOMP.tab.info ? (SBCOMP.tab.info() || {}) : {};
     const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Reply to exactly what they said: add more only when it clearly helps with what they asked, never as filler, and a hello or thanks just gets a short friendly reply (no news about yourself and no question back unless they asked how you are). Use the student's own data below.\n${RULES}`;
-    const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
+    const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${sources}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
     const callAI = free => aiCall({task: "assist", maxTokens: 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
       system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": [], "focusMinutes": 0}. The answer is the reply itself, never a placeholder.` : system});
     // Always a real answer: the format, the format again, then a free reply; a moment between tries after an error. If the
@@ -73092,6 +73145,23 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     }
     const d = r.data || {};
     // an answer that's only a command ("show N1") or a reference: said in words instead, naming what was found
+    // the check (on the device): every number, date and name in the answer must be in what the AI was given. One that isn't: asked
+    // once more, strictly; still there: the answer says it couldn't find it, instead of something made up
+    if (dev && TR && d.answer && !(Array.isArray(d.changes) && d.changes.length) && !(Array.isArray(d.newTasks) && d.newTasks.length)) {
+      // (Studyboard's own facts count too: the app guide, and this student's timer settings)
+      let mine = ""; try { const pc = pomoCfg(); mine = `focus ${pc.focus} minutes, short break ${pc.short} minutes, long break ${pc.long} minutes`; } catch (e) {}
+      const given = `${cat.text}${screenText(cur)}${o.extra || ""}${sources}\n${GUIDE}\n${mine}\n${q}`;
+      let bad = TR.unsupported(d.answer, given);
+      if (bad.length) {
+        try {
+          const r2 = await aiCall({task: "assist", maxTokens: 3000, temperature: 0.1, schema: SCHEMA, signal: o.signal, quiet: true, parts: prompt,
+            system: system + `\n\nIMPORTANT: Use ONLY facts that appear above. Don't mention ${bad.slice(0, 6).join(", ")}: they aren't in what you were given. If the answer isn't there, say plainly that you couldn't find it in their Studyboard.`});
+          const d2 = (r2 && r2.data) || {};
+          if (d2.answer && !junk(d2.answer) && !TR.unsupported(d2.answer, given).length) { Object.assign(d, d2); bad = []; }
+        } catch (e) {}
+        if (bad.length) { d.answer = sources ? "I couldn't find a reliable answer to that in your notes or on Wikipedia." : "I couldn't find that in your Studyboard."; d.unsure = true; }
+      }
+    }
     // a focus timer: the AI starts it with focusMinutes; if it only said so (small models often do), the app reads the request
     const tm = timerMins(q), fm = Math.round(Number(d.focusMinutes) || 0);
     let timer = 0;
@@ -73102,6 +73172,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const asked = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q);
     if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Apply to add it."; } }
     const out = Object.assign({answer: aiWholeSentence(clip(d.answer, 1200))}, resolve(d, cat.refs));
+    if (o.web && o.web.length && /wikipedia/i.test(out.answer)) out.sources = o.web.map(x => ({title: x.title, url: x.url}));
     // never say something was done when the app wasn't asked to do it
     if (!out.changes.length && !out.show.length && CLAIMS.test(out.answer)) out.answer = "I couldn't do that from here. Try asking another way, or do it in the app directly.";
     if (/^\s*((show|open|go to|see)\s+)?[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(out.answer) || junk(out.answer)) out.answer = out.show && out.show.length ? `Here it is: ${out.show[0].label}.` : out.changes && out.changes.length ? "Here's what I'd change." : "I couldn't find that. Try asking another way?";
@@ -73149,6 +73220,131 @@ If you're not sure a feature exists, say where in Settings to look rather than i
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
   window.SBASSIST = {ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+})();
+/* Keeping the small on-device AI honest and useful (Ask in the bubble, the Companion tab, and any on-device request that wants the web):
+     facts     planner questions answered by the app's own code, never by a model: what's due when, what's overdue, when one task is
+               due, a course's grade or one item's mark, what to do next. Always exact.
+     steps     a request with several things to do ("add X, then start a timer") split into one request per thing
+     check     every number, date and name in an AI answer must be in what the AI was given; one that isn't means the answer
+               is asked for again more strictly, then replaced by what was found
+     web       a free look-up for the on-device model: Wikipedia's search and article openings (called straight from the browser;
+               only the question goes to Wikipedia), given to the model as sources to answer from, with the links shown
+   Used only with the AI on the device: cloud models do these well on their own. */
+window.SBTRUTH = (() => {
+  const low = s => String(s == null ? "" : s).toLowerCase();
+  const clip = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
+  const WD = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  const words = s => (low(s).match(/[a-z0-9]+/g) || []).filter(w => w.length > 2 && !/^(the|and|for|with|due|when|what|is|are|my|was|did|get|got|on|in|of|to|a|an)$/.test(w));
+  const ACTION = /\b(add|create|make|put|schedule|remind|move|change|rename|delete|remove|mark|set|start|begin|open|show|find|turn|update|edit|cancel|skip)\b/i;
+
+  /* ---------- facts: the planner's own answers ---------- */
+  function range(s, today){
+    let m;
+    if (/\boverdue|late|missed|past due\b/.test(s)) return {from: "0000-00-00", to: addDays(today, -1), label: "overdue"};
+    if (/\btoday|tonight\b/.test(s)) return {from: today, to: today, label: "today"};
+    if (/\btomorrow\b/.test(s)) return {from: addDays(today, 1), to: addDays(today, 1), label: "tomorrow"};
+    if (/\bnext week\b/.test(s)) { const d0 = new Date(today + "T12:00:00").getDay(), start = addDays(today, 7 - d0 + 1 > 7 ? 1 : 7 - d0 + 1); return {from: start, to: addDays(start, 6), label: "next week"}; }
+    if (/\b(this week|the week|rest of the week|7 days|seven days|coming up|upcoming|soon)\b/.test(s)) return {from: today, to: addDays(today, 6), label: "in the next 7 days"};
+    if ((m = s.match(/\b(?:on |this |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/))) { const w = WD.indexOf(m[1]), d0 = new Date(today + "T12:00:00").getDay(); let k = (w - d0 + 7) % 7; if (k === 0 && !/\btoday\b/.test(s)) k = 7; const d = addDays(today, k); return {from: d, to: d, label: "on " + m[1][0].toUpperCase() + m[1].slice(1)}; }
+    return null;
+  }
+  // a task the question names, by its title words (the best match, and only a clear one)
+  function taskNamed(s){
+    const q = words(s); if (!q.length) return null;
+    let best = null, bs = 0;
+    tasksArr().forEach(t => { const tw = words(t.title); if (!tw.length) return; const hit = tw.filter(w => q.includes(w)).length, sc = hit / tw.length + hit * 0.05; if (hit && sc > bs) { bs = sc; best = t; } });
+    return bs >= 0.6 ? best : null;
+  }
+  function courseNamed(s){
+    const L = low(s); let best = null, bs = 0;
+    coursesArr().forEach(c => { const keys = [c.code, c.name].filter(Boolean).map(low); keys.forEach(k => { if (k && L.includes(k) && k.length > bs) { bs = k.length; best = c; } }); const cw = words(c.name); const hit = cw.filter(w => words(s).includes(w)).length; if (cw.length && hit / cw.length >= 0.6 && hit * 3 > bs) { bs = hit * 3; best = c; } });
+    return best;
+  }
+  function facts(q){
+    const s = low(q).replace(/[?!.]+$/, ""), today = todayISO(), L = window.SBLOCALANS;
+    if (!s || s.length > 160) return null;
+    // an action, not a question ("add a task due tomorrow", "move my exam"): the AI's job
+    if (ACTION.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i)\b/.test(s)) return null;
+    // what to do next
+    if (L && L.NEXT_Q.test(q)) { const nx = L.nextLine(); if (nx) return {answer: nx.replace(/\*\*/g, ""), show: []}; }
+    // grades: a course's standing, or one item's mark
+    if (/\b(grade|grades|mark|marks|score|scores|percent|gpa|standing|did i get|how am i doing|how'?s my)\b/.test(s)) {
+      const G = window.SBGRADES; if (!G) return null;
+      let items = []; try { items = G.items ? G.items() : []; } catch (e) {}
+      const it = (() => { const qw = words(s); let best = null, bs = 0; items.forEach(x => { const tw = words(x.title); const hit = tw.filter(w => qw.includes(w)).length; const sc = tw.length ? hit / tw.length : 0; if (hit && sc > bs) { bs = sc; best = x; } }); return bs >= 0.6 ? best : null; })();
+      if (it) return {answer: `You got ${it.mark} on ${it.title}${it.course ? " (" + it.course + ")" : ""}: ${it.pct}%${it.letter ? ", " + it.letter : ""}.`, show: []};
+      const c = courseNamed(s); let lines = []; try { lines = G.lines ? G.lines() : []; } catch (e) {}
+      if (c) { const k = [c.code, c.name].filter(Boolean).map(low); const line = lines.find(x => k.some(y => y && low(x).includes(y))); if (line) return {answer: line.replace(/\*\*/g, ""), show: []}; return {answer: `${courseLabel(c)} doesn't have any marks in Studyboard yet.`, show: []}; }
+      if (/\b(all|my|each|every)\b.*\bgrades?\b|\bgpa\b/.test(s) && lines.length) return {answer: lines.slice(0, 12).map(x => "- " + x.replace(/\*\*/g, "")).join("\n"), show: []};
+      return null;
+    }
+    // when one named task is due
+    if (/^\s*when\b|\bwhat day\b|\bwhat time\b|\bdue date\b/.test(s)) {
+      const t = taskNamed(s);
+      if (t) return {answer: L ? L.taskLine(t).replace(/\*\*/g, "") + "." : `${t.title}: ${t.due ? "due " + t.due : "no due date"}.`, show: [{kind: "task", id: t.id}]};
+    }
+    // what's due in a window, or overdue
+    if (/\b(due|left|to do|todo|have|homework|assignments?|tasks?|exams?|quiz(zes)?|tests?|anything|deadlines?|overdue|late)\b/.test(s)) {
+      const r = range(s, today); if (!r) return null;
+      const kind = /\bexams?|tests?|midterms?|finals?\b/.test(s) ? t => /exam|midterm|final|test/i.test(t.type + " " + t.title) : /\bquiz(zes)?\b/.test(s) ? t => /quiz/i.test(t.type + " " + t.title) : () => true;
+      const c = courseNamed(s);
+      const list = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= r.from && t.due <= r.to && kind(t) && (!c || t.courseId === c.id)).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
+      const what = /\bexams?|tests?\b/.test(s) ? "exams" : /\bquiz/.test(s) ? "quizzes" : "tasks";
+      if (!list.length) return {answer: `${what === "tasks" ? "Nothing" : "No " + what} ${r.label === "overdue" ? (what === "tasks" ? "is" : "are") + " overdue" : (what === "tasks" ? "is" : "are") + " due " + r.label}${c ? " for " + courseLabel(c) : ""}.${r.label === "overdue" ? " You're all caught up!" : ""}`, show: []};
+      const head = r.label === "overdue" ? `${list.length} ${list.length === 1 ? what.replace(/s$/, "") + " is" : what + " are"} overdue` : `${list.length} ${list.length === 1 ? what.replace(/s$/, "") : what} due ${r.label}${c ? " for " + courseLabel(c) : ""}`;
+      return {answer: head + ":\n" + list.slice(0, 12).map(t => "- " + (L ? L.taskLine(t).replace(/\*\*/g, "") : t.title)).join("\n") + (list.length > 12 ? `\n…and ${list.length - 12} more.` : ""), show: []};
+    }
+    return null;
+  }
+
+  /* ---------- steps: one request per thing to do ---------- */
+  function steps(q){
+    const s = String(q || "").trim(); if (s.length < 12 || s.length > 400) return [s];
+    const parts = s.split(/\s*(?:;|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
+    // only a real split: every part asks for something
+    return parts.length > 1 && parts.length <= 5 && parts.every(p => ACTION.test(p) || /\?$|^(what|when|how|why|which|who)\b/i.test(p)) ? parts : [s];
+  }
+
+  /* ---------- check: nothing in the answer that wasn't given ---------- */
+  const MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec";
+  function specifics(text){
+    const t = String(text || ""), out = new Set();
+    (t.match(/\b\d+(?:[.,:]\d+)?%?/g) || []).forEach(x => { if (!/^(1|2|3|4|5|10|0)$/.test(x)) out.add(x.replace(/,/g, "")); });
+    (t.match(new RegExp(`\\b(?:${MONTHS})[a-z]*\\.? \\d{1,2}\\b`, "gi")) || []).forEach(x => out.add(low(x)));
+    // names: capitalized words in the middle of a sentence
+    (t.match(/(?<=[a-z,;:] )[A-Z][a-z]{2,}(?: [A-Z][a-z]+)*/g) || []).forEach(x => { if (!/^(I|I'm|I'll|Studyboard|Mochi|Today|Tomorrow|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December|Apply|Show|Review|Notes|Calendar|Files|Settings|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)$/.test(x)) out.add(x); });
+    return [...out];
+  }
+  // the date forms the context may hold for an answer's date ("Dec 3" vs "2026-12-03")
+  const MO12 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const dateForms = x => { const m = new RegExp(`^(${MONTHS})[a-z]*\\.? (\\d{1,2})$`, "i").exec(x); if (!m) return [x]; const mo = MO12.indexOf(m[1].toLowerCase().slice(0, 3)) + 1; return [x, `-${String(mo).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`]; };
+  function unsupported(answer, given){
+    const g = low(given).replace(/,(?=\d{3})/g, "");
+    return specifics(answer).filter(x => !dateForms(low(x)).some(f => g.includes(low(f))) && !(/%$/.test(x) && g.includes(x.slice(0, -1))));
+  }
+
+  /* ---------- web: Wikipedia, for the on-device model ---------- */
+  const WIKI = "https://en.wikipedia.org/w/api.php";
+  const webOk = () => { try { return navigator.onLine !== false && localStorage.getItem("studyboard:webLookupOff") !== "1"; } catch (e) { return true; } };
+  async function web(q, o){
+    o = o || {};
+    if (!webOk() || (window.__SB_TEST && !window.__SB_WEB_TEST)) return [];
+    const term = String(q || "").replace(/^\s*(what|who|why|how|when|where|which)\s+(is|are|was|were|does|do|did|can|could)\s+/i, "").replace(/[?!.]+$/, "").slice(0, 200);
+    const get = async params => { const u = WIKI + "?" + new URLSearchParams(Object.assign({format: "json", formatversion: "2", origin: "*"}, params)); const r = await fetchT(u, {credentials: "omit"}, o.ms || 8000); if (!r.ok) throw new Error("wiki " + r.status); return r.json(); };
+    try {
+      const s = await get({action: "query", list: "search", srsearch: term, srlimit: String(o.n || 3), srprop: ""});
+      const titles = ((s.query || {}).search || []).map(x => x.title).slice(0, o.n || 3);
+      if (!titles.length) return [];
+      const e = await get({action: "query", prop: "extracts", exintro: "1", explaintext: "1", exchars: String(o.chars || 1600), titles: titles.join("|"), redirects: "1"});
+      const pages = ((e.query || {}).pages || []).filter(p => p.extract && p.extract.length > 80);
+      return titles.map(t => pages.find(p => p.title === t || low(p.title) === low(t))).filter(Boolean).map(p => ({title: p.title, url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(p.title.replace(/ /g, "_")), text: clip(p.extract, o.chars || 1600)}));
+    } catch (e) { return []; }
+  }
+  const webText = list => list.map((x, i) => `[W${i + 1}] Wikipedia: ${x.title} (${x.url})\n${x.text}`).join("\n\n");
+  // a general-knowledge question (not about the student's own planner)
+  const general = q => /^\s*(what|who|why|how|when|where|which|explain|define|describe|compare|tell me about)\b/i.test(q) && !/\b(my|i|i'm|me|mine|our)\b/i.test(q) && !/\b(due|grade|task|deadline|class|deck|note|board|course|schedule|calendar|studyboard)\b/i.test(q);
+
+  return {facts, steps, specifics, unsupported, web, webText, general};
 })();
 /* ===== module: 98-companion-tab.js ===== */
 /* The Companion tab */
@@ -73403,8 +73599,26 @@ If you're not sure a feature exists, say where in Settings to look rather than i
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     try {
+      // the AI on the device (98-truth.js): planner facts from the app itself, exact; other answers checked against what it was given
+      const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length ? TR.facts(q) : null;
+      if (quick) m.a = {answer: quick.answer, sources: ["Your planner"], followUps: [], actions: []};
+      else {
       const me = info() || {}, prevQ = (c.msgs.filter(x => x.a).slice(-1)[0] || {}).q || "";
       const [ctx, cat] = await Promise.all([context(q, prevQ, att.length > 0), window.SBASSIST && SBASSIST.wants(q) ? SBASSIST.catalog(q, {max: 30000}).catch(e => { console.warn(e); return null; }) : null]);
+      // a general question on the device: Wikipedia as a source, then the key points a good answer covers, so it isn't shallow
+      let plan = "";
+      if (dev && TR && !att.length && TR.general(q)) {
+        T.status = "Looking it up…"; draw();
+        const web = await TR.web(q).catch(() => []);
+        if (web.length) { ctx.text += `\n\nFROM THE WEB (Wikipedia; say "according to Wikipedia" when you use it):\n${TR.webText(web)}`; web.forEach(x => ctx.src.push("Wikipedia: " + x.title)); }
+        try {
+          const pr = await aiCall({task: "chat", maxTokens: 600, temperature: 0.2, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
+            system: "You plan a clear, complete answer to a student's question. List the 3 to 5 key points the answer must cover, in a sensible order (for example: what it is, how it works, why it matters, a concrete example, a common mistake). Use only the sources given; skip a point they don't support.",
+            parts: [{text: `SOURCES:\n${ctx.text.slice(-9000)}\n\nTHE QUESTION: ${q}`}]});
+          const pts = ((pr && pr.data && pr.data.points) || []).map(x => clip(x, 160)).filter(Boolean).slice(0, 5);
+          if (pts.length >= 2) plan = `\n\nANSWER PLAN (cover each point, in order, each with a short concrete example where it helps):\n${pts.map((x, i) => `${i + 1}. ${x}`).join("\n")}`;
+        } catch (e) {}
+      }
       const seen = window.SBASSIST ? SBASSIST.screenText(SBASSIST.current()) : "";
       const actOn = att.length > 0 || MAKE.test(q), format = formatFor(q, att.length > 0, !!cat);
       T.status = "Thinking…"; draw();
@@ -73413,7 +73627,7 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practice. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.` : ""}${cat && window.SBASSIST ? "\n" + SBASSIST.RULES + "\nThe refs are in ITEMS YOU CAN SHOW OR CHANGE. Changing existing things always goes in \"changes\", never in actions. Tasks the student asks you to add go in \"newTasks\"; keep the tasks action for due dates found in files they attached." : ""}`;
       // free: no answer format enforced, just asked for (decoded differently, so a placeholder can't come back the same way)
       const call = (fmt, free) => aiCall({task: att.length ? "tutor" : "chat", maxTokens: att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
-        parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}`}])});
+        parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}${plan}`}])});
       // Always a real answer: the full format, then the simplest one, then a free reply; a moment between tries after an
       // error (busy, slow). If the AI still can't be reached, an answer is made on this device from what was found.
       let r = null, lastErr = null;
@@ -73424,11 +73638,23 @@ You can also DO things in Studyboard, but only when the student asks or what the
       }
       if (!r) r = {data: localAnswer(ctx, lastErr, q), local: true};
       const d = r.data || {};
+      // the check: nothing in the answer that wasn't given; once more strictly, else said plainly
+      if (dev && TR && !r.local && d.answer) {
+        const given = `${ctx.text}\n${cat ? cat.text : ""}\n${seen}\n${hist}\n${q}\n${att.map(x => (x.part && x.part.text) || "").join("\n")}`;
+        let bad = TR.unsupported(d.answer, given);
+        if (bad.length && !att.some(x => x.part && !x.part.text)) {
+          try { const x = await aiCall({task: "chat", maxTokens: 4000, temperature: 0.1, schema: PLAIN, system: system + `\n\nIMPORTANT: use ONLY facts in what you were given. Don't mention ${bad.slice(0, 6).join(", ")}: they aren't in it. If the answer isn't there, say you couldn't find it.`,
+            parts: [{text: `THE STUDENT'S PLANNER AND SOURCES:\n${ctx.text}\n\n${cat ? cat.text + "\n\n" : ""}THE STUDENT ASKS: ${q}`}]});
+            if (x && x.data && !junk(x.data.answer) && !TR.unsupported(x.data.answer, given).length) { d.answer = x.data.answer; bad = []; } } catch (e) {}
+          if (bad.length) d.answer = "I couldn't find a reliable answer to that in your Studyboard" + (ctx.src.some(x => /^Wikipedia/.test(x)) ? " or on Wikipedia" : "") + ". Try asking it another way, or add a key in AI Features for a stronger AI.";
+        }
+      }
       m.a = {answer: clip2(d.answer, 8000), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(Boolean).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
       if (cat && window.SBASSIST) { const res = SBASSIST.pack(SBASSIST.resolve(d, cat.refs)); if (res.show.length) m.a.show = res.show; if (res.changes.length) m.a.changes = res.changes; }
       if (!m.a.answer) m.a.answer = localAnswer(ctx, null, q).answer;
       if (r.local) m.a.local = true;
       if (!m.a.sources.length) m.a.sources = ctx.src.slice(0, 4);
+      }
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
@@ -86473,7 +86699,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, Apple Intelligence in the iPhone and iPad app, or, where neither is there, Google's free Gemma model, which Studyboard downloads to your device from Hugging Face only after you agree): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. Search by meaning works the same way without a key: a small search model (bge-small, about 34 MB) is downloaded once from Hugging Face to your device, and your notes, cards, tasks and files are matched by meaning right there, never sent anywhere. There are two exceptions. Your first set of flashcards made this way may instead be made by Studyboard's cloud AI, so it's quick: the sheet where you make it says so before you start and lets you keep it on your device instead. If you go ahead, the text of your notes and the course name are sent to Studyboard's AI server, run on Cloudflare, where a model Cloudflare runs (Google's Gemma) writes the cards and sends them back. Your notes aren't stored or logged; the server keeps only a scrambled (hashed) code for your device, so it gives each device one free set, and a daily count for your network that is deleted two days later. The other is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, Apple Intelligence in the iPhone and iPad app, or, where neither is there, Google's free Gemma model, which Studyboard downloads to your device from Hugging Face only after you agree): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. Search by meaning works the same way without a key: a small search model (bge-small, about 34 MB) is downloaded once from Hugging Face to your device, and your notes, cards, tasks and files are matched by meaning right there, never sent anywhere. When you ask the AI on your device a general question (like "what is osmosis?") or a feature needs the web, Studyboard looks it up on Wikipedia: only the search words go to Wikipedia (run by the Wikimedia Foundation), straight from your device, and the answer links to the article it used. You can turn this off in AI Features. There are two exceptions. Your first set of flashcards made this way may instead be made by Studyboard's cloud AI, so it's quick: the sheet where you make it says so before you start and lets you keep it on your device instead. If you go ahead, the text of your notes and the course name are sent to Studyboard's AI server, run on Cloudflare, where a model Cloudflare runs (Google's Gemma) writes the cards and sends them back. Your notes aren't stored or logged; the server keeps only a scrambled (hashed) code for your device, so it gives each device one free set, and a daily count for your network that is deleted two days later. The other is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>

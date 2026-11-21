@@ -133,13 +133,42 @@ const devOrdered = s => { if (!s || typeof s !== "object") return s; if (Array.i
   const o = Object.assign({}, s); if (o.properties) { o.propertyOrder = Object.keys(o.properties); o.properties = Object.fromEntries(Object.entries(o.properties).map(([k, v]) => [k, devOrdered(v)])); }
   if (o.items) o.items = devOrdered(o.items); return o; };
 const DEV_TAIL = "\n\nAnswer with JSON only, in exactly the requested format. Finish every sentence you start. Everything you write must be suitable for a school student.";
+async function devLookup({system, parts, search, urlContext, signal, onStatus}){
+  const text = parts.filter(p => p && typeof p.text === "string").map(p => p.text).join("\n"), out = [];
+  if (urlContext) {
+    const urls = [...new Set((text.match(/https?:\/\/[^\s"'<>)\]]+/g) || []).map(u => u.replace(/[.,;:]+$/, "")))].slice(0, 3);
+    for (const u of urls) {
+      if (onStatus) onStatus("Reading " + u.replace(/^https?:\/\//, "").slice(0, 60) + "…");
+      try { const r = await devPageText(u, signal); if (r && r.text && r.text.length > 200) out.push(`[Page] ${r.title || u} (${u})\n${String(r.text).slice(0, 6000)}`); } catch (e) { if (signal && signal.aborted) throw e; }
+    }
+  }
+  if (search && window.SBTRUTH) {
+    let q = "";
+    try {
+      const r = await devRun({system: "You write web search queries. Reply with JSON: {\"query\": \"a short search query of 2 to 8 words that finds what the request needs\"}.", parts: [{text: `Instructions the request came with: ${String(system || "").slice(0, 600)}\n\nThe request:\n${text.slice(0, 2500)}`}], schema: {type: "OBJECT", properties: {query: {type: "STRING"}}, required: ["query"]}, maxTokens: 120, temperature: 0, signal});
+      q = String((r.data || {}).query || "").slice(0, 120);
+    } catch (e) { if (signal && signal.aborted) throw e; }
+    if (!q) q = text.replace(/\s+/g, " ").slice(-160);
+    if (onStatus) onStatus(`Looking up "${q}" on Wikipedia…`);
+    const w = await SBTRUTH.web(q, {n: 3, chars: 1800});
+    if (w.length) out.push(SBTRUTH.webText(w));
+  }
+  return out.length ? "WEB SOURCES (found for this request):\n\n" + out.join("\n\n") : "";
+}
 // One request at a time: these models answer one thing at a time anyway, and progress lines stay true
 let devQueue = Promise.resolve();
 function devCall(o){ const run = devQueue.then(() => devRun(o)); devQueue = run.catch(() => {}); return run; }
 async function devRun({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, auto}){
   if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
   const L = devLabel();
-  if (search || urlContext) throw aiErr("device-web", `${L} works offline, so it can't look things up on the web. Studyboard AI or an AI key in Settings, AI Features can.`);
+  // The web, for a model that can't browse: pages named in the request are read by Studyboard's page reader, and a search is
+  // looked up on Wikipedia (98-truth.js) from a short query the model writes first. What's found goes in as sources.
+  if (search || urlContext) {
+    const found = await devLookup({system, parts, search, urlContext, signal, onStatus});
+    if (!found) throw aiErr("device-web", `${L} couldn't find anything on the web for that. Studyboard AI or an AI key in Settings, AI Features can search the whole web.`);
+    parts = parts.concat({text: found});
+    system = String(system || "") + " Use the WEB SOURCES given (and say where a fact comes from); if they don't answer it, say so instead of guessing.";
+  }
   if (parts.some(p => p && p.file_data)) throw aiErr("device-files", `${L} can't watch videos. Studyboard AI or an AI key in Settings, AI Features can.`);
   // Photos and PDFs: their words are read on this device first (01-ocr.js), so the model gets text
   parts = await devReadParts(parts, {onStatus, signal, auto});

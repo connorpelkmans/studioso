@@ -633,12 +633,33 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   const VISUAL = /\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit|wrote|written|graph|chart|map)\b/i;
   async function ask(q, o){
     o = o || {};
+    // The AI on the device (98-truth.js): a request with several things to do goes one at a time, and planner facts (what's due,
+    // grades, when something is) come from the app itself, exact, with no model involved
+    const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH;
+    if (dev && TR && !o.oneStep) {
+      const parts = TR.steps(q);
+      if (parts.length > 1) {
+        const outs = [];
+        for (const p of parts) { try { outs.push(await ask(p, Object.assign({}, o, {oneStep: true}))); } catch (e) { outs.push({answer: "", show: [], changes: []}); } }
+        return {answer: outs.map(x => x.answer).filter(Boolean).join(" "), show: outs.flatMap(x => x.show || []).slice(0, 5), changes: outs.flatMap(x => x.changes || []), timer: Math.max(0, ...outs.map(x => x.timer || 0)), steps: parts.length};
+      }
+      const f = TR.facts(q);
+      if (f) return {answer: f.answer, show: (f.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true};
+    }
     if (VISUAL.test(q)) await Promise.race([describeBoards(3, null, true), wait(9000)]);
     const cur = o.screen === false ? null : current();
     const cat = await catalog(q);
+    // a general question ("what is osmosis?") on the device: their own notes first, then Wikipedia, as sources to answer from
+    let sources = "";
+    if (dev && TR && TR.general(q)) {
+      const [mine, web] = await Promise.all([window.SBSEARCH ? SBSEARCH.retrieve(q, {max: 4, chars: 700, wait: 600, readWait: 1, semWait: 2000}).catch(() => null) : null, TR.web(q).catch(() => [])]);
+      if (mine && mine.text) sources += `\n\nFROM THE STUDENT'S OWN NOTES AND FILES (use these first):\n${mine.text}`;
+      if (web.length) sources += `\n\nFROM THE WEB (Wikipedia; say "according to Wikipedia" when you use it):\n${TR.webText(web)}`;
+      o.web = web;
+    }
     const me = window.SBCOMP && SBCOMP.tab && SBCOMP.tab.info ? (SBCOMP.tab.info() || {}) : {};
     const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Reply to exactly what they said: add more only when it clearly helps with what they asked, never as filler, and a hello or thanks just gets a short friendly reply (no news about yourself and no question back unless they asked how you are). Use the student's own data below.\n${RULES}`;
-    const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
+    const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${sources}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
     const callAI = free => aiCall({task: "assist", maxTokens: 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
       system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": [], "focusMinutes": 0}. The answer is the reply itself, never a placeholder.` : system});
     // Always a real answer: the format, the format again, then a free reply; a moment between tries after an error. If the
@@ -661,6 +682,23 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     }
     const d = r.data || {};
     // an answer that's only a command ("show N1") or a reference: said in words instead, naming what was found
+    // the check (on the device): every number, date and name in the answer must be in what the AI was given. One that isn't: asked
+    // once more, strictly; still there: the answer says it couldn't find it, instead of something made up
+    if (dev && TR && d.answer && !(Array.isArray(d.changes) && d.changes.length) && !(Array.isArray(d.newTasks) && d.newTasks.length)) {
+      // (Studyboard's own facts count too: the app guide, and this student's timer settings)
+      let mine = ""; try { const pc = pomoCfg(); mine = `focus ${pc.focus} minutes, short break ${pc.short} minutes, long break ${pc.long} minutes`; } catch (e) {}
+      const given = `${cat.text}${screenText(cur)}${o.extra || ""}${sources}\n${GUIDE}\n${mine}\n${q}`;
+      let bad = TR.unsupported(d.answer, given);
+      if (bad.length) {
+        try {
+          const r2 = await aiCall({task: "assist", maxTokens: 3000, temperature: 0.1, schema: SCHEMA, signal: o.signal, quiet: true, parts: prompt,
+            system: system + `\n\nIMPORTANT: Use ONLY facts that appear above. Don't mention ${bad.slice(0, 6).join(", ")}: they aren't in what you were given. If the answer isn't there, say plainly that you couldn't find it in their Studyboard.`});
+          const d2 = (r2 && r2.data) || {};
+          if (d2.answer && !junk(d2.answer) && !TR.unsupported(d2.answer, given).length) { Object.assign(d, d2); bad = []; }
+        } catch (e) {}
+        if (bad.length) { d.answer = sources ? "I couldn't find a reliable answer to that in your notes or on Wikipedia." : "I couldn't find that in your Studyboard."; d.unsure = true; }
+      }
+    }
     // a focus timer: the AI starts it with focusMinutes; if it only said so (small models often do), the app reads the request
     const tm = timerMins(q), fm = Math.round(Number(d.focusMinutes) || 0);
     let timer = 0;
@@ -671,6 +709,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const asked = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q);
     if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Apply to add it."; } }
     const out = Object.assign({answer: aiWholeSentence(clip(d.answer, 1200))}, resolve(d, cat.refs));
+    if (o.web && o.web.length && /wikipedia/i.test(out.answer)) out.sources = o.web.map(x => ({title: x.title, url: x.url}));
     // never say something was done when the app wasn't asked to do it
     if (!out.changes.length && !out.show.length && CLAIMS.test(out.answer)) out.answer = "I couldn't do that from here. Try asking another way, or do it in the app directly.";
     if (/^\s*((show|open|go to|see)\s+)?[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(out.answer) || junk(out.answer)) out.answer = out.show && out.show.length ? `Here it is: ${out.show[0].label}.` : out.changes && out.changes.length ? "Here's what I'd change." : "I couldn't find that. Try asking another way?";

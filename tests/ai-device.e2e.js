@@ -94,7 +94,7 @@ function fakeChrome(opts){
     ok(/"type":"object"/.test(sch) && /"answer"/.test(sch), "the answer's shape is enforced with Chrome's responseConstraint (as JSON Schema)");
     ok(await R.p.evaluate(() => /suitable for a school student/.test(window.__devLog.creates[0].system)), "the instructions keep it suitable for a school student");
     const web = await R.p.evaluate(async () => { try { await window.__sbDevAI.call({system: "x", parts: [{text: "y"}], search: true}); return ""; } catch (e) { return e.code + ": " + e.message; } });
-    ok(/^device-web/.test(web) && /can't look things up on the web/.test(web), "a web lookup says plainly that on-device AI can't do it: " + web);
+    ok(/^device-web/.test(web) && /couldn't find anything on the web/.test(web), "a web lookup that finds nothing says so plainly (no made-up answer): " + web);
     const pdf = await R.p.evaluate(async () => { try { await window.__sbDevAI.call({system: "x", parts: [{inline_data: {mime_type: "application/pdf", data: "JVBERg=="}}]}); return ""; } catch (e) { return e.code; } });
     ok(pdf === "device-files", "a file it can't read is turned down with a clear reason");
     ok(!R.net.length, "nothing went to any AI company: " + R.net.join(", "));
