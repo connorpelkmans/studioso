@@ -83,3 +83,6 @@
 .keep-safe{width:100%;max-width:460px;box-sizing:border-box;padding:16px;border-radius:18px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 6%,var(--surface));text-align:left}
 .keep-safe p{margin:6px 0 10px}
 .keep-safe .row-actions{justify-content:flex-start}
+/* The welcome: Plan My Semester is the main (blue) button, flashcards the white one below it */
+.sb-welc .sb-welc-go.sb-welc-skip{min-height:52px;margin-top:0;font-size:1.05rem}
+.sb-welc .sb-welc-cards{width:100%;min-height:48px;margin-top:8px;border-radius:14px;font-size:1rem}

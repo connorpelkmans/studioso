@@ -1147,14 +1147,14 @@ function sbWelcomeHtml(){
   return `<div class="sb-welc">
     <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
     <h3>Hi! I'm Mochi.<br>What are you studying?</h3>
-    <p>Give me your notes and get flashcards in about a minute, or let's plan your semester. No account needed.</p>
+    <p>Let's plan your semester, or give me your notes and get flashcards in about a minute. No account needed.</p>
     <ul>
       <li>${ic('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>')}Flashcards and quizzes from your own notes</li>
       <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next</li>
       <li>${ic('<path d="M12 20v-7"/><path d="M12 13c0-3.5-2.5-6-6.5-6 0 3.6 2.6 6 6.5 6zM12 11c0-3 2.2-5.5 6.5-5.5 0 3.2-2.4 5.5-6.5 5.5z"/>')}Works offline, no account needed</li>
     </ul>
-    <button type="button" class="btn primary sb-welc-go sb-welc-cards" data-act="first-deck">Make Flashcards From My Notes</button>
-    <button type="button" class="btn sb-welc-skip" data-act="close">Plan My Semester</button>
+    <button type="button" class="btn primary sb-welc-go sb-welc-skip" data-act="close">Plan My Semester</button>
+    <button type="button" class="btn sb-welc-cards" data-act="first-deck">Make Flashcards From My Notes</button>
     <span class="sb-welc-acct"><button type="button" class="link-btn sb-welc-alt" id="sbSignUp" data-sbm="signup">Sign Up</button><span class="mini">or</span><button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button></span>
   </div>`;
 }
