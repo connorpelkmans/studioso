@@ -2118,9 +2118,12 @@ function aiSylRules(r){
    over 10 quizzes is 2%), else it's left blank; every date not written in the syllabus is marked to double-check. */
 function aiDevCheckSyllabus(items, text){
   if (!text || text.length < 40) return;
-  const t = text.toLowerCase(), nums = (t.replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || []).map(Number);
+  // the syllabus's percentages ("20%", "25 percent"), not every number in it ("10 quizzes" isn't a weight)
+  const t = text.toLowerCase(), nums = [...t.matchAll(/(\d+(?:\.\d+)?)\s*(?:%|percent\b|pct\b)/g)].map(m => Number(m[1]));
   const pct = new Set(nums);
-  const weightOk = w => pct.has(w) || nums.some(p => p > w && p <= 100 && [...Array(30).keys()].some(k => k >= 2 && Math.abs(p / k - w) < 0.15));
+  // a category's share split over a count the syllabus gives ("Quizzes 20% (10 quizzes)" is 2% each)
+  const counts = [...t.matchAll(/\b(\d{1,2})\b(?!\s*(?:%|percent|pct|\.\d|[/:-]\d))/g)].map(m => Number(m[1])).filter(k => k >= 2 && k <= 40);
+  const weightOk = w => pct.has(w) || nums.some(p => p > w && p <= 100 && counts.some(k => Math.abs(p / k - w) < 0.15));
   const MON = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
   const dateIn = iso => { const [y, m, d] = iso.split("-").map(Number); if (!m || !d) return false; const mn = MON[m - 1], ab = mn.slice(0, 3);
     return new RegExp(`\\b(${mn}|${ab}\\.?)\\s+${d}(st|nd|rd|th)?\\b|\\b${d}(st|nd|rd|th)?\\s+(of\\s+)?(${mn}|${ab})\\b|\\b0?${m}[/.-]0?${d}\\b|\\b${y}-0?${m}-0?${d}\\b`, "i").test(t); };

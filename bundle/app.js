@@ -6081,9 +6081,12 @@ function aiSylRules(r){
    over 10 quizzes is 2%), else it's left blank; every date not written in the syllabus is marked to double-check. */
 function aiDevCheckSyllabus(items, text){
   if (!text || text.length < 40) return;
-  const t = text.toLowerCase(), nums = (t.replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || []).map(Number);
+  // the syllabus's percentages ("20%", "25 percent"), not every number in it ("10 quizzes" isn't a weight)
+  const t = text.toLowerCase(), nums = [...t.matchAll(/(\d+(?:\.\d+)?)\s*(?:%|percent\b|pct\b)/g)].map(m => Number(m[1]));
   const pct = new Set(nums);
-  const weightOk = w => pct.has(w) || nums.some(p => p > w && p <= 100 && [...Array(30).keys()].some(k => k >= 2 && Math.abs(p / k - w) < 0.15));
+  // a category's share split over a count the syllabus gives ("Quizzes 20% (10 quizzes)" is 2% each)
+  const counts = [...t.matchAll(/\b(\d{1,2})\b(?!\s*(?:%|percent|pct|\.\d|[/:-]\d))/g)].map(m => Number(m[1])).filter(k => k >= 2 && k <= 40);
+  const weightOk = w => pct.has(w) || nums.some(p => p > w && p <= 100 && counts.some(k => Math.abs(p / k - w) < 0.15));
   const MON = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
   const dateIn = iso => { const [y, m, d] = iso.split("-").map(Number); if (!m || !d) return false; const mn = MON[m - 1], ab = mn.slice(0, 3);
     return new RegExp(`\\b(${mn}|${ab}\\.?)\\s+${d}(st|nd|rd|th)?\\b|\\b${d}(st|nd|rd|th)?\\s+(of\\s+)?(${mn}|${ab})\\b|\\b0?${m}[/.-]0?${d}\\b|\\b${y}-0?${m}-0?${d}\\b`, "i").test(t); };
@@ -86603,7 +86606,8 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
   const cfg = () => { try { return SB_HOSTED ? SB_DEFAULT : (typeof sbConfig === "function" ? sbConfig() : null); } catch (e) { return null; } };
   const signedIn = () => { try { return !!(sb && sbUser); } catch (e) { return false; } };
   // tests and the design previews never phone home, unless a test asks to
-  const quiet = () => (window.__SB_TEST && !window.__SB_LAUNCH_TEST) || (typeof inPreview === "function" && inPreview());
+  // (automated browsers too: tests and crawlers aren't students, and shouldn't be counted)
+  const quiet = () => ((window.__SB_TEST || navigator.webdriver) && !window.__SB_LAUNCH_TEST) || (typeof inPreview === "function" && inPreview());
 
   /* ---------- the update switch ---------- */
   function verdict(pol){
@@ -86659,16 +86663,18 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     if (quiet() || busy || document.hidden) return;
     const c = cfg(); if (!c || !c.url || !c.key) return;
     const today = todayISO(), count = ls.get(DAY_KEY) !== today;
+    // the server doesn't have the check-in yet (supabase-launch.sql not run): asked again tomorrow, not every half hour
+    if (ls.get(DAY_KEY + ":missing") === today && !force) return;
     if (!force && !count && Date.now() - lastAt < EVERY) return;
     busy = true;
     try {
       const args = {p_version: ver(), p_platform: platform(), p_count: count};
       let res = null;
-      if (signedIn()) { const {data, error} = await sb.rpc("studyboard_checkin", args); if (!error) res = data; }
+      if (signedIn()) { const {data, error} = await sb.rpc("studyboard_checkin", args); if (!error) res = data; else if (/PGRST202|not find the function|404/i.test(String(error.code || "") + " " + String(error.message || ""))) ls.set(DAY_KEY + ":missing", today); }
       else {
         const r = await fetch(c.url.replace(/\/$/, "") + "/rest/v1/rpc/studyboard_checkin", {method: "POST", cache: "no-store",
           headers: {apikey: c.key, Authorization: "Bearer " + c.key, "Content-Type": "application/json"}, body: JSON.stringify(args)});
-        if (r.ok) res = await r.json();
+        if (r.ok) res = await r.json(); else if (r.status === 404) ls.set(DAY_KEY + ":missing", today);
       }
       if (res && typeof res === "object") {
         lastAt = Date.now();
@@ -117510,7 +117516,7 @@ const LINKCARDS = (() => {
       const copyHelp = L.kind !== "youtube" && e && e.link && /^(blocked|needs_js|paywall)$/.test(e.st || "") ? ` <a class="btn small" href="${esc(L.url)}" target="_blank" rel="noopener noreferrer" data-cl="open">Open the Page</a>${navigator.clipboard && navigator.clipboard.readText ? ` <button type="button" class="btn small" data-cl="clip">Paste What I Copied</button>` : ""}` : "";
       const pasteBtn = (offerPaste ? (L.kind === "youtube" ? PASTE.replace("Paste the Text Instead", "Paste the Transcript Instead") : PASTE) : "") + copyHelp;
       if (noWatch) say("Gemini couldn't watch this video. New or blocked videos often fail.", pasteBtn + `<details class="cl-diag"><summary>Why?</summary><p>${esc(msg)}</p><p>If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.</p>${diag}</details>`);
-      else say(msg + (offerPaste && e && e.link && !copyHelp ? " Paste the text instead, and the AI can work from that." : ""), pasteBtn + (diag ? `<details class="cl-diag"><summary>Details</summary>${diag}</details>` : ""));
+      else say(msg + (offerPaste && e && e.link && !/^(blocked|needs_js)$/.test(e.st || "") ? " Paste the text instead, and the AI can work from that." : ""), pasteBtn + (diag ? `<details class="cl-diag"><summary>Details</summary>${diag}</details>` : ""));
       aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     } finally { clearInterval(tick); }

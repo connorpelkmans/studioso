@@ -35,7 +35,8 @@
   const cfg = () => { try { return SB_HOSTED ? SB_DEFAULT : (typeof sbConfig === "function" ? sbConfig() : null); } catch (e) { return null; } };
   const signedIn = () => { try { return !!(sb && sbUser); } catch (e) { return false; } };
   // tests and the design previews never phone home, unless a test asks to
-  const quiet = () => (window.__SB_TEST && !window.__SB_LAUNCH_TEST) || (typeof inPreview === "function" && inPreview());
+  // (automated browsers too: tests and crawlers aren't students, and shouldn't be counted)
+  const quiet = () => ((window.__SB_TEST || navigator.webdriver) && !window.__SB_LAUNCH_TEST) || (typeof inPreview === "function" && inPreview());
 
   /* ---------- the update switch ---------- */
   function verdict(pol){
@@ -91,16 +92,18 @@
     if (quiet() || busy || document.hidden) return;
     const c = cfg(); if (!c || !c.url || !c.key) return;
     const today = todayISO(), count = ls.get(DAY_KEY) !== today;
+    // the server doesn't have the check-in yet (supabase-launch.sql not run): asked again tomorrow, not every half hour
+    if (ls.get(DAY_KEY + ":missing") === today && !force) return;
     if (!force && !count && Date.now() - lastAt < EVERY) return;
     busy = true;
     try {
       const args = {p_version: ver(), p_platform: platform(), p_count: count};
       let res = null;
-      if (signedIn()) { const {data, error} = await sb.rpc("studyboard_checkin", args); if (!error) res = data; }
+      if (signedIn()) { const {data, error} = await sb.rpc("studyboard_checkin", args); if (!error) res = data; else if (/PGRST202|not find the function|404/i.test(String(error.code || "") + " " + String(error.message || ""))) ls.set(DAY_KEY + ":missing", today); }
       else {
         const r = await fetch(c.url.replace(/\/$/, "") + "/rest/v1/rpc/studyboard_checkin", {method: "POST", cache: "no-store",
           headers: {apikey: c.key, Authorization: "Bearer " + c.key, "Content-Type": "application/json"}, body: JSON.stringify(args)});
-        if (r.ok) res = await r.json();
+        if (r.ok) res = await r.json(); else if (r.status === 404) ls.set(DAY_KEY + ":missing", today);
       }
       if (res && typeof res === "object") {
         lastAt = Date.now();

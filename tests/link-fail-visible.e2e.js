@@ -1,4 +1,4 @@
-// node tests/link-fail-visible.e2e.js: when Gemini answers but couldn't watch the video, the message is on screen and the companion
+// node tests/link-fail-visible.e2e.js: when the AI answers but couldn't open the link, the message is on screen and the companion
 // says it didn't work (it used to say "Finished!" while the message sat below the fold)
 // Cards From a Link: a YouTube video (Gemini file_data) or a web page (url context / web fetch) becomes draft cards through the usual
 // review step and a summary note that credits the source. Gemini and Claude are mocked.
@@ -51,7 +51,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     await ctx.route(/generativelanguage\.googleapis\.com/, async route => {
       const body = route.request().postData() || "";
       await new Promise(r => setTimeout(r, 1200));
-      try { route.fulfill(gem(/file_uri/.test(body) ? JSON.stringify({status: "unreachable"}) : /small, cute study companion/.test(body) ? JSON.stringify({line: "hi"}) : JSON.stringify(CARDS))); } catch (e) {}
+      try { route.fulfill(gem(/url_context/.test(body) ? "```json\n" + JSON.stringify({status: "unreachable", reason: "The page didn't load."}) + "\n```" : /small, cute study companion/.test(body) ? JSON.stringify({line: "hi"}) : JSON.stringify(CARDS))); } catch (e) {}
     });
     await ctx.addInitScript(seed => { window.__SB_TEST = true; try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
       localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, SEED);
@@ -61,10 +61,10 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     await page.evaluate(() => { window.__cpSaid = []; new MutationObserver(() => { const t = document.querySelector(".cp-bubble.on .cp-b-t"); if (t && t.textContent && window.__cpSaid[window.__cpSaid.length - 1] !== t.textContent) window.__cpSaid.push(t.textContent); }).observe(document.body, {subtree: true, childList: true, characterData: true}); });
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "fc-ai"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForSelector("#aiGo");
     if (!(await page.evaluate(() => document.getElementById("aiLinkD").open))) await page.click("#aiLinkD summary");
-    await page.fill("#aiLink", "https://www.youtube.com/watch?v=ESABTN4VtrA");
+    await page.fill("#aiLink", "https://www.example-school.edu/biology/osmosis-notes");
     await page.evaluate(() => { const b = document.getElementById("aiQuiz"); if (b && !b.checked) b.click(); document.querySelector("#dlg .sheet-body").scrollTop = 0; });
     await page.click("#aiGo");
-    await page.waitForFunction(() => /couldn't watch that video/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000});
+    await page.waitForFunction(() => /couldn't open that page/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000});
     await page.waitForTimeout(2500);
     const vis = await page.evaluate(() => { const s = document.getElementById("aiStatus"), b = s.closest(".sheet-body").getBoundingClientRect(), r = s.getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; });
     ok(vis, "the message is scrolled into view inside the sheet: " + await page.textContent("#aiStatus"));
@@ -72,63 +72,22 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     ok(!said.some(t => /All done|Ta-da|Finished|Done and done/.test(t)) && said.some(t => /didn't work|got stuck/.test(t)), "the companion says it didn't work, not that it's finished: " + JSON.stringify(said));
     ok(!errs.length, "no page errors " + errs.join(" | "));
     await ctx.close();
-    // The video never reached Gemini (a few hundred tokens read, an "empty" answer in no time): one plain retry
-    for (const mode of ["plain-works", "never", "choke-then-plain", "choke-always", "cutoff", "seen-empty"]) {
-      const c2 = await browser.newContext({viewport: {width: 1381, height: 961}, serviceWorkers: "block"}); const bodies = [];
-      await c2.route(/generativelanguage\.googleapis\.com/, async route => {
-        const body = route.request().postData() || ""; if (/file_uri/.test(body)) bodies.push(JSON.parse(body));
-        const vid = /file_uri/.test(body), plain = vid && !/mime_type/.test(body);
-        const choke = vid && (mode === "choke-always" || (mode === "choke-then-plain" && !plain));
-        if (choke) { try { route.fulfill({status: 500, contentType: "application/json", body: JSON.stringify({error: {code: 500, message: "An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting", status: "INTERNAL"}})}); } catch (e) {} return; }
-        if (vid && mode === "cutoff") {
-          const res = {status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: '{"status": "ok", "title": "iPhone Duo Review", "overview": "The rev'}]}, finishReason: "MAX_TOKENS"}]})};
-          res.body = JSON.stringify(Object.assign(JSON.parse(res.body), {usageMetadata: {promptTokenCount: 41000}}));
-          try { route.fulfill(res); } catch (e) {} return;
-        }
-        if (vid && mode === "seen-empty") { const res = gem(JSON.stringify({status: "empty", reason: "The video is a phone review with no teaching."})); res.body = JSON.stringify(Object.assign(JSON.parse(res.body), {usageMetadata: {promptTokenCount: 41000}})); try { route.fulfill(res); } catch (e) {} return; }
-        const seen = vid && /plain/.test(mode) && plain;
-        const usage = {usageMetadata: {promptTokenCount: seen ? 42000 : 600}};
-        const res = gem(vid ? JSON.stringify(seen ? VIDEO_NOTES : {status: "empty"}) : /small, cute study companion/.test(body) ? JSON.stringify({line: "hi"}) : JSON.stringify(CARDS));
-        if (vid) res.body = JSON.stringify(Object.assign(JSON.parse(res.body), usage));
-        try { route.fulfill(res); } catch (e) {}
-      });
-      await c2.addInitScript(seed => { window.__SB_TEST = true; try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
+    // A YouTube link: Gemini no longer watches videos (its terms rule out apps under-18s use), so it asks for the transcript and
+    // never sends the video anywhere
+    { const c2 = await browser.newContext({viewport: {width: 1381, height: 961}, serviceWorkers: "block"}); const sent = [];
+      await c2.route(/generativelanguage\.googleapis\.com/, route => { const body = route.request().postData() || ""; sent.push(body); route.fulfill(gem(JSON.stringify(/The student pasted its transcript/.test(body) ? VIDEO_NOTES : /small, cute study companion/.test(body) ? {line: "hi"} : CARDS))); });
+      await c2.addInitScript(seed => { window.__SB_TEST = true; try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1");
         localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, SEED);
       const p2 = await c2.newPage(); const e2 = []; p2.on("pageerror", e => e2.push(e.message));
       await p2.goto(base); await p2.waitForFunction(() => window.__sbSync && window.SBLINKCARDS);
       await p2.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "fc-ai"; document.body.appendChild(b); b.click(); b.remove(); }); await p2.waitForSelector("#aiGo");
       if (!(await p2.evaluate(() => document.getElementById("aiLinkD").open))) await p2.click("#aiLinkD summary");
-      await p2.fill("#aiLink", "https://www.youtube.com/watch?v=ESABTN4VtrA"); await p2.click("#aiGo");
-      if (mode === "cutoff") {
-        await p2.waitForFunction(() => /too long/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
-        ok(/That video is too long to cover in one go/.test(await p2.textContent("#aiStatus")), "notes that run out of room even at the maximum say the video is too long: " + await p2.textContent("#aiStatus"));
-        const req = (bodies[0].generationConfig.responseSchema || {}).required || [];
-        ok(["status", "title", "overview", "sections", "terms", "reason"].every(k => req.includes(k)), "Gemini must send every notes field (an answer of just {status: ok} with no notes can't happen): " + req.join(","));
-        ok(bodies.length === 1 && bodies[0].generationConfig.maxOutputTokens === 65536, "the video gets the most room Gemini allows (65536 tokens) from the start, and isn't watched again: " + bodies.map(b => b.generationConfig.maxOutputTokens));
-      } else if (mode === "seen-empty") {
-        await p2.waitForFunction(() => /anything to study/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
-        const t = await p2.textContent("#aiStatus");
-        ok(bodies.length === 1, "a video Gemini watched and found empty isn't watched a second time (" + bodies.length + " looks)");
-        ok(/said: The video is a phone review with no teaching/.test(t), "the AI's reason is in the message: " + t);
-        ok(/usually can't watch YouTube videos until they're about a month old/.test(t) && /Show transcript/.test(t), "and it explains that new videos often can't be watched, and how to copy the transcript");
-        ok(/read 41,000 tokens, answer complete, status empty, 0 characters of notes/.test(await p2.evaluate(() => (document.querySelector("#aiStatus .cl-diag") || {}).textContent || "")), "and Details shows what came back: " + await p2.evaluate(() => (document.querySelector("#aiStatus .cl-diag") || {}).textContent || ""));
-      } else if (/plain/.test(mode)) {
-        await p2.waitForFunction(() => /Review Before Saving/.test((document.querySelector("#dlg[open]") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
-        ok(/Review Before Saving/.test(await p2.evaluate(() => (document.querySelector("#dlg[open]") || {}).textContent || "")), "when the video didn't reach Gemini, one plain retry gets it, and the cards come through");
-        const last = bodies[bodies.length - 1].contents[0].parts[0];
-        ok(bodies[0].contents[0].parts[0].file_data.mime_type && !last.file_data.mime_type && !last.video_metadata, mode + ": the retry sends just the link (no file type, no frame rate)");
-        if (mode === "choke-then-plain") ok(!(await p2.evaluate(() => { try { const m = JSON.parse(localStorage.getItem("studyboard:aiModels") || "{}"); return Object.values(m.cool || {}).some(t => t > Date.now()); } catch (e) { return false; } })), "a server error on a video doesn't bench the models for other AI features");
-      } else if (mode === "choke-always") {
-        await p2.waitForFunction(() => /couldn't process this video/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 20000}).catch(() => {});
-        const t = await p2.textContent("#aiStatus");
-        ok(/Google's servers couldn't process this video \(Google said: An internal error has occurred/.test(t) && !/very busy/.test(t), "when Google's servers fail on the video every time, it says so, with Google's words, not \"very busy\": " + t);
-      } else {
-        await p2.waitForFunction(() => /didn't get the video itself/.test((document.getElementById("aiStatus") || {}).textContent || ""), null, {timeout: 15000}).catch(() => {});
-        ok(/didn't get the video itself/.test(await p2.textContent("#aiStatus")) && bodies.length === 2, "when it never arrives, the message says Gemini didn't get the video: " + await p2.textContent("#aiStatus"));
-      }
-      ok(!e2.length, mode + ": no page errors " + e2.join(" | "));
-      await c2.close();
-    }
+      await p2.fill("#aiLink", "https://www.youtube.com/watch?v=ESABTN4VtrA"); await p2.click("#aiGo"); await p2.waitForTimeout(300);
+      ok(/Paste the video's transcript first/.test(await p2.textContent("#aiStatus")) && !sent.length, "a YouTube link asks for its transcript, and nothing is sent");
+      await p2.fill("#aiYtTr", TRANSCRIPT); await p2.click("#aiGo"); await p2.waitForSelector("#arSave", {timeout: 15000});
+      ok(sent.length && !sent.some(b => /file_uri|file_data|fileData/.test(b)), "with the transcript pasted, cards are made from it, and the video itself never goes to Gemini");
+      ok(!e2.length, "no page errors " + e2.join(" | "));
+      await c2.close(); }
     console.log("\nlink-fail-visible.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
 })().catch(e => { console.error(e); process.exit(1); });
