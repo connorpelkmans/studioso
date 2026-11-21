@@ -71820,7 +71820,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const last = msgs[msgs.length - 1];
     if (!msgs.length && !busy) {
       const me = info() || {};
-      return `<div class="cpt-empty"><p><b>${esc(me.name ? "Hi, I'm " + me.name + "!" : "Hi!")}</b> I'm an AI study companion, not a person. Ask about your deadlines, courses, notes or anything you're studying.</p>
+      return `<div class="cpt-empty"><p><b>${esc(me.name ? "Hi, I'm " + me.name + "!" : "Hi!")}</b> I'm your AI study companion. Ask about your deadlines, courses, notes or anything you're studying.</p>
         ${aiOk() ? `<div class="cpt-chips">${starters().map(s => `<button type="button" class="chip" data-act="cpt-ask" data-q="${esc(s)}">${esc(s)}</button>`).join("")}</div>` : ""}</div>`;
     }
     return msgs.map(msgHtml).join("") + (busy ? `<div class="cpt-q">${esc(busy.q)}</div><div class="cpt-a cpt-wait"><p><span class="ai-spin" aria-hidden="true"></span> <span id="cptStatus">${esc(T.status || "Thinking…")}</span></p></div>` : "")
@@ -71952,7 +71952,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
       <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary ai-btn cp-ask-go" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
       <input type="file" id="cptFile" multiple accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.heic,application/pdf,image/*,text/plain" class="sr" tabindex="-1" aria-hidden="true">
-      <p class="mini cpt-priv">${esc((info() || {}).name || "Your companion")} is an AI, not a person, and can get things wrong. Each question sends only the planner parts it needs, plus attachments, to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New Chat</button>` : ""}</p>`;
+      <p class="mini cpt-priv">${esc((info() || {}).name || "Your companion")} is an AI and can get things wrong. Each question sends only the planner parts it needs, plus attachments, to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New Chat</button>` : ""}</p>`;
   }
   function historyHtml(){
     const chats = rd();
