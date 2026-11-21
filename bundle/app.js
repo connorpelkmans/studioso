@@ -5344,13 +5344,20 @@ Good cards:
 {"basis":"A red blood cell placed in a hypotonic solution gains water and can burst.","front":"What happens to a red blood cell in a hypotonic solution?","back":"Water rushes in, so it swells and may burst.","hint":"Hypo- means the outside has less solute than the inside."}
 Bad cards (never write these): front "What does the text say about osmosis?" (vague); back "See the notes" (no answer); a front that already contains its answer; a card about the lecture title, date or instructor.`;
 // Is the card's "basis" really in the notes? (most of its longer words are, in a run of at least 3 that matches the notes' wording)
-// Small models restate the sentence a little even when asked to copy it, so this asks only that most of its words are in the notes
-// (an invented sentence fails; a lightly reworded one passes)
+// Is a fact (or a card's source sentence) really from the notes? Small models reword what they restate ("ended slavery" for
+// "abolished slavery"), so word overlap alone throws out true facts (on the stand-in model it dropped a third of them). What gives
+// an invented fact away is a new specific: a number, or a name, that the notes don't have. So: every number must be in the notes,
+// every name too (a capitalized word mid-sentence, matched on its first five letters), and at least a third of the longer words
+// must be (matched the same way, so "sharecropping" finds "sharecroppers").
 function aiBasisOk(basis, text){
-  const st = x => x.replace(/(ies|es|s|ed|ing)$/, "");
-  const w = s2 => (String(s2 || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[\p{L}\p{N}]{4,}/gu) || []).map(st);
-  const bw = w(basis), set = new Set(w(text)); if (!bw.length) return false;
-  return bw.filter(x => set.has(x)).length / bw.length >= (bw.length < 4 ? 1 : 0.6);
+  const norm = s2 => String(s2 || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const b = norm(basis), t = norm(text).toLowerCase(), stem = w => w.toLowerCase().slice(0, 5);
+  const nums = s2 => (s2.replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || []);
+  const tn = new Set(nums(t)); if (nums(b).some(n => !tn.has(n))) return false;
+  const tw = new Set((t.match(/[\p{L}\p{N}]{4,}/gu) || []).map(stem));
+  const names = (b.match(/(?<=[a-z,;:] )[A-Z][\p{L}'-]{3,}/gu) || []); if (names.some(n => !tw.has(stem(n)))) return false;
+  const bw = (b.match(/[\p{L}\p{N}]{4,}/gu) || []).map(stem); if (!bw.length) return false;
+  return bw.filter(x => tw.has(x)).length / bw.length >= (bw.length < 4 ? 0.67 : 0.34);
 }
 const DEV_CHECK_SCHEMA = {type: "OBJECT", properties: {checks: {type: "ARRAY", items: {type: "OBJECT", properties: {
   n: {type: "INTEGER"}, verdict: {type: "STRING", enum: ["keep", "fix", "drop"]}, back: {type: "STRING", description: "The corrected answer, only when the verdict is fix"}}, required: ["n", "verdict"]}}}, required: ["checks"]};
