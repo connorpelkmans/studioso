@@ -6574,10 +6574,12 @@ const SBPAGE = (() => {
   const textLen = c => c.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").length;
   function main(h){
     const pick = tag => { let best = "", bl = 0; for (const x of h.matchAll(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, "gi"))) { const l = textLen(x[1]); if (l > bl) { bl = l; best = x[1]; } } return [best, bl]; };
-    for (const t of ["article", "main"]) { const [c, l] = pick(t); if (l >= 700) return c; }
+    // (an <article> that's only a small part of the page, such as a FAQ box beside the real article, loses to the whole body)
+    const bodyM = /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(h), body = bodyM ? bodyM[1] : h, bl = textLen(body);
+    for (const t of ["article", "main"]) { const [c, l] = pick(t); if (l >= 700 && l * 2.5 >= bl) return c; }
     const role = /<([a-z]+)\b[^>]*role=["']main["'][^>]*>/i.exec(h);
-    if (role) { const rest = h.slice(role.index); if (textLen(rest) >= 700) return rest; }
-    const body = /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(h); return body ? body[1] : h;
+    if (role) { const rest = h.slice(role.index), rl = textLen(rest); if (rl >= 700 && rl * 2.5 >= bl) return rest; }
+    return body;
   }
   const words = t => { const m = String(t).match(/[^\s\-–—|•·.,;:!?()"']+/g); return m ? m.length : 0; };
   const plain = h => decode(String(h).replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
