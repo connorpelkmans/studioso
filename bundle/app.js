@@ -20764,6 +20764,19 @@ document.addEventListener("keydown", e => {
   if (f.mode === "study" && f.q[f.i] && !f.flipped) { e.preventDefault(); fcHint(); }
   else if (f.mode === "aiquiz" && f.qs[f.i] && !f.ans[f.i]) { e.preventDefault(); aiQuizHint(); }
 });
+// The website's switch pages link here with ?start=paste, ?start=import or ?start=first-deck: once the app is up and nothing else
+// is open (a new student sees the welcome first), the matching sheet opens, once
+(() => {
+  let want = ""; try { const u = new URL(location.href); want = u.searchParams.get("start") || ""; if (want) { u.searchParams.delete("start"); history.replaceState(history.state, "", u.pathname + (u.search || "") + u.hash); } } catch (e) {}
+  if (!/^(paste|import|first-deck)$/.test(want)) return;
+  let tries = 0;
+  const go = () => {
+    if (++tries > 120) return;
+    if (!window.__sbSync || document.querySelector("dialog[open]")) { setTimeout(go, 500); return; }
+    if (want === "paste") firstDeckPaste(); else if (want === "import") { ui.tab = "flashcards"; render(); setTimeout(() => fire("act", "grp-share-menu", document.body, ""), 60); } else firstDeckGo();
+  };
+  setTimeout(go, 900);
+})();
 if (window.__SB_TEST) window.__sbRewards = {localHint, hintLeaks, goalCfg, goalToday, goalBump};
 /* ===== module: 01-focus.js: the app's core, the Pomodoro focus timer ===== */
 /* Pomodoro focus timer */

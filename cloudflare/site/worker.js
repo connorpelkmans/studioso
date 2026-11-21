@@ -3,7 +3,9 @@ import {handlePublic, isPublicPath} from "./public-pages.js";
 // Public flashcards and quizzes
 const PASS = /^\/functions\/v1\/(cloud-files|calendar-sync)$/;
 // The privacy policy and terms live in the website folder; the short addresses people
-const MOVED = {"/privacy": "/website/privacy", "/privacy.html": "/website/privacy", "/terms": "/website/terms", "/terms.html": "/website/terms"};
+const MOVED = {"/privacy": "/website/privacy", "/privacy.html": "/website/privacy", "/terms": "/website/terms", "/terms.html": "/website/terms",
+  // the switch pages, at short addresses to share
+  "/switch/quizlet": "/website/switch-quizlet", "/switch/anki": "/website/switch-anki", "/switch/gizmo": "/website/switch-gizmo"};
 
 // A mistyped /website/ address would get the app (the assets answer unknown paths with /index.html for the app's own routes),
 // so the website's "Page not found" is shown instead, with a 404. Only /website/ paths come through here (wrangler.jsonc run_worker_first).
