@@ -4599,6 +4599,19 @@ function aiGateSyllabus(items, today){
 function aiCleanCites(text, n){ return aiNoFieldEcho(String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "")).trim(); }
 // A small model sometimes writes another field of its answer into the text ("Found: false. There are no notes..."): taken out
 const aiNoFieldEcho = t => String(t || "").replace(/^\s*(found|answer|response|reply|status)\s*[:=]\s*(true|false|yes|no|ok)?\s*[.,;:-]?\s*/i, "");
+// A small model's answer that stops mid-phrase ("I found your sticky note about being grumpy on the"): trimmed back to the last
+// whole thought and ended properly ("...about being grumpy."). Left alone when there's too little left to make sense.
+const AI_DANGLE = /[\s,;:\u2013\u2014-]*\b(the|a|an|on|of|to|and|or|but|with|about|your|my|for|in|at|by|from|into|onto|that|this|these|those|is|are|was|were|be|as|than|so|if|when|because|their|its|our|his|her|which|who|like|over|under|after|before|during|between)\s*$/i;
+function aiWholeSentence(text){
+  const t = String(text == null ? "" : text).trim();
+  if (!t || /[.!?\u2026)"'\u201d\u2019\]:]$/.test(t)) return t;
+  if (!AI_DANGLE.test(t)) return t;
+  let s = t;
+  for (let i = 0; i < 5 && AI_DANGLE.test(s); i++) s = s.replace(AI_DANGLE, "");
+  s = s.replace(/[\s,;:\u2013\u2014-]+$/, "");
+  if (s.split(/\s+/).length < 3) return t;
+  return s + ".";
+}
 // Quick add: true when reading the sentence on this device is enough
 function qaConfident(text, t){
   const s = String(text || "");
@@ -4982,6 +4995,8 @@ async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
 // The model picker shown in every AI sheet
 function aiModelBar(){
   const c = aiCfg();
+  // The AI on this computer: no menu (there's nothing to pick), just what it is, and where to add a model of their own
+  if (c.provider === "device") return `<div class="ai-model-bar">${AI_ICON}<span class="mini">Free AI, runs on your computer: ${esc(devLabel())}</span><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></div>`;
   if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% used, last 7 days` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
   const groups = aiModelOpts(c.keys, `${c.provider}|${c.model}`, (p, P) => p === c.provider && !P.models.some(x => x[0] === c.model) ? `<option value="${p}|${esc(c.model)}" selected>${esc(aiModelName(p, c.model))}</option>` : "");
   return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Model</span><select data-ai-model aria-label="AI model">${groups}</select><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></label>`;
@@ -5330,7 +5345,7 @@ const aiOnDevice = () => { try { return aiCfg().provider === "device"; } catch (
 const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
   deckTitle: {type: "STRING", description: "Short name for these cards, 2 to 6 words"},
   cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
-    basis: {type: "STRING", description: "The sentence from the notes this card is based on, copied exactly"},
+    basis: {type: "STRING", description: "3 to 8 words copied exactly from the sentence in the notes this card is based on"},
     front: {type: "STRING"}, back: {type: "STRING"},
     hint: {type: "STRING", description: "A one-sentence nudge that helps recall the back without using its words"}}, required: ["basis", "front", "back"]}}},
   required: ["cards"]};
@@ -5462,21 +5477,31 @@ async function aiDevFactQuiz(x, o){
   return {questions: out, title: b.data.title, truncated: F.truncated || b.truncated};
 }
 async function aiCardsBySection(o){
-  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0;
-  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE : o.system,
-    parts: dev ? [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from these notes, each about a different fact, going through them in order.${again ? " Your last answer had too few usable cards: give each card a real question and a complete answer." : ""}`}]
+  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0, made = 0;
+  // On the device, "Auto" aims for the whole set in about a minute: after each part, the parts still to do get as many cards as
+  // the time left allows at the speed so far (at least 2 each, so every part is still covered)
+  const t0 = Date.now(), BUDGET = 60000;
+  const fit = x => { if (!dev || o.n || !made || !done) return x; const per = (Date.now() - t0) / made, left = n - done, room = Math.max(0, BUDGET - (Date.now() - t0));
+    return Object.assign({}, x, {count: Math.max(Math.min(2, x.count), Math.min(x.count, Math.floor(room / per / left)))}); };
+  const tell = () => { if (o.onStatus) o.onStatus(`Making flashcards: ${made} card${made === 1 ? "" : "s"} so far, part ${Math.min(done + 1, n)} of ${n}`); };
+  // on the device, the answer being written shows in the status line too
+  const live = dev && o.onStatus ? m => { const w = /writing… (\d+) words?/.exec(m); if (w) o.onStatus(`Making flashcards: ${made} card${made === 1 ? "" : "s"} so far, part ${Math.min(done + 1, n)} of ${n} (writing ${w[1]} words)`); } : undefined;
+  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, onStatus: live, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE : o.system,
+    parts: dev ? [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from these notes, each about a different fact: the most important ones, spread across all of these notes.${again ? " Your last answer had too few usable cards: give each card a real question and a complete answer." : ""}`}]
       : [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
-  const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
+  const res = await aiPool(plan, dev ? 1 : 3, async (x0, i) => {
     let unsup = 0;
-    const corpus = aiCorpus([x.section.text]);
-    if (dev && DEV_STEPS.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
-      if (f && f.cards.length >= Math.min(2, x.count)) { if (o.onStatus) o.onStatus(`Making flashcards: ${++done} of ${n} parts done`); return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
+    const x = fit(x0), corpus = aiCorpus([x.section.text]);
+    if (dev && i === 0) tell();
+    if (dev && DEV_STEPS.facts && o.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+      if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
     const gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
     let cards = g.cards, checked = {fixed: 0, dropped: 0};
     if (dev && DEV_STEPS.check && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
-    if (o.onStatus) o.onStatus(`Making flashcards: ${++done} of ${n} parts done`);
+    done++; made += cards.length;
+    if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`);
     return {cards: cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
@@ -5627,7 +5652,7 @@ async function aiMakeStudySet(opts, onStatus){
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
   if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
   // A new student's first set: made free by Studyboard's cloud AI (01-ai-first.js); the device makes it if that isn't available
-  const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}) : null;
+  const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus, facts: !!quiz}) : null;
   let fromCloud = false;
   if (cards && opts.first && !(style && style !== "Clear, exam-focused study material.") && aiOnDevice() && aiFirstDeckOk()) jobs.push(aiFirstDeck({sources, courseName, count: nCards, signal, onStatus}).then(f => { if (!f) return cardsJob() || cardsOne(); fromCloud = true; return {data: {cards: f.cards, deckTitle: f.deckTitle}, truncated: false}; }));
   else if (cards && secs) jobs.push(cardsJob());
@@ -5721,6 +5746,8 @@ function aiStudySheet(deckId, mode){
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
   </form>`);
   const sheetEl = dlg.querySelector(".ai-sheet"), inS = q => sheetEl.querySelector(q);
+  // the AI on this computer loads (and reads its card instructions) while the student adds their material
+  devPrewarm(DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE);
   sheetKeep(keyK, {name: aiWho("AI"), busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) try { job.ac.abort(); } catch (e) {} },
     dirty: () => job.busy || job.sources.length > 0 || !!(inS("#aiPaste") && inS("#aiPaste").value.trim()) || !!(inS("#aiLink") && inS("#aiLink").value.trim()) || !!(inS("#aiStyle") && inS("#aiStyle").value.trim() && !(deck && inS("#aiStyle").value.trim() === String(deck.aiStyle || "").trim()))});
   if (mode === "cards" || mode === "quiz") {
@@ -6564,6 +6591,9 @@ function aiPlannerFacts(need){
   } catch (e) {}
   return L.join("\n\n");
 }
+// Tests and ml/ (the custom model's data generator and scorer) use the app's own quality checks, never a copy of them
+if (window.__SB_TEST) window.__sbAIGates = {parse: aiParseJson, corpus: aiCorpus, copyIndex: aiCopyIndex, copied: aiCopied, basis: aiBasisOk, defers: aiDefers,
+  cards: (list, o) => aiGateCards(list, o), questions: (list, o) => aiGateQuestions(aiCleanQuestions(list), o), cleanQuestions: aiCleanQuestions};
 /* ===== module: 01-page-text.js: a web page's readable text, from its HTML ===== */
 /* One copy, used in two places (like 01-ai-policy.js):
    - the website's Worker (cloudflare/site/page-text.js) fetches a page for the website, which browsers can't do across sites, and
@@ -6779,12 +6809,23 @@ function devWhyText(){
 /* The first time, Chrome downloads its model (once, for every site). Chrome only starts that download from a click, so a click on
    anything AI starts it, and the request that follows waits for it with a progress line. */
 const DEV_AI_ACT = /(^|-)ai(-|$)|hint|explain|first-deck|^fd-|^cp-|companion|quiz|^lec-|^wb-/;
+// While Chrome downloads its model (one time), a pill at the bottom says so with the progress, whatever button started it, so an
+// answer that's waiting on the download doesn't just look slow
+function devDlPill(p){
+  let el = document.getElementById("devDlPill");
+  if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
+  if (!el) { el = document.createElement("div"); el.id = "devDlPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
+  const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
+  el.textContent = `Chrome is downloading its free AI (one time only)${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Your answer comes once it's ready.`;
+  requestAnimationFrame(() => el.classList.add("show"));
+}
 function devWarm(){
   if (DEVAI.kind !== "chrome" || DEVAI.warm || !["downloadable", "downloading"].includes(DEVAI.status)) return DEVAI.warm;
   try { if (navigator.userActivation && !navigator.userActivation.isActive) return null; } catch (e) {}
-  DEVAI.warm = self.LanguageModel.create(Object.assign(devOpts(false), {monitor(m){ m.addEventListener("downloadprogress", e => { DEVAI.progress = Number(e.loaded) || 0; try { fire("device-ai-progress", DEVAI.progress); } catch (x) {} }); }}))
-    .then(s => { try { s.destroy(); } catch (e) {} DEVAI.status = "available"; DEVAI.progress = 1; devNoteState(); try { scheduleRender(); } catch (e) {} return true; })
-    .catch(e => { DEVAI.warm = null; return false; });
+  devDlPill(DEVAI.progress || 0);
+  DEVAI.warm = self.LanguageModel.create(Object.assign(devOpts(false), {monitor(m){ m.addEventListener("downloadprogress", e => { DEVAI.progress = Number(e.loaded) || 0; devDlPill(DEVAI.progress < 1 ? DEVAI.progress : null); try { fire("device-ai-progress", DEVAI.progress); } catch (x) {} }); }}))
+    .then(s => { try { s.destroy(); } catch (e) {} DEVAI.status = "available"; DEVAI.progress = 1; devDlPill(null); devNoteState(); try { scheduleRender(); } catch (e) {} return true; })
+    .catch(e => { DEVAI.warm = null; devDlPill(null); return false; });
   return DEVAI.warm;
 }
 document.addEventListener("click", e => {
@@ -6816,7 +6857,7 @@ function devFit(parts, room){
 const devOrdered = s => { if (!s || typeof s !== "object") return s; if (Array.isArray(s)) return s.map(devOrdered);
   const o = Object.assign({}, s); if (o.properties) { o.propertyOrder = Object.keys(o.properties); o.properties = Object.fromEntries(Object.entries(o.properties).map(([k, v]) => [k, devOrdered(v)])); }
   if (o.items) o.items = devOrdered(o.items); return o; };
-const DEV_TAIL = "\n\nAnswer with JSON only, in exactly the requested format. Everything you write must be suitable for a school student.";
+const DEV_TAIL = "\n\nAnswer with JSON only, in exactly the requested format. Finish every sentence you start. Everything you write must be suitable for a school student.";
 // One request at a time: these models answer one thing at a time anyway, and progress lines stay true
 let devQueue = Promise.resolve();
 function devCall(o){ const run = devQueue.then(() => devRun(o)); devQueue = run.catch(() => {}); return run; }
@@ -6860,7 +6901,7 @@ async function devReadParts(parts, {onStatus, signal, auto}){
     if (!/^image\//.test(mime)) throw aiErr("device-files", `${L} can't read this kind of file. Studyboard AI or an AI key in Settings, AI Features can.`);
     if (onStatus) onStatus("Reading the words in your picture on this device…");
     const r = await SBOCR.readImage(d, {signal, onProgress: x => onStatus && onStatus(`Reading the words in your picture on this device… ${Math.round(x * 100)}%`)});
-    if (r.text.length >= 15 && r.conf >= OCR.unreadable) { out.push({text: `${DEV_OCR_SAID}${r.conf < OCR.hard ? " (parts were hard to read, so a few words may be wrong)" : ""}:\n\n${r.text}`}); continue; }
+    if (r.text.length >= 15 && r.conf >= OCR.unreadable) { if (onStatus) onStatus(`Read the words in your picture. ${devLabel()} is writing it up now…`); out.push({text: `${DEV_OCR_SAID}${r.conf < OCR.hard ? " (parts were hard to read, so a few words may be wrong)" : ""}:\n\n${r.text}`}); continue; }
     // no readable words: the model looks at the picture itself if it can (a diagram), else the student is told
     if (DEVAI.images && r.text.length < 15) { out.push(p); continue; }
     throw devUnreadable(r, "picture");
@@ -6985,6 +7026,46 @@ async function devWeb({sys, parts, json, out, temperature, signal, onStatus, aut
     }
   } finally { if (signal) signal.removeEventListener("abort", stop); webRest(); }
 }
+/* One Chrome session per set of instructions, kept for three minutes and copied (clone) for each request: the long
+   instructions and examples are read once, not again for every part of the notes (on a laptop running the model on its processor
+   that reading takes several seconds a request). Each copy is thrown away after its answer, so requests never see each other. */
+const devBase = new Map();
+async function devSession(sys, pics, signal){
+  const key = (pics ? "p:" : "t:") + sys, make = () => self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}]}));
+  let b = devBase.get(key);
+  if (!b) {
+    b = {p: make()}; devBase.set(key, b); b.p.catch(() => devBase.delete(key));
+    while (devBase.size > 3) { const [k, v] = devBase.entries().next().value; devBase.delete(k); clearTimeout(v.t); v.p.then(x => x.destroy()).catch(() => {}); }
+  }
+  clearTimeout(b.t); b.t = setTimeout(() => { if (devBase.get(key) === b) devBase.delete(key); b.p.then(x => x.destroy()).catch(() => {}); }, 180000);
+  const base = await b.p;
+  if (typeof base.clone === "function") { try { return await base.clone({signal}); } catch (e) { if (signal && signal.aborted) throw e; } }
+  return self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}], signal}));
+}
+// The answer as it's written, so the student sees it moving ("Writing… 120 words so far") instead of a frozen status. Chrome has
+// sent each piece on its own (newer) or the whole answer so far (older): both are handled
+async function devStream(s, content, json, signal, onStatus){
+  let text = "", last = 0; const t0 = Date.now();
+  const stream = s.promptStreaming([{role: "user", content}], {responseConstraint: json, signal});
+  for await (const chunk of stream) {
+    const c = String(chunk == null ? "" : chunk);
+    text = c.startsWith(text) && text ? c : text + c;
+    if (Date.now() - last > 400) { last = Date.now(); const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); }
+  }
+  return text;
+}
+/* Getting the model ready ahead of time: when a screen that makes something with AI opens (Flashcards, Photo to Note), the model
+   loads while the student picks files, instead of after they press Create; that first load is most of the wait the first time.
+   With the instructions it will use (sys), they're read now too. Nothing is downloaded: only a model already on the computer. */
+function devPrewarm(sys){
+  try {
+    if (!devAllowed() || aiCfg().provider !== "device" || DEVAI.status !== "available") return;
+    // (the instructions exactly as aiCall sends them: the student's area of study and the copying rule added, then the device's tail)
+    if (sys) { try { if (window.SBAREA) sys = SBAREA.aiSystem(sys); } catch (e) {} sys = aiCopyRule(sys, "cards"); }
+    if (DEVAI.kind === "chrome") { if (sys) devSession(String(sys) + DEV_TAIL, false).then(x => x.destroy(), () => {}); else self.LanguageModel.create(devOpts(false)).then(x => setTimeout(() => { try { x.destroy(); } catch (e) {} }, 60000), () => {}); }
+    else if (DEVAI.kind === "webllm") webEngine().then(() => webRest(), () => {});
+  } catch (e) {}
+}
 async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
   const L = devLabel();
   if (DEVAI.status !== "available") {
@@ -6996,7 +7077,7 @@ async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
     try { if (!(await w)) { await devProbe(); throw aiErr("device-failed", DEVAI.why === "removed-full" || DEVAI.why === "cant" ? devWhyText() : `${L} couldn't finish downloading. Check your connection and that there's at least 22 GB free, then try again.`); } } finally { clearInterval(iv); }
   }
   let s;
-  try { s = await self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}], signal})); }
+  try { s = await devSession(sys, pics, signal); }
   catch (e) { if (signal && signal.aborted) throw aiErr("aborted", "Stopped."); devProbe(); throw Object.assign(aiErr("device-failed", `${L} couldn't start. Try again in a moment.`), {detail: String(e && e.message || e)}); }
   try {
     const content = () => parts.map(p => p.inline_data ? {type: "image", value: devBlob(p.inline_data.data, p.inline_data.mime_type)} : {type: "text", value: p.text});
@@ -7004,7 +7085,7 @@ async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
     let truncated = devFit(parts, room());
     for (let tries = 0; ; tries++) {
       try {
-        const text = await s.prompt([{role: "user", content: content()}], {responseConstraint: json, signal});
+        const text = onStatus && typeof s.promptStreaming === "function" ? await devStream(s, content(), json, signal, onStatus) : await s.prompt([{role: "user", content: content()}], {responseConstraint: json, signal});
         const data = aiParseJson(text);
         if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
         return {data, model: "chrome-built-in", provider: "device", truncated};
@@ -7267,7 +7348,10 @@ const SBOCR = (() => {
     const text = pages.map(p => p.lines.map(l => l.text).join("\n\n")).join("\n\n"), all = pages.filter(p => p.lines.length);
     return {pages, text, conf: all.length ? Math.round(all.reduce((a, p) => a + p.conf, 0) / all.length) : 0, cut: total > n, total};
   }
-  return {supported, readImage, readPdf, textOf, paras, confOf, OCR};
+  // Started when a screen that reads pictures opens, so the reader is ready by the time the student presses the button (the first
+  // start loads its engine and English data). Apple's reader needs no start. It closes again after a while idle, as usual
+  function warm(){ try { if (devNative && devNative() && DEVAI.kind === "apple") return; tessWorker().then(rest, () => {}); } catch (e) {} }
+  return {supported, readImage, readPdf, textOf, paras, confOf, OCR, warm};
 })();
 if (window.__SB_TEST) window.SBOCR = SBOCR;
 /* ===== module: 01-phone-cam.js: photos from your phone on a computer (a QR code and the photo relay), for Scan to PDF and Photo to Note ===== */
@@ -8242,6 +8326,8 @@ function photoNoteSheet(file){
     const ph = S.phone = PHONE_CAM.start({kind: "notes", onPhoto: f => add([f]), onChange: phoneDraw, alive: () => S.phone === ph && !S.dropped && !S.busy && !S.result && form.isConnected && dlg.open && dlg.contains(form)});
     phoneDraw();
   };
+  // the picture reader and the AI on this computer get ready while the student adds photos
+  devPrewarm(); try { SBOCR.warm(); } catch (e) {}
   sheetKeep(KK, {name: "Photo to Note", dirty: () => S.srcs.length > 0 || !!S.result, busy: () => S.busy,
     drop: () => { S.dropped = true; phoneStop(); S.urls.forEach(u => { if (u) try { URL.revokeObjectURL(u); } catch (e) {} }); if (S.ac) { try { S.ac.abort(); } catch (e) {} } },
     // set aside, the phone's session ended (it stops itself once the sheet isn't showing)
@@ -8282,7 +8368,7 @@ function photoNoteSheet(file){
     S.busy = true; const ac = S.ac = typeof AbortController === "function" ? new AbortController() : null;
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
-      const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
+      const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.${aiOnDevice() ? " Keep the notes short: at most 200 words, as bullet points of the key points." : ""}`}),
         system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. The student's own handwriting and whiteboard writing may be transcribed as written; anything printed (slides, handouts, textbook pages) must be restated in your own words as concise notes, never copied sentence by sentence. Cover everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
       const d = r.data, cSel = $("#pnCourse").value, guess = coursesArr().find(c => (c.code || c.name).toLowerCase() === String(d.course || "").toLowerCase());
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
@@ -21969,7 +22055,10 @@ const SBSECT = (() => {
   // Sizes, in words. A "small" engine (an on-device model) gets shorter sections and fewer cards per request.
   // per: words of material per card when the student picks "Auto". A small model is asked for one fact per card, so it gets more,
   // simpler cards (tested on a stand-in for the on-device models: at 45 it covered about a quarter of the key facts)
-  const SIZES = {cloud: {min: 90, max: 650, maxSections: 14, perSection: 8, onlyOver: 900, per: 45}, small: {min: 60, max: 280, maxSections: 24, perSection: 7, onlyOver: 0, per: 26}};
+  const SIZES = {cloud: {min: 90, max: 650, maxSections: 14, perSection: 8, onlyOver: 900, per: 45}, small: {min: 60, max: 600, maxSections: 8, perSection: 8, onlyOver: 0, per: 50, autoMax: 32}};
+  // (small: a few bigger parts instead of many small ones, and about 30 cards for "Auto": each request costs an on-device model
+  // seconds before it writes anything, and a laptop running it on its processor writes about 10 words a second, so 13 parts of
+  // 60 cards took students several minutes. The quality steps stay: examples, the source of each card checked, one fact a card)
   // Material with nothing to study in it: skipped (folded into nothing) when its title says so
   const FLUFF = /^(references?|bibliography|works cited|citations|sources|acknowledg(e)?ments?|(table of )?contents|agenda|outline|questions\??|any questions\??|thank(s| you)\b.*|the end|appendix [a-z]?\s*:?\s*(raw )?data|about the (author|instructor)|copyright.*|disclosures?)$/i;
   // A line that is a heading, and its level (1 is the top). Each rule is conservative: a sentence is never a heading.
@@ -22095,7 +22184,7 @@ const SBSECT = (() => {
   function plan(secs, total, kind){
     const S = SIZES[kind] || SIZES.cloud;
     if (!secs.length) return [];
-    const auto = !total, want = auto ? Math.max(secs.length, Math.min(60, Math.round(secs.reduce((n, s) => n + s.words, 0) / (S.per || 45)))) : total;
+    const auto = !total, want = auto ? Math.max(secs.length, Math.min(S.autoMax || 60, Math.round(secs.reduce((n, s) => n + s.words, 0) / (S.per || 45)))) : total;
     const w = secs.map(weight), W = w.reduce((a, b) => a + b, 0) || 1;
     const raw = w.map(x => want * x / W);
     const got = raw.map(x => Math.min(S.perSection, Math.floor(x)));
@@ -70195,7 +70284,9 @@ var COMP_EXTRA = [];
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
-  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; askFlow = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
+  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; askFlow = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300);
+    // still waiting on the AI (a tap said something over the dots): the dots come back
+    try { if (thinkWant) aiThinkingAgain(); } catch (e) {} }
   let bRects = null, bRectsAt = 0;
   const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects({t: 0, b: innerHeight}); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
@@ -70295,6 +70386,7 @@ var COMP_EXTRA = [];
   }
   /* Thinking: three dots in a bubble while the student waits on the AI (after any "On it!" line has had its moment) */
   let thinkT = 0, thinkWant = false;
+  function aiThinkingAgain(){ clearTimeout(thinkT); thinkT = setTimeout(() => { if (thinkWant) aiThinking(true); }, 700); }
   function aiThinking(on){
     clearTimeout(thinkT); thinkWant = on;
     const b = front && front.querySelector(".cp-bubble");
@@ -71128,7 +71220,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     let found = ""; if (!screen) { try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(clean, {max: 4, chars: 800, readWait: 3}) : null; if (R && R.text) found = `\n\nFOUND IN THEIR FILES, NOTES AND CARDS:\n"""\n${R.text}\n"""`; } catch (e) {} }
     const d = await aiRun("ask", () => { sum = aiSummary(); return {system: screen ? ASK_SCREEN_SYSTEM : ASK_SYSTEM, text: `${sum.text}${screen}${found}\n\nThe student asks: ${clean}`, schema: screen ? ASK_SCREEN_SCHEMA : ASK_SCHEMA, maxTokens: screen ? 1400 : 600}; });
     if (!d) { const s = aiRead(); return {why: s.err === "limit" ? "I've used up my thinking for now. Ask me again later?" : s.err === "offline" ? "I need the internet for that one. Try again soon?" : ""}; }
-    const answer = cleanLine(d.answer, screen ? 650 : found ? 400 : 220, BAD_ASK);
+    const answer = aiWholeSentence(cleanLine(d.answer, screen ? 650 : found ? 400 : 220, BAD_ASK));
     if (!answer) return {why: ""};
     const idea = cleanIdea({text: d.action === "focus" ? "Start a focus on it?" : "Review some flashcards?", action: d.action, ref: d.ref}, sum.refs);
     return {answer, idea: idea && ideaValid(idea) ? Object.assign(idea, {yes: d.action === "focus" ? "Start Focus" : "Review"}) : null};
@@ -72316,6 +72408,7 @@ window.SBLOCALANS = (() => {
   const FIELDS = ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete",
     "name", "code", "instructor", "room", "date", "from", "to", "where", "weekday", "skip", "front", "back", "stem", "answer", "explanation", "options", "correct", "text", "setting"];
   const SHOW_CHANGE = {
+    focusMinutes: {type: "INTEGER", description: "When the student asks to start a focus timer, focus session or pomodoro: its length in minutes (use 25 if they gave none). The app starts it right away. 0 otherwise."},
     show: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (like T3, K12, P4, W2) of what the student asked to find or see, most relevant first. Empty when they didn't ask to find anything and nothing is being changed."},
     changes: {type: "ARRAY", description: "Changes to make, ONLY when the student asked for a change. The app shows each one and asks them to confirm. Empty otherwise.", items: {type: "OBJECT", properties: {
       ref: {type: "STRING", description: "The ref of the thing to change, or SETTINGS for an app setting"},
@@ -72347,6 +72440,7 @@ CHANGING THINGS: when (and only when) the student asks to change something, add 
 - file (P): name (keep the file's extension); course (a C ref); delete yes
 - app settings: ref SETTINGS, field setting, "setting" = which setting in words, value = the new value in words or a number (like "off", "dark", "4", "Spanish").
 ADDING TASKS: when the student asks to add, create or remember something to do (homework, an exam, a reading, a reminder to study), put each one in "newTasks": a short clear title, its course ref when it's for a course, its type, the due date worked out from TODAY (like "next Friday"), a time only if they gave one, and priority high for exams. Several at once is fine ("add the readings for each week"). Never say they're added: the student confirms them first.
+FOCUS TIMER: when the student asks to start a focus timer, focus session or pomodoro ("start a 5 minute timer"), set "focusMinutes" to its length (25 if they didn't say) and say it's starting. The app starts it.
 Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
 
   /* ---------- 4. Checking what came back ---------- */
@@ -72752,6 +72846,56 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   // a couple of boards at a time, once the app has been quiet a while
   setTimeout(function tick(){ try { if (!document.hidden) describeBoards(2); } catch (e) {} setTimeout(tick, 6 * 60000); }, 45000);
 
+  /* ---------- 7b. Requests done in code ---------- */
+  // A focus timer, and a new task when the AI didn't write one: done by the app itself, so they never depend on the AI getting the
+  // format right (small on-device models say "I've set a timer" or "I added it" without asking the app to)
+  const NUMW = {one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, fifteen: 15, twenty: 20, "twenty-five": 25, "twenty five": 25, thirty: 30, forty: 40, "forty-five": 45, "forty five": 45, fifty: 50, sixty: 60, ninety: 90};
+  function timerMins(q){
+    const s = String(q || "").toLowerCase();
+    if (!/\b(timer|focus|pomodoro|study session|focus session)\b/.test(s)) return null;
+    if (/^\s*(how|what|when|why|where|which|did|do|does|is|are)\b/.test(s) || /\b(stop|pause|end|cancel|reset|turn off)\b/.test(s)) return null;
+    let m = s.match(/(\d{1,3}(?:\.\d+)?)\s*-?\s*(minutes?|mins?|m|hours?|hrs?|h)\b/), mins = 0;
+    if (m) mins = Number(m[1]) * (/^h/.test(m[2]) ? 60 : 1);
+    else if ((m = s.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty[- ]five|twenty|thirty|forty[- ]five|forty|fifty|sixty|ninety)\s*-?\s*(minutes?|mins?|hours?)\b/))) mins = NUMW[m[1]] * (/^h/.test(m[2]) ? 60 : 1);
+    else if (/\bhalf an hour\b/.test(s)) mins = 30; else if (/\b(an|one) hour\b/.test(s)) mins = 60;
+    const start = /\b(start|begin|set|run|put on|give me|make|time me|let'?s|can you|could you|please|i want|i need|focus for)\b/.test(s);
+    if (!start && !mins) return null;
+    return {mins: Math.round(mins)};
+  }
+  function startTimer(mins){
+    if (typeof pomoStart !== "function") return false;
+    if (pomo.running || pomo.left > 0) pomoReset();
+    pomo.taskId = ""; pomo.mode = "focus"; pomo.left = 0; pomo.len = 0; pomo.preset = mins > 0 ? mins : 0; pomoSave();
+    pomoStart();
+    return pomo.running;
+  }
+  const APPQ_HOW = /^\s*(how|where|can i|is there|what)\b/i;
+  const ADD_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up|new)\b|\bremind me to\b/i;
+  const ADD_WHAT = /\b(task|to-?do|reminder|assignment|homework|exam|quiz|test|midterm|final|reading|essay|paper|project|lab|study|remind me)\b/i;
+  // "add a task to email Dr. Lee tomorrow at 3pm" -> {title: "Email Dr. Lee", due, time}
+  function localTask(q){
+    const today = todayISO(), WD = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"], MO = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    let t = " " + String(q || "").replace(/\s+/g, " ").trim() + " ", due = "", time = "", m;
+    const cut = re => { const x = t.match(re); if (x) t = t.replace(x[0], " "); return x; };
+    if ((m = cut(/\s(?:at|by|@)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)(?=\W)/i))) { let h = Number(m[1]) % 12; if (/^p/i.test(m[3])) h += 12; time = String(h).padStart(2, "0") + ":" + (m[2] || "00"); }
+    if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(today|tonight)(?=\W)/i))) due = today;
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(tomorrow)(?=\W)/i))) due = addDays(today, 1);
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?next week(?=\W)/i))) due = addDays(today, 7);
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(?:(this|next)\s+)?(sun|mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?)(?:day)?(?=\W)/i))) {
+      const w = WD.findIndex(x => x.startsWith(m[2].toLowerCase().slice(0, 3))), d0 = new Date(today + "T12:00:00").getDay(); let k = (w - d0 + 7) % 7; if (k === 0) k = 7; due = addDays(today, k); }
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?=\W)/i))) {
+      const mo = MO.indexOf(m[1].toLowerCase().slice(0, 3)) + 1; let y = Number(today.slice(0, 4)), s2 = `${y}-${String(mo).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`; if (s2 < today) s2 = `${y + 1}${s2.slice(4)}`; if (ISO.test(s2)) due = s2; }
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(\d{1,2})\/(\d{1,2})(?=\W)/))) { let y = Number(today.slice(0, 4)), s2 = `${y}-${String(m[1]).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`; if (s2 < today) s2 = `${y + 1}${s2.slice(4)}`; if (ISO.test(s2)) due = s2; }
+    t = t.replace(/^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up)(\s+me)?(\s+(a|an|the|my))?(\s+new)?(\s+(task|to-?do|reminder|item))?(\s+(to|called|named|for|that says|saying|:))?\s*/i, " ")
+      .replace(/^\s*remind me to\s*/i, " ").replace(/\s+(to|on|in)\s+my\s+(list|planner|tasks|to-?do list)\b/i, " ").replace(/\s+(please|thanks|thank you)\s*$/i, " ")
+      .replace(/\s+(due|by|on|at|for)\s*$/i, " ").replace(/\s+/g, " ").trim().replace(/[.?!,;:]+$/, "");
+    if (t.length < 2) return null;
+    const type = /^\s*remind me\b/i.test(q) ? "Other" : /\b(exam|midterm|final)\b/i.test(t) ? "Exam" : /\bquiz\b/i.test(t) ? "Quiz" : /\btest\b/i.test(t) ? "Exam" : /\b(read|reading|chapter)\b/i.test(t) ? "Reading" : /\blab\b/i.test(t) ? "Lab" : /\bproject\b/i.test(t) ? "Project" : /\b(study|review)\b/i.test(t) ? "Study" : /\b(homework|assignment|essay|paper|problem set|worksheet)\b/i.test(t) ? "Assignment" : "Other";
+    return {title: t.charAt(0).toUpperCase() + t.slice(1), due, time, type};
+  }
+  // An answer that says something was done when nothing was (no change, task, timer or place to show)
+  const CLAIMS = /\b(i('ve| have)?|we('ve| have)?)\s+(just\s+)?(added|created|started|set( up)?|scheduled|changed|updated|moved|deleted|removed|renamed)\b|\b(has|have) been (added|created|started|set|scheduled|changed|updated|moved|deleted|removed)\b|\b(is|are) (now )?(added|set|started|running|scheduled|on your list)\b|\b(i'?ll|i will|let'?s|we'?ll)\s+(go ahead and\s+)?(set|start|add|create|schedule)\b[^.!?]{0,40}\b(timer|focus|pomodoro|reminder|task|alarm|event)\b|\bthe app will start\b/i;
+
   /* ---------- 8. Asking ---------- */
   const VISUAL = /\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit|wrote|written|graph|chart|map)\b/i;
   async function ask(q, o){
@@ -72763,7 +72907,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Reply to exactly what they said: add more only when it clearly helps with what they asked, never as filler, and a hello or thanks just gets a short friendly reply (no news about yourself and no question back unless they asked how you are). Use the student's own data below.\n${RULES}`;
     const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
     const callAI = free => aiCall({task: "assist", maxTokens: 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
-      system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": []}. The answer is the reply itself, never a placeholder.` : system});
+      system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": [], "focusMinutes": 0}. The answer is the reply itself, never a placeholder.` : system});
     // Always a real answer: the format, the format again, then a free reply; a moment between tries after an error. If the
     // AI can't be reached at all, the best match search finds is offered (and shown), made on this device.
     const junk = x => { x = String(x == null ? "" : x).trim(); return x.length < 2 || /^(string|text|str|answer|reply|response|\.{2,}|…|n\/?a|null|undefined|none|<[^>]*>|\{[\s\S]*\}|\[[\s\S]*\])$/i.test(x); };
@@ -72784,7 +72928,18 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     }
     const d = r.data || {};
     // an answer that's only a command ("show N1") or a reference: said in words instead, naming what was found
-    const out = Object.assign({answer: clip(d.answer, 1200)}, resolve(d, cat.refs));
+    // a focus timer: the AI starts it with focusMinutes; if it only said so (small models often do), the app reads the request
+    const tm = timerMins(q), fm = Math.round(Number(d.focusMinutes) || 0);
+    let timer = 0;
+    if (fm >= 1 && fm <= 180 && (tm || /\b(timer|focus|pomodoro|session)\b/i.test(q))) timer = tm && tm.mins ? tm.mins : fm;
+    else if (tm && (!tm.mins || (tm.mins >= 1 && tm.mins <= 180))) timer = tm.mins || -1;
+    if (timer && startTimer(timer > 0 ? timer : 0)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running. You've got this!`, show: [], changes: [], timer: n2}; }
+    // asked to add a task, and the AI didn't write one (small models often just say they did): the app reads it from the request
+    const asked = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q);
+    if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Apply to add it."; } }
+    const out = Object.assign({answer: aiWholeSentence(clip(d.answer, 1200))}, resolve(d, cat.refs));
+    // never say something was done when the app wasn't asked to do it
+    if (!out.changes.length && !out.show.length && CLAIMS.test(out.answer)) out.answer = "I couldn't do that from here. Try asking another way, or do it in the app directly.";
     if (/^\s*((show|open|go to|see)\s+)?[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(out.answer) || junk(out.answer)) out.answer = out.show && out.show.length ? `Here it is: ${out.show[0].label}.` : out.changes && out.changes.length ? "Here's what I'd change." : "I couldn't find that. Try asking another way?";
     return out;
   }

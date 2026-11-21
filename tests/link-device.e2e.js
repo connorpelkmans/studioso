@@ -42,7 +42,8 @@ const fake = () => {
     const sents = (text.split(/Notes[^:]*:\n/)[1] || text).split(/(?<=\.)\s+/).filter(x => x.split(" ").length > 6).slice(0, 4);
     if (/"facts"/.test(sch)) return JSON.stringify({facts: sents});
     if (/"n"/.test(sch)) { const facts = [...text.matchAll(/^(\d+)\. (.*)$/gm)]; return JSON.stringify({deckTitle: "Active Transport", cards: facts.map(m => ({n: Number(m[1]), front: `Which statement is true: ${m[2].split(" ").slice(0, 7).join(" ")}?`, back: m[2].split(" ").slice(-6).join(" ")}))}); }
-    const s = (text.match(/(Primary|Secondary) fact \d+[^.]*\./g) || []).slice(0, 3);
+    // one-step cards (cards only, no quiz): from the "fact" sentences, else from the notes' own sentences
+    let s = (text.match(/(Primary|Secondary) fact \d+[^.]*\./g) || []).slice(0, 3); if (!s.length) s = sents.slice(0, 3);
     return JSON.stringify({deckTitle: "Active Transport", cards: s.map((b, i) => ({basis: b, front: `What does the pump do (${b.split(" ").slice(0, 3).join(" ")})?`, back: `Fact ${(/fact (\d+)/.exec(b) || [])[1]}: it keeps the gradient across the membrane, case ${i + 1}.`}))});
   }})};
 };

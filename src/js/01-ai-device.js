@@ -78,12 +78,23 @@ function devWhyText(){
 /* The first time, Chrome downloads its model (once, for every site). Chrome only starts that download from a click, so a click on
    anything AI starts it, and the request that follows waits for it with a progress line. */
 const DEV_AI_ACT = /(^|-)ai(-|$)|hint|explain|first-deck|^fd-|^cp-|companion|quiz|^lec-|^wb-/;
+// While Chrome downloads its model (one time), a pill at the bottom says so with the progress, whatever button started it, so an
+// answer that's waiting on the download doesn't just look slow
+function devDlPill(p){
+  let el = document.getElementById("devDlPill");
+  if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
+  if (!el) { el = document.createElement("div"); el.id = "devDlPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
+  const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
+  el.textContent = `Chrome is downloading its free AI (one time only)${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Your answer comes once it's ready.`;
+  requestAnimationFrame(() => el.classList.add("show"));
+}
 function devWarm(){
   if (DEVAI.kind !== "chrome" || DEVAI.warm || !["downloadable", "downloading"].includes(DEVAI.status)) return DEVAI.warm;
   try { if (navigator.userActivation && !navigator.userActivation.isActive) return null; } catch (e) {}
-  DEVAI.warm = self.LanguageModel.create(Object.assign(devOpts(false), {monitor(m){ m.addEventListener("downloadprogress", e => { DEVAI.progress = Number(e.loaded) || 0; try { fire("device-ai-progress", DEVAI.progress); } catch (x) {} }); }}))
-    .then(s => { try { s.destroy(); } catch (e) {} DEVAI.status = "available"; DEVAI.progress = 1; devNoteState(); try { scheduleRender(); } catch (e) {} return true; })
-    .catch(e => { DEVAI.warm = null; return false; });
+  devDlPill(DEVAI.progress || 0);
+  DEVAI.warm = self.LanguageModel.create(Object.assign(devOpts(false), {monitor(m){ m.addEventListener("downloadprogress", e => { DEVAI.progress = Number(e.loaded) || 0; devDlPill(DEVAI.progress < 1 ? DEVAI.progress : null); try { fire("device-ai-progress", DEVAI.progress); } catch (x) {} }); }}))
+    .then(s => { try { s.destroy(); } catch (e) {} DEVAI.status = "available"; DEVAI.progress = 1; devDlPill(null); devNoteState(); try { scheduleRender(); } catch (e) {} return true; })
+    .catch(e => { DEVAI.warm = null; devDlPill(null); return false; });
   return DEVAI.warm;
 }
 document.addEventListener("click", e => {
@@ -115,7 +126,7 @@ function devFit(parts, room){
 const devOrdered = s => { if (!s || typeof s !== "object") return s; if (Array.isArray(s)) return s.map(devOrdered);
   const o = Object.assign({}, s); if (o.properties) { o.propertyOrder = Object.keys(o.properties); o.properties = Object.fromEntries(Object.entries(o.properties).map(([k, v]) => [k, devOrdered(v)])); }
   if (o.items) o.items = devOrdered(o.items); return o; };
-const DEV_TAIL = "\n\nAnswer with JSON only, in exactly the requested format. Everything you write must be suitable for a school student.";
+const DEV_TAIL = "\n\nAnswer with JSON only, in exactly the requested format. Finish every sentence you start. Everything you write must be suitable for a school student.";
 // One request at a time: these models answer one thing at a time anyway, and progress lines stay true
 let devQueue = Promise.resolve();
 function devCall(o){ const run = devQueue.then(() => devRun(o)); devQueue = run.catch(() => {}); return run; }
@@ -159,7 +170,7 @@ async function devReadParts(parts, {onStatus, signal, auto}){
     if (!/^image\//.test(mime)) throw aiErr("device-files", `${L} can't read this kind of file. Studyboard AI or an AI key in Settings, AI Features can.`);
     if (onStatus) onStatus("Reading the words in your picture on this device…");
     const r = await SBOCR.readImage(d, {signal, onProgress: x => onStatus && onStatus(`Reading the words in your picture on this device… ${Math.round(x * 100)}%`)});
-    if (r.text.length >= 15 && r.conf >= OCR.unreadable) { out.push({text: `${DEV_OCR_SAID}${r.conf < OCR.hard ? " (parts were hard to read, so a few words may be wrong)" : ""}:\n\n${r.text}`}); continue; }
+    if (r.text.length >= 15 && r.conf >= OCR.unreadable) { if (onStatus) onStatus(`Read the words in your picture. ${devLabel()} is writing it up now…`); out.push({text: `${DEV_OCR_SAID}${r.conf < OCR.hard ? " (parts were hard to read, so a few words may be wrong)" : ""}:\n\n${r.text}`}); continue; }
     // no readable words: the model looks at the picture itself if it can (a diagram), else the student is told
     if (DEVAI.images && r.text.length < 15) { out.push(p); continue; }
     throw devUnreadable(r, "picture");
@@ -284,6 +295,46 @@ async function devWeb({sys, parts, json, out, temperature, signal, onStatus, aut
     }
   } finally { if (signal) signal.removeEventListener("abort", stop); webRest(); }
 }
+/* One Chrome session per set of instructions, kept for three minutes and copied (clone) for each request: the long
+   instructions and examples are read once, not again for every part of the notes (on a laptop running the model on its processor
+   that reading takes several seconds a request). Each copy is thrown away after its answer, so requests never see each other. */
+const devBase = new Map();
+async function devSession(sys, pics, signal){
+  const key = (pics ? "p:" : "t:") + sys, make = () => self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}]}));
+  let b = devBase.get(key);
+  if (!b) {
+    b = {p: make()}; devBase.set(key, b); b.p.catch(() => devBase.delete(key));
+    while (devBase.size > 3) { const [k, v] = devBase.entries().next().value; devBase.delete(k); clearTimeout(v.t); v.p.then(x => x.destroy()).catch(() => {}); }
+  }
+  clearTimeout(b.t); b.t = setTimeout(() => { if (devBase.get(key) === b) devBase.delete(key); b.p.then(x => x.destroy()).catch(() => {}); }, 180000);
+  const base = await b.p;
+  if (typeof base.clone === "function") { try { return await base.clone({signal}); } catch (e) { if (signal && signal.aborted) throw e; } }
+  return self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}], signal}));
+}
+// The answer as it's written, so the student sees it moving ("Writing… 120 words so far") instead of a frozen status. Chrome has
+// sent each piece on its own (newer) or the whole answer so far (older): both are handled
+async function devStream(s, content, json, signal, onStatus){
+  let text = "", last = 0; const t0 = Date.now();
+  const stream = s.promptStreaming([{role: "user", content}], {responseConstraint: json, signal});
+  for await (const chunk of stream) {
+    const c = String(chunk == null ? "" : chunk);
+    text = c.startsWith(text) && text ? c : text + c;
+    if (Date.now() - last > 400) { last = Date.now(); const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); }
+  }
+  return text;
+}
+/* Getting the model ready ahead of time: when a screen that makes something with AI opens (Flashcards, Photo to Note), the model
+   loads while the student picks files, instead of after they press Create; that first load is most of the wait the first time.
+   With the instructions it will use (sys), they're read now too. Nothing is downloaded: only a model already on the computer. */
+function devPrewarm(sys){
+  try {
+    if (!devAllowed() || aiCfg().provider !== "device" || DEVAI.status !== "available") return;
+    // (the instructions exactly as aiCall sends them: the student's area of study and the copying rule added, then the device's tail)
+    if (sys) { try { if (window.SBAREA) sys = SBAREA.aiSystem(sys); } catch (e) {} sys = aiCopyRule(sys, "cards"); }
+    if (DEVAI.kind === "chrome") { if (sys) devSession(String(sys) + DEV_TAIL, false).then(x => x.destroy(), () => {}); else self.LanguageModel.create(devOpts(false)).then(x => setTimeout(() => { try { x.destroy(); } catch (e) {} }, 60000), () => {}); }
+    else if (DEVAI.kind === "webllm") webEngine().then(() => webRest(), () => {});
+  } catch (e) {}
+}
 async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
   const L = devLabel();
   if (DEVAI.status !== "available") {
@@ -295,7 +346,7 @@ async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
     try { if (!(await w)) { await devProbe(); throw aiErr("device-failed", DEVAI.why === "removed-full" || DEVAI.why === "cant" ? devWhyText() : `${L} couldn't finish downloading. Check your connection and that there's at least 22 GB free, then try again.`); } } finally { clearInterval(iv); }
   }
   let s;
-  try { s = await self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}], signal})); }
+  try { s = await devSession(sys, pics, signal); }
   catch (e) { if (signal && signal.aborted) throw aiErr("aborted", "Stopped."); devProbe(); throw Object.assign(aiErr("device-failed", `${L} couldn't start. Try again in a moment.`), {detail: String(e && e.message || e)}); }
   try {
     const content = () => parts.map(p => p.inline_data ? {type: "image", value: devBlob(p.inline_data.data, p.inline_data.mime_type)} : {type: "text", value: p.text});
@@ -303,7 +354,7 @@ async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
     let truncated = devFit(parts, room());
     for (let tries = 0; ; tries++) {
       try {
-        const text = await s.prompt([{role: "user", content: content()}], {responseConstraint: json, signal});
+        const text = onStatus && typeof s.promptStreaming === "function" ? await devStream(s, content(), json, signal, onStatus) : await s.prompt([{role: "user", content: content()}], {responseConstraint: json, signal});
         const data = aiParseJson(text);
         if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
         return {data, model: "chrome-built-in", provider: "device", truncated};

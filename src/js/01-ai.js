@@ -636,6 +636,19 @@ function aiGateSyllabus(items, today){
 function aiCleanCites(text, n){ return aiNoFieldEcho(String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "")).trim(); }
 // A small model sometimes writes another field of its answer into the text ("Found: false. There are no notes..."): taken out
 const aiNoFieldEcho = t => String(t || "").replace(/^\s*(found|answer|response|reply|status)\s*[:=]\s*(true|false|yes|no|ok)?\s*[.,;:-]?\s*/i, "");
+// A small model's answer that stops mid-phrase ("I found your sticky note about being grumpy on the"): trimmed back to the last
+// whole thought and ended properly ("...about being grumpy."). Left alone when there's too little left to make sense.
+const AI_DANGLE = /[\s,;:\u2013\u2014-]*\b(the|a|an|on|of|to|and|or|but|with|about|your|my|for|in|at|by|from|into|onto|that|this|these|those|is|are|was|were|be|as|than|so|if|when|because|their|its|our|his|her|which|who|like|over|under|after|before|during|between)\s*$/i;
+function aiWholeSentence(text){
+  const t = String(text == null ? "" : text).trim();
+  if (!t || /[.!?\u2026)"'\u201d\u2019\]:]$/.test(t)) return t;
+  if (!AI_DANGLE.test(t)) return t;
+  let s = t;
+  for (let i = 0; i < 5 && AI_DANGLE.test(s); i++) s = s.replace(AI_DANGLE, "");
+  s = s.replace(/[\s,;:\u2013\u2014-]+$/, "");
+  if (s.split(/\s+/).length < 3) return t;
+  return s + ".";
+}
 // Quick add: true when reading the sentence on this device is enough
 function qaConfident(text, t){
   const s = String(text || "");
@@ -1019,6 +1032,8 @@ async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
 // The model picker shown in every AI sheet
 function aiModelBar(){
   const c = aiCfg();
+  // The AI on this computer: no menu (there's nothing to pick), just what it is, and where to add a model of their own
+  if (c.provider === "device") return `<div class="ai-model-bar">${AI_ICON}<span class="mini">Free AI, runs on your computer: ${esc(devLabel())}</span><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></div>`;
   if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% used, last 7 days` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
   const groups = aiModelOpts(c.keys, `${c.provider}|${c.model}`, (p, P) => p === c.provider && !P.models.some(x => x[0] === c.model) ? `<option value="${p}|${esc(c.model)}" selected>${esc(aiModelName(p, c.model))}</option>` : "");
   return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Model</span><select data-ai-model aria-label="AI model">${groups}</select><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></label>`;
@@ -1367,7 +1382,7 @@ const aiOnDevice = () => { try { return aiCfg().provider === "device"; } catch (
 const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
   deckTitle: {type: "STRING", description: "Short name for these cards, 2 to 6 words"},
   cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
-    basis: {type: "STRING", description: "The sentence from the notes this card is based on, copied exactly"},
+    basis: {type: "STRING", description: "3 to 8 words copied exactly from the sentence in the notes this card is based on"},
     front: {type: "STRING"}, back: {type: "STRING"},
     hint: {type: "STRING", description: "A one-sentence nudge that helps recall the back without using its words"}}, required: ["basis", "front", "back"]}}},
   required: ["cards"]};
@@ -1499,21 +1514,31 @@ async function aiDevFactQuiz(x, o){
   return {questions: out, title: b.data.title, truncated: F.truncated || b.truncated};
 }
 async function aiCardsBySection(o){
-  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0;
-  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE : o.system,
-    parts: dev ? [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from these notes, each about a different fact, going through them in order.${again ? " Your last answer had too few usable cards: give each card a real question and a complete answer." : ""}`}]
+  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0, made = 0;
+  // On the device, "Auto" aims for the whole set in about a minute: after each part, the parts still to do get as many cards as
+  // the time left allows at the speed so far (at least 2 each, so every part is still covered)
+  const t0 = Date.now(), BUDGET = 60000;
+  const fit = x => { if (!dev || o.n || !made || !done) return x; const per = (Date.now() - t0) / made, left = n - done, room = Math.max(0, BUDGET - (Date.now() - t0));
+    return Object.assign({}, x, {count: Math.max(Math.min(2, x.count), Math.min(x.count, Math.floor(room / per / left)))}); };
+  const tell = () => { if (o.onStatus) o.onStatus(`Making flashcards: ${made} card${made === 1 ? "" : "s"} so far, part ${Math.min(done + 1, n)} of ${n}`); };
+  // on the device, the answer being written shows in the status line too
+  const live = dev && o.onStatus ? m => { const w = /writing… (\d+) words?/.exec(m); if (w) o.onStatus(`Making flashcards: ${made} card${made === 1 ? "" : "s"} so far, part ${Math.min(done + 1, n)} of ${n} (writing ${w[1]} words)`); } : undefined;
+  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, onStatus: live, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE : o.system,
+    parts: dev ? [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from these notes, each about a different fact: the most important ones, spread across all of these notes.${again ? " Your last answer had too few usable cards: give each card a real question and a complete answer." : ""}`}]
       : [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
-  const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
+  const res = await aiPool(plan, dev ? 1 : 3, async (x0, i) => {
     let unsup = 0;
-    const corpus = aiCorpus([x.section.text]);
-    if (dev && DEV_STEPS.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
-      if (f && f.cards.length >= Math.min(2, x.count)) { if (o.onStatus) o.onStatus(`Making flashcards: ${++done} of ${n} parts done`); return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
+    const x = fit(x0), corpus = aiCorpus([x.section.text]);
+    if (dev && i === 0) tell();
+    if (dev && DEV_STEPS.facts && o.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+      if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
     const gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
     let cards = g.cards, checked = {fixed: 0, dropped: 0};
     if (dev && DEV_STEPS.check && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
-    if (o.onStatus) o.onStatus(`Making flashcards: ${++done} of ${n} parts done`);
+    done++; made += cards.length;
+    if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`);
     return {cards: cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
@@ -1664,7 +1689,7 @@ async function aiMakeStudySet(opts, onStatus){
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
   if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
   // A new student's first set: made free by Studyboard's cloud AI (01-ai-first.js); the device makes it if that isn't available
-  const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}) : null;
+  const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus, facts: !!quiz}) : null;
   let fromCloud = false;
   if (cards && opts.first && !(style && style !== "Clear, exam-focused study material.") && aiOnDevice() && aiFirstDeckOk()) jobs.push(aiFirstDeck({sources, courseName, count: nCards, signal, onStatus}).then(f => { if (!f) return cardsJob() || cardsOne(); fromCloud = true; return {data: {cards: f.cards, deckTitle: f.deckTitle}, truncated: false}; }));
   else if (cards && secs) jobs.push(cardsJob());
@@ -1758,6 +1783,8 @@ function aiStudySheet(deckId, mode){
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
   </form>`);
   const sheetEl = dlg.querySelector(".ai-sheet"), inS = q => sheetEl.querySelector(q);
+  // the AI on this computer loads (and reads its card instructions) while the student adds their material
+  devPrewarm(DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE);
   sheetKeep(keyK, {name: aiWho("AI"), busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) try { job.ac.abort(); } catch (e) {} },
     dirty: () => job.busy || job.sources.length > 0 || !!(inS("#aiPaste") && inS("#aiPaste").value.trim()) || !!(inS("#aiLink") && inS("#aiLink").value.trim()) || !!(inS("#aiStyle") && inS("#aiStyle").value.trim() && !(deck && inS("#aiStyle").value.trim() === String(deck.aiStyle || "").trim()))});
   if (mode === "cards" || mode === "quiz") {
@@ -2601,3 +2628,6 @@ function aiPlannerFacts(need){
   } catch (e) {}
   return L.join("\n\n");
 }
+// Tests and ml/ (the custom model's data generator and scorer) use the app's own quality checks, never a copy of them
+if (window.__SB_TEST) window.__sbAIGates = {parse: aiParseJson, corpus: aiCorpus, copyIndex: aiCopyIndex, copied: aiCopied, basis: aiBasisOk, defers: aiDefers,
+  cards: (list, o) => aiGateCards(list, o), questions: (list, o) => aiGateQuestions(aiCleanQuestions(list), o), cleanQuestions: aiCleanQuestions};

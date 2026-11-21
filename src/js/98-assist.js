@@ -141,6 +141,7 @@ window.SBLOCALANS = (() => {
   const FIELDS = ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete",
     "name", "code", "instructor", "room", "date", "from", "to", "where", "weekday", "skip", "front", "back", "stem", "answer", "explanation", "options", "correct", "text", "setting"];
   const SHOW_CHANGE = {
+    focusMinutes: {type: "INTEGER", description: "When the student asks to start a focus timer, focus session or pomodoro: its length in minutes (use 25 if they gave none). The app starts it right away. 0 otherwise."},
     show: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (like T3, K12, P4, W2) of what the student asked to find or see, most relevant first. Empty when they didn't ask to find anything and nothing is being changed."},
     changes: {type: "ARRAY", description: "Changes to make, ONLY when the student asked for a change. The app shows each one and asks them to confirm. Empty otherwise.", items: {type: "OBJECT", properties: {
       ref: {type: "STRING", description: "The ref of the thing to change, or SETTINGS for an app setting"},
@@ -172,6 +173,7 @@ CHANGING THINGS: when (and only when) the student asks to change something, add 
 - file (P): name (keep the file's extension); course (a C ref); delete yes
 - app settings: ref SETTINGS, field setting, "setting" = which setting in words, value = the new value in words or a number (like "off", "dark", "4", "Spanish").
 ADDING TASKS: when the student asks to add, create or remember something to do (homework, an exam, a reading, a reminder to study), put each one in "newTasks": a short clear title, its course ref when it's for a course, its type, the due date worked out from TODAY (like "next Friday"), a time only if they gave one, and priority high for exams. Several at once is fine ("add the readings for each week"). Never say they're added: the student confirms them first.
+FOCUS TIMER: when the student asks to start a focus timer, focus session or pomodoro ("start a 5 minute timer"), set "focusMinutes" to its length (25 if they didn't say) and say it's starting. The app starts it.
 Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
 
   /* ---------- 4. Checking what came back ---------- */
@@ -577,6 +579,56 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   // a couple of boards at a time, once the app has been quiet a while
   setTimeout(function tick(){ try { if (!document.hidden) describeBoards(2); } catch (e) {} setTimeout(tick, 6 * 60000); }, 45000);
 
+  /* ---------- 7b. Requests done in code ---------- */
+  // A focus timer, and a new task when the AI didn't write one: done by the app itself, so they never depend on the AI getting the
+  // format right (small on-device models say "I've set a timer" or "I added it" without asking the app to)
+  const NUMW = {one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, fifteen: 15, twenty: 20, "twenty-five": 25, "twenty five": 25, thirty: 30, forty: 40, "forty-five": 45, "forty five": 45, fifty: 50, sixty: 60, ninety: 90};
+  function timerMins(q){
+    const s = String(q || "").toLowerCase();
+    if (!/\b(timer|focus|pomodoro|study session|focus session)\b/.test(s)) return null;
+    if (/^\s*(how|what|when|why|where|which|did|do|does|is|are)\b/.test(s) || /\b(stop|pause|end|cancel|reset|turn off)\b/.test(s)) return null;
+    let m = s.match(/(\d{1,3}(?:\.\d+)?)\s*-?\s*(minutes?|mins?|m|hours?|hrs?|h)\b/), mins = 0;
+    if (m) mins = Number(m[1]) * (/^h/.test(m[2]) ? 60 : 1);
+    else if ((m = s.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty[- ]five|twenty|thirty|forty[- ]five|forty|fifty|sixty|ninety)\s*-?\s*(minutes?|mins?|hours?)\b/))) mins = NUMW[m[1]] * (/^h/.test(m[2]) ? 60 : 1);
+    else if (/\bhalf an hour\b/.test(s)) mins = 30; else if (/\b(an|one) hour\b/.test(s)) mins = 60;
+    const start = /\b(start|begin|set|run|put on|give me|make|time me|let'?s|can you|could you|please|i want|i need|focus for)\b/.test(s);
+    if (!start && !mins) return null;
+    return {mins: Math.round(mins)};
+  }
+  function startTimer(mins){
+    if (typeof pomoStart !== "function") return false;
+    if (pomo.running || pomo.left > 0) pomoReset();
+    pomo.taskId = ""; pomo.mode = "focus"; pomo.left = 0; pomo.len = 0; pomo.preset = mins > 0 ? mins : 0; pomoSave();
+    pomoStart();
+    return pomo.running;
+  }
+  const APPQ_HOW = /^\s*(how|where|can i|is there|what)\b/i;
+  const ADD_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up|new)\b|\bremind me to\b/i;
+  const ADD_WHAT = /\b(task|to-?do|reminder|assignment|homework|exam|quiz|test|midterm|final|reading|essay|paper|project|lab|study|remind me)\b/i;
+  // "add a task to email Dr. Lee tomorrow at 3pm" -> {title: "Email Dr. Lee", due, time}
+  function localTask(q){
+    const today = todayISO(), WD = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"], MO = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    let t = " " + String(q || "").replace(/\s+/g, " ").trim() + " ", due = "", time = "", m;
+    const cut = re => { const x = t.match(re); if (x) t = t.replace(x[0], " "); return x; };
+    if ((m = cut(/\s(?:at|by|@)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)(?=\W)/i))) { let h = Number(m[1]) % 12; if (/^p/i.test(m[3])) h += 12; time = String(h).padStart(2, "0") + ":" + (m[2] || "00"); }
+    if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(today|tonight)(?=\W)/i))) due = today;
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(tomorrow)(?=\W)/i))) due = addDays(today, 1);
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?next week(?=\W)/i))) due = addDays(today, 7);
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(?:(this|next)\s+)?(sun|mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?)(?:day)?(?=\W)/i))) {
+      const w = WD.findIndex(x => x.startsWith(m[2].toLowerCase().slice(0, 3))), d0 = new Date(today + "T12:00:00").getDay(); let k = (w - d0 + 7) % 7; if (k === 0) k = 7; due = addDays(today, k); }
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?=\W)/i))) {
+      const mo = MO.indexOf(m[1].toLowerCase().slice(0, 3)) + 1; let y = Number(today.slice(0, 4)), s2 = `${y}-${String(mo).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`; if (s2 < today) s2 = `${y + 1}${s2.slice(4)}`; if (ISO.test(s2)) due = s2; }
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(\d{1,2})\/(\d{1,2})(?=\W)/))) { let y = Number(today.slice(0, 4)), s2 = `${y}-${String(m[1]).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`; if (s2 < today) s2 = `${y + 1}${s2.slice(4)}`; if (ISO.test(s2)) due = s2; }
+    t = t.replace(/^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up)(\s+me)?(\s+(a|an|the|my))?(\s+new)?(\s+(task|to-?do|reminder|item))?(\s+(to|called|named|for|that says|saying|:))?\s*/i, " ")
+      .replace(/^\s*remind me to\s*/i, " ").replace(/\s+(to|on|in)\s+my\s+(list|planner|tasks|to-?do list)\b/i, " ").replace(/\s+(please|thanks|thank you)\s*$/i, " ")
+      .replace(/\s+(due|by|on|at|for)\s*$/i, " ").replace(/\s+/g, " ").trim().replace(/[.?!,;:]+$/, "");
+    if (t.length < 2) return null;
+    const type = /^\s*remind me\b/i.test(q) ? "Other" : /\b(exam|midterm|final)\b/i.test(t) ? "Exam" : /\bquiz\b/i.test(t) ? "Quiz" : /\btest\b/i.test(t) ? "Exam" : /\b(read|reading|chapter)\b/i.test(t) ? "Reading" : /\blab\b/i.test(t) ? "Lab" : /\bproject\b/i.test(t) ? "Project" : /\b(study|review)\b/i.test(t) ? "Study" : /\b(homework|assignment|essay|paper|problem set|worksheet)\b/i.test(t) ? "Assignment" : "Other";
+    return {title: t.charAt(0).toUpperCase() + t.slice(1), due, time, type};
+  }
+  // An answer that says something was done when nothing was (no change, task, timer or place to show)
+  const CLAIMS = /\b(i('ve| have)?|we('ve| have)?)\s+(just\s+)?(added|created|started|set( up)?|scheduled|changed|updated|moved|deleted|removed|renamed)\b|\b(has|have) been (added|created|started|set|scheduled|changed|updated|moved|deleted|removed)\b|\b(is|are) (now )?(added|set|started|running|scheduled|on your list)\b|\b(i'?ll|i will|let'?s|we'?ll)\s+(go ahead and\s+)?(set|start|add|create|schedule)\b[^.!?]{0,40}\b(timer|focus|pomodoro|reminder|task|alarm|event)\b|\bthe app will start\b/i;
+
   /* ---------- 8. Asking ---------- */
   const VISUAL = /\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit|wrote|written|graph|chart|map)\b/i;
   async function ask(q, o){
@@ -588,7 +640,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Reply to exactly what they said: add more only when it clearly helps with what they asked, never as filler, and a hello or thanks just gets a short friendly reply (no news about yourself and no question back unless they asked how you are). Use the student's own data below.\n${RULES}`;
     const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
     const callAI = free => aiCall({task: "assist", maxTokens: 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
-      system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": []}. The answer is the reply itself, never a placeholder.` : system});
+      system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": [], "focusMinutes": 0}. The answer is the reply itself, never a placeholder.` : system});
     // Always a real answer: the format, the format again, then a free reply; a moment between tries after an error. If the
     // AI can't be reached at all, the best match search finds is offered (and shown), made on this device.
     const junk = x => { x = String(x == null ? "" : x).trim(); return x.length < 2 || /^(string|text|str|answer|reply|response|\.{2,}|…|n\/?a|null|undefined|none|<[^>]*>|\{[\s\S]*\}|\[[\s\S]*\])$/i.test(x); };
@@ -609,7 +661,18 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     }
     const d = r.data || {};
     // an answer that's only a command ("show N1") or a reference: said in words instead, naming what was found
-    const out = Object.assign({answer: clip(d.answer, 1200)}, resolve(d, cat.refs));
+    // a focus timer: the AI starts it with focusMinutes; if it only said so (small models often do), the app reads the request
+    const tm = timerMins(q), fm = Math.round(Number(d.focusMinutes) || 0);
+    let timer = 0;
+    if (fm >= 1 && fm <= 180 && (tm || /\b(timer|focus|pomodoro|session)\b/i.test(q))) timer = tm && tm.mins ? tm.mins : fm;
+    else if (tm && (!tm.mins || (tm.mins >= 1 && tm.mins <= 180))) timer = tm.mins || -1;
+    if (timer && startTimer(timer > 0 ? timer : 0)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running. You've got this!`, show: [], changes: [], timer: n2}; }
+    // asked to add a task, and the AI didn't write one (small models often just say they did): the app reads it from the request
+    const asked = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q);
+    if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Apply to add it."; } }
+    const out = Object.assign({answer: aiWholeSentence(clip(d.answer, 1200))}, resolve(d, cat.refs));
+    // never say something was done when the app wasn't asked to do it
+    if (!out.changes.length && !out.show.length && CLAIMS.test(out.answer)) out.answer = "I couldn't do that from here. Try asking another way, or do it in the app directly.";
     if (/^\s*((show|open|go to|see)\s+)?[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(out.answer) || junk(out.answer)) out.answer = out.show && out.show.length ? `Here it is: ${out.show[0].label}.` : out.changes && out.changes.length ? "Here's what I'd change." : "I couldn't find that. Try asking another way?";
     return out;
   }

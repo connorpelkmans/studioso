@@ -344,6 +344,8 @@ function photoNoteSheet(file){
     const ph = S.phone = PHONE_CAM.start({kind: "notes", onPhoto: f => add([f]), onChange: phoneDraw, alive: () => S.phone === ph && !S.dropped && !S.busy && !S.result && form.isConnected && dlg.open && dlg.contains(form)});
     phoneDraw();
   };
+  // the picture reader and the AI on this computer get ready while the student adds photos
+  devPrewarm(); try { SBOCR.warm(); } catch (e) {}
   sheetKeep(KK, {name: "Photo to Note", dirty: () => S.srcs.length > 0 || !!S.result, busy: () => S.busy,
     drop: () => { S.dropped = true; phoneStop(); S.urls.forEach(u => { if (u) try { URL.revokeObjectURL(u); } catch (e) {} }); if (S.ac) { try { S.ac.abort(); } catch (e) {} } },
     // set aside, the phone's session ended (it stops itself once the sheet isn't showing)
@@ -384,7 +386,7 @@ function photoNoteSheet(file){
     S.busy = true; const ac = S.ac = typeof AbortController === "function" ? new AbortController() : null;
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
-      const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
+      const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, signal: ac ? ac.signal : undefined, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.${aiOnDevice() ? " Keep the notes short: at most 200 words, as bullet points of the key points." : ""}`}),
         system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. The student's own handwriting and whiteboard writing may be transcribed as written; anything printed (slides, handouts, textbook pages) must be restated in your own words as concise notes, never copied sentence by sentence. Cover everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
       const d = r.data, cSel = $("#pnCourse").value, guess = coursesArr().find(c => (c.code || c.name).toLowerCase() === String(d.course || "").toLowerCase());
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};

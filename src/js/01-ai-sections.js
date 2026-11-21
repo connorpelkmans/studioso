@@ -13,7 +13,10 @@ const SBSECT = (() => {
   // Sizes, in words. A "small" engine (an on-device model) gets shorter sections and fewer cards per request.
   // per: words of material per card when the student picks "Auto". A small model is asked for one fact per card, so it gets more,
   // simpler cards (tested on a stand-in for the on-device models: at 45 it covered about a quarter of the key facts)
-  const SIZES = {cloud: {min: 90, max: 650, maxSections: 14, perSection: 8, onlyOver: 900, per: 45}, small: {min: 60, max: 280, maxSections: 24, perSection: 7, onlyOver: 0, per: 26}};
+  const SIZES = {cloud: {min: 90, max: 650, maxSections: 14, perSection: 8, onlyOver: 900, per: 45}, small: {min: 60, max: 600, maxSections: 8, perSection: 8, onlyOver: 0, per: 50, autoMax: 32}};
+  // (small: a few bigger parts instead of many small ones, and about 30 cards for "Auto": each request costs an on-device model
+  // seconds before it writes anything, and a laptop running it on its processor writes about 10 words a second, so 13 parts of
+  // 60 cards took students several minutes. The quality steps stay: examples, the source of each card checked, one fact a card)
   // Material with nothing to study in it: skipped (folded into nothing) when its title says so
   const FLUFF = /^(references?|bibliography|works cited|citations|sources|acknowledg(e)?ments?|(table of )?contents|agenda|outline|questions\??|any questions\??|thank(s| you)\b.*|the end|appendix [a-z]?\s*:?\s*(raw )?data|about the (author|instructor)|copyright.*|disclosures?)$/i;
   // A line that is a heading, and its level (1 is the top). Each rule is conservative: a sentence is never a heading.
@@ -139,7 +142,7 @@ const SBSECT = (() => {
   function plan(secs, total, kind){
     const S = SIZES[kind] || SIZES.cloud;
     if (!secs.length) return [];
-    const auto = !total, want = auto ? Math.max(secs.length, Math.min(60, Math.round(secs.reduce((n, s) => n + s.words, 0) / (S.per || 45)))) : total;
+    const auto = !total, want = auto ? Math.max(secs.length, Math.min(S.autoMax || 60, Math.round(secs.reduce((n, s) => n + s.words, 0) / (S.per || 45)))) : total;
     const w = secs.map(weight), W = w.reduce((a, b) => a + b, 0) || 1;
     const raw = w.map(x => want * x / W);
     const got = raw.map(x => Math.min(S.perSection, Math.floor(x)));

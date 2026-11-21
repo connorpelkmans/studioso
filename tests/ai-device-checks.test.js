@@ -34,4 +34,11 @@ eval(src.match(/const aiNoFieldEcho = [^\n]+/)[0].replace("const ", "var "));
 ok(aiNoFieldEcho("Found: false. There are no notes about that.") === "There are no notes about that.", "'Found: false.' is taken out of an answer");
 ok(aiNoFieldEcho("Answer: The Krebs cycle makes NADH.") === "The Krebs cycle makes NADH.", "'Answer:' too");
 ok(aiNoFieldEcho("Found in your notes: the Krebs cycle.") === "Found in your notes: the Krebs cycle.", "but ordinary sentences are left alone");
+// a small model's answer that stops mid-phrase is ended at its last whole thought
+eval(src.match(/const AI_DANGLE = [^\n]+/)[0].replace("const ", "var ") + "\n" + fn("aiWholeSentence"));
+ok(aiWholeSentence("I found your sticky note about being grumpy on the") === "I found your sticky note about being grumpy.", "'...grumpy on the' ends as '...grumpy.'");
+ok(aiWholeSentence("Your bio quiz is tomorrow, so review the cards and") === "Your bio quiz is tomorrow, so review the cards.", "a dangling 'and' goes too");
+ok(aiWholeSentence("Here it is!") === "Here it is!" && aiWholeSentence("Due Friday: Lab 3") === "Due Friday: Lab 3", "finished answers and labels are left alone");
+ok(aiWholeSentence("It is the") === "It is the", "too little left to make sense: unchanged");
+ok(aiWholeSentence("You have three tasks due today") === "You have three tasks due today", "an answer that doesn't dangle is left as it is");
 console.log(`ai-device-checks: ${n} checks passed`);

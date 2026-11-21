@@ -1235,7 +1235,9 @@
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
-  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; askFlow = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
+  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; askFlow = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300);
+    // still waiting on the AI (a tap said something over the dots): the dots come back
+    try { if (thinkWant) aiThinkingAgain(); } catch (e) {} }
   let bRects = null, bRectsAt = 0;
   const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects({t: 0, b: innerHeight}); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
@@ -1335,6 +1337,7 @@
   }
   /* Thinking: three dots in a bubble while the student waits on the AI (after any "On it!" line has had its moment) */
   let thinkT = 0, thinkWant = false;
+  function aiThinkingAgain(){ clearTimeout(thinkT); thinkT = setTimeout(() => { if (thinkWant) aiThinking(true); }, 700); }
   function aiThinking(on){
     clearTimeout(thinkT); thinkWant = on;
     const b = front && front.querySelector(".cp-bubble");
@@ -2168,7 +2171,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     let found = ""; if (!screen) { try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(clean, {max: 4, chars: 800, readWait: 3}) : null; if (R && R.text) found = `\n\nFOUND IN THEIR FILES, NOTES AND CARDS:\n"""\n${R.text}\n"""`; } catch (e) {} }
     const d = await aiRun("ask", () => { sum = aiSummary(); return {system: screen ? ASK_SCREEN_SYSTEM : ASK_SYSTEM, text: `${sum.text}${screen}${found}\n\nThe student asks: ${clean}`, schema: screen ? ASK_SCREEN_SCHEMA : ASK_SCHEMA, maxTokens: screen ? 1400 : 600}; });
     if (!d) { const s = aiRead(); return {why: s.err === "limit" ? "I've used up my thinking for now. Ask me again later?" : s.err === "offline" ? "I need the internet for that one. Try again soon?" : ""}; }
-    const answer = cleanLine(d.answer, screen ? 650 : found ? 400 : 220, BAD_ASK);
+    const answer = aiWholeSentence(cleanLine(d.answer, screen ? 650 : found ? 400 : 220, BAD_ASK));
     if (!answer) return {why: ""};
     const idea = cleanIdea({text: d.action === "focus" ? "Start a focus on it?" : "Review some flashcards?", action: d.action, ref: d.ref}, sum.refs);
     return {answer, idea: idea && ideaValid(idea) ? Object.assign(idea, {yes: d.action === "focus" ? "Start Focus" : "Review"}) : null};

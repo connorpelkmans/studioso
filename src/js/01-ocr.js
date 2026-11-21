@@ -115,6 +115,9 @@ const SBOCR = (() => {
     const text = pages.map(p => p.lines.map(l => l.text).join("\n\n")).join("\n\n"), all = pages.filter(p => p.lines.length);
     return {pages, text, conf: all.length ? Math.round(all.reduce((a, p) => a + p.conf, 0) / all.length) : 0, cut: total > n, total};
   }
-  return {supported, readImage, readPdf, textOf, paras, confOf, OCR};
+  // Started when a screen that reads pictures opens, so the reader is ready by the time the student presses the button (the first
+  // start loads its engine and English data). Apple's reader needs no start. It closes again after a while idle, as usual
+  function warm(){ try { if (devNative && devNative() && DEVAI.kind === "apple") return; tessWorker().then(rest, () => {}); } catch (e) {} }
+  return {supported, readImage, readPdf, textOf, paras, confOf, OCR, warm};
 })();
 if (window.__SB_TEST) window.SBOCR = SBOCR;
