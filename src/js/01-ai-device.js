@@ -207,6 +207,15 @@ async function devApple({sys, parts, json, out, temperature, signal, auto}){
 const PAGE_API = "https://studyboardapp.com/api/page-text";
 async function devPageText(url, signal){
   const u = SBPAGE.safeUrl(url); if (!u) return {status: "bad"};
+  // The iPhone app first opens the page in an invisible browser view on the phone (StudyboardOnDeviceAI.readPage): a real browser on
+  // the student's own connection, so pages built by scripts work, and so do sites that only turn away simple readers
+  try {
+    const N = devNative();
+    if (N && typeof N.readPage === "function") {
+      const r = await N.readPage({url: u.href});
+      if (r && typeof r.html === "string") { const x = SBPAGE.extract(r.html, r.url || u.href); if (x.status === "ok") return Object.assign(x, {url: r.url || u.href, title: x.title || r.title || ""}); }
+    }
+  } catch (e) { const c = String((e && (e.code || e.message)) || ""); if (/^(paywall|pdf)$/.test(c)) return {status: c}; }
   try {
     const C = window.Capacitor, H = C && C.isNativePlatform && C.isNativePlatform() && C.getPlatform && C.getPlatform() === "ios" && C.Plugins && C.Plugins.CapacitorHttp;
     if (H && typeof H.get === "function") {

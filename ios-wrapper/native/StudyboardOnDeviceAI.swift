@@ -5,7 +5,7 @@
 // The page side is src/js/01-ai-device.js (devApple), which also sends only one request at a time, cuts long material to fit
 // the context, and uses the same quality steps as Chrome's built-in model (short sections, examples, a checking pass).
 //
-// Three calls:
+// Four calls:
 //   availability() -> {status: "available" | "downloading" | "unavailable", reason, contextSize, images}
 //   generate({system, prompt, schema, temperature}) -> {json} (with a schema) or {text}
 //     schema is JSON Schema (type, properties, propertyOrder, items, required, enum, description), turned into a
@@ -16,11 +16,17 @@
 //     Apple's Vision framework (iOS 13 and later, any iPhone), accurate mode with language correction: printed text and
 //     handwriting, read on the device. The page (src/js/01-ocr.js) puts the lines back into paragraphs; a taller line is a heading.
 //     Used for photos and scanned PDF pages, so the on-device model gets text. Positions are in pixels from the top left.
+//   readPage({url}) -> {html, url, title}
+//     Opens a web page in an invisible browser view on the phone (WebKit, like Safari, from the student's own connection), lets
+//     its scripts run, and returns the page as it ended up. For Cards From a Link: pages built by JavaScript, and sites that turn
+//     away simple readers but show the page to a browser. Nothing is kept: a private data store, no cookies kept, closed after.
+//     The page's text is extracted in the app (src/js/01-page-text.js). Only http and https; 15 seconds at most.
 //
 // Add to the App target (Xcode: File > Add Files to "App", untick "Copy items if needed"). MainViewController registers it.
 import Foundation
 import UIKit
 import Vision
+import WebKit
 import Capacitor
 #if canImport(FoundationModels)
 import FoundationModels
@@ -33,8 +39,10 @@ public class StudyboardOnDeviceAIPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "availability", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "generate", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "recognizeText", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "recognizeText", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readPage", returnType: CAPPluginReturnPromise)
     ]
+    private var readers: [StudyboardPageReader] = []
 
     @objc func availability(_ call: CAPPluginCall) {
         #if canImport(FoundationModels)
@@ -135,6 +143,24 @@ public class StudyboardOnDeviceAIPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    @objc func readPage(_ call: CAPPluginCall) {
+        guard let raw = call.getString("url"), let url = URL(string: raw), let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else {
+            call.reject("bad", "bad")
+            return
+        }
+        DispatchQueue.main.async {
+            let reader = StudyboardPageReader()
+            self.readers.append(reader)
+            reader.read(url) { result in
+                self.readers.removeAll { $0 === reader }
+                switch result {
+                case .success(let page): call.resolve(page)
+                case .failure(let e): call.reject(e.code, e.code)
+                }
+            }
+        }
+    }
+
     static func cgOrientation(_ o: UIImage.Orientation) -> CGImagePropertyOrientation {
         switch o {
         case .up: return .up
@@ -174,6 +200,66 @@ public class StudyboardOnDeviceAIPlugin: CAPPlugin, CAPBridgedPlugin {
         if d.contains("concurrent") { return "concurrent" }
         if d.contains("language") || d.contains("locale") { return "language" }
         return "failed"
+    }
+}
+
+// An invisible WKWebView that loads one page, waits for its scripts, and hands back the resulting HTML
+struct StudyboardReaderError: Error { let code: String }
+final class StudyboardPageReader: NSObject, WKNavigationDelegate {
+    private var web: WKWebView?
+    private var timer: Timer?
+    private var grabbed = false
+    private var finish: ((Result<[String: Any], StudyboardReaderError>) -> Void)?
+
+    func read(_ url: URL, completion: @escaping (Result<[String: Any], StudyboardReaderError>) -> Void) {
+        let cfg = WKWebViewConfiguration()
+        cfg.websiteDataStore = .nonPersistent()
+        cfg.mediaTypesRequiringUserActionForPlayback = .all
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 844), configuration: cfg)
+        web.navigationDelegate = self
+        self.web = web
+        finish = completion
+        timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in self?.grab(timedOut: true) }
+        web.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 12))
+    }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // give the page's scripts a moment to put its text in place
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.grab(timedOut: false) }
+    }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { end(.failure(StudyboardReaderError(code: "unreachable"))) }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { end(.failure(StudyboardReaderError(code: "unreachable"))) }
+    // only web pages: no app links, downloads or other schemes
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        let s = action.request.url?.scheme?.lowercased() ?? ""
+        decisionHandler(s == "https" || s == "http" || s == "about" ? .allow : .cancel)
+    }
+    func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        if let http = response.response as? HTTPURLResponse, response.isForMainFrame {
+            let code: String? = http.statusCode == 401 || http.statusCode == 402 ? "paywall"
+                : http.statusCode == 403 || http.statusCode == 429 ? "blocked"
+                : http.statusCode >= 400 ? "unreachable"
+                : http.mimeType == "application/pdf" ? "pdf" : nil
+            if let code = code { decisionHandler(.cancel); end(.failure(StudyboardReaderError(code: code))); return }
+        }
+        decisionHandler(.allow)
+    }
+    private func grab(timedOut: Bool) {
+        guard !grabbed, let web = web else { return }
+        grabbed = true
+        web.evaluateJavaScript("[document.documentElement.outerHTML, location.href, document.title]") { [weak self] value, _ in
+            guard let parts = value as? [Any], parts.count == 3, let html = parts[0] as? String else {
+                self?.end(.failure(StudyboardReaderError(code: timedOut ? "unreachable" : "empty")))
+                return
+            }
+            self?.end(.success(["html": String(html.prefix(2_000_000)), "url": parts[1] as? String ?? "", "title": parts[2] as? String ?? ""]))
+        }
+    }
+    private func end(_ result: Result<[String: Any], StudyboardReaderError>) {
+        timer?.invalidate(); timer = nil
+        guard let finish = finish else { return }
+        self.finish = nil
+        web?.stopLoading(); web?.navigationDelegate = nil; web = nil
+        finish(result)
     }
 }
 

@@ -117,8 +117,22 @@ const LINKCARDS = (() => {
     return " Heads up: one video can use up to two-thirds of your Studyboard AI for the last 7 days (only its first 90 minutes are read)." +
       (used >= 34 ? ` You've used ${used}%, so this video may reach your limit, and Studyboard AI would then stop until some of your use is 7 days old.` : " If you reach your limit, Studyboard AI stops until some of your use is 7 days old.");
   };
+  // put copied text in the paste box (after Open the Page): read from the clipboard on the student's tap, tidied
+  async function pasteCopied(){
+    let t = ""; try { t = await navigator.clipboard.readText(); } catch (x) {}
+    const d = document.getElementById("aiPasteD"), box = document.getElementById("aiPaste"), st = document.getElementById("aiStatus");
+    if (!box) return;
+    if (!t || SBPAGE.words(t) < 30) { if (d) d.open = true; box.focus(); if (st) st.textContent = "Nothing long enough was copied. Select the article's text, copy it, and paste it here."; return; }
+    if (d) d.open = true; box.value = SBPAGE.cleanText(t); box.dispatchEvent(new Event("input", {bubbles: true})); box.scrollIntoView({block: "center"});
+    if (st) st.textContent = `Pasted ${SBPAGE.words(box.value).toLocaleString()} words from the page. Tap Create when you're ready.`;
+  }
+  // back from the page they opened: point them at the paste
+  let openedAt = 0;
+  window.addEventListener("focus", () => { if (openedAt && Date.now() - openedAt > 1500) { openedAt = 0; const b = document.querySelector('[data-cl="clip"]'); if (b) { b.classList.add("primary"); b.focus(); } } });
   document.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-cl]"); if (!b) return;
+    if (b.dataset.cl === "open") { openedAt = Date.now(); return; }
+    if (b.dataset.cl === "clip") { pasteCopied(); return; }
     if (b.dataset.cl === "paste") {
       const r = document.querySelector('input[name="aiYtWay"][value="paste"]'), w = document.getElementById("aiYtWay");
       if (r && w && !w.hidden) { r.checked = true; linkHint(); const t = document.getElementById("aiYtTr"); if (t) { t.focus(); t.scrollIntoView({block: "center"}); } return; }
@@ -175,8 +189,8 @@ const LINKCARDS = (() => {
       fetched = await devPageText(L.url, signal);
       if (fetched.status !== "ok") {
         const st = fetched.status === "paywall" ? "paywall" : fetched.status === "empty" ? "empty" : "unreachable";
-        const msg = fetched.status === "blocked" ? "That site doesn't let apps read its pages. Copy the article's text and use Paste the Text Instead." : fetched.status === "needs_js" ? "That page builds its text in your browser, so Studyboard can't read it from the link. Copy the article's text and use Paste the Text Instead." : fetched.status === "pdf" ? "That link is a PDF. Download it and add it with Add Files instead." : fetched.status === "busy" ? "Too many pages in a short time. Wait a minute and try again." : fetched.status === "offline" ? "Couldn't reach the page. Check your connection and try again." : fetched.status === "not_page" ? "That link isn't a web page (it may be a picture or a download)." : failMsg(st, L);
-        throw Object.assign(aiErr("link-" + st, msg), {link: true, st});
+        const msg = fetched.status === "blocked" ? "That site doesn't let apps read its pages. Open it, select all (Ctrl or ⌘ A) and copy, then come back and paste it." : fetched.status === "needs_js" ? "That page builds its text in your browser, so Studyboard can't read it from the link. Open it, select all (Ctrl or ⌘ A) and copy, then come back and paste it." : fetched.status === "pdf" ? "That link is a PDF. Download it and add it with Add Files instead." : fetched.status === "busy" ? "Too many pages in a short time. Wait a minute and try again." : fetched.status === "offline" ? "Couldn't reach the page. Check your connection and try again." : fetched.status === "not_page" ? "That link isn't a web page (it may be a picture or a download)." : failMsg(st, L);
+        throw Object.assign(aiErr("link-" + st, msg), {link: true, st: /^(blocked|needs_js)$/.test(fetched.status) ? fetched.status : st});
       }
       pasted = fetched.text; if (onStatus) onStatus("Read the page. Writing study notes…");
     }
@@ -252,6 +266,7 @@ const LINKCARDS = (() => {
     if (!L.ok) { say(L.msg, L.why === "local" ? PASTE : ""); inp.focus(); return; }
     if (locked()) { proWhy(); return; }
     let pasted = String(o.pasted || "").trim(); const prov = aiCfg().provider;
+    if (pasted && L.kind !== "youtube") pasted = SBPAGE.cleanText(pasted);
     if (L.kind === "youtube" && ytPaste()) {
       const tr = String((document.getElementById("aiYtTr") || {}).value || "").trim();
       if (tr.length < 40) { say("Paste the video's transcript first."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
@@ -312,9 +327,12 @@ const LINKCARDS = (() => {
       const noWatch = L.kind === "youtube" && !pasted && e && e.link && /^(?:empty|unreachable|novideo|choke)$/.test(e.st || String(e.code || "").replace(/^link-/, ""));
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
       const diag = e && e.diag && e.diag.length ? `<ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
-      const pasteBtn = offerPaste ? (L.kind === "youtube" ? PASTE.replace("Paste the Text Instead", "Paste the Transcript Instead") : PASTE) : "";
+      // a page Studyboard can't read for them (the site turns readers away, or builds its text in the browser): they open it, select
+      // all and copy, and paste it here with one tap; the menus and footer they copied along with it are left out
+      const copyHelp = L.kind !== "youtube" && e && e.link && /^(blocked|needs_js|paywall)$/.test(e.st || "") ? ` <a class="btn small" href="${esc(L.url)}" target="_blank" rel="noopener noreferrer" data-cl="open">Open the Page</a>${navigator.clipboard && navigator.clipboard.readText ? ` <button type="button" class="btn small" data-cl="clip">Paste What I Copied</button>` : ""}` : "";
+      const pasteBtn = (offerPaste ? (L.kind === "youtube" ? PASTE.replace("Paste the Text Instead", "Paste the Transcript Instead") : PASTE) : "") + copyHelp;
       if (noWatch) say("Gemini couldn't watch this video. New or blocked videos often fail.", pasteBtn + `<details class="cl-diag"><summary>Why?</summary><p>${esc(msg)}</p><p>If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.</p>${diag}</details>`);
-      else say(msg + (offerPaste && e && e.link ? " Paste the text instead, and the AI can work from that." : ""), pasteBtn + (diag ? `<details class="cl-diag"><summary>Details</summary>${diag}</details>` : ""));
+      else say(msg + (offerPaste && e && e.link && !copyHelp ? " Paste the text instead, and the AI can work from that." : ""), pasteBtn + (diag ? `<details class="cl-diag"><summary>Details</summary>${diag}</details>` : ""));
       aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     } finally { clearInterval(tick); }

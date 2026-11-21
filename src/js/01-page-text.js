@@ -119,6 +119,13 @@ const SBPAGE = (() => {
     if (h.includes(":")) return null; // IPv6 literals: not needed for articles, and easy to get wrong
     u.hash = ""; return u;
   }
-  return {extract, safeUrl, toText, titleOf, decode, words, MAX_HTML, MAX_TEXT};
+  // Text a student copied from a whole page (Select All, Copy): the same tidying as a fetched page, so the menu, sign-in links and
+  // footer they copied along with the article are left out
+  function cleanText(t){
+    const lines = String(t || "").replace(/\r\n?/g, "\n").split("\n").map(x => x.replace(/[ \t\u00a0]+/g, " ").trim()).filter(Boolean)
+      .filter(x => !/^(share|print|email|tweet|next|previous|back to top|advertisement|read more|related|subscribe|sign in|log in|skip to (main )?content|menu|search)$/i.test(x));
+    return words(lines.join(" ")) >= 150 ? tidy(lines).join("\n") : lines.join("\n");
+  }
+  return {extract, safeUrl, toText, titleOf, decode, words, cleanText, MAX_HTML, MAX_TEXT};
 })();
 globalThis.SBPAGE = SBPAGE;

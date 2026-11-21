@@ -37,6 +37,11 @@ ok(P.extract(`<html><head><title>Biology 2e</title><script src="/app.js"></scrip
 const wiki = `<html><body><main id="content"><div class="shortdescription">Movement of molecules</div><div role="note" class="hatnote">For other uses, see X.</div><div class="mw-parser-output"><p><b>Osmosis</b> <span class="rt-commentedText"><span class="IPA">/ɒzˈmoʊsɪs/</span></span>,<sup class="reference"><a>[1]</a></sup> is the spontaneous net movement of water across a membrane toward the side with more solute.[2] ${"It matters for cells because water follows solute. ".repeat(12)}</p><h2>References<span class="mw-editsection">[edit]</span></h2><ol class="references"><li>Smith 2020</li></ol></div><div id="catlinks" class="catlinks">Categories: Membrane biology</div></main></body></html>`;
 const rw = P.extract(wiki);
 ok(/^Osmosis,? is the spontaneous net movement/.test(rw.text) && !/\[\d\]|ɒz|For other uses|Movement of molecules|Smith 2020|Categories|edit\]/.test(rw.text), "Wikipedia: no citation marks, pronunciation, notes, references or categories: " + rw.text.slice(0, 80));
+// text a student copied with Select All: the menu and footer copied with it are left out
+const copied = ["Skip to content", "Home", "Courses", "Log in", "Search", "Active transport moves ions. " + "The pump moves three sodium ions out and two potassium ions in for each ATP it uses. ".repeat(12), "About", "Contact", "Careers", "Privacy", "Terms", "Cookie settings"].join("\n");
+const ct = P.cleanText(copied);
+ok(/^Active transport moves ions/.test(ct) && !/Skip to content|Careers|Cookie settings/.test(ct), "copied page text is tidied like a fetched page");
+ok(P.cleanText("Just a short note I typed.") === "Just a short note I typed.", "a short paste is left as it is");
 // size
 const huge = `<html><body><article>${para(4000, "Long")}</article></body></html>`;
 const t0 = process.hrtime.bigint(); const rh = P.extract(huge); const ms = Number(process.hrtime.bigint() - t0) / 1e6;

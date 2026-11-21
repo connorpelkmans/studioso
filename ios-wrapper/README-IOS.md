@@ -159,9 +159,13 @@ target). Add it in Xcode (File > Add Files to "App", untick "Copy items if neede
   page as a JPEG and puts the lines back into paragraphs; a taller line counts as a heading, so a scan still splits into sections.
   A picture with no words (a diagram) is explained, not guessed at: the model itself can't see pictures here yet (iOS 27 can;
   turn on `images` in `availability()` once that's tested with guided generation).
-* **Not on device:** web lookups and YouTube videos (paste the transcript instead) need Studyboard AI or a key, and say so.
+* **Web pages (Cards From a Link):** `readPage` opens the page in an invisible WKWebView on the phone (a private data store, nothing
+  kept, 15 seconds at most), lets its scripts run, and returns the HTML; the app extracts its text (`src/js/01-page-text.js`). As a
+  real browser on the student's own connection, it reads pages built by JavaScript and sites that turn away simple readers. If it
+  fails, the app fetches the page directly, then asks the website's `/api/page-text`.
+* **Not on device:** YouTube videos (paste the transcript instead) need Studyboard AI or a key, and say so.
 * **Test plan:** on a supported iPhone with no key, make flashcards from a few pages of notes, from a photo of handwritten notes and
-  from a scanned PDF, a quiz, a Hint, and ask the companion something. Then turn Apple Intelligence off and check AI Features asks for a key and suggests turning it on. Expect
+  from a scanned PDF, from a link to a Wikipedia article and to an OpenStax page, a quiz, a Hint, and ask the companion something. Then turn Apple Intelligence off and check AI Features asks for a key and suggests turning it on. Expect
   compile fixes: this file hasn't been built yet. Apple's rules for the framework:
   https://developer.apple.com/apple-intelligence/acceptable-use-requirements-for-the-foundation-models-framework/
 
