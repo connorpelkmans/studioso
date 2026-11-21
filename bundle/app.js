@@ -6658,7 +6658,9 @@ const SBPAGE = (() => {
       .filter(x => !/^(share|print|email|tweet|next|previous|back to top|advertisement|read more|related|subscribe|sign in|log in|skip to (main )?content|menu|search)$/i.test(x));
     return words(lines.join(" ")) >= 150 ? tidy(lines).join("\n") : lines.join("\n");
   }
-  return {extract, safeUrl, toText, titleOf, decode, words, cleanText, MAX_HTML, MAX_TEXT};
+  // Raise when the extraction changes, so the Worker's cache of earlier answers isn't served
+  const VERSION = 3;
+  return {extract, safeUrl, toText, titleOf, decode, words, cleanText, MAX_HTML, MAX_TEXT, VERSION};
 })();
 globalThis.SBPAGE = SBPAGE;
 /* ===== 01-ai-device.js: AI that runs on the student's own device, with nothing to set up.

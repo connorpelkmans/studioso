@@ -65,7 +65,7 @@ export async function handlePageText(request, env, ctx, fetchFn = fetch){
   if (env && env.PAGE_LIMIT && typeof env.PAGE_LIMIT.limit === "function") { try { const r = await env.PAGE_LIMIT.limit({key: "page:" + ip}); if (!r.success) return out({status: "busy"}, 429, allowed ? origin : ""); } catch (e) {} }
   let u = P.safeUrl(new URL(request.url).searchParams.get("url"));
   if (!u) return out({status: "bad"}, 400, allowed ? origin : "");
-  const cache = typeof caches !== "undefined" ? caches.default : null, key = new Request("https://page-text.cache/" + encodeURIComponent(u.href));
+  const cache = typeof caches !== "undefined" ? caches.default : null, key = new Request(`https://page-text.cache/v${P.VERSION}/` + encodeURIComponent(u.href));
   if (cache) { try { const hit = await cache.match(key); if (hit) { const r = new Response(hit.body, hit); if (allowed) { r.headers.set("access-control-allow-origin", origin); r.headers.set("vary", "Origin"); } return r; } } catch (e) {} }
   const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 10000);
   let res;
