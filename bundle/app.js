@@ -20770,11 +20770,12 @@ function firstDeckSheet(){
     <p class="mini" style="margin:4px 0 0">Free, no account needed. Studyboard says what's sent to the AI before anything is sent.</p>
   </div></form>`);
 }
-function firstDeckGo(){
+function firstDeckGo(sheet){
   // the planner setup steps aside (the Board keeps its Set Up Your Semester card); this was the student's choice
   try { localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:firstDeck", "1"); } catch (e) {}
   if (dlg.open) dlg.close();
-  setTimeout(() => { ui.tab = "flashcards"; ui.rvView = ""; ui.deckId = null; ui.fc = null; render(); firstDeckSheet(); }, 80);
+  // the welcome's button goes straight to Flashcards; the website's switch pages also open Make Your First Deck
+  setTimeout(() => { ui.tab = "flashcards"; ui.rvView = ""; ui.deckId = null; ui.fc = null; render(); window.scrollTo(0, 0); if (sheet) firstDeckSheet(); }, 80);
 }
 function firstDeckPaste(){
   // a deck to paste into: taken back out again if nothing was pasted
@@ -20832,7 +20833,7 @@ document.addEventListener("keydown", e => {
   const go = () => {
     if (++tries > 120) return;
     if (!window.__sbSync || document.querySelector("dialog[open]")) { setTimeout(go, 500); return; }
-    if (want === "paste") firstDeckPaste(); else if (want === "import") { ui.tab = "flashcards"; render(); setTimeout(() => fire("act", "grp-share-menu", document.body, ""), 60); } else firstDeckGo();
+    if (want === "paste") firstDeckPaste(); else if (want === "import") { ui.tab = "flashcards"; render(); setTimeout(() => fire("act", "grp-share-menu", document.body, ""), 60); } else firstDeckGo(true);
   };
   setTimeout(go, 900);
 })();

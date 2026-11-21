@@ -145,7 +145,11 @@ const SEED = {v: 2, updated: 1, tasks: [{id: "t1", title: "Bio Exam", courseId: 
     const welc = (await text(p, "dialog[open] .sb-welc")).replace(/\s+/g, " ");
     ok(/What are you studying/.test(welc) && /Make Flashcards From My Notes/.test(welc) && /Plan My Semester/.test(welc) && /Sign Up/.test(welc), tag + "the welcome leads with flashcards, the account is optional: " + welc.slice(0, 120));
     await p.screenshot({path: path.join(SHOTS, `rewards-welcome-${w < 600 ? "phone" : "desk"}.png`)});
-    await p.click("dialog[open] .sb-welc-cards"); await p.waitForSelector("dialog[open] .fd-sheet");
+    await p.click("dialog[open] .sb-welc-cards"); await p.waitForTimeout(900);
+    ok(await p.evaluate(() => window.__sbSync.ui.tab === "flashcards" && !document.querySelector("dialog[open]")), tag + "the flashcards button goes straight to Flashcards, no setup steps");
+    await p.screenshot({path: path.join(SHOTS, `rewards-straight-${w < 600 ? "phone" : "desk"}.png`)});
+    // the website's switch pages open Make Your First Deck (?start=first-deck)
+    await p.goto(`http://127.0.0.1:${port}/index.html?start=first-deck`); await p.waitForSelector("dialog[open] .fd-sheet", {timeout: 15000});
     ok(await p.locator("dialog[open] .fd-tile").count() === 4 && /Bring Your Cards Over/.test(await text(p, "dialog[open] .fd-sheet")), tag + "Make Your First Deck: photo, PDF, link, paste, or bring cards over");
     ok(await p.evaluate(() => !document.querySelector("dialog[open] .ob")), tag + "the semester setup doesn't jump in on top");
     await p.waitForTimeout(700); await p.screenshot({path: path.join(SHOTS, `rewards-firstdeck-${w < 600 ? "phone" : "desk"}.png`)});
