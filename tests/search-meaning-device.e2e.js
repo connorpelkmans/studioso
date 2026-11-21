@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
 });
 let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FAIL ") + m); if (!c) fails++; };
 function stub(){
-  const C = [/oxygen|breath|respir|electron transport|atp|energy/i, /war|treaty|versailles|armistice/i, /price|supply|demand|market/i, /memor|recall|aware|preconscious/i, /divid|mitosis|copy|daughter cell/i];
+  const C = [/oxygen|breath|respir|electron transport|atp|energy/i, /war|treaty|versailles|armistice/i, /price|supply|demand|market/i, /memor|recall|aware|preconscious/i, /divid|mitosis|copy|duplicat|daughter cell/i];
   window.__embedCalls = {docs: 0, queries: 0};
   window.__SB_EMBED_STUB = async (texts, isQuery) => { window.__embedCalls[isQuery ? "queries" : "docs"] += texts.length; await new Promise(r => setTimeout(r, 5));
     return texts.map(t => { const v = C.map(re => re.test(t) ? 1 : 0); v.push(0.05); return v.concat(Array(384 - v.length).fill(0)); }); };
@@ -38,6 +38,10 @@ function stub(){
   const r2 = await p.evaluate(async () => (await window.SBSEARCH.retrieve("how do cells copy themselves", {max: 3})).text);
   ok(/Mitosis/.test(r2), "and another: " + r2.slice(0, 120));
   ok((await p.evaluate(() => window.__embedCalls.queries)) >= 2, "each question goes through the same model");
+  // as you type: what the words miss shows under Related by Meaning
+  await p.fill("#sxQ", "duplicating themselves"); await p.waitForTimeout(1200);
+  const rel = await p.evaluate(() => { const g = [...document.querySelectorAll("#sxList .sx-grp, #sxList [role=group]")].find(x => /Related by Meaning/i.test(x.innerText)); return g ? g.innerText : ""; });
+  ok(/Related by Meaning/i.test(rel) && /Mitosis/.test(rel), "typing words that aren't in the note still shows it, under Related by Meaning: " + rel.replace(/\n/g, " ").slice(0, 120));
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\nsearch-meaning-device.e2e: ${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);

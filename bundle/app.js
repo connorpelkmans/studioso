@@ -32178,6 +32178,9 @@ Return JSON only.`;
       // only "Ask about…" or filter rows came back: say plainly that nothing matched
       if (r.groups.length && !r.groups.some(G => G.list.some(x => x.doc.type !== "filter" && x.doc.type !== "ask"))) html.push(`<p class="sx-none">No matches for “${esc(q)}”. Try other words, or ask below.</p>`);
       if (!r.groups.length) html.push(`<div class="sx-empty"><strong>No Matches</strong>Try fewer or different words${S.type !== "all" || S.course ? ", or show everything" : ""}.${S.type !== "all" || S.course ? ` <button type="button" class="link-btn" data-sx="reset">Show Everything</button>` : ""}</div>`);
+      // Related by meaning: what the words missed, found by meaning a moment after typing stops (semRelated)
+      const shown = new Set(); r.groups.forEach(G => G.list.forEach(x => { shown.add(x.doc.type + ":" + x.doc.id); (x.chunks || []).forEach(c => shown.add("f:" + c.doc.fid)); if (x.doc.type === "file") shown.add("f:" + x.doc.id); }));
+      semRelated(q, shown);
       r.groups.forEach(G => {
         const cap = S.type === "all" ? (G.g === "actions" ? 4 : G.g === "files" || G.g === "tasks" ? 5 : 4) : 120;
         const shown = G.list.slice(0, cap), realCount = G.list.filter(x => x.doc.type !== "filter" && x.doc.type !== "ask").length;
@@ -32190,8 +32193,37 @@ Return JSON only.`;
             return push(() => openDoc(d, x.byText ? x.chunks : null), i => rowHtml(i, d.g, hlTitle(d.title, r.P.hl), snip, metaFor(d, x.chunks), colorFor(d)));
           }).join("")));
       });
+      const rel = S.related && S.related.q === q.trim() ? S.related.rows : [];
+      if (rel.length) html.push(grpHtml("Related by Meaning", rel.length, `<span>Related by Meaning</span><span class="n">${rel.length}</span>`, rel.map(x => {
+        const d = x.d, snip = x.chunk ? snippet(x.chunk.doc.text, r.P.hl, 170) : d.text ? snippet(d.text, r.P.hl, 150) : "";
+        return push(() => openDoc(d, x.chunk ? [x.chunk] : null), i => rowHtml(i, d.g, esc(d.title || "Untitled"), snip, metaFor(d, x.chunk ? [x.chunk] : null), colorFor(d)));
+      }).join("")));
     }
     return {rows, html: html.join("")};
+  }
+  // Finds by meaning what the typed words didn't, once typing pauses (only where search by meaning is on and ready)
+  let relT = 0, relSeq = 0;
+  function semRelated(q, shown){
+    q = String(q || "").trim();
+    if (S.related && S.related.q !== q) S.related = null;
+    clearTimeout(relT);
+    if (q.length < 4 || !semOn() || !SEM.vecs.size || (S.related && S.related.q === q)) return;
+    const seq = ++relSeq;
+    relT = setTimeout(async () => {
+      if (seq !== relSeq || !S.open || S.mode !== "find" || S.q.trim() !== q) return;
+      let got = []; try { got = await semQuery(q, pass); } catch (e) { return; }
+      if (seq !== relSeq || S.q.trim() !== q) return;
+      const top = got.length ? got[0].s : 0, rows = [], seenF = new Set();
+      for (const x of got) {
+        if (rows.length >= 4 || x.s < top * 0.85 || top < 0.4) break;
+        const d0 = x.p.doc; if (!d0 || d0.type === "action") continue;
+        if (d0.type === "chunk") { const f = state.files[d0.fid]; if (!f || shown.has("f:" + d0.fid) || seenF.has(d0.fid)) continue; seenF.add(d0.fid);
+          rows.push({d: {g: "files", type: "file", id: d0.fid, cid: f.courseId || "", title: f.name || "File", text: ""}, chunk: {doc: d0, s: x.s}}); }
+        else { if (shown.has(d0.type + ":" + d0.id)) continue; rows.push({d: d0}); }
+      }
+      S.related = {q, rows};
+      if (rows.length) draw();
+    }, 350);
   }
   // [2] in an answer becomes a button that opens source 2 of that question
   const citeHtml = (T, text, ti) => esc(text).replace(/\[(\d+)\]/g, (m, n) => Number(n) >= 1 && Number(n) <= T.rows.length ? `<button type="button" class="sx-cite" data-sx="cite" data-turn="${ti}" data-id="${Number(n) - 1}" aria-label="Open source ${n}">${n}</button>` : m);
