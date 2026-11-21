@@ -149,9 +149,9 @@ async function devLookup({system, parts, search, urlContext, signal, onStatus}){
       q = String((r.data || {}).query || "").slice(0, 120);
     } catch (e) { if (signal && signal.aborted) throw e; }
     if (!q) q = text.replace(/\s+/g, " ").slice(-160);
-    if (onStatus) onStatus(`Looking up "${q}" on Wikipedia…`);
-    const w = await SBTRUTH.web(q, {n: 3, chars: 1800});
-    if (w.length) out.push(SBTRUTH.webText(w));
+    if (onStatus) onStatus(`Looking up "${q}"…`);
+    const R = await SBTRUTH.research(q, {noPlan: true, max: 5}).catch(() => ({list: []}));
+    if (R.list && R.list.length) out.push(SBTRUTH.webText(R.list));
   }
   return out.length ? "WEB SOURCES (found for this request):\n\n" + out.join("\n\n") : "";
 }

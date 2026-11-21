@@ -117,9 +117,74 @@ window.SBTRUTH = (() => {
       return titles.map(t => pages.find(p => p.title === t || low(p.title) === low(t))).filter(Boolean).map(p => ({title: p.title, url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(p.title.replace(/ /g, "_")), text: clip(p.extract, o.chars || 1600)}));
     } catch (e) { return []; }
   }
-  const webText = list => list.map((x, i) => `[W${i + 1}] Wikipedia: ${x.title} (${x.url})\n${x.text}`).join("\n\n");
+  const webText = list => list.map((x, i) => `[W${i + 1}] ${x.src || "Wikipedia"}: ${x.title} (${x.url})\n${x.text}`).join("\n\n");
+
+  /* ---------- research: several models and sources working together ----------
+       1. the AI on the device plans: 1 to 3 search queries, and whether papers or a definition would help
+       2. free sources, in parallel: Wikipedia, OpenAlex (scholarly papers' abstracts), Wiktionary (definitions)
+       3. the device's search model (bge-small, 30-search.js) ranks every passage by meaning against the question
+       4. the best few go to the AI as numbered sources (and the fact check holds the answer to them)
+     Only the search words leave the device (to Wikimedia and OpenAlex), straight from the browser. */
+  const OA = "https://api.openalex.org/works";
+  async function openAlex(q, n){
+    if (!webOk() || (window.__SB_TEST && !window.__SB_WEB_TEST)) return [];
+    try {
+      const u = OA + "?" + new URLSearchParams({search: String(q).slice(0, 200), "per-page": String(n || 4), filter: "has_abstract:true", select: "id,title,publication_year,abstract_inverted_index,primary_location,open_access,cited_by_count"});
+      const r = await fetchT(u, {credentials: "omit"}, 8000); if (!r.ok) return [];
+      const j = await r.json();
+      return (j.results || []).map(w => {
+        const inv = w.abstract_inverted_index || {}, words = []; Object.entries(inv).forEach(([k, v]) => v.forEach(i => { words[i] = k; }));
+        const abs = words.filter(Boolean).join(" ");
+        const url = (w.open_access && w.open_access.oa_url) || ((w.primary_location || {}).landing_page_url) || w.id;
+        return abs.length > 120 ? {src: "Research paper", title: `${w.title}${w.publication_year ? " (" + w.publication_year + ")" : ""}`, url, text: clip(abs, 1600), cites: w.cited_by_count || 0} : null;
+      }).filter(Boolean);
+    } catch (e) { return []; }
+  }
+  async function wiktionary(word){
+    if (!webOk() || (window.__SB_TEST && !window.__SB_WEB_TEST) || !/^[a-z][a-z -]{1,40}$/i.test(word)) return [];
+    try {
+      const u = "https://en.wiktionary.org/w/api.php?" + new URLSearchParams({action: "query", format: "json", formatversion: "2", origin: "*", prop: "extracts", explaintext: "1", exchars: "900", titles: word.toLowerCase(), redirects: "1"});
+      const r = await fetchT(u, {credentials: "omit"}, 6000); if (!r.ok) return [];
+      const p = (((await r.json()).query || {}).pages || [])[0];
+      return p && p.extract ? [{src: "Wiktionary", title: p.title, url: "https://en.wiktionary.org/wiki/" + encodeURIComponent(p.title), text: clip(p.extract.replace(/=+[^=]+=+/g, " "), 900)}] : [];
+    } catch (e) { return []; }
+  }
+  // passages of about 600 characters, so ranking picks the right part of a long article
+  const passages = list => list.flatMap(x => { const t = x.text, out = []; for (let i = 0; i < t.length && out.length < 4; i += 600) { const seg = t.slice(i, i + 700); if (seg.length > 80) out.push(Object.assign({}, x, {text: seg, part: out.length})); } return out; });
+  async function research(q, o){
+    o = o || {};
+    let plan = {queries: [String(q).slice(0, 200)], papers: false, define: ""};
+    if (typeof aiOnDevice === "function" && aiOnDevice() && !o.noPlan) {
+      try {
+        const r = await aiCall({task: "chat", maxTokens: 220, temperature: 0, quiet: true, schema: {type: "OBJECT", properties: {queries: {type: "ARRAY", items: {type: "STRING"}}, papers: {type: "BOOLEAN"}, define: {type: "STRING"}}, required: ["queries"]},
+          system: "You plan a web look-up for a student's question. queries: 1 to 3 short search queries (2 to 6 words each) that together find what the answer needs. papers: true only if research findings or studies would help. define: the single word or term to look up in a dictionary if the student asks what a word means, else empty.",
+          parts: [{text: "Question: " + String(q).slice(0, 600)}]});
+        const d = (r && r.data) || {}, qs = (d.queries || []).map(x => clip(x, 80)).filter(x => x.length > 2).slice(0, 3);
+        if (qs.length) plan = {queries: qs, papers: !!d.papers, define: clip(d.define, 40)};
+      } catch (e) {}
+    }
+    if (o.onStatus) o.onStatus("Looking it up…");
+    const jobs = plan.queries.slice(0, 2).map(x => web(x, {n: 2, chars: 2400}));
+    if (plan.papers || /\b(research|stud(y|ies)|evidence|paper|journal|findings|effect of)\b/i.test(q)) jobs.push(openAlex(plan.queries[0], 4));
+    if (plan.define) jobs.push(wiktionary(plan.define));
+    const found = (await Promise.all(jobs.map(j => j.catch(() => [])))).flat();
+    const seen = new Set(), uniq = found.filter(x => { const k = x.url; if (seen.has(k)) return false; seen.add(k); return true; });
+    let parts = passages(uniq);
+    if (!parts.length) return {list: [], text: ""};
+    // rank by meaning with the device's search model (or whichever search-by-meaning model is set up); word overlap if none
+    let ranked = null;
+    try {
+      const vecs = window.SBSEARCH && SBSEARCH.embedTexts ? await SBSEARCH.embedTexts([String(q)].concat(parts.map(x => x.title + ". " + x.text)), true) : null;
+      if (vecs && vecs.length === parts.length + 1) { const qv = vecs[0]; ranked = parts.map((x, i) => ({x, s: vecs[i + 1].reduce((a, v, k) => a + v * (qv[k] || 0), 0)})); }
+    } catch (e) {}
+    if (!ranked) { const qw = new Set(words(q)); ranked = parts.map(x => ({x, s: words(x.title + " " + x.text).filter(w => qw.has(w)).length})); }
+    ranked.sort((a, b) => b.s - a.s);
+    const top = []; const per = new Map();
+    for (const r of ranked) { const n = per.get(r.x.url) || 0; if (n >= 2) continue; per.set(r.x.url, n + 1); top.push(r.x); if (top.length >= (o.max || 5)) break; }
+    return {list: top, text: webText(top), plan};
+  }
   // a general-knowledge question (not about the student's own planner)
   const general = q => /^\s*(what|who|why|how|when|where|which|explain|define|describe|compare|tell me about)\b/i.test(q) && !/\b(my|i|i'm|me|mine|our)\b/i.test(q) && !/\b(due|grade|task|deadline|class|deck|note|board|course|schedule|calendar|studyboard)\b/i.test(q);
 
-  return {facts, steps, specifics, unsupported, web, webText, general};
+  return {facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary};
 })();

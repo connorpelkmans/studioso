@@ -261,8 +261,8 @@
       let plan = "";
       if (dev && TR && !att.length && TR.general(q)) {
         T.status = "Looking it up…"; draw();
-        const web = await TR.web(q).catch(() => []);
-        if (web.length) { ctx.text += `\n\nFROM THE WEB (Wikipedia; say "according to Wikipedia" when you use it):\n${TR.webText(web)}`; web.forEach(x => ctx.src.push("Wikipedia: " + x.title)); }
+        const R = await TR.research(q, {onStatus: t => { T.status = t; draw(); }}).catch(() => ({list: []})), web = R.list || [];
+        if (web.length) { ctx.text += `\n\nFROM THE WEB (say where a fact comes from, like "according to Wikipedia" or "a 2019 study found"):\n${TR.webText(web)}`; web.forEach(x => { if (!ctx.src.includes((x.src || "Wikipedia") + ": " + x.title)) ctx.src.push((x.src || "Wikipedia") + ": " + x.title); }); }
         try {
           const pr = await aiCall({task: "chat", maxTokens: 600, temperature: 0.2, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
             system: "You plan a clear, complete answer to a student's question. List the 3 to 5 key points the answer must cover, in a sensible order (for example: what it is, how it works, why it matters, a concrete example, a common mistake). Use only the sources given; skip a point they don't support.",

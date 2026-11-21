@@ -893,7 +893,16 @@
     } catch(e) { console.warn("sx retrieve", e); }
     return out;
   }
-  window.SBSEARCH = {retrieve};
+  // Meaning vectors for any texts (98-truth.js ranks web passages with them); null when no search-by-meaning model is set up.
+  // The first text is the question (embedded as a query), the rest as passages
+  async function embedTexts(texts, firstIsQuery){
+    if (!embedder() || !texts.length) return null;
+    const [q, ...rest] = texts;
+    const qv = firstIsQuery ? await embed([{text: q}], true) : await embed([{text: q}], false);
+    const rv = rest.length ? await embed(rest.map(t => ({text: t})), false) : [];
+    return qv.concat(rv).map(v => v.f);
+  }
+  window.SBSEARCH = {retrieve, embedTexts};
   const docKey = d => d.type === "chunk" ? "c:" + d.assetId + ":" + d.page + ":" + d.part : d.type + ":" + d.id;
   function citeOf(x){
     const d = x.doc;

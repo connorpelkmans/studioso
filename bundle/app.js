@@ -6309,7 +6309,7 @@ function aiSetupSheet(fromFeature, opts){
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
       ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : DEVAI.kind === "webllm" ? ` The first time you use it, Studyboard asks before downloading it once (about ${DEVAI.web ? DEVAI.web.gb : 3} GB).` : ` The first time you use it, ${devBrowser()} downloads it once.`}</p>
-        <label class="mi-check" style="margin:0"><input type="checkbox" id="aiWebLookup" ${(() => { try { return localStorage.getItem("studyboard:webLookupOff") === "1" ? "" : "checked"; } catch (e) { return "checked"; } })()}><span>Look Things Up on Wikipedia<span class="sub">For general questions, and features that need the web. Only the search words go to Wikipedia.</span></span></label>
+        <label class="mi-check" style="margin:0"><input type="checkbox" id="aiWebLookup" ${(() => { try { return localStorage.getItem("studyboard:webLookupOff") === "1" ? "" : "checked"; } catch (e) { return "checked"; } })()}><span>Look Things Up on the Web<span class="sub">For general questions, and features that need the web: Wikipedia, Wiktionary and research papers (OpenAlex). Only the search words leave this device.</span></span></label>
         <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can search the whole web.</p></div>` : ""}
       ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
         <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
@@ -6963,9 +6963,9 @@ async function devLookup({system, parts, search, urlContext, signal, onStatus}){
       q = String((r.data || {}).query || "").slice(0, 120);
     } catch (e) { if (signal && signal.aborted) throw e; }
     if (!q) q = text.replace(/\s+/g, " ").slice(-160);
-    if (onStatus) onStatus(`Looking up "${q}" on Wikipedia…`);
-    const w = await SBTRUTH.web(q, {n: 3, chars: 1800});
-    if (w.length) out.push(SBTRUTH.webText(w));
+    if (onStatus) onStatus(`Looking up "${q}"…`);
+    const R = await SBTRUTH.research(q, {noPlan: true, max: 5}).catch(() => ({list: []}));
+    if (R.list && R.list.length) out.push(SBTRUTH.webText(R.list));
   }
   return out.length ? "WEB SOURCES (found for this request):\n\n" + out.join("\n\n") : "";
 }
@@ -31577,7 +31577,16 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     } catch(e) { console.warn("sx retrieve", e); }
     return out;
   }
-  window.SBSEARCH = {retrieve};
+  // Meaning vectors for any texts (98-truth.js ranks web passages with them); null when no search-by-meaning model is set up.
+  // The first text is the question (embedded as a query), the rest as passages
+  async function embedTexts(texts, firstIsQuery){
+    if (!embedder() || !texts.length) return null;
+    const [q, ...rest] = texts;
+    const qv = firstIsQuery ? await embed([{text: q}], true) : await embed([{text: q}], false);
+    const rv = rest.length ? await embed(rest.map(t => ({text: t})), false) : [];
+    return qv.concat(rv).map(v => v.f);
+  }
+  window.SBSEARCH = {retrieve, embedTexts};
   const docKey = d => d.type === "chunk" ? "c:" + d.assetId + ":" + d.page + ":" + d.part : d.type + ":" + d.id;
   function citeOf(x){
     const d = x.doc;
@@ -73147,9 +73156,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // a general question ("what is osmosis?") on the device: their own notes first, then Wikipedia, as sources to answer from
     let sources = "";
     if (dev && TR && TR.general(q)) {
-      const [mine, web] = await Promise.all([window.SBSEARCH ? SBSEARCH.retrieve(q, {max: 4, chars: 700, wait: 600, readWait: 1, semWait: 2000}).catch(() => null) : null, TR.web(q).catch(() => [])]);
+      const [mine, R] = await Promise.all([window.SBSEARCH ? SBSEARCH.retrieve(q, {max: 4, chars: 700, wait: 600, readWait: 1, semWait: 2000}).catch(() => null) : null, TR.research(q).catch(() => ({list: []}))]);
+      const web = R.list || [];
       if (mine && mine.text) sources += `\n\nFROM THE STUDENT'S OWN NOTES AND FILES (use these first):\n${mine.text}`;
-      if (web.length) sources += `\n\nFROM THE WEB (Wikipedia; say "according to Wikipedia" when you use it):\n${TR.webText(web)}`;
+      if (web.length) sources += `\n\nFROM THE WEB (say where a fact comes from, like "according to Wikipedia" or "a 2019 study found"):\n${TR.webText(web)}`;
       o.web = web;
     }
     const me = window.SBCOMP && SBCOMP.tab && SBCOMP.tab.info ? (SBCOMP.tab.info() || {}) : {};
@@ -73204,7 +73214,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const asked = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q);
     if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Apply to add it."; } }
     const out = Object.assign({answer: aiWholeSentence(clip(d.answer, 1200))}, resolve(d, cat.refs));
-    if (o.web && o.web.length && /wikipedia/i.test(out.answer)) out.sources = o.web.map(x => ({title: x.title, url: x.url}));
+    if (o.web && o.web.length && /wikipedia|wiktionary|stud(y|ies)|research|paper|according to/i.test(out.answer)) out.sources = o.web.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"}));
     // never say something was done when the app wasn't asked to do it
     if (!out.changes.length && !out.show.length && CLAIMS.test(out.answer)) out.answer = "I couldn't do that from here. Try asking another way, or do it in the app directly.";
     if (/^\s*((show|open|go to|see)\s+)?[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(out.answer) || junk(out.answer)) out.answer = out.show && out.show.length ? `Here it is: ${out.show[0].label}.` : out.changes && out.changes.length ? "Here's what I'd change." : "I couldn't find that. Try asking another way?";
@@ -73372,11 +73382,76 @@ window.SBTRUTH = (() => {
       return titles.map(t => pages.find(p => p.title === t || low(p.title) === low(t))).filter(Boolean).map(p => ({title: p.title, url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(p.title.replace(/ /g, "_")), text: clip(p.extract, o.chars || 1600)}));
     } catch (e) { return []; }
   }
-  const webText = list => list.map((x, i) => `[W${i + 1}] Wikipedia: ${x.title} (${x.url})\n${x.text}`).join("\n\n");
+  const webText = list => list.map((x, i) => `[W${i + 1}] ${x.src || "Wikipedia"}: ${x.title} (${x.url})\n${x.text}`).join("\n\n");
+
+  /* ---------- research: several models and sources working together ----------
+       1. the AI on the device plans: 1 to 3 search queries, and whether papers or a definition would help
+       2. free sources, in parallel: Wikipedia, OpenAlex (scholarly papers' abstracts), Wiktionary (definitions)
+       3. the device's search model (bge-small, 30-search.js) ranks every passage by meaning against the question
+       4. the best few go to the AI as numbered sources (and the fact check holds the answer to them)
+     Only the search words leave the device (to Wikimedia and OpenAlex), straight from the browser. */
+  const OA = "https://api.openalex.org/works";
+  async function openAlex(q, n){
+    if (!webOk() || (window.__SB_TEST && !window.__SB_WEB_TEST)) return [];
+    try {
+      const u = OA + "?" + new URLSearchParams({search: String(q).slice(0, 200), "per-page": String(n || 4), filter: "has_abstract:true", select: "id,title,publication_year,abstract_inverted_index,primary_location,open_access,cited_by_count"});
+      const r = await fetchT(u, {credentials: "omit"}, 8000); if (!r.ok) return [];
+      const j = await r.json();
+      return (j.results || []).map(w => {
+        const inv = w.abstract_inverted_index || {}, words = []; Object.entries(inv).forEach(([k, v]) => v.forEach(i => { words[i] = k; }));
+        const abs = words.filter(Boolean).join(" ");
+        const url = (w.open_access && w.open_access.oa_url) || ((w.primary_location || {}).landing_page_url) || w.id;
+        return abs.length > 120 ? {src: "Research paper", title: `${w.title}${w.publication_year ? " (" + w.publication_year + ")" : ""}`, url, text: clip(abs, 1600), cites: w.cited_by_count || 0} : null;
+      }).filter(Boolean);
+    } catch (e) { return []; }
+  }
+  async function wiktionary(word){
+    if (!webOk() || (window.__SB_TEST && !window.__SB_WEB_TEST) || !/^[a-z][a-z -]{1,40}$/i.test(word)) return [];
+    try {
+      const u = "https://en.wiktionary.org/w/api.php?" + new URLSearchParams({action: "query", format: "json", formatversion: "2", origin: "*", prop: "extracts", explaintext: "1", exchars: "900", titles: word.toLowerCase(), redirects: "1"});
+      const r = await fetchT(u, {credentials: "omit"}, 6000); if (!r.ok) return [];
+      const p = (((await r.json()).query || {}).pages || [])[0];
+      return p && p.extract ? [{src: "Wiktionary", title: p.title, url: "https://en.wiktionary.org/wiki/" + encodeURIComponent(p.title), text: clip(p.extract.replace(/=+[^=]+=+/g, " "), 900)}] : [];
+    } catch (e) { return []; }
+  }
+  // passages of about 600 characters, so ranking picks the right part of a long article
+  const passages = list => list.flatMap(x => { const t = x.text, out = []; for (let i = 0; i < t.length && out.length < 4; i += 600) { const seg = t.slice(i, i + 700); if (seg.length > 80) out.push(Object.assign({}, x, {text: seg, part: out.length})); } return out; });
+  async function research(q, o){
+    o = o || {};
+    let plan = {queries: [String(q).slice(0, 200)], papers: false, define: ""};
+    if (typeof aiOnDevice === "function" && aiOnDevice() && !o.noPlan) {
+      try {
+        const r = await aiCall({task: "chat", maxTokens: 220, temperature: 0, quiet: true, schema: {type: "OBJECT", properties: {queries: {type: "ARRAY", items: {type: "STRING"}}, papers: {type: "BOOLEAN"}, define: {type: "STRING"}}, required: ["queries"]},
+          system: "You plan a web look-up for a student's question. queries: 1 to 3 short search queries (2 to 6 words each) that together find what the answer needs. papers: true only if research findings or studies would help. define: the single word or term to look up in a dictionary if the student asks what a word means, else empty.",
+          parts: [{text: "Question: " + String(q).slice(0, 600)}]});
+        const d = (r && r.data) || {}, qs = (d.queries || []).map(x => clip(x, 80)).filter(x => x.length > 2).slice(0, 3);
+        if (qs.length) plan = {queries: qs, papers: !!d.papers, define: clip(d.define, 40)};
+      } catch (e) {}
+    }
+    if (o.onStatus) o.onStatus("Looking it up…");
+    const jobs = plan.queries.slice(0, 2).map(x => web(x, {n: 2, chars: 2400}));
+    if (plan.papers || /\b(research|stud(y|ies)|evidence|paper|journal|findings|effect of)\b/i.test(q)) jobs.push(openAlex(plan.queries[0], 4));
+    if (plan.define) jobs.push(wiktionary(plan.define));
+    const found = (await Promise.all(jobs.map(j => j.catch(() => [])))).flat();
+    const seen = new Set(), uniq = found.filter(x => { const k = x.url; if (seen.has(k)) return false; seen.add(k); return true; });
+    let parts = passages(uniq);
+    if (!parts.length) return {list: [], text: ""};
+    // rank by meaning with the device's search model (or whichever search-by-meaning model is set up); word overlap if none
+    let ranked = null;
+    try {
+      const vecs = window.SBSEARCH && SBSEARCH.embedTexts ? await SBSEARCH.embedTexts([String(q)].concat(parts.map(x => x.title + ". " + x.text)), true) : null;
+      if (vecs && vecs.length === parts.length + 1) { const qv = vecs[0]; ranked = parts.map((x, i) => ({x, s: vecs[i + 1].reduce((a, v, k) => a + v * (qv[k] || 0), 0)})); }
+    } catch (e) {}
+    if (!ranked) { const qw = new Set(words(q)); ranked = parts.map(x => ({x, s: words(x.title + " " + x.text).filter(w => qw.has(w)).length})); }
+    ranked.sort((a, b) => b.s - a.s);
+    const top = []; const per = new Map();
+    for (const r of ranked) { const n = per.get(r.x.url) || 0; if (n >= 2) continue; per.set(r.x.url, n + 1); top.push(r.x); if (top.length >= (o.max || 5)) break; }
+    return {list: top, text: webText(top), plan};
+  }
   // a general-knowledge question (not about the student's own planner)
   const general = q => /^\s*(what|who|why|how|when|where|which|explain|define|describe|compare|tell me about)\b/i.test(q) && !/\b(my|i|i'm|me|mine|our)\b/i.test(q) && !/\b(due|grade|task|deadline|class|deck|note|board|course|schedule|calendar|studyboard)\b/i.test(q);
 
-  return {facts, steps, specifics, unsupported, web, webText, general};
+  return {facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary};
 })();
 /* ===== module: 98-companion-tab.js ===== */
 /* The Companion tab */
@@ -73641,8 +73716,8 @@ window.SBTRUTH = (() => {
       let plan = "";
       if (dev && TR && !att.length && TR.general(q)) {
         T.status = "Looking it up…"; draw();
-        const web = await TR.web(q).catch(() => []);
-        if (web.length) { ctx.text += `\n\nFROM THE WEB (Wikipedia; say "according to Wikipedia" when you use it):\n${TR.webText(web)}`; web.forEach(x => ctx.src.push("Wikipedia: " + x.title)); }
+        const R = await TR.research(q, {onStatus: t => { T.status = t; draw(); }}).catch(() => ({list: []})), web = R.list || [];
+        if (web.length) { ctx.text += `\n\nFROM THE WEB (say where a fact comes from, like "according to Wikipedia" or "a 2019 study found"):\n${TR.webText(web)}`; web.forEach(x => { if (!ctx.src.includes((x.src || "Wikipedia") + ": " + x.title)) ctx.src.push((x.src || "Wikipedia") + ": " + x.title); }); }
         try {
           const pr = await aiCall({task: "chat", maxTokens: 600, temperature: 0.2, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
             system: "You plan a clear, complete answer to a student's question. List the 3 to 5 key points the answer must cover, in a sensible order (for example: what it is, how it works, why it matters, a concrete example, a common mistake). Use only the sources given; skip a point they don't support.",
@@ -86731,7 +86806,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, Apple Intelligence in the iPhone and iPad app, or, where neither is there, Google's free Gemma model, which Studyboard downloads to your device from Hugging Face only after you agree): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. Search by meaning works the same way without a key: a small search model (bge-small, about 34 MB) is downloaded once from Hugging Face to your device, and your notes, cards, tasks and files are matched by meaning right there, never sent anywhere. When you ask the AI on your device a general question (like "what is osmosis?") or a feature needs the web, Studyboard looks it up on Wikipedia: only the search words go to Wikipedia (run by the Wikimedia Foundation), straight from your device, and the answer links to the article it used. You can turn this off in AI Features. There are two exceptions. Your first set of flashcards made this way may instead be made by Studyboard's cloud AI, so it's quick: the sheet where you make it says so before you start and lets you keep it on your device instead. If you go ahead, the text of your notes and the course name are sent to Studyboard's AI server, run on Cloudflare, where a model Cloudflare runs (Google's Gemma) writes the cards and sends them back. Your notes aren't stored or logged; the server keeps only a scrambled (hashed) code for your device, so it gives each device one free set, and a daily count for your network that is deleted two days later. The other is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, Apple Intelligence in the iPhone and iPad app, or, where neither is there, Google's free Gemma model, which Studyboard downloads to your device from Hugging Face only after you agree): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. Search by meaning works the same way without a key: a small search model (bge-small, about 34 MB) is downloaded once from Hugging Face to your device, and your notes, cards, tasks and files are matched by meaning right there, never sent anywhere. When you ask the AI on your device a general question (like "what is osmosis?") or a feature needs the web, Studyboard looks it up in free public sources: Wikipedia and Wiktionary (run by the Wikimedia Foundation) and OpenAlex (an open index of research papers, run by OurResearch). Only the search words go to them, straight from your device, and the answer links to what it used. You can turn this off in AI Features. There are two exceptions. Your first set of flashcards made this way may instead be made by Studyboard's cloud AI, so it's quick: the sheet where you make it says so before you start and lets you keep it on your device instead. If you go ahead, the text of your notes and the course name are sent to Studyboard's AI server, run on Cloudflare, where a model Cloudflare runs (Google's Gemma) writes the cards and sends them back. Your notes aren't stored or logged; the server keeps only a scrambled (hashed) code for your device, so it gives each device one free set, and a daily count for your network that is deleted two days later. The other is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>

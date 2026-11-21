@@ -15,7 +15,7 @@ function fake(){
   window.__asked = []; window.__replies = [];
   window.LanguageModel = {availability: async () => "available", create: async c => { const sys = ((c && c.initialPrompts) || [])[0] ? c.initialPrompts[0].content : "";
     const s = {contextWindow: 9000, contextUsage: 100, destroy(){}, clone: async () => s,
-      prompt: async (input) => { const text = input.map(m => m.content.map(x => x.value).join("\n")).join("\n"); window.__asked.push({sys, text}); const r = window.__replies.length > 1 ? window.__replies.shift() : window.__replies[0]; if (r && r.__wiki) return JSON.stringify({answer: /Wikipedia: Osmosis/.test(text) ? "According to Wikipedia, osmosis is the net movement of water through a selectively permeable membrane." : "No source.", show: [], changes: [], newTasks: []}); return JSON.stringify(r); }};
+      prompt: async (input) => { const text = input.map(m => m.content.map(x => x.value).join("\n")).join("\n"); window.__asked.push({sys, text}); if (/plan a web look-up/.test(sys)) return JSON.stringify({queries: ["osmosis", "water transport plants"], papers: /study|research/.test(text), define: ""}); const r = window.__replies.length > 1 ? window.__replies.shift() : window.__replies[0]; if (r && r.__wiki) return JSON.stringify({answer: /Osmosis is the spontaneous/.test(text) ? "According to Wikipedia, osmosis is the net movement of water through a selectively permeable membrane." : "No source.", show: [], changes: [], newTasks: []}); return JSON.stringify(r); }};
     return s; }};
 }
 (async () => {
@@ -25,6 +25,11 @@ function fake(){
   await ctx.route(/en\.wikipedia\.org\/w\/api\.php/, r => { const u = new URL(r.request().url()); wiki.push(u.searchParams.get("srsearch") || u.searchParams.get("titles"));
     const body = u.searchParams.get("list") === "search" ? {query: {search: [{title: "Osmosis"}]}} : {query: {pages: [{title: "Osmosis", extract: "Osmosis is the spontaneous net movement of water molecules through a selectively permeable membrane from a region of high water potential to a region of low water potential. It was described by Jean-Antoine Nollet in 1748."}]}};
     r.fulfill({status: 200, contentType: "application/json", headers: {"access-control-allow-origin": "*"}, body: JSON.stringify(body)}); });
+  const oa = [];
+  await ctx.route(/api\.openalex\.org\/works/, r => { oa.push(new URL(r.request().url()).searchParams.get("search"));
+    r.fulfill({status: 200, contentType: "application/json", headers: {"access-control-allow-origin": "*"}, body: JSON.stringify({results: [{id: "https://openalex.org/W1", title: "Aquaporins speed water transport in plant roots", publication_year: 2019,
+      abstract_inverted_index: {"Aquaporins": [0], "are": [1], "membrane": [2], "channels": [3], "that": [4], "speed": [5], "osmosis": [6], "in": [7], "root": [8], "cells,": [9], "raising": [10], "water": [11], "uptake": [12], "by": [13], "about": [14], "40": [15], "percent": [16], "under": [17], "drought": [18], "conditions": [19], "in": [20], "our": [21], "trials.": [22]},
+      open_access: {oa_url: "https://example.org/aquaporins"}, cited_by_count: 120}]})}); });
   await ctx.addInitScript(([f, T]) => { window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__SB_WEB_TEST = true; (0, eval)(`(${f})`)();
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"}));
     const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
@@ -52,7 +57,9 @@ function fake(){
   ok(r.changes.some(c => /newtask:Bio quiz/i.test(c)) && r.timer === 15, "two things in one request: the task is proposed and the timer runs: " + JSON.stringify({changes: r.changes, timer: r.timer}));
   // 4. a general question: Wikipedia is looked up and given as a source; the answer says where it's from
   r = await ask("what is osmosis?", [{__wiki: true}]);
-  ok(wiki.length >= 2 && r.prompts.some(t => /FROM THE WEB \(Wikipedia/.test(t)), "a general question looks up Wikipedia and gives it to the model: " + wiki.join(", "));
+  ok(wiki.length >= 2 && r.prompts.some(t => /FROM THE WEB/.test(t) && /Osmosis is the spontaneous/.test(t)), "a general question: the device AI plans the look-up, Wikipedia is searched, the passages go to the model: " + wiki.join(", "));
+  r = await ask("what does research say about how plants take up water?", [{__wiki: true}]);
+  ok(oa.length >= 1 && r.prompts.some(t => /Research paper: Aquaporins speed water transport in plant roots \(2019\)/.test(t) && /about 40 percent/.test(t)), "a research question also searches scholarly papers (OpenAlex) and gives their findings as sources: " + oa.join(", "));
   ok(/According to Wikipedia/.test(r.answer) && r.sources && r.sources[0].url === "https://en.wikipedia.org/wiki/Osmosis", "the answer comes from it, with the link: " + r.answer);
   // 5. an on-device request that wants the web: the model writes a query, Wikipedia is searched, the result is a source
   const w = await p.evaluate(async () => { window.__asked = []; window.__replies = [{query: "osmosis definition"}, {answer: "ok"}]; const x = await window.__sbDevAI.call({system: "Answer the question.", parts: [{text: "What is osmosis?"}], schema: {type: "OBJECT", properties: {answer: {type: "STRING"}}}, search: true}); return {data: x.data, prompts: window.__asked.map(a => a.text)}; });
@@ -65,7 +72,7 @@ function fake(){
   let c = await chat("what's due tomorrow?", NONE);
   ok(/Bio Lab Report/.test(c.last) && c.asked.length === 0, "Companion tab: what's due, from the app, no model: " + c.last.replace(/\n/g, " ").slice(0, 120));
   c = await chat("explain osmosis", [{points: ["What osmosis is", "Which way water moves", "An example in cells"]}, {__wiki: true}]);
-  ok(c.asked.some(a => /plan a clear, complete answer/.test(a.sys)) && c.asked.some(a => /ANSWER PLAN/.test(a.text) && /Which way water moves/.test(a.text) && /Wikipedia: Osmosis/.test(a.text)), "a general question: Wikipedia, then the key points to cover, then the answer");
+  ok(c.asked.some(a => /plan a clear, complete answer/.test(a.sys)) && c.asked.some(a => /ANSWER PLAN/.test(a.text) && /Which way water moves/.test(a.text) && /Osmosis is the spontaneous/.test(a.text)), "a general question: Wikipedia, then the key points to cover, then the answer");
   c = await chat("who wrote my bio syllabus?", [{answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}, {answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}]);
   ok(/couldn't find a reliable answer/.test(c.last), "Companion tab: a made-up name and year are caught: " + c.last.slice(0, 120));
   ok(!errs.length, "no page errors: " + errs.join(" | "));

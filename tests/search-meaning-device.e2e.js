@@ -38,6 +38,9 @@ function stub(){
   const r2 = await p.evaluate(async () => (await window.SBSEARCH.retrieve("how do cells copy themselves", {max: 3})).text);
   ok(/Mitosis/.test(r2), "and another: " + r2.slice(0, 120));
   ok((await p.evaluate(() => window.__embedCalls.queries)) >= 2, "each question goes through the same model");
+  // the same model ranks web passages for the on-device AI (98-truth.js research)
+  const ev = await p.evaluate(async () => { const v = await window.SBSEARCH.embedTexts(["why do cells need oxygen", "The treaty ended the war.", "Respiration uses oxygen to make ATP."], true); return v ? v.map(x => x.length) : null; });
+  ok(ev && ev.length === 3 && ev.every(n => n === 384), "web passages can be ranked by the same on-device model (3 vectors of 384)");
   // as you type: what the words miss shows under Related by Meaning
   await p.fill("#sxQ", "duplicating themselves"); await p.waitForTimeout(1200);
   const rel = await p.evaluate(() => { const g = [...document.querySelectorAll("#sxList .sx-grp, #sxList [role=group]")].find(x => /Related by Meaning/i.test(x.innerText)); return g ? g.innerText : ""; });
