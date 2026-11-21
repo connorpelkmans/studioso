@@ -52,6 +52,10 @@ Only a Pro plan someone pays for: monthly, semester, yearly or lifetime. The Wor
 | Pro from a server grant or a promo code | No |
 | Free, lapsed, guest, or an unconfirmed email | No |
 
+### Students under 18
+
+Anthropic allows products used by minors when they add safeguards ([guidelines for organizations serving minors](https://support.claude.com/en/articles/9307344-responsible-use-of-anthropic-s-models-guidelines-for-organizations-serving-minors)). The Worker reads the student's age with their own sign-in (`my_age`, from the birthday asked at sign-up). When they're under 18, or no birthday is on record, `MINOR_SAFETY` in `src/pro.js` goes first in every request's instructions. It keeps content age-appropriate, refuses harmful instructions, and on any mention of self-harm, abuse or danger points the student to a trusted adult and a crisis line. Schoolwork is unchanged. Adults' requests are exactly as the app sends them. The app can't add or remove the rules (they're added here, outside the app's own instructions). Redeploy the Worker after changing them.
+
 ## Turn it on
 
 Everything is built and in the app already. The app calls `https://ai.studyboardapp.com` (`AI_PRO` in `src/js/01-ai.js`), and until that address answers it carries on without Studyboard AI. Turning it on is all done in Cloudflare and needs no app release.

@@ -103,6 +103,31 @@ export async function planOf(token, uid, env, fetchFn = fetch, now = Date.now())
   seen.set("p:" + token, { v, until: now + 2 * 60000 });
   return v;
 }
+// The student's age in years, from the birthday Studyboard asks for at sign-up (my_age, read with their own sign-in); null when
+// there's no birthday or it can't be read. Remembered for 10 minutes.
+export async function ageOf(token, env, fetchFn = fetch, now = Date.now()) {
+  const hit = seen.get("a:" + token); if (hit && hit.until > now) return hit.v;
+  let v = null;
+  try {
+    const res = await fetchFn(String(env.SUPABASE_URL).replace(/\/+$/, "") + "/rest/v1/rpc/my_age",
+      { method: "POST", headers: { apikey: env.SUPABASE_KEY, Authorization: "Bearer " + token, "Content-Type": "application/json", Accept: "application/json" }, body: "{}" });
+    if (res.ok) { const a = await res.json().catch(() => null); v = Number.isInteger(a) && a >= 0 && a < 130 ? a : null; }
+  } catch (e) { v = null; }
+  if (seen.size > 4000) seen.clear();
+  seen.set("a:" + token, { v, until: now + 10 * 60000 });
+  return v;
+}
+// Under 18 (or no birthday on record, to be safe): these rules come first in every Studyboard AI request, as Anthropic asks of
+// products used by minors (support.claude.com, "Responsible use of Anthropic's models: guidelines for organizations serving minors").
+// Schoolwork is unchanged: biology, health, history and literature are taught as they would be in class.
+export const MINOR_SAFETY = "Safety rules for this student, who may be under 18. These come before anything else below. " +
+  "Keep everything age-appropriate. Never produce sexual content, and never describe violence, injury or drug use in graphic or glorifying detail. " +
+  "School topics (reproduction and health, history, literature, medicine, chemistry) are fine when taught as a teacher would teach them. " +
+  "Never give instructions that could cause serious harm: self-harm, weapons, dangerous chemicals or drugs, or getting around safety rules. " +
+  "If the student mentions self-harm, suicide, abuse or being in danger, stop the task, respond with care, encourage them to talk to a trusted adult, " +
+  "and point them to a crisis line (in the US, call or text 988; elsewhere, local emergency services). " +
+  "Don't ask for personal information such as their address, phone number or photos of themselves. Don't flirt or role-play romance. " +
+  "If asked to do something against these rules, say kindly that you can't help with that and offer help with their studies instead.";
 // paid: a Pro plan someone pays for (or lifetime). Everything else gets no Studyboard AI: the free week, Pro from a grant or a
 // promo code, a lapsed plan, a free account, and Studyboard Plus (ai_included false: Pro without Studyboard AI). A grant or code sets
 // its own columns (grant_*, promo_*), never plan and pro_until; ai_included is written only by the billing webhook.
@@ -139,7 +164,7 @@ export async function ownerUsage(request, env, deps) {
 }
 const record = (deps, kind, task, usage, cost) => { if (!deps.totals) return; const p = deps.totals(dayOf(deps.now ? deps.now() : Date.now())).add(kind, task, usage, cost).catch(() => {}); if (deps.defer) deps.defer(p); };
 
-// deps: {user(token), plan(token, uid), meter(uid), totals(day), claude: {create(req), count(req)}, gemini(body), embed(texts), whisper(bytes), now(), defer(promise)}
+// deps: {user(token), plan(token, uid), age(token), meter(uid), totals(day), claude: {create(req), count(req)}, gemini(body), embed(texts), whisper(bytes), now(), defer(promise)}
 export async function handle(request, env, deps) {
   const url = new URL(request.url), cfg = config(env), lim = cfg.lim;
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -166,7 +191,10 @@ export async function handle(request, env, deps) {
   if (url.pathname === "/v1/youtube") return youtubeJob(request, cfg, deps, meter, lim);
   let body;
   try { const raw = await request.text(); if (raw.length > MAX_BODY_BYTES) return json({ error: "too_long" }, 413); body = JSON.parse(raw); } catch (e) { return json({ error: "bad" }, 400); }
-  const r = await runJob(body, { meter, lim, claude: deps.claude, defer: deps.defer, autoEffort: cfg.autoEffort });
+  // under 18, or no birthday on record: the safety rules go first (adults' requests are exactly as before)
+  const age = deps.age ? await deps.age(token) : null;
+  const safety = age == null || age < 18 ? MINOR_SAFETY : "";
+  const r = await runJob(body, { meter, lim, claude: deps.claude, defer: deps.defer, autoEffort: cfg.autoEffort, safety });
   if (r.spent) record(deps, "claude", r.spent.task, r.spent.usage, r.spent.cost);
   return json(r.body, r.status);
 }

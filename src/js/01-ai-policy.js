@@ -307,8 +307,10 @@ const SBPOLICY = (() => {
       if (JSON.stringify(job.schema).length > MAX_SCHEMA_CHARS) return {status: 413, body: {error: "too_long"}};
       try { schema = strictSchema(job.schema); } catch (e) { return {status: 400, body: {error: "bad"}}; }
     }
-    const system = typeof job.system === "string" ? job.system : "";
-    if (textBytes(system) > MAX_SYSTEM_BYTES) return {status: 413, body: {error: "too_long"}};
+    const system0 = typeof job.system === "string" ? job.system : "";
+    if (textBytes(system0) > MAX_SYSTEM_BYTES) return {status: 413, body: {error: "too_long"}};
+    // The server's own rules for this student (the under-18 safety rules), always first; the app can't add or remove them
+    const system = typeof ctx.safety === "string" && ctx.safety ? ctx.safety + (system0 ? "\n\n" + system0 : "") : system0;
     const soft = (await view()).soft;
     let task = taskOf(String(job.task || "").slice(0, 40), soft);
     // Automatic jobs (the ones the app runs in the background) can be given more thinking than their usual level

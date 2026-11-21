@@ -1,7 +1,7 @@
 // Cloudflare wiring for Studyboard AI
 import { DurableObject } from "cloudflare:workers";
 import Anthropic from "@anthropic-ai/sdk";
-import { Meter, Totals, handle, verifyUser, planOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
+import { Meter, Totals, handle, verifyUser, planOf, ageOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
 
 // One per student, named by their Supabase user id
 export class StudentMeter extends DurableObject {
@@ -39,6 +39,7 @@ export default {
       return await handle(request, env, {
         user: token => verifyUser(token, env),
         plan: (token, uid) => planOf(token, uid, env),
+        age: token => ageOf(token, env),
         meter: id => env.STUDENT.getByName("u:" + id),
         totals: day => env.TOTALS.getByName("t:" + day),
         claude: {
