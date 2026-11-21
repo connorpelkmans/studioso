@@ -81,8 +81,10 @@ export async function handlePageText(request, env, ctx, fetchFn = fetch){
       break;
     }
   } catch (e) { clearTimeout(timer); return out({status: "unreachable", why: ac.signal.aborted ? "timeout" : "fetch"}, 200, allowed ? origin : ""); }
-  // 401 and 402: a login or paywall. 403 and 429: the site turns automated readers away (Britannica, Investopedia and others do)
-  if (res.status === 401 || res.status === 402) { clearTimeout(timer); return out({status: "paywall", http: res.status}, 200, allowed ? origin : ""); }
+  // 401: a login. 403 and 429: the site turns automated readers away (Britannica does). 402 is meant for paywalls, but some free
+  // sites send it to every reader that isn't a browser (Investopedia does): those may use the archive's copy, which is checked for
+  // the marks real paywalls carry (Google's isAccessibleForFree: false) and refused if it has them
+  if (res.status === 401) { clearTimeout(timer); return out({status: "paywall", http: res.status}, 200, allowed ? origin : ""); }
   const archiveOn = !(env && String(env.ARCHIVE_OFF || "") === "1");
   const tryArchive = async (fallback) => {
     clearTimeout(timer);
@@ -91,6 +93,7 @@ export async function handlePageText(request, env, ctx, fetchFn = fetch){
     clearTimeout(t2); return out(fallback, 200, allowed ? origin : "");
   };
   if (res.status === 403 || res.status === 429) return tryArchive({status: "blocked", http: res.status});
+  if (res.status === 402) return tryArchive({status: "paywall", http: 402});
   if (!res.ok) { clearTimeout(timer); return out({status: "unreachable", http: res.status}, 200, allowed ? origin : ""); }
   const type = (res.headers.get("content-type") || "").toLowerCase();
   if (/application\/pdf/.test(type)) { clearTimeout(timer); return out({status: "pdf"}, 200, allowed ? origin : ""); }

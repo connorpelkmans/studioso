@@ -114,6 +114,7 @@ ok(P.safeUrl("https://a.com/x#frag").href === "https://a.com/x", "the #part is d
     if (u.startsWith("https://web.archive.org/web/")) return page(opts.paid ? ART2.replace("</head>", '<script type="application/ld+json">{"isAccessibleForFree": false}</script></head>') : ART2);
     if (u === "https://www.investopedia.com/e") return page("", "text/html", 403);
     if (u === "https://news.com/paid2") return page("", "text/html", 402);
+    if (u === "https://news.com/login") return page("", "text/html", 401);
     if (u === "https://app.site/x") return page('<html><head><title>X</title></head><body><div id="root"></div></body></html>');
     return page("", "text/html", 404); }}; };
   const callA = async (u, a, env) => { const res = await handlePageText(req(u, SITE), env || {}, null, a.fn); return res.json(); };
@@ -122,8 +123,12 @@ ok(P.safeUrl("https://a.com/x#frag").href === "https://a.com/x", "the #part is d
   ok(A.log.some(u => /\/web\/\d{14}id_\//.test(u)), "the copy is read as it was captured (id_), without the archive's toolbar");
   A = arch(); j = await callA("https://app.site/x", A);
   ok(j.status === "ok" && j.archived, "a page built in the browser: its archived copy too");
+  A = arch(); j = await callA("https://news.com/login", A);
+  ok(j.status === "paywall" && !A.log.some(u => /archive\.org/.test(u)), "a login page (401): the archive is never asked");
   A = arch(); j = await callA("https://news.com/paid2", A);
-  ok(j.status === "paywall" && !A.log.some(u => /archive\.org/.test(u)), "a paywall: the archive is never asked");
+  ok(j.status === "ok" && j.archived, "a 402 from a free site that turns readers away (Investopedia does): the archive's copy, when it isn't marked as paid");
+  A = arch({paid: true}); j = await callA("https://news.com/paid2", A);
+  ok(j.status === "paywall" && !j.text, "a 402 whose copy is marked as paid content: still a paywall, nothing shown");
   A = arch({paid: true}); j = await callA("https://www.investopedia.com/e", A);
   ok(j.status === "blocked" && !j.text, "an archived copy marked as paid content isn't used");
   A = arch({ts: "20190101000000"}); j = await callA("https://www.investopedia.com/e", A);
