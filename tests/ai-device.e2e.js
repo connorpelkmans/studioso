@@ -52,14 +52,15 @@ function fakeChrome(opts){
 (async () => {
   await new Promise(r => server.listen(0, "127.0.0.1", r));
   const port = server.address().port, b = await chromium.launch({executablePath});
-  const open = async ({status = "available", ctx: cw, key, optIn = true} = {}) => {
+  const open = async ({status = "available", ctx: cw, key, optIn = true, had} = {}) => {
     const ctx = await b.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"}), net = [];
     await ctx.route(/generativelanguage\.googleapis\.com|anthropic|openai/, r => { net.push(r.request().url()); r.abort(); });
     await ctx.addInitScript(([o, fake]) => { window.__SB_TEST = true; if (o.optIn) window.__SB_DEVICE_AI_TEST = true; (0, eval)(`(${fake})`)(o);
       localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "1.15.8"}));
       localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, tasks: [], files: [], notes: [], events: [], decks: [], settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}]}));
+      if (o.had) localStorage.setItem("studyboard:devAIHad", "2026-11-01");
       if (o.key) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } },
-      [{status, ctx: cw, key, optIn}, fakeChrome.toString()]);
+      [{status, ctx: cw, key, optIn, had}, fakeChrome.toString()]);
     const p = await ctx.newPage(); p.errs = []; p.on("pageerror", e => p.errs.push(e.message));
     await p.goto(`http://127.0.0.1:${port}/index.html`); await p.waitForFunction(() => window.__sbSync && window.__sbDevAI, null, {timeout: 20000}); await p.waitForTimeout(400);
     return {ctx, p, net};
@@ -168,6 +169,33 @@ function fakeChrome(opts){
     ok(first.prompt.length < 4096 * 3.3, "the request is cut to fit Apple's context to begin with: " + first.prompt.length);
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     await ctx.close(); }
+
+  // 7. Telling the student why Chrome's built-in AI isn't there: removed to free disk space (it downloads again on next use, or can't
+  //    until there's room), or this computer can't run it
+  const sheetText = async p => { await p.evaluate(() => { const x = document.createElement("button"); x.dataset.act = "ai-setup"; document.body.appendChild(x); x.click(); x.remove(); }); await p.waitForTimeout(300); const t = await p.evaluate(() => (document.querySelector("dialog[open]") || {}).innerText || ""); await p.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close())); return t; };
+  const toastText = p => p.evaluate(() => [...document.querySelectorAll(".toast, [role=status], .tst")].map(x => x.innerText).join(" | "));
+  { const R = await open({status: "available"});
+    ok(await R.p.evaluate(() => !!localStorage.getItem("studyboard:devAIHad")), "when it's ready, Studyboard remembers it was");
+    await R.ctx.close(); }
+  { const R = await open({status: "downloadable", had: true}); await R.p.waitForTimeout(600);
+    ok(/removed its built-in AI from this computer to free up disk space\. It downloads again/.test(await toastText(R.p)), "it was ready and Chrome removed it: the student is told once, and that it downloads again");
+    ok(await R.p.evaluate(() => window.__sbDevAI.cfg().provider === "device"), "and it still counts as there (it downloads on the next AI use)");
+    ok(/removed its built-in AI .* to free up disk space/.test(await sheetText(R.p)), "AI Features says so too");
+    const out = await makeSet(R.p, {paste: "Glycolysis splits glucose into two pyruvate in the cytoplasm and makes a little ATP and NADH. It happens in every cell and needs no oxygen at all.", quiz: false});
+    ok(out.cards.length >= 1, "the next AI use downloads it again and works: " + out.cards.length);
+    await R.ctx.close(); }
+  { const R = await open({status: "downloadable", had: true}); await R.p.waitForTimeout(600);
+    await R.p.reload(); await R.p.waitForFunction(() => window.__sbDevAI, null, {timeout: 20000}); await R.p.waitForTimeout(800);
+    ok(!/removed its built-in AI/.test(await toastText(R.p)), "the note isn't repeated on the next visit");
+    await R.ctx.close(); }
+  { const R = await open({status: "unavailable", had: true}); await R.p.waitForTimeout(600);
+    ok(/can't download it again until at least 22 GB is free/.test(await toastText(R.p)), "removed and no room to download it again: said, with the space it needs");
+    ok(await R.p.evaluate(() => window.__sbDevAI.cfg().provider !== "device"), "and it's not offered");
+    await R.ctx.close(); }
+  { const R = await open({status: "unavailable"}); await R.p.waitForTimeout(600);
+    ok(!/Chrome/.test(await toastText(R.p)), "a computer that never could run it gets no pop-up");
+    ok(/This computer can't run Chrome's built-in AI: it needs 22 GB of free disk space and a graphics card with more than 4 GB of memory, or 16 GB of RAM/.test(await sheetText(R.p)), "but AI Features says why, and that a free key still works");
+    await R.ctx.close(); }
 
   await b.close(); server.close();
   console.log(fails ? `ai-device.e2e: ${fails} of ${n} FAILED` : `ai-device.e2e: ${n} checks passed`);

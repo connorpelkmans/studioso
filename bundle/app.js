@@ -6195,6 +6195,7 @@ function aiSetupSheet(fromFeature, opts){
       ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
       ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : " The first time you use it, Chrome downloads it once."}</p>
         <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can look things up on the web.</p></div>` : ""}
+      ${!pro && DEVAI.kind === "chrome" && DEVAI.why ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
       ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
       ${fromFeature && !pro && c.provider !== "device" ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
@@ -6726,6 +6727,7 @@ async function devProbe(){
       } else if (typeof self !== "undefined" && "LanguageModel" in self && window.isSecureContext !== false) {
         DEVAI.kind = "chrome"; DEVAI.status = await self.LanguageModel.availability(devOpts(false));
         try { DEVAI.images = (await self.LanguageModel.availability(devOpts(true))) !== "unavailable"; } catch (e) { DEVAI.images = false; }
+        devNoteState();
       } else DEVAI.status = "";
     } catch (e) { DEVAI.status = "unavailable"; }
     finally { DEVAI.probing = null; if (DEVAI.status !== before) { try { scheduleRender(); } catch (e) {} } }
@@ -6735,6 +6737,31 @@ async function devProbe(){
 devProbe();
 document.addEventListener("visibilitychange", () => { if (!document.hidden && DEVAI.status && DEVAI.status !== "available") devProbe(); });
 
+/* Why Chrome's built-in AI isn't ready, for the student. Chrome doesn't say why it reports the model missing, so Studyboard
+   remembers when it was last ready on this device. Ready before and missing now is almost always Chrome freeing disk space (it
+   removes the model when less than 10 GB is free); never ready means this computer can't run it (22 GB of free space and a graphics
+   card with more than 4 GB of memory, or 16 GB of RAM). DEVAI.why: "removed" (it downloads again on next use), "removed-full" (no
+   room to download it again), "cant" (never could), or "" */
+const DEV_HAD = "studyboard:devAIHad", DEV_SAID = "studyboard:devAISaid";
+const devLs = {get: k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }};
+function devNoteState(){
+  if (DEVAI.kind !== "chrome") { DEVAI.why = ""; return; }
+  if (DEVAI.status === "available") { devLs.set(DEV_HAD, new Date().toISOString().slice(0, 10)); DEVAI.why = ""; return; }
+  const had = !!devLs.get(DEV_HAD);
+  DEVAI.why = had && DEVAI.status === "downloadable" ? "removed" : had && DEVAI.status === "unavailable" ? "removed-full" : DEVAI.status === "unavailable" ? "cant" : "";
+  // said once, the day it's noticed, to a student who had been using it (not on every visit)
+  if (had && DEVAI.why && devLs.get(DEV_SAID) !== devLs.get(DEV_HAD)) {
+    devLs.set(DEV_SAID, devLs.get(DEV_HAD));
+    try { if (!(state.settings && state.settings.ai && aiHeldKeys && Object.values(aiHeldKeys()).some(Boolean))) toast(devWhyText(), null, {label: "AI Features", fn: () => aiSetupSheet(false)}); } catch (e) {}
+  }
+}
+function devWhyText(){
+  return DEVAI.why === "removed" ? "Chrome removed its built-in AI from this computer to free up disk space. It downloads again (once) the next time you use an AI feature."
+    : DEVAI.why === "removed-full" ? "Chrome removed its built-in AI from this computer to free up disk space, and can't download it again until at least 22 GB is free. Free up some space, or add a free AI key in AI Features."
+    : DEVAI.why === "cant" ? "This computer can't run Chrome's built-in AI: it needs 22 GB of free disk space and a graphics card with more than 4 GB of memory, or 16 GB of RAM. You can still use AI with a free key."
+    : "";
+}
+
 /* The first time, Chrome downloads its model (once, for every site). Chrome only starts that download from a click, so a click on
    anything AI starts it, and the request that follows waits for it with a progress line. */
 const DEV_AI_ACT = /(^|-)ai(-|$)|hint|explain|first-deck|^fd-|^cp-|companion|quiz|^lec-|^wb-/;
@@ -6742,7 +6769,7 @@ function devWarm(){
   if (DEVAI.kind !== "chrome" || DEVAI.warm || !["downloadable", "downloading"].includes(DEVAI.status)) return DEVAI.warm;
   try { if (navigator.userActivation && !navigator.userActivation.isActive) return null; } catch (e) {}
   DEVAI.warm = self.LanguageModel.create(Object.assign(devOpts(false), {monitor(m){ m.addEventListener("downloadprogress", e => { DEVAI.progress = Number(e.loaded) || 0; try { fire("device-ai-progress", DEVAI.progress); } catch (x) {} }); }}))
-    .then(s => { try { s.destroy(); } catch (e) {} DEVAI.status = "available"; DEVAI.progress = 1; try { scheduleRender(); } catch (e) {} return true; })
+    .then(s => { try { s.destroy(); } catch (e) {} DEVAI.status = "available"; DEVAI.progress = 1; devNoteState(); try { scheduleRender(); } catch (e) {} return true; })
     .catch(e => { DEVAI.warm = null; return false; });
   return DEVAI.warm;
 }
@@ -6838,9 +6865,9 @@ async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
     if (auto) throw aiErr("auto-off", `${L} isn't ready yet.`);
     const w = devWarm();
     if (!w) throw aiErr("device-tap", `${L} needs a one-time download first. Tap the button again to start it.`);
-    const tick = () => onStatus && onStatus(`Getting ${L} ready on this computer (one time only)${DEVAI.progress ? `: ${Math.round(DEVAI.progress * 100)}%` : "…"}`);
+    const tick = () => onStatus && onStatus(`${DEVAI.why === "removed" ? `Chrome removed ${L} to free up disk space, so it's downloading again` : `Getting ${L} ready on this computer (one time only)`}${DEVAI.progress ? `: ${Math.round(DEVAI.progress * 100)}%` : "…"}`);
     tick(); const iv = setInterval(tick, 1000);
-    try { if (!(await w)) throw aiErr("device-failed", `${L} couldn't finish downloading. Check your connection and free space, then try again.`); } finally { clearInterval(iv); }
+    try { if (!(await w)) { await devProbe(); throw aiErr("device-failed", DEVAI.why === "removed-full" || DEVAI.why === "cant" ? devWhyText() : `${L} couldn't finish downloading. Check your connection and that there's at least 22 GB free, then try again.`); } } finally { clearInterval(iv); }
   }
   let s;
   try { s = await self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}], signal})); }
