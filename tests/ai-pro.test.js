@@ -383,10 +383,10 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(x.s, 200, "a PDF still runs when the count isn't available");
   ok(seenReserve >= P.worstCost(3 * P.PDF_PAGE_TOKENS, P.TASKS.tutor.out), "reserved as if each page were 5,000 tokens");
 
-  /* Nothing but Haiku 5.5 for Claude, and only Whisper and bge-m3 on Workers AI */
+  /* Nothing but Haiku 5.5 for Claude, and only Whisper, bge-m3 and the first deck's Gemma on Workers AI */
   const idx = require("fs").readFileSync(path.join(__dirname, "..", "cloudflare", "ai-pro", "src", "index.js"), "utf8");
   const aiRuns = [...idx.matchAll(/env\.AI\.run\(\s*([A-Za-z_]+)/g)].map(m => m[1]);
-  eq(aiRuns.sort(), ["EMBED_MODEL", "WHISPER_MODEL"], "Workers AI is only ever asked for Whisper (audio) and bge-m3 (search by meaning), by name");
+  eq(aiRuns.sort(), ["EMBED_MODEL", "FIRST_DECK_MODEL", "WHISPER_MODEL"], "Workers AI is only ever asked for Whisper (audio), bge-m3 (search by meaning) and Gemma 4 26B (the free first deck), by name");
   eq([P.WHISPER_MODEL, P.EMBED_MODEL], ["@cf/openai/whisper-large-v3-turbo", "@cf/baai/bge-m3"], "and those names are fixed in code");
   ok(!/model\s*:\s*(?!MODEL\b)["'`]claude/.test(idx) && !/messages\.create\(\s*\{/.test(idx), "the Worker never names another Claude model, or builds a Claude request itself");
   let allHaiku = true;

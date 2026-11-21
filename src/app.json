@@ -67,6 +67,7 @@
   "01-ai.js",
   "01-page-text.js",
   "01-ai-device.js",
+  "01-ai-first.js",
   "01-ocr.js",
   "01-phone-cam.js",
   "01-quick-add.js",

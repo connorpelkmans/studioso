@@ -156,9 +156,20 @@ A one-hour YouTube lecture costs about $0.10, and a one-hour recording transcrib
 
 **What you really pay.** The limits and the usage summary count AI at the providers' prices. On top of that comes sales tax (about 10% in Washington), and Cloudflare's 5% fee on anything paid with Unified Billing credits. The limits assume Claude runs on Studyboard's own Anthropic key (the gateway's `default` provider key), so there's no 5% on it: a student at the $2.25 limit costs about $2.25 × 1.10 ≈ $2.48, and to compare the usage summary with your bills, multiply it by about 1.10. If you switch Claude back to Unified Billing, lower the limits to $2.15 / $1.70 / $0.85 to stay near $2.50 with the 5%. If the tax or fee changes, scale `MONTHLY_HARD_USD`, `MONTHLY_SOFT_USD` and `DAILY_USD` together.
 
+## The free first deck: never costs anything
+
+Students with no key and no Studyboard AI use the AI on their own device. Their **first** set of flashcards is made here instead, by Google's Gemma 4 26B on Workers AI (`POST /v1/first-deck`, src/first-deck.js), so their first experience is fast and good. It's paid for by Workers AI's free allowance of 10,000 Neurons a day (reset 00:00 UTC), and it can't go past it:
+
+- Every Workers AI job this Worker runs (Pro Whisper and embeddings, and these decks) is counted per UTC day in the day's `DayTotals`, including jobs still running, which hold their worst case until they're recorded.
+- A deck first holds the most it could possibly use (its notes counted as 2 tokens per character, plus its 3,000-token output cap), and only if everything spent and held today plus that stays under `FIRST_DECK_NEURONS` (7,000; it can't be set above 8,000). Otherwise it's refused, and the student's device makes the set. A typical deck uses about 60 to 120 Neurons, so roughly 60 to 100 free decks a day.
+- One per device (a hashed device code), at most 3 per network a day, only from Studyboard's own pages and apps, and the server writes the prompt (the notes are only data), so it's no free AI anyone can use.
+- `FIRST_DECK_OFF: "1"` turns it off.
+
+The one thing it can't see is Workers AI you run outside this Worker (for example, trying models in the Cloudflare dashboard): that draws on the same free allowance. Studyboard doesn't do that anywhere else; if you ever do, lower `FIRST_DECK_NEURONS` to match. On the Workers Free plan, Workers AI past the free allowance is refused rather than billed anyway.
+
 ## Endpoints
 
-All need the student's Supabase access token as `Authorization: Bearer …`.
+All but `/v1/first-deck` need the student's Supabase access token as `Authorization: Bearer …`.
 
 | | |
 |---|---|
@@ -167,6 +178,7 @@ All need the student's Supabase access token as `Authorization: Bearer …`.
 | `POST /v1/embed` | `{texts: [up to 100]}` → `{vectors}` |
 | `POST /v1/transcribe` | raw audio (up to 20 MB), `Content-Type: audio/*` → `{text}` |
 | `POST /v1/youtube` | `{url}` → `{title, transcript, onScreen}` |
+| `POST /v1/first-deck` | No sign-in. `{text, course, count, device}` → `{cards, deckTitle}`; `409` `used`, `429` `full` or `busy`, `403` another site |
 | `DELETE /v1/me` | Delete My Account |
 | `GET /v1/owner/usage?days=30` | Your usage summary (needs `OWNER_TOKEN`, not a student's sign-in); `?user=<id>` for one student |
 
@@ -175,4 +187,5 @@ Errors: `402` `used_up` or `today`; `429` `rate`; `413` `too_long`; `403` `not_p
 ## Tests
 
 - `node tests/ai-pro.test.js`: every limit, and the ways around them we could think of.
+- `node tests/ai-first-deck.test.js`: the free first deck never goes past the cap (with Pro jobs running, and a rush of decks at once), once per device, a few per network.
 - `node tests/ai-pro.e2e.js`: the app against the Worker's logic, and Studyboard AI Mode on a Claude key.

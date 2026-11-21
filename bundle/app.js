@@ -5626,9 +5626,14 @@ async function aiMakeStudySet(opts, onStatus){
   const kind = opts.engine === "small" || aiOnDevice() ? "small" : "cloud";
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
   if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
-  if (cards && secs) jobs.push(aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}));
-  else if (cards) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
-    schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})));
+  // A new student's first set: made free by Studyboard's cloud AI (01-ai-first.js); the device makes it if that isn't available
+  const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}) : null;
+  let fromCloud = false;
+  if (cards && opts.first && !(style && style !== "Clear, exam-focused study material.") && aiOnDevice() && aiFirstDeckOk()) jobs.push(aiFirstDeck({sources, courseName, count: nCards, signal, onStatus}).then(f => { if (!f) return cardsJob() || cardsOne(); fromCloud = true; return {data: {cards: f.cards, deckTitle: f.deckTitle}, truncated: false}; }));
+  else if (cards && secs) jobs.push(cardsJob());
+  else if (cards) jobs.push(cardsOne());
+  function cardsOne(){ return aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
+    schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})); }
   if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus}));
   else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
@@ -5639,6 +5644,7 @@ async function aiMakeStudySet(opts, onStatus){
   const res = settled.map(x => x.status === "fulfilled" ? x.value : {data: {}, truncated: false});
   let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : "", notes: readNotes.slice()};
   const missedParts = res.reduce((m, r) => m + (r && r.missed ? r.missed : 0), 0);
+  if (fromCloud) out.notes.push("Your flashcards were made free by Studyboard's cloud AI, as a first set. From now on, the AI on your computer makes them.");
   if (missedParts) out.notes.push(`${missedParts} part${missedParts === 1 ? "" : "s"} of your material couldn't be turned into cards or questions this time.`);
   if (cards) { const r = res[k++], g = aiGateCards(r.data.cards, {max: nCards ? Math.ceil(nCards * 1.2) : 60, corpus, copy}); out.cards = g.cards; out.title = aiTidyText(r.data.deckTitle); out.truncated = out.truncated || r.truncated;
     const dr = []; if (g.dropped.dup) dr.push(g.dropped.dup + " repeated"); if (g.dropped.long) dr.push(g.dropped.long + " too long for one card"); if (g.dropped.empty) dr.push(g.dropped.empty + " incomplete"); if (dr.length) out.notes.push("Left out " + dr.join(", ") + " flashcard" + (g.dropped.dup + g.dropped.long + g.dropped.empty === 1 ? "" : "s") + ".");
@@ -5708,6 +5714,7 @@ function aiStudySheet(deckId, mode){
       <fieldset><legend>Difficulty</legend>${seg("aiDiff", [["mixed", "Mixed"], ["easier", "Easier"], ["harder", "Harder"]], "mixed")}</fieldset>
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
       ${aiModelBar()}
+      ${aiFirstDeckNote()}
       <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private or sensitive information. " : ""}AI can make mistakes; you can review everything before it's saved.</p>
       <p class="status-msg" id="aiStatus" style="margin:0" aria-live="polite"></p>
     </div>
@@ -5787,7 +5794,7 @@ function aiStudySheet(deckId, mode){
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(brand)} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     aiShowStatus(status);
     try {
-      const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
+      const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal, first: true}, m => { status.textContent = m; });
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
       aiRememberStyle(custom);
@@ -7086,6 +7093,63 @@ hook("act", act => {
   return true;
 });
 if (window.__SB_TEST) window.__sbDevAI = {state: DEVAI, probe: devProbe, fit: devFit, webGet, cfg: () => aiCfg(), call: o => aiCall(o)};
+// The free first deck: when Studyboard uses the AI on this device (no key, no Studyboard AI), a new student's first set of flashcards
+// is made by Studyboard's cloud AI instead (Google's Gemma 4 26B on Cloudflare: ai.studyboardapp.com/v1/first-deck), so their first
+// experience is fast and good. Once per device. The server only runs it while it fits in Cloudflare's free daily allowance; when
+// it doesn't (or anything fails), the device makes the set as usual, without a word. Notes sent for it aren't kept.
+const FIRST_DECK = {done: "sb-first-deck", dev: "sb-first-dev", tries: "sb-first-tries", wait: 60000, maxTries: 3};
+const aiFirstGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const aiFirstSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+// Only on the device's AI, never under automated tests unless one opts in, and only for the first few sets (if the free allowance
+// was used up for the day when a student made their first, it's offered on their next one or two, then not again)
+function aiFirstDeckOk(){
+  if (!aiOnDevice() || aiFirstGet(FIRST_DECK.done)) return false;
+  if (navigator.webdriver && !window.__SB_FIRST_TEST) return false;
+  if (navigator.onLine === false) return false;
+  return (Number(aiFirstGet(FIRST_DECK.tries)) || 0) < FIRST_DECK.maxTries;
+}
+// The words of the material (photos and scans were read on this device first)
+function aiFirstDeckText(sources){
+  return sources.map(s => {
+    if (s.part && typeof s.part.text === "string") return s.part.text;
+    if (s.pdfPages && s.pdfPages.length) return s.pdfPages.map(p => p.lines.map(l => l.text).join("\n")).join("\n\n");
+    return s.copyText || "";
+  }).filter(Boolean).join("\n\n").trim();
+}
+function aiFirstDevice(){ let d = aiFirstGet(FIRST_DECK.dev); if (!d || !/^[A-Za-z0-9_-]{8,200}$/.test(d)) { d = "d" + uid() + uid(); d = d.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 60); aiFirstSet(FIRST_DECK.dev, d); } return d; }
+// {cards, deckTitle} from the cloud, or null (then the device makes them)
+async function aiFirstDeck({sources, courseName, count, signal, onStatus}){
+  if (!aiFirstDeckOk()) return null;
+  const text = aiFirstDeckText(sources);
+  if (text.length < 150) return null;
+  aiFirstSet(FIRST_DECK.tries, String((Number(aiFirstGet(FIRST_DECK.tries)) || 0) + 1));
+  const ac = new AbortController(), stop = () => ac.abort(), timer = setTimeout(stop, FIRST_DECK.wait);
+  if (signal) { if (signal.aborted) return null; signal.addEventListener("abort", stop, {once: true}); }
+  try {
+    if (onStatus) onStatus("Making your first set with Studyboard's free cloud AI…");
+    const res = await fetch(AI_PRO + "/v1/first-deck", {method: "POST", headers: {"Content-Type": "application/json"}, signal: ac.signal,
+      body: JSON.stringify({text: text.slice(0, 20000), course: courseName || "", count: count || 0, device: aiFirstDevice()})});
+    if (res.status === 409) { aiFirstSet(FIRST_DECK.done, "1"); return null; }
+    if (!res.ok) return null;
+    const j = await res.json();
+    if (!j || !Array.isArray(j.cards) || !j.cards.length) return null;
+    aiFirstSet(FIRST_DECK.done, "1");
+    return {cards: j.cards, deckTitle: j.deckTitle || ""};
+  } catch (e) {
+    if (signal && signal.aborted) throw e;
+    return null;
+  } finally { clearTimeout(timer); if (signal) signal.removeEventListener("abort", stop); }
+}
+// Said where the student makes the set, with a way to keep it on the device
+function aiFirstDeckNote(){
+  return aiFirstDeckOk() ? `<p class="mini ai-first-note" style="margin:0">Your first set is made free by Studyboard's cloud AI, so it's fast. Your notes go to Studyboard's server on Cloudflare to make it and aren't kept. After that, the AI on your computer makes your sets. <button type="button" class="link-btn" data-act="ai-first-skip">Use My Computer Instead</button></p>` : "";
+}
+hook("act", (act, el) => {
+  if (act !== "ai-first-skip") return false;
+  aiFirstSet(FIRST_DECK.done, "skipped"); const p = el.closest(".ai-first-note"); if (p) p.remove();
+  toast("Your sets will be made by the AI on your computer");
+  return true;
+});
 /* ===== 01-ocr.js: reading the words in photos and scanned pages, on the device, so the small AI on the device (01-ai-device.js)
    gets plain text, which it handles well, instead of pictures, which it handles badly or not at all.
    - iPhone and iPad app: Apple's Vision framework (StudyboardOnDeviceAI.recognizeText in ios-wrapper/native/StudyboardOnDeviceAI.swift).
@@ -86090,7 +86154,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, Apple Intelligence in the iPhone and iPad app, or, where neither is there, Google's free Gemma model, which Studyboard downloads to your device from Hugging Face only after you agree): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. The one exception is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, Apple Intelligence in the iPhone and iPad app, or, where neither is there, Google's free Gemma model, which Studyboard downloads to your device from Hugging Face only after you agree): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. There are two exceptions. Your first set of flashcards made this way may instead be made by Studyboard's cloud AI, so it's quick: the sheet where you make it says so before you start and lets you keep it on your device instead. If you go ahead, the text of your notes and the course name are sent to Studyboard's AI server, run on Cloudflare, where a model Cloudflare runs (Google's Gemma) writes the cards and sends them back. Your notes aren't stored or logged; the server keeps only a scrambled (hashed) code for your device, so it gives each device one free set, and a daily count for your network that is deleted two days later. The other is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>

@@ -4,6 +4,7 @@
 // src/js/01-ai-policy.js, which the app also uses for a student's own Claude key in Studyboard AI mode. This file adds
 // what only the server does: who is signed in, who has paid Pro, and the Cloudflare-only jobs (Whisper, embeddings, YouTube).
 import "../../../src/js/01-ai-policy.js";
+import { firstDeck, neuronsOf } from "./first-deck.js";
 const P = globalThis.SBPOLICY;
 export const { MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,
   TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, weekOf, nextWeek, costOf, worstCost, webWorst, textBytes, Meter, Totals,
@@ -162,14 +163,16 @@ export async function ownerUsage(request, env, deps) {
   const show = t => ({ ...t, cost: usd(t.cost), kinds: Object.fromEntries(Object.entries(t.kinds || {}).map(([k, v]) => [k, { ...v, cost: usd(v.cost) }])), tasks: t.tasks ? Object.fromEntries(Object.entries(t.tasks).map(([k, v]) => [k, { jobs: v.jobs, cost: usd(v.cost) }])) : undefined });
   return json({ days: days.map(show), total: show(sum), note: "Costs are what Studyboard AI computed from each provider's usage report, in US dollars; compare with your Anthropic Console (or Cloudflare) bill. unreported: jobs that came back without a usage report (charged at their worst case)." });
 }
-const record = (deps, kind, task, usage, cost) => { if (!deps.totals) return; const p = deps.totals(dayOf(deps.now ? deps.now() : Date.now())).add(kind, task, usage, cost).catch(() => {}); if (deps.defer) deps.defer(p); };
+const record = (deps, kind, task, usage, cost) => { if (!deps.totals) return Promise.resolve(); const p = deps.totals(dayOf(deps.now ? deps.now() : Date.now())).add(kind, task, usage, cost).catch(() => {}); if (deps.defer) deps.defer(p); return p; };
 
-// deps: {user(token), plan(token, uid), age(token), meter(uid), totals(day), claude: {create(req), count(req)}, gemini(body), embed(texts), whisper(bytes), now(), defer(promise)}
+// deps: {ai(model, input), allowance(name), user(token), plan(token, uid), age(token), meter(uid), totals(day), claude: {create(req), count(req)}, gemini(body), embed(texts), whisper(bytes), now(), defer(promise)}
 export async function handle(request, env, deps) {
   const url = new URL(request.url), cfg = config(env), lim = cfg.lim;
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (url.pathname === "/" && request.method === "GET") return new Response("Studyboard AI\n", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
   if (url.pathname === "/v1/owner/usage" && request.method === "GET") return ownerUsage(request, env, deps);
+  // A new student's free first deck (no account needed; never past Workers AI's free daily allowance: see first-deck.js)
+  if (url.pathname === "/v1/first-deck") return firstDeck(request, env, { ai: deps.ai, allowance: deps.allowance, now: deps.now, record: (kind, usage, cost) => record(deps, kind, "", usage, cost) }, json);
   if (!["/v1/status", "/v1/ai", "/v1/transcribe", "/v1/embed", "/v1/youtube", "/v1/me"].includes(url.pathname)) return json({ error: "not_found" }, 404);
   const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const user = await deps.user(token);
@@ -203,7 +206,10 @@ export async function handle(request, env, deps) {
 async function charged(meter, lim, reserve, deps, run, kind) {
   const got = await meter.reserve(reserve, lim);
   if (!got.ok) return { refused: json({ error: got.reason, ...(await meter.status(lim)) }, got.reason === "rate" ? 429 : 402) };
-  const work = (async () => { let out = null, cost = reserve, usage = null; try { const x = await run(); out = x.out; usage = x.usage || null; if (Number.isFinite(x.cost)) cost = x.cost; } catch (e) { out = null; } await meter.settle(got.id, cost); record(deps, kind, "", usage, cost); return out; })();
+  // Workers AI jobs are held in the day's ledger while they run, so a free first deck never counts on room they're about to use
+  const ledger = deps.allowance ? deps.allowance("t:" + dayOf(deps.now ? deps.now() : Date.now())) : null, hid = kind + "-" + got.id;
+  if (ledger) await ledger.hold(hid, neuronsOf(reserve)).catch(() => {});
+  const work = (async () => { let out = null, cost = reserve, usage = null; try { const x = await run(); out = x.out; usage = x.usage || null; if (Number.isFinite(x.cost)) cost = x.cost; } catch (e) { out = null; } await meter.settle(got.id, cost); try { await record(deps, kind, "", usage, cost); } finally { if (ledger) await ledger.release(hid).catch(() => {}); } return out; })();
   if (deps.defer) deps.defer(work);
   return { out: await work, after: await meter.status(lim) };
 }

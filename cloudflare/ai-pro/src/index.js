@@ -1,6 +1,7 @@
 // Cloudflare wiring for Studyboard AI
 import { DurableObject } from "cloudflare:workers";
 import Anthropic from "@anthropic-ai/sdk";
+import { FreeAllowance, FIRST_DECK_MODEL } from "./first-deck.js";
 import { Meter, Totals, handle, verifyUser, planOf, ageOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
 
 // One per student, named by their Supabase user id
@@ -19,9 +20,19 @@ export class StudentMeter extends DurableObject {
 
 // One per UTC day: the owner's usage totals (counts only)
 export class DayTotals extends DurableObject {
-  constructor(ctx, env) { super(ctx, env); this.t = new Totals(ctx.storage); }
+  constructor(ctx, env) { super(ctx, env); this.t = new Totals(ctx.storage); this.a = new FreeAllowance(ctx.storage, () => this.t.read()); }
   add(kind, task, usage, cost) { return this.t.add(kind, task, usage, cost); }
   read() { return this.t.read(); }
+  // The day's Workers AI ledger (and, by other names, the free first deck's per-device and per-network limits): see first-deck.js
+  hold(id, n) { return this.a.hold(id, n); }
+  release(id) { return this.a.release(id); }
+  tryFree(id, n, cap) { return this.a.tryFree(id, n, cap); }
+  view() { return this.a.view(); }
+  once() { return this.a.once(); }
+  undoOnce() { return this.a.undoOnce(); }
+  // a network's daily count (the only thing count is used for) is deleted two days later
+  async count(max) { const r = await this.a.count(max); try { if (!(await this.ctx.storage.getAlarm())) await this.ctx.storage.setAlarm(Date.now() + 2 * 86400000); } catch (e) {} return r; }
+  async alarm() { await this.ctx.storage.deleteAll(); }
 }
 
 const b64 = bytes => { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); };
@@ -42,6 +53,8 @@ export default {
         age: token => ageOf(token, env),
         meter: id => env.STUDENT.getByName("u:" + id),
         totals: day => env.TOTALS.getByName("t:" + day),
+        allowance: name => env.TOTALS.getByName(name),
+        ai: env.AI ? input => env.AI.run(FIRST_DECK_MODEL, input) : null,
         claude: {
           // Web fetch is a beta tool on Haiku-class models
           create: req => client.messages.create(req, (req.tools || []).some(t => t.name === "web_fetch") ? { headers: { "anthropic-beta": "web-fetch-2025-09-10" } } : undefined),
