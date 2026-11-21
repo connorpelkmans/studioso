@@ -4543,7 +4543,8 @@ function aiGateCards(list, opts){
     const key = ft.slice().sort().join(" ");
     if (keys.has(key) || seen.some(x => aiJaccard(ft, x.ft) >= 0.8 || (x.back === back.toLowerCase() && aiJaccard(ft, x.ft) >= 0.3))) { dropped.dup++; return; }
     keys.add(key); seen.push({ft, back: back.toLowerCase()});
-    out.push({front, back, source, check: opts.corpus ? aiGroundNote(front + " " + back, opts.corpus) : ""});
+    const hint = aiTidyText(c.hint || "").slice(0, 300);
+    out.push({front, back, source, hint, check: opts.corpus ? aiGroundNote(front + " " + back, opts.corpus) : ""});
   });
   return {cards: out.slice(0, max), dropped};
 }
@@ -5202,7 +5203,8 @@ function aiForgetStyle(text){ try { localStorage.setItem(AI_STYLE_MEM, JSON.stri
 const CARD_SCHEMA = {type: "OBJECT", properties: {
   deckTitle: {type: "STRING", description: "Short name for this set of cards, 2 to 6 words"},
   cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
-    front: {type: "STRING"}, back: {type: "STRING"}, source: {type: "STRING", description: "Slide or page reference, like 'Slides 4-5' or 'p. 12'"}}, required: ["front", "back"]}}},
+    front: {type: "STRING"}, back: {type: "STRING"}, source: {type: "STRING", description: "Slide or page reference, like 'Slides 4-5' or 'p. 12'"},
+    hint: {type: "STRING", description: "A one-sentence nudge about the idea (what it does, what it's part of, a comparison) that helps recall the back without using any of its words"}}, required: ["front", "back"]}}},
   required: ["cards"]};
 const QUIZ_SCHEMA = {type: "OBJECT", properties: {
   title: {type: "STRING", description: "Short quiz title"},
@@ -5215,6 +5217,7 @@ const QUIZ_SCHEMA = {type: "OBJECT", properties: {
     rationale: {type: "STRING"},
     optionNotes: {type: "ARRAY", items: {type: "STRING"}, description: "One short note per option saying why it is right or wrong"},
     topic: {type: "STRING"},
+    hint: {type: "STRING", description: "A one-sentence nudge about the idea behind the question that helps without giving the answer away, using none of its words and ruling out no option"},
     source: {type: "STRING"}}, required: ["type", "stem", "rationale"]}}},
   required: ["questions"]};
 // tidy: how each piece of text is cleaned (questions made from your own cards keep their text, math included)
@@ -5236,7 +5239,7 @@ function aiCleanQuestions(list, tidy){
     if (type === "order" && (correct.length !== options.length || new Set(correct).size !== options.length)) return;
     const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => tidy(s)) : [];
     out.push({id: uid(), type, stem, options: type === "short" ? [] : options, correct: type === "short" ? [] : (type === "multiple" ? [...new Set(correct)].sort((a, b) => a - b) : correct),
-      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
+      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim(), hint: tidy(q.hint || "").slice(0, 300)});
   });
   return out;
 }
@@ -5482,7 +5485,7 @@ function aiReviewSheet(r, ctx){
     else if (quizOnly) { const qc = $("#arQzCourse"); d = normDeck({id: uid(), created: Date.now(), quizOnly: true, name: (($("#arQuizName") && $("#arQuizName").value.trim()) || (keepCs[0] && keepCs[0].title) || "Practice Quiz").slice(0, 120), courseId: qc ? qc.value : ctx.courseId || ""}); }
     else { const nm = $("#arName").value.trim(); if (!nm) { toast("Give the new deck a name"); $("#arName").focus(); return; } d = normDeck({id: uid(), created: Date.now(), name: nm, courseId: ctx.courseId || ""}); }
     if (!d) return;
-    d.cards = d.cards.concat(keepC.map(c => ({id: uid(), front: c.front.trim(), back: c.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: c.source || ""})));
+    d.cards = d.cards.concat(keepC.map(c => ({id: uid(), front: c.front.trim(), back: c.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: c.source || "", hints: c.hint && !hintLeaks(c.hint, c.back) ? [c.hint] : undefined})));
     const qzId = uid();
     if (keepQ.length) d.aiQuizzes = (d.aiQuizzes || []).concat({id: qzId, title: uniqueQuizTitle(($("#arQuizName") && $("#arQuizName").value.trim()) || "Practice Quiz"), style: ctx.style || "", created: Date.now(), sources: ctx.sources, questions: keepQ, results: []});
     keepCs.forEach(c => { d.aiQuizzes = (d.aiQuizzes || []).concat(Object.assign({id: uid(), style: ctx.style || "", created: Date.now(), sources: ctx.sources, results: [], kind: "case"}, c)); });
@@ -5564,7 +5567,7 @@ function viewAiQuiz(){
   let body = "";
   if (q.type === "single" || q.type === "truefalse") {
     body = `<div class="mc ${q.type === "truefalse" ? "two-col" : ""}">${q.options.map((o, i) => {
-      const cls = a ? (q.correct.includes(i) ? "right" : a.given.includes(i) ? "wrong" : "") : ((f.qhint || {})[q.id] || {}).strike === i ? "struck" : "";
+      const cls = a ? (q.correct.includes(i) ? "right" : a.given.includes(i) ? "wrong" : "") : "";
       return `<button class="opt ${cls}" data-act="ai-pick" data-i="${i}" ${a ? "disabled" : ""}><span class="key">${q.type === "truefalse" && /^(true|false)$/i.test(String(o).trim()) ? String(o).trim()[0].toUpperCase() : letters[i]}</span><span>${esc(o)}${a && q.notes[i] ? `<small class="opt-note">${esc(q.notes[i])}</small>` : ""}</span></button>`; }).join("")}</div>`;
   } else if (q.type === "multiple") {
     const pick = a ? a.given : f.pick;
@@ -20496,8 +20499,8 @@ hook("act", (act, el) => {
 });
 /* ===== module: 01-study-rewards.js: studying that feels rewarding, without the annoying parts ===== */
 /* What the Gizmo study (reports/, LAUNCH-STATS.md's neighbour) found worth copying, done Studyboard's way:
-   1. Mochi's Hint: a nudge before you answer or rate, never the answer itself. The companion's AI when AI is on, else the first
-      letters (cards) or one wrong option taken away (quizzes). Using it costs nothing and changes nothing.
+   1. Mochi's Hint: a nudge about the idea before you answer or rate, never the answer itself, in two steps (Hint, Another Hint).
+      Using it costs nothing and changes nothing. How hints are made: see "Hints are about the idea" below.
    2. Why a card is back ("You missed this yesterday") and an "in a row" chip from 3 known cards on.
    3. A daily goal you choose (Tiny 5, Steady 20, Strong 50, Exam Week 100): card ratings and quiz answers count, any rating,
       so honest ratings never cost anything. Reaching it is a quiet celebration.
@@ -20558,47 +20561,95 @@ function buddyFace(){
   try { const h = window.SBCOMP && SBCOMP.head ? SBCOMP.head() : ""; if (h) return h; } catch (e) {}
   return BUDDY_SPROUT;
 }
-// No AI: the first letter of each word, the rest as blanks ("T__ i____ m_______"); numbers stay hidden too
-function localHint(answer){
-  const words = String(answer || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
-  if (!words.length) return "Think about what this goes with in your notes.";
-  if (words.length > 10) return `Starts with "${words.slice(0, 2).join(" ").replace(/[^\p{L}\p{N} '-]/gu, "")}…" (${words.length} words)`;
-  return "Starts like: " + words.map(w => w.replace(/^([^\p{L}\p{N}]*)([\p{L}\p{N}])([\p{L}\p{N}]*)(.*)$/u, (m, a, b, rest, z) => a + b + "_".repeat(rest.length) + z)).join(" ");
-}
-// An AI hint that gives a word of the answer away is no hint: the letters version stands in
-const HINT_SCHEMA = {type: "OBJECT", properties: {hint: {type: "STRING", description: "One nudge, under 20 words, that never states the answer"}}, required: ["hint"]};
+/* Hints are about the idea, never the answer: what it does, what it's part of, how it connects to the rest of the topic.
+   Two steps: a light nudge, then "Another Hint" that narrows it down further, still without saying it. In order of preference:
+   a hint written when the AI made the card or question, the companion's AI (with the course, the deck and neighbouring cards for
+   context), then a clue from the card's own material (its rationale or saved explanation) with the answer's words blanked out.
+   Only when there's nothing at all to go on: the first letters, with a pointer to turning on AI. */
+const HINT_SCHEMA = {type: "OBJECT", properties: {
+  hint: {type: "STRING", description: "A light nudge about the idea, under 22 words"},
+  hint2: {type: "STRING", description: "A stronger nudge that narrows it down, under 26 words, still without the answer"}}, required: ["hint", "hint2"]};
+const hintWords = answer => String(answer || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 4);
+// a hint that says the answer, or any of its key words (or their start, as in "mitochondri…"), is no hint
 function hintLeaks(hint, answer){
   const h = " " + String(hint || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ") + " ";
-  return String(answer || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 4).some(w => h.includes(" " + w + " ") || h.includes(" " + w + "s "));
+  return hintWords(answer).some(w => { const stem = w.length > 6 ? w.slice(0, Math.max(5, w.length - 3)) : w; return h.includes(" " + stem); });
 }
-async function aiHint(prompt, answer, extra){
-  const r = await aiCall({task: "hint", fast: true, maxTokens: 400, temperature: 0.5, schema: HINT_SCHEMA,
-    parts: [{text: `Question or card front: ${prompt}\nThe answer (never say it, or any of its key words): ${answer}${extra ? "\n" + extra : ""}`}],
-    system: `You are ${buddyName()}, a friendly study companion. Give ONE short hint, under 20 words, that nudges the student toward recalling the answer: what it relates to, its category, how it works, or a memory cue. Never state the answer, never use its key words, never list options. Warm and plain. Return JSON only.`});
-  const t = String((r.data && r.data.hint) || "").trim();
-  return t && !hintLeaks(t, answer) ? t : "";
+// a sentence from the material with the answer's words blanked out, when enough of it is left to be useful
+function maskedClue(text, answer){
+  const t = String(text || "").replace(/\s+/g, " ").trim(); if (!t) return "";
+  const keys = hintWords(answer).map(w => w.length > 6 ? w.slice(0, Math.max(5, w.length - 3)) : w); if (!keys.length) return "";
+  const sent = t.split(/(?<=[.!?])\s+/).filter(x => x.split(" ").length >= 5)[0] || t;
+  let hidden = 0;
+  const out = sent.split(" ").map(w => { const k = w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ""); if (k && keys.some(x => k.startsWith(x))) { hidden++; return w.replace(/[\p{L}\p{N}]+/gu, "___"); } return w; });
+  const words = out.length;
+  if (!hidden || words < 6 || hidden / words > 0.3 || words > 40) return "";
+  return out.join(" ");
 }
-// Flashcards: Hint before the answer shows
+// the last resort: first letters ("M___________")
+function lettersHint(answer){
+  const words = String(answer || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  if (!words.length || words.length > 8) return "";
+  return "Starts like: " + words.map(w => w.replace(/^([^\p{L}\p{N}]*)([\p{L}\p{N}])([\p{L}\p{N}]*)(.*)$/u, (m, a, b, rest, z) => a + b + "_".repeat(rest.length) + z)).join(" ");
+}
+const HINT_RULES = `Write two hints that help the student recall the answer by thinking about the idea: what it does, what it's part of, how it works, what it's connected to in this course, or a vivid comparison. Hint 1 is light: it points them at the right area of the topic. Hint 2 narrows it down with one more specific clue (a key property, where it happens, what it's for), still without giving it away. Never state the answer, its key words, a synonym, a translation or an abbreviation of it. Never give its first letter, its length, a rhyme or a fill-in-the-blank of it. Never say which options are wrong. Warm and plain, like a study buddy. Return JSON only.`;
+async function aiHints(prompt, answer, ctx){
+  const ask = async extra => {
+    const r = await aiCall({task: "hint", fast: true, maxTokens: 600, temperature: 0.5, schema: HINT_SCHEMA,
+      parts: [{text: `${ctx ? ctx + "\n" : ""}Question or card front: ${prompt}\nThe answer (never say it, or any of its key words): ${answer}${extra || ""}`}],
+      system: `You are ${buddyName()}, a friendly study companion. ${HINT_RULES}`});
+    return [r.data && r.data.hint, r.data && r.data.hint2].map(x => String(x || "").trim()).filter(x => x && !hintLeaks(x, answer));
+  };
+  let list = await ask();
+  // both gave it away: one more try, told what went wrong
+  if (!list.length) list = await ask("\nYour last hints used words from the answer. Describe the idea around it instead.");
+  return list.slice(0, 2);
+}
+// What a deck is about, for the AI: the course, the deck and a few neighbouring cards (fronts only)
+function hintContext(d, c){
+  const co = courseOf(d.courseId), near = d.cards.filter(x => x.id !== c.id && x.front && !x.img).slice(0, 40), k = d.cards.indexOf(c);
+  const pick = near.slice(Math.max(0, k - 3), Math.max(0, k - 3) + 6).map(x => "- " + String(x.front).slice(0, 120));
+  return [co ? `Course: ${co.name}` : "", `Deck: ${d.name}`, pick.length ? "Other cards in this deck:\n" + pick.join("\n") : ""].filter(Boolean).join("\n");
+}
+// The hints a card can give without asking anyone: kept ones, then its own material
+function cardHintsLocal(c){
+  const out = [];
+  if (Array.isArray(c.hints)) out.push(...c.hints.filter(Boolean)); else if (typeof c.hint === "string" && c.hint) out.push(c.hint);
+  if (out.length < 2 && c.explain) { const ex = c.explain; [ex.memoryTip, ex.analogy, ex.explanation].forEach(t => { const m = maskedClue(t, c.back); if (m && out.length < 2 && !out.includes(m)) out.push(m); }); }
+  return out.filter(x => !hintLeaks(x, c.back)).slice(0, 2);
+}
+// Flashcards: Hint (and Another Hint) before the answer shows
 async function fcHint(){
   const f = ui.fc, it = f && f.q[f.i]; if (!it || f.flipped) return;
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId); if (!c) return;
-  f.hints = f.hints || {}; f.hinted = (f.hinted || 0) + (f.hints[c.id] ? 0 : 1);
-  if (c.hint) { f.hints[c.id] = {text: c.hint}; render(); return; }
-  if (!aiReady() || c.img) { f.hints[c.id] = {text: localHint(c.back), local: true}; render(); return; }
-  f.hints[c.id] = {busy: true}; render();
-  let text = "";
-  try { text = await aiHint(c.front, c.back); } catch (e) { console.warn("hint", e); }
-  if (!text) { f.hints[c.id] = {text: localHint(c.back), local: true}; render(); return; }
-  f.hints[c.id] = {text};
-  // kept on the card, so the next session's hint is instant and free
+  f.hints = f.hints || {};
+  const h = f.hints[c.id];
+  if (h && !h.busy) { if (h.at + 1 < h.list.length) { h.at++; render(); } return; }
+  f.hinted = (f.hinted || 0) + 1;
+  const local = cardHintsLocal(c);
+  if (local.length >= 2 || ((!aiReady() || c.img) && local.length)) { f.hints[c.id] = {list: local, at: 0}; render(); return; }
+  if (!aiReady() || c.img) { const l = lettersHint(c.back); f.hints[c.id] = {list: [l || "Think about where this came up in your notes and what it was next to."], at: 0, plain: true}; render(); return; }
+  f.hints[c.id] = {busy: true, list: [], at: 0}; render();
+  let list = [];
+  try { list = await aiHints(c.front, c.back, hintContext(d, c)); } catch (e) { console.warn("hint", e); }
+  list = local.concat(list.filter(x => !local.includes(x))).slice(0, 2);
+  if (!list.length) { const l = lettersHint(c.back); f.hints[c.id] = {list: [l || "Think about where this came up in your notes."], at: 0, plain: true}; render(); return; }
+  f.hints[c.id] = {list, at: 0};
+  // kept on the card, so next time they're instant, free and work offline
   const nd = clone(state.decks[d.id]), k = nd && nd.cards.find(x => x.id === c.id);
-  if (k) { k.hint = text; saveDeck(nd, null); } else render();
+  if (k) { k.hints = list; delete k.hint; saveDeck(nd, null); } else render();
+}
+function hintBubbleHtml(h, act){
+  const name = buddyName();
+  if (h.busy) return `<p class="fc-bubble" role="status"><span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…</p>`;
+  const more = h.at + 1 < h.list.length;
+  return `<div class="fc-bubble" role="status"><span class="fc-hint-step">${h.list.length > 1 ? `Hint ${h.at + 1} of ${h.list.length}` : "Hint"}</span><p>${esc(h.list[h.at])}</p>${more ? `<button type="button" class="link-btn fc-hint-more" data-act="${act}">Another Hint</button>` : ""}${h.plain ? `<button type="button" class="link-btn fc-hint-more" data-act="ai-setup">Turn on AI for hints about the idea</button>` : ""}</div>`;
 }
 function fcBuddyHtml(d, c, f, key){
   const name = buddyName(), face = `<span class="fc-buddy-face" aria-hidden="true">${buddyFace()}</span>`;
   if (!f.flipped) {
     const h = (f.hints || {})[c.id];
-    if (h) return `<div class="fc-buddy has-tip">${face}<p class="fc-bubble" role="status">${h.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…` : esc(h.text)}</p></div>`;
+    if (h) return `<div class="fc-buddy has-tip">${face}${hintBubbleHtml(h, "fc-hint")}</div>`;
     return `<div class="fc-buddy">${face}<button type="button" class="btn small fc-hint-btn" data-act="fc-hint" title="${esc(name)} gives a nudge, not the answer (H)" aria-keyshortcuts="H">Hint</button></div>`;
   }
   // after the answer: the explanation, before you rate (AI set up: Explain; not yet: a way to set it up)
@@ -20669,29 +20720,37 @@ function quizAddedUndo(){
   const nd = clone(d); nd.cards = nd.cards.filter(c => !a.ids.includes(c.id)); nd.updated = Date.now();
   f.added = null; applyChanges([{kind: "deck", id: d.id, after: nd}], null); toast("Took those cards back out");
 }
-// AI quizzes: a Hint before answering (AI nudge, or one wrong option taken away)
+// AI quizzes: a Hint before answering, from the question's own hint (written with the quiz), the AI, or its rationale
+function quizHintsLocal(q){
+  const ans = quizAnswerText(q), out = [];
+  if (q.hint && !hintLeaks(q.hint, ans)) out.push(q.hint);
+  if (Array.isArray(q.hints)) q.hints.forEach(x => { if (x && !out.includes(x) && !hintLeaks(x, ans)) out.push(x); });
+  if (out.length < 2) { const m = maskedClue(q.rationale, ans); if (m && !out.includes(m)) out.push(m); }
+  if (out.length < 2 && q.explain) { const m = maskedClue(q.explain.memoryTip || q.explain.explanation, ans); if (m && !out.includes(m)) out.push(m); }
+  return out.slice(0, 2);
+}
 async function aiQuizHint(){
   const f = ui.fc, q = f && f.qs[f.i]; if (!q || f.ans[f.i]) return;
   f.qhint = f.qhint || {};
-  if (f.qhint[q.id]) return;
-  const strike = () => {
-    const wrong = (q.options || []).map((o, i) => i).filter(i => !(q.correct || []).includes(i));
-    if ((q.type === "single" || q.type === "multiple") && wrong.length > 1) { const i = wrong[(q.stem.length + f.i) % wrong.length]; f.qhint[q.id] = {text: `It isn't "${q.options[i]}".`, strike: i}; }
-    else if (q.type === "multiple") f.qhint[q.id] = {text: `${q.correct.length} of these are right.`};
-    else if (q.type === "order") f.qhint[q.id] = {text: `"${q.options[q.correct[0]]}" comes first.`};
-    else f.qhint[q.id] = {text: localHint(quizAnswerText(q))};
-  };
-  if (!aiReady()) { strike(); render(); return; }
-  f.qhint[q.id] = {busy: true}; render();
-  let text = "";
-  try { text = await aiHint(q.stem, quizAnswerText(q), q.options && q.options.length ? "Options shown: " + q.options.join(" | ") : ""); } catch (e) { console.warn("hint", e); }
-  if (text) f.qhint[q.id] = {text}; else strike();
+  const h = f.qhint[q.id];
+  if (h && !h.busy) { if (h.at + 1 < h.list.length) { h.at++; render(); } return; }
+  const local = quizHintsLocal(q), ans = quizAnswerText(q);
+  if (local.length >= 2 || (!aiReady() && local.length)) { f.qhint[q.id] = {list: local, at: 0}; render(); return; }
+  if (!aiReady()) { f.qhint[q.id] = {list: [q.topic ? `This one is about ${q.topic}. Think back to what your notes said about it.` : "Read the question again slowly: what is it really asking about?"], at: 0, plain: true}; render(); return; }
+  f.qhint[q.id] = {busy: true, list: [], at: 0}; render();
+  let list = [];
+  const d = state.decks[f.deckId], co = d && courseOf(d.courseId);
+  try { list = await aiHints(q.stem, ans, [co ? `Course: ${co.name}` : "", q.topic ? `Topic: ${q.topic}` : "", q.options && q.options.length ? "Options shown to the student (don't rule any out): " + q.options.join(" | ") : ""].filter(Boolean).join("\n")); } catch (e) { console.warn("hint", e); }
+  list = local.concat(list.filter(x => !local.includes(x))).slice(0, 2);
+  f.qhint[q.id] = list.length ? {list, at: 0} : {list: [q.topic ? `This one is about ${q.topic}.` : "Think about what the question is really asking."], at: 0, plain: true};
+  // kept with the quiz, for the next attempt
+  if (list.length && d) { const nd = clone(d), qz = (nd.aiQuizzes || []).find(x => x.id === f.quizId), o = qz && qz.questions.find(x => x.id === q.id); if (o) { o.hints = list; saveDeck(nd, null); return; } }
   render();
 }
 function aiQuizHintHtml(f, q){
   const h = (f.qhint || {})[q.id], name = buddyName(), face = `<span class="fc-buddy-face" aria-hidden="true">${buddyFace()}</span>`;
-  if (h) return `<div class="fc-buddy has-tip">${face}<p class="fc-bubble" role="status">${h.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…` : esc(h.text)}</p></div>`;
-  return `<div class="fc-buddy">${face}<button type="button" class="btn small fc-hint-btn" data-act="qz-hint" title="${esc(name)} gives a nudge, not the answer">Hint</button></div>`;
+  if (h) return `<div class="fc-buddy has-tip">${face}${hintBubbleHtml(h, "qz-hint")}</div>`;
+  return `<div class="fc-buddy">${face}<button type="button" class="btn small fc-hint-btn" data-act="qz-hint" title="${esc(name)} gives a nudge about the idea, not the answer">Hint</button></div>`;
 }
 
 /* ---------- 6. The first deck, before any account ---------- */
@@ -20777,7 +20836,7 @@ document.addEventListener("keydown", e => {
   };
   setTimeout(go, 900);
 })();
-if (window.__SB_TEST) window.__sbRewards = {localHint, hintLeaks, goalCfg, goalToday, goalBump};
+if (window.__SB_TEST) window.__sbRewards = {maskedClue, lettersHint, hintLeaks, goalCfg, goalToday, goalBump};
 /* ===== module: 01-focus.js: the app's core, the Pomodoro focus timer ===== */
 /* Pomodoro focus timer */
 const POMO_HOW = `<ol><li><b>Pick one task</b> and start a 25-minute focus session (one "pomodoro").</li><li><b>Work only on that task</b> until the timer rings. If something else comes up, jot it down for later.</li><li><b>Take a 5-minute break.</b> Stand up, stretch, get water: anything but work.</li><li><b>After four sessions, take a longer break</b> of 15 to 30 minutes.</li></ol><p>Short, timed bursts make it easier to start and keep your focus fresh, and counting sessions shows how long things really take. Studyboard's Classic routine uses these times. The method was created by Francesco Cirillo in the late 1980s.</p>`;

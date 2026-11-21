@@ -582,7 +582,8 @@ function aiGateCards(list, opts){
     const key = ft.slice().sort().join(" ");
     if (keys.has(key) || seen.some(x => aiJaccard(ft, x.ft) >= 0.8 || (x.back === back.toLowerCase() && aiJaccard(ft, x.ft) >= 0.3))) { dropped.dup++; return; }
     keys.add(key); seen.push({ft, back: back.toLowerCase()});
-    out.push({front, back, source, check: opts.corpus ? aiGroundNote(front + " " + back, opts.corpus) : ""});
+    const hint = aiTidyText(c.hint || "").slice(0, 300);
+    out.push({front, back, source, hint, check: opts.corpus ? aiGroundNote(front + " " + back, opts.corpus) : ""});
   });
   return {cards: out.slice(0, max), dropped};
 }
@@ -1241,7 +1242,8 @@ function aiForgetStyle(text){ try { localStorage.setItem(AI_STYLE_MEM, JSON.stri
 const CARD_SCHEMA = {type: "OBJECT", properties: {
   deckTitle: {type: "STRING", description: "Short name for this set of cards, 2 to 6 words"},
   cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
-    front: {type: "STRING"}, back: {type: "STRING"}, source: {type: "STRING", description: "Slide or page reference, like 'Slides 4-5' or 'p. 12'"}}, required: ["front", "back"]}}},
+    front: {type: "STRING"}, back: {type: "STRING"}, source: {type: "STRING", description: "Slide or page reference, like 'Slides 4-5' or 'p. 12'"},
+    hint: {type: "STRING", description: "A one-sentence nudge about the idea (what it does, what it's part of, a comparison) that helps recall the back without using any of its words"}}, required: ["front", "back"]}}},
   required: ["cards"]};
 const QUIZ_SCHEMA = {type: "OBJECT", properties: {
   title: {type: "STRING", description: "Short quiz title"},
@@ -1254,6 +1256,7 @@ const QUIZ_SCHEMA = {type: "OBJECT", properties: {
     rationale: {type: "STRING"},
     optionNotes: {type: "ARRAY", items: {type: "STRING"}, description: "One short note per option saying why it is right or wrong"},
     topic: {type: "STRING"},
+    hint: {type: "STRING", description: "A one-sentence nudge about the idea behind the question that helps without giving the answer away, using none of its words and ruling out no option"},
     source: {type: "STRING"}}, required: ["type", "stem", "rationale"]}}},
   required: ["questions"]};
 // tidy: how each piece of text is cleaned (questions made from your own cards keep their text, math included)
@@ -1275,7 +1278,7 @@ function aiCleanQuestions(list, tidy){
     if (type === "order" && (correct.length !== options.length || new Set(correct).size !== options.length)) return;
     const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => tidy(s)) : [];
     out.push({id: uid(), type, stem, options: type === "short" ? [] : options, correct: type === "short" ? [] : (type === "multiple" ? [...new Set(correct)].sort((a, b) => a - b) : correct),
-      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
+      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim(), hint: tidy(q.hint || "").slice(0, 300)});
   });
   return out;
 }
@@ -1521,7 +1524,7 @@ function aiReviewSheet(r, ctx){
     else if (quizOnly) { const qc = $("#arQzCourse"); d = normDeck({id: uid(), created: Date.now(), quizOnly: true, name: (($("#arQuizName") && $("#arQuizName").value.trim()) || (keepCs[0] && keepCs[0].title) || "Practice Quiz").slice(0, 120), courseId: qc ? qc.value : ctx.courseId || ""}); }
     else { const nm = $("#arName").value.trim(); if (!nm) { toast("Give the new deck a name"); $("#arName").focus(); return; } d = normDeck({id: uid(), created: Date.now(), name: nm, courseId: ctx.courseId || ""}); }
     if (!d) return;
-    d.cards = d.cards.concat(keepC.map(c => ({id: uid(), front: c.front.trim(), back: c.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: c.source || ""})));
+    d.cards = d.cards.concat(keepC.map(c => ({id: uid(), front: c.front.trim(), back: c.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: c.source || "", hints: c.hint && !hintLeaks(c.hint, c.back) ? [c.hint] : undefined})));
     const qzId = uid();
     if (keepQ.length) d.aiQuizzes = (d.aiQuizzes || []).concat({id: qzId, title: uniqueQuizTitle(($("#arQuizName") && $("#arQuizName").value.trim()) || "Practice Quiz"), style: ctx.style || "", created: Date.now(), sources: ctx.sources, questions: keepQ, results: []});
     keepCs.forEach(c => { d.aiQuizzes = (d.aiQuizzes || []).concat(Object.assign({id: uid(), style: ctx.style || "", created: Date.now(), sources: ctx.sources, results: [], kind: "case"}, c)); });
@@ -1603,7 +1606,7 @@ function viewAiQuiz(){
   let body = "";
   if (q.type === "single" || q.type === "truefalse") {
     body = `<div class="mc ${q.type === "truefalse" ? "two-col" : ""}">${q.options.map((o, i) => {
-      const cls = a ? (q.correct.includes(i) ? "right" : a.given.includes(i) ? "wrong" : "") : ((f.qhint || {})[q.id] || {}).strike === i ? "struck" : "";
+      const cls = a ? (q.correct.includes(i) ? "right" : a.given.includes(i) ? "wrong" : "") : "";
       return `<button class="opt ${cls}" data-act="ai-pick" data-i="${i}" ${a ? "disabled" : ""}><span class="key">${q.type === "truefalse" && /^(true|false)$/i.test(String(o).trim()) ? String(o).trim()[0].toUpperCase() : letters[i]}</span><span>${esc(o)}${a && q.notes[i] ? `<small class="opt-note">${esc(q.notes[i])}</small>` : ""}</span></button>`; }).join("")}</div>`;
   } else if (q.type === "multiple") {
     const pick = a ? a.given : f.pick;

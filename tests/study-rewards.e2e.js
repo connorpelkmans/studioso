@@ -19,8 +19,8 @@ const CARDS = [
   ["Where does glycolysis happen?", "The cytoplasm"], ["Net ATP from glycolysis?", "Two ATP"], ["What carries electrons to the chain?", "NADH and FADH2"],
   ["Final electron acceptor in respiration?", "Oxygen"]].map(([front, back], i) => ({id: "k" + i, front, back, box: i === 1 ? 1 : 3, due: ago(0), seen: i === 0 ? 0 : 3, right: 2, wrong: i === 1 ? 2 : 0, last: i === 1 ? ago(1) : ago(4), rate: i === 1 ? "again" : "good"}));
 const QUIZ = {id: "qz1", title: "Cell Respiration Quiz", created: 1, questions: [
-  {id: "q1", type: "single", stem: "Which structure is the site of the electron transport chain?", options: ["Outer membrane", "Inner membrane", "Matrix", "Cytoplasm"], correct: [1], rationale: "The cristae hold the carriers.", notes: ["", "", "", ""], topic: "ETC"},
-  {id: "q2", type: "single", stem: "Net ATP from glycolysis?", options: ["1", "2", "4", "36"], correct: [1], rationale: "4 made, 2 used.", notes: ["", "", "", ""], topic: "Glycolysis"},
+  {id: "q1", type: "single", stem: "Which structure is the site of the electron transport chain?", options: ["Outer membrane", "Inner membrane", "Matrix", "Cytoplasm"], correct: [1], rationale: "Electron carriers sit in the folded inner membrane, called the cristae.", hint: "Think about where the folded surfaces are inside the mitochondrion.", notes: ["", "", "", ""], topic: "ETC"},
+  {id: "q2", type: "single", stem: "Net ATP from glycolysis?", options: ["1", "2", "4", "36"], correct: [1], rationale: "Glycolysis makes 4 ATP but uses 2 to get started, so the net is two.", notes: ["", "", "", ""], topic: "Glycolysis"},
   {id: "q3", type: "single", stem: "Final electron acceptor?", options: ["Oxygen", "Water", "NAD+", "Glucose"], correct: [0], rationale: "Oxygen takes the electrons.", notes: ["", "", "", ""], topic: "ETC"}]};
 const SEED = {v: 2, updated: 1, tasks: [{id: "t1", title: "Bio Exam", courseId: "c1", type: "Exam", due: iso(new Date(today.getTime() + 3 * 864e5)), status: "todo"}], files: [], notes: [], events: [],
   courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}], settings: {},
@@ -63,7 +63,7 @@ const SEED = {v: 2, updated: 1, tasks: [{id: "t1", title: "Bio Exam", courseId: 
     ok(await p.locator('[data-act="fc-hint"]').count() === 1 && !(await p.$(".rate-btn")), tag + "Mochi's Hint is there before the answer, the rating buttons aren't yet");
     await p.click('[data-act="fc-hint"]'); await p.waitForSelector(".fc-bubble");
     const hint = await text(p, ".fc-bubble"), back = await p.evaluate(() => { const S = window.__sbSync, it = S.ui.fc.q[S.ui.fc.i]; return S.state.decks.d1.cards.find(c => c.id === it.cardId).back; });
-    ok(/Starts like: \S/.test(hint) && !hint.includes(back), tag + "without AI the hint is first letters, never the answer: " + hint);
+    ok(/Starts like: \S/.test(hint) && !hint.includes(back) && /Turn on AI for hints about the idea/.test(hint), tag + "with no AI and nothing in the card to go on, first letters are the last resort, with a way to better hints: " + hint.replace(/\s+/g, " "));
     if (w < 600) await p.screenshot({path: path.join(SHOTS, "rewards-hint-phone.png")}); else await p.screenshot({path: path.join(SHOTS, "rewards-hint-desk.png")});
     await p.click('[data-act="fc-flip"]'); await p.waitForSelector(".rate-btn");
     ok(await p.locator(".fc-buddy-after").count() === 1 && /Explain This/.test(await text(p, ".fc-buddy-after")), tag + "after the answer, Explain sits before the rating buttons");
@@ -87,16 +87,20 @@ const SEED = {v: 2, updated: 1, tasks: [{id: "t1", title: "Bio Exam", courseId: 
   }
 
   // AI on: the hint is a nudge from the AI, and a hint that gives the answer away is replaced
-  { const {ctx, p} = await boot(1100, {ai: {hint: "Think of the cell's power plant, the organelle with its own DNA."}});
+  { const {ctx, p} = await boot(1100, {ai: {hint: "Think about where the cell turns food into usable energy.", hint2: "It's the bean-shaped part with folded inner walls and its own DNA."}});
     await p.evaluate(() => { const S = window.__sbSync; S.ui.tab = "flashcards"; S.render(); });
     await p.evaluate(() => window.__sbSync.ui && 0);
     await p.click('[data-act="fc-review-start"]'); await p.waitForSelector('[data-act="fc-hint"]');
     // make sure the first card is the mitochondria one
     await p.evaluate(() => { const S = window.__sbSync, f = S.ui.fc, k = f.q.findIndex(x => x.cardId === "k0"); const it = f.q.splice(k, 1)[0]; f.q.unshift(it); f.i = 0; S.render(); });
-    await p.click('[data-act="fc-hint"]'); await p.waitForFunction(() => /power plant/.test((document.querySelector(".fc-bubble") || {}).innerText || ""), null, {timeout: 8000});
-    ok(true, "with AI the hint is the companion's nudge");
-    ok(await p.evaluate(() => window.__sbSync.state.decks.d1.cards.find(c => c.id === "k0").hint === "Think of the cell's power plant, the organelle with its own DNA."), "and it's kept on the card, so next time it's free");
-    ok(await p.evaluate(() => window.__sbRewards.hintLeaks("It's the mitochondria!", "Mitochondria") && !window.__sbRewards.hintLeaks("The power plant", "Mitochondria")), "a hint that names the answer is caught");
+    await p.click('[data-act="fc-hint"]'); await p.waitForFunction(() => /usable energy/.test((document.querySelector(".fc-bubble") || {}).innerText || ""), null, {timeout: 8000});
+    ok(/Hint 1 of 2/i.test(await text(p, ".fc-bubble")) && !/Mitochondria/i.test(await text(p, ".fc-bubble")), "with AI the hint is about the idea, in two steps: " + (await text(p, ".fc-bubble")).replace(/\s+/g, " "));
+    await p.click('.fc-bubble [data-act="fc-hint"]'); await p.waitForTimeout(150);
+    ok(/Hint 2 of 2/i.test(await text(p, ".fc-bubble")) && /folded inner walls/.test(await text(p, ".fc-bubble")) && !(await p.$('.fc-bubble [data-act="fc-hint"]')), "Another Hint narrows it down, and that's the last one");
+    ok(await p.evaluate(() => (window.__sbSync.state.decks.d1.cards.find(c => c.id === "k0").hints || []).length === 2), "both are kept on the card, so next time they're instant, free and offline");
+    ok(await p.evaluate(() => { const R = window.__sbRewards; return R.hintLeaks("It's the mitochondria!", "Mitochondria") && R.hintLeaks("Think mitochondrial", "Mitochondria") && !R.hintLeaks("The power plant", "Mitochondria"); }), "a hint that names the answer (or starts it) is caught");
+    const clue = await p.evaluate(() => window.__sbRewards.maskedClue("Electron carriers sit in the folded inner membrane, called the cristae.", "Inner membrane"));
+    ok(clue === "Electron carriers sit in the folded ___ ___, called the cristae.", "a clue from the material blanks out the answer's words: " + clue);
     await p.screenshot({path: path.join(SHOTS, "rewards-hint-ai.png")});
     ok(!p.errs.length, "no page errors (AI hint): " + p.errs.join(" | "));
     await ctx.close(); }
@@ -108,7 +112,8 @@ const SEED = {v: 2, updated: 1, tasks: [{id: "t1", title: "Bio Exam", courseId: 
     await p.click('.rv-quiz [data-act="ai-quiz-start"]'); await p.waitForSelector('[data-act="qz-hint"]');
     ok(!(await p.$(".hearts, .lives")) && !/lives|hearts/i.test(await text(p, "#view")), tag + "no hearts or lives anywhere");
     await p.click('[data-act="qz-hint"]'); await p.waitForSelector(".fc-bubble");
-    ok(/It isn't/.test(await text(p, ".fc-bubble")) && await p.locator(".opt.struck").count() === 1, tag + "without AI, the hint takes one wrong option away: " + await text(p, ".fc-bubble"));
+    const qh = (await text(p, ".fc-bubble")).replace(/\s+/g, " "), qnow = await p.evaluate(() => { const f = window.__sbSync.ui.fc, q = f.qs[f.i]; return q.options[q.correct[0]]; });
+    ok(!/It isn't|Starts like/.test(qh) && !qh.toLowerCase().includes(qnow.toLowerCase()) && /___|about/.test(qh) && !(await p.$(".opt.struck")), tag + "without AI, the hint comes from the question's own material, answer blanked out, no option crossed out: " + qh);
     await p.screenshot({path: path.join(SHOTS, `rewards-quiz-hint-${w < 600 ? "phone" : "desk"}.png`)});
     // answer: get the first wrong, the rest right
     for (let k = 0; k < 3; k++) {
