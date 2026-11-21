@@ -6960,10 +6960,16 @@ const WEB_MODELS = {
   big32: {id: "gemma-4-E2B-it-q4f32_1-MLC", lib: "gemma-4-E2B-it-q4f32_1_cs512-webgpu.wasm", gb: 2.8, name: "Gemma 4", vram: 3862.72, extra: {model_manifest: "mlc-model-manifest.json", buffer_size_required_bytes: 201326592}},
   small: {id: "gemma3-1b-it-q4f16_1-MLC", lib: "gemma3-1b-it-q4f16_1_cs512-webgpu.wasm", gb: 0.6, name: "Gemma 3", vram: 711.07, small: true, extra: {required_features: ["shader-f16"]}, ov: {sliding_window_size: -1}}
 };
+/* Studyboard's own trained models (ml/README.md): when one is set here, it replaces the stock model of the same size. It has the
+   same architecture, so the same WebLLM library above runs it; only its weights (on Hugging Face) differ. Each entry:
+   {id: "studyboard-gemma3-1b-it-q4f16_1-MLC", hf: "https://huggingface.co/<user>/", gb, vram}. null keeps the stock model. */
+const WEB_CUSTOM = {big16: null, big32: null, small: null};
+Object.entries(WEB_CUSTOM).forEach(([k, c]) => { if (c && c.id && WEB_MODELS[k]) Object.assign(WEB_MODELS[k], c, {custom: true}); });
+const webHf = m => m.hf || WEB_HF;
 const WEB_SMALL = "studyboard:webAISmall", WEB_DECLINED = "studyboard:webAIDeclined", WEB_READY = "studyboard:webAIReady";
 const webAbs = f => new URL(WEBLLM_DIR + f, location.href).href;
 const webGpu = () => (window.__SB_TEST && window.__SB_GPU_STUB) || navigator.gpu || null;
-const webAppConfig = () => ({useIndexedDBCache: false, model_list: Object.values(WEB_MODELS).map(m => Object.assign({model: WEB_HF + m.id, model_id: m.id, model_lib: webAbs("libs/" + m.lib),
+const webAppConfig = () => ({useIndexedDBCache: false, model_list: Object.values(WEB_MODELS).map(m => Object.assign({model: webHf(m) + m.id, model_id: m.id, model_lib: webAbs("libs/" + m.lib),
   vram_required_MB: m.vram, low_resource_required: !!m.small, overrides: Object.assign({context_window_size: 4096}, m.ov || {})}, m.extra))});
 // Which model this computer can hold: the graphics chip's limits and the memory the browser reports (it says 8 for 8 GB or more)
 async function webProbe(){
@@ -6981,7 +6987,7 @@ async function webProbe(){
 }
 // Whether the model's files are already in the browser's cache (WebLLM keeps them in Cache Storage)
 async function webCached(m){
-  try { if (window.__SB_TEST && window.__SB_WEBLLM_STUB) return !!window.__SB_WEBLLM_STUB.cached; const c = await caches.open("webllm/model"); return !!(await c.match(`${WEB_HF}${m.id}/resolve/main/mlc-chat-config.json`)); } catch (e) { return false; }
+  try { if (window.__SB_TEST && window.__SB_WEBLLM_STUB) return !!window.__SB_WEBLLM_STUB.cached; const c = await caches.open("webllm/model"); return !!(await c.match(`${webHf(m)}${m.id}/resolve/main/mlc-chat-config.json`)); } catch (e) { return false; }
 }
 // Asked once, before anything is downloaded: download it, use a key instead, or not now (remembered; AI Features offers it again)
 function webAsk(m){
