@@ -5514,7 +5514,7 @@ function aiAnswer(given, pre){
   else if (q.type === "multiple") { const g = new Set(given); correct = g.size === q.correct.length && q.correct.every(i => g.has(i)); partial = {hit: q.correct.filter(i => g.has(i)).length, of: q.correct.length, extra: given.filter(i => !q.correct.includes(i)).length}; }
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
-  f.ans[f.i] = {given, correct, partial};
+  f.ans[f.i] = {given, correct, partial}; goalBump(1);
   // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
   sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
@@ -5538,6 +5538,8 @@ function aiFinish(){
   // passing a whole quiz (5+ questions, 80%+) is a good moment to ask for a review (99-review-ask.js decides whether)
   if (quizPasses(right, total)) fire("good-moment", "quiz");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
+  // what you missed becomes cards in this deck, so the quiz ends with a next step (Undo on the results)
+  try { quizMissedToCards(f); } catch (e) { console.warn("missed to cards", e); }
 }
 function viewAiQuiz(){
   const f = ui.fc, q = f.qs[f.i], a = f.ans[f.i], d = state.decks[f.deckId];
@@ -5553,6 +5555,7 @@ function viewAiQuiz(){
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
+        ${quizAddedHtml(f)}
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="ai-retry-missed">Retry the ${missed.length} Missed</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="ai-retake">Retake Whole Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
       </section>
       ${missed.length ? `<h3 class="fsec">Review</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.stem)}</span><span class="a">Answer: <b>${esc(ansText(y.x))}</b></span>${y.x.rationale ? `<span class="mini">${esc(y.x.rationale)}</span>` : ""}</li>`).join("")}</ul>` : ""}`;
@@ -5561,7 +5564,7 @@ function viewAiQuiz(){
   let body = "";
   if (q.type === "single" || q.type === "truefalse") {
     body = `<div class="mc ${q.type === "truefalse" ? "two-col" : ""}">${q.options.map((o, i) => {
-      const cls = a ? (q.correct.includes(i) ? "right" : a.given.includes(i) ? "wrong" : "") : "";
+      const cls = a ? (q.correct.includes(i) ? "right" : a.given.includes(i) ? "wrong" : "") : ((f.qhint || {})[q.id] || {}).strike === i ? "struck" : "";
       return `<button class="opt ${cls}" data-act="ai-pick" data-i="${i}" ${a ? "disabled" : ""}><span class="key">${q.type === "truefalse" && /^(true|false)$/i.test(String(o).trim()) ? String(o).trim()[0].toUpperCase() : letters[i]}</span><span>${esc(o)}${a && q.notes[i] ? `<small class="opt-note">${esc(q.notes[i])}</small>` : ""}</span></button>`; }).join("")}</div>`;
   } else if (q.type === "multiple") {
     const pick = a ? a.given : f.pick;
@@ -5595,7 +5598,7 @@ function viewAiQuiz(){
       ${q.update ? `<div class="case-update"><span class="face-label">New Information</span><p>${esc(q.update)}</p></div>` : ""}
       <p class="q-prompt">${esc(q.stem)}</p>
       ${f.grading ? `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Checking your answer…</p>` : ""}
-      ${body}${fb}
+      ${body}${a ? "" : aiQuizHintHtml(f, q)}${fb}
     </section>`;
 }
 function aiQuizAction(act, el){
@@ -19599,6 +19602,7 @@ function reviewHeroHtml(){
     <span class="rv-stack" aria-hidden="true"><i></i><i></i><i></i></span>
     <div class="rv-t"><h3>${esc(title)}</h3><p>${subHtml}</p></div>
     ${reviewWeekHtml()}
+    ${goalRingHtml()}
     <div class="rv-cacts">${ready ? `<button class="btn primary rv-go" data-act="fc-review-start" data-course="${esc(course)}">Start Review</button>` : ""}${more}</div>
   </section>`;
 }
@@ -19956,7 +19960,7 @@ function startStudy(deckIds, onlyIds){
   const ex = [...new Set(q.slice(0, STUDY_MAX).map(x => (state.decks[x.deckId] || {}).courseId))].map(cid => fcExams()[cid]).filter(e => e && e.days <= EXAM_SOON).sort((a, b) => a.days - b.days)[0];
   if (ex && deckIds.length > 1) note = (note ? note + " " : "") + `Cards for ${ex.title} (${ex.days === 1 ? "tomorrow" : "in " + ex.days + " days"}) come up most, mixed in with the rest.`;
   q = q.slice(0, STUDY_MAX).map(x => ({deckId: x.deckId, cardId: x.cardId}));
-  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: []};
+  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: [], run: 0, best: 0, missed: {}, hints: {}, hinted: 0, m0: masteredIn(deckIds)};
   fcDropToast(); render(); window.scrollTo(0, 0);
 }
 const nextDue = (box, rating) => rating === "again" ? todayISO() : addDays(todayISO(), rating === "hard" ? 1 : BOX_DAYS[Math.min(5, box)]);
@@ -19971,7 +19975,9 @@ function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
-  const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
+  const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false, run: f.run || 0, best: f.best || 0, miss: !!(f.missed || {})[it.cardId]};
+  f.missed = f.missed || {};
+  if (rating === "again") { f.run = 0; f.missed[it.cardId] = 1; } else { f.run = (f.run || 0) + 1; f.best = Math.max(f.best || 0, f.run); }
   if (c) {
     // the day the button showed, when it was spread out before an exam (rateDues)
     const shown = (() => { try { return rateDues(d, c)[rating]; } catch (e) { return null; } })();
@@ -20003,6 +20009,7 @@ function undoRate(){
   if (s.pushed) f.q.pop();
   if (s.rep == null) delete f.repeats[s.cardId]; else f.repeats[s.cardId] = s.rep;
   f[s.rating] = Math.max(0, (f[s.rating] || 0) - 1);
+  f.run = s.run || 0; f.best = s.best || 0; if (f.missed && !s.miss) delete f.missed[s.cardId];
   f.i = s.i; f.flipped = true;
   const cur = state.decks[s.deckId];
   if (cur && s.card) {
@@ -20023,14 +20030,7 @@ function viewStudy(){
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
-    return `<div class="view-head"><h2>Study Session Done</h2></div>
-      <section class="done-card">
-        <p class="big-num">${cards}<span> card${cards === 1 ? "" : "s"} studied</span></p>
-        ${again ? `<p class="mini" style="margin:-4px 0 6px">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
-        <div class="deck-stats"><span><b>${f.easy + f.good}</b> known</span><span><b>${f.hard}</b> hard</span><span><b>${f.again}</b> to relearn</span></div>
-        <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.</p>
-        <div class="row-actions"><button class="btn primary" data-act="fc-quiz-from-study">Take a Quiz</button><button class="btn" data-act="fc-study-again">Study Again</button>${undoBtn(f)}<button class="btn" data-act="fc-exit">Done</button></div>
-      </section>`;
+    return `<div class="view-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
@@ -20039,18 +20039,20 @@ function viewStudy(){
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
+    ${fcChipsHtml(c, f)}
     ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-label="${f.flipped ? "Flip card back to the front" : "Flip card"}" aria-describedby="fcFaceNow">
       <span class="flip-inner">
         <span class="face front"${f.flipped ? ` aria-hidden="true"` : ` id="fcFaceNow"`}><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint" aria-hidden="true">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
         <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">${esc(tr("fc.side.back", "Back"))}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
+    ${fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`)}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">
       <button class="rate-btn again" data-act="fc-rate" data-id="again"><b>Again</b><span>${lbl("again")}</span></button>
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -20191,7 +20193,7 @@ function answerQuiz(given, pre){
   if (q.type === "mc") r = {given, correct: normAns(given) === normAns(q.answer)};
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
-  f.ans[f.i] = r;
+  f.ans[f.i] = r; goalBump(1);
   sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
@@ -20492,6 +20494,226 @@ hook("act", (act, el) => {
   if (act === "qz-reveal") { if (!ui.qzHide) return true; const q = el.closest(".qzd-q"); if (q) q.classList.toggle("qzd-shown"); return true; }
   return false;
 });
+/* ===== module: 01-study-rewards.js: studying that feels rewarding, without the annoying parts ===== */
+/* What the Gizmo study (reports/, LAUNCH-STATS.md's neighbour) found worth copying, done Studyboard's way:
+   1. Mochi's Hint: a nudge before you answer or rate, never the answer itself. The companion's AI when AI is on, else the first
+      letters (cards) or one wrong option taken away (quizzes). Using it costs nothing and changes nothing.
+   2. Why a card is back ("You missed this yesterday") and an "in a row" chip from 3 known cards on.
+   3. A daily goal you choose (Tiny 5, Steady 20, Strong 50, Exam Week 100): card ratings and quiz answers count, any rating,
+      so honest ratings never cost anything. Reaching it is a quiet celebration.
+   4. A rewarding end to a study session: a ring of what you knew, cards newly mastered, your best run, today's goal and Mochi's
+      next accessory.
+   5. AI quiz questions you missed become flashcards in that deck (with Undo), so a quiz always ends with a next step.
+   Never here: hearts or lives, lockouts, cooldowns, speed scoring, anything bought. */
+
+/* ---------- 3. The daily goal ---------- */
+const GOALS = [["tiny", 5, "Tiny", "For busy days. About 2 minutes."], ["steady", 20, "Steady", "Most students. About 8 minutes."],
+  ["strong", 50, "Strong", "About 20 minutes."], ["exam", 100, "Exam Week", "Goes back to Steady after your next exam."]];
+function goalCfg(){
+  const s = state.settings && state.settings.goal, k = s && GOALS.some(g => g[0] === s.k) ? s.k : "steady";
+  // Exam Week turns itself back to Steady the day after the exam it was set for
+  if (k === "exam" && s.until && s.until < todayISO()) return GOALS[1];
+  return GOALS.find(g => g[0] === k);
+}
+const goalToday = () => { const g = state.settings && state.settings.goalDay; return g && g.d === todayISO() ? Math.max(0, Number(g.n) || 0) : 0; };
+function goalBump(n){
+  const was = goalToday(), now = Math.max(0, was + (n || 1)), target = goalCfg()[1];
+  state.settings = Object.assign({}, state.settings, {goalDay: {d: todayISO(), n: now}});
+  saveSettings();
+  if (was < target && now >= target) setTimeout(() => {
+    toast(`Daily goal reached: ${target} today. Nice work.`);
+    try { celebrate("check"); } catch (e) {}
+    fire("good-moment", "goal");
+  }, 350);
+}
+function goalRing(size){
+  const t = goalCfg()[1], n = goalToday(), r = size / 2 - 5, C = 2 * Math.PI * r, p = Math.min(1, n / t);
+  return `<svg class="goal-ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="5" class="gr-track"></circle>${p > 0 ? `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="5" stroke-linecap="round" class="gr-fill" stroke-dasharray="${(C * p).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"></circle>` : ""}</svg>`;
+}
+function goalRingHtml(){
+  const t = goalCfg()[1], n = goalToday(), done = n >= t;
+  return `<button type="button" class="goal-btn${done ? " done" : ""}" data-act="goal-open" aria-label="Daily goal: ${Math.min(n, t)} of ${t} today. Change goal">${goalRing(40)}<span class="goal-t"><b>${Math.min(n, t)} / ${t}</b><span>${done ? "goal done" : "today"}</span></span></button>`;
+}
+function dailyGoalSheet(){
+  const cur = goalCfg()[0];
+  openSheet(`<form class="sheet goal-sheet">${head("Your Daily Goal")}<div class="sheet-body">
+    <p class="mini" style="margin:0 0 4px">Flashcards you rate and quiz questions you answer. Every rating counts, so rate honestly.</p>
+    <div class="goal-opts" role="radiogroup" aria-label="Daily goal">${GOALS.map(g => `<button type="button" role="radio" class="goal-opt" data-act="goal-pick" data-id="${g[0]}" aria-checked="${g[0] === cur}"><span><b>${esc(g[2])}</b><span class="mini">${esc(g[3])}</span></span><b class="goal-n">${g[1]}</b></button>`).join("")}</div>
+    <p class="mini" style="margin:6px 0 0">Today: ${goalToday()} so far.</p>
+  </div></form>`);
+}
+function goalPick(k){
+  const nextExam = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= todayISO() && (window.SBEXAM ? SBEXAM.EXAMMODE.isExam(t) : /^(Exam|Quiz)$/.test(t.type))).map(t => t.due).sort()[0];
+  state.settings = Object.assign({}, state.settings, {goal: k === "exam" ? {k, until: nextExam || addDays(todayISO(), 7)} : {k}});
+  saveSettings(); if (dlg.open) dlg.close(); render();
+  toast(`Daily goal: ${goalCfg()[1]} a day`);
+}
+hook("fc-rated", () => goalBump(1));
+hook("fc-unrated", () => goalBump(-1));
+
+/* ---------- 1. Mochi's Hint ---------- */
+const buddyName = () => { try { const n = window.SBCOMP && typeof SBCOMP.aiName === "function" ? SBCOMP.aiName() : ""; return typeof n === "string" && n ? n : "Mochi"; } catch (e) { return "Mochi"; } };
+const BUDDY_SPROUT = `<svg viewBox="0 0 64 60" aria-hidden="true"><path d="M32 9c-2-5-7-7-11-5 3 1 6 3 8 6M32 9c2-5 7-7 11-5-3 1-6 3-8 6" fill="#3BB27E" stroke="#2A8C61" stroke-width="1.2"/><ellipse cx="32" cy="36" rx="25" ry="21" fill="#fff" stroke="#C9D3E1" stroke-width="2"/><circle cx="25" cy="33" r="2.6" fill="#0F1F3D"/><circle cx="39" cy="33" r="2.6" fill="#0F1F3D"/><ellipse cx="18" cy="40" rx="4" ry="2.6" fill="#F7B6C2"/><ellipse cx="46" cy="40" rx="4" ry="2.6" fill="#F7B6C2"/><path d="M28 41q4 4 8 0" fill="none" stroke="#0F1F3D" stroke-width="2" stroke-linecap="round"/></svg>`;
+function buddyFace(){
+  try { const h = window.SBCOMP && SBCOMP.head ? SBCOMP.head() : ""; if (h) return h; } catch (e) {}
+  return BUDDY_SPROUT;
+}
+// No AI: the first letter of each word, the rest as blanks ("T__ i____ m_______"); numbers stay hidden too
+function localHint(answer){
+  const words = String(answer || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  if (!words.length) return "Think about what this goes with in your notes.";
+  if (words.length > 10) return `Starts with "${words.slice(0, 2).join(" ").replace(/[^\p{L}\p{N} '-]/gu, "")}…" (${words.length} words)`;
+  return "Starts like: " + words.map(w => w.replace(/^([^\p{L}\p{N}]*)([\p{L}\p{N}])([\p{L}\p{N}]*)(.*)$/u, (m, a, b, rest, z) => a + b + "_".repeat(rest.length) + z)).join(" ");
+}
+// An AI hint that gives a word of the answer away is no hint: the letters version stands in
+const HINT_SCHEMA = {type: "OBJECT", properties: {hint: {type: "STRING", description: "One nudge, under 20 words, that never states the answer"}}, required: ["hint"]};
+function hintLeaks(hint, answer){
+  const h = " " + String(hint || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ") + " ";
+  return String(answer || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 4).some(w => h.includes(" " + w + " ") || h.includes(" " + w + "s "));
+}
+async function aiHint(prompt, answer, extra){
+  const r = await aiCall({task: "hint", fast: true, maxTokens: 400, temperature: 0.5, schema: HINT_SCHEMA,
+    parts: [{text: `Question or card front: ${prompt}\nThe answer (never say it, or any of its key words): ${answer}${extra ? "\n" + extra : ""}`}],
+    system: `You are ${buddyName()}, a friendly study companion. Give ONE short hint, under 20 words, that nudges the student toward recalling the answer: what it relates to, its category, how it works, or a memory cue. Never state the answer, never use its key words, never list options. Warm and plain. Return JSON only.`});
+  const t = String((r.data && r.data.hint) || "").trim();
+  return t && !hintLeaks(t, answer) ? t : "";
+}
+// Flashcards: Hint before the answer shows
+async function fcHint(){
+  const f = ui.fc, it = f && f.q[f.i]; if (!it || f.flipped) return;
+  const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId); if (!c) return;
+  f.hints = f.hints || {}; f.hinted = (f.hinted || 0) + (f.hints[c.id] ? 0 : 1);
+  if (c.hint) { f.hints[c.id] = {text: c.hint}; render(); return; }
+  if (!aiReady() || c.img) { f.hints[c.id] = {text: localHint(c.back), local: true}; render(); return; }
+  f.hints[c.id] = {busy: true}; render();
+  let text = "";
+  try { text = await aiHint(c.front, c.back); } catch (e) { console.warn("hint", e); }
+  if (!text) { f.hints[c.id] = {text: localHint(c.back), local: true}; render(); return; }
+  f.hints[c.id] = {text};
+  // kept on the card, so the next session's hint is instant and free
+  const nd = clone(state.decks[d.id]), k = nd && nd.cards.find(x => x.id === c.id);
+  if (k) { k.hint = text; saveDeck(nd, null); } else render();
+}
+function fcBuddyHtml(d, c, f, key){
+  const name = buddyName(), face = `<span class="fc-buddy-face" aria-hidden="true">${buddyFace()}</span>`;
+  if (!f.flipped) {
+    const h = (f.hints || {})[c.id];
+    if (h) return `<div class="fc-buddy has-tip">${face}<p class="fc-bubble" role="status">${h.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…` : esc(h.text)}</p></div>`;
+    return `<div class="fc-buddy">${face}<button type="button" class="btn small fc-hint-btn" data-act="fc-hint" title="${esc(name)} gives a nudge, not the answer (H)" aria-keyshortcuts="H">Hint</button></div>`;
+  }
+  // after the answer: the explanation, before you rate (AI set up: Explain; not yet: a way to set it up)
+  const ex = explainHtml(key);
+  return `<div class="fc-buddy fc-buddy-after">${face}${ex || `<div class="explain-row"><button type="button" class="btn small ai-btn" data-act="ai-setup">${AI_ICON} Explain This</button><span class="mini">Turn on AI to have ${esc(name)} explain it</span></div>`}</div>`;
+}
+
+/* ---------- 2. Why it's here, and a run of known cards ---------- */
+function missWhen(day){
+  const n = dayDiff(day, todayISO());
+  if (n <= 0) return "earlier today"; if (n === 1) return "yesterday";
+  if (n < 7) return "on " + parse(day).toLocaleDateString(undefined, {weekday: "long"});
+  return "on " + fmtShort(day);
+}
+function fcChipsHtml(c, f){
+  const out = [];
+  if (!c.seen) out.push(`<span class="fc-chip">New card</span>`);
+  else if (c.rate === "again" && c.last) out.push(`<span class="fc-chip">You missed this ${esc(missWhen(c.last))}</span>`);
+  else if (c.rate === "hard" && c.last) out.push(`<span class="fc-chip">You found this hard ${esc(missWhen(c.last))}</span>`);
+  if ((f.run || 0) >= 3) out.push(`<span class="fc-chip run"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>${f.run} in a row</span>`);
+  return out.length ? `<div class="fc-chips">${out.join("")}</div>` : "";
+}
+
+/* ---------- 4. The end of a study session ---------- */
+const masteredIn = ids => ids.reduce((s, id) => { const d = state.decks[id]; return s + (d ? d.cards.filter(c => !c.draft && c.box >= 4).length : 0); }, 0);
+function studyDoneHtml(f, cards, total, again){
+  const missed = Object.keys(f.missed || {}).length, known = Math.max(0, cards - missed), pct = cards ? known / cards : 0;
+  const R = 84, C = 2 * Math.PI * R, gain = Math.max(0, masteredIn(f.deckIds || []) - (f.m0 || 0));
+  const t = goalCfg()[1], g = goalToday();
+  let next = null; try { next = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor("cards") : null; } catch (e) {}
+  return `<section class="done-card sd">
+      <div class="sd-ring"><svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="${known} of ${cards} known">
+        <circle cx="100" cy="100" r="${R}" fill="none" stroke-width="14" class="gr-track"></circle>
+        ${known ? `<circle cx="100" cy="100" r="${R}" fill="none" stroke-width="14" stroke-linecap="round" class="gr-fill" stroke-dasharray="${(C * pct).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 100 100)"></circle>` : ""}</svg>
+        <span class="sd-ring-t"><b>${known}</b><span>of ${cards} known</span></span></div>
+      <div class="sd-tiles">
+        <div class="sd-tile${gain ? " gold" : ""}"><b>${gain ? "+" + gain : "0"}</b><span>newly mastered</span></div>
+        <div class="sd-tile"><b>${f.best || 0}</b><span>best run</span></div>
+        <div class="sd-tile"><b>${Math.min(g, t)}/${t}</b><span>${g >= t ? "goal done" : "today's goal"}</span></div>
+      </div>
+      ${next ? `<div class="sd-next"><div class="sd-next-t"><b>${esc(buddyName())}'s ${esc(next.name)}</b><span class="mini">${next.left === 0 ? "Ready to wear" : `${next.left} card${next.left === 1 ? "" : "s"} to go`}</span></div><div class="sd-bar"><i style="width:${Math.round(next.v / next.n * 100)}%"></i></div></div>` : ""}
+      ${again ? `<p class="mini">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
+      <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.${f.hinted ? ` You used ${f.hinted} hint${f.hinted === 1 ? "" : "s"}.` : ""}</p>
+      <div class="row-actions"><button class="btn primary" data-act="fc-quiz-from-study">Take a Quiz</button><button class="btn" data-act="fc-study-again">Study Again</button>${undoBtn(f)}<button class="btn" data-act="fc-exit">Done</button></div>
+    </section>`;
+}
+
+/* ---------- 5. Missed quiz questions become cards ---------- */
+const quizAnswerText = x => x.type === "short" ? x.answer : x.type === "order" ? x.correct.map((ix, k) => `${k + 1}. ${x.options[ix]}`).join("; ") : x.correct.map(i => x.options[i]).join("; ");
+function quizMissedToCards(f){
+  const d = state.decks[f.deckId]; if (!d) return;
+  const have = new Set(d.cards.map(c => c.fromQ).filter(Boolean));
+  const add = f.qs.map((q, i) => ({q, a: f.ans[i]})).filter(y => !(y.a && y.a.correct) && !have.has(f.quizId + "|" + y.q.id) && String(y.q.stem || "").trim())
+    .map(({q}) => ({id: uid(), front: String(q.stem).trim().slice(0, 2000), back: (quizAnswerText(q) + (q.rationale ? "\n\n" + q.rationale : "")).trim().slice(0, 4000), box: 0, due: "", seen: 0, right: 0, wrong: 0, fromQ: f.quizId + "|" + q.id}));
+  if (!add.length) return;
+  const nd = clone(d); nd.cards = nd.cards.concat(add); nd.updated = Date.now();
+  f.added = {deckId: d.id, ids: add.map(c => c.id)};
+  applyChanges([{kind: "deck", id: d.id, after: nd}], null);
+}
+function quizAddedHtml(f){
+  const a = f.added, d = a && state.decks[a.deckId]; if (!d) return "";
+  const n = a.ids.filter(id => d.cards.some(c => c.id === id)).length; if (!n) return "";
+  return `<div class="qz-added" role="status"><span><b>${n} missed question${n === 1 ? " is" : "s are"} now ${n === 1 ? "a card" : "cards"}</b> in ${esc(d.name)}, ready to study.</span><button type="button" class="btn small" data-act="qz-added-undo">Undo</button></div>`;
+}
+function quizAddedUndo(){
+  const f = ui.fc, a = f && f.added, d = a && state.decks[a.deckId]; if (!d) return;
+  const nd = clone(d); nd.cards = nd.cards.filter(c => !a.ids.includes(c.id)); nd.updated = Date.now();
+  f.added = null; applyChanges([{kind: "deck", id: d.id, after: nd}], null); toast("Took those cards back out");
+}
+// AI quizzes: a Hint before answering (AI nudge, or one wrong option taken away)
+async function aiQuizHint(){
+  const f = ui.fc, q = f && f.qs[f.i]; if (!q || f.ans[f.i]) return;
+  f.qhint = f.qhint || {};
+  if (f.qhint[q.id]) return;
+  const strike = () => {
+    const wrong = (q.options || []).map((o, i) => i).filter(i => !(q.correct || []).includes(i));
+    if ((q.type === "single" || q.type === "multiple") && wrong.length > 1) { const i = wrong[(q.stem.length + f.i) % wrong.length]; f.qhint[q.id] = {text: `It isn't "${q.options[i]}".`, strike: i}; }
+    else if (q.type === "multiple") f.qhint[q.id] = {text: `${q.correct.length} of these are right.`};
+    else if (q.type === "order") f.qhint[q.id] = {text: `"${q.options[q.correct[0]]}" comes first.`};
+    else f.qhint[q.id] = {text: localHint(quizAnswerText(q))};
+  };
+  if (!aiReady()) { strike(); render(); return; }
+  f.qhint[q.id] = {busy: true}; render();
+  let text = "";
+  try { text = await aiHint(q.stem, quizAnswerText(q), q.options && q.options.length ? "Options shown: " + q.options.join(" | ") : ""); } catch (e) { console.warn("hint", e); }
+  if (text) f.qhint[q.id] = {text}; else strike();
+  render();
+}
+function aiQuizHintHtml(f, q){
+  const h = (f.qhint || {})[q.id], name = buddyName(), face = `<span class="fc-buddy-face" aria-hidden="true">${buddyFace()}</span>`;
+  if (h) return `<div class="fc-buddy has-tip">${face}<p class="fc-bubble" role="status">${h.busy ? `<span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…` : esc(h.text)}</p></div>`;
+  return `<div class="fc-buddy">${face}<button type="button" class="btn small fc-hint-btn" data-act="qz-hint" title="${esc(name)} gives a nudge, not the answer">Hint</button></div>`;
+}
+
+hook("act", act => {
+  if (act === "goal-open") { dailyGoalSheet(); return true; }
+  if (act === "fc-hint") { fcHint(); return true; }
+  if (act === "qz-hint") { aiQuizHint(); return true; }
+  if (act === "qz-added-undo") { quizAddedUndo(); return true; }
+  return false;
+});
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest('[data-act="goal-pick"]'); if (!b) return;
+  e.preventDefault(); e.stopPropagation(); goalPick(b.dataset.id);
+}, true);
+// H asks for a hint while a card's front or an unanswered quiz question is showing
+document.addEventListener("keydown", e => {
+  if (e.key !== "h" && e.key !== "H") return;
+  if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector("dialog[open]")) return;
+  const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  const f = ui.fc; if (!f) return;
+  if (f.mode === "study" && f.q[f.i] && !f.flipped) { e.preventDefault(); fcHint(); }
+  else if (f.mode === "aiquiz" && f.qs[f.i] && !f.ans[f.i]) { e.preventDefault(); aiQuizHint(); }
+});
+if (window.__SB_TEST) window.__sbRewards = {localHint, hintLeaks, goalCfg, goalToday, goalBump};
 /* ===== module: 01-focus.js: the app's core, the Pomodoro focus timer ===== */
 /* Pomodoro focus timer */
 const POMO_HOW = `<ol><li><b>Pick one task</b> and start a 25-minute focus session (one "pomodoro").</li><li><b>Work only on that task</b> until the timer rings. If something else comes up, jot it down for later.</li><li><b>Take a 5-minute break.</b> Stand up, stretch, get water: anything but work.</li><li><b>After four sessions, take a longer break</b> of 15 to 30 minutes.</li></ol><p>Short, timed bursts make it easier to start and keep your focus fresh, and counting sessions shows how long things really take. Studyboard's Classic routine uses these times. The method was created by Francesco Cirillo in the late 1980s.</p>`;
@@ -70320,6 +70542,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     },
     // For tools/companion-wear-review.js
     fit: id => { const c = BYID[id]; return c ? JSON.parse(JSON.stringify({anchors: c.anchors, eyes: c.eyes, mouth: c.mouth, neck: c.neck, head: !!partSvg(c.parts.head), hatTop: !!c.hatTop})) : null; },
+    // The next accessory a kind of effort ("cards", "quizzes") is working toward: {id, name, n, v, left}, for the end of a session
+    nextFor: k => { try { const a = ACC.find(x => !isEarned(x) && (x.free || owns("prop", x.id)) && (x.paths || []).some(p => p[0] === k)); if (!a) return null;
+      const p = propProg(a).find(x => x.k === k); return p ? {id: a.id, name: a.name, n: p.n, v: p.v, left: Math.max(0, p.n - p.v)} : null; } catch (e) { return null; } },
     check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", stillHtml: (id, px) => BYID[id] ? stillHtml(BYID[id], px || 64) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker
@@ -85370,7 +85595,8 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
   // when nothing else is on screen: no open sheet, no onboarding, the page visible; tried for up to a minute
   let tries = 0;
   function maybeWhatsNew(){
-    if (quiet() && !window.__SB_WHATSNEW_TEST) return;
+    // tests and the design previews never get it (a browser driven by a test says so in navigator.webdriver), unless a test asks
+    if ((quiet() || navigator.webdriver) && !window.__SB_WHATSNEW_TEST) return;
     const notes = whatsNewDue(); if (!notes) return;
     const busyNow = document.hidden || document.querySelector("dialog[open]") || document.querySelector(".ob-wrap, .tour-pop, #sbUpd");
     if (busyNow) { if (++tries < 12) setTimeout(maybeWhatsNew, 5000); return; }

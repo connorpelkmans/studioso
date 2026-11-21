@@ -3034,6 +3034,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     },
     // For tools/companion-wear-review.js
     fit: id => { const c = BYID[id]; return c ? JSON.parse(JSON.stringify({anchors: c.anchors, eyes: c.eyes, mouth: c.mouth, neck: c.neck, head: !!partSvg(c.parts.head), hatTop: !!c.hatTop})) : null; },
+    // The next accessory a kind of effort ("cards", "quizzes") is working toward: {id, name, n, v, left}, for the end of a session
+    nextFor: k => { try { const a = ACC.find(x => !isEarned(x) && (x.free || owns("prop", x.id)) && (x.paths || []).some(p => p[0] === k)); if (!a) return null;
+      const p = propProg(a).find(x => x.k === k); return p ? {id: a.id, name: a.name, n: p.n, v: p.v, left: Math.max(0, p.n - p.v)} : null; } catch (e) { return null; } },
     check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", stillHtml: (id, px) => BYID[id] ? stillHtml(BYID[id], px || 64) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker

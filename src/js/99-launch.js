@@ -220,7 +220,8 @@
   // when nothing else is on screen: no open sheet, no onboarding, the page visible; tried for up to a minute
   let tries = 0;
   function maybeWhatsNew(){
-    if (quiet() && !window.__SB_WHATSNEW_TEST) return;
+    // tests and the design previews never get it (a browser driven by a test says so in navigator.webdriver), unless a test asks
+    if ((quiet() || navigator.webdriver) && !window.__SB_WHATSNEW_TEST) return;
     const notes = whatsNewDue(); if (!notes) return;
     const busyNow = document.hidden || document.querySelector("dialog[open]") || document.querySelector(".ob-wrap, .tour-pop, #sbUpd");
     if (busyNow) { if (++tries < 12) setTimeout(maybeWhatsNew, 5000); return; }

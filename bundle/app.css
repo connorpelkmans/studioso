@@ -10838,3 +10838,67 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .wn-list b{font-family:var(--display);font-size:15px}
 .wn-list span{font-size:14px;line-height:1.45;color:var(--muted)}
 .wn-list .link-btn{margin-top:4px;font-weight:600}
+/* ===== 01-study-rewards.css: Mochi's Hint, chips, the daily goal, the end of a session, missed questions to cards (01-study-rewards.js) ===== */
+.gr-track{stroke:color-mix(in srgb,var(--line) 85%,var(--muted))}
+.gr-fill{stroke:var(--accent)}
+
+/* The daily goal: a small ring in the review card */
+.goal-btn{display:inline-flex;align-items:center;gap:8px;flex:none;padding:4px 10px 4px 4px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;min-height:48px}
+.goal-btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.goal-btn .goal-t{display:flex;flex-direction:column;line-height:1.15;text-align:left}
+.goal-btn .goal-t b{font-size:.92rem;font-variant-numeric:tabular-nums}
+.goal-btn .goal-t span{font-size:.74rem;color:var(--muted)}
+.goal-btn.done .gr-fill{stroke:var(--leaf,#1E8A65)}
+.goal-opts{display:flex;flex-direction:column;gap:8px}
+.goal-opt{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;padding:8px 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.goal-opt > span{display:flex;flex-direction:column;gap:2px}
+.goal-opt .goal-n{font-family:var(--display);font-size:1.25rem}
+.goal-opt[aria-checked="true"]{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+@media (max-width:639px){
+  #view .rv-hero{grid-template-areas:"s h h" "s p w" "g a a"}
+  #view .rv-hero .goal-btn{grid-area:g;margin-top:10px;align-self:center}
+  #view .rv-hero .rv-cacts{grid-area:a;margin-top:10px;justify-content:flex-end}
+  #view .rv-hero .rv-cacts .rv-go{flex:1 1 auto}
+}
+
+/* Why the card is back, and a run of known cards */
+.fc-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px;min-height:28px}
+.fc-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;background:color-mix(in srgb,var(--line) 55%,var(--surface));color:var(--muted);font-size:.8rem;font-weight:700}
+.fc-chip.run{background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:color-mix(in srgb,var(--accent) 80%,var(--ink));animation:fcChipIn .25s ease-out}
+@keyframes fcChipIn{from{transform:scale(.9);opacity:0}to{transform:none;opacity:1}}
+
+/* Mochi's Hint and Explain, between the card and the rating buttons */
+.fc-buddy{display:flex;align-items:center;gap:10px;margin:12px 0 4px;min-height:48px}
+.fc-buddy-face{width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--leaf,#1E8A65) 10%,var(--surface));border:1px solid var(--line);overflow:hidden}
+.fc-buddy-face svg,.fc-buddy-face svg.cp-svg{position:static;inset:auto;transform:none;width:40px;height:40px;display:block;overflow:visible}
+.fc-hint-btn{min-height:40px;padding-inline:16px}
+.fc-bubble{position:relative;margin:0;flex:1;min-width:0;padding:10px 14px;border-radius:4px 16px 16px 16px;background:color-mix(in srgb,var(--leaf,#1E8A65) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--leaf,#1E8A65) 28%,var(--line));color:var(--ink);font-size:.95rem;line-height:1.45;animation:fcChipIn .2s ease-out}
+.fc-buddy-after{align-items:flex-start}
+.fc-buddy-after .explain-row,.fc-buddy-after .explain{margin:0;flex:1;min-width:0}
+.fc-buddy-after .explain-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-height:44px}
+.ai-q .fc-buddy{margin-top:14px}
+.opt.struck{opacity:.45;text-decoration:line-through}
+
+/* The end of a session */
+.done-card.sd{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.sd-ring{position:relative;width:200px;height:200px}
+.sd-ring svg{display:block}
+.sd-ring-t{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.sd-ring-t b{font-family:var(--display);font-size:2.9rem;line-height:1}
+.sd-ring-t span{color:var(--muted);font-size:.92rem}
+.sd-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%;max-width:460px}
+.sd-tile{display:flex;flex-direction:column;align-items:center;gap:3px;padding:12px 8px;border-radius:16px;border:1px solid var(--line);background:var(--surface)}
+.sd-tile b{font-family:var(--display);font-size:1.45rem;font-variant-numeric:tabular-nums}
+.sd-tile span{font-size:.8rem;color:var(--muted)}
+.sd-tile.gold{border-color:#E9C46A;background:color-mix(in srgb,#F8E7B8 45%,var(--surface))}
+.sd-tile.gold b{color:#8A5A00}
+.sd-next{width:100%;max-width:460px;display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface);box-sizing:border-box;text-align:left}
+.sd-next-t{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sd-bar{height:10px;border-radius:5px;background:color-mix(in srgb,var(--line) 80%,var(--surface));overflow:hidden}
+.sd-bar i{display:block;height:100%;border-radius:5px;background:var(--accent)}
+.done-card.sd .row-actions{justify-content:center}
+
+/* Missed quiz questions now cards */
+.qz-added{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 2px;padding:10px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));font-size:.92rem;text-align:left}
+
+@media (prefers-reduced-motion:reduce){.fc-chip.run,.fc-bubble{animation:none}}

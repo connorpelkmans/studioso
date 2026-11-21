@@ -51,7 +51,8 @@
   "99-present.css",
   "99-shop-home.css",
   "99-settings.css",
-  "99-launch.css"
+  "99-launch.css",
+  "01-study-rewards.css"
  ],
  "js": [
   "00-core.js",
@@ -80,6 +81,7 @@
   "01-syllabus.js",
   "01-notes.js",
   "01-flashcards.js",
+  "01-study-rewards.js",
   "01-focus.js",
   "01-files-io.js",
   "01-office.js",

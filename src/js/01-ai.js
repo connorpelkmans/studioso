@@ -1553,7 +1553,7 @@ function aiAnswer(given, pre){
   else if (q.type === "multiple") { const g = new Set(given); correct = g.size === q.correct.length && q.correct.every(i => g.has(i)); partial = {hit: q.correct.filter(i => g.has(i)).length, of: q.correct.length, extra: given.filter(i => !q.correct.includes(i)).length}; }
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
-  f.ans[f.i] = {given, correct, partial};
+  f.ans[f.i] = {given, correct, partial}; goalBump(1);
   // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
   sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
@@ -1577,6 +1577,8 @@ function aiFinish(){
   // passing a whole quiz (5+ questions, 80%+) is a good moment to ask for a review (99-review-ask.js decides whether)
   if (quizPasses(right, total)) fire("good-moment", "quiz");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
+  // what you missed becomes cards in this deck, so the quiz ends with a next step (Undo on the results)
+  try { quizMissedToCards(f); } catch (e) { console.warn("missed to cards", e); }
 }
 function viewAiQuiz(){
   const f = ui.fc, q = f.qs[f.i], a = f.ans[f.i], d = state.decks[f.deckId];
@@ -1592,6 +1594,7 @@ function viewAiQuiz(){
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
+        ${quizAddedHtml(f)}
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="ai-retry-missed">Retry the ${missed.length} Missed</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="ai-retake">Retake Whole Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
       </section>
       ${missed.length ? `<h3 class="fsec">Review</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.stem)}</span><span class="a">Answer: <b>${esc(ansText(y.x))}</b></span>${y.x.rationale ? `<span class="mini">${esc(y.x.rationale)}</span>` : ""}</li>`).join("")}</ul>` : ""}`;
@@ -1600,7 +1603,7 @@ function viewAiQuiz(){
   let body = "";
   if (q.type === "single" || q.type === "truefalse") {
     body = `<div class="mc ${q.type === "truefalse" ? "two-col" : ""}">${q.options.map((o, i) => {
-      const cls = a ? (q.correct.includes(i) ? "right" : a.given.includes(i) ? "wrong" : "") : "";
+      const cls = a ? (q.correct.includes(i) ? "right" : a.given.includes(i) ? "wrong" : "") : ((f.qhint || {})[q.id] || {}).strike === i ? "struck" : "";
       return `<button class="opt ${cls}" data-act="ai-pick" data-i="${i}" ${a ? "disabled" : ""}><span class="key">${q.type === "truefalse" && /^(true|false)$/i.test(String(o).trim()) ? String(o).trim()[0].toUpperCase() : letters[i]}</span><span>${esc(o)}${a && q.notes[i] ? `<small class="opt-note">${esc(q.notes[i])}</small>` : ""}</span></button>`; }).join("")}</div>`;
   } else if (q.type === "multiple") {
     const pick = a ? a.given : f.pick;
@@ -1634,7 +1637,7 @@ function viewAiQuiz(){
       ${q.update ? `<div class="case-update"><span class="face-label">New Information</span><p>${esc(q.update)}</p></div>` : ""}
       <p class="q-prompt">${esc(q.stem)}</p>
       ${f.grading ? `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Checking your answer…</p>` : ""}
-      ${body}${fb}
+      ${body}${a ? "" : aiQuizHintHtml(f, q)}${fb}
     </section>`;
 }
 function aiQuizAction(act, el){
