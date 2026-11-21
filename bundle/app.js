@@ -5421,13 +5421,17 @@ function aiDevFacts(x, o, cap){
   return x.section.factsP.then(F => { let facts = F.facts; if (facts.length > cap) { const k = facts.length / cap; facts = Array.from({length: cap}, (_, i) => facts[Math.floor(i * k)]); } return Object.assign({}, F, {facts}); });
 }
 async function aiDevFactCards(x, o, corpus){
-  const label = SBSECT.label(x.section), auto = !o.n, cap = auto ? SBSECT.SIZES.small.perSection + 3 : Math.max(x.count, 1);
+  // "Auto": every fact the part has (keeping 10 of 14 dropped core facts on the stand-in model); a set number: that many, spread out
+  const label = SBSECT.label(x.section), auto = !o.n, cap = auto ? SBSECT.SIZES.small.perSection + 7 : Math.max(x.count, 1);
   const F = await aiDevFacts(x, o, cap), facts = F.facts, unsup = F.unsup, a = {truncated: F.truncated};
   if (!facts.length) return null;
   const b = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_CARDS_SCHEMA, system: DEV_FACT_CARDS_SYSTEM,
     parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one card for each of the ${facts.length} facts, numbered the same.`}]}));
   const list = (b.data.cards || []).filter(c => c && Number(c.n) >= 1 && Number(c.n) <= facts.length);
   const g = aiGateCards(list, {max: cap + 2, corpus, copy: o.copy});
+  // Each card comes from a fact already checked against the notes, so only a new number or name is worth a "Check" mark: the word
+  // overlap test marked correct, reworded cards (14 of 29 on the stand-in model)
+  g.cards.forEach(c => { c.check = aiBasisOk(c.front + " " + c.back, x.section.text + " " + facts.join(" ")) || !/\d|(?<=[a-z,;:] )[A-Z]/.test(c.front + " " + c.back) ? "" : (aiGroundNote(c.front + " " + c.back, corpus) || "Check this against your material"); });
   return {cards: g.cards, title: b.data.deckTitle, truncated: a.truncated || b.truncated, vague: g.dropped.vague, unsup};
 }
 /* Quiz questions for a small model, from the same facts: it writes the question, the right answer, three wrong ones and why; Studyboard
