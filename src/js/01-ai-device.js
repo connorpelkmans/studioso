@@ -201,4 +201,33 @@ async function devApple({sys, parts, json, out, temperature, signal, auto}){
     return {data, model: "apple-on-device", provider: "device", truncated};
   }
 }
+/* A web page's text, for the AI on this device (which can't browse): the iPhone app fetches the page itself (iOS doesn't stop an app
+   reading other sites) and extracts its text here; everywhere else, and if that fails, the website's /api/page-text does it
+   (cloudflare/site/page-text.js), as a browser can't fetch another site's page. Both use src/js/01-page-text.js. */
+const PAGE_API = "https://studyboardapp.com/api/page-text";
+async function devPageText(url, signal){
+  const u = SBPAGE.safeUrl(url); if (!u) return {status: "bad"};
+  try {
+    const C = window.Capacitor, H = C && C.isNativePlatform && C.isNativePlatform() && C.getPlatform && C.getPlatform() === "ios" && C.Plugins && C.Plugins.CapacitorHttp;
+    if (H && typeof H.get === "function") {
+      const r = await H.get({url: u.href, headers: {"Accept": "text/html,text/plain;q=0.9"}, responseType: "text", connectTimeout: 10000, readTimeout: 10000});
+      const type = String((r.headers && (r.headers["Content-Type"] || r.headers["content-type"])) || "");
+      if (r.status === 401 || r.status === 402 || r.status === 403) return {status: "paywall", url: r.url || u.href};
+      if (r.status >= 200 && r.status < 300 && typeof r.data === "string") {
+        if (/application\/pdf/i.test(type)) return {status: "pdf"};
+        const x = /text\/plain/i.test(type) ? {status: SBPAGE.words(r.data) >= 40 ? "ok" : "empty", title: "", text: r.data.slice(0, SBPAGE.MAX_TEXT)} : SBPAGE.extract(r.data.slice(0, SBPAGE.MAX_HTML), r.url || u.href);
+        if (x.status === "ok") return Object.assign(x, {url: r.url || u.href});
+      }
+    }
+  } catch (e) {}
+  if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
+  // the website itself asks its own address; the apps ask the website
+  const api = /^https?:$/.test(location.protocol) && !/^(capacitor|app):/.test(location.protocol) && location.hostname !== "localhost" || window.__SB_TEST ? "/api/page-text" : PAGE_API;
+  try {
+    const res = await fetch(`${api}?url=${encodeURIComponent(u.href)}`, {signal, credentials: "omit"});
+    if (res.status === 429) return {status: "busy"};
+    const j = await res.json().catch(() => ({}));
+    return j && j.status ? j : {status: "unreachable"};
+  } catch (e) { if (signal && signal.aborted) throw aiErr("aborted", "Stopped."); return {status: "offline"}; }
+}
 if (window.__SB_TEST) window.__sbDevAI = {state: DEVAI, probe: devProbe, fit: devFit, cfg: () => aiCfg(), call: o => aiCall(o)};

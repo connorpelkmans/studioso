@@ -167,10 +167,25 @@ const LINKCARDS = (() => {
         pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
       }
     }
+    // The AI on this device can't open web pages: Studyboard reads the page's text for it (devPageText: the iPhone app fetches it
+    // itself, the website asks its own /api/page-text), and the AI works from that text
+    let fetched = null;
+    if (!pasted && L.kind !== "youtube" && prov === "device") {
+      if (onStatus) onStatus("Reading the page…");
+      fetched = await devPageText(L.url, signal);
+      if (fetched.status !== "ok") {
+        const st = fetched.status === "paywall" ? "paywall" : fetched.status === "empty" ? "empty" : "unreachable";
+        const msg = fetched.status === "pdf" ? "That link is a PDF. Download it and add it with Add Files instead." : fetched.status === "busy" ? "Too many pages in a short time. Wait a minute and try again." : fetched.status === "offline" ? "Couldn't reach the page. Check your connection and try again." : fetched.status === "not_page" ? "That link isn't a web page (it may be a picture or a download)." : failMsg(st, L);
+        throw Object.assign(aiErr("link-" + st, msg), {link: true, st});
+      }
+      pasted = fetched.text; if (onStatus) onStatus("Read the page. Writing study notes…");
+    }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: 8000, temperature: 0.2, onStatus, system: SYS()};
     let r;
-    if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nThe student pasted its ${L.kind === "youtube" ? "transcript" : "text"}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})));
+    // (on the device, the summary note is a bonus: if the small model can't write it, the cards are still made from the page's text)
+    if (pasted && fetched) { try { r = await aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nIts text, read from the page${fetched.title ? ` “${fetched.title}”` : ""}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})); } catch (e) { if (e && (e.code === "aborted" || e.code === "cancelled")) throw e; r = {data: {status: "ok"}}; } }
+    else if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\n${fetched ? `Its text, read from the page${fetched.title ? ` “${fetched.title}”` : ""}` : `The student pasted its ${L.kind === "youtube" ? "transcript" : "text"}`}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})));
     else if (L.kind === "youtube") {
       // a lecture's content is in what's said: one frame every 5 seconds cuts most of the video work. plain: just the link, the way Google's own
       // YouTube example sends it (no file type, no frame rate). Notes from a long video get plenty of room, and more if they still come back cut off.
@@ -213,15 +228,18 @@ const LINKCARDS = (() => {
       if (!sawVideo(r)) throw Object.assign(aiErr("link-novideo", "Gemini didn't get the video itself, only its link, so it had nothing to watch. YouTube may be blocking Gemini for this video, or your key's free daily allowance for YouTube videos may be used up. Try again later."), {link: true, st: "novideo"});
     }
     else r = await aiRetry(() => aiCall(Object.assign({}, opts, {urlContext: true, timeout: 180000, parts: [{text: `${ask}\n\n${L.url}\n\nAnswer with JSON only, in this shape: ${SHAPE}`}]})));
+    if (fetched) { r = r || {}; r.data = Object.assign({}, r.data || {}); if (!r.data.title && fetched.title) r.data.title = fetched.title; }
     const d = r && r.data && typeof r.data === "object" ? r.data : {};
     let st = String(d.status || "").toLowerCase();
     // The page itself said it couldn't be fetched
     if (!pasted && Array.isArray(r.fetched) && r.fetched.length && !r.fetched.some(x => x.ok)) st = r.fetched.some(x => /paywall/.test(x.status)) ? "paywall" : "unreachable";
     const body = [d.overview].concat((d.sections || []).flatMap(s => (s && s.points) || [])).join(" ");
     const bodyLen = body.replace(/\s+/g, " ").trim().length;
-    if (st === "ok" || !st || (st === "empty" && bodyLen >= 200)) st = bodyLen < 80 ? "empty" : "ok";
+    if (fetched) st = "ok";
+    else if (st === "ok" || !st || (st === "empty" && bodyLen >= 200)) st = bodyLen < 80 ? "empty" : "ok";
     if (st !== "ok") { const why = String(d.reason || "").replace(/\s+/g, " ").trim().slice(0, 200); throw Object.assign(aiErr("link-" + st, failMsg(st, L) + (why ? ` (${aiWho("The AI")} said: ${why.replace(/\.$/, "")}.)` : "")), {link: true, st}); }
     // Pasted text: no point that repeats it word for word
+    if (fetched) d.pageText = fetched.text;
     if (pasted) { const idx = aiCopyIndex(pasted); (d.sections || []).forEach(s => { if (s && Array.isArray(s.points)) s.points = s.points.filter(p => !aiCopied(p, idx)); }); d.terms = (d.terms || []).filter(t => t && !aiCopied(t.definition, idx)); if (aiCopied(d.overview, idx)) d.overview = ""; }
     return d;
   }
@@ -259,8 +277,10 @@ const LINKCARDS = (() => {
       const src = {kind: L.kind, url: L.url, title, host: L.host};
       const notes = LINKCARDS.noteText(Object.assign({}, d, {title}), src, "");
       spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`, "Step 2 of 2:");
-      const sources = [{name: title, kind: "Text", size: notes.length, part: {text: `Study notes on “${title}” (${L.kind === "youtube" ? "a YouTube video" : "a web page"}):\n\n${notes}`}}]
-        .concat(pasted ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : [])
+      // the AI on this device makes its cards from the page's own text, in its own sections (the notes are a summary of it, and a
+      // small model loses detail summarizing); every other AI gets the notes, plus the source's text for checking facts
+      const sources = (d.pageText ? [{name: title, kind: "Text", size: d.pageText.length, part: {text: d.pageText}}] : [{name: title, kind: "Text", size: notes.length, part: {text: `Study notes on “${title}” (${L.kind === "youtube" ? "a YouTube video" : "a web page"}):\n\n${notes}`}}]
+        .concat(pasted ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : []))
         .concat((o.files || []).filter(s => s && s.part));
       const r = await aiMakeStudySet({light: true, sources, style: o.style, difficulty: o.difficulty, cards: o.cards, quiz: o.quiz, cases: o.cases, caseCount: o.caseCount, caseStyle: o.caseStyle, cardCount: o.cardCount, quizCount: o.quizCount, courseName: courseOf(o.courseId) ? courseOf(o.courseId).name : "", signal: ac && ac.signal}, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;

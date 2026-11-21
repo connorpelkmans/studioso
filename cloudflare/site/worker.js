@@ -1,5 +1,6 @@
 // Studyboard website (Cloudflare Workers with static assets)
 import {handlePublic, isPublicPath} from "./public-pages.js";
+import {handlePageText} from "./page-text.js";
 // Public flashcards and quizzes
 const PASS = /^\/functions\/v1\/(cloud-files|calendar-sync)$/;
 // The privacy policy and terms live in the website folder; the short addresses people
@@ -25,6 +26,8 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (isPublicPath(url.pathname)) return handlePublic(request, env, ctx);
+    // a web page's text, for Cards From a Link with the AI on the device (page-text.js)
+    if (url.pathname === "/api/page-text") return handlePageText(request, env, ctx);
     if (MOVED[url.pathname]) return Response.redirect(new URL(MOVED[url.pathname] + url.search, url.origin).toString(), 301);
     if (PASS.test(url.pathname) && env.SUPABASE_URL) {
       const target = new URL(url.pathname + url.search, env.SUPABASE_URL);

@@ -65,6 +65,7 @@
   "01-undo.js",
   "01-ai-policy.js",
   "01-ai.js",
+  "01-page-text.js",
   "01-ai-device.js",
   "01-ocr.js",
   "01-phone-cam.js",

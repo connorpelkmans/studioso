@@ -6454,6 +6454,96 @@ function aiPlannerFacts(need){
   } catch (e) {}
   return L.join("\n\n");
 }
+/* ===== module: 01-page-text.js: a web page's readable text, from its HTML ===== */
+/* One copy, used in two places (like 01-ai-policy.js):
+   - the website's Worker (cloudflare/site/page-text.js) fetches a page for the website, which browsers can't do across sites, and
+     returns only this text (never the page itself);
+   - the iPhone app fetches the page itself and runs this on it.
+   Then the AI (any of them, including the small one on the device) makes study notes from plain text, which needs no web access.
+   Plain script, no DOM and no imports, so it runs in the app's bundle and in a Worker (both read globalThis.SBPAGE).
+   Unit tested in tests/page-text.test.js. */
+const SBPAGE = (() => {
+  const MAX_HTML = 2000000, MAX_TEXT = 60000;
+  const ENT = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", copy: "©", reg: "®", deg: "°", times: "×", middot: "·", bull: "•", eacute: "é", egrave: "è", aacute: "á", iacute: "í", oacute: "ó", uacute: "ú", ntilde: "ñ", uuml: "ü", ouml: "ö", auml: "ä", szlig: "ß", ccedil: "ç", plusmn: "±", micro: "µ", alpha: "α", beta: "β", gamma: "γ", delta: "δ", pi: "π", sigma: "σ", mu: "μ", lambda: "λ", theta: "θ", omega: "ω", le: "≤", ge: "≥", ne: "≠", rarr: "→", larr: "←", harr: "↔", minus: "−", frac12: "½", sup2: "²", sup3: "³"};
+  const decode = s => String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+\d*);/gi, (m, e) => {
+    if (e[0] === "#") { const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); try { return n > 0 && n < 0x110000 ? String.fromCodePoint(n) : ""; } catch (x) { return ""; } }
+    const k = e.toLowerCase(); return ENT[k] != null ? ENT[k] : m;
+  });
+  // Parts of a page that are never the content
+  const DROP = ["script", "style", "noscript", "template", "svg", "canvas", "iframe", "object", "embed", "select", "button", "form", "nav", "footer", "aside", "header", "menu", "dialog", "figure"];
+  // class or id words that mark page furniture
+  const FURNITURE = /(^|[\s_-])(nav|navbar|menu|footer|header|sidebar|side-bar|breadcrumb|cookie|consent|banner|advert|ad|ads|promo|newsletter|subscribe|signup|share|social|related|recommend|comments?|popup|modal|toolbar|skip|masthead|byline-share)([\s_-]|$)/i;
+  const BLOCK = /^(p|div|section|article|main|li|ul|ol|dl|dt|dd|tr|table|thead|tbody|blockquote|pre|br|hr|h[1-6]|figcaption|caption|summary|details|address)$/i;
+  const titleOf = html => { const m = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html), og = /<meta[^>]+property=["']og:title["'][^>]*content=["']([^"']+)["']/i.exec(html) || /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:title["']/i.exec(html);
+    return decode((og ? og[1] : m ? m[1] : "").replace(/\s+/g, " ").trim()).slice(0, 200); };
+  // Remove whole elements (with what's inside them) by tag name, or by a class/id that marks furniture. Nested tags of the same name
+  // are counted, so an open <div class="nav"> removes up to its own closing tag.
+  function strip(html){
+    let h = html.replace(/<!--[\s\S]*?-->/g, " ").replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, " ");
+    for (const t of DROP) h = h.replace(new RegExp(`<${t}\\b[^>]*>[\\s\\S]*?<\\/${t}\\s*>`, "gi"), " ").replace(new RegExp(`<${t}\\b[^>]*\\/?>`, "gi"), " ");
+    // furniture by class or id, on block elements: find each opening tag and cut to its matching close
+    const open = /<(div|section|ul|ol|span|p|table)\b([^>]*)>/gi; let out = "", last = 0, m;
+    while ((m = open.exec(h))) {
+      const attrs = m[2]; if (!/\b(class|id|role|aria-label)\s*=/.test(attrs)) continue;
+      const vals = (attrs.match(/\b(?:class|id|role)\s*=\s*["']([^"']*)["']/gi) || []).join(" ");
+      if (!FURNITURE.test(vals.replace(/\b(class|id|role)\s*=\s*["']/gi, " ")) && !/role\s*=\s*["'](navigation|banner|contentinfo|complementary|dialog|search)["']/i.test(attrs)) continue;
+      const tag = m[1].toLowerCase(), re = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi"); re.lastIndex = open.lastIndex; let depth = 1, end = -1, x;
+      while ((x = re.exec(h))) { depth += x[1] ? -1 : 1; if (!depth) { end = re.lastIndex; break; } }
+      if (end < 0) continue;
+      out += h.slice(last, m.index) + " "; last = end; open.lastIndex = end;
+    }
+    return out + h.slice(last);
+  }
+  // The part of the page that holds the content: <article> or <main> when there's real text in it, else the whole body
+  // (scored by the length of their text, measured once each: this runs in a Worker with a few milliseconds to spare)
+  const textLen = c => c.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").length;
+  function main(h){
+    const pick = tag => { let best = "", bl = 0; for (const x of h.matchAll(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, "gi"))) { const l = textLen(x[1]); if (l > bl) { bl = l; best = x[1]; } } return [best, bl]; };
+    for (const t of ["article", "main"]) { const [c, l] = pick(t); if (l >= 700) return c; }
+    const role = /<([a-z]+)\b[^>]*role=["']main["'][^>]*>/i.exec(h);
+    if (role) { const rest = h.slice(role.index); if (textLen(rest) >= 700) return rest; }
+    const body = /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(h); return body ? body[1] : h;
+  }
+  const words = t => { const m = String(t).match(/[^\s\-–—|•·.,;:!?()"']+/g); return m ? m.length : 0; };
+  const plain = h => decode(String(h).replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  // HTML to text: block elements become line breaks, headings become "## Heading" lines (so the study set pipeline finds them),
+  // list items become "- item", table cells are separated
+  function toText(h){
+    let t = h.replace(/<(h[1-6])\b[^>]*>([\s\S]*?)<\/\1>/gi, (m, tag, inner) => `\n\n${"#".repeat(Math.min(3, Number(tag[1])))} ${plain(inner)}\n\n`)
+      .replace(/<li\b[^>]*>/gi, "\n- ").replace(/<\/(td|th)>/gi, " | ").replace(/<(br|hr)\b[^>]*>/gi, "\n")
+      .replace(/<\/?([a-z0-9]+)\b[^>]*>/gi, (m, tag) => BLOCK.test(tag) ? "\n" : " ");
+    t = decode(t).replace(/ /g, " ").replace(/[ \t\f\v]+/g, " ").replace(/ *\n */g, "\n");
+    // lines that are page furniture even in the content: very short lines of links ("Share", "Print", "Next article"), cookie text
+    const lines = t.split("\n").map(x => x.trim()).filter(x => x && !/^(share|print|email|tweet|next|previous|back to top|advertisement|read more|related|subscribe|sign in|log in|skip to (main )?content|menu|search|\|)$/i.test(x) && !/^[-|•·\s]+$/.test(x));
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n").replace(/\n(- )/g, "\n$1").trim();
+  }
+  // A page that only shows a login, paywall or cookie wall: little text, and that text is about signing in or subscribing
+  const WALL = /\b(subscribe|subscription|sign in|log in|create (a free )?account|already a (member|subscriber)|to continue reading|members only|paywall|enable javascript|verify you are (a )?human|are you a robot|access denied|captcha)\b/i;
+  function extract(html, url){
+    const raw = String(html || "").slice(0, MAX_HTML);
+    const title = titleOf(raw), body = toText(main(strip(raw)));
+    let text = body.length > MAX_TEXT ? body.slice(0, MAX_TEXT).replace(/\n[^\n]*$/, "") : body;
+    const n = words(text), cut = body.length > MAX_TEXT;
+    const status = n < 40 ? (WALL.test(text + " " + title) ? "paywall" : "empty") : n < 150 && (text.match(new RegExp(WALL.source, "gi")) || []).length >= 2 ? "paywall" : "ok";
+    if (status !== "ok") text = "";
+    return {status, title, text, words: n, cut, url: url || ""};
+  }
+  // Only ordinary public web pages: http or https, the usual ports, a real host name (no addresses inside a network, no IP literals
+  // in private or special ranges, no logins in the address). Checked again after every redirect.
+  function safeUrl(raw){
+    let u; try { u = new URL(String(raw || "").trim()); } catch (e) { return null; }
+    if (!/^https?:$/.test(u.protocol) || u.username || u.password) return null;
+    if (u.port && !["80", "443"].includes(u.port)) return null;
+    const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+    if (!h || !h.includes(".") || /(^|\.)(localhost|local|internal|intranet|lan|home|corp|arpa|test|invalid|example)$/.test(h)) return null;
+    if (/^[\d.]+$/.test(h)) { const p = h.split(".").map(Number); if (p.length !== 4 || p.some(x => !(x >= 0 && x <= 255))) return null;
+      const [a, b] = p; if (a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || (a === 198 && (b === 18 || b === 19))) return null; }
+    if (h.includes(":")) return null; // IPv6 literals: not needed for articles, and easy to get wrong
+    u.hash = ""; return u;
+  }
+  return {extract, safeUrl, toText, titleOf, decode, words, MAX_HTML, MAX_TEXT};
+})();
+globalThis.SBPAGE = SBPAGE;
 /* ===== 01-ai-device.js: AI that runs on the student's own device, with nothing to set up.
    Chrome: the built-in Prompt API (window.LanguageModel, Gemini Nano; desktop Chrome 148 and later).
    iPhone and iPad app: Apple's on-device model, through the StudyboardOnDeviceAI plugin (ios-wrapper/native/StudyboardOnDeviceAI.swift).
@@ -6656,6 +6746,35 @@ async function devApple({sys, parts, json, out, temperature, signal, auto}){
     if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
     return {data, model: "apple-on-device", provider: "device", truncated};
   }
+}
+/* A web page's text, for the AI on this device (which can't browse): the iPhone app fetches the page itself (iOS doesn't stop an app
+   reading other sites) and extracts its text here; everywhere else, and if that fails, the website's /api/page-text does it
+   (cloudflare/site/page-text.js), as a browser can't fetch another site's page. Both use src/js/01-page-text.js. */
+const PAGE_API = "https://studyboardapp.com/api/page-text";
+async function devPageText(url, signal){
+  const u = SBPAGE.safeUrl(url); if (!u) return {status: "bad"};
+  try {
+    const C = window.Capacitor, H = C && C.isNativePlatform && C.isNativePlatform() && C.getPlatform && C.getPlatform() === "ios" && C.Plugins && C.Plugins.CapacitorHttp;
+    if (H && typeof H.get === "function") {
+      const r = await H.get({url: u.href, headers: {"Accept": "text/html,text/plain;q=0.9"}, responseType: "text", connectTimeout: 10000, readTimeout: 10000});
+      const type = String((r.headers && (r.headers["Content-Type"] || r.headers["content-type"])) || "");
+      if (r.status === 401 || r.status === 402 || r.status === 403) return {status: "paywall", url: r.url || u.href};
+      if (r.status >= 200 && r.status < 300 && typeof r.data === "string") {
+        if (/application\/pdf/i.test(type)) return {status: "pdf"};
+        const x = /text\/plain/i.test(type) ? {status: SBPAGE.words(r.data) >= 40 ? "ok" : "empty", title: "", text: r.data.slice(0, SBPAGE.MAX_TEXT)} : SBPAGE.extract(r.data.slice(0, SBPAGE.MAX_HTML), r.url || u.href);
+        if (x.status === "ok") return Object.assign(x, {url: r.url || u.href});
+      }
+    }
+  } catch (e) {}
+  if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
+  // the website itself asks its own address; the apps ask the website
+  const api = /^https?:$/.test(location.protocol) && !/^(capacitor|app):/.test(location.protocol) && location.hostname !== "localhost" || window.__SB_TEST ? "/api/page-text" : PAGE_API;
+  try {
+    const res = await fetch(`${api}?url=${encodeURIComponent(u.href)}`, {signal, credentials: "omit"});
+    if (res.status === 429) return {status: "busy"};
+    const j = await res.json().catch(() => ({}));
+    return j && j.status ? j : {status: "unreachable"};
+  } catch (e) { if (signal && signal.aborted) throw aiErr("aborted", "Stopped."); return {status: "offline"}; }
 }
 if (window.__SB_TEST) window.__sbDevAI = {state: DEVAI, probe: devProbe, fit: devFit, cfg: () => aiCfg(), call: o => aiCall(o)};
 /* ===== 01-ocr.js: reading the words in photos and scanned pages, on the device, so the small AI on the device (01-ai-device.js)
@@ -85611,7 +85730,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, or Apple Intelligence in the iPhone and iPad app): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, or Apple Intelligence in the iPhone and iPad app): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. The one exception is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>
@@ -117065,10 +117184,25 @@ const LINKCARDS = (() => {
         pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
       }
     }
+    // The AI on this device can't open web pages: Studyboard reads the page's text for it (devPageText: the iPhone app fetches it
+    // itself, the website asks its own /api/page-text), and the AI works from that text
+    let fetched = null;
+    if (!pasted && L.kind !== "youtube" && prov === "device") {
+      if (onStatus) onStatus("Reading the page…");
+      fetched = await devPageText(L.url, signal);
+      if (fetched.status !== "ok") {
+        const st = fetched.status === "paywall" ? "paywall" : fetched.status === "empty" ? "empty" : "unreachable";
+        const msg = fetched.status === "pdf" ? "That link is a PDF. Download it and add it with Add Files instead." : fetched.status === "busy" ? "Too many pages in a short time. Wait a minute and try again." : fetched.status === "offline" ? "Couldn't reach the page. Check your connection and try again." : fetched.status === "not_page" ? "That link isn't a web page (it may be a picture or a download)." : failMsg(st, L);
+        throw Object.assign(aiErr("link-" + st, msg), {link: true, st});
+      }
+      pasted = fetched.text; if (onStatus) onStatus("Read the page. Writing study notes…");
+    }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: 8000, temperature: 0.2, onStatus, system: SYS()};
     let r;
-    if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nThe student pasted its ${L.kind === "youtube" ? "transcript" : "text"}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})));
+    // (on the device, the summary note is a bonus: if the small model can't write it, the cards are still made from the page's text)
+    if (pasted && fetched) { try { r = await aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nIts text, read from the page${fetched.title ? ` “${fetched.title}”` : ""}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})); } catch (e) { if (e && (e.code === "aborted" || e.code === "cancelled")) throw e; r = {data: {status: "ok"}}; } }
+    else if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\n${fetched ? `Its text, read from the page${fetched.title ? ` “${fetched.title}”` : ""}` : `The student pasted its ${L.kind === "youtube" ? "transcript" : "text"}`}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})));
     else if (L.kind === "youtube") {
       // a lecture's content is in what's said: one frame every 5 seconds cuts most of the video work. plain: just the link, the way Google's own
       // YouTube example sends it (no file type, no frame rate). Notes from a long video get plenty of room, and more if they still come back cut off.
@@ -117111,15 +117245,18 @@ const LINKCARDS = (() => {
       if (!sawVideo(r)) throw Object.assign(aiErr("link-novideo", "Gemini didn't get the video itself, only its link, so it had nothing to watch. YouTube may be blocking Gemini for this video, or your key's free daily allowance for YouTube videos may be used up. Try again later."), {link: true, st: "novideo"});
     }
     else r = await aiRetry(() => aiCall(Object.assign({}, opts, {urlContext: true, timeout: 180000, parts: [{text: `${ask}\n\n${L.url}\n\nAnswer with JSON only, in this shape: ${SHAPE}`}]})));
+    if (fetched) { r = r || {}; r.data = Object.assign({}, r.data || {}); if (!r.data.title && fetched.title) r.data.title = fetched.title; }
     const d = r && r.data && typeof r.data === "object" ? r.data : {};
     let st = String(d.status || "").toLowerCase();
     // The page itself said it couldn't be fetched
     if (!pasted && Array.isArray(r.fetched) && r.fetched.length && !r.fetched.some(x => x.ok)) st = r.fetched.some(x => /paywall/.test(x.status)) ? "paywall" : "unreachable";
     const body = [d.overview].concat((d.sections || []).flatMap(s => (s && s.points) || [])).join(" ");
     const bodyLen = body.replace(/\s+/g, " ").trim().length;
-    if (st === "ok" || !st || (st === "empty" && bodyLen >= 200)) st = bodyLen < 80 ? "empty" : "ok";
+    if (fetched) st = "ok";
+    else if (st === "ok" || !st || (st === "empty" && bodyLen >= 200)) st = bodyLen < 80 ? "empty" : "ok";
     if (st !== "ok") { const why = String(d.reason || "").replace(/\s+/g, " ").trim().slice(0, 200); throw Object.assign(aiErr("link-" + st, failMsg(st, L) + (why ? ` (${aiWho("The AI")} said: ${why.replace(/\.$/, "")}.)` : "")), {link: true, st}); }
     // Pasted text: no point that repeats it word for word
+    if (fetched) d.pageText = fetched.text;
     if (pasted) { const idx = aiCopyIndex(pasted); (d.sections || []).forEach(s => { if (s && Array.isArray(s.points)) s.points = s.points.filter(p => !aiCopied(p, idx)); }); d.terms = (d.terms || []).filter(t => t && !aiCopied(t.definition, idx)); if (aiCopied(d.overview, idx)) d.overview = ""; }
     return d;
   }
@@ -117157,8 +117294,10 @@ const LINKCARDS = (() => {
       const src = {kind: L.kind, url: L.url, title, host: L.host};
       const notes = LINKCARDS.noteText(Object.assign({}, d, {title}), src, "");
       spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`, "Step 2 of 2:");
-      const sources = [{name: title, kind: "Text", size: notes.length, part: {text: `Study notes on “${title}” (${L.kind === "youtube" ? "a YouTube video" : "a web page"}):\n\n${notes}`}}]
-        .concat(pasted ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : [])
+      // the AI on this device makes its cards from the page's own text, in its own sections (the notes are a summary of it, and a
+      // small model loses detail summarizing); every other AI gets the notes, plus the source's text for checking facts
+      const sources = (d.pageText ? [{name: title, kind: "Text", size: d.pageText.length, part: {text: d.pageText}}] : [{name: title, kind: "Text", size: notes.length, part: {text: `Study notes on “${title}” (${L.kind === "youtube" ? "a YouTube video" : "a web page"}):\n\n${notes}`}}]
+        .concat(pasted ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : []))
         .concat((o.files || []).filter(s => s && s.part));
       const r = await aiMakeStudySet({light: true, sources, style: o.style, difficulty: o.difficulty, cards: o.cards, quiz: o.quiz, cases: o.cases, caseCount: o.caseCount, caseStyle: o.caseStyle, cardCount: o.cardCount, quizCount: o.quizCount, courseName: courseOf(o.courseId) ? courseOf(o.courseId).name : "", signal: ac && ac.signal}, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;
