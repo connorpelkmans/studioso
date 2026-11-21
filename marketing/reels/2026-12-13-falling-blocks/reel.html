@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Week 11 stack</title>
+<!--
+  Set 5 · a falling-blocks game (generic, not any real game's look): assignments drop fast from frame 0 and stack
+  toward a red danger line labelled WEEK 11. At 4.3 s the stack "clears": blocks slide out into Weeks 9 and 10
+  (the product's real job, shown as a satisfying move), the line goes green. Little reading.
+  Music: lofi.wav from 21.0.
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;color:#fff;-webkit-font-smoothing:antialiased;background:#0E1426}
+#txt{position:absolute;left:60px;right:60px;top:220px;text-align:center;z-index:20}
+.blk{display:inline;background:#fff;color:#000;font-weight:800;font-size:66px;line-height:1.34;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.well{position:absolute;top:470px;height:1150px;border-radius:30px;background:rgba(255,255,255,.05);border:5px solid rgba(255,255,255,.14);border-top:none}
+.lbl{position:absolute;bottom:-70px;left:0;right:0;text-align:center;font-weight:800;font-size:38px;color:#8C97B5}
+#w11 .lbl{color:#fff}
+#line{position:absolute;left:330px;width:420px;height:8px;top:830px;border-radius:4px;background:#FF4D3D;box-shadow:0 0 24px #FF4D3D}
+#lineT{position:absolute;left:330px;width:420px;top:770px;text-align:center;font-weight:900;font-size:38px;color:#FF6B5B;letter-spacing:.06em}
+.bk{position:absolute;width:400px;height:104px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:40px;color:#fff;box-shadow:inset 0 -8px 0 rgba(0,0,0,.18)}
+#ok{position:absolute;left:0;right:0;top:1700px;text-align:center;font-weight:900;font-size:64px;color:#7CF0B5;opacity:0}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="well" id="w9" style="left:30px;width:290px"><div class="lbl">week 9</div></div>
+  <div class="well" id="w11" style="left:330px;width:420px"><div class="lbl">week 11</div></div>
+  <div class="well" id="w10" style="left:760px;width:290px"><div class="lbl">week 10</div></div>
+  <div id="line"></div><div id="lineT">DANGER</div>
+  <div id="blocks"></div>
+  <div id="ok">✓ studyboard spread it out</div>
+  <div id="txt"><span class="blk" id="txtB">my assignments when week 11 hits</span></div>
+</div>
+<script src="{{ROOT}}/marketing/reels/_shared/kit.js"></script>
+<script>
+const BK = [["Bio exam", "#1E9E74"], ["Lab report", "#1F6FEB"], ["Chem exam", "#7A4FD6"], ["Essay", "#F2A33A"], ["Calc quiz", "#E4513B"], ["Group project", "#D9468F"], ["Psych exam", "#1E9E74"], ["Reading", "#1F6FEB"]];
+$("blocks").innerHTML = BK.map(([n, c], i) => `<div class="bk" id="b${i}" style="background:${c}">${n}</div>`).join("");
+const FLOOR = 470 + 1150 - 8, BH = 112, CLEAR = 4.3, END = 7.2;
+// after the clear: 3 blocks stay in week 11, the rest move to week 9 / week 10 (spread, same total)
+const DEST = [[11, 0], [9, 0], [11, 1], [10, 0], [9, 1], [10, 1], [11, 2], [9, 2]];
+const COLX = {9: 30 + 145, 10: 760 + 145, 11: 330 + 210};
+function render(t) {
+  BK.forEach((_, i) => {
+    const el = $("b" + i), t0 = -0.35 + i * .48, land = t0 + .42;
+    const restY = FLOOR - (i + 1) * BH;
+    let y = t < land ? lerp(480, restY, Math.pow(P(t, t0, land), 2)) : restY;   // gravity
+    let x = COLX[11], sx = 1;
+    // bump on landing
+    const sq = t >= land ? 1 - .1 * Math.sin(P(t, land, land + .2) * Math.PI) : 1;
+    // the clear: slide to its new column and slot
+    const k = io(P(t, CLEAR + i * .05, CLEAR + .5 + i * .05));
+    if (k > 0) { const [col, slot] = DEST[i]; x = lerp(x, COLX[col], k); y = lerp(y, FLOOR - (slot + 1) * BH, k); sx = lerp(1, col === 11 ? 1 : .68, k); }
+    el.style.opacity = t >= t0 ? 1 : 0;
+    el.style.left = (x - 200) + "px"; el.style.top = y + "px";
+    el.style.transform = `scale(${sx * (2 - sq)},${sq})`;
+  });
+  // danger line pulses red once the stack passes it, turns green after the clear
+  const over = t > -0.35 + 7 * .48 + .42 - 1.5 && t < CLEAR + .4, ok = t >= CLEAR + .5;
+  $("line").style.background = ok ? "#3DDC97" : "#FF4D3D"; $("line").style.boxShadow = `0 0 ${over ? 24 + 16 * Math.abs(Math.sin(t * 5)) : 18}px ${ok ? "#3DDC97" : "#FF4D3D"}`;
+  $("lineT").textContent = ok ? "SAFE" : "DANGER"; $("lineT").style.color = ok ? "#7CF0B5" : "#FF6B5B";
+  const o = P(t, CLEAR + .7, CLEAR + .95); $("ok").style.opacity = o; $("ok").style.transform = `scale(${lerp(1.4, 1, oBack(o))})`;
+  const txt = t >= CLEAR + .7 ? "ok that was satisfying" : "my assignments when week 11 hits";
+  if ($("txtB").textContent !== txt) $("txtB").textContent = txt;
+}
+window.render = render; window.END = END; window.COVER = 2.4;
+render(0);
+</script>
+</body>
+</html>

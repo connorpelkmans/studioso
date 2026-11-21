@@ -108,6 +108,14 @@ Refresh these with vidIQ outlier search each batch (see `tools.md`).
 
 How we apply it: `marketing/reels/2026-11-16-same-week/` (stock b-roll of a stressed student → the Studyboard calendar as the "proof" shot → a punchline shot, cut on owned music hits).
 
+## Set 5: what the skip-rate data says (Nov 21, 2026). Read this first.
+
+Metricool's reel analytics (`IGRE30` skip rate, `IGRE24` average watch, `IGRE11` reach) for every post so far: reach about 100 each (the test pool), and skip rate by first-frame type was chat screen 91.7%, ad 84.6%, app screen 73.8%, companion field guide 65.8%, a big face close-up 60.7%, **a big spinning wheel 56.6%**. Rules:
+- **Frame 0 must be a big thing already moving** (a wheel, reels spinning, a ball dropping, a claw descending, blocks falling) **or a big expressive face**, never a screen of text, a chat or an app UI.
+- **Reading is optional**: 3–7 words of text at most; the picture alone must say what's happening.
+- **Game mechanics hold**: an outcome is visibly pending (where will it land, will it hold on), so people stay.
+- Pull `IGRE30` for every post 24–48 h later and rank formats by skip rate; keep the top two formats and drop the rest.
+
 ## Set 4: every reel needs a "wait for it" device (Connor, Nov 19: the hook must "actually grab attention and maintain it")
 
 A hook only earns the first second. What keeps people to the end is an **open loop they can see**: something visibly unfinished whose ending they want. Use one per reel (Loewenstein's information gap, made visual):

@@ -40,6 +40,10 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-19 | marketing/reels/2026-12-08-wheel-decides | Do This Next | Set 4: spinning wheel | "letting a wheel pick what i study tonight 🎡" | 8.2 s | Scheduled Thu Nov 19 9:50 AM PT (Metricool 433712217); Connor: "this one is funny" | | | | | | lofi beat |
 | 2026-11-19 | marketing/reels/2026-12-09-text-from-september | (none) | Set 4: suspense | "a text from me in september:" | 6.8 s | Scheduled Fri Nov 20 9:50 AM PT (Metricool 433712531) | | | | | | slowed lofi |
 | 2026-11-19 | marketing/reels/2026-12-10-wait-for-friday | Crunch Forecast | Set 4: escalation | "my finals week gets worse every day. wait for friday 💀" | 7.6 s | Scheduled Sat Nov 21 9:50 AM PT (Metricool 433713195) | | | | | | dramatic 8.8 |
+| 2026-11-21 | marketing/reels/2026-12-11-slot-machine | Crunch Forecast (soft) | Set 5: game, slot machine | "spinning for my finals schedule 🎰" → JACKPOT: 3 exams, same day | 7.4 s | | | | | | | dramatic 33.0 |
+| 2026-11-21 | marketing/reels/2026-12-12-plinko | (none) | Set 5: game, Plinko | "letting plinko decide my night" → lands on study, "rigged 😐" | 6.4 s | | | | | | | quirky 24.0 |
+| 2026-11-21 | marketing/reels/2026-12-13-falling-blocks | Crunch Forecast (spread) | Set 5: falling blocks | "my assignments when week 11 hits" → stack clears into weeks 9–10 | 7.2 s | | | | | | | lofi 21.0 |
+| 2026-11-21 | marketing/reels/2026-12-14-claw-machine | (none) | Set 5: claw machine | "trying to grab some motivation at 2am" → drops it, grabs snacks | 7.4 s | | | | | | | slowed lofi |
 
 ## What we've learned
 
@@ -65,3 +69,5 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 - **Set 3 (Nov 19):** no stock people (Connor); everything animated or the real app; something lands at frame 0 with new onsets until about 2 s; every reel has a built-in reason to comment or send; the product appears inside the story.
 - **Set 4 (Nov 19):** Connor: the hook must grab *and hold*. Each reel now has a visible open loop (countdown, guess, wheel, typing suspense, escalation) with a payoff in the last ~2 s, and a different track or section for each.
 - **Cross-posting (Nov 20):** TikTok ("Studyboard: Student Planner") and YouTube are connected to Metricool. Reel D ("The final is cumulative?!", 128 views on Instagram) is scheduled as a YouTube Short (Fri 3:50 PM PT, Metricool 436062195) and a TikTok (Fri 5:50 PM PT, Metricool 436062354), each at its own network's peak, with the same caption.
+- **Skip-rate data (Metricool, Nov 21), the clearest signal so far.** Reach is about 100 for every reel (Instagram's first test pool for a ~3-follower account), so **skip rate is the number to move**. By first-frame type: chat screen (September) 91.7%; feature ad 84.6%; app screen recording 73.8%; companions field guide 65.8%; Mochi face close-up (D) 60.7%; **big spinning wheel 56.6%** (best). Average watch: 2.6–5.8 s. Frames that look like *text to read* get swiped; *a big object already moving* or *a big expressive face* holds. Set 5 (slot machine, Plinko, falling blocks, claw machine) is built on that: game-like motion fills the frame from frame 0, an outcome to wait for, almost no reading.
+
