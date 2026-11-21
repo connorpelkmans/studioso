@@ -6195,8 +6195,10 @@ function aiSetupSheet(fromFeature, opts){
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
       ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
-      ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : " The first time you use it, Chrome downloads it once."}</p>
+      ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : DEVAI.kind === "webllm" ? ` The first time you use it, Studyboard asks before downloading it once (about ${DEVAI.web ? DEVAI.web.gb : 3} GB).` : " The first time you use it, Chrome downloads it once."}</p>
         <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can look things up on the web.</p></div>` : ""}
+      ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
+        <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
       ${!pro && DEVAI.kind === "chrome" && DEVAI.why ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
       ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
       ${fromFeature && !pro && c.provider !== "device" ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
@@ -6692,6 +6694,8 @@ const SBPAGE = (() => {
 globalThis.SBPAGE = SBPAGE;
 /* ===== 01-ai-device.js: AI that runs on the student's own device, with nothing to set up.
    Chrome: the built-in Prompt API (window.LanguageModel, Gemini Nano; desktop Chrome 148 and later).
+   Elsewhere (Edge, Safari, the desktop app, computers Chrome's model doesn't run on): Google's Gemma, run in the browser by WebLLM
+   (vendor/webllm-0.2.89) on the graphics chip, downloaded once only after the student agrees.
    iPhone and iPad app: Apple's on-device model, through the StudyboardOnDeviceAI plugin (ios-wrapper/native/StudyboardOnDeviceAI.swift).
    Used only when the student has no AI key and no Studyboard AI (aiCfg in 01-ai.js). Nothing leaves the device, so there's no
    consent to ask for, no key and no cost. These models are small, so the study set pipeline gives them short sections, examples,
@@ -6701,7 +6705,7 @@ var DEVAI = {kind: "", status: "", images: false, ctx: 0, progress: 0, warm: nul
 const DEV_LANGS = ["en", "es", "de", "fr", "ja"];
 const devLangs = () => { const l = String(navigator.language || "en").slice(0, 2).toLowerCase(); return l !== "en" && DEV_LANGS.includes(l) ? ["en", l] : ["en"]; };
 const devOpts = img => ({expectedInputs: [{type: "text", languages: devLangs()}].concat(img ? [{type: "image"}] : []), expectedOutputs: [{type: "text", languages: devLangs()}]});
-const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : "Chrome's built-in AI";
+const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : DEVAI.kind === "webllm" ? "Studyboard's on-device AI" : "Chrome's built-in AI";
 const devUsable = () => ["available", "downloadable", "downloading"].includes(DEVAI.status);
 // Tests opt in (the test browser may or may not have the model): window.__SB_DEVICE_AI_TEST
 const devAllowed = () => !window.__SB_TEST || !!window.__SB_DEVICE_AI_TEST;
@@ -6729,8 +6733,9 @@ async function devProbe(){
       } else if (typeof self !== "undefined" && "LanguageModel" in self && window.isSecureContext !== false) {
         DEVAI.kind = "chrome"; DEVAI.status = await self.LanguageModel.availability(devOpts(false));
         try { DEVAI.images = (await self.LanguageModel.availability(devOpts(true))) !== "unavailable"; } catch (e) { DEVAI.images = false; }
-        devNoteState();
-      } else DEVAI.status = "";
+        // Chrome's isn't usable here: Studyboard's own (WebLLM) if this computer can run it; else the reason for Chrome's
+        if (!devUsable() && await webProbe()) {} else devNoteState();
+      } else if (!(await webProbe())) DEVAI.status = "";
     } catch (e) { DEVAI.status = "unavailable"; }
     finally { DEVAI.probing = null; if (DEVAI.status !== before) { try { scheduleRender(); } catch (e) {} } }
   })();
@@ -6820,6 +6825,7 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   const sys = String(system || "") + DEV_TAIL, json = toJsonSchema(schema || {type: "OBJECT"});
   const out = Math.min(Number(maxTokens) || 1500, 1800);
   if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
+  if (DEVAI.kind === "webllm") return devWeb({sys, parts, json, out, temperature, signal, onStatus, auto});
   return devChrome({sys, parts, json, out, signal, onStatus, auto, pics: pics.length > 0});
 }
 /* A photo or PDF for the AI on this device: a PDF with real text gives its text; a photo or scanned page has its words read (Apple's
@@ -6860,6 +6866,117 @@ function devUnreadable(r, what){
     ? `There are no words in that ${what} that this device can read. ${L} works from text, so diagrams and drawings need Studyboard AI or an AI key in Settings, AI Features.`
     : hand ? `That ${what} was too hard to read on this computer (handwriting usually is). Try typed notes or a sharper, brighter photo; the Studyboard iPhone app reads handwriting, and so do Studyboard AI and an AI key.`
     : `That ${what} was too hard to read. Try a sharper, brighter photo taken straight on.`);
+}
+/* ---------- Studyboard's own on-device AI: Gemma in the browser (WebLLM) ----------
+   For computers where Chrome's built-in AI isn't there: other browsers, the desktop app, and computers Chrome's model doesn't run on.
+   It runs on the graphics chip (WebGPU) in a worker under its own narrow policy (_headers), and nothing leaves the computer. Its
+   model is downloaded once, only after the student agrees (unlike Chrome's, which Chrome manages), and kept by the browser.
+   Gemma 4 E2B (Apache 2.0, about 2.8 GB) where the computer can hold it; Gemma 3 1B (about 0.6 GB) on smaller ones, or if the bigger
+   one doesn't fit after all (remembered). Both read up to 4,096 tokens at a time, so requests are fitted to that, as for Apple's. */
+const WEBLLM_DIR = "vendor/webllm-0.2.89/", WEB_HF = "https://huggingface.co/mlc-ai/";
+const WEB_MODELS = {
+  big16: {id: "gemma-4-E2B-it-q4f16_1-MLC", lib: "gemma-4-E2B-it-q4f16_1_cs512-webgpu.wasm", gb: 2.8, name: "Gemma 4", vram: 3387.37, extra: {model_manifest: "mlc-model-manifest.json", buffer_size_required_bytes: 201326592, required_features: ["shader-f16"]}},
+  big32: {id: "gemma-4-E2B-it-q4f32_1-MLC", lib: "gemma-4-E2B-it-q4f32_1_cs512-webgpu.wasm", gb: 2.8, name: "Gemma 4", vram: 3862.72, extra: {model_manifest: "mlc-model-manifest.json", buffer_size_required_bytes: 201326592}},
+  small: {id: "gemma3-1b-it-q4f16_1-MLC", lib: "gemma3-1b-it-q4f16_1_cs512-webgpu.wasm", gb: 0.6, name: "Gemma 3", vram: 711.07, small: true, extra: {required_features: ["shader-f16"]}, ov: {sliding_window_size: -1}}
+};
+const WEB_SMALL = "studyboard:webAISmall", WEB_DECLINED = "studyboard:webAIDeclined", WEB_READY = "studyboard:webAIReady";
+const webAbs = f => new URL(WEBLLM_DIR + f, location.href).href;
+const webGpu = () => (window.__SB_TEST && window.__SB_GPU_STUB) || navigator.gpu || null;
+const webAppConfig = () => ({useIndexedDBCache: false, model_list: Object.values(WEB_MODELS).map(m => Object.assign({model: WEB_HF + m.id, model_id: m.id, model_lib: webAbs("libs/" + m.lib),
+  vram_required_MB: m.vram, low_resource_required: !!m.small, overrides: Object.assign({context_window_size: 4096}, m.ov || {})}, m.extra))});
+// Which model this computer can hold: the graphics chip's limits and the memory the browser reports (it says 8 for 8 GB or more)
+async function webProbe(){
+  try {
+    const gpu = webGpu(); if (!gpu || !devAllowed() || devNative()) return false;
+    const ad = await gpu.requestAdapter(); if (!ad) return false;
+    const f16 = !!(ad.features && ad.features.has && ad.features.has("shader-f16")), lim = ad.limits || {}, mem = Number(navigator.deviceMemory) || 8;
+    const fitsBig = mem >= 8 && (lim.maxBufferSize || 0) >= 201326592 && (lim.maxStorageBufferBindingSize || 0) >= 134217728 && devLs.get(WEB_SMALL) !== "1";
+    const m = fitsBig ? (f16 ? WEB_MODELS.big16 : WEB_MODELS.big32) : f16 ? WEB_MODELS.small : null;
+    if (!m) return false;
+    DEVAI.kind = "webllm"; DEVAI.web = m; DEVAI.ctx = 4096; DEVAI.images = false; DEVAI.why = "";
+    DEVAI.status = devLs.get(WEB_READY) === m.id && await webCached(m) ? "available" : devLs.get(WEB_DECLINED) === "1" ? "declined" : "downloadable";
+    return true;
+  } catch (e) { return false; }
+}
+// Whether the model's files are already in the browser's cache (WebLLM keeps them in Cache Storage)
+async function webCached(m){
+  try { if (window.__SB_TEST && window.__SB_WEBLLM_STUB) return !!window.__SB_WEBLLM_STUB.cached; const c = await caches.open("webllm/model"); return !!(await c.match(`${WEB_HF}${m.id}/resolve/main/mlc-chat-config.json`)); } catch (e) { return false; }
+}
+// Asked once, before anything is downloaded: download it, use a key instead, or not now (remembered; AI Features offers it again)
+function webAsk(m){
+  return new Promise(done => {
+    const d = document.createElement("dialog"); d.className = "ai-consent web-ai-ask"; d.setAttribute("aria-labelledby", "webAskT");
+    d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="webAskT">Download Free AI to This Computer?</h2></div>
+      <div class="sheet-body"><p style="margin:0">Studyboard can run Google's free ${esc(m.name)} AI right on this computer. It's private: nothing you give it leaves this computer.</p>
+        <p style="margin:0">It's a <b>one-time download of about ${m.gb} GB</b> (Wi-Fi recommended). After that it starts in seconds and works offline.</p></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-key>Use an AI Key Instead</button><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>Download</button></div></div>`;
+    const fin = v => { try { d.close(); } catch (e) {} d.remove(); done(v); };
+    d.addEventListener("cancel", e => { e.preventDefault(); fin("no"); });
+    d.querySelector("[data-yes]").addEventListener("click", () => fin("yes"));
+    d.querySelector("[data-no]").addEventListener("click", () => fin("no"));
+    d.querySelector("[data-key]").addEventListener("click", () => fin("key"));
+    document.body.appendChild(d); d.showModal();
+  });
+}
+let webEng = null, webIdle = null;
+const webErrText = e => String((e && (e.message || e)) || "");
+const webTooBig = e => /out of memory|device (was )?lost|OOM|exceed|maxBufferSize|maxStorageBuffer|shader-f16|not supported by the adapter|Failed to allocate|allocation/i.test(webErrText(e));
+async function webLoad(m, onStatus){
+  const lib = window.__SB_TEST && window.__SB_WEBLLM_STUB ? window.__SB_WEBLLM_STUB : await import(webAbs("web-llm.js"));
+  const worker = lib.stubWorker ? null : new Worker(webAbs("worker.js"), {type: "module"});
+  const say = r => { if (!onStatus) return; const p = Number(r && r.progress) || 0; onStatus(p > 0 && p < 1 ? `Downloading free AI to this computer (one time only): ${Math.round(p * 100)}%` : "Starting the AI on this computer…"); };
+  try { return await lib.CreateWebWorkerMLCEngine(worker, m.id, {appConfig: webAppConfig(), initProgressCallback: say}); }
+  catch (e) { try { worker && worker.terminate(); } catch (x) {} throw e; }
+}
+async function webEngine(onStatus){
+  clearTimeout(webIdle);
+  if (!webEng) webEng = (async () => {
+    let m = DEVAI.web;
+    try { const eng = await webLoad(m, onStatus); devLs.set(WEB_READY, m.id); DEVAI.status = "available"; return eng; }
+    catch (e) {
+      // too big for this computer after all: the small model, from now on
+      if (!m.small && webTooBig(e) && WEB_MODELS.small) { devLs.set(WEB_SMALL, "1"); m = DEVAI.web = WEB_MODELS.small; if (onStatus) onStatus("That model is too big for this computer, so Studyboard is getting a smaller one…");
+        const eng = await webLoad(m, onStatus); devLs.set(WEB_READY, m.id); DEVAI.status = "available"; return eng; }
+      throw e;
+    }
+  })().catch(e => { webEng = null; throw e; });
+  return webEng;
+}
+// unloaded after a few idle minutes, so the graphics memory is free again (it reloads from the cache in seconds)
+function webRest(){ clearTimeout(webIdle); webIdle = setTimeout(async () => { const e = webEng; webEng = null; try { (await e).unload(); } catch (x) {} }, 180000); }
+async function devWeb({sys, parts, json, out, temperature, signal, onStatus, auto}){
+  const L = devLabel(), m = DEVAI.web;
+  if (DEVAI.status !== "available" && !webEng) {
+    if (auto) throw aiErr("auto-off", `${L} isn't downloaded yet.`);
+    const a = await webAsk(m);
+    if (a === "key") { try { aiSetupSheet(true); } catch (e) {} throw aiErr("nokey", "Add an AI key in AI Features, or download the free AI to this computer."); }
+    if (a !== "yes") { devLs.set(WEB_DECLINED, "1"); DEVAI.status = "declined"; try { scheduleRender(); } catch (e) {} throw aiErr("no-consent", "The free AI wasn't downloaded. You can download it any time in Settings, AI Features."); }
+    devLs.set(WEB_DECLINED, "");
+  }
+  let eng;
+  try { eng = await webEngine(onStatus); }
+  catch (e) { throw Object.assign(aiErr("device-failed", /network|fetch|Failed to fetch|NetworkError/i.test(webErrText(e)) ? `${L} couldn't finish downloading. Check your connection, then try again.` : `This computer couldn't start ${L}. A free AI key in Settings, AI Features works instead.`), {detail: webErrText(e).slice(0, 300)}); }
+  const stop = () => { try { eng.interruptGenerate(); } catch (e) {} };
+  if (signal) signal.addEventListener("abort", stop, {once: true});
+  try {
+    // the format goes in the instructions too: WebLLM's docs warn a model not told it can run on without stopping
+    const sysF = sys + "\n\nReply with JSON that matches this JSON Schema exactly: " + JSON.stringify(json);
+    const o2 = Math.min(out, 1200), room = () => Math.max(500, (DEVAI.ctx || 4096) - devTokens(sysF) - o2 - 120);
+    let truncated = devFit(parts, room());
+    for (let tries = 0; ; tries++) {
+      const user = parts.filter(p => p.text != null).map(p => p.text).join("\n\n");
+      let r;
+      try { r = await eng.chat.completions.create({messages: [{role: "system", content: sysF}, {role: "user", content: user}], temperature: temperature == null ? 0.3 : Math.min(0.7, temperature), max_tokens: o2, response_format: {type: "json_object", schema: JSON.stringify(json)}}); }
+      catch (e) {
+        if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
+        if (/context|too long|exceed.*(window|length)|prompt.*long/i.test(webErrText(e)) && tries < 2) { truncated = devFit(parts, Math.floor(room() * (0.66 - tries * 0.2))) || truncated; continue; }
+        throw Object.assign(aiErr("device-failed", `${L} couldn't answer that. Try again.`), {detail: webErrText(e).slice(0, 300)});
+      }
+      const ch = (r && r.choices && r.choices[0]) || {}, data = aiParseJson(ch.message && ch.message.content);
+      if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
+      return {data, model: m.id, provider: "device", truncated: truncated || ch.finish_reason === "length"};
+    }
+  } finally { if (signal) signal.removeEventListener("abort", stop); webRest(); }
 }
 async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
   const L = devLabel();
@@ -6957,7 +7074,18 @@ async function devPageText(url, signal){
     return j && j.status ? j : {status: "unreachable"};
   } catch (e) { if (signal && signal.aborted) throw aiErr("aborted", "Stopped."); return {status: "offline"}; }
 }
-if (window.__SB_TEST) window.__sbDevAI = {state: DEVAI, probe: devProbe, fit: devFit, cfg: () => aiCfg(), call: o => aiCall(o)};
+// AI Features: get the free AI after saying Not Now (or ahead of time)
+async function webGet(onStatus){ devLs.set(WEB_DECLINED, ""); if (DEVAI.status === "declined") DEVAI.status = "downloadable"; await webEngine(onStatus); webRest(); try { scheduleRender(); } catch (e) {} }
+hook("act", act => {
+  if (act !== "web-ai-get") return false;
+  const msg = () => document.getElementById("webAiMsg"), b = document.querySelector('[data-act="web-ai-get"]');
+  if (b) b.disabled = true;
+  webGet(t => { const m = msg(); if (m) m.textContent = t; })
+    .then(() => { const m = msg(); if (m) m.textContent = "Ready. The AI features now use it."; toast("Free AI is ready on this computer"); try { aiSetupSheet(false); } catch (e) {} })
+    .catch(e => { if (b) b.disabled = false; const m = msg(); if (m) m.textContent = "Couldn't download it: " + webErrText(e).slice(0, 120) + ". Try again, or add a free key below."; });
+  return true;
+});
+if (window.__SB_TEST) window.__sbDevAI = {state: DEVAI, probe: devProbe, fit: devFit, webGet, cfg: () => aiCfg(), call: o => aiCall(o)};
 /* ===== 01-ocr.js: reading the words in photos and scanned pages, on the device, so the small AI on the device (01-ai-device.js)
    gets plain text, which it handles well, instead of pictures, which it handles badly or not at all.
    - iPhone and iPad app: Apple's Vision framework (StudyboardOnDeviceAI.recognizeText in ios-wrapper/native/StudyboardOnDeviceAI.swift).
@@ -85962,7 +86090,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, or Apple Intelligence in the iPhone and iPad app): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. The one exception is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, Apple Intelligence in the iPhone and iPad app, or, where neither is there, Google's free Gemma model, which Studyboard downloads to your device from Hugging Face only after you agree): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. The one exception is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>
@@ -86055,7 +86183,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <p>Study groups, study rooms and shared decks let you post content other people see. There is zero tolerance for objectionable content or abusive users: no harassment, bullying, hate, threats, sexual content, spam, cheating services or sharing other people's personal information. Use Report on a group message, a shared item or a group member to tell us, and Block (in the group's member list) to stop seeing someone's messages straight away. We review reports within 24 hours, remove content that breaks these rules and remove people who post it. We don't check what people share before it appears and we aren't responsible for it; content made by other people is theirs, not ours, and you use it at your own risk. Anyone who can see something you share or publish can save a copy, and unpublishing or deleting it doesn't remove the copies they already saved.</p>
 
     <h3>AI features</h3>
-    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, with a paid Pro plan, Studyboard AI, which runs on Anthropic's Claude through Cloudflare, within a usage allowance (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards, including ones made from your slides or PDFs, stay in your own decks unless you share them (with Pro), so share them only if you have the right to. Check what AI makes before you share it.</p>
+    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, with a paid Pro plan, Studyboard AI, which runs on Anthropic's Claude through Cloudflare, within a usage allowance (see the Privacy Policy). Without a key or Studyboard AI, Studyboard can use AI that runs only on your device: the AI built into Chrome or your Apple device, or Google's free Gemma model, which Studyboard downloads to your device only if you agree. If you use Gemma, you agree not to use it for anything <a href="https://ai.google.dev/gemma/prohibited_use_policy" target="_blank" rel="noopener noreferrer">Google's Gemma Prohibited Use Policy</a> forbids. AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow. When AI makes flashcards, quizzes or other study material from your slides, notes or files, Studyboard tells it to restate the facts and ideas in its own words instead of copying the wording, and not to copy your instructor's test or quiz questions. Picture cards, including ones made from your slides or PDFs, stay in your own decks unless you share them (with Pro), so share them only if you have the right to. Check what AI makes before you share it.</p>
 
     <h3>Study use only</h3>
     <p>Studyboard is a study tool. Flashcards, quizzes, summaries, plans and answers in it, whether written by you, by AI or by other students, can be wrong, incomplete or out of date, and we don't promise they will help you pass. They are not medical, nursing, legal, financial or other professional advice: never use them to make decisions about a patient's care, your health or anyone's safety, and always check your course materials, your instructor and official guidelines. You are responsible for following your school's academic integrity rules. Don't use Studyboard to cheat, to share or collect answers to graded work or questions from real tests, or to hand in AI-written work where your school doesn't allow it.</p>

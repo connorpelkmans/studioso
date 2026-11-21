@@ -1,5 +1,7 @@
 /* ===== 01-ai-device.js: AI that runs on the student's own device, with nothing to set up.
    Chrome: the built-in Prompt API (window.LanguageModel, Gemini Nano; desktop Chrome 148 and later).
+   Elsewhere (Edge, Safari, the desktop app, computers Chrome's model doesn't run on): Google's Gemma, run in the browser by WebLLM
+   (vendor/webllm-0.2.89) on the graphics chip, downloaded once only after the student agrees.
    iPhone and iPad app: Apple's on-device model, through the StudyboardOnDeviceAI plugin (ios-wrapper/native/StudyboardOnDeviceAI.swift).
    Used only when the student has no AI key and no Studyboard AI (aiCfg in 01-ai.js). Nothing leaves the device, so there's no
    consent to ask for, no key and no cost. These models are small, so the study set pipeline gives them short sections, examples,
@@ -9,7 +11,7 @@ var DEVAI = {kind: "", status: "", images: false, ctx: 0, progress: 0, warm: nul
 const DEV_LANGS = ["en", "es", "de", "fr", "ja"];
 const devLangs = () => { const l = String(navigator.language || "en").slice(0, 2).toLowerCase(); return l !== "en" && DEV_LANGS.includes(l) ? ["en", l] : ["en"]; };
 const devOpts = img => ({expectedInputs: [{type: "text", languages: devLangs()}].concat(img ? [{type: "image"}] : []), expectedOutputs: [{type: "text", languages: devLangs()}]});
-const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : "Chrome's built-in AI";
+const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : DEVAI.kind === "webllm" ? "Studyboard's on-device AI" : "Chrome's built-in AI";
 const devUsable = () => ["available", "downloadable", "downloading"].includes(DEVAI.status);
 // Tests opt in (the test browser may or may not have the model): window.__SB_DEVICE_AI_TEST
 const devAllowed = () => !window.__SB_TEST || !!window.__SB_DEVICE_AI_TEST;
@@ -37,8 +39,9 @@ async function devProbe(){
       } else if (typeof self !== "undefined" && "LanguageModel" in self && window.isSecureContext !== false) {
         DEVAI.kind = "chrome"; DEVAI.status = await self.LanguageModel.availability(devOpts(false));
         try { DEVAI.images = (await self.LanguageModel.availability(devOpts(true))) !== "unavailable"; } catch (e) { DEVAI.images = false; }
-        devNoteState();
-      } else DEVAI.status = "";
+        // Chrome's isn't usable here: Studyboard's own (WebLLM) if this computer can run it; else the reason for Chrome's
+        if (!devUsable() && await webProbe()) {} else devNoteState();
+      } else if (!(await webProbe())) DEVAI.status = "";
     } catch (e) { DEVAI.status = "unavailable"; }
     finally { DEVAI.probing = null; if (DEVAI.status !== before) { try { scheduleRender(); } catch (e) {} } }
   })();
@@ -128,6 +131,7 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   const sys = String(system || "") + DEV_TAIL, json = toJsonSchema(schema || {type: "OBJECT"});
   const out = Math.min(Number(maxTokens) || 1500, 1800);
   if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
+  if (DEVAI.kind === "webllm") return devWeb({sys, parts, json, out, temperature, signal, onStatus, auto});
   return devChrome({sys, parts, json, out, signal, onStatus, auto, pics: pics.length > 0});
 }
 /* A photo or PDF for the AI on this device: a PDF with real text gives its text; a photo or scanned page has its words read (Apple's
@@ -168,6 +172,117 @@ function devUnreadable(r, what){
     ? `There are no words in that ${what} that this device can read. ${L} works from text, so diagrams and drawings need Studyboard AI or an AI key in Settings, AI Features.`
     : hand ? `That ${what} was too hard to read on this computer (handwriting usually is). Try typed notes or a sharper, brighter photo; the Studyboard iPhone app reads handwriting, and so do Studyboard AI and an AI key.`
     : `That ${what} was too hard to read. Try a sharper, brighter photo taken straight on.`);
+}
+/* ---------- Studyboard's own on-device AI: Gemma in the browser (WebLLM) ----------
+   For computers where Chrome's built-in AI isn't there: other browsers, the desktop app, and computers Chrome's model doesn't run on.
+   It runs on the graphics chip (WebGPU) in a worker under its own narrow policy (_headers), and nothing leaves the computer. Its
+   model is downloaded once, only after the student agrees (unlike Chrome's, which Chrome manages), and kept by the browser.
+   Gemma 4 E2B (Apache 2.0, about 2.8 GB) where the computer can hold it; Gemma 3 1B (about 0.6 GB) on smaller ones, or if the bigger
+   one doesn't fit after all (remembered). Both read up to 4,096 tokens at a time, so requests are fitted to that, as for Apple's. */
+const WEBLLM_DIR = "vendor/webllm-0.2.89/", WEB_HF = "https://huggingface.co/mlc-ai/";
+const WEB_MODELS = {
+  big16: {id: "gemma-4-E2B-it-q4f16_1-MLC", lib: "gemma-4-E2B-it-q4f16_1_cs512-webgpu.wasm", gb: 2.8, name: "Gemma 4", vram: 3387.37, extra: {model_manifest: "mlc-model-manifest.json", buffer_size_required_bytes: 201326592, required_features: ["shader-f16"]}},
+  big32: {id: "gemma-4-E2B-it-q4f32_1-MLC", lib: "gemma-4-E2B-it-q4f32_1_cs512-webgpu.wasm", gb: 2.8, name: "Gemma 4", vram: 3862.72, extra: {model_manifest: "mlc-model-manifest.json", buffer_size_required_bytes: 201326592}},
+  small: {id: "gemma3-1b-it-q4f16_1-MLC", lib: "gemma3-1b-it-q4f16_1_cs512-webgpu.wasm", gb: 0.6, name: "Gemma 3", vram: 711.07, small: true, extra: {required_features: ["shader-f16"]}, ov: {sliding_window_size: -1}}
+};
+const WEB_SMALL = "studyboard:webAISmall", WEB_DECLINED = "studyboard:webAIDeclined", WEB_READY = "studyboard:webAIReady";
+const webAbs = f => new URL(WEBLLM_DIR + f, location.href).href;
+const webGpu = () => (window.__SB_TEST && window.__SB_GPU_STUB) || navigator.gpu || null;
+const webAppConfig = () => ({useIndexedDBCache: false, model_list: Object.values(WEB_MODELS).map(m => Object.assign({model: WEB_HF + m.id, model_id: m.id, model_lib: webAbs("libs/" + m.lib),
+  vram_required_MB: m.vram, low_resource_required: !!m.small, overrides: Object.assign({context_window_size: 4096}, m.ov || {})}, m.extra))});
+// Which model this computer can hold: the graphics chip's limits and the memory the browser reports (it says 8 for 8 GB or more)
+async function webProbe(){
+  try {
+    const gpu = webGpu(); if (!gpu || !devAllowed() || devNative()) return false;
+    const ad = await gpu.requestAdapter(); if (!ad) return false;
+    const f16 = !!(ad.features && ad.features.has && ad.features.has("shader-f16")), lim = ad.limits || {}, mem = Number(navigator.deviceMemory) || 8;
+    const fitsBig = mem >= 8 && (lim.maxBufferSize || 0) >= 201326592 && (lim.maxStorageBufferBindingSize || 0) >= 134217728 && devLs.get(WEB_SMALL) !== "1";
+    const m = fitsBig ? (f16 ? WEB_MODELS.big16 : WEB_MODELS.big32) : f16 ? WEB_MODELS.small : null;
+    if (!m) return false;
+    DEVAI.kind = "webllm"; DEVAI.web = m; DEVAI.ctx = 4096; DEVAI.images = false; DEVAI.why = "";
+    DEVAI.status = devLs.get(WEB_READY) === m.id && await webCached(m) ? "available" : devLs.get(WEB_DECLINED) === "1" ? "declined" : "downloadable";
+    return true;
+  } catch (e) { return false; }
+}
+// Whether the model's files are already in the browser's cache (WebLLM keeps them in Cache Storage)
+async function webCached(m){
+  try { if (window.__SB_TEST && window.__SB_WEBLLM_STUB) return !!window.__SB_WEBLLM_STUB.cached; const c = await caches.open("webllm/model"); return !!(await c.match(`${WEB_HF}${m.id}/resolve/main/mlc-chat-config.json`)); } catch (e) { return false; }
+}
+// Asked once, before anything is downloaded: download it, use a key instead, or not now (remembered; AI Features offers it again)
+function webAsk(m){
+  return new Promise(done => {
+    const d = document.createElement("dialog"); d.className = "ai-consent web-ai-ask"; d.setAttribute("aria-labelledby", "webAskT");
+    d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="webAskT">Download Free AI to This Computer?</h2></div>
+      <div class="sheet-body"><p style="margin:0">Studyboard can run Google's free ${esc(m.name)} AI right on this computer. It's private: nothing you give it leaves this computer.</p>
+        <p style="margin:0">It's a <b>one-time download of about ${m.gb} GB</b> (Wi-Fi recommended). After that it starts in seconds and works offline.</p></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-key>Use an AI Key Instead</button><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>Download</button></div></div>`;
+    const fin = v => { try { d.close(); } catch (e) {} d.remove(); done(v); };
+    d.addEventListener("cancel", e => { e.preventDefault(); fin("no"); });
+    d.querySelector("[data-yes]").addEventListener("click", () => fin("yes"));
+    d.querySelector("[data-no]").addEventListener("click", () => fin("no"));
+    d.querySelector("[data-key]").addEventListener("click", () => fin("key"));
+    document.body.appendChild(d); d.showModal();
+  });
+}
+let webEng = null, webIdle = null;
+const webErrText = e => String((e && (e.message || e)) || "");
+const webTooBig = e => /out of memory|device (was )?lost|OOM|exceed|maxBufferSize|maxStorageBuffer|shader-f16|not supported by the adapter|Failed to allocate|allocation/i.test(webErrText(e));
+async function webLoad(m, onStatus){
+  const lib = window.__SB_TEST && window.__SB_WEBLLM_STUB ? window.__SB_WEBLLM_STUB : await import(webAbs("web-llm.js"));
+  const worker = lib.stubWorker ? null : new Worker(webAbs("worker.js"), {type: "module"});
+  const say = r => { if (!onStatus) return; const p = Number(r && r.progress) || 0; onStatus(p > 0 && p < 1 ? `Downloading free AI to this computer (one time only): ${Math.round(p * 100)}%` : "Starting the AI on this computer…"); };
+  try { return await lib.CreateWebWorkerMLCEngine(worker, m.id, {appConfig: webAppConfig(), initProgressCallback: say}); }
+  catch (e) { try { worker && worker.terminate(); } catch (x) {} throw e; }
+}
+async function webEngine(onStatus){
+  clearTimeout(webIdle);
+  if (!webEng) webEng = (async () => {
+    let m = DEVAI.web;
+    try { const eng = await webLoad(m, onStatus); devLs.set(WEB_READY, m.id); DEVAI.status = "available"; return eng; }
+    catch (e) {
+      // too big for this computer after all: the small model, from now on
+      if (!m.small && webTooBig(e) && WEB_MODELS.small) { devLs.set(WEB_SMALL, "1"); m = DEVAI.web = WEB_MODELS.small; if (onStatus) onStatus("That model is too big for this computer, so Studyboard is getting a smaller one…");
+        const eng = await webLoad(m, onStatus); devLs.set(WEB_READY, m.id); DEVAI.status = "available"; return eng; }
+      throw e;
+    }
+  })().catch(e => { webEng = null; throw e; });
+  return webEng;
+}
+// unloaded after a few idle minutes, so the graphics memory is free again (it reloads from the cache in seconds)
+function webRest(){ clearTimeout(webIdle); webIdle = setTimeout(async () => { const e = webEng; webEng = null; try { (await e).unload(); } catch (x) {} }, 180000); }
+async function devWeb({sys, parts, json, out, temperature, signal, onStatus, auto}){
+  const L = devLabel(), m = DEVAI.web;
+  if (DEVAI.status !== "available" && !webEng) {
+    if (auto) throw aiErr("auto-off", `${L} isn't downloaded yet.`);
+    const a = await webAsk(m);
+    if (a === "key") { try { aiSetupSheet(true); } catch (e) {} throw aiErr("nokey", "Add an AI key in AI Features, or download the free AI to this computer."); }
+    if (a !== "yes") { devLs.set(WEB_DECLINED, "1"); DEVAI.status = "declined"; try { scheduleRender(); } catch (e) {} throw aiErr("no-consent", "The free AI wasn't downloaded. You can download it any time in Settings, AI Features."); }
+    devLs.set(WEB_DECLINED, "");
+  }
+  let eng;
+  try { eng = await webEngine(onStatus); }
+  catch (e) { throw Object.assign(aiErr("device-failed", /network|fetch|Failed to fetch|NetworkError/i.test(webErrText(e)) ? `${L} couldn't finish downloading. Check your connection, then try again.` : `This computer couldn't start ${L}. A free AI key in Settings, AI Features works instead.`), {detail: webErrText(e).slice(0, 300)}); }
+  const stop = () => { try { eng.interruptGenerate(); } catch (e) {} };
+  if (signal) signal.addEventListener("abort", stop, {once: true});
+  try {
+    // the format goes in the instructions too: WebLLM's docs warn a model not told it can run on without stopping
+    const sysF = sys + "\n\nReply with JSON that matches this JSON Schema exactly: " + JSON.stringify(json);
+    const o2 = Math.min(out, 1200), room = () => Math.max(500, (DEVAI.ctx || 4096) - devTokens(sysF) - o2 - 120);
+    let truncated = devFit(parts, room());
+    for (let tries = 0; ; tries++) {
+      const user = parts.filter(p => p.text != null).map(p => p.text).join("\n\n");
+      let r;
+      try { r = await eng.chat.completions.create({messages: [{role: "system", content: sysF}, {role: "user", content: user}], temperature: temperature == null ? 0.3 : Math.min(0.7, temperature), max_tokens: o2, response_format: {type: "json_object", schema: JSON.stringify(json)}}); }
+      catch (e) {
+        if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
+        if (/context|too long|exceed.*(window|length)|prompt.*long/i.test(webErrText(e)) && tries < 2) { truncated = devFit(parts, Math.floor(room() * (0.66 - tries * 0.2))) || truncated; continue; }
+        throw Object.assign(aiErr("device-failed", `${L} couldn't answer that. Try again.`), {detail: webErrText(e).slice(0, 300)});
+      }
+      const ch = (r && r.choices && r.choices[0]) || {}, data = aiParseJson(ch.message && ch.message.content);
+      if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
+      return {data, model: m.id, provider: "device", truncated: truncated || ch.finish_reason === "length"};
+    }
+  } finally { if (signal) signal.removeEventListener("abort", stop); webRest(); }
 }
 async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
   const L = devLabel();
@@ -265,4 +380,15 @@ async function devPageText(url, signal){
     return j && j.status ? j : {status: "unreachable"};
   } catch (e) { if (signal && signal.aborted) throw aiErr("aborted", "Stopped."); return {status: "offline"}; }
 }
-if (window.__SB_TEST) window.__sbDevAI = {state: DEVAI, probe: devProbe, fit: devFit, cfg: () => aiCfg(), call: o => aiCall(o)};
+// AI Features: get the free AI after saying Not Now (or ahead of time)
+async function webGet(onStatus){ devLs.set(WEB_DECLINED, ""); if (DEVAI.status === "declined") DEVAI.status = "downloadable"; await webEngine(onStatus); webRest(); try { scheduleRender(); } catch (e) {} }
+hook("act", act => {
+  if (act !== "web-ai-get") return false;
+  const msg = () => document.getElementById("webAiMsg"), b = document.querySelector('[data-act="web-ai-get"]');
+  if (b) b.disabled = true;
+  webGet(t => { const m = msg(); if (m) m.textContent = t; })
+    .then(() => { const m = msg(); if (m) m.textContent = "Ready. The AI features now use it."; toast("Free AI is ready on this computer"); try { aiSetupSheet(false); } catch (e) {} })
+    .catch(e => { if (b) b.disabled = false; const m = msg(); if (m) m.textContent = "Couldn't download it: " + webErrText(e).slice(0, 120) + ". Try again, or add a free key below."; });
+  return true;
+});
+if (window.__SB_TEST) window.__sbDevAI = {state: DEVAI, probe: devProbe, fit: devFit, webGet, cfg: () => aiCfg(), call: o => aiCall(o)};

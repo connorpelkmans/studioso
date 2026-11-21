@@ -28,6 +28,8 @@ fs.mkdirSync(path.join(vendor, "pdfjs"), { recursive: true });
 copy("pdfjs-dist/legacy/build/pdf.min.mjs", "pdfjs/pdf.min.mjs");
 copy("pdfjs-dist/legacy/build/pdf.worker.min.mjs", "pdfjs/pdf.worker.min.mjs");
 copy("pdfjs-dist/LICENSE", "pdfjs/LICENSE");
+// WebLLM (Apache 2.0): the AI on the device where Chrome's built-in AI isn't there, which in the desktop app is always. Loaded only when used
+fs.cpSync(path.join(root, "vendor", "webllm-0.2.89"), path.join(vendor, "webllm-0.2.89"), { recursive: true });
 // pdf-lib writes edited PDFs (the reader's Edit mode), loaded from vendor/pdflib/ the first time someone edits
 fs.mkdirSync(path.join(vendor, "pdflib"), { recursive: true });
 for (const f of ["pdf-lib.min.js", "fontkit.umd.min.js", "pdf-lib-crypt.min.js", "LICENSE.md", "LICENSE-pdf-lib-crypt.md", "NOTICE.txt"]) fs.copyFileSync(path.join(root, "vendor", "pdflib", f), path.join(vendor, "pdflib", f));
