@@ -11,7 +11,13 @@ var DEVAI = {kind: "", status: "", images: false, ctx: 0, progress: 0, warm: nul
 const DEV_LANGS = ["en", "es", "de", "fr", "ja"];
 const devLangs = () => { const l = String(navigator.language || "en").slice(0, 2).toLowerCase(); return l !== "en" && DEV_LANGS.includes(l) ? ["en", l] : ["en"]; };
 const devOpts = img => ({expectedInputs: [{type: "text", languages: devLangs()}].concat(img ? [{type: "image"}] : []), expectedOutputs: [{type: "text", languages: devLangs()}]});
-const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : DEVAI.kind === "webllm" ? "Studyboard's on-device AI" : "Chrome's built-in AI";
+// Edge has the same built-in AI interface as Chrome (with Microsoft's own model): it's named as Edge's
+const devBrowser = () => { try { const b = navigator.userAgentData && navigator.userAgentData.brands; if (b && b.some(x => /Microsoft Edge/i.test(x.brand))) return "Edge"; } catch (e) {} return /\bEdg\//.test(navigator.userAgent || "") ? "Edge" : "Chrome"; };
+const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : DEVAI.kind === "webllm" ? "Studyboard's on-device AI" : `${devBrowser()}'s built-in AI`;
+// Phones and tablets: only the small model, and only with enough memory. An iPhone's browser doesn't say how much it has (and the
+// iPhone app uses Apple's own AI), so Safari on an iPhone gets none; an iPad gets the small one
+const devPhone = () => { try { if (navigator.userAgentData && navigator.userAgentData.mobile) return true; } catch (e) {} return /iPhone|iPod|Android.*Mobile/i.test(navigator.userAgent || ""); };
+const devTablet = () => /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent || "") || (/Macintosh/.test(navigator.userAgent || "") && (navigator.maxTouchPoints || 0) > 1);
 const devUsable = () => ["available", "downloadable", "downloading"].includes(DEVAI.status);
 // Tests opt in (the test browser may or may not have the model): window.__SB_DEVICE_AI_TEST
 const devAllowed = () => !window.__SB_TEST || !!window.__SB_DEVICE_AI_TEST;
@@ -85,7 +91,7 @@ function devDlPill(p){
   if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
   if (!el) { el = document.createElement("div"); el.id = "devDlPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
   const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
-  el.textContent = `Chrome is downloading its free AI (one time only)${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Your answer comes once it's ready.`;
+  el.textContent = `${devBrowser()} is downloading its free AI (one time only)${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Your answer comes once it's ready.`;
   requestAnimationFrame(() => el.classList.add("show"));
 }
 function devWarm(){
@@ -177,6 +183,19 @@ async function devReadParts(parts, {onStatus, signal, auto}){
   }
   return out;
 }
+// No AI can run on this device here: why, and what would (said in AI Features, above the key choices)
+// Whether to say devNoneText: no AI can run here, and it's the phone or the browser (not Chrome's model) that's the reason
+function devNoneShow(){
+  try { if (!devAllowed() || devUsable() || DEVAI.kind === "webllm" || devNative()) return false; } catch (e) { return false; }
+  const gpu = !!(navigator.gpu || (window.__SB_TEST && window.__SB_GPU_STUB));
+  return devPhone() || !gpu || !(DEVAI.kind === "chrome" && DEVAI.why);
+}
+function devNoneText(){
+  const gpu = !!(navigator.gpu || (window.__SB_TEST && window.__SB_GPU_STUB));
+  if (devPhone()) return "Free AI that runs on your own device isn't available in this phone's browser. On a computer, Chrome, Edge and Safari run it for free; on iPhone, the Studyboard app uses Apple Intelligence. A free key below works everywhere.";
+  if (!gpu) return "This browser can't run AI on your computer (it doesn't support WebGPU). An up-to-date Chrome, Edge or Safari can, for free and without a key. Or add a free key below.";
+  return "This computer's graphics chip doesn't have enough memory to run free AI here. A free key below works instead.";
+}
 function devUnreadable(r, what){
   const L = devLabel(), hand = r.engine === "tesseract" && r.text.length >= 15;
   return aiErr("device-unreadable", r.text.length < 15
@@ -212,8 +231,10 @@ async function webProbe(){
   try {
     const gpu = webGpu(); if (!gpu || !devAllowed() || devNative()) return false;
     const ad = await gpu.requestAdapter(); if (!ad) return false;
-    const f16 = !!(ad.features && ad.features.has && ad.features.has("shader-f16")), lim = ad.limits || {}, mem = Number(navigator.deviceMemory) || 8;
-    const fitsBig = mem >= 8 && (lim.maxBufferSize || 0) >= 201326592 && (lim.maxStorageBufferBindingSize || 0) >= 134217728 && devLs.get(WEB_SMALL) !== "1";
+    const f16 = !!(ad.features && ad.features.has && ad.features.has("shader-f16")), lim = ad.limits || {}, told = Number(navigator.deviceMemory) || 0, mem = told || 8;
+    const phone = devPhone(), tablet = devTablet();
+    if (phone && (!told || told < 6)) return false;
+    const fitsBig = !phone && !tablet && mem >= 8 && (lim.maxBufferSize || 0) >= 201326592 && (lim.maxStorageBufferBindingSize || 0) >= 134217728 && devLs.get(WEB_SMALL) !== "1";
     const m = fitsBig ? (f16 ? WEB_MODELS.big16 : WEB_MODELS.big32) : f16 ? WEB_MODELS.small : null;
     if (!m) return false;
     DEVAI.kind = "webllm"; DEVAI.web = m; DEVAI.ctx = 4096; DEVAI.images = false; DEVAI.why = "";

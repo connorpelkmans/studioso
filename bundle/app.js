@@ -6308,11 +6308,12 @@ function aiSetupSheet(fromFeature, opts){
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
       ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
-      ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : DEVAI.kind === "webllm" ? ` The first time you use it, Studyboard asks before downloading it once (about ${DEVAI.web ? DEVAI.web.gb : 3} GB).` : " The first time you use it, Chrome downloads it once."}</p>
+      ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : DEVAI.kind === "webllm" ? ` The first time you use it, Studyboard asks before downloading it once (about ${DEVAI.web ? DEVAI.web.gb : 3} GB).` : ` The first time you use it, ${devBrowser()} downloads it once.`}</p>
         <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can look things up on the web.</p></div>` : ""}
       ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
         <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
-      ${!pro && DEVAI.kind === "chrome" && DEVAI.why ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
+      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
+      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devNoneText())}</p>` : ""}
       ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
       ${fromFeature && !pro && c.provider !== "device" ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
@@ -6821,7 +6822,13 @@ var DEVAI = {kind: "", status: "", images: false, ctx: 0, progress: 0, warm: nul
 const DEV_LANGS = ["en", "es", "de", "fr", "ja"];
 const devLangs = () => { const l = String(navigator.language || "en").slice(0, 2).toLowerCase(); return l !== "en" && DEV_LANGS.includes(l) ? ["en", l] : ["en"]; };
 const devOpts = img => ({expectedInputs: [{type: "text", languages: devLangs()}].concat(img ? [{type: "image"}] : []), expectedOutputs: [{type: "text", languages: devLangs()}]});
-const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : DEVAI.kind === "webllm" ? "Studyboard's on-device AI" : "Chrome's built-in AI";
+// Edge has the same built-in AI interface as Chrome (with Microsoft's own model): it's named as Edge's
+const devBrowser = () => { try { const b = navigator.userAgentData && navigator.userAgentData.brands; if (b && b.some(x => /Microsoft Edge/i.test(x.brand))) return "Edge"; } catch (e) {} return /\bEdg\//.test(navigator.userAgent || "") ? "Edge" : "Chrome"; };
+const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : DEVAI.kind === "webllm" ? "Studyboard's on-device AI" : `${devBrowser()}'s built-in AI`;
+// Phones and tablets: only the small model, and only with enough memory. An iPhone's browser doesn't say how much it has (and the
+// iPhone app uses Apple's own AI), so Safari on an iPhone gets none; an iPad gets the small one
+const devPhone = () => { try { if (navigator.userAgentData && navigator.userAgentData.mobile) return true; } catch (e) {} return /iPhone|iPod|Android.*Mobile/i.test(navigator.userAgent || ""); };
+const devTablet = () => /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent || "") || (/Macintosh/.test(navigator.userAgent || "") && (navigator.maxTouchPoints || 0) > 1);
 const devUsable = () => ["available", "downloadable", "downloading"].includes(DEVAI.status);
 // Tests opt in (the test browser may or may not have the model): window.__SB_DEVICE_AI_TEST
 const devAllowed = () => !window.__SB_TEST || !!window.__SB_DEVICE_AI_TEST;
@@ -6895,7 +6902,7 @@ function devDlPill(p){
   if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
   if (!el) { el = document.createElement("div"); el.id = "devDlPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
   const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
-  el.textContent = `Chrome is downloading its free AI (one time only)${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Your answer comes once it's ready.`;
+  el.textContent = `${devBrowser()} is downloading its free AI (one time only)${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Your answer comes once it's ready.`;
   requestAnimationFrame(() => el.classList.add("show"));
 }
 function devWarm(){
@@ -6987,6 +6994,19 @@ async function devReadParts(parts, {onStatus, signal, auto}){
   }
   return out;
 }
+// No AI can run on this device here: why, and what would (said in AI Features, above the key choices)
+// Whether to say devNoneText: no AI can run here, and it's the phone or the browser (not Chrome's model) that's the reason
+function devNoneShow(){
+  try { if (!devAllowed() || devUsable() || DEVAI.kind === "webllm" || devNative()) return false; } catch (e) { return false; }
+  const gpu = !!(navigator.gpu || (window.__SB_TEST && window.__SB_GPU_STUB));
+  return devPhone() || !gpu || !(DEVAI.kind === "chrome" && DEVAI.why);
+}
+function devNoneText(){
+  const gpu = !!(navigator.gpu || (window.__SB_TEST && window.__SB_GPU_STUB));
+  if (devPhone()) return "Free AI that runs on your own device isn't available in this phone's browser. On a computer, Chrome, Edge and Safari run it for free; on iPhone, the Studyboard app uses Apple Intelligence. A free key below works everywhere.";
+  if (!gpu) return "This browser can't run AI on your computer (it doesn't support WebGPU). An up-to-date Chrome, Edge or Safari can, for free and without a key. Or add a free key below.";
+  return "This computer's graphics chip doesn't have enough memory to run free AI here. A free key below works instead.";
+}
 function devUnreadable(r, what){
   const L = devLabel(), hand = r.engine === "tesseract" && r.text.length >= 15;
   return aiErr("device-unreadable", r.text.length < 15
@@ -7022,8 +7042,10 @@ async function webProbe(){
   try {
     const gpu = webGpu(); if (!gpu || !devAllowed() || devNative()) return false;
     const ad = await gpu.requestAdapter(); if (!ad) return false;
-    const f16 = !!(ad.features && ad.features.has && ad.features.has("shader-f16")), lim = ad.limits || {}, mem = Number(navigator.deviceMemory) || 8;
-    const fitsBig = mem >= 8 && (lim.maxBufferSize || 0) >= 201326592 && (lim.maxStorageBufferBindingSize || 0) >= 134217728 && devLs.get(WEB_SMALL) !== "1";
+    const f16 = !!(ad.features && ad.features.has && ad.features.has("shader-f16")), lim = ad.limits || {}, told = Number(navigator.deviceMemory) || 0, mem = told || 8;
+    const phone = devPhone(), tablet = devTablet();
+    if (phone && (!told || told < 6)) return false;
+    const fitsBig = !phone && !tablet && mem >= 8 && (lim.maxBufferSize || 0) >= 201326592 && (lim.maxStorageBufferBindingSize || 0) >= 134217728 && devLs.get(WEB_SMALL) !== "1";
     const m = fitsBig ? (f16 ? WEB_MODELS.big16 : WEB_MODELS.big32) : f16 ? WEB_MODELS.small : null;
     if (!m) return false;
     DEVAI.kind = "webllm"; DEVAI.web = m; DEVAI.ctx = 4096; DEVAI.images = false; DEVAI.why = "";
