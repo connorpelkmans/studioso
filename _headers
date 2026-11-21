@@ -76,6 +76,13 @@
   Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'self'
   Cache-Control: public, max-age=2592000, immutable
 
+# Search by meaning on the device (transformers.js and ONNX Runtime, vendor/embed-4.3.2, src/js/30-search.js). Its worker compiles
+# WebAssembly and fetches one small model (bge-small, from Hugging Face), so only this folder's files get a policy that allows that.
+/vendor/embed-4.3.2/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; worker-src 'self'
+  Cache-Control: public, max-age=2592000, immutable
+
 # The AI on the device where Chrome's built-in AI isn't available (WebLLM, vendor/webllm-0.2.89, src/js/01-ai-device.js). Its worker
 # compiles WebAssembly and fetches the model files (from Hugging Face, only after the student agrees), so only this folder's files
 # get a policy that allows that. The worker runs from its own address, so this is the policy it runs under.

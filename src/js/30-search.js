@@ -580,12 +580,41 @@
     if (c.provider === "studyboard" && aiConsented("studyboard")) return {kind: "studyboard"};
     if (c.keys.gemini && aiConsented("gemini")) return {kind: "gemini", key: c.keys.gemini};
     if (c.keys.openai && aiConsented("openai")) return {kind: "openai", key: c.keys.openai};
+    // No key and no Pro: a small search model on this device (bge-small, vendor/embed-4.3.2), free and private
+    if (devEmbedOk()) return {kind: "device"};
     return null;
+  }
+  /* The on-device search model: a worker (its own policy allows WebAssembly) that downloads bge-small once (about 34 MB, from
+     Hugging Face, kept in the browser's cache) and turns text into 384-number meaning vectors on the processor. Closed after two
+     minutes idle, so it holds no memory between searches. Tests use window.__SB_EMBED_STUB (texts, isQuery) -> vectors. */
+  const DEV_EMB = {w: null, n: 0, wait: new Map(), idle: 0, dl: null};
+  function devEmbedOk(){
+    if (window.__SB_TEST) return !!window.__SB_EMBED_STUB || !!window.__SB_EMBED_TEST;
+    try { if (typeof Worker !== "function" || typeof WebAssembly !== "object") return false; if (navigator.connection && navigator.connection.saveData) return false; } catch (e) { return false; }
+    try { if (localStorage.getItem("studyboard:devEmbedOff") === "1") return false; } catch (e) {}
+    return true;
+  }
+  function devEmbedWorker(){
+    clearTimeout(DEV_EMB.idle);
+    DEV_EMB.idle = setTimeout(() => { if (DEV_EMB.w && !DEV_EMB.wait.size) { try { DEV_EMB.w.terminate(); } catch (e) {} DEV_EMB.w = null; } }, 120000);
+    if (DEV_EMB.w) return DEV_EMB.w;
+    const w = DEV_EMB.w = new Worker(new URL("vendor/embed-4.3.2/embed-worker.js", location.href).href, {type: "module"});
+    w.onmessage = e => { const d = e.data || {};
+      if (d.progress != null) { DEV_EMB.dl = d.progress < 1 ? d.progress : null; drawFoot(); return; }
+      const h = DEV_EMB.wait.get(d.id); if (!h) return; DEV_EMB.wait.delete(d.id); DEV_EMB.dl = null;
+      if (d.error) h.no(aiErr(/fetch|network|Failed to fetch/i.test(d.error) ? "offline" : "busy", "Search by meaning couldn't start on this device: " + d.error)); else h.ok(d.vecs); };
+    w.onerror = () => { DEV_EMB.wait.forEach(h => h.no(aiErr("busy", "Search by meaning couldn't start on this device."))); DEV_EMB.wait.clear(); try { w.terminate(); } catch (e) {} DEV_EMB.w = null; };
+    return w;
+  }
+  async function devEmbed(texts, isQuery){
+    if (window.__SB_TEST && window.__SB_EMBED_STUB) return window.__SB_EMBED_STUB(texts, isQuery);
+    const w = devEmbedWorker(), id = ++DEV_EMB.n;
+    return new Promise((ok, no) => { DEV_EMB.wait.set(id, {ok, no}); w.postMessage({id, texts, query: !!isQuery}); });
   }
   const embKey = () => !!embedder();
   const semOn = () => !!embedder() && sxCfg().meaning !== false;
-  const embModel = () => { const e = embedder(); return !e || e.kind === "gemini" ? embState().model || EMB_MODELS[0] : e.kind === "studyboard" ? "sb-bge-m3" : "oa-te3s"; };
-  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI" : "your OpenAI key (a few cents at most)"; };
+  const embModel = () => { const e = embedder(); return !e || e.kind === "gemini" ? embState().model || EMB_MODELS[0] : e.kind === "studyboard" ? "sb-bge-m3" : e.kind === "device" ? "dev-bge-small" : "oa-te3s"; };
+  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI" : e.kind === "device" ? "a small search model on this device (free and private)" : "your OpenAI key (a few cents at most)"; };
   const fmtDoc = (m, title, text) => m === "gemini-embedding-001" ? text : `title: ${String(title || "none").replace(/\s+/g, " ").slice(0, 120)} | text: ${text}`;
   const fmtQuery = (m, q) => m === "gemini-embedding-001" ? q : `task: search result | query: ${q}`;
   // dims: Gemini and OpenAI vectors are cut to 512 (they're made for it); Studyboard AI's (bge-m3, 1024) are kept whole
@@ -602,6 +631,11 @@
   // texts: [{title, text}]
   async function embed(texts, isQuery){
     const E = embedder(); if (!E) throw aiErr("nokey", "Set up AI to search by meaning.");
+    if (E.kind === "device") {
+      const list = await devEmbed(texts.map(x => (isQuery ? String(x.text) : [x.title, x.text].filter(Boolean).join("\n")).trim().slice(0, 2000) || "(empty)"), isQuery);
+      if (!Array.isArray(list) || list.length !== texts.length) throw aiErr("bad", "Search by meaning got an unexpected answer on this device. Try again.");
+      return list.map(v => quant(v, 384));
+    }
     if (E.kind === "studyboard") {
       const list = await proEmbed(texts.map(x => (isQuery ? String(x.text) : [x.title, x.text].filter(Boolean).join("\n")).trim().slice(0, 8000) || "(empty)"), isQuery);
       if (list.length !== texts.length) throw aiErr("bad", "Studyboard AI sent back an unexpected answer. Try again.");
@@ -690,10 +724,11 @@
     try {
       await semLoad(); ensureItems();
       for (let loops = 0; loops < 5000; loops++) {
-        if (!semOn() || navigator.onLine === false) break;
+        if (!semOn() || (navigator.onLine === false && (embedder() || {}).kind !== "device")) break;
         const m = embModel(), list = semList(), todo = [], seen = new Set();
         let have = 0;
-        for (const p of list) { const k = m + ":" + p.h; if (SEM.vecs.has(k)) { have++; continue; } if (!seen.has(p.h)) { seen.add(p.h); if (todo.length < BATCH) todo.push(p); } }
+        const B = (embedder() || {}).kind === "device" ? 16 : BATCH;
+        for (const p of list) { const k = m + ":" + p.h; if (SEM.vecs.has(k)) { have++; continue; } if (!seen.has(p.h)) { seen.add(p.h); if (todo.length < B) todo.push(p); } }
         SEM.total = list.length; SEM.left = list.length - have; drawFoot();
         if (!todo.length) { semGc(); break; }
         const vecs = await embed(todo.map(p => ({title: p.title, text: p.text})), false);
@@ -701,7 +736,7 @@
         todo.forEach((p, i) => { const v = {q: vecs[i].q, s: vecs[i].s}; SEM.vecs.set(m2 + ":" + p.h, v); rows.push([m2 + ":" + p.h, v]); });
         await dbPutMany("vec", rows);
         // Studyboard AI allows 20 requests a minute, shared with everything else
-        await wait((embedder() || {}).kind === "studyboard" ? 4000 : 700); await idle();
+        await wait((embedder() || {}).kind === "studyboard" ? 4000 : (embedder() || {}).kind === "device" ? 60 : 700); await idle();
       }
     } catch(e) {
       SEM.err = e && e.message || "Search by meaning isn't working right now.";
@@ -1658,7 +1693,8 @@ Return JSON only.`;
     else if (FT.loading && !FT.loaded) bits.push("Loading the text from your files…");
     // why search by meaning isn't working is said in full under Ask About (semLine), not squeezed in here
     if (semOn()) {
-      if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
+      if (DEV_EMB.dl != null) bits.push(`Downloading the search model to this device (one time, about 34 MB): ${Math.round(DEV_EMB.dl * 100)}%`);
+      else if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
     }
     return bits;
   }

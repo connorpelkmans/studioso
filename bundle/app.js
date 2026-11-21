@@ -31232,12 +31232,41 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     if (c.provider === "studyboard" && aiConsented("studyboard")) return {kind: "studyboard"};
     if (c.keys.gemini && aiConsented("gemini")) return {kind: "gemini", key: c.keys.gemini};
     if (c.keys.openai && aiConsented("openai")) return {kind: "openai", key: c.keys.openai};
+    // No key and no Pro: a small search model on this device (bge-small, vendor/embed-4.3.2), free and private
+    if (devEmbedOk()) return {kind: "device"};
     return null;
+  }
+  /* The on-device search model: a worker (its own policy allows WebAssembly) that downloads bge-small once (about 34 MB, from
+     Hugging Face, kept in the browser's cache) and turns text into 384-number meaning vectors on the processor. Closed after two
+     minutes idle, so it holds no memory between searches. Tests use window.__SB_EMBED_STUB (texts, isQuery) -> vectors. */
+  const DEV_EMB = {w: null, n: 0, wait: new Map(), idle: 0, dl: null};
+  function devEmbedOk(){
+    if (window.__SB_TEST) return !!window.__SB_EMBED_STUB || !!window.__SB_EMBED_TEST;
+    try { if (typeof Worker !== "function" || typeof WebAssembly !== "object") return false; if (navigator.connection && navigator.connection.saveData) return false; } catch (e) { return false; }
+    try { if (localStorage.getItem("studyboard:devEmbedOff") === "1") return false; } catch (e) {}
+    return true;
+  }
+  function devEmbedWorker(){
+    clearTimeout(DEV_EMB.idle);
+    DEV_EMB.idle = setTimeout(() => { if (DEV_EMB.w && !DEV_EMB.wait.size) { try { DEV_EMB.w.terminate(); } catch (e) {} DEV_EMB.w = null; } }, 120000);
+    if (DEV_EMB.w) return DEV_EMB.w;
+    const w = DEV_EMB.w = new Worker(new URL("vendor/embed-4.3.2/embed-worker.js", location.href).href, {type: "module"});
+    w.onmessage = e => { const d = e.data || {};
+      if (d.progress != null) { DEV_EMB.dl = d.progress < 1 ? d.progress : null; drawFoot(); return; }
+      const h = DEV_EMB.wait.get(d.id); if (!h) return; DEV_EMB.wait.delete(d.id); DEV_EMB.dl = null;
+      if (d.error) h.no(aiErr(/fetch|network|Failed to fetch/i.test(d.error) ? "offline" : "busy", "Search by meaning couldn't start on this device: " + d.error)); else h.ok(d.vecs); };
+    w.onerror = () => { DEV_EMB.wait.forEach(h => h.no(aiErr("busy", "Search by meaning couldn't start on this device."))); DEV_EMB.wait.clear(); try { w.terminate(); } catch (e) {} DEV_EMB.w = null; };
+    return w;
+  }
+  async function devEmbed(texts, isQuery){
+    if (window.__SB_TEST && window.__SB_EMBED_STUB) return window.__SB_EMBED_STUB(texts, isQuery);
+    const w = devEmbedWorker(), id = ++DEV_EMB.n;
+    return new Promise((ok, no) => { DEV_EMB.wait.set(id, {ok, no}); w.postMessage({id, texts, query: !!isQuery}); });
   }
   const embKey = () => !!embedder();
   const semOn = () => !!embedder() && sxCfg().meaning !== false;
-  const embModel = () => { const e = embedder(); return !e || e.kind === "gemini" ? embState().model || EMB_MODELS[0] : e.kind === "studyboard" ? "sb-bge-m3" : "oa-te3s"; };
-  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI" : "your OpenAI key (a few cents at most)"; };
+  const embModel = () => { const e = embedder(); return !e || e.kind === "gemini" ? embState().model || EMB_MODELS[0] : e.kind === "studyboard" ? "sb-bge-m3" : e.kind === "device" ? "dev-bge-small" : "oa-te3s"; };
+  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI" : e.kind === "device" ? "a small search model on this device (free and private)" : "your OpenAI key (a few cents at most)"; };
   const fmtDoc = (m, title, text) => m === "gemini-embedding-001" ? text : `title: ${String(title || "none").replace(/\s+/g, " ").slice(0, 120)} | text: ${text}`;
   const fmtQuery = (m, q) => m === "gemini-embedding-001" ? q : `task: search result | query: ${q}`;
   // dims: Gemini and OpenAI vectors are cut to 512 (they're made for it); Studyboard AI's (bge-m3, 1024) are kept whole
@@ -31254,6 +31283,11 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   // texts: [{title, text}]
   async function embed(texts, isQuery){
     const E = embedder(); if (!E) throw aiErr("nokey", "Set up AI to search by meaning.");
+    if (E.kind === "device") {
+      const list = await devEmbed(texts.map(x => (isQuery ? String(x.text) : [x.title, x.text].filter(Boolean).join("\n")).trim().slice(0, 2000) || "(empty)"), isQuery);
+      if (!Array.isArray(list) || list.length !== texts.length) throw aiErr("bad", "Search by meaning got an unexpected answer on this device. Try again.");
+      return list.map(v => quant(v, 384));
+    }
     if (E.kind === "studyboard") {
       const list = await proEmbed(texts.map(x => (isQuery ? String(x.text) : [x.title, x.text].filter(Boolean).join("\n")).trim().slice(0, 8000) || "(empty)"), isQuery);
       if (list.length !== texts.length) throw aiErr("bad", "Studyboard AI sent back an unexpected answer. Try again.");
@@ -31342,10 +31376,11 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     try {
       await semLoad(); ensureItems();
       for (let loops = 0; loops < 5000; loops++) {
-        if (!semOn() || navigator.onLine === false) break;
+        if (!semOn() || (navigator.onLine === false && (embedder() || {}).kind !== "device")) break;
         const m = embModel(), list = semList(), todo = [], seen = new Set();
         let have = 0;
-        for (const p of list) { const k = m + ":" + p.h; if (SEM.vecs.has(k)) { have++; continue; } if (!seen.has(p.h)) { seen.add(p.h); if (todo.length < BATCH) todo.push(p); } }
+        const B = (embedder() || {}).kind === "device" ? 16 : BATCH;
+        for (const p of list) { const k = m + ":" + p.h; if (SEM.vecs.has(k)) { have++; continue; } if (!seen.has(p.h)) { seen.add(p.h); if (todo.length < B) todo.push(p); } }
         SEM.total = list.length; SEM.left = list.length - have; drawFoot();
         if (!todo.length) { semGc(); break; }
         const vecs = await embed(todo.map(p => ({title: p.title, text: p.text})), false);
@@ -31353,7 +31388,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
         todo.forEach((p, i) => { const v = {q: vecs[i].q, s: vecs[i].s}; SEM.vecs.set(m2 + ":" + p.h, v); rows.push([m2 + ":" + p.h, v]); });
         await dbPutMany("vec", rows);
         // Studyboard AI allows 20 requests a minute, shared with everything else
-        await wait((embedder() || {}).kind === "studyboard" ? 4000 : 700); await idle();
+        await wait((embedder() || {}).kind === "studyboard" ? 4000 : (embedder() || {}).kind === "device" ? 60 : 700); await idle();
       }
     } catch(e) {
       SEM.err = e && e.message || "Search by meaning isn't working right now.";
@@ -32310,7 +32345,8 @@ Return JSON only.`;
     else if (FT.loading && !FT.loaded) bits.push("Loading the text from your files…");
     // why search by meaning isn't working is said in full under Ask About (semLine), not squeezed in here
     if (semOn()) {
-      if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
+      if (DEV_EMB.dl != null) bits.push(`Downloading the search model to this device (one time, about 34 MB): ${Math.round(DEV_EMB.dl * 100)}%`);
+      else if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
     }
     return bits;
   }
@@ -86437,7 +86473,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, Apple Intelligence in the iPhone and iPad app, or, where neither is there, Google's free Gemma model, which Studyboard downloads to your device from Hugging Face only after you agree): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. There are two exceptions. Your first set of flashcards made this way may instead be made by Studyboard's cloud AI, so it's quick: the sheet where you make it says so before you start and lets you keep it on your device instead. If you go ahead, the text of your notes and the course name are sent to Studyboard's AI server, run on Cloudflare, where a model Cloudflare runs (Google's Gemma) writes the cards and sends them back. Your notes aren't stored or logged; the server keeps only a scrambled (hashed) code for your device, so it gives each device one free set, and a daily count for your network that is deleted two days later. The other is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, Apple Intelligence in the iPhone and iPad app, or, where neither is there, Google's free Gemma model, which Studyboard downloads to your device from Hugging Face only after you agree): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. Search by meaning works the same way without a key: a small search model (bge-small, about 34 MB) is downloaded once from Hugging Face to your device, and your notes, cards, tasks and files are matched by meaning right there, never sent anywhere. There are two exceptions. Your first set of flashcards made this way may instead be made by Studyboard's cloud AI, so it's quick: the sheet where you make it says so before you start and lets you keep it on your device instead. If you go ahead, the text of your notes and the course name are sent to Studyboard's AI server, run on Cloudflare, where a model Cloudflare runs (Google's Gemma) writes the cards and sends them back. Your notes aren't stored or logged; the server keeps only a scrambled (hashed) code for your device, so it gives each device one free set, and a daily count for your network that is deleted two days later. The other is a web link you turn into cards on the website: a browser can't open another site's page, so Studyboard's website fetches that page for you and sends back only its text. If that site doesn't let apps read it, the website may read the Internet Archive's copy of the page instead, and tells you so with its date. The address and the text aren't stored or logged. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>
