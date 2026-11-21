@@ -95,14 +95,53 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   const L = devLabel();
   if (search || urlContext) throw aiErr("device-web", `${L} works offline, so it can't look things up on the web. Studyboard AI or an AI key in Settings, AI Features can.`);
   if (parts.some(p => p && p.file_data)) throw aiErr("device-files", `${L} can't watch videos. Studyboard AI or an AI key in Settings, AI Features can.`);
-  const pics = parts.filter(p => p && p.inline_data && /^image\//.test(p.inline_data.mime_type || ""));
-  if (parts.some(p => p && p.inline_data && !/^image\//.test(p.inline_data.mime_type || ""))) throw aiErr("device-files", `${L} can't read this file directly (it may be a scan). Studyboard AI or an AI key in Settings, AI Features can.`);
-  if (pics.length && !DEVAI.images) throw aiErr("device-files", `${L} on this device can't read pictures. Studyboard AI or an AI key in Settings, AI Features can.`);
+  // Photos and PDFs: their words are read on this device first (01-ocr.js), so the model gets text
+  parts = await devReadParts(parts, {onStatus, signal, auto});
+  const pics = parts.filter(p => p && p.inline_data);
   parts = parts.map(p => p && typeof p.text === "string" ? {text: p.text} : p);
   const sys = String(system || "") + DEV_TAIL, json = toJsonSchema(schema || {type: "OBJECT"});
   const out = Math.min(Number(maxTokens) || 1500, 1800);
   if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
   return devChrome({sys, parts, json, out, signal, onStatus, auto, pics: pics.length > 0});
+}
+/* A photo or PDF for the AI on this device: a PDF with real text gives its text; a photo or scanned page has its words read (Apple's
+   Vision on the iPhone, Tesseract.js elsewhere). A picture with no words at all (a diagram) stays a picture only where the model can
+   see pictures; otherwise the student is told plainly. Too hard to read (most often handwriting on a computer): said plainly too,
+   rather than making cards from misread words. */
+const DEV_OCR_SAID = "Words read from a picture on this device";
+async function devReadParts(parts, {onStatus, signal, auto}){
+  if (!parts.some(p => p && p.inline_data)) return parts;
+  const L = devLabel(), out = [];
+  for (const p of parts) {
+    const d = p && p.inline_data, mime = d && (d.mime_type || "");
+    if (!d) { out.push(p); continue; }
+    if (auto) throw aiErr("auto-off", "Reading pictures isn't done in the background.");
+    if (mime === "application/pdf") {
+      const u8 = Uint8Array.from(atob(d.data), c => c.charCodeAt(0)), txt = await aiPdfText(u8).catch(() => "");
+      if (txt && txt.replace(/\s+/g, " ").length > 200) { out.push({text: txt}); continue; }
+      let r;
+      try { r = await SBOCR.readPdf(u8, {onStatus, signal}); }
+      catch (e) { if (e && (e.code === "aborted" || e.code === "ocr-failed")) throw e; throw Object.assign(aiErr("device-files", `${L} couldn't open this PDF. It may be damaged or locked.`), {detail: String(e && e.message || e)}); }
+      if (r.text.length < 30 || r.conf < OCR.unreadable) throw devUnreadable(r, "file");
+      out.push({text: `${DEV_OCR_SAID} (a scanned PDF${r.conf < OCR.hard ? "; parts were hard to read, so a few words may be wrong" : ""}${r.cut ? `; only its first ${r.pages.length} of ${r.total} pages` : ""}):\n\n${r.text}`});
+      continue;
+    }
+    if (!/^image\//.test(mime)) throw aiErr("device-files", `${L} can't read this kind of file. Studyboard AI or an AI key in Settings, AI Features can.`);
+    if (onStatus) onStatus("Reading the words in your picture on this device…");
+    const r = await SBOCR.readImage(d, {signal, onProgress: x => onStatus && onStatus(`Reading the words in your picture on this device… ${Math.round(x * 100)}%`)});
+    if (r.text.length >= 15 && r.conf >= OCR.unreadable) { out.push({text: `${DEV_OCR_SAID}${r.conf < OCR.hard ? " (parts were hard to read, so a few words may be wrong)" : ""}:\n\n${r.text}`}); continue; }
+    // no readable words: the model looks at the picture itself if it can (a diagram), else the student is told
+    if (DEVAI.images && r.text.length < 15) { out.push(p); continue; }
+    throw devUnreadable(r, "picture");
+  }
+  return out;
+}
+function devUnreadable(r, what){
+  const L = devLabel(), hand = r.engine === "tesseract" && r.text.length >= 15;
+  return aiErr("device-unreadable", r.text.length < 15
+    ? `There are no words in that ${what} that this device can read. ${L} works from text, so diagrams and drawings need Studyboard AI or an AI key in Settings, AI Features.`
+    : hand ? `That ${what} was too hard to read on this computer (handwriting usually is). Try typed notes or a sharper, brighter photo; the Studyboard iPhone app reads handwriting, and so do Studyboard AI and an AI key.`
+    : `That ${what} was too hard to read. Try a sharper, brighter photo taken straight on.`);
 }
 async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
   const L = devLabel();

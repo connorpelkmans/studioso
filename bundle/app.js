@@ -5286,8 +5286,10 @@ async function aiSectionsOf(sources, kind){
   if (!window.SBSECT || !sources.length) return null;
   const list = [];
   for (const s of sources) {
+    // a scan read on this device (aiDevReadSources): its pages, with line heights for font sizes
+    if (s.ocrPages) { const base = list.length * 1000; list.push({name: s.name, pdf: s.ocrPages.map(p => Object.assign({}, p, {n: base + p.n}))}); continue; }
     if (s.part && typeof s.part.text === "string") { list.push({name: s.name, text: s.part.text}); continue; }
-    if (s.pdfBytes) { const pages = await aiPdfPages(s.pdfBytes, {figures: kind !== "small"}); const w = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
+    if (s.pdfBytes) { const pages = s.pdfPages && kind === "small" ? s.pdfPages : await aiPdfPages(s.pdfBytes, {figures: kind !== "small"}); const w = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
       // a scanned PDF (little or no text layer) is read by the AI itself
       if (!pages.length || w < pages.length * 25) return null;
       // page numbers made unique across files (file k's page n is k * 1000 + n), so each figure finds its own section
@@ -5318,6 +5320,9 @@ const aiFigAsk = x => (x.section.figs || []).length ? " Pictures of this part's 
    sentence each card comes from written first (so the card stays tied to the notes, and a made-up one can be caught), and a second
    pass where the model checks its own cards against the notes as a strict teacher. Quizzes: the model takes its own quiz from the
    notes, and a question whose answer key it disagrees with is left out. */
+// Which extra steps small models get. check (a second pass judging each card) is off: on the stand-in model it called every card
+// "drop", good ones included, and cost a third of the time
+const DEV_STEPS = {check: false, solve: true};
 const aiOnDevice = () => { try { return aiCfg().provider === "device"; } catch (e) { return false; } };
 const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
   deckTitle: {type: "STRING", description: "Short name for these cards, 2 to 6 words"},
@@ -5326,6 +5331,9 @@ const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
     front: {type: "STRING"}, back: {type: "STRING"},
     hint: {type: "STRING", description: "A one-sentence nudge that helps recall the back without using its words"}}, required: ["basis", "front", "back"]}}},
   required: ["cards"]};
+// A small model's own instructions: short and concrete. The cloud models' longer ones (exam styles, formats, priorities) made the
+// stand-in model write fewer, vaguer cards
+const DEV_CARD_SYSTEM = "You make flashcards from a student's notes. Each card tests one fact from the notes. front: a short, specific question about that fact (at most 15 words), never a vague one like 'What does the text say about X?'. back: only the answer, in one short sentence, in your own words. Every card is about a different fact: go through the notes in order and cover all of their facts. Use only facts that are in the notes.";
 const DEV_CARD_EXAMPLE = `
 
 Example. Notes: "Osmosis is the diffusion of water across a selectively permeable membrane. Water moves toward the side with the higher solute concentration. A red blood cell placed in a hypotonic solution gains water and can burst."
@@ -5335,12 +5343,13 @@ Good cards:
 {"basis":"A red blood cell placed in a hypotonic solution gains water and can burst.","front":"What happens to a red blood cell in a hypotonic solution?","back":"Water rushes in, so it swells and may burst.","hint":"Hypo- means the outside has less solute than the inside."}
 Bad cards (never write these): front "What does the text say about osmosis?" (vague); back "See the notes" (no answer); a front that already contains its answer; a card about the lecture title, date or instructor.`;
 // Is the card's "basis" really in the notes? (most of its longer words are, in a run of at least 3 that matches the notes' wording)
+// Small models restate the sentence a little even when asked to copy it, so this asks only that most of its words are in the notes
+// (an invented sentence fails; a lightly reworded one passes)
 function aiBasisOk(basis, text){
-  const w = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").match(/[\p{L}\p{N}]{4,}/gu) || [];
-  const bw = w(basis); if (bw.length < 3) return bw.length > 0 && bw.every(x => w(text).includes(x));
-  const tw = w(text), set = new Set(tw), runs = new Set(); for (let i = 0; i + 3 <= tw.length; i++) runs.add(tw.slice(i, i + 3).join(" "));
-  let run = false; for (let i = 0; i + 3 <= bw.length && !run; i++) run = runs.has(bw.slice(i, i + 3).join(" "));
-  return run && bw.filter(x => set.has(x)).length / bw.length >= 0.75;
+  const st = x => x.replace(/(ies|es|s|ed|ing)$/, "");
+  const w = s2 => (String(s2 || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[\p{L}\p{N}]{4,}/gu) || []).map(st);
+  const bw = w(basis), set = new Set(w(text)); if (!bw.length) return false;
+  return bw.filter(x => set.has(x)).length / bw.length >= (bw.length < 4 ? 1 : 0.6);
 }
 const DEV_CHECK_SCHEMA = {type: "OBJECT", properties: {checks: {type: "ARRAY", items: {type: "OBJECT", properties: {
   n: {type: "INTEGER"}, verdict: {type: "STRING", enum: ["keep", "fix", "drop"]}, back: {type: "STRING", description: "The corrected answer, only when the verdict is fix"}}, required: ["n", "verdict"]}}}, required: ["checks"]};
@@ -5381,15 +5390,16 @@ async function aiDevCheckQuiz(section, qs, signal){
 }
 async function aiCardsBySection(o){
   const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0;
-  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? o.system + DEV_CARD_EXAMPLE : o.system,
-    parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
+  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE : o.system,
+    parts: dev ? [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from these notes, each about a different fact, going through them in order.${again ? " Your last answer had too few usable cards: give each card a real question and a complete answer." : ""}`}]
+      : [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
   const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
     let unsup = 0;
     const corpus = aiCorpus([x.section.text]), gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
     let cards = g.cards, checked = {fixed: 0, dropped: 0};
-    if (dev && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
+    if (dev && DEV_STEPS.check && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
     if (o.onStatus) o.onStatus(`Making flashcards: ${++done} of ${n} parts done`);
     return {cards: cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
   }, o.signal);
@@ -5407,7 +5417,7 @@ async function aiQuizBySection(o){
     let r = await ask(x, i), g = gate(r);
     if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
     let keep = g.questions, wrong = 0;
-    if (dev && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
+    if (dev && DEV_STEPS.solve && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
     return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
   }, o.signal);
@@ -5488,10 +5498,41 @@ async function aiPdfPages(u8, opts){
   } catch (e) { return []; }
 }
 if (window.__SB_TEST) window.__sbPdfPages = aiPdfPages;
+/* The AI on this device reads text only, so photos and scanned PDFs have their words read on the device first (01-ocr.js): a photo
+   becomes a text source; a scanned PDF keeps its pages, with each line's height standing in for its font size, so its headings
+   still split it into sections. A PDF with real text is left as it is. Returns notes for the review screen. */
+async function aiDevReadSources(sources, onStatus, signal){
+  const notes = [];
+  for (const s of sources) {
+    const d = s.part && s.part.inline_data, mime = d && (d.mime_type || "");
+    if (d && /^image\//.test(mime)) {
+      if (onStatus) onStatus(`Reading the words in ${s.name || "your picture"} on this device…`);
+      const r = await SBOCR.readImage(d, {signal, onProgress: x => onStatus && onStatus(`Reading the words in ${s.name || "your picture"} on this device… ${Math.round(x * 100)}%`)});
+      if (r.text.length < 15 || r.conf < OCR.unreadable) throw devUnreadable(r, "picture");
+      s.part = {text: `${s.name ? s.name + " (a photo)" : "A photo"}:\n\n${r.text}`}; s.copyText = r.text;
+      if (r.conf < OCR.hard) notes.push(`Parts of ${s.name || "your photo"} were hard to read, so check the cards against it.`);
+      continue;
+    }
+    if (s.pdfBytes) {
+      const pages = s.pdfPages = await aiPdfPages(s.pdfBytes, {});
+      const words = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
+      if (pages.length && words >= pages.length * 25) continue;
+      const r = await SBOCR.readPdf(s.pdfBytes, {onStatus, signal, name: s.name});
+      if (r.text.length < 30 || r.conf < OCR.unreadable) throw devUnreadable(r, "file");
+      s.ocrPages = r.pages; s.part = {text: r.text}; s.copyText = r.text;
+      if (r.cut) notes.push(`${s.name || "Your PDF"} is long, so only its first ${r.pages.length} of ${r.total} pages were read on this device.`);
+      if (r.conf < OCR.hard) notes.push(`Parts of ${s.name || "your scan"} were hard to read, so check the cards against it.`);
+    }
+  }
+  return notes;
+}
 async function aiMakeStudySet(opts, onStatus){
   const {sources, style, difficulty, cards, quiz, cases, caseCount, caseStyle, cardCount, quizCount, courseName, signal} = opts;
+  const readNotes = aiOnDevice() ? await aiDevReadSources(sources, onStatus, signal) : [];
   const diff = difficulty === "easier" ? "Keep it approachable: core facts and main ideas." : difficulty === "harder" ? "Make it challenging: application, analysis and tricky distinctions." : "Mix easier recall with harder application.";
   const ctx = `Course: ${courseName || "not given"}. Student's style and instructions (follow them exactly; if they name an exam or describe a professor's format, match its structure and difficulty with new questions in your own words, never copying or closely imitating its actual questions; where they conflict with your defaults, they win): ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
+  // the AI on this device gets only what changes its cards: the course, and the student's own style and difficulty if they set them
+  const devCtx = `Course: ${courseName || "not given"}.${style && style !== "Clear, exam-focused study material." ? ` The student asked for: ${String(style).slice(0, 400)}` : ""}${difficulty === "easier" ? " Keep it approachable." : difficulty === "harder" ? " Make it challenging: include how and why, not only what." : ""}`;
   const parts = sources.map(s => s.part);
   const corpus = sources.every(s => s.part && typeof s.part.text === "string") ? aiCorpus(sources.map(s => s.part.text)) : null;
   // The words of the material, to catch anything copied instead of restated (a PDF's text is read on this device)
@@ -5505,10 +5546,10 @@ async function aiMakeStudySet(opts, onStatus){
   const kind = opts.engine === "small" || aiOnDevice() ? "small" : "cloud";
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
   if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
-  if (cards && secs) jobs.push(aiCardsBySection({secs, kind: kind, n: nCards, ctx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}));
+  if (cards && secs) jobs.push(aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}));
   else if (cards) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
     schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})));
-  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, signal, light: opts.light, copy, onStatus}));
+  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus}));
   else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
   if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
@@ -5516,7 +5557,7 @@ async function aiMakeStudySet(opts, onStatus){
   const failed = settled.filter(x => x.status === "rejected");
   if (failed.length === settled.length) throw failed[0].reason;
   const res = settled.map(x => x.status === "fulfilled" ? x.value : {data: {}, truncated: false});
-  let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : "", notes: []};
+  let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : "", notes: readNotes.slice()};
   const missedParts = res.reduce((m, r) => m + (r && r.missed ? r.missed : 0), 0);
   if (missedParts) out.notes.push(`${missedParts} part${missedParts === 1 ? "" : "s"} of your material couldn't be turned into cards or questions this time.`);
   if (cards) { const r = res[k++], g = aiGateCards(r.data.cards, {max: nCards ? Math.ceil(nCards * 1.2) : 60, corpus, copy}); out.cards = g.cards; out.title = aiTidyText(r.data.deckTitle); out.truncated = out.truncated || r.truncated;
@@ -6510,14 +6551,53 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   const L = devLabel();
   if (search || urlContext) throw aiErr("device-web", `${L} works offline, so it can't look things up on the web. Studyboard AI or an AI key in Settings, AI Features can.`);
   if (parts.some(p => p && p.file_data)) throw aiErr("device-files", `${L} can't watch videos. Studyboard AI or an AI key in Settings, AI Features can.`);
-  const pics = parts.filter(p => p && p.inline_data && /^image\//.test(p.inline_data.mime_type || ""));
-  if (parts.some(p => p && p.inline_data && !/^image\//.test(p.inline_data.mime_type || ""))) throw aiErr("device-files", `${L} can't read this file directly (it may be a scan). Studyboard AI or an AI key in Settings, AI Features can.`);
-  if (pics.length && !DEVAI.images) throw aiErr("device-files", `${L} on this device can't read pictures. Studyboard AI or an AI key in Settings, AI Features can.`);
+  // Photos and PDFs: their words are read on this device first (01-ocr.js), so the model gets text
+  parts = await devReadParts(parts, {onStatus, signal, auto});
+  const pics = parts.filter(p => p && p.inline_data);
   parts = parts.map(p => p && typeof p.text === "string" ? {text: p.text} : p);
   const sys = String(system || "") + DEV_TAIL, json = toJsonSchema(schema || {type: "OBJECT"});
   const out = Math.min(Number(maxTokens) || 1500, 1800);
   if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
   return devChrome({sys, parts, json, out, signal, onStatus, auto, pics: pics.length > 0});
+}
+/* A photo or PDF for the AI on this device: a PDF with real text gives its text; a photo or scanned page has its words read (Apple's
+   Vision on the iPhone, Tesseract.js elsewhere). A picture with no words at all (a diagram) stays a picture only where the model can
+   see pictures; otherwise the student is told plainly. Too hard to read (most often handwriting on a computer): said plainly too,
+   rather than making cards from misread words. */
+const DEV_OCR_SAID = "Words read from a picture on this device";
+async function devReadParts(parts, {onStatus, signal, auto}){
+  if (!parts.some(p => p && p.inline_data)) return parts;
+  const L = devLabel(), out = [];
+  for (const p of parts) {
+    const d = p && p.inline_data, mime = d && (d.mime_type || "");
+    if (!d) { out.push(p); continue; }
+    if (auto) throw aiErr("auto-off", "Reading pictures isn't done in the background.");
+    if (mime === "application/pdf") {
+      const u8 = Uint8Array.from(atob(d.data), c => c.charCodeAt(0)), txt = await aiPdfText(u8).catch(() => "");
+      if (txt && txt.replace(/\s+/g, " ").length > 200) { out.push({text: txt}); continue; }
+      let r;
+      try { r = await SBOCR.readPdf(u8, {onStatus, signal}); }
+      catch (e) { if (e && (e.code === "aborted" || e.code === "ocr-failed")) throw e; throw Object.assign(aiErr("device-files", `${L} couldn't open this PDF. It may be damaged or locked.`), {detail: String(e && e.message || e)}); }
+      if (r.text.length < 30 || r.conf < OCR.unreadable) throw devUnreadable(r, "file");
+      out.push({text: `${DEV_OCR_SAID} (a scanned PDF${r.conf < OCR.hard ? "; parts were hard to read, so a few words may be wrong" : ""}${r.cut ? `; only its first ${r.pages.length} of ${r.total} pages` : ""}):\n\n${r.text}`});
+      continue;
+    }
+    if (!/^image\//.test(mime)) throw aiErr("device-files", `${L} can't read this kind of file. Studyboard AI or an AI key in Settings, AI Features can.`);
+    if (onStatus) onStatus("Reading the words in your picture on this device…");
+    const r = await SBOCR.readImage(d, {signal, onProgress: x => onStatus && onStatus(`Reading the words in your picture on this device… ${Math.round(x * 100)}%`)});
+    if (r.text.length >= 15 && r.conf >= OCR.unreadable) { out.push({text: `${DEV_OCR_SAID}${r.conf < OCR.hard ? " (parts were hard to read, so a few words may be wrong)" : ""}:\n\n${r.text}`}); continue; }
+    // no readable words: the model looks at the picture itself if it can (a diagram), else the student is told
+    if (DEVAI.images && r.text.length < 15) { out.push(p); continue; }
+    throw devUnreadable(r, "picture");
+  }
+  return out;
+}
+function devUnreadable(r, what){
+  const L = devLabel(), hand = r.engine === "tesseract" && r.text.length >= 15;
+  return aiErr("device-unreadable", r.text.length < 15
+    ? `There are no words in that ${what} that this device can read. ${L} works from text, so diagrams and drawings need Studyboard AI or an AI key in Settings, AI Features.`
+    : hand ? `That ${what} was too hard to read on this computer (handwriting usually is). Try typed notes or a sharper, brighter photo; the Studyboard iPhone app reads handwriting, and so do Studyboard AI and an AI key.`
+    : `That ${what} was too hard to read. Try a sharper, brighter photo taken straight on.`);
 }
 async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
   const L = devLabel();
@@ -6578,6 +6658,126 @@ async function devApple({sys, parts, json, out, temperature, signal, auto}){
   }
 }
 if (window.__SB_TEST) window.__sbDevAI = {state: DEVAI, probe: devProbe, fit: devFit, cfg: () => aiCfg(), call: o => aiCall(o)};
+/* ===== 01-ocr.js: reading the words in photos and scanned pages, on the device, so the small AI on the device (01-ai-device.js)
+   gets plain text, which it handles well, instead of pictures, which it handles badly or not at all.
+   - iPhone and iPad app: Apple's Vision framework (StudyboardOnDeviceAI.recognizeText in ios-wrapper/native/StudyboardOnDeviceAI.swift).
+     Reads printed text and handwriting well.
+   - Everywhere else: Tesseract.js (vendor/tesseract-7.0.0, Apache 2.0), English, loaded the first time it's needed (about 7 MB, then
+     cached by the browser). Reads printed text well and handwriting poorly, which is why low confidence is reported, not hidden.
+   Nothing leaves the device. Both engines give lines with their position, height and confidence; lines are put back into
+   paragraphs here, and taller lines stay on their own, so a scanned page's headings still split notes into sections.
+   API: SBOCR.readImage({data, mime_type} | Blob | canvas, opts), SBOCR.readPdf(bytes, opts), SBOCR.textOf(lines), SBOCR.supported() ===== */
+const OCR_DIR = "vendor/tesseract-7.0.0/";
+const OCR = {maxPages: 40, pagePx: 2000, minSide: 1400, maxSide: 2600, idleMs: 90000, junk: 40, hard: 60, unreadable: 35};
+const SBOCR = (() => {
+  const abs = p => new URL(p, location.href).href;
+  const native = () => { try { const N = typeof devNative === "function" ? devNative() : null; return N && typeof N.recognizeText === "function" ? N : null; } catch (e) { return null; } };
+  const supported = () => !!native() || (typeof Worker === "function" && typeof WebAssembly === "object");
+  const stop = signal => { if (signal && signal.aborted) throw aiErr("aborted", "Stopped."); };
+
+  /* Tesseract: one worker, kept while it's being used and closed after a while idle (it holds a lot of memory) */
+  let tess = null, idle = null, report = null;
+  const loadScript = src => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("couldn't load " + src)); document.head.appendChild(s); });
+  function tessWorker(){
+    clearTimeout(idle);
+    if (!tess) tess = (async () => {
+      if (!window.Tesseract) await loadScript(OCR_DIR + "tesseract.min.js");
+      // workerBlobURL false: the worker runs from its own address, under its own policy (_headers), which alone allows WebAssembly
+      return window.Tesseract.createWorker("eng", 1, {workerPath: abs(OCR_DIR + "worker.min.js"), corePath: abs(OCR_DIR + "core"), langPath: abs(OCR_DIR + "lang"),
+        workerBlobURL: false, gzip: true, logger: m => { if (report && m && m.status === "recognizing text") report(m.progress || 0); }});
+    })().catch(e => { tess = null; throw Object.assign(aiErr("ocr-failed", "This device couldn't start its text reader. Try again, or use Studyboard AI or an AI key for photos and scans."), {detail: String(e && e.message || e)}); });
+    return tess;
+  }
+  const rest = () => { clearTimeout(idle); idle = setTimeout(async () => { const t = tess; tess = null; try { (await t).terminate(); } catch (e) {} }, OCR.idleMs); };
+
+  // A picture ready to read: small photos are enlarged (Tesseract reads text best when letters are 20 or more pixels tall), huge
+  // ones shrunk, and the colors dropped
+  async function canvasOf(src){
+    let bmp;
+    if (src && src.getContext) bmp = src;
+    else {
+      const blob = src instanceof Blob ? src : devBlob(src.data, src.mime_type || "image/jpeg");
+      bmp = await createImageBitmap(blob, {imageOrientation: "from-image"});
+    }
+    const w = bmp.width, h = bmp.height, long = Math.max(w, h), short = Math.min(w, h);
+    const k = short < OCR.minSide ? Math.min(2.5, OCR.minSide / short, OCR.maxSide / long) : long > OCR.maxSide ? OCR.maxSide / long : 1;
+    const cv = document.createElement("canvas"); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+    const cx = cv.getContext("2d", {willReadFrequently: true}); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+    cx.filter = "grayscale(1) contrast(1.15)"; cx.drawImage(bmp, 0, 0, cv.width, cv.height); cx.filter = "none";
+    if (bmp.close) try { bmp.close(); } catch (e) {}
+    return cv;
+  }
+  const b64Of = cv => cv.toDataURL("image/jpeg", 0.85).split(",")[1] || "";
+
+  // Lines from either engine, as {text, x, y, h, conf (0 to 100)}, in reading order
+  async function lines(src, opts){
+    const N = native();
+    if (N) {
+      const data = src && src.data ? src.data : b64Of(await canvasOf(src));
+      const r = await N.recognizeText({image: data});
+      return {engine: "apple", lines: (r && r.lines || []).map(l => ({text: String(l.text || ""), x: +l.x || 0, y: +l.y || 0, h: +l.height || 0, conf: Math.round((+l.confidence || 0) * 100)}))};
+    }
+    const cv = await canvasOf(src), w = await tessWorker();
+    report = opts.onProgress || null;
+    try {
+      const r = await w.recognize(cv, {}, {text: true, blocks: true});
+      const out = [];
+      ((r.data && r.data.blocks) || []).forEach(b => (b.paragraphs || []).forEach((p, pi) => (p.lines || []).forEach((l, li) => {
+        const bb = l.bbox || {}; out.push({text: String(l.text || "").trim(), x: bb.x0 || 0, y: bb.y0 || 0, h: Math.max(1, (bb.y1 || 0) - (bb.y0 || 0)), conf: Math.round(l.confidence || 0), para: li === 0});
+      })));
+      return {engine: "tesseract", lines: out};
+    } finally { report = null; cv.width = cv.height = 0; rest(); }
+  }
+  // Leave out what isn't text: very unsure lines that are mostly symbols (smudges, lines of a diagram, page edges)
+  const real = l => { const t = l.text.trim(); if (!t) return false; const al = (t.match(/[\p{L}\p{N}]/gu) || []).length / t.length;
+    return !(l.conf < 25 || (l.conf < OCR.junk && (al < 0.6 || t.length < 4)) || al < 0.3); };
+  const median = a => { const s = a.slice().sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; };
+  // Lines back into paragraphs, each with its height (the tallest line in it): a new paragraph at a gap or a heading (a line clearly
+  // taller than the body text, which stays on its own), hyphenated words joined again
+  function paras(ls){
+    const L = ls.filter(real); if (!L.length) return [];
+    const mh = median(L.map(l => l.h)) || 1, out = []; let cur = null, prev = null;
+    L.forEach(l => {
+      const head = l.h > mh * 1.3 && l.text.length < 90, gap = prev && (l.y - (prev.y + prev.h)) > mh * 1.1;
+      if (!cur || head || gap || l.para || (prev && prev.head)) { cur = {lines: [], h: 0}; out.push(cur); }
+      cur.lines.push(l.text); cur.h = Math.max(cur.h, l.h); prev = Object.assign({}, l, {head});
+    });
+    return out.map(p => ({h: p.h, text: p.lines.reduce((s2, t) => s2 ? (/[A-Za-z]-$/.test(s2) && /^[a-z]/.test(t) ? s2.slice(0, -1) + t : s2 + " " + t) : t, "").replace(/[ \t]+/g, " ").trim()})).filter(p => p.text);
+  }
+  const textOf = ls => paras(ls).map(p => p.text).join("\n\n");
+  // How sure the reader was, weighted by how much each line says
+  const confOf = ls => { const L = ls.filter(real), n = L.reduce((a, l) => a + l.text.length, 0); return n ? Math.round(L.reduce((a, l) => a + l.conf * l.text.length, 0) / n) : 0; };
+
+  async function readImage(src, opts){
+    opts = opts || {}; stop(opts.signal);
+    const r = await lines(src, opts); stop(opts.signal);
+    return {text: textOf(r.lines), conf: confOf(r.lines), engine: r.engine, lines: r.lines.filter(real)};
+  }
+  // A scanned PDF, page by page: each page drawn on the device and read. Returns pages shaped like aiPdfPages' ({n, lines: [{text,
+  // size}]}), so the sections work the same way as for a PDF with real text
+  async function readPdf(u8, opts){
+    opts = opts || {}; const say = opts.onStatus || (() => {});
+    await loadPdfJs();
+    const doc = await window.pdfjsLib.getDocument({data: u8.slice(), ...PDF_OPTS}).promise, total = doc.numPages, n = Math.min(total, opts.maxPages || OCR.maxPages), pages = [];
+    for (let i = 1; i <= n; i++) {
+      stop(opts.signal);
+      say(`Reading the words on page ${i} of ${n}${opts.name ? ` of ${opts.name}` : ""}…`);
+      const page = await doc.getPage(i), v0 = page.getViewport({scale: 1}), vp = page.getViewport({scale: OCR.pagePx / Math.max(v0.width, v0.height)});
+      const cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+      const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+      await page.render({canvasContext: cx, viewport: vp}).promise;
+      try { page.cleanup && page.cleanup(); } catch (e) {}
+      const r = await readImage(cv, {signal: opts.signal, onProgress: p => say(`Reading the words on page ${i} of ${n}${opts.name ? ` of ${opts.name}` : ""}… ${Math.round(p * 100)}%`)});
+      // the line's height stands in for its font size, so big lines are headings, as in a PDF with real text
+      pages.push({n: i, lines: paras(r.lines).map(p => ({text: p.text, size: p.h})), conf: r.conf});
+    }
+    try { doc.destroy && doc.destroy(); } catch (e) {}
+    const text = pages.map(p => p.lines.map(l => l.text).join("\n\n")).join("\n\n"), all = pages.filter(p => p.lines.length);
+    return {pages, text, conf: all.length ? Math.round(all.reduce((a, p) => a + p.conf, 0) / all.length) : 0, cut: total > n, total};
+  }
+  return {supported, readImage, readPdf, textOf, paras, confOf, OCR};
+})();
+if (window.__SB_TEST) window.SBOCR = SBOCR;
 /* ===== module: 01-phone-cam.js: photos from your phone on a computer (a QR code and the photo relay), for Scan to PDF and Photo to Note ===== */
 /* On a computer, Take Photos shows a QR code. It opens a camera page on the phone (cloudflare/key-relay/src/scan.js), and the photos
    taken there come in here, locked (AES-GCM) with a key that only the QR code carries, through the relay. The relay never sees the code.
@@ -21275,7 +21475,9 @@ const SBSECT = (() => {
   const WORD = /[\p{L}\p{N}][\p{L}\p{N}'’.-]*/gu;
   const words = s => (String(s || "").match(WORD) || []).length;
   // Sizes, in words. A "small" engine (an on-device model) gets shorter sections and fewer cards per request.
-  const SIZES = {cloud: {min: 90, max: 650, maxSections: 14, perSection: 8, onlyOver: 900}, small: {min: 60, max: 280, maxSections: 24, perSection: 5, onlyOver: 0}};
+  // per: words of material per card when the student picks "Auto". A small model is asked for one fact per card, so it gets more,
+  // simpler cards (tested on a stand-in for the on-device models: at 45 it covered about a quarter of the key facts)
+  const SIZES = {cloud: {min: 90, max: 650, maxSections: 14, perSection: 8, onlyOver: 900, per: 45}, small: {min: 60, max: 280, maxSections: 24, perSection: 7, onlyOver: 0, per: 26}};
   // Material with nothing to study in it: skipped (folded into nothing) when its title says so
   const FLUFF = /^(references?|bibliography|works cited|citations|sources|acknowledg(e)?ments?|(table of )?contents|agenda|outline|questions\??|any questions\??|thank(s| you)\b.*|the end|appendix [a-z]?\s*:?\s*(raw )?data|about the (author|instructor)|copyright.*|disclosures?)$/i;
   // A line that is a heading, and its level (1 is the top). Each rule is conservative: a sentence is never a heading.
@@ -21397,11 +21599,11 @@ const SBSECT = (() => {
     return Math.pow(Math.max(1, s.words), 0.8) * (1 + Math.min(1.5, (defs + items) / Math.max(4, s.words / 25) * 0.6) + nums * 0.02);
   }
   // Share `total` items across sections by weight (largest remainder). total 0 means "as many as the material supports":
-  // about one card per 45 words, at most perSection each. A section always gets at least one when there's room.
+  // about one card per S.per words (45 for a cloud model), at most perSection each. A section always gets at least one when there's room.
   function plan(secs, total, kind){
     const S = SIZES[kind] || SIZES.cloud;
     if (!secs.length) return [];
-    const auto = !total, want = auto ? Math.max(secs.length, Math.min(60, Math.round(secs.reduce((n, s) => n + s.words, 0) / 45))) : total;
+    const auto = !total, want = auto ? Math.max(secs.length, Math.min(60, Math.round(secs.reduce((n, s) => n + s.words, 0) / (S.per || 45)))) : total;
     const w = secs.map(weight), W = w.reduce((a, b) => a + b, 0) || 1;
     const raw = w.map(x => want * x / W);
     const got = raw.map(x => Math.min(S.perSection, Math.floor(x)));
@@ -85409,7 +85611,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, or Apple Intelligence in the iPhone and iPad app): it runs on your device, and nothing you give it is sent to us or anyone else. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, or Apple Intelligence in the iPhone and iPad app): it runs on your device, as does reading the words in photos and scans for it, and nothing you give it is sent to us or anyone else. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude, or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare and Anthropic process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>

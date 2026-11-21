@@ -61,7 +61,10 @@ ok(/"frame-src " \+ EMBED_HOSTS\.map/.test(main) && /will-frame-navigate[\s\S]{0
 // every policy the website sends must let the players load: an explicit frame-src (else frames fall back to default-src, which is 'self')
 // (the YouTube page for the apps, yt-embed.html, frames only YouTube's player: checked below)
 const ytBlocks = hdr.split(/\n\s*\n/).filter(b => /^\/yt-embed/m.test(b));
-const pol = [...hdr.split(/\n\s*\n/).filter(b => !/^\/yt-embed/m.test(b)).join("\n\n").matchAll(/^\s*Content-Security-Policy:\s*(.+)$/gm)].map(m => m[1]);
+// (the text reader's folder, vendor/tesseract-*, holds worker scripts, never a page: its policy is checked to stay narrow instead)
+const readerBlocks = hdr.split(/\n\s*\n/).filter(b => /^\/vendor\/tesseract-/m.test(b));
+ok(readerBlocks.length === 1 && /Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval';/.test(readerBlocks[0]) && !/unsafe-inline|https:/.test(readerBlocks[0].split("Content-Security-Policy:")[1] || "x"), "the text reader's own policy is narrow: nothing but its own scripts, and WebAssembly");
+const pol = [...hdr.split(/\n\s*\n/).filter(b => !/^\/yt-embed/m.test(b) && !/^\/vendor\/tesseract-/m.test(b)).join("\n\n").matchAll(/^\s*Content-Security-Policy:\s*(.+)$/gm)].map(m => m[1]);
 ok(pol.length >= 1 && pol.every(p => { const f = (/(?:^|;)\s*frame-src ([^;]+)/.exec(p) || [])[1]; return f && CMAP.EMBED_HOSTS.every(h => f.trim().split(/\s+/).includes("https://" + h)); }), `every website policy (${pol.length}) lets the embed sites load in a frame`);
 const pp = (/^\s*Permissions-Policy:\s*(.+)$/m.exec(hdr) || [])[1] || "";
 ok(["autoplay", "fullscreen"].every(f => { const m = new RegExp(f + "=\\(([^)]*)\\)").exec(pp); return m && CMAP.EMBED_HOSTS.every(h => m[1].includes('"https://' + h + '"')); }), "the website lets the players autoplay and go fullscreen");

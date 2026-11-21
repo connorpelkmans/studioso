@@ -1323,8 +1323,10 @@ async function aiSectionsOf(sources, kind){
   if (!window.SBSECT || !sources.length) return null;
   const list = [];
   for (const s of sources) {
+    // a scan read on this device (aiDevReadSources): its pages, with line heights for font sizes
+    if (s.ocrPages) { const base = list.length * 1000; list.push({name: s.name, pdf: s.ocrPages.map(p => Object.assign({}, p, {n: base + p.n}))}); continue; }
     if (s.part && typeof s.part.text === "string") { list.push({name: s.name, text: s.part.text}); continue; }
-    if (s.pdfBytes) { const pages = await aiPdfPages(s.pdfBytes, {figures: kind !== "small"}); const w = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
+    if (s.pdfBytes) { const pages = s.pdfPages && kind === "small" ? s.pdfPages : await aiPdfPages(s.pdfBytes, {figures: kind !== "small"}); const w = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
       // a scanned PDF (little or no text layer) is read by the AI itself
       if (!pages.length || w < pages.length * 25) return null;
       // page numbers made unique across files (file k's page n is k * 1000 + n), so each figure finds its own section
@@ -1355,6 +1357,9 @@ const aiFigAsk = x => (x.section.figs || []).length ? " Pictures of this part's 
    sentence each card comes from written first (so the card stays tied to the notes, and a made-up one can be caught), and a second
    pass where the model checks its own cards against the notes as a strict teacher. Quizzes: the model takes its own quiz from the
    notes, and a question whose answer key it disagrees with is left out. */
+// Which extra steps small models get. check (a second pass judging each card) is off: on the stand-in model it called every card
+// "drop", good ones included, and cost a third of the time
+const DEV_STEPS = {check: false, solve: true};
 const aiOnDevice = () => { try { return aiCfg().provider === "device"; } catch (e) { return false; } };
 const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
   deckTitle: {type: "STRING", description: "Short name for these cards, 2 to 6 words"},
@@ -1363,6 +1368,9 @@ const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
     front: {type: "STRING"}, back: {type: "STRING"},
     hint: {type: "STRING", description: "A one-sentence nudge that helps recall the back without using its words"}}, required: ["basis", "front", "back"]}}},
   required: ["cards"]};
+// A small model's own instructions: short and concrete. The cloud models' longer ones (exam styles, formats, priorities) made the
+// stand-in model write fewer, vaguer cards
+const DEV_CARD_SYSTEM = "You make flashcards from a student's notes. Each card tests one fact from the notes. front: a short, specific question about that fact (at most 15 words), never a vague one like 'What does the text say about X?'. back: only the answer, in one short sentence, in your own words. Every card is about a different fact: go through the notes in order and cover all of their facts. Use only facts that are in the notes.";
 const DEV_CARD_EXAMPLE = `
 
 Example. Notes: "Osmosis is the diffusion of water across a selectively permeable membrane. Water moves toward the side with the higher solute concentration. A red blood cell placed in a hypotonic solution gains water and can burst."
@@ -1372,12 +1380,13 @@ Good cards:
 {"basis":"A red blood cell placed in a hypotonic solution gains water and can burst.","front":"What happens to a red blood cell in a hypotonic solution?","back":"Water rushes in, so it swells and may burst.","hint":"Hypo- means the outside has less solute than the inside."}
 Bad cards (never write these): front "What does the text say about osmosis?" (vague); back "See the notes" (no answer); a front that already contains its answer; a card about the lecture title, date or instructor.`;
 // Is the card's "basis" really in the notes? (most of its longer words are, in a run of at least 3 that matches the notes' wording)
+// Small models restate the sentence a little even when asked to copy it, so this asks only that most of its words are in the notes
+// (an invented sentence fails; a lightly reworded one passes)
 function aiBasisOk(basis, text){
-  const w = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").match(/[\p{L}\p{N}]{4,}/gu) || [];
-  const bw = w(basis); if (bw.length < 3) return bw.length > 0 && bw.every(x => w(text).includes(x));
-  const tw = w(text), set = new Set(tw), runs = new Set(); for (let i = 0; i + 3 <= tw.length; i++) runs.add(tw.slice(i, i + 3).join(" "));
-  let run = false; for (let i = 0; i + 3 <= bw.length && !run; i++) run = runs.has(bw.slice(i, i + 3).join(" "));
-  return run && bw.filter(x => set.has(x)).length / bw.length >= 0.75;
+  const st = x => x.replace(/(ies|es|s|ed|ing)$/, "");
+  const w = s2 => (String(s2 || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[\p{L}\p{N}]{4,}/gu) || []).map(st);
+  const bw = w(basis), set = new Set(w(text)); if (!bw.length) return false;
+  return bw.filter(x => set.has(x)).length / bw.length >= (bw.length < 4 ? 1 : 0.6);
 }
 const DEV_CHECK_SCHEMA = {type: "OBJECT", properties: {checks: {type: "ARRAY", items: {type: "OBJECT", properties: {
   n: {type: "INTEGER"}, verdict: {type: "STRING", enum: ["keep", "fix", "drop"]}, back: {type: "STRING", description: "The corrected answer, only when the verdict is fix"}}, required: ["n", "verdict"]}}}, required: ["checks"]};
@@ -1418,15 +1427,16 @@ async function aiDevCheckQuiz(section, qs, signal){
 }
 async function aiCardsBySection(o){
   const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0;
-  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? o.system + DEV_CARD_EXAMPLE : o.system,
-    parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
+  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE : o.system,
+    parts: dev ? [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from these notes, each about a different fact, going through them in order.${again ? " Your last answer had too few usable cards: give each card a real question and a complete answer." : ""}`}]
+      : [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
   const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
     let unsup = 0;
     const corpus = aiCorpus([x.section.text]), gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
     let cards = g.cards, checked = {fixed: 0, dropped: 0};
-    if (dev && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
+    if (dev && DEV_STEPS.check && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
     if (o.onStatus) o.onStatus(`Making flashcards: ${++done} of ${n} parts done`);
     return {cards: cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
   }, o.signal);
@@ -1444,7 +1454,7 @@ async function aiQuizBySection(o){
     let r = await ask(x, i), g = gate(r);
     if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
     let keep = g.questions, wrong = 0;
-    if (dev && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
+    if (dev && DEV_STEPS.solve && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
     return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
   }, o.signal);
@@ -1525,10 +1535,41 @@ async function aiPdfPages(u8, opts){
   } catch (e) { return []; }
 }
 if (window.__SB_TEST) window.__sbPdfPages = aiPdfPages;
+/* The AI on this device reads text only, so photos and scanned PDFs have their words read on the device first (01-ocr.js): a photo
+   becomes a text source; a scanned PDF keeps its pages, with each line's height standing in for its font size, so its headings
+   still split it into sections. A PDF with real text is left as it is. Returns notes for the review screen. */
+async function aiDevReadSources(sources, onStatus, signal){
+  const notes = [];
+  for (const s of sources) {
+    const d = s.part && s.part.inline_data, mime = d && (d.mime_type || "");
+    if (d && /^image\//.test(mime)) {
+      if (onStatus) onStatus(`Reading the words in ${s.name || "your picture"} on this device…`);
+      const r = await SBOCR.readImage(d, {signal, onProgress: x => onStatus && onStatus(`Reading the words in ${s.name || "your picture"} on this device… ${Math.round(x * 100)}%`)});
+      if (r.text.length < 15 || r.conf < OCR.unreadable) throw devUnreadable(r, "picture");
+      s.part = {text: `${s.name ? s.name + " (a photo)" : "A photo"}:\n\n${r.text}`}; s.copyText = r.text;
+      if (r.conf < OCR.hard) notes.push(`Parts of ${s.name || "your photo"} were hard to read, so check the cards against it.`);
+      continue;
+    }
+    if (s.pdfBytes) {
+      const pages = s.pdfPages = await aiPdfPages(s.pdfBytes, {});
+      const words = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
+      if (pages.length && words >= pages.length * 25) continue;
+      const r = await SBOCR.readPdf(s.pdfBytes, {onStatus, signal, name: s.name});
+      if (r.text.length < 30 || r.conf < OCR.unreadable) throw devUnreadable(r, "file");
+      s.ocrPages = r.pages; s.part = {text: r.text}; s.copyText = r.text;
+      if (r.cut) notes.push(`${s.name || "Your PDF"} is long, so only its first ${r.pages.length} of ${r.total} pages were read on this device.`);
+      if (r.conf < OCR.hard) notes.push(`Parts of ${s.name || "your scan"} were hard to read, so check the cards against it.`);
+    }
+  }
+  return notes;
+}
 async function aiMakeStudySet(opts, onStatus){
   const {sources, style, difficulty, cards, quiz, cases, caseCount, caseStyle, cardCount, quizCount, courseName, signal} = opts;
+  const readNotes = aiOnDevice() ? await aiDevReadSources(sources, onStatus, signal) : [];
   const diff = difficulty === "easier" ? "Keep it approachable: core facts and main ideas." : difficulty === "harder" ? "Make it challenging: application, analysis and tricky distinctions." : "Mix easier recall with harder application.";
   const ctx = `Course: ${courseName || "not given"}. Student's style and instructions (follow them exactly; if they name an exam or describe a professor's format, match its structure and difficulty with new questions in your own words, never copying or closely imitating its actual questions; where they conflict with your defaults, they win): ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
+  // the AI on this device gets only what changes its cards: the course, and the student's own style and difficulty if they set them
+  const devCtx = `Course: ${courseName || "not given"}.${style && style !== "Clear, exam-focused study material." ? ` The student asked for: ${String(style).slice(0, 400)}` : ""}${difficulty === "easier" ? " Keep it approachable." : difficulty === "harder" ? " Make it challenging: include how and why, not only what." : ""}`;
   const parts = sources.map(s => s.part);
   const corpus = sources.every(s => s.part && typeof s.part.text === "string") ? aiCorpus(sources.map(s => s.part.text)) : null;
   // The words of the material, to catch anything copied instead of restated (a PDF's text is read on this device)
@@ -1542,10 +1583,10 @@ async function aiMakeStudySet(opts, onStatus){
   const kind = opts.engine === "small" || aiOnDevice() ? "small" : "cloud";
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
   if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
-  if (cards && secs) jobs.push(aiCardsBySection({secs, kind: kind, n: nCards, ctx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}));
+  if (cards && secs) jobs.push(aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}));
   else if (cards) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
     schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})));
-  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, signal, light: opts.light, copy, onStatus}));
+  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus}));
   else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
   if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
@@ -1553,7 +1594,7 @@ async function aiMakeStudySet(opts, onStatus){
   const failed = settled.filter(x => x.status === "rejected");
   if (failed.length === settled.length) throw failed[0].reason;
   const res = settled.map(x => x.status === "fulfilled" ? x.value : {data: {}, truncated: false});
-  let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : "", notes: []};
+  let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : "", notes: readNotes.slice()};
   const missedParts = res.reduce((m, r) => m + (r && r.missed ? r.missed : 0), 0);
   if (missedParts) out.notes.push(`${missedParts} part${missedParts === 1 ? "" : "s"} of your material couldn't be turned into cards or questions this time.`);
   if (cards) { const r = res[k++], g = aiGateCards(r.data.cards, {max: nCards ? Math.ceil(nCards * 1.2) : 60, corpus, copy}); out.cards = g.cards; out.title = aiTidyText(r.data.deckTitle); out.truncated = out.truncated || r.truncated;

@@ -154,10 +154,14 @@ target). Add it in Xcode (File > Add Files to "App", untick "Copy items if neede
   checking pass, and the model taking its own quiz (`aiDevCheckCards`, `aiDevCheckQuiz` in `src/js/01-ai.js`).
 * **Answers are guided:** the page sends JSON Schema with each object's field order (`propertyOrder`); the plugin builds a
   `DynamicGenerationSchema` from it, so the model can only answer in that shape.
-* **Not on device:** web lookups, YouTube videos and scanned PDFs still need Studyboard AI or a key, and say so. Pictures are off for
-  now (iOS 27 can read them; turn on `images` in `availability()` once that's tested with guided generation).
-* **Test plan:** on a supported iPhone with no key, make flashcards from a few pages of notes, a quiz, a Hint, and ask the
-  companion something. Then turn Apple Intelligence off and check AI Features asks for a key and suggests turning it on. Expect
+* **Photos and scanned PDFs:** `recognizeText` reads their words with Apple's Vision framework (accurate mode, printed text and
+  handwriting, any iPhone, on the device), and the model gets text. The page (`src/js/01-ocr.js`) sends each photo or rendered PDF
+  page as a JPEG and puts the lines back into paragraphs; a taller line counts as a heading, so a scan still splits into sections.
+  A picture with no words (a diagram) is explained, not guessed at: the model itself can't see pictures here yet (iOS 27 can;
+  turn on `images` in `availability()` once that's tested with guided generation).
+* **Not on device:** web lookups and YouTube videos (paste the transcript instead) need Studyboard AI or a key, and say so.
+* **Test plan:** on a supported iPhone with no key, make flashcards from a few pages of notes, from a photo of handwritten notes and
+  from a scanned PDF, a quiz, a Hint, and ask the companion something. Then turn Apple Intelligence off and check AI Features asks for a key and suggests turning it on. Expect
   compile fixes: this file hasn't been built yet. Apple's rules for the framework:
   https://developer.apple.com/apple-intelligence/acceptable-use-requirements-for-the-foundation-models-framework/
 

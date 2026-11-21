@@ -67,3 +67,11 @@
 /.well-known/microsoft-identity-association
   Content-Type: application/json
   Cache-Control: max-age=3600
+
+# The text reader for photos and scans (Tesseract.js, vendor/tesseract-7.0.0, src/js/01-ocr.js). Its worker compiles WebAssembly,
+# which nothing else on the site may do, so only its own files get a policy that allows it. The worker is started from its own
+# address (not a blob), so this is the policy it runs under; the page's policy is unchanged.
+/vendor/tesseract-7.0.0/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'self'
+  Cache-Control: public, max-age=2592000, immutable

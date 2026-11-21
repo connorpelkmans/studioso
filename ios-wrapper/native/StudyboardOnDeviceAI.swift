@@ -5,16 +5,22 @@
 // The page side is src/js/01-ai-device.js (devApple), which also sends only one request at a time, cuts long material to fit
 // the context, and uses the same quality steps as Chrome's built-in model (short sections, examples, a checking pass).
 //
-// Two calls:
+// Three calls:
 //   availability() -> {status: "available" | "downloading" | "unavailable", reason, contextSize, images}
 //   generate({system, prompt, schema, temperature}) -> {json} (with a schema) or {text}
 //     schema is JSON Schema (type, properties, propertyOrder, items, required, enum, description), turned into a
 //     DynamicGenerationSchema here, so the model can only answer in that shape (guided generation).
 //     Errors reject with a short code the page understands: context, guardrail, refusal, rateLimited, concurrent, language,
 //     unavailable, failed.
+//   recognizeText({image: base64 JPEG or PNG}) -> {lines: [{text, confidence (0-1), x, y, width, height}], width, height}
+//     Apple's Vision framework (iOS 13 and later, any iPhone), accurate mode with language correction: printed text and
+//     handwriting, read on the device. The page (src/js/01-ocr.js) puts the lines back into paragraphs; a taller line is a heading.
+//     Used for photos and scanned PDF pages, so the on-device model gets text. Positions are in pixels from the top left.
 //
 // Add to the App target (Xcode: File > Add Files to "App", untick "Copy items if needed"). MainViewController registers it.
 import Foundation
+import UIKit
+import Vision
 import Capacitor
 #if canImport(FoundationModels)
 import FoundationModels
@@ -26,7 +32,8 @@ public class StudyboardOnDeviceAIPlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "StudyboardOnDeviceAI"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "availability", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "generate", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "generate", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "recognizeText", returnType: CAPPluginReturnPromise)
     ]
 
     @objc func availability(_ call: CAPPluginCall) {
@@ -87,6 +94,59 @@ public class StudyboardOnDeviceAIPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         #endif
         call.reject("unavailable", "unavailable")
+    }
+
+    @objc func recognizeText(_ call: CAPPluginCall) {
+        guard let b64 = call.getString("image"), let data = Data(base64Encoded: b64, options: .ignoreUnknownCharacters),
+              let image = UIImage(data: data), let cg = image.cgImage else {
+            call.reject("badImage", "badImage")
+            return
+        }
+        let orientation = StudyboardOnDeviceAIPlugin.cgOrientation(image.imageOrientation)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            if #available(iOS 16.0, *) { request.automaticallyDetectsLanguage = true }
+            let handler = VNImageRequestHandler(cgImage: cg, orientation: orientation, options: [:])
+            do {
+                try handler.perform([request])
+                // Vision's boxes are 0 to 1 from the bottom left; the page wants pixels from the top left of the upright picture
+                let upright = [.left, .leftMirrored, .right, .rightMirrored].contains(orientation)
+                let w = Double(upright ? cg.height : cg.width), h = Double(upright ? cg.width : cg.height)
+                var lines: [[String: Any]] = []
+                for o in request.results ?? [] {
+                    guard let top = o.topCandidates(1).first else { continue }
+                    let b = o.boundingBox
+                    lines.append(["text": top.string, "confidence": Double(top.confidence),
+                                  "x": Double(b.minX) * w, "y": (1 - Double(b.maxY)) * h,
+                                  "width": Double(b.width) * w, "height": Double(b.height) * h])
+                }
+                // reading order: top to bottom, then left to right on the same line
+                lines.sort { a, b in
+                    let ay = a["y"] as? Double ?? 0, by = b["y"] as? Double ?? 0, ah = a["height"] as? Double ?? 0
+                    if abs(ay - by) > ah * 0.5 { return ay < by }
+                    return (a["x"] as? Double ?? 0) < (b["x"] as? Double ?? 0)
+                }
+                call.resolve(["lines": lines, "width": w, "height": h])
+            } catch {
+                call.reject("failed", "failed")
+            }
+        }
+    }
+
+    static func cgOrientation(_ o: UIImage.Orientation) -> CGImagePropertyOrientation {
+        switch o {
+        case .up: return .up
+        case .down: return .down
+        case .left: return .left
+        case .right: return .right
+        case .upMirrored: return .upMirrored
+        case .downMirrored: return .downMirrored
+        case .leftMirrored: return .leftMirrored
+        case .rightMirrored: return .rightMirrored
+        @unknown default: return .up
+        }
     }
 
     // The error as one of the page's short codes

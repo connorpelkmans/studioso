@@ -34,7 +34,7 @@ function fakeChrome(opts){
             await new Promise(r => setTimeout(r, 30));
             const text = input.map(m => m.content.map(c => c.value).join("\n")).join("\n"), sch = JSON.stringify(po.responseConstraint || {});
             log.prompts.push({system, text, schema: sch});
-            const topic = (/Part \d+ of \d+ of the material: ([^\n]*)/.exec(text) || [])[1] || "notes";
+            const topic = (/Notes \(([^)\n]*)\):/.exec(text) || /Part \d+ of \d+ of the material: ([^\n]*)/.exec(text) || [])[1] || "notes";
             const first = ((/((?:Glycolysis|Krebs Cycle|Electron Transport Chain) point \d+ explains[^.]*\.)/.exec(text) || /(Glycolysis splits[^.]*\.)/.exec(text) || [])[1] || "").trim();
             if (/strict, fair teacher/.test(system)) return JSON.stringify({checks: [{n: 1, verdict: "keep"}, {n: 2, verdict: "fix", back: `It is where ${topic.split(" › ").pop()} turns its inputs into energy carriers.`}]});
             if (/careful student taking a quiz/.test(system)) return JSON.stringify({answers: [{n: 1, letters: ["A"]}, {n: 2, letters: ["C"]}]});
@@ -105,14 +105,13 @@ function fakeChrome(opts){
     const cardP = out.log.prompts.filter(x => /"basis"/.test(x.schema)), checks = out.log.prompts.filter(x => /strict, fair teacher/.test(x.system)), solve = out.log.prompts.filter(x => /careful student/.test(x.system));
     ok(cardP.length >= 3, "cards are written part by part: " + cardP.length + " parts");
     ok(cardP.every(x => /Example\. Notes:/.test(x.system) && /Bad cards/.test(x.system)), "every card request carries worked examples, good and bad");
+    ok(cardP.every(x => /^You make flashcards from a student's notes/.test(x.system) && !/Exam Style|professor's format/.test(x.system + x.text)), "small models get their own short instructions, not the cloud models' long ones");
     ok(cardP.every(x => (x.text.match(/point \d+ explains/g) || []).length <= 20), "each request holds one short part of the notes");
-    const parts = new Set(cardP.map(x => (/Part \d+ of \d+/.exec(x.text) || [])[0])).size;
-    ok(checks.length === parts, `every part's cards get one checking pass: ${checks.length} for ${parts} parts`);
+    ok(checks.length === 0, "no separate checking pass (on the stand-in model it called good cards bad, and cost a third of the time)");
     ok(solve.length >= 3, "the model takes its own quiz for every part: " + solve.length);
     ok(out.log.overlap === 0, "one request at a time (the model answers one thing at a time anyway)");
     ok(!out.cards.some(c => /purple/i.test(c.text)), "a card based on a sentence that isn't in the notes never reaches the student");
-    ok(out.cards.some(c => /turns its inputs into energy carriers/.test(c.back)) && !out.cards.some(c => /Something vague/.test(c.back)), "the answer the check corrected is the corrected one");
-    ok(/didn't hold up when checked against your material/.test(out.all) && /Corrected \d+ answers? after checking/.test(out.all), "the review says what was left out and corrected");
+    ok(/didn't hold up when checked against your material/.test(out.all), "the review says what was left out");
     ok(/question.? whose answer didn't hold up/.test(out.all), "and which quiz questions were left out because the model's own answer disagreed");
     ok(out.qs >= 3, "the quiz keeps the questions that held up: " + out.qs);
     ok(!/basis/.test(JSON.stringify(out.cards)), "the source sentence is used for checking only, never shown on a card");
