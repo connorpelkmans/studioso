@@ -52,7 +52,7 @@ function testGlobals() {
 }
 
 module.exports = [
-  {ignores: ["src/js/**", "bundle/**", "node_modules/**", "dist/**", "app/**", "build/**", "widget/**", "site/**", "ios-www/**", "tests-out/**",
+  {ignores: ["src/js/**", "ml/**", "bundle/**", "node_modules/**", "dist/**", "app/**", "build/**", "widget/**", "site/**", "ios-www/**", "tests-out/**",
     "vendor/**", "website/vendor/**", "extension/build/**", "extension/dist/**", "extension/released/**", "**/*.min.js", "android-wrapper/**", "ios-wrapper/**", "supabase-functions/**", "index*.ts"]},
   // Electron main process and Node build/tooling scripts
   {

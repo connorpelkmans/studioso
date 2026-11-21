@@ -1,0 +1,10 @@
+# The light model (weaker laptops): Gemma 3 1B, the one WebLLM downloads today as "small" (0.6 GB at 4-bit).
+# Small enough for FULL fine-tuning on a 16 GB+ graphics card; on 8-12 GB set lora: and load_4bit: true (QLoRA).
+base_model: google/gemma-3-1b-it          # gated on Hugging Face: accept Google's Gemma terms there, then `hf auth login`
+output_dir: ml/out/gemma3-1b-sft
+load_4bit: false
+lora: {r: 32, alpha: 64, dropout: 0.05, targets: all-linear}
+data: {train: ml/data/train/sft.jsonl, eval: ml/data/train/sft_dev.jsonl}
+train: {epochs: 2, batch: 4, grad_accum: 4, lr: 2.0e-4, max_length: 5400, eval_every: 200, save_every: 400}
+dpo: {train: ml/data/train/dpo.jsonl, beta: 0.1, lr: 5.0e-6, epochs: 1, batch: 2, grad_accum: 8}
+webllm: {base_id: gemma3-1b-it-q4f16_1-MLC, conv_template: gemma3_instruction, quant: q4f16_1, context: 4096, lib: gemma3-1b-it-q4f16_1_cs512-webgpu.wasm}
