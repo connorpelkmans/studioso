@@ -41,4 +41,19 @@ ok(aiWholeSentence("Your bio quiz is tomorrow, so review the cards and") === "Yo
 ok(aiWholeSentence("Here it is!") === "Here it is!" && aiWholeSentence("Due Friday: Lab 3") === "Due Friday: Lab 3", "finished answers and labels are left alone");
 ok(aiWholeSentence("It is the") === "It is the", "too little left to make sense: unchanged");
 ok(aiWholeSentence("You have three tasks due today") === "You have three tasks due today", "an answer that doesn't dangle is left as it is");
+// the key terms in slides and notes, found by code, so a small model has to name them on its cards
+eval(src.match(/const AI_TERM_SKIP = [^\n]+/)[0].replace("const ", "var ") + "\n" + fn("aiKeyTerms"));
+const SLIDES = `Psychoanalytic Theory\nFreud's Levels of Awareness\nConscious\nContains all the material a person is aware of at any one time\nPreconscious\nContains material that can be retrieved rather easily through conscious effort\nPersonality structure\nId\nPleasure principle\nReflex action\nEgo\nProblem solver\nReality tester\nObjectives\nSecurity operations: measures the individual employs to reduce anxiety and enhance security\nThe **self-system** protects self-esteem.\nImplications for Nursing\nPrioritizing: what is most important in the sequencing of nursing actions`;
+const KT = aiKeyTerms(SLIDES, 20);
+ok(["Conscious", "Preconscious", "Id", "Ego", "Security operations", "self-system"].every(t => KT.includes(t)), "slide terms are found: " + KT.join(", "));
+ok(!KT.some(t => /^(Objectives|Implications for Nursing|Prioritizing|Psychoanalytic Theory)$/.test(t)), "headings and list words aren't: " + KT.join(", "));
+// the same rules work for any subject (they look at the shape of the text, never at the topic)
+const MIXED = {
+  econ: "Market Structures\nMonopoly\nA single seller controls the whole market and sets the price\nOligopoly\nA few large firms dominate the market\nElasticity: how much demand changes when the price changes",
+  chem: "Covalent bond: two atoms share a pair of electrons\nAn ion is an atom that has gained or lost electrons.\nIsotopes\nAtoms of one element with different numbers of neutrons",
+  history: "Causes of World War I\nMilitarism\nArms race\nLarge standing armies\nNationalism\nPride in one's nation\nRivalry between empires",
+  cs: "Recursion: a function that calls itself on a smaller input\nThe **base case** stops the recursion.\nBig-O notation describes how running time grows with input size."};
+const W = {econ: ["Monopoly", "Oligopoly", "Elasticity"], chem: ["Covalent bond", "ion", "Isotopes"], history: ["Militarism", "Nationalism"], cs: ["Recursion", "base case", "Big-O notation"]};
+for (const k of Object.keys(MIXED)) { const t = aiKeyTerms(MIXED[k], 20).map(x => x.toLowerCase()); ok(W[k].every(w => t.includes(w.toLowerCase())), `${k}: ${t.join(", ")}`); }
+ok(aiKeyTerms("Osmosis is the diffusion of water across a membrane. Cells need it.").includes("Osmosis"), "'X is the...' sentences give their term");
 console.log(`ai-device-checks: ${n} checks passed`);

@@ -5351,7 +5351,28 @@ const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
   required: ["cards"]};
 // A small model's own instructions: short and concrete. The cloud models' longer ones (exam styles, formats, priorities) made the
 // stand-in model write fewer, vaguer cards
-const DEV_CARD_SYSTEM = "You make flashcards from a student's notes. Each card tests one fact from the notes. front: a short, specific question about that fact (at most 15 words), never a vague one like 'What does the text say about X?'. back: only the answer, in one short sentence, in your own words. Every card is about a different fact: go through the notes in order and cover all of their facts. Use only facts that are in the notes.";
+/* The key terms in a part of the notes, found by plain code (no AI), so a small model can't leave the vocabulary out: a slide's short
+   term line followed by its definition ("Preconscious" / "Contains material that..."), "Term: definition" and "Term - definition"
+   lines, **bold** words, and "X is a/an/the..." sentences. The model is told to name each one on a card; any it skipped gets one
+   short follow-up request. The definitions still come from the model, in its own words. */
+const AI_TERM_SKIP = /^(objectives?|overview|summary|introduction|conclusion|review|questions?|case study|audience response questions?|implications?( for \w+)?|focus on|notes?|slide \d+|chapter \d+|example|examples|(the )?(cont\.?|continued)|key (points|terms)|learning outcomes?|agenda|references|foundations?|prioriti[sz]ing|best candidates?|(newer|older|main|other|more|new) [\w -]+)$/i;
+function aiKeyTerms(text, max){
+  const out = [], seen = new Set(), lines = String(text || "").split(/\n+/).map(l => l.replace(/^[\s•▪●◦*\-–—>]+/, "").trim()).filter(Boolean);
+  const add = t => { t = String(t || "").replace(/\*\*/g, "").replace(/\s*\((cont\.?|continued)\)\s*$/i, "").replace(/[.:;,]+$/, "").trim(); const k = t.toLowerCase();
+    if (/^(operate|operates|use|uses|using|focus|focuses|deny|ward|increased|decreased|have|has|are|is|include|includes|make|makes|help|helps|provide|provides|identify|recognize|reduce|lowering|emphasis|how|why|what|when|where)\b/i.test(t)) return;
+    if (t.length < 2 || t.length > 48 || t.split(/\s+/).length > 5 || AI_TERM_SKIP.test(t) || /^\d/.test(t) || seen.has(k)) return; seen.add(k); out.push(t); };
+  (String(text || "").match(/\*\*([^*\n]{3,48})\*\*/g) || []).forEach(m => add(m.slice(2, -2)));
+  lines.forEach((l, i) => {
+    let m;
+    if ((m = /^([A-Z][\w'’ -]{1,40}?)\s*[:–—-]\s+(.{12,})$/.exec(l)) && m[1].split(/\s+/).length <= 5) add(m[1]);
+    else if ((m = /^((?:(?:The|An?) )?[A-Z][\w'’-]*(?: [\w'’-]+){0,3}) (?:is|are|refers to|means|describes|measures|explains|shows) (?:a|an|the|when|how|any|all|what|whether|why)\b/.exec(l))) add(m[1].replace(/^(The|An?) /, ""));
+    else { const nx = lines[i + 1] || ""; if (/^[A-Z][\w'’ -]{1,40}$/.test(l) && l.split(/\s+/).length <= 4 && nx.split(/\s+/).length >= 5 && !/[.!?]$/.test(l)) add(l);
+      // a one-word term over two or more short points (slides: "Ego" / "Problem solver" / "Reality tester")
+      else if (/^[A-Z][a-z][\w'’-]{0,24}$/.test(l) && nx && nx.split(/\s+/).length <= 4 && (lines[i + 2] || "").split(/\s+/).length <= 4 && !/^\S+$/.test(nx)) add(l); }
+  });
+  return out.slice(0, max || 12);
+}
+const DEV_CARD_SYSTEM = "You make flashcards from a student's notes. Each card tests one fact from the notes. front: a short, specific question about that fact (at most 15 words) that names the term, theory or person it's about (\"What is the preconscious?\", not \"What information can be brought to mind?\"), never a vague one like 'What does the text say about X?'. Skip case-study details such as a patient's name or length of stay. back: only the answer, in one short sentence, in your own words. Every card is about a different fact: go through the notes in order and cover all of their facts. Use only facts that are in the notes.";
 const DEV_CARD_EXAMPLE = `
 
 Example. Notes: "Osmosis is the diffusion of water across a selectively permeable membrane. Water moves toward the side with the higher solute concentration. A red blood cell placed in a hypotonic solution gains water and can burst."
@@ -5487,11 +5508,12 @@ async function aiCardsBySection(o){
   // on the device, the answer being written shows in the status line too
   const live = dev && o.onStatus ? m => { const w = /writing… (\d+) words?/.exec(m); if (w) o.onStatus(`Making flashcards: ${made} card${made === 1 ? "" : "s"} so far, part ${Math.min(done + 1, n)} of ${n} (writing ${w[1]} words)`); } : undefined;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, onStatus: live, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE : o.system,
-    parts: dev ? [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from these notes, each about a different fact: the most important ones, spread across all of these notes.${again ? " Your last answer had too few usable cards: give each card a real question and a complete answer." : ""}`}]
+    parts: dev ? [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from these notes, each about a different fact: the most important ones, spread across all of these notes.${(x.terms || []).length ? ` Key terms here (name each one on the front of a card): ${x.terms.join("; ")}.` : ""}${again ? " Your last answer had too few usable cards: give each card a real question and a complete answer." : ""}`}]
       : [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
   const res = await aiPool(plan, dev ? 1 : 3, async (x0, i) => {
     let unsup = 0;
     const x = fit(x0), corpus = aiCorpus([x.section.text]);
+    if (dev) x.terms = aiKeyTerms(x.section.text, Math.max(1, x.count));
     if (dev && i === 0) tell();
     if (dev && DEV_STEPS.facts && o.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
       if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
@@ -5499,6 +5521,17 @@ async function aiCardsBySection(o){
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
     let cards = g.cards, checked = {fixed: 0, dropped: 0};
+    // key terms the cards left out: one short request for just those (while the minute allows)
+    if (dev && (x.terms || []).length && Date.now() - t0 < BUDGET) {
+      const has = t => cards.some(c => (c.front + " " + c.back).toLowerCase().includes(t.toLowerCase()));
+      const miss = x.terms.filter(t => !has(t)).slice(0, 4);
+      if (miss.length) { try {
+        const r3 = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, onStatus: live, maxTokens: 2000, schema: DEV_CARD_SCHEMA, system: DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE,
+          parts: [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${miss.length} flashcard${miss.length === 1 ? "" : "s"}, one for each of these terms from the notes, naming the term on the front: ${miss.join("; ")}.`}]}));
+        const g3 = gate(r3), more = g3.cards.filter(c => !cards.some(k => aiJaccard(aiKeyTokens(k.front), aiKeyTokens(c.front)) >= 0.7));
+        cards = cards.concat(more);
+      } catch (e) { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; } }
+    }
     if (dev && DEV_STEPS.check && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
     done++; made += cards.length;
     if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`);
@@ -7044,15 +7077,33 @@ async function devSession(sys, pics, signal){
 }
 // The answer as it's written, so the student sees it moving ("Writing… 120 words so far") instead of a frozen status. Chrome has
 // sent each piece on its own (newer) or the whole answer so far (older): both are handled
+// A stall (nothing new for DEV_STALL_MS, or the whole answer past DEV_MAX_MS) stops the request instead of waiting forever
+const DEV_STALL_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 20000, DEV_MAX_MS = 150000;
 async function devStream(s, content, json, signal, onStatus){
-  let text = "", last = 0; const t0 = Date.now();
-  const stream = s.promptStreaming([{role: "user", content}], {responseConstraint: json, signal});
-  for await (const chunk of stream) {
-    const c = String(chunk == null ? "" : chunk);
-    text = c.startsWith(text) && text ? c : text + c;
-    if (Date.now() - last > 400) { last = Date.now(); const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); }
-  }
-  return text;
+  let text = "", last = 0, lastChunk = Date.now(); const t0 = Date.now(), ac = new AbortController();
+  const stop = () => ac.abort(); if (signal) signal.addEventListener("abort", stop, {once: true});
+  // the watchdog wins the race even if the stream ignores being stopped
+  let stalled; const stall = new Promise(r => { stalled = r; });
+  const dog = setInterval(() => { if (Date.now() - lastChunk > DEV_STALL_MS() || Date.now() - t0 > DEV_MAX_MS) { ac.abort(); stalled({stall: true}); } }, 500);
+  try {
+    const stream = s.promptStreaming([{role: "user", content}], {responseConstraint: json, signal: ac.signal}), it = stream[Symbol.asyncIterator]();
+    for (;;) {
+      const step = await Promise.race([it.next(), stall]);
+      if (step.stall) { try { it.return && it.return(); } catch (e) {} throw aiErr("device-stall", `${devLabel()} stopped answering.`); }
+      if (step.done) break;
+      const chunk = step.value;
+      lastChunk = Date.now();
+      const c = String(chunk == null ? "" : chunk);
+      text = c.startsWith(text) && text ? c : text + c;
+      if (Date.now() - last > 400) { last = Date.now(); const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); }
+    }
+    return text;
+  } catch (e) {
+    if (signal && signal.aborted) throw e;
+    if (e && e.code === "device-stall") throw e;
+    if (ac.signal.aborted) throw aiErr("device-stall", `${devLabel()} stopped answering.`);
+    throw e;
+  } finally { clearInterval(dog); if (signal) signal.removeEventListener("abort", stop); }
 }
 /* Getting the model ready ahead of time: when a screen that makes something with AI opens (Flashcards, Photo to Note), the model
    loads while the student picks files, instead of after they press Create; that first load is most of the wait the first time.
@@ -7093,6 +7144,8 @@ async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
         if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
         // too long after all: cut a third more and try again
         if (e && (e.name === "QuotaExceededError" || /quota|too large|context/i.test(e.message || "")) && tries < 2) { truncated = devFit(parts, Math.floor(room() * (0.66 - tries * 0.2))) || truncated; continue; }
+        // stalled: once more, on a fresh session (not a copy), before giving up on this request
+        if (e && e.code === "device-stall" && tries < 1) { try { s.destroy(); } catch (x) {} s = await self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}], signal})); continue; }
         if (e && e.code) throw e;
         throw Object.assign(aiErr(/NotSupported|language/i.test((e && e.name) + (e && e.message)) ? "device-lang" : "device-failed", /NotSupported|language/i.test((e && e.name) + (e && e.message)) ? `${L} doesn't read this language yet.` : `${L} couldn't answer that. Try again.`), {detail: String(e && e.message || e)});
       }

@@ -69,6 +69,19 @@ function fake(o){
     ok(!R.p.errs.length, "no page errors: " + R.p.errs.join(" | "));
     await R.ctx.close(); }
 
+  // Chrome stops sending in the middle of an answer: the request is dropped and asked again on a fresh session, so the set finishes
+  { const R = await open({status: "available"});
+    await R.p.evaluate(() => { window.__SB_STALL_MS = 1500; window.__stalled = 0; const LM = window.LanguageModel, create = LM.create;
+      LM.create = async c => { const s = await create(c), clone = s.clone.bind(s); s.clone = async () => { const k = await clone(); const ps = k.promptStreaming.bind(k);
+        k.promptStreaming = (inp, po) => { if (window.__stalled++ === 0) return (async function* (){ yield "{\"deckTitle\": \"R"; await new Promise(r => setTimeout(r, 600000)); })(); return ps(inp, po); }; return k; }; return s; }; });
+    await sheet(R.p); await R.p.waitForSelector("#dlg[open] #aiGo");
+    await R.p.evaluate(t => { const d = document.querySelector("#dlg details"); if (d) d.open = true; const a = document.querySelector("#aiPaste"); a.value = t; a.dispatchEvent(new Event("input", {bubbles: true})); }, NOTES.slice(0, 1500));
+    await R.p.evaluate(() => { const q = document.querySelector("#aiQuiz"); if (q && q.checked) q.click(); });
+    await R.p.click("#aiGo"); await R.p.waitForSelector("dialog[open] #arSave", {timeout: 30000}).catch(() => {});
+    const got = await R.p.evaluate(() => ({cards: document.querySelectorAll("#arCards li").length, stalled: window.__stalled}));
+    ok(got.cards >= 1 && got.stalled >= 1, `a stalled answer is retried and the set still comes back: ${got.cards} cards`);
+    await R.ctx.close(); }
+
   // Chrome's one-time download: a message at the bottom says so with its progress, from the first AI button
   { const R = await open({status: "downloadable"});
     await sheet(R.p); await R.p.waitForSelector("#dlg[open] #aiGo");

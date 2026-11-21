@@ -313,15 +313,33 @@ async function devSession(sys, pics, signal){
 }
 // The answer as it's written, so the student sees it moving ("Writing… 120 words so far") instead of a frozen status. Chrome has
 // sent each piece on its own (newer) or the whole answer so far (older): both are handled
+// A stall (nothing new for DEV_STALL_MS, or the whole answer past DEV_MAX_MS) stops the request instead of waiting forever
+const DEV_STALL_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 20000, DEV_MAX_MS = 150000;
 async function devStream(s, content, json, signal, onStatus){
-  let text = "", last = 0; const t0 = Date.now();
-  const stream = s.promptStreaming([{role: "user", content}], {responseConstraint: json, signal});
-  for await (const chunk of stream) {
-    const c = String(chunk == null ? "" : chunk);
-    text = c.startsWith(text) && text ? c : text + c;
-    if (Date.now() - last > 400) { last = Date.now(); const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); }
-  }
-  return text;
+  let text = "", last = 0, lastChunk = Date.now(); const t0 = Date.now(), ac = new AbortController();
+  const stop = () => ac.abort(); if (signal) signal.addEventListener("abort", stop, {once: true});
+  // the watchdog wins the race even if the stream ignores being stopped
+  let stalled; const stall = new Promise(r => { stalled = r; });
+  const dog = setInterval(() => { if (Date.now() - lastChunk > DEV_STALL_MS() || Date.now() - t0 > DEV_MAX_MS) { ac.abort(); stalled({stall: true}); } }, 500);
+  try {
+    const stream = s.promptStreaming([{role: "user", content}], {responseConstraint: json, signal: ac.signal}), it = stream[Symbol.asyncIterator]();
+    for (;;) {
+      const step = await Promise.race([it.next(), stall]);
+      if (step.stall) { try { it.return && it.return(); } catch (e) {} throw aiErr("device-stall", `${devLabel()} stopped answering.`); }
+      if (step.done) break;
+      const chunk = step.value;
+      lastChunk = Date.now();
+      const c = String(chunk == null ? "" : chunk);
+      text = c.startsWith(text) && text ? c : text + c;
+      if (Date.now() - last > 400) { last = Date.now(); const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); }
+    }
+    return text;
+  } catch (e) {
+    if (signal && signal.aborted) throw e;
+    if (e && e.code === "device-stall") throw e;
+    if (ac.signal.aborted) throw aiErr("device-stall", `${devLabel()} stopped answering.`);
+    throw e;
+  } finally { clearInterval(dog); if (signal) signal.removeEventListener("abort", stop); }
 }
 /* Getting the model ready ahead of time: when a screen that makes something with AI opens (Flashcards, Photo to Note), the model
    loads while the student picks files, instead of after they press Create; that first load is most of the wait the first time.
@@ -362,6 +380,8 @@ async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
         if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
         // too long after all: cut a third more and try again
         if (e && (e.name === "QuotaExceededError" || /quota|too large|context/i.test(e.message || "")) && tries < 2) { truncated = devFit(parts, Math.floor(room() * (0.66 - tries * 0.2))) || truncated; continue; }
+        // stalled: once more, on a fresh session (not a copy), before giving up on this request
+        if (e && e.code === "device-stall" && tries < 1) { try { s.destroy(); } catch (x) {} s = await self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}], signal})); continue; }
         if (e && e.code) throw e;
         throw Object.assign(aiErr(/NotSupported|language/i.test((e && e.name) + (e && e.message)) ? "device-lang" : "device-failed", /NotSupported|language/i.test((e && e.name) + (e && e.message)) ? `${L} doesn't read this language yet.` : `${L} couldn't answer that. Try again.`), {detail: String(e && e.message || e)});
       }
