@@ -4364,8 +4364,9 @@ const AI_WHO = {
   openai: {company: "OpenAI", product: "ChatGPT", host: "api.openai.com", policy: "https://openai.com/policies/privacy-policy"},
   studyboard: {company: "Anthropic", product: "Studyboard AI", host: (() => { try { return new URL(AI_PRO).host; } catch(e) { return "Studyboard's AI server"; } })(), policy: "https://www.anthropic.com/legal/privacy"},
 };
+Object.defineProperty(AI_WHO, "device", {enumerable: false, get: () => ({company: devLabel(), product: "on this device", host: "this device", policy: ""})});
 const aiConsentMap = () => { try { const m = JSON.parse(localStorage.getItem(AI_CONSENT_LS) || "{}"); return m && typeof m === "object" && !Array.isArray(m) ? m : {}; } catch(e) { return {}; } };
-const aiConsented = provider => ((aiConsentMap()[provider] || {}).v || 0) >= AI_CONSENT_V;
+const aiConsented = provider => provider === "device" || ((aiConsentMap()[provider] || {}).v || 0) >= AI_CONSENT_V;
 function aiConsentSet(provider){ try { const m = aiConsentMap(); m[provider] = {v: AI_CONSENT_V, at: Date.now()}; localStorage.setItem(AI_CONSENT_LS, JSON.stringify(m)); } catch(e) {} }
 let aiAsking = null;
 function aiConsentAsk(provider){
@@ -4421,6 +4422,8 @@ function aiCfg(){
     if (b) return {provider: b, model: b === "gemini" ? (raw.provider === "gemini" && raw.model ? raw.model : "auto") : AI_PROVIDERS[b].models[0][0], keys, key: keys[b], backup: true};
     return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
   }
+  // No key and no Studyboard AI: the AI built into this device (Chrome, or Apple's in the iPhone app), when it has one (01-ai-device.js)
+  if (!keys[provider] && devUsable()) return {provider: "device", model: DEVAI.kind, keys, key: "device"};
   return {provider, model, keys, key: keys[provider]};
 }
 const aiReady = () => !inPreview() && !!aiCfg().key;
@@ -4429,12 +4432,13 @@ const aiErr = (code, message) => Object.assign(new Error(message), {code});
 const aiDetailHtml = e => e && e.detail ? `<details class="cl-diag ai-detail"><summary>Details</summary><p class="mini" style="margin:0">${esc(e.detail)}</p></details>` : "";
 function aiModelName(provider, model){
   if (provider === "studyboard" || (provider === "anthropic" && aiProUser())) return "Studyboard AI";
+  if (provider === "device") return devLabel();
   const P = AI_PROVIDERS[provider]; if (!P) return model;
   const m = P.models.find(x => x[0] === model);
   return m ? m[1].replace(/ \(.*$/, "").replace(/, Auto$/, "") : model;
 }
 // Who is working, in progress lines: "Gemini", not a picker label like "Gemini Auto"
-const aiBrandName = () => { const c = aiCfg(), p = c.provider; return p === "studyboard" || (p === "anthropic" && aiProUser()) ? "Studyboard AI" : (AI_WHO[p] || {}).product || aiModelName(p, c.model); };
+const aiBrandName = () => { const c = aiCfg(), p = c.provider; return p === "device" ? devLabel() : p === "studyboard" || (p === "anthropic" && aiProUser()) ? "Studyboard AI" : (AI_WHO[p] || {}).product || aiModelName(p, c.model); };
 // One model's label in a picker: a Claude key runs as Studyboard AI does, so for Pro students it's just "Studyboard AI"
 const aiOptLabel = (p, m, l) => p === "anthropic" && m === "studyboard" && aiProUser() ? "Studyboard AI" : l;
 /* The model choices for the keys given, grouped by company. For Pro students the Claude key's choice stands on its own as
@@ -4449,7 +4453,7 @@ function aiModelOpts(keys, sel, extra){
 function aiSaveCfg(patch){
   const c = aiCfg(), raw = (state.settings && state.settings.ai) || {};
   const next = {provider: patch.provider || c.provider, model: patch.model || c.model, keys: Object.assign({}, raw.keys || {}, patch.keys || {})};
-  if (next.provider === "studyboard") { next.provider = raw.provider || "gemini"; next.model = raw.model || "auto"; }
+  if (next.provider === "studyboard" || next.provider === "device") { next.provider = raw.provider || "gemini"; next.model = raw.model || "auto"; }
   const own = patch.ownKey !== undefined ? patch.ownKey : raw.ownKey; if (own) next.ownKey = true;
   if (patch.provider && !patch.model) next.model = patch.provider === "gemini" ? "auto" : AI_PROVIDERS[patch.provider].models[0][0];
   state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings();
@@ -4682,6 +4686,8 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
       try { return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, hasBackup: !!backup}); }
       catch (e) { if (e && e.out && backup && !(signal && signal.aborted) && aiProUsedUp()) { if (!auto) aiWaiting(-1); clearTimeout(slow); try { return await aiCall(arguments0); } finally { if (!auto) aiWaiting(1); } } throw e; }
     }
+    // The AI on this device: nothing is sent anywhere (01-ai-device.js)
+    if (cfg.provider === "device") return await devCall({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, auto});
     // Claude only ever runs as Studyboard AI does (Haiku 5.5, thinking per job, its limits), whatever model was saved
     if (cfg.provider === "anthropic") return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own: cfg.key});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
@@ -5289,7 +5295,8 @@ async function aiSectionsOf(sources, kind){
     return null;
   }
   const secs = SBSECT.fromSources(list, kind), total = secs.reduce((n, x) => n + x.words, 0);
-  if (!SBSECT.worth(secs, total, kind)) return null;
+  // a small engine checks its work part by part, so short material with one part goes this way too
+  if (!SBSECT.worth(secs, total, kind) && !(kind === "small" && secs.length === 1)) return null;
   // each figure page goes with its section (the clearest few per section), in page order
   const figs = {}; list.forEach(src => (src.pdf || []).forEach(p => { if (p.figure && p.img) figs[p.n] = p; }));
   SBSECT.figuresTo(secs, Object.keys(figs).map(Number)).forEach(([pg, k]) => { (secs[k].figs = secs[k].figs || []).push(figs[pg]); });
@@ -5307,36 +5314,106 @@ const AI_PART = (x, i, n) => `Part ${i + 1} of ${n} of the material${SBSECT.labe
 // The pictures of a section's figure pages, each named by its page, and a line asking the AI to use them
 const aiFigParts = x => (x.section.figs || []).flatMap(p => [{text: `Page ${p.n % 1000} of the material (a figure in this part):`}, {inline_data: {mime_type: "image/jpeg", data: p.img}}]);
 const aiFigAsk = x => (x.section.figs || []).length ? " Pictures of this part's pages with figures are attached: where they matter, include what the figures show (labels, parts, steps, trends), described in words so each card works without the picture." : "";
+/* Small on-device models (01-ai-device.js) write noticeably better cards with: a worked example to copy, short sections, the
+   sentence each card comes from written first (so the card stays tied to the notes, and a made-up one can be caught), and a second
+   pass where the model checks its own cards against the notes as a strict teacher. Quizzes: the model takes its own quiz from the
+   notes, and a question whose answer key it disagrees with is left out. */
+const aiOnDevice = () => { try { return aiCfg().provider === "device"; } catch (e) { return false; } };
+const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
+  deckTitle: {type: "STRING", description: "Short name for these cards, 2 to 6 words"},
+  cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
+    basis: {type: "STRING", description: "The sentence from the notes this card is based on, copied exactly"},
+    front: {type: "STRING"}, back: {type: "STRING"},
+    hint: {type: "STRING", description: "A one-sentence nudge that helps recall the back without using its words"}}, required: ["basis", "front", "back"]}}},
+  required: ["cards"]};
+const DEV_CARD_EXAMPLE = `
+
+Example. Notes: "Osmosis is the diffusion of water across a selectively permeable membrane. Water moves toward the side with the higher solute concentration. A red blood cell placed in a hypotonic solution gains water and can burst."
+Good cards:
+{"basis":"Osmosis is the diffusion of water across a selectively permeable membrane.","front":"What is osmosis?","back":"The movement of water by diffusion through a membrane that lets only some substances pass.","hint":"It's diffusion, but only for one very common molecule."}
+{"basis":"Water moves toward the side with the higher solute concentration.","front":"In osmosis, which way does water move?","back":"Toward the side with more dissolved solute.","hint":"Water flows to dilute the more crowded side."}
+{"basis":"A red blood cell placed in a hypotonic solution gains water and can burst.","front":"What happens to a red blood cell in a hypotonic solution?","back":"Water rushes in, so it swells and may burst.","hint":"Hypo- means the outside has less solute than the inside."}
+Bad cards (never write these): front "What does the text say about osmosis?" (vague); back "See the notes" (no answer); a front that already contains its answer; a card about the lecture title, date or instructor.`;
+// Is the card's "basis" really in the notes? (most of its longer words are, in a run of at least 3 that matches the notes' wording)
+function aiBasisOk(basis, text){
+  const w = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").match(/[\p{L}\p{N}]{4,}/gu) || [];
+  const bw = w(basis); if (bw.length < 3) return bw.length > 0 && bw.every(x => w(text).includes(x));
+  const tw = w(text), set = new Set(tw), runs = new Set(); for (let i = 0; i + 3 <= tw.length; i++) runs.add(tw.slice(i, i + 3).join(" "));
+  let run = false; for (let i = 0; i + 3 <= bw.length && !run; i++) run = runs.has(bw.slice(i, i + 3).join(" "));
+  return run && bw.filter(x => set.has(x)).length / bw.length >= 0.75;
+}
+const DEV_CHECK_SCHEMA = {type: "OBJECT", properties: {checks: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  n: {type: "INTEGER"}, verdict: {type: "STRING", enum: ["keep", "fix", "drop"]}, back: {type: "STRING", description: "The corrected answer, only when the verdict is fix"}}, required: ["n", "verdict"]}}}, required: ["checks"]};
+// The second pass for cards: keep, fix (a better answer from the notes) or drop. It may not drop more than half (a model that
+// rejects most of its own cards is more likely wrong about them than they are)
+async function aiDevCheckCards(section, cards, signal){
+  if (!cards.length) return {cards, fixed: 0, dropped: 0};
+  try {
+    const r = await aiCall({task: "check", signal, maxTokens: 1500, schema: DEV_CHECK_SCHEMA,
+      system: "You are a strict, fair teacher checking a student's flashcards against their notes. Judge only by the notes.",
+      parts: [{text: `Notes:\n${section.text}\n\nFlashcards:\n${cards.map((c, i) => `${i + 1}. Front: ${c.front}\n   Back: ${c.back}`).join("\n")}\n\nGive one verdict per card, by its number. keep: the back correctly and completely answers the front, according to the notes. fix: the back is wrong, incomplete or unclear; write the corrected back, 1 or 2 sentences in your own words, from the notes. drop: trivia, not answerable from the notes, or the front gives its own answer away.`}]});
+    const by = new Map((r.data.checks || []).map(x => [Number(x.n), x])), drops = cards.filter((c, i) => (by.get(i + 1) || {}).verdict === "drop").length, mayDrop = drops <= Math.floor(cards.length / 2);
+    let fixed = 0, dropped = 0;
+    const out = cards.flatMap((c, i) => { const v = by.get(i + 1); if (!v) return [c];
+      if (v.verdict === "drop" && mayDrop) { dropped++; return []; }
+      const nb = aiTidyText(v.back || "");
+      if (v.verdict === "fix" && nb.length > 2 && nb.length <= 700 && !aiDefers(nb) && aiKeyTokens(nb).join(" ") !== aiKeyTokens(c.front).join(" ")) { fixed++; return [Object.assign({}, c, {back: nb})]; }
+      return [c]; });
+    return {cards: out, fixed, dropped};
+  } catch (e) { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return {cards, fixed: 0, dropped: 0}; }
+}
+const DEV_SOLVE_SCHEMA = {type: "OBJECT", properties: {answers: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  n: {type: "INTEGER"}, letters: {type: "ARRAY", items: {type: "STRING"}, description: "The letters of the correct options"}}, required: ["n", "letters"]}}}, required: ["answers"]};
+// The second pass for quizzes: the model answers its own questions from the notes, without the answer key; a question it answers
+// differently is ambiguous or keyed wrong, so it's left out (again, never more than half)
+async function aiDevCheckQuiz(section, qs, signal){
+  const L = "ABCDEFGH", test = qs.map((q, i) => ({q, i})).filter(x => ["single", "multiple", "truefalse"].includes(x.q.type) && x.q.options.length <= L.length);
+  if (!test.length) return {questions: qs, dropped: 0};
+  try {
+    const r = await aiCall({task: "check", signal, maxTokens: 1200, schema: DEV_SOLVE_SCHEMA,
+      system: "You are a careful student taking a quiz. Answer only from the notes given.",
+      parts: [{text: `Notes:\n${section.text}\n\nQuestions:\n${test.map((x, k) => `${k + 1}. ${x.q.stem}${x.q.type === "multiple" ? " (choose all that apply)" : ""}\n${x.q.options.map((o, j) => `   ${L[j]}. ${o}`).join("\n")}`).join("\n")}\n\nFor each question, by its number, give the letter of the correct option (or every correct letter, where it says choose all that apply).`}]});
+    const by = new Map((r.data.answers || []).map(a => [Number(a.n), (a.letters || []).map(l => L.indexOf(String(l).trim().toUpperCase().charAt(0))).filter(j => j >= 0).sort((a2, b2) => a2 - b2)]));
+    const bad = new Set(test.filter((x, k) => { const got = by.get(k + 1); return got && got.length && got.join(",") !== x.q.correct.slice().sort((a2, b2) => a2 - b2).join(","); }).map(x => x.i));
+    if (bad.size > Math.floor(test.length / 2)) return {questions: qs, dropped: 0};
+    return {questions: qs.filter((q, i) => !bad.has(i)), dropped: bad.size};
+  } catch (e) { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return {questions: qs, dropped: 0}; }
+}
 async function aiCardsBySection(o){
-  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length; let done = 0;
-  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: CARD_SCHEMA, system: o.system,
+  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0;
+  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? o.system + DEV_CARD_EXAMPLE : o.system,
     parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
-  const res = await aiPool(plan, 3, async (x, i) => {
-    const corpus = aiCorpus([x.section.text]), gate = r => aiGateCards(r.data.cards, {max: x.count + 2, corpus, copy: o.copy});
+  const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
+    let unsup = 0;
+    const corpus = aiCorpus([x.section.text]), gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
     let r = await ask(x, i), g = gate(r);
-    if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
+    if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
+    let cards = g.cards, checked = {fixed: 0, dropped: 0};
+    if (dev && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
     if (o.onStatus) o.onStatus(`Making flashcards: ${++done} of ${n} parts done`);
-    return {cards: g.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague};
+    return {cards: cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
   if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't make cards from that. Try again.");
   const missed = res.length - ok.length;
-  return {data: {cards: ok.flatMap(x => x.cards), deckTitle: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed, vague: ok.reduce((m, x) => m + (x.vague || 0), 0)};
+  return {data: {cards: ok.flatMap(x => x.cards), deckTitle: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed, vague: ok.reduce((m, x) => m + (x.vague || 0), 0), unsup: ok.reduce((m, x) => m + (x.unsup || 0), 0), fixed: ok.reduce((m, x) => m + (x.fixed || 0), 0)};
 }
 async function aiQuizBySection(o){
-  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length; let done = 0;
+  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 9000, schema: QUIZ_SCHEMA, system: AI_QUIZ_SYSTEM + " " + AI_GROUND,
     parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Write exactly ${x.count} practice question${x.count === 1 ? "" : "s"} from this part only. Every question must be answerable from this part, and its rationale must say where.${aiFigAsk(x)}${again ? " Your last answer had too few usable questions: write complete questions with their options, correct answers and rationales." : ""}`})}));
-  const res = await aiPool(plan, 3, async (x, i) => {
+  const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
     const corpus = aiCorpus([x.section.text]), gate = r => aiGateQuestions(aiCleanQuestions(r.data.questions), {max: x.count + 1, corpus, copy: o.copy});
     let r = await ask(x, i), g = gate(r);
     if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
+    let keep = g.questions, wrong = 0;
+    if (dev && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
-    return {questions: (r.data.questions || []).filter(q => g.questions.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated};
+    return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
   if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't write a quiz from that. Try again.");
-  return {data: {questions: ok.flatMap(x => x.questions), title: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed: res.length - ok.length};
+  return {data: {questions: ok.flatMap(x => x.questions), title: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed: res.length - ok.length, wrong: ok.reduce((m, x) => m + (x.wrong || 0), 0)};
 }
 // A PDF read on this device, page by page: each page's lines with their font size (headings are bigger), and, when figures are
 // wanted (an engine that can see pictures), which pages hold a real figure (a diagram, chart or labelled picture), rendered as a
@@ -5424,12 +5501,14 @@ async function aiMakeStudySet(opts, onStatus){
   const jobs = [];
   const CARD_SYSTEM = "You write excellent flashcards for students. Each card tests exactly one idea. Fronts are short (a term, a question of at most 20 words, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 2 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and key priorities where relevant. Every card must be answerable from the material alone. No two cards may ask the same thing, and skip trivia such as the lecture title, agenda, instructor names and logistics. " + AI_GROUND + " " + AI_RULES;
   // Long material, read on this device: one section at a time (the pipeline, 01-ai-sections.js); short material: one request, as before
-  const secs = (cards || quiz) ? await aiSectionsOf(sources, opts.engine === "small" ? "small" : "cloud") : null;
+  // a small engine (the AI on this device) always works in short sections
+  const kind = opts.engine === "small" || aiOnDevice() ? "small" : "cloud";
+  const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
   if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
-  if (cards && secs) jobs.push(aiCardsBySection({secs, kind: opts.engine === "small" ? "small" : "cloud", n: nCards, ctx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}));
-  else if (cards) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
-    system: CARD_SYSTEM})));
-  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: opts.engine === "small" ? "small" : "cloud", n: nQuiz, ctx, signal, light: opts.light, copy, onStatus}));
+  if (cards && secs) jobs.push(aiCardsBySection({secs, kind: kind, n: nCards, ctx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus}));
+  else if (cards) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
+    schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})));
+  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, signal, light: opts.light, copy, onStatus}));
   else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
   if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
@@ -5444,8 +5523,11 @@ async function aiMakeStudySet(opts, onStatus){
     const dr = []; if (g.dropped.dup) dr.push(g.dropped.dup + " repeated"); if (g.dropped.long) dr.push(g.dropped.long + " too long for one card"); if (g.dropped.empty) dr.push(g.dropped.empty + " incomplete"); if (dr.length) out.notes.push("Left out " + dr.join(", ") + " flashcard" + (g.dropped.dup + g.dropped.long + g.dropped.empty === 1 ? "" : "s") + ".");
     const vague = g.dropped.vague + (r.vague || 0);
     if (vague) out.notes.push(`Left out ${vague} flashcard${vague === 1 ? "" : "s"} that pointed to your notes instead of giving the answer.`);
+    if (r.unsup) out.notes.push(`Left out ${r.unsup} flashcard${r.unsup === 1 ? "" : "s"} that didn't hold up when checked against your material.`);
+    if (r.fixed) out.notes.push(`Corrected ${r.fixed} answer${r.fixed === 1 ? "" : "s"} after checking them against your material.`);
     if (g.dropped.copied) out.notes.push(`Left out ${g.dropped.copied} flashcard${g.dropped.copied === 1 ? "" : "s"} that copied your material word for word instead of restating it.`); }
   if (quiz) { const r = res[k++], g = aiGateQuestions(aiCleanQuestions(r.data.questions), {max: Math.ceil(nQuiz * 1.2), corpus, copy}); out.questions = g.questions; out.quizTitle = aiTidyText(r.data.title); out.truncated = out.truncated || r.truncated;
+    if (r.wrong) out.notes.push(`Left out ${r.wrong} question${r.wrong === 1 ? "" : "s"} whose answer didn't hold up when checked against your material.`);
     if (g.dropped.dup + g.dropped.bad) out.notes.push(`Left out ${g.dropped.dup + g.dropped.bad} repeated or malformed question${g.dropped.dup + g.dropped.bad === 1 ? "" : "s"}.`);
     if (g.dropped.copied) out.notes.push(`Left out ${g.dropped.copied} question${g.dropped.copied === 1 ? "" : "s"} that copied your material word for word instead of restating it.`); }
   if (cases) { const r = res[k++]; out.cases = aiCleanCases(r.data.cases).filter(c => !aiCopied(c.scenario, copy) && !(c.questions || []).some(q => [q.stem, q.answer, q.rationale].concat(q.options || []).some(t => aiCopied(t, copy)))); out.truncated = out.truncated || r.truncated; }
@@ -5972,7 +6054,9 @@ function aiSetupSheet(fromFeature, opts){
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
       ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
-      ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
+      ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : " The first time you use it, Chrome downloads it once."}</p>
+        <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can look things up on the web.</p></div>` : ""}
+      ${fromFeature && !pro && c.provider !== "device" ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
       ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
       <ol class="ai-steps">
         <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a></li>
@@ -6328,6 +6412,166 @@ function aiPlannerFacts(need){
   } catch (e) {}
   return L.join("\n\n");
 }
+/* ===== 01-ai-device.js: AI that runs on the student's own device, with nothing to set up.
+   Chrome: the built-in Prompt API (window.LanguageModel, Gemini Nano; desktop Chrome 148 and later).
+   iPhone and iPad app: Apple's on-device model, through the StudyboardOnDeviceAI plugin (ios-wrapper/native/StudyboardOnDeviceAI.swift).
+   Used only when the student has no AI key and no Studyboard AI (aiCfg in 01-ai.js). Nothing leaves the device, so there's no
+   consent to ask for, no key and no cost. These models are small, so the study set pipeline gives them short sections, examples,
+   and a checking pass (01-ai.js: aiDevCheckCards, aiDevCheckQuiz). ===== */
+// var, not const: aiCfg can ask about it while the bundle is still loading
+var DEVAI = {kind: "", status: "", images: false, ctx: 0, progress: 0, warm: null, probing: null};
+const DEV_LANGS = ["en", "es", "de", "fr", "ja"];
+const devLangs = () => { const l = String(navigator.language || "en").slice(0, 2).toLowerCase(); return l !== "en" && DEV_LANGS.includes(l) ? ["en", l] : ["en"]; };
+const devOpts = img => ({expectedInputs: [{type: "text", languages: devLangs()}].concat(img ? [{type: "image"}] : []), expectedOutputs: [{type: "text", languages: devLangs()}]});
+const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : "Chrome's built-in AI";
+const devUsable = () => ["available", "downloadable", "downloading"].includes(DEVAI.status);
+// Tests opt in (the test browser may or may not have the model): window.__SB_DEVICE_AI_TEST
+const devAllowed = () => !window.__SB_TEST || !!window.__SB_DEVICE_AI_TEST;
+let devPluginReg = null;
+function devNative(){
+  try {
+    const C = window.Capacitor; if (!C || !(C.isNativePlatform && C.isNativePlatform())) return null;
+    if (C.isPluginAvailable && !C.isPluginAvailable("StudyboardOnDeviceAI")) return null;
+    if (C.Plugins && C.Plugins.StudyboardOnDeviceAI) return C.Plugins.StudyboardOnDeviceAI;
+    if (!devPluginReg && typeof C.registerPlugin === "function") devPluginReg = C.registerPlugin("StudyboardOnDeviceAI");
+    return devPluginReg;
+  } catch (e) { return null; }
+}
+async function devProbe(){
+  if (DEVAI.probing) return DEVAI.probing;
+  DEVAI.probing = (async () => {
+    const before = DEVAI.status;
+    try {
+      if (!devAllowed()) { DEVAI.status = ""; return; }
+      const N = devNative();
+      if (N) {
+        const r = await N.availability();
+        DEVAI.kind = "apple"; DEVAI.status = r && r.status === "available" ? "available" : r && r.status === "downloading" ? "downloading" : "unavailable";
+        DEVAI.images = !!(r && r.images); DEVAI.ctx = Number(r && r.contextSize) || 4096; DEVAI.reason = (r && r.reason) || "";
+      } else if (typeof self !== "undefined" && "LanguageModel" in self && window.isSecureContext !== false) {
+        DEVAI.kind = "chrome"; DEVAI.status = await self.LanguageModel.availability(devOpts(false));
+        try { DEVAI.images = (await self.LanguageModel.availability(devOpts(true))) !== "unavailable"; } catch (e) { DEVAI.images = false; }
+      } else DEVAI.status = "";
+    } catch (e) { DEVAI.status = "unavailable"; }
+    finally { DEVAI.probing = null; if (DEVAI.status !== before) { try { scheduleRender(); } catch (e) {} } }
+  })();
+  return DEVAI.probing;
+}
+devProbe();
+document.addEventListener("visibilitychange", () => { if (!document.hidden && DEVAI.status && DEVAI.status !== "available") devProbe(); });
+
+/* The first time, Chrome downloads its model (once, for every site). Chrome only starts that download from a click, so a click on
+   anything AI starts it, and the request that follows waits for it with a progress line. */
+const DEV_AI_ACT = /(^|-)ai(-|$)|hint|explain|first-deck|^fd-|^cp-|companion|quiz|^lec-|^wb-/;
+function devWarm(){
+  if (DEVAI.kind !== "chrome" || DEVAI.warm || !["downloadable", "downloading"].includes(DEVAI.status)) return DEVAI.warm;
+  try { if (navigator.userActivation && !navigator.userActivation.isActive) return null; } catch (e) {}
+  DEVAI.warm = self.LanguageModel.create(Object.assign(devOpts(false), {monitor(m){ m.addEventListener("downloadprogress", e => { DEVAI.progress = Number(e.loaded) || 0; try { fire("device-ai-progress", DEVAI.progress); } catch (x) {} }); }}))
+    .then(s => { try { s.destroy(); } catch (e) {} DEVAI.status = "available"; DEVAI.progress = 1; try { scheduleRender(); } catch (e) {} return true; })
+    .catch(e => { DEVAI.warm = null; return false; });
+  return DEVAI.warm;
+}
+document.addEventListener("click", e => {
+  if (!e.isTrusted || DEVAI.kind !== "chrome" || DEVAI.status === "available" || !devUsable()) return;
+  const el = e.target && e.target.closest && e.target.closest("[data-act]"); if (!el) return;
+  try { const c = aiCfg(); if (c.provider !== "device") return; } catch (x) { return; }
+  if (DEV_AI_ACT.test(el.dataset.act || "")) devWarm();
+}, true);
+
+// base64 picture (from a part's inline_data) to a Blob, for Chrome
+const devBlob = (b64, type) => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new Blob([u], {type}); };
+// Rough tokens for text these models read (about 3.3 characters each, a little high on purpose)
+const devTokens = t => Math.ceil(String(t || "").length / 3.3);
+// Shorten the longest text parts until the request fits, keeping each one's start; says whether anything was cut
+function devFit(parts, room){
+  const texts = parts.filter(p => p && typeof p.text === "string");
+  let over = texts.reduce((n, p) => n + devTokens(p.text), 0) - room, cut = false;
+  while (over > 0) {
+    const big = texts.reduce((a, p) => devTokens(p.text) > devTokens(a.text) ? p : a, texts[0]); if (!big || devTokens(big.text) < 200) break;
+    const keep = Math.max(600, Math.floor((devTokens(big.text) - over - 40) * 3.3));
+    const t = big.text.slice(0, keep), end = Math.max(t.lastIndexOf(". "), t.lastIndexOf("\n"));
+    big.text = (end > keep * 0.6 ? t.slice(0, end + 1) : t) + "\n[…the rest was left out to fit]"; cut = true;
+    over = texts.reduce((n, p) => n + devTokens(p.text), 0) - room;
+  }
+  return cut;
+}
+const DEV_TAIL = "\n\nAnswer with JSON only, in exactly the requested format. Everything you write must be suitable for a school student.";
+// One request at a time: these models answer one thing at a time anyway, and progress lines stay true
+let devQueue = Promise.resolve();
+function devCall(o){ const run = devQueue.then(() => devRun(o)); devQueue = run.catch(() => {}); return run; }
+async function devRun({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, auto}){
+  if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
+  const L = devLabel();
+  if (search || urlContext) throw aiErr("device-web", `${L} works offline, so it can't look things up on the web. Studyboard AI or an AI key in Settings, AI Features can.`);
+  if (parts.some(p => p && p.file_data)) throw aiErr("device-files", `${L} can't watch videos. Studyboard AI or an AI key in Settings, AI Features can.`);
+  const pics = parts.filter(p => p && p.inline_data && /^image\//.test(p.inline_data.mime_type || ""));
+  if (parts.some(p => p && p.inline_data && !/^image\//.test(p.inline_data.mime_type || ""))) throw aiErr("device-files", `${L} can't read this file directly (it may be a scan). Studyboard AI or an AI key in Settings, AI Features can.`);
+  if (pics.length && !DEVAI.images) throw aiErr("device-files", `${L} on this device can't read pictures. Studyboard AI or an AI key in Settings, AI Features can.`);
+  parts = parts.map(p => p && typeof p.text === "string" ? {text: p.text} : p);
+  const sys = String(system || "") + DEV_TAIL, json = toJsonSchema(schema || {type: "OBJECT"});
+  const out = Math.min(Number(maxTokens) || 1500, 1800);
+  if (DEVAI.kind === "apple") return devApple({sys, parts, json, out, temperature, signal, auto});
+  return devChrome({sys, parts, json, out, signal, onStatus, auto, pics: pics.length > 0});
+}
+async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
+  const L = devLabel();
+  if (DEVAI.status !== "available") {
+    if (auto) throw aiErr("auto-off", `${L} isn't ready yet.`);
+    const w = devWarm();
+    if (!w) throw aiErr("device-tap", `${L} needs a one-time download first. Tap the button again to start it.`);
+    const tick = () => onStatus && onStatus(`Getting ${L} ready on this computer (one time only)${DEVAI.progress ? `: ${Math.round(DEVAI.progress * 100)}%` : "…"}`);
+    tick(); const iv = setInterval(tick, 1000);
+    try { if (!(await w)) throw aiErr("device-failed", `${L} couldn't finish downloading. Check your connection and free space, then try again.`); } finally { clearInterval(iv); }
+  }
+  let s;
+  try { s = await self.LanguageModel.create(Object.assign(devOpts(pics), {initialPrompts: [{role: "system", content: sys}], signal})); }
+  catch (e) { if (signal && signal.aborted) throw aiErr("aborted", "Stopped."); devProbe(); throw Object.assign(aiErr("device-failed", `${L} couldn't start. Try again in a moment.`), {detail: String(e && e.message || e)}); }
+  try {
+    const content = () => parts.map(p => p.inline_data ? {type: "image", value: devBlob(p.inline_data.data, p.inline_data.mime_type)} : {type: "text", value: p.text});
+    const room = () => Math.max(800, (Number(s.contextWindow || s.inputQuota) || 6000) - (Number(s.contextUsage || s.inputUsage) || devTokens(sys)) - out - devTokens(JSON.stringify(json)) - (pics ? 300 : 0));
+    let truncated = devFit(parts, room());
+    for (let tries = 0; ; tries++) {
+      try {
+        const text = await s.prompt([{role: "user", content: content()}], {responseConstraint: json, signal});
+        const data = aiParseJson(text);
+        if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
+        return {data, model: "chrome-built-in", provider: "device", truncated};
+      } catch (e) {
+        if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
+        // too long after all: cut a third more and try again
+        if (e && (e.name === "QuotaExceededError" || /quota|too large|context/i.test(e.message || "")) && tries < 2) { truncated = devFit(parts, Math.floor(room() * (0.66 - tries * 0.2))) || truncated; continue; }
+        if (e && e.code) throw e;
+        throw Object.assign(aiErr(/NotSupported|language/i.test((e && e.name) + (e && e.message)) ? "device-lang" : "device-failed", /NotSupported|language/i.test((e && e.name) + (e && e.message)) ? `${L} doesn't read this language yet.` : `${L} couldn't answer that. Try again.`), {detail: String(e && e.message || e)});
+      }
+    }
+  } finally { try { s.destroy(); } catch (e) {} }
+}
+async function devApple({sys, parts, json, out, temperature, signal, auto}){
+  const N = devNative(), L = devLabel();
+  if (!N) throw aiErr("device-failed", `${L} isn't available.`);
+  if (DEVAI.status !== "available") { await devProbe(); if (DEVAI.status !== "available") throw aiErr(auto ? "auto-off" : "device-failed", DEVAI.status === "downloading" ? `${L} is still getting ready on this device. Try again in a few minutes.` : `${L} isn't turned on. Turn on Apple Intelligence in Settings, then try again.`); }
+  // The context holds the instructions, the request and the answer together
+  const room = () => Math.max(500, DEVAI.ctx - devTokens(sys) - out - Math.ceil(devTokens(JSON.stringify(json)) * 0.6) - 150);
+  let truncated = devFit(parts, room());
+  for (let tries = 0; ; tries++) {
+    if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
+    const prompt = parts.filter(p => p.text != null).map(p => p.text).join("\n\n"), images = parts.filter(p => p.inline_data).map(p => p.inline_data.data);
+    let r;
+    try { r = await N.generate({system: sys, prompt, schema: json, temperature: temperature == null ? 0.3 : Math.min(0.7, temperature), maxTokens: out, images}); }
+    catch (e) {
+      const code = String((e && (e.code || e.message)) || "");
+      if (/context/i.test(code) && tries < 2) { truncated = devFit(parts, Math.floor(room() * (0.66 - tries * 0.2))) || truncated; continue; }
+      if (/guardrail|refus/i.test(code)) throw aiErr("device-refused", `${L} wouldn't answer that. Try rewording it.`);
+      if (/language|locale/i.test(code)) throw aiErr("device-lang", `${L} doesn't read this language yet.`);
+      if (/rate|busy|concurrent/i.test(code) && tries < 2) { await new Promise(res => setTimeout(res, 1500)); continue; }
+      throw Object.assign(aiErr("device-failed", `${L} couldn't answer that. Try again.`), {detail: code});
+    }
+    const data = aiParseJson(r && (r.json || r.text));
+    if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
+    return {data, model: "apple-on-device", provider: "device", truncated};
+  }
+}
+if (window.__SB_TEST) window.__sbDevAI = {state: DEVAI, probe: devProbe, fit: devFit, cfg: () => aiCfg(), call: o => aiCall(o)};
 /* ===== module: 01-phone-cam.js: photos from your phone on a computer (a QR code and the photo relay), for Scan to PDF and Photo to Note ===== */
 /* On a computer, Take Photos shows a QR code. It opens a camera page on the phone (cloudflare/key-relay/src/scan.js), and the photos
    taken there come in here, locked (AES-GCM) with a key that only the QR code carries, through the relay. The relay never sees the code.
@@ -7476,9 +7720,10 @@ function askSheet(courseId){
 /* Automatic AI: quietly improves Today's Plan and study sessions */
 // Free to the student: their free Gemini key, or Studyboard AI (included with paid Pro)
 // A Claude key in Studyboard AI Mode counts too: its monthly and daily limits cap what automatic AI can spend
-const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "studyboard" || (p === "anthropic" && m === "studyboard");
+const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "studyboard" || (p === "anthropic" && m === "studyboard") || p === "device";
 // For running by itself in the background, the student's own Claude key is paid: it bills them, so it's never on without their confirming paid use
-const isAutoFree = (p, m) => isFreeModel(p, m) && p !== "anthropic";
+// The AI on this device isn't used in the background: it would slow the computer or phone down while the student works
+const isAutoFree = (p, m) => isFreeModel(p, m) && p !== "anthropic" && p !== "device";
 function autoState(){
   if (inPreview()) return {on: false, reason: "preview"};
   const raw = (state.settings && state.settings.ai) || {}, c = aiCfg();
@@ -85158,7 +85403,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude (and, for a YouTube link, to Google's Gemini, which watches the video), or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare, Anthropic and Google process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
+<p>AI is off until you choose how to use it and agree, in a prompt that names the company, to send content to it. With your own key from Google (Gemini), Anthropic (Claude) or OpenAI, the content an AI feature needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to that provider, using your key. It does not pass through our servers. Without a key or Studyboard AI, Studyboard can use the AI built into your device instead, where there is one (Chrome's built-in AI on a computer, or Apple Intelligence in the iPhone and iPad app): it runs on your device, and nothing you give it is sent to us or anyone else. With a paid Pro plan, you can instead use Studyboard AI: those requests go to Studyboard's AI server, run on Cloudflare, which passes them through Cloudflare's AI Gateway to Anthropic's Claude (and, for a YouTube link, to Google's Gemini, which watches the video), or to models Cloudflare runs itself for transcribing recordings and for search by meaning, and sends the answer back. Cloudflare, Anthropic and Google process what you send to produce the answer. The AI server keeps only how much of your weekly allowance you have used, under your account id, and deletes it when you delete your account. It never stores what you send, and its logs are off. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
 <p>If you connect Brightspace, Canvas, Blackboard, Moodle or Schoology, the connection stays on your device. (Google Classroom works differently: see &ldquo;How Studyboard uses Google user data&rdquo; below.) In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>

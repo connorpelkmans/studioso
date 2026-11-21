@@ -2,9 +2,10 @@
 /* Automatic AI: quietly improves Today's Plan and study sessions */
 // Free to the student: their free Gemini key, or Studyboard AI (included with paid Pro)
 // A Claude key in Studyboard AI Mode counts too: its monthly and daily limits cap what automatic AI can spend
-const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "studyboard" || (p === "anthropic" && m === "studyboard");
+const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "studyboard" || (p === "anthropic" && m === "studyboard") || p === "device";
 // For running by itself in the background, the student's own Claude key is paid: it bills them, so it's never on without their confirming paid use
-const isAutoFree = (p, m) => isFreeModel(p, m) && p !== "anthropic";
+// The AI on this device isn't used in the background: it would slow the computer or phone down while the student works
+const isAutoFree = (p, m) => isFreeModel(p, m) && p !== "anthropic" && p !== "device";
 function autoState(){
   if (inPreview()) return {on: false, reason: "preview"};
   const raw = (state.settings && state.settings.ai) || {}, c = aiCfg();
