@@ -139,6 +139,11 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
     const sent = asks.find(t => /study coach looking at a student's grades/.test(t)) || "";
     ok(/COURSE STA101/.test(sent) && /Grading rules: Lowest quiz dropped/.test(sent) && /Quiz 1 \(Quiz, worth 10%[^)]*\): 50%, dropped/.test(sent), "the AI gets courses, rules and dropped marks");
     ok(/Term GPA from grades now/.test(sent), "and the GPA");
+    // the verdicts are worked out by the app, so the AI words them instead of judging the numbers
+    const J = (sent.split("JUDGMENTS (worked out by Studyboard")[1] || "").replace(/\\n/g, "\n");
+    ok(/Term GPA [\d.]+ out of [\d.]+ is in the [A-D] range|Term GPA [\d.]+ out of [\d.]+ is in the failing range/.test(J), "the app says which band the GPA is in: " + (J.match(/Term GPA[^.]*\./) || [""])[0]);
+    ok(/points (above|below) the pass mark/.test(J) && /Strongest course: .*Weakest: /.test(J), "and how far each course is from its pass mark, and which is strongest and weakest");
+    ok(/never describe a grade, GPA, margin or trend differently from them/.test(sent), "and the AI is told to use them as they are");
 
     // GPA off
     await page.click('[data-act="gp-opts"]'); await page.waitForSelector("#dlg[open] #gGpaIn");
