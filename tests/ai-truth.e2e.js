@@ -72,7 +72,7 @@ function fake(){
   let c = await chat("what's due tomorrow?", NONE);
   ok(/Bio Lab Report/.test(c.last) && c.asked.length === 0, "Companion tab: what's due, from the app, no model: " + c.last.replace(/\n/g, " ").slice(0, 120));
   c = await chat("explain osmosis", [{__wiki: true}]);
-  ok(c.asked.length === 1 && /First list the key points/.test(c.asked[0].text) && /Osmosis is the spontaneous/.test(c.asked[0].text), "a general question: Wikipedia, and the key points then the answer in ONE call (fast): " + c.asked.length + " call(s)");
+  ok(c.asked.length >= 1 && c.asked.length <= 2 && /Osmosis is the spontaneous/.test(c.asked[0].text) && /THE STUDENT ASKS: explain osmosis/.test(c.asked[0].text), "a general question in the chat: Wikipedia as the source, and a fuller try only if the first answer is too thin: " + c.asked.length + " call(s)");
   // making things from the Companion tab: done by the app, not just talked about
   c = await chat("add homework 3 due friday at 2pm", NONE);
   ok(c.asked.length === 0 && /Homework 3/.test(c.last) && /Add Task/.test(c.last), "add a task: the task with its details and an Add Task button, read from the words, no model: " + c.last.replace(/\n/g, " ").slice(0, 160));

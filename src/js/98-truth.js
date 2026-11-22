@@ -240,7 +240,10 @@ window.SBTRUTH = (() => {
      when a note headed "Defense mechanisms" lists "Repression: ...", "Projection: ...". Exact, instant, theirs. */
   function fromNotes(q){
     const notes = Object.values(state.notes || {}).filter(n => n && !n.archived && n.text);
-    const term = (String(q).match(/^\s*(?:what(?:'s| is| are)|whats|define|definition of|meaning of|what does)\s+(?:the\s+|a\s+|an\s+)?(.+?)(?:\s+mean)?\s*[?.!]*$/i) || [])[1];
+    // a comparison of two terms their notes define: both definitions, side by side
+    const cmp = String(q).match(/\b(?:difference|differences|compare|contrast)\s+(?:between\s+)?(?:the\s+)?(.+?)\s+(?:and|vs\.?|versus|with)\s+(?:the\s+)?(.+?)\s*[?.!]*$/i) || String(q).match(/^\s*(?:the\s+)?(.+?)\s+(?:vs\.?|versus)\s+(?:the\s+)?(.+?)\s*[?.!]*$/i);
+    if (cmp) { const a = fromNotes("what is " + cmp[1]), b = fromNotes("what is " + cmp[2]); if (a && b && !/^Your notes list/.test(a.answer + b.answer)) return {answer: `${a.answer}\n${b.answer}`, found: true, sources: [], fromNotes: true, notesSrc: [...new Set([...(a.notesSrc || []), ...(b.notesSrc || [])])]}; return null; }
+    const term = (String(q).match(/^\s*(?:what (?:do|does) my (?:notes?|lecture|class notes) say about|what did (?:i|we) (?:write|learn|cover) about|what(?:'s| is| are)|whats|define|definition of|meaning of|what does)\s+(?:the\s+|a\s+|an\s+)?(.+?)(?:\s+mean)?\s*[?.!]*$/i) || [])[1];
     if (!term || term.split(/\s+/).length > 5) return null;
     const T = low(term).replace(/[^a-z0-9 &'-]/g, "").trim(); if (!T) return null;
     const lineRe = l => { const m = String(l).match(/^\s*[-•*]?\s*([^:\n]{2,60}?)\s*(?::|\s[-–—]\s)\s*(.{8,})$/); return m ? {k: m[1].trim(), v: m[2].trim()} : null; };
@@ -280,12 +283,10 @@ window.SBTRUTH = (() => {
     let fallback = null;   // right but short: kept in case a fuller try fails
     const tryOnce = async (extra) => { const src = srcOf(); try { const r = await call(src, extra); const x = r && r.data; if (ok(x, src)) return x; if (!fallback && ok(x, src, true)) fallback = x; return null; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; } };
     const SHAPE = listQ ? "\n\nIMPORTANT: name every one the sources give, as a list (separated by commas or on their own lines), each with a few words on what it is." : deep ? "\n\nIMPORTANT: write at least 4 full sentences: what it is, then each main part or step from the sources in order, then why it matters." : "";
+    // at most three model calls: right but short gets one fuller try; wrong gets the web (when it was skipped) and one strict try
     let d = await tryOnce();
-    if (!d && fallback && SHAPE) d = await tryOnce(SHAPE);
-    // the notes alone didn't hold up: the web too, then once more, strictly
-    if (!d && covered && !web.length) { web = await getWeb(); if (web.length) d = await tryOnce(); }
-    if (!d) d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources.${SHAPE}`);
-    if (!d && fallback) d = fallback;
+    if (!d && fallback) d = (SHAPE ? await tryOnce(SHAPE) : null) || fallback;
+    if (!d) { if (covered && !web.length) web = await getWeb(); d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources.${SHAPE}`); if (!d && fallback) d = fallback; }
     if (!d) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
     const used = web.filter(x => /wikipedia|wiktionary|stud(y|ies)|research|paper|according/i.test(d.answer));
     return {answer: String(d.answer).trim(), sources: used.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"})), fromNotes: !!notes && /your notes|your files|your lecture|your slides/i.test(d.answer), found: true, notesSrc: mine && mine.src ? mine.src : []};
