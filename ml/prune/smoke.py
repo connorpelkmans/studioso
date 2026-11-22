@@ -130,6 +130,28 @@ def main():
 
         run(os.path.join(HERE, "sizes.py"), "--model", small, "--keep", "8", "4")
         print("6. ok: sizes.py reads a local pruned model")
+
+        # 7. the layer-at-a-time path (stream.py) computes what the normal forward pass computes
+        from stream import Stream
+        S = Stream(full)
+        st_ = S.start(ids)
+        for i, L in S.layers():
+            S.run_layer(L, i, st_)
+        streamed = S.logits(st_["x"])
+        assert torch.allclose(streamed, a, atol=1e-4), f"7. streamed logits differ by {(streamed - a).abs().max()}"
+        sstats = os.path.join(w, "sstats.pt")
+        run(os.path.join(HERE, "stream.py"), "score", "--model", full, "--calib", calib, "--out", sstats)
+        s2 = torch.load(sstats, weights_only=False)
+        assert torch.equal(s2["count"], st["count"]), "7. streamed expert counts differ from reap.py's"
+        assert torch.allclose(s2["wnorm"], st["wnorm"], rtol=1e-4), "7. streamed REAP sums differ from reap.py's"
+        print("7. ok: stream.py gives the same logits and the same expert scores as the normal forward pass")
+
+        ag = os.path.join(w, "agree.json")
+        run(os.path.join(HERE, "stream.py"), "agree", "--model", full, "--dev", calib, "--stats", sstats, "--keep", "16", "8", "--out", ag)
+        r = json.load(open(ag))
+        assert r["16"]["ALL"]["agree"] == 1.0 and r["16"]["ALL"]["kl"] < 1e-6, r["16"]["ALL"]
+        assert abs(r["8"]["ALL"]["agree"] - k2["agree"]) < 0.02, (r["8"]["ALL"], k2)
+        print(f"8. ok: stream.py agree: all experts {r['16']['ALL']['agree']:.0%}; 8 experts {r['8']['ALL']['agree']:.0%} (kl.py on the pruned file: {k2['agree']:.0%})")
         print("all smoke checks passed")
     finally:
         shutil.rmtree(w, ignore_errors=True)
