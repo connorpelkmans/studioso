@@ -2799,7 +2799,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       const ctx = cv.getContext("2d", {willReadFrequently: true}), pb = el.getBoundingClientRect(), k = cv.width / (pb.width || cv.width);
       tl.querySelectorAll("span:not(.markedContent)").forEach(sp => {
         if (!sp.textContent.trim()) return;
-        const r = sp.getBoundingClientRect(), x0 = Math.max(0, Math.floor((r.left - pb.left) * k)), y0 = Math.max(0, Math.floor((r.top - pb.top) * k));
+        const r = sp.getBoundingClientRect(), fs = parseFloat(getComputedStyle(sp).fontSize) || 0;
+        // a box both wide and tall (invisible oversized text over the page) would swallow the drag and paint as a huge blue block when selected, even with ink under it
+        if (fs && (Math.min(r.width, r.height) > fs * 4 || Math.min(r.width, r.height) > Math.min(pb.width, pb.height) * 0.2 || r.width > pb.width * 1.5 || r.height > pb.height * 1.5)) { sp.classList.add("pdr-ghost"); return; }
+        const x0 = Math.max(0, Math.floor((r.left - pb.left) * k)), y0 = Math.max(0, Math.floor((r.top - pb.top) * k));
         const w = Math.min(cv.width - x0, Math.ceil(r.width * k)), h = Math.min(cv.height - y0, Math.ceil(r.height * k)); if (w < 2 || h < 2) return;
         const d = ctx.getImageData(x0, y0, w, h).data, step = Math.max(1, Math.floor(Math.sqrt(w * h / 3000))), hist = new Uint32Array(52), L = [];
         for (let yy = 0; yy < h; yy += step) for (let xx = 0; xx < w; xx += step) { const i = (yy * w + xx) * 4, l = 255 - (255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])) * d[i + 3] / 255; L.push(l); hist[Math.min(51, Math.floor(l / 5))]++; }
