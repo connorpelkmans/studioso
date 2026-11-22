@@ -18,7 +18,7 @@ window.SBTRUTH = (() => {
   /* ---------- facts: the planner's own answers ---------- */
   function range(s, today){
     let m;
-    if (/\boverdue|late|missed|past due\b/.test(s)) return {from: "0000-00-00", to: addDays(today, -1), label: "overdue"};
+    if (/\boverdue|late|missed|past due|forgot|forget|miss anything|behind on\b/.test(s)) return {from: "0000-00-00", to: addDays(today, -1), label: "overdue"};
     if (/\btoday|tonight\b/.test(s)) return {from: today, to: today, label: "today"};
     if (/\btomorrow\b/.test(s)) return {from: addDays(today, 1), to: addDays(today, 1), label: "tomorrow"};
     if (/\bnext week\b/.test(s)) { const d0 = new Date(today + "T12:00:00").getDay(), start = addDays(today, 7 - d0 + 1 > 7 ? 1 : 7 - d0 + 1); return {from: start, to: addDays(start, 6), label: "next week"}; }
@@ -42,11 +42,20 @@ window.SBTRUTH = (() => {
       const keys = [c.code, c.name].filter(Boolean).map(low); keys.forEach(k => { if (k && L.includes(k) && k.length > bs) { bs = k.length; best = c; } });
       const cw = words(c.name), hit = cw.filter(w => qw.some(x => pre(x, w))).length; if (cw.length && hit / cw.length >= 0.6 && hit * 3 > bs) { bs = hit * 3; best = c; }
       const num = (low(c.code).match(/\d{3,4}/) || [])[0]; if (num && new RegExp("\\b" + num + "\\b").test(L) && 5 > bs) { bs = 5; best = c; }
+      // its instructor ("Dr. Chen's office hours")
+      const iw = (low(c.instructor || "").match(/[a-z]{3,}/g) || []).filter(w => !/^(dr|prof|professor|mr|mrs|ms|miss)$/.test(w)); if (iw.some(w => w.length >= 3 && new RegExp("\\b" + w + "('s)?\\b").test(L)) && 3 > bs) { bs = 3; best = c; }
+      // the letters of its code ("bio" for BIOS 230, "hist" for HIST 1010), or one word of its name no other course has ("history")
+      const cl = (low(c.code).match(/^[a-z]+/) || [""])[0]; if (cl.length >= 3 && qw.some(w => w.length >= 3 && (cl.startsWith(w) || (w.startsWith(cl) && w.length - cl.length <= 3))) && 3 > bs) { bs = 3; best = c; }
+      cw.filter(w => w.length >= 5 && !/^(introduction|intro|principles|fundamentals|foundations|advanced|general|applied|studies|science|sciences|nursing|theory|methods|topics|seminar|survey)$/.test(w)).forEach(w => { if (qw.some(x => pre(x, w)) && coursesArr().filter(o => words(o.name).some(y => pre(w, y))).length === 1 && 2 > bs) { bs = 2; best = c; } });
       Object.keys(ALIAS).forEach(a => { if (new RegExp("(^|[^a-z])" + a.replace(/[&]/g, "\\&") + "([^a-z]|$)").test(L) && ALIAS[a].test(low(c.name)) && 4 > bs) { bs = 4; best = c; } });
     });
     return best;
   }
+  // how students type: "wats due tmrw", "do i have hw", "whens my nxt test", "am i gonna pass bio"
+  const SLANG = [[/\b(tmrw|tmr|tmrrw|2morrow|tomorow|tommorow|tommorrow)\b/g, "tomorrow"], [/\b(tdy|2day|tday)\b/g, "today"], [/\b(hw|hmwk|homewrk)\b/g, "homework"], [/\b(wats|wat|whats|wuts|wut)\b/g, "what's"], [/\bwhens\b/g, "when's"], [/\bwheres\b/g, "where's"], [/\b(nxt)\b/g, "next"], [/\b(wk)\b/g, "week"], [/\b(u)\b/g, "you"], [/\b(r)\b/g, "are"], [/\b(ur)\b/g, "your"], [/\b(gonna)\b/g, "going to"], [/\b(prof)\b/g, "professor"], [/\b(asgmt|assgn|assignmt)\b/g, "assignment"], [/\b(exm)\b/g, "exam"], [/\b(dont)\b/g, "don't"], [/\bim\b/g, "i'm"], [/\b(thx|ty)\b/g, "thanks"]];
+  const norm = q => SLANG.reduce((t, [re, to]) => t.replace(re, to), low(q));
   function facts(q){
+    q = norm(q);
     const s = low(q).replace(/[?!.]+$/, ""), today = todayISO(), L = window.SBLOCALANS;
     if (!s || s.length > 160) return null;
     // the wider set of planner questions (98-facts.js): averages, best and worst, classes, the next exam, counts, cards due
@@ -255,5 +264,5 @@ window.SBTRUTH = (() => {
     && !/\b(due|grades?|marks?|tasks?|deadlines?|class(es)?|schedule|calendar|studyboard|mochi|working on|doing|timer|focus|free|busy|settings?|theme|companion|pass(ing)?|fail(ing)?|average|gpa|overdue|decks?|board|planner|semester|assignments? (left|due)|homework (left|due)|how many|streak|daily goal|study goal)\b/i.test(q)
     && String(q).replace(/[^a-z]/gi, "").length >= 6;
 
-  return {nonAnswer, knowledge, range, facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
+  return {norm, nonAnswer, knowledge, range, facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
 })();

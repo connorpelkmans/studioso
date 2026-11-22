@@ -84,14 +84,25 @@ window.SBFACTS = (() => {
     const c = courseIn(s); if (!c) return null;
     return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. You can add one in the course.`, show: []};
   }
+  // "what's on today", "what's happening this week": classes, events and what's due, by day
+  function agenda(s, today){
+    if (!/\bwhat'?s (happening|on|up|going on|planned)\b|\bagenda\b|\bmy (day|week) (look|looking)\b|\bwhat does my (day|week) look\b/.test(s)) return null;
+    const week = /\bweek\b/.test(s), from = week ? today : (dayIn(s, today) || today), to = week ? addDays(today, 6) : from;
+    const occ = occsOn(from, to), due = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= from && t.due <= to);
+    if (!occ.length && !due.length) return {answer: `Nothing is scheduled ${week ? "this week" : dayName(from, today)}, and nothing is due.`, show: []};
+    const days = []; for (let d = from; d <= to; d = addDays(d, 1)) { const o = occ.filter(x => x.date === d), t = due.filter(x => x.due === d); if (o.length || t.length) days.push(`${dayName(d, today)[0].toUpperCase() + dayName(d, today).slice(1)}: ${[...o.map(x => occLine(x, today, false)), ...t.map(x => "due: " + x.title)].join("; ")}`); }
+    return {answer: days.join("\n"), show: []};
+  }
   function classes(s, today){
     const CQ = /\b(class|classes|lecture|lectures|lab|labs|seminar|tutorial|calendar|schedule|timetable|events?|free|busy|meetings?|office hours)\b/;
-    if (!CQ.test(s) || /\b(add|create|make|move|change|cancel|skip|delete|remove|reschedule)\b/.test(s)) return null;
     const c = courseIn(s);
+    // "where do I go for psych", "where is bio": where the course meets next
+    if (c && /\bwhere\b/.test(s) && !CQ.test(s)) s = s + " class";
+    if (!CQ.test(s) || /\b(add|create|make|move|change|cancel|skip|delete|remove|reschedule)\b/.test(s)) return null;
     // who teaches it, where it meets, office hours
     if (c && /\b(who|teach|teaches|instructor|professor|prof|teacher|lecturer)\b/.test(s)) return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. You can add one in the course.`, show: []};
     if (c && /\boffice hours?\b/.test(s)) { const ms = courseMeetings(c).filter(m => /office/i.test(m.kind)); return {answer: ms.length ? `${label(c)} office hours: ${ms.map(m => `${m.days ? m.days.map(d => Wd(addDays("2026-01-04", d)).slice(0, 3)).join("/") + " " : ""}${tm(m.start)}–${tm(m.end)}${m.where ? " in " + m.where : ""}`).join("; ")}.` : c.office ? `${label(c)} office hours: ${c.office}.` : `${label(c)} doesn't list office hours yet.`, show: []}; }
-    if (/\bnext (class|lecture|lab)\b|\bwhen is my next\b/.test(s) || (c && /\b(when|where|what time)\b/.test(s) && /\b(class|lecture|lab|seminar|meet)\b/.test(s))) {
+    if (/\bnext (class|lecture|lab)\b|\b(class|lecture|lab) next\b|\bwhen is my next\b|\bwhat time is my (class|lecture|lab)\b|\bwhere is my (class|lecture|lab)\b/.test(s) || (c && /\b(when|where|what time)\b/.test(s) && /\b(class|lecture|lab|seminar|meet)\b/.test(s))) {
       const kind = (s.match(/\b(lab|lecture|tutorial|seminar|discussion|recitation)\b/) || [])[1];
       const now = nowHM(), up0 = occsOn(today, addDays(today, 21)).filter(o => o.type === "meet" && (!c || o.id === c.id) && (o.date > today || (o.end || "") > now)), up = kind && up0.some(o => new RegExp(kind, "i").test(o.label)) ? up0.filter(o => new RegExp(kind, "i").test(o.label)) : up0;
       if (!up.length) return {answer: c ? `I don't see an upcoming class for ${label(c)} in the next 3 weeks. Its meeting times may not be set yet.` : "I don't see any upcoming classes in the next 3 weeks. Add meeting times to your courses and I'll know.", show: []};
@@ -162,7 +173,7 @@ window.SBFACTS = (() => {
     const ds = decksArr(), dueOf = d => (d.cards || []).filter(c => { try { return cardDue(c); } catch (e) { return false; } }).length, newOf = d => (d.cards || []).filter(c => !c.seen).length;
     if (!ds.length) return {answer: "You don't have any flashcard decks yet. Ask me to make some from your notes.", show: []};
     if (/\bhow many\b/.test(s) && /\bdecks?\b/.test(s) && !/\bdue|review\b/.test(s)) return {answer: `You have ${pl(ds.length, "deck")} with ${ds.reduce((a, d) => a + (d.cards || []).length, 0)} cards in all.`, show: []};
-    if (/\b(due|review|how many|what should i (study|review)|which deck|needs? (work|practice|review)|weakest|study next)\b/.test(s)) {
+    if (/\b(due|review|how many|what should i (study|review)|which deck|what deck|deck (should|to)|needs? (work|practice|review)|weakest|study next)\b/.test(s)) {
       const rows = ds.map(d => ({d, due: dueOf(d), fresh: newOf(d), weak: (d.cards || []).filter(c => c.seen && (c.wrong || 0) > (c.right || 0)).length})).filter(x => x.due || x.fresh || x.weak);
       const total = rows.reduce((a, x) => a + x.due, 0);
       if (!rows.length) return {answer: "No cards are due right now, and every card has been studied. Nice work.", show: []};
@@ -174,10 +185,15 @@ window.SBFACTS = (() => {
 
   // "what's due in PSYN 2100", "what do I have left for bio": everything open for it, soonest first (a window goes to 98-truth.js)
   function dueAll(s, today){
+    if (/\bnext (deadline|thing due|due date)\b|\bwhat'?s due next\b/.test(s)) { const n = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= today).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")))[0], late = tasksArr().filter(t => t.status !== "done" && t.due && t.due < today);
+      return {answer: n ? `Your next deadline: ${n.title}${state.courses[n.courseId] ? " (" + label(state.courses[n.courseId]) + ")" : ""}, ${dayName(n.due, today)}${n.time ? " at " + tm(n.time) : ""}.${late.length ? ` Also overdue: ${late.map(t => t.title).join(", ")}.` : ""}` : "Nothing on your planner has a due date coming up.", show: n ? [{kind: "task", id: n.id}] : []}; }
     if (!/\b(due|left|to do|todo|homework|assignments?|tasks?|work)\b/.test(s) || /\b(how many|busiest|grade|when is|when's)\b/.test(s)) return null;
     const T = window.SBTRUTH; let r = null; try { r = T && T.range ? T.range(s, today) : null; } catch (e) {} if (r) return null;
-    const c = courseIn(s); if (!c) return null;
-    const list = tasksArr().filter(t => t.status !== "done" && t.courseId === c.id).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999"));
+    const c = courseIn(s);
+    if (!c && !/\b(have|left|still|got|need to do|do i have|remaining|outstanding|much work)\b/.test(s)) return null;
+    const list = tasksArr().filter(t => t.status !== "done" && (!c || t.courseId === c.id)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999"));
+    if (!c) { if (!list.length) return {answer: "Nothing is left on your planner. Nice work.", show: []}; const L = window.SBLOCALANS, late = list.filter(t => t.due && t.due < today);
+      return {answer: `You have ${list.length === 1 ? "1 thing" : list.length + " things"} to do${late.length ? `, ${late.length} overdue` : ""}:\n${list.slice(0, 10).map(t => "- " + (L ? L.taskLine(t).replace(/\*\*/g, "") : t.title)).join("\n")}${list.length > 10 ? `\n…and ${list.length - 10} more.` : ""}`, show: []}; }
     if (!list.length) return {answer: `Nothing is left to do for ${label(c)}.`, show: []};
     const L = window.SBLOCALANS;
     return {answer: `${list.length === 1 ? "1 thing" : list.length + " things"} left for ${label(c)}:\n${list.slice(0, 12).map(t => "- " + (L ? L.taskLine(t).replace(/\*\*/g, "") : t.title + (t.due ? ", due " + dayName(t.due, today) : ""))).join("\n")}`, show: []};
@@ -195,7 +211,7 @@ window.SBFACTS = (() => {
   function answer(q){
     const s = low(q).replace(/[?!.]+$/, "").replace(/\s+/g, " ").trim(), today = todayISO();
     if (!s || s.length > 200) return null;
-    for (const f of [itemMark, teacher, eventNamed, grades, exams, classes, counts, courseList, cards, dueAll]) { try { const r = f(s, today); if (r) return r; } catch (e) { console.warn("facts", f.name, e); } }
+    for (const f of [itemMark, teacher, eventNamed, grades, exams, agenda, classes, counts, courseList, cards, dueAll]) { try { const r = f(s, today); if (r) return r; } catch (e) { console.warn("facts", f.name, e); } }
     return null;
   }
   return {answer, gradeRows};
