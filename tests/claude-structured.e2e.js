@@ -49,8 +49,10 @@ const SEED = {v: 2, updated: 1, tasks: [], files: [], notes: [], settings: {}, c
     await page.fill("#aiPaste", TEXT);
     if (await page.locator("#aiCourse").count()) await page.selectOption("#aiCourse", "c1");
     await page.click("#aiGo");
-    const got = await page.waitForSelector("#arSave", {timeout: 15000}).then(() => true, () => false);
-    const status = got ? "" : await page.evaluate(() => (document.getElementById("aiStatus") || {}).textContent || "");
+    // the set opens in its deck and fills in there: done when the bar says so with something made (else a toast says why)
+    await page.waitForSelector(".ai-live-bar.done, #toast.show.toast-err", {timeout: 15000}).catch(() => {});
+    const got = await page.evaluate(() => !!document.querySelector(".ai-live-bar.done") && Object.values(window.__sbSync.state.decks).some(d => d.cards.length));
+    const status = got ? "" : await page.evaluate(() => (document.querySelector("#toast.show") || {}).innerText || "");
     await ctx.close();
     return {sent, got, status, errs};
   };

@@ -2732,6 +2732,18 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;curs
 .ai-live-card[aria-expanded="true"]{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
 @keyframes aiLiveIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.ai-live-card{animation:none}}
+/* A study set being written in place: the bar on its deck or quiz page, and cards and questions popping in as they're added */
+.ai-live-bar{margin:12px 0 0}
+.ai-live-bar .ai-callout{align-items:center}
+.ai-live-bar .ai-callout{margin-top:0;flex-wrap:nowrap}
+.ai-live-bar .ai-callout > :first-child{flex:none;min-width:0}
+.ai-live-bar .ai-callout > span:nth-child(2){flex:1;min-width:0}
+.ai-live-bar .ai-callout > :last-child{flex:none}
+.ai-live-bar .ai-live-msg{font-variant-numeric:tabular-nums}
+.fc-chk{display:block;width:fit-content;margin:6px auto 0;font-size:.72rem;font-weight:600}
+.fc-row.ai-new,.qzd-q.ai-new{animation:aiPopIn .45s ease-out both}
+@keyframes aiPopIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.fc-row.ai-new,.qzd-q.ai-new{animation:none}}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}

@@ -304,12 +304,35 @@ window.SBTRUTH = (() => {
   }
 
   // a question about the subject itself, not the planner: "what is the id", "how does my notes' Krebs cycle work", "explain osmosis"
-  const general = q => /^\s*(what|what's|whats|who|whom|why|how|when|where|which|explain|define|describe|compare|contrast|summari[sz]e|tell me about|give me (an? )?(example|definition|summary)|(can|could) you (explain|define|describe|tell me|summari[sz]e)|difference between|is it true|meaning of|list the|name the)\b/i.test(q)
-    && !/\b(you|your|you're|yours|today|tonight|tomorrow|this week|next week|right now)\b/i.test(q)
-    // advice ("how should I study", "tips to remember", "best way to"): the companion's own knowledge and their planner, not a look-up
-    && !/\b(should i|how (do|can|should|would) i (study|prepare|prep|remember|memori[sz]e|focus|manage|balance|stay|stop|get better|improve|deal|cope|start)|tips?|advice|best way|ways to|help me|study plan|motivat|procrastinat|stress|anxious|overwhelm)\b/i.test(q)
-    && !/\b(due|grades?|marks?|tasks?|deadlines?|class(es)?|schedule|calendar|studyboard|mochi|working on|doing|timer|focus|free|busy|settings?|theme|companion|pass(ing)?|fail(ing)?|average|gpa|overdue|decks?|board|planner|semester|assignments? (left|due)|homework (left|due)|how many|streak|daily goal|study goal)\b/i.test(q)
-    && String(q).replace(/[^a-z]/gi, "").length >= 6;
+  // a polite opening ("can you tell me", "do you know", "I'd like to know") says nothing about who the question is about
+  const asked = q => String(q || "").replace(/^\s*(hey|hi|ok(ay)?|so|um+)?[,\s]*(please\s+)?((can|could|would|will) (you|u)( please)?( (tell|show|teach) me| explain| describe| help me understand)?( more)?( about)?|do (you|u) know( anything about)?|i('d| would) (like|love) to (know|learn)( more)?( about)?|i want to (know|learn|understand)( more)?( about)?|i wanna know( more)?( about)?|help me understand|tell me( more)?( about)?|teach me( about)?)\s+/i, m => /\b(tell|show|teach|explain|describe|understand|know|learn|about)\b/i.test(m) ? "explain " : m);
+  // A question about a subject (answered from the student's notes, then the web), unless it's clearly about something else: their
+  // planner, the app, Mochi itself, advice, or a request to do something. Decided by what it's about, never by how it starts, so
+  // "what is osmosis", "osmosis?", "can you tell me more about osmosis" and "I'm confused about osmosis" all count the same.
+  const general = q0 => { const q = asked(norm ? norm(q0) : q0);
+    if (String(q).replace(/[^a-z]/gi, "").length < 4) return false;
+    // advice ("how should I study", "tips to remember", "best way to")
+    if (/\b(should i|how (do|can|should|would) i (study|prepare|prep|remember|memori[sz]e|focus|manage|balance|stay|stop|get better|improve|deal|cope|start)|tips?|advice|best way|ways to|help me|study plan|motivat|procrastinat|stress|anxious|overwhelm)\b/i.test(q)) return false;
+    // the planner and the app: a planner word counts when the question is about the student ("my", "I", "am I"), or when nothing
+    // else is left in it ("what's due", "grades?"). "What is the average atomic mass" and "how does light pass through glass" are subjects
+    const PLAN = /\b(due|grades?|marks?|tasks?|deadlines?|class(es)?|schedule|calendar|studyboard|mochi|working on|doing|timer|focus|free|busy|settings?|theme|companion|pass(ing)?|fail(ing)?|average|gpa|overdue|decks?|board|planner|semester|assignments? (left|due)|homework (left|due)|how many|streak|daily goal|study goal)\b/i;
+    // Studyboard's own features are always about the app
+    if (/\b(studyboard|mochi|companion|timer|pomodoro|focus (session|mode|time)|settings?|theme|dark mode|planner|streak|daily goal|study goal|widgets?|wardrobe|accessor(y|ies)|the app|this app|sync|notifications?|reminders?)\b/i.test(q)) return false;
+    // their own courses and work: "is my bio course hard", "when is the midterm", "how long is my essay"
+    if (/\b(my|mine|am i|i'm|im|i have|i've)\b/i.test(q) && /\b(course|courses|class|classes|prof|professor|teacher|instructor|ta|exam|exams|test|tests|midterm|final|finals|quiz|quizzes|lab|labs|essay|project|assignment|homework|syllabus|semester|term|schedule|lecture|lectures)\b/i.test(q) && !/\b(my )?(notes?|files?|slides?|readings?|textbook)\b/i.test(q)) return false;
+    if (/^\s*(when|where|what time|what day|how long until|how many days)\b/i.test(q) && /\b(exam|exams|test|midterm|final|finals|quiz|lab|essay|project|assignment|homework|class|lecture|office hours)\b/i.test(q) && !/\b(war|revolution|era|period|century|dynasty|treaty|invented|discovered|founded)\b/i.test(q)) return false;
+    if (PLAN.test(q)) {
+      const mine = /\b(my|mine|me|i|i'm|im|i've|ive|am i|we|our|us)\b/i.test(q);
+      const rest = (q.toLowerCase().replace(new RegExp(PLAN.source, "gi"), " ").match(/[a-z]{3,}/g) || []).filter(w => !QSTOP.has(w) && !/^(what|whats|which|when|where|how|who|why|does|any|anything|there|tell|explain|about|more|show|list|all|left|got|have|get|need|the|and|for|are|is|you|change|set|turn|use|find|open|add|see|switch|edit|do)$/.test(w));
+      if (mine || !rest.length) return false;
+    }
+    // when: their day, not a subject
+    if (/\b(today|tonight|tomorrow|tmrw|this (week|weekend|morning|afternoon|evening)|next week|right now|later today)\b/i.test(q)) return false;
+    // Mochi itself ("how are you", "do you like me", "what's your name")
+    if (/\b(are (you|u)|do (you|u) (like|love|think|feel|remember|know me)|(you|u) (like|love|think|feel)|your (name|favou?rite|opinion)|about (you|yourself)|who made you|can (you|u) (hear|see) me)\b/i.test(q)) return false;
+    // a request to do something (add, move, make, start...)
+    if (/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(add|move|make|create|start|stop|set|delete|remove|remind|schedule|plan|mark|rename|open|show me my|find my|quiz me|test me|generate|write me|draw|put|save|change|turn)\b/i.test(q)) return false;
+    return true; };
 
   return {norm, nonAnswer, knowledge, range, facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
 })();

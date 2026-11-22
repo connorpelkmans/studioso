@@ -104,8 +104,8 @@ async function makeFigurePdf(){
     if (quiz != null) await p.evaluate(want => { const q = document.querySelector("#aiQuiz"); if (q && q.checked !== want) q.click(); }, quiz);
     if (cardN) await p.evaluate(v => { const r = document.querySelector(`input[name=aiCardN][value="${v}"]`); if (r) r.click(); }, String(cardN));
     await p.click("#aiGo");
-    await p.waitForSelector("dialog[open] #arSave", {timeout: 30000}).catch(() => {});
-    const cards = await p.evaluate(() => [...document.querySelectorAll("#arCards li")].map(li => ({front: (li.querySelector('[data-f="front"]') || {}).value || "", src: li.innerText})));
+    await p.waitForSelector(".ai-live-bar.done, #toast.show.toast-err", {timeout: 30000}).catch(() => {});
+    const cards = await p.evaluate(() => { const d = Object.values(window.__sbSync.state.decks).sort((a, b) => (b.updated || 0) - (a.updated || 0))[0] || {cards: [], aiQuizzes: []}; return d.cards.map(c => ({front: c.front, src: c.front + "\n" + c.back + "\n" + (c.src || "")})); });
     return {ctx, p, sent, cards};
   };
 
@@ -123,7 +123,7 @@ async function makeFigurePdf(){
     ok(asked === 10, "the 10 cards asked for are shared across the sections: " + R.sent.map(x => (/Make exactly (\d+)/.exec(x.text) || [])[1]).join("+"));
     ok(R.cards.length === 8, "10 cards, less the 2 repeats of the card every section wrote (kept once): " + R.cards.length);
     ok(!R.cards.some(c => /notes explains|Summarize/.test(c.src)), "cards whose back only points to the notes are left out");
-    ok(/pointed to your notes instead of giving the answer/.test(await R.p.evaluate(() => (document.querySelector("dialog[open]") || {}).innerText || "")), "and the review says so");
+    ok(/pointed to your notes instead of giving the answer/.test(await R.p.evaluate(() => (document.querySelector(".ai-live-bar") || {}).innerText || "")), "and the finished set's note says so");
     ok(R.cards.every(c => /Glycolysis|Krebs Cycle|Electron Transport Chain/.test(c.src)), "each card says which section it came from");
     ok(R.cards.filter(c => /stores energy/.test(c.front)).length === 1, "the repeat is gone");
     await R.p.screenshot({path: path.join(SHOTS, "pipeline-review.png")});
@@ -170,7 +170,7 @@ async function makeFigurePdf(){
     const cardReqs = R.sent.filter(x => x.part && /flashcard/.test(x.text)), quizReqs = R.sent.filter(x => x.part && /practice question/.test(x.text));
     ok(cardReqs.length === 3 && quizReqs.length === 3, `pasted notes: ${cardReqs.length} card requests and ${quizReqs.length} quiz requests, one per section`);
     ok(cardReqs.every(x => /from this part only/.test(x.text)), "each asks for cards from its part only");
-    const qs = await R.p.evaluate(() => document.querySelectorAll("#arQs li, .ar-qs li").length);
+    const qs = await R.p.evaluate(() => { const d = Object.values(window.__sbSync.state.decks).sort((a, b) => (b.updated || 0) - (a.updated || 0))[0] || {cards: [], aiQuizzes: []}; return (d.aiQuizzes || []).reduce((n, q) => n + q.questions.length, 0); });
     ok(qs >= 2, "the quiz questions come back too: " + qs);
     ok(!R.p.errs.length, "no page errors: " + R.p.errs.join(" | "));
     await R.ctx.close(); }

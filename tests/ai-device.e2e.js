@@ -74,9 +74,11 @@ function fakeChrome(opts){
     // the one-time question before Chrome's download (only when it still has to download and wasn't agreed to before)
     const askEl = await p.waitForSelector("dialog.dev-ai-ask[open]", {timeout: 1500}).catch(() => null);
     if (askEl) { p.lastAsk = await askEl.innerText(); await p.click("dialog.dev-ai-ask[open] [data-yes]"); }
-    await p.waitForSelector("dialog[open] #arSave", {timeout: 30000}).catch(() => {});
-    return p.evaluate(() => ({cards: [...document.querySelectorAll("#arCards li")].map(li => ({front: (li.querySelector('[data-f="front"]') || {}).value || "", back: (li.querySelector('[data-f="back"]') || {}).value || "", text: li.innerText})),
-      qs: document.querySelectorAll("#arQs li, .ar-qs li").length, all: (document.querySelector("dialog[open]") || {}).innerText || "", log: window.__devLog}));
+    // the set opens in its deck and fills in there; the bar says when it's done (or a toast says why it failed)
+    await p.waitForSelector(".ai-live-bar.done, #toast.show.toast-err", {timeout: 30000}).catch(() => {});
+    return p.evaluate(() => { const d = Object.values(window.__sbSync.state.decks).sort((a, b) => (b.updated || 0) - (a.updated || 0))[0] || {cards: [], aiQuizzes: []};
+      return {cards: d.cards.map(c => ({front: c.front, back: c.back, text: c.front + "\n" + c.back + (c.src ? "\n" + c.src : "") + (c.check ? "\nCheck: " + c.check : "")})),
+        qs: (d.aiQuizzes || []).reduce((n, q) => n + (q.questions || []).length, 0), all: ((document.querySelector(".ai-live-bar") || {}).innerText || "") + "\n" + ((document.querySelector("#toast.show") || {}).innerText || ""), log: window.__devLog}; });
   };
 
   // 1. No key, Chrome has its model: it's used, with no setup and no consent question

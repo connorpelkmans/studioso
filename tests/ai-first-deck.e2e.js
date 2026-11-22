@@ -40,8 +40,8 @@ function fakeChrome(){
   const make = async p => {
     await p.evaluate(t => { const d = document.querySelector("#dlg details"); if (d) d.open = true; const a = document.querySelector("#aiPaste"); a.value = t; a.dispatchEvent(new Event("input", {bubbles: true})); }, NOTES);
     await p.evaluate(() => { const q = document.querySelector("#aiQuiz"); if (q && q.checked) q.click(); });
-    await p.click("#aiGo"); await p.waitForSelector("dialog[open] #arSave", {timeout: 30000}).catch(() => {});
-    return p.evaluate(() => ({fronts: [...document.querySelectorAll('#arCards [data-f="front"]')].map(x => x.value), all: (document.querySelector("dialog[open]") || {}).innerText || "", prompts: window.__devLog.prompts}));
+    await p.click("#aiGo"); await p.waitForSelector(".ai-live-bar.done, #toast.show.toast-err", {timeout: 30000}).catch(() => {});
+    return p.evaluate(() => { const d = Object.values(window.__sbSync.state.decks).sort((a, b) => (b.updated || 0) - (a.updated || 0))[0] || {cards: [], aiQuizzes: []}; return {fronts: d.cards.map(c => c.front), all: ((document.querySelector(".ai-live-bar") || {}).innerText || "") + "\n" + ((document.querySelector("#toast.show") || {}).innerText || ""), prompts: window.__devLog.prompts}; });
   };
   const CLOUD = {s: 200, j: {deckTitle: "Cellular Respiration", cards: [{front: "Where does glycolysis take place?", back: "In the cytoplasm."}, {front: "Which stage uses oxygen to make most ATP?", back: "The electron transport chain."}]}};
 
@@ -51,10 +51,10 @@ function fakeChrome(){
     ok(/first set is made free by Studyboard's cloud AI/.test(t) && /aren't kept/.test(t) && /Use My Computer Instead/.test(t), "the sheet says the first set is made in the cloud, that notes aren't kept, and offers the computer instead");
     const out = await make(R.p);
     ok(R.hits.length === 1 && R.hits[0].text.includes("Glycolysis splits glucose") && typeof R.hits[0].course === "string" && /^[A-Za-z0-9_-]{8,}$/.test(R.hits[0].device), "the notes, course and a device code go to Studyboard's server: " + JSON.stringify({c: R.hits[0] && R.hits[0].course, d: R.hits[0] && R.hits[0].device}));
-    ok(out.fronts.some(f => /Where does glycolysis take place/.test(f)), "the cloud's cards are the ones to review: " + out.fronts.join(" | "));
+    ok(out.fronts.some(f => /Where does glycolysis take place/.test(f)), "the cloud's cards are the ones saved: " + out.fronts.join(" | "));
     ok(!out.fronts.some(f => /\(device\)/.test(f)) && out.prompts === 0, "and the device's AI wasn't used for them");
-    ok(/made free by Studyboard's cloud AI, as a first set/.test(out.all), "the review says where they came from");
-    await R.p.evaluate(() => document.querySelector("dialog[open]").close());
+    ok(/made free by Studyboard's cloud AI, as a first set/.test(out.all), "the finished set says where they came from");
+    await R.p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); });
     await sheet(R.p);
     ok(!/cloud AI/.test(await R.p.evaluate(() => document.querySelector("dialog[open]").innerText)), "the next sheet doesn't offer it again");
     const two = await make(R.p);
@@ -66,7 +66,7 @@ function fakeChrome(){
   { const R = await open(() => ({s: 429, j: {error: "full"}})); await sheet(R.p); const out = await make(R.p);
     ok(R.hits.length === 1 && out.fronts.some(f => /\(device\)/.test(f)), "when the cloud says no, the device makes the set");
     ok(!/cloud AI/.test(out.all) && !/error|full/i.test(out.all.split("\n").slice(0, 3).join(" ")), "with nothing said about it");
-    await R.p.evaluate(() => document.querySelector("dialog[open]").close()); await sheet(R.p);
+    await R.p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); }); await sheet(R.p);
     ok(/cloud AI/.test(await R.p.evaluate(() => document.querySelector("dialog[open]").innerText)), "it's offered again next time (up to 3 tries)");
     await R.ctx.close(); }
 

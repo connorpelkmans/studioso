@@ -374,8 +374,14 @@ async function devSession(sys, pics, signal){
 const DEV_STALL_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 20000, DEV_FIRST_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 60000, DEV_MAX_MS = 180000;
 // onPartial: the "answer" field as far as it's written, so a chat shows the reply as it comes
 const devPartial = t => { const m = /"answer"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(t); if (!m) return ""; try { return JSON.parse('"' + m[1].replace(/\\$/, "") + '"'); } catch (e) { return m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"'); } };
+// A small model can get stuck mid-answer: writing only spaces and line breaks, or the same few characters over and over. That counts
+// as a stall too (progress is new non-space text that isn't a loop), and whatever complete items it wrote before are kept.
+const devLooping = t => { const x = t.replace(/\s+/g, "").slice(-480); if (x.length < 240) return false;
+  for (let p = 1; p <= 80; p++) { const reps = Math.floor(x.length / p); if (reps < 6) break; const u = x.slice(-p); let k = 1; while (k < reps && x.slice(-(k + 1) * p, -k * p) === u) k++; if (k >= 6 && k * p >= 240) return true; }
+  return false; };
+const devSalvage = t => { const d = aiRepairJson(t); return d && typeof d === "object" && Object.values(d).some(v => Array.isArray(v) && v.length) ? t : null; };
 async function devStream(s, content, json, signal, onStatus, onPartial){
-  let text = "", last = 0, lastChunk = Date.now(), any = false; const t0 = Date.now(), ac = new AbortController();
+  let text = "", last = 0, lastChunk = Date.now(), any = false, ink = 0; const t0 = Date.now(), ac = new AbortController();
   const stop = () => ac.abort(); if (signal) signal.addEventListener("abort", stop, {once: true});
   // the watchdog wins the race even if the stream ignores being stopped
   let stalled; const stall = new Promise(r => { stalled = r; });
@@ -384,12 +390,14 @@ async function devStream(s, content, json, signal, onStatus, onPartial){
     const stream = s.promptStreaming([{role: "user", content}], {responseConstraint: json, signal: ac.signal}), it = stream[Symbol.asyncIterator]();
     for (;;) {
       const step = await Promise.race([it.next(), stall]);
-      if (step.stall) { try { it.return && it.return(); } catch (e) {} throw aiErr("device-stall", `${devLabel()} stopped answering.`); }
+      if (step.stall) { try { it.return && it.return(); } catch (e) {} const got = devSalvage(text); if (got) return got; throw aiErr("device-stall", `${devLabel()} stopped answering.`); }
       if (step.done) break;
       const chunk = step.value;
-      lastChunk = Date.now(); any = true;
       const c = String(chunk == null ? "" : chunk);
       text = c.startsWith(text) && text ? c : text + c;
+      // only new words count as progress; a loop ends the answer at once, keeping the complete items before it
+      const n = text.replace(/\s+/g, "").length;
+      if (n > ink) { ink = n; if (devLooping(text)) { ac.abort(); try { it.return && it.return(); } catch (e) {} const got = devSalvage(text); if (got) return got; throw aiErr("device-stall", `${devLabel()} stopped answering.`); } lastChunk = Date.now(); any = true; }
       if (Date.now() - last > 150) { last = Date.now();
         if (onPartial) { const a = devPartial(text); if (a) onPartial(a); }
         if (onStatus) { const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); } }
@@ -398,7 +406,7 @@ async function devStream(s, content, json, signal, onStatus, onPartial){
   } catch (e) {
     if (signal && signal.aborted) throw e;
     if (e && e.code === "device-stall") throw e;
-    if (ac.signal.aborted) throw aiErr("device-stall", `${devLabel()} stopped answering.`);
+    if (ac.signal.aborted) { const got = devSalvage(text); if (got) return got; throw aiErr("device-stall", `${devLabel()} stopped answering.`); }
     throw e;
   } finally { clearInterval(dog); if (signal) signal.removeEventListener("abort", stop); }
 }

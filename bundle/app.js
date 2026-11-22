@@ -5532,7 +5532,7 @@ async function aiCardsBySection(o){
     if (dev) x.terms = aiKeyTerms(x.section.text, Math.max(1, x.count));
     if (dev && i === 0) tell();
     if (dev && DEV_STEPS.facts && o.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
-      if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); if (o.onCards) try { o.onCards(f.cards); } catch (e) {} return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
+      if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); f.cards.forEach(c => { c.source = c.source || x.section.title.slice(0, 60); }); if (o.onCards) try { o.onCards(f.cards); } catch (e) {} return f; } }
     const gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
@@ -5551,8 +5551,9 @@ async function aiCardsBySection(o){
     if (dev && DEV_STEPS.check && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
     done++; made += cards.length;
     if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`);
+    cards.forEach(c => { c.source = c.source || x.section.title.slice(0, 60); });
     if (o.onCards && cards.length) try { o.onCards(cards); } catch (e) {}
-    return {cards: cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
+    return {cards, title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
   if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't make cards from that. Try again.");
@@ -5575,6 +5576,7 @@ async function aiQuizBySection(o){
     let keep = g.questions, wrong = 0;
     if (dev && DEV_STEPS.solve && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
+    if (o.onQuestions && keep.length) try { o.onQuestions(keep); } catch (e) {}
     return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
@@ -5711,7 +5713,7 @@ async function aiMakeStudySet(opts, onStatus){
   else if (cards) jobs.push(cardsOne());
   function cardsOne(){ return aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
     schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})); }
-  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus}));
+  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus, onQuestions: opts.onQuestions}));
   else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
   if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
@@ -5793,9 +5795,8 @@ function aiStudySheet(deckId, mode){
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
       ${aiModelBar()}
       ${aiFirstDeckNote()}
-      <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private or sensitive information. " : ""}AI can make mistakes; you can review everything before it's saved.</p>
+      <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private or sensitive information. " : ""}AI can make mistakes: your set opens as it's written, so you can check, edit or delete anything.</p>
       <p class="status-msg" id="aiStatus" style="margin:0" aria-live="polite"></p>
-      <div class="ai-live" id="aiLive" hidden><p class="mini" style="margin:0"><b>Study while you wait:</b> tap a card to see its answer. They all go to Review when the set is done.</p><ul class="ai-live-list"></ul></div>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
   </form>`);
@@ -5817,7 +5818,6 @@ function aiStudySheet(deckId, mode){
     el.hidden = false;
     el.innerHTML = `On this computer: <b>${aiDur(secs)}</b> for ${esc(what)}.` + (secs > 180 ? ` That's a long wait here${wc && cv !== "auto" ? ": Auto (about 30 cards) is quicker" : ""}. You can tap outside this window and keep using Studyboard while it works; you'll be told when it's ready.` : "");
   };
-  sheetEl.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".ai-live-card"); if (!b) return; const on = b.getAttribute("aria-expanded") !== "true"; b.setAttribute("aria-expanded", String(on)); b.querySelector(".b").hidden = !on; });
   sheetEl.addEventListener("change", e => { if (/^(aiCardN|aiQuizN)$/.test(e.target.name || "") || /^(aiCards|aiQuiz)$/.test(e.target.id || "")) est(); });
   est();
   sheetKeep(keyK, {name: aiWho("AI"), busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) try { job.ac.abort(); } catch (e) {} },
@@ -5892,30 +5892,122 @@ function aiStudySheet(deckId, mode){
     const brand = aiBrandName();
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(brand)} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     aiShowStatus(status);
+    // The set is built where it will live: its deck (or quiz) opens now and fills in as each part is finished
+    const quizOnly = !deck && !wantCards, isNew = !deck;
+    const firstName = (sources[0] && sources[0].name && sources[0].name !== "Pasted notes" ? String(sources[0].name).replace(/\.[^.]+$/, "") : "") || (quizOnly ? "Practice Quiz" : "AI Study Set");
+    const d0 = deck ? clone(state.decks[deck.id]) : normDeck(Object.assign({id: uid(), created: Date.now(), name: firstName.slice(0, 80), courseId: cId || ""}, quizOnly ? {quizOnly: true} : {}));
+    const qzId = wantQuiz ? uid() : "";
+    if (wantQuiz) d0.aiQuizzes = (d0.aiQuizzes || []).concat({id: qzId, title: uniqueQuizTitle(styleName || "Practice Quiz"), style: style || "", created: Date.now(), sources: sources.map(x => x.name), questions: [], results: []});
+    d0.updated = Date.now();
+    applyChanges([{kind: "deck", id: d0.id, after: d0}], null);
+    const L = aiLiveStart({deckId: d0.id, quizId: qzId, ac, isNew, name: d0.name, quizTitle: wantQuiz ? d0.aiQuizzes[d0.aiQuizzes.length - 1].title : "", maxCards: Number(val("aiCardN")) > 0 ? Math.ceil(Number(val("aiCardN")) * 1.2) : 60,
+      what: [wantCards && "flashcards", wantQuiz && "quiz questions", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")});
+    // the sheet is done with: it closes, and the job carries on here
+    // (set aside with its files, not cleared: if nothing can be made, Try Again brings it back as it was, with the reason)
+    job.ac = null; job.busy = false; goBack(); go.disabled = false; go.classList.remove("busy"); status.textContent = ""; if (dlg.open) dlg.close();
+    ui.tab = "flashcards"; ui.fc = null; ui.qzOpen = null;
+    if (wantCards) { ui.deckId = d0.id; rvSet("cards"); } else { ui.deckId = null; rvSet("quizzes"); if (wantQuiz) ui.qzOpen = d0.id + ":" + qzId; }
+    render(); window.scrollTo(0, 0);
+    if (!wantCards && !wantQuiz) toast(`${aiWho("AI")} is writing your case studies. They'll appear in Quizzes when they're ready.`);
+    let r = null, err = null;
     try {
-      const live = inS("#aiLive"), liveList = live && live.querySelector(".ai-live-list");
-      if (liveList) liveList.innerHTML = "";
-      const onCards = aiOnDevice() && wantCards && liveList ? list => {
-        // the first cards: scrolled into view once, so the student sees they can start
-        if (live.hidden) { live.hidden = false; try { live.scrollIntoView({block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); } catch (e) {} }
-        list.forEach(c => { if (liveList.children.length >= 80) return; const li = document.createElement("li"); li.innerHTML = `<button type="button" class="ai-live-card" aria-expanded="false"><span class="f">${esc(c.front)}</span><span class="b" hidden>${esc(c.back)}</span></button>`; liveList.appendChild(li); });
-      } : null;
-      const r = await aiMakeStudySet({onCards, sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal, first: true}, m => { status.textContent = m; });
-      if (ac && ac.signal.aborted) return;
-      if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
-      aiRememberStyle(custom);
-      job.busy = false;
-      const ctx = {deck, courseId: cId, style, styleName, sources: sources.map(s => s.name), origins: sources.map(s => s.origin).filter(Boolean), mode, keepKey: keyK};
-      sheetReady(keyK, () => aiReviewSheet(r, ctx), aiReadyMsg(r));
-    } catch(e) {
-      if (e && e.code === "cancelled") return;
-      console.warn(e); status.innerHTML = esc(e.code ? e.message : "Something went wrong. Try again.") + aiDetailHtml(e);
-      aiJobFailed(); aiShowStatus(status);
-      job.busy = false; go.disabled = false; go.classList.remove("busy"); goBack();
-      if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
-    }
+      r = await aiMakeStudySet({onCards: wantCards ? list => aiLiveCards(L, list) : null, onQuestions: wantQuiz ? list => aiLiveQuestions(L, list) : null, sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal, first: true}, m => aiLiveStatus(L, m));
+    } catch (e) { err = e; if (!(e && e.code === "cancelled") && !L.stopped) console.warn(e); }
+    aiLiveFinish(L, r, err, {style, custom, origins: sources.map(x => x.origin).filter(Boolean), kept: () => sheetDrop(keyK),
+      failed: e => { status.innerHTML = esc(e && e.code ? e.message : "Something went wrong. Try again.") + aiDetailHtml(e); aiShowStatus(status); return () => { if (!sheetResume(keyK)) aiStudySheet(deck ? deck.id : null, mode); }; }});
   });
 }
+
+/* Building a study set in place: the deck (or quiz) page shows a bar while the AI works, and each part's cards and questions are
+   added as soon as they're checked. Stop keeps what's made so far. Nothing here is saved twice: every batch is one quiet save. */
+const AI_LIVE = {}, AI_FRESH = new Map();
+// just added (the last second and a half): drawn with a short pop-in
+const aiFresh = id => { const t = AI_FRESH.get(id); if (t && Date.now() - t < 1500) return true; if (t) AI_FRESH.delete(id); return false; };
+const aiLiveOn = id => !!(AI_LIVE[id] && !AI_LIVE[id].done);
+function aiLiveStart(o){ const L = Object.assign({n: 0, nq: 0, status: "", ids: [], notes: [], t0: Date.now()}, o); AI_LIVE[o.deckId] = L; return L; }
+function aiLiveBar(id){
+  const L = AI_LIVE[id]; if (!L) return "";
+  if (L.done) return `<section class="ai-live-bar done" data-live-id="${esc(id)}"><div class="ai-callout">${AI_ICON}<span><b>${esc(L.summary)}</b>${L.notes.length ? " " + esc(L.notes.join(" ")) : ""}</span><button type="button" class="x-btn" data-live-ok="${esc(id)}" aria-label="Dismiss">${CLOSE}</button></div></section>`;
+  return `<section class="ai-live-bar" data-live-id="${esc(id)}" role="status"><div class="ai-callout"><span class="ai-spin" aria-hidden="true"></span><span><b>${esc(aiWho("AI"))} is writing ${esc(L.what)}.</b> <span class="ai-live-msg">${esc(aiLiveCount(L) || L.status || "Reading your material…")}</span> They appear here as each part is done; you can study or edit them right away.</span><button type="button" class="btn small" data-live-stop="${esc(id)}">Stop</button></div></section>`;
+}
+const aiLiveCount = L => [L.n && `${L.n} card${L.n === 1 ? "" : "s"}`, L.nq && `${L.nq} question${L.nq === 1 ? "" : "s"}`].filter(Boolean).join(" and ") + (L.n || L.nq ? " so far." + (L.status ? " " + L.status.replace(/^Making flashcards: \d+ cards? so far, /, "").replace(/^./, c => c.toUpperCase()) : "") : "");
+function aiLiveStatus(L, m){ L.status = String(m || ""); const el = document.querySelector(`[data-live-id="${CSS.escape(L.deckId)}"] .ai-live-msg`); if (el) el.textContent = aiLiveCount(L) || L.status; }
+// the deck was deleted while it was being made: stop
+const aiLiveDeck = L => { const d = state.decks[L.deckId]; if (!d && L.ac && !L.stopped) { L.stopped = L.gone = true; try { L.ac.abort(); } catch (e) {} } return d; };
+function aiLiveCards(L, list){
+  const cur = aiLiveDeck(L); if (!cur || L.done) return 0;
+  const d = clone(cur), have = d.cards.map(c => aiKeyTokens(c.front)), add = [];
+  (list || []).forEach(c => {
+    if (!c || L.n + add.length >= L.maxCards) return;
+    const front = aiTidyText(c.front), back = aiTidyText(c.back), ft = aiKeyTokens(front);
+    if (front.length < 3 || !back || have.some(h => aiJaccard(h, ft) >= 0.8)) return;
+    have.push(ft);
+    const card = {id: uid(), front, back, box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: aiTidyText(c.source || "").slice(0, 60)};
+    if (c.hint && !hintLeaks(c.hint, back)) card.hints = [aiTidyText(c.hint).slice(0, 300)];
+    if (typeof c.check === "string" && c.check) card.check = c.check;
+    add.push(card);
+  });
+  if (!add.length) return 0;
+  d.cards = d.cards.concat(add); d.updated = Date.now(); L.n += add.length; L.ids.push(...add.map(c => c.id)); const t = Date.now(); add.forEach(c => AI_FRESH.set(c.id, t));
+  applyChanges([{kind: "deck", id: d.id, after: d}], null); aiLiveStatus(L, L.status);
+  return add.length;
+}
+function aiLiveQuestions(L, list){
+  const cur = aiLiveDeck(L); if (!cur || L.done) return 0;
+  const d = clone(cur), qz = (d.aiQuizzes || []).find(x => x.id === L.quizId); if (!qz) return 0;
+  const have = qz.questions.map(q => aiKeyTokens(q.stem)), add = [];
+  (list || []).forEach(q => { if (!q || !q.stem) return; const st = aiKeyTokens(q.stem); if (have.some(h => aiJaccard(h, st) >= 0.75)) return; have.push(st); add.push(Object.assign({}, q, {id: q.id || uid()})); });
+  if (!add.length) return 0;
+  qz.questions = qz.questions.concat(add); d.updated = Date.now(); L.nq += add.length; { const t = Date.now(); add.forEach(q => AI_FRESH.set(q.id, t)); }
+  applyChanges([{kind: "deck", id: d.id, after: d}], null); aiLiveStatus(L, L.status);
+  return add.length;
+}
+function aiLiveFinish(L, r, err, o){
+  // whatever came back all at once (one request, or the free first deck) goes in now; parts already added aren't added twice
+  if (r) { aiLiveCards(L, r.cards); aiLiveQuestions(L, r.questions); }
+  L.done = true;
+  const cur = state.decks[L.deckId];
+  if (!cur) { o.kept(); delete AI_LIVE[L.deckId]; render(); return; }
+  const d = clone(cur), qz = L.quizId ? (d.aiQuizzes || []).find(x => x.id === L.quizId) : null;
+  const cases = r ? (r.cases || []) : [];
+  cases.forEach(c => { d.aiQuizzes = (d.aiQuizzes || []).concat(Object.assign({id: uid(), style: o.style || "", created: Date.now(), sources: qz ? qz.sources : [], results: [], kind: "case"}, c)); });
+  if (r && r.title && L.isNew && d.name === L.name && L.n) d.name = aiTidyText(r.title).slice(0, 120) || d.name;
+  if (qz && r && r.quizTitle && qz.title === L.quizTitle) qz.title = uniqueQuizTitle(aiTidyText(r.quizTitle).slice(0, 120));
+  if (qz && !qz.questions.length) d.aiQuizzes = d.aiQuizzes.filter(x => x.id !== qz.id);
+  if (o.style) d.aiStyle = o.style;
+  const made = L.n || L.nq || cases.length;
+  if (made && window.SBLINKED && o.origins && o.origins.length && L.ids.length) SBLINKED.stamp(d, o.origins.map(x => SBLINKED.origin(x.k, x.id)), d.cards.filter(c => L.ids.includes(c.id)));
+  if (L.isNew && !d.cards.length && !(d.aiQuizzes || []).some(x => x.questions && x.questions.length)) {
+    // nothing was made: the empty deck goes too
+    applyChanges([{kind: "deck", id: d.id, after: null}], null);
+    if (ui.deckId === d.id) ui.deckId = null; if (String(ui.qzOpen || "").startsWith(d.id + ":")) ui.qzOpen = null;
+  } else { d.updated = Date.now(); applyChanges([{kind: "deck", id: d.id, after: d}], null); }
+  if (qz && !qz.questions.length && ui.qzOpen === L.deckId + ":" + L.quizId) { ui.qzOpen = null; if (made && L.n) ui.deckId = L.deckId; }
+  const bits = [L.n && `${L.n} flashcard${L.n === 1 ? "" : "s"}`, L.nq && `${L.nq} quiz question${L.nq === 1 ? "" : "s"}`, cases.length && `${cases.length} case stud${cases.length === 1 ? "y" : "ies"}`].filter(Boolean).join(" and ");
+  const open = () => { ui.tab = "flashcards"; ui.fc = null; if (L.n) { ui.deckId = L.deckId; ui.qzOpen = null; rvSet("cards"); } else { ui.deckId = null; rvSet("quizzes"); ui.qzOpen = L.quizId && state.decks[L.deckId] && (state.decks[L.deckId].aiQuizzes || []).some(x => x.id === L.quizId) ? L.deckId + ":" + L.quizId : null; } render(); window.scrollTo(0, 0); };
+  const here = ui.tab === "flashcards" && (ui.deckId === L.deckId || String(ui.qzOpen || "").startsWith(L.deckId + ":"));
+  if (L.gone) { o.kept(); delete AI_LIVE[L.deckId]; render(); return; }
+  if (!made) {
+    delete AI_LIVE[L.deckId]; render();
+    if (L.stopped) { o.kept(); toast("Stopped. Nothing was made yet."); return; }
+    aiJobFailed();
+    toast(err && err.code ? err.message : "Something went wrong making that set. Try again.", null, {label: "Try Again", fn: o.failed(err)}, {error: true});
+    return;
+  }
+  o.kept(); if (r) aiRememberStyle(o.custom);
+  const checks = d.cards.filter(c => L.ids.includes(c.id) && c.check).length + (qz ? qz.questions.filter(q => q.check).length : 0);
+  L.summary = L.stopped ? `Stopped. Kept ${bits}.` : err ? `Made ${bits}, but part of it couldn't be made${err.code ? ": " + err.message : "."}` : `Done: ${bits}.`;
+  L.notes = (r && r.notes ? r.notes.slice() : []).concat(r && r.partial ? [`Part of it couldn't be made: ${r.partial}`] : [], r && r.truncated ? ["The AI ran out of room, so the last few may be missing."] : [],
+    checks ? [`${checks} item${checks === 1 ? " is" : "s are"} marked Check: verify ${checks === 1 ? "it" : "them"} against your notes, and edit or delete as you like.`] : ["Edit or delete anything you like."]);
+  render();
+  if (!here) toast(`Your ${bits} ${/^1 /.test(bits) && !/ and /.test(bits) ? "is" : "are"} ready`, null, {label: "Open", fn: open});
+}
+document.addEventListener("click", e => {
+  const s = e.target.closest && e.target.closest("[data-live-stop]");
+  if (s) { const L = AI_LIVE[s.dataset.liveStop]; if (L && !L.done) { L.stopped = true; s.disabled = true; s.textContent = "Stopping…"; try { L.ac && L.ac.abort(); } catch (x) {} } return; }
+  const k = e.target.closest && e.target.closest("[data-live-ok]");
+  if (k) { const L = AI_LIVE[k.dataset.liveOk]; if (L && L.done) { delete AI_LIVE[k.dataset.liveOk]; render(); } }
+});
 // What a finished set is called in the toast when its sheet was set aside
 function aiReadyMsg(r){
   const n = (r.cards || []).length, q = (r.questions || []).length, c = (r.cases || []).length;
@@ -7188,8 +7280,14 @@ async function devSession(sys, pics, signal){
 const DEV_STALL_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 20000, DEV_FIRST_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 60000, DEV_MAX_MS = 180000;
 // onPartial: the "answer" field as far as it's written, so a chat shows the reply as it comes
 const devPartial = t => { const m = /"answer"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(t); if (!m) return ""; try { return JSON.parse('"' + m[1].replace(/\\$/, "") + '"'); } catch (e) { return m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"'); } };
+// A small model can get stuck mid-answer: writing only spaces and line breaks, or the same few characters over and over. That counts
+// as a stall too (progress is new non-space text that isn't a loop), and whatever complete items it wrote before are kept.
+const devLooping = t => { const x = t.replace(/\s+/g, "").slice(-480); if (x.length < 240) return false;
+  for (let p = 1; p <= 80; p++) { const reps = Math.floor(x.length / p); if (reps < 6) break; const u = x.slice(-p); let k = 1; while (k < reps && x.slice(-(k + 1) * p, -k * p) === u) k++; if (k >= 6 && k * p >= 240) return true; }
+  return false; };
+const devSalvage = t => { const d = aiRepairJson(t); return d && typeof d === "object" && Object.values(d).some(v => Array.isArray(v) && v.length) ? t : null; };
 async function devStream(s, content, json, signal, onStatus, onPartial){
-  let text = "", last = 0, lastChunk = Date.now(), any = false; const t0 = Date.now(), ac = new AbortController();
+  let text = "", last = 0, lastChunk = Date.now(), any = false, ink = 0; const t0 = Date.now(), ac = new AbortController();
   const stop = () => ac.abort(); if (signal) signal.addEventListener("abort", stop, {once: true});
   // the watchdog wins the race even if the stream ignores being stopped
   let stalled; const stall = new Promise(r => { stalled = r; });
@@ -7198,12 +7296,14 @@ async function devStream(s, content, json, signal, onStatus, onPartial){
     const stream = s.promptStreaming([{role: "user", content}], {responseConstraint: json, signal: ac.signal}), it = stream[Symbol.asyncIterator]();
     for (;;) {
       const step = await Promise.race([it.next(), stall]);
-      if (step.stall) { try { it.return && it.return(); } catch (e) {} throw aiErr("device-stall", `${devLabel()} stopped answering.`); }
+      if (step.stall) { try { it.return && it.return(); } catch (e) {} const got = devSalvage(text); if (got) return got; throw aiErr("device-stall", `${devLabel()} stopped answering.`); }
       if (step.done) break;
       const chunk = step.value;
-      lastChunk = Date.now(); any = true;
       const c = String(chunk == null ? "" : chunk);
       text = c.startsWith(text) && text ? c : text + c;
+      // only new words count as progress; a loop ends the answer at once, keeping the complete items before it
+      const n = text.replace(/\s+/g, "").length;
+      if (n > ink) { ink = n; if (devLooping(text)) { ac.abort(); try { it.return && it.return(); } catch (e) {} const got = devSalvage(text); if (got) return got; throw aiErr("device-stall", `${devLabel()} stopped answering.`); } lastChunk = Date.now(); any = true; }
       if (Date.now() - last > 150) { last = Date.now();
         if (onPartial) { const a = devPartial(text); if (a) onPartial(a); }
         if (onStatus) { const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); } }
@@ -7212,7 +7312,7 @@ async function devStream(s, content, json, signal, onStatus, onPartial){
   } catch (e) {
     if (signal && signal.aborted) throw e;
     if (e && e.code === "device-stall") throw e;
-    if (ac.signal.aborted) throw aiErr("device-stall", `${devLabel()} stopped answering.`);
+    if (ac.signal.aborted) { const got = devSalvage(text); if (got) return got; throw aiErr("device-stall", `${devLabel()} stopped answering.`); }
     throw e;
   } finally { clearInterval(dog); if (signal) signal.removeEventListener("abort", stop); }
 }
@@ -20901,7 +21001,7 @@ function viewQuizDetail(d, qz){
     if (q.type === "order") return `<ol class="qzd-opts qzd-hide" data-act="qz-reveal" data-i="${i}">${q.correct.map((ix, k) => `<li><span class="qzd-l">${k + 1}</span><span>${esc(q.options[ix])}</span></li>`).join("")}</ol>`;
     return `<ul class="qzd-opts qzd-mc" data-act="qz-reveal" data-i="${i}">${q.options.map((o, k) => { const ok = q.correct.includes(k); return `<li class="${ok ? "ok" : ""}"><span class="qzd-l"><i class="lt">${L(k)}</i>${ok ? `<i class="ck">${CHK}</i>` : ""}</span><span>${esc(o)}</span></li>`; }).join("")}</ul>`;
   };
-  const qs = qz.questions.map((q, i) => `<li class="qzd-q"><span class="qzd-n">${i + 1}</span><div class="qzd-body">
+  const qs = qz.questions.map((q, i) => `<li class="qzd-q${typeof aiFresh === "function" && aiFresh(q.id) ? " ai-new" : ""}"><span class="qzd-n">${i + 1}</span><div class="qzd-body">
       <span class="qzd-type">${esc(TL[q.type] || "Question")}</span>
       <p class="qzd-stem">${esc(q.stem)}</p>
       ${ans(q, i)}
@@ -20915,7 +21015,7 @@ function viewQuizDetail(d, qz){
         <div class="g2-txt"><h2>${esc(qz.title || "Practice Quiz")}</h2>
           <div class="deck-stats"><span><b>${qz.questions.length}</b> question${qz.questions.length === 1 ? "" : "s"}</span><span>from <b>${esc(quizFrom(d, qz))}</b></span>${last ? `<span>Last score <b>${last.score}/${last.total}</b></span><span>Best <b>${Math.round(best * 100)}%</b></span>` : ""}</div></div></div>
     </div>
-    ${qz.kind === "case" && qz.scenario ? `<p class="qzd-scen">${esc(qz.scenario)}</p>` : ""}
+    ${typeof aiLiveBar === "function" ? aiLiveBar(d.id) : ""}${qz.kind === "case" && qz.scenario ? `<p class="qzd-scen">${esc(qz.scenario)}</p>` : ""}
     <section class="c2-card2 c2-box qzd-card${hide ? " qzd-hidden" : ""}" style="--c:${esc(colorOf(d.courseId))}"><div class="qzd-head">${c2Head("goals", "Questions", qz.questions.length)}<button type="button" class="btn small" data-act="qz-hide" aria-pressed="${hide}">${hide ? "Show Answers" : "Hide Answers"}</button></div>
       ${hide ? `<p class="mini qzd-hint">Answers are hidden. Tap one to check it.</p>` : ""}<ol class="qzd-list">${qs}</ol></section>`;
 }
@@ -21199,8 +21299,8 @@ function viewDeck(d){
   const st = deckStats(d), c = courseOf(d.courseId);
   const q = ui.q.trim().toLowerCase();
   const cards = d.cards.filter(x => !q || (x.front + " " + x.back).toLowerCase().includes(q));
-  const rows = cards.map(x => `<li class="fc-row">
-      <button class="fc-cell face fc-face" data-act="fc-card" data-id="${esc(x.id)}"><span class="fc-front">${esc(x.front)}</span><span class="fc-back">${esc(x.back)}</span></button>
+  const rows = cards.map(x => `<li class="fc-row${typeof aiFresh === "function" && aiFresh(x.id) ? " ai-new" : ""}">
+      <button class="fc-cell face fc-face" data-act="fc-card" data-id="${esc(x.id)}"><span class="fc-front">${esc(x.front)}</span><span class="fc-back">${esc(x.back)}</span>${x.check ? `<span class="pill ar-chk fc-chk" title="${esc(x.check)}">Check: ${esc(x.check)}</span>` : ""}</button>
       ${masteryPips(x.box)}
     </li>`).join("");
   return `<button class="back" data-act="fc-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Decks</button>
@@ -21211,7 +21311,7 @@ function viewDeck(d){
         <div class="g2-txt"><h2>${esc(d.name)}</h2>
           <div class="deck-stats"><span><b>${st.total}</b> cards</span><span class="${st.due ? "due" : ""}"><b>${st.due}</b> due</span><span><b>${st.fresh}</b> new</span><span class="${st.mastered ? "ok" : ""}"><b>${st.mastered}</b> mastered</span>${st.last ? `<span>Last quiz <b>${st.last.score}/${st.last.total}</b></span>` : ""}</div></div></div>
     </div>
-    ${window.SBLINKED ? SBLINKED.deckHtml(d) : ""}${deckAiBar(d)}
+    ${typeof aiLiveBar === "function" ? aiLiveBar(d.id) : ""}${window.SBLINKED ? SBLINKED.deckHtml(d) : ""}${typeof aiLiveOn === "function" && aiLiveOn(d.id) ? "" : deckAiBar(d)}
     ${cards.length ? `<ul class="fc-list fc-styled cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">${rows}</ul>` : `<div class="empty" style="margin-top:12px"><strong>${d.cards.length ? "No Cards Match" : "No Cards Yet"}</strong>${d.cards.length ? "" : `${matchMedia("(pointer:coarse)").matches ? "Tap" : "Click"} Add Card at the bottom right, or choose More, then Paste Cards to add a whole list at once.`}</div>`}`;
 }
 function deckSheet(d){
@@ -21246,7 +21346,7 @@ function cardSheet(d, cardId){
     const front = String(fd.get("front") || "").trim(), back = String(fd.get("back") || "").trim();
     if (!front || !back) { toast("A card needs both a front and a back"); return false; }
     const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); if (!x) return;
-    x.front = front; x.back = back; nd.updated = Date.now(); saveDeck(nd, "Card saved");
+    x.front = front; x.back = back; delete x.check; nd.updated = Date.now(); saveDeck(nd, "Card saved");
   });
   $("#cdDel").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); nd.cards = nd.cards.filter(y => y.id !== cardId); saveDeck(nd, "Card deleted"); });
   $("#cdReset").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); Object.assign(x, {box: 0, due: "", seen: 0, right: 0, wrong: 0}); saveDeck(nd, "Card progress reset"); });
@@ -73196,6 +73296,39 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     if (/\b(the|my) (task|thing|work|assignment) i'?m (working on|doing)\b|\bcurrent task\b/.test(s)) return open.find(t => t.status === "doing") || null;
     return null;
   }
+  /* Things done straight away, with no AI: stop, pause or resume the focus timer, say how long is left on it, and undo the last
+     change ("undo that", "reverse the change", "put it back"). Any wording that names the thing and the action counts. */
+  const TIMER_W = /\b(timer|pomodoro|focus( session| time)?|session|countdown|clock)\b/i;
+  function control(q){
+    const s = String(q || "").toLowerCase().replace(/[?!.]+$/, "").trim();
+    if (s.length > 120) return null;
+    const P = typeof pomo !== "undefined" ? pomo : null, live = P && (P.running || P.left > 0), name = () => { const t = P && P.taskId && state.tasks[P.taskId]; return t ? ` for ${t.title}` : ""; };
+    const left = () => { const ms = P.running ? P.endAt - Date.now() : P.left, m = Math.max(0, Math.round(ms / 60000)); return m >= 1 ? `${m} minute${m === 1 ? "" : "s"}` : "less than a minute"; };
+    // with a timer on (or paused), a short "pause it", "stop that", "resume", "keep going" is about the timer
+    if (P && TIMER_W.test(s) || P && live && /^\s*(ok(ay)?|please|now|can (you|u)|could you)?\s*(stop|pause|resume|unpause|cancel|end|continue|keep going|carry on)\b[\w\s']{0,18}$/.test(s)) {
+      if (/\b(stop|end|cancel|quit|kill|turn off|switch off|finish|done with|reset|clear|get rid of|no more)\b/.test(s)) {
+        if (!live) return {answer: "There's no focus timer running.", show: []};
+        const was = name(); pomoReset(); return {answer: `Stopped your focus timer${was}.`, show: [], done: true};
+      }
+      if (/\b(pause|hold|break)\b/.test(s) && !/\b(take|start|give me) (a )?break\b/.test(s)) {
+        if (!P.running) return {answer: P.left > 0 ? "Your focus timer is already paused." : "There's no focus timer running.", show: []};
+        pomoPause(); return {answer: `Paused your focus timer${name()} with ${left()} left.`, show: [], done: true};
+      }
+      if (/\b(resume|unpause|continue|keep going|restart it|start (it )?again|carry on)\b/.test(s) && !P.running && P.left > 0) { pomoStart(); return {answer: `Resumed your focus timer${name()}: ${left()} left.`, show: [], done: true}; }
+      if (/\b(how (much|long)|time left|left on|remaining|is (my|the) (focus )?timer (running|on|going)|is it (still )?running)\b/.test(s)) {
+        if (!live) return {answer: "There's no focus timer running.", show: []};
+        return {answer: `${left()} left on your focus timer${name()}${P.running ? "" : " (paused)"}.`, show: []};
+      }
+    }
+    if (/\b(undo|reverse|revert|take (that|it) back|put (it|that|them) back|change (it|that) back|go back to how|unmark|cancel (that|the change|the last|what you did)|didn'?t mean (to|that))\b/.test(s) && !/\b(how (do|can) i|is there|can i)\b/.test(s)) {
+      if (typeof undoStack === "undefined") return null;
+      const st = undoStack.slice().reverse().find(x => !x.done && Date.now() - x.at < 30 * 60000);
+      if (!st) return {answer: "There's nothing recent to undo. Deleted things stay in Settings, Data and Backups, Recently Deleted for 30 days.", show: []};
+      undoStack.splice(undoStack.indexOf(st), 1); const kept = st.undo();
+      return {answer: `Undone${st.label ? `: ${st.label.replace(/\.$/, "")}` : ""}.${kept ? " Changes you made after it were kept." : ""}`, show: [], done: true};
+    }
+    return null;
+  }
   function startTimer(mins, task){
     if (typeof pomoStart !== "function") return false;
     if (pomo.running || pomo.left > 0) pomoReset();
@@ -73295,6 +73428,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   }
   async function ask(q, o){
     o = o || {};
+    { const c = control(q); if (c) return c; }
+    // about the companion itself ("what are you wearing", "who are you"): from its real settings (98-companion-tab.js)
+    { const me = window.SBCOMPTAB && SBCOMPTAB.self ? SBCOMPTAB.self(q) : ""; if (me) return {answer: me, show: []}; }
     { const fn = await findNotes(q).catch(e => { console.warn(e); return null; }); if (fn) return fn; }
     // The AI on the device (98-truth.js): a request with several things to do goes one at a time, and planner facts (what's due,
     // grades, when something is) come from the app itself, exact, with no model involved
@@ -73451,7 +73587,7 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {control, quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();
 /* ===== module: 98-facts.js: planner questions answered by the app itself, exactly (no AI) ===== */
 /* The questions students ask about their own planner, worked out from it: grade averages, best and worst course, what's failing,
@@ -73800,7 +73936,7 @@ window.SBAPPHELP = (() => {
       return {answer: `Hi! ${nx ? nx.replace(/\*\*/g, "").replace(/^Today's Plan says to do this next:\s*/i, "Next up: ") + "." : "Nothing is urgent right now."} Ask me what's due, about your notes, or to add a task, start a timer or make flashcards.`, show: []};
     }
     if (/^(thanks|thank you|thx|ty|cool|ok(ay)?|great|nice|awesome|perfect|got it)\b[\w' !.,]{0,20}$/.test(s)) return {answer: "You're welcome! Anything else?", show: []};
-    if (/\b(what can you do|what do you do|how can you help|what are you|who are you|what can i ask)\b/.test(s)) return {answer: "I can answer questions about your planner (what's due, grades, classes, exams), explain things from your notes or the web, and do things for you: add or move tasks, start a focus timer, make notes, flashcards, quizzes and concept maps, and find anything in Studyboard. Try \"what's due this week?\" or \"explain the cardiac cycle\".", show: []};
+    if (/\b(what can you do|what do you do|how can you help|what can i ask)\b/.test(s)) return {answer: "I can answer questions about your planner (what's due, grades, classes, exams), explain things from your notes or the web, and do things for you: add or move tasks, start a focus timer, make notes, flashcards, quizzes and concept maps, and find anything in Studyboard. Try \"what's due this week?\" or \"explain the cardiac cycle\".", show: []};
     if (!HOWQ.test(s) && !/\b(settings?|feature|button|tab|page)\b/.test(s)) return null;
     // "can you make..." / "can you add..." are requests, not questions about the app
     if (/^\s*can you (make|add|create|start|set|move|mark|delete|explain|quiz|find|show|tell|help)\b/.test(s)) return null;
@@ -74123,12 +74259,35 @@ window.SBTRUTH = (() => {
   }
 
   // a question about the subject itself, not the planner: "what is the id", "how does my notes' Krebs cycle work", "explain osmosis"
-  const general = q => /^\s*(what|what's|whats|who|whom|why|how|when|where|which|explain|define|describe|compare|contrast|summari[sz]e|tell me about|give me (an? )?(example|definition|summary)|(can|could) you (explain|define|describe|tell me|summari[sz]e)|difference between|is it true|meaning of|list the|name the)\b/i.test(q)
-    && !/\b(you|your|you're|yours|today|tonight|tomorrow|this week|next week|right now)\b/i.test(q)
-    // advice ("how should I study", "tips to remember", "best way to"): the companion's own knowledge and their planner, not a look-up
-    && !/\b(should i|how (do|can|should|would) i (study|prepare|prep|remember|memori[sz]e|focus|manage|balance|stay|stop|get better|improve|deal|cope|start)|tips?|advice|best way|ways to|help me|study plan|motivat|procrastinat|stress|anxious|overwhelm)\b/i.test(q)
-    && !/\b(due|grades?|marks?|tasks?|deadlines?|class(es)?|schedule|calendar|studyboard|mochi|working on|doing|timer|focus|free|busy|settings?|theme|companion|pass(ing)?|fail(ing)?|average|gpa|overdue|decks?|board|planner|semester|assignments? (left|due)|homework (left|due)|how many|streak|daily goal|study goal)\b/i.test(q)
-    && String(q).replace(/[^a-z]/gi, "").length >= 6;
+  // a polite opening ("can you tell me", "do you know", "I'd like to know") says nothing about who the question is about
+  const asked = q => String(q || "").replace(/^\s*(hey|hi|ok(ay)?|so|um+)?[,\s]*(please\s+)?((can|could|would|will) (you|u)( please)?( (tell|show|teach) me| explain| describe| help me understand)?( more)?( about)?|do (you|u) know( anything about)?|i('d| would) (like|love) to (know|learn)( more)?( about)?|i want to (know|learn|understand)( more)?( about)?|i wanna know( more)?( about)?|help me understand|tell me( more)?( about)?|teach me( about)?)\s+/i, m => /\b(tell|show|teach|explain|describe|understand|know|learn|about)\b/i.test(m) ? "explain " : m);
+  // A question about a subject (answered from the student's notes, then the web), unless it's clearly about something else: their
+  // planner, the app, Mochi itself, advice, or a request to do something. Decided by what it's about, never by how it starts, so
+  // "what is osmosis", "osmosis?", "can you tell me more about osmosis" and "I'm confused about osmosis" all count the same.
+  const general = q0 => { const q = asked(norm ? norm(q0) : q0);
+    if (String(q).replace(/[^a-z]/gi, "").length < 4) return false;
+    // advice ("how should I study", "tips to remember", "best way to")
+    if (/\b(should i|how (do|can|should|would) i (study|prepare|prep|remember|memori[sz]e|focus|manage|balance|stay|stop|get better|improve|deal|cope|start)|tips?|advice|best way|ways to|help me|study plan|motivat|procrastinat|stress|anxious|overwhelm)\b/i.test(q)) return false;
+    // the planner and the app: a planner word counts when the question is about the student ("my", "I", "am I"), or when nothing
+    // else is left in it ("what's due", "grades?"). "What is the average atomic mass" and "how does light pass through glass" are subjects
+    const PLAN = /\b(due|grades?|marks?|tasks?|deadlines?|class(es)?|schedule|calendar|studyboard|mochi|working on|doing|timer|focus|free|busy|settings?|theme|companion|pass(ing)?|fail(ing)?|average|gpa|overdue|decks?|board|planner|semester|assignments? (left|due)|homework (left|due)|how many|streak|daily goal|study goal)\b/i;
+    // Studyboard's own features are always about the app
+    if (/\b(studyboard|mochi|companion|timer|pomodoro|focus (session|mode|time)|settings?|theme|dark mode|planner|streak|daily goal|study goal|widgets?|wardrobe|accessor(y|ies)|the app|this app|sync|notifications?|reminders?)\b/i.test(q)) return false;
+    // their own courses and work: "is my bio course hard", "when is the midterm", "how long is my essay"
+    if (/\b(my|mine|am i|i'm|im|i have|i've)\b/i.test(q) && /\b(course|courses|class|classes|prof|professor|teacher|instructor|ta|exam|exams|test|tests|midterm|final|finals|quiz|quizzes|lab|labs|essay|project|assignment|homework|syllabus|semester|term|schedule|lecture|lectures)\b/i.test(q) && !/\b(my )?(notes?|files?|slides?|readings?|textbook)\b/i.test(q)) return false;
+    if (/^\s*(when|where|what time|what day|how long until|how many days)\b/i.test(q) && /\b(exam|exams|test|midterm|final|finals|quiz|lab|essay|project|assignment|homework|class|lecture|office hours)\b/i.test(q) && !/\b(war|revolution|era|period|century|dynasty|treaty|invented|discovered|founded)\b/i.test(q)) return false;
+    if (PLAN.test(q)) {
+      const mine = /\b(my|mine|me|i|i'm|im|i've|ive|am i|we|our|us)\b/i.test(q);
+      const rest = (q.toLowerCase().replace(new RegExp(PLAN.source, "gi"), " ").match(/[a-z]{3,}/g) || []).filter(w => !QSTOP.has(w) && !/^(what|whats|which|when|where|how|who|why|does|any|anything|there|tell|explain|about|more|show|list|all|left|got|have|get|need|the|and|for|are|is|you|change|set|turn|use|find|open|add|see|switch|edit|do)$/.test(w));
+      if (mine || !rest.length) return false;
+    }
+    // when: their day, not a subject
+    if (/\b(today|tonight|tomorrow|tmrw|this (week|weekend|morning|afternoon|evening)|next week|right now|later today)\b/i.test(q)) return false;
+    // Mochi itself ("how are you", "do you like me", "what's your name")
+    if (/\b(are (you|u)|do (you|u) (like|love|think|feel|remember|know me)|(you|u) (like|love|think|feel)|your (name|favou?rite|opinion)|about (you|yourself)|who made you|can (you|u) (hear|see) me)\b/i.test(q)) return false;
+    // a request to do something (add, move, make, start...)
+    if (/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(add|move|make|create|start|stop|set|delete|remove|remind|schedule|plan|mark|rename|open|show me my|find my|quiz me|test me|generate|write me|draw|put|save|change|turn)\b/i.test(q)) return false;
+    return true; };
 
   return {norm, nonAnswer, knowledge, range, facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
 })();
@@ -74436,6 +74595,18 @@ window.SBTRUTH = (() => {
     }
     return null;
   }
+  // "What are you wearing?", "what accessories do you have on?", "who are you?", "what are you?", "what's your name?"
+  function selfAnswer(q){
+    const t = String(q || "").toLowerCase().replace(/[?!.]+$/, ""), me = info(); if (!me) return "";
+    const worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [], list = worn.length > 1 ? worn.slice(0, -1).join(", ") + " and " + worn[worn.length - 1] : worn[0] || "";
+    const a = /^(an?|the)\s/i.test(me.kind) ? me.kind : /^[aeiou]/i.test(me.kind) ? "an " + me.kind : "a " + me.kind;
+    if (/\b(wearing|wear|have on|got on|accessor(y|ies)|outfit|dressed|hat|glasses|on your (head|face))\b/.test(t) && /\b(you|your|u|ur)\b/.test(t))
+      return worn.length ? `I'm wearing my ${list}.${me.kind ? ` (I'm ${a.toLowerCase()} myself!)` : ""} You can change my look in the Wardrobe.` : `Nothing right now! You can pick accessories for me in the Wardrobe.`;
+    if (/\b(what('?s| is) your name|who are (you|u)|what are (you|u)|what kind of (thing|creature|companion|animal) are (you|u)|tell me about (yourself|you)|introduce yourself)\b/.test(t))
+      return `I'm ${me.name}${me.kind ? `, ${a.toLowerCase()}` : ""}, your study companion.${me.bio ? " " + me.bio : ""}${worn.length ? ` Right now I'm wearing my ${list}.` : ""}`;
+    return "";
+  }
+  const CHAT_MAX = 100000;
   async function ask(q){
     q = String(q || "").replace(/\s+/g, " ").trim().slice(0, 1000);
     const att = T.att.slice();
@@ -74451,14 +74622,21 @@ window.SBTRUTH = (() => {
     T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.live = ""; T.status = "Looking through your stuff…"; draw();
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
+    // no reply may keep the chat busy for good: past CHAT_MAX it's given up on (it's dropped if it comes later) and the chat is free again
+    const work = (async () => {
     try {
       // the AI on the device (98-truth.js): planner facts from the app itself, exact; other answers checked against what it was given
-      const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length ? TR.facts(q) : null;
+      // stop, pause or resume the timer, or undo the last change: done at once, with no AI (98-assist.js), on any engine
+      const ctl = !att.length && window.SBASSIST && SBASSIST.control ? SBASSIST.control(q) : null, me0 = !ctl && !att.length ? selfAnswer(q) : "";
+      const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length && !ctl && !me0 ? TR.facts(q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
       const was = !att.length ? pendingAsk(q, c) : "", q2 = was || q;
       let made = null;
+      // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
+      if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
+      else if (!att.length) { const me = me0 || selfAnswer(q2); if (me) made = {answer: me, sources: [], followUps: [], actions: []}; }
       if (att.length && att.some(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || "")) && /\b(add|put|save|pin|stick|place|attach)\b[^?]*\b(note|notes|board)\b/i.test(q)) made = await photoNote(q, att);
-      if (!quick && !att.length && MAP_Q.test(q2) && MAP_ASK.test(q2)) { T.status = "Making your map…"; draw(); made = await mapAct(q2); }
+      if (!quick && !made && !att.length && MAP_Q.test(q2) && MAP_ASK.test(q2)) { T.status = "Making your map…"; draw(); made = await mapAct(q2); }
       if (!quick && !made && !att.length && window.SBASSIST && SBASSIST.findNotes) { const fn = await SBASSIST.findNotes(q2).catch(() => null); if (fn) made = {answer: fn.answer, sources: fn.show && fn.show.length ? ["Your notes"] : [], followUps: [], actions: [], show: fn.show && fn.show.length ? SBASSIST.pack(fn).show : undefined}; }
       if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
       // a question about the subject (on the device): the same answer as Ask's, from their own material first, then the web
@@ -74486,7 +74664,7 @@ window.SBTRUTH = (() => {
       const format = plan ? Object.assign({}, format0, {properties: Object.assign({points: {type: "ARRAY", items: {type: "STRING"}, description: "First: the 3 to 5 key points a complete answer covers, in order (what it is, how it works, why it matters, an example, a common mistake), only what the sources support"}}, format0.properties), required: ["points"].concat(format0.required || [])}) : format0;
       T.status = "Thinking…"; draw();
       const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 1200)}`).join("\n\n");
-      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. You are a real AI helper for anything about their courses, their course materials or Studyboard itself: use everything below (their planner, the search results from their own files, notes and cards, the file text, what's on their screen, and HOW STUDYBOARD WORKS for questions about the app), and your own knowledge for subject matter. Always give a real, useful answer: if their data doesn't have something, say briefly what you checked, then help anyway (explain the topic, say where in the app it would be, or ask one short question). Never invent their facts, dates, marks or file contents. When you use their course materials, say which file or note it came from. Match the length to the question: a sentence for a quick fact, a clear explanation with short paragraphs, steps or '- ' bullets when they want to understand, learn, plan or do something. For questions about their work, suggest a concrete next step when it helps. Reply to exactly what the student said, nothing they didn't ask for. Add more only when it clearly helps with what they asked (like what it takes to keep a grade when they ask about that grade, or a deadline that clashes with the plan they're asking about), never as filler. When the student is just chatting, answer that and only that, in character and briefly, like a friend: a hello gets a short friendly hello back (and, at most, a few words offering help), not news about you or a question back; only say how you are or what you've been up to when they ask; thanks gets a short "you're welcome". Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.${actOn ? `
+      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${me.kind ? `You are ${me.kind.toLowerCase()} yourself (you don't wear or carry one). ` : ""}${(SBCOMP.wornNames ? SBCOMP.wornNames() : []).length ? `You're wearing: ${SBCOMP.wornNames().join(", ")}. ` : "You're wearing no accessories. "}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. You are a real AI helper for anything about their courses, their course materials or Studyboard itself: use everything below (their planner, the search results from their own files, notes and cards, the file text, what's on their screen, and HOW STUDYBOARD WORKS for questions about the app), and your own knowledge for subject matter. Always give a real, useful answer: if their data doesn't have something, say briefly what you checked, then help anyway (explain the topic, say where in the app it would be, or ask one short question). Never invent their facts, dates, marks or file contents. When you use their course materials, say which file or note it came from. Match the length to the question: a sentence for a quick fact, a clear explanation with short paragraphs, steps or '- ' bullets when they want to understand, learn, plan or do something. For questions about their work, suggest a concrete next step when it helps. Reply to exactly what the student said, nothing they didn't ask for. Add more only when it clearly helps with what they asked (like what it takes to keep a grade when they ask about that grade, or a deadline that clashes with the plan they're asking about), never as filler. When the student is just chatting, answer that and only that, in character and briefly, like a friend: a hello gets a short friendly hello back (and, at most, a few words offering help), not news about you or a question back; only say how you are or what you've been up to when they ask; thanks gets a short "you're welcome". Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.${actOn ? `
 You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practice. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.` : ""}${cat && window.SBASSIST ? "\n" + SBASSIST.RULES + "\nThe refs are in ITEMS YOU CAN SHOW OR CHANGE. Changing existing things always goes in \"changes\", never in actions. Tasks the student asks you to add go in \"newTasks\"; keep the tasks action for due dates found in files they attached." : ""}`;
       // free: no answer format enforced, just asked for (decoded differently, so a placeholder can't come back the same way)
       const call = (fmt, free) => aiCall({onPartial: dev ? t => { T.live = t; drawStatus(); } : undefined, task: att.length ? "tutor" : "chat", maxTokens: dev ? (att.length ? 1200 : 700) : att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
@@ -74525,6 +74703,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
       }
       }
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
+    })();
+    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), (window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX))])) m = {q: m.q, at: m.at, files: m.files, err: "That took too long, so I stopped. Try asking again, maybe in fewer words.", errCode: "slow"};
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
@@ -74826,7 +75006,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   const cptGrow = t => { t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 9 * parseFloat(getComputedStyle(t).fontSize)) + "px"; };
   document.addEventListener("input", e => { if (e.target.id === "cptIn") { T.draft = e.target.value; cptGrow(e.target); } });
   // Anywhere else in the app
-  window.SBCOMPTAB = {open: q => { try { if (window.SBSEARCH && SBSEARCH.warm) SBSEARCH.warm(); } catch (e) {} ui.tab = "companion"; ui.courseId = null; T.tab = "chat"; render(); window.scrollTo(0, 0); if (q) ask(q); }, chats: rd};
+  window.SBCOMPTAB = {self: q => { try { return selfAnswer(q); } catch (e) { return ""; } }, open: q => { try { if (window.SBSEARCH && SBSEARCH.warm) SBSEARCH.warm(); } catch (e) {} ui.tab = "companion"; ui.courseId = null; T.tab = "chat"; render(); window.scrollTo(0, 0); if (q) ask(q); }, chats: rd};
 
   const st = document.createElement("style");
   st.textContent = `.cpt{display:grid;gap:12px;max-width:860px;margin:0 auto}

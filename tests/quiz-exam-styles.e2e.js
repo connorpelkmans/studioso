@@ -42,7 +42,7 @@ const NOTES = "Pyelonephritis: an infection of the kidney, usually ascending fro
     if (picks.focus) await p.selectOption("#aiFocus", picks.focus);
     const offered = await p.evaluate(() => [...document.querySelectorAll("#aiExam option")].map(o => o.value).filter(Boolean));
     await p.click("#aiGo");
-    await p.waitForSelector("dialog[open] #arSave", {timeout: 20000}).catch(() => {});
+    await p.waitForSelector(".ai-live-bar.done, #toast.show.toast-err", {timeout: 20000}).catch(() => {});
     const text = sent.map(x => JSON.stringify(x)).join(" ");
     return {ctx, p, sent, text, offered};
   };
@@ -55,12 +55,11 @@ const NOTES = "Pyelonephritis: an infection of the kidney, usually ascending fro
   ok(/Focus on disease mechanisms/.test(A.text), "and the Pathophysiology focus");
   ok(/follow them exactly/.test(A.text) && /never copying or closely imitating its actual questions/.test(A.text), "styles come first, written as new questions (never copied from the real exam)");
   ok(/nursing or health sciences/.test(A.text), "the AI is told the student's field");
-  // the review, then the quiz itself
-  ok(await A.p.locator("dialog[open] #arSave").count() === 1, "the review opens with the questions");
-  const nm = await A.p.inputValue("#arQuizName").catch(() => "");
+  // the quiz opens and fills in, then it's taken
+  const nm = await A.p.evaluate(() => { const q = Object.values(window.__sbSync.state.decks).flatMap(d => d.aiQuizzes || []).find(x => x.questions.length); return q ? q.title : ""; });
+  ok(!!nm, "the quiz is saved with its questions");
   ok(/USMLE Step 1/.test(nm) || /Renal/.test(nm), "the quiz is named after the exam style (or the AI's title): " + nm);
-  await A.p.click("#arSave"); await A.p.waitForTimeout(500);
-  await A.p.evaluate(() => { const S = window.__sbSync; S.ui.tab = "flashcards"; S.ui.rvView = "quizzes"; S.render(); }); await A.p.waitForTimeout(300);
+  await A.p.evaluate(() => { const S = window.__sbSync; S.ui.tab = "flashcards"; S.ui.rvView = "quizzes"; S.ui.qzOpen = null; S.render(); }); await A.p.waitForTimeout(300);
   await A.p.click('.rv-quiz [data-act="ai-quiz-start"]'); await A.p.waitForTimeout(600);
   // the quiz plays its questions in a shuffled order: check whichever comes first against what it should look like
   const shown = await A.p.evaluate(() => ({stem: (document.querySelector("#view") || {}).innerText || "", opts: document.querySelectorAll("#view button.opt").length}));

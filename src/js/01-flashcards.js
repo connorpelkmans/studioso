@@ -222,7 +222,7 @@ function viewQuizDetail(d, qz){
     if (q.type === "order") return `<ol class="qzd-opts qzd-hide" data-act="qz-reveal" data-i="${i}">${q.correct.map((ix, k) => `<li><span class="qzd-l">${k + 1}</span><span>${esc(q.options[ix])}</span></li>`).join("")}</ol>`;
     return `<ul class="qzd-opts qzd-mc" data-act="qz-reveal" data-i="${i}">${q.options.map((o, k) => { const ok = q.correct.includes(k); return `<li class="${ok ? "ok" : ""}"><span class="qzd-l"><i class="lt">${L(k)}</i>${ok ? `<i class="ck">${CHK}</i>` : ""}</span><span>${esc(o)}</span></li>`; }).join("")}</ul>`;
   };
-  const qs = qz.questions.map((q, i) => `<li class="qzd-q"><span class="qzd-n">${i + 1}</span><div class="qzd-body">
+  const qs = qz.questions.map((q, i) => `<li class="qzd-q${typeof aiFresh === "function" && aiFresh(q.id) ? " ai-new" : ""}"><span class="qzd-n">${i + 1}</span><div class="qzd-body">
       <span class="qzd-type">${esc(TL[q.type] || "Question")}</span>
       <p class="qzd-stem">${esc(q.stem)}</p>
       ${ans(q, i)}
@@ -236,7 +236,7 @@ function viewQuizDetail(d, qz){
         <div class="g2-txt"><h2>${esc(qz.title || "Practice Quiz")}</h2>
           <div class="deck-stats"><span><b>${qz.questions.length}</b> question${qz.questions.length === 1 ? "" : "s"}</span><span>from <b>${esc(quizFrom(d, qz))}</b></span>${last ? `<span>Last score <b>${last.score}/${last.total}</b></span><span>Best <b>${Math.round(best * 100)}%</b></span>` : ""}</div></div></div>
     </div>
-    ${qz.kind === "case" && qz.scenario ? `<p class="qzd-scen">${esc(qz.scenario)}</p>` : ""}
+    ${typeof aiLiveBar === "function" ? aiLiveBar(d.id) : ""}${qz.kind === "case" && qz.scenario ? `<p class="qzd-scen">${esc(qz.scenario)}</p>` : ""}
     <section class="c2-card2 c2-box qzd-card${hide ? " qzd-hidden" : ""}" style="--c:${esc(colorOf(d.courseId))}"><div class="qzd-head">${c2Head("goals", "Questions", qz.questions.length)}<button type="button" class="btn small" data-act="qz-hide" aria-pressed="${hide}">${hide ? "Show Answers" : "Hide Answers"}</button></div>
       ${hide ? `<p class="mini qzd-hint">Answers are hidden. Tap one to check it.</p>` : ""}<ol class="qzd-list">${qs}</ol></section>`;
 }
@@ -520,8 +520,8 @@ function viewDeck(d){
   const st = deckStats(d), c = courseOf(d.courseId);
   const q = ui.q.trim().toLowerCase();
   const cards = d.cards.filter(x => !q || (x.front + " " + x.back).toLowerCase().includes(q));
-  const rows = cards.map(x => `<li class="fc-row">
-      <button class="fc-cell face fc-face" data-act="fc-card" data-id="${esc(x.id)}"><span class="fc-front">${esc(x.front)}</span><span class="fc-back">${esc(x.back)}</span></button>
+  const rows = cards.map(x => `<li class="fc-row${typeof aiFresh === "function" && aiFresh(x.id) ? " ai-new" : ""}">
+      <button class="fc-cell face fc-face" data-act="fc-card" data-id="${esc(x.id)}"><span class="fc-front">${esc(x.front)}</span><span class="fc-back">${esc(x.back)}</span>${x.check ? `<span class="pill ar-chk fc-chk" title="${esc(x.check)}">Check: ${esc(x.check)}</span>` : ""}</button>
       ${masteryPips(x.box)}
     </li>`).join("");
   return `<button class="back" data-act="fc-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Decks</button>
@@ -532,7 +532,7 @@ function viewDeck(d){
         <div class="g2-txt"><h2>${esc(d.name)}</h2>
           <div class="deck-stats"><span><b>${st.total}</b> cards</span><span class="${st.due ? "due" : ""}"><b>${st.due}</b> due</span><span><b>${st.fresh}</b> new</span><span class="${st.mastered ? "ok" : ""}"><b>${st.mastered}</b> mastered</span>${st.last ? `<span>Last quiz <b>${st.last.score}/${st.last.total}</b></span>` : ""}</div></div></div>
     </div>
-    ${window.SBLINKED ? SBLINKED.deckHtml(d) : ""}${deckAiBar(d)}
+    ${typeof aiLiveBar === "function" ? aiLiveBar(d.id) : ""}${window.SBLINKED ? SBLINKED.deckHtml(d) : ""}${typeof aiLiveOn === "function" && aiLiveOn(d.id) ? "" : deckAiBar(d)}
     ${cards.length ? `<ul class="fc-list fc-styled cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">${rows}</ul>` : `<div class="empty" style="margin-top:12px"><strong>${d.cards.length ? "No Cards Match" : "No Cards Yet"}</strong>${d.cards.length ? "" : `${matchMedia("(pointer:coarse)").matches ? "Tap" : "Click"} Add Card at the bottom right, or choose More, then Paste Cards to add a whole list at once.`}</div>`}`;
 }
 function deckSheet(d){
@@ -567,7 +567,7 @@ function cardSheet(d, cardId){
     const front = String(fd.get("front") || "").trim(), back = String(fd.get("back") || "").trim();
     if (!front || !back) { toast("A card needs both a front and a back"); return false; }
     const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); if (!x) return;
-    x.front = front; x.back = back; nd.updated = Date.now(); saveDeck(nd, "Card saved");
+    x.front = front; x.back = back; delete x.check; nd.updated = Date.now(); saveDeck(nd, "Card saved");
   });
   $("#cdDel").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); nd.cards = nd.cards.filter(y => y.id !== cardId); saveDeck(nd, "Card deleted"); });
   $("#cdReset").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); Object.assign(x, {box: 0, due: "", seen: 0, right: 0, wrong: 0}); saveDeck(nd, "Card progress reset"); });

@@ -63,8 +63,9 @@ const fakeChrome = () => {
     await p.setInputFiles("#aiFile", file); await p.waitForTimeout(800);
     await p.evaluate(() => { const q = document.querySelector("#aiQuiz"); if (q && q.checked) q.click(); });
     await p.click("#aiGo");
-    await p.waitForFunction(() => document.querySelector("dialog[open] #arSave") || (document.querySelector("#aiGo") && !document.querySelector("#aiGo").disabled && !document.querySelector("#aiGo").classList.contains("busy")), null, {timeout: 240000, polling: 500});
-    return p.evaluate(() => ({cards: document.querySelectorAll("#arCards li").length, all: (document.querySelector("dialog[open]") || {}).innerText || "", status: (document.querySelector("#aiStatus") || {}).textContent || "", prompts: window.__devLog.prompts}));
+    await p.waitForSelector(".ai-live-bar.done, #toast.show.toast-err", {timeout: 240000}).catch(() => {});
+    return p.evaluate(() => { const d = Object.values(window.__sbSync.state.decks)[0] || {cards: []}; const bar = (document.querySelector(".ai-live-bar") || {}).innerText || "", t = (document.querySelector("#toast.show") || {}).innerText || "";
+      return {cards: d.cards.length, all: bar, status: bar + " " + t, prompts: window.__devLog.prompts}; });
   };
 
   // 1. A photo of a handout: the real Tesseract, under the site's policy, reads it; the heading stays on its own

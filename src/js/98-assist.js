@@ -619,6 +619,39 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     if (/\b(the|my) (task|thing|work|assignment) i'?m (working on|doing)\b|\bcurrent task\b/.test(s)) return open.find(t => t.status === "doing") || null;
     return null;
   }
+  /* Things done straight away, with no AI: stop, pause or resume the focus timer, say how long is left on it, and undo the last
+     change ("undo that", "reverse the change", "put it back"). Any wording that names the thing and the action counts. */
+  const TIMER_W = /\b(timer|pomodoro|focus( session| time)?|session|countdown|clock)\b/i;
+  function control(q){
+    const s = String(q || "").toLowerCase().replace(/[?!.]+$/, "").trim();
+    if (s.length > 120) return null;
+    const P = typeof pomo !== "undefined" ? pomo : null, live = P && (P.running || P.left > 0), name = () => { const t = P && P.taskId && state.tasks[P.taskId]; return t ? ` for ${t.title}` : ""; };
+    const left = () => { const ms = P.running ? P.endAt - Date.now() : P.left, m = Math.max(0, Math.round(ms / 60000)); return m >= 1 ? `${m} minute${m === 1 ? "" : "s"}` : "less than a minute"; };
+    // with a timer on (or paused), a short "pause it", "stop that", "resume", "keep going" is about the timer
+    if (P && TIMER_W.test(s) || P && live && /^\s*(ok(ay)?|please|now|can (you|u)|could you)?\s*(stop|pause|resume|unpause|cancel|end|continue|keep going|carry on)\b[\w\s']{0,18}$/.test(s)) {
+      if (/\b(stop|end|cancel|quit|kill|turn off|switch off|finish|done with|reset|clear|get rid of|no more)\b/.test(s)) {
+        if (!live) return {answer: "There's no focus timer running.", show: []};
+        const was = name(); pomoReset(); return {answer: `Stopped your focus timer${was}.`, show: [], done: true};
+      }
+      if (/\b(pause|hold|break)\b/.test(s) && !/\b(take|start|give me) (a )?break\b/.test(s)) {
+        if (!P.running) return {answer: P.left > 0 ? "Your focus timer is already paused." : "There's no focus timer running.", show: []};
+        pomoPause(); return {answer: `Paused your focus timer${name()} with ${left()} left.`, show: [], done: true};
+      }
+      if (/\b(resume|unpause|continue|keep going|restart it|start (it )?again|carry on)\b/.test(s) && !P.running && P.left > 0) { pomoStart(); return {answer: `Resumed your focus timer${name()}: ${left()} left.`, show: [], done: true}; }
+      if (/\b(how (much|long)|time left|left on|remaining|is (my|the) (focus )?timer (running|on|going)|is it (still )?running)\b/.test(s)) {
+        if (!live) return {answer: "There's no focus timer running.", show: []};
+        return {answer: `${left()} left on your focus timer${name()}${P.running ? "" : " (paused)"}.`, show: []};
+      }
+    }
+    if (/\b(undo|reverse|revert|take (that|it) back|put (it|that|them) back|change (it|that) back|go back to how|unmark|cancel (that|the change|the last|what you did)|didn'?t mean (to|that))\b/.test(s) && !/\b(how (do|can) i|is there|can i)\b/.test(s)) {
+      if (typeof undoStack === "undefined") return null;
+      const st = undoStack.slice().reverse().find(x => !x.done && Date.now() - x.at < 30 * 60000);
+      if (!st) return {answer: "There's nothing recent to undo. Deleted things stay in Settings, Data and Backups, Recently Deleted for 30 days.", show: []};
+      undoStack.splice(undoStack.indexOf(st), 1); const kept = st.undo();
+      return {answer: `Undone${st.label ? `: ${st.label.replace(/\.$/, "")}` : ""}.${kept ? " Changes you made after it were kept." : ""}`, show: [], done: true};
+    }
+    return null;
+  }
   function startTimer(mins, task){
     if (typeof pomoStart !== "function") return false;
     if (pomo.running || pomo.left > 0) pomoReset();
@@ -718,6 +751,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   }
   async function ask(q, o){
     o = o || {};
+    { const c = control(q); if (c) return c; }
+    // about the companion itself ("what are you wearing", "who are you"): from its real settings (98-companion-tab.js)
+    { const me = window.SBCOMPTAB && SBCOMPTAB.self ? SBCOMPTAB.self(q) : ""; if (me) return {answer: me, show: []}; }
     { const fn = await findNotes(q).catch(e => { console.warn(e); return null; }); if (fn) return fn; }
     // The AI on the device (98-truth.js): a request with several things to do goes one at a time, and planner facts (what's due,
     // grades, when something is) come from the app itself, exact, with no model involved
@@ -874,5 +910,5 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {control, quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();

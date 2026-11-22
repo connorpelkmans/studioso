@@ -55,22 +55,22 @@ function fake(o){
     ok(warm === 1, "opening the sheet gets the model ready with the card instructions, before Create is pressed");
     const est0 = await R.p.evaluate(() => { const e = document.querySelector("#aiEst"); return e && !e.hidden ? e.textContent : ""; });
     ok(/first set shows how fast/.test(est0), "before any set, the sheet says the first one shows this computer's speed: " + est0);
-    await R.p.evaluate(() => { window.__liveBefore = 0; new MutationObserver(() => { if (!document.querySelector("#arSave")) window.__liveBefore = Math.max(window.__liveBefore, document.querySelectorAll(".ai-live-card").length); }).observe(document.body, {subtree: true, childList: true}); });
-    await R.p.evaluate(() => { window.__status = []; const s = document.querySelector("#aiStatus"); new MutationObserver(() => window.__status.push(s.textContent)).observe(s, {childList: true, subtree: true, characterData: true}); });
+    await R.p.evaluate(() => { window.__liveBefore = 0; new MutationObserver(() => { if (!document.querySelector(".ai-live-bar.done")) window.__liveBefore = Math.max(window.__liveBefore, document.querySelectorAll(".fc-row").length); }).observe(document.body, {subtree: true, childList: true}); });
+    await R.p.evaluate(() => { window.__status = []; new MutationObserver(() => { const m = document.querySelector(".ai-live-msg"); if (m && window.__status[window.__status.length - 1] !== m.textContent) window.__status.push(m.textContent); }).observe(document.body, {childList: true, subtree: true, characterData: true}); });
     await R.p.evaluate(t => { const d = document.querySelector("#dlg details"); if (d) d.open = true; const a = document.querySelector("#aiPaste"); a.value = t; a.dispatchEvent(new Event("input", {bubbles: true})); }, NOTES);
     await R.p.evaluate(() => { const q = document.querySelector("#aiQuiz"); if (q && q.checked) q.click(); });
-    const t0 = Date.now(); await R.p.click("#aiGo"); await R.p.waitForSelector("dialog[open] #arSave", {timeout: 60000}).catch(() => {});
+    const t0 = Date.now(); await R.p.click("#aiGo"); await R.p.waitForSelector(".ai-live-bar.done", {timeout: 60000}).catch(() => {});
     const L = await R.p.evaluate(() => ({creates: window.__log.creates.filter(c => /^You make flashcards/.test(c.system)).length, clones: window.__log.clones, parts: window.__log.prompts.filter(x => /^You make flashcards/.test(x.system)).length,
       asked: window.__log.prompts.filter(x => /^You make flashcards/.test(x.system)).reduce((m, x) => m + (Number((/Make exactly (\d+)/.exec(x.text) || [])[1]) || 0), 0), facts: window.__log.prompts.filter(x => /^You list the facts/.test(x.system)).length,
-      cards: document.querySelectorAll("#arCards li").length, status: window.__status}));
+      cards: (Object.values(window.__sbSync.state.decks)[0] || {cards: []}).cards.length, status: window.__status}));
     ok(L.parts >= 2 && L.parts <= 8, `about 2,700 words go in a few big parts, not a dozen small ones: ${L.parts}`);
     ok(L.creates === 1 && L.clones >= L.parts, `the card instructions are read once and copied for each part: ${L.creates} session, ${L.clones} copies ` + JSON.stringify(await R.p.evaluate(() => window.__log.creates)));
     ok(L.asked <= 32 && L.cards >= L.parts, `"Auto" asks for about 30 cards in all (${L.asked}), and they come back (${L.cards})`);
     ok(L.facts === 0, "cards alone take one request a part (no separate list of facts)");
     ok(L.status.some(s => /writing \d+ words?/.test(s)), "the student sees the answer being written: " + (L.status.find(s => /writing/.test(s)) || "none"));
-    ok(L.status.some(s => /\d+ cards? so far, part \d+ of \d+/.test(s)), "and how many cards are done: " + (L.status.find(s => /cards? so far/.test(s)) || "none"));
+    ok(L.status.some(s => /\d+ cards? so far[.,] part \d+ of \d+/i.test(s)), "and how many cards are done: " + (L.status.find(s => /cards? so far/.test(s)) || "none"));
     const live = await R.p.evaluate(() => window.__liveBefore);
-    ok(live >= 3, `cards show up to study while the rest are made (${live} before Review opened)`);
+    ok(live >= 3, `cards show up in the deck to study while the rest are made (${live} before it was done)`);
     // the next time, the sheet says how long it takes on this computer, for what's picked
     await R.p.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await sheet(R.p); await R.p.waitForSelector("#dlg[open] #aiGo");
@@ -90,9 +90,21 @@ function fake(o){
     await sheet(R.p); await R.p.waitForSelector("#dlg[open] #aiGo");
     await R.p.evaluate(t => { const d = document.querySelector("#dlg details"); if (d) d.open = true; const a = document.querySelector("#aiPaste"); a.value = t; a.dispatchEvent(new Event("input", {bubbles: true})); }, NOTES.slice(0, 1500));
     await R.p.evaluate(() => { const q = document.querySelector("#aiQuiz"); if (q && q.checked) q.click(); });
-    await R.p.click("#aiGo"); await R.p.waitForSelector("dialog[open] #arSave", {timeout: 30000}).catch(() => {});
-    const got = await R.p.evaluate(() => ({cards: document.querySelectorAll("#arCards li").length, stalled: window.__stalled}));
+    await R.p.click("#aiGo"); await R.p.waitForSelector(".ai-live-bar.done", {timeout: 30000}).catch(() => {});
+    const got = await R.p.evaluate(() => ({cards: (Object.values(window.__sbSync.state.decks)[0] || {cards: []}).cards.length, stalled: window.__stalled}));
     ok(got.cards >= 1 && got.stalled >= 1, `a stalled answer is retried and the set still comes back: ${got.cards} cards`);
+    await R.ctx.close(); }
+
+  // Chrome writes some cards, then only spaces (or the same few words) without end: the request ends in seconds, keeping the
+  // complete cards it wrote (the set goes on instead of waiting minutes)
+  for (const junk of [" \n", "the cell the cell "]) { const R = await open({status: "available"});
+    const got = await R.p.evaluate(async j => { window.__SB_STALL_MS = 1500; const LM = window.LanguageModel;
+      LM.create = async () => ({contextWindow: 6000, contextUsage: 100, destroy(){}, clone: async function(){ return this; }, prompt: async () => "{}",
+        promptStreaming: () => (async function* (){ yield '{"cards": [{"front": "Where does glycolysis happen?", "back": "In the cytoplasm."}, {"front": "What does glycolysis make?", "back": "Two pyruvate."}, {"front": "'; for (;;) { await new Promise(r => setTimeout(r, 40)); yield j; } })()});
+      const t0 = Date.now(); try { const x = await window.__sbDevAI.call({system: "Cards.", parts: [{text: "Notes"}], schema: {type: "OBJECT", properties: {cards: {type: "ARRAY", items: {type: "OBJECT", properties: {front: {type: "STRING"}, back: {type: "STRING"}}}}}}});
+        return {cards: (x.data.cards || []).map(c => c.front), secs: (Date.now() - t0) / 1000}; } catch (e) { return {error: e.code || e.message, secs: (Date.now() - t0) / 1000}; } }, junk);
+    ok(got.cards && got.cards.length === 2 && got.secs < 10, `an answer stuck writing ${junk.trim() ? "the same words" : "blank space"} ends in ${got.secs}s with the 2 complete cards before it: ${JSON.stringify(got)}`);
+    ok(!R.p.errs.length, "no page errors: " + R.p.errs.join(" | "));
     await R.ctx.close(); }
 
   // Chrome's one-time download: a message at the bottom says so with its progress, from the first AI button

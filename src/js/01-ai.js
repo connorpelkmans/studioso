@@ -1569,7 +1569,7 @@ async function aiCardsBySection(o){
     if (dev) x.terms = aiKeyTerms(x.section.text, Math.max(1, x.count));
     if (dev && i === 0) tell();
     if (dev && DEV_STEPS.facts && o.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
-      if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); if (o.onCards) try { o.onCards(f.cards); } catch (e) {} return Object.assign(f, {cards: f.cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)}))}); } }
+      if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); f.cards.forEach(c => { c.source = c.source || x.section.title.slice(0, 60); }); if (o.onCards) try { o.onCards(f.cards); } catch (e) {} return f; } }
     const gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
     let r = await ask(x, i), g = gate(r);
     if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
@@ -1588,8 +1588,9 @@ async function aiCardsBySection(o){
     if (dev && DEV_STEPS.check && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
     done++; made += cards.length;
     if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`);
+    cards.forEach(c => { c.source = c.source || x.section.title.slice(0, 60); });
     if (o.onCards && cards.length) try { o.onCards(cards); } catch (e) {}
-    return {cards: cards.map(c => Object.assign(c, {source: c.source || x.section.title.slice(0, 60)})), title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
+    return {cards, title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
   if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't make cards from that. Try again.");
@@ -1612,6 +1613,7 @@ async function aiQuizBySection(o){
     let keep = g.questions, wrong = 0;
     if (dev && DEV_STEPS.solve && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
+    if (o.onQuestions && keep.length) try { o.onQuestions(keep); } catch (e) {}
     return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
   }, o.signal);
   const ok = res.filter(x => x && !x.error);
@@ -1748,7 +1750,7 @@ async function aiMakeStudySet(opts, onStatus){
   else if (cards) jobs.push(cardsOne());
   function cardsOne(){ return aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
     schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})); }
-  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus}));
+  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus, onQuestions: opts.onQuestions}));
   else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
   if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
@@ -1830,9 +1832,8 @@ function aiStudySheet(deckId, mode){
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
       ${aiModelBar()}
       ${aiFirstDeckNote()}
-      <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private or sensitive information. " : ""}AI can make mistakes; you can review everything before it's saved.</p>
+      <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private or sensitive information. " : ""}AI can make mistakes: your set opens as it's written, so you can check, edit or delete anything.</p>
       <p class="status-msg" id="aiStatus" style="margin:0" aria-live="polite"></p>
-      <div class="ai-live" id="aiLive" hidden><p class="mini" style="margin:0"><b>Study while you wait:</b> tap a card to see its answer. They all go to Review when the set is done.</p><ul class="ai-live-list"></ul></div>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
   </form>`);
@@ -1854,7 +1855,6 @@ function aiStudySheet(deckId, mode){
     el.hidden = false;
     el.innerHTML = `On this computer: <b>${aiDur(secs)}</b> for ${esc(what)}.` + (secs > 180 ? ` That's a long wait here${wc && cv !== "auto" ? ": Auto (about 30 cards) is quicker" : ""}. You can tap outside this window and keep using Studyboard while it works; you'll be told when it's ready.` : "");
   };
-  sheetEl.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".ai-live-card"); if (!b) return; const on = b.getAttribute("aria-expanded") !== "true"; b.setAttribute("aria-expanded", String(on)); b.querySelector(".b").hidden = !on; });
   sheetEl.addEventListener("change", e => { if (/^(aiCardN|aiQuizN)$/.test(e.target.name || "") || /^(aiCards|aiQuiz)$/.test(e.target.id || "")) est(); });
   est();
   sheetKeep(keyK, {name: aiWho("AI"), busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) try { job.ac.abort(); } catch (e) {} },
@@ -1929,30 +1929,122 @@ function aiStudySheet(deckId, mode){
     const brand = aiBrandName();
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(brand)} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     aiShowStatus(status);
+    // The set is built where it will live: its deck (or quiz) opens now and fills in as each part is finished
+    const quizOnly = !deck && !wantCards, isNew = !deck;
+    const firstName = (sources[0] && sources[0].name && sources[0].name !== "Pasted notes" ? String(sources[0].name).replace(/\.[^.]+$/, "") : "") || (quizOnly ? "Practice Quiz" : "AI Study Set");
+    const d0 = deck ? clone(state.decks[deck.id]) : normDeck(Object.assign({id: uid(), created: Date.now(), name: firstName.slice(0, 80), courseId: cId || ""}, quizOnly ? {quizOnly: true} : {}));
+    const qzId = wantQuiz ? uid() : "";
+    if (wantQuiz) d0.aiQuizzes = (d0.aiQuizzes || []).concat({id: qzId, title: uniqueQuizTitle(styleName || "Practice Quiz"), style: style || "", created: Date.now(), sources: sources.map(x => x.name), questions: [], results: []});
+    d0.updated = Date.now();
+    applyChanges([{kind: "deck", id: d0.id, after: d0}], null);
+    const L = aiLiveStart({deckId: d0.id, quizId: qzId, ac, isNew, name: d0.name, quizTitle: wantQuiz ? d0.aiQuizzes[d0.aiQuizzes.length - 1].title : "", maxCards: Number(val("aiCardN")) > 0 ? Math.ceil(Number(val("aiCardN")) * 1.2) : 60,
+      what: [wantCards && "flashcards", wantQuiz && "quiz questions", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")});
+    // the sheet is done with: it closes, and the job carries on here
+    // (set aside with its files, not cleared: if nothing can be made, Try Again brings it back as it was, with the reason)
+    job.ac = null; job.busy = false; goBack(); go.disabled = false; go.classList.remove("busy"); status.textContent = ""; if (dlg.open) dlg.close();
+    ui.tab = "flashcards"; ui.fc = null; ui.qzOpen = null;
+    if (wantCards) { ui.deckId = d0.id; rvSet("cards"); } else { ui.deckId = null; rvSet("quizzes"); if (wantQuiz) ui.qzOpen = d0.id + ":" + qzId; }
+    render(); window.scrollTo(0, 0);
+    if (!wantCards && !wantQuiz) toast(`${aiWho("AI")} is writing your case studies. They'll appear in Quizzes when they're ready.`);
+    let r = null, err = null;
     try {
-      const live = inS("#aiLive"), liveList = live && live.querySelector(".ai-live-list");
-      if (liveList) liveList.innerHTML = "";
-      const onCards = aiOnDevice() && wantCards && liveList ? list => {
-        // the first cards: scrolled into view once, so the student sees they can start
-        if (live.hidden) { live.hidden = false; try { live.scrollIntoView({block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); } catch (e) {} }
-        list.forEach(c => { if (liveList.children.length >= 80) return; const li = document.createElement("li"); li.innerHTML = `<button type="button" class="ai-live-card" aria-expanded="false"><span class="f">${esc(c.front)}</span><span class="b" hidden>${esc(c.back)}</span></button>`; liveList.appendChild(li); });
-      } : null;
-      const r = await aiMakeStudySet({onCards, sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal, first: true}, m => { status.textContent = m; });
-      if (ac && ac.signal.aborted) return;
-      if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
-      aiRememberStyle(custom);
-      job.busy = false;
-      const ctx = {deck, courseId: cId, style, styleName, sources: sources.map(s => s.name), origins: sources.map(s => s.origin).filter(Boolean), mode, keepKey: keyK};
-      sheetReady(keyK, () => aiReviewSheet(r, ctx), aiReadyMsg(r));
-    } catch(e) {
-      if (e && e.code === "cancelled") return;
-      console.warn(e); status.innerHTML = esc(e.code ? e.message : "Something went wrong. Try again.") + aiDetailHtml(e);
-      aiJobFailed(); aiShowStatus(status);
-      job.busy = false; go.disabled = false; go.classList.remove("busy"); goBack();
-      if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
-    }
+      r = await aiMakeStudySet({onCards: wantCards ? list => aiLiveCards(L, list) : null, onQuestions: wantQuiz ? list => aiLiveQuestions(L, list) : null, sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal, first: true}, m => aiLiveStatus(L, m));
+    } catch (e) { err = e; if (!(e && e.code === "cancelled") && !L.stopped) console.warn(e); }
+    aiLiveFinish(L, r, err, {style, custom, origins: sources.map(x => x.origin).filter(Boolean), kept: () => sheetDrop(keyK),
+      failed: e => { status.innerHTML = esc(e && e.code ? e.message : "Something went wrong. Try again.") + aiDetailHtml(e); aiShowStatus(status); return () => { if (!sheetResume(keyK)) aiStudySheet(deck ? deck.id : null, mode); }; }});
   });
 }
+
+/* Building a study set in place: the deck (or quiz) page shows a bar while the AI works, and each part's cards and questions are
+   added as soon as they're checked. Stop keeps what's made so far. Nothing here is saved twice: every batch is one quiet save. */
+const AI_LIVE = {}, AI_FRESH = new Map();
+// just added (the last second and a half): drawn with a short pop-in
+const aiFresh = id => { const t = AI_FRESH.get(id); if (t && Date.now() - t < 1500) return true; if (t) AI_FRESH.delete(id); return false; };
+const aiLiveOn = id => !!(AI_LIVE[id] && !AI_LIVE[id].done);
+function aiLiveStart(o){ const L = Object.assign({n: 0, nq: 0, status: "", ids: [], notes: [], t0: Date.now()}, o); AI_LIVE[o.deckId] = L; return L; }
+function aiLiveBar(id){
+  const L = AI_LIVE[id]; if (!L) return "";
+  if (L.done) return `<section class="ai-live-bar done" data-live-id="${esc(id)}"><div class="ai-callout">${AI_ICON}<span><b>${esc(L.summary)}</b>${L.notes.length ? " " + esc(L.notes.join(" ")) : ""}</span><button type="button" class="x-btn" data-live-ok="${esc(id)}" aria-label="Dismiss">${CLOSE}</button></div></section>`;
+  return `<section class="ai-live-bar" data-live-id="${esc(id)}" role="status"><div class="ai-callout"><span class="ai-spin" aria-hidden="true"></span><span><b>${esc(aiWho("AI"))} is writing ${esc(L.what)}.</b> <span class="ai-live-msg">${esc(aiLiveCount(L) || L.status || "Reading your material…")}</span> They appear here as each part is done; you can study or edit them right away.</span><button type="button" class="btn small" data-live-stop="${esc(id)}">Stop</button></div></section>`;
+}
+const aiLiveCount = L => [L.n && `${L.n} card${L.n === 1 ? "" : "s"}`, L.nq && `${L.nq} question${L.nq === 1 ? "" : "s"}`].filter(Boolean).join(" and ") + (L.n || L.nq ? " so far." + (L.status ? " " + L.status.replace(/^Making flashcards: \d+ cards? so far, /, "").replace(/^./, c => c.toUpperCase()) : "") : "");
+function aiLiveStatus(L, m){ L.status = String(m || ""); const el = document.querySelector(`[data-live-id="${CSS.escape(L.deckId)}"] .ai-live-msg`); if (el) el.textContent = aiLiveCount(L) || L.status; }
+// the deck was deleted while it was being made: stop
+const aiLiveDeck = L => { const d = state.decks[L.deckId]; if (!d && L.ac && !L.stopped) { L.stopped = L.gone = true; try { L.ac.abort(); } catch (e) {} } return d; };
+function aiLiveCards(L, list){
+  const cur = aiLiveDeck(L); if (!cur || L.done) return 0;
+  const d = clone(cur), have = d.cards.map(c => aiKeyTokens(c.front)), add = [];
+  (list || []).forEach(c => {
+    if (!c || L.n + add.length >= L.maxCards) return;
+    const front = aiTidyText(c.front), back = aiTidyText(c.back), ft = aiKeyTokens(front);
+    if (front.length < 3 || !back || have.some(h => aiJaccard(h, ft) >= 0.8)) return;
+    have.push(ft);
+    const card = {id: uid(), front, back, box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: aiTidyText(c.source || "").slice(0, 60)};
+    if (c.hint && !hintLeaks(c.hint, back)) card.hints = [aiTidyText(c.hint).slice(0, 300)];
+    if (typeof c.check === "string" && c.check) card.check = c.check;
+    add.push(card);
+  });
+  if (!add.length) return 0;
+  d.cards = d.cards.concat(add); d.updated = Date.now(); L.n += add.length; L.ids.push(...add.map(c => c.id)); const t = Date.now(); add.forEach(c => AI_FRESH.set(c.id, t));
+  applyChanges([{kind: "deck", id: d.id, after: d}], null); aiLiveStatus(L, L.status);
+  return add.length;
+}
+function aiLiveQuestions(L, list){
+  const cur = aiLiveDeck(L); if (!cur || L.done) return 0;
+  const d = clone(cur), qz = (d.aiQuizzes || []).find(x => x.id === L.quizId); if (!qz) return 0;
+  const have = qz.questions.map(q => aiKeyTokens(q.stem)), add = [];
+  (list || []).forEach(q => { if (!q || !q.stem) return; const st = aiKeyTokens(q.stem); if (have.some(h => aiJaccard(h, st) >= 0.75)) return; have.push(st); add.push(Object.assign({}, q, {id: q.id || uid()})); });
+  if (!add.length) return 0;
+  qz.questions = qz.questions.concat(add); d.updated = Date.now(); L.nq += add.length; { const t = Date.now(); add.forEach(q => AI_FRESH.set(q.id, t)); }
+  applyChanges([{kind: "deck", id: d.id, after: d}], null); aiLiveStatus(L, L.status);
+  return add.length;
+}
+function aiLiveFinish(L, r, err, o){
+  // whatever came back all at once (one request, or the free first deck) goes in now; parts already added aren't added twice
+  if (r) { aiLiveCards(L, r.cards); aiLiveQuestions(L, r.questions); }
+  L.done = true;
+  const cur = state.decks[L.deckId];
+  if (!cur) { o.kept(); delete AI_LIVE[L.deckId]; render(); return; }
+  const d = clone(cur), qz = L.quizId ? (d.aiQuizzes || []).find(x => x.id === L.quizId) : null;
+  const cases = r ? (r.cases || []) : [];
+  cases.forEach(c => { d.aiQuizzes = (d.aiQuizzes || []).concat(Object.assign({id: uid(), style: o.style || "", created: Date.now(), sources: qz ? qz.sources : [], results: [], kind: "case"}, c)); });
+  if (r && r.title && L.isNew && d.name === L.name && L.n) d.name = aiTidyText(r.title).slice(0, 120) || d.name;
+  if (qz && r && r.quizTitle && qz.title === L.quizTitle) qz.title = uniqueQuizTitle(aiTidyText(r.quizTitle).slice(0, 120));
+  if (qz && !qz.questions.length) d.aiQuizzes = d.aiQuizzes.filter(x => x.id !== qz.id);
+  if (o.style) d.aiStyle = o.style;
+  const made = L.n || L.nq || cases.length;
+  if (made && window.SBLINKED && o.origins && o.origins.length && L.ids.length) SBLINKED.stamp(d, o.origins.map(x => SBLINKED.origin(x.k, x.id)), d.cards.filter(c => L.ids.includes(c.id)));
+  if (L.isNew && !d.cards.length && !(d.aiQuizzes || []).some(x => x.questions && x.questions.length)) {
+    // nothing was made: the empty deck goes too
+    applyChanges([{kind: "deck", id: d.id, after: null}], null);
+    if (ui.deckId === d.id) ui.deckId = null; if (String(ui.qzOpen || "").startsWith(d.id + ":")) ui.qzOpen = null;
+  } else { d.updated = Date.now(); applyChanges([{kind: "deck", id: d.id, after: d}], null); }
+  if (qz && !qz.questions.length && ui.qzOpen === L.deckId + ":" + L.quizId) { ui.qzOpen = null; if (made && L.n) ui.deckId = L.deckId; }
+  const bits = [L.n && `${L.n} flashcard${L.n === 1 ? "" : "s"}`, L.nq && `${L.nq} quiz question${L.nq === 1 ? "" : "s"}`, cases.length && `${cases.length} case stud${cases.length === 1 ? "y" : "ies"}`].filter(Boolean).join(" and ");
+  const open = () => { ui.tab = "flashcards"; ui.fc = null; if (L.n) { ui.deckId = L.deckId; ui.qzOpen = null; rvSet("cards"); } else { ui.deckId = null; rvSet("quizzes"); ui.qzOpen = L.quizId && state.decks[L.deckId] && (state.decks[L.deckId].aiQuizzes || []).some(x => x.id === L.quizId) ? L.deckId + ":" + L.quizId : null; } render(); window.scrollTo(0, 0); };
+  const here = ui.tab === "flashcards" && (ui.deckId === L.deckId || String(ui.qzOpen || "").startsWith(L.deckId + ":"));
+  if (L.gone) { o.kept(); delete AI_LIVE[L.deckId]; render(); return; }
+  if (!made) {
+    delete AI_LIVE[L.deckId]; render();
+    if (L.stopped) { o.kept(); toast("Stopped. Nothing was made yet."); return; }
+    aiJobFailed();
+    toast(err && err.code ? err.message : "Something went wrong making that set. Try again.", null, {label: "Try Again", fn: o.failed(err)}, {error: true});
+    return;
+  }
+  o.kept(); if (r) aiRememberStyle(o.custom);
+  const checks = d.cards.filter(c => L.ids.includes(c.id) && c.check).length + (qz ? qz.questions.filter(q => q.check).length : 0);
+  L.summary = L.stopped ? `Stopped. Kept ${bits}.` : err ? `Made ${bits}, but part of it couldn't be made${err.code ? ": " + err.message : "."}` : `Done: ${bits}.`;
+  L.notes = (r && r.notes ? r.notes.slice() : []).concat(r && r.partial ? [`Part of it couldn't be made: ${r.partial}`] : [], r && r.truncated ? ["The AI ran out of room, so the last few may be missing."] : [],
+    checks ? [`${checks} item${checks === 1 ? " is" : "s are"} marked Check: verify ${checks === 1 ? "it" : "them"} against your notes, and edit or delete as you like.`] : ["Edit or delete anything you like."]);
+  render();
+  if (!here) toast(`Your ${bits} ${/^1 /.test(bits) && !/ and /.test(bits) ? "is" : "are"} ready`, null, {label: "Open", fn: open});
+}
+document.addEventListener("click", e => {
+  const s = e.target.closest && e.target.closest("[data-live-stop]");
+  if (s) { const L = AI_LIVE[s.dataset.liveStop]; if (L && !L.done) { L.stopped = true; s.disabled = true; s.textContent = "Stopping…"; try { L.ac && L.ac.abort(); } catch (x) {} } return; }
+  const k = e.target.closest && e.target.closest("[data-live-ok]");
+  if (k) { const L = AI_LIVE[k.dataset.liveOk]; if (L && L.done) { delete AI_LIVE[k.dataset.liveOk]; render(); } }
+});
 // What a finished set is called in the toast when its sheet was set aside
 function aiReadyMsg(r){
   const n = (r.cards || []).length, q = (r.questions || []).length, c = (r.cases || []).length;
