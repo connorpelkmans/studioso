@@ -28,6 +28,36 @@ STUDY = {
     "hi": r"कोशिका|प्रोटीन|ऊर्जा|समीकरण|अभिक्रिया|अर्थव्यवस्था|सरकार|संविधान|साम्राज्य|क्रांति|रोग|अणु|प्रमेय|परमाणु|जलवायु|बाजार",
     "ar": r"خلية|بروتين|طاقة|معادلة|تفاعل|اقتصاد|حكومة|دستور|إمبراطورية|ثورة|مرض|جزيء|مبرهنة|ذرة|مناخ|سوق",
 }
+SRC = os.path.join(ML, "..", "src", "js")
+# the on-device path's format instructions, read from the app (01-ai-device.js: DEV_TAIL and devWeb's schema line)
+DEV_TAIL = json.loads(re.search(r'const DEV_TAIL = ("(?:[^"\\]|\\.)*");', open(os.path.join(SRC, "01-ai-device.js")).read()).group(1))
+
+
+def to_json_schema(s):
+    """The app's toJsonSchema (01-ai.js): Gemini-style schema to JSON Schema, same keys in the same order."""
+    if isinstance(s, list):
+        return [to_json_schema(x) for x in s]
+    if not isinstance(s, dict):
+        return s
+    o = {}
+    for k, v in s.items():
+        if k == "type":
+            o["type"] = str(v).lower()
+        elif k == "properties":
+            o["properties"] = {pk: to_json_schema(pv) for pk, pv in v.items()}
+        elif k == "items":
+            o["items"] = to_json_schema(v)
+        elif k in ("required", "enum", "description"):
+            o[k] = v
+    return o
+
+
+def device_system(system, schema):
+    """The system prompt exactly as the app's on-device path sends it (what a laptop model gets)."""
+    js = json.dumps(to_json_schema(schema or {"type": "OBJECT"}), ensure_ascii=False, separators=(",", ":"))
+    return system + DEV_TAIL + "\n\nReply with JSON that matches this JSON Schema exactly: " + js
+
+
 MATERIAL_JOBS = ["cards", "quiz", "notes-cards", "linknotes", "lecture-summary", "lecture-notes", "transcript-tidy", "highlight-card"]
 
 
@@ -77,7 +107,8 @@ def wiki_docs(lang, n, cache, skip=0):
     os.makedirs(cache, exist_ok=True)
     f = os.path.join(cache, f"wiki-{lang}.parquet")
     if not os.path.exists(f):
-        urllib.request.urlretrieve(WIKI.format(lang=lang, file=SHARDS[lang]), f)
+        urllib.request.urlretrieve(WIKI.format(lang=lang, file=SHARDS[lang]), f + ".part")  # whole file or nothing
+        os.replace(f + ".part", f)
     t = pq.read_table(f, columns=["title", "text", "url"])
     rx = re.compile(STUDY[lang], re.I)
     docs = []
@@ -112,7 +143,7 @@ def main():
         if not user or key in seen:
             return
         seen.add(key)
-        reqs.append({"id": f"{job}:{lang}:{len(reqs)}", "job": job, "lang": lang, "system": system, "user": user,
+        reqs.append({"id": f"{job}:{lang}:{len(reqs)}", "job": job, "lang": lang, "system": device_system(system, schema), "user": user,
                      "schema": schema, "maxTokens": max_tokens, "source": source})
 
     # 1. every text job, as the app sent it
