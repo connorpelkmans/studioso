@@ -48,9 +48,9 @@ function fake(){
   r = await ask("when is my history essay due?", NONE);
   ok(/History Essay/.test(r.answer) && r.asked === 0, "when one task is due: " + r.answer);
   // 2. a made-up specific is caught: asked again strictly, then replaced if it's still made up
-  r = await ask("who teaches my bio class?", [{answer: "Dr. Patel teaches it in Room 210.", show: [], changes: [], newTasks: []}, {answer: "Professor Nguyen in Hall 9.", show: [], changes: [], newTasks: []}]);
+  r = await ask("is my bio course hard?", [{answer: "Dr. Patel teaches it in Room 210.", show: [], changes: [], newTasks: []}, {answer: "Professor Nguyen in Hall 9.", show: [], changes: [], newTasks: []}]);
   ok(r.asked === 2 && /couldn't find that in your Studyboard/.test(r.answer), "an answer with names and numbers that aren't anywhere is retried, then replaced: " + r.answer);
-  r = await ask("who teaches my bio class?", [{answer: "Dr. Patel teaches it in Room 210.", show: [], changes: [], newTasks: []}, {answer: "Your Biology course doesn't list an instructor yet.", show: [], changes: [], newTasks: []}]);
+  r = await ask("is my bio course hard?", [{answer: "Dr. Patel teaches it in Room 210.", show: [], changes: [], newTasks: []}, {answer: "Your Biology course doesn't list an instructor yet.", show: [], changes: [], newTasks: []}]);
   ok(r.asked === 2 && /doesn't list an instructor/.test(r.answer), "and a corrected answer is kept: " + r.answer);
   // 3. several things at once
   r = await ask("add bio quiz on friday and then start a 15 minute focus timer", [{answer: "Here it is to check.", show: [], changes: [], newTasks: [{title: "Bio quiz", type: "Quiz", due: "2030-01-04"}]}, {answer: "Starting!", show: [], changes: [], newTasks: [], focusMinutes: 15}]);
@@ -108,7 +108,7 @@ function fake(){
   c = await chat("Start a new 5 min timer, I'm working on my bio lab report", NONE);
   ok(/for Bio Lab Report/.test(c.last) && (await p.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo") || "{}").taskId)) === "t1", "a timer for the task named is linked to that task: " + c.last.slice(0, 90));
   c = await chat("who wrote my bio syllabus?", [{answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}, {answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}]);
-  ok(/couldn't find a reliable answer/.test(c.last), "Companion tab: a made-up name and year are caught: " + c.last.slice(0, 120));
+  ok(/couldn't find a (reliable|clear) answer/.test(c.last) && !/Hensley/.test(c.last), "Companion tab: a made-up name and year are caught: " + c.last.slice(0, 120));
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\nai-truth.e2e: ${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);

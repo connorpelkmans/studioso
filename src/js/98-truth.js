@@ -12,6 +12,7 @@ window.SBTRUTH = (() => {
   const clip = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
   const WD = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
   const words = s => (low(s).match(/[a-z0-9]+/g) || []).filter(w => w.length > 2 && !/^(the|and|for|with|due|when|what|is|are|my|was|did|get|got|on|in|of|to|a|an)$/.test(w));
+  const WRITE = /\b(add|create|make|put|schedule|remind|move|change|rename|delete|remove|mark|set|start|begin|turn|update|edit|cancel|skip)\b/i;
   const ACTION = /\b(add|create|make|put|schedule|remind|move|change|rename|delete|remove|mark|set|start|begin|open|show|find|turn|update|edit|cancel|skip)\b/i;
 
   /* ---------- facts: the planner's own answers ---------- */
@@ -34,12 +35,22 @@ window.SBTRUTH = (() => {
   }
   function courseNamed(s){
     const L = low(s); let best = null, bs = 0;
-    coursesArr().forEach(c => { const keys = [c.code, c.name].filter(Boolean).map(low); keys.forEach(k => { if (k && L.includes(k) && k.length > bs) { bs = k.length; best = c; } }); const cw = words(c.name); const hit = cw.filter(w => words(s).includes(w)).length; if (cw.length && hit / cw.length >= 0.6 && hit * 3 > bs) { bs = hit * 3; best = c; } });
+    // the code or name in full; most of the name's words; or what students call it ("psych nursing", "a&p", "bio", "chem")
+    const qw = words(s), pre = (w, x) => w === x || (w.length >= 4 && x.startsWith(w)) || (x.length >= 4 && w.startsWith(x));
+    const ALIAS = {"a&p": /anatomy|physiology/, "a & p": /anatomy|physiology/, "anp": /anatomy|physiology/, bio: /biolog/, chem: /chemi/, psych: /psych/, calc: /calculus/, stats: /statistic/, econ: /econom/, poli: /politic/, soc: /sociolog/, phys: /physics/, eng: /english/, lit: /literature/, hist: /histor/, comp: /computer/, cs: /computer science/, ochem: /organic chem/, "o chem": /organic chem/, micro: /microbiolog|microeconom/, pharm: /pharmac/};
+    coursesArr().forEach(c => {
+      const keys = [c.code, c.name].filter(Boolean).map(low); keys.forEach(k => { if (k && L.includes(k) && k.length > bs) { bs = k.length; best = c; } });
+      const cw = words(c.name), hit = cw.filter(w => qw.some(x => pre(x, w))).length; if (cw.length && hit / cw.length >= 0.6 && hit * 3 > bs) { bs = hit * 3; best = c; }
+      const num = (low(c.code).match(/\d{3,4}/) || [])[0]; if (num && new RegExp("\\b" + num + "\\b").test(L) && 5 > bs) { bs = 5; best = c; }
+      Object.keys(ALIAS).forEach(a => { if (new RegExp("(^|[^a-z])" + a.replace(/[&]/g, "\\&") + "([^a-z]|$)").test(L) && ALIAS[a].test(low(c.name)) && 4 > bs) { bs = 4; best = c; } });
+    });
     return best;
   }
   function facts(q){
     const s = low(q).replace(/[?!.]+$/, ""), today = todayISO(), L = window.SBLOCALANS;
     if (!s || s.length > 160) return null;
+    // the wider set of planner questions (98-facts.js): averages, best and worst, classes, the next exam, counts, cards due
+    { const X = window.SBFACTS; if (X && !(WRITE.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i|am i)\b/.test(s))) { const r = X.answer(q); if (r) return r; } }
     // an action, not a question ("add a task due tomorrow", "move my exam"): the AI's job
     if (ACTION.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i)\b/.test(s)) return null;
     // what to do next
@@ -81,7 +92,7 @@ window.SBTRUTH = (() => {
   /* ---------- steps: one request per thing to do ---------- */
   function steps(q){
     const s = String(q || "").trim(); if (s.length < 12 || s.length > 400) return [s];
-    const parts = s.split(/\s*(?:;|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
+    const parts = s.split(/\s*(?:;|,?\s+and\s+(?=(?:what|what's|whats|when|when's|where|which|who|how|is|are|do|does|am)\b)|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
     // only a real split: every part asks for something
     return parts.length > 1 && parts.length <= 5 && parts.every(p => ACTION.test(p) || /\?$|^(what|when|how|why|which|who)\b/i.test(p)) ? parts : [s];
   }
@@ -161,7 +172,9 @@ window.SBTRUTH = (() => {
     // (a separate planning step only when asked for: the question itself searches well, and every model call is seconds on a laptop)
     const dm = String(q).match(/\bwhat (?:does|is the meaning of) ["']?([a-z][a-z -]{1,30}?)["']? mean\b|\bdefine ["']?([a-z][a-z -]{1,30})|\bmeaning of ["']?([a-z][a-z -]{1,30})/i);
     if (dm) plan.define = (dm[1] || dm[2] || dm[3] || "").trim();
+    const kt = (String(q).match(/\b[A-Z][A-Za-z]{1,}\b|\b[A-Z]{2,}\b/g) || []).filter(w => !/^(What|Who|Why|How|When|Where|Which|Is|Are|Do|Does|Can|Could|Explain|Define|Describe|The|A|An|I)$/.test(w));
     plan.queries = [String(q).replace(/^\s*(please\s+)?(can you\s+)?(explain|describe|tell me about|what is|what are|who was|who is|how does|how do|why does|why do|why is|why are)\s+/i, "").replace(/[?!.]+$/, "").slice(0, 120) || String(q).slice(0, 120)];
+    { const k2 = kt.join(" ") || (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && w.length > 2 && !/^(created|invented|discovered|wrote|made|founded|caused|happens|happen|work|works|used|stand)$/.test(w)).join(" "); if (k2 && low(k2) !== low(plan.queries[0])) plan.queries.push(k2.slice(0, 80)); }
     if (o.plan && typeof aiOnDevice === "function" && aiOnDevice() && !o.noPlan) {
       try {
         const r = await aiCall({task: "chat", maxTokens: 220, temperature: 0, quiet: true, schema: {type: "OBJECT", properties: {queries: {type: "ARRAY", items: {type: "STRING"}}, papers: {type: "BOOLEAN"}, define: {type: "STRING"}}, required: ["queries"]},
@@ -195,7 +208,52 @@ window.SBTRUTH = (() => {
   }
   // a general-knowledge question (not about the student's own planner)
   // (never a question to the companion itself, "what are you working on", or one about today, the student or their things)
-  const general = q => /^\s*(what|who|why|how|when|where|which|explain|define|describe|compare|tell me about)\b/i.test(q) && !/\b(my|i|i'm|me|mine|our|we|us|you|your|you're|yours|today|tonight|tomorrow|now|this week)\b/i.test(q) && !/\b(due|grade|task|deadline|class|deck|note|board|course|schedule|calendar|studyboard|mochi|working on|doing)\b/i.test(q) && String(q).replace(/[^a-z]/gi, "").length >= 8;
+  /* ---------- an answer that doesn't answer ---------- */
+  // filler ("I'm here to help... let me know"), or a reply to a question that never mentions what was asked about
+  const FILLER = /\b(i'?m here to help|here to help you|let me know (if|what|how)|feel free to|how can i (help|assist)|what can i (help|do)|happy to help|i can (definitely )?help( you)? with|is there anything else|what would you like|just (tell|let) me|i understand!?|great question|i see about your)\b/gi;
+  const QSTOP = new Set("what whats what's who whos why how when where which is are was were the a an of to in on for and or do does did can could would should i me my you your it its this that these those about tell explain define describe meaning mean means give example examples please some any there here with from by as be been being have has had will just really".split(" "));
+  function nonAnswer(q, a){
+    const A = String(a || "").trim(); if (A.length < 8) return true;
+    const rest = A.replace(/[^.!?]*\b(i'?m here to help|here to help|ready to help|let me know|feel free|how can i (help|assist)|what can i (do|help)|happy to help|is there anything else|what would you like|okay,? i understand|i'?m (mochi|your)|your studyboard (assistant|planner|companion)|organi[sz]e and manage your stud|navigate your studyboard|ace your courses|sure!?|absolutely!?|hello!?|hi!?)\b[^.!?]*[.!?]?/gi, "").trim();
+    const content = rest.split(/\s+/).filter(w => w.length > 3).length;
+    if (rest.length < A.length - 4 ? content < 5 : content < 2) return true;
+    // a question about something: the answer names it (or a word starting the same way)
+    if (/^\s*(what|who|why|how|when|where|which|explain|define|describe|tell me about|meaning of)\b/i.test(q)) {
+      const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego|dna|rna|atp|gdp|cpu|ai)$/.test(w)));
+      if (keys.length && !keys.some(k => low(A).includes(k.length > 5 ? k.slice(0, k.length - 2) : k))) return true;
+    }
+    return false;
+  }
 
-  return {facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
+  /* ---------- a knowledge question: the student's own material first, then the web, answered from them ---------- */
+  const KSCHEMA = {type: "OBJECT", properties: {answer: {type: "STRING"}, found: {type: "BOOLEAN"}}, required: ["answer", "found"]};
+  async function knowledge(q, o){
+    o = o || {};
+    // their own material first; when it covers every key word of the question, the web isn't needed (faster, and theirs wins)
+    const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
+    const mine = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}).catch(() => null) : null;
+    const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
+    const R = o.noWeb || covered ? {list: []} : await research(q).catch(() => ({list: []}));
+    const web = (R && R.list) || [];
+    if (!notes && !web.length) return {answer: "I couldn't find anything about that in your notes, your files or on the web. Try other words, or add your notes on it.", sources: [], found: false};
+    const src = `${notes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note):\n${notes}\n\n` : ""}${web.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(web)}` : ""}`;
+    const sys = "You answer a student's question using only the sources given. Your first sentence answers exactly what they asked, directly. Then add 1 to 3 sentences with the most useful detail: how it works, why it matters, or a short example. If the question asks for several things (what are the..., types, kinds, phases, stages, causes, steps, examples), list every one the sources give. If it asks for an example, give one. If the question could mean several things, answer the meaning that fits their notes and course. If the sources don't answer it, set found to false and say you couldn't find it. Plain text, no markdown.";
+    const call = extra => aiCall({task: "assist", fast: true, maxTokens: 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, system: sys + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
+    let d = null; try { const r = await call(); d = r && r.data; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; }
+    const given = src + "\n" + q;
+    const ok = x => x && x.answer && x.found !== false && !nonAnswer(q, x.answer) && !unsupported(x.answer, given).length;
+    if (!ok(d)) { try { const r = await call(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources.`); if (ok(r && r.data)) d = r.data; else d = null; } catch (e) { d = null; } }
+    if (!d) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
+    const used = web.filter(x => /wikipedia|wiktionary|stud(y|ies)|research|paper|according/i.test(d.answer));
+    return {answer: String(d.answer).trim(), sources: used.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"})), fromNotes: !!notes && /your notes|your files|your lecture|your slides/i.test(d.answer), found: true, notesSrc: mine && mine.src ? mine.src : []};
+  }
+  // a question about the subject itself, not the planner: "what is the id", "how does my notes' Krebs cycle work", "explain osmosis"
+  const general = q => /^\s*(what|what's|whats|who|whom|why|how|when|where|which|explain|define|describe|compare|contrast|summari[sz]e|tell me about|give me (an? )?(example|definition|summary)|(can|could) you (explain|define|describe|tell me|summari[sz]e)|difference between|is it true|meaning of|list the|name the)\b/i.test(q)
+    && !/\b(you|your|you're|yours|today|tonight|tomorrow|this week|next week|right now)\b/i.test(q)
+    // advice ("how should I study", "tips to remember", "best way to"): the companion's own knowledge and their planner, not a look-up
+    && !/\b(should i|how (do|can|should|would) i (study|prepare|prep|remember|memori[sz]e|focus|manage|balance|stay|stop|get better|improve|deal|cope|start)|tips?|advice|best way|ways to|help me|study plan|motivat|procrastinat|stress|anxious|overwhelm)\b/i.test(q)
+    && !/\b(due|grades?|marks?|tasks?|deadlines?|class(es)?|schedule|calendar|studyboard|mochi|working on|doing|timer|focus|free|busy|settings?|theme|companion|pass(ing)?|fail(ing)?|average|gpa|overdue|decks?|board|planner|semester|assignments? (left|due)|homework (left|due)|how many|streak|daily goal|study goal)\b/i.test(q)
+    && String(q).replace(/[^a-z]/gi, "").length >= 6;
+
+  return {nonAnswer, knowledge, range, facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
 })();

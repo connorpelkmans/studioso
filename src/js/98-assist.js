@@ -10,7 +10,7 @@
 /* Answers made on this device when the AI can't be reached (the Companion tab's chat and the bubble's Ask):
    a "what next" question gets Do This Next, and a task always comes with its course and when it's due */
 window.SBLOCALANS = (() => {
-  const NEXT_Q = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b/i;
+  const NEXT_Q = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b|\bmost (urgent|important|pressing)\b|\btop priority\b|\bwhere (do|should) i start\b/i;
   const when = t => { try { return t.due ? `${MILESTONE(t.type) ? "" : "due "}${fmtDate(t.due)}${t.time ? ", " + fmtTime(t.time) : ""}` : "no due date"; } catch (e) { return t.due || ""; } };
   const taskLine = t => { const c = courseOf(t.courseId); return `**${t.title}**${c ? ", " + courseLabel(c) : ""}: ${t.status === "done" ? "done" : when(t)}${t.location ? ", " + t.location : ""}`; };
   function nextLine(){ try { if (dayIsOff(todayISO())) return ""; const n = nextUp(computeFocus()); return n && n.x && n.x.t ? `Today's Plan says to do this next: ${taskLine(n.x.t)}` : ""; } catch (e) { return ""; } }
@@ -627,7 +627,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     return pomo.running;
   }
   const APPQ_HOW = /^\s*(how|where|can i|is there|what)\b/i;
-  const ADD_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up|new)\b|\bremind me to\b/i;
+  // (a study plan, a schedule for the week, a summary, cards or a quiz are things to write or make, not a task to add)
+  const ADD_Q = /^(?![^?]*\b(study plan|plan (for|my|out)|schedule (for|my) (the |this |next )?week|(make|create|write|give) (me )?(a |an )?(summary|outline|study guide|flash ?cards?|quiz|practice|mnemonic|concept map|mind map|note)\b))\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up|new)\b|\bremind me to\b/i;
   const ADD_WHAT = /\b(task|to-?do|reminder|assignment|homework|exam|quiz|test|midterm|final|reading|essay|paper|project|lab|study|remind me)\b/i;
   // "add a task to email Dr. Lee tomorrow at 3pm" -> {title: "Email Dr. Lee", due, time}
   function localTask(q){
@@ -711,6 +712,12 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const qc = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
       if (qc) return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true};
     }
+    // a question about the subject (on the device): answered from their own material first, then the web, in one focused call;
+    // the whole planner would only distract a small model from it
+    if (dev && TR && TR.general(q) && !VISUAL.test(q) && !appQ(q)) {
+      const k = await TR.knowledge(q, {signal: o.signal});
+      return {answer: k.answer, show: [], changes: [], sources: k.sources && k.sources.length ? k.sources : undefined, unsure: !k.found};
+    }
     if (VISUAL.test(q)) await Promise.race([describeBoards(3, null, true), wait(9000)]);
     const cur = o.screen === false ? null : current();
     const cat = await catalog(q);
@@ -779,6 +786,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     if (o.web && o.web.length && /wikipedia|wiktionary|stud(y|ies)|research|paper|according to/i.test(out.answer)) out.sources = o.web.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"}));
     // never say something was done when the app wasn't asked to do it
     if (!out.changes.length && !out.show.length && CLAIMS.test(out.answer)) out.answer = "I couldn't do that from here. Try asking another way, or do it in the app directly.";
+    // filler, or a reply that never mentions what was asked about: their material and the web instead, or an honest "couldn't find"
+    if (TR && TR.nonAnswer && !out.changes.length && !out.show.length && !timer && TR.nonAnswer(q, out.answer) && !appQ(q)) {
+      try { const k = await TR.knowledge(q, {signal: o.signal, noWeb: !TR.general(q)}); out.answer = k.found || TR.general(q) ? k.answer : "I couldn't work that out from your Studyboard. Try asking it another way, with the course or task name."; if (k.sources && k.sources.length) out.sources = k.sources; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; }
+    }
     if (/^\s*((show|open|go to|see)\s+)?[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(out.answer) || junk(out.answer)) out.answer = out.show && out.show.length ? `Here it is: ${out.show[0].label}.` : out.changes && out.changes.length ? "Here's what I'd change." : "I couldn't find that. Try asking another way?";
     return out;
   }

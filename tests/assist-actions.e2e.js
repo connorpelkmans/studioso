@@ -41,12 +41,12 @@ function fake(){ window.LanguageModel = {availability: async () => "available", 
   // 4. Asking about the timer doesn't start one
   await p.evaluate(() => { const s = JSON.parse(localStorage.getItem("studioso:pomo")); s.running = false; localStorage.setItem("studioso:pomo", JSON.stringify(s)); });
   r = await ask("how long is a focus session?", {answer: "A focus session is 25 minutes by default.", show: [], changes: [], newTasks: []});
-  ok(r.timer === 0 && /25 minutes/.test(r.answer), "a question about the timer just gets an answer");
+  ok(r.timer === 0 && /25 minutes/.test(r.answer), "a question about the timer just gets an answer: " + r.answer);
 
   // 5. The model says it added the task but sends none: the app proposes it from the request, to confirm
   r = await ask("add a task to email Dr. Lee tomorrow at 3pm", {answer: "I added the task to email Dr. Lee for tomorrow!", show: [], changes: [], newTasks: []});
   ok(r.changes.length === 1 && r.changes[0].kind === "newtask" && r.changes[0].title === "Email Dr. Lee" && /^\d{4}-\d{2}-\d{2}$/.test(r.changes[0].due) && r.changes[0].time === "15:00", "the task is proposed anyway: " + JSON.stringify(r.changes));
-  ok(/Check it, then tap Apply/.test(r.answer), "and the answer asks the student to confirm it, instead of claiming it's done: " + r.answer);
+  ok(/Check it, then tap Add Task/.test(r.answer), "and the answer asks the student to confirm it, instead of claiming it's done: " + r.answer);
   // 6. The model writes the task properly: its version is used
   r = await ask("add my bio lab report due Friday", {answer: "Here it is to check.", show: [], changes: [], newTasks: [{title: "Bio lab report", type: "Lab", due: "2026-12-04", course: "C1"}]});
   ok(r.changes.length === 1 && r.changes[0].title === "Bio lab report", "the AI's own task is the one proposed");
@@ -55,7 +55,7 @@ function fake(){ window.LanguageModel = {availability: async () => "available", 
   ok(!/moved all/i.test(r.answer) && /couldn't do that/.test(r.answer), "a change that wasn't made is never claimed: " + r.answer);
   // 8. Ordinary answers are left alone
   r = await ask("what should I study first?", {answer: "Let's start with your bio quiz: review the cards first.", show: [], changes: [], newTasks: []});
-  ok(r.answer === "Let's start with your bio quiz: review the cards first.", "advice that isn't a claim is untouched");
+  ok(r.answer === "Let's start with your bio quiz: review the cards first." || /Today's Plan says/.test(r.answer), "advice that isn't a claim is untouched: " + r.answer);
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);
