@@ -738,6 +738,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         const tk = taskFor(q);
         if (startTimer(tm0.mins, tk)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running${tk ? ` for ${tk.title}` : ""}. You've got this!`, show: tk ? [{kind: "task", id: tk.id, label: labelOf({kind: "task", id: tk.id})}] : [], changes: [], timer: n2, local: true}; }
       }
+      // making study material (cards, a quiz, a note, a concept map): the chat makes it, with the button to open it
+      if (/\b(make|create|generate|give me|build|write|draw)\b[^?]*\b(flash ?cards?|cards|quiz(zes)?|practice (questions|test)|concept map|mind map|note)\b|\bquiz me\b|\btest me\b/i.test(q) && !/\b(how (do|can) i)\b/i.test(q) && window.SBCOMPTAB && o.screen !== false) {
+        setTimeout(() => { try { SBCOMPTAB.open(q); } catch (e) {} }, 300);
+        return {answer: "On it: I'm making that in the chat.", show: [], changes: [], local: true};
+      }
       // a change to a task they have ("make the midterm high priority", "move X to monday") before a new one
       const editFirst = /\b(priority|urgent|important|move|reschedule|push|postpone|delay|rename|mark|delete|remove|cancel|finished|completed|done)\b/i.test(q);
       const qe0 = editFirst && !APPQ_HOW.test(q) ? quickEdit(q) : null;
