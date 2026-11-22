@@ -3,6 +3,9 @@
 // WebAssembly engine on the processor. Nothing leaves the device. Bundled from @huggingface/transformers 4.3.2 with
 // onnxruntime-web's CPU-only engine (see BUILD.md here); its own files are this folder's, so no CDN is ever used.
 import { pipeline, env } from "./embed-lib.min.js";
+// the model download names no page: Hugging Face turns away some site addresses (like workers.dev), and it needn't know the page
+const fetch0 = self.fetch.bind(self);
+self.fetch = (u, o) => fetch0(u, Object.assign({}, o, {referrerPolicy: "no-referrer"}));
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 env.backends.onnx.wasm.wasmPaths = new URL("./", import.meta.url).href;

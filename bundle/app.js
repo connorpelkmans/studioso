@@ -7110,7 +7110,7 @@ const webErrText = e => String((e && (e.message || e)) || "");
 const webTooBig = e => /out of memory|device (was )?lost|OOM|exceed|maxBufferSize|maxStorageBuffer|shader-f16|not supported by the adapter|Failed to allocate|allocation/i.test(webErrText(e));
 async function webLoad(m, onStatus){
   const lib = window.__SB_TEST && window.__SB_WEBLLM_STUB ? window.__SB_WEBLLM_STUB : await import(webAbs("web-llm.js"));
-  const worker = lib.stubWorker ? null : new Worker(webAbs("worker.js"), {type: "module"});
+  const worker = lib.stubWorker ? null : new Worker(webAbs("worker.js?v=2"), {type: "module"});
   const say = r => { if (!onStatus) return; const p = Number(r && r.progress) || 0; onStatus(p > 0 && p < 1 ? `Downloading free AI to this computer (one time only): ${Math.round(p * 100)}%` : "Starting the AI on this computer…"); };
   try { return await lib.CreateWebWorkerMLCEngine(worker, m.id, {appConfig: webAppConfig(), initProgressCallback: say}); }
   catch (e) { try { worker && worker.terminate(); } catch (x) {} throw e; }
@@ -21430,7 +21430,7 @@ function viewStudy(){
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
-    return `<div class="view-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
+    return `<div class="view-head sd-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
@@ -21989,17 +21989,17 @@ function lettersHint(answer){
   if (!words.length || words.length > 8) return "";
   return "Starts like: " + words.map(w => w.replace(/^([^\p{L}\p{N}]*)([\p{L}\p{N}])([\p{L}\p{N}]*)(.*)$/u, (m, a, b, rest, z) => a + b + "_".repeat(rest.length) + z)).join(" ");
 }
-const HINT_RULES = `Write two hints that help the student recall the answer by thinking about the idea: what it does, what it's part of, how it works, what it's connected to in this course, or a vivid comparison. Hint 1 is light: it points them at the right area of the topic. Hint 2 narrows it down with one more specific clue (a key property, where it happens, what it's for), still without giving it away. Never state the answer, its key words, a synonym, a translation or an abbreviation of it. Never give its first letter, its length, a rhyme or a fill-in-the-blank of it. Never say which options are wrong. Warm and plain, like a study buddy. Return JSON only.`;
+const HINT_RULES = `Write two hints that help the student recall the answer by thinking about the idea: what it does, what it's part of, how it works, what it's connected to in this course, or a vivid comparison. Each hint must be specific to THIS card: a hint that would fit many cards ("think about what motivates people", "consider how the mind works") is useless, and so is one that just restates the question. Hint 1 points them at the right part of the topic with one concrete clue (who, where, what it's for, what it's the opposite of). Hint 2 narrows it down with a second, more specific clue (a key property, a typical example, what it changes), still without giving it away. Never state the answer, its key words, a synonym, a translation or an abbreviation of it. Never give its first letter, its length, a rhyme or a fill-in-the-blank of it. Never say which options are wrong. Warm and plain, like a study buddy. Return JSON only.`;
 async function aiHints(prompt, answer, ctx){
   const ask = async extra => {
     const r = await aiCall({task: "hint", fast: true, maxTokens: 600, temperature: 0.5, schema: HINT_SCHEMA,
       parts: [{text: `${ctx ? ctx + "\n" : ""}Question or card front: ${prompt}\nThe answer (never say it, or any of its key words): ${answer}${extra || ""}`}],
       system: `You are ${buddyName()}, a friendly study companion. ${HINT_RULES}`});
-    return [r.data && r.data.hint, r.data && r.data.hint2].map(x => String(x || "").trim()).filter(x => x && !hintLeaks(x, answer));
+    return [r.data && r.data.hint, r.data && r.data.hint2].map(x => String(x || "").trim()).filter(x => x && !hintLeaks(x, answer) && !hintEchoes(x, prompt));
   };
   let list = await ask();
-  // both gave it away: one more try, told what went wrong
-  if (!list.length) list = await ask("\nYour last hints used words from the answer. Describe the idea around it instead.");
+  // both gave it away or only repeated the question: one more try, told what went wrong
+  if (!list.length) list = await ask("\nYour last hints used words from the answer or just repeated the question. Give a concrete clue about the idea around the answer instead.");
   return list.slice(0, 2);
 }
 // What a deck is about, for the AI: the course, the deck and a few neighbouring cards (fronts only)
@@ -22008,12 +22008,29 @@ function hintContext(d, c){
   const pick = near.slice(Math.max(0, k - 3), Math.max(0, k - 3) + 6).map(x => "- " + String(x.front).slice(0, 120));
   return [co ? `Course: ${co.name}` : "", `Deck: ${d.name}`, pick.length ? "Other cards in this deck:\n" + pick.join("\n") : ""].filter(Boolean).join("\n");
 }
-// The hints a card can give without asking anyone: kept ones, then its own material
-function cardHintsLocal(c){
+// A hint that mostly repeats the card's front tells them nothing new
+function hintEchoes(hint, front){
+  const fw = new Set(hintWords(front)), hw = hintWords(hint).filter(w => !/^(think|about|consider|remember|what|which|this|that|they|their|there|with|from|into|when|where|your)$/.test(w));
+  return hw.length < 2 || hw.filter(w => fw.has(w)).length / hw.length > 0.5;
+}
+// Flashcards only (not quiz choices): the last hint ends with the key word's first letter and length, so it always moves them on
+function keyWord(answer){
+  const STOP = /^(about|which|there|their|these|those|being|other|where|while|would|could|should|because|through|between|patient|patients|person|people|something)$/i;
+  const ws = String(answer || "").split(/[^\p{L}\p{N}'-]+/u).filter(w => w.length >= 5 && !STOP.test(w));
+  return ws.sort((a, b) => b.length - a.length)[0] || "";
+}
+function withLetters(list, answer){
+  const k = keyWord(answer); if (!k || !list.length) return list;
+  const tip = ` Key word: ${k[0].toUpperCase()}${"_".repeat(k.length - 1)} (${k.length} letters).`;
+  const out = list.slice(); out[out.length - 1] = out[out.length - 1].replace(/\s*Key word:.*$/, "") + tip; return out;
+}
+const HINT_V = 2;   // hints kept from before the specificity and letter rules are made again
+// The hints a card can give without asking anyone: kept ones, then (with no AI) its own material
+function cardHintsLocal(c, noAI){
   const out = [];
-  if (Array.isArray(c.hints)) out.push(...c.hints.filter(Boolean)); else if (typeof c.hint === "string" && c.hint) out.push(c.hint);
-  if (out.length < 2 && c.explain) { const ex = c.explain; [ex.memoryTip, ex.analogy, ex.explanation].forEach(t => { const m = maskedClue(t, c.back); if (m && out.length < 2 && !out.includes(m)) out.push(m); }); }
-  return out.filter(x => !hintLeaks(x, c.back)).slice(0, 2);
+  if (c.hintV === HINT_V && Array.isArray(c.hints)) out.push(...c.hints.filter(Boolean));
+  if (noAI && out.length < 2 && c.explain) { const ex = c.explain; [ex.memoryTip, ex.analogy, ex.explanation].forEach(t => { const m = maskedClue(t, c.back); if (m && out.length < 2 && !out.includes(m) && !hintEchoes(m, c.front)) out.push(m); }); }
+  return out.filter(x => !hintLeaks(x.replace(/\s*Key word:.*$/, ""), c.back)).slice(0, 2);
 }
 // Flashcards: Hint (and Another Hint) before the answer shows
 async function fcHint(){
@@ -22023,18 +22040,19 @@ async function fcHint(){
   const h = f.hints[c.id];
   if (h && !h.busy) { if (h.at + 1 < h.list.length) { h.at++; render(); } return; }
   f.hinted = (f.hinted || 0) + 1;
-  const local = cardHintsLocal(c);
-  if (local.length >= 2 || ((!aiReady() || c.img) && local.length)) { f.hints[c.id] = {list: local, at: 0}; render(); return; }
+  const local = cardHintsLocal(c, !aiReady() || !!c.img);
+  if (local.length >= 2 || ((!aiReady() || c.img) && local.length)) { f.hints[c.id] = {list: withLetters(local, c.back), at: 0}; render(); return; }
   if (!aiReady() || c.img) { const l = lettersHint(c.back); f.hints[c.id] = {list: [l || "Think about where this came up in your notes and what it was next to."], at: 0, plain: true}; render(); return; }
   f.hints[c.id] = {busy: true, list: [], at: 0}; render();
   let list = [];
   try { list = await aiHints(c.front, c.back, hintContext(d, c)); } catch (e) { console.warn("hint", e); }
   list = local.concat(list.filter(x => !local.includes(x))).slice(0, 2);
   if (!list.length) { const l = lettersHint(c.back); f.hints[c.id] = {list: [l || "Think about where this came up in your notes."], at: 0, plain: true}; render(); return; }
+  list = withLetters(list, c.back);
   f.hints[c.id] = {list, at: 0};
   // kept on the card, so next time they're instant, free and work offline
   const nd = clone(state.decks[d.id]), k = nd && nd.cards.find(x => x.id === c.id);
-  if (k) { k.hints = list; delete k.hint; saveDeck(nd, null); } else render();
+  if (k) { k.hints = list; k.hintV = HINT_V; delete k.hint; saveDeck(nd, null); } else render();
 }
 function hintBubbleHtml(h, act){
   const name = buddyName();
@@ -31319,12 +31337,12 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     clearTimeout(DEV_EMB.idle);
     DEV_EMB.idle = setTimeout(() => { if (DEV_EMB.w && !DEV_EMB.wait.size) { try { DEV_EMB.w.terminate(); } catch (e) {} DEV_EMB.w = null; } }, 120000);
     if (DEV_EMB.w) return DEV_EMB.w;
-    const w = DEV_EMB.w = new Worker(new URL("vendor/embed-4.3.2/embed-worker.js", location.href).href, {type: "module"});
+    const w = DEV_EMB.w = new Worker(new URL("vendor/embed-4.3.2/embed-worker.js?v=2", location.href).href, {type: "module"});
     w.onmessage = e => { const d = e.data || {};
       if (d.progress != null) { DEV_EMB.dl = d.progress < 1 ? d.progress : null; drawFoot(); return; }
       const h = DEV_EMB.wait.get(d.id); if (!h) return; DEV_EMB.wait.delete(d.id); DEV_EMB.dl = null;
-      if (d.error) h.no(aiErr(/fetch|network|Failed to fetch/i.test(d.error) ? "offline" : "busy", "Search by meaning couldn't start on this device: " + d.error)); else h.ok(d.vecs); };
-    w.onerror = () => { DEV_EMB.wait.forEach(h => h.no(aiErr("busy", "Search by meaning couldn't start on this device."))); DEV_EMB.wait.clear(); try { w.terminate(); } catch (e) {} DEV_EMB.w = null; };
+      if (d.error) { console.warn("search by meaning:", d.error); h.no(aiErr(/fetch|network|Failed to fetch/i.test(d.error) ? "offline" : "busy", /fetch|network/i.test(d.error) ? "Its small model couldn't download (check your connection)." : "It couldn't start on this device.")); } else h.ok(d.vecs); };
+    w.onerror = () => { DEV_EMB.wait.forEach(h => h.no(aiErr("busy", "It couldn't start on this device."))); DEV_EMB.wait.clear(); try { w.terminate(); } catch (e) {} DEV_EMB.w = null; };
     return w;
   }
   async function devEmbed(texts, isQuery){
@@ -31889,6 +31907,8 @@ Return JSON only.`;
     S.threadCourse = S.course;
     const prev = S.thread[S.thread.length - 1] || null;
     let det = null; try { det = exactAnswer(askData(), q); } catch(e) { console.warn(e); }
+    // grades, what's due, what's next: worked out from the planner itself (98-truth.js), never left to the AI to guess
+    if (!det && window.SBTRUTH) { try { const f = SBTRUTH.facts(q); if (f && f.answer) det = {text: f.answer, items: []}; } catch(e) { console.warn(e); } }
     const detAns = det ? {state: "done", text: det.text, found: true, used: [], items: det.items || [], det: true, model: ""} : null;
     const A = {q, course: S.course, state: "search", rows: [], note: "", answer: detAns, det: detAns};
     S.thread.push(A); if (S.thread.length > 6) S.thread.shift();
@@ -71872,6 +71892,19 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     setTimeout(primeStills, 50);
     return `<img class="cp-still" data-still="${esc(c.id)}" src="${ready || stillUrl(c)}" width="${w}" height="${w}" style="margin:${-o}px" alt="" decoding="async" loading="lazy" draggable="false">`;
   };
+  // Trying an accessory on: pointing at (or tabbing to) a tile shows the companion wearing it, beside the list
+  let accPrevKey = "";
+  function accPreview(tile){
+    const box = tile && tile.closest(".cp-accs") && tile.closest("dialog, .cpt3, body").querySelector(".cp-acc-prev"); if (!box) return;
+    const c = current(); if (!c) return;
+    const id = tile.dataset.acc || "", now = wearOf(c), a = ACC.find(x => x.id === id);
+    const next = !id ? [] : now.includes(id) ? now : now.filter(x => slotOf(x) !== slotOf(id)).concat(id), key = c.id + ":" + next.join(",");
+    if (key === accPrevKey) return; accPrevKey = key;
+    const art = box.querySelector(".cp-acc-prev-art"), t = box.querySelector(".cp-acc-prev-t");
+    if (art) art.innerHTML = previewHtml(c, next, 110);
+    if (t) t.textContent = !id ? "Nothing on" : `${a ? a.name : "This"}${isEarned(a) ? "" : " (not earned yet)"}`;
+  }
+  ["mouseover", "focusin"].forEach(ev => document.addEventListener(ev, e => { const t = e.target && e.target.closest && e.target.closest(".cp-acc-tile"); if (t) accPreview(t); }));
   function previewHtml(c, wear, px){
     return `<span class="cp-prev cp-${c.pose}" style="--px:${px}px;--cp-wear:${wearColor(c)}"><span class="cp-shadow"></span><span class="cp-move"><span class="cp-breathe">${rigSvg(c, {wear})}</span></span></span>`;
   }
@@ -71909,6 +71942,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
+      ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
@@ -73207,8 +73241,31 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
 
   /* ---------- 8. Asking ---------- */
   const VISUAL = /\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit|wrote|written|graph|chart|map)\b/i;
+  /* "Find my notes on the Krebs cycle", "which notes talk about WWI": the notes themselves, found by search (words and meaning),
+     listed with a button to each. Any AI, and no AI at all: a small model shouldn't be the one looking. */
+  const NOTES_FIND = /\b(find|show|which|where|search|look up|look for|pull up|open|get|any|do i have|did i (write|take|make))\b[^?]*\bnotes?\b|\bnotes? (on|about|for|from|that (mention|mentions|talk about|talks about|cover|covers|say|says))\b/i;
+  async function findNotes(q){
+    if (!NOTES_FIND.test(q) || /\b(make|create|write|add|save|put|new)\b[^?]*\bnote\b/i.test(q) && !/\b(find|show|which|search|look)\b/i.test(q)) return null;
+    const topic = String((q.match(/\b(?:on|about|for|from|mention(?:s|ing)?|talk(?:s|ing)? about|cover(?:s|ing)?|say(?:s|ing)?|with|regarding)\s+(.+?)\s*[?.!]*$/i) || [])[1] || "")
+      .replace(/^(?:my|the|a|an)\s+/i, "").replace(/\s+notes?$/i, "").trim();
+    const all = Object.values(state.notes || {}).filter(n => n && !n.archived && String(n.text || "").trim());
+    if (!all.length) return {answer: "You don't have any notes yet. Make one from Notes, or ask me to make a note for you.", show: [], changes: [], local: true};
+    if (!topic) return null;
+    const found = new Map();
+    try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic, {max: 16, wait: 800, readWait: 1, semWait: 2500}) : null;
+      (R && R.rows || []).forEach(x => { if (x.doc && x.doc.type === "note" && state.notes[x.doc.id] && !state.notes[x.doc.id].archived) found.set(x.doc.id, state.notes[x.doc.id]); }); } catch (e) {}
+    // and plain word matches, so a note is never missed while search is still getting ready
+    const tw = topic.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
+    all.forEach(n => { const t = String(n.text).toLowerCase(); if (tw.length && tw.every(w => t.includes(w.replace(/s$/, "")))) found.set(n.id, n); });
+    const list = [...found.values()].slice(0, 5);
+    const first = n => clip(String(n.text).replace(/\s*\n+\s*/g, " · ").trim(), 110);
+    if (!list.length) return {answer: `I couldn't find a note about ${topic}. Try other words, or open Notes and search there.`, show: [], changes: [], local: true};
+    return {answer: list.length === 1 ? `Your note about ${topic}: "${first(list[0])}".` : `${list.length} notes about ${topic}:\n${list.map(n => "- " + first(n)).join("\n")}`,
+      show: list.map(n => ({kind: "note", id: n.id, label: labelOf({kind: "note", id: n.id})})), changes: [], local: true};
+  }
   async function ask(q, o){
     o = o || {};
+    { const fn = await findNotes(q).catch(e => { console.warn(e); return null; }); if (fn) return fn; }
     // The AI on the device (98-truth.js): a request with several things to do goes one at a time, and planner facts (what's due,
     // grades, when something is) come from the app itself, exact, with no model involved
     const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH;
@@ -73343,7 +73400,7 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();
 /* Keeping the small on-device AI honest and useful (Ask in the bubble, the Companion tab, and any on-device request that wants the web):
      facts     planner questions answered by the app's own code, never by a model: what's due when, what's overdue, when one task is
@@ -73392,13 +73449,17 @@ window.SBTRUTH = (() => {
     // what to do next
     if (L && L.NEXT_Q.test(q)) { const nx = L.nextLine(); if (nx) return {answer: nx.replace(/\*\*/g, ""), show: []}; }
     // grades: a course's standing, or one item's mark
-    if (/\b(grade|grades|mark|marks|score|scores|percent|gpa|standing|did i get|how am i doing|how'?s my)\b/.test(s)) {
+    if (/\b(grade|grades|mark|marks|score|scores|percent|gpa|standing|did i get|how am i doing|how'?s my|passing|failing|pass|fail)\b/.test(s)) {
+      const passQ = /\b(passing|failing|pass|fail)\b/.test(s);
+      const verdict = line => { if (!passQ) return line; const cur = Number((line.match(/current ([\d.]+)%/) || [])[1]), pm = Number((line.match(/pass mark ([\d.]+)%/) || [])[1]);
+        if (!isFinite(cur) || !cur && cur !== 0) return line; if (!isFinite(pm) || !pm) return line;
+        return (cur >= pm ? `Yes, you're passing: ${cur}% so far, and the pass mark is ${pm}%. ` : `Not yet: ${cur}% so far, below the pass mark of ${pm}%. `) + line; };
       const G = window.SBGRADES; if (!G) return null;
       let items = []; try { items = G.items ? G.items() : []; } catch (e) {}
       const it = (() => { const qw = words(s); let best = null, bs = 0; items.forEach(x => { const tw = words(x.title); const hit = tw.filter(w => qw.includes(w)).length; const sc = tw.length ? hit / tw.length : 0; if (hit && sc > bs) { bs = sc; best = x; } }); return bs >= 0.6 ? best : null; })();
       if (it) return {answer: `You got ${it.mark} on ${it.title}${it.course ? " (" + it.course + ")" : ""}: ${it.pct}%${it.letter ? ", " + it.letter : ""}.`, show: []};
       const c = courseNamed(s); let lines = []; try { lines = G.lines ? G.lines() : []; } catch (e) {}
-      if (c) { const k = [c.code, c.name].filter(Boolean).map(low); const line = lines.find(x => k.some(y => y && low(x).includes(y))); if (line) return {answer: line.replace(/\*\*/g, ""), show: []}; return {answer: `${courseLabel(c)} doesn't have any marks in Studyboard yet.`, show: []}; }
+      if (c) { const k = [c.code, c.name].filter(Boolean).map(low); const line = lines.find(x => k.some(y => y && low(x).includes(y))); if (line) return {answer: verdict(line.replace(/\*\*/g, "")), show: []}; return {answer: `${courseLabel(c)} doesn't have any marks in Studyboard yet.`, show: []}; }
       if (/\b(all|my|each|every)\b.*\bgrades?\b|\bgpa\b/.test(s) && lines.length) return {answer: lines.slice(0, 12).map(x => "- " + x.replace(/\*\*/g, "")).join("\n"), show: []};
       return null;
     }
@@ -73869,6 +73930,7 @@ window.SBTRUTH = (() => {
       let made = null;
       if (att.length && att.some(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || "")) && /\b(add|put|save|pin|stick|place|attach)\b[^?]*\b(note|notes|board)\b/i.test(q)) made = await photoNote(q, att);
       if (!quick && !att.length && MAP_Q.test(q2) && MAP_ASK.test(q2)) { T.status = "Making your map…"; draw(); made = await mapAct(q2); }
+      if (!quick && !made && !att.length && window.SBASSIST && SBASSIST.findNotes) { const fn = await SBASSIST.findNotes(q2).catch(() => null); if (fn) made = {answer: fn.answer, sources: fn.show && fn.show.length ? ["Your notes"] : [], followUps: [], actions: [], show: fn.show && fn.show.length ? SBASSIST.pack(fn).show : undefined}; }
       if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
       if (quick) m.a = {answer: quick.answer, sources: ["Your planner"], followUps: [], actions: []};
       else if (made) m.a = made;

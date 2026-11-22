@@ -664,8 +664,31 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
 
   /* ---------- 8. Asking ---------- */
   const VISUAL = /\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit|wrote|written|graph|chart|map)\b/i;
+  /* "Find my notes on the Krebs cycle", "which notes talk about WWI": the notes themselves, found by search (words and meaning),
+     listed with a button to each. Any AI, and no AI at all: a small model shouldn't be the one looking. */
+  const NOTES_FIND = /\b(find|show|which|where|search|look up|look for|pull up|open|get|any|do i have|did i (write|take|make))\b[^?]*\bnotes?\b|\bnotes? (on|about|for|from|that (mention|mentions|talk about|talks about|cover|covers|say|says))\b/i;
+  async function findNotes(q){
+    if (!NOTES_FIND.test(q) || /\b(make|create|write|add|save|put|new)\b[^?]*\bnote\b/i.test(q) && !/\b(find|show|which|search|look)\b/i.test(q)) return null;
+    const topic = String((q.match(/\b(?:on|about|for|from|mention(?:s|ing)?|talk(?:s|ing)? about|cover(?:s|ing)?|say(?:s|ing)?|with|regarding)\s+(.+?)\s*[?.!]*$/i) || [])[1] || "")
+      .replace(/^(?:my|the|a|an)\s+/i, "").replace(/\s+notes?$/i, "").trim();
+    const all = Object.values(state.notes || {}).filter(n => n && !n.archived && String(n.text || "").trim());
+    if (!all.length) return {answer: "You don't have any notes yet. Make one from Notes, or ask me to make a note for you.", show: [], changes: [], local: true};
+    if (!topic) return null;
+    const found = new Map();
+    try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic, {max: 16, wait: 800, readWait: 1, semWait: 2500}) : null;
+      (R && R.rows || []).forEach(x => { if (x.doc && x.doc.type === "note" && state.notes[x.doc.id] && !state.notes[x.doc.id].archived) found.set(x.doc.id, state.notes[x.doc.id]); }); } catch (e) {}
+    // and plain word matches, so a note is never missed while search is still getting ready
+    const tw = topic.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
+    all.forEach(n => { const t = String(n.text).toLowerCase(); if (tw.length && tw.every(w => t.includes(w.replace(/s$/, "")))) found.set(n.id, n); });
+    const list = [...found.values()].slice(0, 5);
+    const first = n => clip(String(n.text).replace(/\s*\n+\s*/g, " · ").trim(), 110);
+    if (!list.length) return {answer: `I couldn't find a note about ${topic}. Try other words, or open Notes and search there.`, show: [], changes: [], local: true};
+    return {answer: list.length === 1 ? `Your note about ${topic}: "${first(list[0])}".` : `${list.length} notes about ${topic}:\n${list.map(n => "- " + first(n)).join("\n")}`,
+      show: list.map(n => ({kind: "note", id: n.id, label: labelOf({kind: "note", id: n.id})})), changes: [], local: true};
+  }
   async function ask(q, o){
     o = o || {};
+    { const fn = await findNotes(q).catch(e => { console.warn(e); return null; }); if (fn) return fn; }
     // The AI on the device (98-truth.js): a request with several things to do goes one at a time, and planner facts (what's due,
     // grades, when something is) come from the app itself, exact, with no model involved
     const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH;
@@ -800,5 +823,5 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();

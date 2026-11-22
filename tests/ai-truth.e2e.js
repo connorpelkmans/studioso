@@ -33,7 +33,7 @@ function fake(){
   await ctx.addInitScript(([f, T]) => { window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__SB_WEB_TEST = true; (0, eval)(`(${f})`)();
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"}));
     const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
-    localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, files: [], notes: [], events: [], decks: [], settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}],
+    localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, files: [], notes: [{id: "n1", text: "Osmosis lab\nWater moves across the membrane toward the salty side.", x: 10, y: 10}], events: [], decks: [], settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}],
       tasks: [{id: "t1", title: "Bio Lab Report", due: d(1), status: "todo", type: "Lab", courseId: "c1"}, {id: "t2", title: "History Essay", due: d(4), status: "todo", type: "Assignment"}, {id: "t3", title: "Chem Problem Set", due: d(-2), status: "todo", type: "Assignment"}]})); }, [fake.toString()]);
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));
   await p.goto(`http://127.0.0.1:${port}/index.html`); await p.waitForFunction(() => window.SBASSIST && window.SBTRUTH && window.__sbDevAI, null, {timeout: 30000}); await p.waitForTimeout(500);
@@ -101,6 +101,10 @@ function fake(){
   c = await chat("make a concept map of cell parts", [{answer: "Sure, what should be on it?", followUps: [], sources: []}]);
   c = await chat("do it then", [{center: "Cell Parts", concepts: [{name: "Nucleus"}, {name: "Mitochondria"}], links: [{from: "Cell Parts", to: "Nucleus"}, {from: "Cell Parts", to: "Mitochondria"}]}]);
   ok(/Open Map/.test(c.last), "\"do it\" after a map request makes it: " + c.last.slice(0, 90));
+  c = await chat("find my notes on osmosis", NONE);
+  ok(c.asked.length === 0 && /osmosis/i.test(c.last) && /Water moves/.test(c.last), "find my notes on a topic: the notes themselves, no model: " + c.last.replace(/\n/g, " ").slice(0, 120));
+  r = await ask("which notes talk about mitochondria?", NONE);
+  ok(r.asked === 0 && /couldn't find a note about mitochondria/.test(r.answer), "and says so plainly when there's none: " + r.answer);
   c = await chat("Start a new 5 min timer, I'm working on my bio lab report", NONE);
   ok(/for Bio Lab Report/.test(c.last) && (await p.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo") || "{}").taskId)) === "t1", "a timer for the task named is linked to that task: " + c.last.slice(0, 90));
   c = await chat("who wrote my bio syllabus?", [{answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}, {answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}]);

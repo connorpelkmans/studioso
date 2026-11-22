@@ -96,3 +96,7 @@
 .ob-colpick:focus-within{outline:2px solid var(--accent);outline-offset:4px}
 .ob-code > label{font:600 14.08px/21.12px var(--body);margin-bottom:5px}
 .ob-code > label{padding-inline-start:38px}
+/* Trying an accessory on: the companion wearing the one pointed at */
+.cp-acc-prev{display:flex;align-items:center;gap:12px;padding:6px 10px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2,var(--surface));margin:4px 0}
+.cp-acc-prev-art{display:grid;place-items:center;width:110px;height:110px;flex:none;overflow:hidden}
+.cp-acc-prev-t{font-weight:600}

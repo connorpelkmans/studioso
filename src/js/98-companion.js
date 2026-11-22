@@ -2549,6 +2549,19 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     setTimeout(primeStills, 50);
     return `<img class="cp-still" data-still="${esc(c.id)}" src="${ready || stillUrl(c)}" width="${w}" height="${w}" style="margin:${-o}px" alt="" decoding="async" loading="lazy" draggable="false">`;
   };
+  // Trying an accessory on: pointing at (or tabbing to) a tile shows the companion wearing it, beside the list
+  let accPrevKey = "";
+  function accPreview(tile){
+    const box = tile && tile.closest(".cp-accs") && tile.closest("dialog, .cpt3, body").querySelector(".cp-acc-prev"); if (!box) return;
+    const c = current(); if (!c) return;
+    const id = tile.dataset.acc || "", now = wearOf(c), a = ACC.find(x => x.id === id);
+    const next = !id ? [] : now.includes(id) ? now : now.filter(x => slotOf(x) !== slotOf(id)).concat(id), key = c.id + ":" + next.join(",");
+    if (key === accPrevKey) return; accPrevKey = key;
+    const art = box.querySelector(".cp-acc-prev-art"), t = box.querySelector(".cp-acc-prev-t");
+    if (art) art.innerHTML = previewHtml(c, next, 110);
+    if (t) t.textContent = !id ? "Nothing on" : `${a ? a.name : "This"}${isEarned(a) ? "" : " (not earned yet)"}`;
+  }
+  ["mouseover", "focusin"].forEach(ev => document.addEventListener(ev, e => { const t = e.target && e.target.closest && e.target.closest(".cp-acc-tile"); if (t) accPreview(t); }));
   function previewHtml(c, wear, px){
     return `<span class="cp-prev cp-${c.pose}" style="--px:${px}px;--cp-wear:${wearColor(c)}"><span class="cp-shadow"></span><span class="cp-move"><span class="cp-breathe">${rigSvg(c, {wear})}</span></span></span>`;
   }
@@ -2586,6 +2599,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
+      ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>

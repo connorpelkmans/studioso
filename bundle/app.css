@@ -10820,6 +10820,10 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .ob-colpick:focus-within{outline:2px solid var(--accent);outline-offset:4px}
 .ob-code > label{font:600 14.08px/21.12px var(--body);margin-bottom:5px}
 .ob-code > label{padding-inline-start:38px}
+/* Trying an accessory on: the companion wearing the one pointed at */
+.cp-acc-prev{display:flex;align-items:center;gap:12px;padding:6px 10px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2,var(--surface));margin:4px 0}
+.cp-acc-prev-art{display:grid;place-items:center;width:110px;height:110px;flex:none;overflow:hidden}
+.cp-acc-prev-t{font-weight:600}
 /* ===== 99-launch.css: the update notice, Invite Friends and What's New (99-launch.js) ===== */
 /* The update notice: at the bottom, above the phone tab bar, and never covering the page's own buttons for long */
 .sb-upd{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:60;width:min(560px,calc(100vw - 24px));
@@ -10937,3 +10941,8 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 /* The welcome: Plan My Semester is the main (blue) button, flashcards the white one below it */
 .sb-welc .sb-welc-go.sb-welc-skip{min-height:52px;margin-top:0;font-size:1.05rem}
 .sb-welc .sb-welc-cards{width:100%;min-height:48px;margin-top:8px;border-radius:14px;font-size:1rem}
+/* the companion's face is already beside the explanation: no second, smaller one inside it */
+.fc-buddy-after .explain > :first-child:not(div):not(p){display:none}
+/* the session summary sits in the middle of the page, its heading over it */
+.done-card.sd{margin-inline:auto}
+.view-head.sd-head{justify-content:center;text-align:center;max-width:760px;margin-inline:auto}

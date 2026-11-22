@@ -598,12 +598,12 @@
     clearTimeout(DEV_EMB.idle);
     DEV_EMB.idle = setTimeout(() => { if (DEV_EMB.w && !DEV_EMB.wait.size) { try { DEV_EMB.w.terminate(); } catch (e) {} DEV_EMB.w = null; } }, 120000);
     if (DEV_EMB.w) return DEV_EMB.w;
-    const w = DEV_EMB.w = new Worker(new URL("vendor/embed-4.3.2/embed-worker.js", location.href).href, {type: "module"});
+    const w = DEV_EMB.w = new Worker(new URL("vendor/embed-4.3.2/embed-worker.js?v=2", location.href).href, {type: "module"});
     w.onmessage = e => { const d = e.data || {};
       if (d.progress != null) { DEV_EMB.dl = d.progress < 1 ? d.progress : null; drawFoot(); return; }
       const h = DEV_EMB.wait.get(d.id); if (!h) return; DEV_EMB.wait.delete(d.id); DEV_EMB.dl = null;
-      if (d.error) h.no(aiErr(/fetch|network|Failed to fetch/i.test(d.error) ? "offline" : "busy", "Search by meaning couldn't start on this device: " + d.error)); else h.ok(d.vecs); };
-    w.onerror = () => { DEV_EMB.wait.forEach(h => h.no(aiErr("busy", "Search by meaning couldn't start on this device."))); DEV_EMB.wait.clear(); try { w.terminate(); } catch (e) {} DEV_EMB.w = null; };
+      if (d.error) { console.warn("search by meaning:", d.error); h.no(aiErr(/fetch|network|Failed to fetch/i.test(d.error) ? "offline" : "busy", /fetch|network/i.test(d.error) ? "Its small model couldn't download (check your connection)." : "It couldn't start on this device.")); } else h.ok(d.vecs); };
+    w.onerror = () => { DEV_EMB.wait.forEach(h => h.no(aiErr("busy", "It couldn't start on this device."))); DEV_EMB.wait.clear(); try { w.terminate(); } catch (e) {} DEV_EMB.w = null; };
     return w;
   }
   async function devEmbed(texts, isQuery){
@@ -1168,6 +1168,8 @@ Return JSON only.`;
     S.threadCourse = S.course;
     const prev = S.thread[S.thread.length - 1] || null;
     let det = null; try { det = exactAnswer(askData(), q); } catch(e) { console.warn(e); }
+    // grades, what's due, what's next: worked out from the planner itself (98-truth.js), never left to the AI to guess
+    if (!det && window.SBTRUTH) { try { const f = SBTRUTH.facts(q); if (f && f.answer) det = {text: f.answer, items: []}; } catch(e) { console.warn(e); } }
     const detAns = det ? {state: "done", text: det.text, found: true, used: [], items: det.items || [], det: true, model: ""} : null;
     const A = {q, course: S.course, state: "search", rows: [], note: "", answer: detAns, det: detAns};
     S.thread.push(A); if (S.thread.length > 6) S.thread.shift();

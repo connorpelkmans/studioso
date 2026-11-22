@@ -93,17 +93,17 @@ function lettersHint(answer){
   if (!words.length || words.length > 8) return "";
   return "Starts like: " + words.map(w => w.replace(/^([^\p{L}\p{N}]*)([\p{L}\p{N}])([\p{L}\p{N}]*)(.*)$/u, (m, a, b, rest, z) => a + b + "_".repeat(rest.length) + z)).join(" ");
 }
-const HINT_RULES = `Write two hints that help the student recall the answer by thinking about the idea: what it does, what it's part of, how it works, what it's connected to in this course, or a vivid comparison. Hint 1 is light: it points them at the right area of the topic. Hint 2 narrows it down with one more specific clue (a key property, where it happens, what it's for), still without giving it away. Never state the answer, its key words, a synonym, a translation or an abbreviation of it. Never give its first letter, its length, a rhyme or a fill-in-the-blank of it. Never say which options are wrong. Warm and plain, like a study buddy. Return JSON only.`;
+const HINT_RULES = `Write two hints that help the student recall the answer by thinking about the idea: what it does, what it's part of, how it works, what it's connected to in this course, or a vivid comparison. Each hint must be specific to THIS card: a hint that would fit many cards ("think about what motivates people", "consider how the mind works") is useless, and so is one that just restates the question. Hint 1 points them at the right part of the topic with one concrete clue (who, where, what it's for, what it's the opposite of). Hint 2 narrows it down with a second, more specific clue (a key property, a typical example, what it changes), still without giving it away. Never state the answer, its key words, a synonym, a translation or an abbreviation of it. Never give its first letter, its length, a rhyme or a fill-in-the-blank of it. Never say which options are wrong. Warm and plain, like a study buddy. Return JSON only.`;
 async function aiHints(prompt, answer, ctx){
   const ask = async extra => {
     const r = await aiCall({task: "hint", fast: true, maxTokens: 600, temperature: 0.5, schema: HINT_SCHEMA,
       parts: [{text: `${ctx ? ctx + "\n" : ""}Question or card front: ${prompt}\nThe answer (never say it, or any of its key words): ${answer}${extra || ""}`}],
       system: `You are ${buddyName()}, a friendly study companion. ${HINT_RULES}`});
-    return [r.data && r.data.hint, r.data && r.data.hint2].map(x => String(x || "").trim()).filter(x => x && !hintLeaks(x, answer));
+    return [r.data && r.data.hint, r.data && r.data.hint2].map(x => String(x || "").trim()).filter(x => x && !hintLeaks(x, answer) && !hintEchoes(x, prompt));
   };
   let list = await ask();
-  // both gave it away: one more try, told what went wrong
-  if (!list.length) list = await ask("\nYour last hints used words from the answer. Describe the idea around it instead.");
+  // both gave it away or only repeated the question: one more try, told what went wrong
+  if (!list.length) list = await ask("\nYour last hints used words from the answer or just repeated the question. Give a concrete clue about the idea around the answer instead.");
   return list.slice(0, 2);
 }
 // What a deck is about, for the AI: the course, the deck and a few neighbouring cards (fronts only)
@@ -112,12 +112,29 @@ function hintContext(d, c){
   const pick = near.slice(Math.max(0, k - 3), Math.max(0, k - 3) + 6).map(x => "- " + String(x.front).slice(0, 120));
   return [co ? `Course: ${co.name}` : "", `Deck: ${d.name}`, pick.length ? "Other cards in this deck:\n" + pick.join("\n") : ""].filter(Boolean).join("\n");
 }
-// The hints a card can give without asking anyone: kept ones, then its own material
-function cardHintsLocal(c){
+// A hint that mostly repeats the card's front tells them nothing new
+function hintEchoes(hint, front){
+  const fw = new Set(hintWords(front)), hw = hintWords(hint).filter(w => !/^(think|about|consider|remember|what|which|this|that|they|their|there|with|from|into|when|where|your)$/.test(w));
+  return hw.length < 2 || hw.filter(w => fw.has(w)).length / hw.length > 0.5;
+}
+// Flashcards only (not quiz choices): the last hint ends with the key word's first letter and length, so it always moves them on
+function keyWord(answer){
+  const STOP = /^(about|which|there|their|these|those|being|other|where|while|would|could|should|because|through|between|patient|patients|person|people|something)$/i;
+  const ws = String(answer || "").split(/[^\p{L}\p{N}'-]+/u).filter(w => w.length >= 5 && !STOP.test(w));
+  return ws.sort((a, b) => b.length - a.length)[0] || "";
+}
+function withLetters(list, answer){
+  const k = keyWord(answer); if (!k || !list.length) return list;
+  const tip = ` Key word: ${k[0].toUpperCase()}${"_".repeat(k.length - 1)} (${k.length} letters).`;
+  const out = list.slice(); out[out.length - 1] = out[out.length - 1].replace(/\s*Key word:.*$/, "") + tip; return out;
+}
+const HINT_V = 2;   // hints kept from before the specificity and letter rules are made again
+// The hints a card can give without asking anyone: kept ones, then (with no AI) its own material
+function cardHintsLocal(c, noAI){
   const out = [];
-  if (Array.isArray(c.hints)) out.push(...c.hints.filter(Boolean)); else if (typeof c.hint === "string" && c.hint) out.push(c.hint);
-  if (out.length < 2 && c.explain) { const ex = c.explain; [ex.memoryTip, ex.analogy, ex.explanation].forEach(t => { const m = maskedClue(t, c.back); if (m && out.length < 2 && !out.includes(m)) out.push(m); }); }
-  return out.filter(x => !hintLeaks(x, c.back)).slice(0, 2);
+  if (c.hintV === HINT_V && Array.isArray(c.hints)) out.push(...c.hints.filter(Boolean));
+  if (noAI && out.length < 2 && c.explain) { const ex = c.explain; [ex.memoryTip, ex.analogy, ex.explanation].forEach(t => { const m = maskedClue(t, c.back); if (m && out.length < 2 && !out.includes(m) && !hintEchoes(m, c.front)) out.push(m); }); }
+  return out.filter(x => !hintLeaks(x.replace(/\s*Key word:.*$/, ""), c.back)).slice(0, 2);
 }
 // Flashcards: Hint (and Another Hint) before the answer shows
 async function fcHint(){
@@ -127,18 +144,19 @@ async function fcHint(){
   const h = f.hints[c.id];
   if (h && !h.busy) { if (h.at + 1 < h.list.length) { h.at++; render(); } return; }
   f.hinted = (f.hinted || 0) + 1;
-  const local = cardHintsLocal(c);
-  if (local.length >= 2 || ((!aiReady() || c.img) && local.length)) { f.hints[c.id] = {list: local, at: 0}; render(); return; }
+  const local = cardHintsLocal(c, !aiReady() || !!c.img);
+  if (local.length >= 2 || ((!aiReady() || c.img) && local.length)) { f.hints[c.id] = {list: withLetters(local, c.back), at: 0}; render(); return; }
   if (!aiReady() || c.img) { const l = lettersHint(c.back); f.hints[c.id] = {list: [l || "Think about where this came up in your notes and what it was next to."], at: 0, plain: true}; render(); return; }
   f.hints[c.id] = {busy: true, list: [], at: 0}; render();
   let list = [];
   try { list = await aiHints(c.front, c.back, hintContext(d, c)); } catch (e) { console.warn("hint", e); }
   list = local.concat(list.filter(x => !local.includes(x))).slice(0, 2);
   if (!list.length) { const l = lettersHint(c.back); f.hints[c.id] = {list: [l || "Think about where this came up in your notes."], at: 0, plain: true}; render(); return; }
+  list = withLetters(list, c.back);
   f.hints[c.id] = {list, at: 0};
   // kept on the card, so next time they're instant, free and work offline
   const nd = clone(state.decks[d.id]), k = nd && nd.cards.find(x => x.id === c.id);
-  if (k) { k.hints = list; delete k.hint; saveDeck(nd, null); } else render();
+  if (k) { k.hints = list; k.hintV = HINT_V; delete k.hint; saveDeck(nd, null); } else render();
 }
 function hintBubbleHtml(h, act){
   const name = buddyName();

@@ -751,7 +751,7 @@ function viewStudy(){
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
-    return `<div class="view-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
+    return `<div class="view-head sd-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }

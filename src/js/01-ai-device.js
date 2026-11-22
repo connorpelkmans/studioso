@@ -296,7 +296,7 @@ const webErrText = e => String((e && (e.message || e)) || "");
 const webTooBig = e => /out of memory|device (was )?lost|OOM|exceed|maxBufferSize|maxStorageBuffer|shader-f16|not supported by the adapter|Failed to allocate|allocation/i.test(webErrText(e));
 async function webLoad(m, onStatus){
   const lib = window.__SB_TEST && window.__SB_WEBLLM_STUB ? window.__SB_WEBLLM_STUB : await import(webAbs("web-llm.js"));
-  const worker = lib.stubWorker ? null : new Worker(webAbs("worker.js"), {type: "module"});
+  const worker = lib.stubWorker ? null : new Worker(webAbs("worker.js?v=2"), {type: "module"});
   const say = r => { if (!onStatus) return; const p = Number(r && r.progress) || 0; onStatus(p > 0 && p < 1 ? `Downloading free AI to this computer (one time only): ${Math.round(p * 100)}%` : "Starting the AI on this computer…"); };
   try { return await lib.CreateWebWorkerMLCEngine(worker, m.id, {appConfig: webAppConfig(), initProgressCallback: say}); }
   catch (e) { try { worker && worker.terminate(); } catch (x) {} throw e; }

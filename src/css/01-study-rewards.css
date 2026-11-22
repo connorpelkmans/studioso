@@ -86,3 +86,8 @@
 /* The welcome: Plan My Semester is the main (blue) button, flashcards the white one below it */
 .sb-welc .sb-welc-go.sb-welc-skip{min-height:52px;margin-top:0;font-size:1.05rem}
 .sb-welc .sb-welc-cards{width:100%;min-height:48px;margin-top:8px;border-radius:14px;font-size:1rem}
+/* the companion's face is already beside the explanation: no second, smaller one inside it */
+.fc-buddy-after .explain > :first-child:not(div):not(p){display:none}
+/* the session summary sits in the middle of the page, its heading over it */
+.done-card.sd{margin-inline:auto}
+.view-head.sd-head{justify-content:center;text-align:center;max-width:760px;margin-inline:auto}
