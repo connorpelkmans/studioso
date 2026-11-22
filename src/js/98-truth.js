@@ -199,7 +199,7 @@ window.SBTRUTH = (() => {
     if (plan.define) jobs.push(wiktionary(plan.define));
     // the whole look-up gets a few seconds; a source that's slower is left out of this answer
     const cap = (pr, ms, v) => Promise.race([pr.catch(() => v), new Promise(r => setTimeout(() => r(v), ms))]);
-    const found = (await Promise.all(jobs.map(j => cap(j, o.ms || 4000, [])))).flat();
+    const found = (await Promise.all(jobs.map(j => cap(j, o.ms || (window.__SB_TEST && window.__SB_WEB_MS) || 4000, [])))).flat();
     const seen = new Set(), uniq = found.filter(x => { const k = x.url; if (seen.has(k)) return false; seen.add(k); return true; });
     let parts = passages(uniq);
     if (!parts.length) return {list: [], text: ""};
@@ -236,8 +236,30 @@ window.SBTRUTH = (() => {
 
   /* ---------- a knowledge question: the student's own material first, then the web, answered from them ---------- */
   const KSCHEMA = {type: "OBJECT", properties: {answer: {type: "STRING"}, found: {type: "BOOLEAN"}}, required: ["answer", "found"]};
+  /* Straight from their notes, no model: "what is the id" when a note has a line "Id: ...", and "what are the defense mechanisms"
+     when a note headed "Defense mechanisms" lists "Repression: ...", "Projection: ...". Exact, instant, theirs. */
+  function fromNotes(q){
+    const notes = Object.values(state.notes || {}).filter(n => n && !n.archived && n.text);
+    const term = (String(q).match(/^\s*(?:what(?:'s| is| are)|whats|define|definition of|meaning of|what does)\s+(?:the\s+|a\s+|an\s+)?(.+?)(?:\s+mean)?\s*[?.!]*$/i) || [])[1];
+    if (!term || term.split(/\s+/).length > 5) return null;
+    const T = low(term).replace(/[^a-z0-9 &'-]/g, "").trim(); if (!T) return null;
+    const lineRe = l => { const m = String(l).match(/^\s*[-•*]?\s*([^:\n]{2,60}?)\s*(?::|\s[-–—]\s)\s*(.{8,})$/); return m ? {k: m[1].trim(), v: m[2].trim()} : null; };
+    const stem = w => w.replace(/(ies|es|s)$/, "");
+    // a list: a note whose first line (its heading) is the term, with "Name: meaning" lines under it
+    if (/^(the )?(types?|kinds?|phases?|stages?|steps?|causes?|parts?)\b/.test(T) || /s$/.test(T)) {
+      for (const n of notes) { const lines = String(n.text).split("\n"), head = low(lines[0]).replace(/[^a-z0-9 &'-]/g, "").trim();
+        if (head && (stem(head) === stem(T) || stem(head).includes(stem(T)) || stem(T).includes(stem(head))) && head.length >= 4) {
+          const items = lines.slice(1).map(lineRe).filter(Boolean); if (items.length >= 2) return {answer: `Your notes list ${items.length} ${lines[0].trim().toLowerCase()}:\n${items.map(x => `- ${x.k}: ${x.v}`).join("\n")}`, found: true, sources: [], fromNotes: true, notesSrc: [lines[0].trim()]}; } }
+    }
+    // a definition: a line that starts with the term
+    for (const n of notes) for (const l of String(n.text).split("\n")) { const x = lineRe(l); if (x && (low(x.k) === T || stem(low(x.k)) === stem(T))) {
+      const v = x.v.replace(/^(is|are)\s+/i, "");
+      return {answer: `${x.k} (from your notes): ${v.charAt(0).toLowerCase() === v.charAt(0) || /^[A-Z][a-z]+ /.test(v) ? v : v}${/[.!?)]$/.test(v) ? "" : "."}`, found: true, sources: [], fromNotes: true, notesSrc: [String(n.text).split("\n")[0].slice(0, 40)]}; } }
+    return null;
+  }
   async function knowledge(q, o){
     o = o || {};
+    { const fn = fromNotes(q); if (fn) return fn; }
     // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
     // the answer from the notes alone doesn't hold up
     const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
@@ -251,12 +273,19 @@ window.SBTRUTH = (() => {
     const sys = `You answer a student's question using only the sources given. Your first sentence answers exactly what they asked, directly. ${deep ? "Then explain it properly in 3 to 5 more sentences: the main parts or steps in order, how they connect, and why it matters, all from the sources." : "Then add 1 to 3 sentences with the most useful detail: how it works, why it matters, or a short example."} If the question asks for several things (what are the..., types, kinds, phases, stages, causes, steps, examples), list every one the sources give. If it asks for an example, give one. If the question could mean several things, answer the meaning that fits their notes and course. If the sources don't answer it, set found to false and say you couldn't find it. Plain text, no markdown.`;
     const srcOf = () => `${notes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note):\n${notes}\n\n` : ""}${web.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(web)}` : ""}`;
     const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, system: sys + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
-    const ok = (x, src) => x && x.answer && x.found !== false && !nonAnswer(q, x.answer) && !unsupported(x.answer, src + "\n" + q).length;
-    const tryOnce = async (extra) => { const src = srcOf(); try { const r = await call(src, extra); const x = r && r.data; return ok(x, src) ? x : null; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; } };
+    // a list question gets a list; an explanation gets more than a definition
+    const listQ = /^\s*(what|which|name|list)\b[^?]*\b(are the|are some|types?|kinds?|phases?|stages?|steps?|causes?|parts?|examples?|mechanisms?|functions?|symptoms?|signs?|principles?|components?|features?|factors?)\b/i.test(q) && !/\b(example of)\b/i.test(q);
+    const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false; return true; };
+    const ok = (x, src, loose) => x && x.answer && x.found !== false && !nonAnswer(q, x.answer) && !unsupported(x.answer, src + "\n" + q).length && (loose || shape(x));
+    let fallback = null;   // right but short: kept in case a fuller try fails
+    const tryOnce = async (extra) => { const src = srcOf(); try { const r = await call(src, extra); const x = r && r.data; if (ok(x, src)) return x; if (!fallback && ok(x, src, true)) fallback = x; return null; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; } };
+    const SHAPE = listQ ? "\n\nIMPORTANT: name every one the sources give, as a list (separated by commas or on their own lines), each with a few words on what it is." : deep ? "\n\nIMPORTANT: write at least 4 full sentences: what it is, then each main part or step from the sources in order, then why it matters." : "";
     let d = await tryOnce();
+    if (!d && fallback && SHAPE) d = await tryOnce(SHAPE);
     // the notes alone didn't hold up: the web too, then once more, strictly
     if (!d && covered && !web.length) { web = await getWeb(); if (web.length) d = await tryOnce(); }
-    if (!d) d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources.`);
+    if (!d) d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources.${SHAPE}`);
+    if (!d && fallback) d = fallback;
     if (!d) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
     const used = web.filter(x => /wikipedia|wiktionary|stud(y|ies)|research|paper|according/i.test(d.answer));
     return {answer: String(d.answer).trim(), sources: used.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"})), fromNotes: !!notes && /your notes|your files|your lecture|your slides/i.test(d.answer), found: true, notesSrc: mine && mine.src ? mine.src : []};
