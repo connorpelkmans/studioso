@@ -3043,6 +3043,19 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec">Accessories</h3>'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn More</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn More</summary>' + w.slice(k + '<h3 class="fsec">How to Earn More</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
     wearColor: () => { try { const c = current(); return c ? wearColor(c) : ""; } catch (e) { return ""; } },
+    // Wearing or taking off an accessory by its name (the chat's "put on your scarf", "take off the glasses"): what happened, in words
+    wearByName: (name, on) => { try {
+      const c = current(); if (!c) return "There's no companion to dress right now.";
+      const n = String(name || "").toLowerCase().replace(/\b(your|the|my|a|an)\b/g, " ").replace(/\s+/g, " ").trim(), now = wearOf(c);
+      if (!on && /^(all|everything|it all|them all|accessories|all accessories)$/.test(n)) { setCfg({wear: {[c.id]: []}}); curSig = ""; build(); return "I took everything off."; }
+      const sc = a => { const m = a.name.toLowerCase(); return m === n ? 10 : m.includes(n) || n.includes(m) ? 6 : n.split(" ").filter(w => w.length > 2 && m.includes(w)).length * 2; };
+      const a = ACC.slice().sort((x, y) => sc(y) - sc(x))[0]; if (!a || sc(a) < 2) return `I don't have an accessory called "${name}". Open the Wardrobe to see them all.`;
+      if (!on) { if (!now.includes(a.id)) return `I'm not wearing my ${a.name}.`; setCfg({wear: {[c.id]: now.filter(x => x !== a.id)}}); curSig = ""; build(); return `I took off my ${a.name}.`; }
+      if (now.includes(a.id)) return `I'm already wearing my ${a.name}!`;
+      if (!canWear(a)) return `I haven't earned the ${a.name} yet. The Wardrobe shows how to unlock it.`;
+      setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+      return `I put on my ${a.name}!`;
+    } catch (e) { return "I couldn't change my outfit just now."; } },
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
     // A close-up of the face (a headshot, for small round pictures)
     head: (id, o) => {

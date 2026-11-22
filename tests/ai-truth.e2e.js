@@ -75,8 +75,8 @@ function fake(){
   ok(c.asked.length >= 1 && c.asked.length <= 2 && /Osmosis is the spontaneous/.test(c.asked[0].text) && /THE STUDENT ASKS: explain osmosis/.test(c.asked[0].text), "a general question in the chat: Wikipedia as the source, and a fuller try only if the first answer is too thin: " + c.asked.length + " call(s)");
   // making things from the Companion tab: done by the app, not just talked about
   c = await chat("add homework 3 due friday at 2pm", NONE);
-  ok(c.asked.length === 0 && /Homework 3/.test(c.last) && /Add Task/.test(c.last), "add a task: the task with its details and an Add Task button, read from the words, no model: " + c.last.replace(/\n/g, " ").slice(0, 160));
-  await p.locator(".cpt-a button", {hasText: "Add Task"}).last().click(); await p.waitForTimeout(500);
+  ok(c.asked.length === 0 && /Added Homework 3/.test(c.last) && /undo/.test(c.last), "add a task: added at once from the words (say undo to take it back), no model: " + c.last.replace(/\n/g, " ").slice(0, 160));
+  await p.waitForTimeout(300);
   ok(await p.evaluate(() => Object.values(window.__sbState ? window.__sbState.tasks : JSON.parse(localStorage.getItem("coursework:v2")).tasks || {}).some(t => /Homework 3/.test(t.title))) && /Added/.test(await p.evaluate(() => [...document.querySelectorAll(".cpt-a")].pop().innerText)), "and Add Task adds it right there, no detour");
   c = await chat("start a 5 minute focus timer", NONE);
   ok(c.asked.length === 0 && /5-minute focus timer is running/.test(c.last) && (await p.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo") || "{}").running)), "start a timer: it runs, no model");
