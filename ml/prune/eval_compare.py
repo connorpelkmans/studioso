@@ -129,18 +129,21 @@ def main():
         judged = {x["id"]: x for x in map(json.loads, filter(str.strip, open(judge_path)))}
     if a.judge_model:
         from gen_answers import load
-        J = load(a.judge_model, 8192, a.threads)
-        schema = {"type": "object", "properties": {"better": {"type": "string", "enum": ["A", "B", "tie"]}, "made_up_A": {"type": "integer"},
-                                                   "made_up_B": {"type": "integer"}, "why": {"type": "string"}}, "required": ["better", "made_up_A", "made_up_B", "why"]}
-
-        def ask(mat, x, y):
+        J = load(a.judge_model, 16384, a.threads)
+        def ask(mat, x, y):  # the judge's instructions ask for JSON; forcing it with a grammar is very slow on a CPU
             msg = f"MATERIAL:\n<<<\n{mat[:9000]}\n>>>\n\nOUTPUT A:\n<<<\n{x[:6000]}\n>>>\n\nOUTPUT B:\n<<<\n{y[:6000]}\n>>>"
-            out = J.create_chat_completion([{"role": "system", "content": JUDGE_SYS}, {"role": "user", "content": msg}], temperature=0, max_tokens=300,
-                                           response_format={"type": "json_object", "schema": schema})
+            out = J.create_chat_completion([{"role": "system", "content": JUDGE_SYS}, {"role": "user", "content": msg}], temperature=0, max_tokens=300)
+            t = out["choices"][0]["message"]["content"] or ""
+            m = re.search(r"\{.*\}", t, re.S)
             try:
-                return json.loads(strip_fence(out["choices"][0]["message"]["content"]))
+                v = json.loads(m.group(0))
+                v["better"] = str(v.get("better", "tie")).strip()
+                for k in ("made_up_A", "made_up_B"):
+                    v[k] = float(v.get(k) or 0)
+                return v
             except Exception:
-                return {"better": "tie", "made_up_A": 0, "made_up_B": 0, "why": "unreadable verdict"}
+                b = re.search(r'"better"\s*:\s*"(A|B|tie)"', t)
+                return {"better": b.group(1) if b else "tie", "made_up_A": 0, "made_up_B": 0, "why": "unreadable verdict: " + t[:200]}
         for i, x in enumerate(rows):
             if x["id"] in judged:
                 continue
