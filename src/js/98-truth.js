@@ -272,35 +272,56 @@ window.SBTRUTH = (() => {
     const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
     const mine = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}).catch(() => null) : null;
     const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
-    let web = [];
+    let web = [], useNotes = "", useWeb = [];
     const getWeb = async () => { if (o.noWeb) return []; const R = await research(q).catch(() => ({list: []})); return (R && R.list) || []; };
-    if (!covered) web = await getWeb();
+    if (!notes) web = await getWeb();
     if (!notes && !web.length) return {answer: o.noWeb ? "I couldn't find anything about that in your Studyboard." : "I couldn't find anything about that in your notes, your files or on the web. Try other words, or add your notes on it.", sources: [], found: false};
     const deep = /^\s*(explain|describe|how (does|do|did|is|are|can)|why|walk me through|tell me about|compare|what('s| is) the difference)\b/i.test(q);
     const sys = `You answer a student's question using only the sources given. Your first sentence answers exactly what they asked, directly. ${deep ? "Then explain it properly in 3 to 5 more sentences: the main parts or steps in order, how they connect, and why it matters, all from the sources." : "Then add 1 to 3 sentences with the most useful detail: how it works, why it matters, or a short example."} If the question asks for several things (what are the..., types, kinds, phases, stages, causes, steps, examples), list every one the sources give. If it asks for an example, give one. If the question could mean several things, answer the meaning that fits their notes and course. If the sources don't answer it, set found to false and say you couldn't find it. Plain text, no markdown.`;
-    const srcOf = () => `${notes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note):\n${notes}\n\n` : ""}${web.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(web)}` : ""}`;
+    const srcOf = () => `${useNotes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note):\n${useNotes}\n\n` : ""}${useWeb.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(useWeb)}` : ""}`;
     const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, system: sys + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
     // a list question gets a list; an explanation gets more than a definition
     const listQ = /^\s*(what|which|name|list)\b[^?]*\b(are the|are some|types?|kinds?|phases?|stages?|steps?|causes?|parts?|examples?|mechanisms?|functions?|symptoms?|signs?|principles?|components?|features?|factors?)\b/i.test(q) && !/\b(example of)\b/i.test(q);
     const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false; return true; };
     const ok = (x, src, loose) => x && x.answer && x.found !== false && !nonAnswer(q, x.answer) && !unsupported(x.answer, src + "\n" + q).length && (loose || shape(x));
-    let fallback = null;   // right but short: kept in case a fuller try fails
-    const tryOnce = async (extra) => { const src = srcOf(); try { const r = await call(src, extra); const x = r && r.data; if (ok(x, src)) return x; if (!fallback && ok(x, src, true)) fallback = x; return null; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; } };
-    const SHAPE = listQ ? "\n\nIMPORTANT: name every one the sources give, as a list (separated by commas or on their own lines), each with a few words on what it is." : deep ? "\n\nIMPORTANT: write at least 4 full sentences: what it is, then each main part or step from the sources in order, then why it matters." : "";
-    // at most three model calls: right but short gets one fuller try; wrong gets the web (when it was skipped) and one strict try
-    let d = await tryOnce();
-    if (!d && fallback) d = (SHAPE ? await tryOnce(SHAPE) : null) || fallback;
-    if (!d) { if (covered && !web.length) web = await getWeb(); d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources.${SHAPE}`); if (!d && fallback) d = fallback; }
-    // still thin for an explanation: the lines of their own notes that cover it, after the answer
-    if (d && (deep || listQ) && !shape(d) && covered && mine && mine.rows && mine.rows.length) {
-      const kk = keys.map(k => k.length > 5 ? k.slice(0, k.length - 2) : k), lines = [];
-      mine.rows.forEach(r => String(r.text || (r.doc && r.doc.text) || "").split(/\n|(?<=\.)\s+(?=[A-Z])/).forEach(l => { l = l.trim(); if (l.length > 12 && l.length < 260 && !lines.includes(l) && kk.some(k => low(l).includes(k))) lines.push(l); }));
-      const add = lines.filter(l => !low(d.answer).includes(low(l).slice(0, 40))).slice(0, 5);
-      if (add.length) d = Object.assign({}, d, {answer: `${String(d.answer).trim()}\nFrom your notes:\n${add.map(l => "- " + l).join("\n")}`});
+    // one source at a time: the notes alone, then (when they don't fully answer it) the web alone, so each part of the answer says
+    // where it came from. At most three model calls each
+    const solve = async () => {
+      let fallback = null;
+      const tryOnce = async (extra) => { const src = srcOf(); try { const r = await call(src, extra); const x = r && r.data; if (ok(x, src)) return x; if (!fallback && ok(x, src, true)) fallback = x; return null; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; } };
+      const SHAPE = listQ ? "\n\nIMPORTANT: name every one the sources give, as a list (separated by commas or on their own lines), each with a few words on what it is." : deep ? "\n\nIMPORTANT: write at least 4 full sentences: what it is, then each main part or step from the sources in order, then why it matters." : "";
+      let d = await tryOnce();
+      if (!d && fallback) d = (SHAPE ? await tryOnce(SHAPE) : null) || fallback;
+      if (!d) { d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources. If the sources don't answer it, set found to false.${SHAPE}`); if (!d && fallback) d = fallback; }
+      return d;
+    };
+    let fromN = null, fromW = null;
+    // (only when the notes mention what was asked at all: otherwise straight to the web)
+    const touches = notes && keys.some(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
+    if (notes && !touches && !o.noWeb) { web = web.length ? web : await getWeb(); }
+    if (notes && (touches || o.noWeb || !web.length)) {
+      useNotes = notes; useWeb = [];
+      fromN = await solve();
+      // still thin for an explanation: the lines of their own notes that cover it, after the answer
+      if (fromN && (deep || listQ) && !shape(fromN) && covered && mine && mine.rows && mine.rows.length) {
+        const kk = keys.map(k => k.length > 5 ? k.slice(0, k.length - 2) : k), lines = [];
+        mine.rows.forEach(r => String(r.text || (r.doc && r.doc.text) || "").split(/\n|(?<=\.)\s+(?=[A-Z])/).forEach(l => { l = l.trim(); if (l.length > 12 && l.length < 260 && !lines.includes(l) && kk.some(k => low(l).includes(k))) lines.push(l); }));
+        const add = lines.filter(l => !low(fromN.answer).includes(low(l).slice(0, 40))).slice(0, 5);
+        if (add.length) fromN = Object.assign({}, fromN, {answer: `${String(fromN.answer).trim()}\n${add.map(l => "- " + l).join("\n")}`});
+      }
     }
-    if (!d) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
-    const used = web.filter(x => /wikipedia|wiktionary|stud(y|ies)|research|paper|according/i.test(d.answer));
-    return {answer: String(d.answer).trim(), sources: used.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"})), fromNotes: !!notes && /your notes|your files|your lecture|your slides/i.test(d.answer), found: true, notesSrc: mine && mine.src ? mine.src : []};
+    // the notes answer it fully (every key word is in them, and the answer holds up and has the right shape): no web needed
+    const full = fromN && covered && shape(fromN);
+    if (!full && !o.noWeb) {
+      if (!web.length) web = await getWeb();
+      if (web.length) { useNotes = ""; useWeb = web; fromW = await solve(); }
+    }
+    if (!fromN && !fromW) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
+    const clean = a => String(a || "").trim().replace(/^(your notes say(,| that)?|according to (your notes|wikipedia)(,)?)\s*/i, m => m);
+    const webName = [...new Set(web.map(x => x.src || "Wikipedia"))].slice(0, 2).join(" and ") || "the web";
+    const answer = fromN && fromW ? `From your notes: ${clean(fromN.answer)}\n\nFrom the web (${webName}): ${clean(fromW.answer)}`
+      : fromN ? `From your notes: ${clean(fromN.answer)}` : `${notes ? "Your notes don't cover this, so from the web" : "From the web"} (${webName}): ${clean(fromW.answer)}`;
+    return {answer, sources: fromW ? web.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"})) : [], fromNotes: !!fromN, found: true, notesSrc: fromN && mine && mine.src ? mine.src : []};
   }
 
   // a question about the subject itself, not the planner: "what is the id", "how does my notes' Krebs cycle work", "explain osmosis"

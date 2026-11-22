@@ -690,6 +690,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   function quickEdit(q){
     const s = String(q || "").toLowerCase().replace(/\s+/g, " ").trim(), today = todayISO();
     if (!EDIT_Q.test(s)) return null;
+    const named = (typeof noteBoards === "function" && noteBoards().some(b => b.name && new RegExp("\\b" + b.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(s) && /\bboard\b/.test(s))) || coursesArr().some(c => (c.name && s.includes(c.name.toLowerCase())) || (c.code && s.includes(c.code.toLowerCase()))) || Object.values(state.events || {}).some(e => e.title && s.includes(e.title.toLowerCase())) || Object.values(state.decks || {}).some(d => d.name && s.includes(d.name.toLowerCase()));
+    if (named && !Object.values(state.tasks || {}).some(t => t.title && s.includes(t.title.toLowerCase()))) return null;
     // the task it names: the open (or, for "undo done", any) task whose title shares the most words with the request
     const STOPW = new Set("a an the my me i to as for on by of it is be and move reschedule push postpone delay change mark set check off complete finish finished completed delete remove cancel rename make bump shift done back due date next this week day days monday tuesday wednesday thursday friday saturday sunday today tomorrow priority high low urgent medium task please can could would you in progress did turned submitted handed".split(" "));
     const qw = s.replace(/[^a-z0-9&' ]+/g, " ").split(" ").filter(w => w && !STOPW.has(w) && !/^\d+$/.test(w));
@@ -715,7 +717,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   }
   // A new task from the request alone (the words, a course it names), as a change to confirm: no model needed
   function quickTask(q){
+    // a meeting, practice or appointment is for the calendar, not the task list (the AI step decides those)
+    if (/\b(meeting|practice|appointment|party|game|shift|club|dinner|lunch|concert|rehearsal|dance|study group)\b/i.test(q) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading)\b/i.test(q)) return null;
     const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
+    { const qt = /["“'‘]([^"”'’]{3,120})["”'’]/.exec(q); if (qt) lt.title = qt[1].trim(); lt.title = lt.title.replace(/\s+(on|to|in)\s+(my\s+)?(to-?\s?do\s+list|list|tasks?|planner|board)\b.*$/i, "").trim(); }
     const c = window.SBTRUTH ? SBTRUTH.courseNamed(q) : null;
     // the course's name in the title is said by the course, not repeated in the title
     let title = lt.title; if (c) { [c.code, c.name].filter(Boolean).forEach(k => { const re = new RegExp("^(for |in )?" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b[:\\s-]*", "i"); if (re.test(title) && title.replace(re, "").length > 2) title = title.replace(re, ""); }); title = title.charAt(0).toUpperCase() + title.slice(1); }
@@ -749,6 +754,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     return {answer: list.length === 1 ? `Your note about ${topic}: "${first(list[0])}".` : `${list.length} notes about ${topic}:\n${list.map(n => "- " + first(n)).join("\n")}`,
       show: list.map(n => ({kind: "note", id: n.id, label: labelOf({kind: "note", id: n.id})})), changes: [], local: true};
   }
+  // Whether the words ask for something to be done (not a question about the planner): "new task: …", "I have work saturday", "can X be due the 30th instead"
+  const isRequest = q => !!(/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(please\s+)?(add|put|make|create|delete|remove|move|push|reschedule|mark|rename|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|jot|remind|schedule|book|cancel|undo|edit|update|scratch|drop|new|write|jot|note|sticky|put|wear|take off)\b/i.test(q) || /\b(move|push|reschedule|postpone|delay|instead|rename|delete|remove|cancel|change it|set it|make it|new (task|event|course|class|note))\b/i.test(q) || (/^\s*(i have|i've got|ive got|i got|i'm|im|i am|i need|i gotta|i'll|there'?s)\b/i.test(q) && !/\?\s*$/.test(q)));
   async function ask(q, o){
     o = o || {};
     { const c = control(q); if (c) return c; }
@@ -765,7 +772,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         for (const p of parts) { try { outs.push(await ask(p, Object.assign({}, o, {oneStep: true}))); } catch (e) { outs.push({answer: "", show: [], changes: []}); } }
         return {answer: outs.map(x => x.answer).filter(Boolean).join(" "), show: outs.flatMap(x => x.show || []).slice(0, 5), changes: outs.flatMap(x => x.changes || []), timer: Math.max(0, ...outs.map(x => x.timer || 0)), steps: parts.length};
       }
-      const f = TR.facts(q);
+      // (a request is never answered as a question about the planner)
+      const f = isRequest(q) ? null : TR.facts(q);
       if (f) return {answer: f.answer, show: (f.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true};
       // a timer, or a task with what it needs in the words: done by the app straight away (fast and exact), no model
       const tm0 = timerMins(q);
@@ -787,6 +795,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
+    }
+    // a request the quick steps above didn't recognize, however it's worded: understood by the AI, done by the app (intentAct)
+    if (/\b(add|put|make|create|delete|remove|get rid|erase|trash|move|push|reschedule|mark|check off|finish|finished|done|submitted|turned in|rename|call it|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|show me|jot|note|remind|schedule|book|cancel|undo|revert|edit|update)\b/i.test(q) && window.SBCOMPTAB && SBCOMPTAB.intent) {
+      const r = await SBCOMPTAB.intent(q).catch(e => { console.warn("intent", e); return null; });
+      if (r) return {answer: r.answer, show: r.show || [], changes: [], local: true};
     }
     // a question about the subject (on the device): answered from their own material first, then the web, in one focused call;
     // the whole planner would only distract a small model from it
@@ -910,5 +923,5 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {control, quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {isRequest, check, build, localTask, startTimer, control, quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();

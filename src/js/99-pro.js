@@ -2800,8 +2800,8 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       tl.querySelectorAll("span:not(.markedContent)").forEach(sp => {
         if (!sp.textContent.trim()) return;
         const r = sp.getBoundingClientRect(), fs = parseFloat(getComputedStyle(sp).fontSize) || 0;
-        // a box far bigger than its own text (a bad font size from the file) would paint as a huge blue block when selected
-        if (fs && (Math.min(r.width, r.height) > fs * 4 || r.width > pb.width * 1.5 || r.height > pb.height * 1.5)) { sp.classList.add("pdr-ghost"); return; }
+        // a box both wide and tall (invisible oversized text over the page) would swallow the drag and paint as a huge blue block when selected, even with ink under it
+        if (fs && (Math.min(r.width, r.height) > fs * 4 || Math.min(r.width, r.height) > Math.min(pb.width, pb.height) * 0.2 || r.width > pb.width * 1.5 || r.height > pb.height * 1.5)) { sp.classList.add("pdr-ghost"); return; }
         const x0 = Math.max(0, Math.floor((r.left - pb.left) * k)), y0 = Math.max(0, Math.floor((r.top - pb.top) * k));
         const w = Math.min(cv.width - x0, Math.ceil(r.width * k)), h = Math.min(cv.height - y0, Math.ceil(r.height * k)); if (w < 2 || h < 2) return;
         const d = ctx.getImageData(x0, y0, w, h).data, step = Math.max(1, Math.floor(Math.sqrt(w * h / 3000))), hist = new Uint32Array(52), L = [];
