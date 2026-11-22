@@ -651,6 +651,35 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const type = /^\s*remind me\b/i.test(q) ? "Other" : /\b(exam|midterm|final)\b/i.test(t) ? "Exam" : /\bquiz\b/i.test(t) ? "Quiz" : /\btest\b/i.test(t) ? "Exam" : /\b(read|reading|chapter)\b/i.test(t) ? "Reading" : /\blab\b/i.test(t) ? "Lab" : /\bproject\b/i.test(t) ? "Project" : /\b(study|review)\b/i.test(t) ? "Study" : /\b(homework|assignment|essay|paper|problem set|worksheet)\b/i.test(t) ? "Assignment" : "Other";
     return {title: t.charAt(0).toUpperCase() + t.slice(1), due, time, type};
   }
+  /* A change to a task, read from the words: "move my history essay to next monday", "mark care plan 2 as done", "push the lab
+     report back 2 days", "delete buy scrubs", "rename X to Y", "make the midterm high priority". A change to confirm; no model. */
+  const EDIT_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(move|reschedule|push|postpone|delay|change|mark|set|check off|complete|finish|delete|remove|cancel|rename|make|bump|shift)\b|\b(i (finished|completed|did|turned in|submitted|handed in)|is (done|finished|complete))\b/i;
+  function quickEdit(q){
+    const s = String(q || "").toLowerCase().replace(/\s+/g, " ").trim(), today = todayISO();
+    if (!EDIT_Q.test(s)) return null;
+    // the task it names: the open (or, for "undo done", any) task whose title shares the most words with the request
+    const STOPW = new Set("a an the my me i to as for on by of it is be and move reschedule push postpone delay change mark set check off complete finish finished completed delete remove cancel rename make bump shift done back due date next this week day days monday tuesday wednesday thursday friday saturday sunday today tomorrow priority high low urgent medium task please can could would you in progress did turned submitted handed".split(" "));
+    const qw = s.replace(/[^a-z0-9&' ]+/g, " ").split(" ").filter(w => w && !STOPW.has(w) && !/^\d+$/.test(w));
+    let best = null, bs = 0;
+    Object.values(state.tasks || {}).filter(t => t && !t.archived).forEach(t => { const tw = String(t.title || "").toLowerCase().replace(/[^a-z0-9&' ]+/g, " ").split(" ").filter(Boolean); let sc = 0; qw.forEach(w => { if (tw.some(x => x === w || (w.length > 3 && x.startsWith(w.replace(/s$/, ""))))) sc += 1; }); if (sc && t.status === "done" && !/\bnot done|undo|reopen|unmark\b/.test(s)) sc -= 0.5; if (sc > bs || (sc === bs && best && (t.due || "9") < (best.due || "9"))) { best = t; bs = sc; } });
+    if (!best || bs < 1) return null;
+    const refs = new Map([["T1", {kind: "task", id: best.id}]]), one = (field, value) => { const c = check({ref: "T1", field, value}, refs); return c ? [c] : null; };
+    if (/\b(delete|remove|cancel)\b/.test(s)) return one("delete", "yes");
+    let m;
+    if ((m = String(q).match(/\brename\b.*?\bto\s+["“']?(.+?)["”']?\s*$/i))) return one("title", m[1].trim().replace(/^\w/, ch => ch.toUpperCase()));
+    if (/\b(not done|undo|reopen|unmark|back to (to ?do|not done))\b/.test(s)) return one("status", "todo");
+    if (/\b(done|complete|completed|finished|finish|check off|turned in|submitted|handed in)\b/.test(s) && !/\b(by|due|to (monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow))\b/.test(s)) return one("status", "done");
+    if (/\b(in progress|started|working on|doing)\b/.test(s)) return one("status", "doing");
+    if ((m = s.match(/\b(urgent|high|medium|med|low)\b(?:\s+priority)?/)) && /\bpriority|urgent|important\b/.test(s)) return one("priority", {medium: "med"}[m[1]] || m[1]);
+    // a new due date: "to next monday", "to friday", "to dec 3"; or "back 2 days", "by a week"
+    if ((m = s.match(/\b(?:back|forward|out|by)\s+(?:by\s+)?(a|one|two|three|four|five|\d+)\s+(day|days|week|weeks)\b/)) && best.due) {
+      const n = ({a: 1, one: 1, two: 2, three: 3, four: 4, five: 5}[m[1]] || Number(m[1])) * (/week/.test(m[2]) ? 7 : 1), sign = /\bforward|earlier|sooner\b/.test(s) ? -1 : 1;
+      return one("due", addDays(best.due, sign * n));
+    }
+    const lt = localTask(" date " + s.replace(/^.*?\b(to|until|till|for|on)\b/, " ") + " ");
+    if (lt && lt.due) { const out = one("due", lt.due); if (out && lt.time) { const tc = check({ref: "T1", field: "time", value: lt.time}, refs); if (tc) out.push(tc); } return out; }
+    return null;
+  }
   // A new task from the request alone (the words, a course it names), as a change to confirm: no model needed
   function quickTask(q){
     const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
@@ -709,8 +738,14 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         const tk = taskFor(q);
         if (startTimer(tm0.mins, tk)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running${tk ? ` for ${tk.title}` : ""}. You've got this!`, show: tk ? [{kind: "task", id: tk.id, label: labelOf({kind: "task", id: tk.id})}] : [], changes: [], timer: n2, local: true}; }
       }
-      const qc = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
+      // a change to a task they have ("make the midterm high priority", "move X to monday") before a new one
+      const editFirst = /\b(priority|urgent|important|move|reschedule|push|postpone|delay|rename|mark|delete|remove|cancel|finished|completed|done)\b/i.test(q);
+      const qe0 = editFirst && !APPQ_HOW.test(q) ? quickEdit(q) : null;
+      const qc = !(qe0 && qe0.length) && ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
       if (qc) return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true};
+      const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
+      if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
+      if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
     }
     // a question about the subject (on the device): answered from their own material first, then the web, in one focused call;
     // the whole planner would only distract a small model from it
@@ -829,10 +864,10 @@ Settings, by section:
 AI: free with a Google Gemini key (Settings, AI and Tools, AI Features), or Studyboard AI, included with paid Pro. AI makes flashcards and quizzes from slides and readings, reads syllabi and photos, explains, plans exam prep and grades practice answers.
 Ask (here or the companion's bubble) can itself find and open anything, change things and settings, and add tasks; the student confirms each change.
 If you're not sure a feature exists, say where in Settings to look rather than inventing steps.`;
-  const APPQ = /\b(how (do|can|to|would)|where (is|are|do|can|did)|can (i|you|studyboard)|is there|does (it|studyboard|the app)|feature|setting|settings|studyboard|app|button|tab|page|turn (on|off)|set ?up|import|export|sync|share|widget|calculator|whiteboard|focus timer|pomodoro|streak|pro\b|subscription|backup|restore|theme|dark mode|shortcut|keyboard|notification|remind|canvas|brightspace|moodle|blackboard|syllabus|archive|delete|undo|companion|wardrobe|scrapbook|exam mode|autopilot|group)/i;
+  const APPQ = /\b(how (do|can|to|would)\b(?!\s+(?:it|they|this|that|the|a|an|its|these|those|insulin|cells?|plants?|neurons?|hearts?|blood|body|people)\b)|where (is|are|do|can|did)|can (i|you|studyboard)|is there|does (it|studyboard|the app)|feature|setting|settings|studyboard|app|button|tab|page|turn (on|off)|set ?up|import|export|sync|share|widget|calculator|whiteboard|focus timer|pomodoro|streak|pro\b|subscription|backup|restore|theme|dark mode|shortcut|keyboard|notification|remind|canvas|brightspace|moodle|blackboard|syllabus|archive|delete|undo|companion|wardrobe|scrapbook|exam mode|autopilot|group)\b/i;
   const appQ = q => APPQ.test(String(q || ""));
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();

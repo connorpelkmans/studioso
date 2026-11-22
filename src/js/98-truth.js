@@ -131,7 +131,7 @@ window.SBTRUTH = (() => {
     o = o || {};
     if (!webOk() || (window.__SB_TEST && !window.__SB_WEB_TEST)) return [];
     const term = String(q || "").replace(/^\s*(what|who|why|how|when|where|which)\s+(is|are|was|were|does|do|did|can|could)\s+/i, "").replace(/[?!.]+$/, "").slice(0, 200);
-    const get = async params => { const u = WIKI + "?" + new URLSearchParams(Object.assign({format: "json", formatversion: "2", origin: "*"}, params)); const r = await fetchT(u, {credentials: "omit"}, o.ms || 8000); if (!r.ok) throw new Error("wiki " + r.status); return r.json(); };
+    const get = async params => { const u = WIKI + "?" + new URLSearchParams(Object.assign({format: "json", formatversion: "2", origin: "*"}, params)); let r = await fetchT(u, {credentials: "omit"}, o.ms || 8000); if (r.status === 429 || r.status === 503) { await new Promise(res => setTimeout(res, 700)); r = await fetchT(u, {credentials: "omit"}, o.ms || 8000); } if (!r.ok) throw new Error("wiki " + r.status); return r.json(); };
     try {
       const s = await get({action: "query", list: "search", srsearch: term, srlimit: String(o.n || 3), srprop: ""});
       const titles = ((s.query || {}).search || []).map(x => x.title).slice(0, o.n || 3);
@@ -238,24 +238,30 @@ window.SBTRUTH = (() => {
   const KSCHEMA = {type: "OBJECT", properties: {answer: {type: "STRING"}, found: {type: "BOOLEAN"}}, required: ["answer", "found"]};
   async function knowledge(q, o){
     o = o || {};
-    // their own material first; when it covers every key word of the question, the web isn't needed (faster, and theirs wins)
+    // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
+    // the answer from the notes alone doesn't hold up
     const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
     const mine = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}).catch(() => null) : null;
     const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
-    const R = o.noWeb || covered ? {list: []} : await research(q).catch(() => ({list: []}));
-    const web = (R && R.list) || [];
-    if (!notes && !web.length) return {answer: "I couldn't find anything about that in your notes, your files or on the web. Try other words, or add your notes on it.", sources: [], found: false};
-    const src = `${notes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note):\n${notes}\n\n` : ""}${web.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(web)}` : ""}`;
-    const sys = "You answer a student's question using only the sources given. Your first sentence answers exactly what they asked, directly. Then add 1 to 3 sentences with the most useful detail: how it works, why it matters, or a short example. If the question asks for several things (what are the..., types, kinds, phases, stages, causes, steps, examples), list every one the sources give. If it asks for an example, give one. If the question could mean several things, answer the meaning that fits their notes and course. If the sources don't answer it, set found to false and say you couldn't find it. Plain text, no markdown.";
-    const call = extra => aiCall({task: "assist", fast: true, maxTokens: 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, system: sys + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
-    let d = null; try { const r = await call(); d = r && r.data; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; }
-    const given = src + "\n" + q;
-    const ok = x => x && x.answer && x.found !== false && !nonAnswer(q, x.answer) && !unsupported(x.answer, given).length;
-    if (!ok(d)) { try { const r = await call(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources.`); if (ok(r && r.data)) d = r.data; else d = null; } catch (e) { d = null; } }
+    let web = [];
+    const getWeb = async () => { if (o.noWeb) return []; const R = await research(q).catch(() => ({list: []})); return (R && R.list) || []; };
+    if (!covered) web = await getWeb();
+    if (!notes && !web.length) return {answer: o.noWeb ? "I couldn't find anything about that in your Studyboard." : "I couldn't find anything about that in your notes, your files or on the web. Try other words, or add your notes on it.", sources: [], found: false};
+    const deep = /^\s*(explain|describe|how (does|do|did|is|are|can)|why|walk me through|tell me about|compare|what('s| is) the difference)\b/i.test(q);
+    const sys = `You answer a student's question using only the sources given. Your first sentence answers exactly what they asked, directly. ${deep ? "Then explain it properly in 3 to 5 more sentences: the main parts or steps in order, how they connect, and why it matters, all from the sources." : "Then add 1 to 3 sentences with the most useful detail: how it works, why it matters, or a short example."} If the question asks for several things (what are the..., types, kinds, phases, stages, causes, steps, examples), list every one the sources give. If it asks for an example, give one. If the question could mean several things, answer the meaning that fits their notes and course. If the sources don't answer it, set found to false and say you couldn't find it. Plain text, no markdown.`;
+    const srcOf = () => `${notes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note):\n${notes}\n\n` : ""}${web.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(web)}` : ""}`;
+    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, system: sys + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
+    const ok = (x, src) => x && x.answer && x.found !== false && !nonAnswer(q, x.answer) && !unsupported(x.answer, src + "\n" + q).length;
+    const tryOnce = async (extra) => { const src = srcOf(); try { const r = await call(src, extra); const x = r && r.data; return ok(x, src) ? x : null; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; } };
+    let d = await tryOnce();
+    // the notes alone didn't hold up: the web too, then once more, strictly
+    if (!d && covered && !web.length) { web = await getWeb(); if (web.length) d = await tryOnce(); }
+    if (!d) d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources.`);
     if (!d) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
     const used = web.filter(x => /wikipedia|wiktionary|stud(y|ies)|research|paper|according/i.test(d.answer));
     return {answer: String(d.answer).trim(), sources: used.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"})), fromNotes: !!notes && /your notes|your files|your lecture|your slides/i.test(d.answer), found: true, notesSrc: mine && mine.src ? mine.src : []};
   }
+
   // a question about the subject itself, not the planner: "what is the id", "how does my notes' Krebs cycle work", "explain osmosis"
   const general = q => /^\s*(what|what's|whats|who|whom|why|how|when|where|which|explain|define|describe|compare|contrast|summari[sz]e|tell me about|give me (an? )?(example|definition|summary)|(can|could) you (explain|define|describe|tell me|summari[sz]e)|difference between|is it true|meaning of|list the|name the)\b/i.test(q)
     && !/\b(you|your|you're|yours|today|tonight|tomorrow|this week|next week|right now)\b/i.test(q)
