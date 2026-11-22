@@ -25489,8 +25489,10 @@ document.addEventListener("click", e => {
     case "f-view": fileViewer(id); break;
     case "f-save": { const f = state.files[id]; if (f) downloadFile(f); break; }
     case "f-upload": if (dlg.open) dlg.close(); $("#fUploadIn").click(); break;
+    // signed out on the web: files need somewhere to live, so the free account first, saying why
+    case "f-upload-in": if (dlg.open) dlg.close(); toast("Files from your computer are kept with your free account, so sign in first."); setTimeout(() => sbSignInSheet("signin"), 60); break;
     case "fab-course": fabMenu("Add Course", [["lms-open", "Sync Your School Site", "Canvas, Brightspace or Blackboard. Brings in your courses, due dates and grades", "school"], ["import-syllabus", "Import a Syllabus", "Upload a PDF to add the course and its deadlines", "syllabus"], ["new-course", "Add It Myself", "Name, code, color and class times", "course"]]); break;
-    case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : []), ...(inPreview() ? [] : [["f-sync", "Sync Drive", "Choose the Drive or OneDrive folders Studyboard uses. AI only reads files you've added", "sync"]]), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
+    case "fab-file": fabMenu("Add File", [...(caps.assets ? [["f-upload", "Upload File", "PDFs, slides, documents and images", "upload"], ["f-quick", "Quick Add", "Drop files and let " + aiWho("Studyboard") + " sort them into the right course and folder", "", true]] : !inPreview() && sbConfig() ? [["f-upload-in", "Upload File", "Sign in (free) to keep files from your computer", "upload"]] : []), ...(inPreview() ? [] : [["f-sync", "Sync Drive", "Choose the Drive or OneDrive folders Studyboard uses. AI only reads files you've added", "sync"]]), ["f-link", "Add Link", "For files kept in OneDrive, Google Drive or Canvas", "link"]]); break;
     case "fab-note": if (noteEditing) saveNoteText(); newNoteAt(); break;
     case "fab-deck": fabMenu("Add Deck", [["fc-new", "New Deck", "Add cards yourself or paste a list", "deck"], ...(inPreview() ? [] : [["fc-ai-cards", "Create with " + aiWho("AI"), "Upload slides or notes and get flashcards", "", true]]), ["ia-open", "Import From Another App", "Anki, Quizlet, Knowt or Notion decks, read on this device", "upload"]]); break;
     case "qz-add": fabMenu("Add Quiz", [...(inPreview() ? [] : [["qz-ai", "From Slides or Notes", "Upload slides, notes or readings and get a practice quiz or case studies. No flashcards needed.", "", true]]), ["qz-from-deck", "From a Deck", aiReady() ? `${aiWho("AI")} writes questions from your flashcards` : "Questions from your flashcards", "deck"], ["qz-write", "Write Your Own", "Type your own questions and answers", "write"]]); break;
@@ -70671,6 +70673,8 @@ var COMP_EXTRA = [];
       if (!thinkWant) return;
       const bb = front && front.querySelector(".cp-bubble");
       if (!bb || !cur || !box || box.hidden || document.hidden) { thinkT = setTimeout(show, 800); return; }
+      // the chat tab shows its own "working" line, and the floating dots would slide under Mochi as the chat scrolls
+      if (ui.tab === "companion") { if (bb.classList.contains("cp-think")) bb.classList.remove("on", "cp-think"); thinkT = setTimeout(show, 800); return; }
       if (bb.classList.contains("cp-think")) { bb.classList.add("on"); return; }
       if (bb.classList.contains("cp-think") && bb.classList.contains("on")) return;
       // something else is being said or asked: wait for it
@@ -72996,6 +73000,13 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     dead.forEach(k => { const [kind, id] = k.split(/:(.*)/s); out.push({kind, id, after: null}); });
     return out;
   }
+  // new tasks the student asked for in so many words: added at once (they can undo), the chat says what was added
+  function addNow(changes){
+    const adds = (changes || []).filter(c => c && c.t && c.t.kind === "newtask"); if (!adds.length) return 0;
+    const ch = build(adds); if (!ch.length) return 0;
+    applyChanges(ch, adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`);
+    return adds.length;
+  }
   async function propose(changes, o){
     o = o || {};
     const list = (changes || []).filter(c => c && c.t && (c.t.kind === "settings" || exists(c.t)));
@@ -73134,10 +73145,27 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     if (!start && !mins) return null;
     return {mins: Math.round(mins)};
   }
-  function startTimer(mins){
+  /* The task a timer is for, from the words ("I'm working on my homework task", "for the bio lab"): the open task whose title (or
+     type) shares the most words with the request, soonest due on a tie; the task in progress for "the task I'm working on". */
+  const TSTOP = new Set("a an the my me i im i'm am is are on for to of and with task tasks timer focus minute minutes min mins hour hours start new set run working work doing do please can you could study session pomodoro now just".split(" "));
+  function taskFor(q){
+    const s = String(q || "").toLowerCase(), words = s.replace(/[^a-z0-9' ]+/g, " ").split(/\s+/).filter(w => w && !TSTOP.has(w) && !/^\d+$/.test(w));
+    const open = Object.values(state.tasks || {}).filter(t => t && t.status !== "done" && !t.archived);
+    if (!open.length) return null;
+    let best = null, bs = 0;
+    for (const t of open) {
+      const tw = String(t.title || "").toLowerCase().replace(/[^a-z0-9' ]+/g, " ").split(/\s+/), type = String(t.type || "").toLowerCase();
+      let sc = 0; words.forEach(w => { if (tw.some(x => x === w || (w.length > 3 && x.startsWith(w.replace(/s$/, ""))))) sc += 2; else if (type && (type === w || (w === "homework" && /assign|homework/.test(type)) || type.startsWith(w.replace(/s$/, "")))) sc += 1; });
+      if (sc > bs || (sc === bs && sc > 0 && best && (t.due || "9") < (best.due || "9"))) { best = t; bs = sc; }
+    }
+    if (best && bs > 0) return best;
+    if (/\b(the|my) (task|thing|work|assignment) i'?m (working on|doing)\b|\bcurrent task\b/.test(s)) return open.find(t => t.status === "doing") || null;
+    return null;
+  }
+  function startTimer(mins, task){
     if (typeof pomoStart !== "function") return false;
     if (pomo.running || pomo.left > 0) pomoReset();
-    pomo.taskId = ""; pomo.mode = "focus"; pomo.left = 0; pomo.len = 0; pomo.preset = mins > 0 ? mins : 0; pomoSave();
+    pomo.taskId = task ? task.id : ""; pomo.mode = "focus"; pomo.left = 0; pomo.len = 0; pomo.preset = mins > 0 ? mins : 0; pomoSave();
     pomoStart();
     return pomo.running;
   }
@@ -73197,10 +73225,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const tm0 = timerMins(q);
       if (tm0 && !(ADD_Q.test(q) && ADD_WHAT.test(q) && !/\b(timer|pomodoro|focus)\b/i.test(q.replace(/\bfocus\b/i, "")))) {
         if (tm0.mins && (tm0.mins < 1 || tm0.mins > 180)) return {answer: "A focus timer can run from 1 minute to 3 hours. How long would you like?", show: [], changes: [], local: true};
-        if (startTimer(tm0.mins)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running. You've got this!`, show: [], changes: [], timer: n2, local: true}; }
+        const tk = taskFor(q);
+        if (startTimer(tm0.mins, tk)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running${tk ? ` for ${tk.title}` : ""}. You've got this!`, show: tk ? [{kind: "task", id: tk.id, label: labelOf({kind: "task", id: tk.id})}] : [], changes: [], timer: n2, local: true}; }
       }
       const qc = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
-      if (qc) return {answer: "Here's the new task. Check it, then tap Apply to add it.", show: [], changes: [qc], local: true};
+      if (qc) return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true};
     }
     if (VISUAL.test(q)) await Promise.race([describeBoards(3, null, true), wait(9000)]);
     const cur = o.screen === false ? null : current();
@@ -73261,10 +73290,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     let timer = 0;
     if (fm >= 1 && fm <= 180 && (tm || /\b(timer|focus|pomodoro|session)\b/i.test(q))) timer = tm && tm.mins ? tm.mins : fm;
     else if (tm && (!tm.mins || (tm.mins >= 1 && tm.mins <= 180))) timer = tm.mins || -1;
-    if (timer && startTimer(timer > 0 ? timer : 0)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running. You've got this!`, show: [], changes: [], timer: n2}; }
+    const tk2 = timer ? taskFor(q) : null;
+    if (timer && startTimer(timer > 0 ? timer : 0, tk2)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running${tk2 ? ` for ${tk2.title}` : ""}. You've got this!`, show: [], changes: [], timer: n2}; }
     // asked to add a task, and the AI didn't write one (small models often just say they did): the app reads it from the request
     const asked = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q);
-    if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Apply to add it."; } }
+    if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Add Task."; } }
     const out = Object.assign({answer: aiWholeSentence(clip(d.answer, 1200))}, resolve(d, cat.refs));
     if (o.web && o.web.length && /wikipedia|wiktionary|stud(y|ies)|research|paper|according to/i.test(out.answer)) out.sources = o.web.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"}));
     // never say something was done when the app wasn't asked to do it
@@ -73313,7 +73343,7 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();
 /* Keeping the small on-device AI honest and useful (Ask in the bubble, the Companion tab, and any on-device request that wants the web):
      facts     planner questions answered by the app's own code, never by a model: what's due when, what's overdue, when one task is
@@ -73672,7 +73702,7 @@ window.SBTRUTH = (() => {
   const SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "The reply, in the companion's friendly voice. Plain text; short paragraphs or '- ' bullets, **bold** sparingly."},
     sources: {type: "ARRAY", items: {type: "STRING"}, description: "Short labels for the parts of the student's data used, like 'Task: Lab report', 'Notes', 'Grades', 'File: Ch4.pdf'"},
-    followUps: {type: "ARRAY", items: {type: "STRING"}, description: "Up to 3 short things the student might ask next"},
+    followUps: {type: "ARRAY", items: {type: "STRING"}, description: "Up to 3 short questions the student could ask you next, written as the student would type them (\"Explain the light reactions\"), never questions for the student"},
     actions: {type: "ARRAY", description: "Things the student can tap to have done in Studyboard. Only when they asked for it or it clearly fits what they attached. Empty otherwise.", items: {type: "OBJECT", properties: {
       type: {type: "STRING", enum: ["flashcards", "quiz", "case_study", "note", "tasks", "edit_tasks", "quick_add", "syllabus", "breakdown", "estimate", "exam_plan", "ask_materials", "summarize_file", "save_file"]},
       target: {type: "STRING", description: "breakdown, exam_plan: the task or exam's title. summarize_file: the file's name in Files."},
@@ -73758,6 +73788,27 @@ window.SBTRUTH = (() => {
   const CARDS_Q = /\b(make|create|generate|give me|build|write)\b[^?]*\b(flash ?cards?|cards|quiz(zes)?|practice (questions|test)|test me)\b|\bquiz me\b|\btest me\b/i;
   const NOTE_Q = /\b(save|make|write|add|create|put)\b[^?]*\bnote\b/i;
   const CHANGE_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|remind|schedule|start|set|move|change|reschedule|push|rename|delete|remove|mark|cancel|skip|put)\b/i;
+  /* A concept map asked for in the chat: built right away (the sentences are read in code; just a topic goes to the AI), then an
+     Open Map button. "Do it", "make it" after an earlier ask runs that ask. Any AI, not only the device. */
+  const MAP_Q = /\b(concept|mind|idea)[ -]?maps?\b|\bmap (of|about|for|with|where)\b|\bmap\b[^?]*\b(in the (center|middle)|main idea|connected to|linked to)\b/i;
+  const MAP_ASK = /\b(make|create|build|draw|generate|give me|i want|i need|can you|could you|put|add|start|set up)\b|^\s*(a|an|my)\b|\b(in the (center|middle)|main idea is|connected to|linked to)\b/i;
+  const DOIT_Q = /^\s*(ok(ay)?|yes|yeah|yep|sure|please|go ahead|go|do it|do that|make it|make that|create it|build it|just do it|now)\b[^?]{0,40}$|^\s*(can|could|will|would) you (just )?(make|do|create|build|draw|put) (it|that|this|one)\b/i;
+  async function mapAct(q){
+    if (!window.SBCMAP || !SBCMAP.createFrom) return null;
+    const course = (q.match(/\b(?:in|for|under|to) (?:my )?([A-Z][\w&.-]*(?: [A-Z0-9][\w&.-]*){0,3})(?: course| class)?\b/) || [])[1] || "";
+    try {
+      const r = await SBCMAP.createFrom(q.replace(/^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?/i, ""), course);
+      return {answer: `I made ${r.name}${r.ideas ? ` with ${r.ideas} ideas` : ""} in ${r.where}. Tap Open Map to see it; you can drag, rename or add ideas there.`, sources: [], followUps: [], actions: [],
+        mapOpen: {course: r.course, map: r.map, label: "Open Map"}};
+    } catch (e) { return {answer: (e && e.message) || "I couldn't make that map. Try: Photosynthesis in the center, connected to sunlight, water and soil.", sources: [], followUps: [], actions: []}; }
+  }
+  // "do it" after an ask the app can make: that earlier ask, made now
+  function pendingAsk(q, chat){
+    if (!DOIT_Q.test(q)) return "";
+    const prev = ((chat && chat.msgs) || []).filter(x => x.q).slice(-4).reverse();
+    for (const x of prev) if ((MAP_Q.test(x.q) && MAP_ASK.test(x.q)) || CARDS_Q.test(x.q) || NOTE_Q.test(x.q) || CHANGE_Q.test(x.q)) return x.q;
+    return "";
+  }
   async function deviceAct(q, chat, forced){
     const A = window.SBASSIST, TR = window.SBTRUTH; if (!A) return null;
     if (CARDS_Q.test(q)) {
@@ -73772,11 +73823,20 @@ window.SBTRUTH = (() => {
         actions: [{type: quiz ? "quiz" : "flashcards", label: quiz ? "Make Quiz" : "Make Flashcards", deckName: name, deck: "", target: "", style: "", count: n, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
     }
     if (NOTE_Q.test(q)) {
-      let text = (q.match(/\bnote\b[^:]*:\s*(.+)$/i) || q.match(/\b(?:saying|that says|about)\s+(.+)$/i) || [])[1] || "";
-      if (!text || /^(this|that|it|the (answer|reply))\b/i.test(text) || /\b(this|that)\b\s*(as a note)?\s*$/i.test(q)) { const prev = ((chat && chat.msgs) || []).filter(x => x.a && x.a.answer).slice(-1)[0]; if (prev) text = prev.a.answer; }
+      // the words they gave: quoted, after a colon, or after "put / write / text / saying ..." (with "in it", "on it" dropped)
+      const tail = q.replace(/^.*?\bnote\b/i, " ");
+      const own = (q.match(/["“']([^"”']{1,2000})["”']/) || q.match(/\bnote\b[^:]*:\s*(.+)$/i)
+        || tail.match(/\b(?:put|write|add|type|with|containing|that (?:says|reads)|saying|reading|text|says)\s+(?:the\s+)?(?:text|words?|message)?\s*(?:of\s+)?[:\-]?\s*(.+?)\s*(?:\b(?:in|on|inside) (?:it|the note|there)\b)?[.\s]*$/i)
+        || tail.match(/\b(?:about|on)\s+(.+)$/i) || [])[1] || "";
+      let text = String(own || "").replace(/\s*\b(?:in|on|to) (?:my |the )?(?:board|notes?)\b.*$/i, "").trim();
+      const prevRef = /^(this|that|it|the (answer|reply|last (answer|reply)))\b/i.test(text) || /\b(this|that|your (answer|reply))\b\s*(as a note)?\s*$/i.test(q);
+      if (!text || prevRef) { if (!prevRef && !/\b(this|that|it|answer|reply)\b/i.test(q)) return forced ? null : {answer: "What should the note say? For example: make a note that says Lab moved to Friday.", sources: [], followUps: [], actions: []};
+        const prev = ((chat && chat.msgs) || []).filter(x => x.a && x.a.answer && !(x.a.actions || []).length && !(x.a.changes || []).length && !x.a.mapOpen && (x.a.sources || []).length + String(x.a.answer).length > 60).slice(-1)[0];
+        if (!prev) return {answer: "What should the note say? For example: make a note that says Lab moved to Friday.", sources: [], followUps: [], actions: []};
+        text = prev.a.answer; }
       text = String(text || "").trim();
-      if (text.length < 3) return null;
-      return {answer: "Here's the note. Tap Save Note to put it on your board.", sources: [], followUps: [], actions: [{type: "note", label: "Save Note", deckName: "", deck: "", target: "", style: "", count: 0, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
+      if (!text) return null;
+      return {answer: "Done. I put the note on your board.", sources: [], followUps: [], actions: [{type: "note", label: "Save Note", auto: true, deckName: "", deck: "", target: "", style: "", count: 0, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
     }
     if (CHANGE_Q.test(q) || (A.timerMins && A.timerMins(q))) {
       const res = await A.ask(q, {screen: false});
@@ -73805,7 +73865,11 @@ window.SBTRUTH = (() => {
       // the AI on the device (98-truth.js): planner facts from the app itself, exact; other answers checked against what it was given
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length ? TR.facts(q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
-      const made = !quick && dev && !att.length ? await deviceAct(q, c) : null;
+      const was = !att.length ? pendingAsk(q, c) : "", q2 = was || q;
+      let made = null;
+      if (att.length && att.some(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || "")) && /\b(add|put|save|pin|stick|place|attach)\b[^?]*\b(note|notes|board)\b/i.test(q)) made = await photoNote(q, att);
+      if (!quick && !att.length && MAP_Q.test(q2) && MAP_ASK.test(q2)) { T.status = "Making your map…"; draw(); made = await mapAct(q2); }
+      if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
       if (quick) m.a = {answer: quick.answer, sources: ["Your planner"], followUps: [], actions: []};
       else if (made) m.a = made;
       else {
@@ -73851,7 +73915,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
           if (bad.length) d.answer = "I couldn't find a reliable answer to that in your Studyboard" + (ctx.src.some(x => /^Wikipedia/.test(x)) ? " or on Wikipedia" : "") + ". Try asking it another way, or add a key in AI Features for a stronger AI.";
         }
       }
-      m.a = {answer: clip2(d.answer, 8000), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(Boolean).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
+      m.a = {answer: clip2(d.answer, 8000), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(x => x && !/\b(would you like|do you want|would it be helpful|should i|you'd like|your preference|are you|have you|did you|what do you think)\b|^\s*(what|which|how)\b[^?]*\byou\b[^?]*\b(like|want|prefer|need)\b/i.test(x)).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
       if (cat && window.SBASSIST) { const res = SBASSIST.pack(SBASSIST.resolve(d, cat.refs)); if (res.show.length) m.a.show = res.show; if (res.changes.length) m.a.changes = res.changes; }
       if (!m.a.answer) m.a.answer = localAnswer(ctx, null, q).answer;
       if (r.local) m.a.local = true;
@@ -73864,6 +73928,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
     fresh.sort((a, b) => b.at - a.at); wr(fresh);
     T.busy = null; T.status = ""; T.live = ""; draw(); say();
+    // made right away when the student asked for it in so many words (a note with its text)
+    if (m.a && m.a.actions) m.a.actions.forEach((x, i) => { if (x.auto && !x.done) runAction({dataset: {m: String(m.at), i: String(i)}}); });
     try { if (m.a && window.SBCOMP) { SBCOMP.cheer && 0; } } catch (e) {}
   }
   const clip2 = (s, n) => String(s == null ? "" : s).trim().slice(0, n);
@@ -73889,10 +73955,13 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const me = info() || {};
     const acts = m.a && m.a.actions && m.a.actions.length ? `<div class="cpt-actions">${m.a.actions.map((a, i) => `<div class="cpt-action"><span class="cpt-action-t">${esc(a.label)}</span>${a.done ? `<span class="mini cpt-done">${esc(a.done)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-do" data-m="${esc(String(m.at))}" data-i="${i}">${ACT_BTN[a.type] || "Make It"}</button>`}${a.deckId && state.decks[a.deckId] ? `<button type="button" class="btn small" data-act="cpt-open-deck" data-id="${esc(a.deckId)}">Open Deck</button>` : ""}</div>`).join("")}</div>` : "";
     const found = m.a && m.a.show && m.a.show.length ? `<div class="cpt-show">${m.a.show.map((t, i) => `<button type="button" class="chip cpt-show-b" data-act="cpt-show" data-m="${esc(String(m.at))}" data-i="${i}">${esc(t.label || "Show")}<span aria-hidden="true"> →</span></button>`).join("")}</div>` : "";
-    const chg = m.a && m.a.changes && m.a.changes.length ? `<div class="cpt-actions"><div class="cpt-action"><span class="cpt-action-t">${m.a.changes.length === 1 ? esc(`${m.a.changes[0].what}: ${m.a.changes[0].label}`) : `${m.a.changes.length} changes`}</span>${m.a.changesDone ? `<span class="mini cpt-done">${esc(m.a.changesDone)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-change" data-m="${esc(String(m.at))}">Review ${m.a.changes.length === 1 ? "Change" : "Changes"}</button>`}</div></div>` : "";
+    const adds = m.a && m.a.changes && m.a.changes.length && m.a.changes.every(x => x.t && x.t.kind === "newtask");
+    const chg = m.a && m.a.changes && m.a.changes.length ? `<div class="cpt-actions">${adds ? m.a.changes.map(x => `<div class="cpt-action"><span class="cpt-action-t">${esc(x.label)}${x.to ? `<span class="mini cpt-action-d"> · ${esc(x.to)}</span>` : ""}</span></div>`).join("") + `<div class="cpt-action">${m.a.changesDone ? `<span class="mini cpt-done">${esc(m.a.changesDone)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-change" data-m="${esc(String(m.at))}">Add ${m.a.changes.length === 1 ? "Task" : m.a.changes.length + " Tasks"}</button>`}</div>`
+      : `<div class="cpt-action"><span class="cpt-action-t">${m.a.changes.length === 1 ? esc(`${m.a.changes[0].what}: ${m.a.changes[0].label}`) : `${m.a.changes.length} changes`}</span>${m.a.changesDone ? `<span class="mini cpt-done">${esc(m.a.changesDone)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-change" data-m="${esc(String(m.at))}">Review ${m.a.changes.length === 1 ? "Change" : "Changes"}</button>`}</div>`}</div>` : "";
+    const mapBtn = m.a && m.a.mapOpen ? `<div class="cpt-actions"><div class="cpt-action"><span class="cpt-action-t">Concept map ready</span><button type="button" class="btn small primary" data-act="cpt-open-map" data-m="${esc(String(m.at))}">${esc(m.a.mapOpen.label || "Open Map")}</button></div></div>` : "";
     return `<div class="cpt-q">${esc(m.q)}${m.files && m.files.length ? `<div class="cpt-qf">${m.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}</div>
       <div class="cpt-a">${m.err ? errHtml(m) : `${miniMd(m.a.answer)}
-        ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${found}${chg}${acts}`}
+        ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${found}${chg}${mapBtn}${acts}`}
         ${m.a && !m.err ? `<div class="cpt-acts"><button type="button" class="link-btn" data-act="cpt-note" data-id="${esc(String(m.at))}">Save This Reply</button><button type="button" class="link-btn" data-ai-report="companion-chat" data-ai-text="${esc(String(m.a.answer || "").slice(0, 1400))}">Report Response</button></div>` : ""}</div>`;
   }
   function logHtml(){
@@ -73947,11 +74016,25 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const n = normNote({id: uid(), board: boardId, text: text.slice(0, 8000), color: "yellow", x: 40 + col * (NOTE_W() + 30) + Math.round(Math.random() * 20), y: 40 + row * 240 + Math.round(Math.random() * 20), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10, courseId: courseId || "", created: Date.now()});
     applyChanges([{kind: "note", id: n.id, after: n}], null); return n;
   }
+  // photos attached in the chat with "add this to my note board": a new note on the board holding them (photos in notes are Pro)
+  async function photoNote(q, att){
+    const imgs = att.filter(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || ""));
+    const NP = window.__sbNotePhotos;
+    if (!NP || (window.SBPRO && SBPRO.locked && SBPRO.locked())) return {answer: "Photos on notes are part of Studyboard Pro. I can turn the photo into typed notes instead: ask \"make notes from this photo\".", sources: [], followUps: [], actions: []};
+    const cap = ((q.match(/\b(?:saying|that says|caption(?:ed)?|titled|called)\s+(.+)$/i) || [])[1] || "").trim();
+    const b = boardFor("", null), n = addNoteTo(b.id, cap, "");
+    await NP.addPhotos(n.id, imgs.map(fileFrom));
+    const ok = state.notes[n.id] && (state.notes[n.id].photos || []).length;
+    if (!ok) { if (state.notes[n.id] && !cap) applyChanges([{kind: "note", id: n.id, after: null}], null); return {answer: "I couldn't save that photo to a note. Try adding it from the note itself (the photo button).", sources: [], followUps: [], actions: []}; }
+    if (b.id) { ui.noteBoard = b.id; try { localStorage.setItem(NB_KEY, b.id); } catch (e) {} }
+    return {answer: `Done. The photo is on a new note in ${b.name}.`, sources: [], followUps: [], actions: [{type: "open_notes", label: "Open Notes", done: "", deckName: "", deck: "", target: "", style: "", count: 0, course: "", board: b.id, noteTitle: "", text: ""}]};
+  }
   async function runAction(el){
     const chats = rd(), c = chats.find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === el.dataset.m), a = m && m.a && m.a.actions && m.a.actions[Number(el.dataset.i)];
     if (!a || a.done) return;
     const course = findCourse(a.course), mark = txt => { a.done = txt; wr(chats); draw(); };
     try {
+      if (a.type === "open_notes") { ui.tab = "notes"; render(); window.scrollTo(0, 0); return; }
       if (a.type === "note") {
         const b = boardFor(a.board, course), text = (a.noteTitle ? a.noteTitle + "\n\n" : "") + a.text;
         addNoteTo(b.id, text, course ? course.id : "");
@@ -74097,7 +74180,17 @@ You can also DO things in Studyboard, but only when the student asks or what the
         const chats = rd(), c = chats.find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === el.dataset.m);
         if (!m || !m.a || !window.SBASSIST) return true;
         if (act === "cpt-show") { const t = (m.a.show || [])[Number(el.dataset.i) || 0]; if (t) SBASSIST.jump(t, {open: true}); return true; }
+        if ((m.a.changes || []).length && m.a.changes.every(x => x.t && x.t.kind === "newtask")) {
+          const n = SBASSIST.addNow(m.a.changes); m.a.changesDone = n ? `Added ${n === 1 ? "to your board" : n + " tasks"}` : "Already added"; wr(chats); draw();
+          if (n) toast(n === 1 ? "Task added" : `Added ${n} tasks`, null, {label: "Open", fn: () => { ui.tab = "board"; render(); window.scrollTo(0, 0); }});
+          return true;
+        }
         SBASSIST.propose(m.a.changes || []).then(ok => { if (!ok) return; const all = rd(), cc = all.find(x => x.id === T.id), mm = cc && cc.msgs.find(x => String(x.at) === el.dataset.m); if (mm && mm.a) { mm.a.changesDone = "Reviewed"; wr(all); } });
+        return true;
+      }
+      case "cpt-open-map": {
+        const chats = rd(), c = chats.find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === el.dataset.m), o = m && m.a && m.a.mapOpen;
+        if (o && window.SBCMAP) SBCMAP.open("course", o.course, o.map);
         return true;
       }
       case "cpt-open-deck": ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); return true;
@@ -112323,6 +112416,42 @@ const CMAP = (() => {
     });
     return {concepts, links, structured, plain, ok: structured > 0 && plain === 0};
   }
+  /* Plain sentences, read here too (no AI, so instant and exact): the middle ("X in the center", "the main idea is X", "a X concept
+     map", "a map of X"), its branches ("connected to A, B and C", "branching out to..."), and other links ("connect A to B",
+     "A leads to B"). {center, concepts, links} like an AI description, or null when it can't tell what the middle is. */
+  function parseSentences(text){
+    const T = " " + String(text || "").replace(/\s+/g, " ").replace(/[,.;!\s]+(?:(?:and\s+)?(?:do|make|build|draw|create) (?:it|this|that)(?: now| please| for me)*|please|now|thanks?(?: you)?)[.!\s]*$/i, "").trim() + " ";
+    const clean = x => String(x || "").replace(/^\s*(?:and|then|also|with|to|of|the|a|an|my|some|three|two|four|five|\d+)\s+/i, "").replace(/^\s*(?:the|a|an)\s+/i, "")
+      .replace(/\s+(?:ideas?|concepts?|nodes?|bubbles?|branches?|things?|in the (?:center|centre|middle)|as the main idea)\s*$/i, "").replace(/^(?:ideas?|concepts?)\s*[:,]?\s*/i, "").replace(/["“”.,;:!?]+/g, "").trim();
+    const list = x => String(x || "").split(/\s*,\s*(?:and\s+|or\s+)?|\s+(?:and|&|plus)\s+/).map(clean).filter(y => y && y.split(" ").length <= 6 && !/^(?:ideas?|concepts?|them|it|each|others?)$/i.test(y));
+    let m, center = "";
+    if ((m = T.match(/\b([a-z][\w' -]{1,40}?)\s+(?:in|at|as)\s+(?:the\s+)?(?:center|centre|middle|main idea)\b/i))) center = m[1];
+    else if ((m = T.match(/\bmain (?:idea|topic|concept|bubble)\s+(?:is|being|=|of)\s+(?!connected|linked|branch|attached|joined)([\w' -]{2,40}?)(?=[,.;]|\s+(?:connected|linked|with|and|that|which|branching)\b)/i))) center = m[1];
+    else if ((m = T.match(/\b(?:map|concept map|mind map)\s+(?:of|about|on|for)\s+([\w' -]{2,40}?)(?=[,.;]|\s+(?:where|with|that|which|connected|linked|and|showing)\b|\s*$)/i))) center = m[1];
+    else if ((m = T.match(/\b(?:a|an|the|my)\s+([\w' -]{2,30}?)\s+(?:concept|mind)\s+map\b/i))) center = m[1];
+    center = clean(String(center).replace(/^.*\b(?:with|of|have|want|put|make|create|draw|build|give me)\s+(?:a\s+|an\s+|the\s+)?(?:map\s+(?:with|of)\s+)?/i, ""));
+    if (!center || center.split(" ").length > 6) return null;
+    const concepts = [], links = [], seen = new Set();
+    const use = x => { const n = clean(x); if (!n) return ""; const k = n.toLowerCase(); if (!seen.has(k)) { seen.add(k); concepts.push(n); } return concepts.find(c => c.toLowerCase() === k); };
+    const ck = center.toLowerCase(), isCenter = x => { const k = clean(x).toLowerCase(); return !k || k === ck || /^(?:it|this|that|the main idea|main idea|the center|center|the middle|middle)$/i.test(k); };
+    T.split(/\.\s+|;|\bthen\b|\balso\b/i).forEach(cl => {
+      let x;
+      // "connect A to B (and C)", "link A with B"
+      if ((x = cl.match(/\b(?:connect|link|join|attach|add)\s+(?:the\s+)?(.+?)\s+(?:idea\s+|concept\s+|bubble\s+)?(?:to|with)\s+(.+)$/i)) && !/\b(?:connected|linked)\b/i.test(x[1])) {
+        const a = isCenter(x[1]) ? "" : use(x[1]); list(x[2]).forEach(b => { const bb = use(b); if (bb && (a || true)) links.push({from: a || center, to: bb}); }); return; }
+      // "... connected to / linked to / branching (out) to / leads to / connects to A, B and C"
+      if ((x = cl.match(/^(.*?)\b(?:is |are |be |being )?(?:connected|linked|connects|links|branch(?:es|ing)?(?: out)?|leads?|goes|going|splits?)\s+(?:in)?to\s+(?:(?:\w+|\d+)\s+(?:ideas?|things?|concepts?|branches?|parts?)\s*[,:]?\s*)?(.+)$/i))) {
+        const subj = x[1].replace(/\b(?:where|with|and|which|that|then|in|at|the|center|centre|middle|main idea|is|i want a map|create me a|make a|concept map|mind map|map)\b/gi, " ").trim();
+        const from = !subj || isCenter(subj) || subj.toLowerCase().includes(ck) ? center : use(subj);
+        list(x[2]).forEach(b => { const bb = use(b); if (bb && bb.toLowerCase() !== String(from).toLowerCase()) links.push({from, to: bb}); }); return; }
+      // "with A, B and C" around the middle
+      if ((x = cl.match(/\b(?:with|around it:?|surrounded by)\s+(.+,.+)$/i))) list(x[1]).forEach(b => { const bb = use(b); if (bb && bb.toLowerCase() !== ck) links.push({from: center, to: bb}); });
+    });
+    const L = links.filter(l => l.to && l.from && l.to.toLowerCase() !== l.from.toLowerCase());
+    if (!L.length) return null;
+    const up = x => /[A-Z]/.test(x.slice(1)) ? x : x.charAt(0).toUpperCase() + x.slice(1);
+    return {center: up(center), concepts: concepts.filter(c => c.toLowerCase() !== ck).map(name => ({name: up(name)})), links: L.map(l => ({from: up(l.from), to: up(l.to)}))};
+  }
   // a description ({center, concepts: [{name, type}], links: [{from, to, label, arrow}]}) as a map's ideas, connections and styles
   const TYPE_ST = {main: {shape: "pill", color: "#2F6FE4"}, part: {shape: "rounded"}, example: {shape: "cloud", color: "#0C8599"}, definition: {shape: "box", color: "#7C5CFF"}, process: {shape: "hexagon", color: "#E8590C"}, cause: {shape: "box", stroke: "#E03131"}, effect: {shape: "box", stroke: "#2F9E44"}, person: {shape: "circle", color: "#D6336C"}, date: {shape: "diamond", color: "#E8A317"}};
   function fromSpec(spec, center, existing){
@@ -112419,7 +112548,7 @@ const CMAP = (() => {
   }
   // what an oEmbed answer gives a box: the address of the provider's picture, and the title
   const fromOembed = j => ({th: j && thumbOk(j.thumbnail_url) ? j.thumbnail_url : "", tt: j && typeof j.title === "string" ? j.title.replace(/\s+/g, " ").trim().slice(0, 120) : ""});
-  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, hostOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
+  return {parseSentences, EMBED_HOSTS, PROVIDERS, embedOf, embedOk, hostOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
 })();
 /*CMAP-END*/
 
@@ -113943,6 +114072,9 @@ async function describe(text, center, existing){
     const mid = center || (existing ? "" : P.concepts[0]);
     return {title: mid, ov: CMAP.fromSpec({concepts: P.concepts, links: P.links.map(l => ({from: l.a, to: l.b, label: l.label, arrow: l.arrow}))}, existing ? "" : mid, existing)};
   }
+  // plain sentences ("photosynthesis in the center, connected to sunlight, water and soil"): read here, instantly
+  const S = CMAP.parseSentences(text);
+  if (S) { const mid = existing ? "" : (center || S.center); return {title: S.center, ov: CMAP.fromSpec(S, mid, existing)}; }
   let ready = false; try { ready = aiReady(); } catch (e) {}
   if (!ready) throw new Error("That needs Studyboard AI or your own AI key (Settings, AI). Or write it with arrows, like Sunlight -> Photosynthesis : powers, which works without AI.");
   const res = await aiCall({task: "topics", maxTokens: 5000, temperature: 0.2, timeout: 90000, system: DESC_SYS, schema: DESC_SCHEMA,
@@ -113950,6 +114082,22 @@ async function describe(text, center, existing){
   const d = res && res.data; if (!d || !Array.isArray(d.concepts) || !d.concepts.length) throw new Error("The AI's answer didn't make sense. Try again, or describe it a little more.");
   const mid = existing ? "" : (center || String(d.center || "").trim().slice(0, 80));
   return {title: String(d.center || "").trim().slice(0, 80), ov: CMAP.fromSpec(d, mid, existing)};
+}
+/* A map made from the chat: the student's sentences (read here, instant) or, for just a topic, the AI. Saved in the named course
+   (or General) and returned so the chat can open it. Throws with a message the student can act on. */
+async function createFrom(text, courseHint){
+  const t = String(text || "").trim(); if (t.length < 3) throw new Error("Tell me the main idea and what connects to it.");
+  const hint = String(courseHint || "").toLowerCase();
+  let c = hint ? allCourses().find(x => [x.name, x.code].some(v => v && String(v).toLowerCase() === hint)) || allCourses().find(x => [x.name, x.code].some(v => v && hint.includes(String(v).toLowerCase()))) : null;
+  if (!c) c = state.courses[GEN_ID] || genRec();
+  if (mapsOf(c).length >= MAX_MAPS) throw new Error(`${courseName(c)} already holds ${MAX_MAPS} maps. Delete one first.`);
+  const r = await describe(t, "");
+  const name = String(r.title || "Concept Map").replace(/\b\w/g, ch => ch.toUpperCase()).slice(0, 80) + (/\bmap$/i.test(r.title || "") ? "" : " Map");
+  const rec = Object.assign({id: uid(), name, auto: false, created: Date.now(), at: Date.now()}, r.ov);
+  const cur = state.courses[c.id] || c, after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
+  applyChanges([{kind: "course", id: c.id, after}], `Made the map ${name}`, null, {quiet: true});
+  const n = (r.ov && Array.isArray(r.ov.add) ? r.ov.add.length : 0);
+  return {course: c.id, map: rec.id, name, where: courseName(c), ideas: n};
 }
 /* Scanning a drawing (Pro): a photo of a hand-drawn map goes to Studyboard AI, which reads the words, shapes, lines and where each idea sits */
 const SCAN_SYS = "You read a photo of a concept map a student drew by hand and turn it into data so it can be redrawn exactly. " +
@@ -114710,7 +114858,7 @@ path.cm-line,path.cm-hit{fill:none}
 `;
 document.head.appendChild(css);
 
-window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M, peek: mapPeek, peekSvg, shown, redraw: () => { if (shown()) paint(); }};
+window.SBCMAP = {createFrom, listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M, peek: mapPeek, peekSvg, shown, redraw: () => { if (shown()) paint(); }};
 })();
 /* ===== module: 99-present.js ===== */
 /* Presentation practice: practice a talk on your own slides, timed.

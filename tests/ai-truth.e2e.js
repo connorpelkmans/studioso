@@ -75,16 +75,34 @@ function fake(){
   ok(c.asked.length === 1 && /First list the key points/.test(c.asked[0].text) && /Osmosis is the spontaneous/.test(c.asked[0].text), "a general question: Wikipedia, and the key points then the answer in ONE call (fast): " + c.asked.length + " call(s)");
   // making things from the Companion tab: done by the app, not just talked about
   c = await chat("add homework 3 due friday at 2pm", NONE);
-  ok(c.asked.length === 0 && /Homework 3/.test(c.last) && /Apply/.test(c.last), "add a task: the task to confirm (Apply), read from the words, no model: " + c.last.replace(/\n/g, " ").slice(0, 140));
-  await p.locator(".cpt-a button", {hasText: "Review Change"}).last().click(); await p.waitForSelector("#asDlg[open] #asYes", {timeout: 3000}); await p.click("#asDlg[open] #asYes"); await p.waitForTimeout(500);
-  ok(await p.evaluate(() => Object.values(JSON.parse(localStorage.getItem("coursework:v2")).tasks || {}).concat([]).some(t => /Homework 3/.test(t.title)) || [...document.querySelectorAll("body *")].some(e => false)), "and confirming really adds it to the planner");
+  ok(c.asked.length === 0 && /Homework 3/.test(c.last) && /Add Task/.test(c.last), "add a task: the task with its details and an Add Task button, read from the words, no model: " + c.last.replace(/\n/g, " ").slice(0, 160));
+  await p.locator(".cpt-a button", {hasText: "Add Task"}).last().click(); await p.waitForTimeout(500);
+  ok(await p.evaluate(() => Object.values(window.__sbState ? window.__sbState.tasks : JSON.parse(localStorage.getItem("coursework:v2")).tasks || {}).some(t => /Homework 3/.test(t.title))) && /Added/.test(await p.evaluate(() => [...document.querySelectorAll(".cpt-a")].pop().innerText)), "and Add Task adds it right there, no detour");
   c = await chat("start a 5 minute focus timer", NONE);
   ok(c.asked.length === 0 && /5-minute focus timer is running/.test(c.last) && (await p.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo") || "{}").running)), "start a timer: it runs, no model");
   await p.evaluate(() => { const S = window.__sbSync; if (S && S.state) { S.state.notes = S.state.notes || {}; } });
   c = await chat("make flashcards on the bio lab report", NONE);
   ok(c.asked.length === 0 && /Make Flashcards/.test(c.last), "make flashcards: the Make Flashcards button, with material gathered from their stuff: " + c.last.replace(/\n/g, " ").slice(0, 160));
   c = await chat("save a note: lab partners are Sam and Priya", NONE);
-  ok(c.asked.length === 0 && /Save Note/.test(c.last), "save a note: the Save Note button");
+  ok(c.asked.length === 0 && /put the note on your board/.test(c.last), "save a note: made at once: " + c.last.slice(0, 100));
+  c = await chat("create a note in my board, put text Hi! in it", NONE);
+  ok(c.asked.length === 0 && await p.evaluate(() => Object.values(JSON.parse(localStorage.getItem("coursework:v2")).notes || {}).some(n => String(n.text).trim() === "Hi!")), "a note with the words they gave (\"Hi!\"), not the last reply");
+  // concept maps from the chat: built at once from the sentences, no model
+  c = await chat("Create me a photosynthesis concept map, where the main idea is connected to sunlight, water, and dirt ideas", NONE);
+  const mp = await p.evaluate(() => { const cs = JSON.parse(localStorage.getItem("coursework:v2")).courses; const g = (Array.isArray(cs) ? cs : Object.values(cs)).find(x => x.id === "general"); const m = g && g.maps && g.maps[g.maps.length - 1]; return m ? {name: m.name, add: (m.add || []).map(a => a.label || a.name || a.text)} : null; });
+  ok(c.asked.length === 0 && mp && /Photosynthesis/.test(mp.name) && /Open Map/.test(c.last), "a concept map asked for in the chat is made, with an Open Map button: " + JSON.stringify(mp) + " | " + c.last.slice(0, 100));
+  c = await chat("I want a map with photosynthesis in center, connected to three ideas, sunlight, water, and soil", [{answer: "What colors would you like?", followUps: ["What colors would you like to use?"], sources: []}]);
+  ok(c.asked.length === 0 && /Open Map/.test(c.last), "the dialog's wording works in the chat too");
+  c = await chat("tell me about concept maps for photosynthesis", [{answer: "A concept map links ideas.", followUps: ["What colors would you like to use for each element?", "Explain the light reactions"], sources: []}]);
+  const chips = await p.evaluate(() => [...document.querySelectorAll(".cpt-chips.fu .chip")].map(x => x.innerText));
+  ok(!chips.some(x => /would you like/i.test(x)), "follow-up chips are things to ask, never questions for the student: " + JSON.stringify(chips));
+  c = await chat("make me a concept map of the water cycle with evaporation, condensation and precipitation, please", NONE);
+  ok(/Open Map/.test(c.last), "a map with a list after with");
+  c = await chat("make a concept map of cell parts", [{answer: "Sure, what should be on it?", followUps: [], sources: []}]);
+  c = await chat("do it then", [{center: "Cell Parts", concepts: [{name: "Nucleus"}, {name: "Mitochondria"}], links: [{from: "Cell Parts", to: "Nucleus"}, {from: "Cell Parts", to: "Mitochondria"}]}]);
+  ok(/Open Map/.test(c.last), "\"do it\" after a map request makes it: " + c.last.slice(0, 90));
+  c = await chat("Start a new 5 min timer, I'm working on my bio lab report", NONE);
+  ok(/for Bio Lab Report/.test(c.last) && (await p.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo") || "{}").taskId)) === "t1", "a timer for the task named is linked to that task: " + c.last.slice(0, 90));
   c = await chat("who wrote my bio syllabus?", [{answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}, {answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}]);
   ok(/couldn't find a reliable answer/.test(c.last), "Companion tab: a made-up name and year are caught: " + c.last.slice(0, 120));
   ok(!errs.length, "no page errors: " + errs.join(" | "));

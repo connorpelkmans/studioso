@@ -285,6 +285,42 @@ const CMAP = (() => {
     });
     return {concepts, links, structured, plain, ok: structured > 0 && plain === 0};
   }
+  /* Plain sentences, read here too (no AI, so instant and exact): the middle ("X in the center", "the main idea is X", "a X concept
+     map", "a map of X"), its branches ("connected to A, B and C", "branching out to..."), and other links ("connect A to B",
+     "A leads to B"). {center, concepts, links} like an AI description, or null when it can't tell what the middle is. */
+  function parseSentences(text){
+    const T = " " + String(text || "").replace(/\s+/g, " ").replace(/[,.;!\s]+(?:(?:and\s+)?(?:do|make|build|draw|create) (?:it|this|that)(?: now| please| for me)*|please|now|thanks?(?: you)?)[.!\s]*$/i, "").trim() + " ";
+    const clean = x => String(x || "").replace(/^\s*(?:and|then|also|with|to|of|the|a|an|my|some|three|two|four|five|\d+)\s+/i, "").replace(/^\s*(?:the|a|an)\s+/i, "")
+      .replace(/\s+(?:ideas?|concepts?|nodes?|bubbles?|branches?|things?|in the (?:center|centre|middle)|as the main idea)\s*$/i, "").replace(/^(?:ideas?|concepts?)\s*[:,]?\s*/i, "").replace(/["“”.,;:!?]+/g, "").trim();
+    const list = x => String(x || "").split(/\s*,\s*(?:and\s+|or\s+)?|\s+(?:and|&|plus)\s+/).map(clean).filter(y => y && y.split(" ").length <= 6 && !/^(?:ideas?|concepts?|them|it|each|others?)$/i.test(y));
+    let m, center = "";
+    if ((m = T.match(/\b([a-z][\w' -]{1,40}?)\s+(?:in|at|as)\s+(?:the\s+)?(?:center|centre|middle|main idea)\b/i))) center = m[1];
+    else if ((m = T.match(/\bmain (?:idea|topic|concept|bubble)\s+(?:is|being|=|of)\s+(?!connected|linked|branch|attached|joined)([\w' -]{2,40}?)(?=[,.;]|\s+(?:connected|linked|with|and|that|which|branching)\b)/i))) center = m[1];
+    else if ((m = T.match(/\b(?:map|concept map|mind map)\s+(?:of|about|on|for)\s+([\w' -]{2,40}?)(?=[,.;]|\s+(?:where|with|that|which|connected|linked|and|showing)\b|\s*$)/i))) center = m[1];
+    else if ((m = T.match(/\b(?:a|an|the|my)\s+([\w' -]{2,30}?)\s+(?:concept|mind)\s+map\b/i))) center = m[1];
+    center = clean(String(center).replace(/^.*\b(?:with|of|have|want|put|make|create|draw|build|give me)\s+(?:a\s+|an\s+|the\s+)?(?:map\s+(?:with|of)\s+)?/i, ""));
+    if (!center || center.split(" ").length > 6) return null;
+    const concepts = [], links = [], seen = new Set();
+    const use = x => { const n = clean(x); if (!n) return ""; const k = n.toLowerCase(); if (!seen.has(k)) { seen.add(k); concepts.push(n); } return concepts.find(c => c.toLowerCase() === k); };
+    const ck = center.toLowerCase(), isCenter = x => { const k = clean(x).toLowerCase(); return !k || k === ck || /^(?:it|this|that|the main idea|main idea|the center|center|the middle|middle)$/i.test(k); };
+    T.split(/\.\s+|;|\bthen\b|\balso\b/i).forEach(cl => {
+      let x;
+      // "connect A to B (and C)", "link A with B"
+      if ((x = cl.match(/\b(?:connect|link|join|attach|add)\s+(?:the\s+)?(.+?)\s+(?:idea\s+|concept\s+|bubble\s+)?(?:to|with)\s+(.+)$/i)) && !/\b(?:connected|linked)\b/i.test(x[1])) {
+        const a = isCenter(x[1]) ? "" : use(x[1]); list(x[2]).forEach(b => { const bb = use(b); if (bb && (a || true)) links.push({from: a || center, to: bb}); }); return; }
+      // "... connected to / linked to / branching (out) to / leads to / connects to A, B and C"
+      if ((x = cl.match(/^(.*?)\b(?:is |are |be |being )?(?:connected|linked|connects|links|branch(?:es|ing)?(?: out)?|leads?|goes|going|splits?)\s+(?:in)?to\s+(?:(?:\w+|\d+)\s+(?:ideas?|things?|concepts?|branches?|parts?)\s*[,:]?\s*)?(.+)$/i))) {
+        const subj = x[1].replace(/\b(?:where|with|and|which|that|then|in|at|the|center|centre|middle|main idea|is|i want a map|create me a|make a|concept map|mind map|map)\b/gi, " ").trim();
+        const from = !subj || isCenter(subj) || subj.toLowerCase().includes(ck) ? center : use(subj);
+        list(x[2]).forEach(b => { const bb = use(b); if (bb && bb.toLowerCase() !== String(from).toLowerCase()) links.push({from, to: bb}); }); return; }
+      // "with A, B and C" around the middle
+      if ((x = cl.match(/\b(?:with|around it:?|surrounded by)\s+(.+,.+)$/i))) list(x[1]).forEach(b => { const bb = use(b); if (bb && bb.toLowerCase() !== ck) links.push({from: center, to: bb}); });
+    });
+    const L = links.filter(l => l.to && l.from && l.to.toLowerCase() !== l.from.toLowerCase());
+    if (!L.length) return null;
+    const up = x => /[A-Z]/.test(x.slice(1)) ? x : x.charAt(0).toUpperCase() + x.slice(1);
+    return {center: up(center), concepts: concepts.filter(c => c.toLowerCase() !== ck).map(name => ({name: up(name)})), links: L.map(l => ({from: up(l.from), to: up(l.to)}))};
+  }
   // a description ({center, concepts: [{name, type}], links: [{from, to, label, arrow}]}) as a map's ideas, connections and styles
   const TYPE_ST = {main: {shape: "pill", color: "#2F6FE4"}, part: {shape: "rounded"}, example: {shape: "cloud", color: "#0C8599"}, definition: {shape: "box", color: "#7C5CFF"}, process: {shape: "hexagon", color: "#E8590C"}, cause: {shape: "box", stroke: "#E03131"}, effect: {shape: "box", stroke: "#2F9E44"}, person: {shape: "circle", color: "#D6336C"}, date: {shape: "diamond", color: "#E8A317"}};
   function fromSpec(spec, center, existing){
@@ -381,7 +417,7 @@ const CMAP = (() => {
   }
   // what an oEmbed answer gives a box: the address of the provider's picture, and the title
   const fromOembed = j => ({th: j && thumbOk(j.thumbnail_url) ? j.thumbnail_url : "", tt: j && typeof j.title === "string" ? j.title.replace(/\s+/g, " ").trim().slice(0, 120) : ""});
-  return {EMBED_HOSTS, PROVIDERS, embedOf, embedOk, hostOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
+  return {parseSentences, EMBED_HOSTS, PROVIDERS, embedOf, embedOk, hostOk, previewOf, fromOembed, thumbOk, atOf, clock, parseClock, mapCards, syncCards, knowFrom, levels, graph, layout, knowledge, quizPick, parseSuggest, keyOf, ek, W, SHAPES, LINES, ARROWS, FONTS, styleOf, styled, shapeOf, boxSize, exitAt, TEMPLATES, template, parseDescribed, fromSpec, TYPE_ST};
 })();
 /*CMAP-END*/
 
@@ -1905,6 +1941,9 @@ async function describe(text, center, existing){
     const mid = center || (existing ? "" : P.concepts[0]);
     return {title: mid, ov: CMAP.fromSpec({concepts: P.concepts, links: P.links.map(l => ({from: l.a, to: l.b, label: l.label, arrow: l.arrow}))}, existing ? "" : mid, existing)};
   }
+  // plain sentences ("photosynthesis in the center, connected to sunlight, water and soil"): read here, instantly
+  const S = CMAP.parseSentences(text);
+  if (S) { const mid = existing ? "" : (center || S.center); return {title: S.center, ov: CMAP.fromSpec(S, mid, existing)}; }
   let ready = false; try { ready = aiReady(); } catch (e) {}
   if (!ready) throw new Error("That needs Studyboard AI or your own AI key (Settings, AI). Or write it with arrows, like Sunlight -> Photosynthesis : powers, which works without AI.");
   const res = await aiCall({task: "topics", maxTokens: 5000, temperature: 0.2, timeout: 90000, system: DESC_SYS, schema: DESC_SCHEMA,
@@ -1912,6 +1951,22 @@ async function describe(text, center, existing){
   const d = res && res.data; if (!d || !Array.isArray(d.concepts) || !d.concepts.length) throw new Error("The AI's answer didn't make sense. Try again, or describe it a little more.");
   const mid = existing ? "" : (center || String(d.center || "").trim().slice(0, 80));
   return {title: String(d.center || "").trim().slice(0, 80), ov: CMAP.fromSpec(d, mid, existing)};
+}
+/* A map made from the chat: the student's sentences (read here, instant) or, for just a topic, the AI. Saved in the named course
+   (or General) and returned so the chat can open it. Throws with a message the student can act on. */
+async function createFrom(text, courseHint){
+  const t = String(text || "").trim(); if (t.length < 3) throw new Error("Tell me the main idea and what connects to it.");
+  const hint = String(courseHint || "").toLowerCase();
+  let c = hint ? allCourses().find(x => [x.name, x.code].some(v => v && String(v).toLowerCase() === hint)) || allCourses().find(x => [x.name, x.code].some(v => v && hint.includes(String(v).toLowerCase()))) : null;
+  if (!c) c = state.courses[GEN_ID] || genRec();
+  if (mapsOf(c).length >= MAX_MAPS) throw new Error(`${courseName(c)} already holds ${MAX_MAPS} maps. Delete one first.`);
+  const r = await describe(t, "");
+  const name = String(r.title || "Concept Map").replace(/\b\w/g, ch => ch.toUpperCase()).slice(0, 80) + (/\bmap$/i.test(r.title || "") ? "" : " Map");
+  const rec = Object.assign({id: uid(), name, auto: false, created: Date.now(), at: Date.now()}, r.ov);
+  const cur = state.courses[c.id] || c, after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
+  applyChanges([{kind: "course", id: c.id, after}], `Made the map ${name}`, null, {quiet: true});
+  const n = (r.ov && Array.isArray(r.ov.add) ? r.ov.add.length : 0);
+  return {course: c.id, map: rec.id, name, where: courseName(c), ideas: n};
 }
 /* Scanning a drawing (Pro): a photo of a hand-drawn map goes to Studyboard AI, which reads the words, shapes, lines and where each idea sits */
 const SCAN_SYS = "You read a photo of a concept map a student drew by hand and turn it into data so it can be redrawn exactly. " +
@@ -2672,5 +2727,5 @@ path.cm-line,path.cm-hit{fill:none}
 `;
 document.head.appendChild(css);
 
-window.SBCMAP = {listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M, peek: mapPeek, peekSvg, shown, redraw: () => { if (shown()) paint(); }};
+window.SBCMAP = {createFrom, listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M, peek: mapPeek, peekSvg, shown, redraw: () => { if (shown()) paint(); }};
 })();

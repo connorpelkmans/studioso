@@ -457,6 +457,13 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     dead.forEach(k => { const [kind, id] = k.split(/:(.*)/s); out.push({kind, id, after: null}); });
     return out;
   }
+  // new tasks the student asked for in so many words: added at once (they can undo), the chat says what was added
+  function addNow(changes){
+    const adds = (changes || []).filter(c => c && c.t && c.t.kind === "newtask"); if (!adds.length) return 0;
+    const ch = build(adds); if (!ch.length) return 0;
+    applyChanges(ch, adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`);
+    return adds.length;
+  }
   async function propose(changes, o){
     o = o || {};
     const list = (changes || []).filter(c => c && c.t && (c.t.kind === "settings" || exists(c.t)));
@@ -595,10 +602,27 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     if (!start && !mins) return null;
     return {mins: Math.round(mins)};
   }
-  function startTimer(mins){
+  /* The task a timer is for, from the words ("I'm working on my homework task", "for the bio lab"): the open task whose title (or
+     type) shares the most words with the request, soonest due on a tie; the task in progress for "the task I'm working on". */
+  const TSTOP = new Set("a an the my me i im i'm am is are on for to of and with task tasks timer focus minute minutes min mins hour hours start new set run working work doing do please can you could study session pomodoro now just".split(" "));
+  function taskFor(q){
+    const s = String(q || "").toLowerCase(), words = s.replace(/[^a-z0-9' ]+/g, " ").split(/\s+/).filter(w => w && !TSTOP.has(w) && !/^\d+$/.test(w));
+    const open = Object.values(state.tasks || {}).filter(t => t && t.status !== "done" && !t.archived);
+    if (!open.length) return null;
+    let best = null, bs = 0;
+    for (const t of open) {
+      const tw = String(t.title || "").toLowerCase().replace(/[^a-z0-9' ]+/g, " ").split(/\s+/), type = String(t.type || "").toLowerCase();
+      let sc = 0; words.forEach(w => { if (tw.some(x => x === w || (w.length > 3 && x.startsWith(w.replace(/s$/, ""))))) sc += 2; else if (type && (type === w || (w === "homework" && /assign|homework/.test(type)) || type.startsWith(w.replace(/s$/, "")))) sc += 1; });
+      if (sc > bs || (sc === bs && sc > 0 && best && (t.due || "9") < (best.due || "9"))) { best = t; bs = sc; }
+    }
+    if (best && bs > 0) return best;
+    if (/\b(the|my) (task|thing|work|assignment) i'?m (working on|doing)\b|\bcurrent task\b/.test(s)) return open.find(t => t.status === "doing") || null;
+    return null;
+  }
+  function startTimer(mins, task){
     if (typeof pomoStart !== "function") return false;
     if (pomo.running || pomo.left > 0) pomoReset();
-    pomo.taskId = ""; pomo.mode = "focus"; pomo.left = 0; pomo.len = 0; pomo.preset = mins > 0 ? mins : 0; pomoSave();
+    pomo.taskId = task ? task.id : ""; pomo.mode = "focus"; pomo.left = 0; pomo.len = 0; pomo.preset = mins > 0 ? mins : 0; pomoSave();
     pomoStart();
     return pomo.running;
   }
@@ -658,10 +682,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const tm0 = timerMins(q);
       if (tm0 && !(ADD_Q.test(q) && ADD_WHAT.test(q) && !/\b(timer|pomodoro|focus)\b/i.test(q.replace(/\bfocus\b/i, "")))) {
         if (tm0.mins && (tm0.mins < 1 || tm0.mins > 180)) return {answer: "A focus timer can run from 1 minute to 3 hours. How long would you like?", show: [], changes: [], local: true};
-        if (startTimer(tm0.mins)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running. You've got this!`, show: [], changes: [], timer: n2, local: true}; }
+        const tk = taskFor(q);
+        if (startTimer(tm0.mins, tk)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running${tk ? ` for ${tk.title}` : ""}. You've got this!`, show: tk ? [{kind: "task", id: tk.id, label: labelOf({kind: "task", id: tk.id})}] : [], changes: [], timer: n2, local: true}; }
       }
       const qc = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
-      if (qc) return {answer: "Here's the new task. Check it, then tap Apply to add it.", show: [], changes: [qc], local: true};
+      if (qc) return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true};
     }
     if (VISUAL.test(q)) await Promise.race([describeBoards(3, null, true), wait(9000)]);
     const cur = o.screen === false ? null : current();
@@ -722,10 +747,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     let timer = 0;
     if (fm >= 1 && fm <= 180 && (tm || /\b(timer|focus|pomodoro|session)\b/i.test(q))) timer = tm && tm.mins ? tm.mins : fm;
     else if (tm && (!tm.mins || (tm.mins >= 1 && tm.mins <= 180))) timer = tm.mins || -1;
-    if (timer && startTimer(timer > 0 ? timer : 0)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running. You've got this!`, show: [], changes: [], timer: n2}; }
+    const tk2 = timer ? taskFor(q) : null;
+    if (timer && startTimer(timer > 0 ? timer : 0, tk2)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running${tk2 ? ` for ${tk2.title}` : ""}. You've got this!`, show: [], changes: [], timer: n2}; }
     // asked to add a task, and the AI didn't write one (small models often just say they did): the app reads it from the request
     const asked = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q);
-    if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Apply to add it."; } }
+    if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Add Task."; } }
     const out = Object.assign({answer: aiWholeSentence(clip(d.answer, 1200))}, resolve(d, cat.refs));
     if (o.web && o.web.length && /wikipedia|wiktionary|stud(y|ies)|research|paper|according to/i.test(out.answer)) out.sources = o.web.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"}));
     // never say something was done when the app wasn't asked to do it
@@ -774,5 +800,5 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();

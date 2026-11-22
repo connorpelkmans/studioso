@@ -158,7 +158,7 @@
   const SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "The reply, in the companion's friendly voice. Plain text; short paragraphs or '- ' bullets, **bold** sparingly."},
     sources: {type: "ARRAY", items: {type: "STRING"}, description: "Short labels for the parts of the student's data used, like 'Task: Lab report', 'Notes', 'Grades', 'File: Ch4.pdf'"},
-    followUps: {type: "ARRAY", items: {type: "STRING"}, description: "Up to 3 short things the student might ask next"},
+    followUps: {type: "ARRAY", items: {type: "STRING"}, description: "Up to 3 short questions the student could ask you next, written as the student would type them (\"Explain the light reactions\"), never questions for the student"},
     actions: {type: "ARRAY", description: "Things the student can tap to have done in Studyboard. Only when they asked for it or it clearly fits what they attached. Empty otherwise.", items: {type: "OBJECT", properties: {
       type: {type: "STRING", enum: ["flashcards", "quiz", "case_study", "note", "tasks", "edit_tasks", "quick_add", "syllabus", "breakdown", "estimate", "exam_plan", "ask_materials", "summarize_file", "save_file"]},
       target: {type: "STRING", description: "breakdown, exam_plan: the task or exam's title. summarize_file: the file's name in Files."},
@@ -244,6 +244,27 @@
   const CARDS_Q = /\b(make|create|generate|give me|build|write)\b[^?]*\b(flash ?cards?|cards|quiz(zes)?|practice (questions|test)|test me)\b|\bquiz me\b|\btest me\b/i;
   const NOTE_Q = /\b(save|make|write|add|create|put)\b[^?]*\bnote\b/i;
   const CHANGE_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|remind|schedule|start|set|move|change|reschedule|push|rename|delete|remove|mark|cancel|skip|put)\b/i;
+  /* A concept map asked for in the chat: built right away (the sentences are read in code; just a topic goes to the AI), then an
+     Open Map button. "Do it", "make it" after an earlier ask runs that ask. Any AI, not only the device. */
+  const MAP_Q = /\b(concept|mind|idea)[ -]?maps?\b|\bmap (of|about|for|with|where)\b|\bmap\b[^?]*\b(in the (center|middle)|main idea|connected to|linked to)\b/i;
+  const MAP_ASK = /\b(make|create|build|draw|generate|give me|i want|i need|can you|could you|put|add|start|set up)\b|^\s*(a|an|my)\b|\b(in the (center|middle)|main idea is|connected to|linked to)\b/i;
+  const DOIT_Q = /^\s*(ok(ay)?|yes|yeah|yep|sure|please|go ahead|go|do it|do that|make it|make that|create it|build it|just do it|now)\b[^?]{0,40}$|^\s*(can|could|will|would) you (just )?(make|do|create|build|draw|put) (it|that|this|one)\b/i;
+  async function mapAct(q){
+    if (!window.SBCMAP || !SBCMAP.createFrom) return null;
+    const course = (q.match(/\b(?:in|for|under|to) (?:my )?([A-Z][\w&.-]*(?: [A-Z0-9][\w&.-]*){0,3})(?: course| class)?\b/) || [])[1] || "";
+    try {
+      const r = await SBCMAP.createFrom(q.replace(/^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?/i, ""), course);
+      return {answer: `I made ${r.name}${r.ideas ? ` with ${r.ideas} ideas` : ""} in ${r.where}. Tap Open Map to see it; you can drag, rename or add ideas there.`, sources: [], followUps: [], actions: [],
+        mapOpen: {course: r.course, map: r.map, label: "Open Map"}};
+    } catch (e) { return {answer: (e && e.message) || "I couldn't make that map. Try: Photosynthesis in the center, connected to sunlight, water and soil.", sources: [], followUps: [], actions: []}; }
+  }
+  // "do it" after an ask the app can make: that earlier ask, made now
+  function pendingAsk(q, chat){
+    if (!DOIT_Q.test(q)) return "";
+    const prev = ((chat && chat.msgs) || []).filter(x => x.q).slice(-4).reverse();
+    for (const x of prev) if ((MAP_Q.test(x.q) && MAP_ASK.test(x.q)) || CARDS_Q.test(x.q) || NOTE_Q.test(x.q) || CHANGE_Q.test(x.q)) return x.q;
+    return "";
+  }
   async function deviceAct(q, chat, forced){
     const A = window.SBASSIST, TR = window.SBTRUTH; if (!A) return null;
     if (CARDS_Q.test(q)) {
@@ -258,11 +279,20 @@
         actions: [{type: quiz ? "quiz" : "flashcards", label: quiz ? "Make Quiz" : "Make Flashcards", deckName: name, deck: "", target: "", style: "", count: n, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
     }
     if (NOTE_Q.test(q)) {
-      let text = (q.match(/\bnote\b[^:]*:\s*(.+)$/i) || q.match(/\b(?:saying|that says|about)\s+(.+)$/i) || [])[1] || "";
-      if (!text || /^(this|that|it|the (answer|reply))\b/i.test(text) || /\b(this|that)\b\s*(as a note)?\s*$/i.test(q)) { const prev = ((chat && chat.msgs) || []).filter(x => x.a && x.a.answer).slice(-1)[0]; if (prev) text = prev.a.answer; }
+      // the words they gave: quoted, after a colon, or after "put / write / text / saying ..." (with "in it", "on it" dropped)
+      const tail = q.replace(/^.*?\bnote\b/i, " ");
+      const own = (q.match(/["“']([^"”']{1,2000})["”']/) || q.match(/\bnote\b[^:]*:\s*(.+)$/i)
+        || tail.match(/\b(?:put|write|add|type|with|containing|that (?:says|reads)|saying|reading|text|says)\s+(?:the\s+)?(?:text|words?|message)?\s*(?:of\s+)?[:\-]?\s*(.+?)\s*(?:\b(?:in|on|inside) (?:it|the note|there)\b)?[.\s]*$/i)
+        || tail.match(/\b(?:about|on)\s+(.+)$/i) || [])[1] || "";
+      let text = String(own || "").replace(/\s*\b(?:in|on|to) (?:my |the )?(?:board|notes?)\b.*$/i, "").trim();
+      const prevRef = /^(this|that|it|the (answer|reply|last (answer|reply)))\b/i.test(text) || /\b(this|that|your (answer|reply))\b\s*(as a note)?\s*$/i.test(q);
+      if (!text || prevRef) { if (!prevRef && !/\b(this|that|it|answer|reply)\b/i.test(q)) return forced ? null : {answer: "What should the note say? For example: make a note that says Lab moved to Friday.", sources: [], followUps: [], actions: []};
+        const prev = ((chat && chat.msgs) || []).filter(x => x.a && x.a.answer && !(x.a.actions || []).length && !(x.a.changes || []).length && !x.a.mapOpen && (x.a.sources || []).length + String(x.a.answer).length > 60).slice(-1)[0];
+        if (!prev) return {answer: "What should the note say? For example: make a note that says Lab moved to Friday.", sources: [], followUps: [], actions: []};
+        text = prev.a.answer; }
       text = String(text || "").trim();
-      if (text.length < 3) return null;
-      return {answer: "Here's the note. Tap Save Note to put it on your board.", sources: [], followUps: [], actions: [{type: "note", label: "Save Note", deckName: "", deck: "", target: "", style: "", count: 0, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
+      if (!text) return null;
+      return {answer: "Done. I put the note on your board.", sources: [], followUps: [], actions: [{type: "note", label: "Save Note", auto: true, deckName: "", deck: "", target: "", style: "", count: 0, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
     }
     if (CHANGE_Q.test(q) || (A.timerMins && A.timerMins(q))) {
       const res = await A.ask(q, {screen: false});
@@ -291,7 +321,11 @@
       // the AI on the device (98-truth.js): planner facts from the app itself, exact; other answers checked against what it was given
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length ? TR.facts(q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
-      const made = !quick && dev && !att.length ? await deviceAct(q, c) : null;
+      const was = !att.length ? pendingAsk(q, c) : "", q2 = was || q;
+      let made = null;
+      if (att.length && att.some(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || "")) && /\b(add|put|save|pin|stick|place|attach)\b[^?]*\b(note|notes|board)\b/i.test(q)) made = await photoNote(q, att);
+      if (!quick && !att.length && MAP_Q.test(q2) && MAP_ASK.test(q2)) { T.status = "Making your map…"; draw(); made = await mapAct(q2); }
+      if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
       if (quick) m.a = {answer: quick.answer, sources: ["Your planner"], followUps: [], actions: []};
       else if (made) m.a = made;
       else {
@@ -337,7 +371,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
           if (bad.length) d.answer = "I couldn't find a reliable answer to that in your Studyboard" + (ctx.src.some(x => /^Wikipedia/.test(x)) ? " or on Wikipedia" : "") + ". Try asking it another way, or add a key in AI Features for a stronger AI.";
         }
       }
-      m.a = {answer: clip2(d.answer, 8000), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(Boolean).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
+      m.a = {answer: clip2(d.answer, 8000), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(x => x && !/\b(would you like|do you want|would it be helpful|should i|you'd like|your preference|are you|have you|did you|what do you think)\b|^\s*(what|which|how)\b[^?]*\byou\b[^?]*\b(like|want|prefer|need)\b/i.test(x)).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
       if (cat && window.SBASSIST) { const res = SBASSIST.pack(SBASSIST.resolve(d, cat.refs)); if (res.show.length) m.a.show = res.show; if (res.changes.length) m.a.changes = res.changes; }
       if (!m.a.answer) m.a.answer = localAnswer(ctx, null, q).answer;
       if (r.local) m.a.local = true;
@@ -350,6 +384,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
     fresh.sort((a, b) => b.at - a.at); wr(fresh);
     T.busy = null; T.status = ""; T.live = ""; draw(); say();
+    // made right away when the student asked for it in so many words (a note with its text)
+    if (m.a && m.a.actions) m.a.actions.forEach((x, i) => { if (x.auto && !x.done) runAction({dataset: {m: String(m.at), i: String(i)}}); });
     try { if (m.a && window.SBCOMP) { SBCOMP.cheer && 0; } } catch (e) {}
   }
   const clip2 = (s, n) => String(s == null ? "" : s).trim().slice(0, n);
@@ -375,10 +411,13 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const me = info() || {};
     const acts = m.a && m.a.actions && m.a.actions.length ? `<div class="cpt-actions">${m.a.actions.map((a, i) => `<div class="cpt-action"><span class="cpt-action-t">${esc(a.label)}</span>${a.done ? `<span class="mini cpt-done">${esc(a.done)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-do" data-m="${esc(String(m.at))}" data-i="${i}">${ACT_BTN[a.type] || "Make It"}</button>`}${a.deckId && state.decks[a.deckId] ? `<button type="button" class="btn small" data-act="cpt-open-deck" data-id="${esc(a.deckId)}">Open Deck</button>` : ""}</div>`).join("")}</div>` : "";
     const found = m.a && m.a.show && m.a.show.length ? `<div class="cpt-show">${m.a.show.map((t, i) => `<button type="button" class="chip cpt-show-b" data-act="cpt-show" data-m="${esc(String(m.at))}" data-i="${i}">${esc(t.label || "Show")}<span aria-hidden="true"> →</span></button>`).join("")}</div>` : "";
-    const chg = m.a && m.a.changes && m.a.changes.length ? `<div class="cpt-actions"><div class="cpt-action"><span class="cpt-action-t">${m.a.changes.length === 1 ? esc(`${m.a.changes[0].what}: ${m.a.changes[0].label}`) : `${m.a.changes.length} changes`}</span>${m.a.changesDone ? `<span class="mini cpt-done">${esc(m.a.changesDone)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-change" data-m="${esc(String(m.at))}">Review ${m.a.changes.length === 1 ? "Change" : "Changes"}</button>`}</div></div>` : "";
+    const adds = m.a && m.a.changes && m.a.changes.length && m.a.changes.every(x => x.t && x.t.kind === "newtask");
+    const chg = m.a && m.a.changes && m.a.changes.length ? `<div class="cpt-actions">${adds ? m.a.changes.map(x => `<div class="cpt-action"><span class="cpt-action-t">${esc(x.label)}${x.to ? `<span class="mini cpt-action-d"> · ${esc(x.to)}</span>` : ""}</span></div>`).join("") + `<div class="cpt-action">${m.a.changesDone ? `<span class="mini cpt-done">${esc(m.a.changesDone)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-change" data-m="${esc(String(m.at))}">Add ${m.a.changes.length === 1 ? "Task" : m.a.changes.length + " Tasks"}</button>`}</div>`
+      : `<div class="cpt-action"><span class="cpt-action-t">${m.a.changes.length === 1 ? esc(`${m.a.changes[0].what}: ${m.a.changes[0].label}`) : `${m.a.changes.length} changes`}</span>${m.a.changesDone ? `<span class="mini cpt-done">${esc(m.a.changesDone)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-change" data-m="${esc(String(m.at))}">Review ${m.a.changes.length === 1 ? "Change" : "Changes"}</button>`}</div>`}</div>` : "";
+    const mapBtn = m.a && m.a.mapOpen ? `<div class="cpt-actions"><div class="cpt-action"><span class="cpt-action-t">Concept map ready</span><button type="button" class="btn small primary" data-act="cpt-open-map" data-m="${esc(String(m.at))}">${esc(m.a.mapOpen.label || "Open Map")}</button></div></div>` : "";
     return `<div class="cpt-q">${esc(m.q)}${m.files && m.files.length ? `<div class="cpt-qf">${m.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}</div>
       <div class="cpt-a">${m.err ? errHtml(m) : `${miniMd(m.a.answer)}
-        ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${found}${chg}${acts}`}
+        ${m.a.sources && m.a.sources.length ? `<details class="cpt-srcd"><summary>Looked at ${m.a.sources.length} ${m.a.sources.length === 1 ? "thing" : "things"}</summary><div class="cpt-src">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div></details>` : ""}${found}${chg}${mapBtn}${acts}`}
         ${m.a && !m.err ? `<div class="cpt-acts"><button type="button" class="link-btn" data-act="cpt-note" data-id="${esc(String(m.at))}">Save This Reply</button><button type="button" class="link-btn" data-ai-report="companion-chat" data-ai-text="${esc(String(m.a.answer || "").slice(0, 1400))}">Report Response</button></div>` : ""}</div>`;
   }
   function logHtml(){
@@ -433,11 +472,25 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const n = normNote({id: uid(), board: boardId, text: text.slice(0, 8000), color: "yellow", x: 40 + col * (NOTE_W() + 30) + Math.round(Math.random() * 20), y: 40 + row * 240 + Math.round(Math.random() * 20), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10, courseId: courseId || "", created: Date.now()});
     applyChanges([{kind: "note", id: n.id, after: n}], null); return n;
   }
+  // photos attached in the chat with "add this to my note board": a new note on the board holding them (photos in notes are Pro)
+  async function photoNote(q, att){
+    const imgs = att.filter(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || ""));
+    const NP = window.__sbNotePhotos;
+    if (!NP || (window.SBPRO && SBPRO.locked && SBPRO.locked())) return {answer: "Photos on notes are part of Studyboard Pro. I can turn the photo into typed notes instead: ask \"make notes from this photo\".", sources: [], followUps: [], actions: []};
+    const cap = ((q.match(/\b(?:saying|that says|caption(?:ed)?|titled|called)\s+(.+)$/i) || [])[1] || "").trim();
+    const b = boardFor("", null), n = addNoteTo(b.id, cap, "");
+    await NP.addPhotos(n.id, imgs.map(fileFrom));
+    const ok = state.notes[n.id] && (state.notes[n.id].photos || []).length;
+    if (!ok) { if (state.notes[n.id] && !cap) applyChanges([{kind: "note", id: n.id, after: null}], null); return {answer: "I couldn't save that photo to a note. Try adding it from the note itself (the photo button).", sources: [], followUps: [], actions: []}; }
+    if (b.id) { ui.noteBoard = b.id; try { localStorage.setItem(NB_KEY, b.id); } catch (e) {} }
+    return {answer: `Done. The photo is on a new note in ${b.name}.`, sources: [], followUps: [], actions: [{type: "open_notes", label: "Open Notes", done: "", deckName: "", deck: "", target: "", style: "", count: 0, course: "", board: b.id, noteTitle: "", text: ""}]};
+  }
   async function runAction(el){
     const chats = rd(), c = chats.find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === el.dataset.m), a = m && m.a && m.a.actions && m.a.actions[Number(el.dataset.i)];
     if (!a || a.done) return;
     const course = findCourse(a.course), mark = txt => { a.done = txt; wr(chats); draw(); };
     try {
+      if (a.type === "open_notes") { ui.tab = "notes"; render(); window.scrollTo(0, 0); return; }
       if (a.type === "note") {
         const b = boardFor(a.board, course), text = (a.noteTitle ? a.noteTitle + "\n\n" : "") + a.text;
         addNoteTo(b.id, text, course ? course.id : "");
@@ -583,7 +636,17 @@ You can also DO things in Studyboard, but only when the student asks or what the
         const chats = rd(), c = chats.find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === el.dataset.m);
         if (!m || !m.a || !window.SBASSIST) return true;
         if (act === "cpt-show") { const t = (m.a.show || [])[Number(el.dataset.i) || 0]; if (t) SBASSIST.jump(t, {open: true}); return true; }
+        if ((m.a.changes || []).length && m.a.changes.every(x => x.t && x.t.kind === "newtask")) {
+          const n = SBASSIST.addNow(m.a.changes); m.a.changesDone = n ? `Added ${n === 1 ? "to your board" : n + " tasks"}` : "Already added"; wr(chats); draw();
+          if (n) toast(n === 1 ? "Task added" : `Added ${n} tasks`, null, {label: "Open", fn: () => { ui.tab = "board"; render(); window.scrollTo(0, 0); }});
+          return true;
+        }
         SBASSIST.propose(m.a.changes || []).then(ok => { if (!ok) return; const all = rd(), cc = all.find(x => x.id === T.id), mm = cc && cc.msgs.find(x => String(x.at) === el.dataset.m); if (mm && mm.a) { mm.a.changesDone = "Reviewed"; wr(all); } });
+        return true;
+      }
+      case "cpt-open-map": {
+        const chats = rd(), c = chats.find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === el.dataset.m), o = m && m.a && m.a.mapOpen;
+        if (o && window.SBCMAP) SBCMAP.open("course", o.course, o.map);
         return true;
       }
       case "cpt-open-deck": ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); return true;

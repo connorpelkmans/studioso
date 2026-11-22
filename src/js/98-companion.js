@@ -1350,6 +1350,8 @@
       if (!thinkWant) return;
       const bb = front && front.querySelector(".cp-bubble");
       if (!bb || !cur || !box || box.hidden || document.hidden) { thinkT = setTimeout(show, 800); return; }
+      // the chat tab shows its own "working" line, and the floating dots would slide under Mochi as the chat scrolls
+      if (ui.tab === "companion") { if (bb.classList.contains("cp-think")) bb.classList.remove("on", "cp-think"); thinkT = setTimeout(show, 800); return; }
       if (bb.classList.contains("cp-think")) { bb.classList.add("on"); return; }
       if (bb.classList.contains("cp-think") && bb.classList.contains("on")) return;
       // something else is being said or asked: wait for it
