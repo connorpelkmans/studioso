@@ -100,6 +100,7 @@ function fake(o){
     await sheet(R.p); await R.p.waitForSelector("#dlg[open] #aiGo");
     await R.p.evaluate(t => { const d = document.querySelector("#dlg details"); if (d) d.open = true; const a = document.querySelector("#aiPaste"); a.value = t; a.dispatchEvent(new Event("input", {bubbles: true})); }, NOTES.slice(0, 1200));
     await R.p.click("#aiGo");
+    await R.p.waitForSelector("dialog.dev-ai-ask[open]", {timeout: 3000}); await R.p.click("dialog.dev-ai-ask[open] [data-yes]");
     await R.p.waitForFunction(() => { const e = document.getElementById("devDlPill"); return e && e.classList.contains("show") && /\d+%/.test(e.textContent); }, null, {timeout: 5000}).catch(() => {});
     const pill = await R.p.evaluate(() => { const e = document.getElementById("devDlPill"); return e ? e.textContent : ""; });
     ok(/Chrome is downloading its free AI \(one time only\): \d+%/.test(pill), "Chrome's one-time download says so, with its progress: " + pill);

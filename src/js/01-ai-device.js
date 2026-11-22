@@ -107,7 +107,7 @@ document.addEventListener("click", e => {
   if (!e.isTrusted || DEVAI.kind !== "chrome" || DEVAI.status === "available" || !devUsable()) return;
   const el = e.target && e.target.closest && e.target.closest("[data-act]"); if (!el) return;
   try { const c = aiCfg(); if (c.provider !== "device") return; } catch (x) { return; }
-  if (DEV_AI_ACT.test(el.dataset.act || "")) devWarm();
+  if (DEV_AI_ACT.test(el.dataset.act || "") && (devLs.get(DEV_OK) || devLs.get(DEV_HAD))) devWarm();
 }, true);
 
 // base64 picture (from a part's inline_data) to a Blob, for Chrome
@@ -279,10 +279,9 @@ async function webCached(m){
 function webAsk(m){
   return new Promise(done => {
     const d = document.createElement("dialog"); d.className = "ai-consent web-ai-ask"; d.setAttribute("aria-labelledby", "webAskT");
-    d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="webAskT">Download Free AI to This Computer?</h2></div>
-      <div class="sheet-body"><p style="margin:0">Studyboard can run Google's free ${esc(m.name)} AI right on this computer. It's private: nothing you give it leaves this computer.</p>
-        <p style="margin:0">It's a <b>one-time download of about ${m.gb} GB</b> (Wi-Fi recommended). After that it starts in seconds and works offline.</p></div>
-      <div class="sheet-foot"><button type="button" class="btn" data-key>Use an AI Key Instead</button><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>Download</button></div></div>`;
+    d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="webAskT">Turn On Free AI?</h2></div>
+      <div class="sheet-body"><p style="margin:0">Studyboard uses ${esc(m.name)}, Google's free AI. It downloads once (about ${m.gb} GB, Wi-Fi recommended), then runs on this computer. It's private: what you add stays here.</p></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-key>Use an AI Key Instead</button><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>Turn On</button></div></div>`;
     const fin = v => { try { d.close(); } catch (e) {} d.remove(); done(v); };
     d.addEventListener("cancel", e => { e.preventDefault(); fin("no"); });
     d.querySelector("[data-yes]").addEventListener("click", () => fin("yes"));
@@ -410,11 +409,39 @@ function devPrewarm(sys){
     else if (DEVAI.kind === "webllm") webEngine().then(() => webRest(), () => {});
   } catch (e) {}
 }
+/* Before Chrome's (or Edge's) one-time download: a short question, from the first AI button. Yes starts the download in the
+   background (the message at the bottom shows its progress) and the request carries on once it's ready; remembered after that. */
+const DEV_OK = "studyboard:devAIOk";
+function devAsk(){
+  return new Promise(done => {
+    const edge = devBrowser() === "Edge", who = edge ? "Microsoft's AI built into Edge" : "Google's AI built into Chrome";
+    const d = document.createElement("dialog"); d.className = "ai-consent dev-ai-ask"; d.setAttribute("aria-labelledby", "devAskT");
+    d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="devAskT">Turn On Free AI?</h2></div>
+      <div class="sheet-body"><p style="margin:0">Studyboard uses ${who}. ${edge ? "Edge" : "Chrome"} downloads it once, in the background. It's free and private: what you add stays on this computer.</p></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>Turn On</button></div></div>`;
+    const fin = v => { try { d.close(); } catch (e) {} d.remove(); done(v); };
+    d.addEventListener("cancel", e => { e.preventDefault(); fin(null); });
+    // the download starts inside the click itself: Chrome only allows it from a tap
+    d.querySelector("[data-yes]").addEventListener("click", () => { devLs.set(DEV_OK, "1"); const w = devWarm(); fin(w || null); });
+    d.querySelector("[data-no]").addEventListener("click", () => fin(null));
+    document.body.appendChild(d); d.showModal();
+    setTimeout(() => { const b = d.querySelector("[data-yes]"); if (b) b.focus(); }, 30);
+  });
+}
 async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
   const L = devLabel();
   if (DEVAI.status !== "available") {
     if (auto) throw aiErr("auto-off", `${L} isn't ready yet.`);
-    const w = devWarm();
+    // (a student who had it before, until Chrome removed it, already said yes)
+    let w = devLs.get(DEV_OK) || devLs.get(DEV_HAD) ? devWarm() : null;
+    // just said Not Now (the quiz after the cards, the next part): not asked again in the same go
+    if (!w && !DEVAI.warm && Date.now() - (DEVAI.notNow || 0) < 90000) throw aiErr("no-consent", `${L} wasn't turned on. You can turn it on any time from an AI button, or add a free key in Settings, AI Features.`);
+    if (!w && !DEVAI.warm) {
+      w = await devAsk();
+      if (!w && !devLs.get(DEV_OK)) DEVAI.notNow = Date.now();
+      if (!w && !devLs.get(DEV_OK) && !DEVAI.warm) throw aiErr("no-consent", `${L} wasn't turned on. You can turn it on any time from an AI button, or add a free key in Settings, AI Features.`);
+    }
+    w = w || DEVAI.warm;
     if (!w) throw aiErr("device-tap", `${L} needs a one-time download first. Tap the button again to start it.`);
     const tick = () => onStatus && onStatus(`${DEVAI.why === "removed" ? `Chrome removed ${L} to free up disk space, so it's downloading again` : `Getting ${L} ready on this computer (one time only)`}${DEVAI.progress ? `: ${Math.round(DEVAI.progress * 100)}%` : "…"}`);
     tick(); const iv = setInterval(tick, 1000);

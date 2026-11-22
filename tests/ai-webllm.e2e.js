@@ -59,7 +59,7 @@ const stubs = o => {
     const pending = ask(R.p);
     await R.p.waitForSelector("dialog.web-ai-ask[open]", {timeout: 5000});
     const dt = await R.p.evaluate(() => document.querySelector("dialog.web-ai-ask").innerText);
-    ok(/Download Free AI to This Computer\?/.test(dt) && /Gemma 4/.test(dt) && /about 2\.8 GB/.test(dt) && /nothing you give it leaves this computer/.test(dt), "the first AI use asks first, saying what, how big, and that it stays on the computer");
+    ok(/Turn On Free AI\?/.test(dt) && /Gemma 4, Google's free AI/.test(dt) && /about 2\.8 GB/.test(dt) && /what you add stays here/.test(dt) && dt.length < 400, "the first AI use asks first, briefly: Google's Gemma, how big, and that it stays on the computer");
     ok(await R.p.evaluate(() => window.__webLog.loads.length === 0), "nothing is downloaded before the student agrees");
     await R.p.click("dialog.web-ai-ask [data-yes]");
     const r = await pending;

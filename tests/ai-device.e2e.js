@@ -71,6 +71,9 @@ function fakeChrome(opts){
     await p.evaluate(t => { const d = document.querySelector("#dlg details"); if (d) d.open = true; const a = document.querySelector("#aiPaste"); a.value = t; a.dispatchEvent(new Event("input", {bubbles: true})); }, paste);
     await p.evaluate(want => { const q = document.querySelector("#aiQuiz"); if (q && q.checked !== want) q.click(); }, quiz);
     await p.click("#aiGo");
+    // the one-time question before Chrome's download (only when it still has to download and wasn't agreed to before)
+    const askEl = await p.waitForSelector("dialog.dev-ai-ask[open]", {timeout: 1500}).catch(() => null);
+    if (askEl) { p.lastAsk = await askEl.innerText(); await p.click("dialog.dev-ai-ask[open] [data-yes]"); }
     await p.waitForSelector("dialog[open] #arSave", {timeout: 30000}).catch(() => {});
     return p.evaluate(() => ({cards: [...document.querySelectorAll("#arCards li")].map(li => ({front: (li.querySelector('[data-f="front"]') || {}).value || "", back: (li.querySelector('[data-f="back"]') || {}).value || "", text: li.innerText})),
       qs: document.querySelectorAll("#arQs li, .ar-qs li").length, all: (document.querySelector("dialog[open]") || {}).innerText || "", log: window.__devLog}));
@@ -126,10 +129,21 @@ function fakeChrome(opts){
     ok(await R.p.evaluate(() => window.__sbDevAI.cfg().provider === "device"), "a model that still has to download counts as ready (it downloads on first use)");
     const out = await makeSet(R.p, {paste: "Glycolysis splits glucose into two pyruvate in the cytoplasm and makes a little ATP and NADH. It happens in every cell and needs no oxygen at all.", quiz: false});
     const first = out.log.creates[0] || {};
-    ok(first.monitor && first.activation, "the download starts from the student's click, with a progress monitor");
+    ok(/Turn On Free AI\?/.test(R.p.lastAsk || "") && /Google's AI built into Chrome/.test(R.p.lastAsk) && /downloads it once, in the background/.test(R.p.lastAsk) && R.p.lastAsk.length < 320, "first, a short question that names Google's AI in Chrome: " + (R.p.lastAsk || "").replace(/\n/g, " "));
+    ok(first.monitor && first.activation, "Turn On starts the download (from that tap), with a progress monitor");
     ok(await R.p.evaluate(() => window.__sbDevAI.state.status === "available"), "and then the model is ready");
     ok(out.cards.length >= 1, "the cards come back once it's ready: " + out.cards.length + " " + out.all.slice(0, 300));
     ok(!R.p.errs.length, "no page errors: " + R.p.errs.join(" | "));
+    await R.ctx.close(); }
+
+  // 3b. Not Now: nothing downloads, and the student is told how to turn it on later; asked again next time
+  { const R = await open({status: "downloadable"});
+    await R.p.evaluate(() => { const S = window.__sbSync; S.ui.filter = "c1"; S.ui.tab = "flashcards"; S.render(); const x = document.createElement("button"); x.dataset.act = "fc-ai"; document.body.appendChild(x); x.click(); x.remove(); });
+    await R.p.waitForSelector("#dlg[open] #aiGo");
+    await R.p.evaluate(t => { const d = document.querySelector("#dlg details"); if (d) d.open = true; const a = document.querySelector("#aiPaste"); a.value = t; a.dispatchEvent(new Event("input", {bubbles: true})); }, "Glycolysis splits glucose into two pyruvate in the cytoplasm and makes a little ATP and NADH.");
+    await R.p.click("#aiGo"); await R.p.waitForSelector("dialog.dev-ai-ask[open]", {timeout: 3000}); await R.p.click("dialog.dev-ai-ask[open] [data-no]"); await R.p.waitForTimeout(500);
+    const st = await R.p.evaluate(() => ({creates: window.__devLog.creates.length, status: (document.querySelector("#aiStatus") || {}).textContent || ""}));
+    ok(st.creates === 0 && /wasn't turned on/.test(st.status), "Not Now: nothing downloads, and it says how to turn it on later: " + st.status);
     await R.ctx.close(); }
 
   // 4. A small context: long material is cut to fit, never sent over the limit
