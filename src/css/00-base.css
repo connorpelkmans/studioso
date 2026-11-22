@@ -2750,3 +2750,5 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;curs
 .ai-ready-sheet .sh-ring > *,.ai-ready-sheet .sh-ring img,.ai-ready-sheet .sh-ring svg{width:70%!important;height:70%!important;max-width:none!important;max-height:none!important;object-fit:contain}
 .ai-ready-sheet .sh-ring{display:grid!important;place-items:center!important}.ai-ready-sheet .sh-ring > *{margin:auto!important;position:static!important}
 .ai-ready-sheet .sh-ring .cp-ai-face{width:74%!important;height:74%!important;display:block!important;transform:none!important;inset:auto!important}.ai-ready-sheet .sh-ring .cp-ai-face svg{width:100%!important;height:100%!important;display:block}
+.ai-ready-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ai-ready-line > span{flex:1;min-width:200px}

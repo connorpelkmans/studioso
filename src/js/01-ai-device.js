@@ -573,7 +573,7 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
 const AI_READY_ASKED = "studyboard:aiReadyAsked";
 function aiReadyWhich(){
   try {
-    if (!devAllowed() || devLs.get(AI_READY_ASKED) === "1" || (window.__SB_TEST && !window.__SB_AI_READY_TEST)) return null;
+    if (!devAllowed() || (devLs.get(AI_READY_ASKED) && !aiReadyWhich.again) || (window.__SB_TEST && !window.__SB_AI_READY_TEST)) return null;
     // (not with a key or Studyboard AI: those don't need anything downloaded)
     const c = aiCfg(); if (c.provider !== "device" && c.key) return null;
   } catch (e) { return null; }
@@ -605,7 +605,8 @@ function aiReadyStart(w){
 // Shows the page and returns true (then() runs after the student picks); false when there's nothing to get ready
 function aiReadyFirst(then){
   const w = aiReadyWhich(); if (!w) return false;
-  devLs.set(AI_READY_ASKED, "1"); window.__SB_E4B_ASKED = true;
+  // (closed with ✕ counts as Not Now)
+  devLs.set(AI_READY_ASKED, "no"); window.__SB_E4B_ASKED = true;
   const size = w.gb ? `about ${w.gb} GB` : "a one-time download", where = w.kind === "chrome" ? `${devBrowser()} downloads it` : "Studyboard downloads it";
   openSheet(`<form class="sheet ai-ready-sheet">${typeof bandHead === "function" ? bandHead("Get Your Free AI Ready", AI_ICON, "var(--accent-band,var(--accent))", "") : `<div class="sheet-head"><h2>Get Your Free AI Ready</h2></div>`}
     <div class="sheet-body">
@@ -619,12 +620,29 @@ function aiReadyFirst(then){
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-ready="no">Not Now</button><span class="spacer"></span><button type="button" class="btn primary" data-ready="yes">Get It Ready</button></div>
   </form>`);
-  const go = yes => { if (yes) aiReadyStart(w); else if (w.kind === "e4b") devLs.set(E4B_ON, ""); try { dlg.close(); } catch (e) {} setTimeout(() => { try { then && then(); } catch (e) { console.warn(e); } }, 60); };
+  const go = yes => { devLs.set(AI_READY_ASKED, yes ? "1" : "no"); if (yes) aiReadyStart(w); else if (w.kind === "e4b") devLs.set(E4B_ON, ""); try { dlg.close(); } catch (e) {} setTimeout(() => { try { then && then(); } catch (e) { console.warn(e); } }, 60); };
   // (the download starts inside the tap itself: Chrome only starts its model's download from a tap)
   dlg.querySelector('[data-ready="yes"]').addEventListener("click", () => go(true));
   dlg.querySelector('[data-ready="no"]').addEventListener("click", () => go(false));
   return true;
 }
+// Said Not Now on that page: offered once more, as one line, on the setup's last step ("Here is your week"), when the student has
+// just seen their semester come together. Never again after that.
+function aiReadyLine(){
+  // (kept while this step is open: the step redraws as the student changes things)
+  if (!(devLs.get(AI_READY_ASKED) === "no" || (devLs.get(AI_READY_ASKED) === "again" && window.__sbReadyLine))) return "";
+  aiReadyWhich.again = true; let w; try { w = aiReadyWhich(); } finally { aiReadyWhich.again = false; }
+  if (!w) return "";
+  devLs.set(AI_READY_ASKED, "again"); window.__sbReadyLine = true;
+  return `<p class="sem-lead ai-ready-line">${AI_ICON}<span>Want the free AI helper ready for studying this week? It gets set up in the background${w.gb ? ` (about ${w.gb} GB, best on Wi-Fi)` : ""}.</span><button type="button" class="btn small primary" data-ready-line>Get It Ready</button></p>`;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-ready-line]"); if (!b) return;
+  aiReadyWhich.again = true; let w; try { devLs.set(AI_READY_ASKED, ""); w = aiReadyWhich(); } finally { aiReadyWhich.again = false; devLs.set(AI_READY_ASKED, "1"); }
+  if (w) aiReadyStart(w);
+  window.__sbReadyLine = false;
+  const line = b.closest(".ai-ready-line"); if (line) line.innerHTML = `${AI_ICON}<span>Getting it ready in the background. It's there when you need it.</span>`;
+});
 /* One Chrome session per set of instructions, kept for three minutes and copied (clone) for each request: the long
    instructions and examples are read once, not again for every part of the notes (on a laptop running the model on its processor
    that reading takes several seconds a request). Each copy is thrown away after its answer, so requests never see each other. */

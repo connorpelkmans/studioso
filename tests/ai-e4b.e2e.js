@@ -107,6 +107,25 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     ok(!(await p.$("dialog[open] .ai-ready-sheet")), "it's asked once: the next time, the setup opens straight away");
     ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
     await c2.close(); }
+  // 7. Not Now: offered once more, as one line on the setup's last step, and never again
+  { const c3 = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
+    await c3.addInitScript(() => { window.__SB_AI_READY_TEST = true; });
+    const P = await open({fits: true}, c3), p = P.p;
+    await p.evaluate(() => window.SBSEM.open()); await p.waitForSelector("dialog[open] .ai-ready-sheet", {timeout: 5000}).catch(() => {});
+    await p.click('[data-ready="no"]'); await p.waitForTimeout(600);
+    ok(await p.evaluate(() => localStorage.getItem("studyboard:e4bOn") !== "1"), "Not Now downloads nothing");
+    const week = () => p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); window.SBSEM.open(); });
+    await p.evaluate(() => { const st = JSON.parse(localStorage.getItem("studyboard:semSetup") || "null"); });
+    // straight to the last step
+    await p.evaluate(() => { const d = document.querySelector("dialog[open]"); for (let i = 0; i < 6 && d; i++) { const n = [...d.querySelectorAll("button")].find(x => /^(Next|Skip This Step)$/.test(x.textContent.trim())); if (!n) break; n.click(); } });
+    await p.waitForTimeout(800);
+    let line = await p.evaluate(() => (document.querySelector(".ai-ready-line") || {}).innerText || "");
+    ok(/Want the free AI helper ready/.test(line) && /Get It Ready/.test(line), "the last step offers it once more, in one line: " + line.replace(/\n/g, " "));
+    await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); }); await p.reload(); await p.waitForFunction(() => window.SBSEM && window.__sbDevAI, null, {timeout: 30000}); await p.waitForTimeout(1200);
+    await p.evaluate(() => window.SBSEM.open({restart: true})); await p.waitForTimeout(500);
+    ok(!(await p.$("dialog[open] .ai-ready-sheet")), "and after that the page isn't shown again");
+    ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
+    await c3.close(); }
   // 6. The service worker keeps the downloaded models on an update (it used to delete every cache but its own)
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   ok(/caches\.delete\(k\)/.test(sw) && /\^\(studyboard\|studioso\)-v\\d\+\$/.test(sw), "an app update clears only the app's own old caches, never a downloaded model");
