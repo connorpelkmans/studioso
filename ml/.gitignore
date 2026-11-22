@@ -13,3 +13,4 @@ eval/out/
 eval/reports/*/details.json
 __pycache__/
 data/splits/train.jsonl
+prune/work/
