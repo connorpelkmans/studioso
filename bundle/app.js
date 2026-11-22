@@ -6403,6 +6403,7 @@ function aiSetupSheet(fromFeature, opts){
       ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : DEVAI.kind === "webllm" ? ` The first time you use it, Studyboard asks before downloading it once (about ${DEVAI.web ? DEVAI.web.gb : 3} GB).` : ` The first time you use it, ${devBrowser()} downloads it once.`}</p>
         <label class="mi-check" style="margin:0"><input type="checkbox" id="aiWebLookup" ${(() => { try { return localStorage.getItem("studyboard:webLookupOff") === "1" ? "" : "checked"; } catch (e) { return "checked"; } })()}><span>Look Things Up on the Web<span class="sub">For general questions, and features that need the web: Wikipedia, Wiktionary and research papers (OpenAlex). Only the search words leave this device.</span></span></label>
         <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can search the whole web.</p></div>` : ""}
+      ${!pro && typeof e4bRow === "function" ? e4bRow() : ""}
       ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
         <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
       ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
@@ -6919,7 +6920,7 @@ const devLangs = () => { const l = String(navigator.language || "en").slice(0, 2
 const devOpts = img => ({expectedInputs: [{type: "text", languages: devLangs()}].concat(img ? [{type: "image"}] : []), expectedOutputs: [{type: "text", languages: devLangs()}]});
 // Edge has the same built-in AI interface as Chrome (with Microsoft's own model): it's named as Edge's
 const devBrowser = () => { try { const b = navigator.userAgentData && navigator.userAgentData.brands; if (b && b.some(x => /Microsoft Edge/i.test(x.brand))) return "Edge"; } catch (e) {} return /\bEdg\//.test(navigator.userAgent || "") ? "Edge" : "Chrome"; };
-const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : DEVAI.kind === "webllm" ? "Studyboard's on-device AI" : `${devBrowser()}'s built-in AI`;
+const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : DEVAI.kind === "webllm" || DEVAI.kind === "litert" ? "Studyboard's on-device AI" : `${devBrowser()}'s built-in AI`;
 // Phones and tablets: only the small model, and only with enough memory. An iPhone's browser doesn't say how much it has (and the
 // iPhone app uses Apple's own AI), so Safari on an iPhone gets none; an iPad gets the small one
 const devPhone = () => { try { if (navigator.userAgentData && navigator.userAgentData.mobile) return true; } catch (e) {} return /iPhone|iPod|Android.*Mobile/i.test(navigator.userAgent || ""); };
@@ -6942,7 +6943,11 @@ async function devProbe(){
   DEVAI.probing = (async () => {
     const before = DEVAI.status;
     try {
+      // (after the rest of the app has loaded: the first probe starts while it's still being read)
+      await null;
       if (!devAllowed()) { DEVAI.status = ""; return; }
+      // Gemma 4 E4B, once it's downloaded on a computer that runs it, is used ahead of the rest
+      if (devLs.get(E4B_READY) === "1" && devLs.get(E4B_FAIL) !== "1" && await e4bFits() && await e4bReadyNow(false)) return;
       const N = devNative();
       if (N) {
         const r = await N.availability();
@@ -6955,11 +6960,14 @@ async function devProbe(){
         if (!devUsable() && await webProbe()) {} else devNoteState();
       } else if (!(await webProbe())) DEVAI.status = "";
     } catch (e) { DEVAI.status = "unavailable"; }
-    finally { DEVAI.probing = null; if (DEVAI.status !== before) { try { scheduleRender(); } catch (e) {} } }
+    finally {
+      // finished downloading while this probe was running: it stays the one used
+      if (DEVAI.e4b === "ready") { DEVAI.kind = "litert"; DEVAI.status = "available"; DEVAI.ctx = E4B.ctx; DEVAI.images = false; DEVAI.why = ""; }
+      DEVAI.probing = null; if (DEVAI.status !== before) { try { scheduleRender(); } catch (e) {} } }
   })();
   return DEVAI.probing;
 }
-devProbe();
+devProbe().then(() => { if (DEVAI.kind !== "litert" && devLs.get(E4B_FAIL) !== "1") e4bCheck(); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && DEVAI.status && DEVAI.status !== "available") devProbe(); });
 
 /* Why Chrome's built-in AI isn't ready, for the student. Chrome doesn't say why it reports the model missing, so Studyboard
@@ -7084,6 +7092,7 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   const sys = String(system || "") + DEV_TAIL, json = toJsonSchema(schema || {type: "OBJECT"});
   const out = Math.min(Number(maxTokens) || 1500, 1800);
   if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
+  if (DEVAI.kind === "litert") return devLite({sys, parts, json, out: Math.min(Number(maxTokens) || 1500, 2000), temperature, signal, onStatus});
   if (DEVAI.kind === "webllm") return devWeb({sys, parts, json, out, temperature, signal, onStatus, auto});
   return devChrome({sys, parts, json, out, signal, onStatus, onPartial, auto, pics: pics.length > 0});
 }
@@ -7257,6 +7266,209 @@ async function devWeb({sys, parts, json, out, temperature, signal, onStatus, aut
     }
   } finally { if (signal) signal.removeEventListener("abort", stop); webRest(); }
 }
+/* ---------- The stronger on-device AI: Gemma 4 E4B, for computers with 16 GB of memory or more ----------
+   Google's Gemma 4 E4B (Apache 2.0, 3.3 GB), run by LiteRT-LM (vendor/litertlm-0.19.0) on the graphics chip. Clearly better than
+   E2B or Chrome's built-in AI at following instructions and at reasoning (MMLU-Pro 69% against E2B's 60%), so on a computer that
+   can hold it, it's the AI everything uses once it's downloaded. Until then the student keeps using what they have (Chrome's AI, or
+   E2B), and nothing waits on the download.
+   The download, after one "yes":
+   - Desktop app: done by the app itself (main.js), into its own folder: it keeps going with the window closed, resumes after sleep
+     or a lost connection, and the browser can never clear it.
+   - Chrome and Edge: Background Fetch (sw.js), so the browser downloads it even after the tab is closed, with its own progress.
+   - Other browsers: in 64 MB parts while Studyboard is open, picking up where it stopped.
+   Only on Wi-Fi (or a connection that isn't metered) with Data Saver off, only with room to spare, and the storage is marked
+   persistent so the browser doesn't clear it to free space. */
+const E4B = {url: "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-gpu.litertlm", size: 3310938740, gb: 3.3, name: "Gemma 4",
+  sha256: "ea168f5a601b543e02712f9381f26b06ddc7d4cbe2406410387c82d69b995a60", ctx: 8192, part: 64 * 1024 * 1024, cache: "studyboard-ai-e4b", bg: "studyboard-ai-e4b",
+  wasmCdn: "https://cdn.jsdelivr.net/npm/@litert-lm/core@0.19.0/wasm", dir: "vendor/litertlm-0.19.0/"};
+const E4B_ON = "studyboard:e4bOn", E4B_READY = "studyboard:e4bReady", E4B_FAIL = "studyboard:e4bFail";
+const e4bDesk = () => { try { return window.studiosoDesktop && window.studiosoDesktop.aiModel ? window.studiosoDesktop.aiModel : null; } catch (e) { return null; } };
+const e4bParts = () => Math.ceil(E4B.size / E4B.part);
+// each part's key in the cache (a query, not a #fragment: the cache ignores fragments)
+const e4bKey = i => `${E4B.url}?studyboard-part=${i}`;
+// Memory: the desktop app knows exactly; Chrome and Edge 147+ say 16 or 32 on desktops (older ones stop at 8); others don't say
+async function e4bMemGB(){
+  const D = e4bDesk(); if (D) { try { const i = await D.info(); if (i && i.ram) return i.ram / 1073741824; } catch (e) {} }
+  return Number(navigator.deviceMemory) || 0;
+}
+// Can this computer run it? A desktop or laptop with 16 GB (15 GB or more counts: 16 GB machines report a little under), a graphics
+// chip with WebGPU and 16-bit shaders, and room in its buffers for the model's layers
+async function e4bFits(){
+  if (window.__SB_TEST && window.__SB_E4B_STUB) return !!window.__SB_E4B_STUB.fits;
+  try {
+    if (!devAllowed() || devNative() || devPhone() || devTablet()) return false;
+    if ((await e4bMemGB()) < 15) return false;
+    const gpu = webGpu(); if (!gpu) return false;
+    const ad = await gpu.requestAdapter(); if (!ad) return false;
+    return !!(ad.features && ad.features.has && ad.features.has("shader-f16")) && (ad.limits.maxBufferSize || 0) >= 268435456 && (ad.limits.maxStorageBufferBindingSize || 0) >= 134217728;
+  } catch (e) { return false; }
+}
+// How much is downloaded (0 to 1), and whether all of it is
+async function e4bHave(){
+  const D = e4bDesk();
+  if (D) { try { const i = await D.info(); return i && i.size ? Math.min(1, (i.have || 0) / i.size) : 0; } catch (e) { return 0; } }
+  try { const c = await caches.open(E4B.cache), keys = await c.keys(); return Math.min(1, keys.filter(r => r.url.startsWith(E4B.url + "?studyboard-part=")).length / e4bParts()); } catch (e) { return 0; }
+}
+const e4bNetOk = () => { const c = navigator.connection; if (!c) return true; return !c.saveData && c.type !== "cellular" && !/(^|-)2g$/.test(c.effectiveType || "") ; };
+let e4bRunning = null;
+// The download: started once the student agrees, picked up again whenever Studyboard opens until it's done
+function e4bDownload(){
+  if (e4bRunning) return e4bRunning;
+  e4bRunning = (async () => {
+    const D = e4bDesk(), say = p => { DEVAI.e4bPct = p; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; try { scheduleRender(); } catch (e) {} };
+    try {
+      if (D) {
+        // the app downloads it itself; this only follows along
+        D.onProgress && D.onProgress(i => { if (i && i.size) say(Math.min(1, i.have / i.size)); if (i && i.done) e4bReadyNow(true); });
+        await D.start({url: E4B.url, size: E4B.size, sha256: E4B.sha256});
+        return;
+      }
+      if (!e4bNetOk()) { DEVAI.e4b = "waiting"; return; }
+      try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
+      try { const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null; if (est && est.quota && est.quota - est.usage < E4B.size * (1 - await e4bHave()) + 1073741824) { DEVAI.e4b = "full"; try { scheduleRender(); } catch (e) {} return; } } catch (e) {}
+      const cache = await caches.open(E4B.cache), have = new Set((await cache.keys()).map(r => r.url)), missing = [];
+      for (let i = 0; i < e4bParts(); i++) if (!have.has(e4bKey(i))) missing.push(i);
+      const range = i => `bytes=${i * E4B.part}-${Math.min(E4B.size, (i + 1) * E4B.part) - 1}`;
+      say(1 - missing.length / e4bParts());
+      // Chrome and Edge: the browser downloads the missing parts itself (it carries on after the tab closes); this page follows along
+      try {
+        const reg = navigator.serviceWorker && await Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(r, 3000))]);
+        if (missing.length && reg && reg.backgroundFetch && !(window.__SB_TEST && window.__SB_E4B_STUB && window.__SB_E4B_STUB.noBg)) {
+          let bf = await reg.backgroundFetch.get(E4B.bg);
+          if (!bf) bf = await reg.backgroundFetch.fetch(E4B.bg, missing.map(i => new Request(E4B.url, {headers: {Range: range(i)}})), {title: "Studyboard's free AI (one time, about 3.3 GB)", downloadTotal: missing.reduce((n, i) => n + Math.min(E4B.size, (i + 1) * E4B.part) - i * E4B.part, 0)});
+          await new Promise(done => { const tick = () => { if (bf.downloadTotal) say(1 - missing.length / e4bParts() + (bf.downloaded / E4B.size)); }; bf.addEventListener("progress", () => { tick(); if (bf.result) done(); }); tick(); if (bf.result) done(); });
+          // the service worker stores the parts as they finish; anything still missing is fetched below
+          await new Promise(r => setTimeout(r, 1500));
+          const now = new Set((await cache.keys()).map(r => r.url)); missing.splice(0, missing.length, ...missing.filter(i => !now.has(e4bKey(i))));
+        }
+      } catch (e) {}
+      // elsewhere (and anything Background Fetch didn't finish): part by part, while Studyboard is open
+      for (const i of missing.slice()) {
+        if (!e4bNetOk() || devLs.get(E4B_ON) !== "1") { DEVAI.e4b = "waiting"; return; }
+        let ok = false;
+        for (let t = 0; t < 3 && !ok; t++) {
+          try {
+            const r = await fetch(E4B.url, {headers: {Range: range(i)}}); if (!(r.status === 206 || r.status === 200)) throw new Error("HTTP " + r.status);
+            const b = await r.blob(), want = Math.min(E4B.size, (i + 1) * E4B.part) - i * E4B.part; if (b.size !== want) throw new Error("short part");
+            await cache.put(new Request(e4bKey(i)), new Response(b, {headers: {"Content-Length": String(b.size)}})); ok = true;
+          } catch (e) { await new Promise(r => setTimeout(r, 3000 * (t + 1))); }
+        }
+        if (!ok) { DEVAI.e4b = "waiting"; return; }
+        missing.splice(missing.indexOf(i), 1); say(1 - missing.length / e4bParts());
+      }
+      if (!missing.length) await e4bReadyNow(true);
+    } catch (e) { DEVAI.e4b = "waiting"; }
+    finally { e4bRunning = null; }
+  })();
+  return e4bRunning;
+}
+// Ready: everything's downloaded. From then on it's the AI this computer uses
+async function e4bReadyNow(fresh){
+  const stub = window.__SB_TEST && window.__SB_E4B_STUB;
+  if (stub && "ready" in stub) { if (!stub.ready) return false; }
+  else if ((await e4bHave()) < 1) return false;
+  devLs.set(E4B_READY, "1"); DEVAI.e4b = "ready"; DEVAI.e4bPct = 1;
+  DEVAI.kind = "litert"; DEVAI.status = "available"; DEVAI.ctx = E4B.ctx; DEVAI.images = false; DEVAI.why = "";
+  if (fresh) { try { toast("Studyboard's stronger free AI is ready on this computer. It's used from now on."); scheduleRender(); } catch (e) {} }
+  return true;
+}
+// Asked once (and offered again in AI Features): a quiet note with a button, never a blocking question
+async function e4bOffer(){
+  const on = devLs.get(E4B_ON);
+  if (on === "1") { if (DEVAI.e4b !== "ready") e4bDownload(); return; }
+  if (on === "0" || window.__SB_E4B_ASKED) return;
+  window.__SB_E4B_ASKED = true;
+  setTimeout(() => { try { toast(`This computer can run a stronger free AI (Google's ${E4B.name}): private, on your computer. Download it in the background? About ${E4B.gb} GB, Wi-Fi only.`, null, [{label: "Download", fn: () => e4bAgree(true)}, {label: "Not Now", fn: () => e4bAgree(false)}], {sticky: true}); } catch (e) {} }, 4000);
+}
+function e4bAgree(yes){ devLs.set(E4B_ON, yes ? "1" : "0"); if (yes) { DEVAI.e4b = "downloading"; e4bDownload(); try { toast("Downloading in the background. Keep using Studyboard; it switches over by itself when it's ready."); } catch (e) {} } else { DEVAI.e4b = "eligible"; } try { scheduleRender(); } catch (e) {} }
+// Taking it off this computer (AI Features): the files go and the computer goes back to the AI it had
+async function e4bRemove(){
+  devLs.set(E4B_ON, "0"); devLs.set(E4B_READY, "");
+  const D = e4bDesk(); if (D) { try { await D.remove(); } catch (e) {} } else { try { await caches.delete(E4B.cache); } catch (e) {} }
+  e4bStop(); DEVAI.e4b = "eligible"; DEVAI.e4bPct = 0; DEVAI.kind = ""; DEVAI.status = ""; await devProbe();
+}
+// Decided once a page load, after the usual probe: is it here, can it be, and does the student want it
+async function e4bCheck(){
+  try {
+    if (window.__SB_TEST && window.__SB_E4B_STUB && window.__SB_E4B_STUB.file) Object.assign(E4B, window.__SB_E4B_STUB.file);
+    if (!(await e4bFits())) { DEVAI.e4b = ""; return; }
+    if (await e4bReadyNow(false)) return;
+    DEVAI.e4b = devLs.get(E4B_ON) === "1" ? "downloading" : "eligible"; DEVAI.e4bPct = await e4bHave();
+    e4bOffer();
+  } catch (e) {}
+}
+// AI Features: the stronger AI's row (download, progress, waiting for Wi-Fi, ready, remove)
+function e4bRow(){
+  const st = DEVAI.e4b, pct = Math.round((DEVAI.e4bPct || 0) * 100); if (!st) return "";
+  const box = (t, btn) => `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0">${t}</p>${btn ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${btn}</div>` : ""}</div>`;
+  const nm = `Google's ${E4B.name} (E4B)`;
+  if (st === "ready") return box(`<b>Stronger free AI is on.</b> ${nm} runs on this computer's graphics chip: private, free, and the AI Studyboard uses here.`, `<button type="button" class="btn small" data-e4b="remove">Remove It (frees ${E4B.gb} GB)</button>`);
+  if (st === "eligible") return box(`<b>This computer can run a stronger free AI.</b> ${nm} follows instructions and explains things noticeably better. It downloads once in the background (about ${E4B.gb} GB, Wi-Fi only) while you keep working.`, `<button type="button" class="btn small primary" data-e4b="get">Download in the Background</button>`);
+  if (st === "downloading") return box(`<b>Downloading the stronger free AI:</b> ${pct}%. Keep using Studyboard${e4bDesk() ? " (it carries on with the window closed)" : ""}; it switches over by itself when it's done.`, `<button type="button" class="btn small" data-e4b="stop">Pause</button>`);
+  if (st === "waiting") return box(`<b>The stronger free AI is ${pct}% downloaded.</b> It carries on when you're on Wi-Fi with Data Saver off.`, `<button type="button" class="btn small" data-e4b="get">Try Now</button><button type="button" class="btn small" data-e4b="stop">Stop</button>`);
+  if (st === "full") return box(`<b>Not enough free space for the stronger free AI.</b> It needs about ${E4B.gb} GB. Free some space, then try again.`, `<button type="button" class="btn small" data-e4b="get">Try Again</button>`);
+  return "";
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-e4b]"); if (!b) return;
+  const a = b.dataset.e4b;
+  if (a === "get") e4bAgree(true);
+  else if (a === "stop") { devLs.set(E4B_ON, "0"); const D = e4bDesk(); if (D && D.pause) D.pause().catch(() => {}); DEVAI.e4b = "eligible"; try { scheduleRender(); toast("Paused. Download it again any time here."); } catch (x) {} }
+  else if (a === "remove") e4bRemove().then(() => { try { scheduleRender(); toast("Removed. Studyboard uses the AI it had before."); } catch (x) {} });
+});
+/* Talking to the model: one worker, loaded on first use and let go after a few idle minutes (its graphics memory is freed) */
+let e4bW = null, e4bLoad = null, e4bIdle = null, e4bSeq = 0;
+const e4bWait = new Map();
+function e4bStop(){ clearTimeout(e4bIdle); try { e4bW && e4bW.terminate(); } catch (e) {} e4bW = null; e4bLoad = null; e4bWait.forEach(w => w.no(aiErr("device-failed", "Stopped."))); e4bWait.clear(); }
+async function e4bModel(){
+  const D = e4bDesk(); if (D) return new URL("__ai-model/e4b.litertlm", location.href).href;
+  const c = await caches.open(E4B.cache), blobs = [];
+  for (let i = 0; i < e4bParts(); i++) { const r = await c.match(e4bKey(i)); if (!r) throw aiErr("device-failed", "Part of the AI is missing. It's downloading again."); blobs.push(await r.blob()); }
+  return new Blob(blobs);
+}
+function e4bWorker(onStatus){
+  clearTimeout(e4bIdle);
+  if (e4bLoad) return e4bLoad;
+  e4bLoad = (async () => {
+    const stub = window.__SB_TEST && window.__SB_E4B_STUB;
+    e4bW = stub && stub.worker ? stub.worker() : new Worker(new URL(E4B.dir + "worker.js", location.href).href);
+    e4bW.onmessage = e => { const m = e.data || {}, w = e4bWait.get(m.id); if (!w) return; if (m.t === "partial") w.part(m.n); else { e4bWait.delete(m.id); if (m.t === "done" || m.t === "loaded") w.ok(m.text); else w.no(Object.assign(aiErr("device-failed", "Studyboard's on-device AI couldn't answer that. Try again."), {detail: String(m.message || "").slice(0, 300)})); } };
+    if (onStatus) onStatus("Starting Studyboard's on-device AI…");
+    const model = await e4bModel(), local = e4bDesk() ? [new URL(E4B.dir + "wasm", location.href).href] : [];
+    await new Promise((ok, no) => { e4bWait.set(0, {ok, no, part(){}}); e4bW.postMessage({t: "load", id: 0, model, wasm: local.concat(E4B.wasmCdn), ctx: E4B.ctx}); });
+  })().catch(e => { e4bStop(); throw e; });
+  // "loaded" answers with id 0 too
+  return e4bLoad;
+}
+function e4bRest(){ clearTimeout(e4bIdle); e4bIdle = setTimeout(() => { if (!e4bWait.size) e4bStop(); }, 180000); }
+async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
+  const L = devLabel();
+  try { await e4bWorker(onStatus); }
+  catch (e) {
+    // it won't start on this computer after all (its graphics chip can't hold it): back to the AI it had, for good
+    devLs.set(E4B_FAIL, "1"); devLs.set(E4B_READY, ""); DEVAI.e4b = ""; DEVAI.kind = ""; DEVAI.status = ""; await devProbe();
+    throw Object.assign(aiErr("device-failed", `${L} couldn't start on this computer. Studyboard switched back to the AI it had; try again.`), {detail: String((e && e.message) || e).slice(0, 300)});
+  }
+  // E4B can reason a little before it answers: asked to, it checks itself against what it was given
+  sys = String(sys) + "\n\nBefore you answer: read the request and everything given with it carefully, work out exactly what is being asked, and check every fact you use against what you were given (for the student's own work, dates, marks and files, use only that). Then answer exactly what was asked, completely and accurately.";
+  const o2 = Math.min(out, 2000), room = () => Math.max(800, E4B.ctx - devTokens(sys) - o2 - devTokens(JSON.stringify(json)) - 300);
+  const truncated = devFit(parts, room());
+  const text = parts.filter(p => p.text != null).map(p => p.text).join("\n\n"), id = ++e4bSeq, t0 = Date.now();
+  let last = Date.now(), dog = null;
+  try {
+    const raw = await new Promise((ok, no) => {
+      e4bWait.set(id, {ok, no, part(n){ last = Date.now(); if (onStatus) onStatus(`${L} is writing… ${Math.max(1, Math.round(n / 6))} words so far (${Math.round((Date.now() - t0) / 1000)}s)`); }});
+      const stop = () => { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("aborted", "Stopped.")); };
+      if (signal) signal.addEventListener("abort", stop, {once: true});
+      // nothing new for 30 seconds (or 3 minutes in all): stopped, not waited on forever
+      dog = setInterval(() => { if (Date.now() - last > 30000 || Date.now() - t0 > DEV_MAX_MS) { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("device-stall", `${L} stopped answering.`)); } }, 1000);
+      e4bW.postMessage({t: "ask", id, system: sys, text, schema: json, maxTokens: o2, temperature});
+    });
+    const data = aiParseJson(raw);
+    if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
+    return {data, model: "gemma-4-e4b", provider: "device", truncated};
+  } finally { clearInterval(dog); e4bRest(); }
+}
 /* One Chrome session per set of instructions, kept for three minutes and copied (clone) for each request: the long
    instructions and examples are read once, not again for every part of the notes (on a laptop running the model on its processor
    that reading takes several seconds a request). Each copy is thrown away after its answer, so requests never see each other. */
@@ -7326,6 +7538,7 @@ function devPrewarm(sys){
     if (sys) { try { if (window.SBAREA) sys = SBAREA.aiSystem(sys); } catch (e) {} sys = aiCopyRule(sys, "cards"); }
     if (DEVAI.kind === "chrome") { if (sys) devSession(String(sys) + DEV_TAIL, false).then(x => x.destroy(), () => {}); else self.LanguageModel.create(devOpts(false)).then(x => setTimeout(() => { try { x.destroy(); } catch (e) {} }, 60000), () => {}); }
     else if (DEVAI.kind === "webllm") webEngine().then(() => webRest(), () => {});
+    else if (DEVAI.kind === "litert") e4bWorker().then(() => e4bRest(), () => {});
   } catch (e) {}
 }
 /* Before Chrome's (or Edge's) one-time download: a short question, from the first AI button. Yes starts the download in the
@@ -74251,7 +74464,7 @@ window.SBTRUTH = (() => {
     // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
     // the answer from the notes alone doesn't hold up
     const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
-    const mine = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}).catch(() => null) : null;
+    const mine = window.SBSEARCH ? await SBSEARCH.retrieve(q, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
     const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     let web = [], useNotes = "", useWeb = [];
     const getWeb = async () => { if (o.noWeb) return []; const R = await research(q).catch(() => ({list: []})); return (R && R.list) || []; };
@@ -75078,7 +75291,7 @@ Examples:
       else if (made) m.a = made;
       else {
       const me = info() || {}, prevQ = (c.msgs.filter(x => x.a).slice(-1)[0] || {}).q || "";
-      const [ctx, cat] = await Promise.all([context(q, prevQ, att.length > 0), window.SBASSIST && SBASSIST.wants(q) ? SBASSIST.catalog(q, {max: typeof aiOnDevice === "function" && aiOnDevice() ? 8000 : 30000}).catch(e => { console.warn(e); return null; }) : null]);
+      const [ctx, cat] = await Promise.all([context(q, prevQ, att.length > 0), window.SBASSIST && SBASSIST.wants(q) ? SBASSIST.catalog(q, {max: typeof aiOnDevice === "function" && aiOnDevice() ? (typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? 14000 : 8000) : 30000}).catch(e => { console.warn(e); return null; }) : null]);
       // a general question on the device: Wikipedia as a source, then the key points a good answer covers, so it isn't shallow
       let plan = "";
       if (dev && TR && !att.length && TR.general(q)) {

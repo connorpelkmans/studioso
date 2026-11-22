@@ -809,6 +809,84 @@ ipcMain.handle("shot:now", e => { if (!fromMain(e)) return false; setTimeout(() 
 ipcMain.handle("shot:calc", e => { if (!fromMain(e) || shotBusy || (shotWin && !shotWin.isDestroyed())) return false; setTimeout(() => startShot("calc"), 150); return true; });
 
 // Folder access for the page
+/* The stronger on-device AI (Gemma 4 E4B, src/js/01-ai-device.js): downloaded by the app itself, not the page, once the student
+   agrees. It carries on with the window closed (the app stays in the tray), resumes after sleep or a lost connection from where it
+   stopped, is checked against its SHA-256 when done, and lives in the app's own folder, where nothing clears it. The page reads it
+   from app://studioso/__ai-model/e4b.litertlm (served below). Only Google's E4B files on Hugging Face can be downloaded. */
+const os = require("os"), crypto = require("crypto");
+const AIM_URL = /^https:\/\/huggingface\.co\/litert-community\/gemma-4-E4B-it-litert-lm\/resolve\/main\/[\w.-]+\.litertlm$/;
+const aimDir = () => path.join(app.getPath("userData"), "ai-models");
+const aimFile = () => path.join(aimDir(), "gemma-4-e4b.litertlm"), aimPart = () => aimFile() + ".partial", aimMeta = () => path.join(aimDir(), "gemma-4-e4b.json");
+let aimJob = null, aimRetry = null, aimLastSent = 0;
+const aimReadMeta = () => { try { return JSON.parse(fs.readFileSync(aimMeta(), "utf8")); } catch (e) { return null; } };
+const aimSize = p => { try { return fs.statSync(p).size; } catch (e) { return 0; } };
+function aimInfo(){
+  const m = aimReadMeta(), done = !!(m && m.verified && aimSize(aimFile()) === m.size);
+  return { ram: os.totalmem(), size: m ? m.size : 0, have: done ? m.size : aimSize(aimPart()), done, running: !!aimJob, paused: !!(m && m.paused) };
+}
+function aimTell(force){
+  if (!force && Date.now() - aimLastSent < 1000) return; aimLastSent = Date.now();
+  try { if (win && !win.isDestroyed()) win.webContents.send("ai:model:progress", aimInfo()); } catch (e) {}
+}
+async function aimSha(p){ return new Promise((ok, no) => { const h = crypto.createHash("sha256"); fs.createReadStream(p).on("data", d => h.update(d)).on("error", no).on("end", () => ok(h.digest("hex"))); }); }
+async function aimRun(){
+  const m = aimReadMeta(); if (!m || m.paused || aimJob) return;
+  if (aimInfo().done) { aimTell(true); return; }
+  const ac = new AbortController(); aimJob = ac;
+  try {
+    await fsp.mkdir(aimDir(), { recursive: true });
+    let have = aimSize(aimPart());
+    if (have > m.size) { await fsp.unlink(aimPart()).catch(() => {}); have = 0; }
+    if (have < m.size) {
+      const r = await net.fetch(m.url, { headers: have ? { Range: `bytes=${have}-` } : {}, signal: ac.signal });
+      if (!(r.status === 206 || (r.status === 200 && !have))) throw new Error("HTTP " + r.status);
+      const out = fs.createWriteStream(aimPart(), { flags: "a" }), reader = r.body.getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read(); if (done) break;
+          if (!out.write(Buffer.from(value))) await new Promise(res => out.once("drain", res));
+          have += value.length; aimTell();
+        }
+      } finally { await new Promise(res => out.end(res)); }
+    }
+    if (aimSize(aimPart()) !== m.size) throw new Error("incomplete");
+    // the whole file, checked against the published fingerprint: a damaged download starts over
+    if (m.sha256 && (await aimSha(aimPart())) !== m.sha256) { await fsp.unlink(aimPart()).catch(() => {}); throw new Error("checksum"); }
+    await fsp.rename(aimPart(), aimFile());
+    fs.writeFileSync(aimMeta(), JSON.stringify(Object.assign({}, m, { verified: true })));
+    aimTell(true);
+  } catch (e) {
+    if (!ac.signal.aborted) { clearTimeout(aimRetry); aimRetry = setTimeout(() => aimRun().catch(() => {}), 60000); }
+  } finally { aimJob = null; aimTell(true); }
+}
+ipcMain.handle("ai:model:info", e => fromMain(e) ? aimInfo() : null);
+ipcMain.handle("ai:model:start", async (e, o) => {
+  if (!fromMain(e) || !o || !AIM_URL.test(String(o.url || "")) || !(Number(o.size) > 1e8 && Number(o.size) < 2e10) || (o.sha256 && !/^[0-9a-f]{64}$/.test(o.sha256))) return false;
+  await fsp.mkdir(aimDir(), { recursive: true });
+  const cur = aimReadMeta();
+  // a different file than before: start over
+  if (cur && (cur.url !== o.url || cur.size !== Number(o.size))) { await fsp.unlink(aimPart()).catch(() => {}); await fsp.unlink(aimFile()).catch(() => {}); }
+  fs.writeFileSync(aimMeta(), JSON.stringify({ url: o.url, size: Number(o.size), sha256: o.sha256 || "", verified: !!(cur && cur.verified && cur.url === o.url), paused: false }));
+  aimRun().catch(() => {});
+  return true;
+});
+ipcMain.handle("ai:model:pause", e => { if (!fromMain(e)) return false; const m = aimReadMeta(); if (m) fs.writeFileSync(aimMeta(), JSON.stringify(Object.assign(m, { paused: true }))); if (aimJob) aimJob.abort(); clearTimeout(aimRetry); return true; });
+ipcMain.handle("ai:model:remove", async e => { if (!fromMain(e)) return false; if (aimJob) aimJob.abort(); clearTimeout(aimRetry); for (const p of [aimFile(), aimPart(), aimMeta()]) await fsp.unlink(p).catch(() => {}); aimTell(true); return true; });
+// picked up again after the computer wakes or the app starts
+app.whenReady().then(() => { setTimeout(() => aimRun().catch(() => {}), 20000); try { powerMonitor.on("resume", () => setTimeout(() => aimRun().catch(() => {}), 15000)); } catch (e) {} });
+// The downloaded model, to the page (with Range, which LiteRT-LM may use)
+async function aimServe(req){
+  const m = aimReadMeta(); if (!m || !m.verified) return new Response("Not found", { status: 404 });
+  const size = aimSize(aimFile()); if (size !== m.size) return new Response("Not found", { status: 404 });
+  const { Readable } = require("stream");
+  const rg = /bytes=(\d+)-(\d*)/.exec(req.headers.get("Range") || "");
+  const a = rg ? Number(rg[1]) : 0, b = rg && rg[2] ? Math.min(size - 1, Number(rg[2])) : size - 1;
+  if (a > b || a >= size) return new Response("", { status: 416, headers: { "Content-Range": `bytes */${size}` } });
+  const h = { "Content-Type": "application/octet-stream", "Content-Length": String(b - a + 1), "Accept-Ranges": "bytes", "Cache-Control": "no-store" };
+  if (rg) h["Content-Range"] = `bytes ${a}-${b}/${size}`;
+  return new Response(Readable.toWeb(fs.createReadStream(aimFile(), { start: a, end: b })), { status: rg ? 206 : 200, headers: h });
+}
+
 ipcMain.handle("dir:get", e => fromMain(e) ? dataRoot() : null);
 ipcMain.handle("dir:open", async (e, rel) => { if (!fromMain(e)) return "denied"; await ensureRoot(); return openSafely(resolveRel(rel || "")); });
 ipcMain.handle("dir:choose", async e => fromMain(e) ? chooseDataDir() : null);
@@ -1197,6 +1275,7 @@ if (GOT_LOCK) app.whenReady().then(async () => {
       if (req.method !== "GET" && req.method !== "HEAD") return new Response("Method not allowed", { status: 405 });
       const u = new URL(req.url);
       if (u.host !== "widget" && u.host !== "studioso") return new Response("Not found", { status: 404 });
+      if (u.host === "studioso" && u.pathname === "/__ai-model/e4b.litertlm") return aimServe(req);
       const dir = u.host === "widget" ? WIDGET_DIR : APP_DIR;
       const rel = decodeURIComponent(u.pathname).replace(/^\/+/, "") || (dir === WIDGET_DIR ? "widget.html" : "index.html");
       if (rel.includes("\0")) return new Response("Not found", { status: 404 });

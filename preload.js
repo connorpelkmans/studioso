@@ -80,6 +80,14 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
     clear: () => ipcRenderer.invoke("block:clear")
   },
   getPower: () => ipcRenderer.invoke("power:get"),
+  // The stronger on-device AI's download (Gemma 4 E4B), done by the app itself (main.js)
+  aiModel: {
+    info: () => ipcRenderer.invoke("ai:model:info"),
+    start: o => ipcRenderer.invoke("ai:model:start", { url: String((o && o.url) || ""), size: Number(o && o.size) || 0, sha256: String((o && o.sha256) || "") }),
+    pause: () => ipcRenderer.invoke("ai:model:pause"),
+    remove: () => ipcRenderer.invoke("ai:model:remove"),
+    onProgress: fn => { ipcRenderer.removeAllListeners("ai:model:progress"); ipcRenderer.on("ai:model:progress", (e, i) => { if (i && typeof i === "object") fn({ ram: Number(i.ram) || 0, size: Number(i.size) || 0, have: Number(i.have) || 0, done: i.done === true, running: i.running === true }); }); }
+  },
   onPower: fn => { ipcRenderer.on("desk:power", (e, o) => { if (o && typeof o === "object") fn({ onBattery: o.onBattery === true, thermal: String(o.thermal || "unknown"), locked: o.locked === true }); }); ipcRenderer.send("desk:listen", "desk:power"); },
   // What the Today widget shows (built by the widgets module)
   setWidgetData: data => ipcRenderer.send("widget:set", data),
