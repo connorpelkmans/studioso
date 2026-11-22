@@ -54,7 +54,29 @@ def merge_small(stats, below=4000, into="other-app-jobs"):
     return out
 
 
-def choose(stats, keep, method="reap", protect=2, min_share=0.25, merge_below=4000):
+def choose_fair(s, keep, used):
+    """Per layer, add experts one at a time to maximize the sum over groups of log(the group's kept score share): a gain for
+    the group that keeps least (e.g. Chinese, whose words use different experts) counts most, so no job or language is
+    left with too little of its model. s: [L, G, E] per-group score shares."""
+    L, G, E = s.shape
+    s = s[:, used].double()
+    plan = []
+    for l in range(L):
+        cov = torch.full((s.shape[1],), 1e-4, dtype=torch.float64)
+        left = torch.ones(E, dtype=torch.bool)
+        chosen = []
+        for _ in range(keep):
+            gain = torch.log(cov[:, None] + s[l]).sum(0) - torch.log(cov).sum()
+            gain[~left] = -float("inf")
+            e = int(gain.argmax())
+            chosen.append(e); left[e] = False; cov += s[l, :, e]
+        plan.append(sorted(chosen))
+    return plan, {}
+
+
+def choose(stats, keep, method="reap", protect=2, min_share=0.25, merge_below=4000, select="protect"):
+    """The experts to keep per layer. select="fair": balance the groups (choose_fair); "protect": each group's top `protect`
+    experts, then the best on average over groups."""
     if merge_below:
         stats = merge_small(stats, merge_below)
     s = scores(stats, method, min_share)            # [L, G, E]
@@ -62,6 +84,8 @@ def choose(stats, keep, method="reap", protect=2, min_share=0.25, merge_below=40
     if keep >= E:
         return [list(range(E)) for _ in range(L)], {}
     used = stats["tokens"] > 0
+    if select == "fair":
+        return choose_fair(s, keep, used)
     overall = s[:, used].mean(1)                     # [L, E]
     plan, protected_by = [], {}
     for l in range(L):

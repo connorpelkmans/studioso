@@ -6,6 +6,14 @@ that keeps the parts Studyboard's jobs use, aiming for **about 7 GB on disk and 
 (macOS lets the graphics chip use about 10.7 GB) and a 16 GB Windows laptop with no graphics card (with the system, a browser
 and Studyboard open).
 
+**Result (November 2026): it doesn't beat Gemma 4 E4B at a size a 16 GB laptop can run, so it isn't shipped.** The real
+model was measured end to end on a free 4-core CPU (below). Gemma 4 26B's experts turned out not to be specialized: every
+job and every language uses all 128 of them about evenly, so whatever is cut, every job loses some of its model. A version
+small enough (56 or 72 experts, 7.2 or 8.8 GB) stays close to the full model on English study jobs but loses other
+languages (Chinese material got English answers; German slipped well below E4B). The app's E4B (3.3 GB, on the graphics
+chip) stays the 16 GB model; the real upgrade is the full 26B on computers with 24 GB or more (Google's 4-bit file, 14.4 GB,
+nothing cut), see the end.
+
 ## How
 
 Gemma 4 26B is a mixture of experts: each of its 30 layers has **128 experts**, and each word goes to 8 of them. The experts
@@ -56,10 +64,43 @@ on the CPU in under a minute:
 
 `calib.py` was also run on sample records with Gemma 4's real tokenizer and chat format.
 
-**Not yet run: the real model.** That needs an 80 GB graphics card. Whether 64 or 72 experts really keeps quality on every
-job is exactly what the run measures: published results on similar models (REAP on Qwen3 and GLM) kept quality at 25-50%
-pruning on the tasks they calibrated for, but Studyboard spans every school subject, so don't count on it until the report
-says PARITY.
+## Results on the real model (free CPU run)
+
+Everything ran on a 4-core CPU with 15 GB of memory and no graphics card:
+1. `calib_requests.py`: 150 requests as the app really sends them on a device (its exact instructions and JSON schema line),
+   every text job plus study material in English and 7 other languages (Wikipedia; Spanish, French, German, Portuguese,
+   Chinese, Hindi, Arabic). `gen_answers.py`: the full model (Google's QAT 4-bit file, memory-mapped with llama.cpp) answered
+   them (4.5 hours). `calib.py`: 135 texts (192k words) to choose experts with, 15 held out.
+2. `stream.py score --dtype bfloat16`: the REAP scores of all 30 x 128 experts, computed layer by layer straight from Hugging
+   Face (one layer in memory at a time; 1 hour, 9 GB; bf16 runs 4x faster than float32 on CPUs with AMX). Saved as
+   `results/expert-scores.pt`.
+3. `prune_gguf.py`: cuts experts out of Google's 4-bit file byte for byte (minutes). `quantize_gguf.py`: fewer bits.
+4. `answer_match.py`: on the 15 held-out requests, each model reads the request and then the full model's answer word by
+   word: how often it would have picked the same word (match) and how surprised it is (loss; lower = closer to the full
+   26B). Same files, same words, for every model.
+
+| model | file | match | loss | Chinese | German | English study jobs (cards, notes, lectures, quiz...) |
+|---|---|---|---|---|---|---|
+| Gemma 4 E4B (QAT 4-bit) | 5.2 GB | 83.4% | **0.64** | 79.5% / 0.89 | **84.5%** / 0.69 | 82.8% / 0.65 |
+| 26B, 56 of 128 experts | 7.2 GB | 79.7% | 1.19 | 45.0% / 5.55 | 72.5% / 1.64 | 82.7% / 0.76 |
+| 26B, 72 of 128 experts | 8.8 GB | 82.5% | 0.98 | 49.5% / 4.67 | 74.5% / 1.53 | 85.3% / 0.65 |
+| 26B, 96 of 128, 3-bit (Q3_K_S) | 9.3 GB | 80.4% | 1.00 | 55.0% / 3.10 | 74.5% / 1.37 | 81.4% / 0.84 |
+| 26B, 96 of 128 experts | 11.2 GB | **84.5%** | 0.75 | 63.5% / 2.23 | 77.0% / 1.19 | 86.0% / 0.62 |
+
+(Per-job numbers: `results/*.json`. One held-out text per language, so single languages are noisy, but the Chinese failure is
+plain when you read the answers: asked about a Chinese article, the 72-expert model wrote its notes in English.)
+
+What this says:
+- **Experts aren't specialized.** Choosing for each group's fair share (`choose(select="fair")`, maximizing the sum of
+  log-shares) changes nothing: at 72 experts every group keeps 72-74% of its expert score, whichever way they're chosen.
+  Gemma 4 was trained with balanced routing, so there are no "Spanish" or "flashcard" experts to keep, unlike the models in
+  the REAP paper.
+- **Fewer bits cost more than fewer experts.** Re-compressing Google's quantization-aware 4-bit file to 3 bits throws away
+  what that training bought: 96 experts at 3 bits (9.3 GB) is worse than 72 at 4 bits (8.8 GB).
+- **On English study jobs the cut-down model is about E4B's equal** (72 experts: picks the full model's word more often, 85.3% to
+  82.8%, with the same loss, 0.65; lower loss on 4 of 8 jobs, higher on the other 4), not clearly better, at 2.7x the download, and not on the graphics chip in the browser. That doesn't meet the
+  bar ("better than E4B"), so the blind-judge comparison (`eval_compare.py`) wasn't run: it can't turn a language failure
+  into a pass.
 
 ## Run it
 
@@ -97,7 +138,12 @@ terms restrict using their outputs to build models.
 
 ## Using it in Studyboard
 
-The app doesn't run GGUF files yet. In the browser, WebLLM can't hold a model this size. The desktop app would run it
-natively with llama.cpp (for example `node-llama-cpp` in Electron's main process): offered on computers with 16 GB or more,
-downloaded in the background after the student agrees, and used in place of Gemma 4 E2B. That's the next piece of work after
-the report picks a file.
+Not used: the app keeps Gemma 4 E4B on 16 GB computers (LiteRT-LM on the graphics chip, 3.3 GB). What would beat it:
+- **24 GB or more: the full Gemma 4 26B**, Google's QAT 4-bit file (`google/gemma-4-26B-A4B-it-qat-q4_0-gguf`, 14.4 GB), nothing
+  cut. In the desktop app with llama.cpp (`node-llama-cpp` in Electron's main process), downloaded in the background after the
+  student agrees, as E4B is. On a CPU it runs about 7 words a second (4 cores); on Apple's graphics chip, much faster.
+- On a 16 GB computer, only if a newer model's experts specialize (a model trained without balanced routing): rerun steps 1-4
+  above; they work for any Gemma-4-style MoE file and take an afternoon on a free CPU.
+
+To rebuild a cut-down file anyway: `python ml/prune/prune_gguf.py --src gemma-4-26B_q4_0-it.gguf --stats
+ml/prune/results/expert-scores.pt --keep 72 --out studyboard-26b-k72.gguf`.
