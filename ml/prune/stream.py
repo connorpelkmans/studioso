@@ -134,7 +134,7 @@ class Stream:
 
     def logits(self, x):
         h = self.norm(x)[0]
-        out = h @ self.embed.T
+        out = (h.to(self.embed.dtype) @ self.embed.T).float()
         cap = self.tc.final_logit_softcapping
         return torch.tanh(out / cap) * cap if cap else out
 
@@ -155,6 +155,9 @@ class Stream:
             yield i, self.make_layer(i, tensors)
 
 
+DTYPES = {"bfloat16": torch.bfloat16, "float32": torch.float32}
+
+
 def mask_router(L, keep):
     """Switch off every expert not in keep: its router score can never be among the top k (= what the pruned file computes)."""
     drop = torch.ones(L.router.proj.weight.shape[0], dtype=torch.bool)
@@ -169,7 +172,7 @@ def score(a):
     rows = [json.loads(l) for l in open(a.calib) if l.strip()]
     if a.limit:
         rows = rows[: a.limit]
-    S = Stream(a.model)
+    S = Stream(a.model, DTYPES[a.dtype])
     groups = sorted({r.get("group", "all") for r in rows})
     states = [S.start(r["ids"][: a.max_len]) for r in rows]
     gi = {g: k for k, g in enumerate(groups)}
@@ -201,7 +204,7 @@ def agree(a):
         rows = rows[: a.limit]
     st_ = torch.load(a.stats, weights_only=False)
     plans = {k: choose(st_, k, a.method, a.protect)[0] for k in a.keep}
-    S = Stream(a.model)
+    S = Stream(a.model, DTYPES[a.dtype])
     names = ["full"] + [str(k) for k in a.keep]
     states = {n: [S.start(r["ids"][: a.max_len]) for r in rows] for n in names}
     t0 = time.time()
@@ -249,6 +252,8 @@ def main():
     ap.add_argument("--max-len", type=int, default=6144)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--threads", type=int, default=0)
+    ap.add_argument("--dtype", default="bfloat16", choices=list(DTYPES),
+                    help="bfloat16 (the model's own precision; half the memory, and fast on CPUs with AMX/AVX-512 BF16) or float32")
     a = ap.parse_args()
     if a.threads:
         torch.set_num_threads(a.threads)

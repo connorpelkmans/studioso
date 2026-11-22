@@ -140,14 +140,20 @@ def main():
         streamed = S.logits(st_["x"])
         assert torch.allclose(streamed, a, atol=1e-4), f"7. streamed logits differ by {(streamed - a).abs().max()}"
         sstats = os.path.join(w, "sstats.pt")
-        run(os.path.join(HERE, "stream.py"), "score", "--model", full, "--calib", calib, "--out", sstats)
+        run(os.path.join(HERE, "stream.py"), "score", "--model", full, "--calib", calib, "--out", sstats, "--dtype", "float32")
         s2 = torch.load(sstats, weights_only=False)
         assert torch.equal(s2["count"], st["count"]), "7. streamed expert counts differ from reap.py's"
         assert torch.allclose(s2["wnorm"], st["wnorm"], rtol=1e-4), "7. streamed REAP sums differ from reap.py's"
-        print("7. ok: stream.py gives the same logits and the same expert scores as the normal forward pass")
+        bstats = os.path.join(w, "bstats.pt")  # the real run's precision (bf16): rounding may send a few words to another expert
+        run(os.path.join(HERE, "stream.py"), "score", "--model", full, "--calib", calib, "--out", bstats)
+        cb = torch.load(bstats, weights_only=False)["count"]
+        same = torch.minimum(cb, st["count"]).sum() / st["count"].sum()
+        assert same > 0.9, f"7. bf16 routing matches float32 for only {same:.1%} of words"
+        print(f"7. ok: stream.py gives the same logits and the same expert scores as the normal forward pass "
+              f"(in bf16, {same:.1%} of routing choices unchanged)")
 
         ag = os.path.join(w, "agree.json")
-        run(os.path.join(HERE, "stream.py"), "agree", "--model", full, "--dev", calib, "--stats", sstats, "--keep", "16", "8", "--out", ag)
+        run(os.path.join(HERE, "stream.py"), "agree", "--model", full, "--dev", calib, "--stats", sstats, "--keep", "16", "8", "--out", ag, "--dtype", "float32")
         r = json.load(open(ag))
         assert r["16"]["ALL"]["agree"] == 1.0 and r["16"]["ALL"]["kl"] < 1e-6, r["16"]["ALL"]
         assert abs(r["8"]["ALL"]["agree"] - k2["agree"]) < 0.02, (r["8"]["ALL"], k2)

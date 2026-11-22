@@ -38,7 +38,25 @@ def scores(stats, method="reap", min_share=0.25):
     return torch.where(tot > 0, s / tot.clamp_min(1e-12), torch.zeros_like(s))
 
 
-def choose(stats, keep, method="reap", protect=2, min_share=0.25):
+def merge_small(stats, below=4000, into="other-app-jobs"):
+    """Groups with fewer than `below` calibration words (a job the app has one sample of) become one group, so a single text
+    doesn't get experts protected for it or count as much as a job with many texts."""
+    tok = stats["tokens"].float()
+    small = [g for g in range(len(stats["groups"])) if 0 < tok[g] < below]
+    if len(small) < 2:
+        return stats
+    big = [g for g in range(len(stats["groups"])) if g not in small]
+    out = dict(stats)
+    for k in ("count", "wnorm", "norm"):
+        out[k] = torch.cat([stats[k][:, big], stats[k][:, small].sum(1, keepdim=True)], 1)
+    out["tokens"] = torch.cat([stats["tokens"][big], stats["tokens"][small].sum(0, keepdim=True)])
+    out["groups"] = [stats["groups"][g] for g in big] + [into]
+    return out
+
+
+def choose(stats, keep, method="reap", protect=2, min_share=0.25, merge_below=4000):
+    if merge_below:
+        stats = merge_small(stats, merge_below)
     s = scores(stats, method, min_share)            # [L, G, E]
     L, G, E = s.shape
     if keep >= E:
