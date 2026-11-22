@@ -1799,6 +1799,7 @@ document.addEventListener("change", e => {
 });
 function aiStudySheet(deckId, mode){
   if (inPreview()) { toast("AI features work in the Studyboard app and on your website, not in this preview"); return; }
+  if (typeof aiReadyFirst === "function" && aiReadyFirst(() => aiStudySheet(deckId, mode))) return;
   const keyK = "ai-create:" + (deckId || "");
   // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
   if (sheetResume(keyK)) return;

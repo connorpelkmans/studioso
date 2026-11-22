@@ -2744,6 +2744,12 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;curs
 .fc-row.ai-new,.qzd-q.ai-new{animation:aiPopIn .45s ease-out both}
 @keyframes aiPopIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.fc-row.ai-new,.qzd-q.ai-new{animation:none}}
+/* Get Your Free AI Ready (src/js/01-ai-device.js aiReadyFirst) */
+.ai-ready-list{margin:2px 0 0;padding-left:20px;display:grid;gap:6px}
+.ai-ready-list li{line-height:1.45}
+.ai-ready-sheet .sh-ring > *,.ai-ready-sheet .sh-ring img,.ai-ready-sheet .sh-ring svg{width:70%!important;height:70%!important;max-width:none!important;max-height:none!important;object-fit:contain}
+.ai-ready-sheet .sh-ring{display:grid!important;place-items:center!important}.ai-ready-sheet .sh-ring > *{margin:auto!important;position:static!important}
+.ai-ready-sheet .sh-ring .cp-ai-face{width:74%!important;height:74%!important;display:block!important;transform:none!important;inset:auto!important}.ai-ready-sheet .sh-ring .cp-ai-face svg{width:100%!important;height:100%!important;display:block}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}

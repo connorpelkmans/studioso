@@ -5762,6 +5762,7 @@ document.addEventListener("change", e => {
 });
 function aiStudySheet(deckId, mode){
   if (inPreview()) { toast("AI features work in the Studyboard app and on your website, not in this preview"); return; }
+  if (typeof aiReadyFirst === "function" && aiReadyFirst(() => aiStudySheet(deckId, mode))) return;
   const keyK = "ai-create:" + (deckId || "");
   // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
   if (sheetResume(keyK)) return;
@@ -7377,6 +7378,9 @@ async function e4bOffer(){
   const on = devLs.get(E4B_ON);
   if (on === "1") { if (DEVAI.e4b !== "ready") e4bDownload(); return; }
   if (on === "0" || window.__SB_E4B_ASKED) return;
+  // someone just starting out is asked on the Get Your Free AI Ready page instead (before setup or their first AI set); this note
+  // is for those already using Studyboard, who won't see that page
+  if (devLs.get(AI_READY_ASKED) !== "1" && !(tasksArr().length || Object.keys(state.decks || {}).length || coursesArr().length)) return;
   window.__SB_E4B_ASKED = true;
   setTimeout(() => { try { toast(`This computer can run a stronger free AI (Google's ${E4B.name}): private, on your computer. Download it in the background? About ${E4B.gb} GB, Wi-Fi only.`, null, [{label: "Download", fn: () => e4bAgree(true)}, {label: "Not Now", fn: () => e4bAgree(false)}], {sticky: true}); } catch (e) {} }, 4000);
 }
@@ -7468,6 +7472,66 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
     if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
     return {data, model: "gemma-4-e4b", provider: "device", truncated};
   } finally { clearInterval(dog); e4bRest(); }
+}
+/* ---------- Getting the free AI ready first ----------
+   One friendly page, before Set Up Your Semester and before the first Create with AI: the AI that runs on this computer starts
+   downloading from that tap, in the background, while the student finishes setting up, so it's ready by the time they need it.
+   Whichever this computer gets: Gemma 4 E4B (16 GB or more), else Chrome's (or Edge's) built-in AI, else Gemma 4 E2B. Asked once;
+   not shown when the AI is ready already, with a key or Studyboard AI, or where none can run. */
+const AI_READY_ASKED = "studyboard:aiReadyAsked";
+function aiReadyWhich(){
+  try {
+    if (!devAllowed() || devLs.get(AI_READY_ASKED) === "1" || (window.__SB_TEST && !window.__SB_AI_READY_TEST)) return null;
+    // (not with a key or Studyboard AI: those don't need anything downloaded)
+    const c = aiCfg(); if (c.provider !== "device" && c.key) return null;
+  } catch (e) { return null; }
+  if (DEVAI.e4b === "eligible" && devLs.get(E4B_ON) !== "0") return {kind: "e4b", gb: E4B.gb};
+  if (DEVAI.status === "available" || DEVAI.e4b === "ready" || DEVAI.e4b === "downloading") return null;
+  if (DEVAI.kind === "chrome" && ["downloadable", "downloading"].includes(DEVAI.status)) return {kind: "chrome"};
+  if (DEVAI.kind === "webllm" && ["downloadable", "declined"].includes(DEVAI.status) && DEVAI.web) return {kind: "webllm", gb: DEVAI.web.gb};
+  return null;
+}
+// A pill at the bottom with the progress, like Chrome's own
+function aiReadyPill(p, label){
+  let el = document.getElementById("aiReadyPill");
+  if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
+  if (!el) { el = document.createElement("div"); el.id = "aiReadyPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
+  const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
+  el.textContent = `${label} is getting ready in the background${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Keep going, nothing waits on it.`;
+  requestAnimationFrame(() => el.classList.add("show"));
+}
+function aiReadyStart(w){
+  if (w.kind === "e4b") { e4bAgree(true); return; }
+  if (w.kind === "chrome") { devWarm(); return; }
+  if (w.kind === "webllm") {
+    devLs.set(WEB_DECLINED, ""); DEVAI.status = "downloadable";
+    // loading it once downloads it; the first AI request then finds it ready (and doesn't ask again)
+    webEngine(m => { const x = /(\d+)%/.exec(String(m || "")); aiReadyPill(x ? Number(x[1]) / 100 : 0, "Studyboard's free AI"); })
+      .then(() => { aiReadyPill(null); webRest(); try { toast("Studyboard's free AI is ready on this computer."); scheduleRender(); } catch (e) {} }, () => aiReadyPill(null));
+  }
+}
+// Shows the page and returns true (then() runs after the student picks); false when there's nothing to get ready
+function aiReadyFirst(then){
+  const w = aiReadyWhich(); if (!w) return false;
+  devLs.set(AI_READY_ASKED, "1"); window.__SB_E4B_ASKED = true;
+  const size = w.gb ? `about ${w.gb} GB` : "a one-time download", where = w.kind === "chrome" ? `${devBrowser()} downloads it` : "Studyboard downloads it";
+  openSheet(`<form class="sheet ai-ready-sheet">${typeof bandHead === "function" ? bandHead("Get Your Free AI Ready", AI_ICON, "var(--accent-band,var(--accent))", "") : `<div class="sheet-head"><h2>Get Your Free AI Ready</h2></div>`}
+    <div class="sheet-body">
+      <p style="margin:0">Studyboard comes with a free AI helper that runs right on this computer: private, nothing to sign up for, and nothing you add leaves your computer.</p>
+      <ul class="ai-ready-list">
+        <li>Makes flashcards and practice quizzes from your notes and slides</li>
+        <li>Answers questions about your classes, notes and deadlines</li>
+        <li>Adds and changes tasks, timers and notes when you ask</li>
+      </ul>
+      <p class="mini" style="margin:0">${where} once, in the background (${size}, best on Wi-Fi), while you keep setting things up. You can change this any time in Settings, AI Features.</p>
+    </div>
+    <div class="sheet-foot"><button type="button" class="btn" data-ready="no">Not Now</button><span class="spacer"></span><button type="button" class="btn primary" data-ready="yes">Get It Ready</button></div>
+  </form>`);
+  const go = yes => { if (yes) aiReadyStart(w); else if (w.kind === "e4b") devLs.set(E4B_ON, ""); try { dlg.close(); } catch (e) {} setTimeout(() => { try { then && then(); } catch (e) { console.warn(e); } }, 60); };
+  // (the download starts inside the tap itself: Chrome only starts its model's download from a tap)
+  dlg.querySelector('[data-ready="yes"]').addEventListener("click", () => go(true));
+  dlg.querySelector('[data-ready="no"]').addEventListener("click", () => go(false));
+  return true;
 }
 /* One Chrome session per set of instructions, kept for three minutes and copied (clone) for each request: the long
    instructions and examples are read once, not again for every part of the notes (on a laptop running the model on its processor
@@ -89416,6 +89480,8 @@ function paint(keep, focusHead, say){
 function open(o){
   o = o || {};
   if (window.SBTOUR && SBTOUR.active()) return false;
+  // first, the free AI starts getting ready in the background (once): the setup carries on right after
+  if (!o.afterAI && typeof aiReadyFirst === "function" && aiReadyFirst(() => open(Object.assign({}, o, {afterAI: true})))) return true;
   const fresh = !M.since || M.fin || !IDS.includes(M.step) || Date.now() - Number(M.since) > 45 * 864e5;
   // Courses are already there (from the welcome setup, or added by hand), so start at bringing in work
   const had = coursesArr().length > 0;

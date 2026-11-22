@@ -74,6 +74,8 @@ function paint(keep, focusHead, say){
 function open(o){
   o = o || {};
   if (window.SBTOUR && SBTOUR.active()) return false;
+  // first, the free AI starts getting ready in the background (once): the setup carries on right after
+  if (!o.afterAI && typeof aiReadyFirst === "function" && aiReadyFirst(() => open(Object.assign({}, o, {afterAI: true})))) return true;
   const fresh = !M.since || M.fin || !IDS.includes(M.step) || Date.now() - Number(M.since) > 45 * 864e5;
   // Courses are already there (from the welcome setup, or added by hand), so start at bringing in work
   const had = coursesArr().length > 0;

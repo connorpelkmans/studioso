@@ -33,6 +33,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
         if (m.t === "ask") { window.__asked.push({system: m.system, text: m.text, schema: m.schema}); w.onmessage({data: {t: "partial", id: m.id, n: 40}}); w.onmessage({data: {t: "done", id: m.id, text: JSON.stringify({answer: "E4B ANSWER", found: true, followUps: [], actions: []})}}); }
       }, 20); }, terminate(){} }; return w; };
       window.__SB_E4B_STUB = Object.assign({worker, noBg: true, file: {url: base + "/model.litertlm", size, part, sha256: ""}}, s);
+      if (s.returning && !localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, tasks: [], files: [], notes: [], events: [], decks: [], settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}]}));
       localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"}));
     }, [stub, base, SIZE, PART]);
     const p = await ctx.newPage(); p.errs = []; p.on("pageerror", e => p.errs.push(e.message));
@@ -50,7 +51,8 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
 
   // 2. A computer that can: offered once (a note, never a blocking question), and in AI Features
   const ctx = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
-  let R = await open({fits: true}, ctx);
+  // (someone already using Studyboard: a new student is asked on Get Your Free AI Ready instead, below)
+  let R = await open({fits: true, returning: true}, ctx);
   let s = await state(R.p);
   ok(s.e4b === "eligible", "a 16 GB computer with a capable graphics chip can have it: " + JSON.stringify(s));
   await R.p.waitForTimeout(4500);
@@ -66,7 +68,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   const mid = await state(R.p), r1 = ranges;
   ok(mid.pct > 0 && mid.pct < 1, "it downloads in parts: " + Math.round(mid.pct * 100) + "% before the stop");
   await R.p.close();
-  R = await open({fits: true}, ctx);
+  R = await open({fits: true, returning: true}, ctx);
   await R.p.evaluate(() => { localStorage.setItem("studyboard:e4bOn", "1"); }); await R.p.reload(); await R.p.waitForFunction(() => window.SBCOMPTAB, null, {timeout: 30000});
   await R.p.waitForFunction(() => window.__sbDevAI.state.e4b === "ready", null, {timeout: 30000}).catch(() => {});
   s = await state(R.p);
@@ -88,6 +90,23 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   ok(s.e4b === "eligible" && s.kind !== "litert" && !left, "Remove deletes it and goes back to the AI it had: " + JSON.stringify(s));
   ok(!R.p.errs.length, "no page errors: " + R.p.errs.join(" | "));
   await ctx.close();
+  // 6. Get Your Free AI Ready: before Set Up Your Semester (and the first Create with AI), once; Get It Ready starts the download
+  //    and the setup carries on right after
+  { const c2 = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
+    await c2.addInitScript(() => { window.__SB_AI_READY_TEST = true; });
+    const P = await open({fits: true}, c2), p = P.p;
+    await p.evaluate(() => window.SBSEM.open());
+    await p.waitForSelector("dialog[open] .ai-ready-sheet", {timeout: 5000}).catch(() => {});
+    const page = await p.evaluate(() => (document.querySelector("dialog[open]") || {}).innerText || "");
+    ok(/Get Your Free AI Ready/.test(page) && /free AI helper that runs right on this computer/.test(page) && /in the background/.test(page) && /3\.3 GB/.test(page) && /Get It Ready/.test(page), "the setup starts with a friendly page about getting the free AI ready: " + page.replace(/\n/g, " ").slice(0, 200));
+    ok(!/warning|risk|danger|large file/i.test(page), "nothing scary in it");
+    await p.click('[data-ready="yes"]'); await p.waitForTimeout(800);
+    const after = await p.evaluate(() => ({setup: /Set Up Your Semester/.test((document.querySelector("dialog[open]") || {}).innerText || ""), on: localStorage.getItem("studyboard:e4bOn"), st: window.__sbDevAI.state.e4b}));
+    ok(after.setup && after.on === "1" && /downloading|ready/.test(after.st), "Get It Ready starts the download and goes straight on to the setup: " + JSON.stringify(after));
+    await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); window.SBSEM.open({restart: true}); }); await p.waitForTimeout(500);
+    ok(!(await p.$("dialog[open] .ai-ready-sheet")), "it's asked once: the next time, the setup opens straight away");
+    ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
+    await c2.close(); }
   // 6. The service worker keeps the downloaded models on an update (it used to delete every cache but its own)
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   ok(/caches\.delete\(k\)/.test(sw) && /\^\(studyboard\|studioso\)-v\\d\+\$/.test(sw), "an app update clears only the app's own old caches, never a downloaded model");
