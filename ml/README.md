@@ -4,6 +4,8 @@ A small model trained only on Studyboard's own AI jobs, so the free AI that runs
 well as Gemini Flash, without a bigger download or more power. It replaces the stock Gemma that WebLLM downloads today (when
 Chrome has no built-in AI). This folder has everything to build it; the parts that need a graphics card are one script.
 
+> **Also here: a cut-down Gemma 4 26B for 16 GB laptops** (keeps the experts Studyboard's jobs use, about 7 GB): see [`prune/README.md`](prune/README.md).
+
 ## Status
 
 | Step | What | State |
