@@ -154,7 +154,11 @@ window.SBTRUTH = (() => {
   async function research(q, o){
     o = o || {};
     let plan = {queries: [String(q).slice(0, 200)], papers: false, define: ""};
-    if (typeof aiOnDevice === "function" && aiOnDevice() && !o.noPlan) {
+    // (a separate planning step only when asked for: the question itself searches well, and every model call is seconds on a laptop)
+    const dm = String(q).match(/\bwhat (?:does|is the meaning of) ["']?([a-z][a-z -]{1,30}?)["']? mean\b|\bdefine ["']?([a-z][a-z -]{1,30})|\bmeaning of ["']?([a-z][a-z -]{1,30})/i);
+    if (dm) plan.define = (dm[1] || dm[2] || dm[3] || "").trim();
+    plan.queries = [String(q).replace(/^\s*(please\s+)?(can you\s+)?(explain|describe|tell me about|what is|what are|who was|who is|how does|how do|why does|why do|why is|why are)\s+/i, "").replace(/[?!.]+$/, "").slice(0, 120) || String(q).slice(0, 120)];
+    if (o.plan && typeof aiOnDevice === "function" && aiOnDevice() && !o.noPlan) {
       try {
         const r = await aiCall({task: "chat", maxTokens: 220, temperature: 0, quiet: true, schema: {type: "OBJECT", properties: {queries: {type: "ARRAY", items: {type: "STRING"}}, papers: {type: "BOOLEAN"}, define: {type: "STRING"}}, required: ["queries"]},
           system: "You plan a web look-up for a student's question. queries: 1 to 3 short search queries (2 to 6 words each) that together find what the answer needs. papers: true only if research findings or studies would help. define: the single word or term to look up in a dictionary if the student asks what a word means, else empty.",
@@ -167,14 +171,16 @@ window.SBTRUTH = (() => {
     const jobs = plan.queries.slice(0, 2).map(x => web(x, {n: 2, chars: 2400}));
     if (plan.papers || /\b(research|stud(y|ies)|evidence|paper|journal|findings|effect of)\b/i.test(q)) jobs.push(openAlex(plan.queries[0], 4));
     if (plan.define) jobs.push(wiktionary(plan.define));
-    const found = (await Promise.all(jobs.map(j => j.catch(() => [])))).flat();
+    // the whole look-up gets a few seconds; a source that's slower is left out of this answer
+    const cap = (pr, ms, v) => Promise.race([pr.catch(() => v), new Promise(r => setTimeout(() => r(v), ms))]);
+    const found = (await Promise.all(jobs.map(j => cap(j, o.ms || 4000, [])))).flat();
     const seen = new Set(), uniq = found.filter(x => { const k = x.url; if (seen.has(k)) return false; seen.add(k); return true; });
     let parts = passages(uniq);
     if (!parts.length) return {list: [], text: ""};
     // rank by meaning with the device's search model (or whichever search-by-meaning model is set up); word overlap if none
     let ranked = null;
     try {
-      const vecs = window.SBSEARCH && SBSEARCH.embedTexts ? await SBSEARCH.embedTexts([String(q)].concat(parts.map(x => x.title + ". " + x.text)), true) : null;
+      const vecs = window.SBSEARCH && SBSEARCH.embedTexts ? await cap(SBSEARCH.embedTexts([String(q)].concat(parts.map(x => x.title + ". " + x.text)), true), 2500, null) : null;
       if (vecs && vecs.length === parts.length + 1) { const qv = vecs[0]; ranked = parts.map((x, i) => ({x, s: vecs[i + 1].reduce((a, v, k) => a + v * (qv[k] || 0), 0)})); }
     } catch (e) {}
     if (!ranked) { const qw = new Set(words(q)); ranked = parts.map(x => ({x, s: words(x.title + " " + x.text).filter(w => qw.has(w)).length})); }
@@ -184,7 +190,8 @@ window.SBTRUTH = (() => {
     return {list: top, text: webText(top), plan};
   }
   // a general-knowledge question (not about the student's own planner)
-  const general = q => /^\s*(what|who|why|how|when|where|which|explain|define|describe|compare|tell me about)\b/i.test(q) && !/\b(my|i|i'm|me|mine|our)\b/i.test(q) && !/\b(due|grade|task|deadline|class|deck|note|board|course|schedule|calendar|studyboard)\b/i.test(q);
+  // (never a question to the companion itself, "what are you working on", or one about today, the student or their things)
+  const general = q => /^\s*(what|who|why|how|when|where|which|explain|define|describe|compare|tell me about)\b/i.test(q) && !/\b(my|i|i'm|me|mine|our|we|us|you|your|you're|yours|today|tonight|tomorrow|now|this week)\b/i.test(q) && !/\b(due|grade|task|deadline|class|deck|note|board|course|schedule|calendar|studyboard|mochi|working on|doing)\b/i.test(q) && String(q).replace(/[^a-z]/gi, "").length >= 8;
 
-  return {facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary};
+  return {facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
 })();

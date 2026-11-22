@@ -710,7 +710,7 @@ function aiJobFailed(){ try { document.dispatchEvent(new CustomEvent("sb-ai-job"
 // The status line of a sheet scrolls into view when it changes, so a message is never hidden below the fold
 function aiShowStatus(el){ try { if (el && el.textContent.trim() && el.isConnected) el.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }
 function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
-async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
+async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, onPartial, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   const arguments0 = arguments[0];
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
@@ -739,7 +739,7 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
       catch (e) { if (e && e.out && backup && !(signal && signal.aborted) && aiProUsedUp()) { if (!auto) aiWaiting(-1); clearTimeout(slow); try { return await aiCall(arguments0); } finally { if (!auto) aiWaiting(1); } } throw e; }
     }
     // The AI on this device: nothing is sent anywhere (01-ai-device.js)
-    if (cfg.provider === "device") return await devCall({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, auto});
+    if (cfg.provider === "device") return await devCall({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, onPartial, auto});
     // Claude only ever runs as Studyboard AI does (Haiku 5.5, thinking per job, its limits), whatever model was saved
     if (cfg.provider === "anthropic") return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own: cfg.key});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});

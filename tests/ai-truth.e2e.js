@@ -57,7 +57,7 @@ function fake(){
   ok(r.changes.some(c => /newtask:Bio quiz/i.test(c)) && r.timer === 15, "two things in one request: the task is proposed and the timer runs: " + JSON.stringify({changes: r.changes, timer: r.timer}));
   // 4. a general question: Wikipedia is looked up and given as a source; the answer says where it's from
   r = await ask("what is osmosis?", [{__wiki: true}]);
-  ok(wiki.length >= 2 && r.prompts.some(t => /FROM THE WEB/.test(t) && /Osmosis is the spontaneous/.test(t)), "a general question: the device AI plans the look-up, Wikipedia is searched, the passages go to the model: " + wiki.join(", "));
+  ok(wiki.length >= 2 && r.prompts.some(t => /FROM THE WEB/.test(t) && /Osmosis is the spontaneous/.test(t)), "a general question: Wikipedia is searched with the question, the passages go to the model: " + wiki.join(", "));
   r = await ask("what does research say about how plants take up water?", [{__wiki: true}]);
   ok(oa.length >= 1 && r.prompts.some(t => /Research paper: Aquaporins speed water transport in plant roots \(2019\)/.test(t) && /about 40 percent/.test(t)), "a research question also searches scholarly papers (OpenAlex) and gives their findings as sources: " + oa.join(", "));
   ok(/According to Wikipedia/.test(r.answer) && r.sources && r.sources[0].url === "https://en.wikipedia.org/wiki/Osmosis", "the answer comes from it, with the link: " + r.answer);
@@ -71,8 +71,20 @@ function fake(){
     await p.waitForTimeout(300); return p.evaluate(() => ({last: [...document.querySelectorAll(".cpt-a")].pop() ? [...document.querySelectorAll(".cpt-a")].pop().innerText : "", asked: window.__asked.map(a => ({sys: a.sys.slice(0, 80), text: a.text}))})); };
   let c = await chat("what's due tomorrow?", NONE);
   ok(/Bio Lab Report/.test(c.last) && c.asked.length === 0, "Companion tab: what's due, from the app, no model: " + c.last.replace(/\n/g, " ").slice(0, 120));
-  c = await chat("explain osmosis", [{points: ["What osmosis is", "Which way water moves", "An example in cells"]}, {__wiki: true}]);
-  ok(c.asked.some(a => /plan a clear, complete answer/.test(a.sys)) && c.asked.some(a => /ANSWER PLAN/.test(a.text) && /Which way water moves/.test(a.text) && /Osmosis is the spontaneous/.test(a.text)), "a general question: Wikipedia, then the key points to cover, then the answer");
+  c = await chat("explain osmosis", [{__wiki: true}]);
+  ok(c.asked.length === 1 && /First list the key points/.test(c.asked[0].text) && /Osmosis is the spontaneous/.test(c.asked[0].text), "a general question: Wikipedia, and the key points then the answer in ONE call (fast): " + c.asked.length + " call(s)");
+  // making things from the Companion tab: done by the app, not just talked about
+  c = await chat("add homework 3 due friday at 2pm", NONE);
+  ok(c.asked.length === 0 && /Homework 3/.test(c.last) && /Apply/.test(c.last), "add a task: the task to confirm (Apply), read from the words, no model: " + c.last.replace(/\n/g, " ").slice(0, 140));
+  await p.locator(".cpt-a button", {hasText: "Review Change"}).last().click(); await p.waitForSelector("#asDlg[open] #asYes", {timeout: 3000}); await p.click("#asDlg[open] #asYes"); await p.waitForTimeout(500);
+  ok(await p.evaluate(() => Object.values(JSON.parse(localStorage.getItem("coursework:v2")).tasks || {}).concat([]).some(t => /Homework 3/.test(t.title)) || [...document.querySelectorAll("body *")].some(e => false)), "and confirming really adds it to the planner");
+  c = await chat("start a 5 minute focus timer", NONE);
+  ok(c.asked.length === 0 && /5-minute focus timer is running/.test(c.last) && (await p.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo") || "{}").running)), "start a timer: it runs, no model");
+  await p.evaluate(() => { const S = window.__sbSync; if (S && S.state) { S.state.notes = S.state.notes || {}; } });
+  c = await chat("make flashcards on the bio lab report", NONE);
+  ok(c.asked.length === 0 && /Make Flashcards/.test(c.last), "make flashcards: the Make Flashcards button, with material gathered from their stuff: " + c.last.replace(/\n/g, " ").slice(0, 160));
+  c = await chat("save a note: lab partners are Sam and Priya", NONE);
+  ok(c.asked.length === 0 && /Save Note/.test(c.last), "save a note: the Save Note button");
   c = await chat("who wrote my bio syllabus?", [{answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}, {answer: "Professor Hensley wrote it in 2019.", followUps: [], sources: []}]);
   ok(/couldn't find a reliable answer/.test(c.last), "Companion tab: a made-up name and year are caught: " + c.last.slice(0, 120));
   ok(!errs.length, "no page errors: " + errs.join(" | "));

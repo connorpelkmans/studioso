@@ -140,7 +140,9 @@
     // the student's own material that matches the question (always: it's how content questions get answered)
     // Chat never waits long for files: search gets about a second for file text, and files still downloading
     // (from Studyboard, Google Drive or OneDrive) keep loading in the background for the next question
-    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 12, chars: 1400, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
+    // (the AI on the device reads everything it's given before it writes a word: it gets the best few passages, not a dozen long ones)
+    const devQ = typeof aiOnDevice === "function" && aiOnDevice();
+    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, devQ ? {max: 5, chars: 700, wait: 800, readWait: 1, semWait: 2500} : {max: 12, chars: 1400, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
     if (R && R.text) { L.push("SEARCH RESULTS (passages from the student's files, notes, flashcards and tasks that match the question):\n" + R.text); R.src.forEach(x => src.push(x)); }
     const files = Object.values(state.files).filter(f => f.kind === "file" || f.kind === "cloud");
     if (files.length) {
@@ -151,7 +153,7 @@
       const texts = await Promise.all(want.map(({f}) => Promise.race([(async () => { try { return window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; } catch (e) { return ""; } })(), late])));
       want.forEach(({f}, i) => { const t = texts[i]; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } });
     }
-    return {text: L.join("\n\n").slice(0, 60000), src, need: N, rows: R && R.rows ? R.rows : []};
+    return {text: L.join("\n\n").slice(0, devQ ? 9000 : 60000), src, need: N, rows: R && R.rows ? R.rows : []};
   }
   const SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "The reply, in the companion's friendly voice. Plain text; short paragraphs or '- ' bullets, **bold** sparingly."},
@@ -235,6 +237,41 @@
     return o;
   }).filter(Boolean).slice(0, 5);
 
+  /* Making things with the AI on the device: tasks, timers and changes go through Ask's own steps (98-assist.js: a task read from the
+     words with no model, a timer started at once, a change to confirm); flashcards, a quiz or a note become the button that makes
+     them, with the student's own notes on the topic (or the web's, when they have none) as the material. Null when it isn't a
+     request to make or change something. */
+  const CARDS_Q = /\b(make|create|generate|give me|build|write)\b[^?]*\b(flash ?cards?|cards|quiz(zes)?|practice (questions|test)|test me)\b|\bquiz me\b|\btest me\b/i;
+  const NOTE_Q = /\b(save|make|write|add|create|put)\b[^?]*\bnote\b/i;
+  const CHANGE_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|remind|schedule|start|set|move|change|reschedule|push|rename|delete|remove|mark|cancel|skip|put)\b/i;
+  async function deviceAct(q, chat, forced){
+    const A = window.SBASSIST, TR = window.SBTRUTH; if (!A) return null;
+    if (CARDS_Q.test(q)) {
+      const quiz = /\bquiz|test me|practice (questions|test)\b/i.test(q) && !/flash ?cards?|cards/i.test(q), n = Number((q.match(/\b(\d{1,2})\b/) || [])[1]) || 0;
+      const topic = clip((q.match(/\b(?:on|about|for|from|covering|over)\s+(.+?)[?.!]*$/i) || [])[1] || q.replace(CARDS_Q, "").replace(/^\W+|\W+$/g, ""), 80);
+      let text = "", from = "";
+      try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic || q, {max: 8, chars: 1200, wait: 800, readWait: 2, semWait: 2500}) : null; if (R && R.text && R.text.length > 300) { text = R.text.replace(/^\[\d+\] [^\n]*\n/gm, ""); from = "your notes"; } } catch (e) {}
+      if (!text && TR && topic) { const W = await TR.research(topic).catch(() => ({list: []})); if (W.list && W.list.length) { text = W.list.map(x => `${x.title}\n${x.text}`).join("\n\n"); from = W.list.some(x => /paper/i.test(x.src || "")) ? "Wikipedia and research papers" : "Wikipedia"; } }
+      if (text.length < 120) return forced ? null : {answer: `I couldn't find material on ${topic || "that"} in your notes or on the web. Add notes or a file about it (or attach one here), and I'll make ${quiz ? "a quiz" : "flashcards"} from it.`, sources: [], followUps: [], actions: []};
+      const name = (topic || "Study Set").replace(/\b\w/g, ch => ch.toUpperCase()).slice(0, 60);
+      return {answer: `I gathered material on ${topic || "that"} from ${from}. Tap ${quiz ? "Make Quiz" : "Make Flashcards"} and I'll make ${n ? n + " " : ""}${quiz ? "practice questions" : "cards"} from it.`, sources: [from === "your notes" ? "Your notes" : from], followUps: [],
+        actions: [{type: quiz ? "quiz" : "flashcards", label: quiz ? "Make Quiz" : "Make Flashcards", deckName: name, deck: "", target: "", style: "", count: n, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
+    }
+    if (NOTE_Q.test(q)) {
+      let text = (q.match(/\bnote\b[^:]*:\s*(.+)$/i) || q.match(/\b(?:saying|that says|about)\s+(.+)$/i) || [])[1] || "";
+      if (!text || /^(this|that|it|the (answer|reply))\b/i.test(text) || /\b(this|that)\b\s*(as a note)?\s*$/i.test(q)) { const prev = ((chat && chat.msgs) || []).filter(x => x.a && x.a.answer).slice(-1)[0]; if (prev) text = prev.a.answer; }
+      text = String(text || "").trim();
+      if (text.length < 3) return null;
+      return {answer: "Here's the note. Tap Save Note to put it on your board.", sources: [], followUps: [], actions: [{type: "note", label: "Save Note", deckName: "", deck: "", target: "", style: "", count: 0, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
+    }
+    if (CHANGE_Q.test(q) || (A.timerMins && A.timerMins(q))) {
+      const res = await A.ask(q, {screen: false});
+      if (!res || (!(res.changes || []).length && !res.timer && !forced && A.CLAIMS.test(res.answer || ""))) return null;
+      const pk = A.pack(res);
+      return {answer: res.answer, sources: [], followUps: [], actions: [], changes: pk.changes.length ? pk.changes : undefined, show: pk.show.length ? pk.show : undefined};
+    }
+    return null;
+  }
   async function ask(q){
     q = String(q || "").replace(/\s+/g, " ").trim().slice(0, 1000);
     const att = T.att.slice();
@@ -247,39 +284,38 @@
     const chats = rd();
     let c = chats.find(x => x.id === T.id);
     if (!c) { c = {id: uid(), title: clip(q, 56), at: Date.now(), msgs: []}; chats.unshift(c); T.id = c.id; wr(chats); }
-    T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.status = "Looking through your stuff…"; draw();
+    T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.live = ""; T.status = "Looking through your stuff…"; draw();
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     try {
       // the AI on the device (98-truth.js): planner facts from the app itself, exact; other answers checked against what it was given
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length ? TR.facts(q) : null;
+      // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
+      const made = !quick && dev && !att.length ? await deviceAct(q, c) : null;
       if (quick) m.a = {answer: quick.answer, sources: ["Your planner"], followUps: [], actions: []};
+      else if (made) m.a = made;
       else {
       const me = info() || {}, prevQ = (c.msgs.filter(x => x.a).slice(-1)[0] || {}).q || "";
-      const [ctx, cat] = await Promise.all([context(q, prevQ, att.length > 0), window.SBASSIST && SBASSIST.wants(q) ? SBASSIST.catalog(q, {max: 30000}).catch(e => { console.warn(e); return null; }) : null]);
+      const [ctx, cat] = await Promise.all([context(q, prevQ, att.length > 0), window.SBASSIST && SBASSIST.wants(q) ? SBASSIST.catalog(q, {max: typeof aiOnDevice === "function" && aiOnDevice() ? 8000 : 30000}).catch(e => { console.warn(e); return null; }) : null]);
       // a general question on the device: Wikipedia as a source, then the key points a good answer covers, so it isn't shallow
       let plan = "";
       if (dev && TR && !att.length && TR.general(q)) {
         T.status = "Looking it up…"; draw();
         const R = await TR.research(q, {onStatus: t => { T.status = t; draw(); }}).catch(() => ({list: []})), web = R.list || [];
         if (web.length) { ctx.text += `\n\nFROM THE WEB (say where a fact comes from, like "according to Wikipedia" or "a 2019 study found"):\n${TR.webText(web)}`; web.forEach(x => { if (!ctx.src.includes((x.src || "Wikipedia") + ": " + x.title)) ctx.src.push((x.src || "Wikipedia") + ": " + x.title); }); }
-        try {
-          const pr = await aiCall({task: "chat", maxTokens: 600, temperature: 0.2, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
-            system: "You plan a clear, complete answer to a student's question. List the 3 to 5 key points the answer must cover, in a sensible order (for example: what it is, how it works, why it matters, a concrete example, a common mistake). Use only the sources given; skip a point they don't support.",
-            parts: [{text: `SOURCES:\n${ctx.text.slice(-9000)}\n\nTHE QUESTION: ${q}`}]});
-          const pts = ((pr && pr.data && pr.data.points) || []).map(x => clip(x, 160)).filter(Boolean).slice(0, 5);
-          if (pts.length >= 2) plan = `\n\nANSWER PLAN (cover each point, in order, each with a short concrete example where it helps):\n${pts.map((x, i) => `${i + 1}. ${x}`).join("\n")}`;
-        } catch (e) {}
+        plan = "1";
       }
       const seen = window.SBASSIST ? SBASSIST.screenText(SBASSIST.current()) : "";
-      const actOn = att.length > 0 || MAKE.test(q), format = formatFor(q, att.length > 0, !!cat);
+      const actOn = att.length > 0 || MAKE.test(q), format0 = formatFor(q, att.length > 0, !!cat);
+      // a general question on the device: the key points first, then the answer, in the same reply (planned, so not shallow; one call, so quick)
+      const format = plan ? Object.assign({}, format0, {properties: Object.assign({points: {type: "ARRAY", items: {type: "STRING"}, description: "First: the 3 to 5 key points a complete answer covers, in order (what it is, how it works, why it matters, an example, a common mistake), only what the sources support"}}, format0.properties), required: ["points"].concat(format0.required || [])}) : format0;
       T.status = "Thinking…"; draw();
       const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 1200)}`).join("\n\n");
       const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. You are a real AI helper for anything about their courses, their course materials or Studyboard itself: use everything below (their planner, the search results from their own files, notes and cards, the file text, what's on their screen, and HOW STUDYBOARD WORKS for questions about the app), and your own knowledge for subject matter. Always give a real, useful answer: if their data doesn't have something, say briefly what you checked, then help anyway (explain the topic, say where in the app it would be, or ask one short question). Never invent their facts, dates, marks or file contents. When you use their course materials, say which file or note it came from. Match the length to the question: a sentence for a quick fact, a clear explanation with short paragraphs, steps or '- ' bullets when they want to understand, learn, plan or do something. For questions about their work, suggest a concrete next step when it helps. Reply to exactly what the student said, nothing they didn't ask for. Add more only when it clearly helps with what they asked (like what it takes to keep a grade when they ask about that grade, or a deadline that clashes with the plan they're asking about), never as filler. When the student is just chatting, answer that and only that, in character and briefly, like a friend: a hello gets a short friendly hello back (and, at most, a few words offering help), not news about you or a question back; only say how you are or what you've been up to when they ask; thanks gets a short "you're welcome". Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.${actOn ? `
 You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practice. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.` : ""}${cat && window.SBASSIST ? "\n" + SBASSIST.RULES + "\nThe refs are in ITEMS YOU CAN SHOW OR CHANGE. Changing existing things always goes in \"changes\", never in actions. Tasks the student asks you to add go in \"newTasks\"; keep the tasks action for due dates found in files they attached." : ""}`;
       // free: no answer format enforced, just asked for (decoded differently, so a placeholder can't come back the same way)
-      const call = (fmt, free) => aiCall({task: att.length ? "tutor" : "chat", maxTokens: att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
-        parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}${plan}`}])});
+      const call = (fmt, free) => aiCall({onPartial: dev ? t => { T.live = t; drawStatus(); } : undefined, task: att.length ? "tutor" : "chat", maxTokens: dev ? (att.length ? 1200 : 700) : att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
+        parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}${plan ? "\n\nFirst list the key points in points, then write the answer covering each one in order, with a short concrete example where it helps." : ""}`}])});
       // Always a real answer: the full format, then the simplest one, then a free reply; a moment between tries after an
       // error (busy, slow). If the AI still can't be reached, an answer is made on this device from what was found.
       let r = null, lastErr = null;
@@ -306,13 +342,14 @@ You can also DO things in Studyboard, but only when the student asks or what the
       if (!m.a.answer) m.a.answer = localAnswer(ctx, null, q).answer;
       if (r.local) m.a.local = true;
       if (!m.a.sources.length) m.a.sources = ctx.src.slice(0, 4);
+      if (dev && window.SBASSIST && SBASSIST.CLAIMS.test(m.a.answer || "") && !(m.a.actions || []).length && !(m.a.changes || []).length) { const fix = await deviceAct(q, c, true); if (fix) m.a = fix; }
       }
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
     fresh.sort((a, b) => b.at - a.at); wr(fresh);
-    T.busy = null; T.status = ""; draw(); say();
+    T.busy = null; T.status = ""; T.live = ""; draw(); say();
     try { if (m.a && window.SBCOMP) { SBCOMP.cheer && 0; } } catch (e) {}
   }
   const clip2 = (s, n) => String(s == null ? "" : s).trim().slice(0, n);
@@ -505,7 +542,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   VIEWS.companion = view;
 
-  function drawStatus(){ const s = $("#cptStatus"); if (s) s.textContent = T.status || "Thinking…"; }
+  function drawStatus(){ const s = $("#cptStatus"); if (s) { s.textContent = T.live || T.status || "Thinking…"; s.classList.toggle("cpt-live", !!T.live); } }
   function draw(){
     if (ui.tab !== "companion") return;
     const log = $("#cptLog");

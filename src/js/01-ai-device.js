@@ -157,8 +157,9 @@ async function devLookup({system, parts, search, urlContext, signal, onStatus}){
 }
 // One request at a time: these models answer one thing at a time anyway, and progress lines stay true
 let devQueue = Promise.resolve();
-function devCall(o){ const run = devQueue.then(() => devRun(o)); devQueue = run.catch(() => {}); return run; }
-async function devRun({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, auto}){
+// (no request holds the line longer than a few minutes, whatever happens inside it)
+function devCall(o){ const run = devQueue.then(() => devRun(o)); devQueue = Promise.race([run.catch(() => {}), new Promise(r => setTimeout(r, DEV_MAX_MS + 30000))]); return run; }
+async function devRun({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, onPartial, auto}){
   if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
   const L = devLabel();
   // The web, for a model that can't browse: pages named in the request are read by Studyboard's page reader, and a search is
@@ -178,7 +179,7 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   const out = Math.min(Number(maxTokens) || 1500, 1800);
   if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
   if (DEVAI.kind === "webllm") return devWeb({sys, parts, json, out, temperature, signal, onStatus, auto});
-  return devChrome({sys, parts, json, out, signal, onStatus, auto, pics: pics.length > 0});
+  return devChrome({sys, parts, json, out, signal, onStatus, onPartial, auto, pics: pics.length > 0});
 }
 /* A photo or PDF for the AI on this device: a PDF with real text gives its text; a photo or scanned page has its words read (Apple's
    Vision on the iPhone, Tesseract.js elsewhere). A picture with no words at all (a diagram) stays a picture only where the model can
@@ -371,7 +372,9 @@ async function devSession(sys, pics, signal){
 // A stall (nothing new for DEV_STALL_MS, or the whole answer past DEV_MAX_MS) stops the request instead of waiting forever
 // (the first words get longer: a laptop running the model on its processor can read a big part of the notes for half a minute first)
 const DEV_STALL_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 20000, DEV_FIRST_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 60000, DEV_MAX_MS = 180000;
-async function devStream(s, content, json, signal, onStatus){
+// onPartial: the "answer" field as far as it's written, so a chat shows the reply as it comes
+const devPartial = t => { const m = /"answer"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(t); if (!m) return ""; try { return JSON.parse('"' + m[1].replace(/\\$/, "") + '"'); } catch (e) { return m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"'); } };
+async function devStream(s, content, json, signal, onStatus, onPartial){
   let text = "", last = 0, lastChunk = Date.now(), any = false; const t0 = Date.now(), ac = new AbortController();
   const stop = () => ac.abort(); if (signal) signal.addEventListener("abort", stop, {once: true});
   // the watchdog wins the race even if the stream ignores being stopped
@@ -387,7 +390,9 @@ async function devStream(s, content, json, signal, onStatus){
       lastChunk = Date.now(); any = true;
       const c = String(chunk == null ? "" : chunk);
       text = c.startsWith(text) && text ? c : text + c;
-      if (Date.now() - last > 400) { last = Date.now(); const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); }
+      if (Date.now() - last > 150) { last = Date.now();
+        if (onPartial) { const a = devPartial(text); if (a) onPartial(a); }
+        if (onStatus) { const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); } }
     }
     return text;
   } catch (e) {
@@ -428,7 +433,7 @@ function devAsk(){
     setTimeout(() => { const b = d.querySelector("[data-yes]"); if (b) b.focus(); }, 30);
   });
 }
-async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
+async function devChrome({sys, parts, json, out, signal, onStatus, onPartial, auto, pics}){
   const L = devLabel();
   if (DEVAI.status !== "available") {
     if (auto) throw aiErr("auto-off", `${L} isn't ready yet.`);
@@ -456,7 +461,10 @@ async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
     let truncated = devFit(parts, room());
     for (let tries = 0; ; tries++) {
       try {
-        const text = onStatus && typeof s.promptStreaming === "function" ? await devStream(s, content(), json, signal, onStatus) : await s.prompt([{role: "user", content: content()}], {responseConstraint: json, signal});
+        // every request is streamed with the stall watchdog (not only ones showing progress): one stuck request would otherwise hold up
+        // every request after it, since they go one at a time
+        const text = typeof s.promptStreaming === "function" ? await devStream(s, content(), json, signal, onStatus, onPartial)
+          : await Promise.race([s.prompt([{role: "user", content: content()}], {responseConstraint: json, signal}), new Promise((_, no) => setTimeout(() => no(aiErr("device-stall", `${L} stopped answering.`)), DEV_MAX_MS))]);
         const data = aiParseJson(text);
         if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
         return {data, model: "chrome-built-in", provider: "device", truncated};

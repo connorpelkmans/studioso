@@ -626,6 +626,15 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const type = /^\s*remind me\b/i.test(q) ? "Other" : /\b(exam|midterm|final)\b/i.test(t) ? "Exam" : /\bquiz\b/i.test(t) ? "Quiz" : /\btest\b/i.test(t) ? "Exam" : /\b(read|reading|chapter)\b/i.test(t) ? "Reading" : /\blab\b/i.test(t) ? "Lab" : /\bproject\b/i.test(t) ? "Project" : /\b(study|review)\b/i.test(t) ? "Study" : /\b(homework|assignment|essay|paper|problem set|worksheet)\b/i.test(t) ? "Assignment" : "Other";
     return {title: t.charAt(0).toUpperCase() + t.slice(1), due, time, type};
   }
+  // A new task from the request alone (the words, a course it names), as a change to confirm: no model needed
+  function quickTask(q){
+    const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
+    const c = window.SBTRUTH ? SBTRUTH.courseNamed(q) : null;
+    // the course's name in the title is said by the course, not repeated in the title
+    let title = lt.title; if (c) { [c.code, c.name].filter(Boolean).forEach(k => { const re = new RegExp("^(for |in )?" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b[:\\s-]*", "i"); if (re.test(title) && title.replace(re, "").length > 2) title = title.replace(re, ""); }); title = title.charAt(0).toUpperCase() + title.slice(1); }
+    const r = resolve({newTasks: [{title, type: lt.type, due: lt.due, time: lt.time, course: c ? "C_" + c.id : ""}]}, new Map(c ? [["C_" + c.id.toUpperCase(), {kind: "course", id: c.id}]] : []));
+    return r.changes[0] || null;
+  }
   // An answer that says something was done when nothing was (no change, task, timer or place to show)
   const CLAIMS = /\b(i('ve| have)?|we('ve| have)?)\s+(just\s+)?(added|created|started|set( up)?|scheduled|changed|updated|moved|deleted|removed|renamed)\b|\b(has|have) been (added|created|started|set|scheduled|changed|updated|moved|deleted|removed)\b|\b(is|are) (now )?(added|set|started|running|scheduled|on your list)\b|\b(i'?ll|i will|let'?s|we'?ll)\s+(go ahead and\s+)?(set|start|add|create|schedule)\b[^.!?]{0,40}\b(timer|focus|pomodoro|reminder|task|alarm|event)\b|\bthe app will start\b/i;
 
@@ -645,6 +654,14 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       }
       const f = TR.facts(q);
       if (f) return {answer: f.answer, show: (f.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true};
+      // a timer, or a task with what it needs in the words: done by the app straight away (fast and exact), no model
+      const tm0 = timerMins(q);
+      if (tm0 && !(ADD_Q.test(q) && ADD_WHAT.test(q) && !/\b(timer|pomodoro|focus)\b/i.test(q.replace(/\bfocus\b/i, "")))) {
+        if (tm0.mins && (tm0.mins < 1 || tm0.mins > 180)) return {answer: "A focus timer can run from 1 minute to 3 hours. How long would you like?", show: [], changes: [], local: true};
+        if (startTimer(tm0.mins)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running. You've got this!`, show: [], changes: [], timer: n2, local: true}; }
+      }
+      const qc = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
+      if (qc) return {answer: "Here's the new task. Check it, then tap Apply to add it.", show: [], changes: [qc], local: true};
     }
     if (VISUAL.test(q)) await Promise.race([describeBoards(3, null, true), wait(9000)]);
     const cur = o.screen === false ? null : current();
@@ -757,5 +774,5 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();

@@ -4673,7 +4673,7 @@ function aiJobFailed(){ try { document.dispatchEvent(new CustomEvent("sb-ai-job"
 // The status line of a sheet scrolls into view when it changes, so a message is never hidden below the fold
 function aiShowStatus(el){ try { if (el && el.textContent.trim() && el.isConnected) el.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }
 function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
-async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
+async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, onPartial, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   const arguments0 = arguments[0];
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
@@ -4702,7 +4702,7 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
       catch (e) { if (e && e.out && backup && !(signal && signal.aborted) && aiProUsedUp()) { if (!auto) aiWaiting(-1); clearTimeout(slow); try { return await aiCall(arguments0); } finally { if (!auto) aiWaiting(1); } } throw e; }
     }
     // The AI on this device: nothing is sent anywhere (01-ai-device.js)
-    if (cfg.provider === "device") return await devCall({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, auto});
+    if (cfg.provider === "device") return await devCall({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, onPartial, auto});
     // Claude only ever runs as Studyboard AI does (Haiku 5.5, thinking per job, its limits), whatever model was saved
     if (cfg.provider === "anthropic") return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own: cfg.key});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
@@ -6971,8 +6971,9 @@ async function devLookup({system, parts, search, urlContext, signal, onStatus}){
 }
 // One request at a time: these models answer one thing at a time anyway, and progress lines stay true
 let devQueue = Promise.resolve();
-function devCall(o){ const run = devQueue.then(() => devRun(o)); devQueue = run.catch(() => {}); return run; }
-async function devRun({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, auto}){
+// (no request holds the line longer than a few minutes, whatever happens inside it)
+function devCall(o){ const run = devQueue.then(() => devRun(o)); devQueue = Promise.race([run.catch(() => {}), new Promise(r => setTimeout(r, DEV_MAX_MS + 30000))]); return run; }
+async function devRun({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, onPartial, auto}){
   if (signal && signal.aborted) throw aiErr("aborted", "Stopped.");
   const L = devLabel();
   // The web, for a model that can't browse: pages named in the request are read by Studyboard's page reader, and a search is
@@ -6992,7 +6993,7 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   const out = Math.min(Number(maxTokens) || 1500, 1800);
   if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
   if (DEVAI.kind === "webllm") return devWeb({sys, parts, json, out, temperature, signal, onStatus, auto});
-  return devChrome({sys, parts, json, out, signal, onStatus, auto, pics: pics.length > 0});
+  return devChrome({sys, parts, json, out, signal, onStatus, onPartial, auto, pics: pics.length > 0});
 }
 /* A photo or PDF for the AI on this device: a PDF with real text gives its text; a photo or scanned page has its words read (Apple's
    Vision on the iPhone, Tesseract.js elsewhere). A picture with no words at all (a diagram) stays a picture only where the model can
@@ -7185,7 +7186,9 @@ async function devSession(sys, pics, signal){
 // A stall (nothing new for DEV_STALL_MS, or the whole answer past DEV_MAX_MS) stops the request instead of waiting forever
 // (the first words get longer: a laptop running the model on its processor can read a big part of the notes for half a minute first)
 const DEV_STALL_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 20000, DEV_FIRST_MS = () => (window.__SB_TEST && window.__SB_STALL_MS) || 60000, DEV_MAX_MS = 180000;
-async function devStream(s, content, json, signal, onStatus){
+// onPartial: the "answer" field as far as it's written, so a chat shows the reply as it comes
+const devPartial = t => { const m = /"answer"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(t); if (!m) return ""; try { return JSON.parse('"' + m[1].replace(/\\$/, "") + '"'); } catch (e) { return m[1].replace(/\\n/g, "\n").replace(/\\"/g, '"'); } };
+async function devStream(s, content, json, signal, onStatus, onPartial){
   let text = "", last = 0, lastChunk = Date.now(), any = false; const t0 = Date.now(), ac = new AbortController();
   const stop = () => ac.abort(); if (signal) signal.addEventListener("abort", stop, {once: true});
   // the watchdog wins the race even if the stream ignores being stopped
@@ -7201,7 +7204,9 @@ async function devStream(s, content, json, signal, onStatus){
       lastChunk = Date.now(); any = true;
       const c = String(chunk == null ? "" : chunk);
       text = c.startsWith(text) && text ? c : text + c;
-      if (Date.now() - last > 400) { last = Date.now(); const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); }
+      if (Date.now() - last > 150) { last = Date.now();
+        if (onPartial) { const a = devPartial(text); if (a) onPartial(a); }
+        if (onStatus) { const w = (text.replace(/"[a-zA-Z]+"\s*:/g, " ").match(/[A-Za-z0-9\u00C0-\uFFFF]+/g) || []).length; onStatus(`${devLabel()} is writing… ${w} word${w === 1 ? "" : "s"} so far (${Math.round((Date.now() - t0) / 1000)}s)`); } }
     }
     return text;
   } catch (e) {
@@ -7242,7 +7247,7 @@ function devAsk(){
     setTimeout(() => { const b = d.querySelector("[data-yes]"); if (b) b.focus(); }, 30);
   });
 }
-async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
+async function devChrome({sys, parts, json, out, signal, onStatus, onPartial, auto, pics}){
   const L = devLabel();
   if (DEVAI.status !== "available") {
     if (auto) throw aiErr("auto-off", `${L} isn't ready yet.`);
@@ -7270,7 +7275,10 @@ async function devChrome({sys, parts, json, out, signal, onStatus, auto, pics}){
     let truncated = devFit(parts, room());
     for (let tries = 0; ; tries++) {
       try {
-        const text = onStatus && typeof s.promptStreaming === "function" ? await devStream(s, content(), json, signal, onStatus) : await s.prompt([{role: "user", content: content()}], {responseConstraint: json, signal});
+        // every request is streamed with the stall watchdog (not only ones showing progress): one stuck request would otherwise hold up
+        // every request after it, since they go one at a time
+        const text = typeof s.promptStreaming === "function" ? await devStream(s, content(), json, signal, onStatus, onPartial)
+          : await Promise.race([s.prompt([{role: "user", content: content()}], {responseConstraint: json, signal}), new Promise((_, no) => setTimeout(() => no(aiErr("device-stall", `${L} stopped answering.`)), DEV_MAX_MS))]);
         const data = aiParseJson(text);
         if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
         return {data, model: "chrome-built-in", provider: "device", truncated};
@@ -73157,6 +73165,15 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const type = /^\s*remind me\b/i.test(q) ? "Other" : /\b(exam|midterm|final)\b/i.test(t) ? "Exam" : /\bquiz\b/i.test(t) ? "Quiz" : /\btest\b/i.test(t) ? "Exam" : /\b(read|reading|chapter)\b/i.test(t) ? "Reading" : /\blab\b/i.test(t) ? "Lab" : /\bproject\b/i.test(t) ? "Project" : /\b(study|review)\b/i.test(t) ? "Study" : /\b(homework|assignment|essay|paper|problem set|worksheet)\b/i.test(t) ? "Assignment" : "Other";
     return {title: t.charAt(0).toUpperCase() + t.slice(1), due, time, type};
   }
+  // A new task from the request alone (the words, a course it names), as a change to confirm: no model needed
+  function quickTask(q){
+    const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
+    const c = window.SBTRUTH ? SBTRUTH.courseNamed(q) : null;
+    // the course's name in the title is said by the course, not repeated in the title
+    let title = lt.title; if (c) { [c.code, c.name].filter(Boolean).forEach(k => { const re = new RegExp("^(for |in )?" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b[:\\s-]*", "i"); if (re.test(title) && title.replace(re, "").length > 2) title = title.replace(re, ""); }); title = title.charAt(0).toUpperCase() + title.slice(1); }
+    const r = resolve({newTasks: [{title, type: lt.type, due: lt.due, time: lt.time, course: c ? "C_" + c.id : ""}]}, new Map(c ? [["C_" + c.id.toUpperCase(), {kind: "course", id: c.id}]] : []));
+    return r.changes[0] || null;
+  }
   // An answer that says something was done when nothing was (no change, task, timer or place to show)
   const CLAIMS = /\b(i('ve| have)?|we('ve| have)?)\s+(just\s+)?(added|created|started|set( up)?|scheduled|changed|updated|moved|deleted|removed|renamed)\b|\b(has|have) been (added|created|started|set|scheduled|changed|updated|moved|deleted|removed)\b|\b(is|are) (now )?(added|set|started|running|scheduled|on your list)\b|\b(i'?ll|i will|let'?s|we'?ll)\s+(go ahead and\s+)?(set|start|add|create|schedule)\b[^.!?]{0,40}\b(timer|focus|pomodoro|reminder|task|alarm|event)\b|\bthe app will start\b/i;
 
@@ -73176,6 +73193,14 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       }
       const f = TR.facts(q);
       if (f) return {answer: f.answer, show: (f.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true};
+      // a timer, or a task with what it needs in the words: done by the app straight away (fast and exact), no model
+      const tm0 = timerMins(q);
+      if (tm0 && !(ADD_Q.test(q) && ADD_WHAT.test(q) && !/\b(timer|pomodoro|focus)\b/i.test(q.replace(/\bfocus\b/i, "")))) {
+        if (tm0.mins && (tm0.mins < 1 || tm0.mins > 180)) return {answer: "A focus timer can run from 1 minute to 3 hours. How long would you like?", show: [], changes: [], local: true};
+        if (startTimer(tm0.mins)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running. You've got this!`, show: [], changes: [], timer: n2, local: true}; }
+      }
+      const qc = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
+      if (qc) return {answer: "Here's the new task. Check it, then tap Apply to add it.", show: [], changes: [qc], local: true};
     }
     if (VISUAL.test(q)) await Promise.race([describeBoards(3, null, true), wait(9000)]);
     const cur = o.screen === false ? null : current();
@@ -73288,7 +73313,7 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();
 /* Keeping the small on-device AI honest and useful (Ask in the bubble, the Companion tab, and any on-device request that wants the web):
      facts     planner questions answered by the app's own code, never by a model: what's due when, what's overdue, when one task is
@@ -73446,7 +73471,11 @@ window.SBTRUTH = (() => {
   async function research(q, o){
     o = o || {};
     let plan = {queries: [String(q).slice(0, 200)], papers: false, define: ""};
-    if (typeof aiOnDevice === "function" && aiOnDevice() && !o.noPlan) {
+    // (a separate planning step only when asked for: the question itself searches well, and every model call is seconds on a laptop)
+    const dm = String(q).match(/\bwhat (?:does|is the meaning of) ["']?([a-z][a-z -]{1,30}?)["']? mean\b|\bdefine ["']?([a-z][a-z -]{1,30})|\bmeaning of ["']?([a-z][a-z -]{1,30})/i);
+    if (dm) plan.define = (dm[1] || dm[2] || dm[3] || "").trim();
+    plan.queries = [String(q).replace(/^\s*(please\s+)?(can you\s+)?(explain|describe|tell me about|what is|what are|who was|who is|how does|how do|why does|why do|why is|why are)\s+/i, "").replace(/[?!.]+$/, "").slice(0, 120) || String(q).slice(0, 120)];
+    if (o.plan && typeof aiOnDevice === "function" && aiOnDevice() && !o.noPlan) {
       try {
         const r = await aiCall({task: "chat", maxTokens: 220, temperature: 0, quiet: true, schema: {type: "OBJECT", properties: {queries: {type: "ARRAY", items: {type: "STRING"}}, papers: {type: "BOOLEAN"}, define: {type: "STRING"}}, required: ["queries"]},
           system: "You plan a web look-up for a student's question. queries: 1 to 3 short search queries (2 to 6 words each) that together find what the answer needs. papers: true only if research findings or studies would help. define: the single word or term to look up in a dictionary if the student asks what a word means, else empty.",
@@ -73459,14 +73488,16 @@ window.SBTRUTH = (() => {
     const jobs = plan.queries.slice(0, 2).map(x => web(x, {n: 2, chars: 2400}));
     if (plan.papers || /\b(research|stud(y|ies)|evidence|paper|journal|findings|effect of)\b/i.test(q)) jobs.push(openAlex(plan.queries[0], 4));
     if (plan.define) jobs.push(wiktionary(plan.define));
-    const found = (await Promise.all(jobs.map(j => j.catch(() => [])))).flat();
+    // the whole look-up gets a few seconds; a source that's slower is left out of this answer
+    const cap = (pr, ms, v) => Promise.race([pr.catch(() => v), new Promise(r => setTimeout(() => r(v), ms))]);
+    const found = (await Promise.all(jobs.map(j => cap(j, o.ms || 4000, [])))).flat();
     const seen = new Set(), uniq = found.filter(x => { const k = x.url; if (seen.has(k)) return false; seen.add(k); return true; });
     let parts = passages(uniq);
     if (!parts.length) return {list: [], text: ""};
     // rank by meaning with the device's search model (or whichever search-by-meaning model is set up); word overlap if none
     let ranked = null;
     try {
-      const vecs = window.SBSEARCH && SBSEARCH.embedTexts ? await SBSEARCH.embedTexts([String(q)].concat(parts.map(x => x.title + ". " + x.text)), true) : null;
+      const vecs = window.SBSEARCH && SBSEARCH.embedTexts ? await cap(SBSEARCH.embedTexts([String(q)].concat(parts.map(x => x.title + ". " + x.text)), true), 2500, null) : null;
       if (vecs && vecs.length === parts.length + 1) { const qv = vecs[0]; ranked = parts.map((x, i) => ({x, s: vecs[i + 1].reduce((a, v, k) => a + v * (qv[k] || 0), 0)})); }
     } catch (e) {}
     if (!ranked) { const qw = new Set(words(q)); ranked = parts.map(x => ({x, s: words(x.title + " " + x.text).filter(w => qw.has(w)).length})); }
@@ -73476,9 +73507,10 @@ window.SBTRUTH = (() => {
     return {list: top, text: webText(top), plan};
   }
   // a general-knowledge question (not about the student's own planner)
-  const general = q => /^\s*(what|who|why|how|when|where|which|explain|define|describe|compare|tell me about)\b/i.test(q) && !/\b(my|i|i'm|me|mine|our)\b/i.test(q) && !/\b(due|grade|task|deadline|class|deck|note|board|course|schedule|calendar|studyboard)\b/i.test(q);
+  // (never a question to the companion itself, "what are you working on", or one about today, the student or their things)
+  const general = q => /^\s*(what|who|why|how|when|where|which|explain|define|describe|compare|tell me about)\b/i.test(q) && !/\b(my|i|i'm|me|mine|our|we|us|you|your|you're|yours|today|tonight|tomorrow|now|this week)\b/i.test(q) && !/\b(due|grade|task|deadline|class|deck|note|board|course|schedule|calendar|studyboard|mochi|working on|doing)\b/i.test(q) && String(q).replace(/[^a-z]/gi, "").length >= 8;
 
-  return {facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary};
+  return {facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
 })();
 /* ===== module: 98-companion-tab.js ===== */
 /* The Companion tab */
@@ -73622,7 +73654,9 @@ window.SBTRUTH = (() => {
     // the student's own material that matches the question (always: it's how content questions get answered)
     // Chat never waits long for files: search gets about a second for file text, and files still downloading
     // (from Studyboard, Google Drive or OneDrive) keep loading in the background for the next question
-    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 12, chars: 1400, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
+    // (the AI on the device reads everything it's given before it writes a word: it gets the best few passages, not a dozen long ones)
+    const devQ = typeof aiOnDevice === "function" && aiOnDevice();
+    let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, devQ ? {max: 5, chars: 700, wait: 800, readWait: 1, semWait: 2500} : {max: 12, chars: 1400, wait: 800, readWait: 1, semWait: 2500}) : null; } catch (e) {}
     if (R && R.text) { L.push("SEARCH RESULTS (passages from the student's files, notes, flashcards and tasks that match the question):\n" + R.text); R.src.forEach(x => src.push(x)); }
     const files = Object.values(state.files).filter(f => f.kind === "file" || f.kind === "cloud");
     if (files.length) {
@@ -73633,7 +73667,7 @@ window.SBTRUTH = (() => {
       const texts = await Promise.all(want.map(({f}) => Promise.race([(async () => { try { return window.SBFILETEXT ? await SBFILETEXT(f.id, 5000) : ""; } catch (e) { return ""; } })(), late])));
       want.forEach(({f}, i) => { const t = texts[i]; if (t) { L.push(`TEXT FROM FILE "${f.name}":\n${t}`); src.push("File: " + clip(f.name, 30)); } });
     }
-    return {text: L.join("\n\n").slice(0, 60000), src, need: N, rows: R && R.rows ? R.rows : []};
+    return {text: L.join("\n\n").slice(0, devQ ? 9000 : 60000), src, need: N, rows: R && R.rows ? R.rows : []};
   }
   const SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "The reply, in the companion's friendly voice. Plain text; short paragraphs or '- ' bullets, **bold** sparingly."},
@@ -73717,6 +73751,41 @@ window.SBTRUTH = (() => {
     return o;
   }).filter(Boolean).slice(0, 5);
 
+  /* Making things with the AI on the device: tasks, timers and changes go through Ask's own steps (98-assist.js: a task read from the
+     words with no model, a timer started at once, a change to confirm); flashcards, a quiz or a note become the button that makes
+     them, with the student's own notes on the topic (or the web's, when they have none) as the material. Null when it isn't a
+     request to make or change something. */
+  const CARDS_Q = /\b(make|create|generate|give me|build|write)\b[^?]*\b(flash ?cards?|cards|quiz(zes)?|practice (questions|test)|test me)\b|\bquiz me\b|\btest me\b/i;
+  const NOTE_Q = /\b(save|make|write|add|create|put)\b[^?]*\bnote\b/i;
+  const CHANGE_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|remind|schedule|start|set|move|change|reschedule|push|rename|delete|remove|mark|cancel|skip|put)\b/i;
+  async function deviceAct(q, chat, forced){
+    const A = window.SBASSIST, TR = window.SBTRUTH; if (!A) return null;
+    if (CARDS_Q.test(q)) {
+      const quiz = /\bquiz|test me|practice (questions|test)\b/i.test(q) && !/flash ?cards?|cards/i.test(q), n = Number((q.match(/\b(\d{1,2})\b/) || [])[1]) || 0;
+      const topic = clip((q.match(/\b(?:on|about|for|from|covering|over)\s+(.+?)[?.!]*$/i) || [])[1] || q.replace(CARDS_Q, "").replace(/^\W+|\W+$/g, ""), 80);
+      let text = "", from = "";
+      try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic || q, {max: 8, chars: 1200, wait: 800, readWait: 2, semWait: 2500}) : null; if (R && R.text && R.text.length > 300) { text = R.text.replace(/^\[\d+\] [^\n]*\n/gm, ""); from = "your notes"; } } catch (e) {}
+      if (!text && TR && topic) { const W = await TR.research(topic).catch(() => ({list: []})); if (W.list && W.list.length) { text = W.list.map(x => `${x.title}\n${x.text}`).join("\n\n"); from = W.list.some(x => /paper/i.test(x.src || "")) ? "Wikipedia and research papers" : "Wikipedia"; } }
+      if (text.length < 120) return forced ? null : {answer: `I couldn't find material on ${topic || "that"} in your notes or on the web. Add notes or a file about it (or attach one here), and I'll make ${quiz ? "a quiz" : "flashcards"} from it.`, sources: [], followUps: [], actions: []};
+      const name = (topic || "Study Set").replace(/\b\w/g, ch => ch.toUpperCase()).slice(0, 60);
+      return {answer: `I gathered material on ${topic || "that"} from ${from}. Tap ${quiz ? "Make Quiz" : "Make Flashcards"} and I'll make ${n ? n + " " : ""}${quiz ? "practice questions" : "cards"} from it.`, sources: [from === "your notes" ? "Your notes" : from], followUps: [],
+        actions: [{type: quiz ? "quiz" : "flashcards", label: quiz ? "Make Quiz" : "Make Flashcards", deckName: name, deck: "", target: "", style: "", count: n, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
+    }
+    if (NOTE_Q.test(q)) {
+      let text = (q.match(/\bnote\b[^:]*:\s*(.+)$/i) || q.match(/\b(?:saying|that says|about)\s+(.+)$/i) || [])[1] || "";
+      if (!text || /^(this|that|it|the (answer|reply))\b/i.test(text) || /\b(this|that)\b\s*(as a note)?\s*$/i.test(q)) { const prev = ((chat && chat.msgs) || []).filter(x => x.a && x.a.answer).slice(-1)[0]; if (prev) text = prev.a.answer; }
+      text = String(text || "").trim();
+      if (text.length < 3) return null;
+      return {answer: "Here's the note. Tap Save Note to put it on your board.", sources: [], followUps: [], actions: [{type: "note", label: "Save Note", deckName: "", deck: "", target: "", style: "", count: 0, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
+    }
+    if (CHANGE_Q.test(q) || (A.timerMins && A.timerMins(q))) {
+      const res = await A.ask(q, {screen: false});
+      if (!res || (!(res.changes || []).length && !res.timer && !forced && A.CLAIMS.test(res.answer || ""))) return null;
+      const pk = A.pack(res);
+      return {answer: res.answer, sources: [], followUps: [], actions: [], changes: pk.changes.length ? pk.changes : undefined, show: pk.show.length ? pk.show : undefined};
+    }
+    return null;
+  }
   async function ask(q){
     q = String(q || "").replace(/\s+/g, " ").trim().slice(0, 1000);
     const att = T.att.slice();
@@ -73729,39 +73798,38 @@ window.SBTRUTH = (() => {
     const chats = rd();
     let c = chats.find(x => x.id === T.id);
     if (!c) { c = {id: uid(), title: clip(q, 56), at: Date.now(), msgs: []}; chats.unshift(c); T.id = c.id; wr(chats); }
-    T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.status = "Looking through your stuff…"; draw();
+    T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.live = ""; T.status = "Looking through your stuff…"; draw();
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     try {
       // the AI on the device (98-truth.js): planner facts from the app itself, exact; other answers checked against what it was given
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length ? TR.facts(q) : null;
+      // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
+      const made = !quick && dev && !att.length ? await deviceAct(q, c) : null;
       if (quick) m.a = {answer: quick.answer, sources: ["Your planner"], followUps: [], actions: []};
+      else if (made) m.a = made;
       else {
       const me = info() || {}, prevQ = (c.msgs.filter(x => x.a).slice(-1)[0] || {}).q || "";
-      const [ctx, cat] = await Promise.all([context(q, prevQ, att.length > 0), window.SBASSIST && SBASSIST.wants(q) ? SBASSIST.catalog(q, {max: 30000}).catch(e => { console.warn(e); return null; }) : null]);
+      const [ctx, cat] = await Promise.all([context(q, prevQ, att.length > 0), window.SBASSIST && SBASSIST.wants(q) ? SBASSIST.catalog(q, {max: typeof aiOnDevice === "function" && aiOnDevice() ? 8000 : 30000}).catch(e => { console.warn(e); return null; }) : null]);
       // a general question on the device: Wikipedia as a source, then the key points a good answer covers, so it isn't shallow
       let plan = "";
       if (dev && TR && !att.length && TR.general(q)) {
         T.status = "Looking it up…"; draw();
         const R = await TR.research(q, {onStatus: t => { T.status = t; draw(); }}).catch(() => ({list: []})), web = R.list || [];
         if (web.length) { ctx.text += `\n\nFROM THE WEB (say where a fact comes from, like "according to Wikipedia" or "a 2019 study found"):\n${TR.webText(web)}`; web.forEach(x => { if (!ctx.src.includes((x.src || "Wikipedia") + ": " + x.title)) ctx.src.push((x.src || "Wikipedia") + ": " + x.title); }); }
-        try {
-          const pr = await aiCall({task: "chat", maxTokens: 600, temperature: 0.2, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
-            system: "You plan a clear, complete answer to a student's question. List the 3 to 5 key points the answer must cover, in a sensible order (for example: what it is, how it works, why it matters, a concrete example, a common mistake). Use only the sources given; skip a point they don't support.",
-            parts: [{text: `SOURCES:\n${ctx.text.slice(-9000)}\n\nTHE QUESTION: ${q}`}]});
-          const pts = ((pr && pr.data && pr.data.points) || []).map(x => clip(x, 160)).filter(Boolean).slice(0, 5);
-          if (pts.length >= 2) plan = `\n\nANSWER PLAN (cover each point, in order, each with a short concrete example where it helps):\n${pts.map((x, i) => `${i + 1}. ${x}`).join("\n")}`;
-        } catch (e) {}
+        plan = "1";
       }
       const seen = window.SBASSIST ? SBASSIST.screenText(SBASSIST.current()) : "";
-      const actOn = att.length > 0 || MAKE.test(q), format = formatFor(q, att.length > 0, !!cat);
+      const actOn = att.length > 0 || MAKE.test(q), format0 = formatFor(q, att.length > 0, !!cat);
+      // a general question on the device: the key points first, then the answer, in the same reply (planned, so not shallow; one call, so quick)
+      const format = plan ? Object.assign({}, format0, {properties: Object.assign({points: {type: "ARRAY", items: {type: "STRING"}, description: "First: the 3 to 5 key points a complete answer covers, in order (what it is, how it works, why it matters, an example, a common mistake), only what the sources support"}}, format0.properties), required: ["points"].concat(format0.required || [])}) : format0;
       T.status = "Thinking…"; draw();
       const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 1200)}`).join("\n\n");
       const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. You are a real AI helper for anything about their courses, their course materials or Studyboard itself: use everything below (their planner, the search results from their own files, notes and cards, the file text, what's on their screen, and HOW STUDYBOARD WORKS for questions about the app), and your own knowledge for subject matter. Always give a real, useful answer: if their data doesn't have something, say briefly what you checked, then help anyway (explain the topic, say where in the app it would be, or ask one short question). Never invent their facts, dates, marks or file contents. When you use their course materials, say which file or note it came from. Match the length to the question: a sentence for a quick fact, a clear explanation with short paragraphs, steps or '- ' bullets when they want to understand, learn, plan or do something. For questions about their work, suggest a concrete next step when it helps. Reply to exactly what the student said, nothing they didn't ask for. Add more only when it clearly helps with what they asked (like what it takes to keep a grade when they ask about that grade, or a deadline that clashes with the plan they're asking about), never as filler. When the student is just chatting, answer that and only that, in character and briefly, like a friend: a hello gets a short friendly hello back (and, at most, a few words offering help), not news about you or a question back; only say how you are or what you've been up to when they ask; thanks gets a short "you're welcome". Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.${actOn ? `
 You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practice. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.` : ""}${cat && window.SBASSIST ? "\n" + SBASSIST.RULES + "\nThe refs are in ITEMS YOU CAN SHOW OR CHANGE. Changing existing things always goes in \"changes\", never in actions. Tasks the student asks you to add go in \"newTasks\"; keep the tasks action for due dates found in files they attached." : ""}`;
       // free: no answer format enforced, just asked for (decoded differently, so a placeholder can't come back the same way)
-      const call = (fmt, free) => aiCall({task: att.length ? "tutor" : "chat", maxTokens: att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
-        parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}${plan}`}])});
+      const call = (fmt, free) => aiCall({onPartial: dev ? t => { T.live = t; drawStatus(); } : undefined, task: att.length ? "tutor" : "chat", maxTokens: dev ? (att.length ? 1200 : 700) : att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
+        parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}${plan ? "\n\nFirst list the key points in points, then write the answer covering each one in order, with a short concrete example where it helps." : ""}`}])});
       // Always a real answer: the full format, then the simplest one, then a free reply; a moment between tries after an
       // error (busy, slow). If the AI still can't be reached, an answer is made on this device from what was found.
       let r = null, lastErr = null;
@@ -73788,13 +73856,14 @@ You can also DO things in Studyboard, but only when the student asks or what the
       if (!m.a.answer) m.a.answer = localAnswer(ctx, null, q).answer;
       if (r.local) m.a.local = true;
       if (!m.a.sources.length) m.a.sources = ctx.src.slice(0, 4);
+      if (dev && window.SBASSIST && SBASSIST.CLAIMS.test(m.a.answer || "") && !(m.a.actions || []).length && !(m.a.changes || []).length) { const fix = await deviceAct(q, c, true); if (fix) m.a = fix; }
       }
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
     fresh.sort((a, b) => b.at - a.at); wr(fresh);
-    T.busy = null; T.status = ""; draw(); say();
+    T.busy = null; T.status = ""; T.live = ""; draw(); say();
     try { if (m.a && window.SBCOMP) { SBCOMP.cheer && 0; } } catch (e) {}
   }
   const clip2 = (s, n) => String(s == null ? "" : s).trim().slice(0, n);
@@ -73987,7 +74056,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   VIEWS.companion = view;
 
-  function drawStatus(){ const s = $("#cptStatus"); if (s) s.textContent = T.status || "Thinking…"; }
+  function drawStatus(){ const s = $("#cptStatus"); if (s) { s.textContent = T.live || T.status || "Thinking…"; s.classList.toggle("cpt-live", !!T.live); } }
   function draw(){
     if (ui.tab !== "companion") return;
     const log = $("#cptLog");
