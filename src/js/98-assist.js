@@ -749,7 +749,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     }
     // a question about the subject (on the device): answered from their own material first, then the web, in one focused call;
     // the whole planner would only distract a small model from it
-    if (dev && TR && TR.general(q) && !VISUAL.test(q) && !appQ(q)) {
+    if (dev && TR && TR.general(q) && !/\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit)/i.test(q) && !appQ(q)) {
       const k = await TR.knowledge(q, {signal: o.signal});
       return {answer: k.answer, show: [], changes: [], sources: k.sources && k.sources.length ? k.sources : undefined, unsure: !k.found};
     }
@@ -822,7 +822,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // never say something was done when the app wasn't asked to do it
     if (!out.changes.length && !out.show.length && CLAIMS.test(out.answer)) out.answer = "I couldn't do that from here. Try asking another way, or do it in the app directly.";
     // filler, or a reply that never mentions what was asked about: their material and the web instead, or an honest "couldn't find"
-    if (TR && TR.nonAnswer && !out.changes.length && !out.show.length && !timer && TR.nonAnswer(q, out.answer) && !appQ(q)) {
+    if (TR && TR.nonAnswer && !out.changes.length && !timer && TR.nonAnswer(q, out.answer)) {
       try { const k = await TR.knowledge(q, {signal: o.signal, noWeb: !TR.general(q)}); out.answer = k.found || TR.general(q) ? k.answer : "I couldn't work that out from your Studyboard. Try asking it another way, with the course or task name."; if (k.sources && k.sources.length) out.sources = k.sources; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; }
     }
     if (/^\s*((show|open|go to|see)\s+)?[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(out.answer) || junk(out.answer)) out.answer = out.show && out.show.length ? `Here it is: ${out.show[0].label}.` : out.changes && out.changes.length ? "Here's what I'd change." : "I couldn't find that. Try asking another way?";

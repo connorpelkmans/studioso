@@ -58,6 +58,8 @@ window.SBTRUTH = (() => {
     q = norm(q);
     const s = low(q).replace(/[?!.]+$/, ""), today = todayISO(), L = window.SBLOCALANS;
     if (!s || s.length > 160) return null;
+    // study advice built from their planner (98-advice.js): priorities, a plan, how to study for an exam
+    { const A = window.SBADVICE; if (A && A.ADVICE.test(s)) { const r = A.answer(s); if (r) return r; } }
     // the wider set of planner questions (98-facts.js): averages, best and worst, classes, the next exam, counts, cards due
     { const X = window.SBFACTS; if (X && !(WRITE.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i|am i)\b/.test(s))) { const r = X.answer(q); if (r) return r; } }
     // an action, not a question ("add a task due tomorrow", "move my exam"): the AI's job
@@ -287,6 +289,13 @@ window.SBTRUTH = (() => {
     let d = await tryOnce();
     if (!d && fallback) d = (SHAPE ? await tryOnce(SHAPE) : null) || fallback;
     if (!d) { if (covered && !web.length) web = await getWeb(); d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources.${SHAPE}`); if (!d && fallback) d = fallback; }
+    // still thin for an explanation: the lines of their own notes that cover it, after the answer
+    if (d && (deep || listQ) && !shape(d) && mine && mine.rows && mine.rows.length) {
+      const kk = keys.map(k => k.length > 5 ? k.slice(0, k.length - 2) : k), lines = [];
+      mine.rows.forEach(r => String(r.text || (r.doc && r.doc.text) || "").split(/\n|(?<=\.)\s+(?=[A-Z])/).forEach(l => { l = l.trim(); if (l.length > 12 && l.length < 260 && !lines.includes(l) && (kk.some(k => low(l).includes(k)) || /:/.test(l))) lines.push(l); }));
+      const add = lines.filter(l => !low(d.answer).includes(low(l).slice(0, 40))).slice(0, 5);
+      if (add.length) d = Object.assign({}, d, {answer: `${String(d.answer).trim()}\nFrom your notes:\n${add.map(l => "- " + l).join("\n")}`});
+    }
     if (!d) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
     const used = web.filter(x => /wikipedia|wiktionary|stud(y|ies)|research|paper|according/i.test(d.answer));
     return {answer: String(d.answer).trim(), sources: used.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"})), fromNotes: !!notes && /your notes|your files|your lecture|your slides/i.test(d.answer), found: true, notesSrc: mine && mine.src ? mine.src : []};
