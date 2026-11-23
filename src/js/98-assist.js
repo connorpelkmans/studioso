@@ -776,7 +776,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         return {answer: (good.length ? good : outs).map(x => x.answer).filter(Boolean).join(" "), show: outs.flatMap(x => x.show || []).slice(0, 5), changes: outs.flatMap(x => x.changes || []), timer: Math.max(0, ...outs.map(x => x.timer || 0)), steps: parts.length};
       }
       // (a request is never answered as a question about the planner)
-      const f = isRequest(q) ? null : TR.facts(q);
+      // (instant planner answers for questions; a statement goes to the AI first, and gets the planner's answer if it was a question after all)
+      const looksQ = /\?\s*$/.test(q) || /^\s*(what|what's|whats|who|why|how|when|where|which|is|are|do|does|did|can i|could i|should i|am i|will|would|show|list|tell me|give me)\b/i.test(q);
+      const f = isRequest(q) || !looksQ ? null : TR.facts(q);
       if (f) return {answer: f.answer, show: (f.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true};
       // a timer, or a task with what it needs in the words: done by the app straight away (fast and exact), no model
       const tm0 = timerMins(q);
@@ -802,10 +804,12 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
     }
     // a request the quick steps above didn't recognize, however it's worded: understood by the AI, done by the app (intentAct)
-    if (/\b(add|put|make|create|delete|remove|get rid|erase|trash|move|push|reschedule|mark|check off|finish|finished|done|submitted|turned in|rename|call it|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|show me|jot|note|remind|schedule|book|cancel|undo|revert|edit|update)\b/i.test(q) && window.SBCOMPTAB && SBCOMPTAB.intent) {
+    // (the AI decides for anything but a plain question: what it is and what to do, however it's worded)
+    if (!/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did)\b[^]*\?\s*$/i.test(q) && window.SBCOMPTAB && SBCOMPTAB.intent) {
       const r = await SBCOMPTAB.intent(q).catch(e => { console.warn("intent", e); return null; });
       if (r) return {answer: r.answer, show: r.show || [], changes: [], local: true};
     }
+    if (dev && TR) { const f2 = isRequest(q) ? null : TR.facts(q); if (f2) return {answer: f2.answer, show: (f2.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true}; }
     // a question about the subject (on the device): answered from their own material first, then the web, in one focused call;
     // the whole planner would only distract a small model from it
     if (dev && TR && TR.general(q) && !/\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit)/i.test(q) && !appQ(q)) {
