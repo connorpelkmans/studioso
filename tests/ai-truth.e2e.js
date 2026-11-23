@@ -54,7 +54,7 @@ function fake(){
   ok(r.asked === 2 && /doesn't list an instructor/.test(r.answer), "and a corrected answer is kept: " + r.answer);
   // 3. several things at once
   r = await ask("add bio quiz on friday and then start a 15 minute focus timer", [{answer: "Here it is to check.", show: [], changes: [], newTasks: [{title: "Bio quiz", type: "Quiz", due: "2030-01-04"}]}, {answer: "Starting!", show: [], changes: [], newTasks: [], focusMinutes: 15}]);
-  ok(r.changes.some(c => /newtask:Bio quiz/i.test(c)) && r.timer === 15, "two things in one request: the task is proposed and the timer runs: " + JSON.stringify({changes: r.changes, timer: r.timer}));
+  ok((r.changes.some(c => /newtask:Bio quiz/i.test(c)) || await p.evaluate(() => Object.values(window.__sbSync.state.tasks).some(t => /bio quiz/i.test(t.title)))) && r.timer === 15, "two things in one request: the task is proposed and the timer runs: " + JSON.stringify({changes: r.changes, timer: r.timer}));
   // 4. a general question: Wikipedia is looked up and given as a source; the answer says where it's from
   r = await ask("what is osmosis?", [{__wiki: true}]);
   ok(wiki.length >= 2 && r.prompts.some(t => /FROM THE WEB/.test(t) && /Osmosis is the spontaneous/.test(t)), "a general question: Wikipedia is searched with the question, the passages go to the model: " + wiki.join(", "));

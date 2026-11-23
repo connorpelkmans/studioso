@@ -767,8 +767,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // The AI on the device (98-truth.js): a request with several things to do goes one at a time, and planner facts (what's due,
     // grades, when something is) come from the app itself, exact, with no model involved
     const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH;
-    if (dev && TR && !o.oneStep) {
-      const parts = TR.steps(q);
+    if (dev && TR) {
+      // (each part of a two-in-one request goes through the same exact steps below)
+      const parts = o.oneStep ? [q] : TR.steps(q);
       if (parts.length > 1) {
         const outs = [];
         for (const p of parts) { try { outs.push(await ask(p, Object.assign({}, o, {oneStep: true}))); } catch (e) { outs.push({answer: "", show: [], changes: []}); } }

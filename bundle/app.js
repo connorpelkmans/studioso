@@ -73938,8 +73938,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // The AI on the device (98-truth.js): a request with several things to do goes one at a time, and planner facts (what's due,
     // grades, when something is) come from the app itself, exact, with no model involved
     const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH;
-    if (dev && TR && !o.oneStep) {
-      const parts = TR.steps(q);
+    if (dev && TR) {
+      // (each part of a two-in-one request goes through the same exact steps below)
+      const parts = o.oneStep ? [q] : TR.steps(q);
       if (parts.length > 1) {
         const outs = [];
         for (const p of parts) { try { outs.push(await ask(p, Object.assign({}, o, {oneStep: true}))); } catch (e) { outs.push({answer: "", show: [], changes: []}); } }
@@ -74558,7 +74559,7 @@ window.SBTRUTH = (() => {
   const WD = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
   const words = s => (low(s).match(/[a-z0-9]+/g) || []).filter(w => w.length > 2 && !/^(the|and|for|with|due|when|what|is|are|my|was|did|get|got|on|in|of|to|a|an)$/.test(w));
   const WRITE = /\b(add|create|make|put|schedule|remind|move|change|rename|delete|remove|mark|set|start|begin|turn|update|edit|cancel|skip)\b/i;
-  const ACTION = /\b(add|create|make|put|schedule|remind|move|change|rename|delete|remove|mark|set|start|begin|open|show|find|turn|update|edit|cancel|skip)\b/i;
+  const ACTION = /\b(add|create|make|put|schedule|remind|move|change|rename|delete|remove|mark|set|start|begin|open|show|find|turn|update|edit|cancel|skip|finish|finished|completed?|done|submitted|handed in|turned in|stop|pause|resume|got|scored)\b/i;
 
   /* ---------- facts: the planner's own answers ---------- */
   function range(s, today){
@@ -74661,7 +74662,7 @@ window.SBTRUTH = (() => {
   /* ---------- steps: one request per thing to do ---------- */
   function steps(q){
     const s = String(q || "").trim(); if (s.length < 12 || s.length > 400) return [s];
-    const parts = s.split(/\s*(?:;|,?\s+and\s+(?=(?:what|what's|whats|when|when's|where|which|who|how|is|are|do|does|am)\b)|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
+    const parts = s.split(/\s*(?:;|,?\s+and\s+(?=(?:what|what's|whats|when|when's|where|which|who|how|is|are|do|does|am)\b)|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+(?:and\s+)?(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule|stop|pause)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
     // only a real split: every part asks for something
     return parts.length > 1 && parts.length <= 5 && parts.every(p => ACTION.test(p) || /\?$|^(what|when|how|why|which|who)\b/i.test(p)) ? parts : [s];
   }
@@ -75189,6 +75190,7 @@ window.SBTRUTH = (() => {
      them, with the student's own notes on the topic (or the web's, when they have none) as the material. Null when it isn't a
      request to make or change something. */
   const CARDS_Q = /\b(make|create|generate|give me|build|write)\b[^?]*\b(flash ?cards?|cards|quiz(zes)?|practice (questions|test)|test me)\b|\bquiz me\b|\btest me\b/i;
+  const EMPTY_DECK = /\b(empty|blank|new)\s+(flash ?card\s+)?(deck|set)\b|\b(create|make|start|add)\s+(a|an|one)?\s*(new\s+)?(flash ?card\s+)?(deck|set)\s+(called|named|for)\b/i;
   const NOTE_Q = /\b(save|make|write|add|create|put)\b[^?]*\bnote\b/i;
   const CHANGE_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|remind|schedule|start|set|move|change|reschedule|push|rename|delete|remove|mark|cancel|skip|put)\b/i;
   /* A concept map asked for in the chat: built right away (the sentences are read in code; just a topic goes to the AI), then an
@@ -75214,7 +75216,7 @@ window.SBTRUTH = (() => {
   }
   async function deviceAct(q, chat, forced){
     const A = window.SBASSIST, TR = window.SBTRUTH; if (!A) return null;
-    if (CARDS_Q.test(q)) {
+    if (CARDS_Q.test(q) && !EMPTY_DECK.test(q)) {
       const quiz = /\bquiz|test me|practice (questions|test)\b/i.test(q) && !/flash ?cards?|cards/i.test(q), n = Number((q.match(/\b(\d{1,2})\b/) || [])[1]) || 0;
       const topic = clip((q.match(/\b(?:on|about|for|from|covering|over)\s+(.+?)[?.!]*$/i) || [])[1] || q.replace(CARDS_Q, "").replace(/^\W+|\W+$/g, ""), 80);
       let text = "", from = "";
@@ -75418,7 +75420,7 @@ Examples:
   async function itemAct(it, d, q, chat){
     const A = window.SBASSIST, say = answer => ({answer, sources: [], followUps: [], actions: []});
     const kind = KINDS.includes(d.kind) ? d.kind : "";
-    const x = itemNamed(kind, d.item) || (kind ? null : itemNamed("", q));
+    const x = itemNamed(kind, d.item) || (kind ? itemNamed("", d.item) : itemNamed("", q));
     if (!x) return say(`I couldn't find ${kind ? "a " + KIND_WORD[kind] : "anything"} called "${clip(d.item || "", 60)}". Check the name, or tell me which ${kind ? KIND_WORD[kind] : "one"}.`);
     const W = KIND_WORD[x.kind], ref = {kind: x.kind, id: x.id, deck: x.deck, date: x.date, start: x.start, end: x.end, repeats: x.repeats};
     if (it === "open_item") {
@@ -75534,6 +75536,30 @@ Examples:
     saveDeck(nd, `Card added to ${d.name}`);
     return say(`Added to ${d.name}: "${front}" / "${back}". Say "undo" to take it back.`);
   }
+  // a flashcard's front, back and deck, found wherever they are in the sentence
+  function cardParse(w){
+    w = String(w || "").trim();
+    return (() => {
+      // "add 'X' / 'Y' to Z" (no front/back words)
+      const sl0 = /\b(?:add|put|make|create|new)\b[^"“']*["“']([^"”']{1,200})["”']\s*(?:\/|\||->|=)\s*["“']([^"”']{1,300})["”']\s+(?:to|in|into)\s+(?:the\s+|my\s+)?(.+?)\s*(?:deck|set)?\s*[.!?]*$/i.exec(w);
+      if (sl0) return [null, sl0[1], sl0[2], sl0[3]];
+      if (!/\b(?:add|make|create|put|new|write)\b/i.test(w) || !/\b(?:flash ?)?cards?\b/i.test(w) || !/\bfront\b/i.test(w) || !/\bback\b/i.test(w)) return null;
+      const SAYS = "\\s*(?:side\\s*)?(?:that says|which says|saying|says|reading|that reads|is|=|:|of|as|with)?\\s*";
+      const DECK = "(?:to|in|into|on|for)\\s+(?:the\\s+|my\\s+)?(?:deck|set)\\b";
+      const grab = side => { const m = new RegExp("\\b" + side + "\\b" + SAYS + "[\"“']?(.+?)[\"”']?(?=\\s*(?:,|\\band\\b|\\bwith\\b)?\\s*(?:the\\s+|a\\s+)?(?:front|back)\\b|\\s+" + DECK + "|\\s*[.!?]*$)", "i").exec(w); return m ? m[1].trim() : ""; };
+      // "add 'X' / 'Y' to Z", "add X | Y to Z"
+      const sl = /["“']([^"”']{1,200})["”']\s*(?:\/|\||->|=)\s*["“']([^"”']{1,300})["”']\s+(?:to|in|into)\s+(?:the\s+|my\s+)?(.+?)\s*(?:deck|set)?\s*[.!?]*$/i.exec(w);
+      if (sl) return [null, sl[1], sl[2], sl[3]];
+      const dm = new RegExp(DECK + "\\s*(?:called\\s+|named\\s+)?[\"“']?(.+?)[\"”']?(?=\\s+(?:with|and|,|that)\\b|\\s*,|\\s*[.!?]*$)", "i").exec(w)
+        || /\b(?:to|in|into|for)\s+(?:the\s+|my\s+)?["“']?([^"”',:]{2,60}?)["”']?\s*(?:deck|set)?\s*(?::|,|\s+with\b|\s+-\s)/i.exec(w)
+        || /\b(?:to|in|into)\s+(?:the\s+|my\s+)?["“']?(.+?)["”']?\s+(?:deck|set)\b/i.exec(w);
+      let front = grab("front"), back = grab("back"), deck = dm ? dm[1] : "";
+      if (!deck) { const lead = /^\s*(?:in\s+|for\s+)?(?:the\s+|my\s+)?["“']?([^"”':,]{2,60}?)["”']?\s+(?:deck|set)\s*[:,-]/i.exec(w); if (lead) deck = lead[1].trim(); }
+      // "... and back cell division to Biology": the deck is the last "to ..." (and isn't part of the back)
+      if (!deck) { const tm = /\s+(?:to|into|in)\s+(?:the\s+|my\s+)?["“']?([^"”']{1,60}?)["”']?\s*[.!?]*$/i.exec(w); if (tm && back.endsWith(tm[1].trim())) { deck = tm[1].trim(); back = back.slice(0, back.length - tm[0].trim().length).trim(); } }
+      return front && back && deck ? [null, front, back, deck] : null;
+    })();
+  }
   const PAGES = {today: "board", home: "board", board: "board", dashboard: "board", calendar: "plan", schedule: "plan", planner: "plan", plan: "plan", week: "plan",
     flashcards: "flashcards", cards: "flashcards", decks: "flashcards", deck: "flashcards", quizzes: "flashcards", notes: "notes", "note boards": "notes", courses: "courses", classes: "courses",
     grades: "courses", marks: "courses", files: "files", groups: "groups", "study groups": "groups", companion: "companion", chat: "companion", archive: "archive", timeline: "timeline", email: "emails", emails: "emails", scrapbook: "scrapbook"};
@@ -75542,20 +75568,17 @@ Examples:
     const say = (answer, extra) => Object.assign({answer, sources: [], followUps: [], actions: []}, extra || {});
     const w = String(q || "").trim();
     // a flashcard: "add a flashcard with front hi and back hello to deck Biology", "add card: front / back to Biology"
-    // (front, back and deck found wherever they are in the sentence)
-    const cm = (() => {
-      if (!/\b(?:add|make|create|put|new|write)\b/i.test(w) || !/\b(?:flash ?)?cards?\b/i.test(w) || !/\bfront\b/i.test(w) || !/\bback\b/i.test(w)) return null;
-      const SAYS = "\\s*(?:side\\s*)?(?:that says|which says|saying|says|reading|that reads|is|=|:|of|as|with)?\\s*";
-      const DECK = "(?:to|in|into|on|for)\\s+(?:the\\s+|my\\s+)?(?:deck|set)\\b";
-      const grab = side => { const m = new RegExp("\\b" + side + "\\b" + SAYS + "[\"“']?(.+?)[\"”']?(?=\\s*(?:,|\\band\\b|\\bwith\\b)?\\s*(?:the\\s+|a\\s+)?(?:front|back)\\b|\\s+" + DECK + "|\\s*[.!?]*$)", "i").exec(w); return m ? m[1].trim() : ""; };
-      const dm = new RegExp(DECK + "\\s*(?:called\\s+|named\\s+)?[\"“']?(.+?)[\"”']?(?=\\s+(?:with|and|,|that)\\b|\\s*,|\\s*[.!?]*$)", "i").exec(w)
-        || /\b(?:to|in|into)\s+(?:the\s+|my\s+)?["“']?(.+?)["”']?\s+(?:deck|set)\b/i.exec(w);
-      let front = grab("front"), back = grab("back"), deck = dm ? dm[1] : "";
-      // "... and back cell division to Biology": the deck is the last "to ..." (and isn't part of the back)
-      if (!deck) { const tm = /\s+(?:to|into|in)\s+(?:the\s+|my\s+)?["“']?([^"”']{1,60}?)["”']?\s*[.!?]*$/i.exec(w); if (tm && back.endsWith(tm[1].trim())) { deck = tm[1].trim(); back = back.slice(0, back.length - tm[0].trim().length).trim(); } }
-      return front && back && deck ? [null, front, back, deck] : null;
-    })();
+    const cm = cardParse(w);
     if (cm) return addCardTo(cm[1], cm[2], cm[3]);
+    // an empty deck by name: "create an empty flashcard deck for WWI", "make a new deck called Pharmacology"
+    const dk = /\b(?:create|make|start|add|set up)\b\s+(?:me\s+)?(?:a|an|one)?\s*(?:new\s+|empty\s+|blank\s+)*(?:flash ?card\s+)?(?:deck|set)\s+(?:called|named|for|about|on)\s+["“']?(.+?)["”']?\s*[.!?]*$/i.exec(w) || /\b(?:new|empty|blank)\s+(?:flash ?card\s+)?(?:deck|set)\s*(?:called|named|for|:)\s*["“']?(.+?)["”']?\s*[.!?]*$/i.exec(w);
+    if (dk && !/\b(front|back)\b/i.test(w)) {
+      const name = dk[1].trim().replace(/^(the|my)\s+/i, ""), ex = deckNamed(name);
+      if (ex && ex.name.toLowerCase() === name.toLowerCase()) return say(`You already have a deck called ${ex.name}.`);
+      const id = uid(), nd = normDeck({id, name: name.replace(/^\w/, c => c.toUpperCase()).slice(0, 120), courseId: "", created: Date.now(), updated: Date.now()});
+      applyChanges([{kind: "deck", id, after: nd}], `Made ${nd.name}`);
+      return say(`Made the deck ${nd.name}. Add cards by saying "add a card to ${nd.name} with front … and back …". Say "undo" to take it back.`);
+    }
     // a study group or group project: New Group, filled in, for them to create (it needs their account and the internet)
     const gm = /\b(?:create|make|start|set up|new|open)\b[^]*?\b(study group|group project|project group|group)\b(?:\s+(?:called|named|for)\s+["“']?(.+?)["”']?)?\s*[.!?]*$/i.exec(w);
     if (gm && !/\b(note|deck|board|quiz|map|task|event)\b/i.test(w.replace(gm[1], ""))) {
@@ -75661,7 +75684,7 @@ Examples:
       applyChanges([{kind: "course", id: nc.id, after: nc}], `Added ${nc.name}`);
       return state.courses[nc.id] ? say(`Added the course ${courseLabel(nc)}${nc.instructor ? ` with ${nc.instructor}` : ""}. Open Courses to add its class times.`) : null;
     }
-    if (it === "add_card") return addCardTo(d.front, d.back, d.deck || d.item || d.title);
+    if (it === "add_card") { const p = cardParse(q) || []; return addCardTo(d.front || p[1], d.back || p[2], d.deck || d.item || d.title || p[3]); }
     if (it === "make_deck") {
       const name = String(d.title || d.item || d.topic || "").trim(); if (!name) return say("What should the deck be called?");
       const ex = deckNamed(name); if (ex && ex.name.toLowerCase() === name.toLowerCase()) return say(`You already have a deck called ${ex.name}.`);
@@ -75768,7 +75791,9 @@ Examples:
     try {
       // the AI on the device (98-truth.js): planner facts from the app itself, exact; other answers checked against what it was given
       // stop, pause or resume the timer, or undo the last change: done at once, with no AI (98-assist.js), on any engine
-      const ctl = !att.length && window.SBASSIST && SBASSIST.control ? SBASSIST.control(q) : null, me0 = !ctl && !att.length ? selfAnswer(q) : "";
+      // two things in one message ("finished the journal, start a 25 min timer for the essay"): each done in turn (98-assist.js splits them)
+      const multi = !att.length && !!(window.SBTRUTH && SBTRUTH.steps && window.SBASSIST && SBASSIST.ask) && (ps => ps.length > 1 && ps.every(x => !/\?\s*$/.test(x) && !/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|do|does|did)\b/i.test(x)))(SBTRUTH.steps(q));
+      const ctl = !multi && !att.length && window.SBASSIST && SBASSIST.control ? SBASSIST.control(q) : null, me0 = !ctl && !att.length ? selfAnswer(q) : "";
       // a request to do something (any wording) is understood by the AI and done by the app (intentAct); a planner question with
       // no request in it is answered from the app's own data first (exact, instant)
       const ACTY = /\b(add(s|ed|ing)?|put(s|ting)?|mak(e|es|ing)|creat(e|ed|ing)|delet(e|ed|ing)|remov(e|ed|ing)|get rid|eras(e|ed)|trash(ed)?|mov(e|ed|es|ing)|push(ed|ing)?|bump(ed)?|reschedul(e|ed|ing)|postpon(e|ed)|delay(ed)?|extend(ed|s)?|mark(ed)?|check(ed)? off|tick(ed)? off|cross(ed)? (off|out)|finish(ed|ing)?|complet(e|ed)|done|submit(ted)?|turn(ed)? in|hand(ed)? in|wrap(ped)? up|renam(e|ed)|call it|chang(e|ed|ing)|set|switch(ed)?|turn(ed)? (on|off)|start(ed|ing)?|stop(ped)?|paus(e|ed)|resum(e|ed)|open|take me|go to|show me|bring up|jot|note|remind|schedul(e|ed)|book|cancel(l?ed)?|undo|revert|edit|updat(e|ed)|wear|join|enrol+(ed)?|working on|now due|due date (is|changed|moved))\b/i;
@@ -75785,11 +75810,12 @@ Examples:
       const more = !fix && !att.length ? /^\s*(?:(?:can|could) you\s+|please\s+)?((?:be )?more detail(?:ed|s)?|go (?:into )?more (?:detail|depth)|in more detail|more depth|elaborate|expand(?: on (?:that|it))?|explain (?:that |it )?(?:more|further|better|again|simpler|more simply)|tell me more|say more|keep going|go on|continue|simpler|more simply|(?:make it |explain it )?simpler|dumb it down|(?:give (?:me )?)?an? (?:example|analogy)|shorter|(?:make it )?shorter|in short|tl;?dr|summari[sz]e (?:that|it)|why\??|how so\??|what do you mean\??)\s*(?:please)?[.!?]*\s*$/i.exec(q) : null;
       const prevQ0 = fix || more ? (x => x ? (x.ask || x.q) : "")((c.msgs || []).filter(x => x.q && x.a).slice(-1)[0]).replace(/^(Explain in detail|Explain simply|In two or three sentences|Give an example of):\s*/i, "") : "";
       const qFix = fix && prevQ0 ? `${prevQ0.replace(/[?!.]+\s*$/, "")} (${fix[1]})?` : more && prevQ0 ? `${/simpl|dumb/i.test(more[1]) ? "Explain simply: " : /short|tl|summar|in short/i.test(more[1]) ? "In two or three sentences: " : /example|analogy/i.test(more[1]) ? "Give an example of: " : "Explain in detail: "}${prevQ0.replace(/[?!.]+\s*$/, "")}` : "";
-      const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length && !ctl && !me0 && (ISQ(q) || window.__SB_GATE) && !ACTX(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
+      const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = !multi && dev && TR && !att.length && !ctl && !me0 && (ISQ(q) || window.__SB_GATE) && !ACTX(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
       const was = !att.length ? pendingAsk(q, c) : "", q2 = was || qFix || q;
       if (q2 !== q) m.ask = q2;
       let made = null;
+      if (multi) { T.status = "Doing those one at a time…"; draw(); const r = await SBASSIST.ask(q, {screen: false}).catch(() => null); if (r && r.answer) made = {answer: r.answer, sources: [], followUps: [], actions: []}; }
       // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
       if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
       else if (!att.length) { const me = me0 || selfAnswer(q2); if (me) made = {answer: me, sources: [], followUps: [], actions: []}; }

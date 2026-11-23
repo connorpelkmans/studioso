@@ -48,6 +48,11 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   ok(/detail/i.test(kq[1] || "") && /osmosis/i.test(kq[1] || ""), "\"be more detailed\" asks about the last question again, in detail: " + JSON.stringify(kq));
   a = await chat("give me an example"); kq = await p.evaluate(() => window.__kq);
   ok(/example/i.test(kq[2] || "") && /osmosis/i.test(kq[2] || ""), "\"give me an example\" too: " + kq[2]);
+  a = await chat("mark lab 4 done, start a 10 min timer");
+  const two = await p.evaluate(() => ({done: window.__sbSync.state.tasks.t1.status, pomo: JSON.parse(localStorage.getItem("studioso:pomo") || "{}")}));
+  ok(two.done === "done" && two.pomo.running, "two things in one message are both done: " + a);
+  a = await chat("create an empty flashcard deck for WWI");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.decks).some(d => /wwi/i.test(d.name))) || /deck/i.test(a) && !/gathered material/i.test(a), "an empty deck isn't \"make flashcards from my notes\": " + a);
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);

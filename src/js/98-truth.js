@@ -13,7 +13,7 @@ window.SBTRUTH = (() => {
   const WD = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
   const words = s => (low(s).match(/[a-z0-9]+/g) || []).filter(w => w.length > 2 && !/^(the|and|for|with|due|when|what|is|are|my|was|did|get|got|on|in|of|to|a|an)$/.test(w));
   const WRITE = /\b(add|create|make|put|schedule|remind|move|change|rename|delete|remove|mark|set|start|begin|turn|update|edit|cancel|skip)\b/i;
-  const ACTION = /\b(add|create|make|put|schedule|remind|move|change|rename|delete|remove|mark|set|start|begin|open|show|find|turn|update|edit|cancel|skip)\b/i;
+  const ACTION = /\b(add|create|make|put|schedule|remind|move|change|rename|delete|remove|mark|set|start|begin|open|show|find|turn|update|edit|cancel|skip|finish|finished|completed?|done|submitted|handed in|turned in|stop|pause|resume|got|scored)\b/i;
 
   /* ---------- facts: the planner's own answers ---------- */
   function range(s, today){
@@ -116,7 +116,7 @@ window.SBTRUTH = (() => {
   /* ---------- steps: one request per thing to do ---------- */
   function steps(q){
     const s = String(q || "").trim(); if (s.length < 12 || s.length > 400) return [s];
-    const parts = s.split(/\s*(?:;|,?\s+and\s+(?=(?:what|what's|whats|when|when's|where|which|who|how|is|are|do|does|am)\b)|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
+    const parts = s.split(/\s*(?:;|,?\s+and\s+(?=(?:what|what's|whats|when|when's|where|which|who|how|is|are|do|does|am)\b)|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+(?:and\s+)?(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule|stop|pause)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
     // only a real split: every part asks for something
     return parts.length > 1 && parts.length <= 5 && parts.every(p => ACTION.test(p) || /\?$|^(what|when|how|why|which|who)\b/i.test(p)) ? parts : [s];
   }
