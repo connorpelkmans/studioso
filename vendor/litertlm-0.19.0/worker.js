@@ -36,9 +36,10 @@ function textOf(msg){
   return (Array.isArray(c) ? c : []).filter(x => x && x.type === "text").map(x => x.text).join("");
 }
 async function ask(m){
-  // the answer's shape enforced with a "respond" tool; if this model or runtime won't do that, once more as plain JSON
-  try { await askWith(m, true); }
-  catch (err) { if (m.sent || /cancel/i.test(String(err && err.message))) throw err; await askWith(m, false); }
+  // (plain JSON first: tested with the real model and runtime, it writes straight away. The constrained tool is kept for a later
+  //  runtime: with 0.19.0 and this model it was far slower to start)
+  try { await askWith(m, !!m.tool); }
+  catch (err) { if (m.sent || /cancel/i.test(String(err && err.message)) || !m.tool) throw err; await askWith(m, false); }
 }
 async function askWith(m, useTool){
   const {id, system, text, schema, maxTokens, temperature} = m;

@@ -7522,6 +7522,8 @@ const e4bWait = new Map();
 // Loading E4B onto the graphics chip takes a while the first time after the page opens (it reads 3.3 GB): it starts as soon as
 // the student goes to type to the AI, so the first answer doesn't wait on it, and the chat gives that first load extra time
 let e4bLoaded = false, e4bOff = false;
+// (vendor/ files are cached for a month: a new worker gets a new address)
+const E4B_WORKER_V = "3";
 function e4bWarm(){ if (DEVAI.kind === "litert" && DEVAI.e4b === "ready" && !e4bLoad) e4bWorker().then(() => { e4bRest(); }, () => {}); }
 document.addEventListener("focusin", e => { try { if (e.target && e.target.matches && e.target.matches("#cptIn, .cp-ask-in, [data-ai-input]")) e4bWarm(); } catch (x) {} });
 function e4bStop(){ clearTimeout(e4bIdle); try { e4bW && e4bW.terminate(); } catch (e) {} e4bW = null; e4bLoad = null; e4bLoaded = false; e4bWait.forEach(w => w.no(aiErr("device-failed", "Stopped."))); e4bWait.clear(); }
@@ -7537,7 +7539,7 @@ function e4bWorker(onStatus){
   if (e4bLoad) return e4bLoad;
   e4bLoad = (async () => {
     const stub = window.__SB_TEST && window.__SB_E4B_STUB;
-    e4bW = stub && stub.worker ? stub.worker() : new Worker(new URL(E4B.dir + "worker.js", location.href).href);
+    e4bW = stub && stub.worker ? stub.worker() : new Worker(new URL(E4B.dir + "worker.js?v=" + E4B_WORKER_V, location.href).href);
     e4bW.onmessage = e => { const m = e.data || {}, w = e4bWait.get(m.id); if (!w) return; if (m.t === "partial") w.part(m.n); else { e4bWait.delete(m.id); if (m.t === "done" || m.t === "loaded") w.ok(m.text); else w.no(Object.assign(aiErr("device-failed", "Studyboard's on-device AI couldn't answer that. Try again."), {detail: String(m.message || "").slice(0, 300)})); } };
     if (onStatus) onStatus("Starting Studyboard's on-device AI… The first time after opening Studyboard takes up to a minute.");
     const model = await e4bModel(), local = e4bDesk() ? [new URL(E4B.dir + "wasm", location.href).href] : [];
