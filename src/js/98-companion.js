@@ -2162,7 +2162,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // (98-assist.js). The task sheet's own Ask box stays a plain answer, so it never leaves the task.
     if (viaAssist) {
       try {
-        const res = await SBASSIST.ask(clean, {extra: sc && sc.text ? `${sc.kind}: ${sc.label}\n${sc.text}` : ""});
+        const t0 = Date.now(), res = await SBASSIST.ask(clean, {extra: sc && sc.text ? `${sc.kind}: ${sc.label}\n${sc.text}` : ""});
+        // (an answer the app had at once still takes a moment, like someone reading the question first)
+        { const w = 1000 + Math.random() * 800 - (Date.now() - t0); if (w > 0 && !(window.__SB_TEST && !window.__SB_PACE)) await new Promise(r => setTimeout(r, w)); }
         const answer = cleanLine(res.answer, 650, BAD_ASK) || (res.changes.length ? "Here's the change. Check it, then tap Apply." : res.show.length ? "Here it is!" : "");
         if (!answer) return {why: ""};
         return {answer, idea: null, go: res.changes.length || res.show.length ? shown => SBASSIST.act(res, {shown}) : null};
