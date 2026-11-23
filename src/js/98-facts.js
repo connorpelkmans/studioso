@@ -34,6 +34,21 @@ window.SBFACTS = (() => {
     const rows = gradeRows(), marked = rows.filter(r => r.cur != null && !r.zero);
     if (!rows.length) return /\b(average|gpa|overall|all|across|best|worst|failing|passing)\b/.test(s) ? {answer: "You don't have any marks in Studyboard yet. Add them in Grades, or connect your school site, and I can work this out.", show: []} : null;
     const c = courseIn(s);
+    // one piece of work named ("my grade on the psych midterm"): its own mark, or that it isn't marked yet
+    { const W = /\b(midterm|final|exam|quiz|test|lab|assignment|essay|paper|project|report|care plan|journal|presentation)s?\b/.exec(s);
+      if (W && /\b(on|for)\b/.test(s) && !/\b(all|every|each|across|average|overall)\b/.test(s)) {
+        const words = s.replace(/\b(what'?s|what is|whats|my|grade|grades|mark|marks|score|on|for|the|did i get|get|i|in|how|do|did)\b/g, " ").split(/\s+/).filter(w => w.length > 1);
+        const ts = (typeof state !== "undefined" ? Object.values(state.tasks || {}) : []).filter(t => !t.archived && (!c || t.courseId === c.id) && low(t.title).includes(W[1]))
+          .sort((a, b) => words.filter(w => low(b.title).includes(w)).length - words.filter(w => low(a.title).includes(w)).length);
+        const t = ts[0];
+        if (t) {
+          const m = t.mark, ok = m && m.got !== "" && m.got != null && Number(m.outOf) > 0;
+          if (ok) return {answer: `${t.title}: ${m.got}/${m.outOf} (${Math.round(Number(m.got) / Number(m.outOf) * 1000) / 10}%).`, show: [{kind: "task", id: t.id}]};
+          const r = c ? rows.find(x => [c.code, c.name].filter(Boolean).some(y => low(x.code).includes(low(y)))) : null;
+          return {answer: `${t.title} doesn't have a mark in Studyboard yet${t.status !== "done" && t.due && t.due >= todayISO() ? " (it hasn't happened yet)" : ""}.${r && r.cur != null ? ` Your current grade in ${label(c)} is ${r.cur}%${r.letter ? ` (${r.letter})` : ""}.` : ""}`, show: [{kind: "task", id: t.id}]};
+        }
+      }
+    }
     if (c && !/\b(all|every|each|across|other|compared?)\b/.test(s)) {
       const k = [c.code, c.name].filter(Boolean).map(low), r = rows.find(x => k.some(y => y && low(x.code).includes(y)) || k.some(y => y && y.includes(low(x.code))));
       if (!r || r.cur == null) return {answer: `${label(c)} doesn't have any marks in Studyboard yet.`, show: []};

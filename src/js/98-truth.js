@@ -61,7 +61,7 @@ window.SBTRUTH = (() => {
     // study advice built from their planner (98-advice.js): priorities, a plan, how to study for an exam
     { const A = window.SBADVICE; if (A && (A.ADVICE.test(s) || (A.timePlan && A.timePlan(s)))) { const r = A.answer(s); if (r) return r; } }
     // the wider set of planner questions (98-facts.js): averages, best and worst, classes, the next exam, counts, cards due
-    { const X = window.SBFACTS; if (X && !(WRITE.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i|am i)\b/.test(s))) { const r = X.answer(q); if (r) return r; } }
+    { const X = window.SBFACTS; if (X && !/\b(say|said|says|mention(ed|s)?|told|tell us|talk(ed)? about|explain(ed)?)\b/.test(s) && !(WRITE.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i|am i)\b/.test(s))) { const r = X.answer(q); if (r) return r; } }
     // an action, not a question ("add a task due tomorrow", "move my exam"): the AI's job
     // about the app itself, hello and thanks (98-apphelp.js): from the app's own guide
     { const H = window.SBAPPHELP; if (H) { const r = H.answer(s); if (r) return r; } }
