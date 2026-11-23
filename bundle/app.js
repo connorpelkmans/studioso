@@ -7355,6 +7355,7 @@ let e4bRunning = null;
 function e4bDownload(){
   // (Pause then Download again before the last parts stopped: once that run ends, a new one starts)
   if (e4bRunning) return e4bRunning.then(() => { if (devLs.get(E4B_ON) === "1" && DEVAI.e4b !== "ready" && !e4bRunning) return e4bDownload(); });
+  DEVAI.e4bFull = false; DEVAI.e4bErr = "";
   e4bRunning = (async () => {
     const D = e4bDesk(), say = p => { DEVAI.e4bPct = p; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); try { scheduleRender(); } catch (e) {} };
     try {
@@ -7406,13 +7407,18 @@ function e4bDownload(){
             } finally { clearTimeout(stall); delete inFlight[i]; }
             const b = new Blob(chunks); if (b.size !== want) throw new Error("short part");
             await cache.put(new Request(e4bKey(i)), new Response(b, {headers: {"Content-Length": String(b.size)}})); ok = true;
-          } catch (e) { await new Promise(r => setTimeout(r, 3000 * (t + 1))); }
+          } catch (e) {
+            // (why, for the row in AI Features: no room left in the browser's storage is the usual reason it stops near the end)
+            DEVAI.e4bErr = String((e && (e.name === "QuotaExceededError" ? "quota" : e.name === "AbortError" ? "stalled" : e.message)) || e).slice(0, 80);
+            if (DEVAI.e4bErr === "quota") { stop = true; DEVAI.e4bFull = true; return; }
+            await new Promise(r => setTimeout(r, 3000 * (t + 1)));
+          }
         }
         if (!ok) { stop = true; return; }
         missing.splice(missing.indexOf(i), 1); say(1 - missing.length / e4bParts());
       };
       await Promise.all([0, 1, 2, 3].map(async () => { while (queue.length && !stop) await one(queue.shift()); }));
-      if (stop && missing.length) { DEVAI.e4b = "waiting"; return; }
+      if (stop && missing.length) { DEVAI.e4b = DEVAI.e4bFull ? "full" : "waiting"; e4bPaint(); return; }
       if (!missing.length) await e4bReadyNow(true);
     } catch (e) { DEVAI.e4b = "waiting"; }
     finally { e4bRunning = null; }
@@ -7465,7 +7471,7 @@ function e4bRowIn(){
   if (st === "ready") return box(`<b>Stronger free AI is on.</b> ${nm} runs on this computer's graphics chip: private, free, and the AI Studyboard uses here.`, `<button type="button" class="btn small" data-e4b="remove">Remove It (frees ${E4B.gb} GB)</button>`);
   if (st === "eligible") return box(`<b>This computer can run a stronger free AI.</b> ${nm} follows instructions and explains things noticeably better. It downloads once in the background (about ${E4B.gb} GB, Wi-Fi only) while you keep working.`, `<button type="button" class="btn small primary" data-e4b="get">Download in the Background</button>`);
   if (st === "downloading") return box(`<b>Downloading the stronger free AI:</b> ${pct}%. Keep using Studyboard${e4bDesk() ? " (it carries on with the window closed)" : ""}; it switches over by itself when it's done.`, `<button type="button" class="btn small" data-e4b="stop">Pause</button>`);
-  if (st === "waiting") return box(`<b>The stronger free AI is ${pct}% downloaded.</b> It carries on when you're on Wi-Fi with Data Saver off.`, `<button type="button" class="btn small" data-e4b="get">Try Now</button><button type="button" class="btn small" data-e4b="stop">Stop</button>`);
+  if (st === "waiting") return box(`<b>The stronger free AI is ${pct}% downloaded.</b> ${DEVAI.e4bErr ? `The last part didn't come through (${esc(DEVAI.e4bErr === "stalled" ? "the connection stalled" : DEVAI.e4bErr)}). Tap Try Now, or it tries again next time you open Studyboard.` : "It carries on when you're on Wi-Fi with Data Saver off."}`, `<button type="button" class="btn small" data-e4b="get">Try Now</button><button type="button" class="btn small" data-e4b="stop">Stop</button>`);
   if (st === "full") return box(`<b>Not enough free space for the stronger free AI.</b> It needs about ${E4B.gb} GB. Free some space, then try again.`, `<button type="button" class="btn small" data-e4b="get">Try Again</button>`);
   return "";
 }
