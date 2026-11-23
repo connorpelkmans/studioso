@@ -770,7 +770,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (parts.length > 1) {
         const outs = [];
         for (const p of parts) { try { outs.push(await ask(p, Object.assign({}, o, {oneStep: true}))); } catch (e) { outs.push({answer: "", show: [], changes: []}); } }
-        return {answer: outs.map(x => x.answer).filter(Boolean).join(" "), show: outs.flatMap(x => x.show || []).slice(0, 5), changes: outs.flatMap(x => x.changes || []), timer: Math.max(0, ...outs.map(x => x.timer || 0)), steps: parts.length};
+        const FAILED = /^\s*I (couldn't|could not|can't) (find|get)\b/i, good = outs.filter(x => x.answer && !FAILED.test(x.answer));
+        return {answer: (good.length ? good : outs).map(x => x.answer).filter(Boolean).join(" "), show: outs.flatMap(x => x.show || []).slice(0, 5), changes: outs.flatMap(x => x.changes || []), timer: Math.max(0, ...outs.map(x => x.timer || 0)), steps: parts.length};
       }
       // (a request is never answered as a question about the planner)
       const f = isRequest(q) ? null : TR.facts(q);
