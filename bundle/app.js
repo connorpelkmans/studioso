@@ -74646,7 +74646,10 @@ window.SBTRUTH = (() => {
     const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, system: sys + level + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
     // a list question gets a list; an explanation gets more than a definition
     const listQ = /^\s*(what|which|name|list)\b[^?]*\b(are the|are some|types?|kinds?|phases?|stages?|steps?|causes?|parts?|examples?|mechanisms?|functions?|symptoms?|signs?|principles?|components?|features?|factors?)\b/i.test(q) && !/\b(example of)\b/i.test(q);
-    const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false; return true; };
+    const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false;
+      // "who ...": the answer has to name someone the question didn't
+      if (/^\s*who\b/i.test(q) && !(a.match(/(?<!\b(?:in|of|at|from|to) )\b[A-Z][a-z]+\b/g) || []).some(n => !low(q).includes(low(n)) && !/^(From|Your|The|This|That|They|He|She|It|In|On|At|According|Wikipedia|Archduke|King|Queen|Prince|Princess|Emperor|President|Dr|Doctor|Professor|Sir|Saint|St|January|February|March|April|May|June|July|August|September|October|November|December)$/.test(n))) return false;
+      return true; };
     const ok = (x, src, loose) => x && x.answer && x.found !== false && !nonAnswer(q, x.answer) && !unsupported(x.answer, src + "\n" + q).length && (loose || shape(x));
     // one source at a time: the notes alone, then (when they don't fully answer it) the web alone, so each part of the answer says
     // where it came from. At most three model calls each
