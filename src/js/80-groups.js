@@ -3508,6 +3508,15 @@ ${kindPreview("study")}${kindPreview("project")}`;
   }
 
   /* Actions */
+  // For the chat ("create a study group called P3"): New Group, filled in, for the student to check and create (it needs their account
+  // and the internet for the invite code, so it's never made behind their back). false when it can't open here.
+  window.SBGRPNEW = (name, project) => {
+    try { if (typeof needOnline === "function" && !needOnline()) return false; newGroupSheet(null);
+      setTimeout(() => { const d = document.querySelector("dialog[open]"); if (!d) return;
+        if (project) { const b = d.querySelector('.grp-kind [data-kind="project"]'); if (b) b.click(); }
+        const i = d.querySelector('input[name="name"]'); if (i && name) { i.value = String(name).slice(0, 80); i.dispatchEvent(new Event("input", {bubbles: true})); } }, 60);
+      return true; } catch (e) { return false; }
+  };
   window.SBGRPFAB = () => {
     const g = ui.grp ? groupOf(ui.grp) : null; if (!g || !isProj(g) || !$("#grpDetail")) return null;
     const t = curTab(g);

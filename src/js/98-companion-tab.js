@@ -565,6 +565,49 @@ Examples:
     const d = r && r.data && typeof r.data === "object" ? r.data : {};
     return INTENTS.includes(d.intent) ? d : {intent: "question"};
   }
+  /* Requests read straight from the words, before any AI step: what the AI shouldn't have to guess (and once got wrong) */
+  function directAct(q){
+    const say = (answer, extra) => Object.assign({answer, sources: [], followUps: [], actions: []}, extra || {});
+    const w = String(q || "").trim();
+    // a flashcard: "add a flashcard with front hi and back hello to deck Biology", "add card: front / back to Biology"
+    // (front, back and deck found wherever they are in the sentence)
+    const cm = (() => {
+      if (!/\b(?:add|make|create|put|new|write)\b/i.test(w) || !/\b(?:flash ?)?cards?\b/i.test(w) || !/\bfront\b/i.test(w) || !/\bback\b/i.test(w)) return null;
+      const SAYS = "\\s*(?:side\\s*)?(?:that says|which says|saying|says|reading|that reads|is|=|:|of|as|with)?\\s*";
+      const DECK = "(?:to|in|into|on|for)\\s+(?:the\\s+|my\\s+)?(?:deck|set)\\b";
+      const grab = side => { const m = new RegExp("\\b" + side + "\\b" + SAYS + "[\"“']?(.+?)[\"”']?(?=\\s*(?:,|\\band\\b|\\bwith\\b)?\\s*(?:the\\s+|a\\s+)?(?:front|back)\\b|\\s+" + DECK + "|\\s*[.!?]*$)", "i").exec(w); return m ? m[1].trim() : ""; };
+      const dm = new RegExp(DECK + "\\s*(?:called\\s+|named\\s+)?[\"“']?(.+?)[\"”']?(?=\\s+(?:with|and|,|that)\\b|\\s*,|\\s*[.!?]*$)", "i").exec(w)
+        || /\b(?:to|in|into)\s+(?:the\s+|my\s+)?["“']?(.+?)["”']?\s+(?:deck|set)\b/i.exec(w);
+      let front = grab("front"), back = grab("back"), deck = dm ? dm[1] : "";
+      // "... and back cell division to Biology": the deck is the last "to ..." (and isn't part of the back)
+      if (!deck) { const tm = /\s+(?:to|into|in)\s+(?:the\s+|my\s+)?["“']?([^"”']{1,60}?)["”']?\s*[.!?]*$/i.exec(w); if (tm && back.endsWith(tm[1].trim())) { deck = tm[1].trim(); back = back.slice(0, back.length - tm[0].trim().length).trim(); } }
+      return front && back && deck ? [null, front, back, deck] : null;
+    })();
+    if (cm) {
+      const [, front, back, dn] = cm, name = dn.trim(), L = name.toLowerCase();
+      const all = typeof decksArr === "function" ? decksArr() : Object.values(state.decks || {});
+      const d = all.find(x => String(x.name || "").toLowerCase() === L) || all.find(x => String(x.name || "").toLowerCase().includes(L) || L.includes(String(x.name || "").toLowerCase()));
+      if (!d) return say(`You don't have a deck called "${name}". ${all.length ? `Your decks: ${all.slice(0, 6).map(x => x.name).join(", ")}${all.length > 6 ? "…" : ""}.` : "Make one in Flashcards first."} Say which one, or "make a deck called ${name}".`);
+      const nd = JSON.parse(JSON.stringify(d)); nd.cards = nd.cards || []; nd.cards.push({id: uid(), front: front.trim(), back: back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0}); nd.updated = Date.now();
+      saveDeck(nd, `Card added to ${d.name}`);
+      return say(`Added to ${d.name}: "${front.trim()}" / "${back.trim()}". Say "undo" to take it back.`);
+    }
+    // a study group or group project: New Group, filled in, for them to create (it needs their account and the internet)
+    const gm = /\b(?:create|make|start|set up|new|open)\b[^]*?\b(study group|group project|project group|group)\b(?:\s+(?:called|named|for)\s+["“']?(.+?)["”']?)?\s*[.!?]*$/i.exec(w);
+    if (gm && !/\b(note|deck|board|quiz|map|task|event)\b/i.test(w.replace(gm[1], ""))) {
+      const name = (gm[2] || "").trim(), proj = /project/i.test(gm[1]);
+      if (window.SBGRPNEW && SBGRPNEW(name, proj)) return say(`I opened New ${proj ? "Project" : "Group"}${name ? ` with "${name}" filled in` : ""}. Check it and tap Create: it makes the invite code to send your ${proj ? "teammates" : "friends"}.`);
+      return say(`Groups need you signed in and online. Open Groups and tap New Group${name ? ` to make "${name}"` : ""}.`);
+    }
+    // wear or take off: "put a hat on", "wear your glasses", "take off the scarf"
+    const wm = /^\s*(?:can you\s+|please\s+)?(?:put\s+(?:on\s+)?(.+?)(?:\s+on)?|wear\s+(.+?)|try\s+on\s+(.+?)|take\s+off\s+(.+?)|take\s+(.+?)\s+off|remove\s+(?:your\s+|the\s+)(.+?))\s*(?:please)?[.!?]*$/i.exec(w);
+    if (wm && window.SBCOMP && SBCOMP.wearByName) {
+      const on = !(wm[4] || wm[5] || wm[6]), item = (wm[1] || wm[2] || wm[3] || wm[4] || wm[5] || wm[6] || "").trim();
+      // (only when it's something to wear: "put my essay on Monday" isn't)
+      if (/\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|everything|accessor(y|ies)|outfit)\b/i.test(item) && !/\b(on|to|for)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|the board|my board)\b/i.test(w)) return say(SBCOMP.wearByName(item, on));
+    }
+    return null;
+  }
   // carrying it out: null when it isn't an action (answered as a question or chat instead)
   async function intentAct(q, chat, att){
     let d; try { d = await route(q, chat, att); } catch (e) { return null; }
@@ -581,6 +624,9 @@ Examples:
       const tk = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent], km = KW.exec(w);
       if (tk && km && !/\b(task|assignment|homework|essay|exam|test|lab report|reading)\b/.test(w.replace(km[0], ""))) { d.intent = tk; d.kind = {deck: "deck", quiz: "quiz", board: "board", "note board": "board", "noteboard": "board", whiteboard: "board", event: "event", appointment: "event", course: "course", class: "course", file: "file", pdf: "file", note: "note"}[km[1].replace(/\s+/g, " ")] || km[1]; d.item = d.item || d.task || ""; }
       // placeholders the model fills in when the words give nothing
+      // a new course only when they say to add one ("I meant all my courses" isn't)
+      if (d.intent === "add_course" && !/\b(add|new|create|make|enrol+|register|signed up|taking|joining|set up)\b/.test(w)) d.intent = "question";
+      if (d.intent === "add_note" && !/\b(note|notes|jot|sticky|write (?:this|that|it) down|write down|remember|remind me that|board)\b/.test(w)) d.intent = "cant";
       if (d.intent === "add_note" && !d.board) { const m = /\b(?:on|in|to|onto)\s+(?:my|the)\s+([a-z0-9][\w &'-]{0,30}?)\s+(?:note ?)?board\b/i.exec(q); if (m) d.board = m[1]; }
       ["instructor", "where", "course", "code", "board", "title"].forEach(k => { if (/^(unknown|n\/?a|none|tbd|not (given|specified|provided)|null|undefined|-|no instructor|no room)$/i.test(String(d[k] || "").replace(/[()\[\].]/g, "").trim())) d[k] = ""; });
       // a time only when the words give one (the model likes to make up noon, 8 AM or 4 PM)
@@ -645,6 +691,8 @@ Examples:
       applyChanges([{kind: "course", id: nc.id, after: nc}], `Added ${nc.name}`);
       return state.courses[nc.id] ? say(`Added the course ${courseLabel(nc)}${nc.instructor ? ` with ${nc.instructor}` : ""}. Open Courses to add its class times.`) : null;
     }
+    // something the words don't ask for in a way the app can do: said plainly, and nothing is changed
+    if (it === "cant") return say("I can't do that from the chat yet, so I didn't change anything. Tell me a bit more about what you want, or do it in Studyboard directly.");
     if (it === "add_note") {
       let text = String(d.text || "").trim();
       const pics = (att || []).filter(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || ""));
@@ -723,14 +771,18 @@ Examples:
       const ACTY = /\b(add|put|make|create|delete|remove|get rid|erase|trash|move|push|reschedule|mark|check off|finish|finished|done|submitted|turned in|rename|call it|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|show me|jot|note|remind|schedule|book|cancel|undo|revert|edit|update)\b/i;
       // "I meant all my courses", "no, for BIOS 230": the earlier question again, with what they meant (no AI step needed to see that)
       const fix = !att.length ? /^\s*(?:no[,.!]?\s+)?(?:i (?:meant|mean)|what i meant was|i was asking about|i'?m asking about|not that[,.]?\s*)\s+(.{2,120}?)[.!?]*\s*$/i.exec(q) : null;
-      const prevQ0 = fix ? ((c.msgs || []).filter(x => x.q && x.a).slice(-1)[0] || {}).q || "" : "";
-      const qFix = fix && prevQ0 ? `${prevQ0.replace(/[?!.]+\s*$/, "")} (${fix[1]})?` : "";
+      // "be more detailed", "simpler", "give me an example", "tell me more", "why?": the last question again, answered that way
+      const more = !fix && !att.length ? /^\s*(?:(?:can|could) you\s+|please\s+)?((?:be )?more detail(?:ed|s)?|go (?:into )?more (?:detail|depth)|in more detail|more depth|elaborate|expand(?: on (?:that|it))?|explain (?:that |it )?(?:more|further|better|again|simpler|more simply)|tell me more|say more|keep going|go on|continue|simpler|more simply|(?:make it |explain it )?simpler|dumb it down|(?:give (?:me )?)?an? (?:example|analogy)|shorter|(?:make it )?shorter|in short|tl;?dr|summari[sz]e (?:that|it)|why\??|how so\??|what do you mean\??)\s*(?:please)?[.!?]*\s*$/i.exec(q) : null;
+      const prevQ0 = fix || more ? (x => x ? (x.ask || x.q) : "")((c.msgs || []).filter(x => x.q && x.a).slice(-1)[0]).replace(/^(Explain in detail|Explain simply|In two or three sentences|Give an example of):\s*/i, "") : "";
+      const qFix = fix && prevQ0 ? `${prevQ0.replace(/[?!.]+\s*$/, "")} (${fix[1]})?` : more && prevQ0 ? `${/simpl|dumb/i.test(more[1]) ? "Explain simply: " : /short|tl|summar|in short/i.test(more[1]) ? "In two or three sentences: " : /example|analogy/i.test(more[1]) ? "Give an example of: " : "Explain in detail: "}${prevQ0.replace(/[?!.]+\s*$/, "")}` : "";
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length && !ctl && !me0 && !ACTY.test(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
       const was = !att.length ? pendingAsk(q, c) : "", q2 = was || qFix || q;
+      if (q2 !== q) m.ask = q2;
       let made = null;
       // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
       if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
+      if (!made && !ctl && !att.length) made = directAct(q);
       else if (!att.length) { const me = me0 || selfAnswer(q2); if (me) made = {answer: me, sources: [], followUps: [], actions: []}; }
       // (a plain question, "what is osmosis?", skips this step: nothing in it asks for anything to be done)
       const PLAINQ = !ACTY.test(q2) && (/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did|can you explain)\b[^]*\?\s*$/i.test(q2) || /^\s*(explain|define|describe|tell me about|what is|what's|whats|what are|how does|how do|how is|how are|why (is|are|do|does)|who (is|was|were)|summari[sz]e|compare)\b/i.test(q2));

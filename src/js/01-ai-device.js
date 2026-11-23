@@ -428,7 +428,8 @@ function e4bDownload(){
   if (e4bRunning) return e4bRunning.then(() => { if (devLs.get(E4B_ON) === "1" && DEVAI.e4b !== "ready" && !e4bRunning) return e4bDownload(); });
   DEVAI.e4bFull = false; DEVAI.e4bErr = "";
   e4bRunning = (async () => {
-    const D = e4bDesk(), say = p => { DEVAI.e4bPct = p; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); try { scheduleRender(); } catch (e) {} };
+    const D = e4bDesk(); let top = 0; const say = p => { top = Math.max(top, p); DEVAI.e4bPct = top;  // (never backwards: a part that's retried keeps the progress shown)
+ DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); try { scheduleRender(); } catch (e) {} };
     try {
       if (D) {
         // the app downloads it itself; this only follows along

@@ -3048,6 +3048,18 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const c = current(); if (!c) return "There's no companion to dress right now.";
       const n = String(name || "").toLowerCase().replace(/\b(your|the|my|a|an)\b/g, " ").replace(/\s+/g, " ").trim(), now = wearOf(c);
       if (!on && /^(all|everything|it all|them all|accessories|all accessories)$/.test(n)) { setCfg({wear: {[c.id]: []}}); curSig = ""; build(); return "I took everything off."; }
+      // a kind of thing ("a hat", "something for your neck"): the first of that kind it has earned (one it isn't wearing first)
+      const KIND = [[/\b(hat|hats|headwear|something on (your|my) head)\b/, ["hat", "beanie", "cap", "crown"]], [/\b(cap)\b/, ["cap"]], [/\b(glasses|specs|spectacles|sunglasses)\b/, ["glasses"]],
+        [/\b(scarf|something (for|on) (your|my) neck)\b/, ["scarf"]], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(medal|necklace)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
+      const kind = on ? KIND.find(([re]) => re.test(n)) : null;
+      if (kind && !ACC.some(x => x.name.toLowerCase() === n)) {
+        const opts = kind[1].map(id => ACC.find(x => x.id === id)).filter(Boolean), have = opts.filter(x => canWear(x));
+        if (!have.length) return `I haven't earned ${kind[1].length > 1 ? "a " + n.replace(/^(a|an|some)\s+/, "") : "the " + opts[0].name} yet. The Wardrobe shows how to unlock ${kind[1].length > 1 ? "them" : "it"}.`;
+        const pick = have.find(x => !now.includes(x.id)) || have[0];
+        if (now.includes(pick.id)) return `I'm already wearing my ${pick.name}!`;
+        setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(pick.id)).concat(pick.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+        return `I put on my ${pick.name}!`;
+      }
       const sc = a => { const m = a.name.toLowerCase(); return m === n ? 10 : m.includes(n) || n.includes(m) ? 6 : n.split(" ").filter(w => w.length > 2 && m.includes(w)).length * 2; };
       const a = ACC.slice().sort((x, y) => sc(y) - sc(x))[0]; if (!a || sc(a) < 2) return `I don't have an accessory called "${name}". Open the Wardrobe to see them all.`;
       if (!on) { if (!now.includes(a.id)) return `I'm not wearing my ${a.name}.`; setCfg({wear: {[c.id]: now.filter(x => x !== a.id)}}); curSig = ""; build(); return `I took off my ${a.name}.`; }
