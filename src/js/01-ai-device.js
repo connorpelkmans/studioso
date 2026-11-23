@@ -13,6 +13,8 @@ const devLangs = () => { const l = String(navigator.language || "en").slice(0, 2
 const devOpts = img => ({expectedInputs: [{type: "text", languages: devLangs()}].concat(img ? [{type: "image"}] : []), expectedOutputs: [{type: "text", languages: devLangs()}]});
 // Edge has the same built-in AI interface as Chrome (with Microsoft's own model): it's named as Edge's
 const devBrowser = () => { try { const b = navigator.userAgentData && navigator.userAgentData.brands; if (b && b.some(x => /Microsoft Edge/i.test(x.brand))) return "Edge"; } catch (e) {} return /\bEdg\//.test(navigator.userAgent || "") ? "Edge" : "Chrome"; };
+// the exact model, for AI Features ("which AI am I using?")
+const devModel = () => DEVAI.kind === "litert" ? "Google's Gemma 4 E4B" : DEVAI.kind === "webllm" ? (/gemma-4-E2B/i.test((DEVAI.web || {}).id || "") ? "Google's Gemma 4 E2B" : /gemma3-1b/i.test((DEVAI.web || {}).id || "") ? "Google's Gemma 3 1B" : "Google's Gemma") : DEVAI.kind === "apple" ? "Apple's on-device model" : DEVAI.kind ? (devBrowser() === "Edge" ? "Microsoft's Phi-4-mini" : "Google's Gemini Nano") : "";
 const devLabel = () => DEVAI.kind === "apple" ? "Apple Intelligence" : DEVAI.kind === "webllm" || DEVAI.kind === "litert" ? "Studyboard's on-device AI" : `${devBrowser()}'s built-in AI`;
 // Phones and tablets: only the small model, and only with enough memory. An iPhone's browser doesn't say how much it has (and the
 // iPhone app uses Apple's own AI), so Safari on an iPhone gets none; an iPad gets the small one
