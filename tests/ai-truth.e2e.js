@@ -84,7 +84,7 @@ function fake(){
   c = await chat("make flashcards on the bio lab report", NONE);
   ok(c.asked.length === 0 && /Make Flashcards/.test(c.last), "make flashcards: the Make Flashcards button, with material gathered from their stuff: " + c.last.replace(/\n/g, " ").slice(0, 160));
   c = await chat("save a note: lab partners are Sam and Priya", NONE);
-  ok(c.asked.length === 0 && /put the note on your board/.test(c.last), "save a note: made at once: " + c.last.slice(0, 100));
+  ok(c.asked.length === 0 && /put the note on/.test(c.last), "save a note: made at once: " + c.last.slice(0, 100));
   c = await chat("create a note in my board, put text Hi! in it", NONE);
   ok(c.asked.length === 0 && await p.evaluate(() => Object.values(JSON.parse(localStorage.getItem("coursework:v2")).notes || {}).some(n => String(n.text).trim() === "Hi!")), "a note with the words they gave (\"Hi!\"), not the last reply");
   // concept maps from the chat: built at once from the sentences, no model

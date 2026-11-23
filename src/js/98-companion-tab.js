@@ -274,7 +274,7 @@
   }
   async function deviceAct(q, chat, forced){
     const A = window.SBASSIST, TR = window.SBTRUTH; if (!A) return null;
-    if (CARDS_Q.test(q) && !EMPTY_DECK.test(q)) {
+    if (CARDS_Q.test(q.replace(/["“'‘][^"”'’]{2,200}["”'’]/g, " ")) && !EMPTY_DECK.test(q)) {
       const quiz = /\bquiz|test me|practice (questions|test)\b/i.test(q) && !/flash ?cards?|cards/i.test(q), n = Number((q.match(/\b(\d{1,2})\b/) || [])[1]) || 0;
       const topic = clip((q.match(/\b(?:on|about|for|from|covering|over)\s+(.+?)[?.!]*$/i) || [])[1] || q.replace(CARDS_Q, "").replace(/^\W+|\W+$/g, ""), 80);
       let text = "", from = "";
@@ -640,6 +640,12 @@ Examples:
       applyChanges([{kind: "deck", id, after: nd}], `Made ${nd.name}`);
       return say(`Made the deck ${nd.name}. Add cards by saying "add a card to ${nd.name} with front … and back …". Say "undo" to take it back.`);
     }
+    // "let's study psych nursing terms", "drill me on the heart deck", "review my bio deck": that deck, if there is one by that name
+    const st = /^\s*(?:let'?s\s+|i want to\s+|time to\s+|can we\s+|please\s+)?(?:study|review|drill(?: me)?(?: on)?|practi[cs]e|go over|run through)\s+(?:my\s+|the\s+)?(.+?)\s*(?:deck|set|flashcards?|cards)?\s*[.!?]*$/i.exec(w);
+    if (st) { const dk2 = deckNamed(st[1]); if (dk2 && (dk2.cards || []).length) { setTimeout(() => { try { startStudy([dk2.id]); } catch (e) {} }, 250); return say(`Opening ${dk2.name} to study (${dk2.cards.length} card${dk2.cards.length === 1 ? "" : "s"}).`); } }
+    // "stick a note on my board: buy scrubs", "put 'X' on a sticky": the note, with their words (nothing to work out)
+    const nm = /\b(?:note|sticky)\b[^:"“']*?(?::\s*|["“'])([^"”']{2,300}?)["”']?\s*[.!?]*$/i.exec(w) || /^\s*(?:put|stick|add|write)\s+["“']([^"”']{2,300})["”']\s+(?:on|to)\s+(?:a|my|the)\s+(?:sticky|note|board)/i.exec(w);
+    if (nm && /\b(?:put|stick|add|write|make|save|create|leave|jot)\b/i.test(w)) return {preset: {intent: "add_note", text: nm[1].trim()}};
     // a study group or group project: New Group, filled in, for them to create (it needs their account and the internet)
     const gm = /\b(?:create|make|start|set up|new|open)\b[^]*?\b(study group|group project|project group|group)\b(?:\s+(?:called|named|for)\s+["“']?(.+?)["”']?)?\s*[.!?]*$/i.exec(w);
     if (gm && !/\b(note|deck|board|quiz|map|task|event)\b/i.test(w.replace(gm[1], ""))) {
@@ -672,8 +678,8 @@ Careful, these are easy to mix up:
 "my friend sent me the code XK7P2M for her study group" -> {"intent":"join_group","value":"XK7P2M"}
 - open_page to go somewhere: "open my calendar" -> {"intent":"open_page","value":"calendar"}`;
   // carrying it out: null when it isn't an action (answered as a question or chat instead)
-  async function intentAct(q, chat, att){
-    let d; try { d = await route(q, chat, att); } catch (e) { return null; }
+  async function intentAct(q, chat, att, preset){
+    let d; try { d = preset || await route(q, chat, att); } catch (e) { return null; }
     const say = (answer, extra) => Object.assign({answer, sources: [], followUps: [], actions: []}, extra || {});
     const A = window.SBASSIST;
     // The model's choice, checked against the student's own words: a clear word for something else wins
@@ -687,6 +693,16 @@ Careful, these are easy to mix up:
       const tk = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent], km = KW.exec(w);
       if (tk && km && !/\b(task|assignment|homework|essay|exam|test|lab report|reading)\b/.test(w.replace(km[0], ""))) { d.intent = tk; d.kind = {deck: "deck", quiz: "quiz", board: "board", "note board": "board", "noteboard": "board", whiteboard: "board", event: "event", appointment: "event", course: "course", class: "course", file: "file", pdf: "file", note: "note"}[km[1].replace(/\s+/g, " ")] || km[1]; d.item = d.item || d.task || ""; }
       // placeholders the model fills in when the words give nothing
+      // a question never changes anything ("did I finish care plan 2?", "is the lab report done", "how do I add a course?"),
+      // unless it's a request ("can you move ...", "could you mark ...")
+      const CHANGES = /^(mark_done|mark_not_done|mark_in_progress|move_task|rename_task|delete_task|set_priority|add_task|add_event|add_course|add_note|delete_item|rename_item|edit_item|add_card|make_deck|add_mark|new_group|join_group|set_theme|change_setting|wear_accessory|remove_accessory)$/;
+      const asking = /^\s*(how (do|can|would|should) i|how to|is there a way|what happens if)\b/.test(w) || (/\?\s*$|^\s*(did|do|does|is|are|was|were|have|has|am|what|when|where|which|who|why)\b/.test(w) && !/^\s*(can|could|would|will) (you|u)\b|\bplease\b/.test(w));
+      if (CHANGES.test(d.intent) && asking) d.intent = "question";
+      // a theme or setting from their own words: "light mode" is light, text size is a setting (never a course's colour)
+      if (d.intent === "set_theme" && /\b(light|dark|system)\s+(mode|theme)\b/.test(w)) { d.value = (w.match(/\b(light|dark|system)\s+(mode|theme)\b/) || [])[1]; d.field = ""; }
+      if (/\b(text|font|letters?)\b[^.]{0,20}\b(bigger|larger|smaller|size|huge|tiny)\b|\b(bigger|larger|smaller)\s+(text|font)\b/.test(w)) { d.intent = "change_setting"; d.field = "text size"; d.value = /\b(smaller|tiny)\b/.test(w) ? "smaller" : "larger"; }
+      // something at a time with someone (a meeting, an appointment) is an event, even when they say "book"
+      if (d.intent === "cant" && /\b(meeting|appointment|appt|session|call|interview|class|lecture|practice|game|shift)\b/.test(w) && /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|tonight|next|at \d|\d{1,2}(:\d\d)?\s*(am|pm))\b/.test(w)) d.intent = "add_event";
       // the mix-ups small models make, put right from the words:
       // "done" only when the words say it's finished; a deadline or a priority said instead is that
       const DONEW = /\b(done|finish(ed)?|complet(e|ed)|submit(ted)?|turn(ed)? in|hand(ed)? in|wrap(ped)? up|check(ed)? off|tick(ed)? off|cross(ed)? (off|out)|✅|✔️)\b|✅|✔/;
@@ -745,7 +761,11 @@ Careful, these are easy to mix up:
       if (it === "mark_done") { if (t.status === "done") return say(`${t.title} is already done.`); n.status = "done"; n.doneAt = Date.now(); label = `${t.title} marked done`; }
       else if (it === "mark_not_done") { n.status = "todo"; n.doneAt = null; label = `${t.title} moved back to To Do`; }
       else if (it === "mark_in_progress") { n.status = "doing"; label = `${t.title} moved to In Progress`; }
-      else if (it === "move_task") { const w = whenOf(q, d); if (!w.date && !w.time) return say(`When should ${t.title} be due? For example: move it to Friday.`); if (w.date) { n.due = w.date; if (n.start && n.start > n.due) n.start = n.due; } if (w.time) n.time = w.time; label = `${t.title} moved to ${w.date ? fmtDate(w.date) : ""}${w.time ? (w.date ? " at " : "") + fmtTime(w.time) : ""}`; }
+      else if (it === "move_task") { const w = whenOf(q, d);
+        // "bump it by 2 days", "postpone one day", "push it back a week": counted from when it's due now
+        if (!w.date && t.due) { const NW = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7}, m2 = /\b(?:by\s+|for\s+|back\s+)?(a|an|one|two|three|four|five|six|seven|\d{1,2})\s+(day|days|week|weeks)\b/i.exec(q);
+          if (m2) { const n0 = NW[m2[1].toLowerCase()] || Number(m2[1]), days = /week/i.test(m2[2]) ? n0 * 7 : n0, x = new Date(t.due + "T12:00:00"); x.setDate(x.getDate() + (/\b(earlier|sooner|forward|up)\b/i.test(q) ? -days : days)); w.date = x.toISOString().slice(0, 10); } }
+        if (!w.date && !w.time) return say(`When should ${t.title} be due? For example: move it to Friday.`); if (w.date) { n.due = w.date; if (n.start && n.start > n.due) n.start = n.due; } if (w.time) n.time = w.time; label = `${t.title} moved to ${w.date ? fmtDate(w.date) : ""}${w.time ? (w.date ? " at " : "") + fmtTime(w.time) : ""}`; }
       else if (it === "rename_task") { const nm = clip(String(d.title || "").trim(), 160); if (!nm) return say(`What should ${t.title} be called?`); n.title = nm; label = `Renamed to ${nm}`; }
       else if (it === "set_priority") { if (!d.priority) return say(`What priority should ${t.title} have: urgent, high, medium or low?`); n.priority = d.priority; label = `${t.title} set to ${({urgent: "urgent", high: "high", med: "medium", low: "low"})[d.priority]} priority`; }
       if (it === "delete_task") { applyChanges([{kind: "task", id: t.id, after: null}], `Deleted ${t.title}`); return state.tasks[t.id] ? null : say(`Deleted ${t.title}. It's in Recently Deleted if you need it back (or say "undo").`); }
@@ -806,7 +826,8 @@ Careful, these are easy to mix up:
       return say(window.SBGRPJOIN && SBGRPJOIN(code) ? `I opened Join${code ? ` with ${code} filled in` : ""}. Tap Join to check the code.` : "Joining a group needs you signed in and online. Open Groups and tap Join."); }
     if (it === "open_page") { const k = String(d.value || d.item || "").toLowerCase().replace(/^(my|the)\s+/, "").replace(/\s+(page|tab|view|section)$/, "").trim();
       if (/^(settings?|preferences|options)$/.test(k)) { setTimeout(() => { try { menuSheet(); } catch (e) {} }, 200); return say("Opening Settings."); }
-      const tab = PAGES[k]; if (!tab) return say(`I'm not sure which part of Studyboard "${k}" is. Try Today, Calendar, Flashcards, Notes, Courses, Files or Groups.`);
+      const tab = PAGES[k]; if (!tab && itemNamed("", k)) return itemAct("open_item", Object.assign({}, d, {item: k, kind: ""}), q, chat);
+      if (!tab) return say(`I'm not sure which part of Studyboard "${k}" is. Try Today, Calendar, Flashcards, Notes, Courses, Files or Groups.`);
       setTimeout(() => { try { ui.tab = tab; if (tab !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); } catch (e) {} }, 200);
       return say(`Taking you to ${k.replace(/\b\w/g, c => c.toUpperCase())}.`); }
     // something the words don't ask for in a way the app can do: said plainly, and nothing is changed
@@ -912,7 +933,7 @@ Careful, these are easy to mix up:
       // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
       if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
       else if (!att.length) { const me = me0 || selfAnswer(q2); if (me) made = {answer: me, sources: [], followUps: [], actions: []}; }
-      if (!made && !ctl && !att.length) made = directAct(q);
+      if (!made && !ctl && !att.length) { made = directAct(q); if (made && made.preset) made = await intentAct(q2, c, att, made.preset).catch(() => null); }
       // (a plain question, "what is osmosis?", skips this step: nothing in it asks for anything to be done)
       const PLAINQ = !!(qFix && more) || !ACTX(q2) && (/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did|can you explain)\b[^]*\?\s*$/i.test(q2) || /^\s*(explain|define|describe|tell me about|what is|what's|whats|what are|how does|how do|how is|how are|why (is|are|do|does)|who (is|was|were)|summari[sz]e|compare)\b/i.test(q2));
 
