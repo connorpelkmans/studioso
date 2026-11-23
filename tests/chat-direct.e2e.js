@@ -94,6 +94,10 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   ok(/diffusion/i.test(kq[kq.length - 1] || ""), "\"what about X\" asks the same about X: " + kq[kq.length - 1]);
   a = await chat("what's 12 * 3"); kq = await p.evaluate(() => window.__kq.length);
   ok(/36/.test(a), "a new question afterwards stands on its own: " + a);
+  a = await chat("what's 4x3x2 / 5"); a = await chat("now divide that by 3");
+  ok(/4\.8 ÷ 3 = 1\.6/.test(a), "a sum carried on from the last answer: " + a);
+  a = await chat("show your work");
+  ok(/1\.6/.test(a) || /4 × 3 = 12/.test(a), "and its steps: " + a);
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);

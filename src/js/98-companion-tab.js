@@ -1009,6 +1009,26 @@ Careful, these are easy to mix up:
       const was = !att.length ? pendingAsk(q, c) : "", q2 = was || qFix || qRef || qT;
       if (q2 !== q) m.ask = q2;
       let made = null;
+      // a sum carried on from the last answer: "divide that by 3", "now double it", "add 10", "what's that squared", "show your work"
+      if (!made && !att.length && last && /=\s*-?[\d,]*\.?\d+\s*$/.test(String(last.a.answer || "").split("\n")[0])) {
+        const prevLine = String(last.a.answer).split("\n")[0], prevV = Number(prevLine.match(/=\s*(-?[\d,]*\.?\d+)\s*$/)[1].replace(/,/g, "")), w0 = q.toLowerCase().replace(/[?!.]+$/, "");
+        const n0 = (w0.match(/-?\d+(?:\.\d+)?/) || [])[0], N0 = n0 != null ? Number(n0) : null;
+        const op = /\b(divide|divided|split)\b/.test(w0) && N0 ? ["÷", prevV / N0] : /\b(multiply|multiplied|times)\b/.test(w0) && N0 ? ["×", prevV * N0] : /\b(add|plus)\b/.test(w0) && N0 != null ? ["+", prevV + N0]
+          : /\b(subtract|minus|take away)\b/.test(w0) && N0 != null ? ["−", prevV - N0] : /\bdouble\b/.test(w0) ? ["× 2", prevV * 2, true] : /\b(half|halve)\b/.test(w0) ? ["÷ 2", prevV / 2, true]
+          : /\bsquared?\b/.test(w0) && !/root/.test(w0) ? ["²", prevV * prevV, true] : /\bsquare root\b/.test(w0) ? ["√", Math.sqrt(prevV), true] : /\b(percent|%)\b/.test(w0) && N0 != null ? [`× ${N0}%`, prevV * N0 / 100, true] : null;
+        if (op && /\b(that|it|this|the answer|the result|now|then|and)\b|^\s*(divide|multiply|add|subtract|double|halve|square)/.test(w0)) {
+          const r0 = Math.round(op[1] * 1e10) / 1e10, shown = op[2] ? `${prevV} ${op[0]}` : `${prevV} ${op[0]} ${N0}`;
+          made = {answer: `${shown} = ${r0.toLocaleString("en-US", {maximumFractionDigits: 10})}`, sources: ["Your planner"], followUps: [], actions: []};
+        } else if (/\b(show (your |the )?(work|working|steps)|how did you get|explain (that|it|the answer)|step by step|why)\b/.test(w0)) {
+          const ex = prevLine.replace(/\s*=\s*[^=]*$/, "").replace(/[x×]/gi, "*").replace(/÷/g, "/"), toks = ex.match(/\d+(?:\.\d+)?|[-+*/^()]/g) || [];
+          // left to right for one kind of step; brackets and mixed signs: the order of operations, said plainly
+          if (toks.length && !/[()^]/.test(ex) && toks.filter(t => /[+\-]/.test(t)).length === 0) {
+            let acc = Number(toks[0]); const steps = [];
+            for (let i = 1; i + 1 < toks.length; i += 2) { const b = Number(toks[i + 1]), nv = toks[i] === "*" ? acc * b : acc / b; steps.push(`${acc} ${toks[i] === "*" ? "×" : "÷"} ${b} = ${Math.round(nv * 1e10) / 1e10}`); acc = nv; }
+            made = {answer: `Step by step, left to right:\n${steps.map((x, i) => `${i + 1}. ${x}`).join("\n")}\nSo the answer is ${prevLine.replace(/^.*=\s*/, "")}.`, sources: [], followUps: [], actions: []};
+          } else made = {answer: `Work it in this order: brackets first, then powers, then multiplying and dividing left to right, then adding and subtracting left to right. That gives ${prevLine}.`, sources: [], followUps: [], actions: []};
+        }
+      }
       if (slot) {
         const d0 = Object.assign({}, slot.d), it0 = d0.intent, v0 = q.trim().replace(/^["“']|["”'.!]+$/g, "");
         if (/^(make_deck|new_group|add_course|add_task|add_event|rename_task|rename_item)$/.test(it0) && !d0.title) d0.title = v0;
