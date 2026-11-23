@@ -36461,12 +36461,12 @@ const CAP = (() => {
     }) ||
       take(/\b(?:at\s*|by\s*)?noon\b/i, () => { out.time = "12:00"; }) || take(/\b(?:at\s*|by\s*)?(midnight|end of (?:the )?day|eod)\b/i, () => { out.time = "23:59"; }) ||
       // "at 9" with no minutes: read like a bare h:mm above (1-6 afternoon, 7-12 flagged "ampm", 13-23 as 24-hour)
-      take(/\b(?:at|@)\s*(\d{1,2})\b(?!\s*[\/:%.-]\d)/i, m => {
+      take(/(?:\bat|@)\s*(\d{1,2})\b(?!\s*[\/:%.-]\d)/i, m => {
         let h = Number(m[1]); if (h < 1 || h > 23) return false;
         if (h <= 6) h += 12; else if (h <= 12) out.flags.push("ampm");
         out.time = pad2(h) + ":00";
       });
-    if (!out.time && /\b(?:at|@)\s*\d{1,2}\b(?!\s*[\/:%.-]\d)/i.test(s)) out.flags.push("time");
+    if (!out.time && /(?:\bat|@)\s*\d{1,2}\b(?!\s*[\/:%.-]\d)/i.test(s)) out.flags.push("time");
     // ("the first chapter" stays words: after "the", only when the phrase ends there or goes on with "of <month>", "at", "by")
     s = s.replace(new RegExp(`\\b((?:${MONRE})\\.?\\s+(?:the\\s+)?)(${ORDRE})\\b`, "gi"), (all, pre, w) => pre + ORDN(w) + "th")
       .replace(new RegExp(`\\b(the\\s+)(${ORDRE})\\b(?=\\s*(?:$|[,.;!?]|of\\s+(?:${MONRE})\\b|at\\b|@|by\\b))`, "gi"), (all, pre, w) => pre + ORDN(w) + "th");
@@ -36593,9 +36593,17 @@ const CAP = (() => {
         if (t2 !== s && /[a-z]{2}/i.test(stripEdges(t2.replace(/\s+/g, " ").trim()))) s = t2;
       }
     }
-    let title = stripEdges(s.replace(/\s+/g, " ").trim()).replace(/^(?:add|new|remind me to|remember to|todo|task)\b[:\s]*/i, "").trim();
-    title = title.replace(/\bhw\b/i, "Homework").replace(/\bpset\b/i, "Problem Set").trim();
+    // how it was said isn't part of its name: "i have hw3 due monday" is Homework 3, "need to finish the essay" is Finish the Essay
+    const LEAD = /^(?:(?:ok(?:ay)?|so|hey|hi|yo|um+|uh+|oh|also|and|plus|btw|alright|well|right|reminder|note|fyi)[,:!.\s]+)*(?:(?:please\s+)?(?:can you\s+|could you\s+)?(?:(?:add|new|put|create|make|schedule|log|track|enter)(?:\s+(?:a\s+|an\s+)?(?:new\s+)?(?:task|assignment|to-?do|todo|reminder|item))?|remind me (?:to|about)|remember (?:to|that)?|don'?t forget (?:to|about)?|dont forget (?:to|about)?|todo|to-?do|task|reminder)\b[:\-\s]*)?(?:(?:i|we)\s+(?:still\s+|also\s+|really\s+)?(?:have|'ve got|ve got|got|need|needa|gotta|must|should|have to|need to|got to|am supposed to|'m supposed to)\s+(?:to\s+)?|i'?ve got\s+|ive got\s+|i'?m doing\s+|need to\s+|have to\s+|gotta\s+|got to\s+|must\s+|there'?s\s+|there is\s+)?(?:(?:a|an|the|my|our|this|that|some)\s+)?/i;
+    let title = stripEdges(s.replace(/\s+/g, " ").trim()).replace(LEAD, "").trim();
+    // what's left at the end that only said where or when ("on my list", "for class", "due", "by")
+    title = title.replace(/\s+(?:on|to|in)\s+(?:my\s+)?(?:to-?\s?do\s+list|list|planner|tasks?|calendar|agenda)\b.*$/i, "").replace(/\s+(?:that'?s|which is|it'?s|its)?\s*(?:due|by|at|on|for)\s*$/i, "").trim();
+    // "do", "finish", "work on" say what to do with it, not what it is; then any "the", "my" after them
+    title = title.replace(/^(?:(?:go\s+)?do|finish(?:\s+up)?|complete|work on|get done|start(?:\s+on)?|turn in|hand in|submit|wrap up|knock out|get started on)\s+(?:(?:a|an|the|my|our|this|that)\s+)?(?=\S)/i, "").trim();
+    title = title.replace(/\bhw\s*#?\s*(\d+)\b/i, "Homework $1").replace(/\bhw\b/i, "Homework").replace(/\bpset\s*#?\s*(\d+)\b/i, "Problem Set $1").replace(/\bpset\b/i, "Problem Set").replace(/\b(lab|quiz|test|exam|essay|assignment|project|chapter|ch|unit|module|week)\s*#?\s*(\d+)\b/gi, (m, w, n) => `${w.toLowerCase() === "ch" ? "Chapter" : w} ${n}`).trim();
     title = stripEdges(title);
+    // typed all in lowercase: a title's capitals ("lab report" is Lab Report; "Intro to Psych" stays as typed)
+    if (title && title === title.toLowerCase() && title.split(/\s+/).length <= 6) title = title.replace(/\b([a-z])([a-z']*)/g, (m, c, r, i) => i > 0 && /^(a|an|the|of|on|in|to|for|and|or|at|by|vs|with)$/.test(m) ? m : c.toUpperCase() + r);
     d.title = title ? cap1(title) : "";
     if (LEFTOVER.test(d.title)) d.flags.push("words");
     if (/[;\n]|\balso\b|\bthen\b|\band\b.*\b(due|by|on)\b/i.test(raw)) d.flags.push("multi");
