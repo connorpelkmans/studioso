@@ -59,7 +59,7 @@ window.SBTRUTH = (() => {
     const s = low(q).replace(/[?!.]+$/, ""), today = todayISO(), L = window.SBLOCALANS;
     if (!s || s.length > 160) return null;
     // study advice built from their planner (98-advice.js): priorities, a plan, how to study for an exam
-    { const A = window.SBADVICE; if (A && A.ADVICE.test(s)) { const r = A.answer(s); if (r) return r; } }
+    { const A = window.SBADVICE; if (A && (A.ADVICE.test(s) || (A.timePlan && A.timePlan(s)))) { const r = A.answer(s); if (r) return r; } }
     // the wider set of planner questions (98-facts.js): averages, best and worst, classes, the next exam, counts, cards due
     { const X = window.SBFACTS; if (X && !(WRITE.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i|am i)\b/.test(s))) { const r = X.answer(q); if (r) return r; } }
     // an action, not a question ("add a task due tomorrow", "move my exam"): the AI's job
@@ -320,7 +320,7 @@ window.SBTRUTH = (() => {
       if (web.length) { useNotes = ""; useWeb = web; fromW = await solve(); }
     }
     if (!fromN && !fromW) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
-    const clean = a => String(a || "").trim().replace(/^(your notes say(,| that)?|according to (your notes|wikipedia)(,)?)\s*/i, m => m);
+    const clean = a => String(a || "").trim().replace(/(?<=[.!?])\s+I (couldn't|could not|can't) find [^.]*(notes|web|sources)[^.]*\.?\s*$/i, "").replace(/^(your notes say(,| that)?|according to (your notes|wikipedia)(,)?)\s*/i, m => m);
     const webName = [...new Set(web.map(x => x.src || "Wikipedia"))].slice(0, 2).join(" and ") || "the web";
     const answer = fromN && fromW ? `From your notes: ${clean(fromN.answer)}\n\nFrom the web (${webName}): ${clean(fromW.answer)}`
       : fromN ? `From your notes: ${clean(fromN.answer)}${!full && !o.noWeb && (String(q).match(/(?<=\S\s+)[A-Z][a-z]{2,}/g) || []).map(k => k.toLowerCase()).some(k => !low(fromN.answer).includes(k.length > 5 ? k.slice(0, k.length - 2) : k)) ? "\n\nThat's as much as your notes cover, and I couldn't find more on the web just now." : ""}` : `${notes ? "Your notes don't cover this, so from the web" : "From the web"} (${webName}): ${clean(fromW.answer)}`;

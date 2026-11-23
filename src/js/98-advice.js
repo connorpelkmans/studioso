@@ -106,5 +106,5 @@ window.SBADVICE = (() => {
     const head = /stress|overwhelm|anxious|anxiety|too much|so much|freaking|panick/.test(s) ? "That's a lot, but it's manageable one step at a time:\n" : /plan/.test(s) ? "Here's a plan built from your planner:\n" : "";
     return {answer: `${head}${steps.map((x, i) => `${i + 1}. ${x}`).join("\n")}${tip ? `\n${tip}` : ""}`, show: (late[0] || soon[0]) ? [{kind: "task", id: (late[0] || soon[0]).id}] : []};
   }
-  return {answer, ADVICE};
+  return {answer, ADVICE, timePlan: q => timePlan(low(q))};
 })();
