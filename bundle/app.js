@@ -75695,8 +75695,8 @@ Examples:
       let made = null;
       // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
       if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
-      if (!made && !ctl && !att.length) made = directAct(q);
       else if (!att.length) { const me = me0 || selfAnswer(q2); if (me) made = {answer: me, sources: [], followUps: [], actions: []}; }
+      if (!made && !ctl && !att.length) made = directAct(q);
       // (a plain question, "what is osmosis?", skips this step: nothing in it asks for anything to be done)
       const PLAINQ = !ACTY.test(q2) && (/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did|can you explain)\b[^]*\?\s*$/i.test(q2) || /^\s*(explain|define|describe|tell me about|what is|what's|whats|what are|how does|how do|how is|how are|why (is|are|do|does)|who (is|was|were)|summari[sz]e|compare)\b/i.test(q2));
 
