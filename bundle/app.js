@@ -6403,6 +6403,11 @@ async function aiAgeCheck(){
 }
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
+  // the free AI is on its way (downloading in the background): no setup to ask for, just where it's at
+  if (fromFeature && typeof DEVAI !== "undefined" && (DEVAI.e4b === "downloading" || DEVAI.warm) && !aiCfg().key && !aiProAvail()) {
+    const pct = Math.round(((DEVAI.e4b === "downloading" ? DEVAI.e4bPct : DEVAI.progress) || 0) * 100);
+    toast(`Your free AI is still getting ready${pct ? ` (${pct}%)` : ""}. It switches on by itself when it's done, so try again in a little while.`); return;
+  }
   const c = aiCfg(), held = aiHeldKeys(), hasKey = !!(held.gemini || held.anthropic || held.openai), pro = aiProAvail();
   // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
   // a Gemini key: adults only (aiAdult); a key someone already saved stays visible so it can be removed
@@ -7409,12 +7414,8 @@ async function e4bReadyNow(fresh){
 async function e4bOffer(){
   const on = devLs.get(E4B_ON);
   if (on === "1") { if (DEVAI.e4b !== "ready") e4bDownload(); return; }
-  if (on === "0" || window.__SB_E4B_ASKED) return;
-  // someone just starting out is asked on the Get Your Free AI Ready page instead (before setup or their first AI set); this note
-  // is for those already using Studyboard, who won't see that page
-  if (devLs.get(AI_READY_ASKED) !== "1" && !(tasksArr().length || Object.keys(state.decks || {}).length || coursesArr().length)) return;
-  window.__SB_E4B_ASKED = true;
-  setTimeout(() => { try { toast(`This computer can run a stronger free AI (Google's ${E4B.name}): private, on your computer. Download it in the background? About ${E4B.gb} GB, Wi-Fi only.`, null, [{label: "Download", fn: () => e4bAgree(true)}, {label: "Not Now", fn: () => e4bAgree(false)}], {sticky: true}); } catch (e) {} }, 4000);
+  // (asked on the Get Your Free AI Ready page, before setup, a first AI set, or an AI button; and offered in AI Features)
+  return;
 }
 function e4bAgree(yes){ devLs.set(E4B_ON, yes ? "1" : "0"); if (yes) { DEVAI.e4b = "downloading"; e4bDownload(); try { toast("Downloading in the background. Keep using Studyboard; it switches over by itself when it's ready."); } catch (e) {} } else { DEVAI.e4b = "eligible"; } try { scheduleRender(); } catch (e) {} }
 // Taking it off this computer (AI Features): the files go and the computer goes back to the AI it had
@@ -7583,6 +7584,19 @@ document.addEventListener("click", e => {
   window.__sbReadyLine = false;
   const line = b.closest(".ai-ready-line"); if (line) line.innerHTML = `${AI_ICON}<span>Getting it ready in the background. It's there when you need it.</span>`;
 });
+/* Someone using Studyboard with no AI working yet (no key, no Studyboard AI, nothing on the computer): the first AI button they tap
+   shows Get Your Free AI Ready, and then does what it was tapped for. Once only, like the page itself. Someone whose AI already
+   works isn't interrupted (a stronger one is offered in AI Features). */
+const aiWorksNow = () => { try { if (DEVAI.status === "available") return true; if (typeof aiProAvail === "function" && aiProAvail()) return true; const c = aiCfg(); return !!(c.key && c.provider !== "device"); } catch (e) { return true; } };
+document.addEventListener("click", e => {
+  if (!e.isTrusted) return;
+  const el = e.target && e.target.closest && e.target.closest("[data-act]"); if (!el) return;
+  const act = el.dataset.act || ""; if (!DEV_AI_ACT.test(act) || /^ai-setup$|^ai-(quiz|answer|next|submit|up|down|override|pick)/.test(act)) return;
+  if (aiWorksNow() || !aiReadyWhich()) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  // (clicked again afterwards by the app itself, so this doesn't catch it twice)
+  aiReadyFirst(() => { try { el.isConnected && el.click(); } catch (x) {} });
+}, true);
 /* One Chrome session per set of instructions, kept for three minutes and copied (clone) for each request: the long
    instructions and examples are read once, not again for every part of the notes (on a laptop running the model on its processor
    that reading takes several seconds a request). Each copy is thrown away after its answer, so requests never see each other. */

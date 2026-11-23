@@ -2440,6 +2440,11 @@ async function aiAgeCheck(){
 }
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
+  // the free AI is on its way (downloading in the background): no setup to ask for, just where it's at
+  if (fromFeature && typeof DEVAI !== "undefined" && (DEVAI.e4b === "downloading" || DEVAI.warm) && !aiCfg().key && !aiProAvail()) {
+    const pct = Math.round(((DEVAI.e4b === "downloading" ? DEVAI.e4bPct : DEVAI.progress) || 0) * 100);
+    toast(`Your free AI is still getting ready${pct ? ` (${pct}%)` : ""}. It switches on by itself when it's done, so try again in a little while.`); return;
+  }
   const c = aiCfg(), held = aiHeldKeys(), hasKey = !!(held.gemini || held.anthropic || held.openai), pro = aiProAvail();
   // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
   // a Gemini key: adults only (aiAdult); a key someone already saved stays visible so it can be removed

@@ -56,9 +56,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   let s = await state(R.p);
   ok(s.e4b === "eligible", "a 16 GB computer with a capable graphics chip can have it: " + JSON.stringify(s));
   await R.p.waitForTimeout(4500);
-  const note = await R.p.evaluate(() => (document.querySelector("#toast.show") || {}).innerText || "");
-  ok(/stronger free AI/.test(note) && /Wi-Fi only/.test(note) && /Download/.test(note), "it's offered with a quiet note (size, Wi-Fi only), not a blocking question: " + note.replace(/\n/g, " "));
-  ok(!(await R.p.$("dialog[open]")), "nothing blocks the page while it's offered");
+  ok(!(await R.p.$("dialog[open]")) && !/stronger free AI/.test(await R.p.evaluate(() => (document.querySelector("#toast.show") || {}).innerText || "")), "nothing pops up by itself: it's offered when an AI button is tapped, or in AI Features");
   const row = await aiRow(R.p);
   ok(/This computer can run a stronger free AI/.test(row) && /Download in the Background/.test(row), "AI Features offers it too");
   // 3. Download: in parts; stopped part-way, it picks up where it stopped (no part fetched twice)
@@ -107,6 +105,22 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     ok(!(await p.$("dialog[open] .ai-ready-sheet")), "it's asked once: the next time, the setup opens straight away");
     ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
     await c2.close(); }
+  // 6b. Someone already using Studyboard with no AI working: the first AI button they tap shows the page, then does its job
+  { const c4 = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
+    await c4.addInitScript(() => { window.__SB_AI_READY_TEST = true; });
+    const P = await open({fits: true, returning: true}, c4), p = P.p;
+    await p.evaluate(() => { const x = document.createElement("button"); x.id = "tapAI"; x.textContent = "Create with AI"; x.dataset.act = "fc-ai-cards"; x.style.cssText = "position:fixed;top:10px;left:300px;z-index:99999"; document.body.appendChild(x); });
+    await p.click("#tapAI"); await p.waitForTimeout(500);
+    ok(!!(await p.$("dialog[open] .ai-ready-sheet")), "an existing user's first AI tap shows Get Your Free AI Ready");
+    await p.click('[data-ready="yes"]'); await p.waitForTimeout(800);
+    const t1 = await p.evaluate(() => ({go: !!document.querySelector("dialog[open] #aiGo"), toast: (document.querySelector("#toast.show") || {}).innerText || "", on: localStorage.getItem("studyboard:e4bOn")}));
+    ok(t1.on === "1" && (t1.go || /still getting ready/.test(t1.toast)), "Get It Ready starts the download, then the button carries on (or says the AI is still getting ready): " + JSON.stringify(t1));
+    await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); });
+    await p.waitForFunction(() => window.__sbDevAI.state.e4b === "ready", null, {timeout: 30000}).catch(() => {});
+    await p.click("#tapAI"); await p.waitForTimeout(500);
+    ok(!(await p.$("dialog[open] .ai-ready-sheet")) && !!(await p.$("dialog[open] #aiGo")), "only once: the next tap goes straight to it");
+    ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
+    await c4.close(); }
   // 7. Not Now: offered once more, as one line on the setup's last step, and never again
   { const c3 = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
     await c3.addInitScript(() => { window.__SB_AI_READY_TEST = true; });
