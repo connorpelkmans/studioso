@@ -887,7 +887,10 @@
       }
       // (never a Studyboard backup or other app data file: it's the planner itself as raw JSON, not something they're studying)
       const fileOf = x => state.files[x.doc.type === "chunk" ? x.doc.fid : x.doc.type === "file" ? x.doc.id : ""];
-      const rows = fuse(kw, sm).filter(x => !appDataFile(fileOf(x))).slice(0, o.max || 8), per = o.chars || 1500;
+      // (nor a reply the AI wrote and they saved, or a note that's the assistant talking about the app: those aren't what they're studying)
+      const noteOf = x => x.doc.type === "note" ? (Array.isArray(state.notes) ? state.notes.find(n => n.id === x.doc.id) : (state.notes || {})[x.doc.id]) : null;
+      const AIISH = /\b(i can (make|help|create|add|do)|i'?ll make|tap (open|make|add|review)|say "undo"|in studyboard for you|i couldn'?t (find|get)|i put the note|your notes say|from your notes:|from the web \(|save this reply)\b/i;
+      const rows = fuse(kw, sm).filter(x => !appDataFile(fileOf(x))).filter(x => { const n = noteOf(x); return !n || (n.src !== "chat" && !AIISH.test(String(n.text || ""))); }).slice(0, o.max || 8), per = o.chars || 1500;
       out.rows = rows;
       out.text = rows.map((x, i) => {
         const d = x.doc, body = x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n"));

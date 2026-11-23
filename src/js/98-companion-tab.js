@@ -524,6 +524,7 @@ Examples:
     const v = String(d.value || d.item || d.title || "").toLowerCase().replace(/\b(theme|the|mode|style|skin|look)\b/g, " ").replace(/\s+/g, " ").trim(), f = String(d.field || "").toLowerCase();
     if (/^(dark|light|system|auto|automatic)$/.test(v)) { const m = v === "auto" || v === "automatic" ? "system" : v; if (typeof setTheme === "function") setTheme(m); render(); return say(m === "system" ? "Studyboard now follows your device's light or dark setting." : `Switched to ${m} mode.`); }
     if (!v) return say("Which theme? Open the Style Shop to see them all.");
+    if (Object.prototype.hasOwnProperty.call(NAMED, v)) return say(`\"${v}\" is a colour, not a theme. Say which theme (the Style Shop has them all), or what to make ${v}: a course, or something I'm wearing.`);
     const lists = f === "card" || /card/.test(f) ? [["card", CARD_STYLES]] : f === "note" || /note|shape/.test(f) ? [["note", NOTE_SHAPES]] : f === "pin" ? [["pin", PINS]] : [["skin", SKINS], ["card", CARD_STYLES], ["note", NOTE_SHAPES]];
     const sc = x => { const m = String(x.name || "").toLowerCase(), id = String(x.id || "").toLowerCase(); return m === v || id === v ? 10 : m.startsWith(v) || v.startsWith(m) ? 7 : m.includes(v) ? 5 : v.split(" ").filter(w => w.length > 2 && m.includes(w)).length * 2; };
     let best = null, bs = 0, bk = ""; lists.forEach(([k, L]) => (L || []).forEach(x => { const s0 = sc(x); if (s0 > bs) { bs = s0; best = x; bk = k; } }));
@@ -685,6 +686,9 @@ Examples:
     // a quiz from a deck or a card: "quiz me on my heart deck", "make a quiz from the SA node card"
     const qd = /\b(?:quiz|test)(?:\s+me)?\b[^]*?\b(?:from|on|using|out of|with|over)\s+(?:my\s+|the\s+|this\s+|that\s+)?(.+?)\s*(?:deck|set|cards?|flashcards?)?\s*[.!?]*$/i.exec(w);
     if (qd && /\b(deck|card|cards|flashcards?|set)\b/i.test(w)) { const r = quizFromDeck(qd[1]); if (r) return say(r); }
+    // an accessory's colour: "change scarf color blue", "make your hat red", "dye the cape green"
+    const tm = /\b(?:change|make|turn|set|colou?r|paint|dye)\b[^]*?\b(scarf|hat|beanie|cap|crown|glasses|bow ?tie|tie|medal|cape|badge|star)\b[^]*?\b(?:colou?r\s*(?:to|=)?|to|into)?\s*(#[0-9a-f]{6}|(?:light |dark |bright |pale )?[a-z]+)\s*(?:please|pls)?[.!?]*$/i.exec(w);
+    if (tm && window.SBCOMP && SBCOMP.tintByName && !/^(colou?r|to|into|please)$/i.test(tm[2])) return say(SBCOMP.tintByName(tm[1], tm[2]));
     // a theme by name: "change theme to evergreen", "switch to the ocean theme", "use evergreen", "dark mode please"
     const th = /\b(?:change|switch|set|put|use|make|try|apply|turn on)\b[^]*?\b(?:theme|skin|look|background)\b\s*(?:to|as|into)?\s*(?:the\s+)?["“']?([a-z][\w &'-]{1,30}?)["”']?\s*(?:theme|one)?\s*(?:please|pls)?[.!?]*$/i.exec(w)
       || /\b(?:change|switch|set|use|apply|try)\s+(?:to\s+)?(?:the\s+)?["“']?([a-z][\w &'-]{1,30}?)["”']?\s+(?:theme|skin)\b/i.exec(w)
@@ -1348,7 +1352,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       case "cpt-note": {
         const c = rd().find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === id);
         if (!m || !m.a) return true;
-        const text = `${m.q}\n\n${m.a.answer}`.slice(0, 8000), done = board => { addNoteText(text, "", "green", board == null ? {} : {board}); el.textContent = "Saved to Notes"; el.disabled = true; };
+        const text = `${m.q}\n\n${m.a.answer}`.slice(0, 8000), done = board => { addNoteText(text, "", "green", Object.assign({src: "chat"}, board == null ? {} : {board})); el.textContent = "Saved to Notes"; el.disabled = true; };
         if (!noteBoards().length) { done(); return true; }
         T.pendingNote = done;
         openSheet(`<div class="sheet">${head("Save to Which Board?")}<div class="sheet-body"><div class="row-actions" style="flex-wrap:wrap">${[["", "My Notes"]].concat(noteBoards().map(b => [b.id, b.name])).map(([bid, nm]) => `<button type="button" class="btn${bid === noteBoardId() ? " primary" : ""}" data-act="cpt-note-to" data-id="${esc(bid)}">${esc(nm)}</button>`).join("")}</div></div></div>`);

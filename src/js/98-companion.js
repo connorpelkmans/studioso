@@ -3070,6 +3070,23 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
       return `I put on my ${a.name}!`;
     } catch (e) { return "I couldn't change my outfit just now."; } },
+    // an accessory's colour from words ("blue", "dark green", "#3366ff"): the exact colour with Pro, else the closest of the free tints
+    tintByName: (item, color) => { try {
+      const c = current(); if (!c) return "There's no companion to dress right now.";
+      const n = String(item || "").toLowerCase(), now = wearOf(c);
+      const KIND = {hat: ["hat", "beanie", "cap", "crown"], cap: ["cap"], glasses: ["glasses"], scarf: ["scarf"], tie: ["bowtie"], bowtie: ["bowtie"], medal: ["medal"], cape: ["cape"], badge: ["star"], star: ["star"], crown: ["crown"], beanie: ["beanie"]};
+      const k = Object.keys(KIND).find(x => new RegExp("\\b" + x + "s?\\b").test(n.replace(/bow ?tie/, "bowtie")));
+      const ids = k ? KIND[k] : ACC.filter(a => n.includes(a.name.toLowerCase())).map(a => a.id);
+      const a = ACC.find(x => ids.includes(x.id) && now.includes(x.id)) || ACC.find(x => ids.includes(x.id));
+      if (!a) return `I don't have a "${item}". Open the Wardrobe to see what I can wear.`;
+      const NAMED = {red: "#DC2626", pink: "#EC4899", purple: "#7C3AED", violet: "#8B5CF6", blue: "#3B6FE0", "light blue": "#60A5FA", "dark blue": "#1E3A8A", navy: "#1E3A8A", teal: "#0F766E", cyan: "#06B6D4", turquoise: "#14B8A6", green: "#16A34A", "dark green": "#166534", lime: "#84CC16", yellow: "#EAB308", gold: "#CA8A04", orange: "#EA580C", brown: "#92400E", black: "#111827", white: "#F9FAFB", gray: "#6B7280", grey: "#6B7280", rainbow: "#8E6BE0", maroon: "#7F1D1D", lavender: "#A78BFA", mint: "#6EE7B7", coral: "#F97362", peach: "#FDBA74"};
+      const w = String(color || "").toLowerCase().trim(), hex = /^#[0-9a-f]{6}$/i.test(w) ? w : NAMED[w] || NAMED[w.replace(/^(light|dark|bright|pale)\s+/, "")];
+      if (!hex) return `What colour should my ${a.name} be? For example: blue, red or green.`;
+      const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), d2 = (x, y) => { const p = rgb(x), q = rgb(y); return (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2; };
+      const pick = pro() ? hex : TINTS.slice().sort((x, y) => d2(x, hex) - d2(y, hex))[0];
+      setCfg({tint: {[a.id]: pick}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+      return `My ${a.name} is ${w.replace(/^#.*/, "that colour")} now!${now.includes(a.id) ? "" : ` (Put it on to see it: say "wear my ${a.name.toLowerCase()}".)`}`;
+    } catch (e) { return "I couldn't change that colour just now."; } },
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
     // A close-up of the face (a headshot, for small round pictures)
     head: (id, o) => {
