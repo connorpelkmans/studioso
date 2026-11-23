@@ -140,7 +140,7 @@ window.SBTRUTH = (() => {
       const s = await get({action: "query", list: "search", srsearch: term, srlimit: String(o.n || 3), srprop: ""});
       const titles = ((s.query || {}).search || []).map(x => x.title).slice(0, o.n || 3);
       if (!titles.length) return [];
-      const e = await get({action: "query", prop: "extracts", exintro: "1", explaintext: "1", exchars: String(o.chars || 1600), titles: titles.join("|"), redirects: "1"});
+      const e = await get({action: "query", prop: "extracts", exintro: "1", explaintext: "1", exchars: String(Math.min(1200, o.chars || 1200)), titles: titles.join("|"), redirects: "1"});
       const pages = ((e.query || {}).pages || []).filter(p => p.extract && p.extract.length > 80);
       return titles.map(t => pages.find(p => p.title === t || low(p.title) === low(t))).filter(Boolean).map(p => ({title: p.title, url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(p.title.replace(/ /g, "_")), text: clip(p.extract, o.chars || 1600)}));
     } catch (e) { return []; }
@@ -295,6 +295,8 @@ window.SBTRUTH = (() => {
       { const qw = new Set((low(q).match(/[a-z]+/g) || []).map(w => w.slice(0, 5)));
         const fresh = (low(a).match(/[a-z]{4,}/g) || []).filter(w => !qw.has(w.slice(0, 5)) && !/^(your|notes?|says?|said|that|this|these|which|with|from|they|their|there|what|when|also|according|wikipedia|flashcards?|deck|theory|ones?|part|parts|called|known|being|have|been|into|about|some|more|most|such)$/.test(w));
         if (/^\s*(what'?s|whats|what (is|are|was|were|does|do)|explain|define|describe|tell me about)\b/i.test(q) && !/\d/.test(a) && new Set(fresh).size < 3) return false; }
+      // "what is X" for an idea: more than the one defining sentence (what it's made of, how it works, or an example)
+      if (/^\s*(what'?s|whats|what (is|are)|tell me about)\b/i.test(q) && !listQ && !/\b(name|date|year|when|who|how (many|much|long|old))\b/i.test(q) && a.split(/(?<=[.!?])\s+(?=[A-Z])/).filter(x => x.split(/\s+/).length > 3).length < 2) return false;
       return true; };
     const ok = (x, src, loose) => x && x.answer && x.found !== false && !nonAnswer(q, x.answer) && !unsupported(x.answer, src + "\n" + q).length && (loose || shape(x));
     // one source at a time: the notes alone, then (when they don't fully answer it) the web alone, so each part of the answer says
