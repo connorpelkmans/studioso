@@ -718,6 +718,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   // A new task from the request alone (the words, a course it names), as a change to confirm: no model needed
   function quickTask(q){
     // a meeting, practice or appointment is for the calendar, not the task list (the AI step decides those)
+    // (so is anything from one time to another: "study session wednesday 7-9pm")
+    if (/\b\d{1,2}(:\d\d)?\s*(am|pm)?\s*(-|–|to|until)\s*\d{1,2}(:\d\d)?\s*(am|pm)\b|\b(session|appointment|appt)\b/i.test(q) && !/\b(due|hand in|submit)\b/i.test(q)) return null;
     if (/\b(meeting|practice|appointment|party|game|shift|club|dinner|lunch|concert|rehearsal|dance|study group)\b/i.test(q) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading)\b/i.test(q)) return null;
     const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
     { const qt = /["“'‘]([^"”'’]{3,120})["”'’]/.exec(q); if (qt) lt.title = qt[1].trim(); lt.title = lt.title.replace(/\s+(on|to|in)\s+(my\s+)?(to-?\s?do\s+list|list|tasks?|planner|board)\b.*$/i, "").trim(); }

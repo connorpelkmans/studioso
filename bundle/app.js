@@ -73889,6 +73889,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   // A new task from the request alone (the words, a course it names), as a change to confirm: no model needed
   function quickTask(q){
     // a meeting, practice or appointment is for the calendar, not the task list (the AI step decides those)
+    // (so is anything from one time to another: "study session wednesday 7-9pm")
+    if (/\b\d{1,2}(:\d\d)?\s*(am|pm)?\s*(-|–|to|until)\s*\d{1,2}(:\d\d)?\s*(am|pm)\b|\b(session|appointment|appt)\b/i.test(q) && !/\b(due|hand in|submit)\b/i.test(q)) return null;
     if (/\b(meeting|practice|appointment|party|game|shift|club|dinner|lunch|concert|rehearsal|dance|study group)\b/i.test(q) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading)\b/i.test(q)) return null;
     const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
     { const qt = /["“'‘]([^"”'’]{3,120})["”'’]/.exec(q); if (qt) lt.title = qt[1].trim(); lt.title = lt.title.replace(/\s+(on|to|in)\s+(my\s+)?(to-?\s?do\s+list|list|tasks?|planner|board)\b.*$/i, "").trim(); }
@@ -75766,6 +75768,13 @@ Examples:
       // a request to do something (any wording) is understood by the AI and done by the app (intentAct); a planner question with
       // no request in it is answered from the app's own data first (exact, instant)
       const ACTY = /\b(add(s|ed|ing)?|put(s|ting)?|mak(e|es|ing)|creat(e|ed|ing)|delet(e|ed|ing)|remov(e|ed|ing)|get rid|eras(e|ed)|trash(ed)?|mov(e|ed|es|ing)|push(ed|ing)?|bump(ed)?|reschedul(e|ed|ing)|postpon(e|ed)|delay(ed)?|extend(ed|s)?|mark(ed)?|check(ed)? off|tick(ed)? off|cross(ed)? (off|out)|finish(ed|ing)?|complet(e|ed)|done|submit(ted)?|turn(ed)? in|hand(ed)? in|wrap(ped)? up|renam(e|ed)|call it|chang(e|ed|ing)|set|switch(ed)?|turn(ed)? (on|off)|start(ed|ing)?|stop(ped)?|paus(e|ed)|resum(e|ed)|open|take me|go to|show me|bring up|jot|note|remind|schedul(e|ed)|book|cancel(l?ed)?|undo|revert|edit|updat(e|ed)|wear|join|enrol+(ed)?|working on|now due|due date (is|changed|moved))\b/i;
+      // statements that ask for something without an action word: "I have a dentist appointment friday at 10", "need to do the worksheet
+      // by sunday", "todo: buy textbook", "the care plan is urgent", "call the lab report 'X'" (never a question: those are answered)
+      const ISQ = x => /\?\s*$/.test(x) || /^\s*(what|what's|whats|who|why|how|when|where|which|is|are|do|does|did|can i|could i|should i|am i|will|would)\b/i.test(x);
+      const STMT = x => !ISQ(x) && (/^\s*(i\s+)?(really\s+)?(need to|have to|gotta|got to|must)\b/i.test(x) || /^\s*(to-?\s?do|todo|reminder)\b/i.test(x)
+        || /\b(i have|i've got|ive got|i got|there'?s|we have|i'?ve)\b[^?]*\b(on|at|this|next|tomorrow|tonight|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(:\d\d)?\s*(am|pm))\b/i.test(x)
+        || /\b(is|are|'s)\s+(now\s+)?(urgent|important|high priority|low priority|not urgent|top priority)\b/i.test(x) || /\bcall (the|my|this|that)\b[^?]*["“'‘]/i.test(x));
+      const ACTX = x => ACTY.test(x) || STMT(x);
       // (the AI "what to do" step also for these, though alone they don't stop a planner question being answered at once)
       const ROUTEW = /\b(study|review|drill|got|scored|record|new|due|mark|grade|card|deck|group|theme|color|colour|font|text size|notification|hat|glasses|scarf)\b/i;
       // "I meant all my courses", "no, for BIOS 230": the earlier question again, with what they meant (no AI step needed to see that)
@@ -75774,7 +75783,7 @@ Examples:
       const more = !fix && !att.length ? /^\s*(?:(?:can|could) you\s+|please\s+)?((?:be )?more detail(?:ed|s)?|go (?:into )?more (?:detail|depth)|in more detail|more depth|elaborate|expand(?: on (?:that|it))?|explain (?:that |it )?(?:more|further|better|again|simpler|more simply)|tell me more|say more|keep going|go on|continue|simpler|more simply|(?:make it |explain it )?simpler|dumb it down|(?:give (?:me )?)?an? (?:example|analogy)|shorter|(?:make it )?shorter|in short|tl;?dr|summari[sz]e (?:that|it)|why\??|how so\??|what do you mean\??)\s*(?:please)?[.!?]*\s*$/i.exec(q) : null;
       const prevQ0 = fix || more ? (x => x ? (x.ask || x.q) : "")((c.msgs || []).filter(x => x.q && x.a).slice(-1)[0]).replace(/^(Explain in detail|Explain simply|In two or three sentences|Give an example of):\s*/i, "") : "";
       const qFix = fix && prevQ0 ? `${prevQ0.replace(/[?!.]+\s*$/, "")} (${fix[1]})?` : more && prevQ0 ? `${/simpl|dumb/i.test(more[1]) ? "Explain simply: " : /short|tl|summar|in short/i.test(more[1]) ? "In two or three sentences: " : /example|analogy/i.test(more[1]) ? "Give an example of: " : "Explain in detail: "}${prevQ0.replace(/[?!.]+\s*$/, "")}` : "";
-      const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length && !ctl && !me0 && !ACTY.test(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
+      const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length && !ctl && !me0 && !ACTX(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
       const was = !att.length ? pendingAsk(q, c) : "", q2 = was || qFix || q;
       if (q2 !== q) m.ask = q2;
@@ -75784,14 +75793,14 @@ Examples:
       else if (!att.length) { const me = me0 || selfAnswer(q2); if (me) made = {answer: me, sources: [], followUps: [], actions: []}; }
       if (!made && !ctl && !att.length) made = directAct(q);
       // (a plain question, "what is osmosis?", skips this step: nothing in it asks for anything to be done)
-      const PLAINQ = !ACTY.test(q2) && (/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did|can you explain)\b[^]*\?\s*$/i.test(q2) || /^\s*(explain|define|describe|tell me about|what is|what's|whats|what are|how does|how do|how is|how are|why (is|are|do|does)|who (is|was|were)|summari[sz]e|compare)\b/i.test(q2));
+      const PLAINQ = !ACTX(q2) && (/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did|can you explain)\b[^]*\?\s*$/i.test(q2) || /^\s*(explain|define|describe|tell me about|what is|what's|whats|what are|how does|how do|how is|how are|why (is|are|do|does)|who (is|was|were)|summari[sz]e|compare)\b/i.test(q2));
 
       if (att.length && att.some(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || "")) && /\b(add|put|save|pin|stick|place|attach)\b[^?]*\b(note|notes|board)\b/i.test(q)) made = await photoNote(q, att);
       if (!quick && !made && !att.length && MAP_Q.test(q2) && MAP_ASK.test(q2)) { T.status = "Making your map…"; draw(); made = await mapAct(q2); }
       if (!quick && !made && !att.length && window.SBASSIST && SBASSIST.findNotes) { const fn = await SBASSIST.findNotes(q2).catch(() => null); if (fn) made = {answer: fn.answer, sources: fn.show && fn.show.length ? ["Your notes"] : [], followUps: [], actions: [], show: fn.show && fn.show.length ? SBASSIST.pack(fn).show : undefined}; }
       if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
       // anything the app's own quick steps didn't recognize: the AI works out which action it is (any wording), and the app does it
-      if (!made && !quick && !PLAINQ && (ACTY.test(q2) || ROUTEW.test(q2) || att.length)) { T.status = "Working out what to do…"; draw(); made = await intentAct(q2, c, att).catch(e => { console.warn("intent", e); return null; }); }
+      if (!made && !quick && !PLAINQ && (ACTX(q2) || ROUTEW.test(q2) || att.length)) { T.status = "Working out what to do…"; draw(); made = await intentAct(q2, c, att).catch(e => { console.warn("intent", e); return null; }); }
       // a question about the subject (on the device): the same answer as Ask's, from their own material first, then the web
       if (!quick && !made && dev && !att.length && TR && TR.general(q2) && !(window.SBASSIST && SBASSIST.appQ(q2))) {
         T.status = "Looking through your notes…"; draw();
