@@ -62,6 +62,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   // 3. Download: in parts; stopped part-way, it picks up where it stopped (no part fetched twice)
   await R.p.click('[data-e4b="get"]');
   await R.p.waitForFunction(() => window.__sbDevAI.state.e4bPct > 0.3, null, {timeout: 20000}).catch(() => {});
+  { const t = await R.p.evaluate(() => (document.getElementById("e4bLive") || {}).innerText || ""); ok(/Downloading the stronger free AI: [1-9]\d?%/.test(t), "the open AI Features sheet shows the download and its percentage as it goes: " + t.slice(0, 60)); }
   await R.p.evaluate(() => localStorage.setItem("studyboard:e4bOn", "0")); await R.p.waitForTimeout(800);
   const mid = await state(R.p), r1 = ranges;
   ok(mid.pct > 0 && mid.pct < 1, "it downloads in parts: " + Math.round(mid.pct * 100) + "% before the stop");

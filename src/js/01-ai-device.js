@@ -408,9 +408,10 @@ const e4bNetOk = () => { const c = navigator.connection; if (!c) return true; re
 let e4bRunning = null;
 // The download: started once the student agrees, picked up again whenever Studyboard opens until it's done
 function e4bDownload(){
-  if (e4bRunning) return e4bRunning;
+  // (Pause then Download again before the last parts stopped: once that run ends, a new one starts)
+  if (e4bRunning) return e4bRunning.then(() => { if (devLs.get(E4B_ON) === "1" && DEVAI.e4b !== "ready" && !e4bRunning) return e4bDownload(); });
   e4bRunning = (async () => {
-    const D = e4bDesk(), say = p => { DEVAI.e4bPct = p; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; try { scheduleRender(); } catch (e) {} };
+    const D = e4bDesk(), say = p => { DEVAI.e4bPct = p; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); try { scheduleRender(); } catch (e) {} };
     try {
       if (D) {
         // the app downloads it itself; this only follows along
@@ -508,7 +509,11 @@ async function e4bCheck(){
   } catch (e) {}
 }
 // AI Features: the stronger AI's row (download, progress, waiting for Wi-Fi, ready, remove)
-function e4bRow(){
+// the row in AI Features, kept up to date while the sheet is open (the download runs while the student watches)
+function e4bRow(){ return `<div id="e4bLive">${e4bRowIn()}</div>`; }
+setInterval(() => { try { e4bPaint(); } catch (e) {} }, 1000);
+function e4bPaint(){ const el = document.getElementById("e4bLive"); if (el) { const h = e4bRowIn(); if (el.innerHTML !== h) el.innerHTML = h; } }
+function e4bRowIn(){
   const st = DEVAI.e4b, pct = Math.round((DEVAI.e4bPct || 0) * 100); if (!st) return "";
   const box = (t, btn) => `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0">${t}</p>${btn ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${btn}</div>` : ""}</div>`;
   const nm = `Google's ${E4B.name} (E4B)`;
