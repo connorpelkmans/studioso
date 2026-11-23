@@ -58,6 +58,7 @@ const STUB = () => {
     const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"});
     const seed = Object.assign({}, SEED, ownKey ? {settings: Object.assign({}, SEED.settings, {ai: {ownKey: true}})} : {});
     await ctx.addInitScript({content: `
+      window.__SB_ADULT = true;
       try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1");
         localStorage.setItem("coursework:v2", ${JSON.stringify(JSON.stringify(seed))}); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:tour", "done"); localStorage.setItem("studyboard:uname:0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b", "student");
         ${keys ? `localStorage.setItem("studyboard:aiKeys", ${JSON.stringify(JSON.stringify(keys))});` : ""}

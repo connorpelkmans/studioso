@@ -1579,8 +1579,8 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .ai-model-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:color-mix(in srgb,#8B5CF6 6%,var(--surface));border:1px solid color-mix(in srgb,#8B5CF6 25%,var(--line));border-radius:12px;padding:6px 10px}
 .ai-model-bar select{flex:1;min-width:0;max-width:340px;padding:6px 8px;font-size:.9rem}
 .ai-key{display:grid;gap:4px}
-.ai-paid{border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--field)}
-.ai-paid summary{font-weight:700;cursor:pointer}
+.ai-paid,.ai-gem-adv{border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--field)}
+.ai-paid summary,.ai-gem-adv summary{font-weight:700;cursor:pointer}
 .ai-paid-body{display:grid;gap:12px;margin-top:10px}
 /* Paste My Key and moving keys to another device */
 .ai-paste{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

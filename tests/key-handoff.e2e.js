@@ -18,6 +18,8 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   const device = async (keys, opts) => {
     const ctx = await browser.newContext({viewport: {width: 900, height: 900}});
     await ctx.addInitScript(([keys]) => {
+      // (an adult: a Gemini key is for 18 and older, tests/ai-gemini-adults.e2e.js)
+      window.__SB_ADULT = true;
       try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1");
         if (keys) localStorage.setItem("studyboard:aiKeys", JSON.stringify(keys));
         localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {}
