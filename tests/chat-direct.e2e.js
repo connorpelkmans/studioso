@@ -22,7 +22,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await p.evaluate(() => SBCOMPTAB.open()); await p.waitForSelector("#cptIn");
   const chat = async q => { const n0 = await p.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length); await p.fill("#cptIn", q); await p.click("#cptGo");
     await p.waitForFunction(n => document.querySelectorAll(".cpt-a, .cpt-err").length > n && !document.querySelector("#cptGo").disabled && !/Thinking…|Looking|Working/.test([...document.querySelectorAll(".cpt-a, .cpt-err")].pop().innerText), n0, {timeout: 30000}).catch(() => {});
-    return p.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.split("\n").slice(0, 3).join(" ") : ""; }); };
+    return p.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.split("\n").slice(0, 8).join(" ") : ""; }); };
   const notes = () => p.evaluate(() => JSON.stringify(window.__sbSync.state.notes || {}));
 
   let a = await chat("Add flashcard with front hi and back hello to deck Connor Pelkmans");
@@ -65,11 +65,20 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   a = await chat("make a quiz from my heart deck");
   ok(/Make a Quiz with Heart/.test(a) || await p.evaluate(() => /Make a Quiz/.test((document.querySelector("dialog[open]") || {}).innerText || "")), "a quiz from a deck opens Make a Quiz with it: " + a);
   await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
+  await p.waitForTimeout(600); await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
   a = await chat("quiz me using the SA node card");
   ok(/Make a Quiz with Heart/.test(a) || await p.evaluate(() => /Make a Quiz/.test((document.querySelector("dialog[open]") || {}).innerText || "")), "a quiz from a card (its deck): " + a);
   await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
+  await p.waitForTimeout(600); await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
   a = await chat("what's 4x3x2 / 5");
   ok(/4\.8/.test(a), "arithmetic with a curly apostrophe: " + a);
+  await p.evaluate(() => { window.SBANN = {items: () => [{key: "k1", title: "Practice Final Exam", text: "Hello {firstname}, A 21-question practice final exam is now available.", date: new Date(Date.now() - 3 * 864e5).toISOString(), course: "BSNC 1000", cid: ""}, {key: "k2", title: "Older post", text: "x", date: new Date(Date.now() - 9 * 864e5).toISOString(), course: "BSNC 1020", cid: ""}]}; });
+  a = await chat("what does my most recent announcement say");
+  ok(/Practice Final Exam/.test(a) && /21-question/.test(a), "the latest class announcement, word for word: " + a);
+  a = await chat("change theme to evergreen");
+  ok(/Evergreen/.test(a) && !/Good morning/.test(a), "a theme by name: " + a);
+  a = await chat("change the wallpaper to a picture of my dog");
+  ok(/not able to do that|can't do that|couldn't/i.test(a), "a request it can't do is said plainly, not answered with something else: " + a);
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);

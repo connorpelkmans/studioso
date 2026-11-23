@@ -79,6 +79,18 @@ window.SBTRUTH = (() => {
         if (typeof v === "number" && isFinite(v)) { const r = Math.round(v * 1e10) / 1e10; return {answer: `${e.replace(/\s+/g, " ").replace(/\*/g, "×")} = ${r.toLocaleString("en-US", {maximumFractionDigits: 10})}`, show: []}; }
       }
     }
+    // class announcements from their school site (95-announce.js): the latest, a course's, or what's new, word for word
+    if (/\b(announcements?|announced|announce|news|posted|post)\b/.test(s) && !/\b(make|create|write|add)\b/.test(s) && window.SBANN && SBANN.items) {
+      let list = []; try { list = SBANN.items() || []; } catch (e) {}
+      if (!list.length) return {answer: "There aren't any class announcements in Studyboard. Connect your school site (Settings, then School Sync) and they'll show up here and under the bell.", show: []};
+      const c = courseNamed(q); if (c) list = list.filter(x => x.cid === c.id || low(x.course).includes(low(c.code || c.name)));
+      if (!list.length) return {answer: `There aren't any announcements from ${c ? (c.code || c.name) : "that course"} in Studyboard.`, show: []};
+      const when = d => { try { const n = Math.round((Date.now() - new Date(d).getTime()) / 864e5); return n <= 0 ? "today" : n === 1 ? "yesterday" : n + " days ago"; } catch (e) { return ""; } };
+      const one = x => `${x.course}: ${x.title}${x.date ? ` (${when(x.date)})` : ""}\n${String(x.text || "").replace(/\{fi?r?st ?name\}/gi, "").replace(/\s+/g, " ").trim().slice(0, 700)}${x.long ? "…" : ""}`;
+      if (/\b(all|list|every|any|recent announcements|new announcements|what announcements)\b/.test(s) && !/\b(most recent|latest|last|newest)\b/.test(s))
+        return {answer: `${list.length} announcement${list.length === 1 ? "" : "s"}${c ? ` from ${c.code || c.name}` : ""}, newest first:\n${list.slice(0, 6).map(x => `- ${x.course}: ${x.title}${x.date ? ` (${when(x.date)})` : ""}`).join("\n")}${list.length > 6 ? `\n…and ${list.length - 6} more under the bell.` : ""}`, show: []};
+      return {answer: `Your most recent announcement${c ? ` from ${c.code || c.name}` : ""}:\n${one(list[0])}`, show: []};
+    }
     // study advice built from their planner (98-advice.js): priorities, a plan, how to study for an exam
     { const A = window.SBADVICE; if (A && (A.ADVICE.test(s) || (A.timePlan && A.timePlan(s)))) { const r = A.answer(s); if (r) return r; } }
     // the wider set of planner questions (98-facts.js): averages, best and worst, classes, the next exam, counts, cards due

@@ -685,6 +685,11 @@ Examples:
     // a quiz from a deck or a card: "quiz me on my heart deck", "make a quiz from the SA node card"
     const qd = /\b(?:quiz|test)(?:\s+me)?\b[^]*?\b(?:from|on|using|out of|with|over)\s+(?:my\s+|the\s+|this\s+|that\s+)?(.+?)\s*(?:deck|set|cards?|flashcards?)?\s*[.!?]*$/i.exec(w);
     if (qd && /\b(deck|card|cards|flashcards?|set)\b/i.test(w)) { const r = quizFromDeck(qd[1]); if (r) return say(r); }
+    // a theme by name: "change theme to evergreen", "switch to the ocean theme", "use evergreen", "dark mode please"
+    const th = /\b(?:change|switch|set|put|use|make|try|apply|turn on)\b[^]*?\b(?:theme|skin|look|background)\b\s*(?:to|as|into)?\s*(?:the\s+)?["“']?([a-z][\w &'-]{1,30}?)["”']?\s*(?:theme|one)?\s*(?:please|pls)?[.!?]*$/i.exec(w)
+      || /\b(?:change|switch|set|use|apply|try)\s+(?:to\s+)?(?:the\s+)?["“']?([a-z][\w &'-]{1,30}?)["”']?\s+(?:theme|skin)\b/i.exec(w)
+      || /^\s*(?:(?:can you|please|could you)\s+)?(?:turn on|switch to|use|go)\s+(dark|light)\s*(?:mode|theme)?\b/i.exec(w) || /^\s*(dark|light)\s+(?:mode|theme)\s*(?:please|pls|on)?[.!?]*$/i.exec(w);
+    if (th && !/\b(course|class|deck|card|note|board|task)\b/i.test(w)) return say(themeAct({value: th[1]}).answer);
     // a study group or group project: New Group, filled in, for them to create (it needs their account and the internet)
     const gm = /\b(?:create|make|start|set up|new|open)\b[^]*?\b(study group|group project|project group|group)\b(?:\s+(?:called|named|for)\s+["“']?(.+?)["”']?)?\s*[.!?]*$/i.exec(w);
     if (gm && !/\b(note|deck|board|quiz|map|task|event)\b/i.test(w.replace(gm[1], ""))) {
@@ -989,6 +994,9 @@ Careful, these are easy to mix up:
       if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
       // anything the app's own quick steps didn't recognize: the AI works out which action it is (any wording), and the app does it
       if (!made && !quick && !PLAINQ && ((dev && !window.__SB_GATE) || ACTX(q2) || /\b(study|review|drill|got|scored|record|new|due|mark|grade|card|deck|group|theme|colou?r|font|text size|notification|hat|glasses|scarf)\b/i.test(q2) || att.length)) { T.status = "Working out what to do…"; draw(); made = await intentAct(q2, c, att).catch(e => { console.warn("intent", e); return null; }); }
+      // told to do something ("change ...", "add ...", "turn on ...") and nothing above could: said plainly, never an unrelated reply
+      if (!made && !quick && !att.length && /^\s*(?:please\s+|(?:can|could|would|will) (?:you|u)\s+)?(?:change|switch|set|make|turn|add|create|delete|remove|move|rename|start|stop|put|mark|update|edit|enable|disable|reset|clear|hide|show me|open)\b/i.test(q2) && !/\?\s*$/.test(q2) && !TR.general(q2))
+        made = {answer: "I'm not able to do that from the chat yet, so I didn't change anything. Try saying it another way, or do it in Studyboard directly (Settings has most options).", sources: [], followUps: [], actions: []};
       // the AI said it's a question ("yo whats due soon"): the planner's own exact answer first, when it has one
       let late = null; if (!quick && !made && dev && TR && !att.length && !ctl) { try { late = TR.facts(q2); } catch (e) {} }
       // a question about the subject (on the device): the same answer as Ask's, from their own material first, then the web
