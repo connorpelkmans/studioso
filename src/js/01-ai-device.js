@@ -574,7 +574,27 @@ const e4bWait = new Map();
 // the student goes to type to the AI, so the first answer doesn't wait on it, and the chat gives that first load extra time
 let e4bLoaded = false, e4bOff = false;
 // (vendor/ files are cached for a month: a new worker gets a new address)
-const E4B_WORKER_V = "4";
+// The answer's shape enforced by LiteRT-LM itself (a "respond" tool with constrained decoding): on once SBAITEST() has seen it work
+// quickly on this computer's graphics chip; otherwise Studyboard asks for plain JSON and checks the shape itself
+const E4B_TOOL = "studyboard:e4bTool";
+// In the browser's console: await SBAITEST(). Times both ways on this computer, says which works, and keeps the better one.
+window.SBAITEST = async () => {
+  if (DEVAI.kind !== "litert") return "Gemma 4 E4B isn't the AI in use here (it's " + (devLabel() || "none") + ").";
+  const out = {}, t0 = Date.now(); await e4bWorker(s => console.log(s)); out.loadSeconds = Math.round((Date.now() - t0) / 100) / 10;
+  const schema = {type: "object", properties: {intent: {type: "string", enum: ["question", "add_task", "add_card", "cant"]}, title: {type: "string"}}, required: ["intent"]};
+  const one = tool => new Promise(res => { const id = ++e4bSeq, t = Date.now(); let first = 0;
+    const done = (ok, text) => { e4bWait.delete(id); res({ok, seconds: Math.round((Date.now() - t) / 100) / 10, firstWordSeconds: first ? Math.round((first - t) / 100) / 10 : null, text: String(text || "").slice(0, 200)}); };
+    e4bWait.set(id, {ok: x => done(true, x), no: e => done(false, e && e.message), part(){ if (!first) first = Date.now(); }});
+    setTimeout(() => { if (e4bWait.has(id)) { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} done(false, "no answer in 120 s"); } }, 120000);
+    e4bW.postMessage({t: "ask", id, system: "Pick the intent of the student's message for their study planner.", text: "add essay draft due friday", schema, maxTokens: 60, temperature: 0, tool}); });
+  out.plain = await one(false); out.tool = await one(true);
+  const valid = x => { try { const d = aiParseJson(x.text); return !!d && ["question", "add_task", "add_card", "cant"].includes(d.intent); } catch (e) { return false; } };
+  out.plainValid = out.plain.ok && valid(out.plain); out.toolValid = out.tool.ok && valid(out.tool);
+  const useTool = out.toolValid && (!out.plainValid || out.tool.seconds <= out.plain.seconds * 1.5);
+  devLs.set(E4B_TOOL, useTool ? "1" : "0"); out.using = useTool ? "constrained (tool)" : "plain JSON, checked by Studyboard";
+  console.table({plain: out.plain, tool: out.tool}); return out;
+};
+const E4B_WORKER_V = "5";
 function e4bWarm(){ if (DEVAI.kind === "litert" && DEVAI.e4b === "ready" && !e4bLoad) e4bWorker().then(() => { e4bRest(); }, () => {}); }
 document.addEventListener("focusin", e => { try { if (e.target && e.target.matches && e.target.matches("#cptIn, .cp-ask-in, [data-ai-input]")) e4bWarm(); } catch (x) {} });
 // reaching for anything AI (an AI button, AI Features): it starts loading too
@@ -639,7 +659,7 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus, on
       // nothing new for 30 seconds once it's writing (90 before the first words: a slower graphics chip reads a long request first),
       // or 4 minutes in all: stopped, not waited on forever
       dog = setInterval(() => { if (Date.now() - last > (any ? 30000 : 90000) || Date.now() - t0 > DEV_MAX_MS + 60000) { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(Object.assign(aiErr("device-stall", `${L} stopped answering.`), {wrote: any})); } }, 1000);
-      e4bW.postMessage({t: "ask", id, system: sys, text, schema: json, maxTokens: o2, temperature});
+      e4bW.postMessage({t: "ask", id, system: sys, text, schema: json, maxTokens: o2, temperature, tool: devLs.get(E4B_TOOL) === "1"});
     });
     const data = aiParseJson(raw);
     if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);

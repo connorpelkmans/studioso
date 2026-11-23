@@ -3517,6 +3517,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
         const i = d.querySelector('input[name="name"]'); if (i && name) { i.value = String(name).slice(0, 80); i.dispatchEvent(new Event("input", {bubbles: true})); } }, 60);
       return true; } catch (e) { return false; }
   };
+  // For the chat ("join group ABC123"): Join, with the code filled in
+  window.SBGRPJOIN = code => { try { if (typeof needOnline === "function" && !needOnline()) return false; codeSheet(String(code || ""), ""); return true; } catch (e) { return false; } };
   window.SBGRPFAB = () => {
     const g = ui.grp ? groupOf(ui.grp) : null; if (!g || !isProj(g) || !$("#grpDetail")) return null;
     const t = curTab(g);

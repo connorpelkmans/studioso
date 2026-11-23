@@ -328,7 +328,8 @@
      was done. A question or a chat isn't an action: it goes on to be answered as before. */
   const INTENTS = ["question", "chat", "mark_done", "mark_not_done", "mark_in_progress", "move_task", "rename_task", "delete_task", "set_priority", "add_task", "add_event", "add_course", "add_note",
     "start_timer", "stop_timer", "pause_timer", "resume_timer", "undo", "make_flashcards", "make_quiz", "make_map", "find_notes",
-    "delete_item", "rename_item", "open_item", "edit_item", "change_setting", "set_theme", "wear_accessory", "remove_accessory"];
+    "delete_item", "rename_item", "open_item", "edit_item", "change_setting", "set_theme", "wear_accessory", "remove_accessory",
+    "add_card", "make_deck", "study_deck", "add_mark", "new_group", "join_group", "open_page", "cant"];
   const KINDS = ["", "task", "event", "course", "deck", "quiz", "note", "board", "file"];
   const ISCHEMA = {type: "OBJECT", properties: {
     intent: {type: "STRING", enum: INTENTS},
@@ -349,7 +350,9 @@
     kind: {type: "STRING", enum: KINDS, description: "for delete_item, rename_item, open_item, edit_item: what sort of thing it is"},
     item: {type: "STRING", description: "for delete_item, rename_item, open_item, edit_item: its name as the student says it"},
     field: {type: "STRING", description: "for edit_item: what to change (instructor, room, code, where, notes, front, back...); for change_setting: the setting"},
-    value: {type: "STRING", description: "for edit_item and change_setting: the new value"}},
+    value: {type: "STRING", description: "for edit_item and change_setting: the new value; for add_mark the mark (85, 85%, 17/20); for join_group the invite code; for open_page the page"},
+    front: {type: "STRING", description: "for add_card: the card's front"}, back: {type: "STRING", description: "for add_card: the card's back"},
+    deck: {type: "STRING", description: "for add_card and study_deck: the deck named"}},
     required: ["intent"]};
   const ISYS = `You read one message a student sent to their study planner's assistant and decide what it wants. Pick exactly ONE intent:
 question: they want information or an explanation (about their planner or any subject). chat: greetings, feelings, thanks, small talk.
@@ -366,12 +369,20 @@ For anything else in the app (decks, quizzes, notes, note boards, calendar event
 set_theme: change how Studyboard looks: a theme by name (value), dark or light mode (value "dark", "light" or "system"), a flashcard style or note shape (field "card" or "note", value the name).
 wear_accessory, remove_accessory: dress the companion (value is the accessory, like scarf or glasses; "all" to take everything off).
 change_setting: any other Studyboard setting (text size, language, notifications, study hours, reminders, calendar sync...), with field and value.
+add_card: one flashcard into a deck they name (front, back, deck). make_deck: a new empty flashcard deck (title, maybe course). study_deck: start studying a deck (deck).
+add_mark: they got a mark on a piece of work ("I got 85 on Lab 4": task "Lab 4", value "85"). new_group: start a study group or group project (title; value "project" for a project). join_group: join a group with an invite code (value).
+open_page: go to a part of Studyboard (value: today, calendar, flashcards, notes, courses, files, groups, grades, settings, companion).
+cant: they want something done that none of these can do (book a flight, email the professor, submit to the school site, buy something). Never pick add_note just because nothing else fits.
 Fill only the fields the message gives. Dates are YYYY-MM-DD worked out from today; times are 24-hour HH:MM. If the message says "it" or "that" for a task, put "it" in task.
 Examples:
 "I just finished homework 4!" -> {"intent":"mark_done","task":"homework 4"}
 "It's now done" (after talking about Homework 4) -> {"intent":"mark_done","task":"it"}
 "Add Dance to my calendar for november 23rd at 4pm" -> {"intent":"add_event","title":"Dance","date":"(Nov 23 as YYYY-MM-DD)","time":"16:00"}
 "add BIOL 2010 anatomy with dr smith as a new course" -> {"intent":"add_course","title":"Anatomy","code":"BIOL 2010","instructor":"Dr. Smith"}
+"add a card to my bio deck: front mitosis, back cell division" -> {"intent":"add_card","deck":"bio","front":"mitosis","back":"cell division"}
+"I got 17/20 on quiz 3" -> {"intent":"add_mark","task":"quiz 3","value":"17/20"}
+"create a study group called P3" -> {"intent":"new_group","title":"P3"}
+"email my prof that I'll be late" -> {"intent":"cant"}
 "Make me a note in my pro board that says exactly what this photo says" -> {"intent":"add_note","text":"PHOTO_TEXT","board":"Pro"}
 "jot down that the lab moved to friday" -> {"intent":"add_note","text":"The lab moved to Friday"}
 "I have a bio midterm on december 3rd" -> {"intent":"add_task","title":"Bio Midterm","course":"bio","date":"(Dec 3)"}
@@ -561,10 +572,30 @@ Examples:
     const prev = ((chat && chat.msgs) || []).filter(x => x.q && x.a).slice(-1)[0];
     const now = new Date(), open = tasksArr().filter(t => !t.archived && t.status !== "done").slice(0, 40);
     const ctx = `Today is ${DOW[now.getDay()]} ${todayISO()}.${open.length ? `\nTheir open tasks: ${open.map(t => t.title).join("; ")}` : ""}${coursesArr().length ? `\nTheir courses: ${coursesArr().map(c => courseLabel(c)).join("; ")}` : ""}${noteBoards().length ? `\nTheir note boards: ${noteBoards().map(b => b.name).join("; ")}` : ""}${att && att.length ? `\nThey attached: ${att.map(x => x.name).join(", ")}` : ""}${prev ? `\nThe last exchange: student said "${clip(prev.q, 200)}"; assistant replied "${clip(prev.a.answer, 240)}"` : ""}`;
-    const r = await aiCall({task: "quickadd", system: ISYS, parts: [{text: `${ctx}\n\nThe message: "${q}"`}], schema: ISCHEMA, maxTokens: 400, temperature: 0});
-    const d = r && r.data && typeof r.data === "object" ? r.data : {};
+    const ask = extra => aiCall({task: "quickadd", system: ISYS + (extra || ""), parts: [{text: `${ctx}\n\nThe message: "${q}"`}], schema: ISCHEMA, maxTokens: 400, temperature: 0});
+    let r = await ask(), d = r && r.data && typeof r.data === "object" ? r.data : {};
+    // the shape is checked here, whatever the model or its mode: an intent that isn't one of Studyboard's is asked for once more
+    if (!INTENTS.includes(d.intent)) { try { r = await ask(`\n\nIMPORTANT: "intent" must be exactly one of: ${INTENTS.join(", ")}. Reply with only the JSON object.`); d = r && r.data && typeof r.data === "object" ? r.data : {}; } catch (e) {} }
+    Object.keys(d).forEach(k => { if (k !== "intent" && d[k] != null && typeof d[k] !== "string" && typeof d[k] !== "number") d[k] = String(d[k]); });
     return INTENTS.includes(d.intent) ? d : {intent: "question"};
   }
+  // a deck by name (exact, then contains), and one flashcard put into it
+  const deckNamed = name => { const L = String(name || "").trim().toLowerCase().replace(/^(my|the)\s+/, "").replace(/\s+(deck|set|flashcards?)$/, ""); if (!L) return null;
+    const all = typeof decksArr === "function" ? decksArr() : Object.values(state.decks || {}), nm = x => String(x.name || "").toLowerCase();
+    return all.find(x => nm(x) === L) || all.find(x => nm(x).includes(L) || L.includes(nm(x))) || all.find(x => L.split(/\s+/).filter(w => w.length > 2).every(w => nm(x).includes(w))) || null; };
+  function addCardTo(front, back, name){
+    const say = a => ({answer: a, sources: [], followUps: [], actions: []});
+    front = String(front || "").trim(); back = String(back || "").trim();
+    if (!front || !back) return say("What should the front and back say? For example: add a card to Biology with front mitosis and back cell division.");
+    const d = deckNamed(name), all = typeof decksArr === "function" ? decksArr() : [];
+    if (!d) return say(`${name ? `You don't have a deck called "${name}".` : "Which deck should it go in?"} ${all.length ? `Your decks: ${all.slice(0, 6).map(x => x.name).join(", ")}${all.length > 6 ? "…" : ""}.` : "Make one first: say \"make a deck called Biology\"."}`);
+    const nd = JSON.parse(JSON.stringify(d)); nd.cards = nd.cards || []; nd.cards.push({id: uid(), front, back, box: 0, due: "", seen: 0, right: 0, wrong: 0}); nd.updated = Date.now();
+    saveDeck(nd, `Card added to ${d.name}`);
+    return say(`Added to ${d.name}: "${front}" / "${back}". Say "undo" to take it back.`);
+  }
+  const PAGES = {today: "board", home: "board", board: "board", dashboard: "board", calendar: "plan", schedule: "plan", planner: "plan", plan: "plan", week: "plan",
+    flashcards: "flashcards", cards: "flashcards", decks: "flashcards", deck: "flashcards", quizzes: "flashcards", notes: "notes", "note boards": "notes", courses: "courses", classes: "courses",
+    grades: "courses", marks: "courses", files: "files", groups: "groups", "study groups": "groups", companion: "companion", chat: "companion", archive: "archive", timeline: "timeline", email: "emails", emails: "emails", scrapbook: "scrapbook"};
   /* Requests read straight from the words, before any AI step: what the AI shouldn't have to guess (and once got wrong) */
   function directAct(q){
     const say = (answer, extra) => Object.assign({answer, sources: [], followUps: [], actions: []}, extra || {});
@@ -583,15 +614,7 @@ Examples:
       if (!deck) { const tm = /\s+(?:to|into|in)\s+(?:the\s+|my\s+)?["“']?([^"”']{1,60}?)["”']?\s*[.!?]*$/i.exec(w); if (tm && back.endsWith(tm[1].trim())) { deck = tm[1].trim(); back = back.slice(0, back.length - tm[0].trim().length).trim(); } }
       return front && back && deck ? [null, front, back, deck] : null;
     })();
-    if (cm) {
-      const [, front, back, dn] = cm, name = dn.trim(), L = name.toLowerCase();
-      const all = typeof decksArr === "function" ? decksArr() : Object.values(state.decks || {});
-      const d = all.find(x => String(x.name || "").toLowerCase() === L) || all.find(x => String(x.name || "").toLowerCase().includes(L) || L.includes(String(x.name || "").toLowerCase()));
-      if (!d) return say(`You don't have a deck called "${name}". ${all.length ? `Your decks: ${all.slice(0, 6).map(x => x.name).join(", ")}${all.length > 6 ? "…" : ""}.` : "Make one in Flashcards first."} Say which one, or "make a deck called ${name}".`);
-      const nd = JSON.parse(JSON.stringify(d)); nd.cards = nd.cards || []; nd.cards.push({id: uid(), front: front.trim(), back: back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0}); nd.updated = Date.now();
-      saveDeck(nd, `Card added to ${d.name}`);
-      return say(`Added to ${d.name}: "${front.trim()}" / "${back.trim()}". Say "undo" to take it back.`);
-    }
+    if (cm) return addCardTo(cm[1], cm[2], cm[3]);
     // a study group or group project: New Group, filled in, for them to create (it needs their account and the internet)
     const gm = /\b(?:create|make|start|set up|new|open)\b[^]*?\b(study group|group project|project group|group)\b(?:\s+(?:called|named|for)\s+["“']?(.+?)["”']?)?\s*[.!?]*$/i.exec(w);
     if (gm && !/\b(note|deck|board|quiz|map|task|event)\b/i.test(w.replace(gm[1], ""))) {
@@ -624,6 +647,12 @@ Examples:
       const tk = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent], km = KW.exec(w);
       if (tk && km && !/\b(task|assignment|homework|essay|exam|test|lab report|reading)\b/.test(w.replace(km[0], ""))) { d.intent = tk; d.kind = {deck: "deck", quiz: "quiz", board: "board", "note board": "board", "noteboard": "board", whiteboard: "board", event: "event", appointment: "event", course: "course", class: "course", file: "file", pdf: "file", note: "note"}[km[1].replace(/\s+/g, " ")] || km[1]; d.item = d.item || d.task || ""; }
       // placeholders the model fills in when the words give nothing
+      // each newer action only when the words are about it (a small model reaches for the nearest one otherwise)
+      if (d.intent === "add_card" && !/\b(card|cards|flashcards?|front|back)\b/.test(w)) d.intent = "question";
+      if (d.intent === "add_mark" && !/\b(got|get|scored?|mark|marks|grade|grades|result|out of|\d+\s*%|\d+\s*\/\s*\d+)\b/.test(w)) d.intent = "question";
+      if (/^(new_group|join_group)$/.test(d.intent) && !/\b(group|groups|project|team|invite|code|join)\b/.test(w)) d.intent = "question";
+      if (d.intent === "open_page" && !/\b(open|go|take|show|bring|switch|navigate|jump|pull up|where)\b/.test(w)) d.intent = "question";
+      if (d.intent === "study_deck" && !/\b(study|review|practi[cs]e|quiz me|drill|go over|run through)\b/.test(w)) d.intent = "question";
       // a new course only when they say to add one ("I meant all my courses" isn't)
       if (d.intent === "add_course" && !/\b(add|new|create|make|enrol+|register|signed up|taking|joining|set up)\b/.test(w)) d.intent = "question";
       if (d.intent === "add_note" && !/\b(note|notes|jot|sticky|write (?:this|that|it) down|write down|remember|remind me that|board)\b/.test(w)) d.intent = "cant";
@@ -691,6 +720,39 @@ Examples:
       applyChanges([{kind: "course", id: nc.id, after: nc}], `Added ${nc.name}`);
       return state.courses[nc.id] ? say(`Added the course ${courseLabel(nc)}${nc.instructor ? ` with ${nc.instructor}` : ""}. Open Courses to add its class times.`) : null;
     }
+    if (it === "add_card") return addCardTo(d.front, d.back, d.deck || d.item || d.title);
+    if (it === "make_deck") {
+      const name = String(d.title || d.item || d.topic || "").trim(); if (!name) return say("What should the deck be called?");
+      const ex = deckNamed(name); if (ex && ex.name.toLowerCase() === name.toLowerCase()) return say(`You already have a deck called ${ex.name}.`);
+      const c0 = d.course ? (window.SBTRUTH && SBTRUTH.courseNamed ? SBTRUTH.courseNamed(d.course) : null) : null, id = uid();
+      const nd = normDeck({id, name: name.slice(0, 120), courseId: c0 ? c0.id : "", created: Date.now(), updated: Date.now()});
+      applyChanges([{kind: "deck", id, after: nd}], `Made ${nd.name}`);
+      return say(`Made the deck ${nd.name}${c0 ? ` in ${courseLabel(c0)}` : ""}. Add cards by saying "add a card to ${nd.name} with front … and back …".`);
+    }
+    if (it === "study_deck") {
+      const dk = deckNamed(d.deck || d.item || d.title); if (!dk) return say(`I couldn't find that deck. ${decksArr().length ? "Your decks: " + decksArr().slice(0, 6).map(x => x.name).join(", ") + "." : ""}`);
+      if (!(dk.cards || []).length) return say(`${dk.name} has no cards yet.`);
+      setTimeout(() => { try { startStudy([dk.id]); } catch (e) {} }, 250);
+      return say(`Opening ${dk.name} to study (${dk.cards.length} card${dk.cards.length === 1 ? "" : "s"}).`);
+    }
+    if (it === "add_mark") {
+      const t = taskOf(d.task || d.item || d.title, chat, true); if (!t) return say("Which assignment was the mark for?");
+      const v = String(d.value || "").trim(), fr = /^(\d+(?:\.\d+)?)\s*(?:\/|out of)\s*(\d+(?:\.\d+)?)$/i.exec(v), pc = /^(\d+(?:\.\d+)?)\s*%?$/.exec(v);
+      const mark = fr ? {got: Number(fr[1]), outOf: Number(fr[2])} : pc ? {got: Number(pc[1]), outOf: 100} : null;
+      if (!mark || !(mark.outOf > 0) || mark.got < 0) return say(`What mark did you get on ${t.title}? For example: 85%, or 17/20.`);
+      const n = JSON.parse(JSON.stringify(t)); n.mark = Object.assign({}, t.mark || {}, mark);
+      applyChanges([{kind: "task", id: t.id, after: n}], `${t.title}: mark added`);
+      return say(`Saved ${mark.got}/${mark.outOf} (${Math.round(mark.got / mark.outOf * 1000) / 10}%) for ${t.title}. Say "undo" to take it back.`);
+    }
+    if (it === "new_group") { const name = String(d.title || d.item || "").trim(), proj = /project/i.test(String(d.value || "") + " " + q);
+      return say(window.SBGRPNEW && SBGRPNEW(name, proj) ? `I opened New ${proj ? "Project" : "Group"}${name ? ` with "${name}" filled in` : ""}. Check it and tap Create.` : `Groups need you signed in and online. Open Groups and tap New Group${name ? ` to make "${name}"` : ""}.`); }
+    if (it === "join_group") { const code = String(d.value || d.item || "").trim();
+      return say(window.SBGRPJOIN && SBGRPJOIN(code) ? `I opened Join${code ? ` with ${code} filled in` : ""}. Tap Join to check the code.` : "Joining a group needs you signed in and online. Open Groups and tap Join."); }
+    if (it === "open_page") { const k = String(d.value || d.item || "").toLowerCase().replace(/^(my|the)\s+/, "").replace(/\s+(page|tab|view|section)$/, "").trim();
+      if (/^(settings?|preferences|options)$/.test(k)) { setTimeout(() => { try { menuSheet(); } catch (e) {} }, 200); return say("Opening Settings."); }
+      const tab = PAGES[k]; if (!tab) return say(`I'm not sure which part of Studyboard "${k}" is. Try Today, Calendar, Flashcards, Notes, Courses, Files or Groups.`);
+      setTimeout(() => { try { ui.tab = tab; if (tab !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); } catch (e) {} }, 200);
+      return say(`Taking you to ${k.replace(/\b\w/g, c => c.toUpperCase())}.`); }
     // something the words don't ask for in a way the app can do: said plainly, and nothing is changed
     if (it === "cant") return say("I can't do that from the chat yet, so I didn't change anything. Tell me a bit more about what you want, or do it in Studyboard directly.");
     if (it === "add_note") {
