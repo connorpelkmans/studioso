@@ -61,7 +61,7 @@ window.SBADVICE = (() => {
     const c = courseIn(s);
     let exams = open.filter(t => t.due && t.due >= today && t.due <= addDays(today, 21) && isExam(t) && (!c || t.courseId === c.id)).sort((a, b) => a.due.localeCompare(b.due));
     if (/\b(midterm|final)\b/.test(s)) { const k = (s.match(/\b(midterm|final)\b/) || [])[1]; const f = exams.filter(t => new RegExp(k, "i").test(t.title)); if (f.length) exams = f; }
-    const decks = decksArr().map(d => ({d, due: dueCount(d)})).filter(x => x.due || (c && x.d.courseId === c.id));
+    const decks = decksArr().filter(d => !onlyC || d.courseId === c0.id).map(d => ({d, due: dueCount(d)})).filter(x => x.due || (c && x.d.courseId === c.id));
     // how much to study: from their workload over the next week
     if (/\bhow (much|long|many hours) should i (study|spend|work)\b/.test(s)) {
       const week = open.filter(t => t.due && t.due >= today && t.due <= addDays(today, 6)).length, exam14 = open.filter(t => t.due && t.due >= today && t.due <= addDays(today, 14) && isExam(t)).length;
@@ -99,7 +99,7 @@ window.SBADVICE = (() => {
     }
     // what to do first: overdue, then due soon, then exam study, then reviews
     if (late.length) steps.push(`Finish what's overdue first: ${late.slice(0, 3).map(t => `${t.title} (was due ${dayName(t.due, today)})`).join(", ")}.`);
-    if (soon.length) steps.push(`Then what's due soonest: ${soon.slice(0, 3).map(t => `${t.title} (${dayName(t.due, today)}${t.time ? " " + fmtTime(t.time) : ""})`).join(", ")}.`);
+    if (soon.length) steps.push(`${steps.length ? "Then w" : "W"}hat's due soonest: ${soon.slice(0, 3).map(t => `${t.title} (${dayName(t.due, today)}${t.time ? " " + fmtTime(t.time) : ""})`).join(", ")}.`);
     if (exams.length) steps.push(`Start studying for ${exams[0].title} (${dayName(exams[0].due, today)}, ${days(today, exams[0].due)} days away) in short daily sessions${exams[1] ? `, and keep ${exams[1].title} (${dayName(exams[1].due, today)}) in mind` : ""}.`);
     const dd = decks.filter(x => x.due).sort((a, b) => b.due - a.due);
     if (dd.length) steps.push(`Review your due flashcards (${dd.reduce((a, x) => a + x.due, 0)} cards, about ${Math.max(5, Math.round(dd.reduce((a, x) => a + x.due, 0) * 0.4))} minutes), starting with ${dd[0].d.name}.`);

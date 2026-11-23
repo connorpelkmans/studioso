@@ -73863,8 +73863,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // context (planner, sources, screen) keeps the first word quick and leaves room for the answer
     const lite = typeof DEVAI !== "undefined" && DEVAI.kind === "litert", cut = (t, n) => lite && String(t || "").length > n ? String(t).slice(0, n) : (t || "");
     const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cut(cat.text, 4500)}${cut(screenText(cur), 1500)}${cut(sources, 5500)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, lite ? 2000 : 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
+    // a memory aid is made up, not looked up: built from the items in their notes (or the usual items for the topic)
+    const MEMQ = /\b(mnemonic|acronym|memory (trick|aid|device)|help me (remember|memori[sz]e)|way to remember|rhyme)\b/i.test(q);
+    const memo = MEMQ ? "\n\nThey want a memory aid. Make one up: take the items from their notes (or, if their notes don't list them, the standard items for the topic), in the right order, and write an acronym, sentence or rhyme where each word's first letter stands for one item. Then list each letter and what it stands for. Making it up is the point: never say you can't because it isn't in their Studyboard." : "";
     const callAI = free => aiCall({task: "assist", maxTokens: lite ? 1500 : 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
-      system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": [], "focusMinutes": 0}. The answer is the reply itself, never a placeholder.` : system});
+      system: free ? system + memo + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": [], "focusMinutes": 0}. The answer is the reply itself, never a placeholder.` : system + memo});
     // Always a real answer: the format, the format again, then a free reply; a moment between tries after an error. If the
     // AI can't be reached at all, the best match search finds is offered (and shown), made on this device.
     const junk = x => { x = String(x == null ? "" : x).trim(); return x.length < 2 || /^(string|text|str|answer|reply|response|\.{2,}|…|n\/?a|null|undefined|none|<[^>]*>|\{[\s\S]*\}|\[[\s\S]*\])$/i.test(x); };
@@ -73891,7 +73894,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       // (Studyboard's own facts count too: the app guide, and this student's timer settings)
       let mine = ""; try { const pc = pomoCfg(); mine = `focus ${pc.focus} minutes, short break ${pc.short} minutes, long break ${pc.long} minutes`; } catch (e) {}
       const given = `${cat.text}${screenText(cur)}${o.extra || ""}${sources}\n${GUIDE}\n${mine}\n${q}`;
-      let bad = TR.unsupported(d.answer, given);
+      let bad = MEMQ ? [] : TR.unsupported(d.answer, given);  // (a made-up mnemonic is invented words by design)
       if (bad.length) {
         try {
           const r2 = await aiCall({task: "assist", maxTokens: 3000, temperature: 0.1, schema: SCHEMA, signal: o.signal, quiet: true, parts: prompt,
@@ -74265,7 +74268,7 @@ window.SBADVICE = (() => {
     const c = courseIn(s);
     let exams = open.filter(t => t.due && t.due >= today && t.due <= addDays(today, 21) && isExam(t) && (!c || t.courseId === c.id)).sort((a, b) => a.due.localeCompare(b.due));
     if (/\b(midterm|final)\b/.test(s)) { const k = (s.match(/\b(midterm|final)\b/) || [])[1]; const f = exams.filter(t => new RegExp(k, "i").test(t.title)); if (f.length) exams = f; }
-    const decks = decksArr().map(d => ({d, due: dueCount(d)})).filter(x => x.due || (c && x.d.courseId === c.id));
+    const decks = decksArr().filter(d => !onlyC || d.courseId === c0.id).map(d => ({d, due: dueCount(d)})).filter(x => x.due || (c && x.d.courseId === c.id));
     // how much to study: from their workload over the next week
     if (/\bhow (much|long|many hours) should i (study|spend|work)\b/.test(s)) {
       const week = open.filter(t => t.due && t.due >= today && t.due <= addDays(today, 6)).length, exam14 = open.filter(t => t.due && t.due >= today && t.due <= addDays(today, 14) && isExam(t)).length;
@@ -74303,7 +74306,7 @@ window.SBADVICE = (() => {
     }
     // what to do first: overdue, then due soon, then exam study, then reviews
     if (late.length) steps.push(`Finish what's overdue first: ${late.slice(0, 3).map(t => `${t.title} (was due ${dayName(t.due, today)})`).join(", ")}.`);
-    if (soon.length) steps.push(`Then what's due soonest: ${soon.slice(0, 3).map(t => `${t.title} (${dayName(t.due, today)}${t.time ? " " + fmtTime(t.time) : ""})`).join(", ")}.`);
+    if (soon.length) steps.push(`${steps.length ? "Then w" : "W"}hat's due soonest: ${soon.slice(0, 3).map(t => `${t.title} (${dayName(t.due, today)}${t.time ? " " + fmtTime(t.time) : ""})`).join(", ")}.`);
     if (exams.length) steps.push(`Start studying for ${exams[0].title} (${dayName(exams[0].due, today)}, ${days(today, exams[0].due)} days away) in short daily sessions${exams[1] ? `, and keep ${exams[1].title} (${dayName(exams[1].due, today)}) in mind` : ""}.`);
     const dd = decks.filter(x => x.due).sort((a, b) => b.due - a.due);
     if (dd.length) steps.push(`Review your due flashcards (${dd.reduce((a, x) => a + x.due, 0)} cards, about ${Math.max(5, Math.round(dd.reduce((a, x) => a + x.due, 0) * 0.4))} minutes), starting with ${dd[0].d.name}.`);
