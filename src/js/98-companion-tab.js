@@ -1022,6 +1022,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function drawStatus(){ const s = $("#cptStatus"); if (s) { s.textContent = T.live || T.status || "Thinking…"; s.classList.toggle("cpt-live", !!T.live); } }
   function draw(){
     if (ui.tab !== "companion") return;
+    // (the chat is open: the stronger on-device AI starts loading now, before anything is asked)
+    if (typeof e4bWarm === "function") try { e4bWarm(); } catch (e) {}
     const log = $("#cptLog");
     if (!log || T.tab !== "chat") { render(); return; }
     log.innerHTML = logHtml(); say();

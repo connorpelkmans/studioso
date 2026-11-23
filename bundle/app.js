@@ -7526,6 +7526,11 @@ let e4bLoaded = false, e4bOff = false;
 const E4B_WORKER_V = "3";
 function e4bWarm(){ if (DEVAI.kind === "litert" && DEVAI.e4b === "ready" && !e4bLoad) e4bWorker().then(() => { e4bRest(); }, () => {}); }
 document.addEventListener("focusin", e => { try { if (e.target && e.target.matches && e.target.matches("#cptIn, .cp-ask-in, [data-ai-input]")) e4bWarm(); } catch (x) {} });
+// reaching for anything AI (an AI button, AI Features): it starts loading too
+["pointerover", "pointerdown"].forEach(ev => document.addEventListener(ev, e => { try { if (DEVAI.kind === "litert" && !e4bLoad && e.target && e.target.closest && e.target.closest('[data-act^="ai"], [data-act^="cpt"], [data-ai], .ai-btn, .ai-chip, #cptIn, .cp-ask-in')) e4bWarm(); } catch (x) {} }, {passive: true}));
+// someone who used it this past week: loaded quietly a few seconds after Studyboard opens, so it's ready before they ask
+const E4B_USED = "studyboard:e4bUsedAt";
+setTimeout(() => { try { if (Date.now() - Number(devLs.get(E4B_USED) || 0) < 7 * 864e5 && document.visibilityState === "visible") e4bWarm(); } catch (x) {} }, 8000);
 function e4bStop(){ clearTimeout(e4bIdle); try { e4bW && e4bW.terminate(); } catch (e) {} e4bW = null; e4bLoad = null; e4bLoaded = false; e4bWait.forEach(w => w.no(aiErr("device-failed", "Stopped."))); e4bWait.clear(); }
 async function e4bModel(){
   if (window.__SB_TEST && window.__SB_E4B_STUB && window.__SB_E4B_STUB.model) return window.__SB_E4B_STUB.model;
@@ -7578,6 +7583,7 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
     });
     const data = aiParseJson(raw);
     if (data == null || typeof data !== "object") throw aiErr("bad", `${L} sent back something Studyboard couldn't read. Try again.`);
+    try { devLs.set(E4B_USED, String(Date.now())); } catch (x) {}
     return {data, model: "gemma-4-e4b", provider: "device", truncated};
   } finally { clearInterval(dog); e4bRest(); }
 }
@@ -75870,6 +75876,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function drawStatus(){ const s = $("#cptStatus"); if (s) { s.textContent = T.live || T.status || "Thinking…"; s.classList.toggle("cpt-live", !!T.live); } }
   function draw(){
     if (ui.tab !== "companion") return;
+    // (the chat is open: the stronger on-device AI starts loading now, before anything is asked)
+    if (typeof e4bWarm === "function") try { e4bWarm(); } catch (e) {}
     const log = $("#cptLog");
     if (!log || T.tab !== "chat") { render(); return; }
     log.innerHTML = logHtml(); say();
