@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Forgetting curve</title>
+<!--
+  Exam-prep set · a big line already falling at frame 0 (motion + something to watch), a brain riding it down.
+  Then the same week WITH reviews: the line gets bumped back up at each review and stays high (the spacing effect).
+  Illustration of the forgetting curve (Ebbinghaus, 1885) and spaced review (Cepeda et al., 2006 meta-analysis);
+  no exact percentages are claimed. Music: slowed lo-fi, then lofi beat at the turn.
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;color:#0F1F3D;-webkit-font-smoothing:antialiased;background:#FFF8EE}
+#txt{position:absolute;left:60px;right:60px;top:220px;text-align:center;z-index:20}
+.blk{display:inline;background:#000;color:#fff;font-weight:800;font-size:64px;line-height:1.34;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+#chart{position:absolute;left:60px;top:480px;width:960px;height:1000px}
+#chart svg{width:100%;height:100%;overflow:visible}
+#brain{position:absolute;font-size:120px;margin:-70px 0 0 -60px;z-index:3}
+#lbl{position:absolute;left:0;right:0;top:1520px;text-align:center;font-weight:900;font-size:72px}
+#src{position:absolute;left:0;right:0;top:1620px;text-align:center;font-weight:600;font-size:30px;color:#7A6A55}
+#sb{position:absolute;left:0;right:0;top:1690px;text-align:center;opacity:0}
+#sb span{display:inline-flex;align-items:center;gap:14px;background:#0F1F3D;color:#fff;border-radius:22px;padding:16px 26px;font-weight:700;font-size:36px}
+#sb img{width:54px;height:54px;border-radius:12px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="chart"><svg viewBox="0 0 960 1000">
+    <line x1="80" y1="40" x2="80" y2="900" stroke="#D6C9B5" stroke-width="5"/><line x1="80" y1="900" x2="940" y2="900" stroke="#D6C9B5" stroke-width="5"/>
+    <text x="70" y="70" text-anchor="end" font-family="Inter" font-weight="800" font-size="36" fill="#9A8A75">100%</text>
+    <text x="70" y="900" text-anchor="end" font-family="Inter" font-weight="800" font-size="36" fill="#9A8A75">0</text>
+    <g id="days" font-family="Inter" font-weight="800" font-size="34" fill="#9A8A75"></g>
+    <path id="c1" fill="none" stroke="#E4513B" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="c2" fill="none" stroke="#1E9E74" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="rings"></g>
+  </svg><div id="brain">🧠</div></div>
+  <div id="lbl"></div>
+  <div id="src">illustration · forgetting curve (Ebbinghaus) · spacing effect (Cepeda et al., 2006)</div>
+  <div id="sb"><span><img src="{{ROOT}}/icon-512.png" alt="">exam prep planner schedules the reviews · free</span></div>
+  <div id="txt"><span class="blk" id="txtB">your brain the week after the lecture 📉</span></div>
+</div>
+<script src="{{ROOT}}/marketing/reels/_shared/kit.js"></script>
+<script>
+const X = d => 80 + d * 122, Y = m => 900 - m * 8.6;          // day 0-7, memory 0-100
+$("days").innerHTML = [0, 1, 2, 3, 4, 5, 6, 7].map(d => `<text x="${X(d)}" y="950" text-anchor="middle">${d ? "day " + d : "lecture"}</text>`).join("");
+// without review: fast early drop, levelling off low
+const m1 = d => 100 * (0.2 + 0.8 * Math.exp(-d / 1.1));
+// with reviews on day 1, 3 and 6: each review restores memory and the next drop is slower
+const REV = [1, 3, 6], m2 = d => { let s = 1.1, base = 0; let last = 0;
+  for (const r of REV) { if (d >= r) { last = r; s *= 2.4; } }
+  const fromLast = d - last; return 100 * (0.2 + 0.8 * Math.exp(-fromLast / s)) * (last ? 1 : 1) - (last ? 0 : 0); };
+const path = (f, upTo) => { let p = ""; for (let d = 0; d <= upTo + 1e-9; d += .05) p += (p ? "L" : "M") + X(d).toFixed(1) + " " + Y(f(d)).toFixed(1); return p; };
+const A0 = -0.4, A1 = 2.8, B0 = 3.4, B1 = 6.2, END = 8.4;
+function render(t) {
+  const d1 = 7 * P(t, A0, A1), d2 = 7 * P(t, B0, B1);
+  $("c1").setAttribute("d", path(m1, Math.max(.05, d1)));
+  $("c1").style.opacity = t < B0 ? 1 : .3;
+  $("c2").setAttribute("d", t >= B0 ? path(m2, Math.max(.05, d2)) : "");
+  // the brain rides the active line and shrinks as memory fades
+  const on2 = t >= B0, d = on2 ? d2 : d1, m = on2 ? m2(d) : m1(d);
+  $("brain").style.left = Math.min(X(d), 900) + "px"; $("brain").style.top = (Y(m)) + "px";
+  $("brain").style.transform = `scale(${.45 + .65 * m / 100})`;
+  $("rings").innerHTML = on2 ? REV.filter(r => d2 >= r).map(r => { const k = P(t, B0 + (r / 7) * (B1 - B0), B0 + (r / 7) * (B1 - B0) + .4);
+    return `<circle cx="${X(r)}" cy="${Y(m2(r))}" r="${20 + 50 * k}" fill="none" stroke="#1E9E74" stroke-width="6" opacity="${1 - k}"/>`; }).join("") : "";
+  $("lbl").textContent = on2 ? (t >= B1 ? "still there on exam day 🙂" : "+ a quick review on day 1, 3, 6") : `memory: ${Math.round(m)}%`;
+  $("lbl").style.color = on2 ? "#1E9E74" : "#E4513B";
+  const b = on2 ? "same week, with spaced review:" : "your brain the week after the lecture 📉";
+  if ($("txtB").textContent !== b) $("txtB").textContent = b;
+  const s = P(t, 6.5, 6.8); $("sb").style.opacity = s; $("sb").style.transform = `translateY(${(1 - oBack(s, 1.3)) * 50}px)`;
+}
+window.render = render; window.END = END; window.COVER = 1.2;
+render(0);
+</script>
+</body>
+</html>

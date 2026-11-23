@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rereading vs testing</title>
+<!--
+  Exam-prep set · VS-fight format: two big companion faces at frame 0 (faces were skipped least after the wheel),
+  memory bars that drain while the days tick (an outcome to wait for), and a real result as the payoff:
+  after one week, repeated testing ~61% recall vs repeated studying ~40% (Roediger & Karpicke, 2006, Psychological Science).
+  Music: dramatic.wav from 33.0.
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;color:#fff;-webkit-font-smoothing:antialiased;
+  background:linear-gradient(90deg,#4A1730 0%,#2A1440 50%,#12305A 100%)}
+#txt{position:absolute;left:60px;right:60px;top:220px;text-align:center;z-index:20}
+.blk{display:inline;background:#fff;color:#000;font-weight:800;font-size:64px;line-height:1.34;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.side{position:absolute;top:560px;width:520px;text-align:center}
+.side .comp{width:470px;height:470px;margin:0 auto}
+.side .nm{font-weight:900;font-size:56px;margin-top:10px;letter-spacing:.02em}
+.side .sub{font-weight:700;font-size:36px;opacity:.8}
+.bar{margin:26px auto 0;width:400px;height:46px;border-radius:23px;background:rgba(255,255,255,.15);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:23px}
+.pct{font-weight:900;font-size:120px;margin-top:10px;font-variant-numeric:tabular-nums}
+#vs{position:absolute;left:0;right:0;top:1370px;text-align:center;font-weight:900;font-size:170px;font-style:italic;color:#FFE45C;text-shadow:0 8px 0 #8A4A00}
+#day{position:absolute;left:0;right:0;top:470px;text-align:center;font-weight:900;font-size:54px;opacity:0}
+#win{position:absolute;left:550px;width:520px;top:1560px;text-align:center;font-weight:900;font-size:64px;color:#7CF0B5;opacity:0}
+#src{position:absolute;left:0;right:0;top:1660px;text-align:center;font-weight:600;font-size:32px;opacity:0;color:#C9D7F2}
+#sb{position:absolute;left:0;right:0;top:1715px;text-align:center;opacity:0}
+#sb span{display:inline-flex;align-items:center;gap:14px;background:#fff;color:#0F1F3D;border-radius:22px;padding:16px 26px;font-weight:700;font-size:36px}
+#sb img{width:54px;height:54px;border-radius:12px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="side" id="L" style="left:10px"><div class="comp" id="cL">{{mochi}}</div><div class="nm">REREAD</div><div class="sub">🖍️ highlight + reread</div>
+    <div class="bar"><i id="bL" style="background:#FF6B57"></i></div><div class="pct" id="pL">100%</div></div>
+  <div class="side" id="R" style="left:550px"><div class="comp" id="cR">{{owl}}</div><div class="nm">TEST</div><div class="sub">🃏 flashcards + quizzes</div>
+    <div class="bar"><i id="bR" style="background:#3DDC97"></i></div><div class="pct" id="pR">100%</div></div>
+  <div id="vs">VS</div>
+  <div id="day"></div>
+  <div id="win">WINNER 🏆</div>
+  <div id="src">recall after 1 week · Roediger &amp; Karpicke, 2006</div>
+  <div id="sb"><span><img src="{{ROOT}}/icon-512.png" alt="">flashcards + quizzes in studyboard · free</span></div>
+  <div id="txt"><span class="blk">rereading vs testing yourself. 1 week later:</span></div>
+</div>
+<script src="{{ROOT}}/marketing/reels/_shared/kit.js"></script>
+<script>
+compCSS();
+const D0 = 1.3, D1 = 3.6, END = 8.0;
+function render(t) {
+  // VS slams in at frame 0 (fully formed, settling), characters bob
+  $("vs").style.transform = `scale(${1 + .25 * (1 - oBack(P(t, 0, .35), 2))}) rotate(-6deg)`;
+  $("vs").style.opacity = t < D0 ? 1 : 1 - P(t, D0, D0 + .25);
+  ["cL", "cR"].forEach((id, i) => { $(id).style.transform = `translateY(${Math.sin(t * 3 + i * 1.6) * 10}px)`; });
+  // a week passes: the day counter ticks, both bars drain to their results
+  const k = io(P(t, D0, D1)), day = Math.min(7, 1 + Math.floor(P(t, D0, D1) * 7));
+  $("day").style.opacity = t >= D0 ? 1 : 0; $("day").textContent = t >= D1 ? "1 week later" : `day ${day}`;
+  const l = Math.round(lerp(100, 40, k)), r = Math.round(lerp(100, 61, k));
+  $("bL").style.width = l + "%"; $("bR").style.width = r + "%"; $("pL").textContent = l + "%"; $("pR").textContent = r + "%";
+  // faces react as the gap opens
+  face($("cL"), k > .5 ? "sleepy" : "open", k > .5 ? "open" : "neutral");
+  face($("cR"), t >= D1 ? "happy" : "open", t >= D1 ? "smile" : "neutral");
+  const w = P(t, D1 + .1, D1 + .4); $("win").style.opacity = w; $("win").style.transform = `scale(${lerp(1.6, 1, oBack(w))})`;
+  $("R").style.transform = `scale(${1 + .06 * oBack(w)})`;
+  $("src").style.opacity = P(t, D1 + .8, D1 + 1.1);
+  const s = P(t, 5.5, 5.8); $("sb").style.opacity = s; $("sb").style.transform = `translateY(${(1 - oBack(s, 1.3)) * 50}px)`;
+}
+window.render = render; window.END = END; window.COVER = .4;
+render(0);
+</script>
+</body>
+</html>

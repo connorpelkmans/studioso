@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Conspiracy board to concept map</title>
+<!--
+  Exam-prep set · the "conspiracy board" meme: pinned notes and red string, jittering, at frame 0 (big busy motion).
+  At 3.2 s every note flies into a clean concept map coloured Shaky / OK / Strong (Studyboard's Concept Maps, Pro),
+  then one node goes blank and is filled from memory ("Fill In the Map": retrieval practice, which beat concept-map
+  building alone in Karpicke & Blunt, 2011). Music: dramatic tension → lo-fi at the untangle.
+-->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:"Inter",system-ui,sans-serif;color:#0F1F3D;-webkit-font-smoothing:antialiased}
+#cork{position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,#C8955A,#9C6A35 70%);}
+#clean{position:absolute;inset:0;background:#F4F7FB;opacity:0}
+#txt{position:absolute;left:60px;right:60px;top:220px;text-align:center;z-index:20}
+.blk{display:inline;background:#000;color:#fff;font-weight:800;font-size:64px;line-height:1.34;padding:6px 18px;border-radius:14px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+svg#str{position:absolute;inset:0;width:1080px;height:1920px;z-index:2}
+.n{position:absolute;width:290px;height:150px;margin:-75px 0 0 -145px;border-radius:12px;background:#FFF6C9;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800;font-size:40px;line-height:1.1;box-shadow:0 10px 20px rgba(0,0,0,.3);z-index:3;border:6px solid transparent}
+.pin{position:absolute;left:50%;top:-14px;margin-left:-14px;width:28px;height:28px;border-radius:50%;background:#E4313B;box-shadow:0 3px 6px rgba(0,0,0,.4)}
+.q{position:absolute;font-weight:900;font-size:110px;color:#E4313B;z-index:4;opacity:0}
+#leg{position:absolute;left:0;right:0;top:1500px;display:flex;justify-content:center;gap:30px;font-weight:800;font-size:36px;opacity:0;z-index:4}
+#leg span{display:flex;align-items:center;gap:10px}
+#leg i{width:28px;height:28px;border-radius:8px}
+#sb{position:absolute;left:0;right:0;top:1680px;text-align:center;opacity:0;z-index:4}
+#sb span{display:inline-flex;align-items:center;gap:14px;background:#0F1F3D;color:#fff;border-radius:22px;padding:16px 26px;font-weight:700;font-size:34px}
+#sb img{width:54px;height:54px;border-radius:12px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="cork"></div><div id="clean"></div>
+  <svg id="str"></svg>
+  <div id="nodes"></div>
+  <div class="q" id="q1" style="left:120px;top:1300px">?</div><div class="q" id="q2" style="left:880px;top:560px">??</div>
+  <div id="leg"><span><i style="background:#E4513B"></i>shaky</span><span><i style="background:#F2A33A"></i>ok</span><span><i style="background:#1E9E74"></i>strong</span></div>
+  <div id="sb"><span><img src="{{ROOT}}/icon-512.png" alt="">concept maps · studyboard pro · free 2 weeks</span></div>
+  <div id="txt"><span class="blk" id="txtB">studying 6 chapters the night before:</span></div>
+</div>
+<script src="{{ROOT}}/marketing/reels/_shared/kit.js"></script>
+<script>
+// [label, messy x, y, rot, clean x, y, strength colour]
+const N = [["Cells", 250, 640, -8, 540, 620, "#1E9E74"], ["Membranes", 800, 760, 7, 250, 860, "#F2A33A"], ["Enzymes", 420, 1000, 5, 830, 860, "#E4513B"],
+  ["ATP", 830, 1120, -6, 540, 1100, "#F2A33A"], ["Respiration", 260, 1300, 9, 250, 1340, "#1E9E74"], ["Photo-synthesis", 760, 1420, -4, 830, 1340, "#E4513B"]];
+const E = [[0, 1], [0, 2], [2, 3], [3, 4], [3, 5], [1, 3], [0, 5], [2, 4], [1, 5]];      // the clean map keeps the first 6
+$("nodes").innerHTML = N.map((n, i) => `<div class="n" id="n${i}"><div class="pin"></div><span id="t${i}">${n[0]}</span></div>`).join("");
+const SW = 3.2, FILL = 5.0, END = 8.4;
+function render(t) {
+  const k = io(P(t, SW, SW + .8));
+  const pos = N.map((n, i) => { const jx = Math.sin(t * 5 + i * 2) * 8 * (1 - k), jy = Math.cos(t * 4 + i) * 8 * (1 - k);
+    return [lerp(n[1], n[4], k) + jx, lerp(n[2], n[5], k) + jy, lerp(n[3], 0, k)]; });
+  N.forEach((n, i) => { const el = $("n" + i), [x, y, r] = pos[i]; el.style.left = x + "px"; el.style.top = y + "px"; el.style.transform = `rotate(${r}deg)`;
+    el.style.background = k > .6 ? "#fff" : "#FFF6C9"; el.style.borderColor = k > .6 ? n[6] : "transparent";
+    el.querySelector(".pin").style.opacity = 1 - k; });
+  // strings: red and taut on the board, then clean grey links
+  $("str").innerHTML = E.map(([a, b], j) => { const keep = j < 6, op = keep ? 1 : 1 - k; if (op <= 0) return "";
+    const [x1, y1] = pos[a], [x2, y2] = pos[b], sag = 40 * (1 - k) * Math.sin(t * 3 + j);
+    return `<path d="M${x1} ${y1} Q${(x1 + x2) / 2} ${(y1 + y2) / 2 + sag} ${x2} ${y2}" stroke="${k > .5 ? "#9AA8BF" : "#D11F2E"}" stroke-width="${k > .5 ? 7 : 6}" fill="none" opacity="${op}"/>`; }).join("");
+  $("clean").style.opacity = k;
+  ["q1", "q2"].forEach((id, i) => { const t0 = .5 + i * .7, q = P(t, t0, t0 + .2); $(id).style.opacity = q * (1 - k); $(id).style.transform = `scale(${lerp(1.8, 1, oBack(q))}) rotate(${Math.sin(t * 3 + i) * 8}deg)`; });
+  $("leg").style.opacity = P(t, SW + .9, SW + 1.2);
+  // Fill In the Map: ATP goes blank and is typed back from memory
+  const tA = $("t3"); if (t >= FILL && t < FILL + 1.4) { const n = Math.floor(P(t, FILL + .6, FILL + 1.2) * 3); tA.textContent = n ? "ATP".slice(0, n) : "?"; $("n3").style.borderColor = "#3988FE"; $("n3").style.borderStyle = "dashed"; }
+  else { tA.textContent = "ATP"; $("n3").style.borderStyle = "solid"; if (t >= FILL + 1.4) { $("n3").style.borderColor = "#1E9E74"; } }
+  const b = t >= FILL ? "then fill it in from memory 🧠" : (t >= SW + .2 ? "vs. 1 concept map:" : "studying 6 chapters the night before:");
+  if ($("txtB").textContent !== b) $("txtB").textContent = b;
+  const s = P(t, 6.6, 6.9); $("sb").style.opacity = s; $("sb").style.transform = `translateY(${(1 - oBack(s, 1.3)) * 50}px)`;
+}
+window.render = render; window.END = END; window.COVER = 1.0;
+render(0);
+</script>
+</body>
+</html>

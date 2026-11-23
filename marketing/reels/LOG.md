@@ -44,6 +44,10 @@ One row per reel. Fill the metrics in once it has been up for about 3 days. The 
 | 2026-11-21 | marketing/reels/2026-12-12-plinko | (none) | Set 5: game, Plinko | "letting plinko decide my night" → lands on study, "rigged 😐" | 6.4 s | YouTube Sat Nov 21 3:50 PM (436984267); IG + TikTok Sat 5:50 PM (437003282) | | | | | | quirky 24.0 |
 | 2026-11-21 | marketing/reels/2026-12-13-falling-blocks | Crunch Forecast (spread) | Set 5: falling blocks | "my assignments when week 11 hits" → stack clears into weeks 9–10 | 7.2 s | | | | | | | lofi 21.0 |
 | 2026-11-21 | marketing/reels/2026-12-14-claw-machine | (none) | Set 5: claw machine | "trying to grab some motivation at 2am" → drops it, grabs snacks | 7.4 s | | | | | | | slowed lofi |
+| 2026-11-23 | marketing/reels/2026-12-15-reread-vs-test | Flashcards + quizzes | Exam prep: VS fight | "rereading vs testing yourself. 1 week later:" → 40% vs 61% (Roediger & Karpicke 2006) | 8.0 s | | | | | | | dramatic |
+| 2026-11-23 | marketing/reels/2026-12-16-forgetting-curve | Exam Prep Planner | Exam prep: live chart | "your brain the week after the lecture 📉" → spaced review | 8.4 s | | | | | | | slowed lofi → lofi |
+| 2026-11-23 | marketing/reels/2026-12-17-match-speedrun | Match game | Exam prep: speedrun challenge | "bio final speedrun. beat my time 👀" → 5.9 s | 7.4 s | | | | | | | quirky |
+| 2026-11-23 | marketing/reels/2026-12-18-conspiracy-board | Concept Maps (Pro) | Exam prep: conspiracy board → map | "studying 6 chapters the night before:" | 8.4 s | | | | | | | dramatic → lofi |
 
 ## What we've learned
 
