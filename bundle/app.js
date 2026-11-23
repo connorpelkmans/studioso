@@ -74050,6 +74050,7 @@ window.SBFACTS = (() => {
   }
   // "what's on today", "what's happening this week": classes, events and what's due, by day
   function agenda(s, today){
+    if (s.length > 70 || /\b(patient|someone|somebody|person|he|she|they|client|child|kid)\b/.test(s)) return null;
     if (!/\bwhat'?s (happening|on|up|going on|planned)\b|\bagenda\b|\bmy (day|week) (look|looking)\b|\bwhat does my (day|week) look\b/.test(s)) return null;
     const week = /\bweek\b/.test(s), from = week ? today : (dayIn(s, today) || today), to = week ? addDays(today, 6) : from;
     const occ = occsOn(from, to), due = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= from && t.due <= to);
@@ -75289,6 +75290,7 @@ Examples:
       if (/^(mark_done|mark_in_progress)$/.test(d.intent) && /\b(delete|remove|cancel(l?ed)?|scratch|drop(ped)?|get rid|trash|no longer|not happening)\b/.test(w)) d.intent = "delete_task";
       // a concept map only when a map is asked for ("a mnemonic", "a summary", "an acronym" are answers to write, not maps)
       if (d.intent === "make_map" && !/\b(map|mind ?map|diagram|web of)\b/.test(w)) d.intent = "question";
+      if ((d.intent === "make_flashcards" || d.intent === "make_quiz") && !/\b(flash ?cards?|cards?|deck|quiz(zes)?|quiz me|test me|practice (questions?|test|exam)|questions)\b/.test(w)) d.intent = "question";
       if (/^(mark_done|mark_in_progress|question|chat)$/.test(d.intent) && /\b(is ?n'?t|is not|not|never|haven'?t|hasn'?t|didn'?t)\b[^.]{0,20}\b(done|finished|complete|completed|submitted)\b|\bun-?(do|mark|finish)\b|\breopen\b/.test(w)) d.intent = "mark_not_done";
       if (d.intent === "mark_in_progress" && A && A.timerMins && A.timerMins(q)) { d.intent = "start_timer"; if (!d.minutes) d.minutes = A.timerMins(q).mins || 0; }
       const tk = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent], km = KW.exec(w);

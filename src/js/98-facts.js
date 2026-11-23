@@ -86,6 +86,7 @@ window.SBFACTS = (() => {
   }
   // "what's on today", "what's happening this week": classes, events and what's due, by day
   function agenda(s, today){
+    if (s.length > 70 || /\b(patient|someone|somebody|person|he|she|they|client|child|kid)\b/.test(s)) return null;
     if (!/\bwhat'?s (happening|on|up|going on|planned)\b|\bagenda\b|\bmy (day|week) (look|looking)\b|\bwhat does my (day|week) look\b/.test(s)) return null;
     const week = /\bweek\b/.test(s), from = week ? today : (dayIn(s, today) || today), to = week ? addDays(today, 6) : from;
     const occ = occsOn(from, to), due = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= from && t.due <= to);
