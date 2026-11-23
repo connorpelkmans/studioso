@@ -75517,7 +75517,10 @@ Examples:
     const prev = ((chat && chat.msgs) || []).filter(x => x.q && x.a).slice(-1)[0];
     const now = new Date(), open = tasksArr().filter(t => !t.archived && t.status !== "done").slice(0, 40);
     const ctx = `Today is ${DOW[now.getDay()]} ${todayISO()}.${open.length ? `\nTheir open tasks: ${open.map(t => t.title).join("; ")}` : ""}${coursesArr().length ? `\nTheir courses: ${coursesArr().map(c => courseLabel(c)).join("; ")}` : ""}${noteBoards().length ? `\nTheir note boards: ${noteBoards().map(b => b.name).join("; ")}` : ""}${att && att.length ? `\nThey attached: ${att.map(x => x.name).join(", ")}` : ""}${prev ? `\nThe last exchange: student said "${clip(prev.q, 200)}"; assistant replied "${clip(prev.a.answer, 240)}"` : ""}`;
-    const ask = extra => aiCall({task: "quickadd", system: ISYS + (extra || ""), parts: [{text: `${ctx}\n\nThe message: "${q}"`}], schema: ISCHEMA, maxTokens: 400, temperature: 0});
+    // the smaller on-device models (Chrome's or Edge's built-in AI, Gemma 4 E2B, Apple's) get worked examples of the requests they
+    // mix up most in Studyboard's tests; Gemma 4 E4B and the cloud models read the shorter list
+    const small = typeof DEVAI !== "undefined" && typeof aiOnDevice === "function" && aiOnDevice() && DEVAI.kind !== "litert";
+    const ask = extra => aiCall({task: "quickadd", system: ISYS + (small ? ISYS_SMALL : "") + (extra || ""), parts: [{text: `${ctx}\n\nThe message: "${q}"`}], schema: ISCHEMA, maxTokens: 400, temperature: 0});
     let r = await ask(), d = r && r.data && typeof r.data === "object" ? r.data : {};
     // the shape is checked here, whatever the model or its mode: an intent that isn't one of Studyboard's is asked for once more
     if (!INTENTS.includes(d.intent)) { try { r = await ask(`\n\nIMPORTANT: "intent" must be exactly one of: ${INTENTS.join(", ")}. Reply with only the JSON object.`); d = r && r.data && typeof r.data === "object" ? r.data : {}; } catch (e) {} }
@@ -75597,6 +75600,21 @@ Examples:
     }
     return null;
   }
+  const ISYS_SMALL = `
+Careful, these are easy to mix up:
+- mark_done ONLY when they say it's finished (done, finished, submitted, handed in, turned in, completed, checked off).
+"the lab report is now due monday" -> {"intent":"move_task","task":"lab report","date":"(that Monday)"}
+"prof extended the essay deadline to dec 5" -> {"intent":"move_task","task":"essay","date":"(Dec 5)"}
+"bump care plan 2 by 2 days" -> {"intent":"move_task","task":"care plan 2","date":"(its due date plus 2 days)"}
+"the care plan is urgent" -> {"intent":"set_priority","task":"care plan","priority":"urgent"}
+- A course is the one THEY name, matched by its name or code, never another course.
+"psych nursing should be red" -> {"intent":"edit_item","kind":"course","item":"psych nursing","field":"color","value":"red"}
+- "remember that ..." or "note to self" is a note.
+"remember that office hours are thursday 2pm" -> {"intent":"add_note","text":"office hours are Thursday 2pm"}
+- join_group when they have a code or say join; new_group only to start a new one.
+"join group ABC123" -> {"intent":"join_group","value":"ABC123"}
+"my friend sent me the code XK7P2M for her study group" -> {"intent":"join_group","value":"XK7P2M"}
+- open_page to go somewhere: "open my calendar" -> {"intent":"open_page","value":"calendar"}`;
   // carrying it out: null when it isn't an action (answered as a question or chat instead)
   async function intentAct(q, chat, att){
     let d; try { d = await route(q, chat, att); } catch (e) { return null; }
@@ -75613,6 +75631,22 @@ Examples:
       const tk = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent], km = KW.exec(w);
       if (tk && km && !/\b(task|assignment|homework|essay|exam|test|lab report|reading)\b/.test(w.replace(km[0], ""))) { d.intent = tk; d.kind = {deck: "deck", quiz: "quiz", board: "board", "note board": "board", "noteboard": "board", whiteboard: "board", event: "event", appointment: "event", course: "course", class: "course", file: "file", pdf: "file", note: "note"}[km[1].replace(/\s+/g, " ")] || km[1]; d.item = d.item || d.task || ""; }
       // placeholders the model fills in when the words give nothing
+      // the mix-ups small models make, put right from the words:
+      // "done" only when the words say it's finished; a deadline or a priority said instead is that
+      const DONEW = /\b(done|finish(ed)?|complet(e|ed)|submit(ted)?|turn(ed)? in|hand(ed)? in|wrap(ped)? up|check(ed)? off|tick(ed)? off|cross(ed)? (off|out)|✅|✔️)\b|✅|✔/;
+      if (d.intent === "mark_done" && !DONEW.test(w)) {
+        if (/\b(urgent|priority|important)\b/.test(w)) { d.intent = "set_priority"; if (!d.priority) d.priority = /\blow\b/.test(w) ? "low" : /\burgent\b/.test(w) ? "urgent" : "high"; }
+        else if (/\b(due|deadline|extend(ed)?|bump(ed)?|mov(e|ed)|push(ed)?|postpon(e|ed)|delay(ed)?|reschedul(e|ed)|until|to (monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|next))\b/.test(w)) d.intent = "move_task";
+        else d.intent = "question";
+      }
+      if (/^(set_priority)$/.test(d.intent) && !/\b(urgent|priority|important)\b/.test(w)) d.intent = /\b(due|deadline)\b/.test(w) ? "move_task" : "question";
+      // "remember that ...", "note to self": a note, not an event or a task
+      if (/^(add_event|add_task)$/.test(d.intent) && /^\s*(remember that|note to self|note:|jot|write (this|that) down|make a note|save a note|sticky)/.test(w)) d.intent = "add_note";
+      // joining (a code, "join") is never starting a new group
+      if (d.intent === "new_group" && (/\bjoin\b/.test(w) || /\bcode\b/.test(w)) && !/\b(create|make|start|new|set up)\b/.test(w)) { d.intent = "join_group"; if (!d.value) d.value = (String(q).match(/\b[A-Z0-9]{5,8}\b/) || [])[1 - 1] || ""; }
+      if (d.intent === "join_group" && !d.value) d.value = (String(q).match(/\b(?=[A-Z0-9]*\d)[A-Z0-9]{5,8}\b/) || [""])[0];
+      // the course named in their words is the course, whatever the model filled in
+      if (window.SBTRUTH && SBTRUTH.courseNamed && /^(edit_item|delete_item|rename_item|open_item)$/.test(d.intent) && (d.kind === "course" || /\b(colou?r|course|class)\b/.test(w))) { const cn = SBTRUTH.courseNamed(q); if (cn) { d.kind = "course"; d.item = cn.code || cn.name; } }
       // each newer action only when the words are about it (a small model reaches for the nearest one otherwise)
       if (d.intent === "add_card" && !/\b(card|cards|flashcards?|front|back)\b/.test(w)) d.intent = "question";
       if (d.intent === "add_mark" && !/\b(got|get|scored?|mark|marks|grade|grades|result|out of|\d+\s*%|\d+\s*\/\s*\d+)\b/.test(w)) d.intent = "question";
