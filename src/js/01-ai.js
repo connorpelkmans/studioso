@@ -2444,6 +2444,8 @@ function aiSetupSheet(fromFeature, opts){
   // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
   // a Gemini key: adults only (aiAdult); a key someone already saved stays visible so it can be removed
   const gemOk = aiAdult() || !!(c.keys && c.keys.gemini);
+  // no key of any kind can be added here (not an adult, no Claude or OpenAI): nothing about choosing models or keys is shown
+  const noKeys = !gemOk && !aiOwnPaidOk() && !aiProAvail() && !(c.keys && (c.keys.anthropic || c.keys.openai));
   // (the age is checked in the background the first time: an adult's option appears once it's known)
   if (!gemOk && typeof sbUser !== "undefined" && sbUser) aiAgeCheck().then(ch => { if (ch && aiAdult() && dlg.open && dlg.querySelector(".ai-steps") == null && dlg.querySelector("#aiDefault")) { try { dlg.close(); } catch (e) {} aiSetupSheet(fromFeature, opts); } });
   const paidOk = aiOwnPaidOk(), kindOk = p => !!p && (p === "gemini" || paidOk), kindsSaid = paidOk ? "a Gemini, OpenAI or Claude key" : "a Gemini key";
@@ -2488,7 +2490,7 @@ function aiSetupSheet(fromFeature, opts){
       <p class="mini" id="aiPasteMsg" aria-live="polite" style="margin:0" hidden></p>
       ${pro ? (gemOk || paidOk ? backupRow() : "") : gemOk ? keyRow("gemini") + "</div></details>" : `<input type="hidden" data-key="gemini" value=""><p data-msg="gemini" hidden></p>`}
       ${aiOwnGoneLine()}
-      ${KEY_RELAY ? `<details class="ai-paid" id="aiHoIn" ${opts.code ? "open" : ""}><summary>Already Set Up on Another Device?</summary>
+      ${KEY_RELAY && !noKeys ? `<details class="ai-paid" id="aiHoIn" ${opts.code ? "open" : ""}><summary>Already Set Up on Another Device?</summary>
         <div class="ai-handoff-in"><p class="mini" style="margin:0">On that device, open <b>Settings</b>, <b>AI Features</b> and tap <b>Add AI to Another Device</b>. Scan the code it shows with this device's camera, or type the code here.</p>
           <span class="key-row"><input type="text" class="ai-code-in" id="aiHoCode" value="${esc(opts.code || "")}" placeholder="XXXX-XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Code from your other device" data-noenter><button type="button" class="btn small" id="aiHoGet">Add Keys</button></span>
           <p class="mini" id="aiHoMsg" aria-live="polite" style="margin:0"></p></div></details>` : ""}
@@ -2498,16 +2500,16 @@ function aiSetupSheet(fromFeature, opts){
           ${keyRow("anthropic")}
           ${keyRow("openai")}
         </div></details>`}
-      <label class="f"><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
+      <label class="f"${noKeys ? " hidden" : ""}><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
       <fieldset class="ai-auto"><legend>Automatic AI</legend>
         <label class="mi-check"><input type="checkbox" id="aiAuto" ${(ai => ai.auto !== undefined ? ai.auto : isAutoFree(c.provider, c.model))((state.settings && state.settings.ai) || {}) ? "checked" : ""}> Improve Today's Plan and study sessions automatically</label>
         <p class="mini" style="margin:0">AI helps in the background, like picking <b>Do This Next</b> and estimating hours. It never changes anything without a tap. Choose the parts in <button type="button" class="link-btn" data-act="auto-panel">What Each Part Does</button>.</p>
-        <label class="f"><span class="lh">Model for Automatic AI</span><select id="aiAutoModel"><option value="free" ${((state.settings.ai || {}).autoModel || "free") === "free" ? "selected" : ""}>Free Gemini (no cost)</option><option value="default" ${(state.settings.ai || {}).autoModel === "default" ? "selected" : ""}>My default model</option></select></label>
+        <label class="f"${noKeys ? " hidden" : ""}><span class="lh">Model for Automatic AI</span><select id="aiAutoModel"><option value="free" ${((state.settings.ai || {}).autoModel || "free") === "free" ? "selected" : ""}>Free Gemini (no cost)</option><option value="default" ${(state.settings.ai || {}).autoModel === "default" ? "selected" : ""}>My default model</option></select></label>
         <p class="ai-disclaimer mini" id="aiAutoWarn" hidden style="margin:0"></p>
         <button type="button" class="btn small" data-act="auto-panel">What Automatic AI Is Doing</button>
       </fieldset>
       ${KEY_RELAY && hasKey ? `<div class="ai-paste"><button type="button" class="btn" id="aiHoSend">Add AI to Another Device</button><p class="mini">Shows a code to scan on your phone or other computer, so you don't have to paste the key there.</p></div>` : ""}
-      <p class="mini" style="margin:0">Your keys stay on this device${DESK ? " (in your system keychain)" : ""}, never in your account or backups. AI requests go to the company you chose. Google's free tier may use them to improve its products, so avoid private info.</p>
+      <p class="mini" style="margin:0"${noKeys ? " hidden" : ""}>Your keys stay on this device${DESK ? " (in your system keychain)" : ""}, never in your account or backups. AI requests go to the company you chose. Google's free tier may use them to improve its products, so avoid private info.</p>
       <div class="ai-paste"><button type="button" class="btn" data-ai-report="settings" data-ai-text="">Report an AI Response</button><p class="mini">AI can be wrong. Tell us if a response was wrong or harmful.</p></div>
     </div>
     <div class="sheet-foot">${hasKey ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
