@@ -75765,7 +75765,9 @@ Examples:
       const ctl = !att.length && window.SBASSIST && SBASSIST.control ? SBASSIST.control(q) : null, me0 = !ctl && !att.length ? selfAnswer(q) : "";
       // a request to do something (any wording) is understood by the AI and done by the app (intentAct); a planner question with
       // no request in it is answered from the app's own data first (exact, instant)
-      const ACTY = /\b(add|put|make|create|delete|remove|get rid|erase|trash|move|push|reschedule|mark|check off|finish|finished|done|submitted|turned in|rename|call it|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|show me|jot|note|remind|schedule|book|cancel|undo|revert|edit|update)\b/i;
+      const ACTY = /\b(add|put|make|create|delete|remove|get rid|erase|trash|move|push|bump|reschedule|postpone|delay|extend|mark|check off|tick off|cross off|cross out|finish|finished|completed?|done|submitted|submit|turned in|handed in|hand in|wrapped up|rename|call it|change|set|switch|turn|start|started|stop|pause|resume|open|take me|go to|show me|bring up|jot|note|remind|schedule|book|cancel|cancelled|undo|revert|edit|update|wear|join|enroll|enrol)\b/i;
+      // (the AI "what to do" step also for these, though alone they don't stop a planner question being answered at once)
+      const ROUTEW = /\b(study|review|drill|got|scored|record|new|due|mark|grade|card|deck|group|theme|color|colour|font|text size|notification|hat|glasses|scarf)\b/i;
       // "I meant all my courses", "no, for BIOS 230": the earlier question again, with what they meant (no AI step needed to see that)
       const fix = !att.length ? /^\s*(?:no[,.!]?\s+)?(?:i (?:meant|mean)|what i meant was|i was asking about|i'?m asking about|not that[,.]?\s*)\s+(.{2,120}?)[.!?]*\s*$/i.exec(q) : null;
       // "be more detailed", "simpler", "give me an example", "tell me more", "why?": the last question again, answered that way
@@ -75789,7 +75791,7 @@ Examples:
       if (!quick && !made && !att.length && window.SBASSIST && SBASSIST.findNotes) { const fn = await SBASSIST.findNotes(q2).catch(() => null); if (fn) made = {answer: fn.answer, sources: fn.show && fn.show.length ? ["Your notes"] : [], followUps: [], actions: [], show: fn.show && fn.show.length ? SBASSIST.pack(fn).show : undefined}; }
       if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
       // anything the app's own quick steps didn't recognize: the AI works out which action it is (any wording), and the app does it
-      if (!made && !quick && !PLAINQ && (ACTY.test(q2) || att.length)) { T.status = "Working out what to do…"; draw(); made = await intentAct(q2, c, att).catch(e => { console.warn("intent", e); return null; }); }
+      if (!made && !quick && !PLAINQ && (ACTY.test(q2) || ROUTEW.test(q2) || att.length)) { T.status = "Working out what to do…"; draw(); made = await intentAct(q2, c, att).catch(e => { console.warn("intent", e); return null; }); }
       // a question about the subject (on the device): the same answer as Ask's, from their own material first, then the web
       if (!quick && !made && dev && !att.length && TR && TR.general(q2) && !(window.SBASSIST && SBASSIST.appQ(q2))) {
         T.status = "Looking through your notes…"; draw();
