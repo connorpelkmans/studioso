@@ -73859,8 +73859,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     }
     const me = window.SBCOMP && SBCOMP.tab && SBCOMP.tab.info ? (SBCOMP.tab.info() || {}) : {};
     const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Reply to exactly what they said: add more only when it clearly helps with what they asked, never as filler, and a hello or thanks just gets a short friendly reply (no news about yourself and no question back unless they asked how you are). Use the student's own data below.\n${RULES}`;
-    const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${sources}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
-    const callAI = free => aiCall({task: "assist", maxTokens: 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
+    // Gemma 4 E4B on the laptop has 8K tokens for everything, and reads the prompt before it writes a word: about 3K tokens of
+    // context (planner, sources, screen) keeps the first word quick and leaves room for the answer
+    const lite = typeof DEVAI !== "undefined" && DEVAI.kind === "litert", cut = (t, n) => lite && String(t || "").length > n ? String(t).slice(0, n) : (t || "");
+    const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cut(cat.text, 4500)}${cut(screenText(cur), 1500)}${cut(sources, 5500)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, lite ? 2000 : 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
+    const callAI = free => aiCall({task: "assist", maxTokens: lite ? 1500 : 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
       system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": [], "focusMinutes": 0}. The answer is the reply itself, never a placeholder.` : system});
     // Always a real answer: the format, the format again, then a free reply; a moment between tries after an error. If the
     // AI can't be reached at all, the best match search finds is offered (and shown), made on this device.
@@ -74255,7 +74258,8 @@ window.SBADVICE = (() => {
     const s = low(q); if (!ADVICE.test(s)) return null;
     // a question about anxiety or stress as a subject ("what's the difference between anxiety and panic disorder"), not about them: answered as knowledge
     if (!/\b(i|i'm|im|i've|me|my)\b/.test(s) && /\b(disorders?|difference|what is|what's|whats|define|explain|symptoms?|treat(ment|ed)?|causes?|theory|response|hormones?)\b/.test(s)) return null;
-    const today = todayISO(), open = tasksArr().filter(t => t.status !== "done");
+    const today = todayISO(), c0 = courseIn(s), onlyC = c0 && /\b(grade|grades|mark|marks|pull up|raise|bring up|improve|better in|doing better|failing)\b/.test(s);
+    const open = tasksArr().filter(t => t.status !== "done" && (!onlyC || t.courseId === c0.id));
     const late = open.filter(t => t.due && t.due < today).sort((a, b) => a.due.localeCompare(b.due));
     const soon = open.filter(t => t.due && t.due >= today && t.due <= addDays(today, 3) && !isExam(t)).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
     const c = courseIn(s);
