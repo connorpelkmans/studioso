@@ -529,7 +529,12 @@ async function e4bCheck(){
 // the row in AI Features, kept up to date while the sheet is open (the download runs while the student watches)
 function e4bRow(){ return `<div id="e4bLive">${e4bRowIn()}</div>`; }
 setInterval(() => { try { e4bPaint(); } catch (e) {} }, 1000);
-function e4bPaint(){ const el = document.getElementById("e4bLive"); if (el) { const h = e4bRowIn(); if (el.innerHTML !== h) el.innerHTML = h; } }
+// which AI answers, for AI Features' top box (kept current too: E4B can finish downloading while the sheet is open)
+function aiDevName(){ const L = devLabel(), M = devModel(); return esc(L) + (M && !L.includes(M.replace(/^\S+ /, "")) ? ` (${esc(M)})` : ""); }
+function e4bPaint(){
+  const el = document.getElementById("e4bLive"); if (el) { const h = e4bRowIn(); if (el.innerHTML !== h) el.innerHTML = h; }
+  const nm = document.getElementById("aiDevName"); if (nm) { const h = aiDevName(); if (nm.innerHTML !== h) nm.innerHTML = h; }
+}
 function e4bRowIn(){
   const st = DEVAI.e4b, pct = Math.round((DEVAI.e4bPct || 0) * 100); if (!st) return "";
   const box = (t, btn) => `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0">${t}</p>${btn ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${btn}</div>` : ""}</div>`;

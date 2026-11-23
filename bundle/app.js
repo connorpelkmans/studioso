@@ -6437,7 +6437,7 @@ function aiSetupSheet(fromFeature, opts){
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
         <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
       ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
-      ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> ${esc(devLabel())}${devModel() && !devLabel().includes(devModel().replace(/^\S+ /, "")) ? ` (${esc(devModel())})` : ""} runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : DEVAI.kind === "webllm" ? ` The first time you use it, Studyboard asks before downloading it once (about ${DEVAI.web ? DEVAI.web.gb : 3} GB).` : ` The first time you use it, ${devBrowser()} downloads it once.`}</p>
+      ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> <span id="aiDevName">${aiDevName()}</span> runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : DEVAI.kind === "webllm" ? ` The first time you use it, Studyboard asks before downloading it once (about ${DEVAI.web ? DEVAI.web.gb : 3} GB).` : ` The first time you use it, ${devBrowser()} downloads it once.`}</p>
         <label class="mi-check" style="margin:0"><input type="checkbox" id="aiWebLookup" ${(() => { try { return localStorage.getItem("studyboard:webLookupOff") === "1" ? "" : "checked"; } catch (e) { return "checked"; } })()}><span>Look Things Up on the Web<span class="sub">For general questions, and features that need the web: Wikipedia, Wiktionary and research papers (OpenAlex). Only the search words leave this device.</span></span></label>
         <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can search the whole web.</p></div>` : ""}
       ${!pro && typeof e4bRow === "function" ? e4bRow() : ""}
@@ -7474,7 +7474,12 @@ async function e4bCheck(){
 // the row in AI Features, kept up to date while the sheet is open (the download runs while the student watches)
 function e4bRow(){ return `<div id="e4bLive">${e4bRowIn()}</div>`; }
 setInterval(() => { try { e4bPaint(); } catch (e) {} }, 1000);
-function e4bPaint(){ const el = document.getElementById("e4bLive"); if (el) { const h = e4bRowIn(); if (el.innerHTML !== h) el.innerHTML = h; } }
+// which AI answers, for AI Features' top box (kept current too: E4B can finish downloading while the sheet is open)
+function aiDevName(){ const L = devLabel(), M = devModel(); return esc(L) + (M && !L.includes(M.replace(/^\S+ /, "")) ? ` (${esc(M)})` : ""); }
+function e4bPaint(){
+  const el = document.getElementById("e4bLive"); if (el) { const h = e4bRowIn(); if (el.innerHTML !== h) el.innerHTML = h; }
+  const nm = document.getElementById("aiDevName"); if (nm) { const h = aiDevName(); if (nm.innerHTML !== h) nm.innerHTML = h; }
+}
 function e4bRowIn(){
   const st = DEVAI.e4b, pct = Math.round((DEVAI.e4bPct || 0) * 100); if (!st) return "";
   const box = (t, btn) => `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0">${t}</p>${btn ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${btn}</div>` : ""}</div>`;

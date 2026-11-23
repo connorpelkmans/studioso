@@ -149,11 +149,17 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   // 8. Studyboard's own copy first, Hugging Face when a piece of it doesn't come through; the result is the same file
   { const before = ranges; const M = await open({fits: true, returning: true, file: {mirror: base + "/mirror/"}});
     await M.p.evaluate(() => { localStorage.setItem("studyboard:e4bOn", "1"); }); await M.p.reload(); await M.p.waitForFunction(() => window.__sbDevAI, null, {timeout: 30000});
+    // AI Features open while it finishes: both boxes end up saying the same AI
+    await M.p.evaluate(() => { const x = document.createElement("button"); x.dataset.act = "ai-setup"; document.body.appendChild(x); x.click(); x.remove(); });
     await M.p.waitForFunction(() => window.__sbDevAI.state.e4b === "ready", null, {timeout: 60000}).catch(() => {});
     const st = await state(M.p);
     const same = await M.p.evaluate(async () => { const c = await caches.open("studyboard-ai-e4b"), ks = (await c.keys()).sort((a, b) => +new URL(a.url).searchParams.get("studyboard-part") - +new URL(b.url).searchParams.get("studyboard-part"));
       const parts = await Promise.all(ks.map(async k => new Uint8Array(await (await c.match(k)).arrayBuffer()))); return {n: parts.length, bytes: parts.reduce((a, p) => a + p.length, 0), all7: parts.every(p => p.every(x => x === 7))}; });
     ok(st.e4b === "ready" && mirrorHits > 0 && same.bytes === SIZE && same.all7, `downloads from Studyboard's own copy (${mirrorHits} files), whole and correct: ${JSON.stringify(same)}`);
+    await M.p.waitForTimeout(1500);
+    await M.p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); const x = document.createElement("button"); x.dataset.act = "ai-setup"; document.body.appendChild(x); x.click(); x.remove(); }); await M.p.waitForTimeout(500);
+    { const top = await M.p.evaluate(() => (document.getElementById("aiDevName") || {}).innerText || ""), low = await M.p.evaluate(() => (document.getElementById("e4bLive") || {}).innerText || "");
+      ok(/Gemma 4 E4B/.test(top) && /Stronger free AI is on/.test(low), "AI Features names E4B in its top box once it's on, matching the box below: " + top + " | " + low.slice(0, 30)); }
     ok(refused && ranges - before >= 1, `a piece the copy refused came from Hugging Face instead (${ranges - before} range requests)`);
     await M.p.close(); }
   // 6. The service worker keeps the downloaded models on an update (it used to delete every cache but its own)
