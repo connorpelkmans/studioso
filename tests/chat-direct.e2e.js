@@ -13,7 +13,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await ctx.addInitScript(() => { window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__prompts = [];
     // the model says "add a note" to anything (the mistake a small model makes): the app mustn't follow it where the words don't ask for a note
     window.LanguageModel = {availability: async () => "available", create: async () => ({contextWindow: 6000, contextUsage: 100, destroy(){}, clone: async function(){ return this; },
-      async prompt(t){ window.__prompts.push(String(t).slice(-400)); return JSON.stringify({intent: "add_note", text: "WRONG NOTE", board: "", answer: "MODEL ANSWER", found: true, followUps: [], actions: []}); }})};
+      async prompt(t){ window.__prompts.push(String(t).slice(-400)); if (window.__stubIntent) return JSON.stringify(window.__stubIntent); return JSON.stringify({intent: "add_note", text: "WRONG NOTE", board: "", answer: "MODEL ANSWER", found: true, followUps: [], actions: []}); }})};
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1");
     localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, files: [], notes: [], events: [], settings: {}, courses: [{id: "c1", name: "Reviewer Course", code: "REVC 101", color: "#3B6FE0"}, {id: "c2", name: "OCHEM", code: "CHEM 211", color: "#aa33aa"}],
       decks: [{id: "d1", name: "Connor Pelkmans", cards: [], created: 1}, {id: "d2", name: "Heart", created: 2, cards: [{id: "h1", front: "SA node", back: "natural pacemaker", box: 0, due: "", seen: 0, right: 0, wrong: 0}], aiQuizzes: [{id: "z1", title: "Cardiac Quiz", created: 5, results: [], questions: [{id: "q1", type: "single", stem: "What starts each heartbeat?", options: ["AV node", "SA node"], correct: [1]}, {id: "q2", type: "short", stem: "Name the chamber that pumps to the body", answer: "Left ventricle"}]}]}], tasks: [{id: "t1", title: "Lab 4", courseId: "c2", due: "2020-01-01", status: "todo"}]})); });
@@ -79,6 +79,21 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   ok(/Evergreen/.test(a) && !/Good morning/.test(a), "a theme by name: " + a);
   a = await chat("change the wallpaper to a picture of my dog");
   ok(/not able to do that|can't do that|couldn't/i.test(a), "a request it can't do is said plainly, not answered with something else: " + a);
+  // follow-ups: the answer to its own question, and "it" about the last subject
+  await p.evaluate(() => { window.__stubIntent = {intent: "make_deck"}; });
+  a = await chat("make me a deck");
+  ok(/What should the deck be called/.test(a), "it asks for the deck's name: " + a);
+  await p.evaluate(() => { window.__stubIntent = null; });
+  a = await chat("Conclusions");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.decks).some(d => d.name === "Conclusions")) && /Conclusions/.test(a), "and the next message is that name: " + a);
+  await p.evaluate(() => { window.__kq = []; });
+  a = await chat("what is osmosis?"); a = await chat("why does it happen?");
+  kq = await p.evaluate(() => window.__kq);
+  ok(/osmosis/i.test(kq[kq.length - 1] || "") && /why/i.test(kq[kq.length - 1] || ""), "\"it\" is the last subject: " + JSON.stringify(kq));
+  a = await chat("what about diffusion?"); kq = await p.evaluate(() => window.__kq);
+  ok(/diffusion/i.test(kq[kq.length - 1] || ""), "\"what about X\" asks the same about X: " + kq[kq.length - 1]);
+  a = await chat("what's 12 * 3"); kq = await p.evaluate(() => window.__kq.length);
+  ok(/36/.test(a), "a new question afterwards stands on its own: " + a);
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);

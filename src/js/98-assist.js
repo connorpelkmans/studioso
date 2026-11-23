@@ -808,7 +808,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // (the AI decides for anything but a plain question: what it is and what to do, however it's worded)
     if (!/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did)\b[^]*\?\s*$/i.test(q) && window.SBCOMPTAB && SBCOMPTAB.intent) {
       const r = await SBCOMPTAB.intent(q).catch(e => { console.warn("intent", e); return null; });
-      if (r) return {answer: r.answer, show: r.show || [], changes: [], local: true};
+      if (r) return {answer: r.answer, show: r.show || [], changes: [], local: true, awaiting: r.awaiting};
     }
     if (dev && TR) { const f2 = isRequest(q) ? null : TR.facts(q); if (f2) return {answer: f2.answer, show: (f2.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true}; }
     // a question about the subject (on the device): answered from their own material first, then the web, in one focused call;

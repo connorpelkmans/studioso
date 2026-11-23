@@ -74009,7 +74009,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // (the AI decides for anything but a plain question: what it is and what to do, however it's worded)
     if (!/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did)\b[^]*\?\s*$/i.test(q) && window.SBCOMPTAB && SBCOMPTAB.intent) {
       const r = await SBCOMPTAB.intent(q).catch(e => { console.warn("intent", e); return null; });
-      if (r) return {answer: r.answer, show: r.show || [], changes: [], local: true};
+      if (r) return {answer: r.answer, show: r.show || [], changes: [], local: true, awaiting: r.awaiting};
     }
     if (dev && TR) { const f2 = isRequest(q) ? null : TR.facts(q); if (f2) return {answer: f2.answer, show: (f2.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true}; }
     // a question about the subject (on the device): answered from their own material first, then the web, in one focused call;
@@ -75315,7 +75315,7 @@ window.SBTRUTH = (() => {
         }
       }
       const pk = A.pack(res);
-      return {answer: res.answer, sources: [], followUps: [], actions: [], changes: pk.changes.length ? pk.changes : undefined, show: pk.show.length ? pk.show : undefined};
+      return {answer: res.answer, sources: [], followUps: [], actions: [], changes: pk.changes.length ? pk.changes : undefined, show: pk.show.length ? pk.show : undefined, awaiting: res.awaiting};
     }
     return null;
   }
@@ -75724,7 +75724,15 @@ Careful, these are easy to mix up:
 - open_page to go somewhere: "open my calendar" -> {"intent":"open_page","value":"calendar"}`;
   // carrying it out: null when it isn't an action (answered as a question or chat instead)
   async function intentAct(q, chat, att, preset){
+    const r = await intentAct0(q, chat, att, preset);
+    // a question back ("What should the deck be called?"): what it was doing is kept, so the next message can answer it
+    if (r && r.answer && LASTD && LASTD.intent !== "question" && LASTD.intent !== "chat" && LASTD.intent !== "cant" && /\?(\s|$)|For example:/.test(r.answer) && !/\b(undo|Done|Added|Made|Saved|moved|marked)\b/.test(r.answer)) r.awaiting = {d: LASTD, q: String(q).slice(0, 300)};
+    return r;
+  }
+  let LASTD = null;
+  async function intentAct0(q, chat, att, preset){
     let d; try { d = preset || await route(q, chat, att); } catch (e) { return null; }
+    LASTD = d;
     const say = (answer, extra) => Object.assign({answer, sources: [], followUps: [], actions: []}, extra || {});
     const A = window.SBASSIST;
     // The model's choice, checked against the student's own words: a clear word for something else wins
@@ -75843,6 +75851,7 @@ Careful, these are easy to mix up:
       return state.courses[nc.id] ? say(`Added the course ${courseLabel(nc)}${nc.instructor ? ` with ${nc.instructor}` : ""}. Open Courses to add its class times.`) : null;
     }
     if (it === "add_card") { const p = cardParse(q) || []; return addCardTo(d.front || p[1], d.back || p[2], d.deck || d.item || d.title || p[3]); }
+    if (it === "make_deck" && att && att.length) return null;
     if (it === "make_deck") {
       const name = String(d.title || d.item || d.topic || "").trim(); if (!name) return say("What should the deck be called?");
       const ex = deckNamed(name); if (ex && ex.name.toLowerCase() === name.toLowerCase()) return say(`You already have a deck called ${ex.name}.`);
@@ -75973,14 +75982,45 @@ Careful, these are easy to mix up:
       const more = !fix && !att.length ? /^\s*(?:(?:can|could) you\s+|please\s+)?((?:be )?more detail(?:ed|s)?|go (?:into )?more (?:detail|depth)|in more detail|more depth|elaborate|expand(?: on (?:that|it))?|explain (?:that |it )?(?:more|further|better|again|simpler|more simply)|tell me more|say more|keep going|go on|continue|simpler|more simply|(?:make it |explain it )?simpler|dumb it down|(?:give (?:me )?)?an? (?:example|analogy)|shorter|(?:make it )?shorter|in short|tl;?dr|summari[sz]e (?:that|it)|why\??|how so\??|what do you mean\??)\s*(?:please)?[.!?]*\s*$/i.exec(q) : null;
       const prevQ0 = fix || more ? (x => x ? (x.ask || x.q) : "")((c.msgs || []).filter(x => x.q && x.a).slice(-1)[0]).replace(/^(Explain in detail|Explain simply|In two or three sentences|Give an example of):\s*/i, "") : "";
       const qFix = fix && prevQ0 ? `${prevQ0.replace(/[?!.]+\s*$/, "")} (${fix[1]})?` : more && prevQ0 ? `${/simpl|dumb/i.test(more[1]) ? "Explain simply: " : /short|tl|summar|in short/i.test(more[1]) ? "In two or three sentences: " : /example|analogy/i.test(more[1]) ? "Give an example of: " : "Explain in detail: "}${prevQ0.replace(/[?!.]+\s*$/, "")}` : "";
+      // Follow-ups, read against the last turn (no AI step, so they stay quick; a message that stands on its own is left alone):
+      // an answer to what it just asked ("Conclusions" after "What should the deck be called?"), more on the map it just made,
+      // and "it", "that", "what about X?", "why?" about the subject it just answered
+      const last = (c.msgs || []).filter(x => x.q && x.a && !x.err).slice(-1)[0];
+      const NEWREQ = /^\s*(?:please\s+|(?:can|could|would) you\s+)?(?:add|create|make|delete|remove|move|change|start|stop|mark|open|go to|take me|switch|turn|set|put|show|study|quiz|explain|what|who|when|where|why|how|is|are|do|does|did|can|could|should)\b/i;
+      const slot = !att.length && last && last.a.awaiting && !NEWREQ.test(q) && q.split(/\s+/).length <= 14 ? last.a.awaiting : null;
+      const mapMore = !att.length && last && last.a.mapOpen && /\b(more|detail(ed|s)?|bigger|expand|add (more|ideas|to it)|fill (it )?out|flesh|deeper|elaborate)\b/i.test(q) && q.split(/\s+/).length <= 12 && !/\b(new|another)\s+map\b/i.test(q);
+      const topicOf = x => String(x || "").replace(/^(explain in detail|explain simply|in two or three sentences|give an example of|why):\s*/i, "").replace(/^\s*(?:please\s+)?(?:can you\s+)?(?:explain|describe|define|tell me about|what(?:'s| is| are| was| were)|whats|who(?:'s| is| was| were)|how (?:does|do|did|is|are)|why (?:does|do|did|is|are)|what causes|what happened (?:in|at|to))\s+(?:to me\s+)?(?:the\s+|a\s+|an\s+)?/i, "").replace(/\s+(?:to me|work|works|mean|happen|happened)\s*[?!.]*\s*$/i, "").replace(/[?!.]+\s*$/, "").trim();
+      let qRef = "";
+      if (!fix && !more && !slot && !mapMore && !att.length && last && !(last.a.actions || []).length && !last.a.mapOpen && !(last.a.changes || []).length) {
+        const lq = String(last.ask || last.q), tp = topicOf(lq), short = q.split(/\s+/).length <= 12;
+        const wa = /^\s*(?:and|ok|okay|so|but)?,?\s*(?:what|how) about\s+(?:the\s+)?(.{2,80}?)\s*\??\s*$/i.exec(q);
+        if (wa && tp && tp.length < 80 && lq.toLowerCase().includes(tp.toLowerCase())) qRef = lq.replace(new RegExp(tp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), wa[1]);
+        else if (tp && tp.length < 60 && /^\s*(?:why|how|how so|why is that|why's that|how come|really)\s*\??\s*$/i.test(q)) qRef = `Why: ${lq.replace(/[?!.]+\s*$/, "")}?`;
+        else if (tp && tp.length < 60 && short && /\b(it|its|that|this|they|them|their|those|these)\b/i.test(q) && !ACTY.test(q) && ISQ(q)) qRef = q.replace(/\b(it|that|this|they|them|those|these)\b/i, tp).replace(/\b(its|their)\b/i, `${tp}'s`);
+      }
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = !multi && dev && TR && !att.length && !ctl && !me0 && (ISQ(q) || window.__SB_GATE) && !ACTX(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
       // common misspellings of the words that say what to do ("finsihed", "compelted", "submited", "resechedule")
       const TYPO = [[/\b(finsihed|finshed|fnished|finisehd|finihsed|finised)\b/gi, "finished"], [/\b(compelted|completd|complted|competed)\b/gi, "completed"], [/\b(submited|sumbitted|submittted)\b/gi, "submitted"], [/\b(resechedule|reshedule|rescedule)\b/gi, "reschedule"], [/\b(delte|deleet|delet)\b/gi, "delete"], [/\b(remidn|remnid)\b/gi, "remind"]];
       const qT = TYPO.reduce((x, [re, to]) => x.replace(re, to), q);
-      const was = !att.length ? pendingAsk(q, c) : "", q2 = was || qFix || qT;
+      const was = !att.length ? pendingAsk(q, c) : "", q2 = was || qFix || qRef || qT;
       if (q2 !== q) m.ask = q2;
       let made = null;
+      if (slot) {
+        const d0 = Object.assign({}, slot.d), it0 = d0.intent, v0 = q.trim().replace(/^["“']|["”'.!]+$/g, "");
+        if (/^(make_deck|new_group|add_course|add_task|add_event|rename_task|rename_item)$/.test(it0) && !d0.title) d0.title = v0;
+        else if (it0 === "add_note") d0.text = v0;
+        else if (it0 === "join_group") d0.value = v0;
+        else if (it0 === "add_mark") { if (/\d/.test(v0)) d0.value = v0; else d0.task = v0; }
+        else if (it0 === "add_card") { const p0 = cardParse(`add a card ${v0}`) || []; if (p0[1]) { d0.front = p0[1]; d0.back = p0[2]; } if (!d0.deck) d0.deck = p0[3] || v0; }
+        else if (/^(study_deck|open_item|delete_item)$/.test(it0)) d0.item = d0.deck = v0;
+        made = await intentAct(`${slot.q} ${v0}`, c, att, d0).catch(() => null);
+      }
+      if (!made && mapMore && window.SBCMAP && SBCMAP.expandFrom) {
+        T.status = "Adding to your map…"; draw();
+        try { const r = await SBCMAP.expandFrom(last.a.mapOpen.course, last.a.mapOpen.map, q); made = {answer: `I added ${r.added} more ideas to ${r.name} (${r.ideas} in all). Tap Open Map to see them.`, sources: [], followUps: [], actions: [], mapOpen: last.a.mapOpen}; }
+        catch (e) { made = {answer: (e && e.message) || "I couldn't add to that map just now.", sources: [], followUps: [], actions: [], mapOpen: last.a.mapOpen}; }
+      }
       if (multi) { T.status = "Doing those one at a time…"; draw(); const r = await SBASSIST.ask(q, {screen: false}).catch(() => null); if (r && r.answer) made = {answer: r.answer, sources: [], followUps: [], actions: []}; }
       // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
       if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
