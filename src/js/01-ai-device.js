@@ -466,7 +466,8 @@ function e4bDownload(){
             // (why, for the row in AI Features: no room left in the browser's storage is the usual reason it stops near the end)
             DEVAI.e4bErr = String((e && (e.name === "QuotaExceededError" ? "quota" : e.name === "AbortError" ? "stalled" : e.message)) || e).slice(0, 80);
             if (DEVAI.e4bErr === "quota") { stop = true; DEVAI.e4bFull = true; return; }
-            await new Promise(r => setTimeout(r, 3000 * (t + 1)));
+            // (a refused request is usually the download server saying "too many, slow down": wait properly before asking again)
+            await new Promise(r => setTimeout(r, [15000, 60000, 180000][t] || 180000));
           }
         }
         if (!ok) { stop = true; return; }
