@@ -74565,6 +74565,9 @@ window.SBTRUTH = (() => {
     const kt = (String(q).match(/\b[A-Z][A-Za-z]{1,}\b|\b[A-Z]{2,}\b/g) || []).filter(w => !/^(What|Who|Why|How|When|Where|Which|Is|Are|Do|Does|Can|Could|Explain|Define|Describe|The|A|An|I)$/.test(w));
     plan.queries = [String(q).replace(/^\s*(please\s+)?(can you\s+)?(explain|describe|tell me about|what is|what are|who was|who is|how does|how do|why does|why do|why is|why are)\s+/i, "").replace(/[?!.]+$/, "").slice(0, 120) || String(q).slice(0, 120)];
     { const k2 = kt.join(" ") || (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && w.length > 2 && !/^(created|invented|discovered|wrote|made|founded|caused|happens|happen|work|works|used|stand)$/.test(w)).join(" "); if (k2 && low(k2) !== low(plan.queries[0])) plan.queries.push(k2.slice(0, 80)); }
+    // "the difference between X and Y", "X vs Y", "compare X and Y": X and Y looked up on their own (a search for the whole question finds neither)
+    { const d = String(q).match(/\b(?:difference between|differences between|compare|comparing|contrast)\s+(?:an? |the )?(.{2,60}?)\s+(?:and|with|to|vs\.?|versus)\s+(?:an? |the )?(.{2,60}?)\s*[?!.]*$/i) || String(q).match(/^\s*(?:an? |the )?(.{2,60}?)\s+(?:vs\.?|versus)\s+(?:an? |the )?(.{2,60}?)\s*[?!.]*$/i);
+      if (d) { const ab = {rn: "registered nurse", lpn: "licensed practical nurse", np: "nurse practitioner", cna: "certified nursing assistant", md: "physician"}; plan.queries = [d[1], d[2]].map(x => ab[low(x.trim())] || x.trim()); } }
     if (o.plan && typeof aiOnDevice === "function" && aiOnDevice() && !o.noPlan) {
       try {
         const r = await aiCall({task: "chat", maxTokens: 220, temperature: 0, quiet: true, schema: {type: "OBJECT", properties: {queries: {type: "ARRAY", items: {type: "STRING"}}, papers: {type: "BOOLEAN"}, define: {type: "STRING"}}, required: ["queries"]},
