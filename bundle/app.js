@@ -6556,7 +6556,12 @@ function aiSetupSheet(fromFeature, opts){
   const save = okMsg => {
     const k = keysNow(), bx = $("#aiBackupKey");
     if (bx) { const v = bx.value.trim(); if (v && !kindOk(aiKeyKind(v))) { $("#aiBackupMsg").textContent = `That doesn't look like ${kindsSaid}.`; bx.focus(); return; } }
-    else if (!k.gemini && !k.anthropic && !k.openai && gemOk) { const m = dlg.querySelector('[data-msg="gemini"]'); m.textContent = "Paste your Gemini key first."; dlg.querySelector('[data-key="gemini"]').focus(); return; }
+    // no key at all (the free on-device AI, or Studyboard AI): the rest of the settings are saved, the AI in use stays
+    if (!bx && !k.gemini && !k.anthropic && !k.openai) {
+      const prev0 = state.settings.ai || {}, au = $("#aiAuto"), am = $("#aiAutoModel");
+      state.settings = Object.assign({}, state.settings, {ai: Object.assign({}, prev0, au ? {auto: au.checked} : {}, am ? {autoModel: am.value} : {})}); saveSettings(); autoSave();
+      if (dlg.open) dlg.close(); toast(okMsg || "AI settings saved"); scheduleRender(); return;
+    }
     if (k.gemini && /^(sk-|sb_)/.test(k.gemini)) { dlg.querySelector('[data-msg="gemini"]').textContent = "That doesn't look like a Gemini key. Gemini keys come from Google AI Studio."; return; }
     if (k.anthropic && !/^sk-ant-/.test(k.anthropic)) { dlg.querySelector('[data-msg="anthropic"]').textContent = "Claude API keys start with sk-ant-."; return; }
     const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|");
@@ -74499,6 +74504,16 @@ window.SBTRUTH = (() => {
     q = norm(q);
     const s = low(q).replace(/[?!.]+$/, ""), today = todayISO(), L = window.SBLOCALANS;
     if (!s || s.length > 160) return null;
+    // plain arithmetic ("what is 3x3", "12% of 80", "(4+5)*2"): worked out here, exactly
+    { const m = /^\s*(?:what(?:'s| is)|whats|calculate|compute|solve|how much is)?\s*([-+*/x×÷^().\d\s]+|[\d.]+\s*%\s*of\s*[\d.]+)\s*[=?]*\s*$/i.exec(s);
+      if (m && /\d\s*[-+*/x×÷^%]\s*[\d(]|%\s*of/i.test(m[1])) {
+        let e = m[1].trim(), v = null;
+        const po = /^([\d.]+)\s*%\s*of\s*([\d.]+)$/i.exec(e);
+        if (po) v = Number(po[1]) / 100 * Number(po[2]);
+        else { const js = e.replace(/[x×]/gi, "*").replace(/÷/g, "/").replace(/\^/g, "**"); if (/^[\d\s+\-*/().]+$/.test(js) && !/\*\*\*|\/\//.test(js)) { try { v = Function(`"use strict"; return (${js});`)(); } catch (x) { v = null; } } }
+        if (typeof v === "number" && isFinite(v)) { const r = Math.round(v * 1e10) / 1e10; return {answer: `${e.replace(/\s+/g, " ").replace(/\*/g, "×")} = ${r.toLocaleString("en-US", {maximumFractionDigits: 10})}`, show: []}; }
+      }
+    }
     // study advice built from their planner (98-advice.js): priorities, a plan, how to study for an exam
     { const A = window.SBADVICE; if (A && (A.ADVICE.test(s) || (A.timePlan && A.timePlan(s)))) { const r = A.answer(s); if (r) return r; } }
     // the wider set of planner questions (98-facts.js): averages, best and worst, classes, the next exam, counts, cards due
@@ -74744,14 +74759,15 @@ window.SBTRUTH = (() => {
     // where it came from. At most three model calls each
     const solve = async () => {
       let fallback = null;
-      const tryOnce = async (extra) => { const src = srcOf(); try { const r = await call(src, extra); const x = r && r.data; if (ok(x, src)) return x; if (!fallback && ok(x, src, true)) fallback = x; return null; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; } };
+      const tryOnce = async (extra) => { const src = srcOf(); try { const r = await call(src, extra); const x = r && r.data; if (ok(x, src)) return x; if (!fallback && ok(x, src, true)) fallback = x; return null; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; aiFail = e; return null; } };
       const SHAPE = listQ ? "\n\nIMPORTANT: name every one the sources give, as a list (separated by commas or on their own lines), each with a few words on what it is." : deep ? "\n\nIMPORTANT: write at least 4 full sentences: what it is, then each main part or step from the sources in order, then why it matters." : "";
       let d = await tryOnce();
+      if (aiFail) return d;
       if (!d && fallback) d = (SHAPE ? await tryOnce(SHAPE) : null) || fallback;
-      if (!d) { d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources. If the sources don't answer it, set found to false.${SHAPE}`); if (!d && fallback) d = fallback; }
+      if (!d && !aiFail) { d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources. If the sources don't answer it, set found to false.${SHAPE}`); if (!d && fallback) d = fallback; }
       return d;
     };
-    let fromN = null, fromW = null;
+    let fromN = null, fromW = null, aiFail = null;
     // (only when the notes mention what was asked at all: otherwise straight to the web)
     const touches = notes && keys.some(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     if (notes && !touches && !o.noWeb) { web = web.length ? web : await getWeb(); }
@@ -74772,6 +74788,8 @@ window.SBTRUTH = (() => {
       if (!web.length) web = await getWeb();
       if (web.length) { useNotes = ""; useWeb = web; fromW = await solve(); }
     }
+    // the AI itself failed (not "nothing found"): that's said, with why, instead of "couldn't find"
+    if (!fromN && !fromW && aiFail) throw aiFail;
     if (!fromN && !fromW) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
     const clean = a => String(a || "").trim().replace(/(?<=[.!?])\s+I (couldn't|could not|can't) find [^.]*(notes|web|sources)[^.]*\.?\s*$/i, "").replace(/^(your notes say(,| that)?|according to (your notes|wikipedia)(,)?)\s*/i, m => m);
     const webName = [...new Set(web.map(x => x.src || "Wikipedia"))].slice(0, 2).join(" and ") || "the web";

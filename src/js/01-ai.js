@@ -2593,7 +2593,12 @@ function aiSetupSheet(fromFeature, opts){
   const save = okMsg => {
     const k = keysNow(), bx = $("#aiBackupKey");
     if (bx) { const v = bx.value.trim(); if (v && !kindOk(aiKeyKind(v))) { $("#aiBackupMsg").textContent = `That doesn't look like ${kindsSaid}.`; bx.focus(); return; } }
-    else if (!k.gemini && !k.anthropic && !k.openai && gemOk) { const m = dlg.querySelector('[data-msg="gemini"]'); m.textContent = "Paste your Gemini key first."; dlg.querySelector('[data-key="gemini"]').focus(); return; }
+    // no key at all (the free on-device AI, or Studyboard AI): the rest of the settings are saved, the AI in use stays
+    if (!bx && !k.gemini && !k.anthropic && !k.openai) {
+      const prev0 = state.settings.ai || {}, au = $("#aiAuto"), am = $("#aiAutoModel");
+      state.settings = Object.assign({}, state.settings, {ai: Object.assign({}, prev0, au ? {auto: au.checked} : {}, am ? {autoModel: am.value} : {})}); saveSettings(); autoSave();
+      if (dlg.open) dlg.close(); toast(okMsg || "AI settings saved"); scheduleRender(); return;
+    }
     if (k.gemini && /^(sk-|sb_)/.test(k.gemini)) { dlg.querySelector('[data-msg="gemini"]').textContent = "That doesn't look like a Gemini key. Gemini keys come from Google AI Studio."; return; }
     if (k.anthropic && !/^sk-ant-/.test(k.anthropic)) { dlg.querySelector('[data-msg="anthropic"]').textContent = "Claude API keys start with sk-ant-."; return; }
     const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|");
