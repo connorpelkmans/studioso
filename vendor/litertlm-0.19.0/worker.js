@@ -35,12 +35,22 @@ function textOf(msg){
   if (typeof c === "string") return c;
   return (Array.isArray(c) ? c : []).filter(x => x && x.type === "text").map(x => x.text).join("");
 }
-async function ask({id, system, text, schema, maxTokens, temperature}){
-  const tool = {name: "respond", description: "Give your complete answer. Always answer by calling this, exactly once.", parameters: schemaOf(schema)};
-  const conv = await engine.createConversation({
+async function ask(m){
+  // the answer's shape enforced with a "respond" tool; if this model or runtime won't do that, once more as plain JSON
+  try { await askWith(m, true); }
+  catch (err) { if (m.sent || /cancel/i.test(String(err && err.message))) throw err; await askWith(m, false); }
+}
+async function askWith(m, useTool){
+  const {id, system, text, schema, maxTokens, temperature} = m;
+  // (LiteRT-LM reads tools in the OpenAI form: {type: "function", function: {name, description, parameters}})
+  const tool = {type: "function", function: {name: "respond", description: "Give your complete answer. Always answer by calling this, exactly once.", parameters: schemaOf(schema)}};
+  const sessionConfig = {maxOutputTokens: Math.max(64, Math.min(4096, Number(maxTokens) || 1500)), samplerParams: {temperature: temperature == null ? 0.3 : Math.max(0, Math.min(1, Number(temperature))), k: 40, p: 0.95}};
+  const conv = await engine.createConversation(useTool ? {
     preface: {messages: [{role: "system", content: `${system}\n\nAnswer by calling the respond tool once, with every field filled from what you were given.`}], tools: [tool]},
-    enableConstrainedDecoding: true,
-    sessionConfig: {maxOutputTokens: Math.max(64, Math.min(4096, Number(maxTokens) || 1500)), samplerParams: {temperature: temperature == null ? 0.3 : Math.max(0, Math.min(1, Number(temperature))), k: 40, p: 0.95}}
+    enableConstrainedDecoding: true, sessionConfig
+  } : {
+    preface: {messages: [{role: "system", content: `${system}\n\nReply with only one JSON object matching this JSON Schema, and nothing else (no code fences):\n${JSON.stringify(schemaOf(schema))}`}]},
+    sessionConfig
   });
   current = {id, conv};
   try {
@@ -49,7 +59,7 @@ async function ask({id, system, text, schema, maxTokens, temperature}){
     for await (const chunk of stream) {
       if (!current || current.id !== id) break;
       last = chunk; n += textOf(chunk).length + JSON.stringify(chunk.tool_calls || "").length;
-      post({t: "partial", id, n});
+      post({t: "partial", id, n}); m.sent = true;
     }
     // the tool call's arguments are the answer; plain text (JSON) if it answered without the tool
     const all = conv.getHistory ? await conv.getHistory() : null;
