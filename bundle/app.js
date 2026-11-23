@@ -6992,7 +6992,7 @@ async function devProbe(){
       await null;
       if (!devAllowed()) { DEVAI.status = ""; return; }
       // Gemma 4 E4B, once it's downloaded on a computer that runs it, is used ahead of the rest
-      if (devLs.get(E4B_READY) === "1" && devLs.get(E4B_FAIL) !== "1" && await e4bFits() && await e4bReadyNow(false)) return;
+      if (!e4bOff && devLs.get(E4B_READY) === "1" && devLs.get(E4B_FAIL) !== "1" && await e4bFits() && await e4bReadyNow(false)) return;
       const N = devNative();
       if (N) {
         const r = await N.availability();
@@ -7137,7 +7137,20 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   const sys = String(system || "") + DEV_TAIL, json = toJsonSchema(schema || {type: "OBJECT"});
   const out = Math.min(Number(maxTokens) || 1500, 1800);
   if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
-  if (DEVAI.kind === "litert") return devLite({sys, parts, json, out: Math.min(Number(maxTokens) || 1500, 2000), temperature, signal, onStatus});
+  if (DEVAI.kind === "litert") {
+    try { return await devLite({sys, parts, json, out: Math.min(Number(maxTokens) || 1500, 2000), temperature, signal, onStatus}); }
+    catch (e) {
+      // E4B that never got a word out (or wouldn't start): this session goes back to the AI the computer had (Chrome's built-in
+      // AI, say), and this request is answered with it, so the student isn't left waiting. It's tried again next time Studyboard opens.
+      if (!e || !/^(device-stall|device-failed)$/.test(String(e.code || "")) || e.wrote || (signal && signal.aborted)) throw e;
+      e4bOff = true; e4bStop(); DEVAI.kind = ""; DEVAI.status = ""; await devProbe();
+      try { toast("Studyboard's stronger AI didn't respond on this computer, so it's using " + devLabel() + " for now."); } catch (x) {}
+      if (DEVAI.status !== "available" || DEVAI.kind === "litert") throw e;
+      if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
+      if (DEVAI.kind === "webllm") return devWeb({sys, parts, json, out, temperature, signal, onStatus, auto});
+      return devChrome({sys, parts, json, out, signal, onStatus, onPartial, auto, pics: pics.length > 0});
+    }
+  }
   if (DEVAI.kind === "webllm") return devWeb({sys, parts, json, out, temperature, signal, onStatus, auto});
   return devChrome({sys, parts, json, out, signal, onStatus, onPartial, auto, pics: pics.length > 0});
 }
@@ -7508,7 +7521,7 @@ let e4bW = null, e4bLoad = null, e4bIdle = null, e4bSeq = 0;
 const e4bWait = new Map();
 // Loading E4B onto the graphics chip takes a while the first time after the page opens (it reads 3.3 GB): it starts as soon as
 // the student goes to type to the AI, so the first answer doesn't wait on it, and the chat gives that first load extra time
-let e4bLoaded = false;
+let e4bLoaded = false, e4bOff = false;
 function e4bWarm(){ if (DEVAI.kind === "litert" && DEVAI.e4b === "ready" && !e4bLoad) e4bWorker().then(() => { e4bRest(); }, () => {}); }
 document.addEventListener("focusin", e => { try { if (e.target && e.target.matches && e.target.matches("#cptIn, .cp-ask-in, [data-ai-input]")) e4bWarm(); } catch (x) {} });
 function e4bStop(){ clearTimeout(e4bIdle); try { e4bW && e4bW.terminate(); } catch (e) {} e4bW = null; e4bLoad = null; e4bLoaded = false; e4bWait.forEach(w => w.no(aiErr("device-failed", "Stopped."))); e4bWait.clear(); }
@@ -7558,7 +7571,7 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
       if (signal) signal.addEventListener("abort", stop, {once: true});
       // nothing new for 30 seconds once it's writing (90 before the first words: a slower graphics chip reads a long request first),
       // or 4 minutes in all: stopped, not waited on forever
-      dog = setInterval(() => { if (Date.now() - last > (any ? 30000 : 90000) || Date.now() - t0 > DEV_MAX_MS + 60000) { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("device-stall", `${L} stopped answering.`)); } }, 1000);
+      dog = setInterval(() => { if (Date.now() - last > (any ? 30000 : 90000) || Date.now() - t0 > DEV_MAX_MS + 60000) { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(Object.assign(aiErr("device-stall", `${L} stopped answering.`), {wrote: any})); } }, 1000);
       e4bW.postMessage({t: "ask", id, system: sys, text, schema: json, maxTokens: o2, temperature});
     });
     const data = aiParseJson(raw);
