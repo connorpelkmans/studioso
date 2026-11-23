@@ -15,6 +15,8 @@ function autoState(){
   // Free Gemini for automatic AI when the student has a key, except on Studyboard AI (paid Pro), where their key is only the backup
   const cfg = c.provider !== "studyboard" && !c.backup && raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
   if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};
+  // (the on-device AI is free, but doesn't run by itself in the background: it would slow the computer down)
+  if (cfg.provider === "device") return {on: false, reason: "device", cfg};
   const paid = !isAutoFree(cfg.provider, cfg.model);
   if (paid && raw.autoPaidOk !== `${cfg.provider}|${cfg.model}`) return {on: false, reason: "confirm", cfg, paid};
   return {on: true, cfg, paid};

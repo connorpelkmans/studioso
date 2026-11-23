@@ -860,6 +860,8 @@
     return out;
   }
   // The same retrieval Ask With AI uses (tasks, cards, notes, files and what's inside them)
+  // a Studyboard backup (or a JSON export of it) they keep in Files
+  const appDataFile = f => !!f && (/\b(backup|export)\b/i.test(f.name || "") && /\.json$/i.test(f.name || "") || /^(studyboard|studioso|coursework)\b[^\n]*\.json$/i.test(f.name || ""));
   async function retrieve(q, o){
     o = o || {};
     const out = {rows: [], text: "", src: []};
@@ -883,7 +885,9 @@
           if (SEM.vecs.size) { const got = o.semWait ? await Promise.race([semQuery(q, all), wait(o.semWait).then(() => [])]) : await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
         } catch(e) {}
       }
-      const rows = fuse(kw, sm).slice(0, o.max || 8), per = o.chars || 1500;
+      // (never a Studyboard backup or other app data file: it's the planner itself as raw JSON, not something they're studying)
+      const fileOf = x => state.files[x.doc.type === "chunk" ? x.doc.fid : x.doc.type === "file" ? x.doc.id : ""];
+      const rows = fuse(kw, sm).filter(x => !appDataFile(fileOf(x))).slice(0, o.max || 8), per = o.chars || 1500;
       out.rows = rows;
       out.text = rows.map((x, i) => {
         const d = x.doc, body = x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n"));

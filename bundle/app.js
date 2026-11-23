@@ -6381,7 +6381,7 @@ function aiRow(){
   const on = aiReady(), c = aiCfg();
   if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of the limit used over the last 7 days.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
   if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
-  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : Object.keys(aiBlockedKeys()).length ? `Off. Studyboard no longer uses your own ${esc(Object.keys(aiBlockedKeys()).map(p => AI_PROVIDERS[p].short).join(" and "))} key. Add a free Gemini key, or get Studyboard AI with Pro.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
+  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? c.provider === "device" ? `On, using ${typeof aiDevName === "function" ? aiDevName() : esc(aiModelName(c.provider, c.model))}: free, and it runs on this computer.` : `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : Object.keys(aiBlockedKeys()).length ? `Off. Studyboard no longer uses your own ${esc(Object.keys(aiBlockedKeys()).map(p => AI_PROVIDERS[p].short).join(" and "))} key. Add a free Gemini key, or get Studyboard AI with Pro.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on && c.provider !== "device" ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
 // Which company a pasted key is from, by its format (Claude keys also start with sk-, so they're checked first)
 const aiKeyKind = k => /^sk-ant-/.test(k) ? "anthropic" : /^sk-/.test(k) ? "openai" : /^AIza/.test(k) ? "gemini" : "";
@@ -7501,7 +7501,12 @@ document.addEventListener("click", e => {
 /* Talking to the model: one worker, loaded on first use and let go after a few idle minutes (its graphics memory is freed) */
 let e4bW = null, e4bLoad = null, e4bIdle = null, e4bSeq = 0;
 const e4bWait = new Map();
-function e4bStop(){ clearTimeout(e4bIdle); try { e4bW && e4bW.terminate(); } catch (e) {} e4bW = null; e4bLoad = null; e4bWait.forEach(w => w.no(aiErr("device-failed", "Stopped."))); e4bWait.clear(); }
+// Loading E4B onto the graphics chip takes a while the first time after the page opens (it reads 3.3 GB): it starts as soon as
+// the student goes to type to the AI, so the first answer doesn't wait on it, and the chat gives that first load extra time
+let e4bLoaded = false;
+function e4bWarm(){ if (DEVAI.kind === "litert" && DEVAI.e4b === "ready" && !e4bLoad) e4bWorker().then(() => { e4bRest(); }, () => {}); }
+document.addEventListener("focusin", e => { try { if (e.target && e.target.matches && e.target.matches("#cptIn, .cp-ask-in, [data-ai-input]")) e4bWarm(); } catch (x) {} });
+function e4bStop(){ clearTimeout(e4bIdle); try { e4bW && e4bW.terminate(); } catch (e) {} e4bW = null; e4bLoad = null; e4bLoaded = false; e4bWait.forEach(w => w.no(aiErr("device-failed", "Stopped."))); e4bWait.clear(); }
 async function e4bModel(){
   if (window.__SB_TEST && window.__SB_E4B_STUB && window.__SB_E4B_STUB.model) return window.__SB_E4B_STUB.model;
   const D = e4bDesk(); if (D) return new URL("__ai-model/e4b.litertlm", location.href).href;
@@ -7516,14 +7521,15 @@ function e4bWorker(onStatus){
     const stub = window.__SB_TEST && window.__SB_E4B_STUB;
     e4bW = stub && stub.worker ? stub.worker() : new Worker(new URL(E4B.dir + "worker.js", location.href).href);
     e4bW.onmessage = e => { const m = e.data || {}, w = e4bWait.get(m.id); if (!w) return; if (m.t === "partial") w.part(m.n); else { e4bWait.delete(m.id); if (m.t === "done" || m.t === "loaded") w.ok(m.text); else w.no(Object.assign(aiErr("device-failed", "Studyboard's on-device AI couldn't answer that. Try again."), {detail: String(m.message || "").slice(0, 300)})); } };
-    if (onStatus) onStatus("Starting Studyboard's on-device AI…");
+    if (onStatus) onStatus("Starting Studyboard's on-device AI… The first time after opening Studyboard takes up to a minute.");
     const model = await e4bModel(), local = e4bDesk() ? [new URL(E4B.dir + "wasm", location.href).href] : [];
     await new Promise((ok, no) => { e4bWait.set(0, {ok, no, part(){}}); e4bW.postMessage({t: "load", id: 0, model, wasm: local.concat(E4B.wasmCdn), ctx: E4B.ctx}); });
+    e4bLoaded = true;
   })().catch(e => { e4bStop(); throw e; });
   // "loaded" answers with id 0 too
   return e4bLoad;
 }
-function e4bRest(){ clearTimeout(e4bIdle); e4bIdle = setTimeout(() => { if (!e4bWait.size) e4bStop(); }, 180000); }
+function e4bRest(){ clearTimeout(e4bIdle); e4bIdle = setTimeout(() => { if (!e4bWait.size) e4bStop(); }, 20 * 60000); }
 async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
   const L = devLabel();
   try { await e4bWorker(onStatus); }
@@ -9202,6 +9208,8 @@ function autoState(){
   // Free Gemini for automatic AI when the student has a key, except on Studyboard AI (paid Pro), where their key is only the backup
   const cfg = c.provider !== "studyboard" && !c.backup && raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
   if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};
+  // (the on-device AI is free, but doesn't run by itself in the background: it would slow the computer down)
+  if (cfg.provider === "device") return {on: false, reason: "device", cfg};
   const paid = !isAutoFree(cfg.provider, cfg.model);
   if (paid && raw.autoPaidOk !== `${cfg.provider}|${cfg.model}`) return {on: false, reason: "confirm", cfg, paid};
   return {on: true, cfg, paid};
@@ -32089,6 +32097,8 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     return out;
   }
   // The same retrieval Ask With AI uses (tasks, cards, notes, files and what's inside them)
+  // a Studyboard backup (or a JSON export of it) they keep in Files
+  const appDataFile = f => !!f && (/\b(backup|export)\b/i.test(f.name || "") && /\.json$/i.test(f.name || "") || /^(studyboard|studioso|coursework)\b[^\n]*\.json$/i.test(f.name || ""));
   async function retrieve(q, o){
     o = o || {};
     const out = {rows: [], text: "", src: []};
@@ -32112,7 +32122,9 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
           if (SEM.vecs.size) { const got = o.semWait ? await Promise.race([semQuery(q, all), wait(o.semWait).then(() => [])]) : await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
         } catch(e) {}
       }
-      const rows = fuse(kw, sm).slice(0, o.max || 8), per = o.chars || 1500;
+      // (never a Studyboard backup or other app data file: it's the planner itself as raw JSON, not something they're studying)
+      const fileOf = x => state.files[x.doc.type === "chunk" ? x.doc.fid : x.doc.type === "file" ? x.doc.id : ""];
+      const rows = fuse(kw, sm).filter(x => !appDataFile(fileOf(x))).slice(0, o.max || 8), per = o.chars || 1500;
       out.rows = rows;
       out.text = rows.map((x, i) => {
         const d = x.doc, body = x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n"));
@@ -75002,6 +75014,11 @@ window.SBTRUTH = (() => {
     const sec = name => { const i = t.indexOf(name); if (i < 0) return ""; const j = t.indexOf("\n\n", i + name.length); return t.slice(i, j < 0 ? undefined : j); };
     const nx = LOCAL.NEXT_Q.test(String(q || "")) ? LOCAL.nextLine() : "";
     if (nx) L.push("- " + nx);
+    // a hello or a thanks: a friendly reply, not search results
+    if (/^\s*(hi|hey|hello|yo|sup|hiya|howdy|good (morning|afternoon|evening)|thanks|thank you|thx|ty)\b[^?]{0,40}\??\s*$|^\s*((hi|hey|hello)\b[^?]{0,20})?how are (you|u)( doing)?( today)?\s*\??\s*$|^\s*what'?s up\s*\??\s*$/i.test(String(q || ""))) {
+      const me = info() || {};
+      return {answer: /thank|thx|\bty\b/i.test(q) ? "You're welcome! I'm here whenever you need me." : `Hi! ${me.name ? me.name + " here, " : ""}doing great and ready to help. What are you working on?`, followUps: []};
+    }
     const sr = sec("SEARCH RESULTS");
     if (!L.length && sr) (sr.match(/\[\d+\] [^\n]*\n[^\n]*/g) || []).slice(0, 4).forEach((x, i) => {
       const d = rows[i] && rows[i].doc, tk = d && d.type === "task" && state.tasks[d.id];
@@ -75009,6 +75026,7 @@ window.SBTRUTH = (() => {
       const [h, b] = x.split("\n"), head = h.replace(/^\[\d+\] /, "").trim(), title = head.replace(/^[^:]{1,24}: /, "");
       // the body starts with the title again: once is enough
       const body = String(b || "").startsWith(title) ? String(b).slice(title.length).replace(/^[\s:·,.-]+/, "") : String(b || "");
+      if (/[{\[]\s*"[\w$]+"\s*:|"\s*:\s*[\[{"]|\\n|\b\d{13}\b/.test(body)) return;  // raw data (JSON and the like) isn't an answer
       L.push(`- **${head}**${body ? ": " + clip(body, 220) : ""}`);
     });
     if (!L.length) ["OPEN TASKS", "COURSES", "CLASSES AND EVENTS", "COURSE GRADES", "STICKY NOTES"].forEach(n => { const x = sec(n); if (x && L.length < 10) x.split("\n").slice(0, 7).forEach(l => L.push(l)); });
@@ -75599,7 +75617,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       }
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
     })();
-    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), (window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX))])) m = {q: m.q, at: m.at, files: m.files, err: "That took too long, so I stopped. Try asking again, maybe in fewer words.", errCode: "slow"};
+    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), ((window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX) + (typeof e4bLoaded !== "undefined" && typeof DEVAI !== "undefined" && DEVAI.kind === "litert" && !e4bLoaded ? 120000 : 0)))])) m = {q: m.q, at: m.at, files: m.files, err: "That took too long, so I stopped. Try asking again, maybe in fewer words.", errCode: "slow"};
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();

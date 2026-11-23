@@ -199,6 +199,11 @@
     const sec = name => { const i = t.indexOf(name); if (i < 0) return ""; const j = t.indexOf("\n\n", i + name.length); return t.slice(i, j < 0 ? undefined : j); };
     const nx = LOCAL.NEXT_Q.test(String(q || "")) ? LOCAL.nextLine() : "";
     if (nx) L.push("- " + nx);
+    // a hello or a thanks: a friendly reply, not search results
+    if (/^\s*(hi|hey|hello|yo|sup|hiya|howdy|good (morning|afternoon|evening)|thanks|thank you|thx|ty)\b[^?]{0,40}\??\s*$|^\s*((hi|hey|hello)\b[^?]{0,20})?how are (you|u)( doing)?( today)?\s*\??\s*$|^\s*what'?s up\s*\??\s*$/i.test(String(q || ""))) {
+      const me = info() || {};
+      return {answer: /thank|thx|\bty\b/i.test(q) ? "You're welcome! I'm here whenever you need me." : `Hi! ${me.name ? me.name + " here, " : ""}doing great and ready to help. What are you working on?`, followUps: []};
+    }
     const sr = sec("SEARCH RESULTS");
     if (!L.length && sr) (sr.match(/\[\d+\] [^\n]*\n[^\n]*/g) || []).slice(0, 4).forEach((x, i) => {
       const d = rows[i] && rows[i].doc, tk = d && d.type === "task" && state.tasks[d.id];
@@ -206,6 +211,7 @@
       const [h, b] = x.split("\n"), head = h.replace(/^\[\d+\] /, "").trim(), title = head.replace(/^[^:]{1,24}: /, "");
       // the body starts with the title again: once is enough
       const body = String(b || "").startsWith(title) ? String(b).slice(title.length).replace(/^[\s:·,.-]+/, "") : String(b || "");
+      if (/[{\[]\s*"[\w$]+"\s*:|"\s*:\s*[\[{"]|\\n|\b\d{13}\b/.test(body)) return;  // raw data (JSON and the like) isn't an answer
       L.push(`- **${head}**${body ? ": " + clip(body, 220) : ""}`);
     });
     if (!L.length) ["OPEN TASKS", "COURSES", "CLASSES AND EVENTS", "COURSE GRADES", "STICKY NOTES"].forEach(n => { const x = sec(n); if (x && L.length < 10) x.split("\n").slice(0, 7).forEach(l => L.push(l)); });
@@ -796,7 +802,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       }
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
     })();
-    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), (window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX))])) m = {q: m.q, at: m.at, files: m.files, err: "That took too long, so I stopped. Try asking again, maybe in fewer words.", errCode: "slow"};
+    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), ((window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX) + (typeof e4bLoaded !== "undefined" && typeof DEVAI !== "undefined" && DEVAI.kind === "litert" && !e4bLoaded ? 120000 : 0)))])) m = {q: m.q, at: m.at, files: m.files, err: "That took too long, so I stopped. Try asking again, maybe in fewer words.", errCode: "slow"};
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
