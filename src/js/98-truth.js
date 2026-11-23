@@ -269,7 +269,7 @@ window.SBTRUTH = (() => {
     { const fn = fromNotes(q); if (fn) return fn; }
     // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
     // the answer from the notes alone doesn't hold up
-    const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
+    const keys = (low(q).replace(/\b(ww ?(1|i)|world war (1|i|one))\b/g, "wwi").replace(/\b(ww ?(2|ii)|world war (2|ii|two))\b/g, "wwii").match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
     const mine = window.SBSEARCH ? await SBSEARCH.retrieve(q, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
     const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     let web = [], useNotes = "", useWeb = [];
@@ -278,7 +278,7 @@ window.SBTRUTH = (() => {
     if (!notes && !web.length) return {answer: o.noWeb ? "I couldn't find anything about that in your Studyboard." : "I couldn't find anything about that in your notes, your files or on the web. Try other words, or add your notes on it.", sources: [], found: false};
     const deep = /^\s*(explain|describe|how (does|do|did|is|are|can)|why|walk me through|tell me about|compare|what('s| is) the difference)\b/i.test(q);
     const sys = `You answer a student's question using only the sources given. Your first sentence answers exactly what they asked, directly. ${deep ? "Then explain it properly in 3 to 5 more sentences: the main parts or steps in order, how they connect, and why it matters, all from the sources." : "Then add 1 to 3 sentences with the most useful detail: how it works, why it matters, or a short example."} If the question asks for several things (what are the..., types, kinds, phases, stages, causes, steps, examples), list every one the sources give. If it asks for an example, give one. If the question could mean several things, answer the meaning that fits their notes and course. If the sources don't answer it, set found to false and say you couldn't find it. Plain text, no markdown.`;
-    const srcOf = () => `${useNotes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note):\n${useNotes}\n\n` : ""}${useWeb.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(useWeb)}` : ""}`;
+    const srcOf = () => `${useNotes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note, never which kind of item it was, like "your flashcard" or "the deck"):\n${useNotes}\n\n` : ""}${useWeb.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(useWeb)}` : ""}`;
     // the level they ask for: "like I'm 12", "simply", "ELI5", "in plain English", "dumb it down"
     const simple = /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child|in (middle|elementary) school)\b|\beli5\b|\bsimpl(e|y|er)( terms| words| way)?\b|\bplain english\b|\bdumb(ed)? (it )?down\b|\bfor (a )?(kid|beginner|dummies)\b|\bbasic terms\b/i.test(q);
     const level = simple ? "\n\nThe student asked for it simply: use short sentences and everyday words a 12-year-old knows, explain any term you have to use, and give one everyday comparison (\"it's like...\"). Keep every fact correct and from the sources." : "";
@@ -288,6 +288,10 @@ window.SBTRUTH = (() => {
     const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false;
       // "who ...": the answer has to name someone the question didn't
       if (/^\s*who\b/i.test(q) && !(a.match(/(?<!\b(?:in|of|at|from|to) )\b[A-Z][a-z]+\b/g) || []).some(n => !low(q).includes(low(n)) && !/^(From|Your|The|This|That|They|He|She|It|In|On|At|According|Wikipedia|Archduke|King|Queen|Prince|Princess|Emperor|President|Dr|Doctor|Professor|Sir|Saint|St|January|February|March|April|May|June|July|August|September|October|November|December)$/.test(n))) return false;
+      // a "what is X" answered with only the question's own words ("the working phase is one of the phases") says nothing yet
+      { const qw = new Set((low(q).match(/[a-z]+/g) || []).map(w => w.slice(0, 5)));
+        const fresh = (low(a).match(/[a-z]{4,}/g) || []).filter(w => !qw.has(w.slice(0, 5)) && !/^(your|notes?|says?|said|that|this|these|which|with|from|they|their|there|what|when|also|according|wikipedia|flashcards?|deck|theory|ones?|part|parts|called|known|being|have|been|into|about|some|more|most|such)$/.test(w));
+        if (/^\s*(what'?s|whats|what (is|are|was|were|does|do)|explain|define|describe|tell me about)\b/i.test(q) && !/\d/.test(a) && new Set(fresh).size < 3) return false; }
       return true; };
     const ok = (x, src, loose) => x && x.answer && x.found !== false && !nonAnswer(q, x.answer) && !unsupported(x.answer, src + "\n" + q).length && (loose || shape(x));
     // one source at a time: the notes alone, then (when they don't fully answer it) the web alone, so each part of the answer says
