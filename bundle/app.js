@@ -7387,14 +7387,23 @@ function e4bDownload(){
       } catch (e) {}
       // elsewhere (and anything Background Fetch didn't finish): part by part, while Studyboard is open
       // (4 parts at a time: one connection to the download server is often slower than the student's internet)
-      const queue = missing.slice(); let stop = false;
+      const queue = missing.slice(); let stop = false; const inFlight = {};
+      let liveAt = 0; const sayLive = () => Date.now() - liveAt < 700 ? 0 : (liveAt = Date.now(), say(Math.min(0.999, (e4bParts() - missing.length) / e4bParts() + Object.values(inFlight).reduce((n, x) => n + x, 0) / E4B.size)));
       const one = async i => {
         if (!e4bNetOk() || devLs.get(E4B_ON) !== "1") { stop = true; return; }
         let ok = false;
         for (let t = 0; t < 3 && !ok; t++) {
           try {
-            const r = await fetch(E4B.url, {headers: {Range: range(i)}}); if (!(r.status === 206 || r.status === 200)) throw new Error("HTTP " + r.status);
-            const b = await r.blob(), want = Math.min(E4B.size, (i + 1) * E4B.part) - i * E4B.part; if (b.size !== want) throw new Error("short part");
+            // read as it arrives: the percentage moves within a part, and a part that stalls for a minute is tried again
+            const ac = new AbortController(); let stall = setTimeout(() => ac.abort(), 60000);
+            const r = await fetch(E4B.url, {headers: {Range: range(i)}, signal: ac.signal}); if (!(r.status === 206 || r.status === 200)) throw new Error("HTTP " + r.status);
+            const want = Math.min(E4B.size, (i + 1) * E4B.part) - i * E4B.part, chunks = []; let got = 0;
+            try {
+              const rd = r.body.getReader();
+              for (;;) { const {done, value} = await rd.read(); if (done) break; chunks.push(value); got += value.length; inFlight[i] = got;
+                clearTimeout(stall); stall = setTimeout(() => ac.abort(), 60000); sayLive(); }
+            } finally { clearTimeout(stall); delete inFlight[i]; }
+            const b = new Blob(chunks); if (b.size !== want) throw new Error("short part");
             await cache.put(new Request(e4bKey(i)), new Response(b, {headers: {"Content-Length": String(b.size)}})); ok = true;
           } catch (e) { await new Promise(r => setTimeout(r, 3000 * (t + 1))); }
         }
