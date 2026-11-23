@@ -32,6 +32,25 @@ window.SBFACTS = (() => {
     // "best", "worst" are about grades only next to a course word
     if (/\b(best|worst|highest|lowest|strongest|weakest)\b/.test(s) && !/\b(grades?|marks?|class|classes|course|courses|subject|subjects|doing|score|scores)\b/.test(s)) return null;
     const rows = gradeRows(), marked = rows.filter(r => r.cur != null && !r.zero);
+    // "how am I doing (in my courses)": each course's marks if it has any, else how its work is going (done, overdue, next due)
+    if (/\bhow (am|'?m) i doing\b|\bhow are my (classes|courses)( going)?\b|\bhow('?s| is) (school|everything|my semester) going\b/.test(s) && !courseIn(s)) {
+      const today = todayISO(), cs = (typeof coursesArr === "function" ? coursesArr() : Object.values(state.courses || {})).filter(c => !c.archived);
+      const lines = cs.map(c => {
+        const r = rows.find(x => [c.code, c.name].filter(Boolean).some(y => low(x.code).includes(low(y)) || low(y).includes(low(x.code))));
+        const ts = tasksArr().filter(t => t.courseId === c.id && !t.archived), done = ts.filter(t => t.status === "done").length;
+        const late = ts.filter(t => t.status !== "done" && t.due && t.due < today), next = ts.filter(t => t.status !== "done" && t.due && t.due >= today).sort((a, b) => a.due.localeCompare(b.due))[0];
+        if (!ts.length && !(r && r.cur != null)) return null;
+        const bits = [];
+        if (r && r.cur != null) bits.push(`${r.cur}%${r.letter ? ` (${r.letter})` : ""}${r.pass != null && r.cur < r.pass ? `, below the ${r.pass}% pass mark` : ""}`);
+        if (ts.length) bits.push(`${done} of ${ts.length} done`);
+        if (late.length) bits.push(`${pl(late.length, "overdue task")}`);
+        if (next) bits.push(`next: ${next.title}, ${typeof dayName === "function" ? dayName(next.due, today) : next.due}`);
+        return {c, late: late.length, text: `- ${label(c)}${c.name && c.code ? " " + c.name : ""}: ${bits.join("; ")}`};
+      }).filter(Boolean);
+      if (!lines.length) return {answer: "There's nothing to go on yet: your courses don't have tasks or marks in Studyboard. Add your assignments (or connect your school site) and I can tell you how each one is going.", show: []};
+      const late = lines.reduce((n, x) => n + x.late, 0);
+      return {answer: `${late ? `You're on track in most places, with ${pl(late, "overdue task")} to catch up on.` : "You're on top of things: nothing is overdue."}${marked.length ? "" : " (No marks are in Studyboard yet, so this is how your work is going.)"}\n${lines.sort((a, b) => b.late - a.late).map(x => x.text).join("\n")}`, show: []};
+    }
     if (!rows.length) return /\b(average|gpa|overall|all|across|best|worst|failing|passing)\b/.test(s) ? {answer: "You don't have any marks in Studyboard yet. Add them in Grades, or connect your school site, and I can work this out.", show: []} : null;
     const c = courseIn(s);
     // one piece of work named ("my grade on the psych midterm"): its own mark, or that it isn't marked yet

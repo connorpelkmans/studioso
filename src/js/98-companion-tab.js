@@ -721,9 +721,13 @@ Examples:
       // a request to do something (any wording) is understood by the AI and done by the app (intentAct); a planner question with
       // no request in it is answered from the app's own data first (exact, instant)
       const ACTY = /\b(add|put|make|create|delete|remove|get rid|erase|trash|move|push|reschedule|mark|check off|finish|finished|done|submitted|turned in|rename|call it|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|show me|jot|note|remind|schedule|book|cancel|undo|revert|edit|update)\b/i;
-      const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length && !ctl && !me0 && !ACTY.test(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(q) : null;
+      // "I meant all my courses", "no, for BIOS 230": the earlier question again, with what they meant (no AI step needed to see that)
+      const fix = !att.length ? /^\s*(?:no[,.!]?\s+)?(?:i (?:meant|mean)|what i meant was|i was asking about|i'?m asking about|not that[,.]?\s*)\s+(.{2,120}?)[.!?]*\s*$/i.exec(q) : null;
+      const prevQ0 = fix ? ((c.msgs || []).filter(x => x.q && x.a).slice(-1)[0] || {}).q || "" : "";
+      const qFix = fix && prevQ0 ? `${prevQ0.replace(/[?!.]+\s*$/, "")} (${fix[1]})?` : "";
+      const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = dev && TR && !att.length && !ctl && !me0 && !ACTY.test(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
-      const was = !att.length ? pendingAsk(q, c) : "", q2 = was || q;
+      const was = !att.length ? pendingAsk(q, c) : "", q2 = was || qFix || q;
       let made = null;
       // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
       if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
@@ -736,11 +740,11 @@ Examples:
       if (!quick && !made && !att.length && window.SBASSIST && SBASSIST.findNotes) { const fn = await SBASSIST.findNotes(q2).catch(() => null); if (fn) made = {answer: fn.answer, sources: fn.show && fn.show.length ? ["Your notes"] : [], followUps: [], actions: [], show: fn.show && fn.show.length ? SBASSIST.pack(fn).show : undefined}; }
       if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
       // anything the app's own quick steps didn't recognize: the AI works out which action it is (any wording), and the app does it
-      if (!made && !quick && !PLAINQ) { T.status = "Working out what to do…"; draw(); made = await intentAct(q2, c, att).catch(e => { console.warn("intent", e); return null; }); }
+      if (!made && !quick && !PLAINQ && (ACTY.test(q2) || att.length)) { T.status = "Working out what to do…"; draw(); made = await intentAct(q2, c, att).catch(e => { console.warn("intent", e); return null; }); }
       // a question about the subject (on the device): the same answer as Ask's, from their own material first, then the web
       if (!quick && !made && dev && !att.length && TR && TR.general(q2) && !(window.SBASSIST && SBASSIST.appQ(q2))) {
         T.status = "Looking through your notes…"; draw();
-        const k = await TR.knowledge(q2, {onStatus: x => { T.status = x; draw(); }});
+        const k = await TR.knowledge(q2, {onStatus: x => { T.status = x; draw(); }, onPartial: t => { T.live = t; drawStatus(); }});
         made = {answer: k.answer, sources: k.found ? [...(k.notesSrc || []).slice(0, 3), ...(k.sources || []).map(x => x.src + ": " + x.title)].map(x => clip(x, 40)).slice(0, 5) : [], followUps: [], actions: []};
       }
       if (quick) m.a = {answer: quick.answer, sources: ["Your planner"], followUps: [], actions: []};

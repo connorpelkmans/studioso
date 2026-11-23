@@ -188,7 +188,7 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   const out = Math.min(Number(maxTokens) || 1500, 1800);
   if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
   if (DEVAI.kind === "litert") {
-    try { return await devLite({sys, parts, json, out: Math.min(Number(maxTokens) || 1500, 2000), temperature, signal, onStatus}); }
+    try { return await devLite({sys, parts, json, out: Math.min(Number(maxTokens) || 1500, 2000), temperature, signal, onStatus, onPartial}); }
     catch (e) {
       // E4B that never got a word out (or wouldn't start): this session goes back to the AI the computer had (Chrome's built-in
       // AI, say), and this request is answered with it, so the student isn't left waiting. It's tried again next time Studyboard opens.
@@ -573,7 +573,7 @@ const e4bWait = new Map();
 // the student goes to type to the AI, so the first answer doesn't wait on it, and the chat gives that first load extra time
 let e4bLoaded = false, e4bOff = false;
 // (vendor/ files are cached for a month: a new worker gets a new address)
-const E4B_WORKER_V = "3";
+const E4B_WORKER_V = "4";
 function e4bWarm(){ if (DEVAI.kind === "litert" && DEVAI.e4b === "ready" && !e4bLoad) e4bWorker().then(() => { e4bRest(); }, () => {}); }
 document.addEventListener("focusin", e => { try { if (e.target && e.target.matches && e.target.matches("#cptIn, .cp-ask-in, [data-ai-input]")) e4bWarm(); } catch (x) {} });
 // reaching for anything AI (an AI button, AI Features): it starts loading too
@@ -595,7 +595,7 @@ function e4bWorker(onStatus){
   e4bLoad = (async () => {
     const stub = window.__SB_TEST && window.__SB_E4B_STUB;
     e4bW = stub && stub.worker ? stub.worker() : new Worker(new URL(E4B.dir + "worker.js?v=" + E4B_WORKER_V, location.href).href);
-    e4bW.onmessage = e => { const m = e.data || {}, w = e4bWait.get(m.id); if (!w) return; if (m.t === "partial") w.part(m.n); else { e4bWait.delete(m.id); if (m.t === "done" || m.t === "loaded") w.ok(m.text); else w.no(Object.assign(aiErr("device-failed", "Studyboard's on-device AI couldn't answer that. Try again."), {detail: String(m.message || "").slice(0, 300)})); } };
+    e4bW.onmessage = e => { const m = e.data || {}, w = e4bWait.get(m.id); if (!w) return; if (m.t === "partial") w.part(m.n, m.text); else { e4bWait.delete(m.id); if (m.t === "done" || m.t === "loaded") w.ok(m.text); else w.no(Object.assign(aiErr("device-failed", "Studyboard's on-device AI couldn't answer that. Try again."), {detail: String(m.message || "").slice(0, 300)})); } };
     if (onStatus) onStatus("Starting Studyboard's on-device AI… The first time after opening Studyboard takes up to a minute.");
     const model = await e4bModel(), local = e4bDesk() ? [new URL(E4B.dir + "wasm", location.href).href] : [];
     await new Promise((ok, no) => { e4bWait.set(0, {ok, no, part(){}}); e4bW.postMessage({t: "load", id: 0, model, wasm: local.concat(E4B.wasmCdn), ctx: E4B.ctx}); });
@@ -605,7 +605,13 @@ function e4bWorker(onStatus){
   return e4bLoad;
 }
 function e4bRest(){ clearTimeout(e4bIdle); e4bIdle = setTimeout(() => { if (!e4bWait.size) e4bStop(); }, 20 * 60000); }
-async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
+// the "answer" (or "text") field of a JSON reply that's still being written
+function devLiveAnswer(t){
+  const m = /"(?:answer|text|reply)"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(String(t || "")); if (!m) return "";
+  let v = m[1].replace(/\\$/, ""); try { v = JSON.parse('"' + v + '"'); } catch (e) { v = v.replace(/\\n/g, "\n").replace(/\\"/g, '"'); }
+  return v.trim().length > 12 ? v : "";
+}
+async function devLite({sys, parts, json, out, temperature, signal, onStatus, onPartial}){
   const L = devLabel();
   try { await e4bWorker(onStatus); }
   catch (e) {
@@ -623,7 +629,10 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
   let last = Date.now(), dog = null, any = false;
   try {
     const raw = await new Promise((ok, no) => {
-      e4bWait.set(id, {ok, no, part(n){ last = Date.now(); any = true; if (onStatus) onStatus(`${L} is writing… ${Math.max(1, Math.round(n / 6))} words so far (${Math.round((Date.now() - t0) / 1000)}s)`); }});
+      e4bWait.set(id, {ok, no, part(n, txt){ last = Date.now(); any = true;
+        // the answer as it's written: the "answer" field of the JSON so far, shown live
+        const live = onPartial && txt ? devLiveAnswer(txt) : "";
+        if (live) onPartial(live); else if (onStatus) onStatus(`${L} is writing… ${Math.max(1, Math.round(n / 6))} words so far (${Math.round((Date.now() - t0) / 1000)}s)`); }});
       const stop = () => { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("aborted", "Stopped.")); };
       if (signal) signal.addEventListener("abort", stop, {once: true});
       // nothing new for 30 seconds once it's writing (90 before the first words: a slower graphics chip reads a long request first),

@@ -55,19 +55,20 @@ async function askWith(m, useTool){
   });
   current = {id, conv};
   try {
-    let n = 0, last = null;
+    let n = 0, last = null, acc = "";
     const stream = conv.sendMessageStreaming({role: "user", content: text});
     for await (const chunk of stream) {
       if (!current || current.id !== id) break;
-      last = chunk; n += textOf(chunk).length + JSON.stringify(chunk.tool_calls || "").length;
-      post({t: "partial", id, n}); m.sent = true;
+      last = chunk; const piece = textOf(chunk); acc += piece; n += piece.length + JSON.stringify(chunk.tool_calls || "").length;
+      // (what's written so far goes to the page, which shows the answer as it comes)
+      post({t: "partial", id, n, text: acc.length < 20000 ? acc : ""}); m.sent = true;
     }
     // the tool call's arguments are the answer; plain text (JSON) if it answered without the tool
     const all = conv.getHistory ? await conv.getHistory() : null;
     const msg = Array.isArray(all) ? all.filter(m => m && m.role !== "user" && m.role !== "system").pop() : last;
     const call = msg && Array.isArray(msg.tool_calls) && msg.tool_calls.find(c => c && c.function && c.function.name === "respond");
     if (call) post({t: "done", id, text: JSON.stringify(call.function.arguments || {})});
-    else post({t: "done", id, text: textOf(msg)});
+    else post({t: "done", id, text: acc || textOf(msg)});
   } finally { current = null; try { conv.delete && conv.delete(); } catch (e) {} }
 }
 self.onmessage = async e => {

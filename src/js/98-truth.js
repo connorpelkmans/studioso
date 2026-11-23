@@ -40,7 +40,8 @@ window.SBTRUTH = (() => {
     const ALIAS = {"a&p": /anatomy|physiology/, "a & p": /anatomy|physiology/, "anp": /anatomy|physiology/, bio: /biolog/, chem: /chemi/, psych: /psych/, calc: /calculus/, stats: /statistic/, econ: /econom/, poli: /politic/, soc: /sociolog/, phys: /physics/, eng: /english/, lit: /literature/, hist: /histor/, comp: /computer/, cs: /computer science/, ochem: /organic chem/, "o chem": /organic chem/, micro: /microbiolog|microeconom/, pharm: /pharmac/};
     coursesArr().forEach(c => {
       const keys = [c.code, c.name].filter(Boolean).map(low); keys.forEach(k => { if (k && L.includes(k) && k.length > bs) { bs = k.length; best = c; } });
-      const cw = words(c.name), hit = cw.filter(w => qw.some(x => pre(x, w))).length; if (cw.length && hit / cw.length >= 0.6 && hit * 3 > bs) { bs = hit * 3; best = c; }
+      // (words every course could have don't pick one out: "how am I doing in my courses" isn't about "Reviewer Course")
+      const cw = words(c.name).filter(w => !/^(course|courses|class|classes|lecture|lectures|lab|labs|program|programs|module|modules|unit|units|cohort|student|students|guided|tour|hub|level|part|section)$/.test(w)), hit = cw.filter(w => qw.some(x => pre(x, w))).length; if (cw.length && hit / cw.length >= 0.6 && hit * 3 > bs) { bs = hit * 3; best = c; }
       const num = (low(c.code).match(/\d{3,4}/) || [])[0]; if (num && new RegExp("\\b" + num + "\\b").test(L) && 5 > bs) { bs = 5; best = c; }
       // its instructor ("Dr. Chen's office hours")
       const iw = (low(c.instructor || "").match(/[a-z]{3,}/g) || []).filter(w => !/^(dr|prof|professor|mr|mrs|ms|miss)$/.test(w)); if (iw.some(w => w.length >= 3 && new RegExp("\\b" + w + "('s)?\\b").test(L)) && 3 > bs) { bs = 3; best = c; }
@@ -286,7 +287,9 @@ window.SBTRUTH = (() => {
     const mine = window.SBSEARCH ? await SBSEARCH.retrieve(q, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
     const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     let web = [], useNotes = "", useWeb = [];
-    const getWeb = async () => { if (o.noWeb) return []; const R = await research(q).catch(() => ({list: []})); return (R && R.list) || []; };
+    let webP = null;
+    const getWeb = () => { if (o.noWeb) return Promise.resolve([]); if (!webP) webP = research(q).then(R => (R && R.list) || [], () => []); return webP; };
+    if (!o.noWeb) getWeb();
     if (!notes) web = await getWeb();
     if (!notes && !web.length) return {answer: o.noWeb ? "I couldn't find anything about that in your Studyboard." : "I couldn't find anything about that in your notes, your files or on the web. Try other words, or add your notes on it.", sources: [], found: false};
     const deep = /^\s*(explain|describe|how (does|do|did|is|are|can)|why|walk me through|tell me about|compare|what('s| is) the difference)\b/i.test(q);
@@ -295,7 +298,7 @@ window.SBTRUTH = (() => {
     // the level they ask for: "like I'm 12", "simply", "ELI5", "in plain English", "dumb it down"
     const simple = /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child|in (middle|elementary) school)\b|\beli5\b|\bsimpl(e|y|er)( terms| words| way)?\b|\bplain english\b|\bdumb(ed)? (it )?down\b|\bfor (a )?(kid|beginner|dummies)\b|\bbasic terms\b/i.test(q);
     const level = simple ? "\n\nThe student asked for it simply: use short sentences and everyday words a 12-year-old knows, explain any term you have to use, and give one everyday comparison (\"it's like...\"). Keep every fact correct and from the sources." : "";
-    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, system: sys + level + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
+    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, onPartial: o.onPartial, system: sys + level + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
     // a list question gets a list; an explanation gets more than a definition
     const listQ = /^\s*(what|which|name|list)\b[^?]*\b(are the|are some|types?|kinds?|phases?|stages?|steps?|causes?|parts?|examples?|mechanisms?|functions?|symptoms?|signs?|principles?|components?|features?|factors?)\b/i.test(q) && !/\b(example of)\b/i.test(q);
     const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false;
@@ -317,13 +320,19 @@ window.SBTRUTH = (() => {
       const SHAPE = listQ ? "\n\nIMPORTANT: name every one the sources give, as a list (separated by commas or on their own lines), each with a few words on what it is." : deep ? "\n\nIMPORTANT: write at least 4 full sentences: what it is, then each main part or step from the sources in order, then why it matters." : "";
       let d = await tryOnce();
       if (aiFail) return d;
+      if (!d && fallback && typeof DEVAI !== "undefined" && DEVAI.kind === "litert") return fallback;
       if (!d && fallback) d = (SHAPE ? await tryOnce(SHAPE) : null) || fallback;
       if (!d && !aiFail) { d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources. If the sources don't answer it, set found to false.${SHAPE}`); if (!d && fallback) d = fallback; }
       return d;
     };
     let fromN = null, fromW = null, aiFail = null;
     // (only when the notes mention what was asked at all: otherwise straight to the web)
-    const touches = notes && keys.some(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
+    // the notes are about it when they hold the question's own topic words (not just "work", "use" or "different"): most of them,
+    // and the most specific (longest) one always
+    const GENERIC = /^(work|works|working|happen|happens|mean|means|use|used|uses|make|makes|made|different|difference|important|example|examples|explain|describe|function|functions|process|role|cause|causes|effect|effects|type|types|kind|kinds|part|parts|step|steps|thing|things|way|ways|good|bad|best|need|needs|help|really|exactly|actually|basically|called|happening|affect|affects)$/;
+    const topic = keys.filter(k => !GENERIC.test(k)), stem = k => k.length > 5 ? k.slice(0, k.length - 2) : k;
+    const longest = topic.slice().sort((a, b) => b.length - a.length)[0];
+    const touches = notes && (topic.length ? low(notes).includes(stem(longest)) && topic.filter(k => low(notes).includes(stem(k))).length >= Math.ceil(topic.length / 2) : keys.some(k => low(notes).includes(stem(k))));
     if (notes && !touches && !o.noWeb) { web = web.length ? web : await getWeb(); }
     if (notes && (touches || o.noWeb || !web.length)) {
       useNotes = notes; useWeb = [];
