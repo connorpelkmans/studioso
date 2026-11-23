@@ -1,0 +1,9 @@
+// Studyboard's copy of Google's Gemma 4 E4B (Apache 2.0) for the on-device AI: static files only, no Worker code, so every
+// request is a free static-asset request (Cloudflare: "Requests to static assets are free and unlimited"; no storage cost).
+// The model is 198 files of 16 MiB at /e4b/<first 8 of its sha256>/cNNNN.bin. They aren't in git (3.3 GB): build.sh makes them.
+{
+  "name": "studyboard-ai-model",
+  "compatibility_date": "2026-10-06",
+  "workers_dev": true,
+  "assets": { "directory": "./public" }
+}

@@ -7320,7 +7320,10 @@ async function devWeb({sys, parts, json, out, temperature, signal, onStatus, aut
    persistent so the browser doesn't clear it to free space. */
 const E4B = {url: "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-gpu.litertlm", size: 3310938740, gb: 3.3, name: "Gemma 4",
   sha256: "ea168f5a601b543e02712f9381f26b06ddc7d4cbe2406410387c82d69b995a60", ctx: 8192, part: 64 * 1024 * 1024, cache: "studyboard-ai-e4b", bg: "studyboard-ai-e4b",
-  wasmCdn: "https://cdn.jsdelivr.net/npm/@litert-lm/core@0.19.0/wasm", dir: "vendor/litertlm-0.19.0/"};
+  wasmCdn: "https://cdn.jsdelivr.net/npm/@litert-lm/core@0.19.0/wasm", dir: "vendor/litertlm-0.19.0/",
+  // Studyboard's own copy (cloudflare/ai-model): the same file in 16 MiB pieces as free static files on Cloudflare, so a busy school
+  // network isn't held up by Hugging Face's limits; Hugging Face stays the fallback
+  mirror: "https://studyboard-ai-model.connor-pelkmans.workers.dev/e4b/ea168f5a/", chunk: 16 * 1024 * 1024};
 const E4B_ON = "studyboard:e4bOn", E4B_READY = "studyboard:e4bReady", E4B_FAIL = "studyboard:e4bFail";
 const e4bDesk = () => { try { return window.studiosoDesktop && window.studiosoDesktop.aiModel ? window.studiosoDesktop.aiModel : null; } catch (e) { return null; } };
 const e4bParts = () => Math.ceil(E4B.size / E4B.part);
@@ -7394,17 +7397,24 @@ function e4bDownload(){
       const one = async i => {
         if (!e4bNetOk() || devLs.get(E4B_ON) !== "1") { stop = true; return; }
         let ok = false;
-        for (let t = 0; t < 3 && !ok; t++) {
+        for (let t = 0; t < (E4B.mirror ? 4 : 3) && !ok; t++) {
           try {
             // read as it arrives: the percentage moves within a part, and a part that stalls for a minute is tried again
-            const ac = new AbortController(); let stall = setTimeout(() => ac.abort(), 60000);
-            const r = await fetch(E4B.url, {headers: {Range: range(i)}, signal: ac.signal}); if (!(r.status === 206 || r.status === 200)) throw new Error("HTTP " + r.status);
+            // from Studyboard's own copy first (its 16 MiB files, four to a part), else from Hugging Face; after a failed try, the other one
             const want = Math.min(E4B.size, (i + 1) * E4B.part) - i * E4B.part, chunks = []; let got = 0;
+            const fromMirror = E4B.mirror && (t % 2 === 0);
+            const urls = fromMirror ? Array.from({length: Math.ceil(want / E4B.chunk)}, (_, k) => `${E4B.mirror}c${String(i * (E4B.part / E4B.chunk) + k).padStart(4, "0")}.bin`) : [E4B.url];
             try {
-              const rd = r.body.getReader();
-              for (;;) { const {done, value} = await rd.read(); if (done) break; chunks.push(value); got += value.length; inFlight[i] = got;
-                clearTimeout(stall); stall = setTimeout(() => ac.abort(), 60000); sayLive(); }
-            } finally { clearTimeout(stall); delete inFlight[i]; }
+              for (const u of urls) {
+                const ac = new AbortController(); let stall = setTimeout(() => ac.abort(), 60000);
+                try {
+                  const r = await fetch(u, fromMirror ? {signal: ac.signal} : {headers: {Range: range(i)}, signal: ac.signal}); if (!(r.status === 206 || r.status === 200)) throw new Error("HTTP " + r.status);
+                  const rd = r.body.getReader();
+                  for (;;) { const {done, value} = await rd.read(); if (done) break; chunks.push(value); got += value.length; inFlight[i] = got;
+                    clearTimeout(stall); stall = setTimeout(() => ac.abort(), 60000); sayLive(); }
+                } finally { clearTimeout(stall); }
+              }
+            } finally { delete inFlight[i]; }
             const b = new Blob(chunks); if (b.size !== want) throw new Error("short part");
             await cache.put(new Request(e4bKey(i)), new Response(b, {headers: {"Content-Length": String(b.size)}})); ok = true;
           } catch (e) {
@@ -7412,7 +7422,7 @@ function e4bDownload(){
             DEVAI.e4bErr = String((e && (e.name === "QuotaExceededError" ? "quota" : e.name === "AbortError" ? "stalled" : e.message)) || e).slice(0, 80);
             if (DEVAI.e4bErr === "quota") { stop = true; DEVAI.e4bFull = true; return; }
             // (a refused request is usually the download server saying "too many, slow down": wait properly before asking again)
-            await new Promise(r => setTimeout(r, [15000, 60000, 180000][t] || 180000));
+            await new Promise(r => setTimeout(r, E4B.mirror ? [1000, 15000, 60000, 180000][t] : [15000, 60000, 180000][t] || 180000));
           }
         }
         if (!ok) { stop = true; return; }

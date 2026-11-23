@@ -7,9 +7,14 @@ const path = require("path"), fs = require("fs"), http = require("http");
 const ROOT = path.join(__dirname, "..");
 const MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".wasm": "application/wasm"};
 const SIZE = 5 * 1024 * 1024 + 12345, PART = 1024 * 1024, FILE = Buffer.alloc(SIZE, 7);
-let ranges = 0;
+let ranges = 0, mirrorHits = 0, refused = false;
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://x");
+  const mm = /^\/mirror\/c(\d{4})\.bin$/.exec(u.pathname);
+  if (mm) { mirrorHits++; const k = +mm[1], C = PART / 4, a = k * C, b = Math.min(SIZE, a + C);
+    if (k === 5 && !refused) { refused = true; res.writeHead(503); res.end(); return; }
+    if (a >= SIZE) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, {"content-length": b - a, "access-control-allow-origin": "*"}); res.end(FILE.subarray(a, b)); return; }
   if (u.pathname === "/model.litertlm") {
     const m = /bytes=(\d+)-(\d+)/.exec(req.headers.range || ""); ranges++;
     if (!m) { res.writeHead(200, {"content-length": SIZE}); res.end(FILE); return; }
@@ -32,7 +37,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
         if (m.t === "load") { window.__loaded = {size: m.model && m.model.size, wasm: m.wasm}; w.onmessage({data: {t: "loaded", id: m.id}}); }
         if (m.t === "ask") { window.__asked.push({system: m.system, text: m.text, schema: m.schema}); w.onmessage({data: {t: "partial", id: m.id, n: 40}}); w.onmessage({data: {t: "done", id: m.id, text: JSON.stringify({answer: "E4B ANSWER", found: true, followUps: [], actions: []})}}); }
       }, 20); }, terminate(){} }; return w; };
-      window.__SB_E4B_STUB = Object.assign({worker, noBg: true, file: {url: base + "/model.litertlm", size, part, sha256: ""}}, s);
+      window.__SB_E4B_STUB = Object.assign({worker, noBg: true, file: Object.assign({url: base + "/model.litertlm", size, part, sha256: "", mirror: "", chunk: part / 4}, s.file || {})}, (() => { const c = Object.assign({}, s); delete c.file; return c; })());
       if (s.returning && !localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, tasks: [], files: [], notes: [], events: [], decks: [], settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}]}));
       localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"}));
     }, [stub, base, SIZE, PART]);
@@ -141,6 +146,16 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     ok(!(await p.$("dialog[open] .ai-ready-sheet")), "and after that the page isn't shown again");
     ok(!p.errs.length, "no page errors: " + p.errs.join(" | "));
     await c3.close(); }
+  // 8. Studyboard's own copy first, Hugging Face when a piece of it doesn't come through; the result is the same file
+  { const before = ranges; const M = await open({fits: true, returning: true, file: {mirror: base + "/mirror/"}});
+    await M.p.evaluate(() => { localStorage.setItem("studyboard:e4bOn", "1"); }); await M.p.reload(); await M.p.waitForFunction(() => window.__sbDevAI, null, {timeout: 30000});
+    await M.p.waitForFunction(() => window.__sbDevAI.state.e4b === "ready", null, {timeout: 60000}).catch(() => {});
+    const st = await state(M.p);
+    const same = await M.p.evaluate(async () => { const c = await caches.open("studyboard-ai-e4b"), ks = (await c.keys()).sort((a, b) => +new URL(a.url).searchParams.get("studyboard-part") - +new URL(b.url).searchParams.get("studyboard-part"));
+      const parts = await Promise.all(ks.map(async k => new Uint8Array(await (await c.match(k)).arrayBuffer()))); return {n: parts.length, bytes: parts.reduce((a, p) => a + p.length, 0), all7: parts.every(p => p.every(x => x === 7))}; });
+    ok(st.e4b === "ready" && mirrorHits > 0 && same.bytes === SIZE && same.all7, `downloads from Studyboard's own copy (${mirrorHits} files), whole and correct: ${JSON.stringify(same)}`);
+    ok(refused && ranges - before >= 1, `a piece the copy refused came from Hugging Face instead (${ranges - before} range requests)`);
+    await M.p.close(); }
   // 6. The service worker keeps the downloaded models on an update (it used to delete every cache but its own)
   const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
   ok(/caches\.delete\(k\)/.test(sw) && /\^\(studyboard\|studioso\)-v\\d\+\$/.test(sw), "an app update clears only the app's own old caches, never a downloaded model");
