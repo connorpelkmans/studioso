@@ -53,6 +53,10 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   ok(two.done === "done" && two.pomo.running, "two things in one message are both done: " + a);
   a = await chat("create an empty flashcard deck for WWI");
   ok(await p.evaluate(() => Object.values(window.__sbSync.state.decks).some(d => /wwi/i.test(d.name))) || /deck/i.test(a) && !/gathered material/i.test(a), "an empty deck isn't \"make flashcards from my notes\": " + a);
+  // going somewhere: the chat hands over to that page (here, studying the deck)
+  await p.evaluate(() => { const S = window.__sbSync, d = S.clone(S.state.decks.d1); d.cards.push({id: "k9", front: "A", back: "B", box: 0, due: "", seen: 0, right: 0, wrong: 0}); S.applyChanges([{kind: "deck", id: "d1", after: d}], "x"); });
+  await p.fill("#cptIn", "review connor pelkmans"); await p.click("#cptGo"); await p.waitForTimeout(3500);
+  ok(await p.evaluate(() => !document.querySelector("#cptIn") && /study|card|flip|show answer/i.test(document.body.innerText)), "\"review <deck>\" opens that deck to study");
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);
