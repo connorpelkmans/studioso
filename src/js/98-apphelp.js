@@ -44,7 +44,7 @@ window.SBAPPHELP = (() => {
       const L = window.SBLOCALANS, nx = L && L.nextLine ? L.nextLine() : "";
       return {answer: `Hi! ${nx ? nx.replace(/\*\*/g, "").replace(/^Today's Plan says to do this next:\s*/i, "Next up: ") + "." : "Nothing is urgent right now."} Ask me what's due, about your notes, or to add a task, start a timer or make flashcards.`, show: []};
     }
-    if (/^(thanks|thank you|thx|ty|cool|ok(ay)?|great|nice|awesome|perfect|got it)\b[\w' !.,]{0,20}$/.test(s)) return {answer: "You're welcome! Anything else?", show: []};
+    if (/^(thanks|thank you|thx|ty|cool|ok(ay)?|great|nice|awesome|perfect|got it)\b[\w' !.,]{0,20}$/.test(s) && !/\b(can|could|what|how|why|do|does|is|are|will|would|you|u|me|let'?s|now|then|but)\b/.test(s.replace(/^(thanks|thank you|thx|ty|cool|ok(ay)?|great|nice|awesome|perfect|got it)\b/, ""))) return {answer: /^(thanks|thank you|thx|ty)\b/.test(s) ? "You're welcome! Anything else?" : "Okay! Anything else?", show: []};
     if (/\b(what can you do|what do you do|how can you help|what can i ask)\b/.test(s)) return {answer: "I can answer questions about your planner (what's due, grades, classes, exams), explain things from your notes or the web, and do things for you: add or move tasks, start a focus timer, make notes, flashcards, quizzes and concept maps, and find anything in Studyboard. Try \"what's due this week?\" or \"explain the cardiac cycle\".", show: []};
     if (!HOWQ.test(s) && !/\b(settings?|feature|button|tab|page)\b/.test(s)) return null;
     // "can you make..." / "can you add..." are requests, not questions about the app

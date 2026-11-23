@@ -18,9 +18,14 @@ window.SBTRUTH = (() => {
   /* ---------- facts: the planner's own answers ---------- */
   function range(s, today){
     let m;
-    if (/\boverdue|late|missed|past due|forgot|forget|miss anything|behind on\b/.test(s)) return {from: "0000-00-00", to: addDays(today, -1), label: "overdue"};
+    if (/\b(overdue|late|missed|past due|forgot|forget|miss(ed)? (any|anything|a deadline|deadlines)|behind on|behind)\b/.test(s)) return {from: "0000-00-00", to: addDays(today, -1), label: "overdue"};
     if (/\btoday|tonight\b/.test(s)) return {from: today, to: today, label: "today"};
+    if (/\bday after tomorrow\b/.test(s)) return {from: addDays(today, 2), to: addDays(today, 2), label: "the day after tomorrow"};
     if (/\btomorrow\b/.test(s)) return {from: addDays(today, 1), to: addDays(today, 1), label: "tomorrow"};
+    if (/\b(week after next|the week after next)\b/.test(s)) { const d0 = new Date(today + "T12:00:00").getDay(), start = addDays(today, (7 - d0 + 1) % 7 || 7) ; return {from: addDays(start, 7), to: addDays(start, 13), label: "the week after next"}; }
+    if ((m = s.match(/\b(?:in )?the next (\d{1,2}) days\b/))) { const n = Math.max(1, Math.min(60, Number(m[1]))); return {from: today, to: addDays(today, n - 1), label: `in the next ${n} days`}; }
+    if (/\b(this )?weekend\b/.test(s)) { const d0 = new Date(today + "T12:00:00").getDay(), sat = addDays(today, (6 - d0 + 7) % 7); return {from: d0 === 0 ? today : sat, to: d0 === 0 ? today : addDays(sat, 1), label: "this weekend"}; }
+    if ((m = s.match(/\b(?:on )?the (\d{1,2})(?:st|nd|rd|th)\b/))) { const day = Number(m[1]), now = new Date(today + "T12:00:00"); let y = now.getFullYear(), mo = now.getMonth(); if (day < now.getDate()) { mo++; if (mo > 11) { mo = 0; y++; } } const d = `${y}-${String(mo + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`; return {from: d, to: d, label: "on the " + m[1] + (["th", "st", "nd", "rd"][(day % 10 > 3 || [11, 12, 13].includes(day % 100)) ? 0 : day % 10])}; }
     if (/\bnext week\b/.test(s)) { const d0 = new Date(today + "T12:00:00").getDay(), start = addDays(today, 7 - d0 + 1 > 7 ? 1 : 7 - d0 + 1); return {from: start, to: addDays(start, 6), label: "next week"}; }
     if (/\b(this week|the week|rest of the week|7 days|seven days|coming up|upcoming|soon)\b/.test(s)) return {from: today, to: addDays(today, 6), label: "in the next 7 days"};
     if ((m = s.match(/\b(?:on |this |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/))) { const w = WD.indexOf(m[1]), d0 = new Date(today + "T12:00:00").getDay(); let k = (w - d0 + 7) % 7; if (k === 0 && !/\btoday\b/.test(s)) k = 7; const d = addDays(today, k); return {from: d, to: d, label: "on " + m[1][0].toUpperCase() + m[1].slice(1)}; }
@@ -128,11 +133,54 @@ window.SBTRUTH = (() => {
       const c = courseNamed(s);
       const list = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= r.from && t.due <= r.to && kind(t) && (!c || t.courseId === c.id)).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
       const what = /\bexams?|tests?\b/.test(s) ? "exams" : /\bquiz/.test(s) ? "quizzes" : "tasks";
+      // "do I have anything wednesday": the calendar that day too (events, not classes), not only what's due
+      let evs = ""; if (r.label !== "overdue" &&!/\bdue\b|\bdeadlines?\b|\bexams?\b|\bquiz/.test(s) && /\b(have|anything|plans?|happening|going on|on my (calendar|schedule))\b/.test(s)) {
+        const E = Object.values(state.events || {}).filter(e => e && e.date >= r.from && e.date <= r.to && (!c || e.courseId === c.id)).sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")));
+        if (E.length) evs = `\nOn your calendar ${r.label}:\n` + E.slice(0, 8).map(e => `- ${e.title}: ${fmtDate(e.date)}${e.start ? `, ${fmtTime(e.start)}${e.end ? "–" + fmtTime(e.end) : ""}` : ""}${e.where ? ", " + e.where : ""}`).join("\n"); }
+      if (!list.length && evs) return {answer: `Nothing is due ${r.label}${c ? " for " + courseLabel(c) : ""}.${evs}`, show: []};
+      if (list.length && evs) return {answer: `${list.length} ${list.length === 1 ? "task" : "tasks"} due ${r.label}:\n${list.slice(0, 12).map(t => "- " + (L ? L.taskLine(t).replace(/\*\*/g, "") : t.title)).join("\n")}${evs}`, show: []};
       if (!list.length) return {answer: `${what === "tasks" ? "Nothing" : "No " + what} ${r.label === "overdue" ? (what === "tasks" ? "is" : "are") + " overdue" : (what === "tasks" ? "is" : "are") + " due " + r.label}${c ? " for " + courseLabel(c) : ""}.${r.label === "overdue" ? " You're all caught up!" : ""}`, show: []};
       const head = r.label === "overdue" ? `${list.length} ${list.length === 1 ? what.replace(/s$/, "") + " is" : what + " are"} overdue` : `${list.length} ${list.length === 1 ? what.replace(/s$/, "") : what} due ${r.label}${c ? " for " + courseLabel(c) : ""}`;
       return {answer: head + ":\n" + list.slice(0, 12).map(t => "- " + (L ? L.taskLine(t).replace(/\*\*/g, "") : t.title)).join("\n") + (list.length > 12 ? `\n…and ${list.length - 12} more.` : ""), show: []};
     }
     return null;
+  }
+
+  /* ---------- follow-ups to a planner question ----------
+     "what about wednesday?", "and the day after?", "which are for a&p", "what about foundations?" after a planner question the app
+     answered: that question again with the new day or course (so it's answered from the planner, never looked up on Wikipedia).
+     "and after that?", "then what?": the next open tasks by due date that the chat hasn't named yet. "" when it isn't one. */
+  const WHEN = /\b(today|tonight|tomorrow|tmrw|the day after(?: tomorrow)?|day after tomorrow|(?:this |next |on )?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this week|next week|the week after(?: next| that)?|week after next|(?:this |the )?weekend|the \d{1,2}(?:st|nd|rd|th)|(?:in )?the next \d+ days|overdue)\b/;
+  const AFTER = /^\s*(?:and|ok|okay|so|then)?[,\s]*(?:after (?:that|this|it)|then what|what(?:'s| is| comes)? (?:after|next)(?: that| this)?|and next|what else|anything else|next one|the next one)\s*[?!.]*\s*$/;
+  function courseIn(s){
+    const c = courseNamed(s); if (c) return c;
+    // one word that starts a word of exactly one course's name ("foundations", "anatomy", "history")
+    const ws = words(s).filter(w => w.length >= 5), hits = coursesArr().filter(c => words(c.name).some(y => ws.some(w => y.startsWith(w) || w.startsWith(y))));
+    return hits.length === 1 ? hits[0] : null;
+  }
+  function followUp(q, lastQ, said){
+    const s = norm(q).replace(/[?!.]+$/, "").trim(), L = norm(lastQ || "").replace(/[?!.]+$/, "").trim();
+    if (!s || !L || s.split(/\s+/).length > 9 || WRITE.test(s.replace(/\b(mark|set)\b/g, ""))) return "";
+    let r0 = null; try { r0 = facts(lastQ); } catch (e) {}
+    if (!r0) return "";
+    if (AFTER.test(s)) return "__AFTER__";
+    if (!/^\s*(and|ok|okay|so|but|what about|how about|what of|for|then|also|which|which ones?|any|anything|what)\b|^\s*(the day after|the week after|wednesday|thursday|friday|saturday|sunday|monday|tuesday|tomorrow|today)\b/.test(s)) return "";
+    const t = (s.match(WHEN) || [])[0], c = courseIn(s.replace(WHEN, " "));
+    if (!t && !c) return "";
+    let out = L;
+    if (t) { let tt = t.replace(/^on /, "");
+      if (/^the day after$/.test(tt)) tt = /\btomorrow\b/.test(L) ? "the day after tomorrow" : "tomorrow";
+      if (/^the week after( that)?$/.test(tt)) tt = /\bnext week\b/.test(L) ? "the week after next" : "next week";
+      out = WHEN.test(L) ? L.replace(WHEN, tt) : `${L} ${tt}`; }
+    if (c) { const lc = courseNamed(L); out = out.replace(/\s+(?:for|in|from)\s+(?:my\s+)?[a-z&]+(?:\s+\d{3,4})?\s*$/, "");
+      if (lc) { const k = [lc.code, lc.name].filter(Boolean).map(low).find(x => out.includes(x)); if (k) out = out.replace(k, low(c.code || c.name)); else out += ` for ${c.code || c.name}`; } else out += ` for ${c.code || c.name}`; }
+    return out === L ? "" : out;
+  }
+  function afterThat(said){
+    const S = low(said || ""), open = tasksArr().filter(t => t.status !== "done" && t.due).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
+    const rest = open.filter(t => !S.includes(low(t.title))).slice(0, 3); if (!rest.length) return null;
+    const L = window.SBLOCALANS, line = t => L ? L.taskLine(t).replace(/\*\*/g, "") : `${t.title}: due ${t.due}`;
+    return {answer: rest.length === 1 ? `After that: ${line(rest[0])}.` : `After that, by due date:\n${rest.map(t => "- " + line(t)).join("\n")}`, show: []};
   }
 
   /* ---------- steps: one request per thing to do ---------- */
@@ -409,6 +457,8 @@ window.SBTRUTH = (() => {
       const rest = (q.toLowerCase().replace(new RegExp(PLAN.source, "gi"), " ").match(/[a-z]{3,}/g) || []).filter(w => !QSTOP.has(w) && !/^(what|whats|which|when|where|how|who|why|does|any|anything|there|tell|explain|about|more|show|list|all|left|got|have|get|need|the|and|for|are|is|you|change|set|turn|use|find|open|add|see|switch|edit|do)$/.test(w));
       if (mine || !rest.length) return false;
     }
+    // their own week, day or workload ("make my week less awful", "how do I survive my schedule")
+    if (/\b(my|our)\s+(week|day|weekend|schedule|workload|semester|term|life|plan|time|evening|morning|night|stress|load)\b/i.test(q)) return false;
     // when: their day, not a subject
     if (/\b(today|tonight|tomorrow|tmrw|this (week|weekend|morning|afternoon|evening)|next week|right now|later today)\b/i.test(q)) return false;
     // Mochi itself ("how are you", "do you like me", "what's your name")
@@ -417,5 +467,5 @@ window.SBTRUTH = (() => {
     if (/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(add|move|make|create|start|stop|set|delete|remove|remind|schedule|plan|mark|rename|open|show me my|find my|quiz me|test me|generate|write me|draw|put|save|change|turn)\b/i.test(q)) return false;
     return true; };
 
-  return {norm, nonAnswer, knowledge, range, facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
+  return {norm, nonAnswer, knowledge, range, facts, followUp, afterThat, courseIn, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
 })();

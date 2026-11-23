@@ -38,8 +38,6 @@ const e4bStub = () => {
   localStorage.setItem("studyboard:e4bReady", "1");
 };
 
-const Q = require(process.env.QFILE || "./actions.js");
-
 // Conversations: [{id, cat, turns: [{q, expect, state?}]}], run in order, each in a fresh app; one JSON line per conversation
 const ALL = JSON.parse(fs.readFileSync(process.env.QFILE, "utf8")), FROM = +(process.env.FROM || 0), TO = +(process.env.TO || ALL.length), OUTF = process.env.OUT;
 const doneIds = new Set(fs.existsSync(OUTF) ? fs.readFileSync(OUTF, "utf8").split("\n").filter(Boolean).map(l => JSON.parse(l).id) : []);

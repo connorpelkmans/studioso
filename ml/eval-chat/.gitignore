@@ -1,3 +1,6 @@
 results*.jsonl
 webcache/
 *.out.json
+all-*.jsonl
+fix-*
+judge-*/
