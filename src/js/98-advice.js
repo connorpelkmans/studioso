@@ -52,6 +52,8 @@ window.SBADVICE = (() => {
   function answer(q){
     { const t = timePlan(low(q)); if (t) return t; }
     const s = low(q); if (!ADVICE.test(s)) return null;
+    // a question about anxiety or stress as a subject ("what's the difference between anxiety and panic disorder"), not about them: answered as knowledge
+    if (!/\b(i|i'm|im|i've|me|my)\b/.test(s) && /\b(disorders?|difference|what is|what's|whats|define|explain|symptoms?|treat(ment|ed)?|causes?|theory|response|hormones?)\b/.test(s)) return null;
     const today = todayISO(), open = tasksArr().filter(t => t.status !== "done");
     const late = open.filter(t => t.due && t.due < today).sort((a, b) => a.due.localeCompare(b.due));
     const soon = open.filter(t => t.due && t.due >= today && t.due <= addDays(today, 3) && !isExam(t)).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
