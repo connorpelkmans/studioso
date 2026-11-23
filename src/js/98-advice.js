@@ -22,7 +22,35 @@ window.SBADVICE = (() => {
     plan: "Give each day one main thing and one small thing. Put deadlines first, then exam study in short daily sessions rather than one long one.",
   };
 
+  /* "I have 2 hours tonight, what should I do", "got 45 minutes, what should I work on": a plan that fits the time, from their own
+     work: overdue first, then what's due soonest, then exam prep and flashcards that are due. Each piece gets its own estimate (the
+     task's hours when it has them), and the list stops when the time's used. */
+  const NUMW = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, half: 0.5};
+  function timePlan(s){
+    const m = /\b(?:i (?:have|got|'ve got)|i've got|ive got|got|with|have)\s+(?:about |like |only |just )?(an?|one|two|three|four|five|half an?|\d+(?:\.\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|min)\b/.exec(s)
+      || /\b(an?|one|two|three|four|five|\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?)\s+(?:tonight|today|free|left|to study|before|until)\b/.exec(s);
+    if (!m || !/\b(what|which|should|do|work|study|focus|use|plan|spend)\b/.test(s)) return null;
+    const n = /^half/.test(m[1]) ? 0.5 : NUMW[m[1]] != null ? NUMW[m[1]] : Number(m[1]), mins = Math.round(/^h/.test(m[2]) ? n * 60 : n);
+    if (!(mins >= 10 && mins <= 720)) return null;
+    const today = todayISO(), open = tasksArr().filter(t => t.status !== "done" && !t.archived);
+    const est = t => { const h = Number(t.hours); if (h > 0) return Math.max(15, Math.round(h * 60)); return isExam(t) ? 45 : /read/i.test(t.type + " " + t.title) ? 40 : /quiz/i.test(t.type) ? 30 : 60; };
+    const order = open.filter(t => t.due).map(t => ({t, late: t.due < today, d: days(today, t.due)})).filter(x => x.late || x.d <= 14)
+      .sort((a, b) => (b.late - a.late) || a.t.due.localeCompare(b.t.due));
+    const plan = []; let left = mins;
+    for (const x of order) {
+      if (left < 15) break;
+      const want = est(x.t), give = Math.min(want, left);
+      if (give < 15) continue;
+      plan.push(`${plan.length + 1}. ${x.t.title}${x.t.courseId && state.courses[x.t.courseId] ? ` (${label(state.courses[x.t.courseId])})` : ""}: ${give} min${x.late ? ", it's overdue" : `, due ${dayName(x.t.due, today)}`}${isExam(x.t) ? " (study for it)" : give < want ? " (get a good start)" : ""}`);
+      left -= give;
+    }
+    const due = decksArr().reduce((k, d) => k + dueCount(d), 0);
+    if (left >= 10 && due) { plan.push(`${plan.length + 1}. Your due flashcards (${due}): ${Math.min(left, 20)} min`); left -= Math.min(left, 20); }
+    if (!plan.length) return {answer: `Nothing's due in the next two weeks, so use the ${mins >= 60 ? (mins / 60) + " hour" + (mins === 60 ? "" : "s") : mins + " minutes"} to get ahead: review your notes for your next exam, or make flashcards from your latest lecture.`, show: []};
+    return {answer: `Here's how I'd use your ${mins >= 60 && mins % 60 === 0 ? (mins / 60) + " hour" + (mins === 60 ? "" : "s") : mins + " minutes"}:\n${plan.join("\n")}${left >= 10 ? `\nThat leaves about ${left} minutes for a break or to keep going on the first one.` : ""}\nStart a focus timer on the first one and go.`, show: []};
+  }
   function answer(q){
+    { const t = timePlan(low(q)); if (t) return t; }
     const s = low(q); if (!ADVICE.test(s)) return null;
     const today = todayISO(), open = tasksArr().filter(t => t.status !== "done");
     const late = open.filter(t => t.due && t.due < today).sort((a, b) => a.due.localeCompare(b.due));

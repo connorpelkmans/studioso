@@ -567,6 +567,8 @@ Examples:
     // The model's choice, checked against the student's own words: a clear word for something else wins
     { const w = String(q || "").toLowerCase(), KW = /\b(deck|flash ?card deck|quiz|note ?board|board|whiteboard|event|appointment|course|class|file|pdf|note)\b/;
       if (/^(mark_done|mark_in_progress)$/.test(d.intent) && /\b(delete|remove|cancel(l?ed)?|scratch|drop(ped)?|get rid|trash|no longer|not happening)\b/.test(w)) d.intent = "delete_task";
+      // a concept map only when a map is asked for ("a mnemonic", "a summary", "an acronym" are answers to write, not maps)
+      if (d.intent === "make_map" && !/\b(map|mind ?map|diagram|web of)\b/.test(w)) d.intent = "question";
       if (/^(mark_done|mark_in_progress|question|chat)$/.test(d.intent) && /\b(is ?n'?t|is not|not|never|haven'?t|hasn'?t|didn'?t)\b[^.]{0,20}\b(done|finished|complete|completed|submitted)\b|\bun-?(do|mark|finish)\b|\breopen\b/.test(w)) d.intent = "mark_not_done";
       if (d.intent === "mark_in_progress" && A && A.timerMins && A.timerMins(q)) { d.intent = "start_timer"; if (!d.minutes) d.minutes = A.timerMins(q).mins || 0; }
       const tk = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent], km = KW.exec(w);

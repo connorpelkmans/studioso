@@ -7458,9 +7458,10 @@ let e4bW = null, e4bLoad = null, e4bIdle = null, e4bSeq = 0;
 const e4bWait = new Map();
 function e4bStop(){ clearTimeout(e4bIdle); try { e4bW && e4bW.terminate(); } catch (e) {} e4bW = null; e4bLoad = null; e4bWait.forEach(w => w.no(aiErr("device-failed", "Stopped."))); e4bWait.clear(); }
 async function e4bModel(){
+  if (window.__SB_TEST && window.__SB_E4B_STUB && window.__SB_E4B_STUB.model) return window.__SB_E4B_STUB.model;
   const D = e4bDesk(); if (D) return new URL("__ai-model/e4b.litertlm", location.href).href;
   const c = await caches.open(E4B.cache), blobs = [];
-  for (let i = 0; i < e4bParts(); i++) { const r = await c.match(e4bKey(i)); if (!r) throw aiErr("device-failed", "Part of the AI is missing. It's downloading again."); blobs.push(await r.blob()); }
+  for (let i = 0; i < e4bParts(); i++) { const r = await c.match(e4bKey(i)); if (!r) throw Object.assign(aiErr("device-failed", "Part of the AI is missing. It's downloading again."), {missing: true}); blobs.push(await r.blob()); }
   return new Blob(blobs);
 }
 function e4bWorker(onStatus){
@@ -7482,6 +7483,8 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
   const L = devLabel();
   try { await e4bWorker(onStatus); }
   catch (e) {
+    // part of the download went missing (the browser cleared some of it): it's fetched again, and the AI it had is used meanwhile
+    if (e && e.missing) { devLs.set(E4B_READY, ""); DEVAI.e4b = "downloading"; DEVAI.kind = ""; DEVAI.status = ""; await devProbe(); e4bDownload(); throw e; }
     // it won't start on this computer after all (its graphics chip can't hold it): back to the AI it had, for good
     devLs.set(E4B_FAIL, "1"); devLs.set(E4B_READY, ""); DEVAI.e4b = ""; DEVAI.kind = ""; DEVAI.status = ""; await devProbe();
     throw Object.assign(aiErr("device-failed", `${L} couldn't start on this computer. Studyboard switched back to the AI it had; try again.`), {detail: String((e && e.message) || e).slice(0, 300)});
@@ -7491,14 +7494,15 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
   const o2 = Math.min(out, 2000), room = () => Math.max(800, E4B.ctx - devTokens(sys) - o2 - devTokens(JSON.stringify(json)) - 300);
   const truncated = devFit(parts, room());
   const text = parts.filter(p => p.text != null).map(p => p.text).join("\n\n"), id = ++e4bSeq, t0 = Date.now();
-  let last = Date.now(), dog = null;
+  let last = Date.now(), dog = null, any = false;
   try {
     const raw = await new Promise((ok, no) => {
-      e4bWait.set(id, {ok, no, part(n){ last = Date.now(); if (onStatus) onStatus(`${L} is writing… ${Math.max(1, Math.round(n / 6))} words so far (${Math.round((Date.now() - t0) / 1000)}s)`); }});
+      e4bWait.set(id, {ok, no, part(n){ last = Date.now(); any = true; if (onStatus) onStatus(`${L} is writing… ${Math.max(1, Math.round(n / 6))} words so far (${Math.round((Date.now() - t0) / 1000)}s)`); }});
       const stop = () => { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("aborted", "Stopped.")); };
       if (signal) signal.addEventListener("abort", stop, {once: true});
-      // nothing new for 30 seconds (or 3 minutes in all): stopped, not waited on forever
-      dog = setInterval(() => { if (Date.now() - last > 30000 || Date.now() - t0 > DEV_MAX_MS) { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("device-stall", `${L} stopped answering.`)); } }, 1000);
+      // nothing new for 30 seconds once it's writing (90 before the first words: a slower graphics chip reads a long request first),
+      // or 4 minutes in all: stopped, not waited on forever
+      dog = setInterval(() => { if (Date.now() - last > (any ? 30000 : 90000) || Date.now() - t0 > DEV_MAX_MS + 60000) { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("device-stall", `${L} stopped answering.`)); } }, 1000);
       e4bW.postMessage({t: "ask", id, system: sys, text, schema: json, maxTokens: o2, temperature});
     });
     const data = aiParseJson(raw);
@@ -73786,7 +73790,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       show: list.map(n => ({kind: "note", id: n.id, label: labelOf({kind: "note", id: n.id})})), changes: [], local: true};
   }
   // Whether the words ask for something to be done (not a question about the planner): "new task: …", "I have work saturday", "can X be due the 30th instead"
-  const isRequest = q => !!(/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(please\s+)?(add|put|make|create|delete|remove|move|push|reschedule|mark|rename|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|jot|remind|schedule|book|cancel|undo|edit|update|scratch|drop|new|write|jot|note|sticky|put|wear|take off)\b/i.test(q) || /\b(move|push|reschedule|postpone|delay|instead|rename|delete|remove|cancel|change it|set it|make it|new (task|event|course|class|note))\b/i.test(q) || (/^\s*(i have|i've got|ive got|i got|i'm|im|i am|i need|i gotta|i'll|there'?s)\b/i.test(q) && !/\?\s*$/.test(q)));
+  const isRequest = q => !!(/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(please\s+)?(add|put|make|create|delete|remove|move|push|reschedule|mark|rename|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|jot|remind|schedule|book|cancel|undo|edit|update|scratch|drop|new|write|jot|note|sticky|put|wear|take off)\b/i.test(q) || /\b(move|push|reschedule|postpone|delay|instead|rename|delete|remove|cancel|change it|set it|make it|new (task|event|course|class|note))\b/i.test(q) || (/^\s*(i have|i've got|ive got|i got|i'm|im|i am|i need|i gotta|i'll|there'?s)\b/i.test(q) && !/\?\s*$/.test(q) && !/\b(what|which|how|when|where|should i|do i|can i|am i)\b/i.test(q)));
   async function ask(q, o){
     o = o || {};
     { const c = control(q); if (c) return c; }
@@ -73822,9 +73826,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const editFirst = /\b(priority|urgent|important|move|reschedule|push|postpone|delay|rename|mark|delete|remove|cancel|finished|completed|done)\b/i.test(q);
       const qe0 = editFirst && !APPQ_HOW.test(q) ? quickEdit(q) : null;
       const qc = !(qe0 && qe0.length) && ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
-      if (qc) return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true};
+      if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
+      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? `${qe[0].label}: ${qe[0].what.toLowerCase()} changed` : `Made ${qe.length} changes`);
+        return {answer: qe.map(c => c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`).join(". ") + `. Say "undo" to take it back.`, show: qe[0].field !== "delete" && exists(qe[0].t) ? [{kind: "task", id: qe[0].t.id, label: qe[0].label}] : [], changes: [], local: true}; } }
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
     }
     // a request the quick steps above didn't recognize, however it's worded: understood by the AI, done by the app (intentAct)
@@ -74060,7 +74066,7 @@ window.SBFACTS = (() => {
     // who teaches it, where it meets, office hours
     if (c && /\b(who|teach|teaches|instructor|professor|prof|teacher|lecturer)\b/.test(s)) return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. You can add one in the course.`, show: []};
     if (c && /\boffice hours?\b/.test(s)) { const ms = courseMeetings(c).filter(m => /office/i.test(m.kind)); return {answer: ms.length ? `${label(c)} office hours: ${ms.map(m => `${m.days ? m.days.map(d => Wd(addDays("2026-01-04", d)).slice(0, 3)).join("/") + " " : ""}${tm(m.start)}–${tm(m.end)}${m.where ? " in " + m.where : ""}`).join("; ")}.` : c.office ? `${label(c)} office hours: ${c.office}.` : `${label(c)} doesn't list office hours yet.`, show: []}; }
-    if (/\bnext (class|lecture|lab)\b|\b(class|lecture|lab) next\b|\bwhen is my next\b|\bwhat time is my (class|lecture|lab)\b|\bwhere is my (class|lecture|lab)\b/.test(s) || (c && /\b(when|where|what time)\b/.test(s) && /\b(class|lecture|lab|seminar|meet)\b/.test(s))) {
+    if (/\bwhen do i have (a |my )?(class|lecture|lab)s?\b|\bwhat time is (my )?(class|lecture|lab)\b|\bnext (class|lecture|lab)\b|\b(class|lecture|lab) next\b|\bwhen is my next\b|\bwhat time is my (class|lecture|lab)\b|\bwhere is my (class|lecture|lab)\b/.test(s) || (c && /\b(when|where|what time)\b/.test(s) && /\b(class|lecture|lab|seminar|meet)\b/.test(s))) {
       const kind = (s.match(/\b(lab|lecture|tutorial|seminar|discussion|recitation)\b/) || [])[1];
       const now = nowHM(), up0 = occsOn(today, addDays(today, 21)).filter(o => o.type === "meet" && (!c || o.id === c.id) && (o.date > today || (o.end || "") > now)), up = kind && up0.some(o => new RegExp(kind, "i").test(o.label)) ? up0.filter(o => new RegExp(kind, "i").test(o.label)) : up0;
       if (!up.length) return {answer: c ? `I don't see an upcoming class for ${label(c)} in the next 3 weeks. Its meeting times may not be set yet.` : "I don't see any upcoming classes in the next 3 weeks. Add meeting times to your courses and I'll know.", show: []};
@@ -74169,7 +74175,9 @@ window.SBFACTS = (() => {
   function answer(q){
     const s = low(q).replace(/[?!.]+$/, "").replace(/\s+/g, " ").trim(), today = todayISO();
     if (!s || s.length > 200) return null;
-    for (const f of [itemMark, teacher, eventNamed, grades, exams, agenda, classes, counts, courseList, cards, dueAll]) { try { const r = f(s, today); if (r) return r; } catch (e) { console.warn("facts", f.name, e); } }
+    // "when do I have lab", "what time is lecture": the class schedule first (not a task that happens to say "Lab")
+    const classFirst = /\b(when|what time|where|what day)\b/.test(s) && /\b(do i have|is|are)\b/.test(s) && /\b(labs?|lectures?|class(es)?|seminars?|tutorials?|discussions?|recitations?|office hours)\b/.test(s) && !/\b(due|report|quiz|exam|test|assignment|paper|essay)\b/.test(s);
+    for (const f of classFirst ? [classes, itemMark, teacher, eventNamed, grades, exams, agenda, counts, courseList, cards, dueAll] : [itemMark, teacher, eventNamed, grades, exams, agenda, classes, counts, courseList, cards, dueAll]) { try { const r = f(s, today); if (r) return r; } catch (e) { console.warn("facts", f.name, e); } }
     return null;
   }
   return {answer, gradeRows};
@@ -74198,7 +74206,35 @@ window.SBADVICE = (() => {
     plan: "Give each day one main thing and one small thing. Put deadlines first, then exam study in short daily sessions rather than one long one.",
   };
 
+  /* "I have 2 hours tonight, what should I do", "got 45 minutes, what should I work on": a plan that fits the time, from their own
+     work: overdue first, then what's due soonest, then exam prep and flashcards that are due. Each piece gets its own estimate (the
+     task's hours when it has them), and the list stops when the time's used. */
+  const NUMW = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, half: 0.5};
+  function timePlan(s){
+    const m = /\b(?:i (?:have|got|'ve got)|i've got|ive got|got|with|have)\s+(?:about |like |only |just )?(an?|one|two|three|four|five|half an?|\d+(?:\.\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|min)\b/.exec(s)
+      || /\b(an?|one|two|three|four|five|\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?)\s+(?:tonight|today|free|left|to study|before|until)\b/.exec(s);
+    if (!m || !/\b(what|which|should|do|work|study|focus|use|plan|spend)\b/.test(s)) return null;
+    const n = /^half/.test(m[1]) ? 0.5 : NUMW[m[1]] != null ? NUMW[m[1]] : Number(m[1]), mins = Math.round(/^h/.test(m[2]) ? n * 60 : n);
+    if (!(mins >= 10 && mins <= 720)) return null;
+    const today = todayISO(), open = tasksArr().filter(t => t.status !== "done" && !t.archived);
+    const est = t => { const h = Number(t.hours); if (h > 0) return Math.max(15, Math.round(h * 60)); return isExam(t) ? 45 : /read/i.test(t.type + " " + t.title) ? 40 : /quiz/i.test(t.type) ? 30 : 60; };
+    const order = open.filter(t => t.due).map(t => ({t, late: t.due < today, d: days(today, t.due)})).filter(x => x.late || x.d <= 14)
+      .sort((a, b) => (b.late - a.late) || a.t.due.localeCompare(b.t.due));
+    const plan = []; let left = mins;
+    for (const x of order) {
+      if (left < 15) break;
+      const want = est(x.t), give = Math.min(want, left);
+      if (give < 15) continue;
+      plan.push(`${plan.length + 1}. ${x.t.title}${x.t.courseId && state.courses[x.t.courseId] ? ` (${label(state.courses[x.t.courseId])})` : ""}: ${give} min${x.late ? ", it's overdue" : `, due ${dayName(x.t.due, today)}`}${isExam(x.t) ? " (study for it)" : give < want ? " (get a good start)" : ""}`);
+      left -= give;
+    }
+    const due = decksArr().reduce((k, d) => k + dueCount(d), 0);
+    if (left >= 10 && due) { plan.push(`${plan.length + 1}. Your due flashcards (${due}): ${Math.min(left, 20)} min`); left -= Math.min(left, 20); }
+    if (!plan.length) return {answer: `Nothing's due in the next two weeks, so use the ${mins >= 60 ? (mins / 60) + " hour" + (mins === 60 ? "" : "s") : mins + " minutes"} to get ahead: review your notes for your next exam, or make flashcards from your latest lecture.`, show: []};
+    return {answer: `Here's how I'd use your ${mins >= 60 && mins % 60 === 0 ? (mins / 60) + " hour" + (mins === 60 ? "" : "s") : mins + " minutes"}:\n${plan.join("\n")}${left >= 10 ? `\nThat leaves about ${left} minutes for a break or to keep going on the first one.` : ""}\nStart a focus timer on the first one and go.`, show: []};
+  }
   function answer(q){
+    { const t = timePlan(low(q)); if (t) return t; }
     const s = low(q); if (!ADVICE.test(s)) return null;
     const today = todayISO(), open = tasksArr().filter(t => t.status !== "done");
     const late = open.filter(t => t.due && t.due < today).sort((a, b) => a.due.localeCompare(b.due));
@@ -74525,7 +74561,7 @@ window.SBTRUTH = (() => {
     if (plan.define) jobs.push(wiktionary(plan.define));
     // the whole look-up gets a few seconds; a source that's slower is left out of this answer
     const cap = (pr, ms, v) => Promise.race([pr.catch(() => v), new Promise(r => setTimeout(() => r(v), ms))]);
-    const found = (await Promise.all(jobs.map(j => cap(j, o.ms || (window.__SB_TEST && window.__SB_WEB_MS) || 4000, [])))).flat();
+    const found = (await Promise.all(jobs.map(j => cap(j, o.ms || (window.__SB_TEST && window.__SB_WEB_MS) || (typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? 7000 : 4500), [])))).flat();
     const seen = new Set(), uniq = found.filter(x => { const k = x.url; if (seen.has(k)) return false; seen.add(k); return true; });
     let parts = passages(uniq);
     if (!parts.length) return {list: [], text: ""};
@@ -74601,7 +74637,10 @@ window.SBTRUTH = (() => {
     const deep = /^\s*(explain|describe|how (does|do|did|is|are|can)|why|walk me through|tell me about|compare|what('s| is) the difference)\b/i.test(q);
     const sys = `You answer a student's question using only the sources given. Your first sentence answers exactly what they asked, directly. ${deep ? "Then explain it properly in 3 to 5 more sentences: the main parts or steps in order, how they connect, and why it matters, all from the sources." : "Then add 1 to 3 sentences with the most useful detail: how it works, why it matters, or a short example."} If the question asks for several things (what are the..., types, kinds, phases, stages, causes, steps, examples), list every one the sources give. If it asks for an example, give one. If the question could mean several things, answer the meaning that fits their notes and course. If the sources don't answer it, set found to false and say you couldn't find it. Plain text, no markdown.`;
     const srcOf = () => `${useNotes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note):\n${useNotes}\n\n` : ""}${useWeb.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(useWeb)}` : ""}`;
-    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, system: sys + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
+    // the level they ask for: "like I'm 12", "simply", "ELI5", "in plain English", "dumb it down"
+    const simple = /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child|in (middle|elementary) school)\b|\beli5\b|\bsimpl(e|y|er)( terms| words| way)?\b|\bplain english\b|\bdumb(ed)? (it )?down\b|\bfor (a )?(kid|beginner|dummies)\b|\bbasic terms\b/i.test(q);
+    const level = simple ? "\n\nThe student asked for it simply: use short sentences and everyday words a 12-year-old knows, explain any term you have to use, and give one everyday comparison (\"it's like...\"). Keep every fact correct and from the sources." : "";
+    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, system: sys + level + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
     // a list question gets a list; an explanation gets more than a definition
     const listQ = /^\s*(what|which|name|list)\b[^?]*\b(are the|are some|types?|kinds?|phases?|stages?|steps?|causes?|parts?|examples?|mechanisms?|functions?|symptoms?|signs?|principles?|components?|features?|factors?)\b/i.test(q) && !/\b(example of)\b/i.test(q);
     const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false; return true; };
@@ -74642,7 +74681,7 @@ window.SBTRUTH = (() => {
     const clean = a => String(a || "").trim().replace(/^(your notes say(,| that)?|according to (your notes|wikipedia)(,)?)\s*/i, m => m);
     const webName = [...new Set(web.map(x => x.src || "Wikipedia"))].slice(0, 2).join(" and ") || "the web";
     const answer = fromN && fromW ? `From your notes: ${clean(fromN.answer)}\n\nFrom the web (${webName}): ${clean(fromW.answer)}`
-      : fromN ? `From your notes: ${clean(fromN.answer)}` : `${notes ? "Your notes don't cover this, so from the web" : "From the web"} (${webName}): ${clean(fromW.answer)}`;
+      : fromN ? `From your notes: ${clean(fromN.answer)}${!full && !o.noWeb && (String(q).match(/(?<=\S\s+)[A-Z][a-z]{2,}/g) || []).map(k => k.toLowerCase()).some(k => !low(fromN.answer).includes(k.length > 5 ? k.slice(0, k.length - 2) : k)) ? "\n\nThat's as much as your notes cover, and I couldn't find more on the web just now." : ""}` : `${notes ? "Your notes don't cover this, so from the web" : "From the web"} (${webName}): ${clean(fromW.answer)}`;
     return {answer, sources: fromW ? web.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"})) : [], fromNotes: !!fromN, found: true, notesSrc: fromN && mine && mine.src ? mine.src : []};
   }
 
@@ -75248,6 +75287,8 @@ Examples:
     // The model's choice, checked against the student's own words: a clear word for something else wins
     { const w = String(q || "").toLowerCase(), KW = /\b(deck|flash ?card deck|quiz|note ?board|board|whiteboard|event|appointment|course|class|file|pdf|note)\b/;
       if (/^(mark_done|mark_in_progress)$/.test(d.intent) && /\b(delete|remove|cancel(l?ed)?|scratch|drop(ped)?|get rid|trash|no longer|not happening)\b/.test(w)) d.intent = "delete_task";
+      // a concept map only when a map is asked for ("a mnemonic", "a summary", "an acronym" are answers to write, not maps)
+      if (d.intent === "make_map" && !/\b(map|mind ?map|diagram|web of)\b/.test(w)) d.intent = "question";
       if (/^(mark_done|mark_in_progress|question|chat)$/.test(d.intent) && /\b(is ?n'?t|is not|not|never|haven'?t|hasn'?t|didn'?t)\b[^.]{0,20}\b(done|finished|complete|completed|submitted)\b|\bun-?(do|mark|finish)\b|\breopen\b/.test(w)) d.intent = "mark_not_done";
       if (d.intent === "mark_in_progress" && A && A.timerMins && A.timerMins(q)) { d.intent = "start_timer"; if (!d.minutes) d.minutes = A.timerMins(q).mins || 0; }
       const tk = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent], km = KW.exec(w);

@@ -755,7 +755,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       show: list.map(n => ({kind: "note", id: n.id, label: labelOf({kind: "note", id: n.id})})), changes: [], local: true};
   }
   // Whether the words ask for something to be done (not a question about the planner): "new task: …", "I have work saturday", "can X be due the 30th instead"
-  const isRequest = q => !!(/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(please\s+)?(add|put|make|create|delete|remove|move|push|reschedule|mark|rename|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|jot|remind|schedule|book|cancel|undo|edit|update|scratch|drop|new|write|jot|note|sticky|put|wear|take off)\b/i.test(q) || /\b(move|push|reschedule|postpone|delay|instead|rename|delete|remove|cancel|change it|set it|make it|new (task|event|course|class|note))\b/i.test(q) || (/^\s*(i have|i've got|ive got|i got|i'm|im|i am|i need|i gotta|i'll|there'?s)\b/i.test(q) && !/\?\s*$/.test(q)));
+  const isRequest = q => !!(/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(please\s+)?(add|put|make|create|delete|remove|move|push|reschedule|mark|rename|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|jot|remind|schedule|book|cancel|undo|edit|update|scratch|drop|new|write|jot|note|sticky|put|wear|take off)\b/i.test(q) || /\b(move|push|reschedule|postpone|delay|instead|rename|delete|remove|cancel|change it|set it|make it|new (task|event|course|class|note))\b/i.test(q) || (/^\s*(i have|i've got|ive got|i got|i'm|im|i am|i need|i gotta|i'll|there'?s)\b/i.test(q) && !/\?\s*$/.test(q) && !/\b(what|which|how|when|where|should i|do i|can i|am i)\b/i.test(q)));
   async function ask(q, o){
     o = o || {};
     { const c = control(q); if (c) return c; }
@@ -791,9 +791,11 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const editFirst = /\b(priority|urgent|important|move|reschedule|push|postpone|delay|rename|mark|delete|remove|cancel|finished|completed|done)\b/i.test(q);
       const qe0 = editFirst && !APPQ_HOW.test(q) ? quickEdit(q) : null;
       const qc = !(qe0 && qe0.length) && ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
-      if (qc) return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true};
+      if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
+      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? `${qe[0].label}: ${qe[0].what.toLowerCase()} changed` : `Made ${qe.length} changes`);
+        return {answer: qe.map(c => c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`).join(". ") + `. Say "undo" to take it back.`, show: qe[0].field !== "delete" && exists(qe[0].t) ? [{kind: "task", id: qe[0].t.id, label: qe[0].label}] : [], changes: [], local: true}; } }
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
     }
     // a request the quick steps above didn't recognize, however it's worded: understood by the AI, done by the app (intentAct)

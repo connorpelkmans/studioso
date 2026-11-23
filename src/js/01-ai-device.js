@@ -513,9 +513,10 @@ let e4bW = null, e4bLoad = null, e4bIdle = null, e4bSeq = 0;
 const e4bWait = new Map();
 function e4bStop(){ clearTimeout(e4bIdle); try { e4bW && e4bW.terminate(); } catch (e) {} e4bW = null; e4bLoad = null; e4bWait.forEach(w => w.no(aiErr("device-failed", "Stopped."))); e4bWait.clear(); }
 async function e4bModel(){
+  if (window.__SB_TEST && window.__SB_E4B_STUB && window.__SB_E4B_STUB.model) return window.__SB_E4B_STUB.model;
   const D = e4bDesk(); if (D) return new URL("__ai-model/e4b.litertlm", location.href).href;
   const c = await caches.open(E4B.cache), blobs = [];
-  for (let i = 0; i < e4bParts(); i++) { const r = await c.match(e4bKey(i)); if (!r) throw aiErr("device-failed", "Part of the AI is missing. It's downloading again."); blobs.push(await r.blob()); }
+  for (let i = 0; i < e4bParts(); i++) { const r = await c.match(e4bKey(i)); if (!r) throw Object.assign(aiErr("device-failed", "Part of the AI is missing. It's downloading again."), {missing: true}); blobs.push(await r.blob()); }
   return new Blob(blobs);
 }
 function e4bWorker(onStatus){
@@ -537,6 +538,8 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
   const L = devLabel();
   try { await e4bWorker(onStatus); }
   catch (e) {
+    // part of the download went missing (the browser cleared some of it): it's fetched again, and the AI it had is used meanwhile
+    if (e && e.missing) { devLs.set(E4B_READY, ""); DEVAI.e4b = "downloading"; DEVAI.kind = ""; DEVAI.status = ""; await devProbe(); e4bDownload(); throw e; }
     // it won't start on this computer after all (its graphics chip can't hold it): back to the AI it had, for good
     devLs.set(E4B_FAIL, "1"); devLs.set(E4B_READY, ""); DEVAI.e4b = ""; DEVAI.kind = ""; DEVAI.status = ""; await devProbe();
     throw Object.assign(aiErr("device-failed", `${L} couldn't start on this computer. Studyboard switched back to the AI it had; try again.`), {detail: String((e && e.message) || e).slice(0, 300)});
@@ -546,14 +549,15 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus}){
   const o2 = Math.min(out, 2000), room = () => Math.max(800, E4B.ctx - devTokens(sys) - o2 - devTokens(JSON.stringify(json)) - 300);
   const truncated = devFit(parts, room());
   const text = parts.filter(p => p.text != null).map(p => p.text).join("\n\n"), id = ++e4bSeq, t0 = Date.now();
-  let last = Date.now(), dog = null;
+  let last = Date.now(), dog = null, any = false;
   try {
     const raw = await new Promise((ok, no) => {
-      e4bWait.set(id, {ok, no, part(n){ last = Date.now(); if (onStatus) onStatus(`${L} is writing… ${Math.max(1, Math.round(n / 6))} words so far (${Math.round((Date.now() - t0) / 1000)}s)`); }});
+      e4bWait.set(id, {ok, no, part(n){ last = Date.now(); any = true; if (onStatus) onStatus(`${L} is writing… ${Math.max(1, Math.round(n / 6))} words so far (${Math.round((Date.now() - t0) / 1000)}s)`); }});
       const stop = () => { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("aborted", "Stopped.")); };
       if (signal) signal.addEventListener("abort", stop, {once: true});
-      // nothing new for 30 seconds (or 3 minutes in all): stopped, not waited on forever
-      dog = setInterval(() => { if (Date.now() - last > 30000 || Date.now() - t0 > DEV_MAX_MS) { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("device-stall", `${L} stopped answering.`)); } }, 1000);
+      // nothing new for 30 seconds once it's writing (90 before the first words: a slower graphics chip reads a long request first),
+      // or 4 minutes in all: stopped, not waited on forever
+      dog = setInterval(() => { if (Date.now() - last > (any ? 30000 : 90000) || Date.now() - t0 > DEV_MAX_MS + 60000) { try { e4bW.postMessage({t: "cancel", id}); } catch (e) {} e4bWait.delete(id); no(aiErr("device-stall", `${L} stopped answering.`)); } }, 1000);
       e4bW.postMessage({t: "ask", id, system: sys, text, schema: json, maxTokens: o2, temperature});
     });
     const data = aiParseJson(raw);
