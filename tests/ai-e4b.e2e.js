@@ -13,7 +13,7 @@ const server = http.createServer((req, res) => {
   if (u.pathname === "/model.litertlm") {
     const m = /bytes=(\d+)-(\d+)/.exec(req.headers.range || ""); ranges++;
     if (!m) { res.writeHead(200, {"content-length": SIZE}); res.end(FILE); return; }
-    const a = +m[1], b = Math.min(SIZE - 1, +m[2]); res.writeHead(206, {"content-range": `bytes ${a}-${b}/${SIZE}`, "content-length": b - a + 1}); res.end(FILE.subarray(a, b + 1)); return;
+    const a = +m[1], b = Math.min(SIZE - 1, +m[2]); setTimeout(() => { res.writeHead(206, {"content-range": `bytes ${a}-${b}/${SIZE}`, "content-length": b - a + 1}); res.end(FILE.subarray(a, b + 1)); }, 400); return;
   }
   let f; try { f = path.join(ROOT, decodeURIComponent(u.pathname)); } catch (e) { res.writeHead(400); res.end(); return; }
   if (!f.startsWith(ROOT + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }

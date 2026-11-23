@@ -7371,7 +7371,10 @@ function e4bDownload(){
       // Chrome and Edge: the browser downloads the missing parts itself (it carries on after the tab closes); this page follows along
       try {
         const reg = navigator.serviceWorker && await Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(r, 3000))]);
-        if (missing.length && reg && reg.backgroundFetch && !(window.__SB_TEST && window.__SB_E4B_STUB && window.__SB_E4B_STUB.noBg)) {
+        // (not Background Fetch any more: Chrome shows it as a download in its toolbar, and finished downloads didn't always reach the
+        //  page's storage. An earlier one still running is stopped; the page downloads quietly instead, below)
+        try { const old = reg && reg.backgroundFetch ? await reg.backgroundFetch.get(E4B.bg) : null; if (old) await old.abort(); } catch (e) {}
+        if (false && missing.length && reg && reg.backgroundFetch && !(window.__SB_TEST && window.__SB_E4B_STUB && window.__SB_E4B_STUB.noBg)) {
           let bf = await reg.backgroundFetch.get(E4B.bg);
           if (!bf) bf = await reg.backgroundFetch.fetch(E4B.bg, missing.map(i => new Request(E4B.url, {headers: {Range: range(i)}})), {title: "Studyboard's free AI (one time, about 3.3 GB)", downloadTotal: missing.reduce((n, i) => n + Math.min(E4B.size, (i + 1) * E4B.part) - i * E4B.part, 0)});
           await new Promise(done => { const tick = () => { if (bf.downloadTotal) say(1 - missing.length / e4bParts() + (bf.downloaded / E4B.size)); }; bf.addEventListener("progress", () => { tick(); if (bf.result) done(); }); tick(); if (bf.result) done(); });
@@ -7381,8 +7384,10 @@ function e4bDownload(){
         }
       } catch (e) {}
       // elsewhere (and anything Background Fetch didn't finish): part by part, while Studyboard is open
-      for (const i of missing.slice()) {
-        if (!e4bNetOk() || devLs.get(E4B_ON) !== "1") { DEVAI.e4b = "waiting"; return; }
+      // (4 parts at a time: one connection to the download server is often slower than the student's internet)
+      const queue = missing.slice(); let stop = false;
+      const one = async i => {
+        if (!e4bNetOk() || devLs.get(E4B_ON) !== "1") { stop = true; return; }
         let ok = false;
         for (let t = 0; t < 3 && !ok; t++) {
           try {
@@ -7391,9 +7396,11 @@ function e4bDownload(){
             await cache.put(new Request(e4bKey(i)), new Response(b, {headers: {"Content-Length": String(b.size)}})); ok = true;
           } catch (e) { await new Promise(r => setTimeout(r, 3000 * (t + 1))); }
         }
-        if (!ok) { DEVAI.e4b = "waiting"; return; }
+        if (!ok) { stop = true; return; }
         missing.splice(missing.indexOf(i), 1); say(1 - missing.length / e4bParts());
-      }
+      };
+      await Promise.all([0, 1, 2, 3].map(async () => { while (queue.length && !stop) await one(queue.shift()); }));
+      if (stop && missing.length) { DEVAI.e4b = "waiting"; return; }
       if (!missing.length) await e4bReadyNow(true);
     } catch (e) { DEVAI.e4b = "waiting"; }
     finally { e4bRunning = null; }
