@@ -54,7 +54,17 @@ window.SBTRUTH = (() => {
   }
   // how students type: "wats due tmrw", "do i have hw", "whens my nxt test", "am i gonna pass bio"
   const SLANG = [[/\b(tmrw|tmr|tmrrw|2morrow|tomorow|tommorow|tommorrow)\b/g, "tomorrow"], [/\b(tdy|2day|tday)\b/g, "today"], [/\b(hw|hmwk|homewrk)\b/g, "homework"], [/\b(wats|wat|whats|wuts|wut)\b/g, "what's"], [/\bwhens\b/g, "when's"], [/\bwheres\b/g, "where's"], [/\b(nxt)\b/g, "next"], [/\b(wk)\b/g, "week"], [/\b(u)\b/g, "you"], [/\b(r)\b/g, "are"], [/\b(ur)\b/g, "your"], [/\b(gonna)\b/g, "going to"], [/\b(prof)\b/g, "professor"], [/\b(asgmt|assgn|assignmt)\b/g, "assignment"], [/\b(exm)\b/g, "exam"], [/\b(dont)\b/g, "don't"], [/\bim\b/g, "i'm"], [/\b(thx|ty)\b/g, "thanks"]];
-  const norm = q => SLANG.reduce((t, [re, to]) => t.replace(re, to), low(q));
+  const norm = q => SLANG.reduce((t, [re, to]) => t.replace(re, to), low(String(q || "").replace(/[’‘`´]/g, "'").replace(/[“”]/g, '"')));
+  // + - * / ^ and brackets, worked out here (no eval: the app's security policy blocks it, rightly)
+  function calc(src){
+    const t = String(src).replace(/\s+/g, ""); let i = 0;
+    const num = () => { const m = /^\d+(\.\d+)?|^\.\d+/.exec(t.slice(i)); if (!m) throw 0; i += m[0].length; return Number(m[0]); };
+    const atom = () => { if (t[i] === "-") { i++; return -atom(); } if (t[i] === "+") { i++; return atom(); } if (t[i] === "(") { i++; const v = sum(); if (t[i] !== ")") throw 0; i++; return v; } return num(); };
+    const pow = () => { const b = atom(); if (t[i] === "^") { i++; return Math.pow(b, pow()); } return b; };
+    const prod = () => { let v = pow(); while (t[i] === "*" || t[i] === "/") { const o = t[i++], r = pow(); v = o === "*" ? v * r : v / r; } return v; };
+    const sum = () => { let v = prod(); while (t[i] === "+" || t[i] === "-") { const o = t[i++], r = prod(); v = o === "+" ? v + r : v - r; } return v; };
+    const v = sum(); if (i !== t.length) throw 0; return v;
+  }
   function facts(q){
     q = norm(q);
     const s = low(q).replace(/[?!.]+$/, ""), today = todayISO(), L = window.SBLOCALANS;
@@ -65,7 +75,7 @@ window.SBTRUTH = (() => {
         let e = m[1].trim(), v = null;
         const po = /^([\d.]+)\s*%\s*of\s*([\d.]+)$/i.exec(e);
         if (po) v = Number(po[1]) / 100 * Number(po[2]);
-        else { const js = e.replace(/[x×]/gi, "*").replace(/÷/g, "/").replace(/\^/g, "**"); if (/^[\d\s+\-*/().]+$/.test(js) && !/\*\*\*|\/\//.test(js)) { try { v = Function(`"use strict"; return (${js});`)(); } catch (x) { v = null; } } }
+        else { try { v = calc(e.replace(/[x×]/gi, "*").replace(/÷/g, "/")); } catch (x) { v = null; } }
         if (typeof v === "number" && isFinite(v)) { const r = Math.round(v * 1e10) / 1e10; return {answer: `${e.replace(/\s+/g, " ").replace(/\*/g, "×")} = ${r.toLocaleString("en-US", {maximumFractionDigits: 10})}`, show: []}; }
       }
     }
@@ -240,7 +250,10 @@ window.SBTRUTH = (() => {
   const FILLER = /\b(i'?m here to help|here to help you|let me know (if|what|how)|feel free to|how can i (help|assist)|what can i (help|do)|happy to help|i can (definitely )?help( you)? with|is there anything else|what would you like|just (tell|let) me|i understand!?|great question|i see about your)\b/gi;
   const QSTOP = new Set("what whats what's who whos why how when where which is are was were the a an of to in on for and or do does did can could would should i me my you your it its this that these those about tell explain define describe meaning mean means give example examples please some any there here with from by as be been being have has had will just really".split(" "));
   function nonAnswer(q, a){
-    const A = String(a || "").trim(); if (A.length < 8) return true;
+    const A = String(a || "").trim();
+    // a sum asked for, answered with a number: that's the answer, however short ("4.8")
+    if (/\d\s*[-+*/x×÷^%]\s*\d|\b(plus|minus|times|divided by|squared|square root|percent of)\b/i.test(q) && /\d/.test(A)) return false;
+    if (A.length < 8) return true;
     const rest = A.replace(/[^.!?]*\b(i'?m here to help|here to help|ready to help|let me know|feel free|how can i (help|assist)|what can i (do|help)|happy to help|is there anything else|what would you like|okay,? i understand|i'?m (mochi|your)|your studyboard (assistant|planner|companion)|organi[sz]e and manage your stud|navigate your studyboard|ace your courses|sure!?|absolutely!?|hello!?|hi!?)\b[^.!?]*[.!?]?/gi, "").trim();
     const content = rest.split(/\s+/).filter(w => w.length > 3).length;
     if (rest.length < A.length - 4 ? content < 5 : content < 2) return true;

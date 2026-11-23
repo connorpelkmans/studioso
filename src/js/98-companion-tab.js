@@ -621,6 +621,39 @@ Examples:
       return front && back && deck ? [null, front, back, deck] : null;
     })();
   }
+  // a quiz (AI-made, inside a deck) by name; "my quiz", "that quiz", "the last quiz": the newest
+  function quizNamed(name){
+    const all = []; Object.values(state.decks || {}).filter(d => !d.archived).forEach(d => (d.aiQuizzes || []).forEach(z => all.push({d, z})));
+    if (!all.length) return null;
+    const L = String(name || "").toLowerCase().replace(/\b(my|the|a|an|this|that|last|latest|newest|recent|practice|quiz|test|questions?)\b/g, " ").replace(/\s+/g, " ").trim();
+    const newest = () => all.slice().sort((a, b) => (b.z.created || 0) - (a.z.created || 0))[0];
+    if (!L) return newest();
+    return all.find(x => String(x.z.title || "").toLowerCase() === L) || all.find(x => String(x.z.title || "").toLowerCase().includes(L)) || all.find(x => String(x.d.name || "").toLowerCase().includes(L)) || null;
+  }
+  // a quiz's questions as flashcards in its deck: the question on the front, the right answer on the back
+  function cardsFromQuiz(hit){
+    const {d, z} = hit, nd = JSON.parse(JSON.stringify(d)), have = new Set((nd.cards || []).map(c => String(c.front).trim().toLowerCase()));
+    let n = 0;
+    (z.questions || []).forEach(x => {
+      const front = String(x.stem || "").trim(); if (!front || have.has(front.toLowerCase())) return;
+      const opts = x.options || [], cor = (x.correct || []).map(i => opts[i]).filter(v => v != null);
+      const back = x.type === "short" || !opts.length ? String(x.answer || "").trim() : x.type === "order" ? cor.join(" → ") : cor.join("; ");
+      if (!back) return;
+      nd.cards.push({id: uid(), front, back, box: 0, due: "", seen: 0, right: 0, wrong: 0}); have.add(front.toLowerCase()); n++;
+    });
+    if (!n) return `Every question in ${z.title || "that quiz"} is already a card in ${d.name}.`;
+    nd.updated = Date.now(); saveDeck(nd, `${n} card${n === 1 ? "" : "s"} from ${z.title || "a quiz"}`);
+    return `Added ${n} card${n === 1 ? "" : "s"} to ${d.name} from ${z.title || "the quiz"}: each question on the front, its answer on the back. Say "undo" to take them back.`;
+  }
+  // a quiz from a deck (or from the deck a card is in): Make a Quiz, with that deck chosen
+  function quizFromDeck(name){
+    let dk = deckNamed(name);
+    if (!dk) { const L = String(name || "").toLowerCase().replace(/\b(the|my|a|this|that|card|flashcard)\b/g, " ").trim(); if (L.length > 2) dk = (typeof decksArr === "function" ? decksArr() : []).find(x => (x.cards || []).some(c => String(c.front || "").toLowerCase().includes(L) || String(c.back || "").toLowerCase().includes(L))); }
+    if (!dk) return null;
+    if (!(dk.cards || []).length) return `${dk.name} has no cards yet, so there's nothing to quiz you on.`;
+    setTimeout(() => { try { quizSheet([dk.id]); } catch (e) {} }, 250);
+    return `Opening Make a Quiz with ${dk.name} chosen (${dk.cards.length} card${dk.cards.length === 1 ? "" : "s"}). Pick the kind of questions, then Start.`;
+  }
   const PAGES = {today: "board", home: "board", board: "board", dashboard: "board", calendar: "plan", schedule: "plan", planner: "plan", plan: "plan", week: "plan",
     flashcards: "flashcards", cards: "flashcards", decks: "flashcards", deck: "flashcards", quizzes: "flashcards", notes: "notes", "note boards": "notes", courses: "courses", classes: "courses",
     grades: "courses", marks: "courses", files: "files", groups: "groups", "study groups": "groups", companion: "companion", chat: "companion", archive: "archive", timeline: "timeline", email: "emails", emails: "emails", scrapbook: "scrapbook"};
@@ -646,6 +679,12 @@ Examples:
     // "stick a note on my board: buy scrubs", "put 'X' on a sticky": the note, with their words (nothing to work out)
     const nm = /\b(?:note|sticky)\b[^:"“']*?(?::\s*|["“'])([^"”']{2,300}?)["”']?\s*[.!?]*$/i.exec(w) || /^\s*(?:put|stick|add|write)\s+["“']([^"”']{2,300})["”']\s+(?:on|to)\s+(?:a|my|the)\s+(?:sticky|note|board)/i.exec(w);
     if (nm && /\b(?:put|stick|add|write|make|save|create|leave|jot)\b/i.test(w)) return {preset: {intent: "add_note", text: nm[1].trim()}};
+    // flashcards from a quiz: "turn my practice quiz into flashcards", "make cards from the cardiac quiz"
+    const fq = /\b(?:flash ?cards?|cards)\b[^]*?\b(?:from|out of|using|of)\s+(?:my\s+|the\s+|that\s+|this\s+|last\s+)*(.*?\b(?:quiz|test|case study|practice questions))\b/i.exec(w) || /\b(?:turn|make|convert)\s+(?:my\s+|the\s+|that\s+|this\s+)?(.*?\b(?:quiz|test|case study))\s+(?:into|to)\s+(?:flash ?)?cards\b/i.exec(w);
+    if (fq) { const hit = quizNamed(fq[1]); return say(hit ? cardsFromQuiz(hit) : "I couldn't find that quiz. Make one in Flashcards (Make a Quiz), then ask again."); }
+    // a quiz from a deck or a card: "quiz me on my heart deck", "make a quiz from the SA node card"
+    const qd = /\b(?:quiz|test)(?:\s+me)?\b[^]*?\b(?:from|on|using|out of|with|over)\s+(?:my\s+|the\s+|this\s+|that\s+)?(.+?)\s*(?:deck|set|cards?|flashcards?)?\s*[.!?]*$/i.exec(w);
+    if (qd && /\b(deck|card|cards|flashcards?|set)\b/i.test(w)) { const r = quizFromDeck(qd[1]); if (r) return say(r); }
     // a study group or group project: New Group, filled in, for them to create (it needs their account and the internet)
     const gm = /\b(?:create|make|start|set up|new|open)\b[^]*?\b(study group|group project|project group|group)\b(?:\s+(?:called|named|for)\s+["“']?(.+?)["”']?)?\s*[.!?]*$/i.exec(w);
     if (gm && !/\b(note|deck|board|quiz|map|task|event)\b/i.test(w.replace(gm[1], ""))) {
@@ -868,6 +907,9 @@ Careful, these are easy to mix up:
     }
     if (it === "make_map") return mapAct(`make a concept map ${d.topic ? "about " + d.topic : q}`);
     if (it === "find_notes" && A && A.findNotes) { const fn = await A.findNotes(`find my notes on ${d.topic || q}`).catch(() => null); return fn ? say(fn.answer, {sources: fn.show && fn.show.length ? ["Your notes"] : [], show: fn.show && fn.show.length ? A.pack(fn).show : undefined}) : null; }
+    // from something they already have: a quiz from a deck (or card), cards from a quiz
+    if (it === "make_quiz" && (/\b(deck|card|cards|flashcards?)\b/.test(String(q).toLowerCase()))) { const r = quizFromDeck(d.topic || d.deck || d.item || ""); if (r) return say(r); }
+    if (it === "make_flashcards" && /\b(quiz|test|case study)\b/i.test(q)) { const hit = quizNamed(d.topic || d.item || ""); if (hit) return say(cardsFromQuiz(hit)); }
     if (it === "make_flashcards" || it === "make_quiz") return deviceAct(`${it === "make_quiz" ? "make a quiz" : "make flashcards"} on ${d.topic || q.replace(/^.*?\b(on|about|for)\b/i, "")}`, chat, true);
     return null;
   }

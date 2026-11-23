@@ -16,7 +16,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
       async prompt(t){ window.__prompts.push(String(t).slice(-400)); return JSON.stringify({intent: "add_note", text: "WRONG NOTE", board: "", answer: "MODEL ANSWER", found: true, followUps: [], actions: []}); }})};
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1");
     localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, files: [], notes: [], events: [], settings: {}, courses: [{id: "c1", name: "Reviewer Course", code: "REVC 101", color: "#3B6FE0"}, {id: "c2", name: "OCHEM", code: "CHEM 211", color: "#aa33aa"}],
-      decks: [{id: "d1", name: "Connor Pelkmans", cards: [], created: 1}], tasks: [{id: "t1", title: "Lab 4", courseId: "c2", due: "2020-01-01", status: "todo"}]})); });
+      decks: [{id: "d1", name: "Connor Pelkmans", cards: [], created: 1}, {id: "d2", name: "Heart", created: 2, cards: [{id: "h1", front: "SA node", back: "natural pacemaker", box: 0, due: "", seen: 0, right: 0, wrong: 0}], aiQuizzes: [{id: "z1", title: "Cardiac Quiz", created: 5, results: [], questions: [{id: "q1", type: "single", stem: "What starts each heartbeat?", options: ["AV node", "SA node"], correct: [1]}, {id: "q2", type: "short", stem: "Name the chamber that pumps to the body", answer: "Left ventricle"}]}]}], tasks: [{id: "t1", title: "Lab 4", courseId: "c2", due: "2020-01-01", status: "todo"}]})); });
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));
   await p.goto(`http://127.0.0.1:${server.address().port}/index.html`); await p.waitForFunction(() => window.SBCOMPTAB && window.__sbDevAI, null, {timeout: 30000}); await p.waitForTimeout(600);
   await p.evaluate(() => SBCOMPTAB.open()); await p.waitForSelector("#cptIn");
@@ -57,6 +57,19 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await p.evaluate(() => { const S = window.__sbSync, d = S.clone(S.state.decks.d1); d.cards.push({id: "k9", front: "A", back: "B", box: 0, due: "", seen: 0, right: 0, wrong: 0}); S.applyChanges([{kind: "deck", id: "d1", after: d}], "x"); });
   await p.fill("#cptIn", "review connor pelkmans"); await p.click("#cptGo"); await p.waitForTimeout(3500);
   ok(await p.evaluate(() => !document.querySelector("#cptIn") && /study|card|flip|show answer/i.test(document.body.innerText)), "\"review <deck>\" opens that deck to study");
+  await p.evaluate(() => SBCOMPTAB.open()); await p.waitForSelector("#cptIn");
+  a = await chat("turn my cardiac quiz into flashcards");
+  const hc = await p.evaluate(() => window.__sbSync.state.decks.d2.cards.map(c => c.front + "=" + c.back));
+  ok(/Added 2 cards to Heart/.test(a) && hc.includes("What starts each heartbeat?=SA node") && hc.includes("Name the chamber that pumps to the body=Left ventricle"), "cards from a quiz: each question with its answer: " + a);
+  await p.evaluate(() => SBCOMPTAB.open()); await p.waitForSelector("#cptIn");
+  a = await chat("make a quiz from my heart deck");
+  ok(/Make a Quiz with Heart/.test(a) || await p.evaluate(() => /Make a Quiz/.test((document.querySelector("dialog[open]") || {}).innerText || "")), "a quiz from a deck opens Make a Quiz with it: " + a);
+  await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
+  a = await chat("quiz me using the SA node card");
+  ok(/Make a Quiz with Heart/.test(a) || await p.evaluate(() => /Make a Quiz/.test((document.querySelector("dialog[open]") || {}).innerText || "")), "a quiz from a card (its deck): " + a);
+  await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
+  a = await chat("what's 4x3x2 / 5");
+  ok(/4\.8/.test(a), "arithmetic with a curly apostrophe: " + a);
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);
