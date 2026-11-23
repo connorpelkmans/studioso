@@ -727,7 +727,8 @@ Careful, these are easy to mix up:
       if (d.intent === "study_deck" && !/\b(study|review|practi[cs]e|quiz me|drill|go over|run through)\b/.test(w)) d.intent = "question";
       // a new course only when they say to add one ("I meant all my courses" isn't)
       if (d.intent === "add_course" && !/\b(add|new|create|make|enrol+|register|signed up|taking|joining|set up)\b/.test(w)) d.intent = "question";
-      if (d.intent === "add_note" && !/\b(note|notes|jot|sticky|write (?:this|that|it) down|write down|remember|remind me that|board)\b/.test(w)) d.intent = "cant";
+      // a note only when one is asked for ("print my notes", "show my notes" mention notes but don't ask for one)
+      if (d.intent === "add_note" && !/\b(make|write|add|save|create|put|leave|jot|stick|take|new)\b[^.?!]*\b(note|sticky)\b|\bnote (to self|that|:)|\bremember that\b|\bremind me that\b|\bjot\b|\bwrite (this|that|it) down\b|\bwrite down\b|^\s*note\b/.test(w)) d.intent = /\b(show|open|find|see|where|go to)\b/.test(w) ? "open_page" : "cant";
       if (d.intent === "add_note" && !d.board) { const m = /\b(?:on|in|to|onto)\s+(?:my|the)\s+([a-z0-9][\w &'-]{0,30}?)\s+(?:note ?)?board\b/i.exec(q); if (m) d.board = m[1]; }
       ["instructor", "where", "course", "code", "board", "title"].forEach(k => { if (/^(unknown|n\/?a|none|tbd|not (given|specified|provided)|null|undefined|-|no instructor|no room)$/i.test(String(d[k] || "").replace(/[()\[\].]/g, "").trim())) d[k] = ""; });
       // a time only when the words give one (the model likes to make up noon, 8 AM or 4 PM)
