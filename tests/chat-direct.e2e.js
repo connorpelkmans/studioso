@@ -141,6 +141,9 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await p.waitForSelector(".cpt-chip"); const np0 = await p.evaluate(() => window.__prompts.length);
   a = await chat("Create a quiz based on this");
   ok(/Make Quiz/.test(a) && /Key_Conclusions_Batch1/.test(a) && await p.evaluate(n => window.__prompts.length === n, np0), "a quiz from the attached file, with no AI step first: " + a);
+  // a quiz on this device goes in a few bigger parts: 10 questions over 8 short slide sections is 3 parts (9 requests), not 8 (24)
+  { const j = await p.evaluate(() => aiQuizJoin([2, 1, 1, 1, 2, 1, 1, 1].map((c, i) => ({count: c, section: {title: "Slide " + (i + 1), text: "word ".repeat(200), words: 200}}))).map(x => x.count));
+    ok(j.length === 3 && j.reduce((a, b) => a + b, 0) === 10 && Math.max(...j) <= 4, "a device quiz's parts are joined: " + JSON.stringify(j)); }
   // a new question after a sum is never read as a follow-up on it ("why did ..." is not "show your work")
   const NOTMATH = /^(?![\s\S]*(?:Step by step|212\.13|brackets, then powers))[\s\S]+/;
   await conv([["what's 10 x 15 times sqrt 2", /212\.13/], ["why did hitler invade poland", NOTMATH], ["why is the sky blue", NOTMATH]]);

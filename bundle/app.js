@@ -5572,8 +5572,22 @@ async function aiCardsBySection(o){
   const missed = res.length - ok.length;
   return {data: {cards: ok.flatMap(x => x.cards), deckTitle: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed, vague: ok.reduce((m, x) => m + (x.vague || 0), 0), unsup: ok.reduce((m, x) => m + (x.unsup || 0), 0), fixed: ok.reduce((m, x) => m + (x.fixed || 0), 0)};
 }
+// On the device, a quiz in fewer, bigger parts: each part is three requests (facts, questions, check) and each re-reads its text
+// first, so 10 questions over 8 parts of a slide deck was 24 requests and minutes before the first question. Neighbouring parts
+// are joined until a part asks about 4 questions or its text would crowd the model's memory (E4B's is twice the smaller ones').
+function aiQuizJoin(plan){
+  const room = Math.max(700, Math.floor(((typeof DEVAI !== "undefined" && DEVAI.ctx) || 4096) * 0.28)), out = [];
+  plan.forEach(x => { const l = out[out.length - 1], w = s => s.words || SBSECT.words(s.text || "");
+    if (l && l.count + x.count <= 4 && w(l.section) + w(x.section) <= room) {
+      const a = l.section, b = x.section;
+      l.section = {title: a.title && b.title && a.title !== b.title ? `${a.title} · ${b.title}`.slice(0, 120) : (a.title || b.title), path: a.path, text: a.text + "\n\n" + (b.title && b.title !== a.title ? b.title + "\n" : "") + b.text,
+        words: w(a) + w(b), pages: (a.pages || []).concat(b.pages || []), figs: (a.figs || []).concat(b.figs || [])};
+      l.count += x.count;
+    } else out.push({section: x.section, count: x.count}); });
+  return out;
+}
 async function aiQuizBySection(o){
-  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(), qt0 = Date.now(); let done = 0;
+  const dev = aiOnDevice(), plan0 = SBSECT.plan(o.secs, o.n, o.kind), plan = dev && o.quizOnly ? aiQuizJoin(plan0) : plan0, n = plan.length, qt0 = Date.now(); let done = 0;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 9000, schema: QUIZ_SCHEMA, system: AI_QUIZ_SYSTEM + " " + AI_GROUND,
     parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Write exactly ${x.count} practice question${x.count === 1 ? "" : "s"} from this part only. Every question must be answerable from this part, and its rationale must say where.${aiFigAsk(x)}${again ? " Your last answer had too few usable questions: write complete questions with their options, correct answers and rationales." : ""}`})}));
   const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
@@ -5726,7 +5740,7 @@ async function aiMakeStudySet(opts, onStatus){
   else if (cards) jobs.push(cardsOne());
   function cardsOne(){ return aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
     schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})); }
-  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus, onQuestions: opts.onQuestions}));
+  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, quizOnly: !cards, ctx, devCtx, signal, light: opts.light, copy, onStatus, onQuestions: opts.onQuestions}));
   else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
   if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
