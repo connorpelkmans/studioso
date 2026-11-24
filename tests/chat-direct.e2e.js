@@ -12,8 +12,8 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   const b = await chromium.launch({executablePath}), ctx = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
   await ctx.addInitScript(() => { window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__prompts = [];
     // the model says "add a note" to anything (the mistake a small model makes): the app mustn't follow it where the words don't ask for a note
-    window.LanguageModel = {availability: async () => "available", create: async () => ({contextWindow: 6000, contextUsage: 100, destroy(){}, clone: async function(){ return this; },
-      async prompt(t){ window.__prompts.push(String(t).slice(-400)); if (window.__stubIntent) return JSON.stringify(window.__stubIntent); return JSON.stringify({intent: "add_note", text: "WRONG NOTE", board: "", answer: "MODEL ANSWER", found: true, followUps: [], actions: []}); }})};
+    window.LanguageModel = {availability: async () => "available", create: async (o) => { try { (window.__creates = window.__creates || []).push(JSON.stringify(o || {})); } catch (e) {} return {contextWindow: 6000, contextUsage: 100, destroy(){}, clone: async function(){ return this; },
+      async prompt(t){ window.__prompts.push(String(t).slice(-400)); if (window.__stubIntent) return JSON.stringify(window.__stubIntent); return JSON.stringify({intent: "add_note", text: "WRONG NOTE", board: "", answer: "MODEL ANSWER", found: true, followUps: [], actions: []}); }}; }};
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1");
     localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, files: [], notes: [], events: [], settings: {}, courses: [{id: "c1", name: "Reviewer Course", code: "REVC 101", color: "#3B6FE0"}, {id: "c2", name: "OCHEM", code: "CHEM 211", color: "#aa33aa"}],
       decks: [{id: "d1", name: "Connor Pelkmans", cards: [], created: 1}, {id: "d2", name: "Heart", created: 2, cards: [{id: "h1", front: "SA node", back: "natural pacemaker", box: 0, due: "", seen: 0, right: 0, wrong: 0}], aiQuizzes: [{id: "z1", title: "Cardiac Quiz", created: 5, results: [], questions: [{id: "q1", type: "single", stem: "What starts each heartbeat?", options: ["AV node", "SA node"], correct: [1]}, {id: "q2", type: "short", stem: "Name the chamber that pumps to the body", answer: "Left ventricle"}]}]}], tasks: [{id: "t1", title: "Lab 4", courseId: "c2", due: "2020-01-01", status: "todo"}]})); });
@@ -126,7 +126,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   // maths the app can't work out itself goes to the AI with a step-by-step instruction, never to a web lookup
   await p.evaluate(() => { window.__kq = []; window.__prompts = []; });
   a = await chat("whats the limit of (x^2-1)/(x-1) as x->1");
-  ok(!(await p.evaluate(() => window.__kq.length)) && (await p.evaluate(() => window.__prompts.some(t => /maths question/.test(t)))), "unsolved maths goes to the AI with a maths instruction, not the web: " + a);
+  ok(!(await p.evaluate(() => window.__kq.length)) && (await p.evaluate(() => (window.__creates || []).concat(window.__prompts).some(t => /maths question/.test(t)))), "unsolved maths goes to the AI with a maths instruction, not the web: " + a);
   // planner messages with numbers stay planner messages
   a = await chat("got 17/20 on a&p quiz 4 and 40/50 on the lab report, mark both done");
   ok(!/out of 20 is 85%/.test(a), "recording marks isn't treated as a maths question: " + a);

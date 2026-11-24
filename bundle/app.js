@@ -75226,7 +75226,7 @@ window.SBAPPHELP = (() => {
     const V = prev.value, ans = (a, math) => out(a, Object.assign({q: prev.q}, math));
     // a brand-new maths question stands on its own
     const WHY = /^\s*(?:wait\W*|hm+\W*|but\s+)?(why|how come)\b|\bwhy (?:not|isn'?t|wouldn'?t|is it|did)\b/.test(raw);
-    const fresh = WHY ? null : solve(q); if (fresh && !/\b(that|it|this|the answer|the result)\b/.test(raw)) return fresh;
+    const fresh = WHY ? null : solve(q); if (fresh) return fresh;
     if (WHY && prev.why) return ans(prev.why, prev);
     if (WHY && prev.kind === "rate2") { const sp = prev.legs.map(([d, h]) => d / h), avgS = sp.reduce((x, y) => x + y, 0) / sp.length, same = Math.abs(avgS - prev.value) < 1e-9;
       return ans(same ? `Here it is the same: you drove each speed (${sp.map(x => F4(x)).join(" and ")} mph) for the same time, so their average, ${F4(avgS)}, matches total distance ÷ total time (${F(prev.legs.reduce((x, l) => x + l[0], 0))} ÷ ${F(prev.legs.reduce((x, l) => x + l[1], 0))} = ${F4(prev.value)}). The two only differ when you spend different amounts of time at each speed, and then total distance ÷ total time is the right one.` : `Because you spent more time at the slower speed. Average speed is total distance ÷ total time (${F4(prev.value)}), and the plain average of the speeds (${F4(avgS)}) ignores how long each lasted.`, prev); }
