@@ -10,7 +10,11 @@
 /* Answers made on this device when the AI can't be reached (the Companion tab's chat and the bubble's Ask):
    a "what next" question gets Do This Next, and a task always comes with its course and when it's due */
 window.SBLOCALANS = (() => {
-  const NEXT_Q = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b|\bmost (urgent|important|pressing)\b|\btop priority\b|\bwhere (do|should) i start\b/i;
+  const NEXT_RE = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b|\bmost (urgent|important|pressing)\b|\btop priority\b|\bwhere (do|should) i start\b/i;
+  // (not when the question is about one thing or a choice: "what should I study first for quiz 4", "which should I prep first, the lab
+  // or the quiz", "what topics should I start with", "what should we go over at study group", "and tomorrow after study group?")
+  const NEXT_NOT = /\b(for (?:the |my |a |an )?\w|topics?|chapters?|sections?|parts?|between|\bor\b|we|us|group|best way|how|after|before|tomorrow|tonight|weekend|exam|quiz|midterm|final|lab|essay|care plan|journal|reading|notes?|cards?|deck)\b|\bwhich should\b/i;
+  const NEXT_Q = {test: s => NEXT_RE.test(String(s || "")) && !NEXT_NOT.test(String(s || "")), source: NEXT_RE.source};
   const when = t => { try { return t.due ? `${MILESTONE(t.type) ? "" : "due "}${fmtDate(t.due)}${t.time ? ", " + fmtTime(t.time) : ""}` : "no due date"; } catch (e) { return t.due || ""; } };
   const taskLine = t => { const c = courseOf(t.courseId); return `**${t.title}**${c ? ", " + courseLabel(c) : ""}: ${t.status === "done" ? "done" : when(t)}${t.location ? ", " + t.location : ""}`; };
   function nextLine(){ try { if (dayIsOff(todayISO())) return ""; const n = nextUp(computeFocus()); return n && n.x && n.x.t ? `Today's Plan says to do this next: ${taskLine(n.x.t)}` : ""; } catch (e) { return ""; } }
