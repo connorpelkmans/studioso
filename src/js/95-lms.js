@@ -2748,7 +2748,7 @@ function cleanFile(r) {
     if (!need.length) { if (b) b.remove(); return; }
     const L = need[0], names = need.map(x => x.P.name), label = `${names.join(" and ")} signed you out. Sign in again to keep syncing.`;
     if (!b) { b = document.createElement("button"); b.type = "button"; b.id = "lmsSyncIco";
-      b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg><span class="ls-dot" aria-hidden="true"></span>`; }
+      b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg>`; }
     b.dataset.relog = L.P.id; b.setAttribute("aria-label", label); b.title = label; b.dataset.tip = label;
     const ha = document.querySelector(".head-actions"), inHead = !!ha && ha.getBoundingClientRect().width > 0 && getComputedStyle(ha).display !== "none";
     b.className = inHead ? "icon-btn ls-head" : "ls-corner";
@@ -2779,7 +2779,6 @@ function cleanFile(r) {
 #lmsRelog .lr-go:hover{filter:brightness(1.08)}
 #lmsRelog .lr-x{flex:none;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.7;font:600 20px/1 var(--body);cursor:pointer}
 #lmsSyncIco{position:relative;cursor:pointer;color:var(--warn-ink,#9a5b00)}
-#lmsSyncIco .ls-dot{position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:var(--danger,#d93025);box-shadow:0 0 0 2px var(--surface,#fff)}
 #lmsSyncIco.ls-corner{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:16px;z-index:880;display:grid;place-items:center;width:42px;height:42px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface,#fff);box-shadow:0 4px 14px color-mix(in srgb,var(--ink) 14%,transparent)}
 #lmsSyncIco.ls-corner:hover{background:color-mix(in srgb,var(--surface,#fff) 88%,var(--ink))}
 #lmsSyncIco:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
