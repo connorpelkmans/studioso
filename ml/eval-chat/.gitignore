@@ -4,3 +4,6 @@ webcache/
 all-*.jsonl
 fix-*
 judge-*/
+dbg*
+rerun-*
+old/
