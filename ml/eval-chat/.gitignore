@@ -7,3 +7,5 @@ judge-*/
 dbg*
 rerun-*
 old/
+rr*
+rerun-e4b*.json
