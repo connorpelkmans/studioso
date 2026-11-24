@@ -71180,8 +71180,11 @@ var COMP_EXTRA = [];
   function duck(){
     if (!box) return;
     const t = document.getElementById("toast"), on = !!(t && t.classList.contains("show"));
-    let hit = false;
-    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(); hit = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
+    let hit = false, lift = 0;
+    // (measured where it stands, without the hop: the hop itself would make it stop overlapping)
+    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(), up = box.classList.contains("cp-duck") ? Number(box.dataset.lift || 0) : 0, bt = b.top + up, bb = b.bottom + up;
+      hit = a.left < b.right && a.right > b.left && a.top < bb && a.bottom > bt; lift = Math.ceil(bb - a.top + 8); }
+    if (hit) { box.style.setProperty("--cp-lift", -lift + "px"); box.dataset.lift = String(lift); }
     box.classList.toggle("cp-duck", hit);
   }
   { const t = document.getElementById("toast"); if (t) new MutationObserver(() => requestAnimationFrame(duck)).observe(t, {attributes: true, attributeFilter: ["class", "style"], childList: true, subtree: true, characterData: true}); }
@@ -74099,7 +74102,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
-      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? `${qe[0].label}: ${qe[0].what.toLowerCase()} changed` : `Made ${qe.length} changes`);
+      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? (qe[0].field === "delete" ? `Deleted ${qe[0].label}` : `${qe[0].label}: ${qe[0].what.toLowerCase()} changed`) : `Made ${qe.length} changes`);
         return {answer: qe.map(c => c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`).join(". ") + `. Say "undo" to take it back.`, show: qe[0].field !== "delete" && exists(qe[0].t) ? [{kind: "task", id: qe[0].t.id, label: qe[0].label}] : [], changes: [], local: true}; } }
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
     }
@@ -77033,7 +77036,7 @@ window.SBCARDS = (() => {
       if (ch.length && ch.length === (res.changes || []).length && A.build) {
         if (ch.every(c => c.from && c.from === c.to)) return {answer: `${ch[0].label} is already ${String(ch[0].to).toLowerCase()}.`, sources: [], followUps: [], actions: []};
         const built = A.build(ch); if (built.length) {
-          const adds = ch.filter(c => c.t.kind === "newtask"), lab = adds.length === ch.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : ch.length === 1 ? `${ch[0].label}: ${ch[0].what.toLowerCase()} changed` : `Made ${ch.length} changes`;
+          const adds = ch.filter(c => c.t.kind === "newtask"), lab = adds.length === ch.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : ch.length === 1 ? (ch[0].field === "delete" ? `Deleted ${ch[0].label}` : `${ch[0].label}: ${ch[0].what.toLowerCase()} changed`) : `Made ${ch.length} changes`;
           applyChanges(built, lab);
           const say1 = c => c.t.kind === "newtask" ? `Added ${c.label}${c.to ? `, ${c.to}` : ""}` : c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`;
           return {answer: ch.map(say1).join(". ") + ". Say \"undo\" to take it back.", sources: [], followUps: [], actions: []};
