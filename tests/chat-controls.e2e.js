@@ -15,7 +15,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     window.LanguageModel = {availability: async () => "available", create: async () => ({contextWindow: 6000, contextUsage: 100, destroy(){}, clone: async function(){ return this; },
       async prompt(){ window.__asked++; if (window.__hang) await new Promise(() => {}); return JSON.stringify({answer: "MODEL", found: true, followUps: [], actions: []}); }})};
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"}));
-    const d = x => { const t = new Date(); t.setDate(t.getDate() + x); return t.toISOString().slice(0, 10); };
+    const d = x => { const t = new Date(); t.setDate(t.getDate() + x); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; };
     localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, files: [], notes: [], events: [], decks: [], settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}],
       tasks: [{id: "t1", title: "Homework 4", courseId: "c1", due: d(2), status: "todo", type: "Assignment"}, {id: "t2", title: "Practice Final Exam", courseId: "c1", due: d(5), status: "todo", type: "Exam"}]})); });
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));

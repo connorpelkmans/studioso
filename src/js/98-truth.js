@@ -96,10 +96,20 @@ window.SBTRUTH = (() => {
         return {answer: `${list.length} announcement${list.length === 1 ? "" : "s"}${c ? ` from ${c.code || c.name}` : ""}, newest first:\n${list.slice(0, 6).map(x => `- ${x.course}: ${x.title}${x.date ? ` (${when(x.date)})` : ""}`).join("\n")}${list.length > 6 ? `\n…and ${list.length - 6} more under the bell.` : ""}`, show: []};
       return {answer: `Your most recent announcement${c ? ` from ${c.code || c.name}` : ""}:\n${one(list[0])}`, show: []};
     }
+    // what they're working on now: the tasks marked In Progress
+    if (/\b(working on|in progress|started on|doing right now)\b/.test(s) && !/\b(should|next|start)\b/.test(s)) {
+      const dg = tasksArr().filter(t => t.status === "doing"); if (!dg.length) return {answer: "Nothing is marked In Progress right now.", show: []};
+      return {answer: `In progress: ${dg.map(t => L ? L.taskLine(t).replace(/\*\*/g, "") : t.title).join("; ")}.`, show: dg.slice(0, 3).map(t => ({kind: "task", id: t.id}))}; }
+    // "everything due before the psych midterm": from today until that task
+    { const bm = /\b(?:due |left |to do |have )?(?:before|until|ahead of|leading up to|by the time of)\s+(?:the\s+|my\s+)?(.{3,60})$/.exec(s);
+      if (bm && /\b(due|left|to do|have|everything|anything|tasks?|what)\b/.test(s)) { const tk = taskNamed(bm[1]); if (tk && tk.due) {
+        const list = tasksArr().filter(t => t.status !== "done" && t.id !== tk.id && t.due && t.due < tk.due).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
+        return {answer: list.length ? `${list.length} task${list.length === 1 ? "" : "s"} due before ${tk.title} (${fmtDate(tk.due)}):\n${list.slice(0, 12).map(t => "- " + (L ? L.taskLine(t).replace(/\*\*/g, "") : t.title)).join("\n")}` : `Nothing else is due before ${tk.title} (${fmtDate(tk.due)}).`, show: []}; } } }
     // study advice built from their planner (98-advice.js): priorities, a plan, how to study for an exam
     { const A = window.SBADVICE; if (A && (A.ADVICE.test(s) || (A.timePlan && A.timePlan(s)))) { const r = A.answer(s); if (r) return r; } }
     // the wider set of planner questions (98-facts.js): averages, best and worst, classes, the next exam, counts, cards due
-    { const X = window.SBFACTS; if (X && !/\b(say|said|says|mention(ed|s)?|told|tell us|talk(ed)? about|explain(ed)?)\b/.test(s) && !(WRITE.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i|am i)\b/.test(s))) { const r = X.answer(q); if (r) return r; } }
+    // (a window said in so many words, "due next week", is listed below, not answered with the single next deadline)
+    { const X = window.SBFACTS; if (X && !(/\b(due|deadlines?|have)\b/.test(s) && range(s, today)) && !/\b(say|said|says|mention(ed|s)?|told|tell us|talk(ed)? about|explain(ed)?)\b/.test(s) && !(WRITE.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i|am i)\b/.test(s))) { const r = X.answer(q); if (r) return r; } }
     // an action, not a question ("add a task due tomorrow", "move my exam"): the AI's job
     // about the app itself, hello and thanks (98-apphelp.js): from the app's own guide
     { const H = window.SBAPPHELP; if (H) { const r = H.answer(s); if (r) return r; } }
@@ -127,9 +137,9 @@ window.SBTRUTH = (() => {
       if (t) return {answer: L ? L.taskLine(t).replace(/\*\*/g, "") + "." : `${t.title}: ${t.due ? "due " + t.due : "no due date"}.`, show: [{kind: "task", id: t.id}]};
     }
     // what's due in a window, or overdue
-    if (/\b(due|left|to do|todo|have|homework|assignments?|tasks?|exams?|quiz(zes)?|tests?|anything|deadlines?|overdue|late)\b/.test(s)) {
-      const r = range(s, today); if (!r) return null;
-      const kind = /\bexams?|tests?|midterms?|finals?\b/.test(s) ? t => /exam|midterm|final|test/i.test(t.type + " " + t.title) : /\bquiz(zes)?\b/.test(s) ? t => /quiz/i.test(t.type + " " + t.title) : () => true;
+    if (/\b(due|left|to do|todo|have|homework|assignments?|tasks?|exams?|quiz(zes)?|tests?|labs?|essays?|papers?|readings?|projects?|anything|deadlines?|overdue|late)\b/.test(s)) {
+      const r = range(s.replace(/\bcoming up\b/, "this week"), today) || (/\b(coming up|upcoming|soon|any)\b/.test(s) && /\b(labs?|essays?|papers?|readings?|projects?|exams?|quiz(zes)?|tests?)\b/.test(s) ? {from: today, to: addDays(today, 13), label: "in the next two weeks"} : null); if (!r) return null;
+      const kind = /\bexams?|tests?|midterms?|finals?\b/.test(s) ? t => /exam|midterm|final|test/i.test(t.type + " " + t.title) : /\bquiz(zes)?\b/.test(s) ? t => /quiz/i.test(t.type + " " + t.title) : /\blabs?\b/.test(s) ? t => /\blab\b/i.test(t.type + " " + t.title) : /\bessays?|papers?\b/.test(s) ? t => /essay|paper/i.test(t.title) : /\breadings?\b/.test(s) ? t => /read/i.test(t.type + " " + t.title) : /\bprojects?\b/.test(s) ? t => /project/i.test(t.type + " " + t.title) : () => true;
       const c = courseNamed(s);
       const list = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= r.from && t.due <= r.to && kind(t) && (!c || t.courseId === c.id)).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
       const what = /\bexams?|tests?\b/.test(s) ? "exams" : /\bquiz/.test(s) ? "quizzes" : "tasks";
@@ -164,6 +174,9 @@ window.SBTRUTH = (() => {
     let r0 = null; try { r0 = facts(lastQ); } catch (e) {}
     if (!r0) return "";
     if (AFTER.test(s)) return "__AFTER__";
+    // "who teaches that class", "what's my grade in that course": the course the last answer was about
+    if (/\b(that|this|the same|its) (class|course)\b/.test(s)) { const tail = String(said || "").slice(-700), cs = coursesArr().map(c => ({c, i: Math.max(tail.lastIndexOf(c.code || "\u0000"), low(tail).lastIndexOf(low(c.name)))})).filter(x => x.i >= 0).sort((a, b) => b.i - a.i);
+      if (cs.length) return s.replace(/\b(that|this|the same|its) (class|course)\b/, cs[0].c.code || cs[0].c.name); }
     if (!/^\s*(and|ok|okay|so|but|what about|how about|what of|for|then|also|which|which ones?|any|anything|what)\b|^\s*(the day after|the week after|wednesday|thursday|friday|saturday|sunday|monday|tuesday|tomorrow|today)\b/.test(s)) return "";
     const t = (s.match(WHEN) || [])[0], c = courseIn(s.replace(WHEN, " "));
     if (!t && !c) return "";

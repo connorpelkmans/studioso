@@ -32,7 +32,8 @@ function fake(){
       open_access: {oa_url: "https://example.org/aquaporins"}, cited_by_count: 120}]})}); });
   await ctx.addInitScript(([f, T]) => { window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__SB_WEB_TEST = true; (0, eval)(`(${f})`)();
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"}));
-    const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    // (the local date, like the app's own "today": the UTC date is tomorrow's in the evening west of Greenwich)
+    const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
     localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, files: [], notes: [{id: "n1", text: "Diffusion lab\nDye spreads from high to low concentration until even.", x: 10, y: 10}], events: [], decks: [], settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}],
       tasks: [{id: "t1", title: "Bio Lab Report", due: d(1), status: "todo", type: "Lab", courseId: "c1"}, {id: "t2", title: "History Essay", due: d(4), status: "todo", type: "Assignment"}, {id: "t3", title: "Chem Problem Set", due: d(-2), status: "todo", type: "Assignment"}]})); }, [fake.toString()]);
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));
