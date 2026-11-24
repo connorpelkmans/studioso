@@ -7147,7 +7147,9 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
       // AI, say), and this request is answered with it, so the student isn't left waiting. It's tried again next time Studyboard opens.
       if (!e || !/^(device-stall|device-failed)$/.test(String(e.code || "")) || e.wrote || (signal && signal.aborted)) throw e;
       e4bOff = true; e4bStop(); DEVAI.kind = ""; DEVAI.status = ""; await devProbe();
-      try { toast("Studyboard's stronger AI didn't respond on this computer, so it's using " + devLabel() + " for now."); } catch (x) {}
+      // both can be on this device, so say which is which: the stronger one (E4B) and what answers instead (its smaller one, or the browser's or Apple's)
+      try { toast(DEVAI.status === "available" && DEVAI.kind !== "litert" ? "Studyboard's stronger on-device AI (Gemma 4 E4B) didn't respond, so for now it's using " + (DEVAI.kind === "webllm" ? "its smaller on-device AI (" + devModel().replace(/^Google's /, "") + ")" : devLabel()) + ". It'll try the stronger one again next time you open Studyboard."
+        : "Studyboard's stronger on-device AI (Gemma 4 E4B) didn't respond on this computer. It'll try again next time you open Studyboard."); } catch (x) {}
       if (DEVAI.status !== "available" || DEVAI.kind === "litert") throw e;
       if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
       if (DEVAI.kind === "webllm") return devWeb({sys, parts, json, out, temperature, signal, onStatus, auto});
