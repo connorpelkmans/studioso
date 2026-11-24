@@ -48963,7 +48963,20 @@ function cleanFile(r) {
   window.SBLMS_COURSE_GONE = id => ALL().forEach(L => { try { L.courseDeleted(id); } catch (e) {} });
 
   /* Desktop: staying signed in, and a quick way back in */
-  const relogNeeded = () => ALL().filter(L => !!lmsBridge() && L.cfg().mode === "api" && L.connected() && L.local().needLogin);
+  // A school site that has signed you out: only one you've signed in to and synced before (c.last) and haven't disconnected. Through
+  // the desktop app it says so itself (needLogin); through the browser extension, the extension reports the site as "login".
+  const extLogin = L => { const c = L.cfg(), x = !lmsBridge() && c.mode === "api" && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.school(L.P.id) : null; return x && x.state === "login" ? x : null; };
+  const relogNeeded = () => ALL().filter(L => L.connected() && !!L.cfg().last && ((!!lmsBridge() && L.cfg().mode === "api" && L.local().needLogin) || !!extLogin(L)));
+  // Signing in again: the desktop app opens the sign-in; with the extension, the school site opens in a new tab to sign in there,
+  // and coming back to Studyboard asks the extension to sync
+  function relogGo(L){
+    const x = extLogin(L);
+    if (!x) return L.doLogin().catch(err => { console.error(err); toast("Sign-in didn't work. Try again."); }).finally(scheduleRender);
+    openOutside(x.origin || L.cfg().host);
+    const back = () => { if (document.hidden) return; document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back);
+      try { window.postMessage({source: "studyboard-app", type: "sync"}, location.origin); } catch (e) {} if (window.SBLMS_EXTSYNC) SBLMS_EXTSYNC([L.P.id]); };
+    setTimeout(() => { document.addEventListener("visibilitychange", back); window.addEventListener("focus", back); }, 800);
+  }
   let relogHidden = "", pinging = false;
   async function keepAlive(){
     const br = lmsBridge(); if (!br || !br.ping || pinging || navigator.onLine === false) return;
@@ -49010,7 +49023,7 @@ function cleanFile(r) {
   hook("render", drawRelog);
   document.addEventListener("click", e => {
     const go = e.target.closest && e.target.closest("[data-relog]");
-    if (go) { const L = LMS[go.dataset.relog]; if (L) L.doLogin().catch(err => { console.error(err); toast("Sign-in didn't work. Try again."); }).finally(scheduleRender); return; }
+    if (go) { const L = LMS[go.dataset.relog]; if (L) relogGo(L); return; }
     if (e.target.closest && e.target.closest("[data-relog-x]")) { relogHidden = relogNeeded().map(L => L.P.id).join(","); drawRelog(); }
   });
   { const st = document.createElement("style"); st.textContent = `
@@ -49082,6 +49095,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     syncPill(true);
     extWatch = {ids: ids.slice(), t0: Date.now() - 1500, timer: setTimeout(() => extWatchEnd(null), 120000)};
   }
+  window.SBLMS_EXTSYNC = ids => extSyncWatch(ids);
   function extWatchEnd(res){
     const w = extWatch; if (!w) return; extWatch = null; clearTimeout(w.timer); syncPill(false);
     const nm = id => (LMS[id] && LMS[id].P.name) || "your school site";
@@ -49154,6 +49168,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
         EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0, tried: Number(x.tried) || 0, error: String(x.error || "").replace(/[<>]/g, "").slice(0, 160)}));
         extWatchCheck();
+        // a school the extension can't read until you sign in again: the sync icon shows (or goes) straight away
+        try { drawRelog(); } catch (err) {}
         (Array.isArray(d.list) ? d.list : []).slice(0, 3).forEach(x => { extChain = extChain.then(() => extImport(x)).catch(err => console.warn("extension import", err)); });
       }
     });
