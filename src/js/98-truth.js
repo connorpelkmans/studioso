@@ -378,6 +378,27 @@ window.SBTRUTH = (() => {
     if (!a || d.sure === false || nonAnswer(q, a) || /\b(i'?m not sure|i don'?t know|i cannot|i can'?t answer)\b/i.test(a.slice(0, 80))) return null;
     return {answer: a, sources: [], found: true, own: true};
   }
+  /* The lines of their own notes that a question is about, word for word, when the AI's answer didn't hold up ("who came up with
+     REBT" -> "Rational-emotive behavior therapy (Albert Ellis)"; "what's the conduction pathway" -> the SA node line). Better than
+     "couldn't find" when the note is right there; null when no line clearly matches. */
+  function noteLines(q){
+    const GEN = /^(work|works|happen|happens|mean|means|use|used|make|made|different|difference|important|example|explain|describe|function|process|role|cause|causes|effect|type|types|kind|part|parts|step|steps|thing|things|way|ways|note|notes|say|says|said|write|wrote|came|come|know|tell|about|does|what|which|who|when|where|why|how)$/;
+    const stem = k => k.length > 5 ? k.slice(0, k.length - 2) : k;
+    const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego|av|sa|hr)$/.test(w)) && !GEN.test(w));
+    if (!keys.length) return null;
+    const longest = keys.slice().sort((a, b) => b.length - a.length)[0], need = Math.max(1, Math.ceil(keys.length / 2));
+    const hits = [];
+    Object.values(state.notes || {}).filter(n => n && !n.archived && n.text).forEach(n => { const head = String(n.text).split("\n")[0].trim();
+      String(n.text).split(/\n|(?<=[.!?])\s+(?=[A-Z])/).map(l => l.trim()).filter(l => l.length > 6).forEach(l => {
+        // ("REBT" is "Rational-emotive behavior therapy": the initials of the line's words count as the word)
+        const ini = ((head + " " + l).match(/[A-Za-z]+/g) || []).map(x => x[0].toLowerCase()).join("");
+        const L = low(head + " " + l) + " " + ini, sc = keys.filter(k => L.includes(stem(k)) || (/^[a-z]{3,5}$/.test(k) && ini.includes(k))).length;
+        if (sc >= need && L.includes(stem(longest))) hits.push({head, l, sc, own: low(l).includes(stem(longest))}); }); });
+    if (!hits.length) return null;
+    hits.sort((a, b) => b.sc - a.sc || b.own - a.own);
+    const top = hits.filter(h => h.sc === hits[0].sc).slice(0, 3);
+    return {answer: `Your notes say:\n${top.map(h => `- ${h.l === h.head ? h.l : `${h.head}: ${h.l}`}`).join("\n")}`, sources: [], found: true, fromNotes: true, notesSrc: [...new Set(top.map(h => h.head.slice(0, 40)))]};
+  }
   async function knowledge(q, o){
     o = o || {};
     { const fn = fromNotes(q); if (fn) return fn; }
@@ -458,6 +479,7 @@ window.SBTRUTH = (() => {
     if (!fromN && !fromW && aiFail) throw aiFail;
     // neither their notes nor the web answered it: what the AI knows, only when it's sure (a basic school fact: "capital of
     // australia", "how many chromosomes do humans have"), else said plainly
+    if (!fromN && !fromW) { const nl = noteLines(o.search || q); if (nl) return nl; }
     if (!fromN && !fromW) { const ow = await own(q, o, level).catch(e => { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; }); if (ow) return ow;
       return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web, and I'm not sure enough to answer from memory." : "I couldn't find a clear answer to that on the web, your notes don't cover it, and I'm not sure enough to answer from memory.", sources: [], found: false}; }
     const clean = a => String(a || "").trim().replace(/(?<=[.!?])\s+I (couldn't|could not|can't) find [^.]*(notes|web|sources)[^.]*\.?\s*$/i, "").replace(/^(your notes say(,| that)?|according to (your notes|wikipedia)(,)?)\s*/i, m => m);
