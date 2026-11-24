@@ -2741,8 +2741,23 @@ function cleanFile(r) {
     let away = 0;
     document.addEventListener("visibilitychange", () => { if (document.hidden) away = Date.now(); else if (away && Date.now() - away > 10 * 60000) keepAlive(); });
   }
+  // A sync icon at the very top right while a school site has signed you out: it stays (the message below can be hidden) and
+  // signs you in again when pressed. On a phone it sits with the header's buttons; on a computer, in the window's corner.
+  function drawRelogIcon(need){
+    let b = document.getElementById("lmsSyncIco");
+    if (!need.length) { if (b) b.remove(); return; }
+    const L = need[0], names = need.map(x => x.P.name), label = `${names.join(" and ")} signed you out. Sign in again to keep syncing.`;
+    if (!b) { b = document.createElement("button"); b.type = "button"; b.id = "lmsSyncIco";
+      b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg><span class="ls-dot" aria-hidden="true"></span>`; }
+    b.dataset.relog = L.P.id; b.setAttribute("aria-label", label); b.title = label; b.dataset.tip = label;
+    const ha = document.querySelector(".head-actions"), inHead = !!ha && ha.getBoundingClientRect().width > 0 && getComputedStyle(ha).display !== "none";
+    b.className = inHead ? "icon-btn ls-head" : "ls-corner";
+    if (inHead) { if (b.parentElement !== ha) ha.insertBefore(b, ha.firstChild); }
+    else if (b.parentElement !== document.body) document.body.appendChild(b);
+  }
   function drawRelog(){
     const need = relogNeeded(), key = need.map(L => L.P.id).join(",");
+    drawRelogIcon(need);
     let el = document.getElementById("lmsRelog");
     if (!need.length || key === relogHidden) { if (el) el.remove(); if (!need.length) relogHidden = ""; return; }
     if (!el) { el = document.createElement("div"); el.id = "lmsRelog"; el.setAttribute("role", "status"); document.body.appendChild(el); }
@@ -2763,6 +2778,14 @@ function cleanFile(r) {
 #lmsRelog .lr-go{flex:none;border:0;border-radius:999px;padding:9px 16px;min-height:38px;background:var(--accent);color:var(--accent-ink,#fff);font:700 .88rem var(--display,inherit);cursor:pointer}
 #lmsRelog .lr-go:hover{filter:brightness(1.08)}
 #lmsRelog .lr-x{flex:none;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.7;font:600 20px/1 var(--body);cursor:pointer}
+#lmsSyncIco{position:relative;cursor:pointer;color:var(--warn-ink,#9a5b00)}
+#lmsSyncIco .ls-dot{position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:var(--danger,#d93025);box-shadow:0 0 0 2px var(--surface,#fff)}
+#lmsSyncIco.ls-corner{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:16px;z-index:880;display:grid;place-items:center;width:42px;height:42px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface,#fff);box-shadow:0 4px 14px color-mix(in srgb,var(--ink) 14%,transparent)}
+#lmsSyncIco.ls-corner:hover{background:color-mix(in srgb,var(--surface,#fff) 88%,var(--ink))}
+#lmsSyncIco:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){#lmsSyncIco svg{animation:lsSpin 2.4s ease-in-out 2}}
+@keyframes lsSpin{to{transform:rotate(360deg)}}
+body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 #lmsRelog .lr-x:hover{opacity:1;background:color-mix(in srgb,var(--paper) 14%,transparent)}
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}

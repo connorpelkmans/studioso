@@ -57,6 +57,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(!(await pill()), "× hides it");
     await page.evaluate(() => { const T = window.__sbNotecards; T.render(); }); await page.waitForTimeout(100);
     ok(!(await pill()), "and it stays hidden across redraws");
+    // the sync icon at the top right stays while signed out, even with the message hidden
+    const ico = () => page.evaluate(() => { const e = document.querySelector("#lmsSyncIco"); if (!e) return null; const r = e.getBoundingClientRect(); return {right: innerWidth - r.right, top: r.top, label: e.getAttribute("aria-label")}; });
+    { const i = await ico(); ok(i && i.right < 60 && i.top < 70 && /Brightspace signed you out/.test(i.label), "a sync icon stays at the top right while signed out: " + JSON.stringify(i)); }
     await page.evaluate(() => { window.__pingR = {ok: true}; return window.__sbRelog.keepAlive(); }); await page.waitForTimeout(200);
     ok(!(await page.evaluate(() => SBLMS.brightspace.local().needLogin)), "a check that finds the sign-in good again clears it");
     await page.evaluate(() => { window.__pingR = {needLogin: true}; return window.__sbRelog.keepAlive(); }); await page.waitForTimeout(300);
@@ -64,6 +67,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.click("#lmsRelog .lr-go");
     await page.waitForFunction(() => !document.querySelector("#lmsRelog"), null, {timeout: 8000});
     ok(await page.evaluate(() => window.__connects === 1 && !SBLMS.brightspace.local().needLogin), "Sign In Again opens the sign-in and the button goes away");
+    ok(!(await ico()), "the sync icon goes once signed in again");
+    await page.evaluate(() => { window.__pingR = {needLogin: true}; return window.__sbRelog.keepAlive(); }); await page.waitForTimeout(300);
+    await page.click("#lmsSyncIco");
+    await page.waitForFunction(() => !document.querySelector("#lmsSyncIco"), null, {timeout: 8000}).catch(() => {});
+    ok(await page.evaluate(() => window.__connects === 2 && !SBLMS.brightspace.local().needLogin && !document.querySelector("#lmsSyncIco")), "pressing the sync icon signs in again");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-relog.e2e: ${n} checks passed`);
