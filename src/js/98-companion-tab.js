@@ -286,6 +286,17 @@
     for (const x of prev) if ((MAP_Q.test(x.q) && MAP_ASK.test(x.q)) || CARDS_Q.test(x.q) || NOTE_Q.test(x.q) || CHANGE_Q.test(x.q)) return x.q;
     return "";
   }
+  // "create a quiz based on this" with slides attached: straight from the words, made from the attached file (no AI step to work
+  // out what was meant, and never a search of their notes or the web instead of the file they gave)
+  function attStudy(q, att){
+    const w = String(q || "").replace(/["“'‘][^"”'’]{2,200}["”'’]/g, " ");
+    if (!att || !att.length || !(CARDS_Q.test(w) || /\b(quiz|flash ?cards?|practice (questions|test))\b/i.test(w))) return null;
+    const quiz = /\bquiz|test me|practice (questions|test)\b/i.test(w) && !/flash ?cards?|\bcards\b/i.test(w), n = Number((w.match(/\b(\d{1,2})\b/) || [])[1]) || 0;
+    const names = att.map(x => String(x.name || "your file")), name = names[0].replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[_-]+/g, " ").trim().slice(0, 60) || "Study Set";
+    const from = names.length === 1 ? names[0] : `your ${names.length} files`;
+    return {answer: `Tap ${quiz ? "Make Quiz" : "Make Flashcards"} and I'll make ${n ? n + " " : ""}${quiz ? "practice questions" : "flashcards"} from ${from}.`, sources: [], followUps: [],
+      actions: [{type: quiz ? "quiz" : "flashcards", label: quiz ? "Make Quiz" : "Make Flashcards", deckName: name, deck: "", target: "", style: "", count: n, course: "", board: "", noteTitle: "", text: ""}]};
+  }
   async function deviceAct(q, chat, forced){
     const A = window.SBASSIST, TR = window.SBTRUTH; if (!A) return null;
     if (CARDS_Q.test(q.replace(/["“'‘][^"”'’]{2,200}["”'’]/g, " ")) && !EMPTY_DECK.test(q)) {
@@ -1018,6 +1029,7 @@ Careful, these are easy to mix up:
     // from something they already have: a quiz from a deck (or card), cards from a quiz
     if (it === "make_quiz" && (/\b(deck|card|cards|flashcards?)\b/.test(String(q).toLowerCase()))) { const r = quizFromDeck(d.topic || d.deck || d.item || ""); if (r) return say(r); }
     if (it === "make_flashcards" && /\b(quiz|test|case study)\b/i.test(q)) { const hit = quizNamed(d.topic || d.item || ""); if (hit) return say(cardsFromQuiz(hit)); }
+    if ((it === "make_flashcards" || it === "make_quiz") && att && att.length) { const r = attStudy(q, att) || attStudy(it === "make_quiz" ? "make a quiz" : "make flashcards", att); if (r) return r; }
     if (it === "make_flashcards" || it === "make_quiz") return deviceAct(`${it === "make_quiz" ? "make a quiz" : "make flashcards"} on ${d.topic || q.replace(/^.*?\b(on|about|for)\b/i, "")}`, chat, true);
     return null;
   }
@@ -1052,6 +1064,7 @@ Careful, these are easy to mix up:
     let c = chats.find(x => x.id === T.id);
     if (!c) { c = {id: uid(), title: clip(q, 56), at: Date.now(), msgs: []}; chats.unshift(c); T.id = c.id; wr(chats); }
     T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.live = ""; T.status = "Looking through your stuff…"; draw();
+    clearInterval(T.tick); T.tick = setInterval(() => { if (T.busy && !T.live) drawStatus(); }, 1000);
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     // no reply may keep the chat busy for good: past CHAT_MAX it's given up on (it's dropped if it comes later) and the chat is free again
@@ -1178,6 +1191,7 @@ Careful, these are easy to mix up:
       const PLAINQ = !!(qFix && more) || !ACTX(q2) && (/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did|can you explain)\b[^]*\?\s*$/i.test(q2) || /^\s*(explain|define|describe|tell me about|what is|what's|whats|what are|how does|how do|how is|how are|why (is|are|do|does)|who (is|was|were)|summari[sz]e|compare)\b/i.test(q2));
 
       if (att.length && att.some(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || "")) && /\b(add|put|save|pin|stick|place|attach)\b[^?]*\b(note|notes|board)\b/i.test(q)) made = await photoNote(q, att);
+      if (!made && att.length && !careMode) made = attStudy(q2, att);
       if (!quick && !made && !att.length && MAP_Q.test(q2) && MAP_ASK.test(q2)) { T.status = "Making your map…"; draw(); made = await mapAct(q2); }
       if (!quick && !made && !att.length && window.SBASSIST && SBASSIST.findNotes) { const fn = await SBASSIST.findNotes(q2).catch(() => null); if (fn) made = {answer: fn.answer, sources: fn.show && fn.show.length ? ["Your notes"] : [], followUps: [], actions: [], show: fn.show && fn.show.length ? SBASSIST.pack(fn).show : undefined}; }
       if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
@@ -1281,12 +1295,12 @@ You can also DO things in Studyboard, but only when the student asks or what the
       if (m.a && !m.a.ref) { const nw = newSince(ids0); if (nw) m.a.ref = nw; }
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
     })();
-    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), ((window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX) + (typeof e4bLoaded !== "undefined" && typeof DEVAI !== "undefined" && DEVAI.kind === "litert" && !e4bLoaded ? 120000 : 0)))])) m = {q: m.q, at: m.at, files: m.files, err: "That took too long, so I stopped. Try asking again, maybe in fewer words.", errCode: "slow"};
+    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), ((window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX) + (m.files && m.files.length && !(window.__SB_TEST && window.__CHAT_MAX) && typeof aiOnDevice === "function" && aiOnDevice() ? 120000 : 0) + (typeof e4bLoaded !== "undefined" && typeof DEVAI !== "undefined" && DEVAI.kind === "litert" && !e4bLoaded ? 120000 : 0)))])) m = {q: m.q, at: m.at, files: m.files, err: m.files && m.files.length ? `Reading ${m.files.length === 1 ? m.files[0] : "those files"} took too long${typeof aiOnDevice === "function" && aiOnDevice() ? " for the AI on this computer" : ""}, so I stopped. Try asking about one part of it, or attach fewer pages or slides.` : `That took too long${typeof aiOnDevice === "function" && aiOnDevice() ? " for the AI on this computer" : ""}, so I stopped. Try again: it's often quicker the second time, once the AI has warmed up.`, errCode: "slow"};
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
     fresh.sort((a, b) => b.at - a.at); wr(fresh);
-    T.busy = null; T.status = ""; T.live = ""; draw(); say();
+    clearInterval(T.tick); T.busy = null; T.status = ""; T.live = ""; draw(); say();
     // made right away when the student asked for it in so many words (a note with its text)
     if (m.a && m.a.actions) m.a.actions.forEach((x, i) => { if (x.auto && !x.done) runAction({dataset: {m: String(m.at), i: String(i)}}); });
     try { if (m.a && window.SBCOMP) { SBCOMP.cheer && 0; } } catch (e) {}
@@ -1498,7 +1512,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   VIEWS.companion = view;
 
-  function drawStatus(){ const s = $("#cptStatus"); if (s) { s.textContent = T.live || T.status || "Thinking…"; s.classList.toggle("cpt-live", !!T.live); } }
+  // a step that takes a while shows its seconds counting ("Working out what to do… 12s"), so it never looks stuck
+  function drawStatus(){ const s = $("#cptStatus"); if (!s) return; const st = T.status || "Thinking…";
+    if (st !== T.stWas) { T.stWas = st; T.stAt = Date.now(); }
+    const secs = Math.floor((Date.now() - (T.stAt || Date.now())) / 1000);
+    s.textContent = T.live || (secs >= 4 ? `${st} ${secs}s` : st); s.classList.toggle("cpt-live", !!T.live); }
   function draw(){
     if (ui.tab !== "companion") return;
     // (the chat is open: the stronger on-device AI starts loading now, before anything is asked)

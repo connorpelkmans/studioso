@@ -136,6 +136,11 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     ok(qz.stems.length >= 2 && qz.stems.every(t => qz.fronts.some(f => t.includes(f))) && !qz.stems.some(t => /deck|flash ?card/i.test(t)), "its questions are the cards' own: " + JSON.stringify(qz.stems));
   } else ok(false, "the test page should be on the AI on this device");
   await p.evaluate(() => SBCOMPTAB.open()); await p.waitForSelector("#cptIn");
+  // "create a quiz based on this" with a file attached: from the file, straight from the words (no AI step, no search of their notes)
+  await p.setInputFiles("#cptFile", {name: "Key_Conclusions_Batch1.txt", mimeType: "text/plain", buffer: Buffer.from("Key conclusions\nThe SA node is the heart's natural pacemaker.\nThe AV node delays the signal so the atria empty first.")});
+  await p.waitForSelector(".cpt-chip"); const np0 = await p.evaluate(() => window.__prompts.length);
+  a = await chat("Create a quiz based on this");
+  ok(/Make Quiz/.test(a) && /Key_Conclusions_Batch1/.test(a) && await p.evaluate(n => window.__prompts.length === n, np0), "a quiz from the attached file, with no AI step first: " + a);
   // a new question after a sum is never read as a follow-up on it ("why did ..." is not "show your work")
   const NOTMATH = /^(?![\s\S]*(?:Step by step|212\.13|brackets, then powers))[\s\S]+/;
   await conv([["what's 10 x 15 times sqrt 2", /212\.13/], ["why did hitler invade poland", NOTMATH], ["why is the sky blue", NOTMATH]]);
