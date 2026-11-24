@@ -123,6 +123,9 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await conv([["molar mass of water", /18\.02/], ["so how many moles in 36 g?", /1\.99/]]);
   await conv([["balance H2 + O2 -> H2O", /2H2 \+ O2 → 2H2O/]]);
   await conv([["wats 7 x 8 again lol", /= 56/]]);
+  // "quiz me on <a deck's name>": that deck, without the word "deck" (not a search of their notes for the name)
+  a = await chat("Quiz me on Connor Pelkmans");
+  ok(/Opening Make a Quiz with Connor Pelkmans/.test(a), "quiz me on a deck by its name: " + a);
   // a new question after a sum is never read as a follow-up on it ("why did ..." is not "show your work")
   const NOTMATH = /^(?![\s\S]*(?:Step by step|212\.13|brackets, then powers))[\s\S]+/;
   await conv([["what's 10 x 15 times sqrt 2", /212\.13/], ["why did hitler invade poland", NOTMATH], ["why is the sky blue", NOTMATH]]);

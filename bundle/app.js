@@ -5492,6 +5492,7 @@ async function aiDevFactQuiz(x, o){
   const F = await aiDevFacts(x, o, Math.max(x.count, 1)), facts = F.facts.slice(0, Math.max(x.count, 1));
   if (!facts.length) return null;
   const label = SBSECT.label(x.section);
+  if (o.onStep) o.onStep(`writing ${facts.length} question${facts.length === 1 ? "" : "s"}…`);
   const b = await aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_QUIZ_SCHEMA, system: DEV_FACT_QUIZ_SYSTEM,
     parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one question for each of the ${facts.length} facts, numbered the same.`}]}));
   const key = t => aiKeyTokens(t).join(" ") || String(t).toLowerCase().trim();
@@ -5579,12 +5580,14 @@ async function aiQuizBySection(o){
     const corpus = aiCorpus([x.section.text]), gate = r => aiGateQuestions(aiCleanQuestions(r.data.questions), {max: x.count + 1, corpus, copy: o.copy});
     let r = null, g = null;
     // a small model: the facts, then one question per fact (aiDevFactQuiz); the usual way if that gives too few
-    if (dev && DEV_STEPS.facts) { const f = await aiDevFactQuiz(x, o).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+    // say which step it's on: a small model takes minutes per part, and one unchanging line looks stuck
+    const step = t => { if (o.onStatus) o.onStatus(n > 1 ? `Writing the quiz, part ${i + 1} of ${n}: ${t}` : `Writing the quiz: ${t}`); };
+    if (dev && DEV_STEPS.facts) { step("finding the key facts…"); const f = await aiDevFactQuiz(x, Object.assign({}, o, {onStep: step})).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
       if (f) { const fr = {data: {questions: f.questions, title: f.title}, truncated: f.truncated}, fg = gate(fr); if (fg.questions.length >= Math.min(2, x.count)) { r = fr; g = fg; } } }
-    if (!r) { r = await ask(x, i); g = gate(r); }
+    if (!r) { if (dev) step("writing the questions…"); r = await ask(x, i); g = gate(r); }
     if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2 && !(dev && DEV_STEPS.facts)) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
     let keep = g.questions, wrong = 0;
-    if (dev && DEV_STEPS.solve && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
+    if (dev && DEV_STEPS.solve && keep.length) { step("checking the answers…"); const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
     if (o.onQuestions && keep.length) try { o.onQuestions(keep); } catch (e) {}
     return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
@@ -5714,7 +5717,7 @@ async function aiMakeStudySet(opts, onStatus){
   // a small engine (the AI on this device) always works in short sections
   const kind = opts.engine === "small" || aiOnDevice() ? "small" : "cloud";
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
-  if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
+  if (secs) onStatus && onStatus(secs.length === 1 ? "Reading your material…" : `Reading your material in ${secs.length} parts…`);
   // A new student's first set: made free by Studyboard's cloud AI (01-ai-first.js); the device makes it if that isn't available
   const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus, facts: !!quiz, onCards: opts.onCards}) : null;
   let fromCloud = false;
@@ -76505,6 +76508,8 @@ Examples:
     // a quiz from a deck or a card: "quiz me on my heart deck", "make a quiz from the SA node card"
     const qd = /\b(?:quiz|test)(?:\s+me)?\b[^]*?\b(?:from|on|using|out of|with|over)\s+(?:my\s+|the\s+|this\s+|that\s+)?(.+?)\s*(?:deck|set|cards?|flashcards?)?\s*[.!?]*$/i.exec(w);
     if (qd && /\b(deck|card|cards|flashcards?|set)\b/i.test(w)) { const r = quizFromDeck(qd[1]); if (r) return say(r); }
+    // "quiz me on Connor Pelkmans" where that's the name of one of their decks: that deck, not a search of their notes
+    if (qd && !/\b(deck|card|cards|flashcards?|set)\b/i.test(w)) { const dn = deckNamed(qd[1]); if (dn && String(dn.name || "").toLowerCase().trim() === String(qd[1]).toLowerCase().replace(/^(?:my|the)\s+/, "").trim()) { const r = quizFromDeck(dn.name); if (r) return say(r); } }
     // an accessory's colour: "change scarf color blue", "make your hat red", "dye the cape green"
     const tm = /\b(?:change|make|turn|set|colou?r|paint|dye)\b[^]*?\b(scarf|hat|beanie|cap|crown|glasses|bow ?tie|tie|medal|cape|badge|star)\b[^]*?\b(?:colou?r\s*(?:to|=)?|to|into)?\s*(#[0-9a-f]{6}|(?:light |dark |bright |pale )?[a-z]+)\s*(?:please|pls)?[.!?]*$/i.exec(w);
     if (tm && window.SBCOMP && SBCOMP.tintByName && !/^(colou?r|to|into|please)$/i.test(tm[2])) return say(SBCOMP.tintByName(tm[1], tm[2]));
