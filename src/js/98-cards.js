@@ -120,7 +120,9 @@ window.SBCARDS = (() => {
         if (tp === "__pick") { const c = (await cardsAbout(dk.name, 1, dk))[0]; if (c) { const id = save(dk, [c])[0]; return sayIt(`Added to ${dk.name}: "${c.front}" / "${c.back}". Say "undo" to take it back.`, {deck: dk.id, card: id}); } }
       }
     }
-    const isCardMsg = CARD.test(s) || /\b(?:deck|terms)\b\s*(?:,|:|-)?\s*add\b|\binto the [\w ]+ deck goes\b|^\s*(?:to|in|into)\s+(?:my|the)\s+[\w ]{2,30}\s+deck\s+add\b/.test(s)
+    // ("Heart: add 'X / Y'": a deck's name, then add)
+    const lead = /^\s*([\w&' ]{2,40}?)\s*[:,-]\s*add\b/.exec(s);
+    const isCardMsg = CARD.test(s) || (!!lead && !!deckIn(lead[1])) || /\b(?:deck|terms)\b\s*(?:,|:|-)?\s*add\b|\binto the [\w ]+ deck goes\b|^\s*(?:to|in|into)\s+(?:my|the)\s+[\w ]{2,30}\s+deck\s+add\b/.test(s)
       || (!!lastDeck && /^\s*(?:and\s+)?[\w' -]{2,40}\s+too\s*[?.!]*$|\bdo the same for\b|^\s*(?:and\s+|now\s+)?add\s+(?:another|one more|one)\b/.test(s));
     if (!isCardMsg) return null;
     // not about one card: making a set from material, a quiz, cards from a quiz, counts and lists ("how many cards")

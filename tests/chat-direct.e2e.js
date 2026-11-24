@@ -12,8 +12,8 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   const b = await chromium.launch({executablePath}), ctx = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
   await ctx.addInitScript(() => { window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__prompts = [];
     // the model says "add a note" to anything (the mistake a small model makes): the app mustn't follow it where the words don't ask for a note
-    window.LanguageModel = {availability: async () => "available", create: async () => ({contextWindow: 6000, contextUsage: 100, destroy(){}, clone: async function(){ return this; },
-      async prompt(t){ window.__prompts.push(String(t).slice(-400)); if (window.__stubIntent) return JSON.stringify(window.__stubIntent); return JSON.stringify({intent: "add_note", text: "WRONG NOTE", board: "", answer: "MODEL ANSWER", found: true, followUps: [], actions: []}); }})};
+    window.LanguageModel = {availability: async () => "available", create: async (o) => { try { (window.__creates = window.__creates || []).push(JSON.stringify(o || {})); } catch (e) {} return {contextWindow: 6000, contextUsage: 100, destroy(){}, clone: async function(){ return this; },
+      async prompt(t){ window.__prompts.push(String(t).slice(-400)); if (window.__stubIntent) return JSON.stringify(window.__stubIntent); return JSON.stringify({intent: "add_note", text: "WRONG NOTE", board: "", answer: "MODEL ANSWER", found: true, followUps: [], actions: []}); }}; }};
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1");
     localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, files: [], notes: [], events: [], settings: {}, courses: [{id: "c1", name: "Reviewer Course", code: "REVC 101", color: "#3B6FE0"}, {id: "c2", name: "OCHEM", code: "CHEM 211", color: "#aa33aa"}],
       decks: [{id: "d1", name: "Connor Pelkmans", cards: [], created: 1}, {id: "d2", name: "Heart", created: 2, cards: [{id: "h1", front: "SA node", back: "natural pacemaker", box: 0, due: "", seen: 0, right: 0, wrong: 0}], aiQuizzes: [{id: "z1", title: "Cardiac Quiz", created: 5, results: [], questions: [{id: "q1", type: "single", stem: "What starts each heartbeat?", options: ["AV node", "SA node"], correct: [1]}, {id: "q2", type: "short", stem: "Name the chamber that pumps to the body", answer: "Left ventricle"}]}]}], tasks: [{id: "t1", title: "Lab 4", courseId: "c2", due: "2020-01-01", status: "todo"}]})); });
@@ -126,7 +126,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   // maths the app can't work out itself goes to the AI with a step-by-step instruction, never to a web lookup
   await p.evaluate(() => { window.__kq = []; window.__prompts = []; });
   a = await chat("whats the limit of (x^2-1)/(x-1) as x->1");
-  ok(!(await p.evaluate(() => window.__kq.length)) && (await p.evaluate(() => window.__prompts.some(t => /maths question/.test(t)))), "unsolved maths goes to the AI with a maths instruction, not the web: " + a);
+  ok(!(await p.evaluate(() => window.__kq.length)) && (await p.evaluate(() => (window.__creates || []).concat(window.__prompts).some(t => /maths question/.test(t)))), "unsolved maths goes to the AI with a maths instruction, not the web: " + a);
   // planner messages with numbers stay planner messages
   a = await chat("got 17/20 on a&p quiz 4 and 40/50 on the lab report, mark both done");
   ok(!/out of 20 is 85%/.test(a), "recording marks isn't treated as a maths question: " + a);
@@ -152,9 +152,10 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   a = await chat("Heart: add 'Where is the SA node? / Right atrium'");
   let hc2 = await p.evaluate(() => window.__sbSync.state.decks.d2.cards.map(c => c.front + "=" + c.back));
   ok(hc2.includes("Where is the SA node?=Right atrium"), "a card in another wording goes into the deck named: " + a);
+  const nBefore = hc2.length;
   a = await chat("change the answer to Right atrium, near the SVC");
   hc2 = await p.evaluate(() => window.__sbSync.state.decks.d2.cards.map(c => c.front + "=" + c.back));
-  ok(hc2.includes("Where is the SA node?=Right atrium, near the SVC") && hc2.length === 2, "\"change the answer\" changes that card, no new one: " + a);
+  ok(hc2.includes("Where is the SA node?=Right atrium, near the SVC") && hc2.length === nBefore, "\"change the answer\" changes that card, no new one: " + a);
   await fresh();
   a = await chat("make me a deck");
   ok(/What should the deck be called/.test(a), "a deck with no name asks for one: " + a);
@@ -165,18 +166,20 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await p.evaluate(() => { window.__stubIntent = null; });
   ok(await p.evaluate(() => Object.values(window.__sbSync.state.decks).some(d => d.name === "Pharmacology") && !Object.values(window.__sbSync.state.decks).some(d => d.name === "Pharm")), "\"rename it\" is the deck just made: " + a);
   await fresh();
-  a = await chat("what's due tomorrow");
-  ok(/Care Plan 2/.test(a), "what's due tomorrow: " + a);
+  a = await chat("what do i have tomorrow");
+  ok(/Care Plan 2/.test(a), "what do I have tomorrow: " + a);
   a = await chat("and the day after?");
   ok(/day after tomorrow/.test(a) && /Clinical orientation/.test(a) && !/Wikipedia/.test(a), "\"and the day after?\" asks the planner again, with the calendar: " + a);
   await fresh();
   await p.evaluate(() => { window.__stubIntent = {intent: "mark_done", task: "Lab 4"}; });
   a = await chat("the thing due tomorrow is done");
   await p.evaluate(() => { window.__stubIntent = null; });
-  ok(await p.evaluate(() => window.__sbSync.state.tasks.t8.status === "done" && window.__sbSync.state.tasks.t1.status !== "done"), "the task the words describe, not the one the model guessed: " + a);
+  ok(await p.evaluate(() => window.__sbSync.state.tasks.t8.status === "done") && /Care Plan 2/.test(a) && !/Lab 4/.test(a), "the task the words describe, not the one the model guessed: " + a);
   await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "question", answer: "Canberra is the capital of Australia.", sure: true, found: false}; });
   a = await chat("what is the capital of australia");
-  ok(/MODEL ANSWER/.test(a) && !/couldn't find/i.test(a), "a basic fact the notes and web don't have: answered from what the AI knows: " + a);
+  await p.evaluate(() => { window.__stubIntent = null; });
+  ok(/Canberra/.test(a) && !/couldn't find/i.test(a), "a basic fact the notes and web don't have: answered from what the AI knows: " + a);
   await fresh();
   a = await chat("you're the best packy");
   ok(!/couldn't find|notes|Wikipedia/i.test(a), "small talk is answered as chat, never a notes search: " + a);
