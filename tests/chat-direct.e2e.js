@@ -98,6 +98,38 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   ok(/4\.8 ÷ 3 = 1\.6/.test(a), "a sum carried on from the last answer: " + a);
   a = await chat("show your work");
   ok(/1\.6/.test(a) || /4 × 3 = 12/.test(a), "and its steps: " + a);
+  // maths of every kind, worked out by the app, with follow-ups (never a web lookup or a guess)
+  const conv = async (turns) => { const r = []; for (const [q, re] of turns) { const x = await chat(q); r.push(x); ok(re.test(x), `${q} -> ${x}`); } return r; };
+  await conv([["mode of 3,7,7,2,9,7,3", /mode .* is 7/], ["what's the median?", /median .* is 7/]]);
+  ok(!(await p.evaluate(() => document.documentElement.classList.contains("dark") || /dark/.test(document.documentElement.dataset.theme || ""))), "\"mode of ...\" never switches dark mode");
+  await conv([["2^10", /1,024/], ["what about 2^11?", /2,048/]]);
+  await conv([["convert 5 km to miles", /3\.1069 miles/], ["what about 10k?", /6\.2137 miles/]]);
+  await conv([["how many seconds in a day", /86,400/], ["in a week?", /604,800/]]);
+  await conv([["98.6 F in celsius", /37°C/], ["show the formula", /\(°F − 32\) × 5\/9/]]);
+  await conv([["if a shirt is $40 and 25% off whats the price", /\$30/], ["then 8% tax on that?", /32\.4/]]);
+  await conv([["solve 2x+3=11", /x = 4/], ["show the steps", /Subtract 3/], ["now what if it's 3x instead?", /8\/3/]]);
+  await conv([["solve x^2 - 5x + 6 = 0", /x = 2 or x = 3/], ["how do i check that?", /works/]]);
+  await conv([["1/3 + 1/4", /7\/12/], ["now multiply that by 6", /= 3\.5/]]);
+  await conv([["percent change from 50 to 65", /increase of 30%/], ["and from 65 back to 50?", /decrease of 23\.08%/], ["why aren't those the same?", /different starting value/]]);
+  await conv([["slope between (1,2) and (3,8)", /= 3\./], ["whats the equation of that line?", /y = 3x − 1/]]);
+  await conv([["area of a circle radius 5", /78\.54/], ["circumference?", /31\.42/]]);
+  await conv([["hypotenuse if the legs are 3 and 4", /= 5\./], ["what if legs are 5 and 12", /= 13\./]]);
+  await conv([["i got 42/50 on a quiz what percent is that", /84%/], ["how many more points would i need for 90%?", /3 more points/]]);
+  await conv([["250 mg ordered, tablets are 125 mg, how many tabs", /2 tablets/], ["what if the order was 375 mg?", /3 tablets/]]);
+  await conv([["1000 mL over 8 hours, what's the mL/hr", /125 mL\/hr/], ["with a drop factor of 15 gtt/mL whats gtt/min", /31 gtt\/min/]]);
+  await conv([["kid weighs 44 lb, dose is 10 mg/kg, how much", /200 mg/]]);
+  await conv([["what is 6 + 4 / 2", /= 8/], ["why not 5?", /left to right/]]);
+  await conv([["atomic number of carbon", /\b6\b/], ["what about oxygen?", /\b8\b/]]);
+  await conv([["molar mass of water", /18\.02/], ["so how many moles in 36 g?", /1\.99/]]);
+  await conv([["balance H2 + O2 -> H2O", /2H2 \+ O2 → 2H2O/]]);
+  await conv([["wats 7 x 8 again lol", /= 56/]]);
+  // maths the app can't work out itself goes to the AI with a step-by-step instruction, never to a web lookup
+  await p.evaluate(() => { window.__kq = []; window.__prompts = []; });
+  a = await chat("whats the limit of (x^2-1)/(x-1) as x->1");
+  ok(!(await p.evaluate(() => window.__kq.length)) && (await p.evaluate(() => window.__prompts.some(t => /maths question/.test(t)))), "unsolved maths goes to the AI with a maths instruction, not the web: " + a);
+  // planner messages with numbers stay planner messages
+  a = await chat("got 17/20 on a&p quiz 4 and 40/50 on the lab report, mark both done");
+  ok(!/out of 20 is 85%/.test(a), "recording marks isn't treated as a maths question: " + a);
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);
