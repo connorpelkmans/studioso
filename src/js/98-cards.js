@@ -126,6 +126,8 @@ window.SBCARDS = (() => {
     const isCardMsg = CARD.test(s) || (!!lead && !!deckIn(lead[1])) || /\b(?:deck|terms)\b\s*(?:,|:|-)?\s*add\b|\binto the [\w ]+ deck goes\b|^\s*(?:to|in|into)\s+(?:my|the)\s+[\w ]{2,30}\s+deck\s+add\b/.test(s)
       || (!!lastDeck && /^\s*(?:and\s+)?[\w' -]{2,40}\s+too\s*[?.!]*$|\bdo the same for\b|^\s*(?:and\s+|now\s+)?add\s+(?:another|one more|one)\b/.test(s));
     if (!isCardMsg) return null;
+    // going to a page ("take me to flashcards", "open my decks"), not a card
+    if (/^\s*(?:(?:can|could) you\s+|please\s+)?(?:take me|go|bring me|switch|navigate|jump|open|show me|show)\b/.test(s) && !/\b(add|put|new card|front|back)\b/.test(s)) return null;
     // not about one card: making a set from material, a quiz, cards from a quiz, counts and lists ("how many cards")
     if (/^\s*(how many|what|which|what's|whats|show|list|study|review|quiz|drill)\b|\b(from (?:my |the )?(?:quiz|test|notes?|file|slides)|turn .* into|into flashcards|make (?:me )?(?:some )?flash ?cards (?:on|about|for|from)|flash ?cards (?:on|about|for|from))\b/.test(s) && !/\badd\b/.test(s)) return null;
     const follow = /^\s*(?:and\s+|now\s+)?(?:add\s+)?(?:another|one more|more)\b|\bto it\b|^\s*(?:and\s+)?[\w' -]{2,40}\s+too\s*[?.!]*$|\bdo the same\b/.test(s);

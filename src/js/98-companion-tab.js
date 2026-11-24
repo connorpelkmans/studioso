@@ -533,7 +533,9 @@ Examples:
     const n = low(name).replace(/\b(my|the|a|an|deck|quiz|note|board|event|course|class|file|flashcards?|cards?)\b/g, " ").replace(/\s+/g, " ").trim(); if (!n) return null;
     let best = null, bs = 0;
     itemsOf(kind).forEach(x => { [x.name].concat(x.alt || []).forEach(nm => { const m = low(nm); let sc = 0;
-      if (m === n) sc = 10; else if (m.startsWith(n) || n.startsWith(m) && m.length > 2) sc = 6; else if (m.includes(n)) sc = 4; else { const w = n.split(" "); sc = w.filter(x2 => m.split(" ").includes(x2)).length * 1.5; }
+      // ("the REBT one": the initials of "Rational-emotive behavior therapy")
+      const ini = (m.match(/[a-z0-9]+/g) || []).map(x => x[0]).join("");
+      if (m === n) sc = 10; else if (/^[a-z]{3,6}$/.test(n.replace(/\s*one$/, "")) && ini.startsWith(n.replace(/\s*one$/, ""))) sc = 8; else if (m.startsWith(n) || n.startsWith(m) && m.length > 2) sc = 6; else if (m.includes(n)) sc = 4; else { const w = n.split(" "); sc = w.filter(x2 => m.split(" ").includes(x2)).length * 1.5; }
       if (sc > bs) { bs = sc; best = x; } }); });
     return bs >= 1.5 ? best : null;
   }
@@ -587,7 +589,9 @@ Examples:
     const say = answer => ({answer, sources: [], followUps: [], actions: []});
     const v = String(d.value || d.item || d.title || "").toLowerCase().replace(/\b(theme|the|mode|style|skin|look)\b/g, " ").replace(/\s+/g, " ").trim(), f = String(d.field || "").toLowerCase();
     if (/^(dark|light|system|auto|automatic)$/.test(v)) { const m = v === "auto" || v === "automatic" ? "system" : v; if (typeof setTheme === "function") setTheme(m); render(); return say(m === "system" ? "Studyboard now follows your device's light or dark setting." : `Switched to ${m} mode.`); }
-    if (!v) return say("Which theme? Open the Style Shop to see them all.");
+    // "change my theme": which one is asked, with the ones they have
+    if (!v || /^(my|a|the|your|new|different|another|some|it|this|that|me)$/.test(v)) { let have = []; try { have = (SKINS || []).filter(x => typeof owns !== "function" || owns("skin", x.id)).map(x => x.name).slice(0, 8); } catch (e) {}
+      return Object.assign(say(`Which theme?${have.length ? ` You have: ${have.join(", ")}.` : ""} The Style Shop has them all.`), {awaiting: {d: {intent: "set_theme"}, q: "change the theme to"}}); }
     if (Object.prototype.hasOwnProperty.call(NAMED, v)) return say(`\"${v}\" is a colour, not a theme. Say which theme (the Style Shop has them all), or what to make ${v}: a course, or something I'm wearing.`);
     const lists = f === "card" || /card/.test(f) ? [["card", CARD_STYLES]] : f === "note" || /note|shape/.test(f) ? [["note", NOTE_SHAPES]] : f === "pin" ? [["pin", PINS]] : [["skin", SKINS], ["card", CARD_STYLES], ["note", NOTE_SHAPES]];
     const sc = x => { const m = String(x.name || "").toLowerCase(), id = String(x.id || "").toLowerCase(); return m === v || id === v ? 10 : m.startsWith(v) || v.startsWith(m) ? 7 : m.includes(v) ? 5 : v.split(" ").filter(w => w.length > 2 && m.includes(w)).length * 2; };
@@ -766,7 +770,9 @@ Examples:
     const th = /\b(?:change|switch|set|put|use|make|try|apply|turn on)\b[^]*?\b(?:theme|skin|look|background)\b\s*(?:to|as|into)?\s*(?:the\s+)?["“']?([a-z][\w &'-]{1,30}?)["”']?\s*(?:theme|one)?\s*(?:please|pls)?[.!?]*$/i.exec(w)
       || /\b(?:change|switch|set|use|apply|try)\s+(?:to\s+)?(?:the\s+)?["“']?([a-z][\w &'-]{1,30}?)["”']?\s+(?:theme|skin)\b/i.exec(w)
       || /^\s*(?:(?:can you|please|could you)\s+)?(?:turn on|switch to|use|go)\s+(dark|light)\s*(?:mode|theme)?\b/i.exec(w) || /^\s*(dark|light)\s+(?:mode|theme)\s*(?:please|pls|on)?[.!?]*$/i.exec(w);
-    if (th && !/\b(course|class|deck|card|note|board|task)\b/i.test(w)) return say(themeAct({value: th[1]}).answer);
+    // "dark mode and ocean theme": both
+    { const dm = /\b(dark|light)\s+mode\b/i.exec(w), tn = /\b(?:the\s+)?([a-z][\w&'-]{2,20})\s+theme\b/i.exec(w); if (dm && tn && !/^(dark|light|my|the|a)$/i.test(tn[1])) { const a1 = themeAct({value: dm[1]}).answer, a2 = themeAct({value: tn[1]}).answer; return say(`${a1} ${a2}`); } }
+    if (th && !/\b(course|class|deck|card|note|board|task)\b/i.test(w)) { const r = themeAct({value: th[1]}); return Object.assign(say(r.answer), r.awaiting ? {awaiting: r.awaiting} : {}); }
     // a study group or group project: New Group, filled in, for them to create (it needs their account and the internet)
     const gm = /\b(?:create|make|start|set up|new|open)\b[^]*?\b(study group|group project|project group|group)\b(?:\s+(?:called|named|for)\s+["“']?(.+?)["”']?)?\s*[.!?]*$/i.exec(w);
     if (gm && !/\b(note|deck|board|quiz|map|task|event)\b/i.test(w.replace(gm[1], ""))) {
@@ -863,7 +869,7 @@ Careful, these are easy to mix up:
       // a new course only when they say to add one ("I meant all my courses" isn't)
       if (d.intent === "add_course" && !/\b(add|new|create|make|enrol+|register|signed up|taking|joining|set up)\b/.test(w)) d.intent = "question";
       // a note only when one is asked for ("print my notes", "show my notes" mention notes but don't ask for one)
-      if (d.intent === "add_note" && !/\b(make|write|add|save|create|put|leave|jot|stick|take|new)\b[^.?!]*\b(note|sticky)\b|\bnote (to self|that|:)|\bremember\b|\bsticky\b|\bdon'?t let me forget\b|\bremind me that\b|\bjot\b|\bwrite (this|that|it) down\b|\bwrite down\b|^\s*note\b/.test(w)) d.intent = /\b(show|open|find|see|where|go to)\b/.test(w) ? "open_page" : "cant";
+      if (d.intent === "add_note" && !/\b(make|write|add|save|create|put|leave|jot|stick|take|new)\b[^.?!]*\b(note|sticky)\b|\bnote (to self|that|:)|\bremember\b|\bsticky\b|\bdon'?t let me forget\b|\bremind me that\b|\bjot\b|\bwrite (this|that|it) down\b|\bwrite down\b|^\s*note\b/.test(w)) d.intent = /\b(show|open|find|see|where|go to)\b/.test(w) ? "open_page" : CHANGE_Q.test(q) || /^\s*(please\s+)?((can|could|would) (you|u)\s+)?(do|send|print|share|buy|order|book|email|text|call)\b/.test(w) ? "cant" : ISQ0(q) ? "question" : "chat";
       if (d.intent === "add_note" && !d.board) { const m = /\b(?:on|in|to|onto)\s+(?:my|the)\s+([a-z0-9][\w &'-]{0,30}?)\s+(?:note ?)?board\b/i.exec(q); if (m) d.board = m[1]; }
       ["instructor", "where", "course", "code", "board", "title"].forEach(k => { if (/^(unknown|n\/?a|none|tbd|not (given|specified|provided)|null|undefined|-|no instructor|no room)$/i.test(String(d[k] || "").replace(/[()\[\].]/g, "").trim())) d[k] = ""; });
       // a time only when the words give one (the model likes to make up noon, 8 AM or 4 PM)
@@ -893,6 +899,8 @@ Careful, these are easy to mix up:
         const hit2 = tw.some(x => { const w2 = w.replace(/\b(?:same|as)\b.*$/, ""); return w2.includes(x) || (x.length >= 5 && w2.includes(x.slice(0, 4))); });
         if ((!hit || !hit2) && !(cn && t0 && t0.courseId === cn.id && hit2)) { if (/\b(it|that|this|that one|this one|them)\b/.test(w) || (!hit2 && taskOf("it", chat))) d.task = "it"; else { d.task = String(q).replace(/\b(?:same|as)\b.*$/i, "") || String(q); d.taskFromQ = true; } }
       }
+      // deleting only when their words say so ("leave the heart squad group" isn't "delete the Heart deck")
+      if (/^(delete_item|delete_task)$/.test(d.intent) && !/\b(delete|remove|get rid|trash|erase|cancel(l?ed)?|scratch|drop(ped)?|clear|wipe|toss|ditch|bin|not happening|called off|no longer|nvm|never mind)\b/.test(w)) d.intent = "question";
       // "it's actually for psych", "that one goes under history": the task's course, not its date
       { const cn = window.SBTRUTH && SBTRUTH.courseIn ? SBTRUTH.courseIn(q) : null;
         if (cn && !preset && /\b(?:is|it'?s|that'?s|goes|belongs|should be|actually|put it|move it|file it)\b[^.?!]{0,25}\b(?:for|in|under|to|with|part of)\s+(?:my\s+|the\s+)?[\w&]/.test(w) && !/\b(due|deadline|monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|next week|\d{1,2}(st|nd|rd|th)|am|pm)\b/.test(w)) { d.intent = "task_course"; d.course = cn.code || cn.name; if (!d.task || !taskOf(d.task, chat)) d.task = "it"; } }
@@ -1056,6 +1064,27 @@ Careful, these are easy to mix up:
     if (it === "make_flashcards" || it === "make_quiz") return deviceAct(`${it === "make_quiz" ? "make a quiz" : "make flashcards"} on ${d.topic || q.replace(/^.*?\b(on|about|for)\b/i, "")}`, chat, true);
     return null;
   }
+  // a question, by its shape (for the AI step, which has no ask() in scope)
+  const ISQ0 = x => /\?\s*$/.test(x) || /^\s*(what|what's|whats|who|why|how|when|where|which|is|are|do|does|did|can i|could i|should i|am i|will|would)\b/i.test(x);
+  // A part of Studyboard by name, opened at once; after one, "now the calendar", "and notes" open the next
+  const NAVW = {flashcards: "flashcards", "flash cards": "flashcards", cards: "flashcards", decks: "flashcards", quizzes: "flashcards", calendar: "plan", schedule: "plan", planner: "plan", week: "plan",
+    notes: "notes", "note boards": "notes", "my notes": "notes", courses: "courses", classes: "courses", grades: "courses", marks: "courses", files: "files", groups: "groups", "study groups": "groups",
+    today: "board", home: "board", dashboard: "board", board: "board", companion: "companion", chat: "companion", archive: "archive", timeline: "timeline", "concept maps": "maps", maps: "maps", "mind maps": "maps", settings: "settings"};
+  const NAVRE = Object.keys(NAVW).sort((a, b) => b.length - a.length).join("|");
+  function navAct(q, last){
+    const w = String(q || "").toLowerCase().replace(/[?!.]+$/, "").trim();
+    // leaving a group: done in Groups (it's their account and the other members), so that's where they're taken
+    if (/^\s*(?:(?:can|could) you\s+|please\s+|i want to\s+|i wanna\s+)?(?:leave|quit|exit|get out of)\b[^.?!]*\b(group|team|squad)\b/.test(w)) {
+      return {answer: "I can't leave a group from the chat, so nothing changed. Open Groups, pick the group, then tap Leave Group.", sources: [], followUps: [], actions: []}; }
+    let m = new RegExp(`^(?:(?:can|could) you\\s+|please\\s+|ok(?:ay)?\\s+|now\\s+)?(?:take me to|take me back to|go to|go back to|bring me to|bring up|switch to|navigate to|jump to|open(?: up)?|show me|show)\\s+(?:my\\s+|the\\s+)?(${NAVRE})(?:\\s+(?:page|tab|view|section|screen))?(?:\\s+please)?$`).exec(w);
+    if (!m && last && last.a && last.a.nav) m = new RegExp(`^(?:and|now|then|ok(?:ay)?|next)?[,\\s]*(?:the\\s+|my\\s+)?(${NAVRE})(?:\\s+(?:page|tab|one))?(?:\\s+(?:now|next|please))?$`).exec(w);
+    if (!m) return null;
+    const k = m[1], tab = NAVW[k], label = k.replace(/\b\w/g, c => c.toUpperCase()), say = a => ({answer: a, sources: [], followUps: [], actions: [], nav: tab});
+    if (tab === "settings") { setTimeout(() => { try { menuSheet(); } catch (e) {} }, 200); return say("Opening Settings."); }
+    const to = tab === "maps" ? "courses" : tab;
+    setTimeout(() => { try { ui.tab = to; if (to !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); } catch (e) {} }, 200);
+    return say(tab === "maps" ? "Concept maps live inside each course, so I'm taking you to Courses: pick a course, then Concept Maps." : `Taking you to ${label}.`);
+  }
   // The companion's look, read in code: "what accessories do I have", "wear the second one", "take them both off", "make it red" (the
   // accessory just talked about), "make packy purple" (it has no colour of its own: said, with what can change), "dress up for the holidays"
   const ACCW = /\b(cozy scarf|scarf|tiny hat|festive beanie|graduation cap|beanie|hat|cap|little crown|crown|round glasses|sunglasses|glasses|party bow ?tie|bow ?tie|tie|champion medal|medal|hero cape|cape|star badge|badge)\b/i;
@@ -1195,6 +1224,8 @@ Careful, these are easy to mix up:
       if (!made && !slot && CARE && !att.length && !ctl && !careMode) { const no = CARE.cantDo(q); if (no) { made = {answer: no, sources: [], followUps: [], actions: []};
         // "check brightspace for my care plan grade": the next message ("it's 46/50") is that mark
         const gm = /\bfor\s+(?:my\s+|the\s+)?(.{2,60}?)\s+(?:grade|mark|score|result)s?\b/i.exec(q); if (gm && /brightspace|canvas|moodle|blackboard|school site/i.test(no)) made.awaiting = {d: {intent: "add_mark", task: gm[1]}, q: "I got a mark on " + gm[1]}; } }
+      // going somewhere in Studyboard ("take me to flashcards", then "now the calendar"): opened, never read as a card or a deck
+      if (!made && !slot && !careMode && !att.length) { const r = navAct(q, last); if (r) made = r; }
       // the companion's own look (98-companion.js): what it has, the Nth of the list it gave, both off, an accessory's colour, its own colour
       if (!made && !slot && !careMode && !att.length && window.SBCOMP && SBCOMP.ownedNames) { const r = companionLook(q, c); if (r) made = r; }
       // "and my ID badge" right after a note was saved: a line added to that note
@@ -1231,6 +1262,7 @@ Careful, these are easy to mix up:
           d0.title = nm; }
         else if (/^(make_deck|new_group|add_course|add_task|add_event|rename_task|rename_item)$/.test(it0) && !d0.title) d0.title = v0;
         else if (it0 === "add_note") d0.text = v0;
+        else if (it0 === "set_theme") { made = themeAct({value: v0.replace(/^(the|use|try)\s+/i, "")}); }
         else if (it0 === "join_group") d0.value = v0;
         else if (it0 === "add_mark") { if (/\d/.test(v0)) d0.value = (v0.match(/\d+(?:\.\d+)?\s*(?:\/|out of)\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*%?/i) || [v0])[0]; else d0.task = v0; }
         else if (it0 === "add_card") { const p0 = cardParse(`add a card ${v0}`) || []; if (p0[1]) { d0.front = p0[1]; d0.back = p0[2]; } if (!d0.deck) d0.deck = p0[3] || v0; }

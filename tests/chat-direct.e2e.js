@@ -208,7 +208,19 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   ok(/Canberra/.test(a) && !/couldn't find/i.test(a), "a basic fact the notes and web don't have: answered from what the AI knows: " + a);
   await fresh();
   a = await chat("you're the best packy");
-  ok(!/couldn't find|notes|Wikipedia/i.test(a), "small talk is answered as chat, never a notes search: " + a);
+  ok(!/couldn't find|notes|Wikipedia|can't do that/i.test(a), "small talk is answered as chat, never a notes search or a refusal: " + a);
+  // going places (E4B test p5-102..110): opened, never read as a card; "leave a group" never deletes a deck
+  await fresh();
+  a = await chat("take me to flashcards");
+  ok(/Taking you to Flashcards/.test(a), "\"take me to flashcards\" opens Flashcards: " + a);
+  await p.evaluate(() => SBCOMPTAB.open()); await p.waitForSelector("#cptIn");
+  a = await chat("now the calendar");
+  ok(/Taking you to Calendar/.test(a), "\"now the calendar\" carries on: " + a);
+  await p.waitForTimeout(600); await fresh();
+  const dk0 = await p.evaluate(() => Object.keys(window.__sbSync.state.decks).length);
+  a = await chat("leave the heart squad group");
+  ok(/Leave Group/.test(a) && dk0 === await p.evaluate(() => Object.keys(window.__sbSync.state.decks).length), "leaving a group goes to Groups, and no deck is deleted: " + a);
+  await fresh();
   // the companion's look (E4B test p5-128..139): what it has, its own colour said plainly, never a course recoloured
   await fresh();
   a = await chat("what accessories do I have");
