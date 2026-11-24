@@ -54,6 +54,7 @@ window.SBCARDS = (() => {
   function topicOf(q){
     const s = String(q || "").trim(); let m;
     if ((m = /\b(?:card|one|flashcard)s?\s+(?:about|on|for|explaining|that asks|asking)\s+(?:what\s+)?(?:the\s+|an?\s+)?(.{2,60}?)(?:\s+(?:is|are))?\s*(?:\b(?:to|in|into|for)\s+(?:my\s+|the\s+)?[\w&' ]{2,30}?\s*(?:deck|set|terms)?)?\s*[?.!]*$/i.exec(s))) return clean(m[1]);
+    if ((m = /\b(?:one more|another(?: one)?|one)\s+(?:card\s+)?(?:about|on|for)\s+(?:the\s+)?(.{2,60}?)\s*[?.!]*$/i.exec(s))) return clean(m[1]);
     if ((m = /\badd\s+(?:the\s+|a\s+|an\s+)?(.{2,40}?)\s+card\b/i.exec(s)) && !/^(a|another|one|new|flash)$/i.test(m[1])) return clean(m[1]);
     if ((m = /\bthat asks\s+(?:what|who)\s+(?:the\s+|an?\s+)?(.{2,60}?)\s+(?:is|are|does|do)\s*[?.!]*$/i.exec(s) || /\bthat asks (?:about\s+)?(.{2,60}?)\s*[?.!]*$/i.exec(s))) return clean(m[1]);
     if ((m = /\bcards?\b.*?\babout\s+(?:the\s+|an?\s+)?(.{2,40}?)\s*[?.!]*$/i.exec(s))) return clean(m[1]);

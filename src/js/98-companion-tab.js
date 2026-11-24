@@ -286,16 +286,46 @@
     for (const x of prev) if ((MAP_Q.test(x.q) && MAP_ASK.test(x.q)) || CARDS_Q.test(x.q) || NOTE_Q.test(x.q) || CHANGE_Q.test(x.q)) return x.q;
     return "";
   }
+  // "create a quiz based on this" with slides attached: straight from the words, made from the attached file (no AI step to work
+  // out what was meant, and never a search of their notes or the web instead of the file they gave)
+  function attStudy(q, att){
+    const w = String(q || "").replace(/["“'‘][^"”'’]{2,200}["”'’]/g, " ");
+    if (!att || !att.length || !(CARDS_Q.test(w) || /\b(quiz|flash ?cards?|practice (questions|test))\b/i.test(w))) return null;
+    const quiz = /\bquiz|test me|practice (questions|test)\b/i.test(w) && !/flash ?cards?|\bcards\b/i.test(w), n = Number((w.match(/\b(\d{1,2})\b/) || [])[1]) || 0;
+    const names = att.map(x => String(x.name || "your file")), name = names[0].replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[_-]+/g, " ").trim().slice(0, 60) || "Study Set";
+    const from = names.length === 1 ? names[0] : `your ${names.length} files`;
+    return {answer: `Tap ${quiz ? "Make Quiz" : "Make Flashcards"} and I'll make ${n ? n + " " : ""}${quiz ? "practice questions" : "flashcards"} from ${from}.`, sources: [], followUps: [],
+      actions: [{type: quiz ? "quiz" : "flashcards", label: quiz ? "Make Quiz" : "Make Flashcards", deckName: name, deck: "", target: "", style: "", count: n, course: "", board: "", noteTitle: "", text: ""}]};
+  }
   async function deviceAct(q, chat, forced){
     const A = window.SBASSIST, TR = window.SBTRUTH; if (!A) return null;
     if (CARDS_Q.test(q.replace(/["“'‘][^"”'’]{2,200}["”'’]/g, " ")) && !EMPTY_DECK.test(q)) {
       const quiz = /\bquiz|test me|practice (questions|test)\b/i.test(q) && !/flash ?cards?|cards/i.test(q), n = Number((q.match(/\b(\d{1,2})\b/) || [])[1]) || 0;
       const topic = clip((q.match(/\b(?:on|about|for|from|covering|over)\s+(.+?)[?.!]*$/i) || [])[1] || q.replace(CARDS_Q, "").replace(/^\W+|\W+$/g, ""), 80);
       let text = "", from = "";
-      try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic || q, {max: 8, chars: 1200, wait: 800, readWait: 2, semWait: 2500}) : null; if (R && R.text && R.text.length > 300) { text = R.text.replace(/^\[\d+\] [^\n]*\n/gm, ""); from = "your notes"; } } catch (e) {}
+      // a note they name ("my defense mechanisms note", "my cardiac cycle note"): that note, word for word
+      { const tw = (String(topic || q).toLowerCase().match(/[a-z0-9]{3,}/g) || []).filter(w => !/^(my|the|note|notes|from|into|turn|make|flashcards?|cards?|deck|quiz|about|for|on|some|me|please|lecture)$/.test(w));
+        const nt = tw.length ? notesArr().filter(n => n && !n.archived && n.text).map(n => ({n, sc: tw.filter(w => String(n.text).split("\n")[0].toLowerCase().includes(w.slice(0, 5))).length})).filter(x => x.sc >= Math.max(1, Math.ceil(tw.length / 2))).sort((a, b) => b.sc - a.sc)[0] : null;
+        if (nt && String(nt.n.text).length >= 60) { text = String(nt.n.text); from = "your note"; } }
+      try { if (!text) { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic || q, {max: 8, chars: 1200, wait: 800, readWait: 2, semWait: 2500}) : null; if (R && R.text && R.text.length > 300) { text = R.text.replace(/^\[\d+\] [^\n]*\n/gm, ""); from = "your notes"; } } } catch (e) {}
       if (!text && TR && topic) { const W = await TR.research(topic).catch(() => ({list: []})); if (W.list && W.list.length) { text = W.list.map(x => `${x.title}\n${x.text}`).join("\n\n"); from = W.list.some(x => /paper/i.test(x.src || "")) ? "Wikipedia and research papers" : "Wikipedia"; } }
       if (text.length < 120) return forced ? null : {answer: `I couldn't find material on ${topic || "that"} in your notes or on the web. Add notes or a file about it (or attach one here), and I'll make ${quiz ? "a quiz" : "flashcards"} from it.`, sources: [], followUps: [], actions: []};
-      const name = (topic || "Study Set").replace(/\b\w/g, ch => ch.toUpperCase()).slice(0, 60);
+      const name = (String(topic || "").replace(/\b(my|the|note|notes|lecture|from|into|turn)\b/gi, " ").replace(/\s+/g, " ").trim() || "Study Set").replace(/\b\w/g, ch => ch.toUpperCase()).slice(0, 60);
+      // asked for in so many words ("make flashcards from my notes on X", "turn X into flashcards"): made now, into a new deck, and the
+      // chat carries on from it ("add one more about denial"); "quiz me" and the like still offer the button
+      if (!quiz && /\b(make|create|generate|build|write|turn|convert)\b/i.test(q) && typeof aiMakeStudySet === "function" && aiOk()) {
+        T.status = "Making your flashcards…"; draw();
+        try {
+          const r = await aiMakeStudySet({sources: [{name, kind: "Text", size: text.length, part: {text: text.slice(0, 12000)}}], style: "", difficulty: "mixed", cards: true, quiz: false, cases: false, caseCount: "1", caseStyle: "auto", cardCount: n ? String(n) : "auto", quizCount: "10", courseName: ""}, s => { T.status = clip(s, 40); drawStatus(); });
+          const cards = ((r && r.cards) || []).filter(x => !x.check && String(x.front || "").trim() && String(x.back || "").trim());
+          if (cards.length) {
+            const d = normDeck({id: uid(), created: Date.now(), name, courseId: ""});
+            d.cards = cards.map(x => ({id: uid(), front: x.front.trim(), back: x.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: x.source || ""})); d.updated = Date.now();
+            saveDeck(d, `Made ${cards.length} cards in ${name}`);
+            return {answer: `Made ${cards.length} flashcard${cards.length === 1 ? "" : "s"} in a new deck, ${name}, from ${from}:\n${cards.slice(0, 4).map(x => `- ${x.front.trim()}`).join("\n")}${cards.length > 4 ? `\n…and ${cards.length - 4} more.` : ""}\nSay "undo" to take them back.`, sources: [from === "your notes" || from === "your note" ? "Your notes" : from], followUps: [], actions: [], card: {deck: d.id}, ref: {kind: "deck", id: d.id}};
+          }
+        } catch (e) { if (stopsHere(e)) throw e; }
+      }
       return {answer: `I gathered material on ${topic || "that"} from ${from}. Tap ${quiz ? "Make Quiz" : "Make Flashcards"} and I'll make ${n ? n + " " : ""}${quiz ? "practice questions" : "cards"} from it.`, sources: [from === "your notes" ? "Your notes" : from], followUps: [],
         actions: [{type: quiz ? "quiz" : "flashcards", label: quiz ? "Make Quiz" : "Make Flashcards", deckName: name, deck: "", target: "", style: "", count: n, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
     }
@@ -1018,6 +1048,7 @@ Careful, these are easy to mix up:
     // from something they already have: a quiz from a deck (or card), cards from a quiz
     if (it === "make_quiz" && (/\b(deck|card|cards|flashcards?)\b/.test(String(q).toLowerCase()))) { const r = quizFromDeck(d.topic || d.deck || d.item || ""); if (r) return say(r); }
     if (it === "make_flashcards" && /\b(quiz|test|case study)\b/i.test(q)) { const hit = quizNamed(d.topic || d.item || ""); if (hit) return say(cardsFromQuiz(hit)); }
+    if ((it === "make_flashcards" || it === "make_quiz") && att && att.length) { const r = attStudy(q, att) || attStudy(it === "make_quiz" ? "make a quiz" : "make flashcards", att); if (r) return r; }
     if (it === "make_flashcards" || it === "make_quiz") return deviceAct(`${it === "make_quiz" ? "make a quiz" : "make flashcards"} on ${d.topic || q.replace(/^.*?\b(on|about|for)\b/i, "")}`, chat, true);
     return null;
   }
@@ -1052,6 +1083,7 @@ Careful, these are easy to mix up:
     let c = chats.find(x => x.id === T.id);
     if (!c) { c = {id: uid(), title: clip(q, 56), at: Date.now(), msgs: []}; chats.unshift(c); T.id = c.id; wr(chats); }
     T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.live = ""; T.status = "Looking through your stuff…"; draw();
+    clearInterval(T.tick); T.tick = setInterval(() => { if (T.busy && !T.live) drawStatus(); }, 1000);
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     // no reply may keep the chat busy for good: past CHAT_MAX it's given up on (it's dropped if it comes later) and the chat is free again
@@ -1178,6 +1210,7 @@ Careful, these are easy to mix up:
       const PLAINQ = !!(qFix && more) || !ACTX(q2) && (/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did|can you explain)\b[^]*\?\s*$/i.test(q2) || /^\s*(explain|define|describe|tell me about|what is|what's|whats|what are|how does|how do|how is|how are|why (is|are|do|does)|who (is|was|were)|summari[sz]e|compare)\b/i.test(q2));
 
       if (att.length && att.some(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || "")) && /\b(add|put|save|pin|stick|place|attach)\b[^?]*\b(note|notes|board)\b/i.test(q)) made = await photoNote(q, att);
+      if (!made && att.length && !careMode) made = attStudy(q2, att);
       if (!quick && !made && !att.length && MAP_Q.test(q2) && MAP_ASK.test(q2)) { T.status = "Making your map…"; draw(); made = await mapAct(q2); }
       if (!quick && !made && !att.length && window.SBASSIST && SBASSIST.findNotes) { const fn = await SBASSIST.findNotes(q2).catch(() => null); if (fn) made = {answer: fn.answer, sources: fn.show && fn.show.length ? ["Your notes"] : [], followUps: [], actions: [], show: fn.show && fn.show.length ? SBASSIST.pack(fn).show : undefined}; }
       if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
@@ -1281,12 +1314,12 @@ You can also DO things in Studyboard, but only when the student asks or what the
       if (m.a && !m.a.ref) { const nw = newSince(ids0); if (nw) m.a.ref = nw; }
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
     })();
-    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), ((window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX) + (typeof e4bLoaded !== "undefined" && typeof DEVAI !== "undefined" && DEVAI.kind === "litert" && !e4bLoaded ? 120000 : 0)))])) m = {q: m.q, at: m.at, files: m.files, err: "That took too long, so I stopped. Try asking again, maybe in fewer words.", errCode: "slow"};
+    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), ((window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX) + (m.files && m.files.length && !(window.__SB_TEST && window.__CHAT_MAX) && typeof aiOnDevice === "function" && aiOnDevice() ? 120000 : 0) + (typeof e4bLoaded !== "undefined" && typeof DEVAI !== "undefined" && DEVAI.kind === "litert" && !e4bLoaded ? 120000 : 0)))])) m = {q: m.q, at: m.at, files: m.files, err: m.files && m.files.length ? `Reading ${m.files.length === 1 ? m.files[0] : "those files"} took too long${typeof aiOnDevice === "function" && aiOnDevice() ? " for the AI on this computer" : ""}, so I stopped. Try asking about one part of it, or attach fewer pages or slides.` : `That took too long${typeof aiOnDevice === "function" && aiOnDevice() ? " for the AI on this computer" : ""}, so I stopped. Try again: it's often quicker the second time, once the AI has warmed up.`, errCode: "slow"};
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
     fresh.sort((a, b) => b.at - a.at); wr(fresh);
-    T.busy = null; T.status = ""; T.live = ""; draw(); say();
+    clearInterval(T.tick); T.busy = null; T.status = ""; T.live = ""; draw(); say();
     // made right away when the student asked for it in so many words (a note with its text)
     if (m.a && m.a.actions) m.a.actions.forEach((x, i) => { if (x.auto && !x.done) runAction({dataset: {m: String(m.at), i: String(i)}}); });
     try { if (m.a && window.SBCOMP) { SBCOMP.cheer && 0; } } catch (e) {}
@@ -1498,7 +1531,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   VIEWS.companion = view;
 
-  function drawStatus(){ const s = $("#cptStatus"); if (s) { s.textContent = T.live || T.status || "Thinking…"; s.classList.toggle("cpt-live", !!T.live); } }
+  // a step that takes a while shows its seconds counting ("Working out what to do… 12s"), so it never looks stuck
+  function drawStatus(){ const s = $("#cptStatus"); if (!s) return; const st = T.status || "Thinking…";
+    if (st !== T.stWas) { T.stWas = st; T.stAt = Date.now(); }
+    const secs = Math.floor((Date.now() - (T.stAt || Date.now())) / 1000);
+    s.textContent = T.live || (secs >= 4 ? `${st} ${secs}s` : st); s.classList.toggle("cpt-live", !!T.live); }
   function draw(){
     if (ui.tab !== "companion") return;
     // (the chat is open: the stronger on-device AI starts loading now, before anything is asked)

@@ -5572,8 +5572,23 @@ async function aiCardsBySection(o){
   const missed = res.length - ok.length;
   return {data: {cards: ok.flatMap(x => x.cards), deckTitle: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed, vague: ok.reduce((m, x) => m + (x.vague || 0), 0), unsup: ok.reduce((m, x) => m + (x.unsup || 0), 0), fixed: ok.reduce((m, x) => m + (x.fixed || 0), 0)};
 }
+// On the device, a quiz in fewer, bigger parts: each part is three requests (facts, questions, check) and each re-reads its text
+// first, so 10 questions over 8 parts of a slide deck was 24 requests and minutes before the first question. Neighbouring parts
+// are joined until a part asks about 4 questions or its text would crowd the model's memory (E4B's is twice the smaller ones').
+function aiQuizJoin(plan){
+  const room = Math.max(700, Math.floor(((typeof DEVAI !== "undefined" && DEVAI.ctx) || 4096) * 0.28)), out = [];
+  plan.forEach(x => { const l = out[out.length - 1], w = s => s.words || SBSECT.words(s.text || "");
+    if (l && l.count + x.count <= 4 && w(l.section) + w(x.section) <= room) {
+      const a = l.section, b = x.section;
+      l.section = {title: a.title && b.title && a.title !== b.title ? `${a.title} · ${b.title}`.slice(0, 120) : (a.title || b.title), path: a.path, text: a.text + "\n\n" + (b.title && b.title !== a.title ? b.title + "\n" : "") + b.text,
+        words: w(a) + w(b), pages: (a.pages || []).concat(b.pages || []), figs: (a.figs || []).concat(b.figs || [])};
+      l.count += x.count;
+    } else out.push({section: x.section, count: x.count}); });
+  return out;
+}
+window.__sbQuizJoin = aiQuizJoin;
 async function aiQuizBySection(o){
-  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(), qt0 = Date.now(); let done = 0;
+  const dev = aiOnDevice(), plan0 = SBSECT.plan(o.secs, o.n, o.kind), plan = dev && o.quizOnly ? aiQuizJoin(plan0) : plan0, n = plan.length, qt0 = Date.now(); let done = 0;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 9000, schema: QUIZ_SCHEMA, system: AI_QUIZ_SYSTEM + " " + AI_GROUND,
     parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Write exactly ${x.count} practice question${x.count === 1 ? "" : "s"} from this part only. Every question must be answerable from this part, and its rationale must say where.${aiFigAsk(x)}${again ? " Your last answer had too few usable questions: write complete questions with their options, correct answers and rationales." : ""}`})}));
   const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
@@ -5726,7 +5741,7 @@ async function aiMakeStudySet(opts, onStatus){
   else if (cards) jobs.push(cardsOne());
   function cardsOne(){ return aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
     schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})); }
-  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus, onQuestions: opts.onQuestions}));
+  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, quizOnly: !cards, ctx, devCtx, signal, light: opts.light, copy, onStatus, onQuestions: opts.onQuestions}));
   else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
   if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
@@ -17087,6 +17102,9 @@ function pageHeadUp(v){
   if (v.querySelector(":scope > .pg-head")) return;
   const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"), phone = pageHeadPhone();
   if (!tabs) { soloHeadUp(v, phone); return; }
+  // the tabs look the same on every page, with or without a title above them (an open quiz or deck has none, and its tabs were
+  // left in their plain, squeezed look)
+  (tabs.matches(".bview-row") ? tabs.querySelector(".bview-tabs") || tabs : tabs).classList.add("pg-tabs");
   let title = "", head = null;
   if (tabs.matches(".bview-row")) { const s = tabs.querySelector("[aria-selected=true]"); title = s ? s.textContent.trim() : ""; }
   else {
@@ -22078,7 +22096,9 @@ function quizOpts(){
 function quizSheet(deckIds){
   const ds = decksArr().filter(d => d.cards.length);
   if (!ds.length) { toast("Add cards to a deck first"); return; }
-  const sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady(), last = quizOpts();
+  // The AI on this device doesn't write the questions: a small model quizzed on "the deck" and "which flashcard says hh" instead of
+  // what the cards say. A deck is already questions and answers, so they come straight from the cards: instant, and always right.
+  const dev = typeof aiOnDevice === "function" && aiOnDevice(), sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady() && !dev, last = quizOpts();
   // A deck smaller than the usual count starts on All (a 6-card deck can't make 10 questions)
   const have = [...sel].reduce((t, id) => t + (state.decks[id] ? state.decks[id].cards.length : 0), 0), qn = last.qn !== "all" && have < Number(last.qn) ? "all" : last.qn;
   openSheet(`<form class="sheet">${head(ai ? `Make a Quiz with ${aiWho("AI")}` : "Make a Quiz")}
@@ -22091,7 +22111,7 @@ function quizSheet(deckIds){
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="written"${last.qt.includes("written") ? " checked" : ""}> Written answer</label></div></fieldset>
       <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, Answer Back"], ["rev", "Back, Answer Front"], ["mix", "Mixed"]], last.qd)}</fieldset>
-      <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
+      <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : dev ? "The questions come straight from your cards, so the quiz is ready at once and always matches them." : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
       <p class="status-msg" id="mqStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="mqGo">${ai ? AI_ICON + " " : ""}Make Quiz</button></div>
@@ -22111,13 +22131,16 @@ async function quizFromCardsAi(decks, n, types, dir, title){
   const st = $("#mqStatus"), go = $("#mqGo"); if (go && go.disabled) return;
   const cards = []; decks.forEach(id => { const d = state.decks[id]; if (d) d.cards.forEach(c => { if (c.front.trim() && c.back.trim() && !c.draft) cards.push({d, c}); }); });
   const count = n === "all" ? Math.min(40, cards.length) : Number(n) || 10, first = state.decks[decks[0]], course = courseOf(first.courseId);
-  const text = decks.map(id => { const d = state.decks[id]; return d ? `Flashcards in the deck "${d.name}":\n` + d.cards.filter(c => c.front.trim() && c.back.trim()).map(c => `Front: ${c.front}\nBack: ${c.back}`).join("\n\n") : ""; }).join("\n\n");
+  // the cards' content only: with the deck's name and "Front:/Back:" around it, the AI quizzed on the deck and the cards themselves
+  const text = decks.map(id => { const d = state.decks[id]; return d ? d.cards.filter(c => c.front.trim() && c.back.trim()).map(c => `${c.front.trim()}: ${c.back.trim()}`).join("\n") : ""; }).join("\n");
   const ask = dir === "rev" ? "Ask from the backs of the cards; the answers are on the fronts." : dir === "mix" ? "Mix questions asked from the fronts and from the backs." : "Ask from the fronts of the cards; the answers are on the backs.";
-  const style = `A quiz on these flashcards. Use only these question types: ${types.map(t => QZ_TYPES[t]).join(", ")}. ${ask} Every question tests one card or a link between cards, using only what the cards say.`;
+  const style = `A quiz on these flashcards. Use only these question types: ${types.map(t => QZ_TYPES[t]).join(", ")}. ${ask} Every question tests one card or a link between cards, using only what the cards say. Ask about the subject itself: never about the deck, the flashcards, their fronts or backs, or which card says what.`;
   if (go) { go.disabled = true; go.classList.add("busy"); }
   if (st) st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiWho("AI"))} is writing ${count} question${count === 1 ? "" : "s"}…`;
   try {
     const r = await aiMakeStudySet({sources: [{name: first.name, kind: "Text", size: text.length, part: {text}}], style, difficulty: "mixed", cards: false, quiz: true, cases: false, quizCount: String(count), courseName: course ? courseLabel(course) : ""});
+    // any question about the deck or the cards themselves ("which flashcard has...") is dropped, never shown
+    r.questions = r.questions.filter(q => !/\b(flash ?cards?|decks?|which card|the card|front of|back of)\b/i.test(q.stem || ""));
     if (!r.questions.length) throw aiErr("empty", "The AI couldn't write questions from these cards. Try again, or add more cards.");
     r.quizTitle = title;
     aiReviewSheet(r, {deck: first, courseId: first.courseId, style, styleName: title, sources: decks.map(id => (state.decks[id] || {}).name || ""), fromCards: decks});
@@ -47901,12 +47924,15 @@ function cleanFile(r) {
   /* Sheets */
   const ICON = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V6a2 2 0 0 1 2-2h12v15"/><path d="M4 19a2 2 0 0 0 2 2h12v-4H6a2 2 0 0 0-2 2z"/><path d="M8.5 11l2 2 4-4.5"/></svg>`;
   const courseOpts = (val, ou) => `<option value="new" ${val === "new" ? "selected" : ""}>New Course</option>${coursesArr().map(c => `<option value="${esc(c.id)}" ${val === c.id ? "selected" : ""}>${esc(c.code ? c.code + ": " + c.name : c.name)}</option>`).join("")}<option value="skip" ${val === "skip" ? "selected" : ""}>Don't Import</option>`;
-  const extGone = (c = cfg()) => !bsDesk() && c.mode === "api" && c.lastSrc === "grab" && !!window.SBEXT && SBEXT.checked() && !SBEXT.has(P.id);
+  // The extension only talks to Studyboard on studyboardapp.com: anywhere else (a test site, a preview) it can't be heard from,
+  // which is not the same as it being gone (that said "isn't in this browser anymore" with the extension right there)
+  const extHere = () => /(^|\.)studyboardapp\.com$/.test(location.hostname) || (/^(127\.0\.0\.1|localhost)$/.test(location.hostname) && !!window.__SB_EXT_HERE);
+  const extGone = (c = cfg()) => !bsDesk() && extHere() && c.mode === "api" && c.lastSrc === "grab" && !!window.SBEXT && SBEXT.checked() && !SBEXT.has(P.id);
   function statusLine(){
     const c = cfg(), L = local();
     if (!connected(c)) return "Not connected";
     if (extGone(c)) return `${SBEXT.on() ? `The Studyboard School Sync extension isn't connected to ${P.name} anymore` : "The Studyboard School Sync extension isn't in this browser anymore"}, so nothing new comes in. ${c.last ? `Last synced ${ago(c.last)}.` : ""}`;
-    const how = c.mode === "direct" ? `Connected${c.acct ? " as " + c.acct : ""}` : c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
+    const how = c.mode === "direct" ? `Connected${c.acct ? " as " + c.acct : ""}` : c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? (extHere() ? `Read from ${P.name} in this browser` : `Read from ${P.name} by the School Sync extension, which works on studyboardapp.com only (open Studyboard there to sync or check on it)`) : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
     const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 11]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
@@ -48941,7 +48967,34 @@ function cleanFile(r) {
   window.SBLMS_COURSE_GONE = id => ALL().forEach(L => { try { L.courseDeleted(id); } catch (e) {} });
 
   /* Desktop: staying signed in, and a quick way back in */
-  const relogNeeded = () => ALL().filter(L => !!lmsBridge() && L.cfg().mode === "api" && L.connected() && L.local().needLogin);
+  // A school site that has signed you out: only one you've signed in to and synced before (c.last) and haven't disconnected. Through
+  // the desktop app it says so itself (needLogin); through the browser extension, the extension reports the site as "login".
+  const extLogin = L => { const c = L.cfg(), x = !lmsBridge() && c.mode === "api" && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.school(L.P.id) : null; return x && x.state === "login" ? x : null; };
+  const relogNeeded = () => ALL().filter(L => L.connected() && !!L.cfg().last && ((!!lmsBridge() && L.cfg().mode === "api" && L.local().needLogin) || !!extLogin(L)));
+  // Signing in again: the desktop app opens the sign-in; with the extension, the school site opens in a new tab to sign in there,
+  // and coming back to Studyboard asks the extension to sync
+  // Out of sync: a site you've synced before that hasn't synced for over a day (whatever the reason: signed out, the extension
+  // can't be heard from here, the computer was off), as well as one known to have signed you out
+  const STALE = 864e5;
+  const staleOf = L => { const c = L.cfg(); return L.connected() && !!c.last && Date.now() - c.last > STALE && !L.isRunning(); };
+  const syncTrouble = () => { const a = relogNeeded(); return a.concat(ALL().filter(L => !a.includes(L) && staleOf(L))); };
+  function relogGo(L){
+    const c = L.cfg(), x = extLogin(L), home = (x && x.origin) || (c.host ? (/^https?:\/\//.test(c.host) ? c.host : "https://" + c.host) : "");
+    const fail = err => { console.error(err); toast("Sign-in didn't work. Try again."); };
+    // the desktop app: its own sign-in when it says so, otherwise a sync now (which asks for a sign-in if it needs one)
+    if (lmsBridge() && c.mode === "api") { (L.local().needLogin ? L.doLogin() : Promise.resolve(L.syncNow({force: true}))).catch(fail).finally(scheduleRender); return; }
+    // the browser extension: the school site opens to sign in there; coming back, the extension is asked to sync (where it can be heard)
+    if (c.mode === "api" && c.lastSrc === "grab" && home) {
+      openOutside(home);
+      const back = () => { if (document.hidden) return; document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back);
+        if (window.SBEXT && SBEXT.on()) { try { window.postMessage({source: "studyboard-app", type: "sync"}, location.origin); } catch (e) {} if (window.SBLMS_EXTSYNC) SBLMS_EXTSYNC([L.P.id]); }
+        else toast(`Once you're signed in to ${L.P.name}, press Sync in the Studyboard School Sync extension (in your browser's toolbar), or wait: it syncs every hour.`); };
+      setTimeout(() => { document.addEventListener("visibilitychange", back); window.addEventListener("focus", back); }, 800);
+      return;
+    }
+    // a calendar link or anything else: sync it now
+    Promise.resolve(L.syncNow({force: true})).catch(fail).finally(scheduleRender);
+  }
   let relogHidden = "", pinging = false;
   async function keepAlive(){
     const br = lmsBridge(); if (!br || !br.ping || pinging || navigator.onLine === false) return;
@@ -48961,8 +49014,24 @@ function cleanFile(r) {
     let away = 0;
     document.addEventListener("visibilitychange", () => { if (document.hidden) away = Date.now(); else if (away && Date.now() - away > 10 * 60000) keepAlive(); });
   }
+  // A sync icon at the very top right while a school site has signed you out: it stays (the message below can be hidden) and
+  // signs you in again when pressed. On a phone it sits with the header's buttons; on a computer, in the window's corner.
+  function drawRelogIcon(need){
+    let b = document.getElementById("lmsSyncIco");
+    if (!need.length) { if (b) b.remove(); return; }
+    const L = need[0], names = need.map(x => x.P.name), out = relogNeeded().includes(L), days = Math.floor((Date.now() - (L.cfg().last || Date.now())) / 864e5);
+    const label = out ? `${names.join(" and ")} signed you out. Sign in again to keep syncing.` : `${names.join(" and ")} ${names.length > 1 ? "haven't" : "hasn't"} synced in ${days >= 2 ? days + " days" : "over a day"}. Press to sign in again and sync.`;
+    if (!b) { b = document.createElement("button"); b.type = "button"; b.id = "lmsSyncIco";
+      b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg>`; }
+    b.dataset.relog = L.P.id; b.setAttribute("aria-label", label); b.title = label; b.dataset.tip = label;
+    const ha = document.querySelector(".head-actions"), inHead = !!ha && ha.getBoundingClientRect().width > 0 && getComputedStyle(ha).display !== "none";
+    b.className = inHead ? "icon-btn ls-head" : "ls-corner";
+    if (inHead) { if (b.parentElement !== ha) ha.insertBefore(b, ha.firstChild); }
+    else if (b.parentElement !== document.body) document.body.appendChild(b);
+  }
   function drawRelog(){
     const need = relogNeeded(), key = need.map(L => L.P.id).join(",");
+    drawRelogIcon(syncTrouble());
     let el = document.getElementById("lmsRelog");
     if (!need.length || key === relogHidden) { if (el) el.remove(); if (!need.length) relogHidden = ""; return; }
     if (!el) { el = document.createElement("div"); el.id = "lmsRelog"; el.setAttribute("role", "status"); document.body.appendChild(el); }
@@ -48973,7 +49042,7 @@ function cleanFile(r) {
   hook("render", drawRelog);
   document.addEventListener("click", e => {
     const go = e.target.closest && e.target.closest("[data-relog]");
-    if (go) { const L = LMS[go.dataset.relog]; if (L) L.doLogin().catch(err => { console.error(err); toast("Sign-in didn't work. Try again."); }).finally(scheduleRender); return; }
+    if (go) { const L = LMS[go.dataset.relog]; if (L) relogGo(L); return; }
     if (e.target.closest && e.target.closest("[data-relog-x]")) { relogHidden = relogNeeded().map(L => L.P.id).join(","); drawRelog(); }
   });
   { const st = document.createElement("style"); st.textContent = `
@@ -48983,6 +49052,13 @@ function cleanFile(r) {
 #lmsRelog .lr-go{flex:none;border:0;border-radius:999px;padding:9px 16px;min-height:38px;background:var(--accent);color:var(--accent-ink,#fff);font:700 .88rem var(--display,inherit);cursor:pointer}
 #lmsRelog .lr-go:hover{filter:brightness(1.08)}
 #lmsRelog .lr-x{flex:none;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.7;font:600 20px/1 var(--body);cursor:pointer}
+#lmsSyncIco{position:relative;cursor:pointer;color:var(--warn-ink,#9a5b00)}
+#lmsSyncIco.ls-corner{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:16px;z-index:880;display:grid;place-items:center;width:42px;height:42px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface,#fff);box-shadow:0 4px 14px color-mix(in srgb,var(--ink) 14%,transparent)}
+#lmsSyncIco.ls-corner:hover{background:color-mix(in srgb,var(--surface,#fff) 88%,var(--ink))}
+#lmsSyncIco:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){#lmsSyncIco svg{animation:lsSpin 2.4s ease-in-out 2}}
+@keyframes lsSpin{to{transform:rotate(360deg)}}
+body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 #lmsRelog .lr-x:hover{opacity:1;background:color-mix(in srgb,var(--paper) 14%,transparent)}
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
@@ -49038,6 +49114,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     syncPill(true);
     extWatch = {ids: ids.slice(), t0: Date.now() - 1500, timer: setTimeout(() => extWatchEnd(null), 120000)};
   }
+  window.SBLMS_EXTSYNC = ids => extSyncWatch(ids);
   function extWatchEnd(res){
     const w = extWatch; if (!w) return; extWatch = null; clearTimeout(w.timer); syncPill(false);
     const nm = id => (LMS[id] && LMS[id].P.name) || "your school site";
@@ -49110,6 +49187,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
         EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0, tried: Number(x.tried) || 0, error: String(x.error || "").replace(/[<>]/g, "").slice(0, 160)}));
         extWatchCheck();
+        // a school the extension can't read until you sign in again: the sync icon shows (or goes) straight away
+        try { drawRelog(); } catch (err) {}
         (Array.isArray(d.list) ? d.list : []).slice(0, 3).forEach(x => { extChain = extChain.then(() => extImport(x)).catch(err => console.warn("extension import", err)); });
       }
     });
@@ -76450,6 +76529,7 @@ window.SBCARDS = (() => {
   function topicOf(q){
     const s = String(q || "").trim(); let m;
     if ((m = /\b(?:card|one|flashcard)s?\s+(?:about|on|for|explaining|that asks|asking)\s+(?:what\s+)?(?:the\s+|an?\s+)?(.{2,60}?)(?:\s+(?:is|are))?\s*(?:\b(?:to|in|into|for)\s+(?:my\s+|the\s+)?[\w&' ]{2,30}?\s*(?:deck|set|terms)?)?\s*[?.!]*$/i.exec(s))) return clean(m[1]);
+    if ((m = /\b(?:one more|another(?: one)?|one)\s+(?:card\s+)?(?:about|on|for)\s+(?:the\s+)?(.{2,60}?)\s*[?.!]*$/i.exec(s))) return clean(m[1]);
     if ((m = /\badd\s+(?:the\s+|a\s+|an\s+)?(.{2,40}?)\s+card\b/i.exec(s)) && !/^(a|another|one|new|flash)$/i.test(m[1])) return clean(m[1]);
     if ((m = /\bthat asks\s+(?:what|who)\s+(?:the\s+|an?\s+)?(.{2,60}?)\s+(?:is|are|does|do)\s*[?.!]*$/i.exec(s) || /\bthat asks (?:about\s+)?(.{2,60}?)\s*[?.!]*$/i.exec(s))) return clean(m[1]);
     if ((m = /\bcards?\b.*?\babout\s+(?:the\s+|an?\s+)?(.{2,40}?)\s*[?.!]*$/i.exec(s))) return clean(m[1]);
@@ -76839,16 +76919,46 @@ window.SBCARDS = (() => {
     for (const x of prev) if ((MAP_Q.test(x.q) && MAP_ASK.test(x.q)) || CARDS_Q.test(x.q) || NOTE_Q.test(x.q) || CHANGE_Q.test(x.q)) return x.q;
     return "";
   }
+  // "create a quiz based on this" with slides attached: straight from the words, made from the attached file (no AI step to work
+  // out what was meant, and never a search of their notes or the web instead of the file they gave)
+  function attStudy(q, att){
+    const w = String(q || "").replace(/["“'‘][^"”'’]{2,200}["”'’]/g, " ");
+    if (!att || !att.length || !(CARDS_Q.test(w) || /\b(quiz|flash ?cards?|practice (questions|test))\b/i.test(w))) return null;
+    const quiz = /\bquiz|test me|practice (questions|test)\b/i.test(w) && !/flash ?cards?|\bcards\b/i.test(w), n = Number((w.match(/\b(\d{1,2})\b/) || [])[1]) || 0;
+    const names = att.map(x => String(x.name || "your file")), name = names[0].replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[_-]+/g, " ").trim().slice(0, 60) || "Study Set";
+    const from = names.length === 1 ? names[0] : `your ${names.length} files`;
+    return {answer: `Tap ${quiz ? "Make Quiz" : "Make Flashcards"} and I'll make ${n ? n + " " : ""}${quiz ? "practice questions" : "flashcards"} from ${from}.`, sources: [], followUps: [],
+      actions: [{type: quiz ? "quiz" : "flashcards", label: quiz ? "Make Quiz" : "Make Flashcards", deckName: name, deck: "", target: "", style: "", count: n, course: "", board: "", noteTitle: "", text: ""}]};
+  }
   async function deviceAct(q, chat, forced){
     const A = window.SBASSIST, TR = window.SBTRUTH; if (!A) return null;
     if (CARDS_Q.test(q.replace(/["“'‘][^"”'’]{2,200}["”'’]/g, " ")) && !EMPTY_DECK.test(q)) {
       const quiz = /\bquiz|test me|practice (questions|test)\b/i.test(q) && !/flash ?cards?|cards/i.test(q), n = Number((q.match(/\b(\d{1,2})\b/) || [])[1]) || 0;
       const topic = clip((q.match(/\b(?:on|about|for|from|covering|over)\s+(.+?)[?.!]*$/i) || [])[1] || q.replace(CARDS_Q, "").replace(/^\W+|\W+$/g, ""), 80);
       let text = "", from = "";
-      try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic || q, {max: 8, chars: 1200, wait: 800, readWait: 2, semWait: 2500}) : null; if (R && R.text && R.text.length > 300) { text = R.text.replace(/^\[\d+\] [^\n]*\n/gm, ""); from = "your notes"; } } catch (e) {}
+      // a note they name ("my defense mechanisms note", "my cardiac cycle note"): that note, word for word
+      { const tw = (String(topic || q).toLowerCase().match(/[a-z0-9]{3,}/g) || []).filter(w => !/^(my|the|note|notes|from|into|turn|make|flashcards?|cards?|deck|quiz|about|for|on|some|me|please|lecture)$/.test(w));
+        const nt = tw.length ? notesArr().filter(n => n && !n.archived && n.text).map(n => ({n, sc: tw.filter(w => String(n.text).split("\n")[0].toLowerCase().includes(w.slice(0, 5))).length})).filter(x => x.sc >= Math.max(1, Math.ceil(tw.length / 2))).sort((a, b) => b.sc - a.sc)[0] : null;
+        if (nt && String(nt.n.text).length >= 60) { text = String(nt.n.text); from = "your note"; } }
+      try { if (!text) { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic || q, {max: 8, chars: 1200, wait: 800, readWait: 2, semWait: 2500}) : null; if (R && R.text && R.text.length > 300) { text = R.text.replace(/^\[\d+\] [^\n]*\n/gm, ""); from = "your notes"; } } } catch (e) {}
       if (!text && TR && topic) { const W = await TR.research(topic).catch(() => ({list: []})); if (W.list && W.list.length) { text = W.list.map(x => `${x.title}\n${x.text}`).join("\n\n"); from = W.list.some(x => /paper/i.test(x.src || "")) ? "Wikipedia and research papers" : "Wikipedia"; } }
       if (text.length < 120) return forced ? null : {answer: `I couldn't find material on ${topic || "that"} in your notes or on the web. Add notes or a file about it (or attach one here), and I'll make ${quiz ? "a quiz" : "flashcards"} from it.`, sources: [], followUps: [], actions: []};
-      const name = (topic || "Study Set").replace(/\b\w/g, ch => ch.toUpperCase()).slice(0, 60);
+      const name = (String(topic || "").replace(/\b(my|the|note|notes|lecture|from|into|turn)\b/gi, " ").replace(/\s+/g, " ").trim() || "Study Set").replace(/\b\w/g, ch => ch.toUpperCase()).slice(0, 60);
+      // asked for in so many words ("make flashcards from my notes on X", "turn X into flashcards"): made now, into a new deck, and the
+      // chat carries on from it ("add one more about denial"); "quiz me" and the like still offer the button
+      if (!quiz && /\b(make|create|generate|build|write|turn|convert)\b/i.test(q) && typeof aiMakeStudySet === "function" && aiOk()) {
+        T.status = "Making your flashcards…"; draw();
+        try {
+          const r = await aiMakeStudySet({sources: [{name, kind: "Text", size: text.length, part: {text: text.slice(0, 12000)}}], style: "", difficulty: "mixed", cards: true, quiz: false, cases: false, caseCount: "1", caseStyle: "auto", cardCount: n ? String(n) : "auto", quizCount: "10", courseName: ""}, s => { T.status = clip(s, 40); drawStatus(); });
+          const cards = ((r && r.cards) || []).filter(x => !x.check && String(x.front || "").trim() && String(x.back || "").trim());
+          if (cards.length) {
+            const d = normDeck({id: uid(), created: Date.now(), name, courseId: ""});
+            d.cards = cards.map(x => ({id: uid(), front: x.front.trim(), back: x.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: x.source || ""})); d.updated = Date.now();
+            saveDeck(d, `Made ${cards.length} cards in ${name}`);
+            return {answer: `Made ${cards.length} flashcard${cards.length === 1 ? "" : "s"} in a new deck, ${name}, from ${from}:\n${cards.slice(0, 4).map(x => `- ${x.front.trim()}`).join("\n")}${cards.length > 4 ? `\n…and ${cards.length - 4} more.` : ""}\nSay "undo" to take them back.`, sources: [from === "your notes" || from === "your note" ? "Your notes" : from], followUps: [], actions: [], card: {deck: d.id}, ref: {kind: "deck", id: d.id}};
+          }
+        } catch (e) { if (stopsHere(e)) throw e; }
+      }
       return {answer: `I gathered material on ${topic || "that"} from ${from}. Tap ${quiz ? "Make Quiz" : "Make Flashcards"} and I'll make ${n ? n + " " : ""}${quiz ? "practice questions" : "cards"} from it.`, sources: [from === "your notes" ? "Your notes" : from], followUps: [],
         actions: [{type: quiz ? "quiz" : "flashcards", label: quiz ? "Make Quiz" : "Make Flashcards", deckName: name, deck: "", target: "", style: "", count: n, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
     }
@@ -77571,6 +77681,7 @@ Careful, these are easy to mix up:
     // from something they already have: a quiz from a deck (or card), cards from a quiz
     if (it === "make_quiz" && (/\b(deck|card|cards|flashcards?)\b/.test(String(q).toLowerCase()))) { const r = quizFromDeck(d.topic || d.deck || d.item || ""); if (r) return say(r); }
     if (it === "make_flashcards" && /\b(quiz|test|case study)\b/i.test(q)) { const hit = quizNamed(d.topic || d.item || ""); if (hit) return say(cardsFromQuiz(hit)); }
+    if ((it === "make_flashcards" || it === "make_quiz") && att && att.length) { const r = attStudy(q, att) || attStudy(it === "make_quiz" ? "make a quiz" : "make flashcards", att); if (r) return r; }
     if (it === "make_flashcards" || it === "make_quiz") return deviceAct(`${it === "make_quiz" ? "make a quiz" : "make flashcards"} on ${d.topic || q.replace(/^.*?\b(on|about|for)\b/i, "")}`, chat, true);
     return null;
   }
@@ -77605,6 +77716,7 @@ Careful, these are easy to mix up:
     let c = chats.find(x => x.id === T.id);
     if (!c) { c = {id: uid(), title: clip(q, 56), at: Date.now(), msgs: []}; chats.unshift(c); T.id = c.id; wr(chats); }
     T.busy = {id: c.id, q}; T.say = true; T.draft = ""; T.live = ""; T.status = "Looking through your stuff…"; draw();
+    clearInterval(T.tick); T.tick = setInterval(() => { if (T.busy && !T.live) drawStatus(); }, 1000);
     let m = {q, at: Date.now()};
     if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     // no reply may keep the chat busy for good: past CHAT_MAX it's given up on (it's dropped if it comes later) and the chat is free again
@@ -77731,6 +77843,7 @@ Careful, these are easy to mix up:
       const PLAINQ = !!(qFix && more) || !ACTX(q2) && (/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did|can you explain)\b[^]*\?\s*$/i.test(q2) || /^\s*(explain|define|describe|tell me about|what is|what's|whats|what are|how does|how do|how is|how are|why (is|are|do|does)|who (is|was|were)|summari[sz]e|compare)\b/i.test(q2));
 
       if (att.length && att.some(x => /^image\//.test((x.part && x.part.inline_data && x.part.inline_data.mime_type) || "") || /\.(png|jpe?g|gif|webp)$/i.test(x.name || "")) && /\b(add|put|save|pin|stick|place|attach)\b[^?]*\b(note|notes|board)\b/i.test(q)) made = await photoNote(q, att);
+      if (!made && att.length && !careMode) made = attStudy(q2, att);
       if (!quick && !made && !att.length && MAP_Q.test(q2) && MAP_ASK.test(q2)) { T.status = "Making your map…"; draw(); made = await mapAct(q2); }
       if (!quick && !made && !att.length && window.SBASSIST && SBASSIST.findNotes) { const fn = await SBASSIST.findNotes(q2).catch(() => null); if (fn) made = {answer: fn.answer, sources: fn.show && fn.show.length ? ["Your notes"] : [], followUps: [], actions: [], show: fn.show && fn.show.length ? SBASSIST.pack(fn).show : undefined}; }
       if (!quick && !made && dev && !att.length) made = await deviceAct(q2, c, !!was);
@@ -77834,12 +77947,12 @@ You can also DO things in Studyboard, but only when the student asks or what the
       if (m.a && !m.a.ref) { const nw = newSince(ids0); if (nw) m.a.ref = nw; }
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); if (e && e.code) m.errCode = String(e.code); if (e && e.detail) m.errDetail = clip(e.detail, 240); }
     })();
-    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), ((window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX) + (typeof e4bLoaded !== "undefined" && typeof DEVAI !== "undefined" && DEVAI.kind === "litert" && !e4bLoaded ? 120000 : 0)))])) m = {q: m.q, at: m.at, files: m.files, err: "That took too long, so I stopped. Try asking again, maybe in fewer words.", errCode: "slow"};
+    if (await Promise.race([work.then(() => false, () => false), new Promise(r => setTimeout(() => r(true), ((window.__SB_TEST && window.__CHAT_MAX) || CHAT_MAX) + (m.files && m.files.length && !(window.__SB_TEST && window.__CHAT_MAX) && typeof aiOnDevice === "function" && aiOnDevice() ? 120000 : 0) + (typeof e4bLoaded !== "undefined" && typeof DEVAI !== "undefined" && DEVAI.kind === "litert" && !e4bLoaded ? 120000 : 0)))])) m = {q: m.q, at: m.at, files: m.files, err: m.files && m.files.length ? `Reading ${m.files.length === 1 ? m.files[0] : "those files"} took too long${typeof aiOnDevice === "function" && aiOnDevice() ? " for the AI on this computer" : ""}, so I stopped. Try asking about one part of it, or attach fewer pages or slides.` : `That took too long${typeof aiOnDevice === "function" && aiOnDevice() ? " for the AI on this computer" : ""}, so I stopped. Try again: it's often quicker the second time, once the AI has warmed up.`, errCode: "slow"};
     const fresh = rd(), cc = fresh.find(x => x.id === c.id) || c;
     if (!fresh.includes(cc)) fresh.unshift(cc);
     cc.msgs.push(m); cc.msgs = cc.msgs.slice(-MAXM); cc.at = Date.now();
     fresh.sort((a, b) => b.at - a.at); wr(fresh);
-    T.busy = null; T.status = ""; T.live = ""; draw(); say();
+    clearInterval(T.tick); T.busy = null; T.status = ""; T.live = ""; draw(); say();
     // made right away when the student asked for it in so many words (a note with its text)
     if (m.a && m.a.actions) m.a.actions.forEach((x, i) => { if (x.auto && !x.done) runAction({dataset: {m: String(m.at), i: String(i)}}); });
     try { if (m.a && window.SBCOMP) { SBCOMP.cheer && 0; } } catch (e) {}
@@ -78051,7 +78164,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   VIEWS.companion = view;
 
-  function drawStatus(){ const s = $("#cptStatus"); if (s) { s.textContent = T.live || T.status || "Thinking…"; s.classList.toggle("cpt-live", !!T.live); } }
+  // a step that takes a while shows its seconds counting ("Working out what to do… 12s"), so it never looks stuck
+  function drawStatus(){ const s = $("#cptStatus"); if (!s) return; const st = T.status || "Thinking…";
+    if (st !== T.stWas) { T.stWas = st; T.stAt = Date.now(); }
+    const secs = Math.floor((Date.now() - (T.stAt || Date.now())) / 1000);
+    s.textContent = T.live || (secs >= 4 ? `${st} ${secs}s` : st); s.classList.toggle("cpt-live", !!T.live); }
   function draw(){
     if (ui.tab !== "companion") return;
     // (the chat is open: the stronger on-device AI starts loading now, before anything is asked)
