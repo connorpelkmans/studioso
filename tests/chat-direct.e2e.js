@@ -209,6 +209,22 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await fresh();
   a = await chat("you're the best packy");
   ok(!/couldn't find|notes|Wikipedia/i.test(a), "small talk is answered as chat, never a notes search: " + a);
+  // the companion's look (E4B test p5-128..139): what it has, its own colour said plainly, never a course recoloured
+  await fresh();
+  a = await chat("what accessories do I have");
+  ok(/I can wear: 1\.|haven't earned any accessories/.test(a), "what it can wear, from its settings: " + a);
+  const cc0 = await p.evaluate(() => JSON.stringify(window.__sbSync.state.courses));
+  a = await chat("make packy purple");
+  ok(/can't change my own colou?r/.test(a) && cc0 === await p.evaluate(() => JSON.stringify(window.__sbSync.state.courses)), "its own colour is said plainly, and no course changes: " + a);
+  // notes said every way (E4B test p5-080..088): saved with their words, and "and ..." adds to the note just saved
+  await fresh();
+  a = await chat("remember my locker code is 4412");
+  ok(/4412/.test(await notes()) && !/WRONG NOTE/.test(await notes()), "\"remember my X is Y\" saves a note with their words: " + a);
+  a = await chat("and my ID badge");
+  ok(/4412[\s\S]*ID badge/.test(await notes()), "\"and my ID badge\" adds to that note: " + a);
+  await fresh();
+  a = await chat("sticky note: email Prof Ruiz about lab report");
+  ok(/Prof Ruiz about lab report/.test(await notes()), "\"sticky note: X\" saves it: " + a);
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);

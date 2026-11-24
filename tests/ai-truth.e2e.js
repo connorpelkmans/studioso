@@ -83,7 +83,8 @@ function fake(){
   ok(c.asked.length === 0 && /5-minute focus timer is running/.test(c.last) && (await p.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo") || "{}").running)), "start a timer: it runs, no model");
   await p.evaluate(() => { const S = window.__sbSync; if (S && S.state) { S.state.notes = S.state.notes || {}; } });
   c = await chat("make flashcards on the bio lab report", NONE);
-  ok(c.asked.length === 0 && /Make Flashcards/.test(c.last), "make flashcards: the Make Flashcards button, with material gathered from their stuff: " + c.last.replace(/\n/g, " ").slice(0, 160));
+  // (asked for in so many words, the cards are made at once; when the AI gives nothing usable, the button with the material is offered)
+  ok(/Make Flashcards|Made \d+ flashcards?/.test(c.last), "make flashcards: made at once, or the Make Flashcards button with material gathered from their stuff: " + c.last.replace(/\n/g, " ").slice(0, 160));
   c = await chat("save a note: lab partners are Sam and Priya", NONE);
   ok(c.asked.length === 0 && /put the note on/.test(c.last), "save a note: made at once: " + c.last.slice(0, 100));
   c = await chat("create a note in my board, put text Hi! in it", NONE);

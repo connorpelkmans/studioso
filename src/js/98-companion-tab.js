@@ -744,6 +744,10 @@ Examples:
     // "let's study psych nursing terms", "drill me on the heart deck", "review my bio deck": that deck, if there is one by that name
     const st = /^\s*(?:let'?s\s+|i want to\s+|time to\s+|can we\s+|please\s+)?(?:study|review|drill(?: me)?(?: on)?|practi[cs]e|go over|run through)\s+(?:my\s+|the\s+)?(.+?)\s*(?:deck|set|flashcards?|cards)?\s*[.!?]*$/i.exec(w);
     if (st) { const dk2 = deckNamed(st[1]); if (dk2 && (dk2.cards || []).length) { setTimeout(() => { try { startStudy([dk2.id]); } catch (e) {} }, 250); return say(`Opening ${dk2.name} to study (${dk2.cards.length} card${dk2.cards.length === 1 ? "" : "s"}).`); } }
+    // "remember that X", "remember my locker code is 4412", "note to self: X", "sticky note: X", "jot down X": a note with their words
+    // (never an edit to an event or a task: "remember that the study group is moving to room 6" is a note)
+    const rem = /^\s*(?:ok(?:ay)?[,\s]+|please\s+|hey[,\s]+)?(?:remember(?:\s+that)?|note to self\s*[:,-]?|sticky(?:\s+note)?\s*[:,-]|(?:a\s+)?note\s*[:,-]|jot(?:\s+(?:this|that|it))?(?:\s+down)?\s*[:,-]?|write (?:this|that|it) down\s*[:,-]?|write down\s*[:,-]?|make a note(?:\s+that)?\s*[:,-]?|don'?t let me forget(?:\s+that)?|remind me that)\s+(.{2,400}?)\s*[.!]*$/i.exec(w);
+    if (rem && !/^\s*(to|how|what|when|where|which|why|who|if)\b/i.test(rem[1])) return {preset: {intent: "add_note", text: rem[1].charAt(0).toUpperCase() + rem[1].slice(1)}};
     // "stick a note on my board: buy scrubs", "put 'X' on a sticky": the note, with their words (nothing to work out)
     const nm = /\b(?:note|sticky)\b[^:"“']*?(?::\s*|["“'])([^"”']{2,300}?)["”']?\s*[.!?]*$/i.exec(w) || /^\s*(?:put|stick|add|write)\s+["“']([^"”']{2,300})["”']\s+(?:on|to)\s+(?:a|my|the)\s+(?:sticky|note|board)/i.exec(w);
     if (nm && /\b(?:put|stick|add|write|make|save|create|leave|jot)\b/i.test(w)) return {preset: {intent: "add_note", text: nm[1].trim()}};
@@ -859,7 +863,7 @@ Careful, these are easy to mix up:
       // a new course only when they say to add one ("I meant all my courses" isn't)
       if (d.intent === "add_course" && !/\b(add|new|create|make|enrol+|register|signed up|taking|joining|set up)\b/.test(w)) d.intent = "question";
       // a note only when one is asked for ("print my notes", "show my notes" mention notes but don't ask for one)
-      if (d.intent === "add_note" && !/\b(make|write|add|save|create|put|leave|jot|stick|take|new)\b[^.?!]*\b(note|sticky)\b|\bnote (to self|that|:)|\bremember that\b|\bremind me that\b|\bjot\b|\bwrite (this|that|it) down\b|\bwrite down\b|^\s*note\b/.test(w)) d.intent = /\b(show|open|find|see|where|go to)\b/.test(w) ? "open_page" : "cant";
+      if (d.intent === "add_note" && !/\b(make|write|add|save|create|put|leave|jot|stick|take|new)\b[^.?!]*\b(note|sticky)\b|\bnote (to self|that|:)|\bremember\b|\bsticky\b|\bdon'?t let me forget\b|\bremind me that\b|\bjot\b|\bwrite (this|that|it) down\b|\bwrite down\b|^\s*note\b/.test(w)) d.intent = /\b(show|open|find|see|where|go to)\b/.test(w) ? "open_page" : "cant";
       if (d.intent === "add_note" && !d.board) { const m = /\b(?:on|in|to|onto)\s+(?:my|the)\s+([a-z0-9][\w &'-]{0,30}?)\s+(?:note ?)?board\b/i.exec(q); if (m) d.board = m[1]; }
       ["instructor", "where", "course", "code", "board", "title"].forEach(k => { if (/^(unknown|n\/?a|none|tbd|not (given|specified|provided)|null|undefined|-|no instructor|no room)$/i.test(String(d[k] || "").replace(/[()\[\].]/g, "").trim())) d[k] = ""; });
       // a time only when the words give one (the model likes to make up noon, 8 AM or 4 PM)
@@ -1052,6 +1056,35 @@ Careful, these are easy to mix up:
     if (it === "make_flashcards" || it === "make_quiz") return deviceAct(`${it === "make_quiz" ? "make a quiz" : "make flashcards"} on ${d.topic || q.replace(/^.*?\b(on|about|for)\b/i, "")}`, chat, true);
     return null;
   }
+  // The companion's look, read in code: "what accessories do I have", "wear the second one", "take them both off", "make it red" (the
+  // accessory just talked about), "make packy purple" (it has no colour of its own: said, with what can change), "dress up for the holidays"
+  const ACCW = /\b(cozy scarf|scarf|tiny hat|festive beanie|graduation cap|beanie|hat|cap|little crown|crown|round glasses|sunglasses|glasses|party bow ?tie|bow ?tie|tie|champion medal|medal|hero cape|cape|star badge|badge)\b/i;
+  const COLW = /\b(red|crimson|maroon|pink|rose|magenta|purple|violet|lavender|indigo|navy|dark blue|ocean blue|blue|light blue|sky blue|cyan|turquoise|teal|green|dark green|forest green|evergreen|mint|lime|olive|yellow|gold|orange|coral|peach|brown|tan|beige|gray|grey|silver|black|white)\b/i;
+  function companionLook(q, chat){
+    const w = String(q || "").toLowerCase().trim(), me = info() || {}, nm = String(me.name || "").toLowerCase(), say = a => ({answer: a, sources: [], followUps: [], actions: []});
+    const aboutMe = new RegExp(`\\b(you|your|yourself|packy|companion${nm ? "|" + nm.replace(/[^a-z0-9 ]/g, "") : ""})\\b`).test(w);
+    const recent = ((chat && chat.msgs) || []).slice(-3).reverse().map(x => (x.q || "") + " " + (x.a ? x.a.answer : "")).join(" ");
+    const lastList = ((chat && chat.msgs) || []).slice(-1).map(x => x.a && x.a.accList).filter(Boolean)[0];
+    if (/\b(what|which)\b[^?]*\b(accessor(y|ies)|outfits?|things? (can|could) (you|u|i) wear|can (you|u) wear|clothes)\b[^?]*\b(have|own|got|earned|unlocked|wear)\b|\bwhat can (you|u) wear\b/.test(w)) {
+      const own = SBCOMP.ownedNames(); if (!own.length) return say("I haven't earned any accessories yet. The Wardrobe shows how to unlock them.");
+      return Object.assign(say(`I can wear: ${own.map((x, i) => `${i + 1}. ${x}`).join(", ")}. Say which one to put on.`), {accList: own}); }
+    const ord = /\b(?:the\s+)?(first|1st|second|2nd|third|3rd|fourth|4th|fifth|5th|last)(?:\s+one)?\b/.exec(w);
+    if (lastList && ord && /\b(wear|put|try|on)\b/.test(w)) { const k = {first: 0, "1st": 0, second: 1, "2nd": 1, third: 2, "3rd": 2, fourth: 3, "4th": 3, fifth: 4, "5th": 4}[ord[1]], it = k == null ? lastList[lastList.length - 1] : lastList[k]; if (it) return say(SBCOMP.wearByName(it, true)); }
+    if (/\b(take|remove)\b[^.?!]*\b(them|both|everything|all|it all)\b[^.?!]*\b(off)?\b/.test(w) && /\b(off|remove)\b/.test(w) && (aboutMe || ACCW.test(recent))) return say(SBCOMP.wearByName("all", false));
+    if (/\b(dress|deck)\b[^.?!]*\bup\b|\b(holiday|festive|christmas|winter) (outfit|look)\b/.test(w) && (aboutMe || /\bup\b/.test(w))) {
+      const own = SBCOMP.ownedNames(), pick = own.filter(x => /beanie|scarf|cape|crown|hat/i.test(x)).slice(0, 2);
+      if (!pick.length) return say("I don't have anything festive to wear yet. The Wardrobe shows what I can earn.");
+      return say(pick.map(x => SBCOMP.wearByName(x, true)).join(" ")); }
+    const col = (COLW.exec(w) || [])[1];
+    if (col && /\b(make|turn|change|recolou?r|paint|dye|set|match)\b/.test(w) && !(window.SBTRUTH && SBTRUTH.courseIn && SBTRUTH.courseIn(q.replace(COLW, " ")))) {
+      const acc = (ACCW.exec(w) || [])[1] || (/\b(it|that|this|them|the same)\b/.test(w) ? (ACCW.exec(recent) || [])[1] : "");
+      const c2 = col === "evergreen" || col === "forest green" ? "dark green" : col === "ocean blue" ? "blue" : col;
+      if (acc) return say(SBCOMP.tintByName(acc, c2));
+      if (aboutMe) return say(`I can't change my own colour, but I can change my accessories' colours. Try: make my scarf ${c2}.`);
+    }
+    if (/\b(change|reset|set)\b[^.?!]*\b(colou?r)\b[^.?!]*\b(back|default|normal)\b/.test(w) && aboutMe) return say("My own colour doesn't change, so there's nothing to reset. You can recolour my accessories, like: make my scarf blue.");
+    return null;
+  }
   // "What are you wearing?", "what accessories do you have on?", "who are you?", "what are you?", "what's your name?"
   function selfAnswer(q){
     const t = String(q || "").toLowerCase().replace(/[?!.]+$/, ""), me = info(); if (!me) return "";
@@ -1162,6 +1195,14 @@ Careful, these are easy to mix up:
       if (!made && !slot && CARE && !att.length && !ctl && !careMode) { const no = CARE.cantDo(q); if (no) { made = {answer: no, sources: [], followUps: [], actions: []};
         // "check brightspace for my care plan grade": the next message ("it's 46/50") is that mark
         const gm = /\bfor\s+(?:my\s+|the\s+)?(.{2,60}?)\s+(?:grade|mark|score|result)s?\b/i.exec(q); if (gm && /brightspace|canvas|moodle|blackboard|school site/i.test(no)) made.awaiting = {d: {intent: "add_mark", task: gm[1]}, q: "I got a mark on " + gm[1]}; } }
+      // the companion's own look (98-companion.js): what it has, the Nth of the list it gave, both off, an accessory's colour, its own colour
+      if (!made && !slot && !careMode && !att.length && window.SBCOMP && SBCOMP.ownedNames) { const r = companionLook(q, c); if (r) made = r; }
+      // "and my ID badge" right after a note was saved: a line added to that note
+      if (!made && !slot && !careMode && !att.length && last && last.a.ref && last.a.ref.kind === "note" && state.notes[last.a.ref.id]) {
+        const am = /^\s*(?:and|also|plus|oh and|oh,? and|add)\s+(.{2,200}?)\s*(?:too|as well)?\s*[.!]*$/i.exec(q);
+        if (am && !ISQ(q)) { const n0 = state.notes[last.a.ref.id], n1 = Object.assign(clone(n0), {text: String(n0.text || "").replace(/\s+$/, "") + "\n" + am[1].replace(/^(my|the)\s+/i, s => s), updated: Date.now()});
+          applyChanges([{kind: "note", id: n0.id, after: n1}], "Note updated"); made = {answer: `Added to that note: "${clip(am[1], 120)}". Say "undo" to take it back.`, sources: [], followUps: [], actions: [], ref: last.a.ref}; }
+      }
       // flashcards (98-cards.js): every wording read in code; "add another", "remove it", "change the answer" carry on from the last one
       if (!made && !slot && !careMode && !att.length && !ctl && window.SBCARDS) { try { const r = await SBCARDS.request(q, last && last.a.card ? last.a.card : null); if (r) { made = r; if (r.card && r.card.deck && !r.ref) r.ref = {kind: "deck", id: r.card.deck}; } } catch (e) { if (stopsHere(e)) throw e; } }
       // maths the app can't work out itself (word problems it doesn't know): the AI writes the working, the app does every sum (98-math-ai.js)

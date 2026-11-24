@@ -3087,6 +3087,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       setCfg({tint: {[a.id]: pick}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
       return `My ${a.name} is ${w.replace(/^#.*/, "that colour")} now!${now.includes(a.id) ? "" : ` (Put it on to see it: say "wear my ${a.name.toLowerCase()}".)`}`;
     } catch (e) { return "I couldn't change that colour just now."; } },
+    // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
+    ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
     // A close-up of the face (a headshot, for small round pictures)
     head: (id, o) => {
