@@ -17101,6 +17101,9 @@ function pageHeadUp(v){
   if (v.querySelector(":scope > .pg-head")) return;
   const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"), phone = pageHeadPhone();
   if (!tabs) { soloHeadUp(v, phone); return; }
+  // the tabs look the same on every page, with or without a title above them (an open quiz or deck has none, and its tabs were
+  // left in their plain, squeezed look)
+  (tabs.matches(".bview-row") ? tabs.querySelector(".bview-tabs") || tabs : tabs).classList.add("pg-tabs");
   let title = "", head = null;
   if (tabs.matches(".bview-row")) { const s = tabs.querySelector("[aria-selected=true]"); title = s ? s.textContent.trim() : ""; }
   else {
