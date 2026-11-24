@@ -368,6 +368,8 @@ window.SBTRUTH = (() => {
   const level0 = q => /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child)\b|\beli5\b|\bsimpl(e|y|er)\b|\bplain english\b|\bdumb(ed)? (it )?down\b/i.test(q) ? "\n\nThey asked for it simply: short sentences, everyday words, one everyday comparison." : "";
   // An answer from what the AI itself knows, for a question their notes and the web didn't answer: only what it's sure of
   async function own(q, o, level){
+    // never about their own things ("who wrote my bio syllabus?", "what's in my notes"): only their data can answer that
+    if (/\b(my|mine|our|i|i'm|i've)\b/i.test(q) && !/\b(how (do|can|should) i|can i|should i|i don'?t (get|understand)|explain)\b/i.test(q)) return null;
     const prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that.\n\n` : "";
     const r = await aiCall({task: "assist", fast: true, maxTokens: 600, temperature: 0, quiet: true, signal: o.signal, onPartial: o.onPartial, schema: {type: "OBJECT", properties: {answer: {type: "STRING"}, sure: {type: "BOOLEAN"}}, required: ["answer", "sure"]},
       system: "You answer a student's school question from your own knowledge, like a good teacher. The first sentence answers exactly what they asked. Then add 1 to 3 sentences with the most useful detail, or list every item when they ask for several things (types, stages, examples, each one). Only state facts you are certain of. If you are not sure, set sure to false. Plain text, no markdown." + (level || ""),
