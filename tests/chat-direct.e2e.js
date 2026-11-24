@@ -20,7 +20,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));
   await p.goto(`http://127.0.0.1:${server.address().port}/index.html`); await p.waitForFunction(() => window.SBCOMPTAB && window.__sbDevAI, null, {timeout: 30000}); await p.waitForTimeout(600);
   await p.evaluate(() => SBCOMPTAB.open()); await p.waitForSelector("#cptIn");
-  const chat = async q => { const n0 = await p.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length); await p.fill("#cptIn", q); await p.click("#cptGo");
+  const chat = async q => { const n0 = await p.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length); await p.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => { if (!d.contains(document.querySelector("#cptIn"))) d.close(); })); await p.fill("#cptIn", q); await p.click("#cptGo");
     await p.waitForFunction(n => document.querySelectorAll(".cpt-a, .cpt-err").length > n && !document.querySelector("#cptGo").disabled && !/Thinking…|Looking|Working/.test([...document.querySelectorAll(".cpt-a, .cpt-err")].pop().innerText), n0, {timeout: 30000}).catch(() => {});
     return p.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.split("\n").slice(0, 8).join(" ") : ""; }); };
   const notes = () => p.evaluate(() => JSON.stringify(window.__sbSync.state.notes || {}));
