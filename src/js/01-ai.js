@@ -1623,6 +1623,7 @@ function aiQuizJoin(plan){
     } else out.push({section: x.section, count: x.count}); });
   return out;
 }
+window.__sbQuizJoin = aiQuizJoin;
 async function aiQuizBySection(o){
   const dev = aiOnDevice(), plan0 = SBSECT.plan(o.secs, o.n, o.kind), plan = dev && o.quizOnly ? aiQuizJoin(plan0) : plan0, n = plan.length, qt0 = Date.now(); let done = 0;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 9000, schema: QUIZ_SCHEMA, system: AI_QUIZ_SYSTEM + " " + AI_GROUND,

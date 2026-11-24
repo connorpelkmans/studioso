@@ -128,7 +128,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   ok(/Opening Make a Quiz with Connor Pelkmans/.test(a), "quiz me on a deck by its name: " + a);
   // with the AI on this device, the quiz comes straight from the cards (a small model quizzed on "the deck" and "which flashcard")
   await p.waitForSelector("#mqGo", {timeout: 5000}).catch(() => {});
-  const qs0 = await p.evaluate(() => ({dev: aiOnDevice(), foot: (document.querySelector("#mqStatus") || {}).parentElement ? document.querySelector("#mqStatus").parentElement.innerText : ""}));
+  const qs0 = await p.evaluate(() => ({dev: window.__sbAi.cfg().provider === "device", foot: (document.querySelector("#mqStatus") || {}).parentElement ? document.querySelector("#mqStatus").parentElement.innerText : ""}));
   if (qs0.dev) {
     ok(/straight from your cards/.test(qs0.foot), "on this device a deck's quiz is made from its cards: " + qs0.foot.slice(-160));
     await p.click("#mqGo"); await p.waitForTimeout(800);
@@ -142,7 +142,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   a = await chat("Create a quiz based on this");
   ok(/Make Quiz/.test(a) && /Key_Conclusions_Batch1/.test(a) && await p.evaluate(n => window.__prompts.length === n, np0), "a quiz from the attached file, with no AI step first: " + a);
   // a quiz on this device goes in a few bigger parts: 10 questions over 8 short slide sections is 3 parts (9 requests), not 8 (24)
-  { const j = await p.evaluate(() => aiQuizJoin([2, 1, 1, 1, 2, 1, 1, 1].map((c, i) => ({count: c, section: {title: "Slide " + (i + 1), text: "word ".repeat(200), words: 200}}))).map(x => x.count));
+  { const j = await p.evaluate(() => window.__sbQuizJoin([2, 1, 1, 1, 2, 1, 1, 1].map((c, i) => ({count: c, section: {title: "Slide " + (i + 1), text: "word ".repeat(200), words: 200}}))).map(x => x.count));
     ok(j.length === 3 && j.reduce((a, b) => a + b, 0) === 10 && Math.max(...j) <= 4, "a device quiz's parts are joined: " + JSON.stringify(j)); }
   // a new question after a sum is never read as a follow-up on it ("why did ..." is not "show your work")
   const NOTMATH = /^(?![\s\S]*(?:Step by step|212\.13|brackets, then powers))[\s\S]+/;
