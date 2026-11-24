@@ -47924,12 +47924,15 @@ function cleanFile(r) {
   /* Sheets */
   const ICON = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V6a2 2 0 0 1 2-2h12v15"/><path d="M4 19a2 2 0 0 0 2 2h12v-4H6a2 2 0 0 0-2 2z"/><path d="M8.5 11l2 2 4-4.5"/></svg>`;
   const courseOpts = (val, ou) => `<option value="new" ${val === "new" ? "selected" : ""}>New Course</option>${coursesArr().map(c => `<option value="${esc(c.id)}" ${val === c.id ? "selected" : ""}>${esc(c.code ? c.code + ": " + c.name : c.name)}</option>`).join("")}<option value="skip" ${val === "skip" ? "selected" : ""}>Don't Import</option>`;
-  const extGone = (c = cfg()) => !bsDesk() && c.mode === "api" && c.lastSrc === "grab" && !!window.SBEXT && SBEXT.checked() && !SBEXT.has(P.id);
+  // The extension only talks to Studyboard on studyboardapp.com: anywhere else (a test site, a preview) it can't be heard from,
+  // which is not the same as it being gone (that said "isn't in this browser anymore" with the extension right there)
+  const extHere = () => /(^|\.)studyboardapp\.com$/.test(location.hostname) || (/^(127\.0\.0\.1|localhost)$/.test(location.hostname) && !!window.__SB_EXT_HERE);
+  const extGone = (c = cfg()) => !bsDesk() && extHere() && c.mode === "api" && c.lastSrc === "grab" && !!window.SBEXT && SBEXT.checked() && !SBEXT.has(P.id);
   function statusLine(){
     const c = cfg(), L = local();
     if (!connected(c)) return "Not connected";
     if (extGone(c)) return `${SBEXT.on() ? `The Studyboard School Sync extension isn't connected to ${P.name} anymore` : "The Studyboard School Sync extension isn't in this browser anymore"}, so nothing new comes in. ${c.last ? `Last synced ${ago(c.last)}.` : ""}`;
-    const how = c.mode === "direct" ? `Connected${c.acct ? " as " + c.acct : ""}` : c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
+    const how = c.mode === "direct" ? `Connected${c.acct ? " as " + c.acct : ""}` : c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? (extHere() ? `Read from ${P.name} in this browser` : `Read from ${P.name} by the School Sync extension, which works on studyboardapp.com only (open Studyboard there to sync or check on it)`) : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
     const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 11]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
@@ -48970,13 +48973,27 @@ function cleanFile(r) {
   const relogNeeded = () => ALL().filter(L => L.connected() && !!L.cfg().last && ((!!lmsBridge() && L.cfg().mode === "api" && L.local().needLogin) || !!extLogin(L)));
   // Signing in again: the desktop app opens the sign-in; with the extension, the school site opens in a new tab to sign in there,
   // and coming back to Studyboard asks the extension to sync
+  // Out of sync: a site you've synced before that hasn't synced for over a day (whatever the reason: signed out, the extension
+  // can't be heard from here, the computer was off), as well as one known to have signed you out
+  const STALE = 864e5;
+  const staleOf = L => { const c = L.cfg(); return L.connected() && !!c.last && Date.now() - c.last > STALE && !L.isRunning(); };
+  const syncTrouble = () => { const a = relogNeeded(); return a.concat(ALL().filter(L => !a.includes(L) && staleOf(L))); };
   function relogGo(L){
-    const x = extLogin(L);
-    if (!x) return L.doLogin().catch(err => { console.error(err); toast("Sign-in didn't work. Try again."); }).finally(scheduleRender);
-    openOutside(x.origin || L.cfg().host);
-    const back = () => { if (document.hidden) return; document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back);
-      try { window.postMessage({source: "studyboard-app", type: "sync"}, location.origin); } catch (e) {} if (window.SBLMS_EXTSYNC) SBLMS_EXTSYNC([L.P.id]); };
-    setTimeout(() => { document.addEventListener("visibilitychange", back); window.addEventListener("focus", back); }, 800);
+    const c = L.cfg(), x = extLogin(L), home = (x && x.origin) || (c.host ? (/^https?:\/\//.test(c.host) ? c.host : "https://" + c.host) : "");
+    const fail = err => { console.error(err); toast("Sign-in didn't work. Try again."); };
+    // the desktop app: its own sign-in when it says so, otherwise a sync now (which asks for a sign-in if it needs one)
+    if (lmsBridge() && c.mode === "api") { (L.local().needLogin ? L.doLogin() : Promise.resolve(L.syncNow({force: true}))).catch(fail).finally(scheduleRender); return; }
+    // the browser extension: the school site opens to sign in there; coming back, the extension is asked to sync (where it can be heard)
+    if (c.mode === "api" && c.lastSrc === "grab" && home) {
+      openOutside(home);
+      const back = () => { if (document.hidden) return; document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back);
+        if (window.SBEXT && SBEXT.on()) { try { window.postMessage({source: "studyboard-app", type: "sync"}, location.origin); } catch (e) {} if (window.SBLMS_EXTSYNC) SBLMS_EXTSYNC([L.P.id]); }
+        else toast(`Once you're signed in to ${L.P.name}, press Sync in the Studyboard School Sync extension (in your browser's toolbar), or wait: it syncs every hour.`); };
+      setTimeout(() => { document.addEventListener("visibilitychange", back); window.addEventListener("focus", back); }, 800);
+      return;
+    }
+    // a calendar link or anything else: sync it now
+    Promise.resolve(L.syncNow({force: true})).catch(fail).finally(scheduleRender);
   }
   let relogHidden = "", pinging = false;
   async function keepAlive(){
@@ -49002,7 +49019,8 @@ function cleanFile(r) {
   function drawRelogIcon(need){
     let b = document.getElementById("lmsSyncIco");
     if (!need.length) { if (b) b.remove(); return; }
-    const L = need[0], names = need.map(x => x.P.name), label = `${names.join(" and ")} signed you out. Sign in again to keep syncing.`;
+    const L = need[0], names = need.map(x => x.P.name), out = relogNeeded().includes(L), days = Math.floor((Date.now() - (L.cfg().last || Date.now())) / 864e5);
+    const label = out ? `${names.join(" and ")} signed you out. Sign in again to keep syncing.` : `${names.join(" and ")} ${names.length > 1 ? "haven't" : "hasn't"} synced in ${days >= 2 ? days + " days" : "over a day"}. Press to sign in again and sync.`;
     if (!b) { b = document.createElement("button"); b.type = "button"; b.id = "lmsSyncIco";
       b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg>`; }
     b.dataset.relog = L.P.id; b.setAttribute("aria-label", label); b.title = label; b.dataset.tip = label;
@@ -49013,7 +49031,7 @@ function cleanFile(r) {
   }
   function drawRelog(){
     const need = relogNeeded(), key = need.map(L => L.P.id).join(",");
-    drawRelogIcon(need);
+    drawRelogIcon(syncTrouble());
     let el = document.getElementById("lmsRelog");
     if (!need.length || key === relogHidden) { if (el) el.remove(); if (!need.length) relogHidden = ""; return; }
     if (!el) { el = document.createElement("div"); el.id = "lmsRelog"; el.setAttribute("role", "status"); document.body.appendChild(el); }

@@ -88,12 +88,18 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const ico = () => q.evaluate(() => !!document.querySelector("#lmsSyncIco"));
       await ext("login"); await q.waitForTimeout(300);
       ok(!(await ico()), "extension: no icon for a school site you never connected");
-      await q.evaluate(() => SBLMS.brightspace.save({mode: "api", host: "learn.example.edu", lastSrc: "grab", last: Date.now() - 864e5})); await ext("login"); await q.waitForTimeout(300);
+      await q.evaluate(() => SBLMS.brightspace.save({mode: "api", host: "learn.example.edu", lastSrc: "grab", last: Date.now() - 3600e3})); await ext("login"); await q.waitForTimeout(300);
       ok(await ico(), "extension: a site you synced before that signed you out shows the sync icon");
       await ext("ok"); await q.waitForTimeout(300);
       ok(!(await ico()), "extension: it goes once the extension reads the site again");
       await ext("login"); await q.waitForTimeout(300); await q.click("#lmsSyncIco"); await q.waitForTimeout(200);
       ok(await q.evaluate(() => window.__opened.some(u => /learn\.example\.edu/.test(u))), "extension: pressing it opens the school site to sign in");
+      // not synced for days, with nothing to say why (on a site the extension doesn't run on, it can't be heard from): the icon shows too
+      await q.evaluate(() => { SBLMS.brightspace.save({last: Date.now() - 4 * 864e5}); window.__opened = []; }); await ext("ok"); await q.waitForTimeout(300);
+      { const lab = await q.evaluate(() => { const e = document.querySelector("#lmsSyncIco"); return e && e.getAttribute("aria-label"); });
+        ok(/Brightspace hasn't synced in 4 days/.test(lab || ""), "out of sync for days: the sync icon says so: " + lab); }
+      await q.click("#lmsSyncIco"); await q.waitForTimeout(200);
+      ok(await q.evaluate(() => window.__opened.some(u => /^https:\/\/learn\.example\.edu/.test(u))), "and pressing it opens the school site to sign in");
       await q.evaluate(() => SBLMS.brightspace.save({mode: "", host: "", last: 0, lastSrc: ""})); await ext("login"); await q.waitForTimeout(300);
       ok(!(await ico()), "extension: no icon once you've disconnected the site");
       ok(!e2.length, "extension: no page errors: " + e2.join(" | "));
