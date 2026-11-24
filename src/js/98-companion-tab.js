@@ -1213,10 +1213,16 @@ Careful, these are easy to mix up:
       // the AI said it's a question ("yo whats due soon"): the planner's own exact answer first, when it has one
       let late = null; if (!quick && !made && !noKnow && dev && TR && !att.length && !ctl) { try { late = TR.facts(q2); } catch (e) {} }
       // a question about the subject (on the device): the same answer as Ask's, from their own material first, then the web
-      if (!quick && !late && !made && !noKnow && dev && !att.length && TR && TR.general(q2) && !(window.SBASSIST && SBASSIST.appQ(q2))) {
+      // a follow-up to a subject question ("in feet?", "who wrote it?", "give an example of each", "are you sure?", "what else is she
+      // known for?"): answered with the last question and answer in view, and looked up with its topic, not the follow-up's own words
+      const lastKnow = !!last && !!TR && (!!last.a.know || (!last.a.math && !lastPlan && TR.general(String(last.ask || last.q))));
+      const kFollow = !made && !noKnow && lastKnow && !planA && q.split(/\s+/).length <= 12 && !ACTX(q) && (/\b(it|its|that|this|they|them|their|those|these|he|him|his|she|her|each|one|ones|there|then|else)\b/i.test(q) || /^\s*(and|so|but|in|on|at|for|with|what about|how about|why|how|which|who|where|when|give|example|are you sure|really|wait|more|explain|simpler|translate)\b/i.test(q));
+      if (!quick && !late && !made && !noKnow && dev && !att.length && TR && (TR.general(q2) || kFollow) && !(window.SBASSIST && SBASSIST.appQ(q2) && !kFollow)) {
         T.status = "Looking through your notes…"; draw();
-        const k = await TR.knowledge(q2, {onStatus: x => { T.status = x; draw(); }, onPartial: t => { T.live = t; drawStatus(); }});
-        made = {answer: k.answer, sources: k.found ? [...(k.notesSrc || []).slice(0, 3), ...(k.sources || []).map(x => x.src + ": " + x.title)].map(x => clip(x, 40)).slice(0, 5) : [], followUps: [], actions: []};
+        const lq = String(last && (last.ask || last.q) || ""), prev = kFollow ? {q: lq, a: String(last.a.answer || "")} : null;
+        const search = kFollow ? `${topicOf(lq)} ${q.replace(/\b(it|its|that|this|they|them|their|those|these|he|him|his|she|her|what|about|and|so|in|on|the|a|an|give|me|example|examples|of|each|are|you|sure|why|how|which|who|is|was|were|does|did|do|else|known|for|more)\b/gi, " ")}`.replace(/\s+/g, " ").trim() : "";
+        const k = await TR.knowledge(kFollow ? q : q2, {prev, search, onStatus: x => { T.status = x; draw(); }, onPartial: t => { T.live = t; drawStatus(); }});
+        made = {answer: k.answer, sources: k.found ? [...(k.notesSrc || []).slice(0, 3), ...(k.sources || []).map(x => x.src + ": " + x.title)].map(x => clip(x, 40)).slice(0, 5) : [], followUps: [], actions: [], know: true};
       }
       // (an answer the app had at once still takes a moment, like someone reading the question first)
       if (quick || late || made) { const w = 1000 + Math.random() * 800 - (Date.now() - t0); if (w > 0 && !(window.__SB_TEST && !window.__SB_PACE)) await new Promise(r => setTimeout(r, w)); }

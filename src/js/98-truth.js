@@ -364,27 +364,42 @@ window.SBTRUTH = (() => {
       return {answer: `${x.k} (from your notes): ${v.charAt(0).toLowerCase() === v.charAt(0) || /^[A-Z][a-z]+ /.test(v) ? v : v}${/[.!?)]$/.test(v) ? "" : "."}`, found: true, sources: [], fromNotes: true, notesSrc: [String(n.text).split("\n")[0].slice(0, 40)]}; } }
     return null;
   }
+  // the level asked for ("like I'm 12", "simply"), for an answer from what the AI knows
+  const level0 = q => /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child)\b|\beli5\b|\bsimpl(e|y|er)\b|\bplain english\b|\bdumb(ed)? (it )?down\b/i.test(q) ? "\n\nThey asked for it simply: short sentences, everyday words, one everyday comparison." : "";
+  // An answer from what the AI itself knows, for a question their notes and the web didn't answer: only what it's sure of
+  async function own(q, o, level){
+    const prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that.\n\n` : "";
+    const r = await aiCall({task: "assist", fast: true, maxTokens: 600, temperature: 0, quiet: true, signal: o.signal, onPartial: o.onPartial, schema: {type: "OBJECT", properties: {answer: {type: "STRING"}, sure: {type: "BOOLEAN"}}, required: ["answer", "sure"]},
+      system: "You answer a student's school question from your own knowledge, like a good teacher. The first sentence answers exactly what they asked. Then add 1 to 3 sentences with the most useful detail, or list every item when they ask for several things (types, stages, examples, each one). Only state facts you are certain of. If you are not sure, set sure to false. Plain text, no markdown." + (level || ""),
+      parts: [{text: `${prevTxt}THE STUDENT ASKS: ${q}`}]});
+    const d = (r && r.data) || {}, a = String(d.answer || "").trim();
+    if (!a || d.sure === false || nonAnswer(q, a) || /\b(i'?m not sure|i don'?t know|i cannot|i can'?t answer)\b/i.test(a.slice(0, 80))) return null;
+    return {answer: a, sources: [], found: true, own: true};
+  }
   async function knowledge(q, o){
     o = o || {};
     { const fn = fromNotes(q); if (fn) return fn; }
     // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
     // the answer from the notes alone doesn't hold up
     const keys = (low(q).replace(/\b(ww ?(1|i)|world war (1|i|one))\b/g, "wwi").replace(/\b(ww ?(2|ii)|world war (2|ii|two))\b/g, "wwii").match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
-    const mine = window.SBSEARCH ? await SBSEARCH.retrieve(q, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
+    // a follow-up ("in feet?", "who wrote it?", "give an example of each"): looked up with the earlier question's topic
+    const look = o.search || q, prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that.\n\n` : "";
+    const mine = window.SBSEARCH ? await SBSEARCH.retrieve(look, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
     const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     let web = [], useNotes = "", useWeb = [];
     let webP = null;
-    const getWeb = () => { if (o.noWeb) return Promise.resolve([]); if (!webP) webP = research(q).then(R => (R && R.list) || [], () => []); return webP; };
+    const getWeb = () => { if (o.noWeb) return Promise.resolve([]); if (!webP) webP = research(look).then(R => (R && R.list) || [], () => []); return webP; };
     if (!o.noWeb) getWeb();
     if (!notes) web = await getWeb();
-    if (!notes && !web.length) return {answer: o.noWeb ? "I couldn't find anything about that in your Studyboard." : "I couldn't find anything about that in your notes, your files or on the web. Try other words, or add your notes on it.", sources: [], found: false};
+    if (!notes && !web.length) { const ow = await own(q, o, level0(q)).catch(e => { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; }); if (ow) return ow;
+      return {answer: o.noWeb ? "I couldn't find anything about that in your Studyboard." : "I couldn't find anything about that in your notes, your files or on the web, and I'm not sure enough to answer from memory. Try other words, or add your notes on it.", sources: [], found: false}; }
     const deep = /^\s*(explain|describe|how (does|do|did|is|are|can)|why|walk me through|tell me about|compare|what('s| is) the difference)\b/i.test(q);
     const sys = `You answer a student's question using only the sources given. Your first sentence answers exactly what they asked, directly. ${deep ? "Then explain it properly in 3 to 5 more sentences: the main parts or steps in order, how they connect, and why it matters, all from the sources." : "Then add 1 to 3 sentences with the most useful detail: how it works, why it matters, or a short example."} If the question asks for several things (what are the..., types, kinds, phases, stages, causes, steps, examples), list every one the sources give. If it asks for an example, give one. If the question could mean several things, answer the meaning that fits their notes and course. If the sources don't answer it, set found to false and say you couldn't find it. Plain text, no markdown.`;
     const srcOf = () => `${useNotes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note, never which kind of item it was, like "your flashcard" or "the deck"):\n${useNotes}\n\n` : ""}${useWeb.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(useWeb)}` : ""}`;
     // the level they ask for: "like I'm 12", "simply", "ELI5", "in plain English", "dumb it down"
     const simple = /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child|in (middle|elementary) school)\b|\beli5\b|\bsimpl(e|y|er)( terms| words| way)?\b|\bplain english\b|\bdumb(ed)? (it )?down\b|\bfor (a )?(kid|beginner|dummies)\b|\bbasic terms\b/i.test(q);
     const level = simple ? "\n\nThe student asked for it simply: use short sentences and everyday words a 12-year-old knows, explain any term you have to use, and give one everyday comparison (\"it's like...\"). Keep every fact correct and from the sources." : "";
-    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, onPartial: o.onPartial, system: sys + level + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
+    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, onPartial: o.onPartial, system: sys + level + (extra || ""), parts: [{text: `${src}\n\n${prevTxt}THE STUDENT ASKS: ${q}`}]});
     // a list question gets a list; an explanation gets more than a definition
     const listQ = /^\s*(what|which|name|list)\b[^?]*\b(are the|are some|types?|kinds?|phases?|stages?|steps?|causes?|parts?|examples?|mechanisms?|functions?|symptoms?|signs?|principles?|components?|features?|factors?)\b/i.test(q) && !/\b(example of)\b/i.test(q);
     const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false;
@@ -439,7 +454,10 @@ window.SBTRUTH = (() => {
     }
     // the AI itself failed (not "nothing found"): that's said, with why, instead of "couldn't find"
     if (!fromN && !fromW && aiFail) throw aiFail;
-    if (!fromN && !fromW) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
+    // neither their notes nor the web answered it: what the AI knows, only when it's sure (a basic school fact: "capital of
+    // australia", "how many chromosomes do humans have"), else said plainly
+    if (!fromN && !fromW) { const ow = await own(q, o, level).catch(e => { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; }); if (ow) return ow;
+      return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web, and I'm not sure enough to answer from memory." : "I couldn't find a clear answer to that on the web, your notes don't cover it, and I'm not sure enough to answer from memory.", sources: [], found: false}; }
     const clean = a => String(a || "").trim().replace(/(?<=[.!?])\s+I (couldn't|could not|can't) find [^.]*(notes|web|sources)[^.]*\.?\s*$/i, "").replace(/^(your notes say(,| that)?|according to (your notes|wikipedia)(,)?)\s*/i, m => m);
     const webName = [...new Set(web.map(x => x.src || "Wikipedia"))].slice(0, 2).join(" and ") || "the web";
     const answer = fromN && fromW ? `From your notes: ${clean(fromN.answer)}\n\nFrom the web (${webName}): ${clean(fromW.answer)}`
