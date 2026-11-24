@@ -126,6 +126,16 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   // "quiz me on <a deck's name>": that deck, without the word "deck" (not a search of their notes for the name)
   a = await chat("Quiz me on Connor Pelkmans");
   ok(/Opening Make a Quiz with Connor Pelkmans/.test(a), "quiz me on a deck by its name: " + a);
+  // with the AI on this device, the quiz comes straight from the cards (a small model quizzed on "the deck" and "which flashcard")
+  await p.waitForSelector("#mqGo", {timeout: 5000}).catch(() => {});
+  const qs0 = await p.evaluate(() => ({dev: aiOnDevice(), foot: (document.querySelector("#mqStatus") || {}).parentElement ? document.querySelector("#mqStatus").parentElement.innerText : ""}));
+  if (qs0.dev) {
+    ok(/straight from your cards/.test(qs0.foot), "on this device a deck's quiz is made from its cards: " + qs0.foot.slice(-160));
+    await p.click("#mqGo"); await p.waitForTimeout(800);
+    const qz = await p.evaluate(() => { const d = window.__sbSync.state.decks.d1, z = (d.aiQuizzes || []).slice(-1)[0]; return {fronts: d.cards.map(c => c.front), stems: z ? z.questions.map(q => q.stem) : []}; });
+    ok(qz.stems.length >= 2 && qz.stems.every(t => qz.fronts.some(f => t.includes(f))) && !qz.stems.some(t => /deck|flash ?card/i.test(t)), "its questions are the cards' own: " + JSON.stringify(qz.stems));
+  } else ok(false, "the test page should be on the AI on this device");
+  await p.evaluate(() => SBCOMPTAB.open()); await p.waitForSelector("#cptIn");
   // a new question after a sum is never read as a follow-up on it ("why did ..." is not "show your work")
   const NOTMATH = /^(?![\s\S]*(?:Step by step|212\.13|brackets, then powers))[\s\S]+/;
   await conv([["what's 10 x 15 times sqrt 2", /212\.13/], ["why did hitler invade poland", NOTMATH], ["why is the sky blue", NOTMATH]]);

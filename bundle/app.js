@@ -22078,7 +22078,9 @@ function quizOpts(){
 function quizSheet(deckIds){
   const ds = decksArr().filter(d => d.cards.length);
   if (!ds.length) { toast("Add cards to a deck first"); return; }
-  const sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady(), last = quizOpts();
+  // The AI on this device doesn't write the questions: a small model quizzed on "the deck" and "which flashcard says hh" instead of
+  // what the cards say. A deck is already questions and answers, so they come straight from the cards: instant, and always right.
+  const dev = typeof aiOnDevice === "function" && aiOnDevice(), sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady() && !dev, last = quizOpts();
   // A deck smaller than the usual count starts on All (a 6-card deck can't make 10 questions)
   const have = [...sel].reduce((t, id) => t + (state.decks[id] ? state.decks[id].cards.length : 0), 0), qn = last.qn !== "all" && have < Number(last.qn) ? "all" : last.qn;
   openSheet(`<form class="sheet">${head(ai ? `Make a Quiz with ${aiWho("AI")}` : "Make a Quiz")}
@@ -22091,7 +22093,7 @@ function quizSheet(deckIds){
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="written"${last.qt.includes("written") ? " checked" : ""}> Written answer</label></div></fieldset>
       <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, Answer Back"], ["rev", "Back, Answer Front"], ["mix", "Mixed"]], last.qd)}</fieldset>
-      <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
+      <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : dev ? "The questions come straight from your cards, so the quiz is ready at once and always matches them." : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
       <p class="status-msg" id="mqStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="mqGo">${ai ? AI_ICON + " " : ""}Make Quiz</button></div>
@@ -22111,13 +22113,16 @@ async function quizFromCardsAi(decks, n, types, dir, title){
   const st = $("#mqStatus"), go = $("#mqGo"); if (go && go.disabled) return;
   const cards = []; decks.forEach(id => { const d = state.decks[id]; if (d) d.cards.forEach(c => { if (c.front.trim() && c.back.trim() && !c.draft) cards.push({d, c}); }); });
   const count = n === "all" ? Math.min(40, cards.length) : Number(n) || 10, first = state.decks[decks[0]], course = courseOf(first.courseId);
-  const text = decks.map(id => { const d = state.decks[id]; return d ? `Flashcards in the deck "${d.name}":\n` + d.cards.filter(c => c.front.trim() && c.back.trim()).map(c => `Front: ${c.front}\nBack: ${c.back}`).join("\n\n") : ""; }).join("\n\n");
+  // the cards' content only: with the deck's name and "Front:/Back:" around it, the AI quizzed on the deck and the cards themselves
+  const text = decks.map(id => { const d = state.decks[id]; return d ? d.cards.filter(c => c.front.trim() && c.back.trim()).map(c => `${c.front.trim()}: ${c.back.trim()}`).join("\n") : ""; }).join("\n");
   const ask = dir === "rev" ? "Ask from the backs of the cards; the answers are on the fronts." : dir === "mix" ? "Mix questions asked from the fronts and from the backs." : "Ask from the fronts of the cards; the answers are on the backs.";
-  const style = `A quiz on these flashcards. Use only these question types: ${types.map(t => QZ_TYPES[t]).join(", ")}. ${ask} Every question tests one card or a link between cards, using only what the cards say.`;
+  const style = `A quiz on these flashcards. Use only these question types: ${types.map(t => QZ_TYPES[t]).join(", ")}. ${ask} Every question tests one card or a link between cards, using only what the cards say. Ask about the subject itself: never about the deck, the flashcards, their fronts or backs, or which card says what.`;
   if (go) { go.disabled = true; go.classList.add("busy"); }
   if (st) st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiWho("AI"))} is writing ${count} question${count === 1 ? "" : "s"}…`;
   try {
     const r = await aiMakeStudySet({sources: [{name: first.name, kind: "Text", size: text.length, part: {text}}], style, difficulty: "mixed", cards: false, quiz: true, cases: false, quizCount: String(count), courseName: course ? courseLabel(course) : ""});
+    // any question about the deck or the cards themselves ("which flashcard has...") is dropped, never shown
+    r.questions = r.questions.filter(q => !/\b(flash ?cards?|decks?|which card|the card|front of|back of)\b/i.test(q.stem || ""));
     if (!r.questions.length) throw aiErr("empty", "The AI couldn't write questions from these cards. Try again, or add more cards.");
     r.quizTitle = title;
     aiReviewSheet(r, {deck: first, courseId: first.courseId, style, styleName: title, sources: decks.map(id => (state.decks[id] || {}).name || ""), fromCards: decks});
