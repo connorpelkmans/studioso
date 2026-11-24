@@ -1529,6 +1529,7 @@ async function aiDevFactQuiz(x, o){
   const F = await aiDevFacts(x, o, Math.max(x.count, 1)), facts = F.facts.slice(0, Math.max(x.count, 1));
   if (!facts.length) return null;
   const label = SBSECT.label(x.section);
+  if (o.onStep) o.onStep(`writing ${facts.length} question${facts.length === 1 ? "" : "s"}…`);
   const b = await aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_QUIZ_SCHEMA, system: DEV_FACT_QUIZ_SYSTEM,
     parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one question for each of the ${facts.length} facts, numbered the same.`}]}));
   const key = t => aiKeyTokens(t).join(" ") || String(t).toLowerCase().trim();
@@ -1616,12 +1617,14 @@ async function aiQuizBySection(o){
     const corpus = aiCorpus([x.section.text]), gate = r => aiGateQuestions(aiCleanQuestions(r.data.questions), {max: x.count + 1, corpus, copy: o.copy});
     let r = null, g = null;
     // a small model: the facts, then one question per fact (aiDevFactQuiz); the usual way if that gives too few
-    if (dev && DEV_STEPS.facts) { const f = await aiDevFactQuiz(x, o).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+    // say which step it's on: a small model takes minutes per part, and one unchanging line looks stuck
+    const step = t => { if (o.onStatus) o.onStatus(n > 1 ? `Writing the quiz, part ${i + 1} of ${n}: ${t}` : `Writing the quiz: ${t}`); };
+    if (dev && DEV_STEPS.facts) { step("finding the key facts…"); const f = await aiDevFactQuiz(x, Object.assign({}, o, {onStep: step})).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
       if (f) { const fr = {data: {questions: f.questions, title: f.title}, truncated: f.truncated}, fg = gate(fr); if (fg.questions.length >= Math.min(2, x.count)) { r = fr; g = fg; } } }
-    if (!r) { r = await ask(x, i); g = gate(r); }
+    if (!r) { if (dev) step("writing the questions…"); r = await ask(x, i); g = gate(r); }
     if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2 && !(dev && DEV_STEPS.facts)) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
     let keep = g.questions, wrong = 0;
-    if (dev && DEV_STEPS.solve && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
+    if (dev && DEV_STEPS.solve && keep.length) { step("checking the answers…"); const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
     if (o.onQuestions && keep.length) try { o.onQuestions(keep); } catch (e) {}
     return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
@@ -1751,7 +1754,7 @@ async function aiMakeStudySet(opts, onStatus){
   // a small engine (the AI on this device) always works in short sections
   const kind = opts.engine === "small" || aiOnDevice() ? "small" : "cloud";
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
-  if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
+  if (secs) onStatus && onStatus(secs.length === 1 ? "Reading your material…" : `Reading your material in ${secs.length} parts…`);
   // A new student's first set: made free by Studyboard's cloud AI (01-ai-first.js); the device makes it if that isn't available
   const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus, facts: !!quiz, onCards: opts.onCards}) : null;
   let fromCloud = false;

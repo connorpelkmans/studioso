@@ -656,7 +656,9 @@
     + "order operations brackets parentheses left first next last other different differ equal bigger smaller larger lower higher up go goes going come comes came").split(/\s+/));
   function offTopic(raw, prev){
     const own = new Set(String(prev.q || "").toLowerCase().match(/[a-z']+/g) || []);
-    const extra = (raw.match(/[a-z][a-z']*/g) || []).filter(w => w.length > 2 && !FWORDS.has(w) && !own.has(w) && !/^\d/.test(w));
+    // units ("gtt", "mL") and element names ("what about oxygen?") are maths words too
+    const known = w => FWORDS.has(w) || own.has(w) || U[w] || TEMP[w] || /^(gtt|mcg|mg|ml|kg|lb|lbs|hr|hrs|min|mins|sec|secs|tab|tabs|tablets?|units?|mph|kph|km|cm|mm|ft)$/.test(w) || EL.some(e => e.name.toLowerCase() === w);
+    const extra = (raw.match(/[a-z][a-z']*/g) || []).filter(w => w.length > 2 && !known(w));
     return extra.length >= 2 || (extra.length === 1 && !/\d/.test(raw) && !/\b(that|it|this|those|these|answer|result)\b/.test(raw));
   }
   const STEPS = /\b(show (?:me )?(?:your |the )?(?:work|working|steps|math|maths|calculation)|how did you (?:get|work|do|figure)|explain (?:that|it|the answer|how|your answer)|step by step|walk me through|break it down|how(?:'s| is| was) that (?:calculated|worked out)|show the steps|the steps|how\??$|why\??$)/;
@@ -774,8 +776,7 @@
         // one new number into a percent question goes where it fits: "what about 200?" after "15% of 80" is 15% of 200; "what about 20%?" is 20% of 80
         let done = false; const nq = xs.length === 1 && hasP && old.length === 2 ? pq.replace(/-?\d*\.?\d+(\s*(?:%|percent))?/g, (x, p) => !done && !!p === np ? (done = true, String(xs[0]) + (p || "")) : x)
           : pq.replace(/-?\d*\.?\d+/g, x => k < xs.length ? String(xs[k++]) : x);
-        // (the question stays the one first asked, so "what about 20%?" after "what about 200?" is 20% of the first number again)
-        const r = solve(nq); if (r && nq !== low(prev.q)) { if (r.math) r.math.q = prev.q; return r; }
+        const r = solve(nq); if (r && nq !== low(prev.q)) return r;
       }
     }
     // keep going from the last result: "divide that by 3", "now double it", "add 10", "what's that squared", "15% of that", "then 8% tax on that?"

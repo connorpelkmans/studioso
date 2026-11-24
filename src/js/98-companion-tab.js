@@ -723,6 +723,8 @@ Examples:
     // a quiz from a deck or a card: "quiz me on my heart deck", "make a quiz from the SA node card"
     const qd = /\b(?:quiz|test)(?:\s+me)?\b[^]*?\b(?:from|on|using|out of|with|over)\s+(?:my\s+|the\s+|this\s+|that\s+)?(.+?)\s*(?:deck|set|cards?|flashcards?)?\s*[.!?]*$/i.exec(w);
     if (qd && /\b(deck|card|cards|flashcards?|set)\b/i.test(w)) { const r = quizFromDeck(qd[1]); if (r) return say(r); }
+    // "quiz me on Connor Pelkmans" where that's the name of one of their decks: that deck, not a search of their notes
+    if (qd && !/\b(deck|card|cards|flashcards?|set)\b/i.test(w)) { const dn = deckNamed(qd[1]); if (dn && String(dn.name || "").toLowerCase().trim() === String(qd[1]).toLowerCase().replace(/^(?:my|the)\s+/, "").trim()) { const r = quizFromDeck(dn.name); if (r) return say(r); } }
     // an accessory's colour: "change scarf color blue", "make your hat red", "dye the cape green"
     const tm = /\b(?:change|make|turn|set|colou?r|paint|dye)\b[^]*?\b(scarf|hat|beanie|cap|crown|glasses|bow ?tie|tie|medal|cape|badge|star)\b[^]*?\b(?:colou?r\s*(?:to|=)?|to|into)?\s*(#[0-9a-f]{6}|(?:light |dark |bright |pale )?[a-z]+)\s*(?:please|pls)?[.!?]*$/i.exec(w);
     if (tm && window.SBCOMP && SBCOMP.tintByName && !/^(colou?r|to|into|please)$/i.test(tm[2])) return say(SBCOMP.tintByName(tm[1], tm[2]));

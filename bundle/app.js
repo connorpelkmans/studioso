@@ -5492,6 +5492,7 @@ async function aiDevFactQuiz(x, o){
   const F = await aiDevFacts(x, o, Math.max(x.count, 1)), facts = F.facts.slice(0, Math.max(x.count, 1));
   if (!facts.length) return null;
   const label = SBSECT.label(x.section);
+  if (o.onStep) o.onStep(`writing ${facts.length} question${facts.length === 1 ? "" : "s"}…`);
   const b = await aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_QUIZ_SCHEMA, system: DEV_FACT_QUIZ_SYSTEM,
     parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one question for each of the ${facts.length} facts, numbered the same.`}]}));
   const key = t => aiKeyTokens(t).join(" ") || String(t).toLowerCase().trim();
@@ -5579,12 +5580,14 @@ async function aiQuizBySection(o){
     const corpus = aiCorpus([x.section.text]), gate = r => aiGateQuestions(aiCleanQuestions(r.data.questions), {max: x.count + 1, corpus, copy: o.copy});
     let r = null, g = null;
     // a small model: the facts, then one question per fact (aiDevFactQuiz); the usual way if that gives too few
-    if (dev && DEV_STEPS.facts) { const f = await aiDevFactQuiz(x, o).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+    // say which step it's on: a small model takes minutes per part, and one unchanging line looks stuck
+    const step = t => { if (o.onStatus) o.onStatus(n > 1 ? `Writing the quiz, part ${i + 1} of ${n}: ${t}` : `Writing the quiz: ${t}`); };
+    if (dev && DEV_STEPS.facts) { step("finding the key facts…"); const f = await aiDevFactQuiz(x, Object.assign({}, o, {onStep: step})).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
       if (f) { const fr = {data: {questions: f.questions, title: f.title}, truncated: f.truncated}, fg = gate(fr); if (fg.questions.length >= Math.min(2, x.count)) { r = fr; g = fg; } } }
-    if (!r) { r = await ask(x, i); g = gate(r); }
+    if (!r) { if (dev) step("writing the questions…"); r = await ask(x, i); g = gate(r); }
     if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2 && !(dev && DEV_STEPS.facts)) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
     let keep = g.questions, wrong = 0;
-    if (dev && DEV_STEPS.solve && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
+    if (dev && DEV_STEPS.solve && keep.length) { step("checking the answers…"); const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
     if (o.onQuestions && keep.length) try { o.onQuestions(keep); } catch (e) {}
     return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
@@ -5714,7 +5717,7 @@ async function aiMakeStudySet(opts, onStatus){
   // a small engine (the AI on this device) always works in short sections
   const kind = opts.engine === "small" || aiOnDevice() ? "small" : "cloud";
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
-  if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
+  if (secs) onStatus && onStatus(secs.length === 1 ? "Reading your material…" : `Reading your material in ${secs.length} parts…`);
   // A new student's first set: made free by Studyboard's cloud AI (01-ai-first.js); the device makes it if that isn't available
   const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus, facts: !!quiz, onCards: opts.onCards}) : null;
   let fromCloud = false;
@@ -7144,7 +7147,9 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
       // AI, say), and this request is answered with it, so the student isn't left waiting. It's tried again next time Studyboard opens.
       if (!e || !/^(device-stall|device-failed)$/.test(String(e.code || "")) || e.wrote || (signal && signal.aborted)) throw e;
       e4bOff = true; e4bStop(); DEVAI.kind = ""; DEVAI.status = ""; await devProbe();
-      try { toast("Studyboard's stronger AI didn't respond on this computer, so it's using " + devLabel() + " for now."); } catch (x) {}
+      // both can be on this device, so say which is which: the stronger one (E4B) and what answers instead (its smaller one, or the browser's or Apple's)
+      try { toast(DEVAI.status === "available" && DEVAI.kind !== "litert" ? "Studyboard's stronger on-device AI (Gemma 4 E4B) didn't respond, so for now it's using " + (DEVAI.kind === "webllm" ? "its smaller on-device AI (" + devModel().replace(/^Google's /, "") + ")" : devLabel()) + ". It'll try the stronger one again next time you open Studyboard."
+        : "Studyboard's stronger on-device AI (Gemma 4 E4B) didn't respond on this computer. It'll try again next time you open Studyboard."); } catch (x) {}
       if (DEVAI.status !== "available" || DEVAI.kind === "litert") throw e;
       if (DEVAI.kind === "apple") return devApple({sys, parts, json: devOrdered(json), out, temperature, signal, auto});
       if (DEVAI.kind === "webllm") return devWeb({sys, parts, json, out, temperature, signal, onStatus, auto});
@@ -75234,7 +75239,9 @@ window.SBAPPHELP = (() => {
     + "order operations brackets parentheses left first next last other different differ equal bigger smaller larger lower higher up go goes going come comes came").split(/\s+/));
   function offTopic(raw, prev){
     const own = new Set(String(prev.q || "").toLowerCase().match(/[a-z']+/g) || []);
-    const extra = (raw.match(/[a-z][a-z']*/g) || []).filter(w => w.length > 2 && !FWORDS.has(w) && !own.has(w) && !/^\d/.test(w));
+    // units ("gtt", "mL") and element names ("what about oxygen?") are maths words too
+    const known = w => FWORDS.has(w) || own.has(w) || U[w] || TEMP[w] || /^(gtt|mcg|mg|ml|kg|lb|lbs|hr|hrs|min|mins|sec|secs|tab|tabs|tablets?|units?|mph|kph|km|cm|mm|ft)$/.test(w) || EL.some(e => e.name.toLowerCase() === w);
+    const extra = (raw.match(/[a-z][a-z']*/g) || []).filter(w => w.length > 2 && !known(w));
     return extra.length >= 2 || (extra.length === 1 && !/\d/.test(raw) && !/\b(that|it|this|those|these|answer|result)\b/.test(raw));
   }
   const STEPS = /\b(show (?:me )?(?:your |the )?(?:work|working|steps|math|maths|calculation)|how did you (?:get|work|do|figure)|explain (?:that|it|the answer|how|your answer)|step by step|walk me through|break it down|how(?:'s| is| was) that (?:calculated|worked out)|show the steps|the steps|how\??$|why\??$)/;
@@ -75352,8 +75359,7 @@ window.SBAPPHELP = (() => {
         // one new number into a percent question goes where it fits: "what about 200?" after "15% of 80" is 15% of 200; "what about 20%?" is 20% of 80
         let done = false; const nq = xs.length === 1 && hasP && old.length === 2 ? pq.replace(/-?\d*\.?\d+(\s*(?:%|percent))?/g, (x, p) => !done && !!p === np ? (done = true, String(xs[0]) + (p || "")) : x)
           : pq.replace(/-?\d*\.?\d+/g, x => k < xs.length ? String(xs[k++]) : x);
-        // (the question stays the one first asked, so "what about 20%?" after "what about 200?" is 20% of the first number again)
-        const r = solve(nq); if (r && nq !== low(prev.q)) { if (r.math) r.math.q = prev.q; return r; }
+        const r = solve(nq); if (r && nq !== low(prev.q)) return r;
       }
     }
     // keep going from the last result: "divide that by 3", "now double it", "add 10", "what's that squared", "15% of that", "then 8% tax on that?"
@@ -77248,6 +77254,8 @@ Examples:
     // a quiz from a deck or a card: "quiz me on my heart deck", "make a quiz from the SA node card"
     const qd = /\b(?:quiz|test)(?:\s+me)?\b[^]*?\b(?:from|on|using|out of|with|over)\s+(?:my\s+|the\s+|this\s+|that\s+)?(.+?)\s*(?:deck|set|cards?|flashcards?)?\s*[.!?]*$/i.exec(w);
     if (qd && /\b(deck|card|cards|flashcards?|set)\b/i.test(w)) { const r = quizFromDeck(qd[1]); if (r) return say(r); }
+    // "quiz me on Connor Pelkmans" where that's the name of one of their decks: that deck, not a search of their notes
+    if (qd && !/\b(deck|card|cards|flashcards?|set)\b/i.test(w)) { const dn = deckNamed(qd[1]); if (dn && String(dn.name || "").toLowerCase().trim() === String(qd[1]).toLowerCase().replace(/^(?:my|the)\s+/, "").trim()) { const r = quizFromDeck(dn.name); if (r) return say(r); } }
     // an accessory's colour: "change scarf color blue", "make your hat red", "dye the cape green"
     const tm = /\b(?:change|make|turn|set|colou?r|paint|dye)\b[^]*?\b(scarf|hat|beanie|cap|crown|glasses|bow ?tie|tie|medal|cape|badge|star)\b[^]*?\b(?:colou?r\s*(?:to|=)?|to|into)?\s*(#[0-9a-f]{6}|(?:light |dark |bright |pale )?[a-z]+)\s*(?:please|pls)?[.!?]*$/i.exec(w);
     if (tm && window.SBCOMP && SBCOMP.tintByName && !/^(colou?r|to|into|please)$/i.test(tm[2])) return say(SBCOMP.tintByName(tm[1], tm[2]));
