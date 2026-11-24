@@ -643,14 +643,34 @@
   }
 
   // ---------- follow-ups on the last maths answer ----------
+  // A follow-up has to be about the last answer: "why did Hitler invade Poland" after a sum is a new question, not "show your work".
+  // Words a maths follow-up uses; any other content word (not in the last question either) means the message is about something else.
+  const FWORDS = new Set(("why how come what whats what's when where which who does did do done is isn't isnt are aren't arent was wasnt wasn't were it its it's that thats that's this those these them they the a an and or but so then now ok okay also again same instead "
+    + "you your you're i i'm im me my we our can could would should will wont won't not no yes yeah really sure right wrong mean means meant get got getting give gave make made find found work worked working works out answer answers result results number numbers value values "
+    + "show tell explain walk through break down step steps calculate calculated calculation calc check verify prove figure figured just about if with for from of to in into on at by per as than more less much many each every one two three half twice double triple quarter "
+    + "plus minus times multiply multiplied multiplying divide divided dividing division add added adding subtract subtracted subtraction sum total difference product quotient remainder square squared cube cubed root sqrt power powers exponent percent percentage fraction decimal round rounded "
+    + "average mean median mode range spread deviation variance sample population stats statistic statistics score scores grade grades points point need needed overall final exam test weight weighted "
+    + "area perimeter circumference diameter radius volume surface diagonal hypotenuse side sides length width height base angle angles degree degrees triangle circle square rectangle shape line slope midpoint distance equation formula solve solution solutions solved term terms "
+    + "inch inches foot feet yard yards mile miles meter meters metre metres centimeter centimeters kilometer kilometers gram grams kilogram kilograms pound pounds ounce ounces liter liters litre litres cup cups second seconds minute minutes hour hours day days week weeks month months year years "
+    + "celsius fahrenheit kelvin speed fast faster rate time long far mass heavy energy mole moles molar drop drops dose dosage element symbol latin name called pattern rule type kind interest simple compound rolls roll dice coin heads tails least common factor factors multiple "
+    + "order operations brackets parentheses left first next last other different differ equal bigger smaller larger lower higher up go goes going come comes came").split(/\s+/));
+  function offTopic(raw, prev){
+    const own = new Set(String(prev.q || "").toLowerCase().match(/[a-z']+/g) || []);
+    const extra = (raw.match(/[a-z][a-z']*/g) || []).filter(w => w.length > 2 && !FWORDS.has(w) && !own.has(w) && !/^\d/.test(w));
+    return extra.length >= 2 || (extra.length === 1 && !/\d/.test(raw) && !/\b(that|it|this|those|these|answer|result)\b/.test(raw));
+  }
   const STEPS = /\b(show (?:me )?(?:your |the )?(?:work|working|steps|math|maths|calculation)|how did you (?:get|work|do|figure)|explain (?:that|it|the answer|how|your answer)|step by step|walk me through|break it down|how(?:'s| is| was) that (?:calculated|worked out)|show the steps|the steps|how\??$|why\??$)/;
   function follow(q, prev){
     if (!prev || !prev.kind) return null;
     const s = low(q).replace(/^(?:ok(?:ay)?|cool|thanks|thx|great|nice|and|so|now|then|also|what about|how about|and what about)\b[,!]?\s*/g, "").trim(), raw = low(q);
     const V = prev.value, ans = (a, math) => out(a, Object.assign({q: prev.q}, math));
+    // (a follow-up opening, "what about oxygen?", "with a drop factor of 15...", still carries on from the last answer)
+    if (offTopic(raw, prev) && !/^\s*(?:and|or|what about|how about|what if|with|then|so|now|ok|okay|also|same for)\b/.test(raw)) return solve(q);
     // a brand-new maths question stands on its own
     const WHY = /^\s*(?:wait\W*|hm+\W*|but\s+)?(why|how come)\b|\bwhy (?:not|isn'?t|wouldn'?t|is it|did)\b/.test(raw);
-    const fresh = WHY ? null : solve(q); if (fresh) return fresh;
+    // a bare new number ("what about 20%?", "and 300") changes the last question rather than standing alone
+    const bare = /^\s*(?:and|or|what about|how about|what if|now|try|with)\b\s*-?\d*\.?\d+\s*(?:%|percent)?\s*$|^\s*-?\d*\.?\d+\s*(?:%|percent)\s*$/.test(raw.replace(/\?+\s*$/, ""));
+    const fresh = WHY || bare ? null : solve(q); if (fresh) return fresh;
     if (WHY && prev.why) return ans(prev.why, prev);
     if (WHY && prev.kind === "rate2") { const sp = prev.legs.map(([d, h]) => d / h), avgS = sp.reduce((x, y) => x + y, 0) / sp.length, same = Math.abs(avgS - prev.value) < 1e-9;
       return ans(same ? `Here it is the same: you drove each speed (${sp.map(x => F4(x)).join(" and ")} mph) for the same time, so their average, ${F4(avgS)}, matches total distance ÷ total time (${F(prev.legs.reduce((x, l) => x + l[0], 0))} ÷ ${F(prev.legs.reduce((x, l) => x + l[1], 0))} = ${F4(prev.value)}). The two only differ when you spend different amounts of time at each speed, and then total distance ÷ total time is the right one.` : `Because you spent more time at the slower speed. Average speed is total distance ÷ total time (${F4(prev.value)}), and the plain average of the speeds (${F4(avgS)}) ignores how long each lasted.`, prev); }
@@ -747,11 +767,15 @@
     }
     // a new number in the same question: "what about 200?", "and 15% of 120?", "what if legs are 5 and 12", "from 65 back to 50?"
     const xs = nums(s.replace(/^\s*(?:and|what about|how about|what if)\b/, ""));
-    if (prev.q && xs.length && !WHY && !/\b(that|it|this|the answer|the result|split|share|ways|each|per|between|among|total|need|needed|get|times|plus|minus|add|subtract|double|half)\b/.test(raw) && (/^\s*(?:and|or|what about|how about|what if|now|ok|okay|so|then|with|for|if|try|same|redo|do)\b/.test(raw) || s.split(/\s+/).length <= 4)) {
+    if (prev.q && xs.length && !WHY && !/^\s*[-\d.,\s]+$/.test(raw) && !/\b(that|it|this|the answer|the result|split|share|ways|each|per|between|among|total|need|needed|get|times|plus|minus|add|subtract|double|half)\b/.test(raw) && (/^\s*(?:and|or|what about|how about|what if|now|ok|okay|so|then|with|for|if|try|same|redo|do)\b/.test(raw) || s.split(/\s+/).length <= 4)) {
       const old = nums(low(prev.q));
       if (old.length && xs.length <= old.length) {
-        let k = 0; const nq = low(prev.q).replace(/-?\d*\.?\d+/g, x => k < xs.length ? String(xs[k++]) : x);
-        const r = solve(nq); if (r && nq !== low(prev.q)) return r;
+        let k = 0; const pq = low(prev.q), np = /%|percent/.test(s), hasP = /\d\s*(?:%|percent)/.test(pq);
+        // one new number into a percent question goes where it fits: "what about 200?" after "15% of 80" is 15% of 200; "what about 20%?" is 20% of 80
+        let done = false; const nq = xs.length === 1 && hasP && old.length === 2 ? pq.replace(/-?\d*\.?\d+(\s*(?:%|percent))?/g, (x, p) => !done && !!p === np ? (done = true, String(xs[0]) + (p || "")) : x)
+          : pq.replace(/-?\d*\.?\d+/g, x => k < xs.length ? String(xs[k++]) : x);
+        // (the question stays the one first asked, so "what about 20%?" after "what about 200?" is 20% of the first number again)
+        const r = solve(nq); if (r && nq !== low(prev.q)) { if (r.math) r.math.q = prev.q; return r; }
       }
     }
     // keep going from the last result: "divide that by 3", "now double it", "add 10", "what's that squared", "15% of that", "then 8% tax on that?"
