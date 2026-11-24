@@ -656,7 +656,9 @@
     + "order operations brackets parentheses left first next last other different differ equal bigger smaller larger lower higher up go goes going come comes came").split(/\s+/));
   function offTopic(raw, prev){
     const own = new Set(String(prev.q || "").toLowerCase().match(/[a-z']+/g) || []);
-    const extra = (raw.match(/[a-z][a-z']*/g) || []).filter(w => w.length > 2 && !FWORDS.has(w) && !own.has(w) && !/^\d/.test(w));
+    // units ("gtt", "mL") and element names ("what about oxygen?") are maths words too
+    const known = w => FWORDS.has(w) || own.has(w) || U[w] || TEMP[w] || /^(gtt|mcg|mg|ml|kg|lb|lbs|hr|hrs|min|mins|sec|secs|tab|tabs|tablets?|units?|mph|kph|km|cm|mm|ft)$/.test(w) || EL.some(e => e.name.toLowerCase() === w);
+    const extra = (raw.match(/[a-z][a-z']*/g) || []).filter(w => w.length > 2 && !known(w));
     return extra.length >= 2 || (extra.length === 1 && !/\d/.test(raw) && !/\b(that|it|this|those|these|answer|result)\b/.test(raw));
   }
   const STEPS = /\b(show (?:me )?(?:your |the )?(?:work|working|steps|math|maths|calculation)|how did you (?:get|work|do|figure)|explain (?:that|it|the answer|how|your answer)|step by step|walk me through|break it down|how(?:'s| is| was) that (?:calculated|worked out)|show the steps|the steps|how\??$|why\??$)/;
