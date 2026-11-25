@@ -145,7 +145,10 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
   const snap = p => p.evaluate(() => { const s = window.__sbSync.state, m = x => Array.isArray(x) ? Object.fromEntries(x.map(i => [i.id, i])) : (x || {});
     return JSON.parse(JSON.stringify({tasks: m(s.tasks), events: m(s.events), courses: Object.fromEntries(Object.entries(m(s.courses)).filter(([, c]) => !(c && c.gen))), decks: m(s.decks), notes: s.notes, settings: s.settings})); });
   let n = 0;
-  const LIST = ALL.slice(FROM, TO); let crashes = 0;
+  // IDS=file.txt (or "p1-001,p2-015"): only those conversations, e.g. the ones that failed, to check a fix
+  const IDS = process.env.IDS ? new Set((fs.existsSync(process.env.IDS) ? fs.readFileSync(process.env.IDS, "utf8") : process.env.IDS).split(/[\s,]+/).filter(Boolean)) : null;
+  const LIST = ALL.slice(FROM, TO).filter(c => !IDS || IDS.has(c.id)); let crashes = 0;
+  if (IDS) console.log(`${LIST.length} of ${IDS.size} listed conversations found`);
   // every 30s while a turn runs long: what it's waiting on (Claude, a web page, or the app itself, with the app's own status line)
   setInterval(async () => { if (!LIVE.t0 || Date.now() - LIVE.t0 < 30000) return;
     let st = ""; try { st = await Promise.race([LIVE.page.evaluate(() => { const e = document.querySelector("#cptStatus, .cpt-wait"); return e ? e.innerText.trim().slice(0, 80) : ""; }), new Promise(r => setTimeout(() => r("(page not answering)"), 3000))]); } catch (e) { st = "(page closed)"; }
