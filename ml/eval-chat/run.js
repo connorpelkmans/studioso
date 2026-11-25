@@ -10,8 +10,12 @@ const LLM = process.env.LLM || (process.env.ENGINE === "e4b" ? "http://127.0.0.1
 // CLAUDE=claude-haiku-5-5: the same harness, app path and prompts (ENGINE still picks E4B's or the smaller models' instructions),
 // with every request the app makes answered by that Claude model instead of a llama.cpp server. Needs ANTHROPIC_API_KEY (or an
 // \`ant auth login\` profile) and the SDK (npm install --no-save @anthropic-ai/sdk). Like the on-device models it doesn't think
-// (thinking off, effort low), and a schema is enforced with structured outputs, as llama.cpp enforces it with a grammar.
+// (thinking off, effort low); a schema is given in the prompt (CLAUDE_FORMAT=1 enforces it with structured outputs, slow to compile).
 const CLAUDE = process.env.CLAUDE || "";
+// ENGINE=cloud: no on-device model at all. The app runs as it does for a student with Claude (Haiku 5.5, "Studyboard AI Mode"):
+// its own cloud instructions and steps, calling the Claude API itself with ANTHROPIC_API_KEY. The runner only watches those calls
+// (tokens, rate limits). This is Studyboard AI's real path, without the extra help the small on-device models get.
+const CLOUD = process.env.ENGINE === "cloud";
 let claudeClient = null;
 // The app's schemas, made acceptable to structured outputs: every object closed, constraints it doesn't take left out
 const claudeSchema = s => { if (Array.isArray(s)) return s.map(claudeSchema); if (!s || typeof s !== "object") return s;
@@ -39,7 +43,9 @@ async function askClaude(j){
       console.log(`  Claude ${e.status || "connection"}${e.status === 429 ? " rate limited" : e.status === 529 ? " overloaded" : ""}, waiting ${wait}s (try ${i + 2})${e.status === 429 ? ": " + String(e.message).slice(0, 140) : ""}`);
       await new Promise(r => setTimeout(r, wait * 1000)); } } };
   let m, t0 = Date.now(); LIVE.claude++;
-  try { m = await askR(!!j.schema); }
+  // (the schema goes in the prompt, as words: enforcing it with structured outputs meant compiling the app's 30-field intent
+  // schema first, which took minutes at the first question that needed it. CLAUDE_FORMAT=1 enforces it anyway.)
+  try { m = await askR(!!j.schema && process.env.CLAUDE_FORMAT === "1"); }
   catch (e) { const Anthropic = require("@anthropic-ai/sdk"), A = Anthropic.default || Anthropic;
     // a key problem fails every request: stop at once rather than record a whole run of "the AI isn't answering"
     if (e instanceof A.AuthenticationError || e instanceof A.PermissionDeniedError || (e instanceof A.BadRequestError && /workspace|credit balance/i.test(e.message))) { console.error(`\nClaude API sign-in failed (${e.status}): ${e.message}\nSet ANTHROPIC_API_KEY to a valid key and start again: it carries on from here (nothing from this conversation was saved, and what's in ${OUTF} is kept).`); process.exit(2); }
@@ -55,7 +61,7 @@ const CLAUDE_USE = {inp: 0, out: 0, n: 0, waits: 0, waited: 0};
 const LIVE = {claude: 0, web: new Map(), cv: "", turn: 0, q: "", t0: 0, page: null};
 // a Claude API key from the Claude Console (sk-ant-api...), checked before anything runs: without one the SDK falls back to any
 // other sign-in on the computer (a Claude subscription's token is sent as a bearer token and refused: "Invalid bearer token")
-if (CLAUDE) { const k = process.env.ANTHROPIC_API_KEY || "";
+if (CLAUDE || CLOUD) { const k = process.env.ANTHROPIC_API_KEY || "";
   if (!k) { console.error("CLAUDE is set but ANTHROPIC_API_KEY isn't. Set it (in the same window) to a Claude API key from console.anthropic.com, API Keys."); process.exit(2); }
   // (Console keys come as sk-ant-api... and, for personal keys, sk-ant-usr...; only a subscription's OAuth token is refused here)
   if (/^sk-ant-oat/.test(k.trim())) { console.error("ANTHROPIC_API_KEY is a Claude subscription or Claude Code token (sk-ant-oat...), which the API doesn't take as a key. Make an API key at console.anthropic.com, API Keys."); process.exit(2); }
@@ -104,9 +110,23 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
   const boot = async () => { try { if (b) await b.close(); } catch (e) {}
   b = await chromium.launch({executablePath}); ctx = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
   const e4b = process.env.ENGINE === "e4b";
-  await ctx.addInitScript({content: (e4b ? `(${e4bStub})();` : `(${stub})(6144);`) + ` window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__SB_WEB_TEST = true; window.__CHAT_MAX = 400000;`});
+  await ctx.addInitScript({content: (CLOUD ? "" : e4b ? `(${e4bStub})();` : `(${stub})(6144);`) + (CLOUD ? " window.__SB_OWN_KEYS = true;" : "") + ` window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__SB_WEB_TEST = true; window.__CHAT_MAX = 400000;`});
   await ctx.addInitScript({content: `localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"})); localStorage.setItem("studyboard:devAIOk", "1");
     localStorage.setItem("coursework:v2", JSON.stringify(${fs.readFileSync(path.join(__dirname, "planner.js"), "utf8")}));`});
+  if (CLOUD) {
+    // the student's own Claude key, chosen in Settings (Claude Haiku 5.5, Studyboard AI Mode)
+    await ctx.addInitScript(k => { localStorage.setItem("studyboard:aiKeys", JSON.stringify({anthropic: k})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({anthropic: {v: 1, at: Date.now()}}));
+      const c = JSON.parse(localStorage.getItem("coursework:v2")); c.settings = Object.assign({}, c.settings, {ai: {provider: "anthropic", model: "studyboard", ownKey: true}}); localStorage.setItem("coursework:v2", JSON.stringify(c)); }, (process.env.ANTHROPIC_API_KEY || "").trim());
+    // the app's own Claude calls, passed straight through and counted (tokens, rate limits, time)
+    await ctx.route(/api\.anthropic\.com/, async route => { const t0 = Date.now(); LIVE.claude++;
+      try { const r = await route.fetch({timeout: 300000}), body = await r.text(), st = r.status(); let j = null; try { j = JSON.parse(body); } catch (e) {}
+        if (j && j.usage) { CLAUDE_USE.n++; CLAUDE_USE.inp += (j.usage.input_tokens || 0) + (j.usage.cache_read_input_tokens || 0) + (j.usage.cache_creation_input_tokens || 0); CLAUDE_USE.out += j.usage.output_tokens || 0; }
+        if (st === 401 || st === 403) { console.error(`\nClaude API sign-in failed (${st}): ${body.slice(0, 200)}\nSet ANTHROPIC_API_KEY to a valid key and start again (the results so far are kept).`); process.exit(2); }
+        if (st === 429 || st === 529) { CLAUDE_USE.waits++; console.log(`  Claude ${st}${st === 429 ? " rate limited" : " overloaded"} (the app retries): ${body.slice(0, 140)}`); }
+        if (Date.now() - t0 > 30000) console.log(`  Claude took ${Math.round((Date.now() - t0) / 1000)}s for one request${j && j.usage ? ` (${j.usage.input_tokens} tokens in, ${j.usage.output_tokens} out)` : ""}`);
+        await route.fulfill({response: r, body}); }
+      catch (e) { route.abort().catch(() => {}); } finally { LIVE.claude--; } });
+  }
   // Wikipedia through the disk cache (shared with the other runs), one at a time
   const WC = path.join(__dirname, "webcache"); fs.mkdirSync(WC, {recursive: true}); let wq = Promise.resolve();
   await ctx.route(/(wikipedia\.org|wiktionary\.org|openalex\.org)/, async route => {
@@ -136,7 +156,7 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
     const rec = {id: cv.id, cat: cv.cat, turns: []}; LIVE.cv = cv.id; LIVE.page = p;
     try {
       await p.goto(`http://127.0.0.1:${server.address().port}/index.html`);
-      await p.waitForFunction(() => window.SBCOMPTAB && window.__sbDevAI && window.__sbSync && window.__sbDevAI.state.status === "available", null, {timeout: 30000});
+      await p.waitForFunction(cloud => window.SBCOMPTAB && window.__sbDevAI && window.__sbSync && (cloud || window.__sbDevAI.state.status === "available"), CLOUD, {timeout: 30000});
       await p.waitForTimeout(400);
       for (const t of cv.turns) {
         const t0 = Date.now(); let ans = "", dlg = "", left = false, why = ""; LIVE.turn++; LIVE.q = t.q; LIVE.t0 = t0;
@@ -172,5 +192,5 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
     console.log(`${cv.id} [${cv.cat}] ${rec.turns.map(t => (t.stateOk === false ? "✗" : "·") + t.secs + "s").join(" ")} ${rec.turns.length ? rec.turns[0].q.slice(0, 50) + " -> " + rec.turns[rec.turns.length - 1].ans.replace(/\n/g, " ").slice(0, 80) : rec.err}`);
     await p.close().catch(() => {});
   }
-  console.log(`done ${n}`); if (CLAUDE) console.log(`${CLAUDE}: ${CLAUDE_USE.n} requests, ${CLAUDE_USE.inp} input and ${CLAUDE_USE.out} output tokens, ${CLAUDE_USE.waits} waits for rate limits or busy servers (${CLAUDE_USE.waited}s)`); await b.close(); server.close();
+  console.log(`done ${n}`); if (CLAUDE || CLOUD) console.log(`${CLAUDE || "claude-haiku-5-5 (the app's cloud path)"}: ${CLAUDE_USE.n} requests, ${CLAUDE_USE.inp} input and ${CLAUDE_USE.out} output tokens, ${CLAUDE_USE.waits} waits for rate limits or busy servers (${CLAUDE_USE.waited}s)`); await b.close(); server.close();
 })().catch(e => { console.error(e); process.exit(1); });

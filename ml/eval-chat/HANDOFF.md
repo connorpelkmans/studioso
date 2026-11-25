@@ -60,3 +60,13 @@ passing. Known pre-existing failures: `assist-actions` (3 checks: the Ask bubble
 ## Started on CPU before the move
 `p3` (general knowledge and maths) had begun on E2B. First finding, already fixed: maths follow-ups ("divide that by 3",
 "show your work") now carry on from the last result.
+
+## Claude Haiku 5.5 runs (no graphics chip needed)
+Both need `npm install --no-save @anthropic-ai/sdk` and `ANTHROPIC_API_KEY` (a Claude Console key: sk-ant-api... or a personal sk-ant-usr...).
+- `ENGINE=cloud`: the app's real Claude path ("Claude Haiku 5.5, Studyboard AI Mode", the student's own key): its cloud instructions
+  and steps, none of the on-device helpers. The app calls the Claude API itself; the runner counts tokens and reports rate limits.
+  This is the comparison for Studyboard AI.
+- `ENGINE=e4b CLAUDE=claude-haiku-5-5`: Haiku answering in place of the on-device model, through the on-device path (E4B's instructions
+  and steps). Thinking off, effort low; schemas are given in the prompt (`CLAUDE_FORMAT=1` enforces them with structured outputs,
+  but compiling the 30-field intent schema took about 3 minutes a request).
+A long turn reports every 30s what it's waiting on; a crashed test browser is started again; a sign-in error stops the run at once.
