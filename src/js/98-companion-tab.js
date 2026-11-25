@@ -1213,7 +1213,10 @@ Careful, these are easy to mix up:
       const MT = window.SBMATH; let mathR = null;
       // a mark they got ("got 17/20 on a&p quiz 4", "journal 3: 9/10 :)", "its 36/50") is saved, not worked out
       const MARKSAID = x => /\d\s*(?:\/|out of)\s*\d/.test(x) && /\b(?:got|get|scored?|mark|marks|grade|graded|regraded|bonus|it'?s|was|is)\b|:/i.test(x) && !/\b(?:what|calculate|how much|percent|percentage|average|mean|need|convert|simplify|divide|times)\b|[=+*%^]/i.test(x);
-      if (MT && !att.length && !ctl && !slot && !mapMore && !MARKSAID(q)) { try { const own = (q.match(/\d+(?:\.\d+)?/g) || []).length >= 2 ? MT.solve(q) : null; mathR = own || (last && last.a.math && MT.follow(q, last.a.math)) || MT.solve(q); } catch (e) { console.warn("math", e); } }
+      if (MT && !att.length && !ctl && !slot && !mapMore && !MARKSAID(q)) { try { const why = !!(last && last.a.math) && /^\s*(?:but\s+|so\s+)?(?:why|how come|isn'?t|wouldn'?t|shouldn'?t|doesn'?t|wait|explain)\b/i.test(q);
+          const own = !why && (q.match(/\d+(?:\.\d+)?/g) || []).length >= 2 ? MT.solve(q) : null; mathR = own || (last && last.a.math && MT.follow(q, last.a.math)) || (why ? null : MT.solve(q));
+          // ("why isn't it just the average of 60 and 30?": a question about the last answer, which the follow-up step explains, never a new sum)
+          if (why && mathR && mathR.math && /^stat/.test(String(mathR.math.kind || "")) && last.a.math.kind !== mathR.math.kind) mathR = null; } catch (e) { console.warn("math", e); } }
       const MATHQ = !mathR && !!MT && !MARKSAID(q) && MT.mathy(q);
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = !mathR && !multi && dev && TR && !att.length && !ctl && !me0 && (ISQ(q) || window.__SB_GATE) && !ACTX(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
@@ -1320,7 +1323,10 @@ Careful, these are easy to mix up:
       const lastPlan = !!last && !!TR && ((last.a.sources || []).includes("Your planner") || !!(() => { try { return TR.facts(last.ask || last.q); } catch (e) { return null; } })() || !!last.a.ref || /\b(moved|marked|added|due)\b/i.test(String(last.a.answer || "").slice(0, 200)));
       const aboutLast = !made && !att.length && ((lastPlan && /\b(that|it|this|those|them|these|that one)\b/i.test(q2) && ISQ(q2) && !ACTX(q2)) || /^\s*why (did|'?d|would|do) (you|u)\b/i.test(q2));
       const chatty = !made && !att.length && (careMode || said === "chat" || (!ISQ(q2) && !PLAINQ && !/^\s*(explain|define|describe|tell me about|summari[sz]e|compare|what|who|why|how|when|where|which)\b/i.test(q2) && /\b(i|i'm|im|i've|me|my|you|your|u|ur|lol|lmao|haha|ugh|thanks|thank|ok|okay|yeah|yep|nah|cool|nice|aw+|omg|wow)\b/i.test(q2)));
-      const noKnow = chatty || aboutLast;
+      // a word or two with no question, said in the middle of chatting ("louder", "backpack" in a knock-knock joke): the conversation, not Wikipedia
+      const convoBit = !!last && !last.a.know && !last.a.math && !(last.a.sources || []).includes("Your planner") && !att.length && q2.trim().split(/\s+/).length <= 2 && !/\?/.test(q2) && !/^\s*(what|who|whos|define|explain|why|how|meaning)\b/i.test(q2);
+      const noKnow = chatty || aboutLast || convoBit;
+      let chatMiss = false;
       // told to do something ("change ...", "add ...", "turn on ...") and nothing above could: said plainly, never an unrelated reply
       if (!made && !quick && !att.length && /^\s*(?:please\s+|(?:can|could|would|will) (?:you|u)\s+)?(?:change|switch|set|make|turn|add|create|delete|remove|move|rename|start|stop|put|mark|update|edit|enable|disable|reset|clear|hide|show me|open)\b/i.test(q2) && !/\?\s*$/.test(q2) && !TR.general(q2))
         made = {answer: "I'm not able to do that from the chat yet, so I didn't change anything. Try saying it another way, or do it in Studyboard directly (Settings has most options).", sources: [], followUps: [], actions: []};
@@ -1338,6 +1344,15 @@ Careful, these are easy to mix up:
         // (a follow-up already rewritten with its topic, "why does osmosis happen?", is asked as written)
         const k = await TR.knowledge(kFollow && q2 === qT ? q : q2, {prev: q2 === qT ? prev : null, search: q2 === qT ? search : "", onStatus: x => { T.status = x; draw(); }, onPartial: t => { T.live = t; drawStatus(); }});
         made = {answer: k.answer, sources: k.found ? [...(k.notesSrc || []).slice(0, 3), ...(k.sources || []).map(x => x.src + ": " + x.title)].map(x => clip(x, 40)).slice(0, 5) : [], followUps: [], actions: [], know: true};
+        // nothing found, and it's talk rather than a subject question ("what's your favourite thing to do", "why" after a joke, "what's
+        // the meaning of life", "do you read my notes"): the companion answers in the conversation instead of "I couldn't find"
+        if (!k.found && (/\b(you|your|u|ur|yourself|life|weather|favou?rite)\b/i.test(q2) || q2.split(/\s+/).length <= 3 || (last && !last.a.know && !lastPlan && !last.a.math))) { made = null; chatMiss = true; }
+      }
+      // a knock-knock joke: played along ("Who's there?", "Backpack who?"), then the punchline gets the companion's laugh
+      if (!made && !quick && !late && !att.length) {
+        const KK = /^\s*knock[\s,.!-]*knock\W*$/i;
+        if (KK.test(q)) made = {answer: "Who's there?", sources: [], followUps: [], actions: []};
+        else if (last && KK.test(String(last.q || "")) && q.trim().split(/\s+/).length <= 4 && !/\?/.test(q)) made = {answer: `${q.trim().replace(/[.!]+$/, "").replace(/^./, x => x.toUpperCase())} who?`, sources: [], followUps: [], actions: []};
       }
       // (an answer the app had at once still takes a moment, like someone reading the question first)
       if (quick || late || made) { const w = 1000 + Math.random() * 800 - (Date.now() - t0); if (w > 0 && !(window.__SB_TEST && !window.__SB_PACE)) await new Promise(r => setTimeout(r, w)); }
@@ -1348,11 +1363,11 @@ Careful, these are easy to mix up:
       const me = info() || {}, prevQ = (c.msgs.filter(x => x.a).slice(-1)[0] || {}).q || "";
       // just talking: a short look at what's coming up instead of the whole planner, so the reply stays on what they said (a small model
       // given every task and grade talks about them) and comes quickly. A question about their work gets the planner as before
-      const smallTalk = chatty && !/\b(due|deadlines?|tasks?|homework|exams?|quiz(zes)?|midterm|final|grades?|marks?|class(es)?|courses?|essay|lab|care plan|study|studying|notes?|cards?|deck|schedule|week|today|tomorrow|tonight|weekend)\b/i.test(q);
+      const smallTalk = (chatty || chatMiss || convoBit) && !/\b(due|deadlines?|tasks?|homework|exams?|quiz(zes)?|midterm|final|grades?|marks?|class(es)?|courses?|essay|lab|care plan|study|studying|notes?|cards?|deck|schedule|week|today|tomorrow|tonight|weekend)\b/i.test(q);
       const [ctx, cat] = await Promise.all([smallTalk ? Promise.resolve(chatContext()) : context(q, prevQ, att.length > 0), !smallTalk && window.SBASSIST && SBASSIST.wants(q) ? SBASSIST.catalog(q, {max: typeof aiOnDevice === "function" && aiOnDevice() ? (typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? 8000 : 8000) : 30000}).catch(e => { console.warn(e); return null; }) : null]);
       // a general question on the device: Wikipedia as a source, then the key points a good answer covers, so it isn't shallow
       let plan = "";
-      if (dev && TR && !att.length && !noKnow && !MATHQ && TR.general(q)) {
+      if (dev && TR && !att.length && !noKnow && !chatMiss && !MATHQ && TR.general(q)) {
         T.status = "Looking it up…"; draw();
         const R = await TR.research(q, {onStatus: t => { T.status = t; draw(); }}).catch(() => ({list: []})), web = R.list || [];
         if (web.length) { ctx.text += `\n\nFROM THE WEB (say where a fact comes from, like "according to Wikipedia" or "a 2019 study found"):\n${TR.webText(web)}`; web.forEach(x => { if (!ctx.src.includes((x.src || "Wikipedia") + ": " + x.title)) ctx.src.push((x.src || "Wikipedia") + ": " + x.title); }); }
@@ -1405,9 +1420,10 @@ You can also DO things in Studyboard, but only when the student asks or what the
       if (!m.a.sources.length) m.a.sources = ctx.src.slice(0, 4);
       if (dev && window.SBASSIST && SBASSIST.CLAIMS.test(m.a.answer || "") && !(m.a.actions || []).length && !(m.a.changes || []).length) { const fix = await deviceAct(q, c, true); if (fix) m.a = fix; }
       // filler, or a reply that never mentions what was asked about: their material and the web instead, or an honest "couldn't find"
-      if (!noKnow && !MATHQ && TR && TR.nonAnswer && !att.length && !(m.a.actions || []).length && !(m.a.changes || []).length && !(m.a.show || []).length && TR.nonAnswer(q, m.a.answer)) {
+      if (!noKnow && !chatMiss && !MATHQ && TR && TR.nonAnswer && !att.length && !(m.a.actions || []).length && !(m.a.changes || []).length && !(m.a.show || []).length && TR.nonAnswer(q, m.a.answer)) {
         T.status = "Looking it up in your notes and on the web…"; draw();
-        try { const k = await TR.knowledge(q, {noWeb: !TR.general(q)}); m.a = {answer: k.answer, sources: k.found ? [...(k.notesSrc || []).slice(0, 3), ...(k.sources || []).map(x => x.src + ": " + x.title)].map(x => clip(x, 40)).slice(0, 5) : [], followUps: [], actions: []}; } catch (e) { if (stopsHere(e)) throw e; }
+        // (only when the lookup found something: "couldn't find" never replaces a reply to "how are YOU doing" or "what's your favourite thing")
+        try { const k = await TR.knowledge(q, {noWeb: !TR.general(q)}); if (k.found || /^\s*$/.test(m.a.answer || "")) m.a = {answer: k.answer, sources: k.found ? [...(k.notesSrc || []).slice(0, 3), ...(k.sources || []).map(x => x.src + ": " + x.title)].map(x => clip(x, 40)).slice(0, 5) : [], followUps: [], actions: []}; } catch (e) { if (stopsHere(e)) throw e; }
       }
       }
       // what this reply made (a deck, task, event, note), so "rename it", "delete it", "study it" next mean that
