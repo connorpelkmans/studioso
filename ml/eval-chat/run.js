@@ -38,18 +38,21 @@ async function askClaude(j){
       CLAUDE_USE.waits++; CLAUDE_USE.waited += wait;
       console.log(`  Claude ${e.status || "connection"}${e.status === 429 ? " rate limited" : e.status === 529 ? " overloaded" : ""}, waiting ${wait}s (try ${i + 2})${e.status === 429 ? ": " + String(e.message).slice(0, 140) : ""}`);
       await new Promise(r => setTimeout(r, wait * 1000)); } } };
-  let m, t0 = Date.now();
+  let m, t0 = Date.now(); LIVE.claude++;
   try { m = await askR(!!j.schema); }
   catch (e) { const Anthropic = require("@anthropic-ai/sdk"), A = Anthropic.default || Anthropic;
     // a key problem fails every request: stop at once rather than record a whole run of "the AI isn't answering"
     if (e instanceof A.AuthenticationError || e instanceof A.PermissionDeniedError || (e instanceof A.BadRequestError && /workspace|credit balance/i.test(e.message))) { console.error(`\nClaude API sign-in failed (${e.status}): ${e.message}\nSet ANTHROPIC_API_KEY to a valid key and start again: it carries on from here (nothing from this conversation was saved, and what's in ${OUTF} is kept).`); process.exit(2); }
     if (!(j.schema && e instanceof A.BadRequestError)) throw e; if (process.env.LOGLLM) console.log("schema refused, asking without it:", e.message); m = await askR(false); }
+  LIVE.claude--;
   if (Date.now() - t0 > 30000) console.log(`  Claude took ${Math.round((Date.now() - t0) / 1000)}s for one request (${m.usage.input_tokens} tokens in, ${m.usage.output_tokens} out)`);
   CLAUDE_USE.inp += m.usage.input_tokens; CLAUDE_USE.out += m.usage.output_tokens; CLAUDE_USE.n++;
   if (m.stop_reason === "refusal") return "";
   return m.content.filter(b => b.type === "text").map(b => b.text).join("");
 }
 const CLAUDE_USE = {inp: 0, out: 0, n: 0, waits: 0, waited: 0};
+// what the run is waiting on right now, for the heartbeat
+const LIVE = {claude: 0, web: new Map(), cv: "", turn: 0, q: "", t0: 0, page: null};
 // a Claude API key from the Claude Console (sk-ant-api...), checked before anything runs: without one the SDK falls back to any
 // other sign-in on the computer (a Claude subscription's token is sent as a bearer token and refused: "Invalid bearer token")
 if (CLAUDE) { const k = process.env.ANTHROPIC_API_KEY || "";
@@ -61,7 +64,7 @@ const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/java
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   if (u.pathname === "/__llm" && CLAUDE) { let b = ""; req.on("data", c => b += c); req.on("end", async () => { try { const j = JSON.parse(b), t = await askClaude(j);
-    res.writeHead(200, {"content-type": "text/plain"}); res.end(t); if (process.env.LOGLLM) console.log("\n--- PROMPT:", j.text.slice(-600), "\n--- REPLY:", t); } catch (e) { console.warn("claude", e.message); res.writeHead(500); res.end(String(e)); } }); return; }
+    res.writeHead(200, {"content-type": "text/plain"}); res.end(t); if (process.env.LOGLLM) console.log("\n--- PROMPT:", j.text.slice(-600), "\n--- REPLY:", t); } catch (e) { LIVE.claude = Math.max(0, LIVE.claude - 1); console.warn("claude", e.message); res.writeHead(500); res.end(String(e)); } }); return; }
   if (u.pathname === "/__llm") { let b = ""; req.on("data", c => b += c); req.on("end", async () => { try { const j = JSON.parse(b);
     const r = await fetch(LLM + "/v1/chat/completions", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({messages: [{role: "system", content: j.system}, {role: "user", content: j.text + (j.schema ? "\n\nRespond with JSON that matches this JSON Schema: " + JSON.stringify(j.schema) : "")}], temperature: 0.3, max_tokens: j.max || 700, response_format: j.schema ? {type: "json_object", schema: j.schema} : undefined})});
     const k = await r.json(); res.writeHead(200, {"content-type": "text/plain"}); res.end(k.choices ? k.choices[0].message.content : JSON.stringify(k)); if (process.env.LOGLLM) console.log("\n--- LLM SYSTEM:", j.system.slice(0, 300), "\n--- PROMPT:", j.text.slice(-900), "\n--- REPLY:", k.choices ? k.choices[0].message.content : ""); } catch (e) { res.writeHead(500); res.end(String(e)); } }); return; }
@@ -110,8 +113,9 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
     const turn = wq; let free; wq = new Promise(r => { free = r; }); await turn; setTimeout(free, 350);
     const url = route.request().url(), key = path.join(WC, require("crypto").createHash("sha1").update(url).digest("hex") + ".json");
     if (fs.existsSync(key)) { const c = JSON.parse(fs.readFileSync(key, "utf8")); return route.fulfill({status: c.status, contentType: "application/json", headers: {"access-control-allow-origin": "*"}, body: c.body}); }
-    for (let i = 0; i < 5; i++) { try { const r = await fetch(url, {headers: {"user-agent": "StudyboardEval/1.0 (test harness)"}}); if (r.status === 429) { await new Promise(res => setTimeout(res, 1500 * (i + 1))); continue; } const body = await r.text(); if (r.ok) fs.writeFileSync(key, JSON.stringify({status: r.status, body})); return route.fulfill({status: r.status, contentType: "application/json", headers: {"access-control-allow-origin": "*"}, body}); } catch (e) { await new Promise(res => setTimeout(res, 1000)); } }
-    return route.fulfill({status: 429, body: ""});
+    LIVE.web.set(url, Date.now());
+    try { for (let i = 0; i < 5; i++) { try { const r = await fetch(url, {headers: {"user-agent": "StudyboardEval/1.0 (test harness)"}, signal: AbortSignal.timeout(20000)}); if (r.status === 429) { await new Promise(res => setTimeout(res, 1500 * (i + 1))); continue; } const body = await r.text(); if (r.ok) fs.writeFileSync(key, JSON.stringify({status: r.status, body})); return route.fulfill({status: r.status, contentType: "application/json", headers: {"access-control-allow-origin": "*"}, body}); } catch (e) { await new Promise(res => setTimeout(res, 1000)); } }
+    return route.fulfill({status: 429, body: ""}); } finally { LIVE.web.delete(url); }
   });
   };
   await boot();
@@ -119,18 +123,23 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
     return JSON.parse(JSON.stringify({tasks: m(s.tasks), events: m(s.events), courses: m(s.courses), decks: m(s.decks), notes: s.notes, settings: s.settings})); });
   let n = 0;
   const LIST = ALL.slice(FROM, TO); let crashes = 0;
+  // every 30s while a turn runs long: what it's waiting on (Claude, a web page, or the app itself, with the app's own status line)
+  setInterval(async () => { if (!LIVE.t0 || Date.now() - LIVE.t0 < 30000) return;
+    let st = ""; try { st = await Promise.race([LIVE.page.evaluate(() => { const e = document.querySelector("#cptStatus, .cpt-wait"); return e ? e.innerText.trim().slice(0, 80) : ""; }), new Promise(r => setTimeout(() => r("(page not answering)"), 3000))]); } catch (e) { st = "(page closed)"; }
+    const web = [...LIVE.web].map(([u, t]) => `${new URL(u).host} ${Math.round((Date.now() - t) / 1000)}s`).join(", ");
+    console.log(`  … ${LIVE.cv} "${LIVE.q.slice(0, 40)}" ${Math.round((Date.now() - LIVE.t0) / 1000)}s: ${LIVE.claude} Claude request${LIVE.claude === 1 ? "" : "s"} open${web ? ", web: " + web : ""}${st ? ", app says: " + st : ""}`); }, 30000).unref();
   for (let ci = 0; ci < LIST.length; ci++) { const cv = LIST[ci];
     if (doneIds.has(cv.id)) continue;
     if (Date.now() > DEADLINE) { console.log("deadline: stopping"); break; }
     let p; try { p = await ctx.newPage(); } catch (e) { if (++crashes > 20) throw e; console.log("browser closed: starting it again"); await boot(); p = await ctx.newPage(); }
     const errs = []; p.on("pageerror", e => errs.push(e.message)); p.on("dialog", d => d.dismiss().catch(() => {}));
-    const rec = {id: cv.id, cat: cv.cat, turns: []};
+    const rec = {id: cv.id, cat: cv.cat, turns: []}; LIVE.cv = cv.id; LIVE.page = p;
     try {
       await p.goto(`http://127.0.0.1:${server.address().port}/index.html`);
       await p.waitForFunction(() => window.SBCOMPTAB && window.__sbDevAI && window.__sbSync && window.__sbDevAI.state.status === "available", null, {timeout: 30000});
       await p.waitForTimeout(400);
       for (const t of cv.turns) {
-        const t0 = Date.now(); let ans = "", dlg = "", left = false, why = "";
+        const t0 = Date.now(); let ans = "", dlg = "", left = false, why = ""; LIVE.turn++; LIVE.q = t.q; LIVE.t0 = t0;
         const B = await snap(p);
         try {
           await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); if (!document.querySelector("#cptIn")) SBCOMPTAB.open(); });
@@ -152,6 +161,7 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
         // what changed, in a few words (for the judge)
         const diff = []; ["tasks", "events", "courses", "decks"].forEach(k => { const a = A[k] || {}, bb = B[k] || {}; Object.keys(a).forEach(id => { if (!bb[id]) diff.push(`new ${k.slice(0, -1)} "${a[id].title || a[id].name}"`); else if (JSON.stringify(a[id]) !== JSON.stringify(bb[id])) diff.push(`changed ${k.slice(0, -1)} "${a[id].title || a[id].name}"`); }); Object.keys(bb).forEach(id => { if (!a[id]) diff.push(`removed ${k.slice(0, -1)} "${bb[id].title || bb[id].name}"`); }); });
         if (JSON.stringify(A.notes) !== JSON.stringify(B.notes)) diff.push("notes changed");
+        LIVE.t0 = 0;
         rec.turns.push({q: t.q, expect: t.expect, ans: ans.slice(0, 1500), dlg, left, stateOk, state: t.state || "", diff: diff.slice(0, 6), secs: Math.round((Date.now() - t0) / 100) / 10, why});
       }
     } catch (e) { rec.err = String(e.message).slice(0, 150); }
