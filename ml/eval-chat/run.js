@@ -57,12 +57,15 @@ async function askClaude(j){
   return m.content.filter(b => b.type === "text").map(b => b.text).join("");
 }
 const CLAUDE_USE = {inp: 0, out: 0, n: 0, waits: 0, waited: 0};
+// EVAL_ANTHROPIC_KEY: the key under a name Claude Code doesn't read, so a Claude Code session running these tests stays on its own
+// sign-in (with ANTHROPIC_API_KEY set, Claude Code itself switched to billing that key)
+if (!process.env.ANTHROPIC_API_KEY && process.env.EVAL_ANTHROPIC_KEY) process.env.ANTHROPIC_API_KEY = process.env.EVAL_ANTHROPIC_KEY;
 // what the run is waiting on right now, for the heartbeat
 const LIVE = {claude: 0, web: new Map(), cv: "", turn: 0, q: "", t0: 0, page: null};
 // a Claude API key from the Claude Console (sk-ant-api...), checked before anything runs: without one the SDK falls back to any
 // other sign-in on the computer (a Claude subscription's token is sent as a bearer token and refused: "Invalid bearer token")
 if (CLAUDE || CLOUD) { const k = process.env.ANTHROPIC_API_KEY || "";
-  if (!k) { console.error("CLAUDE is set but ANTHROPIC_API_KEY isn't. Set it (in the same window) to a Claude API key from console.anthropic.com, API Keys."); process.exit(2); }
+  if (!k) { console.error("CLAUDE or ENGINE=cloud is set but no key: set EVAL_ANTHROPIC_KEY (or ANTHROPIC_API_KEY) (in the same window) to a Claude API key from console.anthropic.com, API Keys."); process.exit(2); }
   // (Console keys come as sk-ant-api... and, for personal keys, sk-ant-usr...; only a subscription's OAuth token is refused here)
   if (/^sk-ant-oat/.test(k.trim())) { console.error("ANTHROPIC_API_KEY is a Claude subscription or Claude Code token (sk-ant-oat...), which the API doesn't take as a key. Make an API key at console.anthropic.com, API Keys."); process.exit(2); }
   if (k !== k.trim()) process.env.ANTHROPIC_API_KEY = k.trim(); }
