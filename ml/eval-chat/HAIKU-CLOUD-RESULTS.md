@@ -1,36 +1,53 @@
-# Claude Haiku 5.5 through the app's cloud path: first run (2026-11-25)
+# Claude Haiku 5.5 through the app's cloud path, next to E2B and E4B
 
-`ENGINE=cloud`: the app as a student with Claude uses it ("Claude Haiku 5.5, Studyboard AI Mode", own key), all 1,100 conversations
-(2,085 turns), code from before 3995833d. Every turn judged against planner.js and its expectation (8 judges, one rule set):
-`judged-haiku-cloud.jsonl` (id, turn, verdict, cause, note). Replies: `results-haiku-cloud.jsonl`.
+`ENGINE=cloud`: the app as a student with Claude uses it ("Claude Haiku 5.5, Studyboard AI Mode", own key), all 1,100
+conversations (2,085 turns), code from before 3995833d. Replies: `results-haiku-cloud.jsonl`. Verdicts: `judged-haiku-cloud.jsonl`,
+judged by the method in `JUDGING.md` (the one used for E2B and E4B): one verdict per conversation, which passes only if every
+turn is right. (This replaces an earlier per-turn grading with different rules, which gave 70% of turns passing.)
 
-| Category | Turns | Pass | Partial | Fail |
-|---|---|---|---|---|
-| p1 Planner actions | 326 | 178 (54%) | 36 | 112 |
-| p2 Their notes | 325 | 234 (72%) | 55 | 36 |
-| p3 Knowledge and maths | 339 | 312 (92%) | 20 | 7 |
-| p4 Planner questions, study help | 335 | 230 (68%) | 54 | 51 |
-| p5 Study material, the app | 353 | 201 (56%) | 80 | 72 |
-| p6 Companion chats | 407 | 321 (78%) | 58 | 28 |
-| **All** | **2,085** | **1,476 (70%)** | **303** | **306** |
+## Pass rates by category (conversations)
+Content pass (slow-only counted as a pass). Strict pass (slow-only counted as a fail) is the same to within 1 point, except
+E4B p2 (45% strict).
 
-Speed: median 2.6 s a turn, 90% under 6 s (after the structured-outputs fix in 01-ai-policy.js; before it, 3 minutes a request).
+| Category | n | E2B (first run) | E4B first run | E4B now (after rr4) | Haiku 5.5 cloud (first run) |
+|---|---|---|---|---|---|
+| p1 Planner actions | 200 | 36% | 49% | 59% | 48% |
+| p2 Their notes | 200 | 28% | 13% | 49% | 77% |
+| p3 Knowledge and maths | 200 | 14% | 72% | 91% | 93% |
+| p4 Planner questions, study help | 200 | 30% | 37% | 60% | 70% |
+| p5 Study material, the app | 200 | 32% | 44% | 57% | 53% |
+| p6 Companion chats | 100 | 0% | 19% | 50% | 63% |
+| **All** | **1,100** | **25%** | **41%** | **62%** | **68%** |
 
-## Causes (partial and fail)
-- **no_action 101** (p1 53, p5 37): says it did something ("I marked Read Chapter 7 as done", "added the card") and nothing changed.
-- **not_found 91** (p4 33, p2 29): marks, events, instructors and notes said to be missing when they're in the planner: Claude
-  wasn't sent them.
-- **false_cant 72**: "I'm not able to do that from the chat yet" for things the chat does (priority, rename, room, cards, study
-  sessions) and for plain writing (a plan, a timeline, a rhyme, a joke).
-- **poor_chat 59** (p6 34): stilted, preachy or padded replies.
-- **wrong_fact 58**, **followup_lost 56** (a follow-up about what it just said looked up as a new question: "who else was on the
-  moon landing" after naming Aldrin and Collins), **wrong_action 46** (relative dates off, a grade removal deleted the task, 17 on the
-  psych paper overwrote 88/100), **garbled 30** (cut note snippets instead of answers), **slow 27**, **unasked_change 16** (88 on the
-  psych paper saved onto the midterm; "i'm putting that on a sticky note" made one), **off_topic 14** ("hi bramble" and "hello again"
-  sent to a web search; flashcards about torrent files and the game show "500 Questions"), **wrong_target 13** (a study group name
-  renamed the Psych Midterm).
+What each column is:
+- **E2B**: the first run, on the code before any of these fixes. 34 of its fails are runner errors, not replies.
+- **E4B first run**: comparable to Haiku's first run.
+- **E4B now**: after four rounds of fixes, each rerunning only what still failed.
+- **Haiku**: one run on the code before 3995833d.
 
-## Next
-3995833d (after this run) targets the biggest causes: planner data sent to Claude, writing requests not refused, notes answered not
-pasted, short follow-ups keeping their topic, "Done" only when done. Rerun the 454 conversations with a partial or fail on the current
-code (`IDS=haiku-cloud-retry.txt`) and judge them again; fix what's left.
+## Haiku: failures by cause (361 conversations: 357 fails, 4 slow-only)
+| Tag | All | p1 | p2 | p3 | p4 | p5 | p6 |
+|---|---|---|---|---|---|---|---|
+| action-missing | 99 | 59 | | | 10 | 30 | |
+| wrong-answer | 62 | 9 | 15 | 1 | 18 | 8 | 11 |
+| non-answer | 59 | 2 | 14 | 4 | 15 | 16 | 8 |
+| wrong-action | 50 | 22 | 3 | | 3 | 20 | 2 |
+| partial | 47 | 12 | 11 | 2 | 12 | 7 | 3 |
+| off-track | 21 | | | 5 | 2 | 4 | 10 |
+| unrelated | 9 | 1 | 1 | 1 | | 4 | 2 |
+| ai-error | 6 | | | | | 5 | 1 |
+| other | 4 | | 2 | 1 | | 1 | |
+| slow-only | 4 | | | 1 | 2 | 1 | |
+
+The concrete causes behind those tags:
+- **Refusals of supported edits** (~60): "I'm not able to do that from the chat yet" for priority, rename, room, cards, study
+  sessions, and for plain writing (a plan, a timeline, a rhyme).
+- **"Not in your planner"** (~40): the data was there, but its context (marks, events, instructors, notes) wasn't sent to Claude.
+- **"Done" claims with no change** (~15).
+- **Multi-item edits half done** (~15): "both", "everything due this week", "same for Thursday".
+- **Deck, quiz and study follow-ups**: "add one more", "keep only 5", quiz me in the chat.
+- **Small talk or note snippets pasted** instead of answers.
+- **App gaps**: undo of chat changes, settings that stall, the wardrobe.
+
+3995833d and later commits target these. Rerunning Haiku's 361 failing conversations on the current code needs a Claude key
+(`IDS=` with those ids); this machine has none.
