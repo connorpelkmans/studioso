@@ -2030,7 +2030,7 @@ function mapPeek(x){
 }
 function countsOf(x){ const p = mapPeek(x); return p ? {items: p.items, links: p.links} : null; }
 // opt.label: the map's name, drawn over the central idea at a readable size whatever the map's spread (the card's own title)
-const peekName = (label, x, y) => `<span class="cm-pkname" style="left:${Math.max(22, Math.min(78, x)).toFixed(1)}%;top:${Math.max(24, Math.min(76, y)).toFixed(1)}%"><span class="cm-ctitle">${esc(label)}</span></span>`;
+const peekName = (label, x, y) => `<span class="cm-pkname" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="cm-ctitle">${esc(label)}</span></span>`;
 function peekSvg(p, col, opt){
   const lab = opt && opt.label;
   if (lab && (!p || p.g.nodes.length < 2)) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g></svg>` + peekName(lab, 50, 50);
@@ -2048,6 +2048,8 @@ function peekSvg(p, col, opt){
   // the picture holds every box whole: their outer edges, plus room for the outline and a little air
   const pad = fs * 0.6, ext = (n, i, s) => { const g = geo[n.id] || ["box", 0, 0], [x, y] = P[n.id] || [0, 0]; return i ? y + s * (g[2] / 2 + pad) : x + s * (g[1] / 2 + pad); };
   let x0 = Math.min(...ns.map(n => ext(n, 0, -1))), x1 = Math.max(...ns.map(n => ext(n, 0, 1))), y0 = Math.min(...ns.map(n => ext(n, 1, -1))), y1 = Math.max(...ns.map(n => ext(n, 1, 1)));
+  // with the name drawn on it, the picture is centred on the central idea, so the name always sits in the middle of the card
+  if (lab && P.root) { const [rx, ry] = P.root, hx = Math.max(rx - x0, x1 - rx), hy = Math.max(ry - y0, y1 - ry); x0 = rx - hx; x1 = rx + hx; y0 = ry - hy; y1 = ry + hy; }
   // keep a wide card shape: pad the short side so nodes aren't squashed
   const wantH = (x1 - x0) * 0.42; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
   const cut = (id, dx, dy) => { const g = lab && id === "root" ? null : geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
@@ -2626,8 +2628,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-cfoot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px 14px}
 .cm-cfoot-bar{justify-content:flex-end;padding:10px 10px 10px 14px}
 /* the map's name on its central idea: always big enough to read, however large the map */
-.cm-pkname{position:absolute;z-index:2;max-width:64%;translate:-50% -50%;display:flex;pointer-events:none;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
-.cm-pkname>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;padding:6px 14px;border-radius:16px;background:var(--c);color:#fff;font:800 .98rem/1.2 var(--display,var(--font,system-ui));text-align:center;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 45%,transparent),0 0 0 3px color-mix(in srgb,var(--surface) 70%,transparent)}
+.cm-pkname{position:absolute;z-index:2;max-width:56%;translate:-50% -50%;display:flex;pointer-events:none;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.cm-pkname>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:break-word;padding:5px 12px;border-radius:14px;background:var(--c);color:#fff;font:800 .86rem/1.2 var(--display,var(--font,system-ui));text-align:center;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 45%,transparent),0 0 0 3px color-mix(in srgb,var(--surface) 70%,transparent)}
 .cm-mapcard:hover .cm-pkname{transform:scale(1.04)}
 .cm-crow{display:flex;align-items:center;gap:6px;margin-top:auto}
 .cm-csub{flex:1 1 auto;min-width:0;color:var(--muted);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
