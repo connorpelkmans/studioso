@@ -4124,7 +4124,10 @@ const SBPOLICY = (() => {
     const msg = await work, after = await view(), done = r => Object.assign(r, {spent});
     if (msg.error) { const s = msg.error && msg.error.status; return done({status: s === 400 ? 400 : s === 401 || s === 403 ? 401 : 503, body: Object.assign({error: s === 429 || s === 529 || (s >= 500 && s < 600) ? "busy" : s === 400 ? "bad" : s === 401 || s === 403 ? "key" : "ai_failed"}, after)}); }
     if (msg.stop_reason === "refusal") return done({status: 422, body: Object.assign({error: "refused"}, after)});
-    const data = readAnswer(msg);
+    let data = readAnswer(msg);
+    // a reply in plain words where an answer shape was asked for ({answer, ...}): those words are the answer (Claude now and then
+    // writes the reply itself instead of the JSON around it, and it was thrown away as a failure)
+    if (!data && schema && schema.properties && schema.properties.answer && msg.stop_reason !== "max_tokens") { const t = ((msg && msg.content) || []).filter(b => b && b.type === "text").map(b => b.text || "").join("").trim(); if (t && !/^\s*[{[]/.test(t)) data = {answer: t}; }
     if (!data) return done({status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)});
     // spent: what this job really used and cost (for the owner's totals), never sent to the student
     return done({status: 200, body: Object.assign({data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens"}, after)});
@@ -78402,7 +78405,8 @@ Careful, these are easy to mix up:
 
 DOING THINGS
 Studyboard makes every change you put in the JSON the moment you reply, then shows your answer. So write the answer as done, one short sentence per change with the exact name and the new value ("Moved Lab Report: Cardiac Cycle to Sat, Nov 28."). Never tell them to do something themselves that you can do here, never ask them to confirm a change they asked for, and never say you did anything that isn't in the JSON.
-- Any wording counts: "tick off the quiz", "history essay got extended by 2 days", "journal 3: 9/10 :)", "psych midterm = top priority", "gym tmrw 7am", "it's actually for psych", "lab report due thursday at 11:59pm", "foundations instructor is Ms. Brooks". A statement of a new fact about their planner (a new due date, a mark they got, a room, a new appointment, a class they dropped) is a request to update it.
+- Any wording counts: "tick off the quiz", "history essay got extended by 2 days", "journal 3: 9/10 :)", "psych midterm = top priority", "gym tmrw 7am", "it's actually for psych", "lab report due thursday at 11:59pm", "foundations instructor is Ms. Brooks". A statement of a new fact about their planner (a new due date, a mark they got, a room, a new appointment, a class they dropped) is a request to update it. But a date said in passing while they tell a story or vent ("ugh my lab partner, and the cardiac lab is due thursday") that differs from the planner: point out the planner's date and ask which is right; change nothing yet.
+- Concept maps live in each course (Courses, then the course's Maps). "Open concept maps": go to Courses and say where they are; you can't make or change a map in this reply.
 - A question changes nothing ("is chapter 7 for foundations?", "did I finish care plan 2?", "psych quiz 1 was 17/20 right?", "how do I add a course?"): just answer it. So does chat, and a plan they mention ("I'll do the reading later").
 - Several things in one message: do every one of them. "both", "all my A&P tasks", "everything due this week": one change per matching item (check each against the data).
 - Follow-ups belong to the conversation: "it", "that one", "the a&p one", "same for chapter 7", "and the quiz too", "actually one more day", "make it 30 min", "do the same for thursday and saturday", or a bare "thursday" / "blue" / "the care plan, out of 20" answering what you just asked. The [Studyboard changed: ...] lines show what each earlier reply really changed (old → new).
@@ -78489,6 +78493,10 @@ ANSWERING
     if (decksArr().reduce((n, d) => n + (d.cards || []).length, 0) <= 200) decksArr().forEach(d => dk.add(d.id));
     decksArr().forEach(d => { const n = String(d.name || "").toLowerCase(); if (n && (ql.includes(n) || n.split(/\s+/).filter(w => w.length > 3).some(w => ql.includes(w)))) dk.add(d.id); });
     const cat = await A.catalog(q, {max: 90000, decks: [...dk], full: true});
+    // tasks deleted in the last half hour, with refs: "don't delete 3, mark it done instead" is "undo" plus a change to it (made after
+    // the undo brings it back); without them Claude had nothing to point at and said it couldn't
+    try { const gone = Object.values(state.trash || {}).filter(e => e && Date.now() - (e.deletedAt || 0) < 30 * 60000).flatMap(e => (e.items || []).filter(i => i.kind === "task" && i.data && !state.tasks[i.id])).slice(0, 10);
+      if (gone.length) cat.text += "\n\nRECENTLY DELETED TASKS (\"undo\": true brings back the last deletion; changes listed for them are made after it):\n" + gone.map((i, n) => { const k = "X" + (n + 1); cat.refs.set(k, {kind: "task", id: i.id}); return `${k} | ${clip(i.data.title, 90)}`; }).join("\n"); } catch (e) {}
     const me = info() || {}, worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [], owned = SBCOMP.ownedNames ? SBCOMP.ownedNames() : [];
     // today's plan (its order and time blocks) only when the talk is about time or work: sent with every message, it was brought into
     // greetings, feelings and a question about opportunity cost ("Reflection Journal 3 is still waiting for you")

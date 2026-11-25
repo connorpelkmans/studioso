@@ -380,7 +380,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
       sent.push({sys, text: ptxt}); const msg = (/THE STUDENT'S NEW MESSAGE: (.*)$/.exec(ptxt) || [])[1] || "";
       const refOf = title => (new RegExp("\\b([A-Z]\\d+) \\| " + title).exec(ptxt) || [])[1] || "";
       let out; try { out = replyFor(msg, refOf, sent.length, sys); } catch (e) { console.log("stub error:", e.message); out = {answer: "stub error"}; }
-      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: [{type: "text", text: JSON.stringify(out)}], stop_reason: "end_turn", usage: {input_tokens: 100, output_tokens: 50}})});
+      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: [{type: "text", text: typeof out === "string" ? out : JSON.stringify(out)}], stop_reason: "end_turn", usage: {input_tokens: 100, output_tokens: 50}})});
     });
     await cx.addInitScript(seed => { window.__SB_TEST = true; window.__SB_OWN_KEYS = true;
       localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
@@ -485,6 +485,16 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     replyFor = (m, R, k, sys) => /IMPORTANT: reply with one JSON object/.test(sys) ? {answer: "Here's your Wednesday."} : {answer: "placeholder"};
     a = await say("what does my wednesday look like");
     ok(/Here's your Wednesday/.test(a), "a placeholder reply is asked again: " + a);
+    // a deleted task can be brought back and changed in one reply ("don't delete it, mark it done instead")
+    replyFor = (m, R) => ({answer: "Deleted Lab Report.", changes: [{ref: R("Lab Report"), field: "delete", value: "yes"}]});
+    await say("delete the lab report");
+    replyFor = () => { const k = (/\b(X\d+) \| Lab Report/.exec(sent[sent.length - 1].text) || [])[1]; return {answer: "Brought it back and marked it done.", undo: true, changes: [{ref: k, item: "Lab Report", field: "status", value: "done"}]}; };
+    a = await say("wait don't delete it, mark it done instead");
+    ok((await task("t2") || {}).status === "done", "a task just deleted is sent with a ref, so undo plus \"mark it done\" works: " + a);
+    // a reply written as plain words instead of the JSON is the answer (it was thrown away and asked for again)
+    replyFor = () => "Friday has clinical orientation from 8 to 12.";
+    a = await say("and the day after?");
+    ok(/Friday has clinical orientation/.test(a), "a plain-words reply is used as the answer: " + a);
     replyFor = () => ({answer: ""});
     a = await say("and thursday?");
     ok(/couldn't get a proper answer/.test(a) && !/add a card to Heart/.test(a), "no reply at all is said honestly, not answered by another step: " + a);

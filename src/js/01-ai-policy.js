@@ -370,7 +370,10 @@ const SBPOLICY = (() => {
     const msg = await work, after = await view(), done = r => Object.assign(r, {spent});
     if (msg.error) { const s = msg.error && msg.error.status; return done({status: s === 400 ? 400 : s === 401 || s === 403 ? 401 : 503, body: Object.assign({error: s === 429 || s === 529 || (s >= 500 && s < 600) ? "busy" : s === 400 ? "bad" : s === 401 || s === 403 ? "key" : "ai_failed"}, after)}); }
     if (msg.stop_reason === "refusal") return done({status: 422, body: Object.assign({error: "refused"}, after)});
-    const data = readAnswer(msg);
+    let data = readAnswer(msg);
+    // a reply in plain words where an answer shape was asked for ({answer, ...}): those words are the answer (Claude now and then
+    // writes the reply itself instead of the JSON around it, and it was thrown away as a failure)
+    if (!data && schema && schema.properties && schema.properties.answer && msg.stop_reason !== "max_tokens") { const t = ((msg && msg.content) || []).filter(b => b && b.type === "text").map(b => b.text || "").join("").trim(); if (t && !/^\s*[{[]/.test(t)) data = {answer: t}; }
     if (!data) return done({status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)});
     // spent: what this job really used and cost (for the owner's totals), never sent to the student
     return done({status: 200, body: Object.assign({data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens"}, after)});
