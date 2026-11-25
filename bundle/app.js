@@ -3992,6 +3992,12 @@ const SBPOLICY = (() => {
     return Math.max(1, m ? m.length : 1);
   }
 
+  // Optional fields in a shape, nested ones included (those make structured outputs slow to compile)
+  const OPT_MAX = 8;
+  function optionalCount(s){ if (!s || typeof s !== "object") return 0; let n = 0;
+    if (s.properties) { const req = new Set(s.required || []); for (const [k, v] of Object.entries(s.properties)) { if (!req.has(k)) n++; n += optionalCount(v); } }
+    if (s.items) n += optionalCount(s.items);
+    return n; }
   // The request sent to Anthropic. Only this builds it, from the choices above.
   function buildRequest({system, blocks, schema, task, cacheMedia, web}){
     let sys = String(system || "").trim();
@@ -4005,7 +4011,11 @@ const SBPOLICY = (() => {
     if (cacheMedia) { const c = req.messages[0].content; let last = -1; c.forEach((b, i) => { if (b.type !== "text") last = i; }); if (last >= 0) c[last] = Object.assign({}, c[last], {cache_control: {type: "ephemeral"}}); }
     if (task.effort === "none") { req.thinking = {type: "disabled"}; req.output_config = {effort: "low"}; }
     else { req.thinking = {type: "adaptive"}; req.output_config = {effort: task.effort}; }
-    if (schema) req.output_config.format = {type: "json_schema", schema};
+    // A shape with many optional fields (the chat's intent: about 30) is described in the instructions instead of enforced:
+    // structured outputs compile each shape first, and compiling that one took about 3 minutes a request (an 11-token answer
+    // came back after 181 seconds). Shapes with few optional fields (cards, quiz questions) stay enforced. readAnswer reads both.
+    if (schema && optionalCount(schema) > OPT_MAX) { req.system = [{type: "text", text: `${sys}\n\nReply with one JSON object only, no other text. It must match this JSON Schema:\n${JSON.stringify(schema)}`.trim()}]; if (req.system[0].text.length >= 2000) req.system[0].cache_control = {type: "ephemeral"}; else req.system = req.system[0].text; }
+    else if (schema) req.output_config.format = {type: "json_schema", schema};
     if (web && (web.search || web.fetch)) {
       req.tools = [];
       if (web.search) req.tools.push({type: "web_search_20250305", name: "web_search", max_uses: WEB.searchUses});
