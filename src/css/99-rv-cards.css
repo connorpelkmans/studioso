@@ -19,6 +19,10 @@
 .rv-fan .rv-f3{width:53%;transform:translate(-14px,17px) rotate(-6deg);filter:brightness(.93);box-shadow:0 4px 10px rgb(0 0 0/.08)}
 .rv-fan .rv-f .face-text{font:700 .78rem/1.25 var(--display);max-width:100%;max-height:none;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;text-align:center}
 .rv-fan .rv-blank{font-size:.8rem;opacity:.6}
+/* the deck's name sits on the front card; the footer below is just the counts, the bar and the buttons */
+.rv-fan .rv-f1 .rv-title{font:800 .98rem/1.2 var(--display);-webkit-line-clamp:3;overflow-wrap:anywhere}
+.rv-foot.rv-foot-bar{justify-content:flex-end;padding:10px 10px 10px 14px}
+.rv-foot.rv-foot-bar::before{content:none}
 .rv-fan.cs-chalk .face{border-width:6px}
 .rv-fan.cs-polaroid .face{border-width:6px;border-bottom-width:20px}
 .rv-fan.cs-ticket .face{padding-left:26px;padding-right:26px}
