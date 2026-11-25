@@ -23,6 +23,8 @@
 .rv-fan .rv-f1 .rv-title{font:800 .98rem/1.2 var(--display);-webkit-line-clamp:3;overflow-wrap:anywhere}
 .rv-foot.rv-foot-bar{justify-content:flex-end;padding:10px 10px 10px 14px}
 .rv-foot.rv-foot-bar::before{content:none}
+/* on the index-card style the red header line is faint in the preview, so it doesn't strike through the deck's name */
+.rv-fan.cs-index .face{background-image:linear-gradient(to bottom,transparent 38px,rgba(214,57,44,.2) 38px,rgba(214,57,44,.2) 40px,transparent 40px),repeating-linear-gradient(to bottom,transparent 0 27px,rgba(57,136,254,.18) 27px 28px)}
 .rv-fan.cs-chalk .face{border-width:6px}
 .rv-fan.cs-polaroid .face{border-width:6px;border-bottom-width:20px}
 .rv-fan.cs-ticket .face{padding-left:26px;padding-right:26px}
